@@ -1,0 +1,31 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!--
+    Shared-items manifest for the Documentation shared project.
+
+    SharedGUID must match the ProjectGuid in Documentation.shproj; Visual Studio
+    pairs the two files by that value.
+
+    The item globs below are recursive on purpose: a new Markdown file dropped
+    anywhere under Documentation\ shows up in Solution Explorer on the next
+    project reload, with no edit to this file. Hand-maintained <None> lists rot
+    the moment someone adds a document outside Visual Studio.
+  -->
+
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>{9A5FE659-8124-42BC-AFA2-672C94966B6F}</SharedGUID>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Documentation</Import_RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)**\*.md" />
+    <None Include="$(MSBuildThisFileDirectory)**\*.puml" />
+    <None Include="$(MSBuildThisFileDirectory)**\*.drawio" />
+  </ItemGroup>
+
+</Project>
