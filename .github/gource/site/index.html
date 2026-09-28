@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surl History in 8K</title>
+<meta name="description" content="Every commit to Surl - the server-side mate of curl, built in C# and .NET 10 by a dark factory of AI agents - animated with Gource at 7680x4320.">
+<meta property="og:title" content="Surl History in 8K">
+<meta property="og:description" content="The server-side mate of curl, built in C# and .NET 10 by a dark factory of AI agents - every commit, animated.">
+<meta property="og:image" content="poster.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+<!--
+  The viewer for Surl's Gource render. Published to GitHub Pages from the gource branch by
+  .github/workflows/gource.yml; its source is .github/gource/site/index.html. It plays
+  hls/av1/master.m3u8 (8K, 4K, 1080p) where the browser decodes AV1, else
+  hls/h264/master.m3u8 (4K, 1080p), choosing the best quality the screen and the
+  connection can take, and falls back to gource.mp4 where HLS cannot play.
+-->
+<style>
+  :root {
+    --bg: #05070b;
+    --panel: rgba(10, 14, 22, 0.72);
+    --line: rgba(255, 255, 255, 0.12);
+    --text: #eef2f8;
+    --muted: #93a1b5;
+    --accent: #5ee7ff;
+    --accent2: #a78bfa;
+    --gold: #ffd866;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  body.idle, body.idle * { cursor: none !important; }
+
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); }
+  video { width: 100%; height: 100%; object-fit: contain; background: var(--bg); }
+
+  /* Splash: shown until the first play. */
+  #splash { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center;
+    align-items: center; text-align: center; padding: 24px; gap: clamp(16px, 2.2vh, 40px);
+    background: radial-gradient(ellipse at 50% 35%, rgba(94, 231, 255, 0.10), transparent 60%),
+                linear-gradient(180deg, rgba(5, 7, 11, 0.55), rgba(5, 7, 11, 0.92)),
+                var(--poster, none) center / cover no-repeat, var(--bg);
+    transition: opacity 0.8s ease; z-index: 5; }
+  #splash.gone { opacity: 0; pointer-events: none; }
+  .eyebrow { letter-spacing: 0.32em; text-transform: uppercase; color: var(--accent);
+    font-size: clamp(11px, 1.1vw, 28px); font-weight: 600; }
+  h1 { margin: 0; font-weight: 800; line-height: 0.95; font-size: clamp(56px, 11vw, 360px);
+    background: linear-gradient(100deg, #fff 20%, var(--accent) 55%, var(--accent2) 90%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 40px rgba(94, 231, 255, 0.25)); }
+  .tagline { margin: 0; max-width: 60ch; color: var(--muted); font-weight: 300;
+    font-size: clamp(16px, 1.7vw, 48px); line-height: 1.35; }
+  .tagline b { color: var(--text); font-weight: 600; }
+
+  #stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(8px, 1vw, 32px);
+    width: min(1100px, 100%); width: min(62vw, 100%); min-width: min(100%, 320px); }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: clamp(10px, 0.8vw, 24px);
+    padding: clamp(10px, 1.2vw, 36px) clamp(8px, 1vw, 28px); backdrop-filter: blur(8px); }
+  .stat .n { display: block; font-weight: 800; font-size: clamp(22px, 3vw, 96px);
+    font-variant-numeric: tabular-nums; color: var(--text); }
+  .stat .l { display: block; margin-top: 4px; color: var(--muted); font-size: clamp(10px, 0.85vw, 24px);
+    letter-spacing: 0.12em; text-transform: uppercase; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  button, .btn { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 999px; padding: 10px 18px; cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px; font-size: clamp(13px, 0.9vw, 26px); }
+  button:hover, .btn:hover { border-color: var(--accent); }
+  button:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .primary { font-weight: 600; font-size: clamp(16px, 1.3vw, 38px); padding: 0.8em 1.6em; border: 0;
+    color: #041018; background: linear-gradient(100deg, var(--accent), var(--accent2));
+    box-shadow: 0 0 40px rgba(94, 231, 255, 0.35); }
+  .primary:hover { filter: brightness(1.08); }
+  .screen { color: var(--muted); font-size: clamp(11px, 0.85vw, 24px); }
+  .screen b { color: var(--gold); font-weight: 600; }
+
+  /* Player chrome: hidden while idle so nothing covers the picture. */
+  .chrome { position: fixed; left: 0; right: 0; z-index: 4; transition: opacity 0.5s ease; }
+  body.idle .chrome, body.splash .chrome { opacity: 0; pointer-events: none; }
+  #top { top: 0; display: flex; justify-content: space-between; align-items: center;
+    padding: clamp(12px, 1.4vw, 40px) clamp(16px, 2vw, 56px);
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent); }
+  #top .name { font-weight: 800; font-size: clamp(16px, 1.3vw, 40px); }
+  #top .name span { color: var(--muted); font-weight: 300; margin-left: 0.6em; }
+  #badge { font-variant-numeric: tabular-nums; color: var(--gold); font-weight: 600;
+    font-size: clamp(12px, 0.9vw, 28px); border: 1px solid rgba(255, 216, 102, 0.35);
+    border-radius: 999px; padding: 6px 14px; background: rgba(0, 0, 0, 0.35); }
+  #bar { bottom: 0; padding: clamp(12px, 1.4vw, 40px) clamp(16px, 2vw, 56px);
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.7), transparent); }
+  #seek { width: 100%; accent-color: var(--accent); margin: 0 0 12px; height: clamp(4px, 0.3vw, 10px); cursor: pointer; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .row .spacer { flex: 1; }
+  #time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: clamp(12px, 0.85vw, 26px); }
+  #quality { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  #quality button { border: 0; border-radius: 0; background: transparent; padding: 8px 14px; }
+  #quality button[aria-pressed="true"] { background: linear-gradient(100deg, var(--accent), var(--accent2)); color: #041018; font-weight: 600; }
+  #help { color: var(--muted); font-size: clamp(11px, 0.75vw, 22px); }
+  #help kbd { font: inherit; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+  #note { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 6;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 20px;
+    opacity: 0; transition: opacity 0.4s; pointer-events: none; font-size: clamp(14px, 1.1vw, 32px); }
+  #note.show { opacity: 1; }
+
+  @media (max-width: 720px) {
+    #stats { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+    #help { display: none; }
+  }
+</style>
+</head>
+<body class="splash">
+<div id="stage">
+  <video id="video" playsinline muted loop preload="metadata" poster="poster.jpg" aria-label="Gource animation of Surl's commit history"></video>
+</div>
+
+<section id="splash">
+  <div class="eyebrow">Every commit, animated &middot; 7680 &times; 4320</div>
+  <h1>Surl</h1>
+  <p class="tagline">The server-side mate of the open-source <b>curl</b> tool, built in <b>C# and .NET 10</b>
+    &mdash; written by a <b>dark factory</b> of AI agents working a task board,
+    with a human setting direction.</p>
+  <div id="stats" aria-live="polite"></div>
+  <div class="actions">
+    <button class="primary" id="go-full">&#9654;&ensp;Play full screen</button>
+    <button id="go-window">Play in this window</button>
+  </div>
+  <div class="screen" id="screen"></div>
+</section>
+
+<header class="chrome" id="top">
+  <div class="name">Surl<span>curl&rsquo;s server-side mate in C#, built by a dark factory</span></div>
+  <div id="badge">&nbsp;</div>
+</header>
+
+<footer class="chrome" id="bar">
+  <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Position">
+  <div class="row">
+    <button id="play" aria-label="Pause">&#10074;&#10074;</button>
+    <span id="time">0:00 / 0:00</span>
+    <span class="spacer"></span>
+    <div id="quality" role="group" aria-label="Quality"></div>
+    <button id="full" aria-label="Full screen">&#x26F6; Full screen</button>
+    <a class="btn" href="gource.mp4" download>4K MP4</a>
+    <a class="btn" href="still-8k.jpg" download>8K still</a>
+    <a class="btn" href="https://github.com/StewartScottRogers/Surl">GitHub</a>
+  </div>
+  <div id="help"><kbd>Space</kbd> play/pause &middot; <kbd>F</kbd> full screen &middot;
+    <kbd>&larr;</kbd><kbd>&rarr;</kbd> 5 s &middot; <kbd>0</kbd> auto &middot; <kbd>1</kbd>&ndash;<kbd>3</kbd> quality</div>
+</footer>
+<div id="note" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const video = $('video');
+  const body = document.body;
+  const LABELS = { 4320: '8K', 2160: '4K', 1440: '1440p', 1080: 'HD' };
+  const label = h => LABELS[h] || h + 'p';
+  let hls = null;
+
+  // What the viewer's screen can show, in device pixels.
+  const dpr = window.devicePixelRatio || 1;
+  const screenW = Math.round(screen.width * dpr), screenH = Math.round(screen.height * dpr);
+  const screenClass = screenH >= 4000 ? '8K' : screenH >= 2000 ? '4K' : screenH >= 1400 ? '1440p' : 'HD';
+  $('screen').innerHTML = `Your screen: <b>${screenW} &times; ${screenH}</b> (${screenClass}). ` +
+    (screenClass === '8K' ? 'Full 8K will play pixel for pixel.' : 'Plays the best quality your screen and connection can show.');
+
+  fetch('poster.jpg', { method: 'HEAD' }).then(r => { if (r.ok) $('splash').style.setProperty('--poster', 'url(poster.jpg)'); }).catch(() => {});
+
+  // Stats from the render, counted up for effect.
+  fetch('stats.json').then(r => r.json()).then(s => {
+    const days = Math.max(1, Math.round((s.lastCommit - s.firstCommit) / 86400) + 1);
+    const tiles = [
+      [s.commits, 'Commits'], [s.pullRequestsMerged, 'Pull requests merged'],
+      [s.csharpLines, 'Lines of C#'], [s.tests, 'Unit tests'],
+      [s.projects, 'Projects'], [s.filesTouched, 'Files touched'],
+      [s.tasksDone, 'Tasks done'], [days, days === 1 ? 'Day' : 'Days'],
+    ];
+    $('stats').innerHTML = tiles.map(([n, l]) => `<div class="stat"><span class="n" data-n="${n}">0</span><span class="l">${l}</span></div>`).join('');
+    const start = performance.now(), dur = 1600;
+    const tick = t => {
+      const k = Math.min(1, (t - start) / dur), e = 1 - Math.pow(1 - k, 3);
+      document.querySelectorAll('.stat .n').forEach(el => { el.textContent = Math.round(el.dataset.n * e).toLocaleString(); });
+      if (k < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }).catch(() => { $('stats').style.display = 'none'; });
+
+  // Source: adaptive HLS through hls.js, native HLS where that is all there is, else the MP4.
+  // A stream keeps one codec, so play the AV1 ladder (the one with 8K) if the browser can.
+  const canAv1 = !!window.MediaSource && MediaSource.isTypeSupported('video/mp4; codecs="av01.0.16M.08"');
+  const ladder = canAv1 ? 'hls/av1/master.m3u8' : 'hls/h264/master.m3u8';
+  function attach() {
+    if (window.Hls && Hls.isSupported()) {
+      hls = new Hls({ capLevelToPlayerSize: true, maxBufferLength: 20, backBufferLength: 30, enableWorker: true });
+      hls.loadSource(ladder);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        // Start at the best quality the screen can show; ABR steps down only if it must.
+        let best = 0;
+        hls.levels.forEach((l, i) => { if (l.height <= Math.max(screenH, 1080) && l.height >= hls.levels[best].height) best = i; });
+        hls.startLevel = best;
+        buildQuality();
+      });
+      hls.on(Hls.Events.LEVEL_SWITCHED, updateBadge);
+      hls.on(Hls.Events.ERROR, (_, d) => {
+        if (!d.fatal) return;
+        if (d.type === Hls.ErrorTypes.MEDIA_ERROR) { hls.recoverMediaError(); return; }
+        hls.destroy(); hls = null; video.src = 'gource.mp4'; buildQuality(); updateBadge();
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = 'hls/h264/master.m3u8'; buildQuality();
+    } else {
+      video.src = 'gource.mp4'; buildQuality();
+    }
+  }
+
+  function buildQuality() {
+    const q = $('quality');
+    if (!hls) { q.style.display = 'none'; return; }
+    const items = [['Auto', -1], ...hls.levels.map((l, i) => [label(l.height), i]).sort((a, b) => hls.levels[b[1]].height - hls.levels[a[1]].height)];
+    q.innerHTML = items.map(([t, i]) => `<button data-level="${i}" aria-pressed="${i === -1}">${t}</button>`).join('');
+    q.querySelectorAll('button').forEach(b => b.addEventListener('click', () => setLevel(+b.dataset.level)));
+  }
+
+  function setLevel(i) {
+    if (!hls) return;
+    if (i >= hls.levels.length) return;
+    hls.currentLevel = i;
+    $('quality').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.level === i)));
+    note(i === -1 ? 'Quality: auto' : `Quality: ${label(hls.levels[i].height)}`);
+  }
+
+  function updateBadge() {
+    if (hls && hls.currentLevel >= 0 && hls.levels[hls.currentLevel]) {
+      const l = hls.levels[hls.currentLevel];
+      const codec = (l.videoCodec || '').startsWith('av01') ? 'AV1' : 'H.264';
+      $('badge').textContent = `${label(l.height)} · ${l.width} × ${l.height} · ${codec}`;
+    } else if (video.videoWidth) {
+      $('badge').textContent = `${label(video.videoHeight)} · ${video.videoWidth} × ${video.videoHeight}`;
+    }
+  }
+  video.addEventListener('loadedmetadata', updateBadge);
+  video.addEventListener('resize', updateBadge);
+
+  // Playback.
+  const fmt = s => isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00';
+  video.addEventListener('timeupdate', () => {
+    $('time').textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
+    if (!seeking && video.duration) $('seek').value = Math.round(video.currentTime / video.duration * 1000);
+  });
+  let seeking = false;
+  $('seek').addEventListener('input', () => { seeking = true; if (video.duration) video.currentTime = $('seek').value / 1000 * video.duration; });
+  $('seek').addEventListener('change', () => { seeking = false; });
+  const syncPlay = () => { $('play').innerHTML = video.paused ? '&#9654;' : '&#10074;&#10074;'; $('play').setAttribute('aria-label', video.paused ? 'Play' : 'Pause'); };
+  video.addEventListener('play', syncPlay); video.addEventListener('pause', syncPlay);
+  const toggle = () => video.paused ? video.play() : video.pause();
+  $('play').addEventListener('click', toggle);
+  video.addEventListener('click', toggle);
+
+  function fullscreen() {
+    if (document.fullscreenElement) return document.exitFullscreen();
+    const el = document.documentElement;
+    return (el.requestFullscreen || el.webkitRequestFullscreen || (() => Promise.resolve())).call(el, { navigationUI: 'hide' });
+  }
+  $('full').addEventListener('click', fullscreen);
+  video.addEventListener('dblclick', fullscreen);
+
+  function begin(full) {
+    body.classList.remove('splash');
+    $('splash').classList.add('gone');
+    if (full) Promise.resolve(fullscreen()).catch(() => {});
+    video.play().catch(() => {});
+    idle();
+  }
+  $('go-full').addEventListener('click', () => begin(true));
+  $('go-window').addEventListener('click', () => begin(false));
+
+  // Chrome and cursor fade out after a moment without input.
+  let timer;
+  function idle() {
+    body.classList.remove('idle');
+    clearTimeout(timer);
+    timer = setTimeout(() => { if (!video.paused) body.classList.add('idle'); }, 2500);
+  }
+  ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach(e => window.addEventListener(e, idle, { passive: true }));
+
+  function note(text) {
+    const n = $('note'); n.textContent = text; n.classList.add('show');
+    clearTimeout(note.t); note.t = setTimeout(() => n.classList.remove('show'), 1200);
+  }
+
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' && e.key !== ' ') return;
+    if (body.classList.contains('splash') && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); begin(true); return; }
+    switch (e.key) {
+      case ' ': case 'k': e.preventDefault(); toggle(); break;
+      case 'f': case 'F': fullscreen(); break;
+      case 'ArrowLeft': video.currentTime = Math.max(0, video.currentTime - 5); break;
+      case 'ArrowRight': video.currentTime = Math.min(video.duration || 0, video.currentTime + 5); break;
+      case '0': setLevel(-1); break;
+      case '1': case '2': case '3': {
+        if (!hls) break;
+        const byHeight = hls.levels.map((l, i) => i).sort((a, b) => hls.levels[b].height - hls.levels[a].height);
+        const i = byHeight[+e.key - 1]; if (i !== undefined) setLevel(i); break;
+      }
+    }
+  });
+
+  attach();
+})();
+</script>
+</body>
+</html>

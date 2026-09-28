@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    Build settings for the Gource tooling in this folder: the C# file-based apps
+    make-*.cs that render.sh runs through "dotnet run". Because this file exists,
+    MSBuild stops here and never imports the repository root's Directory.Build.props,
+    whose gates (CA1502 via CodeMetricsConfig.txt, XML documentation, the AOT check)
+    are written for the product's projects, not for render scripts.
+
+    No project in Surl.slnx lives under .github, so nothing here reaches the solution.
+  -->
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Render scripts, never published: no native AOT compile on first run. -->
+    <PublishAot>false</PublishAot>
+  </PropertyGroup>
+
+</Project>

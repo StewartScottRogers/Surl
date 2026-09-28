@@ -1,0 +1,12 @@
+<Project>
+
+  <!--
+    Stops MSBuild importing the repository root's Directory.Packages.props into the
+    file-based apps here. They use the base class library only and reference no package.
+  -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+</Project>

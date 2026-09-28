@@ -1,0 +1,205 @@
+# Keeps the README's showcase on the `gource` branch, served by GitHub Pages at
+# https://stewartscottrogers.github.io/Surl/: a Gource video of Surl's history (an 8K
+# adaptive stream with a full-screen viewer page, and the GIF the README shows) and the
+# code coverage report (coverage/index.html, and coverage/badge.svg for the README).
+#
+# Three jobs:
+#   * decide    - whether this run renders (below);
+#   * coverage  - on Windows, where the quality gates are measured: Measure-CodeQuality.ps1
+#                 measures, .github/coverage/make-coverage-report.cs renders the page and
+#                 the badge, and the result is committed onto the gource branch;
+#   * render    - the video. It waits for coverage, then force-pushes a new single-commit
+#                 gource branch that carries the coverage/ folder over.
+#
+# An 8K render takes the better part of an hour on a runner, hence the long timeout.
+#
+# When it renders:
+#   * hourly (from master, once this file is merged), if any branch has new commits;
+#   * on a push to any branch, if any branch has new commits and the last render is at
+#     least 30 minutes old;
+#   * at least once a day regardless;
+#   * whenever it is run by hand (workflow_dispatch).
+#
+# The `gource` branch holds one commit - the latest render - and is force-pushed on each
+# render so old videos never accumulate in the repository. That force push, to that
+# branch only, is standing-authorized (CLAUDE.md).
+name: Gource
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  push:
+    branches-ignore: [gource]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: gource
+  cancel-in-progress: false
+
+jobs:
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      render: ${{ steps.decide.outputs.render }}
+      fingerprint: ${{ steps.decide.outputs.fingerprint }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether to render
+        id: decide
+        run: |
+          git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*'
+          fp=$(git for-each-ref --format='%(refname) %(objectname)' refs/remotes/origin \
+                 | grep -v -E '^refs/remotes/origin/(gource|HEAD) ' | sha1sum | cut -c1-40)
+          prev_fp=$(git show origin/gource:fingerprint.txt 2>/dev/null || true)
+          prev_at=$(git show origin/gource:rendered-at.txt 2>/dev/null || echo 0)
+          age=$(( $(date +%s) - prev_at ))
+          render=no
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then render=yes
+          elif [ -z "$prev_fp" ] || [ "$age" -ge 86400 ]; then render=yes
+          elif [ "$fp" != "$prev_fp" ]; then
+            if [ "$GITHUB_EVENT_NAME" = schedule ] || [ "$age" -ge 1800 ]; then render=yes; fi
+          fi
+          echo "fingerprint=$fp previous=${prev_fp:-none} age=${age}s event=$GITHUB_EVENT_NAME render=$render"
+          echo "render=$render" >> "$GITHUB_OUTPUT"
+          echo "fingerprint=$fp" >> "$GITHUB_OUTPUT"
+
+  coverage:
+    needs: decide
+    if: needs.decide.outputs.render == 'yes'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner's preinstalled SDK when it satisfies global.json; otherwise Microsoft's
+      # install script fetches that exact SDK (no marketplace action).
+      - name: Install the .NET SDK
+        run: |
+          dotnet --version 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
+            & "$env:RUNNER_TEMP\dotnet-install.ps1" -JsonFile global.json -InstallDir "$env:USERPROFILE\.dotnet"
+            "$env:USERPROFILE\.dotnet" >> $env:GITHUB_PATH
+          }
+
+      # Measure-CodeQuality.ps1 exits 1 when a member is outside a gate. The report shows
+      # those, so that is not a failure here; writing no JSON at all is.
+      - name: Measure coverage
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File Measure-CodeQuality.ps1 -JsonPath "$env:RUNNER_TEMP\coverage.json"
+          if (-not (Test-Path "$env:RUNNER_TEMP\coverage.json")) { throw 'Measure-CodeQuality.ps1 wrote no JSON' }
+          exit 0
+
+      - name: Render the report
+        run: dotnet run --file .github/coverage/make-coverage-report.cs -- "$env:RUNNER_TEMP\coverage.json" "$env:RUNNER_TEMP\coverage" $env:GITHUB_SHA
+
+      # Committed on top of the gource branch, without force; the render job carries the
+      # folder into its own force-pushed commit.
+      - name: Publish to the gource branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $url = "https://x-access-token:$env:GITHUB_TOKEN@github.com/$env:GITHUB_REPOSITORY.git"
+          foreach ($try in 1..3) {
+            $dir = Join-Path $env:RUNNER_TEMP "site-$try"
+            # Sparse and blob-less: the branch also holds ~900 MB of video this job never needs.
+            git clone -q --depth 1 --filter=blob:none --sparse --branch gource $url $dir
+            if ($LASTEXITCODE -ne 0) { throw 'no gource branch to publish onto' }
+            git -C $dir sparse-checkout set coverage
+            $target = Join-Path $dir 'coverage'
+            if (Test-Path $target) { Get-ChildItem $target | ForEach-Object { $_.Delete() } }
+            else { New-Item -ItemType Directory $target | Out-Null }
+            Copy-Item "$env:RUNNER_TEMP\coverage\*" $target
+            git -C $dir config user.name 'github-actions[bot]'
+            git -C $dir config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git -C $dir add coverage
+            git -C $dir commit -q -m "chore(coverage): report $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mmZ'))"
+            git -C $dir push -q origin gource
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+          }
+          throw 'push to gource kept being refused'
+
+      # A push made with GITHUB_TOKEN does not start a Pages build by itself; ask for one.
+      - name: Rebuild GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api -X POST "repos/$env:GITHUB_REPOSITORY/pages/builds" --silent
+
+  render:
+    needs: [decide, coverage]
+    # Renders even when the coverage job failed: the video does not depend on it.
+    if: always() && needs.decide.outputs.render == 'yes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Gource and ffmpeg
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q gource ffmpeg xvfb
+
+      # render.sh's generators are C# file-based apps run with `dotnet run --file`, so the
+      # SDK global.json names must be present. The runner's preinstalled SDK is used when it
+      # satisfies global.json; otherwise Microsoft's install script fetches that exact SDK
+      # (no marketplace action: only actions/checkout is allowed here).
+      - name: Install the .NET SDK
+        run: |
+          if dotnet --version > /dev/null 2>&1; then
+            echo "preinstalled .NET SDK $(dotnet --version) satisfies global.json"
+          else
+            curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+            bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile global.json --install-dir "$HOME/.dotnet"
+            echo "DOTNET_ROOT=$HOME/.dotnet" >> "$GITHUB_ENV"
+            echo "$HOME/.dotnet" >> "$GITHUB_PATH"
+          fi
+
+      - name: Render
+        run: bash .github/gource/render.sh "$RUNNER_TEMP/gource"
+
+      - name: Publish to the gource branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FINGERPRINT: ${{ needs.decide.outputs.fingerprint }}
+        run: |
+          cd "$RUNNER_TEMP/gource"
+          echo "$FINGERPRINT" > fingerprint.txt
+          date +%s > rendered-at.txt
+          printf '%s\n' '# gource' '' \
+            'The README showcase of Surl: the 8K Gource viewer and the code coverage report,' \
+            'served by GitHub Pages at https://stewartscottrogers.github.io/Surl/, and the GIF' \
+            'and coverage badge the README shows.' \
+            'Generated by .github/workflows/gource.yml and replaced on every render; do not edit.' > README.md
+          cp "$GITHUB_WORKSPACE/.github/gource/site/index.html" index.html
+          touch .nojekyll
+          # Keep the coverage report the coverage job committed onto the branch: its three
+          # files, fetched one by one rather than the whole branch and its video.
+          mkdir -p coverage
+          for f in index.html badge.svg coverage.json; do
+            curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/gource/coverage/$f" -o "coverage/$f" || rm -f "coverage/$f"
+          done
+          extra=$( [ -f coverage/index.html ] && echo coverage || true )
+          git init -q -b gource
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html .nojekyll hls gource.mp4 gource.gif still-8k.jpg poster.jpg stats.json \
+            fingerprint.txt rendered-at.txt README.md $extra
+          git commit -q -m "chore(gource): render $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gource
+
+      # A push made with GITHUB_TOKEN does not start a Pages build by itself; ask for one.
+      - name: Rebuild GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent

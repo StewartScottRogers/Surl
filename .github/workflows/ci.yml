@@ -1,0 +1,39 @@
+# Builds Surl and runs the fast tests on every operating system a release ships for, so a
+# change that only works on Windows fails here rather than in someone's shell script.
+name: CI
+
+on:
+  push:
+    # factory/* holds lanes' partial work, which is not expected to pass.
+    branches-ignore: [gource, 'factory/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build -c Release
+
+      - name: Fast tests
+        run: dotnet test -c Release --no-build --filter "TestCategory!=Integration"
