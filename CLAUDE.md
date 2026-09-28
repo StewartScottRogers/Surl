@@ -2,8 +2,7 @@
 
 ## Overview
 Surl is a C# solution maintained in Microsoft Visual Studio.
-Planned repository: https://github.com/StewartScottRogers/Surl - not yet created. Until
-Stewart creates it, this is a local repository with no remote.
+Repository: https://github.com/StewartScottRogers/Surl (remote `origin`).
 
 Surl ("Server URL") is the server-side mate of curl, written in C# on .NET 10: for every
 request upstream curl can make, protocol for protocol, Surl is the server that answers it.
@@ -69,8 +68,7 @@ explaining conflicts, pull request bodies, Actions triage, branch cleanup.
 Committing and pushing to a feature branch is automatic and needs no confirmation (Stewart,
 2026-09-28, carried over from the Curl port). Once `dotnet build` is clean and the fast
 tests are green, commit by logical unit and push; report it afterwards rather than asking
-first. Until the GitHub repository exists there is no remote, so there is nothing to push
-to: commit, and say that the push is waiting on the repository.
+first.
 
 One standing exception: the `gource` branch holds only the latest showcase render (the
 Gource video and the coverage report) and is force-pushed on every render by
@@ -125,9 +123,7 @@ checkout (`<repo>.lanes\lane-<n>`); the board never gives two lanes tasks whose
 `touches` overlap, and each lane rebases, rebuilds, tests and pushes its own work, one
 lane at a time. Running out of tokens is not a stall: the shift announces it with the
 reset time, waits (the wait does not count against `-Hours`), warns a minute before the
-new session and reruns the cut-off task. See the script's header for the details. Its
-push and merge steps need the GitHub repository; until it exists, a shift's work stays
-committed locally.
+new session and reruns the cut-off task. See the script's header for the details.
 
 When Claude starts a shift it always passes `-NewTab`, e.g.
 `RunDarkFactory.cmd -NewTab -Lanes 3 -Continuous`; `-Continuous` makes a shift that
