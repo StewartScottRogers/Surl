@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Cli.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

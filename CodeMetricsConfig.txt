@@ -1,0 +1,14 @@
+# Code-metrics thresholds for the Roslyn CA15xx maintainability rules, read by the
+# .NET SDK analyzers as an AdditionalFile. Directory.Build.props links this file into
+# every production project, so the whole solution is held to one set of numbers.
+#
+# CA1502 is cyclomatic complexity per method. Ten is the gate: a method at eleven is
+# a build error here, because warnings are errors. Ten also keeps the CRAP score of a
+# fully covered method at ten, comfortably under the limit of thirty the
+# coverage-auditor agent enforces - CRAP(m) = comp^2 * (1 - cov)^3 + comp, which at
+# 100% coverage is just comp.
+#
+# Raising a number in this file is a solution-wide decision. Do not raise it to make
+# one method pass; split the method instead.
+
+CA1502: 10

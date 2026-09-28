@@ -1,0 +1,113 @@
+<Solution>
+
+  <!--
+    Surl.slnx - XML solution format (.slnx), readable and merge-friendly in a way
+    the legacy .sln never was. Requires .NET SDK 9.0.200+ or Visual Studio 17.13+;
+    this repo is on the SDK pinned in global.json.
+
+    Documentation, Tasks and .claude/Claude are shared projects: they carry no build
+    output, so they add nothing to build time while keeping the product and planning
+    documents visible in Solution Explorer. Projects are one flat run, in ordinal
+    order, with no solution folders around them (CLAUDE.md, "Project naming").
+  -->
+
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="CodeMetricsConfig.txt" />
+    <File Path="DOWNLOAD.md" />
+    <File Path="GitHub-Surl-README.url" />
+    <File Path="hrdrClaudeNative.cmd" />
+    <File Path="LICENSE.txt" />
+    <File Path="README.md" />
+    <File Path="RunClaude.cmd" />
+    <File Path="UpstreamCurlBuilds.json" />
+  </Folder>
+
+  <Folder Name="/Scripts/">
+    <File Path="RunClaude.cmd" />
+    <File Path="hrdrClaudeNative.cmd" />
+    <File Path="Measure-CodeQuality.ps1" />
+    <File Path="Record-CurlExchange.ps1" />
+    <File Path="RunDarkFactory.ps1" />
+    <File Path="RunDarkFactory.cmd" />
+    <File Path=".github/coverage/Directory.Build.props" />
+    <File Path=".github/coverage/Directory.Build.targets" />
+    <File Path=".github/coverage/Directory.Packages.props" />
+    <File Path=".github/coverage/make-coverage-report.cs" />
+    <File Path=".github/gource/Directory.Build.props" />
+    <File Path=".github/gource/Directory.Build.targets" />
+    <File Path=".github/gource/Directory.Packages.props" />
+    <File Path=".github/gource/make-captions.cs" />
+    <File Path=".github/gource/make-log.cs" />
+    <File Path=".github/gource/make-master-playlist.cs" />
+    <File Path=".github/gource/make-stats.cs" />
+    <File Path=".github/gource/serve.cs" />
+    <File Path=".github/gource/render.sh" />
+    <File Path=".github/gource/site/index.html" />
+    <File Path=".github/workflows/gource.yml" />
+    <File Path=".github/workflows/ci.yml" />
+    <File Path=".github/workflows/release.yml" />
+    <File Path="install.ps1" />
+    <File Path="install.sh" />
+  </Folder>
+
+  <Project Path="Surl.Authentication.UnitLibrary/Surl.Authentication.UnitLibrary.csproj" />
+  <Project Path="Surl.Authentication.UnitTests/Surl.Authentication.UnitTests.csproj" />
+  <Project Path="Surl.Cli.UnitLibrary/Surl.Cli.UnitLibrary.csproj" />
+  <Project Path="Surl.Cli.UnitTests/Surl.Cli.UnitTests.csproj" />
+  <Project Path="Surl.Conformance.UnitLibrary/Surl.Conformance.UnitLibrary.csproj" />
+  <Project Path="Surl.Conformance.UnitTests/Surl.Conformance.UnitTests.csproj" />
+  <Project Path="Surl.Console.UnitTests/Surl.Console.UnitTests.csproj" />
+  <Project Path="Surl.Console/Surl.Console.csproj" />
+  <Project Path="Surl.Content.UnitLibrary/Surl.Content.UnitLibrary.csproj" />
+  <Project Path="Surl.Content.UnitTests/Surl.Content.UnitTests.csproj" />
+  <Project Path="Surl.Cookies.UnitLibrary/Surl.Cookies.UnitLibrary.csproj" />
+  <Project Path="Surl.Cookies.UnitTests/Surl.Cookies.UnitTests.csproj" />
+  <Project Path="Surl.Core.UnitLibrary/Surl.Core.UnitLibrary.csproj" />
+  <Project Path="Surl.Core.UnitTests/Surl.Core.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.UnitTests/Surl.Cryptography.UnitTests.csproj" />
+  <Project Path="Surl.Networking.UnitLibrary/Surl.Networking.UnitLibrary.csproj" />
+  <Project Path="Surl.Networking.UnitTests/Surl.Networking.UnitTests.csproj" />
+  <Project Path="Surl.Output.UnitLibrary/Surl.Output.UnitLibrary.csproj" />
+  <Project Path="Surl.Output.UnitTests/Surl.Output.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Abstractions.UnitLibrary/Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Abstractions.UnitTests/Surl.Protocol.Abstractions.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Dict.UnitLibrary/Surl.Protocol.Dict.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Dict.UnitTests/Surl.Protocol.Dict.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Ftp.UnitLibrary/Surl.Protocol.Ftp.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Ftp.UnitTests/Surl.Protocol.Ftp.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Gopher.UnitLibrary/Surl.Protocol.Gopher.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Gopher.UnitTests/Surl.Protocol.Gopher.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Http.UnitLibrary/Surl.Protocol.Http.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Http.UnitTests/Surl.Protocol.Http.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Imap.UnitLibrary/Surl.Protocol.Imap.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Imap.UnitTests/Surl.Protocol.Imap.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Ldap.UnitLibrary/Surl.Protocol.Ldap.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Ldap.UnitTests/Surl.Protocol.Ldap.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Mqtt.UnitLibrary/Surl.Protocol.Mqtt.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Mqtt.UnitTests/Surl.Protocol.Mqtt.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Pop3.UnitLibrary/Surl.Protocol.Pop3.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Pop3.UnitTests/Surl.Protocol.Pop3.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Rtsp.UnitLibrary/Surl.Protocol.Rtsp.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Rtsp.UnitTests/Surl.Protocol.Rtsp.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Smb.UnitLibrary/Surl.Protocol.Smb.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Smb.UnitTests/Surl.Protocol.Smb.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Smtp.UnitLibrary/Surl.Protocol.Smtp.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Smtp.UnitTests/Surl.Protocol.Smtp.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Ssh.UnitLibrary/Surl.Protocol.Ssh.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Ssh.UnitTests/Surl.Protocol.Ssh.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Telnet.UnitLibrary/Surl.Protocol.Telnet.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Telnet.UnitTests/Surl.Protocol.Telnet.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Tftp.UnitLibrary/Surl.Protocol.Tftp.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Tftp.UnitTests/Surl.Protocol.Tftp.UnitTests.csproj" />
+  <Project Path="Surl.Protocol.Ws.UnitLibrary/Surl.Protocol.Ws.UnitLibrary.csproj" />
+  <Project Path="Surl.Protocol.Ws.UnitTests/Surl.Protocol.Ws.UnitTests.csproj" />
+
+  <Project Path="Documentation/Documentation.shproj" />
+  <Project Path=".claude/Claude.shproj" />
+  <Project Path="Tasks/Tasks.shproj" />
+
+</Solution>

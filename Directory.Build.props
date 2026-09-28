@@ -1,0 +1,93 @@
+<Project>
+
+  <!--
+    Settings shared by every project in the solution. Per CLAUDE.md, project files
+    carry no duplicate of anything set here.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!--
+    Strip the project-name suffix out of the default namespace. The directory is
+    Surl.Core.UnitLibrary because the layout pairs it with Surl.Core.UnitTests, but
+    consumers should write "using Surl.Core;" - carrying .UnitLibrary into every
+    namespace would put a build-layout detail in the public API. A test project
+    lands in the same namespace as the code it tests, which is what you want.
+  -->
+  <PropertyGroup>
+    <RootNamespace Condition="$(MSBuildProjectName.EndsWith('.UnitLibrary'))">$(MSBuildProjectName.Replace('.UnitLibrary', ''))</RootNamespace>
+    <RootNamespace Condition="$(MSBuildProjectName.EndsWith('.UnitTests'))">$(MSBuildProjectName.Replace('.UnitTests', ''))</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    Test projects are identified by the .UnitTests suffix. They are never packed,
+    and they are exempt from the XML-documentation requirement: CS1591 on a public
+    test class is noise, and warnings are errors here.
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('UnitTests'))">
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!--
+    Every test project compiles the shared MSTestSettings.cs at the repository root,
+    which carries the assembly-level parallelization policy MSTest's MSTEST0001
+    analyzer insists on. It is linked rather than copied so the policy has one home.
+  -->
+  <ItemGroup Condition="$(MSBuildProjectName.EndsWith('UnitTests'))">
+    <Compile Include="$(MSBuildThisFileDirectory)MSTestSettings.cs" Link="MSTestSettings.cs" />
+  </ItemGroup>
+
+  <!--
+    Production projects document every public member (CLAUDE.md) and are held to the
+    trim/ahead-of-time analyzers, because Surl.Console publishes native AOT and a
+    library that is not AOT-clean would only fail later, further from its cause.
+  -->
+  <PropertyGroup Condition="!$(MSBuildProjectName.EndsWith('UnitTests'))">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <!--
+    Cyclomatic complexity is enforced by the SDK's own CA1502 analyzer, which only
+    reads its threshold from an AdditionalFile named CodeMetricsConfig.txt - hence
+    the link rather than a property. Only production projects get it: a test method
+    is allowed to be long, and CA1502 stays silent in a project that has no such
+    file. The indirection through CodeMetricsConfigFile lets the coverage-auditor
+    agent point a probe build at a copy with the threshold lowered to 1, which is how
+    it reads the complexity of every method instead of only the ones over the gate.
+  -->
+  <PropertyGroup>
+    <CodeMetricsConfigFile Condition="'$(CodeMetricsConfigFile)' == ''">$(MSBuildThisFileDirectory)CodeMetricsConfig.txt</CodeMetricsConfigFile>
+  </PropertyGroup>
+
+  <ItemGroup Condition="!$(MSBuildProjectName.EndsWith('UnitTests'))">
+    <AdditionalFiles Include="$(CodeMetricsConfigFile)" Visible="false" />
+  </ItemGroup>
+
+  <!--
+    Native ahead-of-time is not optional in this solution, so it is checked rather than
+    merely configured. IsAotCompatible is set above for every production project, which
+    turns on the trim and AOT analyzers; this target makes a project that quietly turns
+    it back off fail the build instead of failing much later at publish time. A new
+    project inherits both without touching its own csproj.
+
+    Test projects are exempt and must stay exempt: MSTest discovers tests by reflection,
+    which is exactly what the AOT analyzers exist to forbid. Nothing in a .UnitTests
+    project is published.
+  -->
+  <Target Name="VerifyAotCompatibility"
+          BeforeTargets="Build"
+          Condition="!$(MSBuildProjectName.EndsWith('UnitTests'))">
+    <Error Condition="'$(IsAotCompatible)' != 'true'"
+           Text="$(MSBuildProjectName) is a production project and must be ahead-of-time compatible. It sets IsAotCompatible=$(IsAotCompatible); remove that override and let Directory.Build.props set it to true." />
+  </Target>
+
+</Project>
