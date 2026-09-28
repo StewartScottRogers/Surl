@@ -136,7 +136,8 @@ out: once 85% of the 5-hour window (`-StopAtUsage`) or 97% of the weekly window
 (`-StopAtWeeklyUsage`) is used, lanes claim nothing new, finish what they hold and push;
 the next shift waits for a fresh 5-hour window, and a used-up weekly window raises the
 alarm. Inside herdr (`HERDR_ENV=1`) that opens the shift and each of its lanes as herdr
-tabs in the current workspace; outside herdr, as console windows. Never start one with
+tabs in Surl's own workspace - the one labelled `Surl`, created on first use - whichever
+workspace started it; outside herdr, as console windows. Never start one with
 `Start-Process` or a bare background command: Stewart watches shifts in herdr. Stop a
 shift by closing its tabs (or killing its process tree). Leave its tasks in `Doing` and
 its lane worktrees as they are: the next shift adopts each stopped lane and resumes its
