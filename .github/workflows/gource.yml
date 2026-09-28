@@ -102,7 +102,11 @@ jobs:
         run: dotnet run --file .github/coverage/make-coverage-report.cs -- "$env:RUNNER_TEMP\coverage.json" "$env:RUNNER_TEMP\coverage" $env:GITHUB_SHA
 
       # Committed on top of the gource branch, without force; the render job carries the
-      # folder into its own force-pushed commit.
+      # folder into its own force-pushed commit. When the branch does not exist yet (a new
+      # repository, or one whose branch was deleted), this starts it as an orphan branch
+      # holding only coverage/, and the render job replaces it with a full render. The push
+      # is never forced, so if a render created the branch in the meantime, the push is
+      # refused and the next try commits on top of it.
       - name: Publish to the gource branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -110,10 +114,19 @@ jobs:
           $url = "https://x-access-token:$env:GITHUB_TOKEN@github.com/$env:GITHUB_REPOSITORY.git"
           foreach ($try in 1..3) {
             $dir = Join-Path $env:RUNNER_TEMP "site-$try"
-            # Sparse and blob-less: the branch also holds ~900 MB of video this job never needs.
-            git clone -q --depth 1 --filter=blob:none --sparse --branch gource $url $dir
-            if ($LASTEXITCODE -ne 0) { throw 'no gource branch to publish onto' }
-            git -C $dir sparse-checkout set coverage
+            git ls-remote --exit-code --heads $url gource | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+              # Sparse and blob-less: the branch also holds ~900 MB of video this job never needs.
+              git clone -q --depth 1 --filter=blob:none --sparse --branch gource $url $dir
+              if ($LASTEXITCODE -ne 0) { throw 'could not clone the gource branch' }
+              git -C $dir sparse-checkout set coverage
+            } elseif ($LASTEXITCODE -eq 2) {
+              Write-Host 'no gource branch yet: starting it as an orphan branch'
+              git init -q -b gource $dir
+              git -C $dir remote add origin $url
+            } else {
+              throw 'could not list the branches of origin'
+            }
             $target = Join-Path $dir 'coverage'
             if (Test-Path $target) { Get-ChildItem $target | ForEach-Object { $_.Delete() } }
             else { New-Item -ItemType Directory $target | Out-Null }
@@ -128,10 +141,19 @@ jobs:
           throw 'push to gource kept being refused'
 
       # A push made with GITHUB_TOKEN does not start a Pages build by itself; ask for one.
+      # Pages is a repository setting this workflow cannot switch on (it needs an admin),
+      # so while the repository has no Pages site this warns rather than fails: the branch
+      # is published either way.
       - name: Rebuild GitHub Pages
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh api -X POST "repos/$env:GITHUB_REPOSITORY/pages/builds" --silent
+        run: |
+          gh api "repos/$env:GITHUB_REPOSITORY/pages" --silent 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host '::warning::GitHub Pages is not enabled for this repository (Settings > Pages, source: the gource branch); the gource branch is published but not served.'
+            exit 0
+          }
+          gh api -X POST "repos/$env:GITHUB_REPOSITORY/pages/builds" --silent
 
   render:
     needs: [decide, coverage]
@@ -183,11 +205,12 @@ jobs:
           cp "$GITHUB_WORKSPACE/.github/gource/site/index.html" index.html
           touch .nojekyll
           # Keep the coverage report the coverage job committed onto the branch: its three
-          # files, fetched one by one rather than the whole branch and its video.
+          # files, fetched one by one rather than the whole branch and its video. Through the
+          # contents API, which serves a private repository to GITHUB_TOKEN.
           mkdir -p coverage
           for f in index.html badge.svg coverage.json; do
-            curl -fsSL -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-              "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/gource/coverage/$f" -o "coverage/$f" || rm -f "coverage/$f"
+            GH_TOKEN="$GITHUB_TOKEN" gh api -H 'Accept: application/vnd.github.raw' \
+              "repos/${GITHUB_REPOSITORY}/contents/coverage/$f?ref=gource" > "coverage/$f" || rm -f "coverage/$f"
           done
           extra=$( [ -f coverage/index.html ] && echo coverage || true )
           git init -q -b gource
@@ -199,7 +222,13 @@ jobs:
           git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gource
 
       # A push made with GITHUB_TOKEN does not start a Pages build by itself; ask for one.
+      # As in the coverage job, a repository without a Pages site gets a warning, not a failure.
       - name: Rebuild GitHub Pages
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent
+        run: |
+          if ! gh api "repos/${GITHUB_REPOSITORY}/pages" --silent 2> /dev/null; then
+            echo '::warning::GitHub Pages is not enabled for this repository (Settings > Pages, source: the gource branch); the gource branch is published but not served.'
+            exit 0
+          fi
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent

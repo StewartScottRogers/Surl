@@ -44,11 +44,14 @@ cs make-log > "$work/gource.log"
 cs make-captions > "$work/captions.txt"
 first=$(head -n 1 "$work/gource.log" | cut -d'|' -f1)
 last=$(tail -n 1 "$work/gource.log" | cut -d'|' -f1)
-days=$(awk -v s=$(( last - first + 1 )) 'BEGIN { printf "%.2f", s / 86400 }')
+span=$(( last - first + 1 ))
+days=$(awk -v s="$span" 'BEGIN { printf "%.4f", s / 86400 }')
 # Spread the history over the target length, at least 0.2 seconds per day so a long
 # history is not a blur. Quiet stretches are skipped (--auto-skip-seconds), so the
-# finished animation can come in a little shorter.
-spd=$(awk -v d="$days" -v t="$seconds" 'BEGIN { s = (t - 5) / d; if (s < 0.2) s = 0.2; printf "%.2f", s }')
+# finished animation can come in a little shorter. Worked from the span in seconds, not
+# the rounded day count: a history of minutes (or one imported in a single second) rounds
+# to 0 days, which would divide by zero.
+spd=$(awk -v s="$span" -v t="$seconds" 'BEGIN { v = (t - 5) * 86400 / s; if (v < 0.2) v = 0.2; printf "%.2f", v }')
 
 run=()
 if command -v xvfb-run > /dev/null; then run=(xvfb-run -a -s "-screen 0 ${width}x${height}x24"); fi
