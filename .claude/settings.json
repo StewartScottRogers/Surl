@@ -1,0 +1,74 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet format:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet ef migrations list:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/task-board/task-board.ps1:*)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/task-board/task-admin.ps1:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "PowerShell(git add:*)",
+      "PowerShell(git commit:*)",
+      "PowerShell(git push:*)"
+    ],
+    "ask": [
+      "Bash(dotnet add package:*)",
+      "Bash(dotnet remove package:*)",
+      "Bash(dotnet ef database update:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git push origin master:*)",
+      "Bash(git push origin HEAD:master:*)",
+      "Bash(git merge:*)",
+      "PowerShell(git push --force:*)",
+      "PowerShell(git push -f:*)",
+      "PowerShell(git push --force-with-lease:*)",
+      "PowerShell(git push origin master:*)",
+      "PowerShell(git push origin HEAD:master:*)",
+      "PowerShell(git merge:*)"
+    ],
+    "deny": [
+      "Read(./**/bin/**)",
+      "Read(./**/obj/**)",
+      "Read(./.vs/**)",
+      "Read(./data/**)",
+      "Edit(./data/**)",
+      "Read(./**/appsettings.*.Local.json)",
+      "Read(./**/*.pfx)",
+      "Read(./**/*.snk)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/format-cs.ps1"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .claude/hooks/whisper-milestone.ps1",
+            "async": true,
+            "timeout": 180
+          }
+        ]
+      }
+    ]
+  }
+}

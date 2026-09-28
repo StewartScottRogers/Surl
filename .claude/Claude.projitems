@@ -1,0 +1,44 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!--
+    Shared-items manifest for the Claude shared project.
+
+    SharedGUID must match the ProjectGuid in Claude.shproj; Visual Studio pairs
+    the two files by that value.
+
+    The globs are recursive on purpose: a new skill, agent, rule, or hook added
+    under .claude\ (by hand or by Claude itself) shows up in Solution Explorer on
+    the next project reload with no edit to this file.
+
+    CLAUDE.md and .mcp.json must physically stay at the repository root, because
+    that is where Claude Code looks for them, so they are pulled in as links.
+    CLAUDE.local.md is personal and gitignored; it is linked only when present.
+  -->
+
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>{ADE5DF0F-47C6-4E2E-A1DF-D067A01655AD}</SharedGUID>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Claude</Import_RootNamespace>
+  </PropertyGroup>
+
+  <!-- Everything under .claude\ -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)**\*.md" />
+    <None Include="$(MSBuildThisFileDirectory)**\*.json" />
+    <None Include="$(MSBuildThisFileDirectory)**\*.ps1" />
+    <None Include="$(MSBuildThisFileDirectory)**\*.sh" />
+  </ItemGroup>
+
+  <!-- Repository-root files Claude Code requires in place, surfaced here as links -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\CLAUDE.md" Link="CLAUDE.md" />
+    <None Include="$(MSBuildThisFileDirectory)..\.mcp.json" Link=".mcp.json" />
+    <None Include="$(MSBuildThisFileDirectory)..\CLAUDE.local.md" Link="CLAUDE.local.md"
+          Condition="Exists('$(MSBuildThisFileDirectory)..\CLAUDE.local.md')" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,34 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!--
+    Shared-items manifest for the Tasks shared project.
+
+    SharedGUID must match the ProjectGuid in Tasks.shproj; Visual Studio pairs the
+    two files by that value.
+
+    The glob is recursive, and here it is load-bearing rather than a convenience:
+    Claude moves task files between the state folders outside Visual Studio many
+    times a day, and archives them into new timestamped folders under Done. An
+    explicit <None> list would be wrong after every move. With the glob, every
+    task shows up in its current folder on the next project reload.
+
+    If Visual Studio ever rewrites the glob below into a list of individual files
+    (it can do this when files are added or moved through Solution Explorer),
+    restore the single wildcard line.
+  -->
+
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>{A9E5BCBB-410E-4474-BD13-7D3CBBB7BF31}</SharedGUID>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>Tasks</Import_RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)**\*.md" />
+  </ItemGroup>
+
+</Project>

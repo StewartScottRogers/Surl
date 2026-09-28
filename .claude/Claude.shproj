@@ -1,0 +1,38 @@
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!--
+    Claude - a Visual Studio Shared Project (.shproj) holding the Claude Code
+    configuration for Surl: settings, hooks, rules, skills, and agents under
+    .claude\, plus links to the two files Claude Code requires at the repository
+    root (CLAUDE.md and .mcp.json).
+
+    Like Documentation.shproj, it produces no build output; it exists so this
+    configuration is a first-class, browsable node in Solution Explorer. The
+    actual file list lives in Claude.projitems.
+
+    Every CodeSharing import is guarded with Condition="Exists(...)" because those
+    .props/.targets ship with Visual Studio, not the .NET SDK. Guarded, the project
+    evaluates cleanly under the dotnet CLI (which skips .shproj as non-buildable)
+    and still gets the full shared-project experience inside Visual Studio.
+  -->
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{ADE5DF0F-47C6-4E2E-A1DF-D067A01655AD}</ProjectGuid>
+    <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
+  </PropertyGroup>
+
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props"
+          Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.Common.Default.props"
+          Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.Common.Default.props')" />
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.Common.props"
+          Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.Common.props')" />
+
+  <PropertyGroup />
+
+  <Import Project="Claude.projitems" Label="Shared" />
+
+  <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.CSharp.targets"
+          Condition="Exists('$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\CodeSharing\Microsoft.CodeSharing.CSharp.targets')" />
+
+</Project>
