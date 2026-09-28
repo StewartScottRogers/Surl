@@ -186,8 +186,16 @@ jobs:
             echo "$HOME/.dotnet" >> "$GITHUB_PATH"
           fi
 
+      # Memory is logged once a minute: a runner out of memory kills the render with no
+      # message of its own (exit code 143), and this is what shows that it was memory.
       - name: Render
-        run: bash .github/gource/render.sh "$RUNNER_TEMP/gource"
+        run: |
+          echo "runner: $(nproc) cores, $(free -m | awk 'NR==2 {print $2}') MB memory, $(free -m | awk 'NR==3 {print $2}') MB swap"
+          ( while sleep 60; do
+              echo "memory: $(free -m | awk 'NR==2 {print $3 " of " $2 " MB used"}; NR==3 {print ", swap " $3 " MB"}' | tr -d '\n')," \
+                   "largest: $(ps -eo rss=,comm= --sort=-rss | head -3 | awk '{printf "%s %d MB; ", $2, $1 / 1024}')"
+            done ) &
+          bash .github/gource/render.sh "$RUNNER_TEMP/gource"
 
       - name: Publish to the gource branch
         env:
