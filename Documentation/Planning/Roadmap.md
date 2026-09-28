@@ -15,8 +15,8 @@ task board in `Tasks/`, never here.
 - **Exit criteria:** `dotnet build` clean with warnings as errors; the fast tests green;
   `Measure-CodeQuality.ps1` passing; the task board script working on an empty board.
 - **Decisions:** ADR-0001 to ADR-0003.
-- **Outstanding, and Stewart's:** creating the GitHub repository. Until it exists there
-  is no remote, so the dark factory's push and merge steps and the workflows cannot run.
+- **GitHub repository:** https://github.com/StewartScottRogers/Surl, created by Stewart;
+  the `CI` workflow ran green on Windows, Linux and macOS for pull request #1.
 
 ## Milestone 1 — Phase 1
 
