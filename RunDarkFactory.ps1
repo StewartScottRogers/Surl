@@ -206,9 +206,23 @@ function Get-HerdrBin {
     return $null
 }
 
+function Get-HerdrWorkspace {
+    # The id of the herdr workspace named after this repository ("Surl"), created with the
+    # checkout as its folder when there is none, so a shift never lands in the workspace of
+    # whichever project happened to start it (Stewart, 2026-09-28). $null if herdr refuses.
+    param([string]$Herdr)
+    $name = Split-Path $PSScriptRoot -Leaf
+    $listed = (& $Herdr workspace list) -join "`n" | ConvertFrom-Json
+    $found = @($listed.result.workspaces | Where-Object { $_.label -eq $name }) | Select-Object -First 1
+    if ($found) { return $found.workspace_id }
+    $created = (& $Herdr workspace create --cwd $PSScriptRoot --label $name --no-focus) -join "`n" | ConvertFrom-Json
+    return $created.result.workspace.workspace_id
+}
+
 function Start-Detached {
     # Runs RunDarkFactory.ps1 from $Dir with $ScriptArgs somewhere the user can watch: a
-    # new tab in the same herdr workspace when inside herdr, else a new console window.
+    # new tab in the repository's own herdr workspace when inside herdr, else a new
+    # console window.
     # Returns @{ Process = <Process> } or @{ Tab = '<tab id>' }.
     param([string]$Label, [string]$Dir, [string[]]$ScriptArgs)
     # Always this copy of the script; a lane is told its worktree with -LaneDir.
@@ -217,7 +231,9 @@ function Start-Detached {
     $herdr = Get-HerdrBin
     if ($herdr) {
         $create = @('tab', 'create', '--cwd', $Dir, '--label', $Label, '--no-focus')
-        if ($env:HERDR_WORKSPACE_ID) { $create += @('--workspace', $env:HERDR_WORKSPACE_ID) }
+        $workspace = Get-HerdrWorkspace $herdr
+        if (-not $workspace) { $workspace = $env:HERDR_WORKSPACE_ID }
+        if ($workspace) { $create += @('--workspace', $workspace) }
         $created = (& $herdr @create) -join "`n" | ConvertFrom-Json
         $pane = $created.result.root_pane.pane_id
         if ($pane) {
