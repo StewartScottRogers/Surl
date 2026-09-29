@@ -93,6 +93,25 @@
     for them, pulls the result and raises the alarm once for all of them. Each lane
     traces to <repo>.logs\DarkFactory-<stamp>-L<n>.log beside this checkout.
 
+    LIVE BOARD
+
+    Every runner keeps a heartbeat file, <repo>.logs\lanes-<stamp>\lane-<n>.heartbeat.json
+    (the single runner is lane 0): one lane object of ADR-0029's status.json schema 1 -
+    the task it holds, its title, the phase (starting, claim, run, integrate, wait, tokens,
+    finished), the last tool step and when the task started. It is rewritten on every phase
+    change, on each new tool step and at least every 60 seconds during a run or a wait,
+    through a temporary file and a rename, so a reader never sees half of one. Lanes never
+    push it. Every -HeartbeatMinutes (default 3; 0 turns publishing off) the coordinator
+    merges the shift's heartbeat files into one status.json, sorted by lane, and
+    force-pushes it to the board branch as a single parentless commit built with plumbing
+    (hash-object, mktree, commit-tree), so its checkout's working tree and index never
+    change. It publishes once more at shift end with "state": "ended" and every lane
+    finished. A single-runner shift publishes its own lane 0 the same way, from where it
+    writes its heartbeat. The board branch is the only one this script force-pushes
+    (ADR-0029); a failed push is traced once and never stops the shift. The live board
+    page, https://stewartscottrogers.github.io/Surl/board/, reads it. -TestHeartbeat
+    rehearses the files, the merge and the commit, without pushing.
+
 .EXAMPLE
     powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1
     powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -Hours 4 -MaxTasks 3
@@ -100,6 +119,7 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -TestAlarm
     powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -TestAlarm -AlarmScale 0.1
     powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -TestOutOfTokens
+    powershell -NoProfile -ExecutionPolicy Bypass -File RunDarkFactory.ps1 -TestHeartbeat
 #>
 [CmdletBinding()]
 param(
@@ -123,6 +143,13 @@ param(
     [switch]$QuietAlarm,
     # Rehearse the out-of-tokens notices with a pretend reset 90 seconds away, and exit.
     [switch]$TestOutOfTokens,
+    # Walk lane 1's heartbeat file through its phases in a temporary log root, print each,
+    # then merge three made-up lanes into status.json, print it and the board commit built
+    # from it (never pushed), and exit.
+    [switch]$TestHeartbeat,
+    # How often, in minutes, the lanes' heartbeats are published as status.json on the
+    # force-pushed board branch, plus once at shift end. 0 = never publish.
+    [ValidateRange(0, 60)][int]$HeartbeatMinutes = 3,
     # How long before the usage limit resets to say the new session is about to start.
     [ValidateRange(0, 3600)][int]$LimitWarnSeconds = 60,
     # While waiting for tokens, how often to check whether the limit was lifted early. 0 = never.
@@ -193,6 +220,171 @@ function Get-Short {
     $one = ($Text -replace '\s+', ' ').Trim()
     if ($one.Length -gt $Max) { return $one.Substring(0, $Max - 1) + '~' }
     return $one
+}
+
+# ---------------------------------------------------------------------------- heartbeat
+
+# Each runner's lane-<n>.heartbeat.json (ADR-0029 item 6), for the coordinator to publish.
+# The coordinator of a multi-lane shift runs no task and writes none, and nor does the
+# out-of-tokens rehearsal.
+$WritesHeartbeat = ($Lane -or $Lanes -le 1) -and -not $TestOutOfTokens
+$script:Beat = @{ Task = $null; Title = $null; Phase = 'starting'; Step = ''; TaskStartedAt = $null; WrittenAt = [datetime]::MinValue; FailureTraced = $false }
+
+function Get-UtcStamp {
+    param([datetime]$When = (Get-Date))
+    return $When.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+}
+
+function Set-HeartbeatTask {
+    # The task the heartbeat names; '' when the runner holds none. A lane resuming a task it
+    # held keeps the time it claimed it, which is when its lane-<n>.task file was written.
+    param([string]$Id, [string]$Title = $null)
+    if (-not $Id) { $script:Beat.Task = $null; $script:Beat.Title = $null; $script:Beat.TaskStartedAt = $null; return }
+    if ($script:Beat.Task -eq $Id) { return }
+    $started = Get-Date
+    if ($Lane) {
+        $taskFile = Get-LaneStatePath $Lane 'task'
+        if ((Test-Path $taskFile) -and (Get-LaneState $Lane 'task') -eq $Id) { $started = (Get-Item $taskFile).LastWriteTime }
+    }
+    $script:Beat.Task = $Id
+    $script:Beat.Title = if ($PSBoundParameters.ContainsKey('Title')) { $Title } else { Get-TaskTitle $Id }
+    $script:Beat.TaskStartedAt = Get-UtcStamp $started
+}
+
+function Write-Heartbeat {
+    # Writes the heartbeat now. -Phase moves it to a new phase and sets its step (empty by
+    # default); without -Phase it refreshes the current phase and step. A failed write is
+    # traced once and never stops the runner.
+    param([string]$Phase = '', [string]$Step = '')
+    if (-not $WritesHeartbeat) { return }
+    if ($Phase) { $script:Beat.Phase = $Phase; $script:Beat.Step = $Step }
+    $script:Beat.WrittenAt = Get-Date
+    try {
+        $path = Get-LaneStatePath $Lane 'heartbeat.json'
+        New-Item -ItemType Directory -Force -Path (Split-Path $path) -ErrorAction Stop | Out-Null
+        $json = [pscustomobject][ordered]@{
+            lane = $Lane
+            task = $script:Beat.Task
+            title = $script:Beat.Title
+            phase = $script:Beat.Phase
+            step = $script:Beat.Step
+            taskStartedAt = $script:Beat.TaskStartedAt
+            heartbeatAt = Get-UtcStamp $script:Beat.WrittenAt
+        } | ConvertTo-Json -Compress
+        # Written beside the target and renamed over it, so a reader never sees half a file.
+        $temporary = "$path.tmp"
+        [System.IO.File]::WriteAllText($temporary, $json)
+        Move-Item -LiteralPath $temporary -Destination $path -Force -ErrorAction Stop
+    } catch {
+        if (-not $script:Beat.FailureTraced) {
+            $script:Beat.FailureTraced = $true
+            Write-Trace '-' 'beat' "heartbeat not written: $(Get-Short $_.Exception.Message 80)" 'DarkYellow'
+        }
+    }
+    # The single runner publishes its own lane 0, throttled to -HeartbeatMinutes; its last
+    # publish, with "state": "ended", is made at shift end.
+    if (-not $Lane -and $script:Beat.Phase -ne 'finished') { Publish-BoardStatusIfDue -Branch $branch }
+}
+
+function Write-HeartbeatIfDue {
+    # Refreshes the heartbeat once 60 seconds have passed since the last write.
+    if (((Get-Date) - $script:Beat.WrittenAt).TotalSeconds -ge 60) { Write-Heartbeat }
+}
+
+function Set-HeartbeatStep {
+    # The step is the tool label's verb and detail, cut to 80 characters; a new one is
+    # written at once.
+    param([string[]]$Label)
+    $step = ((@($Label) -join ' ') -replace '\s+', ' ').Trim()
+    if ($step.Length -gt 80) { $step = $step.Substring(0, 80) }
+    if ($step -eq $script:Beat.Step) { return }
+    $script:Beat.Step = $step
+    Write-Heartbeat
+}
+
+# ---------------------------------------------------------------------------- board branch
+
+# The board branch's status.json (ADR-0029 item 6): the shift's heartbeat files merged into
+# one file and force-pushed as a single parentless commit. It has one writer - the
+# coordinator of a lane shift, or the single runner for its own lane 0. Lanes never push.
+$script:BoardStatus = @{ Lanes = @{}; PublishedAt = [datetime]::MinValue; PushFailing = $false }
+
+function Get-BoardStatusJson {
+    # Merges every lane-<n>.heartbeat.json of this shift into status.json schema 1, lanes
+    # sorted by number. A lane whose file cannot be read keeps its last good object.
+    # -State ended marks every lane finished.
+    param([string]$Branch, [string]$State = 'running')
+    $dir = Join-Path $LogDir "lanes-$Stamp"
+    foreach ($file in @(Get-ChildItem $dir -Filter 'lane-*.heartbeat.json' -ErrorAction SilentlyContinue)) {
+        try {
+            $laneObject = [System.IO.File]::ReadAllText($file.FullName) | ConvertFrom-Json -ErrorAction Stop
+            if ($null -eq $laneObject.lane) { continue }
+            $script:BoardStatus.Lanes[[int]$laneObject.lane] = $laneObject
+        } catch { }
+    }
+    $laneObjects = @($script:BoardStatus.Lanes.Keys | Sort-Object | ForEach-Object { $script:BoardStatus.Lanes[$_] })
+    if ($State -eq 'ended') { foreach ($laneObject in $laneObjects) { $laneObject.phase = 'finished' } }
+    return [pscustomobject][ordered]@{
+        schema = 1
+        shift = $Stamp
+        branch = $Branch
+        state = $State
+        publishedAt = Get-UtcStamp
+        lanes = $laneObjects
+    } | ConvertTo-Json -Depth 4
+}
+
+function New-BoardCommit {
+    # Builds the board branch's commit with plumbing - a blob, a tree holding only
+    # status.json, and a commit with no parent - so the checkout's working tree and index
+    # never change. Returns the commit id; throws when git fails.
+    param([string]$Json)
+    # Nothing is piped to git: Windows PowerShell pipes to a native command in its output
+    # encoding, which can prepend a byte order mark and mangle a title's non-ASCII
+    # characters. The blob is hashed from a UTF-8 file and mktree reads its line through a
+    # cmd redirect.
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    $file = Join-Path ([IO.Path]::GetTempPath()) "DarkFactoryStatus-$Stamp-$PID.json"
+    $treeFile = "$file.tree"
+    try {
+        [System.IO.File]::WriteAllText($file, $Json, $utf8)
+        $blob = "$(git -C $Root hash-object -w -- $file 2>$null)".Trim()
+        if ($LASTEXITCODE -ne 0 -or $blob -notmatch '^[0-9a-f]{40,64}$') { throw 'git hash-object failed' }
+        [System.IO.File]::WriteAllText($treeFile, "100644 blob $blob`tstatus.json`n", $utf8)
+        $mktree = 'git -C "{0}" mktree < "{1}"' -f $Root, $treeFile
+        $tree = "$(cmd /s /c $mktree 2>$null)".Trim()
+        if ($LASTEXITCODE -ne 0 -or $tree -notmatch '^[0-9a-f]{40,64}$') { throw 'git mktree failed' }
+    } finally { Remove-Item $file, $treeFile -ErrorAction SilentlyContinue }
+    $commit = "$(git -C $Root commit-tree $tree -m "chore(board): lane status $(Get-UtcStamp)" 2>$null)".Trim()
+    if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40,64}$') { throw 'git commit-tree failed' }
+    return $commit
+}
+
+function Publish-BoardStatus {
+    # Publishes status.json now: builds the commit and force-pushes it to the board branch,
+    # the only branch this script force-pushes. A failure is traced once per failure streak
+    # and never stops the shift or raises the alarm. -HeartbeatMinutes 0 publishes nothing.
+    param([string]$Branch, [string]$State = 'running')
+    if ($HeartbeatMinutes -le 0) { return }
+    $script:BoardStatus.PublishedAt = Get-Date
+    try {
+        $commit = New-BoardCommit (Get-BoardStatusJson -Branch $Branch -State $State)
+        git -C $Root push -q --force origin "${commit}:refs/heads/board" 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "git push exited $LASTEXITCODE" }
+        if ($script:BoardStatus.PushFailing) { Write-Trace '-' 'board' 'status.json published to board again' }
+        $script:BoardStatus.PushFailing = $false
+    } catch {
+        if (-not $script:BoardStatus.PushFailing) {
+            Write-Trace '-' 'board' "status.json not published: $(Get-Short $_.Exception.Message 80)" 'DarkYellow'
+        }
+        $script:BoardStatus.PushFailing = $true
+    }
+}
+
+function Publish-BoardStatusIfDue {
+    # Publishes once -HeartbeatMinutes have passed since the last publish.
+    param([string]$Branch)
+    if (((Get-Date) - $script:BoardStatus.PublishedAt).TotalMinutes -ge $HeartbeatMinutes) { Publish-BoardStatus -Branch $Branch }
 }
 
 # ---------------------------------------------------------------------------- herdr
@@ -748,10 +940,12 @@ function Wait-ForNewSession {
     if (-not $UsageOnly) { Add-LimitMark "reset $unix" }
     Write-Trace $Id 'tokens' "$(if ($UsageOnly) { 'saving tokens' } else { 'out of tokens' }); waiting for the new session at $($Until.ToString('HH:mm'))" 'Yellow'
     Set-OwnTabLabel "tokens back $($Until.ToString('HH:mm'))"
+    Write-Heartbeat 'tokens' "new session at $(Get-UtcStamp $Until)"
     # A little past the reset, so the first request lands in the new session.
     $resume = $Until.AddSeconds(20)
     $nextTrace = (Get-Date).AddMinutes(30)
     while ((Get-Date) -lt $resume) {
+        Write-HeartbeatIfDue
         if ($UsageOnly) { Start-Sleep -Seconds 5; continue }
         if (Test-WakeRequested $unix) { Write-Trace $Id 'wake' 'tokens are back before the reset' 'Green'; break }
         if ($Lane) { try { $Host.UI.RawUI.WindowTitle = "Dark factory - lane $Lane out of tokens until $($Until.ToString('HH:mm'))" } catch { } }
@@ -1116,6 +1310,7 @@ function Write-Event {
                 $label = Get-ToolLabel $c
                 if (-not $label) { continue }
                 $script:ToolLabels[$c.id] = $label
+                Set-HeartbeatStep $label
                 if ($label[0] -in 'agent', 'skill', 'edit', 'write') { Write-Trace $Id $label[0] (Get-Short $label[1]) }
             }
         }
@@ -1176,6 +1371,7 @@ function Invoke-TaskRun {
     $timedOut = $false
     $pending = $p.StandardOutput.ReadLineAsync()
     while ($true) {
+        Write-HeartbeatIfDue
         if ($pending.Wait(1000)) {
             $line = $pending.Result
             if ($null -eq $line) { break }
@@ -1214,7 +1410,7 @@ function Enter-Lock {
     New-Item -ItemType Directory -Force -Path $LanesDir | Out-Null
     while ($true) {
         try { return [IO.File]::Open($LockFile, 'OpenOrCreate', 'ReadWrite', 'None') }
-        catch { Start-Sleep -Seconds 3 }
+        catch { Write-HeartbeatIfDue; Start-Sleep -Seconds 3 }
     }
 }
 
@@ -1286,7 +1482,10 @@ function Invoke-Integrate {
     # Rebases this lane's commits onto the shared branch, checks them, and pushes. Returns
     # '' on success or why it could not.
     param([string]$Id, [string]$State)
+    Set-HeartbeatTask $Id
+    Write-Heartbeat 'integrate' 'waiting for the integrate lock'
     $lock = Enter-Lock
+    Write-Heartbeat 'integrate'
     try {
         foreach ($attempt in 1..3) {
             if (-not (Invoke-Git @('fetch', '-q', 'origin', $Branch))) { Start-Sleep -Seconds 10; continue }
@@ -1316,6 +1515,7 @@ function Invoke-Integrate {
                 Write-Trace $Id 'archive' $archived
             }
             if ($State -eq 'Done') {
+                Set-HeartbeatStep @('verify', 'build and fast tests on the shared branch')
                 $red = Test-Green
                 if ($red) { return "$red after rebasing onto the other lanes' work" }
                 Write-Trace $Id 'verify' 'build and fast tests green on the shared branch'
@@ -1425,12 +1625,53 @@ function Wait-ForTokensByProbe {
     param([string]$Id)
     $began = Get-Date
     Write-Trace $Id 'tokens' 'run failed on the API; waiting until Claude answers again' 'Yellow'
+    Write-Heartbeat 'tokens' 'waiting until Claude answers again'
     while (-not (Test-TokensAvailable)) {
         if ($Lane) { try { $Host.UI.RawUI.WindowTitle = "Dark factory - lane $Lane waiting for the API" } catch { } }
-        Start-Sleep -Seconds 300
+        # Refreshed every minute of the wait, so the page never shows this lane as stale.
+        foreach ($minute in 1..5) { Write-Heartbeat; Start-Sleep -Seconds 60 }
     }
     Write-Trace $Id 'resume' 'Claude answers again; running the task again' 'Green'
     return ((Get-Date) - $began)
+}
+
+if ($TestHeartbeat) {
+    # Lane 1 through its phases in a temporary log root, printing its file after each. No
+    # board, git push or Claude: the task is a made-up BL-000 with a title given here.
+    $Lane = 1
+    $LogDir = Join-Path ([IO.Path]::GetTempPath()) "DarkFactoryHeartbeat-$Stamp"
+    $WritesHeartbeat = $true
+    $heartbeatFile = Get-LaneStatePath $Lane 'heartbeat.json'
+    try {
+        Write-Heartbeat 'starting'
+        Get-Content -Raw $heartbeatFile
+        Write-Heartbeat 'claim'
+        Get-Content -Raw $heartbeatFile
+        Set-HeartbeatTask 'BL-000' -Title 'Rehearse the heartbeat file'
+        Write-Heartbeat 'run'
+        Set-HeartbeatStep @('build', '')
+        Get-Content -Raw $heartbeatFile
+        Write-Heartbeat 'integrate'
+        Get-Content -Raw $heartbeatFile
+        Set-HeartbeatTask ''
+        Write-Heartbeat 'finished'
+        Get-Content -Raw $heartbeatFile
+        # Three made-up lanes, written out of order, merged into status.json and built into
+        # the board branch's commit. Never pushed: the first real push is the next shift's.
+        foreach ($fake in @(
+            @{ Lane = 3; Task = $null; Title = $null; Phase = 'wait'; Step = 'nothing can start yet' },
+            @{ Lane = 1; Task = 'BL-001'; Title = 'Rehearse lane one'; Phase = 'run'; Step = 'build' },
+            @{ Lane = 2; Task = 'BL-002'; Title = 'Rehearse lane two'; Phase = 'integrate'; Step = '' })) {
+            $Lane = $fake.Lane
+            $script:Beat.Task = $null
+            Set-HeartbeatTask $fake.Task -Title $fake.Title
+            Write-Heartbeat $fake.Phase $fake.Step
+        }
+        $json = Get-BoardStatusJson -Branch 'factory/phase-1'
+        $json
+        New-BoardCommit $json
+    } finally { Remove-Item $LogDir -Recurse -Force -ErrorAction SilentlyContinue }
+    exit 0
 }
 
 # ---------------------------------------------------------------------------- shift
@@ -1552,6 +1793,8 @@ if ($Lanes -gt 1 -and -not $Lane) {
             $laneTabs[$n] = $again.Tab
             Write-Trace '-' 'lane' "lane $n had died; restarted ($($restarts[$n]) of 5)$(if ($held) { ", resuming $held" })" 'Yellow'
         }
+        # The coordinator is the board branch's one writer for a lane shift.
+        Publish-BoardStatusIfDue -Branch $branch
         $running = @($procs | Where-Object { $_.Tab -or -not $_.Process.HasExited }).Count
         if ($running -eq 0) { break }
         Start-Sleep -Seconds 5
@@ -1580,6 +1823,7 @@ if ($Lanes -gt 1 -and -not $Lane) {
     foreach ($n in 1..$Lanes) {
         if (-not (Test-Path (Join-Path $summaries "lane-$n.txt"))) { Set-HerdrTabLabel $laneTabs[$n] (Get-LaneTabLabel $n 'no report, read') }
     }
+    Publish-BoardStatus -Branch $branch -State 'ended'
     Write-Trace '-' 'shift' "end  $Lanes lanes" 'Cyan'
     Write-Trace '-' 'merge' (Invoke-MergeToMaster -Branch $branch) 'Cyan'
     $reasons = @($stalls) + @(Get-WaitingOnStewart)
@@ -1588,7 +1832,7 @@ if ($Lanes -gt 1 -and -not $Lane) {
     $stillReady = (Invoke-Board @('next')) -join "`n"
     if ($Continuous -and $stillReady -match '(?m)^BL-\d{3}\s') {
         foreach ($r in $reasons) { Write-Trace '-' 'note' (Get-Short $r 100) 'Yellow' }
-        $forward = @('-Lanes', $Lanes, '-Hours', $Hours, '-MaxTasks', $MaxTasks, '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-Continuous')
+        $forward = @('-Lanes', $Lanes, '-Hours', $Hours, '-MaxTasks', $MaxTasks, '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-HeartbeatMinutes', $HeartbeatMinutes, '-Continuous')
         if ($QuietAlarm) { $forward += '-QuietAlarm' }
         $next = Start-Detached -Label "DF shift starting" -Dir $Root -ScriptArgs $forward
         Write-Trace '-' 'shift' "work is still ready; next shift started ($(if ($next.Tab) { "herdr tab $($next.Tab)" } else { "pid $($next.Process.Id)" }))" 'Cyan'
@@ -1626,6 +1870,7 @@ $resumeId = ''
 # How many times in a row the current task's run died on the API.
 $apiRetries = 0
 
+Write-Heartbeat 'starting'
 if ($Lane) {
     Set-LaneState 'pid' "$PID"
     # A restarted or adopted lane finishes the task it held, from the work in its worktree.
@@ -1663,11 +1908,15 @@ while ($true) {
         $id = $resumeId
         $resumeId = ''
     } elseif ($Lane) {
+        Set-HeartbeatTask ''
+        Write-Heartbeat 'claim'
         $claim = Invoke-Claim -Skip @($attempted.Keys)
         if ($claim.None) { $stopWhy = 'nothing ready'; break }
-        if ($claim.Wait) { Write-Trace '-' 'wait' $claim.Why 'DarkGray'; Start-Sleep -Seconds 60; continue }
+        if ($claim.Wait) { Write-Trace '-' 'wait' $claim.Why 'DarkGray'; Write-Heartbeat 'wait' (Get-Short $claim.Why 80); Start-Sleep -Seconds 60; continue }
         $id = $claim.Id
     } else {
+        Set-HeartbeatTask ''
+        Write-Heartbeat 'claim'
         $requeued = @(Invoke-Requeue)
         if ($requeued.Count) {
             git -C $Root add -A Tasks 2>&1 | Out-Null
@@ -1680,10 +1929,13 @@ while ($true) {
         if ($attempted.ContainsKey($id)) { $stopWhy = "$id offered twice"; $stalls += "$id offered again after a run"; break }
     }
     $attempted[$id] = $true
+    # Before the lane's task file is rewritten, whose time a resumed task's start comes from.
+    Set-HeartbeatTask $id
     if ($Lane) { Set-LaneState 'task' $id }
 
     if (-not $resuming) { Write-Trace $id 'claim' (Get-Short (Get-TaskTitle $id)) 'Cyan' }
     if ($Lane) { Set-OwnTabLabel "$id $(Get-TaskTitle $id)" }
+    Write-Heartbeat 'run'
     $run = Invoke-TaskRun $id -Resume:$resuming
     $state = Get-TaskState $id
 
@@ -1760,6 +2012,9 @@ while ($true) {
 
 Write-Trace '-' 'shift' "end ($stopWhy)  done=$done blocked=$blocked requeued=$requeued stalled=$($stalls.Count)" 'Cyan'
 if ($stopWhy -eq 'runs failing') { $stalls = @('FACTORY STALLED - two runs in a row failed; check ' + $LogDir) + $stalls }
+Set-HeartbeatTask ''
+Write-Heartbeat 'finished' (Get-Short $stopWhy 80)
+if (-not $Lane) { Publish-BoardStatus -Branch $branch -State 'ended' }
 
 if ($Lane) {
     # The coordinator raises one alarm for every lane; a lane only reports.
