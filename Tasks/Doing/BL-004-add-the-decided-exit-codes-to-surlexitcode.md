@@ -48,3 +48,4 @@ with the number the ADR assigns, and a test fails if any number changes.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
