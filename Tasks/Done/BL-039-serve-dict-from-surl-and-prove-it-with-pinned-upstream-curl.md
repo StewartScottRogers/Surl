@@ -8,7 +8,7 @@ depends-on: [BL-033, BL-020, BL-081]
 touches: [Surl.Console, Surl.Console.UnitTests, Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-039 — Serve dict from surl and prove it with pinned upstream curl
 
@@ -32,14 +32,14 @@ BL-033's recordings predict.
 
 - [x] `Surl.Console` registers the DICT server for `dict`. A fast test in
       `Surl.Console.UnitTests` proves a `dict://` listen URL starts a listener with it.
-- [ ] `[TestCategory("Integration")]` tests in `Surl.Conformance.UnitTests` run the pinned
+- [x] `[TestCategory("Integration")]` tests in `Surl.Conformance.UnitTests` run the pinned
       build for each case BL-033 recorded, against a live `surl`, and assert its exit
       code and stdout equal the recorded ones.
-- [ ] On Windows with the pinned build present,
+- [x] On Windows with the pinned build present,
       `dotnet test --filter "FullyQualifiedName~Surl.Conformance"` is green.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and
       `Measure-CodeQuality.ps1` reports no failing member in `surl`.
-- [ ] Any disagreement with the pinned build is fixed in `Surl.Protocol.Dict` through a
+- [x] Any disagreement with the pinned build is fixed in `Surl.Protocol.Dict` through a
       new task, never by changing the expected result. Such tasks are listed in the Log.
 
 ## Notes
@@ -64,6 +64,26 @@ BL-033's recordings predict.
   is off without `--list-directories`, against ADR-0011 section 4. Per the last criterion
   the expected result stays and the fix is BL-081 in `Surl.Protocol.Dict` (and possibly
   `Surl.Content`); this task waits on it.
+- 2026-09-29, second run (dark factory lane 2), after BL-081. The first run's stash was
+  not restored; the work was redone smaller, following BL-040's Gopher pattern that had
+  landed meanwhile:
+  - `CommandLineRunner.ComposeProtocolServers` adds `new DictProtocolServer(contentStore)`;
+    `--version` now ends `Protocols: dict gopher http https mqtt telnet tftp`, and
+    `Surl.Console/CLAUDE.md` names the DICT server.
+  - `CommandLineRunnerTests.RunAsync_DictListenUrl_StartsADictListenerAndReturnsOkWhenCancelled`
+    proves a `dict://` URL starts a listener (an unregistered scheme is refused before
+    any bind). Choice: the Gopher-style listener test rather than the first run's
+    fed-connection test, because the DICT replies themselves are proven end to end by
+    the conformance tests below, and it needs no change to `FakeListenerFactory`.
+  - `UpstreamCurlQueriesSurlOverDictTests` runs the five recorded cases with `-sS`
+    against a fresh in-process surl serving `hello`, `help` and `world`. Choice: it reads
+    each fixture's `exitcode.txt` and `stdout.bin` from `Surl.Protocol.Dict.UnitTests/Fixtures`
+    under the repository root at run time (as `PinnedUpstreamCurl` already reads
+    `UpstreamCurlBuilds.json`), rather than embedding them, so the csproj is unchanged.
+    A fresh surl's first exchange has id 1, the id in the recorded banners.
+- Result against pinned curl 8.21.0 (win-x64): all five cases, `match-hel` included,
+  match their recordings. `dotnet test --filter "FullyQualifiedName~Surl.Conformance"`:
+  91 passed. No new disagreement, so no new task.
 
 ## Log
 
@@ -72,3 +92,4 @@ BL-033's recordings predict.
 - 2026-09-28: Pinned upstream curl disagrees on `match-hel`; filed BL-081 to fix it in Surl.Protocol.Dict.
 - 2026-09-28: Doing -> Backlog. Waits on BL-081: pinned upstream curl gets 552 for match-hel because Surl.Protocol.Dict's MATCH is gated by --list-directories
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. surl dict:// serves DICT, and pinned upstream curl 8.21.0 gets the recorded exit code and stdout for all five BL-033 cases
