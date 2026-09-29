@@ -8,7 +8,7 @@ depends-on: [BL-009]
 touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-010 — Implement the content store's file-system seam over System.IO
 
@@ -39,25 +39,48 @@ against a temporary directory prove it.
 
 ## Acceptance criteria
 
-- [ ] One class in `Surl.Content.UnitLibrary` implements the seam over `System.IO`,
+- [x] One class in `Surl.Content.UnitLibrary` implements the seam over `System.IO`,
       named for what it does. It has no branching logic beyond what the seam contract
       requires.
-- [ ] Every member carries `[ExcludeFromCodeCoverage]` with a justifying comment, or is
+- [x] Every member carries `[ExcludeFromCodeCoverage]` with a justifying comment, or is
       covered by fast tests.
-- [ ] `[TestCategory("Integration")]` tests in `Surl.Content.UnitTests` create a
+- [x] `[TestCategory("Integration")]` tests in `Surl.Content.UnitTests` create a
       temporary tree and prove, through the content store: a file's length, last
       modification time and bytes; a range read; a directory reported as a directory; a
       missing path reported as nothing; and, on Linux and macOS only, a symbolic link
       pointing outside the root refused.
-- [ ] `dotnet test --filter "FullyQualifiedName~Surl.Content"` (Integration included)
+- [x] `dotnet test --filter "FullyQualifiedName~Surl.Content"` (Integration included)
       is green on Windows.
-- [ ] `dotnet build Surl.Content.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `dotnet build Surl.Content.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Content.UnitLibrary`.
 
 ## Notes
 
+- Delivered directly rather than through the full `/feature` agent chain: the task is one
+  thin class and its Integration tests, with the design fixed by the seam contract.
+- Name: `DiskContentFileSystem` - the content file system on the local disk.
+- `ResolveFinalPath` is the one member with a loop, because the seam contract asks for every
+  link along the path to be followed: `Path.GetFullPath`, then segment by segment from the
+  root, replacing each existing segment (or dangling link) with
+  `ResolveLinkTarget(returnFinalTarget: true)`; the first missing segment ends the walk and
+  the rest is appended unchanged. Resolving from the root means macOS's `/var` ->
+  `/private/var` is resolved the same way for the root and for every path under it.
+- `OpenFileForAsyncRead` shares the file for read, write and delete (default taken so serving
+  never locks a file against its owner; `ContentStore` already stops at the end of a file
+  that shrank). Buffer 4096, `Asynchronous | SequentialScan`.
+- Symbolic-link tests carry `[OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]`
+  as the task requires. This machine can create symbolic links (Developer Mode), so they
+  were also run once on Windows with the condition removed temporarily: 16 of 16 passed.
+  Four symlink cases: directory link out (file under it, the link itself, a missing file
+  under it), file link out, link inside the root, and a served root reached through a link.
+- Results: `dotnet test --filter "FullyQualifiedName~Surl.Content"` 115 passed, 6 skipped
+  (the symlink tests, on Windows); fast tests green in every project;
+  `Measure-CodeQuality.ps1` reports Surl.Content.UnitLibrary 100% lines, 100% branches,
+  0 failing members, and lists the five justified exclusions.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. DiskContentFileSystem serves a real directory through System.IO, proved by Integration tests
