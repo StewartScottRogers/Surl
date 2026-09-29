@@ -1,0 +1,47 @@
+using System.Text;
+using Surl.Protocol.Abstractions;
+
+namespace Surl.Authentication;
+
+/// <summary>
+/// Reads the upstream curl recordings embedded from <c>Fixtures/</c> (see its README).
+/// </summary>
+internal static class RecordedFixture
+{
+    /// <summary>
+    /// The request head a case recorded, as the HTTP server hands it to the policy: the method
+    /// and target from the request line, and every field, each value read one byte per
+    /// character (Latin-1) as the HTTP server reads it.
+    /// </summary>
+    public static HttpAuthenticationRequest ReadRequest(string caseName)
+    {
+        var lines = Encoding.Latin1.GetString(ReadBytes(caseName, "request.bin"))
+            .Split("\r\n")
+            .TakeWhile(line => line.Length > 0)
+            .ToList();
+        var requestLine = lines[0].Split(' ');
+        var fields = lines
+            .Skip(1)
+            .Select(line => line.Split(':', 2))
+            .Select(parts => new KeyValuePair<string, string>(parts[0], parts[1].Trim(' ')))
+            .ToList();
+
+        return new HttpAuthenticationRequest(requestLine[0], requestLine[1], false, fields);
+    }
+
+    /// <summary>
+    /// The value of the one <c>Authorization</c> field a case recorded.
+    /// </summary>
+    public static string ReadAuthorization(string caseName) =>
+        ReadRequest(caseName).Fields.Single(field => field.Key == "Authorization").Value;
+
+    private static byte[] ReadBytes(string caseName, string fileName)
+    {
+        using var stream = typeof(RecordedFixture).Assembly.GetManifestResourceStream($"Fixtures/{caseName}/{fileName}")
+            ?? throw new InvalidOperationException($"No embedded fixture Fixtures/{caseName}/{fileName}.");
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+
+        return copy.ToArray();
+    }
+}

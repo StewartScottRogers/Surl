@@ -31,3 +31,16 @@ Protocol servers receive what it provides through the contracts in Abstractions.
   each HTTP method (BL-111, BL-113, BL-120, BL-121, BL-122) implements. The policy offers and
   checks only the methods it is given that `--auth` accepts; an `Authorization` of any other
   method is treated as missing.
+
+## Basic and Bearer (BL-111)
+
+- `BasicAuthenticationMethod` offers `Basic realm="surl", charset="UTF-8"` and checks the
+  base64 `user-id:password`: split at the first `:`, the user-id read as UTF-8 and the
+  password compared as the bytes sent (ADR-0035). Not base64, no `:`, or a user-id that is
+  not UTF-8 is a refusal, never an exception.
+- `BearerAuthenticationMethod` offers `Bearer realm="surl"` and checks the token, turned back
+  into the bytes sent with Latin-1, against the empty-name account; an accepted token's
+  `AccountName` is the empty string, and an empty token is refused.
+- Both hold no per-connection state: `StartConnection` returns the method itself. The
+  `Authorization` values they are tested with are recorded from pinned upstream curl in
+  `Surl.Authentication.UnitTests/Fixtures` (see its README).
