@@ -81,7 +81,7 @@ Choices where the ADR left a default (sensible default taken):
   outside this task's `touches`. Rather than stall the parser on it, `SurlCommandLine`
   holds the five per-exchange limits directly under `ExchangeLimits`' own member names
   (`HeadTimeout`, `MaxRequestHeadBytes`, `MaxLineBytes`, `MaxMessageBytes`,
-  `MaxUploadBytes`). BL-058 (depends on BL-046) folds them into one `Limits` member, which
+  `MaxUploadBytes`). BL-059 (depends on BL-046) folds them into one `Limits` member, which
   brings the record to what the ADR says.
 - **Member names the ADR left to BL-014:** `ServedDirectory`, `Verbose`, `AllowUploads`,
   `ListDirectories`, `FollowSymlinks`, `ServeDotFiles`, `MaxConnections`,

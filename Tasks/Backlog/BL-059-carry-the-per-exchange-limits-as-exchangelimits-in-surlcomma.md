@@ -1,5 +1,5 @@
 ---
-id: BL-058
+id: BL-059
 title: Carry the per-exchange limits as ExchangeLimits in SurlCommandLine
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-058 — Carry the per-exchange limits as ExchangeLimits in SurlCommandLine
+# BL-059 — Carry the per-exchange limits as ExchangeLimits in SurlCommandLine
 
 ## Goal
 
