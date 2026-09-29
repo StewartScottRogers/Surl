@@ -28,7 +28,7 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 
 | Term | Meaning | Name in code |
 | --- | --- | --- |
-| exit code | The number the `surl` process returns. Reuses upstream curl's `CURLE_*` number wherever a server-side meaning carries over. | `SurlExitCode` |
+| exit code | The number the `surl` process returns. Reuses upstream curl's `CURLE_*` number wherever a server-side meaning carries over; the table is ADR-0005. | `SurlExitCode` (ADR-0005) |
 | fast tests | Every test that needs no network: `dotnet test --filter "TestCategory!=Integration"`. | — |
 | integration test | A test that starts a real process or opens a real socket, such as one that runs pinned upstream curl. | `[TestCategory("Integration")]` |
 | byte script | The ordered bytes of an exchange - what upstream curl sends, what Surl sends back - measured with `Record-CurlExchange.ps1` and replayed through a fake connection in a protocol server's tests. | — |

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-001 — Decide Surl's exit-code table
 
@@ -42,30 +42,33 @@ and the command-line and serving tasks can name the code for each failure path.
 
 ## Acceptance criteria
 
-- [ ] A new ADR, numbered with the next free number, exists in
+- [x] A new ADR, numbered with the next free number, exists in
       `Documentation/Planning/Decisions/`, is marked "Decided by Claude under Stewart's
       delegation", has status Accepted, and is listed in that folder's `README.md` index.
-- [ ] The ADR has a table with one row per failure. Each row gives the `SurlExitCode`
+- [x] The ADR has a table with one row per failure. Each row gives the `SurlExitCode`
       member name, its number, the upstream `CURLE_*` name it reuses (or "none", with
       the reason no upstream meaning carries over), and the failure it covers. The rows
       cover at least: success, unknown option, option missing its argument, invalid
       option value, malformed listen URL, a scheme Surl has no server for, the served
       directory missing or unreadable, a listen address that cannot be bound (in use,
       not local, not permitted), and an unexpected internal failure.
-- [ ] The ADR states the exit code when surl is stopped by Ctrl+C or SIGTERM after
+- [x] The ADR states the exit code when surl is stopped by Ctrl+C or SIGTERM after
       serving normally.
-- [ ] The ADR records, for each of the four upstream measurements above, the command
+- [x] The ADR records, for each of the four upstream measurements above, the command
       line, the exit code and the first line of stderr the pinned 8.21.0 build
       produced, with the build's SHA-256.
-- [ ] `Ok = 0` and `FailedInit = 2` keep their numbers. No existing value is renumbered.
-- [ ] `Documentation/Wiki/Glossary.md`, row "exit code", points to the new ADR.
+- [x] `Ok = 0` and `FailedInit = 2` keep their numbers. No existing value is renumbered.
+- [x] `Documentation/Wiki/Glossary.md`, row "exit code", points to the new ADR.
 
 ## Notes
 
 The command-line ADR (BL-003) cites this table for every bad-value path, and BL-004 turns
 it into enum members.
 
+- 2026-09-28: Decided in ADR-0005. Measured the pinned 8.21.0 build (SHA-256 0E7737...8778) with Record-CurlExchange.ps1 -NoServer: unknown option 2, missing argument 2, invalid value 2, malformed URL 3 (used -g so the URL parser, not globbing, rejects it), unsupported scheme 1, unopenable file:// 37. Choices: bind failure reuses CURLE_INTERFACE_FAILED 45 (curl's own local-bind failure); unresolvable listen host 6; served root 37; internal error 125, with Surl-only codes counting down from 125 to stay clear of curl's range, shell 126/127 and signals 128+; Ctrl+C/SIGTERM after serving returns 0.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. ADR-0005 fixes Surl's exit-code table from measured upstream curl 8.21.0 codes
