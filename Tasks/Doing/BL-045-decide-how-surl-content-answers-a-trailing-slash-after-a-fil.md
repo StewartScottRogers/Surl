@@ -43,3 +43,4 @@ file) and for a served root that is not a fully qualified path.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
