@@ -8,7 +8,7 @@ depends-on: [BL-100, BL-101]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: FR-009
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-102 — Decide curl-style help categories and --manual, and record ADR-0034
 
@@ -56,15 +56,15 @@ be placed in a category here.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0034-<slug>.md` exists (the next free number if
+- [x] `Documentation/Planning/Decisions/ADR-0034-<slug>.md` exists (the next free number if
       taken; then use it in BL-103 and BL-123), Status Accepted, dated 2026-09-29 or later,
       "Decided by Claude under Stewart's delegation", citing Stewart's approval of
       2026-09-29.
-- [ ] It records the measured outputs listed in Context (first and last lines of each, exit
+- [x] It records the measured outputs listed in Context (first and last lines of each, exit
       codes, column widths, line endings) with the build path, SHA-256 and date, plus
       `--help` with a listen-URL-looking argument (`--help http://127.0.0.1:1/`) and `-h all`
       to pin how curl decides whether the next argument is a subject.
-- [ ] It decides and states, with the reason:
+- [x] It decides and states, with the reason:
       1. The category list: each name and one-line description, in order, including
          `auth`, `testing`, `security`, `tls`, `logging`, `content`, `limits` and one per
          scheme family surl serves today (`http`, `dict`, `gopher`, `mqtt`, `telnet`,
@@ -83,19 +83,35 @@ be placed in a category here.
          directory and `.surl` folder, in-memory mode, accounts and `--user-file`, log levels),
          where its text lives (a `Surl.Cli` resource or constant), line width, and that every
          statement must be true of the code when it lands.
-- [ ] It states it supersedes ADR-0007 section 6's help text and section 1's `-h` rule;
+- [x] It states it supersedes ADR-0007 section 6's help text and section 1's `-h` rule;
       ADR-0007 gains one "Superseded in part" line naming ADR-0034.
-- [ ] `Documentation/Planning/Decisions/README.md` lists ADR-0034.
-- [ ] `Documentation/Product/Requirements.md`: FR-009 is reworded to the categorised help
+- [x] `Documentation/Planning/Decisions/README.md` lists ADR-0034.
+- [x] `Documentation/Product/Requirements.md`: FR-009 is reworded to the categorised help
       and `--manual`, citing ADR-0034; FR-008 lists `--manual`.
-- [ ] No HTML comment remains in the ADR.
+- [x] No HTML comment remains in the ADR.
 
 ## Notes
 
 Depends on BL-100 and BL-101 so every new option already has its ADR when it is placed in a
 category.
 
+2026-09-29, delivered as ADR-0034 (the number was free). Re-measured with
+`Record-CurlExchange.ps1 -NoServer` on the pinned build (SHA-256 recomputed, matches).
+Correction to Context: curl's `--help` has 14 option lines, not 15. Key decisions: 14
+categories in ordinal order (`auth`, `content`, `dict`, `gopher`, `http`, `limits`,
+`logging`, `mqtt`, `security`, `surl`, `telnet`, `testing`, `tftp`, `tls`); curl's measured
+79-column layout rule adopted exactly, so every description is at most 34 characters and
+defaults move to `--help <option>`, which is answered; the subject is the next argument
+whatever it is (as curl), or the rest of a `-h` bundle (differs: curl shows no help for
+`-hauth`); unknown option subject writes `surl: Incorrect option name ...` to stderr, exit
+0; `CommandLineParseResult.ShowHelp(string? subject)` with `HelpSubject`, `HelpText.Answer`
+returning `HelpAnswer(Output, Error)`, `OptionHelp` on every option row; `-M`/`--manual`
+from `ManualText.cs`, 13 sections, 79 columns, no banner; the `try` line gains
+`or 'surl --manual'` in BL-123. ADR-0031 and ADR-0032 also gained "Superseded in part"
+lines for their help descriptions.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0034 pins curl-style --help, --help all/category/<category>/<option> and --manual from measured curl 8.21.0
