@@ -4,7 +4,7 @@ title: Serve https from surl and prove it with pinned upstream curl
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-012, BL-019, BL-020]
+depends-on: [BL-012, BL-019, BL-020, BL-062, BL-064, BL-065, BL-067]
 touches: [Surl.Console, Surl.Console.UnitTests, Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-09-28
@@ -55,7 +55,15 @@ The pinned upstream curl 8.21.0 build fetches from it, as integration tests in
 
 ## Notes
 
+- 2026-09-28 (lane 3): Not startable yet. `https` needs four unfinished tasks: BL-065 (the
+  serving engine performs the implicit handshake; today it never calls
+  `UpgradeToTlsAsync`), BL-067 (load `--cert`, `--key` and `--cacert` into
+  `ServerTlsSettings`), BL-064 (`CertificateProblem` 58 and `CaCertificateBadFile` 77 for
+  the bad-file cases) and BL-062 (`surl` composes `SocketListenerFactory`, which takes the
+  TLS settings, in place of `TcpListenerFactory`). Added to `depends-on`; no code changed.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Backlog. Waits on BL-062, BL-064, BL-065 and BL-067: engine handshake, cert loading, exit codes 58/77 and the TLS-capable listener factory
