@@ -8,7 +8,7 @@ Exchanges recorded from upstream curl 8.21.0, the win-x64 build pinned in
 Each case was fed the exact packets `MqttProtocolServer` sends for it before any test
 pinned them: `CONNACK` 0 once curl's `CONNECT` had arrived, then, for a subscribe,
 everything Surl answers to curl's `SUBSCRIBE` in one burst (`SUBACK`, the retained
-`PUBLISH`es, `DISCONNECT`). Every case exited 0 with an empty `stderr.txt`. ADR-0014 records
+`PUBLISH`es, `DISCONNECT`). Every case in the first table below exited 0 with an empty `stderr.txt`. ADR-0014 records
 why the subscribe ends with `DISCONNECT`: without it the pinned build exits 56.
 
 Each folder holds the recorder's five files - `request.bin` (the bytes curl sent),
@@ -36,6 +36,32 @@ Recorded on 2026-09-28 from the repository root, in Windows PowerShell, with
 The two 200-byte cases carry a remaining length of 203, encoded in two bytes as
 `CB 01` (MQTT 3.1.1, section 2.2.3): outbound in Surl's `PUBLISH` for
 `subscribe-200-bytes`, inbound in curl's `PUBLISH` for `publish-200-bytes`.
+
+## Closes (BL-053)
+
+What the pinned build reports when the server closes with no reply, as `MqttProtocolServer`
+does for each hardening limit (ADR-0006, section 5). Recorded on 2026-09-29 from the
+repository root, in Windows PowerShell, with the same build and SHA-256 as above, `$ca` as
+above, `$tmp\big.bin` 1048576 bytes of `x` and `$tmp\small.bin` 201 bytes of `x`, each with
+no line ending. A `-Raw` recording with no further reply closes once curl goes idle, which is
+what Surl's close looks like from curl's side. `reply.bin` holds what the server sent: nothing
+before `CONNACK`, or `CONNACK` 0 alone.
+
+| Folder | curl reported | Command line |
+| --- | --- | --- |
+| `closed-before-connack` | exit 56, `curl: (56) Connection disconnected` | `.\Record-CurlExchange.ps1 -Port 18853 -Raw -CurlArgs '-sS','mqtt://127.0.0.1:18853/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\closed-before-connack` |
+| `publish-closed-before-connack` | exit 56, `curl: (56) Connection disconnected` | `.\Record-CurlExchange.ps1 -Port 18853 -Raw -CurlArgs '-sS','-d','hi','mqtt://127.0.0.1:18853/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\publish-closed-before-connack` |
+| `packet-over-the-limit` | exit 0, empty stderr | `.\Record-CurlExchange.ps1 -Port 18853 -Raw -RawReply $ca -CurlArgs '-sS','-d',"@$tmp\big.bin",'mqtt://127.0.0.1:18853/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\packet-over-the-limit` |
+| `publish-payload-over-the-limit` | exit 0, empty stderr | `.\Record-CurlExchange.ps1 -Port 18853 -Raw -RawReply $ca -CurlArgs '-sS','-d',"@$tmp\small.bin",'mqtt://127.0.0.1:18853/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\publish-payload-over-the-limit` |
+
+A close before `CONNACK` - a head timeout, and the bare close a connection refusal gets - is
+reported as exit 56. A close after the `PUBLISH` of `-d` is not reported at all: curl sends a
+QoS 0 `PUBLISH` and exits 0 without waiting for any reply. `packet-over-the-limit` is a
+`PUBLISH` of 1048583 bytes (remaining length `83 80 40`), over the default 1048576-byte
+packet limit; `publish-payload-over-the-limit` a 201-byte payload, over the 200-byte
+`MaxUploadBytes` `PublishPayloadLimitTests` sets. The recorder read the whole `PUBLISH`,
+where Surl reads only its first bytes before closing; the pinned build had already exited 0
+by then either way.
 
 curl prints each `PUBLISH` it receives as its topic length, topic and payload, so
 `stdout.bin` for `subscribe-t` is `00 01 74 68 69`.
