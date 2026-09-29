@@ -77,3 +77,4 @@ error 0 - with every datagram one pinned upstream curl 8.21.0 was fed and record
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-29: Backlog -> Doing.
