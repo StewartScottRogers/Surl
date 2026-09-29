@@ -145,3 +145,4 @@ the behaviour (BL-093) and in the closing docs task (BL-098), not here.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
