@@ -19,13 +19,13 @@ internal static class DictTestExchange
 
     private static readonly DateTimeOffset FileTime = new(2026, 9, 1, 8, 30, 0, TimeSpan.Zero);
 
-    public static InMemoryContentFileSystem StandardFileSystem() => new InMemoryContentFileSystem()
+    public static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
         .AddFile(Path.Join(Root, "hello"), "A greeting.\n"u8.ToArray(), FileTime)
         .AddFile(Path.Join(Root, "help"), "Assistance.\n"u8.ToArray(), FileTime)
         .AddFile(Path.Join(Root, "world"), "The earth.\n"u8.ToArray(), FileTime);
 
-    public static DictProtocolServer Server(InMemoryContentFileSystem? fileSystem = null) =>
+    public static DictProtocolServer Server(UnitTestInMemoryContentFileSystem? fileSystem = null) =>
         new(new ContentStore(Root, fileSystem ?? StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
 
     public static ExchangeContext Context(

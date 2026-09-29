@@ -22,6 +22,10 @@ paths:
   directory immediately under the repository root. Never under a `tests/` folder.
 - One test class per production class: `<ClassName>Tests`.
 - Test method names: `MethodName_Condition_ExpectedResult`.
+- A test project's own implementation of `IContentFileSystem` starts with `UnitTest`
+  (`UnitTestInMemoryContentFileSystem`, `UnitTestThrowingContentFileSystem`), and so
+  does its file, so no test fake can be taken for the production
+  `DiskContentFileSystem` (Stewart, 2026-09-29).
 - Arrange / Act / Assert sections separated by a blank line.
 - Tests touching the network, file system, or a database get `[TestCategory("Integration")]`,
   which the fast run excludes with `--filter "TestCategory!=Integration"`.

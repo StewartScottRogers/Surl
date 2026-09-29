@@ -15,7 +15,7 @@ public sealed partial class ContentStoreTests
     {
         var options = new ContentExposureOptions();
 
-        var store = new ContentStore(Root, new InMemoryContentFileSystem(), options);
+        var store = new ContentStore(Root, new UnitTestInMemoryContentFileSystem(), options);
 
         Assert.AreSame(options, store.ExposureOptions);
     }
@@ -23,7 +23,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void Constructor_RejectsMissingExposureOptions()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new ContentStore(Root, new InMemoryContentFileSystem(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new ContentStore(Root, new UnitTestInMemoryContentFileSystem(), null!));
     }
 
     [TestMethod]
@@ -66,7 +66,7 @@ public sealed partial class ContentStoreTests
     public void MapRequestPath_ServedRootIsASymbolicLinkAndLinksAreOff_StillServesItsFiles()
     {
         string realRoot = Path.Join("/", "data", "www");
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddSymbolicLink(Root, realRoot)
             .AddDirectory(realRoot)
             .AddFile(Path.Join(realRoot, "file.txt"));
@@ -112,7 +112,7 @@ public sealed partial class ContentStoreTests
     [DataRow("/missing.txt")]
     public void ListDirectory_DefaultOptions_IsAnsweredAsAMissingPathWithoutReadingADirectory(string requestPath)
     {
-        InMemoryContentFileSystem fileSystem = ExposureFileSystem();
+        UnitTestInMemoryContentFileSystem fileSystem = ExposureFileSystem();
         ContentStore store = new(Root, fileSystem, new ContentExposureOptions());
         ContentPathMapping mapping = store.MapRequestPath(requestPath);
         fileSystem.Calls.Clear();
@@ -218,10 +218,10 @@ public sealed partial class ContentStoreTests
     /// The served root holding a dot-directory, a dot-file, a directory with a dot-file and a
     /// plain file, a symbolic link to that directory, and a link out of the root.
     /// </summary>
-    private static InMemoryContentFileSystem ExposureFileSystem()
+    private static UnitTestInMemoryContentFileSystem ExposureFileSystem()
     {
         string outside = Path.Join("/", "etc");
-        return new InMemoryContentFileSystem()
+        return new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddDirectory(Path.Join(Root, ".git"))
             .AddFile(Path.Join(Root, ".git", "config"))

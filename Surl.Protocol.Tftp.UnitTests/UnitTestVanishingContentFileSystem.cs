@@ -7,7 +7,7 @@ namespace Surl.Protocol.Tftp;
 /// its first look, so a test can make a file or directory disappear between the content
 /// store mapping a file name and reading what is there.
 /// </summary>
-internal sealed class VanishingContentFileSystem(IContentFileSystem inner) : IContentFileSystem
+internal sealed class UnitTestVanishingContentFileSystem(IContentFileSystem inner) : IContentFileSystem
 {
     private readonly HashSet<string> looked = new(StringComparer.Ordinal);
 

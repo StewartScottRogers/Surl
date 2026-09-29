@@ -6,7 +6,7 @@ namespace Surl.Protocol.Dict;
 /// A hand-written in-memory <see cref="IContentFileSystem"/> for the DICT server's tests:
 /// files, directories and one-hop symbolic links keyed by full path.
 /// </summary>
-internal sealed class InMemoryContentFileSystem : IContentFileSystem
+internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
 {
     private readonly Dictionary<string, ContentEntryKind> entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, byte[]> fileContents = new(StringComparer.Ordinal);
@@ -20,7 +20,7 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
     /// of <paramref name="contents"/> when it is <see langword="null"/>, so a test can make a
     /// file shrink between its status and its read.
     /// </summary>
-    public InMemoryContentFileSystem AddFile(string path, byte[] contents, DateTimeOffset lastWriteTime, long? reportedLength = null)
+    public UnitTestInMemoryContentFileSystem AddFile(string path, byte[] contents, DateTimeOffset lastWriteTime, long? reportedLength = null)
     {
         entries[path] = ContentEntryKind.File;
         fileContents[path] = contents;
@@ -33,13 +33,13 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
     /// Adds a file whose status can be read but whose opening throws <paramref name="failure"/>,
     /// as when it is deleted or its access is denied between the two.
     /// </summary>
-    public InMemoryContentFileSystem AddUnreadableFile(string path, Exception failure)
+    public UnitTestInMemoryContentFileSystem AddUnreadableFile(string path, Exception failure)
     {
         openFailures[path] = failure;
         return AddFile(path, [], DateTimeOffset.UnixEpoch, reportedLength: 1);
     }
 
-    public InMemoryContentFileSystem AddDirectory(string path)
+    public UnitTestInMemoryContentFileSystem AddDirectory(string path)
     {
         entries[path] = ContentEntryKind.Directory;
         lastWriteTimes[path] = DateTimeOffset.UnixEpoch;
@@ -50,7 +50,7 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
     /// Adds a symbolic link at <paramref name="path"/> to the entry at <paramref name="target"/>;
     /// it is enumerated under its own name and resolves in one hop.
     /// </summary>
-    public InMemoryContentFileSystem AddSymbolicLink(string path, string target)
+    public UnitTestInMemoryContentFileSystem AddSymbolicLink(string path, string target)
     {
         symbolicLinks[path] = target;
         entries[path] = ContentEntryKind.None;

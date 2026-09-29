@@ -81,7 +81,7 @@ public sealed partial class ContentStoreTests
     [DataRow("C:srv")]
     public void Constructor_ServedRootRelativeToTheCurrentDirectory_Throws(string servedRoot)
     {
-        var fileSystem = new InMemoryContentFileSystem();
+        var fileSystem = new UnitTestInMemoryContentFileSystem();
 
         Assert.ThrowsExactly<ArgumentException>(() => new ContentStore(servedRoot, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot));
     }
@@ -91,7 +91,7 @@ public sealed partial class ContentStoreTests
     [DataRow("/")]
     public void Constructor_ServedRootStartingWithASlash_IsKeptAsGiven(string servedRoot)
     {
-        var store = new ContentStore(servedRoot, new InMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var store = new ContentStore(servedRoot, new UnitTestInMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         Assert.AreEqual(servedRoot, store.ServedRoot);
     }
@@ -103,7 +103,7 @@ public sealed partial class ContentStoreTests
     [DataRow(@"\\server\share")]
     public void Constructor_WindowsServedRootIndependentOfTheCurrentDirectory_IsKeptAsGiven(string servedRoot)
     {
-        var store = new ContentStore(servedRoot, new InMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var store = new ContentStore(servedRoot, new UnitTestInMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         Assert.AreEqual(servedRoot, store.ServedRoot);
     }
@@ -112,14 +112,14 @@ public sealed partial class ContentStoreTests
     [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
     public void Constructor_BackslashServedRootOffWindows_ThrowsAsRelative()
     {
-        var fileSystem = new InMemoryContentFileSystem();
+        var fileSystem = new UnitTestInMemoryContentFileSystem();
 
         Assert.ThrowsExactly<ArgumentException>(() => new ContentStore(@"\srv\www", fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot));
     }
 
     private static ContentStore TrailingSlashStore(ContentExposureOptions options)
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddDirectory(Path.Join(Root, "dir"))
             .AddFile(TrailingSlashFile, [1, 2, 3, 4], Modified);

@@ -6,7 +6,7 @@ namespace Surl.Protocol.Gopher;
 /// A hand-written in-memory <see cref="IContentFileSystem"/> for the Gopher server's tests:
 /// files and directories keyed by full path, with no symbolic links.
 /// </summary>
-internal sealed class InMemoryContentFileSystem : IContentFileSystem
+internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
 {
     private readonly Dictionary<string, ContentEntryKind> entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, byte[]> fileContents = new(StringComparer.Ordinal);
@@ -18,7 +18,7 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
     /// of <paramref name="contents"/> when it is <see langword="null"/>, so a test can make a
     /// file shrink between its status and its read.
     /// </summary>
-    public InMemoryContentFileSystem AddFile(string path, byte[] contents, DateTimeOffset lastWriteTime, long? reportedLength = null)
+    public UnitTestInMemoryContentFileSystem AddFile(string path, byte[] contents, DateTimeOffset lastWriteTime, long? reportedLength = null)
     {
         entries[path] = ContentEntryKind.File;
         fileContents[path] = contents;
@@ -27,7 +27,7 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
         return this;
     }
 
-    public InMemoryContentFileSystem AddDirectory(string path)
+    public UnitTestInMemoryContentFileSystem AddDirectory(string path)
     {
         entries[path] = ContentEntryKind.Directory;
         lastWriteTimes[path] = DateTimeOffset.UnixEpoch;
