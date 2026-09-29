@@ -42,6 +42,8 @@ so `surl --tlsv1.3 https://…` accepts only TLS 1.3 and `--tls-max 1.2` only TL
 
 ## Notes
 
+- The composition was already in place: `ServerTlsComposition.CreateSettings` (landed with the https composition, commit ba6cfb3) sets `AcceptedVersions = new TlsVersionRange(commandLine.LowestTlsVersion, commandLine.HighestTlsVersion)`. This task added the missing proofs in `ServerTlsCompositionTests`: `AcceptedProtocols` asserted for the default (Tls12|Tls13) and `--tlsv1.3` (Tls13), and a new `Compose_HttpsWithTlsMax12_AcceptsOnlyTls12`. No production change.
+
 ## Log
 
 - 2026-09-29: Created.
