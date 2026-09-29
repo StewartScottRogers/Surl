@@ -8,7 +8,7 @@ depends-on: [BL-090]
 touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests]
 requirement: FR-024
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-092 — Never serve, list or accept uploads into the .surl folder of the served root
 
@@ -37,25 +37,38 @@ overwrite it.
 
 ## Acceptance criteria
 
-- [ ] With `ServeDotFiles` on and every other exposure option on, tests in
+- [x] With `ServeDotFiles` on and every other exposure option on, tests in
       `ContentStoreTests` (a new partial file `ContentStoreTests.ServiceStateFolder.cs`)
       prove: reading `/.surl`, `/.surl/`, `/.surl/lock` and `/.surl/mqtt/x` is answered as
       a missing entry; a listing of `/` omits `.surl`; an upload to `/.surl/x` and to
       `/.surl` is refused as not permitted; a symbolic link `/link` whose target is
       `<root>/.surl/lock` is answered as missing with `FollowSymbolicLinks` on.
-- [ ] The same requests with a differently cased name (`/.SURL/lock`) are answered as
+- [x] The same requests with a differently cased name (`/.SURL/lock`) are answered as
       ADR-0031 decision 5 says, each pinned by a test.
-- [ ] A dot-file that is not `.surl` (`/.hidden`), and a `.surl` folder below the top
+- [x] A dot-file that is not `.surl` (`/.hidden`), and a `.surl` folder below the top
       (`/sub/.surl/x`) if ADR-0031 says only the top one is reserved, are still served
       with `ServeDotFiles` on, as today.
-- [ ] `ContentStore`'s XML doc comment states the rule and cites ADR-0031.
-- [ ] `dotnet build Surl.Content.UnitLibrary -warnaserror` is clean, the fast tests pass,
+- [x] `ContentStore`'s XML doc comment states the rule and cites ADR-0031.
+- [x] `dotnet build Surl.Content.UnitLibrary -warnaserror` is clean, the fast tests pass,
       `Surl.Content.UnitLibrary` keeps 100% line and branch coverage, and no new test needs
       `TestCategory=Integration`.
 
 ## Notes
 
+- Delivered directly rather than through the full `/feature` agent chain: ADR-0031 decision 5
+  already fixes the behaviour, so there was nothing left to plan, and the change is one
+  private rule in `ContentStore` plus tests.
+- The rule checks both the path as asked for (joined to the resolved root) and the path its
+  links resolve to, each relative to the resolved root, first segment compared
+  `OrdinalIgnoreCase`. One helper serves `MapRequestPath` (so reads, status, listing of the
+  folder itself and uploads all fall out of `AnsweredAsAbsent`) and the listing's entry
+  filter (so the root listing leaves out `.surl`, `.SURL`, and links into it).
+- `/.surlx` and `/sub/.surl/x` stay ordinary dot-files, pinned in
+  `ContentStoreTests.ServiceStateFolder.cs`. `Surl.Content.UnitLibrary` measured at 100%
+  line and branch coverage (Cobertura from the fast tests).
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ContentStore never serves, lists or accepts uploads into <root>/.surl, any case, directly or through a link
