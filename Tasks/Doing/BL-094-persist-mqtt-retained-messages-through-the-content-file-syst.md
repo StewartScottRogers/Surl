@@ -68,3 +68,4 @@ store (`MaxTopics`, `MaxTotalPayloadBytes`); a loaded file is held to the same b
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
