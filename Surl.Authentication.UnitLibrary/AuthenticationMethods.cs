@@ -43,13 +43,24 @@ public static class AuthenticationMethods
     /// The method an <c>Authorization</c> field's scheme names, matched case-insensitively
     /// (RFC 9110 section 11.1): <c>Negotiate</c>, <c>NTLM</c>, <c>Digest</c>, <c>Basic</c>,
     /// <c>Bearer</c> and <c>AWS4-HMAC-SHA256</c>, the scheme upstream curl's <c>--aws-sigv4</c>
-    /// sends for the <c>aws</c> provider.
+    /// sends for the <c>aws</c> provider, or the same with any other provider's letters and
+    /// digits before <c>4-HMAC-SHA256</c> (<c>OSC4-HMAC-SHA256</c>, ADR-0043).
     /// </summary>
     /// <param name="scheme">The scheme token as received.</param>
     /// <param name="method">The method, when the scheme names one.</param>
     /// <returns><see langword="true"/> when the scheme names one of the six methods.</returns>
-    public static bool TryFromAuthorizationScheme(string scheme, out AuthenticationMethod method) =>
-        MethodsByAuthorizationScheme.TryGetValue(scheme, out method);
+    public static bool TryFromAuthorizationScheme(string scheme, out AuthenticationMethod method)
+    {
+        if (MethodsByAuthorizationScheme.TryGetValue(scheme, out method))
+        {
+            return true;
+        }
+
+        var isAwsSigV4 = AwsSigV4Provider.IsScheme(scheme);
+        method = isAwsSigV4 ? AuthenticationMethod.AwsSigV4 : default;
+
+        return isAwsSigV4;
+    }
 
     /// <summary>
     /// The <c>Authorization</c> scheme that names <paramref name="method"/>, spelt as

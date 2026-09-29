@@ -118,3 +118,24 @@ Protocol servers receive what it provides through the contracts in Abstractions.
   (`SEC_E_NO_CREDENTIALS`, `Fixtures/negotiate-no-token`), so the tests wrap the NTLM messages
   recorded for BL-120 in SPNEGO (`SpnegoTestTokens`); composing it in `surl` and the end-to-end
   proof are BL-134.
+
+## AWS Signature Version 4 (BL-122)
+
+- `AwsSigV4AuthenticationMethod` offers no challenge (curl's `--aws-sigv4` signs the first
+  request unasked) and checks the signature against the account the access key ID names, with
+  the account's password as the secret, at the injected `TimeProvider`'s time (ADR-0043): the
+  signed `x-<provider>-date` must be within `RequestTimeWindow` (15 minutes) either way, and
+  `host` and the date must be signed. It holds no per-connection state.
+- `AwsSigV4Authorization` reads the `Credential`, `SignedHeaders` and `Signature` parameters;
+  `AwsSigV4Provider` recognises any `<PROVIDER>4-HMAC-SHA256` scheme (`AuthenticationMethods`
+  maps them all to `AwsSigV4`) and spells the algorithm and key prefix;
+  `AwsSigV4CanonicalRequest` rebuilds the canonical request as measured from pinned upstream
+  curl (the path encoded again except for `s3`, the query decoded, re-encoded and sorted by name
+  then value, signed fields trimmed with inner spaces made one); `AwsSigV4Calculation` is the
+  string to sign and the HMAC-SHA256 key derivation.
+- `AccountBook.FindAwsSigV4Account` holds each named account's password as UTF-8 bytes; an
+  unknown or empty key gets a random dummy, compared the same way.
+- The payload hash is the `x-<provider>-content-sha256` field (always sent for `s3`), or the
+  empty body's for a request with no body; any other request with a body is refused. The body
+  itself is not compared with the signed hash yet: BL-136.
+- The tests replay the `aws-sigv4-*` requests in `Surl.Authentication.UnitTests/Fixtures`.

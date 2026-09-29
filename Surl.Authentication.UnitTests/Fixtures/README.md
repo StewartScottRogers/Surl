@@ -109,3 +109,26 @@ build's `NEGOTIATE_MESSAGE` and the fixed server challenge. SSPI sent bare NTLM 
 | --- | --- | --- | --- | --- |
 | `negotiate-ntlm` | `2`: `<negotiate401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` | `'-sS','--negotiate','-u','tester:secret','http://127.0.0.1:18134/x'` | 0 | `request-1.bin`: `Authorization: Negotiate` with a 40-byte `NEGOTIATE_MESSAGE`; `request-2.bin`: the NTLMv2 `AUTHENTICATE_MESSAGE` for `tester:secret`, empty domain; stdout `ok` |
 | `negotiate-ntlm-wrong-password` | `3`: `<negotiate401>`, then `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate\r\nContent-Length: 0\r\n\r\n` | `'-sS','-f','--negotiate','-u','tester:wrong','http://127.0.0.1:18134/x'` | 22 | the answer for `tester:wrong`; after the second `401` curl gives up (`curl: (22) The requested URL returned error: 401`) and sends no third request |
+
+## AWS Signature Version 4 (BL-122)
+
+Recorded on 2026-09-29 with the reference build and `-Port 18122`, one connection answered with
+`HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 2\r\n\r\nok`
+(`aws-sigv4-refused`: with `<401>` and
+`WWW-Authenticate: Digest realm=\"surl\", qop=\"auth\", algorithm=MD5, nonce=\"fixturenonce\"\r\n\r\n`).
+Every case ran `'-sS','--aws-sigv4',<provider>,'-u','AKIDEXAMPLE:secret'` (`AKIDEXAMPLE:wrong`
+for `aws-sigv4-refused`) and exited 0. The signing time is the recorded `X-<Provider>-Date`
+field, which the tests set their clock to. What the requests show is ADR-0043's "Measured".
+
+| Folder | `<provider>` | Other `-CurlArgs` | What it shows |
+| --- | --- | --- | --- |
+| `aws-sigv4-get` | `aws:amz:us-east-1:s3` | `'http://127.0.0.1:18122/x'` | `SignedHeaders=host;x-amz-content-sha256;x-amz-date`, the empty body's hash |
+| `aws-sigv4-put` | `aws:amz:us-east-1:s3` | `'-X','PUT','-d','body','http://127.0.0.1:18122/x'` | `x-amz-content-sha256` is the body's SHA-256; `Content-Type` not signed |
+| `aws-sigv4-query` | `aws:amz:us-east-1:s3` | `'http://127.0.0.1:18122/dir/x?z=%41&b=2&a=1'` | the query sorted and `%41` read as `A` |
+| `aws-sigv4-query-encoding` | `aws:amz:us-east-1:s3` | `'http://127.0.0.1:18122/x?b=%7e&a=x%2fy&c&a-b=1&A=Z+z&e=%zz&f=a=b'` | canonical query `A=Z%20z&a=x%2Fy&a-b=1&b=~&c=&e=%25zz&f=a%3Db` |
+| `aws-sigv4-path-encoding` | `aws:amz:us-east-1:ec2` | `'http://127.0.0.1:18122/a%41b/c~d!e'` | no content hash field; the path encoded again, `/a%2541b/c~d%21e` |
+| `aws-sigv4-ec2-put` | `aws:amz:us-east-1:ec2` | `'-X','PUT','-d','body','http://127.0.0.1:18122/x'` | no content hash field, so the body's hash is signed but not sent |
+| `aws-sigv4-provider-only` | `aws` | `'--resolve','s3.us-east-1.example:18122:127.0.0.1','http://s3.us-east-1.example:18122/x'` | service and region from the host name; `X-Aws-Date`, `x-aws-content-sha256` |
+| `aws-sigv4-other-provider` | `osc:osc:eu-west-2:api` | `'http://127.0.0.1:18122/x'` | `OSC4-HMAC-SHA256`, `osc4_request`, `X-Osc-Date` |
+| `aws-sigv4-extra-headers` | `aws:amz:us-east-1:s3` | `'-H','X-Test:  a   b  ','-H','Content-Type: text/plain','http://127.0.0.1:18122/x'` | both fields signed; `x-test` signed as `a b` |
+| `aws-sigv4-refused` | `aws:amz:us-east-1:s3` | `'http://127.0.0.1:18122/x'` | signed with the wrong secret; after the `401` curl exits 0 with an empty body and does not sign again |

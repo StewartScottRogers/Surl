@@ -1,0 +1,8 @@
+GET /x HTTP/1.1
+Host: s3.us-east-1.example:18122
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260929/us-east-1/s3/aws4_request, SignedHeaders=host;x-aws-content-sha256;x-aws-date, Signature=35bbde2be26d9c035e842cdd47abc046d1153443c233afc688cd9cb90bc5dac8
+X-Aws-Date: 20260929T210407Z
+x-aws-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+User-Agent: curl/8.21.0
+Accept: */*
+

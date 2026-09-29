@@ -54,6 +54,8 @@ public sealed class AuthenticationMethodsTests
     [DataRow("Basic", AuthenticationMethod.Basic)]
     [DataRow("BEARER", AuthenticationMethod.Bearer)]
     [DataRow("AWS4-HMAC-SHA256", AuthenticationMethod.AwsSigV4)]
+    [DataRow("OSC4-HMAC-SHA256", AuthenticationMethod.AwsSigV4)]
+    [DataRow("goog4-hmac-sha256", AuthenticationMethod.AwsSigV4)]
     public void TryFromAuthorizationScheme_KnownScheme_NamesItsMethod(string scheme, AuthenticationMethod expected)
     {
         Assert.IsTrue(AuthenticationMethods.TryFromAuthorizationScheme(scheme, out var method));
@@ -62,6 +64,9 @@ public sealed class AuthenticationMethodsTests
 
     [TestMethod]
     [DataRow("Foo")]
+    [DataRow("4-HMAC-SHA256")]
+    [DataRow("A-B4-HMAC-SHA256")]
+    [DataRow("AWS4-HMAC-SHA1")]
     [DataRow("")]
     public void TryFromAuthorizationScheme_UnknownScheme_NamesNone(string scheme)
     {

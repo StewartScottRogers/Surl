@@ -10,8 +10,9 @@ namespace Surl.Authentication;
 /// length never depends on the password's. An unknown user name is compared against a random
 /// dummy hash, so it costs the same work as a wrong password and gets the same answer. For
 /// Digest it also keeps each named account's <c>H(name:surl:password)</c> under every
-/// <see cref="DigestAlgorithm"/>, computed once here, and never the clear password (ADR-0036);
-/// for NTLM, each named account's NT hash (ADR-0039).
+/// <see cref="DigestAlgorithm"/>, computed once here (ADR-0036); for NTLM, each named account's
+/// NT hash (ADR-0039); and for AWS Signature Version 4, each named account's password as UTF-8
+/// bytes, since every signing key derives from the secret itself (ADR-0043).
 /// </summary>
 public sealed class AccountBook
 {
@@ -24,6 +25,8 @@ public sealed class AccountBook
     private readonly DigestAccount dummyDigestAccount;
     private readonly Dictionary<string, NtlmAccount> ntlmAccounts = new(StringComparer.Ordinal);
     private readonly NtlmAccount dummyNtlmAccount = new(null, RandomNumberGenerator.GetBytes(16));
+    private readonly Dictionary<string, AwsSigV4Account> awsSigV4Accounts = new(StringComparer.Ordinal);
+    private readonly AwsSigV4Account dummyAwsSigV4Account = new(null, RandomNumberGenerator.GetBytes(40));
 
     /// <summary>
     /// Keeps <paramref name="accounts"/>, which <c>Surl.Cli</c> and <see cref="UserFileParser"/>
@@ -58,6 +61,7 @@ public sealed class AccountBook
         {
             ntlmAccounts[account.UserName] =
                 new NtlmAccount(account.UserName, NtlmV2Calculation.ComputeNtHash(account.Password));
+            awsSigV4Accounts[account.UserName] = new AwsSigV4Account(account.UserName, Encoding.UTF8.GetBytes(account.Password));
         }
     }
 
@@ -131,6 +135,17 @@ public sealed class AccountBook
     /// <returns>The account's name and NT hash, or the dummy's.</returns>
     internal NtlmAccount FindNtlmAccount(string userName) =>
         ntlmAccounts.GetValueOrDefault(userName, dummyNtlmAccount);
+
+    /// <summary>
+    /// The account an AWS Signature Version 4 access key ID names, matched exactly, with the
+    /// UTF-8 bytes of its password as the secret access key (ADR-0043). Any other key, the
+    /// empty one included, gets a dummy with a random secret, so it costs the same work and
+    /// matches nothing (ADR-0032, section 8).
+    /// </summary>
+    /// <param name="accessKeyId">The access key ID as sent.</param>
+    /// <returns>The account's name and secret, or the dummy's.</returns>
+    internal AwsSigV4Account FindAwsSigV4Account(string accessKeyId) =>
+        awsSigV4Accounts.GetValueOrDefault(accessKeyId, dummyAwsSigV4Account);
 
     private static IReadOnlyList<string> CreateUserHashes(Account account, Encoding encoding) =>
         [.. Enum.GetValues<DigestAlgorithm>().Select(algorithm => DigestCalculation.ComputeUserHash(
