@@ -8,7 +8,7 @@ depends-on: [BL-000, BL-001, BL-024]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Product-Overview.md, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-003 — Decide the Phase 1 command-line surface
 
@@ -44,35 +44,54 @@ BL-016 and BL-019 can then be implemented without asking anything.
 
 ## Acceptance criteria
 
-- [ ] A new ADR, numbered with the next free number, exists in
+- [x] A new ADR, numbered with the next free number, exists in
       `Documentation/Planning/Decisions/`, is marked "Decided by Claude under Stewart's
       delegation", has status Accepted, and is listed in that folder's `README.md` index.
-- [ ] The ADR's option table lists every Phase 1 option: short and long name, argument,
+- [x] The ADR's option table lists every Phase 1 option: short and long name, argument,
       meaning on the server side, default, and the `SurlExitCode` for a bad value. It
       includes at least `-h`/`--help`, `-V`/`--version`, `-v`/`--verbose`, the option
       naming the served directory, and the options BL-002's TLS ADR will need
       (`--cert`, `--key`, `--cacert`), even if those are marked "parsed in Phase 1,
       served once BL-012 lands", and every limit the hardening ADR (BL-024) makes
       configurable.
-- [ ] The ADR states the listen-URL rules: schemes accepted (lowercased), what `file`
+- [x] The ADR states the listen-URL rules: schemes accepted (lowercased), what `file`
       gets, the default port per scheme for every Phase 1 scheme, IPv4, bracketed IPv6
       and host-name hosts, port 0 meaning an ephemeral port, and what a path, query,
       user or password in a listen URL means or which exit code it gets.
-- [ ] The ADR gives the exact text of the listener status line, the `--version` output,
+- [x] The ADR gives the exact text of the listener status line, the `--version` output,
       the first line of `--help`, and the stderr message for each failure, with a
       `surl: ` prefix or not as decided.
-- [ ] The ADR gives the format of the `-v` verbose exchange log, including the line
+- [x] The ADR gives the format of the `-v` verbose exchange log, including the line
       markers for bytes received, bytes sent and notes.
-- [ ] The ADR records each upstream parser-convention measurement listed in Context,
+- [x] The ADR records each upstream parser-convention measurement listed in Context,
       with the pinned build's SHA-256, and states which conventions surl adopts.
-- [ ] `Documentation/Product/Product-Overview.md`, "Also in scope": the `> **TODO**` on
+- [x] `Documentation/Product/Product-Overview.md`, "Also in scope": the `> **TODO**` on
       the option table is replaced by a pointer to the new ADR.
-- [ ] `Documentation/Wiki/Glossary.md` has a row for "served directory", and for any
+- [x] `Documentation/Wiki/Glossary.md` has a row for "served directory", and for any
       other term the ADR introduces, each with its name in code.
 
 ## Notes
+
+- Decided in ADR-0007 (Accepted). Written in-session rather than through
+  `align-and-document`, because the ADR rests on ~60 measurements of the pinned build
+  taken in this session with `Record-CurlExchange.ps1 -NoServer` (fixtures kept only in
+  `%TEMP%\bl003`, not committed; the ADR tables carry every exit code and stderr line).
+- Measured: upstream 8.21.0 accepts `--option=value` (added in 8.16.0 per its manual),
+  ignores `=value` on a flag (`--silent=no` still silences), treats `--` as end of
+  options, allows interleaving, last-wins, no abbreviation, `--no-` only on booleans.
+  Default ports measured for all 24 schemes the build has; `smb`/`smbs` 445 from source.
+- Two deliberate differences from curl, recorded in the ADR: `=value` on a flag is
+  refused, and a scheme-less listen URL is refused instead of guessed as `http`.
+- Choices taken: served directory is `--directory`, default `.`; path/query/fragment and
+  user/password in a listen URL are `MalformedUrl`; `file`, `ipfs`, `ipns` are
+  `UnsupportedProtocol`; line endings are `Environment.NewLine` (the pinned Windows build
+  writes CR LF), which settles BL-016's open line-ending choice; verbose markers `<`
+  received, `>` sent, `*` note, relative to surl as curl's are relative to curl; no
+  `-s`/`-S` in Phase 1.
+- `--cert`/`--key`/`--cacert` formats and failure codes are left to BL-002's TLS ADR.
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. ADR-0007 fixes the Phase 1 command line: parser conventions measured from pinned 8.21.0, option table, listen-URL rules, exact output texts, verbose-log format
