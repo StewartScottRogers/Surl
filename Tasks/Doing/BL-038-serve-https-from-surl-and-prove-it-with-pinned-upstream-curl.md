@@ -58,3 +58,4 @@ The pinned upstream curl 8.21.0 build fetches from it, as integration tests in
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
