@@ -9,6 +9,9 @@ namespace Surl.Protocol.Telnet;
 /// </summary>
 /// <remarks>
 /// <para>
+/// ADR-0025 records how the TELNET server answers, and why.
+/// </para>
+/// <para>
 /// <b>The server speaks first.</b> Upstream curl 8.21.0 sends no negotiation until the server
 /// sends one, and sends its standard input as soon as it has it. So on connecting the server
 /// sends <c>IAC WILL SUPPRESS-GO-AHEAD</c>, <c>IAC DO TERMINAL-TYPE</c>,
@@ -40,10 +43,11 @@ namespace Surl.Protocol.Telnet;
 /// section 6).
 /// </para>
 /// <para>
-/// <b>Limits.</b> A line longer than <see cref="ExchangeLimits.MaxLineBytes"/>, its line
-/// ending included, is answered <c>line too long</c> and the connection closed; a
-/// subnegotiation longer than that closes the connection with no answer (ADR-0006, sections
-/// 1 and 5). A limit of 0 lets a line or subnegotiation grow without bound. A client that
+/// <b>Limits.</b> <see cref="ExchangeLimits.MaxLineBytes"/> (ADR-0006, section 1) bounds a
+/// line and a subnegotiation. A line longer than it, its line ending included, is answered
+/// <c>line too long</c> and the connection closed, a departure from ADR-0006 section 5's
+/// close with no bytes that ADR-0025 records; a subnegotiation longer than it closes the
+/// connection with no answer (ADR-0006, section 5). A limit of 0 lets a line or subnegotiation grow without bound. A client that
 /// closes the connection ends the session; one that closes it part way through a command
 /// gets a note saying so.
 /// </para>
