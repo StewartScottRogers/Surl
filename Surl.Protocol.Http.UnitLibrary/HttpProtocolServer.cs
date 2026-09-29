@@ -53,7 +53,8 @@ namespace Surl.Protocol.Http;
 /// <c>Content-Length</c> is past it is answered <c>413 Content Too Large</c> as a refusal
 /// before any body byte is read; a request with <c>Expect: 100-continue</c> gets that 413
 /// in place of <c>100 Continue</c>. After dispatch, the body of a <c>GET</c> or
-/// <c>HEAD</c> is read and discarded before the answer: a chunked one is answered 413 as
+/// <c>HEAD</c> is read and discarded before the answer, after <c>HTTP/1.1 100 Continue</c>
+/// when an HTTP/1.1 request carries <c>Expect: 100-continue</c> (ADR-0027): a chunked one is answered 413 as
 /// soon as its chunk data and trailer lines pass the limit, and one that is malformed or
 /// ends early <c>400 Bad Request</c>. A body the server cannot frame (a transfer coding
 /// other than <c>chunked</c>) is not read, and the connection closes after the response.

@@ -8,6 +8,12 @@ namespace Surl.Protocol.Http;
 internal sealed record HttpStatus(int Code, string ReasonPhrase)
 {
     /// <summary>
+    /// 100 Continue: an interim response, sent before the server reads the body of an
+    /// HTTP/1.1 request that carries <c>Expect: 100-continue</c>.
+    /// </summary>
+    public static HttpStatus Continue { get; } = new(100, "Continue");
+
+    /// <summary>
     /// 200 OK: the file follows.
     /// </summary>
     public static HttpStatus Ok { get; } = new(200, "OK");

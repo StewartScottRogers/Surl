@@ -87,7 +87,8 @@ are in `Surl.Protocol.Http.UnitTests/Fixtures/` and listed in its `README.md`:
   it is allowed to send is bounded only by the engine's idle timeout and maximum exchange
   duration, as any slow upload is; with `--max-filesize 0` it may send forever within them.
 - The server still never sends `100 Continue`; curl sends the body after its one-second
-  `--expect100-timeout`, which the discard then reads. Sending `100 Continue` before
-  reading a GET's or HEAD's body is left to a follow-up task.
+  `--expect100-timeout`, which the discard then reads. Superseded by
+  [ADR-0027](ADR-0027-the-http-server-sends-100-continue-before-it-reads-a-body.md): the
+  server now sends `100 Continue` before it reads a GET's or HEAD's body.
 - A file-system failure while answering still escapes `ServeAsync` with no byte written;
   BL-060 decides its answer, which must also be fixed text.

@@ -64,3 +64,18 @@ the same pinned build (ADR-0024). `response.bin` is again the decoded `-Response
 | --- | --- | --- | --- |
 | `post-refused-405` | 22 | empty; stderr `curl: (22) The requested URL returned error: 405` | `.\Record-CurlExchange.ps1 -Port 18061 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\post-refused-405 -Response 'HTTP/1.1 405 Method Not Allowed\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nAllow: GET, HEAD\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','-d','x','http://127.0.0.1:18061/file.txt'` |
 | `invalid-content-length-400` | 22 | empty; stderr `curl: (22) The requested URL returned error: 400` | `.\Record-CurlExchange.ps1 -Port 18061 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\invalid-content-length-400 -Response 'HTTP/1.1 400 Bad Request\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','-H','Content-Length: abc','http://127.0.0.1:18061/file.txt'` |
+
+## 100 Continue fixture (BL-083)
+
+Recorded on 2026-09-29 the same way, from the repository root in Windows PowerShell, with
+the same pinned build (ADR-0027), using `-InterimResponse`, which sends its bytes as soon as
+the head has arrived and before the body is waited for. `<upload>` is a 16-byte file of `a`
+bytes in the temporary directory. `request.bin` is curl's 178-byte head followed by its
+16-byte body, sent at once after the `100 Continue`; curl exited 0 after 105 ms, where the
+same run without `-InterimResponse` took 1037 ms, curl's one-second `--expect100-timeout`.
+`response.bin` holds every byte the server sent: the `100 Continue` followed by the 200 of
+`get-file`.
+
+| Folder | Exit code | stdout.bin | Command line |
+| --- | --- | --- | --- |
+| `expect-continue-get` | 0 | the 17-byte body `Hello from Surl.\n` | `.\Record-CurlExchange.ps1 -Port 18083 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\expect-continue-get -InterimResponse 'HTTP/1.1 100 Continue\r\n\r\n' -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs '-sS','-X','GET','-H','Expect: 100-continue','--data-binary','@<upload>','http://127.0.0.1:18083/file.txt'` |

@@ -104,7 +104,7 @@ internal sealed class HttpRequestResponder
     {
         var bodyOutcome = framing.Kind == HttpRequestBodyFramingKind.Unreadable
             ? HttpRequestBodyDiscardOutcome.Discarded
-            : await bodyDiscarder.DiscardAsync(framing, context.CancellationToken);
+            : await DiscardBodyAsync(head, framing);
         if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
         {
             return await RefuseBodyAsync(head, bodyOutcome);
@@ -122,6 +122,27 @@ internal sealed class HttpRequestResponder
 
         return await WriteFileResponseAsync(head, mapping, status, keepsConnectionOpen);
     }
+
+    // RFC 9110, section 10.1.1: a server that reads the content of a request expecting
+    // 100-continue sends 100 Continue first, so the client need not wait out its own timeout
+    // (curl's --expect100-timeout, one second) before it sends the body (ADR-0027).
+    private async Task<HttpRequestBodyDiscardOutcome> DiscardBodyAsync(HttpRequestHead head, HttpRequestBodyFraming framing)
+    {
+        if (framing.Kind != HttpRequestBodyFramingKind.None && ExpectsContinue(head))
+        {
+            await connection.WriteAsync(new HttpResponseHead(HttpStatus.Continue).ToBytes(), context.CancellationToken);
+        }
+
+        return await bodyDiscarder.DiscardAsync(framing, context.CancellationToken);
+    }
+
+    // The expectation is ignored in an HTTP/1.0 request (RFC 9110, section 10.1.1). Expect is
+    // a list, and 100-continue is matched without regard to case.
+    private static bool ExpectsContinue(HttpRequestHead head) =>
+        head.Version.Minor >= 1
+        && head.GetFieldValues("Expect")
+            .SelectMany(value => value.Split(','))
+            .Any(expectation => string.Equals(expectation.Trim(' ', '\t'), "100-continue", StringComparison.OrdinalIgnoreCase));
 
     // RFC 9112, section 3.2: 400 for an HTTP/1.1 request without Host, and for any request with two.
     private static bool HasHostAsRequired(HttpRequestHead head)
