@@ -58,3 +58,4 @@ ADRs are not rewritten (ADR-0031 already supersedes ADR-0007's default).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
