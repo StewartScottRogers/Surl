@@ -8,7 +8,7 @@ depends-on: [BL-002, BL-005]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests, Surl.Core.UnitLibrary, Surl.Core.UnitTests, Surl.Networking.UnitLibrary, Surl.Networking.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-006 — Add the server-side TLS contract to Surl.Protocol.Abstractions
 
@@ -33,14 +33,14 @@ ask for an upgrade, without referencing `SslStream`.
 
 ## Acceptance criteria
 
-- [ ] Each TLS type or member the ADR names exists with the ADR's name and an XML doc
+- [x] Each TLS type or member the ADR names exists with the ADR's name and an XML doc
       comment on every public member.
-- [ ] The in-memory connection reports a configurable TLS state and records an upgrade
+- [x] The in-memory connection reports a configurable TLS state and records an upgrade
       request, and tests cover both.
-- [ ] `ProtocolIsolationTests.Abstractions_ReferencesNothing` still passes.
-- [ ] `dotnet build Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, and
+- [x] `ProtocolIsolationTests.Abstractions_ReferencesNothing` still passes.
+- [x] `dotnet build Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, and
       `dotnet test --filter "TestCategory!=Integration"` is green.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Protocol.Abstractions.UnitLibrary`.
 
 ## Notes
@@ -63,6 +63,21 @@ ask for an upgrade, without referencing `SslStream`.
   `upgradeTlsSession` (default TLS 1.3, `TlsCipherSuite.TLS_AES_128_GCM_SHA256`, no ALPN,
   no client certificate), `upgradeFails`, and `UpgradeRequested`, with the
   `InvalidOperationException` cases ADR-0010 section 1 lists.
+- 2026-09-28 (lane 3): delivered as planned. Choices taken, all within ADR-0010:
+  - `TlsSchemes.IsImplicitTls` compares case-insensitively, as URL schemes are; it throws
+    `ArgumentNullException` for `null`.
+  - `InMemoryConnection.UpgradeRequested` is set once the upgrade passes its state checks
+    (already secured, half-closed, read pending, cancelled, aborted, disposed throw first
+    and leave it `false`), whether the handshake then succeeds or fails. After a failed
+    upgrade every later call throws `IOException`, standing in for "the connection is
+    unusable". Its writes complete synchronously, so "a write is pending" cannot arise.
+  - The default upgrade session is public as `InMemoryConnection.DefaultUpgradeTlsSession`
+    so protocol tests can assert against it.
+  - `StreamConnection.TlsSession` is `null` and `UpgradeToTlsAsync` throws
+    `NotSupportedException` until BL-012 implements the handshake.
+- Unrelated: `dotnet format --verify-no-changes` on the whole solution reports ENDOFLINE in
+  `Surl.Cli.UnitLibrary/SchemeDefaultPorts.cs`, outside this task's `touches`; the six
+  projects this task touches format clean.
 
 ## Log
 
@@ -70,3 +85,4 @@ ask for an upgrade, without referencing `SslStream`.
 - 2026-09-28: Backlog -> Doing.
 - 2026-09-28: Doing -> Backlog. Needs Surl.Networking.UnitLibrary (StreamConnection implements IConnection), which BL-055 in Doing touches
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. IConnection carries TlsSession and UpgradeToTlsAsync (ADR-0010); TlsSession, TlsHandshakeException and TlsSchemes exist; InMemoryConnection stands in for implicit TLS and upgrades
