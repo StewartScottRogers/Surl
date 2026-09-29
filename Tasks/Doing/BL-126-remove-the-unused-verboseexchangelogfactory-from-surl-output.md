@@ -41,3 +41,4 @@ ADRs are history. Mentions in `Documentation/Planning/Decisions/ADR-0028-…` an
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
