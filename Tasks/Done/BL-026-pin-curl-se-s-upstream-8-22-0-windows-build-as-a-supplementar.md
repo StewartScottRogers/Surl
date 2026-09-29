@@ -8,7 +8,7 @@ depends-on: []
 touches: [UpstreamCurlBuilds.json, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-026 — Pin curl.se's upstream 8.22.0 Windows build as a supplementary build for SMB, HTTP/2 and HTTP/3
 
@@ -48,7 +48,7 @@ role. 8.21.0 stays Surl's reference release everywhere else.
 
 ## Acceptance criteria
 
-- [ ] A new ADR, numbered with the next free number, exists in
+- [x] A new ADR, numbered with the next free number, exists in
       `Documentation/Planning/Decisions/`, marked "Decided by Claude under Stewart's
       delegation" and citing Stewart's 2026-09-28 approval and choice of option A. It is
       indexed in the folder's `README.md` and records: the download URL, the archive's
@@ -56,19 +56,33 @@ role. 8.21.0 stays Surl's reference release everywhere else.
       SHA-256, the full `curl --version` output, and the rule that a supplementary build
       is used only for the protocols and features named in the ADR, never to
       second-guess the reference build.
-- [ ] `UpstreamCurlBuilds.json` has the new `win-x64` entry with `role: supplementary`,
+- [x] `UpstreamCurlBuilds.json` has the new `win-x64` entry with `role: supplementary`,
       and the Git for Windows entry has `role: reference` and is otherwise unchanged.
       `release` stays `8.21.0`.
-- [ ] `Record-CurlExchange.ps1 -NoServer -Curl <path> -CurlArgs --version -OutDirectory
+- [x] `Record-CurlExchange.ps1 -NoServer -Curl <path> -CurlArgs --version -OutDirectory
       <tmp>` runs the new build without refusal, and `stdout.bin` matches the recorded
       version line.
-- [ ] ADR-0003 is not edited, because Accepted ADRs are immutable. The new ADR says it
+- [x] ADR-0003 is not edited, because Accepted ADRs are immutable. The new ADR says it
       carries out ADR-0003's decision 5 with an 8.22.0 build rather than 8.21.0, and why.
 
 ## Notes
+
+- 2026-09-28: curl.se still offered `8.22.0_2`; the downloaded archive hashed to the
+  published `7c8c6b95…6db0`. `bin\curl.exe` SHA-256 is `B028548A…26E86CC`. Recorded in
+  ADR-0017.
+- The build has HTTP2 and HTTP3 but **no `smb`/`smbs`** (and no `NTLM`). Pinned anyway
+  as the task says; ADR-0017 limits its role to HTTP/2 and HTTP/3 and the SMB gap is
+  filed as BL-072 (assigned to Stewart: another download to approve).
+- Path choice: `C:\UpstreamCurl\curl-8.22.0_2-win64-mingw\bin\curl.exe` - machine-wide,
+  because `UpstreamCurlBuildPins` reads `defaultPath` literally (no environment variable
+  expansion), and the archive's own folder name keeps the build number in the path.
+- `Record-CurlExchange.ps1 -NoServer -Curl <path> -CurlArgs --version` exited 0 and
+  the first line of `stdout.bin` equals the pinned `version`.
+- `dotnet build` clean; fast tests green (1,512 passed, 0 failed).
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Retargeted from 8.21.0 to curl.se's current 8.22.0_2 build as a supplementary build, per Stewart's choice of option A.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. curl.se's 8.22.0_2 Windows build is pinned as a supplementary build for HTTP/2 and HTTP/3 (ADR-0017); SMB gap filed as BL-072
