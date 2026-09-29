@@ -42,4 +42,14 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
     public DateTimeOffset GetLastWriteTimeUtc(string path) => lastWriteTimes[path];
 
     public Stream OpenFileForAsyncRead(string path) => new MemoryStream(fileContents[path], writable: false);
+
+    public IEnumerable<string> EnumerateDirectoryEntryNames(string path)
+    {
+        string prefix = path + Path.DirectorySeparatorChar;
+        return entries.Keys
+            .Where(entry => entry.StartsWith(prefix, StringComparison.Ordinal)
+                && entry.IndexOf(Path.DirectorySeparatorChar, prefix.Length) < 0)
+            .Select(entry => entry[prefix.Length..])
+            .ToList();
+    }
 }

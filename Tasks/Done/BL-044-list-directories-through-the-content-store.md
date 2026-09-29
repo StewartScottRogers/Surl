@@ -58,7 +58,7 @@ escape the root, or that the hardening ADR hides, are left out.
   rest of the store's looks, with the token checked before the read and before every
   entry. `IContentFileSystem.GetLastWriteTimeUtc` now covers directories too (the disk
   implementation already answered for them).
-- Decisions recorded in ADR-0008 (Decided by Claude under Stewart's delegation):
+- Decisions recorded in ADR-0009 (Decided by Claude under Stewart's delegation):
   ordinal order; names `MapRequestPath` would refuse are left out so every listed name
   can be requested; links out of the root and dangling links left out; in-root links
   listed under their own name with the target's status; Windows hidden/system
@@ -67,7 +67,7 @@ escape the root, or that the hardening ADR hides, are left out.
   and unfollowed links by default, but as `ContentStore` options that BL-047 adds and
   that already depends on this task. So this listing keeps dot-files and in-root links,
   and BL-047 filters them; no new follow-up task was needed.
-- `touches` widened to `Documentation/Planning/Decisions` for ADR-0008 and the index row;
+- `touches` widened to `Documentation/Planning/Decisions` for ADR-0009 and the index row;
   no task in Doing names it (BL-018: Surl.Protocol.Http; BL-029: Record-CurlExchange.ps1).
 - Tests: 14 fast listing tests in `ContentStoreTests` (one test class per production
   class), 3 Integration tests in `DiskContentFileSystemTests` (the symbolic-link one runs
