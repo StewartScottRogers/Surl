@@ -61,3 +61,4 @@ Wiring `mqtt` into `surl` and the live conformance run are BL-042.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
