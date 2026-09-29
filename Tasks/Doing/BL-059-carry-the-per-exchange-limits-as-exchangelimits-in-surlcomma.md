@@ -44,3 +44,4 @@ ADR-0007 section 3 says, in place of the five separate members BL-014 gave it.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-29: Backlog -> Doing.
