@@ -1,6 +1,6 @@
 # ADR-0008 — How the HTTP server answers GET, HEAD and what it refuses
 
-- **Status:** Accepted; partly superseded by [ADR-0019](ADR-0019-how-the-http-server-enforces-the-hardening-limits.md) (the 431 row, the persistence rule for a request with a body, and how refusals are written) and by [ADR-0023](ADR-0023-how-the-http-server-answers-a-file-system-failure.md) (the 404 row and the shrinking-file rule, widened to file-system failures)
+- **Status:** Accepted; partly superseded by [ADR-0019](ADR-0019-how-the-http-server-enforces-the-hardening-limits.md) (the 431 row, the persistence rule for a request with a body, and how refusals are written), by [ADR-0023](ADR-0023-how-the-http-server-answers-a-file-system-failure.md) (the 404 row and the shrinking-file rule, widened to file-system failures), and by [ADR-0024](ADR-0024-the-http-servers-drain-before-a-close-and-400-for-an-invalid-content-length.md) (refusals drain the unread request bytes before the close)
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 

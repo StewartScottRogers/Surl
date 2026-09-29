@@ -1,6 +1,6 @@
 # ADR-0019 — How the HTTP server enforces the hardening limits
 
-- **Status:** Accepted
+- **Status:** Accepted; partly superseded by [ADR-0024](ADR-0024-the-http-servers-drain-before-a-close-and-400-for-an-invalid-content-length.md) (section 6 for an invalid `Content-Length`, now 400, and sections 6 and 7 for the close, now after a drain)
 - **Date:** 2026-09-29
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29
 - **Supersedes:** in ADR-0008, the `431` row, the persistence rule for a GET or HEAD that
