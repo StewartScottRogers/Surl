@@ -14,8 +14,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   engine, and serves. It writes ADR-0007 section 5's texts and returns its exit codes.
 - `ListenerStartReporter` wraps the listener factory: it writes the status lines once the
   last listener has bound, and keeps a bind failure for the `(45)` or `(6)` message.
-- `TcpListenerFactory` starts `TcpConnectionListener`s and refuses datagram listeners
-  until `Surl.Networking` has its own factory (BL-055).
+- `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`: TCP
+  connection listeners and UDP datagram listeners.
 
 Keep this project thin: parsing belongs in `Surl.Cli`, serving in `Surl.Core`, each
 protocol in its own library. Code here is wiring, tested in `Surl.Console.UnitTests`
