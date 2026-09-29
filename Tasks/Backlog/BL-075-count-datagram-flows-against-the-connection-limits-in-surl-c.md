@@ -43,6 +43,16 @@ maximum exchange duration as a connection, and a flow past a limit is refused th
 
 ## Notes
 
+- 2026-09-28, from BL-032: BL-032 dispatched flows through the same `ConnectionAdmission`,
+  `ExchangeDeadlines` and `RefusalWriteDeadline` as connections, because a separate path
+  would have been more code. Already proven in `Surl.Core.UnitTests/ServingEngineTests.Datagrams.cs`:
+  refusal past `--max-connections` (`ServeAsync_FlowPastTheConnectionLimit_*`) and past
+  `--max-connections-per-address` (`ServeAsync_FlowPastThePerAddressLimit_*`), cancellation
+  at the idle timeout and at the maximum duration. The idle clock restarts on each datagram
+  (`IdleClockRestartingDatagramFlow`, `IdleClockRestartingDatagramFlowTests`). What remains
+  here is checking each criterion against those tests. The one clearly missing piece is
+  "and not before" for the flow's idle and duration clocks; add it, then close this task.
+
 ## Log
 
 - 2026-09-28: Created.

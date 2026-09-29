@@ -49,6 +49,13 @@ BL-037's recordings predict.
 
 ## Notes
 
+- 2026-09-28, from BL-032: the serving engine now starts a datagram listener for a scheme
+  whose server is an `IDatagramProtocolServer`. Two doc comments in `Surl.Console` still
+  say the engine refuses such a scheme before any listener starts (BL-032): the remarks on
+  `TcpListenerFactory` and the `<exception>` on
+  `ListenerStartReporter.StartDatagramListenerAsync`. Registering TFTP here has to correct
+  both.
+
 ## Log
 
 - 2026-09-28: Created.
