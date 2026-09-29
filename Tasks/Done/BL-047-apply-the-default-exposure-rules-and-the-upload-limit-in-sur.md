@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-010, BL-044]
-touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests]
+touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-047 — Apply the default exposure rules and the upload limit in Surl.Content
 
@@ -57,30 +57,56 @@ accepted upload that grows past `MaxUploadBytes` stopped and its partial file de
 
 ## Acceptance criteria
 
-- [ ] `ContentStore` takes the options type, and
+- [x] `ContentStore` takes the options type, and
       `ContentExposureOptionsTests.Default_RefusesUploadsAndListingsHidesDotFilesAndLinks`
       pins the defaults in the table above.
-- [ ] Fast tests with the in-memory fake prove, with default options, that
+- [x] Fast tests with the in-memory fake prove, with default options, that
       `/.git/config`, `/.hidden` and `/dir/.env` map to the same result as a missing
       path; that a listing of a directory with dot-files omits them; that a symbolic link
       whose target is inside the root maps to the missing-path result; and that a
       listing request maps to the missing-path result.
-- [ ] Fast tests prove that with the dot-file, listing and link options on, those same
+- [x] Fast tests prove that with the dot-file, listing and link options on, those same
       paths are served and listed, and that a link whose target is outside the root is
       refused with every option on.
-- [ ] Fast tests prove an upload with uploads off returns the "not permitted" result
+- [x] Fast tests prove an upload with uploads off returns the "not permitted" result
       without creating a file; an upload of exactly `MaxUploadBytes` succeeds; one byte
       more returns "upload too large" and leaves no file behind in the fake; and
       `MaxUploadBytes = 0` accepts any size.
-- [ ] A `[TestCategory("Integration")]` test writes an over-limit upload to a temporary
+- [x] A `[TestCategory("Integration")]` test writes an over-limit upload to a temporary
       directory through the `System.IO` implementation and finds no file afterwards.
-- [ ] `dotnet build Surl.Content.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `dotnet build Surl.Content.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Content.UnitLibrary`.
 
 ## Notes
 
+- Decisions recorded in ADR-0013 (decided by Claude under Stewart's delegation). In short:
+  `ContentExposureOptions` record with ADR-0006's defaults; hidden paths map with
+  `EntryKind` `None` and an internal flag so every later look through the store also says
+  nothing is there; a link inside the root is detected by comparing the resolved path with
+  the path joined to the resolved root; `WriteUploadAsync` returns `ContentUploadResult`
+  (`Written`, `NotPermitted`, `TooLarge`), reads at most one byte past the limit, and
+  deletes the partial file when too large or when the copy throws.
+- `touches` widened to `Documentation/Planning/Decisions` for ADR-0013 and its index row;
+  no task in `Doing` names it (BL-036 MQTT, BL-037 TFTP).
+- Kept `ContentStore(string, IContentFileSystem)`, serving with
+  `ContentExposureOptions.ServeEverythingInsideTheRoot` (the store's old behaviour, uploads
+  off), because `Surl.Console` and the HTTP, Gopher, DICT and TFTP tests build stores with
+  it and are outside this task's `touches`. For the same reason the seam's new members
+  (`CreateFileForAsyncWrite`, `DeleteFile`) are default interface members that throw
+  `NotSupportedException`, so those projects' read-only fakes compile unchanged.
+- `Path.GetDirectoryName(string)` rewrites `/` to `\` on Windows, which broke the
+  ordinal seam lookup of an upload's parent directory; the span overload keeps the
+  spelling.
+- Follow-ups filed: BL-068 (pass the options `Surl.Cli` already parses from
+  `Surl.Console`), BL-069 (move every other caller to the options constructor, remove the
+  two-argument one, and decide how DICT reads its database under default options).
+- Verified: `dotnet build` clean; fast tests green solution-wide; `Surl.Content.UnitTests`
+  188 passed with Integration included (8 skipped are non-Windows link tests);
+  `Measure-CodeQuality.ps1 -Library Surl.Content.UnitLibrary` reports 0 failing members.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. ContentStore applies ADR-0006's exposure defaults and the upload limit through ContentExposureOptions
