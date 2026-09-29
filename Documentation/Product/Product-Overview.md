@@ -70,8 +70,10 @@ first - and the Curl port needs exactly that to be measured.
 - Contributors adding a protocol server, who need the seams to be obvious.
 
 Surl is built to be exposed to the internet, not only to answer on loopback in a test
-(Stewart, 2026-09-28). What that hardening requires - defaults such as the bind address,
-limits and the security scope - is decided by BL-024 in an ADR, which does not exist yet.
+(Stewart, 2026-09-28). The security scope that hardening sets - connection, time and size
+limits, what a server exposes by default, what a peer may learn, and the TLS minimums -
+is decided in
+[ADR-0006](../Planning/Decisions/ADR-0006-hardening-for-internet-facing-use.md).
 
 ## Non-goals
 
