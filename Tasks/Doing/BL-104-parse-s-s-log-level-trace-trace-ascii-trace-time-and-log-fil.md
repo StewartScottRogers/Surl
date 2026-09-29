@@ -58,3 +58,4 @@ descriptions. BL-103 built the categorised help table this task adds entries to.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
