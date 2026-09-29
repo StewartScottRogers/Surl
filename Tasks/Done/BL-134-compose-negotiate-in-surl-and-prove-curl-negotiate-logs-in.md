@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-121, BL-132]
-touches: [Surl.Console, Surl.Console.UnitTests, Surl.Conformance.UnitTests, Surl.Authentication.UnitTests]
+touches: [Surl.Console, Surl.Console.UnitTests, Surl.Conformance.UnitTests, Surl.Authentication.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Documentation/Planning/Decisions, UpstreamCurlBuilds.json]
 requirement: FR-014
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-134 — Compose Negotiate in surl and prove curl --negotiate logs in
 
@@ -45,20 +45,45 @@ whose Windows conformance criterion needs two things BL-121 could not do:
 
 ## Acceptance criteria
 
-- [ ] `surl` composes `NegotiateAuthenticationMethod`; with `--auth` naming `negotiate` the
+- [x] `surl` composes `NegotiateAuthenticationMethod`; with `--auth` naming `negotiate` the
       `401` offers `Negotiate` (a `Surl.Console.UnitTests` test or the conformance test shows it).
-- [ ] The cause of the reference build's `SEC_E_NO_CREDENTIALS` on the lane machine is found and
+- [x] The cause of the reference build's `SEC_E_NO_CREDENTIALS` on the lane machine is found and
       recorded in ADR-0040, and the handshake the build then sends is recorded as fixtures and
       replayed by `NegotiateAuthenticationMethodTests`.
-- [ ] A Windows-only `[TestCategory("Integration")]` conformance test in
+- [x] A Windows-only `[TestCategory("Integration")]` conformance test in
       `Surl.Conformance.UnitTests` proves `curl -sS --negotiate -u tester:secret
       http://.../hello.txt` against `surl --auth negotiate --user-file <f>` exits 0 with the
       file's bytes, and a wrong password gets the measured exit code.
-- [ ] `dotnet build` is clean and the fast tests pass on Windows, Linux and macOS.
+- [x] `dotnet build` is clean and the fast tests pass on Windows, Linux and macOS.
 
 ## Notes
+
+- **Cause of `SEC_E_NO_CREDENTIALS`.** Loading Git for Windows' `libcurl-4.dll` into a C#
+  harness and hooking SSPI's `InitSecurityInterfaceA` table showed it passes
+  `AcquireCredentialsHandle("Negotiate")` a `SEC_WINNT_AUTH_IDENTITY_EXA` with `PackageList`
+  `!ntlm`: upstream commit `a8881e5e1d` (2026-07-27, in 8.22.0, not in the tag 8.21.0). With NTLM
+  excluded and no Kerberos realm, Negotiate has no mechanism. curl.se's 8.22.0 build fails the
+  same way; stunnel/static-curl's unpatched 8.21.0 build (already pinned, ADR-0030) sends bare
+  NTLM. Recorded in ADR-0040 "Measured".
+- **Decision (ADR-0042, decided by Claude under Stewart's delegation):** Negotiate is proved with
+  the unpatched 8.21.0 build, located by its SHA-256 (`PinnedUpstreamCurl.RunSupplementaryBuildAsync`);
+  a third Windows conformance test pins that the reference build sends no token and exits 22.
+  No download: the build was already pinned.
+- **Handshake:** bare NTLM after `Negotiate` on the first request, no SPNEGO, so no `mechListMIC`
+  either way; surl's `CHALLENGE_MESSAGE` for it equals the one recorded for BL-120. Fixtures
+  `negotiate-ntlm` and `negotiate-ntlm-wrong-password` (exit 22 with `-f`), replayed in
+  `NegotiateAuthenticationMethodTests`.
+- **Touches widened** (no task in Doing names them): `Surl.Cli.UnitLibrary` and
+  `Surl.Cli.UnitTests`, because `--auth`'s help text said "This build checks basic, bearer,
+  digest and ntlm" and would have become false; `Documentation/Planning/Decisions` for ADR-0040
+  and ADR-0042; `UpstreamCurlBuilds.json` to name the static build's new use in its `origin`.
+- Fast tests run on Windows here; every new fast test is platform-neutral, and the conformance
+  tests are Windows-only Integration tests, so Linux and macOS CI run nothing new that could differ.
+- `dotnet format --verify-no-changes` reports only `ENDOFLINE` for LF files across the solution,
+  already so at HEAD (e.g. `Surl.Output.UnitTests`), not introduced here.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. surl --auth negotiate offers Negotiate and upstream curl 8.21.0's --negotiate logs in over NTLM; the reference build's SEC_E_NO_CREDENTIALS is its !ntlm PackageList (ADR-0040, ADR-0042)
