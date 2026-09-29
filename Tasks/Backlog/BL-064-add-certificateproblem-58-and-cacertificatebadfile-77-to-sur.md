@@ -1,5 +1,5 @@
 ---
-id: BL-061
+id: BL-064
 title: Add CertificateProblem (58) and CaCertificateBadFile (77) to SurlExitCode
 priority: Normal
 assignee: Claude
@@ -10,17 +10,17 @@ requirement: FR-021
 created: 2026-09-28
 completed:
 ---
-# BL-061 — Add CertificateProblem (58) and CaCertificateBadFile (77) to SurlExitCode
+# BL-064 — Add CertificateProblem (58) and CaCertificateBadFile (77) to SurlExitCode
 
 ## Goal
 
-`SurlExitCode` has the two rows ADR-0008 section 3 adds to ADR-0005's table,
+`SurlExitCode` has the two rows ADR-0010 section 3 adds to ADR-0005's table,
 `CertificateProblem = 58` and `CaCertificateBadFile = 77`, so BL-012 and the startup
 composition can return them.
 
 ## Context
 
-- Specification: `Documentation/Planning/Decisions/ADR-0008-the-server-side-tls-contract.md`,
+- Specification: `Documentation/Planning/Decisions/ADR-0010-the-server-side-tls-contract.md`,
   section 3, "Exit codes": `CertificateProblem` 58 is upstream `CURLE_SSL_CERTPROBLEM`
   (`--cert` or `--key` missing, unreadable, not in the named format, key not matching the
   certificate, a missing or wrong `--pass`, or a key type Surl cannot serve; measured:
@@ -32,7 +32,7 @@ composition can return them.
 - `SurlExitCode` lives in `Surl.Protocol.Abstractions.UnitLibrary/SurlExitCode.cs`; its
   members are in ascending numeric order, each with a `<summary>` naming the failure and
   the upstream `CURLE_*` it shares. Its `<remarks>` says one member per row of ADR-0005's
-  table; ADR-0005's "Consequences" lets a later ADR add rows, and ADR-0008 is that ADR.
+  table; ADR-0005's "Consequences" lets a later ADR add rows, and ADR-0010 is that ADR.
 - Tests: `Surl.Protocol.Abstractions.UnitTests/SurlExitCodeTests.cs` has a `DataRow` per
   member and a count test (`Assert.HasCount(8, ...)`).
 - `Documentation/Product/Requirements.md` row FR-010 lists every exit code by name and
@@ -43,14 +43,14 @@ composition can return them.
 
 - [ ] `SurlExitCode` has `CertificateProblem = 58` between `BindFailed` (45) and
       `InternalError` (125), and `CaCertificateBadFile = 77` after it, each with a
-      `<summary>` stating ADR-0008's meaning and upstream's `CURLE_SSL_CERTPROBLEM` /
-      `CURLE_SSL_CACERT_BADFILE`; the enum's `<remarks>` names ADR-0008 as adding rows to
+      `<summary>` stating ADR-0010's meaning and upstream's `CURLE_SSL_CERTPROBLEM` /
+      `CURLE_SSL_CACERT_BADFILE`; the enum's `<remarks>` names ADR-0010 as adding rows to
       ADR-0005's table.
 - [ ] `SurlExitCodeTests.Value_EachMember_HasTheNumberTheAdrAssigns` has
       `DataRow(SurlExitCode.CertificateProblem, 58)` and
       `DataRow(SurlExitCode.CaCertificateBadFile, 77)`, and the count test expects 10.
 - [ ] `Documentation/Product/Requirements.md` FR-010 lists `CertificateProblem` 58 and
-      `CaCertificateBadFile` 77 (from ADR-0008) in numeric order among the others.
+      `CaCertificateBadFile` 77 (from ADR-0010) in numeric order among the others.
 - [ ] `dotnet build Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, the
       fast tests (`dotnet test --filter "TestCategory!=Integration"`) are green, and
       `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in

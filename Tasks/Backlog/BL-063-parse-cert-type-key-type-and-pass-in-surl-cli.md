@@ -1,5 +1,5 @@
 ---
-id: BL-060
+id: BL-063
 title: Parse --cert-type, --key-type and --pass in Surl.Cli
 priority: Normal
 assignee: Claude
@@ -10,19 +10,19 @@ requirement: FR-021
 created: 2026-09-28
 completed:
 ---
-# BL-060 — Parse --cert-type, --key-type and --pass in Surl.Cli
+# BL-063 — Parse --cert-type, --key-type and --pass in Surl.Cli
 
 ## Goal
 
 `surl` accepts `--cert-type <PEM|DER|P12>`, `--key-type <PEM|DER>` and
 `--pass <phrase>`, carries them on `SurlCommandLine`, lists them in `--help`, and refuses
-every combination ADR-0008 section 3 calls `FailedInit` (2).
+every combination ADR-0010 section 3 calls `FailedInit` (2).
 
 ## Context
 
-- Specification: `Documentation/Planning/Decisions/ADR-0008-the-server-side-tls-contract.md`,
+- Specification: `Documentation/Planning/Decisions/ADR-0010-the-server-side-tls-contract.md`,
   section 3 (the option table, "Any other `--cert-type` or `--key-type` word", and
-  "Consequences": ADR-0007's table gains the three rows through ADR-0008, so no ADR is
+  "Consequences": ADR-0007's table gains the three rows through ADR-0010, so no ADR is
   edited here). ADR-0007 row 36 gives the refusal text for a word outside the allowed set:
   `option <name>: is badly used here` (`OptionArgumentReader.BadlyUsed`).
 - Where the work lands, all in `Surl.Cli.UnitLibrary`:
@@ -41,7 +41,7 @@ every combination ADR-0008 section 3 calls `FailedInit` (2).
   (`CertificateFileFormat`, default `Pem`) and `KeyPassphrase` (`string?`, default
   `null`). BL-012 (`Surl.Networking`) and the composition in `Surl.Console` read them
   later; this task does not load any file.
-- Words are matched case-insensitively (ADR-0008: "Case-insensitive, as in curl"):
+- Words are matched case-insensitively (ADR-0010: "Case-insensitive, as in curl"):
   `--cert-type` accepts `PEM`, `DER`, `P12`; `--key-type` accepts `PEM`, `DER`. Any other
   word, including curl's `ENG` and `PROV` and `P12` for `--key-type`, is refused.
 - `--pass` takes its argument as given, an empty string included (a PKCS#12 file may be
@@ -85,7 +85,7 @@ every combination ADR-0008 section 3 calls `FailedInit` (2).
       (after `--cert`), `     --key-type <type>                       Format of --key: PEM or DER (default PEM)`
       (after `--key`), and `     --pass <phrase>                         Passphrase for the --key or P12 file`
       (after `--max-time`). The `HelpText` summary is updated to say the text follows
-      ADR-0007 section 6 with ADR-0008's three rows.
+      ADR-0007 section 6 with ADR-0010's three rows.
 - [ ] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests
       (`dotnet test --filter "TestCategory!=Integration"`) are green, and
       `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in

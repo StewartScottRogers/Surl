@@ -1,5 +1,5 @@
 ---
-id: BL-062
+id: BL-065
 title: Perform the implicit TLS handshake in the serving engine
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-021
 created: 2026-09-28
 completed:
 ---
-# BL-062 — Perform the implicit TLS handshake in the serving engine
+# BL-065 — Perform the implicit TLS handshake in the serving engine
 
 ## Goal
 
@@ -21,7 +21,7 @@ whose handshake failed.
 
 ## Context
 
-- Specification: `Documentation/Planning/Decisions/ADR-0008-the-server-side-tls-contract.md`,
+- Specification: `Documentation/Planning/Decisions/ADR-0010-the-server-side-tls-contract.md`,
   section 2 ("Who performs which handshake") and section 1 (`IConnection.TlsSession`,
   `UpgradeToTlsAsync`, `TlsSession`, `TlsHandshakeException`, `TlsSchemes`). ADR-0006
   section 4: the handshake runs inside the head timeout; section 5: a connection past a
@@ -57,7 +57,7 @@ whose handshake failed.
   - A `TlsHandshakeException` escaping `ServeAsync` (a server's own `STARTTLS`/`AUTH TLS`
     upgrade failing) is noted `TLS handshake failed: <message>`, not
     `... the protocol server threw ...` (`NoteHowTheExchangeEnded`).
-  - A failed handshake has no exit code and never ends the process (ADR-0008 section 2).
+  - A failed handshake has no exit code and never ends the process (ADR-0010 section 2).
 - Tests go in `Surl.Core.UnitTests/ServingEngineTests.cs` and
   `RecordingConnectionTests.cs`, with the existing fakes (`FakeListenerFactory`,
   `FakeConnectionListener`, `FakeProtocolServers`, `FakeExchangeLogFactory`,

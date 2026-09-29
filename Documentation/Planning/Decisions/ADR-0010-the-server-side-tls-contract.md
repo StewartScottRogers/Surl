@@ -328,10 +328,10 @@ BL-012's tests hold on all three platforms because:
 - **BL-012** implements sections 3 to 6 in `Surl.Networking`: loading the three option
   files, the throwaway certificate, the handshake, ALPN, client verification and the
   platform table.
-- **Follow-up work** filed with this ADR: BL-060, `Surl.Cli` parses `--cert-type`,
+- **Follow-up work** filed with this ADR: BL-063, `Surl.Cli` parses `--cert-type`,
   `--key-type` and `--pass` (ADR-0007's table gains the three rows through this ADR);
-  BL-061, `SurlExitCode` gains `CertificateProblem` (58) and `CaCertificateBadFile` (77);
-  BL-062, `Surl.Core`'s engine performs the implicit handshake and notes its outcome
+  BL-064, `SurlExitCode` gains `CertificateProblem` (58) and `CaCertificateBadFile` (77);
+  BL-065, `Surl.Core`'s engine performs the implicit handshake and notes its outcome
   (section 2). Because `Surl.Core`'s recording decorator implements `IConnection`, BL-006's
   two new members also change `Surl.Core` (a forwarding implementation), or that build
   breaks.

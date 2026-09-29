@@ -65,7 +65,7 @@ so that BL-006 can write the contract and BL-012 can implement it.
 
 ## Notes
 
-- Recorded as ADR-0008 (`Documentation/Planning/Decisions/ADR-0008-the-server-side-tls-contract.md`),
+- Recorded as ADR-0010 (`Documentation/Planning/Decisions/ADR-0010-the-server-side-tls-contract.md`),
   indexed in the folder's `README.md`. Summary: `IConnection` gains `TlsSession` and
   `UpgradeToTlsAsync`; the engine performs the implicit handshake for the `TlsSchemes`
   schemes, and servers perform STARTTLS-style upgrades themselves; certificates come from
@@ -84,11 +84,11 @@ so that BL-006 can write the contract and BL-012 can implement it.
 - `touches` gained `Documentation/Product/Requirements.md` (FR-021 and open question 1
   referred to "BL-002's ADR"); no task in Doing names it.
 - Accepted ADRs 0004, 0006 and 0007 still say "BL-002's ADR". They are immutable, and
-  ADR-0008 names each point it fills.
+  ADR-0010 names each point it fills.
 - Client-certificate verification end to end was not measured: the recorder does not
-  request a client certificate. ADR-0008 section 5 leaves that to BL-012's conformance
+  request a client certificate. ADR-0010 section 5 leaves that to BL-012's conformance
   follow-up.
-- Follow-ups filed by task-planner: BL-060 (Cli options), BL-061 (exit codes), BL-062
+- Follow-ups filed by task-planner: BL-063 (Cli options), BL-064 (exit codes), BL-065
   (engine implicit handshake). BL-006 will also need `Surl.Core` in its touches, because
   the recording decorator implements `IConnection`.
 
@@ -96,4 +96,4 @@ so that BL-006 can write the contract and BL-012 can implement it.
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
-- 2026-09-28: Doing -> Done. ADR-0008 fixes the server-side TLS contract: IConnection.UpgradeToTlsAsync and TlsSession, certificate options and throwaway, ALPN http/1.1, client verification by --cacert, measured against curl 8.21.0
+- 2026-09-28: Doing -> Done. ADR-0010 fixes the server-side TLS contract: IConnection.UpgradeToTlsAsync and TlsSession, certificate options and throwaway, ALPN http/1.1, client verification by --cacert, measured against curl 8.21.0
