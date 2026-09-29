@@ -22,4 +22,11 @@ public enum HttpCredentialOutcome
     /// after the refusal delay.
     /// </summary>
     Refused,
+
+    /// <summary>
+    /// The credentials bind the body, so they can only be judged with it (ADR-0045): the
+    /// server reads the body, and <see cref="HttpCredentialCheck.CheckBody"/> judges its SHA-256
+    /// as <see cref="Accepted"/> or <see cref="Refused"/>.
+    /// </summary>
+    AwaitingBody,
 }

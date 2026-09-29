@@ -135,7 +135,14 @@ Protocol servers receive what it provides through the contracts in Abstractions.
   string to sign and the HMAC-SHA256 key derivation.
 - `AccountBook.FindAwsSigV4Account` holds each named account's password as UTF-8 bytes; an
   unknown or empty key gets a random dummy, compared the same way.
-- The payload hash is the `x-<provider>-content-sha256` field (always sent for `s3`), or the
-  empty body's for a request with no body; any other request with a body is refused. The body
-  itself is not compared with the signed hash yet: BL-136.
+- The body is bound to the signature (ADR-0045, BL-136). With an `x-<provider>-content-sha256`
+  field (always sent for `s3`) the signature is checked on the head, and the body must then
+  hash to the field; `UNSIGNED-PAYLOAD` binds no body. Without one, a request with no body is
+  signed over the empty body's hash, and a request with a body is an `AwaitingBody` check whose
+  `HttpCredentialCheck.CheckBody` finishes the signature over the body's SHA-256. A date
+  outside the window is refused before the body is read.
+- `HttpAuthenticationSession` turns `AwaitingBody` into a `Proceed` verdict carrying an
+  `IHttpRequestBodyCheck` (Abstractions) and no login note; the HTTP server reads and hashes
+  the body and asks it, and a body that does not match is refused after the refusal delay
+  with the login note, as any refusal is.
 - The tests replay the `aws-sigv4-*` requests in `Surl.Authentication.UnitTests/Fixtures`.

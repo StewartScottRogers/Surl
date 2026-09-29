@@ -337,6 +337,82 @@ public sealed class HttpAuthenticationPolicyTests
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await judgement);
     }
 
+    private static HttpCredentialCheck AwaitingBody(Func<ReadOnlyMemory<byte>, HttpCredentialCheck>? checkBody) =>
+        new(HttpCredentialOutcome.AwaitingBody, null, [], "alice", checkBody);
+
+    private AuthenticationPolicy BodyBindingPolicy(HttpCredentialCheck check) => PolicyFixture.Create(
+        PolicyFixture.AliceAndToken,
+        clock,
+        httpMethods: [new ScriptedHttpAuthenticationMethod(AuthenticationMethod.AwsSigV4, [], check), Method(AuthenticationMethod.Digest, Refused)]);
+
+    [TestMethod]
+    public async Task AwaitingBody_ProceedsWithABodyCheckAndNoLoginNoteYet()
+    {
+        var policy = BodyBindingPolicy(AwaitingBody(_ => Accepted with { UserAsSent = "alice" }));
+
+        var verdict = await policy.StartHttpConnection(null).JudgeAsync(PolicyFixture.Put("AWS4-HMAC-SHA256 x"), CancellationToken.None);
+
+        AssertVerdict(HttpAuthenticationOutcome.Proceed, [], null, verdict);
+        Assert.IsNull(verdict.CheckedLogin);
+        Assert.IsNotNull(verdict.BodyCheck);
+    }
+
+    [TestMethod]
+    public async Task AwaitingBody_BodyAccepted_ProceedsAsTheAccountWithTheLoginNote()
+    {
+        byte[]? checkedHash = null;
+        var policy = BodyBindingPolicy(AwaitingBody(hash =>
+        {
+            checkedHash = hash.ToArray();
+
+            return Accepted with { UserAsSent = "alice" };
+        }));
+        var verdict = await policy.StartHttpConnection(null).JudgeAsync(PolicyFixture.Put("AWS4-HMAC-SHA256 x"), CancellationToken.None);
+
+        var bodyVerdict = await verdict.BodyCheck!.JudgeBodyAsync(new byte[] { 1, 2, 3 }, CancellationToken.None);
+
+        AssertVerdict(HttpAuthenticationOutcome.Proceed, [], "alice", bodyVerdict);
+        Assert.AreEqual("Login accepted: AWS4-HMAC-SHA256 alice", bodyVerdict.CheckedLogin?.Note);
+        Assert.IsNull(bodyVerdict.BodyCheck);
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, checkedHash);
+    }
+
+    [TestMethod]
+    public async Task AwaitingBody_BodyRefused_IsChallengedAfterTheRefusalDelayWithTheLoginNote()
+    {
+        var policy = BodyBindingPolicy(AwaitingBody(_ => Refused with { UserAsSent = "alice" }));
+        var verdict = await policy.StartHttpConnection(null).JudgeAsync(PolicyFixture.Put("AWS4-HMAC-SHA256 x"), CancellationToken.None);
+
+        var judgement = verdict.BodyCheck!.JudgeBodyAsync(new byte[32], CancellationToken.None).AsTask();
+        Assert.IsFalse(judgement.IsCompleted);
+        clock.Advance(AuthenticationPolicy.RefusalDelay);
+        var bodyVerdict = await judgement;
+
+        AssertVerdict(HttpAuthenticationOutcome.Challenge, ["Digest realm=\"surl\""], null, bodyVerdict);
+        Assert.AreEqual("Login refused: AWS4-HMAC-SHA256 alice", bodyVerdict.CheckedLogin?.Note);
+    }
+
+    [TestMethod]
+    public async Task AwaitingBody_BodyCheckCancelled_Throws()
+    {
+        var policy = BodyBindingPolicy(AwaitingBody(_ => Accepted));
+        var verdict = await policy.StartHttpConnection(null).JudgeAsync(PolicyFixture.Put("AWS4-HMAC-SHA256 x"), CancellationToken.None);
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            async () => await verdict.BodyCheck!.JudgeBodyAsync(new byte[32], new CancellationToken(canceled: true)));
+    }
+
+    [TestMethod]
+    public async Task AwaitingBody_WithNothingToCheckTheBody_IsRefused()
+    {
+        var policy = BodyBindingPolicy(AwaitingBody(null));
+
+        var verdict = await JudgeAsync(policy, null, PolicyFixture.Put("AWS4-HMAC-SHA256 x"));
+
+        AssertVerdict(HttpAuthenticationOutcome.Challenge, ["Digest realm=\"surl\""], null, verdict);
+        Assert.IsNull(verdict.BodyCheck);
+    }
+
     [TestMethod]
     public async Task NullRequest_Throws()
     {

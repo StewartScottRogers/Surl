@@ -3,7 +3,8 @@ namespace Surl.Protocol.Abstractions;
 /// <summary>
 /// What an <see cref="IHttpAuthenticationSession"/> judges of one HTTP request, after its head
 /// has been read and found well-formed (ADR-0032, sections 4 and 6). The body is not included:
-/// no offered method needs it.
+/// a method that binds it answers with a verdict carrying an <see cref="IHttpRequestBodyCheck"/>,
+/// which the server asks once the body is read (ADR-0045).
 /// </summary>
 /// <param name="Method">The request method.</param>
 /// <param name="Target">The request target as received.</param>

@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Surl.Conformance;
 
 /// <summary>
@@ -119,6 +121,39 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(Hello, result.StandardOutput);
+    }
+
+    [TestMethod]
+    [DataRow("ec2", "secret", "--data-binary", "405", DisplayName = "ec2, --data-binary: signed over the body, past the login")]
+    [DataRow("ec2", "wrong", "--data-binary", "401", DisplayName = "ec2, --data-binary, wrong secret: refused once the body is read")]
+    [DataRow("s3", "secret", "-T", "405", DisplayName = "s3, -T: curl sends UNSIGNED-PAYLOAD, past the login")]
+    [DataRow("ec2", "secret", "-T", "401", DisplayName = "ec2, -T: curl signs the empty body's hash, so the body sent is not the one signed")]
+    public async Task AwsSigV4UploadOverHttp_ExitsZeroJudgedOverTheBody(string service, string secret, string uploadOption, string expectedStatus)
+    {
+        // Without an x-amz-content-sha256 the signature is over the body's SHA-256, judged once
+        // the body is read; with one, the body must hash to it unless it is UNSIGNED-PAYLOAD
+        // (ADR-0045, Fixtures/aws-sigv4-*upload). HTTP serves no PUT yet, so a login that passes
+        // meets the method refusal, 405, and one that fails the 401; without -f curl exits 0.
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--allow-uploads", "--user-file", accounts.Path);
+        var upload = Path.GetTempFileName();
+        try
+        {
+            await File.WriteAllBytesAsync(upload, "body"u8.ToArray(), TestContext.CancellationToken);
+            string[] uploadArguments = uploadOption == "-T" ? ["-T", upload] : ["-X", "PUT", "--data-binary", "@" + upload];
+
+            var result = await PinnedUpstreamCurl.RunAsync(
+                TestContext,
+                ["-sS", "--aws-sigv4", $"aws:amz:us-east-1:{service}", "-u", $"{AccountsFile.User}:{secret}",
+                    .. uploadArguments, "-w", "%{http_code}", surl.UrlOf("upload")]);
+
+            Assert.AreEqual(0, result.ExitCode, result.StandardError);
+            Assert.AreEqual(expectedStatus, Encoding.ASCII.GetString(result.StandardOutput));
+        }
+        finally
+        {
+            File.Delete(upload);
+        }
     }
 
     [TestMethod]

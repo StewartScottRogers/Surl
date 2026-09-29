@@ -1,5 +1,6 @@
 using System.Net.Security;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Text;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
@@ -302,6 +303,135 @@ public sealed class AuthenticationTests
         var (_, log) = await ServeAsync(policy, RecordedFixture.ReadRequestBytes("bearer-401"));
 
         Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Login ", StringComparison.Ordinal)));
+    }
+
+    // ADR-0045: a login bound to the body. The policy lets the head in with a body check; the
+    // server reads and hashes the body, then answers as the body check's verdict says.
+    private static readonly byte[] BodySha256 = SHA256.HashData("body"u8);
+
+    private const string AwsAuthorization = "Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260929/us-east-1/ec2/aws4_request, SignedHeaders=host;x-amz-date, Signature=0\r\n";
+
+    private static UnitTestRequestBodyCheck BodyCheckAccepting(byte[] sha256) => new(hash => hash.SequenceEqual(sha256)
+        ? new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], "AKIDEXAMPLE", new CheckedLogin("AWS4-HMAC-SHA256", "AKIDEXAMPLE", true))
+        : Challenge([DigestMd5]) with { CheckedLogin = new CheckedLogin("AWS4-HMAC-SHA256", "AKIDEXAMPLE", false) });
+
+    private static UnitTestAuthenticationPolicy BodyBindingPolicy(IHttpRequestBodyCheck bodyCheck) =>
+        new(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], null, BodyCheck: bodyCheck));
+
+    private static byte[] Put(string body, string extraFields = "") =>
+        Ascii($"PUT /upload HTTP/1.1\r\nHost: 127.0.0.1:18136\r\n{AwsAuthorization}{extraFields}Content-Length: {body.Length}\r\n\r\n{body}");
+
+    [TestMethod]
+    public async Task ServeAsync_BodyBoundLoginWithTheSignedBody_IsLetInAfterTheBodyIsRead()
+    {
+        // HTTP serves no PUT yet, so a write let in meets the method refusal, not the 401.
+        var bodyCheck = BodyCheckAccepting(BodySha256);
+
+        var (connection, log) = await ServeAsync(BodyBindingPolicy(bodyCheck), Put("body"));
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 405 Method Not Allowed\r\n");
+        CollectionAssert.AreEqual(BodySha256, bodyCheck.JudgedBodySha256s.Single());
+        CollectionAssert.AreEqual(
+            new[] { "Login accepted: AWS4-HMAC-SHA256 AKIDEXAMPLE", "PUT /upload: the method is not served; answered 405 and closed." },
+            log.Notes.Take(2).ToArray());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyBoundLoginWithAChangedBody_Gets401AndKeepsTheConnection()
+    {
+        var (connection, log) = await ServeAsync(BodyBindingPolicy(BodyCheckAccepting(BodySha256)), Put("bodY"));
+
+        Assert.AreEqual(
+            "HTTP/1.1 401 Unauthorized\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n"
+            + "WWW-Authenticate: " + DigestMd5 + "\r\n\r\n",
+            Latin1(connection.WrittenBytes));
+        Assert.IsFalse(connection.WritesCompleted);
+        CollectionAssert.AreEqual(
+            new[] { "Login refused: AWS4-HMAC-SHA256 AKIDEXAMPLE", "PUT /upload: 401, a login is needed" }, log.Notes.Take(2).ToArray());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyBoundLoginWithAChunkedBody_HashesTheChunkDataAlone()
+    {
+        var bodyCheck = BodyCheckAccepting(BodySha256);
+        var request = Ascii($"GET /file.txt HTTP/1.1\r\nHost: h\r\n{AwsAuthorization}Transfer-Encoding: chunked\r\n\r\n2;ext=1\r\nbo\r\n2\r\ndy\r\n0\r\nTrailer: x\r\n\r\n");
+
+        var (connection, _) = await ServeAsync(BodyBindingPolicy(bodyCheck), request);
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 200 OK\r\n");
+        StringAssert.EndsWith(Latin1(connection.WrittenBytes), FileBody);
+        CollectionAssert.AreEqual(BodySha256, bodyCheck.JudgedBodySha256s.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyBoundLoginWithNoBody_IsJudgedOnTheEmptyBodysHash()
+    {
+        var bodyCheck = BodyCheckAccepting(SHA256.HashData([]));
+
+        var (connection, _) = await ServeAsync(BodyBindingPolicy(bodyCheck), RecordedFixture.ReadRequestBytes("get-file"));
+
+        CollectionAssert.AreEqual(RecordedResponse("get-file"), connection.WrittenBytes);
+        Assert.HasCount(1, bodyCheck.JudgedBodySha256s);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyBoundLoginExpectingContinue_Sends100ContinueBeforeReadingTheBody()
+    {
+        var (connection, _) = await ServeAsync(BodyBindingPolicy(BodyCheckAccepting(BodySha256)), Put("body", "Expect: 100-continue\r\n"));
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 405 Method Not Allowed\r\n");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyBoundLoginPastTheUploadLimit_Gets413WithoutReadingTheBody()
+    {
+        var bodyCheck = BodyCheckAccepting(BodySha256);
+
+        var (connection, _) = await ServeAsync(BodyBindingPolicy(bodyCheck), Put("body"), ExchangeLimits.Default with { MaxUploadBytes = 3 });
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 413 Content Too Large\r\n");
+        Assert.IsEmpty(bodyCheck.JudgedBodySha256s);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyBoundLoginWithABodyEndingEarly_Gets400AndIsNotJudged()
+    {
+        var bodyCheck = BodyCheckAccepting(BodySha256);
+        var request = Ascii($"PUT /upload HTTP/1.1\r\nHost: h\r\n{AwsAuthorization}Content-Length: 10\r\n\r\nbody");
+
+        var (connection, log) = await ServeAsync(BodyBindingPolicy(bodyCheck), request);
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 400 Bad Request\r\n");
+        Assert.AreEqual("PUT /upload: the body was malformed or ended early; answered 400 and closed.", log.Notes[0]);
+        Assert.IsEmpty(bodyCheck.JudgedBodySha256s);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyBoundLoginWithAnUnreadableBody_Gets400AndIsNotJudged()
+    {
+        var bodyCheck = BodyCheckAccepting(BodySha256);
+        var request = Ascii($"PUT /upload HTTP/1.1\r\nHost: h\r\n{AwsAuthorization}Transfer-Encoding: gzip\r\n\r\nbody");
+
+        var (connection, log) = await ServeAsync(BodyBindingPolicy(bodyCheck), request);
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 400 Bad Request\r\n");
+        Assert.AreEqual(
+            "PUT /upload: the login is bound to the body, and the body's framing is not one the server reads; answered 400 and closed.",
+            log.Notes[0]);
+        Assert.IsEmpty(bodyCheck.JudgedBodySha256s);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyCheckAnsweringWithAnotherBodyCheck_IsJudgedAgainOverNoBody()
+    {
+        // The contract says a body check's verdict carries none; one that does is still never served unchecked.
+        var inner = BodyCheckAccepting(SHA256.HashData([]));
+        var outer = new UnitTestRequestBodyCheck(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], null, BodyCheck: inner));
+
+        await ServeAsync(BodyBindingPolicy(outer), Put("body"));
+
+        CollectionAssert.AreEqual(BodySha256, outer.JudgedBodySha256s.Single());
+        CollectionAssert.AreEqual(SHA256.HashData([]), inner.JudgedBodySha256s.Single());
     }
 
     private static HttpAuthenticationVerdict Challenge(string[] challenges) => new(HttpAuthenticationOutcome.Challenge, challenges, null);

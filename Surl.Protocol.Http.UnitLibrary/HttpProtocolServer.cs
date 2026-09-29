@@ -59,8 +59,13 @@ namespace Surl.Protocol.Http;
 /// after <c>Content-Length</c>; it keeps the connection as a <c>404</c> does, unless the
 /// request announced a body, when it is a refusal. <c>Forbidden</c> is answered
 /// <c>403 Forbidden</c> as a refusal. <c>Proceed</c> goes on to the answers below, and any
-/// values it carries are written on that answer the same way. Neither the log nor any
-/// response repeats the request's <c>Authorization</c>.
+/// values it carries are written on that answer the same way. A <c>Proceed</c> carrying a
+/// <see cref="HttpAuthenticationVerdict.BodyCheck"/> - a login bound to the body, AWS Signature
+/// Version 4 (ADR-0045) - is held until the body is read: the upload limit is checked, the body
+/// is read (after <c>100 Continue</c> when expected) and hashed with SHA-256, and the request is
+/// answered as the body check's verdict says, as one with no body left to read. A body that
+/// ends early is <c>400</c>, and one the server cannot frame is <c>400</c> unread; both are
+/// refusals. Neither the log nor any response repeats the request's <c>Authorization</c>.
 /// </para>
 /// <para>
 /// Request bodies: the upload limit (<see cref="ExchangeLimits.MaxUploadBytes"/>) is

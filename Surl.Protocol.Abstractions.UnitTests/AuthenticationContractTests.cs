@@ -53,5 +53,24 @@ public sealed class AuthenticationContractTests
         var verdict = new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], "alice");
 
         Assert.AreEqual("alice", verdict.AccountName);
+        Assert.IsNull(verdict.BodyCheck);
+    }
+
+    [TestMethod]
+    public async Task HttpAuthenticationVerdict_WithBodyCheck_KeepsTheCheckTheServerAsksAfterTheBody()
+    {
+        var bodyCheck = new AcceptingBodyCheck();
+
+        var verdict = new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], null, BodyCheck: bodyCheck);
+        var bodyVerdict = await verdict.BodyCheck!.JudgeBodyAsync(new byte[32], CancellationToken.None);
+
+        Assert.AreSame(bodyCheck, verdict.BodyCheck);
+        Assert.AreEqual("alice", bodyVerdict.AccountName);
+    }
+
+    private sealed class AcceptingBodyCheck : IHttpRequestBodyCheck
+    {
+        public ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(ReadOnlyMemory<byte> bodySha256, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], "alice"));
     }
 }

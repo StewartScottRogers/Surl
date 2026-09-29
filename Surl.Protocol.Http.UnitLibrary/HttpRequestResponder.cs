@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
 
@@ -21,6 +22,9 @@ internal sealed class HttpRequestResponder
     private const string AbsoluteFormPrefix = "http://";
 
     private static readonly Version HttpVersion11 = new(1, 1);
+
+    // A request whose body was read to check the login bound to it is answered as having none left to read.
+    private static readonly HttpRequestBodyFraming BodyAlreadyRead = new(HttpRequestBodyFramingKind.None, 0);
 
     private static readonly string[] MethodsRefusedWithAllow = ["POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH"];
 
@@ -77,15 +81,54 @@ internal sealed class HttpRequestResponder
         }
 
         var verdict = await authenticationSession.JudgeAsync(AuthenticationRequest(head), context.CancellationToken);
+
+        return await AnswerVerdictAsync(head, framing, verdict);
+    }
+
+    private Task<bool> AnswerVerdictAsync(HttpRequestHead head, HttpRequestBodyFraming framing, HttpAuthenticationVerdict verdict)
+    {
         wwwAuthenticateValues = verdict.WwwAuthenticateValues;
         if (verdict.CheckedLogin is not null)
         {
             context.Log.Note(verdict.CheckedLogin.Note);
         }
 
-        return await (verdict.Outcome == HttpAuthenticationOutcome.Proceed
+        if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
+        {
+            return RefuseLoginAsync(head, framing, verdict.Outcome);
+        }
+
+        return verdict.BodyCheck is null
             ? AnswerLetInRequestAsync(head, framing)
-            : RefuseLoginAsync(head, framing, verdict.Outcome));
+            : AnswerBodyCheckedRequestAsync(head, framing, verdict.BodyCheck);
+    }
+
+    // A login that binds the body (ADR-0045): the upload limit first, then the body read and
+    // hashed, then the verdict the body check gives for its SHA-256, answered with the body
+    // already read. A body that cannot be read cannot be checked, and is refused as malformed.
+    private async Task<bool> AnswerBodyCheckedRequestAsync(HttpRequestHead head, HttpRequestBodyFraming framing, IHttpRequestBodyCheck bodyCheck)
+    {
+        var uploadRefusal = RefuseUploadPastLimitAsync(head, framing);
+        if (uploadRefusal is not null)
+        {
+            return await uploadRefusal;
+        }
+
+        if (framing.Kind == HttpRequestBodyFramingKind.Unreadable)
+        {
+            return await RefuseAsync(HttpStatus.BadRequest, null, $"{head.Method} {head.RequestTarget}: the login is bound to the body, and the body's framing is not one the server reads");
+        }
+
+        using var bodyHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var bodyOutcome = await DiscardBodyAsync(head, framing, bodyHash);
+        if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
+        {
+            return await RefuseBodyAsync(head, bodyOutcome);
+        }
+
+        var verdict = await bodyCheck.JudgeBodyAsync(bodyHash.GetHashAndReset(), context.CancellationToken);
+
+        return await AnswerVerdictAsync(head, BodyAlreadyRead, verdict);
     }
 
     /// <summary>
@@ -121,7 +164,7 @@ internal sealed class HttpRequestResponder
     {
         var bodyOutcome = framing.Kind == HttpRequestBodyFramingKind.Unreadable
             ? HttpRequestBodyDiscardOutcome.Discarded
-            : await DiscardBodyAsync(head, framing);
+            : await DiscardBodyAsync(head, framing, null);
         if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
         {
             return await RefuseBodyAsync(head, bodyOutcome);
@@ -143,14 +186,14 @@ internal sealed class HttpRequestResponder
     // RFC 9110, section 10.1.1: a server that reads the content of a request expecting
     // 100-continue sends 100 Continue first, so the client need not wait out its own timeout
     // (curl's --expect100-timeout, one second) before it sends the body (ADR-0027).
-    private async Task<HttpRequestBodyDiscardOutcome> DiscardBodyAsync(HttpRequestHead head, HttpRequestBodyFraming framing)
+    private async Task<HttpRequestBodyDiscardOutcome> DiscardBodyAsync(HttpRequestHead head, HttpRequestBodyFraming framing, IncrementalHash? bodyHash)
     {
         if (framing.Kind != HttpRequestBodyFramingKind.None && ExpectsContinue(head))
         {
             await connection.WriteAsync(new HttpResponseHead(HttpStatus.Continue).ToBytes(), context.CancellationToken);
         }
 
-        return await bodyDiscarder.DiscardAsync(framing, context.CancellationToken);
+        return await bodyDiscarder.DiscardAsync(framing, bodyHash, context.CancellationToken);
     }
 
     // The expectation is ignored in an HTTP/1.0 request (RFC 9110, section 10.1.1). Expect is

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Authentication;
@@ -60,7 +61,8 @@ public sealed class AwsSigV4AuthenticationMethodTests
 
     [TestMethod]
     [DataRow("aws-sigv4-get", DisplayName = "GET, s3")]
-    [DataRow("aws-sigv4-put", DisplayName = "PUT -d body, s3: x-amz-content-sha256")]
+    [DataRow("aws-sigv4-unsigned-payload", DisplayName = "PUT -d body, s3, -H x-amz-content-sha256: UNSIGNED-PAYLOAD: the body is not bound")]
+    [DataRow("aws-sigv4-upload", DisplayName = "-T, s3: curl sends UNSIGNED-PAYLOAD itself")]
     [DataRow("aws-sigv4-query", DisplayName = "query string, s3")]
     [DataRow("aws-sigv4-query-encoding", DisplayName = "query re-encoded and sorted")]
     [DataRow("aws-sigv4-path-encoding", DisplayName = "path encoded again for ec2")]
@@ -199,19 +201,115 @@ public sealed class AwsSigV4AuthenticationMethodTests
         AssertRefused(await VerifyAsync(request, new AccountBook([new Account(string.Empty, "secret")])), string.Empty);
     }
 
-    [TestMethod]
-    public async Task RequestWithABodyAndNoContentHash_IsRefused()
+    // The body both -d body recordings sent (Fixtures/README.md).
+    private static readonly byte[] RecordedBodySha256 = SHA256.HashData("body"u8);
+
+    private static readonly byte[] ChangedBodySha256 = SHA256.HashData("bodY"u8);
+
+    private static HttpCredentialCheck AssertAwaitingBody(HttpCredentialCheck check)
     {
-        // ec2 sends no x-amz-content-sha256, and the policy is not given the body (ADR-0043).
-        AssertRefused(await VerifyAsync(RecordedFixture.ReadRequest("aws-sigv4-ec2-put")));
+        Assert.AreEqual(HttpCredentialOutcome.AwaitingBody, check.Outcome);
+        Assert.IsNull(check.AccountName);
+        Assert.AreEqual(KeyId, check.UserAsSent);
+        Assert.IsNotNull(check.CheckBody);
+
+        return check;
     }
 
     [TestMethod]
-    public async Task ChunkedRequestWithNoContentHash_IsRefused()
+    [DataRow("aws-sigv4-put", DisplayName = "s3: the body must hash to x-amz-content-sha256")]
+    [DataRow("aws-sigv4-ec2-put", DisplayName = "ec2: the signature is over the body's hash")]
+    public async Task RecordedPut_WithTheSignedBody_IsAcceptedOnceTheBodyIsRead(string caseName)
+    {
+        var check = AssertAwaitingBody(await VerifyAsync(RecordedFixture.ReadRequest(caseName)));
+
+        AssertAccepted(check.CheckBody!(RecordedBodySha256));
+    }
+
+    [TestMethod]
+    [DataRow("aws-sigv4-put", DisplayName = "s3")]
+    [DataRow("aws-sigv4-ec2-put", DisplayName = "ec2")]
+    public async Task RecordedPut_WithAChangedBody_IsRefused(string caseName)
+    {
+        var check = AssertAwaitingBody(await VerifyAsync(RecordedFixture.ReadRequest(caseName)));
+
+        AssertRefused(check.CheckBody!(ChangedBodySha256));
+    }
+
+    [TestMethod]
+    public async Task RecordedEc2Upload_IsRefusedSinceCurlSignedTheEmptyBody()
+    {
+        // curl -T with a service other than s3 signs the empty body's hash and sends the file,
+        // so the body received is not the one signed (ADR-0045); AWS refuses it the same way.
+        var check = AssertAwaitingBody(await VerifyAsync(RecordedFixture.ReadRequest("aws-sigv4-ec2-upload")));
+
+        AssertRefused(check.CheckBody!(RecordedBodySha256));
+        AssertAccepted(check.CheckBody!(SHA256.HashData([])));
+    }
+
+    [TestMethod]
+    public async Task RecordedPut_WrongSecret_IsRefusedBeforeTheBody()
+    {
+        // With the hash sent, the signature is checked on the head, so the body is never read.
+        AssertRefused(await VerifyAsync(RecordedFixture.ReadRequest("aws-sigv4-put"), new AccountBook([new Account(KeyId, "secreT")])));
+    }
+
+    [TestMethod]
+    public async Task RecordedEc2Put_WrongSecret_IsRefusedOnceTheBodyIsRead()
+    {
+        var check = AssertAwaitingBody(await VerifyAsync(
+            RecordedFixture.ReadRequest("aws-sigv4-ec2-put"), new AccountBook([new Account(KeyId, "secreT")])));
+
+        AssertRefused(check.CheckBody!(RecordedBodySha256));
+    }
+
+    [TestMethod]
+    public async Task RecordedEc2Put_UnknownKey_IsRefusedAfterTheSameComparison()
+    {
+        var comparer = new CountingSecretComparer();
+        var check = AssertAwaitingBody(await VerifyAsync(
+            RecordedFixture.ReadRequest("aws-sigv4-ec2-put"), new AccountBook([new Account("other", "secret")], comparer)));
+
+        AssertRefused(check.CheckBody!(RecordedBodySha256));
+        Assert.AreEqual((32, 32), comparer.Comparisons.Single());
+    }
+
+    [TestMethod]
+    [DataRow("aws-sigv4-put", DisplayName = "s3")]
+    [DataRow("aws-sigv4-ec2-put", DisplayName = "ec2")]
+    public async Task RecordedPut_OutsideTheWindow_IsRefusedBeforeTheBody(string caseName)
+    {
+        var offset = AwsSigV4AuthenticationMethod.RequestTimeWindow + TimeSpan.FromSeconds(1);
+
+        AssertRefused(await VerifyAsync(RecordedFixture.ReadRequest(caseName), clockOffset: offset));
+    }
+
+    [TestMethod]
+    public async Task RecordedEc2Put_SignedHeaderMissing_IsRefusedBeforeTheBody()
+    {
+        // Host is signed; without it the canonical request cannot be built, whatever the body.
+        AssertRefused(await VerifyAsync(WithField(RecordedFixture.ReadRequest("aws-sigv4-ec2-put"), "Host", null)));
+    }
+
+    [TestMethod]
+    public async Task RecordedPut_BodyRemoved_IsRefusedSinceTheEmptyBodyIsNotTheOneSigned()
+    {
+        // Content-Length is not signed, so the signature still verifies; the sent hash is "body"'s.
+        var request = RecordedFixture.ReadRequest("aws-sigv4-put");
+
+        AssertRefused(await VerifyAsync(WithField(request, "Content-Length", null)));
+    }
+
+    [TestMethod]
+    public async Task ChunkedRequestWithNoContentHash_AwaitsTheBody()
     {
         var request = RecordedFixture.ReadRequest("aws-sigv4-path-encoding");
 
-        AssertRefused(await VerifyAsync(WithField(request, "Transfer-Encoding", "chunked")));
+        var check = AssertAwaitingBody(await VerifyAsync(WithField(request, "Transfer-Encoding", "chunked")));
+
+        // Signed over the empty body, so only the empty body's hash completes it.
+        AssertRefused(check.CheckBody!(RecordedBodySha256));
+        AssertAccepted(check.CheckBody!(SHA256.HashData([])));
     }
 
     [TestMethod]
@@ -337,6 +435,43 @@ public sealed class AwsSigV4AuthenticationMethodTests
         Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
         Assert.AreEqual(KeyId, verdict.AccountName);
         Assert.AreEqual("Login accepted: AWS4-HMAC-SHA256 AKIDEXAMPLE", verdict.CheckedLogin?.Note);
+    }
+
+    [TestMethod]
+    [DataRow("aws-sigv4-put", DisplayName = "s3")]
+    [DataRow("aws-sigv4-ec2-put", DisplayName = "ec2")]
+    public async Task Policy_RecordedPutWithItsBody_IsServedWithTheLoginNote(string caseName)
+    {
+        var request = RecordedFixture.ReadRequest(caseName);
+        SetClockTo(request);
+        var verdict = await CreatePolicy().StartHttpConnection(null).JudgeAsync(request, CancellationToken.None);
+
+        var bodyVerdict = await verdict.BodyCheck!.JudgeBodyAsync(RecordedBodySha256, CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, verdict.Outcome);
+        Assert.IsNull(verdict.CheckedLogin);
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, bodyVerdict.Outcome);
+        Assert.AreEqual(KeyId, bodyVerdict.AccountName);
+        Assert.AreEqual("Login accepted: AWS4-HMAC-SHA256 AKIDEXAMPLE", bodyVerdict.CheckedLogin?.Note);
+    }
+
+    [TestMethod]
+    [DataRow("aws-sigv4-put", DisplayName = "s3")]
+    [DataRow("aws-sigv4-ec2-put", DisplayName = "ec2")]
+    public async Task Policy_RecordedPutWithAChangedBody_IsChallengedAfterTheRefusalDelay(string caseName)
+    {
+        var request = RecordedFixture.ReadRequest(caseName);
+        SetClockTo(request);
+        var verdict = await CreatePolicy().StartHttpConnection(PolicyFixture.Tls).JudgeAsync(request, CancellationToken.None);
+
+        var judgement = verdict.BodyCheck!.JudgeBodyAsync(ChangedBodySha256, CancellationToken.None).AsTask();
+        Assert.IsFalse(judgement.IsCompleted);
+        clock.Advance(AuthenticationPolicy.RefusalDelay);
+        var bodyVerdict = await judgement;
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, bodyVerdict.Outcome);
+        CollectionAssert.AreEqual(new[] { BearerAuthenticationMethod.Challenge }, bodyVerdict.WwwAuthenticateValues.ToArray());
+        Assert.AreEqual("Login refused: AWS4-HMAC-SHA256 AKIDEXAMPLE", bodyVerdict.CheckedLogin?.Note);
     }
 
     [TestMethod]
