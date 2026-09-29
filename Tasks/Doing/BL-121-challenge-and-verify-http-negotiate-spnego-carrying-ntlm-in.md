@@ -55,3 +55,4 @@ multi-response `Record-CurlExchange.ps1` mode it added).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
