@@ -55,3 +55,4 @@ this task adds a method in `Surl.Authentication` and a conformance test only).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
