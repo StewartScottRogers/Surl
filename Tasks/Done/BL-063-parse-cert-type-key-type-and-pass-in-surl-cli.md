@@ -8,7 +8,7 @@ depends-on: [BL-002]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
 requirement: FR-021
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-063 — Parse --cert-type, --key-type and --pass in Surl.Cli
 
@@ -61,39 +61,62 @@ every combination ADR-0010 section 3 calls `FailedInit` (2).
 
 ## Acceptance criteria
 
-- [ ] `CertificateFileFormat` exists in `Surl.Cli.UnitLibrary` with members `Pem`, `Der`,
+- [x] `CertificateFileFormat` exists in `Surl.Cli.UnitLibrary` with members `Pem`, `Der`,
       `Pkcs12`, and `SurlCommandLine` has `CertificateType`, `KeyType` and
       `KeyPassphrase` with the defaults above; a `CommandLineParserTests` test asserts
       the three defaults on a command line with only a listen URL.
-- [ ] `CommandLineParserTests` pin, for `--cert c.pem` plus each of `--cert-type pem`,
+- [x] `CommandLineParserTests` pin, for `--cert c.pem` plus each of `--cert-type pem`,
       `--cert-type PEM`, `--cert-type der`, `--cert-type P12`, `--cert-type p12`, the
       resulting `CertificateType`; and for `--cert c.pem --key k.pem` plus
       `--key-type PEM`, `--key-type der`, the resulting `KeyType`.
-- [ ] `CommandLineParserTests` pin `FailedInit` (2) with `option --cert-type: is badly
+- [x] `CommandLineParserTests` pin `FailedInit` (2) with `option --cert-type: is badly
       used here` for `--cert-type ENG`, `--cert-type PROV` and `--cert-type X`, and
       `option --key-type: is badly used here` for `--key-type P12` and
       `--key-type ENG`.
-- [ ] `CommandLineParserTests` pin `--pass secret` and `--pass ""` (with `--cert`)
+- [x] `CommandLineParserTests` pin `--pass secret` and `--pass ""` (with `--cert`)
       setting `KeyPassphrase` to `secret` and the empty string, and `--pass` with no
       argument refused with the existing requires-parameter text.
-- [ ] `CommandLineParserTests` pin `FailedInit` (2) and the texts above for: `--key k.pem`
+- [x] `CommandLineParserTests` pin `FailedInit` (2) and the texts above for: `--key k.pem`
       without `--cert`; `--key-type PEM` without `--cert`; `--pass x` without `--cert`;
       `--cert c.p12 --cert-type P12 --key k.pem`.
-- [ ] `HelpText` gains, in alphabetical position with the description in column 46,
+- [x] `HelpText` gains, in alphabetical position with the description in column 46,
       exactly these lines, and `HelpTextTests` pins them:
       `     --cert-type <type>                      Format of --cert: PEM, DER or P12 (default PEM)`
       (after `--cert`), `     --key-type <type>                       Format of --key: PEM or DER (default PEM)`
       (after `--key`), and `     --pass <phrase>                         Passphrase for the --key or P12 file`
       (after `--max-time`). The `HelpText` summary is updated to say the text follows
       ADR-0007 section 6 with ADR-0010's three rows.
-- [ ] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests
       (`dotnet test --filter "TestCategory!=Integration"`) are green, and
       `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Cli.UnitLibrary`.
 
 ## Notes
 
+- Plan, taken directly from the task's Context (no separate architect pass: the task names
+  every file, type, word and text). Three new rows in `CommandLineOptions`, readers
+  `ReadCertificateType`, `ReadKeyType` (case-insensitive frozen lookups returning
+  `BadlyUsed`) and `ReadText` (any text, the empty string included) in
+  `OptionArgumentReader`, and `CommandLineParser.FindUnusableCertificateOption` called from
+  `Finish` after the `--tls-max` check.
+- "Given" is recorded by the parser: every option whose argument is read and accepted adds
+  its long name to `CommandLineReading.GivenOptions`. Without `--cert`, the first of
+  `--key`, `--key-type`, `--pass` given is refused; with it, `--key` plus `--cert-type P12`
+  is. A refused format word never reaches the set, so it is reported as the bad word it is.
+- Choices where the task was silent: `--cert-type` without `--cert` is served (ADR-0010
+  does not refuse it; it has nothing to describe, so it is harmless). An empty
+  `--cert-type`/`--key-type` word is `is badly used here`, as any other word outside the set.
+- The existing `Parse_PathOption_AcceptedSeparateAndAfterEquals_KeptAsGiven` now puts
+  `--cert c.pem` first, because `--key` alone is refused.
+- A first version of `FindUnusableCertificateOption` measured cyclomatic complexity 14;
+  rewritten as a lookup over `OptionsNeedingCert`, it is within 10. Surl.Cli.UnitLibrary:
+  100% line, 100% branch, 0 failing members, worst CRAP 10.
+- `dotnet format --verify-no-changes` reports end-of-line errors in
+  `Surl.Protocol.Mqtt.UnitLibrary\MqttRetainedMessages.cs`, outside this task's touches
+  and not changed here; Surl.Cli is clean.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. surl parses --cert-type, --key-type and --pass, lists them in --help and refuses ADR-0010's combinations with FailedInit
