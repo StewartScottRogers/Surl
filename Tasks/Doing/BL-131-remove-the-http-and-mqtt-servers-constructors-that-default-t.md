@@ -44,3 +44,4 @@ and BL-125 (in `Doing` at the time) touches both.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
