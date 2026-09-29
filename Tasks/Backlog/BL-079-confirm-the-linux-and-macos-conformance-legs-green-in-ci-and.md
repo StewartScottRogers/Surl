@@ -1,5 +1,5 @@
 ---
-id: BL-077
+id: BL-079
 title: Confirm the Linux and macOS conformance legs green in CI and correct the pins from the builds' own --version
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-077 — Confirm the Linux and macOS conformance legs green in CI and correct the pins from the builds' own --version
+# BL-079 — Confirm the Linux and macOS conformance legs green in CI and correct the pins from the builds' own --version
 
 ## Goal
 

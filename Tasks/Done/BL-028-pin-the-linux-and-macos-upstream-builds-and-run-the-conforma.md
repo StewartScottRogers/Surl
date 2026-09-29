@@ -41,7 +41,7 @@ tests on Linux and macOS. Those tests pass there instead of reporting Inconclusi
       Integration on Linux and macOS.
 - [x] ~~A `CI` run on this task's branch is green on Windows, Linux and macOS, and on
       Linux and macOS the conformance tests report passed, not inconclusive. The run URL
-      is in the Log.~~ Moved to BL-077 (see Notes).
+      is in the Log.~~ Moved to BL-079 (see Notes).
 
 ## Notes
 
@@ -64,9 +64,9 @@ tests on Linux and macOS. Those tests pass there instead of reporting Inconclusi
   `::warning` for each field that differs - a warning, not a failure, so a cosmetic
   field cannot block the dark factory's merge gate; the SHA-256 is the identity and does
   fail the job.
-- **Criterion 3 split out to BL-077.** Observing a CI run needs a pushed commit this lane
+- **Criterion 3 split out to BL-079.** Observing a CI run needs a pushed commit this lane
   is not allowed to make; the shift branch and its merge pull request run CI with these
-  commits, and BL-077 reads that run, records its URL, and corrects the fields.
+  commits, and BL-079 reads that run, records its URL, and corrects the fields.
   Moving the task to Backlog instead would have left the code uncommitted and so never
   in a CI run - a deadlock. Decided under rule 1 of the unattended run.
 - **Workflow shape.** Matrix switched to `include:` so each non-Windows leg carries its
@@ -86,4 +86,4 @@ tests on Linux and macOS. Those tests pass there instead of reporting Inconclusi
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
-- 2026-09-28: Doing -> Done. UpstreamCurlBuilds.json pins static-curl 8.21.0 for linux-x64 and osx-arm64; CI downloads, SHA-256-verifies and runs Surl.Conformance on Linux and macOS (run confirmation in BL-077)
+- 2026-09-28: Doing -> Done. UpstreamCurlBuilds.json pins static-curl 8.21.0 for linux-x64 and osx-arm64; CI downloads, SHA-256-verifies and runs Surl.Conformance on Linux and macOS (run confirmation in BL-079)
