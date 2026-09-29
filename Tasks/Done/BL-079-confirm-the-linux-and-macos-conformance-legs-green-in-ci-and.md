@@ -8,7 +8,7 @@ depends-on: [BL-028]
 touches: [UpstreamCurlBuilds.json, .github/workflows/ci.yml, Surl.Networking.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-079 — Confirm the Linux and macOS conformance legs green in CI and correct the pins from the builds' own --version
 
@@ -39,11 +39,11 @@ skipped or inconclusive), and the `linux-x64` and `osx-arm64` pins' `version`,
 
 ## Acceptance criteria
 
-- [ ] The URL of a `CI` run containing BL-028's commits, green on all three legs, is in
+- [x] The URL of a `CI` run containing BL-028's commits, green on all three legs, is in
       this task's Log.
-- [ ] In that run, the Linux and macOS `Conformance tests` steps show the
+- [x] In that run, the Linux and macOS `Conformance tests` steps show the
       `Surl.Conformance.UnitTests` tests passed with `Skipped: 0`.
-- [ ] That run's `Verify the upstream curl build` steps raise no `::warning` about a pin
+- [x] That run's `Verify the upstream curl build` steps raise no `::warning` about a pin
       field, or the pins are corrected to the printed values and any difference is
       recorded under Notes.
 
@@ -71,6 +71,19 @@ skipped or inconclusive), and the `linux-x64` and `osx-arm64` pins' `version`,
   pushes it; the acceptance criteria can only be checked on a `CI` run that contains it,
   which a lane cannot trigger before the shift pushes. Next run: `gh workflow run CI --ref
   <shift branch>` (or read the merge pull request's run), then check the three boxes.
+- 2026-09-29, run 2: the shift had pushed the fix (e47b3f9) to `factory/phase-1`, so this
+  run dispatched CI there: run 36537650411, green on all three legs. Linux and macOS
+  `Conformance tests`: `Passed! - Failed: 0, Passed: 80, Skipped: 0, Total: 80` for
+  `Surl.Conformance.UnitTests.dll`.
+- `Verify the upstream curl build` warned on three pin fields; corrected to the printed
+  values (ADR-0016: the build wins):
+  - `linux-x64` `version`: the triplet is `x86_64-pc-linux-gnu`, not `x86_64-linux-musl`
+    (the musl triplet BL-028 read from the binary is not what `--version` prints).
+  - `osx-arm64` `protocols`: no `rtsp` (the release notes listed it).
+  - `osx-arm64` `features`: adds `AppleSecTrust`.
+  Linux `protocols`/`features` and the macOS `version` matched their pins.
+- The missing `rtsp` on macOS matters for future RTSP conformance tests: filed BL-084 to
+  decide it and to annotate ADR-0016, which is outside this task's `touches`.
 
 ## Log
 
@@ -78,3 +91,5 @@ skipped or inconclusive), and the `linux-x64` and `osx-arm64` pins' `version`,
 - 2026-09-28: Backlog -> Doing.
 - 2026-09-28: Doing -> Backlog. Waiting for the shift to push the networking test fix; the CI legs can only be checked on a run containing it (run 36531859090 was red on Linux/macOS in Fast tests)
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: CI run https://github.com/StewartScottRogers/Surl/actions/runs/36537650411 (workflow_dispatch on factory/phase-1, head f0a6f69, contains BL-028 and the networking test fix) green on Windows, Linux and macOS.
+- 2026-09-29: Doing -> Done. CI run 36537650411 green on all three legs, Linux and macOS conformance 80/80 with Skipped 0, and the linux-x64/osx-arm64 pins match --version
