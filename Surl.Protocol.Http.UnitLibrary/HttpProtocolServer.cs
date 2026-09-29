@@ -112,7 +112,9 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
     }
 
     /// <summary>
-    /// The one scheme answered: <c>http</c>. <c>https</c> joins it with the TLS contract.
+    /// The one scheme answered: <c>http</c>. <c>surl</c> serves <c>https</c> with this same
+    /// server, registered through <c>Surl.Console</c>'s <c>ImplicitTlsSchemeServer</c> on
+    /// connections the serving engine has already secured with TLS (ADR-0020).
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["http"]);
 

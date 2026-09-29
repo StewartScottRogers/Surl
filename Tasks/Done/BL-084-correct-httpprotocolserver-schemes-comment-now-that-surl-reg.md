@@ -8,7 +8,7 @@ depends-on: [BL-038]
 touches: [Surl.Protocol.Http.UnitLibrary]
 requirement: none
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-084 — Correct HttpProtocolServer.Schemes' comment now that surl registers https in its composition
 
@@ -27,13 +27,19 @@ Doc comment only; no behaviour change.
 
 ## Acceptance criteria
 
-- [ ] The comment on `HttpProtocolServer.Schemes` says it answers `http`, and that `surl`
+- [x] The comment on `HttpProtocolServer.Schemes` says it answers `http`, and that `surl`
       serves `https` with the same server through `ImplicitTlsSchemeServer` (ADR-0020).
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Done in-session rather than through align-and-document: a one-sentence doc comment. The
+  comment names `ImplicitTlsSchemeServer` in `<c>`, not `<see cref>`, because the type is
+  internal to `Surl.Console`, which the HTTP library does not reference. It says the serving
+  engine secures the connection, because the wrapper itself does no TLS (ADR-0020).
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. HttpProtocolServer.Schemes' comment says surl serves https with the same server through ImplicitTlsSchemeServer (ADR-0020)
