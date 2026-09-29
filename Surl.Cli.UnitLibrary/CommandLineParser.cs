@@ -43,8 +43,9 @@ public static class CommandLineParser
     /// </summary>
     /// <param name="arguments">The arguments, as the process received them.</param>
     /// <returns>
-    /// <see cref="CommandLineParseResult.ShowHelp"/> or <see cref="CommandLineParseResult.ShowVersion"/>
-    /// when <c>-h</c>/<c>--help</c> or <c>-V</c>/<c>--version</c> is read before any error;
+    /// <see cref="CommandLineParseResult.ShowHelp"/>, with the subject that follows, or
+    /// <see cref="CommandLineParseResult.ShowVersion"/> when <c>-h</c>/<c>--help</c> or
+    /// <c>-V</c>/<c>--version</c> is read before any error (ADR-0034 decision 4);
     /// a serve result carrying the <see cref="SurlCommandLine"/>; or the first failure, with
     /// its <see cref="SurlExitCode"/> and message.
     /// </returns>
@@ -158,14 +159,28 @@ public static class CommandLineParser
             return (true, RefusedOption(argument, IsUnknown));
         }
 
+        if (option.Kind == CommandLineOptionKind.Help)
+        {
+            return (true, CommandLineParseResult.ShowHelp(RestOrNextArgument(reading, argument, index)));
+        }
+
         if (option.Kind == CommandLineOptionKind.Argument)
         {
-            var attached = argument[(index + 1)..];
-            return (true, ApplyArgument(reading, option, argument, attached.Length > 0 ? attached : reading.TakeArgumentOrNull()));
+            return (true, ApplyArgument(reading, option, argument, RestOrNextArgument(reading, argument, index)));
         }
 
         var ended = ApplyOption(reading, option, argument, attached: null, turnOn: true);
         return (ended is not null, ended);
+    }
+
+    /// <summary>
+    /// The rest of a bundle after the short option at <paramref name="index"/> (<c>30</c> of
+    /// <c>-m30</c>), or, when nothing follows it, the next argument (null when there is none).
+    /// </summary>
+    private static string? RestOrNextArgument(CommandLineReading reading, string argument, int index)
+    {
+        var attached = argument[(index + 1)..];
+        return attached.Length > 0 ? attached : reading.TakeArgumentOrNull();
     }
 
     /// <summary>Applies an option found by name; <paramref name="attached"/> is the text after <c>=</c>, if any.</summary>
@@ -174,26 +189,45 @@ public static class CommandLineParser
         CommandLineOption option,
         string writtenName,
         string? attached,
+        bool turnOn) =>
+        option.Kind is CommandLineOptionKind.Help or CommandLineOptionKind.Argument
+            ? ApplyOptionTakingAValue(reading, option, writtenName, attached ?? reading.TakeArgumentOrNull())
+            : ApplyOptionTakingNoValue(reading, option, writtenName, attached, turnOn);
+
+    /// <summary>Applies <c>-V</c> or a flag; <paramref name="attached"/>, the text after <c>=</c>, refuses either.</summary>
+    private static CommandLineParseResult? ApplyOptionTakingNoValue(
+        CommandLineReading reading,
+        CommandLineOption option,
+        string writtenName,
+        string? attached,
         bool turnOn)
     {
-        if (option.Kind != CommandLineOptionKind.Argument && attached is not null)
+        if (attached is not null)
         {
             return RefusedOption(writtenName, DoesNotTakeParameter);
         }
 
-        switch (option.Kind)
+        if (option.Kind == CommandLineOptionKind.Version)
         {
-            case CommandLineOptionKind.Help:
-                return CommandLineParseResult.ShowHelp;
-            case CommandLineOptionKind.Version:
-                return CommandLineParseResult.ShowVersion;
-            case CommandLineOptionKind.Flag:
-                reading.CommandLine = option.SetFlag!(reading.CommandLine, turnOn);
-                return null;
-            default:
-                return ApplyArgument(reading, option, writtenName, attached ?? reading.TakeArgumentOrNull());
+            return CommandLineParseResult.ShowVersion;
         }
+
+        reading.CommandLine = option.SetFlag!(reading.CommandLine, turnOn);
+        return null;
     }
+
+    /// <summary>
+    /// Applies <c>--help</c>, whose optional subject is <paramref name="value"/>, or an option
+    /// whose required argument is <paramref name="value"/>; null when none was given.
+    /// </summary>
+    private static CommandLineParseResult? ApplyOptionTakingAValue(
+        CommandLineReading reading,
+        CommandLineOption option,
+        string writtenName,
+        string? value) =>
+        option.Kind == CommandLineOptionKind.Help
+            ? CommandLineParseResult.ShowHelp(value)
+            : ApplyArgument(reading, option, writtenName, value);
 
     private static CommandLineParseResult? ApplyArgument(
         CommandLineReading reading,

@@ -6,7 +6,10 @@ public enum CommandLineOutcome
     /// <summary>Serve the listen URLs with the parsed options.</summary>
     Serve,
 
-    /// <summary>Write <see cref="HelpText.Text"/> to stdout and exit with <c>SurlExitCode.Ok</c>.</summary>
+    /// <summary>
+    /// Write <see cref="HelpText.Answer"/>'s texts for <see cref="CommandLineParseResult.HelpSubject"/>
+    /// to stdout and stderr and exit with <c>SurlExitCode.Ok</c>.
+    /// </summary>
     ShowHelp,
 
     /// <summary>Write <see cref="VersionText.Compose"/>'s text to stdout and exit with <c>SurlExitCode.Ok</c>.</summary>

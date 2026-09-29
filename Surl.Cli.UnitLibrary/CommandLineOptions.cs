@@ -6,7 +6,8 @@ namespace Surl.Cli;
 
 /// <summary>
 /// ADR-0007 section 2's Phase 1 option table, with ADR-0010 section 3's <c>--cert-type</c>,
-/// <c>--key-type</c> and <c>--pass</c>, looked up by long and by short name.
+/// <c>--key-type</c> and <c>--pass</c>, looked up by long and by short name. Each row carries
+/// its help (ADR-0034 decision 2), so an option cannot be added without it.
 /// </summary>
 internal static class CommandLineOptions
 {
@@ -16,34 +17,62 @@ internal static class CommandLineOptions
 #pragma warning disable SYSLIB0039 // --tlsv1.0 and --tlsv1.1 name the old versions on purpose (ADR-0007 section 2).
     private static readonly CommandLineOption[] Table =
     [
-        new("help", 'h', CommandLineOptionKind.Help, Negatable: false, SetFlag: null, ApplyArgument: null),
-        new("version", 'V', CommandLineOptionKind.Version, Negatable: false, SetFlag: null, ApplyArgument: null),
-        Flag("verbose", 'v', negatable: true, (c, on) => c with { Verbose = on }),
-        WithArgument<string>("directory", null, OptionArgumentReader.ReadPath, (c, v) => c with { DataDirectory = v }),
-        Flag("allow-uploads", null, negatable: true, (c, on) => c with { AllowUploads = on }),
-        Flag("list-directories", null, negatable: true, (c, on) => c with { ListDirectories = on }),
-        Flag("follow-symlinks", null, negatable: true, (c, on) => c with { FollowSymlinks = on }),
-        Flag("serve-dot-files", null, negatable: true, (c, on) => c with { ServeDotFiles = on }),
-        WithArgument<int>("max-connections", null, OptionArgumentReader.ReadNumber, (c, v) => c with { MaxConnections = v }),
-        WithArgument<int>("max-connections-per-address", null, OptionArgumentReader.ReadNumber, (c, v) => c with { MaxConnectionsPerAddress = v }),
-        WithArgument<TimeSpan>("idle-timeout", null, OptionArgumentReader.ReadSeconds, (c, v) => c with { IdleTimeout = v }),
-        WithArgument<TimeSpan>("max-time", 'm', OptionArgumentReader.ReadSeconds, (c, v) => c with { MaxTime = v }),
-        WithArgument<TimeSpan>("head-timeout", null, OptionArgumentReader.ReadSeconds, (c, v) => c with { Limits = c.Limits with { HeadTimeout = v } }),
-        WithArgument<long>("max-request-head", null, OptionArgumentReader.ReadBytes, (c, v) => c with { Limits = c.Limits with { MaxRequestHeadBytes = v } }),
-        WithArgument<long>("max-line", null, OptionArgumentReader.ReadBytes, (c, v) => c with { Limits = c.Limits with { MaxLineBytes = v } }),
-        WithArgument<long>("max-message", null, OptionArgumentReader.ReadBytes, (c, v) => c with { Limits = c.Limits with { MaxMessageBytes = v } }),
-        WithArgument<long>("max-filesize", null, OptionArgumentReader.ReadBytes, (c, v) => c with { Limits = c.Limits with { MaxUploadBytes = v } }),
-        Flag("tlsv1.0", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls }),
-        Flag("tlsv1.1", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls11 }),
-        Flag("tlsv1.2", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls12 }),
-        Flag("tlsv1.3", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls13 }),
-        WithArgument<SslProtocols>("tls-max", null, OptionArgumentReader.ReadTlsVersion, (c, v) => c with { HighestTlsVersion = v }),
-        WithArgument<string>("cert", null, OptionArgumentReader.ReadPath, (c, v) => c with { CertificateFile = v }),
-        WithArgument<CertificateFileFormat>("cert-type", null, OptionArgumentReader.ReadCertificateType, (c, v) => c with { CertificateType = v }),
-        WithArgument<string>("key", null, OptionArgumentReader.ReadPath, (c, v) => c with { KeyFile = v }),
-        WithArgument<CertificateFileFormat>("key-type", null, OptionArgumentReader.ReadKeyType, (c, v) => c with { KeyType = v }),
-        WithArgument<string>("pass", null, OptionArgumentReader.ReadText, (c, v) => c with { KeyPassphrase = v }),
-        WithArgument<string>("cacert", null, OptionArgumentReader.ReadPath, (c, v) => c with { CaCertificateFile = v }),
+        new("help", 'h', CommandLineOptionKind.Help, Negatable: false, SetFlag: null, ApplyArgument: null,
+            new("<subject>", "Get help for commands", ["surl"], IsInShortList: true, Default: null)),
+        new("version", 'V', CommandLineOptionKind.Version, Negatable: false, SetFlag: null, ApplyArgument: null,
+            new(null, "Show version number and quit", ["surl"], IsInShortList: true, Default: null)),
+        Flag("verbose", 'v', negatable: true, (c, on) => c with { Verbose = on },
+            new(null, "Log every exchange event", ["logging"], IsInShortList: true, Default: "off")),
+        WithArgument<string>("directory", null, OptionArgumentReader.ReadPath, (c, v) => c with { DataDirectory = v },
+            new("<directory>", "Data directory, else in memory", ["content", "dict", "gopher", "http", "mqtt", "tftp"], IsInShortList: true, Default: "in memory")),
+        Flag("allow-uploads", null, negatable: true, (c, on) => c with { AllowUploads = on },
+            new(null, "Accept uploads into served files", ["content", "security", "tftp"], IsInShortList: true, Default: "off")),
+        Flag("list-directories", null, negatable: true, (c, on) => c with { ListDirectories = on },
+            new(null, "Answer directory listings", ["content", "gopher", "security"], IsInShortList: true, Default: "off")),
+        Flag("follow-symlinks", null, negatable: true, (c, on) => c with { FollowSymlinks = on },
+            new(null, "Follow links that stay in the root", ["content", "dict", "gopher", "http", "security", "tftp"], IsInShortList: false, Default: "off")),
+        Flag("serve-dot-files", null, negatable: true, (c, on) => c with { ServeDotFiles = on },
+            new(null, "Serve names that start with a dot", ["content", "dict", "gopher", "http", "security", "tftp"], IsInShortList: false, Default: "off")),
+        WithArgument<int>("max-connections", null, OptionArgumentReader.ReadNumber, (c, v) => c with { MaxConnections = v },
+            new("<number>", "Connections at once, all listeners", ["limits"], IsInShortList: false, Default: "1024")),
+        WithArgument<int>("max-connections-per-address", null, OptionArgumentReader.ReadNumber, (c, v) => c with { MaxConnectionsPerAddress = v },
+            new("<number>", "Connections at once per address", ["limits"], IsInShortList: false, Default: "100")),
+        WithArgument<TimeSpan>("idle-timeout", null, OptionArgumentReader.ReadSeconds, (c, v) => c with { IdleTimeout = v },
+            new("<seconds>", "Close an exchange idle this long", ["limits"], IsInShortList: false, Default: "120")),
+        WithArgument<TimeSpan>("max-time", 'm', OptionArgumentReader.ReadSeconds, (c, v) => c with { MaxTime = v },
+            new("<seconds>", "Longest time one exchange may take", ["limits"], IsInShortList: false, Default: "3600")),
+        WithArgument<TimeSpan>("head-timeout", null, OptionArgumentReader.ReadSeconds, (c, v) => c with { Limits = c.Limits with { HeadTimeout = v } },
+            new("<seconds>", "Time to send a request head", ["dict", "gopher", "http", "limits", "mqtt"], IsInShortList: false, Default: "30")),
+        WithArgument<long>("max-request-head", null, OptionArgumentReader.ReadBytes, (c, v) => c with { Limits = c.Limits with { MaxRequestHeadBytes = v } },
+            new("<bytes>", "Largest HTTP or RTSP request head", ["http", "limits"], IsInShortList: false, Default: "100k")),
+        WithArgument<long>("max-line", null, OptionArgumentReader.ReadBytes, (c, v) => c with { Limits = c.Limits with { MaxLineBytes = v } },
+            new("<bytes>", "Longest command line accepted", ["dict", "gopher", "limits", "telnet"], IsInShortList: false, Default: "8192")),
+        WithArgument<long>("max-message", null, OptionArgumentReader.ReadBytes, (c, v) => c with { Limits = c.Limits with { MaxMessageBytes = v } },
+            new("<bytes>", "Largest framed message accepted", ["limits", "mqtt"], IsInShortList: false, Default: "1M")),
+        WithArgument<long>("max-filesize", null, OptionArgumentReader.ReadBytes, (c, v) => c with { Limits = c.Limits with { MaxUploadBytes = v } },
+            new("<bytes>", "Largest upload accepted", ["http", "limits", "mqtt", "tftp"], IsInShortList: false, Default: "100M")),
+        Flag("tlsv1.0", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls },
+            new(null, "Accept TLS 1.0 or later", ["security", "tls"], IsInShortList: false, Default: null)),
+        Flag("tlsv1.1", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls11 },
+            new(null, "Accept TLS 1.1 or later", ["security", "tls"], IsInShortList: false, Default: null)),
+        Flag("tlsv1.2", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls12 },
+            new(null, "Accept TLS 1.2 or later (default)", ["tls"], IsInShortList: false, Default: null)),
+        Flag("tlsv1.3", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls13 },
+            new(null, "Accept TLS 1.3 or later", ["tls"], IsInShortList: false, Default: null)),
+        WithArgument<SslProtocols>("tls-max", null, OptionArgumentReader.ReadTlsVersion, (c, v) => c with { HighestTlsVersion = v },
+            new("<version>", "Highest TLS version accepted", ["tls"], IsInShortList: false, Default: "1.3")),
+        WithArgument<string>("cert", null, OptionArgumentReader.ReadPath, (c, v) => c with { CertificateFile = v },
+            new("<file>", "Server certificate file", ["tls"], IsInShortList: true, Default: "none")),
+        WithArgument<CertificateFileFormat>("cert-type", null, OptionArgumentReader.ReadCertificateType, (c, v) => c with { CertificateType = v },
+            new("<type>", "Format of --cert: PEM, DER or P12", ["tls"], IsInShortList: false, Default: "PEM")),
+        WithArgument<string>("key", null, OptionArgumentReader.ReadPath, (c, v) => c with { KeyFile = v },
+            new("<file>", "Private key for --cert", ["tls"], IsInShortList: true, Default: "the key in the --cert file")),
+        WithArgument<CertificateFileFormat>("key-type", null, OptionArgumentReader.ReadKeyType, (c, v) => c with { KeyType = v },
+            new("<type>", "Format of --key: PEM or DER", ["tls"], IsInShortList: false, Default: "PEM")),
+        WithArgument<string>("pass", null, OptionArgumentReader.ReadText, (c, v) => c with { KeyPassphrase = v },
+            new("<phrase>", "Passphrase for the private key", ["tls"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("cacert", null, OptionArgumentReader.ReadPath, (c, v) => c with { CaCertificateFile = v },
+            new("<file>", "CA certificates for client certs", ["tls"], IsInShortList: false, Default: "none")),
     ];
 #pragma warning restore SYSLIB0039
 
@@ -70,14 +99,15 @@ internal static class CommandLineOptions
     public static bool TryFindShort(char shortName, [NotNullWhen(true)] out CommandLineOption? option) =>
         ByShortName.TryGetValue(shortName, out option);
 
-    private static CommandLineOption Flag(string longName, char? shortName, bool negatable, SetFlag setFlag) =>
-        new(longName, shortName, CommandLineOptionKind.Flag, negatable, setFlag, ApplyArgument: null);
+    private static CommandLineOption Flag(string longName, char? shortName, bool negatable, SetFlag setFlag, OptionHelp help) =>
+        new(longName, shortName, CommandLineOptionKind.Flag, negatable, setFlag, ApplyArgument: null, help);
 
     private static CommandLineOption WithArgument<T>(
         string longName,
         char? shortName,
         ReadArgument<T> read,
-        Func<SurlCommandLine, T, SurlCommandLine> set)
+        Func<SurlCommandLine, T, SurlCommandLine> set,
+        OptionHelp help)
     {
         string? Apply(string argument, ref SurlCommandLine commandLine)
         {
@@ -90,6 +120,6 @@ internal static class CommandLineOptions
             return failure;
         }
 
-        return new(longName, shortName, CommandLineOptionKind.Argument, Negatable: false, SetFlag: null, Apply);
+        return new(longName, shortName, CommandLineOptionKind.Argument, Negatable: false, SetFlag: null, Apply, help);
     }
 }

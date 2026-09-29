@@ -28,7 +28,7 @@ public sealed class ProgramTests
         }
 
         Assert.AreEqual((int)SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(HelpText.Text, output.ToString());
+        Assert.AreEqual(HelpText.Answer(null).Output, output.ToString());
     }
 
     [TestMethod]

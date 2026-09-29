@@ -70,7 +70,7 @@ internal sealed class CommandLineRunner(
 
         return parsed.Outcome switch
         {
-            CommandLineOutcome.ShowHelp => WriteText(output, HelpText.Text),
+            CommandLineOutcome.ShowHelp => WriteHelp(output, error, HelpText.Answer(parsed.HelpSubject)),
             CommandLineOutcome.ShowVersion => WriteText(output, ComposeVersionText()),
             CommandLineOutcome.Refused => WriteRefusal(error, parsed.Failure!),
             _ => await ServeAsync(parsed.CommandLine!, output, error, cancellationToken),
@@ -103,6 +103,14 @@ internal sealed class CommandLineRunner(
         ListenerBindFailure.PermissionDenied => "Permission denied",
         _ => "Bind failed",
     };
+
+    /// <summary>Writes each stream's part of a help answer; every help answer exits Ok (ADR-0034 decision 3).</summary>
+    private static SurlExitCode WriteHelp(TextWriter output, TextWriter error, HelpAnswer answer)
+    {
+        output.Write(answer.Output);
+        error.Write(answer.Error);
+        return SurlExitCode.Ok;
+    }
 
     private static SurlExitCode WriteText(TextWriter output, string text)
     {

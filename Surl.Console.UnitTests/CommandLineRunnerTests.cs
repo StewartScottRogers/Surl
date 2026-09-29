@@ -18,15 +18,30 @@ public sealed class CommandLineRunnerTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    [DataRow("--help")]
-    [DataRow("-h")]
-    public async Task RunAsync_Help_WritesHelpTextAndReturnsOk(string option)
+    [DataRow(null, new[] { "--help" })]
+    [DataRow(null, new[] { "-h" })]
+    [DataRow("all", new[] { "--help", "all" })]
+    [DataRow("category", new[] { "--help", "category" })]
+    [DataRow("tls", new[] { "-h", "tls" })]
+    [DataRow("--max-line", new[] { "--help", "--max-line" })]
+    [DataRow("nosuch", new[] { "--help", "nosuch" }, DisplayName = "Unknown subject")]
+    public async Task RunAsync_Help_WritesTheSubjectsTextToOutputAndReturnsOk(string? subject, string[] arguments)
     {
-        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), option);
+        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), arguments);
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(HelpText.Text, output);
+        Assert.AreEqual(HelpText.Answer(subject).Output, output);
         Assert.AreEqual(string.Empty, error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_HelpForAnOptionSurlDoesNotHave_WritesTheIncorrectOptionLineToErrorAndReturnsOk()
+    {
+        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--help", "--nosuch");
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(string.Empty, output);
+        Assert.AreEqual("surl: Incorrect option name to show help for, see surl -h" + NewLine, error);
     }
 
     [TestMethod]

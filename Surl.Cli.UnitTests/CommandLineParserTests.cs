@@ -110,7 +110,6 @@ public sealed class CommandLineParserTests
     [DataRow("--serve-dot-files=1")]
     [DataRow("--no-verbose=no")]
     [DataRow("--tlsv1.3=yes")]
-    [DataRow("--help=all")]
     [DataRow("--version=1")]
     public void Parse_ValueOnAnOptionThatTakesNone_IsRefused(string written) =>
         AssertOptionRefused([written, Url], $"option {written}: does not take a parameter");
@@ -567,9 +566,29 @@ public sealed class CommandLineParserTests
     [DataRow("--help")]
     [DataRow("-h")]
     [DataRow("-vh", DisplayName = "Ending a bundle")]
-    [DataRow("-hV", DisplayName = "First of help and version wins")]
-    public void Parse_Help_ShowsHelp(string written) =>
-        Assert.AreSame(CommandLineParseResult.ShowHelp, CommandLineParser.Parse([written]));
+    [DataRow("--help=", DisplayName = "An empty attached subject")]
+    public void Parse_HelpWithNothingAfterIt_ShowsHelpWithNoSubject(string written) =>
+        AssertHelp(null, written);
+
+    [TestMethod]
+    [DataRow("all", new[] { "--help", "all" })]
+    [DataRow("auth", new[] { "-h", "auth" })]
+    [DataRow("auth", new[] { "-vh", "auth" }, DisplayName = "-h ending a bundle takes the next argument")]
+    [DataRow("auth", new[] { "--help=auth" }, DisplayName = "Attached with =")]
+    [DataRow("auth", new[] { "-hauth" }, DisplayName = "The rest of the argument after -h")]
+    [DataRow("V", new[] { "-hV" }, DisplayName = "-hV asks for help on V")]
+    [DataRow("-v", new[] { "-h", "-v" }, DisplayName = "The next argument whatever it looks like")]
+    [DataRow("--", new[] { "--help", "--" }, DisplayName = "Even the end of options")]
+    [DataRow("http://127.0.0.1:1/", new[] { "--help", "http://127.0.0.1:1/" }, DisplayName = "A listen URL")]
+    [DataRow(null, new[] { "--help", "" }, DisplayName = "An empty next argument")]
+    [DataRow("auth", new[] { "--help", "auth", "--nosuch" }, DisplayName = "Nothing after the subject is read")]
+    [DataRow("--max-time", new[] { "http://127.0.0.1:1/", "--help", "--max-time", "x" }, DisplayName = "After a listen URL")]
+    public void Parse_HelpAndASubject_ShowsHelpForTheSubject(string? subject, string[] arguments) =>
+        AssertHelp(subject, arguments);
+
+    [TestMethod]
+    public void Parse_NoHelp_IsRefusedAsNotReversible() =>
+        AssertOptionRefused(["--no-help"], "option --no-help: the given option cannot be reversed with a --no- prefix");
 
     [TestMethod]
     [DataRow("--version")]
@@ -583,25 +602,42 @@ public sealed class CommandLineParserTests
     public void Parse_HelpOrVersionBeforeAnError_EndsReadingWhereItStands()
     {
         Assert.AreEqual(CommandLineOutcome.ShowVersion, CommandLineParser.Parse(["-V", "--no-such"]).Outcome);
-        Assert.AreEqual(CommandLineOutcome.ShowHelp, CommandLineParser.Parse([Url, "--help", "--max-time", "x"]).Outcome);
         Assert.AreEqual(CommandLineOutcome.ShowVersion, CommandLineParser.Parse(["--version", "--help"]).Outcome);
+        Assert.AreEqual(CommandLineOutcome.ShowVersion, CommandLineParser.Parse(["-Vh"]).Outcome);
     }
 
     [TestMethod]
     public void Parse_ErrorBeforeHelpOrVersion_IsReported()
     {
         AssertOptionRefused(["--no-such", "-V"], "option --no-such: is unknown");
+        AssertOptionRefused(["--no-such", "--help"], "option --no-such: is unknown");
         AssertOptionRefused(["-m", "x", "--help"], "option -m: expected a proper numerical parameter");
     }
 
     [TestMethod]
     public void ShowHelpAndShowVersion_CarryNeitherCommandLineNorFailure()
     {
-        foreach (var result in new[] { CommandLineParseResult.ShowHelp, CommandLineParseResult.ShowVersion })
+        foreach (var result in new[] { CommandLineParseResult.ShowHelp("auth"), CommandLineParseResult.ShowVersion })
         {
             Assert.IsNull(result.CommandLine);
             Assert.IsNull(result.Failure);
         }
+    }
+
+    [TestMethod]
+    public void HelpSubject_IsNullForEveryOutcomeButShowHelp()
+    {
+        Assert.IsNull(CommandLineParseResult.ShowVersion.HelpSubject);
+        Assert.IsNull(CommandLineParser.Parse(["--no-such"]).HelpSubject);
+        Assert.IsNull(CommandLineParser.Parse([Url]).HelpSubject);
+    }
+
+    private static void AssertHelp(string? subject, params string[] arguments)
+    {
+        var result = CommandLineParser.Parse(arguments);
+
+        Assert.AreEqual(CommandLineOutcome.ShowHelp, result.Outcome, result.Failure?.Message);
+        Assert.AreEqual(subject, result.HelpSubject);
     }
 
     private static SurlCommandLine Served(params string[] arguments)
