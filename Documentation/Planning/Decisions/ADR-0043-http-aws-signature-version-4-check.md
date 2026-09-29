@@ -71,7 +71,9 @@ Pinned upstream curl 8.21.0 (win-x64 reference build), `Record-CurlExchange.ps1 
    no body (no `Transfer-Encoding`, no `Content-Length` or `0`) uses the empty body's hash and any
    other request is refused. So today a signed `s3` write is accepted without its body being
    compared with the signed hash, and a write for another service is refused. Binding the body
-   to the signature is BL-136.
+   to the signature is BL-136. *Amended by
+   [ADR-0045](ADR-0045-an-aws-signature-version-4-body-is-bound-after-it-is-read.md): the body
+   is now bound once it is read, and a write for any service is checked over it.*
 
 ## Alternatives considered
 
