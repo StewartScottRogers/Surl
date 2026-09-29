@@ -151,7 +151,7 @@ public sealed class WriteRequestTests
     [TestMethod]
     public async Task Wrq_DiskWriteFails_AnswersError3WithTheFixedTextAndLeavesNoFile()
     {
-        var fileSystem = new InMemoryContentFileSystem { FailWrites = true }.AddDirectory(Root);
+        var fileSystem = new UnitTestInMemoryContentFileSystem { FailWrites = true }.AddDirectory(Root);
         var (flow, log) = await ServeAsync(Store(fileSystem), WriteRequest("up.txt"), [ScriptedDatagramFlow.Datagram(Data(1, "hi"u8.ToArray()))]);
 
         AssertSent([Ack(0), RecordedFixture.ServerDatagrams("write-too-large").Single()], flow);

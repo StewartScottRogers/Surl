@@ -19,9 +19,9 @@ internal static class UploadExchange
 
     public static readonly byte[] IllegalOperation = [0, 5, 0, 4, .. "Illegal TFTP operation"u8, 0];
 
-    public static InMemoryContentFileSystem FileSystem() => new InMemoryContentFileSystem().AddDirectory(Root);
+    public static UnitTestInMemoryContentFileSystem FileSystem() => new UnitTestInMemoryContentFileSystem().AddDirectory(Root);
 
-    public static ContentStore Store(InMemoryContentFileSystem fileSystem, bool allowUploads = true, long maxUploadBytes = ContentExposureOptions.DefaultMaxUploadBytes) =>
+    public static ContentStore Store(UnitTestInMemoryContentFileSystem fileSystem, bool allowUploads = true, long maxUploadBytes = ContentExposureOptions.DefaultMaxUploadBytes) =>
         new(Root, fileSystem, new ContentExposureOptions { AllowUploads = allowUploads, MaxUploadBytes = maxUploadBytes });
 
     public static ExchangeContext Context(IExchangeLog log, TimeProvider clock, ExchangeLimits? limits = null, CancellationToken cancellationToken = default) => new(

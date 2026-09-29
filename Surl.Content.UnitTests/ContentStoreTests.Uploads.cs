@@ -7,7 +7,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_DefaultOptions_IsNotPermittedWithoutCreatingAFile()
     {
-        var fileSystem = new InMemoryContentFileSystem().AddDirectory(Root);
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddDirectory(Root);
         var store = new ContentStore(Root, fileSystem, new ContentExposureOptions());
         ContentPathMapping mapping = store.MapRequestPath("/upload.bin");
         using var source = new MemoryStream([1, 2, 3]);
@@ -23,7 +23,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_ExactlyMaxUploadBytes_IsWritten()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
         byte[] upload = "0123456789"u8.ToArray();
 
         ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream(upload), CancellationToken.None);
@@ -36,7 +36,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_OneByteOverMaxUploadBytes_IsTooLargeAndLeavesNoFile()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
         using var source = new MemoryStream(new byte[11]);
 
         ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), source, CancellationToken.None);
@@ -60,7 +60,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_MaxUploadBytesZero_AcceptsAnySize()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);
         byte[] upload = new byte[300_000];
         upload[^1] = 7;
 
@@ -73,7 +73,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_ExistingFile_IsReplaced()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
         fileSystem.AddFile(UploadPath, "old contents"u8.ToArray(), Modified);
 
         ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream("new"u8.ToArray()), CancellationToken.None);
@@ -91,7 +91,7 @@ public sealed partial class ContentStoreTests
     [DataRow("/link/upload.bin")]
     public async Task WriteUploadAsync_DirectoryMissingParentOrHiddenPath_IsNotPermitted(string requestPath)
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
         fileSystem
             .AddDirectory(Path.Join(Root, "dir"))
             .AddSymbolicLink(Path.Join(Root, "link"), Path.Join(Root, "dir"));
@@ -106,7 +106,7 @@ public sealed partial class ContentStoreTests
     public async Task WriteUploadAsync_ServedRootIsTheFileSystemRootAndMissing_IsNotPermitted()
     {
         string root = Path.DirectorySeparatorChar.ToString();
-        var store = new ContentStore(root, new InMemoryContentFileSystem(), new ContentExposureOptions { AllowUploads = true });
+        var store = new ContentStore(root, new UnitTestInMemoryContentFileSystem(), new ContentExposureOptions { AllowUploads = true });
 
         ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/"), new MemoryStream([1]), CancellationToken.None);
 
@@ -117,7 +117,7 @@ public sealed partial class ContentStoreTests
     public async Task WriteUploadAsync_LinkResolvingToAMissingFileSystemRoot_IsNotPermitted()
     {
         string root = Path.DirectorySeparatorChar.ToString();
-        var fileSystem = new InMemoryContentFileSystem().AddSymbolicLink(Path.Join(root, "link"), root);
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddSymbolicLink(Path.Join(root, "link"), root);
         var options = new ContentExposureOptions { AllowUploads = true, FollowSymbolicLinks = true };
         var store = new ContentStore(root, fileSystem, options);
 
@@ -129,7 +129,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_SourceFailsMidUpload_DeletesTheTemporaryFileAndRethrows()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);
 
         await Assert.ThrowsExactlyAsync<IOException>(
             () => store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new FailingOnSecondReadStream([1, 2, 3]), CancellationToken.None));
@@ -140,7 +140,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_SourceFailsMidUploadOverAnExistingFile_KeepsItsBytesAndLeavesNoTemporaryFile()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);
         fileSystem.AddFile(UploadPath, "old contents"u8.ToArray(), Modified);
 
         await Assert.ThrowsExactlyAsync<IOException>(
@@ -153,7 +153,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_TooLargeOverAnExistingFile_KeepsItsBytesAndLeavesNoTemporaryFile()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
         fileSystem.AddFile(UploadPath, "old contents"u8.ToArray(), Modified);
 
         ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream(new byte[11]), CancellationToken.None);
@@ -166,7 +166,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_RenameFails_KeepsTheExistingFileDeletesTheTemporaryFileAndRethrows()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
         fileSystem.AddFile(UploadPath, "old contents"u8.ToArray(), Modified);
         fileSystem.FailMoves = true;
 
@@ -180,7 +180,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_Written_WritesADotFileBesideTheTargetAndRenamesItOverTheTarget()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
         string temporaryPrefix = Path.Join(Root, ".surl-upload-");
 
         await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream([1]), CancellationToken.None);
@@ -194,7 +194,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_Cancelled_ThrowsWithoutCreatingAFile()
     {
-        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        (ContentStore store, UnitTestInMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
 
@@ -220,7 +220,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task WriteUploadAsync_ReadOnlyFileSystem_ThrowsNotSupported()
     {
-        var store = new ContentStore(Root, new ReadOnlyContentFileSystem(), new ContentExposureOptions { AllowUploads = true });
+        var store = new ContentStore(Root, new UnitTestReadOnlyContentFileSystem(), new ContentExposureOptions { AllowUploads = true });
 
         await Assert.ThrowsExactlyAsync<NotSupportedException>(
             () => store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream([1]), CancellationToken.None));
@@ -229,7 +229,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void DeleteFile_ReadOnlyFileSystem_ThrowsNotSupported()
     {
-        IContentFileSystem fileSystem = new ReadOnlyContentFileSystem();
+        IContentFileSystem fileSystem = new UnitTestReadOnlyContentFileSystem();
 
         Assert.ThrowsExactly<NotSupportedException>(() => fileSystem.DeleteFile(UploadPath));
     }
@@ -237,14 +237,14 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void MoveFileReplacing_ReadOnlyFileSystem_ThrowsNotSupported()
     {
-        IContentFileSystem fileSystem = new ReadOnlyContentFileSystem();
+        IContentFileSystem fileSystem = new UnitTestReadOnlyContentFileSystem();
 
         Assert.ThrowsExactly<NotSupportedException>(() => fileSystem.MoveFileReplacing(Path.Join(Root, ".temporary"), UploadPath));
     }
 
-    private static (ContentStore Store, InMemoryContentFileSystem FileSystem) UploadStore(long maxUploadBytes)
+    private static (ContentStore Store, UnitTestInMemoryContentFileSystem FileSystem) UploadStore(long maxUploadBytes)
     {
-        var fileSystem = new InMemoryContentFileSystem().AddDirectory(Root);
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddDirectory(Root);
         var options = new ContentExposureOptions { AllowUploads = true, MaxUploadBytes = maxUploadBytes };
         return (new ContentStore(Root, fileSystem, options), fileSystem);
     }
@@ -252,7 +252,7 @@ public sealed partial class ContentStoreTests
     /// <summary>
     /// A seam that implements only the reads, so its writes are the interface's defaults.
     /// </summary>
-    private sealed class ReadOnlyContentFileSystem : IContentFileSystem
+    private sealed class UnitTestReadOnlyContentFileSystem : IContentFileSystem
     {
         public ContentEntryKind GetEntryKind(string path) =>
             path == Root ? ContentEntryKind.Directory : ContentEntryKind.None;

@@ -20,7 +20,7 @@ internal static class GopherTestExchange
     /// A root holding <c>file.txt</c>, <c>.hidden.txt</c>, the directory <c>sub</c> and the
     /// dot-directory <c>.git</c>.
     /// </summary>
-    public static InMemoryContentFileSystem FileSystemWithDotFiles() => new InMemoryContentFileSystem()
+    public static UnitTestInMemoryContentFileSystem FileSystemWithDotFiles() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
         .AddDirectory(Path.Join(Root, "sub"))
         .AddDirectory(Path.Join(Root, ".git"))

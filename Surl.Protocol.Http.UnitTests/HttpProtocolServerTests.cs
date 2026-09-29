@@ -333,7 +333,7 @@ public sealed class HttpProtocolServerTests
 
     private static string Latin1(byte[] bytes) => Encoding.Latin1.GetString(bytes);
 
-    private static InMemoryContentFileSystem StandardFileSystem() => new InMemoryContentFileSystem()
+    private static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
         .AddDirectory(Path.Join(Root, "sub"))
         .AddFile(Path.Join(Root, "file.txt"), Encoding.ASCII.GetBytes(FileBody), FileTime);
@@ -348,7 +348,7 @@ public sealed class HttpProtocolServerTests
         cancellationToken);
 
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeAsync(
-        byte[] request, InMemoryContentFileSystem? fileSystem = null, bool oneBytePerRead = false, bool peerHalfCloses = true)
+        byte[] request, UnitTestInMemoryContentFileSystem? fileSystem = null, bool oneBytePerRead = false, bool peerHalfCloses = true)
     {
         var server = new HttpProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var chunks = oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request);

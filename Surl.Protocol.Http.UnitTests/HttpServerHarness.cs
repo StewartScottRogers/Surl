@@ -22,7 +22,7 @@ internal static class HttpServerHarness
 
     public static readonly DateTimeOffset FileTime = new(2026, 9, 1, 8, 30, 0, TimeSpan.Zero);
 
-    public static InMemoryContentFileSystem StandardFileSystem() => new InMemoryContentFileSystem()
+    public static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
         .AddFile(Path.Join(Root, "file.txt"), Encoding.ASCII.GetBytes(FileBody), FileTime);
 

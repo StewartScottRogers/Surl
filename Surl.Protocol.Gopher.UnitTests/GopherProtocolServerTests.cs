@@ -281,7 +281,7 @@ public sealed class GopherProtocolServerTests
     [DataRow("/sub\r\n", "was no longer a directory when it was listed")]
     public async Task ServeAsync_EntryThatVanishesAfterMapping_SendsTheErrorMenu(string request, string note)
     {
-        var (connection, log) = await ServeAsync(Encoding.ASCII.GetBytes(request), new VanishingContentFileSystem(StandardFileSystem()));
+        var (connection, log) = await ServeAsync(Encoding.ASCII.GetBytes(request), new UnitTestVanishingContentFileSystem(StandardFileSystem()));
 
         Assert.AreEqual(NothingServedHere, Utf8(connection.WrittenBytes));
         Assert.EndsWith(note, log.Notes.Single());
@@ -346,7 +346,7 @@ public sealed class GopherProtocolServerTests
 
     private static string Utf8(byte[] bytes) => Encoding.UTF8.GetString(bytes);
 
-    private static InMemoryContentFileSystem StandardFileSystem() => new InMemoryContentFileSystem()
+    private static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
         .AddDirectory(Path.Join(Root, "sub"))
         .AddFile(Path.Join(Root, "file.txt"), Encoding.ASCII.GetBytes(FileBody), FileTime);

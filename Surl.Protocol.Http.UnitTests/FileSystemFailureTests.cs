@@ -19,9 +19,9 @@ public sealed class FileSystemFailureTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    [DataRow(nameof(InMemoryContentFileSystem.GetLastWriteTimeUtc), true, "GET")]
-    [DataRow(nameof(InMemoryContentFileSystem.GetFileLength), true, "GET")]
-    [DataRow(nameof(InMemoryContentFileSystem.GetFileLength), false, "HEAD")]
+    [DataRow(nameof(UnitTestInMemoryContentFileSystem.GetLastWriteTimeUtc), true, "GET")]
+    [DataRow(nameof(UnitTestInMemoryContentFileSystem.GetFileLength), true, "GET")]
+    [DataRow(nameof(UnitTestInMemoryContentFileSystem.GetFileLength), false, "HEAD")]
     public async Task ServeAsync_FileStatusThrows_Answers404AndKeepsTheConnection(string failingMember, bool deniesAccess, string method)
     {
         Exception failure = deniesAccess ? new UnauthorizedAccessException($"Access to the path '{FilePath}' is denied.") : new IOException("The disk failed.");
@@ -41,7 +41,7 @@ public sealed class FileSystemFailureTests
     [TestMethod]
     public async Task ServeAsync_FileStatusThrowsOnAConnectionThatCloses_Answers404WithConnectionClose()
     {
-        var fileSystem = StandardFileSystem().FailOn(FilePath, nameof(InMemoryContentFileSystem.GetFileLength), new IOException("The disk failed."));
+        var fileSystem = StandardFileSystem().FailOn(FilePath, nameof(UnitTestInMemoryContentFileSystem.GetFileLength), new IOException("The disk failed."));
 
         var (connection, _) = await ServeAsync(
             [Ascii("GET /file.txt HTTP/1.1\r\nHost: h\r\nConnection: close\r\n\r\n")],
@@ -59,7 +59,7 @@ public sealed class FileSystemFailureTests
     public async Task ServeAsync_OpenThrowsAfterTheHead_AbortsTheConnectionWithANoteNamingTheFile(bool deniesAccess)
     {
         Exception failure = deniesAccess ? new UnauthorizedAccessException("Access is denied.") : new FileNotFoundException("The file was deleted.");
-        var fileSystem = StandardFileSystem().FailOn(FilePath, nameof(InMemoryContentFileSystem.OpenFileForAsyncRead), failure);
+        var fileSystem = StandardFileSystem().FailOn(FilePath, nameof(UnitTestInMemoryContentFileSystem.OpenFileForAsyncRead), failure);
 
         var (connection, log) = await ServeAsync(
             [Ascii("GET /file.txt HTTP/1.1\r\nHost: h\r\n\r\nGET /file.txt HTTP/1.1\r\nHost: h\r\n\r\n")],
@@ -87,8 +87,8 @@ public sealed class FileSystemFailureTests
     }
 
     [TestMethod]
-    [DataRow(nameof(InMemoryContentFileSystem.GetFileLength))]
-    [DataRow(nameof(InMemoryContentFileSystem.OpenFileForAsyncRead))]
+    [DataRow(nameof(UnitTestInMemoryContentFileSystem.GetFileLength))]
+    [DataRow(nameof(UnitTestInMemoryContentFileSystem.OpenFileForAsyncRead))]
     public async Task ServeAsync_OtherExceptionFromTheContentStore_Escapes(string failingMember)
     {
         var fileSystem = StandardFileSystem().FailOn(FilePath, failingMember, new InvalidOperationException("A defect."));

@@ -59,7 +59,7 @@ public sealed partial class ContentStoreTests
     [DataRow("C:/x", ContentPathRefusal.NotRooted)]
     public void MapRequestPath_RefusesEscape_WithoutAskingTheFileSystem(string requestPath, ContentPathRefusal expected)
     {
-        var fileSystem = new InMemoryContentFileSystem().AddDirectory(Root);
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddDirectory(Root);
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath(requestPath);
@@ -74,7 +74,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void MapRequestPath_DotDotThatStaysInsideTheRoot_IsRefused()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddDirectory(Path.Join(Root, "a"))
             .AddFile(Path.Join(Root, "b"));
@@ -90,7 +90,7 @@ public sealed partial class ContentStoreTests
     public void MapRequestPath_SymbolicLinkPointingOutOfTheRoot_IsRefusedWithoutOpeningIt()
     {
         string outside = Path.Join("/", "etc");
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddSymbolicLink(Path.Join(Root, "out"), outside)
             .AddFile(Path.Join(outside, "passwd"));
@@ -108,7 +108,7 @@ public sealed partial class ContentStoreTests
     public void MapRequestPath_SymbolicLinkToASiblingWhoseNameStartsWithTheRoot_IsRefused()
     {
         string sibling = Root + "-evil";
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddSymbolicLink(Path.Join(Root, "out"), sibling)
             .AddFile(Path.Join(sibling, "x"));
@@ -122,7 +122,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void MapRequestPath_SymbolicLinkToTheRootsParent_IsRefused()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddSymbolicLink(Path.Join(Root, "up"), Path.Join("/", "srv"));
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
@@ -148,7 +148,7 @@ public sealed partial class ContentStoreTests
     [DataRow("/missing.txt", new[] { "missing.txt" }, ContentEntryKind.None)]
     public void MapRequestPath_WellFormedPath_MapsInsideTheRoot(string requestPath, string[] expectedSegments, ContentEntryKind expectedKind)
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "file.txt"))
             .AddDirectory(Path.Join(Root, "dir"))
@@ -172,7 +172,7 @@ public sealed partial class ContentStoreTests
     public void MapRequestPath_SymbolicLinkWhoseFinalTargetStaysInsideTheRoot_MapsToTheTarget()
     {
         string target = Path.Join(Root, "dir");
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddDirectory(target)
             .AddFile(Path.Join(target, "file.txt"))
@@ -191,7 +191,7 @@ public sealed partial class ContentStoreTests
     public void MapRequestPath_ServedRootIsItselfASymbolicLink_ComparesAgainstItsTarget()
     {
         string realRoot = Path.Join("/", "data", "www");
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddSymbolicLink(Root, realRoot)
             .AddDirectory(realRoot)
             .AddFile(Path.Join(realRoot, "file.txt"));
@@ -207,7 +207,7 @@ public sealed partial class ContentStoreTests
     public void MapRequestPath_ServedRootWithTrailingSeparator_MapsTheRootAndItsChildren()
     {
         string root = Root + Path.DirectorySeparatorChar;
-        var fileSystem = new InMemoryContentFileSystem().AddFile(Path.Join(root, "file.txt"));
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddFile(Path.Join(root, "file.txt"));
         var store = new ContentStore(root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         Assert.AreEqual(root, store.MapRequestPath("/").Location);
@@ -218,7 +218,7 @@ public sealed partial class ContentStoreTests
     public void MapRequestPath_ServedRootIsTheFileSystemRoot_MapsItsChildren()
     {
         string root = Path.DirectorySeparatorChar.ToString();
-        var fileSystem = new InMemoryContentFileSystem().AddFile(Path.Join(root, "file.txt"));
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddFile(Path.Join(root, "file.txt"));
         var store = new ContentStore(root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath("/file.txt");
@@ -230,7 +230,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void Constructor_KeepsTheServedRoot()
     {
-        var store = new ContentStore(Root, new InMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var store = new ContentStore(Root, new UnitTestInMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         Assert.AreEqual(Root, store.ServedRoot);
     }
@@ -238,7 +238,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void Constructor_RejectsMissingArguments()
     {
-        var fileSystem = new InMemoryContentFileSystem();
+        var fileSystem = new UnitTestInMemoryContentFileSystem();
 
         Assert.ThrowsExactly<ArgumentNullException>(() => new ContentStore(null!, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot));
         Assert.ThrowsExactly<ArgumentException>(() => new ContentStore(string.Empty, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot));
@@ -248,7 +248,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void MapRequestPath_RejectsNull()
     {
-        var store = new ContentStore(Root, new InMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var store = new ContentStore(Root, new UnitTestInMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         Assert.ThrowsExactly<ArgumentNullException>(() => store.MapRequestPath(null!));
     }
@@ -259,7 +259,7 @@ public sealed partial class ContentStoreTests
     [DataRow("/missing.txt", ContentEntryKind.None)]
     public void GetEntryKind_MappedLocation_ReportsWhatIsThereNow(string requestPath, ContentEntryKind expected)
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddDirectory(Path.Join(Root, "dir"))
             .AddFile(Path.Join(Root, "file.txt"));
@@ -275,7 +275,7 @@ public sealed partial class ContentStoreTests
     public void GetFileStatus_File_ReportsLengthAndUtcModificationTime()
     {
         var written = new DateTimeOffset(2026, 6, 24, 10, 30, 15, TimeSpan.FromHours(2));
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "file.txt"), new byte[1234], written);
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
@@ -293,7 +293,7 @@ public sealed partial class ContentStoreTests
     [DataRow("/missing.txt")]
     public void GetFileStatus_DirectoryOrNothing_IsNull(string requestPath)
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddDirectory(Path.Join(Root, "dir"));
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
@@ -387,7 +387,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public async Task CopyFileBytesAsync_CancelledBeforeTheRead_ThrowsWithoutOpeningTheFile()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "file.txt"), "abc"u8.ToArray(), DateTimeOffset.UnixEpoch);
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
@@ -454,7 +454,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_EmptyDirectory_ListsNoEntries()
     {
-        var store = new ContentStore(Root, new InMemoryContentFileSystem().AddDirectory(Root), ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var store = new ContentStore(Root, new UnitTestInMemoryContentFileSystem().AddDirectory(Root), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
 
@@ -466,7 +466,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_FilesAndSubdirectories_ListsNameKindLengthAndUtcModificationTime()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "readme.txt"), "hello"u8.ToArray(), new DateTimeOffset(2024, 5, 6, 9, 8, 9, TimeSpan.FromHours(2)))
             .AddDirectory(Path.Join(Root, "docs"), Modified.AddDays(1))
@@ -490,7 +490,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_Subdirectory_ListsOnlyItsOwnEntries()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "top.txt"))
             .AddDirectory(Path.Join(Root, "docs"))
@@ -508,7 +508,7 @@ public sealed partial class ContentStoreTests
     public void ListDirectory_MixedCaseAndNonAsciiNames_AreInOrdinalOrder()
     {
         string[] names = ["b", "\u00e9", "B", "a", "\u00c4", "Z", "e", "\u65e5\u672c", "10", "9"];
-        var fileSystem = new InMemoryContentFileSystem().AddDirectory(Root);
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddDirectory(Root);
         foreach (string name in names)
         {
             fileSystem.AddFile(Path.Join(Root, name));
@@ -527,7 +527,7 @@ public sealed partial class ContentStoreTests
     public void ListDirectory_SymbolicLinkOutOfTheRoot_IsLeftOut()
     {
         string outside = Path.Join("/", "etc");
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "kept.txt"))
             .AddDirectory(outside)
@@ -547,7 +547,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_SymbolicLinkInsideTheRoot_IsListedUnderItsOwnNameWithItsTargetsStatus()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddDirectory(Path.Join(Root, "docs"), Modified)
             .AddFile(Path.Join(Root, "docs", "file.bin"), [1, 2, 3, 4], Modified)
@@ -570,7 +570,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_DanglingSymbolicLink_IsLeftOut()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddSymbolicLink(Path.Join(Root, "dangling"), Path.Join(Root, "gone.txt"));
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
@@ -591,7 +591,7 @@ public sealed partial class ContentStoreTests
     [DataRow("control\u0001")]
     public void ListDirectory_NameARequestPathCannotAskFor_IsLeftOut(string name)
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "kept.txt"))
             .AddFile(Root + Path.DirectorySeparatorChar + name);
@@ -605,7 +605,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_DotFiles_AreListed()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, ".hidden"))
             .AddDirectory(Path.Join(Root, ".git"));
@@ -619,7 +619,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_File_SaysItIsAFileWithoutReadingADirectory()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "file.txt"));
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
@@ -635,7 +635,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_MissingPath_SaysNothingIsThere()
     {
-        var store = new ContentStore(Root, new InMemoryContentFileSystem().AddDirectory(Root), ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var store = new ContentStore(Root, new UnitTestInMemoryContentFileSystem().AddDirectory(Root), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/missing/"), CancellationToken.None);
 
@@ -647,7 +647,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_CancelledBeforeTheRead_ThrowsWithoutReadingTheDirectory()
     {
-        var fileSystem = new InMemoryContentFileSystem().AddDirectory(Root).AddFile(Path.Join(Root, "file.txt"));
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddDirectory(Root).AddFile(Path.Join(Root, "file.txt"));
         var store = new ContentStore(Root, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
         ContentPathMapping mapping = store.MapRequestPath("/");
 
@@ -660,7 +660,7 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_CancelledDuringTheRead_ThrowsBeforeTheNextEntry()
     {
-        var fileSystem = new InMemoryContentFileSystem()
+        var fileSystem = new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "first.txt"))
             .AddFile(Path.Join(Root, "second.txt"));
@@ -677,14 +677,14 @@ public sealed partial class ContentStoreTests
     [TestMethod]
     public void ListDirectory_RefusedOrMissingMapping_IsRejected()
     {
-        var store = new ContentStore(Root, new InMemoryContentFileSystem().AddDirectory(Root), ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var store = new ContentStore(Root, new UnitTestInMemoryContentFileSystem().AddDirectory(Root), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         Assert.ThrowsExactly<ArgumentException>(() => store.ListDirectory(store.MapRequestPath("/../"), CancellationToken.None));
         Assert.ThrowsExactly<ArgumentNullException>(() => store.ListDirectory(null!, CancellationToken.None));
     }
 
     private static ContentStore StoreWithFile(byte[] contents) =>
-        new(Root, new InMemoryContentFileSystem()
+        new(Root, new UnitTestInMemoryContentFileSystem()
             .AddDirectory(Root)
             .AddFile(Path.Join(Root, "file.txt"), contents, DateTimeOffset.UnixEpoch),
             ContentExposureOptions.ServeEverythingInsideTheRoot);

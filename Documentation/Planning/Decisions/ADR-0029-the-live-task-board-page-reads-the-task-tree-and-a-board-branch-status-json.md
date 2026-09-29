@@ -51,9 +51,10 @@ is copying code, which ADR-0003 allows.
 ## Consequences
 
 - The kanban works as soon as the page is published.
-- Surl's `RunDarkFactory.ps1` does not yet write lane heartbeats or publish `status.json`,
-  so until it does the page shows no lane cards and says no status is published. Porting
-  the heartbeats is its own task on the board.
+- Surl's `RunDarkFactory.ps1` writes each lane's `lane-<n>.heartbeat.json` and its
+  coordinator (or a single runner, for its lane 0) publishes `status.json` to `board`
+  every `-HeartbeatMinutes` (default 3; 0 = off) and once more at shift end (BL-088). Until
+  the first shift publishes, the page shows no lane cards and says no status is published.
 - Kanban titles are lossy; refreshes are slow for an unauthenticated viewer; the `board`
   branch, once it exists, has no history.
 - When a new phase moves the shifts to a new task branch, the page's default branch must

@@ -16,7 +16,7 @@ public sealed class ErrorTextTests
     {
         var secretPath = Path.Join(Root, "private", "file.txt");
         var message = $"Access to the path '{secretPath}' is denied.";
-        var fileSystem = new ThrowingContentFileSystem(Root, new IOException(message));
+        var fileSystem = new UnitTestThrowingContentFileSystem(Root, new IOException(message));
         var connection = new InMemoryConnection([Ascii(request)]);
 
         await Server(fileSystem).ServeAsync(connection, Context(new RecordingExchangeLog(), new FixedTimeProvider(Now), TestContext.CancellationToken));

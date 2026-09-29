@@ -258,7 +258,7 @@ public sealed class TftpProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_FileVanishesBeforeItIsRead_IsAnsweredWithFileNotFound()
     {
-        var (flow, log) = await ServeAsync(ReadRequest("file.txt"), [], new VanishingContentFileSystem(StandardFileSystem()));
+        var (flow, log) = await ServeAsync(ReadRequest("file.txt"), [], new UnitTestVanishingContentFileSystem(StandardFileSystem()));
 
         CollectionAssert.AreEqual(FileNotFound, flow.Sent.Single().Bytes);
         Assert.AreEqual($"Read of \"file.txt\" (octet): no file at {Path.Join(Root, "file.txt")}; answered with ERROR 1.", log.Notes.Single());
@@ -354,7 +354,7 @@ public sealed class TftpProtocolServerTests
 
     private static byte[] Data(ushort blockNumber, byte[] payload) => [0, 3, (byte)(blockNumber >> 8), (byte)blockNumber, .. payload];
 
-    private static InMemoryContentFileSystem StandardFileSystem() => new InMemoryContentFileSystem()
+    private static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
         .AddDirectory(Path.Join(Root, "sub"))
         .AddFile(Path.Join(Root, "file.txt"), FileBody, FileTime)

@@ -8,7 +8,7 @@ depends-on: []
 touches: [UpstreamCurlBuilds.json, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-076 — Find and pin an upstream curl Windows build with SMB (smb, smbs)
 
@@ -29,11 +29,13 @@ Stewart's question: **approve downloading which Windows upstream curl build with
 
 ## Acceptance criteria
 
-- [ ] Stewart's answer is recorded as a line in this task's `Log`: either the Windows build he approves (source URL and curl version) or his acceptance that SMB is measured only on the Linux/macOS builds pinned under ADR-0016.
-- [ ] If he approves a Windows build: a follow-up task, assigned to Claude, is filed on the board to download it, pin it in `UpstreamCurlBuilds.json` by path and SHA-256, and record an ADR under `Documentation/Planning/Decisions/`; its ID is noted in this task's `Log`.
+- [x] Stewart's answer is recorded as a line in this task's `Log`: either the Windows build he approves (source URL and curl version) or his acceptance that SMB is measured only on the Linux/macOS builds pinned under ADR-0016.
+- [x] If he approves a Windows build: a follow-up task, assigned to Claude, is filed on the board to download it, pin it in `UpstreamCurlBuilds.json` by path and SHA-256, and record an ADR under `Documentation/Planning/Decisions/`; its ID is noted in this task's `Log`.
 
 ## Notes
 
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-29: Stewart approved downloading a Windows upstream curl build with SMB. Chosen: stunnel/static-curl 8.21.0, https://github.com/stunnel/static-curl/releases/download/8.21.0/curl-windows-x86_64-8.21.0.tar.xz (curl 8.21.0, lists `smb smbs` and `NTLM`). Downloaded, pinned in `UpstreamCurlBuilds.json` and recorded in ADR-0030 in the same session rather than through a separate follow-up task; locating it by scheme is filed as BL-089.
+- 2026-09-29: Backlog -> Done. static-curl 8.21.0 Windows build pinned for SMB (ADR-0030); BL-089 filed

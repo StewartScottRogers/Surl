@@ -4,7 +4,7 @@ namespace Surl.Content;
 /// A hand-written in-memory <see cref="IContentFileSystem"/>: files, directories and symbolic
 /// links keyed by full path, and a record of every question the content store asked.
 /// </summary>
-internal sealed class InMemoryContentFileSystem : IContentFileSystem
+internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
 {
     private const int MaximumLinksFollowed = 40;
 
@@ -76,9 +76,9 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
 
     public List<string> Calls { get; } = [];
 
-    public InMemoryContentFileSystem AddFile(string path) => AddFile(path, [], DateTimeOffset.UnixEpoch);
+    public UnitTestInMemoryContentFileSystem AddFile(string path) => AddFile(path, [], DateTimeOffset.UnixEpoch);
 
-    public InMemoryContentFileSystem AddFile(string path, byte[] contents, DateTimeOffset lastWriteTime)
+    public UnitTestInMemoryContentFileSystem AddFile(string path, byte[] contents, DateTimeOffset lastWriteTime)
     {
         entries[path] = ContentEntryKind.File;
         fileContents[path] = contents;
@@ -106,9 +106,9 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
             : throw new FileNotFoundException("No file in the fake.", path);
     }
 
-    public InMemoryContentFileSystem AddDirectory(string path) => AddDirectory(path, DateTimeOffset.UnixEpoch);
+    public UnitTestInMemoryContentFileSystem AddDirectory(string path) => AddDirectory(path, DateTimeOffset.UnixEpoch);
 
-    public InMemoryContentFileSystem AddDirectory(string path, DateTimeOffset lastWriteTime)
+    public UnitTestInMemoryContentFileSystem AddDirectory(string path, DateTimeOffset lastWriteTime)
     {
         entries[path] = ContentEntryKind.Directory;
         lastWriteTimes[path] = lastWriteTime;
@@ -138,7 +138,7 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
         }
     }
 
-    public InMemoryContentFileSystem AddSymbolicLink(string path, string target)
+    public UnitTestInMemoryContentFileSystem AddSymbolicLink(string path, string target)
     {
         symbolicLinks[path] = target;
         return this;

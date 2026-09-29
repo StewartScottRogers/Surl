@@ -428,7 +428,7 @@ public sealed class DictProtocolServerTests
 
     private static string Utf8(byte[] bytes) => Encoding.UTF8.GetString(bytes);
 
-    private static InMemoryContentFileSystem StandardFileSystem() => new InMemoryContentFileSystem()
+    private static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
         .AddDirectory(Path.Join(Root, "sub"))
         .AddDirectory(Path.Join(Root, "sunday"))
@@ -448,7 +448,7 @@ public sealed class DictProtocolServerTests
 
     private async Task<string> ServeTextAsync(
         string request,
-        InMemoryContentFileSystem? fileSystem = null,
+        UnitTestInMemoryContentFileSystem? fileSystem = null,
         ContentExposureOptions? exposureOptions = null)
     {
         var (connection, _) = await ServeAsync([Encoding.UTF8.GetBytes(request)], fileSystem, exposureOptions: exposureOptions);
@@ -458,7 +458,7 @@ public sealed class DictProtocolServerTests
 
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeAsync(
         IEnumerable<ReadOnlyMemory<byte>> chunks,
-        InMemoryContentFileSystem? fileSystem = null,
+        UnitTestInMemoryContentFileSystem? fileSystem = null,
         ExchangeLimits? limits = null,
         RecordingExchangeLog? log = null,
         ContentExposureOptions? exposureOptions = null)
