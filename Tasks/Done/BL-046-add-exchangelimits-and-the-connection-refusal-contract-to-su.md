@@ -8,7 +8,7 @@ depends-on: [BL-005]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-046 — Add ExchangeLimits and the connection-refusal contract to Surl.Protocol.Abstractions
 
@@ -60,31 +60,46 @@ ADR-0006 section 6 specifies.
 
 ## Acceptance criteria
 
-- [ ] `ExchangeLimits.cs`, `IConnectionRefusalWriter.cs`, `IDatagramRefusalWriter.cs` and
+- [x] `ExchangeLimits.cs`, `IConnectionRefusalWriter.cs`, `IDatagramRefusalWriter.cs` and
       `ConnectionRefusal.cs` exist
       in `Surl.Protocol.Abstractions.UnitLibrary` with the members and signature above.
-- [ ] `ExchangeLimitsTests.Default_HoldsTheAdr0006Defaults` asserts `HeadTimeout` is
+- [x] `ExchangeLimitsTests.Default_HoldsTheAdr0006Defaults` asserts `HeadTimeout` is
       `TimeSpan.FromSeconds(30)`, and the four sizes are 102400, 8192, 1048576 and
       104857600.
-- [ ] `ExchangeLimitsTests` also prove that 0 sizes and `Timeout.InfiniteTimeSpan` are
+- [x] `ExchangeLimitsTests` also prove that 0 sizes and `Timeout.InfiniteTimeSpan` are
       accepted, and that each negative size and a negative `HeadTimeout` throw
       `ArgumentOutOfRangeException` naming the parameter.
-- [ ] `ExchangeContextTests.Limits_DefaultsToExchangeLimitsDefault` and
+- [x] `ExchangeContextTests.Limits_DefaultsToExchangeLimitsDefault` and
       `ExchangeContextTests.Limits_CarriesTheLimitsItWasGiven` pass, the second using
       `with { Limits = … }`.
-- [ ] `ConnectionRefusalWriterTests.WriteRefusalAsync_WritesThroughTheConnection` proves
+- [x] `ConnectionRefusalWriterTests.WriteRefusalAsync_WritesThroughTheConnection` proves
       the contract with a test-local implementation writing to an `InMemoryConnection`,
       and a test pins that `ConnectionRefusal` has exactly the two named members.
-- [ ] `InMemoryConnectionTests`, `RecordingExchangeLogTests` and `ProtocolIsolationTests`
+- [x] `InMemoryConnectionTests`, `RecordingExchangeLogTests` and `ProtocolIsolationTests`
       pass unchanged.
-- [ ] `dotnet build Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, the
+- [x] `dotnet build Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, the
       fast tests (`dotnet test --filter "TestCategory!=Integration"`) are green, and
       `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Protocol.Abstractions.UnitLibrary`.
 
 ## Notes
 
+- Delivered directly: the task's Context already is the plan (ADR-0006 section 6 fixes
+  every name and signature), so no separate architect stage was run.
+- Choice: `ExchangeLimits` validates in each property's `init` accessor, not only in the
+  constructor, so `ExchangeLimits.Default with { MaxUploadBytes = -1 }` is rejected too.
+  `ArgumentOutOfRangeException.ParamName` is therefore the property name
+  (`HeadTimeout`, `MaxRequestHeadBytes`, ...) on both paths; the tests pin that.
+- Choice: a `HeadTimeout` of `TimeSpan.Zero` is accepted as a value; ADR-0006 maps a
+  command-line 0 to `Timeout.InfiniteTimeSpan` before it reaches this record, so zero here
+  has no special meaning of its own.
+- `IDatagramRefusalWriter` has no contract test: there is no in-memory datagram flow yet
+  (BL-037 brings it with the TFTP server); the interface has no code to cover.
+- Measured: `Measure-CodeQuality.ps1` reports the library at 100% line, 100% branch,
+  38 members, 0 failing, worst CRAP 6. Abstractions tests: 91 passing.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. ExchangeLimits (ADR-0006 defaults, validated), ExchangeContext.Limits and the connection and datagram refusal contracts are in Surl.Protocol.Abstractions
