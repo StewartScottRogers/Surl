@@ -83,6 +83,12 @@
     100 Continue does not end the read early. Use it to measure a response that arrives
     while the body is being sent.
 
+.PARAMETER CloseUnread
+    With RespondAfterBodyBytes, close the connection as soon as the response is sent,
+    without reading what curl still sends: the body bytes left unread in the receive
+    buffer make the close a TCP reset on Windows and Linux. Use it to measure what curl
+    does with a server that closes without a lingering close.
+
 .PARAMETER StandardInput
     What curl reads from standard input, with the same backslash escapes as Response.
     It is written in full and then standard input is closed. Default empty: standard
@@ -472,6 +478,7 @@ param(
     [switch] $Reset,
     [ValidateRange(0, 600000)] [int] $HoldOpenMilliseconds = 0,
     [ValidateRange(-1, [int]::MaxValue)] [int] $RespondAfterBodyBytes = -1,
+    [switch] $CloseUnread,
     [string] $StandardInput = '',
     [switch] $Ftp,
     [string[]] $FtpReply = @(),
@@ -606,7 +613,7 @@ function ConvertTo-CommandLineArgument {
 # The server runs in its own runspace so curl can run in this one. It returns one
 # byte array per connection served.
 $serveConnections = {
-    param($Listener, $ResponseBytes, [int] $ConnectionCount, [int] $DelayMilliseconds, [bool] $ResetConnections, [int] $EarlyResponseBodyBytes, $TlsCertificate, [int] $HoldOpen, [int] $ServedTlsProtocols)
+    param($Listener, $ResponseBytes, [int] $ConnectionCount, [int] $DelayMilliseconds, [bool] $ResetConnections, [int] $EarlyResponseBodyBytes, $TlsCertificate, [int] $HoldOpen, [int] $ServedTlsProtocols, [bool] $CloseEarly)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -678,7 +685,7 @@ $serveConnections = {
             } catch [System.IO.IOException] {
                 # curl already closed its end; the request is still worth recording.
             }
-            if ($EarlyResponseBodyBytes -ge 0) {
+            if ($EarlyResponseBodyBytes -ge 0 -and -not $CloseEarly) {
                 # Answered mid-body: record whatever curl goes on sending until it stops.
                 $stream.ReadTimeout = 2000
                 while ($true) {
@@ -2030,7 +2037,7 @@ try {
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
-        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols)
+        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols).AddArgument([bool] $CloseUnread)
     }
     if ($null -ne $server) { $serverRun = $server.BeginInvoke() }
     if ($null -ne $tlsRelay) { Connect-TlsRelay -Relay $tlsRelay -BackendPort $listener.LocalEndpoint.Port }
