@@ -61,3 +61,4 @@ BL-106; wiring into `surl` is BL-107.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
