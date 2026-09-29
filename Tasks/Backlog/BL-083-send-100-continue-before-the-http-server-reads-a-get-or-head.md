@@ -1,5 +1,5 @@
 ---
-id: BL-082
+id: BL-083
 title: Send 100 Continue before the HTTP server reads a GET or HEAD body
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-29
 completed:
 ---
-# BL-082 — Send 100 Continue before the HTTP server reads a GET or HEAD body
+# BL-083 — Send 100 Continue before the HTTP server reads a GET or HEAD body
 
 ## Goal
 

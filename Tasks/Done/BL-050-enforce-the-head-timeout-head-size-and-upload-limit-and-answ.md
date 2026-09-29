@@ -125,7 +125,7 @@ delegation"), which supersedes ADR-0008's 431 row and body-persistence rule:
   proves nothing of it reaches the client either way. Its answer is BL-060's.
 - Code review (2026-09-29) fixes: HTTP/1.0 with `Transfer-Encoding` is unreadable framing (RFC 9112 section 6.1, a smuggling route); a head timeout longer than a timer can wait (~49.7 days) is treated as none instead of throwing; chunk lines must end in CRLF with no whitespace before the size or after it without `;`. The body discard is bounded only by the engine's idle timeout and maximum duration, as ADR-0006 intends; ADR-0019 records it.
 - Verified: `Measure-CodeQuality.ps1` reports 100% line and branch coverage and 0 failing members in `Surl.Protocol.Http.UnitLibrary`; the library builds clean with `-warnaserror`; all 14 fast test assemblies pass (286 tests in `Surl.Protocol.Http.UnitTests`, none `Integration`).
-- Follow-up filed: BL-082 (send `100 Continue` before discarding a GET/HEAD body). BL-061
+- Follow-up filed: BL-083 (send `100 Continue` before discarding a GET/HEAD body). BL-061
   got a note on what BL-050 changed under it.
 
 ## Log
