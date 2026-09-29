@@ -10,7 +10,15 @@ internal static class PinnedUpstreamCurl
     /// <summary>
     /// Runs the pinned build with <paramref name="arguments"/>, writing the result to the test's log.
     /// </summary>
-    public static async Task<UpstreamCurlRunResult> RunAsync(TestContext testContext, params string[] arguments)
+    public static Task<UpstreamCurlRunResult> RunAsync(TestContext testContext, params string[] arguments) =>
+        RunWithStandardInputAsync(testContext, ReadOnlyMemory<byte>.Empty, arguments);
+
+    /// <summary>
+    /// Runs the pinned build with <paramref name="arguments"/>, feeding it
+    /// <paramref name="standardInput"/>, writing the result to the test's log.
+    /// </summary>
+    public static async Task<UpstreamCurlRunResult> RunWithStandardInputAsync(
+        TestContext testContext, ReadOnlyMemory<byte> standardInput, params string[] arguments)
     {
         var pins = UpstreamCurlBuildPins.Parse(
             await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName), testContext.CancellationToken));
@@ -22,14 +30,17 @@ internal static class PinnedUpstreamCurl
         }
 
         var runner = new UpstreamCurlRunner(location, TimeSpan.FromSeconds(30), TimeProvider.System);
-        var result = await runner.RunAsync(arguments, testContext.CancellationToken);
+        var result = await runner.RunAsync(arguments, standardInput, testContext.CancellationToken);
 
         testContext.WriteLine($"curl {string.Join(' ', arguments)}: {result}");
         Assert.IsFalse(result.TimedOut, $"{result}; stderr: {result.StandardError}");
         return result;
     }
 
-    private static string RepositoryRoot()
+    /// <summary>
+    /// Finds the repository root: the first directory above the test output that holds <c>Surl.slnx</c>.
+    /// </summary>
+    public static string RepositoryRoot()
     {
         for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
         {
