@@ -8,7 +8,7 @@ depends-on: [BL-006, BL-025]
 touches: [Surl.Core.UnitLibrary, Surl.Core.UnitTests]
 requirement: FR-021
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-065 — Perform the implicit TLS handshake in the serving engine
 
@@ -66,31 +66,31 @@ whose handshake failed.
 
 ## Acceptance criteria
 
-- [ ] A `ServingEngineTests` test serves an `https` listen URL: the connection's
+- [x] A `ServingEngineTests` test serves an `https` listen URL: the connection's
       `UpgradeRequested` is true, the fake server receives a connection whose
       `TlsSession` is the session `InMemoryConnection` handed out, and the log holds the
       `TLS handshake completed: ...` note with `ALPN none` for a session with no ALPN and
       `ALPN http/1.1` for one with it.
-- [ ] A test serves an `http` listen URL and asserts `UpgradeRequested` is false and the
+- [x] A test serves an `http` listen URL and asserts `UpgradeRequested` is false and the
       server's connection has a `null` `TlsSession`.
-- [ ] A test makes the upgrade throw `TlsHandshakeException`: `ServeAsync` of the fake
+- [x] A test makes the upgrade throw `TlsHandshakeException`: `ServeAsync` of the fake
       server is never called, nothing is written to the connection, the connection is
       disposed, the log holds `TLS handshake failed: <message>` and no
       `protocol server threw` note, and the engine keeps accepting (a second connection
       on the same listener is served).
-- [ ] A test holds the handshake pending, advances `ManualTimeProvider` past
+- [x] A test holds the handshake pending, advances `ManualTimeProvider` past
       `ExchangeLimits.Default.HeadTimeout` (not before: a check just under it shows the
       handshake still pending), and asserts the `no handshake within the head timeout`
       note and that the server is never called.
-- [ ] A test with a connection past BL-025's connection limit on an `https` listener
+- [x] A test with a connection past BL-025's connection limit on an `https` listener
       asserts `UpgradeRequested` is false.
-- [ ] A test has the fake server throw `TlsHandshakeException` from `ServeAsync` and
+- [x] A test has the fake server throw `TlsHandshakeException` from `ServeAsync` and
       asserts the `TLS handshake failed: <message>` note in place of the
       `protocol server threw` note.
-- [ ] `RecordingConnectionTests` pin that `TlsSession` and `UpgradeToTlsAsync` forward to
+- [x] `RecordingConnectionTests` pin that `TlsSession` and `UpgradeToTlsAsync` forward to
       the wrapped connection, and that bytes read and written after the upgrade are still
       recorded.
-- [ ] `dotnet build Surl.Core.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Surl.Core.UnitLibrary -warnaserror` is clean, the fast tests
       (`dotnet test --filter "TestCategory!=Integration"`) are green, and
       `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Core.UnitLibrary`.
@@ -101,7 +101,28 @@ BL-006 already requires every existing `IConnection` implementation to gain the 
 members, so `RecordingConnection` may already forward them when this task starts; if so,
 the forwarding criterion is met by adding or confirming its tests.
 
+2026-09-28, delivered (lane 1):
+- `RecordingConnection` already forwarded both members (BL-006); its tests now pin
+  `TlsSession`, writes recorded after an upgrade, and a failed upgrade reaching the caller.
+- `ServingEngine.ServeAndLogExchangeAsync` runs `SecureThenServeAsync`: for an implicit-TLS
+  scheme, `CompleteImplicitHandshakeAsync` upgrades the `RecordingConnection` with a
+  head-timeout `CancellationTokenSource` (engine `TimeProvider`) linked to the exchange
+  token, and the server only sees the connection once the handshake completed.
+- Choice: any `IOException` from the implicit handshake (not only `TlsHandshakeException`)
+  is noted `TLS handshake failed: <message>`, because a transport failure during the
+  handshake is a failed handshake, not a protocol-server fault; the connection is disposed,
+  not aborted, as ADR-0010 section 2 says.
+- Choice: a `TlsHandshakeException` escaping `ServeAsync` also closes the connection
+  gracefully (no abort), like a cancelled exchange; it is the client's handshake failing.
+- Cancellation of the exchange itself during the handshake (shutdown, idle, max duration)
+  escapes the handshake and gets the existing cancellation note; pinned by
+  `ServeAsync_ShutdownDuringTheImplicitHandshake_NotesTheShutdownCancellation`.
+- `NoteHowTheExchangeEnded` reached complexity 12 with the new branch; its decision moved
+  into the `DescribeHowTheExchangeEnded` switch to stay at 10 or under.
+- Measure-CodeQuality: Surl.Core.UnitLibrary 100% line, 100% branch, 0 failing members.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. ServingEngine secures implicit-TLS connections with a head-timeout handshake before serving and notes its outcome
