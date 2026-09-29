@@ -72,7 +72,7 @@ role. 8.21.0 stays Surl's reference release everywhere else.
   ADR-0017.
 - The build has HTTP2 and HTTP3 but **no `smb`/`smbs`** (and no `NTLM`). Pinned anyway
   as the task says; ADR-0017 limits its role to HTTP/2 and HTTP/3 and the SMB gap is
-  filed as BL-072 (assigned to Stewart: another download to approve).
+  filed as BL-076 (assigned to Stewart: another download to approve).
 - Path choice: `C:\UpstreamCurl\curl-8.22.0_2-win64-mingw\bin\curl.exe` - machine-wide,
   because `UpstreamCurlBuildPins` reads `defaultPath` literally (no environment variable
   expansion), and the archive's own folder name keeps the build number in the path.
@@ -85,4 +85,4 @@ role. 8.21.0 stays Surl's reference release everywhere else.
 - 2026-09-28: Created.
 - 2026-09-28: Retargeted from 8.21.0 to curl.se's current 8.22.0_2 build as a supplementary build, per Stewart's choice of option A.
 - 2026-09-28: Backlog -> Doing.
-- 2026-09-28: Doing -> Done. curl.se's 8.22.0_2 Windows build is pinned as a supplementary build for HTTP/2 and HTTP/3 (ADR-0017); SMB gap filed as BL-072
+- 2026-09-28: Doing -> Done. curl.se's 8.22.0_2 Windows build is pinned as a supplementary build for HTTP/2 and HTTP/3 (ADR-0017); SMB gap filed as BL-076

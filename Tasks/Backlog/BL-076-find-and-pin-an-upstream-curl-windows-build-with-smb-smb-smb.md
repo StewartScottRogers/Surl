@@ -1,5 +1,5 @@
 ---
-id: BL-072
+id: BL-076
 title: Find and pin an upstream curl Windows build with SMB (smb, smbs)
 priority: Normal
 assignee: Stewart
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-072 — Find and pin an upstream curl Windows build with SMB (smb, smbs)
+# BL-076 — Find and pin an upstream curl Windows build with SMB (smb, smbs)
 
 ## Goal
 
