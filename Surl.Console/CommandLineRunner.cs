@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Gopher;
@@ -17,18 +18,24 @@ namespace Surl.Console;
 /// <summary>
 /// Runs one <c>surl</c> command line: the composition root. It parses the command line,
 /// answers <c>--help</c> and <c>--version</c>, checks the served directory and the schemes,
-/// then constructs the content store, the protocol servers, the exchange log and the serving
-/// engine explicitly and serves until cancelled, writing ADR-0007 section 5's texts and
-/// returning its exit codes.
+/// then constructs the TLS settings, the content store, the protocol servers, the exchange log
+/// and the serving engine explicitly and serves until cancelled, writing ADR-0007 section 5's
+/// texts and returning its exit codes.
 /// </summary>
-/// <param name="listenerFactory">Starts the listeners.</param>
+/// <param name="createListenerFactory">
+/// Creates the factory that starts the listeners, given the process's TLS settings
+/// (<see langword="null"/> when no listen URL is TLS from the first byte); <c>surl</c> passes
+/// one that creates a <see cref="SocketListenerFactory"/>.
+/// </param>
 /// <param name="canOpenServedDirectory">
 /// Tells whether the served directory, as given, can be opened; <c>surl</c> passes
 /// <see cref="ServedDirectoryProbe.CanOpen"/>.
 /// </param>
 /// <param name="timeProvider">The one clock every exchange runs on.</param>
 internal sealed class CommandLineRunner(
-    IListenerFactory listenerFactory, Func<string, bool> canOpenServedDirectory, TimeProvider timeProvider)
+    Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
+    Func<string, bool> canOpenServedDirectory,
+    TimeProvider timeProvider)
 {
     private const string MessagePrefix = "surl: ";
 
@@ -134,16 +141,52 @@ internal sealed class CommandLineRunner(
         MaxUploadBytes = commandLine.MaxUploadBytes,
     };
 
+    /// <summary>
+    /// Formats the message for a TLS option file that could not be loaded, after the
+    /// <c>surl: </c> prefix, and the exit code it ends surl with (ADR-0010 section 3, ADR-0019).
+    /// </summary>
+    /// <param name="failure">The failure the loader threw.</param>
+    /// <param name="caCertificateFile">The <c>--cacert</c> file as given, named by the "does not exist" lines.</param>
+    /// <returns>The exit code and the message lines.</returns>
+    internal static (SurlExitCode ExitCode, string[] Lines) DescribeTlsFileFailure(
+        TlsFileLoadException failure, string? caCertificateFile) => failure.Failure switch
+        {
+            TlsFileLoadFailure.CaCertificateNotFound => (
+                SurlExitCode.FailedInit,
+                [$"The file '{caCertificateFile}' provided to --cacert does not exist", "option --cacert: is badly used here"]),
+            TlsFileLoadFailure.CaCertificateUnreadable => (
+                SurlExitCode.CaCertificateBadFile, [$"(77) Could not load the CA certificates: {failure.Message}"]),
+            _ => (SurlExitCode.CertificateProblem, [$"(58) Could not load the server certificate: {failure.Message}"]),
+        };
+
     // Every protocol server surl registers, over TCP or (TFTP) UDP; those that serve files serve
-    // the one content store, and the MQTT server keeps its retained messages for as long as surl runs.
-    private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore) =>
+    // the one content store, and the MQTT server keeps its retained messages for as long as surl
+    // runs. https is the HTTP server itself, over a connection the engine has secured (ADR-0019).
+    private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore)
+    {
+        var httpServer = new HttpProtocolServer(contentStore);
+
+        return
         [
-            new HttpProtocolServer(contentStore),
+            httpServer,
+            new ImplicitTlsSchemeServer(httpServer, "https"),
             new GopherProtocolServer(contentStore),
             new MqttProtocolServer(new MqttRetainedMessages()),
             new TelnetProtocolServer(),
             new TftpProtocolServer(contentStore),
         ];
+    }
+
+    private static SurlExitCode WriteTlsFileFailure(TextWriter error, TlsFileLoadException failure, string? caCertificateFile)
+    {
+        var (exitCode, lines) = DescribeTlsFileFailure(failure, caCertificateFile);
+        foreach (var line in lines)
+        {
+            error.WriteLine(MessagePrefix + line);
+        }
+
+        return exitCode;
+    }
 
     private static string? FindUnregisteredScheme(IReadOnlyList<ListenUrl> listenUrls, IProtocolServer[] servers)
     {
@@ -169,8 +212,37 @@ internal sealed class CommandLineRunner(
             return WriteFailure(error, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
         }
 
+        ServerTlsComposition tls;
+        try
+        {
+            tls = ServerTlsComposition.Compose(commandLine, timeProvider);
+        }
+        catch (TlsFileLoadException failure)
+        {
+            return WriteTlsFileFailure(error, failure, commandLine.CaCertificateFile);
+        }
+
+        using (tls)
+        {
+            return await ServeSecuredAsAskedAsync(commandLine, servers, tls, output, error, cancellationToken);
+        }
+    }
+
+    private async Task<SurlExitCode> ServeSecuredAsAskedAsync(
+        SurlCommandLine commandLine,
+        IProtocolServer[] servers,
+        ServerTlsComposition tls,
+        TextWriter output,
+        TextWriter error,
+        CancellationToken cancellationToken)
+    {
+        if (commandLine.Verbose && tls.ThrowawayCertificateFingerprint is { } fingerprint)
+        {
+            error.WriteLine($"* Serving a throwaway certificate, SHA-256 {fingerprint}");
+        }
+
         var reporter = new ListenerStartReporter(
-            listenerFactory, new ListenerStatusLine(output), commandLine.ListenUrls.Count);
+            createListenerFactory(tls.Settings), new ListenerStatusLine(output), commandLine.ListenUrls.Count);
         var engine = new ServingEngine(
             reporter,
             servers,

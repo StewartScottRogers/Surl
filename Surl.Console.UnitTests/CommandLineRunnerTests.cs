@@ -27,7 +27,7 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public async Task RunAsync_Version_WritesVersionWithTheGopherHttpMqttTelnetAndTftpSchemesAndReturnsOk()
+    public async Task RunAsync_Version_WritesVersionWithTheGopherHttpHttpsMqttTelnetAndTftpSchemesAndReturnsOk()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
@@ -35,8 +35,8 @@ public sealed class CommandLineRunnerTests
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["gopher", "http", "mqtt", "telnet", "tftp"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: gopher http mqtt telnet tftp" + NewLine);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["gopher", "http", "https", "mqtt", "telnet", "tftp"]), output);
+        StringAssert.EndsWith(output, NewLine + "Protocols: gopher http https mqtt telnet tftp" + NewLine);
         Assert.AreEqual(string.Empty, error);
     }
 
@@ -66,11 +66,11 @@ public sealed class CommandLineRunnerTests
     {
         var factory = new FakeListenerFactory();
 
-        var (exitCode, output, error) = await RunAsync(factory, "http://127.0.0.1:0/", "https://127.0.0.1:0/");
+        var (exitCode, output, error) = await RunAsync(factory, "http://127.0.0.1:0/", "rtsp://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.AreEqual(string.Empty, output);
-        Assert.AreEqual("surl: (1) Protocol \"https\" not supported" + NewLine, error);
+        Assert.AreEqual("surl: (1) Protocol \"rtsp\" not supported" + NewLine, error);
         Assert.IsEmpty(factory.StartedListenUrls);
     }
 
@@ -105,7 +105,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
             .RunAsync(["http://127.0.0.1:0/", "http://[::1]:8080/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         var statusLines = output.ToString();
@@ -132,7 +132,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
             .RunAsync(["gopher://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -152,7 +152,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
             .RunAsync(["mqtt://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -172,7 +172,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
             .RunAsync(["telnet://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -192,7 +192,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
             .RunAsync(["tftp://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -351,7 +351,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await new CommandLineRunner(factory, canOpenServedDirectory, TimeProvider.System)
+        var exitCode = await new CommandLineRunner(_ => factory, canOpenServedDirectory, TimeProvider.System)
             .RunAsync(args, output, error, TestContext.CancellationToken);
 
         return (exitCode, output.ToString(), error.ToString());

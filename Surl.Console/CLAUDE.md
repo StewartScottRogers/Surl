@@ -10,7 +10,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help` and
   `--version`, checks the served directory (`ServedDirectoryProbe`) and every scheme
   against the registered protocol servers, then builds the content store, the protocol
-  servers (today `HttpProtocolServer` for `http`, `GopherProtocolServer` for `gopher`,
+  servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
+  `https`, `GopherProtocolServer` for `gopher`,
   `MqttProtocolServer` for `mqtt`, whose retained messages last as long as `surl` runs,
   `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   verbose exchange log and the serving engine, and serves. It writes ADR-0007 section 5's
@@ -18,8 +19,12 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `ListenerStartReporter` wraps the listener factory: it writes the status lines once the
   last listener, connection or datagram, has bound, and keeps a bind failure for the
   `(45)` or `(6)` message.
-- `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`: TCP
-  connection listeners and UDP datagram listeners.
+- `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
+  TLS from the first byte: the `--cert`/`--key` certificate or a throwaway one, the
+  `--cacert` trust anchors and the accepted TLS versions. A bad file ends surl with 58, 2
+  or 77 before any listener binds (ADR-0019).
+- `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
+  with those TLS settings: TCP connection listeners and UDP datagram listeners.
 
 Keep this project thin: parsing belongs in `Surl.Cli`, serving in `Surl.Core`, each
 protocol in its own library. Code here is wiring, tested in `Surl.Console.UnitTests`

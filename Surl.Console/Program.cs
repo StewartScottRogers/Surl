@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using Surl.Networking;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;
 
@@ -35,7 +36,8 @@ internal static class Program
     /// <summary>
     /// Runs Surl with <paramref name="args"/>: the entry point <see cref="Main"/> and the
     /// in-process conformance tests share. It serves over real TCP and UDP listeners
-    /// (<see cref="SocketListenerFactory"/>) with the system clock.
+    /// (<see cref="SocketListenerFactory"/>, securing connections with the process's TLS
+    /// settings) with the system clock.
     /// </summary>
     /// <param name="args">The command-line arguments, without the program name.</param>
     /// <param name="output">Where the help, the version and the status lines go.</param>
@@ -44,8 +46,17 @@ internal static class Program
     /// <returns>The exit code, as ADR-0007 section 5 gives it.</returns>
     internal static async Task<int> RunAsync(
         string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
-        (int)await new CommandLineRunner(new SocketListenerFactory(), ServedDirectoryProbe.CanOpen, TimeProvider.System)
+        (int)await new CommandLineRunner(CreateListenerFactory, ServedDirectoryProbe.CanOpen, TimeProvider.System)
             .RunAsync(args, output, error, cancellationToken);
+
+    /// <summary>
+    /// Creates the socket-backed listener factory, securing connections with
+    /// <paramref name="tlsSettings"/>.
+    /// </summary>
+    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <returns>The factory.</returns>
+    internal static IListenerFactory CreateListenerFactory(ServerTlsSettings? tlsSettings) =>
+        new SocketListenerFactory(tlsSettings);
 
     /// <summary>
     /// Creates the Ctrl+C and SIGTERM handler: it keeps the runtime from ending the process at
