@@ -16,7 +16,14 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   every scheme against the registered protocol servers, and with `--directory` takes the
   data directory's `.surl/lock` (`DataDirectoryLock.Take`, held until serving ends; a
   second surl on the same path gets 124, a `.surl` or lock file that cannot be created 23,
-  ADR-0031 decision 7; no lock and no disk access without `--directory`). Then it builds
+  ADR-0031 decision 7; no lock and no disk access without `--directory`). Before the lock it
+  builds the authentication policy (`AuthenticationComposition`, ADR-0032): an `--auth` word
+  whose method this build does not implement (today `ntlm`, `negotiate`, `aws-sigv4`) ends
+  surl with 2; the `--user-file` is read through the runner's `readUserFile` seam
+  (`File.ReadAllBytes` in `surl`), 37 when it cannot be read and 2 naming the line when it
+  is malformed; the `--user` accounts and then the file's go into one `AccountBook`, and
+  `Surl.Authentication`'s `AuthenticationPolicy` with Basic, Bearer and Digest is handed to
+  the HTTP (`http`, `https`) and MQTT (`mqtt`, `mqtts`) servers. Then it builds
   the protocol
   servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
@@ -48,7 +55,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   surl with 58, 2 or 77 before any listener binds (ADR-0020). Such a listen URL with neither
   `--cert` nor `--self-signed` ends surl with 58 before any listener binds, and
   `--self-signed` writes its `surl: warning:` line from the info level up (ADR-0032,
-  sections 9 and 10).
+  sections 9 and 10). Before it, `AuthenticationComposition.WriteLooseningWarnings` writes
+  the `--allow-anonymous`, `--allow-plaintext-auth` and `--auth` warning lines, in that
+  order, to the log stream from the info level up; `-s` and `-s -S` hide them (ADR-0033,
+  section 7).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
 

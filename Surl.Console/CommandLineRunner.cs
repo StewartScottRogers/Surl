@@ -50,19 +50,27 @@ namespace Surl.Console;
 /// section 6); <see cref="LogFile.Open"/> when <see langword="null"/>, which is what
 /// <c>surl</c> passes.
 /// </param>
+/// <param name="readUserFile">
+/// Reads the <c>--user-file</c>'s bytes, given its path as given, before any listener binds
+/// (ADR-0032, section 2); never called without <c>--user-file</c>. <see cref="File.ReadAllBytes(string)"/>
+/// when <see langword="null"/>, which is what <c>surl</c> passes.
+/// </param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
     Func<string, bool> canOpenDataDirectory,
     Func<string, DataDirectoryLockOutcome> takeDataDirectoryLock,
     TimeProvider timeProvider,
     IContentFileSystem? dataDirectoryFileSystem = null,
-    Func<string, FileMode, TextWriter>? openLogFile = null)
+    Func<string, FileMode, TextWriter>? openLogFile = null,
+    Func<string, byte[]>? readUserFile = null)
 {
     private const string MessagePrefix = "surl: ";
 
     private readonly IContentFileSystem dataDirectoryFileSystem = dataDirectoryFileSystem ?? new DiskContentFileSystem();
 
     private readonly Func<string, FileMode, TextWriter> openLogFile = openLogFile ?? LogFile.Open;
+
+    private readonly Func<string, byte[]> readUserFile = readUserFile ?? File.ReadAllBytes;
 
     /// <summary>
     /// Runs <paramref name="args"/>.
@@ -173,8 +181,7 @@ internal sealed class CommandLineRunner(
             .GetCustomAttributes<AssemblyInformationalVersionAttribute>()
             .Select(attribute => attribute.InformationalVersion)
             .FirstOrDefault();
-        var servers = ComposeProtocolServers(
-            ComposeContentStore(new SurlCommandLine(), timeProvider), new MqttRetainedMessages());
+        var servers = ComposeUnservedProtocolServers(ComposeContentStore(new SurlCommandLine(), timeProvider));
 
         return VersionText.Compose(
             informationalVersion, RuntimeInformation.RuntimeIdentifier, servers.SelectMany(server => server.Schemes));
@@ -299,9 +306,11 @@ internal sealed class CommandLineRunner(
     // Every protocol server surl registers, over TCP or (TFTP) UDP; those that serve files serve
     // the one content store, and the MQTT server keeps its retained messages in the store it is
     // given. https is the HTTP server itself, over a connection the engine has secured (ADR-0020).
-    private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore, MqttRetainedMessages retainedMessages)
+    // The HTTP and MQTT servers, the ones with a login, judge it by the one policy (ADR-0032).
+    private static IProtocolServer[] ComposeProtocolServers(
+        ContentStore contentStore, MqttRetainedMessages retainedMessages, IAuthenticationPolicy authenticationPolicy)
     {
-        var httpServer = new HttpProtocolServer(contentStore);
+        var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
 
         return
         [
@@ -309,11 +318,17 @@ internal sealed class CommandLineRunner(
             new ImplicitTlsSchemeServer(httpServer, "https"),
             new DictProtocolServer(contentStore),
             new GopherProtocolServer(contentStore),
-            new MqttProtocolServer(retainedMessages),
+            new MqttProtocolServer(retainedMessages, authenticationPolicy),
             new TelnetProtocolServer(),
             new TftpProtocolServer(contentStore),
         ];
     }
+
+    // The servers composed only to ask for their schemes: nothing is served through them, so
+    // they need no retained messages and no accounts.
+    private IProtocolServer[] ComposeUnservedProtocolServers(ContentStore contentStore) =>
+        ComposeProtocolServers(
+            contentStore, new MqttRetainedMessages(), AuthenticationComposition.ComposeWithoutAccounts(timeProvider));
 
     private static SurlExitCode WriteTlsFileFailure(TextWriter error, TlsFileLoadException failure, string? caCertificateFile)
     {
@@ -363,12 +378,28 @@ internal sealed class CommandLineRunner(
 
         var fileSystem = ComposeContentFileSystem(commandLine, timeProvider, dataDirectoryFileSystem);
         var contentStore = ComposeContentStore(commandLine, fileSystem);
-        var unloadedServers = ComposeProtocolServers(contentStore, new MqttRetainedMessages());
-        if (FindListenUrlRefusal(commandLine, unloadedServers) is { } refusal)
+        if (FindListenUrlRefusal(commandLine, ComposeUnservedProtocolServers(contentStore)) is { } refusal)
         {
             return WriteFailure(error, refusal.ExitCode, refusal.Message);
         }
 
+        // The --auth words and the --user-file are checked before the lock is taken and any
+        // listener binds (ADR-0032, sections 1 and 2).
+        var authentication = AuthenticationComposition.Compose(commandLine, readUserFile, timeProvider);
+        return authentication.Policy is null
+            ? WriteFailure(error, authentication.ExitCode, authentication.FailureMessage!)
+            : await LockThenServeAsync(commandLine, fileSystem, contentStore, authentication.Policy, output, error, cancellationToken);
+    }
+
+    private async Task<SurlExitCode> LockThenServeAsync(
+        SurlCommandLine commandLine,
+        IContentFileSystem fileSystem,
+        ContentStore contentStore,
+        IAuthenticationPolicy authenticationPolicy,
+        TextWriter output,
+        TextWriter error,
+        CancellationToken cancellationToken)
+    {
         var dataDirectoryLock = TakeDataDirectoryLockWhenGiven(commandLine);
         if (dataDirectoryLock.FailureMessage is { } lockFailure)
         {
@@ -377,7 +408,8 @@ internal sealed class CommandLineRunner(
 
         using (dataDirectoryLock.Holder)
         {
-            return await LoadServiceStateAndServeAsync(commandLine, fileSystem, contentStore, output, error, cancellationToken);
+            return await LoadServiceStateAndServeAsync(
+                commandLine, fileSystem, contentStore, authenticationPolicy, output, error, cancellationToken);
         }
     }
 
@@ -385,6 +417,7 @@ internal sealed class CommandLineRunner(
         SurlCommandLine commandLine,
         IContentFileSystem fileSystem,
         ContentStore contentStore,
+        IAuthenticationPolicy authenticationPolicy,
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken)
@@ -405,7 +438,11 @@ internal sealed class CommandLineRunner(
         return retainedMessages is null
             ? WriteFailure(error, SurlExitCode.CouldNotReadFile, loadFailure!)
             : await ServeUnderTheLockAsync(
-                commandLine, ComposeProtocolServers(contentStore, retainedMessages), output, error, cancellationToken);
+                commandLine,
+                ComposeProtocolServers(contentStore, retainedMessages, authenticationPolicy),
+                output,
+                error,
+                cancellationToken);
     }
 
     private async Task<SurlExitCode> ServeUnderTheLockAsync(
@@ -447,6 +484,9 @@ internal sealed class CommandLineRunner(
 
         using (logStreams)
         {
+            // Each loosening option's warning, then the --self-signed one (ADR-0032, section 9).
+            AuthenticationComposition.WriteLooseningWarnings(commandLine, logStreams.Log);
+
             // The --self-signed warning from the info level up, the fingerprint note from verbose
             // up, both unstamped (ADR-0032, section 9; ADR-0033, section 7).
             if (tls.ThrowawayCertificateFingerprint is { } fingerprint)
