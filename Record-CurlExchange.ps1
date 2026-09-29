@@ -264,6 +264,40 @@
     How long, in -Pop3 mode, the server waits for curl's next line before it hangs up.
     Default 5000.
 
+.PARAMETER Raw
+    Serve one plain TCP conversation driven by scripted replies instead of HTTP
+    responses, for a protocol the script has no mode for, such as DICT (RFC 2229), Gopher
+    (RFC 1436), TELNET (RFC 854) or MQTT 3.1.1. The server accepts one connection and
+    then, repeatedly, reads what curl sends until curl pauses for RawIdleMilliseconds or
+    closes its end, and sends the next RawReply. After the last reply it goes on reading
+    until curl closes or goes idle, then closes the connection. With RawReplyFirst the
+    first reply is sent before anything is read. A pause in which curl sent nothing
+    still counts: the next reply is sent regardless.
+
+    request.bin then holds every byte curl sent, in order, and transcript.txt holds
+    both directions, each burst split into lines after each LF and each line prefixed
+    "> " (curl) or "< " (server). A line's closing CRLF is not shown; every other byte
+    outside printable ASCII is written \xHH, and a backslash as \\. The line
+    "= curl closed the connection" marks curl hanging up. Response, Connections,
+    ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds and RespondAfterBodyBytes are
+    ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Tls or -NoServer is refused.
+
+.PARAMETER RawReply
+    The replies -Raw sends, one per pause in what curl sends, in order, each with the
+    same backslash escapes as Response, \xHH included, so a binary packet such as an
+    MQTT CONNACK is given as '\x20\x02\x00\x00'. Each is sent exactly as given; the
+    script adds no line ending. Default none: curl is only listened to.
+
+.PARAMETER RawReplyFirst
+    With -Raw, send the first RawReply as soon as the connection is accepted, before
+    reading anything, for a protocol where the server speaks first, such as DICT's 220
+    banner or TELNET's option negotiation.
+
+.PARAMETER RawIdleMilliseconds
+    How long, in -Raw mode, a pause in what curl sends must last before the server
+    treats the burst as complete and sends the next reply, and, after the last reply,
+    before it hangs up. Default 1000.
+
 .PARAMETER Tls
     Answer each connection over TLS 1.2 instead of plain TCP, so the recorder can stand
     in for an HTTPS server or an HTTPS proxy. The certificate served
@@ -318,7 +352,7 @@
     RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, SmtpReply,
     SmtpIdleMilliseconds, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
     Pop3Message, Pop3IdleMilliseconds and ListenAddress are ignored, and Port need not be given.
-    Combining it with a server mode, -Ftp, -Smtp, -Imap, -Pop3 or -Tls, is refused. StandardInput and Curl work as in every other mode.
+    Combining it with a server mode, -Ftp, -Smtp, -Imap, -Pop3, -Raw or -Tls, is refused. StandardInput and Curl work as in every other mode.
 
 .EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18081 -Response 'HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello' -CurlArgs 'http://127.0.0.1:18081/a?b' -OutDirectory fixtures\default-get
@@ -351,6 +385,13 @@
 
     Serves one POP3 session; transcript.txt shows CAPA, AUTH PLAIN, RETR 1 with the
     dot-stuffed message and QUIT, and stdout.bin the message curl printed.
+
+.EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18628 -Raw -RawReplyFirst -RawReply '220 dict.example ready <auth.mime> <1.2@dict.example>\r\n','150 1 definitions retrieved\r\n151 "hello" test "Test dictionary"\r\nA greeting.\r\n.\r\n250 ok\r\n','221 bye\r\n' -CurlArgs '-sS','dict://127.0.0.1:18628/d:hello' -OutDirectory fixtures\dict-define
+
+    Sends a DICT banner, then answers the burst curl sends (CLIENT libcurl 8.21.0,
+    DEFINE ! hello and QUIT, all at once) with a definition and, after the next pause,
+    221. request.bin holds curl's three lines and transcript.txt both directions.
 #>
 [CmdletBinding()]
 param(
@@ -379,6 +420,10 @@ param(
     [string[]] $Pop3Reply = @(),
     [string] $Pop3Message = 'From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Recorded\r\n\r\nHello from the recorder.\r\n.A line that starts with a dot.\r\n',
     [ValidateRange(1, 600000)] [int] $Pop3IdleMilliseconds = 5000,
+    [switch] $Raw,
+    [string[]] $RawReply = @(),
+    [switch] $RawReplyFirst,
+    [ValidateRange(1, 600000)] [int] $RawIdleMilliseconds = 1000,
     [switch] $Tls,
     [string] $TlsRootCertificateFile,
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
@@ -393,8 +438,9 @@ $ErrorActionPreference = 'Stop'
 # powershell -File binds '-sS','http://...' as the one string "-sS,http://..."; only then
 # is the invocation line empty, so only then is that string split back into its elements.
 if ([string]::IsNullOrEmpty($MyInvocation.Line) -and $CurlArgs.Count -eq 1) { $CurlArgs = $CurlArgs[0].Split(',') }
-if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3 or -Tls.' }
-if (@($Ftp, $Smtp, $Imap, $Pop3 | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap and -Pop3 each serve a whole session; give one of them.' }
+if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw or -Tls.' }
+if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3 and -Raw each serve a whole session; give one of them.' }
+if ($Raw -and $Tls) { throw '-Raw serves plain TCP, so it cannot be combined with -Tls.' }
 if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
 
 function Get-ReferenceCurlPath {
@@ -1335,6 +1381,100 @@ $servePop3Session = {
     return , @(, $received.ToArray())
 }
 
+# The -Raw server: one plain TCP connection, answered burst by burst from a script of
+# replies. A burst ends when curl pauses for IdleMilliseconds or closes its end. It
+# returns every byte curl sent, as one array, and writes the two-way transcript into
+# $Transcript.
+$serveRawSession = {
+    param($Listener, $Replies, [System.Text.StringBuilder] $Transcript, [bool] $ReplyFirst, [int] $IdleMilliseconds)
+
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+    $received = New-Object System.IO.MemoryStream
+
+    # One transcript line per LF-ended piece of Bytes; the closing CRLF is left out and
+    # any other byte outside printable ASCII is written \xHH.
+    function Add-TranscriptBurst {
+        param([string] $Prefix, [byte[]] $Bytes)
+        $line = New-Object System.Text.StringBuilder
+        for ($index = 0; $index -lt $Bytes.Length; $index++) {
+            $byte = $Bytes[$index]
+            if ($byte -eq 13 -and $index + 1 -lt $Bytes.Length -and $Bytes[$index + 1] -eq 10) {
+                [void] $Transcript.Append("$Prefix$line`r`n")
+                [void] $line.Clear()
+                $index++
+                continue
+            }
+            if ($byte -eq 92) { [void] $line.Append('\\') }
+            elseif ($byte -ge 32 -and $byte -le 126) { [void] $line.Append([char] $byte) }
+            else { [void] $line.Append('\x' + $byte.ToString('X2')) }
+            if ($byte -eq 10) {
+                [void] $Transcript.Append("$Prefix$line`r`n")
+                [void] $line.Clear()
+            }
+        }
+        if ($line.Length -gt 0) { [void] $Transcript.Append("$Prefix$line`r`n") }
+    }
+
+    # What curl sends until it pauses for IdleMilliseconds, recorded; Closed says whether
+    # curl hung up.
+    function Read-Burst {
+        param($Socket)
+        $burst = New-Object System.IO.MemoryStream
+        $buffer = New-Object byte[] 65536
+        $closed = $false
+        while ($Socket.Poll($IdleMilliseconds * 1000, [System.Net.Sockets.SelectMode]::SelectRead)) {
+            try {
+                $count = $Socket.Receive($buffer)
+            } catch [System.Net.Sockets.SocketException] {
+                $count = 0  # A reset: curl is gone.
+            }
+            if ($count -le 0) { $closed = $true; break }
+            $burst.Write($buffer, 0, $count)
+        }
+        [byte[]] $bytes = $burst.ToArray()
+        $received.Write($bytes, 0, $bytes.Length)
+        if ($bytes.Length -gt 0) { Add-TranscriptBurst -Prefix '> ' -Bytes $bytes }
+        if ($closed) { [void] $Transcript.Append("= curl closed the connection`r`n") }
+        return $closed
+    }
+
+    # Sends one reply; $false once curl has hung up and it could not be sent.
+    function Send-RawReply {
+        param($Socket, [byte[]] $Reply)
+        try {
+            [void] $Socket.Send($Reply)
+        } catch [System.Net.Sockets.SocketException] {
+            return $false
+        }
+        Add-TranscriptBurst -Prefix '< ' -Bytes $Reply
+        return $true
+    }
+
+    try {
+        $client = $Listener.AcceptTcpClient()
+    } catch {
+        return , @(, $received.ToArray())  # The listener was stopped: curl never connected.
+    }
+    try {
+        $socket = $client.Client
+        $nextReply = 0
+        if ($ReplyFirst -and $Replies.Count -gt 0) {
+            [void] (Send-RawReply -Socket $socket -Reply $Replies[0])
+            $nextReply = 1
+        }
+        while ($true) {
+            if (Read-Burst -Socket $socket) { break }
+            if ($nextReply -ge $Replies.Count) { break }  # Last reply sent and curl went idle.
+            if (-not (Send-RawReply -Socket $socket -Reply $Replies[$nextReply])) { break }
+            $nextReply++
+        }
+    } finally {
+        $client.Close()
+    }
+    return , @(, $received.ToArray())
+}
+
 function New-IssuedByThrowawayRoot {
     # Signs Request with a throwaway root CA named by no store and writes the root's PEM
     # to RootCertificateFile. Neither certificate names a CRL or OCSP endpoint.
@@ -1445,6 +1585,10 @@ try {
         [void] $server.AddScript($serveImapSession).AddArgument($listener).AddArgument($imapOverrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $ImapMessage)).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($ImapIdleMilliseconds).AddArgument($sessionHelpers.ToString())
     } elseif ($Pop3) {
         [void] $server.AddScript($servePop3Session).AddArgument($listener).AddArgument($pop3Overrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $Pop3Message)).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($Pop3IdleMilliseconds).AddArgument($sessionHelpers.ToString())
+    } elseif ($Raw) {
+        $rawReplies = New-Object System.Collections.Generic.List[byte[]]
+        foreach ($text in $RawReply) { $rawReplies.Add((ConvertFrom-EscapedResponse -Text $text)) }
+        [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds)
     } else {
         [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($tlsCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols)
     }
@@ -1516,7 +1660,7 @@ if ($Ftp) {
     [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'transcript.txt'), $transcript.ToString(), [System.Text.Encoding]::GetEncoding(28591))
     [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'upload.bin'), $uploadedData.ToArray())
 }
-if ($Smtp -or $Imap -or $Pop3) {
+if ($Smtp -or $Imap -or $Pop3 -or $Raw) {
     [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'transcript.txt'), $transcript.ToString(), [System.Text.Encoding]::GetEncoding(28591))
 }
 
