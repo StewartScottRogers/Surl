@@ -63,10 +63,11 @@ public sealed class ServerTlsSettingsTests
     public void CreateAuthenticationOptions_Intermediates_AreInTheCertificateContext()
     {
         // A self-signed authority would be trimmed from the context as a root on Linux and macOS.
-        // On Windows the context adds intermediates to the user's CA store, so each run's subject
-        // is unique: the chain engine would otherwise pick up an earlier run's namesake.
-        using var root = TestCertificates.CreateCertificateAuthority("CN=surl test root");
-        using var intermediate = TestCertificates.CreateIntermediateAuthority(root, $"CN=surl test intermediate {Guid.NewGuid():N}");
+        // On Windows the context adds intermediates to the user's CA store, so each run's subjects
+        // are unique: the chain engine would otherwise pick up an earlier run's namesake.
+        var run = Guid.NewGuid().ToString("N");
+        using var root = TestCertificates.CreateCertificateAuthority($"CN=surl test root {run}");
+        using var intermediate = TestCertificates.CreateIntermediateAuthority(root, $"CN=surl test intermediate {run}");
         using var certificate = TestCertificates.CreateSignedCertificate(
             intermediate, TestCertificates.ServerAuthenticationUsage, TestCertificates.Now.AddDays(-1), TestCertificates.Now.AddDays(1));
         using var settings = new ServerTlsSettings(certificate, [intermediate], [], Time);
