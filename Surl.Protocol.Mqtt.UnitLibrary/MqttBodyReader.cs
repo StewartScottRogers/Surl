@@ -96,5 +96,30 @@ internal sealed class MqttBodyReader
         return true;
     }
 
+    /// <summary>
+    /// Reads binary data with its two-byte length prefix, as a will message and a password
+    /// are sent (MQTT 3.1.1, sections 3.1.3.3 and 3.1.3.5).
+    /// </summary>
+    /// <param name="value">The bytes, or empty when there are none.</param>
+    /// <returns>Whether the length and every byte it announces were there.</returns>
+    public bool TryReadBinary(out ReadOnlyMemory<byte> value)
+    {
+        value = ReadOnlyMemory<byte>.Empty;
+        if (Remaining.Length < sizeof(ushort))
+        {
+            return false;
+        }
+
+        var length = BinaryPrimitives.ReadUInt16BigEndian(Remaining);
+        if (Remaining.Length - sizeof(ushort) < length)
+        {
+            return false;
+        }
+
+        value = body.AsMemory(position + sizeof(ushort), length);
+        position += sizeof(ushort) + length;
+        return true;
+    }
+
     private static bool IsWellFormedString(ReadOnlySpan<byte> bytes) => Utf8.IsValid(bytes) && !bytes.Contains((byte)0);
 }

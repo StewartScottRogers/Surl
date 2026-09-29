@@ -30,6 +30,16 @@ internal static class MqttPacketEncoder
     public static byte[] ConnectRefusedIdentifierRejected { get; } = ConnectAcknowledgement(0x02);
 
     /// <summary>
+    /// <c>CONNACK</c> with return code 4, bad user name or password (section 3.2.2.3).
+    /// </summary>
+    public static byte[] ConnectRefusedBadUserNameOrPassword { get; } = ConnectAcknowledgement(0x04);
+
+    /// <summary>
+    /// <c>CONNACK</c> with return code 5, not authorized (section 3.2.2.3).
+    /// </summary>
+    public static byte[] ConnectRefusedNotAuthorized { get; } = ConnectAcknowledgement(0x05);
+
+    /// <summary>
     /// <c>PINGRESP</c> (section 3.13).
     /// </summary>
     public static byte[] PingResponse { get; } = [(byte)MqttPacketType.PingResponse << 4, 0x00];

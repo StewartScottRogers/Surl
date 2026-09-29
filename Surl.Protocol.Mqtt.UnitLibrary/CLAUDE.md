@@ -8,6 +8,13 @@ kept as its topic's retained message in `MqttRetainedMessages`; a subscribe is a
 with the retained messages its filters match, then `DISCONNECT`. ADR-0014 records every
 answer.
 
+Every `CONNECT`'s user name and password (the will is read and skipped) go to the
+`IAuthenticationPolicy` from `Surl.Protocol.Abstractions`, with the connection's
+`TlsSession`; the server maps its verdict to `CONNACK` 0, 4 or 5 and closes after a refusal
+(ADR-0032 decision 5). The server decides nothing about accounts or plain text itself. The
+constructor without a policy passes `AnonymousAuthenticationPolicy` until BL-117 composes
+`surl` with the real one.
+
 `MqttRetainedMessages` made by its constructor lives in memory only; `surl` makes it so
 when no `--directory` is given. Made by
 `MqttRetainedMessages.LoadAsync(MqttRetainedMessageFile)`, it starts with what the file

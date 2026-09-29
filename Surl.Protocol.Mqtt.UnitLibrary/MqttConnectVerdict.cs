@@ -5,7 +5,14 @@ namespace Surl.Protocol.Mqtt;
 /// </summary>
 internal enum MqttConnectVerdict
 {
-    /// <summary>MQTT 3.1.1 (protocol level 4), well formed: answered <c>CONNACK</c> 0.</summary>
+    /// <summary>
+    /// MQTT 3.1.1 (protocol level 4), well formed: its user name and password go to the
+    /// authentication policy, whose verdict is one of <see cref="Accepted"/>,
+    /// <see cref="BadUserNameOrPassword"/> and <see cref="NotAuthorized"/> (ADR-0032, decision 5).
+    /// </summary>
+    LoginToCheck,
+
+    /// <summary>The login was accepted: answered <c>CONNACK</c> 0.</summary>
     Accepted,
 
     /// <summary>
@@ -21,9 +28,22 @@ internal enum MqttConnectVerdict
     IdentifierRejected,
 
     /// <summary>
+    /// A user name that matches no account, or a password that does not match it: answered
+    /// <c>CONNACK</c> 4, then closed (MQTT 3.1.1, section 3.2.2.3; ADR-0032, decision 5).
+    /// </summary>
+    BadUserNameOrPassword,
+
+    /// <summary>
+    /// No user name, or a password over an unencrypted connection, with no password checked:
+    /// answered <c>CONNACK</c> 5, then closed (MQTT 3.1.1, section 3.2.2.3; ADR-0032, decision 5).
+    /// </summary>
+    NotAuthorized,
+
+    /// <summary>
     /// Any other protocol name, connect flags section 3.1.2 forbids (the reserved bit, will
     /// QoS 3, will QoS or will retain without the will flag, a password without a user
-    /// name), or a field cut short: closed with no reply (MQTT 3.1.1, sections 3.1.2 and 4.8).
+    /// name), or a field cut short - the will topic, will message, user name and password the
+    /// flags announce included: closed with no reply (MQTT 3.1.1, sections 3.1.2 and 4.8).
     /// </summary>
     Malformed,
 }
