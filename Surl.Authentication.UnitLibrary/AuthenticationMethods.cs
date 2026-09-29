@@ -32,12 +32,13 @@ public static class AuthenticationMethods
     /// <summary>
     /// Whether <paramref name="method"/> logs in the connection rather than the request, so an
     /// accepted login serves the connection's later requests that carry no <c>Authorization</c>:
-    /// NTLM, whose later requests upstream curl 8.21.0 sends without one (ADR-0041).
+    /// NTLM and Negotiate, whose later requests upstream curl 8.21.0 sends without one
+    /// (ADR-0041, ADR-0044).
     /// </summary>
     /// <param name="method">The method.</param>
-    /// <returns><see langword="true"/> for NTLM.</returns>
+    /// <returns><see langword="true"/> for NTLM and Negotiate.</returns>
     public static bool AuthenticatesConnection(AuthenticationMethod method) =>
-        method is AuthenticationMethod.Ntlm;
+        method is AuthenticationMethod.Ntlm or AuthenticationMethod.Negotiate;
 
     /// <summary>
     /// The method an <c>Authorization</c> field's scheme names, matched case-insensitively

@@ -6,8 +6,8 @@ namespace Surl.Authentication;
 /// One HTTP connection's authentication, from <see cref="AuthenticationPolicy.StartHttpConnection"/>.
 /// It answers each request in ADR-0032 section 4's order and holds each accepted method's
 /// per-connection verifier, so NTLM's and Negotiate's handshakes die with the connection. The
-/// account NTLM accepts is remembered for the connection's later requests without an
-/// <c>Authorization</c> (ADR-0041).
+/// account NTLM or Negotiate accepts is remembered for the connection's later requests without an
+/// <c>Authorization</c> (ADR-0041, ADR-0044).
 /// </summary>
 internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
 {
@@ -21,7 +21,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     private readonly bool isEncrypted;
     private readonly Dictionary<AuthenticationMethod, IHttpCredentialVerifier> verifiers;
 
-    // The account a connection-authenticating method (NTLM) last accepted on this connection.
+    // The account a connection-authenticating method (NTLM, Negotiate) last accepted on this connection.
     private string? connectionAccountName;
 
     public HttpAuthenticationSession(AuthenticationPolicy policy, bool isEncrypted)
@@ -56,8 +56,8 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     private bool SendsRefusedPlaintextSecret(AuthenticationMethod method) =>
         AuthenticationMethods.SendsPlaintextSecret(method) && !policy.OffersPlaintextSecrets(isEncrypted);
 
-    // A connection NTLM logged in serves its later requests as that account, checking nothing,
-    // so they carry no login note (ADR-0041).
+    // A connection NTLM or Negotiate logged in serves its later requests as that account, checking nothing,
+    // so they carry no login note (ADR-0041, ADR-0044).
     private HttpAuthenticationVerdict JudgeWithoutCredentials(HttpAuthenticationRequest request)
     {
         if (connectionAccountName is not null)

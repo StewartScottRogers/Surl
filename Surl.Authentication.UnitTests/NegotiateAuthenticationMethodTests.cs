@@ -382,6 +382,65 @@ public sealed class NegotiateAuthenticationMethodTests
         Assert.AreEqual(new CheckedLogin("Negotiate", null, false), refused.CheckedLogin);
     }
 
+    private static IHttpAuthenticationSession StartPolicySession() =>
+        PolicyFixture.Create(
+            Accounts,
+            new ManualTimeProvider(),
+            acceptedMethods: new HashSet<AuthenticationMethod> { AuthenticationMethod.Negotiate },
+            httpMethods: new NegotiateAuthenticationMethod(Accounts, new FixedNtlmServerChallengeSource()))
+        .StartHttpConnection(null);
+
+    [TestMethod]
+    public async Task RecordedSecondUrl_AfterTheHandshakeIsAccepted_ProceedsAsTheAccountUnchecked()
+    {
+        // The unpatched 8.21.0 build sent GET /y on the logged-in connection with no
+        // Authorization and printed okok (Fixtures/negotiate-ntlm-two-urls, ADR-0044).
+        var session = StartPolicySession();
+        var challenged = await session.JudgeAsync(
+            RecordedFixture.ReadRequest("negotiate-ntlm-two-urls", 1), CancellationToken.None);
+        var accepted = await session.JudgeAsync(
+            RecordedFixture.ReadRequest("negotiate-ntlm-two-urls", 2), CancellationToken.None);
+        var secondUrl = RecordedFixture.ReadRequest("negotiate-ntlm-two-urls", 3);
+
+        var remembered = await session.JudgeAsync(secondUrl, CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { $"Negotiate {RecordedChallenge}" }, challenged.WwwAuthenticateValues.ToArray());
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, accepted.Outcome);
+        Assert.AreEqual("tester", accepted.AccountName);
+        Assert.DoesNotContain("Authorization", secondUrl.Fields.Select(field => field.Key).ToList());
+        Assert.AreEqual("/y", secondUrl.Target);
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, remembered.Outcome);
+        Assert.AreEqual("tester", remembered.AccountName);
+        Assert.IsEmpty(remembered.WwwAuthenticateValues);
+        Assert.IsNull(remembered.CheckedLogin);
+        Assert.AreEqual("okok", RecordedFixture.ReadText("negotiate-ntlm-two-urls", "stdout.bin"));
+    }
+
+    [TestMethod]
+    public async Task RecordedSecondUrl_OnANewConnection_IsChallenged()
+    {
+        var verdict = await StartPolicySession().JudgeAsync(
+            RecordedFixture.ReadRequest("negotiate-ntlm-two-urls", 3), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, verdict.Outcome);
+        CollectionAssert.AreEqual(new[] { "Negotiate" }, verdict.WwwAuthenticateValues.ToArray());
+    }
+
+    [TestMethod]
+    public async Task NewHandshake_AfterALogin_ForgetsItUntilAccepted()
+    {
+        var session = StartPolicySession();
+        await session.JudgeAsync(RecordedFixture.ReadRequest("negotiate-ntlm", 1), CancellationToken.None);
+        await session.JudgeAsync(RecordedFixture.ReadRequest("negotiate-ntlm", 2), CancellationToken.None);
+
+        var restarted = await session.JudgeAsync(RecordedFixture.ReadRequest("negotiate-ntlm", 1), CancellationToken.None);
+        var midHandshake = await session.JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, restarted.Outcome);
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, midHandshake.Outcome);
+        Assert.IsNull(midHandshake.AccountName);
+    }
+
     [TestMethod]
     public async Task PublicConstructor_TwoConnections_GetDifferentRandomChallenges()
     {

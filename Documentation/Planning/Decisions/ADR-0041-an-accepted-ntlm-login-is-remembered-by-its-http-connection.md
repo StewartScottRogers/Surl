@@ -33,7 +33,9 @@ handshake succeeded, the connection is authenticated and curl stops sending the 
 2. Which methods authenticate the connection is `AuthenticationMethods.AuthenticatesConnection`:
    NTLM only for now. Negotiate carrying NTLM very likely behaves the same in upstream curl, but
    the reference build sent no Negotiate token on the lane machine (ADR-0040, "Measured"), so it
-   is not pinned until it is measured.
+   is not pinned until it is measured. *Amended by
+   [ADR-0044](ADR-0044-an-accepted-negotiate-login-is-remembered-by-its-http-connection.md): measured
+   with the unpatched 8.21.0 build, Negotiate authenticates the connection too.*
 3. Every later NTLM `Authorization` on the connection starts a new handshake and replaces the
    remembered login: the account when it is accepted, none otherwise. So a restarted handshake
    leaves the connection logged out until it is accepted again, and a refused one keeps it
@@ -50,4 +52,4 @@ handshake succeeded, the connection is authenticated and curl stops sending the 
 - The memory dies with the connection, as ADR-0039 wants of the handshake itself; a new
   connection is challenged again.
 - Remembering a Negotiate login is later work, once a Negotiate exchange from pinned upstream
-  curl has been recorded (BL-134).
+  curl has been recorded (BL-134). *Done in [ADR-0044](ADR-0044-an-accepted-negotiate-login-is-remembered-by-its-http-connection.md).*
