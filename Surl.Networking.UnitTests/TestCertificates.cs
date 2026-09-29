@@ -72,6 +72,34 @@ internal static class TestCertificates
     }
 
     /// <summary>
+    /// Removes <paramref name="intermediate"/> from the intermediate certificate authority stores
+    /// <see cref="System.Net.Security.SslStreamCertificateContext"/> adds it to on Windows, so a test
+    /// run leaves no certificate behind. Elsewhere the context writes no store, and this does nothing.
+    /// </summary>
+    public static void RemoveFromWindowsIntermediateStores(X509Certificate2 intermediate)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        foreach (var location in new[] { StoreLocation.CurrentUser, StoreLocation.LocalMachine })
+        {
+            using var store = new X509Store(StoreName.CertificateAuthority, location);
+            try
+            {
+                store.Open(OpenFlags.ReadWrite);
+                store.Remove(intermediate);
+            }
+            catch (CryptographicException)
+            {
+                // Without administrator rights LocalMachine cannot be opened for writing, and
+                // then the context could not have added the certificate there either.
+            }
+        }
+    }
+
+    /// <summary>
     /// A leaf certificate signed by <paramref name="authority"/>, with its private key, valid
     /// from <paramref name="notBefore"/> to <paramref name="notAfter"/>. With
     /// <paramref name="extendedKeyUsage"/> <see langword="null"/> it carries no extended key usage.

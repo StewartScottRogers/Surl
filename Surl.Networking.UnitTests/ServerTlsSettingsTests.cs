@@ -63,19 +63,29 @@ public sealed class ServerTlsSettingsTests
     public void CreateAuthenticationOptions_Intermediates_AreInTheCertificateContext()
     {
         // A self-signed authority would be trimmed from the context as a root on Linux and macOS.
-        // On Windows the context adds intermediates to the user's CA store, so each run's subjects
-        // are unique: the chain engine would otherwise pick up an earlier run's namesake.
+        // On Windows the context adds intermediates to the user's CA store, where a same-named
+        // certificate with another key makes the chain engine fail ("An unknown chain building
+        // error occurred", BL-080). So each run's subjects are unique, and the run removes its
+        // intermediate from the store again.
         var run = Guid.NewGuid().ToString("N");
         using var root = TestCertificates.CreateCertificateAuthority($"CN=surl test root {run}");
         using var intermediate = TestCertificates.CreateIntermediateAuthority(root, $"CN=surl test intermediate {run}");
         using var certificate = TestCertificates.CreateSignedCertificate(
             intermediate, TestCertificates.ServerAuthenticationUsage, TestCertificates.Now.AddDays(-1), TestCertificates.Now.AddDays(1));
-        using var settings = new ServerTlsSettings(certificate, [intermediate], [], Time);
 
-        var context = settings.CreateAuthenticationOptions([]).ServerCertificateContext!;
+        try
+        {
+            using var settings = new ServerTlsSettings(certificate, [intermediate], [], Time);
 
-        Assert.AreEqual(certificate.Thumbprint, context.TargetCertificate.Thumbprint);
-        Assert.AreEqual(intermediate.Thumbprint, context.IntermediateCertificates.Single().Thumbprint);
+            var context = settings.CreateAuthenticationOptions([]).ServerCertificateContext!;
+
+            Assert.AreEqual(certificate.Thumbprint, context.TargetCertificate.Thumbprint);
+            Assert.AreEqual(intermediate.Thumbprint, context.IntermediateCertificates.Single().Thumbprint);
+        }
+        finally
+        {
+            TestCertificates.RemoveFromWindowsIntermediateStores(intermediate);
+        }
     }
 
     [TestMethod]
