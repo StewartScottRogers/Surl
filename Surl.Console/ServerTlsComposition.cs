@@ -7,7 +7,7 @@ namespace Surl.Console;
 
 /// <summary>
 /// The process's server-side TLS settings as the command line asks for them (ADR-0010,
-/// section 3; ADR-0019): none when no listen URL is TLS from the first byte; otherwise the
+/// section 3; ADR-0020): none when no listen URL is TLS from the first byte; otherwise the
 /// <c>--cert</c> certificate, or a throwaway one when none is given, with the <c>--cacert</c>
 /// trust anchors and the accepted TLS versions. It owns every certificate it loaded or made,
 /// and disposing it disposes them.

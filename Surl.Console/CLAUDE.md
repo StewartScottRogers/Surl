@@ -22,7 +22,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
   TLS from the first byte: the `--cert`/`--key` certificate or a throwaway one, the
   `--cacert` trust anchors and the accepted TLS versions. A bad file ends surl with 58, 2
-  or 77 before any listener binds (ADR-0019).
+  or 77 before any listener binds (ADR-0020).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
 

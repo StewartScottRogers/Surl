@@ -143,7 +143,7 @@ internal sealed class CommandLineRunner(
 
     /// <summary>
     /// Formats the message for a TLS option file that could not be loaded, after the
-    /// <c>surl: </c> prefix, and the exit code it ends surl with (ADR-0010 section 3, ADR-0019).
+    /// <c>surl: </c> prefix, and the exit code it ends surl with (ADR-0010 section 3, ADR-0020).
     /// </summary>
     /// <param name="failure">The failure the loader threw.</param>
     /// <param name="caCertificateFile">The <c>--cacert</c> file as given, named by the "does not exist" lines.</param>
@@ -161,7 +161,7 @@ internal sealed class CommandLineRunner(
 
     // Every protocol server surl registers, over TCP or (TFTP) UDP; those that serve files serve
     // the one content store, and the MQTT server keeps its retained messages for as long as surl
-    // runs. https is the HTTP server itself, over a connection the engine has secured (ADR-0019).
+    // runs. https is the HTTP server itself, over a connection the engine has secured (ADR-0020).
     private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore)
     {
         var httpServer = new HttpProtocolServer(contentStore);
