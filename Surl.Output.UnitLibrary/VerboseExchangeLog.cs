@@ -111,7 +111,14 @@ internal sealed class VerboseExchangeLog : IExchangeLog
         Write(builder.ToString());
     }
 
-    private string Timestamp() =>
+    private string Timestamp() => Timestamp(timestampClock);
+
+    /// <summary>
+    /// The <c>--trace-time</c> stamp for a line written now, in <see cref="TimestampFormat"/>.
+    /// </summary>
+    /// <param name="timestampClock">The clock whose local time stamps the line, or <see langword="null"/> for no stamp.</param>
+    /// <returns>The stamp, or the empty string when <paramref name="timestampClock"/> is <see langword="null"/>.</returns>
+    internal static string Timestamp(TimeProvider? timestampClock) =>
         timestampClock?.GetLocalNow().ToString(TimestampFormat, CultureInfo.InvariantCulture) ?? string.Empty;
 
     private static int LengthOfFirstLine(ReadOnlySpan<byte> bytes)

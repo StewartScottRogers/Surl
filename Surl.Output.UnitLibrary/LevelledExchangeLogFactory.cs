@@ -15,8 +15,8 @@ namespace Surl.Output;
 /// <remarks>
 /// Every line is the verbose log's line for its event (ADR-0007, section 8), written with
 /// one call under a lock the factory's logs share, so lines from concurrent exchanges never
-/// interleave. The <see cref="LogLevel.Trace"/> dump is not written here (ADR-0033,
-/// section 4).
+/// interleave. The <see cref="LogLevel.Trace"/> dump is not written here but by
+/// <see cref="TraceExchangeLogFactory"/> (ADR-0033, section 4).
 /// </remarks>
 public sealed class LevelledExchangeLogFactory : IExchangeLogFactory
 {

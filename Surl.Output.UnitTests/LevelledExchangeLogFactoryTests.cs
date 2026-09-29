@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 
 namespace Surl.Output;
 
@@ -259,65 +258,6 @@ public sealed class LevelledExchangeLogFactoryTests
                 $"#{id} * Exchange {id} cancelled at shutdown.",
             };
             CollectionAssert.Contains(allowed, line, $"Interleaved line: {line}");
-        }
-    }
-
-    /// <summary>
-    /// A clock stopped at a given instant, in a fixed time zone, that counts its reads.
-    /// </summary>
-    private sealed class FixedTimeProvider(DateTimeOffset utcNow, TimeSpan utcOffset) : TimeProvider
-    {
-        private DateTimeOffset now = utcNow;
-
-        public int Reads { get; private set; }
-
-        public override TimeZoneInfo LocalTimeZone { get; } =
-            TimeZoneInfo.CreateCustomTimeZone("Surl test zone", utcOffset, "Surl test zone", "Surl test zone");
-
-        public override DateTimeOffset GetUtcNow()
-        {
-            Reads++;
-            return now;
-        }
-
-        public void Advance(TimeSpan by) => now += by;
-    }
-
-    /// <summary>
-    /// A writer that writes a string one character at a time and yields between them, so
-    /// two unsynchronised writers would mix their characters.
-    /// </summary>
-    private sealed class CharByCharWriter : TextWriter
-    {
-        private readonly StringBuilder text = new();
-        private readonly Lock textLock = new();
-
-        public override Encoding Encoding => Encoding.UTF8;
-
-        public override void Write(char value)
-        {
-            lock (textLock)
-            {
-                text.Append(value);
-            }
-
-            Thread.Yield();
-        }
-
-        public override void Write(string? value)
-        {
-            foreach (var character in value ?? string.Empty)
-            {
-                Write(character);
-            }
-        }
-
-        public override string ToString()
-        {
-            lock (textLock)
-            {
-                return text.ToString();
-            }
         }
     }
 }
