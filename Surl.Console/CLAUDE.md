@@ -18,7 +18,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
   `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),
   `MqttProtocolServer` for `mqtt` and `mqtts` (it too declares both itself), whose
-  retained messages last as long as `surl` runs,
+  retained messages are kept in `<data directory>/.surl/mqtt/retained-messages` and loaded
+  after the lock and before any listener binds with `--directory` (a file that cannot be
+  read or does not parse ends surl with 37), and in memory only without it (ADR-0031
+  decision 6),
   `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   verbose exchange log and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,

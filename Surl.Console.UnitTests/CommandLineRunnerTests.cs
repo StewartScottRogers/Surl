@@ -178,7 +178,8 @@ public sealed class CommandLineRunnerTests
                     events.Add($"lock taken on {path} with {factory.StartedListenUrls.Count} listeners started");
                     return DataDirectoryLockOutcome.Taken(holder);
                 },
-                TimeProvider.System)
+                TimeProvider.System,
+                new UnitTestReadOnlyContentFileSystem())
             .RunAsync(["--directory", "served", "http://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         var disposedWhileServing = holder.Disposed;
@@ -291,7 +292,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System, new UnitTestReadOnlyContentFileSystem())
             .RunAsync(["http://127.0.0.1:0/", "http://[::1]:8080/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         var statusLines = output.ToString();
@@ -318,7 +319,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System, new UnitTestReadOnlyContentFileSystem())
             .RunAsync(["dict://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -338,7 +339,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System, new UnitTestReadOnlyContentFileSystem())
             .RunAsync(["gopher://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -358,7 +359,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System, new UnitTestReadOnlyContentFileSystem())
             .RunAsync(["mqtt://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -378,7 +379,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System, new UnitTestReadOnlyContentFileSystem())
             .RunAsync(["telnet://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -398,7 +399,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System, new UnitTestReadOnlyContentFileSystem())
             .RunAsync(["tftp://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -535,15 +536,17 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public void ComposeContentStore_DataDirectory_ServesItsFullPathOnDisk()
+    public void ComposeContentStore_DataDirectory_ServesItsFullPathThroughTheDataDirectoryFileSystem()
     {
         var commandLine = ParseServing("--directory", "served", "http://127.0.0.1:0/");
 
         var store = CommandLineRunner.ComposeContentStore(commandLine, TimeProvider.System);
 
         Assert.AreEqual(Path.GetFullPath("served"), store.ServedRoot);
-        Assert.IsInstanceOfType<DiskContentFileSystem>(
-            CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System));
+        var dataDirectoryFileSystem = new UnitTestReadOnlyContentFileSystem();
+        Assert.AreSame(
+            dataDirectoryFileSystem,
+            CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem));
     }
 
     [TestMethod]
@@ -554,10 +557,12 @@ public sealed class CommandLineRunnerTests
         var store = CommandLineRunner.ComposeContentStore(commandLine, TimeProvider.System);
 
         Assert.AreEqual(InMemoryContentFileSystem.RootPath, store.ServedRoot);
-        var fileSystem = CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System);
+        var dataDirectoryFileSystem = new UnitTestReadOnlyContentFileSystem();
+        var fileSystem = CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem);
         Assert.IsInstanceOfType<InMemoryContentFileSystem>(fileSystem);
         Assert.AreEqual(0L, ((InMemoryContentFileSystem)fileSystem).TotalBytes);
-        Assert.AreNotSame(fileSystem, CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System));
+        Assert.AreNotSame(
+            fileSystem, CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem));
     }
 
     [TestMethod]
@@ -680,7 +685,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await new CommandLineRunner(createListenerFactory, AnyDirectoryOpens, takeDataDirectoryLock, TimeProvider.System)
+        var exitCode = await new CommandLineRunner(createListenerFactory, AnyDirectoryOpens, takeDataDirectoryLock, TimeProvider.System, new UnitTestReadOnlyContentFileSystem())
             .RunAsync(args, output, error, TestContext.CancellationToken);
 
         return (exitCode, output.ToString(), error.ToString());
@@ -696,7 +701,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await new CommandLineRunner(_ => factory, canOpenDataDirectory, AnyLockIsTaken, TimeProvider.System)
+        var exitCode = await new CommandLineRunner(_ => factory, canOpenDataDirectory, AnyLockIsTaken, TimeProvider.System, new UnitTestReadOnlyContentFileSystem())
             .RunAsync(args, output, error, TestContext.CancellationToken);
 
         return (exitCode, output.ToString(), error.ToString());
