@@ -8,7 +8,7 @@ depends-on: [BL-090, BL-091]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Surl.Console.UnitTests, Surl.Conformance.UnitTests]
 requirement: FR-022
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-093 — Serve an in-memory file system when --directory is absent
 
@@ -49,18 +49,18 @@ warnings are errors).
 
 ## Acceptance criteria
 
-- [ ] A `Surl.Cli.UnitTests` test proves the parsed directory is `null` without
+- [x] A `Surl.Cli.UnitTests` test proves the parsed directory is `null` without
       `--directory` and the given text with it; the help-text test pins ADR-0031's line.
-- [ ] `CommandLineRunnerTests` prove, by name: without `--directory`, the composed store
+- [x] `CommandLineRunnerTests` prove, by name: without `--directory`, the composed store
       uses `InMemoryContentFileSystem` and `canOpenServedDirectory` is never called; with
       `--directory`, it uses `DiskContentFileSystem` over the full path, and a directory
       that cannot be opened still returns `SurlExitCode.CouldNotReadFile` with
       `(37) Could not open directory <path>` (or ADR-0031's replacement rule).
-- [ ] A `CommandLineRunnerTests` case composes the store without `--directory` and with
+- [x] A `CommandLineRunnerTests` case composes the store without `--directory` and with
       `--allow-uploads` (as the existing case at line 316 does), uploads through
       `ContentStore` and reads the same bytes back; without `--allow-uploads` the upload
       is refused.
-- [ ] An `Integration` conformance test in `UpstreamCurlFetchesFromSurlOverTftpTests`
+- [x] An `Integration` conformance test in `UpstreamCurlFetchesFromSurlOverTftpTests`
       starts surl in-process with `--allow-uploads tftp://127.0.0.1:0/` and no
       `--directory` (extend `SurlOnLoopback` with a start that passes no `--directory`),
       has pinned upstream curl 8.21.0 `-T <file> tftp://127.0.0.1:P/up.bin` exit 0, then
@@ -68,16 +68,33 @@ warnings are errors).
       `up.bin` exists in the test process's current directory, and a fresh in-memory surl
       answers the same fetch with curl's TFTP not-found exit code (measured in the test,
       not assumed).
-- [ ] `ADR-0007`'s default is no longer quoted in any XML doc comment in `Surl.Cli.UnitLibrary`
+- [x] `ADR-0007`'s default is no longer quoted in any XML doc comment in `Surl.Cli.UnitLibrary`
       or `Surl.Console` (`rg -n "current directory" Surl.Cli.UnitLibrary Surl.Console --glob "*.cs"`
       finds nothing that states it as the default).
-- [ ] `dotnet build -warnaserror` of `Surl.Cli.UnitLibrary` and `Surl.Console` is clean,
+- [x] `dotnet build -warnaserror` of `Surl.Cli.UnitLibrary` and `Surl.Console` is clean,
       the fast tests pass, both keep 100% line and branch coverage, and only the
       conformance test needs `TestCategory=Integration`.
 
 ## Notes
 
+- Property renamed `ServedDirectory` -> `DataDirectory` (`string?`, `null` without
+  `--directory`) as ADR-0031 decision 1 names it; the help lines are decision 2's, byte for byte.
+- `CommandLineRunner.ComposeContentStore(commandLine, timeProvider)` takes the clock
+  explicitly; `ComposeVersionText` became an instance method so it passes the runner's own.
+  A new `internal static ComposeContentFileSystem` chooses Disk vs InMemory, so a test can
+  name the type without widening `Surl.Content`'s public surface (outside `touches`).
+- The runner's probe parameter is now `canOpenDataDirectory`; it is called only when
+  `--directory` is given. `ServedDirectoryProbe` keeps its name (renames are BL-098's).
+- Conformance: `SurlOnLoopback.StartInMemoryAsync` starts surl with no `--directory`. The
+  not-found exit code is measured in the test: pinned curl against an empty on-disk surl,
+  then the same against a fresh in-memory surl, asserted equal and non-zero (68 on
+  curl 8.21.0, matching the `missing-file` recording).
+- Verified: build clean (warnings are errors), `dotnet format --verify-no-changes` clean,
+  fast tests green, `Surl.Cli.UnitLibrary` and `Surl.Console` 100% line and branch
+  (Measure-CodeQuality.ps1), all 103 Conformance tests pass with pinned curl 8.21.0.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. surl without --directory serves a fresh in-memory file system and touches no disk; --directory serves the disk as before
