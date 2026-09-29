@@ -1,5 +1,5 @@
 ---
-id: BL-066
+id: BL-067
 title: Load --cert, --key and --cacert files into ServerTlsSettings in Surl.Networking
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-066 — Load --cert, --key and --cacert files into ServerTlsSettings in Surl.Networking
+# BL-067 — Load --cert, --key and --cacert files into ServerTlsSettings in Surl.Networking
 
 ## Goal
 

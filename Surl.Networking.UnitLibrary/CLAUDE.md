@@ -61,7 +61,7 @@ protocol server.
   `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
   disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
   close_notify before FIN. Versions are the operating system's defaults until BL-048.
-  Reading the `--cert`, `--key` and `--cacert` files is BL-066.
+  Reading the `--cert`, `--key` and `--cacert` files is BL-067.
 - The TLS tests run real `SslStream` handshakes over `InMemoryDuplexStream` (test project)
   with certificates made by `CertificateRequest`, so they are fast tests on every platform;
   `TcpConnectionListenerTlsTests` (Integration) repeats one over a loopback socket.

@@ -81,7 +81,7 @@ Decisions (defaults taken under the delegation; all inside ADR-0010, so no new A
 - The certificate handed to `ServerTlsSettings` needs an exportable key, because it is
   re-imported through PKCS#12 (ADR-0010 section 6). Measured on Windows: a certificate from a
   default PKCS#12 import cannot be exported ("Key not valid for use in specified state").
-  `CertificateRequest` and PEM imports are exportable; BL-066's loader must import PKCS#12
+  `CertificateRequest` and PEM imports are exportable; BL-067's loader must import PKCS#12
   with `Exportable`.
 - No CA list is sent in the certificate request (no `CertificateTrust` set), as ADR-0010
   section 5 says.
@@ -94,7 +94,7 @@ Learned:
 - An `await` inside `finally` leaves compiler-generated branches coverage cannot reach; the
   failed handshake disposes the `SslStream` synchronously instead.
 
-Follow-up filed: BL-066 (read the `--cert`, `--key` and `--cacert` files into
+Follow-up filed: BL-067 (read the `--cert`, `--key` and `--cacert` files into
 `ServerTlsSettings`, the part of ADR-0010's consequences the acceptance criteria here did
 not cover). BL-048 (versions, renegotiation), BL-065 (engine performs the implicit
 handshake and notes it) and BL-038 (`https` in `surl` against pinned upstream curl) already
