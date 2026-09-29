@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: [BL-046, BL-014]
-touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
+touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-059 — Carry the per-exchange limits as ExchangeLimits in SurlCommandLine
 
@@ -30,18 +30,31 @@ ADR-0007 section 3 says, in place of the five separate members BL-014 gave it.
 
 ## Acceptance criteria
 
-- [ ] `SurlCommandLine` has a `Limits` member of type `ExchangeLimits`, defaulting to
+- [x] `SurlCommandLine` has a `Limits` member of type `ExchangeLimits`, defaulting to
       `ExchangeLimits.Default`, and no longer has the five separate limit members.
-- [ ] `--head-timeout`, `--max-request-head`, `--max-line`, `--max-message` and
+- [x] `--head-timeout`, `--max-request-head`, `--max-line`, `--max-message` and
       `--max-filesize` set the matching `ExchangeLimits` member; the existing
       `CommandLineParserTests` for those options pass against the new member.
-- [ ] A test asserts `new SurlCommandLine().Limits` equals `ExchangeLimits.Default`.
-- [ ] `dotnet build` is clean, the fast tests are green, and `Measure-CodeQuality.ps1`
+- [x] A test asserts `new SurlCommandLine().Limits` equals `ExchangeLimits.Default`.
+- [x] `dotnet build` is clean, the fast tests are green, and `Measure-CodeQuality.ps1`
       reports no failing member in `Surl.Cli.UnitLibrary`.
 
 ## Notes
+
+- `Surl.Console` added to `touches`: `CommandLineRunner.MapExposureOptions` read
+  `commandLine.MaxUploadBytes`, which this task removes, so it now reads
+  `commandLine.Limits.MaxUploadBytes` (one line). No task in Doing (BL-054: Tftp, BL-056:
+  Networking) touches `Surl.Console`.
+- Each limit option's setter is now `c with { Limits = c.Limits with { … } }`, so an
+  out-of-range value would throw from `ExchangeLimits`' setter; none reaches it, because
+  `ReadBytes` refuses a negative and `ReadSeconds` turns 0 or less into
+  `Timeout.InfiniteTimeSpan`.
+- Added `NewSurlCommandLine_LimitsAreExchangeLimitsDefault` and
+  `Parse_OneLimitOption_LeavesTheOtherLimitsAtTheirDefaults`. Surl.Cli.UnitTests: 303
+  passed; `Measure-CodeQuality.ps1`: 0 failing members across 14 assemblies.
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. SurlCommandLine carries the per-exchange limits as one ExchangeLimits member, set by the five limit options
