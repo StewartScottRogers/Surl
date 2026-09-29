@@ -61,3 +61,4 @@ and password ... are accepted and not read" (ADR-0032 records it).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
