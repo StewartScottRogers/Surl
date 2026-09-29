@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-002, BL-005]
-touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests]
+touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests, Surl.Core.UnitLibrary, Surl.Core.UnitTests, Surl.Networking.UnitLibrary, Surl.Networking.UnitTests]
 requirement: none
 created: 2026-09-28
 completed:
@@ -45,7 +45,27 @@ ask for an upgrade, without referencing `SslStream`.
 
 ## Notes
 
+- 2026-09-28 (lane 1): `touches` widened. ADR-0010 adds `TlsSession` and
+  `UpgradeToTlsAsync` to `IConnection`, and ADR-0010 "Consequences" says every existing
+  implementation gains both, or its build breaks. Two exist outside Abstractions:
+  `Surl.Core.UnitLibrary/RecordingConnection.cs` (the recording decorator: forward both
+  to the wrapped connection) and `Surl.Networking.UnitLibrary/StreamConnection.cs`
+  (`TlsSession` stays `null`; `UpgradeToTlsAsync` throws until BL-012 implements the
+  handshake). Their `.UnitTests` twins are added for the tests covering the new members.
+  `Surl.Networking` overlaps BL-055, in Doing, so the task went back to Backlog until
+  BL-055 finishes.
+- Rejected: default interface members on `IConnection` to avoid touching Core and
+  Networking. A decorator that silently keeps a default `TlsSession => null` would hide
+  the upgrade from the exchange log, against ADR-0004 section 5 and ADR-0010's
+  consequences.
+- Plan for the next run: `TlsSession` record, `TlsHandshakeException : IOException`,
+  `TlsSchemes.IsImplicitTls`, and `InMemoryConnection` gains `initialTlsSession`,
+  `upgradeTlsSession` (default TLS 1.3, `TlsCipherSuite.TLS_AES_128_GCM_SHA256`, no ALPN,
+  no client certificate), `upgradeFails`, and `UpgradeRequested`, with the
+  `InvalidOperationException` cases ADR-0010 section 1 lists.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Backlog. Needs Surl.Networking.UnitLibrary (StreamConnection implements IConnection), which BL-055 in Doing touches
