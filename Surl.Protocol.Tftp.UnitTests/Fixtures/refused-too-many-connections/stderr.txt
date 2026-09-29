@@ -1,0 +1,1 @@
+curl: (71) TFTP: Illegal operation
