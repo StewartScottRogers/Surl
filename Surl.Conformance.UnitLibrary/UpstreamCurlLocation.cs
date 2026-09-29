@@ -1,7 +1,7 @@
 namespace Surl.Conformance;
 
 /// <summary>
-/// What <see cref="UpstreamCurlLocator.Locate"/> found: either a verified pinned build, or
+/// What <see cref="UpstreamCurlLocator"/> found: either a verified pinned build, or
 /// the reason none is available on this machine.
 /// </summary>
 public sealed class UpstreamCurlLocation
@@ -49,6 +49,15 @@ public sealed class UpstreamCurlLocation
     /// <returns>An unavailable location.</returns>
     public static UpstreamCurlLocation NoPinnedBuild(string platform, UpstreamCurlBuildRole role) =>
         new(null, UpstreamCurlUnavailability.NoPinnedBuildForPlatform, $"UpstreamCurlBuilds.json pins no {RoleName(role)} upstream curl build for {platform}.");
+
+    /// <summary>
+    /// Creates the result for a platform with no pinned build that supports a protocol.
+    /// </summary>
+    /// <param name="platform">The platform asked for.</param>
+    /// <param name="protocol">The protocol asked for.</param>
+    /// <returns>An unavailable location.</returns>
+    public static UpstreamCurlLocation NoPinnedBuildForProtocol(string platform, string protocol) =>
+        new(null, UpstreamCurlUnavailability.NoPinnedBuildForPlatform, $"UpstreamCurlBuilds.json pins no upstream curl build for {platform} that supports {protocol}.");
 
     /// <summary>
     /// Creates the result for a pinned build whose file is not on this machine.

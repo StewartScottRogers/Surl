@@ -162,6 +162,116 @@ public sealed class UpstreamCurlLocatorTests
     }
 
     [TestMethod]
+    public void LocateForProtocol_ReferenceSupportsProtocol_ReturnsTheReferenceBuild()
+    {
+        var supplementary = Pin(SupplementaryPath, SupplementaryBytes, UpstreamCurlBuildRole.Supplementary, ["http", "smb"]);
+        var reference = Pin(ReferencePath, ReferenceBytes, protocols: ["http"]);
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess()
+            .WithFile(SupplementaryPath, SupplementaryBytes)
+            .WithFile(ReferencePath, ReferenceBytes));
+
+        var location = locator.LocateForProtocol([supplementary, reference], "win-x64", "http");
+
+        Assert.AreSame(reference, location.Build);
+    }
+
+    [TestMethod]
+    public void LocateForProtocol_OnlySupplementarySupportsProtocol_ReturnsTheFirstSupplementaryThatDoes()
+    {
+        var reference = Pin(ReferencePath, ReferenceBytes, protocols: ["http"]);
+        var withoutSmb = Pin("/pinned/http2/curl", PortBytes, UpstreamCurlBuildRole.Supplementary, ["http"]);
+        var withSmb = Pin(SupplementaryPath, SupplementaryBytes, UpstreamCurlBuildRole.Supplementary, ["http", "smb"]);
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess()
+            .WithFile(ReferencePath, ReferenceBytes)
+            .WithFile("/pinned/http2/curl", PortBytes)
+            .WithFile(SupplementaryPath, SupplementaryBytes));
+
+        var location = locator.LocateForProtocol([reference, withoutSmb, withSmb], "win-x64", "SMB");
+
+        Assert.AreSame(withSmb, location.Build);
+    }
+
+    [TestMethod]
+    public void LocateForProtocol_FirstSupportingSupplementaryAbsent_ReturnsTheNextThatVerifies()
+    {
+        var absent = Pin("/absent/curl", SupplementaryBytes, UpstreamCurlBuildRole.Supplementary, ["smb"]);
+        var present = Pin(SupplementaryPath, SupplementaryBytes, UpstreamCurlBuildRole.Supplementary, ["smb"]);
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(SupplementaryPath, SupplementaryBytes));
+
+        var location = locator.LocateForProtocol([absent, present], "win-x64", "smb");
+
+        Assert.AreSame(present, location.Build);
+    }
+
+    [TestMethod]
+    public void LocateForProtocol_ReferenceSupportsProtocolButIsAbsent_ReportsFileAbsentRatherThanFallingBack()
+    {
+        var reference = Pin(ReferencePath, ReferenceBytes, protocols: ["http"]);
+        var supplementary = Pin(SupplementaryPath, SupplementaryBytes, UpstreamCurlBuildRole.Supplementary, ["http"]);
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(SupplementaryPath, SupplementaryBytes));
+
+        var location = locator.LocateForProtocol([reference, supplementary], "win-x64", "http");
+
+        Assert.AreEqual(UpstreamCurlUnavailability.PinnedBuildFileAbsent, location.Unavailability);
+        StringAssert.Contains(location.Message, ReferencePath);
+    }
+
+    [TestMethod]
+    public void LocateForProtocol_NoBuildOfPlatformSupportsProtocol_ReportsNoPinnedBuildAndThrowsNothing()
+    {
+        var reference = Pin(ReferencePath, ReferenceBytes, protocols: ["http"]);
+        var otherPlatform = Pin(SupplementaryPath, SupplementaryBytes, protocols: ["smb"]) with { Platform = "linux-x64" };
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess()
+            .WithFile(ReferencePath, ReferenceBytes)
+            .WithFile(SupplementaryPath, SupplementaryBytes));
+
+        var location = locator.LocateForProtocol([reference, otherPlatform], "win-x64", "smb");
+
+        Assert.IsFalse(location.IsAvailable);
+        Assert.AreEqual(UpstreamCurlUnavailability.NoPinnedBuildForPlatform, location.Unavailability);
+        Assert.AreEqual("UpstreamCurlBuilds.json pins no upstream curl build for win-x64 that supports smb.", location.Message);
+    }
+
+    [TestMethod]
+    [DataRow("smb", @"C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe")]
+    [DataRow("smbs", @"C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe")]
+    [DataRow("http", @"C:\Program Files\Git\mingw64\bin\curl.exe")]
+    public void LocateForProtocol_RealPinFileOnWindows_SelectsTheBuildItsAdrNames(string protocol, string expectedPath)
+    {
+        var fileAccess = new FakeUpstreamCurlFileAccess();
+        var pins = RealPinsWithEveryFilePresent(fileAccess);
+        var locator = new UpstreamCurlLocator(fileAccess);
+
+        var location = locator.LocateForProtocol(pins, "win-x64", protocol);
+
+        Assert.AreEqual(expectedPath, location.Build?.DefaultPath);
+    }
+
+    [TestMethod]
+    public void LocateForProtocol_NullPins_ThrowsArgumentNullException()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateForProtocol(null!, "win-x64", "smb"));
+    }
+
+    [TestMethod]
+    public void LocateForProtocol_NullPlatform_ThrowsArgumentNullException()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateForProtocol([], null!, "smb"));
+    }
+
+    [TestMethod]
+    public void LocateForProtocol_NullProtocol_ThrowsArgumentNullException()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateForProtocol([], "win-x64", null!));
+    }
+
+    [TestMethod]
     public void RequirePinned_FileMatchesAnyPin_ReturnsThatPin()
     {
         var reference = Pin(ReferencePath, ReferenceBytes);
@@ -244,6 +354,25 @@ public sealed class UpstreamCurlLocatorTests
     private static PinnedUpstreamCurlBuild Pin(
         string path,
         byte[] contents,
-        UpstreamCurlBuildRole role = UpstreamCurlBuildRole.Reference) =>
-        new("win-x64", path, FakeUpstreamCurlFileAccess.Sha256Of(contents), "curl 8.21.0", ["http"], role);
+        UpstreamCurlBuildRole role = UpstreamCurlBuildRole.Reference,
+        string[]? protocols = null) =>
+        new("win-x64", path, FakeUpstreamCurlFileAccess.Sha256Of(contents), "curl 8.21.0", protocols ?? ["http"], role);
+
+    /// <summary>
+    /// Reads the repository's real <c>UpstreamCurlBuilds.json</c> and puts a distinct stand-in
+    /// file at every pin's default path, re-pinning each to its stand-in's hash, so selection
+    /// follows the real file's platforms, roles, protocols and order without any curl on disk.
+    /// </summary>
+    private static List<PinnedUpstreamCurlBuild> RealPinsWithEveryFilePresent(FakeUpstreamCurlFileAccess fileAccess)
+    {
+        var pins = UpstreamCurlBuildPins.Parse(
+            File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamCurlBuildPins.FileName)));
+
+        return pins.Select((pin, index) =>
+        {
+            byte[] standIn = [0x4D, 0x5A, (byte)index];
+            fileAccess.WithFile(pin.DefaultPath, standIn);
+            return pin with { Sha256 = FakeUpstreamCurlFileAccess.Sha256Of(standIn) };
+        }).ToList();
+    }
 }

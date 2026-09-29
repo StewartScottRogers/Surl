@@ -58,6 +58,45 @@ public sealed class UpstreamCurlLocator(IUpstreamCurlFileAccess fileAccess)
     }
 
     /// <summary>
+    /// Finds the build of <paramref name="platform"/> to measure <paramref name="protocol"/>
+    /// with: the reference build when its protocols include it, and otherwise the first
+    /// supplementary build whose protocols include it and whose file exists and hashes to its
+    /// pin - the reference build answers every case it can, and a supplementary build only what
+    /// it was pinned for (ADR-0017, ADR-0030).
+    /// </summary>
+    /// <param name="pins">The builds <c>UpstreamCurlBuilds.json</c> pins.</param>
+    /// <param name="platform">The platform to find a build for, such as <c>win-x64</c>.</param>
+    /// <param name="protocol">The protocol the build must support, as <c>curl --version</c> names it, such as <c>smb</c>; compared case-insensitively.</param>
+    /// <returns>
+    /// The verified build, or a location saying that no build of the platform supports the
+    /// protocol, or that none of the pinned builds' files exists.
+    /// </returns>
+    /// <exception cref="UnpinnedUpstreamCurlException">
+    /// A chosen build's file exists but hashes to something else, and no other pinned build of
+    /// the same role that supports the protocol verifies.
+    /// </exception>
+    public UpstreamCurlLocation LocateForProtocol(
+        IReadOnlyList<PinnedUpstreamCurlBuild> pins,
+        string platform,
+        string protocol)
+    {
+        ArgumentNullException.ThrowIfNull(pins);
+        ArgumentNullException.ThrowIfNull(platform);
+        ArgumentNullException.ThrowIfNull(protocol);
+
+        var supporting = pins
+            .Where(pin => pin.Platform == platform
+                && pin.Protocols.Contains(protocol, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        var references = supporting.Where(pin => pin.Role == UpstreamCurlBuildRole.Reference).ToList();
+        var candidates = references.Count > 0 ? references : supporting;
+
+        return candidates.Count == 0
+            ? UpstreamCurlLocation.NoPinnedBuildForProtocol(platform, protocol)
+            : VerifyFirstPresent(candidates);
+    }
+
+    /// <summary>
     /// Checks each candidate whose file exists, in order, and returns the first that hashes to
     /// its pin.
     /// </summary>

@@ -68,6 +68,7 @@ REM ----------------------------------------------------------------------------
 if not defined CLAUDE_MODEL set "CLAUDE_MODEL=opus"
 set "REPO_URL=https://github.com/StewartScottRogers/Surl.git"
 set "DEFAULT_REPO_DIR=%USERPROFILE%\Surl"
+set "HERDR_WORKSPACE_LABEL=Surl"
 
 REM  Decide which checkout to use. %~dp0 is the folder this script lives in (with a
 REM  trailing backslash, which we strip so the path quotes cleanly later). If that
@@ -310,13 +311,12 @@ REM  cwd/env options moved onto pane/tab creation. So we create a labelled tab
 REM  anchored to the repo (with CLAUDE_MODEL forwarded into its environment) and
 REM  read the new pane's id out of the JSON response.
 REM
-REM  The tab goes into the herdr workspace named after the checkout folder ("Surl"),
-REM  the same workspace RunDarkFactory.ps1 puts its shifts in, whichever workspace
-REM  this script was started from. If there is none yet it is created, and its own
-REM  first tab is relabelled and used for Claude, so no empty tab is left behind.
-REM  The workspace is then focused so Claude is on screen.
+REM  The tab goes into the dedicated herdr workspace for this repo ("Surl"). If
+REM  there is none yet it is created, and its own first tab is relabelled and used
+REM  for Claude, so no empty tab is left behind. The workspace is then focused so
+REM  Claude is on screen.
 set "PANE_ID="
-for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "$h=$env:HERDR; $m='CLAUDE_MODEL='+$env:CLAUDE_MODEL; $w=@((& $h workspace list | ConvertFrom-Json).result.workspaces | Where-Object { $_.label -eq $env:REPO_NAME })[0]; if ($w) { $r=(& $h tab create --workspace $w.workspace_id --cwd $env:REPO_DIR --env $m --label $env:AGENT_LABEL --focus | ConvertFrom-Json).result.root_pane } else { $r=(& $h workspace create --cwd $env:REPO_DIR --env $m --label $env:REPO_NAME --focus | ConvertFrom-Json).result.root_pane; & $h tab rename $r.tab_id $env:AGENT_LABEL | Out-Null }; & $h workspace focus $r.workspace_id | Out-Null; $r.pane_id"`) do set "PANE_ID=%%P"
+for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "$h=$env:HERDR; $m='CLAUDE_MODEL='+$env:CLAUDE_MODEL; $w=@((& $h workspace list | ConvertFrom-Json).result.workspaces | Where-Object { $_.label -eq $env:HERDR_WORKSPACE_LABEL })[0]; if ($w) { $r=(& $h tab create --workspace $w.workspace_id --cwd $env:REPO_DIR --env $m --label $env:AGENT_LABEL --focus | ConvertFrom-Json).result.root_pane } else { $r=(& $h workspace create --cwd $env:REPO_DIR --env $m --label $env:HERDR_WORKSPACE_LABEL --focus | ConvertFrom-Json).result.root_pane; & $h tab rename $r.tab_id $env:AGENT_LABEL | Out-Null }; & $h workspace focus $r.workspace_id | Out-Null; $r.pane_id"`) do set "PANE_ID=%%P"
 if not defined PANE_ID (
     set "ERRMSG=herdr could not create a pane for Claude."
     goto :die
