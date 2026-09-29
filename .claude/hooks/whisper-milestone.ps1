@@ -8,10 +8,10 @@
     JSON from standard input, recognises three milestones from the command and its output,
     and speaks one short phrase very quietly in Windows' Zira voice:
 
-      task-board.ps1 move ... -To Done        "Task done. B L 199, expand variable references in config files."
+      task-board.ps1 move ... -To Done        "Surl task done. B L 199, expand variable references in config files."
                                               (the task's whole file name, never shortened)
-      git commit (that made a commit)         "Committed. Parse the proxy text."
-      git branch -d/-D, git push --delete     "Branch factory BL 147 wip, deleted."
+      git commit (that made a commit)         "Surl committed. Parse the proxy text."
+      git branch -d/-D, git push --delete     "Surl branch factory BL 147 wip, deleted."
 
     Anything else is ignored. Phrases from several sessions queue behind a named mutex
     instead of talking over each other. The hook runs async, so no session waits for it,
@@ -41,7 +41,7 @@ try {
     if ($command -match 'task-board\.ps1' -and $command -match '\bmove\b' -and $command -match '-To\s+Done') {
         foreach ($m in [regex]::Matches($output, '(BL-\d+)\s+\w+\s+->\s+Done\s+\S*?\1-([a-z0-9-]+)\.md')) {
             # The whole file name, never a shortened one: Stewart asked to hear all of it.
-            $phrases += "Task done. $($m.Groups[1].Value), $($m.Groups[2].Value -replace '-', ' ')."
+            $phrases += "Surl task done. $($m.Groups[1].Value), $($m.Groups[2].Value -replace '-', ' ')."
         }
     }
 
@@ -52,7 +52,7 @@ try {
             $age = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - [long]$Matches[1]
             if ($age -ge 0 -and $age -le 60) {
                 $subject = $Matches[2] -replace '^\w+(\([^)]*\))?!?:\s*', ''
-                $phrases += "Committed. $(Get-Words $subject 7)."
+                $phrases += "Surl committed. $(Get-Words $subject 7)."
             }
         }
     }
@@ -61,7 +61,7 @@ try {
     if ($command -match '\bgit\b[^|;&]*\bbranch\b[^|;&]*\s-[dD]\b' -or $command -match '\bgit\b[^|;&]*\bpush\b[^|;&]*(--delete|\s:\S)') {
         $names = @([regex]::Matches($output, 'Deleted branch (\S+)') | ForEach-Object { $_.Groups[1].Value }) +
                  @([regex]::Matches($output, '-\s+\[deleted\]\s+(\S+)') | ForEach-Object { $_.Groups[1].Value })
-        foreach ($name in ($names | Select-Object -Unique)) { $phrases += "Branch $name, deleted." }
+        foreach ($name in ($names | Select-Object -Unique)) { $phrases += "Surl branch $name, deleted." }
     }
 
     if (-not $phrases.Count) { exit 0 }
