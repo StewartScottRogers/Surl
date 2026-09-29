@@ -8,7 +8,7 @@ depends-on: [BL-036, BL-046]
 touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-053 — Enforce the first-packet timeout, packet size and publish payload limit in Surl.Protocol.Mqtt
 
@@ -48,17 +48,17 @@ upstream curl 8.21.0 reports for each close recorded.
 
 ## Acceptance criteria
 
-- [ ] `HeadTimeoutTests.PartialConnect_AfterHeadTimeout_ClosesWithNoBytes` passes, and a
+- [x] `HeadTimeoutTests.PartialConnect_AfterHeadTimeout_ClosesWithNoBytes` passes, and a
       test proves a connected client idle past `HeadTimeout` is not disconnected by it.
-- [ ] `PacketLimitTests.PacketOfExactlyTheLimit_IsAccepted` and
+- [x] `PacketLimitTests.PacketOfExactlyTheLimit_IsAccepted` and
       `PacketLimitTests.PacketOneByteOverTheLimit_ClosesWithNoBytes` pass, the second
       proving no body byte was read.
-- [ ] `PublishPayloadLimitTests.PayloadOverMaxUploadBytes_ClosesWithNoBytes` passes, and
+- [x] `PublishPayloadLimitTests.PayloadOverMaxUploadBytes_ClosesWithNoBytes` passes, and
       a test proves `MaxMessageBytes = 0` and `MaxUploadBytes = 0` accept a 2 MiB
       `PUBLISH`.
-- [ ] Recordings for each case above are committed, with pinned upstream curl 8.21.0's
+- [x] Recordings for each case above are committed, with pinned upstream curl 8.21.0's
       exit code and stderr for each close.
-- [ ] `dotnet build Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast tests
       are green with no `Integration` test in `Surl.Protocol.Mqtt.UnitTests`, and
       `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Protocol.Mqtt.UnitLibrary`.
@@ -72,7 +72,36 @@ before reading any body byte, and closes with no bytes: see `MqttPacketReader` a
 is the head timeout, the `PUBLISH` payload limit, the recordings, and the test names the
 criteria ask for.
 
+Delivered 2026-09-29 (lane 1):
+- Head timeout: `MqttProtocolServer.ReadFirstPacketAsync` reads the first packet under a
+  token linked to `HeadTimeout` on `ExchangeContext.TimeProvider`; the timer is disposed as
+  soon as the first packet is complete, so later packets are bounded only by the idle
+  timeout (`ConnectedClientIdlePastTheHeadTimeout_IsNotDisconnected` checks no timer is
+  left). A cancellation of the exchange's own token still propagates and is not taken for
+  a head timeout. `Timeout.InfiniteTimeSpan` starts no timer.
+- Payload limit (decision, within ADR-0006): `MqttPacketReader` reads a `PUBLISH` body's
+  first two bytes (the topic name's length) on their own, computes the payload as remaining
+  length less topic name and, above QoS 0, the two-byte packet identifier, and refuses it
+  before reading more. Why: with `MaxMessageBytes = 0` and a large `MaxUploadBytes`, reading
+  the whole body first would buffer an oversized payload before refusing it. A topic length
+  that does not fit gives a negative payload and is left to the responder's "PUBLISH was
+  malformed" close, and a body shorter than two bytes is not checked here for the same reason.
+- `ServeAsync_LargeRemainingLengthNeverSent_ClosesMidPacket` now lifts `MaxUploadBytes` too,
+  since its 256 MiB announced `PUBLISH` is now (correctly) refused by the payload limit; the
+  two BL-036 packet-limit tests in `MqttProtocolServerTests` were replaced by
+  `PacketLimitTests`, which also prove by read count that no body byte was read.
+- Recordings (win-x64 reference build, SHA-256 0E7737...8778) under `Fixtures/`, documented
+  in the shared `Fixtures/README.md` (the folder's existing convention, one README for all
+  cases): `closed-before-connack` and `publish-closed-before-connack` exit 56 "curl: (56)
+  Connection disconnected"; `packet-over-the-limit` (1 MiB `-d @file`) and
+  `publish-payload-over-the-limit` (201-byte `-d @file`) exit 0 with empty stderr, because
+  curl sends a QoS 0 `PUBLISH` and exits without waiting for a reply.
+- Pipeline: delivered directly in the lane (plan, tests, implementation, verify) since the
+  change is one library and its tests; `Measure-CodeQuality.ps1 -Library
+  Surl.Protocol.Mqtt.UnitLibrary` reports 0 failing members.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. MQTT closes with no bytes on a first packet past the head timeout, a packet over MaxMessageBytes and a PUBLISH payload over MaxUploadBytes, with upstream curl's reports recorded
