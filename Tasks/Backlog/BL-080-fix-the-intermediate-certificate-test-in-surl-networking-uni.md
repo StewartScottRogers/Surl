@@ -1,5 +1,5 @@
 ---
-id: BL-076
+id: BL-080
 title: Fix the intermediate-certificate test in Surl.Networking.UnitTests that fails chain building on Windows
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-076 — Fix the intermediate-certificate test in Surl.Networking.UnitTests that fails chain building on Windows
+# BL-080 — Fix the intermediate-certificate test in Surl.Networking.UnitTests that fails chain building on Windows
 
 ## Goal
 

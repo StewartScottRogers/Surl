@@ -73,7 +73,7 @@ shutdown as TCP connections.
   0 failing members, worst CRAP 10. The script counts a lambda's complexity against the
   method beside it, so the two-transport check is a plain loop.
 - Surl.Core.UnitTests: 96 tests (22 new).
-- Filed BL-076: `Surl.Networking.UnitTests` has a certificate-chain test that began failing
+- Filed BL-080: `Surl.Networking.UnitTests` has a certificate-chain test that began failing
   on every run late in this task. Networking does not reference Core, and nothing under
   `Surl.Networking.*` changed. Because of it, the last quality measurement used the run's
   coverage with `-SkipTestRun`.
