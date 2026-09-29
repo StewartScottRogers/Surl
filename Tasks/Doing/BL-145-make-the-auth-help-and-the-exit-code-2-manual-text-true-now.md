@@ -82,3 +82,4 @@ BL-146 (naming and doc-comment alignment) waits on this task because both change
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
