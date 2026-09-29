@@ -8,6 +8,13 @@ kept as its topic's retained message in `MqttRetainedMessages`; a subscribe is a
 with the retained messages its filters match, then `DISCONNECT`. ADR-0014 records every
 answer.
 
+`MqttRetainedMessages` made by its constructor lives in memory only. Made by
+`MqttRetainedMessages.LoadAsync(MqttRetainedMessageFile)`, it starts with what the file
+holds and `SaveChangesAsync` (called after every publish) rewrites the whole file through a
+temporary name renamed into place (ADR-0031 decision 6). The file is read and written only
+through `Surl.Content`'s `IContentFileSystem`; nothing here calls `System.IO.File` or
+`Directory`.
+
 **URL schemes answered:** `mqtt` and `mqtts` (`MqttProtocolServer.Schemes`). `mqtts` is
 the same server over implicit TLS: the engine performs the handshake and hands the server
 a connection that already carries plaintext (ADR-0010), so nothing here constructs an

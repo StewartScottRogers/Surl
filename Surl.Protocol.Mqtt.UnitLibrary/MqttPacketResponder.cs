@@ -179,8 +179,28 @@ internal sealed class MqttPacketResponder
         }
 
         return retainedMessages.Retain(topic, reader.Remaining)
-            ? AcknowledgePublishAsync(qualityOfService, packetIdentifier)
+            ? SaveAndAcknowledgePublishAsync(qualityOfService, packetIdentifier)
             : CloseForViolation("PUBLISH would take the retained messages past their bounds");
+    }
+
+    private async ValueTask<bool> SaveAndAcknowledgePublishAsync(int qualityOfService, ushort packetIdentifier)
+    {
+        await SaveRetainedMessagesAsync();
+        return await AcknowledgePublishAsync(qualityOfService, packetIdentifier);
+    }
+
+    // A write that fails keeps the change in memory and the connection open; the next change
+    // rewrites the whole file (ADR-0031, decision 6).
+    private async ValueTask SaveRetainedMessagesAsync()
+    {
+        try
+        {
+            await retainedMessages.SaveChangesAsync(context.CancellationToken);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            context.Log.Note($"The retained messages could not be written to their file ({exception.Message}); the change is kept in memory.");
+        }
     }
 
     private ValueTask<bool> AcknowledgePublishAsync(int qualityOfService, ushort packetIdentifier) => qualityOfService switch
