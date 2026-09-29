@@ -52,3 +52,15 @@ alone: curl sent no body byte.
 | `upload-too-large-413` | 22 | empty; stderr `curl: (22) The requested URL returned error: 413` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\upload-too-large-413 -Response 'HTTP/1.1 413 Content Too Large\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','--data-binary','@<upload>','http://127.0.0.1:18050/file.txt'` |
 | `expect-continue-413` | 22 | empty; stderr `curl: (22) The requested URL returned error: 413` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\expect-continue-413 -RespondAfterBodyBytes 0 -Response 'HTTP/1.1 413 Content Too Large\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','-H','Expect: 100-continue','--data-binary','@<upload>','http://127.0.0.1:18050/file.txt'` |
 | `refusal-503` | 22 | empty; stderr `curl: (22) The requested URL returned error: 503` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\refusal-503 -Response 'HTTP/1.1 503 Service Unavailable\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18050/file.txt'` |
+
+## Drain and invalid Content-Length fixtures (BL-061)
+
+Recorded on 2026-09-29 the same way, from the repository root in Windows PowerShell, with
+the same pinned build (ADR-0024). `response.bin` is again the decoded `-Response`. In
+`post-refused-405` curl sent the one-byte body `x` with the head; in
+`invalid-content-length-400` it sent `Content-Length: abc` as given, and no body.
+
+| Folder | Exit code | stdout.bin | Command line |
+| --- | --- | --- | --- |
+| `post-refused-405` | 22 | empty; stderr `curl: (22) The requested URL returned error: 405` | `.\Record-CurlExchange.ps1 -Port 18061 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\post-refused-405 -Response 'HTTP/1.1 405 Method Not Allowed\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nAllow: GET, HEAD\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','-d','x','http://127.0.0.1:18061/file.txt'` |
+| `invalid-content-length-400` | 22 | empty; stderr `curl: (22) The requested URL returned error: 400` | `.\Record-CurlExchange.ps1 -Port 18061 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\invalid-content-length-400 -Response 'HTTP/1.1 400 Bad Request\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','-H','Content-Length: abc','http://127.0.0.1:18061/file.txt'` |

@@ -36,6 +36,7 @@ internal sealed class HttpRequestResponder
     private readonly ExchangeContext context;
     private readonly ContentStore contentStore;
     private readonly HttpRequestBodyDiscarder bodyDiscarder;
+    private readonly HttpUnreadRequestDrainer unreadRequestDrainer;
 
     /// <summary>
     /// Creates a responder for one connection.
@@ -50,6 +51,7 @@ internal sealed class HttpRequestResponder
         this.context = context;
         this.contentStore = contentStore;
         bodyDiscarder = new HttpRequestBodyDiscarder(reader, context.Limits.MaxUploadBytes);
+        unreadRequestDrainer = new HttpUnreadRequestDrainer(reader, context);
     }
 
     /// <summary>
@@ -65,12 +67,9 @@ internal sealed class HttpRequestResponder
         }
 
         var framing = HttpRequestBodyFraming.Of(head);
-        if (IsPastUploadLimit(framing))
-        {
-            return RefuseAsync(HttpStatus.ContentTooLarge, null, $"{head.Method} {head.RequestTarget}: the {framing.ContentLength}-byte body is past the upload limit of {context.Limits.MaxUploadBytes} bytes");
-        }
 
-        return head.Method is "GET" or "HEAD" ? AnswerFromContentStoreAsync(head, framing) : RefuseMethodAsync(head);
+        return RefuseFramingAsync(head, framing)
+            ?? (head.Method is "GET" or "HEAD" ? AnswerFromContentStoreAsync(head, framing) : RefuseMethodAsync(head));
     }
 
     /// <summary>
@@ -173,6 +172,20 @@ internal sealed class HttpRequestResponder
         _ => $"nothing exists at {mapping.Location}",
     };
 
+    // Framing a request cannot have, whatever its method, is refused before method dispatch
+    // (ADR-0024 for the 400, ADR-0019 for the 413); null when the framing is acceptable.
+    private Task<bool>? RefuseFramingAsync(HttpRequestHead head, HttpRequestBodyFraming framing)
+    {
+        if (framing.Kind == HttpRequestBodyFramingKind.InvalidContentLength)
+        {
+            return RefuseAsync(HttpStatus.BadRequest, null, $"{head.Method} {head.RequestTarget}: the Content-Length is not one field of decimal digits");
+        }
+
+        return IsPastUploadLimit(framing)
+            ? RefuseAsync(HttpStatus.ContentTooLarge, null, $"{head.Method} {head.RequestTarget}: the {framing.ContentLength}-byte body is past the upload limit of {context.Limits.MaxUploadBytes} bytes")
+            : null;
+    }
+
     // A declared Content-Length is checked before any body byte is read and before method
     // dispatch, so Expect: 100-continue gets the 413 in place of 100 Continue.
     private bool IsPastUploadLimit(HttpRequestBodyFraming framing) =>
@@ -195,10 +208,21 @@ internal sealed class HttpRequestResponder
 
     // A refusal gets one second to be written and half-closed; past that the server gives up
     // on it and leaves the close to the engine's dispose, never an abort (ADR-0006, section 5).
+    // Once the refusal is written, what the client still sends is drained (ADR-0024).
     private async Task<bool> RefuseAsync(HttpStatus status, string? allow, string note)
     {
         context.Log.Note($"{note}; answered {status.Code} and closed.");
 
+        if (await TryWriteRefusalAsync(status, allow))
+        {
+            await unreadRequestDrainer.DrainAsync();
+        }
+
+        return false;
+    }
+
+    private async Task<bool> TryWriteRefusalAsync(HttpStatus status, string? allow)
+    {
         using var deadline = new CancellationTokenSource(RefusalWriteDeadline, context.TimeProvider);
         using var deadlineOrExchange = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, deadline.Token);
         try
@@ -209,9 +233,11 @@ internal sealed class HttpRequestResponder
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
         {
             context.Log.Note($"The {status.Code} was not written within its {RefusalWriteDeadline.TotalSeconds}-second write deadline; the connection is closed without it.");
+
+            return false;
         }
 
-        return false;
+        return true;
     }
 
     private async Task<bool> WriteEmptyResponseAsync(HttpStatus status, string? allow, bool keepsConnectionOpen, Version requestVersion)
@@ -283,6 +309,7 @@ internal sealed class HttpRequestResponder
         if (!keepsConnectionOpen)
         {
             await connection.CompleteWritesAsync(context.CancellationToken);
+            await unreadRequestDrainer.DrainAsync();
         }
 
         return keepsConnectionOpen;

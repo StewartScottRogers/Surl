@@ -93,7 +93,9 @@ public sealed class HttpProtocolServerTests
 
         Assert.AreEqual(OkHead + "Connection: close\r\n\r\n" + FileBody, Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
-        Assert.HasCount(1, log.Notes);
+        CollectionAssert.AreEqual(
+            new[] { "GET /file.txt: 200, 17 bytes of " + Path.Join(Root, "file.txt"), "Stopped draining the unread request bytes at the 1-second drain limit." },
+            log.Notes.ToArray());
     }
 
     [TestMethod]
@@ -257,7 +259,6 @@ public sealed class HttpProtocolServerTests
     [TestMethod]
     [DataRow("Connection: close\r\n")]
     [DataRow("Connection: keep-alive, Close\r\n")]
-    [DataRow("Content-Length: abc\r\n")]
     [DataRow("Transfer-Encoding: gzip\r\n")]
     public async Task ServeAsync_Http11RequestThatEndsTheConnection_SaysCloseAndHalfCloses(string field)
     {
@@ -337,13 +338,13 @@ public sealed class HttpProtocolServerTests
         .AddDirectory(Path.Join(Root, "sub"))
         .AddFile(Path.Join(Root, "file.txt"), Encoding.ASCII.GetBytes(FileBody), FileTime);
 
-    private static ExchangeContext Context(IExchangeLog log, CancellationToken cancellationToken = default) => new(
+    private static ExchangeContext Context(IExchangeLog log, CancellationToken cancellationToken = default, TimeProvider? timeProvider = null) => new(
         1,
         new ListenUrl("http", "127.0.0.1", 18018).WithBoundPort(18018),
         new IPEndPoint(IPAddress.Loopback, 18018),
         new IPEndPoint(IPAddress.Loopback, 50000),
         log,
-        new FixedTimeProvider(Now),
+        timeProvider ?? new FixedTimeProvider(Now),
         cancellationToken);
 
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeAsync(
@@ -353,8 +354,10 @@ public sealed class HttpProtocolServerTests
         var chunks = oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request);
         var connection = new InMemoryConnection(chunks, peerHalfClosesWhenExhausted: peerHalfCloses);
         var log = new RecordingExchangeLog();
+        var clock = new ManualTimeProvider(Now);
 
-        await server.ServeAsync(connection, Context(log, TestContext.CancellationToken));
+        var serving = server.ServeAsync(connection, Context(log, TestContext.CancellationToken, clock));
+        await (peerHalfCloses ? serving : HttpServerHarness.AdvanceUntilCompletedAsync(clock, serving));
 
         return (connection, log);
     }

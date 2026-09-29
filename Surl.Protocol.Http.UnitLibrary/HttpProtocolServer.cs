@@ -56,8 +56,16 @@ namespace Surl.Protocol.Http;
 /// <c>HEAD</c> is read and discarded before the answer: a chunked one is answered 413 as
 /// soon as its chunk data and trailer lines pass the limit, and one that is malformed or
 /// ends early <c>400 Bad Request</c>. A body the server cannot frame (a transfer coding
-/// other than <c>chunked</c>, or a <c>Content-Length</c> that is not one number) is not
-/// read, and the connection closes after the response. Refused methods never read the body.
+/// other than <c>chunked</c>) is not read, and the connection closes after the response.
+/// Refused methods never read the body to answer. Without <c>Transfer-Encoding</c>, a
+/// <c>Content-Length</c> that is not one field of decimal digits is answered
+/// <c>400 Bad Request</c> as a refusal, before method dispatch (RFC 9112, section 6.3; ADR-0024).
+/// </para>
+/// <para>
+/// Lingering close (ADR-0024): after any response that half-closes the connection, the
+/// server reads and discards what the client still sends until the client half-closes, for
+/// at most one second on the exchange's clock and at most 1 MiB, so the unread bytes of a
+/// refused request do not turn the close into a TCP reset that destroys the response.
 /// </para>
 /// <para>
 /// A connection closes after a response when the request said <c>Connection: close</c>,

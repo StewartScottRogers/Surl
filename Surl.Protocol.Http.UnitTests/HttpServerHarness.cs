@@ -49,17 +49,63 @@ internal static class HttpServerHarness
 
     /// <summary>
     /// Serves <paramref name="chunks"/> with the recorded clock standing still, and returns
-    /// once the exchange is over.
+    /// once the exchange is over. When the peer never half-closes, the exchange ends in the
+    /// drain before the close, so the clock is moved on past the drain's time limit.
     /// </summary>
     public static async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeAsync(
         IEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken, ExchangeLimits? limits = null, bool peerHalfCloses = true, IContentFileSystem? fileSystem = null)
     {
         var connection = new InMemoryConnection(chunks, peerHalfClosesWhenExhausted: peerHalfCloses);
         var log = new RecordingExchangeLog();
+        var clock = new ManualTimeProvider(Now);
 
-        await Server(fileSystem).ServeAsync(connection, Context(log, new FixedTimeProvider(Now), cancellationToken, limits));
+        var serving = Server(fileSystem).ServeAsync(connection, Context(log, clock, cancellationToken, limits));
+        await (peerHalfCloses ? serving : AdvanceUntilCompletedAsync(clock, serving));
 
         return (connection, log);
+    }
+
+    /// <summary>
+    /// Serves <paramref name="chunks"/> to a client that half-closes once they are sent, and
+    /// says how many bytes the server had read when it first wrote: what it read to answer,
+    /// before the drain before the close read the rest.
+    /// </summary>
+    public static async Task<(InMemoryConnection Connection, long BytesReadBeforeAnswer)> ServeCountingReadsAsync(
+        IEnumerable<ReadOnlyMemory<byte>> chunks, CancellationToken cancellationToken, ExchangeLimits? limits = null)
+    {
+        var connection = new InMemoryConnection(chunks);
+        var counting = new ReadCountingConnection(connection);
+
+        await Server().ServeAsync(counting, Context(new RecordingExchangeLog(), new ManualTimeProvider(Now), cancellationToken, limits));
+
+        return (connection, counting.BytesReadBeforeFirstWrite);
+    }
+
+    /// <summary>
+    /// Waits, for at most ten seconds of real time, until <paramref name="clock"/> holds
+    /// <paramref name="count"/> live timers, so a test knows the timer it is about to fire exists.
+    /// </summary>
+    public static async Task WaitForTimersAsync(ManualTimeProvider clock, int count)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (clock.ActiveTimerCount != count && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1));
+        }
+
+        Assert.AreEqual(count, clock.ActiveTimerCount);
+    }
+
+    /// <summary>
+    /// Waits for the server's drain timer, fires it by moving <paramref name="clock"/> on by
+    /// the drain's time limit, and awaits <paramref name="serving"/>.
+    /// </summary>
+    public static async Task AdvanceUntilCompletedAsync(ManualTimeProvider clock, Task serving)
+    {
+        await WaitForTimersAsync(clock, 1);
+        clock.Advance(HttpUnreadRequestDrainer.MaxDrainTime);
+
+        await serving;
     }
 
     /// <summary>

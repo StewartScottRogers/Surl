@@ -17,10 +17,13 @@ internal readonly record struct HttpRequestBodyFraming(HttpRequestBodyFramingKin
     /// <c>Transfer-Encoding</c> is <see cref="HttpRequestBodyFramingKind.Chunked"/> only when
     /// it is one field whose one coding is <c>chunked</c>, no <c>Content-Length</c> comes
     /// with it, and the request is HTTP/1.1: RFC 9112, section 6.1, makes an HTTP/1.0
-    /// message with <c>Transfer-Encoding</c> badly framed. <c>Content-Length</c> is <see cref="HttpRequestBodyFramingKind.ContentLength"/>
-    /// only when it is one field of decimal digits that fits a 64-bit length, and
-    /// <c>Content-Length: 0</c> is no body. Every other combination is
-    /// <see cref="HttpRequestBodyFramingKind.Unreadable"/>.
+    /// message with <c>Transfer-Encoding</c> badly framed. Every other <c>Transfer-Encoding</c>
+    /// is <see cref="HttpRequestBodyFramingKind.Unreadable"/>. Without <c>Transfer-Encoding</c>,
+    /// <c>Content-Length</c> is <see cref="HttpRequestBodyFramingKind.ContentLength"/> only
+    /// when it is one field of decimal digits that fits a 64-bit length, and
+    /// <c>Content-Length: 0</c> is no body; any other <c>Content-Length</c> - a sign,
+    /// whitespace, a list, a value too large, or two fields even when they agree - is
+    /// <see cref="HttpRequestBodyFramingKind.InvalidContentLength"/> (ADR-0024).
     /// </remarks>
     /// <param name="head">The request head.</param>
     /// <returns>The declared framing.</returns>
@@ -38,7 +41,7 @@ internal readonly record struct HttpRequestBodyFraming(HttpRequestBodyFramingKin
         {
             0 => Declared(HttpRequestBodyFramingKind.None),
             1 => OfContentLength(contentLengths[0]),
-            _ => Declared(HttpRequestBodyFramingKind.Unreadable),
+            _ => Declared(HttpRequestBodyFramingKind.InvalidContentLength),
         };
     }
 
@@ -54,7 +57,7 @@ internal readonly record struct HttpRequestBodyFraming(HttpRequestBodyFramingKin
     {
         if (!long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var length))
         {
-            return Declared(HttpRequestBodyFramingKind.Unreadable);
+            return Declared(HttpRequestBodyFramingKind.InvalidContentLength);
         }
 
         return length == 0 ? Declared(HttpRequestBodyFramingKind.None) : new HttpRequestBodyFraming(HttpRequestBodyFramingKind.ContentLength, length);

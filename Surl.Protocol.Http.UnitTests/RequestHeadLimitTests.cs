@@ -44,9 +44,10 @@ public sealed class RequestHeadLimitTests
     {
         var head = HeadOfLength(Limit + 1000);
 
-        var (connection, _) = await ServeAsync([head], TestContext.CancellationToken, peerHalfCloses: false);
+        var (connection, bytesReadBeforeAnswer) = await ServeCountingReadsAsync([head], TestContext.CancellationToken);
 
-        Assert.HasCount(1000, await ReadWhatIsLeftAsync(connection, TestContext.CancellationToken));
+        Assert.AreEqual(Limit, bytesReadBeforeAnswer, "The 431 was answered before the head was read past the limit.");
+        Assert.IsEmpty(await ReadWhatIsLeftAsync(connection, TestContext.CancellationToken), "The rest was drained before the close.");
     }
 
     [TestMethod]

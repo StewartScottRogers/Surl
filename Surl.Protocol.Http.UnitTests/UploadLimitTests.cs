@@ -35,7 +35,16 @@ public sealed class UploadLimitTests
         CollectionAssert.AreEqual(RecordedResponse("upload-too-large-413"), connection.WrittenBytes);
         Assert.IsTrue(connection.WritesCompleted);
         Assert.AreEqual("GET /file.txt: the chunked body went past the upload limit of 1024 bytes; answered 413 and closed.", log.Notes[0]);
-        Assert.AreEqual("b\r\n0\r\n\r\n", Latin1(await ReadWhatIsLeftAsync(connection, TestContext.CancellationToken)), "The chunk past the limit was never read.");
+    }
+
+    [TestMethod]
+    public async Task ChunkedBodyOverTheLimit_IsAnsweredBeforeTheChunkPastTheLimitIsRead()
+    {
+        var firstChunks = Ascii(ChunkedGet + "400\r\n" + new string('a', 1024) + "\r\n1\r\n");
+
+        var (_, bytesReadBeforeAnswer) = await ServeCountingReadsAsync([firstChunks, Ascii("b\r\n0\r\n\r\n")], TestContext.CancellationToken, OneKiBUploads);
+
+        Assert.AreEqual(firstChunks.Length, bytesReadBeforeAnswer);
     }
 
     [TestMethod]
@@ -44,12 +53,12 @@ public sealed class UploadLimitTests
         var body = new byte[2048];
         var head = RecordedFixture.ReadRequestBytes("expect-continue-413");
 
-        var (connection, _) = await ServeAsync([head, body], TestContext.CancellationToken, OneKiBUploads, peerHalfCloses: false);
+        var (connection, bytesReadBeforeAnswer) = await ServeCountingReadsAsync([head, body], TestContext.CancellationToken, OneKiBUploads);
 
         Assert.Contains("Expect: 100-continue\r\n", Latin1(head));
         CollectionAssert.AreEqual(RecordedResponse("expect-continue-413"), connection.WrittenBytes);
         Assert.DoesNotContain("100 Continue", Latin1(connection.WrittenBytes));
-        Assert.HasCount(2048, await ReadWhatIsLeftAsync(connection, TestContext.CancellationToken), "No body byte was read.");
+        Assert.AreEqual(head.Length, bytesReadBeforeAnswer, "No body byte was read before the answer.");
     }
 
     [TestMethod]
@@ -147,13 +156,14 @@ public sealed class UploadLimitTests
     }
 
     [TestMethod]
-    public async Task RefusedMethodWithAChunkedBody_IsAnswered405WithoutReadingIt()
+    public async Task RefusedMethodWithAChunkedBody_IsAnswered405BeforeReadingItAndDrainedAfter()
     {
-        var request = "POST /file.txt HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\n\r\n";
+        var request = Ascii("POST /file.txt HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\n\r\n");
 
-        var (connection, _) = await ServeAsync([Ascii(request), Ascii("5\r\nhello\r\n0\r\n\r\n")], TestContext.CancellationToken, OneKiBUploads, peerHalfCloses: false);
+        var (connection, bytesReadBeforeAnswer) = await ServeCountingReadsAsync([request, Ascii("5\r\nhello\r\n0\r\n\r\n")], TestContext.CancellationToken, OneKiBUploads);
 
         StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 405 Method Not Allowed\r\n");
-        Assert.AreEqual("5\r\nhello\r\n0\r\n\r\n", Latin1(await ReadWhatIsLeftAsync(connection, TestContext.CancellationToken)));
+        Assert.AreEqual(request.Length, bytesReadBeforeAnswer);
+        Assert.IsEmpty(await ReadWhatIsLeftAsync(connection, TestContext.CancellationToken));
     }
 }

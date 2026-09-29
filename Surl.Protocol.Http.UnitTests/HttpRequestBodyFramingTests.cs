@@ -13,11 +13,14 @@ public sealed class HttpRequestBodyFramingTests
     [DataRow("Transfer-Encoding: gzip, chunked", "Unreadable", 0L)]
     [DataRow("Transfer-Encoding: chunked|Transfer-Encoding: chunked", "Unreadable", 0L)]
     [DataRow("Transfer-Encoding: chunked|Content-Length: 3", "Unreadable", 0L)]
-    [DataRow("Content-Length: 3|Content-Length: 3", "Unreadable", 0L)]
-    [DataRow("Content-Length: abc", "Unreadable", 0L)]
-    [DataRow("Content-Length: -1", "Unreadable", 0L)]
-    [DataRow("Content-Length: +1", "Unreadable", 0L)]
-    [DataRow("Content-Length: 9223372036854775808", "Unreadable", 0L)]
+    [DataRow("Content-Length: 3|Content-Length: 3", "InvalidContentLength", 0L)]
+    [DataRow("Content-Length: 3|Content-Length: 4", "InvalidContentLength", 0L)]
+    [DataRow("Content-Length: 3, 3", "InvalidContentLength", 0L)]
+    [DataRow("Content-Length: ", "InvalidContentLength", 0L)]
+    [DataRow("Content-Length: abc", "InvalidContentLength", 0L)]
+    [DataRow("Content-Length: -1", "InvalidContentLength", 0L)]
+    [DataRow("Content-Length: +1", "InvalidContentLength", 0L)]
+    [DataRow("Content-Length: 9223372036854775808", "InvalidContentLength", 0L)]
     public void Of_ReadsTheDeclaredFraming(string fields, string kind, long contentLength)
     {
         var head = new HttpRequestHead("GET", "/", new Version(1, 1), Fields(fields));

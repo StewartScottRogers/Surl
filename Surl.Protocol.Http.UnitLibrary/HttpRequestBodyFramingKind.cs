@@ -21,9 +21,17 @@ internal enum HttpRequestBodyFramingKind
     Chunked,
 
     /// <summary>
-    /// A framing the server does not read: another transfer coding, a coding list, both
-    /// fields, or a <c>Content-Length</c> that is not one number. The body is never read, so
-    /// the connection closes after the response.
+    /// A framing the server does not read: another transfer coding, a coding list, two
+    /// <c>Transfer-Encoding</c> fields, <c>Transfer-Encoding</c> with <c>Content-Length</c>,
+    /// or <c>Transfer-Encoding</c> on HTTP/1.0. The body is never read as a body, so the
+    /// connection closes after the response.
     /// </summary>
     Unreadable,
+
+    /// <summary>
+    /// No <c>Transfer-Encoding</c>, and a <c>Content-Length</c> that is not one field of
+    /// decimal digits fitting a 64-bit length: RFC 9112, section 6.3, item 5, makes it an
+    /// unrecoverable framing error, answered <c>400 Bad Request</c> and closed.
+    /// </summary>
+    InvalidContentLength,
 }

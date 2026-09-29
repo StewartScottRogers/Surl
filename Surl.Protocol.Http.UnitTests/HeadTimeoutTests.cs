@@ -21,12 +21,13 @@ public sealed class HeadTimeoutTests
         clock.Advance(HeadTimeout - TimeSpan.FromSeconds(1));
         Assert.IsFalse(serving.IsCompleted, "One second of the head timeout is left.");
         clock.Advance(TimeSpan.FromSeconds(1));
-        await serving;
+        await AdvanceUntilCompletedAsync(clock, serving);
 
         CollectionAssert.AreEqual(RecordedResponse("head-timeout-408"), connection.WrittenBytes);
         Assert.IsTrue(connection.WritesCompleted);
         Assert.IsFalse(connection.Aborted);
         Assert.AreEqual("No request head was read: HeadTimedOut; answered 408 and closed.", log.Notes[0]);
+        Assert.AreEqual("Stopped draining the unread request bytes at the 1-second drain limit.", log.Notes[1]);
     }
 
     [TestMethod]
@@ -75,7 +76,7 @@ public sealed class HeadTimeoutTests
 
         Assert.AreEqual(1, clock.ActiveTimerCount, "The second head's first bytes started its timer.");
         clock.Advance(HeadTimeout);
-        await serving;
+        await AdvanceUntilCompletedAsync(clock, serving);
 
         var recorded408 = RecordedResponse("head-timeout-408");
         CollectionAssert.AreEqual(recorded408, connection.WrittenBytes[^recorded408.Length..]);
