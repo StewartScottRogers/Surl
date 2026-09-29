@@ -12,10 +12,12 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   against the registered protocol servers, then builds the content store, the protocol
   servers (today `HttpProtocolServer` for `http`, `GopherProtocolServer` for `gopher`,
   `MqttProtocolServer` for `mqtt`, whose retained messages last as long as `surl` runs,
-  and `TelnetProtocolServer` for `telnet`), the verbose exchange log and the serving
-  engine, and serves. It writes ADR-0007 section 5's texts and returns its exit codes.
+  `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
+  verbose exchange log and the serving engine, and serves. It writes ADR-0007 section 5's
+  texts and returns its exit codes.
 - `ListenerStartReporter` wraps the listener factory: it writes the status lines once the
-  last listener has bound, and keeps a bind failure for the `(45)` or `(6)` message.
+  last listener, connection or datagram, has bound, and keeps a bind failure for the
+  `(45)` or `(6)` message.
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`: TCP
   connection listeners and UDP datagram listeners.
 

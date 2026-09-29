@@ -56,12 +56,37 @@ public sealed class ListenerStartReporterTests
     }
 
     [TestMethod]
-    public void StartDatagramListenerAsync_Always_ThrowsNotSupportedException()
+    public async Task StartDatagramListenerAsync_TheLastListenerAfterAConnectionListener_WritesBothStatusLinesInStartOrder()
     {
         using var output = new StringWriter();
-        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 1);
+        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 2);
 
-        Assert.ThrowsExactly<NotSupportedException>(
-            () => reporter.StartDatagramListenerAsync(new ListenUrl("tftp", "127.0.0.1", 0), TestContext.CancellationToken));
+        await using var first = await reporter.StartConnectionListenerAsync(
+            new ListenUrl("http", "127.0.0.1", 0), TestContext.CancellationToken);
+        await using var second = await reporter.StartDatagramListenerAsync(
+            new ListenUrl("tftp", "127.0.0.1", 0), TestContext.CancellationToken);
+
+        Assert.AreEqual(
+            $"Listening on http://127.0.0.1:{FakeListenerFactory.BoundPort}/{Environment.NewLine}"
+            + $"Listening on tftp://127.0.0.1:{FakeListenerFactory.BoundPort}/{Environment.NewLine}",
+            output.ToString());
+        Assert.IsNull(reporter.BindFailure);
+    }
+
+    [TestMethod]
+    public async Task StartDatagramListenerAsync_BindFails_KeepsTheFailureAndRethrowsIt()
+    {
+        using var output = new StringWriter();
+        var listenUrl = new ListenUrl("tftp", "127.0.0.1", 69);
+        var failure = new ListenerBindException(listenUrl, null, ListenerBindFailure.AddressInUse, null);
+        var reporter = new ListenerStartReporter(
+            new FakeListenerFactory { BindFailure = failure }, new ListenerStatusLine(output), 1);
+
+        var thrown = await Assert.ThrowsExactlyAsync<ListenerBindException>(
+            () => reporter.StartDatagramListenerAsync(listenUrl, TestContext.CancellationToken).AsTask());
+
+        Assert.AreSame(failure, thrown);
+        Assert.AreSame(failure, reporter.BindFailure);
+        Assert.AreEqual(string.Empty, output.ToString());
     }
 }

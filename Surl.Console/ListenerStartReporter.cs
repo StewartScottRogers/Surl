@@ -5,10 +5,10 @@ namespace Surl.Console;
 
 /// <summary>
 /// Wraps the listener factory the serving engine starts listeners through, to report on the
-/// starts: once the last of the expected listeners has bound, it writes one status line per
-/// listener in the order they started (ADR-0007 section 7); and it keeps the
-/// <see cref="ListenerBindException"/> a failed start threw, so <c>surl</c> can say what
-/// could not be bound (ADR-0007 section 5).
+/// starts: once the last of the expected listeners has bound, connection and datagram
+/// listeners alike, it writes one status line per listener in the order they started
+/// (ADR-0007 section 7); and it keeps the <see cref="ListenerBindException"/> a failed start
+/// threw, so <c>surl</c> can say what could not be bound (ADR-0007 section 5).
 /// </summary>
 /// <param name="inner">The factory that really starts the listeners.</param>
 /// <param name="statusLine">Writes the status lines.</param>
@@ -27,30 +27,39 @@ internal sealed class ListenerStartReporter(IListenerFactory inner, ListenerStat
     public async ValueTask<IConnectionListener> StartConnectionListenerAsync(
         ListenUrl listenUrl, CancellationToken cancellationToken)
     {
-        IConnectionListener listener;
+        var listener = await KeepBindFailureAsync(() => inner.StartConnectionListenerAsync(listenUrl, cancellationToken));
+        ReportBound(listener.ListenUrl);
+        return listener;
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask<IDatagramListener> StartDatagramListenerAsync(
+        ListenUrl listenUrl, CancellationToken cancellationToken)
+    {
+        var listener = await KeepBindFailureAsync(() => inner.StartDatagramListenerAsync(listenUrl, cancellationToken));
+        ReportBound(listener.ListenUrl);
+        return listener;
+    }
+
+    private async ValueTask<TListener> KeepBindFailureAsync<TListener>(Func<ValueTask<TListener>> start)
+    {
         try
         {
-            listener = await inner.StartConnectionListenerAsync(listenUrl, cancellationToken);
+            return await start();
         }
         catch (ListenerBindException bindFailure)
         {
             BindFailure = bindFailure;
             throw;
         }
+    }
 
-        boundListenUrls.Add(listener.ListenUrl);
+    private void ReportBound(ListenUrl boundListenUrl)
+    {
+        boundListenUrls.Add(boundListenUrl);
         if (boundListenUrls.Count == expectedListenerCount)
         {
             boundListenUrls.ForEach(statusLine.Write);
         }
-
-        return listener;
     }
-
-    /// <inheritdoc/>
-    /// <exception cref="NotSupportedException">
-    /// Always: the serving engine starts no datagram listener yet (BL-032).
-    /// </exception>
-    public ValueTask<IDatagramListener> StartDatagramListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("The serving engine starts no datagram listener yet.");
 }

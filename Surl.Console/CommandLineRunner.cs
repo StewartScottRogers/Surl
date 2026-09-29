@@ -10,6 +10,7 @@ using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 using Surl.Protocol.Mqtt;
 using Surl.Protocol.Telnet;
+using Surl.Protocol.Tftp;
 
 namespace Surl.Console;
 
@@ -133,20 +134,20 @@ internal sealed class CommandLineRunner(
         MaxUploadBytes = commandLine.MaxUploadBytes,
     };
 
-    // Every protocol server surl registers; those that serve files serve the one content store,
-    // and the MQTT server keeps its retained messages for as long as surl runs.
+    // Every protocol server surl registers, over TCP or (TFTP) UDP; those that serve files serve
+    // the one content store, and the MQTT server keeps its retained messages for as long as surl runs.
     private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore) =>
         [
             new HttpProtocolServer(contentStore),
             new GopherProtocolServer(contentStore),
             new MqttProtocolServer(new MqttRetainedMessages()),
             new TelnetProtocolServer(),
+            new TftpProtocolServer(contentStore),
         ];
 
     private static string? FindUnregisteredScheme(IReadOnlyList<ListenUrl> listenUrls, IProtocolServer[] servers)
     {
         var registeredSchemes = servers
-            .OfType<IConnectionProtocolServer>()
             .SelectMany(server => server.Schemes)
             .ToHashSet(StringComparer.Ordinal);
 
