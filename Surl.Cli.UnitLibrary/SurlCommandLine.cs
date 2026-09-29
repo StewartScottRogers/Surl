@@ -57,25 +57,14 @@ public sealed record SurlCommandLine
     public TimeSpan MaxTime { get; init; } = TimeSpan.FromSeconds(3600);
 
     /// <summary>
-    /// <c>--head-timeout</c>: the time a peer has to deliver a complete request head, command
-    /// line or first packet. 30 seconds by default.
+    /// The per-exchange limits (ADR-0007 section 3): <c>--head-timeout</c> sets
+    /// <see cref="ExchangeLimits.HeadTimeout"/>, <c>--max-request-head</c>
+    /// <see cref="ExchangeLimits.MaxRequestHeadBytes"/>, <c>--max-line</c>
+    /// <see cref="ExchangeLimits.MaxLineBytes"/>, <c>--max-message</c>
+    /// <see cref="ExchangeLimits.MaxMessageBytes"/> and <c>--max-filesize</c>
+    /// <see cref="ExchangeLimits.MaxUploadBytes"/>. <see cref="ExchangeLimits.Default"/> by default.
     /// </summary>
-    public TimeSpan HeadTimeout { get; init; } = TimeSpan.FromSeconds(30);
-
-    /// <summary><c>--max-request-head</c>: the largest HTTP/1.x or RTSP request head, in bytes. 102400 by default.</summary>
-    public long MaxRequestHeadBytes { get; init; } = 102400;
-
-    /// <summary>
-    /// <c>--max-line</c>: the longest command line of a line-oriented protocol, line ending
-    /// included, in bytes. 8192 by default.
-    /// </summary>
-    public long MaxLineBytes { get; init; } = 8192;
-
-    /// <summary><c>--max-message</c>: the largest framed message of a binary protocol, in bytes. 1048576 by default.</summary>
-    public long MaxMessageBytes { get; init; } = 1048576;
-
-    /// <summary><c>--max-filesize</c>: the largest upload accepted, in bytes. 104857600 by default.</summary>
-    public long MaxUploadBytes { get; init; } = 104857600;
+    public ExchangeLimits Limits { get; init; } = ExchangeLimits.Default;
 
     /// <summary>
     /// The lowest TLS version accepted, set by the last of <c>--tlsv1.0</c> to <c>--tlsv1.3</c>;

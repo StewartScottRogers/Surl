@@ -139,7 +139,7 @@ internal sealed class CommandLineRunner(
         ListDirectories = commandLine.ListDirectories,
         FollowSymbolicLinks = commandLine.FollowSymlinks,
         ServeDotFiles = commandLine.ServeDotFiles,
-        MaxUploadBytes = commandLine.MaxUploadBytes,
+        MaxUploadBytes = commandLine.Limits.MaxUploadBytes,
     };
 
     /// <summary>

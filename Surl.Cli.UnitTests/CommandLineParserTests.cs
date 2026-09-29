@@ -31,6 +31,16 @@ public sealed class CommandLineParserTests
     }
 
     [TestMethod]
+    public void NewSurlCommandLine_LimitsAreExchangeLimitsDefault() =>
+        Assert.AreEqual(ExchangeLimits.Default, new SurlCommandLine().Limits);
+
+    [TestMethod]
+    public void Parse_OneLimitOption_LeavesTheOtherLimitsAtTheirDefaults() =>
+        Assert.AreEqual(
+            ExchangeLimits.Default with { MaxLineBytes = 16 },
+            Served("--max-line", "16", Url).Limits);
+
+    [TestMethod]
     public void NewSurlCommandLine_HoldsTheAdrDefaults()
     {
         var defaults = new SurlCommandLine();
@@ -46,11 +56,11 @@ public sealed class CommandLineParserTests
         Assert.AreEqual(100, defaults.MaxConnectionsPerAddress);
         Assert.AreEqual(TimeSpan.FromSeconds(120), defaults.IdleTimeout);
         Assert.AreEqual(TimeSpan.FromSeconds(3600), defaults.MaxTime);
-        Assert.AreEqual(TimeSpan.FromSeconds(30), defaults.HeadTimeout);
-        Assert.AreEqual(102400L, defaults.MaxRequestHeadBytes);
-        Assert.AreEqual(8192L, defaults.MaxLineBytes);
-        Assert.AreEqual(1048576L, defaults.MaxMessageBytes);
-        Assert.AreEqual(104857600L, defaults.MaxUploadBytes);
+        Assert.AreEqual(TimeSpan.FromSeconds(30), defaults.Limits.HeadTimeout);
+        Assert.AreEqual(102400L, defaults.Limits.MaxRequestHeadBytes);
+        Assert.AreEqual(8192L, defaults.Limits.MaxLineBytes);
+        Assert.AreEqual(1048576L, defaults.Limits.MaxMessageBytes);
+        Assert.AreEqual(104857600L, defaults.Limits.MaxUploadBytes);
         Assert.AreEqual(SslProtocols.Tls12, defaults.LowestTlsVersion);
         Assert.AreEqual(SslProtocols.Tls13, defaults.HighestTlsVersion);
         Assert.IsNull(defaults.CertificateFile);
@@ -263,7 +273,7 @@ public sealed class CommandLineParserTests
     [DataRow("0.0001k", 0L, DisplayName = "Fraction of a byte truncates to 0")]
     [DataRow("9223372036854775807", long.MaxValue, DisplayName = "Highest")]
     public void Parse_BytesValue_BecomesByteCount(string argument, long expected) =>
-        Assert.AreEqual(expected, Served("--max-filesize", argument, Url).MaxUploadBytes);
+        Assert.AreEqual(expected, Served("--max-filesize", argument, Url).Limits.MaxUploadBytes);
 
     [TestMethod]
     [DataRow("9223372036854775808", "too large number", DisplayName = "Above long.MaxValue")]
@@ -615,7 +625,7 @@ public sealed class CommandLineParserTests
     {
         "--idle-timeout" => commandLine.IdleTimeout,
         "--max-time" => commandLine.MaxTime,
-        _ => commandLine.HeadTimeout,
+        _ => commandLine.Limits.HeadTimeout,
     };
 
     private static int NumberOf(string name, SurlCommandLine commandLine) =>
@@ -623,10 +633,10 @@ public sealed class CommandLineParserTests
 
     private static long BytesOf(string name, SurlCommandLine commandLine) => name switch
     {
-        "--max-request-head" => commandLine.MaxRequestHeadBytes,
-        "--max-line" => commandLine.MaxLineBytes,
-        "--max-message" => commandLine.MaxMessageBytes,
-        _ => commandLine.MaxUploadBytes,
+        "--max-request-head" => commandLine.Limits.MaxRequestHeadBytes,
+        "--max-line" => commandLine.Limits.MaxLineBytes,
+        "--max-message" => commandLine.Limits.MaxMessageBytes,
+        _ => commandLine.Limits.MaxUploadBytes,
     };
 
     private static string? PathOf(string name, SurlCommandLine commandLine) => name switch
