@@ -8,7 +8,7 @@ depends-on: [BL-090, BL-091]
 touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests]
 requirement: FR-023
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-094 — Persist MQTT retained messages through the content file-system seam and reload them at start
 
@@ -45,7 +45,7 @@ store (`MaxTopics`, `MaxTotalPayloadBytes`); a loaded file is held to the same b
 
 ## Acceptance criteria
 
-- [ ] Tests in `Surl.Protocol.Mqtt.UnitTests` (e.g. `MqttRetainedMessageFileTests`) prove,
+- [x] Tests in `Surl.Protocol.Mqtt.UnitTests` (e.g. `MqttRetainedMessageFileTests`) prove,
       by name: a retained message written by one store over an
       `InMemoryContentFileSystem` is loaded by a second store over the same file system; an
       empty payload removes the topic from the file too; a message refused by the bounds is
@@ -53,19 +53,45 @@ store (`MaxTopics`, `MaxTotalPayloadBytes`); a loaded file is held to the same b
       temporary name and renamed into place (no partial file at the final name after a
       failure mid-write); a malformed file at start behaves exactly as ADR-0031 decision 6
       says; a file over the bounds loads no more than the bounds allow.
-- [ ] The byte format written is the one ADR-0031 specifies, pinned by a test that compares
+- [x] The byte format written is the one ADR-0031 specifies, pinned by a test that compares
       the exact bytes for two topics.
-- [ ] A store without persistence behaves exactly as today: every existing
+- [x] A store without persistence behaves exactly as today: every existing
       `MqttRetainedMessagesTests` and `MqttProtocolServerTests` case passes unchanged.
-- [ ] `rg -n "System.IO.File\b|File\.|Directory\." Surl.Protocol.Mqtt.UnitLibrary --glob "*.cs"`
+- [x] `rg -n "System.IO.File\b|File\.|Directory\." Surl.Protocol.Mqtt.UnitLibrary --glob "*.cs"`
       finds no disk call.
-- [ ] `dotnet build Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast tests
       pass, the library keeps 100% line and branch coverage, and no test needs
       `TestCategory=Integration`.
 
 ## Notes
 
+- Shape: `MqttRetainedMessageFile` (state folder + `IContentFileSystem`) reads and writes the
+  ADR-0031 decision 6 format; `MqttRetainedMessages.LoadAsync(file, bounds)` is the only way
+  to get a persisted store, so a store can never start empty over an existing file and then
+  overwrite it. The constructor still makes a memory-only store, unchanged.
+- `Retain` stays synchronous (existing tests untouched). A change counter bumps only on a
+  real change; `SaveChangesAsync` writes under a `SemaphoreSlim`, snapshotting the store
+  under its lock when the write starts and skipping when nothing changed since the last
+  write, so writes are serialised, the file always holds a state the store held, the last
+  change wins, and refused or no-op publishes write nothing.
+- `MqttPacketResponder` awaits `SaveChangesAsync` after a kept publish, before its
+  acknowledgement; an `IOException` or `UnauthorizedAccessException` is noted in the exchange
+  log and the connection carries on (decision 6).
+- Malformed file at start: `InvalidDataException("not a retained-message file")`, nothing
+  loaded; an unreadable file lets the file system's exception through. Mapping both to exit
+  37 and the stderr line is BL-095's (Surl.Console). A file over the bounds is malformed by
+  decision 6, so it loads nothing; a file longer than any within the bounds is refused
+  before it is read into memory.
+- Default taken: `MqttTopicFilter.IsValidTopicName` now also requires at most 65535 UTF-8
+  bytes (MQTT 3.1.1 section 1.5.3), so every topic the store holds fits the file's 2-byte
+  length. Topics from the wire already could not exceed it, so no MQTT exchange changes.
+- The server-level persistence tests live in `MqttRetainedMessageFileTests` beside the file
+  tests; the throwing fake is `UnitTestThrowingContentFileSystem` per the testing rules.
+- Measured: `Measure-CodeQuality.ps1 -Library Surl.Protocol.Mqtt.UnitLibrary` - 100% line,
+  100% branch, worst CRAP 10; MQTT tests 217 passed.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. MQTT retained messages persist to .surl/mqtt/retained-messages through IContentFileSystem and reload at start
