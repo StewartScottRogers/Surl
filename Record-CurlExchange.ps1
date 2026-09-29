@@ -373,6 +373,18 @@
     default), Tls13, or Tls12AndTls13. Use it to measure which versions curl negotiates
     or refuses. The -Ftp, -Smtp, -Imap and -Pop3 sessions always serve TLS 1.2.
 
+.PARAMETER TlsRenegotiationOff
+    With -Tls and no session mode, serve TLS with renegotiation refused
+    (SslServerAuthenticationOptions.AllowRenegotiation = false), as Surl does (ADR-0006,
+    section 4). Windows PowerShell's .NET Framework SslStream cannot refuse it, so the
+    handshake is run by a small TLS relay, a C# file-based app this script writes under
+    %TEMP%\SurlRecorder and starts with `dotnet run` (it needs the .NET 10 SDK): the relay
+    listens on ListenAddress:Port, shakes hands with the same throwaway certificate and
+    -TlsProtocol versions, and forwards the plaintext to the recorder's own server on an
+    ephemeral loopback port, so request.bin and the Response matching work as with -Tls.
+    A connection whose handshake fails is never forwarded, so it records nothing. Not
+    combined with -Reset.
+
 .PARAMETER FtpIdleMilliseconds
     How long, in -Ftp mode, the server waits for curl's next command before it hangs up.
     Default 5000. Raise it to measure a wait longer than five seconds, such as curl's
@@ -487,6 +499,7 @@ param(
     [switch] $Tls,
     [string] $TlsRootCertificateFile,
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
+    [switch] $TlsRenegotiationOff,
     [string] $Curl,
     [System.Net.IPAddress] $ListenAddress = [System.Net.IPAddress]::Loopback,
     [switch] $NoServer
@@ -502,6 +515,7 @@ if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Tftp -or $T
 if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Tftp | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3, -Raw and -Tftp each serve a whole session; give one of them.' }
 if ($Raw -and $Tls) { throw '-Raw serves plain TCP, so it cannot be combined with -Tls.' }
 if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined with -Tls.' }
+if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode, and cannot be combined with -Reset.' }
 if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
 
 function Get-ReferenceCurlPath {
@@ -1789,7 +1803,8 @@ function New-ThrowawayTlsCertificate {
     # certificate is reloaded from its PFX export. Loaded without PersistKeySet, its key
     # container is deleted when the certificate is reset; no store is touched. With a
     # RootCertificateFile the leaf is issued by a throwaway root whose PEM is written there.
-    param([string] $RootCertificateFile)
+    # -Exportable lets the key be exported again, for the -TlsRenegotiationOff relay.
+    param([string] $RootCertificateFile, [switch] $Exportable)
     $rsa = New-Object System.Security.Cryptography.RSACng(2048)
     try {
         $request = New-Object System.Security.Cryptography.X509Certificates.CertificateRequest('CN=127.0.0.1', $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
@@ -1810,7 +1825,134 @@ function New-ThrowawayTlsCertificate {
     } finally {
         $rsa.Dispose()
     }
+    if ($Exportable) {
+        return New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($pfx, [string] $null, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+    }
     return New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(, $pfx)
+}
+
+# The -TlsRenegotiationOff relay: a .NET 10 file-based app, because only .NET 5 and later
+# can refuse renegotiation. Arguments: listen address, port, PFX path, PFX password,
+# SslProtocols as an integer. It reads the backend port from its first line of standard
+# input, prints "listening" once bound, then relays each connection whose handshake
+# succeeds to 127.0.0.1:<backend port> until it is killed.
+$tlsRelaySource = @'
+using System.Net;
+using System.Net.Security;
+using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
+
+var listenAddress = IPAddress.Parse(args[0]);
+var port = int.Parse(args[1]);
+using var certificate = X509CertificateLoader.LoadPkcs12FromFile(args[2], args[3]);
+var protocols = (SslProtocols)int.Parse(args[4]);
+// Windows PowerShell's standard input writer may lead with a byte order mark; keep the digits.
+var backendPort = int.Parse(string.Concat(Console.ReadLine()!.Where(char.IsAsciiDigit)));
+var listener = new TcpListener(listenAddress, port);
+listener.Start();
+Console.WriteLine("listening");
+
+while (true)
+{
+    _ = RelayAsync(await listener.AcceptTcpClientAsync());
+}
+
+async Task RelayAsync(TcpClient client)
+{
+    using (client)
+    {
+        await using var secured = new SslStream(client.GetStream());
+        try
+        {
+            await secured.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+            {
+                ServerCertificate = certificate,
+                EnabledSslProtocols = protocols,
+                AllowRenegotiation = false,
+                ClientCertificateRequired = false,
+                CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+            });
+        }
+        catch (Exception exception) when (exception is AuthenticationException or IOException)
+        {
+            Console.Error.WriteLine($"relay: handshake failed: {exception.Message}");
+            return;
+        }
+
+        Console.Error.WriteLine($"relay: handshake completed: {secured.SslProtocol}, {secured.NegotiatedCipherSuite}");
+        using var backend = new TcpClient();
+        await backend.ConnectAsync(IPAddress.Loopback, backendPort);
+        var backendStream = backend.GetStream();
+        var toBackend = CopyThenShutdownAsync(secured, backendStream, backend.Client);
+        try
+        {
+            await backendStream.CopyToAsync(secured);
+            await secured.ShutdownAsync();
+        }
+        catch (IOException)
+        {
+            // curl hung up first.
+        }
+    }
+}
+
+static async Task CopyThenShutdownAsync(Stream from, Stream to, Socket toSocket)
+{
+    try
+    {
+        await from.CopyToAsync(to);
+        toSocket.Shutdown(SocketShutdown.Send);
+    }
+    catch (Exception exception) when (exception is IOException or ObjectDisposedException or SocketException)
+    {
+        // The connection closed while bytes were still being relayed.
+    }
+}
+'@
+
+function Start-TlsRelay {
+    # Writes the relay and the certificate's PFX under %TEMP%\SurlRecorder and starts the
+    # relay. It must start before the backend listener exists: .NET Framework sockets are
+    # inheritable, and a relay holding the listening socket would keep a stopped listener's
+    # accept waiting. Returns the process and the PFX path, for Connect- and Stop-TlsRelay.
+    param($Certificate, [System.Net.IPAddress] $Address, [int] $ListenPort, [int] $Protocols)
+    $directory = Join-Path ([System.IO.Path]::GetTempPath()) 'SurlRecorder'
+    New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    $source = Join-Path $directory 'TlsRelay.cs'
+    [System.IO.File]::WriteAllText($source, $tlsRelaySource, (New-Object System.Text.UTF8Encoding($false)))
+    $password = [Guid]::NewGuid().ToString('N')
+    $pfxPath = Join-Path $directory "$([Guid]::NewGuid().ToString('N')).pfx"
+    [System.IO.File]::WriteAllBytes($pfxPath, $Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, $password))
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = 'dotnet'
+    $startInfo.Arguments = (@('run', $source, '--', $Address.ToString(), $ListenPort, $pfxPath, $password, $Protocols) | ForEach-Object { ConvertTo-CommandLineArgument -Argument ([string] $_) }) -join ' '
+    $startInfo.WorkingDirectory = $directory
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.CreateNoWindow = $true
+    return @([System.Diagnostics.Process]::Start($startInfo), $pfxPath)
+}
+
+function Connect-TlsRelay {
+    # Tells the relay the backend port and waits until it listens.
+    param($Relay, [int] $BackendPort)
+    $Relay[0].StandardInput.WriteLine([string] $BackendPort)
+    $Relay[0].StandardInput.Flush()
+    $line = $Relay[0].StandardOutput.ReadLine()
+    if ($line -ne 'listening') {
+        throw "The TLS relay did not start (it printed '$line'); -TlsRenegotiationOff needs the .NET 10 SDK's dotnet on PATH."
+    }
+}
+
+function Stop-TlsRelay {
+    # dotnet run starts the relay as its child, so the whole tree is stopped; cmd swallows
+    # taskkill's report, which would otherwise be a terminating error here.
+    param($Relay)
+    & cmd.exe /c "taskkill /T /F /PID $($Relay[0].Id) >nul 2>&1"
+    $Relay[0].Dispose()
+    Remove-Item -LiteralPath $Relay[1] -Force
 }
 
 if ([string]::IsNullOrEmpty($Curl)) { $Curl = Get-ReferenceCurlPath }
@@ -1844,13 +1986,21 @@ $servedTlsProtocols = switch ($TlsProtocol) {
     'Tls12AndTls13' { [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Tls13 }
     default { [System.Security.Authentication.SslProtocols]::Tls12 }
 }
-$tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile } else { $null }
+$tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile -Exportable:$TlsRenegotiationOff } else { $null }
+# With -TlsRenegotiationOff the relay does the TLS, so the recorder's server serves plaintext.
+$servedCertificate = if ($TlsRenegotiationOff) { $null } else { $tlsCertificate }
+$tlsRelay = $null
 # -NoServer binds nothing: the caller's own server answers curl.
 $listener = $null
 $server = $null
 if ($Tftp) {
     $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
     $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
+    $server = [System.Management.Automation.PowerShell]::Create()
+} elseif ($TlsRenegotiationOff) {
+    $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols)
+    $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start()
     $server = [System.Management.Automation.PowerShell]::Create()
 } elseif (-not $NoServer) {
     $listener = New-Object System.Net.Sockets.TcpListener($ListenAddress, $Port)
@@ -1880,9 +2030,10 @@ try {
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
-        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($tlsCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols)
+        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols)
     }
     if ($null -ne $server) { $serverRun = $server.BeginInvoke() }
+    if ($null -ne $tlsRelay) { Connect-TlsRelay -Relay $tlsRelay -BackendPort $listener.LocalEndpoint.Port }
 
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $Curl
@@ -1931,6 +2082,7 @@ try {
         if ($server.Streams.Error.Count -gt 0) { throw $server.Streams.Error[0] }
     }
 } finally {
+    if ($null -ne $tlsRelay) { Stop-TlsRelay -Relay $tlsRelay }
     if ($null -ne $listener) { Stop-Listener }
     if ($null -ne $server) { $server.Dispose() }
     # Reset deletes the key container the PFX import created.
