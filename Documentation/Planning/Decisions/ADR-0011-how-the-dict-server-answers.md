@@ -79,7 +79,27 @@ each `:` turned into a space.
 8. **Line limit:** ADR-0006 exists, so its `--max-line` limit applies, read from
    `ExchangeContext.Limits.MaxLineBytes` (8192 by default, line ending included, 0 for no
    limit). A longer line is answered `500 line too long` and the connection is closed
-   without reading the rest. The head timeout and the connection refusal are BL-051's.
+   without reading the rest.
+9. **Head timeout and connection refusal** (added 2026-09-29 in BL-051, decided by Claude
+   under Stewart's delegation). ADR-0006 sections 1 and 5 give the codes; the text is
+   Surl's own:
+
+   | Limit | Reply |
+   | --- | --- |
+   | A command line not complete within `ExchangeContext.Limits.HeadTimeout` | `420 timed out waiting for a command`, then the connection closes |
+   | A connection past a connection limit, either `ConnectionRefusal` | `420 server temporarily unavailable` (RFC 2229's own text for 420), then the connection closes |
+
+   The first line's clock starts when the connection is served, so a client that never
+   sends a command is answered after the head timeout; every later line's starts at its
+   first byte (for a byte already read behind the previous line, when the server turns to
+   it), so the wait between commands is bounded only by `Surl.Core`'s idle timeout. Both
+   limit replies, `500 line too long` and the timed-out `420`, are written within a
+   one-second write deadline and then writes are completed; a peer that does not take the
+   reply in time is closed all the same, never aborted. The refusal is one fixed text for
+   both refusals because a client learns nothing useful from which limit it hit, and
+   RFC 2229 has the one code for both. Each was fed to the pinned build first (`refused`,
+   `head-timeout`, `line-too-long` in `Surl.Protocol.Dict.UnitTests/Fixtures/README.md`);
+   curl exited 0 with an empty stderr each time.
 
 Every reply for the recorded cases (`define-hello`, `match-hel`, `bare-hello`,
 `define-missing`, `show-db`) was fed to the pinned build before it was pinned, and curl
@@ -97,4 +117,4 @@ exited 0 with an empty stderr (`Surl.Protocol.Dict.UnitTests/Fixtures/README.md`
 ## Consequences
 
 - BL-039 composes `DictProtocolServer` with the same content store as HTTP.
-- BL-051 adds the head timeout, the `420` refusal and their recordings.
+- BL-051 added the head timeout, the `420` refusal and their recordings (item 9).
