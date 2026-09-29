@@ -49,3 +49,4 @@ methods it composes (Basic, Bearer, Digest), so NTLM reaches `surl` only when th
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
