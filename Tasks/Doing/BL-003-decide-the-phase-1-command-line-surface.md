@@ -75,3 +75,4 @@ BL-016 and BL-019 can then be implemented without asking anything.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
