@@ -25,7 +25,8 @@ REM      [3/7] Ensure Claude Code    (installs/updates via npm)
 REM      [4/7] Ensure herdr          (installs/updates the terminal multiplexer)
 REM      [5/7] Clone / update repo   (into %USERPROFILE%\Surl)
 REM      [6/7] Ensure herdr server   (starts a compatible one if needed)
-REM      [7/7] Launch Claude         (as a tracked pane anchored to the repo)
+REM      [7/7] Launch Claude         (as a tracked pane anchored to the repo, in
+REM                                   the herdr workspace named after its folder)
 REM
 REM  Claude shows up as a tracked "Claude" pane in herdr's sidebar; its live state
 REM  (idle / working / blocked) is reported by herdr's native Claude integration
@@ -308,8 +309,14 @@ REM  the launch flow: `agent start` now attaches to an EXISTING pane by id, and 
 REM  cwd/env options moved onto pane/tab creation. So we create a labelled tab
 REM  anchored to the repo (with CLAUDE_MODEL forwarded into its environment) and
 REM  read the new pane's id out of the JSON response.
+REM
+REM  The tab goes into the herdr workspace named after the checkout folder ("Surl"),
+REM  the same workspace RunDarkFactory.ps1 puts its shifts in, whichever workspace
+REM  this script was started from. If there is none yet it is created, and its own
+REM  first tab is relabelled and used for Claude, so no empty tab is left behind.
+REM  The workspace is then focused so Claude is on screen.
 set "PANE_ID="
-for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "(& $env:HERDR tab create --cwd $env:REPO_DIR --env ('CLAUDE_MODEL=' + $env:CLAUDE_MODEL) --label $env:AGENT_LABEL --focus | ConvertFrom-Json).result.root_pane.pane_id"`) do set "PANE_ID=%%P"
+for /f "usebackq delims=" %%P in (`powershell -NoProfile -Command "$h=$env:HERDR; $m='CLAUDE_MODEL='+$env:CLAUDE_MODEL; $w=@((& $h workspace list | ConvertFrom-Json).result.workspaces | Where-Object { $_.label -eq $env:REPO_NAME })[0]; if ($w) { $r=(& $h tab create --workspace $w.workspace_id --cwd $env:REPO_DIR --env $m --label $env:AGENT_LABEL --focus | ConvertFrom-Json).result.root_pane } else { $r=(& $h workspace create --cwd $env:REPO_DIR --env $m --label $env:REPO_NAME --focus | ConvertFrom-Json).result.root_pane; & $h tab rename $r.tab_id $env:AGENT_LABEL | Out-Null }; & $h workspace focus $r.workspace_id | Out-Null; $r.pane_id"`) do set "PANE_ID=%%P"
 if not defined PANE_ID (
     set "ERRMSG=herdr could not create a pane for Claude."
     goto :die
