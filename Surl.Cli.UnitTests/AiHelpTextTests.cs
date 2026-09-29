@@ -69,15 +69,49 @@ public sealed partial class AiHelpTextTests
             "",
             "## About",
             "",
-            "Nothing for this topic.",
+            "surl is the server-side mate of curl: for each request upstream curl makes, surl is the server that answers it. "
+                + "Where `curl [options] <url>` names what to fetch, `surl [options] <url>` names what to listen on.",
+            "",
+            "`surl --version` names the schemes this build serves. Each protocol has a topic below with its schemes, "
+                + "their default ports, its options and an upstream curl command line that reaches it.",
+            "",
+            "surl serves until it is stopped with Ctrl+C or SIGTERM, and then exits 0.",
             "",
             "## Command line",
             "",
-            "Nothing for this topic.",
+            "A command line is `surl [options] <url>...`, with at least one listen URL (see the listen-urls topic).",
+            "",
+            "Options and listen URLs may come in any order and are read left to right; the first error ends the reading, "
+                + "and nothing is served. After `--` every argument is a listen URL.",
+            "",
+            "A long option's argument is the next argument (`--max-time 30`) or follows an equals sign (`--max-time=30`).",
+            "",
+            "Short options may be bundled: `-vs` is `-v -s`. An option that takes an argument ends the bundle and takes the rest "
+                + "of it as its argument, so `-vm30` is `-v -m 30`; with nothing left, it takes the next argument.",
+            "",
+            "A flag whose Allowed values say `--no-<name> turns it off` is turned off with `--no-<name>`, such as `--no-verbose`.",
+            "",
+            "An option or argument the command line refuses writes `surl: option --<name>: <reason>` to stderr, then "
+                + "`surl: try 'surl --help' or 'surl --manual' for more information`, and exits 2.",
             "",
             "## Conventions",
             "",
-            "Nothing for this topic.",
+            "Every topic page has the same five sections, in this order: About, Schemes, Options, Exit codes and Examples. "
+                + "A section with nothing in it holds the one line `Nothing for this topic.`.",
+            "",
+            "In the option table, Option is how the option is written; Argument type and Allowed values say what its argument "
+                + "may be; Default is its value when it is not given (`not applicable` when it has none); Loosens security says "
+                + "`yes, for tests only` for an option that loosens a secure default and writes a warning, "
+                + "`yes, widens what a peer may do` for one that exposes more, and `no` otherwise; Categories names every topic "
+                + "that lists it; Description is its `surl --help` line.",
+            "",
+            "In the exit-code table, Code is the process exit code, Name its name in surl's source, Meaning when surl returns it, "
+                + "and What to do next the step that fixes it.",
+            "",
+            "In an example, `<port>` stands for the port surl bound and `<path>` for a directory; substitute them. "
+                + "An example that serves keeps serving until it is stopped with Ctrl+C or SIGTERM, and then exits 0.",
+            "",
+            "`surl --help`, `surl --manual`, `surl --version` and these pages are written to stdout at every log level, `-s` included.",
             "",
             "## Topics",
             "",
@@ -87,7 +121,27 @@ public sealed partial class AiHelpTextTests
             "",
             "## Examples",
             "",
-            "Nothing for this topic.",
+            "### Serve HTTP on an ephemeral port",
+            "",
+            "```",
+            "surl http://127.0.0.1:0/",
+            "```",
+            "",
+            "stdout:",
+            "",
+            "```",
+            "Listening on http://127.0.0.1:<port>/",
+            "```",
+            "",
+            "stderr: nothing.",
+            "",
+            "Exit code: 0 (`Ok`), once stopped with Ctrl+C or SIGTERM.",
+            "",
+            "Reach it with upstream curl:",
+            "",
+            "```",
+            "curl http://127.0.0.1:<port>/",
+            "```",
         ];
 
         var answer = AiHelpText.Answer(topic);
@@ -167,7 +221,7 @@ public sealed partial class AiHelpTextTests
     {
         foreach (var topic in AiHelpTopics.All)
         {
-            var headings = Lines(AiHelpText.Answer(topic.Name)).Where(line => line.StartsWith('#')).ToArray();
+            var headings = Lines(AiHelpText.Answer(topic.Name)).Where(line => line.StartsWith("# ", StringComparison.Ordinal) || line.StartsWith("## ", StringComparison.Ordinal)).ToArray();
 
             Assert.AreEqual($"# surl --aihelp {topic.Name}: {topic.Description}", headings[0], topic.Name);
             CollectionAssert.AreEqual(TopicPageSections, headings[1..], topic.Name);
@@ -286,7 +340,11 @@ public sealed partial class AiHelpTextTests
             "",
             "## About",
             "",
-            "Nothing for this topic.",
+            "The TELNET server (RFC 854, RFC 855) negotiates options with the client, reports what the client tells it about "
+                + "its terminal and environment, then echoes each line back until the client sends `quit`.",
+            "",
+            "`curl telnet://127.0.0.1:<port>/` carries the session: what curl reads from stdin is sent, and what the server "
+                + "answers is written to stdout. `curl -t <option=value>` sets curl's side of the negotiation.",
             "",
             "## Schemes",
             "",
@@ -308,7 +366,27 @@ public sealed partial class AiHelpTextTests
             "",
             "## Examples",
             "",
-            "Nothing for this topic.",
+            "### Serve TELNET",
+            "",
+            "```",
+            "surl telnet://127.0.0.1:0/",
+            "```",
+            "",
+            "stdout:",
+            "",
+            "```",
+            "Listening on telnet://127.0.0.1:<port>/",
+            "```",
+            "",
+            "stderr: nothing.",
+            "",
+            "Exit code: 0 (`Ok`), once stopped with Ctrl+C or SIGTERM.",
+            "",
+            "Reach it with upstream curl:",
+            "",
+            "```",
+            "curl telnet://127.0.0.1:<port>/",
+            "```",
         ];
 
         var answer = AiHelpText.Answer("telnet");
@@ -326,7 +404,14 @@ public sealed partial class AiHelpTextTests
             "",
             "## About",
             "",
-            "Nothing for this topic.",
+            "Every exit code surl returns, with what it means and what to do next. The Exit codes section of every other topic lists "
+                + "the codes tied to that topic; this page lists them all.",
+            "",
+            "A failure writes a `surl:` line naming what failed to stderr: `surl: (N) <message>` for a failure found once the "
+                + "command line is read, or `surl: option --<name>: <reason>` and the `try` line for a refused command line.",
+            "",
+            "With `-s` and without `-S`, a failure found once the command line is read writes nothing, and only the exit code "
+                + "says what failed; a refused command line is always written.",
             "",
             "## Schemes",
             "",
@@ -379,6 +464,139 @@ public sealed partial class AiHelpTextTests
         Assert.AreEqual(string.Empty, answer.Error);
     }
 
+    [TestMethod]
+    public void Answer_EveryTopicAndTheOverview_HasItsAboutText()
+    {
+        string?[] answers = [null, .. AdrTopicNames];
+
+        foreach (var topic in answers)
+        {
+            var lines = Lines(AiHelpText.Answer(topic));
+            var about = Array.IndexOf(lines, "## About");
+
+            Assert.AreNotEqual(AiHelpText.NothingForThisTopicLine, lines[about + 2], topic);
+        }
+
+        CollectionAssert.AreEquivalent(AdrTopicNames, AiHelpProse.TopicAbout.Keys.ToArray());
+    }
+
+    [TestMethod]
+    public void Answer_EveryTopicButExitCodesAndSecurity_HasAnExample()
+    {
+        foreach (var topic in AdrTopicNames.Except(["exit-codes", "security"]).Append(AiHelpExamples.OverviewTopic))
+        {
+            Assert.IsTrue(AiHelpExamples.All.Any(example => example.Topic == topic), topic);
+        }
+
+        foreach (var example in AiHelpExamples.All)
+        {
+            Assert.IsTrue(example.Topic == AiHelpExamples.OverviewTopic || AiHelpTopics.TryFind(example.Topic, out _), example.Title);
+        }
+
+        StringAssert.Contains(AiHelpText.Answer("security").Output, "## Examples" + NewLine + NewLine + AiHelpText.NothingForThisTopicLine + NewLine);
+    }
+
+    [TestMethod]
+    public void Answer_EveryExample_IsOnItsTopicsPage()
+    {
+        foreach (var example in AiHelpExamples.All)
+        {
+            var page = AiHelpText.Answer(example.Topic == AiHelpExamples.OverviewTopic ? null : example.Topic).Output;
+            var command = string.Join(' ', example.Arguments.Prepend("surl"));
+
+            StringAssert.Contains(page, $"### {example.Title}{NewLine}", example.Title);
+            StringAssert.Contains(page, $"```{NewLine}{command}{NewLine}```{NewLine}", example.Title);
+            StringAssert.Contains(page, $"Exit code: {(int)example.ExitCode} (`{example.ExitCode}`)", example.Title);
+            foreach (var line in example.Output.Concat(example.Error).Concat(example.CurlCommandLines))
+            {
+                StringAssert.Contains(page, NewLine + line + NewLine, example.Title);
+            }
+        }
+    }
+
+    [TestMethod]
+    public void Answer_Content_WritesEachPreconditionAndEachEmptyStream()
+    {
+        var page = AiHelpText.Answer("content").Output;
+
+        StringAssert.Contains(page, NewLine + "Given: `<path>` is an existing directory no other surl holds." + NewLine);
+        StringAssert.Contains(page, NewLine + "Given: another surl is serving `<path>` with `--directory`." + NewLine);
+        StringAssert.Contains(page, NewLine + "stdout: nothing." + NewLine);
+        StringAssert.Contains(page, NewLine + "stderr: nothing." + NewLine);
+        StringAssert.Contains(page, NewLine + "Exit code: 124 (`DataDirectoryInUse`)." + NewLine);
+    }
+
+    [TestMethod]
+    public void Answer_EveryPage_NamesOnlyOptionsThatExist()
+    {
+        foreach (var name in NamedLongOptions())
+        {
+            var exists = CommandLineOptions.TryFindLong(name, out _)
+                || (name.StartsWith("no-", StringComparison.Ordinal) && CommandLineOptions.TryFindLong(name[3..], out var negated) && negated.Negatable);
+
+            Assert.IsTrue(exists, "--" + name);
+        }
+    }
+
+    [TestMethod]
+    public void Prose_EverySurlLineQuoted_IsOneTheCodeWrites()
+    {
+        // Written by Surl.Cli: each template is matched against what the parser writes.
+        var writtenByTheParser = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["surl: (2) no URL specified"] = "surl: " + CommandLineParser.Parse([]).Failure!.Message,
+            ["surl: try 'surl --help' or 'surl --manual' for more information"] = "surl: " + CommandLineFailure.TryHelpLine,
+            ["surl: option --<name>: <reason>"] = "surl: " + CommandLineParser.Parse(["--max-time", "abc"]).Failure!.Message,
+            ["surl: (3) URL rejected: <reason>"] = "surl: " + CommandLineParser.Parse(["http://user@127.0.0.1/"]).Failure!.Message,
+            ["surl: (1) Protocol \"<scheme>\" not supported"] = "surl: " + CommandLineParser.Parse(["nosuch://127.0.0.1/"]).Failure!.Message,
+        };
+
+        // Written by Surl.Console, checked against its source (BL-140's Notes); the examples that
+        // show them are run by Surl.Console.UnitTests (ADR-0046 decision 9, BL-142).
+        string[] writtenBySurlConsole =
+        [
+            "surl: (N) <message>",
+            "surl: (N)",
+            "surl: warning:",
+            "surl: (124) Directory <path> is in use by another surl process",
+            "surl: (37) Could not open directory <path>",
+            "surl: (45) Could not bind <scheme>://<address>:<port>/: <reason>",
+            "surl: (6) Could not resolve host: <host>",
+            "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
+            "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
+        ];
+
+        foreach (var (template, written) in writtenByTheParser)
+        {
+            Assert.MatchesRegex("^" + Regex.Replace(Regex.Escape(template), "<[a-z]+>", ".+") + "$", written, template);
+        }
+
+        var quoted = ProseParagraphs()
+            .SelectMany(paragraph => QuotedSurlLine().Matches(paragraph).Select(match => match.Groups[1].Value))
+            .Distinct()
+            .ToArray();
+        CollectionAssert.AreEquivalent(writtenByTheParser.Keys.Concat(writtenBySurlConsole).ToArray(), quoted);
+    }
+
+    /// <summary>
+    /// Every <c>--name</c> in the prose and in the examples' <c>surl</c> arguments and output,
+    /// leaving out the upstream curl command lines, whose options are curl's.
+    /// </summary>
+    private static IEnumerable<string> NamedLongOptions()
+    {
+        var texts = ProseParagraphs()
+            .Select(paragraph => CurlCodeSpan().Replace(paragraph, string.Empty))
+            .Concat(AiHelpExamples.All.SelectMany(example => example.Arguments.Concat(example.Output).Concat(example.Error)));
+
+        return texts.SelectMany(text => LongOptionName().Matches(text).Select(match => match.Groups[1].Value)).Distinct();
+    }
+
+    private static IEnumerable<string> ProseParagraphs() =>
+        AiHelpProse.OverviewAbout
+            .Concat(AiHelpProse.OverviewCommandLine)
+            .Concat(AiHelpProse.OverviewConventions)
+            .Concat(AiHelpProse.TopicAbout.Values.SelectMany(paragraphs => paragraphs));
+
     /// <summary>Asserts every row of each table in <paramref name="lines"/> has as many cells as the table's header.</summary>
     private static void AssertEveryTableRowHasTheCellsOfItsHeader(string[] lines, string? topic)
     {
@@ -415,4 +633,14 @@ public sealed partial class AiHelpTextTests
 
     [GeneratedRegex(@"(?<!\\)\|")]
     private static partial Regex UnescapedPipe();
+
+    // --name, not --<placeholder> nor the --no- of --no-<name>.
+    [GeneratedRegex(@"(?<![\w-])--([a-z0-9][a-z0-9.-]*[a-z0-9])(?![\w<-])")]
+    private static partial Regex LongOptionName();
+
+    [GeneratedRegex("`curl [^`]*`")]
+    private static partial Regex CurlCodeSpan();
+
+    [GeneratedRegex("`(surl: [^`]*)`")]
+    private static partial Regex QuotedSurlLine();
 }

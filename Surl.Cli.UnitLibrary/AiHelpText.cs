@@ -48,9 +48,9 @@ public static class AiHelpText
 
     private static IEnumerable<string> OverviewLines() =>
         new[] { "# surl --aihelp: Overview and topic list" }
-            .Concat(Section("About", [NothingForThisTopicLine]))
-            .Concat(Section("Command line", [NothingForThisTopicLine]))
-            .Concat(Section("Conventions", [NothingForThisTopicLine]))
+            .Concat(Section("About", Paragraphs(AiHelpProse.OverviewAbout)))
+            .Concat(Section("Command line", Paragraphs(AiHelpProse.OverviewCommandLine)))
+            .Concat(Section("Conventions", Paragraphs(AiHelpProse.OverviewConventions)))
             .Concat(Section(
                 "Topics",
                 [
@@ -58,22 +58,83 @@ public static class AiHelpText
                     string.Empty,
                     "Run `surl --aihelp <topic>` for one topic, or `surl --aihelp all` for this overview and every topic.",
                 ]))
-            .Concat(Section("Examples", [NothingForThisTopicLine]));
+            .Concat(Section("Examples", ExampleLines(AiHelpExamples.OverviewTopic)));
 
     private static IEnumerable<string> UnknownTopicLines() =>
         new[] { "# surl --aihelp: unknown topic", string.Empty, UnknownTopicLine, string.Empty }.Concat(TopicTableLines());
 
     private static IEnumerable<string> TopicPageLines(AiHelpTopic topic) =>
         new[] { $"# surl --aihelp {topic.Name}: {topic.Description}" }
-            .Concat(Section("About", [NothingForThisTopicLine]))
+            .Concat(Section("About", Paragraphs(AiHelpProse.TopicAbout[topic.Name])))
             .Concat(Section("Schemes", SchemeLines(topic)))
             .Concat(Section("Options", OptionSectionLines(topic)))
             .Concat(Section("Exit codes", ExitCodeLines(topic)))
-            .Concat(Section("Examples", [NothingForThisTopicLine]));
+            .Concat(Section("Examples", ExampleLines(topic.Name)));
 
     /// <summary>An empty line, the <c>##</c> heading, an empty line and the section's lines.</summary>
     private static IEnumerable<string> Section(string heading, IEnumerable<string> lines) =>
         new[] { string.Empty, "## " + heading, string.Empty }.Concat(lines);
+
+    /// <summary>Paragraphs separated by one empty line; list items (<c>- </c>) follow each other with none.</summary>
+    private static IEnumerable<string> Paragraphs(IReadOnlyList<string> paragraphs) =>
+        paragraphs.SelectMany((paragraph, index) =>
+            index == 0 || (IsListItem(paragraph) && IsListItem(paragraphs[index - 1]))
+                ? new[] { paragraph }
+                : [string.Empty, paragraph]);
+
+    private static bool IsListItem(string paragraph) => paragraph.StartsWith("- ", StringComparison.Ordinal);
+
+    /// <summary>ADR-0046 decision 4's lines for every example of <paramref name="topic"/>, or the nothing line.</summary>
+    private static IEnumerable<string> ExampleLines(string topic)
+    {
+        var examples = AiHelpExamples.All.Where(example => example.Topic == topic).ToArray();
+
+        return examples.Length == 0
+            ? [NothingForThisTopicLine]
+            : examples.SelectMany((example, index) => index == 0 ? ExampleLines(example) : new[] { string.Empty }.Concat(ExampleLines(example)));
+    }
+
+    private static IEnumerable<string> ExampleLines(AiHelpExample example)
+    {
+        var lines = new List<string> { "### " + example.Title, string.Empty };
+        if (PreconditionText(example.Precondition) is { } precondition)
+        {
+            lines.AddRange(["Given: " + precondition + ".", string.Empty]);
+        }
+
+        lines.AddRange(Fenced([string.Concat(example.Arguments.Prepend("surl").Select((word, index) => index == 0 ? word : " " + word))]));
+        lines.AddRange(StreamLines("stdout", example.Output));
+        lines.AddRange(StreamLines("stderr", example.Error));
+        lines.AddRange([string.Empty, ExitCodeLine(example)]);
+        if (example.CurlCommandLines.Count > 0)
+        {
+            lines.AddRange([string.Empty, "Reach it with upstream curl:", string.Empty, .. Fenced(example.CurlCommandLines)]);
+        }
+
+        return lines;
+    }
+
+    private static string? PreconditionText(AiHelpExamplePrecondition precondition) => precondition switch
+    {
+        AiHelpExamplePrecondition.DataDirectoryExists => "`<path>` is an existing directory no other surl holds",
+        AiHelpExamplePrecondition.DataDirectoryHeldByAnotherSurl => "another surl is serving `<path>` with `--directory`",
+        _ => null,
+    };
+
+    /// <summary>An empty line, then <c>stdout:</c> and the fenced lines, or <c>stdout: nothing.</c>.</summary>
+    private static IEnumerable<string> StreamLines(string stream, IReadOnlyList<string> lines) =>
+        lines.Count == 0
+            ? [string.Empty, stream + ": nothing."]
+            : new[] { string.Empty, stream + ":", string.Empty }.Concat(Fenced(lines));
+
+    private static string ExitCodeLine(AiHelpExample example)
+    {
+        var number = ((int)example.ExitCode).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var stopped = example.ServesUntilStopped ? ", once stopped with Ctrl+C or SIGTERM" : string.Empty;
+        return $"Exit code: {number} ({Code(Enum.GetName(example.ExitCode)!)}){stopped}.";
+    }
+
+    private static IEnumerable<string> Fenced(IEnumerable<string> lines) => new[] { "```" }.Concat(lines).Append("```");
 
     private static IEnumerable<string> TopicTableLines() =>
         TableLines(["Topic", "Covers"], AiHelpTopics.All.Select(topic => new[] { Code(topic.Name), topic.Description }));
