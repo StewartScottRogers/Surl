@@ -1,6 +1,7 @@
 # ADR-0032 — Secure-by-default authentication: accounts, the loosening options, `--self-signed` and the contract protocol servers call
 
 - **Status:** Accepted
+- **Superseded in part:** section 1's "Descriptions for `--help`" are superseded by [ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md) decision 2, which shortens them to fit curl's 79 columns.
 - **Date:** 2026-09-29
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29,
   in BL-100. Stewart approved the feature on 2026-09-29; the details he left to this ADR.

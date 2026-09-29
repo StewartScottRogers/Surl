@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Superseded in part:** the `--directory` default of `.` is superseded by [ADR-0031](ADR-0031-the-data-directory-and-in-memory-mode.md) (in memory when `--directory` is absent).
 - **Superseded in part:** section 8's "Without `-v` it writes nothing", its list of the engine's notes and its note that timestamps and `--trace` are later ADRs, and "Alternatives considered"'s rejection of `-s`/`-S`, are superseded by [ADR-0033](ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md) (log levels, `--trace`, `--trace-time`, `--log-file`).
+- **Superseded in part:** section 6's `--help` text, section 1's "`-h` takes no argument" and its rule that `-h`/`--help` ends reading where it stands, and section 2's `-h` row, are superseded by [ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md) (curl-style help categories, an optional help subject, `--help <option>` and `--manual`).
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 
