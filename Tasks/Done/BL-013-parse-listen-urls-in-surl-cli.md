@@ -8,7 +8,7 @@ depends-on: [BL-003, BL-004, BL-005]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-013 — Parse listen URLs in Surl.Cli
 
@@ -36,22 +36,42 @@ exactly.
 
 ## Acceptance criteria
 
-- [ ] A listen-URL parser in `Surl.Cli.UnitLibrary` returns either a listen URL or a
+- [x] A listen-URL parser in `Surl.Cli.UnitLibrary` returns either a listen URL or a
       failure with a `SurlExitCode` and a message.
-- [ ] Data-driven fast tests in `Surl.Cli.UnitTests` cover, for each rule in the ADR,
+- [x] Data-driven fast tests in `Surl.Cli.UnitTests` cover, for each rule in the ADR,
       at least one accepted and one refused case. That includes: `http://127.0.0.1:8080/`,
       `HTTP://127.0.0.1:8080/` (scheme lowercased), `http://[::1]:8080/`,
       `http://localhost/` (default port), `http://127.0.0.1:0/`, a port above 65535, a
       non-numeric port, a missing host, `file:///tmp`, an unknown scheme such as
       `nosuch://127.0.0.1/`, and text that is not a URL.
-- [ ] Every refused case asserts the exact `SurlExitCode` and message the ADR gives.
-- [ ] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] Every refused case asserts the exact `SurlExitCode` and message the ADR gives.
+- [x] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean, the fast tests are
       green with no `Integration` test in `Surl.Cli.UnitTests`, and
       `Measure-CodeQuality.ps1` reports no failing member in `Surl.Cli.UnitLibrary`.
 
 ## Notes
 
+- Delivered: `ListenUrlParser.Parse(string)` returns a `ListenUrlParseResult` (either a
+  `ListenUrl` or a `CommandLineFailure(SurlExitCode, Message)`); `SchemeDefaultPorts` holds
+  ADR-0007's 26 schemes and default ports. Hand-written, not `System.Uri`, so the ADR's
+  answers hold (host kept as written, leading-zero ports, empty port = default).
+  `CommandLineFailure` is meant for BL-014's option errors too.
+- `Message` is the stderr text after `surl: `, which the caller (BL-019) prefixes, as
+  ADR-0007 section 5's table gives the text "after `surl: `".
+- Readings of ADR-0007 section 4 where it is silent, taken as defaults, no new ADR:
+  text after `]` other than `:port` is `Malformed input to a URL function` (rule 5's "any
+  other character"); a zone name is RFC 6874's unreserved characters (`A-Z a-z 0-9 - . _ ~`),
+  non-empty, so a percent-encoded or empty zone is `Bad IPv6 address`; four dot-separated
+  parts that are not all decimal numbers (`1..3.4`, `a.b.c.d`) are a host name, left to
+  resolution at bind time (`CouldNotResolveHost`).
+- Rule 8 (tftp is UDP) is not a `ListenUrl` field; the listener task (BL-015) picks the
+  transport from the scheme.
+- Quality: Surl.Cli.UnitLibrary 100% line, 100% branch, 28 members, 0 failing, worst CRAP 8.
+  Cobertura counts each `&&`/`?:` edge, so the checks are split into one-line predicates and
+  character sets use `SearchValues<char>`. Surl.Cli.UnitTests: 90 fast tests, none Integration.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. Surl.Cli parses listen URLs into ListenUrl or a CommandLineFailure with ADR-0007's exit code and message
