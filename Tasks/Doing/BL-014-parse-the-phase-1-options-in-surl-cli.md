@@ -62,3 +62,4 @@ The options BL-003 marks "parsed in Phase 1, served once BL-012 lands" (`--cert`
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
