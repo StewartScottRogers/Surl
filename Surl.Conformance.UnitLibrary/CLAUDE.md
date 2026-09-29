@@ -11,7 +11,9 @@ Surl's invention, decides whether Surl answers correctly.
 
 Only builds pinned in `UpstreamCurlBuilds.json` run here, never the Curl port (ADR-0003).
 `UpstreamCurlBuildPins.Parse` reads the pin file and `UpstreamCurlLocator` finds the
-pinned build for a platform and role, or refuses any curl whose SHA-256 is not pinned.
+pinned build for a platform and role (`Locate`) or for the protocol a test measures
+(`LocateForProtocol`: the reference build when it supports the protocol, else the first
+supplementary build that does), or refuses any curl whose SHA-256 is not pinned.
 Get every curl you run through it.
 `UpstreamCurlRunner` takes the locator's `UpstreamCurlLocation` - never a path - so the
 only curl it starts is a verified pin; it passes arguments through

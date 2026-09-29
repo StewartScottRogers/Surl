@@ -11,7 +11,8 @@ public enum UpstreamCurlUnavailability
     None,
 
     /// <summary>
-    /// <c>UpstreamCurlBuilds.json</c> pins no build of the asked-for role for the platform.
+    /// <c>UpstreamCurlBuilds.json</c> pins no build of the asked-for role, or none that supports
+    /// the asked-for protocol, for the platform.
     /// </summary>
     NoPinnedBuildForPlatform,
 
