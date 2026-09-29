@@ -24,7 +24,14 @@ protocol server.
   port across every address, all-or-nothing, port 0 retried when a later address finds it
   taken), `BindFailureClassifier` (`SocketError` to `ListenerBindFailure`),
   `AcceptRace<TAccepted>` (accept from several listening sockets, lose nothing on cancel or
-  stop) and `StreamConnection` (the `IConnection` state rules over any `Stream`).
+  stop), `AcceptFailureClassifier` (which accept failures belong to one client) and
+  `StreamConnection` (the `IConnection` state rules over any `Stream`).
+- Accept failures (ADR-0022, BL-057). `AcceptRace` absorbs an accept that failed for one
+  client - `ConnectionReset`, `ConnectionAborted`, `HostDown`, `HostUnreachable`,
+  `NetworkUnreachable`, or an `AcceptedSocketLostException` (accepted, but gone before
+  `NoDelay` and its endpoints could be read; the socket is already released) - and accepts
+  again. Any other `SocketException` is `IOException`, so `TcpConnectionListener.AcceptAsync`
+  throws only when the listening socket itself failed, on cancellation, or after disposal.
 - The members of `TcpConnectionListener` and `SocketTransportControl`, which touch a
   socket, carry `[ExcludeFromCodeCoverage]` with a comment naming the socket call, and are
   exercised by the `[TestCategory("Integration")]` tests on `127.0.0.1` and `[::1]`, port 0.

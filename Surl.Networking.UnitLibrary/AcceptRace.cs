@@ -46,23 +46,25 @@ internal sealed class AcceptRace<TAccepted>
     /// <returns>What the first source to accept produced.</returns>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the wait off.</exception>
     /// <exception cref="ObjectDisposedException"><see cref="StopAsync"/> was called.</exception>
-    /// <exception cref="IOException">The accept failed with a socket error; the next call starts another.</exception>
+    /// <exception cref="IOException">
+    /// The accept failed with a socket error that <see cref="AcceptFailureClassifier"/> calls
+    /// listener-fatal; the next call starts another.
+    /// </exception>
+    /// <remarks>
+    /// An accept that fails for one client only - <see cref="AcceptFailureClassifier.IsPerConnection(Exception)"/>
+    /// - is absorbed: another is started on that source and the wait goes on (ADR-0022).
+    /// </remarks>
     public async Task<TAccepted> AcceptNextAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        ObjectDisposedException.ThrowIf(stopping is not null, this);
-
-        StartMissingAccepts();
-        var accept = await WaitForFirstAcceptAsync(cancellationToken);
-
-        lock (gate)
+        while (true)
         {
-            // Once a stop has begun, whatever this accept produced is the stop's to release.
-            ObjectDisposedException.ThrowIf(stopping is not null, this);
-            pendingAccepts[Array.IndexOf(pendingAccepts, accept)] = null;
-        }
+            var accept = await TakeFirstAcceptAsync(cancellationToken);
 
-        return await ClaimAsync(accept);
+            if (accept.Exception?.InnerException is not { } failure || !AcceptFailureClassifier.IsPerConnection(failure))
+            {
+                return await ClaimAsync(accept);
+            }
+        }
     }
 
     /// <summary>
@@ -82,6 +84,26 @@ internal sealed class AcceptRace<TAccepted>
 
             return stopping;
         }
+    }
+
+    // Waits for the first accept to finish, however it finished, and takes it out of its
+    // source's slot so the next wait starts another there.
+    private async Task<Task<TAccepted>> TakeFirstAcceptAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ObjectDisposedException.ThrowIf(stopping is not null, this);
+
+        StartMissingAccepts();
+        var accept = await WaitForFirstAcceptAsync(cancellationToken);
+
+        lock (gate)
+        {
+            // Once a stop has begun, whatever this accept produced is the stop's to release.
+            ObjectDisposedException.ThrowIf(stopping is not null, this);
+            pendingAccepts[Array.IndexOf(pendingAccepts, accept)] = null;
+        }
+
+        return accept;
     }
 
     private static async Task<TAccepted> ClaimAsync(Task<TAccepted> accept)

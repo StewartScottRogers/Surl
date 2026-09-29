@@ -11,15 +11,16 @@ namespace Surl.Networking;
 /// </summary>
 /// <remarks>
 /// Every member here calls a socket and is exercised by the integration tests; the decisions
-/// behind them - which addresses, which port, what a failure means, which accept wins - live
-/// in <see cref="ListenAddressResolver"/>, <see cref="ListenerBinder"/>,
-/// <see cref="AcceptRace{TAccepted}"/> and <see cref="StreamConnection"/>, which the fast tests
-/// cover (ADR-0004, section 8). <see cref="AcceptAsync"/> is meant for one caller at a time.
+/// behind them - which addresses, which port, what a failure means, which accept wins, which
+/// accept failure is only one client's - live in <see cref="ListenAddressResolver"/>,
+/// <see cref="ListenerBinder"/>, <see cref="AcceptFailureClassifier"/>,
+/// <see cref="AcceptRace{TAccepted}"/> and <see cref="StreamConnection"/>, which the fast
+/// tests cover (ADR-0004, section 8). <see cref="AcceptAsync"/> is meant for one caller at a time.
 /// </remarks>
 public sealed class TcpConnectionListener : IConnectionListener
 {
     private readonly IReadOnlyList<Socket> listeningSockets;
-    private readonly AcceptRace<Socket> acceptRace;
+    private readonly AcceptRace<AcceptedSocket> acceptRace;
     private readonly ServerTlsHandshake? tlsHandshake;
 
     // Reads each listening socket's local endpoint and sets the bound port on the listen URL.
@@ -30,7 +31,7 @@ public sealed class TcpConnectionListener : IConnectionListener
         tlsHandshake = ServerTlsHandshake.ForListener(tlsSettings, listenUrl);
         BoundEndPoints = [.. listeningSockets.Select(LocalEndPointOf)];
         ListenUrl = listenUrl.WithBoundPort(BoundPortOf(listeningSockets[0]));
-        acceptRace = new AcceptRace<Socket>(listeningSockets.Count, AcceptFromSocketAsync, ReleaseSocket);
+        acceptRace = new AcceptRace<AcceptedSocket>(listeningSockets.Count, AcceptFromSocketAsync, ReleaseAcceptedSocket);
     }
 
     /// <inheritdoc/>
@@ -92,6 +93,10 @@ public sealed class TcpConnectionListener : IConnectionListener
 
     /// <inheritdoc/>
     /// <exception cref="ObjectDisposedException">The listener was disposed.</exception>
+    /// <exception cref="IOException">
+    /// The listening socket failed. An accept that failed for one client only - it reset or
+    /// aborted before it was accepted - is absorbed, and the listener accepts again (ADR-0022).
+    /// </exception>
     // Wraps the accepted Socket in a NetworkStream-backed connection.
     [ExcludeFromCodeCoverage(Justification = "Accepts a socket; covered by the integration tests.")]
     public async ValueTask<IConnection> AcceptAsync(CancellationToken cancellationToken) =>
@@ -150,33 +155,44 @@ public sealed class TcpConnectionListener : IConnectionListener
     [ExcludeFromCodeCoverage(Justification = "Disposes a socket; covered by the integration tests.")]
     private static void ReleaseSocket(Socket socket) => socket.Dispose();
 
-    // Wraps the accepted socket in a NetworkStream that owns it, with Nagle's algorithm off so
-    // small replies are not held back waiting for the client's acknowledgement. A client that
-    // reset before this runs makes the socket calls fail; the socket is released and the
-    // failure is an IOException, like every other transport failure (ADR-0004, section 2).
+    // Calls Socket.Dispose on the accepted socket.
+    [ExcludeFromCodeCoverage(Justification = "Disposes a socket; covered by the integration tests.")]
+    private static void ReleaseAcceptedSocket(AcceptedSocket accepted) => accepted.Socket.Dispose();
+
+    // Wraps the accepted socket in a NetworkStream that owns it.
     [ExcludeFromCodeCoverage(Justification = "Wraps an accepted socket; covered by the integration tests.")]
-    private StreamConnection CreateConnection(Socket socket)
+    private StreamConnection CreateConnection(AcceptedSocket accepted) =>
+        new(
+            new NetworkStream(accepted.Socket, ownsSocket: true),
+            accepted.LocalEndPoint,
+            accepted.RemoteEndPoint,
+            new SocketTransportControl(accepted.Socket),
+            tlsHandshake);
+
+    // Calls Socket.AcceptAsync on the listening socket with the given index, then turns
+    // Nagle's algorithm off, so small replies are not held back waiting for the client's
+    // acknowledgement, and reads the endpoints. A client that reset before those calls makes
+    // them fail: the socket is released and the failure is an AcceptedSocketLostException,
+    // which AcceptRace absorbs as a per-connection failure (ADR-0022).
+    [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by the integration tests.")]
+    private async Task<AcceptedSocket> AcceptFromSocketAsync(int index, CancellationToken cancellationToken)
     {
+        var socket = await listeningSockets[index].AcceptAsync(cancellationToken);
+
         try
         {
             socket.NoDelay = true;
 
-            return new StreamConnection(
-                new NetworkStream(socket, ownsSocket: true),
-                socket.LocalEndPoint!,
-                socket.RemoteEndPoint!,
-                new SocketTransportControl(socket),
-                tlsHandshake);
+            return new AcceptedSocket(socket, socket.LocalEndPoint!, socket.RemoteEndPoint!);
         }
         catch (SocketException exception)
         {
             socket.Dispose();
-            throw new IOException(exception.Message, exception);
+            throw new AcceptedSocketLostException(exception);
         }
     }
 
-    // Calls Socket.AcceptAsync on the listening socket with the given index.
-    [ExcludeFromCodeCoverage(Justification = "Accepts on a socket; covered by the integration tests.")]
-    private Task<Socket> AcceptFromSocketAsync(int index, CancellationToken cancellationToken) =>
-        listeningSockets[index].AcceptAsync(cancellationToken).AsTask();
+    // An accepted socket with the endpoints read from it while its client was still there.
+    [ExcludeFromCodeCoverage(Justification = "Made only from an accepted socket; covered by the integration tests.")]
+    private readonly record struct AcceptedSocket(Socket Socket, EndPoint LocalEndPoint, EndPoint RemoteEndPoint);
 }
