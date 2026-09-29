@@ -43,6 +43,10 @@ protocol server.
   sends from them. `ConnectionReset` on a receive (Windows' report of an ICMP
   port-unreachable) is skipped; any other receive failure on a listen socket ends
   `AcceptFlowAsync` with `IOException`.
+- `SocketListenerFactory` (public, stateless) - implements `IListenerFactory` by delegating
+  to `TcpConnectionListener.StartAsync` and `UdpDatagramListener.StartAsync`; it is what the
+  composition root hands the serving engine. Both one-line members are excluded from coverage
+  and exercised by `SocketListenerFactoryTests` (Integration).
 - All of that runs over `IDatagramSocket`, so the fast tests drive it with a fake; only
   `UdpDatagramSocket` and the public `StartAsync` touch a socket, excluded from coverage and
   exercised by the `[TestCategory("Integration")]` tests.
