@@ -1,5 +1,13 @@
 # Surl
 
+[![Surl's history, animated with Gource - open the 8K viewer](https://raw.githubusercontent.com/StewartScottRogers/Surl/gource/gource.gif)](https://stewartscottrogers.github.io/Surl/)
+
+[![Code coverage](https://raw.githubusercontent.com/StewartScottRogers/Surl/gource/coverage/badge.svg)](https://stewartscottrogers.github.io/Surl/coverage/)
+
+The animation is Surl's history across every branch, re-rendered by
+`.github/workflows/gource.yml` whenever the repository moves; click it for the 8K viewer.
+The badge links to the coverage report, measured on each render against the quality gates.
+
 Surl ("Server URL") is the server-side mate of [curl](https://curl.se): for every request
 upstream curl can make, protocol for protocol, Surl is the server that answers it. It is
 written in C# on .NET 10, publishes as a single native ahead-of-time (AOT) executable named
