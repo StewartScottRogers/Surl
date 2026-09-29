@@ -87,7 +87,7 @@ says, carrying the `SurlExitCode` the exit-code ADR (BL-001) assigns.
   - `Abort` sets a zero linger and closes, ignoring a linger option the OS refuses after
     the peer's reset (macOS), because an abort must not throw.
   - No `IListenerFactory` implementation yet: its datagram half belongs to BL-031, and a
-    factory that throws for it would not do what its interface says. Filed as BL-046.
+    factory that throws for it would not do what its interface says. Filed as BL-055.
   - `ExclusiveAddressUse` is left at the platform default; the empty-host and over-long
     host cases are `Surl.Cli`'s to refuse (BL-013).
 - **Review (code-reviewer):** fixed the accept/stop race with a lock, the unguarded
@@ -96,7 +96,7 @@ says, carrying the `SurlExitCode` the exit-code ADR (BL-001) assigns.
   after a concurrent abort, and a port read failing after a bind; added a server-first
   half-close integration test and an Inconclusive guard on the `localhost` test.
   Lingering close before dispose (unread client bytes turning into RST, curl exit 56)
-  filed as BL-047.
+  filed as BL-056.
 - **Conformance stage skipped:** nothing is user-visible yet; no option, exit code or
   wire byte changed until `Surl.Core` and `Surl.Console` use the listener.
 - Results: `Surl.Networking.UnitTests` 86 tests (75 fast, 11 Integration), green on

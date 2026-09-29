@@ -1,5 +1,5 @@
 ---
-id: BL-047
+id: BL-056
 title: Drain unread client bytes for a bounded time before a connection closes
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-047 — Drain unread client bytes for a bounded time before a connection closes
+# BL-056 — Drain unread client bytes for a bounded time before a connection closes
 
 ## Goal
 

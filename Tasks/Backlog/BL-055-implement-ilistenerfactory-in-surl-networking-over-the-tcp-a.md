@@ -1,5 +1,5 @@
 ---
-id: BL-046
+id: BL-055
 title: Implement IListenerFactory in Surl.Networking over the TCP and UDP listeners
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-046 — Implement IListenerFactory in Surl.Networking over the TCP and UDP listeners
+# BL-055 — Implement IListenerFactory in Surl.Networking over the TCP and UDP listeners
 
 ## Goal
 
