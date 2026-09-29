@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-110]
-touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests]
+touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Documentation/Planning/Decisions/ADR-0035-basic-credentials-are-read-as-utf-8-and-bearer-tokens-as-the-bytes-sent.md, Documentation/Planning/Decisions/README.md]
 requirement: FR-014
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-111 — Challenge and verify HTTP Basic and Bearer credentials in Surl.Authentication
 
@@ -41,18 +41,37 @@ adds two methods behind BL-109's contract.
 
 ## Acceptance criteria
 
-- [ ] Tests replay each measured `Authorization` value from the fixtures and prove it is
+- [x] Tests replay each measured `Authorization` value from the fixtures and prove it is
       accepted for the configured account or token, and refused for a wrong password, an
       unknown user, a malformed base64 value, a missing `:` and an empty token.
-- [ ] Tests prove Basic and Bearer are refused on an unencrypted connection without
+- [x] Tests prove Basic and Bearer are refused on an unencrypted connection without
       `--allow-plaintext-auth` and accepted with it, and accepted on an encrypted one.
-- [ ] Tests pin the exact challenge header values ADR-0032 decision 4 gives.
-- [ ] `dotnet build Surl.Authentication.UnitLibrary -warnaserror` is clean; the fast tests
+- [x] Tests pin the exact challenge header values ADR-0032 decision 4 gives.
+- [x] `dotnet build Surl.Authentication.UnitLibrary -warnaserror` is clean; the fast tests
       pass; 100% line and branch coverage kept; no test needs `TestCategory=Integration`.
 
 ## Notes
+
+- Measured 2026-09-29 with the pinned reference build (SHA-256 `0E773709…8778`), five cases
+  in `Surl.Authentication.UnitTests/Fixtures` (README there): `basic`, `user-default` (both
+  `Basic dGVzdGVyOnNlY3JldA==`, sent unasked), `bearer` (`Bearer tok`), `basic-non-ascii`
+  and `basic-utf8-config`. The Windows build sends a non-ASCII command-line argument in the
+  ANSI code page (Windows-1252), a UTF-8 config file's bytes as UTF-8.
+- Decided in ADR-0035 (Claude under Stewart's delegation): Basic's user-id is read as UTF-8,
+  the charset announced, with no second charset tried; the password and the Bearer token are
+  compared as the bytes sent. So `basic-non-ascii` is pinned as refused and
+  `basic-utf8-config` as accepted.
+- Added the ADR file and `Documentation/Planning/Decisions/README.md` (its index row) to
+  `touches`: the decision needed an ADR. No task in `Doing` names either
+  (BL-103: Cli and Console; BL-115: Mqtt).
+- Default taken: both methods are stateless, so `StartConnection` returns the method itself;
+  an accepted Bearer token's `AccountName` is the empty string, the token's account name
+  (ADR-0032 section 1). Wiring them into `Surl.Console` is BL-117's.
+- Tests: `BasicAndBearerAuthenticationTests`, 151 tests in the project pass; coverage of
+  `Surl.Authentication.UnitLibrary` 100% line, 100% branch (`Measure-CodeQuality.ps1`).
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. Surl.Authentication challenges and verifies HTTP Basic and Bearer, replaying the Authorization values pinned upstream curl 8.21.0 sends
