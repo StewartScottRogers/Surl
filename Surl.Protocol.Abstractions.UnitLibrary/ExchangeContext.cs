@@ -31,4 +31,10 @@ public sealed record ExchangeContext(
     /// Which of the server's schemes this exchange is: the listen URL's scheme.
     /// </summary>
     public string Scheme => ListenUrl.Scheme;
+
+    /// <summary>
+    /// The hardening limits the server enforces on this exchange (ADR-0006, section 6):
+    /// <see cref="ExchangeLimits.Default"/> unless the engine sets others.
+    /// </summary>
+    public ExchangeLimits Limits { get; init; } = ExchangeLimits.Default;
 }

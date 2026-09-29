@@ -13,6 +13,10 @@ What it holds:
   `IDatagramProtocolServer`.
 - What a server is told about one exchange: `ExchangeContext`, and where its events go,
   `IExchangeLog` and `IExchangeLogFactory`.
+- The hardening limits every server enforces (ADR-0006, section 6): `ExchangeLimits`, on
+  `ExchangeContext.Limits`, and the optional refusal contracts a server implements to
+  answer a connection or flow past a connection limit, `IConnectionRefusalWriter` and
+  `IDatagramRefusalWriter` with `ConnectionRefusal`.
 - The listener seam `Surl.Networking` implements: `IListenerFactory`,
   `IConnectionListener`, `IDatagramListener`, and a failure to bind,
   `ListenerBindException` with `ListenerBindFailure`.
