@@ -1,0 +1,9 @@
+PUT /upload HTTP/1.1
+Host: 127.0.0.1:18136
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260929/us-east-1/ec2/aws4_request, SignedHeaders=host;x-amz-date, Signature=3fc9b7f8993c784ce5ee43303a9305167a85a87130a50b8e00a424d77786446c
+X-Amz-Date: 20260929T215426Z
+User-Agent: curl/8.21.0
+Accept: */*
+Content-Length: 4
+
+body

@@ -136,3 +136,14 @@ field, which the tests set their clock to. What the requests show is ADR-0043's 
 | `aws-sigv4-other-provider` | `osc:osc:eu-west-2:api` | `'http://127.0.0.1:18122/x'` | `OSC4-HMAC-SHA256`, `osc4_request`, `X-Osc-Date` |
 | `aws-sigv4-extra-headers` | `aws:amz:us-east-1:s3` | `'-H','X-Test:  a   b  ','-H','Content-Type: text/plain','http://127.0.0.1:18122/x'` | both fields signed; `x-test` signed as `a b` |
 | `aws-sigv4-refused` | `aws:amz:us-east-1:s3` | `'http://127.0.0.1:18122/x'` | signed with the wrong secret; after the `401` curl exits 0 with an empty body and does not sign again |
+
+### Bodies (BL-136)
+
+Recorded on 2026-09-29 as above, with `-Port 18136` and the same `200`; each exited 0. `<file>`
+is a file holding the four bytes `body`. What they show is ADR-0045's "Measured".
+
+| Folder | `<provider>` | Other `-CurlArgs` | What it shows |
+| --- | --- | --- | --- |
+| `aws-sigv4-unsigned-payload` | `aws:amz:us-east-1:s3` | `'-H','x-amz-content-sha256: UNSIGNED-PAYLOAD','-X','PUT','-d','body','http://127.0.0.1:18136/x'` | the field sent once, as given, and signed with `UNSIGNED-PAYLOAD` as the payload hash |
+| `aws-sigv4-upload` | `aws:amz:us-east-1:s3` | `'-T',<file>,'http://127.0.0.1:18136/upload'` | `-T` sends `x-amz-content-sha256: UNSIGNED-PAYLOAD` itself |
+| `aws-sigv4-ec2-upload` | `aws:amz:us-east-1:ec2` | `'-T',<file>,'http://127.0.0.1:18136/upload'` | no content hash field, and the signature is over the empty body's hash though `body` is sent |
