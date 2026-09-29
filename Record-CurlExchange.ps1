@@ -83,6 +83,13 @@
     100 Continue does not end the read early. Use it to measure a response that arrives
     while the body is being sent.
 
+.PARAMETER InterimResponse
+    An interim response, with the same backslash escapes as Response, sent on each
+    connection as soon as the header block has arrived and before any body byte is
+    waited for; the body is then read as usual and the canned response sent after it.
+    Default empty: none. Use it to measure what curl does with a 100 Continue, e.g.
+    -InterimResponse 'HTTP/1.1 100 Continue\r\n\r\n'. Ignored with RespondAfterBodyBytes.
+
 .PARAMETER CloseUnread
     With RespondAfterBodyBytes, close the connection as soon as the response is sent,
     without reading what curl still sends: the body bytes left unread in the receive
@@ -486,6 +493,7 @@ param(
     [ValidateRange(0, 600000)] [int] $HoldOpenMilliseconds = 0,
     [ValidateRange(-1, [int]::MaxValue)] [int] $RespondAfterBodyBytes = -1,
     [switch] $CloseUnread,
+    [string] $InterimResponse = '',
     [string] $StandardInput = '',
     [switch] $Ftp,
     [string[]] $FtpReply = @(),
@@ -619,7 +627,7 @@ function ConvertTo-CommandLineArgument {
 # The server runs in its own runspace so curl can run in this one. It returns one
 # byte array per connection served.
 $serveConnections = {
-    param($Listener, $ResponseBytes, [int] $ConnectionCount, [int] $DelayMilliseconds, [bool] $ResetConnections, [int] $EarlyResponseBodyBytes, $TlsCertificate, [int] $HoldOpen, [int] $ServedTlsProtocols, [bool] $CloseEarly)
+    param($Listener, $ResponseBytes, [int] $ConnectionCount, [int] $DelayMilliseconds, [bool] $ResetConnections, [int] $EarlyResponseBodyBytes, $TlsCertificate, [int] $HoldOpen, [int] $ServedTlsProtocols, [bool] $CloseEarly, [byte[]] $InterimBytes)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -633,7 +641,7 @@ $serveConnections = {
         $bodyStart = $headerEnd + 4
         if ($EarlyResponseBodyBytes -ge 0) { return ($Length - $bodyStart) -ge $EarlyResponseBodyBytes }
         $headers = $text.Substring(0, $headerEnd)
-        $contentLength = [regex]::Match($headers, '(?im)^Content-Length:[ \t]*(\d+)[ \t]*$')
+        $contentLength = [regex]::Match($headers, '(?im)^Content-Length:[ \t]*(\d+)[ \t]*\r?$')
         if ($contentLength.Success) {
             return ($Length - $bodyStart) -ge [long] $contentLength.Groups[1].Value
         }
@@ -674,7 +682,15 @@ $serveConnections = {
             $stream.ReadTimeout = if ($EarlyResponseBodyBytes -ge 0) { 5000 } else { 1000 }
             $buffer = New-Object byte[] 65536
             $received = New-Object System.IO.MemoryStream
-            while (-not (Test-RequestComplete -Received $received.GetBuffer() -Length ([int] $received.Length))) {
+            $interimSent = $null -eq $InterimBytes -or $InterimBytes.Length -eq 0 -or $EarlyResponseBodyBytes -ge 0
+            while ($true) {
+                if (-not $interimSent -and $latin1.GetString($received.GetBuffer(), 0, [int] $received.Length).Contains("`r`n`r`n")) {
+                    # The head has arrived: the interim response goes out before the body is waited for.
+                    $stream.Write($InterimBytes, 0, $InterimBytes.Length)
+                    $stream.Flush()
+                    $interimSent = $true
+                }
+                if (Test-RequestComplete -Received $received.GetBuffer() -Length ([int] $received.Length)) { break }
                 try {
                     $count = $stream.Read($buffer, 0, $buffer.Length)
                 } catch [System.IO.IOException] {
@@ -2092,7 +2108,7 @@ try {
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
-        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols).AddArgument([bool] $CloseUnread)
+        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols).AddArgument([bool] $CloseUnread).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $InterimResponse))
     }
     if ($null -ne $server) { $serverRun = $server.BeginInvoke() }
     if ($null -ne $tlsRelay) { Connect-TlsRelay -Relay $tlsRelay -BackendPort $listener.LocalEndpoint.Port }
