@@ -1,7 +1,7 @@
 namespace Surl.Content;
 
 [TestClass]
-public sealed class ContentStoreTests
+public sealed partial class ContentStoreTests
 {
     private static readonly string Root = Path.Join("/", "srv", "www");
 

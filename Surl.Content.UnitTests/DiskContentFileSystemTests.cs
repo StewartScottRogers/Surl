@@ -214,4 +214,61 @@ public sealed class DiskContentFileSystemTests
         Assert.IsTrue(mapping.IsMapped);
         Assert.AreEqual(ContentEntryKind.File, mapping.EntryKind);
     }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public void MapRequestPath_DefaultOptionsAndALinkInsideTheRoot_IsAnsweredAsAMissingPath()
+    {
+        File.CreateSymbolicLink(Path.Join(servedRoot, "alias.bin"), Path.Join(servedRoot, "docs", "file.bin"));
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), new ContentExposureOptions());
+
+        ContentPathMapping mapping = store.MapRequestPath("/alias.bin");
+
+        Assert.IsTrue(mapping.IsMapped);
+        Assert.AreEqual(ContentEntryKind.None, mapping.EntryKind);
+    }
+
+    [TestMethod]
+    public void MapRequestPath_DefaultOptionsAndAPlainFile_IsServed()
+    {
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), new ContentExposureOptions());
+
+        ContentPathMapping mapping = store.MapRequestPath("/docs/file.bin");
+
+        Assert.AreEqual(ContentEntryKind.File, mapping.EntryKind);
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_WithinTheLimit_WritesTheFile()
+    {
+        var options = new ContentExposureOptions { AllowUploads = true, MaxUploadBytes = Contents.Length };
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), options);
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/docs/upload.bin"), new MemoryStream(Contents), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.Written, result);
+        CollectionAssert.AreEqual(Contents, await File.ReadAllBytesAsync(Path.Join(servedRoot, "docs", "upload.bin")));
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_OverTheLimit_LeavesNoFile()
+    {
+        var options = new ContentExposureOptions { AllowUploads = true, MaxUploadBytes = Contents.Length - 1 };
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), options);
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/docs/upload.bin"), new MemoryStream(Contents), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.TooLarge, result);
+        Assert.IsFalse(File.Exists(Path.Join(servedRoot, "docs", "upload.bin")));
+    }
+
+    [TestMethod]
+    public void DeleteFile_NoFileThere_DoesNothing()
+    {
+        string path = Path.Join(servedRoot, "docs", "never-written.bin");
+
+        new DiskContentFileSystem().DeleteFile(path);
+
+        Assert.IsFalse(File.Exists(path));
+    }
 }

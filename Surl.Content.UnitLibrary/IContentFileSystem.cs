@@ -58,4 +58,31 @@ public interface IContentFileSystem
     /// <returns>Each entry's name, without its directory and without <c>.</c> or
     /// <c>..</c>; the sequence may be read lazily, once.</returns>
     IEnumerable<string> EnumerateDirectoryEntryNames(string path);
+
+    /// <summary>
+    /// Creates the file at <paramref name="path"/> for asynchronous, write-only access,
+    /// replacing any file already there.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>, so the store writes no upload through it.
+    /// </remarks>
+    /// <param name="path">The full path of a file whose directory exists.</param>
+    /// <returns>A writable stream positioned at the start of an empty file. The caller
+    /// disposes it.</returns>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    Stream CreateFileForAsyncWrite(string path) =>
+        throw new NotSupportedException("This content file system is read-only.");
+
+    /// <summary>
+    /// Deletes the file at <paramref name="path"/>; does nothing when no file is there.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>.
+    /// </remarks>
+    /// <param name="path">The full path of the file to delete.</param>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    void DeleteFile(string path) =>
+        throw new NotSupportedException("This content file system is read-only.");
 }

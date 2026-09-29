@@ -40,7 +40,16 @@ namespace Surl.Content;
 /// <see cref="CopyFileBytesAsync(ContentPathMapping, ContentByteRange, Stream, CancellationToken)"/>
 /// copies the whole file or a <see cref="ContentByteRange"/> of it to a destination stream;
 /// <see cref="ListDirectory(ContentPathMapping, CancellationToken)"/> lists a directory's
-/// entries in ordinal order of their names. Every look and every read goes through the seam.
+/// entries in ordinal order of their names; and
+/// <see cref="WriteUploadAsync(ContentPathMapping, Stream, CancellationToken)"/> writes an
+/// upload, within <see cref="ContentExposureOptions.MaxUploadBytes"/>. Every look, every read
+/// and every write goes through the seam.
+/// </para>
+/// <para>
+/// <see cref="ExposureOptions"/> apply ADR-0006 section 2 for every protocol server: a
+/// dot-file, a path through a symbolic link that is not followed, and a listing that is off
+/// are all answered exactly as a path that does not exist; an upload that is off is
+/// <see cref="ContentUploadResult.NotPermitted"/>.
 /// </para>
 /// </remarks>
 public sealed class ContentStore
@@ -50,17 +59,39 @@ public sealed class ContentStore
     private readonly IContentFileSystem fileSystem;
 
     /// <summary>
-    /// Creates a content store that serves <paramref name="servedRoot"/>.
+    /// Creates a content store that serves <paramref name="servedRoot"/> with
+    /// <see cref="ContentExposureOptions.ServeEverythingInsideTheRoot"/>, as the store served
+    /// before it took exposure options.
     /// </summary>
     /// <param name="servedRoot">The full path of the directory being served.</param>
     /// <param name="fileSystem">The seam every look at the served root goes through.</param>
     public ContentStore(string servedRoot, IContentFileSystem fileSystem)
+        : this(servedRoot, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot)
+    {
+    }
+
+    /// <summary>
+    /// Creates a content store that serves <paramref name="servedRoot"/>, exposing what
+    /// <paramref name="exposureOptions"/> allow.
+    /// </summary>
+    /// <param name="servedRoot">The full path of the directory being served.</param>
+    /// <param name="fileSystem">The seam every look at the served root goes through.</param>
+    /// <param name="exposureOptions">What the store exposes and the largest upload it accepts;
+    /// <c>new ContentExposureOptions()</c> is ADR-0006's defaults.</param>
+    public ContentStore(string servedRoot, IContentFileSystem fileSystem, ContentExposureOptions exposureOptions)
     {
         ArgumentException.ThrowIfNullOrEmpty(servedRoot);
         ArgumentNullException.ThrowIfNull(fileSystem);
+        ArgumentNullException.ThrowIfNull(exposureOptions);
         ServedRoot = servedRoot;
         this.fileSystem = fileSystem;
+        ExposureOptions = exposureOptions;
     }
+
+    /// <summary>
+    /// What the store exposes and the largest upload it accepts.
+    /// </summary>
+    public ContentExposureOptions ExposureOptions { get; }
 
     /// <summary>
     /// The full path of the directory being served.
@@ -89,6 +120,12 @@ public sealed class ContentStore
             return ContentPathMapping.Refused(ContentPathRefusal.ResolvesOutsideRoot);
         }
 
+        string unresolved = Path.Join([resolvedRoot, .. segments]);
+        if (IsHiddenByExposureOptions(segments, resolved, unresolved))
+        {
+            return ContentPathMapping.AnsweredAsAbsent(unresolved);
+        }
+
         return ContentPathMapping.Mapped(resolved, fileSystem.GetEntryKind(resolved));
     }
 
@@ -97,10 +134,11 @@ public sealed class ContentStore
     /// </summary>
     /// <param name="mapping">A mapping this content store returned with
     /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
-    /// <returns>A file, a directory, or nothing.</returns>
+    /// <returns>A file, a directory, or nothing; nothing, without asking, when the exposure
+    /// options hide the location.</returns>
     /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
     public ContentEntryKind GetEntryKind(ContentPathMapping mapping) =>
-        fileSystem.GetEntryKind(RequireLocation(mapping));
+        CurrentEntryKind(mapping, RequireLocation(mapping));
 
     /// <summary>
     /// Reports the length and last modification time of the file at a mapped location.
@@ -113,7 +151,7 @@ public sealed class ContentStore
     public ContentFileStatus? GetFileStatus(ContentPathMapping mapping)
     {
         string location = RequireLocation(mapping);
-        if (fileSystem.GetEntryKind(location) != ContentEntryKind.File)
+        if (CurrentEntryKind(mapping, location) != ContentEntryKind.File)
         {
             return null;
         }
@@ -144,6 +182,8 @@ public sealed class ContentStore
     /// <returns>How many bytes were copied.</returns>
     /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal, or
     /// <paramref name="range"/> is unsatisfiable.</exception>
+    /// <exception cref="FileNotFoundException">The exposure options hide the location, so it
+    /// is answered as a file that does not exist.</exception>
     public async Task<long> CopyFileBytesAsync(
         ContentPathMapping mapping,
         ContentByteRange range,
@@ -156,6 +196,11 @@ public sealed class ContentStore
         if (!range.IsSatisfiable)
         {
             throw new ArgumentException("An unsatisfiable range has no bytes to copy.", nameof(range));
+        }
+
+        if (mapping.IsAnsweredAsAbsent)
+        {
+            throw new FileNotFoundException("Nothing is served at the mapped location.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -180,8 +225,16 @@ public sealed class ContentStore
     /// link whose final target resolves outside the served root, or when nothing is there
     /// by the time it is looked at (a dangling link, or an entry deleted meanwhile). A link
     /// whose final target is inside the root is listed under its own name, with its
-    /// target's kind, length and modification time. Dot-files are listed; hiding them, and
-    /// the other exposure rules of ADR-0006, is the caller's to apply.
+    /// target's kind, length and modification time.
+    /// </para>
+    /// <para>
+    /// The <see cref="ExposureOptions"/> apply too. When
+    /// <see cref="ContentExposureOptions.ListDirectories"/> is off, every listing is answered
+    /// as absent: <see cref="ContentDirectoryListing.LocationKind"/> is
+    /// <see cref="ContentEntryKind.None"/>, as for a path that does not exist, and the seam is
+    /// not asked. A dot-file is left out unless
+    /// <see cref="ContentExposureOptions.ServeDotFiles"/> is on, and a symbolic link inside the
+    /// root unless <see cref="ContentExposureOptions.FollowSymbolicLinks"/> is on.
     /// </para>
     /// <para>
     /// Protocol-neutral: no listing format is produced here; each protocol server formats
@@ -200,7 +253,12 @@ public sealed class ContentStore
     {
         string location = RequireLocation(mapping);
         cancellationToken.ThrowIfCancellationRequested();
-        ContentEntryKind locationKind = fileSystem.GetEntryKind(location);
+        if (!ExposureOptions.ListDirectories)
+        {
+            return ContentDirectoryListing.NotADirectory(ContentEntryKind.None);
+        }
+
+        ContentEntryKind locationKind = CurrentEntryKind(mapping, location);
         if (locationKind != ContentEntryKind.Directory)
         {
             return ContentDirectoryListing.NotADirectory(locationKind);
@@ -222,6 +280,123 @@ public sealed class ContentStore
         return ContentDirectoryListing.Listed(entries);
     }
 
+    /// <summary>
+    /// Writes an upload read from <paramref name="source"/> to the file at a mapped location,
+    /// creating it or replacing what it held, within
+    /// <see cref="ContentExposureOptions.MaxUploadBytes"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Nothing is written, and <see cref="ContentUploadResult.NotPermitted"/> returned, when
+    /// <see cref="ContentExposureOptions.AllowUploads"/> is off, when the exposure options hide
+    /// the location (a dot-file, or a path through a symbolic link that is not followed), when
+    /// the location is a directory, or when it is not directly inside an existing directory.
+    /// </para>
+    /// <para>
+    /// Bytes are counted as they are read. Each read asks for no more than one byte past the
+    /// limit, so reading stops at most one byte past it: the upload is then
+    /// <see cref="ContentUploadResult.TooLarge"/>, and the partial file is deleted through the
+    /// seam. An upload of exactly the limit is written. A write that throws, cancellation
+    /// included, deletes the partial file too before the exception goes on. Either way a file
+    /// the upload replaced is gone.
+    /// </para>
+    /// </remarks>
+    /// <param name="mapping">A mapping this content store returned with
+    /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
+    /// <param name="source">The upload's bytes, read to its end.</param>
+    /// <param name="cancellationToken">Checked before the file is created and before every
+    /// read; cancellation throws <see cref="OperationCanceledException"/>.</param>
+    /// <returns>Whether the upload was written, not permitted, or too large.</returns>
+    /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
+    public async Task<ContentUploadResult> WriteUploadAsync(ContentPathMapping mapping, Stream source, CancellationToken cancellationToken)
+    {
+        string location = RequireLocation(mapping);
+        ArgumentNullException.ThrowIfNull(source);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsUploadPermitted(mapping, location))
+        {
+            return ContentUploadResult.NotPermitted;
+        }
+
+        bool isWithinLimit;
+        Stream destination = fileSystem.CreateFileForAsyncWrite(location);
+        try
+        {
+            await using (destination)
+            {
+                isWithinLimit = await CopyWithinUploadLimitAsync(source, destination, cancellationToken);
+            }
+        }
+        catch (Exception)
+        {
+            fileSystem.DeleteFile(location);
+            throw;
+        }
+
+        if (isWithinLimit)
+        {
+            return ContentUploadResult.Written;
+        }
+
+        fileSystem.DeleteFile(location);
+        return ContentUploadResult.TooLarge;
+    }
+
+    private bool IsUploadPermitted(ContentPathMapping mapping, string location) =>
+        ExposureOptions.AllowUploads
+        && !mapping.IsAnsweredAsAbsent
+        && fileSystem.GetEntryKind(location) != ContentEntryKind.Directory
+        && fileSystem.GetEntryKind(ParentDirectoryOf(location)) == ContentEntryKind.Directory;
+
+    // The span overload of GetDirectoryName keeps the path spelled as the seam spelled it; the
+    // string overload rewrites every separator on Windows, and the seam compares ordinally.
+    private static string ParentDirectoryOf(string location)
+    {
+        ReadOnlySpan<char> parent = Path.GetDirectoryName(location.AsSpan());
+        return parent.IsEmpty ? location : parent.ToString();
+    }
+
+    private async Task<bool> CopyWithinUploadLimitAsync(Stream source, Stream destination, CancellationToken cancellationToken)
+    {
+        long limit = ExposureOptions.MaxUploadBytes;
+        byte[] buffer = new byte[CopyBufferSize];
+        long received = 0;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            int wanted = limit == 0 ? buffer.Length : (int)Math.Min(buffer.Length, limit - received + 1);
+            int read = await source.ReadAsync(buffer.AsMemory(0, wanted), cancellationToken);
+            if (read == 0)
+            {
+                return true;
+            }
+
+            received += read;
+            if (limit != 0 && received > limit)
+            {
+                return false;
+            }
+
+            await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        }
+    }
+
+    private ContentEntryKind CurrentEntryKind(ContentPathMapping mapping, string location) =>
+        mapping.IsAnsweredAsAbsent ? ContentEntryKind.None : fileSystem.GetEntryKind(location);
+
+    private bool IsHiddenByExposureOptions(string[] segments, string resolved, string unresolved) =>
+        (!ExposureOptions.ServeDotFiles && Array.Exists(segments, IsDotFileName))
+        || (!ExposureOptions.FollowSymbolicLinks && !IsSamePath(resolved, unresolved));
+
+    private bool IsEntryHiddenByExposureOptions(string name, string resolved, string unresolved) =>
+        (!ExposureOptions.ServeDotFiles && IsDotFileName(name))
+        || (!ExposureOptions.FollowSymbolicLinks && !IsSamePath(resolved, unresolved));
+
+    private static bool IsDotFileName(string name) => name.StartsWith('.');
+
+    private static bool IsSamePath(string left, string right) =>
+        string.Equals(Path.TrimEndingDirectorySeparator(left), Path.TrimEndingDirectorySeparator(right), StringComparison.Ordinal);
+
     private ContentDirectoryEntry? DescribeDirectoryEntry(string directory, string name, string resolvedRoot)
     {
         if (RequestPathSegments.CheckSegment(name) != ContentPathRefusal.None)
@@ -229,8 +404,9 @@ public sealed class ContentStore
             return null;
         }
 
-        string resolved = fileSystem.ResolveFinalPath(Path.Join(directory, name));
-        if (!IsInsideOrAt(resolved, resolvedRoot))
+        string unresolved = Path.Join(directory, name);
+        string resolved = fileSystem.ResolveFinalPath(unresolved);
+        if (!IsInsideOrAt(resolved, resolvedRoot) || IsEntryHiddenByExposureOptions(name, resolved, unresolved))
         {
             return null;
         }

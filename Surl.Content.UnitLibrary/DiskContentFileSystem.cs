@@ -106,4 +106,27 @@ public sealed class DiskContentFileSystem : IContentFileSystem
         new DirectoryInfo(path)
             .EnumerateFileSystemInfos("*", new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = true })
             .Select(entry => entry.Name);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The file is shared with nobody while it is written, so no reader sees half an upload
+    /// through Surl's own seam.
+    /// </remarks>
+    // Excluded from coverage: it creates a file on disk, and the fast tests run without one by
+    // design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public Stream CreateFileForAsyncWrite(string path) =>
+        new FileStream(
+            path,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            FileStreamBufferSize,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+    /// <inheritdoc/>
+    // Excluded from coverage: it deletes a file on disk, and the fast tests run without one by
+    // design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public void DeleteFile(string path) => File.Delete(path);
 }

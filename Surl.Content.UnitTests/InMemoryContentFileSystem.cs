@@ -12,6 +12,27 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
     private readonly Dictionary<string, string> symbolicLinks = new(StringComparer.Ordinal);
     private readonly Dictionary<string, byte[]> fileContents = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> lastWriteTimes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, MemoryStream> writtenFiles = new(StringComparer.Ordinal);
+
+    public Stream CreateFileForAsyncWrite(string path)
+    {
+        Calls.Add($"{nameof(CreateFileForAsyncWrite)}({path})");
+        var written = new MemoryStream();
+        entries[path] = ContentEntryKind.File;
+        fileContents.Remove(path);
+        writtenFiles[path] = written;
+        return written;
+    }
+
+    public void DeleteFile(string path)
+    {
+        Calls.Add($"{nameof(DeleteFile)}({path})");
+        entries.Remove(path);
+        fileContents.Remove(path);
+        writtenFiles.Remove(path);
+    }
+
+    public byte[] ReadWrittenFile(string path) => writtenFiles[path].ToArray();
 
     public List<string> Calls { get; } = [];
 
@@ -40,7 +61,9 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
     public Stream OpenFileForAsyncRead(string path)
     {
         Calls.Add($"{nameof(OpenFileForAsyncRead)}({path})");
-        return new MemoryStream(fileContents[path], writable: false);
+        return fileContents.TryGetValue(path, out byte[]? contents)
+            ? new MemoryStream(contents, writable: false)
+            : throw new FileNotFoundException("No file in the fake.", path);
     }
 
     public InMemoryContentFileSystem AddDirectory(string path) => AddDirectory(path, DateTimeOffset.UnixEpoch);
