@@ -8,7 +8,7 @@ depends-on: [BL-107]
 touches: [Surl.Output.UnitLibrary, Surl.Output.UnitTests]
 requirement: FR-013
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-126 — Remove the unused VerboseExchangeLogFactory from Surl.Output
 
@@ -29,16 +29,20 @@ ADRs are history. Mentions in `Documentation/Planning/Decisions/ADR-0028-…` an
 
 ## Acceptance criteria
 
-- [ ] `Surl.Output.UnitLibrary/VerboseExchangeLogFactory.cs` and `Surl.Output.UnitTests/VerboseExchangeLogFactoryTests.cs` no longer exist.
-- [ ] Searching the repository for `VerboseExchangeLogFactory` finds nothing in any `.cs`, `.csproj`, `CLAUDE.md`, `README.md` or `Documentation/Wiki` file. Matches remain only in `Documentation/Planning/Decisions/` ADRs and in task files.
-- [ ] No doc comment in `Surl.Output.UnitLibrary` (including the `<see cref>`s in `LevelledExchangeLogFactory.cs` and `VerboseExchangeLog.cs`), and neither `Surl.Output.UnitLibrary/CLAUDE.md` nor `Surl.Output.UnitTests/CLAUDE.md` if present, describes the factory as live code.
-- [ ] `dotnet build Surl.Output.UnitLibrary -warnaserror` and `dotnet build Surl.Output.UnitTests -warnaserror` are clean.
-- [ ] `dotnet test --filter "TestCategory!=Integration"` passes, and no test needs `TestCategory=Integration`.
-- [ ] Surl.Output.UnitLibrary is still at 100% line and 100% branch coverage, measured by `Measure-CodeQuality.ps1`.
+- [x] `Surl.Output.UnitLibrary/VerboseExchangeLogFactory.cs` and `Surl.Output.UnitTests/VerboseExchangeLogFactoryTests.cs` no longer exist.
+- [x] Searching the repository for `VerboseExchangeLogFactory` finds nothing in any `.cs`, `.csproj`, `CLAUDE.md`, `README.md` or `Documentation/Wiki` file. Matches remain only in `Documentation/Planning/Decisions/` ADRs and in task files.
+- [x] No doc comment in `Surl.Output.UnitLibrary` (including the `<see cref>`s in `LevelledExchangeLogFactory.cs` and `VerboseExchangeLog.cs`), and neither `Surl.Output.UnitLibrary/CLAUDE.md` nor `Surl.Output.UnitTests/CLAUDE.md` if present, describes the factory as live code.
+- [x] `dotnet build Surl.Output.UnitLibrary -warnaserror` and `dotnet build Surl.Output.UnitTests -warnaserror` are clean.
+- [x] `dotnet test --filter "TestCategory!=Integration"` passes, and no test needs `TestCategory=Integration`.
+- [x] Surl.Output.UnitLibrary is still at 100% line and 100% branch coverage, measured by `Measure-CodeQuality.ps1`.
 
 ## Notes
+
+- Every case in the deleted `VerboseExchangeLogFactoryTests` that the scripted-exchange tests in `LevelledExchangeLogFactoryTests` did not already pin was moved there at `LogLevel.Verbose` (head lines, status line, trailing bytes, escaping, empty input, 1024-byte split, outside-exchange control bytes, null remote end point at None and Verbose, and the no-interleaving check). `Verbose_ScriptedExchanges_WritesEveryEventAsTheVerboseLogDoes` became `Verbose_ScriptedExchanges_WritesEveryEvent`: it now checks only the literal lines.
+- Measured: Surl.Output.UnitLibrary 100% line, 100% branch, 0 failing members; Surl.Output.UnitTests 95 tests passing.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. VerboseExchangeLogFactory is gone; LevelledExchangeLogFactory and TraceExchangeLogFactory are the only exchange log factories, with its live cases moved to LevelledExchangeLogFactoryTests

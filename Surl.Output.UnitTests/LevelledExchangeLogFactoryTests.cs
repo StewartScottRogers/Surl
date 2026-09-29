@@ -79,13 +79,7 @@ public sealed class LevelledExchangeLogFactoryTests
             WrittenAt(LogLevel.Info));
 
     [TestMethod]
-    public void Verbose_ScriptedExchanges_WritesEveryEventAsTheVerboseLogDoes()
-    {
-        using var expectedWriter = new StringWriter();
-        ScriptExchanges(new VerboseExchangeLogFactory(expectedWriter, verbose: true));
-        var verboseLog = expectedWriter.ToString();
-
-        Assert.AreEqual(verboseLog, WrittenAt(LogLevel.Verbose));
+    public void Verbose_ScriptedExchanges_WritesEveryEvent() =>
         Assert.AreEqual(
             Lines(
                 "#1 * Exchange 1 opened: https from 127.0.0.1:50000.",
@@ -104,7 +98,147 @@ public sealed class LevelledExchangeLogFactoryTests
                 "#8 * TLS handshake failed: bad record",
                 "#8 * Exchange 8 ended because the protocol server threw InvalidOperationException: boom",
                 "#- * " + Refused),
-            verboseLog);
+            WrittenAt(LogLevel.Verbose));
+
+    [TestMethod]
+    public void Verbose_BytesReceivedRequestHead_WritesOneReceivedLinePerHeadLine()
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, LogLevel.Verbose).Create(1, Remote);
+
+        log.BytesReceived("GET / HTTP/1.1\r\nHost: 127.0.0.1:8080\r\n\r\n"u8);
+
+        Assert.AreEqual(
+            Lines("#1 < GET / HTTP/1.1\\r\\n", "#1 < Host: 127.0.0.1:8080\\r\\n", "#1 < \\r\\n"),
+            writer.ToString());
+    }
+
+    [TestMethod]
+    public void Verbose_BytesSentStatusLine_WritesGreaterThanLine()
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, LogLevel.Verbose).Create(12, Remote);
+
+        log.BytesSent("HTTP/1.1 200 OK\r\n"u8);
+
+        Assert.AreEqual(Lines("#12 > HTTP/1.1 200 OK\\r\\n"), writer.ToString());
+    }
+
+    [TestMethod]
+    public void Verbose_BytesSentTrailingBytesWithoutLineFeed_EndTheLastLine()
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, LogLevel.Verbose).Create(1, Remote);
+
+        log.BytesSent("a\nbc"u8);
+
+        Assert.AreEqual(Lines("#1 > a\\n", "#1 > bc"), writer.ToString());
+    }
+
+    [TestMethod]
+    public void Verbose_NoteOutsideExchangeControlBytes_AreEscapedLikeAnyNote()
+    {
+        using var writer = new StringWriter();
+
+        Factory(writer, LogLevel.Verbose).NoteOutsideExchange("a\r\nb");
+
+        Assert.AreEqual(Lines("#- * a\\r\\nb"), writer.ToString());
+    }
+
+    [TestMethod]
+    public void Verbose_NoteWithCrLfBackslashAndNonAscii_IsOneEscapedLine()
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, LogLevel.Verbose).Create(1, Remote);
+
+        log.Note("C:\\a\r\nb\u00E9\u001B");
+
+        Assert.AreEqual(Lines("#1 * C:\\x5Ca\\r\\nb\\xC3\\xA9\\x1B"), writer.ToString());
+    }
+
+    [TestMethod]
+    public void Verbose_BytesReceivedCrAndNonPrintableByte_AreEscaped()
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, LogLevel.Verbose).Create(1, Remote);
+
+        log.BytesReceived([(byte)'a', (byte)'\r', 0x00, 0x1B, (byte)'[', 0x7F, 0xFF, (byte)'\\']);
+
+        Assert.AreEqual(Lines("#1 < a\\r\\x00\\x1B[\\x7F\\xFF\\x5C"), writer.ToString());
+    }
+
+    [TestMethod]
+    public void Verbose_BytesReceivedEmpty_WritesNothing()
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, LogLevel.Verbose).Create(1, Remote);
+
+        log.BytesReceived([]);
+
+        Assert.AreEqual(string.Empty, writer.ToString());
+    }
+
+    [TestMethod]
+    public void Verbose_BytesReceivedMoreThan1024BytesWithoutLineFeed_SplitsEvery1024Bytes()
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, LogLevel.Verbose).Create(1, Remote);
+        var bytes = Enumerable.Repeat((byte)'a', 2049).ToArray();
+
+        log.BytesReceived(bytes);
+
+        Assert.AreEqual(
+            Lines("#1 < " + new string('a', 1024), "#1 < " + new string('a', 1024), "#1 < a"),
+            writer.ToString());
+    }
+
+    [TestMethod]
+    public void Verbose_BytesReceivedLineFeedAtByte1024_EndsTheLineThere()
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, LogLevel.Verbose).Create(1, Remote);
+        var bytes = Enumerable.Repeat((byte)'a', 1023).Append((byte)'\n').Append((byte)'b').ToArray();
+
+        log.BytesReceived(bytes);
+
+        Assert.AreEqual(Lines("#1 < " + new string('a', 1023) + "\\n", "#1 < b"), writer.ToString());
+    }
+
+    [TestMethod]
+    [DataRow(LogLevel.None)]
+    [DataRow(LogLevel.Verbose)]
+    public void Create_NullRemoteEndPoint_Throws(LogLevel level) =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => Factory(TextWriter.Null, level).Create(1, null!));
+
+    [TestMethod]
+    public async Task Verbose_ConcurrentExchanges_NeverInterleaveWithinALine()
+    {
+        const int exchanges = 16;
+        const int eventsPerExchange = 200;
+        var writer = new CharByCharWriter();
+        var factory = Factory(writer, LogLevel.Verbose);
+
+        await Task.WhenAll(Enumerable.Range(1, exchanges).Select(id => Task.Run(() =>
+        {
+            var log = factory.Create(id, Remote);
+            for (var i = 0; i < eventsPerExchange; i++)
+            {
+                log.BytesReceived("GET / HTTP/1.1\r\nHost: h\r\n"u8);
+                log.Note("note " + id);
+            }
+        })));
+
+        var lines = writer.ToString().Split(Environment.NewLine);
+        Assert.AreEqual(string.Empty, lines[^1]);
+        var written = lines[..^1];
+        Assert.HasCount(exchanges * eventsPerExchange * 3, written);
+        foreach (var line in written)
+        {
+            var id = line[1..line.IndexOf(' ', StringComparison.Ordinal)];
+            var rest = line[(id.Length + 2)..];
+            var allowed = new[] { "< GET / HTTP/1.1\\r\\n", "< Host: h\\r\\n", "* note " + id };
+            CollectionAssert.Contains(allowed, rest, $"Interleaved line: {line}");
+        }
     }
 
     [TestMethod]

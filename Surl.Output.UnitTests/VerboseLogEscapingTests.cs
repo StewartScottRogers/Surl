@@ -53,7 +53,7 @@ public sealed class VerboseLogEscapingTests
     public void Note_WithEscAndNonAsciiCharacter_IsWrittenEscaped()
     {
         using var writer = new StringWriter();
-        var log = new VerboseExchangeLogFactory(writer, verbose: true).Create(7, Remote);
+        var log = new LevelledExchangeLogFactory(writer, LogLevel.Verbose, stampTimes: false, TimeProvider.System).Create(7, Remote);
 
         log.Note("path \u001B[31m/caf\u00E9");
 
@@ -70,8 +70,8 @@ public sealed class VerboseLogEscapingTests
         using var receivedWriter = new StringWriter();
         using var sentWriter = new StringWriter();
 
-        new VerboseExchangeLogFactory(receivedWriter, verbose: true).Create(1, Remote).BytesReceived(everyByteWithoutLineFeed);
-        new VerboseExchangeLogFactory(sentWriter, verbose: true).Create(1, Remote).BytesSent(everyByteWithoutLineFeed);
+        new LevelledExchangeLogFactory(receivedWriter, LogLevel.Verbose, stampTimes: false, TimeProvider.System).Create(1, Remote).BytesReceived(everyByteWithoutLineFeed);
+        new LevelledExchangeLogFactory(sentWriter, LogLevel.Verbose, stampTimes: false, TimeProvider.System).Create(1, Remote).BytesSent(everyByteWithoutLineFeed);
 
         var expected = ExchangeLogEscaping.Escape(everyByteWithoutLineFeed) + Environment.NewLine;
         Assert.AreEqual("#1 < " + expected, receivedWriter.ToString());
