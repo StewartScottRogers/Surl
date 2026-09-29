@@ -71,3 +71,4 @@ BL-033's recordings predict.
 - 2026-09-28: Backlog -> Doing.
 - 2026-09-28: Pinned upstream curl disagrees on `match-hel`; filed BL-081 to fix it in Surl.Protocol.Dict.
 - 2026-09-28: Doing -> Backlog. Waits on BL-081: pinned upstream curl gets 552 for match-hel because Surl.Protocol.Dict's MATCH is gated by --list-directories
+- 2026-09-29: Backlog -> Doing.
