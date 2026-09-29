@@ -13,6 +13,10 @@ Only builds pinned in `UpstreamCurlBuilds.json` run here, never the Curl port (A
 `UpstreamCurlBuildPins.Parse` reads the pin file and `UpstreamCurlLocator` finds the
 pinned build for a platform and role, or refuses any curl whose SHA-256 is not pinned.
 Get every curl you run through it.
+`UpstreamCurlRunner` takes the locator's `UpstreamCurlLocation` - never a path - so the
+only curl it starts is a verified pin; it passes arguments through
+`ProcessStartInfo.ArgumentList`, closes stdin, and returns an `UpstreamCurlRunResult`
+(exit code, stdout bytes, stderr text), killing curl at its timeout.
 Parsing and matching are unit tested with no process and no network; a test that starts
 upstream curl is `[TestCategory("Integration")]`. Upstream test data copied into this
 repository keeps curl's `COPYING` notice beside it.
