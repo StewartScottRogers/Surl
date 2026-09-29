@@ -52,3 +52,4 @@ beside it. Composition (opening the file, `-` for stdout) is BL-107.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
