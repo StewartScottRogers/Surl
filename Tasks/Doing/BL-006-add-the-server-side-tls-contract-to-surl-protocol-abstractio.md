@@ -69,3 +69,4 @@ ask for an upgrade, without referencing `SslStream`.
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
 - 2026-09-28: Doing -> Backlog. Needs Surl.Networking.UnitLibrary (StreamConnection implements IConnection), which BL-055 in Doing touches
+- 2026-09-28: Backlog -> Doing.
