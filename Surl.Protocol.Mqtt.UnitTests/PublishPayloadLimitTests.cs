@@ -18,7 +18,7 @@ public sealed class PublishPayloadLimitTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("publish-payload-over-the-limit")));
 
-        await new MqttProtocolServer(retained).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, UploadLimit(200), log));
+        await new MqttProtocolServer(retained, new AnonymousAuthenticationPolicy()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, UploadLimit(200), log));
 
         CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("publish-payload-over-the-limit"), connection.WrittenBytes);
         Assert.IsFalse(connection.Aborted);
@@ -43,7 +43,7 @@ public sealed class PublishPayloadLimitTests
             [connect, .. RecordedFixture.OneBytePerRead(publish)],
             peerHalfClosesWhenExhausted: false));
 
-        await new MqttProtocolServer(new MqttRetainedMessages()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, UploadLimit(200), log));
+        await new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, UploadLimit(200), log));
 
         // The fixed header (0x30, a two-byte remaining length) and the topic name's two-byte length.
         Assert.AreEqual(connect.Length + 3 + 2, connection.BytesRead);
@@ -110,7 +110,7 @@ public sealed class PublishPayloadLimitTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([ClientPackets.CurlConnect(), publish]);
 
-        await new MqttProtocolServer(retained).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, limits, log));
+        await new MqttProtocolServer(retained, new AnonymousAuthenticationPolicy()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, limits, log));
 
         CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes[..ConnackAccepted.Length]);
         return log;

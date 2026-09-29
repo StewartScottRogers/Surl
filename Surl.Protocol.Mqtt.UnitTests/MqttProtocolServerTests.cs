@@ -23,13 +23,13 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public void Constructor_NullRetainedMessages_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new MqttProtocolServer(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new MqttProtocolServer(null!, new AnonymousAuthenticationPolicy()));
     }
 
     [TestMethod]
     public void Schemes_AreMqttThenMqtts()
     {
-        var server = new MqttProtocolServer(new MqttRetainedMessages());
+        var server = new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy());
 
         CollectionAssert.AreEqual(new[] { "mqtt", "mqtts" }, server.Schemes.ToArray());
     }
@@ -37,7 +37,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {
-        var server = new MqttProtocolServer(new MqttRetainedMessages());
+        var server = new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy());
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(null!, Context(new RecordingExchangeLog())));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(new InMemoryConnection([]), null!));
@@ -785,7 +785,7 @@ public sealed class MqttProtocolServerTests
         TlsSession? tlsSession = null,
         IAuthenticationPolicy? policy = null)
     {
-        var server = policy is null ? new MqttProtocolServer(retained) : new MqttProtocolServer(retained, policy);
+        var server = new MqttProtocolServer(retained, policy ?? new AnonymousAuthenticationPolicy());
         var connection = new InMemoryConnection(chunks, initialTlsSession: tlsSession);
         var log = new RecordingExchangeLog();
         var context = Context(log, TestContext.CancellationToken, listenUrl) with { Limits = limits ?? ExchangeLimits.Default };

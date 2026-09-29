@@ -76,17 +76,6 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer
 
     /// <summary>
     /// Creates an MQTT server that keeps published messages in <paramref name="retainedMessages"/>
-    /// and accepts every login, as <see cref="AnonymousAuthenticationPolicy"/> does. It stands
-    /// until BL-117 composes <c>surl</c> with the real policy (ADR-0032, section 6).
-    /// </summary>
-    /// <param name="retainedMessages">The messages publishes keep and subscribes receive.</param>
-    public MqttProtocolServer(MqttRetainedMessages retainedMessages)
-        : this(retainedMessages, new AnonymousAuthenticationPolicy())
-    {
-    }
-
-    /// <summary>
-    /// Creates an MQTT server that keeps published messages in <paramref name="retainedMessages"/>
     /// and asks <paramref name="authenticationPolicy"/> whether to accept each <c>CONNECT</c>'s
     /// user name and password (ADR-0032, decision 5).
     /// </summary>

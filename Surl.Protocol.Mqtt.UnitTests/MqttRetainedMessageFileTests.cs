@@ -351,7 +351,7 @@ public sealed class MqttRetainedMessageFileTests
     public async Task ServeAsync_PublishToAPersistedStore_WritesTheFile()
     {
         var fileSystem = NewFileSystem();
-        var server = new MqttProtocolServer(await LoadAsync(fileSystem));
+        var server = new MqttProtocolServer(await LoadAsync(fileSystem), new AnonymousAuthenticationPolicy());
 
         var (connection, _) = await ServePublishAsync(server);
 
@@ -385,7 +385,7 @@ public sealed class MqttRetainedMessageFileTests
         var fileSystem = new UnitTestThrowingContentFileSystem(ContentEntryKind.None, failure);
         var retained = await MqttRetainedMessages.LoadAsync(new MqttRetainedMessageFile(fileSystem, StateFolder), cancellationToken: TestContext.CancellationToken);
 
-        var (connection, log) = await ServePublishAsync(new MqttProtocolServer(retained));
+        var (connection, log) = await ServePublishAsync(new MqttProtocolServer(retained, new AnonymousAuthenticationPolicy()));
 
         CollectionAssert.AreEqual(PublishAcknowledged, connection.WrittenBytes);
         Assert.AreEqual("hi", Encoding.ASCII.GetString(retained.MatchingAny(["t"]).Single().Value));
