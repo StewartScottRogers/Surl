@@ -18,11 +18,11 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 | Term | Meaning | Name in code |
 | --- | --- | --- |
 | mate | The server that answers a given curl request. Surl is curl's mate. | — |
-| listen URL | A URL given to `surl`: its scheme picks the protocol server, its host and port the bind address. | not yet |
-| protocol server | The library that answers one protocol family, secure variants included: `Surl.Protocol.<Name>.UnitLibrary`. | not yet |
+| listen URL | A URL given to `surl`: its scheme picks the protocol server, its host and port the bind address. | `ListenUrl` (ADR-0004) |
+| protocol server | The library that answers one protocol family, secure variants included: `Surl.Protocol.<Name>.UnitLibrary`. | `IProtocolServer`, implemented through `IConnectionProtocolServer` or `IDatagramProtocolServer` (ADR-0004) |
 | horizontal library | A library a protocol server may reference besides Abstractions, listed in ADR-0002's table. | `HorizontalLibraries` in `ProtocolIsolationTests` |
 | content store | The directory tree a Surl server publishes, and the rules that map request paths onto it without escaping it. | `Surl.Content.UnitLibrary` |
-| exchange | One conversation between upstream curl and Surl, over one connection or one datagram flow, from accept to close. | not yet |
+| exchange | One conversation between upstream curl and Surl, over one connection or one datagram flow, from accept to close. One `ServeAsync` call. | `ExchangeContext` (ADR-0004) |
 
 ## Building and testing
 

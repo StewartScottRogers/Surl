@@ -22,3 +22,4 @@ made, a Surl ADR says so and gives its own reasons.
 | [0001](ADR-0001-adopt-slnx-and-shared-projects.md) | Adopt the `.slnx` solution format and shared projects for documentation, the task board and the Claude configuration | Accepted | 2026-09-28 |
 | [0002](ADR-0002-mirror-the-curl-ports-project-map.md) | Mirror the Curl port's project map, with `Surl.Content` in place of a file protocol library | Accepted | 2026-09-28 |
 | [0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) | Upstream curl is Surl's only oracle; the Curl port is measured against Surl last | Accepted | 2026-09-28 |
+| [0004](ADR-0004-the-listener-seam-and-the-exchange-context.md) | The listener seam and the exchange context: how a protocol server receives its transport and what it is told about each exchange | Accepted | 2026-09-28 |

@@ -144,8 +144,14 @@ connection (or a datagram channel, for TFTP) from a listener seam; it never cons
 request bytes measured from pinned upstream curl through a fake connection, with no
 network. Only `Surl.Networking` constructs those types.
 
-> **TODO** The shape of the listener seam, the server-side TLS contract and the exchange
-> context are the first decisions of Phase 1, each recorded in an ADR.
+The listener seam and the exchange context are decided in
+[ADR-0004](../Planning/Decisions/ADR-0004-the-listener-seam-and-the-exchange-context.md):
+a protocol server implements `IConnectionProtocolServer` (or `IDatagramProtocolServer`
+for TFTP), receives an `IConnection` (or an `IDatagramFlow`) and an `ExchangeContext`,
+and its tests replay byte scripts through `InMemoryConnection`.
+
+> **TODO** The server-side TLS contract is a first decision of Phase 1, to be recorded in
+> an ADR (BL-002).
 
 TLS on the server side uses the base class library's `SslStream`. What the BCL has no
 primitive for on some platform - QUIC for HTTP/3, the SSH ciphers - is built by hand, each
