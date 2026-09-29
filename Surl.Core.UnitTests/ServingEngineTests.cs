@@ -5,7 +5,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Core;
 
 [TestClass]
-public sealed class ServingEngineTests
+public sealed partial class ServingEngineTests
 {
     private static readonly TimeSpan GracePeriod = TimeSpan.FromSeconds(5);
     private static readonly ListenUrl Http = new("http", "127.0.0.1", 8080);
@@ -248,7 +248,7 @@ public sealed class ServingEngineTests
         var serving = engine.ServeAsync([Http], stop.Token);
 
         factory.ListenerFor(Http).Connect(connection);
-        await WaitUntilDisposedAsync(connection);
+        await InMemoryConnectionWaits.WaitUntilDisposedAsync(connection);
         await stop.CancelAsync();
 
         Assert.AreEqual(SurlExitCode.Ok, await serving.WaitAsync(Patience.Timeout));
@@ -479,21 +479,9 @@ public sealed class ServingEngineTests
         CollectionAssert.AreEqual(new[] { "BytesReceived:ping", "BytesSent:pong" }, bytes);
     }
 
-    // The engine disposes a connection once its exchange ends; with no server call to await,
-    // polling the flag is the only signal a test has.
-    private static async Task WaitUntilDisposedAsync(InMemoryConnection connection)
-    {
-        var deadline = DateTime.UtcNow + Patience.Timeout;
-
-        while (!connection.Disposed && DateTime.UtcNow < deadline)
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(1));
-        }
-
-        Assert.IsTrue(connection.Disposed);
-    }
-
+    // No connection limits, so the shutdown grace period's timer is the only one created;
+    // ServingEngineTests.Limits.cs covers the limits.
     private static ServingEngine CreateEngine(
         FakeListenerFactory factory, TimeProvider time, FakeExchangeLogFactory logs, params IProtocolServer[] servers) =>
-        new(factory, servers, logs, time, GracePeriod);
+        new(factory, servers, logs, time, GracePeriod, ConnectionLimits.None);
 }
