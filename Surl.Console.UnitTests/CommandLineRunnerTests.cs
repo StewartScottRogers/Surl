@@ -2,6 +2,7 @@ using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Surl.Cli;
+using Surl.Content;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;
@@ -198,6 +199,65 @@ public sealed class CommandLineRunnerTests
 
         Assert.AreEqual("(45) Could not bind http://[::1]:8080/: Bind failed", CommandLineRunner.FormatBindFailure(bindFailure));
     }
+
+    [TestMethod]
+    public void ComposeContentStore_NoExposureOption_ServesWithAdr0006Defaults()
+    {
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("http://127.0.0.1:0/"));
+
+        Assert.AreEqual(new ContentExposureOptions(), store.ExposureOptions);
+    }
+
+    [TestMethod]
+    public void ComposeContentStore_AllowUploads_ReachesTheStore()
+    {
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--allow-uploads", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(new ContentExposureOptions { AllowUploads = true }, store.ExposureOptions);
+    }
+
+    [TestMethod]
+    public void ComposeContentStore_ListDirectories_ReachesTheStore()
+    {
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--list-directories", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(new ContentExposureOptions { ListDirectories = true }, store.ExposureOptions);
+    }
+
+    [TestMethod]
+    public void ComposeContentStore_FollowSymlinks_ReachesTheStore()
+    {
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--follow-symlinks", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(new ContentExposureOptions { FollowSymbolicLinks = true }, store.ExposureOptions);
+    }
+
+    [TestMethod]
+    public void ComposeContentStore_ServeDotFiles_ReachesTheStore()
+    {
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--serve-dot-files", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(new ContentExposureOptions { ServeDotFiles = true }, store.ExposureOptions);
+    }
+
+    [TestMethod]
+    public void ComposeContentStore_MaxFilesize_ReachesTheStore()
+    {
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--max-filesize", "4096", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(new ContentExposureOptions { MaxUploadBytes = 4096 }, store.ExposureOptions);
+    }
+
+    [TestMethod]
+    public void ComposeContentStore_ServedDirectory_ServesItsFullPath()
+    {
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--directory", "served", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(Path.GetFullPath("served"), store.ServedRoot);
+    }
+
+    private static SurlCommandLine ParseServing(params string[] args) =>
+        CommandLineParser.Parse(args).CommandLine ?? throw new AssertFailedException("The command line was refused.");
 
     private static bool AnyDirectoryOpens(string path) => true;
 

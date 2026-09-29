@@ -106,15 +106,33 @@ internal sealed class CommandLineRunner(
             .GetCustomAttributes<AssemblyInformationalVersionAttribute>()
             .Select(attribute => attribute.InformationalVersion)
             .FirstOrDefault();
-        var servers = ComposeProtocolServers(Path.GetFullPath("."));
+        var servers = ComposeProtocolServers(ComposeContentStore(new SurlCommandLine()));
 
         return VersionText.Compose(
             informationalVersion, RuntimeInformation.RuntimeIdentifier, servers.SelectMany(server => server.Schemes));
     }
 
+    /// <summary>
+    /// Builds the one content store every protocol server reads: the served directory as a full
+    /// path, on disk, exposing what the command line's exposure options allow (ADR-0006).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <returns>The content store.</returns>
+    internal static ContentStore ComposeContentStore(SurlCommandLine commandLine) =>
+        new(Path.GetFullPath(commandLine.ServedDirectory), new DiskContentFileSystem(), MapExposureOptions(commandLine));
+
+    private static ContentExposureOptions MapExposureOptions(SurlCommandLine commandLine) => new()
+    {
+        AllowUploads = commandLine.AllowUploads,
+        ListDirectories = commandLine.ListDirectories,
+        FollowSymbolicLinks = commandLine.FollowSymlinks,
+        ServeDotFiles = commandLine.ServeDotFiles,
+        MaxUploadBytes = commandLine.MaxUploadBytes,
+    };
+
     // Every protocol server surl registers, each serving the one content store.
-    private static IProtocolServer[] ComposeProtocolServers(string servedRoot) =>
-        [new HttpProtocolServer(new ContentStore(servedRoot, new DiskContentFileSystem()))];
+    private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore) =>
+        [new HttpProtocolServer(contentStore)];
 
     private static string? FindUnregisteredScheme(IReadOnlyList<ListenUrl> listenUrls, IProtocolServer[] servers)
     {
@@ -135,7 +153,7 @@ internal sealed class CommandLineRunner(
                 error, SurlExitCode.CouldNotReadFile, $"(37) Could not open directory {commandLine.ServedDirectory}");
         }
 
-        var servers = ComposeProtocolServers(Path.GetFullPath(commandLine.ServedDirectory));
+        var servers = ComposeProtocolServers(ComposeContentStore(commandLine));
         if (FindUnregisteredScheme(commandLine.ListenUrls, servers) is { } scheme)
         {
             return WriteFailure(error, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
