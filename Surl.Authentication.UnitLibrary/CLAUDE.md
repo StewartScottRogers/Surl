@@ -2,14 +2,21 @@
 
 Phase 1.
 
-The server side of every authentication scheme upstream curl can send: issues the
-challenge (`WWW-Authenticate`, `Proxy-Authenticate`) and verifies the answer for Basic,
-Digest, NTLM, Negotiate (SPNEGO and Kerberos), Bearer and AWS Signature Version 4, and for
-the SASL mechanisms curl uses with the mail protocols. Anything time-dependent (nonces,
-signature windows) takes an injected `TimeProvider`.
+The server side of the authentication schemes upstream curl sends, secure by default
+(ADR-0032): the accounts, the policy that judges every login, and each HTTP method's
+challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,
+Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, and the password check the
+MQTT `CONNECT` asks for. Not here yet: Kerberos inside Negotiate (ADR-0032 decision 11,
+later work, built by hand), `Proxy-Authenticate`, and the logins of servers not yet built
+(FTP, the mail protocols' SASL mechanisms, SSH, SMB, LDAP). Anything time-dependent (the
+refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
+`TimeProvider`.
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary` and no protocol server.
-Protocol servers receive what it provides through the contracts in Abstractions.
+This library references `Surl.Protocol.Abstractions.UnitLibrary`, and
+`Surl.Cryptography.UnitLibrary` for MD4 and SHA-512/256 (ADR-0032 decision 7), and no
+protocol server. Protocol servers receive what it provides through the contracts in
+Abstractions (`IAuthenticationPolicy`); `Surl.Console`'s `AuthenticationComposition`
+builds the policy from the command line.
 
 ## What is here now (BL-110)
 
@@ -93,9 +100,8 @@ Protocol servers receive what it provides through the contracts in Abstractions.
 - An accepted NTLM login is remembered by the connection (ADR-0041, BL-133):
   `HttpAuthenticationSession` serves a later request on it without an `Authorization` as that
   account, with no login note, as upstream curl expects (`Fixtures/ntlm-two-urls`). Which
-  methods do this is `AuthenticationMethods.AuthenticatesConnection` - NTLM only, since
-  Negotiate's behaviour is not measured yet. A new NTLM handshake replaces the login: none
-  until it is accepted.
+  methods do this is `AuthenticationMethods.AuthenticatesConnection` - NTLM and Negotiate
+  (ADR-0044, BL-135). A new handshake replaces the login: none until it is accepted.
 - The handshake itself is `NtlmHandshake` (answering decoded messages with an
   `NtlmHandshakeStep`), shared by NTLM and Negotiate; `NtlmConnectionVerifier` only decodes the
   base64 (`Base64Credentials`) and writes `NTLM <base64>`.
@@ -116,8 +122,8 @@ Protocol servers receive what it provides through the contracts in Abstractions.
   built by hand, not a package.
 - The pinned Windows reference build sent no Negotiate token on the lane machine
   (`SEC_E_NO_CREDENTIALS`, `Fixtures/negotiate-no-token`), so the tests wrap the NTLM messages
-  recorded for BL-120 in SPNEGO (`SpnegoTestTokens`); composing it in `surl` and the end-to-end
-  proof are BL-134.
+  recorded for BL-120 in SPNEGO (`SpnegoTestTokens`). `surl` composes Negotiate, and the
+  end-to-end proof uses the unpatched 8.21.0 Windows build (ADR-0042, BL-134).
 
 ## AWS Signature Version 4 (BL-122)
 

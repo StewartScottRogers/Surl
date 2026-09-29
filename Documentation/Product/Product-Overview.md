@@ -2,7 +2,7 @@
 
 - **Status:** Draft. Written for the Phase 0 shell; the numbers below are measured, not
   estimated. Sections still awaiting a decision are marked `> **TODO**`.
-- **Last updated:** 2026-09-28
+- **Last updated:** 2026-09-29
 - **Measured against:** upstream curl 8.21.0 (released 2026-06-24), tag `curl-8_21_0` of
   https://github.com/curl/curl, and the builds pinned in `UpstreamCurlBuilds.json`
 
@@ -119,8 +119,17 @@ is decided in
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
 - **Authentication:** issuing the challenge and verifying the answer for every scheme
-  upstream curl sends - Basic, Digest, NTLM, Negotiate (SPNEGO and Kerberos), Bearer, AWS
-  Signature Version 4 - and the SASL mechanisms of the mail protocols.
+  upstream curl sends, secure by default
+  ([ADR-0032](../Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)):
+  with no account configured every login is refused, a password or token sent in clear
+  over an unencrypted connection is refused unchecked, and each of the four loosening
+  options (`--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--self-signed`)
+  warns on every start. Accounts come from `-u`/`--user` and `--user-file`. Built today:
+  HTTP Basic, Bearer, Digest (MD5, SHA-256 and SHA-512-256), NTLM (NTLMv2), Negotiate
+  carrying NTLM (bare or in SPNEGO) and AWS Signature Version 4, and the MQTT `CONNECT`
+  user name and password. In scope, not built yet: Kerberos inside Negotiate,
+  `Proxy-Authenticate` for the proxies, and the logins of the servers not yet built -
+  FTP, the SASL mechanisms of the mail protocols, SSH, SMB and LDAP.
 - **Proxies:** acting as the HTTP `CONNECT` proxy, HTTPS proxy and SOCKS4, SOCKS4a,
   SOCKS5 and SOCKS5h server that curl's proxy options talk to.
 - **TLS on the server side:** certificates and keys, client-certificate verification for
@@ -129,7 +138,15 @@ is decided in
   sends back.
 - **Scripted exchanges:** the server half of upstream curl's own test cases
   (`Surl.Conformance`), so curl's suite, not Surl's, decides what correct means.
-- **Seeing the exchange:** `-v`, `--trace` and `-w` style output from the server's side.
+- **Seeing the exchange:** curl-shaped output from the server's side
+  ([ADR-0033](../Planning/Decisions/ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md)).
+  Built today: five log levels - `none` (`-s`), `error` (`-s -S`), `info` (the default,
+  one line per exchange), `verbose` (`-v`) and `trace` (`--trace` and `--trace-ascii`
+  dumps in curl's layout) - with `--log-level`, `--trace-time` and an appended
+  `--log-file`; and curl-style help, `--help` with categories, `--help <option>` and
+  `--manual`
+  ([ADR-0034](../Planning/Decisions/ADR-0034-curl-style-help-categories-and-the-manual.md)).
+  In scope, not built yet: `-w` style output per exchange.
 
 The command-line surface - which of curl's option names carry a server-side meaning and
 what each does, how listen URLs are read, and the exact text surl prints - is decided in
@@ -171,7 +188,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and `Surl.Content` or `Surl.Cryptography` where needed |
-| Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions |
+| Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) |
 | Hand-built primitives | `Surl.Cryptography` | nothing |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
 | Upstream's test cases | `Surl.Conformance` | Abstractions |

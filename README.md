@@ -36,13 +36,24 @@ Its command line mirrors curl's. Where `curl [options] <url>` names what to fetc
 and port pick the bind address, and several URLs mean several listeners at once.
 
 ```
-surl https://0.0.0.0:8443/ --cert server.pem --key server.key
-curl https://localhost:8443/readme.md --cacert server.pem
+surl --directory site https://127.0.0.1:8443/ --cert server.pem --key server.key
+curl --cacert server.pem https://127.0.0.1:8443/hello.txt
 ```
 
-That is the intent. **Today `surl` answers** `http` and `https` (HTTP/1.1, `GET` and
+Here `site` is a directory holding `hello.txt`, and `server.pem` and `server.key` are a
+certificate for `127.0.0.1` and its private key. A secure listen URL needs a certificate:
+without `--cert`, surl ends with exit code 58 before it listens, unless `--self-signed`
+asks for a throwaway certificate that no client can verify, so curl must skip verification:
+
+```
+surl --directory site --self-signed https://127.0.0.1:8443/
+curl -k https://127.0.0.1:8443/hello.txt
+```
+
+The aim is every scheme upstream curl can request. **Today `surl` answers** `http` and `https` (HTTP/1.1, `GET` and
 `HEAD`), `dict`, `gopher` and `gophers`, `mqtt` and `mqtts`, `telnet` and `tftp`, until
 Ctrl+C; every other scheme is refused with exit code 1 until its server lands.
+`surl --version` lists the schemes a build serves.
 
 What it serves depends on `--directory` (ADR-0031):
 
@@ -56,6 +67,67 @@ What it serves depends on `--directory` (ADR-0031):
   at a time: a second one given the same path is refused with exit code 124.
 
 Uploads still need `--allow-uploads`, in memory too.
+
+## Logging in
+
+Surl is secure by default ([ADR-0032](Documentation/Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)).
+With no account configured, HTTP `GET` and `HEAD` need no login and every login is
+refused; once any account is configured, every HTTP request needs one. Every other HTTP
+method, and every MQTT `CONNECT`, needs one either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
+of the file `--user-file` names - one `user:password` per line, `#` lines skipped - which
+keeps the password out of the process list. An empty user name holds a Bearer token.
+Here `accounts.txt` holds the line `alice:s3cret`:
+
+```
+surl --directory site --user-file accounts.txt http://127.0.0.1:8080/
+curl --digest -u alice:s3cret http://127.0.0.1:8080/hello.txt
+```
+
+```
+surl --directory site --self-signed --user alice:s3cret https://127.0.0.1:8443/
+curl -k -u alice:s3cret https://127.0.0.1:8443/hello.txt
+```
+
+Surl checks HTTP Basic, Bearer, Digest (MD5, SHA-256 and SHA-512-256), NTLM, Negotiate
+carrying NTLM, and AWS Signature Version 4, and an MQTT `CONNECT`'s user name and
+password. A password or token sent in clear - Basic or Bearer over `http://`, an MQTT
+password over `mqtt://` - is refused without being checked (`403 Forbidden`, `CONNACK` 5).
+
+Four *loosening options* turn a secure default off for a test, and each writes a
+`surl: warning:` line on every start: `--allow-anonymous` (accept every request and login
+unchecked), `--allow-plaintext-auth` (check passwords sent in clear), `--auth <methods>`
+(the methods accepted, `basic,bearer,digest,aws-sigv4` by default; `ntlm` and `negotiate`
+only when named) and `--self-signed`. `surl --help testing` says what each loosens and why
+none is the default.
+
+## Logging
+
+Surl logs at one of five levels, as curl does
+([ADR-0033](Documentation/Planning/Decisions/ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md)):
+
+| Level | Selected by | What it writes |
+| --- | --- | --- |
+| `none` | `-s` | nothing, not even the `Listening on` lines or failure messages |
+| `error` | `-s -S` | the `surl: (N)` failure messages, and a protocol server's failures |
+| `info` | the default | the `Listening on` lines, the startup warnings, one line per exchange |
+| `verbose` | `-v` | a line for every exchange event: bytes received, bytes sent, notes |
+| `trace` | `--trace <file>`, `--trace-ascii <file>` | a dump of every byte to `<file>`, `-` for stdout |
+
+`--log-level <level>` picks a level by name, and the last level option given wins.
+`--trace-time` stamps each exchange log line with the time. The log goes to stderr, or is appended
+to the file `--log-file <file>` names; failure messages always go to stderr.
+
+```
+surl -v --trace-time --directory site http://127.0.0.1:8080/
+surl --trace-ascii - --directory site http://127.0.0.1:8080/
+surl --log-file surl.log --directory site http://127.0.0.1:8080/
+```
+
+`surl --help` lists the common options and the help categories, `surl --help all` every
+option, `surl --help <category>` one category (`surl --help logging`), and
+`surl --help <option>` one option (`surl --help --user`). `surl --manual` holds the longer
+text: a deployment checklist, the data directory, accounts, log levels, limits and exit
+codes.
 
 ## Upstream curl validates Surl; Surl later validates the Curl port
 
