@@ -48,3 +48,4 @@ and never waits without bound for a graceful close, even after a cancelled write
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-29: Backlog -> Doing.
