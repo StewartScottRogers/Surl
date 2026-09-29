@@ -101,7 +101,7 @@ Delivered (2026-09-28, dark factory lane 1):
   `custom-header` and `query-string` (both `GET /file.txt`) plus the new `get-file`.
 - Code review (code-reviewer agent): absolute-form targets (`http://host/path`) are now
   served by their path; the Host note is worded for both versions; the body stream is
-  disposed. Filed rather than widened: BL-059 (drain unread request bytes before a close,
+  disposed. Filed rather than widened: BL-061 (drain unread request bytes before a close,
   RFC 9112 section 9.6, and 400 for an invalid `Content-Length`) and BL-060 (answer
   file-system failures instead of letting the exception end the exchange). ADR-0006's
   head timeout and configurable head size wait on BL-046's `ExchangeLimits`.

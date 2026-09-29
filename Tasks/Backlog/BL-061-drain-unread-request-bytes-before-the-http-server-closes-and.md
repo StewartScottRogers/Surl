@@ -1,5 +1,5 @@
 ---
-id: BL-059
+id: BL-061
 title: Drain unread request bytes before the HTTP server closes, and refuse an invalid Content-Length
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-059 — Drain unread request bytes before the HTTP server closes, and refuse an invalid Content-Length
+# BL-061 — Drain unread request bytes before the HTTP server closes, and refuse an invalid Content-Length
 
 ## Goal
 
