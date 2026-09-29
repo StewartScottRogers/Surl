@@ -47,7 +47,7 @@ jobs:
       render: ${{ steps.decide.outputs.render }}
       fingerprint: ${{ steps.decide.outputs.fingerprint }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Decide whether to render
         id: decide
@@ -77,7 +77,7 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The runner's preinstalled SDK when it satisfies global.json; otherwise Microsoft's
       # install script fetches that exact SDK (no marketplace action).
@@ -163,7 +163,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
