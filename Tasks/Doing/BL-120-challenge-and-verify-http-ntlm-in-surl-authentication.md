@@ -63,3 +63,4 @@ and have the planner file the missing contract work).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
