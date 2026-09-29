@@ -51,3 +51,4 @@ Stewart answered on 2026-09-28, in the `/task-plan` session that filed BL-000 to
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
