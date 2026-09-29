@@ -10,7 +10,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help` and
   `--version`, checks the served directory (`ServedDirectoryProbe`) and every scheme
   against the registered protocol servers, then builds the content store, the protocol
-  servers (today `HttpProtocolServer` for `http` and `GopherProtocolServer` for `gopher`), the verbose exchange log and the serving
+  servers (today `HttpProtocolServer` for `http`, `GopherProtocolServer` for `gopher` and
+  `TelnetProtocolServer` for `telnet`), the verbose exchange log and the serving
   engine, and serves. It writes ADR-0007 section 5's texts and returns its exit codes.
 - `ListenerStartReporter` wraps the listener factory: it writes the status lines once the
   last listener has bound, and keeps a bind failure for the `(45)` or `(6)` message.
