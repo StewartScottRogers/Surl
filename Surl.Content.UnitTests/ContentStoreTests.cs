@@ -250,4 +250,207 @@ public sealed class ContentStoreTests
 
         Assert.ThrowsExactly<ArgumentNullException>(() => store.MapRequestPath(null!));
     }
+
+    [TestMethod]
+    [DataRow("/file.txt", ContentEntryKind.File)]
+    [DataRow("/dir", ContentEntryKind.Directory)]
+    [DataRow("/missing.txt", ContentEntryKind.None)]
+    public void GetEntryKind_MappedLocation_ReportsWhatIsThereNow(string requestPath, ContentEntryKind expected)
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddDirectory(Path.Join(Root, "dir"))
+            .AddFile(Path.Join(Root, "file.txt"));
+        var store = new ContentStore(Root, fileSystem);
+        ContentPathMapping mapping = store.MapRequestPath(requestPath);
+
+        ContentEntryKind kind = store.GetEntryKind(mapping);
+
+        Assert.AreEqual(expected, kind);
+    }
+
+    [TestMethod]
+    public void GetFileStatus_File_ReportsLengthAndUtcModificationTime()
+    {
+        var written = new DateTimeOffset(2026, 6, 24, 10, 30, 15, TimeSpan.FromHours(2));
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "file.txt"), new byte[1234], written);
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentFileStatus? status = store.GetFileStatus(store.MapRequestPath("/file.txt"));
+
+        Assert.IsNotNull(status);
+        Assert.AreEqual(1234L, status.Length);
+        Assert.AreEqual(written, status.LastModifiedUtc);
+        Assert.AreEqual(TimeSpan.Zero, status.LastModifiedUtc.Offset);
+    }
+
+    [TestMethod]
+    [DataRow("/dir")]
+    [DataRow("/missing.txt")]
+    public void GetFileStatus_DirectoryOrNothing_IsNull(string requestPath)
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddDirectory(Path.Join(Root, "dir"));
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentFileStatus? status = store.GetFileStatus(store.MapRequestPath(requestPath));
+
+        Assert.IsNull(status);
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_WholeFile_CopiesEveryByte()
+    {
+        byte[] contents = "Hello, Surl!"u8.ToArray();
+        ContentStore store = StoreWithFile(contents);
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        using var destination = new MemoryStream();
+
+        long copied = await store.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(contents.Length), destination, CancellationToken.None);
+
+        Assert.AreEqual(contents.LongLength, copied);
+        CollectionAssert.AreEqual(contents, destination.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_InclusiveRange_CopiesFirstThroughLast()
+    {
+        ContentStore store = StoreWithFile("0123456789"u8.ToArray());
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        using var destination = new MemoryStream();
+
+        long copied = await store.CopyFileBytesAsync(mapping, ContentByteRange.Select(10, 2, 5), destination, CancellationToken.None);
+
+        Assert.AreEqual(4L, copied);
+        CollectionAssert.AreEqual("2345"u8.ToArray(), destination.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_LastOffsetPastTheEnd_CopiesToTheEnd()
+    {
+        ContentStore store = StoreWithFile("0123456789"u8.ToArray());
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        using var destination = new MemoryStream();
+
+        long copied = await store.CopyFileBytesAsync(mapping, ContentByteRange.Select(10, 7, 500), destination, CancellationToken.None);
+
+        Assert.AreEqual(3L, copied);
+        CollectionAssert.AreEqual("789"u8.ToArray(), destination.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_ZeroLengthFile_CopiesZeroBytes()
+    {
+        ContentStore store = StoreWithFile([]);
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        using var destination = new MemoryStream();
+
+        long copied = await store.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(0), destination, CancellationToken.None);
+
+        Assert.AreEqual(0L, copied);
+        Assert.AreEqual(0L, destination.Length);
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_FileLargerThanOneBuffer_CopiesEveryByte()
+    {
+        byte[] contents = new byte[200_000];
+        new Random(9).NextBytes(contents);
+        ContentStore store = StoreWithFile(contents);
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        using var destination = new MemoryStream();
+
+        long copied = await store.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(contents.Length), destination, CancellationToken.None);
+
+        Assert.AreEqual(contents.LongLength, copied);
+        CollectionAssert.AreEqual(contents, destination.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_FileShrankSinceTheRangeWasSelected_StopsAtItsEnd()
+    {
+        ContentStore store = StoreWithFile("0123"u8.ToArray());
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        using var destination = new MemoryStream();
+
+        long copied = await store.CopyFileBytesAsync(mapping, ContentByteRange.Select(10, 2, 9), destination, CancellationToken.None);
+
+        Assert.AreEqual(2L, copied);
+        CollectionAssert.AreEqual("23"u8.ToArray(), destination.ToArray());
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_CancelledBeforeTheRead_ThrowsWithoutOpeningTheFile()
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "file.txt"), "abc"u8.ToArray(), DateTimeOffset.UnixEpoch);
+        var store = new ContentStore(Root, fileSystem);
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        using var destination = new MemoryStream();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            () => store.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(3), destination, new CancellationToken(canceled: true)));
+
+        Assert.IsFalse(fileSystem.Calls.Exists(call => call.StartsWith("OpenFileForAsyncRead(", StringComparison.Ordinal)));
+        Assert.AreEqual(0L, destination.Length);
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_CancelledDuringTheRead_ThrowsBeforeTheNextRead()
+    {
+        byte[] contents = new byte[200_000];
+        ContentStore store = StoreWithFile(contents);
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        using var cancellation = new CancellationTokenSource();
+        using var destination = new CancellingOnWriteStream(cancellation);
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            () => store.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(contents.Length), destination, cancellation.Token));
+
+        Assert.IsGreaterThan(0L, destination.Length);
+        Assert.IsLessThan(contents.LongLength, destination.Length);
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_UnsatisfiableRange_IsRejected()
+    {
+        ContentStore store = StoreWithFile("abc"u8.ToArray());
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+
+        await Assert.ThrowsExactlyAsync<ArgumentException>(
+            () => store.CopyFileBytesAsync(mapping, ContentByteRange.Select(3, 3, 5), Stream.Null, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task CopyFileBytesAsync_MissingArguments_AreRejected()
+    {
+        ContentStore store = StoreWithFile("abc"u8.ToArray());
+        ContentPathMapping mapping = store.MapRequestPath("/file.txt");
+        ContentByteRange range = ContentByteRange.WholeFile(3);
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => store.CopyFileBytesAsync(null!, range, Stream.Null, CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => store.CopyFileBytesAsync(mapping, null!, Stream.Null, CancellationToken.None));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => store.CopyFileBytesAsync(mapping, range, null!, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task RefusedMapping_IsRejectedByEveryRead()
+    {
+        ContentStore store = StoreWithFile("abc"u8.ToArray());
+        ContentPathMapping refused = store.MapRequestPath("/../file.txt");
+
+        Assert.ThrowsExactly<ArgumentException>(() => store.GetEntryKind(refused));
+        Assert.ThrowsExactly<ArgumentException>(() => store.GetFileStatus(refused));
+        await Assert.ThrowsExactlyAsync<ArgumentException>(
+            () => store.CopyFileBytesAsync(refused, ContentByteRange.WholeFile(3), Stream.Null, CancellationToken.None));
+    }
+
+    private static ContentStore StoreWithFile(byte[] contents) =>
+        new(Root, new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "file.txt"), contents, DateTimeOffset.UnixEpoch));
 }

@@ -10,13 +10,37 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
 
     private readonly Dictionary<string, ContentEntryKind> entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> symbolicLinks = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, byte[]> fileContents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DateTimeOffset> lastWriteTimes = new(StringComparer.Ordinal);
 
     public List<string> Calls { get; } = [];
 
-    public InMemoryContentFileSystem AddFile(string path)
+    public InMemoryContentFileSystem AddFile(string path) => AddFile(path, [], DateTimeOffset.UnixEpoch);
+
+    public InMemoryContentFileSystem AddFile(string path, byte[] contents, DateTimeOffset lastWriteTime)
     {
         entries[path] = ContentEntryKind.File;
+        fileContents[path] = contents;
+        lastWriteTimes[path] = lastWriteTime;
         return this;
+    }
+
+    public long GetFileLength(string path)
+    {
+        Calls.Add($"{nameof(GetFileLength)}({path})");
+        return fileContents[path].LongLength;
+    }
+
+    public DateTimeOffset GetLastWriteTimeUtc(string path)
+    {
+        Calls.Add($"{nameof(GetLastWriteTimeUtc)}({path})");
+        return lastWriteTimes[path];
+    }
+
+    public Stream OpenFileForAsyncRead(string path)
+    {
+        Calls.Add($"{nameof(OpenFileForAsyncRead)}({path})");
+        return new MemoryStream(fileContents[path], writable: false);
     }
 
     public InMemoryContentFileSystem AddDirectory(string path)

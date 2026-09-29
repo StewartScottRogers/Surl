@@ -27,4 +27,26 @@ public interface IContentFileSystem
     /// link left in its existing part; the path itself when it contains no symbolic
     /// link.</returns>
     string ResolveFinalPath(string path);
+
+    /// <summary>
+    /// Returns the length in bytes of the file at <paramref name="path"/>.
+    /// </summary>
+    /// <param name="path">The full path of an existing file.</param>
+    /// <returns>The file's length in bytes.</returns>
+    long GetFileLength(string path);
+
+    /// <summary>
+    /// Returns when the file at <paramref name="path"/> was last written, in UTC.
+    /// </summary>
+    /// <param name="path">The full path of an existing file.</param>
+    /// <returns>The last write time, with a zero offset.</returns>
+    DateTimeOffset GetLastWriteTimeUtc(string path);
+
+    /// <summary>
+    /// Opens the file at <paramref name="path"/> for asynchronous, read-only access.
+    /// </summary>
+    /// <param name="path">The full path of an existing file.</param>
+    /// <returns>A readable, seekable stream positioned at the start of the file. The caller
+    /// disposes it.</returns>
+    Stream OpenFileForAsyncRead(string path);
 }
