@@ -77,3 +77,4 @@ skipped or inconclusive), and the `linux-x64` and `osx-arm64` pins' `version`,
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
 - 2026-09-28: Doing -> Backlog. Waiting for the shift to push the networking test fix; the CI legs can only be checked on a run containing it (run 36531859090 was red on Linux/macOS in Fast tests)
+- 2026-09-29: Backlog -> Doing.
