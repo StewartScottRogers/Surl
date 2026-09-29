@@ -2,7 +2,7 @@ namespace Surl.Conformance;
 
 /// <summary>
 /// The pinned upstream curl build logs in to a live, in-process <c>surl</c> over <c>http</c>
-/// and <c>https</c> with Basic, Digest and Bearer, against one account read from a
+/// and <c>https</c> with Basic, Digest, Bearer and NTLM, against one account read from a
 /// <c>--user-file</c>, and is served or refused as ADR-0032 section 4 says: a plain-text secret
 /// over <c>http://</c> is refused with <c>403</c> unless <c>--allow-plaintext-auth</c>, a wrong
 /// password gets <c>401</c>, and with no account an anonymous read is served. Every refusal is
@@ -164,6 +164,33 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
 
         Assert.AreEqual(HttpReturnedError, result.ExitCode, result.StandardError);
         StringAssert.Contains(result.StandardError, "401");
+    }
+
+    [TestMethod]
+    public async Task NtlmOverHttp_Account_ExitsZeroWithTheFilesBytes()
+    {
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--auth", "ntlm", "--user-file", accounts.Path);
+
+        var result = await PinnedUpstreamCurl.RunAsync(
+            TestContext, "-sS", "--ntlm", "-u", Credentials, surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        CollectionAssert.AreEqual(Hello, result.StandardOutput);
+    }
+
+    [TestMethod]
+    public async Task NtlmOverHttp_WrongPassword_IsRefusedWithHttpReturnedError()
+    {
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--auth", "ntlm", "--user-file", accounts.Path);
+
+        var result = await PinnedUpstreamCurl.RunAsync(
+            TestContext, "-sS", "-f", "--ntlm", "-u", $"{AccountsFile.User}:wrong", surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(HttpReturnedError, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "401");
+        Assert.IsEmpty(result.StandardOutput);
     }
 
     [TestMethod]

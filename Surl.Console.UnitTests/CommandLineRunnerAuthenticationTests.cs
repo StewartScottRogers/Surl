@@ -79,7 +79,6 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     [TestMethod]
-    [DataRow("ntlm")]
     [DataRow("negotiate")]
     [DataRow("aws-sigv4")]
     public async Task RunAsync_AuthWordThisBuildDoesNotImplement_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string word)
@@ -165,6 +164,18 @@ public sealed class CommandLineRunnerAuthenticationTests
             Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\n"), ReadsAs(string.Empty), "--user", "alice:pw", Http);
 
         StringAssert.StartsWith(Encoding.ASCII.GetString(run.Written), "HTTP/1.1 401 Unauthorized\r\n");
+    }
+
+    [TestMethod]
+    public async Task RunAsync_AuthNtlmAndNoLoginOverHttp_TheComposedHttpServerOffersNtlmAlone()
+    {
+        var run = await ServeOneConnectionAsync(
+            Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\n"), ReadsAs(string.Empty), "--user", "alice:pw", "--auth", "ntlm", Http);
+
+        var response = Encoding.ASCII.GetString(run.Written);
+        StringAssert.StartsWith(response, "HTTP/1.1 401 Unauthorized\r\n");
+        StringAssert.Contains(response, "\r\nWWW-Authenticate: NTLM\r\n");
+        Assert.AreEqual(1, response.Split("WWW-Authenticate:").Length - 1, response);
     }
 
     [TestMethod]
