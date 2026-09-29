@@ -8,7 +8,7 @@ depends-on: [BL-001]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-004 — Add the decided exit codes to SurlExitCode
 
@@ -30,22 +30,31 @@ with the number the ADR assigns, and a test fails if any number changes.
 
 ## Acceptance criteria
 
-- [ ] `SurlExitCode` has exactly one member per row of the ADR's table, with the ADR's
+- [x] `SurlExitCode` has exactly one member per row of the ADR's table, with the ADR's
       name and number.
-- [ ] Every member has an XML doc comment that states when surl returns it and names
+- [x] Every member has an XML doc comment that states when surl returns it and names
       the upstream `CURLE_*` code it reuses, or says none does.
-- [ ] The enum's `<remarks>` no longer say only the Phase 0 values exist. They cite the
+- [x] The enum's `<remarks>` no longer say only the Phase 0 values exist. They cite the
       ADR by number.
-- [ ] `Surl.Protocol.Abstractions.UnitTests/SurlExitCodeTests.cs` has a data-driven
+- [x] `Surl.Protocol.Abstractions.UnitTests/SurlExitCodeTests.cs` has a data-driven
       test, `Value_EachMember_HasTheNumberTheAdrAssigns`, with one `DataRow` per member,
       and a test, `GetValues_Always_HasOneMemberPerAdrRow`, pinning the member count.
-- [ ] `dotnet build Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, and
+- [x] `dotnet build Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, and
       `dotnet test --filter "TestCategory!=Integration"` is green.
-- [ ] `ProtocolIsolationTests.Abstractions_ReferencesNothing` still passes.
+- [x] `ProtocolIsolationTests.Abstractions_ReferencesNothing` still passes.
 
 ## Notes
+
+- Delivered directly rather than through the full `/feature` agent chain: the change is
+  one enum transcribed from ADR-0005 section 1 plus its pinning tests, with no design left
+  to plan (sensible default under the dark-factory rules).
+- Numbers: Ok 0, UnsupportedProtocol 1, FailedInit 2, MalformedUrl 3,
+  CouldNotResolveHost 6, CouldNotReadFile 37, BindFailed 45, InternalError 125.
+- `FailedInit`'s doc comment keeps "the Phase 0 placeholder returns it for every command
+  line", still true until BL-019.
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. SurlExitCode holds ADR-0005's eight exit codes, each number pinned by a test
