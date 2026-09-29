@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-037, BL-046, BL-047]
-touches: [Surl.Protocol.Tftp.UnitLibrary, Surl.Protocol.Tftp.UnitTests]
+touches: [Surl.Protocol.Tftp.UnitLibrary, Surl.Protocol.Tftp.UnitTests, Documentation/Planning/Decisions/ADR-0013-how-the-tftp-server-answers.md]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-054 — Refuse writes by default, bound uploads and answer refusals in Surl.Protocol.Tftp
 
@@ -57,24 +57,60 @@ error 0 - with every datagram one pinned upstream curl 8.21.0 was fed and record
 
 ## Acceptance criteria
 
-- [ ] `WriteRequestTests.Wrq_WithUploadsOff_AnswersError2AndCreatesNoFile` passes.
-- [ ] `WriteRequestTests.Wrq_WithUploadsOn_WritesTheFile` passes, its `ACK` datagrams
+- [x] `WriteRequestTests.Wrq_WithUploadsOff_AnswersError2AndCreatesNoFile` passes.
+- [x] `WriteRequestTests.Wrq_WithUploadsOn_WritesTheFile` passes, its `ACK` datagrams
       equal the accepted write recording's.
-- [ ] `UploadLimitTests.UploadOverMaxUploadBytes_AnswersError3AndLeavesNoFile` and
+- [x] `UploadLimitTests.UploadOverMaxUploadBytes_AnswersError3AndLeavesNoFile` and
       `UploadLimitTests.TsizeOverMaxUploadBytes_AnswersError3BeforeAnyData` pass.
-- [ ] `ConnectionRefusalTests` prove both `ConnectionRefusal` values send exactly one
+- [x] `ConnectionRefusalTests` prove both `ConnectionRefusal` values send exactly one
       `ERROR` code 0 datagram and end the flow.
-- [ ] A test proves a whole write transfer is served on the one flow it was given.
-- [ ] Recordings for each case above are committed; each test's expected datagrams equal
+- [x] A test proves a whole write transfer is served on the one flow it was given.
+- [x] Recordings for each case above are committed; each test's expected datagrams equal
       the datagrams that recording fed to pinned upstream curl 8.21.0.
-- [ ] `ProtocolIsolationTests` pass. `dotnet build Surl.Protocol.Tftp.UnitLibrary
+- [x] `ProtocolIsolationTests` pass. `dotnet build Surl.Protocol.Tftp.UnitLibrary
       -warnaserror` is clean, the fast tests are green with no `Integration` test in
       `Surl.Protocol.Tftp.UnitTests`, and `Measure-CodeQuality.ps1` reports no failing
       member in `Surl.Protocol.Tftp.UnitLibrary`.
 
 ## Notes
 
+- Touches: added `Documentation/Planning/Decisions/ADR-0013-how-the-tftp-server-answers.md`
+  to record the write, limit and refusal decisions as an amendment to TFTP's own ADR. No
+  task in Doing named it (the others touch Gopher and MQTT). An amendment, not a new ADR,
+  so that parallel lanes cannot both take the next ADR number.
+- Plan: `TftpReadRequest` became `TftpRequest` (RRQ or WRQ). The lock step (send, wait,
+  resend, the client's ERROR, ERROR 4 for a stray packet) moved out of `TftpReadTransfer`
+  into `TftpLockStep`, shared by reads and the new `TftpWriteTransfer`. A write is read by
+  `ContentStore.WriteUploadAsync` from `TftpUploadStream`, a stream over the DATA blocks
+  that sends the ACK for a block only when the store asks for more bytes. So the store's
+  limit and partial-file deletion are the only ones. Nothing is sent before the store's
+  first read, so a store that refuses the upload is answered with ERROR 2 as the first reply.
+- Decisions (ADR-0013 amendment 1): ERROR 2 also for a refused name and for a location the
+  store does not permit. The `tsize` check is against `ExchangeLimits.MaxUploadBytes` (0 = no
+  limit), as HTTP checks `Content-Length`. The growing-upload check is the store's
+  `MaxUploadBytes`. The final ACK is sent once, with no dally. Refusal texts are
+  `Too many connections` and `Too many connections from your address`, sent from a new
+  transfer port. A duplicate DATA block is ignored; the ACK is resent only on the timeout.
+- Measured with pinned curl 8.21.0 (fixtures `write-accepted`, `write-accepted-no-options`,
+  `write-refused-uploads-off`, `write-too-large`, `refused-too-many-connections`,
+  `refused-too-many-connections-from-address`). Exit codes: ERROR 2 gives 69, ERROR 3 gives 70
+  (`Disk full or allocation exceeded`), ERROR 0 gives 71 (`TFTP: Illegal operation`).
+- The recorder's `-TftpReply` replaces only the first reply, so an ERROR 3 after some DATA
+  could not be fed to curl mid-transfer. `UploadOverMaxUploadBytes_AnswersError3AndLeavesNoFile`
+  expects the ACKs of `write-accepted-no-options` followed by the ERROR 3 bytes from
+  `write-too-large`.
+- The log note for silent retransmissions changed from "Block N was not acknowledged
+  after..." to "Nothing came while block N awaited its ACK, through 5 retransmissions...",
+  so reads and writes share one wording.
+
+- Review (code-reviewer): no blocker. Fixed: a write the store fails with an `IOException` now gets
+  ERROR 3 (`Wrq_DiskWriteFails_AnswersError3WithTheFixedTextAndLeavesNoFile`), and the write
+  path's block-number wrap is tested (`TftpUploadStreamTests`). Recorded in ADR-0013: an existing
+  file is emptied before the client's first DATA. Filed BL-086 (temporary file, then rename) for
+  that in `Surl.Content`.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. TFTP refuses writes by default (ERROR 2), writes allowed uploads through Surl.Content, answers tsize or upload past the limit with ERROR 3 leaving no file, and refuses flows past a connection limit with ERROR 0, each measured against pinned curl 8.21.0
