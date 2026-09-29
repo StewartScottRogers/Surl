@@ -38,3 +38,4 @@ says something false of the code is a defect (CLAUDE.md, "Say what it does").
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
