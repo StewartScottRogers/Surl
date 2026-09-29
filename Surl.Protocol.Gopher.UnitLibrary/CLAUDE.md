@@ -5,7 +5,14 @@ Phase 1, alongside HTTP.
 The Gopher server (RFC 1436): serves menus and documents from the content store for the
 selector upstream curl sends.
 
-**URL schemes answered:** `gopher`, `gophers`
+**URL schemes answered:** `gopher` today (`GopherProtocolServer.Schemes`); `gophers`, the
+same server over TLS, joins it with the TLS contract (ADR-0010).
+
+`GopherProtocolServer` answers one selector per connection, as ADR-0012 decides: the
+selector is read as a percent-encoded path and mapped by `Surl.Content`'s `ContentStore`,
+files are sent byte for byte, directories as RFC 1436 menus, and anything the store
+refuses or does not have as one fixed error menu. Its fixtures and the commands that
+recorded them are in `Surl.Protocol.Gopher.UnitTests/Fixtures/README.md`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries ADR-0002 lists (`Surl.Content.UnitLibrary`,
