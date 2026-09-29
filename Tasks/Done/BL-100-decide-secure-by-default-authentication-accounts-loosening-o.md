@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: FR-014
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-100 — Decide secure-by-default authentication, accounts, loosening options and --self-signed, and record ADR-0032
 
@@ -97,11 +97,11 @@ unless it finds a rule they break (then it says so and the planner refiles):
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0032-<slug>.md` exists (the next free number if
+- [x] `Documentation/Planning/Decisions/ADR-0032-<slug>.md` exists (the next free number if
       0032 is taken; then use that number in the follow-up tasks BL-102 and BL-108 to
       BL-124), Status Accepted, dated 2026-09-29 or later, "Decided by Claude under
       Stewart's delegation", citing Stewart's approval of 2026-09-29.
-- [ ] It decides and states each of these, with the reason:
+- [x] It decides and states each of these, with the reason:
       1. **Options**: exact syntax, argument kind, default, negatability and every error
          text (ADR-0007 section 2's style) of `--user`, `--user-file`, `--allow-anonymous`,
          `--allow-plaintext-auth`, `--auth` and `--self-signed`; whether `--user` repeats to
@@ -148,24 +148,24 @@ unless it finds a rule they break (then it says so and the planner refiles):
           section 3's, unchanged.
       11. **Kerberos**: that Negotiate carries NTLM now (BL-121) and Kerberos inside
           Negotiate is later work, not a refusal (root `CLAUDE.md`, "Decisions").
-- [ ] It has a section "Protocol servers not yet built" stating, as an acceptance
+- [x] It has a section "Protocol servers not yet built" stating, as an acceptance
       criterion for each of FTP, IMAP, POP3, SMTP, SSH (SCP, SFTP), SMB and LDAP, that its
       login goes through the BL-109 contract, is refused with no accounts, and refuses a
       clear password before TLS without `--allow-plaintext-auth`; and that TFTP, Gopher,
       DICT and TELNET stay as they are.
-- [ ] It states it supersedes ADR-0010 section 3's "No `--cert` for a secure scheme" default
+- [x] It states it supersedes ADR-0010 section 3's "No `--cert` for a secure scheme" default
       and ADR-0014's "user name and password accepted and not read"; ADR-0010 and ADR-0014
       each gain one "Superseded in part" line under their Status naming ADR-0032, and
       nothing else in them changes.
-- [ ] `Documentation/Planning/Decisions/README.md`'s index lists ADR-0032.
-- [ ] `Documentation/Product/Requirements.md`: FR-014 is reworded to the decided policy and
+- [x] `Documentation/Planning/Decisions/README.md`'s index lists ADR-0032.
+- [x] `Documentation/Product/Requirements.md`: FR-014 is reworded to the decided policy and
       cites ADR-0032; FR-021 no longer says the throwaway certificate is used without
       `--cert` and names `--self-signed`; FR-008 lists the six new options; new rows (next
       free FR numbers) cover accounts and `--user-file`, refusal with no accounts, the
       plain-text refusal, the loosening options and their warnings, and MQTT CONNECT
       credentials; FR-010 lists any new exit code. Each new row is Status Draft and names
       the pinned build it is measured against.
-- [ ] No HTML comment remains in the ADR, and every statement in it about current code names
+- [x] No HTML comment remains in the ADR, and every statement in it about current code names
       a file that exists.
 
 ## Notes
@@ -173,7 +173,28 @@ unless it finds a rule they break (then it says so and the planner refiles):
 Help text for the new options is placed by ADR-0034 (BL-102); this ADR only gives each
 option its one-line description. Behaviour changes land in BL-108 onward, not here.
 
+2026-09-29, delivered (docs pipeline, written in the session rather than by
+`align-and-document`, because every choice was a design decision this task owns):
+- ADR-0032 is `ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md`; 0032
+  was free, so BL-102 and BL-108 to BL-124 keep their references.
+- Measured with `Record-CurlExchange.ps1 -Connections 2` and the pinned reference build: the
+  Windows build answers only the first `Digest` line and only MD5 (SHA-256 first gives exit
+  94), and `--anyauth` offered Negotiate sends no credentials. Hence Digest offers MD5 first
+  and the default `--auth` set leaves out `ntlm` and `negotiate`.
+- Decisions a follow-up task should know: `--user` repeats to add accounts; an empty user
+  name (`--user :tok`) is a Bearer token, so BL-108's "an empty name" refusal is only for an
+  empty name *and* password (the ADR's table governs); once any account is configured every
+  HTTP request needs a login; Basic or Bearer in clear gets `403` unchecked; refused
+  credentials wait a fixed 1 s; `AnonymousAuthenticationPolicy` in Abstractions keeps the
+  servers' old constructors working until BL-117 removes the overloads (BL-117 may need
+  `Surl.Protocol.Http.UnitLibrary` and `Surl.Protocol.Mqtt.UnitLibrary` in its `touches`).
+- No new exit code: 2, 37 and 58 are reused. The warning level waits on ADR-0033 (BL-101);
+  until then the warnings are always written.
+- The Linux and macOS builds' Digest SHA-256 and SHA-512-256 behaviour is left to BL-113 and
+  BL-118 on CI; this lane cannot run those builds.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0032 decides secure-by-default authentication, accounts, loosening options, --self-signed and the contract; Requirements FR-008/010/014/021 updated, FR-026 to FR-030 added
