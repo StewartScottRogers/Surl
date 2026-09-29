@@ -69,6 +69,10 @@ first - and the Curl port needs exactly that to be measured.
 - The Curl port, in the last phase: Surl is the instrument that measures it.
 - Contributors adding a protocol server, who need the seams to be obvious.
 
+Surl is built to be exposed to the internet, not only to answer on loopback in a test
+(Stewart, 2026-09-28). What that hardening requires - defaults such as the bind address,
+limits and the security scope - is decided by BL-024 in an ADR, which does not exist yet.
+
 ## Non-goals
 
 - **Validating Surl against anything but upstream curl.** Not the Curl port, not another
@@ -77,9 +81,8 @@ first - and the Curl port needs exactly that to be measured.
   the target, not nginx's request rate.
 - **Protocols upstream curl does not request.** Surl answers curl; a protocol curl cannot
   speak has no mate to be.
-
-> **TODO** Whether Surl is for local testing only or must also be hardened for
-> internet-facing use is open question 3 below; its answer may add or remove a non-goal.
+- **A managed NuGet API.** The `surl` executable is the only product; its libraries are
+  implementation, not a published API, and no package is shipped (Stewart, 2026-09-28).
 
 ## Scope: the surface Surl must answer
 
@@ -232,12 +235,14 @@ project exists from the first commit (ADR-0002):
 
 ## Open questions
 
-| # | Question | Blocks | Who |
+None open. The four questions this section listed are answered (Stewart, 2026-09-28):
+
+| # | Question | Answer | Carried out by |
 | --- | --- | --- | --- |
-| 1 | Pin an upstream 8.21.0 build with SMB, HTTP/2 and HTTP/3 - the curl project's own Windows build from curl.se is the candidate. Downloading it needs approval. | Validating `Surl.Protocol.Smb` and HTTP/2 and HTTP/3 (Phases 5 and 6) | Stewart |
-| 2 | Which upstream builds to pin on Linux and macOS, and how CI obtains them | Running the upstream-curl checks in CI | Claude, by ADR, once 1 is settled |
-| 3 | Is Surl for local testing only, or must it be hardened for internet-facing use? | Defaults such as binding to loopback, and the security scope | Stewart |
-| 4 | Is a managed NuGet API a deliverable, or is the `surl` executable the only product? | The public API surface | Stewart |
+| 1 | Pin an upstream build with SMB, HTTP/2 and HTTP/3? | Answered: yes, the latest. curl.se's current Windows build (8.22.0_2) is pinned as a supplementary build, used only for SMB, HTTP/2 and HTTP/3; 8.21.0 stays the reference release. Stewart, 2026-09-28. | BL-026 |
+| 2 | Upstream builds on Linux and macOS? | Answered: download them. The approval covers upstream 8.21.0 builds for Linux and macOS; which builds, and how CI obtains them, is decided by ADR. Stewart, 2026-09-28. | BL-027 and BL-028 |
+| 3 | Local testing only, or hardened for internet-facing use? | Answered: internet-facing. Surl is hardened to be exposed to the internet (see "Users"). Stewart, 2026-09-28. | BL-024 |
+| 4 | A managed NuGet API, or the `surl` executable only? | Answered: the executable. `surl` is the only product; its libraries are implementation, not a published API (see "Non-goals"). Stewart, 2026-09-28. | none |
 
 ## Sources
 

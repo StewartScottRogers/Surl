@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Product/Product-Overview.md]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-023 — Record Stewart's answers to the product overview's open questions
 
@@ -36,19 +36,24 @@ Stewart answered on 2026-09-28, in the `/task-plan` session that filed BL-000 to
 
 ## Acceptance criteria
 
-- [ ] "Open questions": each of rows 1 to 4 is removed or marked answered, with the
+- [x] "Open questions": each of rows 1 to 4 is removed or marked answered, with the
       answer, "Stewart, 2026-09-28" and the task that carries it out (BL-026, BL-027 and
       BL-028, BL-024, none).
-- [ ] "Non-goals": the `> **TODO**` about open question 3 is gone. A non-goal states
+- [x] "Non-goals": the `> **TODO**` about open question 3 is gone. A non-goal states
       that a managed NuGet API is not a deliverable (Stewart, 2026-09-28).
-- [ ] "Users" or "Scope" states that Surl is built to be exposed to the internet, and
+- [x] "Users" or "Scope" states that Surl is built to be exposed to the internet, and
       points to BL-024's ADR for what that requires. Until that ADR exists, say it is
       decided by BL-024.
-- [ ] Nothing else in the file changes meaning.
+- [x] Nothing else in the file changes meaning.
 
 ## Notes
+
+- Done in-session rather than through align-and-document: one Markdown file, four small edits.
+- "Open questions" keeps a table of the four answered rows (answer, Stewart 2026-09-28, carrying task) rather than deleting it, so the history stays readable.
+- The internet-facing statement sits under "Users" and says BL-024 decides it in an ADR, because that ADR does not exist yet. The Status line's "sections awaiting a decision are marked TODO" stays true: the option-table and TLS TODOs remain.
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. Product overview records Stewart's 2026-09-28 answers to its four open questions as settled scope
