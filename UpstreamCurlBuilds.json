@@ -24,6 +24,28 @@
       "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns ldap ldaps mqtt mqtts pop3 pop3s rtsp scp sftp smtp smtps telnet tftp ws wss",
       "features": "alt-svc AsynchDNS brotli HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSIG HTTPSRR IDN IPv6 Kerberos Largefile libz NativeCA proxy-HTTP3 PSL SPNEGO SSL SSPI threadsafe UnixSockets zstd",
       "pinned": "2026-09-28"
+    },
+    {
+      "platform": "linux-x64",
+      "role": "reference",
+      "origin": "stunnel/static-curl release 8.21.0, curl-linux-x86_64-musl-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against musl and OpenSSL 4.0.1 (ADR-0016)",
+      "defaultPath": "/opt/upstream-curl/8.21.0/curl",
+      "sha256": "153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45",
+      "version": "curl 8.21.0 (x86_64-linux-musl) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss",
+      "features": "alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd",
+      "pinned": "2026-09-28"
+    },
+    {
+      "platform": "osx-arm64",
+      "role": "reference",
+      "origin": "stunnel/static-curl release 8.21.0, curl-macos-arm64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1 (ADR-0016)",
+      "defaultPath": "/opt/upstream-curl/8.21.0/curl",
+      "sha256": "04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF",
+      "version": "curl 8.21.0 (aarch64-apple-darwin) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss",
+      "features": "alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd",
+      "pinned": "2026-09-28"
     }
   ]
 }
