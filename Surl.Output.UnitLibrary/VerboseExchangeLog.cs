@@ -45,6 +45,13 @@ internal sealed class VerboseExchangeLog : IExchangeLog
     public void BytesSent(ReadOnlySpan<byte> bytes) => WriteBytes(sentPrefix, bytes);
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// A note carries no marker of which part of its text a peer chose (a path, a header
+    /// value, a user name), so every note's text is rendered as its UTF-8 bytes through
+    /// <see cref="ExchangeLogEscaping"/>, the same rule as bytes received and sent
+    /// (ADR-0006, section 3). Escaping changes how local paths and exception messages are
+    /// shown, not whether.
+    /// </remarks>
     public void Note(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
