@@ -35,7 +35,7 @@ When `--log-file` and `--trace` (or `--trace-ascii`) name the same file, `surl` 
 
 ## Notes
 
-- Decision (ADR-0036, decided by Claude under Stewart's delegation): refuse, not share one
+- Decision (ADR-0037, decided by Claude under Stewart's delegation): refuse, not share one
   writer. The log is appended and the trace truncated, so one file cannot keep both promises,
   and `--log-file x --log-level trace` already puts the dump in the log file.
 - Exit code 23 (`CouldNotWriteFile`), not 2: the refusal happens where every other log-file
@@ -59,4 +59,4 @@ When `--log-file` and `--trace` (or `--trace-ascii`) name the same file, `surl` 
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
-- 2026-09-29: Doing -> Done. A --trace or --trace-ascii file with the --log-file file's full path is refused with 23 before any listener binds, alike on every platform (ADR-0036)
+- 2026-09-29: Doing -> Done. A --trace or --trace-ascii file with the --log-file file's full path is refused with 23 before any listener binds, alike on every platform (ADR-0037)

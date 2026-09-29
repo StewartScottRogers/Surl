@@ -30,7 +30,7 @@ internal sealed class LogStreams : IDisposable
     /// Opens the streams the command line names, before any listener binds. A file that cannot
     /// be opened ends <c>surl</c> with <see cref="SurlExitCode.CouldNotWriteFile"/> (ADR-0033,
     /// section 6), and any file opened before it is closed again; so does a trace file whose full
-    /// path, ignoring case, is the <c>--log-file</c> file's (ADR-0036).
+    /// path, ignoring case, is the <c>--log-file</c> file's (ADR-0037).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="output">stdout, for <c>-</c>.</param>
@@ -84,7 +84,7 @@ internal sealed class LogStreams : IDisposable
         layout == TraceDumpLayout.Ascii ? "--trace-ascii" : "--trace";
 
     // No file is none, "-" is stdout, a trace file that is the --log-file file is refused
-    // (ADR-0036), and any other is opened and kept to close later.
+    // (ADR-0037), and any other is opened and kept to close later.
     private static (TextWriter? Writer, string? FailureMessage) Choose(
         string? file,
         string option,
@@ -117,7 +117,7 @@ internal sealed class LogStreams : IDisposable
     }
 
     // The same full path, ignoring case on every platform, so Windows, Linux and macOS refuse
-    // alike (ADR-0036). "-" is stdout, never a file.
+    // alike (ADR-0037). "-" is stdout, never a file.
     private static bool NameTheSameFile(string file, string? logFile) =>
         logFile is not null and not "-"
         && string.Equals(Path.GetFullPath(file), Path.GetFullPath(logFile), StringComparison.OrdinalIgnoreCase);
