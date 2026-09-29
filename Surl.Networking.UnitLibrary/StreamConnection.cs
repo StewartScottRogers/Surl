@@ -17,9 +17,18 @@ namespace Surl.Networking;
 /// <remarks>Not safe for concurrent reads, or concurrent writes; one read and one write may run at once.</remarks>
 internal sealed class StreamConnection : IConnection
 {
+    /// <summary>
+    /// The longest <see cref="DisposeAsync"/> goes on reading and discarding what the client
+    /// sends after FIN before it closes the transport anyway (ADR-0021).
+    /// </summary>
+    public static readonly TimeSpan LingeringCloseTime = TimeSpan.FromSeconds(2);
+
+    private const int DiscardBufferBytes = 4096;
+
     private readonly Stream transportStream;
     private readonly IConnectionTransportControl transportControl;
     private readonly ServerTlsHandshake? tlsHandshake;
+    private readonly TimeProvider timeProvider;
     private Stream stream;
     private SslStream? securedStream;
     private bool writesCompleted;
@@ -37,12 +46,14 @@ internal sealed class StreamConnection : IConnection
     /// <param name="remoteEndPoint">The client's endpoint.</param>
     /// <param name="transportControl">Half-closes and resets the transport under <paramref name="stream"/>.</param>
     /// <param name="tlsHandshake">The listener's TLS handshake, or <see langword="null"/> when the process has no TLS settings.</param>
+    /// <param name="timeProvider">Times the lingering close; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
     public StreamConnection(
         Stream stream,
         EndPoint localEndPoint,
         EndPoint remoteEndPoint,
         IConnectionTransportControl transportControl,
-        ServerTlsHandshake? tlsHandshake = null)
+        ServerTlsHandshake? tlsHandshake = null,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(localEndPoint);
@@ -55,6 +66,7 @@ internal sealed class StreamConnection : IConnection
         RemoteEndPoint = remoteEndPoint;
         this.transportControl = transportControl;
         this.tlsHandshake = tlsHandshake;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc/>
@@ -207,7 +219,10 @@ internal sealed class StreamConnection : IConnection
 
     /// <summary>
     /// Closes the connection: completes writes unless it was aborted or its handshake did not
-    /// finish, then disposes the TLS stream, if any, and the transport stream. A peer already
+    /// finish, then lingers - reads and discards what the client still sends, below any TLS,
+    /// until it half-closes or <see cref="LingeringCloseTime"/> passes - so bytes the server
+    /// never read do not turn the close into a reset that destroys the reply (ADR-0021).
+    /// Then it disposes the TLS stream, if any, and the transport stream. A peer already
     /// gone does not stop the close. Calling it twice is harmless.
     /// </summary>
     /// <returns>A task that completes once the transport is released.</returns>
@@ -221,6 +236,11 @@ internal sealed class StreamConnection : IConnection
         if (!aborted)
         {
             await TryCompleteWritesAsync();
+
+            if (writesCompleted)
+            {
+                await DiscardUnreadBytesAsync();
+            }
         }
 
         disposed = true;
@@ -246,6 +266,24 @@ internal sealed class StreamConnection : IConnection
         {
             // The peer reset the connection first, or the handshake did not finish; there is
             // nothing left to close gracefully.
+        }
+    }
+
+    private async Task DiscardUnreadBytesAsync()
+    {
+        using var lingering = new CancellationTokenSource(LingeringCloseTime, timeProvider);
+        var discarded = new byte[DiscardBufferBytes];
+
+        try
+        {
+            while (await transportStream.ReadAsync(discarded, lingering.Token) > 0)
+            {
+                // Discarded: the exchange is over, and only the client's half-close is awaited.
+            }
+        }
+        catch (Exception exception) when (exception is IOException or OperationCanceledException)
+        {
+            // The peer reset the connection, or the lingering time ran out; close it as it is.
         }
     }
 

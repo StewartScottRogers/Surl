@@ -29,6 +29,11 @@ protocol server.
   socket, carry `[ExcludeFromCodeCoverage]` with a comment naming the socket call, and are
   exercised by the `[TestCategory("Integration")]` tests on `127.0.0.1` and `[::1]`, port 0.
 - An IPv6 listening socket is IPv6-only on every platform, so `[::]` never also claims IPv4.
+- Lingering close (ADR-0021, BL-056). `StreamConnection.DisposeAsync`, after FIN, reads and
+  discards what the client still sends - from the raw transport, below any TLS - until it
+  half-closes or resets or `StreamConnection.LingeringCloseTime` (2 s, on the injected
+  `TimeProvider`) passes, so bytes the server never read do not turn the close into a
+  reset. Not after `Abort`, and not when completing writes failed.
 - `UdpDatagramListener` (public) - `StartAsync(ListenUrl, CancellationToken)` binds every
   address a listen URL names on one UDP port, the same way, and implements
   `IDatagramListener`. `DatagramDemultiplexer` reads the listen sockets and sorts datagrams

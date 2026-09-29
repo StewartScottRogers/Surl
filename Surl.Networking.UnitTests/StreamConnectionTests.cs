@@ -336,6 +336,82 @@ public sealed class StreamConnectionTests
     }
 
     [TestMethod]
+    public async Task DisposeAsync_ClientSentUnreadBytes_DiscardsThemAfterFinUntilThePeerHalfClosesThenDisposes()
+    {
+        var stream = new FakeStream { Inbound = new byte[10000] };
+        var control = new FakeTransportControl { Stream = stream };
+        var connection = new StreamConnection(stream, Local, Remote, control);
+
+        await connection.DisposeAsync();
+
+        Assert.AreEqual(0, control.InboundReadAtShutdown);
+        Assert.AreEqual(10000, stream.InboundRead);
+        Assert.IsTrue(stream.IsDisposed);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_PeerNeverHalfCloses_StopsDiscardingAtTheLingeringCloseTime()
+    {
+        var time = new ManualTimeProvider();
+        var (server, client) = InMemoryDuplexStream.CreatePair();
+        var connection = new StreamConnection(server, Local, Remote, new FakeTransportControl(), timeProvider: time);
+
+        var disposing = connection.DisposeAsync().AsTask();
+        await time.FirstTimerCreated;
+        await client.WriteAsync(new byte[100], TestContext.CancellationToken);
+        time.Advance(StreamConnection.LingeringCloseTime - TimeSpan.FromTicks(1));
+        await Task.Delay(50, TestContext.CancellationToken);
+        Assert.IsFalse(disposing.IsCompleted);
+
+        time.Advance(TimeSpan.FromTicks(1));
+        await disposing;
+
+        Assert.AreEqual(1, server.DisposeCount);
+        Assert.AreEqual(TimeSpan.FromSeconds(2), StreamConnection.LingeringCloseTime);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_PeerResetsWhileLingering_StillDisposesTheStream()
+    {
+        var stream = new FakeStream { ReadWaits = true };
+        var connection = new StreamConnection(stream, Local, Remote, new FakeTransportControl());
+
+        var disposing = connection.DisposeAsync().AsTask();
+        stream.FailWaitingCall(new IOException("Connection reset by peer."));
+        await disposing;
+
+        Assert.IsTrue(stream.IsDisposed);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_WritesCouldNotComplete_DoesNotLinger()
+    {
+        var stream = new FakeStream { Inbound = new byte[10] };
+        var control = new FakeTransportControl
+        {
+            ShutdownSendFailure = new SocketException((int)SocketError.ConnectionReset),
+        };
+        var connection = new StreamConnection(stream, Local, Remote, control);
+
+        await connection.DisposeAsync();
+
+        Assert.AreEqual(0, stream.InboundRead);
+        Assert.IsTrue(stream.IsDisposed);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_AfterAbort_DoesNotLinger()
+    {
+        var stream = new FakeStream { Inbound = new byte[10] };
+        var connection = new StreamConnection(stream, Local, Remote, new FakeTransportControl());
+        connection.Abort();
+
+        await connection.DisposeAsync();
+
+        Assert.AreEqual(0, stream.InboundRead);
+    }
+
+    [TestMethod]
     public async Task DisposeAsync_Twice_DisposesTheStreamOnce()
     {
         var stream = new FakeStream();
@@ -357,6 +433,8 @@ public sealed class StreamConnectionTests
 
         public int FlushCountAtShutdown { get; private set; }
 
+        public int InboundReadAtShutdown { get; private set; }
+
         public int ResetAndCloseCount { get; private set; }
 
         public void ShutdownSend()
@@ -368,6 +446,7 @@ public sealed class StreamConnectionTests
 
             ShutdownSendCount++;
             FlushCountAtShutdown = Stream?.FlushCount ?? 0;
+            InboundReadAtShutdown = Stream?.InboundRead ?? 0;
         }
 
         public void ResetAndClose() => ResetAndCloseCount++;
@@ -389,6 +468,8 @@ public sealed class StreamConnectionTests
         public MemoryStream Written { get; } = new();
 
         public int FlushCount { get; private set; }
+
+        public int InboundRead => inboundOffset;
 
         public int DisposeCount { get; private set; }
 

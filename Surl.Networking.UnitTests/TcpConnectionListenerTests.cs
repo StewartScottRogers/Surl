@@ -92,6 +92,34 @@ public sealed class TcpConnectionListenerTests
     }
 
     [TestMethod]
+    public async Task DisposeAsync_ClientSentBytesTheServerNeverRead_ClientStillReadsTheWholeReply()
+    {
+        await using var listener = await TcpConnectionListener.StartAsync(
+            new ListenUrl("http", "127.0.0.1", 0), TestContext.CancellationToken);
+        using var client = new TcpClient(AddressFamily.InterNetwork);
+        var accepting = listener.AcceptAsync(TestContext.CancellationToken).AsTask();
+        await client.ConnectAsync(IPAddress.Loopback, listener.ListenUrl.BoundPort!.Value, TestContext.CancellationToken);
+        var connection = await accepting;
+        var clientStream = client.GetStream();
+        var reply = Enumerable.Range(0, 16384).Select(index => (byte)index).ToArray();
+
+        var sending = Task.Run(
+            async () =>
+            {
+                await clientStream.WriteAsync(new byte[1048576], TestContext.CancellationToken);
+                client.Client.Shutdown(SocketShutdown.Send);
+            },
+            TestContext.CancellationToken);
+        await connection.WriteAsync(reply, TestContext.CancellationToken);
+        await connection.DisposeAsync();
+        await sending;
+        var received = new MemoryStream();
+        await clientStream.CopyToAsync(received, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(reply, received.ToArray());
+    }
+
+    [TestMethod]
     public async Task StartAsync_PortAnotherListenerHolds_ThrowsAddressInUse()
     {
         await using var holder = await TcpConnectionListener.StartAsync(

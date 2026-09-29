@@ -27,3 +27,20 @@ Recorded on 2026-09-29 from the repository root, in Windows PowerShell:
 
 With the same relay, `--tls-max 1.1` against TLS 1.2 and TLS 1.3 still fails with exit
 35 (`SEC_E_UNSUPPORTED_FUNCTION`), as ADR-0006 measured without it; that run is not kept.
+
+## Lingering close fixtures (BL-056)
+
+Recorded on 2026-09-29 with the same pinned build, in Windows PowerShell, to measure
+ADR-0021's lingering close. curl sent a 4 MiB body of zero bytes; the recorder answered
+after the head with `HTTP/1.1 413 Content Too Large`, `Content-Length: 200000`,
+`Connection: close` and 200000 `x` bytes. Only `exitcode.txt`, `stderr.txt` and
+`stdout.bin` (curl's `%{size_download}`) are kept; `request.bin` held the 4 MiB body. No
+test reads them.
+
+| Folder | Server close | Command line |
+| --- | --- | --- |
+| `lingering-close-off` | at once, body unread: exit 56, `curl: (56) Recv failure: Connection was reset`, 102323 bytes received | `.\Record-CurlExchange.ps1 -Port 18056 -RespondAfterBodyBytes 0 -CloseUnread -Response "HTTP/1.1 413 Content Too Large\r\nContent-Length: 200000\r\nConnection: close\r\n\r\n<200000 x>" -CurlArgs '-sS','-o','bl056-out.bin','-w','%{size_download}','-H','Expect:','--data-binary','@<4 MiB file>','http://127.0.0.1:18056/' -OutDirectory <folder>` |
+| `lingering-close-on` | after reading until curl stops: exit 0, 200000 bytes received | the same without `-CloseUnread` |
+
+Three runs of each were made: without the lingering close curl exited 0, 56 and 56; with
+it, 0 all three times.
