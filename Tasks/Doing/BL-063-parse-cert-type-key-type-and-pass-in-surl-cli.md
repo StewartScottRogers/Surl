@@ -96,3 +96,4 @@ every combination ADR-0010 section 3 calls `FailedInit` (2).
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
