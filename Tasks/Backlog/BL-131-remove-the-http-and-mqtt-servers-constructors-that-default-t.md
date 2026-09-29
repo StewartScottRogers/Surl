@@ -1,5 +1,5 @@
 ---
-id: BL-129
+id: BL-131
 title: Remove the HTTP and MQTT servers' constructors that default to AnonymousAuthenticationPolicy
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-014
 created: 2026-09-29
 completed:
 ---
-# BL-129 — Remove the HTTP and MQTT servers' constructors that default to AnonymousAuthenticationPolicy
+# BL-131 — Remove the HTTP and MQTT servers' constructors that default to AnonymousAuthenticationPolicy
 
 ## Goal
 

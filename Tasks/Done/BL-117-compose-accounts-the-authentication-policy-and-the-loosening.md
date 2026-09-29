@@ -85,7 +85,7 @@ BL-108 (options parsed), BL-110 (accounts, policy, `--user-file` parser), BL-111
   refuse curl's credential-less `CONNECT`, so the MQTT conformance tests now start surl with
   `--allow-anonymous` (the recordings are of an anonymous broker); `SurlOnLoopback.StartOverDirectoryAsync`
   takes options. No task in `Doing` names that project. All 109 conformance tests pass.
-- **Not done here, filed as BL-129:** ADR-0032 section 6 says BL-117 removes the servers'
+- **Not done here, filed as BL-131:** ADR-0032 section 6 says BL-117 removes the servers'
   one-argument constructors that default to `AnonymousAuthenticationPolicy`. They live in the
   HTTP and MQTT libraries, outside this task's `touches` and inside BL-125's (in `Doing`).
   `surl` no longer calls them.
