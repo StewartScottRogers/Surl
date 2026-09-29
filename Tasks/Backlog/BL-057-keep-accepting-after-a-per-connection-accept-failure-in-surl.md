@@ -1,5 +1,5 @@
 ---
-id: BL-046
+id: BL-057
 title: Keep accepting after a per-connection accept failure in Surl.Networking
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-046 — Keep accepting after a per-connection accept failure in Surl.Networking
+# BL-057 — Keep accepting after a per-connection accept failure in Surl.Networking
 
 ## Goal
 

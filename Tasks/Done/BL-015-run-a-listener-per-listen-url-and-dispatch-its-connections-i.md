@@ -116,7 +116,7 @@ emit branches no test can reach, which fails the 100% branch gate. The engine ca
 failure as an `ExceptionDispatchInfo` (`CaptureFailureAsync`), cleans up outside any
 handler, then rethrows.
 
-Follow-up filed: BL-046 (the TCP listener must keep accepting after one client resets
+Follow-up filed: BL-057 (the TCP listener must keep accepting after one client resets
 before accept; today the engine rightly treats any accept failure as fatal).
 
 ## Log
