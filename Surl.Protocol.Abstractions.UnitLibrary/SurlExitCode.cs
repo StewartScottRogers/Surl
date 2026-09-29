@@ -5,7 +5,8 @@ namespace Surl.Protocol.Abstractions;
 /// </summary>
 /// <remarks>
 /// One member per row of the exit-code table in ADR-0005
-/// (<c>Documentation/Planning/Decisions/ADR-0005-surls-exit-code-table.md</c>). A failure
+/// (<c>Documentation/Planning/Decisions/ADR-0005-surls-exit-code-table.md</c>), with the rows
+/// ADR-0010 (the server-side TLS contract, section 3) adds to that table. A failure
 /// with a server-side meaning upstream curl also has reuses curl's <c>CURLE_*</c> number
 /// (https://curl.se/libcurl/c/libcurl-errors.html, curl 8.21.0); a failure with no upstream
 /// counterpart takes a number counting down from 125. A value is never renumbered once it
@@ -63,6 +64,22 @@ public enum SurlExitCode
     /// <c>CURLE_INTERFACE_FAILED</c>, which curl returns when its own local bind fails.
     /// </summary>
     BindFailed = 45,
+
+    /// <summary>
+    /// The server certificate or its key cannot be served: <c>--cert</c> or <c>--key</c> is
+    /// missing, unreadable, not in the named format, has a key that does not match the
+    /// certificate, needs a <c>--pass</c> it was not given or was given a wrong one, or holds
+    /// a key type Surl cannot serve (ADR-0010, section 3). The same number as upstream curl's
+    /// <c>CURLE_SSL_CERTPROBLEM</c>.
+    /// </summary>
+    CertificateProblem = 58,
+
+    /// <summary>
+    /// The <c>--cacert</c> file exists but holds no certificate Surl can read (ADR-0010,
+    /// section 3); a <c>--cacert</c> that does not exist is <see cref="FailedInit"/>. The
+    /// same number as upstream curl's <c>CURLE_SSL_CACERT_BADFILE</c>.
+    /// </summary>
+    CaCertificateBadFile = 77,
 
     /// <summary>
     /// An unexpected internal failure: an exception no other member names, reaching the top
