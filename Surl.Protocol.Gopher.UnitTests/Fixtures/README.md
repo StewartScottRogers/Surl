@@ -55,3 +55,20 @@ A close with no bytes is an empty, successful transfer to curl.
 curl sends its selector without pausing, so no live recording can show a head timeout;
 the tests drive one with a hand-written `TimeProvider`, and `closed-with-no-bytes` pins
 what curl makes of the close that follows it.
+
+## gophers (BL-066)
+
+Recorded on 2026-09-29 from the repository root, in Windows PowerShell, with the same
+pinned build (SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`),
+with `Record-CurlExchange.ps1 -Raw -Tls`: the recorder answered over TLS 1.2 with its
+throwaway self-signed certificate (so curl was given `-k`), recorded the decrypted bytes
+in `request.bin` and `transcript.txt`, and sent a TLS close_notify before closing. curl
+sent the same selector lines as over `gopher`, and each case exited 0 with an empty
+`stderr.txt`. `GopherProtocolServerTests` replays them through an `InMemoryConnection`
+that already holds a TLS session, as the engine hands one over (ADR-0010), with listen URL
+`gophers://127.0.0.1:18634/`; the menu names host `127.0.0.1` and port 18634.
+
+| Folder | curl sent | Command line |
+| --- | --- | --- |
+| `gophers-file-selector` | `/file.txt` CRLF | `.\Record-CurlExchange.ps1 -Port 18634 -Raw -Tls -RawIdleMilliseconds 300 -RawReply 'Hello from Surl.\n' -CurlArgs '-sS','-k','gophers://127.0.0.1:18634/0/file.txt' -OutDirectory Surl.Protocol.Gopher.UnitTests\Fixtures\gophers-file-selector` |
+| `gophers-root-menu` | CRLF (the empty selector) | `.\Record-CurlExchange.ps1 -Port 18634 -Raw -Tls -RawIdleMilliseconds 300 -RawReply '0file.txt\t/file.txt\t127.0.0.1\t18634\r\n1sub\t/sub\t127.0.0.1\t18634\r\n.\r\n' -CurlArgs '-sS','-k','gophers://127.0.0.1:18634/' -OutDirectory Surl.Protocol.Gopher.UnitTests\Fixtures\gophers-root-menu` |
