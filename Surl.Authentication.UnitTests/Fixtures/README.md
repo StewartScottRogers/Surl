@@ -109,6 +109,10 @@ build's `NEGOTIATE_MESSAGE` and the fixed server challenge. SSPI sent bare NTLM 
 | --- | --- | --- | --- | --- |
 | `negotiate-ntlm` | `2`: `<negotiate401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` | `'-sS','--negotiate','-u','tester:secret','http://127.0.0.1:18134/x'` | 0 | `request-1.bin`: `Authorization: Negotiate` with a 40-byte `NEGOTIATE_MESSAGE`; `request-2.bin`: the NTLMv2 `AUTHENTICATE_MESSAGE` for `tester:secret`, empty domain; stdout `ok` |
 | `negotiate-ntlm-wrong-password` | `3`: `<negotiate401>`, then `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate\r\nContent-Length: 0\r\n\r\n` | `'-sS','-f','--negotiate','-u','tester:wrong','http://127.0.0.1:18134/x'` | 22 | the answer for `tester:wrong`; after the second `401` curl gives up (`curl: (22) The requested URL returned error: 401`) and sends no third request |
+| `negotiate-ntlm-two-urls` | `3`: `<negotiate401>`, then `HTTP/1.1 200 OK
+Content-Length: 2
+
+ok` twice; `-Port 18135` (BL-135) | `'-sS','--negotiate','-u','tester:secret','http://127.0.0.1:18135/x','http://127.0.0.1:18135/y'` | 0 | the same handshake for `/x`, then `request-3.bin`: `GET /y` on the same connection with no `Authorization`, since the connection is logged in; stdout `okok` (ADR-0044) |
 
 ## AWS Signature Version 4 (BL-122)
 
