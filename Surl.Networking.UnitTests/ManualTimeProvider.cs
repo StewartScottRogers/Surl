@@ -8,13 +8,33 @@ internal sealed class ManualTimeProvider : TimeProvider
 {
     private readonly Lock gate = new();
     private readonly List<ManualTimer> timers = [];
-    private readonly TaskCompletionSource firstTimerCreated = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly List<(int Count, TaskCompletionSource Created)> timerCountWaits = [];
     private DateTimeOffset now = new(2026, 9, 28, 12, 0, 0, TimeSpan.Zero);
+    private int timersCreated;
 
     /// <summary>
     /// Completes once the first timer has been created.
     /// </summary>
-    public Task FirstTimerCreated => firstTimerCreated.Task;
+    public Task FirstTimerCreated => TimersCreated(1);
+
+    /// <summary>
+    /// Completes once <paramref name="count"/> timers have been created.
+    /// </summary>
+    public Task TimersCreated(int count)
+    {
+        lock (gate)
+        {
+            if (timersCreated >= count)
+            {
+                return Task.CompletedTask;
+            }
+
+            var created = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            timerCountWaits.Add((count, created));
+
+            return created.Task;
+        }
+    }
 
     public override DateTimeOffset GetUtcNow()
     {
@@ -30,12 +50,20 @@ internal sealed class ManualTimeProvider : TimeProvider
 
         timer.Change(dueTime, period);
 
+        List<(int Count, TaskCompletionSource Created)> reached;
+
         lock (gate)
         {
             timers.Add(timer);
+            timersCreated++;
+            reached = timerCountWaits.Where(wait => wait.Count <= timersCreated).ToList();
+            timerCountWaits.RemoveAll(wait => wait.Count <= timersCreated);
         }
 
-        firstTimerCreated.TrySetResult();
+        foreach (var (_, created) in reached)
+        {
+            created.TrySetResult();
+        }
 
         return timer;
     }

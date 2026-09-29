@@ -336,6 +336,40 @@ public sealed class StreamConnectionTests
     }
 
     [TestMethod]
+    public async Task DisposeAsync_GracefulCloseThrowsOtherThanIOException_StillDisposesTheStream()
+    {
+        var stream = new FakeStream();
+        var control = new FakeTransportControl { ShutdownSendFailure = new NotSupportedException("Shutdown") };
+        var connection = new StreamConnection(stream, Local, Remote, control);
+
+        await connection.DisposeAsync();
+
+        Assert.IsTrue(stream.IsDisposed);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_GracefulCloseNeverCompletes_DisposesTheStreamAtTheGracefulCloseTime()
+    {
+        var time = new ManualTimeProvider();
+        var stream = new FakeStream { FlushWaits = true };
+        var control = new FakeTransportControl();
+        var connection = new StreamConnection(stream, Local, Remote, control, timeProvider: time);
+
+        var disposing = connection.DisposeAsync().AsTask();
+        await time.FirstTimerCreated;
+        time.Advance(StreamConnection.GracefulCloseTime - TimeSpan.FromTicks(1));
+        await Task.Delay(50, TestContext.CancellationToken);
+        Assert.IsFalse(disposing.IsCompleted);
+
+        time.Advance(TimeSpan.FromTicks(1));
+        await disposing;
+
+        Assert.AreEqual(0, control.ShutdownSendCount);
+        Assert.AreEqual(1, stream.DisposeCount);
+        Assert.AreEqual(TimeSpan.FromSeconds(1), StreamConnection.GracefulCloseTime);
+    }
+
+    [TestMethod]
     public async Task DisposeAsync_ClientSentUnreadBytes_DiscardsThemAfterFinUntilThePeerHalfClosesThenDisposes()
     {
         var stream = new FakeStream { Inbound = new byte[10000] };
@@ -357,7 +391,7 @@ public sealed class StreamConnectionTests
         var connection = new StreamConnection(server, Local, Remote, new FakeTransportControl(), timeProvider: time);
 
         var disposing = connection.DisposeAsync().AsTask();
-        await time.FirstTimerCreated;
+        await time.TimersCreated(2);
         await client.WriteAsync(new byte[100], TestContext.CancellationToken);
         time.Advance(StreamConnection.LingeringCloseTime - TimeSpan.FromTicks(1));
         await Task.Delay(50, TestContext.CancellationToken);

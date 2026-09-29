@@ -23,6 +23,13 @@ internal sealed class StreamConnection : IConnection
     /// </summary>
     public static readonly TimeSpan LingeringCloseTime = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// The longest <see cref="DisposeAsync"/> waits for the graceful close - the TLS
+    /// close_notify, the flush and FIN - before it disposes the transport anyway; the same
+    /// bound ADR-0006 section 5 gives a refusal's write.
+    /// </summary>
+    public static readonly TimeSpan GracefulCloseTime = TimeSpan.FromSeconds(1);
+
     private const int DiscardBufferBytes = 4096;
 
     private readonly Stream transportStream;
@@ -46,7 +53,7 @@ internal sealed class StreamConnection : IConnection
     /// <param name="remoteEndPoint">The client's endpoint.</param>
     /// <param name="transportControl">Half-closes and resets the transport under <paramref name="stream"/>.</param>
     /// <param name="tlsHandshake">The listener's TLS handshake, or <see langword="null"/> when the process has no TLS settings.</param>
-    /// <param name="timeProvider">Times the lingering close; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
+    /// <param name="timeProvider">Times the graceful and lingering close; <see langword="null"/> for <see cref="TimeProvider.System"/>.</param>
     public StreamConnection(
         Stream stream,
         EndPoint localEndPoint,
@@ -219,7 +226,8 @@ internal sealed class StreamConnection : IConnection
 
     /// <summary>
     /// Closes the connection: completes writes unless it was aborted or its handshake did not
-    /// finish, then lingers - reads and discards what the client still sends, below any TLS,
+    /// finish, giving up on them after <see cref="GracefulCloseTime"/> or on any failure, then
+    /// lingers - reads and discards what the client still sends, below any TLS,
     /// until it half-closes or <see cref="LingeringCloseTime"/> passes - so bytes the server
     /// never read do not turn the close into a reset that destroys the reply (ADR-0021).
     /// Then it disposes the TLS stream, if any, and the transport stream. A peer already
@@ -258,14 +266,18 @@ internal sealed class StreamConnection : IConnection
 
     private async Task TryCompleteWritesAsync()
     {
+        using var closing = new CancellationTokenSource(GracefulCloseTime, timeProvider);
+
         try
         {
-            await CompleteWritesAsync(CancellationToken.None);
+            // SslStream.ShutdownAsync takes no token, so the wait itself is cut off too.
+            await CompleteWritesAsync(closing.Token).AsTask().WaitAsync(closing.Token);
         }
-        catch (IOException)
+        catch (Exception)
         {
-            // The peer reset the connection first, or the handshake did not finish; there is
-            // nothing left to close gracefully.
+            // The peer reset the connection or stopped reading, the handshake did not finish,
+            // or a cancelled write left the TLS stream unable to shut down; there is nothing
+            // left to close gracefully, and the transport is disposed regardless.
         }
     }
 
