@@ -1,12 +1,30 @@
 # Surl
 
-[![Surl's history, animated with Gource - open the 8K viewer](https://raw.githubusercontent.com/StewartScottRogers/Surl/gource/gource.gif)](https://stewartscottrogers.github.io/Surl/)
+<a href="https://stewartscottrogers.github.io/Surl/" target="_blank"><img src="https://github.com/StewartScottRogers/Surl/raw/gource/gource.gif" alt="Gource animation of Surl's commit history across every branch - click to watch in 8K, full screen" width="800"></a>
 
-[![Code coverage](https://raw.githubusercontent.com/StewartScottRogers/Surl/gource/coverage/badge.svg)](https://stewartscottrogers.github.io/Surl/coverage/)
+### [▶ Watch in 8K, full screen](https://stewartscottrogers.github.io/Surl/)
 
-The animation is Surl's history across every branch, re-rendered by
-`.github/workflows/gource.yml` whenever the repository moves; click it for the 8K viewer.
-The badge links to the coverage report, measured on each render against the quality gates.
+*Every commit on every branch, human and AI, drawn by [Gource](https://gource.io) at
+7680 × 4320 and re-rendered after new commits and at least once a day. The viewer plays
+the best quality your screen can show - 8K, 4K or HD - with a 4K MP4 and an 8K still to
+download. Ctrl-click (⌘-click on a Mac) to open it in its own tab.*
+
+### Code coverage
+
+[![Code coverage: lines and branches covered across every production library - click for the full report](https://github.com/StewartScottRogers/Surl/raw/gource/coverage/badge.svg)](https://stewartscottrogers.github.io/Surl/coverage/)
+
+*Every production library is held to 100% line and branch coverage, cyclomatic complexity
+of at most 10 and a CRAP score of at most 30. The [full report](https://stewartscottrogers.github.io/Surl/coverage/)
+shows each library against those gates and every member outside one, measured on Windows
+and regenerated on the same schedule as the video above.*
+
+### [▦ Live task board](https://stewartscottrogers.github.io/Surl/board/)
+
+*The [live task board](https://stewartscottrogers.github.io/Surl/board/) shows every task
+by state and refreshes itself every few minutes. One card per dark factory lane joins it
+once the dark factory publishes its lane status ([ADR-0029](Documentation/Planning/Decisions/ADR-0029-the-live-task-board-page-reads-the-task-tree-and-a-board-branch-status-json.md)).*
+
+## What this is
 
 Surl ("Server URL") is the server-side mate of [curl](https://curl.se): for every request
 upstream curl can make, protocol for protocol, Surl is the server that answers it. It is
@@ -63,9 +81,21 @@ line of Claude Code agents shaped for this one job, not a general-purpose coding
 5. **Escalate.** Anything that needs a human decision is moved to `Blocked` with the
    question written down, and the shift ends with an alarm until someone answers it.
 
-The lights stay off; a person sets direction and answers blocked questions. The Gource
-video of the project's history and the published coverage report will appear here once
-the repository is on GitHub and `.github/workflows/gource.yml` has rendered them.
+The lights stay off; a person sets direction and answers blocked questions.
+
+## Download
+
+No release has been published yet. The first `v*` tag will put native binaries for
+Windows, Linux and macOS, on x64 and Arm64, on the [**download page**](DOWNLOAD.md), with
+one-line installers:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.sh | sh    # Linux, macOS
+```
+
+```powershell
+irm https://raw.githubusercontent.com/StewartScottRogers/Surl/master/install.ps1 | iex          # Windows
+```
 
 ## Build and test
 
@@ -84,10 +114,10 @@ RunDarkFactory.cmd -Hours 4 -MaxTasks 3
 
 ## Read more
 
+- [Download and install](DOWNLOAD.md) - every supported platform, installers and checksums (no release yet)
 - [Product overview](Documentation/Product/Product-Overview.md) - scope, architecture, phases and the oracle
 - [Task board](Tasks/README.md) - what is being worked on, one Markdown file per task
 - [Decisions](Documentation/Planning/Decisions/README.md) - every architecture decision record
-- [Download](DOWNLOAD.md) - no release yet
 
 ## Licence
 
