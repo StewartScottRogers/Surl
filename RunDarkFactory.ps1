@@ -888,27 +888,29 @@ function Invoke-MergeToMaster {
     if ([int](git -C $Root rev-list --count "origin/master..origin/$Branch") -eq 0) { return "nothing on $Branch to merge" }
     $head = (git -C $Root rev-parse "origin/$Branch").Trim()
     $short = $head.Substring(0, 7)
-    # CI on the last push takes a few minutes; wait for the run on this exact commit.
-    $deadline = (Get-Date).AddMinutes(30)
-    $run = $null
-    while ($true) {
-        $run = @(gh run list --workflow CI --branch $Branch --commit $head --limit 1 --json status,conclusion 2>$null | ConvertFrom-Json)
-        if ($run.Count -and $run[0].status -eq 'completed') { break }
-        if ((Get-Date) -ge $deadline) { return "not merged: CI did not finish on $short within 30 min" }
-        Start-Sleep -Seconds 30
-    }
-    if ($run[0].conclusion -ne 'success') { return "not merged: CI $($run[0].conclusion) on $short" }
+    # Open the pull request first: CI ignores pushes to factory/** (lanes' partial work),
+    # so the pull request is what runs CI on the branch's head.
     # --jq, not ConvertFrom-Json: Windows PowerShell turns "[]" into one empty element, so
     # a missing pull request looked like one with no number and the merge was a silent no-op.
     $number = "$(gh pr list --head $Branch --base master --state open --json number --limit 1 --jq '.[0].number // empty' 2>$null)".Trim()
     if (-not $number) {
         $bodyFile = Join-Path $LogDir "pr-body-$Stamp.md"
         $robot = [char]::ConvertFromUtf32(0x1F916)
-        [IO.File]::WriteAllText($bodyFile, "Dark factory shift $Stamp. CI passed on Windows, Linux and macOS for $short.`n`n$robot Generated with [Claude Code](https://claude.com/claude-code)`n", (New-Object Text.UTF8Encoding($false)))
+        [IO.File]::WriteAllText($bodyFile, "Dark factory shift $Stamp. Merged only once CI passes on Windows, Linux and macOS for $short.`n`n$robot Generated with [Claude Code](https://claude.com/claude-code)`n", (New-Object Text.UTF8Encoding($false)))
         $url = gh pr create --base master --head $Branch --title "Dark factory shift $Stamp" --body-file $bodyFile 2>$null
         if ("$url" -notmatch '/pull/(\d+)') { return 'not merged: could not open the pull request' }
         $number = $Matches[1]
     }
+    # CI takes a few minutes; wait for the run on this exact commit.
+    $deadline = (Get-Date).AddMinutes(30)
+    $run = $null
+    while ($true) {
+        $run = @(gh run list --workflow CI --branch $Branch --commit $head --limit 1 --json status,conclusion 2>$null | ConvertFrom-Json)
+        if ($run.Count -and $run[0].status -eq 'completed') { break }
+        if ((Get-Date) -ge $deadline) { return "not merged: CI did not finish on $short within 30 min (pull request #$number)" }
+        Start-Sleep -Seconds 30
+    }
+    if ($run[0].conclusion -ne 'success') { return "not merged: CI $($run[0].conclusion) on $short (pull request #$number)" }
     gh pr merge $number --merge 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { return "not merged: gh pr merge refused pull request #$number" }
     return "merged $short into master (pull request #$number)"
