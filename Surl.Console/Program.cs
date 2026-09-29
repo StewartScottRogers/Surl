@@ -47,7 +47,7 @@ internal static class Program
     internal static async Task<int> RunAsync(
         string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
         (int)await new CommandLineRunner(
-                CreateListenerFactory, ServedDirectoryProbe.CanOpen, DataDirectoryLock.Take, TimeProvider.System)
+                CreateListenerFactory, DataDirectoryProbe.CanOpen, DataDirectoryLock.Take, TimeProvider.System)
             .RunAsync(args, output, error, cancellationToken);
 
     /// <summary>

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Console, Surl.Console.UnitTests]
 requirement: FR-023
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-099 — Rename ServedDirectoryProbe to DataDirectoryProbe to match the glossary term
 
@@ -27,14 +27,17 @@ references in `Surl.Console/Program.cs`, `Surl.Console/CommandLineRunner.cs` and
 
 ## Acceptance criteria
 
-- [ ] `rg -n "ServedDirectoryProbe" Surl.Console Surl.Console.UnitTests` finds nothing.
-- [ ] `rg -n "class DataDirectoryProbe" Surl.Console` finds the class, and
+- [x] `rg -n "ServedDirectoryProbe" Surl.Console Surl.Console.UnitTests` finds nothing.
+- [x] `rg -n "class DataDirectoryProbe" Surl.Console` finds the class, and
       `Surl.Console.UnitTests/DataDirectoryProbeTests.cs` holds its tests.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+Renamed by hand in the session (a mechanical rename, no behaviour change), rather than through `align-and-document`. The doc comments' "served directory" also became "data directory". ADR-0031 keeps the old name, as the Context says. Fast tests: all green, `Surl.Console.UnitTests` 99 passed; `dotnet format --verify-no-changes` clean for both projects.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. DataDirectoryProbe (and DataDirectoryProbeTests) now names the --directory check by the glossary term

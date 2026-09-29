@@ -31,7 +31,7 @@ namespace Surl.Console;
 /// </param>
 /// <param name="canOpenDataDirectory">
 /// Tells whether the data directory, as given with <c>--directory</c>, can be opened; never
-/// called without <c>--directory</c>. <c>surl</c> passes <see cref="ServedDirectoryProbe.CanOpen"/>.
+/// called without <c>--directory</c>. <c>surl</c> passes <see cref="DataDirectoryProbe.CanOpen"/>.
 /// </param>
 /// <param name="takeDataDirectoryLock">
 /// Takes the data directory's <c>.surl/lock</c> (ADR-0031, decision 7), given the data

@@ -9,7 +9,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help` and
   `--version`, checks the data directory when `--directory` names one
-  (`ServedDirectoryProbe`, 37 when it cannot be opened), builds the content store
+  (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
   full path with `--directory`, a new, empty `InMemoryContentFileSystem` at
   `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4), checks
