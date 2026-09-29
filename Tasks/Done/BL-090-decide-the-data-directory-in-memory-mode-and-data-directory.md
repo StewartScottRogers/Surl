@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: FR-022
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-090 — Decide the data directory, in-memory mode and data-directory lock and record ADR-0031
 
@@ -79,14 +79,14 @@ decided (they follow ADR-0002 and root `CLAUDE.md`):
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0031-the-data-directory-and-in-memory-mode.md`
+- [x] `Documentation/Planning/Decisions/ADR-0031-the-data-directory-and-in-memory-mode.md`
       exists (the next free number if 0031 is taken; then use that number in this task's
       follow-ups), Status Accepted, dated 2026-09-29 or later, "Decided by Claude under
       Stewart's delegation", and cites Stewart's approval of 2026-09-29.
-- [ ] It states that it supersedes ADR-0007's `--directory` default of `.`, and ADR-0007
+- [x] It states that it supersedes ADR-0007's `--directory` default of `.`, and ADR-0007
       gains one line under its Status naming ADR-0031 as superseding that default (no
       other change to ADR-0007).
-- [ ] It decides and states each of these, with the reason:
+- [x] It decides and states each of these, with the reason:
       1. The glossary term for the directory `--directory` names (keep "served directory"
          or rename, e.g. "data directory"), and the `SurlCommandLine` property name and
          type (`string?`, `null` when absent).
@@ -123,9 +123,9 @@ decided (they follow ADR-0002 and root `CLAUDE.md`):
       8. That no production code uses a named mutex or semaphore, `Path.GetTempPath`,
          `Path.GetTempFileName`, `Directory.CreateTempSubdirectory` or any other
          machine-wide state, so processes with different paths never interfere.
-- [ ] `Documentation/Planning/Decisions/README.md`'s index lists ADR-0031, and ADR-0007's
+- [x] `Documentation/Planning/Decisions/README.md`'s index lists ADR-0031, and ADR-0007's
       row notes the superseded default.
-- [ ] `Documentation/Product/Requirements.md` gains FR-022 (no `--directory`: an in-memory
+- [x] `Documentation/Product/Requirements.md` gains FR-022 (no `--directory`: an in-memory
       file system and in-memory service state, empty at start, nothing written to disk,
       exposure defaults unchanged), FR-023 (`--directory <path>`: files at the top of the
       path and service state under `<path>/.surl/`, MQTT retained messages surviving a
@@ -134,7 +134,7 @@ decided (they follow ADR-0002 and root `CLAUDE.md`):
       is refused with ADR-0031's exit code and text), each citing ADR-0031, Status Draft;
       FR-010 lists the refusal's exit code if it is new; and the "A `file://` listen URL"
       out-of-scope row still reads true.
-- [ ] No HTML comment remains in the ADR, and every statement in it about current code
+- [x] No HTML comment remains in the ADR, and every statement in it about current code
       names a file that exists.
 
 ## Notes
@@ -142,7 +142,29 @@ decided (they follow ADR-0002 and root `CLAUDE.md`):
 Help text, glossary, README and project `CLAUDE.md` files change in the tasks that change
 the behaviour (BL-093) and in the closing docs task (BL-098), not here.
 
+Decided in ADR-0031 (number 0031 was free), written in this session rather than by
+`align-and-document` because the work is the decisions themselves; summary:
+- Term "data directory", `SurlCommandLine.DataDirectory` (`string?`); the content store
+  root stays "served root".
+- Missing `--directory` path: 37 as today, never created. `.surl` or `.surl/lock` that
+  cannot be created: new `CouldNotWriteFile` = 23 (`CURLE_WRITE_ERROR`), measured
+  2026-09-29 with `Record-CurlExchange.ps1 -NoServer` and `--create-dirs -o` into a path
+  under a file: curl 8.21.0 exits 23. Consequence recorded: a read-only directory can no
+  longer be served with `--directory`.
+- In memory: root `C:\surl` / `/surl`, `DefaultMaxTotalBytes` 256 MiB, past it the write
+  throws `IOException` (TFTP answers disk full), last-write time at stream dispose.
+- `.surl`: first segment, OrdinalIgnoreCase on every platform.
+- MQTT file `.surl/mqtt/retained-messages`: header `SURL-MQTT-RETAINED-1\n`, records
+  u16 BE topic length + UTF-8 + u32 BE payload length + payload, ordinal order; malformed
+  or unreadable refuses start with 37.
+- Lock `.surl/lock`, `FileShare.None`, not deleted on exit (deleting races); taken after
+  the scheme check and before state load and binding; refusal new `DataDirectoryInUse` =
+  124, `surl: (124) Directory <path> is in use by another surl process`.
+- Found while measuring: `powershell -File Record-CurlExchange.ps1 ... -CurlArgs @('-o',...)`
+  fails because `-o` binds to `-OutDirectory`; call it with `&` in-process instead.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0031 decides the data directory, in-memory mode, .surl rule, MQTT file and lock (exit 23 and 124); FR-022 to FR-025 filed
