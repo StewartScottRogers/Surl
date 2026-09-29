@@ -84,3 +84,26 @@ one over (ADR-0010), with listen URL `mqtts://127.0.0.1:18884/`.
 | --- | --- | --- |
 | `mqtts-subscribe-t` | `t` = `hi` | `.\Record-CurlExchange.ps1 -Port 18884 -Raw -Tls -RawIdleMilliseconds 300 -RawReply $ca,'\x90\x03\x00\x01\x00\x31\x05\x00\x01thi\xE0\x00' -CurlArgs '-sS','-k','mqtts://127.0.0.1:18884/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\mqtts-subscribe-t` |
 | `mqtts-publish-hi` | nothing | `.\Record-CurlExchange.ps1 -Port 18884 -Raw -Tls -RawIdleMilliseconds 300 -RawReply $ca -CurlArgs '-sS','-k','-d','hi','mqtts://127.0.0.1:18884/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\mqtts-publish-hi` |
+
+## Logins (BL-115)
+
+The `CONNECT` curl sends with `-u`, and what curl reports for the two `CONNACK` refusals
+ADR-0032 decision 5 answers a login with. Recorded on 2026-09-29 from the repository root, in
+Windows PowerShell, with the same pinned build (SHA-256
+`0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`) and `Record-CurlExchange.ps1 -Raw`.
+
+| Folder | curl reported | Command line |
+| --- | --- | --- |
+| `connect-user-and-password` | exit 0, empty stderr | `.\Record-CurlExchange.ps1 -Port 18885 -Raw -RawReply '\x20\x02\x00\x00','\x90\x03\x00\x01\x00\x31\x05\x00\x01thi\xE0\x00' -CurlArgs '-sS','-u','tester:secret','mqtt://127.0.0.1:18885/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\connect-user-and-password` |
+| `connack-bad-user-name-or-password` | **exit 8**, `curl: (8) Expected 0000 but got 0004` | `.\Record-CurlExchange.ps1 -Port 18885 -Raw -RawReply '\x20\x02\x00\x04' -CurlArgs '-sS','-u','tester:secret','mqtt://127.0.0.1:18885/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\connack-bad-user-name-or-password` |
+| `connack-not-authorized` | **exit 8**, `curl: (8) Expected 0000 but got 0005` | `.\Record-CurlExchange.ps1 -Port 18885 -Raw -RawReply '\x20\x02\x00\x05' -CurlArgs '-sS','mqtt://127.0.0.1:18885/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\connack-not-authorized` |
+
+With `-u tester:secret` curl sets connect flags `C2` (user name, password, CleanSession) and
+sends the user name and password after its client identifier, each as a two-byte length and
+its bytes: `00 06 tester 00 06 secret`. Without `-u` the flags are `02` and nothing follows the
+client identifier. `CONNACK` 4 and `CONNACK` 5 both end curl with **exit 8**
+(`CURLE_WEIRD_SERVER_REPLY`); only the return code in the message differs. That is what BL-118
+asserts end to end. `connect-user-and-password`'s `reply.bin` is the `subscribe-t` answer, and
+each refusal's `reply.bin` is its `CONNACK` alone, after which curl closed.
+`MqttProtocolServerTests` replays `connect-user-and-password`'s `request.bin` against a fake
+authentication policy for each verdict.
