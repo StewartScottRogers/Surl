@@ -69,7 +69,8 @@ results against pinned upstream curl in its own task (ADR-0003).
 
 - Until BL-070, `surl` still serves with everything inside the root exposed, as it did
   before BL-047.
-- DICT reads its database with `ListDirectory`; under default options that is answered
-  as absent. BL-069 decides whether that internal read is a listing.
+- DICT's `MATCH` is not a listing (ADR-0011, section 4), so since BL-081 it reads its
+  database with `ListDirectoryWhateverTheListingSwitchSays`, which applies the dot-file
+  and symbolic-link rules but not `ListDirectories`.
 - Protocol servers answer `NotPermitted` and `TooLarge` with their own codes, measured
   against pinned upstream curl in their own tasks.

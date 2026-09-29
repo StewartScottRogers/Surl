@@ -170,6 +170,58 @@ public sealed partial class ContentStoreTests
         Assert.AreEqual(ContentEntryKind.None, listing.LocationKind);
     }
 
+    [TestMethod]
+    public void ListDirectoryWhateverTheListingSwitchSays_DefaultOptions_ListsButLeavesOutDotFilesAndLinks()
+    {
+        ContentStore store = new(Root, ExposureFileSystem(), new ContentExposureOptions());
+
+        ContentDirectoryListing listing = store.ListDirectoryWhateverTheListingSwitchSays(store.MapRequestPath("/"), CancellationToken.None);
+
+        Assert.IsTrue(listing.IsListed);
+        CollectionAssert.AreEqual(new[] { "dir" }, listing.Entries.Select(entry => entry.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void ListDirectoryWhateverTheListingSwitchSays_DotFilesAndLinksOn_ListsThemButNotALinkOutOfTheRoot()
+    {
+        ContentStore store = new(Root, ExposureFileSystem(), new ContentExposureOptions { ServeDotFiles = true, FollowSymbolicLinks = true });
+
+        ContentDirectoryListing listing = store.ListDirectoryWhateverTheListingSwitchSays(store.MapRequestPath("/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { ".git", ".hidden", "dir", "link" }, listing.Entries.Select(entry => entry.Name).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("/dir/file.txt", ContentEntryKind.File)]
+    [DataRow("/missing", ContentEntryKind.None)]
+    public void ListDirectoryWhateverTheListingSwitchSays_NotADirectory_SaysWhatIsThere(string requestPath, ContentEntryKind expectedKind)
+    {
+        ContentStore store = new(Root, ExposureFileSystem(), new ContentExposureOptions());
+
+        ContentDirectoryListing listing = store.ListDirectoryWhateverTheListingSwitchSays(store.MapRequestPath(requestPath), CancellationToken.None);
+
+        Assert.IsFalse(listing.IsListed);
+        Assert.AreEqual(expectedKind, listing.LocationKind);
+    }
+
+    [TestMethod]
+    public void ListDirectoryWhateverTheListingSwitchSays_RefusedMapping_Throws()
+    {
+        ContentStore store = new(Root, ExposureFileSystem(), new ContentExposureOptions());
+
+        Assert.ThrowsExactly<ArgumentException>(
+            () => store.ListDirectoryWhateverTheListingSwitchSays(store.MapRequestPath("/../x"), CancellationToken.None));
+    }
+
+    [TestMethod]
+    public void ListDirectoryWhateverTheListingSwitchSays_Cancelled_Throws()
+    {
+        ContentStore store = new(Root, ExposureFileSystem(), new ContentExposureOptions());
+
+        Assert.ThrowsExactly<OperationCanceledException>(
+            () => store.ListDirectoryWhateverTheListingSwitchSays(store.MapRequestPath("/"), new CancellationToken(canceled: true)));
+    }
+
     /// <summary>
     /// The served root holding a dot-directory, a dot-file, a directory with a dot-file and a
     /// plain file, a symbolic link to that directory, and a link out of the root.

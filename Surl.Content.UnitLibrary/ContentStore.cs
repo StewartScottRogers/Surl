@@ -288,6 +288,37 @@ public sealed class ContentStore
             return ContentDirectoryListing.NotADirectory(ContentEntryKind.None);
         }
 
+        return ListEntriesAt(mapping, location, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists the entries of the directory at a mapped location whatever
+    /// <see cref="ContentExposureOptions.ListDirectories"/> says, for a protocol's own lookup
+    /// that is not a directory listing, such as DICT's <c>MATCH</c> (ADR-0011, section 4).
+    /// </summary>
+    /// <remarks>
+    /// Every rule of <see cref="ListDirectory"/> but the listing switch applies: a dot-file is
+    /// left out unless <see cref="ContentExposureOptions.ServeDotFiles"/> is on, a symbolic
+    /// link inside the root unless <see cref="ContentExposureOptions.FollowSymbolicLinks"/> is
+    /// on, and a link out of the root always.
+    /// </remarks>
+    /// <param name="mapping">A mapping this content store returned with
+    /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
+    /// <param name="cancellationToken">Checked before the directory is read and before every
+    /// entry; cancellation throws <see cref="OperationCanceledException"/>.</param>
+    /// <returns>The directory's entries; when the location is a file or holds nothing, a
+    /// result with <see cref="ContentDirectoryListing.IsListed"/> clear and
+    /// <see cref="ContentDirectoryListing.LocationKind"/> saying which.</returns>
+    /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
+    public ContentDirectoryListing ListDirectoryWhateverTheListingSwitchSays(ContentPathMapping mapping, CancellationToken cancellationToken)
+    {
+        string location = RequireLocation(mapping);
+        cancellationToken.ThrowIfCancellationRequested();
+        return ListEntriesAt(mapping, location, cancellationToken);
+    }
+
+    private ContentDirectoryListing ListEntriesAt(ContentPathMapping mapping, string location, CancellationToken cancellationToken)
+    {
         ContentEntryKind locationKind = CurrentEntryKind(mapping, location);
         if (locationKind != ContentEntryKind.Directory)
         {

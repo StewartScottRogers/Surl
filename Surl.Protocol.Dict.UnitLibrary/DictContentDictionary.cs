@@ -55,7 +55,7 @@ internal sealed class DictContentDictionary
     /// <returns>The matching headwords, in ordinal order.</returns>
     public IReadOnlyList<string> MatchHeadwords(DictMatchStrategy strategy, string word, CancellationToken cancellationToken)
     {
-        var listing = contentStore.ListDirectory(contentStore.MapRequestPath("/"), cancellationToken);
+        var listing = contentStore.ListDirectoryWhateverTheListingSwitchSays(contentStore.MapRequestPath("/"), cancellationToken);
 
         return listing.Entries
             .Where(entry => entry.Kind == ContentEntryKind.File && IsHeadwordName(entry.Name))

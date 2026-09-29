@@ -226,6 +226,48 @@ public sealed class DictProtocolServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_RecordedMatchWithListingsOff_SendsTheRepliesUpstreamCurlAccepted()
+    {
+        var (connection, _) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("match-hel")),
+            exposureOptions: new ContentExposureOptions { ListDirectories = false });
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadBytes("match-hel", "stdout.bin"), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ServeAsync_MatchWithListingsOff_LeavesOutDirectoriesAndDotFiles(bool serveDotFiles)
+    {
+        var options = new ContentExposureOptions { ListDirectories = false, ServeDotFiles = serveDotFiles };
+
+        var reply = await ServeTextAsync("MATCH ! . \"\"\r\n", exposureOptions: options);
+
+        Assert.AreEqual(Banner + "152 3 matches found\r\nsurl \"hello\"\r\nsurl \"help\"\r\nsurl \"world\"\r\n.\r\n" + Ok, reply);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_MatchWithListingsAndLinksOff_LeavesOutASymbolicLink()
+    {
+        var fileSystem = StandardFileSystem().AddSymbolicLink(Path.Join(Root, "helium"), Path.Join(Root, "hello"));
+
+        var reply = await ServeTextAsync("MATCH ! prefix hel\r\n", fileSystem, new ContentExposureOptions());
+
+        Assert.AreEqual(Banner + "152 2 matches found\r\nsurl \"hello\"\r\nsurl \"help\"\r\n.\r\n" + Ok, reply);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_MatchWithListingsOffAndLinksOn_ListsASymbolicLinkToAFile()
+    {
+        var fileSystem = StandardFileSystem().AddSymbolicLink(Path.Join(Root, "helium"), Path.Join(Root, "hello"));
+
+        var reply = await ServeTextAsync("MATCH ! prefix hel\r\n", fileSystem, new ContentExposureOptions { FollowSymbolicLinks = true });
+
+        Assert.AreEqual(Banner + "152 3 matches found\r\nsurl \"helium\"\r\nsurl \"hello\"\r\nsurl \"help\"\r\n.\r\n" + Ok, reply);
+    }
+
+    [TestMethod]
     [DataRow("MATCH ! exact hel")]
     [DataRow("MATCH ! prefix x")]
     [DataRow("MATCH ! prefix .hid")]
@@ -392,9 +434,12 @@ public sealed class DictProtocolServerTests
         TimeProvider.System,
         cancellationToken);
 
-    private async Task<string> ServeTextAsync(string request, InMemoryContentFileSystem? fileSystem = null)
+    private async Task<string> ServeTextAsync(
+        string request,
+        InMemoryContentFileSystem? fileSystem = null,
+        ContentExposureOptions? exposureOptions = null)
     {
-        var (connection, _) = await ServeAsync([Encoding.UTF8.GetBytes(request)], fileSystem);
+        var (connection, _) = await ServeAsync([Encoding.UTF8.GetBytes(request)], fileSystem, exposureOptions: exposureOptions);
 
         return Utf8(connection.WrittenBytes);
     }
@@ -403,9 +448,14 @@ public sealed class DictProtocolServerTests
         IEnumerable<ReadOnlyMemory<byte>> chunks,
         InMemoryContentFileSystem? fileSystem = null,
         ExchangeLimits? limits = null,
-        RecordingExchangeLog? log = null)
+        RecordingExchangeLog? log = null,
+        ContentExposureOptions? exposureOptions = null)
     {
-        var server = new DictProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem()));
+        var contentStore = new ContentStore(
+            Root,
+            fileSystem ?? StandardFileSystem(),
+            exposureOptions ?? ContentExposureOptions.ServeEverythingInsideTheRoot);
+        var server = new DictProtocolServer(contentStore);
         var connection = new InMemoryConnection(chunks);
         log ??= new RecordingExchangeLog();
         var context = Context(log, TestContext.CancellationToken) with { Limits = limits ?? ExchangeLimits.Default };
