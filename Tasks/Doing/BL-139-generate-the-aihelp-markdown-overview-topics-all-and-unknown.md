@@ -65,3 +65,4 @@ from the command line yet (BL-141).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
