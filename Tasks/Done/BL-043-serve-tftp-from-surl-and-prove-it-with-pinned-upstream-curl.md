@@ -8,7 +8,7 @@ depends-on: [BL-037, BL-031, BL-032, BL-020]
 touches: [Surl.Console, Surl.Console.UnitTests, Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-043 — Serve tftp from surl and prove it with pinned upstream curl
 
@@ -33,18 +33,18 @@ BL-037's recordings predict.
 
 ## Acceptance criteria
 
-- [ ] `Surl.Console` registers the UDP listener factory and the TFTP server for `tftp`. A
+- [x] `Surl.Console` registers the UDP listener factory and the TFTP server for `tftp`. A
       fast test in `Surl.Console.UnitTests` proves a `tftp://` listen URL starts a
       datagram listener with it.
-- [ ] `[TestCategory("Integration")]` tests in `Surl.Conformance.UnitTests` run the pinned
+- [x] `[TestCategory("Integration")]` tests in `Surl.Conformance.UnitTests` run the pinned
       build against a live `surl` for: a default read, `--tftp-blksize 1024`,
       `--tftp-no-options`, a 512-byte file, and a missing file. Each asserts exit code
       and stdout equal BL-037's recordings.
-- [ ] On Windows with the pinned build present,
+- [x] On Windows with the pinned build present,
       `dotnet test --filter "FullyQualifiedName~Surl.Conformance"` is green.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and
       `Measure-CodeQuality.ps1` reports no failing member in `surl`.
-- [ ] Any disagreement with the pinned build is fixed in `Surl.Protocol.Tftp` through a
+- [x] Any disagreement with the pinned build is fixed in `Surl.Protocol.Tftp` through a
       new task, never by changing the expected result. Such tasks are listed in the Log.
 
 ## Notes
@@ -55,8 +55,21 @@ BL-037's recordings predict.
   `TcpListenerFactory` and the `<exception>` on
   `ListenerStartReporter.StartDatagramListenerAsync`. Registering TFTP here has to correct
   both.
+- 2026-09-29, delivered: `CommandLineRunner` registers `TftpProtocolServer` over the one
+  content store, and the scheme check now counts datagram servers too (it only counted
+  `IConnectionProtocolServer`s). `ListenerStartReporter.StartDatagramListenerAsync` now
+  starts through the inner factory and reports like a connection start, so the status line
+  `Listening on tftp://127.0.0.1:<port>/` carries the UDP port: BL-016's format needed no
+  change and no `Surl.Output` task was filed. `TcpListenerFactory` no longer exists, so only
+  the reporter's stale `<exception>` needed correcting; it is gone with the throw.
+- The conformance tests serve each read case's recorded `stdout.bin` as the file, because
+  the recorder answered curl with exactly those bytes as the file's contents; all five pass
+  against the pinned win-x64 8.21.0 build, so no disagreement task was filed.
+- `dotnet format --verify-no-changes` still reports line endings in
+  `Surl.Cli.UnitLibrary/SchemeDefaultPorts.cs`, untouched here and outside this task.
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. surl tftp:// serves the served directory over UDP; pinned upstream curl 8.21.0 reads from it as BL-037's recordings predict
