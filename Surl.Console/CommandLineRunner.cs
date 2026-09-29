@@ -6,6 +6,7 @@ using Surl.Content;
 using Surl.Core;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
+using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 
 namespace Surl.Console;
@@ -132,7 +133,7 @@ internal sealed class CommandLineRunner(
 
     // Every protocol server surl registers, each serving the one content store.
     private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore) =>
-        [new HttpProtocolServer(contentStore)];
+        [new HttpProtocolServer(contentStore), new GopherProtocolServer(contentStore)];
 
     private static string? FindUnregisteredScheme(IReadOnlyList<ListenUrl> listenUrls, IProtocolServer[] servers)
     {

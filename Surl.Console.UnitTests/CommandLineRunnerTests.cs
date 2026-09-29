@@ -27,7 +27,7 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public async Task RunAsync_Version_WritesVersionWithTheHttpSchemeAndReturnsOk()
+    public async Task RunAsync_Version_WritesVersionWithTheGopherAndHttpSchemesAndReturnsOk()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
@@ -35,8 +35,8 @@ public sealed class CommandLineRunnerTests
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["http"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: http" + NewLine);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["gopher", "http"]), output);
+        StringAssert.EndsWith(output, NewLine + "Protocols: gopher http" + NewLine);
         Assert.AreEqual(string.Empty, error);
     }
 
@@ -121,6 +121,26 @@ public sealed class CommandLineRunnerTests
             + $"Listening on http://[::1]:{FakeListenerFactory.BoundPort}/" + NewLine,
             statusLines);
         Assert.AreEqual(statusLines, output.ToString());
+        Assert.AreEqual(string.Empty, error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_GopherListenUrl_StartsAGopherListenerAndReturnsOkWhenCancelled()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var running = new CommandLineRunner(factory, AnyDirectoryOpens, TimeProvider.System)
+            .RunAsync(["gopher://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        CollectionAssert.AreEqual(new[] { new ListenUrl("gopher", "127.0.0.1", 0) }, factory.StartedListenUrls);
+        Assert.AreEqual($"Listening on gopher://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
         Assert.AreEqual(string.Empty, error.ToString());
     }
 
