@@ -18,7 +18,7 @@ namespace Surl.Console;
 
 /// <summary>
 /// Runs one <c>surl</c> command line: the composition root. It parses the command line,
-/// answers <c>--help</c> and <c>--version</c>, checks the data directory when one is given and
+/// answers <c>--help</c>, <c>--manual</c> and <c>--version</c>, checks the data directory when one is given and
 /// the schemes, takes the data directory's lock, loads the MQTT retained messages kept under it,
 /// then constructs the TLS settings, the content store (on disk or in memory), the
 /// protocol servers, the exchange log and the serving engine explicitly and serves until
@@ -77,7 +77,7 @@ internal sealed class CommandLineRunner(
     /// </summary>
     /// <param name="args">The command-line arguments, without the program name.</param>
     /// <param name="output">
-    /// stdout: where the help, the version and, from the info level up, the status lines go;
+    /// stdout: where the help, the manual, the version and, from the info level up, the status lines go;
     /// and a <c>--trace -</c> dump or <c>--log-file -</c> log.
     /// </param>
     /// <param name="error">
@@ -96,6 +96,7 @@ internal sealed class CommandLineRunner(
         {
             CommandLineOutcome.ShowHelp => WriteHelp(output, error, HelpText.Answer(parsed.HelpSubject)),
             CommandLineOutcome.ShowVersion => WriteText(output, ComposeVersionText()),
+            CommandLineOutcome.ShowManual => WriteText(output, ManualText.Text),
             CommandLineOutcome.Refused => WriteRefusal(error, parsed.Failure!),
             _ => await ServeAsync(parsed.CommandLine!, output, HideAtLevelNone(parsed.CommandLine!, error), cancellationToken),
         };

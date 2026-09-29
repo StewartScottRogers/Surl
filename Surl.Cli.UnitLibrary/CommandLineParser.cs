@@ -50,8 +50,9 @@ public static class CommandLineParser
     /// <param name="arguments">The arguments, as the process received them.</param>
     /// <returns>
     /// <see cref="CommandLineParseResult.ShowHelp"/>, with the subject that follows, or
-    /// <see cref="CommandLineParseResult.ShowVersion"/> when <c>-h</c>/<c>--help</c> or
-    /// <c>-V</c>/<c>--version</c> is read before any error (ADR-0034 decision 4);
+    /// <see cref="CommandLineParseResult.ShowVersion"/> or <see cref="CommandLineParseResult.ShowManual"/>
+    /// when <c>-h</c>/<c>--help</c>, <c>-V</c>/<c>--version</c> or <c>-M</c>/<c>--manual</c> is
+    /// read before any error (ADR-0034 decision 4);
     /// a serve result carrying the <see cref="SurlCommandLine"/>; or the first failure, with
     /// its <see cref="SurlExitCode"/> and message.
     /// </returns>
@@ -216,6 +217,11 @@ public static class CommandLineParser
         if (option.Kind == CommandLineOptionKind.Version)
         {
             return CommandLineParseResult.ShowVersion;
+        }
+
+        if (option.Kind == CommandLineOptionKind.Manual)
+        {
+            return CommandLineParseResult.ShowManual;
         }
 
         reading.CommandLine = option.SetFlag!(reading.CommandLine, turnOn);

@@ -49,7 +49,7 @@ public sealed class CommandLineRunnerLogTests
 
         Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
         Assert.AreEqual(
-            "surl: option --bogus: is unknown" + NewLine + "surl: try 'surl --help' for more information" + NewLine,
+            "surl: option --bogus: is unknown" + NewLine + "surl: try 'surl --help' or 'surl --manual' for more information" + NewLine,
             run.Error);
     }
 

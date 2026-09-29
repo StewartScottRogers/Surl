@@ -15,6 +15,7 @@ public static class HelpText
 
     private const string AllSubject = "all";
     private const string CategorySubject = "category";
+    private const string TestingCategory = "testing";
     private const string LongOptionPrefix = "--";
     private const string NegationPrefix = "no-";
 
@@ -119,8 +120,23 @@ public static class HelpText
     {
         var options = CommandLineOptions.All.Where(option => option.Help.Categories.Contains(category.Name)).ToArray();
         string[] heading = [$"{category.Name}: {category.Description}"];
-        return options.Length == 0 ? heading : heading.Concat(OptionLines(options));
+        var lines = options.Length == 0 ? heading : heading.Concat(OptionLines(options));
+        return category.Name == TestingCategory ? lines.Concat(ExplanationLines(options)) : lines;
     }
+
+    /// <summary>
+    /// ADR-0034 decision 5: an empty line, then for each option of <paramref name="options"/> that
+    /// has an explanation, in ordinal order of the long name, its page heading, its paragraph and
+    /// an empty line.
+    /// </summary>
+    private static IEnumerable<string> ExplanationLines(IEnumerable<CommandLineOption> options) =>
+        options
+            .Where(option => option.Help.Explanation is not null)
+            .OrderBy(option => option.LongName, StringComparer.Ordinal)
+            .SelectMany(option => new[] { OptionPageHeading(option) }
+                .Concat(HelpLayout.WrapParagraph(option.Help.Explanation!))
+                .Append(string.Empty))
+            .Prepend(string.Empty);
 
     private static IEnumerable<string> OptionPageLines(CommandLineOption option)
     {
@@ -128,12 +144,20 @@ public static class HelpText
         var summary = help.Default is null ? $"{help.Description}." : $"{help.Description}. Default: {help.Default}.";
         var categories = $"Categories: {string.Join(", ", help.Categories.Order(StringComparer.Ordinal))}.";
 
-        return new[] { "    " + LeftSide(option).TrimStart() }
+        var explanation = help.Explanation is null
+            ? []
+            : new[] { string.Empty }.Concat(HelpLayout.WrapParagraph(help.Explanation));
+
+        return new[] { OptionPageHeading(option) }
             .Concat(HelpLayout.WrapParagraph(summary))
+            .Concat(explanation)
             .Append(string.Empty)
             .Concat(HelpLayout.WrapParagraph(categories))
             .Append(string.Empty);
     }
+
+    /// <summary>Four spaces and the option's left side without its padding: the first line of its page.</summary>
+    private static string OptionPageHeading(CommandLineOption option) => "    " + LeftSide(option).TrimStart();
 
     /// <summary>The option lines of <paramref name="options"/>, in ordinal order of the long name.</summary>
     private static IReadOnlyList<string> OptionLines(IEnumerable<CommandLineOption> options) =>

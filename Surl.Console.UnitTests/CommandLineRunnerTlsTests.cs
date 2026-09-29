@@ -135,7 +135,7 @@ public sealed class CommandLineRunnerTlsTests
         Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
         Assert.AreEqual(
             "surl: option --self-signed: cannot be used with --cert" + NewLine
-            + "surl: try 'surl --help' for more information" + NewLine,
+            + "surl: try 'surl --help' or 'surl --manual' for more information" + NewLine,
             run.Error);
         Assert.IsFalse(run.FactoryCreated);
     }

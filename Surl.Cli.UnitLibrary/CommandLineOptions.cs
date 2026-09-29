@@ -16,6 +16,39 @@ internal static class CommandLineOptions
     /// <summary>Reads an argument of one kind; returns the refusal reason, or null.</summary>
     private delegate string? ReadArgument<T>(string argument, out T value);
 
+    // ADR-0034 decision 5's paragraphs, each checked against the code it describes.
+    private const string AllowAnonymousExplanation =
+        "Accepts every request and every login without checking credentials: HTTP serves every request as "
+        + "anonymous and sends no challenge, and MQTT answers every well-formed CONNECT with CONNACK 0 whatever credentials it "
+        + "carries. "
+        + "A test uses it to fetch or publish without setting up accounts. It is not the default because anyone "
+        + "who can reach a listener then gets everything surl serves, and can publish and subscribe over MQTT, "
+        + "with no login at all. surl warns on every start while it is on, from the info log level up.";
+
+    private const string AllowPlaintextAuthExplanation =
+        "Accepts passwords and tokens sent over an unencrypted connection: HTTP Basic and Bearer over http:// "
+        + "and an MQTT password over mqtt:// are checked instead of refused unchecked (403 Forbidden, CONNACK 5), "
+        + "and Basic and Bearer are offered in a 401 over http://. A test uses it to log in without a certificate. "
+        + "It is not the default because anyone who can watch the network reads the password as it is sent. "
+        + "surl warns on every start while it is on, from the info log level up.";
+
+    private const string AuthExplanation =
+        "Sets the HTTP authentication methods surl accepts and offers, a comma-separated list of basic, bearer, "
+        + "digest, ntlm, negotiate and aws-sigv4; the default is basic,bearer,digest,aws-sigv4. This build checks "
+        + "basic, bearer and digest, and refuses to start when --auth names another. A test uses it to offer one "
+        + "method alone, such as --auth digest for curl's --digest. ntlm and negotiate are not in the default "
+        + "because an NTLM response is built on MD4 and HMAC-MD5 of the password and is open to relay and offline "
+        + "cracking, and Negotiate carries NTLM. surl warns on every start while --auth is given, from the info log "
+        + "level up, naming the methods it accepts.";
+
+    private const string SelfSignedExplanation =
+        "Serves a throwaway self-signed certificate, made at start, for a listen URL of a scheme that starts "
+        + "with TLS (such as https) when no --cert is given; without it, and without --cert, such a URL is "
+        + "refused at start. A test uses it to serve a secure scheme without a certificate file; curl then needs "
+        + "-k. It is not the default because no client can verify the certificate, so a client cannot tell surl "
+        + "from anyone else on the path. It cannot be used with --cert. surl warns when it makes the certificate, "
+        + "from the info log level up.";
+
 #pragma warning disable SYSLIB0039 // --tlsv1.0 and --tlsv1.1 name the old versions on purpose (ADR-0007 section 2).
     private static readonly CommandLineOption[] Table =
     [
@@ -23,6 +56,8 @@ internal static class CommandLineOptions
             new("<subject>", "Get help for commands", ["surl"], IsInShortList: true, Default: null)),
         new("version", 'V', CommandLineOptionKind.Version, Negatable: false, SetFlag: null, ApplyArgument: null,
             new(null, "Show version number and quit", ["surl"], IsInShortList: true, Default: null)),
+        new("manual", 'M', CommandLineOptionKind.Manual, Negatable: false, SetFlag: null, ApplyArgument: null,
+            new(null, "Display the full manual", ["surl"], IsInShortList: false, Default: null)),
         Flag("verbose", 'v', negatable: true, (c, on) => c with { LogLevel = on ? LogLevel.Verbose : LogLevel.Info },
             new(null, "Log every exchange event", ["logging"], IsInShortList: true, Default: "off")),
         Flag("silent", 's', negatable: true, (c, on) => c with { LogLevel = on ? LogLevel.None : LogLevel.Info },
@@ -97,13 +132,17 @@ internal static class CommandLineOptions
         WithArgument<string>("user-file", null, OptionArgumentReader.ReadPath, (c, v) => c with { UserFile = v },
             new("<file>", "Read accounts from a file", ["auth", "http", "mqtt"], IsInShortList: true, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
-            new(null, "Accept any login, or none (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off")),
+            new(null, "Accept any login, or none (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off",
+                AllowAnonymousExplanation)),
         Flag("allow-plaintext-auth", null, negatable: true, (c, on) => c with { AllowPlaintextAuthentication = on },
-            new(null, "Accept passwords in clear (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off")),
+            new(null, "Accept passwords in clear (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off",
+                AllowPlaintextAuthExplanation)),
         WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.ReadAuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
-            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "basic,bearer,digest,aws-sigv4")),
+            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "basic,bearer,digest,aws-sigv4",
+                AuthExplanation)),
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
-            new(null, "Throwaway certificate (warns)", ["security", "testing", "tls"], IsInShortList: false, Default: "off")),
+            new(null, "Throwaway certificate (warns)", ["security", "testing", "tls"], IsInShortList: false, Default: "off",
+                SelfSignedExplanation)),
     ];
 #pragma warning restore SYSLIB0039
 

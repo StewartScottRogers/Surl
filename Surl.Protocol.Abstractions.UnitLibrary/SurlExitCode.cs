@@ -32,8 +32,8 @@ public enum SurlExitCode
     /// Surl could not start: an unknown option, an option missing its argument, an invalid
     /// option value, or any other command line surl cannot act on that is not a URL error.
     /// The same number and meaning as upstream curl's <c>CURLE_FAILED_INIT</c>. <c>surl</c>
-    /// writes the refusal and <c>try 'surl --help' for more information</c> to stderr
-    /// (ADR-0007, section 5).
+    /// writes the refusal and <c>try 'surl --help' or 'surl --manual' for more information</c>
+    /// to stderr (ADR-0007, section 5; ADR-0034, decision 6).
     /// </summary>
     FailedInit = 2,
 

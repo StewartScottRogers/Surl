@@ -12,6 +12,9 @@ internal enum CommandLineOptionKind
     /// <summary><c>-V</c>/<c>--version</c>: ends reading with <see cref="CommandLineOutcome.ShowVersion"/>.</summary>
     Version,
 
+    /// <summary><c>-M</c>/<c>--manual</c>: ends reading with <see cref="CommandLineOutcome.ShowManual"/> (ADR-0034 decision 4).</summary>
+    Manual,
+
     /// <summary>Takes no argument; sets a value on the command line.</summary>
     Flag,
 

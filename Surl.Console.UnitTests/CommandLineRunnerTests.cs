@@ -59,6 +59,21 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
+    [DataRow("--manual")]
+    [DataRow("-M")]
+    [DataRow("-s", "--manual", DisplayName = "At the none level too")]
+    public async Task RunAsync_Manual_WritesTheManualToOutputAndReturnsOk(params string[] arguments)
+    {
+        var listenerFactory = new FakeListenerFactory();
+
+        var (exitCode, output, error) = await RunAsync(listenerFactory, arguments);
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(ManualText.Text, output);
+        Assert.AreEqual(string.Empty, error);
+    }
+
+    [TestMethod]
     public async Task RunAsync_UnknownOption_WritesTheRefusalAndTheTryLineAndReturnsFailedInit()
     {
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--bogus", "http://127.0.0.1:0/");
@@ -66,7 +81,7 @@ public sealed class CommandLineRunnerTests
         Assert.AreEqual(SurlExitCode.FailedInit, exitCode);
         Assert.AreEqual(string.Empty, output);
         Assert.AreEqual(
-            "surl: option --bogus: is unknown" + NewLine + "surl: try 'surl --help' for more information" + NewLine,
+            "surl: option --bogus: is unknown" + NewLine + "surl: try 'surl --help' or 'surl --manual' for more information" + NewLine,
             error);
     }
 
@@ -680,7 +695,7 @@ public sealed class CommandLineRunnerTests
         Assert.AreEqual(string.Empty, output);
         Assert.AreEqual(
             $"surl: option {option}: expected a proper numerical parameter" + NewLine
-            + "surl: try 'surl --help' for more information" + NewLine,
+            + "surl: try 'surl --help' or 'surl --manual' for more information" + NewLine,
             error);
         Assert.IsEmpty(factory.StartedListenUrls);
     }

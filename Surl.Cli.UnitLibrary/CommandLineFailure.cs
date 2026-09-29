@@ -20,7 +20,8 @@ public sealed record CommandLineFailure(SurlExitCode ExitCode, string Message, b
 {
     /// <summary>
     /// The line written after a command-line error, after the <c>surl: </c> prefix (ADR-0007
-    /// section 5), as upstream curl writes <c>curl: try 'curl --help' …</c> after its own.
+    /// section 5), as upstream curl writes <c>curl: try 'curl --help' or 'curl --manual' …</c>
+    /// after its own (ADR-0034 decision 6).
     /// </summary>
-    public const string TryHelpLine = "try 'surl --help' for more information";
+    public const string TryHelpLine = "try 'surl --help' or 'surl --manual' for more information";
 }

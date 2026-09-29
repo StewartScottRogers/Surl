@@ -12,6 +12,9 @@ public enum CommandLineOutcome
     /// </summary>
     ShowHelp,
 
+    /// <summary>Write <see cref="ManualText.Text"/> to stdout and exit with <c>SurlExitCode.Ok</c> (ADR-0034 decision 6).</summary>
+    ShowManual,
+
     /// <summary>Write <see cref="VersionText.Compose"/>'s text to stdout and exit with <c>SurlExitCode.Ok</c>.</summary>
     ShowVersion,
 

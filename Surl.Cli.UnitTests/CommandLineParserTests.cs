@@ -975,6 +975,32 @@ public sealed class CommandLineParserTests
         Assert.AreSame(CommandLineParseResult.ShowVersion, CommandLineParser.Parse([written]));
 
     [TestMethod]
+    [DataRow("--manual")]
+    [DataRow("-M")]
+    [DataRow("-vM", DisplayName = "Ending a bundle")]
+    [DataRow("-Mh", DisplayName = "First of manual and help wins")]
+    public void Parse_Manual_ShowsManual(string written) =>
+        Assert.AreSame(CommandLineParseResult.ShowManual, CommandLineParser.Parse([written]));
+
+    [TestMethod]
+    public void Parse_ManualBeforeAnythingElse_EndsReadingWhereItStands()
+    {
+        Assert.AreSame(CommandLineParseResult.ShowManual, CommandLineParser.Parse(["-M", "--no-such"]));
+        Assert.AreSame(CommandLineParseResult.ShowManual, CommandLineParser.Parse(["--manual", "--help"]));
+        Assert.AreSame(CommandLineParseResult.ShowManual, CommandLineParser.Parse(["-s", "--manual", Url]));
+        Assert.AreSame(CommandLineParseResult.ShowVersion, CommandLineParser.Parse(["-V", "--manual"]));
+        Assert.AreEqual(CommandLineOutcome.ShowHelp, CommandLineParser.Parse(["--help", "--manual"]).Outcome);
+        AssertOptionRefused(["--no-such", "--manual"], "option --no-such: is unknown");
+    }
+
+    [TestMethod]
+    public void Parse_ManualWithAValueOrNegated_IsRefused()
+    {
+        AssertOptionRefused(["--manual=1"], "option --manual=1: does not take a parameter");
+        AssertOptionRefused(["--no-manual"], "option --no-manual: the given option cannot be reversed with a --no- prefix");
+    }
+
+    [TestMethod]
     public void Parse_HelpOrVersionBeforeAnError_EndsReadingWhereItStands()
     {
         Assert.AreEqual(CommandLineOutcome.ShowVersion, CommandLineParser.Parse(["-V", "--no-such"]).Outcome);
@@ -993,7 +1019,7 @@ public sealed class CommandLineParserTests
     [TestMethod]
     public void ShowHelpAndShowVersion_CarryNeitherCommandLineNorFailure()
     {
-        foreach (var result in new[] { CommandLineParseResult.ShowHelp("auth"), CommandLineParseResult.ShowVersion })
+        foreach (var result in new[] { CommandLineParseResult.ShowHelp("auth"), CommandLineParseResult.ShowVersion, CommandLineParseResult.ShowManual })
         {
             Assert.IsNull(result.CommandLine);
             Assert.IsNull(result.Failure);
@@ -1004,6 +1030,7 @@ public sealed class CommandLineParserTests
     public void HelpSubject_IsNullForEveryOutcomeButShowHelp()
     {
         Assert.IsNull(CommandLineParseResult.ShowVersion.HelpSubject);
+        Assert.IsNull(CommandLineParseResult.ShowManual.HelpSubject);
         Assert.IsNull(CommandLineParser.Parse(["--no-such"]).HelpSubject);
         Assert.IsNull(CommandLineParser.Parse([Url]).HelpSubject);
     }

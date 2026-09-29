@@ -18,6 +18,9 @@ public sealed class CommandLineParseResult
     /// <summary>The result that tells <c>surl</c> to show the version.</summary>
     public static CommandLineParseResult ShowVersion { get; } = new(CommandLineOutcome.ShowVersion, null, null);
 
+    /// <summary>The result that tells <c>surl</c> to show the manual.</summary>
+    public static CommandLineParseResult ShowManual { get; } = new(CommandLineOutcome.ShowManual, null, null);
+
     /// <summary>What the command line tells <c>surl</c> to do.</summary>
     public CommandLineOutcome Outcome { get; }
 

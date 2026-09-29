@@ -23,6 +23,57 @@ public sealed class HelpTextTests
         " tls       TLS certificates and versions",
     ];
 
+    // ADR-0034 decision 5's paragraphs, as --help testing and each option's page lay them out.
+
+    private static readonly string[] AllowAnonymousExplanationLines =
+    [
+        "        Accepts every request and every login without checking credentials:",
+        "        HTTP serves every request as anonymous and sends no challenge, and MQTT",
+        "        answers every well-formed CONNECT with CONNACK 0 whatever credentials",
+        "        it carries. A test uses it to fetch or publish without setting up",
+        "        accounts. It is not the default because anyone who can reach a listener",
+        "        then gets everything surl serves, and can publish and subscribe over",
+        "        MQTT, with no login at all. surl warns on every start while it is on,",
+        "        from the info log level up.",
+    ];
+
+    private static readonly string[] AllowPlaintextAuthExplanationLines =
+    [
+        "        Accepts passwords and tokens sent over an unencrypted connection: HTTP",
+        "        Basic and Bearer over http:// and an MQTT password over mqtt:// are",
+        "        checked instead of refused unchecked (403 Forbidden, CONNACK 5), and",
+        "        Basic and Bearer are offered in a 401 over http://. A test uses it to",
+        "        log in without a certificate. It is not the default because anyone who",
+        "        can watch the network reads the password as it is sent. surl warns on",
+        "        every start while it is on, from the info log level up.",
+    ];
+
+    private static readonly string[] AuthExplanationLines =
+    [
+        "        Sets the HTTP authentication methods surl accepts and offers, a",
+        "        comma-separated list of basic, bearer, digest, ntlm, negotiate and",
+        "        aws-sigv4; the default is basic,bearer,digest,aws-sigv4. This build",
+        "        checks basic, bearer and digest, and refuses to start when --auth names",
+        "        another. A test uses it to offer one method alone, such as --auth",
+        "        digest for curl's --digest. ntlm and negotiate are not in the default",
+        "        because an NTLM response is built on MD4 and HMAC-MD5 of the password",
+        "        and is open to relay and offline cracking, and Negotiate carries NTLM.",
+        "        surl warns on every start while --auth is given, from the info log",
+        "        level up, naming the methods it accepts.",
+    ];
+
+    private static readonly string[] SelfSignedExplanationLines =
+    [
+        "        Serves a throwaway self-signed certificate, made at start, for a listen",
+        "        URL of a scheme that starts with TLS (such as https) when no --cert is",
+        "        given; without it, and without --cert, such a URL is refused at start.",
+        "        A test uses it to serve a secure scheme without a certificate file;",
+        "        curl then needs -k. It is not the default because no client can verify",
+        "        the certificate, so a client cannot tell surl from anyone else on the",
+        "        path. It cannot be used with --cert. surl warns when it makes the",
+        "        certificate, from the info log level up.",
+    ];
+
     // --help with no subject.
 
     [TestMethod]
@@ -83,6 +134,7 @@ public sealed class HelpTextTests
             "     --list-directories                      Answer directory listings",
             "     --log-file <file>                       Append the log to <file>",
             "     --log-level <level>                     Set the log level",
+            " -M, --manual                                Display the full manual",
             "     --max-connections <number>              Connections at once, all listeners",
             "     --max-connections-per-address <number>  Connections at once per address",
             "     --max-filesize <bytes>                  Largest upload accepted",
@@ -142,11 +194,26 @@ public sealed class HelpTextTests
     public void Answer_Testing_ListsItsOptions() =>
         AssertOutput(
             HelpText.Answer("testing"),
-            "testing: Loosening options for tests (warned)",
-            Row(30, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
-            Row(30, "    --auth <methods>", "Authentication methods accepted"),
-            Row(30, "    --self-signed", "Throwaway certificate (warns)"));
+            [
+                "testing: Loosening options for tests (warned)",
+                Row(30, "    --allow-anonymous", "Accept any login, or none (warns)"),
+                Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+                Row(30, "    --auth <methods>", "Authentication methods accepted"),
+                Row(30, "    --self-signed", "Throwaway certificate (warns)"),
+                "",
+                "    --allow-anonymous",
+                .. AllowAnonymousExplanationLines,
+                "",
+                "    --allow-plaintext-auth",
+                .. AllowPlaintextAuthExplanationLines,
+                "",
+                "    --auth <methods>",
+                .. AuthExplanationLines,
+                "",
+                "    --self-signed",
+                .. SelfSignedExplanationLines,
+                "",
+            ]);
 
     [TestMethod]
     public void Answer_Content_ListsItsOptions() =>
@@ -283,28 +350,84 @@ public sealed class HelpTextTests
             "");
 
     [TestMethod]
-    [DataRow("--user-file", "    --user-file <file>", "Read accounts from a file. Default: none.", "auth, http, mqtt")]
-    [DataRow("--allow-anonymous", "    --allow-anonymous", "Accept any login, or none (warns). Default: off.", "auth, http, mqtt, security, testing")]
-    [DataRow("--no-allow-plaintext-auth", "    --allow-plaintext-auth", "Accept passwords in clear (warns). Default: off.", "auth, http, mqtt, security, testing")]
-    [DataRow("--self-signed", "    --self-signed", "Throwaway certificate (warns). Default: off.", "security, testing, tls")]
-    public void Answer_AuthenticationOption_IsItsPage(string subject, string leftSide, string description, string categories) =>
+    public void Answer_UserFile_IsItsPage() =>
         AssertOutput(
-            HelpText.Answer(subject),
-            leftSide,
-            "        " + description,
+            HelpText.Answer("--user-file"),
+            "    --user-file <file>",
+            "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: " + categories + ".",
+            "        Categories: auth, http, mqtt.",
             "");
 
     [TestMethod]
-    public void Answer_Auth_IsItsPageWithItsDefaultWrapped() =>
+    public void Answer_AllowAnonymous_IsItsPageWithItsExplanation() =>
+        AssertOutput(
+            HelpText.Answer("--allow-anonymous"),
+            [
+                "    --allow-anonymous",
+                "        Accept any login, or none (warns). Default: off.",
+                "",
+                .. AllowAnonymousExplanationLines,
+                "",
+                "        Categories: auth, http, mqtt, security, testing.",
+                "",
+            ]);
+
+    [TestMethod]
+    [DataRow("--allow-plaintext-auth", DisplayName = "Long name")]
+    [DataRow("--no-allow-plaintext-auth", DisplayName = "Negated")]
+    public void Answer_AllowPlaintextAuth_IsItsPageWithItsExplanation(string subject) =>
+        AssertOutput(
+            HelpText.Answer(subject),
+            [
+                "    --allow-plaintext-auth",
+                "        Accept passwords in clear (warns). Default: off.",
+                "",
+                .. AllowPlaintextAuthExplanationLines,
+                "",
+                "        Categories: auth, http, mqtt, security, testing.",
+                "",
+            ]);
+
+    [TestMethod]
+    public void Answer_SelfSigned_IsItsPageWithItsExplanation() =>
+        AssertOutput(
+            HelpText.Answer("--self-signed"),
+            [
+                "    --self-signed",
+                "        Throwaway certificate (warns). Default: off.",
+                "",
+                .. SelfSignedExplanationLines,
+                "",
+                "        Categories: security, testing, tls.",
+                "",
+            ]);
+
+    [TestMethod]
+    public void Answer_Auth_IsItsPageWithItsDefaultWrappedAndItsExplanation() =>
         AssertOutput(
             HelpText.Answer("--auth"),
-            "    --auth <methods>",
-            "        Authentication methods accepted. Default:",
-            "        basic,bearer,digest,aws-sigv4.",
+            [
+                "    --auth <methods>",
+                "        Authentication methods accepted. Default:",
+                "        basic,bearer,digest,aws-sigv4.",
+                "",
+                .. AuthExplanationLines,
+                "",
+                "        Categories: auth, http, security, testing.",
+                "",
+            ]);
+
+    [TestMethod]
+    [DataRow("--manual", DisplayName = "Long name")]
+    [DataRow("-M", DisplayName = "Short name")]
+    public void Answer_Manual_IsItsPage(string subject) =>
+        AssertOutput(
+            HelpText.Answer(subject),
+            "    -M, --manual",
+            "        Display the full manual.",
             "",
-            "        Categories: auth, http, security, testing.",
+            "        Categories: surl.",
             "");
 
     [TestMethod]
@@ -354,6 +477,7 @@ public sealed class HelpTextTests
             HelpText.Answer("surl"),
             "surl: The command line tool itself",
             " -h, --help <subject>  Get help for commands",
+            " -M, --manual          Display the full manual",
             " -V, --version         Show version number and quit");
 
     [TestMethod]
@@ -474,6 +598,19 @@ public sealed class HelpTextTests
             Assert.IsTrue(categoryPages.Any(page => page.Skip(1).Any(line => ContainsOption(line, marker))), option.LongName);
             Assert.IsTrue(option.Help.Categories.All(name => HelpCategories.TryFind(name, out _)), option.LongName);
         }
+    }
+
+    [TestMethod]
+    public void Answer_Testing_ExplainsEveryLooseningOptionAndNamesOnlyOptionsThatExist()
+    {
+        var text = HelpText.Answer("testing").Output;
+
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--self-signed" })
+        {
+            StringAssert.Contains(text, NewLine + "    " + looseningOption + NewLine, looseningOption);
+        }
+
+        OptionNames.AssertEveryNamedOptionExists(text);
     }
 
     [TestMethod]
