@@ -40,3 +40,4 @@ which ADR-0025 decision 5 records as a departure from that section.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
