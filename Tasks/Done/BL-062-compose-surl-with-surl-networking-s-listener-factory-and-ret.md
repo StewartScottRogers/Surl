@@ -8,7 +8,7 @@ depends-on: [BL-055, BL-019]
 touches: [Surl.Console, Surl.Console.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-062 — Compose surl with Surl.Networking's listener factory and retire TcpListenerFactory
 
@@ -31,19 +31,31 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `Surl.Console/TcpListenerFactory.cs` and its tests no longer exist, and
+- [x] `Surl.Console/TcpListenerFactory.cs` and its tests no longer exist, and
       `Program.RunAsync` constructs `Surl.Networking`'s listener factory.
-- [ ] `ProgramTests.RunAsync_ServedDirectoryOnAnEphemeralPort_ServesAFileOverHttpAndReturnsOkWhenCancelled`
+- [x] `ProgramTests.RunAsync_ServedDirectoryOnAnEphemeralPort_ServesAFileOverHttpAndReturnsOkWhenCancelled`
       (Integration) still passes.
-- [ ] `Surl.Console/CLAUDE.md` no longer mentions `TcpListenerFactory`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and
+- [x] `Surl.Console/CLAUDE.md` no longer mentions `TcpListenerFactory`.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and
       `Measure-CodeQuality.ps1 -Library Surl.Console` reports no failing member.
 
 ## Notes
 
 - Filed by BL-019, 2026-09-28.
+- Done 2026-09-28: `Program.RunAsync` constructs `new SocketListenerFactory()` (the
+  parameterless one, no TLS settings: `surl` has no `--cert` wiring yet, BL-067 and BL-038).
+  `RunAsync`'s doc comment now says it serves over TCP and UDP listeners; `Surl.Console/CLAUDE.md`
+  names `SocketListenerFactory` in place of the retired bullet.
+- Verified: `dotnet build -warnaserror` clean; fast tests green across the solution (Surl.Console.UnitTests
+  33); the Integration test `RunAsync_ServedDirectoryOnAnEphemeralPort_...` passes;
+  `Measure-CodeQuality.ps1 -Library Surl.Console -SkipTestRun` reports 0 failing members.
+- `-SkipTestRun` was needed because the measuring run hit
+  `ServerTlsSettingsTests.CreateAuthenticationOptions_Intermediates_AreInTheCertificateContext`
+  failing in `Surl.Networking.UnitTests` (Windows chain-building error; it passed in the
+  first run and nothing in Surl.Networking changed). Outside this task's touches: filed as BL-078.
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. surl serves through Surl.Networking's SocketListenerFactory; TcpListenerFactory is gone
