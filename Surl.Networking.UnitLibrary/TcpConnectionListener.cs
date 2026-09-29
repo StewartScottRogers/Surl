@@ -20,12 +20,14 @@ public sealed class TcpConnectionListener : IConnectionListener
 {
     private readonly IReadOnlyList<Socket> listeningSockets;
     private readonly AcceptRace<Socket> acceptRace;
+    private readonly ServerTlsHandshake? tlsHandshake;
 
     // Reads each listening socket's local endpoint and sets the bound port on the listen URL.
     [ExcludeFromCodeCoverage(Justification = "Reads Socket.LocalEndPoint; covered by the integration tests.")]
-    private TcpConnectionListener(ListenUrl listenUrl, IReadOnlyList<Socket> listeningSockets)
+    private TcpConnectionListener(ListenUrl listenUrl, IReadOnlyList<Socket> listeningSockets, ServerTlsSettings? tlsSettings)
     {
         this.listeningSockets = listeningSockets;
+        tlsHandshake = ServerTlsHandshake.ForListener(tlsSettings, listenUrl);
         BoundEndPoints = [.. listeningSockets.Select(LocalEndPointOf)];
         ListenUrl = listenUrl.WithBoundPort(BoundPortOf(listeningSockets[0]));
         acceptRace = new AcceptRace<Socket>(listeningSockets.Count, AcceptFromSocketAsync, ReleaseSocket);
@@ -61,12 +63,31 @@ public sealed class TcpConnectionListener : IConnectionListener
     /// </exception>
     // Resolves with Dns.GetHostAddressesAsync and binds with Socket.Bind and Socket.Listen.
     [ExcludeFromCodeCoverage(Justification = "Calls Dns and binds sockets; covered by the integration tests.")]
-    public static async ValueTask<TcpConnectionListener> StartAsync(ListenUrl listenUrl, CancellationToken cancellationToken)
+    public static ValueTask<TcpConnectionListener> StartAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
+        StartAsync(listenUrl, null, cancellationToken);
+
+    /// <summary>
+    /// Binds every address <paramref name="listenUrl"/> names, as
+    /// <see cref="StartAsync(ListenUrl, CancellationToken)"/> does, and gives every accepted
+    /// connection the TLS settings its <see cref="IConnection.UpgradeToTlsAsync"/> uses
+    /// (ADR-0010), with the ALPN protocol IDs the listen URL's scheme offers.
+    /// </summary>
+    /// <param name="listenUrl">What to listen on.</param>
+    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for connections that cannot be secured.</param>
+    /// <param name="cancellationToken">Cuts the host-name resolution off.</param>
+    /// <returns>The listener, once every address is bound; its listen URL carries the bound port.</returns>
+    /// <exception cref="ListenerBindException">
+    /// The host did not resolve, or an address could not be bound; nothing stays bound.
+    /// </exception>
+    // Resolves with Dns.GetHostAddressesAsync and binds with Socket.Bind and Socket.Listen.
+    [ExcludeFromCodeCoverage(Justification = "Calls Dns and binds sockets; covered by the integration tests.")]
+    public static async ValueTask<TcpConnectionListener> StartAsync(
+        ListenUrl listenUrl, ServerTlsSettings? tlsSettings, CancellationToken cancellationToken)
     {
         var addresses = await new ListenAddressResolver(Dns.GetHostAddressesAsync).ResolveAsync(listenUrl, cancellationToken);
         var sockets = ListenerBinder.BindAll(listenUrl, addresses, BindListeningSocket, BoundPortOf, ReleaseSocket);
 
-        return new TcpConnectionListener(listenUrl, sockets);
+        return new TcpConnectionListener(listenUrl, sockets, tlsSettings);
     }
 
     /// <inheritdoc/>
@@ -134,7 +155,7 @@ public sealed class TcpConnectionListener : IConnectionListener
     // reset before this runs makes the socket calls fail; the socket is released and the
     // failure is an IOException, like every other transport failure (ADR-0004, section 2).
     [ExcludeFromCodeCoverage(Justification = "Wraps an accepted socket; covered by the integration tests.")]
-    private static StreamConnection CreateConnection(Socket socket)
+    private StreamConnection CreateConnection(Socket socket)
     {
         try
         {
@@ -144,7 +165,8 @@ public sealed class TcpConnectionListener : IConnectionListener
                 new NetworkStream(socket, ownsSocket: true),
                 socket.LocalEndPoint!,
                 socket.RemoteEndPoint!,
-                new SocketTransportControl(socket));
+                new SocketTransportControl(socket),
+                tlsHandshake);
         }
         catch (SocketException exception)
         {

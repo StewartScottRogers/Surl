@@ -43,10 +43,28 @@ protocol server.
   sends from them. `ConnectionReset` on a receive (Windows' report of an ICMP
   port-unreachable) is skipped; any other receive failure on a listen socket ends
   `AcceptFlowAsync` with `IOException`.
-- `SocketListenerFactory` (public, stateless) - implements `IListenerFactory` by delegating
+- `SocketListenerFactory` (public) - implements `IListenerFactory` by delegating
   to `TcpConnectionListener.StartAsync` and `UdpDatagramListener.StartAsync`; it is what the
-  composition root hands the serving engine. Both one-line members are excluded from coverage
+  composition root hands the serving engine. It holds only the optional `ServerTlsSettings`
+  it passes to every connection listener. Both one-line members are excluded from coverage
   and exercised by `SocketListenerFactoryTests` (Integration).
+- Server-side TLS (ADR-0010). `ServerTlsSettings` (public, one per process) holds the
+  certificate every listener serves - re-imported through PKCS#12 by
+  `ServerCertificateImport` so Schannel can serve it, so its key must be exportable - its
+  intermediates, and the `--cacert` trust anchors; with anchors, every handshake requires a
+  client certificate that `ClientCertificateVerifier` chains to exactly those anchors, with
+  no revocation check and the time from the `TimeProvider`. `ThrowawayServerCertificate`
+  (public) makes the certificate served without `--cert`. `TcpConnectionListener.StartAsync`
+  takes the settings and gives each connection a `ServerTlsHandshake` with the ALPN IDs
+  `TlsApplicationProtocols` names for the scheme (`http/1.1` for `https` and `wss`, none
+  otherwise). `StreamConnection.UpgradeToTlsAsync` runs it: a failed handshake is
+  `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
+  disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
+  close_notify before FIN. Versions are the operating system's defaults until BL-048.
+  Reading the `--cert`, `--key` and `--cacert` files is BL-066.
+- The TLS tests run real `SslStream` handshakes over `InMemoryDuplexStream` (test project)
+  with certificates made by `CertificateRequest`, so they are fast tests on every platform;
+  `TcpConnectionListenerTlsTests` (Integration) repeats one over a loopback socket.
 - All of that runs over `IDatagramSocket`, so the fast tests drive it with a fake; only
   `UdpDatagramSocket` and the public `StartAsync` touch a socket, excluded from coverage and
   exercised by the `[TestCategory("Integration")]` tests.
