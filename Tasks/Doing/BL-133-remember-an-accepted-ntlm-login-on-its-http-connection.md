@@ -47,3 +47,4 @@ answers such a request as having no credentials, so it is challenged again (ADR-
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
