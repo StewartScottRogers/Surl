@@ -65,3 +65,22 @@ by then either way.
 
 curl prints each `PUBLISH` it receives as its topic length, topic and payload, so
 `stdout.bin` for `subscribe-t` is `00 01 74 68 69`.
+
+## mqtts (BL-068)
+
+Recorded on 2026-09-29 from the repository root, in Windows PowerShell, with the same
+pinned build (SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`),
+`$ca` as above, with `Record-CurlExchange.ps1 -Raw -Tls`: the recorder answered over TLS
+1.2 with its throwaway self-signed certificate (so curl was given `-k`), recorded the
+decrypted bytes in `request.bin` and `transcript.txt`, and sent a TLS close_notify before
+closing. Each case was fed the same packets as its `mqtt` twin (`subscribe-t`,
+`publish-hi`), so its `reply.bin` is a copy of that twin's. curl sent the same packets as
+over `mqtt`, and each case exited 0 with an empty `stderr.txt`; `stdout.bin` for
+`mqtts-subscribe-t` is `00 01 74 68 69`, as over `mqtt`. `MqttProtocolServerTests` replays
+them through an `InMemoryConnection` that already holds a TLS session, as the engine hands
+one over (ADR-0010), with listen URL `mqtts://127.0.0.1:18884/`.
+
+| Folder | Retained before | Command line |
+| --- | --- | --- |
+| `mqtts-subscribe-t` | `t` = `hi` | `.\Record-CurlExchange.ps1 -Port 18884 -Raw -Tls -RawIdleMilliseconds 300 -RawReply $ca,'\x90\x03\x00\x01\x00\x31\x05\x00\x01thi\xE0\x00' -CurlArgs '-sS','-k','mqtts://127.0.0.1:18884/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\mqtts-subscribe-t` |
+| `mqtts-publish-hi` | nothing | `.\Record-CurlExchange.ps1 -Port 18884 -Raw -Tls -RawIdleMilliseconds 300 -RawReply $ca -CurlArgs '-sS','-k','-d','hi','mqtts://127.0.0.1:18884/t' -OutDirectory Surl.Protocol.Mqtt.UnitTests\Fixtures\mqtts-publish-hi` |

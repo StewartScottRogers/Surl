@@ -1,0 +1,5 @@
+= TLS handshake completed
+> \x10\x18\x00\x04MQTT\x04\x02\x00<\x00\x0CcurlrNqwhdKo
+<  \x02\x00\x00
+> 0\x05\x00\x01thi\xE0\x00
+= curl closed the connection
