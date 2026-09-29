@@ -45,3 +45,4 @@ so `surl --tlsv1.3 https://…` accepts only TLS 1.3 and `--tls-max 1.2` only TL
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
