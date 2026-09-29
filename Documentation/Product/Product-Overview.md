@@ -69,6 +69,12 @@ first - and the Curl port needs exactly that to be measured.
 - The Curl port, in the last phase: Surl is the instrument that measures it.
 - Contributors adding a protocol server, who need the seams to be obvious.
 
+Surl is built to be exposed to the internet, not only to answer on loopback in a test
+(Stewart, 2026-09-28). The security scope that hardening sets - connection, time and size
+limits, what a server exposes by default, what a peer may learn, and the TLS minimums -
+is decided in
+[ADR-0006](../Planning/Decisions/ADR-0006-hardening-for-internet-facing-use.md).
+
 ## Non-goals
 
 - **Validating Surl against anything but upstream curl.** Not the Curl port, not another
@@ -77,9 +83,8 @@ first - and the Curl port needs exactly that to be measured.
   the target, not nginx's request rate.
 - **Protocols upstream curl does not request.** Surl answers curl; a protocol curl cannot
   speak has no mate to be.
-
-> **TODO** Whether Surl is for local testing only or must also be hardened for
-> internet-facing use is open question 3 below; its answer may add or remove a non-goal.
+- **A managed NuGet API.** The `surl` executable is the only product; its libraries are
+  implementation, not a published API, and no package is shipped (Stewart, 2026-09-28).
 
 ## Scope: the surface Surl must answer
 
@@ -126,8 +131,9 @@ first - and the Curl port needs exactly that to be measured.
   (`Surl.Conformance`), so curl's suite, not Surl's, decides what correct means.
 - **Seeing the exchange:** `-v`, `--trace` and `-w` style output from the server's side.
 
-> **TODO** The command-line option table - which of curl's option names carry a
-> server-side meaning, and what each does - is a Phase 1 decision, recorded in an ADR.
+The command-line surface - which of curl's option names carry a server-side meaning and
+what each does, how listen URLs are read, and the exact text surl prints - is decided in
+[ADR-0007](../Planning/Decisions/ADR-0007-the-phase-1-command-line-surface.md).
 
 ## Architecture
 
@@ -144,10 +150,16 @@ connection (or a datagram channel, for TFTP) from a listener seam; it never cons
 request bytes measured from pinned upstream curl through a fake connection, with no
 network. Only `Surl.Networking` constructs those types.
 
-> **TODO** The shape of the listener seam, the server-side TLS contract and the exchange
-> context are the first decisions of Phase 1, each recorded in an ADR.
+The listener seam and the exchange context are decided in
+[ADR-0004](../Planning/Decisions/ADR-0004-the-listener-seam-and-the-exchange-context.md):
+a protocol server implements `IConnectionProtocolServer` (or `IDatagramProtocolServer`
+for TFTP), receives an `IConnection` (or an `IDatagramFlow`) and an `ExchangeContext`,
+and its tests replay byte scripts through `InMemoryConnection`.
 
-TLS on the server side uses the base class library's `SslStream`. What the BCL has no
+TLS on the server side uses the base class library's `SslStream`. How a protocol server
+receives a secured connection or upgrades one, where the certificate comes from, ALPN and
+client-certificate verification are decided in
+[ADR-0010](../Planning/Decisions/ADR-0010-the-server-side-tls-contract.md). What the BCL has no
 primitive for on some platform - QUIC for HTTP/3, the SSH ciphers - is built by hand, each
 in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
@@ -226,12 +238,14 @@ project exists from the first commit (ADR-0002):
 
 ## Open questions
 
-| # | Question | Blocks | Who |
+None open. The four questions this section listed are answered (Stewart, 2026-09-28):
+
+| # | Question | Answer | Carried out by |
 | --- | --- | --- | --- |
-| 1 | Pin an upstream 8.21.0 build with SMB, HTTP/2 and HTTP/3 - the curl project's own Windows build from curl.se is the candidate. Downloading it needs approval. | Validating `Surl.Protocol.Smb` and HTTP/2 and HTTP/3 (Phases 5 and 6) | Stewart |
-| 2 | Which upstream builds to pin on Linux and macOS, and how CI obtains them | Running the upstream-curl checks in CI | Claude, by ADR, once 1 is settled |
-| 3 | Is Surl for local testing only, or must it be hardened for internet-facing use? | Defaults such as binding to loopback, and the security scope | Stewart |
-| 4 | Is a managed NuGet API a deliverable, or is the `surl` executable the only product? | The public API surface | Stewart |
+| 1 | Pin an upstream build with SMB, HTTP/2 and HTTP/3? | Answered: yes, the latest. curl.se's current Windows build (8.22.0_2) is pinned as a supplementary build, used only for SMB, HTTP/2 and HTTP/3; 8.21.0 stays the reference release. Stewart, 2026-09-28. | BL-026 |
+| 2 | Upstream builds on Linux and macOS? | Answered: download them. The approval covers upstream 8.21.0 builds for Linux and macOS; which builds, and how CI obtains them, is decided by ADR. Stewart, 2026-09-28. | BL-027 and BL-028 |
+| 3 | Local testing only, or hardened for internet-facing use? | Answered: internet-facing. Surl is hardened to be exposed to the internet (see "Users"). Stewart, 2026-09-28. | BL-024 |
+| 4 | A managed NuGet API, or the `surl` executable only? | Answered: the executable. `surl` is the only product; its libraries are implementation, not a published API (see "Non-goals"). Stewart, 2026-09-28. | none |
 
 ## Sources
 

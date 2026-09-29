@@ -1,0 +1,5 @@
+> curl:54682 -> server:18069 \x00\x01file.txt\x00octet\x00tsize\x000\x00blksize\x00512\x00timeout\x006\x00
+< server:54683 -> curl:54682 \x00\x06tsize\x0017\x00blksize\x00512\x00timeout\x006\x00
+> curl:54682 -> server:54683 \x00\x04\x00\x00
+< server:54683 -> curl:54682 \x00\x03\x00\x01Hello from Surl.\x0A
+> curl:54682 -> server:54683 \x00\x04\x00\x01

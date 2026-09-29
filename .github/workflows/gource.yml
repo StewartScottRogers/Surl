@@ -1,15 +1,25 @@
 # Keeps the README's showcase on the `gource` branch, served by GitHub Pages at
 # https://stewartscottrogers.github.io/Surl/: a Gource video of Surl's history (an 8K
 # adaptive stream with a full-screen viewer page, and the GIF the README shows) and the
-# code coverage report (coverage/index.html, and coverage/badge.svg for the README).
+# code coverage report (coverage/index.html, and coverage/badge.svg for the README), and
+# the live task board page (board/index.html, served at .../Surl/board/; ADR-0029).
 #
-# Three jobs:
-#   * decide    - whether this run renders (below);
-#   * coverage  - on Windows, where the quality gates are measured: Measure-CodeQuality.ps1
-#                 measures, .github/coverage/make-coverage-report.cs renders the page and
-#                 the badge, and the result is committed onto the gource branch;
-#   * render    - the video. It waits for coverage, then force-pushes a new single-commit
-#                 gource branch that carries the coverage/ folder over.
+# Four jobs:
+#   * decide     - whether this run renders (below);
+#   * coverage   - on Windows, where the quality gates are measured: Measure-CodeQuality.ps1
+#                  measures, .github/coverage/make-coverage-report.cs renders the page and
+#                  the badge, and the result is committed onto the gource branch;
+#   * render     - the video. It waits for coverage, then force-pushes a new single-commit
+#                  gource branch that carries the coverage/ and board/ folders over;
+#   * board-page - on every run, never gated on decide: when .github/board/site/index.html
+#                  is in this commit and differs from the gource branch's board/index.html,
+#                  it commits the page there as board/index.html, without force. The page
+#                  fetches the task tree and the board branch's status.json itself, so it
+#                  only needs publishing when its source changes.
+#
+# decide, coverage and render share the concurrency group gource-render, so renders never
+# overlap and a run decides only once the render before it has finished; board-page has a
+# group of its own, so the page goes up within minutes instead of waiting behind a render.
 #
 # An 8K render takes the better part of an hour on a runner, hence the long timeout.
 #
@@ -19,6 +29,8 @@
 #     least 30 minutes old;
 #   * at least once a day regardless;
 #   * whenever it is run by hand (workflow_dispatch).
+#   * never for a push to `board`: that branch holds only the dark factory's lane
+#     heartbeats, so it starts no run and its commits do not count as new commits.
 #
 # The `gource` branch holds one commit - the latest render - and is force-pushed on each
 # render so old videos never accumulate in the repository. That force push, to that
@@ -29,20 +41,19 @@ on:
   schedule:
     - cron: '17 * * * *'
   push:
-    branches-ignore: [gource]
+    branches-ignore: [gource, board]
   workflow_dispatch:
 
 permissions:
   contents: write
   pages: write
 
-concurrency:
-  group: gource
-  cancel-in-progress: false
-
 jobs:
   decide:
     runs-on: ubuntu-latest
+    concurrency:
+      group: gource-render
+      cancel-in-progress: false
     outputs:
       render: ${{ steps.decide.outputs.render }}
       fingerprint: ${{ steps.decide.outputs.fingerprint }}
@@ -54,7 +65,7 @@ jobs:
         run: |
           git fetch --quiet origin '+refs/heads/*:refs/remotes/origin/*'
           fp=$(git for-each-ref --format='%(refname) %(objectname)' refs/remotes/origin \
-                 | grep -v -E '^refs/remotes/origin/(gource|HEAD) ' | sha1sum | cut -c1-40)
+                 | grep -v -E '^refs/remotes/origin/(gource|board|HEAD) ' | sha1sum | cut -c1-40)
           prev_fp=$(git show origin/gource:fingerprint.txt 2>/dev/null || true)
           prev_at=$(git show origin/gource:rendered-at.txt 2>/dev/null || echo 0)
           age=$(( $(date +%s) - prev_at ))
@@ -73,6 +84,9 @@ jobs:
     if: needs.decide.outputs.render == 'yes'
     runs-on: windows-latest
     timeout-minutes: 60
+    concurrency:
+      group: gource-render
+      cancel-in-progress: false
     defaults:
       run:
         shell: pwsh
@@ -158,10 +172,15 @@ jobs:
   render:
     needs: [decide, coverage]
     # Renders even when the coverage job failed: the video does not depend on it. Not
-    # always(): a cancelled run must be able to stop a render that takes hours.
-    if: ${{ !cancelled() && needs.decide.outputs.render == 'yes' }}
+    # always(): a cancelled run must be able to stop a render that takes hours. Not when
+    # coverage was cancelled either: a newer run queued in gource-render replaced it and
+    # renders instead.
+    if: ${{ !cancelled() && needs.decide.outputs.render == 'yes' && needs.coverage.result != 'cancelled' }}
     runs-on: ubuntu-latest
     timeout-minutes: 240
+    concurrency:
+      group: gource-render
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v7
         with:
@@ -207,9 +226,10 @@ jobs:
           echo "$FINGERPRINT" > fingerprint.txt
           date +%s > rendered-at.txt
           printf '%s\n' '# gource' '' \
-            'The README showcase of Surl: the 8K Gource viewer and the code coverage report,' \
-            'served by GitHub Pages at https://stewartscottrogers.github.io/Surl/, and the GIF' \
-            'and coverage badge the README shows.' \
+            'The README showcase of Surl: the 8K Gource viewer, the code coverage report and' \
+            'the live task board page (board/), served by GitHub Pages at' \
+            'https://stewartscottrogers.github.io/Surl/ (the board at .../Surl/board/), and' \
+            'the GIF and coverage badge the README shows.' \
             'Generated by .github/workflows/gource.yml and replaced on every render; do not edit.' > README.md
           cp "$GITHUB_WORKSPACE/.github/gource/site/index.html" index.html
           touch .nojekyll
@@ -221,7 +241,17 @@ jobs:
             GH_TOKEN="$GITHUB_TOKEN" gh api -H 'Accept: application/vnd.github.raw' \
               "repos/${GITHUB_REPOSITORY}/contents/coverage/$f?ref=gource" > "coverage/$f" || rm -f "coverage/$f"
           done
+          # The board page: this commit's source when it has one, otherwise the copy already
+          # on the branch (a scheduled run checks out master, which may not have it yet).
+          mkdir -p board
+          if [ -f "$GITHUB_WORKSPACE/.github/board/site/index.html" ]; then
+            cp "$GITHUB_WORKSPACE/.github/board/site/index.html" board/index.html
+          else
+            GH_TOKEN="$GITHUB_TOKEN" gh api -H 'Accept: application/vnd.github.raw' \
+              "repos/${GITHUB_REPOSITORY}/contents/board/index.html?ref=gource" > board/index.html || rm -f board/index.html
+          fi
           extra=$( [ -f coverage/index.html ] && echo coverage || true )
+          [ -f board/index.html ] && extra="$extra board"
           git init -q -b gource
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -233,6 +263,81 @@ jobs:
       # A push made with GITHUB_TOKEN does not start a Pages build by itself; ask for one.
       # As in the coverage job, a repository without a Pages site gets a warning, not a failure.
       - name: Rebuild GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh api "repos/${GITHUB_REPOSITORY}/pages" --silent 2> /dev/null; then
+            echo '::warning::GitHub Pages is not enabled for this repository (Settings > Pages, source: the gource branch); the gource branch is published but not served.'
+            exit 0
+          fi
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent
+
+  # The live task board page, published on every run and never gated on `decide`: it is
+  # one small file and must not wait behind an 8K render. It commits onto the gource
+  # branch without force, like the coverage job, and only when the page changed. When the
+  # branch does not exist yet, it starts it as an orphan branch holding only board/, as the
+  # coverage job does, and the next render carries the page into its own commit.
+  board-page:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: gource-board
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/board/site
+
+      - name: Publish to the gource branch
+        id: publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source="$GITHUB_WORKSPACE/.github/board/site/index.html"
+          if [ ! -f "$source" ]; then
+            echo "no $source in this commit; nothing to publish"
+            exit 0
+          fi
+          url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          for try in 1 2 3; do
+            dir="$RUNNER_TEMP/board-$try"
+            status=0
+            git ls-remote --exit-code --heads "$url" gource > /dev/null || status=$?
+            if [ "$status" -eq 0 ]; then
+              # Sparse and blob-less: the branch also holds ~900 MB of video this job never needs.
+              git clone -q --depth 1 --filter=blob:none --sparse --branch gource "$url" "$dir" \
+                || { echo 'could not clone the gource branch'; exit 1; }
+              git -C "$dir" sparse-checkout set board
+            elif [ "$status" -eq 2 ]; then
+              echo 'no gource branch yet: starting it as an orphan branch'
+              git init -q -b gource "$dir"
+              git -C "$dir" remote add origin "$url"
+            else
+              echo 'could not list the branches of origin'
+              exit 1
+            fi
+            if cmp -s "$source" "$dir/board/index.html"; then
+              echo 'board/index.html on gource is already this page; nothing to publish'
+              exit 0
+            fi
+            mkdir -p "$dir/board"
+            cp "$source" "$dir/board/index.html"
+            git -C "$dir" config user.name 'github-actions[bot]'
+            git -C "$dir" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git -C "$dir" add board/index.html
+            git -C "$dir" commit -q -m "chore(board): page $(date -u +%Y-%m-%dT%H:%MZ)"
+            if git -C "$dir" push -q origin gource; then
+              echo "published=yes" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo 'push to gource kept being refused'
+          exit 1
+
+      # A push made with GITHUB_TOKEN does not start a Pages build by itself; ask for one.
+      # As in the coverage job, a repository without a Pages site gets a warning, not a failure.
+      - name: Rebuild GitHub Pages
+        if: steps.publish.outputs.published == 'yes'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -1,0 +1,7 @@
+220 surl DICT server <mime> <1@surl>
+250 ok
+110 1 databases present
+surl "Files served by surl"
+.
+250 ok
+221 bye

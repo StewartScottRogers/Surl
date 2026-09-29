@@ -1,0 +1,10 @@
+GET /one HTTP/1.1
+Host: 127.0.0.1:18017
+User-Agent: curl/8.21.0
+Accept: */*
+
+GET /two HTTP/1.1
+Host: 127.0.0.1:18017
+User-Agent: curl/8.21.0
+Accept: */*
+

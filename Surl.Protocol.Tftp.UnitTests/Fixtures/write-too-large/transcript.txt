@@ -1,0 +1,2 @@
+> curl:60439 -> server:18069 \x00\x02up.txt\x00octet\x00tsize\x00604\x00blksize\x00512\x00timeout\x006\x00
+< server:60440 -> curl:60439 \x00\x05\x00\x03Disk full or allocation exceeded\x00

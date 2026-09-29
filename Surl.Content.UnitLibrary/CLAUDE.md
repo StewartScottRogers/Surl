@@ -14,4 +14,7 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary` and nothing els
 A request path can never reach outside the served root. Every escape - `..`, its
 percent-encoded forms, absolute paths, drive letters, UNC paths, symbolic links that point
 out - has a test that proves it is refused. Never touch the disk directly: work through
-an injected file-system seam, so the tests need no disk.
+the injected file-system seam, `IContentFileSystem`, so the tests need no disk.
+`DiskContentFileSystem` is its one real implementation and the only class here that
+touches the disk: each member is a thin call into `System.IO`, excluded from coverage with
+a justifying comment, and proved by the `Integration` tests in `DiskContentFileSystemTests`.

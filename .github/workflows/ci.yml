@@ -1,5 +1,7 @@
 # Builds Surl and runs the fast tests on every operating system a release ships for, so a
-# change that only works on Windows fails here rather than in someone's shell script.
+# change that only works on Windows fails here rather than in someone's shell script. On
+# Linux and macOS it also obtains the pinned upstream curl build, verifies its SHA-256 and
+# runs the Surl.Conformance tests against it (ADR-0016).
 name: CI
 
 on:
@@ -22,7 +24,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        # upstream-curl-platform names the UpstreamCurlBuilds.json entry the leg runs, and
+        # upstream-curl-asset the stunnel/static-curl 8.21.0 asset it comes from (ADR-0016).
+        # Windows has neither: its conformance runs where the pinned file is.
+        include:
+          - os: windows-latest
+          - os: ubuntu-latest
+            upstream-curl-platform: linux-x64
+            upstream-curl-asset: curl-linux-x86_64-musl-8.21.0.tar.xz
+          - os: macos-latest
+            upstream-curl-platform: osx-arm64
+            upstream-curl-asset: curl-macos-arm64-8.21.0.tar.xz
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -37,3 +49,81 @@ jobs:
 
       - name: Fast tests
         run: dotnet test -c Release --no-build --filter "TestCategory!=Integration"
+
+      - name: Read the upstream curl pin
+        id: pin
+        if: matrix.upstream-curl-platform
+        shell: pwsh
+        env:
+          PLATFORM: ${{ matrix.upstream-curl-platform }}
+        run: |
+          $pins = Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json
+          $pin = @($pins.builds | Where-Object { $_.platform -eq $env:PLATFORM -and (-not $_.role -or $_.role -eq 'reference') })
+          if ($pin.Count -ne 1) {
+            Write-Output "::error::UpstreamCurlBuilds.json pins $($pin.Count) reference builds for $env:PLATFORM; exactly one is needed."
+            exit 1
+          }
+          "sha256=$($pin[0].sha256)" >> $env:GITHUB_OUTPUT
+          "path=$($pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+          "directory=$(Split-Path -Parent $pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+
+      - name: Prepare the upstream curl directory
+        if: matrix.upstream-curl-platform
+        run: |
+          sudo mkdir -p "${{ steps.pin.outputs.directory }}"
+          sudo chown "$(id -u):$(id -g)" "${{ steps.pin.outputs.directory }}"
+
+      - name: Restore the upstream curl build
+        id: cache
+        if: matrix.upstream-curl-platform
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pin.outputs.directory }}
+          key: upstream-curl-${{ matrix.upstream-curl-platform }}-${{ steps.pin.outputs.sha256 }}
+
+      - name: Download the upstream curl build
+        if: matrix.upstream-curl-platform && steps.cache.outputs.cache-hit != 'true'
+        run: |
+          work="$(mktemp -d)"
+          curl -fsSL --retry 3 -o "$work/${{ matrix.upstream-curl-asset }}" \
+            "https://github.com/stunnel/static-curl/releases/download/8.21.0/${{ matrix.upstream-curl-asset }}"
+          tar -xJf "$work/${{ matrix.upstream-curl-asset }}" -C "$work" curl
+          mv "$work/curl" "${{ steps.pin.outputs.path }}"
+          chmod 755 "${{ steps.pin.outputs.path }}"
+
+      # Nothing runs the file before this step has matched its SHA-256 to the pin (ADR-0016,
+      # decision 4). A mismatch fails the job and is never re-pinned here (decision 6).
+      - name: Verify the upstream curl build
+        if: matrix.upstream-curl-platform
+        shell: pwsh
+        env:
+          PLATFORM: ${{ matrix.upstream-curl-platform }}
+        run: |
+          $pin = @((Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json).builds |
+            Where-Object { $_.platform -eq $env:PLATFORM -and (-not $_.role -or $_.role -eq 'reference') })[0]
+          if (-not (Test-Path -LiteralPath $pin.defaultPath)) {
+            Write-Output "::error::$($pin.defaultPath) does not exist."
+            exit 1
+          }
+          $actual = (Get-FileHash -LiteralPath $pin.defaultPath -Algorithm SHA256).Hash
+          if ($actual -ne $pin.sha256) {
+            Write-Output "::error::$($pin.defaultPath) hashes to $actual, but UpstreamCurlBuilds.json pins $($pin.sha256) for $env:PLATFORM. Not running it."
+            exit 1
+          }
+          Write-Output "$($pin.defaultPath) matches the pin $($pin.sha256)."
+          $lines = @(& $pin.defaultPath --version)
+          $lines | ForEach-Object { Write-Output $_ }
+          $reported = @{
+            version   = $lines[0]
+            protocols = ($lines | Where-Object { $_ -like 'Protocols: *' }) -replace '^Protocols: ', ''
+            features  = ($lines | Where-Object { $_ -like 'Features: *' }) -replace '^Features: ', ''
+          }
+          foreach ($field in 'version', 'protocols', 'features') {
+            if ($reported[$field] -cne $pin.$field) {
+              Write-Output "::warning::The $field of the $env:PLATFORM pin is '$($pin.$field)', but the build reports '$($reported[$field])'. The build wins (ADR-0016): correct the pin."
+            }
+          }
+
+      - name: Conformance tests
+        if: matrix.upstream-curl-platform
+        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance"

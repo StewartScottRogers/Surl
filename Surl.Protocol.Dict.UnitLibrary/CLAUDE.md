@@ -3,7 +3,10 @@
 Phase 1, alongside HTTP.
 
 The DICT server (RFC 2229): answers the `CLIENT` line, `DEFINE`, `MATCH` and `SHOW`
-requests upstream curl sends for `dict://` URLs.
+requests upstream curl sends for `dict://` URLs, and the rest of RFC 2229's commands.
+`DictProtocolServer` serves the files in the content store's served root as its one
+database, `surl`; ADR-0011 records where definitions come from, the banner and every
+reply.
 
 **URL schemes answered:** `dict`
 

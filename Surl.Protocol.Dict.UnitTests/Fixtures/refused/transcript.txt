@@ -1,0 +1,4 @@
+< 420 server temporarily unavailable
+> CLIENT libcurl 8.21.0
+> DEFINE ! hello
+> QUIT

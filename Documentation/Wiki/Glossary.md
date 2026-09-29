@@ -18,17 +18,37 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 | Term | Meaning | Name in code |
 | --- | --- | --- |
 | mate | The server that answers a given curl request. Surl is curl's mate. | — |
-| listen URL | A URL given to `surl`: its scheme picks the protocol server, its host and port the bind address. | not yet |
-| protocol server | The library that answers one protocol family, secure variants included: `Surl.Protocol.<Name>.UnitLibrary`. | not yet |
+| listen URL | A URL given to `surl`: its scheme picks the protocol server, its host and port the bind address. | `ListenUrl` (ADR-0004) |
+| protocol server | The library that answers one protocol family, secure variants included: `Surl.Protocol.<Name>.UnitLibrary`. | `IProtocolServer`, implemented through `IConnectionProtocolServer` or `IDatagramProtocolServer` (ADR-0004) |
 | horizontal library | A library a protocol server may reference besides Abstractions, listed in ADR-0002's table. | `HorizontalLibraries` in `ProtocolIsolationTests` |
+| served directory | The directory the content store is rooted at, the one directory every protocol server serves from. Named by `--directory`, the current directory by default (ADR-0007). | `SurlCommandLine.ServedDirectory` (not yet) |
+| listener status line | The line `Listening on <scheme>://<host>:<bound port>/` surl writes to stdout for each listen URL once every listener has bound (ADR-0007). | not yet |
+| verbose exchange log | What `-v` writes to stderr: one line per exchange event, `#<exchange id> <marker> <text>`, the marker `<` for bytes received, `>` for bytes sent, `*` for a note (ADR-0007). | `IExchangeLog`, `IExchangeLogFactory` (ADR-0004), implemented in `Surl.Output` (not yet) |
+| parsed command line | What `Surl.Cli` returns for a command line that serves: the listen URLs and every option value, defaults applied (ADR-0007). | `SurlCommandLine` (not yet) |
+| negatable option | A flag that `--no-<name>` turns off, as curl's boolean options are; the later of the two wins (ADR-0007). | not yet |
 | content store | The directory tree a Surl server publishes, and the rules that map request paths onto it without escaping it. | `Surl.Content.UnitLibrary` |
-| exchange | One conversation between upstream curl and Surl, over one connection or one datagram flow, from accept to close. | not yet |
+| exchange | One conversation between upstream curl and Surl, over one connection or one datagram flow, from accept to close. One `ServeAsync` call. | `ExchangeContext` (ADR-0004) |
+| hardening limit | A bound on what a peer can make Surl hold - connections, time, bytes - with a default number, an option to change it, and 0 meaning no limit (ADR-0006). | `ExchangeLimits` for the per-exchange ones; not yet for the rest |
+| idle timeout | How long an exchange may go with no byte moving in either direction on any of its transports before Surl closes it. 120 s by default (ADR-0006). | not yet |
+| head timeout | How long a peer has to deliver a complete request head, command line or first packet; the slow-sender defence. 30 s by default (ADR-0006). | `ExchangeLimits.HeadTimeout` (not yet) |
+| connection refusal | The protocol's own "too busy" answer written to a connection or datagram flow accepted past a connection limit, before it is closed (ADR-0006). | `IConnectionRefusalWriter`, `IDatagramRefusalWriter`, `ConnectionRefusal` (not yet) |
+| exposure default | What a server offers until an option says otherwise: uploads, directory listings, symbolic links, dot-files. All off by default (ADR-0006). | not yet |
+| answered as absent | Refused with the protocol's not-found answer, identical to the answer for a path that does not exist, so a peer cannot tell hidden from missing (ADR-0006). | not yet |
+| escaped rendering | How the verbose log shows bytes: printable ASCII except backslash as itself, CR and LF as `\r` and `\n`, every other byte as `\xHH`, so no peer byte reaches the terminal as a control sequence (ADR-0006). | not yet |
+
+## HTTP
+
+| Term | Meaning | Name in code |
+| --- | --- | --- |
+| request head | Everything an HTTP/1.x request sends before its body: the request line, then zero or more field lines, then the empty line that ends them (RFC 9112, sections 2.1 and 3). Empty lines before the request line are skipped (RFC 9112, section 2.2). Bounded by the request-head limit (ADR-0006). | `HttpRequestHead`, read by `HttpConnectionReader`, which reports how the read ended as an `HttpRequestHeadReadOutcome` |
+| request line | The first line of a request head, `method SP request-target SP HTTP-version` (RFC 9112, section 3). | `HttpRequestHead.Method`, `HttpRequestHead.RequestTarget`, `HttpRequestHead.Version`; parsed by `HttpRequestLineParser` |
+| field line | One header field in a request head, `field-name ":" OWS field-value OWS`, the whitespace around the value not part of it (RFC 9112, section 5). | `HttpRequestField`; parsed by `HttpFieldLineParser`; a head's field lines are `HttpRequestHead.Fields` |
 
 ## Building and testing
 
 | Term | Meaning | Name in code |
 | --- | --- | --- |
-| exit code | The number the `surl` process returns. Reuses upstream curl's `CURLE_*` number wherever a server-side meaning carries over. | `SurlExitCode` |
+| exit code | The number the `surl` process returns. Reuses upstream curl's `CURLE_*` number wherever a server-side meaning carries over; the table is ADR-0005. | `SurlExitCode` (ADR-0005) |
 | fast tests | Every test that needs no network: `dotnet test --filter "TestCategory!=Integration"`. | — |
 | integration test | A test that starts a real process or opens a real socket, such as one that runs pinned upstream curl. | `[TestCategory("Integration")]` |
 | byte script | The ordered bytes of an exchange - what upstream curl sends, what Surl sends back - measured with `Record-CurlExchange.ps1` and replayed through a fake connection in a protocol server's tests. | — |

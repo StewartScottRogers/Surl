@@ -1,0 +1,4 @@
+> \x10\x18\x00\x04MQTT\x04\x02\x00<\x00\x0CcurllkBOVjnj
+<  \x02\x00\x00
+> 0\xCC\x01\x00\x01txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\xE0\x00
+= curl closed the connection

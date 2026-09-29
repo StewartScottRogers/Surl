@@ -2,11 +2,17 @@
 
 Phase 1, alongside HTTP.
 
-The MQTT broker (MQTT 3.1.1): accepts the connect, the subscribe (curl's GET) and the
-publish (curl's POST) upstream curl sends, and delivers published messages to
-subscribers.
+The MQTT server (MQTT 3.1.1), `MqttProtocolServer`: accepts the connect, the subscribe
+(curl's plain fetch) and the publish (curl's `-d`) upstream curl sends. Every publish is
+kept as its topic's retained message in `MqttRetainedMessages`; a subscribe is answered
+with the retained messages its filters match, then `DISCONNECT`. ADR-0014 records every
+answer.
 
-**URL schemes answered:** `mqtt`, `mqtts`
+**URL schemes answered:** `mqtt` and `mqtts` (`MqttProtocolServer.Schemes`). `mqtts` is
+the same server over implicit TLS: the engine performs the handshake and hands the server
+a connection that already carries plaintext (ADR-0010), so nothing here constructs an
+`SslStream` or calls `UpgradeToTlsAsync`, and an `mqtts` exchange is answered exactly as
+an `mqtt` one.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries ADR-0002 lists (`Surl.Content.UnitLibrary`,

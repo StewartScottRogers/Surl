@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;
@@ -8,22 +10,65 @@ namespace Surl.Console;
 internal static class Program
 {
     /// <summary>
-    /// Runs Surl with the command line it was given. Phase 0 placeholder: it serves nothing,
-    /// writes <c>surl: not implemented yet</c> to standard error and reports that Surl
-    /// could not start.
+    /// Runs Surl with the command line it was given, on the process's stdout and stderr, until
+    /// Ctrl+C (SIGINT) or SIGTERM stops it.
     /// </summary>
     /// <param name="args">The command-line arguments, without the program name.</param>
-    /// <returns><see cref="SurlExitCode.FailedInit"/>, for every command line.</returns>
+    /// <returns>The <see cref="Protocol.Abstractions.SurlExitCode"/> <see cref="RunAsync"/> returns.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="args"/> is null.</exception>
     internal static Task<int> Main(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
 
-        // Phase 1 wires the option parser, the listeners and every protocol server here,
-        // with explicit dependency injection. Until then the executable exists so the
-        // solution has a buildable, publishable target and the reference graph is real.
-        System.Console.Error.WriteLine("surl: not implemented yet");
-
-        return Task.FromResult((int)SurlExitCode.FailedInit);
+        return RunUntilSignalledAsync(args);
     }
+
+    private static async Task<int> RunUntilSignalledAsync(string[] args)
+    {
+        using var stop = new CancellationTokenSource();
+        var stopOnSignal = CreateStopOnSignal(stop);
+        using var interrupt = PosixSignalRegistration.Create(PosixSignal.SIGINT, stopOnSignal);
+        using var terminate = PosixSignalRegistration.Create(PosixSignal.SIGTERM, stopOnSignal);
+
+        return await RunAsync(args, System.Console.Out, System.Console.Error, stop.Token);
+    }
+
+    /// <summary>
+    /// Runs Surl with <paramref name="args"/>: the entry point <see cref="Main"/> and the
+    /// in-process conformance tests share. It serves over real TCP and UDP listeners
+    /// (<see cref="SocketListenerFactory"/>, securing connections with the process's TLS
+    /// settings) with the system clock.
+    /// </summary>
+    /// <param name="args">The command-line arguments, without the program name.</param>
+    /// <param name="output">Where the help, the version and the status lines go.</param>
+    /// <param name="error">Where every <c>surl: </c> message and the verbose log go.</param>
+    /// <param name="cancellationToken">Cancelled to stop serving.</param>
+    /// <returns>The exit code, as ADR-0007 section 5 gives it.</returns>
+    internal static async Task<int> RunAsync(
+        string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
+        (int)await new CommandLineRunner(CreateListenerFactory, ServedDirectoryProbe.CanOpen, TimeProvider.System)
+            .RunAsync(args, output, error, cancellationToken);
+
+    /// <summary>
+    /// Creates the socket-backed listener factory, securing connections with
+    /// <paramref name="tlsSettings"/>.
+    /// </summary>
+    /// <param name="tlsSettings">The process's TLS settings, or <see langword="null"/> for none.</param>
+    /// <returns>The factory.</returns>
+    internal static IListenerFactory CreateListenerFactory(ServerTlsSettings? tlsSettings) =>
+        new SocketListenerFactory(tlsSettings);
+
+    /// <summary>
+    /// Creates the Ctrl+C and SIGTERM handler: it keeps the runtime from ending the process at
+    /// once, and cancels <paramref name="stop"/> so serving winds down and <see cref="Main"/>
+    /// returns.
+    /// </summary>
+    /// <param name="stop">The source whose token stops serving.</param>
+    /// <returns>The handler, which cancels the signal's default handling.</returns>
+    internal static Action<PosixSignalContext> CreateStopOnSignal(CancellationTokenSource stop) =>
+        context =>
+        {
+            context.Cancel = true;
+            stop.Cancel();
+        };
 }

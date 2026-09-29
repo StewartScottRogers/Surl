@@ -1,16 +1,50 @@
 {
-  "comment": "Upstream curl builds Surl may be measured against, pinned by SHA-256. Anything else is refused (ADR-0003). Pinning another build is a decision; never pin the Curl port.",
+  "comment": "Upstream curl builds Surl may be measured against, pinned by SHA-256. Anything else is refused (ADR-0003). Pinning another build is a decision; never pin the Curl port. Each build's role is 'reference' (the release named below, used for every measurement unless a case needs what it lacks; a build with no role is a reference build) or 'supplementary' (pinned only for the protocols and features its ADR names, never to second-guess a reference build; ADR-0017).",
   "release": "8.21.0",
   "releaseDate": "2026-06-24",
   "builds": [
     {
       "platform": "win-x64",
+      "role": "reference",
       "origin": "Git for Windows, mingw64 build of upstream curl, Schannel",
       "defaultPath": "C:\\Program Files\\Git\\mingw64\\bin\\curl.exe",
       "sha256": "0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778",
       "version": "curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 Schannel zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.5 libssh2/1.11.1 WinLDAP",
       "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns ldap ldaps mqtt mqtts pop3 pop3s rtsp scp sftp smtp smtps telnet tftp ws wss",
       "features": "alt-svc AsynchDNS brotli HSTS HTTPS-proxy IDN IPv6 Kerberos Largefile libz NTLM PSL SPNEGO SSL SSPI threadsafe UnixSockets zstd",
+      "pinned": "2026-09-28"
+    },
+    {
+      "platform": "win-x64",
+      "role": "supplementary",
+      "origin": "curl.se's own Windows build (curl-for-win) 8.22.0_2 of upstream curl, curl-8.22.0_2-win64-mingw.zip, LibreSSL; used only for HTTP/2 and HTTP/3 (ADR-0017)",
+      "defaultPath": "C:\\UpstreamCurl\\curl-8.22.0_2-win64-mingw\\bin\\curl.exe",
+      "sha256": "B028548A8C0D3DC2C899FE415DCE1EF1D2406801B3ADC43DF9921683026E86CC",
+      "version": "curl 8.22.0 (x86_64-w64-mingw32) libcurl/8.22.0 LibreSSL/4.3.2 zlib/1.3.1.zlib-ng brotli/1.2.0 zstd/1.5.7 WinIDN libpsl/0.23.3 libssh2/1.11.1 nghttp2/1.70.0 ngtcp2/1.25.0 nghttp3/1.18.0 WinLDAP",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns ldap ldaps mqtt mqtts pop3 pop3s rtsp scp sftp smtp smtps telnet tftp ws wss",
+      "features": "alt-svc AsynchDNS brotli HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSIG HTTPSRR IDN IPv6 Kerberos Largefile libz NativeCA proxy-HTTP3 PSL SPNEGO SSL SSPI threadsafe UnixSockets zstd",
+      "pinned": "2026-09-28"
+    },
+    {
+      "platform": "linux-x64",
+      "role": "reference",
+      "origin": "stunnel/static-curl release 8.21.0, curl-linux-x86_64-musl-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against musl and OpenSSL 4.0.1 (ADR-0016)",
+      "defaultPath": "/opt/upstream-curl/8.21.0/curl",
+      "sha256": "153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45",
+      "version": "curl 8.21.0 (x86_64-pc-linux-gnu) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss",
+      "features": "alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd",
+      "pinned": "2026-09-28"
+    },
+    {
+      "platform": "osx-arm64",
+      "role": "reference",
+      "origin": "stunnel/static-curl release 8.21.0, curl-macos-arm64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1 (ADR-0016)",
+      "defaultPath": "/opt/upstream-curl/8.21.0/curl",
+      "sha256": "04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF",
+      "version": "curl 8.21.0 (aarch64-apple-darwin) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s scp sftp smb smbs smtp smtps telnet tftp ws wss",
+      "features": "alt-svc AppleSecTrust asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd",
       "pinned": "2026-09-28"
     }
   ]

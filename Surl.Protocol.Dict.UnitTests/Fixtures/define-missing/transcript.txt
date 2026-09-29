@@ -1,0 +1,7 @@
+< 220 surl DICT server <mime> <1@surl>
+> CLIENT libcurl 8.21.0
+> DEFINE ! missing
+> QUIT
+< 250 ok
+< 552 no match
+< 221 bye

@@ -1,0 +1,4 @@
+# Recorded upstream curl bytes: never let git turn CRLF into LF.
+* -text
+README.md text
+.gitattributes text

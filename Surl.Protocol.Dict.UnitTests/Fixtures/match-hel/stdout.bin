@@ -1,0 +1,8 @@
+220 surl DICT server <mime> <1@surl>
+250 ok
+152 2 matches found
+surl "hello"
+surl "help"
+.
+250 ok
+221 bye
