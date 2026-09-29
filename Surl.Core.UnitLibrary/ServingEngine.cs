@@ -7,17 +7,19 @@ namespace Surl.Core;
 
 /// <summary>
 /// The serving engine: starts one listener per listen URL through the listener seam, hands
-/// each accepted connection, with a fresh <see cref="ExchangeContext"/>, to the protocol
-/// server registered for the URL's scheme, and shuts down cleanly (ADR-0004; exit codes
-/// from ADR-0005). It refuses a connection past its <see cref="ConnectionLimits"/> and
-/// cancels an exchange that idles or lasts too long (ADR-0006, sections 1 and 5).
+/// each accepted connection or datagram flow, with a fresh <see cref="ExchangeContext"/>, to
+/// the protocol server registered for the URL's scheme, and shuts down cleanly (ADR-0004;
+/// exit codes from ADR-0005). It refuses a connection or flow past its
+/// <see cref="ConnectionLimits"/> and cancels an exchange that idles or lasts too long
+/// (ADR-0006, sections 1 and 5).
 /// </summary>
 /// <remarks>
-/// This engine serves stream-oriented connections. A listen URL whose scheme belongs to an
-/// <see cref="IDatagramProtocolServer"/> is refused as unsupported until datagram flows are
-/// dispatched (BL-032).
+/// A listen URL whose scheme belongs to an <see cref="IConnectionProtocolServer"/> gets a
+/// connection listener; one whose scheme belongs to an <see cref="IDatagramProtocolServer"/>
+/// gets a datagram listener (ADR-0004, section 4). Datagram flows are served in
+/// <c>ServingEngine.Datagrams.cs</c>.
 /// </remarks>
-public sealed class ServingEngine
+public sealed partial class ServingEngine
 {
     /// <summary>
     /// How long shutdown waits for exchanges in flight before cancelling them, when the
@@ -50,7 +52,9 @@ public sealed class ServingEngine
     /// <param name="shutdownGracePeriod">
     /// How long shutdown waits for exchanges in flight before cancelling them; zero or more.
     /// </param>
-    /// <exception cref="ArgumentException">Two protocol servers list the same scheme.</exception>
+    /// <exception cref="ArgumentException">
+    /// Two protocol servers list the same scheme, or one takes both connections and datagram flows.
+    /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
     public ServingEngine(
         IListenerFactory listenerFactory,
@@ -75,7 +79,9 @@ public sealed class ServingEngine
     /// <param name="connectionLimits">
     /// How many connections the engine holds at once, and how long one exchange may idle or last.
     /// </param>
-    /// <exception cref="ArgumentException">Two protocol servers list the same scheme.</exception>
+    /// <exception cref="ArgumentException">
+    /// Two protocol servers list the same scheme, or one takes both connections and datagram flows.
+    /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
     public ServingEngine(
         IListenerFactory listenerFactory,
@@ -110,7 +116,7 @@ public sealed class ServingEngine
     /// <returns>
     /// <see cref="SurlExitCode.Ok"/> once stopped, cancellation during startup included;
     /// <see cref="SurlExitCode.UnsupportedProtocol"/>, before any listener starts, when a listen
-    /// URL's scheme has no connection server; <see cref="SurlExitCode.CouldNotResolveHost"/> or
+    /// URL's scheme has no connection or datagram server; <see cref="SurlExitCode.CouldNotResolveHost"/> or
     /// <see cref="SurlExitCode.BindFailed"/> when a listener cannot bind, after stopping every
     /// listener already started.
     /// </returns>
@@ -124,15 +130,15 @@ public sealed class ServingEngine
             throw new ArgumentException("The engine needs at least one listen URL.", nameof(listenUrls));
         }
 
-        var servers = FindConnectionServers(listenUrls);
+        var servers = FindServers(listenUrls);
 
         if (servers is null)
         {
             return SurlExitCode.UnsupportedProtocol;
         }
 
-        var started = new List<IConnectionListener>();
-        var startupFailure = await CaptureFailureAsync(() => StartListenersAsync(listenUrls, started, cancellationToken));
+        var started = new List<StartedListener>();
+        var startupFailure = await CaptureFailureAsync(() => StartListenersAsync(listenUrls, servers, started, cancellationToken));
 
         if (startupFailure is not null)
         {
@@ -142,13 +148,15 @@ public sealed class ServingEngine
             return MapStartupFailure(startupFailure.SourceException, cancellationToken) ?? await RethrowAsync(startupFailure);
         }
 
-        await ServeUntilCancelledAsync(started, servers, cancellationToken);
+        await ServeUntilCancelledAsync(started, cancellationToken);
 
         return SurlExitCode.Ok;
     }
 
     private static Dictionary<string, IProtocolServer> MapServersByScheme(IReadOnlyList<IProtocolServer> protocolServers)
     {
+        RefuseServersThatTakeBothTransports(protocolServers);
+
         var serversByScheme = new Dictionary<string, IProtocolServer>(StringComparer.Ordinal);
 
         foreach (var scheme in protocolServers.SelectMany(server => server.Schemes, (server, scheme) => (server, scheme)))
@@ -161,6 +169,20 @@ public sealed class ServingEngine
         }
 
         return serversByScheme;
+    }
+
+    // A server takes connections or flows, never both (ADR-0004, section 4).
+    private static void RefuseServersThatTakeBothTransports(IReadOnlyList<IProtocolServer> protocolServers)
+    {
+        foreach (var server in protocolServers)
+        {
+            if (server is IConnectionProtocolServer and IDatagramProtocolServer)
+            {
+                throw new ArgumentException(
+                    $"The protocol server for '{string.Join("', '", server.Schemes)}' takes both connections and datagram flows.",
+                    nameof(protocolServers));
+            }
+        }
     }
 
     // Runs work and hands back what it threw instead of throwing it, so the caller cleans up
@@ -197,13 +219,13 @@ public sealed class ServingEngine
         failure == ListenerBindFailure.HostNotFound ? SurlExitCode.CouldNotResolveHost : SurlExitCode.BindFailed;
 
     // Disposes every listener, even after one fails to dispose, and hands back the first failure.
-    private static async Task<ExceptionDispatchInfo?> StopListenersAsync(IEnumerable<IConnectionListener> listeners)
+    private static async Task<ExceptionDispatchInfo?> StopListenersAsync(IEnumerable<StartedListener> listeners)
     {
         ExceptionDispatchInfo? firstFailure = null;
 
         foreach (var listener in listeners)
         {
-            var failure = await CaptureFailureAsync(() => listener.DisposeAsync().AsTask());
+            var failure = await CaptureFailureAsync(() => listener.Listener.DisposeAsync().AsTask());
 
             firstFailure ??= failure;
         }
@@ -212,9 +234,10 @@ public sealed class ServingEngine
     }
 
     // An exchange the engine cancelled ends gracefully, whatever limit cancelled it (ADR-0006,
-    // section 5); a server that threw for any other reason has its connection aborted.
-    private void NoteHowTheExchangeEnded(
-        Exception? failure, IConnection connection, IExchangeLog log, long exchangeId, ExchangeCancellation? cancellation)
+    // section 5); a server that threw for any other reason failed the exchange, and the caller
+    // aborts its connection.
+    private bool NoteHowTheExchangeEnded(
+        Exception? failure, IExchangeLog log, long exchangeId, ExchangeCancellation? cancellation)
     {
         if (failure is null || (failure is OperationCanceledException && cancellation is not null))
         {
@@ -223,11 +246,12 @@ public sealed class ServingEngine
                 log.Note(DescribeCancellation(exchangeId, reason));
             }
 
-            return;
+            return false;
         }
 
-        connection.Abort();
         log.Note($"Exchange {exchangeId} ended because the protocol server threw {failure.GetType().Name}: {failure.Message}");
+
+        return true;
     }
 
     private string DescribeCancellation(long exchangeId, ExchangeCancellation cancellation) =>
@@ -243,13 +267,16 @@ public sealed class ServingEngine
     private static string FormatSeconds(TimeSpan duration) =>
         duration.TotalSeconds.ToString(CultureInfo.InvariantCulture);
 
-    private IConnectionProtocolServer[]? FindConnectionServers(IReadOnlyList<ListenUrl> listenUrls)
+    // Each listen URL's server, or null when a scheme has none that takes connections or flows.
+    private IProtocolServer[]? FindServers(IReadOnlyList<ListenUrl> listenUrls)
     {
-        var servers = new IConnectionProtocolServer[listenUrls.Count];
+        var servers = new IProtocolServer[listenUrls.Count];
 
         for (var index = 0; index < servers.Length; index++)
         {
-            if (serversByScheme.GetValueOrDefault(listenUrls[index].Scheme) is not IConnectionProtocolServer server)
+            var server = serversByScheme.GetValueOrDefault(listenUrls[index].Scheme);
+
+            if (server is not (IConnectionProtocolServer or IDatagramProtocolServer))
             {
                 return null;
             }
@@ -261,26 +288,45 @@ public sealed class ServingEngine
     }
 
     private async Task StartListenersAsync(
-        IReadOnlyList<ListenUrl> listenUrls, List<IConnectionListener> started, CancellationToken cancellationToken)
+        IReadOnlyList<ListenUrl> listenUrls,
+        IProtocolServer[] servers,
+        List<StartedListener> started,
+        CancellationToken cancellationToken)
     {
-        foreach (var listenUrl in listenUrls)
+        for (var index = 0; index < servers.Length; index++)
         {
-            started.Add(await listenerFactory.StartConnectionListenerAsync(listenUrl, cancellationToken));
+            started.Add(servers[index] is IDatagramProtocolServer datagramServer
+                ? await StartDatagramListenerAsync(listenUrls[index], datagramServer, cancellationToken)
+                : await StartConnectionListenerAsync(listenUrls[index], (IConnectionProtocolServer)servers[index], cancellationToken));
         }
     }
 
-    private async Task ServeUntilCancelledAsync(
-        List<IConnectionListener> listeners, IConnectionProtocolServer[] servers, CancellationToken cancellationToken)
+    private async Task<StartedListener> StartConnectionListenerAsync(
+        ListenUrl listenUrl, IConnectionProtocolServer server, CancellationToken cancellationToken)
+    {
+        var listener = await listenerFactory.StartConnectionListenerAsync(listenUrl, cancellationToken);
+
+        return new StartedListener(
+            listener,
+            state =>
+            {
+                var route = new AcceptedConnectionRoute(listener.ListenUrl, server, state.Admission, state.ShutdownToken);
+
+                return AcceptUntilStoppedAsync(token => AcceptConnectionAsync(listener, route, token), state);
+            });
+    }
+
+    private async Task ServeUntilCancelledAsync(List<StartedListener> listeners, CancellationToken cancellationToken)
     {
         var stopAccepting = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var giveUpOnExchanges = new CancellationTokenSource();
         var inFlight = new InFlightExchanges();
-        var admission = new ConnectionAdmission(connectionLimits.MaxConnections, connectionLimits.MaxConnectionsPerAddress);
-        var acceptLoops = listeners
-            .Select((listener, index) => AcceptUntilStoppedAsync(
-                new AcceptedConnectionRoute(listener.ListenUrl, servers[index], admission, giveUpOnExchanges.Token),
-                listener, inFlight, stopAccepting))
-            .ToArray();
+        var state = new ServingState(
+            new ConnectionAdmission(connectionLimits.MaxConnections, connectionLimits.MaxConnectionsPerAddress),
+            inFlight,
+            stopAccepting,
+            giveUpOnExchanges.Token);
+        var acceptLoops = listeners.Select(listener => listener.AcceptUntilStoppedAsync(state)).ToArray();
 
         var acceptFailure = await CaptureFailureAsync(() => Task.WhenAll(acceptLoops));
 
@@ -292,35 +338,40 @@ public sealed class ServingEngine
         (acceptFailure ?? stopFailure)?.Throw();
     }
 
-    // Accepts until stopAccepting is cancelled. A listener that fails to accept cancels it, so
-    // every other listener stops too, and the failure reaches the caller of ServeAsync. A
-    // connection past a connection limit is refused, uncounted, and never becomes an exchange.
-    private async Task AcceptUntilStoppedAsync(
-        AcceptedConnectionRoute route,
-        IConnectionListener listener,
-        InFlightExchanges inFlight,
-        CancellationTokenSource stopAccepting)
+    // Accepts until stopAccepting is cancelled, starting each exchange or refusal the listener
+    // hands over. A listener that fails to accept cancels it, so every other listener stops
+    // too, and the failure reaches the caller of ServeAsync.
+    private static async Task AcceptUntilStoppedAsync(
+        Func<CancellationToken, Task<Func<Task>>> acceptNextAsync, ServingState state)
     {
         try
         {
             while (true)
             {
-                var connection = await listener.AcceptAsync(stopAccepting.Token);
-                var remoteEndPoint = connection.RemoteEndPoint;
-
-                inFlight.Start(route.Admission.TryAdmit(remoteEndPoint) is { } refusal
-                    ? () => RefuseAsync(connection, route, refusal)
-                    : () => RunExchangeAsync(connection, remoteEndPoint, route));
+                state.InFlight.Start(await acceptNextAsync(state.StopAccepting.Token));
             }
         }
-        catch (OperationCanceledException) when (stopAccepting.IsCancellationRequested)
+        catch (OperationCanceledException) when (state.StopAccepting.IsCancellationRequested)
         {
         }
         catch
         {
-            stopAccepting.Cancel();
+            state.StopAccepting.Cancel();
             throw;
         }
+    }
+
+    // Accepts one connection and hands back what to run for it. A connection past a connection
+    // limit is refused, uncounted, and never becomes an exchange.
+    private async Task<Func<Task>> AcceptConnectionAsync(
+        IConnectionListener listener, AcceptedConnectionRoute route, CancellationToken cancellationToken)
+    {
+        var connection = await listener.AcceptAsync(cancellationToken);
+        var remoteEndPoint = connection.RemoteEndPoint;
+
+        return route.Admission.TryAdmit(remoteEndPoint) is { } refusal
+            ? () => RefuseAsync(connection, route, refusal)
+            : () => RunExchangeAsync(connection, remoteEndPoint, route);
     }
 
     // A plaintext connection gets the server's refusal, if it writes one, within the refusal
@@ -331,8 +382,8 @@ public sealed class ServingEngine
     {
         if (route.Server is IConnectionRefusalWriter writer && !TlsSchemes.IsImplicitTls(route.ListenUrl.Scheme))
         {
-            var failure = await CaptureFailureAsync(
-                () => WriteRefusalWithinDeadlineAsync(writer, connection, refusal, route.ShutdownToken));
+            var failure = await CaptureFailureAsync(() => WriteRefusalWithinDeadlineAsync(
+                token => writer.WriteRefusalAsync(connection, refusal, token), route.ShutdownToken));
 
             if (failure is { SourceException: not OperationCanceledException })
             {
@@ -344,14 +395,14 @@ public sealed class ServingEngine
     }
 
     // The engine stops waiting at the deadline or shutdown even for a writer that ignores the
-    // token, so a refused connection is never held longer than that.
+    // token, so a refused connection or flow is never held longer than that.
     private async Task WriteRefusalWithinDeadlineAsync(
-        IConnectionRefusalWriter writer, IConnection connection, ConnectionRefusal refusal, CancellationToken shutdownToken)
+        Func<CancellationToken, ValueTask> writeRefusalAsync, CancellationToken shutdownToken)
     {
         using var deadline = new CancellationTokenSource(RefusalWriteDeadline, timeProvider);
         using var deadlineOrShutdown = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token, shutdownToken);
 
-        await writer.WriteRefusalAsync(connection, refusal, deadlineOrShutdown.Token).AsTask().WaitAsync(deadlineOrShutdown.Token);
+        await writeRefusalAsync(deadlineOrShutdown.Token).AsTask().WaitAsync(deadlineOrShutdown.Token);
     }
 
     // Whatever the server or the log throws, the connection is disposed, and aborted first when
@@ -381,19 +432,44 @@ public sealed class ServingEngine
     private async Task ServeAndLogExchangeAsync(
         IConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines)
     {
-        var exchangeId = Interlocked.Increment(ref lastExchangeId);
-        var log = exchangeLogFactory.Create(exchangeId, connection.RemoteEndPoint);
-        var context = new ExchangeContext(
-            exchangeId, route.ListenUrl, connection.LocalEndPoint, connection.RemoteEndPoint, log, timeProvider, deadlines.Token);
-
-        log.Note($"Exchange {exchangeId} opened: {route.ListenUrl.Scheme} from {connection.RemoteEndPoint}.");
+        var (exchangeId, log, context) = OpenExchange(route.ListenUrl, connection.LocalEndPoint, connection.RemoteEndPoint, deadlines);
 
         var watchedConnection = new IdleClockRestartingConnection(new RecordingConnection(connection, log), deadlines);
         var failure = await CaptureFailureAsync(() => route.Server.ServeAsync(watchedConnection, context));
 
-        NoteHowTheExchangeEnded(failure?.SourceException, connection, log, exchangeId, deadlines.Reason);
+        if (NoteHowTheExchangeEnded(failure?.SourceException, log, exchangeId, deadlines.Reason))
+        {
+            connection.Abort();
+        }
+
         log.Note($"Exchange {exchangeId} ended; closing the connection.");
     }
+
+    // Numbers the exchange, creates its log and context, and notes that it opened.
+    private (long ExchangeId, IExchangeLog Log, ExchangeContext Context) OpenExchange(
+        ListenUrl listenUrl, EndPoint localEndPoint, EndPoint remoteEndPoint, ExchangeDeadlines deadlines)
+    {
+        var exchangeId = Interlocked.Increment(ref lastExchangeId);
+        var log = exchangeLogFactory.Create(exchangeId, remoteEndPoint);
+        var context = new ExchangeContext(
+            exchangeId, listenUrl, localEndPoint, remoteEndPoint, log, timeProvider, deadlines.Token);
+
+        log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");
+
+        return (exchangeId, log, context);
+    }
+
+    // A started listener, and the loop that accepts from it until the engine stops accepting.
+    private sealed record StartedListener(IAsyncDisposable Listener, Func<ServingState, Task> AcceptUntilStoppedAsync);
+
+    // What every listener's exchanges share while the engine serves: the counts they are
+    // admitted against, the exchanges in flight, the source cancelled to stop accepting, and
+    // the token cancelled when the engine gives up on the exchanges at shutdown.
+    private sealed record ServingState(
+        ConnectionAdmission Admission,
+        InFlightExchanges InFlight,
+        CancellationTokenSource StopAccepting,
+        CancellationToken ShutdownToken);
 
     // Where one listener's accepted connections go: the listen URL and server they are served
     // under, the counts they are admitted against, and the token cancelled at shutdown.

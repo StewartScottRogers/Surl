@@ -4,16 +4,27 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Core;
 
 /// <summary>
-/// An <see cref="IListenerFactory"/> that starts a <see cref="FakeConnectionListener"/> per
-/// listen URL, or throws the exception a test scripted for it, and records every request.
+/// An <see cref="IListenerFactory"/> that starts a <see cref="FakeConnectionListener"/> or a
+/// <see cref="FakeDatagramListener"/> per listen URL, or throws the exception a test scripted
+/// for it, and records every request.
 /// </summary>
 internal sealed class FakeListenerFactory : IListenerFactory
 {
     private readonly ConcurrentQueue<ListenUrl> startRequests = new();
     private readonly ConcurrentDictionary<ListenUrl, Exception> startFailures = new();
     private readonly ConcurrentDictionary<ListenUrl, FakeConnectionListener> listeners = new();
+    private readonly ConcurrentQueue<ListenUrl> datagramStartRequests = new();
+    private readonly ConcurrentDictionary<ListenUrl, FakeDatagramListener> datagramListeners = new();
 
+    /// <summary>
+    /// Every connection listener asked for, in order.
+    /// </summary>
     public IReadOnlyList<ListenUrl> StartRequests => [.. startRequests];
+
+    /// <summary>
+    /// Every datagram listener asked for, in order.
+    /// </summary>
+    public IReadOnlyList<ListenUrl> DatagramStartRequests => [.. datagramStartRequests];
 
     public FakeListenerFactory FailToStart(ListenUrl listenUrl, Exception exception)
     {
@@ -42,6 +53,23 @@ internal sealed class FakeListenerFactory : IListenerFactory
         return ValueTask.FromResult<IConnectionListener>(ListenerFor(listenUrl));
     }
 
-    public ValueTask<IDatagramListener> StartDatagramListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("BL-015's engine never starts a datagram listener.");
+    /// <summary>
+    /// The datagram listener this factory starts, or started, for <paramref name="listenUrl"/>.
+    /// An ephemeral port binds 40000.
+    /// </summary>
+    public FakeDatagramListener DatagramListenerFor(ListenUrl listenUrl) =>
+        datagramListeners.GetOrAdd(
+            listenUrl, url => new FakeDatagramListener(url.WithBoundPort(url.Port == 0 ? 40000 : url.Port)));
+
+    public ValueTask<IDatagramListener> StartDatagramListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken)
+    {
+        datagramStartRequests.Enqueue(listenUrl);
+
+        if (startFailures.TryGetValue(listenUrl, out var exception))
+        {
+            throw exception;
+        }
+
+        return ValueTask.FromResult<IDatagramListener>(DatagramListenerFor(listenUrl));
+    }
 }

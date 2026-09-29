@@ -59,15 +59,19 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_SchemeOfADatagramServer_ReturnsUnsupportedProtocolBeforeAnyListenerStarts()
+    public async Task ServeAsync_SchemeOfAServerThatTakesNeitherConnectionsNorFlows_ReturnsUnsupportedProtocolBeforeAnyListenerStarts()
     {
         var factory = new FakeListenerFactory();
-        var engine = CreateEngine(factory, new ManualTimeProvider(), new FakeExchangeLogFactory(), new FakeDatagramProtocolServer("tftp"));
+        var engine = CreateEngine(
+            factory, new ManualTimeProvider(), new FakeExchangeLogFactory(),
+            new FakeDatagramProtocolServer("tftp"), new FakeTransportlessProtocolServer("ldap"));
 
-        var exitCode = await engine.ServeAsync([new ListenUrl("tftp", "127.0.0.1", 69)], CancellationToken.None);
+        var exitCode = await engine.ServeAsync(
+            [new ListenUrl("tftp", "127.0.0.1", 69), new ListenUrl("ldap", "127.0.0.1", 389)], CancellationToken.None);
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.IsEmpty(factory.StartRequests);
+        Assert.IsEmpty(factory.DatagramStartRequests);
     }
 
     [TestMethod]
