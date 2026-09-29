@@ -48,6 +48,12 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 | request line | The first line of a request head, `method SP request-target SP HTTP-version` (RFC 9112, section 3). | `HttpRequestHead.Method`, `HttpRequestHead.RequestTarget`, `HttpRequestHead.Version`; parsed by `HttpRequestLineParser` |
 | field line | One header field in a request head, `field-name ":" OWS field-value OWS`, the whitespace around the value not part of it (RFC 9112, section 5). | `HttpRequestField`; parsed by `HttpFieldLineParser`; a head's field lines are `HttpRequestHead.Fields` |
 
+## Authentication
+
+| Term | Meaning | Name in code |
+| --- | --- | --- |
+| checked login | A login whose credentials were checked against the accounts, accepted or refused, and the only kind the verbose log notes: `Login accepted: <method> <user>` or `Login refused: <method> <user>`, `<method>` the HTTP `Authorization` scheme or the listen URL's scheme, `<user>` as sent (`bearer token` for Bearer, left out when unreadable). No credentials, a plain-text secret refused unchecked, no user name, a handshake's continuation step and `--allow-anonymous` are not checked logins (ADR-0032 section 8, ADR-0038). | `CheckedLogin` in `Surl.Protocol.Abstractions`, on `HttpAuthenticationVerdict.CheckedLogin`; a password login unchecked under `--allow-anonymous` is `PasswordLoginVerdict.AcceptedUnchecked` |
+
 ## Building and testing
 
 | Term | Meaning | Name in code |

@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Superseded in part:** section 1's "Descriptions for `--help`" are superseded by [ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md) decision 2, which shortens them to fit curl's 79 columns.
+- **Amended:** section 6's contract by [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md) (`CheckedLogin`, the verdict's fourth parameter, `PasswordLoginVerdict.AcceptedUnchecked`).
 - **Date:** 2026-09-29
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29,
   in BL-100. Stewart approved the feature on 2026-09-29; the details he left to this ADR.
@@ -319,7 +320,14 @@ public sealed record PasswordLogin(
     ReadOnlyMemory<byte>? Password,  // the bytes as sent; null when none was sent
     TlsSession? TlsSession);    // IConnection.TlsSession: null means unencrypted
 
-public enum PasswordLoginVerdict { Accepted, RefusedCredentials, RefusedAnonymous, RefusedPlaintext }
+public enum PasswordLoginVerdict
+{
+    Accepted,               // the credentials were checked and match an account
+    RefusedCredentials,
+    RefusedAnonymous,
+    RefusedPlaintext,
+    AcceptedUnchecked,      // --allow-anonymous: accepted, nothing checked (ADR-0038)
+}
 
 public interface IHttpAuthenticationSession
 {
@@ -338,9 +346,24 @@ public enum HttpAuthenticationOutcome { Proceed, Challenge, Forbidden }
 public sealed record HttpAuthenticationVerdict(
     HttpAuthenticationOutcome Outcome,
     IReadOnlyList<string> WwwAuthenticateValues,  // written as one field each, in order
-    string? AccountName);       // the account logged in, or null when anonymous or refused
+    string? AccountName,        // the account logged in, or null when anonymous or refused
+    CheckedLogin? CheckedLogin = null);  // the login note to write; null when nothing was checked
+
+// The credentials checked and the answer; the server writes Note to its exchange log (ADR-0038).
+public sealed record CheckedLogin(string Method, string? User, bool IsAccepted)
+{
+    public const string BearerTokenUser = "bearer token";
+
+    public string Note =>
+        $"Login {(IsAccepted ? "accepted" : "refused")}: {Method}{(User is null ? string.Empty : " " + User)}";
+}
 ```
 
+- **The login note** (section 8) travels on the verdict, not through the policy:
+  `CheckedLogin`, the fourth `HttpAuthenticationVerdict` parameter and
+  `PasswordLoginVerdict.AcceptedUnchecked` were added by BL-125, and
+  [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md) records
+  why, which logins are noted and how the method and user are named.
 - **Encryption** is told by passing `IConnection.TlsSession` as it stands: `null` is
   unencrypted. A server that upgrades (FTP `AUTH TLS`, `STARTTLS`) passes the session it has
   at the moment of the login. HTTP starts its session after the engine's implicit handshake,
@@ -361,7 +384,7 @@ public sealed record HttpAuthenticationVerdict(
 - **Until BL-117 composes the real policy**, BL-114 and BL-115 keep each server's existing
   constructor as an overload that passes `AnonymousAuthenticationPolicy`, a sealed class BL-109
   adds to Abstractions: every HTTP request `Proceed`s with no values and every password login is
-  `Accepted` - exactly today's behaviour and `--allow-anonymous`'s. BL-117 composes the servers
+  `AcceptedUnchecked` (ADR-0038) - exactly today's behaviour and `--allow-anonymous`'s. BL-117 composes the servers
   with `Surl.Authentication`'s policy only and removes the overloads, so nothing in `surl` is
   left composed without a policy; the class stays as the test double protocol tests share.
 
@@ -392,7 +415,8 @@ BL-124 edits it.
 - The verbose log notes `Login accepted: <method> <user>` and `Login refused: <method> <user>`
   (`<user>` as sent, escaped by ADR-0007 section 8, `bearer token` for Bearer), and never a
   password, a token, or an `Authorization` value in a note; the bytes-received lines still show
-  the raw request, as they do today.
+  the raw request, as they do today. Which logins are noted, and how the method and user are
+  named, is [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md).
 
 ### 9. Warnings
 
