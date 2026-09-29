@@ -20,10 +20,33 @@ internal static class PinnedUpstreamCurl
     public static async Task<UpstreamCurlRunResult> RunWithStandardInputAsync(
         TestContext testContext, ReadOnlyMemory<byte> standardInput, params string[] arguments)
     {
-        var pins = UpstreamCurlBuildPins.Parse(
-            await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName), testContext.CancellationToken));
+        var pins = await ReadPinsAsync(testContext);
         var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
             .Locate(pins, UpstreamCurlLocator.CurrentPlatform);
+        return await RunLocatedAsync(testContext, location, standardInput, arguments);
+    }
+
+    /// <summary>
+    /// Runs the one supplementary build pinned with <paramref name="sha256"/> for the current
+    /// platform with <paramref name="arguments"/>, for a case only that build can measure,
+    /// writing the result to the test's log.
+    /// </summary>
+    public static async Task<UpstreamCurlRunResult> RunSupplementaryBuildAsync(
+        TestContext testContext, string sha256, params string[] arguments)
+    {
+        var pins = (await ReadPinsAsync(testContext)).Where(pin => pin.Sha256 == sha256).ToList();
+        var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
+            .Locate(pins, UpstreamCurlLocator.CurrentPlatform, UpstreamCurlBuildRole.Supplementary);
+        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, arguments);
+    }
+
+    private static async Task<IReadOnlyList<PinnedUpstreamCurlBuild>> ReadPinsAsync(TestContext testContext) =>
+        UpstreamCurlBuildPins.Parse(
+            await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName), testContext.CancellationToken));
+
+    private static async Task<UpstreamCurlRunResult> RunLocatedAsync(
+        TestContext testContext, UpstreamCurlLocation location, ReadOnlyMemory<byte> standardInput, string[] arguments)
+    {
         if (!location.IsAvailable)
         {
             Assert.Inconclusive(location.Message);

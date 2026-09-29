@@ -39,11 +39,28 @@ a domain), answering every request with `401` and `WWW-Authenticate: Negotiate`:
 - A C# probe on the same machine making curl's exact SSPI calls (`AcquireCredentialsHandle` for
   `Negotiate` with the same identity, `InitializeSecurityContext` with `ISC_REQ_CONFIDENTIALITY`
   and the SPN `HTTP/127.0.0.1`, ANSI and Unicode) gets `SEC_I_CONTINUE_NEEDED` and a bare
-  40-byte `NTLMSSP` `NEGOTIATE_MESSAGE`. Why curl's process gets `SEC_E_NO_CREDENTIALS` where
-  the probe does not is not known yet.
+  40-byte `NTLMSSP` `NEGOTIATE_MESSAGE`.
+- **The cause** (found in BL-134 by loading the build's `libcurl-4.dll` into a C# harness and
+  logging the calls it makes through SSPI's `InitSecurityInterfaceA` table): the build passes
+  `AcquireCredentialsHandle` a `SEC_WINNT_AUTH_IDENTITY_EXA` (`Version` `0x200`, `Length` 72)
+  whose `PackageList` is `!ntlm`, also when `-u :` leaves the user and password empty. That is
+  upstream curl's commit `a8881e5e1d` ("spnego: block NTLM fallback in SPNEGO negotiation",
+  2026-07-27): it is not in the tag `curl-8_21_0`, whose `spnego_sspi.c` passes a plain
+  `SEC_WINNT_AUTH_IDENTITY` or none, and ships in 8.22.0. With NTLM excluded and no Kerberos
+  realm to reach, the Negotiate package has no mechanism, so `InitializeSecurityContext`
+  answers `SEC_E_NO_CREDENTIALS`. The probe passed no `PackageList`. curl.se's 8.22.0 build
+  (ADR-0017) fails the same way.
+- stunnel/static-curl's build of the tag 8.21.0, unpatched (ADR-0030), sends bare NTLM after
+  `Negotiate`, no SPNEGO around it and so no `mechListMIC`: `-sS --negotiate -u tester:secret`
+  sends the `NEGOTIATE_MESSAGE` on the first request, answers the `CHALLENGE_MESSAGE` with an
+  NTLMv2 `AUTHENTICATE_MESSAGE` and exits 0; `tester:wrong` gets a second `401` and, with
+  `-f`, exit 22. Fixtures: `negotiate-ntlm` and `negotiate-ntlm-wrong-password` (BL-134).
+  [ADR-0042](ADR-0042-negotiate-is-proved-with-the-unpatched-8-21-0-windows-build.md) makes
+  it the build Negotiate is proved with.
 
 So no pinned upstream build sent a SPNEGO token here: the Linux and macOS builds list no
-`SPNEGO` (`UpstreamCurlBuilds.json`), and the Windows build sent none on this machine.
+`SPNEGO` (`UpstreamCurlBuilds.json`), the Windows reference build sent no token on this
+machine, and the unpatched 8.21.0 build sent bare NTLM.
 
 ## Decision
 
@@ -85,8 +102,9 @@ So no pinned upstream build sent a SPNEGO token here: the Linux and macOS builds
    wrapped in SPNEGO as RFC 4178 lays it out, and pin the server's `negTokenResp` bytes, written
    out by hand from the RFC, for the recorded fixed challenge. They also pin what the reference
    build sent when offered `Negotiate` here (nothing). Proving the whole exchange against
-   `surl` needs Negotiate composed in `Surl.Console`, as NTLM's does (BL-132), and a machine
-   where the reference build's SSPI makes a token; both are the follow-up task BL-134.
+   `surl` needed Negotiate composed in `Surl.Console`, as NTLM's is (BL-132), and a build
+   whose SSPI makes a token; BL-134 did both, with the unpatched 8.21.0 build (ADR-0042), and
+   replays its recorded handshake in `NegotiateAuthenticationMethodTests`.
 
 ## Alternatives considered
 
@@ -103,8 +121,8 @@ So no pinned upstream build sent a SPNEGO token here: the Linux and macOS builds
 
 ## Consequences
 
-- `NegotiateAuthenticationMethod` is composed like every other method; `surl` offers it only
-  once `Surl.Console` composes it (BL-134) and `--auth` names `negotiate`.
+- `NegotiateAuthenticationMethod` is composed like every other method; `Surl.Console`
+  composes it (BL-134), and `surl` offers it when `--auth` names `negotiate`.
 - Kerberos inside Negotiate is later work, built by hand (ADR-0032 section 11).
 - An accepted Negotiate login is not remembered by the connection yet; an NTLM one is, since
   [ADR-0041](ADR-0041-an-accepted-ntlm-login-is-remembered-by-its-http-connection.md), which

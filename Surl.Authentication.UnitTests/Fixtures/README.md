@@ -89,6 +89,23 @@ on a Windows 11 10.0.26200 machine that is not in a domain.
 | --- | --- | --- | --- |
 | `negotiate-no-token` | `'-sS','-v','--negotiate','-u','tester:secret','http://127.0.0.1:18121/x'` | 0 | SSPI's `InitializeSecurityContext` failed with `SEC_E_NO_CREDENTIALS` before the request and again after the `401`; curl sent one request with no `Authorization` and gave up with an empty body. With `-f` instead of `-v` it exits 22, `curl: (22) InitializeSecurityContext failed: SEC_E_NO_CREDENTIALS (0x8009030e) - ...`. The same happened for `localhost`, a `--resolve`d name, `SURL\tester`, `tester@surl`, `.\tester`, `-u :` and `--delegation always`. |
 
-So there is no Negotiate token from upstream curl to replay yet (ADR-0040, "Measured"; BL-134
-finds out why). `NegotiateAuthenticationMethodTests` replays the NTLM messages of `ntlm` above,
-bare and wrapped in SPNEGO as RFC 4178 lays it out (`SpnegoTestTokens`).
+The reference build sends no token because it passes SSPI the `PackageList` `!ntlm`, upstream's
+change after the tag 8.21.0 (ADR-0040, "Measured"; found in BL-134).
+`NegotiateAuthenticationMethodTests` replays the NTLM messages of `ntlm` above, bare and wrapped
+in SPNEGO as RFC 4178 lays it out (`SpnegoTestTokens`), and the Negotiate handshakes below.
+
+## Negotiate from the unpatched 8.21.0 build (BL-134)
+
+Recorded on 2026-09-29, on the same machine, with stunnel/static-curl's build of the tag 8.21.0
+(`C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe`, SHA-256
+`589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`; ADR-0042) and `-Port 18134`.
+The first request was answered with `<negotiate401>`,
+`HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate TlRMTVNTUAACAAAACAAIADAAAAAFgoqgASNFZ4mrze8AAAAAAAAAABwAHAA4AAAAUwBVAFIATAACAAgAUwBVAFIATAABAAgAUwBVAFIATAAAAAAA\r\nContent-Length: 0\r\n\r\n`:
+the `CHALLENGE_MESSAGE` of `<ntlm401>`, which is also what `NtlmChallengeMessage` builds for this
+build's `NEGOTIATE_MESSAGE` and the fixed server challenge. SSPI sent bare NTLM after
+`Negotiate`, on the first request already, and no SPNEGO, so no `mechListMIC`.
+
+| Folder | `-ResponsesPerConnection` and `-Response` values | `-CurlArgs` | Exit | What it shows |
+| --- | --- | --- | --- | --- |
+| `negotiate-ntlm` | `2`: `<negotiate401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` | `'-sS','--negotiate','-u','tester:secret','http://127.0.0.1:18134/x'` | 0 | `request-1.bin`: `Authorization: Negotiate` with a 40-byte `NEGOTIATE_MESSAGE`; `request-2.bin`: the NTLMv2 `AUTHENTICATE_MESSAGE` for `tester:secret`, empty domain; stdout `ok` |
+| `negotiate-ntlm-wrong-password` | `3`: `<negotiate401>`, then `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate\r\nContent-Length: 0\r\n\r\n` | `'-sS','-f','--negotiate','-u','tester:wrong','http://127.0.0.1:18134/x'` | 22 | the answer for `tester:wrong`; after the second `401` curl gives up (`curl: (22) The requested URL returned error: 401`) and sends no third request |

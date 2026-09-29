@@ -2,7 +2,8 @@ namespace Surl.Conformance;
 
 /// <summary>
 /// The pinned upstream curl build logs in to a live, in-process <c>surl</c> over <c>http</c>
-/// and <c>https</c> with Basic, Digest, Bearer and NTLM, against one account read from a
+/// and <c>https</c> with Basic, Digest, Bearer, NTLM and Negotiate (on Windows, with the
+/// unpatched 8.21.0 build, ADR-0042), against one account read from a
 /// <c>--user-file</c>, and is served or refused as ADR-0032 section 4 says: a plain-text secret
 /// over <c>http://</c> is refused with <c>403</c> unless <c>--allow-plaintext-auth</c>, a wrong
 /// password gets <c>401</c>, and with no account an anonymous read is served. Every refusal is
@@ -18,6 +19,10 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
 
     // CURLE_AUTH_ERROR: an authentication function returned an error.
     private const int AuthError = 94;
+
+    // stunnel/static-curl's build of upstream curl's tag 8.21.0, unpatched: the one pinned Windows
+    // build that still carries NTLM inside Negotiate (ADR-0042).
+    private const string UnpatchedWindowsBuildSha256 = "589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648";
 
     private static readonly byte[] Hello = "hello from surl\n"u8.ToArray();
 
@@ -190,6 +195,52 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
 
         Assert.AreEqual(HttpReturnedError, result.ExitCode, result.StandardError);
         StringAssert.Contains(result.StandardError, "401");
+        Assert.IsEmpty(result.StandardOutput);
+    }
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task NegotiateOverHttp_Account_ExitsZeroWithTheFilesBytes()
+    {
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--auth", "negotiate", "--user-file", accounts.Path);
+
+        var result = await PinnedUpstreamCurl.RunSupplementaryBuildAsync(
+            TestContext, UnpatchedWindowsBuildSha256, "-sS", "--negotiate", "-u", Credentials, surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        CollectionAssert.AreEqual(Hello, result.StandardOutput);
+    }
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task NegotiateOverHttp_WrongPassword_IsRefusedWithHttpReturnedError()
+    {
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--auth", "negotiate", "--user-file", accounts.Path);
+
+        var result = await PinnedUpstreamCurl.RunSupplementaryBuildAsync(
+            TestContext, UnpatchedWindowsBuildSha256, "-sS", "-f", "--negotiate", "-u", $"{AccountsFile.User}:wrong", surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(HttpReturnedError, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "401");
+        Assert.IsEmpty(result.StandardOutput);
+    }
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task NegotiateOverHttp_WindowsReferenceBuild_SendsNoTokenAndIsRefused()
+    {
+        // The reference build carries upstream's later "!ntlm" change, so on a machine with no
+        // Kerberos realm SSPI makes no token and curl sends none (ADR-0040, "Measured").
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--auth", "negotiate", "--user-file", accounts.Path);
+
+        var result = await PinnedUpstreamCurl.RunAsync(
+            TestContext, "-sS", "-f", "--negotiate", "-u", Credentials, surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(HttpReturnedError, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "SEC_E_NO_CREDENTIALS");
         Assert.IsEmpty(result.StandardOutput);
     }
 

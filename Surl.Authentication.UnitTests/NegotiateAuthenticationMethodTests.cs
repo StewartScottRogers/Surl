@@ -7,13 +7,15 @@ namespace Surl.Authentication;
 /// (ADR-0040): the NTLM messages pinned upstream curl 8.21.0 sent for BL-120 (Fixtures/README.md),
 /// bare and wrapped in SPNEGO, answered for the recorded server challenge with the
 /// <c>negTokenResp</c> bytes pinned; tokens offering no NTLM, Kerberos tokens and malformed DER
-/// refused; and what the reference build sent when offered <c>Negotiate</c> on the lane machine.
+/// refused; what the reference build sent when offered <c>Negotiate</c> on the lane machine; and
+/// the Negotiate handshakes the unpatched 8.21.0 build sent (ADR-0042).
 /// </summary>
 [TestClass]
 public sealed class NegotiateAuthenticationMethodTests
 {
     // The CHALLENGE_MESSAGE Surl sends for the recorded NEGOTIATE_MESSAGE and the fixed
-    // challenge 0123456789abcdef (ADR-0039): 84 bytes.
+    // challenge 0123456789abcdef (ADR-0039): 84 bytes. The NEGOTIATE_MESSAGE upstream curl's tag
+    // 8.21.0 sent after Negotiate (Fixtures/negotiate-ntlm) gets the same bytes.
     private const string RecordedChallenge =
         "TlRMTVNTUAACAAAACAAIADAAAAAFgoqgASNFZ4mrze8AAAAAAAAAABwAHAA4AAAAUwBVAFIATAACAAgAUwBVAFIATAABAAgAUwBVAFIATAAAAAAA";
 
@@ -45,6 +47,10 @@ public sealed class NegotiateAuthenticationMethodTests
     private static byte[] RecordedNtlm(int requestNumber) =>
         Convert.FromBase64String(RecordedFixture.ReadRequest("ntlm", requestNumber).Fields
             .Single(field => field.Key == "Authorization").Value["NTLM ".Length..]);
+
+    private static byte[] RecordedNegotiate(string fixture, int requestNumber) =>
+        Convert.FromBase64String(RecordedFixture.ReadRequest(fixture, requestNumber).Fields
+            .Single(field => field.Key == "Authorization").Value["Negotiate ".Length..]);
 
     private static IHttpCredentialVerifier StartConnection() =>
         new NegotiateAuthenticationMethod(Accounts, new FixedNtlmServerChallengeSource()).StartConnection();
@@ -119,7 +125,8 @@ public sealed class NegotiateAuthenticationMethodTests
     [TestMethod]
     public void Recording_WindowsReferenceBuildOfferedNegotiate_SentNoTokenAndExitedZero()
     {
-        // SSPI's InitializeSecurityContext failed with SEC_E_NO_CREDENTIALS, so curl sent the
+        // The build excludes NTLM from Negotiate (PackageList !ntlm), so with no Kerberos realm
+        // SSPI's InitializeSecurityContext failed with SEC_E_NO_CREDENTIALS, and curl sent the
         // request without an Authorization field and gave up after the 401 (ADR-0040).
         var request = RecordedFixture.ReadRequest("negotiate-no-token", 1);
 
@@ -128,6 +135,31 @@ public sealed class NegotiateAuthenticationMethodTests
         StringAssert.Contains(
             RecordedFixture.ReadText("negotiate-no-token", "stderr.txt"),
             "InitializeSecurityContext failed: SEC_E_NO_CREDENTIALS");
+    }
+
+    [TestMethod]
+    public async Task NegotiateRecording_UnpatchedBuild_IsChallengedBareThenAcceptedWithNoFinalToken()
+    {
+        // Upstream curl's tag 8.21.0 sent bare NTLM after Negotiate, with no SPNEGO around it
+        // and so no mechListMIC to send or check (ADR-0040, "Measured").
+        var verifier = StartConnection();
+
+        AssertContinue(
+            await VerifyAsync(verifier, RecordedNegotiate("negotiate-ntlm", 1)), $"Negotiate {RecordedChallenge}");
+        AssertAccepted(await VerifyAsync(verifier, RecordedNegotiate("negotiate-ntlm", 2)));
+        Assert.AreEqual("ok", RecordedFixture.ReadText("negotiate-ntlm", "stdout.bin"));
+    }
+
+    [TestMethod]
+    public async Task NegotiateRecording_UnpatchedBuildWrongPassword_IsRefusedNamingTheUser()
+    {
+        var verifier = StartConnection();
+
+        AssertContinue(
+            await VerifyAsync(verifier, RecordedNegotiate("negotiate-ntlm-wrong-password", 1)),
+            $"Negotiate {RecordedChallenge}");
+        AssertRefused(await VerifyAsync(verifier, RecordedNegotiate("negotiate-ntlm-wrong-password", 2)), "tester");
+        Assert.AreEqual("22", RecordedFixture.ReadText("negotiate-ntlm-wrong-password", "exitcode.txt"));
     }
 
     [TestMethod]
