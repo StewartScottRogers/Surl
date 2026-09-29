@@ -82,3 +82,4 @@ This task runs no curl process. BL-020 runs the build this locator finds.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
