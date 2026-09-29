@@ -24,7 +24,7 @@ public sealed class TftpProtocolServerTests
     [TestMethod]
     public void Schemes_IsTftpOnly()
     {
-        var server = new TftpProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new TftpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
 
         CollectionAssert.AreEqual(new[] { "tftp" }, server.Schemes.ToArray());
     }
@@ -32,7 +32,7 @@ public sealed class TftpProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {
-        var server = new TftpProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new TftpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var clock = new ManualTimeProvider();
         var flow = new ScriptedDatagramFlow(ReadRequest("file.txt"), clock, []);
 
@@ -320,7 +320,7 @@ public sealed class TftpProtocolServerTests
     public async Task ServeAsync_ExchangeCancelled_Throws()
     {
         var clock = new ManualTimeProvider();
-        var server = new TftpProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new TftpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var flow = new ScriptedDatagramFlow(ReadRequest("file.txt"), clock, []);
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
@@ -332,7 +332,7 @@ public sealed class TftpProtocolServerTests
     public async Task ServeAsync_ExchangeCancelledWhileAwaitingAnAck_Throws()
     {
         var clock = new ManualTimeProvider();
-        var server = new TftpProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new TftpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         using var cancellation = new CancellationTokenSource();
         var flow = new CancellingDatagramFlow(new ScriptedDatagramFlow(ReadRequest("file.txt"), clock, []), cancellation);
 
@@ -378,7 +378,7 @@ public sealed class TftpProtocolServerTests
         var clock = new ManualTimeProvider();
         var flow = new ScriptedDatagramFlow(firstDatagram, clock, script);
         var log = new RecordingExchangeLog();
-        var server = new TftpProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem()));
+        var server = new TftpProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
 
         await server.ServeAsync(flow, Context(log, clock));
 

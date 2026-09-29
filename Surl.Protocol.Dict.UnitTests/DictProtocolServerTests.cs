@@ -31,7 +31,7 @@ public sealed class DictProtocolServerTests
     [TestMethod]
     public void Schemes_IsDictOnly()
     {
-        var server = new DictProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new DictProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
 
         CollectionAssert.AreEqual(new[] { "dict" }, server.Schemes.ToArray());
     }
@@ -39,7 +39,7 @@ public sealed class DictProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {
-        var server = new DictProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new DictProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var connection = new InMemoryConnection([]);
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(null!, Context(new RecordingExchangeLog())));
@@ -255,6 +255,18 @@ public sealed class DictProtocolServerTests
         var reply = await ServeTextAsync("MATCH ! prefix hel\r\n", fileSystem, new ContentExposureOptions());
 
         Assert.AreEqual(Banner + "152 2 matches found\r\nsurl \"hello\"\r\nsurl \"help\"\r\n.\r\n" + Ok, reply);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_UnderDefaultExposureOptions_ServesTheDatabase()
+    {
+        var reply = await ServeTextAsync("DEFINE ! hello\r\nMATCH ! prefix hel\r\n", exposureOptions: new ContentExposureOptions());
+
+        Assert.AreEqual(
+            Banner
+                + "150 1 definitions retrieved\r\n151 \"hello\" " + DatabaseLine + "A greeting.\r\n.\r\n" + Ok
+                + "152 2 matches found\r\nsurl \"hello\"\r\nsurl \"help\"\r\n.\r\n" + Ok,
+            reply);
     }
 
     [TestMethod]

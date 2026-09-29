@@ -20,9 +20,8 @@ public sealed record ContentExposureOptions
     /// <summary>
     /// Every entry inside the served root served and listed, dot-files and symbolic links
     /// included, and uploads refused: what the store did before it took these options. No
-    /// production code serves with it; <see cref="ContentStore(string, IContentFileSystem)"/>
-    /// applies it for the HTTP, Gopher, DICT and TFTP tests that build a store without naming
-    /// options, until BL-069 has each of them pass its own.
+    /// production code serves with it; the content store's and the HTTP, Gopher, DICT and
+    /// TFTP servers' tests pass it where they test something other than the exposure rules.
     /// </summary>
     public static ContentExposureOptions ServeEverythingInsideTheRoot { get; } = new()
     {

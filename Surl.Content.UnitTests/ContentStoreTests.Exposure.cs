@@ -11,14 +11,6 @@ public sealed partial class ContentStoreTests
     };
 
     [TestMethod]
-    public void Constructor_WithoutExposureOptions_ServesEverythingInsideTheRoot()
-    {
-        var store = new ContentStore(Root, new InMemoryContentFileSystem());
-
-        Assert.AreSame(ContentExposureOptions.ServeEverythingInsideTheRoot, store.ExposureOptions);
-    }
-
-    [TestMethod]
     public void Constructor_KeepsTheExposureOptions()
     {
         var options = new ContentExposureOptions();

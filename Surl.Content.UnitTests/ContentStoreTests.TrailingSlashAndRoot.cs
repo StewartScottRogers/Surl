@@ -83,7 +83,7 @@ public sealed partial class ContentStoreTests
     {
         var fileSystem = new InMemoryContentFileSystem();
 
-        Assert.ThrowsExactly<ArgumentException>(() => new ContentStore(servedRoot, fileSystem));
+        Assert.ThrowsExactly<ArgumentException>(() => new ContentStore(servedRoot, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot));
     }
 
     [TestMethod]
@@ -91,7 +91,7 @@ public sealed partial class ContentStoreTests
     [DataRow("/")]
     public void Constructor_ServedRootStartingWithASlash_IsKeptAsGiven(string servedRoot)
     {
-        var store = new ContentStore(servedRoot, new InMemoryContentFileSystem());
+        var store = new ContentStore(servedRoot, new InMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         Assert.AreEqual(servedRoot, store.ServedRoot);
     }
@@ -103,7 +103,7 @@ public sealed partial class ContentStoreTests
     [DataRow(@"\\server\share")]
     public void Constructor_WindowsServedRootIndependentOfTheCurrentDirectory_IsKeptAsGiven(string servedRoot)
     {
-        var store = new ContentStore(servedRoot, new InMemoryContentFileSystem());
+        var store = new ContentStore(servedRoot, new InMemoryContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         Assert.AreEqual(servedRoot, store.ServedRoot);
     }
@@ -114,7 +114,7 @@ public sealed partial class ContentStoreTests
     {
         var fileSystem = new InMemoryContentFileSystem();
 
-        Assert.ThrowsExactly<ArgumentException>(() => new ContentStore(@"\srv\www", fileSystem));
+        Assert.ThrowsExactly<ArgumentException>(() => new ContentStore(@"\srv\www", fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot));
     }
 
     private static ContentStore TrailingSlashStore(ContentExposureOptions options)

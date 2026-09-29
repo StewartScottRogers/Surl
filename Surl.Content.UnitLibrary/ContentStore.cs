@@ -68,26 +68,6 @@ public sealed class ContentStore
     private readonly IContentFileSystem fileSystem;
 
     /// <summary>
-    /// Creates a content store that serves <paramref name="servedRoot"/> with
-    /// <see cref="ContentExposureOptions.ServeEverythingInsideTheRoot"/>, as the store served
-    /// before it took exposure options.
-    /// </summary>
-    /// <remarks>
-    /// No production code calls this constructor: <c>surl</c> builds its store with the
-    /// options <c>Surl.Cli</c> parses. It remains for the HTTP, Gopher, DICT and TFTP tests
-    /// that build a store without naming options, until BL-069 has each of them pass its own
-    /// and removes it.
-    /// </remarks>
-    /// <param name="servedRoot">The full path of the directory being served.</param>
-    /// <param name="fileSystem">The seam every look at the served root goes through.</param>
-    /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty, or is
-    /// relative to the current directory (see <see cref="ServedRoot"/>).</exception>
-    public ContentStore(string servedRoot, IContentFileSystem fileSystem)
-        : this(servedRoot, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot)
-    {
-    }
-
-    /// <summary>
     /// Creates a content store that serves <paramref name="servedRoot"/>, exposing what
     /// <paramref name="exposureOptions"/> allow.
     /// </summary>

@@ -29,7 +29,7 @@ public sealed class DiskContentFileSystemTests
     {
         var modified = new DateTime(2024, 5, 6, 7, 8, 9, DateTimeKind.Utc);
         File.SetLastWriteTimeUtc(Path.Join(servedRoot, "docs", "file.bin"), modified);
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
         ContentPathMapping mapping = store.MapRequestPath("/docs/file.bin");
 
         ContentFileStatus? status = store.GetFileStatus(mapping);
@@ -42,7 +42,7 @@ public sealed class DiskContentFileSystemTests
     [TestMethod]
     public async Task CopyFileBytesAsync_WholeFile_CopiesEveryByte()
     {
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
         ContentPathMapping mapping = store.MapRequestPath("/docs/file.bin");
         using var destination = new MemoryStream();
 
@@ -55,7 +55,7 @@ public sealed class DiskContentFileSystemTests
     [TestMethod]
     public async Task CopyFileBytesAsync_Range_CopiesFirstThroughLast()
     {
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
         ContentPathMapping mapping = store.MapRequestPath("/docs/file.bin");
         using var destination = new MemoryStream();
 
@@ -76,7 +76,7 @@ public sealed class DiskContentFileSystemTests
         Directory.CreateDirectory(Path.Join(servedRoot, "docs", "a-dir"));
         File.WriteAllBytes(Path.Join(servedRoot, "docs", "a-dir", "nested.txt"), [1, 2]);
         Directory.SetLastWriteTimeUtc(Path.Join(servedRoot, "docs", "a-dir"), directoryModified);
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/docs/"), CancellationToken.None);
 
@@ -91,7 +91,7 @@ public sealed class DiskContentFileSystemTests
     public void ListDirectory_EmptyDirectoryAndFile_AreAnsweredWithoutAnException()
     {
         Directory.CreateDirectory(Path.Join(servedRoot, "empty"));
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentDirectoryListing empty = store.ListDirectory(store.MapRequestPath("/empty"), CancellationToken.None);
         ContentDirectoryListing file = store.ListDirectory(store.MapRequestPath("/docs/file.bin"), CancellationToken.None);
@@ -109,7 +109,7 @@ public sealed class DiskContentFileSystemTests
     {
         Directory.CreateSymbolicLink(Path.Join(servedRoot, "escape"), Path.Join(temporaryFolder, "outside"));
         File.CreateSymbolicLink(Path.Join(servedRoot, "alias.bin"), Path.Join(servedRoot, "docs", "file.bin"));
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
 
@@ -123,7 +123,7 @@ public sealed class DiskContentFileSystemTests
     [DataRow("/")]
     public void MapRequestPath_Directory_ReportsDirectory(string requestPath)
     {
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath(requestPath);
 
@@ -138,7 +138,7 @@ public sealed class DiskContentFileSystemTests
     [DataRow("/docs/file.bin/under-a-file")]
     public void MapRequestPath_MissingPath_ReportsNothing(string requestPath)
     {
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath(requestPath);
 
@@ -151,7 +151,7 @@ public sealed class DiskContentFileSystemTests
     public void MapRequestPath_MissingPath_KeepsItsLocationUnderTheRoot()
     {
         var fileSystem = new DiskContentFileSystem();
-        var store = new ContentStore(servedRoot, fileSystem);
+        var store = new ContentStore(servedRoot, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath("/missing/deeper/file.txt");
 
@@ -168,7 +168,7 @@ public sealed class DiskContentFileSystemTests
     public void MapRequestPath_SymbolicLinkPointingOutsideTheRoot_IsRefused(string requestPath)
     {
         Directory.CreateSymbolicLink(Path.Join(servedRoot, "escape"), Path.Join(temporaryFolder, "outside"));
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath(requestPath);
 
@@ -180,7 +180,7 @@ public sealed class DiskContentFileSystemTests
     public void MapRequestPath_SymbolicLinkToAFileOutsideTheRoot_IsRefused()
     {
         File.CreateSymbolicLink(Path.Join(servedRoot, "secret.txt"), Path.Join(temporaryFolder, "outside", "secret.txt"));
-        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath("/secret.txt");
 
@@ -193,7 +193,7 @@ public sealed class DiskContentFileSystemTests
     {
         File.CreateSymbolicLink(Path.Join(servedRoot, "alias.bin"), Path.Join(servedRoot, "docs", "file.bin"));
         var fileSystem = new DiskContentFileSystem();
-        var store = new ContentStore(servedRoot, fileSystem);
+        var store = new ContentStore(servedRoot, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath("/alias.bin");
 
@@ -207,7 +207,7 @@ public sealed class DiskContentFileSystemTests
     {
         string linkedRoot = Path.Join(temporaryFolder, "linked-root");
         Directory.CreateSymbolicLink(linkedRoot, servedRoot);
-        var store = new ContentStore(linkedRoot, new DiskContentFileSystem());
+        var store = new ContentStore(linkedRoot, new DiskContentFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
         ContentPathMapping mapping = store.MapRequestPath("/docs/file.bin");
 

@@ -34,7 +34,7 @@ public sealed class HttpProtocolServerTests
     [TestMethod]
     public void Schemes_IsHttpOnly()
     {
-        var server = new HttpProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new HttpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
 
         CollectionAssert.AreEqual(new[] { "http" }, server.Schemes.ToArray());
     }
@@ -42,7 +42,7 @@ public sealed class HttpProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {
-        var server = new HttpProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new HttpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var connection = new InMemoryConnection([]);
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(null!, Context(new RecordingExchangeLog())));
@@ -350,7 +350,7 @@ public sealed class HttpProtocolServerTests
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeAsync(
         byte[] request, InMemoryContentFileSystem? fileSystem = null, bool oneBytePerRead = false, bool peerHalfCloses = true)
     {
-        var server = new HttpProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem()));
+        var server = new HttpProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var chunks = oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request);
         var connection = new InMemoryConnection(chunks, peerHalfClosesWhenExhausted: peerHalfCloses);
         var log = new RecordingExchangeLog();

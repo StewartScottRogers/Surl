@@ -31,7 +31,7 @@ public sealed class GopherProtocolServerTests
     [TestMethod]
     public void Schemes_AreGopherThenGophers()
     {
-        var server = new GopherProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new GopherProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
 
         CollectionAssert.AreEqual(new[] { "gopher", "gophers" }, server.Schemes.ToArray());
     }
@@ -75,7 +75,7 @@ public sealed class GopherProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {
-        var server = new GopherProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new GopherProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var connection = new InMemoryConnection([]);
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(null!, Context(new RecordingExchangeLog())));
@@ -337,7 +337,7 @@ public sealed class GopherProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_ExchangeCancelled_Throws()
     {
-        var server = new GopherProtocolServer(new ContentStore(Root, StandardFileSystem()));
+        var server = new GopherProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var connection = new InMemoryConnection([], peerHalfClosesWhenExhausted: false);
 
         await Assert.ThrowsAsync<OperationCanceledException>(
@@ -378,7 +378,7 @@ public sealed class GopherProtocolServerTests
         ExchangeLimits? limits = null,
         TlsSession? tlsSession = null)
     {
-        var server = new GopherProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem()));
+        var server = new GopherProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
         var chunks = oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request);
         var connection = new InMemoryConnection(chunks, peerHalfClosesWhenExhausted: peerHalfCloses, initialTlsSession: tlsSession);
         var log = new RecordingExchangeLog();
