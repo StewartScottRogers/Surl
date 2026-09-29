@@ -1,5 +1,5 @@
 ---
-id: BL-068
+id: BL-070
 title: Pass the parsed exposure options to the content store in Surl.Console
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-068 — Pass the parsed exposure options to the content store in Surl.Console
+# BL-070 — Pass the parsed exposure options to the content store in Surl.Console
 
 ## Goal
 
@@ -25,7 +25,7 @@ symbolic links not followed, dot-files hidden, uploads capped at 104857600 bytes
   `ListDirectories`, `FollowSymlinks`, `ServeDotFiles`, `MaxUploadBytes`; ADR-0007's
   option table).
 - BL-047 added `ContentExposureOptions` and the constructor
-  `ContentStore(string, IContentFileSystem, ContentExposureOptions)`; ADR-0013 records how
+  `ContentStore(string, IContentFileSystem, ContentExposureOptions)`; ADR-0015 records how
   the store applies them.
 - `Surl.Console/CommandLineRunner.cs` `ComposeProtocolServers` still builds the store with
   the two-argument constructor, which serves with

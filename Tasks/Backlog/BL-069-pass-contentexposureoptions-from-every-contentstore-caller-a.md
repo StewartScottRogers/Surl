@@ -4,7 +4,7 @@ title: Pass ContentExposureOptions from every ContentStore caller and remove the
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-047, BL-068]
+depends-on: [BL-047, BL-070]
 touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests, Surl.Protocol.Http.UnitTests, Surl.Protocol.Gopher.UnitTests, Surl.Protocol.Dict.UnitLibrary, Surl.Protocol.Dict.UnitTests, Surl.Protocol.Tftp.UnitTests]
 requirement: none
 created: 2026-09-28
@@ -23,7 +23,7 @@ rules by leaving the options out.
 - BL-047 kept `ContentStore(string, IContentFileSystem)`, serving with
   `ContentExposureOptions.ServeEverythingInsideTheRoot`, because the HTTP, Gopher, DICT and
   TFTP servers' tests and `Surl.Console` built stores with it while other lanes were
-  working in them (ADR-0013).
+  working in them (ADR-0015).
 - Each caller's tests pass the options they rely on, e.g. Gopher's menu tests need
   `ListDirectories = true`, and DICT's tests the options its database needs.
 - `Surl.Protocol.Dict.UnitLibrary/DictContentDictionary.cs` reads its database with

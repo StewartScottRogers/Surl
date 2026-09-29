@@ -61,13 +61,13 @@ results against pinned upstream curl in its own task (ADR-0003).
    IContentFileSystem)` serves with `ContentExposureOptions.ServeEverythingInsideTheRoot`:
    listings, dot-files and links on, uploads off - exactly what the store did before it
    took options. `Surl.Console` and the HTTP, Gopher, DICT and TFTP tests use it, and
-   BL-047 may not touch them. BL-068 passes the options `Surl.Cli` parses from
+   BL-047 may not touch them. BL-070 passes the options `Surl.Cli` parses from
    `Surl.Console`; BL-069 moves every other caller to the three-argument constructor and
    removes the two-argument one.
 
 ## Consequences
 
-- Until BL-068, `surl` still serves with everything inside the root exposed, as it did
+- Until BL-070, `surl` still serves with everything inside the root exposed, as it did
   before BL-047.
 - DICT reads its database with `ListDirectory`; under default options that is answered
   as absent. BL-069 decides whether that internal read is a listing.

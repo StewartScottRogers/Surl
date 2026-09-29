@@ -80,14 +80,14 @@ accepted upload that grows past `MaxUploadBytes` stopped and its partial file de
 
 ## Notes
 
-- Decisions recorded in ADR-0013 (decided by Claude under Stewart's delegation). In short:
+- Decisions recorded in ADR-0015 (decided by Claude under Stewart's delegation). In short:
   `ContentExposureOptions` record with ADR-0006's defaults; hidden paths map with
   `EntryKind` `None` and an internal flag so every later look through the store also says
   nothing is there; a link inside the root is detected by comparing the resolved path with
   the path joined to the resolved root; `WriteUploadAsync` returns `ContentUploadResult`
   (`Written`, `NotPermitted`, `TooLarge`), reads at most one byte past the limit, and
   deletes the partial file when too large or when the copy throws.
-- `touches` widened to `Documentation/Planning/Decisions` for ADR-0013 and its index row;
+- `touches` widened to `Documentation/Planning/Decisions` for ADR-0015 and its index row;
   no task in `Doing` names it (BL-036 MQTT, BL-037 TFTP).
 - Kept `ContentStore(string, IContentFileSystem)`, serving with
   `ContentExposureOptions.ServeEverythingInsideTheRoot` (the store's old behaviour, uploads
@@ -98,7 +98,7 @@ accepted upload that grows past `MaxUploadBytes` stopped and its partial file de
 - `Path.GetDirectoryName(string)` rewrites `/` to `\` on Windows, which broke the
   ordinal seam lookup of an upload's parent directory; the span overload keeps the
   spelling.
-- Follow-ups filed: BL-068 (pass the options `Surl.Cli` already parses from
+- Follow-ups filed: BL-070 (pass the options `Surl.Cli` already parses from
   `Surl.Console`), BL-069 (move every other caller to the options constructor, remove the
   two-argument one, and decide how DICT reads its database under default options).
 - Verified: `dotnet build` clean; fast tests green solution-wide; `Surl.Content.UnitTests`
