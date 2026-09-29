@@ -1,11 +1,28 @@
 # Surl.Protocol.Abstractions.UnitLibrary
 
-Phase 0 holds `SurlExitCode`; Phase 1 adds the contracts.
+The contracts every other project depends on. ADR-0004 (the listener seam and the exchange
+context) is their specification; where this file and the ADR disagree, the ADR wins.
 
-The contracts every other project depends on. Today it holds only `SurlExitCode`, with
-the values the placeholder executable needs. Phase 1 adds the listener seam (how a
-protocol server receives an accepted connection or a datagram channel), the server-side
-TLS contract and the exchange context.
+What it holds:
+
+- `SurlExitCode` - the exit codes the `surl` process returns.
+- `ListenUrl` - what `surl` was asked to listen on, with `BoundPort` once a listener has bound.
+- The transports a protocol server receives: `IConnection` (stream-oriented) and
+  `IDatagramFlow` (TFTP).
+- The protocol server contracts: `IProtocolServer`, `IConnectionProtocolServer` and
+  `IDatagramProtocolServer`.
+- What a server is told about one exchange: `ExchangeContext`, and where its events go,
+  `IExchangeLog` and `IExchangeLogFactory`.
+- The listener seam `Surl.Networking` implements: `IListenerFactory`,
+  `IConnectionListener`, `IDatagramListener`, and a failure to bind,
+  `ListenerBindException` with `ListenerBindFailure`.
+- Test doubles every protocol test project reaches through its reference to this library:
+  `InMemoryConnection` (replays an inbound byte script, records every byte written) and
+  `RecordingExchangeLog` (records every log call as an `ExchangeLogEntry`). They are
+  production code and held to the same coverage gates.
+
+Still to come: the server-side TLS contract (BL-006, after BL-002 decides it) and the
+in-memory datagram flow (BL-037, with the TFTP server).
 
 This library references nothing. Never construct a `Socket`, `TcpListener`, `UdpClient` or
 `SslStream` here. `SurlExitCode` reuses upstream curl's `CURLE_*` number wherever a
