@@ -82,7 +82,7 @@ skipped or inconclusive), and the `linux-x64` and `osx-arm64` pins' `version`,
   - `osx-arm64` `protocols`: no `rtsp` (the release notes listed it).
   - `osx-arm64` `features`: adds `AppleSecTrust`.
   Linux `protocols`/`features` and the macOS `version` matched their pins.
-- The missing `rtsp` on macOS matters for future RTSP conformance tests: filed BL-084 to
+- The missing `rtsp` on macOS matters for future RTSP conformance tests: filed BL-085 to
   decide it and to annotate ADR-0016, which is outside this task's `touches`.
 
 ## Log

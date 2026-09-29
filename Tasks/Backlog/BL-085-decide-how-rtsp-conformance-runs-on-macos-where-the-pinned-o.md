@@ -1,5 +1,5 @@
 ---
-id: BL-084
+id: BL-085
 title: Decide how RTSP conformance runs on macOS, where the pinned osx-arm64 build has no rtsp
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-29
 completed:
 ---
-# BL-084 — Decide how RTSP conformance runs on macOS, where the pinned osx-arm64 build has no rtsp
+# BL-085 — Decide how RTSP conformance runs on macOS, where the pinned osx-arm64 build has no rtsp
 
 ## Goal
 
