@@ -60,3 +60,4 @@ replay byte scripts. Each type has the ADR's name and members.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
