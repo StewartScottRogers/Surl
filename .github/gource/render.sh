@@ -44,11 +44,14 @@ cs make-log > "$work/gource.log"
 cs make-captions > "$work/captions.txt"
 first=$(head -n 1 "$work/gource.log" | cut -d'|' -f1)
 last=$(tail -n 1 "$work/gource.log" | cut -d'|' -f1)
-days=$(awk -v s=$(( last - first + 1 )) 'BEGIN { printf "%.2f", s / 86400 }')
+span=$(( last - first + 1 ))
+days=$(awk -v s="$span" 'BEGIN { printf "%.4f", s / 86400 }')
 # Spread the history over the target length, at least 0.2 seconds per day so a long
 # history is not a blur. Quiet stretches are skipped (--auto-skip-seconds), so the
-# finished animation can come in a little shorter.
-spd=$(awk -v d="$days" -v t="$seconds" 'BEGIN { s = (t - 5) / d; if (s < 0.2) s = 0.2; printf "%.2f", s }')
+# finished animation can come in a little shorter. Worked from the span in seconds, not
+# the rounded day count: a history of minutes (or one imported in a single second) rounds
+# to 0 days, which would divide by zero.
+spd=$(awk -v s="$span" -v t="$seconds" 'BEGIN { v = (t - 5) * 86400 / s; if (v < 0.2) v = 0.2; printf "%.2f", v }')
 
 run=()
 if command -v xvfb-run > /dev/null; then run=(xvfb-run -a -s "-screen 0 ${width}x${height}x24"); fi
@@ -66,9 +69,20 @@ rm -f "$work/probe.ppm"
 # a browser plays one codec per stream, so AV1 gets a full ladder of its own. SVT-AV1 is
 # fast enough for a runner (it refuses 8K below preset 8); libaom is the slow fallback if
 # ffmpeg lacks it.
+#
+# The 8K rung is what decides whether a render fits in memory: SVT-AV1's default
+# random-access structure buffers dozens of 8K pictures, about 5 GB, and a private
+# repository's runner has 8 GB in all. Its low-delay structure (no B-frames) holds about
+# 2 GB for a slightly larger file at the same quality setting, so the 8K rung uses it
+# wherever the installed SVT-AV1 accepts it at 8K.
 gop=$(( fps * 2 ))
 if ffmpeg -hide_banner -encoders 2> /dev/null | grep -q libsvtav1; then
     av1_8k=(-c:v libsvtav1 -preset 8 -crf 32 -svtav1-params tune=0:scd=0)
+    if ffmpeg -hide_banner -loglevel error -f lavfi -i "color=c=black:s=${width}x${height}:r=${fps}" \
+            -frames:v 2 -c:v libsvtav1 -preset 8 -crf 32 -svtav1-params scd=0:pred-struct=1 \
+            -pix_fmt yuv420p -f null - > /dev/null 2>&1; then
+        av1_8k=(-c:v libsvtav1 -preset 8 -crf 32 -svtav1-params scd=0:pred-struct=1)
+    fi
     av1_small=(-c:v libsvtav1 -preset 8 -crf 36 -svtav1-params tune=0:scd=0)
 else
     av1_8k=(-c:v libaom-av1 -cpu-used 8 -row-mt 1 -crf 32 -b:v 0)
@@ -81,6 +95,10 @@ x264=(-c:v libx264 -preset medium -profile:v high -pix_fmt yuv420p
       -g "$gop" -keyint_min "$gop" -sc_threshold 0)
 d="$work/hls"
 
+# Gource renders once, into a visually lossless 8K master (H.264 at CRF 8, about 1.2 MB a
+# frame) and the full-8K still; the ladder is then encoded from that master in three
+# passes, one encoder family at a time. Running every encoder in one ffmpeg, as fed
+# straight from Gource, needs over 9 GB and the runner kills it.
 echo "rendering ${width}x${height} at ${fps} fps: $days day(s) at ${spd}s/day, ${msaa[*]:-no multi-sampling}"
 "${run[@]}" gource "$work/gource.log" --log-format custom -"${width}x${height}" "${msaa[@]}" \
     --title "Surl  -  the server-side mate of curl, built in C# and .NET 10 by a dark factory of AI agents" \
@@ -95,18 +113,32 @@ echo "rendering ${width}x${height} at ${fps} fps: $days day(s) at ${spd}s/day, $
     --font-size 18 --font-scale "$scale" --dir-colour 8AB4F8 --highlight-colour FFFFFF \
     --output-framerate "$fps" --output-ppm-stream - \
   | ffmpeg -y -loglevel error -r "$fps" -f image2pipe -vcodec ppm -i - \
-      -filter_complex "[0:v]split=4[a8][s4][s2][s1];[s4]scale=3840:2160:flags=lanczos,split[a4][h4];[s2]scale=1920:1080:flags=lanczos,split[a2][h2];[s1]fps=1[still]" \
-      -map "[a8]" "${av1_8k[@]}" "${av1_common[@]}" "${hls[@]}" \
-          -hls_segment_filename "$d/av1/4320p/seg_%03d.m4s" "$d/av1/4320p/index.m3u8" \
-      -map "[a4]" "${av1_small[@]}" "${av1_common[@]}" "${hls[@]}" \
-          -hls_segment_filename "$d/av1/2160p/seg_%03d.m4s" "$d/av1/2160p/index.m3u8" \
-      -map "[a2]" "${av1_small[@]}" "${av1_common[@]}" "${hls[@]}" \
-          -hls_segment_filename "$d/av1/1080p/seg_%03d.m4s" "$d/av1/1080p/index.m3u8" \
-      -map "[h4]" "${x264[@]}" -crf 18 -maxrate 14M -bufsize 28M -level 5.1 "${hls[@]}" \
-          -hls_segment_filename "$d/h264/2160p/seg_%03d.m4s" "$d/h264/2160p/index.m3u8" \
-      -map "[h2]" "${x264[@]}" -crf 18 -maxrate 6M -bufsize 12M -level 4.1 "${hls[@]}" \
-          -hls_segment_filename "$d/h264/1080p/seg_%03d.m4s" "$d/h264/1080p/index.m3u8" \
+      -filter_complex "[0:v]split=2[m][s1];[s1]fps=1[still]" \
+      -map "[m]" -c:v libx264 -preset veryfast -crf 8 -pix_fmt yuv420p "$work/master.mkv" \
       -map "[still]" -update 1 -q:v 2 "$work/still-8k.jpg"
+echo "master: $(wc -c < "$work/master.mkv") bytes"
+
+echo "encoding AV1 8K"
+ffmpeg -y -loglevel error -i "$work/master.mkv" \
+    -map 0:v "${av1_8k[@]}" "${av1_common[@]}" "${hls[@]}" \
+        -hls_segment_filename "$d/av1/4320p/seg_%03d.m4s" "$d/av1/4320p/index.m3u8"
+
+echo "encoding AV1 4K and 1080p"
+ffmpeg -y -loglevel error -i "$work/master.mkv" \
+    -filter_complex "[0:v]split=2[s4][s2];[s4]scale=3840:2160:flags=lanczos[a4];[s2]scale=1920:1080:flags=lanczos[a2]" \
+    -map "[a4]" "${av1_small[@]}" "${av1_common[@]}" "${hls[@]}" \
+        -hls_segment_filename "$d/av1/2160p/seg_%03d.m4s" "$d/av1/2160p/index.m3u8" \
+    -map "[a2]" "${av1_small[@]}" "${av1_common[@]}" "${hls[@]}" \
+        -hls_segment_filename "$d/av1/1080p/seg_%03d.m4s" "$d/av1/1080p/index.m3u8"
+
+echo "encoding H.264 4K and 1080p"
+ffmpeg -y -loglevel error -i "$work/master.mkv" \
+    -filter_complex "[0:v]split=2[s4][s2];[s4]scale=3840:2160:flags=lanczos[h4];[s2]scale=1920:1080:flags=lanczos[h2]" \
+    -map "[h4]" "${x264[@]}" -crf 18 -maxrate 14M -bufsize 28M -level 5.1 "${hls[@]}" \
+        -hls_segment_filename "$d/h264/2160p/seg_%03d.m4s" "$d/h264/2160p/index.m3u8" \
+    -map "[h2]" "${x264[@]}" -crf 18 -maxrate 6M -bufsize 12M -level 4.1 "${hls[@]}" \
+        -hls_segment_filename "$d/h264/1080p/seg_%03d.m4s" "$d/h264/1080p/index.m3u8"
+rm -f "$work/master.mkv"
 
 for ladder in av1 h264; do
     cs make-master-playlist "$d/$ladder" > "$d/$ladder/master.m3u8"
