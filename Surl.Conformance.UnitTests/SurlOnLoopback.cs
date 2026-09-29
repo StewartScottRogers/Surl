@@ -33,10 +33,29 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     /// Writes <paramref name="files"/> into a new temporary directory and starts surl serving
     /// it on <c>http://127.0.0.1:0/</c>, returning once surl has written its status line.
     /// </summary>
+    public static Task<SurlOnLoopback> StartAsync(
+        IReadOnlyDictionary<string, byte[]> files, CancellationToken cancellationToken) =>
+        StartAsync("http", files, [], [], cancellationToken);
+
+    /// <summary>
+    /// Creates <paramref name="subdirectories"/> and writes <paramref name="files"/> into a new
+    /// temporary directory, and starts surl serving it on <c><paramref name="scheme"/>://127.0.0.1:0/</c>
+    /// with <paramref name="options"/> before the listen URL,
+    /// returning once surl has written its status line.
+    /// </summary>
     public static async Task<SurlOnLoopback> StartAsync(
-        IReadOnlyDictionary<string, byte[]> files, CancellationToken cancellationToken)
+        string scheme,
+        IReadOnlyDictionary<string, byte[]> files,
+        IReadOnlyList<string> subdirectories,
+        IReadOnlyList<string> options,
+        CancellationToken cancellationToken)
     {
         var directory = Directory.CreateTempSubdirectory("surl-conformance-");
+        foreach (var subdirectory in subdirectories)
+        {
+            directory.CreateSubdirectory(subdirectory);
+        }
+
         foreach (var (name, contents) in files)
         {
             await File.WriteAllBytesAsync(Path.Combine(directory.FullName, name), contents, cancellationToken);
@@ -45,7 +64,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var output = new FirstLineWriter();
         var running = Program.RunAsync(
-            ["--directory", directory.FullName, "http://127.0.0.1:0/"], output, TextWriter.Null, stop.Token);
+            [.. options, "--directory", directory.FullName, $"{scheme}://127.0.0.1:0/"], output, TextWriter.Null, stop.Token);
         var statusLine = await Task.WhenAny(output.FirstLine, running) == running
             ? throw new InvalidOperationException($"surl exited {await running} before it listened.")
             : await output.FirstLine.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);

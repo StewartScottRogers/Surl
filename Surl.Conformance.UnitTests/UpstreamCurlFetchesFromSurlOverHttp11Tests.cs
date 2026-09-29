@@ -83,40 +83,11 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp11Tests
         CollectionAssert.AreEqual(Hello.Concat(Hello).ToArray(), result.StandardOutput);
     }
 
-    private static string RepositoryRoot()
-    {
-        for (var directory = new DirectoryInfo(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "Surl.slnx")))
-            {
-                return directory.FullName;
-            }
-        }
-
-        throw new InvalidOperationException("Surl.slnx was not found above the test output directory.");
-    }
-
     private Task<SurlOnLoopback> StartSurlAsync() =>
         SurlOnLoopback.StartAsync(
             new Dictionary<string, byte[]> { ["hello.txt"] = Hello, ["empty.txt"] = [] },
             TestContext.CancellationToken);
 
-    private async Task<UpstreamCurlRunResult> RunUpstreamCurlAsync(params string[] arguments)
-    {
-        var pins = UpstreamCurlBuildPins.Parse(
-            await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName), TestContext.CancellationToken));
-        var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
-            .Locate(pins, UpstreamCurlLocator.CurrentPlatform);
-        if (!location.IsAvailable)
-        {
-            Assert.Inconclusive(location.Message);
-        }
-
-        var runner = new UpstreamCurlRunner(location, TimeSpan.FromSeconds(30), TimeProvider.System);
-        var result = await runner.RunAsync(arguments, TestContext.CancellationToken);
-
-        TestContext.WriteLine($"curl {string.Join(' ', arguments)}: {result}");
-        Assert.IsFalse(result.TimedOut, $"{result}; stderr: {result.StandardError}");
-        return result;
-    }
+    private Task<UpstreamCurlRunResult> RunUpstreamCurlAsync(params string[] arguments) =>
+        PinnedUpstreamCurl.RunAsync(TestContext, arguments);
 }
