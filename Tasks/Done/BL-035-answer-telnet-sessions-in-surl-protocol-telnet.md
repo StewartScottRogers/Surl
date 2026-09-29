@@ -67,7 +67,7 @@ standard input is doubled. This Windows build sent `hello\r\n` input as `hello\n
 Details in `Surl.Protocol.Telnet.UnitTests/Fixtures/README.md`.
 
 **Decisions** (Claude under Stewart's delegation; stated in `TelnetProtocolServer`'s XML
-doc; the ADR is BL-071, see below):
+doc; the ADR is BL-077, see below):
 - The server speaks first: `WILL SGA`, `DO` TTYPE, XDISPLOC, NEW-ENVIRON, NAWS, and a
   one-line banner that names no version (ADR-0006). Without a server-first negotiation
   curl never reveals its `-t` values.
@@ -89,9 +89,9 @@ doc; the ADR is BL-071, see below):
 - Fixtures add a `replies.bin` per case (every byte the server sent), since curl strips
   TELNET commands from stdout and `stdout.bin` alone cannot pin the negotiation.
 
-**ADR deferred to BL-071.** CLAUDE.md wants an ADR, but BL-027 (in `Doing`) holds
+**ADR deferred to BL-077.** CLAUDE.md wants an ADR, but BL-027 (in `Doing`) holds
 `Documentation/Planning/Decisions`, so this task did not widen its `touches` into it.
-BL-071 writes the ADR from these notes; it touches only its own file and the index.
+BL-077 writes the ADR from these notes; it touches only its own file and the index.
 
 **Review** (code-reviewer): no must-fix. Fixed: log flood; broken subnegotiation
 swallowing the next command; `IAC SB IAC`; `IsOver` scanning 256 slots per byte (now a

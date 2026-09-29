@@ -1,5 +1,5 @@
 ---
-id: BL-071
+id: BL-077
 title: Record how the TELNET server answers in an ADR
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-071 — Record how the TELNET server answers in an ADR
+# BL-077 — Record how the TELNET server answers in an ADR
 
 ## Goal
 
