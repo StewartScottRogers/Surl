@@ -1,0 +1,2 @@
+> curl:62373 -> server:18069 \x00\x02upload.txt\x00octet\x00tsize\x006\x00blksize\x00512\x00timeout\x006\x00
+< server:62374 -> curl:62373 \x00\x05\x00\x02Access violation\x00

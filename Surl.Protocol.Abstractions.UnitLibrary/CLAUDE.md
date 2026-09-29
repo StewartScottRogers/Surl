@@ -30,7 +30,9 @@ What it holds:
   `TlsSchemes.IsImplicitTls`. `InMemoryConnection` stands in for implicit TLS (an initial
   session) and for an upgrade (`UpgradeRequested`, a configurable session, or a failure).
 
-Still to come: the in-memory datagram flow (BL-037, with the TFTP server).
+There is no in-memory datagram flow here: TFTP is its only user, so its tests drive the
+server through their own hand-written `ScriptedDatagramFlow` (BL-037, in
+`Surl.Protocol.Tftp.UnitTests`).
 
 This library references nothing. Never construct a `Socket`, `TcpListener`, `UdpClient` or
 `SslStream` here. `SurlExitCode` reuses upstream curl's `CURLE_*` number wherever a

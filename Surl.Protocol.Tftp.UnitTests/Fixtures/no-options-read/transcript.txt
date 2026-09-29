@@ -1,0 +1,3 @@
+> curl:64551 -> server:18069 \x00\x01file.txt\x00octet\x00
+< server:64552 -> curl:64551 \x00\x03\x00\x01Hello from Surl.\x0A
+> curl:64551 -> server:64552 \x00\x04\x00\x01
