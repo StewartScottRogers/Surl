@@ -19,6 +19,7 @@ internal static class AuthenticationComposition
     // before any listener binds (ADR-0032, section 1), until its method lands.
     private static readonly Dictionary<string, AuthenticationMethod> ImplementedMethodsByWord = new(StringComparer.Ordinal)
     {
+        ["negotiate"] = AuthenticationMethod.Negotiate,
         ["ntlm"] = AuthenticationMethod.Ntlm,
         ["digest"] = AuthenticationMethod.Digest,
         ["basic"] = AuthenticationMethod.Basic,
@@ -28,7 +29,7 @@ internal static class AuthenticationComposition
     /// <summary>
     /// Builds the policy: refuses an <c>--auth</c> word whose method this build does not
     /// implement, reads the <c>--user-file</c> through <paramref name="readUserFile"/> when one
-    /// was given, and composes the NTLM, Basic, Bearer and Digest methods over the accounts.
+    /// was given, and composes the Negotiate, NTLM, Basic, Bearer and Digest methods over the accounts.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="readUserFile">Reads the <c>--user-file</c>'s bytes, given its path as given.</param>
@@ -141,6 +142,7 @@ internal static class AuthenticationComposition
         new(
             settings,
             [
+                new NegotiateAuthenticationMethod(settings.Accounts),
                 new NtlmAuthenticationMethod(settings.Accounts),
                 new BasicAuthenticationMethod(settings.Accounts),
                 new BearerAuthenticationMethod(settings.Accounts),

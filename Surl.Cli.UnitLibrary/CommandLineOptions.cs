@@ -35,7 +35,7 @@ internal static class CommandLineOptions
     private const string AuthExplanation =
         "Sets the HTTP authentication methods surl accepts and offers, a comma-separated list of basic, bearer, "
         + "digest, ntlm, negotiate and aws-sigv4; the default is basic,bearer,digest,aws-sigv4. This build checks "
-        + "basic, bearer, digest and ntlm, and refuses to start when --auth names another. A test uses it to offer one "
+        + "basic, bearer, digest, ntlm and negotiate, and refuses to start when --auth names another. A test uses it to offer one "
         + "method alone, such as --auth digest for curl's --digest. ntlm and negotiate are not in the default "
         + "because an NTLM response is built on MD4 and HMAC-MD5 of the password and is open to relay and offline "
         + "cracking, and Negotiate carries NTLM. surl warns on every start while --auth is given, from the info log "
