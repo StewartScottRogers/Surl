@@ -41,6 +41,7 @@ internal delegate string? ApplyArgument(string argument, ref SurlCommandLine com
 /// <param name="Negatable">Whether <c>--no-</c> may turn it off.</param>
 /// <param name="SetFlag">Sets the value of a <see cref="CommandLineOptionKind.Flag"/>; otherwise null.</param>
 /// <param name="ApplyArgument">Reads and applies the argument of an <see cref="CommandLineOptionKind.Argument"/>; otherwise null.</param>
+/// <param name="ArgumentType">What the argument is and which values it takes (ADR-0046 decision 5); every row has one.</param>
 /// <param name="Help">What the help says about the option (ADR-0034 decision 2).</param>
 internal sealed record CommandLineOption(
     string LongName,
@@ -49,6 +50,7 @@ internal sealed record CommandLineOption(
     bool Negatable,
     SetFlag? SetFlag,
     ApplyArgument? ApplyArgument,
+    OptionArgumentType ArgumentType,
     OptionHelp Help)
 {
     /// <summary>

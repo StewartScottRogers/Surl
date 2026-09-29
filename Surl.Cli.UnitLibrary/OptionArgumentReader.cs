@@ -84,6 +84,60 @@ internal static class OptionArgumentReader
         ["trace"] = LogLevel.Trace,
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary><see cref="ReadSeconds"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<TimeSpan> Seconds =
+        new(ReadSeconds, new("seconds", "0 to 2147483.647, digits with an optional decimal point and more digits"));
+
+    /// <summary><see cref="ReadNumber"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<int> Number =
+        new(ReadNumber, new("number", "0 to 2147483647, digits only"));
+
+    /// <summary><see cref="ReadBytes"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<long> Bytes =
+        new(ReadBytes, new(
+            "bytes",
+            "digits with an optional decimal point and more digits, then at most one suffix k, m, g, t or p in either case, "
+            + "each 1024 times the one before; at most 9223372036854775807 bytes"));
+
+    /// <summary><see cref="ReadPath"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<string> Path =
+        new(ReadPath, new("path", "any non-empty text"));
+
+    /// <summary><see cref="ReadText"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<string> Text =
+        new(ReadText, new("text", "any text, the empty string included"));
+
+    /// <summary><see cref="ReadTlsVersion"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<SslProtocols> TlsVersion =
+        new(ReadTlsVersion, new("TLS version", "1.0, 1.1, 1.2 or 1.3"));
+
+    /// <summary><see cref="ReadCertificateType"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<CertificateFileFormat> CertificateType =
+        new(ReadCertificateType, new("word", "PEM, DER or P12, in any case"));
+
+    /// <summary><see cref="ReadKeyType"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<CertificateFileFormat> KeyType =
+        new(ReadKeyType, new("word", "PEM or DER, in any case"));
+
+    /// <summary><see cref="ReadLogLevel"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<LogLevel> LogLevelWord =
+        new(ReadLogLevel, new("word", "none, error, info, verbose or trace, in any case"));
+
+    /// <summary><see cref="ReadAccount"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<CommandLineAccount> Account =
+        new(ReadAccount, new(
+            "user:password",
+            "a user name, a colon and a non-empty password, split at the first colon; no control character in the user name"));
+
+    /// <summary>
+    /// <see cref="ReadAuthenticationMethods"/> and its argument type (ADR-0046 decision 5), its
+    /// words taken from <see cref="AuthenticationMethodWords"/>.
+    /// </summary>
+    public static readonly OptionArgumentReading<IReadOnlyList<string>> AuthenticationMethods =
+        new(ReadAuthenticationMethods, new(
+            "word list",
+            "comma-separated, in any case, no empty item: " + string.Join(", ", AuthenticationMethodWords)));
+
     /// <summary>Reads <c>&lt;seconds&gt;</c>: digits, optionally <c>.</c> and more digits, at most 2147483.647.</summary>
     /// <param name="argument">The argument as given.</param>
     /// <param name="value">The duration, rounded up to whole ticks; <see cref="Timeout.InfiniteTimeSpan"/> for 0.</param>

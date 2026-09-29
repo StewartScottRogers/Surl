@@ -7,20 +7,20 @@ internal static class HelpCategories
 {
     private static readonly HelpCategory[] Table =
     [
-        new("auth", "Accounts and authentication methods"),
-        new("content", "Served files and the data directory"),
-        new("dict", "DICT protocol"),
-        new("gopher", "GOPHER and GOPHERS protocol"),
-        new("http", "HTTP and HTTPS protocol"),
-        new("limits", "Connection, time and size limits"),
-        new("logging", "Log levels, tracing and the log file"),
-        new("mqtt", "MQTT and MQTTS protocol"),
-        new("security", "Options that widen what a peer may do"),
-        new("surl", "The command line tool itself"),
-        new("telnet", "TELNET protocol"),
-        new("testing", "Loosening options for tests (warned)"),
-        new("tftp", "TFTP protocol"),
-        new("tls", "TLS certificates and versions"),
+        new("auth", "Accounts and authentication methods", []),
+        new("content", "Served files and the data directory", []),
+        new("dict", "DICT protocol", ["dict"]),
+        new("gopher", "GOPHER and GOPHERS protocol", ["gopher", "gophers"]),
+        new("http", "HTTP and HTTPS protocol", ["http", "https"]),
+        new("limits", "Connection, time and size limits", []),
+        new("logging", "Log levels, tracing and the log file", []),
+        new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
+        new("security", "Options that widen what a peer may do", []),
+        new("surl", "The command line tool itself", []),
+        new("telnet", "TELNET protocol", ["telnet"]),
+        new("testing", "Loosening options for tests (warned)", []),
+        new("tftp", "TFTP protocol", ["tftp"]),
+        new("tls", "TLS certificates and versions", []),
     ];
 
     /// <summary>Every category, in ordinal order of its name.</summary>
