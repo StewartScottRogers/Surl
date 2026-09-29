@@ -71,3 +71,4 @@ role. 8.21.0 stays Surl's reference release everywhere else.
 
 - 2026-09-28: Created.
 - 2026-09-28: Retargeted from 8.21.0 to curl.se's current 8.22.0_2 build as a supplementary build, per Stewart's choice of option A.
+- 2026-09-28: Backlog -> Doing.
