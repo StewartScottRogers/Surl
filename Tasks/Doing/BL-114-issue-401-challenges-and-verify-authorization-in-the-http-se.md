@@ -66,3 +66,4 @@ for NTLM and Negotiate). BL-109 added the contract.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
