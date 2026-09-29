@@ -247,6 +247,63 @@ public sealed class AuthenticationTests
         Assert.AreEqual(Unauthorized("NTLM"), Latin1(second.WrittenBytes));
     }
 
+    [TestMethod]
+    [DataRow("basic-401", "Basic", "tester", DisplayName = "Basic")]
+    [DataRow("bearer-401", "Bearer", CheckedLogin.BearerTokenUser, DisplayName = "Bearer")]
+    public async Task ServeAsync_CheckedLoginAccepted_NotesLoginAcceptedAndServes(string caseName, string method, string user)
+    {
+        // ADR-0032, section 8: the note names the method and the user as sent, never the secret.
+        var policy = new UnitTestAuthenticationPolicy(_ =>
+            new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], "tester", new CheckedLogin(method, user, true)));
+
+        var (connection, log) = await ServeAsync(policy, RecordedFixture.ReadRequestBytes(caseName));
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 200 OK\r\n");
+        Assert.AreEqual($"Login accepted: {method} {user}", log.Notes[0]);
+        AssertNoSecretIn(connection, log);
+    }
+
+    [TestMethod]
+    [DataRow("basic-401", "Basic", "tester", DisplayName = "Basic")]
+    [DataRow("bearer-401", "Bearer", CheckedLogin.BearerTokenUser, DisplayName = "Bearer")]
+    public async Task ServeAsync_CheckedLoginRefused_NotesLoginRefusedThenThe401(string caseName, string method, string user)
+    {
+        var policy = new UnitTestAuthenticationPolicy(_ =>
+            Challenge([BasicChallenge]) with { CheckedLogin = new CheckedLogin(method, user, false) });
+
+        var (connection, log) = await ServeAsync(policy, RecordedFixture.ReadRequestBytes(caseName));
+
+        StringAssert.StartsWith(Latin1(connection.WrittenBytes), "HTTP/1.1 401 Unauthorized\r\n");
+        CollectionAssert.AreEqual(
+            new[] { $"Login refused: {method} {user}", "GET /file.txt: 401, a login is needed" }, log.Notes.Take(2).ToArray());
+        AssertNoSecretIn(connection, log);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecordedDigestLogin_NotesOnlyTheCheckedLogin()
+    {
+        // The first request carries no credentials, so only the second is noted.
+        var policy = new UnitTestAuthenticationPolicy(request => Authorization(request) is null
+            ? Challenge([DigestMd5, DigestSha256, DigestSha512256])
+            : new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], "tester", new CheckedLogin("Digest", "tester", true)));
+
+        var (connection, log) = await ServeAsync(policy, RecordedFixture.ReadRequestBytes("digest-401-then-200"));
+
+        Assert.AreEqual(1, log.Notes.Count(note => note.StartsWith("Login ", StringComparison.Ordinal)));
+        CollectionAssert.Contains(log.Notes.ToArray(), "Login accepted: Digest tester");
+        AssertNoSecretIn(connection, log);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_VerdictWithoutCheckedLogin_WritesNoLoginNote()
+    {
+        var policy = new UnitTestAuthenticationPolicy(_ => Challenge([BearerChallenge]));
+
+        var (_, log) = await ServeAsync(policy, RecordedFixture.ReadRequestBytes("bearer-401"));
+
+        Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Login ", StringComparison.Ordinal)));
+    }
+
     private static HttpAuthenticationVerdict Challenge(string[] challenges) => new(HttpAuthenticationOutcome.Challenge, challenges, null);
 
     private static string? Authorization(HttpAuthenticationRequest request) =>

@@ -59,3 +59,15 @@ Protocol servers receive what it provides through the contracts in Abstractions.
 - `AccountBook.FindDigestAccount` holds each named account's user hashes, computed at
   start-up, under its UTF-8 spelling and, for an all-ISO-8859-1 account, its ISO-8859-1 one;
   an unknown name gets a random dummy.
+
+## Login notes (BL-125)
+
+- Every checked HTTP login's verdict carries a `CheckedLogin` (Abstractions): the
+  `Authorization` scheme (`AuthenticationMethods.AuthorizationSchemeOf`), the user as sent
+  (`HttpCredentialCheck.UserAsSent`: Basic's user-id, Digest's `username`, `bearer token` for
+  Bearer, `null` when none could be read) and whether it was accepted. The HTTP server writes
+  its `Note` - `Login accepted: Basic alice` - to the verbose log (ADR-0032 section 8). No
+  credentials, a plain-text secret refused unchecked, `--allow-anonymous` and a handshake's
+  continuation step carry none.
+- A password login under `--allow-anonymous` is `PasswordLoginVerdict.AcceptedUnchecked`, so
+  a server notes only logins whose credentials were checked.

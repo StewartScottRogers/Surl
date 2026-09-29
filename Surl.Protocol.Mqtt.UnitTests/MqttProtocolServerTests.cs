@@ -367,8 +367,74 @@ public sealed class MqttProtocolServerTests
         Assert.AreEqual("8", Encoding.ASCII.GetString(RecordedFixture.ReadBytes(refusalCase, "exitcode.txt")));
         CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes(refusalCase), connection.WrittenBytes);
         Assert.IsTrue(connection.WritesCompleted);
-        StringAssert.Contains(log.Notes.Single(), $"answered {connack} and closed");
+        StringAssert.Contains(log.Notes[^1], $"answered {connack} and closed");
         Assert.HasCount(1, policy.Logins);
+    }
+
+    [TestMethod]
+    [DataRow(PasswordLoginVerdict.Accepted, "Login accepted: mqtt tester", DisplayName = "accepted")]
+    [DataRow(PasswordLoginVerdict.RefusedCredentials, "Login refused: mqtt tester", DisplayName = "refused credentials")]
+    public async Task ServeAsync_RecordedConnectLoginChecked_NotesTheLoginWithTheUserAndNotThePassword(PasswordLoginVerdict verdict, string note)
+    {
+        // ADR-0032, section 8: the scheme stands for the method, and the password is never noted.
+        var policy = new UnitTestRecordingAuthenticationPolicy(verdict);
+
+        var (_, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        Assert.AreEqual(note, log.Notes[0]);
+        Assert.IsFalse(log.Notes.Any(entry => entry.Contains("secret", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConnectOverMqttsLoginAccepted_NotesTheMqttsScheme()
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+
+        var (_, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"),
+            listenUrl: MqttsListenUrl, tlsSession: ImplicitTlsSession, policy: policy);
+
+        Assert.AreEqual("Login accepted: mqtts tester", log.Notes[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConnectAcceptedUnchecked_AnswersConnack0AndWritesNoLoginNote()
+    {
+        // --allow-anonymous checks nothing, so nothing is noted as a checked login (ADR-0032, section 8).
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.AcceptedUnchecked);
+
+        var (connection, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("connect-user-and-password"), connection.WrittenBytes);
+        Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Login ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_VerdictThisServerDoesNotKnow_IsRefusedAsNotAuthorizedWithNoLoginNote()
+    {
+        // Fails closed: a verdict added to the contract later is never taken for an acceptance.
+        var policy = new UnitTestRecordingAuthenticationPolicy((PasswordLoginVerdict)99);
+
+        var (connection, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("connack-not-authorized"), connection.WrittenBytes);
+        Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Login ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [DataRow(PasswordLoginVerdict.RefusedPlaintext, DisplayName = "password over mqtt://")]
+    [DataRow(PasswordLoginVerdict.RefusedAnonymous, DisplayName = "refused as anonymous")]
+    public async Task ServeAsync_ConnectRefusedUnchecked_WritesNoLoginNote(PasswordLoginVerdict verdict)
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(verdict);
+
+        var (_, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Login ", StringComparison.Ordinal)));
     }
 
     [TestMethod]

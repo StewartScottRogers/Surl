@@ -76,7 +76,7 @@ public sealed class BasicAuthenticationMethod : IHttpAuthenticationMethod, IHttp
 
         return ValueTask.FromResult(
             accounts.CheckPassword(userId, userPass[(colon + 1)..])
-                ? new HttpCredentialCheck(HttpCredentialOutcome.Accepted, userId, [])
-                : Refused);
+                ? new HttpCredentialCheck(HttpCredentialOutcome.Accepted, userId, [], userId)
+                : Refused with { UserAsSent = userId });
     }
 }

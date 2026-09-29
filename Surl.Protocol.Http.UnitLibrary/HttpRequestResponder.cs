@@ -78,6 +78,10 @@ internal sealed class HttpRequestResponder
 
         var verdict = await authenticationSession.JudgeAsync(AuthenticationRequest(head), context.CancellationToken);
         wwwAuthenticateValues = verdict.WwwAuthenticateValues;
+        if (verdict.CheckedLogin is not null)
+        {
+            context.Log.Note(verdict.CheckedLogin.Note);
+        }
 
         return await (verdict.Outcome == HttpAuthenticationOutcome.Proceed
             ? AnswerLetInRequestAsync(head, framing)

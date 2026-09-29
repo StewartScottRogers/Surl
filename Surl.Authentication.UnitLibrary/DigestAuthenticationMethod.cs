@@ -78,15 +78,20 @@ public sealed class DigestAuthenticationMethod : IHttpAuthenticationMethod, IHtt
         var answer = DigestAnswer.TryRead(credentials, request.Method);
 
         return ValueTask.FromResult(
-            answer is null || answer.Inputs.Uri != request.Target ? Refused : Verify(answer));
+            answer is null ? Refused : Verify(answer, request.Target) with { UserAsSent = answer.UserName });
     }
 
     private static IReadOnlyList<string> CreateChallenges(string nonce, string suffix) =>
         [.. Enum.GetValues<DigestAlgorithm>().Select(algorithm =>
             $"Digest realm=\"{Realm}\", qop=\"auth\", algorithm={DigestAlgorithmName.NameOf(algorithm)}, nonce=\"{nonce}\"{suffix}")];
 
-    private HttpCredentialCheck Verify(DigestAnswer answer)
+    private HttpCredentialCheck Verify(DigestAnswer answer, string requestTarget)
     {
+        if (answer.Inputs.Uri != requestTarget)
+        {
+            return Refused;
+        }
+
         var nonceState = nonces.Check(answer.Inputs.Nonce);
         var accountName = nonceState == DigestNonceState.Unknown ? null : FindAnsweringAccount(answer);
         if (accountName is null)

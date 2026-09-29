@@ -16,8 +16,8 @@ public sealed class BearerAuthenticationMethod : IHttpAuthenticationMethod, IHtt
     /// </summary>
     public const string Challenge = "Bearer realm=\"surl\"";
 
-    private static readonly HttpCredentialCheck Accepted = new(HttpCredentialOutcome.Accepted, string.Empty, []);
-    private static readonly HttpCredentialCheck Refused = new(HttpCredentialOutcome.Refused, null, []);
+    private static readonly HttpCredentialCheck Accepted = new(HttpCredentialOutcome.Accepted, string.Empty, [], CheckedLogin.BearerTokenUser);
+    private static readonly HttpCredentialCheck Refused = new(HttpCredentialOutcome.Refused, null, [], CheckedLogin.BearerTokenUser);
 
     private readonly AccountBook accounts;
 

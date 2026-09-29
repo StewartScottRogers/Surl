@@ -10,24 +10,24 @@ public sealed class AnonymousAuthenticationPolicyTests
         new("mqtt", "alice", new ReadOnlyMemory<byte>([0x70, 0x77]), null);
 
     [TestMethod]
-    public async Task CheckPasswordLoginAsync_UserNameAndPassword_IsAccepted()
+    public async Task CheckPasswordLoginAsync_UserNameAndPassword_IsAcceptedUnchecked()
     {
         var policy = new AnonymousAuthenticationPolicy();
 
         var verdict = await policy.CheckPasswordLoginAsync(MqttLogin, CancellationToken.None);
 
-        Assert.AreEqual(PasswordLoginVerdict.Accepted, verdict);
+        Assert.AreEqual(PasswordLoginVerdict.AcceptedUnchecked, verdict);
     }
 
     [TestMethod]
-    public async Task CheckPasswordLoginAsync_NoCredentials_IsAccepted()
+    public async Task CheckPasswordLoginAsync_NoCredentials_IsAcceptedUnchecked()
     {
         var policy = new AnonymousAuthenticationPolicy();
 
         var verdict = await policy.CheckPasswordLoginAsync(
             new PasswordLogin("mqtt", null, null, null), CancellationToken.None);
 
-        Assert.AreEqual(PasswordLoginVerdict.Accepted, verdict);
+        Assert.AreEqual(PasswordLoginVerdict.AcceptedUnchecked, verdict);
     }
 
     [TestMethod]

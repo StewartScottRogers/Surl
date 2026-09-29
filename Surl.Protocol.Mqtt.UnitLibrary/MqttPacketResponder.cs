@@ -169,13 +169,26 @@ internal sealed class MqttPacketResponder
     {
         var login = new PasswordLogin(context.Scheme, judgement.UserName, judgement.Password, connection.TlsSession);
         var loginVerdict = await authenticationPolicy.CheckPasswordLoginAsync(login, context.CancellationToken);
+        NoteCheckedLogin(login, loginVerdict);
 
         return loginVerdict switch
         {
-            PasswordLoginVerdict.Accepted => MqttConnectVerdict.Accepted,
+            PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked => MqttConnectVerdict.Accepted,
             PasswordLoginVerdict.RefusedCredentials => MqttConnectVerdict.BadUserNameOrPassword,
             _ => MqttConnectVerdict.NotAuthorized,
         };
+    }
+
+    // Only an accepted login or a refused credential says what the credentials were worth
+    // (ADR-0032, section 8); a login refused unchecked (no user name, a clear password over
+    // mqtt://) is noted by its CONNACK line alone. The note names the user, never the password.
+    private void NoteCheckedLogin(PasswordLogin login, PasswordLoginVerdict loginVerdict)
+    {
+        if (loginVerdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
+        {
+            var checkedLogin = new CheckedLogin(login.Scheme, login.UserName, loginVerdict == PasswordLoginVerdict.Accepted);
+            context.Log.Note(checkedLogin.Note);
+        }
     }
 
     private ValueTask<bool> AnswerConnectVerdictAsync(MqttConnectVerdict verdict)

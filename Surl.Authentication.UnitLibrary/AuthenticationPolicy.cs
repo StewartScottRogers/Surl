@@ -85,7 +85,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy
     {
         if (settings.AllowAnonymous)
         {
-            return PasswordLoginVerdict.Accepted;
+            return PasswordLoginVerdict.AcceptedUnchecked;
         }
 
         if (login.Password is not null && !OffersPlaintextSecrets(login.TlsSession is not null))

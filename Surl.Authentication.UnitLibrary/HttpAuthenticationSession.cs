@@ -63,11 +63,13 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         var check = await verifier.VerifyAsync(authorization.Credentials, request, cancellationToken)
             .ConfigureAwait(false);
 
-        return await AnswerCheckAsync(check, cancellationToken).ConfigureAwait(false);
+        return await AnswerCheckAsync(check, authorization.Method, cancellationToken).ConfigureAwait(false);
     }
 
+    // Accepted and refused credentials carry the login note (ADR-0032, section 8); a
+    // continuation step checked nothing yet, so it carries none.
     private async ValueTask<HttpAuthenticationVerdict> AnswerCheckAsync(
-        HttpCredentialCheck check, CancellationToken cancellationToken)
+        HttpCredentialCheck check, AuthenticationMethod method, CancellationToken cancellationToken)
     {
         // A continuation step with no value to send would be a 401 without a challenge, which
         // RFC 9110 section 11.6.1 forbids; it is answered as a refusal.
@@ -75,15 +77,18 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         {
             case HttpCredentialOutcome.Accepted:
                 return new HttpAuthenticationVerdict(
-                    HttpAuthenticationOutcome.Proceed, check.WwwAuthenticateValues, check.AccountName);
+                    HttpAuthenticationOutcome.Proceed, check.WwwAuthenticateValues, check.AccountName, LoginChecked(method, check, true));
             case HttpCredentialOutcome.Continue when check.WwwAuthenticateValues.Count > 0:
                 return new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Challenge, check.WwwAuthenticateValues, null);
             default:
                 await policy.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
 
-                return Challenge();
+                return Challenge() with { CheckedLogin = LoginChecked(method, check, false) };
         }
     }
+
+    private static CheckedLogin LoginChecked(AuthenticationMethod method, HttpCredentialCheck check, bool isAccepted) =>
+        new(AuthenticationMethods.AuthorizationSchemeOf(method), check.UserAsSent, isAccepted);
 
     private HttpAuthenticationVerdict Challenge()
     {

@@ -41,6 +41,16 @@ public static class AuthenticationMethods
     public static bool TryFromAuthorizationScheme(string scheme, out AuthenticationMethod method) =>
         MethodsByAuthorizationScheme.TryGetValue(scheme, out method);
 
+    /// <summary>
+    /// The <c>Authorization</c> scheme that names <paramref name="method"/>, spelt as
+    /// <see cref="TryFromAuthorizationScheme"/> lists it: the method's name in the verbose log's
+    /// login note (ADR-0032, section 8).
+    /// </summary>
+    /// <param name="method">The method.</param>
+    /// <returns><c>Negotiate</c>, <c>NTLM</c>, <c>Digest</c>, <c>Basic</c>, <c>Bearer</c> or <c>AWS4-HMAC-SHA256</c>.</returns>
+    public static string AuthorizationSchemeOf(AuthenticationMethod method) =>
+        MethodsByAuthorizationScheme.First(pair => pair.Value == method).Key;
+
     private static readonly Dictionary<string, AuthenticationMethod> MethodsByAuthorizationScheme =
         new(StringComparer.OrdinalIgnoreCase)
         {

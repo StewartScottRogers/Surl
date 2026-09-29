@@ -7,7 +7,7 @@ namespace Surl.Protocol.Abstractions;
 public enum PasswordLoginVerdict
 {
     /// <summary>
-    /// The login is accepted.
+    /// The login's credentials were checked and match an account.
     /// </summary>
     Accepted,
 
@@ -26,4 +26,10 @@ public enum PasswordLoginVerdict
     /// <c>--allow-plaintext-auth</c> was not given.
     /// </summary>
     RefusedPlaintext,
+
+    /// <summary>
+    /// The login is accepted without its credentials being checked (<c>--allow-anonymous</c>),
+    /// so the server writes no <see cref="CheckedLogin"/> note for it (ADR-0032, section 8).
+    /// </summary>
+    AcceptedUnchecked,
 }

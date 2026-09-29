@@ -32,7 +32,9 @@ What it holds:
 - The authentication contract (ADR-0032, section 6): `IAuthenticationPolicy` (a password
   login, `PasswordLogin` judged as a `PasswordLoginVerdict`, and one
   `IHttpAuthenticationSession` per HTTP connection), `HttpAuthenticationRequest` and
-  `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome`. `Surl.Authentication`
+  `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome`, and `CheckedLogin`, the
+  credentials checked and the answer, whose `Note` a server writes to the verbose log
+  (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request
   proceed, and is the test double protocol tests share.
 

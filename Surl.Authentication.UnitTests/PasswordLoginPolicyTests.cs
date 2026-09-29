@@ -171,7 +171,7 @@ public sealed class PasswordLoginPolicyTests
             Login(userName, password, overTls ? PolicyFixture.Tls : null), CancellationToken.None);
 
         Assert.IsTrue(check.IsCompleted);
-        Assert.AreEqual(PasswordLoginVerdict.Accepted, await check);
+        Assert.AreEqual(PasswordLoginVerdict.AcceptedUnchecked, await check);
     }
 
     [TestMethod]
