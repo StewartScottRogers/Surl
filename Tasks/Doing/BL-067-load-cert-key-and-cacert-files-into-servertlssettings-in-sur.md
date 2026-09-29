@@ -59,3 +59,4 @@ option files to this task (ADR-0010's "Consequences" had grouped both under BL-0
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
