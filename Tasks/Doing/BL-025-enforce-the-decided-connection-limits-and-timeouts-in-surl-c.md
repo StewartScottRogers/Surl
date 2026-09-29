@@ -48,3 +48,4 @@ when a limit is hit. Fast tests prove each limit on a hand-written `TimeProvider
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
