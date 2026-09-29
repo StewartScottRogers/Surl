@@ -61,3 +61,4 @@ Markdown to stdout and exit `SurlExitCode.Ok` (0), and `--aihelp` is listed in `
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
