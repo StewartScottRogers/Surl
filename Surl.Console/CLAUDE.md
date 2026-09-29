@@ -9,11 +9,15 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help` and
   `--version`, checks the data directory when `--directory` names one
-  (`ServedDirectoryProbe`) and every scheme against the registered protocol servers, takes
-  the data directory's `.surl/lock` (`DataDirectoryLock`, held until serving ends; a second
-  surl on the same path gets 124, a `.surl` that cannot be created 23, ADR-0031 decision 7),
-  then builds the content store (on disk with `--directory`, a new `InMemoryContentFileSystem`
-  without it, ADR-0031), the protocol
+  (`ServedDirectoryProbe`, 37 when it cannot be opened), builds the content store
+  (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
+  full path with `--directory`, a new, empty `InMemoryContentFileSystem` at
+  `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4), checks
+  every scheme against the registered protocol servers, and with `--directory` takes the
+  data directory's `.surl/lock` (`DataDirectoryLock.Take`, held until serving ends; a
+  second surl on the same path gets 124, a `.surl` or lock file that cannot be created 23,
+  ADR-0031 decision 7; no lock and no disk access without `--directory`). Then it builds
+  the protocol
   servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
   `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),
