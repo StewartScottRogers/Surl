@@ -10,7 +10,8 @@ namespace Surl.Authentication;
 /// length never depends on the password's. An unknown user name is compared against a random
 /// dummy hash, so it costs the same work as a wrong password and gets the same answer. For
 /// Digest it also keeps each named account's <c>H(name:surl:password)</c> under every
-/// <see cref="DigestAlgorithm"/>, computed once here, and never the clear password (ADR-0036).
+/// <see cref="DigestAlgorithm"/>, computed once here, and never the clear password (ADR-0036);
+/// for NTLM, each named account's NT hash (ADR-0039).
 /// </summary>
 public sealed class AccountBook
 {
@@ -21,6 +22,8 @@ public sealed class AccountBook
     private readonly IReadOnlyList<string> dummyUserHashes = [.. Enum.GetValues<DigestAlgorithm>()
         .Select(algorithm => DigestCalculation.HashHex(algorithm, RandomNumberGenerator.GetBytes(32)))];
     private readonly DigestAccount dummyDigestAccount;
+    private readonly Dictionary<string, NtlmAccount> ntlmAccounts = new(StringComparer.Ordinal);
+    private readonly NtlmAccount dummyNtlmAccount = new(null, RandomNumberGenerator.GetBytes(16));
 
     /// <summary>
     /// Keeps <paramref name="accounts"/>, which <c>Surl.Cli</c> and <see cref="UserFileParser"/>
@@ -51,6 +54,11 @@ public sealed class AccountBook
         }
 
         AddDigestAccounts(named);
+        foreach (var account in named)
+        {
+            ntlmAccounts[account.UserName] =
+                new NtlmAccount(account.UserName, NtlmV2Calculation.ComputeNtHash(account.Password));
+        }
     }
 
     private void AddDigestAccounts(List<Account> named)
@@ -113,6 +121,16 @@ public sealed class AccountBook
     /// <returns>The account's two sets of user hashes, or the dummy's.</returns>
     internal DigestAccount FindDigestAccount(string userName) =>
         digestAccounts.GetValueOrDefault(userName, dummyDigestAccount);
+
+    /// <summary>
+    /// The account an NTLM <c>UserName</c> names, matched exactly, with the NT hash of its
+    /// password computed at start-up. Any other name, the empty one included, gets a dummy with
+    /// a random hash, so it costs the same work and matches nothing (ADR-0032, section 8).
+    /// </summary>
+    /// <param name="userName">The user name as sent.</param>
+    /// <returns>The account's name and NT hash, or the dummy's.</returns>
+    internal NtlmAccount FindNtlmAccount(string userName) =>
+        ntlmAccounts.GetValueOrDefault(userName, dummyNtlmAccount);
 
     private static IReadOnlyList<string> CreateUserHashes(Account account, Encoding encoding) =>
         [.. Enum.GetValues<DigestAlgorithm>().Select(algorithm => DigestCalculation.ComputeUserHash(

@@ -59,3 +59,21 @@ and `\r\n`, connection 2
 
 What Surl makes of them is ADR-0036: the ISO-8859-1 user name is accepted for an account whose
 name and password are all ISO-8859-1.
+
+## NTLM handshakes (BL-120)
+
+Recorded on 2026-09-29 with the same build (`C:\Program Files\Git\mingw64\bin\curl.exe`,
+SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`) and
+`-Port 18120`, keeping curl's one connection open with `-ResponsesPerConnection`, so
+`request-1.bin` holds the request carrying the `NEGOTIATE_MESSAGE` and `request-2.bin` the one
+carrying the `AUTHENTICATE_MESSAGE` (`request.bin` holds both). The first request was answered
+with `<ntlm401>`,
+`HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM TlRMTVNTUAACAAAACAAIADAAAAAFgoqgASNFZ4mrze8AAAAAAAAAABwAHAA4AAAAUwBVAFIATAACAAgAUwBVAFIATAABAAgAUwBVAFIATAAAAAAA\r\nContent-Length: 0\r\n\r\n`:
+the `CHALLENGE_MESSAGE` `NtlmChallengeMessage` builds for that `NEGOTIATE_MESSAGE` and the
+server challenge `0123456789abcdef` (ADR-0039), which `FixedNtlmServerChallengeSource` gives
+the tests.
+
+| Folder | `-ResponsesPerConnection` and `-Response` values | `-CurlArgs` | Exit | What it shows |
+| --- | --- | --- | --- | --- |
+| `ntlm` | `2`: `<ntlm401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` | `'-sS','--ntlm','-u','tester:secret','http://127.0.0.1:18120/x'` | 0 | the NTLMv2 answer for `tester:secret`, empty domain; stdout `ok` |
+| `ntlm-wrong-password` | `3`: `<ntlm401>`, then `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM\r\nContent-Length: 0\r\n\r\n` | `'-sS','-f','--ntlm','-u','tester:wrong','http://127.0.0.1:18120/x'` | 22 | the answer for `tester:wrong`; after the second `401` curl gives up (`curl: (22) The requested URL returned error: 401`) and sends no third request. Without `-f` the same run exits 0 with an empty body. |

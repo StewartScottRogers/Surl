@@ -17,6 +17,13 @@ internal static class RecordedFixture
         ReadHead(Encoding.Latin1.GetString(ReadBytes(caseName, "request.bin")));
 
     /// <summary>
+    /// The <paramref name="requestNumber"/>th request of a <c>-ResponsesPerConnection</c>
+    /// recording (<c>request-&lt;n&gt;.bin</c>), read as <see cref="ReadRequest(string)"/> reads one.
+    /// </summary>
+    public static HttpAuthenticationRequest ReadRequest(string caseName, int requestNumber) =>
+        ReadHead(Encoding.Latin1.GetString(ReadBytes(caseName, $"request-{requestNumber}.bin")));
+
+    /// <summary>
     /// The request head of a case's last connection, read as <see cref="ReadRequest"/> reads
     /// the first: the one carrying the answer to a challenge (a <c>-Connections 2</c> recording).
     /// </summary>

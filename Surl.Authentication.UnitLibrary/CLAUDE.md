@@ -71,3 +71,24 @@ Protocol servers receive what it provides through the contracts in Abstractions.
   continuation step carry none.
 - A password login under `--allow-anonymous` is `PasswordLoginVerdict.AcceptedUnchecked`, so
   a server notes only logins whose credentials were checked.
+
+## NTLM (BL-120)
+
+- `NtlmAuthenticationMethod` offers the bare `NTLM` challenge (only when `--auth` names `ntlm`,
+  ADR-0032 section 3) and starts an `NtlmConnectionVerifier` per connection, which holds the
+  handshake (ADR-0039): a `NEGOTIATE_MESSAGE` (`NtlmNegotiateMessage`) is a `Continue` carrying
+  the `CHALLENGE_MESSAGE` `NtlmChallengeMessage` builds over a new server challenge; the next
+  leg uses that challenge up, and an `AUTHENTICATE_MESSAGE` (`NtlmAuthenticateMessage`) is
+  accepted only when its NTLMv2 `NTProofStr` matches, compared in fixed time. NTLMv1, a
+  malformed message and an answer on an unchallenged connection are refused, never thrown.
+- `NtlmV2Calculation` is [MS-NLMP] section 3.3.2's arithmetic (NT hash with `Surl.Cryptography`'s
+  MD4, NTOWFv2, `NTProofStr`, session base key), tested against the specification's section
+  4.2.4 example. `NtlmMessage` holds what the three messages share, `NtlmNegotiateFlags` the
+  flag bits.
+- The server challenge comes from `INtlmServerChallengeSource`: `RandomNtlmServerChallengeSource`
+  in production, a fixed one in the tests, which replay the handshakes recorded from pinned
+  upstream curl in `Surl.Authentication.UnitTests/Fixtures/ntlm*`.
+- `AccountBook.FindNtlmAccount` holds each named account's NT hash, computed at start-up; an
+  unknown or empty name gets a random dummy.
+- An accepted NTLM login is not remembered by the connection yet: a later request on it without
+  an `Authorization` is challenged again (ADR-0039, "Consequences").
