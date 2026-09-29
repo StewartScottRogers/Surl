@@ -44,23 +44,39 @@ namespace Surl.Console;
 /// serving with <c>--directory</c>; a <see cref="DiskContentFileSystem"/> when
 /// <see langword="null"/>, which is what <c>surl</c> passes.
 /// </param>
+/// <param name="openLogFile">
+/// Opens a <c>--log-file</c> (<see cref="FileMode.Append"/>) or trace file
+/// (<see cref="FileMode.Create"/>) for writing, before any listener binds (ADR-0033,
+/// section 6); <see cref="LogFile.Open"/> when <see langword="null"/>, which is what
+/// <c>surl</c> passes.
+/// </param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
     Func<string, bool> canOpenDataDirectory,
     Func<string, DataDirectoryLockOutcome> takeDataDirectoryLock,
     TimeProvider timeProvider,
-    IContentFileSystem? dataDirectoryFileSystem = null)
+    IContentFileSystem? dataDirectoryFileSystem = null,
+    Func<string, FileMode, TextWriter>? openLogFile = null)
 {
     private const string MessagePrefix = "surl: ";
 
     private readonly IContentFileSystem dataDirectoryFileSystem = dataDirectoryFileSystem ?? new DiskContentFileSystem();
 
+    private readonly Func<string, FileMode, TextWriter> openLogFile = openLogFile ?? LogFile.Open;
+
     /// <summary>
     /// Runs <paramref name="args"/>.
     /// </summary>
     /// <param name="args">The command-line arguments, without the program name.</param>
-    /// <param name="output">Where the help, the version and the status lines go.</param>
-    /// <param name="error">Where every <c>surl: </c> message and the verbose log go.</param>
+    /// <param name="output">
+    /// stdout: where the help, the version and, from the info level up, the status lines go;
+    /// and a <c>--trace -</c> dump or <c>--log-file -</c> log.
+    /// </param>
+    /// <param name="error">
+    /// stderr: where every command-line refusal and, above the <c>-s</c> level, every
+    /// <c>surl: </c> failure message goes, and the log stream without <c>--log-file</c>
+    /// (ADR-0033, section 1).
+    /// </param>
     /// <param name="cancellationToken">Cancelled to stop serving.</param>
     /// <returns>The exit code, as ADR-0007 section 5 gives it.</returns>
     public async Task<SurlExitCode> RunAsync(
@@ -73,9 +89,14 @@ internal sealed class CommandLineRunner(
             CommandLineOutcome.ShowHelp => WriteHelp(output, error, HelpText.Answer(parsed.HelpSubject)),
             CommandLineOutcome.ShowVersion => WriteText(output, ComposeVersionText()),
             CommandLineOutcome.Refused => WriteRefusal(error, parsed.Failure!),
-            _ => await ServeAsync(parsed.CommandLine!, output, error, cancellationToken),
+            _ => await ServeAsync(parsed.CommandLine!, output, HideAtLevelNone(parsed.CommandLine!, error), cancellationToken),
         };
     }
+
+    // -s writes nothing, the surl: failure messages and the log alike (ADR-0033, section 1); a
+    // refused command line has no level yet, so its refusal is always written.
+    private static TextWriter HideAtLevelNone(SurlCommandLine commandLine, TextWriter error) =>
+        commandLine.LogLevel == LogLevel.None ? TextWriter.Null : error;
 
     /// <summary>
     /// Formats the <c>(45)</c> or <c>(6)</c> message for a listener that could not bind, after
@@ -391,17 +412,40 @@ internal sealed class CommandLineRunner(
         TextWriter error,
         CancellationToken cancellationToken)
     {
-        if (commandLine.Verbose && tls.ThrowawayCertificateFingerprint is { } fingerprint)
+        var (logStreams, openFailure) = LogStreams.Open(commandLine, output, error, openLogFile);
+        if (logStreams is null)
         {
-            error.WriteLine($"* Serving a throwaway certificate, SHA-256 {fingerprint}");
+            return WriteFailure(error, SurlExitCode.CouldNotWriteFile, openFailure!);
         }
 
+        using (logStreams)
+        {
+            if (commandLine.LogLevel >= LogLevel.Verbose && tls.ThrowawayCertificateFingerprint is { } fingerprint)
+            {
+                logStreams.Log.WriteLine($"* Serving a throwaway certificate, SHA-256 {fingerprint}");
+            }
+
+            return await ServeLoggedAsync(commandLine, servers, tls, logStreams, output, error, cancellationToken);
+        }
+    }
+
+    private async Task<SurlExitCode> ServeLoggedAsync(
+        SurlCommandLine commandLine,
+        IProtocolServer[] servers,
+        ServerTlsComposition tls,
+        LogStreams logStreams,
+        TextWriter output,
+        TextWriter error,
+        CancellationToken cancellationToken)
+    {
+        // The status lines are written from the info level up (ADR-0033, section 1).
+        var statusOutput = commandLine.LogLevel >= LogLevel.Info ? output : TextWriter.Null;
         var reporter = new ListenerStartReporter(
-            createListenerFactory(tls.Settings), new ListenerStatusLine(output), commandLine.ListenUrls.Count);
+            createListenerFactory(tls.Settings), new ListenerStatusLine(statusOutput), commandLine.ListenUrls.Count);
         var engine = new ServingEngine(
             reporter,
             servers,
-            new VerboseExchangeLogFactory(error, commandLine.Verbose),
+            logStreams.CreateExchangeLogFactory(commandLine, timeProvider),
             timeProvider,
             ServingEngine.DefaultShutdownGracePeriod,
             ComposeConnectionLimits(commandLine));

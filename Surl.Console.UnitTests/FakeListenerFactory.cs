@@ -21,6 +21,15 @@ internal sealed class FakeListenerFactory : IListenerFactory
     /// <summary>Thrown by every accept instead of waiting, when set.</summary>
     public Exception? AcceptFailure { get; init; }
 
+    /// <summary>Handed out by the first connection accept instead of waiting, when set.</summary>
+    public FakeConnection? Connection
+    {
+        get => connection;
+        init => connection = value;
+    }
+
+    private FakeConnection? connection;
+
     /// <summary>Every listen URL a listener was started for, in order.</summary>
     public List<ListenUrl> StartedListenUrls { get; } = [];
 
@@ -73,6 +82,11 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
         public async ValueTask<IConnection> AcceptAsync(CancellationToken cancellationToken)
         {
+            if (Interlocked.Exchange(ref factory.connection, null) is { } connection)
+            {
+                return connection;
+            }
+
             await factory.WaitUntilCancelledAsync(cancellationToken);
             throw new UnreachableException();
         }

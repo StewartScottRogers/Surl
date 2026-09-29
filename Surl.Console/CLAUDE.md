@@ -27,10 +27,17 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   read or does not parse ends surl with 37), and in memory only without it (ADR-0031
   decision 6),
   `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
-  verbose exchange log and the serving engine, with the connection limits
+  exchange log of the parsed log level and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,
   `--max-connections-per-address`, `--idle-timeout` and `-m`/`--max-time` give, and serves. It writes ADR-0007 section 5's
   texts and returns its exit codes.
+- `LogStreams` opens the log stream (stderr, or `--log-file`, appended, `-` for stdout)
+  and the trace file (truncated, `-` for stdout) once TLS is composed and before any
+  listener binds, through the runner's `openLogFile` seam (`LogFile.Open` in `surl`); a
+  file that cannot be opened ends surl with 23. It builds the exchange log of the level:
+  `LevelledExchangeLogFactory` up to `-v`, `TraceExchangeLogFactory` at the trace level
+  (ADR-0033). `-s` hides every `surl: ` failure message but not a command-line refusal;
+  `-s` and `-s -S` hide the status lines.
 - `ListenerStartReporter` wraps the listener factory: it writes the status lines once the
   last listener, connection or datagram, has bound, and keeps a bind failure for the
   `(45)` or `(6)` message.
