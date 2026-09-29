@@ -90,8 +90,12 @@ Protocol servers receive what it provides through the contracts in Abstractions.
   upstream curl in `Surl.Authentication.UnitTests/Fixtures/ntlm*`.
 - `AccountBook.FindNtlmAccount` holds each named account's NT hash, computed at start-up; an
   unknown or empty name gets a random dummy.
-- An accepted NTLM login is not remembered by the connection yet: a later request on it without
-  an `Authorization` is challenged again (ADR-0039, "Consequences").
+- An accepted NTLM login is remembered by the connection (ADR-0041, BL-133):
+  `HttpAuthenticationSession` serves a later request on it without an `Authorization` as that
+  account, with no login note, as upstream curl expects (`Fixtures/ntlm-two-urls`). Which
+  methods do this is `AuthenticationMethods.AuthenticatesConnection` - NTLM only, since
+  Negotiate's behaviour is not measured yet. A new NTLM handshake replaces the login: none
+  until it is accepted.
 - The handshake itself is `NtlmHandshake` (answering decoded messages with an
   `NtlmHandshakeStep`), shared by NTLM and Negotiate; `NtlmConnectionVerifier` only decodes the
   base64 (`Base64Credentials`) and writes `NTLM <base64>`.

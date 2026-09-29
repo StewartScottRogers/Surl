@@ -106,5 +106,6 @@ So no pinned upstream build sent a SPNEGO token here: the Linux and macOS builds
 - `NegotiateAuthenticationMethod` is composed like every other method; `surl` offers it only
   once `Surl.Console` composes it (BL-134) and `--auth` names `negotiate`.
 - Kerberos inside Negotiate is later work, built by hand (ADR-0032 section 11).
-- Like NTLM (ADR-0039, "Consequences"), an accepted Negotiate login is not remembered by the
-  connection yet.
+- An accepted Negotiate login is not remembered by the connection yet; an NTLM one is, since
+  [ADR-0041](ADR-0041-an-accepted-ntlm-login-is-remembered-by-its-http-connection.md), which
+  leaves Negotiate until its exchange is measured.

@@ -76,6 +76,7 @@ the tests.
 | Folder | `-ResponsesPerConnection` and `-Response` values | `-CurlArgs` | Exit | What it shows |
 | --- | --- | --- | --- | --- |
 | `ntlm` | `2`: `<ntlm401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` | `'-sS','--ntlm','-u','tester:secret','http://127.0.0.1:18120/x'` | 0 | the NTLMv2 answer for `tester:secret`, empty domain; stdout `ok` |
+| `ntlm-two-urls` | `3`: `<ntlm401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` twice; `-Port 18133` (BL-133) | `'-sS','--ntlm','-u','tester:secret','http://127.0.0.1:18133/x','http://127.0.0.1:18133/y'` | 0 | the same handshake for `/x`, then `request-3.bin`: `GET /y` on the same connection with no `Authorization`, since the connection is logged in; stdout `okok` (ADR-0041) |
 | `ntlm-wrong-password` | `3`: `<ntlm401>`, then `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM\r\nContent-Length: 0\r\n\r\n` | `'-sS','-f','--ntlm','-u','tester:wrong','http://127.0.0.1:18120/x'` | 22 | the answer for `tester:wrong`; after the second `401` curl gives up (`curl: (22) The requested URL returned error: 401`) and sends no third request. Without `-f` the same run exits 0 with an empty body. |
 
 ## Negotiate (BL-121)

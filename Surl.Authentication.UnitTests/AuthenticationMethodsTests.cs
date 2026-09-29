@@ -36,6 +36,18 @@ public sealed class AuthenticationMethodsTests
     }
 
     [TestMethod]
+    [DataRow(AuthenticationMethod.Negotiate, false)]
+    [DataRow(AuthenticationMethod.Ntlm, true)]
+    [DataRow(AuthenticationMethod.Digest, false)]
+    [DataRow(AuthenticationMethod.Basic, false)]
+    [DataRow(AuthenticationMethod.Bearer, false)]
+    [DataRow(AuthenticationMethod.AwsSigV4, false)]
+    public void AuthenticatesConnection_IsTrueOnlyForNtlm(AuthenticationMethod method, bool expected)
+    {
+        Assert.AreEqual(expected, AuthenticationMethods.AuthenticatesConnection(method));
+    }
+
+    [TestMethod]
     [DataRow("Negotiate", AuthenticationMethod.Negotiate)]
     [DataRow("NTLM", AuthenticationMethod.Ntlm)]
     [DataRow("digest", AuthenticationMethod.Digest)]

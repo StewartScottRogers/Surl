@@ -85,4 +85,6 @@ not measured here, only in the conformance test that proves the whole exchange.
 - Once NTLM accepts, the connection is not remembered as logged in: a later request on it without
   an `Authorization` is challenged again (ADR-0032 section 4). curl sends no `Authorization` on
   a later request once NTLM has succeeded, so several URLs over one connection need that
-  remembered; it is later work.
+  remembered; it is later work. *Amended by
+  [ADR-0041](ADR-0041-an-accepted-ntlm-login-is-remembered-by-its-http-connection.md): the
+  connection now remembers the accepted account.*

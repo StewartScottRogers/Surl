@@ -5,7 +5,9 @@ namespace Surl.Authentication;
 /// <summary>
 /// One HTTP connection's authentication, from <see cref="AuthenticationPolicy.StartHttpConnection"/>.
 /// It answers each request in ADR-0032 section 4's order and holds each accepted method's
-/// per-connection verifier, so NTLM's and Negotiate's handshakes die with the connection.
+/// per-connection verifier, so NTLM's and Negotiate's handshakes die with the connection. The
+/// account NTLM accepts is remembered for the connection's later requests without an
+/// <c>Authorization</c> (ADR-0041).
 /// </summary>
 internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
 {
@@ -18,6 +20,9 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     private readonly AuthenticationPolicy policy;
     private readonly bool isEncrypted;
     private readonly Dictionary<AuthenticationMethod, IHttpCredentialVerifier> verifiers;
+
+    // The account a connection-authenticating method (NTLM) last accepted on this connection.
+    private string? connectionAccountName;
 
     public HttpAuthenticationSession(AuthenticationPolicy policy, bool isEncrypted)
     {
@@ -51,8 +56,17 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     private bool SendsRefusedPlaintextSecret(AuthenticationMethod method) =>
         AuthenticationMethods.SendsPlaintextSecret(method) && !policy.OffersPlaintextSecrets(isEncrypted);
 
-    private HttpAuthenticationVerdict JudgeWithoutCredentials(HttpAuthenticationRequest request) =>
-        policy.Settings.Accounts.HasAccounts || request.IsWrite ? Challenge() : ProceedAnonymously;
+    // A connection NTLM logged in serves its later requests as that account, checking nothing,
+    // so they carry no login note (ADR-0041).
+    private HttpAuthenticationVerdict JudgeWithoutCredentials(HttpAuthenticationRequest request)
+    {
+        if (connectionAccountName is not null)
+        {
+            return new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], connectionAccountName);
+        }
+
+        return policy.Settings.Accounts.HasAccounts || request.IsWrite ? Challenge() : ProceedAnonymously;
+    }
 
     private async ValueTask<HttpAuthenticationVerdict> VerifyAsync(
         IHttpCredentialVerifier verifier,
@@ -62,6 +76,12 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     {
         var check = await verifier.VerifyAsync(authorization.Credentials, request, cancellationToken)
             .ConfigureAwait(false);
+
+        // A new handshake on the connection replaces its login, whatever it comes to.
+        if (AuthenticationMethods.AuthenticatesConnection(authorization.Method))
+        {
+            connectionAccountName = check.Outcome == HttpCredentialOutcome.Accepted ? check.AccountName : null;
+        }
 
         return await AnswerCheckAsync(check, authorization.Method, cancellationToken).ConfigureAwait(false);
     }

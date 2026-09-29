@@ -399,6 +399,59 @@ public sealed class NtlmAuthenticationMethodTests
         Assert.AreEqual(new CheckedLogin("NTLM", "tester", true), accepted.CheckedLogin);
     }
 
+    private static IHttpAuthenticationSession StartPolicySession() =>
+        PolicyFixture.Create(
+            Accounts,
+            new ManualTimeProvider(),
+            acceptedMethods: new HashSet<AuthenticationMethod> { AuthenticationMethod.Ntlm },
+            httpMethods: new NtlmAuthenticationMethod(Accounts, new FixedNtlmServerChallengeSource()))
+        .StartHttpConnection(null);
+
+    [TestMethod]
+    public async Task RecordedSecondUrl_AfterTheHandshakeIsAccepted_ProceedsAsTheAccountUnchecked()
+    {
+        var session = StartPolicySession();
+        await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm-two-urls", 1), CancellationToken.None);
+        var accepted = await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm-two-urls", 2), CancellationToken.None);
+        var secondUrl = RecordedFixture.ReadRequest("ntlm-two-urls", 3);
+
+        var remembered = await session.JudgeAsync(secondUrl, CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, accepted.Outcome);
+        Assert.DoesNotContain("Authorization", secondUrl.Fields.Select(field => field.Key).ToList());
+        Assert.AreEqual("/y", secondUrl.Target);
+        Assert.AreEqual(HttpAuthenticationOutcome.Proceed, remembered.Outcome);
+        Assert.AreEqual("tester", remembered.AccountName);
+        Assert.IsEmpty(remembered.WwwAuthenticateValues);
+        Assert.IsNull(remembered.CheckedLogin);
+        Assert.AreEqual("tester", (await session.JudgeAsync(PolicyFixture.Put(), CancellationToken.None)).AccountName);
+    }
+
+    [TestMethod]
+    public async Task RecordedSecondUrl_OnANewConnection_IsChallenged()
+    {
+        var verdict = await StartPolicySession().JudgeAsync(
+            RecordedFixture.ReadRequest("ntlm-two-urls", 3), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, verdict.Outcome);
+        CollectionAssert.AreEqual(new[] { "NTLM" }, verdict.WwwAuthenticateValues.ToArray());
+    }
+
+    [TestMethod]
+    public async Task NewHandshake_AfterALogin_ForgetsItUntilAccepted()
+    {
+        var session = StartPolicySession();
+        await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm", 1), CancellationToken.None);
+        await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm", 2), CancellationToken.None);
+
+        var restarted = await session.JudgeAsync(RecordedFixture.ReadRequest("ntlm", 1), CancellationToken.None);
+        var midHandshake = await session.JudgeAsync(PolicyFixture.Get(), CancellationToken.None);
+
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, restarted.Outcome);
+        Assert.AreEqual(HttpAuthenticationOutcome.Challenge, midHandshake.Outcome);
+        Assert.IsNull(midHandshake.AccountName);
+    }
+
     [TestMethod]
     public void RandomChallengeSource_CreateServerChallenge_IsEightBytes()
     {

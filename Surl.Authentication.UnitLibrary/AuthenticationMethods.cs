@@ -30,6 +30,16 @@ public static class AuthenticationMethods
         method is AuthenticationMethod.Basic or AuthenticationMethod.Bearer;
 
     /// <summary>
+    /// Whether <paramref name="method"/> logs in the connection rather than the request, so an
+    /// accepted login serves the connection's later requests that carry no <c>Authorization</c>:
+    /// NTLM, whose later requests upstream curl 8.21.0 sends without one (ADR-0041).
+    /// </summary>
+    /// <param name="method">The method.</param>
+    /// <returns><see langword="true"/> for NTLM.</returns>
+    public static bool AuthenticatesConnection(AuthenticationMethod method) =>
+        method is AuthenticationMethod.Ntlm;
+
+    /// <summary>
     /// The method an <c>Authorization</c> field's scheme names, matched case-insensitively
     /// (RFC 9110 section 11.1): <c>Negotiate</c>, <c>NTLM</c>, <c>Digest</c>, <c>Basic</c>,
     /// <c>Bearer</c> and <c>AWS4-HMAC-SHA256</c>, the scheme upstream curl's <c>--aws-sigv4</c>
