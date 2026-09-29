@@ -48,3 +48,4 @@ A conformance test can ask `UpstreamCurlLocator` for the pinned build of a platf
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
