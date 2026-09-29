@@ -55,3 +55,4 @@ that is parsed but not yet composed is described, if at all; follow it).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
