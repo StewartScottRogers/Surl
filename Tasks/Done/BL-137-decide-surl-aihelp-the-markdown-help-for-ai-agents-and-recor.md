@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: FR-035
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-137 — Decide surl --aihelp, the Markdown help for AI agents, and record its ADR
 
@@ -76,12 +76,12 @@ Where the code is on 2026-09-29, all in `Surl.Cli.UnitLibrary` unless named:
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-00NN-<slug>.md` exists (the next free number;
+- [x] `Documentation/Planning/Decisions/ADR-00NN-<slug>.md` exists (the next free number;
       BL-138 to BL-143 then use it), Status Accepted, dated 2026-09-29 or later, "Decided by
       Claude under Stewart's delegation", citing Stewart's approval of 2026-09-29, and
       stating that `--aihelp` is a deliberate addition with no upstream curl equivalent, with
       the measured curl 8.21.0 answer above (build path, SHA-256, date, exit code, stderr).
-- [ ] It decides and states, each with its reason:
+- [x] It decides and states, each with its reason:
       1. **Parsing:** the option's long name `aihelp`, whether it has a short name, how the
          optional topic is read (`--aihelp=<topic>`, the next argument, empty topic), whether
          reading ends once the topic is taken, `--no-aihelp`, precedence against `-h`, `-V`
@@ -131,21 +131,35 @@ Where the code is on 2026-09-29, all in `Surl.Cli.UnitLibrary` unless named:
          and which project each lives in (`Surl.Cli.UnitTests` for options, topics and exit
          codes; `Surl.Console.UnitTests` for registered schemes and examples).
       10. Whether `--manual`'s `SEE ALSO` names `surl --aihelp`.
-- [ ] It says which later tasks build it: BL-138 (facts), BL-139 (generator), BL-140
+- [x] It says which later tasks build it: BL-138 (facts), BL-139 (generator), BL-140
       (prose and examples), BL-141 (parsing, `--help` row and wiring), BL-142 (registered
       schemes and examples proved), BL-143 (documents).
-- [ ] ADR-0034 gains a "Superseded in part" or "Extended by" line naming the new ADR for its
+- [x] ADR-0034 gains a "Superseded in part" or "Extended by" line naming the new ADR for its
       option table and short list.
-- [ ] `Documentation/Planning/Decisions/README.md` lists the new ADR.
-- [ ] `Documentation/Product/Requirements.md` gains FR-035 for `--aihelp` (overview, topics,
+- [x] `Documentation/Planning/Decisions/README.md` lists the new ADR.
+- [x] `Documentation/Product/Requirements.md` gains FR-035 for `--aihelp` (overview, topics,
       `all`, Markdown on stdout with `Ok` (0), generated from the option table, citing the
       new ADR, upstream column "none: no curl 8.21.0 equivalent, measured"), and FR-008 lists
       `--aihelp`.
-- [ ] No HTML comment remains in the ADR; no `.cs` file changes (`git diff --stat`).
+- [x] No HTML comment remains in the ADR; no `.cs` file changes (`git diff --stat`).
 
 ## Notes
+
+- Re-measured 2026-09-29 with `Record-CurlExchange.ps1 -NoServer -CurlArgs "--aihelp"` on the
+  pinned 8.21.0 reference build: exit 2, stdout empty, stderr `curl: option --aihelp: is unknown`
+  / `curl: try 'curl --help' or 'curl --manual' for more information`. Recorded in ADR-0046.
+- ADR-0046 decides: no short name (future curl letters stay free); topic read as `--help`'s
+  subject; first of `-h`/`-V`/`-M`/`--aihelp` wins left to right; 16 topics in ordinal order
+  (the 14 ADR-0034 categories plus `exit-codes` and `listen-urls`); fixed page skeleton
+  `About`/`Schemes`/`Options`/`Exit codes`/`Examples`, empty ones saying `Nothing for this
+  topic.`; loosening column `yes, for tests only` (the four `testing` options) versus
+  `yes, widens what a peer may do` (other `security` options); unknown topic answered on stdout,
+  exit 0, with the topic table; `--manual` SEE ALSO names `surl --aihelp`.
+- Found while writing it: the `--auth` Explanation in `CommandLineOptions.cs` omits `aws-sigv4`
+  and may make `ManualText.cs`'s exit-code 2 line stale. Out of scope; filed as BL-144.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0046 pins surl --aihelp (parsing, topics, Markdown structure, option table, facts, examples, tests); FR-035 added

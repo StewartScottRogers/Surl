@@ -12,6 +12,10 @@
   [ADR-0031](ADR-0031-the-data-directory-and-in-memory-mode.md) decision 2; and the `--help`
   descriptions of [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)
   section 1. Everything else in those ADRs stands.
+- **Extended by:** [ADR-0046](ADR-0046-surl-aihelp-markdown-help-for-ai-agents.md), which adds
+  the `--aihelp <topic>` row to decision 2's option table and short list (re-pinning the
+  `--help`, `--help all` and `--help surl` pages of decision 3), gives decision 1's categories
+  their schemes, and adds `surl --aihelp` to decision 6's `SEE ALSO`.
 
 ## Context
 
