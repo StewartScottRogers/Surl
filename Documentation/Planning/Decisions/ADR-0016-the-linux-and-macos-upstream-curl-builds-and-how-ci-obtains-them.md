@@ -29,10 +29,17 @@ What was checked on 2026-09-28:
 - **stunnel/static-curl publishes static 8.21.0 builds.** Release `8.21.0` of
   https://github.com/stunnel/static-curl ("Static cURL 8.21.0 with HTTP3", built by its
   GitHub Actions workflow on 2026-06-25) has `curl-linux-x86_64-musl-8.21.0.tar.xz`,
-  `curl-linux-x86_64-glibc-8.21.0.tar.xz` and `curl-macos-arm64-8.21.0.tar.xz`, with
-  SHA-256 values on the release page (musl
+  `curl-linux-x86_64-glibc-8.21.0.tar.xz` and `curl-macos-arm64-8.21.0.tar.xz`. The
+  release page's "Checksums of binaries" table gives the SHA-256 of each extracted `curl`
+  executable, not of the archive (musl
   `153ca463957609117d21a848be29b70691b85f9e5cc9370c7daa037b839a4e45`, macOS arm64
-  `04e0e69bcd3bd814ec093551a0447ac14edeea9d395b468a2025dcb3f766eebf`). Its build scripts
+  `04e0e69bcd3bd814ec093551a0447ac14edeea9d395b468a2025dcb3f766eebf`). The archives'
+  SHA-256 values are GitHub's asset digests for the release (musl
+  `e955f211202ded2536164588331acfc987dc4b7857efa3577717b1ffeab22029`, 4,023,640 bytes;
+  macOS arm64 `fdfe9ca5bc60d615b0a379864056f61437a3e9ed50ab746a05abad7c50be766f`,
+  3,197,904 bytes). *(Amended 2026-09-29 by BL-078: this paragraph first called the two
+  executable hashes the archives' SHA-256 values on the release page; BL-028 found they
+  hash the executables.)* Its build scripts
   (`curl-static-cross.sh`, and `curl-static-mac.sh` for macOS) download
   `https://github.com/curl/curl/archive/refs/tags/<tag>.tar.gz` - the upstream tag, here
   `curl-8_21_0` - and apply no patch to curl's sources; the only file they add is a
@@ -86,6 +93,14 @@ pinned options against a third party's prebuilt 8.21.0.
    `version`, `protocols` and `features` fields. If the archive's hash differs from the
    release page, BL-028 does not pin it and goes to Blocked for Stewart: a different file
    is a different download to approve.
+
+   *Amendment, 2026-09-29 (BL-078):* the release page hashes the extracted executables,
+   not the archives (Context), so the check above is two checks. The extracted `curl`
+   executable's SHA-256 - the value pinned - is checked against the release page's
+   "Checksums of binaries" table, and the archive's SHA-256 against GitHub's asset
+   `digest` for the release (`gh api repos/stunnel/static-curl/releases/tags/8.21.0`).
+   BL-028 did both on 2026-09-28 and both matched, for Linux musl and macOS arm64; a
+   mismatch in either still means BL-028 does not pin and goes to Blocked for Stewart.
 
 3. **Where the build lives:** `defaultPath` is `/opt/upstream-curl/8.21.0/curl` on both
    platforms - outside the repository, never committed, and never on `PATH`, so it cannot

@@ -8,7 +8,7 @@ depends-on: [BL-028]
 touches: [Documentation/Planning/Decisions/ADR-0016-the-linux-and-macos-upstream-curl-builds-and-how-ci-obtains-them.md]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-078 — Say in ADR-0016 that static-curl's release page hashes the executables, not the archives
 
@@ -30,14 +30,17 @@ verified the download.
 
 ## Acceptance criteria
 
-- [ ] ADR-0016's Context says the release page's quoted values hash the `curl`
+- [x] ADR-0016's Context says the release page's quoted values hash the `curl`
       executables, and gives both archives' GitHub asset digests.
-- [ ] Decision 2 carries a dated amendment: the executable's hash is checked against the
+- [x] Decision 2 carries a dated amendment: the executable's hash is checked against the
       release page, the archive's against GitHub's asset digest.
 
 ## Notes
+
+- Full archive digests read 2026-09-29 from `gh api repos/stunnel/static-curl/releases/tags/8.21.0` (read-only); prefixes, suffixes and sizes equal BL-028's Notes. The Context paragraph is corrected in place with an inline dated note, and decision 2 keeps its text with a dated amendment below it, so the original wording stays readable. Docs-only: no `.cs` or project file changed, so the `verify` skill was not needed; `dotnet build` and fast tests were run anyway.
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0016 says the release page hashes the curl executables, gives both archives' GitHub asset digests, and amends decision 2 to check each against its own source
