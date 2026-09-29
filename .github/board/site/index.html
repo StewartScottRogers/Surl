@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<!--
+  Surl task board: a live kanban of Tasks/ drawn in the viewer's browser from the
+  GitHub REST API. One self-contained file: no build step, no framework, no external
+  script, stylesheet or font. The contract it follows is ADR-0029.
+
+  Query overrides (all optional):
+    ?repo=owner/name   repository to read (default StewartScottRogers/Surl); also
+                       changes the card links
+    ?branch=name       task branch to read (default factory/phase-1); also changes
+                       the card links
+    ?refresh=seconds   refresh interval; a value under the minimum (60 s per API call
+                       made per refresh) is clamped up to it
+    ?tree=url          fetch this URL instead of the recursive tree call, e.g.
+                       ?tree=../fixtures/tree.json against .github/gource/serve.cs
+    ?status=url        fetch this URL instead of the board branch's status.json, e.g.
+                       ?status=../fixtures/status.json
+    ?now=ISO-8601      pin the clock the page reads (the refresh stamp, run times,
+                       heartbeat ages and staleness)
+
+  Adding a data source: append one { name, url, fetch, render } object to `sources`
+  below. `fetch(source)` returns the parsed data (use fetchJson, which records the
+  rate-limit headers and throws on 403 and 429); `render(data)` draws it. The refresh
+  interval is 60 s times sources.length, so the budget follows the array by itself.
+
+  Local preview: dotnet run --file .github/gource/serve.cs -- .github/board 8000
+  then open http://localhost:8000/site/index.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surl task board</title>
+<style>
+  :root { color-scheme: light dark; --line: #8884; --card: #8881; --warn: #c60; --bad: #c33; }
+  body { font: 14px/1.4 system-ui, sans-serif; margin: 0; padding: 12px 16px; }
+  header { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
+  h1 { font-size: 18px; margin: 0; }
+  .muted { opacity: .7; }
+  #messages p { margin: 6px 0; padding: 6px 10px; border-radius: 4px; }
+  #messages p.warning { border: 1px solid var(--warn); }
+  #messages p.error { border: 1px solid var(--bad); }
+  #lanes:empty { display: none; }
+  #lanes { margin-top: 12px; }
+  #lanes > p { margin: 6px 0; }
+  #lanes .banner { padding: 6px 10px; border-radius: 4px; border: 1px solid var(--warn); }
+  .lane-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .lane { border: 1px solid var(--line); border-radius: 6px; padding: 8px; background: var(--card); }
+  .lane.stale { border-color: var(--bad); }
+  .lane h2 { font-size: 15px; margin: 0 0 4px; display: flex; justify-content: space-between; }
+  .lane .stale-mark { color: var(--bad); font-weight: 600; }
+  .lane .task { margin-bottom: 4px; }
+  .lane .task a, .lane .task .id { font-weight: 600; margin-right: 6px; color: inherit; }
+  .lane dl { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; margin: 0; }
+  .lane dd { margin: 0; overflow-wrap: anywhere; }
+  #board { display: grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+  .column { border: 1px solid var(--line); border-radius: 6px; padding: 8px; min-width: 0; }
+  .column h2 { font-size: 15px; margin: 0 0 8px; display: flex; justify-content: space-between; }
+  .card { display: block; padding: 6px 8px; margin-bottom: 6px; border-radius: 4px; background: var(--card); color: inherit; text-decoration: none; }
+  .card:hover { outline: 1px solid var(--line); }
+  .card .id { font-weight: 600; margin-right: 6px; }
+  details { border-top: 1px solid var(--line); padding: 4px 0; }
+  summary { cursor: pointer; }
+  details .card { margin-top: 6px; }
+  footer { margin-top: 16px; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Surl task board</h1>
+  <span id="source" class="muted"></span>
+  <span id="refreshed" class="muted">Loading…</span>
+</header>
+<div id="messages"></div>
+<section id="lanes"></section>
+<main id="board"></main>
+<footer class="muted"><span id="cadence"></span></footer>
+<script>
+'use strict';
+
+const params = new URLSearchParams(location.search);
+const repo = params.get('repo') || 'StewartScottRogers/Surl';
+const branch = params.get('branch') || 'factory/phase-1';
+const pinnedNow = params.get('now') ? new Date(params.get('now')) : null;
+const states = ['Backlog', 'Doing', 'Blocked', 'Deferred', 'Done'];
+const archiveFolder = /^\d{4}-\d{2}-\d{2}_\d{4}$/;
+const taskFile = /^(BL-\d+)(?:-(.*))?\.md$/;
+const secondsPerCall = 60;
+const staleMs = 10 * 60 * 1000;
+
+// The tree most recently read, so lane cards can link their task to its file.
+let latestTree = null;
+
+function now() { return pinnedNow || new Date(); }
+
+function resolveOverride(name, fallback) {
+  const value = params.get(name);
+  return value ? new URL(value, location.href).href : fallback;
+}
+
+const sources = [
+  {
+    name: 'task tree',
+    url: resolveOverride('tree',
+      `https://api.github.com/repos/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`),
+    fetch: source => fetchJson(source.url),
+    render: tree => { latestTree = tree; renderBoard(tree); },
+  },
+  {
+    name: 'dark factory status',
+    url: resolveOverride('status',
+      `https://api.github.com/repos/${repo}/contents/status.json?ref=board`),
+    fetch: source => fetchJson(source.url, { Accept: 'application/vnd.github.raw+json' }, [404]),
+    render: status => renderLanes(status),
+  },
+];
+
+const minimumSeconds = secondsPerCall * sources.length;
+const requestedSeconds = parseInt(params.get('refresh'), 10);
+const refreshSeconds = Number.isFinite(requestedSeconds) ? Math.max(minimumSeconds, requestedSeconds) : minimumSeconds;
+
+// Rate-limit state from the most recent API answer.
+let rateLimit = { remaining: null, resetAt: null, exhausted: false };
+
+class RateLimitError extends Error {}
+
+// Returns null instead of throwing for a status listed in nullStatuses.
+async function fetchJson(url, headers = {}, nullStatuses = []) {
+  const response = await fetch(url, { cache: 'no-store', headers });
+  const remaining = response.headers.get('X-RateLimit-Remaining');
+  const reset = response.headers.get('X-RateLimit-Reset');
+  if (remaining !== null) rateLimit.remaining = parseInt(remaining, 10);
+  if (reset !== null) rateLimit.resetAt = new Date(parseInt(reset, 10) * 1000);
+  if (response.status === 403 || response.status === 429) {
+    rateLimit.exhausted = true;
+    throw new RateLimitError(`${url} answered ${response.status}`);
+  }
+  if (nullStatuses.includes(response.status)) return null;
+  if (!response.ok) throw new Error(`${url} answered ${response.status} ${response.statusText}`);
+  return response.json();
+}
+
+function titleFromSlug(slug) {
+  if (!slug) return '';
+  const words = slug.replace(/-/g, ' ');
+  const title = words.charAt(0).toUpperCase() + words.slice(1);
+  return slug.length >= 59 ? title + '…' : title;
+}
+
+// Splits the tree into live cards per state and archived cards per Done folder.
+function readBoard(tree) {
+  const columns = Object.fromEntries(states.map(state => [state, []]));
+  const archives = new Map();
+  for (const entry of tree.tree || []) {
+    if (entry.type !== 'blob') continue;
+    const parts = entry.path.split('/');
+    if (parts[0] !== 'Tasks' || !states.includes(parts[1])) continue;
+    let target;
+    if (parts.length === 3) {
+      target = columns[parts[1]];
+    } else if (parts.length === 4 && parts[1] === 'Done' && archiveFolder.test(parts[2])) {
+      if (!archives.has(parts[2])) archives.set(parts[2], []);
+      target = archives.get(parts[2]);
+    } else {
+      continue;
+    }
+    const match = taskFile.exec(parts[parts.length - 1]);
+    if (!match) continue;
+    target.push({ id: match[1], title: titleFromSlug(match[2]), path: entry.path });
+  }
+  const byId = (a, b) => parseInt(a.id.slice(3), 10) - parseInt(b.id.slice(3), 10) || a.path.localeCompare(b.path);
+  for (const cards of Object.values(columns)) cards.sort(byId);
+  for (const cards of archives.values()) cards.sort(byId);
+  const archiveList = [...archives.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  return { columns, archives: archiveList };
+}
+
+function element(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function cardElement(card) {
+  const link = element('a', 'card');
+  link.href = `https://github.com/${repo}/blob/${branch}/${card.path.split('/').map(encodeURIComponent).join('/')}`;
+  link.title = card.path;
+  link.append(element('span', 'id', card.id), element('span', 'title', card.title));
+  return link;
+}
+
+function renderBoard(tree) {
+  const { columns, archives } = readBoard(tree);
+  const board = document.getElementById('board');
+  board.replaceChildren();
+  for (const state of states) {
+    const column = element('section', 'column');
+    column.dataset.state = state;
+    const heading = element('h2');
+    heading.append(element('span', 'name', state), element('span', 'count muted', String(columns[state].length)));
+    column.append(heading);
+    for (const card of columns[state]) column.append(cardElement(card));
+    if (state === 'Done') {
+      for (const [folder, cards] of archives) {
+        const details = element('details', 'archive');
+        details.append(element('summary', null, `${folder} · ${cards.length} ${cards.length === 1 ? 'task' : 'tasks'}`));
+        for (const card of cards) details.append(cardElement(card));
+        column.append(details);
+      }
+    }
+    board.append(column);
+  }
+  if (tree.truncated) {
+    showMessage('warning', 'GitHub truncated the tree: it was too large to return whole, so this board is missing tasks.');
+  }
+}
+
+function showMessage(kind, text) {
+  document.getElementById('messages').append(element('p', kind, text));
+}
+
+function utcTime(date) {
+  return date.toISOString().slice(11, 16) + ' UTC';
+}
+
+function duration(ms) {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return `${seconds} s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
+}
+
+function taskPath(id) {
+  const entry = ((latestTree && latestTree.tree) || []).find(entry =>
+    entry.type === 'blob' && entry.path.startsWith('Tasks/') && entry.path.split('/').pop().startsWith(`${id}-`));
+  return entry ? entry.path : null;
+}
+
+function laneTaskElement(lane) {
+  const line = element('div', 'task');
+  if (!lane.task) {
+    line.append(element('span', 'muted', 'Holds no task'));
+    return line;
+  }
+  const path = taskPath(lane.task);
+  let id;
+  if (path) {
+    id = element('a', null, lane.task);
+    id.href = `https://github.com/${repo}/blob/${branch}/${path.split('/').map(encodeURIComponent).join('/')}`;
+    id.title = path;
+  } else {
+    id = element('span', 'id', lane.task);
+  }
+  line.append(id, element('span', 'title', lane.title || ''));
+  return line;
+}
+
+// One card per lane: task, phase, step, run time and heartbeat age (ADR-0029 items 8 and 9).
+// `stale` is decided by renderLanes, which knows whether the shift is still running.
+function laneCardElement(lane, stale) {
+  const heartbeat = new Date(lane.heartbeatAt);
+  const card = element('article', stale ? 'lane stale' : 'lane');
+  card.dataset.lane = String(lane.lane);
+  const heading = element('h2');
+  heading.append(element('span', 'name', lane.lane === 0 ? 'Runner' : `Lane ${lane.lane}`));
+  if (stale) heading.append(element('span', 'stale-mark', 'stale'));
+  card.append(heading, laneTaskElement(lane));
+  const facts = element('dl');
+  const fact = (term, value) => facts.append(element('dt', 'muted', term), element('dd', null, value));
+  fact('Phase', lane.phase || '');
+  fact('Step', lane.step || '');
+  if (lane.task && lane.taskStartedAt) fact('Running', duration(now() - new Date(lane.taskStartedAt)));
+  fact('Heartbeat', `${duration(now() - heartbeat)} ago`);
+  card.append(facts);
+  return card;
+}
+
+function renderLanes(status) {
+  const section = document.getElementById('lanes');
+  section.replaceChildren();
+  if (status === null) {
+    section.append(element('p', 'muted', 'No dark factory status published yet'));
+    return;
+  }
+  if (status.schema !== 1) {
+    section.append(element('p', 'banner',
+      `The dark factory status uses schema ${status.schema}, which this page cannot read; reload it to get the current page.`));
+    return;
+  }
+  const publishedAt = new Date(status.publishedAt);
+  let notLive = false;
+  if (status.state === 'ended') {
+    section.append(element('p', 'banner', `The shift ended at ${utcTime(publishedAt)}.`));
+  } else if (now() - publishedAt > staleMs) {
+    notLive = true;
+    section.append(element('p', 'banner',
+      `The status has not been updated since ${utcTime(publishedAt)}; the shift may have stopped.`));
+  }
+  const cards = element('div', 'lane-cards');
+  const lanes = [...(status.lanes || [])].sort((a, b) => a.lane - b.lane);
+  for (const lane of lanes) {
+    const heartbeatOld = now() - new Date(lane.heartbeatAt) > staleMs;
+    cards.append(laneCardElement(lane, status.state !== 'ended' && (notLive || heartbeatOld)));
+  }
+  section.append(cards);
+}
+
+function clockTime(date, withSeconds) {
+  const pad = n => String(n).padStart(2, '0');
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return withSeconds ? `${time}:${pad(date.getSeconds())}` : time;
+}
+
+async function refresh() {
+  document.getElementById('messages').replaceChildren();
+  rateLimit = { remaining: null, resetAt: null, exhausted: false };
+  let allSucceeded = true;
+  for (const source of sources) {
+    try {
+      source.render(await source.fetch(source));
+      source.rendered = true;
+    } catch (error) {
+      allSucceeded = false;
+      if (!(error instanceof RateLimitError)) {
+        const kept = source.rendered ? 'showing the last one read' : 'nothing read yet';
+        showMessage('error', `Could not refresh the ${source.name} (${error.message}); ${kept}.`);
+      }
+    }
+  }
+  if (allSucceeded) {
+    document.getElementById('refreshed').textContent = `Last refreshed ${clockTime(now(), true)}`;
+  }
+  let delayMs = refreshSeconds * 1000;
+  const limitReached = rateLimit.exhausted || (rateLimit.remaining !== null && rateLimit.remaining < sources.length);
+  if (limitReached) {
+    const resetAt = rateLimit.resetAt;
+    if (resetAt) {
+      showMessage('error', `GitHub's hourly API limit is used up; next refresh at ${clockTime(resetAt, false)}`);
+      delayMs = Math.max(delayMs, resetAt.getTime() - Date.now() + 1000);
+    } else {
+      showMessage('error', `GitHub's hourly API limit is used up; next refresh in ${refreshSeconds} s`);
+    }
+  }
+  setTimeout(refresh, delayMs);
+}
+
+document.getElementById('source').textContent = `${repo} · ${branch}`;
+document.getElementById('cadence').textContent =
+  `Refreshes every ${refreshSeconds} s (minimum ${minimumSeconds} s: ${secondsPerCall} s per API call, ` +
+  `${sources.length} call${sources.length === 1 ? '' : 's'} per refresh; set ?refresh= to slow it down).`;
+refresh();
+</script>
+</body>
+</html>

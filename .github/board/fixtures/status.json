@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "shift": "20260928-123955",
+  "branch": "factory/phase-1",
+  "state": "running",
+  "publishedAt": "2026-09-28T13:12:00Z",
+  "lanes": [
+    {
+      "lane": 1,
+      "task": "BL-757",
+      "title": "Draw the task board as a live kanban page from one GitHub tree call",
+      "phase": "run",
+      "step": "test",
+      "taskStartedAt": "2026-09-28T12:40:10Z",
+      "heartbeatAt": "2026-09-28T13:11:42Z"
+    },
+    {
+      "lane": 2,
+      "task": "BL-674",
+      "title": "Hand-build Blowfish and bcrypt_pbkdf",
+      "phase": "run",
+      "step": "edit Blowfish.cs",
+      "taskStartedAt": "2026-09-28T12:41:05Z",
+      "heartbeatAt": "2026-09-28T12:50:00Z"
+    },
+    {
+      "lane": 3,
+      "task": null,
+      "title": null,
+      "phase": "wait",
+      "step": "",
+      "taskStartedAt": null,
+      "heartbeatAt": "2026-09-28T13:11:00Z"
+    }
+  ]
+}
