@@ -1,16 +1,16 @@
 ---
-id: BL-138
+id: BL-146
 title: Align the plain-text authentication setting's name, the silent exchange log's doc comment and ADR-0028's factory name
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-137]
+depends-on: [BL-145]
 touches: [Surl.Output.UnitLibrary, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Console, Surl.Console.UnitTests, Documentation/Wiki, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-29
 completed:
 ---
-# BL-138 — Align the plain-text authentication setting's name, the silent exchange log's doc comment and ADR-0028's factory name
+# BL-146 — Align the plain-text authentication setting's name, the silent exchange log's doc comment and ADR-0028's factory name
 
 ## Goal
 
@@ -53,7 +53,7 @@ says" counts as defects:
    decision is history, so do not rewrite it: add a dated note. ADR-0033 line 26 also names
    `VerboseExchangeLogFactory`, but in its Context, describing the code as it was then; leave it.
 
-This is a docs task: a rename and doc comments, no behaviour change. BL-137 changes
+This is a docs task: a rename and doc comments, no behaviour change. BL-145 changes
 `Surl.Cli.UnitLibrary` first, so this task waits on it.
 
 ## Acceptance criteria

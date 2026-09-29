@@ -70,7 +70,7 @@ concept, one name, the glossary's.
 - Retired synonyms: `VerboseExchangeLogFactory`, `bool Verbose`, `HelpText.Text` and
   "served directory" appear in no `.cs` file and no live document. They appear only in
   ADRs, as dated history. ADR-0028 line 27 still names `VerboseExchangeLogFactory` in its
-  decision text, and BL-138 adds a dated note there.
+  decision text, and BL-146 adds a dated note there.
 - README commands:
   - Every surl command ran with `dotnet run --project Surl.Console -- ...`, and each paired
     curl line ran with pinned curl 8.21.0 through `Record-CurlExchange.ps1 -NoServer`.
@@ -91,9 +91,9 @@ concept, one name, the glossary's.
 - Name check: the 290 backticked identifiers in the edited files were checked against the
   tracked `.cs` files, and every type and member exists.
 - Follow-ups filed:
-  - BL-137: the `--auth` help says a method is refused but every word is served now, and
+  - BL-145: the `--auth` help says a method is refused but every word is served now, and
     the manual's exit code 2 text is stale.
-  - BL-138: the `AllowPlaintextAuth`/`AllowPlaintextAuthentication` name split, the
+  - BL-146: the `AllowPlaintextAuth`/`AllowPlaintextAuthentication` name split, the
     `SilentExchangeLog` doc comment, and the ADR-0028 note.
 - Build is clean. Fast tests: 0 failed.
 

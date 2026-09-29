@@ -1,5 +1,5 @@
 ---
-id: BL-137
+id: BL-145
 title: Make the --auth help and the exit code 2 manual text true now every --auth method is served
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-29
 completed:
 ---
-# BL-137 — Make the --auth help and the exit code 2 manual text true now every --auth method is served
+# BL-145 — Make the --auth help and the exit code 2 manual text true now every --auth method is served
 
 ## Goal
 
@@ -76,7 +76,7 @@ curl behaviour is claimed or changed, so no measurement is needed. The uncommitt
 
 ## Notes
 
-BL-138 (naming and doc-comment alignment) waits on this task because both change
+BL-146 (naming and doc-comment alignment) waits on this task because both change
 `Surl.Cli.UnitLibrary`.
 
 ## Log
