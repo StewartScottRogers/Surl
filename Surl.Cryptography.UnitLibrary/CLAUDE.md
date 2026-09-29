@@ -9,6 +9,9 @@ host keys, ChaCha20-Poly1305 and whatever else a server-side peer of upstream cu
 libssh2 build needs. A primitive the BCL offers on all three platforms is taken from
 `System.Security.Cryptography` and never rebuilt here.
 
+Holds today: `Sha512Slash256` (FIPS 180-4 SHA-512/256, one-shot `HashData`), for the
+Digest verifier's `algorithm=SHA-512-256` (RFC 7616).
+
 It references nothing (ADR-0002). Bytes in, bytes out: never open a socket or a file.
 Every primitive is tested against its specification's published vectors, with the source
 cited beside each vector. Copying a primitive and its tests from the Curl port is allowed:
