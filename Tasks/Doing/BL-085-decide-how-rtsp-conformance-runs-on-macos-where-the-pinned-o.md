@@ -42,3 +42,4 @@ and ADR-0016's protocol list is annotated with what the builds actually print.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
