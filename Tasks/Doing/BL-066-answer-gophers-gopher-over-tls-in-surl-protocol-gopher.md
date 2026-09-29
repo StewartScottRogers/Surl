@@ -88,3 +88,4 @@ upstream curl 8.21.0 build with `Record-CurlExchange.ps1` prove it, never the Cu
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-29: Backlog -> Doing.
