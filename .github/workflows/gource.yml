@@ -157,8 +157,9 @@ jobs:
 
   render:
     needs: [decide, coverage]
-    # Renders even when the coverage job failed: the video does not depend on it.
-    if: always() && needs.decide.outputs.render == 'yes'
+    # Renders even when the coverage job failed: the video does not depend on it. Not
+    # always(): a cancelled run must be able to stop a render that takes hours.
+    if: ${{ !cancelled() && needs.decide.outputs.render == 'yes' }}
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
