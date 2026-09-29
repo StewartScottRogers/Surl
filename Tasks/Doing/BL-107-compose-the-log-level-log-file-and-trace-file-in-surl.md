@@ -61,3 +61,4 @@ FR-013; ADR-0033 (BL-101) decisions 1, 6 and 7. BL-104 parses the options into
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
