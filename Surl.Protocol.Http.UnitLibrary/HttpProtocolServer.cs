@@ -119,17 +119,6 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
     private readonly IAuthenticationPolicy authenticationPolicy;
 
     /// <summary>
-    /// Creates an HTTP server that serves <paramref name="contentStore"/> to everyone, through
-    /// <see cref="AnonymousAuthenticationPolicy"/>: every request proceeds with no login. It
-    /// stays until BL-117 composes <c>surl</c> with the real policy (ADR-0032, section 6).
-    /// </summary>
-    /// <param name="contentStore">The content store every request path is looked up in.</param>
-    public HttpProtocolServer(ContentStore contentStore)
-        : this(contentStore, new AnonymousAuthenticationPolicy())
-    {
-    }
-
-    /// <summary>
     /// Creates an HTTP server that serves <paramref name="contentStore"/> to the requests
     /// <paramref name="authenticationPolicy"/> lets in (ADR-0032, sections 4 and 6).
     /// </summary>

@@ -27,7 +27,7 @@ internal static class HttpServerHarness
         .AddFile(Path.Join(Root, "file.txt"), Encoding.ASCII.GetBytes(FileBody), FileTime);
 
     public static HttpProtocolServer Server(IContentFileSystem? fileSystem = null) =>
-        new(new ContentStore(Root, fileSystem ?? StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot));
+        new(new ContentStore(Root, fileSystem ?? StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot), new AnonymousAuthenticationPolicy());
 
     public static ExchangeContext Context(IExchangeLog log, TimeProvider timeProvider, CancellationToken cancellationToken, ExchangeLimits? limits = null) => new(
         1,
