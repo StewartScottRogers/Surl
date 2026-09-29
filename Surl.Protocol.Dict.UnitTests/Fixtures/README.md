@@ -33,3 +33,20 @@ Recorded on 2026-09-28 from the repository root, in Windows PowerShell, with
 A bare path is sent as it stands, with each `:` turned into a space, so
 `dict://host/hello` sends the command `hello`, which RFC 2229 does not define and Surl
 answers 500.
+
+## Limit replies (BL-051)
+
+Recorded on 2026-09-29 from the repository root, in Windows PowerShell, with the same
+pinned build (SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`)
+and the same `$banner`. Each fed curl the exact bytes `DictProtocolServer` writes for the
+case, and each exited 0 with an empty `stderr.txt`; `stdout.bin` is what the tests pin.
+
+| Folder | What Surl sends | Pinned by | Command line |
+| --- | --- | --- | --- |
+| `refused` | `420 server temporarily unavailable` as the first and only reply: a connection past a connection limit | `ConnectionRefusalTests` | `.\Record-CurlExchange.ps1 -Port 18651 -Raw -RawReplyFirst -RawReply '420 server temporarily unavailable\r\n' -CurlArgs '-sS','dict://127.0.0.1:18651/d:hello' -OutDirectory Surl.Protocol.Dict.UnitTests\Fixtures\refused` |
+| `head-timeout` | the banner, then `420 timed out waiting for a command`: no whole command line within the head timeout | `HeadTimeoutTests` | `.\Record-CurlExchange.ps1 -Port 18651 -Raw -RawReplyFirst -RawReply $banner,'420 timed out waiting for a command\r\n' -CurlArgs '-sS','dict://127.0.0.1:18651/d:hello' -OutDirectory Surl.Protocol.Dict.UnitTests\Fixtures\head-timeout` |
+| `line-too-long` | the banner, `250 ok` to `CLIENT`, then `500 line too long` to a `DEFINE` line of 8211 bytes | `LineLimitTests`, which also replays this `request.bin` | `$word = 'x' * 8200; .\Record-CurlExchange.ps1 -Port 18651 -Raw -RawReplyFirst -RawReply $banner,'250 ok\r\n500 line too long\r\n' -CurlArgs '-sS',"dict://127.0.0.1:18651/d:$word" -OutDirectory Surl.Protocol.Dict.UnitTests\Fixtures\line-too-long` |
+
+curl sends its three lines without waiting, so in `head-timeout` it had already sent them
+when the `420` came; a real head timeout needs a client that stops part way, which the
+tests drive with a hand-written `TimeProvider` rather than a live client.

@@ -1,0 +1,5 @@
+< 220 surl DICT server <mime> <1@surl>
+> CLIENT libcurl 8.21.0
+> DEFINE ! hello
+> QUIT
+< 420 timed out waiting for a command

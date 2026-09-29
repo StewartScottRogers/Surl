@@ -24,4 +24,9 @@ internal enum DictLineReadOutcome
     /// The line, its line ending included, is longer than the line limit.
     /// </summary>
     LineTooLong,
+
+    /// <summary>
+    /// The head timeout ran out before the line was complete.
+    /// </summary>
+    HeadTimedOut,
 }

@@ -7,37 +7,66 @@ namespace Surl.Protocol.Dict;
 /// Reads DICT command lines from one connection, one after another (RFC 2229, section 2.2).
 /// </summary>
 /// <remarks>
+/// <para>
 /// A line ends at LF, with or without a CR before it; upstream curl always sends CRLF. Bytes
 /// read past the end of a line stay buffered for the next line, so a client that sends
 /// several commands at once, as upstream curl does, has them answered in order. A line is at
 /// most the line limit in bytes, its line ending included (ADR-0006, section 1); while it looks
-/// for the LF the reader never reads more than one byte past that limit. It is not safe for concurrent
-/// calls, and after any outcome but <see cref="DictLineReadOutcome.LineRead"/> the caller
-/// stops reading.
+/// for the LF the reader never reads more than one byte past that limit.
+/// </para>
+/// <para>
+/// The head timeout (ADR-0006, section 1) bounds how long one line may take to arrive. Its
+/// clock starts at <see cref="StartHeadTimeout"/>, or else at the first byte of the line: when
+/// a read returns it, or, for a byte already buffered behind the previous line, when
+/// <see cref="ReadLineAsync"/> is called. Until then a read waits with no clock but the
+/// caller's cancellation token. The clock stops when the line is complete.
+/// </para>
+/// <para>
+/// It is not safe for concurrent calls, and after any outcome but
+/// <see cref="DictLineReadOutcome.LineRead"/> the caller stops reading.
+/// </para>
 /// </remarks>
-internal sealed class DictLineReader
+internal sealed class DictLineReader : IDisposable
 {
     private const int InitialBufferBytes = 1024;
 
     private readonly IConnection connection;
     private readonly long maxLineBytes;
+    private readonly TimeSpan headTimeout;
+    private readonly TimeProvider timeProvider;
     private byte[] buffer = new byte[InitialBufferBytes];
     private int bufferedStart;
     private int bufferedEnd;
     private int scannedCount;
+    private CancellationTokenSource? headTimeoutClock;
 
     /// <summary>
     /// Creates a reader over <paramref name="connection"/>.
     /// </summary>
     /// <param name="connection">The connection to read from.</param>
     /// <param name="maxLineBytes">The most bytes a line may hold, its line ending included; 0 means no limit.</param>
-    public DictLineReader(IConnection connection, long maxLineBytes)
+    /// <param name="headTimeout">How long one line may take to arrive; <see cref="Timeout.InfiniteTimeSpan"/> means no limit.</param>
+    /// <param name="timeProvider">The clock the head timeout runs on.</param>
+    public DictLineReader(IConnection connection, long maxLineBytes, TimeSpan headTimeout, TimeProvider timeProvider)
     {
         this.connection = connection;
         this.maxLineBytes = maxLineBytes;
+        this.headTimeout = headTimeout;
+        this.timeProvider = timeProvider;
     }
 
     private int BufferedCount => bufferedEnd - bufferedStart;
+
+    /// <summary>
+    /// Starts the head timeout's clock for the next line now, if it is not already running.
+    /// </summary>
+    public void StartHeadTimeout()
+    {
+        if (headTimeoutClock is null && headTimeout != Timeout.InfiniteTimeSpan)
+        {
+            headTimeoutClock = new CancellationTokenSource(headTimeout, timeProvider);
+        }
+    }
 
     /// <summary>
     /// Reads the next command line.
@@ -48,6 +77,11 @@ internal sealed class DictLineReader
     /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
     public async ValueTask<DictLineReadResult> ReadLineAsync(CancellationToken cancellationToken)
     {
+        if (BufferedCount > 0)
+        {
+            StartHeadTimeout();
+        }
+
         while (true)
         {
             var lineFeed = Array.IndexOf(buffer, (byte)'\n', bufferedStart + scannedCount, BufferedCount - scannedCount);
@@ -62,14 +96,17 @@ internal sealed class DictLineReader
                 return DictLineReadResult.NoLine(DictLineReadOutcome.LineTooLong);
             }
 
-            if (!await FillAsync(cancellationToken))
+            if (await FillAsync(cancellationToken) is { } outcome)
             {
-                return DictLineReadResult.NoLine(BufferedCount == 0
-                    ? DictLineReadOutcome.ConnectionClosed
-                    : DictLineReadOutcome.ConnectionClosedMidLine);
+                return DictLineReadResult.NoLine(outcome);
             }
         }
     }
+
+    /// <summary>
+    /// Stops the head timeout's clock.
+    /// </summary>
+    public void Dispose() => StopHeadTimeout();
 
     private DictLineReadResult TakeLine(int lineLength)
     {
@@ -87,13 +124,21 @@ internal sealed class DictLineReader
         var line = Encoding.UTF8.GetString(content);
         bufferedStart += lineLength;
         scannedCount = 0;
+        StopHeadTimeout();
 
         return DictLineReadResult.Read(line);
     }
 
+    private void StopHeadTimeout()
+    {
+        headTimeoutClock?.Dispose();
+        headTimeoutClock = null;
+    }
+
     private bool IsOverLimit(long byteCount) => maxLineBytes > 0 && byteCount > maxLineBytes;
 
-    private async ValueTask<bool> FillAsync(CancellationToken cancellationToken)
+    // Reads more bytes; returns why no more will come, or null when some arrived.
+    private async ValueTask<DictLineReadOutcome?> FillAsync(CancellationToken cancellationToken)
     {
         MakeRoomToRead();
         var room = buffer.Length - bufferedEnd;
@@ -102,10 +147,37 @@ internal sealed class DictLineReader
             room = (int)Math.Min(room, maxLineBytes + 1 - BufferedCount);
         }
 
-        var read = await connection.ReadAsync(buffer.AsMemory(bufferedEnd, room), cancellationToken);
-        bufferedEnd += read;
+        int read;
+        try
+        {
+            read = await ReadWithinHeadTimeoutAsync(buffer.AsMemory(bufferedEnd, room), cancellationToken);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return DictLineReadOutcome.HeadTimedOut;
+        }
 
-        return read > 0;
+        if (read == 0)
+        {
+            return BufferedCount == 0 ? DictLineReadOutcome.ConnectionClosed : DictLineReadOutcome.ConnectionClosedMidLine;
+        }
+
+        bufferedEnd += read;
+        StartHeadTimeout();
+
+        return null;
+    }
+
+    private async ValueTask<int> ReadWithinHeadTimeoutAsync(Memory<byte> destination, CancellationToken cancellationToken)
+    {
+        if (headTimeoutClock is null)
+        {
+            return await connection.ReadAsync(destination, cancellationToken);
+        }
+
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, headTimeoutClock.Token);
+
+        return await connection.ReadAsync(destination, cancellation.Token);
     }
 
     private void MakeRoomToRead()

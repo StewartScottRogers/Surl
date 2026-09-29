@@ -31,7 +31,7 @@ public sealed class DictLineReaderTests
     public async Task ReadLineAsync_Utf8Line_IsDecoded()
     {
         var connection = new InMemoryConnection([Encoding.UTF8.GetBytes("DEFINE ! café\r\n")]);
-        var reader = new DictLineReader(connection, 0);
+        var reader = new DictLineReader(connection, 0, Timeout.InfiniteTimeSpan, TimeProvider.System);
 
         Assert.AreEqual(DictLineReadResult.Read("DEFINE ! café"), await reader.ReadLineAsync(TestContext.CancellationToken));
     }
@@ -84,5 +84,5 @@ public sealed class DictLineReaderTests
     }
 
     private static DictLineReader Reader(IEnumerable<string> chunks, long maxLineBytes) =>
-        new(new InMemoryConnection(chunks.Select(chunk => new ReadOnlyMemory<byte>(Encoding.ASCII.GetBytes(chunk))).ToList()), maxLineBytes);
+        new(new InMemoryConnection(chunks.Select(chunk => new ReadOnlyMemory<byte>(Encoding.ASCII.GetBytes(chunk))).ToList()), maxLineBytes, Timeout.InfiniteTimeSpan, TimeProvider.System);
 }

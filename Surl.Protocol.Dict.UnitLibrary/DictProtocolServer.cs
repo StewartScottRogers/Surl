@@ -39,14 +39,30 @@ namespace Surl.Protocol.Dict;
 /// <para>
 /// <b>Limits.</b> A command line longer than <see cref="ExchangeLimits.MaxLineBytes"/>, its
 /// line ending included, is answered <c>500 line too long</c> and the connection is closed
-/// without reading the rest (ADR-0006, sections 1 and 5). A client that closes the
-/// connection part way through a line gets no reply. If a definition's file cannot be read
-/// once its <c>151</c> line is sent, the connection is aborted, because the reply can no
-/// longer be completed truthfully.
+/// without reading the rest (ADR-0006, sections 1 and 5). A command line not complete within
+/// <see cref="ExchangeLimits.HeadTimeout"/> is answered <c>420 timed out waiting for a
+/// command</c> and the connection is closed; the first line's clock starts when the
+/// connection is served, and every later line's at its first byte, so the wait between
+/// commands is bounded only by <c>Surl.Core</c>'s idle timeout. Each of those two replies is
+/// written within <see cref="LimitReplyWriteDeadline"/>, then writes are completed; the
+/// connection is never aborted for a limit. A connection past a connection limit is answered
+/// <c>420 server temporarily unavailable</c> by <see cref="WriteRefusalAsync"/>. A client that
+/// closes the connection part way through a line gets no reply. If a definition's file cannot
+/// be read once its <c>151</c> line is sent, the connection is aborted, because the reply can
+/// no longer be completed truthfully.
 /// </para>
 /// </remarks>
-public sealed class DictProtocolServer : IConnectionProtocolServer
+public sealed class DictProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
 {
+    /// <summary>
+    /// How long the reply to a line that is too long, or late, may take to write (ADR-0006, section 5).
+    /// </summary>
+    public static readonly TimeSpan LimitReplyWriteDeadline = TimeSpan.FromSeconds(1);
+
+    private const string RefusalReply = "420 server temporarily unavailable\r\n";
+    private const string HeadTimedOutReply = "420 timed out waiting for a command\r\n";
+    private const string LineTooLongReply = "500 line too long\r\n";
+
     private readonly DictContentDictionary dictionary;
 
     /// <summary>
@@ -67,7 +83,7 @@ public sealed class DictProtocolServer : IConnectionProtocolServer
 
     /// <summary>
     /// Sends the banner, then answers every command line on <paramref name="connection"/>
-    /// until the client quits or closes it, or a line is too long.
+    /// until the client quits or closes it, or a line is too long or late.
     /// </summary>
     /// <param name="connection">The accepted connection.</param>
     /// <param name="context">What the server is told about this exchange.</param>
@@ -77,10 +93,12 @@ public sealed class DictProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
+        using var reader = new DictLineReader(connection, context.Limits.MaxLineBytes, context.Limits.HeadTimeout, context.TimeProvider);
+        reader.StartHeadTimeout();
+
         var cancellationToken = context.CancellationToken;
         await WriteAsync(connection, $"220 surl DICT server <mime> <{context.ExchangeId}@surl>\r\n", cancellationToken);
 
-        var reader = new DictLineReader(connection, context.Limits.MaxLineBytes);
         var responder = new DictCommandResponder(connection, context, dictionary);
         var keepsConnectionOpen = true;
 
@@ -93,13 +111,34 @@ public sealed class DictProtocolServer : IConnectionProtocolServer
         }
     }
 
+    /// <summary>
+    /// Answers a connection past a connection limit: <c>420 server temporarily
+    /// unavailable</c> for either <see cref="ConnectionRefusal"/>, then completes writes
+    /// (ADR-0006, section 5).
+    /// </summary>
+    /// <param name="connection">The connection past the limit.</param>
+    /// <param name="refusal">Which limit it is past; both are answered alike.</param>
+    /// <param name="cancellationToken">Cancelled when the engine gives up on the refusal.</param>
+    /// <returns>A task that completes when the refusal is written and writes are completed.</returns>
+    public async ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        await WriteAsync(connection, RefusalReply, cancellationToken);
+        await connection.CompleteWritesAsync(cancellationToken);
+    }
+
     private static async Task<bool> AnswerNoLineAsync(IConnection connection, ExchangeContext context, DictLineReadOutcome outcome)
     {
         switch (outcome)
         {
             case DictLineReadOutcome.LineTooLong:
                 context.Log.Note($"A command line was longer than {context.Limits.MaxLineBytes} bytes; answered 500 and closed.");
-                await WriteAsync(connection, "500 line too long\r\n", context.CancellationToken);
+                await WriteLimitReplyAsync(connection, context, LineTooLongReply);
+                break;
+            case DictLineReadOutcome.HeadTimedOut:
+                context.Log.Note("A command line was not complete within the head timeout; answered 420 and closed.");
+                await WriteLimitReplyAsync(connection, context, HeadTimedOutReply);
                 break;
             case DictLineReadOutcome.ConnectionClosedMidLine:
                 context.Log.Note("The client closed the connection part way through a command line.");
@@ -107,6 +146,23 @@ public sealed class DictProtocolServer : IConnectionProtocolServer
         }
 
         return false;
+    }
+
+    // A limit's reply gets one second to be written, and then writes are completed; a peer
+    // that does not read it in time is closed all the same, never aborted (ADR-0006, section 5).
+    private static async Task WriteLimitReplyAsync(IConnection connection, ExchangeContext context, string reply)
+    {
+        using var deadline = new CancellationTokenSource(LimitReplyWriteDeadline, context.TimeProvider);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, deadline.Token);
+        try
+        {
+            await WriteAsync(connection, reply, cancellation.Token);
+            await connection.CompleteWritesAsync(cancellation.Token);
+        }
+        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            context.Log.Note("The reply was not written within the one-second write deadline; the connection was closed.");
+        }
     }
 
     private static ValueTask WriteAsync(IConnection connection, string text, CancellationToken cancellationToken) =>
