@@ -77,3 +77,4 @@ requests, uploads, redirects, authentication and cookies are follow-up tasks.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
