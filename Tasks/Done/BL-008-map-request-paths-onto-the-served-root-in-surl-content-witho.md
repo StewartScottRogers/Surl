@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-008 — Map request paths onto the served root in Surl.Content without escaping it
 
@@ -44,24 +44,24 @@ result, not an exception, and a test proves each refusal.
 
 ## Acceptance criteria
 
-- [ ] A content-store type in `Surl.Content.UnitLibrary`, constructed with the served
+- [x] A content-store type in `Surl.Content.UnitLibrary`, constructed with the served
       root and the file-system seam, maps a request path to either a location inside the
       root or a refusal carrying a reason.
-- [ ] Fast tests prove a refusal, and that the seam is never asked to open anything, for
+- [x] Fast tests prove a refusal, and that the seam is never asked to open anything, for
       each of: `/../x`, `/a/../../x`, `/%2e%2e/x`, `/%2E%2E/x`, `/.%2e/x`, `/..%2fx`,
       `/..%2Fx`, `/..%5cx`, `/..\x`, `//server/share/x`, `/\\server\share\x`,
       `/C:/x`, `/C:%5cx`, `/%00x`, an invalid percent escape such as `/%zz`, and a path
       whose final symbolic-link target is outside the root.
-- [ ] Fast tests prove a successful mapping for `/`, `/file.txt`, `/dir/file.txt`,
+- [x] Fast tests prove a successful mapping for `/`, `/file.txt`, `/dir/file.txt`,
       `/with%20space.txt`, a UTF-8 percent-encoded name such as `/caf%C3%A9.txt`, and a
       symbolic link whose final target stays inside the root.
-- [ ] Whether a `..` that stays inside the root (`/a/../b`) is served or refused is
+- [x] Whether a `..` that stays inside the root (`/a/../b`) is served or refused is
       decided in the `/feature` plan, stated in the content-store type's XML doc, and
       pinned by a test.
-- [ ] `dotnet build Surl.Content.UnitLibrary -warnaserror` is clean, and
+- [x] `dotnet build Surl.Content.UnitLibrary -warnaserror` is clean, and
       `dotnet test --filter "TestCategory!=Integration"` is green with no test in
       `Surl.Content.UnitTests` tagged `Integration`.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Content.UnitLibrary`.
 
 ## Notes
@@ -69,7 +69,37 @@ result, not an exception, and a test proves each refusal.
 Directory listing, media types and upload placement are later tasks. Keep this one to
 path mapping and the seam.
 
+Plan and decisions (Claude, 2026-09-28; recorded in `ContentStore`'s XML doc, not an ADR,
+because the task's `touches` stops at the two Content projects and the criteria ask for
+the XML doc):
+- The seam is `IContentFileSystem`: `GetEntryKind(path)` (file, directory, nothing) and
+  `ResolveFinalPath(path)` (every symbolic link along the existing part followed; the
+  missing part appended). It has no member that opens anything. BL-010 implements it
+  over `System.IO`; it must return normalised full paths that spell the root the same
+  way, because containment is compared ordinally (a different spelling is refused, not
+  let through).
+- `ContentStore(servedRoot, fileSystem).MapRequestPath(path)` returns a
+  `ContentPathMapping`: the resolved location and its `ContentEntryKind`, or a
+  `ContentPathRefusal` reason. Never an exception for a bad path.
+- The path is split on `/` first and each segment percent-decoded as strict UTF-8 after,
+  so `%2F`/`%5C` never become separators. Refused per segment: `.`/`..`, `/` or `\`,
+  `:` (drive letters and alternate data streams), control characters (NUL included),
+  trailing `.` or space, Windows device names (CON, NUL, COM1, CONIN$ ...). On every
+  platform, so Surl answers the same wherever it runs.
+- `/a/../b` is **refused** even though it stays inside the root: upstream curl removes
+  dot segments before sending, so a `..` arrives only on purpose (`--path-as-is` or
+  encoding), and refusing all of them leaves nothing to get wrong. Pinned by
+  `MapRequestPath_DotDotThatStaysInsideTheRoot_IsRefused`.
+- Symbolic links: the root itself is resolved too, so a root that is a link works;
+  `/srv/www-evil` is not mistaken for inside `/srv/www`.
+- Delivered in the session rather than through separate agents; code-reviewer reviewed
+  it (no must-fix). Its should-fix items - `/file.txt/` maps to the file, and a served
+  root that is not fully qualified is not rejected - are filed as BL-045.
+- Result: 73 tests in `Surl.Content.UnitTests`, none `Integration`; line and branch
+  coverage 100%, worst CRAP 8.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. Surl.Content maps percent-encoded request paths into the served root through IContentFileSystem and refuses every escape with a reason
