@@ -35,6 +35,11 @@ public static class CommandLineParser
     private const string TlsMaxOption = "--tls-max";
     private const string CertLongName = "cert";
     private const string KeyLongName = "key";
+    private const string UserLongName = "user";
+    private const string SelfSignedOption = "--self-signed";
+
+    /// <summary><c>--self-signed</c> given with <c>--cert</c> (ADR-0032 section 1).</summary>
+    public const string CannotBeUsedWithCert = "cannot be used with --cert";
 
     /// <summary>The options refused without <c>--cert</c>, in the order the first one given is reported.</summary>
     private static readonly string[] OptionsNeedingCert = [KeyLongName, "key-type", "pass"];
@@ -126,7 +131,7 @@ public static class CommandLineParser
 
         return negated.Negatable
             ? ApplyOption(reading, negated, argument, attached, turnOn: false)
-            : RefusedOption(argument, CannotBeReversed);
+            : RefusedOption(ReportedName(negated, argument), CannotBeReversed);
     }
 
     /// <summary>Reads <c>-x</c> or a bundle such as <c>-vm30</c>; an option taking an argument ends the bundle.</summary>
@@ -236,23 +241,74 @@ public static class CommandLineParser
         string writtenName,
         string? argument)
     {
+        var reportedName = ReportedName(option, writtenName);
         if (argument is null)
         {
-            return RefusedOption(writtenName, RequiresParameter);
+            return RefusedOption(reportedName, RequiresParameter);
         }
 
         var failure = option.ApplyArgument!(argument, ref reading.CommandLine);
         if (failure is not null)
         {
-            return RefusedOption(writtenName, failure);
+            return RefusedOption(reportedName, failure);
         }
 
         reading.GivenOptions.Add(option.LongName);
+        if (option.LongName == UserLongName)
+        {
+            reading.AccountOptionNames.Add(reportedName);
+        }
+
         return null;
+    }
+
+    /// <summary>
+    /// The name a refusal gives: <paramref name="writtenName"/>, or, for an option whose
+    /// argument holds a secret, the option as written without any value (<c>--user</c>,
+    /// <c>--no-user</c>, <c>-u</c> of <c>-vua:b</c>), so none of that option's own refusals
+    /// echoes its value (ADR-0032 section 1). An unknown option is still named as written.
+    /// </summary>
+    private static string ReportedName(CommandLineOption option, string writtenName)
+    {
+        if (!option.ArgumentHoldsSecret)
+        {
+            return writtenName;
+        }
+
+        if (!writtenName.StartsWith(LongOptionPrefix, StringComparison.Ordinal))
+        {
+            return "-" + option.ShortName;
+        }
+
+        var equals = writtenName.IndexOf('=', StringComparison.Ordinal);
+        return equals < 0 ? writtenName : writtenName[..equals];
     }
 
     /// <summary>The checks made once the whole command line is read.</summary>
     private static CommandLineParseResult Finish(CommandLineReading reading)
+    {
+        var refusedCombination = RefuseTlsCombination(reading) ?? RefuseRepeatedUserName(reading);
+        if (refusedCombination is not null)
+        {
+            return refusedCombination;
+        }
+
+        if (reading.ListenUrls.Count == 0)
+        {
+            return CommandLineParseResult.Refused(
+                new CommandLineFailure(SurlExitCode.FailedInit, NoUrlSpecified, FollowedByTryHelpLine: true));
+        }
+
+        return CommandLineParseResult.Serve(ResolveLogging(reading.CommandLine) with { ListenUrls = [.. reading.ListenUrls] });
+    }
+
+    /// <summary>
+    /// Refuses the first TLS option given in a combination that cannot work, in this order:
+    /// <c>--tls-max</c> below the lowest version, a certificate option ADR-0010 section 3
+    /// refuses, then <c>--self-signed</c> with <c>--cert</c> (ADR-0032 section 1); null when
+    /// none is.
+    /// </summary>
+    private static CommandLineParseResult? RefuseTlsCombination(CommandLineReading reading)
     {
         if (reading.CommandLine.LowestTlsVersion > reading.CommandLine.HighestTlsVersion)
         {
@@ -265,13 +321,28 @@ public static class CommandLineParser
             return RefusedOption(unusableCertificateOption, OptionArgumentReader.BadlyUsed);
         }
 
-        if (reading.ListenUrls.Count == 0)
+        return reading.CommandLine.SelfSigned && reading.GivenOptions.Contains(CertLongName)
+            ? RefusedOption(SelfSignedOption, CannotBeUsedWithCert)
+            : null;
+    }
+
+    /// <summary>
+    /// Refuses the first account whose user name an earlier account already has, the empty
+    /// name included, naming the option that gave it (ADR-0032 section 1); null when none does.
+    /// </summary>
+    private static CommandLineParseResult? RefuseRepeatedUserName(CommandLineReading reading)
+    {
+        var accounts = reading.CommandLine.Accounts;
+        var userNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < accounts.Count; index++)
         {
-            return CommandLineParseResult.Refused(
-                new CommandLineFailure(SurlExitCode.FailedInit, NoUrlSpecified, FollowedByTryHelpLine: true));
+            if (!userNames.Add(accounts[index].UserName))
+            {
+                return RefusedOption(reading.AccountOptionNames[index], $"user {accounts[index].UserName} is given twice");
+            }
         }
 
-        return CommandLineParseResult.Serve(ResolveLogging(reading.CommandLine) with { ListenUrls = [.. reading.ListenUrls] });
+        return null;
     }
 
     /// <summary>
@@ -323,6 +394,9 @@ public static class CommandLineParser
 
         /// <summary>The long names of the options whose argument was read and accepted.</summary>
         public HashSet<string> GivenOptions { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>The name each accepted <c>-u</c>/<c>--user</c> was written with, one per account, in order.</summary>
+        public List<string> AccountOptionNames { get; } = [];
 
         /// <summary><see langword="true"/> once <c>--</c> is read: every later argument is a listen URL.</summary>
         public bool OptionsEnded { get; set; }

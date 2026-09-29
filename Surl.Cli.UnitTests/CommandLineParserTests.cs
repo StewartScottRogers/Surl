@@ -16,6 +16,9 @@ public sealed class CommandLineParserTests
         ["list-directories"] = c => c.ListDirectories,
         ["follow-symlinks"] = c => c.FollowSymlinks,
         ["serve-dot-files"] = c => c.ServeDotFiles,
+        ["allow-anonymous"] = c => c.AllowAnonymous,
+        ["allow-plaintext-auth"] = c => c.AllowPlaintextAuthentication,
+        ["self-signed"] = c => c.SelfSigned,
     };
 
     [TestMethod]
@@ -277,6 +280,9 @@ public sealed class CommandLineParserTests
     [DataRow("list-directories", "--list-directories")]
     [DataRow("follow-symlinks", "--follow-symlinks")]
     [DataRow("serve-dot-files", "--serve-dot-files")]
+    [DataRow("allow-anonymous", "--allow-anonymous")]
+    [DataRow("allow-plaintext-auth", "--allow-plaintext-auth")]
+    [DataRow("self-signed", "--self-signed")]
     public void Parse_Flag_TurnsItOn(string longName, string written) =>
         Assert.IsTrue(FlagValues[longName](Served(written, Url)));
 
@@ -286,6 +292,9 @@ public sealed class CommandLineParserTests
     [DataRow("list-directories")]
     [DataRow("follow-symlinks")]
     [DataRow("serve-dot-files")]
+    [DataRow("allow-anonymous")]
+    [DataRow("allow-plaintext-auth")]
+    [DataRow("self-signed")]
     public void Parse_NegatedAfterFlag_LaterWinsAndTurnsItOff(string longName)
     {
         Assert.IsFalse(FlagValues[longName](Served($"--{longName}", $"--no-{longName}", Url)));
@@ -301,6 +310,9 @@ public sealed class CommandLineParserTests
     [DataRow("--no-verbose=no")]
     [DataRow("--tlsv1.3=yes")]
     [DataRow("--version=1")]
+    [DataRow("--allow-anonymous=yes")]
+    [DataRow("--allow-plaintext-auth=")]
+    [DataRow("--self-signed=1")]
     public void Parse_ValueOnAnOptionThatTakesNone_IsRefused(string written) =>
         AssertOptionRefused([written, Url], $"option {written}: does not take a parameter");
 
@@ -312,8 +324,185 @@ public sealed class CommandLineParserTests
     [DataRow("--no-tlsv1.2")]
     [DataRow("--no-tls-max")]
     [DataRow("--no-cert")]
+    [DataRow("--no-user")]
+    [DataRow("--no-user-file")]
+    [DataRow("--no-auth")]
     public void Parse_NoPrefixOnANonNegatableOption_IsRefused(string written) =>
         AssertOptionRefused([written, Url], $"option {written}: the given option cannot be reversed with a --no- prefix");
+
+    // -u/--user, --user-file, --auth and --self-signed (ADR-0032 section 1).
+
+    [TestMethod]
+    public void NewSurlCommandLine_HoldsTheAuthenticationDefaults()
+    {
+        var defaults = new SurlCommandLine();
+
+        Assert.IsEmpty(defaults.Accounts);
+        Assert.IsNull(defaults.UserFile);
+        Assert.IsFalse(defaults.AllowAnonymous);
+        Assert.IsFalse(defaults.AllowPlaintextAuthentication);
+        Assert.IsFalse(defaults.SelfSigned);
+        Assert.IsNull(defaults.GivenAuthenticationMethods);
+        CollectionAssert.AreEqual(new[] { "digest", "basic", "bearer", "aws-sigv4" }, defaults.AcceptedAuthenticationMethods.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "--user", "alice:secret" }, DisplayName = "--user, separate")]
+    [DataRow(new[] { "--user=alice:secret" }, DisplayName = "--user=")]
+    [DataRow(new[] { "-u", "alice:secret" }, DisplayName = "-u, separate")]
+    [DataRow(new[] { "-ualice:secret" }, DisplayName = "-u, attached")]
+    [DataRow(new[] { "-vu", "alice:secret" }, DisplayName = "-u ending a bundle")]
+    public void Parse_User_AddsTheAccount(string[] arguments) =>
+        CollectionAssert.AreEqual(
+            new[] { new CommandLineAccount("alice", "secret") },
+            Served([.. arguments, Url]).Accounts.ToArray());
+
+    [TestMethod]
+    public void Parse_UserRepeated_AddsAnAccountEachTimeInOrder() =>
+        CollectionAssert.AreEqual(
+            new[] { new CommandLineAccount("alice", "a"), new CommandLineAccount("bob", "b"), new CommandLineAccount(string.Empty, "tok") },
+            Served("-u", "alice:a", Url, "--user=bob:b", "--user", ":tok").Accounts.ToArray());
+
+    [TestMethod]
+    [DataRow("a:b:c", "a", "b:c", DisplayName = "Split at the first colon")]
+    [DataRow(":tok", "", "tok", DisplayName = "An empty name is a Bearer token")]
+    [DataRow(" a :: b ", " a ", ": b ", DisplayName = "Nothing trimmed")]
+    [DataRow("hé:päss", "hé", "päss", DisplayName = "Non-ASCII")]
+    public void Parse_UserValue_IsSplitAtItsFirstColon(string value, string userName, string password) =>
+        Assert.AreEqual(new CommandLineAccount(userName, password), Served("--user", value, Url).Accounts.Single());
+
+    [TestMethod]
+    [DataRow(new[] { "--user", "alice" }, "option --user: expected <user:password>", DisplayName = "No colon")]
+    [DataRow(new[] { "--user=alice" }, "option --user: expected <user:password>", DisplayName = "No colon, after =")]
+    [DataRow(new[] { "-ualice" }, "option -u: expected <user:password>", DisplayName = "No colon, attached")]
+    [DataRow(new[] { "-vualice" }, "option -u: expected <user:password>", DisplayName = "No colon, in a bundle")]
+    [DataRow(new[] { "--user", "alice:" }, "option --user: the password is empty", DisplayName = "Empty password")]
+    [DataRow(new[] { "-u", ":" }, "option -u: the password is empty", DisplayName = "Empty name and password")]
+    [DataRow(new[] { "--user", "al\tice:secret" }, "option --user: the user name holds a control character", DisplayName = "TAB in the name")]
+    [DataRow(new[] { "--user", "al\u0000ice:secret" }, "option --user: the user name holds a control character", DisplayName = "NUL in the name")]
+    [DataRow(new[] { "--user=al\u007Fice:secret" }, "option --user: the user name holds a control character", DisplayName = "DEL in the name")]
+    [DataRow(new[] { "--user", "" }, "option --user: blank argument where content is expected", DisplayName = "Empty argument")]
+    [DataRow(new[] { "--user=" }, "option --user: blank argument where content is expected", DisplayName = "Empty argument after =")]
+    [DataRow(new[] { "--no-user=a:secret" }, "option --no-user: the given option cannot be reversed with a --no- prefix", DisplayName = "--no-user with a value")]
+    public void Parse_UserRefused_NamesTheOptionWithoutItsValue(string[] arguments, string message)
+    {
+        var failure = Refused([.. arguments, Url]);
+
+        Assert.AreEqual(message, failure.Message);
+        Assert.DoesNotContain("secret", failure.Message);
+        Assert.AreEqual(SurlExitCode.FailedInit, failure.ExitCode);
+        Assert.IsTrue(failure.FollowedByTryHelpLine);
+    }
+
+    [TestMethod]
+    [DataRow("--user")]
+    [DataRow("-u")]
+    [DataRow("--user-file")]
+    [DataRow("--auth")]
+    public void Parse_AuthenticationOptionMissingItsArgument_RequiresParameter(string name) =>
+        AssertOptionRefused([Url, name], $"option {name}: requires parameter");
+
+    [TestMethod]
+    public void Parse_UserInABundleMissingItsArgument_NamesTheShortOption() =>
+        AssertOptionRefused([Url, "-vu"], "option -u: requires parameter");
+
+    [TestMethod]
+    [DataRow(new[] { "--user", "alice:a", "--user", "alice:b" }, "option --user: user alice is given twice", DisplayName = "--user twice")]
+    [DataRow(new[] { "--user", "alice:a", "-u", "alice:b" }, "option -u: user alice is given twice", DisplayName = "Named by the repeat's own form")]
+    [DataRow(new[] { "-ubob:b", "-ualice:a", "--user=alice:a" }, "option --user: user alice is given twice", DisplayName = "The same account twice")]
+    [DataRow(new[] { "-u", ":t1", "-u", ":t2" }, "option -u: user  is given twice", DisplayName = "The empty name twice")]
+    public void Parse_UserNameGivenTwice_IsRefused(string[] arguments, string message) =>
+        AssertOptionRefused([.. arguments, Url], message);
+
+    [TestMethod]
+    public void Parse_UserNamesDifferingOnlyInCase_AreTwoAccounts() =>
+        Assert.HasCount(2, Served("-u", "alice:a", "-u", "Alice:a", Url).Accounts);
+
+    [TestMethod]
+    public void Parse_UserNameGivenTwice_IsCheckedAfterTheWholeLine() =>
+        AssertOptionRefused(["-u", "a:a", "-u", "a:b", "--nosuch", Url], "option --nosuch: is unknown");
+
+    [TestMethod]
+    public void Parse_UserFile_KeepsThePathAsGivenAndLastWins()
+    {
+        Assert.AreEqual("users.txt", Served("--user-file", "users.txt", Url).UserFile);
+        Assert.AreEqual("b", Served("--user-file=a", "--user-file", "b", Url).UserFile);
+    }
+
+    [TestMethod]
+    [DataRow("--user-file", "")]
+    [DataRow("--user-file=", null)]
+    public void Parse_UserFileEmpty_IsBlank(string first, string? second)
+    {
+        string[] arguments = second is null ? [first, Url] : [first, second, Url];
+
+        AssertOptionRefused(arguments, $"option {first}: blank argument where content is expected");
+    }
+
+    [TestMethod]
+    [DataRow("basic", new[] { "basic" })]
+    [DataRow("NTLM", new[] { "ntlm" }, DisplayName = "Any case, stored lower-case")]
+    [DataRow("aws-sigv4,Basic,negotiate", new[] { "negotiate", "basic", "aws-sigv4" }, DisplayName = "Section 3's order")]
+    [DataRow("basic,bearer,digest,ntlm,negotiate,aws-sigv4", new[] { "negotiate", "ntlm", "digest", "basic", "bearer", "aws-sigv4" }, DisplayName = "Every word")]
+    [DataRow("digest,DIGEST,digest", new[] { "digest" }, DisplayName = "A word given twice counts once")]
+    public void Parse_Auth_IsTheAcceptedMethodSet(string argument, string[] methods)
+    {
+        var commandLine = Served("--auth", argument, Url);
+
+        CollectionAssert.AreEqual(methods, commandLine.GivenAuthenticationMethods!.ToArray());
+        CollectionAssert.AreEqual(methods, commandLine.AcceptedAuthenticationMethods.ToArray());
+    }
+
+    [TestMethod]
+    public void Parse_AuthRepeated_LastValueWins() =>
+        CollectionAssert.AreEqual(new[] { "ntlm" }, Served("--auth", "basic", "--auth=ntlm", Url).AcceptedAuthenticationMethods.ToArray());
+
+    [TestMethod]
+    [DataRow("--auth", "kerberos", DisplayName = "An unknown word")]
+    [DataRow("--auth", "basic,,digest", DisplayName = "An empty item")]
+    [DataRow("--auth", "basic,", DisplayName = "A trailing comma")]
+    [DataRow("--auth", "basic, digest", DisplayName = "A space")]
+    [DataRow("--auth", "", DisplayName = "Empty argument")]
+    public void Parse_AuthBadWord_IsBadlyUsed(string name, string argument) =>
+        AssertOptionRefused([name, argument, Url], "option --auth: is badly used here");
+
+    [TestMethod]
+    public void Parse_AuthBadWordAfterEquals_NamesTheOptionAsWritten() =>
+        AssertOptionRefused(["--auth=nosuch", Url], "option --auth=nosuch: is badly used here");
+
+    [TestMethod]
+    [DataRow(new[] { "--self-signed", "--cert", "c.pem" }, DisplayName = "Before --cert")]
+    [DataRow(new[] { "--cert", "c.pem", "--self-signed" }, DisplayName = "After --cert")]
+    public void Parse_SelfSignedWithCert_IsRefused(string[] arguments) =>
+        AssertOptionRefused([.. arguments, Url], "option --self-signed: cannot be used with --cert");
+
+    [TestMethod]
+    public void Parse_SelfSignedReversedWithCert_IsServed()
+    {
+        var commandLine = Served("--self-signed", "--no-self-signed", "--cert", "c.pem", Url);
+
+        Assert.IsFalse(commandLine.SelfSigned);
+        Assert.AreEqual("c.pem", commandLine.CertificateFile);
+    }
+
+    [TestMethod]
+    public void SurlCommandLineToString_WithAccounts_HoldsNoPassword()
+    {
+        var commandLine = new SurlCommandLine { Accounts = [new("alice", "s3cr3t-pw"), new(string.Empty, "t0ken-value")] };
+
+        var text = commandLine.ToString();
+
+        Assert.DoesNotContain("s3cr3t-pw", text);
+        Assert.DoesNotContain("t0ken-value", text);
+    }
+
+    [TestMethod]
+    public void CommandLineAccountToString_NamesTheUserWithoutThePassword()
+    {
+        var text = new CommandLineAccount("alice", "s3cr3t-pw").ToString();
+
+        Assert.AreEqual("CommandLineAccount { UserName = alice }", text);
+    }
 
     [TestMethod]
     public void Parse_ShortFlagsBundled_SetsEach()

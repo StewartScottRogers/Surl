@@ -7,7 +7,8 @@ namespace Surl.Cli;
 
 /// <summary>
 /// ADR-0007 section 2's Phase 1 option table, with ADR-0010 section 3's <c>--cert-type</c>,
-/// <c>--key-type</c> and <c>--pass</c> and ADR-0033 section 2's logging options, looked up by long and by short name. Each row carries
+/// <c>--key-type</c> and <c>--pass</c>, ADR-0033 section 2's logging options and ADR-0032 section 1's
+/// authentication options, looked up by long and by short name. Each row carries
 /// its help (ADR-0034 decision 2), so an option cannot be added without it.
 /// </summary>
 internal static class CommandLineOptions
@@ -90,6 +91,19 @@ internal static class CommandLineOptions
             new("<phrase>", "Passphrase for the private key", ["tls"], IsInShortList: false, Default: "none")),
         WithArgument<string>("cacert", null, OptionArgumentReader.ReadPath, (c, v) => c with { CaCertificateFile = v },
             new("<file>", "CA certificates for client certs", ["tls"], IsInShortList: false, Default: "none")),
+        WithArgument<CommandLineAccount>("user", 'u', OptionArgumentReader.ReadAccount, (c, v) => c with { Accounts = [.. c.Accounts, v] },
+            new("<user:password>", "Add an account (repeatable)", ["auth", "http", "mqtt"], IsInShortList: true, Default: "no accounts"))
+            with { ArgumentHoldsSecret = true },
+        WithArgument<string>("user-file", null, OptionArgumentReader.ReadPath, (c, v) => c with { UserFile = v },
+            new("<file>", "Read accounts from a file", ["auth", "http", "mqtt"], IsInShortList: true, Default: "none")),
+        Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
+            new(null, "Accept any login, or none (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off")),
+        Flag("allow-plaintext-auth", null, negatable: true, (c, on) => c with { AllowPlaintextAuthentication = on },
+            new(null, "Accept passwords in clear (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off")),
+        WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.ReadAuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
+            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "basic,bearer,digest,aws-sigv4")),
+        Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
+            new(null, "Throwaway certificate (warns)", ["security", "testing", "tls"], IsInShortList: false, Default: "off")),
     ];
 #pragma warning restore SYSLIB0039
 

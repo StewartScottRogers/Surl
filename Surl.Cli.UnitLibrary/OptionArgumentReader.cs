@@ -27,6 +27,22 @@ internal static class OptionArgumentReader
     /// <summary>An empty <c>&lt;file&gt;</c> or <c>&lt;directory&gt;</c> argument.</summary>
     public const string Blank = "blank argument where content is expected";
 
+    /// <summary>A <c>&lt;user:password&gt;</c> argument with no <c>:</c> (ADR-0032 section 1).</summary>
+    public const string ExpectedUserColonPassword = "expected <user:password>";
+
+    /// <summary>A <c>&lt;user:password&gt;</c> argument with nothing after its first <c>:</c>.</summary>
+    public const string EmptyPassword = "the password is empty";
+
+    /// <summary>A <c>&lt;user:password&gt;</c> argument whose name holds U+0000 to U+001F or U+007F.</summary>
+    public const string ControlCharacterInUserName = "the user name holds a control character";
+
+    /// <summary>
+    /// The <c>--auth</c> words in ADR-0032 section 3's listing order, the order
+    /// <see cref="ReadAuthenticationMethods"/> returns them in.
+    /// </summary>
+    public static readonly IReadOnlyList<string> AuthenticationMethodWords =
+        ["negotiate", "ntlm", "digest", "basic", "bearer", "aws-sigv4"];
+
     private const string SizeSuffixes = "kmgtp";
     private const decimal BytesPerSuffixStep = 1024m;
 
@@ -183,6 +199,85 @@ internal static class OptionArgumentReader
         value = argument;
         return null;
     }
+
+    /// <summary>
+    /// Reads <c>&lt;user:password&gt;</c> (ADR-0032 section 1): split at the first <c>:</c>, so
+    /// <c>a:b:c</c> is the name <c>a</c> and the password <c>b:c</c>, and nothing trimmed. An
+    /// empty argument is blank; no <c>:</c>, an empty password or a control character in the
+    /// name is refused.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The account.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadAccount(string argument, out CommandLineAccount value)
+    {
+        var colon = argument.IndexOf(':', StringComparison.Ordinal);
+        value = colon < 0 ? new(argument, string.Empty) : new(argument[..colon], argument[(colon + 1)..]);
+        return RefuseAccount(argument, colon, value);
+    }
+
+    /// <summary>
+    /// Reads the <c>--auth</c> method list (ADR-0032 sections 1 and 3): comma-separated words
+    /// from <see cref="AuthenticationMethodWords"/>, in any case, with no empty item. A word
+    /// given twice counts once.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The words named, lower-case, in <see cref="AuthenticationMethodWords"/>' order.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadAuthenticationMethods(string argument, out IReadOnlyList<string> value)
+    {
+        var named = new bool[AuthenticationMethodWords.Count];
+        value = [];
+        foreach (var item in argument.Split(','))
+        {
+            var index = IndexOfAuthenticationMethodWord(item);
+            if (index < 0)
+            {
+                return BadlyUsed;
+            }
+
+            named[index] = true;
+        }
+
+        value = [.. AuthenticationMethodWords.Where((_, index) => named[index])];
+        return null;
+    }
+
+    private static int IndexOfAuthenticationMethodWord(string item)
+    {
+        for (var index = 0; index < AuthenticationMethodWords.Count; index++)
+        {
+            if (string.Equals(item, AuthenticationMethodWords[index], StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>The refusal of a <c>&lt;user:password&gt;</c> argument split at <paramref name="colon"/>, or null.</summary>
+    private static string? RefuseAccount(string argument, int colon, CommandLineAccount account)
+    {
+        if (argument.Length == 0)
+        {
+            return Blank;
+        }
+
+        if (colon < 0)
+        {
+            return ExpectedUserColonPassword;
+        }
+
+        if (account.Password.Length == 0)
+        {
+            return EmptyPassword;
+        }
+
+        return account.UserName.Any(IsControlCharacter) ? ControlCharacterInUserName : null;
+    }
+
+    private static bool IsControlCharacter(char character) => character < ' ' || character == '\u007F';
 
     /// <summary>
     /// Splits a trailing size suffix off <paramref name="argument"/>; returns the refusal

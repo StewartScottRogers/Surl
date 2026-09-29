@@ -144,4 +144,50 @@ public sealed record SurlCommandLine
     /// none by default.
     /// </summary>
     public string? CaCertificateFile { get; init; }
+
+    /// <summary>
+    /// The accounts from every <c>-u</c>/<c>--user</c>, in command-line order: each one adds an
+    /// account, and no user name is given twice (ADR-0032 section 1). None by default.
+    /// </summary>
+    public IReadOnlyList<CommandLineAccount> Accounts { get; init; } = [];
+
+    /// <summary>
+    /// <c>--user-file</c>: the file of more accounts, as given; none by default. It is read
+    /// when surl starts serving, not while parsing (ADR-0032 section 2).
+    /// </summary>
+    public string? UserFile { get; init; }
+
+    /// <summary>
+    /// <c>--allow-anonymous</c>: accept every request and login without checking credentials.
+    /// Off by default.
+    /// </summary>
+    public bool AllowAnonymous { get; init; }
+
+    /// <summary>
+    /// <c>--allow-plaintext-auth</c>: accept passwords and tokens over unencrypted connections.
+    /// Off by default.
+    /// </summary>
+    public bool AllowPlaintextAuthentication { get; init; }
+
+    /// <summary>
+    /// The <c>--auth</c> words of the last <c>--auth</c>, lower-case and in ADR-0032 section 3's
+    /// order; <see langword="null"/> when <c>--auth</c> was not given.
+    /// </summary>
+    public IReadOnlyList<string>? GivenAuthenticationMethods { get; init; }
+
+    /// <summary>
+    /// The authentication methods accepted: <see cref="GivenAuthenticationMethods"/>, or
+    /// <c>digest</c>, <c>basic</c>, <c>bearer</c> and <c>aws-sigv4</c> when <c>--auth</c> was not
+    /// given (ADR-0032 section 1), in ADR-0032 section 3's order.
+    /// </summary>
+    public IReadOnlyList<string> AcceptedAuthenticationMethods => GivenAuthenticationMethods ?? DefaultAuthenticationMethods;
+
+    /// <summary>
+    /// <c>--self-signed</c>: serve a throwaway self-signed certificate when no <c>--cert</c> is
+    /// given. Off by default.
+    /// </summary>
+    public bool SelfSigned { get; init; }
+
+    /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
+    private static readonly IReadOnlyList<string> DefaultAuthenticationMethods = ["digest", "basic", "bearer", "aws-sigv4"];
 }

@@ -46,4 +46,11 @@ internal sealed record CommandLineOption(
     bool Negatable,
     SetFlag? SetFlag,
     ApplyArgument? ApplyArgument,
-    OptionHelp Help);
+    OptionHelp Help)
+{
+    /// <summary>
+    /// Whether the argument holds a secret (<c>--user</c>'s password), so a refusal names the
+    /// option as written without any value, never echoing it (ADR-0032 section 1).
+    /// </summary>
+    public bool ArgumentHoldsSecret { get; init; }
+}

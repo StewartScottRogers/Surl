@@ -42,6 +42,8 @@ public sealed class HelpTextTests
             "     --key <file>             Private key for --cert",
             "     --list-directories       Answer directory listings",
             " -s, --silent                 Silent mode",
+            " -u, --user <user:password>   Add an account (repeatable)",
+            "     --user-file <file>       Read accounts from a file",
             " -v, --verbose                Log every exchange event",
             " -V, --version                Show version number and quit",
             "",
@@ -64,7 +66,10 @@ public sealed class HelpTextTests
 
         AssertOutput(
             answer,
+            Row(46, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(46, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             "     --allow-uploads                         Accept uploads into served files",
+            Row(46, "    --auth <methods>", "Authentication methods accepted"),
             "     --cacert <file>                         CA certificates for client certs",
             "     --cert <file>                           Server certificate file",
             "     --cert-type <type>                      Format of --cert: PEM, DER or P12",
@@ -86,6 +91,7 @@ public sealed class HelpTextTests
             "     --max-request-head <bytes>              Largest HTTP or RTSP request head",
             " -m, --max-time <seconds>                    Longest time one exchange may take",
             "     --pass <phrase>                         Passphrase for the private key",
+            Row(46, "    --self-signed", "Throwaway certificate (warns)"),
             "     --serve-dot-files                       Serve names that start with a dot",
             " -S, --show-error                            Show error even when -s is used",
             " -s, --silent                                Silent mode",
@@ -97,6 +103,8 @@ public sealed class HelpTextTests
             "     --trace <file>                          Write a debug trace to <file>",
             "     --trace-ascii <file>                    Like --trace, but without hex",
             "     --trace-time                            Add time stamps to log lines",
+            Row(46, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(46, "    --user-file <file>", "Read accounts from a file"),
             " -v, --verbose                               Log every exchange event",
             " -V, --version                               Show version number and quit");
     }
@@ -120,10 +128,25 @@ public sealed class HelpTextTests
     // --help <category>.
 
     [TestMethod]
-    [DataRow("auth", "auth: Accounts and authentication methods")]
-    [DataRow("testing", "testing: Loosening options for tests (warned)")]
-    public void Answer_CategoryWithNoOptionYet_IsItsHeadingAlone(string subject, string heading) =>
-        AssertOutput(HelpText.Answer(subject), heading);
+    public void Answer_Auth_ListsItsOptions() =>
+        AssertOutput(
+            HelpText.Answer("auth"),
+            "auth: Accounts and authentication methods",
+            Row(30, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(30, "    --auth <methods>", "Authentication methods accepted"),
+            Row(30, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(30, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Testing_ListsItsOptions() =>
+        AssertOutput(
+            HelpText.Answer("testing"),
+            "testing: Loosening options for tests (warned)",
+            Row(30, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(30, "    --auth <methods>", "Authentication methods accepted"),
+            Row(30, "    --self-signed", "Throwaway certificate (warns)"));
 
     [TestMethod]
     public void Answer_Content_ListsItsOptions() =>
@@ -164,12 +187,17 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("http"),
             "http: HTTP and HTTPS protocol",
+            Row(34, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(34, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(34, "    --auth <methods>", "Authentication methods accepted"),
             Row(34, "    --directory <directory>", "Data directory, else in memory"),
             Row(34, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(34, "    --head-timeout <seconds>", "Time to send a request head"),
             Row(34, "    --max-filesize <bytes>", "Largest upload accepted"),
             Row(34, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
-            Row(34, "    --serve-dot-files", "Serve names that start with a dot"));
+            Row(34, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(34, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(34, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Limits_ListsItsOptions() =>
@@ -243,6 +271,46 @@ public sealed class HelpTextTests
             "");
 
     [TestMethod]
+    [DataRow("--user", DisplayName = "Long name")]
+    [DataRow("-u", DisplayName = "Short name")]
+    public void Answer_User_IsItsPage(string subject) =>
+        AssertOutput(
+            HelpText.Answer(subject),
+            "    -u, --user <user:password>",
+            "        Add an account (repeatable). Default: no accounts.",
+            "",
+            "        Categories: auth, http, mqtt.",
+            "");
+
+    [TestMethod]
+    [DataRow("--user-file", "    --user-file <file>", "Read accounts from a file. Default: none.", "auth, http, mqtt")]
+    [DataRow("--allow-anonymous", "    --allow-anonymous", "Accept any login, or none (warns). Default: off.", "auth, http, mqtt, security, testing")]
+    [DataRow("--no-allow-plaintext-auth", "    --allow-plaintext-auth", "Accept passwords in clear (warns). Default: off.", "auth, http, mqtt, security, testing")]
+    [DataRow("--self-signed", "    --self-signed", "Throwaway certificate (warns). Default: off.", "security, testing, tls")]
+    public void Answer_AuthenticationOption_IsItsPage(string subject, string leftSide, string description, string categories) =>
+        AssertOutput(
+            HelpText.Answer(subject),
+            leftSide,
+            "        " + description,
+            "",
+            "        Categories: " + categories + ".",
+            "");
+
+    [TestMethod]
+    public void Answer_Auth_IsItsPageWithItsDefaultWrapped() =>
+        AssertOutput(
+            HelpText.Answer("--auth"),
+            "    --auth <methods>",
+            "        Authentication methods accepted. Default:",
+            "        basic,bearer,digest,aws-sigv4.",
+            "",
+            "        Categories: auth, http, security, testing.",
+            "");
+
+    [TestMethod]
+    [DataRow("--no-user")]
+    [DataRow("--no-user-file")]
+    [DataRow("--no-auth")]
     [DataRow("--no-log-level")]
     [DataRow("--no-trace")]
     [DataRow("--no-trace-ascii")]
@@ -255,22 +323,30 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("mqtt"),
             "mqtt: MQTT and MQTTS protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             Row(32, "    --directory <directory>", "Data directory, else in memory"),
             Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
             Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
-            Row(32, "    --max-message <bytes>", "Largest framed message accepted"));
+            Row(32, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Security_ListsItsOptions() =>
         AssertOutput(
             HelpText.Answer("security"),
             "security: Options that widen what a peer may do",
-            Row(26, "    --allow-uploads", "Accept uploads into served files"),
-            Row(26, "    --follow-symlinks", "Follow links that stay in the root"),
-            Row(26, "    --list-directories", "Answer directory listings"),
-            Row(26, "    --serve-dot-files", "Serve names that start with a dot"),
-            Row(26, "    --tlsv1.0", "Accept TLS 1.0 or later"),
-            Row(26, "    --tlsv1.1", "Accept TLS 1.1 or later"));
+            Row(30, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(30, "    --allow-uploads", "Accept uploads into served files"),
+            Row(30, "    --auth <methods>", "Authentication methods accepted"),
+            Row(30, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(30, "    --list-directories", "Answer directory listings"),
+            Row(30, "    --self-signed", "Throwaway certificate (warns)"),
+            Row(30, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(30, "    --tlsv1.0", "Accept TLS 1.0 or later"),
+            Row(30, "    --tlsv1.1", "Accept TLS 1.1 or later"));
 
     [TestMethod]
     public void Answer_Surl_ListsItsOptions() =>
@@ -311,6 +387,7 @@ public sealed class HelpTextTests
             "     --key <file>         Private key for --cert",
             "     --key-type <type>    Format of --key: PEM or DER",
             "     --pass <phrase>      Passphrase for the private key",
+            "     --self-signed        Throwaway certificate (warns)",
             "     --tls-max <version>  Highest TLS version accepted",
             "     --tlsv1.0            Accept TLS 1.0 or later",
             "     --tlsv1.1            Accept TLS 1.1 or later",
