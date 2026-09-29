@@ -60,3 +60,4 @@ so this task returns to Backlog until BL-061 leaves Doing. No code was started.
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
 - 2026-09-29: Doing -> Backlog. Needs Documentation/Planning/Decisions/ADR-0013 (amendment 1), inside Documentation/Planning/Decisions, which BL-061 in Doing touches; resume once BL-061 leaves Doing.
+- 2026-09-29: Backlog -> Doing.
