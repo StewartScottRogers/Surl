@@ -1,5 +1,5 @@
 ---
-id: BL-068
+id: BL-072
 title: Pass the connection-limit options to the serving engine in Surl.Console
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-068 — Pass the connection-limit options to the serving engine in Surl.Console
+# BL-072 — Pass the connection-limit options to the serving engine in Surl.Console
 
 ## Goal
 

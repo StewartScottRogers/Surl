@@ -1,5 +1,5 @@
 ---
-id: BL-070
+id: BL-074
 title: Log each connection refused past a connection limit
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-070 — Log each connection refused past a connection limit
+# BL-074 — Log each connection refused past a connection limit
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-071
+id: BL-075
 title: Count datagram flows against the connection limits in Surl.Core
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-071 — Count datagram flows against the connection limits in Surl.Core
+# BL-075 — Count datagram flows against the connection limits in Surl.Core
 
 ## Goal
 

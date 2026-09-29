@@ -52,7 +52,7 @@ Plan, as built (ADR-0006 sections 1, 5 and 6):
   `Default`; 0 is no limit; `None` is all zeros. A new `ServingEngine` constructor takes
   one; the old constructor uses `ConnectionLimits.Default`, so `Surl.Console` enforces the
   ADR's defaults today without a change outside this task's `touches`. The options are
-  already parsed by `Surl.Cli` (`SurlCommandLine`); passing them through is BL-068.
+  already parsed by `Surl.Cli` (`SurlCommandLine`); passing them through is BL-072.
 - `ConnectionAdmission` counts connections in total and per remote IP address
   (IPv4-mapped IPv6 folded to IPv4; an endpoint with no IP counts only against the
   total). It is checked on the accept loop; a connection past a limit is never counted
@@ -75,20 +75,20 @@ Choices taken as sensible defaults (rule 1):
 - A connection's slot is released after the connection is disposed (in a `finally`), so
   a dispose that lingers still counts against the limit.
 - `ConnectionLimits` refuses a duration above 4294967294 ms (`MaxTimeout`), the most a
-  `CancellationTokenSource` counts down; BL-068 maps that to exit code 2 on the command
+  `CancellationTokenSource` counts down; BL-072 maps that to exit code 2 on the command
   line.
 - The cancellation note gives the first reason that fired (recorded by a registration on
   the exchange token), falling back to the reason that holds now, shutdown first.
 - Refusals are not logged yet: `IExchangeLogFactory.Create` needs an `ExchangeId`, and a
   refused connection has none (ADR-0006 section 5). Changing that contract is outside
-  this task's `touches`; filed as BL-070.
+  this task's `touches`; filed as BL-074.
 - Datagram flows are not counted yet: the engine refuses datagram schemes until BL-032
-  dispatches flows. Filed as BL-071.
+  dispatches flows. Filed as BL-075.
 
 Review (code-reviewer) found, and this task fixed: the admission release moved into a
 `finally`; a hard stop for a refusal writer that ignores its token; the first-fired
 reason in the cancellation note; `RestartIdleClock` after dispose is a no-op; an
-`ExchangeDeadlinesTests` class. Also filed: BL-069 (`StreamConnection` can leak its socket
+`ExchangeDeadlinesTests` class. Also filed: BL-073 (`StreamConnection` can leak its socket
 when a graceful close after a cancelled write throws something other than `IOException`,
 and can block without bound on TLS).
 

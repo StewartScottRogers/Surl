@@ -1,5 +1,5 @@
 ---
-id: BL-069
+id: BL-073
 title: Dispose the transport after a failed graceful close in Surl.Networking
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-069 — Dispose the transport after a failed graceful close in Surl.Networking
+# BL-073 — Dispose the transport after a failed graceful close in Surl.Networking
 
 ## Goal
 
