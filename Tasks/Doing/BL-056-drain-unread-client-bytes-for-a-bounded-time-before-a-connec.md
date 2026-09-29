@@ -49,3 +49,4 @@ response instead of failing with exit code 56 ("Recv failure: Connection reset b
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-29: Backlog -> Doing.
