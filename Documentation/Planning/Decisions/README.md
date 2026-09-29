@@ -27,3 +27,4 @@ made, a Surl ADR says so and gives its own reasons.
 | [0006](ADR-0006-hardening-for-internet-facing-use.md) | Hardening for internet-facing use: connection, time and size limits, exposure defaults, what a peer may learn, TLS 1.2 minimum | Accepted | 2026-09-28 |
 | [0007](ADR-0007-the-phase-1-command-line-surface.md) | The Phase 1 command-line surface: parser conventions measured from upstream curl, the option table, listen-URL rules, exact output texts and the verbose-log format | Accepted | 2026-09-28 |
 | [0008](ADR-0008-how-the-http-server-answers-get-head-and-refusals.md) | How the HTTP server answers GET and HEAD, and the status, fields and persistence of each refusal | Accepted | 2026-09-28 |
+| [0009](ADR-0009-what-a-content-store-directory-listing-holds.md) | What a content-store directory listing holds: ordinal order, no unrequestable names, no link out of the root; dot-files left to ADR-0006's options | Accepted | 2026-09-28 |
