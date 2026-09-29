@@ -5,7 +5,7 @@ priority: High
 assignee: Claude
 pipeline: direct
 depends-on: [BL-028]
-touches: [UpstreamCurlBuilds.json, .github/workflows/ci.yml]
+touches: [UpstreamCurlBuilds.json, .github/workflows/ci.yml, Surl.Networking.UnitTests]
 requirement: none
 created: 2026-09-28
 completed:
@@ -49,7 +49,31 @@ skipped or inconclusive), and the `linux-x64` and `osx-arm64` pins' `version`,
 
 ## Notes
 
+- 2026-09-28, run 1: no `CI` run contained BL-028's commits (`factory/**` pushes do not
+  run CI and no merge pull request was open), so this run dispatched one on the shift
+  branch: https://github.com/StewartScottRogers/Surl/actions/runs/36531859090 (head
+  12dabd8). Windows green; Linux and macOS red in `Fast tests`, before any upstream curl
+  step ran, so the pins and the conformance steps are still unobserved.
+- Cause: `ServerTlsSettingsTests.CreateAuthenticationOptions_Intermediates_AreInTheCertificateContext`
+  passed a self-signed authority as the "intermediate". On Linux and macOS
+  `SslStreamCertificateContext` trims a chain's self-signed root, so the context held no
+  intermediate (`Sequence contains no elements`). Fixed in the test: a real root ->
+  intermediate -> leaf chain, handing over only the intermediate (partial chain, so no
+  platform trims it). Added `Surl.Networking.UnitTests` to `touches` for this; no task in
+  Doing names it (BL-032: Surl.Core, BL-062: Surl.Console).
+- Also found: on Windows `SslStreamCertificateContext` adds intermediates to the user's
+  `CurrentUser\CA` store. The old test had left 52 self-signed `CN=surl test intermediate`
+  certificates there on this machine, and Windows' chain engine then picked one of them
+  up ("An unknown chain building error occurred"). The intermediate's subject now carries a
+  GUID per run. The store still gains one certificate per run on Windows; left as is (not
+  deleted from Stewart's store by an unattended run).
+- The fix is committed on its own (finished, build clean, fast tests green) so the shift
+  pushes it; the acceptance criteria can only be checked on a `CI` run that contains it,
+  which a lane cannot trigger before the shift pushes. Next run: `gh workflow run CI --ref
+  <shift branch>` (or read the merge pull request's run), then check the three boxes.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Backlog. Waiting for the shift to push the networking test fix; the CI legs can only be checked on a run containing it (run 36531859090 was red on Linux/macOS in Fast tests)
