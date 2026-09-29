@@ -8,7 +8,7 @@ depends-on: [BL-070]
 touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-071 — Retire ContentStore's two-argument constructor now that surl passes exposure options
 
@@ -29,17 +29,31 @@ and no document says a caller still serves with `ServeEverythingInsideTheRoot`.
 
 ## Acceptance criteria
 
-- [ ] `ContentStore(string, IContentFileSystem)` is removed, or kept with a doc comment
+- [x] `ContentStore(string, IContentFileSystem)` is removed, or kept with a doc comment
       that is true of the code as it is now; the choice and why are under Notes.
-- [ ] `ContentExposureOptions.ServeEverythingInsideTheRoot` is removed or its doc comment
+- [x] `ContentExposureOptions.ServeEverythingInsideTheRoot` is removed or its doc comment
       no longer names callers that do not exist.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
 
 Filed by BL-070.
 
+- 2026-09-29, choice: **kept** `ContentStore(string, IContentFileSystem)` and
+  `ContentExposureOptions.ServeEverythingInsideTheRoot`, with doc comments rewritten to be
+  true now. Why: no production code calls the constructor (`Surl.Console` uses the
+  three-argument one via `ComposeContentStore`), but the HTTP, Gopher, DICT and TFTP test
+  projects still do, ~20 call sites. Removing it would reach outside this task's `touches`
+  into four protocol test projects plus DICT's library decision - exactly BL-069's scope,
+  which already owns the removal. The comments now say no production caller exists, name
+  the test callers, and name BL-069 as the task that removes both.
+- The Goal's "no document says a caller still serves with it" stays partly open until
+  BL-069: the tests really do still serve with it, and the comment now says so honestly.
+- ADR-0015 section 8 describes the state at BL-047 (a historical decision record); left
+  as written, outside `touches`.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ContentStore's two-argument constructor and ServeEverythingInsideTheRoot now document truthfully that only tests use them, and BL-069 removes them
