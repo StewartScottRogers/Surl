@@ -5,7 +5,7 @@ namespace Surl.Protocol.Tftp;
 /// </summary>
 internal enum TftpErrorCode
 {
-    /// <summary>Not defined; the message says what went wrong.</summary>
+    /// <summary>Not defined; the message says what went wrong. Upstream curl exits 71, <c>CURLE_TFTP_ILLEGAL</c>.</summary>
     NotDefined = 0,
 
     /// <summary>File not found: upstream curl exits 68, <c>CURLE_TFTP_NOTFOUND</c>.</summary>
@@ -13,6 +13,9 @@ internal enum TftpErrorCode
 
     /// <summary>Access violation: upstream curl exits 69, <c>CURLE_TFTP_PERM</c>.</summary>
     AccessViolation = 2,
+
+    /// <summary>Disk full or allocation exceeded: upstream curl exits 70, <c>CURLE_REMOTE_DISK_FULL</c>.</summary>
+    DiskFull = 3,
 
     /// <summary>Illegal TFTP operation: upstream curl exits 71, <c>CURLE_TFTP_ILLEGAL</c>.</summary>
     IllegalOperation = 4,

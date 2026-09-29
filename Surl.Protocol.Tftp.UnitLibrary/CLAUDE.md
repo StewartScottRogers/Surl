@@ -2,18 +2,22 @@
 
 Phase 1, alongside HTTP.
 
-The TFTP server (RFC 1350) over a datagram flow: read requests with the `blksize`, `tsize`
-and `timeout` options (RFC 2347 to RFC 2349) upstream curl sends, served from the content
-store. Its transport is a datagram flow, not a connection.
+The TFTP server (RFC 1350) over a datagram flow: read and write requests with the
+`blksize`, `tsize` and `timeout` options (RFC 2347 to RFC 2349) upstream curl sends, served
+from and written to the content store. Its transport is a datagram flow, not a connection.
 
 **URL schemes answered:** `tftp` (`TftpProtocolServer.Schemes`)
 
 `TftpProtocolServer` answers the request that opened a flow from a new transfer port, as
-ADR-0013 decides: `TftpReadRequest` parses the RRQ, `TftpFileName` maps its file name onto
+ADR-0013 decides: `TftpRequest` parses the RRQ, `TftpFileName` maps its file name onto
 a content-store request path, `TftpNegotiation` answers its options, and
 `TftpReadTransfer` sends the OACK and DATA blocks in lock step, retransmitting on the
-exchange's `TimeProvider`. Missing and refused files get ERROR 1; a write request gets
-ERROR 2, until BL-054 accepts uploads behind `--allow-uploads`. Its fixtures and the
+exchange's `TimeProvider`. `TftpRequest` also parses a WRQ, and `TftpWriteTransfer`
+receives it through `TftpUploadStream`, which ACKs each DATA block as `ContentStore.WriteUploadAsync`
+reads it; both transfers share `TftpLockStep`'s send, wait and resend. Missing and refused files get
+ERROR 1; a write gets ERROR 2 while uploads are off, and ERROR 3 past the upload limit.
+`TftpProtocolServer` is also the `IDatagramRefusalWriter`: ERROR 0 for a flow past a
+connection limit. ADR-0013 and its amendment record every answer. Its fixtures and the
 commands that recorded them are in `Surl.Protocol.Tftp.UnitTests/Fixtures/README.md`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference

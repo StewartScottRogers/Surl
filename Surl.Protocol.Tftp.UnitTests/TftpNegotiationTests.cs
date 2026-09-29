@@ -12,6 +12,7 @@ public sealed class TftpNegotiationTests
 
         Assert.AreEqual(512, negotiation.BlockSize);
         Assert.AreEqual(TimeSpan.FromSeconds(5), negotiation.RetransmissionTimeout);
+        Assert.IsNull(negotiation.TransferSize);
         Assert.IsNull(negotiation.OptionAcknowledgement);
     }
 
@@ -63,6 +64,29 @@ public sealed class TftpNegotiationTests
         var negotiation = TftpNegotiation.ForRead([new TftpOption("tsize", "0")], 5000000000);
 
         Assert.AreEqual("tsize\u00005000000000\0", Oack(negotiation));
+        Assert.AreEqual(5000000000, negotiation.TransferSize);
+    }
+
+    [TestMethod]
+    public void ForWrite_TransferSize_IsEchoedAsTheAnnouncedUploadLength()
+    {
+        var negotiation = TftpNegotiation.ForWrite([new TftpOption("tsize", "604"), new TftpOption("blksize", "512"), new TftpOption("timeout", "6")]);
+
+        Assert.AreEqual("tsize\u0000604\0blksize\u0000512\0timeout\u00006\0", Oack(negotiation));
+        Assert.AreEqual(604, negotiation.TransferSize);
+        Assert.AreEqual(TimeSpan.FromSeconds(6), negotiation.RetransmissionTimeout);
+    }
+
+    [TestMethod]
+    [DataRow("-1")]
+    [DataRow("")]
+    [DataRow("6x")]
+    public void ForWrite_TransferSizeThatIsNotANumber_IsLeftOut(string value)
+    {
+        var negotiation = TftpNegotiation.ForWrite([new TftpOption("tsize", value)]);
+
+        Assert.IsNull(negotiation.OptionAcknowledgement);
+        Assert.IsNull(negotiation.TransferSize);
     }
 
     [TestMethod]

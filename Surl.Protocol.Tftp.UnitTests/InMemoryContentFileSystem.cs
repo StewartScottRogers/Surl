@@ -10,6 +10,7 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
 {
     private readonly Dictionary<string, ContentEntryKind> entries = new(StringComparer.Ordinal);
     private readonly Dictionary<string, byte[]> fileContents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, MemoryStream> writtenFiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, long> reportedLengths = new(StringComparer.Ordinal);
     private readonly Dictionary<string, DateTimeOffset> lastWriteTimes = new(StringComparer.Ordinal);
 
@@ -26,6 +27,12 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
         lastWriteTimes[path] = lastWriteTime;
         return this;
     }
+
+    /// <summary>
+    /// When set, every write to a file created for writing throws <see cref="IOException"/>,
+    /// as a full disk does.
+    /// </summary>
+    public bool FailWrites { get; init; }
 
     public InMemoryContentFileSystem AddDirectory(string path)
     {
@@ -44,6 +51,32 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
 
     public Stream OpenFileForAsyncRead(string path) => new MemoryStream(fileContents[path], writable: false);
 
+    /// <summary>
+    /// Creates an empty file whose contents are whatever is written to the returned stream,
+    /// read back with <see cref="ReadFile"/>.
+    /// </summary>
+    public Stream CreateFileForAsyncWrite(string path)
+    {
+        var contents = FailWrites ? new FailingWriteStream() : new MemoryStream();
+        entries[path] = ContentEntryKind.File;
+        writtenFiles[path] = contents;
+        return contents;
+    }
+
+    public void DeleteFile(string path)
+    {
+        entries.Remove(path);
+        writtenFiles.Remove(path);
+        fileContents.Remove(path);
+    }
+
+    /// <summary>
+    /// The bytes of the file at <paramref name="path"/>, or <see langword="null"/> when there
+    /// is none.
+    /// </summary>
+    public byte[]? ReadFile(string path) =>
+        writtenFiles.TryGetValue(path, out var written) ? written.ToArray() : fileContents.GetValueOrDefault(path);
+
     public IEnumerable<string> EnumerateDirectoryEntryNames(string path)
     {
         string prefix = path + Path.DirectorySeparatorChar;
@@ -52,5 +85,11 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
                 && entry.IndexOf(Path.DirectorySeparatorChar, prefix.Length) < 0)
             .Select(entry => entry[prefix.Length..])
             .ToList();
+    }
+
+    private sealed class FailingWriteStream : MemoryStream
+    {
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
+            throw new IOException("There is not enough space on the disk.");
     }
 }

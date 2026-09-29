@@ -22,18 +22,7 @@ internal sealed class TftpReadTransfer(
     long fileLength,
     TftpNegotiation negotiation)
 {
-    /// <summary>
-    /// How many times a packet is sent again before the server gives up on the client.
-    /// </summary>
-    public const int MaximumRetransmissions = 5;
-
-    private enum AcknowledgementOutcome
-    {
-        Acknowledged,
-        TimedOut,
-        ClientError,
-        IllegalPacket,
-    }
+    private readonly TftpLockStep lockStep = new(flow, context, negotiation.RetransmissionTimeout);
 
     /// <summary>
     /// Runs the transfer to its end: the last block acknowledged, the client's ERROR, an
@@ -56,7 +45,7 @@ internal sealed class TftpReadTransfer(
             if (await ReadDataPacketAsync(blockNumber, offset, count) is not { } packet)
             {
                 context.Log.Note($"{mapping.Location} shrank below {offset + count} bytes while it was sent; the transfer was ended with ERROR 0.");
-                await SendAsync(TftpPacket.ForError(TftpErrorCode.NotDefined, "The file changed while it was sent."));
+                await lockStep.SendAsync(TftpPacket.ForError(TftpErrorCode.NotDefined, "The file changed while it was sent."));
                 return;
             }
 
@@ -93,64 +82,6 @@ internal sealed class TftpReadTransfer(
         return copied < count ? null : TftpPacket.ForData(blockNumber, block.GetBuffer().AsSpan(0, count));
     }
 
-    private async Task<bool> SendUntilAcknowledgedAsync(byte[] packet, ushort blockNumber)
-    {
-        for (var sends = 0; sends <= MaximumRetransmissions; sends++)
-        {
-            await SendAsync(packet);
-            switch (await AwaitAcknowledgementAsync(blockNumber))
-            {
-                case AcknowledgementOutcome.Acknowledged:
-                    return true;
-                case AcknowledgementOutcome.ClientError:
-                    context.Log.Note($"The client ended the transfer with an ERROR while block {blockNumber} awaited its ACK.");
-                    return false;
-                case AcknowledgementOutcome.IllegalPacket:
-                    context.Log.Note($"The client sent a packet that is neither an ACK nor an ERROR while block {blockNumber} awaited its ACK; the transfer was ended with ERROR 4.");
-                    await SendAsync(TftpPacket.ForError(TftpErrorCode.IllegalOperation, "Illegal TFTP operation"));
-                    return false;
-            }
-        }
-
-        context.Log.Note($"Block {blockNumber} was not acknowledged after {MaximumRetransmissions} retransmissions, {negotiation.RetransmissionTimeout.TotalSeconds} seconds apart; the transfer was abandoned.");
-        return false;
-    }
-
-    private async Task<AcknowledgementOutcome> AwaitAcknowledgementAsync(ushort blockNumber)
-    {
-        using var timeout = new CancellationTokenSource(negotiation.RetransmissionTimeout, context.TimeProvider);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, timeout.Token);
-        try
-        {
-            while (true)
-            {
-                var datagram = await flow.ReceiveAsync(linked.Token);
-                if (Classify(datagram.Span, blockNumber) is { } outcome)
-                {
-                    return outcome;
-                }
-            }
-        }
-        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
-        {
-            return AcknowledgementOutcome.TimedOut;
-        }
-    }
-
-    /// <summary>
-    /// What a datagram from the client means while <paramref name="blockNumber"/> awaits its
-    /// ACK; <see langword="null"/> for an ACK of another block, such as a duplicate ACK of
-    /// the block before, which is ignored so that it never triggers a second copy of a block
-    /// (RFC 1123 section 4.2.3.1).
-    /// </summary>
-    private static AcknowledgementOutcome? Classify(ReadOnlySpan<byte> datagram, ushort blockNumber) =>
-        (TftpPacket.ReadOpcode(datagram), TftpPacket.ReadBlockNumber(datagram)) switch
-        {
-            (TftpPacket.Acknowledgement, var block) when block == blockNumber => AcknowledgementOutcome.Acknowledged,
-            (TftpPacket.Acknowledgement, >= 0) => null,
-            (TftpPacket.Error, _) => AcknowledgementOutcome.ClientError,
-            _ => AcknowledgementOutcome.IllegalPacket,
-        };
-
-    private ValueTask SendAsync(byte[] packet) => flow.SendAsync(packet, context.CancellationToken);
+    private async Task<bool> SendUntilAcknowledgedAsync(byte[] packet, ushort blockNumber) =>
+        await lockStep.SendUntilAnsweredAsync(packet, TftpPacket.Acknowledgement, blockNumber, $"block {blockNumber} awaited its ACK") is not null;
 }

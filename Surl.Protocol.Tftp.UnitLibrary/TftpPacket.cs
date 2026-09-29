@@ -60,6 +60,20 @@ internal static class TftpPacket
     }
 
     /// <summary>
+    /// Returns an ACK: opcode 4, then <paramref name="blockNumber"/>.
+    /// </summary>
+    /// <param name="blockNumber">The block number acknowledged, already wrapped to 16 bits.</param>
+    /// <returns>The packet.</returns>
+    public static byte[] ForAcknowledgement(ushort blockNumber)
+    {
+        var packet = new byte[4];
+        BinaryPrimitives.WriteUInt16BigEndian(packet, Acknowledgement);
+        BinaryPrimitives.WriteUInt16BigEndian(packet.AsSpan(2), blockNumber);
+
+        return packet;
+    }
+
+    /// <summary>
     /// Returns an ERROR packet: opcode 5, <paramref name="errorCode"/>, then
     /// <paramref name="message"/> as ASCII and a zero byte.
     /// </summary>

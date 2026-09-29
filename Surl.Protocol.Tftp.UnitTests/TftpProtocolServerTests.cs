@@ -146,9 +146,9 @@ public sealed class TftpProtocolServerTests
     {
         var (flow, log) = await ServeAsync(ReadRequest("file.txt"), []);
 
-        Assert.HasCount(TftpReadTransfer.MaximumRetransmissions + 1, flow.Sent);
+        Assert.HasCount(TftpLockStep.MaximumRetransmissions + 1, flow.Sent);
         Assert.IsTrue(flow.SentBytes.All(sent => sent.SequenceEqual(Data(1, FileBody))));
-        Assert.AreEqual("Block 1 was not acknowledged after 5 retransmissions, 5 seconds apart; the transfer was abandoned.", log.Notes[^1]);
+        Assert.AreEqual("Nothing came while block 1 awaited its ACK, through 5 retransmissions 5 seconds apart; the transfer was abandoned.", log.Notes[^1]);
     }
 
     [TestMethod]
@@ -156,7 +156,7 @@ public sealed class TftpProtocolServerTests
     {
         var (flow, _) = await ServeAsync(ReadRequest("file.txt", "tsize", "0"), []);
 
-        Assert.HasCount(TftpReadTransfer.MaximumRetransmissions + 1, flow.Sent);
+        Assert.HasCount(TftpLockStep.MaximumRetransmissions + 1, flow.Sent);
         Assert.IsTrue(flow.SentBytes.All(sent => sent[1] == TftpPacket.OptionAcknowledgement));
     }
 
@@ -207,7 +207,7 @@ public sealed class TftpProtocolServerTests
 
         CollectionAssert.AreEqual(RecordedFixture.ServerDatagrams("write-refused")[0], flow.Sent.Single().Bytes);
         Assert.AreEqual(ScriptedDatagramFlow.TransferPort, flow.Sent[0].FromPort);
-        Assert.AreEqual("A write request was refused: uploads are off; answered with ERROR 2.", log.Notes.Single());
+        Assert.AreEqual("Write of \"upload.txt\" (octet): refused, because uploads are off; answered with ERROR 2.", log.Notes.Single());
     }
 
     [TestMethod]
@@ -232,7 +232,7 @@ public sealed class TftpProtocolServerTests
 
         CollectionAssert.AreEqual(IllegalOperation, flow.Sent.Single().Bytes);
         Assert.AreEqual(ScriptedDatagramFlow.TransferPort, flow.Sent[0].FromPort);
-        Assert.AreEqual("The first datagram is not a well-formed read request; answered with ERROR 4.", log.Notes.Single());
+        Assert.AreEqual("The first datagram is not a well-formed read or write request; answered with ERROR 4.", log.Notes.Single());
     }
 
     [TestMethod]
