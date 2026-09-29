@@ -70,4 +70,4 @@ by `UpstreamCurlFetchesFromSurlOverHttpsTests`:
 - `CommandLineRunner` takes a function that creates the listener factory from the TLS
   settings, so the settings are built after the command line is parsed.
 - `HttpProtocolServer`'s own `Schemes` comment ("`https` joins it with the TLS contract")
-  no longer describes where `https` is registered; BL-083 corrects it.
+  no longer describes where `https` is registered; BL-084 corrects it.

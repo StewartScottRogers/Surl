@@ -61,11 +61,11 @@ The pinned upstream curl 8.21.0 build fetches from it, as integration tests in
   `ServerTlsSettings`), BL-064 (`CertificateProblem` 58 and `CaCertificateBadFile` 77 for
   the bad-file cases) and BL-062 (`surl` composes `SocketListenerFactory`, which takes the
   TLS settings, in place of `TcpListenerFactory`). Added to `depends-on`; no code changed.
-- 2026-09-29 (lane 2): Delivered. Decisions recorded in ADR-0019 (decided under Stewart's
+- 2026-09-29 (lane 2): Delivered. Decisions recorded in ADR-0020 (decided under Stewart's
   delegation):
   - `https` is the one `HttpProtocolServer` registered a second time in `Surl.Console`
     through `ImplicitTlsSchemeServer`. `HttpProtocolServer.Schemes` could not change here:
-    BL-050 (in Doing) holds `Surl.Protocol.Http.UnitLibrary`. BL-083 corrects that
+    BL-050 (in Doing) holds `Surl.Protocol.Http.UnitLibrary`. BL-084 corrects that
     comment afterwards.
   - The TLS files are read only when a listen URL is TLS from the first byte (curl reads
     `--cert` only for a TLS transfer). A throwaway certificate is made when no `--cert` is given.
@@ -76,7 +76,7 @@ The pinned upstream curl 8.21.0 build fetches from it, as integration tests in
 - Measured with the pinned 8.21.0 Schannel build: throwaway + `-k` -> 0; throwaway alone
   -> 60; test-CA-signed `--cert` with `--cacert --ssl-no-revoke` -> 0; with `--cacert`
   alone -> 60 (Schannel revocation, Windows-only test); without `--cacert` -> 60.
-- `Documentation/Planning/Decisions` added to `touches` for ADR-0019 and its README row;
+- `Documentation/Planning/Decisions` added to `touches` for ADR-0020 and its README row;
   no task in Doing names it.
 - Results: `dotnet build -warnaserror` clean; fast tests green (Surl.Console.UnitTests 62);
   `FullyQualifiedName~Surl.Conformance` 86 passed including 6 new https tests;
