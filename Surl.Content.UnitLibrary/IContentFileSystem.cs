@@ -36,9 +36,9 @@ public interface IContentFileSystem
     long GetFileLength(string path);
 
     /// <summary>
-    /// Returns when the file at <paramref name="path"/> was last written, in UTC.
+    /// Returns when the file or directory at <paramref name="path"/> was last written, in UTC.
     /// </summary>
-    /// <param name="path">The full path of an existing file.</param>
+    /// <param name="path">The full path of an existing file or directory.</param>
     /// <returns>The last write time, with a zero offset.</returns>
     DateTimeOffset GetLastWriteTimeUtc(string path);
 
@@ -49,4 +49,13 @@ public interface IContentFileSystem
     /// <returns>A readable, seekable stream positioned at the start of the file. The caller
     /// disposes it.</returns>
     Stream OpenFileForAsyncRead(string path);
+
+    /// <summary>
+    /// Enumerates the names of the entries - files, directories and symbolic links - directly
+    /// inside the directory at <paramref name="path"/>, in no particular order.
+    /// </summary>
+    /// <param name="path">The full path of an existing directory.</param>
+    /// <returns>Each entry's name, without its directory and without <c>.</c> or
+    /// <c>..</c>; the sequence may be read lazily, once.</returns>
+    IEnumerable<string> EnumerateDirectoryEntryNames(string path);
 }

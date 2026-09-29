@@ -107,7 +107,13 @@ internal static class RequestPathSegments
 
     private static int HexDigitValue(byte digit) => HexDigits.IndexOf(char.ToLowerInvariant((char)digit));
 
-    private static ContentPathRefusal CheckSegment(string segment)
+    /// <summary>
+    /// Checks one decoded segment, or one entry name read from a directory, against every
+    /// rule a request path's segment must pass.
+    /// </summary>
+    /// <param name="segment">The decoded segment or entry name.</param>
+    /// <returns><see cref="ContentPathRefusal.None"/>, or why the segment is refused.</returns>
+    internal static ContentPathRefusal CheckSegment(string segment)
     {
         if (segment is "." or "..")
         {

@@ -43,10 +43,36 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
         return new MemoryStream(fileContents[path], writable: false);
     }
 
-    public InMemoryContentFileSystem AddDirectory(string path)
+    public InMemoryContentFileSystem AddDirectory(string path) => AddDirectory(path, DateTimeOffset.UnixEpoch);
+
+    public InMemoryContentFileSystem AddDirectory(string path, DateTimeOffset lastWriteTime)
     {
         entries[path] = ContentEntryKind.Directory;
+        lastWriteTimes[path] = lastWriteTime;
         return this;
+    }
+
+    public IEnumerable<string> EnumerateDirectoryEntryNames(string path)
+    {
+        Calls.Add($"{nameof(EnumerateDirectoryEntryNames)}({path})");
+        string prefix = path + Path.DirectorySeparatorChar;
+        List<string> names = entries.Keys.Concat(symbolicLinks.Keys)
+            .Where(entry => entry.StartsWith(prefix, StringComparison.Ordinal)
+                && entry.IndexOf(Path.DirectorySeparatorChar, prefix.Length) < 0)
+            .Select(entry => entry[prefix.Length..])
+            .ToList();
+        return YieldNames(names);
+    }
+
+    public Action? AfterEachEnumeratedName { get; set; }
+
+    private IEnumerable<string> YieldNames(List<string> names)
+    {
+        foreach (string name in names)
+        {
+            yield return name;
+            AfterEachEnumeratedName?.Invoke();
+        }
     }
 
     public InMemoryContentFileSystem AddSymbolicLink(string path, string target)

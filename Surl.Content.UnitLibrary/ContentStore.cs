@@ -38,8 +38,9 @@ namespace Surl.Content;
 /// directory or nothing; <see cref="GetFileStatus(ContentPathMapping)"/> reports a file's
 /// length and UTC modification time; and
 /// <see cref="CopyFileBytesAsync(ContentPathMapping, ContentByteRange, Stream, CancellationToken)"/>
-/// copies the whole file or a <see cref="ContentByteRange"/> of it to a destination stream.
-/// Every look and every read goes through the seam.
+/// copies the whole file or a <see cref="ContentByteRange"/> of it to a destination stream;
+/// <see cref="ListDirectory(ContentPathMapping, CancellationToken)"/> lists a directory's
+/// entries in ordinal order of their names. Every look and every read goes through the seam.
 /// </para>
 /// </remarks>
 public sealed class ContentStore
@@ -161,6 +162,93 @@ public sealed class ContentStore
         await using Stream source = fileSystem.OpenFileForAsyncRead(location);
         source.Position = range.FirstByte;
         return await CopyAtMostAsync(source, destination, range.ByteCount, cancellationToken);
+    }
+
+    /// <summary>
+    /// Lists the entries of the directory at a mapped location.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Each entry carries its name, whether it is a file or a directory, a file's length and
+    /// its UTC modification time. Entries are in ordinal order of their names (UTF-16 code
+    /// unit by code unit, case-sensitive), so a listing reads the same on Windows, Linux and
+    /// macOS whatever order the file system returns them in.
+    /// </para>
+    /// <para>
+    /// An entry is left out when its name is one <see cref="MapRequestPath(string)"/> would
+    /// refuse as a segment (so every listed name can be asked for), when it is a symbolic
+    /// link whose final target resolves outside the served root, or when nothing is there
+    /// by the time it is looked at (a dangling link, or an entry deleted meanwhile). A link
+    /// whose final target is inside the root is listed under its own name, with its
+    /// target's kind, length and modification time. Dot-files are listed; hiding them, and
+    /// the other exposure rules of ADR-0006, is the caller's to apply.
+    /// </para>
+    /// <para>
+    /// Protocol-neutral: no listing format is produced here; each protocol server formats
+    /// the entries its own way.
+    /// </para>
+    /// </remarks>
+    /// <param name="mapping">A mapping this content store returned with
+    /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
+    /// <param name="cancellationToken">Checked before the directory is read and before every
+    /// entry; cancellation throws <see cref="OperationCanceledException"/>.</param>
+    /// <returns>The directory's entries; when the location is a file or holds nothing, a
+    /// result with <see cref="ContentDirectoryListing.IsListed"/> clear and
+    /// <see cref="ContentDirectoryListing.LocationKind"/> saying which.</returns>
+    /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
+    public ContentDirectoryListing ListDirectory(ContentPathMapping mapping, CancellationToken cancellationToken)
+    {
+        string location = RequireLocation(mapping);
+        cancellationToken.ThrowIfCancellationRequested();
+        ContentEntryKind locationKind = fileSystem.GetEntryKind(location);
+        if (locationKind != ContentEntryKind.Directory)
+        {
+            return ContentDirectoryListing.NotADirectory(locationKind);
+        }
+
+        string resolvedRoot = fileSystem.ResolveFinalPath(ServedRoot);
+        var entries = new List<ContentDirectoryEntry>();
+        foreach (string name in fileSystem.EnumerateDirectoryEntryNames(location))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ContentDirectoryEntry? entry = DescribeDirectoryEntry(location, name, resolvedRoot);
+            if (entry is not null)
+            {
+                entries.Add(entry);
+            }
+        }
+
+        entries.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
+        return ContentDirectoryListing.Listed(entries);
+    }
+
+    private ContentDirectoryEntry? DescribeDirectoryEntry(string directory, string name, string resolvedRoot)
+    {
+        if (RequestPathSegments.CheckSegment(name) != ContentPathRefusal.None)
+        {
+            return null;
+        }
+
+        string resolved = fileSystem.ResolveFinalPath(Path.Join(directory, name));
+        if (!IsInsideOrAt(resolved, resolvedRoot))
+        {
+            return null;
+        }
+
+        return fileSystem.GetEntryKind(resolved) switch
+        {
+            ContentEntryKind.File => new ContentDirectoryEntry(
+                name,
+                ContentEntryKind.File,
+                fileSystem.GetFileLength(resolved),
+                fileSystem.GetLastWriteTimeUtc(resolved).ToUniversalTime()),
+            ContentEntryKind.Directory => new ContentDirectoryEntry(
+                name,
+                ContentEntryKind.Directory,
+                null,
+                fileSystem.GetLastWriteTimeUtc(resolved).ToUniversalTime()),
+            _ => null,
+        };
     }
 
     private static async Task<long> CopyAtMostAsync(Stream source, Stream destination, long byteCount, CancellationToken cancellationToken)

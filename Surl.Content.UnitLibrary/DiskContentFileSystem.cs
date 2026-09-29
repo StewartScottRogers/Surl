@@ -8,7 +8,7 @@ namespace Surl.Content;
 /// </summary>
 /// <remarks>
 /// Each member is a direct call into <see cref="File"/>, <see cref="Directory"/>,
-/// <see cref="FileInfo"/>, <see cref="FileSystemInfo"/> or <see cref="FileStream"/>, except
+/// <see cref="FileInfo"/>, <see cref="DirectoryInfo"/>, <see cref="FileSystemInfo"/> or <see cref="FileStream"/>, except
 /// <see cref="ResolveFinalPath(string)"/>, which walks the path one segment at a time because
 /// the seam contract asks for every symbolic link along it to be followed.
 /// </remarks>
@@ -93,4 +93,17 @@ public sealed class DiskContentFileSystem : IContentFileSystem
             FileShare.ReadWrite | FileShare.Delete,
             FileStreamBufferSize,
             FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// No entry is skipped for its attributes, so a Windows hidden or system entry is
+    /// enumerated as it is on Linux and macOS; an entry the process may not read is skipped.
+    /// </remarks>
+    // Excluded from coverage: it asks the disk, and the fast tests run without one by design.
+    // The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public IEnumerable<string> EnumerateDirectoryEntryNames(string path) =>
+        new DirectoryInfo(path)
+            .EnumerateFileSystemInfos("*", new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = true })
+            .Select(entry => entry.Name);
 }

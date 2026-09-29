@@ -5,6 +5,8 @@ public sealed class ContentStoreTests
 {
     private static readonly string Root = Path.Join("/", "srv", "www");
 
+    private static readonly DateTimeOffset Modified = new(2024, 5, 6, 7, 8, 9, TimeSpan.Zero);
+
     [TestMethod]
     [DataRow("/../x", ContentPathRefusal.DotSegment)]
     [DataRow("/a/../../x", ContentPathRefusal.DotSegment)]
@@ -447,6 +449,238 @@ public sealed class ContentStoreTests
         Assert.ThrowsExactly<ArgumentException>(() => store.GetFileStatus(refused));
         await Assert.ThrowsExactlyAsync<ArgumentException>(
             () => store.CopyFileBytesAsync(refused, ContentByteRange.WholeFile(3), Stream.Null, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public void ListDirectory_EmptyDirectory_ListsNoEntries()
+    {
+        var store = new ContentStore(Root, new InMemoryContentFileSystem().AddDirectory(Root));
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        Assert.IsTrue(listing.IsListed);
+        Assert.AreEqual(ContentEntryKind.Directory, listing.LocationKind);
+        Assert.IsEmpty(listing.Entries);
+    }
+
+    [TestMethod]
+    public void ListDirectory_FilesAndSubdirectories_ListsNameKindLengthAndUtcModificationTime()
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "readme.txt"), "hello"u8.ToArray(), new DateTimeOffset(2024, 5, 6, 9, 8, 9, TimeSpan.FromHours(2)))
+            .AddDirectory(Path.Join(Root, "docs"), Modified.AddDays(1))
+            .AddFile(Path.Join(Root, "docs", "nested.bin"), [1, 2, 3], Modified)
+            .AddFile(Path.Join(Root, "empty.bin"));
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new ContentDirectoryEntry("docs", ContentEntryKind.Directory, null, Modified.AddDays(1)),
+                new ContentDirectoryEntry("empty.bin", ContentEntryKind.File, 0, DateTimeOffset.UnixEpoch),
+                new ContentDirectoryEntry("readme.txt", ContentEntryKind.File, 5, Modified),
+            },
+            listing.Entries.ToArray());
+        Assert.IsTrue(listing.Entries.All(entry => entry.LastModifiedUtc.Offset == TimeSpan.Zero));
+    }
+
+    [TestMethod]
+    public void ListDirectory_Subdirectory_ListsOnlyItsOwnEntries()
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "top.txt"))
+            .AddDirectory(Path.Join(Root, "docs"))
+            .AddFile(Path.Join(Root, "docs", "nested.bin"), [1, 2, 3], Modified)
+            .AddDirectory(Path.Join(Root, "docs", "deeper"))
+            .AddFile(Path.Join(Root, "docs", "deeper", "deepest.txt"));
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/docs/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "deeper", "nested.bin" }, listing.Entries.Select(entry => entry.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void ListDirectory_MixedCaseAndNonAsciiNames_AreInOrdinalOrder()
+    {
+        string[] names = ["b", "\u00e9", "B", "a", "\u00c4", "Z", "e", "\u65e5\u672c", "10", "9"];
+        var fileSystem = new InMemoryContentFileSystem().AddDirectory(Root);
+        foreach (string name in names)
+        {
+            fileSystem.AddFile(Path.Join(Root, name));
+        }
+
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[] { "10", "9", "B", "Z", "a", "b", "e", "\u00c4", "\u00e9", "\u65e5\u672c" },
+            listing.Entries.Select(entry => entry.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void ListDirectory_SymbolicLinkOutOfTheRoot_IsLeftOut()
+    {
+        string outside = Path.Join("/", "etc");
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "kept.txt"))
+            .AddDirectory(outside)
+            .AddFile(Path.Join(outside, "passwd"))
+            .AddSymbolicLink(Path.Join(Root, "escape"), outside)
+            .AddSymbolicLink(Path.Join(Root, "secret"), Path.Join(outside, "passwd"))
+            .AddSymbolicLink(Path.Join(Root, "sibling"), Root + "-private")
+            .AddDirectory(Root + "-private");
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "kept.txt" }, listing.Entries.Select(entry => entry.Name).ToArray());
+        Assert.IsFalse(fileSystem.Calls.Exists(call => call.StartsWith("OpenFileForAsyncRead(", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void ListDirectory_SymbolicLinkInsideTheRoot_IsListedUnderItsOwnNameWithItsTargetsStatus()
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddDirectory(Path.Join(Root, "docs"), Modified)
+            .AddFile(Path.Join(Root, "docs", "file.bin"), [1, 2, 3, 4], Modified)
+            .AddSymbolicLink(Path.Join(Root, "alias.bin"), Path.Join(Root, "docs", "file.bin"))
+            .AddSymbolicLink(Path.Join(Root, "alias-docs"), Path.Join(Root, "docs"));
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new ContentDirectoryEntry("alias-docs", ContentEntryKind.Directory, null, Modified),
+                new ContentDirectoryEntry("alias.bin", ContentEntryKind.File, 4, Modified),
+                new ContentDirectoryEntry("docs", ContentEntryKind.Directory, null, Modified),
+            },
+            listing.Entries.ToArray());
+    }
+
+    [TestMethod]
+    public void ListDirectory_DanglingSymbolicLink_IsLeftOut()
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddSymbolicLink(Path.Join(Root, "dangling"), Path.Join(Root, "gone.txt"));
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        Assert.IsTrue(listing.IsListed);
+        Assert.IsEmpty(listing.Entries);
+    }
+
+    [TestMethod]
+    [DataRow("CON")]
+    [DataRow("nul.txt")]
+    [DataRow("a:b")]
+    [DataRow("trailing.")]
+    [DataRow("trailing ")]
+    [DataRow("back\\slash")]
+    [DataRow("control\u0001")]
+    public void ListDirectory_NameARequestPathCannotAskFor_IsLeftOut(string name)
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "kept.txt"))
+            .AddFile(Root + Path.DirectorySeparatorChar + name);
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "kept.txt" }, listing.Entries.Select(entry => entry.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void ListDirectory_DotFiles_AreListed()
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, ".hidden"))
+            .AddDirectory(Path.Join(Root, ".git"));
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { ".git", ".hidden" }, listing.Entries.Select(entry => entry.Name).ToArray());
+    }
+
+    [TestMethod]
+    public void ListDirectory_File_SaysItIsAFileWithoutReadingADirectory()
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "file.txt"));
+        var store = new ContentStore(Root, fileSystem);
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/file.txt"), CancellationToken.None);
+
+        Assert.IsFalse(listing.IsListed);
+        Assert.AreEqual(ContentEntryKind.File, listing.LocationKind);
+        Assert.IsEmpty(listing.Entries);
+        Assert.IsFalse(fileSystem.Calls.Exists(call => call.StartsWith("EnumerateDirectoryEntryNames(", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void ListDirectory_MissingPath_SaysNothingIsThere()
+    {
+        var store = new ContentStore(Root, new InMemoryContentFileSystem().AddDirectory(Root));
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/missing/"), CancellationToken.None);
+
+        Assert.IsFalse(listing.IsListed);
+        Assert.AreEqual(ContentEntryKind.None, listing.LocationKind);
+        Assert.IsEmpty(listing.Entries);
+    }
+
+    [TestMethod]
+    public void ListDirectory_CancelledBeforeTheRead_ThrowsWithoutReadingTheDirectory()
+    {
+        var fileSystem = new InMemoryContentFileSystem().AddDirectory(Root).AddFile(Path.Join(Root, "file.txt"));
+        var store = new ContentStore(Root, fileSystem);
+        ContentPathMapping mapping = store.MapRequestPath("/");
+
+        Assert.ThrowsExactly<OperationCanceledException>(
+            () => store.ListDirectory(mapping, new CancellationToken(canceled: true)));
+
+        Assert.IsFalse(fileSystem.Calls.Exists(call => call.StartsWith("EnumerateDirectoryEntryNames(", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void ListDirectory_CancelledDuringTheRead_ThrowsBeforeTheNextEntry()
+    {
+        var fileSystem = new InMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "first.txt"))
+            .AddFile(Path.Join(Root, "second.txt"));
+        var store = new ContentStore(Root, fileSystem);
+        ContentPathMapping mapping = store.MapRequestPath("/");
+        using var cancellation = new CancellationTokenSource();
+        fileSystem.AfterEachEnumeratedName = cancellation.Cancel;
+
+        Assert.ThrowsExactly<OperationCanceledException>(() => store.ListDirectory(mapping, cancellation.Token));
+
+        Assert.AreEqual(1, fileSystem.Calls.Count(call => call.StartsWith("GetFileLength(", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public void ListDirectory_RefusedOrMissingMapping_IsRejected()
+    {
+        var store = new ContentStore(Root, new InMemoryContentFileSystem().AddDirectory(Root));
+
+        Assert.ThrowsExactly<ArgumentException>(() => store.ListDirectory(store.MapRequestPath("/../"), CancellationToken.None));
+        Assert.ThrowsExactly<ArgumentNullException>(() => store.ListDirectory(null!, CancellationToken.None));
     }
 
     private static ContentStore StoreWithFile(byte[] contents) =>

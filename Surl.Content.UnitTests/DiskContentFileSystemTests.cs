@@ -66,6 +66,58 @@ public sealed class DiskContentFileSystemTests
     }
 
     [TestMethod]
+    public void ListDirectory_TemporaryDirectory_ListsEveryEntryInOrdinalOrder()
+    {
+        var fileModified = new DateTime(2024, 5, 6, 7, 8, 9, DateTimeKind.Utc);
+        var directoryModified = new DateTime(2023, 1, 2, 3, 4, 5, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(Path.Join(servedRoot, "docs", "file.bin"), fileModified);
+        File.WriteAllBytes(Path.Join(servedRoot, "docs", "B.txt"), [1]);
+        File.WriteAllBytes(Path.Join(servedRoot, "docs", ".hidden"), []);
+        Directory.CreateDirectory(Path.Join(servedRoot, "docs", "a-dir"));
+        File.WriteAllBytes(Path.Join(servedRoot, "docs", "a-dir", "nested.txt"), [1, 2]);
+        Directory.SetLastWriteTimeUtc(Path.Join(servedRoot, "docs", "a-dir"), directoryModified);
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/docs/"), CancellationToken.None);
+
+        Assert.IsTrue(listing.IsListed);
+        CollectionAssert.AreEqual(new[] { ".hidden", "B.txt", "a-dir", "file.bin" }, listing.Entries.Select(entry => entry.Name).ToArray());
+        Assert.AreEqual(new ContentDirectoryEntry("a-dir", ContentEntryKind.Directory, null, new DateTimeOffset(directoryModified)), listing.Entries[2]);
+        Assert.AreEqual(new ContentDirectoryEntry("file.bin", ContentEntryKind.File, Contents.Length, new DateTimeOffset(fileModified)), listing.Entries[3]);
+        Assert.AreEqual(1L, listing.Entries[1].Length);
+    }
+
+    [TestMethod]
+    public void ListDirectory_EmptyDirectoryAndFile_AreAnsweredWithoutAnException()
+    {
+        Directory.CreateDirectory(Path.Join(servedRoot, "empty"));
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+
+        ContentDirectoryListing empty = store.ListDirectory(store.MapRequestPath("/empty"), CancellationToken.None);
+        ContentDirectoryListing file = store.ListDirectory(store.MapRequestPath("/docs/file.bin"), CancellationToken.None);
+        ContentDirectoryListing missing = store.ListDirectory(store.MapRequestPath("/missing/"), CancellationToken.None);
+
+        Assert.IsTrue(empty.IsListed);
+        Assert.IsEmpty(empty.Entries);
+        Assert.AreEqual(ContentEntryKind.File, file.LocationKind);
+        Assert.AreEqual(ContentEntryKind.None, missing.LocationKind);
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public void ListDirectory_SymbolicLinks_ListsOnlyThoseWhoseTargetIsInsideTheRoot()
+    {
+        Directory.CreateSymbolicLink(Path.Join(servedRoot, "escape"), Path.Join(temporaryFolder, "outside"));
+        File.CreateSymbolicLink(Path.Join(servedRoot, "alias.bin"), Path.Join(servedRoot, "docs", "file.bin"));
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem());
+
+        ContentDirectoryListing listing = store.ListDirectory(store.MapRequestPath("/"), CancellationToken.None);
+
+        CollectionAssert.AreEqual(new[] { "alias.bin", "docs" }, listing.Entries.Select(entry => entry.Name).ToArray());
+        Assert.AreEqual((long?)Contents.Length, listing.Entries[0].Length);
+    }
+
+    [TestMethod]
     [DataRow("/docs")]
     [DataRow("/docs/")]
     [DataRow("/")]
