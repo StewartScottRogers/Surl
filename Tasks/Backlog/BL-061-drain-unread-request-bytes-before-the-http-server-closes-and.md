@@ -53,6 +53,13 @@ request whose `Content-Length` is invalid is answered `400 Bad Request` and clos
 
 Filed by BL-018 from its code review (2026-09-28).
 
+BL-050 (2026-09-29, ADR-0019): a `GET` or `HEAD` whose body has a readable framing (one
+valid `Content-Length`, or `Transfer-Encoding: chunked` alone) now has its body read and
+discarded, and keeps the connection. What is left for this task: refused methods, which
+still never read their body, and a body with a framing `HttpRequestBodyFraming` calls
+`Unreadable` (served and closed unread today), which includes the invalid
+`Content-Length` this task answers 400.
+
 ## Log
 
 - 2026-09-28: Created.

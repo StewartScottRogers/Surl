@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-018, BL-046]
-touches: [Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests]
+touches: [Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-050 — Enforce the head timeout, head size and upload limit and answer refusals in Surl.Protocol.Http
 
@@ -67,32 +67,69 @@ pinned upstream curl 8.21.0 was fed and recorded.
 
 ## Acceptance criteria
 
-- [ ] `HeadTimeoutTests.PartialHead_AfterHeadTimeout_Answers408AndCloses` and
+- [x] `HeadTimeoutTests.PartialHead_AfterHeadTimeout_Answers408AndCloses` and
       `HeadTimeoutTests.NoBytes_AfterHeadTimeout_ClosesWithNoBytes` pass, and a test proves
       a kept-alive connection's idle wait before the next head is not cut off by
       `HeadTimeout`.
-- [ ] `RequestHeadLimitTests.HeadOfExactlyTheLimit_IsAnswered` and
+- [x] `RequestHeadLimitTests.HeadOfExactlyTheLimit_IsAnswered` and
       `RequestHeadLimitTests.HeadOneByteOverTheLimit_Answers431AndCloses` pass, and a
       test proves `MaxRequestHeadBytes = 0` accepts a 200 KiB head.
-- [ ] `UploadLimitTests.ContentLengthOverTheLimit_Answers413AndCloses`,
+- [x] `UploadLimitTests.ContentLengthOverTheLimit_Answers413AndCloses`,
       `UploadLimitTests.ChunkedBodyOverTheLimit_Answers413AndCloses` and
       `UploadLimitTests.ExpectContinueOverTheLimit_Answers413InsteadOf100Continue` pass,
       the last proving no body byte was read.
-- [ ] `ConnectionRefusalTests` prove both `ConnectionRefusal` values write the exact 503
+- [x] `ConnectionRefusalTests` prove both `ConnectionRefusal` values write the exact 503
       bytes and complete writes without `Abort`.
-- [ ] A test with a content-store fake that throws an `IOException` whose message holds a
+- [x] A test with a content-store fake that throws an `IOException` whose message holds a
       path proves the response contains neither the path nor the message, and a test
       proves every response carries `Server: surl` exactly.
-- [ ] Recordings for each case above are committed; each test's expected bytes equal
+- [x] Recordings for each case above are committed; each test's expected bytes equal
       the bytes that recording fed to pinned upstream curl 8.21.0.
-- [ ] `dotnet build Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Surl.Protocol.Http.UnitLibrary -warnaserror` is clean, the fast tests
       are green with no `Integration` test in `Surl.Protocol.Http.UnitTests`, and
       `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Protocol.Http.UnitLibrary`.
 
 ## Notes
 
+Plan and decisions (2026-09-29), recorded in ADR-0019 ("Decided by Claude under Stewart's
+delegation"), which supersedes ADR-0008's 431 row and body-persistence rule:
+
+- `touches` gained `Documentation/Planning/Decisions` for ADR-0019 (and the one-line
+  supersession note on ADR-0008 and the index); no task in `Doing` names it.
+- `Server: surl` goes right after `Date` in every response. That changed the three BL-018
+  response recordings, so `get-file`, `head-file` and `not-found-fail` were re-recorded
+  with it (port 18050) and five new ones added: `head-timeout-408`, `head-too-large-431`,
+  `upload-too-large-413`, `expect-continue-413` (`-RespondAfterBodyBytes 0`; curl sent the
+  181-byte head and no body), `refusal-503`. Every one exited as ADR-0019's table says.
+- Head timeout: a `CancellationTokenSource` on the exchange `TimeProvider`, started at
+  `ServeAsync` for the first head and at the first byte (`HttpConnectionReader.WaitForBytesAsync`)
+  for later ones. `HttpRequestHeadReadOutcome` gained `HeadTimedOut` (408) and
+  `HeadTimedOutBeforeAnyByte` (bare close).
+- Head size: `HttpConnectionReader` takes `MaxRequestHeadBytes` instead of its 300 KiB
+  constant and caps every read at what is left of the limit, so it never takes more of a
+  head than the limit. 0 is `Array.MaxLength` in practice.
+- Upload limit: a declared `Content-Length` is checked after the `Host` check and before
+  method dispatch (so `Expect: 100-continue` gets the 413 instead of `100 Continue`, and a
+  `POST` over the limit gets 413, not 405). To count a chunked body the server now reads
+  and discards `GET`/`HEAD` bodies (`HttpRequestBodyDiscarder`) and keeps the connection
+  after them; a chunked body counts chunk data plus trailer lines, chunk lines are capped at
+  8192 bytes, and a malformed or truncated body is 400. Framings it cannot read stay as
+  before (served, then closed) and are BL-061's.
+- Every refusal (400/405/408/413/431/501/505) gets a one-second write deadline on the
+  exchange clock; a missed deadline is noted and the close left to the engine's dispose,
+  never `Abort`.
+- The 503 carries no `Date`: `IConnectionRefusalWriter` hands the server no clock and
+  RFC 9110 makes `Date` optional on a 5xx. The engine already bounds the refusal write.
+- A content-store `IOException` still escapes `ServeAsync` with no byte written; the test
+  proves nothing of it reaches the client either way. Its answer is BL-060's.
+- Code review (2026-09-29) fixes: HTTP/1.0 with `Transfer-Encoding` is unreadable framing (RFC 9112 section 6.1, a smuggling route); a head timeout longer than a timer can wait (~49.7 days) is treated as none instead of throwing; chunk lines must end in CRLF with no whitespace before the size or after it without `;`. The body discard is bounded only by the engine's idle timeout and maximum duration, as ADR-0006 intends; ADR-0019 records it.
+- Verified: `Measure-CodeQuality.ps1` reports 100% line and branch coverage and 0 failing members in `Surl.Protocol.Http.UnitLibrary`; the library builds clean with `-warnaserror`; all 14 fast test assemblies pass (286 tests in `Surl.Protocol.Http.UnitTests`, none `Integration`).
+- Follow-up filed: BL-082 (send `100 Continue` before discarding a GET/HEAD body). BL-061
+  got a note on what BL-050 changed under it.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. The HTTP server enforces the head timeout (408), request-head limit (431) and upload limit (413, also in place of 100 Continue), answers connection refusals with 503, and sends Server: surl, each reply recorded against pinned curl 8.21.0
