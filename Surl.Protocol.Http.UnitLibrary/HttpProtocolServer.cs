@@ -67,6 +67,13 @@ namespace Surl.Protocol.Http;
 /// aborted, because its <c>Content-Length</c> can no longer be met.
 /// </para>
 /// <para>
+/// File-system failures (ADR-0022): a file whose status the content store cannot read
+/// (<see cref="IOException"/> or <see cref="UnauthorizedAccessException"/>) is answered
+/// <c>404 Not Found</c>, exactly as a missing file, and the reason goes to the exchange log
+/// only. A file that cannot be opened or read after the <c>200</c> head was sent aborts the
+/// connection with a log note naming the file.
+/// </para>
+/// <para>
 /// As an <see cref="IConnectionRefusalWriter"/>, the server answers a connection past a
 /// connection limit with <c>503 Service Unavailable</c>, <c>Server: surl</c>,
 /// <c>Content-Length: 0</c> and <c>Connection: close</c>, then half-closes it; it carries no

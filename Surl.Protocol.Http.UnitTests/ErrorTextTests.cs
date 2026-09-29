@@ -19,14 +19,7 @@ public sealed class ErrorTextTests
         var fileSystem = new ThrowingContentFileSystem(Root, new IOException(message));
         var connection = new InMemoryConnection([Ascii(request)]);
 
-        try
-        {
-            await Server(fileSystem).ServeAsync(connection, Context(new RecordingExchangeLog(), new FixedTimeProvider(Now), TestContext.CancellationToken));
-        }
-        catch (IOException)
-        {
-            // Whether the failure is answered or ends the exchange is BL-060's; either way no byte of it may reach the client.
-        }
+        await Server(fileSystem).ServeAsync(connection, Context(new RecordingExchangeLog(), new FixedTimeProvider(Now), TestContext.CancellationToken));
 
         var sent = Latin1(connection.WrittenBytes);
         Assert.DoesNotContain(secretPath, sent);

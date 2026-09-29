@@ -8,7 +8,7 @@ depends-on: [BL-018]
 touches: [Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-060 — Answer file-system failures in the HTTP server instead of ending the exchange
 
@@ -33,20 +33,39 @@ has already gone out, instead of letting the exception escape `ServeAsync`.
 
 ## Acceptance criteria
 
-- [ ] A fast test makes the file status throw and asserts the decided status, its exact
+- [x] A fast test makes the file status throw and asserts the decided status, its exact
       bytes, and that the connection is kept or closed as decided.
-- [ ] A fast test makes the open throw after the head was sent and asserts the connection
+- [x] A fast test makes the open throw after the head was sent and asserts the connection
       was aborted with a note naming the file.
-- [ ] If the decided answer is not 404, it was fed to pinned upstream curl 8.21.0 with
+- [x] If the decided answer is not 404, it was fed to pinned upstream curl 8.21.0 with
       `Record-CurlExchange.ps1 -Response` and the recording is committed.
-- [ ] `dotnet build` is clean, the fast tests are green, and `Measure-CodeQuality.ps1`
+- [x] `dotnet build` is clean, the fast tests are green, and `Measure-CodeQuality.ps1`
       reports no failing member in `Surl.Protocol.Http.UnitLibrary`.
 
 ## Notes
 
 Filed by BL-018 from its code review (2026-09-28).
 
+Delivered 2026-09-29 (dark factory lane 1):
+
+- Decided in ADR-0022: an `IOException` or `UnauthorizedAccessException` from
+  `GetFileStatus` is answered 404, byte for byte the missing-file 404, keeping the
+  connection as persistence decides; the exception type and message go to the log only.
+  404 over 500 because a 500 would confirm something exists at the path (ADR-0006,
+  section 2). The 404 is already recorded against pinned upstream curl 8.21.0
+  (`not-found-fail`), so no new recording was needed (third criterion: not applicable).
+- The same failures from the open or read after the 200 head abort the connection with
+  the note `<location> could not be read after the 200 head was sent (...)`. Any other
+  exception still escapes as a defect.
+- `ConnectionWriteStream.HasFailedWrite` tells a failed connection write apart from a
+  file failure, so a peer reset during the copy is rethrown, not noted as the file's.
+- Tests: `FileSystemFailureTests` (new), `InMemoryContentFileSystem.FailOn`, a
+  `FailingWriteConnection` double; `ErrorTextTests` no longer tolerates the escaping
+  exception. Http tests 296 green; `Measure-CodeQuality.ps1` reports 100% line and branch
+  coverage and no failing member in `Surl.Protocol.Http.UnitLibrary`.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. A file the HTTP server cannot read is answered 404 before the head and aborts with a log note after it (ADR-0022)

@@ -44,9 +44,25 @@ internal sealed class ConnectionWriteStream : Stream
         set => throw new NotSupportedException("A connection has no position.");
     }
 
+    /// <summary>
+    /// Whether a write to the connection has thrown, so a caller copying a file onto this
+    /// stream can tell a failure of the connection from a failure of the file.
+    /// </summary>
+    public bool HasFailedWrite { get; private set; }
+
     /// <inheritdoc/>
-    public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) =>
-        connection.WriteAsync(buffer, cancellationToken);
+    public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await connection.WriteAsync(buffer, cancellationToken);
+        }
+        catch
+        {
+            HasFailedWrite = true;
+            throw;
+        }
+    }
 
     /// <inheritdoc/>
     public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>

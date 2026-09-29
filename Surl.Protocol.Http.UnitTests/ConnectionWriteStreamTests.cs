@@ -38,6 +38,18 @@ public sealed class ConnectionWriteStreamTests
     }
 
     [TestMethod]
+    public async Task WriteAsync_ConnectionThrows_RethrowsAndRecordsTheFailedWrite()
+    {
+        using var stream = new ConnectionWriteStream(new FailingWriteConnection([]));
+
+        await stream.WriteAsync("a"u8.ToArray(), TestContext.CancellationToken);
+        Assert.IsFalse(stream.HasFailedWrite);
+        await Assert.ThrowsExactlyAsync<IOException>(() => stream.WriteAsync("b"u8.ToArray(), TestContext.CancellationToken).AsTask());
+
+        Assert.IsTrue(stream.HasFailedWrite);
+    }
+
+    [TestMethod]
     public void UnsupportedMembers_Throw()
     {
         using var stream = new ConnectionWriteStream(new InMemoryConnection([]));

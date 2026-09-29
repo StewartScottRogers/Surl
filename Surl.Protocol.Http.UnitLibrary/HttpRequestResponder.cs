@@ -113,10 +113,10 @@ internal sealed class HttpRequestResponder
 
         var keepsConnectionOpen = HttpConnectionPersistence.KeepsConnectionOpen(head) && framing.Kind != HttpRequestBodyFramingKind.Unreadable;
         var mapping = contentStore.MapRequestPath(RequestPath(head.RequestTarget));
-        var status = mapping.IsMapped ? contentStore.GetFileStatus(mapping) : null;
+        var (status, whyNotFound) = mapping.IsMapped ? LookUpFileStatus(mapping) : (null, WhyNotFound(mapping));
         if (status is null)
         {
-            context.Log.Note($"{head.Method} {head.RequestTarget}: 404, {WhyNotFound(mapping)}");
+            context.Log.Note($"{head.Method} {head.RequestTarget}: 404, {whyNotFound}");
 
             return await WriteEmptyResponseAsync(HttpStatus.NotFound, null, keepsConnectionOpen, head.Version);
         }
@@ -147,6 +147,24 @@ internal sealed class HttpRequestResponder
 
         return query < 0 ? path : path[..query];
     }
+
+    // A file whose status cannot be read is answered as one that does not exist (ADR-0022):
+    // the exception's text goes to the log only, never to the client (ADR-0006, section 3).
+    private (ContentFileStatus? Status, string WhyNotFound) LookUpFileStatus(ContentPathMapping mapping)
+    {
+        try
+        {
+            var status = contentStore.GetFileStatus(mapping);
+
+            return (status, WhyNotFound(mapping));
+        }
+        catch (Exception failure) when (IsFileSystemFailure(failure))
+        {
+            return (null, $"{mapping.Location} could not be read ({failure.GetType().Name}: {failure.Message})");
+        }
+    }
+
+    private static bool IsFileSystemFailure(Exception failure) => failure is IOException or UnauthorizedAccessException;
 
     private static string WhyNotFound(ContentPathMapping mapping) => mapping switch
     {
@@ -226,20 +244,38 @@ internal sealed class HttpRequestResponder
         context.Log.Note($"{head.Method} {head.RequestTarget}: 200, {status.Length} bytes of {mapping.Location}");
         await connection.WriteAsync(responseHead.ToBytes(), context.CancellationToken);
 
-        if (head.Method == "GET")
+        if (head.Method == "GET" && !await CopyWholeFileAsync(mapping, status.Length))
         {
-            await using var body = new ConnectionWriteStream(connection);
-            var copied = await contentStore.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(status.Length), body, context.CancellationToken);
-            if (copied < status.Length)
-            {
-                context.Log.Note($"{mapping.Location} shrank to {copied} bytes while it was sent; the connection was aborted.");
-                connection.Abort();
+            connection.Abort();
 
-                return false;
-            }
+            return false;
         }
 
         return await FinishResponseAsync(keepsConnectionOpen);
+    }
+
+    // After the 200 head the Content-Length is promised, so a file that shrinks or cannot be
+    // read any more can only be answered by aborting the connection; a reset tells curl the
+    // transfer failed. A failure of the connection itself is not the file's and is rethrown.
+    private async Task<bool> CopyWholeFileAsync(ContentPathMapping mapping, long length)
+    {
+        await using var body = new ConnectionWriteStream(connection);
+        try
+        {
+            var copied = await contentStore.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(length), body, context.CancellationToken);
+            if (copied < length)
+            {
+                context.Log.Note($"{mapping.Location} shrank to {copied} bytes while it was sent; the connection was aborted.");
+            }
+
+            return copied == length;
+        }
+        catch (Exception failure) when (IsFileSystemFailure(failure) && !body.HasFailedWrite)
+        {
+            context.Log.Note($"{mapping.Location} could not be read after the 200 head was sent ({failure.GetType().Name}: {failure.Message}); the connection was aborted.");
+
+            return false;
+        }
     }
 
     private async Task<bool> FinishResponseAsync(bool keepsConnectionOpen)
