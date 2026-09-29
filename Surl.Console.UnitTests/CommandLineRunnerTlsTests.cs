@@ -112,7 +112,7 @@ public sealed class CommandLineRunnerTlsTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(outcome.Create, _ => true, TimeProvider.System)
+        var running = new CommandLineRunner(outcome.Create, _ => true, _ => DataDirectoryLockOutcome.NoLock, TimeProvider.System)
             .RunAsync(args, output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -129,7 +129,7 @@ public sealed class CommandLineRunnerTlsTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        outcome.ExitCode = await new CommandLineRunner(outcome.Create, _ => true, TimeProvider.System)
+        outcome.ExitCode = await new CommandLineRunner(outcome.Create, _ => true, _ => DataDirectoryLockOutcome.NoLock, TimeProvider.System)
             .RunAsync(args, output, error, TestContext.CancellationToken);
         outcome.Output = output.ToString();
         outcome.Error = error.ToString();

@@ -19,7 +19,7 @@ namespace Surl.Console;
 /// <summary>
 /// Runs one <c>surl</c> command line: the composition root. It parses the command line,
 /// answers <c>--help</c> and <c>--version</c>, checks the data directory when one is given and
-/// the schemes, then constructs the TLS settings, the content store (on disk or in memory), the
+/// the schemes, takes the data directory's lock, then constructs the TLS settings, the content store (on disk or in memory), the
 /// protocol servers, the exchange log and the serving engine explicitly and serves until
 /// cancelled, writing ADR-0007 section 5's texts and returning its exit codes.
 /// </summary>
@@ -32,10 +32,16 @@ namespace Surl.Console;
 /// Tells whether the data directory, as given with <c>--directory</c>, can be opened; never
 /// called without <c>--directory</c>. <c>surl</c> passes <see cref="ServedDirectoryProbe.CanOpen"/>.
 /// </param>
+/// <param name="takeDataDirectoryLock">
+/// Takes the data directory's <c>.surl/lock</c> (ADR-0031, decision 7), given the data
+/// directory as given with <c>--directory</c>; never called without <c>--directory</c>.
+/// <c>surl</c> passes <see cref="DataDirectoryLock.Take"/>.
+/// </param>
 /// <param name="timeProvider">The one clock every exchange runs on.</param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
     Func<string, bool> canOpenDataDirectory,
+    Func<string, DataDirectoryLockOutcome> takeDataDirectoryLock,
     TimeProvider timeProvider)
 {
     private const string MessagePrefix = "surl: ";
@@ -246,6 +252,27 @@ internal sealed class CommandLineRunner(
             return WriteFailure(error, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
         }
 
+        var dataDirectoryLock = commandLine.DataDirectory is { } lockedDirectory
+            ? takeDataDirectoryLock(lockedDirectory)
+            : DataDirectoryLockOutcome.NoLock;
+        if (dataDirectoryLock.FailureMessage is { } lockFailure)
+        {
+            return WriteFailure(error, dataDirectoryLock.ExitCode, lockFailure);
+        }
+
+        using (dataDirectoryLock.Holder)
+        {
+            return await ServeUnderTheLockAsync(commandLine, servers, output, error, cancellationToken);
+        }
+    }
+
+    private async Task<SurlExitCode> ServeUnderTheLockAsync(
+        SurlCommandLine commandLine,
+        IProtocolServer[] servers,
+        TextWriter output,
+        TextWriter error,
+        CancellationToken cancellationToken)
+    {
         ServerTlsComposition tls;
         try
         {

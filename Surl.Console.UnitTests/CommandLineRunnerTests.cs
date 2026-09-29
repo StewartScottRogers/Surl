@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;
@@ -100,10 +101,11 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public async Task RunAsync_NoDirectory_NeverProbesADataDirectoryAndServesInMemory()
+    public async Task RunAsync_NoDirectory_NeverProbesNorLocksADataDirectoryAndServesInMemory()
     {
         var factory = new FakeListenerFactory();
         var probedPaths = new List<string>();
+        var lockedPaths = new List<string>();
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -115,6 +117,11 @@ public sealed class CommandLineRunnerTests
                     probedPaths.Add(path);
                     return false;
                 },
+                path =>
+                {
+                    lockedPaths.Add(path);
+                    return DataDirectoryLockOutcome.InUse(path);
+                },
                 TimeProvider.System)
             .RunAsync(["http://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
@@ -123,7 +130,157 @@ public sealed class CommandLineRunnerTests
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
         Assert.IsEmpty(probedPaths);
+        Assert.IsEmpty(lockedPaths);
         Assert.AreEqual(string.Empty, error.ToString());
+    }
+
+    [TestMethod]
+    [DataRow("--help")]
+    [DataRow("--version")]
+    public async Task RunAsync_HelpOrVersionWithDirectory_NeverTakesTheDataDirectoryLock(string option)
+    {
+        var lockedPaths = new List<string>();
+
+        var (exitCode, _, _) = await RunWithLockAsync(
+            _ => new FakeListenerFactory(),
+            path =>
+            {
+                lockedPaths.Add(path);
+                return DataDirectoryLockOutcome.InUse(path);
+            },
+            "--directory",
+            "served",
+            option);
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.IsEmpty(lockedPaths);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_DataDirectory_TakesTheLockBeforeTheListenerFactoryIsAskedForAnyListenerAndDisposesItWhenCancelled()
+    {
+        var factory = new FakeListenerFactory();
+        var events = new List<string>();
+        var holder = new FakeLockHolder();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var running = new CommandLineRunner(
+                _ =>
+                {
+                    events.Add("listener factory created");
+                    return factory;
+                },
+                AnyDirectoryOpens,
+                path =>
+                {
+                    events.Add($"lock taken on {path} with {factory.StartedListenUrls.Count} listeners started");
+                    return DataDirectoryLockOutcome.Taken(holder);
+                },
+                TimeProvider.System)
+            .RunAsync(["--directory", "served", "http://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        var disposedWhileServing = holder.Disposed;
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        CollectionAssert.AreEqual(
+            new[] { "lock taken on served with 0 listeners started", "listener factory created" }, events);
+        Assert.IsFalse(disposedWhileServing);
+        Assert.IsTrue(holder.Disposed);
+        Assert.AreEqual(string.Empty, error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_DataDirectoryInUse_WritesInUseAndReturnsDataDirectoryInUseWithoutStartingAListener()
+    {
+        var factoryCreated = false;
+
+        var (exitCode, output, error) = await RunWithLockAsync(
+            _ =>
+            {
+                factoryCreated = true;
+                return new FakeListenerFactory();
+            },
+            DataDirectoryLockOutcome.InUse,
+            "--directory",
+            "served",
+            "http://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.DataDirectoryInUse, exitCode);
+        Assert.AreEqual(string.Empty, output);
+        Assert.AreEqual("surl: (124) Directory served is in use by another surl process" + NewLine, error);
+        Assert.IsFalse(factoryCreated);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_DataDirectoryLockCannotBeCreated_WritesCouldNotCreateAndReturnsCouldNotWriteFile()
+    {
+        var factory = new FakeListenerFactory();
+
+        var (exitCode, _, error) = await RunWithLockAsync(
+            _ => factory,
+            _ => DataDirectoryLockOutcome.CouldNotCreate("full/served/.surl", new UnauthorizedAccessException("Access denied.")),
+            "--directory",
+            "served",
+            "http://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.CouldNotWriteFile, exitCode);
+        Assert.AreEqual("surl: (23) Could not create full/served/.surl: Access denied." + NewLine, error);
+        Assert.IsEmpty(factory.StartedListenUrls);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_DataDirectoryAndSchemeWithNoRegisteredServer_ReturnsUnsupportedProtocolWithoutTakingTheLock()
+    {
+        var lockedPaths = new List<string>();
+
+        var (exitCode, _, _) = await RunWithLockAsync(
+            _ => new FakeListenerFactory(),
+            path =>
+            {
+                lockedPaths.Add(path);
+                return DataDirectoryLockOutcome.Taken(new FakeLockHolder());
+            },
+            "--directory",
+            "served",
+            "rtsp://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.IsEmpty(lockedPaths);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_DataDirectoryAndListenerCannotBind_DisposesTheLock()
+    {
+        var listenUrl = new ListenUrl("http", "127.0.0.1", 8080);
+        var factory = new FakeListenerFactory
+        {
+            BindFailure = new ListenerBindException(
+                listenUrl, new IPEndPoint(IPAddress.Loopback, 8080), ListenerBindFailure.AddressInUse, null),
+        };
+        var holder = new FakeLockHolder();
+
+        var (exitCode, _, _) = await RunWithLockAsync(
+            _ => factory, _ => DataDirectoryLockOutcome.Taken(holder), "--directory", "served", "http://127.0.0.1:8080/");
+
+        Assert.AreEqual(SurlExitCode.BindFailed, exitCode);
+        Assert.IsTrue(holder.Disposed);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_DataDirectoryAndEngineThrows_DisposesTheLock()
+    {
+        var factory = new FakeListenerFactory { AcceptFailure = new InvalidOperationException("accept broke") };
+        var holder = new FakeLockHolder();
+
+        var (exitCode, _, _) = await RunWithLockAsync(
+            _ => factory, _ => DataDirectoryLockOutcome.Taken(holder), "--directory", "served", "http://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.InternalError, exitCode);
+        Assert.IsTrue(holder.Disposed);
     }
 
     [TestMethod]
@@ -134,7 +291,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
             .RunAsync(["http://127.0.0.1:0/", "http://[::1]:8080/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         var statusLines = output.ToString();
@@ -161,7 +318,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
             .RunAsync(["dict://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -181,7 +338,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
             .RunAsync(["gopher://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -201,7 +358,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
             .RunAsync(["mqtt://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -221,7 +378,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
             .RunAsync(["telnet://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -241,7 +398,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System)
             .RunAsync(["tftp://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
@@ -513,6 +670,22 @@ public sealed class CommandLineRunnerTests
 
     private static bool AnyDirectoryOpens(string path) => true;
 
+    private static DataDirectoryLockOutcome AnyLockIsTaken(string path) => DataDirectoryLockOutcome.Taken(new FakeLockHolder());
+
+    private async Task<(SurlExitCode ExitCode, string Output, string Error)> RunWithLockAsync(
+        Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
+        Func<string, DataDirectoryLockOutcome> takeDataDirectoryLock,
+        params string[] args)
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await new CommandLineRunner(createListenerFactory, AnyDirectoryOpens, takeDataDirectoryLock, TimeProvider.System)
+            .RunAsync(args, output, error, TestContext.CancellationToken);
+
+        return (exitCode, output.ToString(), error.ToString());
+    }
+
     private Task<(SurlExitCode ExitCode, string Output, string Error)> RunAsync(
         FakeListenerFactory factory, params string[] args) =>
         RunAsync(factory, AnyDirectoryOpens, args);
@@ -523,7 +696,7 @@ public sealed class CommandLineRunnerTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await new CommandLineRunner(_ => factory, canOpenDataDirectory, TimeProvider.System)
+        var exitCode = await new CommandLineRunner(_ => factory, canOpenDataDirectory, AnyLockIsTaken, TimeProvider.System)
             .RunAsync(args, output, error, TestContext.CancellationToken);
 
         return (exitCode, output.ToString(), error.ToString());

@@ -9,8 +9,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help` and
   `--version`, checks the data directory when `--directory` names one
-  (`ServedDirectoryProbe`) and every scheme against the registered protocol servers, then
-  builds the content store (on disk with `--directory`, a new `InMemoryContentFileSystem`
+  (`ServedDirectoryProbe`) and every scheme against the registered protocol servers, takes
+  the data directory's `.surl/lock` (`DataDirectoryLock`, held until serving ends; a second
+  surl on the same path gets 124, a `.surl` that cannot be created 23, ADR-0031 decision 7),
+  then builds the content store (on disk with `--directory`, a new `InMemoryContentFileSystem`
   without it, ADR-0031), the protocol
   servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
