@@ -77,3 +77,17 @@ the tests.
 | --- | --- | --- | --- | --- |
 | `ntlm` | `2`: `<ntlm401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` | `'-sS','--ntlm','-u','tester:secret','http://127.0.0.1:18120/x'` | 0 | the NTLMv2 answer for `tester:secret`, empty domain; stdout `ok` |
 | `ntlm-wrong-password` | `3`: `<ntlm401>`, then `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM\r\nContent-Length: 0\r\n\r\n` | `'-sS','-f','--ntlm','-u','tester:wrong','http://127.0.0.1:18120/x'` | 22 | the answer for `tester:wrong`; after the second `401` curl gives up (`curl: (22) The requested URL returned error: 401`) and sends no third request. Without `-f` the same run exits 0 with an empty body. |
+
+## Negotiate (BL-121)
+
+Recorded on 2026-09-29 with the same build and `-Port 18121 -ResponsesPerConnection 2`, every
+request answered with `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate\r\nContent-Length: 0\r\n\r\n`,
+on a Windows 11 10.0.26200 machine that is not in a domain.
+
+| Folder | `-CurlArgs` | Exit | What it shows |
+| --- | --- | --- | --- |
+| `negotiate-no-token` | `'-sS','-v','--negotiate','-u','tester:secret','http://127.0.0.1:18121/x'` | 0 | SSPI's `InitializeSecurityContext` failed with `SEC_E_NO_CREDENTIALS` before the request and again after the `401`; curl sent one request with no `Authorization` and gave up with an empty body. With `-f` instead of `-v` it exits 22, `curl: (22) InitializeSecurityContext failed: SEC_E_NO_CREDENTIALS (0x8009030e) - ...`. The same happened for `localhost`, a `--resolve`d name, `SURL\tester`, `tester@surl`, `.\tester`, `-u :` and `--delegation always`. |
+
+So there is no Negotiate token from upstream curl to replay yet (ADR-0040, "Measured"; BL-134
+finds out why). `NegotiateAuthenticationMethodTests` replays the NTLM messages of `ntlm` above,
+bare and wrapped in SPNEGO as RFC 4178 lays it out (`SpnegoTestTokens`).

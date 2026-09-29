@@ -92,3 +92,25 @@ Protocol servers receive what it provides through the contracts in Abstractions.
   unknown or empty name gets a random dummy.
 - An accepted NTLM login is not remembered by the connection yet: a later request on it without
   an `Authorization` is challenged again (ADR-0039, "Consequences").
+- The handshake itself is `NtlmHandshake` (answering decoded messages with an
+  `NtlmHandshakeStep`), shared by NTLM and Negotiate; `NtlmConnectionVerifier` only decodes the
+  base64 (`Base64Credentials`) and writes `NTLM <base64>`.
+
+## Negotiate, carrying NTLM (BL-121)
+
+- `NegotiateAuthenticationMethod` offers the bare `Negotiate` challenge (only when `--auth` names
+  `negotiate`) and starts a `NegotiateConnectionVerifier` per connection (ADR-0040). A bare NTLM
+  token is answered bare, `Negotiate <base64 CHALLENGE_MESSAGE>`, with no final token. A SPNEGO
+  `NegTokenInit` offering NTLMSSP is answered with a `negTokenResp` (`accept-incomplete`,
+  `supportedMech` in the first reply only, the `CHALLENGE_MESSAGE` as `responseToken`), or with
+  `supportedMech` alone when the client preferred another mechanism; the accepted answer is
+  served with `Negotiate oQcwBaADCgEA` (`accept-completed`). No `mechListMIC` is read or sent.
+- `SpnegoToken` reads and writes the RFC 4178 tokens with `System.Formats.Asn1` (DER), into
+  `SpnegoNegTokenInit` and `SpnegoNegState`; malformed DER reads as `null`, never an exception.
+- A `NegTokenInit` offering no NTLM, a bare Kerberos token, a `negTokenResp` out of turn and
+  malformed DER are refused. **Kerberos inside Negotiate is later work** (ADR-0032 decision 11),
+  built by hand, not a package.
+- The pinned Windows reference build sent no Negotiate token on the lane machine
+  (`SEC_E_NO_CREDENTIALS`, `Fixtures/negotiate-no-token`), so the tests wrap the NTLM messages
+  recorded for BL-120 in SPNEGO (`SpnegoTestTokens`); composing it in `surl` and the end-to-end
+  proof are BL-134.

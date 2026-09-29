@@ -56,6 +56,12 @@ internal static class RecordedFixture
     public static string ReadAuthorization(string caseName) =>
         ReadRequest(caseName).Fields.Single(field => field.Key == "Authorization").Value;
 
+    /// <summary>
+    /// One of a case's text files (<c>exitcode.txt</c>, <c>stderr.txt</c>), read as UTF-8.
+    /// </summary>
+    public static string ReadText(string caseName, string fileName) =>
+        Encoding.UTF8.GetString(ReadBytes(caseName, fileName));
+
     private static byte[] ReadBytes(string caseName, string fileName)
     {
         using var stream = typeof(RecordedFixture).Assembly.GetManifestResourceStream($"Fixtures/{caseName}/{fileName}")
