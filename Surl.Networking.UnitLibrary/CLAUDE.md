@@ -61,7 +61,19 @@ protocol server.
   `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
   disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
   close_notify before FIN. Versions are the operating system's defaults until BL-048.
-  Reading the `--cert`, `--key` and `--cacert` files is BL-067.
+- Reading the TLS option files (ADR-0010, sections 3 and 5), at startup before any listener
+  binds. `ServerCertificateFileLoader.Load` reads `--cert` as `ServerCertificateFormat`
+  `Pem`, `Der` or `P12` and `--key` as `ServerKeyFormat` `Pem` or `Der`, with `--pass`, into a
+  `LoadedServerCertificate` (certificate with an exportable key, intermediates in file
+  order) for `ServerTlsSettings`; `ServerPrivateKeyImport` joins the key (PKCS#8, encrypted
+  PKCS#8, PKCS#1, SEC1) and refuses any key but RSA 2048+ and ECDSA P-256/384/521.
+  `ClientTrustAnchorFileLoader.Load` reads `--cacert` (PEM blocks or one DER certificate).
+  Every failure is `TlsFileLoadException` carrying a `TlsFileLoadFailure` -
+  `ServerCertificateUnusable`, `CaCertificateNotFound`, `CaCertificateUnreadable` - which
+  `Surl.Console` maps to `CertificateProblem` (58), `FailedInit` (2) and
+  `CaCertificateBadFile` (77). Parsing the `--cert-type`/`--key-type` words and refusing
+  `--key` with `P12` is the command line's job; the loader takes the enums. Tests write
+  generated certificates and keys under `Path.GetTempPath()` (`TemporaryTlsFiles`).
 - The TLS tests run real `SslStream` handshakes over `InMemoryDuplexStream` (test project)
   with certificates made by `CertificateRequest`, so they are fast tests on every platform;
   `TcpConnectionListenerTlsTests` (Integration) repeats one over a loopback socket.
