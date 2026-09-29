@@ -79,14 +79,28 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     [TestMethod]
-    [DataRow("aws-sigv4")]
-    public async Task RunAsync_AuthWordThisBuildDoesNotImplement_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string word)
+    public async Task RunAsync_AuthAwsSigV4AndNoLoginOverHttp_TheComposedHttpServerAnswers403()
     {
-        var run = await RunRefusedAsync(ReadsAs(string.Empty), "--auth", $"basic,{word}", Http);
+        // Signature Version 4 has no challenge, so with it alone a 401 could carry none (ADR-0032, section 4).
+        var run = await ServeOneConnectionAsync(
+            Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\n"), ReadsAs(string.Empty), "--user", "alice:pw", "--auth", "aws-sigv4", Http);
 
-        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
-        Assert.AreEqual($"surl: (2) --auth {word} is not available in this build" + NewLine, run.Error);
-        Assert.IsEmpty(run.Factory.StartedListenUrls);
+        StringAssert.StartsWith(Encoding.ASCII.GetString(run.Written), "HTTP/1.1 403 Forbidden\r\n");
+    }
+
+    [TestMethod]
+    public async Task RunAsync_AuthAwsSigV4AndASignatureOverHttp_TheComposedHttpServerChecksIt()
+    {
+        // A signature the composed method reads and refuses: a 401 with the Digest challenges.
+        var request = "GET / HTTP/1.1\r\nHost: x\r\nX-Amz-Date: 20260929T000000Z\r\nAuthorization: AWS4-HMAC-SHA256 "
+            + "Credential=alice/20260929/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-date, Signature="
+            + new string('0', 64) + "\r\n\r\n";
+        var run = await ServeOneConnectionAsync(
+            Encoding.ASCII.GetBytes(request), ReadsAs(string.Empty), "--user", "alice:pw", "--auth", "aws-sigv4,digest", Http);
+
+        var response = Encoding.ASCII.GetString(run.Written);
+        StringAssert.StartsWith(response, "HTTP/1.1 401 Unauthorized\r\n");
+        StringAssert.Contains(response, "\r\nWWW-Authenticate: Digest ");
     }
 
     [TestMethod]

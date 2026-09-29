@@ -15,25 +15,25 @@ internal static class AuthenticationComposition
 {
     private const string WarningPrefix = "surl: warning: ";
 
-    // The --auth words this build implements a method for; any other --auth word is refused
-    // before any listener binds (ADR-0032, section 1), until its method lands.
-    private static readonly Dictionary<string, AuthenticationMethod> ImplementedMethodsByWord = new(StringComparer.Ordinal)
+    // The method each --auth word names (ADR-0032, section 3).
+    private static readonly Dictionary<string, AuthenticationMethod> MethodsByWord = new(StringComparer.Ordinal)
     {
         ["negotiate"] = AuthenticationMethod.Negotiate,
         ["ntlm"] = AuthenticationMethod.Ntlm,
         ["digest"] = AuthenticationMethod.Digest,
         ["basic"] = AuthenticationMethod.Basic,
         ["bearer"] = AuthenticationMethod.Bearer,
+        ["aws-sigv4"] = AuthenticationMethod.AwsSigV4,
     };
 
     /// <summary>
-    /// Builds the policy: refuses an <c>--auth</c> word whose method this build does not
-    /// implement, reads the <c>--user-file</c> through <paramref name="readUserFile"/> when one
-    /// was given, and composes the Negotiate, NTLM, Basic, Bearer and Digest methods over the accounts.
+    /// Builds the policy: reads the <c>--user-file</c> through <paramref name="readUserFile"/> when
+    /// one was given, and composes the Negotiate, NTLM, Basic, Bearer, Digest and AWS Signature
+    /// Version 4 methods over the accounts.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="readUserFile">Reads the <c>--user-file</c>'s bytes, given its path as given.</param>
-    /// <param name="timeProvider">The clock the refusal delay and the Digest nonces run on.</param>
+    /// <param name="timeProvider">The clock the refusal delay, the Digest nonces and the Signature Version 4 window run on.</param>
     /// <returns>
     /// The policy; or, when it cannot be built, <see langword="null"/> with the exit code and the
     /// message after the <c>surl: </c> prefix (ADR-0032, sections 1 and 2).
@@ -41,11 +41,6 @@ internal static class AuthenticationComposition
     public static (AuthenticationPolicy? Policy, SurlExitCode ExitCode, string? FailureMessage) Compose(
         SurlCommandLine commandLine, Func<string, byte[]> readUserFile, TimeProvider timeProvider)
     {
-        if (FindUnavailableMethodWord(commandLine) is { } word)
-        {
-            return (null, SurlExitCode.FailedInit, $"(2) --auth {word} is not available in this build");
-        }
-
         var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readUserFile);
         return accounts is null
             ? (null, exitCode, failureMessage)
@@ -56,7 +51,7 @@ internal static class AuthenticationComposition
     /// Builds the policy of a command line with no accounts and no loosening option: what the
     /// servers are composed with when only their schemes are wanted.
     /// </summary>
-    /// <param name="timeProvider">The clock the refusal delay and the Digest nonces run on.</param>
+    /// <param name="timeProvider">The clock the refusal delay, the Digest nonces and the Signature Version 4 window run on.</param>
     /// <returns>The policy.</returns>
     public static AuthenticationPolicy ComposeWithoutAccounts(TimeProvider timeProvider) =>
         ComposePolicy(ComposeSettings(new SurlCommandLine(), []), timeProvider);
@@ -74,7 +69,7 @@ internal static class AuthenticationComposition
             commandLine.AllowAnonymous,
             commandLine.AllowPlaintextAuthentication,
             commandLine.GivenAuthenticationMethods is { } words
-                ? words.Select(word => ImplementedMethodsByWord[word]).ToHashSet()
+                ? words.Select(word => MethodsByWord[word]).ToHashSet()
                 : AuthenticationMethods.DefaultAccepted);
 
     /// <summary>
@@ -106,9 +101,6 @@ internal static class AuthenticationComposition
             log.WriteLine(WarningPrefix + $"--auth: accepted methods are {string.Join(", ", words)}");
         }
     }
-
-    private static string? FindUnavailableMethodWord(SurlCommandLine commandLine) =>
-        commandLine.GivenAuthenticationMethods?.FirstOrDefault(word => !ImplementedMethodsByWord.ContainsKey(word));
 
     // The --user accounts, then the --user-file's (ADR-0032, section 2): a file that cannot be
     // read is 37, a malformed one 2, each naming the file as given and never a password.
@@ -147,6 +139,7 @@ internal static class AuthenticationComposition
                 new BasicAuthenticationMethod(settings.Accounts),
                 new BearerAuthenticationMethod(settings.Accounts),
                 new DigestAuthenticationMethod(settings.Accounts, timeProvider),
+                new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider),
             ],
             timeProvider);
 }

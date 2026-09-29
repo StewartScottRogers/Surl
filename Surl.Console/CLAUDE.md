@@ -17,12 +17,12 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   data directory's `.surl/lock` (`DataDirectoryLock.Take`, held until serving ends; a
   second surl on the same path gets 124, a `.surl` or lock file that cannot be created 23,
   ADR-0031 decision 7; no lock and no disk access without `--directory`). Before the lock it
-  builds the authentication policy (`AuthenticationComposition`, ADR-0032): an `--auth` word
-  whose method this build does not implement (today `aws-sigv4`) ends
-  surl with 2; the `--user-file` is read through the runner's `readUserFile` seam
+  builds the authentication policy (`AuthenticationComposition`, ADR-0032): every `--auth`
+  word names a method this build implements; the `--user-file` is read through the runner's `readUserFile` seam
   (`File.ReadAllBytes` in `surl`), 37 when it cannot be read and 2 naming the line when it
   is malformed; the `--user` accounts and then the file's go into one `AccountBook`, and
-  `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer and Digest is handed to
+  `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
+  and AWS Signature Version 4 is handed to
   the HTTP (`http`, `https`) and MQTT (`mqtt`, `mqtts`) servers. Then it builds
   the protocol
   servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
