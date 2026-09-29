@@ -51,6 +51,8 @@ internal static class CommandLineOptions
     [
         new("help", 'h', CommandLineOptionKind.Help, Negatable: false, SetFlag: null, ApplyArgument: null, OptionArgumentType.OptionalSubject,
             new("<subject>", "Get help for commands", ["surl"], IsInShortList: true, Default: null)),
+        new("aihelp", null, CommandLineOptionKind.AiHelp, Negatable: false, SetFlag: null, ApplyArgument: null, OptionArgumentType.OptionalTopic,
+            new("<topic>", "Markdown help for AI agents", ["surl"], IsInShortList: true, Default: null)),
         new("version", 'V', CommandLineOptionKind.Version, Negatable: false, SetFlag: null, ApplyArgument: null, OptionArgumentType.None,
             new(null, "Show version number and quit", ["surl"], IsInShortList: true, Default: null)),
         new("manual", 'M', CommandLineOptionKind.Manual, Negatable: false, SetFlag: null, ApplyArgument: null, OptionArgumentType.None,

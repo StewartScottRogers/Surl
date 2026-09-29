@@ -7,8 +7,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `Program.Main` registers Ctrl+C (SIGINT) and SIGTERM to cancel a token and calls
   `Program.RunAsync(args, output, error, cancellationToken)`, the internal entry point the
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
-- `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help`, `--manual`
-  (`ManualText.Text`) and `--version`, checks the data directory when `--directory` names one
+- `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help`, `--aihelp`
+  (`AiHelpText.Answer`), `--manual` (`ManualText.Text`) and `--version`, checks the data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
   full path with `--directory`, a new, empty `InMemoryContentFileSystem` at

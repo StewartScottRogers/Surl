@@ -9,6 +9,12 @@ internal enum CommandLineOptionKind
     /// </summary>
     Help,
 
+    /// <summary>
+    /// <c>--aihelp</c>: takes the topic that follows, if any, and ends reading with
+    /// <see cref="CommandLineOutcome.ShowAiHelp"/> (ADR-0046 decision 1).
+    /// </summary>
+    AiHelp,
+
     /// <summary><c>-V</c>/<c>--version</c>: ends reading with <see cref="CommandLineOutcome.ShowVersion"/>.</summary>
     Version,
 

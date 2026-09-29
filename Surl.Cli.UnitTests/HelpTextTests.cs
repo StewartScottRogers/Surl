@@ -86,6 +86,7 @@ public sealed class HelpTextTests
         AssertOutput(
             answer,
             "Usage: surl [options...] <url>...",
+            "     --aihelp <topic>         Markdown help for AI agents",
             "     --allow-uploads          Accept uploads into served files",
             "     --cert <file>            Server certificate file",
             "     --directory <directory>  Data directory, else in memory",
@@ -117,6 +118,7 @@ public sealed class HelpTextTests
 
         AssertOutput(
             answer,
+            "     --aihelp <topic>                        Markdown help for AI agents",
             Row(46, "    --allow-anonymous", "Accept any login, or none (warns)"),
             Row(46, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             "     --allow-uploads                         Accept uploads into served files",
@@ -476,6 +478,7 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("surl"),
             "surl: The command line tool itself",
+            "     --aihelp <topic>  Markdown help for AI agents",
             " -h, --help <subject>  Get help for commands",
             " -M, --manual          Display the full manual",
             " -V, --version         Show version number and quit");
@@ -538,6 +541,16 @@ public sealed class HelpTextTests
             HelpText.Answer(subject),
             "    -h, --help <subject>",
             "        Get help for commands.",
+            "",
+            "        Categories: surl.",
+            "");
+
+    [TestMethod]
+    public void Answer_AiHelp_IsItsPageWithoutADefault() =>
+        AssertOutput(
+            HelpText.Answer("--aihelp"),
+            "    --aihelp <topic>",
+            "        Markdown help for AI agents.",
             "",
             "        Categories: surl.",
             "");

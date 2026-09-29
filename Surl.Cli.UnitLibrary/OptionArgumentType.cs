@@ -13,6 +13,9 @@ internal sealed record OptionArgumentType(string Name, string AllowedValues)
     public static OptionArgumentType OptionalSubject { get; } =
         new("optional subject", "a category, all, category or an option; see surl --help category");
 
+    /// <summary>The <c>--aihelp</c> topic.</summary>
+    public static OptionArgumentType OptionalTopic { get; } = new("optional topic", "a topic or all; see surl --aihelp");
+
     /// <summary><c>-V</c>/<c>--version</c> and <c>-M</c>/<c>--manual</c>, which take nothing.</summary>
     public static OptionArgumentType None { get; } = new("none", "none");
 

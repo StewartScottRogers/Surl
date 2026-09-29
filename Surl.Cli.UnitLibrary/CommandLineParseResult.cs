@@ -7,12 +7,17 @@ namespace Surl.Cli;
 public sealed class CommandLineParseResult
 {
     private CommandLineParseResult(
-        CommandLineOutcome outcome, SurlCommandLine? commandLine, CommandLineFailure? failure, string? helpSubject = null)
+        CommandLineOutcome outcome,
+        SurlCommandLine? commandLine,
+        CommandLineFailure? failure,
+        string? helpSubject = null,
+        string? aiHelpTopic = null)
     {
         Outcome = outcome;
         CommandLine = commandLine;
         Failure = failure;
         HelpSubject = helpSubject;
+        AiHelpTopic = aiHelpTopic;
     }
 
     /// <summary>The result that tells <c>surl</c> to show the version.</summary>
@@ -48,6 +53,19 @@ public sealed class CommandLineParseResult
     /// <returns>The help result; an empty subject is carried as <see langword="null"/>.</returns>
     public static CommandLineParseResult ShowHelp(string? subject) =>
         new(CommandLineOutcome.ShowHelp, null, null, string.IsNullOrEmpty(subject) ? null : subject);
+
+    /// <summary>
+    /// The topic when <see cref="Outcome"/> is <see cref="CommandLineOutcome.ShowAiHelp"/>:
+    /// <see langword="null"/> when none was given or it was empty, otherwise the argument
+    /// exactly as written. <see langword="null"/> for every other outcome.
+    /// </summary>
+    public string? AiHelpTopic { get; }
+
+    /// <summary>A result that tells <c>surl</c> to show the AI help for <paramref name="topic"/> (ADR-0046 decision 1).</summary>
+    /// <param name="topic">The topic as written after <c>--aihelp</c>, or <see langword="null"/> when none followed.</param>
+    /// <returns>The AI help result; an empty topic is carried as <see langword="null"/>.</returns>
+    public static CommandLineParseResult ShowAiHelp(string? topic) =>
+        new(CommandLineOutcome.ShowAiHelp, null, null, aiHelpTopic: string.IsNullOrEmpty(topic) ? null : topic);
 
     /// <summary>A result that tells <c>surl</c> to serve <paramref name="commandLine"/>.</summary>
     /// <param name="commandLine">The parsed command line, with at least one listen URL.</param>

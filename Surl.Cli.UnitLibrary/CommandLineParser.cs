@@ -53,6 +53,8 @@ public static class CommandLineParser
     /// <see cref="CommandLineParseResult.ShowVersion"/> or <see cref="CommandLineParseResult.ShowManual"/>
     /// when <c>-h</c>/<c>--help</c>, <c>-V</c>/<c>--version</c> or <c>-M</c>/<c>--manual</c> is
     /// read before any error (ADR-0034 decision 4);
+    /// <see cref="CommandLineParseResult.ShowAiHelp"/>, with the topic that follows, when
+    /// <c>--aihelp</c> is read first (ADR-0046 decision 1);
     /// a serve result carrying the <see cref="SurlCommandLine"/>; or the first failure, with
     /// its <see cref="SurlExitCode"/> and message.
     /// </returns>
@@ -197,7 +199,7 @@ public static class CommandLineParser
         string writtenName,
         string? attached,
         bool turnOn) =>
-        option.Kind is CommandLineOptionKind.Help or CommandLineOptionKind.Argument
+        option.Kind is CommandLineOptionKind.Help or CommandLineOptionKind.AiHelp or CommandLineOptionKind.Argument
             ? ApplyOptionTakingAValue(reading, option, writtenName, attached ?? reading.TakeArgumentOrNull())
             : ApplyOptionTakingNoValue(reading, option, writtenName, attached, turnOn);
 
@@ -229,7 +231,8 @@ public static class CommandLineParser
     }
 
     /// <summary>
-    /// Applies <c>--help</c>, whose optional subject is <paramref name="value"/>, or an option
+    /// Applies <c>--help</c>, whose optional subject is <paramref name="value"/>, <c>--aihelp</c>,
+    /// whose optional topic is <paramref name="value"/> (ADR-0046 decision 1), or an option
     /// whose required argument is <paramref name="value"/>; null when none was given.
     /// </summary>
     private static CommandLineParseResult? ApplyOptionTakingAValue(
@@ -237,9 +240,12 @@ public static class CommandLineParser
         CommandLineOption option,
         string writtenName,
         string? value) =>
-        option.Kind == CommandLineOptionKind.Help
-            ? CommandLineParseResult.ShowHelp(value)
-            : ApplyArgument(reading, option, writtenName, value);
+        option.Kind switch
+        {
+            CommandLineOptionKind.Help => CommandLineParseResult.ShowHelp(value),
+            CommandLineOptionKind.AiHelp => CommandLineParseResult.ShowAiHelp(value),
+            _ => ApplyArgument(reading, option, writtenName, value),
+        };
 
     private static CommandLineParseResult? ApplyArgument(
         CommandLineReading reading,

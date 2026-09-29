@@ -45,6 +45,39 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
+    [DataRow(null, new[] { "--aihelp" })]
+    [DataRow("mqtt", new[] { "--aihelp", "mqtt" })]
+    [DataRow("all", new[] { "--aihelp", "all" })]
+    [DataRow(null, new[] { "-s", "--aihelp" }, DisplayName = "At the none level too")]
+    [DataRow("nosuch", new[] { "--aihelp", "nosuch" }, DisplayName = "Unknown topic")]
+    [DataRow("--user", new[] { "--aihelp", "--user" }, DisplayName = "Option-like topic")]
+    public async Task RunAsync_AiHelp_WritesTheTopicsMarkdownToOutputAndReturnsOk(string? topic, string[] arguments)
+    {
+        var listenerFactory = new FakeListenerFactory();
+
+        var (exitCode, output, error) = await RunAsync(listenerFactory, arguments);
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(AiHelpText.Answer(topic).Output, output);
+        Assert.AreEqual(string.Empty, error);
+        Assert.IsEmpty(listenerFactory.StartedListenUrls);
+    }
+
+    [TestMethod]
+    [DataRow("nosuch")]
+    [DataRow("--user")]
+    public async Task RunAsync_AiHelpUnknownTopic_WritesTheUnknownTopicAnswerAndReturnsOk(string topic)
+    {
+        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--aihelp", topic);
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        StringAssert.StartsWith(
+            output,
+            "# surl --aihelp: unknown topic" + NewLine + NewLine + "Unknown topic provided, here is a list of all topics:" + NewLine);
+        Assert.AreEqual(string.Empty, error);
+    }
+
+    [TestMethod]
     public async Task RunAsync_Version_WritesVersionWithTheDictGopherGophersHttpHttpsMqttMqttsTelnetAndTftpSchemesAndReturnsOk()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly

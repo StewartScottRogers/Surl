@@ -95,6 +95,7 @@ internal sealed class CommandLineRunner(
         return parsed.Outcome switch
         {
             CommandLineOutcome.ShowHelp => WriteHelp(output, error, HelpText.Answer(parsed.HelpSubject)),
+            CommandLineOutcome.ShowAiHelp => WriteHelp(output, error, AiHelpText.Answer(parsed.AiHelpTopic)),
             CommandLineOutcome.ShowVersion => WriteText(output, ComposeVersionText()),
             CommandLineOutcome.ShowManual => WriteText(output, ManualText.Text),
             CommandLineOutcome.Refused => WriteRefusal(error, parsed.Failure!),

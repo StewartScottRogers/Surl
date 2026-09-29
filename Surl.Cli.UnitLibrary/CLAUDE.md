@@ -16,7 +16,7 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   for a loosening option, its `Explanation`), so an option cannot be added without its help.
   `CommandLineParser.Parse` reads a whole command line by it, left to right, into a
   `CommandLineParseResult`: `Serve` with a `SurlCommandLine`, `ShowHelp` with its
-  `HelpSubject`, `ShowManual`, `ShowVersion`, or `Refused` with a `CommandLineFailure`.
+  `HelpSubject`, `ShowAiHelp` with its `AiHelpTopic`, `ShowManual`, `ShowVersion`, or `Refused` with a `CommandLineFailure`.
   `ListenUrlParser` reads each listen URL; `OptionArgumentReader` reads each argument kind.
 - Accounts and loosening options (ADR-0032 section 1): each `-u`/`--user` adds a
   `CommandLineAccount` to `SurlCommandLine.Accounts`, split at the first `:`; a refusal
@@ -41,8 +41,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `ExitCodeGuidanceTable`, and the option's left side shared with `HelpText.LeftSide`. The
   hand-written paragraphs are `AiHelpProse`'s source constants; the examples are
   `AiHelpExamples.All` (`AiHelpExample`, `AiHelpExamplePrecondition`), public so
-  `Surl.Console.UnitTests` can run them (BL-142). Nothing calls it from the command line yet
-  (BL-141). Work that changes what surl does updates the `AiHelpProse` paragraph and the
+  `Surl.Console.UnitTests` can run them (BL-142). `--aihelp [topic]` is a row of
+  `CommandLineOptions` (`CommandLineOptionKind.AiHelp`, no short name), read as `--help`
+  reads its subject into `CommandLineParseResult.AiHelpTopic` with the outcome `ShowAiHelp`,
+  which `Surl.Console` answers. Work that changes what surl does updates the `AiHelpProse` paragraph and the
   example that describe it in the same change, as it does `ManualText`.
 
 Never touch the console here; `Surl.Console` hands this library its arguments and writers.

@@ -1035,6 +1035,59 @@ public sealed class CommandLineParserTests
         Assert.IsNull(CommandLineParser.Parse([Url]).HelpSubject);
     }
 
+    // --aihelp (ADR-0046 decision 1).
+
+    [TestMethod]
+    [DataRow(null, new[] { "--aihelp" }, DisplayName = "No topic")]
+    [DataRow("mqtt", new[] { "--aihelp", "mqtt" }, DisplayName = "The next argument")]
+    [DataRow("mqtt", new[] { "--aihelp=mqtt" }, DisplayName = "Attached with =")]
+    [DataRow(null, new[] { "--aihelp=" }, DisplayName = "An empty attached topic")]
+    [DataRow(null, new[] { "--aihelp", "" }, DisplayName = "An empty next argument")]
+    [DataRow("all", new[] { "--aihelp", "all" }, DisplayName = "all")]
+    [DataRow("-h", new[] { "--aihelp", "-h" }, DisplayName = "The next argument whatever it looks like")]
+    [DataRow("--", new[] { "--aihelp", "--" }, DisplayName = "Even the end of options")]
+    [DataRow("mqtt", new[] { "--aihelp", "mqtt", "--nosuch" }, DisplayName = "Nothing after the topic is read")]
+    [DataRow("mqtt", new[] { "-v", "--aihelp", "mqtt" }, DisplayName = "An option before it")]
+    [DataRow(null, new[] { "-s", "--aihelp" }, DisplayName = "-s before it")]
+    [DataRow("-v", new[] { "--aihelp", "-v" }, DisplayName = "An option after it is its topic")]
+    [DataRow(null, new[] { "http://127.0.0.1:0/", "--aihelp" }, DisplayName = "After a listen URL")]
+    public void Parse_AiHelp_ShowsAiHelpForTheTopic(string? topic, string[] arguments)
+    {
+        var result = CommandLineParser.Parse(arguments);
+
+        Assert.AreEqual(CommandLineOutcome.ShowAiHelp, result.Outcome, result.Failure?.Message);
+        Assert.AreEqual(topic, result.AiHelpTopic);
+        Assert.IsNull(result.HelpSubject);
+        Assert.IsNull(result.CommandLine);
+        Assert.IsNull(result.Failure);
+    }
+
+    [TestMethod]
+    public void Parse_NoAiHelp_IsRefusedAsNotReversible() =>
+        AssertOptionRefused(["--no-aihelp"], "option --no-aihelp: the given option cannot be reversed with a --no- prefix");
+
+    [TestMethod]
+    public void Parse_HelpVersionOrManualBeforeAiHelp_WinsAsTheFirstRead()
+    {
+        AssertHelp("--aihelp", "-h", "--aihelp");
+        Assert.AreSame(CommandLineParseResult.ShowVersion, CommandLineParser.Parse(["-V", "--aihelp"]));
+        Assert.AreSame(CommandLineParseResult.ShowManual, CommandLineParser.Parse(["-M", "--aihelp"]));
+    }
+
+    [TestMethod]
+    public void Parse_ErrorBeforeAiHelp_IsReported() =>
+        AssertOptionRefused(["--nosuch", "--aihelp"], "option --nosuch: is unknown");
+
+    [TestMethod]
+    public void AiHelpTopic_IsNullForEveryOutcomeButShowAiHelp()
+    {
+        Assert.IsNull(CommandLineParseResult.ShowHelp("auth").AiHelpTopic);
+        Assert.IsNull(CommandLineParseResult.ShowVersion.AiHelpTopic);
+        Assert.IsNull(CommandLineParseResult.ShowManual.AiHelpTopic);
+        Assert.IsNull(CommandLineParser.Parse(["--no-such"]).AiHelpTopic);
+        Assert.IsNull(CommandLineParser.Parse([Url]).AiHelpTopic);
+    }
+
     private static void AssertHelp(string? subject, params string[] arguments)
     {
         var result = CommandLineParser.Parse(arguments);

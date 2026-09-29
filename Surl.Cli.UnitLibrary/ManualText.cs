@@ -168,8 +168,8 @@ public static class ManualText
         "",
         "EXIT CODES",
         "",
-        "    - 0: help, the manual or the version was written, or surl was stopped by",
-        "      Ctrl+C or SIGTERM.",
+        "    - 0: help, an --aihelp answer, the manual or the version was written, or",
+        "      surl was stopped by Ctrl+C or SIGTERM.",
         "    - 1: a listen URL names a scheme this build does not serve.",
         "    - 2: the command line cannot be used: an option refused, an --auth method",
         "      this build does not have, a malformed --user-file, or a --cacert file",
@@ -189,7 +189,7 @@ public static class ManualText
         "",
         "SEE ALSO",
         "",
-        "    surl --help all, surl --help category, curl(1),",
+        "    surl --help all, surl --help category, surl --aihelp, curl(1),",
         "    https://github.com/StewartScottRogers/Surl",
     ];
 
