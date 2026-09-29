@@ -8,7 +8,7 @@ depends-on: [BL-012]
 touches: [Surl.Networking.UnitLibrary, Surl.Networking.UnitTests, Record-CurlExchange.ps1]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-048 — Accept only TLS 1.2 and 1.3 by default and refuse renegotiation in Surl.Networking
 
@@ -56,28 +56,71 @@ upstream curl 8.21.0 is shown still to complete with renegotiation off.
 
 ## Acceptance criteria
 
-- [ ] `TlsVersionRangeTests` (or the plan's name for them) prove the default range maps
+- [x] `TlsVersionRangeTests` (or the plan's name for them) prove the default range maps
       to `SslProtocols.Tls12 | SslProtocols.Tls13`, `--tlsv1.3` alone maps to `Tls13`,
       `--tls-max 1.2` maps to `Tls12`, and lowest 1.3 with highest 1.2 throws
       `ArgumentException`.
-- [ ] A fast test proves the server-side authentication options carry
+- [x] A fast test proves the server-side authentication options carry
       `AllowRenegotiation == false` and no `CipherSuitesPolicy`.
-- [ ] A fast test proves a client offering only TLS 1.2 completes against the defaults,
+- [x] A fast test proves a client offering only TLS 1.2 completes against the defaults,
       and one offering only TLS 1.3 completes where the platform supports TLS 1.3 (gate
       it with `[OSCondition]` if a platform lacks it).
-- [ ] A fast test with a hand-written `TimeProvider` proves a client that never sends its
+- [x] A fast test with a hand-written `TimeProvider` proves a client that never sends its
       ClientHello is dropped once `HeadTimeout` passes, with nothing written and one log
       note.
-- [ ] `Record-CurlExchange.ps1` has the renegotiation-off switch; the two recordings
+- [x] `Record-CurlExchange.ps1` has the renegotiation-off switch; the two recordings
       above are committed under `Surl.Networking.UnitTests/Fixtures/<case>/` with the
       command line and build SHA-256 in a `README.md`, each showing `exitcode.txt` 0.
-- [ ] `dotnet build Surl.Networking.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Surl.Networking.UnitLibrary -warnaserror` is clean, the fast tests
       are green, and `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Networking.UnitLibrary`.
 
 ## Notes
 
+- Plan as built: a public `TlsVersionRange` (lowest, highest, `AcceptedProtocols`;
+  `Default` is TLS 1.2 to 1.3) is the one place naming `SslProtocols.Tls`/`Tls11`, under
+  `#pragma warning disable SYSLIB0039`. `ServerTlsSettings.AcceptedVersions` is an init
+  property defaulting to `TlsVersionRange.Default`, rather than a fifth constructor
+  argument, so the existing 40 constructions stay unchanged and `Surl.Console` can set it
+  when it wires the `--tlsv1.x`/`--tls-max` values it already parses.
+  `CreateAuthenticationOptions` sets `EnabledSslProtocols` from it and
+  `AllowRenegotiation = false`, and never sets `CipherSuitesPolicy`. A bound that is not
+  exactly one TLS version is `ArgumentOutOfRangeException` (an `ArgumentException`).
+- Head timeout: `Surl.Core.ServingEngine.CompleteImplicitHandshakeAsync` already runs the
+  handshake under a `CancellationTokenSource(HeadTimeout, timeProvider)` and writes the
+  note "TLS handshake failed: no handshake within the head timeout of 30 s"; its test
+  `ServeAsync_NoHandshakeWithinTheHeadTimeout_ClosesTheConnectionUnserved` pins that one
+  note. `Surl.Networking` has no exchange log, so the new Networking test
+  `UpgradeToTlsAsync_NoClientHelloWithinTheHeadTimeout_IsCutOffAndDisposingWritesNothing`
+  proves the other half over a real `SslStream` with a hand-written `ManualTimeProvider`
+  (copied from `Surl.Core.UnitTests`): cut off exactly at `HeadTimeout`, and disposing the
+  connection writes nothing (the client reads EOF, no FIN-after-close_notify path).
+- Tests: `TlsVersionRangeTests` (6 methods), three in `ServerTlsSettingsTests` (options
+  carry `Tls12 | Tls13`, `AllowRenegotiation == false`, `CipherSuitesPolicy` null; a set
+  range reaches the options; null refused), three in `StreamConnectionTlsTests` (TLS
+  1.2-only client completes against the defaults; TLS 1.3-only server refuses a TLS
+  1.2-only client, excluded on macOS like the existing TLS 1.3 test; head-timeout drop).
+  The existing `UpgradeToTlsAsync_ClientAsksForTls13Only_NegotiatesTls13` covers the
+  TLS 1.3-only client.
+- Recorder: Windows PowerShell 5.1 runs on .NET Framework, whose `SslStream` cannot refuse
+  renegotiation, so `-TlsRenegotiationOff` writes a small C# file-based TLS relay to
+  `%TEMP%\SurlRecorder` and runs it with `dotnet run` (no Python, no package); it does the
+  handshake with `AllowRenegotiation = false` and forwards plaintext to the recorder's own
+  server on an ephemeral loopback port. Two traps found: .NET Framework sockets are
+  inheritable, so the relay must start before the backend listener exists (it reads the
+  backend port from standard input) or a stopped listener's accept never returns; and the
+  standard input writer leads with a byte order mark, so the relay keeps only the digits.
+- Measurement: both recordings exited 0 (TLS 1.3 negotiated against 1.2+1.3, TLS 1.2
+  against 1.2 only), so ADR-0006 section 4 stands and no superseding ADR is needed. A
+  check run of `--tls-max 1.1` through the relay still exited 35.
+- `dotnet format --verify-no-changes` reports ENDOFLINE in
+  `Surl.Protocol.Mqtt.UnitLibrary\MqttRetainedMessages.cs`, outside this task's touches;
+  nothing in the Networking projects.
+- Follow-up filed: BL-082 applies `--tlsv1.x`/`--tls-max` to `AcceptedVersions` in
+  `Surl.Console`.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. Surl.Networking accepts TLS 1.2-1.3 by default via TlsVersionRange, refuses renegotiation, keeps OS cipher suites; pinned curl 8.21.0 completes with renegotiation off (exit 0, TLS 1.2 and 1.3)
