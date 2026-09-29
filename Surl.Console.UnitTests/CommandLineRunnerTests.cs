@@ -27,7 +27,7 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public async Task RunAsync_Version_WritesVersionWithTheGopherHttpHttpsMqttTelnetAndTftpSchemesAndReturnsOk()
+    public async Task RunAsync_Version_WritesVersionWithTheDictGopherHttpHttpsMqttTelnetAndTftpSchemesAndReturnsOk()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
@@ -35,8 +35,8 @@ public sealed class CommandLineRunnerTests
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["gopher", "http", "https", "mqtt", "telnet", "tftp"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: gopher http https mqtt telnet tftp" + NewLine);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "gopher", "http", "https", "mqtt", "telnet", "tftp"]), output);
+        StringAssert.EndsWith(output, NewLine + "Protocols: dict gopher http https mqtt telnet tftp" + NewLine);
         Assert.AreEqual(string.Empty, error);
     }
 
@@ -121,6 +121,26 @@ public sealed class CommandLineRunnerTests
             + $"Listening on http://[::1]:{FakeListenerFactory.BoundPort}/" + NewLine,
             statusLines);
         Assert.AreEqual(statusLines, output.ToString());
+        Assert.AreEqual(string.Empty, error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_DictListenUrl_StartsADictListenerAndReturnsOkWhenCancelled()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var running = new CommandLineRunner(_ => factory, AnyDirectoryOpens, TimeProvider.System)
+            .RunAsync(["dict://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        CollectionAssert.AreEqual(new[] { new ListenUrl("dict", "127.0.0.1", 0) }, factory.StartedListenUrls);
+        Assert.AreEqual($"Listening on dict://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
         Assert.AreEqual(string.Empty, error.ToString());
     }
 

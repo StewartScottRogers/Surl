@@ -7,6 +7,7 @@ using Surl.Core;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
+using Surl.Protocol.Dict;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 using Surl.Protocol.Mqtt;
@@ -170,6 +171,7 @@ internal sealed class CommandLineRunner(
         [
             httpServer,
             new ImplicitTlsSchemeServer(httpServer, "https"),
+            new DictProtocolServer(contentStore),
             new GopherProtocolServer(contentStore),
             new MqttProtocolServer(new MqttRetainedMessages()),
             new TelnetProtocolServer(),
