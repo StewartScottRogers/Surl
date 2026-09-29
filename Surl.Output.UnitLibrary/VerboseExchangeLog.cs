@@ -29,14 +29,29 @@ internal sealed class VerboseExchangeLog : IExchangeLog
     /// <param name="writer">The writer every exchange's log shares.</param>
     /// <param name="writeLock">The lock every exchange's log shares, held while writing.</param>
     public VerboseExchangeLog(long exchangeId, TextWriter writer, Lock writeLock)
+        : this(exchangeId.ToString(CultureInfo.InvariantCulture), writer, writeLock)
     {
-        var id = "#" + exchangeId.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private VerboseExchangeLog(string exchangeIdText, TextWriter writer, Lock writeLock)
+    {
+        var id = "#" + exchangeIdText;
         receivedPrefix = id + " < ";
         sentPrefix = id + " > ";
         notePrefix = id + " * ";
         this.writer = writer;
         this.writeLock = writeLock;
     }
+
+    /// <summary>
+    /// Creates the log for events that belong to no exchange: its lines carry <c>-</c> where
+    /// an exchange id goes (ADR-0028).
+    /// </summary>
+    /// <param name="writer">The writer every exchange's log shares.</param>
+    /// <param name="writeLock">The lock every exchange's log shares, held while writing.</param>
+    /// <returns>The log.</returns>
+    public static VerboseExchangeLog OutsideAnyExchange(TextWriter writer, Lock writeLock) =>
+        new("-", writer, writeLock);
 
     /// <inheritdoc/>
     public void BytesReceived(ReadOnlySpan<byte> bytes) => WriteBytes(receivedPrefix, bytes);

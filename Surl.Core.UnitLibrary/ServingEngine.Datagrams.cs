@@ -41,6 +41,8 @@ public sealed partial class ServingEngine
     // disposed whatever the writer did (ADR-0006, section 5).
     private async Task RefuseFlowAsync(IDatagramFlow flow, AcceptedFlowRoute route, ConnectionRefusal refusal)
     {
+        NoteRefusal("a flow", flow.RemoteEndPoint, refusal);
+
         if (route.Server is IDatagramRefusalWriter writer)
         {
             await CaptureFailureAsync(() => WriteRefusalWithinDeadlineAsync(

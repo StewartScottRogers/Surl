@@ -223,7 +223,8 @@ public sealed partial class ServingEngineTests
         var factory = new FakeListenerFactory();
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var server = new FakeRefusalWritingDatagramProtocolServer((_, _) => release.Task, null, "tftp");
-        var engine = new ServingEngine(factory, [server], new FakeExchangeLogFactory(), new ManualTimeProvider(), GracePeriod, OneConnection);
+        var logs = new FakeExchangeLogFactory();
+        var engine = new ServingEngine(factory, [server], logs, new ManualTimeProvider(), GracePeriod, OneConnection);
         var admitted = new FakeDatagramFlow(ReadRequest);
         var refused = new FakeDatagramFlow(ReadRequest, remoteEndPoint: new IPEndPoint(IPAddress.Loopback, 51235));
         using var stop = new CancellationTokenSource();
@@ -237,6 +238,7 @@ public sealed partial class ServingEngineTests
 
         Assert.AreEqual(ConnectionRefusal.TooManyConnections, refusal);
         Assert.AreEqual("refused:TooManyConnections", Encoding.ASCII.GetString(refused.Sent.Single()));
+        Assert.AreEqual($"Refused a flow from {IPAddress.Loopback}:51235: past --max-connections 1.", logs.NotesOutsideExchanges.Single());
         Assert.IsFalse(server.TryTakeFlow(out _));
         Assert.IsFalse(admitted.Disposed);
         release.TrySetResult();

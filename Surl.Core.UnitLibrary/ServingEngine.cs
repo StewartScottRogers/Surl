@@ -389,6 +389,8 @@ public sealed partial class ServingEngine
     // deadline or shutdown.
     private async Task RefuseAsync(IConnection connection, AcceptedConnectionRoute route, ConnectionRefusal refusal)
     {
+        NoteRefusal("a connection", connection.RemoteEndPoint, refusal);
+
         if (route.Server is IConnectionRefusalWriter writer && !TlsSchemes.IsImplicitTls(route.ListenUrl.Scheme))
         {
             var failure = await CaptureFailureAsync(() => WriteRefusalWithinDeadlineAsync(
@@ -401,6 +403,23 @@ public sealed partial class ServingEngine
         }
 
         await CaptureFailureAsync(() => connection.DisposeAsync().AsTask());
+    }
+
+    // A refusal has no exchange, so its note goes to the log outside any exchange (ADR-0028).
+    // A log that fails to take it does not stop the refusal.
+    private void NoteRefusal(string what, EndPoint remoteEndPoint, ConnectionRefusal refusal)
+    {
+        var limit = refusal == ConnectionRefusal.TooManyConnectionsFromAddress
+            ? $"--max-connections-per-address {connectionLimits.MaxConnectionsPerAddress}"
+            : $"--max-connections {connectionLimits.MaxConnections}";
+
+        try
+        {
+            exchangeLogFactory.NoteOutsideExchange($"Refused {what} from {remoteEndPoint}: past {limit}.");
+        }
+        catch (Exception)
+        {
+        }
     }
 
     // The engine stops waiting at the deadline or shutdown even for a writer that ignores the

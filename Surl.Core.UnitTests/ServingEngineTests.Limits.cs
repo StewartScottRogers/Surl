@@ -121,6 +121,49 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
+    [DataRow(ConnectionRefusal.TooManyConnections, "192.0.2.2", "Refused a connection from 192.0.2.2:50001: past --max-connections 1.")]
+    [DataRow(ConnectionRefusal.TooManyConnectionsFromAddress, "192.0.2.1", "Refused a connection from 192.0.2.1:50001: past --max-connections-per-address 1.")]
+    public async Task ServeAsync_ConnectionPastALimit_LogsOneNoteOutsideAnyExchange_NamingTheRemoteEndPointAndTheLimit(
+        ConnectionRefusal expectedRefusal, string refusedAddress, string expectedNote)
+    {
+        var limits = expectedRefusal == ConnectionRefusal.TooManyConnections
+            ? new ConnectionLimits(1, 0, TimeSpan.Zero, TimeSpan.Zero)
+            : new ConnectionLimits(2, 1, TimeSpan.Zero, TimeSpan.Zero);
+        using var harness = new Harness(limits, "http");
+        harness.Listener.Connect(HeldConnection(new IPEndPoint(IPAddress.Parse("192.0.2.1"), 50000)));
+        await harness.Server.Inner.NextExchangeAsync();
+
+        var refused = HeldConnection(new IPEndPoint(IPAddress.Parse(refusedAddress), 50001));
+        harness.Listener.Connect(refused);
+        var refusal = await harness.Server.NextRefusalAsync();
+        await WaitUntilDisposedAsync(refused);
+
+        Assert.AreEqual(expectedRefusal, refusal.Refusal);
+        Assert.AreEqual(expectedNote, harness.Logs.NotesOutsideExchanges.Single());
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConnectionPastALimit_WhoseNoteTheLogFailsToTake_IsStillRefusedAndClosed()
+    {
+        using var harness = new Harness(OneConnection, "http");
+        harness.Logs.NoteOutsideExchangeFailure = new IOException("stderr is gone");
+        harness.Listener.Connect(HeldConnection(PeerAddress(1)));
+        await harness.Server.Inner.NextExchangeAsync();
+
+        var refused = HeldConnection(PeerAddress(2));
+        harness.Listener.Connect(refused);
+        var refusal = await harness.Server.NextRefusalAsync();
+        await WaitUntilDisposedAsync(refused);
+
+        Assert.AreEqual(ConnectionRefusal.TooManyConnections, refusal.Refusal);
+        Assert.AreEqual("refused:TooManyConnections", Encoding.ASCII.GetString(refused.WrittenBytes));
+        Assert.IsFalse(refused.Aborted);
+        Assert.IsEmpty(harness.Logs.NotesOutsideExchanges);
+        await harness.StopAsync();
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ImplicitTlsListener_ClosesAConnectionPastTheLimitWithNoRefusal()
     {
         using var harness = new Harness(OneConnection, "https");

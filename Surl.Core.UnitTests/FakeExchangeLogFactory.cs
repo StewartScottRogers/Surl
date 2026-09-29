@@ -21,6 +21,26 @@ internal sealed class FakeExchangeLogFactory : IExchangeLogFactory
     /// </summary>
     public Exception? CreateFailure { get; set; }
 
+    /// <summary>
+    /// Every note written outside any exchange, in order.
+    /// </summary>
+    public ConcurrentQueue<string> NotesOutsideExchanges { get; } = new();
+
+    /// <summary>
+    /// When set, <see cref="NoteOutsideExchange"/> throws it.
+    /// </summary>
+    public Exception? NoteOutsideExchangeFailure { get; set; }
+
+    public void NoteOutsideExchange(string text)
+    {
+        if (NoteOutsideExchangeFailure is not null)
+        {
+            throw NoteOutsideExchangeFailure;
+        }
+
+        NotesOutsideExchanges.Enqueue(text);
+    }
+
     public IExchangeLog Create(long exchangeId, EndPoint remoteEndPoint)
     {
         if (CreateFailure is not null)

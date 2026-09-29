@@ -43,4 +43,20 @@ public sealed class VerboseExchangeLogFactory : IExchangeLogFactory
 
         return verbose ? new VerboseExchangeLog(exchangeId, writer, writeLock) : SilentExchangeLog.Instance;
     }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// With verbose on, writes <c>#- * &lt;text&gt;</c>, escaped like any note: <c>-</c>
+    /// stands where the exchange id goes, since exchange ids start at 1 (ADR-0028). With
+    /// verbose off, writes nothing.
+    /// </remarks>
+    public void NoteOutsideExchange(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (verbose)
+        {
+            VerboseExchangeLog.OutsideAnyExchange(writer, writeLock).Note(text);
+        }
+    }
 }

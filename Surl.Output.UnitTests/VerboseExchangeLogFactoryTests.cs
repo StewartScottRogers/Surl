@@ -47,6 +47,49 @@ public sealed class VerboseExchangeLogFactoryTests
     }
 
     [TestMethod]
+    public void NoteOutsideExchange_Verbose_WritesAStarLineWithADashForTheExchangeId()
+    {
+        using var writer = new StringWriter();
+        var factory = new VerboseExchangeLogFactory(writer, verbose: true);
+
+        factory.NoteOutsideExchange("Refused a connection from 127.0.0.1:50000: past --max-connections 1.");
+
+        Assert.AreEqual(Lines("#- * Refused a connection from 127.0.0.1:50000: past --max-connections 1."), writer.ToString());
+    }
+
+    [TestMethod]
+    public void NoteOutsideExchange_ControlBytes_AreEscapedLikeAnyNote()
+    {
+        using var writer = new StringWriter();
+        var factory = new VerboseExchangeLogFactory(writer, verbose: true);
+
+        factory.NoteOutsideExchange("a\r\nb");
+
+        Assert.AreEqual(Lines("#- * a\\r\\nb"), writer.ToString());
+    }
+
+    [TestMethod]
+    public void NoteOutsideExchange_NotVerbose_WritesNothing()
+    {
+        using var writer = new StringWriter();
+        var factory = new VerboseExchangeLogFactory(writer, verbose: false);
+
+        factory.NoteOutsideExchange("Refused");
+
+        Assert.AreEqual(string.Empty, writer.ToString());
+    }
+
+    [TestMethod]
+    public void NoteOutsideExchange_NullText_Throws()
+    {
+        var factory = new VerboseExchangeLogFactory(TextWriter.Null, verbose: true);
+
+        var exception = Assert.ThrowsExactly<ArgumentNullException>(() => factory.NoteOutsideExchange(null!));
+
+        Assert.AreEqual("text", exception.ParamName);
+    }
+
+    [TestMethod]
     public void Note_WritesStarLine()
     {
         using var writer = new StringWriter();
