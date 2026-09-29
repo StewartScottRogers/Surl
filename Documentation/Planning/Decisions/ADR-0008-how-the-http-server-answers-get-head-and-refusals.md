@@ -1,6 +1,6 @@
 # ADR-0008 — How the HTTP server answers GET, HEAD and what it refuses
 
-- **Status:** Accepted
+- **Status:** Accepted; partly superseded by [ADR-0019](ADR-0019-how-the-http-server-enforces-the-hardening-limits.md) (the 431 row, the persistence rule for a request with a body, and how refusals are written)
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 
