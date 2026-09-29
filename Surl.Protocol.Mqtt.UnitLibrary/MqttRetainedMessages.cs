@@ -7,7 +7,7 @@ namespace Surl.Protocol.Mqtt;
 /// </summary>
 /// <remarks>
 /// It is bounded, because every peer can publish to it and it outlives each connection
-/// (ADR-0012, decision 7): at most <see cref="MaxTopics"/> topics and
+/// (ADR-0014, decision 7): at most <see cref="MaxTopics"/> topics and
 /// <see cref="MaxTotalPayloadBytes"/> payload bytes in all. A message that would take it past
 /// either is not kept.
 /// </remarks>

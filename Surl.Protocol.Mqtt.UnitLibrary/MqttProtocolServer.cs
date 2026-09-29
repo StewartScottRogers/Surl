@@ -6,7 +6,7 @@ namespace Surl.Protocol.Mqtt;
 /// The MQTT 3.1.1 server: accepts the <c>CONNECT</c> upstream curl sends, keeps the message
 /// of every <c>PUBLISH</c> (curl's <c>-d</c>) as its topic's retained message, and answers a
 /// <c>SUBSCRIBE</c> (curl's plain fetch) with the retained messages its filters match.
-/// ADR-0012 records the answers.
+/// ADR-0014 records the answers.
 /// </summary>
 /// <remarks>
 /// <para>

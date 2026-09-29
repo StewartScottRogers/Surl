@@ -5,7 +5,7 @@ Phase 1, alongside HTTP.
 The MQTT server (MQTT 3.1.1), `MqttProtocolServer`: accepts the connect, the subscribe
 (curl's plain fetch) and the publish (curl's `-d`) upstream curl sends. Every publish is
 kept as its topic's retained message in `MqttRetainedMessages`; a subscribe is answered
-with the retained messages its filters match, then `DISCONNECT`. ADR-0012 records every
+with the retained messages its filters match, then `DISCONNECT`. ADR-0014 records every
 answer.
 
 **URL schemes answered:** `mqtt`. `mqtts`, the same server behind implicit TLS, is

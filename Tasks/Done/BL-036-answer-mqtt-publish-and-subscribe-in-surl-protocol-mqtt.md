@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-005, BL-029]
-touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests, Documentation/Planning/Decisions/ADR-0012-how-the-mqtt-server-answers.md, Documentation/Planning/Decisions/README.md]
+touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests, Documentation/Planning/Decisions/ADR-0014-how-the-mqtt-server-answers.md, Documentation/Planning/Decisions/README.md]
 requirement: none
 created: 2026-09-28
 completed: 2026-09-28
@@ -64,7 +64,7 @@ client id `curl` + 8 random characters; a fetch then sends `SUBSCRIBE` (id 1, Qo
 prints every `PUBLISH` it gets as topic length + topic + payload, and exits 0 only when
 the server sends `DISCONNECT` (a bare close is exit 56); a publish sends QoS 0 `PUBLISH`
 with RETAIN clear, then `DISCONNECT`, needing only `CONNACK`. `CONNACK` 1 makes curl exit
-8. Decisions (ADR-0012, decided by Claude under Stewart's delegation): every publish is
+8. Decisions (ADR-0014, decided by Claude under Stewart's delegation): every publish is
 kept as its topic's retained message whatever its RETAIN flag; a subscribe is one-shot -
 `SUBACK` (QoS 0 granted, `0x80` for an invalid filter), each matching retained message as
 a `PUBLISH` with RETAIN set, then `DISCONNECT`; an unsupported level gets `CONNACK` 1 and a
@@ -80,10 +80,10 @@ reaction to each close stay with BL-053, which already exists; no new follow-up 
 bytes fed to curl), because an MQTT server's reply is not in curl's stdout the way a DICT
 reply is. The server takes an `MqttRetainedMessages` in its constructor so BL-042's
 composition shares one store across connections. Only `mqtt` is declared; `mqtts` is
-BL-066 (filed, depends on BL-065's implicit handshake).
+BL-068 (filed, depends on BL-065's implicit handshake).
 
 **Review.** `code-reviewer` found six defects, all fixed before Done: the shared retained
-store was unbounded (now 10000 topics / 100 MiB, ADR-0012 decision 7, a publish past it
+store was unbounded (now 10000 topics / 100 MiB, ADR-0014 decision 7, a publish past it
 closes with no reply); with `MaxMessageBytes` 0 the reader allocated the announced
 remaining length up front (the buffer now grows as bytes arrive); each subscribe re-split
 every filter per topic (filters are now de-duplicated and split once); section 3.1.2's
@@ -91,7 +91,7 @@ connect-flag rules, DUP on QoS 0, `PUBREL` id 0 and an empty `UNSUBSCRIBE` filte
 accepted (now closed); reserved types 0 and 15 were logged as server-only packets (now
 logged as reserved).
 
-**Touches widened.** Added `Documentation/Planning/Decisions/ADR-0012-how-the-mqtt-server-answers.md`
+**Touches widened.** Added `Documentation/Planning/Decisions/ADR-0014-how-the-mqtt-server-answers.md`
 and the Decisions `README.md` index, for the ADR the unattended rules require; no task in
 Doing named either. Another lane writing an ADR in the same shift may also take number
 0012; the shift's merge renumbers as it did for ADR-0010.

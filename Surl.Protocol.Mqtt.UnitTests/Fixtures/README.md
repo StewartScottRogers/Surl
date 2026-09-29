@@ -8,7 +8,7 @@ Exchanges recorded from upstream curl 8.21.0, the win-x64 build pinned in
 Each case was fed the exact packets `MqttProtocolServer` sends for it before any test
 pinned them: `CONNACK` 0 once curl's `CONNECT` had arrived, then, for a subscribe,
 everything Surl answers to curl's `SUBSCRIBE` in one burst (`SUBACK`, the retained
-`PUBLISH`es, `DISCONNECT`). Every case exited 0 with an empty `stderr.txt`. ADR-0012 records
+`PUBLISH`es, `DISCONNECT`). Every case exited 0 with an empty `stderr.txt`. ADR-0014 records
 why the subscribe ends with `DISCONNECT`: without it the pinned build exits 56.
 
 Each folder holds the recorder's five files - `request.bin` (the bytes curl sent),

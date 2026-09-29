@@ -1,5 +1,5 @@
 ---
-id: BL-066
+id: BL-068
 title: Declare mqtts on the MQTT server in Surl.Protocol.Mqtt
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-066 — Declare mqtts on the MQTT server in Surl.Protocol.Mqtt
+# BL-068 — Declare mqtts on the MQTT server in Surl.Protocol.Mqtt
 
 ## Goal
 
@@ -20,7 +20,7 @@ recordings.
 
 ## Context
 
-- ADR-0002: `mqtts` is the same MQTT server behind implicit TLS. ADR-0012, decision 6,
+- ADR-0002: `mqtts` is the same MQTT server behind implicit TLS. ADR-0014, decision 6,
   leaves declaring it to this task; ADR-0010 is the server-side TLS contract, and BL-065
   makes the serving engine perform the implicit handshake, so the server itself sees
   plaintext on `mqtts` exactly as on `mqtt`.

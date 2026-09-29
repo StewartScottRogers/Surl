@@ -78,7 +78,7 @@ needs only the `CONNACK`.
    are BL-053.
 6. **Scheme.** The server declares `mqtt` only. `mqtts` is the same server behind implicit
    TLS (ADR-0002), which the serving engine performs (BL-065); declaring it is a follow-up
-   task (BL-066).
+   task (BL-068).
 7. **The retained messages are bounded**, because any peer can publish and they outlive
    every connection: at most 10000 topics and 104857600 payload bytes (100 MiB, ADR-0006's
    upload default) in all, both constructor parameters of `MqttRetainedMessages`. A
