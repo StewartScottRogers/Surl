@@ -85,3 +85,4 @@ BL-017 (HTTP) all read this ADR. Keep type names in the glossary's vocabulary.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
