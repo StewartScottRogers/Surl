@@ -285,6 +285,11 @@
     Schannel build's revocation check of the leaf ends "status unknown" (observed while
     building the Curl port; re-measure before a Surl test relies on it). The root's key is never written; the file is left for the caller to delete.
 
+.PARAMETER TlsProtocol
+    With -Tls and no session mode, the TLS versions the server accepts: Tls12 (the
+    default), Tls13, or Tls12AndTls13. Use it to measure which versions curl negotiates
+    or refuses. The -Ftp, -Smtp, -Imap and -Pop3 sessions always serve TLS 1.2.
+
 .PARAMETER FtpIdleMilliseconds
     How long, in -Ftp mode, the server waits for curl's next command before it hangs up.
     Default 5000. Raise it to measure a wait longer than five seconds, such as curl's
@@ -376,6 +381,7 @@ param(
     [ValidateRange(1, 600000)] [int] $Pop3IdleMilliseconds = 5000,
     [switch] $Tls,
     [string] $TlsRootCertificateFile,
+    [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
     [string] $Curl,
     [System.Net.IPAddress] $ListenAddress = [System.Net.IPAddress]::Loopback,
     [switch] $NoServer
@@ -479,7 +485,7 @@ function ConvertTo-CommandLineArgument {
 # The server runs in its own runspace so curl can run in this one. It returns one
 # byte array per connection served.
 $serveConnections = {
-    param($Listener, $ResponseBytes, [int] $ConnectionCount, [int] $DelayMilliseconds, [bool] $ResetConnections, [int] $EarlyResponseBodyBytes, $TlsCertificate, [int] $HoldOpen)
+    param($Listener, $ResponseBytes, [int] $ConnectionCount, [int] $DelayMilliseconds, [bool] $ResetConnections, [int] $EarlyResponseBodyBytes, $TlsCertificate, [int] $HoldOpen, [int] $ServedTlsProtocols)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -524,7 +530,7 @@ $serveConnections = {
                 $stream = New-Object System.Net.Security.SslStream($stream, $false)
                 $stream.ReadTimeout = 5000
                 try {
-                    $stream.AuthenticateAsServer($TlsCertificate, $false, [System.Security.Authentication.SslProtocols]::Tls12, $false)
+                    $stream.AuthenticateAsServer($TlsCertificate, $false, [System.Security.Authentication.SslProtocols] $ServedTlsProtocols, $false)
                 } catch {
                     # curl refused the certificate or hung up mid-handshake: nothing was sent.
                     $requests.Add([byte[]] @())
@@ -1414,6 +1420,11 @@ $uploadedData = New-Object System.IO.MemoryStream
 $OutDirectory = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).ProviderPath, $OutDirectory))
 New-Item -ItemType Directory -Path $OutDirectory -Force | Out-Null
 
+$servedTlsProtocols = switch ($TlsProtocol) {
+    'Tls13' { [System.Security.Authentication.SslProtocols]::Tls13 }
+    'Tls12AndTls13' { [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Tls13 }
+    default { [System.Security.Authentication.SslProtocols]::Tls12 }
+}
 $tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile } else { $null }
 # -NoServer binds nothing: the caller's own server answers curl.
 $listener = $null
@@ -1435,7 +1446,7 @@ try {
     } elseif ($Pop3) {
         [void] $server.AddScript($servePop3Session).AddArgument($listener).AddArgument($pop3Overrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $Pop3Message)).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($Pop3IdleMilliseconds).AddArgument($sessionHelpers.ToString())
     } else {
-        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($tlsCertificate).AddArgument($HoldOpenMilliseconds)
+        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($tlsCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols)
     }
     if ($null -ne $server) { $serverRun = $server.BeginInvoke() }
 
