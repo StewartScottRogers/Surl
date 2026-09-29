@@ -46,3 +46,4 @@ the files, menus and exit codes BL-034's recordings predict.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
