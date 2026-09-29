@@ -8,7 +8,7 @@ depends-on: [BL-047]
 touches: [Surl.Console, Surl.Console.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-070 — Pass the parsed exposure options to the content store in Surl.Console
 
@@ -38,18 +38,35 @@ symbolic links not followed, dot-files hidden, uploads capped at 104857600 bytes
 
 ## Acceptance criteria
 
-- [ ] `CommandLineRunner` builds its `ContentStore` with a `ContentExposureOptions` mapped
+- [x] `CommandLineRunner` builds its `ContentStore` with a `ContentExposureOptions` mapped
       from `SurlCommandLine`, and a fast test proves each of the five options reaches it.
-- [ ] A fast test proves `surl` with no exposure option serves with
+- [x] A fast test proves `surl` with no exposure option serves with
       `new ContentExposureOptions()`'s values.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
 
 Filed by BL-047, which added the options to `Surl.Content` but stayed inside its own
 `touches`.
 
+Delivered (2026-09-28):
+- `CommandLineRunner.ComposeContentStore(SurlCommandLine)` (internal) builds the one store:
+  `Path.GetFullPath(ServedDirectory)`, `DiskContentFileSystem`, and a
+  `ContentExposureOptions` mapped field for field (`FollowSymlinks` -> `FollowSymbolicLinks`).
+  `ComposeProtocolServers` now takes the store. `--version` composes its servers from
+  `new SurlCommandLine()`, so it too builds a store with ADR-0006's defaults.
+- Test seam (default taken): the store exposes `ExposureOptions`, so the tests parse a real
+  command line with `CommandLineParser` and compare `ComposeContentStore(...).ExposureOptions`
+  with the expected record - one test per option plus one for no option. No new seam needed.
+- No byte pinned: a hidden or unlisted path is the store's "absent", which
+  `Surl.Protocol.Http` already answers with its existing not-found response; this task pins
+  no wire bytes, so no new `Record-CurlExchange.ps1` measurement was due. The in-process
+  conformance tests fetch only regular files and stay green under the new defaults.
+- Follow-up filed: BL-071 retires `ContentStore(string, IContentFileSystem)` and the
+  `ServeEverythingInsideTheRoot` comment that names its now-gone production callers.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. surl serves with ADR-0006's exposure defaults and the five exposure options reach the content store
