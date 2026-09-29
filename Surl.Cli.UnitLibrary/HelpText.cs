@@ -1,8 +1,9 @@
 namespace Surl.Cli;
 
 /// <summary>
-/// The text <c>surl --help</c> writes to stdout, exactly as ADR-0007 section 6 gives it:
-/// options alphabetical by long name, every description starting in column 46.
+/// The text <c>surl --help</c> writes to stdout, exactly as ADR-0007 section 6 gives it
+/// with ADR-0010 section 3's three rows (<c>--cert-type</c>, <c>--key-type</c>,
+/// <c>--pass</c>): options alphabetical by long name, every description starting in column 46.
 /// </summary>
 public static class HelpText
 {
@@ -12,12 +13,14 @@ public static class HelpText
         "     --allow-uploads                         Accept uploads into the served directory",
         "     --cacert <file>                         CA certificates that verify client certificates",
         "     --cert <file>                           Server certificate for secure schemes",
+        "     --cert-type <type>                      Format of --cert: PEM, DER or P12 (default PEM)",
         "     --directory <directory>                 Directory to serve (default: current directory)",
         "     --follow-symlinks                       Follow links that stay inside the directory",
         "     --head-timeout <seconds>                Time a peer has to send a request head (default 30)",
         " -h, --help                                  Show this help and quit",
         "     --idle-timeout <seconds>                Close an exchange idle this long (default 120)",
         "     --key <file>                            Private key for --cert",
+        "     --key-type <type>                       Format of --key: PEM or DER (default PEM)",
         "     --list-directories                      Answer directory listings",
         "     --max-connections <number>              Connections at once, all listeners (default 1024)",
         "     --max-connections-per-address <number>  Connections at once from one address (default 100)",
@@ -26,6 +29,7 @@ public static class HelpText
         "     --max-message <bytes>                   Largest framed message accepted (default 1M)",
         "     --max-request-head <bytes>              Largest HTTP or RTSP request head (default 100k)",
         " -m, --max-time <seconds>                    Longest time one exchange may take (default 3600)",
+        "     --pass <phrase>                         Passphrase for the --key or P12 file",
         "     --serve-dot-files                       Serve names that start with a dot",
         "     --tls-max <version>                     Highest TLS version accepted (default 1.3)",
         "     --tlsv1.0                               Accept TLS 1.0 or later",

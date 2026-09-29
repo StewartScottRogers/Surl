@@ -89,8 +89,20 @@ public sealed record SurlCommandLine
     /// <summary><c>--cert</c>: the server certificate file for secure schemes, as given; none by default.</summary>
     public string? CertificateFile { get; init; }
 
+    /// <summary><c>--cert-type</c>: the format of <see cref="CertificateFile"/>; <see cref="CertificateFileFormat.Pem"/> by default.</summary>
+    public CertificateFileFormat CertificateType { get; init; } = CertificateFileFormat.Pem;
+
     /// <summary><c>--key</c>: the private key file for <see cref="CertificateFile"/>, as given; none by default.</summary>
     public string? KeyFile { get; init; }
+
+    /// <summary><c>--key-type</c>: the format of <see cref="KeyFile"/>; <see cref="CertificateFileFormat.Pem"/> by default.</summary>
+    public CertificateFileFormat KeyType { get; init; } = CertificateFileFormat.Pem;
+
+    /// <summary>
+    /// <c>--pass</c>: the passphrase for an encrypted <see cref="KeyFile"/> or a PKCS#12
+    /// <see cref="CertificateFile"/>, as given, the empty string included; none by default.
+    /// </summary>
+    public string? KeyPassphrase { get; init; }
 
     /// <summary>
     /// <c>--cacert</c>: the file of trust anchors that verify a client certificate, as given;

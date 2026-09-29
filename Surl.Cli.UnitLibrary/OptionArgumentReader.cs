@@ -14,7 +14,10 @@ internal static class OptionArgumentReader
     /// <summary>A <c>&lt;seconds&gt;</c>, <c>&lt;number&gt;</c> or <c>&lt;bytes&gt;</c> argument that is not a number.</summary>
     public const string NotANumber = "expected a proper numerical parameter";
 
-    /// <summary>A <c>&lt;bytes&gt;</c> suffix or <c>&lt;version&gt;</c> outside the allowed set.</summary>
+    /// <summary>
+    /// A <c>&lt;bytes&gt;</c> suffix, <c>&lt;version&gt;</c> or format word outside the allowed set,
+    /// or an option used in a combination that cannot work.
+    /// </summary>
     public const string BadlyUsed = "is badly used here";
 
     /// <summary>A <c>&lt;bytes&gt;</c> argument above <see cref="long.MaxValue"/>.</summary>
@@ -38,6 +41,21 @@ internal static class OptionArgumentReader
         ["1.3"] = SslProtocols.Tls13,
     }.ToFrozenDictionary(StringComparer.Ordinal);
 #pragma warning restore SYSLIB0039
+
+    /// <summary>The <c>--cert-type</c> words, case-insensitive as in curl (ADR-0010 section 3).</summary>
+    private static readonly FrozenDictionary<string, CertificateFileFormat> CertificateTypes = new Dictionary<string, CertificateFileFormat>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["PEM"] = CertificateFileFormat.Pem,
+        ["DER"] = CertificateFileFormat.Der,
+        ["P12"] = CertificateFileFormat.Pkcs12,
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The <c>--key-type</c> words, case-insensitive as in curl (ADR-0010 section 3).</summary>
+    private static readonly FrozenDictionary<string, CertificateFileFormat> KeyTypes = new Dictionary<string, CertificateFileFormat>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["PEM"] = CertificateFileFormat.Pem,
+        ["DER"] = CertificateFileFormat.Der,
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Reads <c>&lt;seconds&gt;</c>: digits, optionally <c>.</c> and more digits, at most 2147483.647.</summary>
     /// <param name="argument">The argument as given.</param>
@@ -112,6 +130,30 @@ internal static class OptionArgumentReader
     /// <returns>The refusal reason, or <see langword="null"/>.</returns>
     public static string? ReadTlsVersion(string argument, out SslProtocols value) =>
         TlsVersions.TryGetValue(argument, out value) ? null : BadlyUsed;
+
+    /// <summary>Reads the <c>--cert-type</c> word: <c>PEM</c>, <c>DER</c> or <c>P12</c>, in any case.</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The certificate file format.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadCertificateType(string argument, out CertificateFileFormat value) =>
+        CertificateTypes.TryGetValue(argument, out value) ? null : BadlyUsed;
+
+    /// <summary>Reads the <c>--key-type</c> word: <c>PEM</c> or <c>DER</c>, in any case.</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The key file format.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadKeyType(string argument, out CertificateFileFormat value) =>
+        KeyTypes.TryGetValue(argument, out value) ? null : BadlyUsed;
+
+    /// <summary>Reads <c>&lt;phrase&gt;</c>: any text, the empty string included, kept as given.</summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The text, as given.</param>
+    /// <returns>Always <see langword="null"/>: every text is accepted.</returns>
+    public static string? ReadText(string argument, out string value)
+    {
+        value = argument;
+        return null;
+    }
 
     /// <summary>
     /// Splits a trailing size suffix off <paramref name="argument"/>; returns the refusal

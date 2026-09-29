@@ -5,7 +5,8 @@ using System.Security.Authentication;
 namespace Surl.Cli;
 
 /// <summary>
-/// ADR-0007 section 2's Phase 1 option table, looked up by long and by short name.
+/// ADR-0007 section 2's Phase 1 option table, with ADR-0010 section 3's <c>--cert-type</c>,
+/// <c>--key-type</c> and <c>--pass</c>, looked up by long and by short name.
 /// </summary>
 internal static class CommandLineOptions
 {
@@ -38,7 +39,10 @@ internal static class CommandLineOptions
         Flag("tlsv1.3", null, negatable: false, (c, _) => c with { LowestTlsVersion = SslProtocols.Tls13 }),
         WithArgument<SslProtocols>("tls-max", null, OptionArgumentReader.ReadTlsVersion, (c, v) => c with { HighestTlsVersion = v }),
         WithArgument<string>("cert", null, OptionArgumentReader.ReadPath, (c, v) => c with { CertificateFile = v }),
+        WithArgument<CertificateFileFormat>("cert-type", null, OptionArgumentReader.ReadCertificateType, (c, v) => c with { CertificateType = v }),
         WithArgument<string>("key", null, OptionArgumentReader.ReadPath, (c, v) => c with { KeyFile = v }),
+        WithArgument<CertificateFileFormat>("key-type", null, OptionArgumentReader.ReadKeyType, (c, v) => c with { KeyType = v }),
+        WithArgument<string>("pass", null, OptionArgumentReader.ReadText, (c, v) => c with { KeyPassphrase = v }),
         WithArgument<string>("cacert", null, OptionArgumentReader.ReadPath, (c, v) => c with { CaCertificateFile = v }),
     ];
 #pragma warning restore SYSLIB0039

@@ -14,12 +14,14 @@ public sealed class HelpTextTests
             "     --allow-uploads                         Accept uploads into the served directory" + nl +
             "     --cacert <file>                         CA certificates that verify client certificates" + nl +
             "     --cert <file>                           Server certificate for secure schemes" + nl +
+            "     --cert-type <type>                      Format of --cert: PEM, DER or P12 (default PEM)" + nl +
             "     --directory <directory>                 Directory to serve (default: current directory)" + nl +
             "     --follow-symlinks                       Follow links that stay inside the directory" + nl +
             "     --head-timeout <seconds>                Time a peer has to send a request head (default 30)" + nl +
             " -h, --help                                  Show this help and quit" + nl +
             "     --idle-timeout <seconds>                Close an exchange idle this long (default 120)" + nl +
             "     --key <file>                            Private key for --cert" + nl +
+            "     --key-type <type>                       Format of --key: PEM or DER (default PEM)" + nl +
             "     --list-directories                      Answer directory listings" + nl +
             "     --max-connections <number>              Connections at once, all listeners (default 1024)" + nl +
             "     --max-connections-per-address <number>  Connections at once from one address (default 100)" + nl +
@@ -28,6 +30,7 @@ public sealed class HelpTextTests
             "     --max-message <bytes>                   Largest framed message accepted (default 1M)" + nl +
             "     --max-request-head <bytes>              Largest HTTP or RTSP request head (default 100k)" + nl +
             " -m, --max-time <seconds>                    Longest time one exchange may take (default 3600)" + nl +
+            "     --pass <phrase>                         Passphrase for the --key or P12 file" + nl +
             "     --serve-dot-files                       Serve names that start with a dot" + nl +
             "     --tls-max <version>                     Highest TLS version accepted (default 1.3)" + nl +
             "     --tlsv1.0                               Accept TLS 1.0 or later" + nl +

@@ -58,6 +58,16 @@ public sealed class CommandLineParserTests
         Assert.IsNull(defaults.CaCertificateFile);
     }
 
+    [TestMethod]
+    public void Parse_OnlyAListenUrl_HasTheCertificateFormatAndPassphraseDefaults()
+    {
+        var commandLine = Served(Url);
+
+        Assert.AreEqual(CertificateFileFormat.Pem, commandLine.CertificateType);
+        Assert.AreEqual(CertificateFileFormat.Pem, commandLine.KeyType);
+        Assert.IsNull(commandLine.KeyPassphrase);
+    }
+
     // Flags: -v/--verbose and the four exposure flags.
 
     [TestMethod]
@@ -286,9 +296,10 @@ public sealed class CommandLineParserTests
     [DataRow("--cacert")]
     public void Parse_PathOption_AcceptedSeparateAndAfterEquals_KeptAsGiven(string name)
     {
-        Assert.AreEqual("some dir/file.pem", PathOf(name, Served(name, "some dir/file.pem", Url)));
-        Assert.AreEqual("-leading-dash", PathOf(name, Served(name, "-leading-dash", Url)));
-        Assert.AreEqual("a=b", PathOf(name, Served($"{name}=a=b", Url)));
+        // --cert comes first because --key needs it; a later --cert replaces it.
+        Assert.AreEqual("some dir/file.pem", PathOf(name, Served("--cert", "c.pem", name, "some dir/file.pem", Url)));
+        Assert.AreEqual("-leading-dash", PathOf(name, Served("--cert", "c.pem", name, "-leading-dash", Url)));
+        Assert.AreEqual("a=b", PathOf(name, Served("--cert", "c.pem", $"{name}=a=b", Url)));
     }
 
     [TestMethod]
@@ -301,6 +312,84 @@ public sealed class CommandLineParserTests
         AssertOptionRefused([name, "", Url], $"option {name}: blank argument where content is expected");
         AssertOptionRefused([$"{name}=", Url], $"option {name}=: blank argument where content is expected");
     }
+
+    // Certificate formats and passphrase: --cert-type, --key-type, --pass (ADR-0010 section 3).
+
+    [TestMethod]
+    [DataRow("pem", CertificateFileFormat.Pem)]
+    [DataRow("PEM", CertificateFileFormat.Pem)]
+    [DataRow("der", CertificateFileFormat.Der)]
+    [DataRow("P12", CertificateFileFormat.Pkcs12)]
+    [DataRow("p12", CertificateFileFormat.Pkcs12)]
+    public void Parse_CertType_SetsTheCertificateType(string argument, CertificateFileFormat expected)
+    {
+        Assert.AreEqual(expected, Served("--cert", "c.pem", "--cert-type", argument, Url).CertificateType);
+        Assert.AreEqual(expected, Served("--cert", "c.pem", $"--cert-type={argument}", Url).CertificateType);
+    }
+
+    [TestMethod]
+    [DataRow("PEM", CertificateFileFormat.Pem)]
+    [DataRow("der", CertificateFileFormat.Der)]
+    public void Parse_KeyType_SetsTheKeyType(string argument, CertificateFileFormat expected) =>
+        Assert.AreEqual(expected, Served("--cert", "c.pem", "--key", "k.pem", "--key-type", argument, Url).KeyType);
+
+    [TestMethod]
+    [DataRow("ENG")]
+    [DataRow("PROV")]
+    [DataRow("X")]
+    [DataRow("")]
+    public void Parse_BadCertType_IsRefused(string argument) =>
+        AssertOptionRefused(["--cert", "c.pem", "--cert-type", argument, Url], "option --cert-type: is badly used here");
+
+    [TestMethod]
+    [DataRow("P12")]
+    [DataRow("ENG")]
+    [DataRow("")]
+    public void Parse_BadKeyType_IsRefused(string argument) =>
+        AssertOptionRefused(["--cert", "c.pem", "--key-type", argument, Url], "option --key-type: is badly used here");
+
+    [TestMethod]
+    [DataRow("secret")]
+    [DataRow("")]
+    [DataRow("-leading-dash")]
+    public void Parse_Pass_SetsTheKeyPassphraseAsGiven(string argument)
+    {
+        Assert.AreEqual(argument, Served("--cert", "c.p12", "--pass", argument, Url).KeyPassphrase);
+        Assert.AreEqual(argument, Served("--cert", "c.p12", $"--pass={argument}", Url).KeyPassphrase);
+    }
+
+    [TestMethod]
+    [DataRow("--cert-type")]
+    [DataRow("--key-type")]
+    [DataRow("--pass")]
+    public void Parse_CertificateFormatOrPassWithoutItsArgument_IsRefused(string written) =>
+        AssertOptionRefused(["--cert", "c.pem", Url, written], $"option {written}: requires parameter");
+
+    [TestMethod]
+    [DataRow(new[] { "--key", "k.pem" }, "--key", DisplayName = "--key without --cert")]
+    [DataRow(new[] { "--key-type", "PEM" }, "--key-type", DisplayName = "--key-type without --cert")]
+    [DataRow(new[] { "--pass", "x" }, "--pass", DisplayName = "--pass without --cert")]
+    [DataRow(new[] { "--pass", "" }, "--pass", DisplayName = "Empty --pass without --cert")]
+    [DataRow(new[] { "--cert", "c.p12", "--cert-type", "P12", "--key", "k.pem" }, "--key", DisplayName = "--key with --cert-type P12")]
+    [DataRow(new[] { "--key", "k.pem", "--cert-type", "p12", "--cert", "c.p12" }, "--key", DisplayName = "--key with --cert-type P12, any order")]
+    [DataRow(new[] { "--pass", "x", "--key-type", "DER", "--key", "k.der" }, "--key", DisplayName = "All three without --cert: --key first")]
+    [DataRow(new[] { "--pass", "x", "--key-type", "DER" }, "--key-type", DisplayName = "--key-type before --pass")]
+    public void Parse_CertificateOptionThatCannotBeUsed_IsRefusedAfterReading(string[] options, string named) =>
+        AssertOptionRefused([.. options, Url], $"option {named}: is badly used here");
+
+    [TestMethod]
+    public void Parse_CertTypeDerWithAKeyAndEveryOption_IsServed()
+    {
+        var commandLine = Served("--cert", "c.der", "--cert-type", "DER", "--key", "k.der", "--key-type", "DER", "--pass", "x", Url);
+
+        Assert.AreEqual(CertificateFileFormat.Der, commandLine.CertificateType);
+        Assert.AreEqual(CertificateFileFormat.Der, commandLine.KeyType);
+        Assert.AreEqual("x", commandLine.KeyPassphrase);
+    }
+
+    [TestMethod]
+    public void Parse_CertTypeWithoutCert_IsServed() =>
+        Assert.AreEqual(CertificateFileFormat.Der, Served("--cert-type", "DER", Url).CertificateType);
 
     // TLS versions: --tlsv1.0 to --tlsv1.3 and --tls-max.
 

@@ -32,6 +32,11 @@ public static class CommandLineParser
     private const string LongOptionPrefix = "--";
     private const string NegationPrefix = "no-";
     private const string TlsMaxOption = "--tls-max";
+    private const string CertLongName = "cert";
+    private const string KeyLongName = "key";
+
+    /// <summary>The options refused without <c>--cert</c>, in the order the first one given is reported.</summary>
+    private static readonly string[] OptionsNeedingCert = [KeyLongName, "key-type", "pass"];
 
     /// <summary>
     /// Parses <paramref name="arguments"/>, the command line after the program name.
@@ -202,7 +207,13 @@ public static class CommandLineParser
         }
 
         var failure = option.ApplyArgument!(argument, ref reading.CommandLine);
-        return failure is null ? null : RefusedOption(writtenName, failure);
+        if (failure is not null)
+        {
+            return RefusedOption(writtenName, failure);
+        }
+
+        reading.GivenOptions.Add(option.LongName);
+        return null;
     }
 
     /// <summary>The checks made once the whole command line is read.</summary>
@@ -213,6 +224,12 @@ public static class CommandLineParser
             return RefusedOption(TlsMaxOption, OptionArgumentReader.BadlyUsed);
         }
 
+        var unusableCertificateOption = FindUnusableCertificateOption(reading);
+        if (unusableCertificateOption is not null)
+        {
+            return RefusedOption(unusableCertificateOption, OptionArgumentReader.BadlyUsed);
+        }
+
         if (reading.ListenUrls.Count == 0)
         {
             return CommandLineParseResult.Refused(
@@ -220,6 +237,24 @@ public static class CommandLineParser
         }
 
         return CommandLineParseResult.Serve(reading.CommandLine with { ListenUrls = [.. reading.ListenUrls] });
+    }
+
+    /// <summary>
+    /// The first certificate option ADR-0010 section 3 refuses in combination: <c>--key</c>,
+    /// <c>--key-type</c> or <c>--pass</c> without <c>--cert</c>, then <c>--key</c> with
+    /// <c>--cert-type P12</c>; null when none is.
+    /// </summary>
+    private static string? FindUnusableCertificateOption(CommandLineReading reading)
+    {
+        if (!reading.GivenOptions.Contains(CertLongName))
+        {
+            var withoutCertificate = OptionsNeedingCert.FirstOrDefault(reading.GivenOptions.Contains);
+            return withoutCertificate is null ? null : LongOptionPrefix + withoutCertificate;
+        }
+
+        return reading.GivenOptions.Contains(KeyLongName) && reading.CommandLine.CertificateType == CertificateFileFormat.Pkcs12
+            ? LongOptionPrefix + KeyLongName
+            : null;
     }
 
     private static CommandLineParseResult RefusedOption(string writtenName, string reason) =>
@@ -235,6 +270,9 @@ public static class CommandLineParser
         public SurlCommandLine CommandLine = new();
 
         public List<ListenUrl> ListenUrls { get; } = [];
+
+        /// <summary>The long names of the options whose argument was read and accepted.</summary>
+        public HashSet<string> GivenOptions { get; } = new(StringComparer.Ordinal);
 
         /// <summary><see langword="true"/> once <c>--</c> is read: every later argument is a listen URL.</summary>
         public bool OptionsEnded { get; set; }
