@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-007 — Locate and verify a pinned upstream curl build in Surl.Conformance
 
@@ -46,31 +46,31 @@ only upstream curl.
 
 ## Acceptance criteria
 
-- [ ] A type in `Surl.Conformance.UnitLibrary` parses the text of
+- [x] A type in `Surl.Conformance.UnitLibrary` parses the text of
       `UpstreamCurlBuilds.json` into pinned-build records carrying platform, default
       path, SHA-256, version and protocols. Malformed JSON, a missing `builds` array or
       an entry missing `sha256` or `defaultPath` produce a failure naming the problem.
-- [ ] Each pinned-build record also carries its `role`, `reference` or
+- [x] Each pinned-build record also carries its `role`, `reference` or
       `supplementary`, and a missing `role` reads as `reference`. BL-026 adds the field
       and a supplementary 8.22.0 build used only for SMB, HTTP/2 and HTTP/3.
-- [ ] A locator, given the parsed pins, a platform name such as `win-x64`, a role
+- [x] A locator, given the parsed pins, a platform name such as `win-x64`, a role
       (default `reference`) and the file-access seam, returns the first build of that
       platform and role whose `defaultPath` exists and whose SHA-256 (hex, compared
       case-insensitively) matches its pin. A fast test proves that the default never
       returns a supplementary build.
-- [ ] Given a file whose hash matches no pin, the locator refuses it with a message
+- [x] Given a file whose hash matches no pin, the locator refuses it with a message
       that contains the path, the hash and the phrase "is not a pinned upstream curl
       build", the same wording as `Assert-PinnedUpstreamCurl`.
-- [ ] Given a platform with no pinned build, or a pinned build whose file is absent, the
+- [x] Given a platform with no pinned build, or a pinned build whose file is absent, the
       locator returns a "not available" result that says which, and throws nothing.
-- [ ] Fast tests in `Surl.Conformance.UnitTests` cover every path above, with the JSON
+- [x] Fast tests in `Surl.Conformance.UnitTests` cover every path above, with the JSON
       and file bytes supplied in memory. Test names follow
       `MethodName_Condition_ExpectedResult`.
-- [ ] One `[TestCategory("Integration")]` test reads the real `UpstreamCurlBuilds.json`
+- [x] One `[TestCategory("Integration")]` test reads the real `UpstreamCurlBuilds.json`
       from the repository root and parses it without failure.
-- [ ] `dotnet build Surl.Conformance.UnitLibrary -warnaserror` is clean, and
+- [x] `dotnet build Surl.Conformance.UnitLibrary -warnaserror` is clean, and
       `dotnet test --filter "TestCategory!=Integration"` is green.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Conformance.UnitLibrary`. The production seam's real file-access class is
       either covered or carries `[ExcludeFromCodeCoverage]` with a justifying comment
       above it.
@@ -79,7 +79,39 @@ only upstream curl.
 
 This task runs no curl process. BL-020 runs the build this locator finds.
 
+Delivered (2026-09-28, lane 3):
+
+- `UpstreamCurlBuildPins.Parse` (JsonDocument, AOT-safe) -> `PinnedUpstreamCurlBuild`
+  records; every bad shape is a `FormatException` naming the problem.
+  `UpstreamCurlLocator.Locate(pins, platform, role = Reference)` returns an
+  `UpstreamCurlLocation` (found / `NoPinnedBuildForPlatform` / `PinnedBuildFileAbsent`),
+  or throws `UnpinnedUpstreamCurlException` with `Assert-PinnedUpstreamCurl`'s exact
+  message. `IUpstreamCurlFileAccess` is the seam; `FileSystemUpstreamCurlFileAccess` is
+  `[ExcludeFromCodeCoverage]` with its reason.
+- Choices taken (sensible defaults, rule 1):
+  - Beyond `sha256` and `defaultPath`, `platform` is also required, since a pin with no
+    platform can never be located. Blank values count as missing. `sha256` must be 64
+    hex digits, so a mistyped pin fails at parse time rather than refusing every build.
+    An unknown `role` is a parse failure, not a quiet `reference`.
+  - `Locate` skips a present-but-mismatched candidate when a later candidate verifies,
+    and refuses (naming the first mismatch) only when none verifies. When no candidate
+    file exists, it reports the first candidate as absent.
+  - Added `RequirePinned(pins, path)`, a direct twin of `Assert-PinnedUpstreamCurl` for
+    a curl named by path: it matches any pin, whatever its platform or role, and throws
+    `FileNotFoundException` with the script's "The curl to run, X, was not found." text.
+  - `UpstreamCurlLocator.CurrentPlatform` is built from OS + architecture (`win-x64`,
+    `linux-x64`, `osx-arm64`), not `RuntimeInformation.RuntimeIdentifier`: source-built
+    .NET reports distribution RIDs such as `ubuntu.24.04-x64`, which would never match a
+    `linux-x64` pin. This was raised in code review.
+- Conformance stage not applicable: nothing here talks to curl over the wire.
+- Follow-up for BL-020 (from review): the file is verified when it is hashed, and runs
+  later by path. BL-020 should re-hash just before it starts the process.
+- Gates: `Measure-CodeQuality.ps1 -Library Surl.Conformance.UnitLibrary` 100% line and
+  branch, 27 members, worst CRAP 8. Fast tests: 46 in Surl.Conformance.UnitTests. The
+  integration test `Parse_RepositoryPinFile_ParsesWithoutFailure` passes.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
+- 2026-09-28: Doing -> Done. Surl.Conformance parses UpstreamCurlBuilds.json and locates the pinned upstream curl build per platform and role, refusing any unpinned SHA-256
