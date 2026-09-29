@@ -51,6 +51,14 @@ What was checked on 2026-09-28:
     mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss`
   - features: `alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR
     IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd`
+
+  *What the builds print (added 2026-09-29 by BL-085):* CI run
+  https://github.com/StewartScottRogers/Surl/actions/runs/36537650411 (BL-079) ran
+  `curl --version` on each pinned executable. The `linux-x64` build prints the lines
+  above. The `osx-arm64` build prints **no `rtsp`** among its protocols (`... pop3 pop3s
+  scp sftp smb smbs smtp smtps telnet tftp ws wss`) and adds the **`AppleSecTrust`**
+  feature. `UpstreamCurlBuilds.json` carries each build's printed values, and ADR-0026
+  decides how RTSP conformance runs on macOS as a result.
 - **Distribution packages patch curl** (Debian, Ubuntu, Homebrew's formula applies
   patches from time to time) and are not at 8.21.0 on the runner images anyway, so they
   are not upstream in the sense ADR-0003 means.
