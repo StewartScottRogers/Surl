@@ -41,6 +41,7 @@ public sealed class HelpTextTests
             " -h, --help <subject>         Get help for commands",
             "     --key <file>             Private key for --cert",
             "     --list-directories       Answer directory listings",
+            " -s, --silent                 Silent mode",
             " -v, --verbose                Log every exchange event",
             " -V, --version                Show version number and quit",
             "",
@@ -75,6 +76,8 @@ public sealed class HelpTextTests
             "     --key <file>                            Private key for --cert",
             "     --key-type <type>                       Format of --key: PEM or DER",
             "     --list-directories                      Answer directory listings",
+            "     --log-file <file>                       Append the log to <file>",
+            "     --log-level <level>                     Set the log level",
             "     --max-connections <number>              Connections at once, all listeners",
             "     --max-connections-per-address <number>  Connections at once per address",
             "     --max-filesize <bytes>                  Largest upload accepted",
@@ -84,11 +87,16 @@ public sealed class HelpTextTests
             " -m, --max-time <seconds>                    Longest time one exchange may take",
             "     --pass <phrase>                         Passphrase for the private key",
             "     --serve-dot-files                       Serve names that start with a dot",
+            " -S, --show-error                            Show error even when -s is used",
+            " -s, --silent                                Silent mode",
             "     --tls-max <version>                     Highest TLS version accepted",
             "     --tlsv1.0                               Accept TLS 1.0 or later",
             "     --tlsv1.1                               Accept TLS 1.1 or later",
             "     --tlsv1.2                               Accept TLS 1.2 or later (default)",
             "     --tlsv1.3                               Accept TLS 1.3 or later",
+            "     --trace <file>                          Write a debug trace to <file>",
+            "     --trace-ascii <file>                    Like --trace, but without hex",
+            "     --trace-time                            Add time stamps to log lines",
             " -v, --verbose                               Log every exchange event",
             " -V, --version                               Show version number and quit");
     }
@@ -183,7 +191,64 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("logging"),
             "logging: Log levels, tracing and the log file",
-            " -v, --verbose  Log every exchange event");
+            "     --log-file <file>     Append the log to <file>",
+            "     --log-level <level>   Set the log level",
+            " -S, --show-error          Show error even when -s is used",
+            " -s, --silent              Silent mode",
+            "     --trace <file>        Write a debug trace to <file>",
+            "     --trace-ascii <file>  Like --trace, but without hex",
+            "     --trace-time          Add time stamps to log lines",
+            " -v, --verbose             Log every exchange event");
+
+    [TestMethod]
+    [DataRow("--silent", DisplayName = "Long name")]
+    [DataRow("-s", DisplayName = "Short name")]
+    [DataRow("--no-silent", DisplayName = "Negated")]
+    public void Answer_Silent_IsItsPage(string subject) =>
+        AssertOutput(
+            HelpText.Answer(subject),
+            "    -s, --silent",
+            "        Silent mode. Default: off.",
+            "",
+            "        Categories: logging.",
+            "");
+
+    [TestMethod]
+    [DataRow("--show-error", DisplayName = "Long name")]
+    [DataRow("-S", DisplayName = "Short name, upper case")]
+    [DataRow("--no-show-error", DisplayName = "Negated")]
+    public void Answer_ShowError_IsItsPage(string subject) =>
+        AssertOutput(
+            HelpText.Answer(subject),
+            "    -S, --show-error",
+            "        Show error even when -s is used. Default: off.",
+            "",
+            "        Categories: logging.",
+            "");
+
+    [TestMethod]
+    [DataRow("--log-level", "    --log-level <level>", "Set the log level. Default: info.")]
+    [DataRow("--trace", "    --trace <file>", "Write a debug trace to <file>. Default: none.")]
+    [DataRow("--trace-ascii", "    --trace-ascii <file>", "Like --trace, but without hex. Default: none.")]
+    [DataRow("--trace-time", "    --trace-time", "Add time stamps to log lines. Default: off.")]
+    [DataRow("--no-trace-time", "    --trace-time", "Add time stamps to log lines. Default: off.")]
+    [DataRow("--log-file", "    --log-file <file>", "Append the log to <file>. Default: stderr.")]
+    public void Answer_LoggingOption_IsItsPage(string subject, string leftSide, string description) =>
+        AssertOutput(
+            HelpText.Answer(subject),
+            leftSide,
+            "        " + description,
+            "",
+            "        Categories: logging.",
+            "");
+
+    [TestMethod]
+    [DataRow("--no-log-level")]
+    [DataRow("--no-trace")]
+    [DataRow("--no-trace-ascii")]
+    [DataRow("--no-log-file")]
+    public void Answer_NegatedOptionThatIsNotNegatable_IsTheIncorrectOptionAnswer(string subject) =>
+        Assert.AreEqual(HelpText.Answer("--nosuch"), HelpText.Answer(subject));
 
     [TestMethod]
     public void Answer_Mqtt_ListsItsOptions() =>

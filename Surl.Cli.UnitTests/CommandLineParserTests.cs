@@ -1,4 +1,5 @@
 using System.Security.Authentication;
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Cli;
@@ -66,7 +67,196 @@ public sealed class CommandLineParserTests
         Assert.IsNull(defaults.CertificateFile);
         Assert.IsNull(defaults.KeyFile);
         Assert.IsNull(defaults.CaCertificateFile);
+        Assert.AreEqual(LogLevel.Info, defaults.LogLevel);
+        Assert.IsFalse(defaults.ShowError);
+        Assert.IsNull(defaults.TraceFile);
+        Assert.AreEqual(TraceDumpLayout.HexAndAscii, defaults.TraceLayout);
+        Assert.IsFalse(defaults.TraceTime);
+        Assert.IsNull(defaults.LogFile);
     }
+
+    [TestMethod]
+    public void Parse_NoLoggingOption_HasTheInfoLevelAndNoTraceOrLogFile()
+    {
+        var commandLine = Served(Url);
+
+        Assert.AreEqual(LogLevel.Info, commandLine.LogLevel);
+        Assert.IsFalse(commandLine.Verbose);
+        Assert.IsNull(commandLine.TraceFile);
+        Assert.IsFalse(commandLine.TraceTime);
+        Assert.IsNull(commandLine.LogFile);
+    }
+
+    // Log levels: -s, -S, -v, --log-level, --trace and --trace-ascii (ADR-0033 section 2).
+
+    [TestMethod]
+    [DataRow(LogLevel.None, new[] { "-s" }, DisplayName = "-s")]
+    [DataRow(LogLevel.None, new[] { "--silent" }, DisplayName = "--silent")]
+    [DataRow(LogLevel.Error, new[] { "-s", "-S" }, DisplayName = "-s -S")]
+    [DataRow(LogLevel.Error, new[] { "-sS" }, DisplayName = "-sS")]
+    [DataRow(LogLevel.Error, new[] { "-S", "-s" }, DisplayName = "-S -s: -S applies after the whole line")]
+    [DataRow(LogLevel.Error, new[] { "--silent", "--show-error" }, DisplayName = "--silent --show-error")]
+    [DataRow(LogLevel.None, new[] { "-s", "-S", "--no-show-error" }, DisplayName = "--no-show-error")]
+    [DataRow(LogLevel.Info, new[] { "-S" }, DisplayName = "-S alone changes nothing")]
+    [DataRow(LogLevel.Verbose, new[] { "-v", "-S" }, DisplayName = "-v -S")]
+    [DataRow(LogLevel.Verbose, new[] { "-v" }, DisplayName = "-v")]
+    [DataRow(LogLevel.Verbose, new[] { "-s", "-v" }, DisplayName = "-s -v")]
+    [DataRow(LogLevel.None, new[] { "-v", "-s" }, DisplayName = "-v -s")]
+    [DataRow(LogLevel.Info, new[] { "-s", "--no-silent" }, DisplayName = "--no-silent")]
+    [DataRow(LogLevel.Info, new[] { "-v", "--no-verbose" }, DisplayName = "--no-verbose")]
+    [DataRow(LogLevel.Info, new[] { "-s", "--no-verbose" }, DisplayName = "--no-verbose after -s")]
+    [DataRow(LogLevel.Error, new[] { "-v", "--log-level", "error" }, DisplayName = "-v --log-level error")]
+    [DataRow(LogLevel.Verbose, new[] { "--log-level", "error", "-v" }, DisplayName = "--log-level error -v")]
+    [DataRow(LogLevel.Error, new[] { "--log-level", "none", "-S" }, DisplayName = "--log-level none -S")]
+    [DataRow(LogLevel.Verbose, new[] { "--trace", "f", "-v" }, DisplayName = "--trace f -v")]
+    [DataRow(LogLevel.Trace, new[] { "-v", "--trace", "f" }, DisplayName = "-v --trace f")]
+    [DataRow(LogLevel.Trace, new[] { "-s", "--trace-ascii", "f" }, DisplayName = "-s --trace-ascii f")]
+    public void Parse_LevelOptions_LastWinsThenShowErrorApplies(LogLevel expected, string[] options)
+    {
+        var commandLine = Served([.. options, Url]);
+
+        Assert.AreEqual(expected, commandLine.LogLevel);
+        Assert.AreEqual(expected == LogLevel.Verbose, commandLine.Verbose);
+    }
+
+    [TestMethod]
+    [DataRow("none", LogLevel.None)]
+    [DataRow("error", LogLevel.Error)]
+    [DataRow("info", LogLevel.Info)]
+    [DataRow("verbose", LogLevel.Verbose)]
+    [DataRow("trace", LogLevel.Trace)]
+    [DataRow("TRACE", LogLevel.Trace)]
+    [DataRow("Verbose", LogLevel.Verbose)]
+    public void Parse_LogLevelWord_InAnyCase_SetsThatLevel(string word, LogLevel expected)
+    {
+        Assert.AreEqual(expected, Served("--log-level", word, Url).LogLevel);
+        Assert.AreEqual(expected, Served($"--log-level={word}", Url).LogLevel);
+    }
+
+    [TestMethod]
+    [DataRow("debug")]
+    [DataRow("warning")]
+    [DataRow(" info")]
+    [DataRow("2")]
+    [DataRow("-v")]
+    public void Parse_LogLevelWordNotALevel_IsBadlyUsed(string word) =>
+        AssertOptionRefused(["--log-level", word, Url], "option --log-level: is badly used here");
+
+    [TestMethod]
+    public void Parse_LogLevelTraceWithoutATraceOption_DumpsHexToTheLogStream()
+    {
+        var commandLine = Served("--log-level", "trace", Url);
+
+        Assert.AreEqual(LogLevel.Trace, commandLine.LogLevel);
+        Assert.IsNull(commandLine.TraceFile);
+        Assert.AreEqual(TraceDumpLayout.HexAndAscii, commandLine.TraceLayout);
+    }
+
+    [TestMethod]
+    public void Parse_Trace_SetsTheTraceLevelAndTheHexDumpFile()
+    {
+        var commandLine = Served("--trace", "t.txt", Url);
+
+        Assert.AreEqual(LogLevel.Trace, commandLine.LogLevel);
+        Assert.AreEqual("t.txt", commandLine.TraceFile);
+        Assert.AreEqual(TraceDumpLayout.HexAndAscii, commandLine.TraceLayout);
+    }
+
+    [TestMethod]
+    public void Parse_TraceAscii_SetsTheTraceLevelAndTheAsciiDumpFile()
+    {
+        var commandLine = Served("--trace-ascii=-", Url);
+
+        Assert.AreEqual(LogLevel.Trace, commandLine.LogLevel);
+        Assert.AreEqual("-", commandLine.TraceFile);
+        Assert.AreEqual(TraceDumpLayout.Ascii, commandLine.TraceLayout);
+    }
+
+    [TestMethod]
+    public void Parse_TraceThenTraceAscii_DumpsAsciiToTheLastFileOnly()
+    {
+        var commandLine = Served("--trace", "f", "--trace-ascii", "g", Url);
+
+        Assert.AreEqual(LogLevel.Trace, commandLine.LogLevel);
+        Assert.AreEqual("g", commandLine.TraceFile);
+        Assert.AreEqual(TraceDumpLayout.Ascii, commandLine.TraceLayout);
+    }
+
+    [TestMethod]
+    public void Parse_TraceAsciiThenLaterLogLevelTrace_KeepsTheTraceFile()
+    {
+        var commandLine = Served("--trace-ascii", "g", "-v", "--log-level", "trace", Url);
+
+        Assert.AreEqual(LogLevel.Trace, commandLine.LogLevel);
+        Assert.AreEqual("g", commandLine.TraceFile);
+        Assert.AreEqual(TraceDumpLayout.Ascii, commandLine.TraceLayout);
+    }
+
+    [TestMethod]
+    [DataRow("-v", DisplayName = "Overridden by -v")]
+    [DataRow("-s", DisplayName = "Overridden by -s")]
+    [DataRow("-sS", DisplayName = "Overridden by -s -S")]
+    public void Parse_TraceOverriddenByALaterLevel_KeepsNoTraceFile(string later) =>
+        Assert.IsNull(Served("--trace", "f", later, Url).TraceFile);
+
+    [TestMethod]
+    public void Parse_TraceTime_TurnsOnAndNegatedLaterTurnsOff()
+    {
+        Assert.IsTrue(Served("--trace-time", Url).TraceTime);
+        Assert.IsFalse(Served("--trace-time", "--no-trace-time", Url).TraceTime);
+    }
+
+    [TestMethod]
+    public void Parse_LogFile_KeptAsGiven()
+    {
+        Assert.AreEqual("surl.log", Served("--log-file", "surl.log", Url).LogFile);
+        Assert.AreEqual("-", Served("--log-file=-", Url).LogFile);
+        Assert.AreEqual("b.log", Served("--log-file", "a.log", "--log-file", "b.log", Url).LogFile);
+    }
+
+    [TestMethod]
+    [DataRow("--log-level")]
+    [DataRow("--trace")]
+    [DataRow("--trace-ascii")]
+    [DataRow("--log-file")]
+    public void Parse_LoggingOptionWithEmptyArgument_IsBlank(string name)
+    {
+        AssertOptionRefused([name, "", Url], $"option {name}: blank argument where content is expected");
+        AssertOptionRefused([$"{name}=", Url], $"option {name}=: blank argument where content is expected");
+    }
+
+    [TestMethod]
+    [DataRow("--log-level")]
+    [DataRow("--trace")]
+    [DataRow("--trace-ascii")]
+    [DataRow("--log-file")]
+    public void Parse_LoggingOptionMissingItsArgument_RequiresParameter(string name) =>
+        AssertOptionRefused([Url, name], $"option {name}: requires parameter");
+
+    [TestMethod]
+    [DataRow("--silent=yes")]
+    [DataRow("--show-error=1")]
+    [DataRow("--trace-time=on")]
+    [DataRow("--no-silent=x")]
+    [DataRow("--no-show-error=")]
+    [DataRow("--no-trace-time=no")]
+    public void Parse_ValueOnALoggingFlag_IsRefused(string written) =>
+        AssertOptionRefused([written, Url], $"option {written}: does not take a parameter");
+
+    [TestMethod]
+    [DataRow("--no-log-level")]
+    [DataRow("--no-trace")]
+    [DataRow("--no-trace-ascii")]
+    [DataRow("--no-log-file")]
+    public void Parse_NoPrefixOnANonNegatableLoggingOption_IsRefused(string written) =>
+        AssertOptionRefused([written, Url], $"option {written}: the given option cannot be reversed with a --no- prefix");
+
+    [TestMethod]
+    [DataRow("--trace-ids", DisplayName = "--trace-ids: never (ADR-0033 section 8)")]
+    [DataRow("--trace-config", DisplayName = "--trace-config: later")]
+    [DataRow("--stderr", DisplayName = "--stderr: never")]
+    public void Parse_CurlLoggingOptionSurlLeavesOut_IsUnknown(string written) =>
+        AssertOptionRefused([written, "x", Url], $"option {written}: is unknown");
 
     [TestMethod]
     public void Parse_OnlyAListenUrl_HasTheCertificateFormatAndPassphraseDefaults()
@@ -465,14 +655,14 @@ public sealed class CommandLineParserTests
     [DataRow("--no-such", DisplayName = "Unknown long option (row 38)")]
     [DataRow("--silen", DisplayName = "Abbreviation (row 21)")]
     [DataRow("--verb", DisplayName = "Abbreviation of an option surl has")]
-    [DataRow("--silent", DisplayName = "curl option surl leaves out")]
+    [DataRow("--insecure", DisplayName = "curl option surl leaves out")]
     [DataRow("--no-no-verbose", DisplayName = "--no-no- (row 18)")]
     [DataRow("--no-", DisplayName = "--no- alone")]
     [DataRow("--=x", DisplayName = "No name before =")]
     [DataRow("--VERBOSE", DisplayName = "Names are case-sensitive")]
     [DataRow("-~", DisplayName = "Unknown short option (row 22)")]
     [DataRow("-v~", DisplayName = "Unknown short option in a bundle")]
-    [DataRow("-s", DisplayName = "curl short option surl leaves out")]
+    [DataRow("-k", DisplayName = "curl short option surl leaves out")]
     [DataRow("-", DisplayName = "A lone - (row 23)")]
     public void Parse_UnknownOption_IsRefused(string written) =>
         AssertOptionRefused([written, Url], $"option {written}: is unknown");

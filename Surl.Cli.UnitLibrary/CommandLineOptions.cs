@@ -1,12 +1,13 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Authentication;
+using Surl.Output;
 
 namespace Surl.Cli;
 
 /// <summary>
 /// ADR-0007 section 2's Phase 1 option table, with ADR-0010 section 3's <c>--cert-type</c>,
-/// <c>--key-type</c> and <c>--pass</c>, looked up by long and by short name. Each row carries
+/// <c>--key-type</c> and <c>--pass</c> and ADR-0033 section 2's logging options, looked up by long and by short name. Each row carries
 /// its help (ADR-0034 decision 2), so an option cannot be added without it.
 /// </summary>
 internal static class CommandLineOptions
@@ -21,8 +22,24 @@ internal static class CommandLineOptions
             new("<subject>", "Get help for commands", ["surl"], IsInShortList: true, Default: null)),
         new("version", 'V', CommandLineOptionKind.Version, Negatable: false, SetFlag: null, ApplyArgument: null,
             new(null, "Show version number and quit", ["surl"], IsInShortList: true, Default: null)),
-        Flag("verbose", 'v', negatable: true, (c, on) => c with { Verbose = on },
+        Flag("verbose", 'v', negatable: true, (c, on) => c with { LogLevel = on ? LogLevel.Verbose : LogLevel.Info },
             new(null, "Log every exchange event", ["logging"], IsInShortList: true, Default: "off")),
+        Flag("silent", 's', negatable: true, (c, on) => c with { LogLevel = on ? LogLevel.None : LogLevel.Info },
+            new(null, "Silent mode", ["logging"], IsInShortList: true, Default: "off")),
+        Flag("show-error", 'S', negatable: true, (c, on) => c with { ShowError = on },
+            new(null, "Show error even when -s is used", ["logging"], IsInShortList: false, Default: "off")),
+        WithArgument<LogLevel>("log-level", null, OptionArgumentReader.ReadLogLevel, (c, v) => c with { LogLevel = v },
+            new("<level>", "Set the log level", ["logging"], IsInShortList: false, Default: "info")),
+        WithArgument<string>("trace", null, OptionArgumentReader.ReadPath,
+            (c, v) => c with { LogLevel = LogLevel.Trace, TraceFile = v, TraceLayout = TraceDumpLayout.HexAndAscii },
+            new("<file>", "Write a debug trace to <file>", ["logging"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("trace-ascii", null, OptionArgumentReader.ReadPath,
+            (c, v) => c with { LogLevel = LogLevel.Trace, TraceFile = v, TraceLayout = TraceDumpLayout.Ascii },
+            new("<file>", "Like --trace, but without hex", ["logging"], IsInShortList: false, Default: "none")),
+        Flag("trace-time", null, negatable: true, (c, on) => c with { TraceTime = on },
+            new(null, "Add time stamps to log lines", ["logging"], IsInShortList: false, Default: "off")),
+        WithArgument<string>("log-file", null, OptionArgumentReader.ReadPath, (c, v) => c with { LogFile = v },
+            new("<file>", "Append the log to <file>", ["logging"], IsInShortList: false, Default: "stderr")),
         WithArgument<string>("directory", null, OptionArgumentReader.ReadPath, (c, v) => c with { DataDirectory = v },
             new("<directory>", "Data directory, else in memory", ["content", "dict", "gopher", "http", "mqtt", "tftp"], IsInShortList: true, Default: "in memory")),
         Flag("allow-uploads", null, negatable: true, (c, on) => c with { AllowUploads = on },

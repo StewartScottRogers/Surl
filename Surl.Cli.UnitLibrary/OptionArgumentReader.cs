@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Security.Authentication;
+using Surl.Output;
 
 namespace Surl.Cli;
 
@@ -55,6 +56,16 @@ internal static class OptionArgumentReader
     {
         ["PEM"] = CertificateFileFormat.Pem,
         ["DER"] = CertificateFileFormat.Der,
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The <c>--log-level</c> words, case-insensitive as <c>--cert-type</c> (ADR-0033 section 2).</summary>
+    private static readonly FrozenDictionary<string, LogLevel> LogLevels = new Dictionary<string, LogLevel>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["none"] = LogLevel.None,
+        ["error"] = LogLevel.Error,
+        ["info"] = LogLevel.Info,
+        ["verbose"] = LogLevel.Verbose,
+        ["trace"] = LogLevel.Trace,
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Reads <c>&lt;seconds&gt;</c>: digits, optionally <c>.</c> and more digits, at most 2147483.647.</summary>
@@ -144,6 +155,24 @@ internal static class OptionArgumentReader
     /// <returns>The refusal reason, or <see langword="null"/>.</returns>
     public static string? ReadKeyType(string argument, out CertificateFileFormat value) =>
         KeyTypes.TryGetValue(argument, out value) ? null : BadlyUsed;
+
+    /// <summary>
+    /// Reads the <c>--log-level</c> word: <c>none</c>, <c>error</c>, <c>info</c>, <c>verbose</c>
+    /// or <c>trace</c>, in any case; an empty argument is blank.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The log level.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadLogLevel(string argument, out LogLevel value)
+    {
+        if (argument.Length == 0)
+        {
+            value = default;
+            return Blank;
+        }
+
+        return LogLevels.TryGetValue(argument, out value) ? null : BadlyUsed;
+    }
 
     /// <summary>Reads <c>&lt;phrase&gt;</c>: any text, the empty string included, kept as given.</summary>
     /// <param name="argument">The argument as given.</param>

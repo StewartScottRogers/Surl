@@ -1,3 +1,4 @@
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Cli;
@@ -270,7 +271,22 @@ public static class CommandLineParser
                 new CommandLineFailure(SurlExitCode.FailedInit, NoUrlSpecified, FollowedByTryHelpLine: true));
         }
 
-        return CommandLineParseResult.Serve(reading.CommandLine with { ListenUrls = [.. reading.ListenUrls] });
+        return CommandLineParseResult.Serve(ResolveLogging(reading.CommandLine) with { ListenUrls = [.. reading.ListenUrls] });
+    }
+
+    /// <summary>
+    /// Applies ADR-0033 section 2 once the whole line is read: <c>-S</c> raises level
+    /// <see cref="LogLevel.None"/> to <see cref="LogLevel.Error"/>, and a trace file is kept
+    /// only when the final level is <see cref="LogLevel.Trace"/>.
+    /// </summary>
+    private static SurlCommandLine ResolveLogging(SurlCommandLine commandLine)
+    {
+        if (commandLine.ShowError && commandLine.LogLevel == LogLevel.None)
+        {
+            return commandLine with { LogLevel = LogLevel.Error, TraceFile = null };
+        }
+
+        return commandLine.LogLevel == LogLevel.Trace ? commandLine : commandLine with { TraceFile = null };
     }
 
     /// <summary>
