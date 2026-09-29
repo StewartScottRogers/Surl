@@ -80,3 +80,4 @@ upstream curl 8.21.0 is shown still to complete with renegotiation off.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-29: Backlog -> Doing.
