@@ -59,3 +59,4 @@ concept, one name, the glossary's.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
