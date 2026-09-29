@@ -4,8 +4,8 @@ title: Declare mqtts on the MQTT server in Surl.Protocol.Mqtt
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-036, BL-065]
-touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests]
+depends-on: [BL-036, BL-065, BL-066]
+touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests, Record-CurlExchange.ps1]
 requirement: none
 created: 2026-09-28
 completed:
@@ -49,7 +49,18 @@ recordings.
 
 Filed by BL-036, whose plan declared only `mqtt`.
 
+- 2026-09-29 (dark factory lane 3): the recordings need `Record-CurlExchange.ps1 -Raw -Tls`,
+  which the script still refuses (`-Raw serves plain TCP, so it cannot be combined with
+  -Tls.`). BL-066, in Doing, adds exactly that combination and names
+  `Record-CurlExchange.ps1` in its `touches`. Writing a throwaway TLS relay instead would
+  break the rule to extend the recorder rather than serve curl from a private server, and
+  extending the script here would collide with BL-066. So `Record-CurlExchange.ps1` joins
+  this task's `touches` (in case BL-066's version still falls short for MQTT's binary
+  replies), BL-066 joins `depends-on`, and the task goes back to Backlog until BL-066 is
+  Done. No code was changed.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Backlog. Waits on BL-066, which adds Record-CurlExchange.ps1 -Raw -Tls (touches Record-CurlExchange.ps1); the mqtts recordings need it.
