@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests]
+touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests, Documentation/Planning/Decisions/ADR-0013-how-the-tftp-server-answers.md]
 requirement: none
 created: 2026-09-29
 completed:
@@ -50,7 +50,13 @@ fails leaves the old file exactly as it was.
 
 ## Notes
 
+2026-09-29, dark factory lane 2: acceptance criterion 4 amends ADR-0013 (amendment 1), so
+`Documentation/Planning/Decisions/ADR-0013-how-the-tftp-server-answers.md` is added to
+`touches`. BL-061, in Doing, touches `Documentation/Planning/Decisions`, which contains it,
+so this task returns to Backlog until BL-061 leaves Doing. No code was started.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Backlog. Needs Documentation/Planning/Decisions/ADR-0013 (amendment 1), inside Documentation/Planning/Decisions, which BL-061 in Doing touches; resume once BL-061 leaves Doing.
