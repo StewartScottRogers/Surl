@@ -52,7 +52,7 @@ completed: 2026-09-28
 - `-SkipTestRun` was needed because the measuring run hit
   `ServerTlsSettingsTests.CreateAuthenticationOptions_Intermediates_AreInTheCertificateContext`
   failing in `Surl.Networking.UnitTests` (Windows chain-building error; it passed in the
-  first run and nothing in Surl.Networking changed). Outside this task's touches: filed as BL-078.
+  first run and nothing in Surl.Networking changed). Outside this task's touches: filed as BL-080.
 
 ## Log
 

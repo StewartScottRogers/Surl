@@ -1,5 +1,5 @@
 ---
-id: BL-078
+id: BL-080
 title: Make ServerTlsSettingsTests.CreateAuthenticationOptions_Intermediates_AreInTheCertificateContext pass reliably on Windows
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-078 — Make ServerTlsSettingsTests.CreateAuthenticationOptions_Intermediates_AreInTheCertificateContext pass reliably on Windows
+# BL-080 — Make ServerTlsSettingsTests.CreateAuthenticationOptions_Intermediates_AreInTheCertificateContext pass reliably on Windows
 
 ## Goal
 
