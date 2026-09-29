@@ -280,7 +280,8 @@
     outside printable ASCII is written \xHH, and a backslash as \\. The line
     "= curl closed the connection" marks curl hanging up. Response, Connections,
     ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds and RespondAfterBodyBytes are
-    ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Tls or -NoServer is refused.
+    ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Tftp, -Tls or -NoServer is
+    refused.
 
 .PARAMETER RawReply
     The replies -Raw sends, one per pause in what curl sends, in order, each with the
@@ -297,6 +298,54 @@
     How long, in -Raw mode, a pause in what curl sends must last before the server
     treats the burst as complete and sends the next reply, and, after the last reply,
     before it hangs up. Default 1000.
+
+.PARAMETER Tftp
+    Serve one TFTP transfer (RFC 1350) over UDP instead of HTTP responses: bind
+    <ListenAddress>:<Port> for UDP, wait for curl's first datagram, and answer it from a
+    new UDP port, the server's transfer identifier (RFC 1350, section 4), for the rest
+    of the transfer. A read request (RRQ) is answered with TftpData in DATA blocks, each
+    sent once curl has acknowledged the one before; a write request (WRQ, curl -T) is
+    answered with ACKs, and the DATA curl sends is written to upload.bin. The transfer
+    ends after the last block (the first one shorter than the block size) is sent and
+    acknowledged or received and acknowledged, or when curl sends an ERROR.
+
+    When curl's request carries options (RFC 2347), the first reply is an OACK accepting
+    the ones the server knows: blksize (RFC 2348, capped at 65464; a value below 8 is
+    left out), tsize (RFC 2349: TftpData's length for a read, curl's own value echoed
+    for a write) and timeout (echoed). A request with no option the server knows gets no
+    OACK: a read starts with DATA 1, a write with ACK 0. An unanswered packet is sent
+    again after TftpIdleMilliseconds of silence, at most three times, and then the
+    server gives up. A first datagram that is neither RRQ nor WRQ is answered with
+    ERROR 4. Datagrams curl sends to <Port> after the first, such as a repeated request,
+    are recorded and not answered. Mode (octet or netascii) is recorded, not acted on:
+    TftpData is sent exactly as given.
+
+    request.bin then holds every datagram curl sent, in order, and transcript.txt holds
+    one line per datagram in either direction: "> " for curl's and "< " for the
+    server's, then "curl:<port> -> server:<port>" (or the reverse) naming both UDP
+    ports, then the datagram's bytes, printable ASCII as is, a backslash as \\ and every
+    other byte as \xHH, e.g. "> curl:52001 -> server:18069 \x00\x01file.txt\x00octet\x00".
+    Response, Connections, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds and
+    RespondAfterBodyBytes are ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Raw,
+    -Tls or -NoServer is refused.
+
+.PARAMETER TftpData
+    The file a read request is served, in -Tftp mode, with the same backslash escapes as
+    Response. Default empty: a read gets one empty DATA block.
+
+.PARAMETER TftpReply
+    Replaces the server's first reply in -Tftp mode with this datagram, with the same
+    backslash escapes as Response, e.g. '\x00\x05\x00\x01File not found\x00' for an
+    ERROR 1, or '\x00\x06blksize\x001024\x00' for an OACK of the server's choosing. It
+    is sent from the new port exactly as given. When it is an OACK (opcode 6) the
+    transfer then goes on as after the server's own OACK, with the block size it names
+    (512 when it names none); anything else ends the transfer, and whatever curl sends
+    until it stays silent for TftpIdleMilliseconds is recorded. Default empty: the server
+    answers as described under Tftp.
+
+.PARAMETER TftpIdleMilliseconds
+    How long, in -Tftp mode, the server waits for curl's next datagram before it sends
+    its last packet again (or, after three resends, gives up). Default 2000.
 
 .PARAMETER Tls
     Answer each connection over TLS 1.2 instead of plain TCP, so the recorder can stand
@@ -351,8 +400,9 @@
     Response, Connections, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds,
     RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, SmtpReply,
     SmtpIdleMilliseconds, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
-    Pop3Message, Pop3IdleMilliseconds and ListenAddress are ignored, and Port need not be given.
-    Combining it with a server mode, -Ftp, -Smtp, -Imap, -Pop3, -Raw or -Tls, is refused. StandardInput and Curl work as in every other mode.
+    Pop3Message, Pop3IdleMilliseconds, TftpData, TftpReply, TftpIdleMilliseconds and
+    ListenAddress are ignored, and Port need not be given. Combining it with a server
+    mode, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Tftp or -Tls, is refused. StandardInput and Curl work as in every other mode.
 
 .EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18081 -Response 'HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello' -CurlArgs 'http://127.0.0.1:18081/a?b' -OutDirectory fixtures\default-get
@@ -392,6 +442,12 @@
     Sends a DICT banner, then answers the burst curl sends (CLIENT libcurl 8.21.0,
     DEFINE ! hello and QUIT, all at once) with a definition and, after the next pause,
     221. request.bin holds curl's three lines and transcript.txt both directions.
+
+.EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18069 -Tftp -TftpData 'hello\n' -CurlArgs '-sS','tftp://127.0.0.1:18069/file.txt' -OutDirectory fixtures\tftp-read
+
+    Serves one TFTP read; transcript.txt shows curl's RRQ to port 18069, the server's
+    replies from a port of its own and curl's ACKs, and stdout.bin holds hello.
 #>
 [CmdletBinding()]
 param(
@@ -424,6 +480,10 @@ param(
     [string[]] $RawReply = @(),
     [switch] $RawReplyFirst,
     [ValidateRange(1, 600000)] [int] $RawIdleMilliseconds = 1000,
+    [switch] $Tftp,
+    [string] $TftpData = '',
+    [string] $TftpReply = '',
+    [ValidateRange(1, 600000)] [int] $TftpIdleMilliseconds = 2000,
     [switch] $Tls,
     [string] $TlsRootCertificateFile,
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
@@ -438,9 +498,10 @@ $ErrorActionPreference = 'Stop'
 # powershell -File binds '-sS','http://...' as the one string "-sS,http://..."; only then
 # is the invocation line empty, so only then is that string split back into its elements.
 if ([string]::IsNullOrEmpty($MyInvocation.Line) -and $CurlArgs.Count -eq 1) { $CurlArgs = $CurlArgs[0].Split(',') }
-if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw or -Tls.' }
-if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3 and -Raw each serve a whole session; give one of them.' }
+if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Tftp -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Tftp or -Tls.' }
+if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Tftp | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3, -Raw and -Tftp each serve a whole session; give one of them.' }
 if ($Raw -and $Tls) { throw '-Raw serves plain TCP, so it cannot be combined with -Tls.' }
+if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined with -Tls.' }
 if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
 
 function Get-ReferenceCurlPath {
@@ -1475,6 +1536,224 @@ $serveRawSession = {
     return , @(, $received.ToArray())
 }
 
+# The -Tftp server: one transfer over UDP. The first datagram arrives on the listening
+# socket; every reply goes out from a new socket, the server's transfer identifier. It
+# returns every datagram curl sent, as one array, writes the transcript into $Transcript
+# and the DATA curl wrote into $UploadedData.
+$serveTftpSession = {
+    param($Listener, [byte[]] $DataBytes, [byte[]] $FirstReply, [System.Text.StringBuilder] $Transcript, [System.IO.MemoryStream] $UploadedData, [int] $IdleMilliseconds, [System.Net.IPAddress] $ListenAddress)
+
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+    $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+    $received = New-Object System.IO.MemoryStream
+    $buffer = New-Object byte[] 65536
+    $anyAddress = if ($ListenAddress.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetworkV6) { [System.Net.IPAddress]::IPv6Any } else { [System.Net.IPAddress]::Any }
+    # The main script closes the listening socket once curl has exited.
+    $state = @{ ListenerOpen = $true }
+
+    # One transcript line: direction, both ports, and the bytes with every byte outside
+    # printable ASCII written \xHH and a backslash as \\.
+    function Add-TranscriptDatagram {
+        param([bool] $FromCurl, [int] $ServerPort, [int] $CurlPort, [byte[]] $Bytes)
+        $line = New-Object System.Text.StringBuilder
+        [void] $line.Append($(if ($FromCurl) { "> curl:$CurlPort -> server:$ServerPort " } else { "< server:$ServerPort -> curl:$CurlPort " }))
+        foreach ($byte in $Bytes) {
+            if ($byte -eq 92) { [void] $line.Append('\\') }
+            elseif ($byte -ge 32 -and $byte -le 126) { [void] $line.Append([char] $byte) }
+            else { [void] $line.Append('\x' + $byte.ToString('X2')) }
+        }
+        [void] $Transcript.Append("$line`r`n")
+    }
+
+    # One datagram from Socket, recorded as curl's, with the endpoint it came from.
+    function Receive-FromSocket {
+        param($Socket)
+        [System.Net.EndPoint] $from = New-Object System.Net.IPEndPoint($anyAddress, 0)
+        $count = $Socket.ReceiveFrom($buffer, [ref] $from)
+        [byte[]] $bytes = New-Object byte[] $count
+        [Array]::Copy($buffer, $bytes, $count)
+        $received.Write($bytes, 0, $count)
+        Add-TranscriptDatagram -FromCurl $true -ServerPort ([System.Net.IPEndPoint] $Socket.LocalEndPoint).Port -CurlPort ([System.Net.IPEndPoint] $from).Port -Bytes $bytes
+        return @{ Bytes = $bytes; From = $from }
+    }
+
+    function Send-Datagram {
+        param([byte[]] $Bytes)
+        [void] $transfer.SendTo($Bytes, $curlEndPoint)
+        Add-TranscriptDatagram -FromCurl $false -ServerPort ([System.Net.IPEndPoint] $transfer.LocalEndPoint).Port -CurlPort ([System.Net.IPEndPoint] $curlEndPoint).Port -Bytes $Bytes
+    }
+
+    # The next datagram curl sends to the transfer socket, or $null after IdleMilliseconds
+    # of silence. Datagrams it sends to the listening port meanwhile are recorded only.
+    function Receive-Datagram {
+        $deadline = [DateTime]::UtcNow.AddMilliseconds($IdleMilliseconds)
+        while ($true) {
+            $remaining = ($deadline - [DateTime]::UtcNow).TotalMilliseconds
+            if ($remaining -le 0) { return $null }
+            $ready = New-Object System.Collections.ArrayList
+            [void] $ready.Add($transfer)
+            if ($state.ListenerOpen) { [void] $ready.Add($Listener) }
+            try {
+                [System.Net.Sockets.Socket]::Select($ready, $null, $null, [int] ($remaining * 1000))
+            } catch [System.ObjectDisposedException] {
+                $state.ListenerOpen = $false
+                continue
+            }
+            if ($ready.Count -eq 0) { return $null }
+            try {
+                $datagram = Receive-FromSocket -Socket $ready[0]
+            } catch [System.Net.Sockets.SocketException] {
+                continue  # An ICMP port unreachable from an earlier send, reported here.
+            } catch [System.ObjectDisposedException] {
+                $state.ListenerOpen = $false
+                continue
+            }
+            if ($ready[0] -eq $transfer) { return , $datagram.Bytes }
+        }
+    }
+
+    function Get-Opcode {
+        param([byte[]] $Packet)
+        if ($Packet.Length -lt 2) { return -1 }
+        return $Packet[0] * 256 + $Packet[1]
+    }
+
+    # Sends Packet and waits for curl's packet with Opcode and Block, sending Packet again
+    # after each silence, three times at most. $null when curl sends ERROR or stays silent.
+    function Send-AndAwait {
+        param([byte[]] $Packet, [int] $Opcode, [int] $Block)
+        for ($attempt = 0; $attempt -le 3; $attempt++) {
+            Send-Datagram -Bytes $Packet
+            while ($true) {
+                $answer = Receive-Datagram
+                if ($null -eq $answer) { break }
+                $answerOpcode = Get-Opcode -Packet $answer
+                if ($answerOpcode -eq 5) { return $null }
+                if ($answerOpcode -eq $Opcode -and $answer.Length -ge 4 -and ($answer[2] * 256 + $answer[3]) -eq $Block) { return , $answer }
+            }
+        }
+        return $null
+    }
+
+    # The name-value pairs of a request's or an OACK's options, from its field FirstOption on.
+    function Get-OptionPairs {
+        param([byte[]] $Packet, [int] $FirstOption)
+        $fields = $latin1.GetString($Packet, 2, $Packet.Length - 2).Split([char] 0)
+        $pairs = New-Object System.Collections.Generic.List[object]
+        for ($index = $FirstOption; $index + 1 -lt $fields.Length; $index += 2) {
+            if ($fields[$index].Length -gt 0) { $pairs.Add(@($fields[$index], $fields[$index + 1])) }
+        }
+        return , $pairs
+    }
+
+    function Get-BlockSize {
+        param($Pairs)
+        foreach ($pair in $Pairs) {
+            $size = 0
+            if ($pair[0] -ieq 'blksize' -and [int]::TryParse($pair[1], [ref] $size)) { return $size }
+        }
+        return 512
+    }
+
+    # The OACK accepting the options the server knows, or $null when it knows none.
+    function New-OptionAcknowledgement {
+        param($Pairs, [bool] $IsRead)
+        $accepted = New-Object System.Text.StringBuilder
+        foreach ($pair in $Pairs) {
+            $value = 0
+            $known = [int]::TryParse($pair[1], [ref] $value)
+            $answer = switch ($pair[0].ToLowerInvariant()) {
+                'blksize' { if ($known -and $value -ge 8) { [Math]::Min($value, 65464) } }
+                'tsize' { if ($IsRead) { $DataBytes.Length } elseif ($known) { $value } }
+                'timeout' { if ($known) { $value } }
+            }
+            if ($null -ne $answer) { [void] $accepted.Append("$($pair[0])`0$answer`0") }
+        }
+        if ($accepted.Length -eq 0) { return $null }
+        return , ([byte[]] (@(0, 6) + $latin1.GetBytes($accepted.ToString())))
+    }
+
+    function New-BlockPacket {
+        param([int] $Opcode, [int] $Block)
+        return , ([byte[]] @(0, $Opcode, [Math]::Floor(($Block % 65536) / 256), ($Block % 256)))
+    }
+
+    $request = $null
+    while ($null -eq $request) {
+        try {
+            if (-not $Listener.Poll(1000000, [System.Net.Sockets.SelectMode]::SelectRead)) { continue }
+            $request = Receive-FromSocket -Socket $Listener
+        } catch [System.ObjectDisposedException] {
+            return , @(, $received.ToArray())  # The listener was closed: curl never sent a request.
+        } catch [System.Net.Sockets.SocketException] {
+            continue
+        }
+    }
+    $curlEndPoint = $request.From
+    [byte[]] $requestBytes = $request.Bytes
+    $transfer = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
+    try {
+        $transfer.Bind((New-Object System.Net.IPEndPoint($ListenAddress, 0)))
+        $requestOpcode = Get-Opcode -Packet $requestBytes
+        if ($requestOpcode -ne 1 -and $requestOpcode -ne 2) {
+            Send-Datagram -Bytes ([byte[]] (@(0, 5, 0, 4) + $latin1.GetBytes("Illegal TFTP operation`0")))
+            return , @(, $received.ToArray())
+        }
+        $isRead = $requestOpcode -eq 1
+        $blockSize = 512
+        $opening = $null
+        if ($FirstReply.Length -gt 0) {
+            $opening = $FirstReply
+            if ((Get-Opcode -Packet $FirstReply) -ne 6) {
+                # Not an OACK: the transfer ends here; record what curl answers.
+                Send-Datagram -Bytes $FirstReply
+                while ($null -ne (Receive-Datagram)) { }
+                return , @(, $received.ToArray())
+            }
+            $blockSize = Get-BlockSize -Pairs (Get-OptionPairs -Packet $FirstReply -FirstOption 0)
+        } else {
+            $opening = New-OptionAcknowledgement -Pairs (Get-OptionPairs -Packet $requestBytes -FirstOption 2) -IsRead $isRead
+            if ($null -ne $opening) { $blockSize = Get-BlockSize -Pairs (Get-OptionPairs -Packet $opening -FirstOption 0) }
+        }
+
+        if ($isRead) {
+            # After an OACK curl acknowledges block 0 before DATA 1 is sent.
+            if ($null -ne $opening -and $null -eq (Send-AndAwait -Packet $opening -Opcode 4 -Block 0)) { return , @(, $received.ToArray()) }
+            $block = 1
+            $offset = 0
+            while ($true) {
+                $length = [Math]::Min($blockSize, $DataBytes.Length - $offset)
+                $packet = New-Object byte[] (4 + $length)
+                [Array]::Copy((New-BlockPacket -Opcode 3 -Block $block), $packet, 4)
+                [Array]::Copy($DataBytes, $offset, $packet, 4, $length)
+                if ($null -eq (Send-AndAwait -Packet $packet -Opcode 4 -Block ($block % 65536))) { break }
+                $offset += $length
+                if ($length -lt $blockSize) { break }  # The short block was the last.
+                $block++
+            }
+        } else {
+            # A write is opened by the OACK, or by ACK 0 when there is none.
+            $packet = if ($null -ne $opening) { $opening } else { New-BlockPacket -Opcode 4 -Block 0 }
+            $block = 1
+            while ($true) {
+                $data = Send-AndAwait -Packet $packet -Opcode 3 -Block ($block % 65536)
+                if ($null -eq $data) { break }
+                $UploadedData.Write($data, 4, $data.Length - 4)
+                $packet = New-BlockPacket -Opcode 4 -Block $block
+                if ($data.Length - 4 -lt $blockSize) {
+                    Send-Datagram -Bytes $packet  # The short block was the last.
+                    break
+                }
+                $block++
+            }
+        }
+    } finally {
+        $transfer.Close()
+    }
+    return , @(, $received.ToArray())
+}
+
 function New-IssuedByThrowawayRoot {
     # Signs Request with a throwaway root CA named by no store and writes the root's PEM
     # to RootCertificateFile. Neither certificate names a CRL or OCSP endpoint.
@@ -1569,10 +1848,19 @@ $tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3) { New-Throwaw
 # -NoServer binds nothing: the caller's own server answers curl.
 $listener = $null
 $server = $null
-if (-not $NoServer) {
+if ($Tftp) {
+    $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
+    $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
+    $server = [System.Management.Automation.PowerShell]::Create()
+} elseif (-not $NoServer) {
     $listener = New-Object System.Net.Sockets.TcpListener($ListenAddress, $Port)
     $listener.Start()
     $server = [System.Management.Automation.PowerShell]::Create()
+}
+
+# -Tftp listens on a UDP socket, which is closed rather than stopped.
+function Stop-Listener {
+    if ($listener -is [System.Net.Sockets.Socket]) { $listener.Close() } else { $listener.Stop() }
 }
 try {
     if ($NoServer) {
@@ -1589,6 +1877,8 @@ try {
         $rawReplies = New-Object System.Collections.Generic.List[byte[]]
         foreach ($text in $RawReply) { $rawReplies.Add((ConvertFrom-EscapedResponse -Text $text)) }
         [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds)
+    } elseif ($Tftp) {
+        [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
         [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($tlsCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols)
     }
@@ -1636,12 +1926,12 @@ try {
         # A connection curl did not open would block the server forever; stopping the
         # listener ends the wait. Give an accepted connection a moment to finish first.
         [void] $serverRun.AsyncWaitHandle.WaitOne(2000)
-        $listener.Stop()
+        Stop-Listener
         $requests = $server.EndInvoke($serverRun)
         if ($server.Streams.Error.Count -gt 0) { throw $server.Streams.Error[0] }
     }
 } finally {
-    if ($null -ne $listener) { $listener.Stop() }
+    if ($null -ne $listener) { Stop-Listener }
     if ($null -ne $server) { $server.Dispose() }
     # Reset deletes the key container the PFX import created.
     if ($null -ne $tlsCertificate) { $tlsCertificate.Reset() }
@@ -1656,7 +1946,7 @@ if (-not $NoServer) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory '
 [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'stdout.bin'), $stdout.ToArray())
 [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'stderr.txt'), $stderr.ToArray())
 [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'exitcode.txt'), [string] $exitCode, [System.Text.Encoding]::ASCII)
-if ($Ftp) {
+if ($Ftp -or $Tftp) {
     [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'transcript.txt'), $transcript.ToString(), [System.Text.Encoding]::GetEncoding(28591))
     [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'upload.bin'), $uploadedData.ToArray())
 }
