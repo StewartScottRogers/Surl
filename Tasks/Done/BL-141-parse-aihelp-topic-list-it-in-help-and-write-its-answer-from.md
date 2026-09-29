@@ -8,7 +8,7 @@ depends-on: [BL-140]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Surl.Console.UnitTests]
 requirement: FR-035
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-141 — Parse --aihelp [topic], list it in --help and write its answer from surl
 
@@ -41,24 +41,39 @@ Markdown to stdout and exit `SurlExitCode.Ok` (0), and `--aihelp` is listed in `
 
 ## Acceptance criteria
 
-- [ ] `CommandLineParserTests` pin every parsing case the ADR's decision 1 lists (at least
+- [x] `CommandLineParserTests` pin every parsing case the ADR's decision 1 lists (at least
       `--aihelp`, `--aihelp mqtt`, `--aihelp=mqtt`, `--aihelp ""`, `--aihelp all`, an
       option before and after it, `--no-aihelp`, and `-h`/`-V`/`-M` before it), each with the
       outcome and subject or `CommandLineFailure` the ADR gives.
-- [ ] `HelpTextTests` pin the new `--help` short list, `--help all` and `--help surl` pages
+- [x] `HelpTextTests` pin the new `--help` short list, `--help all` and `--help surl` pages
       with the `--aihelp` line exactly as the ADR gives it, laid out by ADR-0034's 79-column
       rule, and `--help --aihelp` answers its option page.
-- [ ] `CommandLineRunnerTests` show that `RunAsync` with `["--aihelp"]`, `["--aihelp",
+- [x] `CommandLineRunnerTests` show that `RunAsync` with `["--aihelp"]`, `["--aihelp",
       "mqtt"]`, `["--aihelp", "all"]` and `["-s", "--aihelp"]` writes the generator's output
       to the output writer, nothing to the error writer, and returns `SurlExitCode.Ok`; and an
       unknown topic writes what the ADR's decision 8 says and returns the code it names.
-- [ ] `dotnet build Surl.Cli.UnitLibrary -warnaserror` and `dotnet build Surl.Console
+- [x] `dotnet build Surl.Cli.UnitLibrary -warnaserror` and `dotnet build Surl.Console
       -warnaserror` are clean; `dotnet test --filter "TestCategory!=Integration"` passes;
       `Surl.Cli.UnitLibrary` and `Surl.Console` stay at 100% line and branch coverage.
 
 ## Notes
 
+- Delivered directly against ADR-0046 decisions 1, 2, 8 and 10 (the ADR is the plan): the
+  `aihelp` row (`CommandLineOptionKind.AiHelp`, no short name, `OptionArgumentType.OptionalTopic`
+  = `optional topic` / `a topic or all; see surl --aihelp` from decision 5's vocabulary),
+  `CommandLineOutcome.ShowAiHelp`, `CommandLineParseResult.ShowAiHelp`/`AiHelpTopic`, the parser
+  reading it as `--help` reads its subject, and `CommandLineRunner.RunAsync` answering it
+  through `WriteHelp`.
+- Decision 8 needs no runner code: `AiHelpText.Answer` (BL-139) already returns the
+  unknown-topic answer on stdout, so the runner tests pin exit 0 and its first lines.
+- Decision 10: `ManualText`'s `SEE ALSO` names `surl --aihelp`, and the exit-code-0 row reads
+  "help, an --aihelp answer, the manual or the version was written, or / surl was stopped by
+  Ctrl+C or SIGTERM." (wrapped at 79 columns as the section's other rows).
+- `Measure-CodeQuality.ps1`: `Surl.Cli.UnitLibrary` and `Surl.Console` 100% line and branch,
+  0 failing members. Cli tests 639, Console tests 191, all fast tests green.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. surl --aihelp [topic] writes ADR-0046's Markdown and exits 0; --aihelp is listed in --help, --help all and --help surl; --manual's SEE ALSO names it
