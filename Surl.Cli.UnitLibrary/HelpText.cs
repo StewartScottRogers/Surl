@@ -164,8 +164,11 @@ public static class HelpText
         HelpLayout.FormatOptionLines(
             [.. options.OrderBy(option => option.LongName, StringComparer.Ordinal).Select(option => (LeftSide(option), option.Help.Description))]);
 
-    /// <summary><c>-x, --name &lt;arg&gt;</c>, or four spaces and <c>--name &lt;arg&gt;</c> without a short name.</summary>
-    private static string LeftSide(CommandLineOption option)
+    /// <summary>
+    /// <c>-x, --name &lt;arg&gt;</c>, or four spaces and <c>--name &lt;arg&gt;</c> without a short name:
+    /// the option's left side, which <see cref="AiHelpText"/> writes without its padding.
+    /// </summary>
+    internal static string LeftSide(CommandLineOption option)
     {
         var shortPart = option.ShortName is null ? "    " : $"-{option.ShortName}, ";
         var argumentPart = option.Help.ArgumentName is null ? string.Empty : " " + option.Help.ArgumentName;

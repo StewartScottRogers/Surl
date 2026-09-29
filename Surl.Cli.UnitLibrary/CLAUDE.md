@@ -34,6 +34,13 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   list, `all`, `category`, one of `HelpCategories.All`, or an option page - laid out to 79
   columns by `HelpLayout`. `ManualText.Text` is the `--manual` text; `VersionText.Compose`
   the `--version` text.
+- AI help (ADR-0046): `AiHelpText.Answer` turns an `--aihelp` topic into a `HelpAnswer` in
+  Markdown - the overview, one of `AiHelpTopics.All` (every help category plus `exit-codes`
+  and `listen-urls`), `all`, or the unknown-topic answer - with its option and exit-code
+  tables generated from `CommandLineOptions`, `OptionArgumentType` and
+  `ExitCodeGuidanceTable`, and the option's left side shared with `HelpText.LeftSide`. Every
+  hand-written section still reads `Nothing for this topic.` (BL-140), and nothing calls it
+  from the command line yet (BL-141).
 
 Never touch the console here; `Surl.Console` hands this library its arguments and writers.
 Any change to an option's behaviour updates its `OptionHelp` and the `ManualText` section
