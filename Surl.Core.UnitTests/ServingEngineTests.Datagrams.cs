@@ -322,7 +322,7 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_FlowThatReachesTheMaximumExchangeDuration_IsCancelledAndDisposed()
+    public async Task ServeAsync_FlowThatReachesTheMaximumExchangeDuration_IsCancelledAndDisposedThenAndNotBefore()
     {
         var factory = new FakeListenerFactory();
         var time = new ManualTimeProvider();
@@ -336,11 +336,17 @@ public sealed partial class ServingEngineTests
         var serving = engine.ServeAsync([Tftp], stop.Token);
 
         factory.DatagramListenerFor(Tftp).Open(flow);
-        await server.NextFlowAsync();
-        time.Advance(TimeSpan.FromSeconds(60));
+        var served = await server.NextFlowAsync();
+        time.Advance(TimeSpan.FromSeconds(60) - Tick);
+
+        Assert.IsFalse(served.Context.CancellationToken.IsCancellationRequested);
+        Assert.IsFalse(flow.Disposed);
+
+        time.Advance(Tick);
         await flow.WhenDisposed.WaitAsync(Patience.Timeout);
         await stop.CancelAsync();
 
+        Assert.IsTrue(served.Context.CancellationToken.IsCancellationRequested);
         Assert.AreEqual(SurlExitCode.Ok, await serving.WaitAsync(Patience.Timeout));
         CollectionAssert.Contains(
             logs.LogOf(1).Notes.ToList(), "Exchange 1 cancelled: it reached the maximum exchange duration of 60 s.");
@@ -369,7 +375,7 @@ public sealed partial class ServingEngineTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_FlowWithNoDatagramForTheIdleTimeout_IsCancelledAndDisposed()
+    public async Task ServeAsync_FlowWithNoDatagramForTheIdleTimeout_IsCancelledAndDisposedThenAndNotBefore()
     {
         var factory = new FakeListenerFactory();
         var time = new ManualTimeProvider();
@@ -383,11 +389,17 @@ public sealed partial class ServingEngineTests
         var serving = engine.ServeAsync([Tftp], stop.Token);
 
         factory.DatagramListenerFor(Tftp).Open(flow);
-        await server.NextFlowAsync();
-        time.Advance(TimeSpan.FromSeconds(10));
+        var served = await server.NextFlowAsync();
+        time.Advance(TimeSpan.FromSeconds(10) - Tick);
+
+        Assert.IsFalse(served.Context.CancellationToken.IsCancellationRequested);
+        Assert.IsFalse(flow.Disposed);
+
+        time.Advance(Tick);
         await flow.WhenDisposed.WaitAsync(Patience.Timeout);
         await stop.CancelAsync();
 
+        Assert.IsTrue(served.Context.CancellationToken.IsCancellationRequested);
         Assert.AreEqual(SurlExitCode.Ok, await serving.WaitAsync(Patience.Timeout));
         CollectionAssert.Contains(
             logs.LogOf(1).Notes.ToList(), "Exchange 1 cancelled: no byte moved for the idle timeout of 10 s.");

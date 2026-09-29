@@ -8,7 +8,7 @@ depends-on: [BL-025, BL-032]
 touches: [Surl.Core.UnitLibrary, Surl.Core.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-075 — Count datagram flows against the connection limits in Surl.Core
 
@@ -32,13 +32,13 @@ maximum exchange duration as a connection, and a flow past a limit is refused th
 
 ## Acceptance criteria
 
-- [ ] A fast test proves the flow past `--max-connections` (and one past
+- [x] A fast test proves the flow past `--max-connections` (and one past
       `--max-connections-per-address`) is handed to `IDatagramRefusalWriter` with the
       matching `ConnectionRefusal`, then disposed, while the flows already running are
       unaffected.
-- [ ] A fast test proves a flow is cancelled at the idle timeout and at the maximum
+- [x] A fast test proves a flow is cancelled at the idle timeout and at the maximum
       exchange duration and not before, on the hand-written `TimeProvider`.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and
       `Measure-CodeQuality.ps1` reports no failing member in `Surl.Core.UnitLibrary`.
 
 ## Notes
@@ -53,7 +53,16 @@ maximum exchange duration as a connection, and a flow past a limit is refused th
   here is checking each criterion against those tests. The one clearly missing piece is
   "and not before" for the flow's idle and duration clocks; add it, then close this task.
 
+- 2026-09-29, BL-075 run: the criteria were already met by BL-032's tests (listed above) apart from
+  "and not before". Extended the two flow deadline tests to advance the hand-written
+  `TimeProvider` one tick short of the idle timeout and of the maximum duration, assert the
+  flow is neither cancelled nor disposed, then advance the last tick and assert both:
+  `ServeAsync_FlowWithNoDatagramForTheIdleTimeout_IsCancelledAndDisposedThenAndNotBefore`,
+  `ServeAsync_FlowThatReachesTheMaximumExchangeDuration_IsCancelledAndDisposedThenAndNotBefore`.
+  No production change; Measure-CodeQuality reports Surl.Core.UnitLibrary 100/100, 0 failing.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. Datagram flows count against --max-connections and --max-connections-per-address and are cancelled at the idle timeout and maximum duration, not before, proven by fast tests
