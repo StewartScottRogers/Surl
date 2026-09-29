@@ -25,3 +25,4 @@ made, a Surl ADR says so and gives its own reasons.
 | [0004](ADR-0004-the-listener-seam-and-the-exchange-context.md) | The listener seam and the exchange context: how a protocol server receives its transport and what it is told about each exchange | Accepted | 2026-09-28 |
 | [0005](ADR-0005-surls-exit-code-table.md) | Surl's exit-code table: upstream curl's `CURLE_*` number wherever a server-side meaning carries over, 0 after Ctrl+C or SIGTERM | Accepted | 2026-09-28 |
 | [0006](ADR-0006-hardening-for-internet-facing-use.md) | Hardening for internet-facing use: connection, time and size limits, exposure defaults, what a peer may learn, TLS 1.2 minimum | Accepted | 2026-09-28 |
+| [0007](ADR-0007-the-phase-1-command-line-surface.md) | The Phase 1 command-line surface: parser conventions measured from upstream curl, the option table, listen-URL rules, exact output texts and the verbose-log format | Accepted | 2026-09-28 |

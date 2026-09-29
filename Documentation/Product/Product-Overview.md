@@ -131,8 +131,9 @@ is decided in
   (`Surl.Conformance`), so curl's suite, not Surl's, decides what correct means.
 - **Seeing the exchange:** `-v`, `--trace` and `-w` style output from the server's side.
 
-> **TODO** The command-line option table - which of curl's option names carry a
-> server-side meaning, and what each does - is a Phase 1 decision, recorded in an ADR.
+The command-line surface - which of curl's option names carry a server-side meaning and
+what each does, how listen URLs are read, and the exact text surl prints - is decided in
+[ADR-0007](../Planning/Decisions/ADR-0007-the-phase-1-command-line-surface.md).
 
 ## Architecture
 

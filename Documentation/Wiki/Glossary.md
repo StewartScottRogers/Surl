@@ -21,6 +21,11 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 | listen URL | A URL given to `surl`: its scheme picks the protocol server, its host and port the bind address. | `ListenUrl` (ADR-0004) |
 | protocol server | The library that answers one protocol family, secure variants included: `Surl.Protocol.<Name>.UnitLibrary`. | `IProtocolServer`, implemented through `IConnectionProtocolServer` or `IDatagramProtocolServer` (ADR-0004) |
 | horizontal library | A library a protocol server may reference besides Abstractions, listed in ADR-0002's table. | `HorizontalLibraries` in `ProtocolIsolationTests` |
+| served directory | The directory the content store is rooted at, the one directory every protocol server serves from. Named by `--directory`, the current directory by default (ADR-0007). | `SurlCommandLine.ServedDirectory` (not yet) |
+| listener status line | The line `Listening on <scheme>://<host>:<bound port>/` surl writes to stdout for each listen URL once every listener has bound (ADR-0007). | not yet |
+| verbose exchange log | What `-v` writes to stderr: one line per exchange event, `#<exchange id> <marker> <text>`, the marker `<` for bytes received, `>` for bytes sent, `*` for a note (ADR-0007). | `IExchangeLog`, `IExchangeLogFactory` (ADR-0004), implemented in `Surl.Output` (not yet) |
+| parsed command line | What `Surl.Cli` returns for a command line that serves: the listen URLs and every option value, defaults applied (ADR-0007). | `SurlCommandLine` (not yet) |
+| negatable option | A flag that `--no-<name>` turns off, as curl's boolean options are; the later of the two wins (ADR-0007). | not yet |
 | content store | The directory tree a Surl server publishes, and the rules that map request paths onto it without escaping it. | `Surl.Content.UnitLibrary` |
 | exchange | One conversation between upstream curl and Surl, over one connection or one datagram flow, from accept to close. One `ServeAsync` call. | `ExchangeContext` (ADR-0004) |
 | hardening limit | A bound on what a peer can make Surl hold - connections, time, bytes - with a default number, an option to change it, and 0 meaning no limit (ADR-0006). | `ExchangeLimits` for the per-exchange ones; not yet for the rest |
