@@ -9,15 +9,24 @@ namespace Surl.Content;
 /// a symbolic link that is not followed - is mapped with <see cref="EntryKind"/> set to
 /// <see cref="ContentEntryKind.None"/>, exactly as a path that does not exist, and every later
 /// look at it through the store keeps answering that nothing is there.
+/// A request path that ends in <c>/</c> names a directory: when a file is at its location, the
+/// mapping's <see cref="EntryKind"/> is <see cref="ContentEntryKind.None"/>, and every later
+/// look through the store answers a file there as nothing (ADR-0018).
 /// </remarks>
 public sealed class ContentPathMapping
 {
-    private ContentPathMapping(string? location, ContentEntryKind entryKind, ContentPathRefusal refusal, bool isAnsweredAsAbsent)
+    private ContentPathMapping(
+        string? location,
+        ContentEntryKind entryKind,
+        ContentPathRefusal refusal,
+        bool isAnsweredAsAbsent,
+        bool namesADirectory)
     {
         Location = location;
         EntryKind = entryKind;
         Refusal = refusal;
         IsAnsweredAsAbsent = isAnsweredAsAbsent;
+        NamesADirectory = namesADirectory;
     }
 
     /// <summary>
@@ -34,7 +43,8 @@ public sealed class ContentPathMapping
 
     /// <summary>
     /// What exists at <see cref="Location"/>; <see cref="ContentEntryKind.None"/> when nothing
-    /// does, the path is hidden, or the request path was refused.
+    /// does, the path is hidden, a file is there but the request path ended in <c>/</c>, or
+    /// the request path was refused.
     /// </summary>
     public ContentEntryKind EntryKind { get; }
 
@@ -49,12 +59,18 @@ public sealed class ContentPathMapping
     /// </summary>
     internal bool IsAnsweredAsAbsent { get; }
 
-    internal static ContentPathMapping Mapped(string location, ContentEntryKind entryKind) =>
-        new(location, entryKind, ContentPathRefusal.None, isAnsweredAsAbsent: false);
+    /// <summary>
+    /// Whether the request path ended in <c>/</c>, so only a directory answers it and a file
+    /// at the location is answered as nothing.
+    /// </summary>
+    internal bool NamesADirectory { get; }
+
+    internal static ContentPathMapping Mapped(string location, ContentEntryKind entryKind, bool namesADirectory) =>
+        new(location, entryKind, ContentPathRefusal.None, isAnsweredAsAbsent: false, namesADirectory);
 
     internal static ContentPathMapping AnsweredAsAbsent(string location) =>
-        new(location, ContentEntryKind.None, ContentPathRefusal.None, isAnsweredAsAbsent: true);
+        new(location, ContentEntryKind.None, ContentPathRefusal.None, isAnsweredAsAbsent: true, namesADirectory: false);
 
     internal static ContentPathMapping Refused(ContentPathRefusal refusal) =>
-        new(null, ContentEntryKind.None, refusal, isAnsweredAsAbsent: false);
+        new(null, ContentEntryKind.None, refusal, isAnsweredAsAbsent: false, namesADirectory: false);
 }

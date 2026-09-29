@@ -114,6 +114,19 @@ public sealed partial class ContentStoreTests
     }
 
     [TestMethod]
+    public async Task WriteUploadAsync_LinkResolvingToAMissingFileSystemRoot_IsNotPermitted()
+    {
+        string root = Path.DirectorySeparatorChar.ToString();
+        var fileSystem = new InMemoryContentFileSystem().AddSymbolicLink(Path.Join(root, "link"), root);
+        var options = new ContentExposureOptions { AllowUploads = true, FollowSymbolicLinks = true };
+        var store = new ContentStore(root, fileSystem, options);
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/link"), new MemoryStream([1]), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.NotPermitted, result);
+    }
+
+    [TestMethod]
     public async Task WriteUploadAsync_SourceFailsMidUpload_DeletesThePartialFileAndRethrows()
     {
         (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);

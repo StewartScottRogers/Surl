@@ -13,6 +13,15 @@ namespace Surl.Content;
 /// allowed; any other empty segment is refused, which refuses <c>//server/share</c>.
 /// </para>
 /// <para>
+/// A trailing <c>/</c> names a directory. Upstream curl sends <c>/file.txt/</c> as written,
+/// so when a file is at that location it maps with <see cref="ContentPathMapping.EntryKind"/>
+/// <see cref="ContentEntryKind.None"/>, answered exactly as a path that does not exist, as a
+/// POSIX file system refuses it with <c>ENOTDIR</c>; every later look at the mapping answers a
+/// file there the same way, and an upload to it is
+/// <see cref="ContentUploadResult.NotPermitted"/> (ADR-0018). A directory answers with or
+/// without the trailing <c>/</c>.
+/// </para>
+/// <para>
 /// Every dot segment is refused, including one that would stay inside the root such as
 /// <c>/a/../b</c>. Upstream curl removes dot segments before it sends a request, so a raw or
 /// percent-encoded <c>..</c> reaches Surl only when the client asked for it on purpose
@@ -65,6 +74,8 @@ public sealed class ContentStore
     /// </summary>
     /// <param name="servedRoot">The full path of the directory being served.</param>
     /// <param name="fileSystem">The seam every look at the served root goes through.</param>
+    /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty, or is
+    /// relative to the current directory (see <see cref="ServedRoot"/>).</exception>
     public ContentStore(string servedRoot, IContentFileSystem fileSystem)
         : this(servedRoot, fileSystem, ContentExposureOptions.ServeEverythingInsideTheRoot)
     {
@@ -78,9 +89,16 @@ public sealed class ContentStore
     /// <param name="fileSystem">The seam every look at the served root goes through.</param>
     /// <param name="exposureOptions">What the store exposes and the largest upload it accepts;
     /// <c>new ContentExposureOptions()</c> is ADR-0006's defaults.</param>
+    /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty, or is
+    /// relative to the current directory (see <see cref="ServedRoot"/>).</exception>
     public ContentStore(string servedRoot, IContentFileSystem fileSystem, ContentExposureOptions exposureOptions)
     {
         ArgumentException.ThrowIfNullOrEmpty(servedRoot);
+        if (!IsIndependentOfTheCurrentDirectory(servedRoot))
+        {
+            throw new ArgumentException("The served root must be a full path, not one relative to the current directory.", nameof(servedRoot));
+        }
+
         ArgumentNullException.ThrowIfNull(fileSystem);
         ArgumentNullException.ThrowIfNull(exposureOptions);
         ServedRoot = servedRoot;
@@ -96,6 +114,14 @@ public sealed class ContentStore
     /// <summary>
     /// The full path of the directory being served.
     /// </summary>
+    /// <remarks>
+    /// The constructor refuses, with <see cref="ArgumentException"/>, a root whose meaning
+    /// depends on the current directory: a relative path such as <c>srv</c>, and on Windows a
+    /// drive-relative one such as <c>C:</c> or <c>C:srv</c>. It accepts a fully qualified path
+    /// and a path that starts with a directory separator, such as <c>/srv/www</c>, which on
+    /// Windows is rooted on the current drive; the root is kept as given, never rewritten
+    /// (ADR-0018).
+    /// </remarks>
     public string ServedRoot { get; }
 
     /// <summary>
@@ -126,7 +152,11 @@ public sealed class ContentStore
             return ContentPathMapping.AnsweredAsAbsent(unresolved);
         }
 
-        return ContentPathMapping.Mapped(resolved, fileSystem.GetEntryKind(resolved));
+        bool namesADirectory = requestPath.EndsWith('/');
+        return ContentPathMapping.Mapped(
+            resolved,
+            EntryKindAnswering(namesADirectory, fileSystem.GetEntryKind(resolved)),
+            namesADirectory);
     }
 
     /// <summary>
@@ -182,8 +212,8 @@ public sealed class ContentStore
     /// <returns>How many bytes were copied.</returns>
     /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal, or
     /// <paramref name="range"/> is unsatisfiable.</exception>
-    /// <exception cref="FileNotFoundException">The exposure options hide the location, so it
-    /// is answered as a file that does not exist.</exception>
+    /// <exception cref="FileNotFoundException">The exposure options hide the location, or the
+    /// request path ended in <c>/</c>, so it is answered as a file that does not exist.</exception>
     public async Task<long> CopyFileBytesAsync(
         ContentPathMapping mapping,
         ContentByteRange range,
@@ -198,7 +228,7 @@ public sealed class ContentStore
             throw new ArgumentException("An unsatisfiable range has no bytes to copy.", nameof(range));
         }
 
-        if (mapping.IsAnsweredAsAbsent)
+        if (mapping.IsAnsweredAsAbsent || mapping.NamesADirectory)
         {
             throw new FileNotFoundException("Nothing is served at the mapped location.");
         }
@@ -290,7 +320,7 @@ public sealed class ContentStore
     /// Nothing is written, and <see cref="ContentUploadResult.NotPermitted"/> returned, when
     /// <see cref="ContentExposureOptions.AllowUploads"/> is off, when the exposure options hide
     /// the location (a dot-file, or a path through a symbolic link that is not followed), when
-    /// the location is a directory, or when it is not directly inside an existing directory.
+    /// the request path ended in <c>/</c>, when the location is a directory, or when it is not directly inside an existing directory.
     /// </para>
     /// <para>
     /// Bytes are counted as they are read. Each read asks for no more than one byte past the
@@ -345,6 +375,7 @@ public sealed class ContentStore
     private bool IsUploadPermitted(ContentPathMapping mapping, string location) =>
         ExposureOptions.AllowUploads
         && !mapping.IsAnsweredAsAbsent
+        && !mapping.NamesADirectory
         && fileSystem.GetEntryKind(location) != ContentEntryKind.Directory
         && fileSystem.GetEntryKind(ParentDirectoryOf(location)) == ContentEntryKind.Directory;
 
@@ -382,7 +413,14 @@ public sealed class ContentStore
     }
 
     private ContentEntryKind CurrentEntryKind(ContentPathMapping mapping, string location) =>
-        mapping.IsAnsweredAsAbsent ? ContentEntryKind.None : fileSystem.GetEntryKind(location);
+        mapping.IsAnsweredAsAbsent
+            ? ContentEntryKind.None
+            : EntryKindAnswering(mapping.NamesADirectory, fileSystem.GetEntryKind(location));
+
+    // A request path that ends in '/' names a directory, so a file there answers it as nothing,
+    // as a POSIX file system answers "file.txt/" with ENOTDIR (ADR-0018).
+    private static ContentEntryKind EntryKindAnswering(bool namesADirectory, ContentEntryKind kind) =>
+        namesADirectory && kind == ContentEntryKind.File ? ContentEntryKind.None : kind;
 
     private bool IsHiddenByExposureOptions(string[] segments, string resolved, string unresolved) =>
         (!ExposureOptions.ServeDotFiles && Array.Exists(segments, IsDotFileName))
@@ -453,6 +491,11 @@ public sealed class ContentStore
         ArgumentNullException.ThrowIfNull(mapping);
         return mapping.Location ?? throw new ArgumentException("The request path was refused, so it has no location.", nameof(mapping));
     }
+
+    private static bool IsIndependentOfTheCurrentDirectory(string servedRoot) =>
+        Path.IsPathFullyQualified(servedRoot)
+        || servedRoot[0] == Path.DirectorySeparatorChar
+        || servedRoot[0] == Path.AltDirectorySeparatorChar;
 
     private static bool IsInsideOrAt(string path, string root)
     {
