@@ -64,3 +64,4 @@ Filed by BL-036, whose plan declared only `mqtt`.
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
 - 2026-09-29: Doing -> Backlog. Waits on BL-066, which adds Record-CurlExchange.ps1 -Raw -Tls (touches Record-CurlExchange.ps1); the mqtts recordings need it.
+- 2026-09-29: Backlog -> Doing.
