@@ -4,8 +4,9 @@ namespace Surl.Conformance;
 
 /// <summary>
 /// <c>surl</c> running in-process on an ephemeral loopback port, serving a fresh temporary
-/// directory or, without <c>--directory</c>, its own in-memory file system, through the same
-/// entry point the executable uses. Disposing it stops surl and deletes the directory, if any.
+/// directory, a directory the caller owns, or, without <c>--directory</c>, its own in-memory
+/// file system, through the same entry point the executable uses. Disposing it stops surl and
+/// deletes the temporary directory, if any.
 /// </summary>
 internal sealed class SurlOnLoopback : IAsyncDisposable
 {
@@ -73,6 +74,16 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     public static Task<SurlOnLoopback> StartInMemoryAsync(
         string scheme, IReadOnlyList<string> options, CancellationToken cancellationToken) =>
         StartServingAsync(null, [.. options, $"{scheme}://127.0.0.1:0/"], cancellationToken);
+
+    /// <summary>
+    /// Starts surl on <c><paramref name="scheme"/>://127.0.0.1:0/</c> with
+    /// <c>--directory <paramref name="dataDirectory"/></c>, an existing directory the caller
+    /// owns, returning once surl has written its status line. Disposing it stops surl and
+    /// leaves the directory as surl left it, so another surl can start over it.
+    /// </summary>
+    public static Task<SurlOnLoopback> StartOverDirectoryAsync(
+        string scheme, string dataDirectory, CancellationToken cancellationToken) =>
+        StartServingAsync(null, ["--directory", dataDirectory, $"{scheme}://127.0.0.1:0/"], cancellationToken);
 
     private static async Task<SurlOnLoopback> StartServingAsync(
         DirectoryInfo? directory, string[] args, CancellationToken cancellationToken)
