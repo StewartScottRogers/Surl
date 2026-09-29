@@ -8,7 +8,7 @@ depends-on: [BL-109]
 touches: [Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests]
 requirement: FR-014
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-114 — Issue 401 challenges and verify Authorization in the HTTP server through the authentication contract
 
@@ -46,24 +46,50 @@ for NTLM and Negotiate). BL-109 added the contract.
 
 ## Acceptance criteria
 
-- [ ] Tests replay each recorded request through the server with a fake contract and pin the
+- [x] Tests replay each recorded request through the server with a fake contract and pin the
       full response bytes: `401` with the contract's challenges when refused, the file's `200`
       when accepted, and ADR-0032's answer for credentials sent when no account exists.
-- [ ] Tests prove an anonymous `GET` and `HEAD` are served or challenged exactly as
+- [x] Tests prove an anonymous `GET` and `HEAD` are served or challenged exactly as
       ADR-0032 decision 4 says, and that the server passes the connection's encryption
       (`TlsSession` null or not) to the contract.
-- [ ] A test proves a connection-bound handshake (a fake two-round method standing in for
+- [x] A test proves a connection-bound handshake (a fake two-round method standing in for
       NTLM) keeps its state across two requests on one keep-alive connection and loses it
       on a new connection, as ADR-0032 decision 6 says.
-- [ ] No `Authorization` value, password or token appears in any response byte or in the
+- [x] No `Authorization` value, password or token appears in any response byte or in the
       exchange log's notes (the bytes-received log still records the raw request, as today).
-- [ ] `ProtocolIsolationTests` pass (no new project reference); `dotnet build
+- [x] `ProtocolIsolationTests` pass (no new project reference); `dotnet build
       Surl.Protocol.Http.UnitLibrary -warnaserror` and `dotnet build Surl.Console
       -warnaserror` are clean; the fast tests pass; 100% line and branch coverage kept.
 
 ## Notes
 
+- Plan: `HttpProtocolServer(ContentStore, IAuthenticationPolicy)`; the old one-argument
+  constructor stays and passes `AnonymousAuthenticationPolicy`, as ADR-0032 section 6 says
+  until BL-117, so `Surl.Console` compiles unchanged. `ServeAsync` calls
+  `StartHttpConnection(connection.TlsSession)` once per connection before the first head.
+- Judged in `HttpRequestResponder.AnswerRequestAsync` after the `Host` check and the invalid
+  `Content-Length` 400 (both are "not well-formed", ADR-0032 section 4) and before the 413,
+  `100 Continue`, any body read and method dispatch. `Challenge` -> `401 Unauthorized`, kept
+  alive as a 404 is, but a refusal (`Connection: close`, half-close, drain) when the request
+  announced a body; `Forbidden` -> `403 Forbidden` as a refusal; `Proceed` -> served, and its
+  values are written on that response.
+- Decision (sensible default, within ADR-0032): `WWW-Authenticate` fields go after
+  `Content-Length` and before `Connection`, the order ADR-0032 section 4 lists them in; the
+  values the contract gives are written on every response to the judged request, 403
+  included, since the server "decides nothing about methods".
+- Measured with pinned curl 8.21.0: fixtures `basic-401`, `digest-401-then-200`,
+  `bearer-401`, `anonymous-401-fail` (exit 22), and `basic-plaintext-403` (exit 22, added for
+  ADR-0032's Basic-over-`http://` answer); commands in `Fixtures/README.md`. curl's Digest
+  answered the MD5 line on a new connection.
+- Log notes name only method and target; a test checks that no response byte or note holds
+  the Basic credentials, the bearer token, the Digest response or the NTLM stand-in tokens.
+- Fakes: `UnitTestAuthenticationPolicy` (a verdict function, recording TLS sessions and
+  requests) and `UnitTestTwoRoundAuthenticationPolicy` (NTLM stand-in, state per session).
+- Coverage: `Measure-CodeQuality.ps1 -Library Surl.Protocol.Http.UnitLibrary` 100% line, 100%
+  branch, 0 failing members (worst CRAP 10). HTTP tests 341, all fast tests green.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. HTTP server asks the authentication contract per request: 401 with its challenges, 403, or served; handshake state bound to the connection
