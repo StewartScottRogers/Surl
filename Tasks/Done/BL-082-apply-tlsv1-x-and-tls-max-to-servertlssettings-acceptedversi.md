@@ -8,7 +8,7 @@ depends-on: [BL-048]
 touches: [Surl.Console, Surl.Console.UnitTests]
 requirement: none
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-082 — Apply --tlsv1.x and --tls-max to ServerTlsSettings.AcceptedVersions in Surl.Console
 
@@ -33,11 +33,11 @@ so `surl --tlsv1.3 https://…` accepts only TLS 1.3 and `--tls-max 1.2` only TL
 
 ## Acceptance criteria
 
-- [ ] A fast test in `Surl.Console.UnitTests` proves the composition passes
+- [x] A fast test in `Surl.Console.UnitTests` proves the composition passes
       `--tlsv1.3` as `AcceptedVersions.AcceptedProtocols == SslProtocols.Tls13`.
-- [ ] A fast test proves `--tls-max 1.2` gives `SslProtocols.Tls12`, and no version
+- [x] A fast test proves `--tls-max 1.2` gives `SslProtocols.Tls12`, and no version
       option gives `SslProtocols.Tls12 | SslProtocols.Tls13`.
-- [ ] `dotnet build` is clean, the fast tests are green, and `Measure-CodeQuality.ps1`
+- [x] `dotnet build` is clean, the fast tests are green, and `Measure-CodeQuality.ps1`
       reports no failing member in `Surl.Console`.
 
 ## Notes
@@ -46,3 +46,4 @@ so `surl --tlsv1.3 https://…` accepts only TLS 1.3 and `--tls-max 1.2` only TL
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. surl's TLS composition is proven to pass --tlsv1.3 and --tls-max 1.2 through as AcceptedVersions.AcceptedProtocols

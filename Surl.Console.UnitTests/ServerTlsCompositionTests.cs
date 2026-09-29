@@ -26,6 +26,7 @@ public sealed class ServerTlsCompositionTests
         Assert.IsFalse(composition.Settings.RequiresClientCertificate);
         Assert.AreEqual(SslProtocols.Tls12, composition.Settings.AcceptedVersions.Lowest);
         Assert.AreEqual(SslProtocols.Tls13, composition.Settings.AcceptedVersions.Highest);
+        Assert.AreEqual(SslProtocols.Tls12 | SslProtocols.Tls13, composition.Settings.AcceptedVersions.AcceptedProtocols);
         Assert.IsNotNull(composition.ThrowawayCertificateFingerprint);
         Assert.MatchesRegex("^[0-9A-F]{64}$", composition.ThrowawayCertificateFingerprint);
     }
@@ -38,6 +39,16 @@ public sealed class ServerTlsCompositionTests
 
         Assert.AreEqual(SslProtocols.Tls13, composition.Settings!.AcceptedVersions.Lowest);
         Assert.AreEqual(SslProtocols.Tls13, composition.Settings.AcceptedVersions.Highest);
+        Assert.AreEqual(SslProtocols.Tls13, composition.Settings.AcceptedVersions.AcceptedProtocols);
+    }
+
+    [TestMethod]
+    public void Compose_HttpsWithTlsMax12_AcceptsOnlyTls12()
+    {
+        using var composition = ServerTlsComposition.Compose(
+            Parse("--tls-max", "1.2", "https://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.AreEqual(SslProtocols.Tls12, composition.Settings!.AcceptedVersions.AcceptedProtocols);
     }
 
     [TestMethod]
