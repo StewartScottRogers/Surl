@@ -8,7 +8,7 @@ depends-on: [BL-016]
 touches: [Surl.Output.UnitLibrary, Surl.Output.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-049 — Escape peer bytes and peer-derived note text in the verbose log in Surl.Output
 
@@ -44,16 +44,16 @@ terminal as a control sequence, and the rendering can be reversed exactly.
 
 ## Acceptance criteria
 
-- [ ] `VerboseLogEscapingTests.EveryByte_RendersByTheAdr0006Rule` checks all 256 byte
+- [x] `VerboseLogEscapingTests.EveryByte_RendersByTheAdr0006Rule` checks all 256 byte
       values against the rule above.
-- [ ] Named cases pin exact text: `ESC [ 2 J` renders `\x1B[2J`; `\` renders `\x5C`;
+- [x] Named cases pin exact text: `ESC [ 2 J` renders `\x1B[2J`; `\` renders `\x5C`;
       DEL renders `\x7F`; 0x80 and 0xFF render `\x80` and `\xFF`; `CR LF` renders
       `\r\n`; `GET / HTTP/1.1` renders unchanged.
-- [ ] `VerboseLogEscapingTests.Rendering_RoundTripsEveryByte` decodes the rendering of all
+- [x] `VerboseLogEscapingTests.Rendering_RoundTripsEveryByte` decodes the rendering of all
       256 bytes, in a test-local decoder, back to the original bytes.
-- [ ] A test proves a note whose text holds ESC and a non-ASCII character is written with
+- [x] A test proves a note whose text holds ESC and a non-ASCII character is written with
       them escaped, and that bytes sent are rendered by the same rule as bytes received.
-- [ ] `dotnet build Surl.Output.UnitLibrary -warnaserror` is clean, the fast tests are
+- [x] `dotnet build Surl.Output.UnitLibrary -warnaserror` is clean, the fast tests are
       green, and `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Output.UnitLibrary`.
 
@@ -63,3 +63,4 @@ terminal as a control sequence, and the rendering can be reversed exactly.
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. The verbose log's ADR-0006 escaping is pinned for all 256 bytes, round-trips, and covers notes and bytes sent
