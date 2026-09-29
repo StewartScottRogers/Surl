@@ -30,6 +30,23 @@ public sealed class RecordingConnectionTests
     }
 
     [TestMethod]
+    public async Task UpgradeToTlsAsync_UpgradesTheConnection_AndReadsAfterItAreStillLogged()
+    {
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([System.Text.Encoding.ASCII.GetBytes("EHLO x\r\n")]);
+        var recording = new RecordingConnection(connection, log);
+        Assert.IsNull(recording.TlsSession);
+
+        var session = await recording.UpgradeToTlsAsync(CancellationToken.None);
+        await recording.ReadAsync(new byte[16], CancellationToken.None);
+
+        Assert.IsTrue(connection.UpgradeRequested);
+        Assert.AreSame(session, recording.TlsSession);
+        Assert.AreSame(connection.TlsSession, recording.TlsSession);
+        Assert.HasCount(1, log.Entries);
+    }
+
+    [TestMethod]
     public async Task CompleteWritesAsync_Abort_AndDisposeAsync_ReachTheConnection()
     {
         var connection = new InMemoryConnection([]);

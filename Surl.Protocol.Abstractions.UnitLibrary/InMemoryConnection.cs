@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Security;
+using System.Security.Authentication;
 
 namespace Surl.Protocol.Abstractions;
 
@@ -17,10 +19,14 @@ public sealed class InMemoryConnection : IConnection
 {
     private readonly ReadOnlyMemory<byte>[] inboundChunks;
     private readonly bool peerHalfClosesWhenExhausted;
+    private readonly TlsSession upgradeTlsSession;
+    private readonly bool upgradeFails;
     private readonly MemoryStream writtenBytes = new();
     private readonly TaskCompletionSource aborted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int chunkIndex;
     private int chunkOffset;
+    private bool readPending;
+    private bool handshakeFailed;
 
     /// <summary>
     /// Creates a connection that replays <paramref name="inboundChunks"/>.
@@ -33,11 +39,23 @@ public sealed class InMemoryConnection : IConnection
     /// <see langword="false"/>, a read after the script waits until it is cancelled or the
     /// connection is aborted.
     /// </param>
+    /// <param name="initialTlsSession">
+    /// The session the connection already has, standing in for implicit TLS; plaintext when
+    /// <see langword="null"/>.
+    /// </param>
+    /// <param name="upgradeTlsSession">
+    /// The session <see cref="UpgradeToTlsAsync"/> hands out; <see cref="DefaultUpgradeTlsSession"/>
+    /// when <see langword="null"/>.
+    /// </param>
+    /// <param name="upgradeFails">Whether <see cref="UpgradeToTlsAsync"/> throws <see cref="TlsHandshakeException"/> instead.</param>
     public InMemoryConnection(
         IEnumerable<ReadOnlyMemory<byte>> inboundChunks,
         EndPoint? localEndPoint = null,
         EndPoint? remoteEndPoint = null,
-        bool peerHalfClosesWhenExhausted = true)
+        bool peerHalfClosesWhenExhausted = true,
+        TlsSession? initialTlsSession = null,
+        TlsSession? upgradeTlsSession = null,
+        bool upgradeFails = false)
     {
         ArgumentNullException.ThrowIfNull(inboundChunks);
 
@@ -45,7 +63,26 @@ public sealed class InMemoryConnection : IConnection
         LocalEndPoint = localEndPoint ?? new IPEndPoint(IPAddress.Loopback, 80);
         RemoteEndPoint = remoteEndPoint ?? new IPEndPoint(IPAddress.Loopback, 50000);
         this.peerHalfClosesWhenExhausted = peerHalfClosesWhenExhausted;
+        TlsSession = initialTlsSession;
+        this.upgradeTlsSession = upgradeTlsSession ?? DefaultUpgradeTlsSession;
+        this.upgradeFails = upgradeFails;
     }
+
+    /// <summary>
+    /// The session an upgrade hands out unless the test names another: TLS 1.3 with
+    /// <see cref="TlsCipherSuite.TLS_AES_128_GCM_SHA256"/>, no ALPN, no SNI, no client certificate.
+    /// </summary>
+    public static TlsSession DefaultUpgradeTlsSession { get; } =
+        new(SslProtocols.Tls13, TlsCipherSuite.TLS_AES_128_GCM_SHA256, null, null, null);
+
+    /// <inheritdoc/>
+    public TlsSession? TlsSession { get; private set; }
+
+    /// <summary>
+    /// Whether the server called <see cref="UpgradeToTlsAsync"/> on a connection in a state
+    /// that allows it, whether or not the handshake then succeeded.
+    /// </summary>
+    public bool UpgradeRequested { get; private set; }
 
     /// <inheritdoc/>
     public EndPoint LocalEndPoint { get; }
@@ -121,6 +158,33 @@ public sealed class InMemoryConnection : IConnection
     public void Abort() => aborted.TrySetResult();
 
     /// <summary>
+    /// Stands in for a TLS handshake: sets <see cref="UpgradeRequested"/>, then either hands
+    /// out the upgrade session or, when the connection was made to fail the upgrade, throws
+    /// <see cref="TlsHandshakeException"/> and leaves the connection unusable. After an
+    /// upgrade it goes on replaying the same byte script, which is plaintext.
+    /// </summary>
+    /// <param name="cancellationToken">Cuts the handshake off.</param>
+    /// <returns>The upgrade session, also on <see cref="TlsSession"/> from then on.</returns>
+    public ValueTask<TlsSession> UpgradeToTlsAsync(CancellationToken cancellationToken)
+    {
+        ThrowIfUnusable(cancellationToken);
+        ThrowIfUpgradeNotAllowed();
+
+        UpgradeRequested = true;
+
+        if (upgradeFails)
+        {
+            handshakeFailed = true;
+
+            throw new TlsHandshakeException("The TLS handshake failed.", null);
+        }
+
+        TlsSession = upgradeTlsSession;
+
+        return ValueTask.FromResult(upgradeTlsSession);
+    }
+
+    /// <summary>
     /// Closes the connection: completes writes unless it was aborted. Calling it twice is harmless.
     /// </summary>
     /// <returns>A completed task.</returns>
@@ -153,10 +217,14 @@ public sealed class InMemoryConnection : IConnection
     {
         var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
+        readPending = true;
+
         using (cancellationToken.Register(() => cancelled.TrySetResult()))
         {
             await Task.WhenAny(cancelled.Task, aborted.Task);
         }
+
+        readPending = false;
 
         ThrowIfAborted();
 
@@ -168,6 +236,29 @@ public sealed class InMemoryConnection : IConnection
         cancellationToken.ThrowIfCancellationRequested();
         ObjectDisposedException.ThrowIf(Disposed, this);
         ThrowIfAborted();
+
+        if (handshakeFailed)
+        {
+            throw new IOException("The TLS handshake failed; the connection is unusable.");
+        }
+    }
+
+    private void ThrowIfUpgradeNotAllowed()
+    {
+        if (TlsSession is not null)
+        {
+            throw new InvalidOperationException("The connection is already secured with TLS.");
+        }
+
+        if (WritesCompleted)
+        {
+            throw new InvalidOperationException("The connection was half-closed; it cannot be upgraded to TLS.");
+        }
+
+        if (readPending)
+        {
+            throw new InvalidOperationException("A read is pending; the connection cannot be upgraded to TLS.");
+        }
     }
 
     private void ThrowIfAborted()

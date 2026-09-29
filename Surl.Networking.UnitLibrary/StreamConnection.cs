@@ -128,6 +128,20 @@ internal sealed class StreamConnection : IConnection
     }
 
     /// <summary>
+    /// Always <see langword="null"/> until BL-012 implements the TLS handshake (ADR-0010).
+    /// </summary>
+    public TlsSession? TlsSession => null;
+
+    /// <summary>
+    /// Refuses the upgrade until BL-012 implements the TLS handshake over <see cref="System.Net.Security.SslStream"/> (ADR-0010).
+    /// </summary>
+    /// <param name="cancellationToken">Unused.</param>
+    /// <returns>Never returns.</returns>
+    /// <exception cref="NotSupportedException">Always.</exception>
+    public ValueTask<TlsSession> UpgradeToTlsAsync(CancellationToken cancellationToken) =>
+        throw new NotSupportedException("The TLS handshake is not implemented yet (BL-012).");
+
+    /// <summary>
     /// Closes the connection: completes writes unless it was aborted, then disposes the
     /// stream. A peer already gone does not stop the close. Calling it twice is harmless.
     /// </summary>

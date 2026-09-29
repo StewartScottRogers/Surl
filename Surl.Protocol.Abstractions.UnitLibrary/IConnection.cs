@@ -62,4 +62,31 @@ public interface IConnection : IAsyncDisposable
     /// reads and writes throw <see cref="IOException"/>. Calling it twice is harmless.
     /// </summary>
     void Abort();
+
+    /// <summary>
+    /// The negotiated TLS session once a handshake has completed, or <see langword="null"/>
+    /// while the connection is plaintext (ADR-0010, section 1). It never changes back.
+    /// </summary>
+    TlsSession? TlsSession { get; }
+
+    /// <summary>
+    /// Runs the server side of a TLS handshake on the connection, with the listener's TLS
+    /// settings (ADR-0010, section 1). From then on <see cref="ReadAsync"/> returns decrypted
+    /// bytes and <see cref="WriteAsync"/> encrypts, so the connection still carries plaintext.
+    /// </summary>
+    /// <remarks>
+    /// A server upgrading after <c>STARTTLS</c>, <c>STLS</c> or <c>AUTH TLS</c> discards every
+    /// byte it has read beyond the end of that command line before calling this, and never
+    /// serves them inside the TLS session.
+    /// </remarks>
+    /// <param name="cancellationToken">Cuts the handshake off; whoever passed the head-timeout token treats that as a timed-out handshake.</param>
+    /// <returns>The negotiated session, also on <see cref="TlsSession"/> from then on.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// The connection is already secured, <see cref="CompleteWritesAsync"/> has been called, or
+    /// a read or write is pending.
+    /// </exception>
+    /// <exception cref="TlsHandshakeException">The handshake failed; the connection is unusable.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the handshake off; the connection is unusable.</exception>
+    /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
+    ValueTask<TlsSession> UpgradeToTlsAsync(CancellationToken cancellationToken);
 }

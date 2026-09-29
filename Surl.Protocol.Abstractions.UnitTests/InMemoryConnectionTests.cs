@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Security;
+using System.Security.Authentication;
 
 namespace Surl.Protocol.Abstractions;
 
@@ -309,6 +311,157 @@ public sealed class InMemoryConnectionTests
         Assert.IsFalse(connection.Aborted);
         Assert.IsFalse(connection.Disposed);
         Assert.IsEmpty(connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public void TlsSession_NoInitialSession_IsNullAndNoUpgradeRequested()
+    {
+        var connection = new InMemoryConnection([]);
+
+        Assert.IsNull(connection.TlsSession);
+        Assert.IsFalse(connection.UpgradeRequested);
+    }
+
+    [TestMethod]
+    public void TlsSession_InitialSession_StandsInForImplicitTls()
+    {
+        var session = new TlsSession(SslProtocols.Tls12, TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, "http/1.1", "localhost", null);
+
+        var connection = new InMemoryConnection([], initialTlsSession: session);
+
+        Assert.AreSame(session, connection.TlsSession);
+        Assert.IsFalse(connection.UpgradeRequested);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_NoUpgradeSession_HandsOutTheDefault()
+    {
+        var connection = new InMemoryConnection([]);
+
+        var session = await connection.UpgradeToTlsAsync(TestContext.CancellationToken);
+
+        Assert.AreSame(InMemoryConnection.DefaultUpgradeTlsSession, session);
+        Assert.AreSame(session, connection.TlsSession);
+        Assert.IsTrue(connection.UpgradeRequested);
+        Assert.AreEqual(SslProtocols.Tls13, session.Protocol);
+        Assert.AreEqual(TlsCipherSuite.TLS_AES_128_GCM_SHA256, session.CipherSuite);
+        Assert.IsNull(session.ApplicationProtocol);
+        Assert.IsNull(session.ServerName);
+        Assert.IsNull(session.ClientCertificate);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_GivenUpgradeSession_HandsItOut()
+    {
+        var upgrade = new TlsSession(SslProtocols.Tls12, TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, null, "mail.example", null);
+        var connection = new InMemoryConnection([], upgradeTlsSession: upgrade);
+
+        var session = await connection.UpgradeToTlsAsync(TestContext.CancellationToken);
+
+        Assert.AreSame(upgrade, session);
+        Assert.AreSame(upgrade, connection.TlsSession);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_AfterUpgrade_GoesOnReplayingTheScriptAndRecordingWrites()
+    {
+        var connection = new InMemoryConnection([Bytes("STARTTLS\r\n"), Bytes("EHLO x\r\n")]);
+        var buffer = new byte[64];
+
+        await connection.ReadAsync(buffer, TestContext.CancellationToken);
+        await connection.WriteAsync(Bytes("220 go\r\n"), TestContext.CancellationToken);
+        await connection.UpgradeToTlsAsync(TestContext.CancellationToken);
+        var count = await connection.ReadAsync(buffer, TestContext.CancellationToken);
+        await connection.WriteAsync(Bytes("250 ok\r\n"), TestContext.CancellationToken);
+
+        Assert.AreEqual("EHLO x\r\n", Text(buffer, count));
+        Assert.AreEqual("220 go\r\n250 ok\r\n", System.Text.Encoding.ASCII.GetString(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_UpgradeFails_ThrowsTlsHandshakeExceptionAndLeavesTheConnectionUnusable()
+    {
+        var connection = new InMemoryConnection([Bytes("x")], upgradeFails: true);
+
+        await Assert.ThrowsExactlyAsync<TlsHandshakeException>(
+            async () => await connection.UpgradeToTlsAsync(TestContext.CancellationToken));
+
+        Assert.IsTrue(connection.UpgradeRequested);
+        Assert.IsNull(connection.TlsSession);
+        await Assert.ThrowsExactlyAsync<IOException>(
+            async () => await connection.ReadAsync(new byte[1], TestContext.CancellationToken));
+        await Assert.ThrowsExactlyAsync<IOException>(
+            async () => await connection.WriteAsync(Bytes("x"), TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_AlreadySecured_Throws()
+    {
+        var connection = new InMemoryConnection([], initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            async () => await connection.UpgradeToTlsAsync(TestContext.CancellationToken));
+
+        Assert.IsFalse(connection.UpgradeRequested);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_UpgradedTwice_Throws()
+    {
+        var connection = new InMemoryConnection([]);
+        await connection.UpgradeToTlsAsync(TestContext.CancellationToken);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            async () => await connection.UpgradeToTlsAsync(TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_AfterCompleteWrites_Throws()
+    {
+        var connection = new InMemoryConnection([]);
+        await connection.CompleteWritesAsync(TestContext.CancellationToken);
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            async () => await connection.UpgradeToTlsAsync(TestContext.CancellationToken));
+
+        Assert.IsFalse(connection.UpgradeRequested);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_WhileAReadIsPending_Throws()
+    {
+        var connection = new InMemoryConnection([], peerHalfClosesWhenExhausted: false);
+        using var cancellation = new CancellationTokenSource();
+        var pendingRead = connection.ReadAsync(new byte[1], cancellation.Token).AsTask();
+
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            async () => await connection.UpgradeToTlsAsync(TestContext.CancellationToken));
+
+        await cancellation.CancelAsync();
+        await Assert.ThrowsAsync<OperationCanceledException>(async () => await pendingRead);
+        await connection.UpgradeToTlsAsync(TestContext.CancellationToken);
+        Assert.IsNotNull(connection.TlsSession);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_Cancelled_Throws()
+    {
+        var connection = new InMemoryConnection([]);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            async () => await connection.UpgradeToTlsAsync(new CancellationToken(canceled: true)));
+
+        Assert.IsFalse(connection.UpgradeRequested);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_AfterAbort_ThrowsIOException()
+    {
+        var connection = new InMemoryConnection([]);
+        connection.Abort();
+
+        await Assert.ThrowsExactlyAsync<IOException>(
+            async () => await connection.UpgradeToTlsAsync(TestContext.CancellationToken));
     }
 
     private static ReadOnlyMemory<byte> Bytes(string text) => System.Text.Encoding.ASCII.GetBytes(text);

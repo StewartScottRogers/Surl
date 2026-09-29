@@ -13,6 +13,16 @@ public sealed class StreamConnectionTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
+    public async Task Tls_BeforeBL012_IsPlaintextAndRefusesAnUpgrade()
+    {
+        var connection = new StreamConnection(new FakeStream(), Local, Remote, new FakeTransportControl());
+
+        Assert.IsNull(connection.TlsSession);
+        await Assert.ThrowsExactlyAsync<NotSupportedException>(
+            async () => await connection.UpgradeToTlsAsync(TestContext.CancellationToken));
+    }
+
+    [TestMethod]
     public void Constructor_KeepsTheEndPoints()
     {
         var connection = new StreamConnection(new FakeStream(), Local, Remote, new FakeTransportControl());

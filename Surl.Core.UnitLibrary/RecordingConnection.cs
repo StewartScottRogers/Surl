@@ -55,5 +55,17 @@ internal sealed class RecordingConnection(IConnection connection, IExchangeLog l
     public void Abort() => connection.Abort();
 
     /// <inheritdoc/>
+    public TlsSession? TlsSession => connection.TlsSession;
+
+    /// <summary>
+    /// Upgrades the wrapped connection, so reads and writes after it still pass through here
+    /// and the exchange log goes on recording plaintext (ADR-0010, section 1).
+    /// </summary>
+    /// <param name="cancellationToken">Cuts the handshake off.</param>
+    /// <returns>The negotiated session.</returns>
+    public ValueTask<TlsSession> UpgradeToTlsAsync(CancellationToken cancellationToken) =>
+        connection.UpgradeToTlsAsync(cancellationToken);
+
+    /// <inheritdoc/>
     public ValueTask DisposeAsync() => connection.DisposeAsync();
 }

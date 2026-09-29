@@ -25,8 +25,12 @@ What it holds:
   `RecordingExchangeLog` (records every log call as an `ExchangeLogEntry`). They are
   production code and held to the same coverage gates.
 
-Still to come: the server-side TLS contract (BL-006, after BL-002 decides it) and the
-in-memory datagram flow (BL-037, with the TFTP server).
+- The server-side TLS contract (ADR-0010): `IConnection.TlsSession` and
+  `IConnection.UpgradeToTlsAsync`, `TlsSession`, `TlsHandshakeException`, and
+  `TlsSchemes.IsImplicitTls`. `InMemoryConnection` stands in for implicit TLS (an initial
+  session) and for an upgrade (`UpgradeRequested`, a configurable session, or a failure).
+
+Still to come: the in-memory datagram flow (BL-037, with the TFTP server).
 
 This library references nothing. Never construct a `Socket`, `TcpListener`, `UdpClient` or
 `SslStream` here. `SurlExitCode` reuses upstream curl's `CURLE_*` number wherever a
