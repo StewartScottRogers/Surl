@@ -6,7 +6,8 @@ namespace Surl.Protocol.Abstractions;
 /// <remarks>
 /// One member per row of the exit-code table in ADR-0005
 /// (<c>Documentation/Planning/Decisions/ADR-0005-surls-exit-code-table.md</c>), with the rows
-/// ADR-0010 (the server-side TLS contract, section 3) adds to that table. A failure
+/// ADR-0010 (the server-side TLS contract, section 3) and ADR-0031 (the data directory,
+/// decisions 3 and 7) add to that table. A failure
 /// with a server-side meaning upstream curl also has reuses curl's <c>CURLE_*</c> number
 /// (https://curl.se/libcurl/c/libcurl-errors.html, curl 8.21.0); a failure with no upstream
 /// counterpart takes a number counting down from 125. A value is never renumbered once it
@@ -51,6 +52,14 @@ public enum SurlExitCode
     CouldNotResolveHost = 6,
 
     /// <summary>
+    /// The data directory's <c>.surl</c> folder or its <c>.surl/lock</c> file cannot be
+    /// created (ADR-0031, decision 3). The same number as upstream curl's
+    /// <c>CURLE_WRITE_ERROR</c>, which curl returns when it cannot create a directory it was
+    /// told to write into.
+    /// </summary>
+    CouldNotWriteFile = 23,
+
+    /// <summary>
     /// The served directory or file is missing, is not the kind of entry the option asked
     /// for, or cannot be read for lack of permission. The same number as upstream curl's
     /// <c>CURLE_FILE_COULDNT_READ_FILE</c>.
@@ -80,6 +89,13 @@ public enum SurlExitCode
     /// same number as upstream curl's <c>CURLE_SSL_CACERT_BADFILE</c>.
     /// </summary>
     CaCertificateBadFile = 77,
+
+    /// <summary>
+    /// Another running surl holds the data directory's <c>.surl/lock</c> file (ADR-0031,
+    /// decision 7). No upstream <c>CURLE_*</c> code means a resource another process holds;
+    /// the number is the next Surl counts down from 125.
+    /// </summary>
+    DataDirectoryInUse = 124,
 
     /// <summary>
     /// An unexpected internal failure: an exception no other member names, reaching the top

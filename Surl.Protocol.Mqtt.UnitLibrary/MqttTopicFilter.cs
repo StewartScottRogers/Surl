@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Surl.Protocol.Mqtt;
 
 /// <summary>
@@ -9,11 +11,13 @@ internal static class MqttTopicFilter
 {
     /// <summary>
     /// Whether <paramref name="topic"/> is a topic a message may be published to: at least one
-    /// character, and no wildcard (sections 4.7.1-1 and 4.7.3-1).
+    /// character, no wildcard (sections 4.7.1-1 and 4.7.3-1), and at most 65535 bytes in UTF-8,
+    /// the longest an MQTT string can be (section 1.5.3).
     /// </summary>
     /// <param name="topic">The topic name.</param>
     /// <returns><see langword="true"/> when it is a valid topic name.</returns>
-    public static bool IsValidTopicName(string topic) => topic.Length > 0 && topic.IndexOfAny(['+', '#']) < 0;
+    public static bool IsValidTopicName(string topic) =>
+        topic.Length > 0 && topic.IndexOfAny(['+', '#']) < 0 && Encoding.UTF8.GetByteCount(topic) <= ushort.MaxValue;
 
     /// <summary>
     /// Whether <paramref name="filter"/> is a valid topic filter: at least one character,

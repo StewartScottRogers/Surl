@@ -1,7 +1,7 @@
 namespace Surl.Console;
 
 [TestClass]
-public sealed class ServedDirectoryProbeTests
+public sealed class DataDirectoryProbeTests
 {
     [TestMethod]
     [TestCategory("Integration")]
@@ -10,7 +10,7 @@ public sealed class ServedDirectoryProbeTests
         var directory = Directory.CreateTempSubdirectory("surl-probe-");
         try
         {
-            var canOpen = ServedDirectoryProbe.CanOpen(directory.FullName);
+            var canOpen = DataDirectoryProbe.CanOpen(directory.FullName);
 
             Assert.IsTrue(canOpen);
         }
@@ -26,7 +26,7 @@ public sealed class ServedDirectoryProbeTests
     {
         var missing = Path.Combine(Path.GetTempPath(), "surl-missing-" + Guid.NewGuid().ToString("N"));
 
-        var canOpen = ServedDirectoryProbe.CanOpen(missing);
+        var canOpen = DataDirectoryProbe.CanOpen(missing);
 
         Assert.IsFalse(canOpen);
     }
@@ -38,7 +38,7 @@ public sealed class ServedDirectoryProbeTests
         var file = Path.GetTempFileName();
         try
         {
-            var canOpen = ServedDirectoryProbe.CanOpen(file);
+            var canOpen = DataDirectoryProbe.CanOpen(file);
 
             Assert.IsFalse(canOpen);
         }

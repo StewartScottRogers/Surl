@@ -8,13 +8,24 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `Program.RunAsync(args, output, error, cancellationToken)`, the internal entry point the
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help` and
-  `--version`, checks the served directory (`ServedDirectoryProbe`) and every scheme
-  against the registered protocol servers, then builds the content store, the protocol
+  `--version`, checks the data directory when `--directory` names one
+  (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
+  (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
+  full path with `--directory`, a new, empty `InMemoryContentFileSystem` at
+  `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4), checks
+  every scheme against the registered protocol servers, and with `--directory` takes the
+  data directory's `.surl/lock` (`DataDirectoryLock.Take`, held until serving ends; a
+  second surl on the same path gets 124, a `.surl` or lock file that cannot be created 23,
+  ADR-0031 decision 7; no lock and no disk access without `--directory`). Then it builds
+  the protocol
   servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
   `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),
   `MqttProtocolServer` for `mqtt` and `mqtts` (it too declares both itself), whose
-  retained messages last as long as `surl` runs,
+  retained messages are kept in `<data directory>/.surl/mqtt/retained-messages` and loaded
+  after the lock and before any listener binds with `--directory` (a file that cannot be
+  read or does not parse ends surl with 37), and in memory only without it (ADR-0031
+  decision 6),
   `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   verbose exchange log and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,

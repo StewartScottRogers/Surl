@@ -8,15 +8,26 @@ kept as its topic's retained message in `MqttRetainedMessages`; a subscribe is a
 with the retained messages its filters match, then `DISCONNECT`. ADR-0014 records every
 answer.
 
+`MqttRetainedMessages` made by its constructor lives in memory only; `surl` makes it so
+when no `--directory` is given. Made by
+`MqttRetainedMessages.LoadAsync(MqttRetainedMessageFile)`, it starts with what the file
+holds and `SaveChangesAsync` (called after every publish) rewrites the whole file through a
+temporary name renamed into place (ADR-0031 decision 6). With `--directory <path>`, `surl`
+points the `MqttRetainedMessageFile` at `<path>/.surl/mqtt`, so the file is
+`<path>/.surl/mqtt/retained-messages` (`MqttRetainedMessageFile.FileName`). The file is
+read and written only through `Surl.Content`'s `IContentFileSystem`; nothing here calls
+`System.IO.File` or `Directory`.
+
 **URL schemes answered:** `mqtt` and `mqtts` (`MqttProtocolServer.Schemes`). `mqtts` is
 the same server over implicit TLS: the engine performs the handshake and hands the server
 a connection that already carries plaintext (ADR-0010), so nothing here constructs an
 `SslStream` or calls `UpgradeToTlsAsync`, and an `mqtts` exchange is answered exactly as
 an `mqtt` one.
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
-the horizontal libraries ADR-0002 lists (`Surl.Content.UnitLibrary`,
-`Surl.Cryptography.UnitLibrary`) - nothing else. Referencing another protocol server is a
+This library references `Surl.Protocol.Abstractions.UnitLibrary` and
+`Surl.Content.UnitLibrary` (for `IContentFileSystem`, ADR-0031), and may also reference
+the other horizontal library ADR-0002 lists (`Surl.Cryptography.UnitLibrary`) - nothing
+else. Referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener`

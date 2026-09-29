@@ -60,10 +60,22 @@ namespace Surl.Content;
 /// are all answered exactly as a path that does not exist; an upload that is off is
 /// <see cref="ContentUploadResult.NotPermitted"/>.
 /// </para>
+/// <para>
+/// The <c>.surl</c> folder at the top of the served root holds Surl's own service state, and
+/// is never served, whatever the exposure options say (ADR-0031 decision 5). A path whose
+/// first segment is <c>.surl</c>, compared ignoring case on every platform, is answered
+/// exactly as a path that does not exist, and an upload to it is
+/// <see cref="ContentUploadResult.NotPermitted"/>; so is a path whose symbolic links finally
+/// resolve into that folder. A listing of the root leaves it out. Only the whole first segment
+/// is reserved: <c>/.surlx</c>, <c>/.surl-upload-</c>... and <c>/sub/.surl</c> are ordinary
+/// dot-files.
+/// </para>
 /// </remarks>
 public sealed class ContentStore
 {
     private const int CopyBufferSize = 81920;
+
+    private const string ServiceStateFolderName = ".surl";
 
     private readonly IContentFileSystem fileSystem;
 
@@ -133,7 +145,8 @@ public sealed class ContentStore
         }
 
         string unresolved = Path.Join([resolvedRoot, .. segments]);
-        if (IsHiddenByExposureOptions(segments, resolved, unresolved))
+        if (IsInServiceStateFolder(resolved, unresolved, resolvedRoot)
+            || IsHiddenByExposureOptions(segments, resolved, unresolved))
         {
             return ContentPathMapping.AnsweredAsAbsent(unresolved);
         }
@@ -460,6 +473,23 @@ public sealed class ContentStore
 
     private static bool IsDotFileName(string name) => name.StartsWith('.');
 
+    // ADR-0031 decision 5: the path as asked for and the path its links resolve to are both
+    // checked, so neither a request for /.SURL/lock nor a link into <root>/.surl reaches it.
+    private static bool IsInServiceStateFolder(string resolved, string unresolved, string resolvedRoot) =>
+        HasServiceStateFolderAsFirstSegment(resolved, resolvedRoot)
+        || HasServiceStateFolderAsFirstSegment(unresolved, resolvedRoot);
+
+    // The path is inside or at the root, spelled from its start as the root is (IsInsideOrAt).
+    private static bool HasServiceStateFolderAsFirstSegment(string path, string resolvedRoot)
+    {
+        string trimmedRoot = Path.TrimEndingDirectorySeparator(resolvedRoot);
+        ReadOnlySpan<char> relative = path.AsSpan(trimmedRoot.Length)
+            .TrimStart([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]);
+        int separator = relative.IndexOfAny(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        ReadOnlySpan<char> firstSegment = separator < 0 ? relative : relative[..separator];
+        return firstSegment.Equals(ServiceStateFolderName, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool IsSamePath(string left, string right) =>
         string.Equals(Path.TrimEndingDirectorySeparator(left), Path.TrimEndingDirectorySeparator(right), StringComparison.Ordinal);
 
@@ -472,7 +502,9 @@ public sealed class ContentStore
 
         string unresolved = Path.Join(directory, name);
         string resolved = fileSystem.ResolveFinalPath(unresolved);
-        if (!IsInsideOrAt(resolved, resolvedRoot) || IsEntryHiddenByExposureOptions(name, resolved, unresolved))
+        if (!IsInsideOrAt(resolved, resolvedRoot)
+            || IsInServiceStateFolder(resolved, unresolved, resolvedRoot)
+            || IsEntryHiddenByExposureOptions(name, resolved, unresolved))
         {
             return null;
         }

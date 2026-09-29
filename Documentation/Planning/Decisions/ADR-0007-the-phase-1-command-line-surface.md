@@ -1,6 +1,7 @@
 # ADR-0007 — The Phase 1 command-line surface
 
 - **Status:** Accepted
+- **Superseded in part:** the `--directory` default of `.` is superseded by [ADR-0031](ADR-0031-the-data-directory-and-in-memory-mode.md) (in memory when `--directory` is absent).
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 

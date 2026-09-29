@@ -18,27 +18,42 @@ namespace Surl.Console;
 
 /// <summary>
 /// Runs one <c>surl</c> command line: the composition root. It parses the command line,
-/// answers <c>--help</c> and <c>--version</c>, checks the served directory and the schemes,
-/// then constructs the TLS settings, the content store, the protocol servers, the exchange log
-/// and the serving engine explicitly and serves until cancelled, writing ADR-0007 section 5's
-/// texts and returning its exit codes.
+/// answers <c>--help</c> and <c>--version</c>, checks the data directory when one is given and
+/// the schemes, takes the data directory's lock, loads the MQTT retained messages kept under it,
+/// then constructs the TLS settings, the content store (on disk or in memory), the
+/// protocol servers, the exchange log and the serving engine explicitly and serves until
+/// cancelled, writing ADR-0007 section 5's texts and returning its exit codes.
 /// </summary>
 /// <param name="createListenerFactory">
 /// Creates the factory that starts the listeners, given the process's TLS settings
 /// (<see langword="null"/> when no listen URL is TLS from the first byte); <c>surl</c> passes
 /// one that creates a <see cref="SocketListenerFactory"/>.
 /// </param>
-/// <param name="canOpenServedDirectory">
-/// Tells whether the served directory, as given, can be opened; <c>surl</c> passes
-/// <see cref="ServedDirectoryProbe.CanOpen"/>.
+/// <param name="canOpenDataDirectory">
+/// Tells whether the data directory, as given with <c>--directory</c>, can be opened; never
+/// called without <c>--directory</c>. <c>surl</c> passes <see cref="DataDirectoryProbe.CanOpen"/>.
+/// </param>
+/// <param name="takeDataDirectoryLock">
+/// Takes the data directory's <c>.surl/lock</c> (ADR-0031, decision 7), given the data
+/// directory as given with <c>--directory</c>; never called without <c>--directory</c>.
+/// <c>surl</c> passes <see cref="DataDirectoryLock.Take"/>.
 /// </param>
 /// <param name="timeProvider">The one clock every exchange runs on.</param>
+/// <param name="dataDirectoryFileSystem">
+/// The file system the data directory is served and its service state kept through when
+/// serving with <c>--directory</c>; a <see cref="DiskContentFileSystem"/> when
+/// <see langword="null"/>, which is what <c>surl</c> passes.
+/// </param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
-    Func<string, bool> canOpenServedDirectory,
-    TimeProvider timeProvider)
+    Func<string, bool> canOpenDataDirectory,
+    Func<string, DataDirectoryLockOutcome> takeDataDirectoryLock,
+    TimeProvider timeProvider,
+    IContentFileSystem? dataDirectoryFileSystem = null)
 {
     private const string MessagePrefix = "surl: ";
+
+    private readonly IContentFileSystem dataDirectoryFileSystem = dataDirectoryFileSystem ?? new DiskContentFileSystem();
 
     /// <summary>
     /// Runs <paramref name="args"/>.
@@ -112,26 +127,90 @@ internal sealed class CommandLineRunner(
         return exitCode;
     }
 
-    private static string ComposeVersionText()
+    private string ComposeVersionText()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttributes<AssemblyInformationalVersionAttribute>()
             .Select(attribute => attribute.InformationalVersion)
             .FirstOrDefault();
-        var servers = ComposeProtocolServers(ComposeContentStore(new SurlCommandLine()));
+        var servers = ComposeProtocolServers(
+            ComposeContentStore(new SurlCommandLine(), timeProvider), new MqttRetainedMessages());
 
         return VersionText.Compose(
             informationalVersion, RuntimeInformation.RuntimeIdentifier, servers.SelectMany(server => server.Schemes));
     }
 
     /// <summary>
-    /// Builds the one content store every protocol server reads: the served directory as a full
-    /// path, on disk, exposing what the command line's exposure options allow (ADR-0006).
+    /// Builds the one content store every protocol server reads, exposing what the command
+    /// line's exposure options allow (ADR-0006): the data directory's full path on disk with
+    /// <c>--directory</c>, and a new, empty in-memory file system at
+    /// <see cref="InMemoryContentFileSystem.RootPath"/> without it (ADR-0031 decisions 1 and 4).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="timeProvider">The clock the in-memory file system stamps last-write times with.</param>
     /// <returns>The content store.</returns>
-    internal static ContentStore ComposeContentStore(SurlCommandLine commandLine) =>
-        new(Path.GetFullPath(commandLine.ServedDirectory), new DiskContentFileSystem(), MapExposureOptions(commandLine));
+    internal static ContentStore ComposeContentStore(SurlCommandLine commandLine, TimeProvider timeProvider) =>
+        ComposeContentStore(commandLine, ComposeContentFileSystem(commandLine, timeProvider, new DiskContentFileSystem()));
+
+    private static ContentStore ComposeContentStore(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
+        new(
+            commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath,
+            fileSystem,
+            MapExposureOptions(commandLine));
+
+    /// <summary>
+    /// Chooses where the MQTT server keeps its retained messages across restarts: a
+    /// <see cref="MqttRetainedMessageFile"/> in <c>&lt;data directory's full path&gt;/.surl/mqtt</c>,
+    /// read and written through <paramref name="fileSystem"/>, with <c>--directory</c>; none
+    /// without it, so they live in memory only (ADR-0031, decision 6).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="fileSystem">The file system the content store serves.</param>
+    /// <returns>The file, or <see langword="null"/> without <c>--directory</c>.</returns>
+    internal static MqttRetainedMessageFile? ComposeRetainedMessageFile(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
+        commandLine.DataDirectory is { } dataDirectory
+            ? new MqttRetainedMessageFile(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl", "mqtt"))
+            : null;
+
+    /// <summary>
+    /// Builds the MQTT server's retained messages: loaded from <paramref name="file"/> when there
+    /// is one, empty and in memory only when not. A file that cannot be read or does not parse
+    /// is not loaded, and gives the <c>(37)</c> message ADR-0031 decision 6 names instead.
+    /// </summary>
+    /// <param name="file">The retained-message file, or <see langword="null"/> for none.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The store, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
+    internal static async Task<(MqttRetainedMessages? RetainedMessages, string? FailureMessage)> LoadRetainedMessagesAsync(
+        MqttRetainedMessageFile? file, CancellationToken cancellationToken)
+    {
+        if (file is null)
+        {
+            return (new MqttRetainedMessages(), null);
+        }
+
+        try
+        {
+            return (await MqttRetainedMessages.LoadAsync(file, cancellationToken: cancellationToken), null);
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            return (null, $"(37) Could not read {file.FilePath}: {failure.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Chooses the file system the content store serves and service state is kept through:
+    /// <paramref name="dataDirectoryFileSystem"/> with <c>--directory</c>, a new
+    /// <see cref="InMemoryContentFileSystem"/> without it.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="timeProvider">The clock the in-memory file system stamps last-write times with.</param>
+    /// <param name="dataDirectoryFileSystem">The file system the data directory is read and written
+    /// through; <c>surl</c>'s is a <see cref="DiskContentFileSystem"/>.</param>
+    /// <returns>The file system.</returns>
+    internal static IContentFileSystem ComposeContentFileSystem(
+        SurlCommandLine commandLine, TimeProvider timeProvider, IContentFileSystem dataDirectoryFileSystem) =>
+        commandLine.DataDirectory is null ? new InMemoryContentFileSystem(timeProvider) : dataDirectoryFileSystem;
 
     private static ContentExposureOptions MapExposureOptions(SurlCommandLine commandLine) => new()
     {
@@ -178,9 +257,9 @@ internal sealed class CommandLineRunner(
         };
 
     // Every protocol server surl registers, over TCP or (TFTP) UDP; those that serve files serve
-    // the one content store, and the MQTT server keeps its retained messages for as long as surl
-    // runs. https is the HTTP server itself, over a connection the engine has secured (ADR-0020).
-    private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore)
+    // the one content store, and the MQTT server keeps its retained messages in the store it is
+    // given. https is the HTTP server itself, over a connection the engine has secured (ADR-0020).
+    private static IProtocolServer[] ComposeProtocolServers(ContentStore contentStore, MqttRetainedMessages retainedMessages)
     {
         var httpServer = new HttpProtocolServer(contentStore);
 
@@ -190,7 +269,7 @@ internal sealed class CommandLineRunner(
             new ImplicitTlsSchemeServer(httpServer, "https"),
             new DictProtocolServer(contentStore),
             new GopherProtocolServer(contentStore),
-            new MqttProtocolServer(new MqttRetainedMessages()),
+            new MqttProtocolServer(retainedMessages),
             new TelnetProtocolServer(),
             new TftpProtocolServer(contentStore),
         ];
@@ -219,18 +298,67 @@ internal sealed class CommandLineRunner(
     private async Task<SurlExitCode> ServeAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
-        if (!canOpenServedDirectory(commandLine.ServedDirectory))
+        if (commandLine.DataDirectory is { } dataDirectory && !canOpenDataDirectory(dataDirectory))
         {
-            return WriteFailure(
-                error, SurlExitCode.CouldNotReadFile, $"(37) Could not open directory {commandLine.ServedDirectory}");
+            return WriteFailure(error, SurlExitCode.CouldNotReadFile, $"(37) Could not open directory {dataDirectory}");
         }
 
-        var servers = ComposeProtocolServers(ComposeContentStore(commandLine));
-        if (FindUnregisteredScheme(commandLine.ListenUrls, servers) is { } scheme)
+        var fileSystem = ComposeContentFileSystem(commandLine, timeProvider, dataDirectoryFileSystem);
+        var contentStore = ComposeContentStore(commandLine, fileSystem);
+        var unloadedServers = ComposeProtocolServers(contentStore, new MqttRetainedMessages());
+        if (FindUnregisteredScheme(commandLine.ListenUrls, unloadedServers) is { } scheme)
         {
             return WriteFailure(error, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
         }
 
+        var dataDirectoryLock = commandLine.DataDirectory is { } lockedDirectory
+            ? takeDataDirectoryLock(lockedDirectory)
+            : DataDirectoryLockOutcome.NoLock;
+        if (dataDirectoryLock.FailureMessage is { } lockFailure)
+        {
+            return WriteFailure(error, dataDirectoryLock.ExitCode, lockFailure);
+        }
+
+        using (dataDirectoryLock.Holder)
+        {
+            return await LoadServiceStateAndServeAsync(commandLine, fileSystem, contentStore, output, error, cancellationToken);
+        }
+    }
+
+    private async Task<SurlExitCode> LoadServiceStateAndServeAsync(
+        SurlCommandLine commandLine,
+        IContentFileSystem fileSystem,
+        ContentStore contentStore,
+        TextWriter output,
+        TextWriter error,
+        CancellationToken cancellationToken)
+    {
+        MqttRetainedMessages? retainedMessages;
+        string? loadFailure;
+        try
+        {
+            (retainedMessages, loadFailure) = await LoadRetainedMessagesAsync(
+                ComposeRetainedMessageFile(commandLine, fileSystem), cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Stopped before serving began: the same clean stop as one while serving.
+            return SurlExitCode.Ok;
+        }
+
+        return retainedMessages is null
+            ? WriteFailure(error, SurlExitCode.CouldNotReadFile, loadFailure!)
+            : await ServeUnderTheLockAsync(
+                commandLine, ComposeProtocolServers(contentStore, retainedMessages), output, error, cancellationToken);
+    }
+
+    private async Task<SurlExitCode> ServeUnderTheLockAsync(
+        SurlCommandLine commandLine,
+        IProtocolServer[] servers,
+        TextWriter output,
+        TextWriter error,
+        CancellationToken cancellationToken)
+    {
         ServerTlsComposition tls;
         try
         {

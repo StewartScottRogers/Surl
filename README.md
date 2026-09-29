@@ -40,10 +40,22 @@ surl https://0.0.0.0:8443/ --cert server.pem --key server.key
 curl https://localhost:8443/readme.md --cacert server.pem
 ```
 
-That is the intent. **Today `surl` serves one protocol**: `surl http://127.0.0.1:8080/`
-answers `GET` and `HEAD` for the files of the current directory (or `--directory <dir>`)
-over HTTP/1.1 until Ctrl+C. Every other scheme, `https` included, is refused with exit
-code 1 until its server lands.
+That is the intent. **Today `surl` answers** `http` and `https` (HTTP/1.1, `GET` and
+`HEAD`), `dict`, `gopher` and `gophers`, `mqtt` and `mqtts`, `telnet` and `tftp`, until
+Ctrl+C; every other scheme is refused with exit code 1 until its server lands.
+
+What it serves depends on `--directory` (ADR-0031):
+
+- `surl http://127.0.0.1:8080/` serves an empty in-memory store. Everything the services
+  keep - uploaded files, MQTT retained messages - lives in memory for as long as the
+  process runs, and nothing is written to disk.
+- `surl --directory <path> http://127.0.0.1:8080/` serves the files under `<path>` and
+  persists what the services keep there across restarts: files at the top of the path,
+  every other kind of service state (today MQTT retained messages) under `<path>/.surl/`.
+  `.surl` is never served, even with `--serve-dot-files`. One surl process holds a path
+  at a time: a second one given the same path is refused with exit code 124.
+
+Uploads still need `--allow-uploads`, in memory too.
 
 ## Upstream curl validates Surl; Surl later validates the Curl port
 

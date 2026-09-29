@@ -8,6 +8,8 @@ namespace Surl.Conformance;
 /// message as that topic's retained message (BL-036's rule, ADR-0014), so it exits and prints
 /// what the recording of a subscribe to a topic holding that message holds. Each expected
 /// result is read from its fixture folder, so it is the recording, never a copy of it.
+/// With <c>--directory</c> the retained message survives a restart of surl over the same data
+/// directory; without it, a restarted surl holds nothing (ADR-0031, decision 6).
 /// Inconclusive where no pinned build is installed for the platform.
 /// </summary>
 [TestClass]
@@ -28,6 +30,59 @@ public sealed class UpstreamCurlTalksToSurlOverMqttTests
         await AssertPublishThenSubscribeMatchRecordingsAsync(
             new string('x', 200), "publish-200-bytes", "subscribe-200-bytes", ReplacePayload('y', 'x'));
     }
+
+    [TestMethod]
+    public async Task PublishRestartSubscribe_DataDirectory_SubscriberReceivesWhatTheRecordingHolds()
+    {
+        var (publishExitCode, publishOutput) = await ReadRecordingAsync("publish-hi");
+        var (subscribeExitCode, subscribeOutput) = await ReadRecordingAsync("subscribe-t");
+        var dataDirectory = Directory.CreateTempSubdirectory("surl-conformance-");
+        try
+        {
+            var (publish, subscribe) = await PublishRestartSubscribeAsync(
+                "hi",
+                () => SurlOnLoopback.StartOverDirectoryAsync("mqtt", dataDirectory.FullName, TestContext.CancellationToken));
+
+            Assert.AreEqual(publishExitCode, publish.ExitCode, publish.StandardError);
+            CollectionAssert.AreEqual(publishOutput, publish.StandardOutput);
+            Assert.AreEqual(subscribeExitCode, subscribe.ExitCode, subscribe.StandardError);
+            CollectionAssert.AreEqual(subscribeOutput, subscribe.StandardOutput);
+        }
+        finally
+        {
+            dataDirectory.Delete(recursive: true);
+        }
+    }
+
+    [TestMethod]
+    public async Task PublishRestartSubscribe_InMemory_SubscriberReceivesWhatTheNothingRetainedRecordingHolds()
+    {
+        var (subscribeExitCode, subscribeOutput) = await ReadRecordingAsync("subscribe-nothing-retained");
+
+        var (_, subscribe) = await PublishRestartSubscribeAsync(
+            "hi", () => SurlOnLoopback.StartInMemoryAsync("mqtt", [], TestContext.CancellationToken));
+
+        Assert.AreEqual(subscribeExitCode, subscribe.ExitCode, subscribe.StandardError);
+        CollectionAssert.AreEqual(subscribeOutput, subscribe.StandardOutput);
+    }
+
+    // Publishes to t on one surl, stops it, and subscribes to t on a second surl started the
+    // same way. The second surl binds a new ephemeral port: the first one's is not reserved.
+    private async Task<(UpstreamCurlRunResult Publish, UpstreamCurlRunResult Subscribe)> PublishRestartSubscribeAsync(
+        string message, Func<Task<SurlOnLoopback>> startSurl)
+    {
+        UpstreamCurlRunResult publish;
+        await using (var first = await startSurl())
+        {
+            publish = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", "-d", message, TopicUrl(first));
+        }
+
+        await using var second = await startSurl();
+        var subscribe = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", TopicUrl(second));
+        return (publish, subscribe);
+    }
+
+    private static string TopicUrl(SurlOnLoopback surl) => $"mqtt://{surl.BaseUrl.Host}:{surl.BaseUrl.Port}/t";
 
     private async Task AssertPublishThenSubscribeMatchRecordingsAsync(
         string message, string publishFixture, string subscribeFixture, Func<byte[], byte[]>? adaptSubscribeOutput = null)

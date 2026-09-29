@@ -297,4 +297,15 @@ public sealed class DiskContentFileSystemTests
 
         Assert.IsFalse(File.Exists(path));
     }
+
+    [TestMethod]
+    public void CreateDirectory_MissingParent_CreatesBoth()
+    {
+        string path = Path.Join(temporaryFolder, "a", "b");
+
+        new DiskContentFileSystem().CreateDirectory(path);
+
+        Assert.IsTrue(Directory.Exists(path));
+        Assert.AreEqual(ContentEntryKind.Directory, new DiskContentFileSystem().GetEntryKind(path));
+    }
 }

@@ -3,18 +3,19 @@ namespace Surl.Cli;
 /// <summary>
 /// The text <c>surl --help</c> writes to stdout, exactly as ADR-0007 section 6 gives it
 /// with ADR-0010 section 3's three rows (<c>--cert-type</c>, <c>--key-type</c>,
-/// <c>--pass</c>): options alphabetical by long name, every description starting in column 46.
+/// <c>--pass</c>) and ADR-0031 decision 2's <c>--allow-uploads</c> and <c>--directory</c>
+/// lines: options alphabetical by long name, every description starting in column 46.
 /// </summary>
 public static class HelpText
 {
     private static readonly string[] Lines =
     [
         "Usage: surl [options...] <url>...",
-        "     --allow-uploads                         Accept uploads into the served directory",
+        "     --allow-uploads                         Accept uploads into the served files",
         "     --cacert <file>                         CA certificates that verify client certificates",
         "     --cert <file>                           Server certificate for secure schemes",
         "     --cert-type <type>                      Format of --cert: PEM, DER or P12 (default PEM)",
-        "     --directory <directory>                 Directory to serve (default: current directory)",
+        "     --directory <directory>                 Serve and keep state in <directory> (default: in memory)",
         "     --follow-symlinks                       Follow links that stay inside the directory",
         "     --head-timeout <seconds>                Time a peer has to send a request head (default 30)",
         " -h, --help                                  Show this help and quit",

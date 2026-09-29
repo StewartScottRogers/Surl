@@ -46,7 +46,7 @@ public sealed class CommandLineParserTests
         var defaults = new SurlCommandLine();
 
         Assert.AreEqual(0, defaults.ListenUrls.Count);
-        Assert.AreEqual(".", defaults.ServedDirectory);
+        Assert.IsNull(defaults.DataDirectory);
         Assert.IsFalse(defaults.Verbose);
         Assert.IsFalse(defaults.AllowUploads);
         Assert.IsFalse(defaults.ListDirectories);
@@ -321,6 +321,18 @@ public sealed class CommandLineParserTests
     {
         AssertOptionRefused([name, "", Url], $"option {name}: blank argument where content is expected");
         AssertOptionRefused([$"{name}=", Url], $"option {name}=: blank argument where content is expected");
+    }
+
+    [TestMethod]
+    public void Parse_NoDirectory_LeavesTheDataDirectoryNullForInMemoryServing()
+    {
+        Assert.IsNull(Served(Url).DataDirectory);
+    }
+
+    [TestMethod]
+    public void Parse_Directory_KeepsTheDataDirectoryAsGiven()
+    {
+        Assert.AreEqual("srv/data", Served("--directory", "srv/data", Url).DataDirectory);
     }
 
     // Certificate formats and passphrase: --cert-type, --key-type, --pass (ADR-0010 section 3).
@@ -641,7 +653,7 @@ public sealed class CommandLineParserTests
 
     private static string? PathOf(string name, SurlCommandLine commandLine) => name switch
     {
-        "--directory" => commandLine.ServedDirectory,
+        "--directory" => commandLine.DataDirectory,
         "--cert" => commandLine.CertificateFile,
         "--key" => commandLine.KeyFile,
         _ => commandLine.CaCertificateFile,

@@ -5,8 +5,8 @@ namespace Surl.Cli;
 
 /// <summary>
 /// A command line that asks <c>surl</c> to serve: the listen URLs and every Phase 1 option
-/// value, with ADR-0007 section 2's default for each option not given. A new instance holds
-/// only the defaults and no listen URL.
+/// value, with ADR-0007 section 2's default for each option not given (ADR-0031's for
+/// <c>--directory</c>). A new instance holds only the defaults and no listen URL.
 /// </summary>
 /// <remarks>
 /// Seconds are <see cref="TimeSpan"/>s and 0 seconds is <see cref="Timeout.InfiniteTimeSpan"/>;
@@ -17,13 +17,16 @@ public sealed record SurlCommandLine
     /// <summary>The listen URLs, in command-line order.</summary>
     public IReadOnlyList<ListenUrl> ListenUrls { get; init; } = [];
 
-    /// <summary>The served directory as given with <c>--directory</c>; <c>.</c> by default.</summary>
-    public string ServedDirectory { get; init; } = ".";
+    /// <summary>
+    /// The data directory as given with <c>--directory</c>; <see langword="null"/> by default,
+    /// when surl serves an in-memory file system instead (ADR-0031 decisions 1 and 4).
+    /// </summary>
+    public string? DataDirectory { get; init; }
 
     /// <summary><c>-v</c>/<c>--verbose</c>: write the verbose exchange log to stderr. Off by default.</summary>
     public bool Verbose { get; init; }
 
-    /// <summary><c>--allow-uploads</c>: accept uploads into the served directory. Off by default.</summary>
+    /// <summary><c>--allow-uploads</c>: accept uploads into the served files. Off by default.</summary>
     public bool AllowUploads { get; init; }
 
     /// <summary><c>--list-directories</c>: answer directory listings. Off by default.</summary>

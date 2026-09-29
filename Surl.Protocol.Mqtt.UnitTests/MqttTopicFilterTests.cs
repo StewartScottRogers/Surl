@@ -16,6 +16,17 @@ public sealed class MqttTopicFilterTests
     }
 
     [TestMethod]
+    [DataRow(65_535, true)]
+    [DataRow(65_536, false)]
+    public void IsValidTopicName_AtMost65535Utf8Bytes(int utf8Length, bool expected)
+    {
+        // "é" is two bytes in UTF-8, so the limit is in bytes, not characters.
+        var topic = new string('é', utf8Length / 2) + new string('a', utf8Length % 2);
+
+        Assert.AreEqual(expected, MqttTopicFilter.IsValidTopicName(topic));
+    }
+
+    [TestMethod]
     [DataRow("t", true)]
     [DataRow("#", true)]
     [DataRow("+", true)]

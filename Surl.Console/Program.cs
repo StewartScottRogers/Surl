@@ -46,7 +46,8 @@ internal static class Program
     /// <returns>The exit code, as ADR-0007 section 5 gives it.</returns>
     internal static async Task<int> RunAsync(
         string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
-        (int)await new CommandLineRunner(CreateListenerFactory, ServedDirectoryProbe.CanOpen, TimeProvider.System)
+        (int)await new CommandLineRunner(
+                CreateListenerFactory, DataDirectoryProbe.CanOpen, DataDirectoryLock.Take, TimeProvider.System)
             .RunAsync(args, output, error, cancellationToken);
 
     /// <summary>
