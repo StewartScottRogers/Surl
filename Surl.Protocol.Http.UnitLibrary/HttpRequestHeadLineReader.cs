@@ -28,7 +28,7 @@ internal sealed class HttpRequestHeadLineReader
     /// </returns>
     public HttpRequestHeadReadResult? AcceptLine(ReadOnlySpan<byte> line)
     {
-        var content = line.EndsWith((byte)'\r') ? line[..^1] : line;
+        var content = HttpSyntax.WithoutTrailingCarriageReturn(line);
 
         return method is null ? AcceptRequestLine(content) : AcceptFieldLine(content);
     }

@@ -8,12 +8,14 @@ public sealed class HttpConnectionReaderTests
 {
     private const string RecordedHost = "127.0.0.1:18017";
 
+    private const int Limit = 102_400;
+
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
     public void Constructor_NullConnection_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new HttpConnectionReader(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new HttpConnectionReader(null!, 0));
     }
 
     [TestMethod]
@@ -130,12 +132,11 @@ public sealed class HttpConnectionReaderTests
     [DataRow(true)]
     public async Task ReadRequestHeadAsync_HeadOfExactlyTheMaximum_ReadsIt(bool oneBytePerRead)
     {
-        var request = HeadOfLength(307_200);
+        var request = HeadOfLength(Limit);
 
         var result = await ReaderOver(request, oneBytePerRead).ReadRequestHeadAsync(TestContext.CancellationToken);
 
         Assert.AreEqual(HttpRequestHeadReadOutcome.HeadRead, result.Outcome);
-        Assert.AreEqual(HttpConnectionReader.MaximumRequestHeadBytes, request.Length, "The limit is 300 KiB.");
     }
 
     [TestMethod]
@@ -143,7 +144,7 @@ public sealed class HttpConnectionReaderTests
     [DataRow(true)]
     public async Task ReadRequestHeadAsync_HeadOneByteOverTheMaximum_ReturnsHeadTooLarge(bool oneBytePerRead)
     {
-        var request = HeadOfLength(307_201);
+        var request = HeadOfLength(Limit + 1);
 
         var result = await ReaderOver(request, oneBytePerRead).ReadRequestHeadAsync(TestContext.CancellationToken);
 
@@ -153,10 +154,10 @@ public sealed class HttpConnectionReaderTests
     [TestMethod]
     public async Task ReadRequestHeadAsync_LineThatNeverEndsPastTheMaximum_ReturnsHeadTooLargeWithoutWaitingForMore()
     {
-        var bytes = Enumerable.Repeat((byte)'a', HttpConnectionReader.MaximumRequestHeadBytes).ToArray();
+        var bytes = Enumerable.Repeat((byte)'a', Limit).ToArray();
         var connection = new InMemoryConnection([bytes], peerHalfClosesWhenExhausted: false);
 
-        var result = await new HttpConnectionReader(connection).ReadRequestHeadAsync(TestContext.CancellationToken);
+        var result = await new HttpConnectionReader(connection, Limit).ReadRequestHeadAsync(TestContext.CancellationToken);
 
         Assert.AreEqual(HttpRequestHeadReadOutcome.HeadTooLarge, result.Outcome);
     }
@@ -239,7 +240,7 @@ public sealed class HttpConnectionReaderTests
     public async Task ReadRequestHeadAsync_CancelledWhileWaiting_Throws()
     {
         var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\n")], peerHalfClosesWhenExhausted: false);
-        var reader = new HttpConnectionReader(connection);
+        var reader = new HttpConnectionReader(connection, Limit);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var read = reader.ReadRequestHeadAsync(cancellation.Token);
 
@@ -248,8 +249,126 @@ public sealed class HttpConnectionReaderTests
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () => await read);
     }
 
+    [TestMethod]
+    public void Constructor_NegativeLimit_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new HttpConnectionReader(new InMemoryConnection([]), -1));
+    }
+
+    [TestMethod]
+    [DataRow(0L)]
+    [DataRow(long.MaxValue)]
+    public async Task ReadRequestHeadAsync_NoLimitOrOneLargerThanAnArray_ReadsA200KiBHead(long maxRequestHeadBytes)
+    {
+        var reader = new HttpConnectionReader(new InMemoryConnection([HeadOfLength(200 * 1024)]), maxRequestHeadBytes);
+
+        var result = await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(HttpRequestHeadReadOutcome.HeadRead, result.Outcome);
+    }
+
+    [TestMethod]
+    public async Task ReadRequestHeadAsync_HeadPastTheLimit_TakesNoMoreThanTheLimitFromTheConnection()
+    {
+        var bytes = Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nX: " + new string('a', 60));
+        var connection = new InMemoryConnection([bytes], peerHalfClosesWhenExhausted: false);
+        var reader = new HttpConnectionReader(connection, 20);
+
+        var result = await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        var rest = new byte[100];
+        var restCount = await connection.ReadAsync(rest, TestContext.CancellationToken);
+        Assert.AreEqual(HttpRequestHeadReadOutcome.HeadTooLarge, result.Outcome);
+        Assert.AreEqual(bytes.Length - 20, restCount, "Only the 20 bytes of the limit were taken from the connection.");
+    }
+
+    [TestMethod]
+    public async Task HasReceivedHeadBytes_SaysWhetherAnyByteOfTheHeadArrived()
+    {
+        var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\nGE")], peerHalfClosesWhenExhausted: false);
+        var reader = new HttpConnectionReader(connection, Limit);
+        Assert.IsFalse(reader.HasReceivedHeadBytes);
+
+        await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.IsTrue(reader.HasReceivedHeadBytes, "Two bytes of the next head are buffered.");
+    }
+
+    [TestMethod]
+    public async Task HasReceivedHeadBytes_AfterAHeadCutOffPartWay_IsTrue()
+    {
+        var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\n")], peerHalfClosesWhenExhausted: false);
+        var reader = new HttpConnectionReader(connection, Limit);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var read = reader.ReadRequestHeadAsync(cancellation.Token);
+
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () => await read);
+        Assert.IsTrue(reader.HasReceivedHeadBytes);
+    }
+
+    [TestMethod]
+    public async Task WaitForBytesAsync_BytesBufferedOrArriving_ReturnsTrue()
+    {
+        var reader = ReaderOver(Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\nX"), oneBytePerRead: false);
+        await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.IsTrue(await reader.WaitForBytesAsync(TestContext.CancellationToken), "One byte is buffered.");
+        Assert.IsTrue(await ReaderOver([1], oneBytePerRead: false).WaitForBytesAsync(TestContext.CancellationToken), "One byte arrives.");
+    }
+
+    [TestMethod]
+    public async Task WaitForBytesAsync_ClientHalfCloses_ReturnsFalse()
+    {
+        Assert.IsFalse(await ReaderOver([], oneBytePerRead: false).WaitForBytesAsync(TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ReadLineAsync_LinesAfterAHead_ReturnsEachWithoutItsLineFeedButWithItsCarriageReturn(bool oneBytePerRead)
+    {
+        var reader = ReaderOver(Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\n5;x=y\r\nab\n\r\nrest"), oneBytePerRead);
+        await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual("5;x=y\r"u8.ToArray(), await reader.ReadLineAsync(10, TestContext.CancellationToken));
+        CollectionAssert.AreEqual("ab"u8.ToArray(), await reader.ReadLineAsync(10, TestContext.CancellationToken));
+        CollectionAssert.AreEqual("\r"u8.ToArray(), await reader.ReadLineAsync(10, TestContext.CancellationToken));
+        Assert.AreEqual("rest", await ReadToEndAsync(reader));
+    }
+
+    [TestMethod]
+    [DataRow("0123456789\n", 10)]
+    [DataRow("0123456789", 10)]
+    [DataRow("01234", 10)]
+    public async Task ReadLineAsync_LineTooLongOrNeverEnded_ReturnsNull(string bytes, int maxLineBytes)
+    {
+        var reader = ReaderOver(Encoding.ASCII.GetBytes(bytes), oneBytePerRead: true);
+
+        Assert.IsNull(await reader.ReadLineAsync(maxLineBytes, TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task ReadLineAsync_LongLineAlreadyBuffered_ReturnsNullAndConsumesIt()
+    {
+        var reader = ReaderOver(Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\n0123456789\nnext\n"), oneBytePerRead: false);
+        await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.IsNull(await reader.ReadLineAsync(5, TestContext.CancellationToken));
+        CollectionAssert.AreEqual("next"u8.ToArray(), await reader.ReadLineAsync(5, TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task ReadLineAsync_LineThatNeverEndsPastTheLimit_ReturnsNullWithoutWaitingForMore()
+    {
+        var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("0123456789")], peerHalfClosesWhenExhausted: false);
+
+        Assert.IsNull(await new HttpConnectionReader(connection, Limit).ReadLineAsync(10, TestContext.CancellationToken));
+    }
+
     private static HttpConnectionReader ReaderOver(byte[] bytes, bool oneBytePerRead) =>
-        new(new InMemoryConnection(oneBytePerRead ? RecordedFixture.OneBytePerRead(bytes) : RecordedFixture.Whole(bytes)));
+        new(new InMemoryConnection(oneBytePerRead ? RecordedFixture.OneBytePerRead(bytes) : RecordedFixture.Whole(bytes)), Limit);
 
     private async Task<HttpRequestHeadReadResult> ReadOneHeadAsync(string request) =>
         await ReaderOver(Encoding.Latin1.GetBytes(request), oneBytePerRead: false).ReadRequestHeadAsync(TestContext.CancellationToken);

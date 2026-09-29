@@ -47,8 +47,21 @@ public enum HttpRequestHeadReadOutcome
     WhitespaceBeforeColon,
 
     /// <summary>
-    /// The head grew past <see cref="HttpConnectionReader.MaximumRequestHeadBytes"/>
-    /// without ending.
+    /// The head grew past the request-head limit
+    /// (<see cref="Surl.Protocol.Abstractions.ExchangeLimits.MaxRequestHeadBytes"/>) without
+    /// ending.
     /// </summary>
     HeadTooLarge,
+
+    /// <summary>
+    /// The head timeout (<see cref="Surl.Protocol.Abstractions.ExchangeLimits.HeadTimeout"/>)
+    /// ran out after some bytes of the head had arrived, but before its end.
+    /// </summary>
+    HeadTimedOut,
+
+    /// <summary>
+    /// The head timeout ran out before any byte of a head arrived: a connection opened and
+    /// never used.
+    /// </summary>
+    HeadTimedOutBeforeAnyByte,
 }

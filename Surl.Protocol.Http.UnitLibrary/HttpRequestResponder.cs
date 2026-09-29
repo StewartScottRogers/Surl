@@ -10,6 +10,12 @@ namespace Surl.Protocol.Http;
 /// </summary>
 internal sealed class HttpRequestResponder
 {
+    /// <summary>
+    /// How long a refusal - any response that closes the connection because of the request -
+    /// may take to write before the server gives up on it (ADR-0006, section 5).
+    /// </summary>
+    public static readonly TimeSpan RefusalWriteDeadline = TimeSpan.FromSeconds(1);
+
     private const string AllowedMethods = "GET, HEAD";
 
     private const string AbsoluteFormPrefix = "http://";
@@ -23,23 +29,27 @@ internal sealed class HttpRequestResponder
     {
         [HttpRequestHeadReadOutcome.UnsupportedVersion] = HttpStatus.HttpVersionNotSupported,
         [HttpRequestHeadReadOutcome.HeadTooLarge] = HttpStatus.RequestHeaderFieldsTooLarge,
+        [HttpRequestHeadReadOutcome.HeadTimedOut] = HttpStatus.RequestTimeout,
     };
 
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly ContentStore contentStore;
+    private readonly HttpRequestBodyDiscarder bodyDiscarder;
 
     /// <summary>
     /// Creates a responder for one connection.
     /// </summary>
     /// <param name="connection">Where responses are written.</param>
-    /// <param name="context">The exchange: its clock, log and cancellation.</param>
+    /// <param name="reader">The connection's reader, through which request bodies are read.</param>
+    /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="contentStore">Where request paths are looked up.</param>
-    public HttpRequestResponder(IConnection connection, ExchangeContext context, ContentStore contentStore)
+    public HttpRequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore)
     {
         this.connection = connection;
         this.context = context;
         this.contentStore = contentStore;
+        bodyDiscarder = new HttpRequestBodyDiscarder(reader, context.Limits.MaxUploadBytes);
     }
 
     /// <summary>
@@ -54,12 +64,19 @@ internal sealed class HttpRequestResponder
             return RefuseAsync(HttpStatus.BadRequest, null, $"{head.Method} {head.RequestTarget}: a request may carry at most one Host field, and an HTTP/1.1 request needs one");
         }
 
-        return head.Method is "GET" or "HEAD" ? AnswerFromContentStoreAsync(head) : RefuseMethodAsync(head);
+        var framing = HttpRequestBodyFraming.Of(head);
+        if (IsPastUploadLimit(framing))
+        {
+            return RefuseAsync(HttpStatus.ContentTooLarge, null, $"{head.Method} {head.RequestTarget}: the {framing.ContentLength}-byte body is past the upload limit of {context.Limits.MaxUploadBytes} bytes");
+        }
+
+        return head.Method is "GET" or "HEAD" ? AnswerFromContentStoreAsync(head, framing) : RefuseMethodAsync(head);
     }
 
     /// <summary>
     /// Answers a connection on which no request head could be read: nothing when the client
-    /// closed it, otherwise a refusal that closes it.
+    /// closed it or never sent a byte before the head timeout, otherwise a refusal that
+    /// closes it.
     /// </summary>
     /// <param name="outcome">Why no head was read.</param>
     /// <returns><see langword="false"/>: the connection never stays open after this.</returns>
@@ -72,14 +89,29 @@ internal sealed class HttpRequestResponder
             return Task.FromResult(false);
         }
 
+        if (outcome is HttpRequestHeadReadOutcome.HeadTimedOutBeforeAnyByte)
+        {
+            context.Log.Note($"No request head was read: {outcome}; closed with no bytes.");
+
+            return Task.FromResult(false);
+        }
+
         var status = StatusesForHeadsNotRead.GetValueOrDefault(outcome, HttpStatus.BadRequest);
 
         return RefuseAsync(status, null, $"No request head was read: {outcome}");
     }
 
-    private async Task<bool> AnswerFromContentStoreAsync(HttpRequestHead head)
+    private async Task<bool> AnswerFromContentStoreAsync(HttpRequestHead head, HttpRequestBodyFraming framing)
     {
-        var keepsConnectionOpen = HttpConnectionPersistence.KeepsConnectionOpen(head);
+        var bodyOutcome = framing.Kind == HttpRequestBodyFramingKind.Unreadable
+            ? HttpRequestBodyDiscardOutcome.Discarded
+            : await bodyDiscarder.DiscardAsync(framing, context.CancellationToken);
+        if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
+        {
+            return await RefuseBodyAsync(head, bodyOutcome);
+        }
+
+        var keepsConnectionOpen = HttpConnectionPersistence.KeepsConnectionOpen(head) && framing.Kind != HttpRequestBodyFramingKind.Unreadable;
         var mapping = contentStore.MapRequestPath(RequestPath(head.RequestTarget));
         var status = mapping.IsMapped ? contentStore.GetFileStatus(mapping) : null;
         if (status is null)
@@ -123,6 +155,18 @@ internal sealed class HttpRequestResponder
         _ => $"nothing exists at {mapping.Location}",
     };
 
+    // A declared Content-Length is checked before any body byte is read and before method
+    // dispatch, so Expect: 100-continue gets the 413 in place of 100 Continue.
+    private bool IsPastUploadLimit(HttpRequestBodyFraming framing) =>
+        framing.Kind == HttpRequestBodyFramingKind.ContentLength
+        && context.Limits.MaxUploadBytes != 0
+        && framing.ContentLength > context.Limits.MaxUploadBytes;
+
+    private Task<bool> RefuseBodyAsync(HttpRequestHead head, HttpRequestBodyDiscardOutcome bodyOutcome) =>
+        bodyOutcome == HttpRequestBodyDiscardOutcome.TooLarge
+            ? RefuseAsync(HttpStatus.ContentTooLarge, null, $"{head.Method} {head.RequestTarget}: the chunked body went past the upload limit of {context.Limits.MaxUploadBytes} bytes")
+            : RefuseAsync(HttpStatus.BadRequest, null, $"{head.Method} {head.RequestTarget}: the body was malformed or ended early");
+
     private Task<bool> RefuseMethodAsync(HttpRequestHead head)
     {
         var isKnown = MethodsRefusedWithAllow.Contains(head.Method, StringComparer.Ordinal);
@@ -131,25 +175,41 @@ internal sealed class HttpRequestResponder
         return RefuseAsync(status, isKnown ? AllowedMethods : null, $"{head.Method} {head.RequestTarget}: the method is not served");
     }
 
+    // A refusal gets one second to be written and half-closed; past that the server gives up
+    // on it and leaves the close to the engine's dispose, never an abort (ADR-0006, section 5).
     private async Task<bool> RefuseAsync(HttpStatus status, string? allow, string note)
     {
         context.Log.Note($"{note}; answered {status.Code} and closed.");
 
-        return await WriteEmptyResponseAsync(status, allow, false, HttpVersion11);
+        using var deadline = new CancellationTokenSource(RefusalWriteDeadline, context.TimeProvider);
+        using var deadlineOrExchange = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, deadline.Token);
+        try
+        {
+            await connection.WriteAsync(EmptyResponseHead(status, allow, false, HttpVersion11).ToBytes(), deadlineOrExchange.Token);
+            await connection.CompleteWritesAsync(deadlineOrExchange.Token);
+        }
+        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            context.Log.Note($"The {status.Code} was not written within its {RefusalWriteDeadline.TotalSeconds}-second write deadline; the connection is closed without it.");
+        }
+
+        return false;
     }
 
     private async Task<bool> WriteEmptyResponseAsync(HttpStatus status, string? allow, bool keepsConnectionOpen, Version requestVersion)
     {
-        var responseHead = new HttpResponseHead(status)
-            .AddField("Date", FormatHttpDate(Now()))
-            .AddField("Allow", allow)
-            .AddField("Content-Length", "0")
-            .AddField("Connection", HttpConnectionPersistence.ConnectionFieldValue(keepsConnectionOpen, requestVersion));
-
-        await connection.WriteAsync(responseHead.ToBytes(), context.CancellationToken);
+        await connection.WriteAsync(EmptyResponseHead(status, allow, keepsConnectionOpen, requestVersion).ToBytes(), context.CancellationToken);
 
         return await FinishResponseAsync(keepsConnectionOpen);
     }
+
+    private HttpResponseHead EmptyResponseHead(HttpStatus status, string? allow, bool keepsConnectionOpen, Version requestVersion) =>
+        new HttpResponseHead(status)
+            .AddField("Date", FormatHttpDate(Now()))
+            .AddField("Server", HttpResponseHead.ServerName)
+            .AddField("Allow", allow)
+            .AddField("Content-Length", "0")
+            .AddField("Connection", HttpConnectionPersistence.ConnectionFieldValue(keepsConnectionOpen, requestVersion));
 
     private async Task<bool> WriteFileResponseAsync(HttpRequestHead head, ContentPathMapping mapping, ContentFileStatus status, bool keepsConnectionOpen)
     {
@@ -157,6 +217,7 @@ internal sealed class HttpRequestResponder
         var lastModified = status.LastModifiedUtc < now ? status.LastModifiedUtc : now;
         var responseHead = new HttpResponseHead(HttpStatus.Ok)
             .AddField("Date", FormatHttpDate(now))
+            .AddField("Server", HttpResponseHead.ServerName)
             .AddField("Last-Modified", FormatHttpDate(lastModified))
             .AddField("Content-Type", "application/octet-stream")
             .AddField("Content-Length", status.Length.ToString(CultureInfo.InvariantCulture))

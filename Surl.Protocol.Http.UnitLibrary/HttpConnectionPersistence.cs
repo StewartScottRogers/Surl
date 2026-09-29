@@ -11,10 +11,9 @@ internal static class HttpConnectionPersistence
     /// </summary>
     /// <remarks>
     /// A <c>close</c> connection option closes it. An HTTP/1.1 request otherwise keeps it
-    /// open, and an HTTP/1.0 request keeps it open only with a <c>keep-alive</c> option. A
-    /// request that announces a body (<c>Transfer-Encoding</c>, or a <c>Content-Length</c>
-    /// other than <c>0</c>) closes it too: the server does not read request bodies yet, so
-    /// the next request could not be found after one.
+    /// open, and an HTTP/1.0 request keeps it open only with a <c>keep-alive</c> option. The
+    /// request's body framing is not considered here: <see cref="HttpRequestResponder"/>
+    /// closes after a body it cannot read.
     /// </remarks>
     /// <param name="head">The request head.</param>
     /// <returns><see langword="true"/> when the connection stays open.</returns>
@@ -25,7 +24,7 @@ internal static class HttpConnectionPersistence
             .Select(option => option.Trim(' ', '\t'))
             .ToArray();
 
-        if (HasOption(options, "close") || AnnouncesBody(head))
+        if (HasOption(options, "close"))
         {
             return false;
         }
@@ -55,8 +54,4 @@ internal static class HttpConnectionPersistence
 
     private static bool HasOption(string[] options, string option) =>
         options.Contains(option, StringComparer.OrdinalIgnoreCase);
-
-    private static bool AnnouncesBody(HttpRequestHead head) =>
-        head.GetFieldValues("Transfer-Encoding").Count > 0
-        || head.GetFieldValues("Content-Length").Any(value => value != "0");
 }

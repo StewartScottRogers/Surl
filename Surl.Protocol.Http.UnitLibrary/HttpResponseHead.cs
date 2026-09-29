@@ -12,6 +12,12 @@ namespace Surl.Protocol.Http;
 /// </remarks>
 internal sealed class HttpResponseHead
 {
+    /// <summary>
+    /// The value of every response's <c>Server</c> field: the name alone, with no surl, .NET
+    /// or operating-system version (ADR-0006, section 3).
+    /// </summary>
+    public const string ServerName = "surl";
+
     private readonly List<KeyValuePair<string, string>> fields = [];
 
     /// <summary>

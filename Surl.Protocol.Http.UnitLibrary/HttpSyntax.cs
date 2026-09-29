@@ -46,4 +46,11 @@ internal static class HttpSyntax
     /// Returns <paramref name="bytes"/> without the optional whitespace at either end.
     /// </summary>
     public static ReadOnlySpan<byte> TrimOptionalWhitespace(ReadOnlySpan<byte> bytes) => bytes.Trim(" \t"u8);
+
+    /// <summary>
+    /// Returns <paramref name="line"/>, a line without its LF, without the CR that ends it,
+    /// if one does (RFC 9112, section 2.2).
+    /// </summary>
+    public static ReadOnlySpan<byte> WithoutTrailingCarriageReturn(ReadOnlySpan<byte> line) =>
+        line.EndsWith((byte)'\r') ? line[..^1] : line;
 }

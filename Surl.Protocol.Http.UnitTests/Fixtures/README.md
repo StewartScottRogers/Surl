@@ -28,19 +28,27 @@ In `two-urls` the recorder closes each connection after its response, so curl se
 second head on a new connection; `request.bin` holds both heads in the order accepted.
 `stderr.txt` holds curl's progress meter, whose timings differ from run to run.
 
-## Response fixtures (BL-018)
+## Response fixtures (BL-018, re-recorded and extended by BL-050)
 
-Each response the HTTP server sends for these three cases was fed to the same pinned
-build with `Record-CurlExchange.ps1 -Response` before any test pinned it, and curl
-accepted it. Each folder holds the recorder's four files plus `response.bin`, the exact
-response bytes sent (decoded from `-Response`, one byte per character), which
-`HttpProtocolServerTests` compares the server's output with. The fixed clock is
-2026-09-28 12:00:00 UTC and `file.txt` was last written 2026-09-01 08:30:00 UTC.
+Each response the HTTP server sends in these cases was fed to the same pinned build with
+`Record-CurlExchange.ps1 -Response` before any test pinned it. Each folder holds the
+recorder's four files plus `response.bin`, the exact response bytes sent (decoded from
+`-Response`, one byte per character), which the tests compare the server's output with.
+The fixed clock is 2026-09-28 12:00:00 UTC and `file.txt` was last written 2026-09-01
+08:30:00 UTC. BL-050 added `Server: surl` to every response (ADR-0019), so it re-recorded
+the first three on 2026-09-29 and recorded the rest the same day, from the repository
+root in Windows PowerShell. `<upload>` is a 2048-byte file of `a` bytes in the temporary
+directory; `expect-continue-413` was recorded with `-RespondAfterBodyBytes 0`, so the
+413 went out as soon as the head arrived, and its `request.bin` is the 181-byte head
+alone: curl sent no body byte.
 
 | Folder | Exit code | stdout.bin | Command line |
 | --- | --- | --- | --- |
-| `get-file` | 0 | the 17-byte body `Hello from Surl.\n` | `.\Record-CurlExchange.ps1 -Port 18018 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\get-file -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs 'http://127.0.0.1:18018/file.txt'` |
-| `head-file` | 0 | the response head | `.\Record-CurlExchange.ps1 -Port 18018 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\head-file -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\n' -CurlArgs '-I','http://127.0.0.1:18018/file.txt'` |
-| `not-found-fail` | 22 | empty; stderr ends `curl: (22) The requested URL returned error: 404` | `.\Record-CurlExchange.ps1 -Port 18018 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\not-found-fail -Response 'HTTP/1.1 404 Not Found\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nContent-Length: 0\r\n\r\n' -CurlArgs '--fail','http://127.0.0.1:18018/missing.txt'` |
-
-Recorded on 2026-09-28 from the repository root, in Windows PowerShell.
+| `get-file` | 0 | the 17-byte body `Hello from Surl.\n` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\get-file -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\nHello from Surl.\n' -CurlArgs 'http://127.0.0.1:18050/file.txt'` |
+| `head-file` | 0 | the response head | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\head-file -Response 'HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nLast-Modified: Tue, 01 Sep 2026 08:30:00 GMT\r\nContent-Type: application/octet-stream\r\nContent-Length: 17\r\n\r\n' -CurlArgs '-I','http://127.0.0.1:18050/file.txt'` |
+| `not-found-fail` | 22 | empty; stderr ends `curl: (22) The requested URL returned error: 404` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\not-found-fail -Response 'HTTP/1.1 404 Not Found\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\n\r\n' -CurlArgs '--fail','http://127.0.0.1:18050/missing.txt'` |
+| `head-timeout-408` | 22 | empty; stderr `curl: (22) The requested URL returned error: 408` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\head-timeout-408 -Response 'HTTP/1.1 408 Request Timeout\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18050/file.txt'` |
+| `head-too-large-431` | 22 | empty; stderr `curl: (22) The requested URL returned error: 431` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\head-too-large-431 -Response 'HTTP/1.1 431 Request Header Fields Too Large\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18050/file.txt'` |
+| `upload-too-large-413` | 22 | empty; stderr `curl: (22) The requested URL returned error: 413` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\upload-too-large-413 -Response 'HTTP/1.1 413 Content Too Large\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','--data-binary','@<upload>','http://127.0.0.1:18050/file.txt'` |
+| `expect-continue-413` | 22 | empty; stderr `curl: (22) The requested URL returned error: 413` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\expect-continue-413 -RespondAfterBodyBytes 0 -Response 'HTTP/1.1 413 Content Too Large\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','-H','Expect: 100-continue','--data-binary','@<upload>','http://127.0.0.1:18050/file.txt'` |
+| `refusal-503` | 22 | empty; stderr `curl: (22) The requested URL returned error: 503` | `.\Record-CurlExchange.ps1 -Port 18050 -OutDirectory Surl.Protocol.Http.UnitTests\Fixtures\refusal-503 -Response 'HTTP/1.1 503 Service Unavailable\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n' -CurlArgs '-sS','--fail','http://127.0.0.1:18050/file.txt'` |

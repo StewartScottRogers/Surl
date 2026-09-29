@@ -12,10 +12,10 @@ public sealed class HttpConnectionPersistenceTests
     [DataRow(1, "Connection", "\tClose ", false)]
     [DataRow(0, "Connection", "keep-alive, close", false)]
     [DataRow(1, "Content-Length", "0", true)]
-    [DataRow(1, "Content-Length", "10", false)]
+    [DataRow(1, "Content-Length", "10", true)]
     [DataRow(0, "Content-Length", "0", false)]
-    [DataRow(1, "Transfer-Encoding", "chunked", false)]
-    public void KeepsConnectionOpen_DecidesByVersionConnectionAndBody(int minorVersion, string name, string value, bool expected)
+    [DataRow(1, "Transfer-Encoding", "chunked", true)]
+    public void KeepsConnectionOpen_DecidesByVersionAndConnectionNotByBody(int minorVersion, string name, string value, bool expected)
     {
         HttpRequestField[] fields = name.Length == 0 ? [] : [new HttpRequestField(name, value)];
         var head = new HttpRequestHead("GET", "/", new Version(1, minorVersion), fields);
