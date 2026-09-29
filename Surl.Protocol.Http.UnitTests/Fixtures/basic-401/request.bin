@@ -1,0 +1,6 @@
+GET /file.txt HTTP/1.1
+Host: 127.0.0.1:18114
+Authorization: Basic dGVzdGVyOnNlY3JldA==
+User-Agent: curl/8.21.0
+Accept: */*
+

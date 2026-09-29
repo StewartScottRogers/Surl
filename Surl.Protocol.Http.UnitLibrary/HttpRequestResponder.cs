@@ -37,6 +37,11 @@ internal sealed class HttpRequestResponder
     private readonly ContentStore contentStore;
     private readonly HttpRequestBodyDiscarder bodyDiscarder;
     private readonly HttpUnreadRequestDrainer unreadRequestDrainer;
+    private readonly IHttpAuthenticationSession authenticationSession;
+
+    // The WWW-Authenticate values the authentication session gave for the request being
+    // answered, written on whatever response it gets; none before a request is judged.
+    private IReadOnlyList<string> wwwAuthenticateValues = [];
 
     /// <summary>
     /// Creates a responder for one connection.
@@ -45,11 +50,13 @@ internal sealed class HttpRequestResponder
     /// <param name="reader">The connection's reader, through which request bodies are read.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="contentStore">Where request paths are looked up.</param>
-    public HttpRequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore)
+    /// <param name="authenticationSession">The connection's authentication session, which judges every request.</param>
+    public HttpRequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession)
     {
         this.connection = connection;
         this.context = context;
         this.contentStore = contentStore;
+        this.authenticationSession = authenticationSession;
         bodyDiscarder = new HttpRequestBodyDiscarder(reader, context.Limits.MaxUploadBytes);
         unreadRequestDrainer = new HttpUnreadRequestDrainer(reader, context);
     }
@@ -59,17 +66,22 @@ internal sealed class HttpRequestResponder
     /// </summary>
     /// <param name="head">The request head.</param>
     /// <returns><see langword="true"/> when the connection stays open for another request.</returns>
-    public Task<bool> AnswerRequestAsync(HttpRequestHead head)
+    public async Task<bool> AnswerRequestAsync(HttpRequestHead head)
     {
-        if (!HasHostAsRequired(head))
+        wwwAuthenticateValues = [];
+        var framing = HttpRequestBodyFraming.Of(head);
+        var malformedHeadRefusal = RefuseMalformedHeadAsync(head, framing);
+        if (malformedHeadRefusal is not null)
         {
-            return RefuseAsync(HttpStatus.BadRequest, null, $"{head.Method} {head.RequestTarget}: a request may carry at most one Host field, and an HTTP/1.1 request needs one");
+            return await malformedHeadRefusal;
         }
 
-        var framing = HttpRequestBodyFraming.Of(head);
+        var verdict = await authenticationSession.JudgeAsync(AuthenticationRequest(head), context.CancellationToken);
+        wwwAuthenticateValues = verdict.WwwAuthenticateValues;
 
-        return RefuseFramingAsync(head, framing)
-            ?? (head.Method is "GET" or "HEAD" ? AnswerFromContentStoreAsync(head, framing) : RefuseMethodAsync(head));
+        return await (verdict.Outcome == HttpAuthenticationOutcome.Proceed
+            ? AnswerLetInRequestAsync(head, framing)
+            : RefuseLoginAsync(head, framing, verdict.Outcome));
     }
 
     /// <summary>
@@ -81,6 +93,7 @@ internal sealed class HttpRequestResponder
     /// <returns><see langword="false"/>: the connection never stays open after this.</returns>
     public Task<bool> AnswerHeadNotReadAsync(HttpRequestHeadReadOutcome outcome)
     {
+        wwwAuthenticateValues = [];
         if (outcome is HttpRequestHeadReadOutcome.ConnectionClosed or HttpRequestHeadReadOutcome.ConnectionClosedBeforeHeadEnded)
         {
             context.Log.Note($"The client closed the connection: {outcome}.");
@@ -193,19 +206,59 @@ internal sealed class HttpRequestResponder
         _ => $"nothing exists at {mapping.Location}",
     };
 
-    // Framing a request cannot have, whatever its method, is refused before method dispatch
-    // (ADR-0024 for the 400, ADR-0019 for the 413); null when the framing is acceptable.
-    private Task<bool>? RefuseFramingAsync(HttpRequestHead head, HttpRequestBodyFraming framing)
+    // A head that is not well-formed - a missing or repeated Host (RFC 9112, section 3.2), a
+    // Content-Length that is not one field of decimal digits (ADR-0024) - is refused before
+    // the authentication session sees it (ADR-0032, section 4); null when the head is well-formed.
+    private Task<bool>? RefuseMalformedHeadAsync(HttpRequestHead head, HttpRequestBodyFraming framing)
     {
-        if (framing.Kind == HttpRequestBodyFramingKind.InvalidContentLength)
+        if (!HasHostAsRequired(head))
         {
-            return RefuseAsync(HttpStatus.BadRequest, null, $"{head.Method} {head.RequestTarget}: the Content-Length is not one field of decimal digits");
+            return RefuseAsync(HttpStatus.BadRequest, null, $"{head.Method} {head.RequestTarget}: a request may carry at most one Host field, and an HTTP/1.1 request needs one");
         }
 
-        return IsPastUploadLimit(framing)
-            ? RefuseAsync(HttpStatus.ContentTooLarge, null, $"{head.Method} {head.RequestTarget}: the {framing.ContentLength}-byte body is past the upload limit of {context.Limits.MaxUploadBytes} bytes")
+        return framing.Kind == HttpRequestBodyFramingKind.InvalidContentLength
+            ? RefuseAsync(HttpStatus.BadRequest, null, $"{head.Method} {head.RequestTarget}: the Content-Length is not one field of decimal digits")
             : null;
     }
+
+    // A request the authentication session let in: the upload limit, then method dispatch.
+    private Task<bool> AnswerLetInRequestAsync(HttpRequestHead head, HttpRequestBodyFraming framing) =>
+        RefuseUploadPastLimitAsync(head, framing)
+            ?? (head.Method is "GET" or "HEAD" ? AnswerFromContentStoreAsync(head, framing) : RefuseMethodAsync(head));
+
+    // What the authentication session is shown of a request: never its body (ADR-0032, section 6).
+    private static HttpAuthenticationRequest AuthenticationRequest(HttpRequestHead head) => new(
+        head.Method,
+        head.RequestTarget,
+        head.Method is not ("GET" or "HEAD"),
+        head.Fields.Select(field => new KeyValuePair<string, string>(field.Name, field.Value)).ToArray());
+
+    // A 401 keeps the connection as a 404 does, because NTLM and Negotiate need the same
+    // connection; one whose request announced a body, which is never read, and every 403
+    // are refusals (ADR-0032, section 4). The note never repeats the Authorization field.
+    private Task<bool> RefuseLoginAsync(HttpRequestHead head, HttpRequestBodyFraming framing, HttpAuthenticationOutcome outcome)
+    {
+        if (outcome == HttpAuthenticationOutcome.Forbidden)
+        {
+            return RefuseAsync(HttpStatus.Forbidden, null, $"{head.Method} {head.RequestTarget}: the authentication policy forbade the request");
+        }
+
+        if (framing.Kind != HttpRequestBodyFramingKind.None)
+        {
+            return RefuseAsync(HttpStatus.Unauthorized, null, $"{head.Method} {head.RequestTarget}: a login is needed, and the body announced was not read");
+        }
+
+        context.Log.Note($"{head.Method} {head.RequestTarget}: 401, a login is needed");
+
+        return WriteEmptyResponseAsync(HttpStatus.Unauthorized, null, HttpConnectionPersistence.KeepsConnectionOpen(head), head.Version);
+    }
+
+    // A declared body past the upload limit is refused before method dispatch (ADR-0019);
+    // null when it is within it.
+    private Task<bool>? RefuseUploadPastLimitAsync(HttpRequestHead head, HttpRequestBodyFraming framing) =>
+        IsPastUploadLimit(framing)
+            ? RefuseAsync(HttpStatus.ContentTooLarge, null, $"{head.Method} {head.RequestTarget}: the {framing.ContentLength}-byte body is past the upload limit of {context.Limits.MaxUploadBytes} bytes")
+            : null;
 
     // A declared Content-Length is checked before any body byte is read and before method
     // dispatch, so Expect: 100-continue gets the 413 in place of 100 Continue.
@@ -269,23 +322,34 @@ internal sealed class HttpRequestResponder
     }
 
     private HttpResponseHead EmptyResponseHead(HttpStatus status, string? allow, bool keepsConnectionOpen, Version requestVersion) =>
-        new HttpResponseHead(status)
+        AddWwwAuthenticateFields(new HttpResponseHead(status)
             .AddField("Date", FormatHttpDate(Now()))
             .AddField("Server", HttpResponseHead.ServerName)
             .AddField("Allow", allow)
-            .AddField("Content-Length", "0")
+            .AddField("Content-Length", "0"))
             .AddField("Connection", HttpConnectionPersistence.ConnectionFieldValue(keepsConnectionOpen, requestVersion));
+
+    // One WWW-Authenticate field per value, in order (ADR-0032, section 6).
+    private HttpResponseHead AddWwwAuthenticateFields(HttpResponseHead responseHead)
+    {
+        foreach (var value in wwwAuthenticateValues)
+        {
+            responseHead.AddField("WWW-Authenticate", value);
+        }
+
+        return responseHead;
+    }
 
     private async Task<bool> WriteFileResponseAsync(HttpRequestHead head, ContentPathMapping mapping, ContentFileStatus status, bool keepsConnectionOpen)
     {
         var now = Now();
         var lastModified = status.LastModifiedUtc < now ? status.LastModifiedUtc : now;
-        var responseHead = new HttpResponseHead(HttpStatus.Ok)
+        var responseHead = AddWwwAuthenticateFields(new HttpResponseHead(HttpStatus.Ok)
             .AddField("Date", FormatHttpDate(now))
             .AddField("Server", HttpResponseHead.ServerName)
             .AddField("Last-Modified", FormatHttpDate(lastModified))
             .AddField("Content-Type", "application/octet-stream")
-            .AddField("Content-Length", status.Length.ToString(CultureInfo.InvariantCulture))
+            .AddField("Content-Length", status.Length.ToString(CultureInfo.InvariantCulture)))
             .AddField("Connection", HttpConnectionPersistence.ConnectionFieldValue(keepsConnectionOpen, head.Version));
 
         context.Log.Note($"{head.Method} {head.RequestTarget}: 200, {status.Length} bytes of {mapping.Location}");

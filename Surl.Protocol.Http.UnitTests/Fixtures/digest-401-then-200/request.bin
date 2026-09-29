@@ -1,0 +1,11 @@
+GET /file.txt HTTP/1.1
+Host: 127.0.0.1:18114
+User-Agent: curl/8.21.0
+Accept: */*
+
+GET /file.txt HTTP/1.1
+Host: 127.0.0.1:18114
+Authorization: Digest username="tester",realm="surl",nonce="abc",uri="/file.txt",cnonce="7f3e9f265fc4d2623a6d14763950029d",nc=00000001,algorithm=MD5,response="b4a02b13510764079b4765e1895a7d09",qop="auth"
+User-Agent: curl/8.21.0
+Accept: */*
+
