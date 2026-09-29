@@ -47,3 +47,4 @@ decisions BL-035 made for `TelnetProtocolServer`, and the Decisions index lists 
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-29: Backlog -> Doing.
