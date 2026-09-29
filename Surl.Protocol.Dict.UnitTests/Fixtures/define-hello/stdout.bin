@@ -1,0 +1,8 @@
+220 surl DICT server <mime> <1@surl>
+250 ok
+150 1 definitions retrieved
+151 "hello" surl "Files served by surl"
+A greeting.
+.
+250 ok
+221 bye

@@ -1,0 +1,11 @@
+< 220 surl DICT server <mime> <1@surl>
+> CLIENT libcurl 8.21.0
+> MATCH ! . hel
+> QUIT
+< 250 ok
+< 152 2 matches found
+< surl "hello"
+< surl "help"
+< .
+< 250 ok
+< 221 bye
