@@ -115,3 +115,4 @@ Where each option appears in `--help` is ADR-0034's (BL-102).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
