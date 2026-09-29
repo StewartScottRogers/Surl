@@ -8,7 +8,7 @@ depends-on: [BL-137]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
 requirement: FR-035
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-138 — Give every option its agent-facing facts and every exit code its next step in Surl.Cli
 
@@ -43,28 +43,54 @@ agent should do next), exactly as BL-137's ADR decides, with nothing yet printed
 
 ## Acceptance criteria
 
-- [ ] Every `CommandLineOptions.All` row carries (or derives) argument type, allowed values
+- [x] Every `CommandLineOptions.All` row carries (or derives) argument type, allowed values
       and loosens-security exactly as the ADR's decision 5 vocabulary says; the four
       `testing` options are marked as the ADR words it.
-- [ ] A test in `Surl.Cli.UnitTests` (named as the ADR's decision 9 names it) fails when any
+- [x] A test in `Surl.Cli.UnitTests` (named as the ADR's decision 9 names it) fails when any
       option row lacks an argument type or, for an option with an argument, its allowed
       values, and one asserts that the options marked as loosening are exactly the set the
       ADR names.
-- [ ] The exit-code guidance table exists in the file and type the ADR names, and a test
+- [x] The exit-code guidance table exists in the file and type the ADR names, and a test
       asserts it has exactly one row per `Enum.GetValues<SurlExitCode>()` member, each with a
       non-empty meaning and next step.
-- [ ] Tests pin the allowed-values text of `--log-level`, `--tls-max`, `--auth`, one
+- [x] Tests pin the allowed-values text of `--log-level`, `--tls-max`, `--auth`, one
       `<seconds>`, one `<bytes>` and one `<number>` option against what
       `OptionArgumentReader` accepts and refuses at the edges.
-- [ ] `HelpTextTests` passes unchanged: `git diff Surl.Cli.UnitTests/HelpTextTests.cs` is empty.
-- [ ] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean; `dotnet test
+- [x] `HelpTextTests` passes unchanged: `git diff Surl.Cli.UnitTests/HelpTextTests.cs` is empty.
+- [x] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean; `dotnet test
       Surl.Cli.UnitTests --filter "TestCategory!=Integration"` passes; no test needs
       `TestCategory=Integration`; `Surl.Cli.UnitLibrary` stays at 100% line and branch
       coverage (`Measure-CodeQuality.ps1`).
 
 ## Notes
 
+- Built ADR-0046 decisions 5, 6 and 9 as written. `OptionArgumentType(Name, AllowedValues)`
+  holds the vocabulary; `OptionArgumentReading<T>(Read, Type)` takes over the `ReadArgument<T>`
+  delegate `CommandLineOptions` declared privately; `OptionArgumentReader` exposes one pairing
+  per read method (`Seconds`, `Number`, `Bytes`, `Path`, `Text`, `TlsVersion`, `CertificateType`,
+  `KeyType`, `LogLevelWord`, `Account`, `AuthenticationMethods`), the last built from
+  `AuthenticationMethodWords` so the text cannot drift from the reader.
+- `CommandLineOption` gains the positional `ArgumentType` (every row must give one): `Flag`
+  derives it from `Negatable`, `WithArgument<T>` from the pairing, and the `help`, `version`
+  and `manual` rows give `OptionArgumentType.OptionalSubject` / `None`. The `aihelp` row and
+  its `optional topic` type are BL-141's, not added here.
+- Choice: the kind-level types (`OptionalSubject`, `None`, `NotNegatableFlag`,
+  `NegatableFlag(longName)`) live as static members of `OptionArgumentType`, since no reader
+  owns them; the ADR names no home for them.
+- The `limits` suffix and the loosens-security column stay derived from categories (BL-139),
+  so no field was added for them; tests pin the `testing` four and the six other `security`
+  options.
+- `HelpCategory` gains `Schemes` (six protocol categories, empty for the rest); `--help`
+  does not read it, and `HelpTextTests.cs` is unchanged.
+- Exit-code rows are the ADR's table, rechecked against the code: 2 is `RefusedOption`,
+  `NoUrlSpecified`, the malformed user file (`AuthenticationComposition`) and the missing
+  `--cacert` (`CommandLineRunner`); 23 includes the log-file open failure; 6 and 45 come from
+  `ServingEngine`'s bind failures. No word needed changing.
+- Checked: `dotnet build` clean, all fast tests green (Surl.Cli.UnitTests 579),
+  `Measure-CodeQuality.ps1 -Library surl.cli*`: 100% line, 100% branch, worst CRAP 10.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. Every option row carries its argument type and allowed values, protocol categories carry their schemes, and ExitCodeGuidanceTable holds one row per SurlExitCode
