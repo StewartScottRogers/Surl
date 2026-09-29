@@ -1,0 +1,70 @@
+---
+id: BL-053
+title: Enforce the first-packet timeout, packet size and publish payload limit in Surl.Protocol.Mqtt
+priority: Normal
+assignee: Claude
+pipeline: feature
+depends-on: [BL-036, BL-046]
+touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests]
+requirement: none
+created: 2026-09-28
+completed:
+---
+# BL-053 — Enforce the first-packet timeout, packet size and publish payload limit in Surl.Protocol.Mqtt
+
+## Goal
+
+The MQTT server (BL-036) closes with no bytes when the first packet is not complete
+within the head timeout, and closes with no bytes on a packet over 1 MiB or a `PUBLISH`
+payload over `MaxUploadBytes` - all from `ExchangeContext.Limits` - with what pinned
+upstream curl 8.21.0 reports for each close recorded.
+
+## Context
+
+- Specification: `Documentation/Planning/Decisions/ADR-0006-hardening-for-internet-facing-use.md`,
+  sections 1 (head timeout "or first packet (the binary-framed ones)", "Maximum framed
+  message: MQTT packet", "Maximum upload: … an MQTT `PUBLISH` payload"), 3 (fixed error
+  text) and 5 (the framed-protocol column and "MQTT closes without a reply": close with
+  no bytes for a head timeout, a connection refusal, a framed message too long and an
+  upload too large). Contract types come from BL-046.
+- Head timeout: `HeadTimeout` on `ExchangeContext.TimeProvider`, from the start of
+  `ServeAsync` until the first packet (`CONNECT`) is complete. Later packets are governed
+  by `Surl.Core`'s idle timeout only.
+- Packet size: `MaxMessageBytes` (default 1048576) counts the whole packet, fixed header
+  included. Decide it from the fixed header and remaining length (MQTT 3.1.1 section
+  2.2.3) before reading the body, so the server never reads past the limit. A `PUBLISH`
+  whose payload length (remaining length minus variable header) exceeds
+  `MaxUploadBytes` gets the same answer.
+- No `IConnectionRefusalWriter`: a refusal is a bare close (ADR-0006 section 5).
+- MQTT 3.1.1, the level upstream curl speaks, has no server-to-client `DISCONNECT` and
+  no reason codes (those are MQTT 5.0), which is why ADR-0006 closes without a reply.
+- Measurement (ADR-0003): record what the pinned build reports for each close - after
+  an over-limit packet, after an over-limit `PUBLISH` (curl `-d @<file>` with a file
+  over a lowered limit), and before `CONNACK` - with
+  `Record-CurlExchange.ps1 -Raw` (BL-029); commit each under
+  `Surl.Protocol.Mqtt.UnitTests/Fixtures/<case>/` as `EmbeddedResource` with the command
+  line and build SHA-256 in its `README.md`, recording curl's exit code and stderr as the
+  build reported them.
+
+## Acceptance criteria
+
+- [ ] `HeadTimeoutTests.PartialConnect_AfterHeadTimeout_ClosesWithNoBytes` passes, and a
+      test proves a connected client idle past `HeadTimeout` is not disconnected by it.
+- [ ] `PacketLimitTests.PacketOfExactlyTheLimit_IsAccepted` and
+      `PacketLimitTests.PacketOneByteOverTheLimit_ClosesWithNoBytes` pass, the second
+      proving no body byte was read.
+- [ ] `PublishPayloadLimitTests.PayloadOverMaxUploadBytes_ClosesWithNoBytes` passes, and
+      a test proves `MaxMessageBytes = 0` and `MaxUploadBytes = 0` accept a 2 MiB
+      `PUBLISH`.
+- [ ] Recordings for each case above are committed, with pinned upstream curl 8.21.0's
+      exit code and stderr for each close.
+- [ ] `dotnet build Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast tests
+      are green with no `Integration` test in `Surl.Protocol.Mqtt.UnitTests`, and
+      `Measure-CodeQuality.ps1` reports no failing member in
+      `Surl.Protocol.Mqtt.UnitLibrary`.
+
+## Notes
+
+## Log
+
+- 2026-09-28: Created.
