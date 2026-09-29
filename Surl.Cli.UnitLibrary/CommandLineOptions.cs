@@ -19,7 +19,7 @@ internal static class CommandLineOptions
         new("help", 'h', CommandLineOptionKind.Help, Negatable: false, SetFlag: null, ApplyArgument: null),
         new("version", 'V', CommandLineOptionKind.Version, Negatable: false, SetFlag: null, ApplyArgument: null),
         Flag("verbose", 'v', negatable: true, (c, on) => c with { Verbose = on }),
-        WithArgument<string>("directory", null, OptionArgumentReader.ReadPath, (c, v) => c with { ServedDirectory = v }),
+        WithArgument<string>("directory", null, OptionArgumentReader.ReadPath, (c, v) => c with { DataDirectory = v }),
         Flag("allow-uploads", null, negatable: true, (c, on) => c with { AllowUploads = on }),
         Flag("list-directories", null, negatable: true, (c, on) => c with { ListDirectories = on }),
         Flag("follow-symlinks", null, negatable: true, (c, on) => c with { FollowSymlinks = on }),

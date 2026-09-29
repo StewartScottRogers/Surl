@@ -77,7 +77,7 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public async Task RunAsync_ServedDirectoryCannotBeOpened_WritesCouldNotOpenDirectoryAndReturnsCouldNotReadFile()
+    public async Task RunAsync_DataDirectoryCannotBeOpened_WritesCouldNotOpenDirectoryAndReturnsCouldNotReadFile()
     {
         var factory = new FakeListenerFactory();
         var probedPaths = new List<string>();
@@ -97,6 +97,33 @@ public sealed class CommandLineRunnerTests
         Assert.AreEqual("surl: (37) Could not open directory no-such-dir" + NewLine, error);
         CollectionAssert.AreEqual(new[] { "no-such-dir" }, probedPaths);
         Assert.IsEmpty(factory.StartedListenUrls);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_NoDirectory_NeverProbesADataDirectoryAndServesInMemory()
+    {
+        var factory = new FakeListenerFactory();
+        var probedPaths = new List<string>();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var running = new CommandLineRunner(
+                _ => factory,
+                path =>
+                {
+                    probedPaths.Add(path);
+                    return false;
+                },
+                TimeProvider.System)
+            .RunAsync(["http://127.0.0.1:0/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.IsEmpty(probedPaths);
+        Assert.AreEqual(string.Empty, error.ToString());
     }
 
     [TestMethod]
@@ -305,7 +332,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_NoExposureOption_ServesWithAdr0006Defaults()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("http://127.0.0.1:0/"));
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions(), store.ExposureOptions);
     }
@@ -313,7 +340,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_AllowUploads_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--allow-uploads", "http://127.0.0.1:0/"));
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--allow-uploads", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { AllowUploads = true }, store.ExposureOptions);
     }
@@ -321,7 +348,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_ListDirectories_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--list-directories", "http://127.0.0.1:0/"));
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--list-directories", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { ListDirectories = true }, store.ExposureOptions);
     }
@@ -329,7 +356,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_FollowSymlinks_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--follow-symlinks", "http://127.0.0.1:0/"));
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--follow-symlinks", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { FollowSymbolicLinks = true }, store.ExposureOptions);
     }
@@ -337,7 +364,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_ServeDotFiles_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--serve-dot-files", "http://127.0.0.1:0/"));
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--serve-dot-files", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { ServeDotFiles = true }, store.ExposureOptions);
     }
@@ -345,17 +372,68 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_MaxFilesize_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--max-filesize", "4096", "http://127.0.0.1:0/"));
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("--max-filesize", "4096", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { MaxUploadBytes = 4096 }, store.ExposureOptions);
     }
 
     [TestMethod]
-    public void ComposeContentStore_ServedDirectory_ServesItsFullPath()
+    public void ComposeContentStore_DataDirectory_ServesItsFullPathOnDisk()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--directory", "served", "http://127.0.0.1:0/"));
+        var commandLine = ParseServing("--directory", "served", "http://127.0.0.1:0/");
+
+        var store = CommandLineRunner.ComposeContentStore(commandLine, TimeProvider.System);
 
         Assert.AreEqual(Path.GetFullPath("served"), store.ServedRoot);
+        Assert.IsInstanceOfType<DiskContentFileSystem>(
+            CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System));
+    }
+
+    [TestMethod]
+    public void ComposeContentStore_NoDirectory_ServesANewInMemoryFileSystemAtItsRoot()
+    {
+        var commandLine = ParseServing("http://127.0.0.1:0/");
+
+        var store = CommandLineRunner.ComposeContentStore(commandLine, TimeProvider.System);
+
+        Assert.AreEqual(InMemoryContentFileSystem.RootPath, store.ServedRoot);
+        var fileSystem = CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System);
+        Assert.IsInstanceOfType<InMemoryContentFileSystem>(fileSystem);
+        Assert.AreEqual(0L, ((InMemoryContentFileSystem)fileSystem).TotalBytes);
+        Assert.AreNotSame(fileSystem, CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System));
+    }
+
+    [TestMethod]
+    public async Task ComposeContentStore_NoDirectoryWithAllowUploads_KeepsAnUploadInMemoryAndServesItsBytesBack()
+    {
+        byte[] uploaded = [0x00, 0x01, 0xFE, 0xFF, (byte)'s', (byte)'u', (byte)'r', (byte)'l'];
+        var store = CommandLineRunner.ComposeContentStore(
+            ParseServing("--allow-uploads", "tftp://127.0.0.1:0/"), TimeProvider.System);
+        var mapping = store.MapRequestPath("/up.bin");
+
+        using var source = new MemoryStream(uploaded);
+        var result = await store.WriteUploadAsync(mapping, source, TestContext.CancellationToken);
+        using var readBack = new MemoryStream();
+        var written = store.MapRequestPath("/up.bin");
+        await store.CopyFileBytesAsync(
+            written, ContentByteRange.WholeFile(uploaded.Length), readBack, TestContext.CancellationToken);
+
+        Assert.AreEqual(ContentUploadResult.Written, result);
+        CollectionAssert.AreEqual(uploaded, readBack.ToArray());
+        Assert.IsFalse(File.Exists(Path.Combine(InMemoryContentFileSystem.RootPath, "up.bin")));
+    }
+
+    [TestMethod]
+    public async Task ComposeContentStore_NoDirectoryWithoutAllowUploads_RefusesTheUpload()
+    {
+        var store = CommandLineRunner.ComposeContentStore(ParseServing("tftp://127.0.0.1:0/"), TimeProvider.System);
+        var mapping = store.MapRequestPath("/up.bin");
+
+        using var source = new MemoryStream([1, 2, 3]);
+        var result = await store.WriteUploadAsync(mapping, source, TestContext.CancellationToken);
+
+        Assert.AreEqual(ContentUploadResult.NotPermitted, result);
+        Assert.AreEqual(ContentEntryKind.None, store.GetEntryKind(store.MapRequestPath("/up.bin")));
     }
 
     [TestMethod]
@@ -440,12 +518,12 @@ public sealed class CommandLineRunnerTests
         RunAsync(factory, AnyDirectoryOpens, args);
 
     private async Task<(SurlExitCode ExitCode, string Output, string Error)> RunAsync(
-        FakeListenerFactory factory, Func<string, bool> canOpenServedDirectory, params string[] args)
+        FakeListenerFactory factory, Func<string, bool> canOpenDataDirectory, params string[] args)
     {
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await new CommandLineRunner(_ => factory, canOpenServedDirectory, TimeProvider.System)
+        var exitCode = await new CommandLineRunner(_ => factory, canOpenDataDirectory, TimeProvider.System)
             .RunAsync(args, output, error, TestContext.CancellationToken);
 
         return (exitCode, output.ToString(), error.ToString());

@@ -11,11 +11,11 @@ public sealed class HelpTextTests
         var nl = Environment.NewLine;
         var expected =
             "Usage: surl [options...] <url>..." + nl +
-            "     --allow-uploads                         Accept uploads into the served directory" + nl +
+            "     --allow-uploads                         Accept uploads into the served files" + nl +
             "     --cacert <file>                         CA certificates that verify client certificates" + nl +
             "     --cert <file>                           Server certificate for secure schemes" + nl +
             "     --cert-type <type>                      Format of --cert: PEM, DER or P12 (default PEM)" + nl +
-            "     --directory <directory>                 Directory to serve (default: current directory)" + nl +
+            "     --directory <directory>                 Serve and keep state in <directory> (default: in memory)" + nl +
             "     --follow-symlinks                       Follow links that stay inside the directory" + nl +
             "     --head-timeout <seconds>                Time a peer has to send a request head (default 30)" + nl +
             " -h, --help                                  Show this help and quit" + nl +

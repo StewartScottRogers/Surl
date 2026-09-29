@@ -9,7 +9,7 @@ namespace Surl.Cli;
 /// <remarks>
 /// Table-driven: every option is a row of <see cref="CommandLineOptions"/>, so a new option
 /// is a new row, not a new branch. Whether a registered protocol server claims each scheme,
-/// and whether the served directory exists, are checked later by <c>Surl.Console</c>.
+/// and whether the data directory exists, are checked later by <c>Surl.Console</c>.
 /// </remarks>
 public static class CommandLineParser
 {

@@ -8,8 +8,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `Program.RunAsync(args, output, error, cancellationToken)`, the internal entry point the
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help` and
-  `--version`, checks the served directory (`ServedDirectoryProbe`) and every scheme
-  against the registered protocol servers, then builds the content store, the protocol
+  `--version`, checks the data directory when `--directory` names one
+  (`ServedDirectoryProbe`) and every scheme against the registered protocol servers, then
+  builds the content store (on disk with `--directory`, a new `InMemoryContentFileSystem`
+  without it, ADR-0031), the protocol
   servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
   `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),

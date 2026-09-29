@@ -4,18 +4,18 @@ namespace Surl.Conformance;
 
 /// <summary>
 /// <c>surl</c> running in-process on an ephemeral loopback port, serving a fresh temporary
-/// directory, through the same entry point the executable uses. Disposing it stops surl and
-/// deletes the directory.
+/// directory or, without <c>--directory</c>, its own in-memory file system, through the same
+/// entry point the executable uses. Disposing it stops surl and deletes the directory, if any.
 /// </summary>
 internal sealed class SurlOnLoopback : IAsyncDisposable
 {
     private const string StatusLinePrefix = "Listening on ";
 
-    private readonly DirectoryInfo servedDirectory;
+    private readonly DirectoryInfo? servedDirectory;
     private readonly CancellationTokenSource stop;
     private readonly Task<int> running;
 
-    private SurlOnLoopback(DirectoryInfo servedDirectory, CancellationTokenSource stop, Task<int> running, Uri baseUrl)
+    private SurlOnLoopback(DirectoryInfo? servedDirectory, CancellationTokenSource stop, Task<int> running, Uri baseUrl)
     {
         this.servedDirectory = servedDirectory;
         this.stop = stop;
@@ -24,7 +24,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets the URL of the served directory's root, with the port surl bound, such as
+    /// Gets the URL of the served root, with the port surl bound, such as
     /// <c>http://127.0.0.1:49731/</c>.
     /// </summary>
     public Uri BaseUrl { get; }
@@ -61,10 +61,25 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
             await File.WriteAllBytesAsync(Path.Combine(directory.FullName, name), contents, cancellationToken);
         }
 
+        return await StartServingAsync(
+            directory, [.. options, "--directory", directory.FullName, $"{scheme}://127.0.0.1:0/"], cancellationToken);
+    }
+
+    /// <summary>
+    /// Starts surl on <c><paramref name="scheme"/>://127.0.0.1:0/</c> with <paramref name="options"/>
+    /// and no <c>--directory</c>, so it serves a new, empty in-memory file system, returning once
+    /// surl has written its status line.
+    /// </summary>
+    public static Task<SurlOnLoopback> StartInMemoryAsync(
+        string scheme, IReadOnlyList<string> options, CancellationToken cancellationToken) =>
+        StartServingAsync(null, [.. options, $"{scheme}://127.0.0.1:0/"], cancellationToken);
+
+    private static async Task<SurlOnLoopback> StartServingAsync(
+        DirectoryInfo? directory, string[] args, CancellationToken cancellationToken)
+    {
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var output = new FirstLineWriter();
-        var running = Program.RunAsync(
-            [.. options, "--directory", directory.FullName, $"{scheme}://127.0.0.1:0/"], output, TextWriter.Null, stop.Token);
+        var running = Program.RunAsync(args, output, TextWriter.Null, stop.Token);
         var statusLine = await Task.WhenAny(output.FirstLine, running) == running
             ? throw new InvalidOperationException($"surl exited {await running} before it listened.")
             : await output.FirstLine.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
@@ -73,7 +88,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     }
 
     /// <summary>
-    /// Gets the URL of <paramref name="relativePath"/> under the served directory.
+    /// Gets the URL of <paramref name="relativePath"/> under the served root.
     /// </summary>
     public string UrlOf(string relativePath) => new Uri(BaseUrl, relativePath).AbsoluteUri;
 
@@ -83,7 +98,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         await stop.CancelAsync();
         await running;
         stop.Dispose();
-        servedDirectory.Delete(recursive: true);
+        servedDirectory?.Delete(recursive: true);
     }
 
     /// <summary>A thread-safe writer that hands out the first whole line written to it.</summary>

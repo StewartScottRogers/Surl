@@ -18,24 +18,24 @@ namespace Surl.Console;
 
 /// <summary>
 /// Runs one <c>surl</c> command line: the composition root. It parses the command line,
-/// answers <c>--help</c> and <c>--version</c>, checks the served directory and the schemes,
-/// then constructs the TLS settings, the content store, the protocol servers, the exchange log
-/// and the serving engine explicitly and serves until cancelled, writing ADR-0007 section 5's
-/// texts and returning its exit codes.
+/// answers <c>--help</c> and <c>--version</c>, checks the data directory when one is given and
+/// the schemes, then constructs the TLS settings, the content store (on disk or in memory), the
+/// protocol servers, the exchange log and the serving engine explicitly and serves until
+/// cancelled, writing ADR-0007 section 5's texts and returning its exit codes.
 /// </summary>
 /// <param name="createListenerFactory">
 /// Creates the factory that starts the listeners, given the process's TLS settings
 /// (<see langword="null"/> when no listen URL is TLS from the first byte); <c>surl</c> passes
 /// one that creates a <see cref="SocketListenerFactory"/>.
 /// </param>
-/// <param name="canOpenServedDirectory">
-/// Tells whether the served directory, as given, can be opened; <c>surl</c> passes
-/// <see cref="ServedDirectoryProbe.CanOpen"/>.
+/// <param name="canOpenDataDirectory">
+/// Tells whether the data directory, as given with <c>--directory</c>, can be opened; never
+/// called without <c>--directory</c>. <c>surl</c> passes <see cref="ServedDirectoryProbe.CanOpen"/>.
 /// </param>
 /// <param name="timeProvider">The one clock every exchange runs on.</param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
-    Func<string, bool> canOpenServedDirectory,
+    Func<string, bool> canOpenDataDirectory,
     TimeProvider timeProvider)
 {
     private const string MessagePrefix = "surl: ";
@@ -112,26 +112,42 @@ internal sealed class CommandLineRunner(
         return exitCode;
     }
 
-    private static string ComposeVersionText()
+    private string ComposeVersionText()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttributes<AssemblyInformationalVersionAttribute>()
             .Select(attribute => attribute.InformationalVersion)
             .FirstOrDefault();
-        var servers = ComposeProtocolServers(ComposeContentStore(new SurlCommandLine()));
+        var servers = ComposeProtocolServers(ComposeContentStore(new SurlCommandLine(), timeProvider));
 
         return VersionText.Compose(
             informationalVersion, RuntimeInformation.RuntimeIdentifier, servers.SelectMany(server => server.Schemes));
     }
 
     /// <summary>
-    /// Builds the one content store every protocol server reads: the served directory as a full
-    /// path, on disk, exposing what the command line's exposure options allow (ADR-0006).
+    /// Builds the one content store every protocol server reads, exposing what the command
+    /// line's exposure options allow (ADR-0006): the data directory's full path on disk with
+    /// <c>--directory</c>, and a new, empty in-memory file system at
+    /// <see cref="InMemoryContentFileSystem.RootPath"/> without it (ADR-0031 decisions 1 and 4).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="timeProvider">The clock the in-memory file system stamps last-write times with.</param>
     /// <returns>The content store.</returns>
-    internal static ContentStore ComposeContentStore(SurlCommandLine commandLine) =>
-        new(Path.GetFullPath(commandLine.ServedDirectory), new DiskContentFileSystem(), MapExposureOptions(commandLine));
+    internal static ContentStore ComposeContentStore(SurlCommandLine commandLine, TimeProvider timeProvider) =>
+        new(
+            commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath,
+            ComposeContentFileSystem(commandLine, timeProvider),
+            MapExposureOptions(commandLine));
+
+    /// <summary>
+    /// Chooses the file system the content store serves: <see cref="DiskContentFileSystem"/>
+    /// with <c>--directory</c>, a new <see cref="InMemoryContentFileSystem"/> without it.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="timeProvider">The clock the in-memory file system stamps last-write times with.</param>
+    /// <returns>The file system.</returns>
+    internal static IContentFileSystem ComposeContentFileSystem(SurlCommandLine commandLine, TimeProvider timeProvider) =>
+        commandLine.DataDirectory is null ? new InMemoryContentFileSystem(timeProvider) : new DiskContentFileSystem();
 
     private static ContentExposureOptions MapExposureOptions(SurlCommandLine commandLine) => new()
     {
@@ -219,13 +235,12 @@ internal sealed class CommandLineRunner(
     private async Task<SurlExitCode> ServeAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
-        if (!canOpenServedDirectory(commandLine.ServedDirectory))
+        if (commandLine.DataDirectory is { } dataDirectory && !canOpenDataDirectory(dataDirectory))
         {
-            return WriteFailure(
-                error, SurlExitCode.CouldNotReadFile, $"(37) Could not open directory {commandLine.ServedDirectory}");
+            return WriteFailure(error, SurlExitCode.CouldNotReadFile, $"(37) Could not open directory {dataDirectory}");
         }
 
-        var servers = ComposeProtocolServers(ComposeContentStore(commandLine));
+        var servers = ComposeProtocolServers(ComposeContentStore(commandLine, timeProvider));
         if (FindUnregisteredScheme(commandLine.ListenUrls, servers) is { } scheme)
         {
             return WriteFailure(error, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
