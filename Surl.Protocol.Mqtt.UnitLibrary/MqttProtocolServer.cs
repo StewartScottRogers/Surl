@@ -46,7 +46,18 @@ namespace Surl.Protocol.Mqtt;
 /// <see cref="MqttRetainedMessages.MaxTotalPayloadBytes"/>); so do a remaining
 /// length whose fourth byte has its continuation bit set, and a packet whose fixed header
 /// announces more than <see cref="ExchangeLimits.MaxMessageBytes"/> bytes, fixed header
-/// included, which is refused before any of its body is read (ADR-0006, sections 1 and 5).
+/// included, which is refused before any of its body is read (ADR-0006, sections 1 and 5);
+/// so does a <c>PUBLISH</c> whose payload is longer than
+/// <see cref="ExchangeLimits.MaxUploadBytes"/>, refused once the two bytes of its topic
+/// name's length are read and before any more of it is; and so does a first packet
+/// (<c>CONNECT</c>) not complete within <see cref="ExchangeLimits.HeadTimeout"/> of the
+/// start of <see cref="ServeAsync"/>. Once it is complete, the head timeout no longer
+/// applies: a quiet client is bounded only by <c>Surl.Core</c>'s idle timeout. MQTT 3.1.1
+/// has no packet a server sends to say why, so each limit closes with no bytes, and a
+/// connection past a connection limit is closed bare too: there is no
+/// <see cref="IConnectionRefusalWriter"/> (ADR-0006, section 5). Upstream curl 8.21.0
+/// reports a close before <c>CONNACK</c> as exit 56, "Connection disconnected", and a close
+/// after the <c>PUBLISH</c> of <c>-d</c> not at all: it exits 0 without waiting for a reply.
 /// A client that closes part way through a packet gets no reply. Every close is noted in
 /// the exchange log.
 /// </para>
@@ -83,20 +94,40 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        var reader = new MqttPacketReader(connection, context.Limits.MaxMessageBytes);
+        var reader = new MqttPacketReader(connection, context.Limits.MaxMessageBytes, context.Limits.MaxUploadBytes);
         var responder = new MqttPacketResponder(connection, context, retainedMessages);
-        var keepsConnectionOpen = true;
 
-        while (keepsConnectionOpen)
+        var result = await ReadFirstPacketAsync(reader, context);
+        while (result.Packet is { } packet && await responder.AnswerAsync(packet))
         {
-            var result = await reader.ReadPacketAsync(context.CancellationToken);
-            keepsConnectionOpen = result.Packet is { } packet
-                ? await responder.AnswerAsync(packet)
-                : NoteNoPacket(context, result.Outcome);
+            result = await reader.ReadPacketAsync(context.CancellationToken);
+        }
+
+        NoteNoPacket(context, result.Outcome);
+    }
+
+    // The head timeout runs from here until the first packet is complete; later packets are
+    // bounded only by Surl.Core's idle timeout (ADR-0006, section 1).
+    private static async ValueTask<MqttPacketReadResult> ReadFirstPacketAsync(MqttPacketReader reader, ExchangeContext context)
+    {
+        if (context.Limits.HeadTimeout == Timeout.InfiniteTimeSpan)
+        {
+            return await reader.ReadPacketAsync(context.CancellationToken);
+        }
+
+        using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
+        try
+        {
+            return await reader.ReadPacketAsync(cancellation.Token);
+        }
+        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            return MqttPacketReadResult.NoPacket(MqttPacketReadOutcome.HeadTimedOut);
         }
     }
 
-    private static bool NoteNoPacket(ExchangeContext context, MqttPacketReadOutcome outcome)
+    private static void NoteNoPacket(ExchangeContext context, MqttPacketReadOutcome outcome)
     {
         switch (outcome)
         {
@@ -109,8 +140,12 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer
             case MqttPacketReadOutcome.PacketTooLarge:
                 context.Log.Note($"A packet was longer than {context.Limits.MaxMessageBytes} bytes; closed with no reply.");
                 break;
+            case MqttPacketReadOutcome.PublishPayloadTooLarge:
+                context.Log.Note($"A PUBLISH payload was longer than {context.Limits.MaxUploadBytes} bytes; closed with no reply.");
+                break;
+            case MqttPacketReadOutcome.HeadTimedOut:
+                context.Log.Note("The first packet was not complete within the head timeout; closed with no reply.");
+                break;
         }
-
-        return false;
     }
 }

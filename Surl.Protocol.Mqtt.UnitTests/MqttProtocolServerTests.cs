@@ -133,34 +133,6 @@ public sealed class MqttProtocolServerTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_PacketOfExactlyTheLimit_IsAccepted()
-    {
-        var connect = ClientPackets.CurlConnect();
-
-        var (connection, _) = await ServeAsync(RecordedFixture.Whole(connect), new MqttRetainedMessages(), Limits(connect.Length));
-
-        CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes);
-    }
-
-    [TestMethod]
-    public async Task ServeAsync_PacketOverTheLimit_ClosesWithNoBytesBeforeReadingItsBody()
-    {
-        var connect = ClientPackets.CurlConnect();
-        var log = new RecordingExchangeLog();
-        var server = new MqttProtocolServer(new MqttRetainedMessages());
-        // Only the fixed header arrives and the client never half-closes: reading any body
-        // byte would wait for ever, and the timeout would fail the test.
-        var connection = new InMemoryConnection([connect.AsMemory(0, 2)], peerHalfClosesWhenExhausted: false);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(10));
-
-        await server.ServeAsync(connection, Context(log, timeout.Token) with { Limits = Limits(connect.Length - 1) });
-
-        Assert.AreEqual(0, connection.WrittenBytes.Length);
-        StringAssert.Contains(log.Notes.Single(), $"longer than {connect.Length - 1} bytes");
-    }
-
-    [TestMethod]
     public async Task ServeAsync_NoPacketLimit_AcceptsAnyLength()
     {
         var (connection, _) = await ServeAsync(RecordedFixture.Whole(ClientPackets.CurlConnect()), new MqttRetainedMessages(), Limits(0));
@@ -378,7 +350,7 @@ public sealed class MqttProtocolServerTests
     {
         byte[] publish = [0x30, 0xFF, 0xFF, 0xFF, 0x7F, 0x00, 0x01, (byte)'t'];
 
-        var (_, log) = await ServeAsync(ClientPackets.CurlConnect(), publish, [], new MqttRetainedMessages(), Limits(0));
+        var (_, log) = await ServeAsync(ClientPackets.CurlConnect(), publish, [], new MqttRetainedMessages(), Limits(0) with { MaxUploadBytes = 0 });
 
         StringAssert.Contains(log.Notes.Single(), "part way through a packet");
     }

@@ -19,4 +19,10 @@ internal enum MqttPacketReadOutcome
 
     /// <summary>The fixed header announced a packet longer than the packet limit.</summary>
     PacketTooLarge,
+
+    /// <summary>A <c>PUBLISH</c> announced a payload longer than the payload limit.</summary>
+    PublishPayloadTooLarge,
+
+    /// <summary>The first packet was not complete within the head timeout.</summary>
+    HeadTimedOut,
 }
