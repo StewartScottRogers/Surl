@@ -8,7 +8,7 @@ depends-on: [BL-025]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests, Surl.Core.UnitLibrary, Surl.Core.UnitTests, Surl.Output.UnitLibrary, Surl.Output.UnitTests, Surl.Console, Surl.Console.UnitTests, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-074 — Log each connection refused past a connection limit
 
@@ -31,11 +31,11 @@ and the limit it passed.
 
 ## Acceptance criteria
 
-- [ ] A `Surl.Core.UnitTests` test proves a refusal for each `ConnectionRefusal` value
+- [x] A `Surl.Core.UnitTests` test proves a refusal for each `ConnectionRefusal` value
       logs one line naming the remote endpoint and the limit.
-- [ ] The decision and the line format are recorded in an ADR, and ADR-0007's verbose-log
+- [x] The decision and the line format are recorded in an ADR, and ADR-0007's verbose-log
       section points to it.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and
       `Measure-CodeQuality.ps1` reports no failing member in the libraries touched.
 
 ## Notes
@@ -66,6 +66,11 @@ and the limit it passed.
   - Still to do once BL-061 is Done: write ADR-0024 (next free number then) with the
     above, add it to the Decisions README, and point ADR-0007 section 8's engine-notes
     bullet to it.
+- 2026-09-29 (lane 1): the stashed code was not in this checkout, so it was rewritten from
+  the design above. BL-061 was no longer in Doing, so the ADR went in as ADR-0028 (0024 to
+  0027 were taken meanwhile), with its row in the Decisions README and a pointer from
+  ADR-0007 section 8. Build clean with `-warnaserror`, fast tests green (Core 108, Output
+  55), `Measure-CodeQuality.ps1`: 0 failing members.
 
 ## Log
 
@@ -73,3 +78,4 @@ and the limit it passed.
 - 2026-09-29: Backlog -> Doing.
 - 2026-09-29: Doing -> Backlog. Needs Documentation/Planning/Decisions for its ADR, which BL-061 (in Doing) touches; code is done, see Notes
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. With -v, a connection or flow refused past --max-connections or --max-connections-per-address logs '#- * Refused ... from <remote>: past <limit> <n>.' (ADR-0028)

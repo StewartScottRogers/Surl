@@ -467,6 +467,9 @@ concurrent exchanges never interleave. Without `-v` it writes nothing.
   `<remote>` and `<local>` are `IPEndPoint.ToString()` (`127.0.0.1:50000`,
   `[::1]:50000`), and `<listen url>` is written as in the status line. A limit being hit
   is noted by whoever enforces it, naming the limit (ADR-0006); each task pins its text.
+  A connection or flow refused past a connection limit belongs to no exchange, so its
+  note is written as `#- * <text>`, with `-` where the exchange id goes; its seam and text
+  are [ADR-0028](ADR-0028-a-connection-refused-past-a-limit-is-noted-outside-any-exchange.md).
 
 Example of one HTTP exchange:
 
