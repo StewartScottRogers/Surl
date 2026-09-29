@@ -8,7 +8,7 @@ depends-on: [BL-117, BL-125]
 touches: [Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests, Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests]
 requirement: FR-014
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-131 — Remove the HTTP and MQTT servers' constructors that default to AnonymousAuthenticationPolicy
 
@@ -33,15 +33,24 @@ and BL-125 (in `Doing` at the time) touches both.
 
 ## Acceptance criteria
 
-- [ ] `grep -rn "public HttpProtocolServer(ContentStore contentStore)$\|public MqttProtocolServer(MqttRetainedMessages retainedMessages)$"`
+- [x] `grep -rn "public HttpProtocolServer(ContentStore contentStore)$\|public MqttProtocolServer(MqttRetainedMessages retainedMessages)$"`
       over the two libraries finds nothing.
-- [ ] Each server's CLAUDE.md and XML docs no longer mention the one-argument constructor.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests pass, and both libraries keep 100%
+- [x] Each server's CLAUDE.md and XML docs no longer mention the one-argument constructor.
+- [x] `dotnet build -warnaserror` is clean, the fast tests pass, and both libraries keep 100%
       line and branch coverage.
 
 ## Notes
+
+- Removed both one-argument constructors and their XML docs; the MQTT CLAUDE.md now says
+  the only constructor takes the policy. Every test that used them (including
+  `HeadTimeoutTests` and `HttpServerHarness`, not listed in Context) passes
+  `new AnonymousAuthenticationPolicy()` explicitly; `MqttProtocolServerTests`' helper now
+  uses `policy ?? new AnonymousAuthenticationPolicy()` instead of choosing a constructor.
+- `dotnet build -warnaserror` clean; fast tests green (HTTP 347, MQTT 242);
+  `Measure-CodeQuality.ps1 -Library` reports 0 failing members for both libraries.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. HttpProtocolServer and MqttProtocolServer can only be built with an IAuthenticationPolicy
