@@ -29,6 +29,12 @@ What it holds:
   `IConnection.UpgradeToTlsAsync`, `TlsSession`, `TlsHandshakeException`, and
   `TlsSchemes.IsImplicitTls`. `InMemoryConnection` stands in for implicit TLS (an initial
   session) and for an upgrade (`UpgradeRequested`, a configurable session, or a failure).
+- The authentication contract (ADR-0032, section 6): `IAuthenticationPolicy` (a password
+  login, `PasswordLogin` judged as a `PasswordLoginVerdict`, and one
+  `IHttpAuthenticationSession` per HTTP connection), `HttpAuthenticationRequest` and
+  `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome`. `Surl.Authentication`
+  implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request
+  proceed, and is the test double protocol tests share.
 
 There is no in-memory datagram flow here: TFTP is its only user, so its tests drive the
 server through their own hand-written `ScriptedDatagramFlow` (BL-037, in
