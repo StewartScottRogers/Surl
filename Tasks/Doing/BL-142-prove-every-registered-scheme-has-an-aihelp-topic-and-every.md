@@ -56,3 +56,4 @@ command line - the two checks BL-137's ADR places in `Surl.Console.UnitTests`.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
