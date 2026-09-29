@@ -48,3 +48,4 @@ tests on Linux and macOS. Those tests pass there instead of reporting Inconclusi
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
