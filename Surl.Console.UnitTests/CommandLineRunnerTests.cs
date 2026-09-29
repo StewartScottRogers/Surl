@@ -29,7 +29,7 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public async Task RunAsync_Version_WritesVersionWithTheDictGopherHttpHttpsMqttTelnetAndTftpSchemesAndReturnsOk()
+    public async Task RunAsync_Version_WritesVersionWithTheDictGopherGophersHttpHttpsMqttTelnetAndTftpSchemesAndReturnsOk()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
@@ -37,8 +37,8 @@ public sealed class CommandLineRunnerTests
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "gopher", "http", "https", "mqtt", "telnet", "tftp"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: dict gopher http https mqtt telnet tftp" + NewLine);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "gopher", "gophers", "http", "https", "mqtt", "telnet", "tftp"]), output);
+        StringAssert.EndsWith(output, NewLine + "Protocols: dict gopher gophers http https mqtt telnet tftp" + NewLine);
         Assert.AreEqual(string.Empty, error);
     }
 

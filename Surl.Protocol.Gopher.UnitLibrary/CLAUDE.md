@@ -5,8 +5,11 @@ Phase 1, alongside HTTP.
 The Gopher server (RFC 1436): serves menus and documents from the content store for the
 selector upstream curl sends.
 
-**URL schemes answered:** `gopher` today (`GopherProtocolServer.Schemes`); `gophers`, the
-same server over TLS, joins it with the TLS contract (ADR-0010).
+**URL schemes answered:** `gopher` and `gophers` (`GopherProtocolServer.Schemes`).
+`gophers` is the same server over implicit TLS: the engine performs the handshake and
+hands the server a connection that already carries plaintext (ADR-0010), so nothing here
+constructs an `SslStream` or calls `UpgradeToTlsAsync`, and a `gophers` exchange is
+answered exactly as a `gopher` one, menus included (ADR-0012).
 
 `GopherProtocolServer` answers one selector per connection, as ADR-0012 decides: the
 selector is read as a percent-encoded path and mapped by `Surl.Content`'s `ContentStore`,

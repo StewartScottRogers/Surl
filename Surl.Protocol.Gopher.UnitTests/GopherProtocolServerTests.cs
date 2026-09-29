@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Security;
+using System.Security.Authentication;
 using System.Text;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
@@ -14,6 +16,10 @@ public sealed class GopherProtocolServerTests
     private static readonly string Root = Path.Join(Path.GetTempPath(), "surl-gopher-tests");
     private static readonly DateTimeOffset FileTime = new(2026, 9, 1, 8, 30, 0, TimeSpan.Zero);
 
+    // The engine hands a gophers exchange a connection whose implicit handshake is done (ADR-0010).
+    private static readonly ListenUrl GophersListenUrl = new ListenUrl("gophers", "127.0.0.1", 18634).WithBoundPort(18634);
+    private static readonly TlsSession ImplicitTlsSession = new(SslProtocols.Tls12, TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, null, null, null);
+
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
@@ -23,11 +29,47 @@ public sealed class GopherProtocolServerTests
     }
 
     [TestMethod]
-    public void Schemes_IsGopherOnly()
+    public void Schemes_AreGopherThenGophers()
     {
         var server = new GopherProtocolServer(new ContentStore(Root, StandardFileSystem()));
 
-        CollectionAssert.AreEqual(new[] { "gopher" }, server.Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "gopher", "gophers" }, server.Schemes.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ServeAsync_RecordedGophersFileSelectorOverTls_SendsTheFileBytesCurlAcceptedAndCloses(bool oneBytePerRead)
+    {
+        var (connection, log) = await ServeAsync(
+            RecordedFixture.ReadRequestBytes("gophers-file-selector"),
+            oneBytePerRead: oneBytePerRead,
+            listenUrl: GophersListenUrl,
+            tlsSession: ImplicitTlsSession);
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadBytes("gophers-file-selector", "stdout.bin"), connection.WrittenBytes);
+        Assert.AreEqual(FileBody, Utf8(connection.WrittenBytes));
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreSame(ImplicitTlsSession, connection.TlsSession);
+        Assert.AreEqual($"Selector \"/file.txt\": 17 bytes of {Path.Join(Root, "file.txt")}", log.Notes.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecordedGophersRootSelectorOverTls_SendsTheMenuCurlAccepted()
+    {
+        var (connection, log) = await ServeAsync(
+            RecordedFixture.ReadRequestBytes("gophers-root-menu"),
+            listenUrl: GophersListenUrl,
+            tlsSession: ImplicitTlsSession);
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadBytes("gophers-root-menu", "stdout.bin"), connection.WrittenBytes);
+        Assert.AreEqual(
+            "0file.txt\t/file.txt\t127.0.0.1\t18634\r\n1sub\t/sub\t127.0.0.1\t18634\r\n.\r\n",
+            Utf8(connection.WrittenBytes));
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.AreSame(ImplicitTlsSession, connection.TlsSession);
+        Assert.AreEqual($"Selector \"\": a menu of the 2 entries of {Root}", log.Notes.Single());
     }
 
     [TestMethod]
@@ -333,11 +375,12 @@ public sealed class GopherProtocolServerTests
         bool peerHalfCloses = true,
         ListenUrl? listenUrl = null,
         EndPoint? localEndPoint = null,
-        ExchangeLimits? limits = null)
+        ExchangeLimits? limits = null,
+        TlsSession? tlsSession = null)
     {
         var server = new GopherProtocolServer(new ContentStore(Root, fileSystem ?? StandardFileSystem()));
         var chunks = oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request);
-        var connection = new InMemoryConnection(chunks, peerHalfClosesWhenExhausted: peerHalfCloses);
+        var connection = new InMemoryConnection(chunks, peerHalfClosesWhenExhausted: peerHalfCloses, initialTlsSession: tlsSession);
         var log = new RecordingExchangeLog();
 
         await server.ServeAsync(connection, Context(log, listenUrl, localEndPoint, limits, TestContext.CancellationToken));

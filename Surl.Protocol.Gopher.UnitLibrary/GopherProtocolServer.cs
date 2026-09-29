@@ -76,9 +76,11 @@ public sealed class GopherProtocolServer : IConnectionProtocolServer
     }
 
     /// <summary>
-    /// The one scheme answered: <c>gopher</c>. <c>gophers</c> joins it with the TLS contract.
+    /// The schemes answered: <c>gopher</c>, and <c>gophers</c>, the same exchange over implicit
+    /// TLS. The engine performs the handshake and hands over a connection that already carries
+    /// plaintext (ADR-0010), so both are answered alike, menus included (ADR-0012).
     /// </summary>
-    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["gopher"]);
+    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["gopher", "gophers"]);
 
     /// <summary>
     /// Reads the client's selector and answers it, then closes the connection.

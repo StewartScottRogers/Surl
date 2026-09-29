@@ -11,7 +11,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `--version`, checks the served directory (`ServedDirectoryProbe`) and every scheme
   against the registered protocol servers, then builds the content store, the protocol
   servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
-  `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher`,
+  `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
+  `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),
   `MqttProtocolServer` for `mqtt`, whose retained messages last as long as `surl` runs,
   `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   verbose exchange log and the serving engine, with the connection limits

@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-034, BL-006]
-touches: [Surl.Protocol.Gopher.UnitLibrary, Surl.Protocol.Gopher.UnitTests, Record-CurlExchange.ps1]
+touches: [Surl.Protocol.Gopher.UnitLibrary, Surl.Protocol.Gopher.UnitTests, Record-CurlExchange.ps1, Surl.Console.UnitTests, Surl.Console/CLAUDE.md]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-066 — Answer gophers (Gopher over TLS) in Surl.Protocol.Gopher
 
@@ -53,30 +53,30 @@ upstream curl 8.21.0 build with `Record-CurlExchange.ps1` prove it, never the Cu
 
 ## Acceptance criteria
 
-- [ ] `GopherProtocolServer.Schemes` equals `["gopher", "gophers"]` in that order, pinned
+- [x] `GopherProtocolServer.Schemes` equals `["gopher", "gophers"]` in that order, pinned
       by a test in `GopherProtocolServerTests` that replaces `Schemes_IsGopherOnly` and
       is named for what it now pins.
-- [ ] `Record-CurlExchange.ps1 -Raw -Tls` records an exchange over TLS with decrypted
+- [x] `Record-CurlExchange.ps1 -Raw -Tls` records an exchange over TLS with decrypted
       `request.bin` and `transcript.txt`. The script's `.PARAMETER Raw` help no longer
       lists `-Tls` as refused, and `.PARAMETER Tls` states it applies to `-Raw`.
-- [ ] `Fixtures/gophers-file-selector` (curl sent `/file.txt` CRLF) and
+- [x] `Fixtures/gophers-file-selector` (curl sent `/file.txt` CRLF) and
       `Fixtures/gophers-root-menu` (curl sent the empty selector, CRLF) are recorded from
       the pinned upstream curl 8.21.0 build. Each has `exitcode.txt` 0 and an empty
       `stderr.txt`, and each has a row in `Fixtures/README.md` giving its exact command
       line.
-- [ ] `GopherProtocolServerTests` replays each new fixture's `request.bin` through an
+- [x] `GopherProtocolServerTests` replays each new fixture's `request.bin` through an
       `InMemoryConnection` standing in for a secured connection, with listen URL
       `gophers://127.0.0.1:18634/`. The test asserts that the server's reply equals that
       fixture's `stdout.bin` byte for byte. The root menu names host `127.0.0.1` and
       port `18634`.
-- [ ] `dotnet build Surl.Protocol.Gopher.UnitLibrary -warnaserror` and
+- [x] `dotnet build Surl.Protocol.Gopher.UnitLibrary -warnaserror` and
       `dotnet build Surl.Protocol.Gopher.UnitTests -warnaserror` are clean.
-- [ ] `dotnet test --filter "TestCategory!=Integration"` passes, and no new test needs
+- [x] `dotnet test --filter "TestCategory!=Integration"` passes, and no new test needs
       `TestCategory=Integration`.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Protocol.Gopher.UnitLibrary`: 100% line and branch coverage, complexity at
       most 10, and CRAP at most 30.
-- [ ] `Surl.Protocol.Gopher.UnitLibrary/CLAUDE.md` and the XML doc comment on `Schemes`
+- [x] `Surl.Protocol.Gopher.UnitLibrary/CLAUDE.md` and the XML doc comment on `Schemes`
       state that the server answers both `gopher` and `gophers`, and that TLS comes from
       the engine (ADR-0010).
 
@@ -84,8 +84,33 @@ upstream curl 8.21.0 build with `Record-CurlExchange.ps1` prove it, never the Cu
 
 - Wiring `gophers` into `surl`'s listener and the live conformance run belong with BL-040
   and the TLS tasks (BL-012, BL-065), not here.
+- Plan (run in-session; a one-line scheme change, a recorder extension and two replay
+  tests): `Schemes` becomes `["gopher", "gophers"]`; the selector, file and menu logic is
+  untouched, since the engine hands over a connection that already carries plaintext.
+- Recorder: `-Raw -Tls` wraps the accepted connection in an `SslStream` (TLS 1.2, the
+  `-Tls` throwaway certificate). An `SslStream` can hold decrypted bytes the socket's
+  `Poll` cannot see, so over TLS a burst ends when a `ReadAsync` has not completed within
+  `RawIdleMilliseconds`; the pending read carries over to the next burst. The server sends
+  a close_notify (`ShutdownAsync`) before closing unless curl hung up first, and writes
+  "= TLS handshake completed" at the top of the transcript. Default taken: TLS 1.2 only,
+  as the other session modes serve; `-TlsRenegotiationOff` is refused with `-Raw` (its
+  relay would wrap TLS twice). The plain `-Raw` path is unchanged: re-recording
+  `file-selector` reproduced all five files byte for byte. A handshake curl refuses
+  (no `-k`: exit 60, SEC_E_UNTRUSTED_ROOT) records an empty `request.bin` and transcript.
+- Touches widened (no task in Doing named them): `Surl.Console.UnitTests`, because
+  `CommandLineRunnerTests` pins `surl --version`'s protocol list, which is built from every
+  registered server's `Schemes` and now reads `dict gopher gophers http https mqtt telnet
+  tftp`; and `Surl.Console/CLAUDE.md`, whose server list would otherwise be false. The
+  engine already performs the implicit handshake for every `TlsSchemes.IsImplicitTls`
+  scheme and `ServerTlsComposition` builds a certificate for any of them, so `surl`
+  accepts a `gophers://` listen URL from this change on. Gopher declares `gophers` itself
+  (as this task's goal and ADR-0012 say), so Console needs no `ImplicitTlsSchemeServer`
+  for it.
+- Gates: Gopher 68 tests, Console 63, whole fast run green; `Measure-CodeQuality.ps1`
+  reports 0 failing members, Gopher 100% line and branch, worst CRAP 10.
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. GopherProtocolServer answers gophers as well as gopher, proven by two -Raw -Tls recordings from pinned upstream curl 8.21.0
