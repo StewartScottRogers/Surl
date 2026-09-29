@@ -8,7 +8,7 @@ depends-on: [BL-047, BL-070]
 touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests, Surl.Protocol.Http.UnitTests, Surl.Protocol.Gopher.UnitTests, Surl.Protocol.Dict.UnitLibrary, Surl.Protocol.Dict.UnitTests, Surl.Protocol.Tftp.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-069 — Pass ContentExposureOptions from every ContentStore caller and remove the two-argument constructor
 
@@ -35,17 +35,36 @@ rules by leaving the options out.
 
 ## Acceptance criteria
 
-- [ ] `ContentStore` has no two-argument constructor, and `dotnet build` is clean.
-- [ ] Every test that built a store with it passes an explicit `ContentExposureOptions`,
+- [x] `ContentStore` has no two-argument constructor, and `dotnet build` is clean.
+- [x] Every test that built a store with it passes an explicit `ContentExposureOptions`,
       and the fast tests are green.
-- [ ] DICT's handling of its database under default options is decided in an ADR and
+- [x] DICT's handling of its database under default options is decided in an ADR and
       pinned by a test in `Surl.Protocol.Dict.UnitTests`.
 
 ## Notes
 
 Filed by BL-047.
 
+- 2026-09-29: removed `ContentStore(string, IContentFileSystem)` and its test
+  `Constructor_WithoutExposureOptions_ServesEverythingInsideTheRoot`. Every test call site
+  (Content, HTTP, Gopher, DICT, TFTP tests) now passes
+  `ContentExposureOptions.ServeEverythingInsideTheRoot` explicitly - exactly what the removed
+  constructor applied, so no test changed meaning.
+- Choice: **kept** `ContentExposureOptions.ServeEverythingInsideTheRoot`. The Context says to
+  remove it only if nothing uses it; about seventy test call sites use it as the explicit
+  options for tests that exercise something other than the exposure rules. Its doc comment
+  now says that, and no longer names a constructor or BL-069.
+- DICT: no new ADR. ADR-0011 section 4 already decides that `MATCH` is the protocol's
+  lookup, not a directory listing, and BL-081 gave DICT
+  `ContentStore.ListDirectoryWhateverTheListingSwitchSays` for it; `DEFINE` reads one file
+  and never lists. `Surl.Protocol.Dict.UnitLibrary` needed no change.
+  `DictProtocolServerTests.ServeAsync_UnderDefaultExposureOptions_ServesTheDatabase` pins
+  `DEFINE` and `MATCH` under `new ContentExposureOptions()`.
+- ADR-0015 section 8 still describes the constructor as it stood at BL-047; it is a
+  decision record of that moment and outside `touches`, so left as written.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ContentStore has one constructor; every caller passes ContentExposureOptions, and DICT serves its database under default options
