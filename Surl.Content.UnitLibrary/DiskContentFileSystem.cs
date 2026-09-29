@@ -3,8 +3,9 @@ using System.Diagnostics.CodeAnalysis;
 namespace Surl.Content;
 
 /// <summary>
-/// <see cref="IContentFileSystem"/> over the local disk, through <c>System.IO</c>: the one real
-/// implementation of the content store's file-system seam.
+/// <see cref="IContentFileSystem"/> over the local disk, through <c>System.IO</c>: the content store's
+/// file-system seam when surl serves a data directory (<see cref="InMemoryContentFileSystem"/>
+/// is the other, when it serves from memory).
 /// </summary>
 /// <remarks>
 /// Each member is a direct call into <see cref="File"/>, <see cref="Directory"/>,
@@ -136,4 +137,10 @@ public sealed class DiskContentFileSystem : IContentFileSystem
     [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
     public void MoveFileReplacing(string source, string destination) =>
         File.Move(source, destination, overwrite: true);
+
+    /// <inheritdoc/>
+    // Excluded from coverage: it creates directories on disk, and the fast tests run without one
+    // by design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public void CreateDirectory(string path) => Directory.CreateDirectory(path);
 }

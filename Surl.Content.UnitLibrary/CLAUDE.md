@@ -15,6 +15,9 @@ A request path can never reach outside the served root. Every escape - `..`, its
 percent-encoded forms, absolute paths, drive letters, UNC paths, symbolic links that point
 out - has a test that proves it is refused. Never touch the disk directly: work through
 the injected file-system seam, `IContentFileSystem`, so the tests need no disk.
-`DiskContentFileSystem` is its one real implementation and the only class here that
+It has two production implementations. `DiskContentFileSystem` is the only class here that
 touches the disk: each member is a thin call into `System.IO`, excluded from coverage with
 a justifying comment, and proved by the `Integration` tests in `DiskContentFileSystemTests`.
+`InMemoryContentFileSystem` holds files and directories in memory (ADR-0031 decision 4):
+safe for concurrent use, bounded by `MaxTotalBytes`, fully covered by the fast tests in
+`InMemoryContentFileSystemTests`, and never touching the disk.

@@ -100,4 +100,17 @@ public interface IContentFileSystem
     /// <exception cref="NotSupportedException">The seam is read-only.</exception>
     void MoveFileReplacing(string source, string destination) =>
         throw new NotSupportedException("This content file system is read-only.");
+
+    /// <summary>
+    /// Creates the directory at <paramref name="path"/> and every missing directory above it;
+    /// does nothing when the directory is already there.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>.
+    /// </remarks>
+    /// <param name="path">The full path of the directory to create.</param>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    void CreateDirectory(string path) =>
+        throw new NotSupportedException("This content file system is read-only.");
 }

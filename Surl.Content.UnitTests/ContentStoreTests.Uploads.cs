@@ -242,6 +242,45 @@ public sealed partial class ContentStoreTests
         Assert.ThrowsExactly<NotSupportedException>(() => fileSystem.MoveFileReplacing(Path.Join(Root, ".temporary"), UploadPath));
     }
 
+    [TestMethod]
+    public void CreateDirectory_ReadOnlyFileSystem_ThrowsNotSupported()
+    {
+        IContentFileSystem fileSystem = new UnitTestReadOnlyContentFileSystem();
+
+        Assert.ThrowsExactly<NotSupportedException>(() => fileSystem.CreateDirectory(Path.Join(Root, "sub")));
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_InMemoryFileSystemAllowingUploads_IsWrittenAndReadsBack()
+    {
+        var fileSystem = new InMemoryContentFileSystem(new SettableTimeProvider(Modified));
+        var store = new ContentStore(InMemoryContentFileSystem.RootPath, fileSystem, new ContentExposureOptions { AllowUploads = true });
+        byte[] upload = "uploaded into memory"u8.ToArray();
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream(upload), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.Written, result);
+        ContentPathMapping mapping = store.MapRequestPath("/upload.bin");
+        Assert.AreEqual(new ContentFileStatus(upload.Length, Modified), store.GetFileStatus(mapping));
+        using var readBack = new MemoryStream();
+        await store.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(upload.Length), readBack, CancellationToken.None);
+        CollectionAssert.AreEqual(upload, readBack.ToArray());
+        CollectionAssert.AreEqual(new[] { "upload.bin" }, fileSystem.EnumerateDirectoryEntryNames(InMemoryContentFileSystem.RootPath).ToArray());
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_InMemoryFileSystemWithoutAllowUploads_IsNotPermitted()
+    {
+        var fileSystem = new InMemoryContentFileSystem(new SettableTimeProvider(Modified));
+        var store = new ContentStore(InMemoryContentFileSystem.RootPath, fileSystem, new ContentExposureOptions());
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream([1, 2, 3]), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.NotPermitted, result);
+        Assert.AreEqual(0, fileSystem.EnumerateDirectoryEntryNames(InMemoryContentFileSystem.RootPath).Count());
+        Assert.AreEqual(0, fileSystem.TotalBytes);
+    }
+
     private static (ContentStore Store, UnitTestInMemoryContentFileSystem FileSystem) UploadStore(long maxUploadBytes)
     {
         var fileSystem = new UnitTestInMemoryContentFileSystem().AddDirectory(Root);
