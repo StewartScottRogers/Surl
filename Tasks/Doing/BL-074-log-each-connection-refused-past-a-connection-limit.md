@@ -72,3 +72,4 @@ and the limit it passed.
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
 - 2026-09-29: Doing -> Backlog. Needs Documentation/Planning/Decisions for its ADR, which BL-061 (in Doing) touches; code is done, see Notes
+- 2026-09-29: Backlog -> Doing.
