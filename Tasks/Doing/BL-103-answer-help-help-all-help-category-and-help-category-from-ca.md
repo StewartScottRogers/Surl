@@ -62,3 +62,4 @@ this task builds, and BL-123 adds `--manual` and the `--help testing` paragraphs
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
