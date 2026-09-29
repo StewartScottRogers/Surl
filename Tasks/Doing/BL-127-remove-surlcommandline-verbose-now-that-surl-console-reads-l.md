@@ -42,3 +42,4 @@ Line numbers are from the tree at filing time. Search for `.Verbose` rather than
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
