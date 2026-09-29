@@ -8,9 +8,9 @@ depends-on: [BL-034, BL-046, BL-047]
 touches: [Surl.Protocol.Gopher.UnitLibrary, Surl.Protocol.Gopher.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
-# BL-052 — Enforce the head timeout and selector limit and hide directories and dot-files in Surl.Protocol.Gopher
+# BL-052 â€” Enforce the head timeout and selector limit and hide directories and dot-files in Surl.Protocol.Gopher
 
 ## Goal
 
@@ -50,23 +50,48 @@ was fed and recorded.
 
 ## Acceptance criteria
 
-- [ ] `HeadTimeoutTests.PartialSelector_AfterHeadTimeout_ClosesWithNoBytes` passes.
-- [ ] `SelectorLimitTests.SelectorOfExactly8192Bytes_IsAnswered` and
+- [x] `HeadTimeoutTests.PartialSelector_AfterHeadTimeout_ClosesWithNoBytes` passes.
+- [x] `SelectorLimitTests.SelectorOfExactly8192Bytes_IsAnswered` and
       `SelectorLimitTests.SelectorOf8193Bytes_ClosesWithNoBytes` pass.
-- [ ] `ExposureTests.DirectorySelector_WithListingsOff_AnswersExactlyAsMissing` and
+- [x] `ExposureTests.DirectorySelector_WithListingsOff_AnswersExactlyAsMissing` and
       `ExposureTests.DotFileSelector_AnswersExactlyAsMissing` compare the reply bytes with
       a missing selector's byte for byte.
-- [ ] `ExposureTests.DirectoryMenu_WithListingsOn_OmitsDotFiles` passes.
-- [ ] Recordings for the cases above are committed; each test's expected bytes equal the
+- [x] `ExposureTests.DirectoryMenu_WithListingsOn_OmitsDotFiles` passes.
+- [x] Recordings for the cases above are committed; each test's expected bytes equal the
       bytes that recording fed to pinned upstream curl 8.21.0.
-- [ ] `dotnet build Surl.Protocol.Gopher.UnitLibrary -warnaserror` is clean, the fast
+- [x] `dotnet build Surl.Protocol.Gopher.UnitLibrary -warnaserror` is clean, the fast
       tests are green with no `Integration` test in `Surl.Protocol.Gopher.UnitTests`, and
       `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Protocol.Gopher.UnitLibrary`.
 
 ## Notes
 
+- Most of the limit handling was already in BL-034's server (the `HeadTimeout` token on
+  `ExchangeContext.TimeProvider` from the start of `ServeAsync`, `MaxLineBytes` with never
+  a byte read past it, the fixed error menu). What changed: a selector that is not read
+  (head timeout, too long, client closed) now has its writes completed explicitly, as the
+  task and ADR-0006 section 5 say, rather than leaving the close to the engine.
+- Exposure stays in `Surl.Content`: the server re-implements no rule, and only reads
+  `ContentStore.ExposureOptions.ListDirectories` to choose its log note ("directory
+  listings are off, so ... is answered as absent" instead of "no longer a directory"). The
+  bytes on the wire are the missing-selector error menu either way.
+- `GopherProtocolServer`'s XML doc now states the exposure behaviour, that the error text
+  never echoes the selector, and that there is no `IConnectionRefusalWriter` (a bare close,
+  ADR-0006 section 5). No new ADR: every behaviour here is what ADR-0006 and ADR-0012
+  already decide.
+- Recorded four fixtures with pinned upstream curl 8.21.0 (`directory-selector`,
+  `closed-with-no-bytes`, `selector-8192-bytes`, `selector-8193-bytes`); each exited 0 with
+  empty stderr. A close with no bytes is an empty, successful transfer to curl.
+  `DirectoryMenu_WithListingsOn_OmitsDotFiles` pins the existing `root-menu` recording.
+- Choice: the new tests' shared setup (`GopherTestExchange`) uses ADR-0006's default
+  `ContentExposureOptions`, unlike `GopherProtocolServerTests`, which serves everything, so
+  they exercise the defaults an operator gets. `ManualTimeProvider` is copied from the
+  DICT tests.
+- Gates: build -warnaserror clean; fast tests green (Gopher 65); Measure-CodeQuality:
+  Gopher 100% line, 100% branch, 0 failing members, worst CRAP 10.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. Gopher closes with no bytes on a head timeout or a selector past 8192 bytes, and answers directories (listings off) and dot-files exactly as missing, all pinned to upstream curl 8.21.0 recordings
