@@ -22,9 +22,10 @@ surl https://0.0.0.0:8443/ --cert server.pem --key server.key
 curl https://localhost:8443/readme.md --cacert server.pem
 ```
 
-That is the intent. **Today this repository is the Phase 0 shell**: the solution, its
-conventions, quality gates and dark factory are in place, every project exists, and
-`surl` itself only prints `surl: not implemented yet` and exits 2.
+That is the intent. **Today `surl` serves one protocol**: `surl http://127.0.0.1:8080/`
+answers `GET` and `HEAD` for the files of the current directory (or `--directory <dir>`)
+over HTTP/1.1 until Ctrl+C. Every other scheme, `https` included, is refused with exit
+code 1 until its server lands.
 
 ## Upstream curl validates Surl; Surl later validates the Curl port
 

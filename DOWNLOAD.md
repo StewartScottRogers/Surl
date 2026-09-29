@@ -1,7 +1,7 @@
 # Download
 
-No release of Surl has been published yet. Surl is at Phase 0: `surl` builds and
-publishes, but it only prints `surl: not implemented yet` and exits 2.
+No release of Surl has been published yet. Surl is in Phase 1: `surl` builds and
+publishes, and serves the files of a directory over plain HTTP; no other scheme yet.
 
 ## When there is a release
 
