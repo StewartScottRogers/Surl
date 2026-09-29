@@ -176,3 +176,4 @@ option its one-line description. Behaviour changes land in BL-108 onward, not he
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
