@@ -43,7 +43,7 @@ row cites it; the rest are measured by the task that implements them, and a row 
 | FR-018 | `surl telnet://<host>:<port>/` answers the TELNET sessions upstream curl opens (product overview, Phase 1 row). | `curl telnet://<host>:<port>` | curl 8.21.0 (Git for Windows) | Should | Draft |
 | FR-019 | `surl tftp://<host>:<port>/` serves the served directory over TFTP, answering each transfer from a new port (RFC 1350; ADR-0004 section 3) (product overview, Phase 1 row). | `curl tftp://<host>:<port>/<file>`, and `-T`/`--upload-file` | curl 8.21.0 (Git for Windows) | Should | Draft |
 | FR-020 | `surl mqtt://<host>:<port>/` answers MQTT 3.1.1 subscribe and publish from upstream curl (product overview, Phase 1 row; ADR-0006 section 5). | `curl mqtt://<host>:<port>/<topic>` (subscribe), and with `-d` (publish) | curl 8.21.0 (Git for Windows) | Should | Draft |
-| FR-021 | A secure scheme (`https` first) is served over server-side TLS, accepting TLS 1.2 and 1.3 by default and the bounds `--tlsv1.x` and `--tls-max` set (ADR-0006 section 4), with the certificate from `--cert` and `--key` (ADR-0007 section 2; the rest is BL-002's ADR). | `curl https://<host>:<port>/<path>`, with `-k`/`--insecure`, `--cacert`, `--tlsv1.x`, `--tls-max` | curl 8.21.0 (Git for Windows), TLS versions measured in ADR-0006 | Should | Draft |
+| FR-021 | A secure scheme (`https` first) is served over server-side TLS, accepting TLS 1.2 and 1.3 by default and the bounds `--tlsv1.x` and `--tls-max` set (ADR-0006 section 4), with the certificate from `--cert` and `--key` (ADR-0007 section 2), their formats, the throwaway certificate used without `--cert`, ALPN and client-certificate verification by `--cacert` (ADR-0010). | `curl https://<host>:<port>/<path>`, with `-k`/`--insecure`, `--cacert`, `--tlsv1.x`, `--tls-max` | curl 8.21.0 (Git for Windows), TLS versions measured in ADR-0006 | Should | Draft |
 
 Priorities use MoSCoW (Must / Should / Could / Won't). "Must" means the release is
 not shippable without it — if everything is a Must, nothing is. Phase 1 proves "`surl
@@ -101,4 +101,4 @@ answer (product overview, "Open questions").
 
 | # | Question | Blocks | Answered by |
 | --- | --- | --- | --- |
-| 1 | The server-side TLS contract: what a secure scheme does with no `--cert`, which formats `--cert` and `--key` read, and how a connection is upgraded in the middle of an exchange. | FR-021 | Claude, in BL-002's ADR |
+| 1 | The server-side TLS contract: what a secure scheme does with no `--cert`, which formats `--cert` and `--key` read, and how a connection is upgraded in the middle of an exchange. | FR-021 | Answered by Claude in [ADR-0010](../Planning/Decisions/ADR-0010-the-server-side-tls-contract.md), 2026-09-28 |

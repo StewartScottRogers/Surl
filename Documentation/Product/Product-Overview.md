@@ -156,10 +156,10 @@ a protocol server implements `IConnectionProtocolServer` (or `IDatagramProtocolS
 for TFTP), receives an `IConnection` (or an `IDatagramFlow`) and an `ExchangeContext`,
 and its tests replay byte scripts through `InMemoryConnection`.
 
-> **TODO** The server-side TLS contract is a first decision of Phase 1, to be recorded in
-> an ADR (BL-002).
-
-TLS on the server side uses the base class library's `SslStream`. What the BCL has no
+TLS on the server side uses the base class library's `SslStream`. How a protocol server
+receives a secured connection or upgrades one, where the certificate comes from, ALPN and
+client-certificate verification are decided in
+[ADR-0010](../Planning/Decisions/ADR-0010-the-server-side-tls-contract.md). What the BCL has no
 primitive for on some platform - QUIC for HTTP/3, the SSH ciphers - is built by hand, each
 in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
