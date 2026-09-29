@@ -63,3 +63,4 @@ and 8 (constant-time checks, nothing learnable, any delay via `TimeProvider`).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
