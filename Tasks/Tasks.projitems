@@ -28,7 +28,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)**\*.md" />
+    <None Include="$(MSBuildThisFileDirectory)**\*"
+          Exclude="$(MSBuildThisFileDirectory)**\bin\**;$(MSBuildThisFileDirectory)**\obj\**;$(MSBuildThisFileDirectory)*.shproj;$(MSBuildThisFileDirectory)*.projitems" />
   </ItemGroup>
 
 </Project>
