@@ -78,9 +78,11 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer
     }
 
     /// <summary>
-    /// The one scheme answered: <c>mqtt</c>.
+    /// The schemes answered: <c>mqtt</c>, and <c>mqtts</c>, the same exchange over implicit TLS.
+    /// The engine performs the handshake and hands over a connection that already carries
+    /// plaintext (ADR-0010), so both are answered alike (ADR-0014).
     /// </summary>
-    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["mqtt"]);
+    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["mqtt", "mqtts"]);
 
     /// <summary>
     /// Answers every packet on <paramref name="connection"/> until the client disconnects or

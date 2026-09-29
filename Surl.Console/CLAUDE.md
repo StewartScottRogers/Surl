@@ -13,7 +13,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
   `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),
-  `MqttProtocolServer` for `mqtt`, whose retained messages last as long as `surl` runs,
+  `MqttProtocolServer` for `mqtt` and `mqtts` (it too declares both itself), whose
+  retained messages last as long as `surl` runs,
   `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   verbose exchange log and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,

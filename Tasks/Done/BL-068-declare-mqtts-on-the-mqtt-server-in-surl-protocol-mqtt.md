@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-036, BL-065, BL-066]
-touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests, Record-CurlExchange.ps1]
+touches: [Surl.Protocol.Mqtt.UnitLibrary, Surl.Protocol.Mqtt.UnitTests, Record-CurlExchange.ps1, Surl.Console, Surl.Console.UnitTests]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-068 — Declare mqtts on the MQTT server in Surl.Protocol.Mqtt
 
@@ -33,14 +33,14 @@ recordings.
 
 ## Acceptance criteria
 
-- [ ] `MqttProtocolServer.Schemes` is `["mqtt", "mqtts"]` and its XML doc says so; the
+- [x] `MqttProtocolServer.Schemes` is `["mqtt", "mqtts"]` and its XML doc says so; the
       library's `CLAUDE.md` names both schemes.
-- [ ] Recordings exist for `curl -k mqtts://127.0.0.1:<P>/t` and
+- [x] Recordings exist for `curl -k mqtts://127.0.0.1:<P>/t` and
       `curl -k -d hi mqtts://127.0.0.1:<P>/t`, each exiting 0 against Surl's packets.
-- [ ] A fast test replays each recording's plaintext through `MqttProtocolServer` with an
+- [x] A fast test replays each recording's plaintext through `MqttProtocolServer` with an
       `ExchangeContext` whose listen URL scheme is `mqtts`, and asserts Surl's bytes equal
       the accepted ones.
-- [ ] `dotnet build Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Surl.Protocol.Mqtt.UnitLibrary -warnaserror` is clean, the fast tests
       are green with no `Integration` test in `Surl.Protocol.Mqtt.UnitTests`, and
       `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Protocol.Mqtt.UnitLibrary`.
@@ -58,6 +58,16 @@ Filed by BL-036, whose plan declared only `mqtt`.
   this task's `touches` (in case BL-066's version still falls short for MQTT's binary
   replies), BL-066 joins `depends-on`, and the task goes back to Backlog until BL-066 is
   Done. No code was changed.
+- 2026-09-29 (dark factory lane 2): BL-066's `-Raw -Tls` sufficed for MQTT's binary
+  replies; `Record-CurlExchange.ps1` was not changed. Both recordings (`mqtts-subscribe-t`,
+  `mqtts-publish-hi`) exited 0 with empty stderr, curl sending over TLS the same packets it
+  sends over `mqtt`. Plan followed BL-066's gophers pattern, no new ADR needed: ADR-0002
+  and ADR-0010 already decide that `mqtts` is the same server behind the engine's implicit
+  handshake. Declaring `mqtts` adds it to `surl --version`'s `Protocols:` line, so
+  `Surl.Console.UnitTests` (the `--version` test) and `Surl.Console` (its `CLAUDE.md`
+  names each server's schemes) joined `touches`; no task in Doing names either
+  (BL-061 touches Http, BL-073 Networking). Chose port 18884 for the recordings and tests
+  (18883 is the plain `mqtt` one) and `-RawIdleMilliseconds 300`, as BL-066 did.
 
 ## Log
 
@@ -65,3 +75,4 @@ Filed by BL-036, whose plan declared only `mqtt`.
 - 2026-09-29: Backlog -> Doing.
 - 2026-09-29: Doing -> Backlog. Waits on BL-066, which adds Record-CurlExchange.ps1 -Raw -Tls (touches Record-CurlExchange.ps1); the mqtts recordings need it.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. MqttProtocolServer answers mqtt and mqtts; pinned curl 8.21.0 subscribe and publish over mqtts recorded and replayed

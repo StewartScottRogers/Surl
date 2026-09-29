@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Security;
+using System.Security.Authentication;
 using System.Text;
 using Surl.Protocol.Abstractions;
 
@@ -7,6 +9,10 @@ namespace Surl.Protocol.Mqtt;
 [TestClass]
 public sealed class MqttProtocolServerTests
 {
+    // The engine hands an mqtts exchange a connection whose implicit handshake is done (ADR-0010).
+    private static readonly ListenUrl MqttsListenUrl = new ListenUrl("mqtts", "127.0.0.1", 18884).WithBoundPort(18884);
+    private static readonly TlsSession ImplicitTlsSession = new(SslProtocols.Tls12, TlsCipherSuite.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, null, null, null);
+
     private static readonly byte[] ConnackAccepted = [0x20, 0x02, 0x00, 0x00];
     private static readonly byte[] ConnackUnacceptableProtocolLevel = [0x20, 0x02, 0x00, 0x01];
     private static readonly byte[] ConnackIdentifierRejected = [0x20, 0x02, 0x00, 0x02];
@@ -21,11 +27,11 @@ public sealed class MqttProtocolServerTests
     }
 
     [TestMethod]
-    public void Schemes_IsMqttOnly()
+    public void Schemes_AreMqttThenMqtts()
     {
         var server = new MqttProtocolServer(new MqttRetainedMessages());
 
-        CollectionAssert.AreEqual(new[] { "mqtt" }, server.Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "mqtt", "mqtts" }, server.Schemes.ToArray());
     }
 
     [TestMethod]
@@ -60,6 +66,27 @@ public sealed class MqttProtocolServerTests
         CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes(caseName), connection.WrittenBytes);
         Assert.IsTrue(connection.WritesCompleted);
         Assert.IsFalse(connection.Aborted);
+        Assert.IsFalse(log.Notes.Any(note => note.Contains("closed with no reply", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [DataRow("mqtts-subscribe-t", false)]
+    [DataRow("mqtts-subscribe-t", true)]
+    [DataRow("mqtts-publish-hi", false)]
+    [DataRow("mqtts-publish-hi", true)]
+    public async Task ServeAsync_RecordedMqttsRequestOverTls_SendsThePacketsUpstreamCurlAccepted(string caseName, bool oneBytePerRead)
+    {
+        var request = RecordedFixture.ReadRequestBytes(caseName);
+        var chunks = oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request);
+
+        var (connection, log) = await ServeAsync(chunks, RetainedFor(caseName), listenUrl: MqttsListenUrl, tlsSession: ImplicitTlsSession);
+
+        Assert.AreEqual("0", Encoding.ASCII.GetString(RecordedFixture.ReadBytes(caseName, "exitcode.txt")));
+        Assert.IsEmpty(RecordedFixture.ReadBytes(caseName, "stderr.txt"));
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes(caseName), connection.WrittenBytes);
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreSame(ImplicitTlsSession, connection.TlsSession);
         Assert.IsFalse(log.Notes.Any(note => note.Contains("closed with no reply", StringComparison.Ordinal)));
     }
 
@@ -506,6 +533,7 @@ public sealed class MqttProtocolServerTests
         switch (caseName)
         {
             case "subscribe-t":
+            case "mqtts-subscribe-t":
                 retained.Retain("t", "hi"u8);
                 break;
             case "subscribe-200-bytes":
@@ -524,9 +552,9 @@ public sealed class MqttProtocolServerTests
 
     private static ExchangeLimits Limits(long maxMessageBytes) => ExchangeLimits.Default with { MaxMessageBytes = maxMessageBytes };
 
-    private static ExchangeContext Context(IExchangeLog log, CancellationToken cancellationToken = default) => new(
+    private static ExchangeContext Context(IExchangeLog log, CancellationToken cancellationToken = default, ListenUrl? listenUrl = null) => new(
         1,
-        new ListenUrl("mqtt", "127.0.0.1", 18883).WithBoundPort(18883),
+        listenUrl ?? new ListenUrl("mqtt", "127.0.0.1", 18883).WithBoundPort(18883),
         new IPEndPoint(IPAddress.Loopback, 18883),
         new IPEndPoint(IPAddress.Loopback, 50000),
         log,
@@ -547,12 +575,14 @@ public sealed class MqttProtocolServerTests
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeAsync(
         IEnumerable<ReadOnlyMemory<byte>> chunks,
         MqttRetainedMessages retained,
-        ExchangeLimits? limits = null)
+        ExchangeLimits? limits = null,
+        ListenUrl? listenUrl = null,
+        TlsSession? tlsSession = null)
     {
         var server = new MqttProtocolServer(retained);
-        var connection = new InMemoryConnection(chunks);
+        var connection = new InMemoryConnection(chunks, initialTlsSession: tlsSession);
         var log = new RecordingExchangeLog();
-        var context = Context(log, TestContext.CancellationToken) with { Limits = limits ?? ExchangeLimits.Default };
+        var context = Context(log, TestContext.CancellationToken, listenUrl) with { Limits = limits ?? ExchangeLimits.Default };
 
         await server.ServeAsync(connection, context);
         await connection.DisposeAsync();
