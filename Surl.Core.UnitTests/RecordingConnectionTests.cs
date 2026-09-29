@@ -47,6 +47,38 @@ public sealed class RecordingConnectionTests
     }
 
     [TestMethod]
+    public void TlsSession_IsTheWrappedConnections()
+    {
+        var connection = new InMemoryConnection([], initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
+        var recording = new RecordingConnection(connection, new RecordingExchangeLog());
+
+        Assert.AreSame(InMemoryConnection.DefaultUpgradeTlsSession, recording.TlsSession);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_WritesAfterItAreStillLogged()
+    {
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([]);
+        var recording = new RecordingConnection(connection, log);
+
+        await recording.UpgradeToTlsAsync(CancellationToken.None);
+        await recording.WriteAsync("220 ready\r\n"u8.ToArray(), CancellationToken.None);
+
+        Assert.HasCount(1, log.Entries);
+        Assert.AreEqual(ExchangeLogEntryKind.BytesSent, log.Entries[0].Kind);
+        CollectionAssert.AreEqual("220 ready\r\n"u8.ToArray(), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_FailedHandshake_ReachesTheCaller()
+    {
+        var recording = new RecordingConnection(new InMemoryConnection([], upgradeFails: true), new RecordingExchangeLog());
+
+        await Assert.ThrowsExactlyAsync<TlsHandshakeException>(() => recording.UpgradeToTlsAsync(CancellationToken.None).AsTask());
+    }
+
+    [TestMethod]
     public async Task CompleteWritesAsync_Abort_AndDisposeAsync_ReachTheConnection()
     {
         var connection = new InMemoryConnection([]);

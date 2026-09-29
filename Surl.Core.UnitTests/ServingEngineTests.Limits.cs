@@ -124,8 +124,10 @@ public sealed partial class ServingEngineTests
     public async Task ServeAsync_ImplicitTlsListener_ClosesAConnectionPastTheLimitWithNoRefusal()
     {
         using var harness = new Harness(OneConnection, "https");
-        harness.Listener.Connect(HeldConnection(PeerAddress(1)));
+        var admitted = HeldConnection(PeerAddress(1));
+        harness.Listener.Connect(admitted);
         await harness.Server.Inner.NextExchangeAsync();
+        Assert.IsTrue(admitted.UpgradeRequested);
 
         var refused = HeldConnection(PeerAddress(2));
         harness.Listener.Connect(refused);

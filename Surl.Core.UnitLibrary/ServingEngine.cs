@@ -11,7 +11,8 @@ namespace Surl.Core;
 /// the protocol server registered for the URL's scheme, and shuts down cleanly (ADR-0004;
 /// exit codes from ADR-0005). It refuses a connection or flow past its
 /// <see cref="ConnectionLimits"/> and cancels an exchange that idles or lasts too long
-/// (ADR-0006, sections 1 and 5).
+/// (ADR-0006, sections 1 and 5). A connection for a scheme that is TLS from the first byte
+/// reaches its server only after the engine's handshake completed (ADR-0010, section 2).
 /// </summary>
 /// <remarks>
 /// A listen URL whose scheme belongs to an <see cref="IConnectionProtocolServer"/> gets a
@@ -234,25 +235,33 @@ public sealed partial class ServingEngine
     }
 
     // An exchange the engine cancelled ends gracefully, whatever limit cancelled it (ADR-0006,
-    // section 5); a server that threw for any other reason failed the exchange, and the caller
-    // aborts its connection.
+    // section 5), and so does one whose TLS handshake failed; a server that threw for any other
+    // reason failed the exchange, and the caller aborts its connection.
     private bool NoteHowTheExchangeEnded(
         Exception? failure, IExchangeLog log, long exchangeId, ExchangeCancellation? cancellation)
     {
-        if (failure is null || (failure is OperationCanceledException && cancellation is not null))
-        {
-            if (cancellation is { } reason)
-            {
-                log.Note(DescribeCancellation(exchangeId, reason));
-            }
+        var (note, failed) = DescribeHowTheExchangeEnded(failure, exchangeId, cancellation);
 
-            return false;
+        if (note is not null)
+        {
+            log.Note(note);
         }
 
-        log.Note($"Exchange {exchangeId} ended because the protocol server threw {failure.GetType().Name}: {failure.Message}");
-
-        return true;
+        return failed;
     }
+
+    // A server's own STARTTLS or AUTH TLS upgrade that failed is the client's handshake
+    // failing, not a server fault (ADR-0010, section 2), so its connection is only closed.
+    private (string? Note, bool Failed) DescribeHowTheExchangeEnded(
+        Exception? failure, long exchangeId, ExchangeCancellation? cancellation) =>
+        (failure, cancellation) switch
+        {
+            (null or OperationCanceledException, { } reason) => (DescribeCancellation(exchangeId, reason), false),
+            (null, null) => (null, false),
+            (TlsHandshakeException handshakeFailure, _) => ($"TLS handshake failed: {handshakeFailure.Message}", false),
+            ({ } thrown, _) =>
+                ($"Exchange {exchangeId} ended because the protocol server threw {thrown.GetType().Name}: {thrown.Message}", true),
+        };
 
     private string DescribeCancellation(long exchangeId, ExchangeCancellation cancellation) =>
         cancellation switch
@@ -434,8 +443,8 @@ public sealed partial class ServingEngine
     {
         var (exchangeId, log, context) = OpenExchange(route.ListenUrl, connection.LocalEndPoint, connection.RemoteEndPoint, deadlines);
 
-        var watchedConnection = new IdleClockRestartingConnection(new RecordingConnection(connection, log), deadlines);
-        var failure = await CaptureFailureAsync(() => route.Server.ServeAsync(watchedConnection, context));
+        var recordingConnection = new RecordingConnection(connection, log);
+        var failure = await CaptureFailureAsync(() => SecureThenServeAsync(recordingConnection, route, deadlines, context));
 
         if (NoteHowTheExchangeEnded(failure?.SourceException, log, exchangeId, deadlines.Reason))
         {
@@ -443,6 +452,50 @@ public sealed partial class ServingEngine
         }
 
         log.Note($"Exchange {exchangeId} ended; closing the connection.");
+    }
+
+    // A listen URL whose scheme is TLS from the first byte gets its handshake here, and the
+    // server sees the connection only once it completed (ADR-0010, section 2).
+    private async Task SecureThenServeAsync(
+        RecordingConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
+    {
+        if (TlsSchemes.IsImplicitTls(route.ListenUrl.Scheme) && !await CompleteImplicitHandshakeAsync(connection, context))
+        {
+            return;
+        }
+
+        await route.Server.ServeAsync(new IdleClockRestartingConnection(connection, deadlines), context);
+    }
+
+    // Runs the handshake within the head timeout (ADR-0006, section 4) and notes how it went;
+    // true when it completed. Cancellation of the exchange itself escapes, so the exchange's
+    // own cancellation note follows.
+    private async Task<bool> CompleteImplicitHandshakeAsync(IConnection connection, ExchangeContext context)
+    {
+        using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, timeProvider);
+        using var headTimeoutOrExchangeEnd = CancellationTokenSource.CreateLinkedTokenSource(
+            headTimeout.Token, context.CancellationToken);
+
+        try
+        {
+            var session = await connection.UpgradeToTlsAsync(headTimeoutOrExchangeEnd.Token);
+
+            context.Log.Note(
+                $"TLS handshake completed: {session.Protocol}, {session.CipherSuite}, ALPN {session.ApplicationProtocol ?? "none"}");
+
+            return true;
+        }
+        catch (IOException failure)
+        {
+            context.Log.Note($"TLS handshake failed: {failure.Message}");
+        }
+        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            context.Log.Note(
+                $"TLS handshake failed: no handshake within the head timeout of {FormatSeconds(context.Limits.HeadTimeout)} s");
+        }
+
+        return false;
     }
 
     // Numbers the exchange, creates its log and context, and notes that it opened.
