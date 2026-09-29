@@ -366,6 +366,9 @@ The dump is curl's layout, turned to the server's side and labelled with the exc
   silently lands somewhere else hides the one thing the operator wanted. The file is opened
   whenever the option is in effect, even at `none`, so a bad path is never a surprise later.
   The message follows section 1's rules (hidden by `-s` alone).
+- **A trace file that is the `--log-file` file** - the same full path, ignoring case - is
+  refused the same way, with `: --log-file names the same file` after the option; see
+  [ADR-0037](ADR-0037-a-trace-file-that-is-the-log-file-is-refused.md).
 
 ### 7. Startup warnings and the throwaway-certificate note
 
