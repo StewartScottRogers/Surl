@@ -203,6 +203,48 @@ public sealed class CommandLineRunnerLogTests
     }
 
     [TestMethod]
+    [DataRow("--trace", "surl.log")]
+    [DataRow("--trace-ascii", "surl.log")]
+    [DataRow("--trace", "./surl.log")]
+    [DataRow("--trace", "logs/../surl.log")]
+    [DataRow("--trace-ascii", "SURL.LOG")]
+    public async Task RunAsync_TraceFileIsTheLogFile_RefusesWithCouldNotWriteFileAndClosesTheLogFileBeforeAnyListenerStarts(
+        string option, string traceFile)
+    {
+        var run = await RunRefusedAsync("--log-file", "surl.log", option, traceFile, Listen);
+
+        Assert.AreEqual(SurlExitCode.CouldNotWriteFile, run.ExitCode);
+        Assert.AreEqual(
+            $"surl: (23) Could not open {traceFile} for {option}: --log-file names the same file" + NewLine, run.Error);
+        var logFile = run.OpenedFiles.Single();
+        Assert.AreEqual(("surl.log", FileMode.Append, true), (logFile.Path, logFile.Mode, logFile.Disposed));
+        Assert.AreEqual(string.Empty, run.Output);
+        Assert.IsEmpty(run.Factory.StartedListenUrls);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_LogFileAndADifferentTraceFile_OpensEachSeparately()
+    {
+        var run = await ServeOneConnectionAsync(TimeProvider.System, "--log-file", "surl.log", "--trace", "dump.txt", Listen);
+
+        var opened = run.OpenedFiles.Select(file => (file.Path, file.Mode, file.Disposed)).ToArray();
+        CollectionAssert.AreEqual(
+            new[] { ("surl.log", FileMode.Append, true), ("dump.txt", FileMode.Create, true) }, opened);
+        StringAssert.StartsWith(run.OpenedFiles[1].Text, OpenedLine + "#1 <= Recv data, 27 bytes (0x1b)" + NewLine);
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_LogFileToStdoutAndATraceFile_OpensOnlyTheTraceFile()
+    {
+        var run = await ServeOneConnectionAsync(TimeProvider.System, "--log-file", "-", "--trace", "dump.txt", Listen);
+
+        var file = run.OpenedFiles.Single();
+        Assert.AreEqual(("dump.txt", FileMode.Create), (file.Path, file.Mode));
+        Assert.AreEqual(ListeningLine, run.Output);
+    }
+
+    [TestMethod]
     [DataRow(typeof(ArgumentException))]
     [DataRow(typeof(NotSupportedException))]
     public async Task RunAsync_LogFilePathTheFileSystemRejects_WritesCouldNotOpenAndReturnsCouldNotWriteFile(Type failureType)

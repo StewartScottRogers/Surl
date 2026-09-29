@@ -34,7 +34,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `LogStreams` opens the log stream (stderr, or `--log-file`, appended, `-` for stdout)
   and the trace file (truncated, `-` for stdout) once TLS is composed and before any
   listener binds, through the runner's `openLogFile` seam (`LogFile.Open` in `surl`); a
-  file that cannot be opened ends surl with 23. It builds the exchange log of the level:
+  file that cannot be opened ends surl with 23, and so does a trace file with the
+  `--log-file` file's full path, ignoring case (ADR-0036). It builds the exchange log of the level:
   `LevelledExchangeLogFactory` up to `-v`, `TraceExchangeLogFactory` at the trace level
   (ADR-0033). `-s` hides every `surl: ` failure message but not a command-line refusal;
   `-s` and `-s -S` hide the status lines.

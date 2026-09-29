@@ -29,7 +29,8 @@ internal sealed class LogStreams : IDisposable
     /// <summary>
     /// Opens the streams the command line names, before any listener binds. A file that cannot
     /// be opened ends <c>surl</c> with <see cref="SurlExitCode.CouldNotWriteFile"/> (ADR-0033,
-    /// section 6), and any file opened before it is closed again.
+    /// section 6), and any file opened before it is closed again; so does a trace file whose full
+    /// path, ignoring case, is the <c>--log-file</c> file's (ADR-0036).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="output">stdout, for <c>-</c>.</param>
@@ -41,9 +42,16 @@ internal sealed class LogStreams : IDisposable
     {
         var openedFiles = new List<TextWriter>();
         var (log, failureMessage) = Choose(
-            commandLine.LogFile, "--log-file", FileMode.Append, output, openLogFile, openedFiles);
+            commandLine.LogFile, "--log-file", FileMode.Append, logFile: null, output, openLogFile, openedFiles);
         var (trace, traceFailureMessage) = failureMessage is null
-            ? Choose(commandLine.TraceFile, NameTraceOption(commandLine.TraceLayout), FileMode.Create, output, openLogFile, openedFiles)
+            ? Choose(
+                commandLine.TraceFile,
+                NameTraceOption(commandLine.TraceLayout),
+                FileMode.Create,
+                commandLine.LogFile,
+                output,
+                openLogFile,
+                openedFiles)
             : (null, null);
         failureMessage ??= traceFailureMessage;
         if (failureMessage is not null)
@@ -75,11 +83,13 @@ internal sealed class LogStreams : IDisposable
     private static string NameTraceOption(TraceDumpLayout layout) =>
         layout == TraceDumpLayout.Ascii ? "--trace-ascii" : "--trace";
 
-    // No file is none, "-" is stdout, and any other is opened and kept to close later.
+    // No file is none, "-" is stdout, a trace file that is the --log-file file is refused
+    // (ADR-0036), and any other is opened and kept to close later.
     private static (TextWriter? Writer, string? FailureMessage) Choose(
         string? file,
         string option,
         FileMode mode,
+        string? logFile,
         TextWriter output,
         Func<string, FileMode, TextWriter> openLogFile,
         List<TextWriter> openedFiles)
@@ -91,6 +101,11 @@ internal sealed class LogStreams : IDisposable
 
         try
         {
+            if (NameTheSameFile(file, logFile))
+            {
+                return (null, $"(23) Could not open {file} for {option}: --log-file names the same file");
+            }
+
             var opened = openLogFile(file, mode);
             openedFiles.Add(opened);
             return (opened, null);
@@ -100,4 +115,10 @@ internal sealed class LogStreams : IDisposable
             return (null, $"(23) Could not open {file} for {option}: {failure.Message}");
         }
     }
+
+    // The same full path, ignoring case on every platform, so Windows, Linux and macOS refuse
+    // alike (ADR-0036). "-" is stdout, never a file.
+    private static bool NameTheSameFile(string file, string? logFile) =>
+        logFile is not null and not "-"
+        && string.Equals(Path.GetFullPath(file), Path.GetFullPath(logFile), StringComparison.OrdinalIgnoreCase);
 }
