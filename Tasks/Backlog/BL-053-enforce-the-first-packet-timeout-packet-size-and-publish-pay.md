@@ -65,6 +65,13 @@ upstream curl 8.21.0 reports for each close recorded.
 
 ## Notes
 
+BL-036 (2026-09-28) already refuses a packet over `MaxMessageBytes` from its fixed header
+before reading any body byte, and closes with no bytes: see `MqttPacketReader` and
+`MqttProtocolServerTests.ServeAsync_PacketOfExactlyTheLimit_IsAccepted` /
+`ServeAsync_PacketOverTheLimit_ClosesWithNoBytesBeforeReadingItsBody`. What is left here
+is the head timeout, the `PUBLISH` payload limit, the recordings, and the test names the
+criteria ask for.
+
 ## Log
 
 - 2026-09-28: Created.
