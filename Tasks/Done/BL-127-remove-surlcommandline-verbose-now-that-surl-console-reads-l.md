@@ -8,7 +8,7 @@ depends-on: [BL-107]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
 requirement: FR-013
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-127 — Remove SurlCommandLine.Verbose now that Surl.Console reads LogLevel
 
@@ -30,16 +30,20 @@ Line numbers are from the tree at filing time. Search for `.Verbose` rather than
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cli.UnitLibrary/SurlCommandLine.cs` no longer declares `Verbose`, and no doc comment in `Surl.Cli.UnitLibrary` refers to it.
-- [ ] Searching all `.cs` files for `\.Verbose\b` finds only `LogLevel.Verbose`. No `SurlCommandLine.Verbose` read is left in any project.
-- [ ] `CommandLineParserTests` asserts `LogLevel.Verbose` for `-v`/`--verbose` and `LogLevel.Info` for `--no-verbose` and for the defaults, through the `["verbose"]` `FlagValues` entry and the rewritten assertions.
-- [ ] `dotnet build Surl.Cli.UnitLibrary -warnaserror`, `dotnet build Surl.Cli.UnitTests -warnaserror` and `dotnet build Surl.Console -warnaserror` are clean.
-- [ ] `dotnet test --filter "TestCategory!=Integration"` passes, and no test needs `TestCategory=Integration`.
-- [ ] Surl.Cli.UnitLibrary is still at 100% line and 100% branch coverage, measured by `Measure-CodeQuality.ps1`.
+- [x] `Surl.Cli.UnitLibrary/SurlCommandLine.cs` no longer declares `Verbose`, and no doc comment in `Surl.Cli.UnitLibrary` refers to it.
+- [x] Searching all `.cs` files for `\.Verbose\b` finds only `LogLevel.Verbose`. No `SurlCommandLine.Verbose` read is left in any project.
+- [x] `CommandLineParserTests` asserts `LogLevel.Verbose` for `-v`/`--verbose` and `LogLevel.Info` for `--no-verbose` and for the defaults, through the `["verbose"]` `FlagValues` entry and the rewritten assertions.
+- [x] `dotnet build Surl.Cli.UnitLibrary -warnaserror`, `dotnet build Surl.Cli.UnitTests -warnaserror` and `dotnet build Surl.Console -warnaserror` are clean.
+- [x] `dotnet test --filter "TestCategory!=Integration"` passes, and no test needs `TestCategory=Integration`.
+- [x] Surl.Cli.UnitLibrary is still at 100% line and 100% branch coverage, measured by `Measure-CodeQuality.ps1`.
 
 ## Notes
+
+- Removed `SurlCommandLine.Verbose` and its doc comment. In the tests, the defaults test and the no-logging-option test already asserted `LogLevel.Info` beside the `Verbose` read, so those lines were deleted rather than rewritten; `--no-verbose` giving `LogLevel.Info` stays pinned by the `Parse_LevelOptions_LastWinsThenShowErrorApplies` data row, and the `FlagValues` entry now reads `c.LogLevel == LogLevel.Verbose`.
+- Verified 2026-09-29: `dotnet build -warnaserror` clean (whole solution); fast tests all pass (Surl.Cli.UnitTests 525); `Measure-CodeQuality.ps1 -Library Surl.Cli.UnitLibrary` reports 100% line, 100% branch, max complexity 10, 0 failing members.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. SurlCommandLine.Verbose is gone; LogLevel is the only way to read the chosen log level

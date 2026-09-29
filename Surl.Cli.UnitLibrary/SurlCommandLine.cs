@@ -40,12 +40,6 @@ public sealed record SurlCommandLine
     public bool ShowError { get; init; }
 
     /// <summary>
-    /// Whether <see cref="LogLevel"/> is <see cref="LogLevel.Verbose"/>: what <c>-v</c> meant
-    /// before the log levels, read by <c>Surl.Console</c> until it composes the levels.
-    /// </summary>
-    public bool Verbose => LogLevel == LogLevel.Verbose;
-
-    /// <summary>
     /// The file of the last <c>--trace</c> or <c>--trace-ascii</c>, as given (<c>-</c> is
     /// stdout), when <see cref="LogLevel"/> is <see cref="LogLevel.Trace"/>; otherwise, and
     /// by default, none.

@@ -11,7 +11,7 @@ public sealed class CommandLineParserTests
 
     private static readonly Dictionary<string, Func<SurlCommandLine, bool>> FlagValues = new(StringComparer.Ordinal)
     {
-        ["verbose"] = c => c.Verbose,
+        ["verbose"] = c => c.LogLevel == LogLevel.Verbose,
         ["allow-uploads"] = c => c.AllowUploads,
         ["list-directories"] = c => c.ListDirectories,
         ["follow-symlinks"] = c => c.FollowSymlinks,
@@ -51,7 +51,6 @@ public sealed class CommandLineParserTests
 
         Assert.AreEqual(0, defaults.ListenUrls.Count);
         Assert.IsNull(defaults.DataDirectory);
-        Assert.IsFalse(defaults.Verbose);
         Assert.IsFalse(defaults.AllowUploads);
         Assert.IsFalse(defaults.ListDirectories);
         Assert.IsFalse(defaults.FollowSymlinks);
@@ -84,7 +83,6 @@ public sealed class CommandLineParserTests
         var commandLine = Served(Url);
 
         Assert.AreEqual(LogLevel.Info, commandLine.LogLevel);
-        Assert.IsFalse(commandLine.Verbose);
         Assert.IsNull(commandLine.TraceFile);
         Assert.IsFalse(commandLine.TraceTime);
         Assert.IsNull(commandLine.LogFile);
@@ -119,7 +117,6 @@ public sealed class CommandLineParserTests
         var commandLine = Served([.. options, Url]);
 
         Assert.AreEqual(expected, commandLine.LogLevel);
-        Assert.AreEqual(expected == LogLevel.Verbose, commandLine.Verbose);
     }
 
     [TestMethod]
@@ -509,7 +506,7 @@ public sealed class CommandLineParserTests
     {
         var commandLine = Served("-vm30", Url);
 
-        Assert.IsTrue(commandLine.Verbose);
+        Assert.AreEqual(LogLevel.Verbose, commandLine.LogLevel);
         Assert.AreEqual(TimeSpan.FromSeconds(30), commandLine.MaxTime);
     }
 
@@ -901,7 +898,7 @@ public sealed class CommandLineParserTests
 
     [TestMethod]
     public void Parse_OptionsAfterTheListenUrl_AreRead() =>
-        Assert.IsTrue(Served(Url, "-v").Verbose);
+        Assert.AreEqual(LogLevel.Verbose, Served(Url, "-v").LogLevel);
 
     [TestMethod]
     public void Parse_RepeatedOption_LastWins() =>
@@ -912,7 +909,7 @@ public sealed class CommandLineParserTests
     {
         var commandLine = Served("-v", "--", Url);
 
-        Assert.IsTrue(commandLine.Verbose);
+        Assert.AreEqual(LogLevel.Verbose, commandLine.LogLevel);
         Assert.AreEqual(1, commandLine.ListenUrls.Count);
     }
 
