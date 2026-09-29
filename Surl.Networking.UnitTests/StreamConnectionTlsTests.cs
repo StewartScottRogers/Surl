@@ -80,6 +80,61 @@ public sealed class StreamConnectionTlsTests
     }
 
     [TestMethod]
+    public async Task UpgradeToTlsAsync_ClientOffersTls12OnlyAgainstTheDefaults_NegotiatesTls12()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+        await using var pair = ConnectionPair.Create(settings, "https");
+        var options = ClientOptions();
+        options.EnabledSslProtocols = SslProtocols.Tls12;
+
+        var (session, client) = await pair.HandshakeAsync(options, TestContext.CancellationToken);
+        await using (client)
+        {
+            Assert.AreEqual(SslProtocols.Tls12, session.Protocol);
+        }
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.OSX)]
+    public async Task UpgradeToTlsAsync_ServerAcceptsTls13OnlyAndClientOffersTls12Only_FailsTheHandshake()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time)
+        {
+            AcceptedVersions = new TlsVersionRange(SslProtocols.Tls13, SslProtocols.Tls13),
+        };
+        await using var pair = ConnectionPair.Create(settings, "https");
+        var options = ClientOptions();
+        options.EnabledSslProtocols = SslProtocols.Tls12;
+
+        await pair.AssertHandshakeFailsAsync(options, TestContext.CancellationToken);
+    }
+
+    [TestMethod]
+    public async Task UpgradeToTlsAsync_NoClientHelloWithinTheHeadTimeout_IsCutOffAndDisposingWritesNothing()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+        await using var pair = ConnectionPair.Create(settings, "https");
+        var clock = new ManualTimeProvider();
+        using var headTimeout = new CancellationTokenSource(ExchangeLimits.Default.HeadTimeout, clock);
+
+        var upgrade = pair.Connection.UpgradeToTlsAsync(headTimeout.Token).AsTask();
+        clock.Advance(ExchangeLimits.Default.HeadTimeout - TimeSpan.FromTicks(1));
+
+        Assert.IsFalse(upgrade.IsCompleted);
+
+        clock.Advance(TimeSpan.FromTicks(1));
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => upgrade);
+        await pair.Connection.DisposeAsync();
+        Assert.AreEqual(0, await pair.ClientStream.ReadAsync(new byte[1], TestContext.CancellationToken));
+        Assert.AreEqual(0, pair.TransportControl.ShutdownSendCount);
+        Assert.AreEqual(1, pair.ServerStream.DisposeCount);
+    }
+
+    [TestMethod]
     public async Task UpgradeToTlsAsync_ClientSendsServerName_ReportsIt()
     {
         using var certificate = TestCertificates.CreateEcdsaServerCertificate();

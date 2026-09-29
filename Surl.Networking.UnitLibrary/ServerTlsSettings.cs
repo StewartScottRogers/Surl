@@ -64,14 +64,31 @@ public sealed class ServerTlsSettings : IDisposable
     public bool RequiresClientCertificate => clientCertificateVerifier is not null;
 
     /// <summary>
+    /// The TLS versions every handshake accepts (ADR-0006, section 4); TLS 1.2 and TLS 1.3
+    /// unless set.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">The value is <see langword="null"/>.</exception>
+    public TlsVersionRange AcceptedVersions
+    {
+        get;
+        init
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = TlsVersionRange.Default;
+
+    /// <summary>
     /// Disposes the re-imported serving certificate. Calling it twice is harmless.
     /// </summary>
     public void Dispose() => servingCertificate.Dispose();
 
     /// <summary>
     /// The options for one server handshake: the certificate context, the ALPN protocol IDs
-    /// offered, and client-certificate verification when it is on. Versions are the operating
-    /// system's defaults.
+    /// offered, client-certificate verification when it is on, the <see cref="AcceptedVersions"/>,
+    /// and renegotiation refused (ADR-0006, section 4: client-initiated renegotiation is a
+    /// CPU-exhaustion lever). Cipher suites are the operating system's defaults, so
+    /// <see cref="SslServerAuthenticationOptions.CipherSuitesPolicy"/> is never set.
     /// </summary>
     /// <param name="applicationProtocols">The ALPN protocol IDs offered; empty offers none.</param>
     /// <returns>Fresh options, safe to hand to one handshake.</returns>
@@ -83,5 +100,7 @@ public sealed class ServerTlsSettings : IDisposable
             ClientCertificateRequired = RequiresClientCertificate,
             RemoteCertificateValidationCallback = clientCertificateVerifier is null ? null : clientCertificateVerifier.Validate,
             CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
+            EnabledSslProtocols = AcceptedVersions.AcceptedProtocols,
+            AllowRenegotiation = false,
         };
 }

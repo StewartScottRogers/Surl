@@ -1,4 +1,5 @@
 using System.Net.Security;
+using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
 
 namespace Surl.Networking;
@@ -42,6 +43,45 @@ public sealed class ServerTlsSettingsTests
         Assert.IsNull(options.ApplicationProtocols);
         Assert.IsNotNull(options.ServerCertificateContext);
         Assert.AreEqual(X509RevocationMode.NoCheck, options.CertificateRevocationCheckMode);
+    }
+
+    [TestMethod]
+    public void CreateAuthenticationOptions_Defaults_AcceptTls12AndTls13_RefuseRenegotiation_AndKeepTheSystemCipherSuites()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+
+        var options = settings.CreateAuthenticationOptions([]);
+
+        Assert.AreSame(TlsVersionRange.Default, settings.AcceptedVersions);
+        Assert.AreEqual(SslProtocols.Tls12 | SslProtocols.Tls13, options.EnabledSslProtocols);
+        Assert.IsFalse(options.AllowRenegotiation);
+#pragma warning disable CA1416 // Reading the policy is what proves it was never set; setting it is what Windows lacks.
+        Assert.IsNull(options.CipherSuitesPolicy);
+#pragma warning restore CA1416
+    }
+
+    [TestMethod]
+    public void CreateAuthenticationOptions_AcceptedVersionsSet_EnablesExactlyThoseVersions()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time)
+        {
+            AcceptedVersions = new TlsVersionRange(SslProtocols.Tls13, SslProtocols.Tls13),
+        };
+
+        var options = settings.CreateAuthenticationOptions([]);
+
+        Assert.AreEqual(SslProtocols.Tls13, options.EnabledSslProtocols);
+        Assert.IsFalse(options.AllowRenegotiation);
+    }
+
+    [TestMethod]
+    public void AcceptedVersions_Null_Throws()
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => new ServerTlsSettings(certificate, [], [], Time) { AcceptedVersions = null! });
     }
 
     [TestMethod]

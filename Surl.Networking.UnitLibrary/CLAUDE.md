@@ -60,7 +60,16 @@ protocol server.
   otherwise). `StreamConnection.UpgradeToTlsAsync` runs it: a failed handshake is
   `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
   disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
-  close_notify before FIN. Versions are the operating system's defaults until BL-048.
+  close_notify before FIN.
+- TLS minimums (ADR-0006, section 4; BL-048). `ServerTlsSettings.AcceptedVersions` is a
+  `TlsVersionRange` (public): a lowest and a highest of TLS 1.0, 1.1, 1.2, 1.3, TLS 1.2 to
+  1.3 by default, whose `AcceptedProtocols` every handshake enables; a lowest above the
+  highest is `ArgumentException`. Every handshake refuses renegotiation
+  (`AllowRenegotiation = false`) and never sets `CipherSuitesPolicy`, so cipher suites are
+  the operating system's. The head timeout is the caller's: `Surl.Core` passes
+  `UpgradeToTlsAsync` a token cancelled at `ExchangeLimits.HeadTimeout` and writes the log
+  note. `Surl.Networking.UnitTests/Fixtures` holds the upstream curl recordings showing its
+  defaults complete with renegotiation off.
 - Reading the TLS option files (ADR-0010, sections 3 and 5), at startup before any listener
   binds. `ServerCertificateFileLoader.Load` reads `--cert` as `ServerCertificateFormat`
   `Pem`, `Der` or `P12` and `--key` as `ServerKeyFormat` `Pem` or `Der`, with `--pass`, into a
