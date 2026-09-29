@@ -61,3 +61,4 @@ The protocol tasks (BL-033 to BL-036) record their own.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
