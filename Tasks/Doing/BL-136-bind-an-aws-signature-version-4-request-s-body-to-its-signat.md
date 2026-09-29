@@ -53,3 +53,4 @@ field sent) and `aws-sigv4-ec2-put` (ec2, no field; body `body`).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
