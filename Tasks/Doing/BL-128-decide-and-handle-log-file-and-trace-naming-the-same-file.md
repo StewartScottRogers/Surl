@@ -38,3 +38,4 @@ When `--log-file` and `--trace` (or `--trace-ascii`) name the same file, `surl` 
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
