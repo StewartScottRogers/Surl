@@ -36,3 +36,4 @@ Doc comment only; no behaviour change.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
