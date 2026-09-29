@@ -63,3 +63,4 @@ Wiring `gopher` into `surl` and the live conformance run are BL-040.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
