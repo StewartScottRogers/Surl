@@ -54,3 +54,4 @@ escape the root, or that the hardening ADR hides, are left out.
 ## Log
 
 - 2026-09-28: Created.
+- 2026-09-28: Backlog -> Doing.
