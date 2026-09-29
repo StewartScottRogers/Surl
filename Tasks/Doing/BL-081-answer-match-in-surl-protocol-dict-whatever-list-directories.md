@@ -57,3 +57,4 @@ ADR-0011 section 4 says and BL-033's `match-hel` recording from pinned upstream 
 
 - 2026-09-28: Created.
 - 2026-09-28: Filed by BL-039: pinned upstream curl disagrees with live surl on `match-hel`.
+- 2026-09-29: Backlog -> Doing.
