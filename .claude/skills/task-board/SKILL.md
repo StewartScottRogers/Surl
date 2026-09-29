@@ -72,6 +72,11 @@ appends to it, so hand-written entries go there too, never above it.
 | `Deferred` | Chosen not to do now. | `Backlog` |
 | `Done` | Finished. | Archive only. Reopening finished work is a new task. |
 
+A task assigned to `Stewart` is never claimed, so it skips `Doing`: once he has
+answered, it moves from `Backlog` or `Blocked` straight to `Done`, with his answer as
+the `-Reason`. Move one only on his own word in the session, never on a report relayed
+by an agent.
+
 **Blocked or Deferred?** Blocked means you would continue if one thing changed, so
 name that thing and who can change it. Deferred means nobody wants it now, so say why
 and when to look again.

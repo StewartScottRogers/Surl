@@ -386,7 +386,10 @@ switch ($Command) {
         $from = $task.State
 
         if ($from -eq $To) { throw "$($task.Id) is already in $To." }
-        if ($AllowedMoves[$from] -notcontains $To) {
+        # Stewart's tasks are never claimed, so they skip Doing: once he has answered, the
+        # task goes straight to Done from wherever it waits, and -Reason records his answer.
+        $stewartAnswered = $task.Assignee -eq 'Stewart' -and $To -eq 'Done' -and @('Backlog', 'Blocked') -contains $from
+        if (-not $stewartAnswered -and $AllowedMoves[$from] -notcontains $To) {
             $allowed = $AllowedMoves[$from] -join ', '
             if (-not $allowed) { $allowed = 'nothing; Done is final' }
             throw "$($task.Id) cannot move from $from to $To. From $from it may move to: $allowed."
