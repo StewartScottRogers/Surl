@@ -126,7 +126,7 @@ parse failure. It is proven against request bytes recorded from the pinned upstr
     connection.
   - Host-field validation (RFC 9112 section 3.2: 400 for an HTTP/1.1 request with no
     `Host` or more than one) belongs to answering the request, BL-018.
-  - Glossary entries are filed as BL-057, because `Documentation` is outside this
+  - Glossary entries are filed as BL-058, because `Documentation` is outside this
     task's `touches`.
 - **Result.** 122 fast tests in `Surl.Protocol.Http.UnitTests`, and 426 fast tests
   across the solution, all green. `Measure-CodeQuality.ps1 -Library

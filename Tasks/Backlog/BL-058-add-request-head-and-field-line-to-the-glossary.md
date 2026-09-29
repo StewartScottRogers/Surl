@@ -1,5 +1,5 @@
 ---
-id: BL-057
+id: BL-058
 title: Add request head and field line to the glossary
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-28
 completed:
 ---
-# BL-057 — Add request head and field line to the glossary
+# BL-058 — Add request head and field line to the glossary
 
 ## Goal
 
