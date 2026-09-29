@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-033, BL-046]
-touches: [Surl.Protocol.Dict.UnitLibrary, Surl.Protocol.Dict.UnitTests]
+touches: [Surl.Protocol.Dict.UnitLibrary, Surl.Protocol.Dict.UnitTests, Documentation/Planning/Decisions/ADR-0011-how-the-dict-server-answers.md]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-051 — Enforce the head timeout and line limit and answer refusals in Surl.Protocol.Dict
 
@@ -51,27 +51,50 @@ was fed and recorded.
 
 ## Acceptance criteria
 
-- [ ] `HeadTimeoutTests.PartialLine_AfterHeadTimeout_Answers420AndCloses` and
+- [x] `HeadTimeoutTests.PartialLine_AfterHeadTimeout_Answers420AndCloses` and
       `HeadTimeoutTests.NoCommand_AfterHeadTimeout_Answers420AndCloses` pass, and a test
       proves the wait between commands is not cut off by `HeadTimeout`.
-- [ ] `LineLimitTests.LineOfExactly8192Bytes_IsAnswered` and
+- [x] `LineLimitTests.LineOfExactly8192Bytes_IsAnswered` and
       `LineLimitTests.LineOf8193Bytes_Answers500AndCloses` pass, and a test proves
       `MaxLineBytes = 0` accepts a 16 KiB line.
-- [ ] `ConnectionRefusalTests` prove both `ConnectionRefusal` values write the exact 420
+- [x] `ConnectionRefusalTests` prove both `ConnectionRefusal` values write the exact 420
       bytes and complete writes without `Abort`.
-- [ ] A test proves the banner holds no digit-dot-digit version string, and a test with a
+- [x] A test proves the banner holds no digit-dot-digit version string, and a test with a
       failing definitions source proves the reply contains neither a path nor an
       exception message.
-- [ ] Recordings for each case above are committed; each test's expected bytes equal the
+- [x] Recordings for each case above are committed; each test's expected bytes equal the
       bytes that recording fed to pinned upstream curl 8.21.0.
-- [ ] `dotnet build Surl.Protocol.Dict.UnitLibrary -warnaserror` is clean, the fast tests
+- [x] `dotnet build Surl.Protocol.Dict.UnitLibrary -warnaserror` is clean, the fast tests
       are green with no `Integration` test in `Surl.Protocol.Dict.UnitTests`, and
       `Measure-CodeQuality.ps1` reports no failing member in
       `Surl.Protocol.Dict.UnitLibrary`.
 
 ## Notes
 
+- The line limit was already in (BL-033 read `MaxLineBytes`); this task added the
+  one-second write deadline and the explicit `CompleteWritesAsync` to its `500`.
+- Head timeout lives in `DictLineReader`: `StartHeadTimeout()` is called when `ServeAsync`
+  starts, and otherwise the clock starts when a read returns the line's first byte, or,
+  for bytes already buffered behind the previous line, when `ReadLineAsync` is called
+  (default taken: the time spent answering the previous command is not charged to it,
+  because the reader does not timestamp reads). The clock stops when the line completes.
+- Reply texts (decided under Stewart's delegation, recorded as item 9 of ADR-0011 rather
+  than a new ADR, because it extends that ADR's reply table and a new number would race
+  other lanes): `420 timed out waiting for a command`, `420 server temporarily
+  unavailable` (RFC 2229's own 420 text, one text for both `ConnectionRefusal` values).
+- Added `Documentation/Planning/Decisions/ADR-0011-how-the-dict-server-answers.md` to
+  `touches`: the replies are ADR-0011's to record. No task in Doing names it.
+- Recordings: `refused`, `head-timeout`, `line-too-long`, all exit 0 with empty stderr,
+  pinned win-x64 build. Their command lines and the build SHA-256 are in the shared
+  `Fixtures/README.md`, following the folder's existing one-README convention rather
+  than one README per case.
+- Tests: `ManualTimeProvider` (hand-written clock) and `WriteStallingConnection` (a
+  client that stops reading) cover the timeout and the write-deadline paths without a
+  network. Coverage of `Surl.Protocol.Dict.UnitLibrary`: 100% lines, 100% branches,
+  0 failing members.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. DICT answers 420 on a head timeout, 500 on a line over MaxLineBytes, and 420 as its connection refusal, each fed to pinned curl 8.21.0
