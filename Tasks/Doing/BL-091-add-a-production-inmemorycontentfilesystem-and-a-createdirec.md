@@ -72,3 +72,4 @@ total bytes and what an upload past it gets, and the last-write time reported.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
