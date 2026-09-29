@@ -50,6 +50,28 @@ internal static class TestCertificates
     }
 
     /// <summary>
+    /// An ECDSA P-256 intermediate certificate authority signed by <paramref name="root"/>, with
+    /// its private key. Unlike a self-signed authority, no platform trims it from a chain as a root.
+    /// </summary>
+    public static X509Certificate2 CreateIntermediateAuthority(X509Certificate2 root, string subject)
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var request = new CertificateRequest(subject, key, HashAlgorithmName.SHA256);
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, false, 0, true));
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, true));
+        request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, false));
+        request.CertificateExtensions.Add(X509AuthorityKeyIdentifierExtension.CreateFromCertificate(root, true, false));
+
+        using var signed = request.Create(root, Now.AddDays(-5), Now.AddDays(5), RandomNumberGenerator.GetBytes(8));
+        using var withKey = signed.CopyWithPrivateKey(key);
+
+        return X509CertificateLoader.LoadPkcs12(
+            withKey.Export(X509ContentType.Pkcs12),
+            password: null,
+            ServerCertificateImport.KeyStorageFlagsFor(OperatingSystem.IsLinux()) | X509KeyStorageFlags.Exportable);
+    }
+
+    /// <summary>
     /// A leaf certificate signed by <paramref name="authority"/>, with its private key, valid
     /// from <paramref name="notBefore"/> to <paramref name="notAfter"/>. With
     /// <paramref name="extendedKeyUsage"/> <see langword="null"/> it carries no extended key usage.
