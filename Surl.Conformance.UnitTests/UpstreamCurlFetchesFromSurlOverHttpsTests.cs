@@ -3,7 +3,8 @@ namespace Surl.Conformance;
 /// <summary>
 /// The pinned upstream curl build fetches from a live, in-process <c>surl</c> over HTTP/1.1 on
 /// TLS (<c>https</c>), with the certificate <c>--cert</c> and <c>--key</c> name and with the
-/// throwaway certificate surl makes without them (ADR-0010, section 3). Inconclusive where no
+/// throwaway certificate surl makes with <c>--self-signed</c> (ADR-0010, section 3; ADR-0032,
+/// section 10). Inconclusive where no
 /// pinned build is installed for the platform.
 /// </summary>
 [TestClass]
@@ -62,7 +63,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttpsTests
     [TestMethod]
     public async Task GetWithInsecure_ThrowawayCertificate_ExitsZeroWithTheFilesBytes()
     {
-        await using var surl = await StartSurlAsync();
+        await using var surl = await StartSurlAsync("--self-signed");
 
         var result = await RunUpstreamCurlAsync("-sS", "-k", surl.UrlOf("hello.txt"));
 
@@ -73,7 +74,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttpsTests
     [TestMethod]
     public async Task Get_ThrowawayCertificate_ExitsPeerFailedVerification()
     {
-        await using var surl = await StartSurlAsync();
+        await using var surl = await StartSurlAsync("--self-signed");
 
         var result = await RunUpstreamCurlAsync("-sS", surl.UrlOf("hello.txt"));
 
@@ -84,7 +85,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttpsTests
     [TestMethod]
     public async Task GetWithInsecure_SameFileTwice_ExitsZeroWithTheFilesBytesTwice()
     {
-        await using var surl = await StartSurlAsync();
+        await using var surl = await StartSurlAsync("--self-signed");
 
         var result = await RunUpstreamCurlAsync("-sS", "-k", surl.UrlOf("hello.txt"), surl.UrlOf("hello.txt"));
 

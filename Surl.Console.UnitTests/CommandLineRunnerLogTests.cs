@@ -151,12 +151,14 @@ public sealed class CommandLineRunnerLogTests
     }
 
     [TestMethod]
-    public async Task RunAsync_VerboseHttpsWithLogFile_WritesTheThrowawayCertificateNoteToTheLogFile()
+    public async Task RunAsync_VerboseSelfSignedHttpsWithLogFile_WritesTheWarningAndTheThrowawayCertificateNoteToTheLogFile()
     {
-        var run = await ServeAsync(TimeProvider.System, connection: null, "-v", "--log-file", "surl.log", "https://127.0.0.1:0/");
+        var run = await ServeAsync(
+            TimeProvider.System, connection: null, "-v", "--self-signed", "--log-file", "surl.log", "https://127.0.0.1:0/");
 
         Assert.MatchesRegex(
-            "^\\* Serving a throwaway certificate, SHA-256 [0-9A-F]{64}" + NewLine + "$", run.OpenedFiles.Single().Text);
+            "^surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification \\(curl -k\\)" + NewLine
+            + "\\* Serving a throwaway certificate, SHA-256 [0-9A-F]{64}" + NewLine + "$", run.OpenedFiles.Single().Text);
         Assert.AreEqual(string.Empty, run.Error);
     }
 

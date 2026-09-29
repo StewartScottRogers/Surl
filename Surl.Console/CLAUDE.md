@@ -42,9 +42,12 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   last listener, connection or datagram, has bound, and keeps a bind failure for the
   `(45)` or `(6)` message.
 - `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
-  TLS from the first byte: the `--cert`/`--key` certificate or a throwaway one, the
-  `--cacert` trust anchors and the accepted TLS versions. A bad file ends surl with 58, 2
-  or 77 before any listener binds (ADR-0020).
+  TLS from the first byte: the `--cert`/`--key` certificate or, with `--self-signed`, a
+  throwaway one, the `--cacert` trust anchors and the accepted TLS versions. A bad file ends
+  surl with 58, 2 or 77 before any listener binds (ADR-0020). Such a listen URL with neither
+  `--cert` nor `--self-signed` ends surl with 58 before any listener binds, and
+  `--self-signed` writes its `surl: warning:` line from the info level up (ADR-0032,
+  sections 9 and 10).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
 

@@ -117,6 +117,17 @@ internal sealed class CommandLineRunner(
         return $"(45) Could not bind {listenUrl.Scheme}://{bracketed}:{listenUrl.Port}/: {DescribeBindFailure(bindFailure.Failure)}";
     }
 
+    /// <summary>
+    /// Formats the <c>(58)</c> message for a listen URL that is TLS from the first byte with
+    /// neither <c>--cert</c> nor <c>--self-signed</c>, after the <c>surl: </c> prefix, the URL
+    /// written as the status line writes it, with the port as given (ADR-0032, section 10).
+    /// </summary>
+    /// <param name="listenUrl">The first such listen URL.</param>
+    /// <returns>The message.</returns>
+    internal static string FormatMissingCertificate(ListenUrl listenUrl) =>
+        $"(58) {ListenerStatusLine.FormatBoundListenUrl(listenUrl with { BoundPort = listenUrl.Port })} needs a certificate: "
+        + "give --cert <file>, or --self-signed for a throwaway one";
+
     private static string DescribeBindFailure(ListenerBindFailure failure) => failure switch
     {
         ListenerBindFailure.AddressInUse => "Address already in use",
@@ -324,6 +335,24 @@ internal sealed class CommandLineRunner(
         return listenUrls.Select(listenUrl => listenUrl.Scheme).FirstOrDefault(scheme => !registeredSchemes.Contains(scheme));
     }
 
+    // A listen URL no registered server answers, then one TLS from the first byte with no
+    // certificate to serve (ADR-0032, section 10): each refused before any listener binds.
+    private static (SurlExitCode ExitCode, string Message)? FindListenUrlRefusal(
+        SurlCommandLine commandLine, IProtocolServer[] servers)
+    {
+        if (FindUnregisteredScheme(commandLine.ListenUrls, servers) is { } scheme)
+        {
+            return (SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
+        }
+
+        return ServerTlsComposition.FindListenUrlWithoutCertificate(commandLine) is { } uncertified
+            ? (SurlExitCode.CertificateProblem, FormatMissingCertificate(uncertified))
+            : null;
+    }
+
+    private DataDirectoryLockOutcome TakeDataDirectoryLockWhenGiven(SurlCommandLine commandLine) =>
+        commandLine.DataDirectory is { } dataDirectory ? takeDataDirectoryLock(dataDirectory) : DataDirectoryLockOutcome.NoLock;
+
     private async Task<SurlExitCode> ServeAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
@@ -335,14 +364,12 @@ internal sealed class CommandLineRunner(
         var fileSystem = ComposeContentFileSystem(commandLine, timeProvider, dataDirectoryFileSystem);
         var contentStore = ComposeContentStore(commandLine, fileSystem);
         var unloadedServers = ComposeProtocolServers(contentStore, new MqttRetainedMessages());
-        if (FindUnregisteredScheme(commandLine.ListenUrls, unloadedServers) is { } scheme)
+        if (FindListenUrlRefusal(commandLine, unloadedServers) is { } refusal)
         {
-            return WriteFailure(error, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
+            return WriteFailure(error, refusal.ExitCode, refusal.Message);
         }
 
-        var dataDirectoryLock = commandLine.DataDirectory is { } lockedDirectory
-            ? takeDataDirectoryLock(lockedDirectory)
-            : DataDirectoryLockOutcome.NoLock;
+        var dataDirectoryLock = TakeDataDirectoryLockWhenGiven(commandLine);
         if (dataDirectoryLock.FailureMessage is { } lockFailure)
         {
             return WriteFailure(error, dataDirectoryLock.ExitCode, lockFailure);
@@ -420,12 +447,27 @@ internal sealed class CommandLineRunner(
 
         using (logStreams)
         {
-            if (commandLine.LogLevel >= LogLevel.Verbose && tls.ThrowawayCertificateFingerprint is { } fingerprint)
+            // The --self-signed warning from the info level up, the fingerprint note from verbose
+            // up, both unstamped (ADR-0032, section 9; ADR-0033, section 7).
+            if (tls.ThrowawayCertificateFingerprint is { } fingerprint)
             {
-                logStreams.Log.WriteLine($"* Serving a throwaway certificate, SHA-256 {fingerprint}");
+                WriteThrowawayCertificateLines(commandLine.LogLevel, fingerprint, logStreams.Log);
             }
 
             return await ServeLoggedAsync(commandLine, servers, tls, logStreams, output, error, cancellationToken);
+        }
+    }
+
+    private static void WriteThrowawayCertificateLines(LogLevel logLevel, string fingerprint, TextWriter log)
+    {
+        if (logLevel >= LogLevel.Info)
+        {
+            log.WriteLine(MessagePrefix + "warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)");
+        }
+
+        if (logLevel >= LogLevel.Verbose)
+        {
+            log.WriteLine($"* Serving a throwaway certificate, SHA-256 {fingerprint}");
         }
     }
 

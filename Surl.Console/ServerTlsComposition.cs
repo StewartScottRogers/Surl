@@ -7,8 +7,8 @@ namespace Surl.Console;
 
 /// <summary>
 /// The process's server-side TLS settings as the command line asks for them (ADR-0010,
-/// section 3; ADR-0020): none when no listen URL is TLS from the first byte; otherwise the
-/// <c>--cert</c> certificate, or a throwaway one when none is given, with the <c>--cacert</c>
+/// section 3; ADR-0020; ADR-0032, section 10): none when no listen URL is TLS from the first
+/// byte; otherwise the <c>--cert</c> certificate, or a throwaway one with <c>--self-signed</c>, with the <c>--cacert</c>
 /// trust anchors and the accepted TLS versions. It owns every certificate it loaded or made,
 /// and disposing it disposes them.
 /// </summary>
@@ -36,8 +36,22 @@ internal sealed class ServerTlsComposition : IDisposable
     public string? ThrowawayCertificateFingerprint { get; }
 
     /// <summary>
+    /// Finds the first listen URL, in command-line order, that is TLS from the first byte and
+    /// has no certificate to serve because neither <c>--cert</c> nor <c>--self-signed</c> was
+    /// given (ADR-0032, section 10).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <returns>That listen URL, or <see langword="null"/> when every listen URL has what it needs.</returns>
+    public static ListenUrl? FindListenUrlWithoutCertificate(SurlCommandLine commandLine) =>
+        commandLine.CertificateFile is null && !commandLine.SelfSigned
+            ? commandLine.ListenUrls.FirstOrDefault(listenUrl => TlsSchemes.IsImplicitTls(listenUrl.Scheme))
+            : null;
+
+    /// <summary>
     /// Reads the TLS option files and builds the settings, when a listen URL needs them. The
     /// files are read only then, as upstream curl reads <c>--cert</c> only for a TLS transfer.
+    /// Without <c>--cert</c> it makes the throwaway certificate, which the caller allows only
+    /// with <c>--self-signed</c> (<see cref="FindListenUrlWithoutCertificate"/>).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="timeProvider">Supplies "now" for the throwaway certificate and client-chain verification.</param>

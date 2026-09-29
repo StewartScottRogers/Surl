@@ -1,12 +1,31 @@
 using System.Security.Authentication;
 using Surl.Cli;
 using Surl.Networking;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;
 
 [TestClass]
 public sealed class ServerTlsCompositionTests
 {
+    [TestMethod]
+    public void FindListenUrlWithoutCertificate_NeitherCertNorSelfSigned_IsTheFirstImplicitTlsListenUrl()
+    {
+        Assert.AreEqual(
+            new ListenUrl("mqtts", "127.0.0.1", 0),
+            ServerTlsComposition.FindListenUrlWithoutCertificate(
+                Parse("http://127.0.0.1:0/", "mqtts://127.0.0.1:0/", "https://127.0.0.1:0/")));
+    }
+
+    [TestMethod]
+    [DataRow("--self-signed", "https://127.0.0.1:0/")]
+    [DataRow("--cert", "cert.pem", "https://127.0.0.1:0/")]
+    [DataRow("http://127.0.0.1:0/")]
+    public void FindListenUrlWithoutCertificate_CertificateGivenOrNotNeeded_IsNull(params string[] args)
+    {
+        Assert.IsNull(ServerTlsComposition.FindListenUrlWithoutCertificate(Parse(args)));
+    }
+
     [TestMethod]
     public void Compose_NoImplicitTlsListenUrl_HasNoSettingsAndReadsNoFile()
     {
