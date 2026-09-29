@@ -14,7 +14,9 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher`,
   `MqttProtocolServer` for `mqtt`, whose retained messages last as long as `surl` runs,
   `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
-  verbose exchange log and the serving engine, and serves. It writes ADR-0007 section 5's
+  verbose exchange log and the serving engine, with the connection limits
+  (`ComposeConnectionLimits`) the command line's `--max-connections`,
+  `--max-connections-per-address`, `--idle-timeout` and `-m`/`--max-time` give, and serves. It writes ADR-0007 section 5's
   texts and returns its exit codes.
 - `ListenerStartReporter` wraps the listener factory: it writes the status lines once the
   last listener, connection or datagram, has bound, and keeps a bind failure for the

@@ -143,6 +143,23 @@ internal sealed class CommandLineRunner(
     };
 
     /// <summary>
+    /// Builds the connection limits the serving engine enforces from the command line's
+    /// <c>--max-connections</c>, <c>--max-connections-per-address</c>, <c>--idle-timeout</c>
+    /// and <c>-m</c>/<c>--max-time</c> (ADR-0006 section 1). 0 seconds, parsed as
+    /// <see cref="Timeout.InfiniteTimeSpan"/>, becomes <see cref="TimeSpan.Zero"/>: no limit.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <returns>The connection limits.</returns>
+    internal static ConnectionLimits ComposeConnectionLimits(SurlCommandLine commandLine) => new(
+        commandLine.MaxConnections,
+        commandLine.MaxConnectionsPerAddress,
+        NoLimitAsZero(commandLine.IdleTimeout),
+        NoLimitAsZero(commandLine.MaxTime));
+
+    private static TimeSpan NoLimitAsZero(TimeSpan seconds) =>
+        seconds == Timeout.InfiniteTimeSpan ? TimeSpan.Zero : seconds;
+
+    /// <summary>
     /// Formats the message for a TLS option file that could not be loaded, after the
     /// <c>surl: </c> prefix, and the exit code it ends surl with (ADR-0010 section 3, ADR-0020).
     /// </summary>
@@ -250,7 +267,8 @@ internal sealed class CommandLineRunner(
             servers,
             new VerboseExchangeLogFactory(error, commandLine.Verbose),
             timeProvider,
-            ServingEngine.DefaultShutdownGracePeriod);
+            ServingEngine.DefaultShutdownGracePeriod,
+            ComposeConnectionLimits(commandLine));
 
         try
         {

@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Surl.Cli;
 using Surl.Content;
+using Surl.Core;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;
@@ -354,6 +356,78 @@ public sealed class CommandLineRunnerTests
         var store = CommandLineRunner.ComposeContentStore(ParseServing("--directory", "served", "http://127.0.0.1:0/"));
 
         Assert.AreEqual(Path.GetFullPath("served"), store.ServedRoot);
+    }
+
+    [TestMethod]
+    public void ComposeConnectionLimits_NoLimitOption_EnforcesAdr0006Defaults()
+    {
+        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing("http://127.0.0.1:0/"));
+
+        Assert.AreEqual(ConnectionLimits.Default, limits);
+    }
+
+    [TestMethod]
+    public void ComposeConnectionLimits_MaxConnections_ReachesTheEngine()
+    {
+        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing("--max-connections", "7", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(ConnectionLimits.Default with { MaxConnections = 7 }, limits);
+    }
+
+    [TestMethod]
+    public void ComposeConnectionLimits_MaxConnectionsPerAddress_ReachesTheEngine()
+    {
+        var limits = CommandLineRunner.ComposeConnectionLimits(
+            ParseServing("--max-connections-per-address", "3", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(ConnectionLimits.Default with { MaxConnectionsPerAddress = 3 }, limits);
+    }
+
+    [TestMethod]
+    public void ComposeConnectionLimits_IdleTimeout_ReachesTheEngine()
+    {
+        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing("--idle-timeout", "2.5", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(ConnectionLimits.Default with { IdleTimeout = TimeSpan.FromSeconds(2.5) }, limits);
+    }
+
+    [TestMethod]
+    [DataRow("-m")]
+    [DataRow("--max-time")]
+    public void ComposeConnectionLimits_MaxTime_ReachesTheEngine(string option)
+    {
+        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing(option, "90", "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(ConnectionLimits.Default with { MaxExchangeDuration = TimeSpan.FromSeconds(90) }, limits);
+    }
+
+    [TestMethod]
+    public void ComposeConnectionLimits_EveryLimitZero_EnforcesNoLimit()
+    {
+        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing(
+            "--max-connections", "0", "--max-connections-per-address", "0", "--idle-timeout", "0", "--max-time", "0",
+            "http://127.0.0.1:0/"));
+
+        Assert.AreEqual(ConnectionLimits.None, limits);
+    }
+
+    [TestMethod]
+    [DataRow("--idle-timeout")]
+    [DataRow("--max-time")]
+    public async Task RunAsync_DurationAboveTheLongestTimeout_WritesTheRefusalAndReturnsFailedInit(string option)
+    {
+        var aboveMaxTimeout = (ConnectionLimits.MaxTimeout.TotalSeconds + 1).ToString(CultureInfo.InvariantCulture);
+        var factory = new FakeListenerFactory();
+
+        var (exitCode, output, error) = await RunAsync(factory, option, aboveMaxTimeout, "http://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.FailedInit, exitCode);
+        Assert.AreEqual(string.Empty, output);
+        Assert.AreEqual(
+            $"surl: option {option}: expected a proper numerical parameter" + NewLine
+            + "surl: try 'surl --help' for more information" + NewLine,
+            error);
+        Assert.IsEmpty(factory.StartedListenUrls);
     }
 
     private static SurlCommandLine ParseServing(params string[] args) =>
