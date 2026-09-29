@@ -8,7 +8,7 @@ depends-on: [BL-017]
 touches: [Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-058 — Add request head and field line to the glossary
 
@@ -27,13 +27,18 @@ every later HTTP task uses one name for each concept.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Wiki/Glossary.md` has entries for "request head", "request line"
+- [x] `Documentation/Wiki/Glossary.md` has entries for "request head", "request line"
       and "field line", each citing its RFC 9112 section and naming the
       `Surl.Protocol.Http` type that holds it.
 
 ## Notes
 
+- Added a new "HTTP" section to the glossary (between "Serving" and "Building and testing") rather than folding the terms into "Serving": they are protocol-specific, and later HTTP terms (status line, message body framing) have a place to go.
+- Each entry names both the type that holds the concept and the parser that produces it, since `HttpRequestLineParser` and `HttpFieldLineParser` carry the same names.
+- Docs only; no `.cs` or project file changed, so the verify skill was not needed.
+
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. The glossary defines request head, request line and field line, each with its RFC 9112 section and Surl.Protocol.Http type

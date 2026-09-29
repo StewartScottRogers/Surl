@@ -36,6 +36,14 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 | answered as absent | Refused with the protocol's not-found answer, identical to the answer for a path that does not exist, so a peer cannot tell hidden from missing (ADR-0006). | not yet |
 | escaped rendering | How the verbose log shows bytes: printable ASCII except backslash as itself, CR and LF as `\r` and `\n`, every other byte as `\xHH`, so no peer byte reaches the terminal as a control sequence (ADR-0006). | not yet |
 
+## HTTP
+
+| Term | Meaning | Name in code |
+| --- | --- | --- |
+| request head | Everything an HTTP/1.x request sends before its body: the request line, then zero or more field lines, then the empty line that ends them (RFC 9112, sections 2.1 and 3). Empty lines before the request line are skipped (RFC 9112, section 2.2). Bounded by the request-head limit (ADR-0006). | `HttpRequestHead`, read by `HttpConnectionReader`, which reports how the read ended as an `HttpRequestHeadReadOutcome` |
+| request line | The first line of a request head, `method SP request-target SP HTTP-version` (RFC 9112, section 3). | `HttpRequestHead.Method`, `HttpRequestHead.RequestTarget`, `HttpRequestHead.Version`; parsed by `HttpRequestLineParser` |
+| field line | One header field in a request head, `field-name ":" OWS field-value OWS`, the whitespace around the value not part of it (RFC 9112, section 5). | `HttpRequestField`; parsed by `HttpFieldLineParser`; a head's field lines are `HttpRequestHead.Fields` |
+
 ## Building and testing
 
 | Term | Meaning | Name in code |
