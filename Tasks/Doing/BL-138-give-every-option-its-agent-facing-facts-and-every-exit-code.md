@@ -67,3 +67,4 @@ agent should do next), exactly as BL-137's ADR decides, with nothing yet printed
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
