@@ -49,14 +49,31 @@ public sealed class UpstreamCurlRunner
     /// <param name="arguments">curl's arguments, each passed as one argument, unquoted.</param>
     /// <param name="cancellationToken">Cancels the run.</param>
     /// <returns>What the run produced.</returns>
+    // Excluded from coverage: see the overload it calls.
+    [ExcludeFromCodeCoverage]
+    public Task<UpstreamCurlRunResult> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken) =>
+        RunAsync(arguments, ReadOnlyMemory<byte>.Empty, cancellationToken);
+
+    /// <summary>
+    /// Runs the build with <paramref name="arguments"/>, writes <paramref name="standardInput"/>
+    /// to its stdin all at once and closes it, as <c>Record-CurlExchange.ps1</c> does, then waits
+    /// until curl exits or the timeout passes; at the timeout it kills curl and returns what
+    /// curl had written.
+    /// </summary>
+    /// <param name="arguments">curl's arguments, each passed as one argument, unquoted.</param>
+    /// <param name="standardInput">The bytes curl reads on stdin, unchanged; empty for none.</param>
+    /// <param name="cancellationToken">Cancels the run.</param>
+    /// <returns>What the run produced.</returns>
     // Excluded from coverage: it starts a process, and the fast tests start none by design;
     // the start information and the result shapes it uses are fast-tested, and the
     // Integration tests in Surl.Conformance.UnitTests run it against surl.
     [ExcludeFromCodeCoverage]
-    public async Task<UpstreamCurlRunResult> RunAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
+    public async Task<UpstreamCurlRunResult> RunAsync(
+        IReadOnlyList<string> arguments, ReadOnlyMemory<byte> standardInput, CancellationToken cancellationToken)
     {
         using var process = Process.Start(CreateStartInfo(arguments))
             ?? throw new InvalidOperationException($"{Build.DefaultPath} did not start.");
+        await process.StandardInput.BaseStream.WriteAsync(standardInput, cancellationToken);
         process.StandardInput.Close();
 
         using var standardOutput = new MemoryStream();
