@@ -44,3 +44,4 @@ MD4 on any platform, so it is built by hand in `Surl.Cryptography` (root `CLAUDE
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
