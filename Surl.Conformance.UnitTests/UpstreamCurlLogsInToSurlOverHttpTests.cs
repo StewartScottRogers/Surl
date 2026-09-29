@@ -2,7 +2,7 @@ namespace Surl.Conformance;
 
 /// <summary>
 /// The pinned upstream curl build logs in to a live, in-process <c>surl</c> over <c>http</c>
-/// and <c>https</c> with Basic, Digest, Bearer, NTLM and Negotiate (on Windows, with the
+/// and <c>https</c> with Basic, Digest, Bearer, AWS Signature Version 4, NTLM and Negotiate (on Windows, with the
 /// unpatched 8.21.0 build, ADR-0042), against one account read from a
 /// <c>--user-file</c>, and is served or refused as ADR-0032 section 4 says: a plain-text secret
 /// over <c>http://</c> is refused with <c>403</c> unless <c>--allow-plaintext-auth</c>, a wrong
@@ -102,6 +102,48 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
 
         var result = await PinnedUpstreamCurl.RunAsync(
             TestContext, "-sS", "-f", "--digest", "-u", $"{AccountsFile.User}:wrong", surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(HttpReturnedError, result.ExitCode, result.StandardError);
+        StringAssert.Contains(result.StandardError, "401");
+        Assert.IsEmpty(result.StandardOutput);
+    }
+
+    [TestMethod]
+    public async Task AwsSigV4OverHttp_Account_ExitsZeroWithTheFilesBytes()
+    {
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--user-file", accounts.Path);
+
+        var result = await PinnedUpstreamCurl.RunAsync(
+            TestContext, "-sS", "--aws-sigv4", "aws:amz:us-east-1:s3", "-u", Credentials, surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        CollectionAssert.AreEqual(Hello, result.StandardOutput);
+    }
+
+    [TestMethod]
+    public async Task AwsSigV4OverHttp_WrongSecret_ExitsZeroWithNoBody()
+    {
+        // Measured (Surl.Authentication.UnitTests/Fixtures/aws-sigv4-refused): without -f, curl
+        // takes the 401 as an answer, exits 0 and does not sign again.
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--user-file", accounts.Path);
+
+        var result = await PinnedUpstreamCurl.RunAsync(
+            TestContext, "-sS", "--aws-sigv4", "aws:amz:us-east-1:s3", "-u", $"{AccountsFile.User}:wrong", surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        Assert.IsEmpty(result.StandardOutput);
+    }
+
+    [TestMethod]
+    public async Task AwsSigV4OverHttp_WrongSecret_IsRefusedWithHttpReturnedError()
+    {
+        using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync("http", "--user-file", accounts.Path);
+
+        var result = await PinnedUpstreamCurl.RunAsync(
+            TestContext, "-sS", "-f", "--aws-sigv4", "aws:amz:us-east-1:s3", "-u", $"{AccountsFile.User}:wrong", surl.UrlOf("hello.txt"));
 
         Assert.AreEqual(HttpReturnedError, result.ExitCode, result.StandardError);
         StringAssert.Contains(result.StandardError, "401");
