@@ -134,6 +134,65 @@ public sealed class AccountBookTests
     }
 
     [TestMethod]
+    public void FindDigestAccount_Utf8SpellingOfOneAccountAndIso88591SpellingOfAnother_FindsTheUtf8One()
+    {
+        // "ë" in UTF-8 is C3 AB, which read one byte per character is "Ã«": the name of the
+        // second account, whose own ISO-8859-1 spelling it is. UTF-8 wins (ADR-0036).
+        var book = new AccountBook([new Account("ë", "one"), new Account("Ã«", "two")]);
+
+        var found = book.FindDigestAccount("Ã«");
+
+        Assert.AreEqual("ë", found.AccountName);
+        Assert.AreEqual(
+            DigestCalculation.ComputeUserHash(DigestAlgorithm.Md5, Encoding.UTF8, "ë", "surl", "one"),
+            found.UserHashSets[0][(int)DigestAlgorithm.Md5]);
+    }
+
+    [TestMethod]
+    public void FindDigestAccount_Iso88591Spelling_HashesIso88591Bytes()
+    {
+        var book = new AccountBook([new Account("tëster", "sé")]);
+
+        var found = book.FindDigestAccount("tëster");
+
+        Assert.AreEqual("tëster", found.AccountName);
+        Assert.AreEqual(
+            DigestCalculation.ComputeUserHash(DigestAlgorithm.Sha256, Encoding.Latin1, "tëster", "surl", "sé"),
+            found.UserHashSets[0][(int)DigestAlgorithm.Sha256]);
+    }
+
+    [TestMethod]
+    public void FindDigestAccount_AsciiNameWithAPasswordOutsideIso88591_HasOnlyTheUtf8Hashes()
+    {
+        var book = new AccountBook([new Account("tester", "€")]);
+
+        var found = book.FindDigestAccount("tester");
+
+        Assert.AreEqual("tester", found.AccountName);
+        Assert.AreEqual(
+            DigestCalculation.ComputeUserHash(DigestAlgorithm.Md5, Encoding.UTF8, "tester", "surl", "€"),
+            found.UserHashSets[0][(int)DigestAlgorithm.Md5]);
+        Assert.AreEqual(
+            book.FindDigestAccount("nobody").UserHashSets[0][(int)DigestAlgorithm.Md5],
+            found.UserHashSets[1][(int)DigestAlgorithm.Md5],
+            "the second set is the dummy's");
+    }
+
+    [TestMethod]
+    [DataRow("")]
+    [DataRow("nobody")]
+    public void FindDigestAccount_NoSuchName_IsADummyWithAHashPerAlgorithm(string userName)
+    {
+        var book = new AccountBook([new Account(string.Empty, "tok")]);
+
+        var found = book.FindDigestAccount(userName);
+
+        Assert.IsNull(found.AccountName);
+        Assert.HasCount(2, found.UserHashSets);
+        CollectionAssert.AreEqual(new[] { 32, 64, 64 }, found.UserHashSets[1].Select(hash => hash.Length).ToArray());
+    }
+
+    [TestMethod]
     public void AccountToString_HidesThePassword()
     {
         Assert.AreEqual("Account { UserName = alice }", Alice.ToString());

@@ -13,9 +13,23 @@ internal static class RecordedFixture
     /// and target from the request line, and every field, each value read one byte per
     /// character (Latin-1) as the HTTP server reads it.
     /// </summary>
-    public static HttpAuthenticationRequest ReadRequest(string caseName)
+    public static HttpAuthenticationRequest ReadRequest(string caseName) =>
+        ReadHead(Encoding.Latin1.GetString(ReadBytes(caseName, "request.bin")));
+
+    /// <summary>
+    /// The request head of a case's last connection, read as <see cref="ReadRequest"/> reads
+    /// the first: the one carrying the answer to a challenge (a <c>-Connections 2</c> recording).
+    /// </summary>
+    public static HttpAuthenticationRequest ReadLastRequest(string caseName)
     {
-        var lines = Encoding.Latin1.GetString(ReadBytes(caseName, "request.bin"))
+        var blocks = Encoding.Latin1.GetString(ReadBytes(caseName, "request.bin")).Split("\r\n\r\n");
+
+        return ReadHead(blocks.Last(block => block.Split("\r\n")[0].EndsWith(" HTTP/1.1", StringComparison.Ordinal)));
+    }
+
+    private static HttpAuthenticationRequest ReadHead(string text)
+    {
+        var lines = text
             .Split("\r\n")
             .TakeWhile(line => line.Length > 0)
             .ToList();
@@ -26,7 +40,7 @@ internal static class RecordedFixture
             .Select(parts => new KeyValuePair<string, string>(parts[0], parts[1].Trim(' ')))
             .ToList();
 
-        return new HttpAuthenticationRequest(requestLine[0], requestLine[1], false, fields);
+        return new HttpAuthenticationRequest(requestLine[0], requestLine[1], requestLine[0] is not ("GET" or "HEAD"), fields);
     }
 
     /// <summary>

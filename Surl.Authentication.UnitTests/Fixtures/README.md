@@ -37,3 +37,25 @@ the bytes it was given. A command-line argument on Windows reaches it in the ANS
 like a command line on Linux and macOS, reach it as UTF-8. Surl reads Basic credentials as
 UTF-8, the charset it announces (RFC 7617 section 2.1), so the first is refused and the
 second accepted for the account `tëster:sé:cr€t` (ADR-0035).
+
+## Digest answers (BL-113)
+
+Recorded on 2026-09-29 with the same build and `-Connections 2`, `-Port 18113`: connection 1
+got `<401>` followed by
+`WWW-Authenticate: Digest realm=\"surl\", qop=\"auth\", algorithm=<A>, nonce=\"fixturenonce\"\r\n`
+and `\r\n`, connection 2
+`HTTP/1.1 200 OK\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\nContent-Length: 2\r\n\r\nok`.
+`request.bin` holds both requests; the second carries the answer. The tests replay it with
+`FixedDigestNonceBook`, which knows `fixturenonce`.
+
+| Folder | `<A>` | `-CurlArgs` | Exit | What the answer shows |
+| --- | --- | --- | --- | --- |
+| `digest-md5` | `MD5` | `'-sS','--digest','-u','tester:secret','http://127.0.0.1:18113/x'` | 0 | `algorithm=MD5`, `qop="auth"`, and `nc=00000002` on this run |
+| `digest-md5-sess` | `MD5-sess` | the same | 0 | `algorithm=MD5-sess` |
+| `digest-query` | `MD5` | `'-sS','--digest','-u','tester:secret','http://127.0.0.1:18113/dir/x?y=1&z=%41'` | 0 | `uri="/dir/x?y=1&z=%41"`, the request target as sent |
+| `digest-post` | `MD5` | `'-sS','--digest','-u','tester:secret','-X','POST','-d','x','http://127.0.0.1:18113/x'` | 0 | the first `POST` carried `Content-Length: 0`; the answer hashes `POST` |
+| `digest-non-ascii-argument` | `MD5` | `'-sS','--digest','-u',"t$([char]0xEB)ster:secret",'http://127.0.0.1:18113/x'` | 0 | `username="t\xEBster"`: the Windows-1252 byte, and the response is over the ISO-8859-1 bytes |
+| `digest-non-ascii` | `MD5` | `'-sS','--digest','-K',<cfg>,'http://127.0.0.1:18113/x'` | 94 | no answer: SSPI refuses the UTF-8 user `tëster:sé:cr€t` from `<cfg>` (as above) |
+
+What Surl makes of them is ADR-0036: the ISO-8859-1 user name is accepted for an account whose
+name and password are all ISO-8859-1.

@@ -44,3 +44,18 @@ Protocol servers receive what it provides through the contracts in Abstractions.
 - Both hold no per-connection state: `StartConnection` returns the method itself. The
   `Authorization` values they are tested with are recorded from pinned upstream curl in
   `Surl.Authentication.UnitTests/Fixtures` (see its README).
+
+## Digest (BL-113)
+
+- `DigestAuthenticationMethod` offers ADR-0032 section 4's three challenges (MD5, SHA-256,
+  SHA-512-256, one nonce) and checks `qop=auth` answers under them or their `-sess` forms;
+  `DigestAnswer` and `DigestParameterParser` read the answer, `DigestAlgorithmName` the
+  `algorithm`, and `DigestCalculation` is RFC 7616 section 3.4's arithmetic (SHA-512/256 from
+  `Surl.Cryptography`, which this library references for it, ADR-0032 section 7).
+- `DigestNonceBook` (behind `IDigestNonceBook`) issues ADR-0036's signed nonces on the injected
+  `TimeProvider`, expires them after five minutes, and remembers each used nonce's `nc` so a
+  replayed answer is refused. A right answer on an expired nonce is a `Continue` carrying the
+  challenges with `stale=true`, so the policy answers it undelayed.
+- `AccountBook.FindDigestAccount` holds each named account's user hashes, computed at
+  start-up, under its UTF-8 spelling and, for an all-ISO-8859-1 account, its ISO-8859-1 one;
+  an unknown name gets a random dummy.
