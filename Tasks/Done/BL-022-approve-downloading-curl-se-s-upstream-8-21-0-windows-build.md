@@ -8,7 +8,7 @@ depends-on: []
 touches: [UpstreamCurlBuilds.json]
 requirement: none
 created: 2026-09-28
-completed:
+completed: 2026-09-28
 ---
 # BL-022 — Approve downloading curl.se's upstream 8.21.0 Windows build with SMB, HTTP/2 and HTTP/3
 
@@ -50,3 +50,4 @@ open question 2). That is not part of this task.
 - 2026-09-28: Approved by Stewart in the /task-plan session ("1. yes"). He also approved downloading Linux and macOS builds ("4, download them").
 - 2026-09-28: Follow-up filed: BL-026 downloads, verifies and pins the Windows build; BL-027 and BL-028 cover Linux and macOS. Ready to move to Done; the planner does not move tasks.
 - 2026-09-28: Stewart chose option A: take curl.se's latest Windows build (8.22.0_2, built 2026-09-02, checked on curl.se 2026-09-28) as a supplementary build for SMB, HTTP/2 and HTTP/3 only; 8.21.0 stays the reference release. BL-026 retargeted accordingly.
+- 2026-09-28: Backlog -> Done. Stewart approved 2026-09-28: option A, BL-026 pins curl.se 8.22.0_2 as a supplementary build for SMB, HTTP/2 and HTTP/3
