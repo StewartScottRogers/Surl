@@ -340,19 +340,23 @@ public sealed class ContentStore
     /// the request path ended in <c>/</c>, when the location is a directory, or when it is not directly inside an existing directory.
     /// </para>
     /// <para>
-    /// Bytes are counted as they are read. Each read asks for no more than one byte past the
-    /// limit, so reading stops at most one byte past it: the upload is then
-    /// <see cref="ContentUploadResult.TooLarge"/>, and the partial file is deleted through the
-    /// seam. An upload of exactly the limit is written. A write that throws, cancellation
-    /// included, deletes the partial file too before the exception goes on. Either way a file
-    /// the upload replaced is gone.
+    /// The upload is written to a temporary dot-file beside the target, named
+    /// <c>.surl-upload-</c> and a fresh GUID, and renamed over the target through
+    /// <see cref="IContentFileSystem.MoveFileReplacing(string, string)"/> only once all of it
+    /// is written. Bytes are counted as they are read. Each read asks for no more than one byte
+    /// past the limit, so reading stops at most one byte past it: the upload is then
+    /// <see cref="ContentUploadResult.TooLarge"/>, and the temporary file is deleted through the
+    /// seam. An upload of exactly the limit is written. A write or rename that throws,
+    /// cancellation included, deletes the temporary file too before the exception goes on.
+    /// Either way a file the upload would replace is kept, byte for byte, until the upload is
+    /// written.
     /// </para>
     /// </remarks>
     /// <param name="mapping">A mapping this content store returned with
     /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
     /// <param name="source">The upload's bytes, read to its end.</param>
-    /// <param name="cancellationToken">Checked before the file is created and before every
-    /// read; cancellation throws <see cref="OperationCanceledException"/>.</param>
+    /// <param name="cancellationToken">Checked before the temporary file is created and before
+    /// every read; cancellation throws <see cref="OperationCanceledException"/>.</param>
     /// <returns>Whether the upload was written, not permitted, or too large.</returns>
     /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
     public async Task<ContentUploadResult> WriteUploadAsync(ContentPathMapping mapping, Stream source, CancellationToken cancellationToken)
@@ -365,29 +369,36 @@ public sealed class ContentStore
             return ContentUploadResult.NotPermitted;
         }
 
-        bool isWithinLimit;
-        Stream destination = fileSystem.CreateFileForAsyncWrite(location);
+        string temporaryLocation = TemporaryUploadLocationBeside(location);
         try
         {
-            await using (destination)
+            if (!await WriteWithinUploadLimitAsync(temporaryLocation, source, cancellationToken))
             {
-                isWithinLimit = await CopyWithinUploadLimitAsync(source, destination, cancellationToken);
+                fileSystem.DeleteFile(temporaryLocation);
+                return ContentUploadResult.TooLarge;
             }
+
+            fileSystem.MoveFileReplacing(temporaryLocation, location);
+            return ContentUploadResult.Written;
         }
         catch (Exception)
         {
-            fileSystem.DeleteFile(location);
+            fileSystem.DeleteFile(temporaryLocation);
             throw;
         }
-
-        if (isWithinLimit)
-        {
-            return ContentUploadResult.Written;
-        }
-
-        fileSystem.DeleteFile(location);
-        return ContentUploadResult.TooLarge;
     }
+
+    private async Task<bool> WriteWithinUploadLimitAsync(string temporaryLocation, Stream source, CancellationToken cancellationToken)
+    {
+        await using Stream destination = fileSystem.CreateFileForAsyncWrite(temporaryLocation);
+        return await CopyWithinUploadLimitAsync(source, destination, cancellationToken);
+    }
+
+    // A dot-file beside the target, so the store neither serves nor lists it by default, and the
+    // rename stays inside one directory. The name leaves out the target's own, so it is never
+    // longer than a file name may be, and a fresh GUID keeps two uploads to one file apart.
+    private static string TemporaryUploadLocationBeside(string location) =>
+        Path.Join(ParentDirectoryOf(location), $".surl-upload-{Guid.NewGuid():N}");
 
     private bool IsUploadPermitted(ContentPathMapping mapping, string location) =>
         ExposureOptions.AllowUploads

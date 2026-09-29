@@ -32,7 +32,47 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
         writtenFiles.Remove(path);
     }
 
+    public void MoveFileReplacing(string source, string destination)
+    {
+        Calls.Add($"{nameof(MoveFileReplacing)}({source}, {destination})");
+        if (FailMoves)
+        {
+            throw new IOException("The rename failed.");
+        }
+
+        entries[destination] = entries[source];
+        entries.Remove(source);
+        fileContents.Remove(destination);
+        writtenFiles[destination] = writtenFiles[source];
+        writtenFiles.Remove(source);
+    }
+
+    /// <summary>
+    /// When set, <see cref="MoveFileReplacing(string, string)"/> throws <see cref="IOException"/>.
+    /// </summary>
+    public bool FailMoves { get; set; }
+
     public byte[] ReadWrittenFile(string path) => writtenFiles[path].ToArray();
+
+    /// <summary>
+    /// The bytes of the file at <paramref name="path"/>, whether added or written.
+    /// </summary>
+    public byte[] ReadFile(string path) =>
+        writtenFiles.TryGetValue(path, out MemoryStream? written) ? written.ToArray() : fileContents[path];
+
+    /// <summary>
+    /// The full paths of every file, directory and symbolic link directly inside
+    /// <paramref name="directory"/>, in ordinal order, without recording a call.
+    /// </summary>
+    public List<string> EntriesDirectlyInside(string directory)
+    {
+        string prefix = directory + Path.DirectorySeparatorChar;
+        return entries.Keys.Concat(symbolicLinks.Keys)
+            .Where(entry => entry.StartsWith(prefix, StringComparison.Ordinal)
+                && entry.IndexOf(Path.DirectorySeparatorChar, prefix.Length) < 0)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+    }
 
     public List<string> Calls { get; } = [];
 

@@ -70,6 +70,15 @@ internal sealed class InMemoryContentFileSystem : IContentFileSystem
         fileContents.Remove(path);
     }
 
+    public void MoveFileReplacing(string source, string destination)
+    {
+        entries[destination] = entries[source];
+        entries.Remove(source);
+        fileContents.Remove(destination);
+        writtenFiles[destination] = writtenFiles[source];
+        writtenFiles.Remove(source);
+    }
+
     /// <summary>
     /// The bytes of the file at <paramref name="path"/>, or <see langword="null"/> when there
     /// is none.

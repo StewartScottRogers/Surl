@@ -263,6 +263,32 @@ public sealed class DiskContentFileSystemTests
     }
 
     [TestMethod]
+    public async Task WriteUploadAsync_ExistingFile_IsReplacedWithNoTemporaryFileLeft()
+    {
+        var options = new ContentExposureOptions { AllowUploads = true };
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), options);
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/docs/file.bin"), new MemoryStream("new"u8.ToArray()), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.Written, result);
+        CollectionAssert.AreEqual("new"u8.ToArray(), await File.ReadAllBytesAsync(Path.Join(servedRoot, "docs", "file.bin")));
+        CollectionAssert.AreEqual(new[] { "file.bin" }, Directory.GetFiles(Path.Join(servedRoot, "docs")).Select(Path.GetFileName).ToArray());
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_OverTheLimitOverAnExistingFile_KeepsItsBytesWithNoTemporaryFileLeft()
+    {
+        var options = new ContentExposureOptions { AllowUploads = true, MaxUploadBytes = 2 };
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), options);
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/docs/file.bin"), new MemoryStream("new"u8.ToArray()), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.TooLarge, result);
+        CollectionAssert.AreEqual(Contents, await File.ReadAllBytesAsync(Path.Join(servedRoot, "docs", "file.bin")));
+        CollectionAssert.AreEqual(new[] { "file.bin" }, Directory.GetFiles(Path.Join(servedRoot, "docs")).Select(Path.GetFileName).ToArray());
+    }
+
+    [TestMethod]
     public void DeleteFile_NoFileThere_DoesNothing()
     {
         string path = Path.Join(servedRoot, "docs", "never-written.bin");

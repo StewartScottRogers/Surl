@@ -42,8 +42,7 @@ public sealed partial class ContentStoreTests
         ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), source, CancellationToken.None);
 
         Assert.AreEqual(ContentUploadResult.TooLarge, result);
-        Assert.AreEqual(ContentEntryKind.None, fileSystem.GetEntryKind(UploadPath));
-        CollectionAssert.Contains(fileSystem.Calls, $"DeleteFile({UploadPath})");
+        Assert.AreEqual(0, fileSystem.EntriesDirectlyInside(Root).Count);
     }
 
     [TestMethod]
@@ -80,7 +79,8 @@ public sealed partial class ContentStoreTests
         ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream("new"u8.ToArray()), CancellationToken.None);
 
         Assert.AreEqual(ContentUploadResult.Written, result);
-        CollectionAssert.AreEqual("new"u8.ToArray(), fileSystem.ReadWrittenFile(UploadPath));
+        CollectionAssert.AreEqual("new"u8.ToArray(), fileSystem.ReadFile(UploadPath));
+        CollectionAssert.AreEqual(new[] { UploadPath }, fileSystem.EntriesDirectlyInside(Root));
     }
 
     [TestMethod]
@@ -127,15 +127,68 @@ public sealed partial class ContentStoreTests
     }
 
     [TestMethod]
-    public async Task WriteUploadAsync_SourceFailsMidUpload_DeletesThePartialFileAndRethrows()
+    public async Task WriteUploadAsync_SourceFailsMidUpload_DeletesTheTemporaryFileAndRethrows()
     {
         (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);
 
         await Assert.ThrowsExactlyAsync<IOException>(
             () => store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new FailingOnSecondReadStream([1, 2, 3]), CancellationToken.None));
 
-        Assert.AreEqual(ContentEntryKind.None, fileSystem.GetEntryKind(UploadPath));
-        CollectionAssert.Contains(fileSystem.Calls, $"DeleteFile({UploadPath})");
+        Assert.AreEqual(0, fileSystem.EntriesDirectlyInside(Root).Count);
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_SourceFailsMidUploadOverAnExistingFile_KeepsItsBytesAndLeavesNoTemporaryFile()
+    {
+        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 0);
+        fileSystem.AddFile(UploadPath, "old contents"u8.ToArray(), Modified);
+
+        await Assert.ThrowsExactlyAsync<IOException>(
+            () => store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new FailingOnSecondReadStream([1, 2, 3]), CancellationToken.None));
+
+        CollectionAssert.AreEqual("old contents"u8.ToArray(), fileSystem.ReadFile(UploadPath));
+        CollectionAssert.AreEqual(new[] { UploadPath }, fileSystem.EntriesDirectlyInside(Root));
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_TooLargeOverAnExistingFile_KeepsItsBytesAndLeavesNoTemporaryFile()
+    {
+        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        fileSystem.AddFile(UploadPath, "old contents"u8.ToArray(), Modified);
+
+        ContentUploadResult result = await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream(new byte[11]), CancellationToken.None);
+
+        Assert.AreEqual(ContentUploadResult.TooLarge, result);
+        CollectionAssert.AreEqual("old contents"u8.ToArray(), fileSystem.ReadFile(UploadPath));
+        CollectionAssert.AreEqual(new[] { UploadPath }, fileSystem.EntriesDirectlyInside(Root));
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_RenameFails_KeepsTheExistingFileDeletesTheTemporaryFileAndRethrows()
+    {
+        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        fileSystem.AddFile(UploadPath, "old contents"u8.ToArray(), Modified);
+        fileSystem.FailMoves = true;
+
+        await Assert.ThrowsExactlyAsync<IOException>(
+            () => store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream("new"u8.ToArray()), CancellationToken.None));
+
+        CollectionAssert.AreEqual("old contents"u8.ToArray(), fileSystem.ReadFile(UploadPath));
+        CollectionAssert.AreEqual(new[] { UploadPath }, fileSystem.EntriesDirectlyInside(Root));
+    }
+
+    [TestMethod]
+    public async Task WriteUploadAsync_Written_WritesADotFileBesideTheTargetAndRenamesItOverTheTarget()
+    {
+        (ContentStore store, InMemoryContentFileSystem fileSystem) = UploadStore(maxUploadBytes: 10);
+        string temporaryPrefix = Path.Join(Root, ".surl-upload-");
+
+        await store.WriteUploadAsync(store.MapRequestPath("/upload.bin"), new MemoryStream([1]), CancellationToken.None);
+
+        string created = fileSystem.Calls.Single(call => call.StartsWith("CreateFileForAsyncWrite(", StringComparison.Ordinal));
+        string temporaryLocation = created["CreateFileForAsyncWrite(".Length..^1];
+        StringAssert.StartsWith(temporaryLocation, temporaryPrefix, StringComparison.Ordinal);
+        CollectionAssert.Contains(fileSystem.Calls, $"MoveFileReplacing({temporaryLocation}, {UploadPath})");
     }
 
     [TestMethod]
@@ -179,6 +232,14 @@ public sealed partial class ContentStoreTests
         IContentFileSystem fileSystem = new ReadOnlyContentFileSystem();
 
         Assert.ThrowsExactly<NotSupportedException>(() => fileSystem.DeleteFile(UploadPath));
+    }
+
+    [TestMethod]
+    public void MoveFileReplacing_ReadOnlyFileSystem_ThrowsNotSupported()
+    {
+        IContentFileSystem fileSystem = new ReadOnlyContentFileSystem();
+
+        Assert.ThrowsExactly<NotSupportedException>(() => fileSystem.MoveFileReplacing(Path.Join(Root, ".temporary"), UploadPath));
     }
 
     private static (ContentStore Store, InMemoryContentFileSystem FileSystem) UploadStore(long maxUploadBytes)

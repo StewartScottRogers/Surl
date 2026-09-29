@@ -99,18 +99,20 @@ makes curl exit 69, ERROR 3 exit 70 (`Disk full or allocation exceeded`), ERROR 
   partial-file deletion are the only ones. The final ACK is sent once, with no dally: a
   lost final ACK makes curl resend DATA and fail, and a dally would hold the flow open for
   a timeout on every upload for a loss loopback and LAN clients rarely see. The store
-  creates the file, emptying one already there, before its first read, and that read is
-  what sends the OACK or ACK 0. So a WRQ whose client then errs or goes silent leaves
-  neither the old contents nor a new file. TFTP has no authentication, so with
-  `--allow-uploads` one spoofed WRQ can remove a file. That is `Surl.Content`'s documented
-  rule ("a file the upload replaced is gone"), and BL-086 files the fix there: write to a
-  temporary file and rename it into place.
+  writes the upload to a temporary dot-file beside the target and renames it over the
+  target only once the whole upload is written (BL-086), so a file the upload would
+  replace is kept until the upload is written. A WRQ whose client then errs or goes silent
+  leaves the old contents exactly as they were and no temporary file behind; TFTP has no
+  authentication, but one spoofed WRQ can no longer remove a file. (Until BL-086 the store
+  created the target, emptying one already there, before its first read, which is what
+  sends the OACK or ACK 0, so such a WRQ removed the file.)
 - **Upload limit.** A `tsize` past `ExchangeLimits.MaxUploadBytes` (0 is no limit) gets
   ERROR 3 `Disk full or allocation exceeded` before any DATA, the TFTP form of "say the
   limit before the body arrives" (ADR-0006 section 1), checked against the exchange's
   limits as the HTTP server checks `Content-Length`. An upload that grows past the store's
   `MaxUploadBytes` gets ERROR 3 in place of the ACK of the block that crossed it, and the
-  store has already deleted the partial file. A write the store fails with an
+  store has already deleted the partial temporary file, keeping any file it would have
+  replaced. A write the store fails with an
   `IOException`, such as a full disk, gets the same ERROR 3 with the same fixed text, so
   curl reports exit 70 instead of timing out. The two limits must stay equal; `Surl.Console`
   sets both from `--max-filesize`. The `tsize` check runs before the store's "not
@@ -121,7 +123,7 @@ makes curl exit 69, ERROR 3 exit 70 (`Disk full or allocation exceeded`), ERROR 
   curl was fed as a first reply.
 - **Ended writes.** The client's ERROR, any packet but DATA (answered with ERROR 4) and
   five retransmissions of the ACK without an answer end the transfer; the store deletes
-  the partial file. A duplicate of the DATA block before is ignored, as a duplicate ACK is
+  the partial temporary file and keeps any file it would have replaced. A duplicate of the DATA block before is ignored, as a duplicate ACK is
   for a read, and the ACK is resent only on the retransmission timeout.
 - **Connection refusals.** `IDatagramRefusalWriter` sends one ERROR 0 from a new transfer
   port: `Too many connections`, or `Too many connections from your address`. ERROR 0 is

@@ -129,4 +129,11 @@ public sealed class DiskContentFileSystem : IContentFileSystem
     // design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
     [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
     public void DeleteFile(string path) => File.Delete(path);
+
+    /// <inheritdoc/>
+    // Excluded from coverage: it renames a file on disk, and the fast tests run without one by
+    // design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public void MoveFileReplacing(string source, string destination) =>
+        File.Move(source, destination, overwrite: true);
 }

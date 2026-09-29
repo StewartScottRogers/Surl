@@ -85,4 +85,19 @@ public interface IContentFileSystem
     /// <exception cref="NotSupportedException">The seam is read-only.</exception>
     void DeleteFile(string path) =>
         throw new NotSupportedException("This content file system is read-only.");
+
+    /// <summary>
+    /// Renames the file at <paramref name="source"/> to <paramref name="destination"/>,
+    /// replacing any file already there.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>.
+    /// </remarks>
+    /// <param name="source">The full path of an existing file.</param>
+    /// <param name="destination">The full path the file is renamed to, in the same
+    /// directory.</param>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    void MoveFileReplacing(string source, string destination) =>
+        throw new NotSupportedException("This content file system is read-only.");
 }
