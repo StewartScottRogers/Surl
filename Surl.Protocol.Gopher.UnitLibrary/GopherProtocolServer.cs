@@ -39,13 +39,25 @@ namespace Surl.Protocol.Gopher;
 /// A selector the content store refuses, one where nothing exists, and one that vanishes
 /// before it is read, are all answered with the same error menu, so a client cannot tell them
 /// apart (ADR-0006 section 2): <c>3Nothing is served at this selector.</c>, an empty selector,
-/// host <c>error.host</c>, port <c>1</c>, then the <c>.</c> line.
+/// host <c>error.host</c>, port <c>1</c>, then the <c>.</c> line. The text is fixed; the
+/// selector is never echoed in it. The content store's <see cref="ContentExposureOptions"/>
+/// decide what is exposed, and the server never re-applies them: with ADR-0006's defaults a
+/// dot-file (or a selector under a dot-directory) is refused by the store, and a directory is
+/// not listed because <see cref="ContentExposureOptions.ListDirectories"/> is off, so both get
+/// exactly the error menu a missing selector gets. With listings on, a menu leaves out
+/// whatever the store's listing leaves out, dot-files included.
 /// </para>
 /// <para>
 /// A client that closes before a whole line, a line longer than
 /// <see cref="ExchangeLimits.MaxLineBytes"/> (line ending included), and a line that takes
-/// longer than <see cref="ExchangeLimits.HeadTimeout"/>, get no bytes: the connection is
-/// closed (ADR-0006 section 5).
+/// longer than <see cref="ExchangeLimits.HeadTimeout"/> from the start of
+/// <see cref="ServeAsync"/>, get no bytes: writes are completed and the connection is closed
+/// (ADR-0006 section 5). A line is never read past the limit.
+/// </para>
+/// <para>
+/// The server does not implement <see cref="IConnectionRefusalWriter"/>: ADR-0006 section 5
+/// answers a Gopher connection refused by a connection limit with a bare close, which is what
+/// the serving engine does for a server without one.
 /// </para>
 /// </remarks>
 public sealed class GopherProtocolServer : IConnectionProtocolServer
@@ -83,6 +95,7 @@ public sealed class GopherProtocolServer : IConnectionProtocolServer
         if (outcome != GopherSelectorReadOutcome.LineRead)
         {
             context.Log.Note($"No selector was read ({outcome}); the connection was closed with no reply.");
+            await connection.CompleteWritesAsync(context.CancellationToken);
             return;
         }
 

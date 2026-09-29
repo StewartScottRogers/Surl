@@ -57,7 +57,9 @@ internal sealed class GopherSelectorResponder(IConnection connection, ExchangeCo
         var listing = contentStore.ListDirectory(mapping, context.CancellationToken);
         if (!listing.IsListed)
         {
-            await SendNothingServedHereAsync($"{mapping.Location} was no longer a directory when it was listed");
+            await SendNothingServedHereAsync(contentStore.ExposureOptions.ListDirectories
+                ? $"{mapping.Location} was no longer a directory when it was listed"
+                : $"directory listings are off, so {mapping.Location} is answered as absent");
             return;
         }
 

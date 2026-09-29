@@ -35,3 +35,23 @@ the item-type character and URL-decodes the rest of the path, so
 `/find` TAB `hello world`; without `--path-as-is` it removes dot segments before sending,
 including percent-encoded ones, so `gopher://h/0/%2e%2e/x` and `gopher://h/0/../x` both
 send the empty selector.
+
+## Limits and exposure (BL-052)
+
+Recorded on 2026-09-29 from the repository root, in Windows PowerShell, with the same
+pinned build (SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`),
+where `$missing` is `'3Nothing is served at this selector.\t\terror.host\t1\r\n.\r\n'`.
+Each fed curl the exact bytes `GopherProtocolServer` writes for the case (none, for a
+close), and each exited 0 with an empty `stderr.txt`; `stdout.bin` is what the tests pin.
+A close with no bytes is an empty, successful transfer to curl.
+
+| Folder | curl sent | What Surl sends | Pinned by | Command line |
+| --- | --- | --- | --- | --- |
+| `directory-selector` | `/sub` CRLF | the error menu: a directory with listings off is answered as absent | `ExposureTests` | `.\Record-CurlExchange.ps1 -Port 18634 -Raw -RawIdleMilliseconds 300 -RawReply $missing -CurlArgs '-sS','gopher://127.0.0.1:18634/1/sub' -OutDirectory Surl.Protocol.Gopher.UnitTests\Fixtures\directory-selector` |
+| `closed-with-no-bytes` | `/file.txt` CRLF | nothing: the connection is closed, as after a head timeout | `HeadTimeoutTests` | `.\Record-CurlExchange.ps1 -Port 18634 -Raw -RawIdleMilliseconds 300 -CurlArgs '-sS','gopher://127.0.0.1:18634/0/file.txt' -OutDirectory Surl.Protocol.Gopher.UnitTests\Fixtures\closed-with-no-bytes` |
+| `selector-8192-bytes` | `/` and 8189 `x`, CRLF: 8192 bytes | the error menu: the line is within `MaxLineBytes`, so it is answered | `SelectorLimitTests` | `$x = 'x' * 8189; .\Record-CurlExchange.ps1 -Port 18634 -Raw -RawIdleMilliseconds 300 -RawReply $missing -CurlArgs '-sS',"gopher://127.0.0.1:18634/0/$x" -OutDirectory Surl.Protocol.Gopher.UnitTests\Fixtures\selector-8192-bytes` |
+| `selector-8193-bytes` | `/` and 8190 `x`, CRLF: 8193 bytes | nothing: the line is past `MaxLineBytes` | `SelectorLimitTests` | `$x = 'x' * 8190; .\Record-CurlExchange.ps1 -Port 18634 -Raw -RawIdleMilliseconds 300 -CurlArgs '-sS',"gopher://127.0.0.1:18634/0/$x" -OutDirectory Surl.Protocol.Gopher.UnitTests\Fixtures\selector-8193-bytes` |
+
+curl sends its selector without pausing, so no live recording can show a head timeout;
+the tests drive one with a hand-written `TimeProvider`, and `closed-with-no-bytes` pins
+what curl makes of the close that follows it.
