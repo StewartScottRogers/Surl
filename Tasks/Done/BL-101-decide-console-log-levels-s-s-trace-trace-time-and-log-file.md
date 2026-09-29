@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: FR-013
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-101 — Decide console log levels, -s, -S, --trace, --trace-time and --log-file, and record ADR-0033
 
@@ -64,18 +64,18 @@ names the follow-up task to file.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-0033-<slug>.md` exists (the next free number if
+- [x] `Documentation/Planning/Decisions/ADR-0033-<slug>.md` exists (the next free number if
       taken; then use that number in BL-102 and BL-104 to BL-107), Status Accepted, dated
       2026-09-29 or later, "Decided by Claude under Stewart's delegation", citing Stewart's
       approval of 2026-09-29.
-- [ ] It records, with the command lines, the build (path and SHA-256 from
+- [x] It records, with the command lines, the build (path and SHA-256 from
       `UpstreamCurlBuilds.json`) and the date, measurements made with
       `Record-CurlExchange.ps1` against a canned `200` of: `--trace <file>`,
       `--trace-ascii <file>`, `--trace <file> --trace-time`, `-v --trace-time`, and
       `--trace -` - enough lines of each output to pin its layout (header line per event,
       offset column, hex and ASCII columns, the `=> Send header`/`<= Recv header` style
       labels, timestamp format).
-- [ ] It decides and states, with the reason:
+- [x] It decides and states, with the reason:
       1. Each level's exact output and stream (stdout or stderr): whether `-s` also hides the
          `Listening on` lines and the `surl: ` error messages, and what `-s -S` shows.
       2. `--log-level` words, case rule, error text for a bad word, and how it combines with
@@ -97,22 +97,40 @@ names the follow-up task to file.
          note) are written: level, prefix, stream.
       8. Whether curl's `--trace-ids`, `--trace-config` and `--stderr` gain a server-side
          meaning now, later, or never, each with a reason.
-- [ ] It states which sections of ADR-0007 it supersedes (section 8's "Without `-v` it
+- [x] It states which sections of ADR-0007 it supersedes (section 8's "Without `-v` it
       writes none", the timestamps note, and "Alternatives considered" on `-s`/`-S`), and
       ADR-0007 gains one "Superseded in part" line under its Status naming ADR-0033.
-- [ ] `Documentation/Planning/Decisions/README.md` lists ADR-0033.
-- [ ] `Documentation/Product/Requirements.md`: FR-013 is reworded to the decided levels
+- [x] `Documentation/Planning/Decisions/README.md` lists ADR-0033.
+- [x] `Documentation/Product/Requirements.md`: FR-013 is reworded to the decided levels
       and cites ADR-0033; FR-008 lists the new options; new rows (next free FR numbers)
       cover the log levels, `--trace`/`--trace-ascii`, `--trace-time` and `--log-file`,
       each Status Draft with its measured build.
-- [ ] No HTML comment remains in the ADR, and every statement in it about current code names
+- [x] No HTML comment remains in the ADR, and every statement in it about current code names
       a file that exists.
 
 ## Notes
 
 Where each option appears in `--help` is ADR-0034's (BL-102).
 
+- ADR-0033 is `Documentation/Planning/Decisions/ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md`;
+  the number 0033 was free, so BL-102 and BL-104 to BL-107 keep their references.
+- Measured 2026-09-29 with `Record-CurlExchange.ps1` on the pinned Git for Windows 8.21.0 build:
+  `--trace`, `--trace-ascii`, `--trace --trace-time`, `-v --trace-time`, `--trace -`, plus `-s`,
+  `-sS`, an unopenable trace path (curl falls back to stderr silently), the override order of
+  `-v`/`--trace`/`--trace-ascii`, and that `--trace` truncates. No script change was needed.
+- Found drift: the engine's notes in `Surl.Core.UnitLibrary/ServingEngine.cs` are
+  `Exchange <id> opened: <scheme> from <remote>.` / `Exchange <id> ended; closing the ...` etc.,
+  not ADR-0007 section 8's `Connection from ...`/`Closed`. ADR-0033 restates them from the code
+  and supersedes ADR-0007's list; the info line is the `Exchange <id> opened` note. BL-105's
+  Context still names the old texts - ADR-0033 section 3 governs.
+- Key choices (reasons in the ADR): `-s` hides `Listening on` and `surl: ` failures; command-line
+  errors always written; last level option wins with no warning; `-S` lifts only `none` to
+  `error`; info line at open only; dump labels `<= Recv data`/`=> Send data` with `#<id> `;
+  `--log-file` appended, `--trace` truncated; an unopenable file is 23 before binding (curl's
+  silent fallback rejected); `--trace-ids` and `--stderr` never, `--trace-config` later.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0033 Accepted: log levels none/error/info/verbose/trace, -s/-S/--log-level, measured --trace/--trace-ascii/--trace-time layouts, --log-file; FR-013 and FR-031 to FR-034
