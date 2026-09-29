@@ -67,3 +67,4 @@ The pinned upstream curl 8.21.0 build fetches from it, as integration tests in
 - 2026-09-28: Created.
 - 2026-09-28: Backlog -> Doing.
 - 2026-09-28: Doing -> Backlog. Waits on BL-062, BL-064, BL-065 and BL-067: engine handshake, cert loading, exit codes 58/77 and the TLS-capable listener factory
+- 2026-09-29: Backlog -> Doing.
