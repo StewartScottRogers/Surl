@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Surl.Protocol.Dict.UnitLibrary, Surl.Protocol.Dict.UnitTests, Surl.Content.UnitLibrary, Surl.Content.UnitTests]
+touches: [Surl.Protocol.Dict.UnitLibrary, Surl.Protocol.Dict.UnitTests, Surl.Content.UnitLibrary, Surl.Content.UnitTests, Documentation/Planning/Decisions/ADR-0015-how-the-content-store-applies-the-exposure-options.md]
 requirement: FR-016
 created: 2026-09-28
-completed:
+completed: 2026-09-29
 ---
 # BL-081 — Answer MATCH in Surl.Protocol.Dict whatever --list-directories says
 
@@ -41,20 +41,38 @@ ADR-0011 section 4 says and BL-033's `match-hel` recording from pinned upstream 
 
 ## Acceptance criteria
 
-- [ ] A fast test in `Surl.Protocol.Dict.UnitTests` builds the content store with
+- [x] A fast test in `Surl.Protocol.Dict.UnitTests` builds the content store with
       `ListDirectories = false` and asserts `MATCH ! . hel` answers the bytes in
       `Fixtures/match-hel/stdout.bin`.
-- [ ] With `ListDirectories = false`, `MATCH` still leaves out dot-files (unless
+- [x] With `ListDirectories = false`, `MATCH` still leaves out dot-files (unless
       `ServeDotFiles`), directories, and symbolic links that are not followed; a fast
       test pins each.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and
       `Measure-CodeQuality.ps1` reports no failing member in the changed libraries.
-- [ ] The expected bytes are unchanged from BL-033's recording.
+- [x] The expected bytes are unchanged from BL-033's recording.
 
 ## Notes
+
+- Fix: `ContentStore.ListDirectoryWhateverTheListingSwitchSays` lists a mapped directory
+  under every `ListDirectory` rule but the `ListDirectories` switch (both share a private
+  `ListEntriesAt`). `DictContentDictionary.MatchHeadwords` uses it. No new ADR: ADR-0011
+  section 4 already decided that `MATCH` is not a listing.
+- Dot-files: ADR-0011 sections 3 and 4 say a word starting with `.` is never a headword,
+  for `DEFINE` and `MATCH` alike, so `MATCH` leaves dot-files out even with
+  `ServeDotFiles` on; `ServeAsync_MatchWithListingsOff_LeavesOutDirectoriesAndDotFiles`
+  pins both settings. The criterion's "(unless `ServeDotFiles`)" was read as the content
+  store's rule, which DICT's headword rule narrows further.
+- Symbolic links: the DICT test file system gained one-hop `AddSymbolicLink`; a link to a
+  headword file is left out with `FollowSymbolicLinks` off and listed with it on.
+- Existing DICT tests now build the store with the three-argument constructor and
+  `ServeEverythingInsideTheRoot` by default, the same thing the two-argument one did.
+- `touches` gained ADR-0015: its Consequences said DICT's read was answered as absent
+  under default options; that line now says what the code does. No Doing task touched it.
+- `match-hel` fixture untouched (`git diff` shows nothing under `Fixtures`).
 
 ## Log
 
 - 2026-09-28: Created.
 - 2026-09-28: Filed by BL-039: pinned upstream curl disagrees with live surl on `match-hel`.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. MATCH answers headwords whatever --list-directories says, keeping dot-files, directories and unfollowed links out
