@@ -67,7 +67,7 @@ namespace Surl.Protocol.Http;
 /// aborted, because its <c>Content-Length</c> can no longer be met.
 /// </para>
 /// <para>
-/// File-system failures (ADR-0022): a file whose status the content store cannot read
+/// File-system failures (ADR-0023): a file whose status the content store cannot read
 /// (<see cref="IOException"/> or <see cref="UnauthorizedAccessException"/>) is answered
 /// <c>404 Not Found</c>, exactly as a missing file, and the reason goes to the exchange log
 /// only. A file that cannot be opened or read after the <c>200</c> head was sent aborts the

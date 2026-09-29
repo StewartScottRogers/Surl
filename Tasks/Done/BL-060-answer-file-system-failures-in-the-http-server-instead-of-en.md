@@ -48,7 +48,7 @@ Filed by BL-018 from its code review (2026-09-28).
 
 Delivered 2026-09-29 (dark factory lane 1):
 
-- Decided in ADR-0022: an `IOException` or `UnauthorizedAccessException` from
+- Decided in ADR-0023: an `IOException` or `UnauthorizedAccessException` from
   `GetFileStatus` is answered 404, byte for byte the missing-file 404, keeping the
   connection as persistence decides; the exception type and message go to the log only.
   404 over 500 because a 500 would confirm something exists at the path (ADR-0006,
@@ -68,4 +68,4 @@ Delivered 2026-09-29 (dark factory lane 1):
 
 - 2026-09-28: Created.
 - 2026-09-29: Backlog -> Doing.
-- 2026-09-29: Doing -> Done. A file the HTTP server cannot read is answered 404 before the head and aborts with a log note after it (ADR-0022)
+- 2026-09-29: Doing -> Done. A file the HTTP server cannot read is answered 404 before the head and aborts with a log note after it (ADR-0023)

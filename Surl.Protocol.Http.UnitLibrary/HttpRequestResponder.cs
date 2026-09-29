@@ -148,7 +148,7 @@ internal sealed class HttpRequestResponder
         return query < 0 ? path : path[..query];
     }
 
-    // A file whose status cannot be read is answered as one that does not exist (ADR-0022):
+    // A file whose status cannot be read is answered as one that does not exist (ADR-0023):
     // the exception's text goes to the log only, never to the client (ADR-0006, section 3).
     private (ContentFileStatus? Status, string WhyNotFound) LookUpFileStatus(ContentPathMapping mapping)
     {
