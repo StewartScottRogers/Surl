@@ -122,3 +122,4 @@ RFC 4121 wrap and MIC tokens, with a replay cache refusing a replayed authentica
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-217 (ADR-0057 decision 12).
+- 2026-09-30: Backlog -> Doing.
