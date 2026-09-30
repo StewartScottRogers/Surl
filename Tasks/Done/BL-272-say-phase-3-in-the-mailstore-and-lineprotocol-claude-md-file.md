@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.MailStore.UnitLibrary/CLAUDE.md, Surl.LineProtocol.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-272 — Say Phase 3 in the MailStore and LineProtocol CLAUDE.md files
 
@@ -34,18 +34,24 @@ files do.
 
 ## Acceptance criteria
 
-- [ ] Neither `Surl.MailStore.UnitLibrary/CLAUDE.md` nor `Surl.LineProtocol.UnitLibrary/CLAUDE.md`
+- [x] Neither `Surl.MailStore.UnitLibrary/CLAUDE.md` nor `Surl.LineProtocol.UnitLibrary/CLAUDE.md`
       contains `Phase 1`; each says `Phase 3.` on its third line.
-- [ ] Every type, member and task each file names exists or is done as described (checked with a
+- [x] Every type, member and task each file names exists or is done as described (checked with a
       search of the library's `.cs` files and the board).
-- [ ] No file outside the two in `touches` changes.
+- [x] No file outside the two in `touches` changes.
 
 ## Notes
 
 - A `docs` task: no code changes.
+- Checked every type, member and task both files name against the libraries' `.cs` files, the
+  project references and the board (BL-190, 191, 192, 198, 201, 205, 207, 227 all Done); all true.
+- The "Streaming" paragraph now names who still uses the byte overloads: the SMTP server
+  (`SmtpSession.DeliverAsync` passes `byte[]` to `Deliver`) while IMAP `APPEND` streams. BL-271
+  should update that sentence when it moves SMTP to streaming.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-214.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. MailStore and LineProtocol CLAUDE.md files say Phase 3 and every statement in them matches the code

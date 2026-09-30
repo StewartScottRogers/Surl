@@ -1,6 +1,6 @@
 # Surl.MailStore.UnitLibrary
 
-Phase 1.
+Phase 3.
 
 The mail store the SMTP, IMAP and POP3 servers share (ADR-0050 decisions 2 to 7): SMTP
 delivers into it, IMAP and POP3 serve from it. `MailboxStore` keeps a mailbox set per owner
@@ -35,7 +35,8 @@ refuse it, and refuse a pending file that cannot be created, written, closed or 
 wire. With a data directory a message's bytes are read from its file on fetch
 (`OpenMessage`, `FetchMessage`, `MaildropLock.OpenMessage` and `ReadMessage`), never loaded
 at start; a POP3 maildrop lock pins its messages' files until it is released. The overloads
-taking a whole message as bytes stay for the servers not yet streaming: `Append` routes them
+taking a whole message as bytes stay for the servers not yet streaming (today the SMTP server, which
+delivers `DATA` as bytes; IMAP `APPEND` streams): `Append` routes them
 through a pending message, and `Deliver` holds them in memory until the next save writes their
 file (BL-191's shape, so the SMTP server's outcomes do not change under it).
 
