@@ -1,0 +1,21 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> TYPE A
+< 200 Type set to A
+> TYPE I
+< 200 Type set to I
+> NOOP
+< 200 NOOP ok
+> SYST
+< 215 UNIX Type: L8
+> CWD dir
+< 250 Directory changed
+> CWD nodir
+< 550 No such directory
+> QUIT
+< 221 Goodbye

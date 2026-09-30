@@ -1,0 +1,11 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> CWD nodir
+< 550 No such directory
+> QUIT
+< 221 Goodbye

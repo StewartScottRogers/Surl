@@ -8,7 +8,7 @@ depends-on: [BL-173]
 touches: [Surl.Protocol.Ftp.UnitLibrary, Surl.Protocol.Ftp.UnitTests]
 requirement: FR-038
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-177 — Answer the FTP control connection and USER and PASS logins in Surl.Protocol.Ftp
 
@@ -44,21 +44,52 @@ other the ADR lists), as BL-173's ADR decides.
 
 ## Acceptance criteria
 
-- [ ] A fast test replays each recorded control-channel fixture that needs no data connection
+- [x] A fast test replays each recorded control-channel fixture that needs no data connection
       (login, `PWD`, `CWD`, `TYPE`, `QUIT`) and asserts surl's replies are the ADR's, byte for
       byte.
-- [ ] Fast tests cover: a login accepted, refused (`RefusedCredentials`, `RefusedAnonymous`) and
+- [x] Fast tests cover: a login accepted, refused (`RefusedCredentials`, `RefusedAnonymous`) and
       refused as plain-text, each with the ADR's reply and the login note; a command before
       login; an unknown command; a line past `MaxLineBytes`; the head timeout on a fake
       `TimeProvider`; `CWD` to a missing, a hidden and the `/.surl` directory.
-- [ ] `ProtocolIsolationTests` pass; `dotnet build Surl.Protocol.Ftp.UnitLibrary -warnaserror` is
+- [x] `ProtocolIsolationTests` pass; `dotnet build Surl.Protocol.Ftp.UnitLibrary -warnaserror` is
       clean; the fast tests pass with no `Integration` test in `Surl.Protocol.Ftp.UnitTests` and
       no socket opened; `Measure-CodeQuality.ps1 -Library Surl.Protocol.Ftp.UnitLibrary` reports
       100% line and branch coverage and no failing member.
 
 ## Notes
 
+- Built: `FtpProtocolServer` (`IConnectionProtocolServer`, `IConnectionRefusalWriter`, scheme
+  `ftp`), `FtpLineReader` (adapted from `DictLineReader`, returning bytes so a password reaches
+  the policy as sent), `FtpCommandLine`, `FtpPath` and `FtpCommandResponder`. References
+  `Surl.Content.UnitLibrary` as the Context says. 128 fast tests; coverage 100% line and 100%
+  branch, 63 members, worst CRAP 10, 0 failing.
+- Fixtures: four sessions recorded 2026-09-29 from the pinned Windows build with
+  `Record-CurlExchange.ps1 -Ftp`, each fed the ADR's exact replies (`Fixtures/README.md`):
+  `login-cwd-missing` (exit 9), `quote-type-cwd` (`-Q` TYPE A / TYPE I / NOOP / SYST, exit 9),
+  `login-refused` (exit 67) and `login-refused-plaintext` (exit 67). Measured: after a `530` to
+  `PASS` curl closes without `QUIT`. `RecordedExchangeTests` replays each whole and one byte per
+  read, against the `< ` lines of `transcript.txt`.
+- Defaults taken (ADR-0052 leaves them open, or they stage the ADR across tasks):
+  - `FEAT` lists only what this server does now (` TVFS`, ` UTF8`); BL-178 to BL-181 add their
+    lines as they build them, so `FEAT` never advertises a command that answers 502. Same for
+    `HELP`, which lists the commands answered, on one line between `214-The following commands
+    are recognized:` and `214 End`.
+  - Every command a later task builds (`EPSV`, `RETR`, `AUTH`, `STOR`, `SITE`, ...) answers
+    `502 Command not implemented` until then, which is true now.
+  - `PASS` after a login is `503 Already logged in`, as `USER` is. The name `USER` gave is spent
+    by one `PASS` whatever the verdict, so a refused client sends `USER` again (RFC 959).
+  - `PASS` with no argument checks an empty password rather than answering 501: curl sends a
+    bare `PASS` for an empty password, and only the policy judges.
+  - `MODE`/`STRU` with another word: `504 Mode not supported` / `504 Structure not supported`.
+  - The 1-second delay on `RefusedCredentials` is the policy's own (`AuthenticationPolicy`
+    waits it), so the server adds none.
+  - The head timeout starts when the connection is served for the first line and at the first
+    byte for later ones, as `Surl.Protocol.Dict` and `Surl.LineProtocol` do.
+- Follow-up filed: BL-228, `421 Timeout, closing` on the idle timeout and maximum duration
+  (ADR-0052 decision 10), which this task's criteria left out.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. FtpProtocolServer greets, reads bounded command lines, logs in with USER/PASS through IAuthenticationPolicy, and answers PWD, CWD, CDUP, TYPE, MODE, STRU, SYST, FEAT, OPTS, NOOP, HELP, ALLO, ACCT and QUIT

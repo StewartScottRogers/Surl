@@ -1,0 +1,5 @@
+< 220 surl FTP server ready
+> USER tester
+< 331 Password required
+> PASS wrong
+< 530 Login incorrect

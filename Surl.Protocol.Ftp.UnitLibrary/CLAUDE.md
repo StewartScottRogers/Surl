@@ -6,7 +6,14 @@ The FTP server: a control channel and a separate data channel, passive (`PASV`, 
 and active (`PORT`, `EPRT`), explicit TLS (`AUTH TLS`) and implicit TLS (`ftps://`),
 serving and receiving files through the content store.
 
-**URL schemes answered:** `ftp`, `ftps`
+**URL schemes answered:** `ftp`, `ftps` when finished; `FtpProtocolServer.Schemes` is `ftp`
+alone until `ftps` is built (BL-181).
+
+Built so far (BL-177, ADR-0052 decisions 1 to 3 and 10): `FtpProtocolServer`, the control
+connection - the greeting, bounded command lines (`FtpLineReader`), logins through
+`IAuthenticationPolicy` (`FtpCommandResponder`), the current directory checked through the
+content store (`FtpPath`), and the commands that need no data connection. Every other command
+answers `502 Command not implemented` until its task (BL-178 to BL-181) builds it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
