@@ -18,7 +18,9 @@ Get every curl you run through it.
 `UpstreamCurlRunner` takes the locator's `UpstreamCurlLocation` - never a path - so the
 only curl it starts is a verified pin; it passes arguments through
 `ProcessStartInfo.ArgumentList`, writes the given standard input bytes (none by default)
-all at once and closes stdin, as `Record-CurlExchange.ps1` does, and returns an `UpstreamCurlRunResult`
+all at once and closes stdin, as `Record-CurlExchange.ps1` does, sets any environment
+variables it is given (the SSH tests point `HOME` and `USERPROFILE` at a temporary directory,
+ADR-0051 decision 8), and returns an `UpstreamCurlRunResult`
 (exit code, stdout bytes, stderr text), killing curl at its timeout.
 Parsing and matching are unit tested with no process and no network; a test that starts
 upstream curl is `[TestCategory("Integration")]`. Upstream test data copied into this

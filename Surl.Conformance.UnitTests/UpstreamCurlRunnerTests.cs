@@ -68,6 +68,28 @@ public sealed class UpstreamCurlRunnerTests
     }
 
     [TestMethod]
+    public void CreateStartInfo_Environment_SetsEachVariableAndKeepsTheRest()
+    {
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);
+        var inherited = Environment.GetEnvironmentVariable("PATH");
+
+        var startInfo = runner.CreateStartInfo(
+            ["-s"], new Dictionary<string, string> { ["HOME"] = "/tmp/curl-home", ["USERPROFILE"] = "/tmp/curl-home" });
+
+        Assert.AreEqual("/tmp/curl-home", startInfo.Environment["HOME"]);
+        Assert.AreEqual("/tmp/curl-home", startInfo.Environment["USERPROFILE"]);
+        Assert.AreEqual(inherited, startInfo.Environment["PATH"]);
+    }
+
+    [TestMethod]
+    public void CreateStartInfo_NullEnvironment_ThrowsArgumentNullException()
+    {
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => runner.CreateStartInfo(["-s"], null!));
+    }
+
+    [TestMethod]
     public void CreateStartInfo_NullArgumentList_ThrowsArgumentNullException()
     {
         var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);

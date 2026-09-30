@@ -7,6 +7,8 @@ namespace Surl.Conformance;
 /// </summary>
 internal static class PinnedUpstreamCurl
 {
+    private static readonly IReadOnlyDictionary<string, string> NoEnvironmentChanges = new Dictionary<string, string>();
+
     /// <summary>
     /// Runs the pinned build with <paramref name="arguments"/>, writing the result to the test's log.
     /// </summary>
@@ -23,7 +25,21 @@ internal static class PinnedUpstreamCurl
         var pins = await ReadPinsAsync(testContext);
         var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
             .Locate(pins, UpstreamCurlLocator.CurrentPlatform);
-        return await RunLocatedAsync(testContext, location, standardInput, arguments);
+        return await RunLocatedAsync(testContext, location, standardInput, NoEnvironmentChanges, arguments);
+    }
+
+    /// <summary>
+    /// Runs the pinned build with <paramref name="arguments"/> and each of
+    /// <paramref name="environment"/>'s variables set in its environment, writing the result
+    /// to the test's log.
+    /// </summary>
+    public static async Task<UpstreamCurlRunResult> RunWithEnvironmentAsync(
+        TestContext testContext, IReadOnlyDictionary<string, string> environment, params string[] arguments)
+    {
+        var pins = await ReadPinsAsync(testContext);
+        var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
+            .Locate(pins, UpstreamCurlLocator.CurrentPlatform);
+        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, environment, arguments);
     }
 
     /// <summary>
@@ -37,7 +53,7 @@ internal static class PinnedUpstreamCurl
         var pins = (await ReadPinsAsync(testContext)).Where(pin => pin.Sha256 == sha256).ToList();
         var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
             .Locate(pins, UpstreamCurlLocator.CurrentPlatform, UpstreamCurlBuildRole.Supplementary);
-        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, arguments);
+        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, NoEnvironmentChanges, arguments);
     }
 
     private static async Task<IReadOnlyList<PinnedUpstreamCurlBuild>> ReadPinsAsync(TestContext testContext) =>
@@ -45,7 +61,11 @@ internal static class PinnedUpstreamCurl
             await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName), testContext.CancellationToken));
 
     private static async Task<UpstreamCurlRunResult> RunLocatedAsync(
-        TestContext testContext, UpstreamCurlLocation location, ReadOnlyMemory<byte> standardInput, string[] arguments)
+        TestContext testContext,
+        UpstreamCurlLocation location,
+        ReadOnlyMemory<byte> standardInput,
+        IReadOnlyDictionary<string, string> environment,
+        string[] arguments)
     {
         if (!location.IsAvailable)
         {
@@ -53,7 +73,7 @@ internal static class PinnedUpstreamCurl
         }
 
         var runner = new UpstreamCurlRunner(location, TimeSpan.FromSeconds(30), TimeProvider.System);
-        var result = await runner.RunAsync(arguments, standardInput, testContext.CancellationToken);
+        var result = await runner.RunAsync(arguments, standardInput, environment, testContext.CancellationToken);
 
         testContext.WriteLine($"curl {string.Join(' ', arguments)}: {result}");
         Assert.IsFalse(result.TimedOut, $"{result}; stderr: {result.StandardError}");

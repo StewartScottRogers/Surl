@@ -16,9 +16,12 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     private readonly CancellationTokenSource stop;
     private readonly Task<int> running;
 
-    private SurlOnLoopback(DirectoryInfo? servedDirectory, CancellationTokenSource stop, Task<int> running, Uri baseUrl)
+    private readonly LogWriter log;
+
+    private SurlOnLoopback(DirectoryInfo? servedDirectory, CancellationTokenSource stop, Task<int> running, Uri baseUrl, LogWriter log)
     {
         this.servedDirectory = servedDirectory;
+        this.log = log;
         this.stop = stop;
         this.running = running;
         BaseUrl = baseUrl;
@@ -29,6 +32,18 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     /// <c>http://127.0.0.1:49731/</c>.
     /// </summary>
     public Uri BaseUrl { get; }
+
+    /// <summary>
+    /// Gets the full path of the temporary directory surl serves, when it serves one this
+    /// instance made; otherwise <see langword="null"/>.
+    /// </summary>
+    public string? ServedDirectory => servedDirectory?.FullName;
+
+    /// <summary>
+    /// Gets everything surl has written to its error stream so far: its warnings and, with
+    /// <c>-v</c>, its log notes.
+    /// </summary>
+    public string Log => log.Text;
 
     /// <summary>
     /// Writes <paramref name="files"/> into a new temporary directory and starts surl serving
@@ -90,12 +105,13 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     {
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var output = new FirstLineWriter();
-        var running = Program.RunAsync(args, output, TextWriter.Null, stop.Token);
+        var log = new LogWriter();
+        var running = Program.RunAsync(args, output, log, stop.Token);
         var statusLine = await Task.WhenAny(output.FirstLine, running) == running
             ? throw new InvalidOperationException($"surl exited {await running} before it listened.")
             : await output.FirstLine.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
 
-        return new SurlOnLoopback(directory, stop, running, new Uri(statusLine[StatusLinePrefix.Length..]));
+        return new SurlOnLoopback(directory, stop, running, new Uri(statusLine[StatusLinePrefix.Length..]), log);
     }
 
     /// <summary>
@@ -110,6 +126,35 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         await running;
         stop.Dispose();
         servedDirectory?.Delete(recursive: true);
+    }
+
+    /// <summary>A thread-safe writer that keeps everything written to it.</summary>
+    private sealed class LogWriter : StringWriter
+    {
+        private readonly Lock writeLock = new();
+
+        public string Text
+        {
+            get
+            {
+                lock (writeLock)
+                {
+                    return ToString();
+                }
+            }
+        }
+
+        public override void Write(char value) => Write(value.ToString());
+
+        public override void Write(char[] buffer, int index, int count) => Write(new string(buffer, index, count));
+
+        public override void Write(string? value)
+        {
+            lock (writeLock)
+            {
+                base.Write(value);
+            }
+        }
     }
 
     /// <summary>A thread-safe writer that hands out the first whole line written to it.</summary>
