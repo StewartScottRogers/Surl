@@ -5,10 +5,10 @@ priority: Low
 assignee: Claude
 pipeline: docs
 depends-on: []
-touches: [Surl.Protocol.Ssh.UnitLibrary, Surl.Protocol.Ftp.UnitLibrary, Surl.Protocol.Ftp.UnitTests, Surl.Console, Surl.Console.UnitTests, Documentation/Planning/Decisions/ADR-0002-mirror-the-curl-ports-project-map.md]
+touches: [Surl.Protocol.Ssh.UnitLibrary, Surl.Protocol.Ftp.UnitLibrary, Surl.Protocol.Ftp.UnitTests, Surl.Console, Surl.Console.UnitTests, Documentation/Planning/Decisions/ADR-0002-mirror-the-curl-ports-project-map.md, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-264 — Align stale SSH and FTP doc comments and ADR-0002 with the code as built
 
@@ -37,13 +37,27 @@ Found by BL-213's alignment pass (2026-09-30); outside BL-213's `touches`, so fi
 
 ## Acceptance criteria
 
-- [ ] None of the five statements above remains; each comment names what the code does now.
-- [ ] `FtpProtocolServer`'s constructor parameter is named `isTlsUpgradeAvailable`.
-- [ ] `dotnet build` is clean and the fast tests pass.
+- [x] None of the five statements above remains; each comment names what the code does now.
+- [x] `FtpProtocolServer`'s constructor parameter is named `isTlsUpgradeAvailable`.
+- [x] `dotnet build` is clean and the fast tests pass.
 
 ## Notes
+
+- `CommandLineRunner`'s stale BL-221 comment was already gone: BL-250 removed
+  `FindUnavailableOption` and its refusal when it served `--allow-weak-ssh-algorithms`, so
+  nothing remained to change in `Surl.Console`.
+- The FTP rename also covers the internal `FtpCommandResponder` field and parameter, the FTP
+  tests' helper argument and `Surl.Protocol.Ftp.UnitLibrary/CLAUDE.md`, so one name runs from
+  `CommandLineRunner` to the `FEAT`/`AUTH` answers.
+- Added `Documentation/Wiki/Glossary.md` to `touches`: its "TLS upgrade" and "explicit FTPS"
+  rows named `isAuthTlsAvailable` and would have become false. No task in Doing names it
+  (BL-279 touches only `Surl.Conformance.UnitTests`). BL-274 still decides the SMTP, IMAP and
+  POP3 names.
+- The SSH summary now says SCP (`-f` and `-t`) and SFTP reads and writes are served through
+  `SshContentChannelHandlers`, and `CHANNEL_FAILURE` only without a content store.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. SSH and FTP doc comments and ADR-0002 say what the code does; FTP's TLS flag is isTlsUpgradeAvailable

@@ -4,7 +4,7 @@ namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// One direction's packets under a cipher and an HMAC: AES-CTR, or with
-/// <c>--allow-weak-ssh-algorithms</c> AES-CBC, 3DES-CBC or RC4. With an encrypt-and-MAC MAC the
+/// <c>--allow-weak-ssh-algorithms</c> AES-CBC, 3DES-CBC, RC4, Blowfish-CBC or CAST-128-CBC. With an encrypt-and-MAC MAC the
 /// whole packet is encrypted and the MAC covers it in the clear (RFC 4253 section 6.4); with an
 /// <c>-etm@openssh.com</c> MAC, <c>packet_length</c> is sent in the clear, only the rest is
 /// encrypted, and the MAC covers the length and the ciphertext and is checked before anything

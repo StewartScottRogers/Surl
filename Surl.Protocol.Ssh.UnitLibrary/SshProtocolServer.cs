@@ -5,7 +5,7 @@ namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// The SSH server upstream curl's <c>scp://</c> and <c>sftp://</c> transfers talk to
-/// (ADR-0051). So far it runs the transport layer and user authentication: it exchanges
+/// (ADR-0051). It runs the transport layer and user authentication: it exchanges
 /// identification lines, sends its <c>SSH_MSG_KEXINIT</c> and agrees the algorithms with the
 /// client's, runs the key exchange method, signing the exchange hash with one of its
 /// <see cref="SshHostKeySet"/>, exchanges <c>NEWKEYS</c>, and from then on encrypts and
@@ -15,8 +15,9 @@ namespace Surl.Protocol.Ssh;
 /// <see cref="ISshAuthenticationPolicy"/>. After the login it runs the connection protocol as
 /// <see cref="SshConnectionProtocol"/> says: <c>session</c> channels, each <c>exec</c> of an SCP
 /// command and the <c>sftp</c> subsystem handed to its handler. Given a <see cref="ContentStore"/>,
-/// it answers the <c>sftp</c> subsystem's read side as <see cref="SftpSession"/> says; without one,
-/// and for SCP until BL-164, both are answered <c>CHANNEL_FAILURE</c>.
+/// it serves it over SCP, downloads (<c>-f</c>) and uploads (<c>-t</c>), and over the <c>sftp</c>
+/// subsystem, reads and writes, as <see cref="SshContentChannelHandlers"/> says (ADR-0054); without
+/// one, both are answered <c>CHANNEL_FAILURE</c>.
 /// </summary>
 /// <remarks>
 /// <para>
