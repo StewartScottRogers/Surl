@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Cryptography.Rc4.UnitLibrary, Surl.Cryptography.Rc4.UnitTests, Surl.slnx, Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-039
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-224 — Hand-build RC4 in Surl.Cryptography.Rc4
 
@@ -52,26 +52,39 @@ the `arcfour` and `arcfour128` SSH ciphers from it.
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cryptography.Rc4.UnitLibrary` and `Surl.Cryptography.Rc4.UnitTests` exist at the
+- [x] `Surl.Cryptography.Rc4.UnitLibrary` and `Surl.Cryptography.Rc4.UnitTests` exist at the
       repository root; the production csproj has no `PackageReference` and no
       `ProjectReference`; `Surl.slnx` lists both in the position given in Context.
-- [ ] `Surl.Cryptography.Rc4.UnitLibrary/CLAUDE.md` exists with the content listed in Context.
-- [ ] `ProtocolIsolationTests` has the `Rc4` row and passes, including
+- [x] `Surl.Cryptography.Rc4.UnitLibrary/CLAUDE.md` exists with the content listed in Context.
+- [x] `ProtocolIsolationTests` has the `Rc4` row and passes, including
       `EveryHorizontalLibrary_ReferencesOnlyItsRow`.
-- [ ] Tests reproduce RFC 6229's keystream for the 40-, 128- and 256-bit keys at offsets 0, 16,
+- [x] Tests reproduce RFC 6229's keystream for the 40-, 128- and 256-bit keys at offsets 0, 16,
       1536 and 4096, each expected value copied from the RFC and cited beside it.
-- [ ] A test shows that an `Rc4` discarding 1536 bytes produces, from its first byte, RFC 6229's
+- [x] A test shows that an `Rc4` discarding 1536 bytes produces, from its first byte, RFC 6229's
       offset-1536 row for the 128-bit and the 256-bit key (the RFC 4345 form).
-- [ ] A test shows that keystream taken across several calls equals the same keystream taken in
+- [x] A test shows that keystream taken across several calls equals the same keystream taken in
       one call; tests show the refusal of an empty key and of a 257-byte key.
-- [ ] `dotnet build Surl.Cryptography.Rc4.UnitLibrary -warnaserror` is clean; `dotnet build`
+- [x] `dotnet build Surl.Cryptography.Rc4.UnitLibrary -warnaserror` is clean; `dotnet build`
       and `dotnet test --filter "TestCategory!=Integration"` are green;
       `Measure-CodeQuality.ps1 -Library Surl.Cryptography.Rc4.UnitLibrary` reports 100% line
       and 100% branch coverage, no method above cyclomatic complexity 10, and no failing member.
 
 ## Notes
 
+- Shape: `Rc4(ReadOnlySpan<byte> key, int discardedKeyStreamLength)` and
+  `ApplyKeyStream(source, destination)`. A key outside 1 to 256 bytes throws
+  `ArgumentException` (`ParamName` `key`), a negative discard `ArgumentOutOfRangeException`,
+  a destination not as long as the source `ArgumentException`. A sealed class rather than a
+  static one, because the keystream state carries across SSH packets. No `IDisposable`
+  zeroing: the task did not ask for it, and RC4 is offered only behind the weak-algorithms
+  option (ADR-0051).
+- RFC 6229 vectors copied from https://www.rfc-editor.org/rfc/rfc6229.txt section 2 (keys
+  0x0102..., 40, 128 and 256 bits); the keystream is RC4 applied to zero bytes.
+- Measure-CodeQuality: 100% line, 100% branch, 5 members, worst CRAP 6. 21 tests in
+  `Surl.Cryptography.Rc4.UnitTests`.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Surl.Cryptography.Rc4 produces RFC 6229's RC4 keystream, with or without RFC 4345's 1536-byte discard, across calls
