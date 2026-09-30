@@ -72,3 +72,4 @@ about 1 connection in 270 fails with exit 2 `Unable to exchange encryption keys`
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
