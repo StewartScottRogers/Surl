@@ -61,3 +61,4 @@ other the ADR lists), as BL-173's ADR decides.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
