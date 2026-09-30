@@ -8,7 +8,7 @@ depends-on: [BL-254]
 touches: [Surl.Cryptography.Blowfish.UnitLibrary, Surl.Cryptography.Blowfish.UnitTests, Surl.Cryptography.BcryptPbkdf.UnitLibrary, Surl.Cryptography.BcryptPbkdf.UnitTests]
 requirement: FR-039
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-255 — Move Blowfish out of BcryptPbkdf into Surl.Cryptography.Blowfish
 
@@ -60,29 +60,37 @@ key schedule, bcrypt's salted (eksblowfish) key schedule and 8-byte block encryp
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cryptography.Blowfish.UnitLibrary` holds the public Blowfish type and its pi-digit
+- [x] `Surl.Cryptography.Blowfish.UnitLibrary` holds the public Blowfish type and its pi-digit
       tables; `Surl.Cryptography.BcryptPbkdf.UnitLibrary` no longer holds `BlowfishState.cs` or
       `BlowfishPiDigits.cs`, and its csproj's only `ProjectReference` is
       `Surl.Cryptography.Blowfish.UnitLibrary`. The Blowfish library references nothing.
-- [ ] `Surl.Cryptography.Blowfish.UnitTests` has tests, each citing `vectors-2.txt` beside it,
+- [x] `Surl.Cryptography.Blowfish.UnitTests` has tests, each citing `vectors-2.txt` beside it,
       that pass for: all 34 ECB vectors, encrypt and decrypt; the set_key vectors for key lengths
       4 to 24 bytes, including 16; the 56-byte key round trip; and the salted schedule and
       `ReadWord` behaviour now in `BlowfishStateTests.cs` (moved, not duplicated).
-- [ ] Every test in `Surl.Cryptography.BcryptPbkdf.UnitTests/BcryptPbkdfTests.cs` passes unchanged
+- [x] Every test in `Surl.Cryptography.BcryptPbkdf.UnitTests/BcryptPbkdfTests.cs` passes unchanged
       in its expected values.
-- [ ] `Surl.Cryptography.Blowfish.UnitLibrary/CLAUDE.md` and
+- [x] `Surl.Cryptography.Blowfish.UnitLibrary/CLAUDE.md` and
       `Surl.Cryptography.BcryptPbkdf.UnitLibrary/CLAUDE.md` state what each holds after the move
       and that BcryptPbkdf references Blowfish (ADR-0061).
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean; `dotnet test --filter "TestCategory!=Integration"`
+- [x] `dotnet build Surl.slnx -warnaserror` is clean; `dotnet test --filter "TestCategory!=Integration"`
       passes; no test needs `TestCategory=Integration`.
-- [ ] Quality gates for both libraries: 100% line and 100% branch coverage, cyclomatic
+- [x] Quality gates for both libraries: 100% line and 100% branch coverage, cyclomatic
       complexity at most 10 per method (`CA1502`), CRAP at most 30
       (`powershell -NoProfile -File Measure-CodeQuality.ps1`).
-- [ ] Tests are platform-neutral: no path, error text or behaviour that differs on Linux or macOS.
+- [x] Tests are platform-neutral: no path, error text or behaviour that differs on Linux or macOS.
 
 ## Notes
+
+- Delivered directly rather than through the full agent pipeline: a move of existing code plus a public surface, one library pair each side.
+- Public surface (decided under Stewart's delegation, sensible default): `public sealed class Blowfish` in `Surl.Cryptography.Blowfish`, matching `Rc4`, `ChaCha20`, `Poly1305`. `new Blowfish(key)` keys with the standard schedule and refuses keys outside 4-56 bytes (`MinimumKeySize`, `MaximumKeySize`); `new Blowfish()` and `Initialize` leave it unkeyed on pi for bcrypt, whose `ExpandKey` overloads take any length (64-byte digests). `EncryptBlock`/`DecryptBlock` take one 8-byte block (source exactly 8, destination at least 8, may alias); `Encrypt`/`Decrypt` word pairs, `Clear` and `ReadWord` are public for bcrypt.
+- Inside namespace `Surl.Cryptography.BcryptPbkdf`, `Blowfish` binds to the sibling namespace `Surl.Cryptography.Blowfish`, and IDE0065 forbids a using alias inside the namespace, so BcryptPbkdf writes `Blowfish.Blowfish`. Recorded in its CLAUDE.md.
+- vectors-2.txt's ECB table repeats row 1 as row 7; each DataRow carries its row number so the rows stay distinct. All 34 rows, set_key k = 4..24, and the CBC vector (chained in the test) pass; the 56-byte key round-trips and differs from the 24-byte prefix.
+- ADR-0061 line 38 still names `BlowfishState` as the state at decision time; it is history, outside `touches`, left as written.
+- Quality: Blowfish 100% line / 100% branch, worst CRAP 6; BcryptPbkdf 100 / 100, worst CRAP 10. Blowfish.UnitTests 71 tests, BcryptPbkdf.UnitTests 11, `BcryptPbkdfTests` expected values unchanged.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Blowfish is a public library that BcryptPbkdf references, pinned to every vectors-2.txt ECB, set_key and CBC vector
