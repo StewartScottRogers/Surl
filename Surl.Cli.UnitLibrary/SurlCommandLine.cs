@@ -153,6 +153,12 @@ public sealed record SurlCommandLine
     public string? UserFile { get; init; }
 
     /// <summary>
+    /// <c>--keytab</c>: the MIT keytab file of Kerberos service keys, as given; none by default.
+    /// It is read when surl starts serving, not while parsing (ADR-0057 decision 1).
+    /// </summary>
+    public string? KeytabFile { get; init; }
+
+    /// <summary>
     /// <c>--allow-anonymous</c>: accept every request and login without checking credentials.
     /// Off by default.
     /// </summary>

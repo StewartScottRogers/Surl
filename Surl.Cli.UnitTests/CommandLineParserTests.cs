@@ -329,6 +329,7 @@ public sealed class CommandLineParserTests
     [DataRow("--no-cert")]
     [DataRow("--no-user")]
     [DataRow("--no-user-file")]
+    [DataRow("--no-keytab")]
     [DataRow("--no-auth")]
     public void Parse_NoPrefixOnANonNegatableOption_IsRefused(string written) =>
         AssertOptionRefused([written, Url], $"option {written}: the given option cannot be reversed with a --no- prefix");
@@ -431,6 +432,31 @@ public sealed class CommandLineParserTests
         Assert.AreEqual("users.txt", Served("--user-file", "users.txt", Url).UserFile);
         Assert.AreEqual("b", Served("--user-file=a", "--user-file", "b", Url).UserFile);
     }
+
+    [TestMethod]
+    public void Parse_Keytab_KeepsThePathAsGivenAndLastWins()
+    {
+        Assert.IsNull(new SurlCommandLine().KeytabFile);
+        Assert.AreEqual("http.keytab", Served("--keytab", "http.keytab", Url).KeytabFile);
+        Assert.AreEqual("b", Served("--keytab=a", "--keytab", "b", Url).KeytabFile);
+    }
+
+    [TestMethod]
+    [DataRow("--keytab", "")]
+    [DataRow("--keytab=", null)]
+    public void Parse_KeytabEmpty_IsRefusedWithFailedInit(string first, string? second)
+    {
+        string[] arguments = second is null ? [first, Url] : [first, second, Url];
+
+        var failure = Refused(arguments);
+
+        Assert.AreEqual($"option {first}: blank argument where content is expected", failure.Message);
+        Assert.AreEqual(SurlExitCode.FailedInit, failure.ExitCode);
+    }
+
+    [TestMethod]
+    public void Parse_KeytabMissingItsArgument_RequiresParameter() =>
+        AssertOptionRefused([Url, "--keytab"], "option --keytab: requires parameter");
 
     [TestMethod]
     [DataRow("--user-file", "")]

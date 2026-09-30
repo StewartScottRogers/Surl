@@ -433,7 +433,8 @@ public sealed partial class AiHelpTextTests
             "| 1 | `UnsupportedProtocol` | A listen URL names a scheme this build does not serve "
                 + "| Run surl --version to list the schemes this build serves, and use one of them |",
             "| 2 | `FailedInit` | The command line cannot be used: an option or its argument refused, "
-                + "an option not available in this build, no listen URL, a malformed --user-file or --authorized-keys file, a --hostkey file surl cannot use, "
+                + "an option not available in this build, no listen URL, a malformed --user-file, --authorized-keys or --keytab file, "
+                + "a --keytab with no key surl can use, a --hostkey file surl cannot use, "
                 + "an scp or sftp listen URL with no host key, or a --cacert file that does not exist "
                 + "| Read the surl: line on stderr, which names what was refused, and fix it; "
                 + "the option tables give each option's allowed values |",
@@ -445,7 +446,7 @@ public sealed partial class AiHelpTextTests
                 + "or the trace file is the --log-file file "
                 + "| Make the data directory writable by the user surl runs as, or give a log or trace file that can be opened "
                 + "and is not the --log-file file |",
-            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys or --hostkey file, the MQTT retained-message file or the mail store "
+            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab or --hostkey file, the MQTT retained-message file or the mail store "
                 + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates none of them |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",
@@ -576,6 +577,12 @@ public sealed partial class AiHelpTextTests
             "surl: (2) --hostcert is not available in this build",
             "surl: (2) --allow-weak-ssh-algorithms is not available in this build",
             "surl: (37) Could not read authorized keys <file>",
+            "surl: (37) Could not read keytab <file>",
+            "surl: (2) Keytab <file> is malformed at byte <offset>",
+            "surl: (2) Keytab <file> holds no key surl can use",
+            "surl: warning: --keytab: skipped the <enctype> key of <principal>",
+            "surl: (2) --auth gssapi needs --keytab",
+            "surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi",
             "surl: (2) <url> needs a host key: give --hostkey <file>, or --throwaway-hostkey for a throwaway one",
             "surl: warning: --throwaway-hostkey: serving a throwaway SSH host key (--hostpubsha256 <base64>); clients must pin it or skip the check (curl -k)",
         ];

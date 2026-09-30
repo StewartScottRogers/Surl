@@ -23,7 +23,8 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `CommandLineAccount` to `SurlCommandLine.Accounts`, split at the first `:`; a refusal
   of one never echoes its value (`CommandLineOption.ArgumentHoldsSecret`), and a user name
   given twice is refused after the whole line is read. `--user-file` is kept as a path
-  (`SurlCommandLine.UserFile`) and read by `Surl.Console`. `--allow-anonymous`,
+  (`SurlCommandLine.UserFile`) and read by `Surl.Console`, and so is `--keytab`
+  (`SurlCommandLine.KeytabFile`, ADR-0057 decision 1: category `auth`, not negatable). `--allow-anonymous`,
   `--allow-plaintext-auth`, `--auth <methods>` (`GivenAuthenticationMethods`, matched
   case-insensitively, in ADR-0032 section 3's order) and `--self-signed` are parsed here;
   `--self-signed` with `--cert` is refused.

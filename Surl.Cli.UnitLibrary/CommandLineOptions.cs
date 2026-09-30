@@ -37,7 +37,7 @@ internal static class CommandLineOptions
         + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP; of those three "
         + "protocols this build serves only SMTP yet. external logs in as the TLS client certificate --cacert verifies, so it is "
         + "offered only on a connection that sent one. gssapi is read, but a start that gives it is refused as "
-        + "not available in this build (exit code 2). surl refuses a word outside the "
+        + "needing --keytab without one and as not available in this build with one (exit code 2). surl refuses a word outside the "
         + "list as an option badly used (exit code 2). A test uses it to offer one method alone, such as --auth "
         + "digest for curl's --digest. ntlm and negotiate are not in the default because an NTLM response is built "
         + "on MD4 and HMAC-MD5 of the password and is open to relay and offline cracking, and Negotiate carries "
@@ -146,6 +146,8 @@ internal static class CommandLineOptions
             with { ArgumentHoldsSecret = true },
         WithArgument<string>("user-file", null, OptionArgumentReader.Path, (c, v) => c with { UserFile = v },
             new("<file>", "Read accounts from a file", ["auth", "ftp", "http", "mqtt", "smtp", "ssh"], IsInShortList: true, Default: "none")),
+        WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
+            new("<file>", "Read Kerberos service keys from a keytab file", ["auth"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
             new(null, "Accept any login, or none (warns)", ["auth", "ftp", "http", "mqtt", "security", "smtp", "ssh", "testing"], IsInShortList: false, Default: "off",
                 AllowAnonymousExplanation)),

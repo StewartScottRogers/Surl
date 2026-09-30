@@ -43,6 +43,14 @@ public static class AiHelpExamples
             with { Precondition = AiHelpExamplePrecondition.DataDirectoryHeldByAnotherSurl },
         Serving("auth", "Require a login", ["-u", "alice:secret", HttpListenUrl], [ListeningOnHttp], [], ["curl --digest -u alice:secret http://127.0.0.1:<port>/"]),
         Serving(
+            "auth",
+            "Read Kerberos service keys for Negotiate",
+            ["--auth", "negotiate", "--keytab", "http.keytab", "--user-file", "users.txt", "http://0.0.0.0:8080/"],
+            ["Listening on http://0.0.0.0:<port>/"],
+            ["surl: warning: --auth: accepted methods are negotiate"],
+            [])
+            with { Precondition = AiHelpExamplePrecondition.KeytabAndUserFileExist },
+        Serving(
             "testing",
             "For a test: accept a password over plain HTTP",
             ["--allow-plaintext-auth", "-u", "alice:secret", HttpListenUrl],

@@ -118,6 +118,7 @@ public static class AiHelpText
     {
         AiHelpExamplePrecondition.DataDirectoryExists => "`<path>` is an existing directory no other surl holds",
         AiHelpExamplePrecondition.DataDirectoryHeldByAnotherSurl => "another surl is serving `<path>` with `--directory`",
+        AiHelpExamplePrecondition.KeytabAndUserFileExist => "`http.keytab` is a keytab holding an AES key for `HTTP/<host>@<REALM>`, and `users.txt` a `--user-file`",
         _ => null,
     };
 
