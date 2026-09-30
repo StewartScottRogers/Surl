@@ -106,7 +106,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     public void Compose_WithoutUserFile_NeverReadsAFile()
     {
-        var (policy, exitCode, failureMessage) = AuthenticationComposition.Compose(
+        var (policy, _, exitCode, failureMessage) = AuthenticationComposition.Compose(
             Parse("--user", "alice:pw", Http), _ => throw new AssertFailedException("read"), TimeProvider.System);
 
         Assert.IsNotNull(policy);
@@ -374,7 +374,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [DataRow("xoauth2", "XOAUTH2")]
     public void Compose_SaslMechanismWord_TheComposedPolicyOffersThatMechanismAlone(string word, string mechanism)
     {
-        var (policy, _, _) = AuthenticationComposition.Compose(
+        var (policy, _, _, _) = AuthenticationComposition.Compose(
             Parse("--allow-plaintext-auth", "--auth", word, Http), ReadsAs(string.Empty), TimeProvider.System);
 
         var offer = policy!.GetMailLoginOffer(null);
@@ -385,7 +385,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     public void Compose_Apop_TheComposedPolicyOffersApopAndNoSaslMechanism()
     {
-        var (policy, _, _) = AuthenticationComposition.Compose(Parse("--auth", "apop", Http), ReadsAs(string.Empty), TimeProvider.System);
+        var (policy, _, _, _) = AuthenticationComposition.Compose(Parse("--auth", "apop", Http), ReadsAs(string.Empty), TimeProvider.System);
 
         var offer = policy!.GetMailLoginOffer(null);
         Assert.IsEmpty(offer.SaslMechanisms);
@@ -395,7 +395,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     public void Compose_EveryAvailableWord_OffersEverySaslMechanismInOfferOrder()
     {
-        var (policy, _, _) = AuthenticationComposition.Compose(
+        var (policy, _, _, _) = AuthenticationComposition.Compose(
             Parse("--allow-plaintext-auth", "--auth", "external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlm,negotiate,aws-sigv4", Http),
             ReadsAs(string.Empty),
             TimeProvider.System);

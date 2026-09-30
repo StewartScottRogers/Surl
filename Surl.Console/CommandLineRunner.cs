@@ -1,9 +1,11 @@
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.MailStore;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
@@ -11,6 +13,7 @@ using Surl.Protocol.Dict;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 using Surl.Protocol.Mqtt;
+using Surl.Protocol.Smtp;
 using Surl.Protocol.Telnet;
 using Surl.Protocol.Tftp;
 
@@ -19,7 +22,7 @@ namespace Surl.Console;
 /// <summary>
 /// Runs one <c>surl</c> command line: the composition root. It parses the command line,
 /// answers <c>--help</c>, <c>--manual</c> and <c>--version</c>, checks the data directory when one is given and
-/// the schemes, takes the data directory's lock, loads the MQTT retained messages kept under it,
+/// the schemes, takes the data directory's lock, loads the MQTT retained messages and the mail store kept under it,
 /// then constructs the TLS settings, the content store (on disk or in memory), the
 /// protocol servers, the exchange log and the serving engine explicitly and serves until
 /// cancelled, writing ADR-0007 section 5's texts and returning its exit codes.
@@ -256,6 +259,57 @@ internal sealed class CommandLineRunner(
     }
 
     /// <summary>
+    /// Chooses where the mail store the SMTP server delivers into persists: its
+    /// <see cref="MailStoreFiles"/> in <c>&lt;data directory's full path&gt;/.surl/mail</c>, read and
+    /// written through <paramref name="fileSystem"/>, with <c>--directory</c>; none without it, so
+    /// the mail lives in memory only (ADR-0050, decision 7).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="fileSystem">The file system the content store serves.</param>
+    /// <returns>The files, or <see langword="null"/> without <c>--directory</c>.</returns>
+    internal static MailStoreFiles? ComposeMailStoreFiles(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
+        commandLine.DataDirectory is { } dataDirectory
+            ? new MailStoreFiles(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl", "mail"))
+            : null;
+
+    /// <summary>
+    /// Builds the one mail store the mail servers share: loaded from <paramref name="files"/> when
+    /// there are some, empty and in memory only when not. Its owners are
+    /// <paramref name="accountNames"/>, or the anonymous owner alone under <c>--allow-anonymous</c>,
+    /// and one message is bounded by <c>--max-filesize</c> (ADR-0050, decisions 2, 6 and 7). A
+    /// store that cannot be loaded gives ADR-0050 decision 7's <c>(37)</c> message instead.
+    /// </summary>
+    /// <param name="files">The mail store's files, or <see langword="null"/> for none.</param>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="accountNames">Every configured account's user name.</param>
+    /// <param name="timeProvider">The clock for internal dates and <c>UIDVALIDITY</c>.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The store, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
+    internal static async Task<(MailboxStore? MailStore, string? FailureMessage)> LoadMailStoreAsync(
+        MailStoreFiles? files,
+        SurlCommandLine commandLine,
+        IReadOnlyList<string> accountNames,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken)
+    {
+        var maxMessageBytes = commandLine.Limits.MaxUploadBytes;
+        if (files is null)
+        {
+            return (new MailboxStore(accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes), null);
+        }
+
+        try
+        {
+            return (await MailboxStore.LoadAsync(
+                files, accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, cancellationToken: cancellationToken), null);
+        }
+        catch (MailStoreLoadException failure)
+        {
+            return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
+        }
+    }
+
+    /// <summary>
     /// Chooses the file system the content store serves and service state is kept through:
     /// <paramref name="dataDirectoryFileSystem"/> with <c>--directory</c>, a new
     /// <see cref="InMemoryContentFileSystem"/> without it.
@@ -314,13 +368,16 @@ internal sealed class CommandLineRunner(
         };
 
     // Every protocol server surl registers, over TCP or (TFTP) UDP; those that serve files serve
-    // the one content store, and the MQTT server keeps its retained messages in the store it is
-    // given. https is the HTTP server itself, over a connection the engine has secured (ADR-0020).
-    // The HTTP and MQTT servers, the ones with a login, judge it by the one policy (ADR-0032).
+    // the one content store, the MQTT server keeps its retained messages in the store it is
+    // given, and the SMTP server delivers into the one mail store. https and smtps are the HTTP
+    // and SMTP servers themselves, over a connection the engine has secured (ADR-0020,
+    // ADR-0053 decision 5). The HTTP, MQTT and SMTP servers, the ones with a login, judge it by
+    // the one policy (ADR-0032).
     private static IProtocolServer[] ComposeProtocolServers(
-        ContentStore contentStore, MqttRetainedMessages retainedMessages, IAuthenticationPolicy authenticationPolicy)
+        ContentStore contentStore, ServiceState serviceState, AuthenticationPolicy authenticationPolicy, bool isStartTlsAvailable)
     {
         var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
+        var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isStartTlsAvailable);
 
         return
         [
@@ -328,17 +385,26 @@ internal sealed class CommandLineRunner(
             new ImplicitTlsSchemeServer(httpServer, "https"),
             new DictProtocolServer(contentStore),
             new GopherProtocolServer(contentStore),
-            new MqttProtocolServer(retainedMessages, authenticationPolicy),
+            new MqttProtocolServer(serviceState.RetainedMessages, authenticationPolicy),
+            smtpServer,
+            new ImplicitTlsSchemeServer(smtpServer, "smtps"),
             new TelnetProtocolServer(),
             new TftpProtocolServer(contentStore),
         ];
     }
 
     // The servers composed only to ask for their schemes: nothing is served through them, so
-    // they need no retained messages and no accounts.
+    // they need no retained messages, no mail and no accounts.
     private IProtocolServer[] ComposeUnservedProtocolServers(ContentStore contentStore) =>
         ComposeProtocolServers(
-            contentStore, new MqttRetainedMessages(), AuthenticationComposition.ComposeWithoutAccounts(timeProvider));
+            contentStore,
+            new ServiceState(new MqttRetainedMessages(), new MailboxStore([], allowAnonymous: false, timeProvider)),
+            AuthenticationComposition.ComposeWithoutAccounts(timeProvider),
+            isStartTlsAvailable: false);
+
+    // What the servers keep across connections, loaded after the lock: the MQTT retained
+    // messages and the mail store (ADR-0031 decision 6, ADR-0050 decision 7).
+    private sealed record ServiceState(MqttRetainedMessages RetainedMessages, MailboxStore MailStore);
 
     private static SurlExitCode WriteTlsFileFailure(TextWriter error, TlsFileLoadException failure, string? caCertificateFile)
     {
@@ -427,14 +493,15 @@ internal sealed class CommandLineRunner(
         var authentication = AuthenticationComposition.Compose(commandLine, readUserFile, timeProvider);
         return authentication.Policy is null
             ? WriteFailure(error, authentication.ExitCode, authentication.FailureMessage!)
-            : await LockThenServeAsync(commandLine, fileSystem, contentStore, authentication.Policy, output, error, cancellationToken);
+            : await LockThenServeAsync(
+                commandLine, fileSystem, contentStore, (authentication.Policy, authentication.AccountNames), output, error, cancellationToken);
     }
 
     private async Task<SurlExitCode> LockThenServeAsync(
         SurlCommandLine commandLine,
         IContentFileSystem fileSystem,
         ContentStore contentStore,
-        IAuthenticationPolicy authenticationPolicy,
+        (AuthenticationPolicy Policy, IReadOnlyList<string> AccountNames) authentication,
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken)
@@ -448,7 +515,7 @@ internal sealed class CommandLineRunner(
         using (dataDirectoryLock.Holder)
         {
             return await LoadServiceStateAndServeAsync(
-                commandLine, fileSystem, contentStore, authenticationPolicy, output, error, cancellationToken);
+                commandLine, fileSystem, contentStore, authentication, output, error, cancellationToken);
         }
     }
 
@@ -456,17 +523,15 @@ internal sealed class CommandLineRunner(
         SurlCommandLine commandLine,
         IContentFileSystem fileSystem,
         ContentStore contentStore,
-        IAuthenticationPolicy authenticationPolicy,
+        (AuthenticationPolicy Policy, IReadOnlyList<string> AccountNames) authentication,
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken)
     {
-        MqttRetainedMessages? retainedMessages;
-        string? loadFailure;
+        (ServiceState? State, string? FailureMessage) loaded;
         try
         {
-            (retainedMessages, loadFailure) = await LoadRetainedMessagesAsync(
-                ComposeRetainedMessageFile(commandLine, fileSystem), cancellationToken);
+            loaded = await LoadServiceStateAsync(commandLine, fileSystem, authentication.AccountNames, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -474,14 +539,31 @@ internal sealed class CommandLineRunner(
             return SurlExitCode.Ok;
         }
 
-        return retainedMessages is null
-            ? WriteFailure(error, SurlExitCode.CouldNotReadFile, loadFailure!)
+        return loaded.State is null
+            ? WriteFailure(error, SurlExitCode.CouldNotReadFile, loaded.FailureMessage!)
             : await ServeUnderTheLockAsync(
                 commandLine,
-                ComposeProtocolServers(contentStore, retainedMessages, authenticationPolicy),
+                ComposeProtocolServers(
+                    contentStore, loaded.State, authentication.Policy, ServerTlsComposition.IsCertificateConfigured(commandLine)),
                 output,
                 error,
                 cancellationToken);
+    }
+
+    // The retained messages, then the mail store; the first that cannot be loaded ends the start.
+    private async Task<(ServiceState? State, string? FailureMessage)> LoadServiceStateAsync(
+        SurlCommandLine commandLine, IContentFileSystem fileSystem, IReadOnlyList<string> accountNames, CancellationToken cancellationToken)
+    {
+        var (retainedMessages, retainedMessagesFailure) = await LoadRetainedMessagesAsync(
+            ComposeRetainedMessageFile(commandLine, fileSystem), cancellationToken);
+        if (retainedMessages is null)
+        {
+            return (null, retainedMessagesFailure);
+        }
+
+        var (mailStore, mailStoreFailure) = await LoadMailStoreAsync(
+            ComposeMailStoreFiles(commandLine, fileSystem), commandLine, accountNames, timeProvider, cancellationToken);
+        return mailStore is null ? (null, mailStoreFailure) : (new ServiceState(retainedMessages, mailStore), null);
     }
 
     private async Task<SurlExitCode> ServeUnderTheLockAsync(

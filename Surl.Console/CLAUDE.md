@@ -36,8 +36,9 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   section 3 (the default set without `--auth`); and
   `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its
-  `AuthenticationSettings`, is handed to the HTTP (`http`, `https`) and MQTT (`mqtt`,
-  `mqtts`) servers. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
+  `AuthenticationSettings`, is handed to the HTTP (`http`, `https`), MQTT (`mqtt`,
+  `mqtts`) and SMTP (`smtp`, `smtps`) servers; `Compose` also returns every account's user
+  name, the mail store's owners. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
   `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),
   `MqttProtocolServer` for `mqtt` and `mqtts` (it too declares both itself), whose
@@ -45,6 +46,15 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   after the lock and before any listener binds with `--directory` (a file that cannot be
   read or does not parse ends surl with 37), and in memory only without it (ADR-0031
   decision 6),
+  `SmtpProtocolServer` for `smtp` and, through `ImplicitTlsSchemeServer`, `smtps`, given the
+  policy as both its authentication policies, `STARTTLS` when `--cert` or `--self-signed` is
+  given (`ServerTlsComposition.IsCertificateConfigured`, ADR-0053 decision 5) and the one
+  `MailboxStore` (`LoadMailStoreAsync`: owners the account names, or the anonymous owner under
+  `--allow-anonymous`, one message bounded by `--max-filesize`), kept in
+  `<data directory>/.surl/mail` (`ComposeMailStoreFiles`) and loaded after the retained
+  messages, before any listener binds, with `--directory` (a store that cannot be loaded ends
+  surl with 37 and `surl: (37) Could not read <file>: <reason>`, ADR-0050 decision 7), and in
+  memory only without it,
   `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   exchange log of the parsed log level and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,
@@ -65,12 +75,13 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   last listener, connection or datagram, has bound, and keeps a bind failure for the
   `(45)` or `(6)` message.
 - `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
-  TLS from the first byte: the `--cert`/`--key` certificate or, with `--self-signed`, a
+  TLS from the first byte, or can be upgraded (`smtp`, for `STARTTLS`) and `--cert` or
+  `--self-signed` is given: the `--cert`/`--key` certificate or, with `--self-signed`, a
   throwaway one, the `--cacert` trust anchors and the accepted TLS versions. A bad file ends
-  surl with 58, 2 or 77 before any listener binds (ADR-0020). Such a listen URL with neither
+  surl with 58, 2 or 77 before any listener binds (ADR-0020). A listen URL TLS from the first byte with neither
   `--cert` nor `--self-signed` ends surl with 58 before any listener binds
   (`ServerTlsComposition.FindListenUrlWithoutCertificate`, ADR-0032 section 10); a start
-  with `--self-signed` and no such listen URL makes no certificate.
+  with `--self-signed` and neither such a listen URL nor an `smtp` one makes no certificate.
 - Once the log streams are open, the startup warnings go to the log stream, unstamped:
   `AuthenticationComposition.WriteLooseningWarnings` writes the `--allow-anonymous`,
   `--allow-plaintext-auth` and `--auth` lines, in that order, then `CommandLineRunner`

@@ -6,7 +6,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Console;
 
 /// <summary>
-/// The authentication policy the HTTP and MQTT servers are given, as the command line asks for
+/// The authentication policy the HTTP, MQTT and SMTP servers are given, as the command line asks for
 /// it (ADR-0032): the accounts from every <c>--user</c> and then the <c>--user-file</c>, the
 /// methods <c>--auth</c> accepts, and <c>--allow-anonymous</c> and
 /// <c>--allow-plaintext-auth</c>; and the warning line each loosening option writes on start.
@@ -44,16 +44,20 @@ internal static class AuthenticationComposition
     /// <param name="readUserFile">Reads the <c>--user-file</c>'s bytes, given its path as given.</param>
     /// <param name="timeProvider">The clock the refusal delay, the Digest nonces and the Signature Version 4 window run on.</param>
     /// <returns>
-    /// The policy; or, when it cannot be built, <see langword="null"/> with the exit code and the
-    /// message after the <c>surl: </c> prefix (ADR-0032, sections 1 and 2).
+    /// The policy and every account's user name, the <c>--user</c> ones first, which the mail
+    /// store's owners are (ADR-0050, decision 2); or, when it cannot be built, <see langword="null"/>
+    /// with the exit code and the message after the <c>surl: </c> prefix (ADR-0032, sections 1 and 2).
     /// </returns>
-    public static (AuthenticationPolicy? Policy, SurlExitCode ExitCode, string? FailureMessage) Compose(
+    public static (AuthenticationPolicy? Policy, IReadOnlyList<string> AccountNames, SurlExitCode ExitCode, string? FailureMessage) Compose(
         SurlCommandLine commandLine, Func<string, byte[]> readUserFile, TimeProvider timeProvider)
     {
         var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readUserFile);
         return accounts is null
-            ? (null, exitCode, failureMessage)
-            : (ComposePolicy(ComposeSettings(commandLine, accounts), timeProvider), SurlExitCode.Ok, null);
+            ? (null, [], exitCode, failureMessage)
+            : (ComposePolicy(ComposeSettings(commandLine, accounts), timeProvider),
+                [.. accounts.Select(account => account.UserName)],
+                SurlExitCode.Ok,
+                null);
     }
 
     /// <summary>
