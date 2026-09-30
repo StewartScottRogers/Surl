@@ -51,3 +51,4 @@ authentication contract, and answers `CAPABILITY`, `NOOP`, `LOGOUT`, `SELECT`, `
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Backlog. Lane 4 could not integrate: fast tests failed twice (Surl.Protocol.Imap.UnitTests: ServeAsync_CloseWithAStoreThatCannotBeWritten_CompletesAndNotesTheFailure; then Surl.Protocol.Imap.UnitTests: ServeAsync_CloseWithAStoreThatCannotBeWritten_CompletesAndNotesTheFailure) after rebasing onto the other lanes' work. The work is on branch factory/BL-201-lane-4-20260930-012021; start with git cherry-pick --no-commit factory/BL-201-lane-4-20260930-012021 and fix it.
