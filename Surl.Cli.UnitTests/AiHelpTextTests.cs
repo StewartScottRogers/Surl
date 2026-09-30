@@ -9,10 +9,10 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics and smtp (BL-207), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207) and imap (BL-208), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "limits", "listen-urls",
+        "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "imap", "limits", "listen-urls",
         "logging", "mqtt", "security", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls",
     ];
 
@@ -30,6 +30,7 @@ public sealed partial class AiHelpTextTests
         "| `ftp` | FTP and FTPS protocol |",
         "| `gopher` | GOPHER and GOPHERS protocol |",
         "| `http` | HTTP and HTTPS protocol |",
+        "| `imap` | IMAP and IMAPS protocol |",
         "| `limits` | Connection, time and size limits |",
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
@@ -361,7 +362,7 @@ public sealed partial class AiHelpTextTests
             "| --- | --- | --- | --- | --- | --- | --- |",
             "| `--max-line <bytes>` | bytes | 8192 | digits with an optional decimal point and more digits, then at most one suffix "
                 + "k, m, g, t or p in either case, each 1024 times the one before; at most 9223372036854775807 bytes; 0 means no limit "
-                + "| no | dict, ftp, gopher, limits, smtp, telnet | Longest command line accepted |",
+                + "| no | dict, ftp, gopher, imap, limits, smtp, telnet | Longest command line accepted |",
             "",
             "## Exit codes",
             "",

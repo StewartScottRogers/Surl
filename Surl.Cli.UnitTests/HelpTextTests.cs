@@ -13,6 +13,7 @@ public sealed class HelpTextTests
         " ftp       FTP and FTPS protocol",
         " gopher    GOPHER and GOPHERS protocol",
         " http      HTTP and HTTPS protocol",
+        " imap      IMAP and IMAPS protocol",
         " limits    Connection, time and size limits",
         " logging   Log levels, tracing and the log file",
         " mqtt      MQTT and MQTTS protocol",
@@ -33,13 +34,13 @@ public sealed class HelpTextTests
         "        Accepts every request and every login without checking credentials:",
         "        HTTP serves every request as anonymous and sends no challenge, MQTT",
         "        answers every well-formed CONNECT with CONNACK 0 whatever credentials",
-        "        it carries, SMTP takes mail with no login, FTP logs every USER and PASS",
-        "        in, and SSH logs every client in, with any credential or none. A test",
-        "        uses it to fetch or publish without setting up accounts. It is not the",
-        "        default because anyone who can reach a listener then gets everything",
-        "        surl serves, and can publish and subscribe over MQTT and send mail,",
-        "        with no login at all. surl warns on every start while it is on, from",
-        "        the info log level up.",
+        "        it carries, SMTP takes mail and IMAP opens mailboxes with no login, FTP",
+        "        logs every USER and PASS in, and SSH logs every client in, with any",
+        "        credential or none. A test uses it to fetch or publish without setting",
+        "        up accounts. It is not the default because anyone who can reach a",
+        "        listener then gets everything surl serves, and can publish and",
+        "        subscribe over MQTT and send and read mail, with no login at all. surl",
+        "        warns on every start while it is on, from the info log level up.",
     ];
 
     private static readonly string[] AllowPlaintextAuthExplanationLines =
@@ -48,11 +49,12 @@ public sealed class HelpTextTests
         "        Basic and Bearer over http:// and an MQTT password over mqtt:// are",
         "        checked instead of refused unchecked (403 Forbidden, CONNACK 5), Basic",
         "        and Bearer are offered in a 401 over http://, SMTP offers PLAIN and",
-        "        LOGIN over smtp:// without STARTTLS, and an FTP password over ftp://",
-        "        without AUTH TLS is checked instead of refused (530). A test uses it to",
-        "        log in without a certificate. It is not the default because anyone who",
-        "        can watch the network reads the password as it is sent. surl warns on",
-        "        every start while it is on, from the info log level up.",
+        "        LOGIN over smtp:// and IMAP accepts LOGIN and offers PLAIN and LOGIN",
+        "        over imap:// without STARTTLS, and an FTP password over ftp:// without",
+        "        AUTH TLS is checked instead of refused (530). A test uses it to log in",
+        "        without a certificate. It is not the default because anyone who can",
+        "        watch the network reads the password as it is sent. surl warns on every",
+        "        start while it is on, from the info log level up.",
     ];
 
     private static readonly string[] AuthExplanationLines =
@@ -63,21 +65,21 @@ public sealed class HelpTextTests
         "        mechanism by its name in lower case, as curl's login option AUTH=<mech>",
         "        names it: ntlm, digest-md5, cram-md5, plain, login, oauthbearer,",
         "        xoauth2 and external, and apop for POP3's APOP; of those three",
-        "        protocols this build serves only SMTP yet. external logs in as the TLS",
-        "        client certificate --cacert verifies, so it is offered only on a",
-        "        connection that sent one. gssapi is read, but a start that gives it is",
-        "        refused as needing --keytab without one and as not available in this",
-        "        build with one (exit code 2). surl refuses a word outside the list as",
-        "        an option badly used (exit code 2). A test uses it to offer one method",
-        "        alone, such as --auth digest for curl's --digest. ntlm and negotiate",
-        "        are not in the default because an NTLM response is built on MD4 and",
-        "        HMAC-MD5 of the password and is open to relay and offline cracking, and",
-        "        Negotiate carries NTLM; digest-md5 is not because RFC 6331 made it",
-        "        Historic and curl picks it over every other mechanism; apop is not",
-        "        because its MD5 construction leaks password characters to anyone who",
-        "        can choose the timestamp it signs. surl warns on every start while",
-        "        --auth is given, from the info log level up, naming the methods it",
-        "        accepts.",
+        "        protocols this build serves SMTP and IMAP, not POP3 yet. external logs",
+        "        in as the TLS client certificate --cacert verifies, so it is offered",
+        "        only on a connection that sent one. gssapi is read, but a start that",
+        "        gives it is refused as needing --keytab without one and as not",
+        "        available in this build with one (exit code 2). surl refuses a word",
+        "        outside the list as an option badly used (exit code 2). A test uses it",
+        "        to offer one method alone, such as --auth digest for curl's --digest.",
+        "        ntlm and negotiate are not in the default because an NTLM response is",
+        "        built on MD4 and HMAC-MD5 of the password and is open to relay and",
+        "        offline cracking, and Negotiate carries NTLM; digest-md5 is not because",
+        "        RFC 6331 made it Historic and curl picks it over every other mechanism;",
+        "        apop is not because its MD5 construction leaks password characters to",
+        "        anyone who can choose the timestamp it signs. surl warns on every start",
+        "        while --auth is given, from the info log level up, naming the methods",
+        "        it accepts.",
     ];
 
     private static readonly string[] SelfSignedExplanationLines =
@@ -131,8 +133,8 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, content, dict, ftp, gopher, http, limits, logging, mqtt, security, smtp,",
-            "ssh, surl, telnet, testing, tftp, tls.",
+            "auth, content, dict, ftp, gopher, http, imap, limits, logging, mqtt, security,",
+            "smtp, ssh, surl, telnet, testing, tftp, tls.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -392,7 +394,7 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, mqtt, smtp, ssh.",
+            "        Categories: auth, ftp, http, imap, mqtt, smtp, ssh.",
             "");
 
     [TestMethod]
@@ -402,7 +404,7 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, mqtt, smtp, ssh.",
+            "        Categories: auth, ftp, http, imap, mqtt, smtp, ssh.",
             "");
 
     [TestMethod]
@@ -415,7 +417,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, mqtt, security, smtp, ssh, testing.",
+                "        Categories: auth, ftp, http, imap, mqtt, security, smtp, ssh, testing.",
                 "",
             ]);
 
@@ -431,7 +433,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, mqtt, security, smtp, testing.",
+                "        Categories: auth, ftp, http, imap, mqtt, security, smtp, testing.",
                 "",
             ]);
 
@@ -460,7 +462,7 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, security, smtp, testing.",
+                "        Categories: auth, http, imap, security, smtp, testing.",
                 "",
             ]);
 
@@ -516,6 +518,21 @@ public sealed class HelpTextTests
             Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
             Row(32, "    --max-line <bytes>", "Longest command line accepted"),
             Row(32, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Imap_ListsEveryOptionTheImapServerReads() =>
+        AssertOutput(
+            HelpText.Answer("imap"),
+            "imap: IMAP and IMAPS protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(32, "    --max-line <bytes>", "Longest command line accepted"),
             Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(32, "    --user-file <file>", "Read accounts from a file"));
 
@@ -632,7 +649,7 @@ public sealed class HelpTextTests
             "    --max-line <bytes>",
             "        Longest command line accepted. Default: 8192.",
             "",
-            "        Categories: dict, ftp, gopher, limits, smtp, telnet.",
+            "        Categories: dict, ftp, gopher, imap, limits, smtp, telnet.",
             "");
 
     [TestMethod]

@@ -50,7 +50,7 @@ internal static class ExitCodeGuidanceTable
             SurlExitCode.CouldNotReadFile,
             "The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab or --hostkey file, the MQTT retained-message file or the mail store cannot be read",
             "Check the path exists and the user surl runs as can read it; surl creates none of them",
-            ["auth", "content", "mqtt", "smtp", "ssh"]),
+            ["auth", "content", "imap", "mqtt", "smtp", "ssh"]),
         new(
             SurlExitCode.BindFailed,
             "A listener cannot bind its address and port",

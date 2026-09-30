@@ -147,6 +147,7 @@ public sealed class AiHelpFactsTests
     [DataRow("dict", new[] { "dict" })]
     [DataRow("gopher", new[] { "gopher", "gophers" })]
     [DataRow("http", new[] { "http", "https" })]
+    [DataRow("imap", new[] { "imap", "imaps" })]
     [DataRow("mqtt", new[] { "mqtt", "mqtts" })]
     [DataRow("smtp", new[] { "smtp", "smtps" })]
     [DataRow("telnet", new[] { "telnet" })]
@@ -159,11 +160,11 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
-    public void OnlyTheNineProtocolCategories_HaveSchemes()
+    public void OnlyTheTenProtocolCategories_HaveSchemes()
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "mqtt", "smtp", "ssh", "telnet", "tftp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "imap", "mqtt", "smtp", "ssh", "telnet", "tftp" }, withSchemes.ToArray());
     }
 
     [TestMethod]

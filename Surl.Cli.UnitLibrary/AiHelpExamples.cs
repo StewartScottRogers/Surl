@@ -88,6 +88,13 @@ public static class AiHelpExamples
         Serving("gopher", "Serve Gopher", ["gopher://127.0.0.1:0/"], ["Listening on gopher://127.0.0.1:<port>/"], [], ["curl gopher://127.0.0.1:<port>/"]),
         Serving("http", "Serve HTTP", [HttpListenUrl], [ListeningOnHttp], [], ["curl -I http://127.0.0.1:<port>/"]),
         Serving(
+            "imap",
+            "For a test: read mail without accounts",
+            ["--allow-anonymous", "imap://127.0.0.1:0/"],
+            ["Listening on imap://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl imap://127.0.0.1:<port>/"]),
+        Serving(
             "mqtt",
             "For a test: serve MQTT without accounts",
             ["--allow-anonymous", "mqtt://127.0.0.1:0/"],
