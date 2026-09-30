@@ -1,5 +1,5 @@
 ---
-id: BL-275
+id: BL-276
 title: Record MailLoginStep's RefusalNote in an ADR
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-046
 created: 2026-09-30
 completed:
 ---
-# BL-275 — Record MailLoginStep's RefusalNote in an ADR
+# BL-276 — Record MailLoginStep's RefusalNote in an ADR
 
 ## Goal
 

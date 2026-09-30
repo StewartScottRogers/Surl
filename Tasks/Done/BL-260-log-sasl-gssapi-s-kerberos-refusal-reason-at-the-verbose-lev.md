@@ -53,7 +53,7 @@ decrypted field.
   `Surl.Output.UnitTests` (`LevelledExchangeLogFactoryTests.KerberosRefusalNote_IsWrittenAtTheVerboseLevelOnly`);
   added to `touches` because no task in Doing names it.
 - ADR not written here: `Documentation/Planning/Decisions` is in BL-262's `touches` (Doing), and two
-  lanes writing ADRs at once would collide on the number. Filed BL-275 to record it.
+  lanes writing ADRs at once would collide on the number. Filed BL-276 to record it.
 - Tests: `GssapiSaslMechanismTests` (expired ticket carries `Kerberos: ticket expired`, wrong key
   `Kerberos: integrity check failed`, accepted login none);
   `ServeAsync_RefusedGssapiTicket_NotesTheKerberosReasonAfterTheLogin` in SMTP, IMAP and POP3.
