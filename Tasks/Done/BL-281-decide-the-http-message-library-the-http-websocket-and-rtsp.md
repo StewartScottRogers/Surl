@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Product-Overview.md]
 requirement: FR-048
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-281 — Decide the HTTP message library the HTTP, WebSocket and RTSP servers share
 
@@ -61,20 +61,31 @@ the WebSocket and RTSP servers can be built without referencing `Surl.Protocol.H
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
       Stewart's delegation", decides every point in Context: the library's name, contents,
       references and who references it.
-- [ ] `ADR-0002-mirror-the-curl-ports-project-map.md` carries an "Amended" line naming the new ADR.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR.
-- [ ] `Documentation/Product/Product-Overview.md` "Layers" and "Project layout" list the library,
+- [x] `ADR-0002-mirror-the-curl-ports-project-map.md` carries an "Amended" line naming the new ADR.
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR.
+- [x] `Documentation/Product/Product-Overview.md` "Layers" and "Project layout" list the library,
       written as intent until the scaffold task creates it.
 
 ## Notes
 
 - Filed as the first Phase 4 and 5 decision because it unblocks both the WebSocket and the RTSP
   chains.
+- 2026-09-30: ADR-0070 adopts the planning assumption: `Surl.HttpMessage.UnitLibrary`, Abstractions
+  only. Type names kept (`Http*`); a new `HttpMessageProtocol` (`Http11`, `Rtsp10`) generalises the
+  request-line parser and the response head's status line; the head timeout moves into
+  `HttpConnectionReader.ReadNextRequestHeadAsync`; `HttpResponseHead.AddChallengeFields` holds the
+  `WWW-Authenticate` loop; body framing moves, body reading stays. The WebSocket upgrade is answered
+  only on `ws://`/`wss://` listen URLs, so no Abstractions contract and no task filed. BL-292 and
+  BL-293 stand as filed; no re-plan needed.
+- Written directly rather than through `align-and-document`: a single ADR plus three index and
+  overview edits, no `.cs` change. The glossary is not in `touches`; ADR-0070 decision 5 leaves its
+  code-column update to BL-293, which already names it.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0070 decides Surl.HttpMessage, the HTTP/1.x message library the HTTP, WebSocket and RTSP servers share; ADR-0002, the ADR index and the product overview name it

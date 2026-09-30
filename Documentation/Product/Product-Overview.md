@@ -319,7 +319,8 @@ Two rules carry the design, the same two the Curl port is built on, turned aroun
 server references `Surl.Protocol.Abstractions` and the horizontal libraries ADR-0002
 lists, as later ADRs amend it (`Surl.Content`, `Surl.Cryptography`, the four SSH primitive
 libraries of ADR-0048, the two of ADR-0051 decision 3 and the three of ADR-0061, and the mail
-servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050); referencing another protocol
+servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050, and, once BL-292 creates it,
+the HTTP, WebSocket and RTSP servers' `Surl.HttpMessage` of ADR-0070); referencing another protocol
 server is a build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
 
 **Rule 2 - the transport is an injected seam.** A protocol server receives an accepted
@@ -348,9 +349,10 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Executable | `Surl.Console` | everything below, as the composition root |
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
-| Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, and for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol` |
+| Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol`, and for HTTP, WebSocket and RTSP `Surl.HttpMessage` (ADR-0070, once created) |
 | Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7), and `Surl.Kerberos` (ADR-0057 decision 6) |
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
+| HTTP message library | `Surl.HttpMessage` (to be created by BL-292 and filled by BL-293: the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), to be shared by `Surl.Protocol.Http`, `Surl.Protocol.Ws` and `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
 | Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305` ([ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md)), `Surl.Cryptography.Rc4` and `Surl.Cryptography.BcryptPbkdf` ([ADR-0051](../Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md) decision 3), and `Surl.Cryptography.Blowfish`, `Surl.Cryptography.Cast128` and `Surl.Cryptography.Ripemd160` ([ADR-0061](../Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)); for Kerberos, `Surl.Kerberos` ([ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)) | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519`, and `Surl.Cryptography.BcryptPbkdf` references `Surl.Cryptography.Blowfish` |
 | Test fixtures | `Surl.Kerberos.TestKdc`, the hand-built loopback KDC for realm `SURL.TEST` ([ADR-0065](../Planning/Decisions/ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md) decision 1). Not a protocol server and not a horizontal library of ADR-0002's table: only its own test project references it (BL-267's `Run-KerberosTestKdc.cs` file-based app is to be the other user), and `Surl.Console` never does | `Surl.Kerberos`, Abstractions |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
@@ -363,7 +365,8 @@ project followed by its `.UnitTests` twin (`CLAUDE.md`, "Repository layout"). Ev
 project of ADR-0002's map exists from the first commit; the nine hand-built SSH primitive
 libraries (four of ADR-0048, two of ADR-0051 and three of ADR-0061), the Kerberos library of
 ADR-0057, the mail servers' two shared libraries of ADR-0050 and the loopback test KDC of
-ADR-0065 were added later, each with its twin:
+ADR-0065 were added later, each with its twin; the HTTP message library of ADR-0070 is to
+be added the same way:
 
 | Production | Tests |
 | --- | --- |
@@ -384,6 +387,7 @@ ADR-0065 were added later, each with its twin:
 | `Surl.Cryptography.Rc4.UnitLibrary` | `Surl.Cryptography.Rc4.UnitTests` |
 | `Surl.Cryptography.Ripemd160.UnitLibrary` | `Surl.Cryptography.Ripemd160.UnitTests` |
 | `Surl.Cryptography.UnitLibrary` | `Surl.Cryptography.UnitTests` |
+| `Surl.HttpMessage.UnitLibrary` (to be created by BL-292, ADR-0070) | `Surl.HttpMessage.UnitTests` |
 | `Surl.Kerberos.TestKdc.UnitLibrary` (test fixture: only test code references it) | `Surl.Kerberos.TestKdc.UnitTests` |
 | `Surl.Kerberos.UnitLibrary` | `Surl.Kerberos.UnitTests` |
 | `Surl.LineProtocol.UnitLibrary` | `Surl.LineProtocol.UnitTests` |
