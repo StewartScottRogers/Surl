@@ -43,3 +43,4 @@ ADR-0002 decision 3's table as ADR-0048 amended it.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
