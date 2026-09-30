@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Protocol.Smb.UnitLibrary, Surl.Protocol.Smb.UnitTests]
 requirement: FR-050
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-290 — Read and write the SMB version 1 messages upstream curl uses in Surl.Protocol.Smb
 
@@ -54,12 +54,12 @@ so the server tasks (BL-296 to BL-298) build on a codec already held to the qual
 
 ## Acceptance criteria
 
-- [ ] Tests in `Surl.Protocol.Smb.UnitTests` decode each of the eight requests and encode each
+- [x] Tests in `Surl.Protocol.Smb.UnitTests` decode each of the eight requests and encode each
       response in Context byte for byte against [MS-CIFS]'s layouts, and pass.
-- [ ] Tests show a NetBIOS length over the given maximum refused before the message is read, a
+- [x] Tests show a NetBIOS length over the given maximum refused before the message is read, a
       truncated message, a bad signature, an inconsistent word or byte count, an offset outside the
       message and a chained AndX command each reported as its own outcome.
-- [ ] `dotnet build Surl.Protocol.Smb.UnitLibrary -warnaserror` is clean; the fast tests are green;
+- [x] `dotnet build Surl.Protocol.Smb.UnitLibrary -warnaserror` is clean; the fast tests are green;
       `Measure-CodeQuality.ps1` reports 100% line and branch coverage and no failing member for
       `Surl.Protocol.Smb.UnitLibrary`.
 
@@ -67,8 +67,35 @@ so the server tasks (BL-296 to BL-298) build on a codec already held to the qual
 
 - If BL-283's ADR decides the SMB version 1 codec belongs in its own hand-built library rather than
   in `Surl.Protocol.Smb`, and this task has not started, `task-planner` re-plans it there.
+- Built (2026-09-30): `SmbFrameReader` (NetBIOS framing off an `IConnection`, outcomes in
+  `SmbFrameReadOutcome`), `SmbHeader`, `SmbRequestDecoder` (eight typed `Smb*Request` records,
+  faults in `SmbRequestFault`, carried by `SmbRequestDecoding` with the header when readable),
+  `SmbResponseEncoder` (every response framed, with `SmbNegotiateResponse` and
+  `SmbNtCreateResponse` holding the server's values). 67 tests; `Measure-CodeQuality.ps1` reports
+  100% line and branch, worst CRAP 8, 0 failing members.
+- Defaults taken (spec-level, no ADR needed):
+  - `--max-message` counts the NetBIOS length field (the SMB message, not the 4-byte NetBIOS
+    header); 0 means no limit beyond 17 bits, matching `ExchangeLimits.MaxMessageBytes`. The
+    flags byte's bits other than the length extension are ignored. Every frame's body is read
+    before its type is judged, so a keep-alive or an unexpected type (reported with its type byte)
+    leaves the stream at the next frame.
+  - Response header = the request's, `Flags | SMB_FLAGS_REPLY`, `Flags2` unchanged, security
+    features zero; session setup assigns the UID and tree connect the TID; all else echoed.
+    AndX responses write `SMB_COM_NO_ANDX_COMMAND` and AndX offset 0 ([MS-CIFS] 2.2.3.4 has the
+    receiver ignore it).
+  - Strings are read and written as NUL-terminated OEM text encoded as UTF-8 (ASCII for what curl
+    sends), since curl never sets `SMB_FLAGS2_UNICODE`.
+  - READ_ANDX and WRITE_ANDX are accepted with or without the high-offset word (10/12 and 12/14
+    words), as [MS-CIFS] allows. An NT create name has a trailing NUL trimmed whether or not
+    `NameLength` counts it. Bytes after the byte block are ignored as padding.
+  - Extra faults beyond the criteria: `MalformedString` (missing NUL or dialect buffer format) and
+    `UnsupportedCommand` (any other command, header kept so the server can answer an error).
+  - `Available` in the read and write responses is a parameter (it has meaning only for pipes).
+  - The command dispatch is a table of decoders, not a `switch`: the `switch` over eight byte
+    codes compiled to 16 branches and failed the coverage audit's complexity gate.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Surl.Protocol.Smb reads NetBIOS-framed SMB1 requests curl sends into typed requests and encodes every response, 100% covered
