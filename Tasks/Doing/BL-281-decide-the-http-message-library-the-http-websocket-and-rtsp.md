@@ -77,3 +77,4 @@ the WebSocket and RTSP servers can be built without referencing `Surl.Protocol.H
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
