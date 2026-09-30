@@ -94,6 +94,56 @@ public sealed class RecordedFixtureTests
         CollectionAssert.AreEqual(new[] { TraceFields("a@x", protocol: "ESMTPS") + Mail }, Inbox(store, string.Empty).ToList());
     }
 
+    // curl -u ... --login-options AUTH=<mechanism> [--sasl-ir]: the policy double is scripted with
+    // the challenges the recorder sent and then accepts, so Surl must frame them into exactly the
+    // recorded 334 lines, hand the policy exactly what curl sent, answer 235 and let the mail in
+    // though the session has no --allow-anonymous (ADR-0049 section 7, ADR-0053 decision 3).
+    [TestMethod]
+    [DataRow("auth-plain", "PLAIN")]
+    [DataRow("auth-plain-sasl-ir", "PLAIN")]
+    [DataRow("auth-login", "LOGIN")]
+    [DataRow("auth-login-sasl-ir", "LOGIN")]
+    [DataRow("auth-cram-md5", "CRAM-MD5")]
+    [DataRow("auth-cram-md5-sasl-ir", "CRAM-MD5")]
+    [DataRow("auth-digest-md5", "DIGEST-MD5")]
+    [DataRow("auth-digest-md5-sasl-ir", "DIGEST-MD5")]
+    [DataRow("auth-ntlm", "NTLM")]
+    [DataRow("auth-ntlm-sasl-ir", "NTLM")]
+    [DataRow("auth-xoauth2", "XOAUTH2")]
+    [DataRow("auth-xoauth2-sasl-ir", "XOAUTH2")]
+    [DataRow("auth-oauthbearer", "OAUTHBEARER")]
+    [DataRow("auth-oauthbearer-sasl-ir", "OAUTHBEARER")]
+    [DataRow("auth-external", "EXTERNAL")]
+    [DataRow("auth-external-sasl-ir", "EXTERNAL")]
+    public async Task ServeAsync_RecordedAuthRequest_RelaysTheChallengesAndWritesTheRecordedReplies(string caseName, string mechanism)
+    {
+        Assert.AreEqual("0", Read(caseName, "exitcode.txt").Trim());
+        var transcript = Read(caseName, "transcript.txt").Split("\r\n");
+        var authIndex = Array.FindIndex(transcript, line => line.StartsWith("> AUTH ", StringComparison.Ordinal));
+        var exchange = transcript.Skip(authIndex + 1).TakeWhile(line => !line.StartsWith("< 235", StringComparison.Ordinal)).ToList();
+        var challenges = exchange.Where(line => line.StartsWith("< 334 ", StringComparison.Ordinal)).Select(line => Convert.FromBase64String(line[6..]));
+        var sentResponses = exchange.Where(line => line.StartsWith("> ", StringComparison.Ordinal)).Select(line => Convert.FromBase64String(line[2..])).ToList();
+        var authWords = transcript[authIndex][2..].Split(' ');
+        var steps = challenges.Select(challenge => ScriptedMailAuthenticationPolicy.Challenge(challenge))
+            .Append(ScriptedMailAuthenticationPolicy.Ended(MailLoginOutcome.Accepted, new CheckedLogin(mechanism, "user", true)))
+            .ToArray();
+        var mailPolicy = new ScriptedMailAuthenticationPolicy([mechanism], null, steps);
+        var clock = new ManualTimeProvider();
+        var store = AnonymousStore(clock);
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([ReadBytes(caseName, "request.bin")]);
+
+        await new SmtpProtocolServer(new UnitTestRefusingPolicy(), mailPolicy, store).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
+
+        Assert.AreEqual(RecordedReplies(caseName), Utf8(connection.WrittenBytes));
+        var start = mailPolicy.Starts.Single();
+        Assert.AreEqual(mechanism, start.Mechanism);
+        Assert.AreEqual(authWords.Length == 3 ? Convert.ToBase64String(Convert.FromBase64String(authWords[2])) : null, start.InitialResponse is { } initial ? Convert.ToBase64String(initial.Span) : null);
+        CollectionAssert.AreEqual(sentResponses.Select(Convert.ToBase64String).ToList(), mailPolicy.Responses.Select(Convert.ToBase64String).ToList());
+        CollectionAssert.Contains(log.Notes.ToList(), $"Login accepted: {mechanism} user");
+        CollectionAssert.AreEqual(new[] { TraceFields("a@x", protocol: "ESMTPA") + Mail }, Inbox(store, string.Empty).ToList());
+    }
+
     // Every line the recorder sent, in order, each ending CRLF.
     private static string RecordedReplies(string caseName) =>
         string.Concat(Read(caseName, "transcript.txt")

@@ -16,26 +16,29 @@ internal sealed class SmtpSession
     // looked up as if it named surl's own domain, which the store ignores (ADR-0053, decision 4).
     private const string DomainlessPathSuffix = "@surl";
 
-    private static readonly string[] NotImplementedVerbs = ["AUTH", "BDAT", "ETRN", "TURN", "ATRN", "SEND", "SOML", "SAML", "VERB"];
+    private static readonly string[] NotImplementedVerbs = ["BDAT", "ETRN", "TURN", "ATRN", "SEND", "SOML", "SAML", "VERB"];
 
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly CrlfLineReader reader;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
     private readonly bool isStartTlsAvailable;
     private readonly Dictionary<string, Func<byte[]?, ValueTask<bool>>> commands;
     private byte[]? heloDomain;
     private bool isExtendedHello;
     private PasswordLoginVerdict? mailLoginVerdict;
+    private bool isLoggedIn;
     private SmtpMailTransaction? transaction;
 
-    public SmtpSession(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, MailboxStore mailStore, bool isStartTlsAvailable)
+    public SmtpSession(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isStartTlsAvailable)
     {
         this.connection = connection;
         this.context = context;
         this.reader = reader;
         this.authenticationPolicy = authenticationPolicy;
+        this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
         this.isStartTlsAvailable = isStartTlsAvailable;
         commands = new(StringComparer.Ordinal)
@@ -52,6 +55,7 @@ internal sealed class SmtpSession
             ["HELP"] = _ => ReplyAsync(SmtpReplies.Help),
             ["QUIT"] = AnswerQuitAsync,
             ["STARTTLS"] = AnswerStartTlsAsync,
+            ["AUTH"] = AnswerAuthAsync,
         };
         foreach (var verb in NotImplementedVerbs)
         {
@@ -62,7 +66,8 @@ internal sealed class SmtpSession
     private CancellationToken CancellationToken => context.CancellationToken;
 
     // RFC 3848's word for the session, as the Received field names it.
-    private string ReceivedProtocol => (isExtendedHello ? "ESMTP" : "SMTP") + (connection.TlsSession is null ? string.Empty : "S");
+    private string ReceivedProtocol =>
+        (isExtendedHello ? "ESMTP" : "SMTP") + (connection.TlsSession is null ? string.Empty : "S") + (isLoggedIn ? "A" : string.Empty);
 
     /// <summary>
     /// Sends the greeting, then answers every command line until the session ends.
@@ -127,7 +132,7 @@ internal sealed class SmtpSession
     private static bool IsDomainArgument(byte[]? argument) =>
         argument is not null && argument.AsSpan().IndexOfAnyInRange((byte)0x00, (byte)0x1F) < 0 && !argument.AsSpan().Contains((byte)0x7F);
 
-    // ADR-0053 decision 2's list, without AUTH (BL-200): every line but the last is "250-".
+    // ADR-0053 decision 2's list: every line but the last is "250-".
     private List<string> EhloReplyLines()
     {
         List<string> capabilities =
@@ -142,6 +147,13 @@ internal sealed class SmtpSession
         if (CanUpgrade)
         {
             capabilities.Add("STARTTLS");
+        }
+
+        // Asked afresh for every EHLO, so the offer grows once the connection is TLS (ADR-0049, section 2).
+        var mechanisms = mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession).SaslMechanisms;
+        if (mechanisms.Count > 0)
+        {
+            capabilities.Add("AUTH " + string.Join(' ', mechanisms));
         }
 
         return capabilities.Select((capability, index) => (index == capabilities.Count - 1 ? "250 " : "250-") + capability).ToList();
@@ -164,9 +176,15 @@ internal sealed class SmtpSession
         return await ReplyAsync(refusal ?? StartTransaction(argument));
     }
 
-    // Asks the policy once per session, with the login that carries no credentials (ADR-0053, decision 3).
+    // A session logged in with AUTH may send mail; any other asks the policy once, with the login
+    // that carries no credentials (ADR-0053, decision 3).
     private async ValueTask<bool> IsMailAllowedAsync()
     {
+        if (isLoggedIn)
+        {
+            return true;
+        }
+
         mailLoginVerdict ??= await authenticationPolicy.CheckPasswordLoginAsync(
             new PasswordLogin(context.Scheme, null, null, connection.TlsSession), CancellationToken);
         return mailLoginVerdict == PasswordLoginVerdict.AcceptedUnchecked;
@@ -331,9 +349,79 @@ internal sealed class SmtpSession
         heloDomain = null;
         isExtendedHello = false;
         mailLoginVerdict = null;
+        isLoggedIn = false;
         transaction = null;
         return true;
     }
+
+    // AUTH (RFC 4954) only after EHLO, once, outside a transaction (ADR-0053, decisions 1 and 3).
+    private async ValueTask<bool> AnswerAuthAsync(byte[]? argument)
+    {
+        if (AuthRefusal(argument) is { } refusal)
+        {
+            return await ReplyAsync(refusal);
+        }
+
+        return SmtpAuthArgument.TryRead(argument!, out var auth)
+            ? await RunSaslExchangeAsync(auth!)
+            : await ReplyAsync(SmtpReplies.CannotDecodeResponse);
+    }
+
+    private string? AuthRefusal(byte[]? argument) =>
+        !isExtendedHello ? SmtpReplies.SendEhloFirst
+        : isLoggedIn ? SmtpReplies.AlreadyAuthenticated
+        : transaction is not null ? SmtpReplies.AuthDuringTransaction
+        : argument is null ? SmtpReplies.AuthSyntax
+        : null;
+
+    // The server frames the exchange - 334 continuations, the client's base64 responses, "*" -
+    // and the policy decides every step (ADR-0049, section 6).
+    private async ValueTask<bool> RunSaslExchangeAsync(SmtpAuthArgument auth)
+    {
+        var exchange = mailAuthenticationPolicy.StartSaslExchange(
+            new SaslExchangeStart(context.Scheme, auth.Mechanism, auth.InitialResponse, connection.TlsSession));
+        var step = await exchange.BeginAsync(CancellationToken);
+        while (true)
+        {
+            if (step.CheckedLogin is { } checkedLogin)
+            {
+                context.Log.Note(checkedLogin.Note);
+            }
+
+            if (step.Outcome != MailLoginOutcome.Challenge)
+            {
+                isLoggedIn = step.Outcome is MailLoginOutcome.Accepted or MailLoginOutcome.AcceptedUnchecked;
+                return await ReplyAsync(SmtpReplies.LoginEnded(step.Outcome));
+            }
+
+            await WriteLineAsync(SmtpReplies.Continuation(step.Challenge.Span), CancellationToken);
+            var read = await reader.ReadSaslContinuationAsync(CancellationToken);
+            if (read.Response is null)
+            {
+                return await AnswerNoResponseAsync(read.Outcome);
+            }
+
+            step = await exchange.ContinueAsync(read.Response, CancellationToken);
+        }
+    }
+
+    // A cancel or an undecodable response ends the exchange and the session goes on; a limit or
+    // the peer's close ends the session as a command line's would.
+    private ValueTask<bool> AnswerNoResponseAsync(SaslContinuationOutcome outcome) =>
+        SmtpReplies.SaslExchangeAbandoned(outcome) is { } reply ? ReplyAsync(reply) : AnswerNoLineAsync(AsLineReadOutcome(outcome));
+
+    /// <summary>
+    /// The command-line read outcome that ends the session as a continuation read's does.
+    /// </summary>
+    /// <param name="outcome">How the continuation read ended.</param>
+    /// <returns><see cref="CrlfLineReadOutcome.LineTooLong"/> or <see cref="CrlfLineReadOutcome.HeadTimedOut"/>
+    /// for those limits, and <see cref="CrlfLineReadOutcome.Closed"/> for anything else.</returns>
+    internal static CrlfLineReadOutcome AsLineReadOutcome(SaslContinuationOutcome outcome) => outcome switch
+    {
+        SaslContinuationOutcome.LineTooLong => CrlfLineReadOutcome.LineTooLong,
+        SaslContinuationOutcome.HeadTimedOut => CrlfLineReadOutcome.HeadTimedOut,
+        _ => CrlfLineReadOutcome.Closed,
+    };
 
     private async ValueTask<bool> AnswerQuitAsync(byte[]? argument)
     {

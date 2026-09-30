@@ -33,12 +33,18 @@ internal static class SmtpTestExchange
     public const string EhloReplyWithStartTls =
         "250-surl Hello\r\n250-SIZE 104857600\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n250-ENHANCEDSTATUSCODES\r\n250 STARTTLS\r\n";
 
-    public static SmtpProtocolServer Server(MailboxStore store) => new(new AnonymousAuthenticationPolicy(), store);
+    /// <summary>
+    /// A server under <c>--allow-anonymous</c> whose mail policy offers no SASL mechanism, so
+    /// <c>EHLO</c> has no <c>AUTH</c> line.
+    /// </summary>
+    public static SmtpProtocolServer Server(MailboxStore store) => new(new AnonymousAuthenticationPolicy(), NoSaslMechanisms(), store);
 
     /// <summary>
     /// A server with a certificate, so <c>STARTTLS</c> upgrades.
     /// </summary>
-    public static SmtpProtocolServer StartTlsServer(MailboxStore store) => new(new AnonymousAuthenticationPolicy(), store, isStartTlsAvailable: true);
+    public static SmtpProtocolServer StartTlsServer(MailboxStore store) => new(new AnonymousAuthenticationPolicy(), NoSaslMechanisms(), store, isStartTlsAvailable: true);
+
+    public static ScriptedMailAuthenticationPolicy NoSaslMechanisms() => new([]);
 
     public static ExchangeContext Context(
         TimeProvider timeProvider,

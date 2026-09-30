@@ -25,8 +25,18 @@ handshake's `TlsHandshakeException` goes to the engine. `smtps` is the same serv
 connection the engine has already made TLS: the server reads `connection.TlsSession`, never
 the scheme.
 
-Intent, not yet built: `AUTH` and its `EHLO` line (BL-200; until then `502`), and the `smtps`
-registration and composition in `Surl.Console` (BL-207).
+Built (BL-200): the constructor also takes an `IMailAuthenticationPolicy` (ADR-0049 section 6;
+`Surl.Console` will pass the same object as the `IAuthenticationPolicy`). `EHLO` lists
+`AUTH <mechanisms>` last, asking `GetMailLoginOffer(connection.TlsSession)` afresh each time and
+leaving the line out when it offers none. `AUTH` is allowed after `EHLO`, once, outside a
+transaction (`503` otherwise, `501` with no mechanism); `SmtpAuthArgument` splits off and decodes
+the initial response (`=` is empty). `StartSaslExchange` decides every step: a challenge is sent
+as `334 <base64>`, the answer read with `CrlfLineReader.ReadSaslContinuationAsync`, `*` is `501`
+cancelled, bad base64 `501`, and the end is `235`, `535`, `538` or `504`, with the step's
+`CheckedLogin` note written first. A logged-in session may send mail without asking the policy,
+and its `Received` field says `ESMTPA` (`ESMTPSA` over TLS); `STARTTLS` logs it out.
+
+Intent, not yet built: the `smtps` registration and composition in `Surl.Console` (BL-207).
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
