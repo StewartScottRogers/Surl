@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Text;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
@@ -29,8 +30,21 @@ namespace Surl.Protocol.Ftp;
 /// <c>CWD</c>/<c>XCWD</c> (through the content store, so a hidden directory and <c>/.surl</c>
 /// are missing), <c>CDUP</c>/<c>XCUP</c>, <c>TYPE</c>, <c>MODE</c>, <c>STRU</c>, <c>SYST</c>,
 /// <c>FEAT</c>, <c>OPTS UTF8 ON</c>, <c>NOOP</c>, <c>HELP</c>, <c>ALLO</c>, <c>ACCT</c> and
-/// <c>QUIT</c>. Every other command, the data-connection, transfer and TLS commands included
-/// until they are built, is <c>502 Command not implemented</c>.
+/// <c>QUIT</c>; and for downloads <c>EPSV</c>, <c>PASV</c>, <c>EPRT</c>, <c>PORT</c>,
+/// <c>SIZE</c>, <c>MDTM</c>, <c>REST</c>, <c>RETR</c> and <c>ABOR</c> (ADR-0052, decisions 4
+/// and 6). Every other command, the listing, upload and TLS commands included until they are
+/// built, is <c>502 Command not implemented</c>.
+/// </para>
+/// <para>
+/// <b>Data connections.</b> The server never opens a socket: <c>EPSV</c> and <c>PASV</c> ask
+/// <see cref="ExchangeContext.DataConnections"/> for a passive listener on the control
+/// connection's address that accepts only from its peer, and <c>EPRT</c> and <c>PORT</c> are
+/// accepted only for the peer's own address at a port of 1024 or above, and dialled through it
+/// when the transfer starts. <c>RETR</c> refuses a missing, hidden or unreadable file with
+/// <c>550</c> and a <c>REST</c> offset past the end with <c>554</c> before any data connection
+/// is opened, answers <c>425</c> when none can be, and otherwise sends <c>150</c>, the file
+/// from the offset, and <c>226</c> - or <c>426</c> when curl closes the data connection early,
+/// or <c>451</c> when the file fails to read part way, resetting the data connection either way.
 /// </para>
 /// <para>
 /// <b>Limits.</b> A command line longer than <see cref="ExchangeLimits.MaxLineBytes"/>, its line
@@ -99,15 +113,9 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
         await WriteAsync(connection, Greeting, cancellationToken);
 
         var responder = new FtpCommandResponder(connection, context, contentStore, authenticationPolicy);
-        var keepsConnectionOpen = true;
-
-        while (keepsConnectionOpen)
-        {
-            var result = await reader.ReadLineAsync(cancellationToken);
-            keepsConnectionOpen = result.Line is { } line
-                ? await responder.AnswerAsync(line)
-                : await AnswerNoLineAsync(connection, context, result.Outcome);
-        }
+        var failure = await CaptureFailureAsync(() => AnswerEveryLineAsync(connection, context, reader, responder));
+        await responder.DisposeAsync();
+        failure?.Throw();
     }
 
     /// <summary>
@@ -125,6 +133,35 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
 
         await WriteAsync(connection, RefusalReply, cancellationToken);
         await connection.CompleteWritesAsync(cancellationToken);
+    }
+
+    // Runs work and hands back what it threw instead of throwing it, so the caller disposes the
+    // responder - and with it any passive listener still waiting - with an await outside any
+    // catch or finally block.
+    private static async Task<ExceptionDispatchInfo?> CaptureFailureAsync(Func<Task> work)
+    {
+        try
+        {
+            await work();
+            return null;
+        }
+        catch (Exception exception)
+        {
+            return ExceptionDispatchInfo.Capture(exception);
+        }
+    }
+
+    private static async Task AnswerEveryLineAsync(
+        IConnection connection, ExchangeContext context, FtpLineReader reader, FtpCommandResponder responder)
+    {
+        var keepsConnectionOpen = true;
+        while (keepsConnectionOpen)
+        {
+            var result = await reader.ReadLineAsync(context.CancellationToken);
+            keepsConnectionOpen = result.Line is { } line
+                ? await responder.AnswerAsync(line)
+                : await AnswerNoLineAsync(connection, context, result.Outcome);
+        }
     }
 
     private static async Task<bool> AnswerNoLineAsync(IConnection connection, ExchangeContext context, FtpLineReadOutcome outcome)

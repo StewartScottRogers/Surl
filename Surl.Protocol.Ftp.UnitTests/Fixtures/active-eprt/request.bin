@@ -1,0 +1,8 @@
+USER anonymous
+PASS ftp@example.com
+PWD
+EPRT |1|127.0.0.1|60541|
+TYPE I
+SIZE a.txt
+RETR a.txt
+QUIT

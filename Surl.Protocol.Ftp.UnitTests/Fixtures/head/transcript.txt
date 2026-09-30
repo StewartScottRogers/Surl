@@ -1,0 +1,17 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> MDTM a.txt
+< 213 20260927123456
+> TYPE I
+< 200 Type set to I
+> SIZE a.txt
+< 213 12
+> REST 0
+< 350 Restarting at 0
+> QUIT
+< 221 Goodbye

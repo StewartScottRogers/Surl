@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
@@ -6,21 +7,27 @@ namespace Surl.Protocol.Ftp;
 
 /// <summary>
 /// Answers the FTP commands of one control connection, one line at a time, and holds the
-/// session's state: the user name sent, whether the client is logged in, and the current
-/// directory (ADR-0052, decisions 1 to 3).
+/// session's state: the user name sent, whether the client is logged in, the current
+/// directory, the <c>REST</c> offset and the data connection prepared (ADR-0052, decisions 1
+/// to 4 and 6).
 /// </summary>
 /// <remarks>
-/// Every reply is fixed text from the table below; the one path a reply echoes, the current
-/// directory in <c>257</c>, is rendered by <see cref="FtpPath.ToQuotedReplyText"/> (ADR-0006,
-/// section 3). The commands a later task answers - data connections, downloads, listings,
-/// uploads, file management and TLS - are answered <c>502 Command not implemented</c> until
-/// then, which is true of this server now. It is not safe for concurrent calls.
+/// Every reply is fixed text from the table below; the paths a reply echoes - the current
+/// directory in <c>257</c> and the file in <c>150</c> - are rendered by
+/// <see cref="FtpPath.ToQuotedReplyText"/> and <see cref="FtpPath.ToReplyText"/> (ADR-0006,
+/// section 3). The commands a later task answers - listings, uploads, file management and TLS -
+/// are answered <c>502 Command not implemented</c> until then, which is true of this server
+/// now. It is not safe for concurrent calls.
 /// </remarks>
-internal sealed class FtpCommandResponder
+internal sealed class FtpCommandResponder : IAsyncDisposable
 {
     private const string CommandNotImplemented = "502 Command not implemented";
     private const string SyntaxError = "501 Syntax error in arguments";
     private const string DirectoryChanged = "250 Directory changed";
+    private const string NoSuchFile = "550 No such file";
+    private const string TransferComplete = "226 Transfer complete";
+    private const string TransferAborted = "426 Connection closed; transfer aborted";
+    private const string FileUnreadable = "451 Cannot read the file";
 
     // Answered before login as they are after it; every other command is 530 until then.
     private static readonly HashSet<string> CommandsBeforeLogin = new(StringComparer.Ordinal)
@@ -34,16 +41,18 @@ internal sealed class FtpCommandResponder
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly Dictionary<string, Func<byte[]?, ValueTask<bool>>> commands;
     private readonly string[] recognizedCommands;
+    private readonly FtpDataConnections dataConnections;
     private string? userName;
     private bool isLoggedIn;
     private IReadOnlyList<string> currentDirectory = [];
+    private long restartOffset;
 
     /// <summary>
     /// Creates a responder for one control connection.
     /// </summary>
     /// <param name="connection">The control connection every reply is written to.</param>
-    /// <param name="context">The exchange: its scheme, log and cancellation token.</param>
-    /// <param name="contentStore">Where <c>CWD</c> looks for directories.</param>
+    /// <param name="context">The exchange: its scheme, data-connection opener, limits, log and cancellation token.</param>
+    /// <param name="contentStore">Where <c>CWD</c> looks for directories and <c>RETR</c> for files.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
     public FtpCommandResponder(
         IConnection connection, ExchangeContext context, ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
@@ -52,6 +61,7 @@ internal sealed class FtpCommandResponder
         this.context = context;
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
+        dataConnections = new FtpDataConnections(connection, context);
         commands = new(StringComparer.Ordinal)
         {
             ["USER"] = AnswerUserAsync,
@@ -66,7 +76,16 @@ internal sealed class FtpCommandResponder
             ["MODE"] = argument => AnswerOneWordSettingAsync(argument, "S", "200 Mode set to S", "504 Mode not supported"),
             ["STRU"] = argument => AnswerOneWordSettingAsync(argument, "F", "200 Structure set to F", "504 Structure not supported"),
             ["SYST"] = _ => ReplyAsync("215 UNIX Type: L8"),
-            ["FEAT"] = _ => ReplyAsync("211-Features:\r\n TVFS\r\n UTF8\r\n211 End"),
+            ["FEAT"] = _ => ReplyAsync("211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n211 End"),
+            ["EPSV"] = async argument => await ReplyAsync(await dataConnections.AnswerExtendedPassiveAsync(argument)),
+            ["PASV"] = async _ => await ReplyAsync(await dataConnections.AnswerPassiveAsync()),
+            ["EPRT"] = async argument => await ReplyAsync(await dataConnections.AnswerActiveAsync(argument, isExtended: true)),
+            ["PORT"] = async argument => await ReplyAsync(await dataConnections.AnswerActiveAsync(argument, isExtended: false)),
+            ["SIZE"] = AnswerSizeAsync,
+            ["MDTM"] = AnswerModificationTimeAsync,
+            ["REST"] = AnswerRestartAsync,
+            ["RETR"] = AnswerRetrieveAsync,
+            ["ABOR"] = _ => ReplyAsync("226 Abort successful"),
             ["OPTS"] = AnswerOptionsAsync,
             ["NOOP"] = _ => ReplyAsync("200 NOOP ok"),
             ["HELP"] = _ => AnswerHelpAsync(),
@@ -94,6 +113,12 @@ internal sealed class FtpCommandResponder
             ? answer(commandLine.Argument)
             : ReplyAsync(CommandNotImplemented);
     }
+
+    /// <summary>
+    /// Disposes the passive data listener, if one is still waiting for curl.
+    /// </summary>
+    /// <returns>A task that completes when it is disposed.</returns>
+    public ValueTask DisposeAsync() => dataConnections.DisposeAsync();
 
     // The name is never looked up here, so the reply cannot say whether an account exists
     // (ADR-0052, decision 3). A second USER before PASS replaces the name.
@@ -209,6 +234,139 @@ internal sealed class FtpCommandResponder
             _ => "504 Type not supported",
         });
     }
+
+    private ValueTask<bool> AnswerSizeAsync(byte[]? argument) =>
+        AnswerFileStatusAsync(argument, status => $"213 {status.Length}");
+
+    // The file's last write in UTC (RFC 3659, section 3), never the clock's time.
+    private ValueTask<bool> AnswerModificationTimeAsync(byte[]? argument) =>
+        AnswerFileStatusAsync(argument, status => $"213 {status.LastModifiedUtc.UtcDateTime.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}");
+
+    private ValueTask<bool> AnswerFileStatusAsync(byte[]? argument, Func<ContentFileStatus, string> reply)
+    {
+        if (argument is null)
+        {
+            return ReplyAsync(SyntaxError);
+        }
+
+        return ReplyAsync(FindFile(argument) is { } file ? reply(file.Status) : NoSuchFile);
+    }
+
+    private ValueTask<bool> AnswerRestartAsync(byte[]? argument)
+    {
+        if (argument is null)
+        {
+            return ReplyAsync(SyntaxError);
+        }
+
+        if (!long.TryParse(Encoding.Latin1.GetString(argument), NumberStyles.None, CultureInfo.InvariantCulture, out var offset))
+        {
+            return ReplyAsync("501 Invalid restart offset");
+        }
+
+        restartOffset = offset;
+        return ReplyAsync($"350 Restarting at {offset}");
+    }
+
+    // Everything that can refuse the download is checked before a data connection is opened,
+    // and the data connection is opened before 150, so 150 always means the bytes follow
+    // (ADR-0052, decisions 4 and 6). The REST offset applies to this RETR alone.
+    private async ValueTask<bool> AnswerRetrieveAsync(byte[]? argument)
+    {
+        var offset = restartOffset;
+        restartOffset = 0;
+        if (argument is null)
+        {
+            return await ReplyAsync(SyntaxError);
+        }
+
+        if (FindFile(argument) is not { } file)
+        {
+            return await ReplyAsync(NoSuchFile);
+        }
+
+        if (offset > file.Status.Length)
+        {
+            return await ReplyAsync("554 Restart offset past end of file");
+        }
+
+        if (!dataConnections.IsPrepared)
+        {
+            return await ReplyAsync("425 Use PASV or PORT first");
+        }
+
+        if (await dataConnections.OpenAsync() is not { } dataConnection)
+        {
+            return await ReplyAsync(FtpDataConnections.CannotOpenDataConnection);
+        }
+
+        await using (dataConnection)
+        {
+            var byteCount = file.Status.Length - offset;
+            await ReplyAsync($"150 Opening data connection for {FtpPath.ToReplyText(argument)} ({byteCount} bytes)");
+            return await ReplyAsync(await SendFileAsync(dataConnection, file.Mapping, offset, byteCount));
+        }
+    }
+
+    // curl closing the data connection early (a range) surfaces as a failed write; the file
+    // failing to read surfaces as an exception with no failed write. The first is 426, the
+    // second 451, and either way the data connection is reset so curl never takes a short
+    // file for a whole one.
+    private async Task<string> SendFileAsync(IConnection dataConnection, ContentPathMapping mapping, long offset, long byteCount)
+    {
+        var destination = new DataConnectionWriteStream(dataConnection);
+        var fileRead = false;
+        try
+        {
+            if (byteCount > 0)
+            {
+                var range = ContentByteRange.Select(offset + byteCount, offset, offset + byteCount - 1);
+                await contentStore.CopyFileBytesAsync(mapping, range, destination, context.CancellationToken);
+            }
+
+            fileRead = true;
+            await dataConnection.CompleteWritesAsync(context.CancellationToken);
+            return TransferComplete;
+        }
+        catch (Exception exception) when (IsFileSystemFailure(exception))
+        {
+            dataConnection.Abort();
+            return fileRead || destination.ConnectionWriteFailed
+                ? NoteFailedTransfer(TransferAborted, "The client closed the data connection before the whole file was sent; the data connection was reset.")
+                : NoteFailedTransfer(FileUnreadable, $"{mapping.Location} could not be read after 150 was sent ({exception.GetType().Name}: {exception.Message}); the data connection was reset.");
+        }
+    }
+
+    private string NoteFailedTransfer(string reply, string note)
+    {
+        context.Log.Note(note);
+        return reply;
+    }
+
+    // A path that does not resolve, is refused, is hidden, is a directory or holds nothing is
+    // not a file (ADR-0006, section 2; ADR-0031, decision 5; ADR-0052, decision 2), and nor is
+    // one whose status cannot be read: a peer cannot tell it from a missing file (ADR-0023).
+    private (ContentPathMapping Mapping, ContentFileStatus Status)? FindFile(byte[] argument)
+    {
+        if (FtpPath.Resolve(currentDirectory, argument) is not { } path)
+        {
+            return null;
+        }
+
+        var mapping = contentStore.MapRequestPath(FtpPath.ToRequestPath(path));
+        try
+        {
+            return mapping.IsMapped && contentStore.GetFileStatus(mapping) is { } status ? (mapping, status) : null;
+        }
+        catch (Exception exception) when (IsFileSystemFailure(exception))
+        {
+            context.Log.Note($"{mapping.Location} could not be read ({exception.GetType().Name}: {exception.Message}); answered 550.");
+            return null;
+        }
+    }
+
+    private static bool IsFileSystemFailure(Exception exception) =>
+        exception is IOException or UnauthorizedAccessException;
 
     private ValueTask<bool> AnswerOneWordSettingAsync(byte[]? argument, string supportedWord, string setReply, string unsupportedReply)
     {

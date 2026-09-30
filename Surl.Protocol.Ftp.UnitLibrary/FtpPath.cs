@@ -72,20 +72,32 @@ internal static class FtpPath
     /// </summary>
     /// <param name="path">A resolved path.</param>
     /// <returns>The rendered path, starting with <c>/</c>.</returns>
-    public static string ToQuotedReplyText(IReadOnlyList<string> path)
+    public static string ToQuotedReplyText(IReadOnlyList<string> path) =>
+        Render(Encoding.UTF8.GetBytes("/" + string.Join('/', path)), doublesQuotes: true);
+
+    /// <summary>
+    /// A path as the client sent it, as a reply outside quotes echoes it: each byte that is
+    /// printable ASCII other than <c>\</c> as itself, and every other byte as <c>\xHH</c>
+    /// (ADR-0006, section 3).
+    /// </summary>
+    /// <param name="sentPath">The path's bytes as sent.</param>
+    /// <returns>The rendered path.</returns>
+    public static string ToReplyText(byte[] sentPath) => Render(sentPath, doublesQuotes: false);
+
+    private static string Render(byte[] bytes, bool doublesQuotes)
     {
         var rendered = new StringBuilder();
-        foreach (var character in Encoding.UTF8.GetBytes("/" + string.Join('/', path)))
+        foreach (var character in bytes)
         {
-            rendered.Append(RenderByte(character));
+            rendered.Append(RenderByte(character, doublesQuotes));
         }
 
         return rendered.ToString();
     }
 
-    private static string RenderByte(byte character) => character switch
+    private static string RenderByte(byte character, bool doublesQuotes) => character switch
     {
-        (byte)'"' => "\"\"",
+        (byte)'"' when doublesQuotes => "\"\"",
         (byte)'\\' => @"\x5C",
         >= 0x20 and <= 0x7E => ((char)character).ToString(),
         _ => $@"\x{character:X2}",

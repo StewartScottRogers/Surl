@@ -127,8 +127,8 @@ public sealed class FtpCommandTests
     [DataRow("STOU")]
     [DataRow("STAT")]
     [DataRow("SITE CHMOD 644 a.txt")]
-    [DataRow("RETR a.txt")]
-    [DataRow("EPSV")]
+    [DataRow("LIST")]
+    [DataRow("STOR a.txt")]
     [DataRow("")]
     public async Task Command_Unknown_Answers502(string command)
     {
@@ -153,7 +153,7 @@ public sealed class FtpCommandTests
     {
         var written = await ServeAsync("FEAT\r\n", TestContext.CancellationToken);
 
-        Assert.AreEqual(Greeting + "211-Features:\r\n TVFS\r\n UTF8\r\n211 End\r\n", written);
+        Assert.AreEqual(Greeting + "211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n211 End\r\n", written);
     }
 
     [TestMethod]
@@ -164,7 +164,7 @@ public sealed class FtpCommandTests
         Assert.AreEqual(
             Greeting
             + "214-The following commands are recognized:\r\n"
-            + " ACCT ALLO CDUP CWD FEAT HELP MODE NOOP OPTS PASS PWD QUIT STRU SYST TYPE USER XCUP XCWD XPWD\r\n"
+            + " ABOR ACCT ALLO CDUP CWD EPRT EPSV FEAT HELP MDTM MODE NOOP OPTS PASS PASV PORT PWD QUIT REST RETR SIZE STRU SYST TYPE USER XCUP XCWD XPWD\r\n"
             + "214 End\r\n",
             written);
     }

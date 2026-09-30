@@ -50,6 +50,12 @@ public sealed class FtpPathTests
     }
 
     [TestMethod]
+    public void ToReplyText_KeepsQuotesAndEscapesAllButPrintableAscii()
+    {
+        Assert.AreEqual("say \"hi\"/caf\\xC3\\xA9/a\\x5Cb/t\\x09", FtpPath.ToReplyText(Encoding.UTF8.GetBytes("say \"hi\"/café/a\\b/t\t")));
+    }
+
+    [TestMethod]
     public void Parent_IsTheDirectoryAboveAndTheRootForTheRoot()
     {
         Assert.IsEmpty(FtpPath.Parent([]));

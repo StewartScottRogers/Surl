@@ -1,0 +1,18 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> PASV
+< 227 Entering Passive Mode (127,0,0,1,236,120)
+> TYPE I
+< 200 Type set to I
+> SIZE a.txt
+< 213 12
+> RETR a.txt
+< 150 Opening data connection for a.txt (12 bytes)
+< 226 Transfer complete
+> QUIT
+< 221 Goodbye
