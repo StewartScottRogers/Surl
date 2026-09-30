@@ -8,7 +8,7 @@ depends-on: [BL-154]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-040
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-156 — Add the SSH login contract to Surl.Protocol.Abstractions
 
@@ -38,18 +38,26 @@ login over SSH's encrypted transport and a public-key login - with
 
 ## Acceptance criteria
 
-- [ ] The types BL-154's ADR gives exist in `Surl.Protocol.Abstractions.UnitLibrary` with XML
+- [x] The types BL-154's ADR gives exist in `Surl.Protocol.Abstractions.UnitLibrary` with XML
       docs, and `AnonymousAuthenticationPolicy` implements the new interface.
-- [ ] Tests in `Surl.Protocol.Abstractions.UnitTests` (`AuthenticationContractTests`,
+- [x] Tests in `Surl.Protocol.Abstractions.UnitTests` (`AuthenticationContractTests`,
       `AnonymousAuthenticationPolicyTests`) cover every new member and record.
-- [ ] `ProtocolIsolationTests` pass; `dotnet build -warnaserror` of the whole solution is clean
+- [x] `ProtocolIsolationTests` pass; `dotnet build -warnaserror` of the whole solution is clean
       (no other implementer broke); the fast tests are green;
       `Measure-CodeQuality.ps1 -Library Surl.Protocol.Abstractions.UnitLibrary` reports 100% line
       and branch coverage and no failing member.
 
 ## Notes
 
+- The seven types are exactly ADR-0051 section 7's, one per file. The SSH record and enum
+  tests went into `AuthenticationContractTests` as this task names (the mail ones live in
+  `MailAuthenticationContractTests`); a hand-written `RefusingSshPolicy` there exercises the
+  interface. No existing `IAuthenticationPolicy` implementer changed. The anonymous policy
+  accepts a signed key whatever its `Proof` (ADR-0051 section 6, `--allow-anonymous`).
+  `Measure-CodeQuality.ps1`: 100% line, 100% branch, 0 failing members, worst CRAP 8.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ISshAuthenticationPolicy and its records are in Surl.Protocol.Abstractions; AnonymousAuthenticationPolicy implements it; gates green
