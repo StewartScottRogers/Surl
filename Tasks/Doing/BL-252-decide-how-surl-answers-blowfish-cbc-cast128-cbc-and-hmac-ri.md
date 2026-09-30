@@ -72,3 +72,4 @@ the tasks that build them. Those tasks are filed on the board.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
