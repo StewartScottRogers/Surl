@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-217, BL-193, BL-197, BL-240]
-touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Surl.Console.UnitTests]
+touches: [Surl.Authentication.UnitLibrary, Surl.Kerberos.UnitLibrary, Surl.Authentication.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Surl.Console.UnitTests]
 requirement: FR-046
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-218 — Check SASL GSSAPI logins in Surl.Authentication
 
@@ -69,35 +69,55 @@ offered first in the mechanism list (ADR-0049 decision 2). `--auth gssapi` stops
 
 ## Acceptance criteria
 
-- [ ] A fast test in `Surl.Authentication.UnitTests` replays an AP-REQ built from the test
+- [x] A fast test in `Surl.Authentication.UnitTests` replays an AP-REQ built from the test
       vectors BL-217's ADR names, with a fixed service key, then the RFC 4752 security-layer
       exchange, and the login is `Accepted` with `AccountName` the matching account.
-- [ ] Fast tests show that a ticket encrypted under the wrong key, an expired ticket (time
+- [x] Fast tests show that a ticket encrypted under the wrong key, an expired ticket (time
       advanced on the injected `TimeProvider` past the ADR's clock skew) and a replayed
       authenticator are each `RefusedCredentials`, decided only after the 1-second delay has been
       advanced, and that an authorization identity other than empty or the ticket's account is
       refused.
-- [ ] A fast test shows the note: the deciding step carries a `CheckedLogin` whose method is
+- [x] A fast test shows the note: the deciding step carries a `CheckedLogin` whose method is
       `GSSAPI` and whose user is the name BL-217's ADR says, on both `Accepted` and
       `RefusedCredentials`.
-- [ ] A fast test shows `GetMailLoginOffer` lists `GSSAPI` first when `gssapi` is accepted, and
+- [x] A fast test shows `GetMailLoginOffer` lists `GSSAPI` first when `gssapi` is accepted, and
       not at all when it is not accepted; starting `GSSAPI` then gives `RefusedMechanism`
       without the delay.
-- [ ] `CommandLineParserTests` pin that `--auth gssapi` is accepted and that the default set
+- [x] `CommandLineParserTests` pin that `--auth gssapi` is accepted and that the default set
       does not contain `gssapi`; `CommandLineRunnerAuthenticationTests` pin the warning line with
       `gssapi` after `negotiate` and before `ntlm`; `HelpTextTests`, `ManualTextTests`,
       `AiHelpFactsTests` and `AiHelpTextTests` pass with the updated `--auth` explanation.
-- [ ] `dotnet build Surl.Authentication.UnitLibrary -warnaserror`,
+- [x] `dotnet build Surl.Authentication.UnitLibrary -warnaserror`,
       `dotnet build Surl.Cli.UnitLibrary -warnaserror` and `dotnet build Surl.Console -warnaserror`
       are clean; `dotnet test --filter "TestCategory!=Integration"` passes; no test needs
       `TestCategory=Integration` or a KDC; every test is platform-neutral.
-- [ ] `Measure-CodeQuality.ps1` reports 100% line and 100% branch coverage and no failing member
+- [x] `Measure-CodeQuality.ps1` reports 100% line and 100% branch coverage and no failing member
       for `Surl.Authentication.UnitLibrary`, `Surl.Cli.UnitLibrary` and `Surl.Console`.
 
 ## Notes
 
 - If BL-217's ADR puts the Kerberos checking in a new library, this task touches that library
   only as a reference, not by changing it; changes to it belong to the library's own task.
+- `Surl.Kerberos.UnitLibrary` added to `touches` (2026-09-30): its csproj gains one
+  `InternalsVisibleTo Surl.Authentication.UnitTests`, so the GSSAPI tests encrypt their
+  hand-made tickets with the same vector-checked profiles; no Doing task named it. The tests
+  compile `Surl.Kerberos.UnitTests`' `ApRequestBuilder.cs` and `InitiatorTokens.cs` by link
+  rather than copying them, so both suites replay the same bytes (ADR-0057 decision 11).
+- Built: `GssapiSaslExchange` (ADR-0057 decisions 9 and 10), `AuthenticationMethod.Gssapi`
+  between `Negotiate` and `Ntlm`, `GSSAPI` first in `SaslMechanism.InOfferOrder`, offered and
+  started only with a `KerberosAcceptor` (otherwise `RefusedMechanism`, undelayed);
+  `SaslExchangeContext` carries the scheme, mapped to the service `smtp`, `imap` or `pop`
+  (decision 2). `Surl.Console` maps the word `gssapi` and no longer refuses it as not
+  available; `--auth gssapi` without `--keytab` is still refused (BL-240).
+- Choices (sensible defaults, no ADR needed - each follows ADR-0057 decision 9's text): an empty
+  initial response is read as a malformed token and refused; a refused ticket's note names no
+  user, every later refusal names the principal; under `--allow-anonymous` a client wrap token
+  that fails its check or chooses another layer is still refused, since decision 9 skips only
+  the account match.
+- Not done here, filed as BL-259: ADR-0057 decision 4's `Kerberos: <reason>` verbose log line.
+  `MailLoginStep` has no field for it, so it needs a contract change across the mail servers.
+- Measured: `Measure-CodeQuality.ps1` reports 100% line and branch and 0 failing members for
+  `Surl.Authentication.UnitLibrary`, `Surl.Cli.UnitLibrary` and `Surl.Console`.
 
 ## Log
 
@@ -105,3 +125,4 @@ offered first in the mechanism list (ADR-0049 decision 2). `--auth gssapi` stops
 - 2026-09-29: Filed by BL-185 (ADR-0049 decision 8).
 - 2026-09-30: depends-on and Context updated by BL-217 (ADR-0057).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. SASL GSSAPI logs in with a Kerberos ticket checked against --keytab, offered first; --auth gssapi is no longer refused as not available
