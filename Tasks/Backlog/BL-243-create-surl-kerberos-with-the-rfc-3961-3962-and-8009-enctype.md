@@ -1,5 +1,5 @@
 ---
-id: BL-238
+id: BL-243
 title: Create Surl.Kerberos with the RFC 3961, 3962 and 8009 enctype profiles
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-046
 created: 2026-09-30
 completed:
 ---
-# BL-238 — Create Surl.Kerberos with the RFC 3961, 3962 and 8009 enctype profiles
+# BL-243 — Create Surl.Kerberos with the RFC 3961, 3962 and 8009 enctype profiles
 
 ## Goal
 

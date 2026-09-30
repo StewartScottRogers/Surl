@@ -379,7 +379,7 @@ Every Kerberos test is a fast test, platform-neutral, with no KDC, no network an
 
 | Work | Task |
 | --- | --- |
-| `Surl.Kerberos` created, with the RFC 3961/3962/8009 enctype profiles and checksums (decisions 3, 6, 11), added to ADR-0002's table and the isolation test | BL-238 |
+| `Surl.Kerberos` created, with the RFC 3961/3962/8009 enctype profiles and checksums (decisions 3, 6, 11), added to ADR-0002's table and the isolation test | BL-243 |
 | The keytab, principal names, the AP-REQ check, AP-REP, wrap and MIC tokens and the replay cache in `Surl.Kerberos` (decisions 1 to 5, 7) | BL-239 |
 | `--keytab`, its refusals, warnings, help, manual and AI help, the `gssapi` precondition, and the keytab composed into `Surl.Authentication`'s settings (decision 1) | BL-240 |
 | Kerberos inside Negotiate (decision 8), and the `auth` help and manual sentence saying so | BL-241 |
@@ -419,4 +419,4 @@ Every Kerberos test is a fast test, platform-neutral, with no KDC, no network an
 - On this machine, not in a domain, curl still sends no Kerberos token (measured above), so the
   end-to-end proof waits for BL-242.
 - `Surl.Kerberos.UnitLibrary` and its tests join the solution; `Surl.Authentication` references
-  it, and the product overview's "Layers" row says so (BL-238).
+  it, and the product overview's "Layers" row says so (BL-243).

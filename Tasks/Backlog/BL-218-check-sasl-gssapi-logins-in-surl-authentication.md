@@ -52,7 +52,7 @@ offered first in the mechanism list (ADR-0049 decision 2). `--auth gssapi` stops
   client's wrapped choice and authorization identity) and its decision 10 the account (the ticket's
   client principal in RFC 1964 display form, e.g. `user@EXAMPLE.COM`; `CheckedLogin` method
   `GSSAPI`). The check itself is `Surl.Kerberos`'s `KerberosAcceptor` and
-  `KerberosSecurityContext` (ADR-0057 decision 6; built by BL-238 and BL-239), with the service
+  `KerberosSecurityContext` (ADR-0057 decision 6; built by BL-243 and BL-239), with the service
   word `smtp`, `imap` or `pop` (decision 2), reached through the Kerberos acceptor BL-240 composes
   onto `AuthenticationSettings`. BL-240 also adds the `--auth gssapi needs --keytab` refusal; this
   task removes only the "not available in this build" one.

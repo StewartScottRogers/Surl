@@ -97,7 +97,7 @@ on it. The ADR files the implementation tasks it needs.
   the account is named as the client principal. Why: in ADR-0057.
 - The end-to-end proof against a pinned curl needs a KDC and a machine realm (`ksetup`), so it
   is its own decision task, BL-242, not done here.
-- Filed through task-planner: BL-238 (`Surl.Kerberos` enctypes), BL-239 (keytab, AP-REQ,
+- Filed through task-planner: BL-243 (`Surl.Kerberos` enctypes), BL-239 (keytab, AP-REQ,
   tokens, replay cache), BL-240 (`--keytab` and composition), BL-241 (Kerberos inside
   Negotiate), BL-242 (the end-to-end proof); BL-218 now depends on BL-240 too.
 
@@ -106,5 +106,5 @@ on it. The ADR files the implementation tasks it needs.
 - 2026-09-29: Created.
 - 2026-09-29: Filed by BL-185 (ADR-0049 decision 8).
 - 2026-09-30: Backlog -> Doing.
-- 2026-09-30: ADR-0057 written; filed BL-238, BL-239, BL-240, BL-241, BL-242.
-- 2026-09-30: Doing -> Done. ADR-0057 decides Surl's Kerberos (keytab, AES enctypes, hand-built AP-REQ check, Negotiate and SASL GSSAPI use) and files BL-238 to BL-242
+- 2026-09-30: ADR-0057 written; filed BL-243, BL-239, BL-240, BL-241, BL-242.
+- 2026-09-30: Doing -> Done. ADR-0057 decides Surl's Kerberos (keytab, AES enctypes, hand-built AP-REQ check, Negotiate and SASL GSSAPI use) and files BL-243 to BL-242

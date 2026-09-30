@@ -4,7 +4,7 @@ title: Check Kerberos AP-REQs, keytabs and RFC 4121 tokens in Surl.Kerberos
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-238]
+depends-on: [BL-243]
 touches: [Surl.Kerberos.UnitLibrary, Surl.Kerberos.UnitTests]
 requirement: FR-046
 created: 2026-09-30
@@ -69,9 +69,9 @@ RFC 4121 wrap and MIC tokens, with a replay cache refusing a replayed authentica
     (`replay cache full`) rather than evicting one.
   - decision 11: tickets and authenticators are made by hand in the tests as RFC 4120 section 5
     DER, with a fixed service key, a fixed session key and a fixed confounder, encrypted with
-    BL-238's vector-checked profiles; keytabs are hand-written byte arrays; time is a fake
+    BL-243's vector-checked profiles; keytabs are hand-written byte arrays; time is a fake
     `TimeProvider`, randomness an injected `IKerberosRandomSource`. No KDC, no network.
-- Builds on BL-238's internal enctype profiles and `KerberosEncryptionType` in
+- Builds on BL-243's internal enctype profiles and `KerberosEncryptionType` in
   `Surl.Kerberos.UnitLibrary`.
 
 ## Acceptance criteria
