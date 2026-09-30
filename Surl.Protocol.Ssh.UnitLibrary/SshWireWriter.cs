@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Text;
 
 namespace Surl.Protocol.Ssh;
@@ -50,6 +51,25 @@ internal sealed class SshWireWriter
         WriteUInt32((uint)bytes.Length);
         WriteBytes(bytes);
     }
+
+    /// <summary>
+    /// Appends a <c>string</c> holding <paramref name="bytes"/>: their length as a
+    /// <c>uint32</c>, then the bytes.
+    /// </summary>
+    /// <param name="bytes">The bytes.</param>
+    public void WriteString(ReadOnlySpan<byte> bytes)
+    {
+        WriteUInt32((uint)bytes.Length);
+        WriteBytes(bytes);
+    }
+
+    /// <summary>
+    /// Appends an <c>mpint</c> (RFC 4251, section 5): two's complement, most significant byte
+    /// first, in the fewest bytes, as a <c>string</c>; zero is the empty string.
+    /// </summary>
+    /// <param name="value">The value.</param>
+    public void WriteMpint(BigInteger value) =>
+        WriteString(value.IsZero ? [] : value.ToByteArray(isUnsigned: false, isBigEndian: true));
 
     /// <summary>
     /// Appends a <c>name-list</c>: the names joined by commas, as a US-ASCII <c>string</c>.

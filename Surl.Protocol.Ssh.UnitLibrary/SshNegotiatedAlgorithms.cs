@@ -11,7 +11,7 @@ namespace Surl.Protocol.Ssh;
 /// <param name="MacServerToClient">The MAC for server-to-client packets; <see langword="null"/> beside an AEAD cipher.</param>
 /// <param name="CompressionClientToServer">The compression method for client-to-server packets.</param>
 /// <param name="CompressionServerToClient">The compression method for server-to-client packets.</param>
-/// <param name="StrictKeyExchange">Whether the client asked for strict key exchange (ADR-0051, decision 2.1).</param>
+/// <param name="StrictKeyExchange">Whether both sides listed their strict key exchange marker (ADR-0051, decision 2.1).</param>
 /// <param name="ClientGuessIsWrong">
 /// Whether the client announced a guessed key exchange packet that must be discarded: its
 /// first key exchange method or host-key algorithm is not the server's first (RFC 4253, section 7).

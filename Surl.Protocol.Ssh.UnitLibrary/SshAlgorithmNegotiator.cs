@@ -42,9 +42,20 @@ internal static class SshAlgorithmNegotiator
             macServerToClient,
             Agree("compression", client.CompressionClientToServer, server.CompressionClientToServer),
             Agree("compression", client.CompressionServerToClient, server.CompressionServerToClient),
-            client.KeyExchange.Contains(SshAlgorithmOffer.StrictKeyExchangeClientMarker),
+            IsStrict(client.KeyExchange, server.KeyExchange),
             client.FirstKexPacketFollows && !IsRightGuess(client, server));
     }
+
+    /// <summary>
+    /// Whether the connection is held to strict key exchange: both sides list their marker
+    /// (OpenSSH <c>PROTOCOL</c>; ADR-0051, decision 2.1), so both reset their sequence numbers.
+    /// </summary>
+    /// <param name="clientKeyExchange">The client's key exchange list.</param>
+    /// <param name="serverKeyExchange">The server's key exchange list.</param>
+    /// <returns>Whether the key exchange is strict.</returns>
+    public static bool IsStrict(IReadOnlyList<string> clientKeyExchange, IReadOnlyList<string> serverKeyExchange) =>
+        clientKeyExchange.Contains(SshAlgorithmOffer.StrictKeyExchangeClientMarker)
+        && serverKeyExchange.Contains(SshAlgorithmOffer.StrictKeyExchangeServerMarker);
 
     private static bool IsKeyExchangeMethod(string name) => name != SshAlgorithmOffer.StrictKeyExchangeServerMarker;
 

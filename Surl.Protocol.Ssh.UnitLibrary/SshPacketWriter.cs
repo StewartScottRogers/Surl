@@ -26,6 +26,14 @@ internal sealed class SshPacketWriter(IConnection connection, ISshRandomSource r
     }
 
     /// <summary>
+    /// The sequence number of the next packet written (RFC 4253, section 6.4): 0 for the
+    /// first, one more for each packet, wrapping after 2^32 - 1, and set back to 0 after
+    /// <c>NEWKEYS</c> under strict key exchange (ADR-0051, decision 2.1). The server writes
+    /// four packets in its first key exchange, so its own number cannot wrap there.
+    /// </summary>
+    public uint SequenceNumber { get; set; }
+
+    /// <summary>
     /// Frames <paramref name="payload"/> as one packet and writes it.
     /// </summary>
     /// <param name="payload">The message, message number first.</param>
@@ -40,6 +48,7 @@ internal sealed class SshPacketWriter(IConnection connection, ISshRandomSource r
         payload.Span.CopyTo(packet.AsSpan(sizeof(uint) + 1));
         randomSource.Fill(packet.AsSpan(packet.Length - paddingLength));
 
+        SequenceNumber = unchecked(SequenceNumber + 1);
         await connection.WriteAsync(packet, cancellationToken);
     }
 }

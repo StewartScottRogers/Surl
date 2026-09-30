@@ -30,6 +30,19 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
     private const int LengthFieldBytes = 4;
 
     /// <summary>
+    /// The sequence number of the next packet read (RFC 4253, section 6.4): 0 for the first,
+    /// one more for each packet, wrapping after 2^32 - 1, and set back to 0 after
+    /// <c>NEWKEYS</c> under strict key exchange (ADR-0051, decision 2.1).
+    /// </summary>
+    public uint SequenceNumber { get; set; }
+
+    /// <summary>
+    /// Whether a packet that would wrap <see cref="SequenceNumber"/> is refused with
+    /// <c>DISCONNECT</c> 2, as it is during a strict connection's first key exchange.
+    /// </summary>
+    public bool RefusesSequenceWrap { get; set; }
+
+    /// <summary>
     /// Reads the next packet.
     /// </summary>
     /// <param name="cancellationToken">Cuts the read off.</param>
@@ -57,7 +70,20 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
                 $"An SSH packet of {packetLength} bytes announced {paddingLength} padding bytes: fewer than {MinPaddingBytes}, or no room for a message.");
         }
 
+        CountPacket();
+
         return body[1..(1 + payloadLength)];
+    }
+
+    private void CountPacket()
+    {
+        if (SequenceNumber == uint.MaxValue && RefusesSequenceWrap)
+        {
+            throw SshDisconnectRequiredException.ProtocolError(
+                "The client's SSH packet sequence number would wrap during a strict key exchange.");
+        }
+
+        SequenceNumber = unchecked(SequenceNumber + 1);
     }
 
     private void RefuseBadLength(uint packetLength)

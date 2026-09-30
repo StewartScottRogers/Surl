@@ -105,6 +105,54 @@ public sealed class SshPacketReaderTests
         Assert.AreEqual("The client closed the connection part way through an SSH packet.", ended.Note);
     }
 
+    [TestMethod]
+    public async Task ReadPayloadAsync_EachPacket_CountsTheSequenceNumber()
+    {
+        var reader = Reader(Concat(Packet(2, 9), Packet(2, 9)), 0);
+
+        await reader.ReadPayloadAsync(TestContext.CancellationToken);
+        await reader.ReadPayloadAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(2u, reader.SequenceNumber);
+    }
+
+    [TestMethod]
+    public async Task ReadPayloadAsync_SequenceNumberWrapping_WrapsUnlessRefused()
+    {
+        var reader = Reader(Packet(2, 9), 0);
+        reader.SequenceNumber = uint.MaxValue;
+
+        await reader.ReadPayloadAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(0u, reader.SequenceNumber);
+    }
+
+    [TestMethod]
+    public async Task ReadPayloadAsync_SequenceNumberWrappingWhenRefused_IsRefusedDisconnect2()
+    {
+        var reader = Reader(Packet(2, 9), 0);
+        reader.SequenceNumber = uint.MaxValue;
+        reader.RefusesSequenceWrap = true;
+
+        var refusal = await Assert.ThrowsExactlyAsync<SshDisconnectRequiredException>(
+            () => reader.ReadPayloadAsync(TestContext.CancellationToken).AsTask());
+
+        Assert.AreEqual(SshDisconnectReason.ProtocolError, refusal.Reason);
+        Assert.AreEqual("The client's SSH packet sequence number would wrap during a strict key exchange.", refusal.Message);
+    }
+
+    [TestMethod]
+    public async Task ReadPayloadAsync_BelowTheLastNumberWhenRefused_IsCounted()
+    {
+        var reader = Reader(Packet(2, 9), 0);
+        reader.SequenceNumber = uint.MaxValue - 1;
+        reader.RefusesSequenceWrap = true;
+
+        await reader.ReadPayloadAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(uint.MaxValue, reader.SequenceNumber);
+    }
+
     private static SshPacketReader Reader(byte[] inbound, long maxPacketBytes) =>
         new(new SshConnectionReader(new InMemoryConnection([inbound])), maxPacketBytes);
 }

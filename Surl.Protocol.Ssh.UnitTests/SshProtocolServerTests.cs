@@ -39,21 +39,35 @@ public sealed class SshProtocolServerTests
     }
 
     [TestMethod]
-    public async Task KeyExchangeMethodMessage_IsAnsweredDisconnect11()
+    public async Task UnbuiltKeyExchangeMethodMessage_IsAnsweredDisconnect11()
     {
         var log = new RecordingExchangeLog();
-        var connection = Connection(RecordedFixture.ReadRequestBytes("sftp-insecure"), Packet(30, 0, 0, 0, 0));
+        var connection = Connection(Ascii(ClientLine), Packet(ClientKexInitPayload(keyExchange: "curve25519-sha256")), Packet(30, 0, 0, 0, 0));
 
         await Server().ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
 
         CollectionAssert.AreEqual(
-            Concat(Ascii(ServerLine), ExpectedServerKexInitPacket(), ServerDisconnectPacket(11, "Key exchange not implemented")),
+            Concat(Ascii(ServerLine), ServerKexInitPacket(), ServerDisconnectPacket(11, "Key exchange not implemented")),
             connection.WrittenBytes);
         Assert.IsTrue(connection.WritesCompleted);
         Assert.AreEqual(
-            "The SSH key exchange diffie-hellman-group-exchange-sha256 is not built yet; the connection was ended after the negotiation.",
+            "The SSH key exchange curve25519-sha256 is not built yet; the connection was ended after the negotiation.",
             log.Notes[2]);
         Assert.AreEqual("SSH disconnect sent: 11 Key exchange not implemented", log.Notes[3]);
+    }
+
+    [TestMethod]
+    public async Task RecordedCurlOpeningFollowedByTheOldGroupExchangeRequest_IsAnsweredDisconnect2()
+    {
+        var log = new RecordingExchangeLog();
+        var connection = Connection(RecordedFixture.ReadRequestBytes("sftp-insecure"), Packet(30, 0, 0, 8, 0));
+
+        await Server().ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
+
+        CollectionAssert.AreEqual(
+            Concat(Ascii(ServerLine), ExpectedServerKexInitPacket(), ServerDisconnectPacket(2, "Protocol error")),
+            connection.WrittenBytes);
+        Assert.AreEqual("The client sent SSH message 30 during the key exchange.", log.Notes[2]);
     }
 
     [TestMethod]
@@ -210,7 +224,7 @@ public sealed class SshProtocolServerTests
             Ascii(ClientLine),
             Packet(Concat([2], String("padding"))),
             Packet(Concat([4, 1], String("debug"), String(string.Empty))),
-            Packet(ClientKexInitPayload()),
+            Packet(ClientKexInitPayload(keyExchange: "curve25519-sha256")),
             Packet(Concat([3], UInt32(7))),
             Packet(Concat([2], String(string.Empty))),
             Packet(30, 0));
@@ -291,11 +305,11 @@ public sealed class SshProtocolServerTests
     {
         var guessOnly = Connection(
             Ascii(ClientLine),
-            Packet(ClientKexInitPayload(keyExchange: "diffie-hellman-group14-sha256", firstKexPacketFollows: true)),
+            Packet(ClientKexInitPayload(keyExchange: "curve25519-sha256@libssh.org", firstKexPacketFollows: true)),
             Packet(30, 1, 2));
         var guessAndNext = Connection(
             Ascii(ClientLine),
-            Packet(ClientKexInitPayload(keyExchange: "diffie-hellman-group14-sha256", firstKexPacketFollows: true)),
+            Packet(ClientKexInitPayload(keyExchange: "curve25519-sha256@libssh.org", firstKexPacketFollows: true)),
             Packet(30, 1, 2),
             Packet(30, 3, 4));
 
@@ -378,8 +392,12 @@ public sealed class SshProtocolServerTests
     [TestMethod]
     public async Task NullArguments_AreRefused()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(null!, new FixedRandomSource()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(RsaOffer, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(null!, RsaOffer, new FixedRandomSource()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(RsaHostKeys, null!, new FixedRandomSource()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(RsaHostKeys, RsaOffer, null!));
+        var unsigned = Assert.ThrowsExactly<ArgumentException>(
+            () => new SshProtocolServer(RsaHostKeys, SshAlgorithmOffer.Default(["ecdsa-sha2-nistp256", "rsa-sha2-256"], aesGcmIsSupported: false), new FixedRandomSource()));
+        StringAssert.StartsWith(unsigned.Message, "The offer names the host-key algorithm ecdsa-sha2-nistp256, but no host key given signs with it.");
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(
             () => Server().ServeAsync(null!, Context(TimeProvider.System, TestContext.CancellationToken)));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => Server().ServeAsync(new InMemoryConnection([]), null!));

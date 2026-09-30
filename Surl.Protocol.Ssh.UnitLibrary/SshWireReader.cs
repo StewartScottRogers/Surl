@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Text;
 
 namespace Surl.Protocol.Ssh;
@@ -59,6 +60,14 @@ internal sealed class SshWireReader(ReadOnlyMemory<byte> payload)
     /// <returns>The string's bytes, a slice of the payload.</returns>
     /// <exception cref="SshDisconnectRequiredException">The length runs past the payload's end.</exception>
     public ReadOnlyMemory<byte> ReadString() => ReadBytes(ReadUInt32());
+
+    /// <summary>
+    /// Reads an <c>mpint</c> (RFC 4251, section 5): a <c>string</c> holding a two's complement
+    /// integer, most significant byte first; the empty string is zero.
+    /// </summary>
+    /// <returns>The value, negative when its first bit is set.</returns>
+    /// <exception cref="SshDisconnectRequiredException">The length runs past the payload's end.</exception>
+    public BigInteger ReadMpint() => new(ReadString().Span, isUnsigned: false, isBigEndian: true);
 
     /// <summary>
     /// Reads a <c>name-list</c>: a <c>string</c> of comma-separated names. An empty string is

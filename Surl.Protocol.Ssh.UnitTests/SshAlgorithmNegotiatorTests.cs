@@ -66,6 +66,17 @@ public sealed class SshAlgorithmNegotiatorTests
     }
 
     [TestMethod]
+    public void Negotiate_ClientStrictMarkerWithoutTheServers_LeavesStrictKeyExchangeOff()
+    {
+        var client = Client(keyExchange: ["curve25519-sha256", SshAlgorithmOffer.StrictKeyExchangeClientMarker]);
+        var server = Server with { KeyExchange = [.. Server.KeyExchange.Where(name => name != SshAlgorithmOffer.StrictKeyExchangeServerMarker)] };
+
+        var agreed = SshAlgorithmNegotiator.Negotiate(client, server);
+
+        Assert.IsFalse(agreed.StrictKeyExchange);
+    }
+
+    [TestMethod]
     [DataRow("kex", DisplayName = "Key exchange")]
     [DataRow("host key", DisplayName = "Host key")]
     [DataRow("cipher", DisplayName = "Cipher")]

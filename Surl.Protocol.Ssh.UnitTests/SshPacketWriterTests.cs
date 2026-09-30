@@ -29,4 +29,17 @@ public sealed class SshPacketWriterTests
 
         CollectionAssert.AreEqual(Concat(UInt32(12), [10, 21], Enumerable.Repeat(RandomByte, 10).ToArray()), connection.WrittenBytes);
     }
+
+    [TestMethod]
+    public async Task WriteAsync_EachPacket_CountsTheSequenceNumberAndWrapsAfterTheLast()
+    {
+        var writer = new SshPacketWriter(new InMemoryConnection([]), new FixedRandomSource());
+
+        await writer.WriteAsync(new byte[] { 2 }, TestContext.CancellationToken);
+        Assert.AreEqual(1u, writer.SequenceNumber);
+        writer.SequenceNumber = uint.MaxValue;
+        await writer.WriteAsync(new byte[] { 2 }, TestContext.CancellationToken);
+
+        Assert.AreEqual(0u, writer.SequenceNumber);
+    }
 }
