@@ -46,3 +46,4 @@ BL-185's ADRs expect, and that the mail lands in the store.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
