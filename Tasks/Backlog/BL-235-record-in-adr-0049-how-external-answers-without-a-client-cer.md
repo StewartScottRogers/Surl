@@ -1,5 +1,5 @@
 ---
-id: BL-231
+id: BL-235
 title: Record in ADR-0049 how EXTERNAL answers without a client certificate and how help wraps a long default
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-046
 created: 2026-09-29
 completed:
 ---
-# BL-231 — Record in ADR-0049 how EXTERNAL answers without a client certificate and how help wraps a long default
+# BL-235 — Record in ADR-0049 how EXTERNAL answers without a client certificate and how help wraps a long default
 
 ## Goal
 

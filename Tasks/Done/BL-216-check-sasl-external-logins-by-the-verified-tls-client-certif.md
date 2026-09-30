@@ -112,12 +112,12 @@ default set (ADR-0049 decision 3), with `--help`, the manual and `--aihelp` sayi
   answers it `RefusedMechanism` when `TlsSession?.ClientCertificate` is `null`.
 - Choice (sensible default): without a client certificate `EXTERNAL` is `RefusedMechanism` even
   under `--allow-anonymous`, since it is not offered there and has no identity to accept; the
-  acceptance criterion names no exception. Recording it in ADR-0049 is BL-231:
+  acceptance criterion names no exception. Recording it in ADR-0049 is BL-235:
   `Documentation/Planning/Decisions` was held by BL-155 in `Doing`, so this task did not widen
   its `touches` into it.
 - Choice: `--auth`'s default grew to 79 characters, one word too long for a help line, so
   `HelpLayout.WrapParagraph` now breaks a word too long for any line after each comma; every
-  other page is unchanged (the help tests pin them). Also in BL-231.
+  other page is unchanged (the help tests pin them). Also in BL-235.
 - `gssapi` still being refused as not available is pinned where the refusal lives, in
   `Surl.Console.UnitTests` (`RunAsync_AuthGssapi_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds`);
   the parser reads both words and refuses neither, as before.
