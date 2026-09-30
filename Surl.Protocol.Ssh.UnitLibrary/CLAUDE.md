@@ -29,7 +29,8 @@ subsystem) are the glossary's, section "SSH, SCP and SFTP".
   `SshHmac`), zlib compression, and key re-exchange (`SshReExchangeLimits`).
 - **Host keys** (`SshHostKey`, `SshHostKeySet`, `SshHostKeyFile`): RSA, ECDSA, Ed25519 and DSA
   keys, read from OpenSSH (encrypted ones too), PKCS #8, PKCS #1 and SEC 1 files, each refusal
-  typed as an `SshHostKeyRefusal`. Reading the files from disk is `Surl.Console`'s.
+  typed as an `SshHostKeyRefusal`. Reading the files (and the `--hostcert` files) from disk is
+  `Surl.Console`'s.
 - **User authentication** (`SshUserAuthentication`, `SshUserKeySignature`): `none`, `password`,
   `keyboard-interactive` and `publickey`, each credential judged by `ISshAuthenticationPolicy`.
 - **The connection protocol** (`SshConnectionProtocol`, `SshSessionChannel`): session channels,
@@ -39,8 +40,12 @@ subsystem) are the glossary's, section "SSH, SCP and SFTP".
 - **The weak algorithms** of ADR-0051 decision 2 and ADR-0061, offered only when
   `SshAlgorithmOffer.Default` is given `allowWeakAlgorithms`, as `Surl.Console` does under
   `--allow-weak-ssh-algorithms`. `SshAlgorithmOffer.Narrowed` narrows an offer's ciphers and MACs
-  to the names given, in the order given (`--ssh-ciphers`, `--ssh-macs`, ADR-0066). Host
-  certificates (`--hostcert`) are not built here.
+  to the names given, in the order given (`--ssh-ciphers`, `--ssh-macs`, ADR-0066).
+- **Host certificates** (`SshHostCertificate`, `SshCertifiedHostKey`): the OpenSSH
+  `*-cert.pub` host certificates of `--hostcert`, each refusal typed as an
+  `SshHostCertificateRefusal`. `SshHostKeySet` serves each under its certificate algorithms
+  (`<algorithm>-cert-v01@openssh.com`), which the offer lists just before the key's own
+  (ADR-0051 decision 2 and Amendment 2).
 
 ## References
 

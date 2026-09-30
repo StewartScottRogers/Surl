@@ -102,11 +102,20 @@ public abstract class SshHostKey
     internal byte[] Sign(string algorithm, byte[] data)
     {
         var blob = new SshWireWriter();
-        blob.WriteString(algorithm);
+        blob.WriteString(SignatureName(algorithm));
         blob.WriteString(SignRaw(algorithm, data));
 
         return blob.ToArray();
     }
+
+    /// <summary>
+    /// The name the signature blob gives <paramref name="algorithm"/>'s signature: the
+    /// algorithm itself, except for a host certificate, whose signatures are its key's
+    /// (OpenSSH <c>PROTOCOL.certkeys</c>).
+    /// </summary>
+    /// <param name="algorithm">One of <see cref="SignatureAlgorithms"/>.</param>
+    /// <returns>The name.</returns>
+    private protected virtual string SignatureName(string algorithm) => algorithm;
 
     /// <summary>
     /// The signature itself, without the algorithm name before it.
@@ -114,5 +123,5 @@ public abstract class SshHostKey
     /// <param name="algorithm">One of <see cref="SignatureAlgorithms"/>.</param>
     /// <param name="data">What is signed.</param>
     /// <returns>The signature.</returns>
-    private protected abstract byte[] SignRaw(string algorithm, byte[] data);
+    internal abstract byte[] SignRaw(string algorithm, byte[] data);
 }

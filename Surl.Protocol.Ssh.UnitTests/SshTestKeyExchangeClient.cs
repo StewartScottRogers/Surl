@@ -219,6 +219,14 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     {
         var key = new SshWireReader(hostKeyBlob);
         var keyType = Encoding.ASCII.GetString(key.ReadString().Span);
+        if (keyType.EndsWith(SshHostCertificate.CertificateSuffix, StringComparison.Ordinal))
+        {
+            // PROTOCOL.certkeys: the nonce, then the certified key's public fields, which verify
+            // the signature as the key's own blob does.
+            key.ReadString();
+            keyType = keyType[..^SshHostCertificate.CertificateSuffix.Length];
+        }
+
         var signature = new SshWireReader(signatureBlob);
         var algorithm = Encoding.ASCII.GetString(signature.ReadString().Span);
         var signatureBytes = signature.ReadString().ToArray();

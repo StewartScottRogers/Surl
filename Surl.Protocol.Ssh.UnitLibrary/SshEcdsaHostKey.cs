@@ -35,7 +35,7 @@ internal sealed class SshEcdsaHostKey : SshHostKey
     public static string KeyTypeOn(SshNistCurve curve) => "ecdsa-sha2-" + curve.Identifier;
 
     /// <inheritdoc/>
-    private protected override byte[] SignRaw(string algorithm, byte[] data)
+    internal override byte[] SignRaw(string algorithm, byte[] data)
     {
         using var ecdsa = ECDsa.Create(parameters);
         var signature = ecdsa.SignData(data, curve.HashAlgorithm, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);

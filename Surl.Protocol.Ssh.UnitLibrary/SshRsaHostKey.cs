@@ -48,7 +48,7 @@ internal sealed class SshRsaHostKey : SshHostKey
     };
 
     /// <inheritdoc/>
-    private protected override byte[] SignRaw(string algorithm, byte[] data)
+    internal override byte[] SignRaw(string algorithm, byte[] data)
     {
         using var rsa = RSA.Create(parameters);
 

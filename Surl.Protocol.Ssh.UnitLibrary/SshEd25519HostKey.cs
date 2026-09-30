@@ -39,7 +39,7 @@ internal sealed class SshEd25519HostKey : SshHostKey
             : new SshEd25519HostKey(seed.ToArray(), Ed25519.ComputePublicKey(seed));
 
     /// <inheritdoc/>
-    private protected override byte[] SignRaw(string algorithm, byte[] data) => Ed25519.Sign(seed, data);
+    internal override byte[] SignRaw(string algorithm, byte[] data) => Ed25519.Sign(seed, data);
 
     private static byte[] Blob(byte[] publicKey)
     {

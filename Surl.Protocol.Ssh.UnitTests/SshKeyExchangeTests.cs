@@ -72,6 +72,40 @@ public sealed class SshKeyExchangeTests
     }
 
     [TestMethod]
+    [DataRow("rsa-sha2-512-cert-v01@openssh.com", "host_rsa")]
+    [DataRow("rsa-sha2-256-cert-v01@openssh.com", "host_rsa")]
+    [DataRow("ecdsa-sha2-nistp256-cert-v01@openssh.com", "host_ecdsa_p256")]
+    [DataRow("ssh-ed25519-cert-v01@openssh.com", "host_ed25519")]
+    public async Task EveryCertificateHostKeyAlgorithm_SendsTheCertificateAndSignsWithItsKey(string hostKeyAlgorithm, string hostKeyName)
+    {
+        await CompleteWithCertificateAsync("curve25519-sha256", hostKeyAlgorithm, hostKeyName);
+        await CompleteWithCertificateAsync("diffie-hellman-group14-sha256", hostKeyAlgorithm, hostKeyName);
+    }
+
+    [TestMethod]
+    public async Task SshRsaCertificate_WithWeakAlgorithmsAllowed_SignsTheExchangeHashWithSshRsa()
+    {
+        await CompleteWithCertificateAsync("curve25519-sha256", "ssh-rsa-cert-v01@openssh.com", "host_rsa", allowWeakAlgorithms: true);
+    }
+
+    [TestMethod]
+    public async Task ServerKexInit_OffersEachCertificateBeforeItsKey_AndSshRsaCertificateOnlyWithWeakAlgorithms()
+    {
+        string[] strong =
+        [
+            "ssh-ed25519-cert-v01@openssh.com", "ssh-ed25519",
+            "ecdsa-sha2-nistp256-cert-v01@openssh.com", "ecdsa-sha2-nistp256",
+            "rsa-sha2-512-cert-v01@openssh.com", "rsa-sha2-512",
+            "rsa-sha2-256-cert-v01@openssh.com", "rsa-sha2-256",
+        ];
+
+        CollectionAssert.AreEqual(strong, (await ServerHostKeyListAsync(allowWeakAlgorithms: false)).ToArray());
+        CollectionAssert.AreEqual(
+            strong.Concat(["ssh-rsa-cert-v01@openssh.com", "ssh-rsa"]).ToArray(),
+            (await ServerHostKeyListAsync(allowWeakAlgorithms: true)).ToArray());
+    }
+
+    [TestMethod]
     [DataRow("diffie-hellman-group14-sha256")]
     [DataRow("diffie-hellman-group-exchange-sha256")]
     public async Task PaddedClientValue_IsHashedAsSent(string keyExchange)
@@ -190,6 +224,33 @@ public sealed class SshKeyExchangeTests
         set.TryAdd(SshHostKey.FromDsa(SshTestKeys.Dsa1024), out _);
 
         return set;
+    }
+
+    // The certificate algorithm negotiated, K_S the certificate blob, and H signed by the key it
+    // certifies (the test client verifies with the key's fields inside the certificate).
+    private async Task CompleteWithCertificateAsync(string keyExchange, string hostKeyAlgorithm, string hostKeyName, bool allowWeakAlgorithms = false)
+    {
+        var hostKeys = SshTestCertificates.CertifiedHostKeys();
+        using var client = new SshTestKeyExchangeClient(keyExchange, hostKeyAlgorithm);
+        var connection = new InMemoryConnection([client.InboundBytes()]);
+
+        var result = await Handshake(connection, hostKeys, allowWeakAlgorithms).RunAsync(TestContext.CancellationToken);
+
+        var certificate = SshTestCertificates.Certificate(hostKeyName);
+        var (_, exchangeHash) = client.CheckServerAnswer(connection.WrittenBytes, certificate.Blob.Span);
+        Assert.AreEqual(hostKeyAlgorithm, result.Algorithms.ServerHostKey);
+        CollectionAssert.AreEqual(exchangeHash, result.SessionIdentifier);
+    }
+
+    // The server_host_key_algorithms of the server's KEXINIT, serving the certified fixture keys.
+    private async Task<IReadOnlyList<string>> ServerHostKeyListAsync(bool allowWeakAlgorithms)
+    {
+        using var client = new SshTestKeyExchangeClient("curve25519-sha256", "ssh-ed25519-cert-v01@openssh.com");
+        var connection = new InMemoryConnection([client.InboundBytes()]);
+
+        await Handshake(connection, SshTestCertificates.CertifiedHostKeys(), allowWeakAlgorithms).RunAsync(TestContext.CancellationToken);
+
+        return SshKexInit.Parse(SshTestKeyExchangeClient.ServerPackets(connection.WrittenBytes[ServerLine.Length..])[0]).ServerHostKey;
     }
 
     private async Task CompleteAsync(string keyExchange, string hostKeyAlgorithm, SshHostKeySet hostKeys, bool allowWeakAlgorithms = false)

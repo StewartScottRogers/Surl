@@ -30,7 +30,7 @@ internal sealed class SshDsaHostKey : SshHostKey
     }
 
     /// <inheritdoc/>
-    private protected override byte[] SignRaw(string algorithm, byte[] data)
+    internal override byte[] SignRaw(string algorithm, byte[] data)
     {
         using var dsa = DSA.Create(parameters);
 

@@ -62,7 +62,8 @@ public sealed record SshAlgorithmOffer(
     /// <summary>
     /// The default offer of ADR-0051 decision 2: every default key exchange method, cipher, MAC
     /// and compression method in the decision's order, and of its host-key algorithms those
-    /// in <paramref name="heldHostKeyAlgorithms"/>, still in the decision's order. With
+    /// in <paramref name="heldHostKeyAlgorithms"/>, still in the decision's order, each
+    /// certificate algorithm (<c>&lt;name&gt;-cert-v01@openssh.com</c>) just before its key's. With
     /// <paramref name="allowWeakAlgorithms"/>, each list also offers the decision's weak
     /// algorithms after its default ones - the key exchange methods before the strict key
     /// exchange marker, which stays last.
@@ -99,7 +100,7 @@ public sealed record SshAlgorithmOffer(
                 .. Weak(WeakKeyExchange),
                 StrictKeyExchangeServerMarker,
             ],
-            [.. HostKeyOrder.Concat(Weak(WeakHostKeyOrder)).Where(held.Contains)],
+            [.. WithCertificateNames(HostKeyOrder.Concat(Weak(WeakHostKeyOrder))).Where(held.Contains)],
             ["chacha20-poly1305@openssh.com", .. aesGcm, "aes256-ctr", "aes192-ctr", "aes128-ctr", .. Weak(WeakCipher)],
             ["hmac-sha2-256-etm@openssh.com", "hmac-sha2-512-etm@openssh.com", "hmac-sha2-256", "hmac-sha2-512", .. Weak(WeakMac)],
             ["none", "zlib@openssh.com", "zlib"])
@@ -123,6 +124,11 @@ public sealed record SshAlgorithmOffer(
             Cipher = Narrow(Cipher, ciphers),
             Mac = Narrow(Mac, macs),
         };
+
+    // Each host-key algorithm preceded by its certificate algorithm, which a --hostcert
+    // certificate signs with (ADR-0051, decision 2).
+    private static IEnumerable<string> WithCertificateNames(IEnumerable<string> hostKeyAlgorithms) =>
+        hostKeyAlgorithms.SelectMany(algorithm => new[] { algorithm + SshHostCertificate.CertificateSuffix, algorithm });
 
     private static IReadOnlyList<string> Narrow(IReadOnlyList<string> offered, IReadOnlyList<string>? given) =>
         given is null ? offered : [.. given.Distinct(StringComparer.Ordinal).Where(offered.Contains)];
