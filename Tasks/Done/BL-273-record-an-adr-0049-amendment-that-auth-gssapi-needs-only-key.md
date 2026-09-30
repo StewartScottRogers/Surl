@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md, Documentation/Planning/Decisions/README.md]
 requirement: FR-046
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-273 — Record an ADR-0049 amendment that --auth gssapi needs only --keytab since BL-218
 
@@ -44,18 +44,18 @@ its Amendment 2, that since BL-218 SASL `GSSAPI` is built: `--auth gssapi` is ac
 
 ## Acceptance criteria
 
-- [ ] ADR-0049 ends with `## Amendment 2 - ...` (dated 2026-09-30 or the day it is written, naming
+- [x] ADR-0049 ends with `## Amendment 2 - ...` (dated 2026-09-30 or the day it is written, naming
       BL-218, BL-240 and ADR-0057 decisions 1 and 9) stating: `--auth gssapi` is available;
       it needs `--keytab`, refused otherwise with `surl: (2) --auth gssapi needs --keytab` (exit 2);
       it is not in the default set; `GSSAPI` is offered first when `gssapi` is accepted, on any
       connection, TLS or not; the "not available in this build" refusal no longer covers any
       `--auth` word.
-- [ ] Each of the five places listed in Context either states the current behaviour or carries a
+- [x] Each of the five places listed in Context either states the current behaviour or carries a
       pointer to Amendment 2 (e.g. "BL-218 is done; see Amendment 2"); no sentence in ADR-0049 says
       `gssapi` is refused as not available or not offered in the present tense.
-- [ ] `Documentation/Planning/Decisions/README.md`'s ADR-0049 row no longer says `gssapi` is "not
+- [x] `Documentation/Planning/Decisions/README.md`'s ADR-0049 row no longer says `gssapi` is "not
       available until built", and mentions amendment 2.
-- [ ] Every statement in the amendment is checked against the code named in Context (a search of
+- [x] Every statement in the amendment is checked against the code named in Context (a search of
       `Surl.Console`, `Surl.Authentication.UnitLibrary` and `Surl.Cli.UnitLibrary`), not against
       another document.
 
@@ -63,9 +63,17 @@ its Amendment 2, that since BL-218 SASL `GSSAPI` is built: `--auth gssapi` is ac
 
 - A `docs` task: no code changes. Upstream curl is not measured here; nothing about curl's
   behaviour is claimed beyond what ADR-0049 and ADR-0057 already record (curl 8.21.0).
+- Done in-session rather than through `align-and-document`: two Markdown files, no names or code.
+- Checked against code: `CommandLineRunner.FindOptionRefusal` (the `--keytab` refusal, then
+  `FindUnavailableOption`, whose only entry is `--hostcert`, so no `--auth` word is "not available");
+  `KeytabComposition.IsGssapiWithoutKeytab`; `CommandLineOptions` `--auth` `Default` (no `gssapi`);
+  `SaslMechanism.InOfferOrder` (`GSSAPI` first) and `AuthenticationPolicy.GetMailLoginOffer` /
+  `CanIdentifyClient` (offered whenever the Kerberos acceptor is composed, TLS or not).
+- Also marked BL-217 and BL-218 done in decision 13's "who builds what" table.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-214.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0049 Amendment 2 records that --auth gssapi is available, needs --keytab and is offered first; the ADR index row says so

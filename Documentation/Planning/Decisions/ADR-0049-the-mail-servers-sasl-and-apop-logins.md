@@ -139,7 +139,7 @@ is exit 67:
 | POP3 `APOP` | RFC 1939 section 7 | no | BL-195 |
 | `NTLM` | MS-NLMP, carried as in HTTP (ADR-0039) | no | BL-196 |
 | `EXTERNAL` | RFC 4422 appendix A, the TLS client certificate | no (no secret is sent) | BL-216 |
-| `GSSAPI` | RFC 4752, Kerberos V5 | no | BL-218, after BL-217 decides Kerberos |
+| `GSSAPI` | RFC 4752, Kerberos V5 | no | BL-218, after BL-217 decides Kerberos (BL-218 is done; see Amendment 2) |
 | IMAP `LOGIN`, POP3 `USER`/`PASS` | RFC 3501, RFC 1939 | **yes** | the IMAP and POP3 servers, through ADR-0032's `CheckPasswordLoginAsync` |
 
 - A bearer token read off the wire is as good as a password, so `XOAUTH2` and `OAUTHBEARER`
@@ -165,8 +165,9 @@ any account is configured (ADR-0006 section 3).
   on the connection: `GSSAPI`, `DIGEST-MD5`, `CRAM-MD5`, `NTLM`, `OAUTHBEARER`, `XOAUTH2`,
   `PLAIN`, `LOGIN`, `EXTERNAL`. This is curl's measured preference, so the list reads as what a
   curl client will pick; the order changes nothing for curl. `EXTERNAL` is offered only when
-  `TlsSession.ClientCertificate` is not `null` (ADR-0010 section 5, `--cacert`); `GSSAPI` is not
-  offered until BL-218 lands.
+  `TlsSession.ClientCertificate` is not `null` (ADR-0010 section 5, `--cacert`); `GSSAPI` was not
+  offered until BL-218 landed; since it did (done), `GSSAPI` is offered first on every connection,
+  TLS or not, whenever `gssapi` is accepted (Amendment 2).
 - **SMTP**: the mechanisms on one `250-AUTH <m1> <m2> ...` line of the `EHLO` reply, left out when
   none may be offered.
 - **IMAP**: `AUTH=<m>` capabilities in the same order; `LOGINDISABLED` (RFC 3501 section 6.2.3)
@@ -197,7 +198,7 @@ list:
 | `--auth` word | Method | Protocols | In the default set |
 | --- | --- | --- | --- |
 | `negotiate` | Negotiate, RFC 4559 | HTTP | no (ADR-0032) |
-| `gssapi` | SASL `GSSAPI` | SMTP, IMAP, POP3 | no; refused as not available until BL-218 |
+| `gssapi` | SASL `GSSAPI` | SMTP, IMAP, POP3 | no (refused as not available until BL-218 built it; BL-218 is done, and `gssapi` now needs `--keytab`; see Amendment 2) |
 | `ntlm` | NTLM | HTTP, SMTP, IMAP, POP3 | no (ADR-0032) |
 | `digest` | Digest, RFC 7616 | HTTP | yes |
 | `digest-md5` | SASL `DIGEST-MD5` | SMTP, IMAP, POP3 | **no** |
@@ -226,7 +227,7 @@ list:
 - The words are matched and stored as ADR-0032 section 1 says; the refusal
   `surl: (2) --auth <word> is not available in this build` covered `gssapi` and `external` until
   their tasks landed, and nothing else once BL-194 to BL-196 were Done; since BL-216 (done) it
-  covers `gssapi` alone, until BL-218 lands.
+  covered `gssapi` alone, and since BL-218 (done) it covers no `--auth` word (Amendment 2).
 - **Help** (ADR-0034, one line within curl's 79 columns): `--auth`'s description stays
   "Authentication methods accepted", its `Default` becomes the default set above, and its
   explanation lists the words with the protocols each applies to, as the table does. BL-197
@@ -237,8 +238,9 @@ list:
 - **`GSSAPI`** is Kerberos V5, which ADR-0032 section 11 made later work for Negotiate. It is
   built by hand like every other missing primitive, not refused as a decision: BL-217 decides how
   Surl holds its Kerberos key and checks a ticket, and BL-218 builds the SASL `GSSAPI` exchange
-  on it. Until then `--auth gssapi` is refused as not available, `GSSAPI` is never offered, and
-  a client that sends `AUTH GSSAPI` anyway gets `RefusedMechanism`. Measured, curl picks
+  on it. Until BL-218 landed, `--auth gssapi` was refused as not available, `GSSAPI` was never
+  offered, and a client that sent `AUTH GSSAPI` anyway got `RefusedMechanism`; BL-218 is done,
+  and Amendment 2 records what holds now. Measured, curl picks
   `GSSAPI` unasked only for a user name holding a realm (`user@EXAMPLE.COM`); a server that
   offered it without being able to finish it would break those logins with exit 94.
 - **`EXTERNAL`** logs in as the verified TLS client certificate (ADR-0010 section 5: `--cacert`
@@ -444,8 +446,8 @@ public sealed record MailLoginStep(
 | `NTLM` | BL-196 |
 | The `--auth` words, default set, order, help, manual and AI help | BL-197 |
 | `EXTERNAL`, then `external` joins the default set | BL-216 (filed by this task; done) |
-| How Surl holds a Kerberos key and checks a ticket, for Negotiate and `GSSAPI` | BL-217 (filed by this task) |
-| SASL `GSSAPI` | BL-218 (filed by this task) |
+| How Surl holds a Kerberos key and checks a ticket, for Negotiate and `GSSAPI` | BL-217 (filed by this task; done) |
+| SASL `GSSAPI` | BL-218 (filed by this task; done, with `--keytab` from BL-240; see Amendment 2) |
 | Offering, framing and answering the logins | the SMTP, IMAP and POP3 servers' login tasks (BL-200, BL-204, BL-206) |
 
 ## Alternatives considered
@@ -506,3 +508,26 @@ BL-216, and recorded here by BL-235 because BL-155 held this folder while BL-216
    that without inventing a hyphenation rule.
    `HelpTextTests.Answer_Auth_IsItsPageWithItsDefaultWrappedAndItsExplanation`
    (`Surl.Cli.UnitTests`) pins it. ADR-0034 decision 3 states the same rule.
+
+## Amendment 2 - `--auth gssapi` is available and needs only `--keytab` (BL-218 and BL-240, recorded by BL-273, 2026-09-30)
+
+Recorded by BL-273, 2026-09-30. BL-218 built SASL `GSSAPI` and BL-240 added `--keytab`, as
+[ADR-0057](ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)
+decisions 1 and 9 decide; this amendment brings decisions 1 to 4 above up to date with them.
+
+1. **`--auth gssapi` is available.** It is no longer refused as not available: a SASL `GSSAPI`
+   login checks the client's Kerberos ticket against the `--keytab` keys (ADR-0057 decision 9).
+2. **It needs `--keytab`.** A start whose `--auth` names `gssapi` without `--keytab` is refused
+   before anything else is checked, writing `surl: (2) --auth gssapi needs --keytab` and exiting
+   2 (`FailedInit`): `CommandLineRunner.FindOptionRefusal`, through
+   `KeytabComposition.IsGssapiWithoutKeytab` (ADR-0057 decision 1).
+3. **It is not in the default set**, which stays
+   `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4`
+   (`CommandLineOptions`, `--auth`'s `Default`), because it needs `--keytab`.
+4. **`GSSAPI` is offered first** when `gssapi` is accepted, on any connection, TLS or not: it
+   sends no clear secret (`SaslMechanism.InOfferOrder` puts it first, and
+   `AuthenticationPolicy.GetMailLoginOffer` offers it whenever the `--keytab` acceptor is
+   composed, which point 2 of this amendment guarantees).
+5. **`surl: (2) --auth <word> is not available in this build` covers no `--auth` word** any more.
+   The refusal remains only for an option this build does not serve yet
+   (`CommandLineRunner.FindUnavailableOption`).
