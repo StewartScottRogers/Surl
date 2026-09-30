@@ -1,13 +1,14 @@
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using Surl.Cryptography.Curve25519;
 using static Surl.Protocol.Ssh.SshTestExchange;
 
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// The client's side of one key exchange, built in the test from the BCL's primitives and
-/// written out from RFC 4253 section 8, RFC 5656 section 4, RFC 4419 and RFC 8268, so no test
+/// written out from RFC 4253 section 8, RFC 5656 section 4, RFC 8731, RFC 4419 and RFC 8268, so no test
 /// checks the server's exchange hash, signature or key derivation against the server's own
 /// code. None of the client's messages depends on the server's answers - the group a group
 /// exchange gets is predicted from the request - so the client sends them all at once through
@@ -25,6 +26,7 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     private readonly string keyExchange;
     private readonly string hostKeyAlgorithm;
     private readonly ECDiffieHellman? ellipticKey;
+    private readonly byte[]? curvePrivateKey;
     private readonly BigInteger privateExponent;
     private readonly BigInteger? prime;
     private readonly bool padClientValue;
@@ -53,6 +55,7 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
             cipherServerToClient: cipherServerToClient,
             macServerToClient: macServerToClient);
         ellipticKey = CurveOf(keyExchange) is { } curve ? ECDiffieHellman.Create(curve) : null;
+        curvePrivateKey = keyExchange.StartsWith("curve25519-sha256", StringComparison.Ordinal) ? RandomNumberGenerator.GetBytes(X25519.KeySize) : null;
         prime = PrimeOf(keyExchange);
         privateExponent = new BigInteger(RandomNumberGenerator.GetBytes(64), isUnsigned: true, isBigEndian: true);
     }
@@ -90,7 +93,7 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     /// <summary>
     /// The payloads of <see cref="MethodPackets"/>, for a client that protects them itself.
     /// </summary>
-    public byte[][] MethodPayloads() => ellipticKey is not null
+    public byte[][] MethodPayloads() => ellipticKey is not null || curvePrivateKey is not null
         ? [Concat([30], Str(ClientPoint()))]
         : IsGroupExchange
             ? [
@@ -277,6 +280,14 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
 
     private byte[] ClientPoint()
     {
+        if (curvePrivateKey is not null)
+        {
+            var publicKey = new byte[X25519.KeySize];
+            X25519.ComputePublicKey(curvePrivateKey, publicKey);
+
+            return publicKey;
+        }
+
         var q = ellipticKey!.ExportParameters(includePrivateParameters: false).Q;
 
         return Concat([4], q.X!, q.Y!);
@@ -286,6 +297,22 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     // value; and a reader of the server's value that returns its H field and K.
     private (SshWireReader Reply, byte[] MethodFields, Func<SshWireReader, (byte[], BigInteger)> SharedSecret) ReadMethodAnswer(List<byte[]> packets)
     {
+        if (curvePrivateKey is not null)
+        {
+            Assert.HasCount(3, packets);
+            return (Reply(packets[1], 31), Str(ClientPoint()), reply =>
+            {
+                var serverPublicKey = reply.ReadString().ToArray();
+                Assert.HasCount(X25519.KeySize, serverPublicKey);
+                var secret = new byte[X25519.KeySize];
+                X25519.ScalarMultiply(curvePrivateKey, serverPublicKey, secret);
+
+                // RFC 8731 section 3.1: the 32 bytes read as an unsigned big-endian integer.
+                return (Str(serverPublicKey), new BigInteger(secret, isUnsigned: true, isBigEndian: true));
+            }
+            );
+        }
+
         if (ellipticKey is not null)
         {
             Assert.HasCount(3, packets);

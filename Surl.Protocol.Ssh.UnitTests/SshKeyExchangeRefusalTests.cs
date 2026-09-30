@@ -8,7 +8,8 @@ namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// The client key exchange messages the server refuses (ADR-0051, decision 9): a public value
-/// that is not a point on the curve or not in 1 &lt; e &lt; p - 1 is <c>DISCONNECT</c> 2, and a
+/// that is not a point on the curve, a curve25519 key that is not 32 bytes or of low order, or a
+/// value not in 1 &lt; e &lt; p - 1 is <c>DISCONNECT</c> 2, and a
 /// group exchange request no RFC 3526 group fits is <c>DISCONNECT</c> 3.
 /// </summary>
 [TestClass]
@@ -46,6 +47,50 @@ public sealed class SshKeyExchangeRefusalTests
 
         AssertDisconnected(written, 2, "Protocol error");
         Assert.AreEqual(note, notes[2], caseName);
+    }
+
+    [TestMethod]
+    [DataRow(0, DisplayName = "Empty")]
+    [DataRow(31, DisplayName = "One byte short")]
+    [DataRow(33, DisplayName = "One byte long")]
+    [DataRow(65, DisplayName = "A NIST P-256 point's length")]
+    public async Task Curve25519InitWithAKeyNot32BytesLong_IsAnsweredDisconnect2(int length)
+    {
+        var key = new byte[length];
+        key.AsSpan().Fill(9);
+
+        var (written, notes) = await ServeAsync(
+            ClientKexInitPayload(keyExchange: "curve25519-sha256"),
+            Packet(Concat([30], Str(key))));
+
+        AssertDisconnected(written, 2, "Protocol error");
+        Assert.AreEqual($"The client's curve25519 public key is {length} bytes, not 32.", notes[2]);
+    }
+
+    // Low-order u-coordinates from the list "Which Curve25519 public keys are unsafe?" at
+    // https://cr.yp.to/ecdh.html (Bernstein): 0 and 1, the two points of order 8, and p, which
+    // reduces to 0. Every clamped scalar is a multiple of 8, so each gives the all-zero shared
+    // secret RFC 8731 section 3 says aborts the exchange.
+    public static IEnumerable<object[]> LowOrderCurve25519Keys()
+    {
+        yield return ["u = 0", Convert.FromHexString("0000000000000000000000000000000000000000000000000000000000000000")];
+        yield return ["u = 1", Convert.FromHexString("0100000000000000000000000000000000000000000000000000000000000000")];
+        yield return ["Order 8, first", Convert.FromHexString("e0eb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b800")];
+        yield return ["Order 8, second", Convert.FromHexString("5f9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f1157")];
+        yield return ["u = p", Convert.FromHexString("edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f")];
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(LowOrderCurve25519Keys))]
+    public async Task Curve25519InitWithALowOrderKey_IsAnsweredDisconnect2(string caseName, byte[] key)
+    {
+        var (written, notes) = await ServeAsync(
+            ClientKexInitPayload(keyExchange: "curve25519-sha256"),
+            Packet(Concat([30], Str(key))));
+
+        AssertDisconnected(written, 2, "Protocol error");
+        Assert.HasCount(2, ServerPackets(written[ServerLine.Length..]), caseName);
+        Assert.AreEqual("The client's curve25519 public key is of low order: the shared secret is all zeros.", notes[2], caseName);
     }
 
     public static IEnumerable<object[]> RefusedPublicValues()

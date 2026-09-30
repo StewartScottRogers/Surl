@@ -29,11 +29,13 @@ namespace Surl.Protocol.Ssh;
 /// handled as <see cref="SshTransportHandshake"/> says.
 /// </para>
 /// <para>
-/// <b>Key exchange.</b> <c>ecdh-sha2-nistp256/384/521</c>, <c>diffie-hellman-group14-sha256</c>,
+/// <b>Key exchange.</b> <c>curve25519-sha256</c> and <c>curve25519-sha256@libssh.org</c>,
+/// <c>ecdh-sha2-nistp256/384/521</c>, <c>diffie-hellman-group14-sha256</c>,
 /// <c>group16-sha512</c>, <c>group18-sha512</c> and <c>diffie-hellman-group-exchange-sha256</c>
-/// are run; <c>curve25519-sha256</c> (BL-167) is <c>DISCONNECT</c> 11, "Key exchange not
-/// implemented", at its first message. A client public value that is not a point on the curve
-/// or not in 1 &lt; e &lt; p - 1 is <c>DISCONNECT</c> 2; a group exchange request no RFC 3526
+/// are run; a method the offer names but the server has not built is <c>DISCONNECT</c> 11, "Key
+/// exchange not implemented", at its first message. A client public value that is not a point
+/// on the curve, a curve25519 key that is not 32 bytes or gives an all-zero shared secret, or a
+/// value not in 1 &lt; e &lt; p - 1 is <c>DISCONNECT</c> 2; a group exchange request no RFC 3526
 /// group fits is <c>DISCONNECT</c> 3.
 /// </para>
 /// <para>

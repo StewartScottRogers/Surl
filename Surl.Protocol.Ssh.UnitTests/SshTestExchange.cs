@@ -27,6 +27,13 @@ internal static class SshTestExchange
     /// </summary>
     public static SshAlgorithmOffer OfferWithAnUnbuiltCipher { get; } = RsaOffer with { Cipher = [.. RsaOffer.Cipher, "aes128-cbc"] };
 
+    /// <summary>
+    /// <see cref="RsaOffer"/> with <c>diffie-hellman-group14-sha1</c> put first among its key exchange
+    /// methods: a method the server has not built (BL-221 builds it), so a client that agrees it
+    /// reaches the refusal at its first message.
+    /// </summary>
+    public static SshAlgorithmOffer OfferWithAnUnbuiltKeyExchange { get; } = RsaOffer with { KeyExchange = ["diffie-hellman-group14-sha1", .. RsaOffer.KeyExchange] };
+
     public static SshProtocolServer Server(SshAlgorithmOffer? offer = null, ISshAuthenticationPolicy? policy = null) =>
         new(RsaHostKeys, offer ?? RsaOffer, policy ?? new AnonymousAuthenticationPolicy(), new FixedRandomSource());
 
@@ -133,9 +140,9 @@ internal static class SshTestExchange
         return packet;
     }
 
-    public static byte[] ServerKexInitPacket()
+    public static byte[] ServerKexInitPacket(SshAlgorithmOffer? offer = null)
     {
-        var packet = Packet(SshKexInit.ForServer(RsaOffer, new FixedRandomSource()).ToPayload());
+        var packet = Packet(SshKexInit.ForServer(offer ?? RsaOffer, new FixedRandomSource()).ToPayload());
         packet.AsSpan(packet.Length - packet[4]).Fill(RandomByte);
 
         return packet;

@@ -42,16 +42,16 @@ public sealed class SshProtocolServerTests
     public async Task UnbuiltKeyExchangeMethodMessage_IsAnsweredDisconnect11()
     {
         var log = new RecordingExchangeLog();
-        var connection = Connection(Ascii(ClientLine), Packet(ClientKexInitPayload(keyExchange: "curve25519-sha256")), Packet(30, 0, 0, 0, 0));
+        var connection = Connection(Ascii(ClientLine), Packet(ClientKexInitPayload(keyExchange: "diffie-hellman-group14-sha1")), Packet(30, 0, 0, 0, 0));
 
-        await Server().ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
+        await Server(OfferWithAnUnbuiltKeyExchange).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
 
         CollectionAssert.AreEqual(
-            Concat(Ascii(ServerLine), ServerKexInitPacket(), ServerDisconnectPacket(11, "Key exchange not implemented")),
+            Concat(Ascii(ServerLine), ServerKexInitPacket(OfferWithAnUnbuiltKeyExchange), ServerDisconnectPacket(11, "Key exchange not implemented")),
             connection.WrittenBytes);
         Assert.IsTrue(connection.WritesCompleted);
         Assert.AreEqual(
-            "The SSH key exchange curve25519-sha256 is not built yet; the connection was ended after the negotiation.",
+            "The SSH key exchange diffie-hellman-group14-sha1 is not built yet; the connection was ended after the negotiation.",
             log.Notes[2]);
         Assert.AreEqual("SSH disconnect sent: 11 Key exchange not implemented", log.Notes[3]);
     }
@@ -224,15 +224,15 @@ public sealed class SshProtocolServerTests
             Ascii(ClientLine),
             Packet(Concat([2], String("padding"))),
             Packet(Concat([4, 1], String("debug"), String(string.Empty))),
-            Packet(ClientKexInitPayload(keyExchange: "curve25519-sha256")),
+            Packet(ClientKexInitPayload(keyExchange: "diffie-hellman-group14-sha1")),
             Packet(Concat([3], UInt32(7))),
             Packet(Concat([2], String(string.Empty))),
             Packet(30, 0));
 
-        await Server().ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken));
+        await Server(OfferWithAnUnbuiltKeyExchange).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken));
 
         CollectionAssert.AreEqual(
-            Concat(Ascii(ServerLine), ServerKexInitPacket(), ServerDisconnectPacket(11, "Key exchange not implemented")),
+            Concat(Ascii(ServerLine), ServerKexInitPacket(OfferWithAnUnbuiltKeyExchange), ServerDisconnectPacket(11, "Key exchange not implemented")),
             connection.WrittenBytes);
     }
 
@@ -318,8 +318,9 @@ public sealed class SshProtocolServerTests
 
         CollectionAssert.AreEqual(Concat(Ascii(ServerLine), ServerKexInitPacket()), guessOnly.WrittenBytes);
         CollectionAssert.AreEqual(
-            Concat(Ascii(ServerLine), ServerKexInitPacket(), ServerDisconnectPacket(11, "Key exchange not implemented")),
-            guessAndNext.WrittenBytes);
+            Concat(Ascii(ServerLine), ServerKexInitPacket(), ServerDisconnectPacket(2, "Protocol error")),
+            guessAndNext.WrittenBytes,
+            "The second message 30 is read as the real ECDH_INIT, and its truncated key is refused.");
     }
 
     [TestMethod]

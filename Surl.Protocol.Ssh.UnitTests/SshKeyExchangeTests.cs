@@ -5,7 +5,7 @@ using static Surl.Protocol.Ssh.SshTestExchange;
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
-/// Each key exchange method and host-key algorithm BL-160 builds, completed by
+/// Each key exchange method and host-key algorithm BL-160 and BL-167 build, completed by
 /// <see cref="SshTestKeyExchangeClient"/> against the server's handshake: the client verifies
 /// the host key's signature over the H it computes itself, and both sides derive the same six
 /// keys (RFC 4253 section 7.2, letters A to F).
@@ -16,6 +16,8 @@ public sealed class SshKeyExchangeTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
+    [DataRow("curve25519-sha256")]
+    [DataRow("curve25519-sha256@libssh.org")]
     [DataRow("ecdh-sha2-nistp256")]
     [DataRow("ecdh-sha2-nistp384")]
     [DataRow("ecdh-sha2-nistp521")]
@@ -37,6 +39,7 @@ public sealed class SshKeyExchangeTests
     [DataRow("ssh-ed25519")]
     public async Task EveryHostKeyAlgorithm_SignsTheExchangeHash(string hostKeyAlgorithm)
     {
+        await CompleteAsync("curve25519-sha256", hostKeyAlgorithm, SshTestKeys.AllHostKeys());
         await CompleteAsync("ecdh-sha2-nistp256", hostKeyAlgorithm, SshTestKeys.AllHostKeys());
         await CompleteAsync("diffie-hellman-group14-sha256", hostKeyAlgorithm, SshTestKeys.AllHostKeys());
     }
