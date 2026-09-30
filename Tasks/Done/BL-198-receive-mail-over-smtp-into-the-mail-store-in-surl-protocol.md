@@ -84,7 +84,7 @@ ADR decides (TLS is BL-199, `AUTH` is BL-200).
   - Notes are written for a line too long, a head timeout, a peer closing mid-body and a
     limit reply that misses its one-second deadline, as the DICT server does; peer bytes in a
     note go through `SmtpLogText` (GopherLogText's escaping).
-- **Follow-up filed:** BL-230, the `421 4.4.2 surl Timeout, closing` for the idle timeout and
+- **Follow-up filed:** BL-234, the `421 4.4.2 surl Timeout, closing` for the idle timeout and
   maximum duration (ADR-0053 decision 7), which needs the engine to tell a server why its
   exchange was cancelled.
 - **Measured:** `Measure-CodeQuality.ps1 -Library Surl.Protocol.Smtp.UnitLibrary`: 100% line,

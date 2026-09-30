@@ -1,5 +1,5 @@
 ---
-id: BL-230
+id: BL-234
 title: Answer the SMTP idle timeout and maximum duration with 421 in Surl.Protocol.Smtp
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-043
 created: 2026-09-29
 completed:
 ---
-# BL-230 — Answer the SMTP idle timeout and maximum duration with 421 in Surl.Protocol.Smtp
+# BL-234 — Answer the SMTP idle timeout and maximum duration with 421 in Surl.Protocol.Smtp
 
 ## Goal
 
