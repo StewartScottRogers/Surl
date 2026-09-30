@@ -1,5 +1,5 @@
 ---
-id: BL-262
+id: BL-264
 title: Align stale SSH and FTP doc comments and ADR-0002 with the code as built
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-30
 completed:
 ---
-# BL-262 — Align stale SSH and FTP doc comments and ADR-0002 with the code as built
+# BL-264 — Align stale SSH and FTP doc comments and ADR-0002 with the code as built
 
 ## Goal
 

@@ -56,7 +56,7 @@ libraries' `CLAUDE.md` files - so nothing an agent reads says Phase 2 is still t
 - Requirements' Status column stays `Draft`: no row has moved past it and no other value is
   defined. Stale lines found while editing (Milestone 1, mail and Kerberos library lines,
   FR-035's topic and category counts) were corrected in place.
-- Misalignments in code and ADR-0002, outside `touches`, filed as BL-262. The glossary's
+- Misalignments in code and ADR-0002, outside `touches`, filed as BL-264. The glossary's
   `--auth` default and README's `--directory` line are left for BL-214 (mail documents).
 
 ## Log
