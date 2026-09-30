@@ -8,7 +8,7 @@ depends-on: []
 touches: []
 requirement: FR-049
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-282 — Approve obtaining an upstream curl 8.21.0 build whose LDAP runs over OpenLDAP
 
@@ -45,7 +45,7 @@ the half of upstream curl's LDAP that no pinned build exercises today.
 
 ## Acceptance criteria
 
-- [ ] Stewart's answer (yes, or no with a reason) is recorded in this task's `Log` when it moves to
+- [x] Stewart's answer (yes, or no with a reason) is recorded in this task's `Log` when it moves to
       `Done`.
 
 ## Notes
@@ -53,3 +53,4 @@ the half of upstream curl's LDAP that no pinned build exercises today.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Done. Stewart, 2026-09-30: yes OpenLDAP. Approved obtaining an upstream curl 8.21.0 build (unpatched tag curl-8_21_0) whose ldap and ldaps run over OpenLDAP, for Linux and macOS if one can be had, by a third-party static build with OpenLDAP or by building the tag from source in CI; which one, where it lives and how CI obtains it is decided by ADR in BL-287.
