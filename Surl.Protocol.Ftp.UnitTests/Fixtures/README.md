@@ -109,3 +109,31 @@ each was `.\Record-CurlExchange.ps1 -Port <port> -Ftp -FtpData 'hello world\n' -
 | `quote-file-management` | `-Q 'MKD x' -Q '*SITE CHMOD 644 a.txt' -Q '-RNFR a.txt' -Q '-RNTO x/c.txt' -Q '-DELE x/c.txt' -Q '-RMD x' ftp://127.0.0.1:18804/a.txt` | `'MKD=257 \"/x\" created','SITE=504 SITE CHMOD is not supported','RNFR=350 Ready for RNTO','RNTO=250 Renamed','DELE=250 File deleted','RMD=250 Directory removed','RETR=150 Opening data connection for a.txt (12 bytes)'` | `MKD x`, `SITE CHMOD 644 a.txt` (504, ignored for its `*`), the download, then `RNFR`, `RNTO`, `DELE`, `RMD` | 0 |
 | `upload-too-large` | `-T up.txt ftp://127.0.0.1:18805/b.txt`, with `-FtpMaxUploadBytes 4` | `'STOR=150 Opening data connection for b.txt','STORDONE=552 Upload exceeds the size limit'` | `STOR b.txt`; the recorder read 4 bytes and closed; `curl: (70) Exceeded storage allocation` | 70 |
 | `upload-not-permitted` | `-T up.txt ftp://127.0.0.1:18806/b.txt` | `'STOR=550 Not permitted'` | `STOR b.txt`, no data connection; `curl: (25) Failed FTP upload: 550` | 25 |
+
+## Secure FTP (BL-181)
+
+Recorded on 2026-09-30 the same way, with `-FtpData 'hello world\n'` and every reply surl sends
+given through `-FtpReply`, so each `< ` line is surl's own text. The recorder upgrades the control
+connection with a throwaway certificate right after `234` (curl needs `-k`), writing a
+`= TLS handshake completed on the control connection` line, and serves every data connection
+over TLS after `PROT P` (or with `-Tls` until a `PROT C`), accepting it after the `150` and
+shaking hands afresh. `request.bin` holds the decrypted command lines. `RecordedTlsTests`
+replays each: an `AUTH` case in two reads, the lines up to `AUTH SSL` and then the rest, which
+curl sent inside TLS; it asserts the replies equal the `< ` lines, that surl upgraded the control
+connection after `AUTH`, that it ran a TLS handshake on the data connection exactly when the
+protection level was `P`, and that `PASS` was accepted only over TLS. Every case exited 0 with
+an empty `stderr.txt` and printed `hello world\n`; the recorder's empty `upload.bin` was left out.
+With `$g` as above and
+
+```powershell
+$base = "GREETING=$g",'AUTH=234 AUTH accepted, start TLS','USER=331 Password required','PASS=230 Logged in','PBSZ=200 PBSZ=0','PWD=257 \"/\" is the current directory','EPSV=229 Entering Extended Passive Mode (|||{DATAPORT}|)','TYPE=200 Type set to I','RETR=150 Opening data connection for a.txt (12 bytes)','QUIT=221 Goodbye'
+```
+
+each was `.\Record-CurlExchange.ps1 -Port <port> -Ftp -FtpData 'hello world\n' -FtpReply ($base + <replies>) -CurlArgs '-sS','-k',<arguments>,'-u','tester:secret',<url> -OutDirectory Surl.Protocol.Ftp.UnitTests\Fixtures\<folder>`:
+
+| Folder | curl arguments and URL | Added replies | What curl did |
+| --- | --- | --- | --- |
+| `ssl-reqd` | `--ssl-reqd`, `ftp://127.0.0.1:18821/a.txt` | `'PROT=200 Protection level set to P'` | `AUTH SSL`, then over TLS `USER`, `PASS`, `PBSZ 0`, `PROT P`, `PWD`, `EPSV`, `TYPE I`, `SIZE a.txt`, `RETR a.txt` with a TLS data connection, `QUIT` |
+| `ftp-ssl-control` | `--ftp-ssl-control`, `ftp://127.0.0.1:18822/a.txt` | `'PROT=200 Protection level set to C'` | as `ssl-reqd` with `PROT C`; the data connection in plaintext |
+| `ftp-ssl-ccc` | `--ssl-reqd`, `--ftp-ssl-ccc`, `ftp://127.0.0.1:18823/a.txt` | `'PROT=200 Protection level set to P','CCC=534 Request denied for policy reasons'` | as `ssl-reqd` with `CCC` (534) after `PROT P`; curl carried on over TLS |
+| `ftps` | `ftps://127.0.0.1:18824/a.txt`, with `-Tls` | `'PROT=200 Protection level set to P'` | TLS from the first byte, no `AUTH`; `USER`, `PASS`, `PBSZ 0`, `PROT P`, then as `ssl-reqd` |
