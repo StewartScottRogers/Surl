@@ -15,6 +15,11 @@ internal sealed class SshWireReader(ReadOnlyMemory<byte> payload)
     private int position;
 
     /// <summary>
+    /// How many bytes of the payload have been read.
+    /// </summary>
+    public int Position => position;
+
+    /// <summary>
     /// Reads one <c>byte</c>.
     /// </summary>
     /// <returns>The byte.</returns>

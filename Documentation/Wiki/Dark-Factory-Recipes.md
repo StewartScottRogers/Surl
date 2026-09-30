@@ -65,7 +65,8 @@ project's chain into smaller tasks does not help.
 | When | Command |
 | --- | --- |
 | Pick up a change to `RunDarkFactory.ps1` | `RunDarkFactory.cmd -Restart` |
-| Change one setting of a running shift, e.g. pace the weekly budget | `RunDarkFactory.cmd -Restart -WeeklyPace` (or `-Lanes 3`, `-WeeklyPace:$false`, ...) |
+| Change one setting of a running shift, e.g. pace the weekly budget | `RunDarkFactory.cmd -Restart -WeeklyPace` (or `-Lanes 3`, `-StopAtWeeklyUsage 1`, ...). A switch cannot be turned off this way through the `.cmd` (`-WeeklyPace:$false` fails); stop the shift and start it again without it |
+| Use the whole token budget, not stop at 85% / 97% | `RunDarkFactory.cmd -Restart -StopAtUsage 1 -StopAtWeeklyUsage 1`. A lane cut off mid-task by the limit waits for the reset and resumes |
 | The token limit was reset by hand and the shift is still waiting | `RunDarkFactory.cmd -Wake` |
 | Stop the shift | close its herdr tabs (or kill its process tree) |
 

@@ -48,6 +48,7 @@ internal sealed class SshTransportHandshake(
     private byte[] clientLine = [];
     private byte[]? sessionIdentifier;
     private bool strict;
+    private bool clientTakesExtensionInfo;
     private long lastExchangeTimestamp;
 
     /// <summary>
@@ -176,6 +177,7 @@ internal sealed class SshTransportHandshake(
         if (sessionIdentifier is null)
         {
             context.Log.Note(algorithms.ToNote());
+            clientTakesExtensionInfo = SshKexInit.Parse(clientKexInit).KeyExchange.Contains(SshAlgorithmOffer.ExtensionInfoClientMarker);
             strict = algorithms.StrictKeyExchange;
             packetReader!.RefusesSequenceWrap = strict;
         }
@@ -226,10 +228,28 @@ internal sealed class SshTransportHandshake(
         }
 
         packetReader!.RefusesSequenceWrap = false;
+        var isFirstExchange = sessionIdentifier is null;
         sessionIdentifier = identifier;
         UseNewKeys(algorithms, keys);
+        if (isFirstExchange && clientTakesExtensionInfo)
+        {
+            await packetWriter.WriteAsync(ExtensionInfoPayload(), cancellationToken);
+        }
 
         return new SshKeyExchangeResult(algorithms, identifier, keys);
+    }
+
+    // SSH_MSG_EXT_INFO with one extension, server-sig-algs: the user-key signature algorithms
+    // verified (RFC 8308, sections 2.3 and 3.1; ADR-0051 decision 2.1).
+    private static byte[] ExtensionInfoPayload()
+    {
+        var extensionInfo = new SshWireWriter();
+        extensionInfo.WriteByte(SshMessageNumber.ExtensionInfo);
+        extensionInfo.WriteUInt32(1);
+        extensionInfo.WriteString("server-sig-algs");
+        extensionInfo.WriteNameList(SshUserKeySignature.Algorithms);
+
+        return extensionInfo.ToArray();
     }
 
     private void UseNewKeys(SshNegotiatedAlgorithms algorithms, SshKeyDerivation keys)

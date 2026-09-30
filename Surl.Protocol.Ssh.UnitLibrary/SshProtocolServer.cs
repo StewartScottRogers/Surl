@@ -4,13 +4,15 @@ namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// The SSH server upstream curl's <c>scp://</c> and <c>sftp://</c> transfers talk to
-/// (ADR-0051). So far it runs the transport layer: it exchanges identification lines, sends its
-/// <c>SSH_MSG_KEXINIT</c> and agrees the algorithms with the client's, runs the key exchange
-/// method, signing the exchange hash with one of its <see cref="SshHostKeySet"/>, exchanges
-/// <c>NEWKEYS</c>, and from then on encrypts and authenticates every packet with the cipher and
-/// MAC agreed, re-keying when the client or <see cref="SshReExchangeLimits"/> asks. A
-/// <c>SERVICE_REQUEST</c> is <c>DISCONNECT</c> 11, "User authentication not implemented"
-/// (BL-162 builds it).
+/// (ADR-0051). So far it runs the transport layer and user authentication: it exchanges
+/// identification lines, sends its <c>SSH_MSG_KEXINIT</c> and agrees the algorithms with the
+/// client's, runs the key exchange method, signing the exchange hash with one of its
+/// <see cref="SshHostKeySet"/>, exchanges <c>NEWKEYS</c>, and from then on encrypts and
+/// authenticates every packet with the cipher and MAC agreed, re-keying when the client or
+/// <see cref="SshReExchangeLimits"/> asks. It then answers the <c>ssh-userauth</c> service as
+/// <see cref="SshUserAuthentication"/> says, every credential judged by its
+/// <see cref="ISshAuthenticationPolicy"/>. Channels (BL-163) are not built yet: after the login a
+/// connection-protocol message is answered <c>UNIMPLEMENTED</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -43,12 +45,14 @@ namespace Surl.Protocol.Ssh;
 /// re-exchange, and the server starts one itself before reading on once either direction has
 /// carried 1 GiB or an hour has passed under one set of keys. <c>IGNORE</c>, <c>DEBUG</c> and
 /// <c>UNIMPLEMENTED</c> are skipped, and any other message the server does not know is answered
-/// <c>UNIMPLEMENTED</c> with its sequence number (RFC 4253, section 11.4).
+/// <c>UNIMPLEMENTED</c> with its sequence number (RFC 4253, section 11.4). A client whose
+/// first <c>KEXINIT</c> lists <c>ext-info-c</c> is sent <c>EXT_INFO</c> with
+/// <c>server-sig-algs</c> right after the first <c>NEWKEYS</c> (RFC 8308).
 /// </para>
 /// <para>
 /// <b>Limits.</b> A packet longer than <see cref="ExchangeLimits.MaxMessageBytes"/> with its
 /// length field, or badly framed, is <c>DISCONNECT</c> 2 before its body is read. Everything
-/// up to the end of the opening runs under <see cref="ExchangeLimits.HeadTimeout"/>, which
+/// from accept to <c>USERAUTH_SUCCESS</c> runs under <see cref="ExchangeLimits.HeadTimeout"/>, which
 /// closes with no bytes (ADR-0006 section 5, ADR-0051 decision 9). Every <c>DISCONNECT</c> is
 /// given <see cref="DisconnectWriteDeadline"/> to be written, and writes are then completed.
 /// </para>
@@ -63,20 +67,23 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     private readonly SshHostKeySet hostKeys;
     private readonly SshAlgorithmOffer offer;
     private readonly ISshRandomSource randomSource;
+    private readonly ISshAuthenticationPolicy authenticationPolicy;
     private readonly SshReExchangeLimits reExchangeLimits;
 
     /// <summary>
-    /// Creates an SSH server that serves <paramref name="hostKeys"/> and offers <paramref name="offer"/>.
+    /// Creates an SSH server that serves <paramref name="hostKeys"/>, offers <paramref name="offer"/>
+    /// and logs users in through <paramref name="authenticationPolicy"/>.
     /// </summary>
     /// <param name="hostKeys">The host keys; <paramref name="offer"/>'s host-key algorithms are theirs.</param>
     /// <param name="offer">The algorithms the server's <c>KEXINIT</c> offers.</param>
+    /// <param name="authenticationPolicy">Who may log in (ADR-0051, decision 7).</param>
     /// <param name="randomSource">
     /// Where the <c>KEXINIT</c> cookie, the packet padding and a finite-field key exchange's
     /// private exponent come from.
     /// </param>
     /// <exception cref="ArgumentException"><paramref name="offer"/> names a host-key algorithm no key in <paramref name="hostKeys"/> signs with.</exception>
-    public SshProtocolServer(SshHostKeySet hostKeys, SshAlgorithmOffer offer, ISshRandomSource randomSource)
-        : this(hostKeys, offer, randomSource, SshReExchangeLimits.Default)
+    public SshProtocolServer(SshHostKeySet hostKeys, SshAlgorithmOffer offer, ISshAuthenticationPolicy authenticationPolicy, ISshRandomSource randomSource)
+        : this(hostKeys, offer, authenticationPolicy, randomSource, SshReExchangeLimits.Default)
     {
     }
 
@@ -85,13 +92,20 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     /// </summary>
     /// <param name="hostKeys">The host keys; <paramref name="offer"/>'s host-key algorithms are theirs.</param>
     /// <param name="offer">The algorithms the server's <c>KEXINIT</c> offers.</param>
+    /// <param name="authenticationPolicy">Who may log in.</param>
     /// <param name="randomSource">Where the cookie, the padding and a finite-field private exponent come from.</param>
     /// <param name="reExchangeLimits">When the server starts a key re-exchange itself.</param>
     /// <exception cref="ArgumentException"><paramref name="offer"/> names a host-key algorithm no key in <paramref name="hostKeys"/> signs with.</exception>
-    internal SshProtocolServer(SshHostKeySet hostKeys, SshAlgorithmOffer offer, ISshRandomSource randomSource, SshReExchangeLimits reExchangeLimits)
+    internal SshProtocolServer(
+        SshHostKeySet hostKeys,
+        SshAlgorithmOffer offer,
+        ISshAuthenticationPolicy authenticationPolicy,
+        ISshRandomSource randomSource,
+        SshReExchangeLimits reExchangeLimits)
     {
         ArgumentNullException.ThrowIfNull(hostKeys);
         ArgumentNullException.ThrowIfNull(offer);
+        ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(randomSource);
         var unsigned = offer.ServerHostKey.FirstOrDefault(algorithm => !hostKeys.SignatureAlgorithms.Contains(algorithm));
         if (unsigned is not null)
@@ -102,6 +116,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
         this.hostKeys = hostKeys;
         this.offer = offer;
         this.randomSource = randomSource;
+        this.authenticationPolicy = authenticationPolicy;
         this.reExchangeLimits = reExchangeLimits;
     }
 
@@ -126,8 +141,14 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
         var transport = new SshTransportHandshake(connection, context, offer, hostKeys, randomSource, reExchangeLimits);
         try
         {
-            await transport.RunAsync(cancellation.Token);
-            await AnswerTransportMessagesAsync(transport, cancellation.Token);
+            var firstExchange = await transport.RunAsync(cancellation.Token);
+            var authentication = new SshUserAuthentication(
+                transport,
+                authenticationPolicy,
+                context.Log,
+                firstExchange.SessionIdentifier,
+                () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan));
+            await AnswerMessagesAsync(transport, authentication, cancellation.Token);
         }
         catch (SshExchangeEndedException ended) when (ended.Note is not null)
         {
@@ -148,8 +169,12 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     }
 
     // Reads the client's messages after the first key exchange until the client closes the
-    // connection or sends a DISCONNECT, and starts a re-exchange between two of them once one is due.
-    private static async Task AnswerTransportMessagesAsync(SshTransportHandshake transport, CancellationToken cancellationToken)
+    // connection or sends a DISCONNECT, and starts a re-exchange between two of them once one is
+    // due.
+    private static async Task AnswerMessagesAsync(
+        SshTransportHandshake transport,
+        SshUserAuthentication authentication,
+        CancellationToken cancellationToken)
     {
         while (true)
         {
@@ -168,11 +193,15 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 return;
             }
 
-            await AnswerTransportMessageAsync(transport, payload, cancellationToken);
+            await AnswerMessageAsync(transport, authentication, payload, cancellationToken);
         }
     }
 
-    private static async Task AnswerTransportMessageAsync(SshTransportHandshake transport, byte[] payload, CancellationToken cancellationToken)
+    private static async Task AnswerMessageAsync(
+        SshTransportHandshake transport,
+        SshUserAuthentication authentication,
+        byte[] payload,
+        CancellationToken cancellationToken)
     {
         switch (payload[0])
         {
@@ -181,18 +210,33 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
             case SshMessageNumber.KeyExchangeInit:
                 await transport.ReExchangeAsync(payload, cancellationToken);
                 return;
-            case SshMessageNumber.ServiceRequest:
-                throw new SshDisconnectRequiredException(
-                    SshDisconnectReason.ByApplication,
-                    "User authentication not implemented",
-                    "The client asked for an SSH service, and user authentication is not built yet; the connection was ended.");
+            case var messageNumber when SshUserAuthentication.Answers(messageNumber):
+                await authentication.AnswerAsync(payload, cancellationToken);
+                return;
             default:
-                var unimplemented = new SshWireWriter();
-                unimplemented.WriteByte(SshMessageNumber.Unimplemented);
-                unimplemented.WriteUInt32(unchecked(transport.PacketReader!.SequenceNumber - 1));
-                await transport.WriteAsync(unimplemented.ToArray(), cancellationToken);
+                await AnswerUnknownMessageAsync(transport, authentication, payload[0], cancellationToken);
                 return;
         }
+    }
+
+    // A connection-protocol message before the login is out of order (RFC 4252, section 6);
+    // anything else not known is answered UNIMPLEMENTED (RFC 4253, section 11.4).
+    private static ValueTask AnswerUnknownMessageAsync(
+        SshTransportHandshake transport,
+        SshUserAuthentication authentication,
+        byte messageNumber,
+        CancellationToken cancellationToken)
+    {
+        if (messageNumber is >= SshMessageNumber.FirstConnectionMessage and <= SshMessageNumber.LastConnectionMessage && !authentication.IsLoggedIn)
+        {
+            throw SshDisconnectRequiredException.ProtocolError($"The client sent SSH message {messageNumber} before it logged in.");
+        }
+
+        var unimplemented = new SshWireWriter();
+        unimplemented.WriteByte(SshMessageNumber.Unimplemented);
+        unimplemented.WriteUInt32(unchecked(transport.PacketReader!.SequenceNumber - 1));
+
+        return transport.WriteAsync(unimplemented.ToArray(), cancellationToken);
     }
 
     // The DISCONNECT gets one second to be written, sealed with the server's keys in force, and

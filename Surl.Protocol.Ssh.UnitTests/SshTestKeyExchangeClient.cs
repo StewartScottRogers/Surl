@@ -38,13 +38,14 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         string cipher = "aes128-ctr",
         string mac = "hmac-sha2-256",
         string? cipherServerToClient = null,
-        string? macServerToClient = null)
+        string? macServerToClient = null,
+        bool extensionInfo = false)
     {
         this.keyExchange = keyExchange;
         this.hostKeyAlgorithm = hostKeyAlgorithm;
         this.padClientValue = padClientValue;
         KexInitPayload = ClientKexInitPayload(
-            keyExchange: keyExchange + (strict ? ",kex-strict-c-v00@openssh.com" : string.Empty),
+            keyExchange: keyExchange + (extensionInfo ? ",ext-info-c" : string.Empty) + (strict ? ",kex-strict-c-v00@openssh.com" : string.Empty),
             hostKey: hostKeyAlgorithm,
             cipher: cipher,
             mac: mac,

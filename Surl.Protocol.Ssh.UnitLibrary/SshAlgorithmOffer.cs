@@ -28,6 +28,12 @@ public sealed record SshAlgorithmOffer(
     /// </summary>
     public const string StrictKeyExchangeClientMarker = "kex-strict-c-v00@openssh.com";
 
+    /// <summary>
+    /// The pseudo-algorithm a client lists to take <c>SSH_MSG_EXT_INFO</c> after the first
+    /// <c>NEWKEYS</c> (RFC 8308, section 2.1; ADR-0051 decision 2.1).
+    /// </summary>
+    public const string ExtensionInfoClientMarker = "ext-info-c";
+
     private static readonly string[] HostKeyOrder =
     [
         "ssh-ed25519",

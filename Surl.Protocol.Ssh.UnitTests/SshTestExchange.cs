@@ -21,7 +21,8 @@ internal static class SshTestExchange
 
     public static SshAlgorithmOffer RsaOffer { get; } = SshAlgorithmOffer.Default(["rsa-sha2-512", "rsa-sha2-256"], aesGcmIsSupported: true);
 
-    public static SshProtocolServer Server(SshAlgorithmOffer? offer = null) => new(RsaHostKeys, offer ?? RsaOffer, new FixedRandomSource());
+    public static SshProtocolServer Server(SshAlgorithmOffer? offer = null, ISshAuthenticationPolicy? policy = null) =>
+        new(RsaHostKeys, offer ?? RsaOffer, policy ?? new AnonymousAuthenticationPolicy(), new FixedRandomSource());
 
     /// <summary>A set holding <see cref="SshTestKeys.Rsa2048"/> alone, as <see cref="RsaOffer"/> assumes.</summary>
     public static SshHostKeySet RsaHostKeys => SshTestKeys.HostKeysOf(SshTestKeys.Rsa2048);
