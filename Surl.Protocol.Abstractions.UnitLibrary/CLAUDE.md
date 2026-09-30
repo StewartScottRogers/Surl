@@ -46,6 +46,13 @@ What it holds:
   base64 framing; the policy owns every mechanism. `AnonymousAuthenticationPolicy` implements
   it too: it offers `PLAIN` and the clear-password login, and ends every exchange
   `AcceptedUnchecked` in the fewest steps (the initial response, or one empty challenge).
+- The SSH login contract (ADR-0051, section 7), beside `IAuthenticationPolicy`:
+  `ISshAuthenticationPolicy` judges an `SshNoneLogin`, an `SshPasswordLogin` (`password` or
+  `keyboard-interactive`) and an `SshPublicKeyLogin` (with its `SshPublicKeyProof`: a query,
+  or a signature the server has already verified or not), each as an `SshLoginVerdict` with
+  its `SshLoginOutcome`. The server owns the RFC 4252 framing and the signature check; the
+  policy owns the accounts, keys, delay and note. `AnonymousAuthenticationPolicy` implements
+  it too: every login `AcceptedUnchecked` and every public-key query `KeyAcceptable`.
 
 There is no in-memory datagram flow here: TFTP is its only user, so its tests drive the
 server through their own hand-written `ScriptedDatagramFlow` (BL-037, in

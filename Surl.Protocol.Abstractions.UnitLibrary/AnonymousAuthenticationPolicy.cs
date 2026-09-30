@@ -1,19 +1,28 @@
 namespace Surl.Protocol.Abstractions;
 
 /// <summary>
-/// An <see cref="IAuthenticationPolicy"/> and <see cref="IMailAuthenticationPolicy"/> that lets
-/// everyone in (ADR-0032, section 6; ADR-0049, section 6): every password login is
+/// An <see cref="IAuthenticationPolicy"/>, <see cref="IMailAuthenticationPolicy"/> and
+/// <see cref="ISshAuthenticationPolicy"/> that lets everyone in (ADR-0032, section 6; ADR-0049,
+/// section 6; ADR-0051, section 7): every password login is
 /// <see cref="PasswordLoginVerdict.AcceptedUnchecked"/>, every HTTP request
 /// <see cref="HttpAuthenticationOutcome.Proceed"/>s with no <c>WWW-Authenticate</c> values and
 /// no account, and every mail login ends <see cref="MailLoginOutcome.AcceptedUnchecked"/> - the
 /// behaviour of <c>--allow-anonymous</c>. A mail server is offered <c>PLAIN</c> and the
 /// clear-password login but not <c>APOP</c>, and any SASL mechanism is accepted on its initial
-/// response, or on whatever answers one empty challenge when none was sent. It is the test double
-/// protocol tests share, and the policy a server's policy-less constructor passes until BL-117
-/// composes the real one.
+/// response, or on whatever answers one empty challenge when none was sent. Every SSH
+/// <c>none</c>, password and signed public-key login is
+/// <see cref="SshLoginOutcome.AcceptedUnchecked"/> and every public-key query
+/// <see cref="SshLoginOutcome.KeyAcceptable"/>, with no note, so upstream curl completes its login
+/// in one <c>none</c> request. It is the test double protocol tests share, and the policy a
+/// server's policy-less constructor passes until BL-117 composes the real one.
 /// </summary>
-public sealed class AnonymousAuthenticationPolicy : IAuthenticationPolicy, IMailAuthenticationPolicy
+public sealed class AnonymousAuthenticationPolicy :
+    IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy
 {
+    private static readonly SshLoginVerdict SshAcceptUnchecked = new(SshLoginOutcome.AcceptedUnchecked, null, null);
+
+    private static readonly SshLoginVerdict SshKeyAcceptable = new(SshLoginOutcome.KeyAcceptable, null, null);
+
     private static readonly HttpAuthenticationVerdict ProceedAnonymously =
         new(HttpAuthenticationOutcome.Proceed, [], null);
 
@@ -58,6 +67,34 @@ public sealed class AnonymousAuthenticationPolicy : IAuthenticationPolicy, IMail
         cancellationToken.ThrowIfCancellationRequested();
 
         return ValueTask.FromResult(AcceptUnchecked);
+    }
+
+    /// <inheritdoc/>
+    public SshLoginVerdict CheckSshNoneLogin(SshNoneLogin login)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+
+        return SshAcceptUnchecked;
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<SshLoginVerdict> CheckSshPasswordLoginAsync(
+        SshPasswordLogin login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return ValueTask.FromResult(SshAcceptUnchecked);
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<SshLoginVerdict> CheckSshPublicKeyLoginAsync(
+        SshPublicKeyLogin login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return ValueTask.FromResult(login.Proof == SshPublicKeyProof.None ? SshKeyAcceptable : SshAcceptUnchecked);
     }
 
     private sealed class AnonymousHttpAuthenticationSession : IHttpAuthenticationSession

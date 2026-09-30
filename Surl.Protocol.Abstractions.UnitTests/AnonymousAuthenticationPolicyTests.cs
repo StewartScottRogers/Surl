@@ -228,6 +228,107 @@ public sealed class AnonymousAuthenticationPolicyTests
             async () => await policy.CheckApopLoginAsync(ApopLogin, new CancellationToken(canceled: true)));
     }
 
+    [TestMethod]
+    public void CheckSshNoneLogin_AnyUser_IsAcceptedUncheckedWithNoNote()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        var verdict = policy.CheckSshNoneLogin(new SshNoneLogin(null));
+
+        AssertSshVerdict(SshLoginOutcome.AcceptedUnchecked, verdict);
+    }
+
+    [TestMethod]
+    public void CheckSshNoneLogin_NullLogin_Throws()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => policy.CheckSshNoneLogin(null!));
+    }
+
+    [TestMethod]
+    [DataRow("password")]
+    [DataRow("keyboard-interactive")]
+    public async Task CheckSshPasswordLoginAsync_AnyPassword_IsAcceptedUncheckedWithNoNote(string method)
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        var verdict = await policy.CheckSshPasswordLoginAsync(
+            new SshPasswordLogin(method, "alice", new ReadOnlyMemory<byte>([0x70])), CancellationToken.None);
+
+        AssertSshVerdict(SshLoginOutcome.AcceptedUnchecked, verdict);
+    }
+
+    [TestMethod]
+    public async Task CheckSshPasswordLoginAsync_NullLogin_Throws()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+            async () => await policy.CheckSshPasswordLoginAsync(null!, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task CheckSshPasswordLoginAsync_Cancelled_Throws()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            async () => await policy.CheckSshPasswordLoginAsync(
+                new SshPasswordLogin("password", "alice", ReadOnlyMemory<byte>.Empty), new CancellationToken(canceled: true)));
+    }
+
+    [TestMethod]
+    public async Task CheckSshPublicKeyLoginAsync_Query_IsKeyAcceptableWithNoNote()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        var verdict = await policy.CheckSshPublicKeyLoginAsync(SshPublicKeyLoginWith(SshPublicKeyProof.None), CancellationToken.None);
+
+        AssertSshVerdict(SshLoginOutcome.KeyAcceptable, verdict);
+    }
+
+    [TestMethod]
+    [DataRow(SshPublicKeyProof.ValidSignature)]
+    [DataRow(SshPublicKeyProof.InvalidSignature)]
+    public async Task CheckSshPublicKeyLoginAsync_SignedWhateverTheSignature_IsAcceptedUncheckedWithNoNote(SshPublicKeyProof proof)
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        var verdict = await policy.CheckSshPublicKeyLoginAsync(SshPublicKeyLoginWith(proof), CancellationToken.None);
+
+        AssertSshVerdict(SshLoginOutcome.AcceptedUnchecked, verdict);
+    }
+
+    [TestMethod]
+    public async Task CheckSshPublicKeyLoginAsync_NullLogin_Throws()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+            async () => await policy.CheckSshPublicKeyLoginAsync(null!, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task CheckSshPublicKeyLoginAsync_Cancelled_Throws()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            async () => await policy.CheckSshPublicKeyLoginAsync(
+                SshPublicKeyLoginWith(SshPublicKeyProof.None), new CancellationToken(canceled: true)));
+    }
+
+    private static SshPublicKeyLogin SshPublicKeyLoginWith(SshPublicKeyProof proof) =>
+        new("alice", "ssh-ed25519", new ReadOnlyMemory<byte>([0x00, 0x0b]), proof);
+
+    private static void AssertSshVerdict(SshLoginOutcome expectedOutcome, SshLoginVerdict verdict)
+    {
+        Assert.AreEqual(expectedOutcome, verdict.Outcome);
+        Assert.IsNull(verdict.AccountName);
+        Assert.IsNull(verdict.CheckedLogin);
+    }
+
     private static void AssertAcceptedUnchecked(MailLoginStep step)
     {
         Assert.AreEqual(MailLoginOutcome.AcceptedUnchecked, step.Outcome);
