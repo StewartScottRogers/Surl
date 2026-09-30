@@ -1,5 +1,5 @@
 ---
-id: BL-259
+id: BL-260
 title: Log SASL GSSAPI's Kerberos refusal reason at the verbose level
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-046
 created: 2026-09-30
 completed:
 ---
-# BL-259 — Log SASL GSSAPI's Kerberos refusal reason at the verbose level
+# BL-260 — Log SASL GSSAPI's Kerberos refusal reason at the verbose level
 
 ## Goal
 

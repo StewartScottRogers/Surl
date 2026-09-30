@@ -114,7 +114,7 @@ offered first in the mechanism list (ADR-0049 decision 2). `--auth gssapi` stops
   user, every later refusal names the principal; under `--allow-anonymous` a client wrap token
   that fails its check or chooses another layer is still refused, since decision 9 skips only
   the account match.
-- Not done here, filed as BL-259: ADR-0057 decision 4's `Kerberos: <reason>` verbose log line.
+- Not done here, filed as BL-260: ADR-0057 decision 4's `Kerberos: <reason>` verbose log line.
   `MailLoginStep` has no field for it, so it needs a contract change across the mail servers.
 - Measured: `Measure-CodeQuality.ps1` reports 100% line and branch and 0 failing members for
   `Surl.Authentication.UnitLibrary`, `Surl.Cli.UnitLibrary` and `Surl.Console`.
