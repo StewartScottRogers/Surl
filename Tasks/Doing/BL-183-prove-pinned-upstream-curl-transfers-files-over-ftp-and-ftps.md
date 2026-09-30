@@ -47,3 +47,4 @@ upstream curl 8.21.0 builds complete every command line BL-173's ADR lists again
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
