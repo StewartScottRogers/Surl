@@ -54,6 +54,16 @@ What it holds:
   policy owns the accounts, keys, delay and note. `AnonymousAuthenticationPolicy` implements
   it too: every login `AcceptedUnchecked` and every public-key query `KeyAcceptable`.
 
+- The FTP data-connection seam (ADR-0052, decision 9): `IDataConnectionOpener` (a passive
+  listener, `IPassiveDataListener`, or an active connection, each an `IConnection`), a failure
+  as `DataConnectionException` with its `DataConnectionFailure`, and
+  `ExchangeContext.DataConnections`, whose default `RefusingDataConnectionOpener` refuses every
+  request with `Unavailable`. `Surl.Networking` implements it over sockets. Its test double is
+  `InMemoryDataConnections`: a script of passive listeners (each an
+  `InMemoryPassiveDataListener` handing out one scripted `InMemoryConnection`, or none so the
+  accept times out) and active connections or failures, with every request recorded as a
+  `PassiveListenerRequest` or `ActiveConnectionRequest`.
+
 There is no in-memory datagram flow here: TFTP is its only user, so its tests drive the
 server through their own hand-written `ScriptedDatagramFlow` (BL-037, in
 `Surl.Protocol.Tftp.UnitTests`).
