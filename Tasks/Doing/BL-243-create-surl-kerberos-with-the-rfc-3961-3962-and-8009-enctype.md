@@ -92,3 +92,4 @@ in `Surl.slnx` and encrypts, decrypts and checksums with the four AES Kerberos e
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-217 (ADR-0057 decision 12).
+- 2026-09-30: Backlog -> Doing.
