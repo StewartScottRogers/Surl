@@ -79,7 +79,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy
     internal Task WaitRefusalDelayAsync(CancellationToken cancellationToken) =>
         Task.Delay(RefusalDelay, timeProvider, cancellationToken);
 
-    internal bool OffersPlaintextSecrets(bool isEncrypted) => isEncrypted || settings.AllowPlaintextAuth;
+    internal bool OffersPlaintextSecrets(bool isEncrypted) => isEncrypted || settings.AllowPlaintextAuthentication;
 
     private PasswordLoginVerdict JudgePasswordLogin(PasswordLogin login)
     {

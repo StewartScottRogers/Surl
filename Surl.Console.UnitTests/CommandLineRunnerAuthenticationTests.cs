@@ -133,7 +133,7 @@ public sealed class CommandLineRunnerAuthenticationTests
 
         Assert.IsFalse(settings.Accounts.HasAccounts);
         Assert.IsFalse(settings.AllowAnonymous);
-        Assert.IsFalse(settings.AllowPlaintextAuth);
+        Assert.IsFalse(settings.AllowPlaintextAuthentication);
         Assert.AreSame(AuthenticationMethods.DefaultAccepted, settings.AcceptedMethods);
     }
 
@@ -144,7 +144,7 @@ public sealed class CommandLineRunnerAuthenticationTests
             Parse("--allow-anonymous", "--allow-plaintext-auth", "--auth", "bearer,digest", Http), []);
 
         Assert.IsTrue(settings.AllowAnonymous);
-        Assert.IsTrue(settings.AllowPlaintextAuth);
+        Assert.IsTrue(settings.AllowPlaintextAuthentication);
         Assert.IsTrue(settings.AcceptedMethods.SetEquals([AuthenticationMethod.Digest, AuthenticationMethod.Bearer]));
     }
 
