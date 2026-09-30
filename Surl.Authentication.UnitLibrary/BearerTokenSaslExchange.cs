@@ -8,8 +8,9 @@ namespace Surl.Authentication;
 /// challenge when no initial response was sent, then a response of <c>key=value</c> pairs each
 /// ended by <c>\x01</c>, with a final <c>\x01</c>, one of them <c>auth=Bearer &lt;token&gt;</c>.
 /// The token is checked against the empty-name account as HTTP Bearer's is (ADR-0032, sections 1
-/// and 3); the user name and <c>a=</c> are not matched, since a token account has no name. A
-/// refused token is answered, after the refusal delay, with the error challenge
+/// and 3); the user name and <c>a=</c> are not matched, since a token account has no name, but an
+/// accepted login's account name is that user, the mailbox owner the session acts as (ADR-0050,
+/// decision 2). A refused token is answered, after the refusal delay, with the error challenge
 /// <c>{"status":"invalid_token"}</c> (RFC 7628 section 3.2.2), and whatever the client sends next
 /// ends the login refused, not delayed again and with no note. The response is read one byte per
 /// character (Latin-1), so the token is compared as the bytes sent.
@@ -44,15 +45,15 @@ internal abstract class BearerTokenSaslExchange(SaslExchangeContext context) : S
 
         return Context.IsUnchecked
             ? ValueTask.FromResult(AcceptedUnchecked)
-            : CheckAsync(ReadToken(Encoding.Latin1.GetString(message.Span)), cancellationToken);
+            : CheckAsync(ReadLogin(Encoding.Latin1.GetString(message.Span)), cancellationToken);
     }
 
     /// <summary>
-    /// The bearer token <paramref name="message"/> carries in this mechanism's format.
+    /// The user and bearer token <paramref name="message"/> carries in this mechanism's format.
     /// </summary>
     /// <param name="message">The response, one character per byte.</param>
-    /// <returns>The token, or <see langword="null"/> when the response is malformed.</returns>
-    protected abstract string? ReadToken(string message);
+    /// <returns>The user and token, or <see langword="null"/> when the response is malformed.</returns>
+    protected abstract BearerLogin? ReadLogin(string message);
 
     /// <summary>
     /// Reads <c>key=value\x01</c> pairs ended by a final <c>\x01</c> (RFC 7628, section 3.1).
@@ -90,12 +91,13 @@ internal abstract class BearerTokenSaslExchange(SaslExchangeContext context) : S
             ? auth[BearerPrefix.Length..]
             : null;
 
-    private async ValueTask<MailLoginStep> CheckAsync(string? token, CancellationToken cancellationToken)
+    private async ValueTask<MailLoginStep> CheckAsync(BearerLogin? login, CancellationToken cancellationToken)
     {
+        var token = login?.Token;
         // A malformed response still costs one comparison, as a wrong token does (ADR-0032, section 8).
         if (Context.Accounts.CheckBearerToken(Encoding.Latin1.GetBytes(token ?? string.Empty)) & token is not null)
         {
-            return Accept(string.Empty, CheckedLogin.BearerTokenUser);
+            return Accept(login!.Value.User, CheckedLogin.BearerTokenUser);
         }
 
         await Context.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);

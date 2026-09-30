@@ -49,8 +49,8 @@ public sealed class PlainTextSaslMechanismTests
     [TestMethod]
     [DataRow("PLAIN", CurlPlain, null, "user", "Login accepted: PLAIN user", DisplayName = "PLAIN")]
     [DataRow("LOGIN", CurlLoginUser, CurlLoginPassword, "user", "Login accepted: LOGIN user", DisplayName = "LOGIN")]
-    [DataRow("XOAUTH2", CurlXOAuth2, null, "", "Login accepted: XOAUTH2 bearer token", DisplayName = "XOAUTH2")]
-    [DataRow("OAUTHBEARER", CurlOAuthBearer, null, "", "Login accepted: OAUTHBEARER bearer token", DisplayName = "OAUTHBEARER")]
+    [DataRow("XOAUTH2", CurlXOAuth2, null, "user", "Login accepted: XOAUTH2 bearer token", DisplayName = "XOAUTH2")]
+    [DataRow("OAUTHBEARER", CurlOAuthBearer, null, "user", "Login accepted: OAUTHBEARER bearer token", DisplayName = "OAUTHBEARER")]
     public async Task CurlsLoginOverTls_IsAcceptedUndelayedWithTheNote(
         string mechanism, string initialResponse, string? secondResponse, string accountName, string note)
     {
@@ -345,14 +345,16 @@ public sealed class PlainTextSaslMechanismTests
     }
 
     [TestMethod]
-    [DataRow("n,,\u0001auth=Bearer tok\u0001\u0001", DisplayName = "no authzid")]
-    [DataRow("y,a=someone,\u0001auth=bearer tok\u0001\u0001", DisplayName = "y flag, lower-case scheme")]
-    public async Task OAuthBearer_OtherWellFormedHeaders_AreAccepted(string latin1Response)
+    [DataRow("n,,\u0001auth=Bearer tok\u0001\u0001", "", DisplayName = "no authzid")]
+    [DataRow("n,a=,\u0001auth=Bearer tok\u0001\u0001", "", DisplayName = "empty authzid")]
+    [DataRow("y,a=someone,\u0001auth=bearer tok\u0001\u0001", "someone", DisplayName = "y flag, lower-case scheme")]
+    [DataRow("n,a=a=3Db=2Cc,\u0001auth=Bearer tok\u0001\u0001", "a=b,c", DisplayName = "escaped authzid")]
+    public async Task OAuthBearer_OtherWellFormedHeaders_AreAcceptedAsTheAuthzid(string latin1Response, string accountName)
     {
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(), "OAUTHBEARER", Encoding.Latin1.GetBytes(latin1Response), PolicyFixture.Tls));
 
-        AssertStep(MailLoginOutcome.Accepted, string.Empty, string.Empty, "Login accepted: OAUTHBEARER bearer token", steps[0]);
+        AssertStep(MailLoginOutcome.Accepted, string.Empty, accountName, "Login accepted: OAUTHBEARER bearer token", steps[0]);
     }
 
     private async Task AssertMalformedBearerResponseAsync(string mechanism, string latin1Response)
