@@ -8,7 +8,7 @@ depends-on: [BL-221]
 touches: [Surl.Console, Surl.Console.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
 requirement: FR-041
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-250 — Serve --allow-weak-ssh-algorithms in surl once the SSH server offers the weak algorithms
 
@@ -34,14 +34,14 @@ warning, instead of refusing the option as not available in this build.
 
 ## Acceptance criteria
 
-- [ ] A fast `Surl.Console.UnitTests` test shows `--allow-weak-ssh-algorithms` with an `sftp://`
+- [x] A fast `Surl.Console.UnitTests` test shows `--allow-weak-ssh-algorithms` with an `sftp://`
       URL starts a listener, and the SSH server's `KEXINIT` (through `FakeConnection`) names a weak
       algorithm BL-221 added; without the option it names none.
-- [ ] The warning line of ADR-0051 decision 11 is written from the info level up, whenever the
+- [x] The warning line of ADR-0051 decision 11 is written from the info level up, whenever the
       option is given, after the `--throwaway-hostkey` line; `-s` hides it.
-- [ ] `surl: (2) --allow-weak-ssh-algorithms is not available in this build` is gone from the
+- [x] `surl: (2) --allow-weak-ssh-algorithms is not available in this build` is gone from the
       code, the manual and `--aihelp`; `AiHelpTextTests`, `ManualTextTests` and `HelpTextTests` pass.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Measure-CodeQuality.ps1`
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Measure-CodeQuality.ps1`
       reports 100% line and branch coverage and no failing member in `Surl.Console` and
       `Surl.Cli.UnitLibrary`.
 
@@ -51,3 +51,4 @@ warning, instead of refusing the option as not available in this build.
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. surl --allow-weak-ssh-algorithms offers ADR-0051's weak SSH algorithms and writes decision 11's warning
