@@ -83,3 +83,4 @@ The six empty projects ADR-0061 names exist, are listed in `Surl.slnx`, and
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
