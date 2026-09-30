@@ -45,3 +45,4 @@ and `Surl.Kerberos.TestKdc.UnitTests` as the test-fixture pair ADR-0065 decision
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
