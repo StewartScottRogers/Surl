@@ -54,3 +54,4 @@ from its file when a server fetches them instead of holding every message in mem
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
