@@ -52,3 +52,4 @@ the discard of bytes read past a `STARTTLS`/`STLS` line, and base64 SASL continu
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
