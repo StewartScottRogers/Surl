@@ -30,7 +30,10 @@ away by `FtpLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`) o
 server is constructed with `isAuthTlsAvailable` (a listener certificate), `534` otherwise;
 `PBSZ` after TLS, `PROT C`/`P` after `PBSZ`, `CCC` always `534`. Under `PROT P` - the default on
 `ftps` - `FtpDataConnections.ProtectAsync` upgrades each data connection after its `150`, and a
-failed handshake is `425`.
+failed handshake is `425`. BL-230 (decision 10) answers the engine's cancellation of the
+exchange - its idle timeout or maximum duration - with `421 Timeout, closing`, written after any
+data connection is closed and within `LimitReplyWriteDeadline` on its own deadline, since the
+exchange's token is already cancelled.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing

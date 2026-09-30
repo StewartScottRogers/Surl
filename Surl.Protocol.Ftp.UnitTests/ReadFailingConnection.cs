@@ -11,6 +11,8 @@ internal sealed class ReadFailingConnection(IEnumerable<ReadOnlyMemory<byte>> in
 {
     private readonly InMemoryConnection inner = new(inboundChunks);
 
+    public byte[] WrittenBytes => inner.WrittenBytes;
+
     public bool Aborted => inner.Aborted;
 
     public EndPoint LocalEndPoint => inner.LocalEndPoint;

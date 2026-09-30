@@ -17,6 +17,7 @@ internal static class FtpTestExchange
     public const string Greeting = "220 surl FTP server ready\r\n";
     public const string HeadTimedOutReply = "421 Timeout waiting for a command\r\n";
     public const string LineTooLongReply = "500 Command line too long\r\n";
+    public const string ExchangeCancelledReply = "421 Timeout, closing\r\n";
     public const string LoggedIn = "230 Logged in\r\n";
 
     /// <summary>The bytes of <c>/a.txt</c>.</summary>
