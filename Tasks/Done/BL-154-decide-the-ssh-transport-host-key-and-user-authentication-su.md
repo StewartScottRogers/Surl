@@ -8,7 +8,7 @@ depends-on: [BL-148]
 touches: [Documentation/Planning/Decisions]
 requirement: FR-039
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-154 — Decide the SSH transport, host key and user authentication surl offers upstream curl
 
@@ -86,22 +86,40 @@ built without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", records each measurement with the build path, its SHA-256,
       the tool and arguments, the date, and the decoded name-lists.
-- [ ] It decides every point in Context: identification string; each algorithm list in server
+- [x] It decides every point in Context: identification string; each algorithm list in server
       order with the task that builds each entry; host-key source, options, descriptions,
       categories, refusals, exit codes and texts; fingerprint display; user-auth methods, the
       authorized-keys source and format, the contract types (as C#, as ADR-0032 section 6 did)
       that leave `IAuthenticationPolicy`'s implementers unchanged; attempts; `--allow-anonymous`;
       limits and `DISCONNECT` codes; verbose notes; the help category.
-- [ ] Every algorithm in the measured lists is either assigned to a task on the board or
+- [x] Every algorithm in the measured lists is either assigned to a task on the board or
       decided with a task filed by `task-planner`, listed in this task's Log.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR.
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR.
 
 ## Notes
 
+- Decided in [ADR-0051](../../Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md).
+- Measured 2026-09-29 with the Windows reference build only (runs A to I in the ADR). Without
+  `-k`, `--hostpubsha256`/`--hostpubmd5` or a `known_hosts` file, curl 8.21.0 exits 2 before it
+  connects ("Could not find a known_hosts file"), so every later SSH test needs a pin or `-k`.
+  The WinCNG backend offers no ECDH, curve25519, Ed25519, ECDSA or AES-GCM; it negotiates
+  `diffie-hellman-group-exchange-sha256`, `rsa-sha2-512` and `chacha20-poly1305@openssh.com`.
+  The Linux and macOS lists are left to BL-172 on CI, as the task said.
+- Weak algorithms (SHA-1, MD5, CBC, RC4, 3DES, DH group 1, DSA) are behind the new
+  `--allow-weak-ssh-algorithms`, not on by default, following Stewart's secure-by-default rule
+  (2026-09-29). Nothing measured is left out.
+- The fixtures stay in the ADR as hex: this task's touches do not include
+  `Surl.Protocol.Ssh.UnitTests`; BL-159 re-records runs D and F as fixtures.
+
 ## Log
+
+- 2026-09-29: Filed by task-planner for ADR-0051: BL-219 (RC4 library), BL-220 (bcrypt_pbkdf
+  library), BL-221 (weak SSH algorithms), BL-222 (host certificates, `--hostcert`), BL-223
+  (encrypted OpenSSH host keys).
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0051 accepted; BL-219 to BL-223 filed
