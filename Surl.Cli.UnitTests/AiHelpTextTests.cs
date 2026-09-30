@@ -565,6 +565,7 @@ public sealed partial class AiHelpTextTests
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
             "surl: (2) --<option> is not available in this build",
+            "surl: (2) --auth <word> is not available in this build",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

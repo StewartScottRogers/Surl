@@ -43,11 +43,14 @@ internal static class OptionArgumentReader
     public const string EmptyUserName = "the user name is empty";
 
     /// <summary>
-    /// The <c>--auth</c> words in ADR-0032 section 3's listing order, the order
-    /// <see cref="ReadAuthenticationMethods"/> returns them in.
+    /// The <c>--auth</c> words in ADR-0032 section 3's listing order, as ADR-0049 section 3 grows
+    /// it, the order <see cref="ReadAuthenticationMethods"/> returns them in.
     /// </summary>
     public static readonly IReadOnlyList<string> AuthenticationMethodWords =
-        ["negotiate", "ntlm", "digest", "basic", "bearer", "aws-sigv4"];
+    [
+        "negotiate", "gssapi", "ntlm", "digest", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
+        "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4",
+    ];
 
     private const string SizeSuffixes = "kmgtp";
     private const decimal BytesPerSuffixStep = 1024m;

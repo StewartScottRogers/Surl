@@ -15,14 +15,22 @@ internal static class AuthenticationComposition
 {
     private const string WarningPrefix = "surl: warning: ";
 
-    // The method each --auth word names (ADR-0032, section 3).
+    // The method each --auth word names (ADR-0032 section 3, as ADR-0049 section 3 grows it).
+    // gssapi and external are refused as not available before the policy is composed.
     private static readonly Dictionary<string, AuthenticationMethod> MethodsByWord = new(StringComparer.Ordinal)
     {
         ["negotiate"] = AuthenticationMethod.Negotiate,
         ["ntlm"] = AuthenticationMethod.Ntlm,
         ["digest"] = AuthenticationMethod.Digest,
+        ["digest-md5"] = AuthenticationMethod.DigestMd5,
+        ["cram-md5"] = AuthenticationMethod.CramMd5,
+        ["apop"] = AuthenticationMethod.Apop,
         ["basic"] = AuthenticationMethod.Basic,
+        ["plain"] = AuthenticationMethod.Plain,
+        ["login"] = AuthenticationMethod.Login,
         ["bearer"] = AuthenticationMethod.Bearer,
+        ["oauthbearer"] = AuthenticationMethod.OAuthBearer,
+        ["xoauth2"] = AuthenticationMethod.XOAuth2,
         ["aws-sigv4"] = AuthenticationMethod.AwsSigV4,
     };
 

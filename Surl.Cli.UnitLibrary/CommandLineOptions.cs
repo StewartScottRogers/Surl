@@ -30,13 +30,19 @@ internal static class CommandLineOptions
         + "surl warns on every start while it is on, from the info log level up.";
 
     private const string AuthExplanation =
-        "Sets the HTTP authentication methods surl accepts and offers, a comma-separated list of basic, bearer, "
-        + "digest, ntlm, negotiate and aws-sigv4; the default is basic,bearer,digest,aws-sigv4. surl checks "
-        + "every one of the six, and refuses a word outside the list as an option badly used (exit code 2). A test uses it to offer one "
-        + "method alone, such as --auth digest for curl's --digest. ntlm and negotiate are not in the default "
-        + "because an NTLM response is built on MD4 and HMAC-MD5 of the password and is open to relay and offline "
-        + "cracking, and Negotiate carries NTLM. surl warns on every start while --auth is given, from the info log "
-        + "level up, naming the methods it accepts.";
+        "Sets the authentication methods surl accepts and offers, a comma-separated list in any case. For HTTP: "
+        + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL "
+        + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: ntlm, digest-md5, "
+        + "cram-md5, plain, login, oauthbearer and xoauth2, and apop for POP3's APOP; this build serves none of "
+        + "those three protocols yet. gssapi and external are read, but a start that gives either is refused as "
+        + "not available in this build (exit code 2). surl refuses a word outside the "
+        + "list as an option badly used (exit code 2). A test uses it to offer one method alone, such as --auth "
+        + "digest for curl's --digest. ntlm and negotiate are not in the default because an NTLM response is built "
+        + "on MD4 and HMAC-MD5 of the password and is open to relay and offline cracking, and Negotiate carries "
+        + "NTLM; digest-md5 is not because RFC 6331 made it Historic and curl picks it over every other mechanism; "
+        + "apop is not because its MD5 construction leaks password characters to anyone who can choose the "
+        + "timestamp it signs. surl warns on every start while --auth is given, from the info log level up, "
+        + "naming the methods it accepts.";
 
     private const string SelfSignedExplanation =
         "Serves a throwaway self-signed certificate, made at start, for a listen URL of a scheme that starts "
@@ -145,7 +151,7 @@ internal static class CommandLineOptions
             new(null, "Accept passwords in clear (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off",
                 AllowPlaintextAuthExplanation)),
         WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
-            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "basic,bearer,digest,aws-sigv4",
+            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,aws-sigv4",
                 AuthExplanation)),
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
             new(null, "Throwaway certificate (warns)", ["security", "testing", "tls"], IsInShortList: false, Default: "off",

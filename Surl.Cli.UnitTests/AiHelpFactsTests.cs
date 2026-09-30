@@ -225,7 +225,7 @@ public sealed class AiHelpFactsTests
     public void Auth_AllowedValues_AreTheMethodWordsTheReaderAccepts()
     {
         Assert.AreEqual(
-            "comma-separated, in any case, no empty item: negotiate, ntlm, digest, basic, bearer, aws-sigv4",
+            "comma-separated, in any case, no empty item: negotiate, gssapi, ntlm, digest, digest-md5, cram-md5, apop, basic, plain, login, bearer, oauthbearer, xoauth2, external, aws-sigv4",
             AllowedValuesOf("auth"));
 
         foreach (var word in OptionArgumentReader.AuthenticationMethodWords)

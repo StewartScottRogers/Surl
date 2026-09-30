@@ -346,7 +346,7 @@ public sealed class CommandLineParserTests
         Assert.IsFalse(defaults.AllowPlaintextAuthentication);
         Assert.IsFalse(defaults.SelfSigned);
         Assert.IsNull(defaults.GivenAuthenticationMethods);
-        CollectionAssert.AreEqual(new[] { "digest", "basic", "bearer", "aws-sigv4" }, defaults.AcceptedAuthenticationMethods.ToArray());
+        CollectionAssert.AreEqual(new[] { "digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "aws-sigv4" }, defaults.AcceptedAuthenticationMethods.ToArray());
     }
 
     [TestMethod]
@@ -448,6 +448,24 @@ public sealed class CommandLineParserTests
     [DataRow("aws-sigv4,Basic,negotiate", new[] { "negotiate", "basic", "aws-sigv4" }, DisplayName = "Section 3's order")]
     [DataRow("basic,bearer,digest,ntlm,negotiate,aws-sigv4", new[] { "negotiate", "ntlm", "digest", "basic", "bearer", "aws-sigv4" }, DisplayName = "Every word")]
     [DataRow("digest,DIGEST,digest", new[] { "digest" }, DisplayName = "A word given twice counts once")]
+    [DataRow("GSSAPI", new[] { "gssapi" }, DisplayName = "gssapi, any case")]
+    [DataRow("Digest-MD5", new[] { "digest-md5" }, DisplayName = "digest-md5, any case")]
+    [DataRow("CRAM-MD5", new[] { "cram-md5" }, DisplayName = "cram-md5, any case")]
+    [DataRow("APOP", new[] { "apop" }, DisplayName = "apop, any case")]
+    [DataRow("Plain", new[] { "plain" }, DisplayName = "plain, any case")]
+    [DataRow("LOGIN", new[] { "login" }, DisplayName = "login, any case")]
+    [DataRow("OAuthBearer", new[] { "oauthbearer" }, DisplayName = "oauthbearer, any case")]
+    [DataRow("XOAUTH2", new[] { "xoauth2" }, DisplayName = "xoauth2, any case")]
+    [DataRow("External", new[] { "external" }, DisplayName = "external, any case")]
+    [DataRow("plain,PLAIN,cram-md5,Plain", new[] { "cram-md5", "plain" }, DisplayName = "A mechanism word given twice counts once")]
+    [DataRow(
+        "aws-sigv4,external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlm,gssapi,negotiate",
+        new[]
+        {
+            "negotiate", "gssapi", "ntlm", "digest", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
+            "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4",
+        },
+        DisplayName = "Every word, in ADR-0049 section 3's order")]
     public void Parse_Auth_IsTheAcceptedMethodSet(string argument, string[] methods)
     {
         var commandLine = Served("--auth", argument, Url);
@@ -462,6 +480,8 @@ public sealed class CommandLineParserTests
 
     [TestMethod]
     [DataRow("--auth", "kerberos", DisplayName = "An unknown word")]
+    [DataRow("--auth", "scram-sha-1", DisplayName = "An unknown SASL mechanism")]
+    [DataRow("--auth", "plain,cram_md5", DisplayName = "An unknown word after a mechanism word")]
     [DataRow("--auth", "basic,,digest", DisplayName = "An empty item")]
     [DataRow("--auth", "basic,", DisplayName = "A trailing comma")]
     [DataRow("--auth", "basic, digest", DisplayName = "A space")]
