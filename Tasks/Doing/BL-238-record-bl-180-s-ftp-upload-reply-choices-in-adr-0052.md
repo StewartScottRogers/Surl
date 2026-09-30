@@ -48,3 +48,4 @@ management, including the cases BL-180 decided that the ADR left open.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
