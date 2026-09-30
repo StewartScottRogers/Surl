@@ -308,7 +308,11 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         return new SshLoginVerdict(SshLoginOutcome.Refused, null, new CheckedLogin(method, userName, false));
     }
 
-    internal AuthenticationSettings Settings => settings;
+    /// <summary>
+    /// Gets the accounts, the loosening options, the accepted methods, the authorized keys and the
+    /// Kerberos acceptor this policy judges by, as <c>Surl.Console</c> composed them.
+    /// </summary>
+    public AuthenticationSettings Settings => settings;
 
     internal ISaslNonceSource NonceSource { get; }
 

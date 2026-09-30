@@ -17,8 +17,10 @@ refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and
-`Surl.Cryptography.UnitLibrary` for MD4 and SHA-512/256 (ADR-0032 decision 7), and no
-protocol server. Protocol servers receive what it provides through the contracts in
+`Surl.Cryptography.UnitLibrary` for MD4 and SHA-512/256 (ADR-0032 decision 7), and
+`Surl.Kerberos.UnitLibrary` for the Kerberos acceptor (ADR-0057 decision 6), and no
+protocol server. `AuthenticationSettings.KerberosAcceptor` carries the acceptor `Surl.Console`
+builds from `--keytab` (`null` without one, BL-240); no authentication method reads it yet. Protocol servers receive what it provides through the contracts in
 Abstractions (`IAuthenticationPolicy`, `IMailAuthenticationPolicy`, `ISshAuthenticationPolicy`); `Surl.Console`'s `AuthenticationComposition`
 builds the policy from the command line.
 
