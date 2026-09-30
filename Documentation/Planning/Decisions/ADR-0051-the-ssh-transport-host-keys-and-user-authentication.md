@@ -12,7 +12,9 @@
   amended by [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md))
   is unchanged; SSH logins get a new interface beside it (decision 7).
 - **Amended by:** [ADR-0058](ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
-  the key exchange and host-key reading choices BL-160 made where decisions 2.1, 4 and 9 are silent.
+  the key exchange and host-key reading choices BL-160 made where decisions 2.1, 4 and 9 are silent;
+  [ADR-0060](ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md),
+  which replaces decision 2.2's fifth choice (BL-237).
 
 ## Context
 
@@ -271,9 +273,10 @@ BL-161 (FR-039), and recorded here on 2026-09-30 by BL-236, because BL-155 held
 5. **During a server-started re-exchange, an unexpected message before the client's `KEXINIT`
    is `DISCONNECT` 2.** Only `IGNORE`, `DEBUG` and `UNIMPLEMENTED` are skipped in that window.
    Why: when BL-161 was built no channel existed, so no other message could rightly arrive
-   there. BL-237 changes it: RFC 4253 section 9 lets the client keep sending until it sees the
-   server's `KEXINIT`, and a channel message sent then is to reach the connection layer instead
-   of ending a long transfer.
+   there. Replaced by [ADR-0060](ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md)
+   (BL-237): RFC 4253 section 9 lets the client keep sending until it sees the server's
+   `KEXINIT`, so such a message is now held and answered after `NEWKEYS`; only a key exchange
+   message there is still `DISCONNECT` 2.
 
 #### 2.3 The weak algorithms, as BL-221 built them
 
@@ -719,8 +722,8 @@ memberships.
   `GEX_REQUEST_OLD` are `DISCONNECT` 2, the server's ephemeral secrets, encrypted PKCS #8 and
   legacy PEM, Ed25519 and DSA until BL-168 and BL-221, OID-named key types, and the strict-kex
   sequence-number check.
-- Decision 2.2 records what BL-161 chose for transport messages and re-exchange; BL-237 is to
-  replace its fifth choice once channels exist.
+- Decision 2.2 records what BL-161 chose for transport messages and re-exchange; BL-237 replaced
+  its fifth choice with ADR-0060 once channels existed.
 - Five tasks are filed: BL-224 to BL-223. `Surl.Cryptography.Rc4` and
   `Surl.Cryptography.BcryptPbkdf` join ADR-0002's table.
 - `--pass`'s help description becomes `Passphrase for --key and --hostkey` (BL-158).
