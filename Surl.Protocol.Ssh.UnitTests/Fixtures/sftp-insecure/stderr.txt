@@ -1,0 +1,7 @@
+*   Trying 127.0.0.1:47301...
+* Established connection to 127.0.0.1 (127.0.0.1 port 47301) from 127.0.0.1 port 61298 
+* SSH: libssh2 cryptography backend: WinCNG
+* SSH: user ''
+* Failure establishing ssh session: -1, Unable to exchange encryption keys
+* closing connection #0
+curl: (2) Failure establishing ssh session: -1, Unable to exchange encryption keys
