@@ -8,7 +8,7 @@ depends-on: [BL-264]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-274 — Decide one name for the TLS-upgrade constructor parameter across FTP, SMTP, IMAP and POP3
 
@@ -42,26 +42,32 @@ or takes one name everywhere, and files the rename task(s) the decision needs.
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free ADR number, marked
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free ADR number, marked
       "Decided by Claude under Stewart's delegation", states the chosen name (or names) for the
       constructor parameter, the properties or fields behind it and the test helpers' parameters in
       `Surl.Console`, `Surl.Protocol.Ftp`, `Surl.Protocol.Smtp`, `Surl.Protocol.Imap` and
       `Surl.Protocol.Pop3`, and why, naming the alternative it rejected.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the new ADR.
-- [ ] Every rename the ADR decides is filed with `task-board.ps1 new` as a `docs` task assigned to
+- [x] `Documentation/Planning/Decisions/README.md` indexes the new ADR.
+- [x] Every rename the ADR decides is filed with `task-board.ps1 new` as a `docs` task assigned to
       Claude (renames only, no behaviour change), whose `touches` name exactly the libraries, their
       `.UnitTests` twins and `Documentation/Wiki/Glossary.md` it changes, and which updates the
       glossary's "TLS upgrade" row; the ADR names each task's ID. If the ADR decides the names stay
       as they are after BL-264, it says so and no task is filed.
-- [ ] No `.cs` file changes in this task.
+- [x] No `.cs` file changes in this task.
 
 ## Notes
 
 - `touches` is the Decisions folder only; the renames themselves, and the glossary row, belong to
   the tasks this ADR files, so they can run beside other work.
+- Decided: one name, `isTlsUpgradeAvailable`, for the parameter, field and test helpers in all
+  five projects (ADR-0069); per-command names rejected as three names for one setting. Test
+  and exchange names keep the command.
+- Filed one rename task, BL-280, for SMTP, IMAP and POP3 together: all three would touch the
+  glossary row anyway, so three tasks would only serialise on it.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-214; waits on BL-264, which renames the FTP parameter.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0069 decides isTlsUpgradeAvailable everywhere; BL-280 files the mail servers' rename
