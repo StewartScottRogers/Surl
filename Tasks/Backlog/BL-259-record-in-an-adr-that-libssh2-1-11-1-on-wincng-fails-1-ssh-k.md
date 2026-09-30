@@ -1,5 +1,5 @@
 ---
-id: BL-254
+id: BL-259
 title: Record in an ADR that libssh2 1.11.1 on WinCNG fails 1 SSH key exchange in 256 against a correct server
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-30
 completed:
 ---
-# BL-254 — Record in an ADR that libssh2 1.11.1 on WinCNG fails 1 SSH key exchange in 256 against a correct server
+# BL-259 — Record in an ADR that libssh2 1.11.1 on WinCNG fails 1 SSH key exchange in 256 against a correct server
 
 ## Goal
 

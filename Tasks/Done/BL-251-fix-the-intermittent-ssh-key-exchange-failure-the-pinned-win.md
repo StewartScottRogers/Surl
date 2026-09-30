@@ -99,7 +99,7 @@ failure was also explained by K alone.
 
 **Decision (by the task's own rule): no workaround in surl.** Redrawing y until K's top byte is
 non-zero would hide the client's defect and make the exchange's timing depend on the secret.
-The acceptance criterion's alternative applies: the ADR is filed as **BL-254** (`docs`,
+The acceptance criterion's alternative applies: the ADR is filed as **BL-259** (`docs`,
 touches `Documentation/Planning/Decisions`), which records this evidence. Until the pinned
 Windows build carries a libssh2 with PR #2583, the scp and sftp Integration tests against it
 can fail about 1 connection in 256. Pinning a newer build needs Stewart's approval for the
@@ -129,4 +129,4 @@ as they were.
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
-- 2026-09-30: Doing -> Done. Cause found: libssh2 1.11.1 WinCNG hashes a zero-topped K non-canonically (9/9 failures in 2000 runs); surl is RFC 4251-correct, fast tests pin it, ADR filed as BL-254
+- 2026-09-30: Doing -> Done. Cause found: libssh2 1.11.1 WinCNG hashes a zero-topped K non-canonically (9/9 failures in 2000 runs); surl is RFC 4251-correct, fast tests pin it, ADR filed as BL-259
