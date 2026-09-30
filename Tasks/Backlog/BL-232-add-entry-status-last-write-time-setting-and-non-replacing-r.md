@@ -1,5 +1,5 @@
 ---
-id: BL-230
+id: BL-232
 title: Add entry status, last-write-time setting and non-replacing rename to ContentStore
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-042
 created: 2026-09-29
 completed:
 ---
-# BL-230 — Add entry status, last-write-time setting and non-replacing rename to ContentStore
+# BL-232 — Add entry status, last-write-time setting and non-replacing rename to ContentStore
 
 ## Goal
 

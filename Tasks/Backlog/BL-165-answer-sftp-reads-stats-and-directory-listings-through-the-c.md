@@ -4,7 +4,7 @@ title: Answer SFTP reads, stats and directory listings through the content store
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-163, BL-155, BL-230]
+depends-on: [BL-163, BL-155, BL-232]
 touches: [Surl.Protocol.Ssh.UnitLibrary, Surl.Protocol.Ssh.UnitTests]
 requirement: FR-042
 created: 2026-09-29

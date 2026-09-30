@@ -1,16 +1,16 @@
 ---
-id: BL-231
+id: BL-233
 title: Add a random-access upload session to ContentStore
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-155, BL-230]
+depends-on: [BL-155, BL-232]
 touches: [Surl.Content.UnitLibrary, Surl.Content.UnitTests]
 requirement: FR-042
 created: 2026-09-29
 completed:
 ---
-# BL-231 — Add a random-access upload session to ContentStore
+# BL-233 — Add a random-access upload session to ContentStore
 
 ## Goal
 
@@ -35,7 +35,7 @@ so the SFTP server's `OPEN`/`WRITE`/`READ`/`SETSTAT SIZE` (BL-166) can be built 
 - The seam gains `IContentFileSystem.OpenFileForAsyncReadWrite(string)` (default throwing, ADR-0015
   decision 7's pattern) returning a seekable, readable, writable stream; the in-memory file system's
   write stream gains seeking and `SetLength`, still within `MaxTotalBytes`.
-- Depends on BL-230 only because both touch `Surl.Content`; they share no member.
+- Depends on BL-232 only because both touch `Surl.Content`; they share no member.
 
 ## Acceptance criteria
 

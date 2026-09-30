@@ -4,7 +4,7 @@ title: Answer SFTP writes and upstream curl's quote commands through the content
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-165, BL-230, BL-231]
+depends-on: [BL-165, BL-232, BL-233]
 touches: [Surl.Protocol.Ssh.UnitLibrary, Surl.Protocol.Ssh.UnitTests]
 requirement: FR-042
 created: 2026-09-29

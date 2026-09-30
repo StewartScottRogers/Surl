@@ -72,12 +72,12 @@ options, limits and refusals - so BL-164 to BL-166 can be built without a questi
   SCP upload commits when the announced size has arrived (libssh2 sends EOF, not a final `\0`);
   permission/owner changes, `SYMLINK` and every `EXTENDED` (`statvfs@openssh.com` too) answer
   `OP_UNSUPPORTED`, so those `-Q` commands exit 21; a peer learns no disk sizes.
-- `ContentStore` lacks four members the ADR needs (decision 14). Filed BL-230 (entry status,
-  last-write-time setting, non-replacing rename) and BL-231 (random-access upload session), both
-  touching `Surl.Content` only; BL-164 and BL-165 now depend on BL-230, BL-166 on BL-230 and BL-231.
+- `ContentStore` lacks four members the ADR needs (decision 14). Filed BL-232 (entry status,
+  last-write-time setting, non-replacing rename) and BL-233 (random-access upload session), both
+  touching `Surl.Content` only; BL-164 and BL-165 now depend on BL-232, BL-166 on BL-232 and BL-233.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
-- 2026-09-29: Doing -> Done. ADR-0054 decides how the SSH server answers curl 8.21.0's SCP and SFTP requests; BL-230 and BL-231 filed for ContentStore
+- 2026-09-29: Doing -> Done. ADR-0054 decides how the SSH server answers curl 8.21.0's SCP and SFTP requests; BL-232 and BL-233 filed for ContentStore
