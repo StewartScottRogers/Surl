@@ -48,3 +48,4 @@ with a typed failure; without one it stays in memory, so mail survives a restart
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
