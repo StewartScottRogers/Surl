@@ -84,3 +84,4 @@ a KDC can be stood up without Stewart, records what the pinned build actually se
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-217 (ADR-0057 decision 12).
+- 2026-09-30: Backlog -> Doing.
