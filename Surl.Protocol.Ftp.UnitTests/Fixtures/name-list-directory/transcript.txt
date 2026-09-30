@@ -1,0 +1,18 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> CWD dir
+< 250 Directory changed
+> EPSV
+< 229 Entering Extended Passive Mode (|||52881|)
+> TYPE A
+< 200 Type set to A
+> NLST
+< 150 Opening data connection for directory listing
+< 226 Transfer complete
+> QUIT
+< 221 Goodbye

@@ -15,8 +15,11 @@ connection - the greeting, bounded command lines (`FtpLineReader`), logins throu
 content store (`FtpPath`), and the commands that need no data connection. BL-178 (decisions 4
 and 6) added downloads: passive (`EPSV`, `PASV`) and active (`EPRT`, `PORT`) data connections
 through `ExchangeContext.DataConnections` (`FtpDataConnections`, `FtpActiveTargetParser`), and
-`SIZE`, `MDTM`, `REST`, `RETR` and `ABOR` in `FtpCommandResponder`. Every other command
-answers `502 Command not implemented` until its task (BL-179 to BL-181) builds it.
+`SIZE`, `MDTM`, `REST`, `RETR` and `ABOR` in `FtpCommandResponder`. BL-179 (decision 7)
+added listings: `LIST`, `NLST` and `MLSD` over a data connection, only with
+`--list-directories` (a directory listing is otherwise answered as a missing directory), and
+`MLST` on the control connection, in the forms `FtpListingFormat` writes. Every other command
+answers `502 Command not implemented` until its task (BL-180, BL-181) builds it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing

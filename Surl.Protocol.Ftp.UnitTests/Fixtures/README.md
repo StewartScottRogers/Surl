@@ -63,3 +63,22 @@ each was `.\Record-CurlExchange.ps1 -Port 18745 -Ftp -FtpData 'hello world\n' -F
 | `disable-epsv` | `--disable-epsv` | `PASV` in place of `EPSV` |
 | `active-eprt` | `-P -` | `EPRT \|1\|127.0.0.1\|<port>\|` in place of `EPSV`; the recorder dialled curl |
 | `active-port` | `-P -`, `--disable-eprt` | `PORT 127,0,0,1,<hi>,<lo>` in place of `EPSV` |
+
+## Listings (BL-179)
+
+Recorded on 2026-09-30 the same way, with `-FtpData` set to the listing surl sends for `/dir/`
+of the content store `RecordedListingTests` serves (the file `b.txt`, 4 bytes, and the
+directory `sub`, both last written 2026-09-27 12:34:56 UTC, with `--list-directories`), so curl
+printed surl's own bytes. `RecordedListingTests` replays each `request.bin` with an in-memory
+passive data connection on the port the recorder announced, and asserts the replies equal the
+`< ` lines and that the bytes surl sent on the data connection equal `stdout.bin`. Both cases
+exited 0 with an empty `stderr.txt`. With `$g` as above and
+
+```powershell
+$base = "GREETING=$g",'USER=331 Password required','PASS=230 Logged in','PWD=257 \"/\" is the current directory','CWD=250 Directory changed','EPSV=229 Entering Extended Passive Mode (|||{DATAPORT}|)','TYPE=200 Type set to A','QUIT=221 Goodbye'
+```
+
+| Folder | What curl did | Command line |
+| --- | --- | --- |
+| `list-directory` | `PWD`, `CWD dir`, `EPSV`, `TYPE A`, `LIST`, `QUIT`; printed the listing as sent | `.\Record-CurlExchange.ps1 -Port 18779 -Ftp -FtpData '-rw-r--r-- 1 surl surl            4 Sep 27 12:34 b.txt\r\ndrwxr-xr-x 1 surl surl            0 Sep 27 12:34 sub\r\n' -FtpReply ($base + 'LIST=150 Opening data connection for directory listing') -CurlArgs '-sS','ftp://127.0.0.1:18779/dir/' -OutDirectory Surl.Protocol.Ftp.UnitTests\Fixtures\list-directory` |
+| `name-list-directory` | as `list-directory` with `NLST`; printed the names as sent | `.\Record-CurlExchange.ps1 -Port 18779 -Ftp -FtpData 'b.txt\r\nsub\r\n' -FtpReply ($base + 'NLST=150 Opening data connection for directory listing') -CurlArgs '-sS','-l','ftp://127.0.0.1:18779/dir/' -OutDirectory Surl.Protocol.Ftp.UnitTests\Fixtures\name-list-directory` |

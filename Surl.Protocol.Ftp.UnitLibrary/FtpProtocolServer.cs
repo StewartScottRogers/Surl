@@ -32,8 +32,17 @@ namespace Surl.Protocol.Ftp;
 /// <c>FEAT</c>, <c>OPTS UTF8 ON</c>, <c>NOOP</c>, <c>HELP</c>, <c>ALLO</c>, <c>ACCT</c> and
 /// <c>QUIT</c>; and for downloads <c>EPSV</c>, <c>PASV</c>, <c>EPRT</c>, <c>PORT</c>,
 /// <c>SIZE</c>, <c>MDTM</c>, <c>REST</c>, <c>RETR</c> and <c>ABOR</c> (ADR-0052, decisions 4
-/// and 6). Every other command, the listing, upload and TLS commands included until they are
-/// built, is <c>502 Command not implemented</c>.
+/// and 6); and for listings <c>LIST</c>, <c>NLST</c>, <c>MLSD</c> and <c>MLST</c> (decision 7).
+/// Every other command, the upload and TLS commands included until they are built, is
+/// <c>502 Command not implemented</c>.
+/// </para>
+/// <para>
+/// <b>Listings.</b> <c>LIST</c>, <c>NLST</c> and <c>MLSD</c> of a directory are sent over a
+/// data connection only when the content store lists directories (<c>--list-directories</c>);
+/// otherwise each is <c>550 No such directory</c>, exactly as for a missing one, before any
+/// data connection is used. The content store leaves out <c>/.surl</c> and, unless
+/// <c>--serve-dot-files</c>, dot-files. <c>LIST</c> and <c>NLST</c> naming one file, and
+/// <c>MLST</c> of any exposed entry, are not directory listings and are answered either way.
 /// </para>
 /// <para>
 /// <b>Data connections.</b> The server never opens a socket: <c>EPSV</c> and <c>PASV</c> ask

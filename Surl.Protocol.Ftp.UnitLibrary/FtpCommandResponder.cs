@@ -9,15 +9,17 @@ namespace Surl.Protocol.Ftp;
 /// Answers the FTP commands of one control connection, one line at a time, and holds the
 /// session's state: the user name sent, whether the client is logged in, the current
 /// directory, the <c>REST</c> offset and the data connection prepared (ADR-0052, decisions 1
-/// to 4 and 6).
+/// to 4, 6 and 7).
 /// </summary>
 /// <remarks>
 /// Every reply is fixed text from the table below; the paths a reply echoes - the current
-/// directory in <c>257</c> and the file in <c>150</c> - are rendered by
-/// <see cref="FtpPath.ToQuotedReplyText"/> and <see cref="FtpPath.ToReplyText"/> (ADR-0006,
-/// section 3). The commands a later task answers - listings, uploads, file management and TLS -
-/// are answered <c>502 Command not implemented</c> until then, which is true of this server
-/// now. It is not safe for concurrent calls.
+/// directory in <c>257</c>, the file in <c>150</c> and the entry <c>MLST</c> describes - are
+/// rendered by <see cref="FtpPath.ToQuotedReplyText"/> and
+/// <see cref="FtpPath.ToReplyText(byte[])"/> (ADR-0006, section 3); a listing sent over a data
+/// connection names each entry in UTF-8, as <c>FEAT</c>'s <c>UTF8</c> says. The commands a later
+/// task answers - uploads, file management and TLS - are answered <c>502 Command not
+/// implemented</c> until then, which is true of this server now. It is not safe for concurrent
+/// calls.
 /// </remarks>
 internal sealed class FtpCommandResponder : IAsyncDisposable
 {
@@ -28,6 +30,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
     private const string TransferComplete = "226 Transfer complete";
     private const string TransferAborted = "426 Connection closed; transfer aborted";
     private const string FileUnreadable = "451 Cannot read the file";
+    private const string NoSuchDirectory = "550 No such directory";
 
     // Answered before login as they are after it; every other command is 530 until then.
     private static readonly HashSet<string> CommandsBeforeLogin = new(StringComparer.Ordinal)
@@ -76,7 +79,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
             ["MODE"] = argument => AnswerOneWordSettingAsync(argument, "S", "200 Mode set to S", "504 Mode not supported"),
             ["STRU"] = argument => AnswerOneWordSettingAsync(argument, "F", "200 Structure set to F", "504 Structure not supported"),
             ["SYST"] = _ => ReplyAsync("215 UNIX Type: L8"),
-            ["FEAT"] = _ => ReplyAsync("211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n211 End"),
+            ["FEAT"] = _ => ReplyAsync("211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n MLST type*;size*;modify*;\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n211 End"),
             ["EPSV"] = async argument => await ReplyAsync(await dataConnections.AnswerExtendedPassiveAsync(argument)),
             ["PASV"] = async _ => await ReplyAsync(await dataConnections.AnswerPassiveAsync()),
             ["EPRT"] = async argument => await ReplyAsync(await dataConnections.AnswerActiveAsync(argument, isExtended: true)),
@@ -85,6 +88,10 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
             ["MDTM"] = AnswerModificationTimeAsync,
             ["REST"] = AnswerRestartAsync,
             ["RETR"] = AnswerRetrieveAsync,
+            ["LIST"] = argument => AnswerListingAsync(WithoutLsOptions(argument), FtpListingFormat.LongLine, listsOneFile: true),
+            ["NLST"] = argument => AnswerListingAsync(WithoutLsOptions(argument), FtpListingFormat.NameLine, listsOneFile: true),
+            ["MLSD"] = argument => AnswerListingAsync(argument, FtpListingFormat.FactsLine, listsOneFile: false),
+            ["MLST"] = AnswerMachineListEntryAsync,
             ["ABOR"] = _ => ReplyAsync("226 Abort successful"),
             ["OPTS"] = AnswerOptionsAsync,
             ["NOOP"] = _ => ReplyAsync("200 NOOP ok"),
@@ -290,6 +297,16 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
             return await ReplyAsync("554 Restart offset past end of file");
         }
 
+        var byteCount = file.Status.Length - offset;
+        return await TransferAsync(
+            $"150 Opening data connection for {FtpPath.ToReplyText(argument)} ({byteCount} bytes)",
+            dataConnection => SendFileAsync(dataConnection, file.Mapping, offset, byteCount));
+    }
+
+    // The data connection is opened before 150, so 150 always means the bytes follow; the reply
+    // send returns follows them. Each data connection carries one transfer (ADR-0052, decision 6).
+    private async ValueTask<bool> TransferAsync(string openingReply, Func<IConnection, Task<string>> send)
+    {
         if (!dataConnections.IsPrepared)
         {
             return await ReplyAsync("425 Use PASV or PORT first");
@@ -302,10 +319,137 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
 
         await using (dataConnection)
         {
-            var byteCount = file.Status.Length - offset;
-            await ReplyAsync($"150 Opening data connection for {FtpPath.ToReplyText(argument)} ({byteCount} bytes)");
-            return await ReplyAsync(await SendFileAsync(dataConnection, file.Mapping, offset, byteCount));
+            await ReplyAsync(openingReply);
+            return await ReplyAsync(await send(dataConnection));
         }
+    }
+
+    // LIST, NLST and MLSD of a directory are directory listings, answered only with
+    // --list-directories and otherwise exactly as a missing directory, before any data
+    // connection is used (ADR-0006, section 2; ADR-0052, decision 7). LIST and NLST naming one
+    // exposed file list that file whatever the switch says: that is not a directory listing.
+    private ValueTask<bool> AnswerListingAsync(
+        byte[]? argument, Func<ContentDirectoryEntry, DateTimeOffset, string> formatLine, bool listsOneFile)
+    {
+        var path = argument is null ? currentDirectory : FtpPath.Resolve(currentDirectory, argument);
+        if (path is null || FindListedEntries(path, listsOneFile) is not { } entries)
+        {
+            return ReplyAsync(NoSuchDirectory);
+        }
+
+        var listing = FtpListingFormat.Encode(entries, formatLine, context.TimeProvider.GetUtcNow());
+        return TransferAsync("150 Opening data connection for directory listing", dataConnection => SendListingAsync(dataConnection, listing));
+    }
+
+    // A directory's entries as the content store lists them (dot-files left out unless
+    // --serve-dot-files, /.surl never), or one file's entry, or nothing when the path is
+    // neither or cannot be read (ADR-0009; ADR-0023).
+    private IReadOnlyList<ContentDirectoryEntry>? FindListedEntries(IReadOnlyList<string> path, bool listsOneFile)
+    {
+        var mapping = contentStore.MapRequestPath(FtpPath.ToRequestPath(path));
+        if (!mapping.IsMapped)
+        {
+            return null;
+        }
+
+        try
+        {
+            var listing = contentStore.ListDirectory(mapping, context.CancellationToken);
+            return listing.IsListed ? listing.Entries
+                : listsOneFile && contentStore.GetFileStatus(mapping) is { } status ? [FileEntry(path, status)]
+                : null;
+        }
+        catch (Exception exception) when (IsFileSystemFailure(exception))
+        {
+            context.Log.Note($"{mapping.Location} could not be listed ({exception.GetType().Name}: {exception.Message}); answered 550.");
+            return null;
+        }
+    }
+
+    private static ContentDirectoryEntry FileEntry(IReadOnlyList<string> path, ContentFileStatus status) =>
+        new(path[^1], ContentEntryKind.File, status.Length, status.LastModifiedUtc);
+
+    // curl closing the data connection before the listing is all sent surfaces as a failed
+    // write, answered 426 with the data connection reset, as for RETR.
+    private async Task<string> SendListingAsync(IConnection dataConnection, byte[] listing)
+    {
+        try
+        {
+            await dataConnection.WriteAsync(listing, context.CancellationToken);
+            await dataConnection.CompleteWritesAsync(context.CancellationToken);
+            return TransferComplete;
+        }
+        catch (IOException)
+        {
+            dataConnection.Abort();
+            return NoteFailedTransfer(TransferAborted, "The client closed the data connection before the whole listing was sent; the data connection was reset.");
+        }
+    }
+
+    // Arguments LIST and NLST take the way ls does, such as "-a" or "-la", are ignored
+    // (ADR-0052, decision 7): each leading word that starts with '-' is dropped, and what
+    // follows, if anything, is the path.
+    private static byte[]? WithoutLsOptions(byte[]? argument)
+    {
+        while (argument is [(byte)'-', ..])
+        {
+            var space = Array.IndexOf(argument, (byte)' ');
+            argument = space < 0 ? null : argument[(space + 1)..];
+        }
+
+        return argument;
+    }
+
+    // MLST describes one entry on the control connection, a directory included: it is not a
+    // directory listing, so it is answered whatever --list-directories says (ADR-0052,
+    // decisions 1 and 7).
+    private ValueTask<bool> AnswerMachineListEntryAsync(byte[]? argument)
+    {
+        var path = argument is null ? currentDirectory : FtpPath.Resolve(currentDirectory, argument);
+        if (path is null || DescribeEntry(path) is not { } facts)
+        {
+            return ReplyAsync(NoSuchFile);
+        }
+
+        var pathText = FtpPath.ToReplyText(path);
+        return ReplyAsync($"250-Listing {pathText}\r\n {facts} {pathText}\r\n250 End");
+    }
+
+    // A file's facts come from its status; a directory's from its entry in its parent's
+    // listing, or type=dir alone for / or a directory its parent does not list by that name.
+    private string? DescribeEntry(IReadOnlyList<string> path)
+    {
+        var mapping = contentStore.MapRequestPath(FtpPath.ToRequestPath(path));
+        if (!mapping.IsMapped)
+        {
+            return null;
+        }
+
+        try
+        {
+            return contentStore.GetFileStatus(mapping) is { } status ? FtpListingFormat.Facts(FileEntry(path, status))
+                : contentStore.GetEntryKind(mapping) == ContentEntryKind.Directory ? DirectoryFacts(path)
+                : null;
+        }
+        catch (Exception exception) when (IsFileSystemFailure(exception))
+        {
+            context.Log.Note($"{mapping.Location} could not be read ({exception.GetType().Name}: {exception.Message}); answered 550.");
+            return null;
+        }
+    }
+
+    private string DirectoryFacts(IReadOnlyList<string> path)
+    {
+        if (path.Count == 0)
+        {
+            return "type=dir;";
+        }
+
+        var parent = contentStore.MapRequestPath(FtpPath.ToRequestPath(FtpPath.Parent(path)));
+        var entry = contentStore.ListDirectoryWhateverTheListingSwitchSays(parent, context.CancellationToken).Entries
+            .FirstOrDefault(candidate => candidate.Kind == ContentEntryKind.Directory && string.Equals(candidate.Name, path[^1], StringComparison.Ordinal));
+
+        return entry is null ? "type=dir;" : FtpListingFormat.Facts(entry);
     }
 
     // curl closing the data connection early (a range) surfaces as a failed write; the file
