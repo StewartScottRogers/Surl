@@ -61,3 +61,4 @@ completes an SFTP transfer against `surl --allow-weak-ssh-algorithms` with each 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
 - 2026-09-30: Doing -> Backlog. Waits on BL-250 (surl serves --allow-weak-ssh-algorithms), BL-262 (narrow the SSH offer) and BL-263 (admit an OpenSSL build on Windows)
+- 2026-09-30: Backlog -> Doing.
