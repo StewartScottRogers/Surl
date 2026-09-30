@@ -7,12 +7,12 @@ namespace Surl.Cli;
 public sealed class AiHelpExamplesTests
 {
     [TestMethod]
-    public void Examples_AreTheAdrsNineteenInItsOrder()
+    public void Examples_AreTheAdrsNineteenAndSmtpsInItsOrder()
     {
         string[] topics =
         [
             "overview", "listen-urls", "listen-urls", "surl", "content", "content", "content", "auth", "testing", "tls", "tls",
-            "logging", "limits", "dict", "gopher", "http", "mqtt", "telnet", "tftp",
+            "logging", "limits", "dict", "gopher", "http", "mqtt", "smtp", "telnet", "tftp",
         ];
 
         CollectionAssert.AreEqual(topics, AiHelpExamples.All.Select(example => example.Topic).ToArray());

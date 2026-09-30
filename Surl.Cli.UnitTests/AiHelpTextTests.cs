@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, in ordinal order.
+    // ADR-0046 decision 3's sixteen topics and smtp (BL-207), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "dict", "exit-codes", "gopher", "http", "limits", "listen-urls",
-        "logging", "mqtt", "security", "surl", "telnet", "testing", "tftp", "tls",
+        "logging", "mqtt", "security", "smtp", "surl", "telnet", "testing", "tftp", "tls",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -34,6 +34,7 @@ public sealed partial class AiHelpTextTests
         "| `logging` | Log levels, tracing and the log file |",
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `security` | Options that widen what a peer may do |",
+        "| `smtp` | SMTP and SMTPS protocol |",
         "| `surl` | The command line tool itself |",
         "| `telnet` | TELNET protocol |",
         "| `testing` | Loosening options for tests (warned) |",
@@ -358,7 +359,7 @@ public sealed partial class AiHelpTextTests
             "| --- | --- | --- | --- | --- | --- | --- |",
             "| `--max-line <bytes>` | bytes | 8192 | digits with an optional decimal point and more digits, then at most one suffix "
                 + "k, m, g, t or p in either case, each 1024 times the one before; at most 9223372036854775807 bytes; 0 means no limit "
-                + "| no | dict, gopher, limits, telnet | Longest command line accepted |",
+                + "| no | dict, gopher, limits, smtp, telnet | Longest command line accepted |",
             "",
             "## Exit codes",
             "",
@@ -441,7 +442,7 @@ public sealed partial class AiHelpTextTests
                 + "or the trace file is the --log-file file "
                 + "| Make the data directory writable by the user surl runs as, or give a log or trace file that can be opened "
                 + "and is not the --log-file file |",
-            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file or the MQTT retained-message file "
+            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, the MQTT retained-message file or the mail store "
                 + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates neither |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",

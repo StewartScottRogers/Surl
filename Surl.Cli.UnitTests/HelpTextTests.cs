@@ -16,6 +16,7 @@ public sealed class HelpTextTests
         " logging   Log levels, tracing and the log file",
         " mqtt      MQTT and MQTTS protocol",
         " security  Options that widen what a peer may do",
+        " smtp      SMTP and SMTPS protocol",
         " surl      The command line tool itself",
         " telnet    TELNET protocol",
         " testing   Loosening options for tests (warned)",
@@ -28,24 +29,26 @@ public sealed class HelpTextTests
     private static readonly string[] AllowAnonymousExplanationLines =
     [
         "        Accepts every request and every login without checking credentials:",
-        "        HTTP serves every request as anonymous and sends no challenge, and MQTT",
+        "        HTTP serves every request as anonymous and sends no challenge, MQTT",
         "        answers every well-formed CONNECT with CONNACK 0 whatever credentials",
-        "        it carries. A test uses it to fetch or publish without setting up",
-        "        accounts. It is not the default because anyone who can reach a listener",
-        "        then gets everything surl serves, and can publish and subscribe over",
-        "        MQTT, with no login at all. surl warns on every start while it is on,",
-        "        from the info log level up.",
+        "        it carries, and SMTP takes mail with no login. A test uses it to fetch",
+        "        or publish without setting up accounts. It is not the default because",
+        "        anyone who can reach a listener then gets everything surl serves, and",
+        "        can publish and subscribe over MQTT and send mail, with no login at",
+        "        all. surl warns on every start while it is on, from the info log level",
+        "        up.",
     ];
 
     private static readonly string[] AllowPlaintextAuthExplanationLines =
     [
         "        Accepts passwords and tokens sent over an unencrypted connection: HTTP",
         "        Basic and Bearer over http:// and an MQTT password over mqtt:// are",
-        "        checked instead of refused unchecked (403 Forbidden, CONNACK 5), and",
-        "        Basic and Bearer are offered in a 401 over http://. A test uses it to",
-        "        log in without a certificate. It is not the default because anyone who",
-        "        can watch the network reads the password as it is sent. surl warns on",
-        "        every start while it is on, from the info log level up.",
+        "        checked instead of refused unchecked (403 Forbidden, CONNACK 5), Basic",
+        "        and Bearer are offered in a 401 over http://, and SMTP offers PLAIN and",
+        "        LOGIN over smtp:// without STARTTLS. A test uses it to log in without a",
+        "        certificate. It is not the default because anyone who can watch the",
+        "        network reads the password as it is sent. surl warns on every start",
+        "        while it is on, from the info log level up.",
     ];
 
     private static readonly string[] AuthExplanationLines =
@@ -55,21 +58,21 @@ public sealed class HelpTextTests
         "        basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL",
         "        mechanism by its name in lower case, as curl's login option AUTH=<mech>",
         "        names it: ntlm, digest-md5, cram-md5, plain, login, oauthbearer,",
-        "        xoauth2 and external, and apop for POP3's APOP; this build serves none",
-        "        of those three protocols yet. external logs in as the TLS client",
-        "        certificate --cacert verifies, so it is offered only on a connection",
-        "        that sent one. gssapi is read, but a start that gives it is refused as",
-        "        not available in this build (exit code 2). surl refuses a word outside",
-        "        the list as an option badly used (exit code 2). A test uses it to offer",
-        "        one method alone, such as --auth digest for curl's --digest. ntlm and",
-        "        negotiate are not in the default because an NTLM response is built on",
-        "        MD4 and HMAC-MD5 of the password and is open to relay and offline",
-        "        cracking, and Negotiate carries NTLM; digest-md5 is not because RFC",
-        "        6331 made it Historic and curl picks it over every other mechanism;",
-        "        apop is not because its MD5 construction leaks password characters to",
-        "        anyone who can choose the timestamp it signs. surl warns on every start",
-        "        while --auth is given, from the info log level up, naming the methods",
-        "        it accepts.",
+        "        xoauth2 and external, and apop for POP3's APOP; of those three",
+        "        protocols this build serves only SMTP yet. external logs in as the TLS",
+        "        client certificate --cacert verifies, so it is offered only on a",
+        "        connection that sent one. gssapi is read, but a start that gives it is",
+        "        refused as not available in this build (exit code 2). surl refuses a",
+        "        word outside the list as an option badly used (exit code 2). A test",
+        "        uses it to offer one method alone, such as --auth digest for curl's",
+        "        --digest. ntlm and negotiate are not in the default because an NTLM",
+        "        response is built on MD4 and HMAC-MD5 of the password and is open to",
+        "        relay and offline cracking, and Negotiate carries NTLM; digest-md5 is",
+        "        not because RFC 6331 made it Historic and curl picks it over every",
+        "        other mechanism; apop is not because its MD5 construction leaks",
+        "        password characters to anyone who can choose the timestamp it signs.",
+        "        surl warns on every start while --auth is given, from the info log",
+        "        level up, naming the methods it accepts.",
     ];
 
     private static readonly string[] SelfSignedExplanationLines =
@@ -123,8 +126,8 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, content, dict, gopher, http, limits, logging, mqtt, security, surl,",
-            "telnet, testing, tftp, tls.",
+            "auth, content, dict, gopher, http, limits, logging, mqtt, security, smtp,",
+            "surl, telnet, testing, tftp, tls.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -382,7 +385,7 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, http, mqtt.",
+            "        Categories: auth, http, mqtt, smtp.",
             "");
 
     [TestMethod]
@@ -392,7 +395,7 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, http, mqtt.",
+            "        Categories: auth, http, mqtt, smtp.",
             "");
 
     [TestMethod]
@@ -405,7 +408,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, http, mqtt, security, testing.",
+                "        Categories: auth, http, mqtt, security, smtp, testing.",
                 "",
             ]);
 
@@ -421,7 +424,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, http, mqtt, security, testing.",
+                "        Categories: auth, http, mqtt, security, smtp, testing.",
                 "",
             ]);
 
@@ -450,7 +453,7 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, security, testing.",
+                "        Categories: auth, http, security, smtp, testing.",
                 "",
             ]);
 
@@ -488,6 +491,21 @@ public sealed class HelpTextTests
             Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
             Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
             Row(32, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Smtp_ListsEveryOptionTheSmtpServerReads() =>
+        AssertOutput(
+            HelpText.Answer("smtp"),
+            "smtp: SMTP and SMTPS protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(32, "    --max-line <bytes>", "Longest command line accepted"),
             Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(32, "    --user-file <file>", "Read accounts from a file"));
 
@@ -566,7 +584,7 @@ public sealed class HelpTextTests
             "    --max-line <bytes>",
             "        Longest command line accepted. Default: 8192.",
             "",
-            "        Categories: dict, gopher, limits, telnet.",
+            "        Categories: dict, gopher, limits, smtp, telnet.",
             "");
 
     [TestMethod]
