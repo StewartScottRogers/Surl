@@ -1,5 +1,5 @@
 ---
-id: BL-233
+id: BL-237
 title: Answer connection-layer messages that arrive during a server-started SSH key re-exchange
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-29
 completed:
 ---
-# BL-233 — Answer connection-layer messages that arrive during a server-started SSH key re-exchange
+# BL-237 — Answer connection-layer messages that arrive during a server-started SSH key re-exchange
 
 ## Goal
 

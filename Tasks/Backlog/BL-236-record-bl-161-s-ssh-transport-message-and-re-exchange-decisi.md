@@ -1,5 +1,5 @@
 ---
-id: BL-232
+id: BL-236
 title: Record BL-161's SSH transport-message and re-exchange decisions in ADR-0051
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-29
 completed:
 ---
-# BL-232 — Record BL-161's SSH transport-message and re-exchange decisions in ADR-0051
+# BL-236 — Record BL-161's SSH transport-message and re-exchange decisions in ADR-0051
 
 ## Goal
 
@@ -33,7 +33,7 @@ ADR and `SshProtocolServer` say the same thing.
   4. Strict key exchange's ordering rule (no `IGNORE` during the exchange) holds for the first
      exchange only; the sequence numbers are reset after every `NEWKEYS`, re-exchanges included.
   5. During a server-started re-exchange, a message other than `IGNORE`, `DEBUG` or
-     `UNIMPLEMENTED` before the client's `KEXINIT` is `DISCONNECT` 2 until BL-233 changes it.
+     `UNIMPLEMENTED` before the client's `KEXINIT` is `DISCONNECT` 2 until BL-237 changes it.
 
 ## Acceptance criteria
 

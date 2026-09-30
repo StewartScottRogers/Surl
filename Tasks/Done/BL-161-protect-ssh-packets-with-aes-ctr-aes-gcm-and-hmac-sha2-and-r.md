@@ -69,7 +69,7 @@ encrypt-then-MAC forms), and re-keys when the client or the ADR's limits ask.
   on this lane, so the SSH test project was run with `--collect:"Code Coverage;Format=cobertura"`
   and the script was pointed at that report with `-SkipTestRun -ResultsDirectory`.
 
-**Decisions (Claude under Stewart's delegation).** The ADR edit is filed as BL-232, because
+**Decisions (Claude under Stewart's delegation).** The ADR edit is filed as BL-236, because
 BL-155 had `Documentation/Planning/Decisions` in `Doing` at the same time.
 - After `NEWKEYS`, a message the server does not know is answered `UNIMPLEMENTED` with its
   sequence number (RFC 4253 section 11.4). That includes a key exchange method message or
@@ -83,14 +83,14 @@ BL-155 had `Documentation/Planning/Decisions` in `Doing` at the same time.
   only; the sequence numbers are reset after every `NEWKEYS`, as ADR-0051 decision 2.1 says.
 - When the server starts a re-exchange, a message before the client's `KEXINIT` other than
   `IGNORE`, `DEBUG` or `UNIMPLEMENTED` is `DISCONNECT` 2. No such message exists before
-  channels do. BL-233 (after BL-163) changes this so the channel layer gets them.
+  channels do. BL-237 (after BL-163) changes this so the channel layer gets them.
 - Where one direction's cipher is not built yet (`chacha20-poly1305@openssh.com`, BL-169),
   `DISCONNECT` 11 is still sent unprotected after `NEWKEYS`, as BL-160's placeholder was.
 - Protections are not `IDisposable`. The `Aes` and `AesGcm` objects of replaced keys are left
   to the finalizer: at most one set per re-exchange.
 - `ManualTimeProvider` (tests) now overrides `GetTimestamp` so elapsed time follows `Advance`.
 
-**Follow-ups filed:** BL-232 (record the decisions above in ADR-0051) and BL-233 (connection
+**Follow-ups filed:** BL-236 (record the decisions above in ADR-0051) and BL-237 (connection
 messages during a server-started re-exchange).
 
 ## Log
