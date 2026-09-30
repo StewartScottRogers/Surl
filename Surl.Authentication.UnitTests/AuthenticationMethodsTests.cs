@@ -9,7 +9,8 @@ public sealed class AuthenticationMethodsTests
         CollectionAssert.AreEquivalent(
             new[]
             {
-                AuthenticationMethod.Digest, AuthenticationMethod.Basic, AuthenticationMethod.Plain, AuthenticationMethod.Login,
+                AuthenticationMethod.Digest, AuthenticationMethod.CramMd5, AuthenticationMethod.Basic,
+                AuthenticationMethod.Plain, AuthenticationMethod.Login,
                 AuthenticationMethod.Bearer, AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.AwsSigV4,
             },
             AuthenticationMethods.DefaultAccepted.ToArray());
@@ -22,6 +23,7 @@ public sealed class AuthenticationMethodsTests
             new[]
             {
                 AuthenticationMethod.Negotiate, AuthenticationMethod.Ntlm, AuthenticationMethod.Digest,
+                AuthenticationMethod.DigestMd5, AuthenticationMethod.CramMd5, AuthenticationMethod.Apop,
                 AuthenticationMethod.Basic, AuthenticationMethod.Plain, AuthenticationMethod.Login, AuthenticationMethod.Bearer,
                 AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.AwsSigV4,
             },
@@ -32,6 +34,9 @@ public sealed class AuthenticationMethodsTests
     [DataRow(AuthenticationMethod.Negotiate, false)]
     [DataRow(AuthenticationMethod.Ntlm, false)]
     [DataRow(AuthenticationMethod.Digest, false)]
+    [DataRow(AuthenticationMethod.DigestMd5, false)]
+    [DataRow(AuthenticationMethod.CramMd5, false)]
+    [DataRow(AuthenticationMethod.Apop, false)]
     [DataRow(AuthenticationMethod.Basic, true)]
     [DataRow(AuthenticationMethod.Plain, true)]
     [DataRow(AuthenticationMethod.Login, true)]

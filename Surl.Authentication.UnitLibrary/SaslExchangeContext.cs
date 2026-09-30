@@ -23,6 +23,17 @@ internal sealed record SaslExchangeContext(
     public bool IsUnchecked => Policy.Settings.AllowAnonymous;
 
     /// <summary>
+    /// Where a challenge's random bytes come from.
+    /// </summary>
+    public ISaslNonceSource NonceSource => Policy.NonceSource;
+
+    /// <summary>
+    /// A <c>CRAM-MD5</c> challenge (ADR-0049, section 5).
+    /// </summary>
+    /// <returns>The challenge, <c>&lt;</c>16 hex digits<c>.</c>Unix seconds<c>@surl&gt;</c>.</returns>
+    public string CreateTimestamp() => Policy.CreateTimestamp();
+
+    /// <summary>
     /// Waits the refusal delay on the policy's clock (ADR-0032, section 8).
     /// </summary>
     /// <param name="cancellationToken">Cancels the wait.</param>

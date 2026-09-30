@@ -19,6 +19,8 @@ internal sealed record SaslMechanism(
     /// </summary>
     public static IReadOnlyList<SaslMechanism> InOfferOrder { get; } =
     [
+        new("DIGEST-MD5", AuthenticationMethod.DigestMd5, context => new DigestMd5SaslExchange(context)),
+        new("CRAM-MD5", AuthenticationMethod.CramMd5, context => new CramMd5SaslExchange(context)),
         new("OAUTHBEARER", AuthenticationMethod.OAuthBearer, context => new OAuthBearerSaslExchange(context)),
         new("XOAUTH2", AuthenticationMethod.XOAuth2, context => new XOAuth2SaslExchange(context)),
         new("PLAIN", AuthenticationMethod.Plain, context => new PlainSaslExchange(context)),

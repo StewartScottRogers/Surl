@@ -4,7 +4,7 @@ namespace Surl.Authentication;
 
 /// <summary>
 /// <see cref="AuthenticationPolicy"/> as the <see cref="IMailAuthenticationPolicy"/>: the offer
-/// (ADR-0049, section 2), which mechanism an exchange runs, <c>APOP</c> before BL-195, and the
+/// (ADR-0049, section 2), which mechanism an exchange runs, <c>APOP</c> when not accepted, and the
 /// order <see cref="ISaslExchange"/>'s calls must come in (section 6).
 /// </summary>
 [TestClass]
@@ -20,11 +20,11 @@ public sealed class MailAuthenticationPolicyTests
         PolicyFixture.Create(accounts ?? SaslExchangeRunner.UserAndToken, clock, allowAnonymous, allowPlaintextAuth, acceptedMethods);
 
     [TestMethod]
-    public void Offer_DefaultSetOverTls_IsTheFourMechanismsInAdrOrderAndTheClearPassword()
+    public void Offer_DefaultSetOverTls_IsTheFiveMechanismsInAdrOrderAndTheClearPassword()
     {
         var offer = Policy().GetMailLoginOffer(PolicyFixture.Tls);
 
-        CollectionAssert.AreEqual(new[] { "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN" }, offer.SaslMechanisms.ToArray());
+        CollectionAssert.AreEqual(new[] { "CRAM-MD5", "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN" }, offer.SaslMechanisms.ToArray());
         Assert.IsTrue(offer.IsClearPasswordLoginOffered);
         Assert.IsFalse(offer.IsApopOffered);
     }
@@ -36,7 +36,7 @@ public sealed class MailAuthenticationPolicyTests
     {
         var offer = Policy(allowAnonymous: allowAnonymous).GetMailLoginOffer(null);
 
-        Assert.AreEqual(0, offer.SaslMechanisms.Count);
+        CollectionAssert.AreEqual(new[] { "CRAM-MD5" }, offer.SaslMechanisms.ToArray());
         Assert.IsFalse(offer.IsClearPasswordLoginOffered);
         Assert.IsFalse(offer.IsApopOffered);
     }
@@ -46,8 +46,18 @@ public sealed class MailAuthenticationPolicyTests
     {
         var offer = Policy(allowPlaintextAuth: true).GetMailLoginOffer(null);
 
-        CollectionAssert.AreEqual(new[] { "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN" }, offer.SaslMechanisms.ToArray());
+        CollectionAssert.AreEqual(new[] { "CRAM-MD5", "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN" }, offer.SaslMechanisms.ToArray());
         Assert.IsTrue(offer.IsClearPasswordLoginOffered);
+    }
+
+    [TestMethod]
+    public void Offer_EveryMechanismAccepted_ListsDigestMd5FirstAndApopWithoutTls()
+    {
+        var offer = Policy(acceptedMethods: new HashSet<AuthenticationMethod>(Enum.GetValues<AuthenticationMethod>()))
+            .GetMailLoginOffer(null);
+
+        CollectionAssert.AreEqual(new[] { "DIGEST-MD5", "CRAM-MD5" }, offer.SaslMechanisms.ToArray());
+        Assert.IsTrue(offer.IsApopOffered);
     }
 
     [TestMethod]
@@ -73,7 +83,7 @@ public sealed class MailAuthenticationPolicyTests
     }
 
     [TestMethod]
-    [DataRow("CRAM-MD5", false, DisplayName = "not built yet")]
+    [DataRow("DIGEST-MD5", false, DisplayName = "not in the default set")]
     [DataRow("SCRAM-SHA-256", false, DisplayName = "unknown")]
     [DataRow("", false, DisplayName = "empty")]
     [DataRow("PLAIN", true, DisplayName = "not accepted by --auth")]
@@ -98,7 +108,7 @@ public sealed class MailAuthenticationPolicyTests
     [TestMethod]
     [DataRow(false, DisplayName = "checked")]
     [DataRow(true, DisplayName = "--allow-anonymous")]
-    public async Task Apop_IsRefusedAsNotOfferedUntilBl195(bool allowAnonymous)
+    public async Task Apop_NotAcceptedByAuth_IsRefusedUndelayedAsNotOffered(bool allowAnonymous)
     {
         var login = new ApopLogin("pop3", "user", "<1.2@surl>", "32d4437494fda0ae78d0559952474e34", PolicyFixture.Tls);
 

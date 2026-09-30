@@ -12,7 +12,8 @@ namespace Surl.Authentication;
 /// Digest it also keeps each named account's <c>H(name:surl:password)</c> under every
 /// <see cref="DigestAlgorithm"/>, computed once here (ADR-0036); for NTLM, each named account's
 /// NT hash (ADR-0039); and for AWS Signature Version 4, each named account's password as UTF-8
-/// bytes, since every signing key derives from the secret itself (ADR-0043).
+/// bytes, since every signing key derives from the secret itself (ADR-0043); and, for the
+/// challenge-response mail logins, the same bytes (ADR-0049, section 5).
 /// </summary>
 public sealed class AccountBook
 {
@@ -27,6 +28,8 @@ public sealed class AccountBook
     private readonly NtlmAccount dummyNtlmAccount = new(null, RandomNumberGenerator.GetBytes(16));
     private readonly Dictionary<string, AwsSigV4Account> awsSigV4Accounts = new(StringComparer.Ordinal);
     private readonly AwsSigV4Account dummyAwsSigV4Account = new(null, RandomNumberGenerator.GetBytes(40));
+    private readonly Dictionary<string, ChallengeResponseAccount> challengeResponseAccounts = new(StringComparer.Ordinal);
+    private readonly ChallengeResponseAccount dummyChallengeResponseAccount = new(null, RandomNumberGenerator.GetBytes(16));
 
     /// <summary>
     /// Keeps <paramref name="accounts"/>, which <c>Surl.Cli</c> and <see cref="UserFileParser"/>
@@ -62,6 +65,8 @@ public sealed class AccountBook
             ntlmAccounts[account.UserName] =
                 new NtlmAccount(account.UserName, NtlmV2Calculation.ComputeNtHash(account.Password));
             awsSigV4Accounts[account.UserName] = new AwsSigV4Account(account.UserName, Encoding.UTF8.GetBytes(account.Password));
+            challengeResponseAccounts[account.UserName] =
+                new ChallengeResponseAccount(account.UserName, Encoding.UTF8.GetBytes(account.Password));
         }
     }
 
@@ -146,6 +151,17 @@ public sealed class AccountBook
     /// <returns>The account's name and secret, or the dummy's.</returns>
     internal AwsSigV4Account FindAwsSigV4Account(string accessKeyId) =>
         awsSigV4Accounts.GetValueOrDefault(accessKeyId, dummyAwsSigV4Account);
+
+    /// <summary>
+    /// The account a <c>CRAM-MD5</c>, <c>DIGEST-MD5</c> or <c>APOP</c> user name names, matched
+    /// exactly, with the UTF-8 bytes of its password (ADR-0049, section 5). Any other name, the
+    /// empty one and none included, gets a dummy with a random password, so it costs the same
+    /// work and matches nothing (ADR-0032, section 8).
+    /// </summary>
+    /// <param name="userName">The user name as sent, or <see langword="null"/> when it cannot be read.</param>
+    /// <returns>The account's name and password, or the dummy's.</returns>
+    internal ChallengeResponseAccount FindChallengeResponseAccount(string? userName) =>
+        challengeResponseAccounts.GetValueOrDefault(userName ?? string.Empty, dummyChallengeResponseAccount);
 
     private static IReadOnlyList<string> CreateUserHashes(Account account, Encoding encoding) =>
         [.. Enum.GetValues<DigestAlgorithm>().Select(algorithm => DigestCalculation.ComputeUserHash(

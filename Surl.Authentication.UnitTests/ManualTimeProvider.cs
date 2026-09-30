@@ -5,11 +5,19 @@ namespace Surl.Authentication;
 /// falls due on the way, on the caller's thread. A server may create and dispose timers from
 /// another thread, so the timer list is locked.
 /// </summary>
-internal sealed class ManualTimeProvider : TimeProvider
+internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
 {
     private readonly Lock gate = new();
     private readonly List<ManualTimer> timers = [];
-    private DateTimeOffset utcNow = new(2026, 9, 29, 8, 0, 0, TimeSpan.Zero);
+    private DateTimeOffset utcNow = start;
+
+    /// <summary>
+    /// A clock at 2026-09-29 08:00 UTC.
+    /// </summary>
+    public ManualTimeProvider()
+        : this(new DateTimeOffset(2026, 9, 29, 8, 0, 0, TimeSpan.Zero))
+    {
+    }
 
     /// <summary>
     /// How many timers are waiting to fire.

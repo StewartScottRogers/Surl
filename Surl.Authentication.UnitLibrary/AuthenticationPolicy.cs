@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Authentication;
@@ -9,14 +11,23 @@ namespace Surl.Authentication;
 /// <c>--allow-plaintext-auth</c>, only the accepted methods offered and checked, and every
 /// refused credential answered after <see cref="RefusalDelay"/> on the injected
 /// <see cref="TimeProvider"/>. As the <see cref="IMailAuthenticationPolicy"/> it offers and runs
-/// the SASL mechanisms <c>--auth</c> accepts (ADR-0049, sections 2 and 5): today <c>PLAIN</c>,
+/// the SASL mechanisms <c>--auth</c> accepts (ADR-0049, sections 2 and 5): today
+/// <c>DIGEST-MD5</c> and <c>CRAM-MD5</c>, offered on any connection, and <c>PLAIN</c>,
 /// <c>LOGIN</c>, <c>XOAUTH2</c> and <c>OAUTHBEARER</c>, all plain-text, so offered and run only over
-/// TLS or with <c>--allow-plaintext-auth</c>; <c>APOP</c> is not offered yet.
+/// TLS or with <c>--allow-plaintext-auth</c>; and POP3 <c>APOP</c> when <c>--auth</c> accepts it.
 /// </summary>
 public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthenticationPolicy
 {
+    private const string ApopMethod = "APOP";
+
     private static readonly MailLoginStep RefusedApop =
         new(MailLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null);
+
+    private static readonly MailLoginStep AcceptedApopUnchecked =
+        new(MailLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
+
+    // The random part of a CRAM-MD5 challenge: 16 hex digits (ADR-0049, section 5).
+    private const int TimestampNonceLength = 8;
 
     /// <summary>
     /// How long a refused credential waits before it is answered (ADR-0032, section 8).
@@ -40,6 +51,23 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         AuthenticationSettings settings,
         IEnumerable<IHttpAuthenticationMethod> httpMethods,
         TimeProvider timeProvider)
+        : this(settings, httpMethods, timeProvider, RandomSaslNonceSource.Instance)
+    {
+    }
+
+    /// <summary>
+    /// As the public constructor, with the SASL challenges' random bytes from
+    /// <paramref name="nonceSource"/>, so tests can check answers measured from upstream curl.
+    /// </summary>
+    /// <param name="settings">The accounts and loosening options.</param>
+    /// <param name="httpMethods">Every HTTP method this build implements; at most one per method.</param>
+    /// <param name="timeProvider">The clock the refusal delay waits on and <c>CRAM-MD5</c> challenges carry.</param>
+    /// <param name="nonceSource">Where <c>CRAM-MD5</c> and <c>DIGEST-MD5</c> challenges' random bytes come from.</param>
+    internal AuthenticationPolicy(
+        AuthenticationSettings settings,
+        IEnumerable<IHttpAuthenticationMethod> httpMethods,
+        TimeProvider timeProvider,
+        ISaslNonceSource nonceSource)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(httpMethods);
@@ -57,6 +85,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             .Where(method => settings.AcceptedMethods.Contains(method.Method))
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
+        NonceSource = nonceSource;
         saslMechanisms = [.. SaslMechanism.InOfferOrder.Where(mechanism => settings.AcceptedMethods.Contains(mechanism.Method))];
     }
 
@@ -83,7 +112,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <summary>
     /// The accepted SASL mechanisms that may be used on a connection in this TLS state, in
     /// ADR-0049 section 2's order; the clear-password login when a plain-text secret may be sent;
-    /// never <c>APOP</c> yet. It does not depend on whether any account is configured.
+    /// <c>APOP</c> whenever <c>--auth</c> accepts it, since it sends no plain-text secret. It does
+    /// not depend on whether any account is configured.
     /// </summary>
     /// <param name="tlsSession">The connection's TLS session; <see langword="null"/> means unencrypted.</param>
     /// <returns>What the mail server advertises.</returns>
@@ -96,7 +126,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
                 .Where(mechanism => MayUseSaslMechanism(mechanism, isEncrypted))
                 .Select(mechanism => mechanism.Name)],
             OffersPlaintextSecrets(isEncrypted),
-            false);
+            settings.AcceptedMethods.Contains(AuthenticationMethod.Apop));
     }
 
     /// <summary>
@@ -129,21 +159,56 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         OffersPlaintextSecrets(isEncrypted || !AuthenticationMethods.SendsPlaintextSecret(mechanism.Method));
 
     /// <summary>
-    /// POP3 <c>APOP</c>, which is not offered until BL-195 builds it: always
-    /// <see cref="MailLoginOutcome.RefusedMechanism"/> (ADR-0049, section 7).
+    /// POP3 <c>APOP</c>, RFC 1939 section 7 (ADR-0049, sections 5 and 7):
+    /// <see cref="MailLoginOutcome.RefusedMechanism"/> when <c>--auth</c> does not accept it,
+    /// <see cref="MailLoginOutcome.AcceptedUnchecked"/> under <c>--allow-anonymous</c>, and otherwise
+    /// the digest checked as 32 hex digits of MD5 over the timestamp's bytes then the password's
+    /// UTF-8 bytes, compared in fixed time; a refusal is answered after <see cref="RefusalDelay"/>.
     /// </summary>
-    /// <param name="login">The login.</param>
-    /// <param name="cancellationToken">Cancels the check.</param>
-    /// <returns>The refusal.</returns>
-    public ValueTask<MailLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
+    /// <param name="login">The login, with the timestamp this connection's greeting carried.</param>
+    /// <param name="cancellationToken">Cancels the check and the refusal delay.</param>
+    /// <returns>How the login ended; never a challenge.</returns>
+    public async ValueTask<MailLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(login);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return ValueTask.FromResult(RefusedApop);
+        if (!settings.AcceptedMethods.Contains(AuthenticationMethod.Apop))
+        {
+            return RefusedApop;
+        }
+
+        if (settings.AllowAnonymous)
+        {
+            return AcceptedApopUnchecked;
+        }
+
+        var user = string.IsNullOrEmpty(login.UserName) ? null : login.UserName;
+        var account = settings.Accounts.FindChallengeResponseAccount(user);
+        byte[] digested = [.. Encoding.UTF8.GetBytes(login.Timestamp), .. account.Password];
+        if (Md5HexDigest.Matches(settings.Accounts.SecretComparer, MD5.HashData(digested), login.Digest) & account.AccountName is not null)
+        {
+            return new MailLoginStep(
+                MailLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, account.AccountName, new CheckedLogin(ApopMethod, user, true));
+        }
+
+        await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+
+        return new MailLoginStep(
+            MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin(ApopMethod, user, false));
     }
 
     internal AuthenticationSettings Settings => settings;
+
+    internal ISaslNonceSource NonceSource { get; }
+
+    /// <summary>
+    /// A <c>CRAM-MD5</c> challenge, RFC 2195's <c>msg-id</c> form: <c>&lt;</c>, 16 lower-case hex
+    /// digits of random, <c>.</c>, the Unix time in seconds, <c>@surl&gt;</c> (ADR-0049, section 5).
+    /// </summary>
+    /// <returns>The challenge.</returns>
+    internal string CreateTimestamp() =>
+        $"<{Convert.ToHexStringLower(NonceSource.CreateNonce(TimestampNonceLength))}.{timeProvider.GetUtcNow().ToUnixTimeSeconds()}@surl>";
 
     internal IReadOnlyList<IHttpAuthenticationMethod> HttpMethods => httpMethods;
 
