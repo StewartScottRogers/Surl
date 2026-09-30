@@ -257,7 +257,7 @@ function laneTaskElement(lane) {
   return line;
 }
 
-// One card per lane: task, phase, step, run time and heartbeat age (ADR-0029 items 8 and 9).
+// One card per lane: task, phase, step, run time and heartbeat age (ADR-0029 item 6).
 // `stale` is decided by renderLanes, which knows whether the shift is still running.
 function laneCardElement(lane, stale) {
   const heartbeat = new Date(lane.heartbeatAt);
@@ -297,6 +297,13 @@ function renderLanes(status) {
     notLive = true;
     section.append(element('p', 'banner',
       `The status has not been updated since ${utcTime(publishedAt)}; the shift may have stopped.`));
+  }
+  // The -Lanes Auto count and its last change's reason (ADR-0047 item 10); null on a
+  // fixed-lane shift.
+  const auto = status.autoLanes;
+  if (auto) {
+    section.append(element('p', 'auto-lanes',
+      `Auto lanes: ${auto.lanes} - ${auto.reason}, ${utcTime(new Date(auto.changedAt))}`));
   }
   const cards = element('div', 'lane-cards');
   const lanes = [...(status.lanes || [])].sort((a, b) => a.lane - b.lane);

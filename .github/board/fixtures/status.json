@@ -4,6 +4,13 @@
   "branch": "factory/phase-1",
   "state": "running",
   "publishedAt": "2026-09-28T13:12:00Z",
+  "autoLanes": {
+    "lanes": 4,
+    "target": 5.2,
+    "binding": "weekly pace",
+    "reason": "lanes 3 -> 4 (weekly pace allows 5.2)",
+    "changedAt": "2026-09-28T13:05:00Z"
+  },
   "lanes": [
     {
       "lane": 1,
