@@ -8,7 +8,7 @@ depends-on: [BL-266]
 touches: [Documentation/Product/Product-Overview.md]
 requirement: FR-046
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-277 — List Surl.Kerberos.TestKdc in the Product Overview's project map
 
@@ -33,16 +33,18 @@ and `Surl.Kerberos.TestKdc.UnitTests` as the test-fixture pair ADR-0065 decision
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Product/Product-Overview.md` names `Surl.Kerberos.TestKdc.UnitLibrary` and
+- [x] `Documentation/Product/Product-Overview.md` names `Surl.Kerberos.TestKdc.UnitLibrary` and
       `Surl.Kerberos.TestKdc.UnitTests` in its project map, as ADR-0065's loopback test KDC
       that only test projects reference.
-- [ ] Every other statement in the Product Overview about the set of projects is still true.
+- [x] Every other statement in the Product Overview about the set of projects is still true.
 
 ## Notes
 
 - Filed by BL-266.
+- Added a "Test fixtures" row to the layers table (depends on `Surl.Kerberos` and Abstractions, per the csproj), counted the pair in the "added later" sentence, and listed it before `Surl.Kerberos` in the pair table as `Surl.slnx` sorts it. `Run-KerberosTestKdc.cs` does not exist yet (BL-267 is in Doing), so the overview names it as intent.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. The Product Overview's project map lists Surl.Kerberos.TestKdc.UnitLibrary and .UnitTests as ADR-0065's loopback test KDC
