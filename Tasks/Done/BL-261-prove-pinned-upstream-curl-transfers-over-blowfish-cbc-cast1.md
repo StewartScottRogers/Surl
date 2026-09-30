@@ -8,7 +8,7 @@ depends-on: [BL-258, BL-250, BL-262, BL-263]
 touches: [Surl.Conformance.UnitTests]
 requirement: FR-039
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-261 — Prove pinned upstream curl transfers over blowfish-cbc, cast128-cbc and hmac-ripemd160
 
@@ -35,11 +35,11 @@ completes an SFTP transfer against `surl --allow-weak-ssh-algorithms` with each 
 
 ## Acceptance criteria
 
-- [ ] For each of `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160` and `hmac-ripemd160@openssh.com`,
+- [x] For each of `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160` and `hmac-ripemd160@openssh.com`,
       a test in `Surl.Conformance.UnitTests` shows the pinned upstream curl agreeing that name with
       surl (from surl's log or curl's verbose output) and downloading a file over `sftp` with exit
       code 0 and the file's bytes on stdout.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
 
 ## Notes
 
@@ -56,9 +56,14 @@ completes an SFTP transfer against `surl --allow-weak-ssh-algorithms` with each 
     for these SSH measurements by ADR. It also has to measure whether OpenSSL 4 lets libssh2 run
     blowfish-cbc and cast128-cbc at all (legacy provider), which may change what this task proves.
 
+- 2026-09-30 (lane 4): `UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests` (Integration) starts `surl -v --throwaway-hostkey --user ... --allow-weak-ssh-algorithms` with `--ssh-ciphers <name>` (cipher cases) or `--ssh-ciphers aes128-ctr --ssh-macs <name>` (MAC cases), and asserts exit 0, the file bytes on stdout, and `cipher <name>/<name>` or `MAC <name>/<name>` in surl's `SSH negotiated` note. All four passed on Windows against the static-curl OpenSSL pin.
+- Default taken: the MAC cases narrow the cipher to `aes128-ctr`, because libssh2 would otherwise agree an AEAD cipher (chacha20-poly1305) and the MAC would go unused (`MAC implicit`).
+- Default taken: the build is chosen by `OperatingSystem.IsWindows()` - the supplementary OpenSSL pin on Windows (ADR-0063 decision 1), the reference pin elsewhere; the cipher cases write an `openssl.cnf` activating `default` and `legacy` into the isolated curl home and set `OPENSSL_CONF` to it (ADR-0063 decision 3). No new ADR: ADR-0063 and ADR-0066 already decide both.
+
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
 - 2026-09-30: Doing -> Backlog. Waits on BL-250 (surl serves --allow-weak-ssh-algorithms), BL-262 (narrow the SSH offer) and BL-263 (admit an OpenSSL build on Windows)
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Pinned upstream curl on OpenSSL agrees blowfish-cbc, cast128-cbc, hmac-ripemd160 and hmac-ripemd160@openssh.com with surl and downloads over sftp
