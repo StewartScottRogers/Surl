@@ -109,3 +109,4 @@ that upstream curl 8.21.0's OpenSSL builds offer; without the option it offers n
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
