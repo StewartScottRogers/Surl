@@ -15,7 +15,9 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   --keytab` (`KeytabComposition.IsGssapiWithoutKeytab`, ADR-0057 decision 1), then a
   start that gives the SSH server option this build does not
   serve yet (`FindUnavailableOption`: `--hostcert`) with
-  `surl: (2) --hostcert is not available in this build` and
+  `surl: (2) --hostcert is not available in this build`, then an `--ssh-ciphers` or `--ssh-macs`
+  name surl cannot offer (`SshAlgorithmComposition.FindRefusal`: `surl: (2) --ssh-ciphers: surl
+  does not offer the SSH cipher <name>`, or `<name> needs --allow-weak-ssh-algorithms`, ADR-0066), each with
   exit 2 before anything else is checked (ADR-0051 decision 5, until BL-222), checks the
   data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
@@ -77,8 +79,9 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   policy as both its authentication policies, `STLS` when `--cert` or `--self-signed` is given
   (ADR-0056 decision 8) and the same `MailboxStore` instance, so mail delivered over `smtp` is
   retrieved over `pop3` in the same run,
-  `SshProtocolServer` for `scp` and `sftp`, given the host keys, `SshAlgorithmOffer.Default`
-  for them (with decision 2's weak algorithms too under `--allow-weak-ssh-algorithms`), the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the
+  `SshProtocolServer` for `scp` and `sftp`, given the host keys, `SshAlgorithmComposition.Compose`'s
+  offer for them (`SshAlgorithmOffer.Default`, with decision 2's weak algorithms too under
+  `--allow-weak-ssh-algorithms`, its ciphers and MACs narrowed by `--ssh-ciphers` and `--ssh-macs`, ADR-0066), the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the
   content store, `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   exchange log of the parsed log level and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,

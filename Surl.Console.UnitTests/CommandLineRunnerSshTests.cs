@@ -265,6 +265,71 @@ public sealed class CommandLineRunnerSshTests
         }
     }
 
+    // --ssh-ciphers and --ssh-macs: the narrowed offer and the refusals (ADR-0066, BL-262).
+
+    [TestMethod]
+    [DataRow(true, DisplayName = "With --ssh-ciphers and --ssh-macs")]
+    [DataRow(false, DisplayName = "Without them")]
+    public async Task RunAsync_SshCiphersAndSshMacs_TheServersKexInitListsExactlyTheNamesGivenInBothDirections(bool narrowed)
+    {
+        var connection = new FakeConnection("SSH-2.0-libssh2_1.11.1\r\n"u8.ToArray());
+        var factory = new FakeListenerFactory { Connection = connection };
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        string[] narrowing = narrowed ? ["--ssh-ciphers", "blowfish-cbc", "--ssh-macs", "hmac-ripemd160"] : [];
+
+        var running = CreateRunner(factory, Files((HostKey, TestSshKeyFiles.Rsa2048)))
+            .RunAsync(["-s", "--allow-weak-ssh-algorithms", .. narrowing, "--hostkey", HostKey, Sftp], output, error, stop.Token);
+        await connection.Disposed.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode, error.ToString());
+        var written = Encoding.Latin1.GetString(connection.WrittenBytes);
+        const string CipherAlone = "\0\0\0\x0c" + "blowfish-cbc" + "\0\0\0\x0c" + "blowfish-cbc";
+        const string MacAlone = "\0\0\0\x0e" + "hmac-ripemd160" + "\0\0\0\x0e" + "hmac-ripemd160";
+        Assert.AreEqual(narrowed, written.Contains(CipherAlone + MacAlone, StringComparison.Ordinal));
+        Assert.AreEqual(!narrowed, written.Contains("chacha20-poly1305@openssh.com", StringComparison.Ordinal));
+        Assert.AreEqual(!narrowed, written.Contains("hmac-sha2-256-etm@openssh.com", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    [DataRow("--ssh-ciphers", "aes256-ctr,no-such-cipher", "(2) --ssh-ciphers: surl does not offer the SSH cipher no-such-cipher", DisplayName = "Unknown cipher")]
+    [DataRow("--ssh-macs", "hmac-sha2-256,no-such-mac", "(2) --ssh-macs: surl does not offer the SSH MAC no-such-mac", DisplayName = "Unknown MAC")]
+    [DataRow("--ssh-ciphers", "aes256-ctr,blowfish-cbc", "(2) --ssh-ciphers: blowfish-cbc needs --allow-weak-ssh-algorithms", DisplayName = "Weak cipher")]
+    [DataRow("--ssh-macs", "hmac-ripemd160", "(2) --ssh-macs: hmac-ripemd160 needs --allow-weak-ssh-algorithms", DisplayName = "Weak MAC")]
+    [DataRow("--ssh-ciphers", "BLOWFISH-CBC", "(2) --ssh-ciphers: surl does not offer the SSH cipher BLOWFISH-CBC", DisplayName = "Wrong case")]
+    public async Task RunAsync_SshAlgorithmNameSurlCannotOffer_IsRefusedBeforeAnyFileIsRead(string option, string names, string message)
+    {
+        var run = await RunRefusedAsync(Files(), option, names, "--throwaway-hostkey", Sftp);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
+        Assert.AreEqual("surl: " + message + NewLine, run.Error);
+        Assert.IsFalse(run.FactoryCreated);
+    }
+
+    [TestMethod]
+    public void AiHelpSshTopic_NamesEveryCipherAndMacSurlCanOffer()
+    {
+        var everyOffered = Surl.Protocol.Ssh.SshAlgorithmOffer.Default([], aesGcmIsSupported: true, allowWeakAlgorithms: true);
+        var topic = AiHelpText.Answer("ssh").Output;
+
+        foreach (var name in everyOffered.Cipher.Concat(everyOffered.Mac))
+        {
+            StringAssert.Contains(topic, $"`{name}`", name);
+        }
+    }
+
+    [TestMethod]
+    public async Task RunAsync_WeakSshCipherAndMacWithAllowWeakSshAlgorithms_AreServed()
+    {
+        var run = await ServeUntilListeningAsync(
+            Files(), "-s", "--allow-weak-ssh-algorithms", "--ssh-ciphers", "cast128-cbc,aes128-ctr", "--ssh-macs", "hmac-ripemd160@openssh.com", "--throwaway-hostkey", Sftp);
+
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode, run.Error);
+    }
+
     [TestMethod]
     public async Task RunAsync_AllowWeakSshAlgorithmsWithAShortRsaHostKey_ServesIt()
     {

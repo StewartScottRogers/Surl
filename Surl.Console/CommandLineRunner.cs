@@ -397,14 +397,15 @@ internal sealed class CommandLineRunner(
     // first byte, ftps itself (ADR-0052 decision 5). The HTTP, MQTT, SMTP, IMAP, POP3, FTP and
     // SSH servers, the ones with a login, judge it by the one policy (ADR-0032); SMTP and IMAP
     // offer STARTTLS, POP3 STLS and FTP AUTH TLS only when a certificate is configured. The SSH server answers scp and sftp with its host keys and
-    // offers ADR-0051 decision 2's default algorithms for them, and its weak ones too with
-    // --allow-weak-ssh-algorithms (ADR-0051 decision 13).
+    // offers the algorithms given: ADR-0051 decision 2's default ones, its weak ones too with
+    // --allow-weak-ssh-algorithms, the ciphers and MACs narrowed by --ssh-ciphers and --ssh-macs
+    // (ADR-0051 decision 13, ADR-0066).
     private static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
         ServiceState serviceState,
         AuthenticationPolicy authenticationPolicy,
         SshHostKeySet sshHostKeys,
-        bool allowWeakSshAlgorithms,
+        SshAlgorithmOffer sshAlgorithms,
         bool isTlsUpgradeAvailable)
     {
         var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
@@ -428,7 +429,7 @@ internal sealed class CommandLineRunner(
             new ImplicitTlsSchemeServer(smtpServer, "smtps"),
             new SshProtocolServer(
                 sshHostKeys,
-                SshAlgorithmOffer.Default(sshHostKeys.SignatureAlgorithms, AesGcm.IsSupported, allowWeakSshAlgorithms),
+                sshAlgorithms,
                 authenticationPolicy,
                 new SshSystemRandomSource(),
                 contentStore),
@@ -445,7 +446,7 @@ internal sealed class CommandLineRunner(
             new ServiceState(new MqttRetainedMessages(), new MailboxStore([], allowAnonymous: false, timeProvider)),
             AuthenticationComposition.ComposeWithoutAccounts(timeProvider),
             new SshHostKeySet(),
-            allowWeakSshAlgorithms: false,
+            SshAlgorithmOffer.Default([], AesGcm.IsSupported),
             isTlsUpgradeAvailable: false);
 
     // What the servers keep across connections, loaded after the lock: the MQTT retained
@@ -512,7 +513,8 @@ internal sealed class CommandLineRunner(
     ];
 
     // --auth gssapi without --keytab (ADR-0057, decision 1), then an option this build does not
-    // serve yet, is refused before anything else is checked.
+    // serve yet, then an --ssh-ciphers or --ssh-macs name surl cannot offer (ADR-0066), is refused
+    // before anything else is checked.
     private Task<SurlExitCode> ServeAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
         FindOptionRefusal(commandLine) is { } refusal
@@ -529,7 +531,7 @@ internal sealed class CommandLineRunner(
 
         return FindUnavailableOption(commandLine) is { } unavailableOption
             ? $"(2) {unavailableOption} is not available in this build"
-            : null;
+            : SshAlgorithmComposition.FindRefusal(commandLine);
     }
 
     private async Task<SurlExitCode> ServeAvailableAsync(
@@ -630,7 +632,7 @@ internal sealed class CommandLineRunner(
                     loaded.State,
                     authentication.Policy,
                     authentication.SshHostKeys.HostKeys,
-                    commandLine.AllowWeakSshAlgorithms,
+                    SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
                     ServerTlsComposition.IsCertificateConfigured(commandLine)),
                 authentication,
                 output,
