@@ -1,0 +1,3 @@
+EHLO c
+VRFY b@y
+QUIT

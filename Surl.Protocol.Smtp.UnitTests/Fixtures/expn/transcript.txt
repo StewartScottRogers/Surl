@@ -1,0 +1,12 @@
+< 220 surl ESMTP ready
+> EHLO c
+< 250-surl Hello
+< 250-SIZE 104857600
+< 250-8BITMIME
+< 250-SMTPUTF8
+< 250-PIPELINING
+< 250 ENHANCEDSTATUSCODES
+> EXPN list SMTPUTF8
+< 252 2.1.5 Cannot expand the list, but will accept the message
+> QUIT
+< 221 2.0.0 Bye

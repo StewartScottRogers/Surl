@@ -1,0 +1,5 @@
+EHLO c
+MAIL FROM:<a@x> SIZE=53
+RCPT TO:<b@y>
+RCPT TO:<Bob <c@z>
+QUIT
