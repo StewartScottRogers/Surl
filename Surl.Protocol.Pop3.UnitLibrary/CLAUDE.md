@@ -1,49 +1,67 @@
 # Surl.Protocol.Pop3.UnitLibrary
 
-Phase 3.
+Phase 3. The POP3 server (RFC 1939) that serves each owner's `INBOX` to upstream curl as a
+maildrop, built as
+[ADR-0056](../Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)
+decides, on the mail store, the maildrop lock and the line machinery of
+[ADR-0050](../Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md),
+with the logins of
+[ADR-0049](../Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md).
+Terms (mail store, owner, anonymous owner, UID and UIDVALIDITY, maildrop, maildrop lock, view,
+CRLF line, reply line, dot-stuffing, STARTTLS discard, SASL mechanism, SASL exchange, APOP
+timestamp) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 
-The POP3 server (RFC 1939): `USER` and `PASS`, `APOP`, SASL, `LIST`, `RETR`, `DELE` and
-`STLS`, with dot-stuffing, as upstream curl uses them.
+**URL schemes answered:** `pop3`, and `pop3s` through `Surl.Console`'s
+`ImplicitTlsSchemeServer`: the server claims `pop3` only and tells implicit TLS apart by
+`IConnection.TlsSession`, never by the scheme.
 
-**URL schemes answered:** `pop3`, `pop3s`
+## What it holds
 
-Built (BL-205, ADR-0056): `Pop3ProtocolServer` (`IConnectionProtocolServer` and
-`IConnectionRefusalWriter`, scheme `pop3`) takes an `IAuthenticationPolicy`, an
-`IMailAuthenticationPolicy`, the shared `MailboxStore`, `isStlsAvailable` and an optional
-`RandomNumberGenerator`. `Pop3Session` greets `+OK surl ready`
-and answers `CAPA`, `USER`, `PASS`, `STAT`, `LIST`, `UIDL`, `RETR`, `TOP`, `DELE`, `RSET`, `NOOP`
-and `QUIT` from the fixed lines in `Pop3Replies`, reading with `CrlfLineReader` and writing with
-`ReplyLineWriter` and `DotStuffedBodyWriter` (`Surl.LineProtocol`). `CAPA` offers `USER` before a
-login only when the mail policy offers a clear password; `PASS` goes to `CheckPasswordLoginAsync`,
-and an accepted login takes the owner's maildrop lock before its `+OK` (`-ERR [IN-USE]` when
-another session holds it). A maildrop command before a login needs the policy's
-`AcceptedUnchecked` for the login with no credentials (`--allow-anonymous`), else
-`-ERR [AUTH] Authentication required`. `Pop3Maildrop` holds the view fixed at the login and the
-`DELE` marks; only `QUIT` after a login removes the marked messages, and the lock is released
-however the session ends. `Pop3TopSection` cuts what `TOP` sends.
+- `Pop3ProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
+  (`-ERR surl Too many connections, closing`). Its constructor takes the
+  `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
+  `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
+  `isStlsAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given, and an
+  optional `RandomNumberGenerator` for the `APOP` timestamp.
+- `Pop3Session`: one connection, in the AUTHORIZATION state until a login and the TRANSACTION
+  state after it. It greets `+OK surl ready`, followed by an `APOP` timestamp only when the
+  offer's `IsApopOffered` holds as the connection opens (`--auth apop`), then answers each CRLF
+  line read with `CrlfLineReader`, split by `Pop3CommandLine`, from the fixed lines in
+  `Pop3Replies`, written with `ReplyLineWriter` (decisions 1 to 4): `CAPA`, `USER`, `PASS`,
+  `APOP`, `AUTH`, `STLS`, `STAT`, `LIST`, `UIDL`, `RETR`, `TOP`, `DELE`, `RSET`, `NOOP` and
+  `QUIT`.
+- Logins (decisions 6 and 7): `USER`/`PASS` through `IAuthenticationPolicy.CheckPasswordLoginAsync`,
+  `USER` offered in `CAPA` only when the mail policy offers a clear password; `APOP` through
+  `IMailAuthenticationPolicy.CheckApopLoginAsync` with the greeting's timestamp; `AUTH` frames
+  `StartSaslExchange` (`+ ` continuations, base64, `=`, `*`), and bare `AUTH` lists the offered
+  mechanisms. An accepted login takes the owner's maildrop lock (`MailboxStore.LockMaildrop`)
+  before its `+OK`; a locked maildrop is `-ERR [IN-USE]`. A maildrop command before any login
+  asks the policy once about the login with no credentials, and only `--allow-anonymous` lets
+  it on (`-ERR [AUTH] Authentication required` otherwise).
+- The maildrop (decision 5): `Pop3Maildrop` holds the view fixed at the login and the `DELE`
+  marks; `RETR` and `TOP` write through `DotStuffedBodyWriter`, `Pop3TopSection` cutting what
+  `TOP` sends; `UIDL` gives `<uidvalidity>.<uid>`. Only `QUIT` after a login removes the marked
+  messages, and the lock is released however the session ends.
+- `STLS` (decision 8): `+OK Begin TLS negotiation`, then `CrlfLineReader.DiscardBuffered`, then
+  `IConnection.UpgradeToTlsAsync`, and the session starts over with the `USER` forgotten;
+  `-ERR STLS not available` without a certificate, `-ERR Already using TLS` on a TLS
+  connection.
+- Limits (decision 9): `-ERR Command line too long, closing` past `--max-line` and
+  `-ERR Timeout waiting for a command, closing` past `--head-timeout`, each written within
+  `LimitReplyWriteDeadline`, then a close; the idle timeout and maximum duration close the
+  connection with no reply.
 
-Built (BL-206, ADR-0056 decisions 2, 3, 4 and 8): the constructor's `isStlsAvailable` (set by
-`Surl.Console` when a certificate is configured) makes `CAPA` advertise `STLS` on a plaintext
-connection and `STLS` answer `+OK Begin TLS negotiation`, throw away what was pipelined after it
-(`CrlfLineReader.DiscardBuffered`) and upgrade; the session starts over with the `USER` forgotten.
-Without it `STLS` is `-ERR STLS not available`; over TLS `-ERR Already using TLS`. `CAPA` adds
-`SASL <mechanisms>` from `GetMailLoginOffer`. When the offer has `IsApopOffered` as the connection
-opens, the greeting carries a timestamp `<16 hex digits.unix seconds@surl>` from the injected
-`RandomNumberGenerator` and the context's `TimeProvider`, and `APOP` goes to
-`CheckApopLoginAsync` with it. `AUTH <mechanism> [<initial response>]` frames the policy's
-`ISaslExchange` (`+ ` continuations, base64, `=`, `*`); bare `AUTH` lists the offered mechanisms.
-`pop3s` is implicit TLS told apart by `connection.TlsSession`; the server claims only `pop3`.
+## References
 
-Built (BL-209, ADR-0056 decisions 8 and 11): `Surl.Console` registers the server for `pop3` and,
-through `ImplicitTlsSchemeServer`, `pop3s`, with the policy as both its authentication policies,
-`isStlsAvailable` set when `--cert` or `--self-signed` is given, and the same `MailboxStore`
-instance the SMTP and IMAP servers use, so mail delivered over `smtp` is retrieved over `pop3` in
-the same run. `Surl.Cli` has its `pop3` help category and `--aihelp pop3` topic and example.
+`Surl.Protocol.Abstractions.UnitLibrary`, `Surl.LineProtocol.UnitLibrary` and
+`Surl.MailStore.UnitLibrary`, the last two horizontal libraries ADR-0050 decision 1 adds to
+ADR-0002 decision 3's table.
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
-the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
-else. Referencing another protocol server is a
-build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
+## Rules
+
+Reference nothing beyond the list above without an ADR that adds the library to ADR-0002
+decision 3's table. Referencing another protocol server is a build break, and
+`Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener`
 here. The server receives its transport from the listener seam in
@@ -51,4 +69,6 @@ here. The server receives its transport from the listener seam in
 it with request bytes measured from pinned upstream curl, with no network.
 
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
-`Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
+`Record-CurlExchange.ps1 -Pop3`, and never from the Curl port (ADR-0003). Pinned upstream
+curl's proof against a live `surl` lives in `Surl.Conformance.UnitTests`
+(`UpstreamCurlReadsMailFromSurlOverPop3Tests`, the rows of ADR-0056 decision 12).

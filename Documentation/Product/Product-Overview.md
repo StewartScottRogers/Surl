@@ -173,6 +173,87 @@ builds negotiate (`curve25519-sha256`, and `ecdsa-sha2-nistp256` or `ssh-ed25519
 host key) is pinned there as predicted and not yet recorded as measured (ADR-0051 decision 2).
 An algorithm no run negotiates - the weak ones among them - is proven by unit tests only.
 
+### Built for Phase 3: SMTP, IMAP and POP3
+
+`surl` registers the three mail servers (`Surl.Console`'s `ComposeProtocolServers`), each with
+its help category and `--aihelp` topic, `smtp`, `imap` and `pop3`. Each server claims its
+plaintext scheme only; `smtps`, `imaps` and `pop3s` are the same server behind
+`ImplicitTlsSchemeServer`, over a connection the engine has already secured, and the server
+tells the two apart by `IConnection.TlsSession`, never by the scheme. All three are handed the
+one mail store, so mail sent over `smtp://` is read over `imap://` and `pop3://` in the same run.
+The terms below are defined in the [glossary](../Wiki/Glossary.md), section "Mail".
+
+- **The mail store** (`Surl.MailStore`,
+  [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md)
+  decisions 2 to 7): `MailboxStore` keeps a set of mailboxes per owner - every named account, or
+  under `--allow-anonymous` the one anonymous owner every session and recipient reaches - each
+  mailbox with its `UIDVALIDITY`, next UID and messages carrying the five system flags. It is
+  bounded (100000 messages, 256 MiB of message bytes, 10000 mailboxes besides the `INBOX`es,
+  one message by `--max-filesize`), every refusal a peer can cause is a `MailStoreOutcome`, and
+  with `--directory` it persists under `<path>/.surl/mail` (an index and one file per distinct
+  message) and is loaded at start, a malformed store ending surl with 37. Without `--directory`
+  it lives in memory. `--allow-uploads` gates none of it: mail is service state, not a served
+  file.
+- **The line machinery** (`Surl.LineProtocol`, ADR-0050 decision 8): `CrlfLineReader` reads
+  command lines that end only at CRLF, bounded by `--max-line` and `--head-timeout`, SMTP's
+  dot-stuffed `DATA` body, IMAP literals and SASL continuation lines, and discards what was
+  pipelined after `STARTTLS` or `STLS`; `DotStuffedBodyWriter` writes POP3's `RETR` and `TOP`;
+  `ReplyLineWriter` refuses any byte that could inject a reply line.
+- **The mail logins** ([ADR-0049](../Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)):
+  `IMailAuthenticationPolicy`, implemented by `Surl.Authentication`'s `AuthenticationPolicy`,
+  offers the SASL mechanisms `--auth` accepts - `GSSAPI`, `DIGEST-MD5`, `CRAM-MD5`, `NTLM`,
+  `OAUTHBEARER`, `XOAUTH2`, `PLAIN`, `LOGIN` and `EXTERNAL`, in that order - and POP3 `APOP`,
+  and runs each exchange; the plain-text ones (`PLAIN`, `LOGIN`, `XOAUTH2`, `OAUTHBEARER`, IMAP
+  `LOGIN` and POP3 `USER`/`PASS`) are offered only over TLS or with `--allow-plaintext-auth`.
+  With the default `--auth` set curl's `-u` logs in with `CRAM-MD5` over plaintext and never
+  sends the password in clear. `GSSAPI` checks a Kerberos ticket against the `--keytab` keys
+  ([ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)
+  decision 9), and `--auth gssapi` without `--keytab` ends surl with 2.
+- **SMTP** (`Surl.Protocol.Smtp`,
+  [ADR-0053](../Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md)):
+  `EHLO` with `SIZE`, `8BITMIME`, `SMTPUTF8`, `PIPELINING`, `ENHANCEDSTATUSCODES`, `STARTTLS` and
+  `AUTH`; `MAIL`, `RCPT` (at most 100 per transaction) and `DATA`, each message stored with a
+  `Return-Path` and a `Received` trace field in the `INBOX` of every recipient whose local part
+  names an account, a recipient that names none answered alike and its copy discarded; `VRFY`
+  and `EXPN` answered `252` whatever is asked. `MAIL` needs a login unless `--allow-anonymous`
+  is given. The body is held in memory up to `--max-filesize` (`SmtpMessageBodyBuffer`) and
+  handed to the store whole.
+- **IMAP** (`Surl.Protocol.Imap`,
+  [ADR-0055](../Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md)):
+  IMAP4rev1 with `SASL-IR`, `UIDPLUS`, `UNSELECT`, `NAMESPACE`, `CHILDREN`, `ID`, `MOVE` and
+  `APPENDLIMIT`; `LOGIN` and `AUTHENTICATE`; mailbox listing, `SELECT`, `EXAMINE` and
+  `STATUS`; `FETCH` of every data item and section, with its own RFC 5322 and MIME reader;
+  `SEARCH` with every RFC 3501 key; `APPEND` streamed into the store; `STORE`, `COPY`, `MOVE`,
+  `EXPUNGE`, `CREATE`, `DELETE` and `RENAME`, and the `UID` forms. `IDLE` is not offered: curl
+  cannot send its `DONE`. Every command that reads or changes a mailbox needs a login unless
+  `--allow-anonymous` is given.
+- **POP3** (`Surl.Protocol.Pop3`,
+  [ADR-0056](../Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)):
+  `CAPA`, `USER`/`PASS`, `APOP` (only with `--auth apop`, when the greeting carries a
+  timestamp), `AUTH` and `STLS`; the maildrop commands `STAT`, `LIST`, `UIDL`, `RETR`, `TOP`,
+  `DELE`, `RSET` and `NOOP` over a view of the owner's `INBOX` fixed at login and held under
+  the maildrop lock (a second session gets `-ERR [IN-USE]`); `QUIT` alone removes what `DELE`
+  marked. Every maildrop command needs a login unless `--allow-anonymous` is given.
+- **TLS and limits:** with `--cert` or `--self-signed`, `smtp://` and `imap://` offer
+  `STARTTLS` and `pop3://` `STLS`; without a certificate each is refused in its protocol's
+  words. A line past `--max-line` or one not finished within `--head-timeout` is answered and
+  closed; the idle timeout and maximum duration are answered `421` by SMTP and `* BYE` by IMAP
+  and closed silently by POP3, and shutdown writes no farewell
+  ([ADR-0059](../Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)).
+
+**What pinned upstream curl has proven.** The integration tests in `Surl.Conformance.UnitTests`
+run each case against a live `surl` on loopback. With the Windows reference build (curl 8.21.0,
+Schannel) every row of ADR-0053 decision 10 over `smtp` and `smtps` passed
+(`UpstreamCurlSendsMailToSurlOverSmtpTests`), every row of ADR-0055 decision 15 over `imap` and
+`imaps` (`UpstreamCurlReadsMailFromSurlOverImapTests`) and every row of ADR-0056 decision 12
+over `pop3` and `pop3s` (`UpstreamCurlReadsMailFromSurlOverPop3Tests`); the IMAP and POP3 rows
+read back, byte for byte, mail the same curl first sent to the same `surl` over `smtp`. Those
+rows log in with `CRAM-MD5`, `PLAIN`, `LOGIN`, `XOAUTH2`, `OAUTHBEARER`, `DIGEST-MD5`, `NTLM`,
+IMAP `LOGIN`, POP3 `USER`/`PASS` and `APOP`. The same tests run on CI's Linux and macOS legs
+with the OpenSSL reference builds; no result from them is recorded against these ADRs yet.
+`EXTERNAL` and `GSSAPI` are proven by unit tests only: proving `GSSAPI` from pinned upstream
+curl needs a KDC, and how to provide one is still to be decided (BL-242).
+
 ### Also in scope
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
@@ -180,17 +261,22 @@ An algorithm no run negotiates - the weak ones among them - is proven by unit te
   upstream curl sends, secure by default
   ([ADR-0032](../Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)):
   with no account configured every login is refused, a password or token sent in clear
-  over an unencrypted connection is refused unchecked, and each of the four loosening
-  options (`--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--self-signed`)
-  warns on every start. Accounts come from `-u`/`--user` and `--user-file`. Built today:
+  over an unencrypted connection is refused unchecked, and each of the five loosening
+  options (`--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--self-signed`,
+  `--throwaway-hostkey`) warns on every start it takes effect in. Accounts come from
+  `-u`/`--user` and `--user-file`. Built today:
   HTTP Basic, Bearer, Digest (MD5, SHA-256 and SHA-512-256), NTLM (NTLMv2), Negotiate
   carrying NTLM (bare or in SPNEGO) and AWS Signature Version 4; the MQTT `CONNECT`
   user name and password; FTP `USER`/`PASS`, whose password is a plain-text secret on `ftp://`
-  before `AUTH TLS` (ADR-0052 decision 3); and SSH `password`, `keyboard-interactive` and
+  before `AUTH TLS` (ADR-0052 decision 3); SSH `password`, `keyboard-interactive` and
   `publickey` logins, the last against `--authorized-keys`, through `ISshAuthenticationPolicy`
-  (ADR-0051 decisions 6 and 7). The mail servers' logins are decided in ADR-0049. In scope,
-  not built yet: Kerberos inside Negotiate, `Proxy-Authenticate` for the proxies, and the
-  logins of the servers not yet built - SMB and LDAP.
+  (ADR-0051 decisions 6 and 7); and the mail servers' logins through
+  `IMailAuthenticationPolicy` (ADR-0049): the SASL mechanisms `GSSAPI` (a Kerberos ticket
+  checked against `--keytab`, ADR-0057 decision 9), `DIGEST-MD5`, `CRAM-MD5`, `NTLM`,
+  `OAUTHBEARER`, `XOAUTH2`, `PLAIN`, `LOGIN` and `EXTERNAL` (the TLS client certificate
+  `--cacert` verifies), IMAP `LOGIN`, POP3 `USER`/`PASS` and POP3 `APOP`. In scope, not built
+  yet: Kerberos inside Negotiate (BL-241), `Proxy-Authenticate` for the proxies, and the logins
+  of the servers not yet built - SMB and LDAP.
 - **Proxies:** acting as the HTTP `CONNECT` proxy, HTTPS proxy and SOCKS4, SOCKS4a,
   SOCKS5 and SOCKS5h server that curl's proxy options talk to.
 - **TLS on the server side:** certificates and keys, client-certificate verification for

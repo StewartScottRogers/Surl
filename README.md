@@ -59,11 +59,12 @@ until its server lands. `surl --version` lists the schemes a build serves.
 What it serves depends on `--directory` (ADR-0031):
 
 - `surl http://127.0.0.1:8080/` serves an empty in-memory store. Everything the services
-  keep - uploaded files, MQTT retained messages - lives in memory for as long as the
+  keep - uploaded files, MQTT retained messages, mail - lives in memory for as long as the
   process runs, and nothing is written to disk.
 - `surl --directory <path> http://127.0.0.1:8080/` serves the files under `<path>` and
   persists what the services keep there across restarts: files at the top of the path,
-  every other kind of service state (today MQTT retained messages) under `<path>/.surl/`.
+  every other kind of service state (MQTT retained messages and the mail store) under
+  `<path>/.surl/`.
   `.surl` is never served, even with `--serve-dot-files`. One surl process holds a path
   at a time: a second one given the same path is refused with exit code 124.
 
@@ -74,8 +75,9 @@ Uploads still need `--allow-uploads`, in memory too.
 Surl is secure by default ([ADR-0032](Documentation/Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)).
 With no account configured, HTTP `GET` and `HEAD` need no login and every login is
 refused; once any account is configured, every HTTP request needs one. Every other HTTP
-method, every MQTT `CONNECT`, and every FTP and SSH login - curl's own anonymous FTP login
-included - needs one either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
+method, every MQTT `CONNECT`, every FTP and SSH login - curl's own anonymous FTP login
+included - and every SMTP `MAIL`, IMAP mailbox command and POP3 maildrop command needs one
+either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
 of the file `--user-file` names - one `user:password` per line, `#` lines skipped - which
 keeps the password out of the process list. An empty user name holds a Bearer token.
 Here `accounts.txt` holds the line `alice:s3cret`:
@@ -92,11 +94,14 @@ curl -k -u alice:s3cret https://127.0.0.1:8443/hello.txt
 
 Surl checks HTTP Basic, Bearer, Digest (MD5, SHA-256 and SHA-512-256), NTLM, Negotiate
 carrying NTLM, and AWS Signature Version 4; an MQTT `CONNECT`'s user name and password; FTP
-`USER` and `PASS`; and SSH password, keyboard-interactive and public-key logins, a public key
-against the OpenSSH `authorized_keys` file `--authorized-keys <user:file>` names. A password
-or token sent in clear - Basic or Bearer over `http://`, an MQTT password over `mqtt://`, an
-FTP password over `ftp://` before `AUTH TLS` - is refused without being checked
-(`403 Forbidden`, `CONNACK` 5, FTP `530`). An SSH password is never sent in clear.
+`USER` and `PASS`; SSH password, keyboard-interactive and public-key logins, a public key
+against the OpenSSH `authorized_keys` file `--authorized-keys <user:file>` names; and the mail
+servers' SASL mechanisms, IMAP `LOGIN`, POP3 `USER`/`PASS` and `APOP`. A password or token
+sent in clear - Basic or Bearer over `http://`, an MQTT password over `mqtt://`, an FTP
+password over `ftp://` before `AUTH TLS` - is refused without being checked
+(`403 Forbidden`, `CONNACK` 5, FTP `530`); the mail servers do not offer a clear-password login
+or mechanism on a connection without TLS, and refuse one sent anyway. An SSH password is never
+sent in clear.
 
 Five *loosening options* turn a secure default off for a test, and each writes a
 `surl: warning:` line on every start it takes effect in: `--allow-anonymous` (accept every request and login
@@ -155,6 +160,60 @@ SFTP listings need `--list-directories`; uploads over either scheme, and SFTP `-
 such as `rm` and `rename`, need `--allow-uploads`. `--allow-weak-ssh-algorithms` and
 `--hostcert` are parsed, but this build does not serve them: a start that gives either exits 2
 with `surl: (2) <option> is not available in this build`.
+
+## SMTP, IMAP and POP3
+
+The SMTP server answers `smtp` and `smtps`
+([ADR-0053](Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md)),
+the IMAP server `imap` and `imaps`
+([ADR-0055](Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md))
+and the POP3 server `pop3` and `pop3s`
+([ADR-0056](Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)).
+All three share one mail store
+([ADR-0050](Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md)):
+SMTP delivers into it, and IMAP and POP3 read it, so give one `surl` all the listen URLs you
+need. Here `mail.txt` is a message (`From: a@example.com`, `Subject: hi`, an empty line, then
+the body). With `--allow-anonymous`, which is for tests, every recipient's copy goes to one
+anonymous `INBOX` and no login is needed:
+
+```
+surl --allow-anonymous smtp://127.0.0.1:2525/ imap://127.0.0.1:1143/ pop3://127.0.0.1:1110/
+curl --mail-from a@example.com --mail-rcpt b@example.com -T mail.txt smtp://127.0.0.1:2525/example.com
+curl "imap://127.0.0.1:1143/INBOX;UID=1"
+curl pop3://127.0.0.1:1110/1
+```
+
+With accounts, a message is stored in the `INBOX` of each recipient whose local part names an
+account; a recipient that names none is answered alike and its copy discarded, so no peer learns
+which accounts exist. curl's `-u` then logs in with `CRAM-MD5` by default, which sends no password
+in clear ([ADR-0049](Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)):
+
+```
+surl --user alice:s3cret smtp://127.0.0.1:2525/ imap://127.0.0.1:1143/ pop3://127.0.0.1:1110/
+curl -u alice:s3cret --mail-from a@example.com --mail-rcpt alice@example.com -T mail.txt smtp://127.0.0.1:2525/example.com
+curl -u alice:s3cret imap://127.0.0.1:1143/
+curl -u alice:s3cret "imap://127.0.0.1:1143/INBOX?SUBJECT%20hi"
+curl -u alice:s3cret pop3://127.0.0.1:1110/1
+```
+
+The first IMAP command lists the mailboxes and the second searches `INBOX`; `curl -T <file>
+imap://.../INBOX` appends a message, and `-X` sends any other command (`-X 'STORE 1 +FLAGS
+\Deleted'`, `-X EXPUNGE`, `-X UIDL` or `-X 'DELE 1'` over POP3). With `--cert` or
+`--self-signed`, `smtp://` and `imap://` offer `STARTTLS` and `pop3://` `STLS` (curl's
+`--ssl-reqd`), and `smtps`, `imaps` and `pop3s` are TLS from the first byte; over TLS `PLAIN`,
+`LOGIN`, `XOAUTH2`, `OAUTHBEARER`, IMAP `LOGIN` and POP3 `USER`/`PASS` are offered too:
+
+```
+surl --self-signed --user alice:s3cret smtp://127.0.0.1:2525/ imaps://127.0.0.1:9930/ pop3s://127.0.0.1:9950/
+curl -k --ssl-reqd -u alice:s3cret --mail-from a@example.com --mail-rcpt alice@example.com -T mail.txt smtp://127.0.0.1:2525/example.com
+curl -k -u alice:s3cret "imaps://127.0.0.1:9930/INBOX;UID=1"
+curl -k -u alice:s3cret --login-options AUTH=PLAIN pop3s://127.0.0.1:9950/1
+```
+
+`--auth` chooses the mechanisms; `digest-md5`, `ntlm`, `apop` and `gssapi` are off until named,
+and `gssapi` needs `--keytab`. Without `--directory` the mail lives in memory; with it, the mail
+store is kept in `<path>/.surl/mail` and survives a restart. `--allow-uploads` gates neither SMTP
+delivery nor IMAP `APPEND`: mail is not a served file.
 
 ## Logging
 
