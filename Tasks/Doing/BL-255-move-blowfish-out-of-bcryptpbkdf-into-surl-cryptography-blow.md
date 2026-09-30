@@ -85,3 +85,4 @@ key schedule, bcrypt's salted (eksblowfish) key schedule and 8-byte block encryp
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
