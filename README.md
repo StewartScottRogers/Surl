@@ -157,9 +157,13 @@ curl --hostpubsha256 <base64> -u alice:s3cret scp://127.0.0.1:2222/hello.txt
 ```
 
 SFTP listings need `--list-directories`; uploads over either scheme, and SFTP `-Q` commands
-such as `rm` and `rename`, need `--allow-uploads`. `--allow-weak-ssh-algorithms` and
-`--hostcert` are parsed, but this build does not serve them: a start that gives either exits 2
-with `surl: (2) <option> is not available in this build`.
+such as `rm` and `rename`, need `--allow-uploads`. `--allow-weak-ssh-algorithms` also
+offers the weak SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman algorithms (and RSA keys
+shorter than 2048 bits and DSA keys) for peers that support nothing stronger, and warns
+`surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit
+Diffie-Hellman SSH algorithms are offered`. `--hostcert` is parsed, but this build does not
+serve it: a start that gives it exits 2 with `surl: (2) --hostcert is not available in this
+build`.
 
 ## SMTP, IMAP and POP3
 

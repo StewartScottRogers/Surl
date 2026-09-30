@@ -150,13 +150,15 @@ its help category and `--aihelp` topic, `ftp` and `ssh`. The terms below are def
   command (download and upload of one file) or the SFTP subsystem (reads, listings with
   `--list-directories`, writes, appends, resumed uploads and tree changes with
   `--allow-uploads`, and curl's `-Q` commands), all through the content store.
-- **Built but not served by `surl`:** the weak SSH algorithms of ADR-0051 decision 2 and
+- **Served only when asked for:** the weak SSH algorithms of ADR-0051 decision 2 and
   [ADR-0061](../Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)
-  (SHA-1, MD5, CBC, RC4, 3DES, Blowfish, CAST-128, RIPEMD-160 and 1024-bit Diffie-Hellman) are
-  built in `Surl.Protocol.Ssh`, but a start that gives `--allow-weak-ssh-algorithms` ends with
-  `surl: (2) --allow-weak-ssh-algorithms is not available in this build`, so `surl` never
-  offers them. Host certificates are not built: a start that gives `--hostcert` ends the same
-  way (ADR-0051 decision 5).
+  (SHA-1, MD5, CBC, RC4, 3DES, Blowfish, CAST-128, RIPEMD-160 and 1024-bit Diffie-Hellman),
+  with RSA host and user keys shorter than 2048 bits and DSA keys, are offered after the
+  default algorithms only when a start gives `--allow-weak-ssh-algorithms`, which then writes
+  `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit
+  Diffie-Hellman SSH algorithms are offered` from the info level up (ADR-0051 decision 11).
+- **Not built:** host certificates. A start that gives `--hostcert` ends with
+  `surl: (2) --hostcert is not available in this build` (ADR-0051 decision 5).
 
 **What pinned upstream curl has proven.** The integration tests in `Surl.Conformance.UnitTests`
 run each Phase 2 case against a live `surl` on loopback. With the Windows reference build
