@@ -7,9 +7,11 @@ The server side of the authentication schemes upstream curl sends, secure by def
 challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,
 Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, the password check the
 MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`, `XOAUTH2`,
-`OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`) and POP3 `APOP` (ADR-0049), and SSH password and public-key logins (ADR-0051). Not here yet:
+`OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`, and `EXTERNAL`, which logs in as the
+verified TLS client certificate's subject simple name and is offered only on a connection that
+has one) and POP3 `APOP` (ADR-0049), and SSH password and public-key logins (ADR-0051). Not here yet:
 Kerberos inside Negotiate and SASL `GSSAPI` (ADR-0032 decision 11, ADR-0049 section 4, later
-work, built by hand), SASL `EXTERNAL`, `Proxy-Authenticate`, and the logins of servers not yet
+work, built by hand), `Proxy-Authenticate`, and the logins of servers not yet
 built (FTP, SMB, LDAP). Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.

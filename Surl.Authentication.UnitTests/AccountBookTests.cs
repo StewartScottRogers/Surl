@@ -193,6 +193,18 @@ public sealed class AccountBookTests
     }
 
     [TestMethod]
+    [DataRow("alice", true, DisplayName = "a named account")]
+    [DataRow("Alice", false, DisplayName = "the name in another case")]
+    [DataRow("bob", false, DisplayName = "no such account")]
+    [DataRow("", false, DisplayName = "the empty name, a Bearer token's account")]
+    public void HasNamedAccount_MatchesOnlyANamedAccountExactly(string userName, bool expected)
+    {
+        var book = new AccountBook([Alice, new Account(string.Empty, "tok")]);
+
+        Assert.AreEqual(expected, book.HasNamedAccount(userName));
+    }
+
+    [TestMethod]
     public void AccountToString_HidesThePassword()
     {
         Assert.AreEqual("Account { UserName = alice }", Alice.ToString());

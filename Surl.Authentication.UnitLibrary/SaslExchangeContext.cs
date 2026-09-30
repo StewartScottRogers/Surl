@@ -1,3 +1,5 @@
+using System.Security.Cryptography.X509Certificates;
+
 namespace Surl.Authentication;
 
 /// <summary>
@@ -7,10 +9,15 @@ namespace Surl.Authentication;
 /// <param name="Policy">The policy: its accounts, <c>--allow-anonymous</c> and refusal delay.</param>
 /// <param name="Mechanism">The mechanism's registered name, upper case: the login note's method.</param>
 /// <param name="InitialResponse">The decoded initial response, or <see langword="null"/> when none was sent.</param>
+/// <param name="ClientCertificate">
+/// The connection's verified TLS client certificate, or <see langword="null"/> when it has none:
+/// the identity SASL <c>EXTERNAL</c> logs in as (ADR-0049, section 4).
+/// </param>
 internal sealed record SaslExchangeContext(
     AuthenticationPolicy Policy,
     string Mechanism,
-    ReadOnlyMemory<byte>? InitialResponse)
+    ReadOnlyMemory<byte>? InitialResponse,
+    X509Certificate2? ClientCertificate)
 {
     /// <summary>
     /// The configured accounts.

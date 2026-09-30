@@ -11,7 +11,8 @@ public sealed class AuthenticationMethodsTests
             {
                 AuthenticationMethod.Digest, AuthenticationMethod.CramMd5, AuthenticationMethod.Basic,
                 AuthenticationMethod.Plain, AuthenticationMethod.Login,
-                AuthenticationMethod.Bearer, AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.AwsSigV4,
+                AuthenticationMethod.Bearer, AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.External,
+                AuthenticationMethod.AwsSigV4,
             },
             AuthenticationMethods.DefaultAccepted.ToArray());
     }
@@ -25,7 +26,7 @@ public sealed class AuthenticationMethodsTests
                 AuthenticationMethod.Negotiate, AuthenticationMethod.Ntlm, AuthenticationMethod.Digest,
                 AuthenticationMethod.DigestMd5, AuthenticationMethod.CramMd5, AuthenticationMethod.Apop,
                 AuthenticationMethod.Basic, AuthenticationMethod.Plain, AuthenticationMethod.Login, AuthenticationMethod.Bearer,
-                AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.AwsSigV4,
+                AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.External, AuthenticationMethod.AwsSigV4,
             },
             Enum.GetValues<AuthenticationMethod>());
     }
@@ -43,6 +44,7 @@ public sealed class AuthenticationMethodsTests
     [DataRow(AuthenticationMethod.Bearer, true)]
     [DataRow(AuthenticationMethod.OAuthBearer, true)]
     [DataRow(AuthenticationMethod.XOAuth2, true)]
+    [DataRow(AuthenticationMethod.External, false)]
     [DataRow(AuthenticationMethod.AwsSigV4, false)]
     public void SendsPlaintextSecret_IsTrueOnlyForMethodsSendingAPasswordOrToken(AuthenticationMethod method, bool expected)
     {

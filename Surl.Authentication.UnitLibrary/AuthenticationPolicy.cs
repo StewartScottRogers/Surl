@@ -14,7 +14,8 @@ namespace Surl.Authentication;
 /// the SASL mechanisms <c>--auth</c> accepts (ADR-0049, sections 2 and 5): today
 /// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection, and <c>PLAIN</c>,
 /// <c>LOGIN</c>, <c>XOAUTH2</c> and <c>OAUTHBEARER</c>, all plain-text, so offered and run only over
-/// TLS or with <c>--allow-plaintext-auth</c>; and POP3 <c>APOP</c> when <c>--auth</c> accepts it.
+/// TLS or with <c>--allow-plaintext-auth</c>; <c>EXTERNAL</c>, offered and run only on a
+/// connection with a verified TLS client certificate; and POP3 <c>APOP</c> when <c>--auth</c> accepts it.
 /// As the <see cref="ISshAuthenticationPolicy"/> it checks SSH passwords against the accounts,
 /// never refused as plain-text since SSH encrypts first, and public keys against
 /// <see cref="AuthenticationSettings.AuthorizedKeys"/> (ADR-0051, sections 6 and 7).
@@ -138,7 +139,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         return new MailLoginOffer(
             [.. saslMechanisms
-                .Where(mechanism => MayUseSaslMechanism(mechanism, isEncrypted))
+                .Where(mechanism => MayUseSaslMechanism(mechanism, isEncrypted) && CanIdentifyClient(mechanism, tlsSession))
                 .Select(mechanism => mechanism.Name)],
             OffersPlaintextSecrets(isEncrypted),
             settings.AcceptedMethods.Contains(AuthenticationMethod.Apop));
@@ -147,7 +148,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <summary>
     /// Starts the exchange of the mechanism <paramref name="start"/> names, matched
     /// case-insensitively: refused as <see cref="MailLoginOutcome.RefusedMechanism"/> when it is
-    /// unknown or not accepted, and as <see cref="MailLoginOutcome.RefusedPlaintext"/> when it is
+    /// unknown, not accepted, or <c>EXTERNAL</c> on a connection with no TLS client certificate,
+    /// and as <see cref="MailLoginOutcome.RefusedPlaintext"/> when it is
     /// plain-text on an unencrypted connection without <c>--allow-plaintext-auth</c> or
     /// <c>--allow-anonymous</c> (ADR-0049, sections 1 and 5).
     /// </summary>
@@ -159,19 +161,24 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         var mechanism = saslMechanisms.FirstOrDefault(
             mechanism => string.Equals(mechanism.Name, start.Mechanism, StringComparison.OrdinalIgnoreCase));
-        if (mechanism is null)
+        if (mechanism is null || !CanIdentifyClient(mechanism, start.TlsSession))
         {
             return new RefusedSaslExchange(MailLoginOutcome.RefusedMechanism);
         }
 
         return settings.AllowAnonymous || MayUseSaslMechanism(mechanism, start.TlsSession is not null)
-            ? mechanism.Start(new SaslExchangeContext(this, mechanism.Name, start.InitialResponse))
+            ? mechanism.Start(new SaslExchangeContext(this, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate))
             : new RefusedSaslExchange(MailLoginOutcome.RefusedPlaintext);
     }
 
     // A mechanism that sends no plain-text secret may be used on any connection (ADR-0049, section 1).
     private bool MayUseSaslMechanism(SaslMechanism mechanism, bool isEncrypted) =>
         OffersPlaintextSecrets(isEncrypted || !AuthenticationMethods.SendsPlaintextSecret(mechanism.Method));
+
+    // EXTERNAL's client is its TLS client certificate, so it needs one, even under --allow-anonymous
+    // (ADR-0049, sections 2 and 4).
+    private static bool CanIdentifyClient(SaslMechanism mechanism, TlsSession? tlsSession) =>
+        mechanism.Method != AuthenticationMethod.External || tlsSession?.ClientCertificate is not null;
 
     /// <summary>
     /// POP3 <c>APOP</c>, RFC 1939 section 7 (ADR-0049, sections 5 and 7):

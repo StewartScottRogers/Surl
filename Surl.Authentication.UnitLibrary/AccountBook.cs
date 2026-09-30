@@ -114,6 +114,15 @@ public sealed class AccountBook
     public bool CheckBearerToken(ReadOnlySpan<byte> token) => CheckSecret(string.Empty, token);
 
     /// <summary>
+    /// Whether an account of exactly <paramref name="userName"/> exists, its password unused: how
+    /// SASL <c>EXTERNAL</c> matches a client certificate's name (ADR-0049, section 4). The empty
+    /// name, a Bearer token's account, never matches.
+    /// </summary>
+    /// <param name="userName">The name, compared ordinally.</param>
+    /// <returns><see langword="true"/> only when a named account has that name.</returns>
+    internal bool HasNamedAccount(string userName) => userName.Length > 0 && passwordHashes.ContainsKey(userName);
+
+    /// <summary>
     /// The comparer every check of a secret, or of a value computed from one, goes through.
     /// </summary>
     internal ISecretComparer SecretComparer => secretComparer;

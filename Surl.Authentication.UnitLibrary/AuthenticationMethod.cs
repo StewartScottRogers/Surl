@@ -74,6 +74,12 @@ public enum AuthenticationMethod
     XOAuth2,
 
     /// <summary>
+    /// SASL <c>EXTERNAL</c>, RFC 4422 appendix A (<c>--auth external</c>), for the mail servers:
+    /// the login is the verified TLS client certificate, so no secret is sent (ADR-0049, section 4).
+    /// </summary>
+    External,
+
+    /// <summary>
     /// AWS Signature Version 4 (<c>--auth aws-sigv4</c>).
     /// </summary>
     AwsSigV4,

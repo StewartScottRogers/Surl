@@ -26,5 +26,6 @@ internal sealed record SaslMechanism(
         new("XOAUTH2", AuthenticationMethod.XOAuth2, context => new XOAuth2SaslExchange(context)),
         new("PLAIN", AuthenticationMethod.Plain, context => new PlainSaslExchange(context)),
         new("LOGIN", AuthenticationMethod.Login, context => new LoginSaslExchange(context)),
+        new("EXTERNAL", AuthenticationMethod.External, context => new ExternalSaslExchange(context)),
     ];
 }
