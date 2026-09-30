@@ -126,6 +126,23 @@ public sealed class DiskContentFileSystem : IContentFileSystem
             FileOptions.Asynchronous | FileOptions.SequentialScan);
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The file is shared with nobody while it is open, so no reader sees half an upload
+    /// through Surl's own seam.
+    /// </remarks>
+    // Excluded from coverage: it opens a file on disk, and the fast tests run without one by
+    // design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public Stream OpenFileForAsyncReadWrite(string path) =>
+        new FileStream(
+            path,
+            FileMode.OpenOrCreate,
+            FileAccess.ReadWrite,
+            FileShare.None,
+            FileStreamBufferSize,
+            FileOptions.Asynchronous | FileOptions.RandomAccess);
+
+    /// <inheritdoc/>
     // Excluded from coverage: it deletes a file on disk, and the fast tests run without one by
     // design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
     [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]

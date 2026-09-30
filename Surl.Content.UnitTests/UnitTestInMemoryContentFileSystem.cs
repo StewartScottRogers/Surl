@@ -24,6 +24,21 @@ internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
         return written;
     }
 
+    public Stream OpenFileForAsyncReadWrite(string path)
+    {
+        Calls.Add($"{nameof(OpenFileForAsyncReadWrite)}({path})");
+        var opened = new MemoryStream();
+        if (fileContents.Remove(path, out byte[]? existing))
+        {
+            opened.Write(existing);
+            opened.Position = 0;
+        }
+
+        entries[path] = ContentEntryKind.File;
+        writtenFiles[path] = opened;
+        return opened;
+    }
+
     public void DeleteFile(string path)
     {
         Calls.Add($"{nameof(DeleteFile)}({path})");
@@ -107,6 +122,11 @@ internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
     /// </summary>
     public bool FailMoves { get; set; }
 
+    /// <summary>
+    /// When set, <see cref="OpenFileForAsyncRead(string)"/> throws <see cref="IOException"/>.
+    /// </summary>
+    public bool FailReads { get; set; }
+
     public byte[] ReadWrittenFile(string path) => writtenFiles[path].ToArray();
 
     /// <summary>
@@ -156,6 +176,11 @@ internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
     public Stream OpenFileForAsyncRead(string path)
     {
         Calls.Add($"{nameof(OpenFileForAsyncRead)}({path})");
+        if (FailReads)
+        {
+            throw new IOException("The read failed.");
+        }
+
         return fileContents.TryGetValue(path, out byte[]? contents)
             ? new MemoryStream(contents, writable: false)
             : throw new FileNotFoundException("No file in the fake.", path);

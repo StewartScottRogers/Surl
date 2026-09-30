@@ -8,7 +8,9 @@ system without it, ADR-0031), lists directories, names media types, reads byte r
 reports sizes and modification times, decides where uploads and appends land, and
 deletes, renames, creates and removes entries for FTP (`ContentChangeResult`, ADR-0052
 decision 8), and for SCP and SFTP reports a file's or a directory's status, sets its last
-write time and renames without replacing (ADR-0054 decision 14), every write needing
+write time, renames without replacing, and opens random-access uploads
+(`OpenUploadAsync` and its `ContentUploadSession`, written and read at any offset, resized,
+committed over the target or discarded) (ADR-0054 decision 14), every write needing
 `--allow-uploads`. It stands where a
 file protocol library stands in the Curl port: `file://` has no wire and no server, so
 what curl's `file` scheme reads locally, Surl serves remotely through this library.

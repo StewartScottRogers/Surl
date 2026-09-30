@@ -174,7 +174,38 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
             RemoveFileMaking(key);
             var file = StoredEntry.NewFile(timeProvider.GetUtcNow());
             entries.Add(key, file);
-            return new InMemoryFileWriteStream(this, file);
+            return new InMemoryFileStream(this, file, isRandomAccess: false);
+        }
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The stream starts from a copy of the file's bytes, which the file keeps until the stream
+    /// is disposed; then the stream's bytes replace them. Every write and
+    /// <see cref="Stream.SetLength(long)"/> charges the file's new length against
+    /// <see cref="MaxTotalBytes"/>: one that would pass it, or that is made after the file was
+    /// deleted or replaced, throws <see cref="IOException"/> and changes nothing. Open one
+    /// stream on a file at a time.
+    /// </remarks>
+    /// <exception cref="DirectoryNotFoundException">No directory is above
+    /// <paramref name="path"/>.</exception>
+    /// <exception cref="UnauthorizedAccessException">A directory is at
+    /// <paramref name="path"/>.</exception>
+    public Stream OpenFileForAsyncReadWrite(string path)
+    {
+        string key = Normalise(path);
+        lock (gate)
+        {
+            if (!entries.TryGetValue(key, out StoredEntry? file))
+            {
+                RequireParentDirectory(key);
+                file = StoredEntry.NewFile(timeProvider.GetUtcNow());
+                entries.Add(key, file);
+            }
+
+            return file.Kind == ContentEntryKind.File
+                ? new InMemoryFileStream(this, file, isRandomAccess: true)
+                : throw new UnauthorizedAccessException($"A directory is at this path in memory: {key}");
         }
     }
 
@@ -384,7 +415,9 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
         file.IsRemoved = true;
     }
 
-    private void Charge(StoredEntry file, int count)
+    // Charges the file's new length against the bound in place of what it was charged before, so
+    // growing takes the difference and shrinking gives it back.
+    private void ChargeLength(StoredEntry file, long length)
     {
         lock (gate)
         {
@@ -393,13 +426,14 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
                 throw new IOException("The in-memory file was deleted or replaced while it was being written.");
             }
 
-            if (count > MaxTotalBytes - totalBytes)
+            long growth = length - file.ChargedBytes;
+            if (growth > MaxTotalBytes - totalBytes)
             {
                 throw new IOException("The in-memory file system is full.");
             }
 
-            file.ChargedBytes += count;
-            totalBytes += count;
+            file.ChargedBytes = length;
+            totalBytes += growth;
         }
     }
 
@@ -437,36 +471,68 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
         public static StoredEntry NewFile(DateTimeOffset now) => new(ContentEntryKind.File, now);
     }
 
-    // Collects a file's bytes, charging each write against the bound before keeping it, and
-    // hands them to the file when disposed.
-    private sealed class InMemoryFileWriteStream(InMemoryContentFileSystem owner, StoredEntry file) : Stream
+    // Collects a file's bytes, charging the file's length against the bound before each write
+    // or resize is kept, and hands them to the file when disposed. A random-access stream starts
+    // from the file's bytes and also reads, seeks and resizes; a write-only one only writes, in
+    // order.
+    private sealed class InMemoryFileStream : Stream
     {
+        private readonly InMemoryContentFileSystem owner;
+        private readonly StoredEntry file;
+        private readonly bool isRandomAccess;
         private readonly MemoryStream written = new();
         private bool disposed;
 
-        public override bool CanRead => false;
+        public InMemoryFileStream(InMemoryContentFileSystem owner, StoredEntry file, bool isRandomAccess)
+        {
+            this.owner = owner;
+            this.file = file;
+            this.isRandomAccess = isRandomAccess;
+            written.Write(file.Contents);
+            written.Position = 0;
+        }
 
-        public override bool CanSeek => false;
+        public override bool CanRead => isRandomAccess && !disposed;
+
+        public override bool CanSeek => isRandomAccess && !disposed;
 
         public override bool CanWrite => !disposed;
 
-        public override long Length => throw new NotSupportedException();
+        public override long Length => RequireRandomAccess().Length;
 
         public override long Position
         {
-            get => throw new NotSupportedException();
-            set => throw new NotSupportedException();
+            get => RequireRandomAccess().Position;
+            set => RequireRandomAccess().Position = value;
         }
 
         public override void Flush()
         {
         }
 
-        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            ValidateBufferArguments(buffer, offset, count);
+            return Read(buffer.AsSpan(offset, count));
+        }
 
-        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override int Read(Span<byte> buffer) => RequireRandomAccess().Read(buffer);
 
-        public override void SetLength(long value) => throw new NotSupportedException();
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(Read(buffer.Span));
+        }
+
+        public override long Seek(long offset, SeekOrigin origin) => RequireRandomAccess().Seek(offset, origin);
+
+        public override void SetLength(long value)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            MemoryStream contents = RequireRandomAccess();
+            owner.ChargeLength(file, value);
+            contents.SetLength(value);
+        }
 
         public override void Write(byte[] buffer, int offset, int count)
         {
@@ -477,7 +543,7 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
         public override void Write(ReadOnlySpan<byte> buffer)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            owner.Charge(file, buffer.Length);
+            owner.ChargeLength(file, Math.Max(written.Length, written.Position + buffer.Length));
             written.Write(buffer);
         }
 
@@ -506,6 +572,14 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
             }
 
             base.Dispose(disposing);
+        }
+
+        private MemoryStream RequireRandomAccess()
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            return isRandomAccess
+                ? written
+                : throw new NotSupportedException("The in-memory write stream only writes, in order.");
         }
     }
 }

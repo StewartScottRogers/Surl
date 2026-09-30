@@ -459,6 +459,57 @@ public sealed class ContentStore
     }
 
     /// <summary>
+    /// Opens a random-access upload to the file at a mapped location: a
+    /// <see cref="ContentUploadSession"/> written and read at any offset, resized, and committed
+    /// over the target or discarded (ADR-0054 decision 14 item 4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The answer, first match wins: <see cref="ContentUploadOpeningResult.NotPermitted"/> when
+    /// <see cref="ContentExposureOptions.AllowUploads"/> is off;
+    /// <see cref="ContentUploadOpeningResult.IsADirectory"/> for a visible directory, the served
+    /// root included; <see cref="ContentUploadOpeningResult.NoSuchDirectory"/> when the location
+    /// is not directly inside an existing directory;
+    /// <see cref="ContentUploadOpeningResult.NotPermitted"/> when it is hidden, under
+    /// <c>/.surl</c>, or asked for with a trailing <c>/</c>;
+    /// <see cref="ContentUploadOpeningResult.Exists"/> for a file when the opening refuses one;
+    /// <see cref="ContentUploadOpeningResult.Absent"/> for nothing when the opening does not
+    /// create a missing file; otherwise <see cref="ContentUploadOpeningResult.Opened"/>.
+    /// </para>
+    /// <para>
+    /// An opened upload lives in a temporary dot-file beside the target, holding a copy of the
+    /// target's bytes when the opening starts from them and a file is there, else nothing. The
+    /// target is untouched until the session commits. A copy that throws, cancellation included,
+    /// deletes the temporary file before the exception goes on.
+    /// </para>
+    /// </remarks>
+    /// <param name="mapping">A mapping this content store returned with
+    /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
+    /// <param name="opening">What the upload starts from, and what it does about a file that is
+    /// there or missing.</param>
+    /// <param name="cancellationToken">Checked before anything is looked at and while the
+    /// target's bytes are copied; cancellation throws
+    /// <see cref="OperationCanceledException"/>.</param>
+    /// <returns>The result and, when opened, the session, which the caller disposes.</returns>
+    /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="opening"/> is null.</exception>
+    public async Task<ContentUploadOpeningOutcome> OpenUploadAsync(ContentPathMapping mapping, ContentUploadOpening opening, CancellationToken cancellationToken)
+    {
+        string location = RequireLocation(mapping);
+        ArgumentNullException.ThrowIfNull(opening);
+        cancellationToken.ThrowIfCancellationRequested();
+        ContentEntryKind kind = mapping.IsAnsweredAsAbsent ? ContentEntryKind.None : fileSystem.GetEntryKind(location);
+        ContentUploadOpeningResult result = UploadOpeningResult(mapping, location, kind, opening);
+        if (result != ContentUploadOpeningResult.Opened)
+        {
+            return new ContentUploadOpeningOutcome(result, null);
+        }
+
+        bool copiesTheTarget = opening.StartsFromExistingBytes && kind == ContentEntryKind.File;
+        return new ContentUploadOpeningOutcome(result, await StartUploadSessionAsync(location, copiesTheTarget, cancellationToken));
+    }
+
+    /// <summary>
     /// Deletes the file at a mapped location.
     /// </summary>
     /// <remarks>
@@ -752,6 +803,54 @@ public sealed class ContentStore
         }
         catch (Exception)
         {
+            fileSystem.DeleteFile(temporaryLocation);
+            throw;
+        }
+    }
+
+    private ContentUploadOpeningResult UploadOpeningResult(ContentPathMapping mapping, string location, ContentEntryKind kind, ContentUploadOpening opening)
+    {
+        if (!ExposureOptions.AllowUploads)
+        {
+            return ContentUploadOpeningResult.NotPermitted;
+        }
+
+        if (kind == ContentEntryKind.Directory)
+        {
+            return ContentUploadOpeningResult.IsADirectory;
+        }
+
+        if (!IsDirectlyInsideADirectory(location))
+        {
+            return ContentUploadOpeningResult.NoSuchDirectory;
+        }
+
+        return mapping.IsAnsweredAsAbsent || mapping.NamesADirectory
+            ? ContentUploadOpeningResult.NotPermitted
+            : UploadOpeningResultFor(kind == ContentEntryKind.File, opening);
+    }
+
+    private static ContentUploadOpeningResult UploadOpeningResultFor(bool fileIsThere, ContentUploadOpening opening) =>
+        fileIsThere
+            ? (opening.RefusesExistingFile ? ContentUploadOpeningResult.Exists : ContentUploadOpeningResult.Opened)
+            : (opening.CreatesMissingFile ? ContentUploadOpeningResult.Opened : ContentUploadOpeningResult.Absent);
+
+    private async Task<ContentUploadSession> StartUploadSessionAsync(string location, bool copiesTheTarget, CancellationToken cancellationToken)
+    {
+        string temporaryLocation = TemporaryUploadLocationBeside(location);
+        Stream temporaryFile = fileSystem.OpenFileForAsyncReadWrite(temporaryLocation);
+        try
+        {
+            if (copiesTheTarget)
+            {
+                await CopyExistingFileAsync(location, temporaryFile, cancellationToken);
+            }
+
+            return new ContentUploadSession(fileSystem, temporaryLocation, location, temporaryFile, ExposureOptions.MaxUploadBytes);
+        }
+        catch (Exception)
+        {
+            temporaryFile.Dispose();
             fileSystem.DeleteFile(temporaryLocation);
             throw;
         }
