@@ -64,9 +64,11 @@ internal static class SftpTestPackets
     public static byte[] AttributesReply(uint id, ulong size, uint permissions, DateTimeOffset written) =>
         Framed(105, UInt32(id), Attributes(size, permissions, written));
 
-    public static ContentStore Store(ContentExposureOptions options, TimeProvider clock, Action<InMemoryContentFileSystem>? addEntries = null)
+    public static ContentStore Store(ContentExposureOptions options, TimeProvider clock, Action<InMemoryContentFileSystem>? addEntries = null) =>
+        Store(options, new InMemoryContentFileSystem(clock), addEntries);
+
+    public static ContentStore Store(ContentExposureOptions options, InMemoryContentFileSystem fileSystem, Action<InMemoryContentFileSystem>? addEntries = null)
     {
-        var fileSystem = new InMemoryContentFileSystem(clock);
         WriteFile(fileSystem, "hello world\n", "a.txt");
         WriteFile(fileSystem, "bee\n", "dir", "b.txt");
         WriteFile(fileSystem, "hidden\n", ".hidden.txt");

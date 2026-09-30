@@ -21,11 +21,20 @@ internal static class SftpPacketType
     /// <summary><c>SSH_FXP_READ</c>.</summary>
     public const byte Read = 5;
 
+    /// <summary><c>SSH_FXP_WRITE</c>.</summary>
+    public const byte Write = 6;
+
     /// <summary><c>SSH_FXP_LSTAT</c>.</summary>
     public const byte LinkStat = 7;
 
     /// <summary><c>SSH_FXP_FSTAT</c>.</summary>
     public const byte HandleStat = 8;
+
+    /// <summary><c>SSH_FXP_SETSTAT</c>.</summary>
+    public const byte SetStat = 9;
+
+    /// <summary><c>SSH_FXP_FSETSTAT</c>.</summary>
+    public const byte HandleSetStat = 10;
 
     /// <summary><c>SSH_FXP_OPENDIR</c>.</summary>
     public const byte OpenDirectory = 11;
@@ -33,11 +42,23 @@ internal static class SftpPacketType
     /// <summary><c>SSH_FXP_READDIR</c>.</summary>
     public const byte ReadDirectory = 12;
 
+    /// <summary><c>SSH_FXP_REMOVE</c>.</summary>
+    public const byte Remove = 13;
+
+    /// <summary><c>SSH_FXP_MKDIR</c>.</summary>
+    public const byte MakeDirectory = 14;
+
+    /// <summary><c>SSH_FXP_RMDIR</c>.</summary>
+    public const byte RemoveDirectory = 15;
+
     /// <summary><c>SSH_FXP_REALPATH</c>.</summary>
     public const byte RealPath = 16;
 
     /// <summary><c>SSH_FXP_STAT</c>.</summary>
     public const byte Stat = 17;
+
+    /// <summary><c>SSH_FXP_RENAME</c>.</summary>
+    public const byte Rename = 18;
 
     /// <summary><c>SSH_FXP_READLINK</c>.</summary>
     public const byte ReadLink = 19;

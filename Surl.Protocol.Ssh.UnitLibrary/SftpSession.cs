@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
@@ -6,8 +7,9 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
-/// The <c>sftp</c> subsystem on one session channel: SFTP version 3's read side answered through
-/// the content store (draft-ietf-secsh-filexfer-02; ADR-0054, decisions 5 to 8 and 13).
+/// The <c>sftp</c> subsystem on one session channel: SFTP version 3 answered through the content
+/// store (draft-ietf-secsh-filexfer-02; ADR-0054, decisions 5 to 10 and 13). The read side is in
+/// this file, the write side in <c>SftpSession.Writes.cs</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,24 +30,29 @@ namespace Surl.Protocol.Ssh;
 /// <c>/.surl</c> and refused mappings are answered exactly as missing: <c>NO_SUCH_FILE</c>.
 /// </para>
 /// <para>
-/// <b>Not answered yet.</b> The write side - <c>OPEN</c> with any flag but <c>READ</c>,
-/// <c>WRITE</c>, <c>REMOVE</c>, <c>RENAME</c>, <c>MKDIR</c>, <c>RMDIR</c>, <c>SETSTAT</c> and
-/// <c>FSETSTAT</c> - is BL-166's; until then each is answered as decision 10 answers a type the
-/// server does not serve, <c>OP_UNSUPPORTED</c> <c>Operation unsupported</c>. <c>SYMLINK</c> is
-/// <c>OP_UNSUPPORTED</c> <c>Symbolic links cannot be created</c> and <c>EXTENDED</c>
-/// <c>Extension not supported</c>, as decision 10 decides for good.
+/// <b>Writes</b>, each needing <c>--allow-uploads</c> (<c>PERMISSION_DENIED</c> without it):
+/// <c>OPEN</c> with <c>WRITE</c> (an upload in a temporary file, committed over the target at
+/// <c>CLOSE</c> and discarded if the session ends first), <c>WRITE</c> (at the end for an
+/// <c>APPEND</c> handle, else at its offset), <c>REMOVE</c>, <c>RENAME</c> (never replacing),
+/// <c>MKDIR</c>, <c>RMDIR</c>, and <c>SETSTAT</c> and <c>FSETSTAT</c> for <c>SIZE</c> and the
+/// modification time. Permissions and owners are <c>OP_UNSUPPORTED</c>: the store keeps none. An
+/// upload past <c>--max-filesize</c> is discarded and answered <c>FAILURE</c> <c>File too large</c>.
+/// <c>SYMLINK</c> is <c>OP_UNSUPPORTED</c> <c>Symbolic links cannot be created</c>,
+/// <c>EXTENDED</c> <c>Extension not supported</c>, and any other type
+/// <c>Operation unsupported</c> (decision 10).
 /// </para>
 /// <para>
 /// <b>Handles</b> are 4 bytes, a big-endian counter never reused; at most
 /// <see cref="MaxOpenHandles"/> are open at once. An unknown or closed handle is <c>FAILURE</c>
 /// <c>Invalid handle</c>. A packet that does not parse is <c>BAD_MESSAGE</c>, and a store failure
-/// <c>FAILURE</c> <c>Read failed</c>; the session goes on. No status message holds a path or an
-/// exception message (ADR-0006 section 3): those go to the verbose notes only.
+/// <c>FAILURE</c> <c>Read failed</c> (<c>Write failed</c> for a request that writes); the session
+/// goes on. No status message holds a path or an exception message (ADR-0006 section 3): those go
+/// to the verbose notes only.
 /// </para>
 /// </remarks>
-/// <param name="store">The content store the session reads.</param>
+/// <param name="store">The content store the session reads and writes.</param>
 /// <param name="context">The exchange: its log, its clock and <c>--max-message</c>.</param>
-internal sealed class SftpSession(ContentStore store, ExchangeContext context) : ISshChannelHandler
+internal sealed partial class SftpSession(ContentStore store, ExchangeContext context) : ISshChannelHandler
 {
     /// <summary>The most handles open at once in one session.</summary>
     public const int MaxOpenHandles = 100;
@@ -61,11 +68,18 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
 
     private const uint OpenForReading = 0x00000001;
 
-    // The read side's requests, each with its answer (decision 8).
+    // The requests served, each with its answer (decisions 8 to 10).
     private static readonly Dictionary<byte, Func<SftpSession, SftpRequest, CancellationToken, ValueTask<byte[]>>> Answers = new()
     {
-        [SftpPacketType.Open] = (session, request, _) => ValueTask.FromResult(session.AnswerOpen(request)),
-        [SftpPacketType.Close] = (session, request, _) => ValueTask.FromResult(session.AnswerClose(request)),
+        [SftpPacketType.Open] = (session, request, cancellationToken) => session.AnswerOpenAsync(request, cancellationToken),
+        [SftpPacketType.Close] = (session, request, _) => session.AnswerCloseAsync(request),
+        [SftpPacketType.Write] = (session, request, cancellationToken) => session.AnswerWriteAsync(request, cancellationToken),
+        [SftpPacketType.SetStat] = (session, request, cancellationToken) => session.AnswerSetStatAsync(request, cancellationToken),
+        [SftpPacketType.HandleSetStat] = (session, request, _) => session.AnswerHandleSetStatAsync(request),
+        [SftpPacketType.Remove] = (session, request, _) => ValueTask.FromResult(session.AnswerRemove(request)),
+        [SftpPacketType.MakeDirectory] = (session, request, _) => ValueTask.FromResult(session.AnswerMakeDirectory(request)),
+        [SftpPacketType.RemoveDirectory] = (session, request, _) => ValueTask.FromResult(session.AnswerRemoveDirectory(request)),
+        [SftpPacketType.Rename] = (session, request, _) => ValueTask.FromResult(session.AnswerRename(request)),
         [SftpPacketType.Read] = (session, request, cancellationToken) => session.AnswerReadAsync(request, cancellationToken),
         [SftpPacketType.Stat] = (session, request, _) => ValueTask.FromResult(session.AnswerStat(request)),
         [SftpPacketType.LinkStat] = (session, request, _) => ValueTask.FromResult(session.AnswerStat(request)),
@@ -88,6 +102,29 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
     public async Task<uint> RunAsync(ISshChannelDataStream channel, CancellationToken cancellationToken)
     {
         var framing = new SftpChannelFraming(channel, context.Limits.MaxMessageBytes);
+        (uint Exit, string Ending) outcome = default;
+        ExceptionDispatchInfo? failure = null;
+        try
+        {
+            outcome = await ServeAsync(framing, cancellationToken);
+        }
+        catch (Exception cutOff)
+        {
+            failure = ExceptionDispatchInfo.Capture(cutOff);
+        }
+
+        // Decision 5: every upload not committed by its CLOSE is discarded, however the session
+        // ends; a failure that cut it off goes on once they are.
+        var discarded = await ReleaseHandlesAsync();
+        failure?.Throw();
+        var uploads = discarded == 0 ? string.Empty : $", {discarded} uploads discarded";
+        context.Log.Note($"SFTP session ended: {outcome.Ending}{uploads}");
+
+        return outcome.Exit;
+    }
+
+    private async Task<(uint Exit, string Ending)> ServeAsync(SftpChannelFraming framing, CancellationToken cancellationToken)
+    {
         try
         {
             var first = await framing.ReadPacketAsync(cancellationToken);
@@ -100,19 +137,37 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
                 }
             }
 
-            context.Log.Note("SFTP session ended: client EOF");
-
-            return 0;
+            return (0, "client EOF");
         }
         catch (SftpSessionEndedException ended)
         {
-            context.Log.Note($"SFTP session ended: {ended.Message}");
-
-            return 1;
+            return (1, ended.Message);
         }
-        finally
+    }
+
+    // Releases every handle, discarding each upload still standing; answers how many were.
+    private async Task<int> ReleaseHandlesAsync()
+    {
+        var standing = handles.Values.Where(handle => handle.Upload is not null && handle.Discarded is null).ToList();
+        handles.Clear();
+        foreach (var handle in standing)
         {
-            handles.Clear();
+            await DiscardAtSessionEndAsync(handle);
+        }
+
+        return standing.Count;
+    }
+
+    // One upload's temporary file failing to go must not keep the others, or the session's end, back.
+    private async Task DiscardAtSessionEndAsync(SftpHandle handle)
+    {
+        try
+        {
+            await handle.Upload!.DisposeAsync();
+        }
+        catch (Exception failure) when (IsStoreFailure(failure))
+        {
+            context.Log.Note($"SFTP upload {RenderPath(handle.Path)} not discarded cleanly: {failure.Message}");
         }
     }
 
@@ -145,19 +200,24 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
         {
             return Refuse(request, string.Empty, SftpStatusCode.BadMessage, "Bad message");
         }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+        catch (Exception failure) when (IsStoreFailure(failure))
         {
-            return Refuse(request, string.Empty, SftpStatusCode.Failure, "Read failed", failure.Message);
+            var message = WritingRequests.Contains(request.Type) ? "Write failed" : "Read failed";
+
+            return Refuse(request, string.Empty, SftpStatusCode.Failure, message, failure.Message);
         }
     }
+
+    // A failure of the store the session answers and goes on after: a disk fault, access refused.
+    private static bool IsStoreFailure(Exception failure) => failure is IOException or UnauthorizedAccessException;
 
     private ValueTask<byte[]> AnswerRequestAsync(SftpRequest request, CancellationToken cancellationToken) =>
         Answers.TryGetValue(request.Type, out var answer)
             ? answer(this, request, cancellationToken)
             : ValueTask.FromResult(AnswerUnsupported(request));
 
-    // Decision 10's answers for what the read side does not serve; INIT after the start is a
-    // malformed packet (decision 5).
+    // Decision 10's answers for what is not served; INIT after the start is a malformed packet
+    // (decision 5).
     private byte[] AnswerUnsupported(SftpRequest request) => request.Type switch
     {
         SftpPacketType.Init => Refuse(request, string.Empty, SftpStatusCode.BadMessage, "Bad message"),
@@ -196,18 +256,25 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
             : Refuse(request, Render(path), SftpStatusCode.Failure, "Not a symbolic link");
     }
 
-    private byte[] AnswerOpen(SftpRequest request)
+    private ValueTask<byte[]> AnswerOpenAsync(SftpRequest request, CancellationToken cancellationToken)
     {
         var path = request.ReadString();
         var flags = request.ReadUInt32();
-        request.SkipAttributes();
+        var attributes = request.ReadAttributes();
         request.RequireEnd();
         var subject = $"{Render(path)} {RenderOpenFlags(flags)}";
-        if ((flags & ~OpenForReading) != 0)
+        if ((flags & OpenForWriting) != 0)
         {
-            return Refuse(request, subject, SftpStatusCode.OperationUnsupported, "Operation unsupported", "only reads are served");
+            return OpenForWritingAsync(request, path, flags, attributes, subject, cancellationToken);
         }
 
+        return ValueTask.FromResult((flags & ~OpenForReading) != 0
+            ? Refuse(request, subject, SftpStatusCode.OperationUnsupported, "Operation unsupported", "flags beside READ without WRITE")
+            : OpenForReadingOnly(request, path, subject));
+    }
+
+    private byte[] OpenForReadingOnly(SftpRequest request, ReadOnlyMemory<byte> path, string subject)
+    {
         var mapping = Map(path, out var canonical);
         var status = StatusAt(mapping);
         if (status is null)
@@ -246,7 +313,7 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
             : Absent(request, Render(path));
     }
 
-    private byte[] AnswerClose(SftpRequest request)
+    private async ValueTask<byte[]> AnswerCloseAsync(SftpRequest request)
     {
         var handleBytes = request.ReadString();
         request.RequireEnd();
@@ -256,6 +323,11 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
         }
 
         handles.Remove(found.Number);
+        if (found.Handle.Upload is { } upload)
+        {
+            return await CloseUploadAsync(request, found.Handle, upload);
+        }
+
         var what = found.Handle.Entries is null ? $"read {found.Handle.Progress} bytes" : $"listed {found.Handle.Progress} entries";
         context.Log.Note($"SFTP CLOSE {RenderPath(found.Handle.Path)}: {what}");
 
@@ -278,6 +350,13 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
             return Refuse(request, RenderPath(handle.Path), SftpStatusCode.Failure, "Is a directory");
         }
 
+        return handle.Upload is { } upload
+            ? await ReadUploadAsync(request, handle, upload, offset, length, cancellationToken)
+            : await ReadFileAsync(request, handle, offset, length, cancellationToken);
+    }
+
+    private async ValueTask<byte[]> ReadFileAsync(SftpRequest request, SftpHandle handle, ulong offset, uint length, CancellationToken cancellationToken)
+    {
         if (store.GetFileStatus(handle.Mapping) is not { } file)
         {
             return Absent(request, RenderPath(handle.Path));
@@ -317,6 +396,11 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
         if (FindHandle(handleBytes) is not { Handle: var handle })
         {
             return InvalidHandle(request, handleBytes);
+        }
+
+        if (handle.Upload is { } upload)
+        {
+            return UploadAttributes(request, handle, upload);
         }
 
         var status = StatusAt(handle.Mapping);

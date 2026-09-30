@@ -8,12 +8,6 @@ namespace Surl.Protocol.Ssh;
 /// </summary>
 internal sealed class SftpRequest
 {
-    private const uint AttributeSize = 0x00000001;
-    private const uint AttributeOwners = 0x00000002;
-    private const uint AttributePermissions = 0x00000004;
-    private const uint AttributeTimes = 0x00000008;
-    private const uint AttributeExtended = 0x80000000;
-
     private readonly SshWireReader fields;
     private readonly int length;
 
@@ -67,26 +61,38 @@ internal sealed class SftpRequest
     public ulong ReadUInt64() => fields.ReadUInt64();
 
     /// <summary>
-    /// Reads an <c>ATTRS</c> field (draft-02, section 5) and discards it: the read side keeps no
-    /// attribute a client sends.
+    /// Reads an <c>ATTRS</c> field (draft-02, section 5): the size, the permissions and the
+    /// modification time are kept, the owners, the access time and the extended pairs read past.
     /// </summary>
+    /// <returns>The attributes.</returns>
     /// <exception cref="SshDisconnectRequiredException">A field runs past the packet.</exception>
-    public void SkipAttributes()
+    public SftpAttributes ReadAttributes()
     {
         var flags = fields.ReadUInt32();
-        fields.ReadBytes(FixedAttributeBytes(flags));
-        if ((flags & AttributeExtended) != 0)
+        ulong? size = (flags & SftpAttributes.SizeFlag) != 0 ? fields.ReadUInt64() : null;
+        fields.ReadBytes((flags & SftpAttributes.OwnersFlag) != 0 ? 8 : 0);
+        uint? permissions = (flags & SftpAttributes.PermissionsFlag) != 0 ? fields.ReadUInt32() : null;
+        var modificationTime = ReadModificationTime(flags);
+        if ((flags & SftpAttributes.ExtendedFlag) != 0)
         {
             SkipExtendedAttributes();
         }
+
+        return new SftpAttributes(flags, size, permissions, modificationTime);
     }
 
-    // The size, the owners, the permissions and the times, each present when its flag is set.
-    private static int FixedAttributeBytes(uint flags) =>
-        ((flags & AttributeSize) != 0 ? 8 : 0)
-        + ((flags & AttributeOwners) != 0 ? 8 : 0)
-        + ((flags & AttributePermissions) != 0 ? 4 : 0)
-        + ((flags & AttributeTimes) != 0 ? 8 : 0);
+    // ACMODTIME: the access time, which the store does not keep, then the modification time.
+    private uint? ReadModificationTime(uint flags)
+    {
+        if ((flags & SftpAttributes.TimesFlag) == 0)
+        {
+            return null;
+        }
+
+        fields.ReadUInt32();
+
+        return fields.ReadUInt32();
+    }
 
     private void SkipExtendedAttributes()
     {

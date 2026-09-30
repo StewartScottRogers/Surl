@@ -8,13 +8,14 @@ using static Surl.Protocol.Ssh.SshTestExchange;
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
-/// The <c>sftp</c> subsystem's read side at channel level (ADR-0054, decisions 5 to 8 and 13):
+/// The <c>sftp</c> subsystem's read side at channel level (ADR-0054, decisions 5 to 8 and 13; the
+/// write side is in <c>SftpSessionTests.Writes.cs</c>):
 /// every packet is built by hand from draft-ietf-secsh-filexfer-02 and the ADR's worked bytes, fed
 /// to <see cref="SftpSession"/> as channel data, and its replies compared byte for byte. BL-172
 /// proves these answers against the pinned upstream curl build (ADR-0003).
 /// </summary>
 [TestClass]
-public sealed class SftpSessionTests
+public sealed partial class SftpSessionTests
 {
     private const uint RegularFile = 0x81A4;
     private const uint Directory = 0x41ED;
@@ -280,16 +281,15 @@ public sealed class SftpSessionTests
     }
 
     [TestMethod]
-    [DataRow(0x1Au, "WRITE|CREAT|TRUNC", DisplayName = "curl's upload")]
-    [DataRow(0x0Eu, "WRITE|APPEND|CREAT", DisplayName = "curl's append")]
     [DataRow(0x21u, "READ|EXCL", DisplayName = "EXCL")]
+    [DataRow(0x09u, "READ|CREAT", DisplayName = "CREAT")]
     [DataRow(0x41u, "READ|0x40", DisplayName = "a bit draft-02 does not define")]
-    public async Task Open_AnyFlagButRead_IsOperationUnsupportedUntilTheWriteSide(uint flags, string rendered)
+    public async Task Open_FlagsBesideReadWithoutWrite_AreOperationUnsupported(uint flags, string rendered)
     {
         var run = await RunAsync(Store(new() { AllowUploads = true }, clock), Open(1, "/new.txt", flags));
 
         CollectionAssert.AreEqual(Status(1, 8, "Operation unsupported"), run.Replies.Single());
-        CollectionAssert.Contains(run.Notes, $"SFTP OPEN /new.txt {rendered} -> OP_UNSUPPORTED: only reads are served");
+        CollectionAssert.Contains(run.Notes, $"SFTP OPEN /new.txt {rendered} -> OP_UNSUPPORTED: flags beside READ without WRITE");
     }
 
     [TestMethod]
@@ -527,18 +527,11 @@ public sealed class SftpSessionTests
     }
 
     [TestMethod]
-    [DataRow((byte)6, "WRITE", DisplayName = "WRITE")]
-    [DataRow((byte)9, "SETSTAT", DisplayName = "SETSTAT")]
-    [DataRow((byte)10, "FSETSTAT", DisplayName = "FSETSTAT")]
-    [DataRow((byte)13, "REMOVE", DisplayName = "REMOVE")]
-    [DataRow((byte)14, "MKDIR", DisplayName = "MKDIR")]
-    [DataRow((byte)15, "RMDIR", DisplayName = "RMDIR")]
-    [DataRow((byte)18, "RENAME", DisplayName = "RENAME")]
     [DataRow((byte)2, "VERSION", DisplayName = "a server's VERSION")]
     [DataRow((byte)101, "type 101", DisplayName = "a server's STATUS")]
     [DataRow((byte)0, "type 0", DisplayName = "type 0")]
     [DataRow((byte)150, "type 150", DisplayName = "an undefined type")]
-    public async Task Request_NotInTheReadSide_IsOperationUnsupported(byte type, string name)
+    public async Task Request_NotServed_IsOperationUnsupported(byte type, string name)
     {
         var run = await RunAsync(Store(new() { AllowUploads = true }, clock), Request(type, 1, Text("/a.txt")));
 
