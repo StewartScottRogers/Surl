@@ -483,6 +483,40 @@
     ListenAddress are ignored, and Port need not be given. Combining it with a server
     mode, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Tftp or -Tls, is refused. StandardInput and Curl work as in every other mode.
 
+.PARAMETER KerberosTestKdc
+    Run the hand-built loopback KDC of ADR-0065 (Surl.Kerberos.TestKdc, through the C#
+    file-based app Run-KerberosTestKdc.cs) while curl runs, so a pinned build's SSPI can get
+    a real Kerberos ticket for --negotiate or SASL GSSAPI. The KDC serves the realm SURL.TEST
+    on 127.0.0.1:88 over UDP and TCP for the user tester@SURL.TEST, whose password is
+    KerberosPassword, and for the service principals in KerberosServicePrincipal. The script
+    starts it, waits until it says it is listening, runs curl, then closes its standard input,
+    which stops it. It writes two more files to OutDirectory:
+
+      service.keytab  the service principals' keys as an MIT keytab, for surl --keytab and
+                      for decrypting the AP-REQ curl sent
+      kdc.log         one line per AS or TGS exchange: AS or TGS, the client principal, the
+                      server principal, the ticket's enctype (- for an error) and the
+                      RFC 4120 error code (0 for none), e.g.
+                      AS tester@SURL.TEST krbtgt/SURL.TEST@SURL.TEST - 25
+
+    It combines with the HTTP mode (a canned 401 with WWW-Authenticate: Negotiate), with
+    -Smtp, -Imap and -Pop3 and -SaslChallenge, with -NoServer against a started
+    surl --keytab service.keytab, and with every other mode. The pinned Windows client finds
+    the KDC only through the SURL.TEST realm mapping of BL-265 (ksetup); without it curl never
+    asks the KDC, kdc.log is empty and curl's failure is recorded like any other. It is
+    refused outside Windows: no pinned build there has Kerberos (UpstreamCurlBuilds.json).
+    Needs dotnet on PATH; the first run builds Run-KerberosTestKdc.cs, which takes a while.
+
+.PARAMETER KerberosPassword
+    The password of tester@SURL.TEST, which -KerberosTestKdc derives the user's keys from and
+    curl's -u tester@SURL.TEST:<password> must give. Required with -KerberosTestKdc.
+
+.PARAMETER KerberosServicePrincipal
+    The service principals -KerberosTestKdc issues tickets for and writes to service.keytab,
+    each as its components joined by /, e.g. 'HTTP/web.surl.test'. Repeatable. Default the
+    four of ADR-0065: HTTP/web.surl.test, smtp/mail.surl.test, imap/mail.surl.test and
+    pop/mail.surl.test.
+
 .EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18081 -Response 'HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello' -CurlArgs 'http://127.0.0.1:18081/a?b' -OutDirectory fixtures\default-get
 
@@ -535,6 +569,13 @@
 
     Serves one TFTP read; transcript.txt shows curl's RRQ to port 18069, the server's
     replies from a port of its own and curl's ACKs, and stdout.bin holds hello.
+
+.EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18080 -KerberosTestKdc -KerberosPassword 'surl-test-password' -KerberosServicePrincipal 'HTTP/web.surl.test' -Response 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--negotiate','-u','tester@SURL.TEST:surl-test-password','--resolve','web.surl.test:18080:127.0.0.1','http://web.surl.test:18080/' -OutDirectory fixtures\negotiate-token
+
+    Runs the test KDC while curl asks for http://web.surl.test:18080/; with BL-265's realm
+    mapping, request.bin holds the Authorization: Negotiate header carrying curl's SPNEGO
+    token, kdc.log its AS and TGS exchanges, and service.keytab the key that decrypts it.
 #>
 [CmdletBinding()]
 param(
@@ -583,7 +624,10 @@ param(
     [switch] $TlsRenegotiationOff,
     [string] $Curl,
     [System.Net.IPAddress] $ListenAddress = [System.Net.IPAddress]::Loopback,
-    [switch] $NoServer
+    [switch] $NoServer,
+    [switch] $KerberosTestKdc,
+    [string] $KerberosPassword,
+    [string[]] $KerberosServicePrincipal = @('HTTP/web.surl.test', 'smtp/mail.surl.test', 'imap/mail.surl.test', 'pop/mail.surl.test')
 )
 
 Set-StrictMode -Version Latest
@@ -597,6 +641,10 @@ if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Tftp | Where-Object { $_ }).Count -gt 1)
 if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined with -Tls.' }
 if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode, and cannot be combined with -Reset.' }
 if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
+if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword') -or $PSBoundParameters.ContainsKey('KerberosServicePrincipal'))) { throw '-KerberosPassword and -KerberosServicePrincipal configure the test KDC, so they need -KerberosTestKdc.' }
+if ($KerberosTestKdc -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-KerberosTestKdc runs only on Windows: no pinned upstream curl build on Linux or macOS has Kerberos, SPNEGO or GSS-API (UpstreamCurlBuilds.json, ADR-0065).' }
+if ($KerberosTestKdc -and [string]::IsNullOrEmpty($KerberosPassword)) { throw '-KerberosTestKdc needs -KerberosPassword, the password of tester@SURL.TEST that curl gives with -u.' }
+if ($KerberosTestKdc -and @($KerberosServicePrincipal | Where-Object { $_ }).Count -eq 0) { throw '-KerberosTestKdc needs at least one -KerberosServicePrincipal.' }
 
 function Get-ReferenceCurlPath {
     $git = Get-Command git.exe -ErrorAction SilentlyContinue
@@ -2197,6 +2245,40 @@ function Stop-TlsRelay {
     Remove-Item -LiteralPath $Relay[1] -Force
 }
 
+# -KerberosTestKdc: Run-KerberosTestKdc.cs writes the keytab, binds 127.0.0.1:88 and prints
+# "listening on ..." on standard output, then serves until its standard input closes.
+function Start-KerberosTestKdc {
+    param([string] $Password, [string[]] $ServicePrincipals, [string] $Directory)
+    $arguments = @('run', '--file', (Join-Path $PSScriptRoot 'Run-KerberosTestKdc.cs'), '--', '--password', $Password, '--keytab', (Join-Path $Directory 'service.keytab'), '--log', (Join-Path $Directory 'kdc.log'))
+    foreach ($principal in $ServicePrincipals) { $arguments += @('--service', $principal) }
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = 'dotnet'
+    $startInfo.Arguments = (@($arguments | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+    $startInfo.WorkingDirectory = $PSScriptRoot
+    $kdcProcess = [System.Diagnostics.Process]::Start($startInfo)
+    $kdcError = $kdcProcess.StandardError.ReadToEndAsync()
+    # The first run builds the app and its libraries, so the wait is generous.
+    $firstLine = $kdcProcess.StandardOutput.ReadLineAsync()
+    if (-not $firstLine.Wait(300000) -or $null -eq $firstLine.Result -or -not $firstLine.Result.StartsWith('listening on ')) {
+        Stop-KerberosTestKdc -KdcProcess $kdcProcess
+        $said = if ($firstLine.IsCompleted) { $firstLine.Result } else { '' }
+        throw "The test KDC did not start listening. It said: $said $($kdcError.Result)"
+    }
+    return $kdcProcess
+}
+
+function Stop-KerberosTestKdc {
+    param([System.Diagnostics.Process] $KdcProcess)
+    try { $KdcProcess.StandardInput.Close() } catch [System.IO.IOException] { }
+    if (-not $KdcProcess.WaitForExit(10000)) { & cmd.exe /c "taskkill /T /F /PID $($KdcProcess.Id) >nul 2>&1" }
+    $KdcProcess.Dispose()
+}
+
 if ([string]::IsNullOrEmpty($Curl)) { $Curl = Get-ReferenceCurlPath }
 Assert-PinnedUpstreamCurl -Path $Curl
 $responseBytes = New-Object System.Collections.Generic.List[byte[]]
@@ -2259,7 +2341,9 @@ if ($Tftp) {
 function Stop-Listener {
     if ($listener -is [System.Net.Sockets.Socket]) { $listener.Close() } else { $listener.Stop() }
 }
+$kerberosKdc = $null
 try {
+    if ($KerberosTestKdc) { $kerberosKdc = Start-KerberosTestKdc -Password $KerberosPassword -ServicePrincipals $KerberosServicePrincipal -Directory $OutDirectory }
     if ($NoServer) {
         $serverRun = $null
     } elseif ($Ftp) {
@@ -2329,6 +2413,7 @@ try {
         if ($server.Streams.Error.Count -gt 0) { throw $server.Streams.Error[0] }
     }
 } finally {
+    if ($null -ne $kerberosKdc) { Stop-KerberosTestKdc -KdcProcess $kerberosKdc }
     if ($null -ne $tlsRelay) { Stop-TlsRelay -Relay $tlsRelay }
     if ($null -ne $listener) { Stop-Listener }
     if ($null -ne $server) { $server.Dispose() }
