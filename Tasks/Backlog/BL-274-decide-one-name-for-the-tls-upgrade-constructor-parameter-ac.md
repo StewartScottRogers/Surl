@@ -1,5 +1,5 @@
 ---
-id: BL-268
+id: BL-274
 title: Decide one name for the TLS-upgrade constructor parameter across FTP, SMTP, IMAP and POP3
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-30
 completed:
 ---
-# BL-268 — Decide one name for the TLS-upgrade constructor parameter across FTP, SMTP, IMAP and POP3
+# BL-274 — Decide one name for the TLS-upgrade constructor parameter across FTP, SMTP, IMAP and POP3
 
 ## Goal
 

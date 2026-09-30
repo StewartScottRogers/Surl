@@ -1,5 +1,5 @@
 ---
-id: BL-265
+id: BL-271
 title: Stream SMTP DATA into a pending mail-store file and answer a failed store write with 451 4.3.0
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-043
 created: 2026-09-30
 completed:
 ---
-# BL-265 — Stream SMTP DATA into a pending mail-store file and answer a failed store write with 451 4.3.0
+# BL-271 — Stream SMTP DATA into a pending mail-store file and answer a failed store write with 451 4.3.0
 
 ## Goal
 

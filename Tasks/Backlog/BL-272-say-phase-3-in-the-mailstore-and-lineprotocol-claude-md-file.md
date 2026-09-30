@@ -1,5 +1,5 @@
 ---
-id: BL-266
+id: BL-272
 title: Say Phase 3 in the MailStore and LineProtocol CLAUDE.md files
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-30
 completed:
 ---
-# BL-266 — Say Phase 3 in the MailStore and LineProtocol CLAUDE.md files
+# BL-272 — Say Phase 3 in the MailStore and LineProtocol CLAUDE.md files
 
 ## Goal
 
@@ -30,7 +30,7 @@ files do.
   `align-and-document` rule: every statement true of the code as it is now). In particular
   `Surl.MailStore.UnitLibrary/CLAUDE.md`'s "Streaming" paragraph says the byte overloads stay
   "for the servers not yet streaming"; leave it true of whatever SMTP does when this task runs
-  (BL-265 moves SMTP to streaming; this task does not wait on it and does not change code).
+  (BL-271 moves SMTP to streaming; this task does not wait on it and does not change code).
 
 ## Acceptance criteria
 

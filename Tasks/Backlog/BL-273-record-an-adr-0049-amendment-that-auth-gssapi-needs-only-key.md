@@ -1,5 +1,5 @@
 ---
-id: BL-267
+id: BL-273
 title: Record an ADR-0049 amendment that --auth gssapi needs only --keytab since BL-218
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-046
 created: 2026-09-30
 completed:
 ---
-# BL-267 — Record an ADR-0049 amendment that --auth gssapi needs only --keytab since BL-218
+# BL-273 — Record an ADR-0049 amendment that --auth gssapi needs only --keytab since BL-218
 
 ## Goal
 

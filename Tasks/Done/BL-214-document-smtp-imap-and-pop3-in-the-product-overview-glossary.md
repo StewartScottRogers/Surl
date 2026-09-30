@@ -45,7 +45,7 @@ says Phase 3 is still to come.
 
 - align-and-document rewrote the eight touched files in the BL-213 shape, grounded in the code and ADR-0049, -0050, -0053, -0055, -0056, -0057, -0059. Glossary gained a "Mail: SMTP, IMAP and POP3" section (mail store, mailbox, maildrop, SASL mechanism, dot-stuffing, TLS upgrade and others), using the code's names (e.g. `MailboxStore`). FR-029's stale `--auth` list was corrected too.
 - Linux/macOS CI results for the mail conformance tests are not recorded, so the documents say "not yet recorded" rather than "passed".
-- Found and filed: BL-265 (SMTP buffers DATA in memory and lacks ADR-0053's 451 4.3.0, against ADR-0050 decision 7), BL-266 (MailStore/LineProtocol CLAUDE.md say Phase 1), BL-267 (ADR-0049 still says gssapi waits on BL-218), BL-268 (one TLS-upgrade parameter, four names; after BL-264).
+- Found and filed: BL-271 (SMTP buffers DATA in memory and lacks ADR-0053's 451 4.3.0, against ADR-0050 decision 7), BL-272 (MailStore/LineProtocol CLAUDE.md say Phase 1), BL-273 (ADR-0049 still says gssapi waits on BL-218), BL-274 (one TLS-upgrade parameter, four names; after BL-264).
 
 ## Log
 
