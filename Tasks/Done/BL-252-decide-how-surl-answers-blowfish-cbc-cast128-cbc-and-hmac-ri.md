@@ -8,7 +8,7 @@ depends-on: [BL-172]
 touches: [Documentation/Planning/Decisions]
 requirement: FR-039
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-252 — Decide how surl answers blowfish-cbc, cast128-cbc and hmac-ripemd160 from curl's OpenSSL builds
 
@@ -55,21 +55,40 @@ the tasks that build them. Those tasks are filed on the board.
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, marked "Decided by Claude under
+- [x] A new ADR under `Documentation/Planning/Decisions/`, marked "Decided by Claude under
       Stewart's delegation", amends ADR-0051 decision 2. It states:
       - where `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160` and
         `hmac-ripemd160@openssh.com` sit in the server order, and under which option
       - which library builds each primitive, and its row in ADR-0002 decision 3's table
       - the tasks that build them, by ID
-- [ ] ADR-0051's header lists the new ADR under "Amended by".
-- [ ] `task-planner` has filed the build tasks named in the ADR in `Tasks/Backlog`, with
+- [x] ADR-0051's header lists the new ADR under "Amended by".
+- [x] `task-planner` has filed the build tasks named in the ADR in `Tasks/Backlog`, with
       dependencies in the order the ADR gives and `touches` naming only their own projects.
       The ADR's task IDs match those files.
-- [ ] No package is added. Every statement in the ADR is true of the repository.
+- [x] No package is added. Every statement in the ADR is true of the repository.
 
 ## Notes
+
+- Decided in ADR-0061 (Claude under Stewart's delegation): the four names are offered only with
+  `--allow-weak-ssh-algorithms`, appended after the existing weak entries (ciphers
+  `blowfish-cbc`, `cast128-cbc`; MACs `hmac-ripemd160`, `hmac-ripemd160@openssh.com`) so
+  nothing negotiated today changes. Why weak: 64-bit blocks and RIPEMD-160, all four removed from
+  OpenSSH's server in 7.6.
+- Blowfish moves out of BcryptPbkdf into `Surl.Cryptography.Blowfish` (BcryptPbkdf then
+  references it) rather than being exposed from BcryptPbkdf: a cipher taken from a library named
+  for a key derivation breaks "say what it does". CAST-128 and RIPEMD-160 (with HMAC-RIPEMD-160,
+  since the BCL's HMAC cannot take an unknown hash) get one library each.
+- Filed by task-planner: BL-254 (projects), BL-255 / BL-256 / BL-257 (one primitive each, in
+  parallel), BL-258 (the SSH composition).
+- ADR-0002's table lacked the `Rc4` and `BcryptPbkdf` rows ADR-0051 decision 3 added; recorded
+  them with an "Amended" line while adding ADR-0061's rows.
+- No pinned curl build negotiates these against surl (libssh2 prefers
+  `chacha20-poly1305@openssh.com` and `hmac-sha2-256`, which surl offers by default), so the ADR
+  says they are proven by unit tests against the specifications' vectors.
+- Docs only, no `.cs` or project file touched, so the verify skill was not needed.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0061 decides blowfish-cbc, cast128-cbc and hmac-ripemd160 behind --allow-weak-ssh-algorithms; BL-254 to BL-258 filed to build them

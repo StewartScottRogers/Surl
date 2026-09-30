@@ -14,7 +14,10 @@
 - **Amended by:** [ADR-0058](ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
   the key exchange and host-key reading choices BL-160 made where decisions 2.1, 4 and 9 are silent;
   [ADR-0060](ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md),
-  which replaces decision 2.2's fifth choice (BL-237); and Amendment 1 below, the choices BL-171
+  which replaces decision 2.2's fifth choice (BL-237);
+  [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md), which adds
+  `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160` and `hmac-ripemd160@openssh.com` from curl's
+  OpenSSL builds to decision 2's weak table (BL-252); and Amendment 1 below, the choices BL-171
   made composing the SSH server in `Surl.Console`.
 
 ## Context
@@ -219,7 +222,10 @@ entries of each list, and all built by **BL-221** (filed by this task):
 | MAC | `hmac-sha1-etm@openssh.com`, `hmac-sha1`, `hmac-sha1-96`, `hmac-md5`, `hmac-md5-96` | SHA-1, MD5, truncation |
 
 With it, RSA host and user keys shorter than 2048 bits and DSA user keys are also accepted.
-Every entry of the measured lists is thereby assigned: none is left out.
+Every entry of the measured lists is thereby assigned: none is left out. The Linux and macOS
+builds' OpenSSL lists (BL-172) add `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160` and
+`hmac-ripemd160@openssh.com`; [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)
+appends them to this table's cipher and MAC rows, in that order, and BL-254 to BL-258 build them.
 
 #### 2.1 Strict key exchange and `ext-info`
 
@@ -685,6 +691,7 @@ memberships.
 | The weak algorithms behind `--allow-weak-ssh-algorithms` | BL-221 (filed by this task) |
 | Host certificates, `--hostcert` | BL-222 (filed by this task) |
 | Encrypted `openssh-key-v1` host keys | BL-223 (filed by this task; its choices are in decision 4) |
+| `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160`, `hmac-ripemd160@openssh.com` and their primitives | BL-254 to BL-258 (filed by BL-252; ADR-0061) |
 
 ## Alternatives considered
 
