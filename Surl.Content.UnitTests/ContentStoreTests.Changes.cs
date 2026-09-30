@@ -470,7 +470,7 @@ public sealed partial class ContentStoreTests
 
     private static void AssertNothingChanged(UnitTestInMemoryContentFileSystem fileSystem)
     {
-        string[] changes = ["CreateFileForAsyncWrite(", "DeleteFile(", "MoveFileReplacing(", "MoveDirectory(", "CreateDirectory(", "RemoveEmptyDirectory("];
+        string[] changes = ["CreateFileForAsyncWrite(", "DeleteFile(", "MoveFileReplacing(", "MoveFileWithoutReplacing(", "SetLastWriteTimeUtc(", "MoveDirectory(", "CreateDirectory(", "RemoveEmptyDirectory("];
         Assert.IsFalse(
             fileSystem.Calls.Exists(call => Array.Exists(changes, change => call.StartsWith(change, StringComparison.Ordinal))),
             string.Join(Environment.NewLine, fileSystem.Calls));

@@ -48,6 +48,26 @@ internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
         MoveKey(lastWriteTimes, source, destination);
     }
 
+    public void MoveFileWithoutReplacing(string source, string destination)
+    {
+        Calls.Add($"{nameof(MoveFileWithoutReplacing)}({source}, {destination})");
+        if (entries.ContainsKey(destination))
+        {
+            throw new IOException("An entry is already at the destination.");
+        }
+
+        MoveKey(entries, source, destination);
+        MoveKey(fileContents, source, destination);
+        MoveKey(writtenFiles, source, destination);
+        MoveKey(lastWriteTimes, source, destination);
+    }
+
+    public void SetLastWriteTimeUtc(string path, DateTimeOffset lastWriteTimeUtc)
+    {
+        Calls.Add($"{nameof(SetLastWriteTimeUtc)}({path}, {lastWriteTimeUtc:O})");
+        lastWriteTimes[path] = lastWriteTimeUtc;
+    }
+
     public void MoveDirectory(string source, string destination)
     {
         Calls.Add($"{nameof(MoveDirectory)}({source}, {destination})");

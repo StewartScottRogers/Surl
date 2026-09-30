@@ -4,6 +4,8 @@ namespace Surl.Content;
 /// What became of a change to the served root's entries that <see cref="ContentStore"/> was
 /// asked to make: <see cref="ContentStore.DeleteFile(ContentPathMapping)"/>,
 /// <see cref="ContentStore.RenameEntry(ContentPathMapping, ContentPathMapping)"/>,
+/// <see cref="ContentStore.RenameEntryWithoutReplacing(ContentPathMapping, ContentPathMapping)"/>,
+/// <see cref="ContentStore.SetLastWriteTime(ContentPathMapping, DateTimeOffset)"/>,
 /// <see cref="ContentStore.CreateDirectory(ContentPathMapping)"/> or
 /// <see cref="ContentStore.RemoveEmptyDirectory(ContentPathMapping)"/>.
 /// </summary>
@@ -20,8 +22,8 @@ public enum ContentChangeResult
 
     /// <summary>
     /// Nothing of the kind the change needs is at the location, or the exposure options hide it,
-    /// so it is answered as absent: no file to delete, no entry to rename, no directory to
-    /// remove.
+    /// so it is answered as absent: no file to delete, no entry to rename or to set the time
+    /// of, no directory to remove.
     /// </summary>
     Absent = 1,
 
@@ -32,7 +34,8 @@ public enum ContentChangeResult
 
     /// <summary>
     /// An entry is in the way: a directory or file where a directory is to be created, or a
-    /// directory where an entry is to be renamed to (or a file, when a directory is renamed).
+    /// directory where an entry is to be renamed to (or a file, when a directory is renamed), or
+    /// any entry, the source itself included, where a rename that may not replace is to land.
     /// </summary>
     Exists = 3,
 

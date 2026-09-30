@@ -311,6 +311,40 @@ public sealed class DiskContentFileSystemTests
     }
 
     [TestMethod]
+    public void StatusTimeAndRenameWithoutReplacing_OnDisk_WorkAndReadBack()
+    {
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), new ContentExposureOptions { AllowUploads = true });
+        File.WriteAllBytes(Path.Join(servedRoot, "docs", "other.bin"), [1]);
+        var fileTime = new DateTimeOffset(2021, 3, 4, 5, 6, 7, TimeSpan.Zero);
+        var directoryTime = new DateTimeOffset(2022, 4, 5, 6, 7, 8, TimeSpan.Zero);
+
+        Assert.AreEqual(ContentChangeResult.Done, store.SetLastWriteTime(store.MapRequestPath("/docs/file.bin"), fileTime));
+        Assert.AreEqual(ContentChangeResult.Done, store.SetLastWriteTime(store.MapRequestPath("/docs/"), directoryTime));
+        Assert.AreEqual(new ContentEntryStatus(ContentEntryKind.File, Contents.Length, fileTime), store.GetEntryStatus(store.MapRequestPath("/docs/file.bin")));
+        Assert.AreEqual(new ContentEntryStatus(ContentEntryKind.Directory, null, directoryTime), store.GetEntryStatus(store.MapRequestPath("/docs")));
+        Assert.AreEqual(ContentChangeResult.Exists, store.RenameEntryWithoutReplacing(store.MapRequestPath("/docs/file.bin"), store.MapRequestPath("/docs/other.bin")));
+        Assert.AreEqual(ContentChangeResult.Done, store.RenameEntryWithoutReplacing(store.MapRequestPath("/docs/file.bin"), store.MapRequestPath("/renamed.bin")));
+        Assert.AreEqual(ContentChangeResult.Done, store.RenameEntryWithoutReplacing(store.MapRequestPath("/docs"), store.MapRequestPath("/moved")));
+
+        CollectionAssert.AreEqual(Contents, File.ReadAllBytes(Path.Join(servedRoot, "renamed.bin")));
+        Assert.AreEqual(fileTime, store.GetEntryStatus(store.MapRequestPath("/renamed.bin"))!.LastModifiedUtc);
+        CollectionAssert.AreEqual(new byte[] { 1 }, File.ReadAllBytes(Path.Join(servedRoot, "moved", "other.bin")));
+        Assert.IsNull(store.GetEntryStatus(store.MapRequestPath("/docs")));
+    }
+
+    [TestMethod]
+    public void MoveFileWithoutReplacing_FileAtTheDestination_ThrowsIOExceptionAndKeepsBoth()
+    {
+        string source = Path.Join(servedRoot, "docs", "file.bin");
+        string destination = Path.Join(servedRoot, "docs", "other.bin");
+        File.WriteAllBytes(destination, [1]);
+
+        Assert.ThrowsExactly<IOException>(() => new DiskContentFileSystem().MoveFileWithoutReplacing(source, destination));
+        CollectionAssert.AreEqual(Contents, File.ReadAllBytes(source));
+        CollectionAssert.AreEqual(new byte[] { 1 }, File.ReadAllBytes(destination));
+    }
+
+    [TestMethod]
     public void RemoveEmptyDirectory_NotEmpty_ThrowsIOExceptionAndKeepsIt()
     {
         string docs = Path.Join(servedRoot, "docs");

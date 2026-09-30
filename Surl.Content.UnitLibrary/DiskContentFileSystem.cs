@@ -139,6 +139,34 @@ public sealed class DiskContentFileSystem : IContentFileSystem
         File.Move(source, destination, overwrite: true);
 
     /// <inheritdoc/>
+    /// <remarks>An entry at the destination is kept, and <see cref="IOException"/> thrown.</remarks>
+    // Excluded from coverage: it renames a file on disk, and the fast tests run without one by
+    // design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public void MoveFileWithoutReplacing(string source, string destination) =>
+        File.Move(source, destination, overwrite: false);
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// A directory is set through <see cref="Directory.SetLastWriteTimeUtc(string, DateTime)"/>,
+    /// because Windows opens a directory only with the flag that member passes.
+    /// </remarks>
+    // Excluded from coverage: it changes an entry on disk, and the fast tests run without one by
+    // design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public void SetLastWriteTimeUtc(string path, DateTimeOffset lastWriteTimeUtc)
+    {
+        if (Directory.Exists(path))
+        {
+            Directory.SetLastWriteTimeUtc(path, lastWriteTimeUtc.UtcDateTime);
+        }
+        else
+        {
+            File.SetLastWriteTimeUtc(path, lastWriteTimeUtc.UtcDateTime);
+        }
+    }
+
+    /// <inheritdoc/>
     // Excluded from coverage: it creates directories on disk, and the fast tests run without one
     // by design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
     [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]

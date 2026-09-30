@@ -107,7 +107,9 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
     /// <inheritdoc/>
     /// <remarks>
     /// A file's is when its write stream was disposed, kept by
-    /// <see cref="MoveFileReplacing(string, string)"/>; a directory's is when it was created.
+    /// <see cref="MoveFileReplacing(string, string)"/>; a directory's is when it was created;
+    /// either is what <see cref="SetLastWriteTimeUtc(string, DateTimeOffset)"/> last set, if
+    /// that came later.
     /// </remarks>
     /// <exception cref="FileNotFoundException">Nothing is at <paramref name="path"/>.</exception>
     public DateTimeOffset GetLastWriteTimeUtc(string path)
@@ -213,6 +215,49 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
             RemoveFileMaking(to);
             entries.Remove(from);
             entries.Add(to, moved);
+        }
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>The moved file keeps its bytes and its last-write time, as a rename on disk does.</remarks>
+    /// <exception cref="FileNotFoundException">No file is at <paramref name="source"/>.</exception>
+    /// <exception cref="DirectoryNotFoundException">No directory is above
+    /// <paramref name="destination"/>.</exception>
+    /// <exception cref="IOException">Something is at <paramref name="destination"/>, the source
+    /// itself included.</exception>
+    public void MoveFileWithoutReplacing(string source, string destination)
+    {
+        string from = Normalise(source);
+        string to = Normalise(destination);
+        lock (gate)
+        {
+            StoredEntry moved = RequireFile(from);
+            RequireParentDirectory(to);
+            if (entries.ContainsKey(to))
+            {
+                throw new IOException($"An entry is already at this path in memory: {to}");
+            }
+
+            entries.Remove(from);
+            entries.Add(to, moved);
+        }
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// A file still being written takes the current time again when its write stream is
+    /// disposed, as a file on disk does at its last write.
+    /// </remarks>
+    /// <exception cref="FileNotFoundException">Nothing is at <paramref name="path"/>.</exception>
+    public void SetLastWriteTimeUtc(string path, DateTimeOffset lastWriteTimeUtc)
+    {
+        string key = Normalise(path);
+        lock (gate)
+        {
+            StoredEntry entry = entries.TryGetValue(key, out StoredEntry? found)
+                ? found
+                : throw new FileNotFoundException("Nothing is at this path in memory.", key);
+            entry.LastWriteTimeUtc = lastWriteTimeUtc.ToUniversalTime();
         }
     }
 
