@@ -47,3 +47,4 @@ choices BL-216 made while building SASL `EXTERNAL`, so the ADR says what the cod
 
 - 2026-09-29: Created.
 - 2026-09-29: Filed by BL-216.
+- 2026-09-30: Backlog -> Doing.
