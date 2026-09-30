@@ -51,3 +51,4 @@ ADR decides, so `curl --ssl-reqd ftp://...` and `curl ftps://...` complete.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
