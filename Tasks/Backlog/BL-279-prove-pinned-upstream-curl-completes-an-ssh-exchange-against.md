@@ -1,5 +1,5 @@
 ---
-id: BL-276
+id: BL-279
 title: Prove pinned upstream curl completes an SSH exchange against surl --hostcert
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-30
 completed:
 ---
-# BL-276 — Prove pinned upstream curl completes an SSH exchange against surl --hostcert
+# BL-279 — Prove pinned upstream curl completes an SSH exchange against surl --hostcert
 
 ## Goal
 
