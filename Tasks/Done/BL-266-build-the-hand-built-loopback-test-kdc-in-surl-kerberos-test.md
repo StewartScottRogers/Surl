@@ -76,7 +76,7 @@ writes its service principals' keys as an MIT keytab `surl --keytab` reads.
 - **For BL-268 to check against measured Windows bytes**: a KRB-ERROR echoes an enterprise
   `cname` as `NT-PRINCIPAL` (surl's DER reader drops name types); a nonce sent as a negative
   Int32 is read as its two's complement but echoed as a positive integer.
-- **Follow-up filed**: BL-270, the Product Overview's project map (BL-214, in Doing, touches
+- **Follow-up filed**: BL-277, the Product Overview's project map (BL-214, in Doing, touches
   that file, so this task did not edit it).
 
 ## Log

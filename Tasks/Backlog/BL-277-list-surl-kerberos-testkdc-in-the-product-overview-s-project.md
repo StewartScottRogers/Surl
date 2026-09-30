@@ -1,5 +1,5 @@
 ---
-id: BL-270
+id: BL-277
 title: List Surl.Kerberos.TestKdc in the Product Overview's project map
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-046
 created: 2026-09-30
 completed:
 ---
-# BL-270 — List Surl.Kerberos.TestKdc in the Product Overview's project map
+# BL-277 — List Surl.Kerberos.TestKdc in the Product Overview's project map
 
 ## Goal
 
