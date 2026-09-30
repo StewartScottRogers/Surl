@@ -8,7 +8,7 @@ depends-on: [BL-207, BL-245]
 touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: FR-043
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-210 — Prove pinned upstream curl sends mail over smtp and smtps to surl
 
@@ -36,9 +36,9 @@ BL-185's ADRs expect, and that the mail lands in the store.
 
 ## Acceptance criteria
 
-- [ ] Integration tests exist for every case in Context and pass on Windows with the pinned build
+- [x] Integration tests exist for every case in Context and pass on Windows with the pinned build
       present: `dotnet test --filter "FullyQualifiedName~Surl.Conformance"` is green.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green; no fast test opens a
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green; no fast test opens a
       socket.
 
 ## Notes
@@ -63,6 +63,11 @@ BL-185's ADRs expect, and that the mail lands in the store.
   sets `ExchangeContext.Limits`, so every exchange sees `ExchangeLimits.Default`. This is
   filed as BL-245 (Surl.Core and Surl.Console, outside this task's `touches`). The expected
   result stays as ADR-0053 measured it (ADR-0003).
+- 2026-09-30 (lane 3): restored lane 6's two files from the shift's stash (untracked-files
+  commit `a7ab19b`) unchanged except for CRLF line endings, which `dotnet format` required.
+  With BL-245 done, all 36 SMTP cases pass against the pinned Windows reference build,
+  both `--max-filesize` cases included (55); `FullyQualifiedName~Surl.Conformance` is 175
+  passed, 2 skipped, 0 failed, and the fast tests are green across all 30 test assemblies.
 
 ## Log
 
@@ -70,3 +75,4 @@ BL-185's ADRs expect, and that the mail lands in the store.
 - 2026-09-30: Backlog -> Doing.
 - 2026-09-30: Doing -> Backlog. Waits on BL-245: ServingEngine never hands --max-filesize (ExchangeLimits) to ExchangeContext, so the two max-filesize cases exit 8 not 55; 34 of 36 SMTP conformance tests pass
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Pinned upstream curl 8.21.0 sends mail to a live surl over smtp and smtps in all 36 ADR-0053 cases, max-filesize included
