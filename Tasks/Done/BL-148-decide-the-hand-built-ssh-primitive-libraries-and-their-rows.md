@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Product-Overview.md]
 requirement: FR-039
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-148 — Decide the hand-built SSH primitive libraries and their rows in ADR-0002's reference table
 
@@ -58,19 +58,34 @@ build them at once.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", holds the table in Context (names, contents,
       specifications, references) and the "not a primitive library" list.
-- [ ] `ADR-0002-mirror-the-curl-ports-project-map.md` carries an "Amended" line naming the new
+- [x] `ADR-0002-mirror-the-curl-ports-project-map.md` carries an "Amended" line naming the new
       ADR, which states the four new rows of decision 3's table.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the new ADR.
-- [ ] `Documentation/Product/Product-Overview.md`: the "Layers" row "Hand-built primitives" and
+- [x] `Documentation/Planning/Decisions/README.md` indexes the new ADR.
+- [x] `Documentation/Product/Product-Overview.md`: the "Layers" row "Hand-built primitives" and
       the "Project layout" table list the four libraries and their `.UnitTests` twins, written
       as intent until BL-149 creates them (e.g. "added by BL-149").
 
 ## Notes
 
+- `ADR-0048-the-hand-built-ssh-primitive-libraries.md` decides the four libraries exactly
+  as the Context table has them. ADR-0002 carries the Amended line and the four rows, the
+  Decisions README indexes it, and `Product-Overview.md` lists them as "added by BL-149"
+  (Layers row, Project layout, Rule 1's allowed list, Phase 2).
+- Learned: Microsoft's cross-platform cryptography page (read 2026-09-29) lists the BCL's
+  `ChaCha20Poly1305` as supported on macOS too (Windows 10 build 20142+, Linux with OpenSSL
+  1.1.0+, macOS; iOS/tvOS/MacCatalyst from .NET 9; Android API 28; never the browser). It
+  is still no use to SSH: OpenSSH's `chacha20-poly1305@openssh.com` uses a separate length
+  key and a 64-bit sequence-number nonce, not RFC 8439's AEAD.
+- Follow-up filed: BL-215 (root `CLAUDE.md`, the protocol-architect agent and
+  `Surl.Protocol.Ssh.UnitLibrary/CLAUDE.md` still list only Content and Cryptography).
+  `Surl.Cryptography.UnitLibrary/CLAUDE.md` and `ProtocolIsolationTests` are already
+  BL-149's. FR-039, which this task cites, does not exist yet; BL-147 adds it.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0048 places Curve25519, Ed25519, ChaCha20 and Poly1305 in four hand-built libraries, added to ADR-0002's reference table

@@ -164,7 +164,8 @@ Two rules carry the design, the same two the Curl port is built on, turned aroun
 
 **Rule 1 - protocol servers depend on abstractions, never on each other.** A protocol
 server references `Surl.Protocol.Abstractions` and the horizontal libraries ADR-0002
-lists (`Surl.Content`, `Surl.Cryptography`); referencing another protocol server is a
+lists (`Surl.Content`, `Surl.Cryptography`, and the four SSH primitive libraries of
+ADR-0048 once BL-149 adds them); referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
 
 **Rule 2 - the transport is an injected seam.** A protocol server receives an accepted
@@ -195,7 +196,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Serving engine | `Surl.Core` | Abstractions |
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and `Surl.Content` or `Surl.Cryptography` where needed |
 | Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) |
-| Hand-built primitives | `Surl.Cryptography` | nothing |
+| Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305`, decided by [ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md) and added by BL-149 | nothing; `Surl.Cryptography.Ed25519` will reference `Surl.Cryptography.Curve25519` |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
 | Upstream's test cases | `Surl.Conformance` | Abstractions |
 
@@ -203,7 +204,8 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
 Flat: every project is a directory immediately under the repository root, each production
 project followed by its `.UnitTests` twin (`CLAUDE.md`, "Repository layout"). Every
-project exists from the first commit (ADR-0002):
+project of ADR-0002's map exists from the first commit; the four hand-built SSH primitive
+libraries of ADR-0048 and their twins will be added by BL-149:
 
 | Production | Tests |
 | --- | --- |
@@ -214,6 +216,10 @@ project exists from the first commit (ADR-0002):
 | `Surl.Content.UnitLibrary` | `Surl.Content.UnitTests` |
 | `Surl.Cookies.UnitLibrary` | `Surl.Cookies.UnitTests` |
 | `Surl.Core.UnitLibrary` | `Surl.Core.UnitTests` |
+| `Surl.Cryptography.ChaCha20.UnitLibrary` (added by BL-149) | `Surl.Cryptography.ChaCha20.UnitTests` (added by BL-149) |
+| `Surl.Cryptography.Curve25519.UnitLibrary` (added by BL-149) | `Surl.Cryptography.Curve25519.UnitTests` (added by BL-149) |
+| `Surl.Cryptography.Ed25519.UnitLibrary` (added by BL-149) | `Surl.Cryptography.Ed25519.UnitTests` (added by BL-149) |
+| `Surl.Cryptography.Poly1305.UnitLibrary` (added by BL-149) | `Surl.Cryptography.Poly1305.UnitTests` (added by BL-149) |
 | `Surl.Cryptography.UnitLibrary` | `Surl.Cryptography.UnitTests` |
 | `Surl.Networking.UnitLibrary` | `Surl.Networking.UnitTests` |
 | `Surl.Output.UnitLibrary` | `Surl.Output.UnitTests` |
@@ -252,7 +258,7 @@ project exists from the first commit (ADR-0002):
 | --- | --- | --- |
 | 0 | The solution, every project, conventions, quality gates, the dark factory, the first pinned upstream build | The shell holds (Milestone 0) |
 | 1 | The listener seam and contracts, `Surl.Networking`, `Surl.Core`, `Surl.Cli`, `Surl.Output`, `Surl.Console`, `Surl.Content`, the HTTP/1.x server with `Surl.Authentication` and `Surl.Cookies`; DICT, Gopher, TELNET, TFTP and MQTT alongside | `surl http://...` serves and upstream curl fetches from it; the seams hold |
-| 2 | FTP, then SSH with SCP and SFTP over `Surl.Cryptography` | A control channel and data channels; the hand-built SSH primitives |
+| 2 | FTP, then SSH with SCP and SFTP over the hand-built primitive libraries of ADR-0048 | A control channel and data channels; the hand-built SSH primitives |
 | 3 | SMTP, IMAP, POP3 | The line-oriented servers share their machinery |
 | 4 | WebSocket | The upgrade from HTTP |
 | 5 | LDAP, SMB, RTSP | The awkward remainder |

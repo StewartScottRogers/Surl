@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-09-28
 - **Decided by:** Stewart, approving the proposed shell on 2026-09-28
+- **Amended:** decision 3's table by [ADR-0048](ADR-0048-the-hand-built-ssh-primitive-libraries.md) (2026-09-29), which adds the four hand-built SSH primitive libraries: `Surl.Cryptography.ChaCha20.UnitLibrary`, `Surl.Cryptography.Curve25519.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, each referencing nothing, and `Surl.Cryptography.Ed25519.UnitLibrary`, referencing `Surl.Cryptography.Curve25519.UnitLibrary`.
 
 ## Context
 
@@ -43,10 +44,15 @@ Three questions followed:
    | Horizontal library | May itself reference |
    | --- | --- |
    | `Surl.Content.UnitLibrary` | `Surl.Protocol.Abstractions.UnitLibrary` |
+   | `Surl.Cryptography.ChaCha20.UnitLibrary` (ADR-0048) | nothing |
+   | `Surl.Cryptography.Curve25519.UnitLibrary` (ADR-0048) | nothing |
+   | `Surl.Cryptography.Ed25519.UnitLibrary` (ADR-0048) | `Surl.Cryptography.Curve25519.UnitLibrary` |
+   | `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.UnitLibrary` | nothing |
 
    `Surl.Protocol.Abstractions.UnitTests` enforces the table and that Abstractions
-   references nothing. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
+   references nothing. The rows marked ADR-0048 name projects BL-149 creates; the test
+   learns them then. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
    or HTTP/3 library, say) joins the table through a new ADR when Surl needs one.
 
 ## Consequences
