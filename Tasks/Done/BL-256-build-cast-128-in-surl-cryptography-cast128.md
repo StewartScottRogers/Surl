@@ -8,7 +8,7 @@ depends-on: [BL-254]
 touches: [Surl.Cryptography.Cast128.UnitLibrary, Surl.Cryptography.Cast128.UnitTests]
 requirement: FR-039
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-256 — Build CAST-128 in Surl.Cryptography.Cast128
 
@@ -42,27 +42,40 @@ build `cast128-cbc` on it (BL-258).
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cryptography.Cast128.UnitLibrary` holds the public CAST-128 type and its S-boxes, and
+- [x] `Surl.Cryptography.Cast128.UnitLibrary` holds the public CAST-128 type and its S-boxes, and
       references nothing.
-- [ ] `Surl.Cryptography.Cast128.UnitTests` has tests, each citing RFC 2144 Appendix B beside it,
+- [x] `Surl.Cryptography.Cast128.UnitTests` has tests, each citing RFC 2144 Appendix B beside it,
       that pass for: B.1's single-plaintext vectors with the 128-bit, 80-bit and 40-bit keys,
       encrypt giving the listed ciphertext and decrypt giving the plaintext back; and B.2's
       maintenance test (1,000,000 iterations giving the listed `a` and `b`). The B.2 test may
       carry `[TestCategory("Integration")]` only if it takes longer than one second on the lane's
       machine; then a fast test must still cover every branch it covers.
-- [ ] A key of 4 bytes and one of 17 bytes each throw `ArgumentException` (tested); a block span
+- [x] A key of 4 bytes and one of 17 bytes each throw `ArgumentException` (tested); a block span
       other than 8 bytes is rejected the same way (tested).
-- [ ] `Surl.Cryptography.Cast128.UnitLibrary/CLAUDE.md` states what the library now holds.
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean; `dotnet test --filter "TestCategory!=Integration"`
+- [x] `Surl.Cryptography.Cast128.UnitLibrary/CLAUDE.md` states what the library now holds.
+- [x] `dotnet build Surl.slnx -warnaserror` is clean; `dotnet test --filter "TestCategory!=Integration"`
       passes.
-- [ ] Quality gates: 100% line and 100% branch coverage from the fast tests, cyclomatic complexity
+- [x] Quality gates: 100% line and 100% branch coverage from the fast tests, cyclomatic complexity
       at most 10 per method (`CA1502`), CRAP at most 30
       (`powershell -NoProfile -File Measure-CodeQuality.ps1`).
-- [ ] Tests are platform-neutral.
+- [x] Tests are platform-neutral.
 
 ## Notes
+
+- Code copied from the Curl port's `Cast128` and `Cast128SubstitutionBoxes` (allowed by
+  ADR-0003), minus its CBC methods: chaining is `Surl.Protocol.Ssh`'s (BL-258). Every expected
+  value was checked against the RFC 2144 Appendix B text itself, not the port.
+- Kept the port's `IDisposable` (zeroes the 32 subkeys) as the sensible default for key
+  material; a disposed instance throws `ObjectDisposedException` (tested).
+- The B.2 maintenance test takes about 21 s on the lane's machine (Debug), so it carries
+  `[TestCategory("Integration")]`; it passes. The fast B.1 tests cover both round counts
+  (12 and 16), encrypt and decrypt, and all three round-function types, so the fast tests
+  alone give 100% line and branch coverage (Measure-CodeQuality: 13 members, worst CRAP 8).
+- Block spans are rejected with `ArgumentException` naming `source` or `destination` for
+  lengths 7 and 9 of each.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Surl.Cryptography.Cast128 encrypts and decrypts one CAST-128 block under 5- to 16-byte keys, pinned to RFC 2144 Appendix B
