@@ -49,3 +49,4 @@ cannot make: the OpenSSL-only algorithms `blowfish-cbc`, `cast128-cbc`, `hmac-ri
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
