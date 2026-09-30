@@ -199,6 +199,15 @@
     How long, in -Smtp mode, the server waits for curl's next line before it hangs up.
     Default 5000.
 
+.PARAMETER SmtpMaxMessageBytes
+    In -Smtp mode, a cap on the message body after DATA's 354: once the body lines read
+    pass this many bytes (checked at the end of each line), the server stops reading,
+    sends the DATADONE reply (default 552 5.3.4 Message exceeds the size limit) and closes
+    the connection under curl, as a server refusing a message past its size limit
+    part-way through does, and transcript.txt notes it. Default -1: no cap, read up to the
+    lone "." line. The bytes counted are the lines as sent, line endings and
+    dot-stuffing included.
+
 .PARAMETER Imap
     Serve one IMAP4rev1 session instead of HTTP responses: send an untagged
     greeting, then read curl's tagged commands one at a time and answer each with its
@@ -467,7 +476,7 @@
     written; there is no request.bin, since the script sees none of the traffic. Port,
     Response, Connections, ResponsesPerConnection, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds,
     RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, FtpMaxUploadBytes, SmtpReply,
-    SmtpIdleMilliseconds, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
+    SmtpIdleMilliseconds, SmtpMaxMessageBytes, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
     Pop3Message, Pop3IdleMilliseconds, TftpData, TftpReply, TftpIdleMilliseconds and
     ListenAddress are ignored, and Port need not be given. Combining it with a server
     mode, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Tftp or -Tls, is refused. StandardInput and Curl work as in every other mode.
@@ -548,6 +557,7 @@ param(
     [switch] $Smtp,
     [string[]] $SmtpReply = @(),
     [ValidateRange(1, 600000)] [int] $SmtpIdleMilliseconds = 5000,
+    [ValidateRange(-1, [long]::MaxValue)] [long] $SmtpMaxMessageBytes = -1,
     [switch] $Imap,
     [string[]] $ImapReply = @(),
     [string] $ImapMessage = 'From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Recorded\r\n\r\nHello from the recorder.\r\n',
@@ -1056,13 +1066,14 @@ $serveFtpSession = {
 # after DATA up to its lone "." line. It returns every byte curl sent, as one array, and
 # writes the two-way transcript into $Transcript.
 $serveSmtpSession = {
-    param($Listener, [hashtable] $Overrides, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds, [string] $SessionHelpers)
+    param($Listener, [hashtable] $Overrides, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds, [string] $SessionHelpers, [long] $MaxMessageBytes)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
     . ([scriptblock]::Create($SessionHelpers))
     $latin1 = [System.Text.Encoding]::GetEncoding(28591)
     $received = New-Object System.IO.MemoryStream
+    $script:lastLineBytes = 0
 
     function Send-Reply {
         param($Stream, [string] $Reply)
@@ -1073,10 +1084,11 @@ $serveSmtpSession = {
     }
 
     # One line from curl, recorded, without its line ending; $null once curl hangs up or
-    # stays silent for IdleMilliseconds.
+    # stays silent for IdleMilliseconds. $script:lastLineBytes holds its length as sent.
     function Read-Line {
         param($Stream)
         $line = New-Object System.IO.MemoryStream
+        $script:lastLineBytes = 0
         while ($true) {
             try {
                 $next = $Stream.ReadByte()
@@ -1088,6 +1100,7 @@ $serveSmtpSession = {
             $line.WriteByte([byte] $next)
             if ($next -eq 10) { break }
         }
+        $script:lastLineBytes = $line.Length
         $text = $latin1.GetString($line.ToArray()).TrimEnd("`r", "`n")
         [void] $Transcript.Append("> $text`r`n")
         return $text
@@ -1130,13 +1143,22 @@ $serveSmtpSession = {
         return $true
     }
 
-    # The body after DATA's 354, up to and including the lone "." line, then the reply.
+    # The body after DATA's 354, up to and including the lone "." line, then the reply;
+    # with MaxMessageBytes, the reply and a hang-up once the body read passes that many bytes.
     function Receive-MessageBody {
         param($Stream)
+        $bodyBytes = [long] 0
         while ($true) {
             $bodyLine = Read-Line -Stream $Stream
             if ($null -eq $bodyLine) { return $false }
             if ($bodyLine -ceq '.') { break }
+            $bodyBytes += $script:lastLineBytes
+            if ($MaxMessageBytes -ge 0 -and $bodyBytes -gt $MaxMessageBytes) {
+                $refusal = if ($Overrides.ContainsKey('DATADONE')) { Get-Override -Verb 'DATADONE' } else { '552 5.3.4 Message exceeds the size limit' }
+                Send-Reply -Stream $Stream -Reply $refusal
+                [void] $Transcript.Append("= stopped reading after $bodyBytes body bytes and closed`r`n")
+                return $false
+            }
         }
         $done = if ($Overrides.ContainsKey('DATADONE')) { Get-Override -Verb 'DATADONE' } else { '250 OK message accepted' }
         Send-Reply -Stream $Stream -Reply $done
@@ -2234,7 +2256,7 @@ try {
     } elseif ($Ftp) {
         [void] $server.AddScript($serveFtpSession).AddArgument($listener).AddArgument($ftpOverrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $FtpData)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($FtpIdleMilliseconds).AddArgument($ListenAddress).AddArgument($sessionHelpers.ToString()).AddArgument($FtpMaxUploadBytes)
     } elseif ($Smtp) {
-        [void] $server.AddScript($serveSmtpSession).AddArgument($listener).AddArgument($smtpOverrides).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($SmtpIdleMilliseconds).AddArgument($sessionHelpers.ToString())
+        [void] $server.AddScript($serveSmtpSession).AddArgument($listener).AddArgument($smtpOverrides).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($SmtpIdleMilliseconds).AddArgument($sessionHelpers.ToString()).AddArgument($SmtpMaxMessageBytes)
     } elseif ($Imap) {
         [void] $server.AddScript($serveImapSession).AddArgument($listener).AddArgument($imapOverrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $ImapMessage)).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($ImapIdleMilliseconds).AddArgument($sessionHelpers.ToString())
     } elseif ($Pop3) {
