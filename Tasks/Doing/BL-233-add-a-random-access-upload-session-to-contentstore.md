@@ -51,3 +51,4 @@ so the SFTP server's `OPEN`/`WRITE`/`READ`/`SETSTAT SIZE` (BL-166) can be built 
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
