@@ -2658,7 +2658,10 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     $laneArgsFor = {
         param([int]$N)
         @('-Lane', $N, '-Branch', $branch, '-Hours', $Hours, '-MaxTasks', $MaxTasks,
-          '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-LogRoot', "`"$LogDir`"", '-ShiftStamp', $Stamp)
+          '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-LogRoot', "`"$LogDir`"", '-ShiftStamp', $Stamp,
+          # Each lane decides for itself when the tokens are low, so it needs the shift's
+          # stop levels; without them it stopped at the defaults, 85% and 97%.
+          '-StopAtUsage', $StopAtUsage, '-StopAtWeeklyUsage', $StopAtWeeklyUsage)
     }
     $procs = @()
     $laneTabs = @{}
@@ -2894,7 +2897,8 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
         foreach ($r in $reasons) { Write-Trace '-' 'note' (Get-Short $r 100) 'Yellow' }
         # An Auto shift hands on Auto, not the count it ended at; the next one starts from
         # the count auto-lanes.json saved.
-        $forward = @('-Lanes', $(if ($AutoLanes) { 'Auto' } else { $LaneCount }), '-Hours', $Hours, '-MaxTasks', $MaxTasks, '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-HeartbeatMinutes', $HeartbeatMinutes, '-Continuous', '-ShiftBranch', $branch)
+        $forward = @('-Lanes', $(if ($AutoLanes) { 'Auto' } else { $LaneCount }), '-Hours', $Hours, '-MaxTasks', $MaxTasks, '-TaskMinutes', $TaskMinutes, '-Model', $Model, '-HeartbeatMinutes', $HeartbeatMinutes, '-Continuous', '-ShiftBranch', $branch,
+            '-StopAtUsage', $StopAtUsage, '-StopAtWeeklyUsage', $StopAtWeeklyUsage)
         if ($AutoLanes) { $forward += @('-MaxLanes', $MaxLanes, '-MinStartLanes', $MinStartLanes) }
         if ($WeeklyPace) { $forward += '-WeeklyPace' }
         if ($QuietAlarm) { $forward += '-QuietAlarm' }
