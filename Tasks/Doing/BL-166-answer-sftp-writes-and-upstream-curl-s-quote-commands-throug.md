@@ -50,3 +50,4 @@ the content store, so `curl -T`, `--append`, `-C -`, `--ftp-create-dirs` and `-Q
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
