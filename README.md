@@ -129,6 +129,29 @@ option, `surl --help <category>` one category (`surl --help logging`), and
 text: a deployment checklist, the data directory, accounts, log levels, limits and exit
 codes.
 
+## Help for AI agents
+
+An AI agent learning to call surl should read `surl --aihelp` first: Markdown on stdout,
+exit 0, generated from the same option table and help categories as `surl --help`, so the
+two cannot drift. It has no upstream curl equivalent
+([ADR-0046](Documentation/Planning/Decisions/ADR-0046-surl-aihelp-markdown-help-for-ai-agents.md)).
+
+```
+surl --aihelp
+surl --aihelp listen-urls
+surl --aihelp http
+surl --aihelp exit-codes
+surl --aihelp all
+```
+
+The first writes the overview - what surl is, how a command line is built, and the topic
+list. `surl --aihelp <topic>` writes one topic: every help category is a topic, plus
+`exit-codes` and `listen-urls`. Each topic page has the same five sections - About,
+Schemes, Options (argument type, default, allowed values, whether it loosens security),
+Exit codes (with what to do next) and Examples (exact command lines and what surl prints).
+`surl --aihelp all` writes the overview and every topic in one document; an unknown topic
+gets the topic list.
+
 ## Upstream curl validates Surl; Surl later validates the Curl port
 
 Surl is measured against **upstream curl** - the original C implementation at

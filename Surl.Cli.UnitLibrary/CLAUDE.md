@@ -2,12 +2,13 @@
 
 Phase 1.
 
-Surl's command line: the option table, argument parsing, the help and the manual, and the
-mapping from a bad command line to a `SurlExitCode`. `surl [options] <url>` names what to
-listen on, the way `curl [options] <url>` names what to fetch. An option keeps curl's name
-and meaning wherever a server-side meaning exists (`--cert`, `--key`, `--cacert`, `-u`,
-`-v`, `-s`, `-S`, `--trace`, `--trace-ascii`, `--trace-time`); the table is ADR-0007's,
-with the rows ADR-0010, ADR-0031, ADR-0032, ADR-0033 and ADR-0034 add. It references
+Surl's command line: the option table, argument parsing, the help, the AI help and the
+manual, and the mapping from a bad command line to a `SurlExitCode`. `surl [options] <url>`
+names what to listen on, the way `curl [options] <url>` names what to fetch. An option
+keeps curl's name and meaning wherever a server-side meaning exists (`--cert`, `--key`,
+`--cacert`, `-u`, `-v`, `-s`, `-S`, `--trace`, `--trace-ascii`, `--trace-time`); the table
+is ADR-0007's, with the rows ADR-0010, ADR-0031, ADR-0032, ADR-0033, ADR-0034 and ADR-0046
+add. It references
 `Surl.Core.UnitLibrary`, `Surl.Output.UnitLibrary` (for `LogLevel` and `TraceDumpLayout`)
 and `Surl.Protocol.Abstractions.UnitLibrary`.
 
@@ -34,18 +35,27 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   list, `all`, `category`, one of `HelpCategories.All`, or an option page - laid out to 79
   columns by `HelpLayout`. `ManualText.Text` is the `--manual` text; `VersionText.Compose`
   the `--version` text.
-- AI help (ADR-0046): `AiHelpText.Answer` turns an `--aihelp` topic into a `HelpAnswer` in
-  Markdown - the overview, one of `AiHelpTopics.All` (every help category plus `exit-codes`
-  and `listen-urls`), `all`, or the unknown-topic answer - with its option and exit-code
-  tables generated from `CommandLineOptions`, `OptionArgumentType` and
-  `ExitCodeGuidanceTable`, and the option's left side shared with `HelpText.LeftSide`. The
-  hand-written paragraphs are `AiHelpProse`'s source constants; the examples are
-  `AiHelpExamples.All` (`AiHelpExample`, `AiHelpExamplePrecondition`), public so
-  `Surl.Console.UnitTests` can run them (BL-142). `--aihelp [topic]` is a row of
-  `CommandLineOptions` (`CommandLineOptionKind.AiHelp`, no short name), read as `--help`
-  reads its subject into `CommandLineParseResult.AiHelpTopic` with the outcome `ShowAiHelp`,
-  which `Surl.Console` answers. Work that changes what surl does updates the `AiHelpProse` paragraph and the
-  example that describe it in the same change, as it does `ManualText`.
+- AI help (ADR-0046; the glossary's "AI help", "AI help topic", "AI help example",
+  "argument type" and "exit-code guidance"): `AiHelpText.Answer` (`AiHelpText.cs`) turns an
+  `--aihelp` topic into a `HelpAnswer` in Markdown - the overview, one of
+  `AiHelpTopics.All` (`AiHelpTopics.cs`, `AiHelpTopic.cs`: every `HelpCategories.All` row
+  with its name, description and `HelpCategory.Schemes`, plus `exit-codes` and
+  `listen-urls`, found in any case by `AiHelpTopics.TryFind`), `all`, or the unknown-topic
+  answer. Its tables are generated, never hand-written: the option table from
+  `CommandLineOptions` and each row's `CommandLineOption.ArgumentType`
+  (`OptionArgumentType.cs`, paired with its reader in `OptionArgumentReading.cs`), the
+  option's left side shared with `HelpText.LeftSide`; the exit-code table from
+  `ExitCodeGuidanceTable.All` (`ExitCodeGuidanceTable.cs`, `ExitCodeGuidance.cs`). The
+  hand-written paragraphs are `AiHelpProse`'s source constants (`AiHelpProse.cs`); the
+  examples are `AiHelpExamples.All` (`AiHelpExamples.cs`, `AiHelpExample.cs`,
+  `AiHelpExamplePrecondition.cs`), public so `Surl.Console.UnitTests` can run them.
+  `--aihelp [topic]` is a row of `CommandLineOptions` (`CommandLineOptionKind.AiHelp`, no
+  short name), read as `--help` reads its subject into `CommandLineParseResult.AiHelpTopic`
+  with the outcome `CommandLineOutcome.ShowAiHelp`, which `Surl.Console` answers.
+  `AiHelpFactsTests` and `AiHelpTextTests` in `Surl.Cli.UnitTests` fail when an option, a
+  topic or a `SurlExitCode` member is missing from it (root `CLAUDE.md`). Work that changes
+  what surl does updates the `AiHelpProse` paragraph and the example that describe it in
+  the same change, as it does `ManualText`.
 
 Never touch the console here; `Surl.Console` hands this library its arguments and writers.
 Any change to an option's behaviour updates its `OptionHelp` and the `ManualText` section

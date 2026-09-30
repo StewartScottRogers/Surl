@@ -8,7 +8,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `Program.RunAsync(args, output, error, cancellationToken)`, the internal entry point the
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help`, `--aihelp`
-  (`AiHelpText.Answer`), `--manual` (`ManualText.Text`) and `--version`, checks the data directory when `--directory` names one
+  (`CommandLineOutcome.ShowAiHelp`: `AiHelpText.Answer(parsed.AiHelpTopic)` written by
+  `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
+  says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, checks the
+  data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
   full path with `--directory`, a new, empty `InMemoryContentFileSystem` at
@@ -68,11 +71,17 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
 - `CommandLineRunner.ComposeRegisteredSchemes` lists every registered server's schemes, the
-  `--version` `Protocols:` line's source. `CommandLineRunnerAiHelpTests` (ADR-0046 decision 9)
-  fails when a registered scheme has no `--aihelp` protocol topic, when a topic names an
-  unregistered scheme, or when an `AiHelpExamples.All` entry's shown output differs from what
-  `RunAsync` writes: registering a server in `ComposeProtocolServers` means adding its
-  `HelpCategories` row with its schemes, its `AiHelpProse` text and its example in `Surl.Cli`.
+  `--version` `Protocols:` line's source. `CommandLineRunnerAiHelpTests`
+  (`Surl.Console.UnitTests/CommandLineRunnerAiHelpTests.cs`, ADR-0046 decision 9) is the
+  `--aihelp` check only this project can make, because only it knows what is registered:
+  `RegisteredSchemes_AreEachClaimedByExactlyOneProtocolTopic` fails when a registered scheme
+  has no `AiHelpTopics.All` protocol topic or has two, `ProtocolTopics_ClaimOnlyRegisteredSchemes`
+  when a topic names an unregistered scheme, and
+  `RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` when an `AiHelpExamples.All`
+  entry's stdout, stderr or exit code differs from what `RunAsync` writes with
+  `FakeListenerFactory`. So registering a server in `ComposeProtocolServers` means adding,
+  in `Surl.Cli` and in the same change, its `HelpCategories` row with its schemes, its
+  `AiHelpProse.TopicAbout` paragraphs and its `AiHelpExamples` entry.
 
 Keep this project thin: parsing belongs in `Surl.Cli`, serving in `Surl.Core`, each
 protocol in its own library. Code here is wiring, tested in `Surl.Console.UnitTests`

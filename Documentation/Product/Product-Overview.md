@@ -146,6 +146,12 @@ is decided in
   `--log-file`; and curl-style help, `--help` with categories, `--help <option>` and
   `--manual`
   ([ADR-0034](../Planning/Decisions/ADR-0034-curl-style-help-categories-and-the-manual.md)).
+  Beside it, `--aihelp [topic]`: Markdown help for an AI agent learning to call surl - an
+  overview, one page per topic (every help category, plus `exit-codes` and
+  `listen-urls`) or `all` - generated from the same option table and categories as
+  `--help`. It is a deliberate addition with no upstream curl equivalent: curl 8.21.0
+  refuses `--aihelp` as an unknown option
+  ([ADR-0046](../Planning/Decisions/ADR-0046-surl-aihelp-markdown-help-for-ai-agents.md)).
   In scope, not built yet: `-w` style output per exchange.
 
 The command-line surface - which of curl's option names carry a server-side meaning and
