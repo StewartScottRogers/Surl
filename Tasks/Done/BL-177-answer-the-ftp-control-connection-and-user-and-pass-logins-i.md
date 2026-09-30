@@ -85,7 +85,7 @@ other the ADR lists), as BL-173's ADR decides.
     waits it), so the server adds none.
   - The head timeout starts when the connection is served for the first line and at the first
     byte for later ones, as `Surl.Protocol.Dict` and `Surl.LineProtocol` do.
-- Follow-up filed: BL-228, `421 Timeout, closing` on the idle timeout and maximum duration
+- Follow-up filed: BL-230, `421 Timeout, closing` on the idle timeout and maximum duration
   (ADR-0052 decision 10), which this task's criteria left out.
 
 ## Log

@@ -1,5 +1,5 @@
 ---
-id: BL-228
+id: BL-230
 title: Answer the FTP idle timeout and maximum duration with 421 in Surl.Protocol.Ftp
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-038
 created: 2026-09-29
 completed:
 ---
-# BL-228 — Answer the FTP idle timeout and maximum duration with 421 in Surl.Protocol.Ftp
+# BL-230 — Answer the FTP idle timeout and maximum duration with 421 in Surl.Protocol.Ftp
 
 ## Goal
 
