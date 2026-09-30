@@ -136,6 +136,32 @@ ADR.
   `aes*-gcm@openssh.com`); they run only on CI, so **BL-172 records their lists** from the same
   command lines, and any name in them that no row of decision 2 covers gets a task filed then.
 
+- **The Linux and macOS builds' lists (OpenSSL).** Recorded from BL-172's measurement
+  (2026-09-30). A lane cannot run CI, so BL-172 recorded them with `Record-CurlExchange.ps1 -Raw
+  -RawReplyFirst -RawReply 'SSH-2.0-surl\r\n' -Curl
+  C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe`: the supplementary Windows build
+  `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`, stunnel/static-curl's build
+  of the same tag with the same libssh2 1.11.1 and OpenSSL 4.0.1 as the Linux and macOS
+  reference pins (`UpstreamCurlBuilds.json`). It was used only as a predictor, never as evidence
+  against the reference build (ADR-0017); `UpstreamCurlOffersSshAlgorithmsTests.KexInit_LinuxAndMacOSBuilds_ListTheOpenSslAlgorithms`
+  pins these lists on the Linux and macOS CI legs, so the first CI run confirms them or fails
+  with the lists it recorded. Identification `SSH-2.0-libssh2_1.11.1`; each list the same both
+  ways where the message has two:
+
+  | List | Upstream curl 8.21.0 with libssh2's OpenSSL backend, in curl's order |
+  | --- | --- |
+  | `kex_algorithms` | `curve25519-sha256`, `curve25519-sha256@libssh.org`, `ecdh-sha2-nistp256`, `ecdh-sha2-nistp384`, `ecdh-sha2-nistp521`, then the whole Windows list above (`diffie-hellman-group-exchange-sha256` ... `kex-strict-c-v00@openssh.com`) |
+  | `server_host_key_algorithms` | `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521`, `ecdsa-sha2-nistp256-cert-v01@openssh.com`, `ecdsa-sha2-nistp384-cert-v01@openssh.com`, `ecdsa-sha2-nistp521-cert-v01@openssh.com`, `ssh-ed25519`, `ssh-ed25519-cert-v01@openssh.com`, then the whole Windows list above (`rsa-sha2-512` ... `ssh-rsa-cert-v01@openssh.com`) |
+  | `encryption_algorithms` | `chacha20-poly1305@openssh.com`, `aes256-gcm@openssh.com`, `aes128-gcm@openssh.com`, `aes256-ctr`, `aes192-ctr`, `aes128-ctr`, `aes256-cbc`, `rijndael-cbc@lysator.liu.se`, `aes192-cbc`, `aes128-cbc`, `blowfish-cbc`, `arcfour128`, `arcfour`, `cast128-cbc`, `3des-cbc` |
+  | `mac_algorithms` | the whole Windows list above, then `hmac-ripemd160`, `hmac-ripemd160@openssh.com` |
+  | `compression_algorithms` | `none`; with `--compressed-ssh`: `zlib`, `zlib@openssh.com`, `none` |
+  | `languages` | empty |
+
+  Four of these names are in no row of decision 2 as first written: `blowfish-cbc`,
+  `cast128-cbc`, `hmac-ripemd160` and `hmac-ripemd160@openssh.com`. BL-172 filed BL-252 for
+  them, which [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)
+  decides.
+
 ### What curl does with the host key and the login (documented)
 
 - **The host-key check.** Measured above, the pinned build refuses to start an `scp://` or
@@ -151,15 +177,32 @@ ADR.
   establishing ssh session: mismatch SHA256 fingerprint". What the pinned build does with a key
   that is missing from, or differs from, its `known_hosts` file happens after the key exchange,
   which no canned server reaches: **BL-172 measures it against surl**.
+- **The host-key check, measured against surl.** Recorded from BL-172's measurement, with the
+  Windows reference build (`0E773709...`, WinCNG) against a live `surl sftp://` on 2026-09-30,
+  pinned in `Surl.Conformance.UnitTests`' `UpstreamCurlLogsInToSurlOverSshTests`:
+  - a `--hostpubsha256` that is not surl's key's is exit 60, stderr starting `curl: (60) Denied
+    establishing ssh session: mismatch SHA256 fingerprint. Remote <surl's base64> is not equal to
+    <pinned>`, followed by curl's sslcerts help text;
+  - `--knownhosts` naming an empty file (surl's key missing) is exit 60, and naming a file that
+    holds another key for `[127.0.0.1]:<port>` is exit 60 too;
+  - no pin and no `known_hosts` file is exit 2, as runs A to C above;
+  - `--hostpubmd5` with surl's MD5 value, and `-k`, both complete the transfer.
 - **User authentication** (`lib/vssh/libssh2.c` at `curl-8_21_0`, and libcurl's
   `CURLOPT_SSH_AUTH_TYPES`, default any): curl asks for the method list with a `none` request
   (`libssh2_userauth_list`), then tries, each only when the list names it: `publickey` (with
   `--key`/`--pubkey`, else `$HOME/.ssh/id_rsa`, then `id_dsa`, then the same names in the current
   directory), `password`, `hostbased`, the SSH agent (`publickey` again), and
   `keyboard-interactive` (answering every prompt with the password). When none succeeds it fails
-  with `CURLE_LOGIN_DENIED` (67), "Authentication failure". A `none` request answered
-  `SSH_MSG_USERAUTH_SUCCESS` ends authentication there (libssh2's `userauth_list` then reports
-  the session authenticated).
+  with `CURLE_LOGIN_DENIED` (67). This ADR first gave the text as "Authentication failure", a
+  guess the measurement replaced: recorded from BL-172's measurement, a refused login with the
+  Windows reference build writes stderr `curl: (67) Login denied`, over `scp://` and `sftp://`
+  alike (`UpstreamCurlLogsInToSurlOverSshTests.Login_WrongPassword_Exits67LoginDenied`). A `none`
+  request answered `SSH_MSG_USERAUTH_SUCCESS` ends authentication there (libssh2's
+  `userauth_list` then reports the session authenticated).
+- **Logins, measured against surl.** Recorded from BL-172's measurement: `-u tester:secret`
+  logs in with `password`, and `--key`/`--pubkey` with an RSA key pair (the private key PKCS #1
+  PEM, which WinCNG libssh2 reads) logs in with `publickey` naming an `ssh-rsa` key (surl's note
+  `SSH login request: publickey for tester, key ssh-rsa SHA-256 ...`), each over both schemes.
 
 ## Decision
 
@@ -179,6 +222,37 @@ own order decide (the first client algorithm the server also offers), so against
 reference build the negotiation is `diffie-hellman-group-exchange-sha256`, `rsa-sha2-512`,
 `chacha20-poly1305@openssh.com` (no MAC), and `none` or, with `--compressed-ssh`, `zlib`. The
 server order says what surl prefers and is what a client that follows the server would get.
+
+**What was negotiated.** Recorded from BL-172's measurement (2026-09-30), read from surl's
+`SSH negotiated` note (decision 10) in `UpstreamCurlLogsInToSurlOverSshTests`; it records, and
+decides nothing:
+
+- **Windows reference build (WinCNG), RSA host key** (`--throwaway-hostkey`'s 3072 bits, or a
+  2048-bit `--hostkey`): measured as predicted above - kex `diffie-hellman-group-exchange-sha256`,
+  host key `rsa-sha2-512`, cipher `chacha20-poly1305@openssh.com` both ways, MAC `implicit`,
+  compression `none` (`zlib` both ways with `--compressed-ssh`), strict kex on.
+- **Windows reference build, only an ECDSA P-256 or only an Ed25519 host key:** no common
+  host-key algorithm, since WinCNG lists only RSA ones. curl exits 2, `curl: (2) Failure
+  establishing ssh session: -5, Unable to exchange encryption keys`, and surl notes `SSH no common
+  host key algorithm; client offered rsa-sha2-512,...`
+  (`HostKey_OnlyEllipticCurveOnTheWindowsBuild_Exits2NoCommonHostKeyAlgorithm`).
+- **Linux and macOS reference builds (OpenSSL):** predicted from their `KEXINIT` lists (Context),
+  not yet measured by a Linux or macOS run: kex `curve25519-sha256`; host key `rsa-sha2-512` for
+  an RSA key, `ecdsa-sha2-nistp256` for an ECDSA P-256 key and `ssh-ed25519` for an Ed25519 key,
+  so an ECDSA-only or Ed25519-only surl completes the transfer; cipher
+  `chacha20-poly1305@openssh.com`, MAC `implicit`, compression `none` (`zlib` with
+  `--compressed-ssh`), strict kex on. Pinned for the CI legs in
+  `HostKey_OnlyEllipticCurveOnOpenSslBuilds_NegotiatesItAndDownloadsTheFile`.
+- **Never negotiated by any run**, so covered by `Surl.Protocol.Ssh`'s unit tests only: the
+  `curve25519-sha256@libssh.org`, `ecdh-sha2-*`, `diffie-hellman-group16-sha512`,
+  `diffie-hellman-group18-sha512` and `diffie-hellman-group14-sha256` kex methods, the
+  `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521` and `rsa-sha2-256` host-key algorithms, the
+  `aes*-gcm@openssh.com` and `aes*-ctr` ciphers, every `hmac-*` MAC (`chacha20-poly1305` wins on
+  both backends), `zlib@openssh.com`, and every `--allow-weak-ssh-algorithms` entry.
+- **One disagreement:** about one connection in 270 with the Windows build fails with `curl: (2)
+  Failure establishing ssh session: -8, Unable to exchange encryption keys` after surl has noted
+  the agreed algorithms (`diffie-hellman-group-exchange-sha256`), with no further note. BL-172 did
+  not hide it with a retry; BL-251 is its fix in `Surl.Protocol.Ssh`.
 
 **Offered by default:**
 

@@ -8,7 +8,7 @@ depends-on: [BL-172]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: FR-042
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-253 — Record BL-172's measured SSH exchanges with the pinned builds in ADR-0051 and ADR-0054
 
@@ -63,24 +63,53 @@ measurement contradicts. FR-039, FR-040 and FR-042 agree with both ADRs.
 
 ## Acceptance criteria
 
-- [ ] ADR-0051's Context says a refused login is `curl: (67) Login denied`. The text
+- [x] ADR-0051's Context says a refused login is `curl: (67) Login denied`. The text
       "Authentication failure" is gone, or marked as the guess that was replaced.
-- [ ] ADR-0051 records, citing BL-172, each of these:
+- [x] ADR-0051 records, citing BL-172, each of these:
       - the exit-60 fingerprint-mismatch text
       - the `--knownhosts` exit 60 and the no-pin exit 2
       - the WinCNG exit 2 (-5) for ECDSA-only and Ed25519-only host keys, and the OpenSSL
         builds' success in those cases
       - the negotiated algorithms per platform
       - the Linux and macOS `KEXINIT` lists
-- [ ] ADR-0054 has an amendment section that records the scp and sftp outcomes BL-172
+- [x] ADR-0054 has an amendment section that records the scp and sftp outcomes BL-172
       measured, and it cites BL-172.
-- [ ] FR-039, FR-040 and FR-042 in `Documentation/Product/Requirements.md` contradict neither
+- [x] FR-039, FR-040 and FR-042 in `Documentation/Product/Requirements.md` contradict neither
       ADR. Notes say which rows changed, or that none needed to.
-- [ ] Every statement added is true of BL-172's Notes and of the repository.
+- [x] Every statement added is true of BL-172's Notes and of the repository.
 
 ## Notes
+
+- **ADR-0051**, every addition marked "Recorded from BL-172's measurement":
+  - Context, "What upstream curl 8.21.0 sends (measured)": a new bullet with the Linux and macOS
+    builds' OpenSSL `KEXINIT` lists as BL-172's Notes give them, how they were recorded (the
+    supplementary static-curl Windows build `589C8E4D...` as a predictor, ADR-0017) and that
+    `KexInit_LinuxAndMacOSBuilds_ListTheOpenSslAlgorithms` pins them on CI; the four names no row
+    covered point to BL-252 and ADR-0061.
+  - Context, "What curl does with the host key and the login": a new bullet with the measured
+    host-key outcomes (the exit-60 mismatch text, `--knownhosts` empty or holding another key 60,
+    no pin 2, `--hostpubmd5` and `-k` transfer); "Authentication failure" is kept only as "a guess
+    the measurement replaced", beside the measured `curl: (67) Login denied`; a new bullet on the
+    measured password and public-key logins.
+  - Decision 2: a "What was negotiated" block after the opening paragraph - the Windows build's
+    measured negotiation, the WinCNG exit 2 (-5) for ECDSA-only and Ed25519-only host keys, the
+    OpenSSL builds' negotiation marked predicted (pinned for CI, not yet measured), the algorithms
+    no run negotiated, and the intermittent -8 failure (BL-251). Kept apart from Amendment 1
+    (BL-249).
+- **ADR-0054**: an "Amended by" header line and "Amendment 1 - What the pinned build did over scp
+  and sftp (BL-172, recorded by BL-253, 2026-09-30)": every decision 16 row matched first time,
+  BL-172's harness choices (the `-Q pwd` row's "no request" is not observable), the refused login
+  67 over both schemes, the host-key outcomes (measured over `sftp://` only), the EC-only host key
+  on Windows and the intermittent failure.
+- **Requirements.md:** no row changed. FR-039, FR-040 and FR-042 neither state nor contradict any
+  of these facts.
+- **Where BL-172's Notes differ from this task's list:** fact 5's and fact 6's OpenSSL outcomes
+  (the transfer completing with an ECDSA-only or Ed25519-only key, and `curve25519-sha256`) are
+  predictions pinned for the Linux and macOS CI legs, not measurements, so both ADRs say
+  "predicted". Fact 3 and fact 4 were measured over `sftp://` only.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0051 and ADR-0054 record BL-172's measured scp/sftp exchanges with the pinned builds

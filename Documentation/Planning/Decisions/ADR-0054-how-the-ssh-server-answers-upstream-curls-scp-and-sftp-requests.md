@@ -11,6 +11,8 @@
   [ADR-0051](ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md) (transport,
   logins, channel limits) are applied as written. `Surl.Content` gains four members, listed in
   decision 14; no contract in `Surl.Protocol.Abstractions` changes.
+- **Amended by:** Amendment 1 below, which records what BL-172 measured when it proved decision
+  16 (a record, not a new decision).
 
 ## Context
 
@@ -619,3 +621,42 @@ Where a Linux or macOS build gives another exit, it is pinned per platform in it
 - SCP: OpenSSH's `scp.c` source and sink modes (`-f`, `-t`; `T`, `C`, `D`, `E` lines; `\0`,
   `\x01`, `\x02` replies), the protocol's only definition; every form this ADR relies on is also
   one libssh2 1.11.1's `scp.c` parses or sends, read above.
+
+## Amendment 1 - What the pinned build did over scp and sftp (BL-172, recorded by BL-253, 2026-09-30)
+
+Recorded from BL-172's measurement, and recorded here by BL-253 because this folder was outside
+BL-172's `touches`. It records what the Windows reference build (curl 8.21.0, libssh2 1.11.1,
+WinCNG, `0E773709...`) did against a live `surl` on loopback; it decides nothing. The tests, all
+`[TestCategory("Integration")]` in `Surl.Conformance.UnitTests`, are
+`UpstreamCurlTransfersFilesWithSurlOverScpTests` (every SCP row of decision 16),
+`UpstreamCurlTransfersFilesWithSurlOverSftpTests` (every SFTP row) and
+`UpstreamCurlLogsInToSurlOverSshTests` (the logins and host-key checks below).
+[ADR-0051](ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md)'s Context and decision
+2 record the transport side of the same measurement: the host-key check, the negotiated
+algorithms and the Linux and macOS builds' `KEXINIT` lists.
+
+1. **Every decision 16 row matched on the first run.** No expected result was changed to pass
+   (ADR-0003). Each test starts its own `surl` per scheme, rather than one serving both URLs, so
+   every row starts from a fresh `<d>`; the local files curl reads or writes (`up.txt`,
+   `part.txt`, `out.txt`) live in the temporary home and are passed as absolute paths. The `-Q
+   pwd` row is checked for its exit and output only: surl writes no note for a `REALPATH`, so
+   "surl's notes show no request for it" cannot be observed in its log.
+2. **A refused login** is exit 67, stderr `curl: (67) Login denied`, over `scp://` and `sftp://`
+   alike, before any SCP or SFTP request is sent. Password (`-u`) and public-key (`--key`,
+   `--pubkey`, an RSA key pair) logins both reach the transfer over both schemes.
+3. **The host-key check**, measured over `sftp://` only (curl checks the key before it logs in or
+   opens a channel): a `--hostpubsha256` other than surl's key's is exit 60, stderr starting
+   `curl: (60) Denied establishing ssh session: mismatch SHA256 fingerprint. Remote <surl's
+   base64> is not equal to <pinned>` and followed by curl's sslcerts help text; a key missing from
+   the `--knownhosts` file, or different there, is exit 60; no pin and no `known_hosts` file is
+   exit 2; `--hostpubmd5` and `-k` both transfer.
+4. **The host key decision 16's `S` serves matters on Windows.** `S` uses `--throwaway-hostkey`,
+   an RSA key, which every pinned build's host-key list names (ADR-0051, Context). A surl holding only an ECDSA or only an Ed25519
+   host key cannot serve the Windows build at all: curl exits 2, `curl: (2) Failure establishing
+   ssh session: -5, Unable to exchange encryption keys`, before any SCP or SFTP request. The Linux
+   and macOS builds (OpenSSL) are predicted to complete the transfer with either key; that is
+   pinned for their CI legs, not yet measured (ADR-0051 decision 2).
+5. **An intermittent failure.** About one connection in 270 with the Windows build ends in `curl:
+   (2) Failure establishing ssh session: -8, Unable to exchange encryption keys` after surl has
+   noted the agreed algorithms, so any Windows run of these tests can fail once. It is not hidden by a retry;
+   BL-251 is its fix in `Surl.Protocol.Ssh`.
