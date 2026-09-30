@@ -41,3 +41,4 @@ limits table and ADR-0006 section 5's IMAP column say; at shutdown it ends with 
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
