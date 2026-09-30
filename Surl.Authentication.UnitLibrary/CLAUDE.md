@@ -98,6 +98,13 @@ builds the policy from the command line.
   MD4, NTOWFv2, `NTProofStr`, session base key), tested against the specification's section
   4.2.4 example. `NtlmMessage` holds what the three messages share, `NtlmNegotiateFlags` the
   flag bits.
+- `NtlmV1Calculation` (BL-291) is section 3.3.1's NTLMv1 without extended session security, as
+  upstream curl's SMB session setup computes it: `LMOWFv1` (`ComputeLmHash`), the NT hash
+  (`ComputeNtHashOfWidenedUtf8`) and `DESL` (`ComputeResponse`), over `Surl.Cryptography`'s
+  `Des`, tested against section 4.2.2's example. It follows upstream curl's
+  `lib/curl_ntlm_core.c`, not the specification, for a non-ASCII password: the UTF-8 bytes,
+  ASCII-only upper-casing and a 14-byte cut for LM, each byte widened to 16 bits for NT. Nothing
+  reaches it yet; the SMB login check (BL-295) will.
 - The server challenge comes from `INtlmServerChallengeSource`: `RandomNtlmServerChallengeSource`
   in production, a fixed one in the tests, which replay the handshakes recorded from pinned
   upstream curl in `Surl.Authentication.UnitTests/Fixtures/ntlm*`.
