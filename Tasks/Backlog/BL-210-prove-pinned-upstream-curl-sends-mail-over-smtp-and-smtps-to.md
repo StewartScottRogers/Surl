@@ -4,7 +4,7 @@ title: Prove pinned upstream curl sends mail over smtp and smtps to surl
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-207]
+depends-on: [BL-207, BL-245]
 touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: FR-043
 created: 2026-09-29
@@ -43,7 +43,29 @@ BL-185's ADRs expect, and that the mail lands in the store.
 
 ## Notes
 
+- 2026-09-30 (lane 6): wrote `Surl.Conformance.UnitTests/UpstreamCurlSendsMailToSurlOverSmtpTests.cs`
+  (every row of ADR-0053 decision 10, 36 cases counting data rows) and `StoredMail.cs`, which
+  loads the stopped surl's `--directory/.surl/mail` through `MailboxStore.LoadAsync` over a
+  `DiskContentFileSystem` and fetches `INBOX`. Each stored message is checked as decision 6's
+  `Return-Path` and `Received` trace fields (protocol word `ESMTP`, `ESMTPA` or `ESMTPSA`,
+  date matched by pattern) followed by the body as sent, dot-unstuffed. The code was left
+  uncommitted for the shift to stash, as the unattended-run rules require for a task sent back
+  to Backlog.
+- Against the pinned Windows reference build, 34 of 36 passed: one and two recipients, the
+  invalid recipient with and without `--mail-rcpt-allowfails`, STARTTLS with `--ssl-reqd`,
+  `smtps://`, no certificate (64), CRAM-MD5, PLAIN, LOGIN, XOAUTH2, OAUTHBEARER, DIGEST-MD5
+  and NTLM each with and without `--sasl-ir`, PLAIN refused without TLS (67) and accepted
+  with `--allow-plaintext-auth`, a wrong password (67), no login (55), VRFY, EXPN, HELP,
+  NOOP, `--crlf` and bare-LF bodies, and `--max-connections 1` (8).
+- The two `--max-filesize` cases fail. curl exits 8 where 55 is expected: surl advertises
+  `SIZE 104857600` and accepts `MAIL ... SIZE=53` under `--max-filesize 10`, then the mail
+  store refuses the body after DATA. The cause is that `ServingEngine.OpenExchange` never
+  sets `ExchangeContext.Limits`, so every exchange sees `ExchangeLimits.Default`. This is
+  filed as BL-245 (Surl.Core and Surl.Console, outside this task's `touches`). The expected
+  result stays as ADR-0053 measured it (ADR-0003).
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Backlog. Waits on BL-245: ServingEngine never hands --max-filesize (ExchangeLimits) to ExchangeContext, so the two max-filesize cases exit 8 not 55; 34 of 36 SMTP conformance tests pass
