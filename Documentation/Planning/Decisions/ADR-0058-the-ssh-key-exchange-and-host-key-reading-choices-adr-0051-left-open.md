@@ -94,8 +94,17 @@ PKCS #8 (decision 4) or `openssh-key-v1`, so the operator has a way to give the 
 
 ### 6. Ed25519 and DSA host keys, until their tasks land
 
-- An Ed25519 host key, in any format, is `key type ssh-ed25519 is not supported` until BL-168
-  serves `ssh-ed25519`.
+- An Ed25519 host key was `key type ssh-ed25519 is not supported` until BL-168 served
+  `ssh-ed25519`. It is now read (amended by BL-168 on 2026-09-30, decided by Claude under
+  Stewart's delegation) from PKCS #8, encrypted or not (RFC 8410 section 7: the algorithm
+  identifier has no parameters, the private key octets hold a `CurvePrivateKey` OCTET STRING of
+  the 32-byte seed), and from `openssh-key-v1` (the 32-byte public key, then the 64-byte private
+  key: the seed followed by the public key again). Each of these is "not a private key surl can
+  read": algorithm parameters present, private key octets that are not one OCTET STRING, a seed
+  that is not 32 bytes, and in `openssh-key-v1` a private key that is not 64 bytes, or either copy
+  of the public key differing from the one the seed gives. The attributes and public key a version
+  2 `OneAsymmetricKey` may carry after the private key are not read, since the key served is the
+  seed's whatever they hold.
 - A DSA host key is ADR-0051 decision 4's weak-key refusal
   (`DSA keys of <bits> bits need --allow-weak-ssh-algorithms`) without
   `--allow-weak-ssh-algorithms`, and `key type ssh-dss is not supported` with it, until BL-221
@@ -144,6 +153,6 @@ counter cannot come near it, and a check that can never fire would be a branch n
 ## Consequences
 
 - `Surl.Protocol.Ssh.UnitLibrary` already does all eight; this ADR changes no code.
-- BL-168 is to replace decision 6's Ed25519 refusal, and BL-221 its DSA refusal; each should
-  amend this ADR when it lands.
+- BL-168 replaced decision 6's Ed25519 refusal and amended it; BL-221 is to replace its DSA
+  refusal and amend this ADR when it lands.
 - ADR-0051's Consequences name this ADR.
