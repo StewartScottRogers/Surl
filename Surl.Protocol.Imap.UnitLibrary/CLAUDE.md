@@ -2,8 +2,13 @@
 
 Phase 3.
 
-The IMAP server (RFC 9051, and RFC 3501 for IMAP4rev1): mailboxes, `SELECT`, `FETCH`,
-`SEARCH`, `APPEND`, `STARTTLS` and SASL authentication, as upstream curl uses them.
+The IMAP4rev1 server (RFC 3501; not IMAP4rev2, ADR-0055 decision 1), as upstream curl uses it.
+ADR-0055 decides every response. `ImapProtocolServer` answers `LOGIN`, `CAPABILITY`, `NOOP`,
+`LOGOUT`, `ID`, `NAMESPACE`, `SELECT`, `EXAMINE`, `LIST`, `LSUB`, `STATUS`, `CHECK`, `CLOSE` and
+`UNSELECT` from the shared mail store (BL-201); `FETCH` and `SEARCH` (BL-202), `APPEND`, `STORE`,
+`COPY`, `MOVE`, `EXPUNGE` and the mailbox changes (BL-203), `STARTTLS` and `AUTHENTICATE`
+(BL-204) are still answered `BAD Command not recognized`. It is not yet registered in
+`Surl.Console` (BL-208).
 
 **URL schemes answered:** `imap`, `imaps`
 
