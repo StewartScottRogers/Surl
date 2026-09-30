@@ -94,7 +94,7 @@ internal static class MailStoreIndex
             writer.Write([(byte)message.Flags]);
             writer.WriteInt64(message.InternalDate.ToUnixTimeSeconds());
             writer.WriteInt16((short)message.InternalDate.Offset.TotalMinutes);
-            writer.WriteUInt64((ulong)message.Body.Bytes.LongLength);
+            writer.WriteUInt64((ulong)message.Body.Length);
             writer.WriteUInt64(message.Body.FileNumber);
         }
     }
@@ -162,12 +162,12 @@ internal static class MailStoreIndex
         Require(fileNumber < contents.NextFileNumber && size <= int.MaxValue);
         if (contents.Bodies.TryGetValue(fileNumber, out var known))
         {
-            Require(known.Size == (long)size);
-            return known.Body;
+            Require(known.Length == (long)size);
+            return known;
         }
 
-        var body = new MessageBody(fileNumber, []) { IsWritten = true };
-        contents.Bodies.Add(fileNumber, (body, (long)size));
+        var body = new MessageBody(fileNumber, (long)size, bytes: null);
+        contents.Bodies.Add(fileNumber, body);
         contents.TotalMessageBytes += (long)size;
         return body;
     }

@@ -2,8 +2,8 @@ namespace Surl.MailStore;
 
 /// <summary>
 /// What a mail store index holds once decoded: the store's owners, mailboxes and messages,
-/// each distinct message's body still without its bytes, and the counts the store's bounds
-/// are checked against.
+/// each distinct message's body with its bytes left in its message file, and the counts the
+/// store's bounds are checked against.
 /// </summary>
 /// <param name="nextFileNumber">The next message file number to give.</param>
 /// <param name="lastUidValidity">The last <c>UIDVALIDITY</c> given.</param>
@@ -16,9 +16,9 @@ internal sealed class MailStoreIndexContents(ulong nextFileNumber, uint lastUidV
     public List<OwnerMailboxes> Owners { get; } = [];
 
     /// <summary>
-    /// Each distinct message's body by its file number, with the size the index gives it.
+    /// Each distinct message's body by its file number, of the size the index gives it.
     /// </summary>
-    public Dictionary<ulong, (MessageBody Body, long Size)> Bodies { get; } = [];
+    public Dictionary<ulong, MessageBody> Bodies { get; } = [];
 
     public int MessageCount { get; set; }
 

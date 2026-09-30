@@ -5,8 +5,10 @@ namespace Surl.MailStore;
 /// <c>COPY</c>) and counted once against the byte bound (ADR-0050, decisions 6 and 7).
 /// </summary>
 /// <param name="fileNumber">The message file number the bytes are persisted under.</param>
-/// <param name="bytes">The message's bytes.</param>
-internal sealed class MessageBody(ulong fileNumber, byte[] bytes)
+/// <param name="length">How many bytes the message holds.</param>
+/// <param name="bytes">The message's bytes when they are held in memory; <see langword="null"/>
+/// when they are in their message file.</param>
+internal sealed class MessageBody(ulong fileNumber, long length, byte[]? bytes)
 {
     /// <summary>
     /// The message file number the bytes are persisted under, unique within the store.
@@ -14,18 +16,20 @@ internal sealed class MessageBody(ulong fileNumber, byte[] bytes)
     public ulong FileNumber { get; } = fileNumber;
 
     /// <summary>
-    /// The message's bytes; a body read from the index is given its bytes once its message file
-    /// has been read.
+    /// How many bytes the message holds.
     /// </summary>
-    public byte[] Bytes { get; set; } = bytes;
+    public long Length { get; } = length;
 
     /// <summary>
-    /// How many stored messages refer to these bytes; at 0 they leave the store.
+    /// The message's bytes held in memory: by a store without files, or by one with files for a
+    /// message given whole until the next save writes its file. <see langword="null"/> when they
+    /// are read from their message file on fetch.
+    /// </summary>
+    public byte[]? Bytes { get; set; } = bytes;
+
+    /// <summary>
+    /// How many stored messages, and POP3 maildrop locks, refer to these bytes; at 0 they
+    /// leave the store.
     /// </summary>
     public int ReferenceCount { get; set; }
-
-    /// <summary>
-    /// Whether the bytes are in their message file.
-    /// </summary>
-    public bool IsWritten { get; set; }
 }

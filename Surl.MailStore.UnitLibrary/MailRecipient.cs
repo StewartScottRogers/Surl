@@ -2,7 +2,7 @@ namespace Surl.MailStore;
 
 /// <summary>
 /// The owner an SMTP recipient maps to, as <see cref="MailboxStore.LookUpRecipient"/> found it;
-/// what <see cref="MailboxStore.Deliver"/> delivers to. Only the store that found it may
+/// what <see cref="MailboxStore.Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/> delivers to. Only the store that found it may
 /// deliver to it.
 /// </summary>
 public sealed class MailRecipient
