@@ -69,3 +69,4 @@ tasks (BL-301, BL-302) build on a codec already held to the quality gates.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
