@@ -1,0 +1,24 @@
+< +OK surl ready
+> CAPA
+< +OK Capability list follows
+< TOP
+< UIDL
+< RESP-CODES
+< AUTH-RESP-CODE
+< PIPELINING
+< USER
+< .
+> USER u
+< +OK User accepted
+> PASS p
+< +OK Logged in
+> CAPA
+< +OK Capability list follows
+< TOP
+< UIDL
+< RESP-CODES
+< AUTH-RESP-CODE
+< PIPELINING
+< .
+> QUIT
+< +OK surl signing off

@@ -1,0 +1,5 @@
+CAPA
+USER u
+PASS p
+RETR 9
+QUIT
