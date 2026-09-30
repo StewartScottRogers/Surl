@@ -58,3 +58,4 @@ text, and refuses a start that gives them until BL-171 composes the SSH server.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
