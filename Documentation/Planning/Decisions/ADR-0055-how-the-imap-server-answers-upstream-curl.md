@@ -609,6 +609,48 @@ were served to the pinned build and it exited 0 on each.
 - **`UNSUBSCRIBE`** of any `astring` is `OK`, even one that is not a mailbox name, since nothing is
   kept to refuse.
 
+### 18. Details of decisions 2, 10 and 11 settled in BL-204
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-204, where decisions 2, 10 and 11 left a detail open. The fifteen `STARTTLS`, `imaps` and
+`AUTHENTICATE` fixtures of BL-204 (`Surl.Protocol.Imap.UnitTests/Fixtures`, recorded with the
+pinned win-x64 build, SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`)
+were served to that build before any test pinned them.
+
+- **Measured: curl 8.21.0 remembers `LOGINDISABLED` across `STARTTLS`.** Given `STARTTLS
+  LOGINDISABLED` before TLS and, after it, a list with neither `LOGINDISABLED` nor any `AUTH=`,
+  `curl -sS -k --ssl-reqd -u u:p imap://127.0.0.1:18343/` sends `CAPABILITY`, `STARTTLS`,
+  `CAPABILITY`, and then nothing: `curl: (67) Login denied` (fixture
+  `starttls-logindisabled-remembered`). The same exchange without `LOGINDISABLED` before TLS logs
+  in with `LOGIN u p` and exits 0 (`starttls`), and with decision 2's default offer (`AUTH=CRAM-MD5`
+  before TLS, the five mechanisms after it) curl logs in with `AUTHENTICATE CRAM-MD5` and exits 0
+  (`starttls-authenticate`). **Decision 2 stands**: `LOGINDISABLED` is still advertised whenever
+  the clear-password login is not offered on the connection. **Why:** leaving it out would make
+  a curl without `--ssl-reqd` send the password in clear before the `NO [PRIVACYREQUIRED]`, which
+  is what RFC 3501 section 6.2.3 and ADR-0032 section 4 exist to prevent. The cost is one
+  configuration only: an `--auth` set with no mail word, without `--allow-plaintext-auth`, where
+  `curl --ssl-reqd` over `imap://` exits 67; `imaps://`, or any SASL word in `--auth`, logs in.
+- **The capability order** of decision 2's table holds for the new items: `STARTTLS`, then
+  `LOGINDISABLED`, then the `AUTH=` items in the policy's order, all after `APPENDLIMIT`.
+- **`STARTTLS`'s checks, in order**: an argument (`BAD Invalid arguments`); a connection already
+  TLS (`BAD Already using TLS`); a server that cannot upgrade (`BAD STARTTLS not available`). A
+  login comes first of all (`BAD Already authenticated`, decision 3). After the upgrade the
+  session asks the policy again about the login with no credentials, since its verdict may
+  depend on TLS (decision 10). A failed handshake throws the engine's `TlsHandshakeException`
+  after the `OK`, and nothing more is written.
+- **`AUTHENTICATE`'s arguments**: the mechanism is an atom, handed to the policy in capitals; the
+  initial response is one word of printable ASCII after one space, `=` for an empty one (RFC
+  4959). Anything else after the mechanism is `BAD Invalid arguments`; a word that is not base64,
+  `*` included, is `BAD Cannot decode response` and starts no exchange.
+- **Continuation lines** are read with the line reader's bounds: one past `--max-line` is decision
+  12's `<tag> BAD Command line too long` and a close, one not complete within `--head-timeout` its
+  `* BYE`, and the peer's close ends the session. A `CheckedLogin` carried on a challenge step (the
+  bearer mechanisms' error challenge, ADR-0049 section 6) is written before the `+` line.
+- **An accepted `AUTHENTICATE`** opens the view of the step's `AccountName` (the anonymous owner's
+  with `--allow-anonymous`, as `LOGIN`'s does); `RefusedMechanism` is `NO Unsupported
+  authentication mechanism` (ADR-0049 section 7), and the session stays not authenticated after
+  every refusal.
+
 ## Alternatives considered
 
 - **Advertise `IMAP4rev2` too.** Rejected in decision 1: curl never enables it, and it doubles the
