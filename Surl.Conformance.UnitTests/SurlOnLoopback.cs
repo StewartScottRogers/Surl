@@ -18,20 +18,26 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
 
     private readonly LogWriter log;
 
-    private SurlOnLoopback(DirectoryInfo? servedDirectory, CancellationTokenSource stop, Task<int> running, Uri baseUrl, LogWriter log)
+    private SurlOnLoopback(DirectoryInfo? servedDirectory, CancellationTokenSource stop, Task<int> running, IReadOnlyList<Uri> baseUrls, LogWriter log)
     {
         this.servedDirectory = servedDirectory;
         this.log = log;
         this.stop = stop;
         this.running = running;
-        BaseUrl = baseUrl;
+        BaseUrls = baseUrls;
     }
 
     /// <summary>
     /// Gets the URL of the served root, with the port surl bound, such as
-    /// <c>http://127.0.0.1:49731/</c>.
+    /// <c>http://127.0.0.1:49731/</c>: the first listener's, when surl listens on more than one.
     /// </summary>
-    public Uri BaseUrl { get; }
+    public Uri BaseUrl => BaseUrls[0];
+
+    /// <summary>
+    /// Gets the URL of the served root of every listener surl bound, one per status line, in
+    /// the order surl wrote them.
+    /// </summary>
+    public IReadOnlyList<Uri> BaseUrls { get; }
 
     /// <summary>
     /// Gets the full path of the temporary directory surl serves, when it serves one this
@@ -98,21 +104,43 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     /// </summary>
     public static Task<SurlOnLoopback> StartOverDirectoryAsync(
         string scheme, string dataDirectory, IReadOnlyList<string> options, CancellationToken cancellationToken) =>
-        StartServingAsync(null, [.. options, "--directory", dataDirectory, $"{scheme}://127.0.0.1:0/"], cancellationToken);
+        StartOverDirectoryAsync([scheme], dataDirectory, options, cancellationToken);
+
+    /// <summary>
+    /// Starts one surl listening on <c><em>scheme</em>://127.0.0.1:0/</c> for each of
+    /// <paramref name="schemes"/>, with <paramref name="options"/> and
+    /// <c>--directory <paramref name="dataDirectory"/></c>, an existing directory the caller
+    /// owns, returning once surl has written a status line for every listener; find each
+    /// listener's URL with <see cref="BaseUrlOf"/>. Disposing it stops surl and leaves the
+    /// directory as surl left it.
+    /// </summary>
+    public static Task<SurlOnLoopback> StartOverDirectoryAsync(
+        IReadOnlyList<string> schemes, string dataDirectory, IReadOnlyList<string> options, CancellationToken cancellationToken) =>
+        StartServingAsync(
+            null,
+            [.. options, "--directory", dataDirectory, .. schemes.Select(scheme => $"{scheme}://127.0.0.1:0/")],
+            cancellationToken,
+            schemes.Count);
 
     private static async Task<SurlOnLoopback> StartServingAsync(
-        DirectoryInfo? directory, string[] args, CancellationToken cancellationToken)
+        DirectoryInfo? directory, string[] args, CancellationToken cancellationToken, int listenerCount = 1)
     {
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var output = new FirstLineWriter();
+        var output = new StatusLinesWriter(listenerCount);
         var log = new LogWriter();
         var running = Program.RunAsync(args, output, log, stop.Token);
-        var statusLine = await Task.WhenAny(output.FirstLine, running) == running
+        var statusLines = await Task.WhenAny(output.StatusLines, running) == running
             ? throw new InvalidOperationException($"surl exited {await running} before it listened.")
-            : await output.FirstLine.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            : await output.StatusLines.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
 
-        return new SurlOnLoopback(directory, stop, running, new Uri(statusLine[StatusLinePrefix.Length..]), log);
+        return new SurlOnLoopback(
+            directory, stop, running, [.. statusLines.Select(line => new Uri(line[StatusLinePrefix.Length..]))], log);
     }
+
+    /// <summary>
+    /// Gets the URL of the served root of the listener for <paramref name="scheme"/>.
+    /// </summary>
+    public Uri BaseUrlOf(string scheme) => BaseUrls.Single(url => url.Scheme == scheme);
 
     /// <summary>
     /// Gets the URL of <paramref name="relativePath"/> under the served root.
@@ -157,13 +185,16 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         }
     }
 
-    /// <summary>A thread-safe writer that hands out the first whole line written to it.</summary>
-    private sealed class FirstLineWriter : StringWriter
+    /// <summary>
+    /// A thread-safe writer that hands out the first <c>count</c> whole lines written to it:
+    /// surl's status lines, one per listener.
+    /// </summary>
+    private sealed class StatusLinesWriter(int count) : StringWriter
     {
-        private readonly TaskCompletionSource<string> firstLine = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<string[]> statusLines = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly Lock writeLock = new();
 
-        public Task<string> FirstLine => firstLine.Task;
+        public Task<string[]> StatusLines => statusLines.Task;
 
         public override void Write(char value) => Write(value.ToString());
 
@@ -172,11 +203,12 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
             lock (writeLock)
             {
                 base.Write(value);
-                var text = ToString();
-                var end = text.IndexOf(Environment.NewLine, StringComparison.Ordinal);
-                if (end >= 0)
+                var lines = ToString().Split(Environment.NewLine);
+
+                // The last piece is the unfinished line after the last line end.
+                if (lines.Length > count)
                 {
-                    firstLine.TrySetResult(text[..end]);
+                    statusLines.TrySetResult(lines[..count]);
                 }
             }
         }
