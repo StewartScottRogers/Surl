@@ -44,3 +44,4 @@ with `Pop3ProtocolServer`, and `surl --help` and `--aihelp` list the `pop3` cate
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
