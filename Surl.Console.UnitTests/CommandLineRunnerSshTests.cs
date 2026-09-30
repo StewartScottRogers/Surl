@@ -185,7 +185,7 @@ public sealed class CommandLineRunnerSshTests
         var commandLine = CommandLineParser.Parse(["--authorized-keys", "alice:" + AliceKeys, Sftp]).CommandLine!;
         var blob = Convert.FromBase64String(TestSshKeyFiles.Ed25519AuthorizedKeyLine.Split(' ')[1]);
 
-        var (policy, _, _, _) = AuthenticationComposition.Compose(commandLine, Files((AliceKeys, file)), TimeProvider.System);
+        var (policy, _, _, _, _) = AuthenticationComposition.Compose(commandLine, Files((AliceKeys, file)), TimeProvider.System);
         var alice = await policy!.CheckSshPublicKeyLoginAsync(
             new SshPublicKeyLogin("alice", "ssh-ed25519", blob, SshPublicKeyProof.None), TestContext.CancellationToken);
         var bob = await policy.CheckSshPublicKeyLoginAsync(

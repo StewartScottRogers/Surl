@@ -106,7 +106,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     public void Compose_WithoutUserFile_NeverReadsAFile()
     {
-        var (policy, _, exitCode, failureMessage) = AuthenticationComposition.Compose(
+        var (policy, _, _, exitCode, failureMessage) = AuthenticationComposition.Compose(
             Parse("--user", "alice:pw", Http), _ => throw new AssertFailedException("read"), TimeProvider.System);
 
         Assert.IsNotNull(policy);
@@ -371,7 +371,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [DataRow("xoauth2", "XOAUTH2")]
     public void Compose_SaslMechanismWord_TheComposedPolicyOffersThatMechanismAlone(string word, string mechanism)
     {
-        var (policy, _, _, _) = AuthenticationComposition.Compose(
+        var (policy, _, _, _, _) = AuthenticationComposition.Compose(
             Parse("--allow-plaintext-auth", "--auth", word, Http), ReadsAs(string.Empty), TimeProvider.System);
 
         var offer = policy!.GetMailLoginOffer(null);
@@ -382,7 +382,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     public void Compose_Apop_TheComposedPolicyOffersApopAndNoSaslMechanism()
     {
-        var (policy, _, _, _) = AuthenticationComposition.Compose(Parse("--auth", "apop", Http), ReadsAs(string.Empty), TimeProvider.System);
+        var (policy, _, _, _, _) = AuthenticationComposition.Compose(Parse("--auth", "apop", Http), ReadsAs(string.Empty), TimeProvider.System);
 
         var offer = policy!.GetMailLoginOffer(null);
         Assert.IsEmpty(offer.SaslMechanisms);
@@ -392,7 +392,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     public void Compose_EveryAvailableWord_OffersEverySaslMechanismInOfferOrder()
     {
-        var (policy, _, _, _) = AuthenticationComposition.Compose(
+        var (policy, _, _, _, _) = AuthenticationComposition.Compose(
             Parse("--allow-plaintext-auth", "--auth", "external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlm,negotiate,aws-sigv4", Http),
             ReadsAs(string.Empty),
             TimeProvider.System);
@@ -450,9 +450,11 @@ public sealed class CommandLineRunnerAuthenticationTests
     [DataRow("gssapi", "gssapi")]
     [DataRow("GSSAPI,plain", "gssapi")]
     [DataRow("external,gssapi", "gssapi")]
-    public async Task RunAsync_AuthGssapi_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string words, string refused)
+    public async Task RunAsync_AuthGssapiWithKeytab_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string words, string refused)
     {
-        var run = await RunRefusedAsync(_ => throw new AssertFailedException("the user file is not read"), "--auth", words, "--user-file", UserFile, Http);
+        var run = await RunRefusedAsync(
+            _ => throw new AssertFailedException("neither the user file nor the keytab is read"),
+            "--auth", words, "--keytab", "http.keytab", "--user-file", UserFile, Http);
 
         Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
         Assert.AreEqual($"surl: (2) --auth {refused} is not available in this build" + NewLine, run.Error);
@@ -462,7 +464,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     public async Task RunAsync_AuthGssapiAndAnSshOption_NamesAuthFirstInOptionTableOrder()
     {
-        var run = await RunRefusedAsync(null, "--hostcert", "host-cert.pub", "--auth", "gssapi", Http);
+        var run = await RunRefusedAsync(null, "--hostcert", "host-cert.pub", "--auth", "gssapi", "--keytab", "http.keytab", Http);
 
         Assert.AreEqual("surl: (2) --auth gssapi is not available in this build" + NewLine, run.Error);
     }

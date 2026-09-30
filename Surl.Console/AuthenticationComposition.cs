@@ -1,5 +1,6 @@
 using Surl.Authentication;
 using Surl.Cli;
+using Surl.Kerberos;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
@@ -36,34 +37,43 @@ internal static class AuthenticationComposition
     };
 
     /// <summary>
-    /// Builds the policy: reads the <c>--user-file</c> and then each <c>--authorized-keys</c> file
-    /// through <paramref name="readFile"/> when given, and composes the Negotiate, NTLM, Basic,
-    /// Bearer, Digest and AWS Signature Version 4 methods over the accounts; the SSH server checks
-    /// its logins against the accounts and the authorized keys (ADR-0051, section 6).
+    /// Builds the policy: reads the <c>--user-file</c>, then each <c>--authorized-keys</c> file, then
+    /// the <c>--keytab</c> file through <paramref name="readFile"/> when given, and composes the
+    /// Negotiate, NTLM, Basic, Bearer, Digest and AWS Signature Version 4 methods over the accounts;
+    /// the SSH server checks its logins against the accounts and the authorized keys (ADR-0051,
+    /// section 6). The keytab's Kerberos acceptor rides on the settings, read by no method yet
+    /// (ADR-0057, decision 6).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="readFile">Reads a file's bytes, given its path as given.</param>
-    /// <param name="timeProvider">The clock the refusal delay, the Digest nonces and the Signature Version 4 window run on.</param>
+    /// <param name="timeProvider">The clock the refusal delay, the Digest nonces, the Signature Version 4 window and the Kerberos acceptor run on.</param>
     /// <returns>
-    /// The policy and every account's user name, the <c>--user</c> ones first, which the mail
-    /// store's owners are (ADR-0050, decision 2); or, when it cannot be built, <see langword="null"/>
-    /// with the exit code and the message after the <c>surl: </c> prefix (ADR-0032, sections 1 and 2;
-    /// ADR-0051, section 6).
+    /// The policy, every account's user name, the <c>--user</c> ones first, which the mail
+    /// store's owners are (ADR-0050, decision 2), and the keytab entries skipped for their enctype;
+    /// or, when it cannot be built, <see langword="null"/> with the exit code and the message after
+    /// the <c>surl: </c> prefix (ADR-0032, sections 1 and 2; ADR-0051, section 6; ADR-0057, decision 1).
     /// </returns>
-    public static (AuthenticationPolicy? Policy, IReadOnlyList<string> AccountNames, SurlExitCode ExitCode, string? FailureMessage) Compose(
+    public static (AuthenticationPolicy? Policy, IReadOnlyList<string> AccountNames, IReadOnlyList<KerberosKeytabSkippedEntry> SkippedKeytabEntries, SurlExitCode ExitCode, string? FailureMessage) Compose(
         SurlCommandLine commandLine, Func<string, byte[]> readFile, TimeProvider timeProvider)
     {
         var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readFile);
         if (accounts is null)
         {
-            return (null, [], exitCode, failureMessage);
+            return (null, [], [], exitCode, failureMessage);
         }
 
         var (authorizedKeys, keysExitCode, keysFailureMessage) = ReadAuthorizedKeys(commandLine, readFile);
-        return authorizedKeys is null
-            ? (null, [], keysExitCode, keysFailureMessage)
-            : (ComposePolicy(ComposeSettings(commandLine, accounts) with { AuthorizedKeys = authorizedKeys }, timeProvider),
+        if (authorizedKeys is null)
+        {
+            return (null, [], [], keysExitCode, keysFailureMessage);
+        }
+
+        var (kerberosAcceptor, skippedKeytabEntries, keytabExitCode, keytabFailureMessage) = KeytabComposition.Read(commandLine, readFile, timeProvider);
+        return keytabFailureMessage is not null
+            ? (null, [], [], keytabExitCode, keytabFailureMessage)
+            : (ComposePolicy(ComposeSettings(commandLine, accounts) with { AuthorizedKeys = authorizedKeys, KerberosAcceptor = kerberosAcceptor }, timeProvider),
                 [.. accounts.Select(account => account.UserName)],
+                skippedKeytabEntries,
                 SurlExitCode.Ok,
                 null);
     }

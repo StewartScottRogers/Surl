@@ -11,6 +11,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`CommandLineOutcome.ShowAiHelp`: `AiHelpText.Answer(parsed.AiHelpTopic)` written by
   `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
   says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
+  start whose `--auth` names `gssapi` without `--keytab` with `surl: (2) --auth gssapi needs
+  --keytab` (`KeytabComposition.IsGssapiWithoutKeytab`, ADR-0057 decision 1), then a
   start that gives the `--auth` word `gssapi` or an SSH server option this build does not
   serve yet (`FindUnavailableOption`: `--auth gssapi`, `--hostcert`,
   `--allow-weak-ssh-algorithms`, the first in that order) with
@@ -32,7 +34,13 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   builds the authentication policy (`AuthenticationComposition.Compose`, ADR-0032): the
   `--user-file` and then each `--authorized-keys` file are read through the runner's
   `readStartFile` seam (`File.ReadAllBytes` in `surl`), 37 when one cannot be read and 2
-  naming the line when it is malformed (ADR-0051 decision 6); then the SSH host keys
+  naming the line when it is malformed (ADR-0051 decision 6); then the `--keytab` file
+  (`KeytabComposition.Read`, ADR-0057 decision 1) through the same seam, read by
+  `Surl.Kerberos`'s `KerberosKeytab.Read` (37 `Could not read keytab <path>`, 2 `Keytab <path>
+  is malformed at byte <offset>` or `holds no key surl can use`), whose keys become a
+  `KerberosAcceptor` (one `KerberosReplayCache` per process, the one clock and
+  `RandomKerberosRandomSource`) on `AuthenticationSettings.KerberosAcceptor`, `null` without
+  `--keytab`, read by no method yet (ADR-0057 decision 6); then the SSH host keys
   (`SshHostKeyComposition.Compose`, ADR-0051 decision 4): each `--hostkey` file read through
   the same seam and parsed by `SshHostKeyFile.Read` (37 unreadable, 2 with the parser's
   refusal or a second key of one type, naming the file), and with `--throwaway-hostkey` an RSA
@@ -97,7 +105,11 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   with `--self-signed` and neither such a listen URL nor an `smtp` or `ftp` one makes no certificate.
 - Once the log streams are open, the startup warnings go to the log stream, unstamped:
   `AuthenticationComposition.WriteLooseningWarnings` writes the `--allow-anonymous`,
-  `--allow-plaintext-auth` and `--auth` lines, in that order, then `CommandLineRunner`
+  `--allow-plaintext-auth` and `--auth` lines, in that order, then
+  `KeytabComposition.WriteStartLines` writes `surl: warning: --keytab: skipped the <enctype
+  name> key of <principal>` for each keytab entry of an enctype surl does not accept, and
+  `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi` when that
+  is so, never a key byte, then `CommandLineRunner`
   writes the `--self-signed` line when a throwaway certificate was made, and from the
   verbose level up `* Serving a throwaway certificate, SHA-256 <fingerprint>` (ADR-0032
   section 9, ADR-0033 section 7); then `SshHostKeyComposition.WriteStartLines` writes the

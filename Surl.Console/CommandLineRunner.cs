@@ -6,6 +6,7 @@ using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Kerberos;
 using Surl.MailStore;
 using Surl.Networking;
 using Surl.Output;
@@ -58,7 +59,8 @@ namespace Surl.Console;
 /// </param>
 /// <param name="readStartFile">
 /// Reads the bytes of a file surl reads at start, given its path as given, before any listener
-/// binds: the <c>--user-file</c> (ADR-0032, section 2), each <c>--authorized-keys</c> file and each
+/// binds: the <c>--user-file</c> (ADR-0032, section 2), each <c>--authorized-keys</c> file, the
+/// <c>--keytab</c> file (ADR-0057, decision 1) and each
 /// <c>--hostkey</c> file (ADR-0051, decisions 4 and 6); never called when none is given.
 /// <see cref="File.ReadAllBytes(string)"/> when <see langword="null"/>, which is what <c>surl</c> passes.
 /// </param>
@@ -501,12 +503,26 @@ internal sealed class CommandLineRunner(
         ("--allow-weak-ssh-algorithms", commandLine => commandLine.AllowWeakSshAlgorithms),
     ];
 
-    // An option this build does not serve yet is refused before anything else is checked.
+    // --auth gssapi without --keytab (ADR-0057, decision 1), then an option this build does not
+    // serve yet, is refused before anything else is checked.
     private Task<SurlExitCode> ServeAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
-        FindUnavailableOption(commandLine) is { } unavailableOption
-            ? Task.FromResult(WriteFailure(error, SurlExitCode.FailedInit, $"(2) {unavailableOption} is not available in this build"))
+        FindOptionRefusal(commandLine) is { } refusal
+            ? Task.FromResult(WriteFailure(error, SurlExitCode.FailedInit, refusal))
             : ServeAvailableAsync(commandLine, output, error, cancellationToken);
+
+    // The first refusal of the options' consistency or availability, after the surl: prefix.
+    private static string? FindOptionRefusal(SurlCommandLine commandLine)
+    {
+        if (KeytabComposition.IsGssapiWithoutKeytab(commandLine))
+        {
+            return "(2) --auth gssapi needs --keytab";
+        }
+
+        return FindUnavailableOption(commandLine) is { } unavailableOption
+            ? $"(2) {unavailableOption} is not available in this build"
+            : null;
+    }
 
     private async Task<SurlExitCode> ServeAvailableAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken)
@@ -529,13 +545,14 @@ internal sealed class CommandLineRunner(
             : await LockThenServeAsync(commandLine, fileSystem, contentStore, authentication, output, error, cancellationToken);
     }
 
-    // The --auth words, the --user-file and the --authorized-keys files, then the --hostkey files,
-    // are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
-    // ADR-0051, decisions 4 and 6).
+    // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey
+    // files, are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
+    // ADR-0051, decisions 4 and 6; ADR-0057, decision 1).
     private (ComposedAuthentication? Authentication, SurlExitCode ExitCode, string? FailureMessage) ComposeAuthentication(
         SurlCommandLine commandLine)
     {
-        var (policy, accountNames, exitCode, failureMessage) = AuthenticationComposition.Compose(commandLine, readStartFile, timeProvider);
+        var (policy, accountNames, skippedKeytabEntries, exitCode, failureMessage) =
+            AuthenticationComposition.Compose(commandLine, readStartFile, timeProvider);
         if (policy is null)
         {
             return (null, exitCode, failureMessage);
@@ -544,12 +561,15 @@ internal sealed class CommandLineRunner(
         var (sshHostKeys, hostKeyExitCode, hostKeyFailureMessage) = SshHostKeyComposition.Compose(commandLine, readStartFile);
         return sshHostKeys is null
             ? (null, hostKeyExitCode, hostKeyFailureMessage)
-            : (new ComposedAuthentication(policy, accountNames, sshHostKeys), SurlExitCode.Ok, null);
+            : (new ComposedAuthentication(policy, accountNames, skippedKeytabEntries, sshHostKeys), SurlExitCode.Ok, null);
     }
 
-    // What the servers judge logins by and the SSH server proves itself with.
+    // What the servers judge logins by, the keytab entries skipped, and what the SSH server proves itself with.
     private sealed record ComposedAuthentication(
-        AuthenticationPolicy Policy, IReadOnlyList<string> AccountNames, SshHostKeyComposition SshHostKeys);
+        AuthenticationPolicy Policy,
+        IReadOnlyList<string> AccountNames,
+        IReadOnlyList<KerberosKeytabSkippedEntry> SkippedKeytabEntries,
+        SshHostKeyComposition SshHostKeys);
 
     private async Task<SurlExitCode> LockThenServeAsync(
         SurlCommandLine commandLine,
@@ -603,7 +623,7 @@ internal sealed class CommandLineRunner(
                     authentication.Policy,
                     authentication.SshHostKeys.HostKeys,
                     ServerTlsComposition.IsCertificateConfigured(commandLine)),
-                authentication.SshHostKeys,
+                authentication,
                 output,
                 error,
                 cancellationToken);
@@ -628,7 +648,7 @@ internal sealed class CommandLineRunner(
     private async Task<SurlExitCode> ServeUnderTheLockAsync(
         SurlCommandLine commandLine,
         IProtocolServer[] servers,
-        SshHostKeyComposition sshHostKeys,
+        ComposedAuthentication authentication,
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken)
@@ -645,14 +665,14 @@ internal sealed class CommandLineRunner(
 
         using (tls)
         {
-            return await ServeSecuredAsAskedAsync(commandLine, servers, sshHostKeys, tls, output, error, cancellationToken);
+            return await ServeSecuredAsAskedAsync(commandLine, servers, authentication, tls, output, error, cancellationToken);
         }
     }
 
     private async Task<SurlExitCode> ServeSecuredAsAskedAsync(
         SurlCommandLine commandLine,
         IProtocolServer[] servers,
-        SshHostKeyComposition sshHostKeys,
+        ComposedAuthentication authentication,
         ServerTlsComposition tls,
         TextWriter output,
         TextWriter error,
@@ -669,6 +689,9 @@ internal sealed class CommandLineRunner(
             // Each loosening option's warning, then the --self-signed one (ADR-0032, section 9).
             AuthenticationComposition.WriteLooseningWarnings(commandLine, logStreams.Log);
 
+            // Each skipped keytab entry's warning, then the unused --keytab one (ADR-0057, decision 1).
+            KeytabComposition.WriteStartLines(commandLine, authentication.SkippedKeytabEntries, logStreams.Log);
+
             // The --self-signed warning from the info level up, the fingerprint note from verbose
             // up, both unstamped (ADR-0032, section 9; ADR-0033, section 7).
             if (tls.ThrowawayCertificateFingerprint is { } fingerprint)
@@ -677,7 +700,7 @@ internal sealed class CommandLineRunner(
             }
 
             // The --throwaway-hostkey warning, then each SSH host key's note (ADR-0051, decisions 8 and 11).
-            sshHostKeys.WriteStartLines(commandLine, logStreams.Log);
+            authentication.SshHostKeys.WriteStartLines(commandLine, logStreams.Log);
 
             return await ServeLoggedAsync(commandLine, servers, tls, logStreams, output, error, cancellationToken);
         }
