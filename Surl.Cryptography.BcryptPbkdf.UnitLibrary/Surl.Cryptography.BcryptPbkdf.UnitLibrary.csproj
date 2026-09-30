@@ -4,4 +4,8 @@
     <InternalsVisibleTo Include="Surl.Cryptography.BcryptPbkdf.UnitTests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Cryptography.Blowfish.UnitLibrary\Surl.Cryptography.Blowfish.UnitLibrary.csproj" />
+  </ItemGroup>
+
 </Project>

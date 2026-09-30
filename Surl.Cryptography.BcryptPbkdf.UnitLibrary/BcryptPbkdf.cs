@@ -51,7 +51,7 @@ public static class BcryptPbkdf
         Span<byte> hashes = stackalloc byte[(2 * SHA512.HashSizeInBytes) + (2 * HashSize)];
         Span<byte> passwordHash = hashes[..SHA512.HashSizeInBytes];
         Span<byte> block = hashes[^HashSize..];
-        BlowfishState state = new();
+        Blowfish.Blowfish state = new();
         try
         {
             salt.CopyTo(countedSalt);
@@ -80,7 +80,7 @@ public static class BcryptPbkdf
     /// (64 bytes each), then 64 encryptions of "OxychromaticBlowfishSwatDynamite", written
     /// to <paramref name="output" /> as little-endian words.
     /// </summary>
-    internal static void ComputeHash(BlowfishState state, ReadOnlySpan<byte> passwordHash, ReadOnlySpan<byte> saltHash, Span<byte> output)
+    internal static void ComputeHash(Blowfish.Blowfish state, ReadOnlySpan<byte> passwordHash, ReadOnlySpan<byte> saltHash, Span<byte> output)
     {
         Span<uint> words = stackalloc uint[HashSize / 4];
         try
@@ -96,7 +96,7 @@ public static class BcryptPbkdf
             int position = 0;
             for (int index = 0; index < words.Length; index++)
             {
-                words[index] = BlowfishState.ReadWord("OxychromaticBlowfishSwatDynamite"u8, ref position);
+                words[index] = Blowfish.Blowfish.ReadWord("OxychromaticBlowfishSwatDynamite"u8, ref position);
             }
 
             for (int round = 0; round < ExpensiveRounds; round++)
@@ -132,7 +132,7 @@ public static class BcryptPbkdf
     /// all exclusive-ored into <paramref name="block" />. <paramref name="scratch" /> holds
     /// a salt hash and a bcrypt hash.
     /// </summary>
-    private static void DeriveBlock(BlowfishState state, ReadOnlySpan<byte> passwordHash, ReadOnlySpan<byte> countedSalt, int rounds, Span<byte> scratch, Span<byte> block)
+    private static void DeriveBlock(Blowfish.Blowfish state, ReadOnlySpan<byte> passwordHash, ReadOnlySpan<byte> countedSalt, int rounds, Span<byte> scratch, Span<byte> block)
     {
         Span<byte> saltHash = scratch[..SHA512.HashSizeInBytes];
         Span<byte> hash = scratch[SHA512.HashSizeInBytes..][..HashSize];

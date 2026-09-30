@@ -1,4 +1,4 @@
-namespace Surl.Cryptography.BcryptPbkdf;
+namespace Surl.Cryptography.Blowfish;
 
 /// <summary>
 /// Blowfish's initial subkeys and S-boxes (Schneier 1993): the fractional part of pi in
