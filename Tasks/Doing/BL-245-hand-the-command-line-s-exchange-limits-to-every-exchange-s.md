@@ -40,3 +40,4 @@ Found by BL-210 (dark factory lane 6, 2026-09-30).
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
