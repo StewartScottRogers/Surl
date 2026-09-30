@@ -50,3 +50,4 @@ TLS on a data connection, so `Surl.Console` (BL-182) can compose real FTP data c
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
