@@ -8,7 +8,7 @@ depends-on: [BL-184, BL-185]
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-043
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-186 — Decide how the SMTP server answers upstream curl
 
@@ -44,17 +44,35 @@ BL-207 can be built without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", records each measurement (build path, SHA-256, arguments,
       date, transcript excerpt) and decides every point in Context.
-- [ ] It lists the curl 8.21.0 command lines BL-210 must prove, with the expected exit code for
+- [x] It lists the curl 8.21.0 command lines BL-210 must prove, with the expected exit code for
       each.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help.
 
 ## Notes
+
+- ADR-0053 decides it, from 47 recorded cases with the Windows reference build plus a run of
+  the decided replies (all completed by curl). Recordings were made in a scratch directory
+  outside the repository; BL-198 to BL-200 record their fixtures again from the ADR's rows.
+- `Record-CurlExchange.ps1` gained `-SmtpMaxMessageBytes` (stop reading a body part-way, send
+  `DATADONE` or a default `552`, close), described in its help: needed to measure ADR-0006's
+  `552` for a message past `--max-filesize` (curl 55 while still sending, 8 once done).
+- Choices worth knowing (each argued in the ADR): `MAIL` needs a login unless
+  `--allow-anonymous`, asked through the existing `CheckPasswordLoginAsync` with no credentials
+  (no contract change); `VRFY`/`EXPN` always `252`; `Return-Path` and `Received` are added
+  (RFC 5321 section 4.4) and count against `--max-filesize`; bare LFs in a body are kept (curl
+  sends them without `--crlf`); `STARTTLS` availability is a constructor flag set by
+  `Surl.Console`; `smtps` is registered through `ImplicitTlsSchemeServer`; 100 recipients per
+  transaction.
+- Measured side facts: the curl tool appends the upload's file name to a URL ending in `/` or
+  with no path, so the `EHLO` domain becomes `mail.txt`; BL-210 uses a `/c` path to fix it. The
+  Windows tool passes non-ASCII arguments in the ANSI code page, so they arrive as Latin-1.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0053 decides every SMTP reply from measurement of pinned curl 8.21.0, with BL-210's command lines; Record-CurlExchange.ps1 gains -SmtpMaxMessageBytes
