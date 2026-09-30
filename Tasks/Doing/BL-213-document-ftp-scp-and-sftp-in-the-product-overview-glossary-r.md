@@ -48,3 +48,4 @@ libraries' `CLAUDE.md` files - so nothing an agent reads says Phase 2 is still t
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
