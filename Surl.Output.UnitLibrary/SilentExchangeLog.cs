@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Output;
 
 /// <summary>
-/// The exchange log without <c>-v</c>: every call writes nothing.
+/// The exchange log at the <c>none</c> log level (<see cref="LogLevel.None"/>): every call writes nothing.
 /// </summary>
 internal sealed class SilentExchangeLog : IExchangeLog
 {

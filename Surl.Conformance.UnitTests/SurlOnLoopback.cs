@@ -77,13 +77,13 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
 
     /// <summary>
     /// Starts surl on <c><paramref name="scheme"/>://127.0.0.1:0/</c> with
-    /// <c>--directory <paramref name="dataDirectory"/></c>, an existing directory the caller
+    /// <paramref name="options"/> and <c>--directory <paramref name="dataDirectory"/></c>, an existing directory the caller
     /// owns, returning once surl has written its status line. Disposing it stops surl and
     /// leaves the directory as surl left it, so another surl can start over it.
     /// </summary>
     public static Task<SurlOnLoopback> StartOverDirectoryAsync(
-        string scheme, string dataDirectory, CancellationToken cancellationToken) =>
-        StartServingAsync(null, ["--directory", dataDirectory, $"{scheme}://127.0.0.1:0/"], cancellationToken);
+        string scheme, string dataDirectory, IReadOnlyList<string> options, CancellationToken cancellationToken) =>
+        StartServingAsync(null, [.. options, "--directory", dataDirectory, $"{scheme}://127.0.0.1:0/"], cancellationToken);
 
     private static async Task<SurlOnLoopback> StartServingAsync(
         DirectoryInfo? directory, string[] args, CancellationToken cancellationToken)

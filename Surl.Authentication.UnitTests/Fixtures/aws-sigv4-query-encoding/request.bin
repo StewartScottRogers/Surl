@@ -1,0 +1,8 @@
+GET /x?b=%7e&a=x%2fy&c&a-b=1&A=Z+z&e=%zz&f=a=b HTTP/1.1
+Host: 127.0.0.1:18122
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260929/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=09225af7c8ebd8ae09905790ec6509ad4963cabaf67b7d99f8b3caee847f519d
+X-Amz-Date: 20260929T210343Z
+x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+User-Agent: curl/8.21.0
+Accept: */*
+

@@ -24,6 +24,18 @@ internal sealed record HttpStatus(int Code, string ReasonPhrase)
     public static HttpStatus BadRequest { get; } = new(400, "Bad Request");
 
     /// <summary>
+    /// 401 Unauthorized: the request needs a login it did not carry, or its login was
+    /// refused; the authentication contract's challenges go with it (ADR-0032, section 4).
+    /// </summary>
+    public static HttpStatus Unauthorized { get; } = new(401, "Unauthorized");
+
+    /// <summary>
+    /// 403 Forbidden: the authentication contract refused the request outright, as for a
+    /// plain-text secret sent over an unencrypted connection (ADR-0032, section 4).
+    /// </summary>
+    public static HttpStatus Forbidden { get; } = new(403, "Forbidden");
+
+    /// <summary>
     /// 404 Not Found: nothing to serve at the path, or a path refused or hidden.
     /// </summary>
     public static HttpStatus NotFound { get; } = new(404, "Not Found");

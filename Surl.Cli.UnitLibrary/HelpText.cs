@@ -1,49 +1,180 @@
 namespace Surl.Cli;
 
 /// <summary>
-/// The text <c>surl --help</c> writes to stdout, exactly as ADR-0007 section 6 gives it
-/// with ADR-0010 section 3's three rows (<c>--cert-type</c>, <c>--key-type</c>,
-/// <c>--pass</c>) and ADR-0031 decision 2's <c>--allow-uploads</c> and <c>--directory</c>
-/// lines: options alphabetical by long name, every description starting in column 46.
+/// What <c>surl --help [subject]</c> writes (ADR-0034 decision 3): the short list, every
+/// option, the category list, one category's options, or one option's page, each built from
+/// <see cref="CommandLineOptions"/> and <see cref="HelpCategories"/>.
 /// </summary>
 public static class HelpText
 {
-    private static readonly string[] Lines =
-    [
-        "Usage: surl [options...] <url>...",
-        "     --allow-uploads                         Accept uploads into the served files",
-        "     --cacert <file>                         CA certificates that verify client certificates",
-        "     --cert <file>                           Server certificate for secure schemes",
-        "     --cert-type <type>                      Format of --cert: PEM, DER or P12 (default PEM)",
-        "     --directory <directory>                 Serve and keep state in <directory> (default: in memory)",
-        "     --follow-symlinks                       Follow links that stay inside the directory",
-        "     --head-timeout <seconds>                Time a peer has to send a request head (default 30)",
-        " -h, --help                                  Show this help and quit",
-        "     --idle-timeout <seconds>                Close an exchange idle this long (default 120)",
-        "     --key <file>                            Private key for --cert",
-        "     --key-type <type>                       Format of --key: PEM or DER (default PEM)",
-        "     --list-directories                      Answer directory listings",
-        "     --max-connections <number>              Connections at once, all listeners (default 1024)",
-        "     --max-connections-per-address <number>  Connections at once from one address (default 100)",
-        "     --max-filesize <bytes>                  Largest upload accepted (default 100M)",
-        "     --max-line <bytes>                      Longest command line accepted (default 8192)",
-        "     --max-message <bytes>                   Largest framed message accepted (default 1M)",
-        "     --max-request-head <bytes>              Largest HTTP or RTSP request head (default 100k)",
-        " -m, --max-time <seconds>                    Longest time one exchange may take (default 3600)",
-        "     --pass <phrase>                         Passphrase for the --key or P12 file",
-        "     --serve-dot-files                       Serve names that start with a dot",
-        "     --tls-max <version>                     Highest TLS version accepted (default 1.3)",
-        "     --tlsv1.0                               Accept TLS 1.0 or later",
-        "     --tlsv1.1                               Accept TLS 1.1 or later",
-        "     --tlsv1.2                               Accept TLS 1.2 or later (default)",
-        "     --tlsv1.3                               Accept TLS 1.3 or later",
-        " -v, --verbose                               Log every exchange to stderr",
-        " -V, --version                               Show version number and quit",
-    ];
+    /// <summary>The line <c>--help</c> writes for a subject that names no category and no option.</summary>
+    public const string UnknownCategoryLine = "Unknown category provided, here is a list of all categories:";
+
+    /// <summary>The stderr line for a subject that starts with <c>-</c> and names no option.</summary>
+    public const string IncorrectOptionNameLine = "surl: Incorrect option name to show help for, see surl -h";
+
+    private const string AllSubject = "all";
+    private const string CategorySubject = "category";
+    private const string TestingCategory = "testing";
+    private const string LongOptionPrefix = "--";
+    private const string NegationPrefix = "no-";
+
+    /// <summary>What <c>surl</c> writes for the help subject <paramref name="subject"/>.</summary>
+    /// <param name="subject">
+    /// The subject as written after <c>-h</c>/<c>--help</c>; <see langword="null"/> or empty
+    /// for none.
+    /// </param>
+    /// <returns>The text for stdout and the text for stderr.</returns>
+    public static HelpAnswer Answer(string? subject)
+    {
+        if (string.IsNullOrEmpty(subject))
+        {
+            return ToOutput(ShortListLines());
+        }
+
+        if (subject[0] == '-')
+        {
+            return AnswerOption(subject);
+        }
+
+        if (subject.Equals(AllSubject, StringComparison.OrdinalIgnoreCase))
+        {
+            return ToOutput(OptionLines(CommandLineOptions.All));
+        }
+
+        if (subject.Equals(CategorySubject, StringComparison.OrdinalIgnoreCase))
+        {
+            return ToOutput(CategoryListLines());
+        }
+
+        return HelpCategories.TryFind(subject, out var category)
+            ? ToOutput(CategoryPageLines(category))
+            : ToOutput([UnknownCategoryLine, string.Empty, .. CategoryListLines()]);
+    }
+
+    private static HelpAnswer AnswerOption(string subject)
+    {
+        var option = FindOption(subject);
+        return option is null
+            ? new HelpAnswer(string.Empty, IncorrectOptionNameLine + Environment.NewLine)
+            : ToOutput(OptionPageLines(option));
+    }
 
     /// <summary>
-    /// The whole help: every line ending with <see cref="Environment.NewLine"/>, ready to
-    /// write to stdout as it is.
+    /// The option <paramref name="subject"/> names: <c>--name</c> in full, <c>--no-name</c> of
+    /// a negatable option, or <c>-x</c>; null for anything else.
     /// </summary>
-    public static string Text { get; } = string.Concat(Lines.Select(line => line + Environment.NewLine));
+    private static CommandLineOption? FindOption(string subject) =>
+        subject.StartsWith(LongOptionPrefix, StringComparison.Ordinal)
+            ? FindLongOption(subject[LongOptionPrefix.Length..])
+            : FindShortOption(subject);
+
+    /// <summary>The option <c>-x</c> names: exactly one short-name character after <c>-</c>.</summary>
+    private static CommandLineOption? FindShortOption(string subject) =>
+        subject.Length == 2 && CommandLineOptions.TryFindShort(subject[1], out var option) ? option : null;
+
+    /// <summary>The option <c>--name</c> names in full, or the negatable option <c>--no-name</c> names.</summary>
+    private static CommandLineOption? FindLongOption(string name)
+    {
+        if (CommandLineOptions.TryFindLong(name, out var option))
+        {
+            return option;
+        }
+
+        return name.StartsWith(NegationPrefix, StringComparison.Ordinal)
+            && CommandLineOptions.TryFindLong(name[NegationPrefix.Length..], out var negated)
+            && negated.Negatable
+                ? negated
+                : null;
+    }
+
+    private static IEnumerable<string> ShortListLines()
+    {
+        string[] usage = ["Usage: surl [options...] <url>..."];
+        string[] pointerStart =
+        [
+            string.Empty,
+            "This is not the full help; this menu is split into categories.",
+            "Use \"--help category\" to get an overview of all categories, which are:",
+        ];
+        string[] pointerEnd =
+        [
+            "Use \"--help all\" to list all options",
+            "Use \"--help [option]\" to view documentation for a given option",
+        ];
+
+        return usage
+            .Concat(OptionLines(CommandLineOptions.All.Where(option => option.Help.IsInShortList)))
+            .Concat(pointerStart)
+            .Concat(HelpLayout.WrapNameList([.. HelpCategories.All.Select(category => category.Name)]))
+            .Concat(pointerEnd);
+    }
+
+    private static IEnumerable<string> CategoryListLines()
+    {
+        var width = HelpCategories.All.Max(category => category.Name.Length);
+        return HelpCategories.All.Select(category => " " + category.Name.PadRight(width) + "  " + category.Description);
+    }
+
+    private static IEnumerable<string> CategoryPageLines(HelpCategory category)
+    {
+        var options = CommandLineOptions.All.Where(option => option.Help.Categories.Contains(category.Name)).ToArray();
+        string[] heading = [$"{category.Name}: {category.Description}"];
+        var lines = options.Length == 0 ? heading : heading.Concat(OptionLines(options));
+        return category.Name == TestingCategory ? lines.Concat(ExplanationLines(options)) : lines;
+    }
+
+    /// <summary>
+    /// ADR-0034 decision 5: an empty line, then for each option of <paramref name="options"/> that
+    /// has an explanation, in ordinal order of the long name, its page heading, its paragraph and
+    /// an empty line.
+    /// </summary>
+    private static IEnumerable<string> ExplanationLines(IEnumerable<CommandLineOption> options) =>
+        options
+            .Where(option => option.Help.Explanation is not null)
+            .OrderBy(option => option.LongName, StringComparer.Ordinal)
+            .SelectMany(option => new[] { OptionPageHeading(option) }
+                .Concat(HelpLayout.WrapParagraph(option.Help.Explanation!))
+                .Append(string.Empty))
+            .Prepend(string.Empty);
+
+    private static IEnumerable<string> OptionPageLines(CommandLineOption option)
+    {
+        var help = option.Help;
+        var summary = help.Default is null ? $"{help.Description}." : $"{help.Description}. Default: {help.Default}.";
+        var categories = $"Categories: {string.Join(", ", help.Categories.Order(StringComparer.Ordinal))}.";
+
+        var explanation = help.Explanation is null
+            ? []
+            : new[] { string.Empty }.Concat(HelpLayout.WrapParagraph(help.Explanation));
+
+        return new[] { OptionPageHeading(option) }
+            .Concat(HelpLayout.WrapParagraph(summary))
+            .Concat(explanation)
+            .Append(string.Empty)
+            .Concat(HelpLayout.WrapParagraph(categories))
+            .Append(string.Empty);
+    }
+
+    /// <summary>Four spaces and the option's left side without its padding: the first line of its page.</summary>
+    private static string OptionPageHeading(CommandLineOption option) => "    " + LeftSide(option).TrimStart();
+
+    /// <summary>The option lines of <paramref name="options"/>, in ordinal order of the long name.</summary>
+    private static IReadOnlyList<string> OptionLines(IEnumerable<CommandLineOption> options) =>
+        HelpLayout.FormatOptionLines(
+            [.. options.OrderBy(option => option.LongName, StringComparer.Ordinal).Select(option => (LeftSide(option), option.Help.Description))]);
+
+    /// <summary>
+    /// <c>-x, --name &lt;arg&gt;</c>, or four spaces and <c>--name &lt;arg&gt;</c> without a short name:
+    /// the option's left side, which <see cref="AiHelpText"/> writes without its padding.
+    /// </summary>
+    internal static string LeftSide(CommandLineOption option)
+    {
+        var shortPart = option.ShortName is null ? "    " : $"-{option.ShortName}, ";
+        var argumentPart = option.Help.ArgumentName is null ? string.Empty : " " + option.Help.ArgumentName;
+        return shortPart + LongOptionPrefix + option.LongName + argumentPart;
+    }
+
+    private static HelpAnswer ToOutput(IEnumerable<string> lines) =>
+        new(string.Concat(lines.Select(line => line + Environment.NewLine)), string.Empty);
 }

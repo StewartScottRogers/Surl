@@ -57,6 +57,18 @@
     How many connections to serve. Default 1. Use more for a run that makes several
     requests, such as several URLs or a followed redirect.
 
+.PARAMETER ResponsesPerConnection
+    How many requests to read and answer on each connection before closing it. Default
+    1: answer one request and close, as every mode did before this parameter. Use more
+    for a handshake that must stay on one connection, such as HTTP NTLM's three legs.
+    The Response values are then used in order across every request: connection C's
+    request R (both counted from 0) gets Response[C * ResponsesPerConnection + R], and
+    every request past the last gets the last. A connection curl closes early, or on
+    which it sends nothing more within a second, is closed without waiting for the rest.
+    Besides request.bin, which still holds every request in order, each request is
+    written alone as request-1.bin, request-2.bin, ... when this is more than 1.
+    HoldOpenMilliseconds applies after the connection's last response only.
+
 .PARAMETER ResponseDelayMilliseconds
     How long to wait after reading each request before sending the response. Default 0.
     Use it to make a hop take a known time, as when measuring how -m counts across a
@@ -429,7 +441,7 @@
     as a local OpenSSH sshd, an LDAP server or an SMB share, which a PowerShell loopback
     server cannot speak. Only stdout.bin, stderr.txt and exitcode.txt are
     written; there is no request.bin, since the script sees none of the traffic. Port,
-    Response, Connections, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds,
+    Response, Connections, ResponsesPerConnection, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds,
     RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, SmtpReply,
     SmtpIdleMilliseconds, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
     Pop3Message, Pop3IdleMilliseconds, TftpData, TftpReply, TftpIdleMilliseconds and
@@ -442,6 +454,14 @@
     request.bin then holds
     GET /a?b HTTP/1.1\r\nHost: 127.0.0.1:18081\r\nUser-Agent: curl/8.21.0\r\nAccept: */*\r\n\r\n
     and stdout.bin holds hello.
+
+.EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18082 -ResponsesPerConnection 2 -Response 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM TlRMTVNTUAACAAAA...\r\nContent-Length: 0\r\n\r\n','HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok' -CurlArgs '-sS','--ntlm','-u','tester:secret','http://127.0.0.1:18082/x' -OutDirectory fixtures\ntlm
+
+    Keeps curl's one connection open for NTLM's handshake: request-1.bin holds the
+    request carrying the NEGOTIATE_MESSAGE, answered with the canned CHALLENGE_MESSAGE
+    (give a whole one in place of the ... ), and request-2.bin the request carrying
+    curl's AUTHENTICATE_MESSAGE, answered with the 200.
 
 .EXAMPLE
     .\Record-CurlExchange.ps1 -NoServer -CurlArgs '-sS','-k','sftp://tester:secret@127.0.0.1:2222/home/tester/a.txt' -OutDirectory fixtures\sftp-get
@@ -488,6 +508,7 @@ param(
     [Parameter(Mandatory = $true)] [AllowEmptyString()] [string[]] $CurlArgs,
     [Parameter(Mandatory = $true)] [string] $OutDirectory,
     [ValidateRange(1, 1000)] [int] $Connections = 1,
+    [ValidateRange(1, 1000)] [int] $ResponsesPerConnection = 1,
     [ValidateRange(0, 600000)] [int] $ResponseDelayMilliseconds = 0,
     [switch] $Reset,
     [ValidateRange(0, 600000)] [int] $HoldOpenMilliseconds = 0,
@@ -627,7 +648,7 @@ function ConvertTo-CommandLineArgument {
 # The server runs in its own runspace so curl can run in this one. It returns one
 # byte array per connection served.
 $serveConnections = {
-    param($Listener, $ResponseBytes, [int] $ConnectionCount, [int] $DelayMilliseconds, [bool] $ResetConnections, [int] $EarlyResponseBodyBytes, $TlsCertificate, [int] $HoldOpen, [int] $ServedTlsProtocols, [bool] $CloseEarly, [byte[]] $InterimBytes)
+    param($Listener, $ResponseBytes, [int] $ConnectionCount, [int] $DelayMilliseconds, [bool] $ResetConnections, [int] $EarlyResponseBodyBytes, $TlsCertificate, [int] $HoldOpen, [int] $ServedTlsProtocols, [bool] $CloseEarly, [byte[]] $InterimBytes, [int] $RoundCount)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -679,61 +700,65 @@ $serveConnections = {
                     continue
                 }
             }
-            $stream.ReadTimeout = if ($EarlyResponseBodyBytes -ge 0) { 5000 } else { 1000 }
             $buffer = New-Object byte[] 65536
-            $received = New-Object System.IO.MemoryStream
-            $interimSent = $null -eq $InterimBytes -or $InterimBytes.Length -eq 0 -or $EarlyResponseBodyBytes -ge 0
-            while ($true) {
-                if (-not $interimSent -and $latin1.GetString($received.GetBuffer(), 0, [int] $received.Length).Contains("`r`n`r`n")) {
-                    # The head has arrived: the interim response goes out before the body is waited for.
-                    $stream.Write($InterimBytes, 0, $InterimBytes.Length)
-                    $stream.Flush()
-                    $interimSent = $true
+            for ($round = 0; $round -lt $RoundCount; $round++) {
+                $stream.ReadTimeout = if ($EarlyResponseBodyBytes -ge 0) { 5000 } else { 1000 }
+                $received = New-Object System.IO.MemoryStream
+                $interimSent = $null -eq $InterimBytes -or $InterimBytes.Length -eq 0 -or $EarlyResponseBodyBytes -ge 0
+                while ($true) {
+                    if (-not $interimSent -and $latin1.GetString($received.GetBuffer(), 0, [int] $received.Length).Contains("`r`n`r`n")) {
+                        # The head has arrived: the interim response goes out before the body is waited for.
+                        $stream.Write($InterimBytes, 0, $InterimBytes.Length)
+                        $stream.Flush()
+                        $interimSent = $true
+                    }
+                    if (Test-RequestComplete -Received $received.GetBuffer() -Length ([int] $received.Length)) { break }
+                    try {
+                        $count = $stream.Read($buffer, 0, $buffer.Length)
+                    } catch [System.IO.IOException] {
+                        break  # One second without a byte: take what arrived.
+                    }
+                    if ($count -le 0) { break }
+                    $received.Write($buffer, 0, $count)
                 }
-                if (Test-RequestComplete -Received $received.GetBuffer() -Length ([int] $received.Length)) { break }
+                # A later round with nothing received: curl closed or is done with the connection.
+                if ($round -gt 0 -and $received.Length -eq 0) { break }
+                if ($DelayMilliseconds -gt 0) { [System.Threading.Thread]::Sleep($DelayMilliseconds) }
+                [byte[]] $response = $ResponseBytes[[Math]::Min($served * $RoundCount + $round, $ResponseBytes.Count - 1)]
                 try {
-                    $count = $stream.Read($buffer, 0, $buffer.Length)
+                    $stream.Write($response, 0, $response.Length)
+                    $stream.Flush()
                 } catch [System.IO.IOException] {
-                    break  # One second without a byte: take what arrived.
+                    # curl already closed its end; the request is still worth recording.
                 }
-                if ($count -le 0) { break }
-                $received.Write($buffer, 0, $count)
-            }
-            if ($DelayMilliseconds -gt 0) { [System.Threading.Thread]::Sleep($DelayMilliseconds) }
-            [byte[]] $response = $ResponseBytes[[Math]::Min($served, $ResponseBytes.Count - 1)]
-            try {
-                $stream.Write($response, 0, $response.Length)
-                $stream.Flush()
-            } catch [System.IO.IOException] {
-                # curl already closed its end; the request is still worth recording.
-            }
-            if ($EarlyResponseBodyBytes -ge 0 -and -not $CloseEarly) {
-                # Answered mid-body: record whatever curl goes on sending until it stops.
-                $stream.ReadTimeout = 2000
-                while ($true) {
-                    try {
-                        $count = $stream.Read($buffer, 0, $buffer.Length)
-                    } catch [System.IO.IOException] {
-                        break
+                if ($EarlyResponseBodyBytes -ge 0 -and -not $CloseEarly) {
+                    # Answered mid-body: record whatever curl goes on sending until it stops.
+                    $stream.ReadTimeout = 2000
+                    while ($true) {
+                        try {
+                            $count = $stream.Read($buffer, 0, $buffer.Length)
+                        } catch [System.IO.IOException] {
+                            break
+                        }
+                        if ($count -le 0) { break }
+                        $received.Write($buffer, 0, $count)
                     }
-                    if ($count -le 0) { break }
-                    $received.Write($buffer, 0, $count)
                 }
-            }
-            if ($HoldOpen -gt 0) {
-                # Held open: wait for curl to hang up, recording what it still sends.
-                $stream.ReadTimeout = $HoldOpen
-                while ($true) {
-                    try {
-                        $count = $stream.Read($buffer, 0, $buffer.Length)
-                    } catch [System.IO.IOException] {
-                        break
+                if ($HoldOpen -gt 0 -and $round -eq $RoundCount - 1) {
+                    # Held open: wait for curl to hang up, recording what it still sends.
+                    $stream.ReadTimeout = $HoldOpen
+                    while ($true) {
+                        try {
+                            $count = $stream.Read($buffer, 0, $buffer.Length)
+                        } catch [System.IO.IOException] {
+                            break
+                        }
+                        if ($count -le 0) { break }
+                        $received.Write($buffer, 0, $count)
                     }
-                    if ($count -le 0) { break }
-                    $received.Write($buffer, 0, $count)
                 }
+                $requests.Add($received.ToArray())
             }
-            $requests.Add($received.ToArray())
         } finally {
             $client.Close()
         }
@@ -2108,7 +2133,7 @@ try {
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
-        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols).AddArgument([bool] $CloseUnread).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $InterimResponse))
+        [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols).AddArgument([bool] $CloseUnread).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $InterimResponse)).AddArgument($ResponsesPerConnection)
     }
     if ($null -ne $server) { $serverRun = $server.BeginInvoke() }
     if ($null -ne $tlsRelay) { Connect-TlsRelay -Relay $tlsRelay -BackendPort $listener.LocalEndpoint.Port }
@@ -2173,6 +2198,15 @@ foreach ($request in $requests) {
 }
 
 if (-not $NoServer) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'request.bin'), $requestBytes.ToArray()) }
+if (-not $NoServer -and $ResponsesPerConnection -gt 1) {
+    $requestNumber = 0
+    foreach ($request in $requests) {
+        foreach ($bytes in $request) {
+            $requestNumber++
+            [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory "request-$requestNumber.bin"), [byte[]] $bytes)
+        }
+    }
+}
 [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'stdout.bin'), $stdout.ToArray())
 [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'stderr.txt'), $stderr.ToArray())
 [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'exitcode.txt'), [string] $exitCode, [System.Text.Encoding]::ASCII)

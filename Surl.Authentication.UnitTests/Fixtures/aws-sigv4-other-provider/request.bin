@@ -1,0 +1,7 @@
+GET /x HTTP/1.1
+Host: 127.0.0.1:18122
+Authorization: OSC4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260929/eu-west-2/api/osc4_request, SignedHeaders=host;x-osc-date, Signature=d26b5fd02e80a45de8990c53dc8d449039d52162ae708f09a46321cf7144fb40
+X-Osc-Date: 20260929T210409Z
+User-Agent: curl/8.21.0
+Accept: */*
+

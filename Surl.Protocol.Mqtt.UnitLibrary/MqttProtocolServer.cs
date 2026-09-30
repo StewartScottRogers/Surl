@@ -23,13 +23,20 @@ namespace Surl.Protocol.Mqtt;
 /// makes it exit 56. A subscriber is never kept waiting for a future publish.
 /// </para>
 /// <para>
-/// <b>Connect.</b> The first packet must be <c>CONNECT</c>. Protocol name <c>MQTT</c> at
-/// level 4 with connect flags section 3.1.2 allows is answered <c>CONNACK</c> 0 with no
-/// session present, whatever client identifier, will, user name or password it carries (none
-/// of them is read); <c>MQTT</c> at another level, or <c>MQIsdp</c>, is
-/// answered <c>CONNACK</c> 1 (unacceptable protocol version) and the connection is closed
-/// (section 3.2.2.3); an empty client identifier without <c>CleanSession</c> is answered
-/// <c>CONNACK</c> 2 and closed.
+/// <b>Connect.</b> The first packet must be <c>CONNECT</c>. <c>MQTT</c> at a level other
+/// than 4, or <c>MQIsdp</c>, is answered <c>CONNACK</c> 1 (unacceptable protocol version) and
+/// the connection is closed (section 3.2.2.3). At level 4, with connect flags section 3.1.2
+/// allows, the server reads the client identifier, the will topic and message (skipped: no
+/// will is kept, and no session), and the user name and password the flags announce; any of
+/// them cut short is malformed. An empty client identifier without <c>CleanSession</c> is
+/// answered <c>CONNACK</c> 2 and closed. Otherwise the user name, the password bytes and the
+/// connection's <see cref="IConnection.TlsSession"/> (<see langword="null"/> over
+/// <c>mqtt</c>) go to the <see cref="IAuthenticationPolicy"/>, and its verdict is answered as
+/// ADR-0032 decision 5 says: accepted, <c>CONNACK</c> 0 with no session present; refused
+/// credentials, <c>CONNACK</c> 4 (bad user name or password); refused as anonymous or as a
+/// password over an unencrypted connection, <c>CONNACK</c> 5 (not authorized). After any
+/// <c>CONNACK</c> other than 0 the connection is closed. Upstream curl 8.21.0 reports
+/// <c>CONNACK</c> 4 and 5 alike, as exit 8, "Expected 0000 but got 000n".
 /// </para>
 /// <para>
 /// <b>Other packets.</b> A QoS 1 publish is answered <c>PUBACK</c>, a QoS 2 publish
@@ -65,16 +72,22 @@ namespace Surl.Protocol.Mqtt;
 public sealed class MqttProtocolServer : IConnectionProtocolServer
 {
     private readonly MqttRetainedMessages retainedMessages;
+    private readonly IAuthenticationPolicy authenticationPolicy;
 
     /// <summary>
-    /// Creates an MQTT server that keeps published messages in <paramref name="retainedMessages"/>.
+    /// Creates an MQTT server that keeps published messages in <paramref name="retainedMessages"/>
+    /// and asks <paramref name="authenticationPolicy"/> whether to accept each <c>CONNECT</c>'s
+    /// user name and password (ADR-0032, decision 5).
     /// </summary>
     /// <param name="retainedMessages">The messages publishes keep and subscribes receive.</param>
-    public MqttProtocolServer(MqttRetainedMessages retainedMessages)
+    /// <param name="authenticationPolicy">Judges the login of every <c>CONNECT</c>.</param>
+    public MqttProtocolServer(MqttRetainedMessages retainedMessages, IAuthenticationPolicy authenticationPolicy)
     {
         ArgumentNullException.ThrowIfNull(retainedMessages);
+        ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.retainedMessages = retainedMessages;
+        this.authenticationPolicy = authenticationPolicy;
     }
 
     /// <summary>
@@ -97,7 +110,7 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(context);
 
         var reader = new MqttPacketReader(connection, context.Limits.MaxMessageBytes, context.Limits.MaxUploadBytes);
-        var responder = new MqttPacketResponder(connection, context, retainedMessages);
+        var responder = new MqttPacketResponder(connection, context, retainedMessages, authenticationPolicy);
 
         var result = await ReadFirstPacketAsync(reader, context);
         while (result.Packet is { } packet && await responder.AnswerAsync(packet))

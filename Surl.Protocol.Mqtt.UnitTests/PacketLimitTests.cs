@@ -17,7 +17,7 @@ public sealed class PacketLimitTests
         var limits = ExchangeLimits.Default with { MaxMessageBytes = publish.Length };
         var connection = new InMemoryConnection([ClientPackets.CurlConnect(), publish]);
 
-        await new MqttProtocolServer(retained).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, limits));
+        await new MqttProtocolServer(retained, new AnonymousAuthenticationPolicy()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, limits));
 
         CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes);
         Assert.HasCount(1000, retained.MatchingAny(["t"]).Single().Value.ToArray());
@@ -35,7 +35,7 @@ public sealed class PacketLimitTests
             [connect, .. RecordedFixture.OneBytePerRead(publish)],
             peerHalfClosesWhenExhausted: false));
 
-        await new MqttProtocolServer(retained).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, limits, log));
+        await new MqttProtocolServer(retained, new AnonymousAuthenticationPolicy()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, limits, log));
 
         // The fixed header is 0x30 and a two-byte remaining length; not one body byte was read.
         Assert.AreEqual(connect.Length + 3, connection.BytesRead);
@@ -51,7 +51,7 @@ public sealed class PacketLimitTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("packet-over-the-limit")));
 
-        await new MqttProtocolServer(new MqttRetainedMessages()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
+        await new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
 
         CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("packet-over-the-limit"), connection.WrittenBytes);
         Assert.AreEqual("A packet was longer than 1048576 bytes; closed with no reply.", log.Notes.Single());

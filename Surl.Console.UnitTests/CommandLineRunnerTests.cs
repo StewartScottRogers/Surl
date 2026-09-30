@@ -18,14 +18,62 @@ public sealed class CommandLineRunnerTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    [DataRow("--help")]
-    [DataRow("-h")]
-    public async Task RunAsync_Help_WritesHelpTextAndReturnsOk(string option)
+    [DataRow(null, new[] { "--help" })]
+    [DataRow(null, new[] { "-h" })]
+    [DataRow("all", new[] { "--help", "all" })]
+    [DataRow("category", new[] { "--help", "category" })]
+    [DataRow("tls", new[] { "-h", "tls" })]
+    [DataRow("--max-line", new[] { "--help", "--max-line" })]
+    [DataRow("nosuch", new[] { "--help", "nosuch" }, DisplayName = "Unknown subject")]
+    public async Task RunAsync_Help_WritesTheSubjectsTextToOutputAndReturnsOk(string? subject, string[] arguments)
     {
-        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), option);
+        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), arguments);
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(HelpText.Text, output);
+        Assert.AreEqual(HelpText.Answer(subject).Output, output);
+        Assert.AreEqual(string.Empty, error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_HelpForAnOptionSurlDoesNotHave_WritesTheIncorrectOptionLineToErrorAndReturnsOk()
+    {
+        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--help", "--nosuch");
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(string.Empty, output);
+        Assert.AreEqual("surl: Incorrect option name to show help for, see surl -h" + NewLine, error);
+    }
+
+    [TestMethod]
+    [DataRow(null, new[] { "--aihelp" })]
+    [DataRow("mqtt", new[] { "--aihelp", "mqtt" })]
+    [DataRow("all", new[] { "--aihelp", "all" })]
+    [DataRow(null, new[] { "-s", "--aihelp" }, DisplayName = "At the none level too")]
+    [DataRow("nosuch", new[] { "--aihelp", "nosuch" }, DisplayName = "Unknown topic")]
+    [DataRow("--user", new[] { "--aihelp", "--user" }, DisplayName = "Option-like topic")]
+    public async Task RunAsync_AiHelp_WritesTheTopicsMarkdownToOutputAndReturnsOk(string? topic, string[] arguments)
+    {
+        var listenerFactory = new FakeListenerFactory();
+
+        var (exitCode, output, error) = await RunAsync(listenerFactory, arguments);
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(AiHelpText.Answer(topic).Output, output);
+        Assert.AreEqual(string.Empty, error);
+        Assert.IsEmpty(listenerFactory.StartedListenUrls);
+    }
+
+    [TestMethod]
+    [DataRow("nosuch")]
+    [DataRow("--user")]
+    public async Task RunAsync_AiHelpUnknownTopic_WritesTheUnknownTopicAnswerAndReturnsOk(string topic)
+    {
+        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--aihelp", topic);
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        StringAssert.StartsWith(
+            output,
+            "# surl --aihelp: unknown topic" + NewLine + NewLine + "Unknown topic provided, here is a list of all topics:" + NewLine);
         Assert.AreEqual(string.Empty, error);
     }
 
@@ -44,6 +92,21 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
+    [DataRow("--manual")]
+    [DataRow("-M")]
+    [DataRow("-s", "--manual", DisplayName = "At the none level too")]
+    public async Task RunAsync_Manual_WritesTheManualToOutputAndReturnsOk(params string[] arguments)
+    {
+        var listenerFactory = new FakeListenerFactory();
+
+        var (exitCode, output, error) = await RunAsync(listenerFactory, arguments);
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(ManualText.Text, output);
+        Assert.AreEqual(string.Empty, error);
+    }
+
+    [TestMethod]
     public async Task RunAsync_UnknownOption_WritesTheRefusalAndTheTryLineAndReturnsFailedInit()
     {
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--bogus", "http://127.0.0.1:0/");
@@ -51,7 +114,7 @@ public sealed class CommandLineRunnerTests
         Assert.AreEqual(SurlExitCode.FailedInit, exitCode);
         Assert.AreEqual(string.Empty, output);
         Assert.AreEqual(
-            "surl: option --bogus: is unknown" + NewLine + "surl: try 'surl --help' for more information" + NewLine,
+            "surl: option --bogus: is unknown" + NewLine + "surl: try 'surl --help' or 'surl --manual' for more information" + NewLine,
             error);
     }
 
@@ -665,7 +728,7 @@ public sealed class CommandLineRunnerTests
         Assert.AreEqual(string.Empty, output);
         Assert.AreEqual(
             $"surl: option {option}: expected a proper numerical parameter" + NewLine
-            + "surl: try 'surl --help' for more information" + NewLine,
+            + "surl: try 'surl --help' or 'surl --manual' for more information" + NewLine,
             error);
         Assert.IsEmpty(factory.StartedListenUrls);
     }

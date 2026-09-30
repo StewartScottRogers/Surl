@@ -10,16 +10,82 @@ public sealed class CommandLineRunnerTlsTests
 
     public TestContext TestContext { get; set; } = null!;
 
+    private const string SelfSignedWarning =
+        "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)";
+
     [TestMethod]
-    public async Task RunAsync_HttpsWithoutCert_StartsAnHttpsListenerWithThrowawayTlsSettingsAndReturnsOkWhenCancelled()
+    [DataRow("https")]
+    [DataRow("gophers")]
+    [DataRow("mqtts")]
+    public async Task RunAsync_ImplicitTlsWithoutCertOrSelfSigned_WritesNeedsACertificateAndReturnsCertificateProblemBindingNothing(string scheme)
     {
-        var run = await ServeUntilListeningAsync("https://127.0.0.1:0/");
+        var run = await RunRefusedAsync("http://127.0.0.1:0/", $"{scheme}://127.0.0.1:0/", $"{scheme}://[::1]:0/");
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, run.ExitCode);
+        Assert.AreEqual(
+            $"surl: (58) {scheme}://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            run.Error);
+        Assert.AreEqual(string.Empty, run.Output);
+        Assert.IsFalse(run.FactoryCreated);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SilentImplicitTlsWithoutCertOrSelfSigned_ReturnsCertificateProblemWritingNothing()
+    {
+        var run = await RunRefusedAsync("-s", "https://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, run.ExitCode);
+        Assert.AreEqual(string.Empty, run.Error);
+        Assert.IsFalse(run.FactoryCreated);
+    }
+
+    [TestMethod]
+    [DataRow("https")]
+    [DataRow("gophers")]
+    [DataRow("mqtts")]
+    public async Task RunAsync_ImplicitTlsWithSelfSigned_ServesAThrowawayCertificateAndWritesTheWarning(string scheme)
+    {
+        var run = await ServeUntilListeningAsync("--self-signed", $"{scheme}://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
-        CollectionAssert.AreEqual(new[] { new ListenUrl("https", "127.0.0.1", 0) }, run.Factory.StartedListenUrls);
+        CollectionAssert.AreEqual(new[] { new ListenUrl(scheme, "127.0.0.1", 0) }, run.Factory.StartedListenUrls);
         Assert.IsNotNull(run.TlsSettings);
         Assert.IsFalse(run.TlsSettings.RequiresClientCertificate);
-        Assert.AreEqual($"Listening on https://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, run.Output);
+        Assert.AreEqual($"Listening on {scheme}://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, run.Output);
+        Assert.AreEqual(SelfSignedWarning + NewLine, run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SelfSignedTwoStarts_WritesTheWarningOnEachStart()
+    {
+        var first = await ServeUntilListeningAsync("--self-signed", "https://127.0.0.1:0/");
+        var second = await ServeUntilListeningAsync("--self-signed", "https://127.0.0.1:0/");
+
+        Assert.AreEqual(SelfSignedWarning + NewLine, first.Error);
+        Assert.AreEqual(SelfSignedWarning + NewLine, second.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_VerboseSelfSigned_WritesTheWarningThenTheThrowawayCertificatesFingerprintOnce()
+    {
+        var run = await ServeUntilListeningAsync("-v", "--self-signed", "https://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
+        Assert.MatchesRegex(
+            "^" + System.Text.RegularExpressions.Regex.Escape(SelfSignedWarning) + NewLine
+            + "\\* Serving a throwaway certificate, SHA-256 [0-9A-F]{64}" + NewLine + "$",
+            run.Error);
+    }
+
+    [TestMethod]
+    [DataRow("-s")]
+    [DataRow("-sS")]
+    public async Task RunAsync_SilentSelfSigned_ServesTheThrowawayCertificateWithoutTheWarning(string level)
+    {
+        var run = await ServeUntilListeningAsync(level, "--self-signed", "https://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
+        Assert.IsNotNull(run.TlsSettings);
         Assert.AreEqual(string.Empty, run.Error);
     }
 
@@ -34,25 +100,52 @@ public sealed class CommandLineRunnerTlsTests
     }
 
     [TestMethod]
-    public async Task RunAsync_VerboseHttpsWithoutCert_NotesTheThrowawayCertificatesFingerprintOnce()
+    public async Task RunAsync_HttpOnlyWithSelfSigned_MakesNoCertificateAndWritesNoWarning()
     {
-        var run = await ServeUntilListeningAsync("-v", "https://127.0.0.1:0/");
+        var run = await ServeUntilListeningAsync("-v", "--self-signed", "http://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
-        Assert.MatchesRegex(
-            "^\\* Serving a throwaway certificate, SHA-256 [0-9A-F]{64}" + NewLine + "$", run.Error);
+        Assert.IsNull(run.TlsSettings);
+        Assert.AreEqual(string.Empty, run.Error);
     }
 
     [TestMethod]
-    public async Task RunAsync_VerboseHttpsWithCert_ServesTheCertificateWithoutTheThrowawayNote()
+    [DataRow("https")]
+    [DataRow("gophers")]
+    [DataRow("mqtts")]
+    public async Task RunAsync_VerboseImplicitTlsWithCert_ServesTheCertificateWithoutTheWarningOrTheThrowawayNote(string scheme)
     {
         using var files = TestCertificateFiles.Create();
 
-        var run = await ServeUntilListeningAsync("-v", "--cert", files.CertificateFile, "--key", files.KeyFile, "https://127.0.0.1:0/");
+        var run = await ServeUntilListeningAsync(
+            "-v", "--cert", files.CertificateFile, "--key", files.KeyFile, $"{scheme}://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
         Assert.IsNotNull(run.TlsSettings);
         Assert.AreEqual(string.Empty, run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SelfSignedWithCert_IsRefusedWithFailedInitBindingNothing()
+    {
+        using var files = TestCertificateFiles.Create();
+
+        var run = await RunRefusedAsync("--self-signed", "--cert", files.CertificateFile, "https://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
+        Assert.AreEqual(
+            "surl: option --self-signed: cannot be used with --cert" + NewLine
+            + "surl: try 'surl --help' or 'surl --manual' for more information" + NewLine,
+            run.Error);
+        Assert.IsFalse(run.FactoryCreated);
+    }
+
+    [TestMethod]
+    public void FormatMissingCertificate_IPv6ListenUrl_BracketsTheHostAndKeepsThePortAsGiven()
+    {
+        Assert.AreEqual(
+            "(58) https://[::1]:8443/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
+            CommandLineRunner.FormatMissingCertificate(new ListenUrl("https", "::1", 8443)));
     }
 
     [TestMethod]
@@ -74,7 +167,7 @@ public sealed class CommandLineRunnerTlsTests
     {
         using var files = TestCertificateFiles.Create();
 
-        var run = await RunRefusedAsync("--cacert", files.MissingFile, "https://127.0.0.1:0/");
+        var run = await RunRefusedAsync("--self-signed", "--cacert", files.MissingFile, "https://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
         Assert.AreEqual(
@@ -89,7 +182,7 @@ public sealed class CommandLineRunnerTlsTests
     {
         using var files = TestCertificateFiles.Create();
 
-        var run = await RunRefusedAsync("--cacert", files.GarbageFile, "https://127.0.0.1:0/");
+        var run = await RunRefusedAsync("--self-signed", "--cacert", files.GarbageFile, "https://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.CaCertificateBadFile, run.ExitCode);
         Assert.AreEqual(

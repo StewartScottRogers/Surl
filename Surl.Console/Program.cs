@@ -40,8 +40,8 @@ internal static class Program
     /// settings) with the system clock.
     /// </summary>
     /// <param name="args">The command-line arguments, without the program name.</param>
-    /// <param name="output">Where the help, the version and the status lines go.</param>
-    /// <param name="error">Where every <c>surl: </c> message and the verbose log go.</param>
+    /// <param name="output">Where the help, the version, the status lines and a <c>-</c> trace or log file go.</param>
+    /// <param name="error">Where every <c>surl: </c> message and, without <c>--log-file</c>, the log go.</param>
     /// <param name="cancellationToken">Cancelled to stop serving.</param>
     /// <returns>The exit code, as ADR-0007 section 5 gives it.</returns>
     internal static async Task<int> RunAsync(

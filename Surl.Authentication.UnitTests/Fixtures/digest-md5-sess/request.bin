@@ -1,0 +1,11 @@
+GET /x HTTP/1.1
+Host: 127.0.0.1:18113
+User-Agent: curl/8.21.0
+Accept: */*
+
+GET /x HTTP/1.1
+Host: 127.0.0.1:18113
+Authorization: Digest username="tester",realm="surl",nonce="fixturenonce",uri="/x",cnonce="3bbc9fce945d63791e80547bb6ec84a5",nc=00000001,algorithm=MD5-sess,response="a98759e8c3cc3c74af3ed6b7e9a90600",qop="auth"
+User-Agent: curl/8.21.0
+Accept: */*
+

@@ -16,6 +16,10 @@ namespace Surl.Conformance;
 [TestCategory("Integration")]
 public sealed class UpstreamCurlTalksToSurlOverMqttTests
 {
+    // curl publishes and subscribes without a user name, which surl's MQTT server refuses by
+    // default (ADR-0032, section 5); these recordings are of an anonymous broker.
+    private static readonly string[] AnonymousMqtt = ["--allow-anonymous"];
+
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
@@ -41,7 +45,7 @@ public sealed class UpstreamCurlTalksToSurlOverMqttTests
         {
             var (publish, subscribe) = await PublishRestartSubscribeAsync(
                 "hi",
-                () => SurlOnLoopback.StartOverDirectoryAsync("mqtt", dataDirectory.FullName, TestContext.CancellationToken));
+                () => SurlOnLoopback.StartOverDirectoryAsync("mqtt", dataDirectory.FullName, AnonymousMqtt, TestContext.CancellationToken));
 
             Assert.AreEqual(publishExitCode, publish.ExitCode, publish.StandardError);
             CollectionAssert.AreEqual(publishOutput, publish.StandardOutput);
@@ -60,7 +64,7 @@ public sealed class UpstreamCurlTalksToSurlOverMqttTests
         var (subscribeExitCode, subscribeOutput) = await ReadRecordingAsync("subscribe-nothing-retained");
 
         var (_, subscribe) = await PublishRestartSubscribeAsync(
-            "hi", () => SurlOnLoopback.StartInMemoryAsync("mqtt", [], TestContext.CancellationToken));
+            "hi", () => SurlOnLoopback.StartInMemoryAsync("mqtt", AnonymousMqtt, TestContext.CancellationToken));
 
         Assert.AreEqual(subscribeExitCode, subscribe.ExitCode, subscribe.StandardError);
         CollectionAssert.AreEqual(subscribeOutput, subscribe.StandardOutput);
@@ -90,7 +94,7 @@ public sealed class UpstreamCurlTalksToSurlOverMqttTests
         var (publishExitCode, publishOutput) = await ReadRecordingAsync(publishFixture);
         var (subscribeExitCode, subscribeOutput) = await ReadRecordingAsync(subscribeFixture);
         await using var surl = await SurlOnLoopback.StartAsync(
-            "mqtt", new Dictionary<string, byte[]>(), [], [], TestContext.CancellationToken);
+            "mqtt", new Dictionary<string, byte[]>(), [], AnonymousMqtt, TestContext.CancellationToken);
         var topicUrl = $"mqtt://{surl.BaseUrl.Host}:{surl.BaseUrl.Port}/t";
 
         var publish = await PinnedUpstreamCurl.RunAsync(TestContext, "-sS", "-d", message, topicUrl);

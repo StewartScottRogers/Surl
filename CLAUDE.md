@@ -184,6 +184,29 @@ Each project folder may contain its own `CLAUDE.md` with project-specific rules;
   of the code as it is now, and intent is written as intent. A misaligned name or document
   is a defect, because it is how an agent reading this repository comes to believe
   something false. The `align-and-document` agent owns this.
+- **`surl --aihelp` is how an agent learns the command line** - `surl --aihelp` for the
+  overview and topic list, `surl --aihelp <topic>` or `surl --aihelp all` for the rest
+  (ADR-0046). Adding an option, a protocol server or a `SurlExitCode` member is not
+  finished until its `--aihelp` facts and topic exist, and the completeness tests fail
+  until they do:
+  - an option needs its `OptionArgumentType`, which `WithArgument<T>` takes from its
+    reader's `OptionArgumentReading<T>`, and appears on the page of each of its categories
+    (`AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
+    `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName`);
+  - a protocol server registered in `Surl.Console`'s `ComposeProtocolServers` needs its
+    `HelpCategories` row with its schemes, its `AiHelpProse.TopicAbout` paragraphs and an
+    `AiHelpExamples` entry, and the topic list pinned in `AiHelpTextTests` grows by one
+    (`CommandLineRunnerAiHelpTests.RegisteredSchemes_AreEachClaimedByExactlyOneProtocolTopic`,
+    `AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder`,
+    `AiHelpTextTests.Answer_EveryTopicAndTheOverview_HasItsAboutText`,
+    `AiHelpTextTests.Answer_EveryTopicButExitCodesAndSecurity_HasAnExample`);
+  - a `SurlExitCode` member needs its `ExitCodeGuidanceTable` row
+    (`AiHelpFactsTests.ExitCodeGuidance_HasExactlyOneRowPerSurlExitCodeMember`,
+    `AiHelpTextTests.Answer_ExitCodes_ListsEverySurlExitCodeMember`).
+
+  Behaviour an `AiHelpProse` paragraph or an `AiHelpExamples` entry describes changes with
+  it in the same diff
+  (`CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`).
 - **No Python, committed or throwaway.** Scripts, one-liners, file edits and loopback
   test servers are PowerShell (or a C# file-based app, `dotnet run tool.cs`). Measure
   upstream curl with `Record-CurlExchange.ps1` - it runs a loopback server, records the

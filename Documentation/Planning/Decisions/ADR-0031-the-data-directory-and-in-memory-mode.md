@@ -1,6 +1,7 @@
 # ADR-0031 — The data directory and in-memory mode
 
 - **Status:** Accepted
+- **Superseded in part:** decision 2's help lines are superseded by [ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md), which gives every option's help description.
 - **Date:** 2026-09-29
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29.
   Stewart approved the feature on 2026-09-29 (BL-090); the details he left to this ADR.

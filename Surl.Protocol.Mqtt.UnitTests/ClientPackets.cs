@@ -17,6 +17,10 @@ internal static class ClientPackets
     public static byte[] Connect(string protocolName, byte level, byte connectFlags, string clientIdentifier) =>
         Packet(0x10, [.. String(protocolName), level, connectFlags, 0x00, 0x3C, .. String(clientIdentifier)]);
 
+    /// <summary>A level 4 CONNECT whose payload is the client identifier, then <paramref name="fields"/> as given.</summary>
+    public static byte[] ConnectWithFields(byte connectFlags, string clientIdentifier, params byte[][] fields) =>
+        Packet(0x10, [.. String("MQTT"), 4, connectFlags, 0x00, 0x3C, .. String(clientIdentifier), .. fields.SelectMany(field => field)]);
+
     public static byte[] Publish(byte firstByte, string topic, string payload) =>
         Packet(firstByte, [.. String(topic), .. Encoding.UTF8.GetBytes(payload)]);
 

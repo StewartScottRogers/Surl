@@ -48,6 +48,26 @@ namespace Surl.Protocol.Http;
 /// when no byte of the head has arrived, the connection closes with no bytes.
 /// </para>
 /// <para>
+/// Authentication (ADR-0032, sections 4 and 6): each connection gets one
+/// <see cref="IHttpAuthenticationSession"/> from the <see cref="IAuthenticationPolicy"/>,
+/// started with the connection's <see cref="IConnection.TlsSession"/> before its first
+/// request, so a connection-bound handshake (NTLM, Negotiate) lives and dies with it. Every
+/// request whose head passes the <c>Host</c> check and has a well-formed
+/// <c>Content-Length</c> is judged, before the upload limit, before <c>100 Continue</c>,
+/// before any body byte is read and before method dispatch. <c>Challenge</c> is answered
+/// <c>401 Unauthorized</c> with one <c>WWW-Authenticate</c> field per value the session gave,
+/// after <c>Content-Length</c>; it keeps the connection as a <c>404</c> does, unless the
+/// request announced a body, when it is a refusal. <c>Forbidden</c> is answered
+/// <c>403 Forbidden</c> as a refusal. <c>Proceed</c> goes on to the answers below, and any
+/// values it carries are written on that answer the same way. A <c>Proceed</c> carrying a
+/// <see cref="HttpAuthenticationVerdict.BodyCheck"/> - a login bound to the body, AWS Signature
+/// Version 4 (ADR-0045) - is held until the body is read: the upload limit is checked, the body
+/// is read (after <c>100 Continue</c> when expected) and hashed with SHA-256, and the request is
+/// answered as the body check's verdict says, as one with no body left to read. A body that
+/// ends early is <c>400</c>, and one the server cannot frame is <c>400</c> unread; both are
+/// refusals. Neither the log nor any response repeats the request's <c>Authorization</c>.
+/// </para>
+/// <para>
 /// Request bodies: the upload limit (<see cref="ExchangeLimits.MaxUploadBytes"/>) is
 /// checked after the <c>Host</c> check and before method dispatch, so any method whose
 /// <c>Content-Length</c> is past it is answered <c>413 Content Too Large</c> as a refusal
@@ -101,15 +121,23 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
     private readonly ContentStore contentStore;
 
+    private readonly IAuthenticationPolicy authenticationPolicy;
+
     /// <summary>
-    /// Creates an HTTP server that serves <paramref name="contentStore"/>.
+    /// Creates an HTTP server that serves <paramref name="contentStore"/> to the requests
+    /// <paramref name="authenticationPolicy"/> lets in (ADR-0032, sections 4 and 6).
     /// </summary>
     /// <param name="contentStore">The content store every request path is looked up in.</param>
-    public HttpProtocolServer(ContentStore contentStore)
+    /// <param name="authenticationPolicy">
+    /// Judges every request: served, challenged with <c>401</c>, or refused with <c>403</c>.
+    /// </param>
+    public HttpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
+        ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.contentStore = contentStore;
+        this.authenticationPolicy = authenticationPolicy;
     }
 
     /// <summary>
@@ -132,7 +160,8 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes);
-        var responder = new HttpRequestResponder(connection, reader, context, contentStore);
+        var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
+        var responder = new HttpRequestResponder(connection, reader, context, contentStore, authenticationSession);
         var isFirstHead = true;
         var keepsConnectionOpen = true;
 

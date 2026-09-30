@@ -16,6 +16,7 @@ internal sealed class MqttPacketResponder
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly MqttRetainedMessages retainedMessages;
+    private readonly IAuthenticationPolicy authenticationPolicy;
     private bool connected;
 
     /// <summary>
@@ -24,11 +25,17 @@ internal sealed class MqttPacketResponder
     /// <param name="connection">Where the answers go.</param>
     /// <param name="context">The exchange's context: its log and cancellation token.</param>
     /// <param name="retainedMessages">The messages publishes keep and subscribes receive.</param>
-    public MqttPacketResponder(IConnection connection, ExchangeContext context, MqttRetainedMessages retainedMessages)
+    /// <param name="authenticationPolicy">Judges the user name and password of the <c>CONNECT</c>.</param>
+    public MqttPacketResponder(
+        IConnection connection,
+        ExchangeContext context,
+        MqttRetainedMessages retainedMessages,
+        IAuthenticationPolicy authenticationPolicy)
     {
         this.connection = connection;
         this.context = context;
         this.retainedMessages = retainedMessages;
+        this.authenticationPolicy = authenticationPolicy;
     }
 
     /// <summary>
@@ -141,14 +148,52 @@ internal sealed class MqttPacketResponder
         _ => CloseForViolation($"A client sent {packet.Type}, which only a server sends"),
     };
 
-    private ValueTask<bool> AnswerConnectAsync(MqttPacket packet)
+    private async ValueTask<bool> AnswerConnectAsync(MqttPacket packet)
     {
         if (connected)
         {
-            return CloseForViolation("A second CONNECT arrived");
+            return await CloseForViolation("A second CONNECT arrived");
         }
 
-        switch (MqttConnectJudge.Judge(packet))
+        var judgement = MqttConnectJudge.Judge(packet);
+        var verdict = judgement.Verdict == MqttConnectVerdict.LoginToCheck
+            ? await CheckLoginAsync(judgement)
+            : judgement.Verdict;
+
+        return await AnswerConnectVerdictAsync(verdict);
+    }
+
+    // The policy decides everything (ADR-0032, sections 5 and 6): the server passes the login
+    // as sent and the connection's TLS session, which is null over mqtt://.
+    private async ValueTask<MqttConnectVerdict> CheckLoginAsync(MqttConnectJudgement judgement)
+    {
+        var login = new PasswordLogin(context.Scheme, judgement.UserName, judgement.Password, connection.TlsSession);
+        var loginVerdict = await authenticationPolicy.CheckPasswordLoginAsync(login, context.CancellationToken);
+        NoteCheckedLogin(login, loginVerdict);
+
+        return loginVerdict switch
+        {
+            PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked => MqttConnectVerdict.Accepted,
+            PasswordLoginVerdict.RefusedCredentials => MqttConnectVerdict.BadUserNameOrPassword,
+            _ => MqttConnectVerdict.NotAuthorized,
+        };
+    }
+
+    // Only an accepted login or a refused credential says what the credentials were worth
+    // (ADR-0032, section 8); a login refused unchecked (no user name, a clear password over
+    // mqtt://) is noted by its CONNACK line alone. The note names the user, never the password.
+    private void NoteCheckedLogin(PasswordLogin login, PasswordLoginVerdict loginVerdict)
+    {
+        if (loginVerdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
+        {
+            var checkedLogin = new CheckedLogin(login.Scheme, login.UserName, loginVerdict == PasswordLoginVerdict.Accepted);
+            context.Log.Note(checkedLogin.Note);
+        }
+    }
+
+    private ValueTask<bool> AnswerConnectVerdictAsync(MqttConnectVerdict verdict)
+    {
+        switch (verdict)
         {
             case MqttConnectVerdict.Accepted:
                 connected = true;
@@ -159,6 +204,12 @@ internal sealed class MqttPacketResponder
             case MqttConnectVerdict.IdentifierRejected:
                 context.Log.Note("CONNECT had an empty client identifier without CleanSession; answered CONNACK 2 and closed.");
                 return SendAndCloseAsync(MqttPacketEncoder.ConnectRefusedIdentifierRejected);
+            case MqttConnectVerdict.BadUserNameOrPassword:
+                context.Log.Note("CONNECT's user name and password match no account; answered CONNACK 4 and closed.");
+                return SendAndCloseAsync(MqttPacketEncoder.ConnectRefusedBadUserNameOrPassword);
+            case MqttConnectVerdict.NotAuthorized:
+                context.Log.Note("CONNECT carried no user name, or a password over an unencrypted connection; answered CONNACK 5 and closed.");
+                return SendAndCloseAsync(MqttPacketEncoder.ConnectRefusedNotAuthorized);
             default:
                 return CloseForViolation("CONNECT was malformed");
         }

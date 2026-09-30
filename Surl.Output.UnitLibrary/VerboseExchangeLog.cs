@@ -7,7 +7,9 @@ namespace Surl.Output;
 /// <summary>
 /// One exchange's <c>-v</c> log (ADR-0007, section 8): <c>#&lt;id&gt; &lt; </c> for bytes
 /// received, <c>#&lt;id&gt; &gt; </c> for bytes sent and <c>#&lt;id&gt; * </c> for a note,
-/// each followed by the escaped text and <see cref="Environment.NewLine"/>.
+/// each followed by the escaped text and <see cref="Environment.NewLine"/>, and, with
+/// <c>--trace-time</c>, each preceded by the local time the line was written (ADR-0033,
+/// section 5).
 /// </summary>
 internal sealed class VerboseExchangeLog : IExchangeLog
 {
@@ -16,11 +18,18 @@ internal sealed class VerboseExchangeLog : IExchangeLog
     /// </summary>
     internal const int MaximumBytesPerLine = 1024;
 
+    /// <summary>
+    /// The <c>--trace-time</c> stamp's format, as upstream curl 8.21.0 writes it (ADR-0033,
+    /// section 5): 24-hour local time, six fraction digits and a space.
+    /// </summary>
+    internal const string TimestampFormat = "HH:mm:ss.ffffff ";
+
     private readonly string receivedPrefix;
     private readonly string sentPrefix;
     private readonly string notePrefix;
     private readonly TextWriter writer;
     private readonly Lock writeLock;
+    private readonly TimeProvider? timestampClock;
 
     /// <summary>
     /// Creates the log for one exchange.
@@ -28,12 +37,13 @@ internal sealed class VerboseExchangeLog : IExchangeLog
     /// <param name="exchangeId">The exchange's id, written in decimal on every line.</param>
     /// <param name="writer">The writer every exchange's log shares.</param>
     /// <param name="writeLock">The lock every exchange's log shares, held while writing.</param>
-    public VerboseExchangeLog(long exchangeId, TextWriter writer, Lock writeLock)
-        : this(exchangeId.ToString(CultureInfo.InvariantCulture), writer, writeLock)
+    /// <param name="timestampClock">The clock whose local time stamps every line, or <see langword="null"/> for no stamps.</param>
+    public VerboseExchangeLog(long exchangeId, TextWriter writer, Lock writeLock, TimeProvider? timestampClock)
+        : this(exchangeId.ToString(CultureInfo.InvariantCulture), writer, writeLock, timestampClock)
     {
     }
 
-    private VerboseExchangeLog(string exchangeIdText, TextWriter writer, Lock writeLock)
+    private VerboseExchangeLog(string exchangeIdText, TextWriter writer, Lock writeLock, TimeProvider? timestampClock)
     {
         var id = "#" + exchangeIdText;
         receivedPrefix = id + " < ";
@@ -41,6 +51,7 @@ internal sealed class VerboseExchangeLog : IExchangeLog
         notePrefix = id + " * ";
         this.writer = writer;
         this.writeLock = writeLock;
+        this.timestampClock = timestampClock;
     }
 
     /// <summary>
@@ -49,9 +60,10 @@ internal sealed class VerboseExchangeLog : IExchangeLog
     /// </summary>
     /// <param name="writer">The writer every exchange's log shares.</param>
     /// <param name="writeLock">The lock every exchange's log shares, held while writing.</param>
+    /// <param name="timestampClock">The clock whose local time stamps every line, or <see langword="null"/> for no stamps.</param>
     /// <returns>The log.</returns>
-    public static VerboseExchangeLog OutsideAnyExchange(TextWriter writer, Lock writeLock) =>
-        new("-", writer, writeLock);
+    public static VerboseExchangeLog OutsideAnyExchange(TextWriter writer, Lock writeLock, TimeProvider? timestampClock) =>
+        new("-", writer, writeLock, timestampClock);
 
     /// <inheritdoc/>
     public void BytesReceived(ReadOnlySpan<byte> bytes) => WriteBytes(receivedPrefix, bytes);
@@ -71,7 +83,8 @@ internal sealed class VerboseExchangeLog : IExchangeLog
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        var builder = new StringBuilder(notePrefix);
+        var builder = new StringBuilder(Timestamp());
+        builder.Append(notePrefix);
         ExchangeLogEscaping.AppendEscaped(Encoding.UTF8.GetBytes(text), builder);
         builder.Append(Environment.NewLine);
         Write(builder.ToString());
@@ -84,11 +97,12 @@ internal sealed class VerboseExchangeLog : IExchangeLog
             return;
         }
 
+        var stampedPrefix = Timestamp() + prefix;
         var builder = new StringBuilder();
         while (!bytes.IsEmpty)
         {
             var length = LengthOfFirstLine(bytes);
-            builder.Append(prefix);
+            builder.Append(stampedPrefix);
             ExchangeLogEscaping.AppendEscaped(bytes[..length], builder);
             builder.Append(Environment.NewLine);
             bytes = bytes[length..];
@@ -96,6 +110,16 @@ internal sealed class VerboseExchangeLog : IExchangeLog
 
         Write(builder.ToString());
     }
+
+    private string Timestamp() => Timestamp(timestampClock);
+
+    /// <summary>
+    /// The <c>--trace-time</c> stamp for a line written now, in <see cref="TimestampFormat"/>.
+    /// </summary>
+    /// <param name="timestampClock">The clock whose local time stamps the line, or <see langword="null"/> for no stamp.</param>
+    /// <returns>The stamp, or the empty string when <paramref name="timestampClock"/> is <see langword="null"/>.</returns>
+    internal static string Timestamp(TimeProvider? timestampClock) =>
+        timestampClock?.GetLocalNow().ToString(TimestampFormat, CultureInfo.InvariantCulture) ?? string.Empty;
 
     private static int LengthOfFirstLine(ReadOnlySpan<byte> bytes)
     {

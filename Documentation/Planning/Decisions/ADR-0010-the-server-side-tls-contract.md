@@ -1,6 +1,7 @@
 # ADR-0010 — The server-side TLS contract
 
 - **Status:** Accepted
+- **Superseded in part:** section 3's throwaway certificate served without being asked for (no `--cert` for a secure scheme) is superseded by [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md): it needs `--self-signed`.
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 

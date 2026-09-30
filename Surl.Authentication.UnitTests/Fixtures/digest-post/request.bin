@@ -1,0 +1,16 @@
+POST /x HTTP/1.1
+Host: 127.0.0.1:18113
+User-Agent: curl/8.21.0
+Accept: */*
+Content-Length: 0
+Content-Type: application/x-www-form-urlencoded
+
+POST /x HTTP/1.1
+Host: 127.0.0.1:18113
+Authorization: Digest username="tester",realm="surl",nonce="fixturenonce",uri="/x",cnonce="21fd8c61786bf82e53989eb7651b007c",nc=00000001,algorithm=MD5,response="7900d632c3f0c680e12a364e09f93554",qop="auth"
+User-Agent: curl/8.21.0
+Accept: */*
+Content-Length: 1
+Content-Type: application/x-www-form-urlencoded
+
+x

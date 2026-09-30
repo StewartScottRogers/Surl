@@ -23,13 +23,13 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public void Constructor_NullRetainedMessages_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new MqttProtocolServer(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new MqttProtocolServer(null!, new AnonymousAuthenticationPolicy()));
     }
 
     [TestMethod]
     public void Schemes_AreMqttThenMqtts()
     {
-        var server = new MqttProtocolServer(new MqttRetainedMessages());
+        var server = new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy());
 
         CollectionAssert.AreEqual(new[] { "mqtt", "mqtts" }, server.Schemes.ToArray());
     }
@@ -37,7 +37,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {
-        var server = new MqttProtocolServer(new MqttRetainedMessages());
+        var server = new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy());
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(null!, Context(new RecordingExchangeLog())));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(new InMemoryConnection([]), null!));
@@ -323,9 +323,214 @@ public sealed class MqttProtocolServerTests
     [DataRow((byte)0x82, DisplayName = "user name alone")]
     public async Task ServeAsync_ConnectFlagsSection312Allows_AnswersConnack0(byte connectFlags)
     {
-        var (connection, _) = await ServeBytesAsync(ClientPackets.Connect("MQTT", 4, connectFlags, "c"));
+        var connect = ClientPackets.ConnectWithFields(connectFlags, "c", FieldsAnnouncedBy(connectFlags));
+
+        var (connection, _) = await ServeBytesAsync(connect);
 
         CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    [DataRow("connect-user-and-password", false)]
+    [DataRow("connect-user-and-password", true)]
+    public async Task ServeAsync_RecordedConnectWithUserAndPassword_HandsThePolicyTheExactCredentials(string caseName, bool oneBytePerRead)
+    {
+        var request = RecordedFixture.ReadRequestBytes(caseName);
+        var chunks = oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request);
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+
+        var (connection, _) = await ServeAsync(chunks, RetainedFor("subscribe-t"), policy: policy);
+
+        var login = policy.Logins.Single();
+        Assert.AreEqual("mqtt", login.Scheme);
+        Assert.AreEqual("tester", login.UserName);
+        CollectionAssert.AreEqual("secret"u8.ToArray(), login.Password!.Value.ToArray());
+        Assert.IsNull(login.TlsSession);
+        Assert.AreEqual("0", Encoding.ASCII.GetString(RecordedFixture.ReadBytes(caseName, "exitcode.txt")));
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes(caseName), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    [DataRow(PasswordLoginVerdict.RefusedCredentials, "connack-bad-user-name-or-password", "CONNACK 4", DisplayName = "refused credentials")]
+    [DataRow(PasswordLoginVerdict.RefusedPlaintext, "connack-not-authorized", "CONNACK 5", DisplayName = "password over mqtt://")]
+    [DataRow(PasswordLoginVerdict.RefusedAnonymous, "connack-not-authorized", "CONNACK 5", DisplayName = "refused as anonymous")]
+    public async Task ServeAsync_RecordedConnectWithUserAndPasswordRefused_AnswersTheRefusalAndCloses(
+        PasswordLoginVerdict verdict, string refusalCase, string connack)
+    {
+        // The recording carries curl's SUBSCRIBE after its CONNECT; a closed connection answers
+        // only the CONNACK.
+        var policy = new UnitTestRecordingAuthenticationPolicy(verdict);
+
+        var (connection, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        Assert.AreEqual("8", Encoding.ASCII.GetString(RecordedFixture.ReadBytes(refusalCase, "exitcode.txt")));
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes(refusalCase), connection.WrittenBytes);
+        Assert.IsTrue(connection.WritesCompleted);
+        StringAssert.Contains(log.Notes[^1], $"answered {connack} and closed");
+        Assert.HasCount(1, policy.Logins);
+    }
+
+    [TestMethod]
+    [DataRow(PasswordLoginVerdict.Accepted, "Login accepted: mqtt tester", DisplayName = "accepted")]
+    [DataRow(PasswordLoginVerdict.RefusedCredentials, "Login refused: mqtt tester", DisplayName = "refused credentials")]
+    public async Task ServeAsync_RecordedConnectLoginChecked_NotesTheLoginWithTheUserAndNotThePassword(PasswordLoginVerdict verdict, string note)
+    {
+        // ADR-0032, section 8: the scheme stands for the method, and the password is never noted.
+        var policy = new UnitTestRecordingAuthenticationPolicy(verdict);
+
+        var (_, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        Assert.AreEqual(note, log.Notes[0]);
+        Assert.IsFalse(log.Notes.Any(entry => entry.Contains("secret", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConnectOverMqttsLoginAccepted_NotesTheMqttsScheme()
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+
+        var (_, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"),
+            listenUrl: MqttsListenUrl, tlsSession: ImplicitTlsSession, policy: policy);
+
+        Assert.AreEqual("Login accepted: mqtts tester", log.Notes[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConnectAcceptedUnchecked_AnswersConnack0AndWritesNoLoginNote()
+    {
+        // --allow-anonymous checks nothing, so nothing is noted as a checked login (ADR-0032, section 8).
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.AcceptedUnchecked);
+
+        var (connection, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("connect-user-and-password"), connection.WrittenBytes);
+        Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Login ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_VerdictThisServerDoesNotKnow_IsRefusedAsNotAuthorizedWithNoLoginNote()
+    {
+        // Fails closed: a verdict added to the contract later is never taken for an acceptance.
+        var policy = new UnitTestRecordingAuthenticationPolicy((PasswordLoginVerdict)99);
+
+        var (connection, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("connack-not-authorized"), connection.WrittenBytes);
+        Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Login ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [DataRow(PasswordLoginVerdict.RefusedPlaintext, DisplayName = "password over mqtt://")]
+    [DataRow(PasswordLoginVerdict.RefusedAnonymous, DisplayName = "refused as anonymous")]
+    public async Task ServeAsync_ConnectRefusedUnchecked_WritesNoLoginNote(PasswordLoginVerdict verdict)
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(verdict);
+
+        var (_, log) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password")), RetainedFor("subscribe-t"), policy: policy);
+
+        Assert.IsFalse(log.Notes.Any(note => note.StartsWith("Login ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecordedConnectWithNoCredentials_HandsThePolicyNoUserNameAndAnswersConnack5()
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.RefusedAnonymous);
+
+        var (connection, _) = await ServeAsync(
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connack-not-authorized")), new MqttRetainedMessages(), policy: policy);
+
+        var login = policy.Logins.Single();
+        Assert.IsNull(login.UserName);
+        Assert.IsNull(login.Password);
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("connack-not-authorized"), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "mqtt, no TLS session")]
+    [DataRow(true, DisplayName = "mqtts, with its TLS session")]
+    public async Task ServeAsync_PasswordUnderThePlaintextRule_IsRefusedOverMqttAndCheckedOverMqtts(bool overTls)
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted) { RefuseWithoutTls = true };
+        var request = RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connect-user-and-password"));
+
+        var (connection, _) = overTls
+            ? await ServeAsync(request, RetainedFor("subscribe-t"), listenUrl: MqttsListenUrl, tlsSession: ImplicitTlsSession, policy: policy)
+            : await ServeAsync(request, RetainedFor("subscribe-t"), policy: policy);
+
+        var login = policy.Logins.Single();
+        Assert.AreEqual(overTls ? "mqtts" : "mqtt", login.Scheme);
+        Assert.AreSame(overTls ? ImplicitTlsSession : null, login.TlsSession);
+        var expected = overTls ? "connect-user-and-password" : "connack-not-authorized";
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes(expected), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ConnectWithWill_SkipsTheWillAndReadsTheUserName()
+    {
+        var retained = new MqttRetainedMessages();
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+        var connect = ClientPackets.ConnectWithFields(0xE6, "c", ClientPackets.String("w"), [0x00, 0x02, (byte)'b', (byte)'y'], ClientPackets.String("u"), [0x00, 0x01, 0xFF]);
+
+        var (connection, _) = await ServeAsync(RecordedFixture.Whole(ClientPackets.Join(connect, ClientPackets.Disconnect)), retained, policy: policy);
+
+        CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes);
+        Assert.AreEqual("u", policy.Logins.Single().UserName);
+        CollectionAssert.AreEqual(new byte[] { 0xFF }, policy.Logins.Single().Password!.Value.ToArray());
+        Assert.IsEmpty(retained.MatchingAny(["#"]));
+    }
+
+    [TestMethod]
+    [DataRow((byte)0x06, new byte[] { 0x00 }, DisplayName = "will topic length cut short")]
+    [DataRow((byte)0x06, new byte[] { 0x00, 0x01, (byte)'w' }, DisplayName = "no will message")]
+    [DataRow((byte)0x06, new byte[] { 0x00, 0x01, (byte)'w', 0x00, 0x03, (byte)'b' }, DisplayName = "will message cut short")]
+    [DataRow((byte)0x82, new byte[] { 0x00, 0x04, (byte)'u' }, DisplayName = "user name cut short")]
+    [DataRow((byte)0x82, new byte[] { 0x00, 0x02, 0xC3, 0x28 }, DisplayName = "user name not UTF-8")]
+    [DataRow((byte)0xC2, new byte[] { 0x00, 0x01, (byte)'u' }, DisplayName = "no password")]
+    [DataRow((byte)0xC2, new byte[] { 0x00, 0x01, (byte)'u', 0x00 }, DisplayName = "password length cut short")]
+    [DataRow((byte)0xC2, new byte[] { 0x00, 0x01, (byte)'u', 0x00, 0x06, (byte)'s' }, DisplayName = "password cut short")]
+    public async Task ServeAsync_ConnectWithWillOrCredentialsCutShort_ClosesWithNoBytes(byte connectFlags, byte[] fields)
+    {
+        var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+
+        var (connection, log) = await ServeAsync(RecordedFixture.Whole(ClientPackets.ConnectWithFields(connectFlags, "c", fields)), new MqttRetainedMessages(), policy: policy);
+
+        Assert.AreEqual(0, connection.WrittenBytes.Length);
+        StringAssert.Contains(log.Notes.Single(), "CONNECT was malformed; closed with no reply");
+        Assert.IsEmpty(policy.Logins);
+    }
+
+    [TestMethod]
+    public void Constructor_NullAuthenticationPolicy_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new MqttProtocolServer(new MqttRetainedMessages(), null!));
+    }
+
+    private static byte[][] FieldsAnnouncedBy(byte connectFlags)
+    {
+        var fields = new List<byte[]>();
+        if ((connectFlags & 0x04) != 0)
+        {
+            fields.Add(ClientPackets.String("w"));
+            fields.Add(ClientPackets.String("bye"));
+        }
+
+        if ((connectFlags & 0x80) != 0)
+        {
+            fields.Add(ClientPackets.String("u"));
+        }
+
+        if ((connectFlags & 0x40) != 0)
+        {
+            fields.Add(ClientPackets.String("p"));
+        }
+
+        return [.. fields];
     }
 
     [TestMethod]
@@ -577,9 +782,10 @@ public sealed class MqttProtocolServerTests
         MqttRetainedMessages retained,
         ExchangeLimits? limits = null,
         ListenUrl? listenUrl = null,
-        TlsSession? tlsSession = null)
+        TlsSession? tlsSession = null,
+        IAuthenticationPolicy? policy = null)
     {
-        var server = new MqttProtocolServer(retained);
+        var server = new MqttProtocolServer(retained, policy ?? new AnonymousAuthenticationPolicy());
         var connection = new InMemoryConnection(chunks, initialTlsSession: tlsSession);
         var log = new RecordingExchangeLog();
         var context = Context(log, TestContext.CancellationToken, listenUrl) with { Limits = limits ?? ExchangeLimits.Default };

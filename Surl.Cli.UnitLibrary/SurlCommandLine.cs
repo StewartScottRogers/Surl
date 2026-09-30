@@ -1,4 +1,5 @@
 using System.Security.Authentication;
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Cli;
@@ -23,8 +24,44 @@ public sealed record SurlCommandLine
     /// </summary>
     public string? DataDirectory { get; init; }
 
-    /// <summary><c>-v</c>/<c>--verbose</c>: write the verbose exchange log to stderr. Off by default.</summary>
-    public bool Verbose { get; init; }
+    /// <summary>
+    /// The log level (ADR-0033 section 2): set by the last of <c>-s</c>, <c>--no-silent</c>,
+    /// <c>-v</c>, <c>--no-verbose</c>, <c>--log-level</c>, <c>--trace</c> and
+    /// <c>--trace-ascii</c>, then raised from <see cref="LogLevel.None"/> to
+    /// <see cref="LogLevel.Error"/> by <see cref="ShowError"/> once the whole line is read.
+    /// <see cref="LogLevel.Info"/> by default.
+    /// </summary>
+    public LogLevel LogLevel { get; init; } = LogLevel.Info;
+
+    /// <summary>
+    /// <c>-S</c>/<c>--show-error</c>: whether it was given (and not reversed). The parser has
+    /// already applied it to <see cref="LogLevel"/>. Off by default.
+    /// </summary>
+    public bool ShowError { get; init; }
+
+    /// <summary>
+    /// The file of the last <c>--trace</c> or <c>--trace-ascii</c>, as given (<c>-</c> is
+    /// stdout), when <see cref="LogLevel"/> is <see cref="LogLevel.Trace"/>; otherwise, and
+    /// by default, none.
+    /// </summary>
+    public string? TraceFile { get; init; }
+
+    /// <summary>
+    /// The layout of the last <c>--trace</c> (<see cref="TraceDumpLayout.HexAndAscii"/>) or
+    /// <c>--trace-ascii</c> (<see cref="TraceDumpLayout.Ascii"/>);
+    /// <see cref="TraceDumpLayout.HexAndAscii"/> by default, as <c>--log-level trace</c>
+    /// alone dumps.
+    /// </summary>
+    public TraceDumpLayout TraceLayout { get; init; } = TraceDumpLayout.HexAndAscii;
+
+    /// <summary><c>--trace-time</c>: stamp each exchange log line with the local time. Off by default.</summary>
+    public bool TraceTime { get; init; }
+
+    /// <summary>
+    /// <c>--log-file</c>: the file the log stream is appended to, as given (<c>-</c> is
+    /// stdout); none by default, when the log stream is stderr.
+    /// </summary>
+    public string? LogFile { get; init; }
 
     /// <summary><c>--allow-uploads</c>: accept uploads into the served files. Off by default.</summary>
     public bool AllowUploads { get; init; }
@@ -101,4 +138,50 @@ public sealed record SurlCommandLine
     /// none by default.
     /// </summary>
     public string? CaCertificateFile { get; init; }
+
+    /// <summary>
+    /// The accounts from every <c>-u</c>/<c>--user</c>, in command-line order: each one adds an
+    /// account, and no user name is given twice (ADR-0032 section 1). None by default.
+    /// </summary>
+    public IReadOnlyList<CommandLineAccount> Accounts { get; init; } = [];
+
+    /// <summary>
+    /// <c>--user-file</c>: the file of more accounts, as given; none by default. It is read
+    /// when surl starts serving, not while parsing (ADR-0032 section 2).
+    /// </summary>
+    public string? UserFile { get; init; }
+
+    /// <summary>
+    /// <c>--allow-anonymous</c>: accept every request and login without checking credentials.
+    /// Off by default.
+    /// </summary>
+    public bool AllowAnonymous { get; init; }
+
+    /// <summary>
+    /// <c>--allow-plaintext-auth</c>: accept passwords and tokens over unencrypted connections.
+    /// Off by default.
+    /// </summary>
+    public bool AllowPlaintextAuthentication { get; init; }
+
+    /// <summary>
+    /// The <c>--auth</c> words of the last <c>--auth</c>, lower-case and in ADR-0032 section 3's
+    /// order; <see langword="null"/> when <c>--auth</c> was not given.
+    /// </summary>
+    public IReadOnlyList<string>? GivenAuthenticationMethods { get; init; }
+
+    /// <summary>
+    /// The authentication methods accepted: <see cref="GivenAuthenticationMethods"/>, or
+    /// <c>digest</c>, <c>basic</c>, <c>bearer</c> and <c>aws-sigv4</c> when <c>--auth</c> was not
+    /// given (ADR-0032 section 1), in ADR-0032 section 3's order.
+    /// </summary>
+    public IReadOnlyList<string> AcceptedAuthenticationMethods => GivenAuthenticationMethods ?? DefaultAuthenticationMethods;
+
+    /// <summary>
+    /// <c>--self-signed</c>: serve a throwaway self-signed certificate when no <c>--cert</c> is
+    /// given. Off by default.
+    /// </summary>
+    public bool SelfSigned { get; init; }
+
+    /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
+    private static readonly IReadOnlyList<string> DefaultAuthenticationMethods = ["digest", "basic", "bearer", "aws-sigv4"];
 }

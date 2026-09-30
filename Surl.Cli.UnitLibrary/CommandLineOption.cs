@@ -3,11 +3,23 @@ namespace Surl.Cli;
 /// <summary>What an option does when it is read.</summary>
 internal enum CommandLineOptionKind
 {
-    /// <summary><c>-h</c>/<c>--help</c>: ends reading with <see cref="CommandLineOutcome.ShowHelp"/>.</summary>
+    /// <summary>
+    /// <c>-h</c>/<c>--help</c>: takes the subject that follows, if any, and ends reading with
+    /// <see cref="CommandLineOutcome.ShowHelp"/> (ADR-0034 decision 4).
+    /// </summary>
     Help,
+
+    /// <summary>
+    /// <c>--aihelp</c>: takes the topic that follows, if any, and ends reading with
+    /// <see cref="CommandLineOutcome.ShowAiHelp"/> (ADR-0046 decision 1).
+    /// </summary>
+    AiHelp,
 
     /// <summary><c>-V</c>/<c>--version</c>: ends reading with <see cref="CommandLineOutcome.ShowVersion"/>.</summary>
     Version,
+
+    /// <summary><c>-M</c>/<c>--manual</c>: ends reading with <see cref="CommandLineOutcome.ShowManual"/> (ADR-0034 decision 4).</summary>
+    Manual,
 
     /// <summary>Takes no argument; sets a value on the command line.</summary>
     Flag,
@@ -35,10 +47,21 @@ internal delegate string? ApplyArgument(string argument, ref SurlCommandLine com
 /// <param name="Negatable">Whether <c>--no-</c> may turn it off.</param>
 /// <param name="SetFlag">Sets the value of a <see cref="CommandLineOptionKind.Flag"/>; otherwise null.</param>
 /// <param name="ApplyArgument">Reads and applies the argument of an <see cref="CommandLineOptionKind.Argument"/>; otherwise null.</param>
+/// <param name="ArgumentType">What the argument is and which values it takes (ADR-0046 decision 5); every row has one.</param>
+/// <param name="Help">What the help says about the option (ADR-0034 decision 2).</param>
 internal sealed record CommandLineOption(
     string LongName,
     char? ShortName,
     CommandLineOptionKind Kind,
     bool Negatable,
     SetFlag? SetFlag,
-    ApplyArgument? ApplyArgument);
+    ApplyArgument? ApplyArgument,
+    OptionArgumentType ArgumentType,
+    OptionHelp Help)
+{
+    /// <summary>
+    /// Whether the argument holds a secret (<c>--user</c>'s password), so a refusal names the
+    /// option as written without any value, never echoing it (ADR-0032 section 1).
+    /// </summary>
+    public bool ArgumentHoldsSecret { get; init; }
+}

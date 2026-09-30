@@ -1,0 +1,11 @@
+PUT /x HTTP/1.1
+Host: 127.0.0.1:18122
+Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20260929/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=8c9e97d1acd18f81080529c1a323baed93fd31346555ad11ecc69a6854b26019
+X-Amz-Date: 20260929T210307Z
+x-amz-content-sha256: 230d8358dc8e8890b4c58deeb62912ee2f20357ae92a5cc861b98e68fe31acb5
+User-Agent: curl/8.21.0
+Accept: */*
+Content-Length: 4
+Content-Type: application/x-www-form-urlencoded
+
+body

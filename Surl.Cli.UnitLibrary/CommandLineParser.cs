@@ -1,3 +1,4 @@
+using Surl.Output;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Cli;
@@ -34,6 +35,11 @@ public static class CommandLineParser
     private const string TlsMaxOption = "--tls-max";
     private const string CertLongName = "cert";
     private const string KeyLongName = "key";
+    private const string UserLongName = "user";
+    private const string SelfSignedOption = "--self-signed";
+
+    /// <summary><c>--self-signed</c> given with <c>--cert</c> (ADR-0032 section 1).</summary>
+    public const string CannotBeUsedWithCert = "cannot be used with --cert";
 
     /// <summary>The options refused without <c>--cert</c>, in the order the first one given is reported.</summary>
     private static readonly string[] OptionsNeedingCert = [KeyLongName, "key-type", "pass"];
@@ -43,8 +49,12 @@ public static class CommandLineParser
     /// </summary>
     /// <param name="arguments">The arguments, as the process received them.</param>
     /// <returns>
-    /// <see cref="CommandLineParseResult.ShowHelp"/> or <see cref="CommandLineParseResult.ShowVersion"/>
-    /// when <c>-h</c>/<c>--help</c> or <c>-V</c>/<c>--version</c> is read before any error;
+    /// <see cref="CommandLineParseResult.ShowHelp"/>, with the subject that follows, or
+    /// <see cref="CommandLineParseResult.ShowVersion"/> or <see cref="CommandLineParseResult.ShowManual"/>
+    /// when <c>-h</c>/<c>--help</c>, <c>-V</c>/<c>--version</c> or <c>-M</c>/<c>--manual</c> is
+    /// read before any error (ADR-0034 decision 4);
+    /// <see cref="CommandLineParseResult.ShowAiHelp"/>, with the topic that follows, when
+    /// <c>--aihelp</c> is read first (ADR-0046 decision 1);
     /// a serve result carrying the <see cref="SurlCommandLine"/>; or the first failure, with
     /// its <see cref="SurlExitCode"/> and message.
     /// </returns>
@@ -124,7 +134,7 @@ public static class CommandLineParser
 
         return negated.Negatable
             ? ApplyOption(reading, negated, argument, attached, turnOn: false)
-            : RefusedOption(argument, CannotBeReversed);
+            : RefusedOption(ReportedName(negated, argument), CannotBeReversed);
     }
 
     /// <summary>Reads <c>-x</c> or a bundle such as <c>-vm30</c>; an option taking an argument ends the bundle.</summary>
@@ -158,14 +168,28 @@ public static class CommandLineParser
             return (true, RefusedOption(argument, IsUnknown));
         }
 
+        if (option.Kind == CommandLineOptionKind.Help)
+        {
+            return (true, CommandLineParseResult.ShowHelp(RestOrNextArgument(reading, argument, index)));
+        }
+
         if (option.Kind == CommandLineOptionKind.Argument)
         {
-            var attached = argument[(index + 1)..];
-            return (true, ApplyArgument(reading, option, argument, attached.Length > 0 ? attached : reading.TakeArgumentOrNull()));
+            return (true, ApplyArgument(reading, option, argument, RestOrNextArgument(reading, argument, index)));
         }
 
         var ended = ApplyOption(reading, option, argument, attached: null, turnOn: true);
         return (ended is not null, ended);
+    }
+
+    /// <summary>
+    /// The rest of a bundle after the short option at <paramref name="index"/> (<c>30</c> of
+    /// <c>-m30</c>), or, when nothing follows it, the next argument (null when there is none).
+    /// </summary>
+    private static string? RestOrNextArgument(CommandLineReading reading, string argument, int index)
+    {
+        var attached = argument[(index + 1)..];
+        return attached.Length > 0 ? attached : reading.TakeArgumentOrNull();
     }
 
     /// <summary>Applies an option found by name; <paramref name="attached"/> is the text after <c>=</c>, if any.</summary>
@@ -174,26 +198,54 @@ public static class CommandLineParser
         CommandLineOption option,
         string writtenName,
         string? attached,
+        bool turnOn) =>
+        option.Kind is CommandLineOptionKind.Help or CommandLineOptionKind.AiHelp or CommandLineOptionKind.Argument
+            ? ApplyOptionTakingAValue(reading, option, writtenName, attached ?? reading.TakeArgumentOrNull())
+            : ApplyOptionTakingNoValue(reading, option, writtenName, attached, turnOn);
+
+    /// <summary>Applies <c>-V</c> or a flag; <paramref name="attached"/>, the text after <c>=</c>, refuses either.</summary>
+    private static CommandLineParseResult? ApplyOptionTakingNoValue(
+        CommandLineReading reading,
+        CommandLineOption option,
+        string writtenName,
+        string? attached,
         bool turnOn)
     {
-        if (option.Kind != CommandLineOptionKind.Argument && attached is not null)
+        if (attached is not null)
         {
             return RefusedOption(writtenName, DoesNotTakeParameter);
         }
 
-        switch (option.Kind)
+        if (option.Kind == CommandLineOptionKind.Version)
         {
-            case CommandLineOptionKind.Help:
-                return CommandLineParseResult.ShowHelp;
-            case CommandLineOptionKind.Version:
-                return CommandLineParseResult.ShowVersion;
-            case CommandLineOptionKind.Flag:
-                reading.CommandLine = option.SetFlag!(reading.CommandLine, turnOn);
-                return null;
-            default:
-                return ApplyArgument(reading, option, writtenName, attached ?? reading.TakeArgumentOrNull());
+            return CommandLineParseResult.ShowVersion;
         }
+
+        if (option.Kind == CommandLineOptionKind.Manual)
+        {
+            return CommandLineParseResult.ShowManual;
+        }
+
+        reading.CommandLine = option.SetFlag!(reading.CommandLine, turnOn);
+        return null;
     }
+
+    /// <summary>
+    /// Applies <c>--help</c>, whose optional subject is <paramref name="value"/>, <c>--aihelp</c>,
+    /// whose optional topic is <paramref name="value"/> (ADR-0046 decision 1), or an option
+    /// whose required argument is <paramref name="value"/>; null when none was given.
+    /// </summary>
+    private static CommandLineParseResult? ApplyOptionTakingAValue(
+        CommandLineReading reading,
+        CommandLineOption option,
+        string writtenName,
+        string? value) =>
+        option.Kind switch
+        {
+            CommandLineOptionKind.Help => CommandLineParseResult.ShowHelp(value),
+            CommandLineOptionKind.AiHelp => CommandLineParseResult.ShowAiHelp(value),
+            _ => ApplyArgument(reading, option, writtenName, value),
+        };
 
     private static CommandLineParseResult? ApplyArgument(
         CommandLineReading reading,
@@ -201,23 +253,74 @@ public static class CommandLineParser
         string writtenName,
         string? argument)
     {
+        var reportedName = ReportedName(option, writtenName);
         if (argument is null)
         {
-            return RefusedOption(writtenName, RequiresParameter);
+            return RefusedOption(reportedName, RequiresParameter);
         }
 
         var failure = option.ApplyArgument!(argument, ref reading.CommandLine);
         if (failure is not null)
         {
-            return RefusedOption(writtenName, failure);
+            return RefusedOption(reportedName, failure);
         }
 
         reading.GivenOptions.Add(option.LongName);
+        if (option.LongName == UserLongName)
+        {
+            reading.AccountOptionNames.Add(reportedName);
+        }
+
         return null;
+    }
+
+    /// <summary>
+    /// The name a refusal gives: <paramref name="writtenName"/>, or, for an option whose
+    /// argument holds a secret, the option as written without any value (<c>--user</c>,
+    /// <c>--no-user</c>, <c>-u</c> of <c>-vua:b</c>), so none of that option's own refusals
+    /// echoes its value (ADR-0032 section 1). An unknown option is still named as written.
+    /// </summary>
+    private static string ReportedName(CommandLineOption option, string writtenName)
+    {
+        if (!option.ArgumentHoldsSecret)
+        {
+            return writtenName;
+        }
+
+        if (!writtenName.StartsWith(LongOptionPrefix, StringComparison.Ordinal))
+        {
+            return "-" + option.ShortName;
+        }
+
+        var equals = writtenName.IndexOf('=', StringComparison.Ordinal);
+        return equals < 0 ? writtenName : writtenName[..equals];
     }
 
     /// <summary>The checks made once the whole command line is read.</summary>
     private static CommandLineParseResult Finish(CommandLineReading reading)
+    {
+        var refusedCombination = RefuseTlsCombination(reading) ?? RefuseRepeatedUserName(reading);
+        if (refusedCombination is not null)
+        {
+            return refusedCombination;
+        }
+
+        if (reading.ListenUrls.Count == 0)
+        {
+            return CommandLineParseResult.Refused(
+                new CommandLineFailure(SurlExitCode.FailedInit, NoUrlSpecified, FollowedByTryHelpLine: true));
+        }
+
+        return CommandLineParseResult.Serve(ResolveLogging(reading.CommandLine) with { ListenUrls = [.. reading.ListenUrls] });
+    }
+
+    /// <summary>
+    /// Refuses the first TLS option given in a combination that cannot work, in this order:
+    /// <c>--tls-max</c> below the lowest version, a certificate option ADR-0010 section 3
+    /// refuses, then <c>--self-signed</c> with <c>--cert</c> (ADR-0032 section 1); null when
+    /// none is.
+    /// </summary>
+    private static CommandLineParseResult? RefuseTlsCombination(CommandLineReading reading)
     {
         if (reading.CommandLine.LowestTlsVersion > reading.CommandLine.HighestTlsVersion)
         {
@@ -230,13 +333,43 @@ public static class CommandLineParser
             return RefusedOption(unusableCertificateOption, OptionArgumentReader.BadlyUsed);
         }
 
-        if (reading.ListenUrls.Count == 0)
+        return reading.CommandLine.SelfSigned && reading.GivenOptions.Contains(CertLongName)
+            ? RefusedOption(SelfSignedOption, CannotBeUsedWithCert)
+            : null;
+    }
+
+    /// <summary>
+    /// Refuses the first account whose user name an earlier account already has, the empty
+    /// name included, naming the option that gave it (ADR-0032 section 1); null when none does.
+    /// </summary>
+    private static CommandLineParseResult? RefuseRepeatedUserName(CommandLineReading reading)
+    {
+        var accounts = reading.CommandLine.Accounts;
+        var userNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < accounts.Count; index++)
         {
-            return CommandLineParseResult.Refused(
-                new CommandLineFailure(SurlExitCode.FailedInit, NoUrlSpecified, FollowedByTryHelpLine: true));
+            if (!userNames.Add(accounts[index].UserName))
+            {
+                return RefusedOption(reading.AccountOptionNames[index], $"user {accounts[index].UserName} is given twice");
+            }
         }
 
-        return CommandLineParseResult.Serve(reading.CommandLine with { ListenUrls = [.. reading.ListenUrls] });
+        return null;
+    }
+
+    /// <summary>
+    /// Applies ADR-0033 section 2 once the whole line is read: <c>-S</c> raises level
+    /// <see cref="LogLevel.None"/> to <see cref="LogLevel.Error"/>, and a trace file is kept
+    /// only when the final level is <see cref="LogLevel.Trace"/>.
+    /// </summary>
+    private static SurlCommandLine ResolveLogging(SurlCommandLine commandLine)
+    {
+        if (commandLine.ShowError && commandLine.LogLevel == LogLevel.None)
+        {
+            return commandLine with { LogLevel = LogLevel.Error, TraceFile = null };
+        }
+
+        return commandLine.LogLevel == LogLevel.Trace ? commandLine : commandLine with { TraceFile = null };
     }
 
     /// <summary>
@@ -273,6 +406,9 @@ public static class CommandLineParser
 
         /// <summary>The long names of the options whose argument was read and accepted.</summary>
         public HashSet<string> GivenOptions { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>The name each accepted <c>-u</c>/<c>--user</c> was written with, one per account, in order.</summary>
+        public List<string> AccountOptionNames { get; } = [];
 
         /// <summary><see langword="true"/> once <c>--</c> is read: every later argument is a listen URL.</summary>
         public bool OptionsEnded { get; set; }

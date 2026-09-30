@@ -60,3 +60,10 @@ Example, with `--max-connections 1`:
   records the notes and can be made to throw.
 - Other events that belong to no exchange (a listener's accept failure, for one) can use
   the same seam and line form; each pins its own text.
+
+## Note (BL-146, 2026-09-29)
+
+Decision item 2 names `Surl.Output`'s `VerboseExchangeLogFactory`, as the code stood when
+this ADR was decided. BL-126 removed that factory; the `#- * <text>` line is now written by
+`LevelledExchangeLogFactory.NoteOutsideExchange`, at the log levels
+[ADR-0033](ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md) gives it (`info` and above). The decision itself is unchanged.

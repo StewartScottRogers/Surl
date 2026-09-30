@@ -107,5 +107,5 @@ public sealed class HeadTimeoutTests
         Assert.IsEmpty(RecordedFixture.ReadAcceptedReplyBytes(caseName));
     }
 
-    private static MqttProtocolServer Server() => new(new MqttRetainedMessages());
+    private static MqttProtocolServer Server() => new(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy());
 }

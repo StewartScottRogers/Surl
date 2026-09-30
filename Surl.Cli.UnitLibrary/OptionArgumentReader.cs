@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Globalization;
 using System.Security.Authentication;
+using Surl.Output;
 
 namespace Surl.Cli;
 
@@ -25,6 +26,22 @@ internal static class OptionArgumentReader
 
     /// <summary>An empty <c>&lt;file&gt;</c> or <c>&lt;directory&gt;</c> argument.</summary>
     public const string Blank = "blank argument where content is expected";
+
+    /// <summary>A <c>&lt;user:password&gt;</c> argument with no <c>:</c> (ADR-0032 section 1).</summary>
+    public const string ExpectedUserColonPassword = "expected <user:password>";
+
+    /// <summary>A <c>&lt;user:password&gt;</c> argument with nothing after its first <c>:</c>.</summary>
+    public const string EmptyPassword = "the password is empty";
+
+    /// <summary>A <c>&lt;user:password&gt;</c> argument whose name holds U+0000 to U+001F or U+007F.</summary>
+    public const string ControlCharacterInUserName = "the user name holds a control character";
+
+    /// <summary>
+    /// The <c>--auth</c> words in ADR-0032 section 3's listing order, the order
+    /// <see cref="ReadAuthenticationMethods"/> returns them in.
+    /// </summary>
+    public static readonly IReadOnlyList<string> AuthenticationMethodWords =
+        ["negotiate", "ntlm", "digest", "basic", "bearer", "aws-sigv4"];
 
     private const string SizeSuffixes = "kmgtp";
     private const decimal BytesPerSuffixStep = 1024m;
@@ -56,6 +73,70 @@ internal static class OptionArgumentReader
         ["PEM"] = CertificateFileFormat.Pem,
         ["DER"] = CertificateFileFormat.Der,
     }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The <c>--log-level</c> words, case-insensitive as <c>--cert-type</c> (ADR-0033 section 2).</summary>
+    private static readonly FrozenDictionary<string, LogLevel> LogLevels = new Dictionary<string, LogLevel>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["none"] = LogLevel.None,
+        ["error"] = LogLevel.Error,
+        ["info"] = LogLevel.Info,
+        ["verbose"] = LogLevel.Verbose,
+        ["trace"] = LogLevel.Trace,
+    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary><see cref="ReadSeconds"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<TimeSpan> Seconds =
+        new(ReadSeconds, new("seconds", "0 to 2147483.647, digits with an optional decimal point and more digits"));
+
+    /// <summary><see cref="ReadNumber"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<int> Number =
+        new(ReadNumber, new("number", "0 to 2147483647, digits only"));
+
+    /// <summary><see cref="ReadBytes"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<long> Bytes =
+        new(ReadBytes, new(
+            "bytes",
+            "digits with an optional decimal point and more digits, then at most one suffix k, m, g, t or p in either case, "
+            + "each 1024 times the one before; at most 9223372036854775807 bytes"));
+
+    /// <summary><see cref="ReadPath"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<string> Path =
+        new(ReadPath, new("path", "any non-empty text"));
+
+    /// <summary><see cref="ReadText"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<string> Text =
+        new(ReadText, new("text", "any text, the empty string included"));
+
+    /// <summary><see cref="ReadTlsVersion"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<SslProtocols> TlsVersion =
+        new(ReadTlsVersion, new("TLS version", "1.0, 1.1, 1.2 or 1.3"));
+
+    /// <summary><see cref="ReadCertificateType"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<CertificateFileFormat> CertificateType =
+        new(ReadCertificateType, new("word", "PEM, DER or P12, in any case"));
+
+    /// <summary><see cref="ReadKeyType"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<CertificateFileFormat> KeyType =
+        new(ReadKeyType, new("word", "PEM or DER, in any case"));
+
+    /// <summary><see cref="ReadLogLevel"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<LogLevel> LogLevelWord =
+        new(ReadLogLevel, new("word", "none, error, info, verbose or trace, in any case"));
+
+    /// <summary><see cref="ReadAccount"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<CommandLineAccount> Account =
+        new(ReadAccount, new(
+            "user:password",
+            "a user name, a colon and a non-empty password, split at the first colon; no control character in the user name"));
+
+    /// <summary>
+    /// <see cref="ReadAuthenticationMethods"/> and its argument type (ADR-0046 decision 5), its
+    /// words taken from <see cref="AuthenticationMethodWords"/>.
+    /// </summary>
+    public static readonly OptionArgumentReading<IReadOnlyList<string>> AuthenticationMethods =
+        new(ReadAuthenticationMethods, new(
+            "word list",
+            "comma-separated, in any case, no empty item: " + string.Join(", ", AuthenticationMethodWords)));
 
     /// <summary>Reads <c>&lt;seconds&gt;</c>: digits, optionally <c>.</c> and more digits, at most 2147483.647.</summary>
     /// <param name="argument">The argument as given.</param>
@@ -145,6 +226,24 @@ internal static class OptionArgumentReader
     public static string? ReadKeyType(string argument, out CertificateFileFormat value) =>
         KeyTypes.TryGetValue(argument, out value) ? null : BadlyUsed;
 
+    /// <summary>
+    /// Reads the <c>--log-level</c> word: <c>none</c>, <c>error</c>, <c>info</c>, <c>verbose</c>
+    /// or <c>trace</c>, in any case; an empty argument is blank.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The log level.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadLogLevel(string argument, out LogLevel value)
+    {
+        if (argument.Length == 0)
+        {
+            value = default;
+            return Blank;
+        }
+
+        return LogLevels.TryGetValue(argument, out value) ? null : BadlyUsed;
+    }
+
     /// <summary>Reads <c>&lt;phrase&gt;</c>: any text, the empty string included, kept as given.</summary>
     /// <param name="argument">The argument as given.</param>
     /// <param name="value">The text, as given.</param>
@@ -154,6 +253,85 @@ internal static class OptionArgumentReader
         value = argument;
         return null;
     }
+
+    /// <summary>
+    /// Reads <c>&lt;user:password&gt;</c> (ADR-0032 section 1): split at the first <c>:</c>, so
+    /// <c>a:b:c</c> is the name <c>a</c> and the password <c>b:c</c>, and nothing trimmed. An
+    /// empty argument is blank; no <c>:</c>, an empty password or a control character in the
+    /// name is refused.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The account.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadAccount(string argument, out CommandLineAccount value)
+    {
+        var colon = argument.IndexOf(':', StringComparison.Ordinal);
+        value = colon < 0 ? new(argument, string.Empty) : new(argument[..colon], argument[(colon + 1)..]);
+        return RefuseAccount(argument, colon, value);
+    }
+
+    /// <summary>
+    /// Reads the <c>--auth</c> method list (ADR-0032 sections 1 and 3): comma-separated words
+    /// from <see cref="AuthenticationMethodWords"/>, in any case, with no empty item. A word
+    /// given twice counts once.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The words named, lower-case, in <see cref="AuthenticationMethodWords"/>' order.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadAuthenticationMethods(string argument, out IReadOnlyList<string> value)
+    {
+        var named = new bool[AuthenticationMethodWords.Count];
+        value = [];
+        foreach (var item in argument.Split(','))
+        {
+            var index = IndexOfAuthenticationMethodWord(item);
+            if (index < 0)
+            {
+                return BadlyUsed;
+            }
+
+            named[index] = true;
+        }
+
+        value = [.. AuthenticationMethodWords.Where((_, index) => named[index])];
+        return null;
+    }
+
+    private static int IndexOfAuthenticationMethodWord(string item)
+    {
+        for (var index = 0; index < AuthenticationMethodWords.Count; index++)
+        {
+            if (string.Equals(item, AuthenticationMethodWords[index], StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>The refusal of a <c>&lt;user:password&gt;</c> argument split at <paramref name="colon"/>, or null.</summary>
+    private static string? RefuseAccount(string argument, int colon, CommandLineAccount account)
+    {
+        if (argument.Length == 0)
+        {
+            return Blank;
+        }
+
+        if (colon < 0)
+        {
+            return ExpectedUserColonPassword;
+        }
+
+        if (account.Password.Length == 0)
+        {
+            return EmptyPassword;
+        }
+
+        return account.UserName.Any(IsControlCharacter) ? ControlCharacterInUserName : null;
+    }
+
+    private static bool IsControlCharacter(char character) => character < ' ' || character == '\u007F';
 
     /// <summary>
     /// Splits a trailing size suffix off <paramref name="argument"/>; returns the refusal
