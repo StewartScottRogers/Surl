@@ -371,3 +371,6 @@ FodyWeavers.xsd
 # Claude Code personal files
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Claude Code agent worktrees (isolated subagent checkouts; their work is pushed, not committed here)
+.claude/worktrees/
