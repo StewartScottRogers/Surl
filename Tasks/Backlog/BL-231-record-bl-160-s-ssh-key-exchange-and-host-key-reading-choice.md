@@ -1,5 +1,5 @@
 ---
-id: BL-226
+id: BL-231
 title: Record BL-160's SSH key exchange and host-key reading choices in an ADR
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-29
 completed:
 ---
-# BL-226 — Record BL-160's SSH key exchange and host-key reading choices in an ADR
+# BL-231 — Record BL-160's SSH key exchange and host-key reading choices in an ADR
 
 ## Goal
 

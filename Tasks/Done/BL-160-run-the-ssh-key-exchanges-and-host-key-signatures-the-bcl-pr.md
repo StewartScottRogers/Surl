@@ -87,7 +87,7 @@ and reads its host keys from the bytes of the files BL-154's ADR names.
   RSA/ECDSA verify) and writes H and the derivation out from the RFCs. Its messages do not
   depend on the server's answers (a group exchange predicts group 15 from its 2048/3072/8192
   request), so it runs through `InMemoryConnection`; no socket is opened.
-- **Choices made where ADR-0051 is silent** (defaults taken under rule 1; BL-226 records them in
+- **Choices made where ADR-0051 is silent** (defaults taken under rule 1; BL-231 records them in
   an ADR, since BL-173 holds `Documentation/Planning/Decisions` during this run): a client value
   off the curve or outside 1 < e < p - 1 is `DISCONNECT` 2 (decision 9's "malformed message");
   `GEX_REQUEST_OLD` (30) is `DISCONNECT` 2; the DH private exponent is 512 bits from
@@ -110,7 +110,7 @@ and reads its host keys from the bytes of the files BL-154's ADR names.
   upstream curl does past `KEXINIT` is BL-172's proof, as the task's Context says.
 - **Quality.** `Measure-CodeQuality.ps1 -Library Surl.Protocol.Ssh.UnitLibrary`: 100% line,
   100% branch, 181 members, 0 failing, worst CRAP 10. 238 tests in `Surl.Protocol.Ssh.UnitTests`.
-- **Filed:** BL-226 (the ADR for the choices above).
+- **Filed:** BL-231 (the ADR for the choices above).
 
 ## Log
 
