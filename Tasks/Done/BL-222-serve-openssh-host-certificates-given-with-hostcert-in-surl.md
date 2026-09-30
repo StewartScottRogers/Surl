@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-171, BL-168]
-touches: [Surl.Protocol.Ssh.UnitLibrary, Surl.Protocol.Ssh.UnitTests, Surl.Console, Surl.Console.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
+touches: [Surl.Protocol.Ssh.UnitLibrary, Surl.Protocol.Ssh.UnitTests, Surl.Console, Surl.Console.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md, Documentation/Product/Product-Overview.md, Documentation/Wiki/Glossary.md, Documentation/Planning/Roadmap.md, README.md]
 requirement: FR-039
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-222 — Serve OpenSSH host certificates given with --hostcert in Surl.Protocol.Ssh
 
@@ -50,20 +50,20 @@ the certified key.
 
 ## Acceptance criteria
 
-- [ ] Fast tests parse an RSA, an ECDSA P-256 and an Ed25519 host certificate fixture, and
+- [x] Fast tests parse an RSA, an ECDSA P-256 and an Ed25519 host certificate fixture, and
       refuse each malformed or wrong case ADR-0051 lists with its typed refusal, including a
       user certificate (type 1) and a certificate whose key matches no `--hostkey` key.
-- [ ] For each of the three key types, a fast test completes a key exchange where the
+- [x] For each of the three key types, a fast test completes a key exchange where the
       test-side client negotiates the certificate algorithm, receives the certificate as the
       host key blob, and verifies the exchange-hash signature with the certified key.
-- [ ] A fast test shows `ssh-rsa-cert-v01@openssh.com` is absent from `KEXINIT` unless weak
+- [x] A fast test shows `ssh-rsa-cert-v01@openssh.com` is absent from `KEXINIT` unless weak
       algorithms are allowed.
-- [ ] `Surl.Console.UnitTests` tests show a start with a valid `--hostcert` gets past start-up
+- [x] `Surl.Console.UnitTests` tests show a start with a valid `--hostcert` gets past start-up
       to binding, each ADR-0051 refusal returns its `SurlExitCode` and text before any listener
       binds, and the "not available in this build" refusal for `--hostcert` is gone.
-- [ ] `AiHelpFactsTests`, `AiHelpTextTests`, `ManualTextTests` and
+- [x] `AiHelpFactsTests`, `AiHelpTextTests`, `ManualTextTests` and
       `CommandLineRunnerAiHelpTests` pass; `ProtocolIsolationTests` pass.
-- [ ] `dotnet build -warnaserror` is clean; `dotnet test --filter "TestCategory!=Integration"`
+- [x] `dotnet build -warnaserror` is clean; `dotnet test --filter "TestCategory!=Integration"`
       is green with no socket opened by the protocol tests; `Measure-CodeQuality.ps1` reports
       100% line and 100% branch coverage, no method above cyclomatic complexity 10, and no
       failing member in `Surl.Protocol.Ssh.UnitLibrary`, `Surl.Console` and (if changed)
@@ -71,7 +71,35 @@ the certified key.
 
 ## Notes
 
+- 2026-09-30 (lane 2): Built. `SshHostCertificate.Read` parses the one-line `*-cert.pub`
+  (`PROTOCOL.certkeys`) for RSA, ECDSA P-256/384/521 and Ed25519 keys; `SshHostKeySet.TryAdd`
+  (certificate overload) serves it as an `SshCertifiedHostKey` whose `K_S` is the certificate
+  blob and whose algorithms are the key's with `-cert-v01@openssh.com` added, signing with the
+  key and naming the plain algorithm in the signature blob. `SshAlgorithmOffer.Default` lists
+  each certificate name just before its plain one; `ssh-rsa-cert-v01@openssh.com` only with weak
+  algorithms (BL-221 was Done, so no follow-up was needed). `SshHostKey.SignRaw` became
+  `internal` so the certified key can delegate to the key it certifies.
+- Decisions ADR-0051 left open are recorded as its Amendment 2: DSA and `sk-*` certificates are
+  "not an OpenSSH host certificate" (no pinned build names them); the server judges neither
+  validity dates nor the CA signature; "certifies" is byte equality of the public key blob; a
+  second certificate of one type is refused, naming the first file (mirrors `--hostkey`);
+  certificates are read after every `--hostkey` and the throwaway key.
+- `CommandLineRunner.FindUnavailableOption` held only `--hostcert`, so the check and its
+  "not available in this build" text were removed; the exit-code guidance (2 and 37), `--manual`
+  and `--aihelp` (auth and ssh topics) now describe `--hostcert`.
+- Fixtures: `Surl.Protocol.Ssh.UnitTests/Fixtures/host-certificates`, written by `ssh-keygen` from
+  OpenSSH_10.3p1 (Windows' OpenSSH client); commands in that folder's README. The CA private key
+  was deleted. `Surl.Console.UnitTests/TestSshCertificateFiles.cs` copies the Ed25519 ones.
+- `touches` grew by ADR-0051, Product-Overview.md, Glossary.md, Roadmap.md and the root README.md:
+  each said `--hostcert` was refused, which is no longer true. No task in Doing names any of them.
+- Measured: `Measure-CodeQuality.ps1` reports 100% line and branch coverage, 0 failing members and
+  worst CRAP 10 for `Surl.Protocol.Ssh.UnitLibrary`, `Surl.Console` and `Surl.Cli.UnitLibrary`.
+  Not checked against pinned upstream curl live: a conformance run (curl with a `@cert-authority`
+  known_hosts line against `surl --hostcert`) belongs in `Surl.Conformance.UnitTests`, outside
+  this task's `touches`.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. surl serves --hostcert OpenSSH host certificates for RSA, ECDSA and Ed25519 host keys, offered before each key's algorithm, with ADR-0051's refusals
