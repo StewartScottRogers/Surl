@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-039
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-259 — Record in an ADR that libssh2 1.11.1 on WinCNG fails 1 SSH key exchange in 256 against a correct server
 
@@ -41,15 +41,18 @@ RFC-correct rather than working around it.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions`, marked "Decided by Claude under
+- [x] A new ADR in `Documentation/Planning/Decisions`, marked "Decided by Claude under
       Stewart's delegation", states the cause, the BL-251 measurement, the libssh2 PR and
       issue, and the decision not to work around the defect in surl.
-- [ ] The ADR names the flake rate the scp and sftp Integration tests in
+- [x] The ADR names the flake rate the scp and sftp Integration tests in
       `Surl.Conformance.UnitTests` should expect on the Windows reference pin, and what clears it.
 
 ## Notes
+
+Filed as ADR-0062 (the next free number; ADR-0061 is BL-252's), with its README index row. Written directly rather than through `align-and-document`: a single new ADR from BL-251's recorded evidence, no code or name to align. Decision 3 names the rate (about 1 connection in 256, exit 2 `-8, Unable to exchange encryption keys`, re-run passes) for `UpstreamCurlTransfersFilesWithSurlOverScpTests`, `UpstreamCurlTransfersFilesWithSurlOverSftpTests` and any other SSH exchange with the Windows pin; decision 4 says a pin carrying libssh2 PR #2583 clears it, needing Stewart's approval to download. The four BL-251 test names cited were checked against `Surl.Protocol.Ssh.UnitTests`.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0062 records libssh2 1.11.1 WinCNG's 1-in-256 K mpint defect, surl's no-workaround decision and the scp/sftp Integration flake rate
