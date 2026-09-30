@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Protocol.Ldap.UnitLibrary, Surl.Protocol.Ldap.UnitTests]
 requirement: FR-049
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-289 — Read and write LDAP messages in BER with System.Formats.Asn1 in Surl.Protocol.Ldap
 
@@ -54,19 +54,42 @@ BCL's `System.Formats.Asn1`, as internal types with no transport, so the directo
 
 ## Acceptance criteria
 
-- [ ] Tests in `Surl.Protocol.Ldap.UnitTests` decode every request type and every filter choice in
+- [x] Tests in `Surl.Protocol.Ldap.UnitTests` decode every request type and every filter choice in
       Context and encode every response type, round-tripping through `AsnReader` with BER rules, and
       pass.
-- [ ] Tests show an indefinite length, a message over the given maximum (refused before its value is
+- [x] Tests show an indefinite length, a message over the given maximum (refused before its value is
       read), a truncated message, a filter nested past the bound and each malformed case reported
       as its own outcome, with the message ID when readable.
-- [ ] `dotnet build Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean; the fast tests are green;
+- [x] `dotnet build Surl.Protocol.Ldap.UnitLibrary -warnaserror` is clean; the fast tests are green;
       `Measure-CodeQuality.ps1` reports 100% line and branch coverage and no failing member for
       `Surl.Protocol.Ldap.UnitLibrary`.
 
 ## Notes
 
+- Shape: `LdapMessageFrameReader` (framing off `IConnection`, outcomes in `LdapFrameReadOutcome`),
+  `LdapMessageDecoder` + `LdapFilterDecoder` over `LdapBerFieldReader` (outcomes in
+  `LdapDecodeOutcome`, result `LdapDecodeResult` carrying the message ID once read), and
+  `LdapMessageEncoder` for BindResponse, SearchResultEntry/Done/Reference, ExtendedResponse and the
+  Notice of Disconnection. 96 tests; 100% line and branch, worst CRAP 10.
+- Choices taken (defaults, RFC 4511 alone, no ADR needed):
+  - Framing accepts at most four long-form length octets; five or more (legal BER with leading
+    zeros, never sent by a real client) is `MalformedLength`, and a length no array can hold is
+    `MessageTooLarge` even with no limit. The limit counts tag and length, as MQTT's does.
+  - Indefinite length is refused both for the whole message (framing) and for any element inside it
+    (decoder, `IndefiniteLength`), since RFC 4511 section 5.1 forbids it everywhere.
+  - An authentication choice other than `simple` or `sasl` decodes as
+    `LdapUnsupportedAuthentication` rather than malformed, so the server can answer
+    `authMethodNotSupported` (7) as RFC 4511 section 4.2 expects.
+  - Empty `and`/`or` sets decode (RFC 4526 absolute true/false); an empty `substrings` or an
+    `extensibleMatch` with neither rule nor type is `InvalidValue`; a misplaced substring part is
+    `UnexpectedTag`. Filter depth counts the top filter as 1 and is checked before descending.
+  - Scope is strict 0..2 (no `subordinateSubtree` extension); anything else is
+    `EnumerationOutOfRange`.
+  - Values and passwords stay `byte[]`; DNs, attribute descriptions and OIDs are strict UTF-8, and
+    invalid UTF-8 is `InvalidValue`.
+
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Surl.Protocol.Ldap reads LDAPMessages off a connection under the message limit, decodes Bind, Unbind, Search (every filter choice), Abandon, Extended and controls with typed malformed outcomes, and encodes every response in BER
