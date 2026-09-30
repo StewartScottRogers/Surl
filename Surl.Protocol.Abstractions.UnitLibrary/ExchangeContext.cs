@@ -44,4 +44,21 @@ public sealed record ExchangeContext(
     /// engine sets another.
     /// </summary>
     public IDataConnectionOpener DataConnections { get; init; } = RefusingDataConnectionOpener.Instance;
+
+    /// <summary>
+    /// Cancelled when the engine gives up on every exchange at shutdown (ADR-0059):
+    /// <see cref="CancellationToken.None"/> unless the engine sets it. It cancels
+    /// <see cref="CancellationToken"/> too; a server reads it only to tell shutdown from a limit.
+    /// </summary>
+    public CancellationToken ShutdownToken { get; init; }
+
+    /// <summary>
+    /// Whether the engine cancelled the exchange for a limit - the idle timeout or the maximum
+    /// exchange duration - rather than at shutdown: <see cref="CancellationToken"/> is cancelled
+    /// and <see cref="ShutdownToken"/> is not. A server that is so cancelled may write its
+    /// protocol's farewell on a short deadline of its own, never on
+    /// <see cref="CancellationToken"/> (ADR-0006, section 5; ADR-0059).
+    /// </summary>
+    public bool IsCancelledForALimit =>
+        CancellationToken.IsCancellationRequested && !ShutdownToken.IsCancellationRequested;
 }

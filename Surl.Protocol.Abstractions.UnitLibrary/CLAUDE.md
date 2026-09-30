@@ -17,6 +17,8 @@ What it holds:
   `ExchangeContext.Limits`, and the optional refusal contracts a server implements to
   answer a connection or flow past a connection limit, `IConnectionRefusalWriter` and
   `IDatagramRefusalWriter` with `ConnectionRefusal`.
+- How a server tells a limit's cancellation from shutdown (ADR-0059):
+  `ExchangeContext.ShutdownToken`, set by the engine, and `ExchangeContext.IsCancelledForALimit`.
 - The listener seam `Surl.Networking` implements: `IListenerFactory`,
   `IConnectionListener`, `IDatagramListener`, and a failure to bind,
   `ListenerBindException` with `ListenerBindFailure`.

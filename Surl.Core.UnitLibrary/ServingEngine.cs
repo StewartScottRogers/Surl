@@ -619,6 +619,7 @@ public sealed partial class ServingEngine
             exchangeId, listenUrl, localEndPoint, remoteEndPoint, log, timeProvider, deadlines.Token)
         {
             Limits = exchangeLimits,
+            ShutdownToken = deadlines.ShutdownToken,
         };
 
         log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");
