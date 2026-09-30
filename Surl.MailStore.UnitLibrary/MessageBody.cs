@@ -21,11 +21,10 @@ internal sealed class MessageBody(ulong fileNumber, long length, byte[]? bytes)
     public long Length { get; } = length;
 
     /// <summary>
-    /// The message's bytes held in memory: by a store without files, or by one with files for a
-    /// message given whole until the next save writes its file. <see langword="null"/> when they
-    /// are read from their message file on fetch.
+    /// The message's bytes held in memory, by a store without files. <see langword="null"/> when
+    /// they are read from their message file on fetch.
     /// </summary>
-    public byte[]? Bytes { get; set; } = bytes;
+    public byte[]? Bytes { get; } = bytes;
 
     /// <summary>
     /// How many stored messages, and POP3 maildrop locks, refer to these bytes; at 0 they

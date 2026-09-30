@@ -64,7 +64,6 @@ public sealed class MailboxStore
     private readonly Dictionary<string, OwnerMailboxes> accounts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, OwnerMailboxes?> accountsIgnoringCase = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<OwnerMailboxes> lockedMaildrops = [];
-    private readonly HashSet<MessageBody> unwrittenBodies = [];
     private readonly List<ulong> releasedFileNumbers = [];
     private OwnerMailboxes? anonymousOwner;
     private MailStoreFiles? files;
@@ -295,46 +294,6 @@ public sealed class MailboxStore
     /// message is refused with <see cref="MailStoreOutcome.StorageFailed"/> when it is handed over.</returns>
     public PendingMessage CreatePendingMessage() =>
         new(files, MaxMessageBytes > 0 ? Math.Min(MaxMessageBytes, MaxTotalMessageBytes) : MaxTotalMessageBytes);
-
-    /// <summary>
-    /// Delivers one message, given whole, to the <c>INBOX</c> of every recipient, one copy per
-    /// entry, all of them or none. The copies share the message's bytes, counted once. With a
-    /// data directory the bytes are held in memory until <see cref="SaveChangesAsync"/> writes
-    /// their message file, and read from it after that; a write that fails leaves them held for
-    /// the next save (BL-191's shape, kept until the SMTP server streams its bodies through
-    /// <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/>).
-    /// </summary>
-    /// <param name="recipients">The owners <see cref="LookUpRecipient"/> found; an owner named
-    /// twice gets two copies.</param>
-    /// <param name="message">The message's bytes, stored exactly.</param>
-    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
-    /// <see cref="MailStoreOutcome.MessageTooLarge"/> or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="recipients"/> is <see langword="null"/>.</exception>
-    public MailStoreOutcome Deliver(IReadOnlyList<MailRecipient> recipients, ReadOnlySpan<byte> message)
-    {
-        ArgumentNullException.ThrowIfNull(recipients);
-        if (IsTooLarge(message.Length))
-        {
-            return MailStoreOutcome.MessageTooLarge;
-        }
-
-        lock (storeLock)
-        {
-            var inboxes = recipients.Select(recipient => recipient.Owner.Inbox).ToList();
-            if (inboxes.Count == 0)
-            {
-                return MailStoreOutcome.Succeeded;
-            }
-
-            if (!HasRoomFor(inboxes, message.Length))
-            {
-                return MailStoreOutcome.StoreFull;
-            }
-
-            DeliverBody(inboxes, HoldBody(message));
-            return MailStoreOutcome.Succeeded;
-        }
-    }
 
     /// <summary>
     /// Delivers one message, streamed in through <paramref name="message"/>, to the
@@ -877,7 +836,6 @@ public sealed class MailboxStore
     /// </summary>
     internal Stream OpenBody(MessageBody body)
     {
-        // Read once: a save may let go of held bytes meanwhile, once their file is written.
         var bytes = body.Bytes;
         return bytes is null ? files!.OpenMessage(body.FileNumber) : new MemoryStream(bytes, writable: false);
     }
@@ -1006,24 +964,15 @@ public sealed class MailboxStore
 
     private async Task WriteChangesAsync(MailStoreFiles files, CancellationToken cancellationToken)
     {
-        MessageBody[] bodies;
         byte[]? index;
         ulong[] released;
         long snapshotChangeCount;
         lock (storeLock)
         {
-            // Unchanged since the last write: the index written then names none of the released
-            // files, and every held body was written before it.
-            bodies = [.. unwrittenBodies];
+            // Unchanged since the last write: the index written then names none of the released files.
             index = changeCount == savedChangeCount ? null : MailStoreIndex.Encode(nextFileNumber, lastUidValidity, owners.Values);
             released = [.. releasedFileNumbers];
             snapshotChangeCount = changeCount;
-        }
-
-        foreach (var body in bodies)
-        {
-            await files.WriteMessageAsync(body.FileNumber, body.Bytes!, cancellationToken);
-            MarkWritten(body);
         }
 
         if (index is not null)
@@ -1038,24 +987,6 @@ public sealed class MailboxStore
         }
 
         DeleteMessageFiles(files, released);
-    }
-
-    /// <summary>
-    /// Lets go of a held body's bytes once its message file is written: from then on they are
-    /// read from the file.
-    /// </summary>
-    private void MarkWritten(MessageBody body)
-    {
-        lock (storeLock)
-        {
-            // Released while it was being written: its file goes once an index no longer names it.
-            if (!unwrittenBodies.Remove(body))
-            {
-                releasedFileNumbers.Add(body.FileNumber);
-            }
-
-            body.Bytes = null;
-        }
     }
 
     /// <summary>
@@ -1196,22 +1127,6 @@ public sealed class MailboxStore
     }
 
     /// <summary>
-    /// Holds a message given whole under the next message file number; with a data directory
-    /// its message file is written by the next save.
-    /// </summary>
-    private MessageBody HoldBody(ReadOnlySpan<byte> message)
-    {
-        totalMessageBytes += message.Length;
-        var body = new MessageBody(nextFileNumber++, message.Length, message.ToArray());
-        if (files is not null)
-        {
-            unwrittenBodies.Add(body);
-        }
-
-        return body;
-    }
-
-    /// <summary>
     /// Keeps a closed pending message's bytes under the next message file number: its pending
     /// file renamed to it, or its bytes taken from memory.
     /// </summary>
@@ -1239,9 +1154,9 @@ public sealed class MailboxStore
             return;
         }
 
-        // Bytes held and never written are never written; bytes held by a store without files have no file.
+        // Bytes held by a store without files have no file.
         totalMessageBytes -= body.Length;
-        if (!unwrittenBodies.Remove(body) && body.Bytes is null)
+        if (body.Bytes is null)
         {
             releasedFileNumbers.Add(body.FileNumber);
         }

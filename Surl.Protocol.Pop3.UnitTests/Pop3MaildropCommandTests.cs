@@ -200,7 +200,10 @@ public sealed class Pop3MaildropCommandTests
 
     private static async Task<MailboxStore> PersistedStoreAsync(TimeProvider clock, Exception writeFailure)
     {
-        var store = await MailboxStore.LoadAsync(new MailStoreFiles(new UnitTestUnwritableContentFileSystem(writeFailure), "state"), ["u"], allowAnonymous: false, clock);
-        return Seed(store, "u@x", [Message]);
+        var fileSystem = new UnitTestWriteFailingContentFileSystem(writeFailure);
+        var store = await MailboxStore.LoadAsync(new MailStoreFiles(fileSystem, "state"), ["u"], allowAnonymous: false, clock);
+        Seed(store, "u@x", [Message]);
+        fileSystem.FailsWrites = true;
+        return store;
     }
 }

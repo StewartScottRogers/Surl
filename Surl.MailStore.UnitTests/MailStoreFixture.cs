@@ -17,7 +17,17 @@ internal static class MailStoreFixture
     }
 
     public static MailStoreOutcome Deliver(MailboxStore store, string message, params string[] paths) =>
-        store.Deliver([.. paths.Select(path => Recipient(store, path))], Encoding.ASCII.GetBytes(message));
+        store.Deliver([.. paths.Select(path => Recipient(store, path))], Pending(store, Encoding.ASCII.GetBytes(message)));
+
+    /// <summary>
+    /// A pending message of <paramref name="store"/> holding <paramref name="message"/>, ready to hand over.
+    /// </summary>
+    public static PendingMessage Pending(MailboxStore store, ReadOnlySpan<byte> message)
+    {
+        var pending = store.CreatePendingMessage();
+        pending.Body.Write(message);
+        return pending;
+    }
 
     public static string Fetch(MailboxStore store, MailView view, string mailboxName, uint uid)
     {

@@ -182,13 +182,6 @@ public sealed class MailStoreFiles
     internal Task WriteIndexAsync(byte[] bytes, CancellationToken cancellationToken) =>
         WriteReplacingAsync(StateFolderPath, TemporaryIndexPrefix, IndexPath, bytes, cancellationToken);
 
-    /// <summary>
-    /// Writes one message file from bytes held in memory, through a pending file renamed into
-    /// place; a file already at its number, left by a crash, is replaced.
-    /// </summary>
-    internal Task WriteMessageAsync(ulong fileNumber, byte[] bytes, CancellationToken cancellationToken) =>
-        WriteReplacingAsync(MessagesFolderPath, PendingMessagePrefix, MessageFilePath(fileNumber), bytes, cancellationToken);
-
     private async Task WriteReplacingAsync(string folderPath, string temporaryPrefix, string destinationPath, byte[] bytes, CancellationToken cancellationToken)
     {
         fileSystem.CreateDirectory(folderPath);

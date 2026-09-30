@@ -36,23 +36,6 @@ public sealed class MailboxStoreMessageTests
     }
 
     [TestMethod]
-    public void Deliver_NoRecipients_StoresNothing()
-    {
-        var store = NewStore("alice");
-
-        Assert.AreEqual(MailStoreOutcome.Succeeded, store.Deliver([], "m"u8));
-
-        Assert.AreEqual(0, Read(store, store.ViewFor("alice"), "INBOX").Messages.Count);
-        Assert.AreEqual(0, store.ChangeCount);
-    }
-
-    [TestMethod]
-    public void Deliver_NullRecipients_Throws()
-    {
-        Assert.ThrowsExactly<ArgumentNullException>(() => NewStore().Deliver(null!, "m"u8));
-    }
-
-    [TestMethod]
     public void Append_ToANamedMailbox_StoresWithTheGivenFlagsAndDate()
     {
         var store = NewStore("alice");
@@ -432,7 +415,7 @@ public sealed class MailboxStoreMessageTests
         var store = NewStore("alice", "bob");
         var recipients = new[] { Recipient(store, "<alice@x>"), Recipient(store, "<bob@x>") };
 
-        Parallel.For(0, 400, index => store.Deliver(recipients, Encoding.ASCII.GetBytes($"message {index}")));
+        Parallel.For(0, 400, index => store.Deliver(recipients, Pending(store, Encoding.ASCII.GetBytes($"message {index}"))));
 
         foreach (var name in new[] { "alice", "bob" })
         {

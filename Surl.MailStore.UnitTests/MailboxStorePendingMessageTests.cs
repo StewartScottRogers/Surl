@@ -302,7 +302,7 @@ public sealed class MailboxStorePendingMessageTests
     {
         var store = MailStoreFixture.NewStore("al");
         var bytes = "original"u8.ToArray();
-        Assert.AreEqual(MailStoreOutcome.Succeeded, store.Deliver([MailStoreFixture.Recipient(store, "al@x")], bytes));
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.Deliver([MailStoreFixture.Recipient(store, "al@x")], MailStoreFixture.Pending(store, bytes)));
 
         bytes[0] = (byte)'X';
 

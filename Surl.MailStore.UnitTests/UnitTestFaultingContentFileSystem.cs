@@ -38,12 +38,6 @@ internal sealed class UnitTestFaultingContentFileSystem : IContentFileSystem
     /// </summary>
     public string? FailDeletesOf { get; set; }
 
-    /// <summary>
-    /// Runs with the destination before every rename, as another session acting mid-write does;
-    /// <see langword="null"/> for nothing.
-    /// </summary>
-    public Action<string>? BeforeMoveTo { get; set; }
-
     public Exception Failure { get; set; } = new IOException("The disk failed.");
 
     public ContentEntryKind GetEntryKind(string path) => Files.GetEntryKind(path);
@@ -83,7 +77,6 @@ internal sealed class UnitTestFaultingContentFileSystem : IContentFileSystem
 
     public void MoveFileReplacing(string source, string destination)
     {
-        BeforeMoveTo?.Invoke(destination);
         if (Fails(FailMovesTo, destination))
         {
             throw Failure;

@@ -59,7 +59,9 @@ internal static class Pop3TestExchange
         Assert.AreEqual(MailRecipientLookup.Deliverable, store.LookUpRecipient(recipientPath, out var recipient));
         foreach (var message in messages)
         {
-            Assert.AreEqual(MailStoreOutcome.Succeeded, store.Deliver([recipient!], Encoding.ASCII.GetBytes(message)));
+            var pending = store.CreatePendingMessage();
+            pending.Body.Write(Encoding.ASCII.GetBytes(message));
+            Assert.AreEqual(MailStoreOutcome.Succeeded, store.Deliver([recipient!], pending));
         }
 
         return store;

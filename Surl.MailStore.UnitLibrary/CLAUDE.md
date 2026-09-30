@@ -34,11 +34,10 @@ refuse it, and refuse a pending file that cannot be created, written, closed or 
 `Body` never throws for a failing file, so a server can read the rest of the body off the
 wire. With a data directory a message's bytes are read from its file on fetch
 (`OpenMessage`, `FetchMessage`, `MaildropLock.OpenMessage` and `ReadMessage`), never loaded
-at start; a POP3 maildrop lock pins its messages' files until it is released. The overloads
-taking a whole message as bytes stay for the servers not yet streaming (today the SMTP server, which
-delivers `DATA` as bytes; IMAP `APPEND` streams): `Append` routes them
-through a pending message, and `Deliver` holds them in memory until the next save writes their
-file (BL-191's shape, so the SMTP server's outcomes do not change under it).
+at start; a POP3 maildrop lock pins its messages' files until it is released. `Deliver` takes
+only a `PendingMessage` (BL-278): SMTP streams `DATA` and IMAP streams `APPEND`, so a store
+with files never holds a delivered message's bytes in memory waiting for a save. The `Append`
+overload taking a whole message as bytes routes it through a pending message.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,
