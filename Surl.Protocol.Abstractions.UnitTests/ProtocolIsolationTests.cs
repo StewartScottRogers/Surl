@@ -21,11 +21,12 @@ public sealed class ProtocolIsolationTests
     private const string Ed25519 = "Surl.Cryptography.Ed25519.UnitLibrary";
     private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
     private const string Rc4 = "Surl.Cryptography.Rc4.UnitLibrary";
+    private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
 
     /// <summary>
-    /// ADR-0002's table, with the rows ADR-0048, ADR-0050 and ADR-0051 add: each horizontal
+    /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051 and ADR-0057 add: each horizontal
     /// library a protocol server may reference, with the projects that library may itself
     /// reference.
     /// </summary>
@@ -39,6 +40,7 @@ public sealed class ProtocolIsolationTests
         [Ed25519] = [Curve25519],
         [Poly1305] = [],
         [Rc4] = [],
+        [Kerberos] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
     };
@@ -93,6 +95,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Ed25519)]
     [DataRow(Poly1305)]
     [DataRow(Rc4)]
+    [DataRow(Kerberos)]
     [DataRow(LineProtocol)]
     [DataRow(MailStore)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)
@@ -137,6 +140,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(Curve25519, Ed25519)]
     [DataRow(ChaCha20, Poly1305)]
     [DataRow(Poly1305, ChaCha20)]
+    [DataRow(Kerberos, Cryptography)]
+    [DataRow(Kerberos, Abstractions)]
     [DataRow(Ed25519, Cryptography)]
     [DataRow(LineProtocol, Content)]
     [DataRow(LineProtocol, MailStore)]

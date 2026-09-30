@@ -81,6 +81,8 @@
   <Project Path="Surl.Cryptography.Rc4.UnitTests/Surl.Cryptography.Rc4.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.UnitTests/Surl.Cryptography.UnitTests.csproj" />
+  <Project Path="Surl.Kerberos.UnitLibrary/Surl.Kerberos.UnitLibrary.csproj" />
+  <Project Path="Surl.Kerberos.UnitTests/Surl.Kerberos.UnitTests.csproj" />
   <Project Path="Surl.LineProtocol.UnitLibrary/Surl.LineProtocol.UnitLibrary.csproj" />
   <Project Path="Surl.LineProtocol.UnitTests/Surl.LineProtocol.UnitTests.csproj" />
   <Project Path="Surl.MailStore.UnitLibrary/Surl.MailStore.UnitLibrary.csproj" />
