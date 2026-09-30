@@ -83,3 +83,4 @@ measurement contradicts. FR-039, FR-040 and FR-042 agree with both ADRs.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
