@@ -196,7 +196,7 @@ internal static class AuthenticationComposition
         new(
             settings,
             [
-                new NegotiateAuthenticationMethod(settings.Accounts),
+                new NegotiateAuthenticationMethod(settings.Accounts, settings.KerberosAcceptor, settings.AllowAnonymous),
                 new NtlmAuthenticationMethod(settings.Accounts),
                 new BasicAuthenticationMethod(settings.Accounts),
                 new BearerAuthenticationMethod(settings.Accounts),

@@ -38,12 +38,12 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var authorization = HttpAuthorization.Find(request.Fields);
         if (policy.Settings.AllowAnonymous)
         {
-            return ValueTask.FromResult(ProceedAnonymously);
+            return JudgeAnonymously(authorization, request, cancellationToken);
         }
 
-        var authorization = HttpAuthorization.Find(request.Fields);
         if (authorization is not null && SendsRefusedPlaintextSecret(authorization.Method))
         {
             return ValueTask.FromResult(Forbidden);
@@ -53,6 +53,18 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
             ? VerifyAsync(verifier, authorization, request, cancellationToken)
             : ValueTask.FromResult(JudgeWithoutCredentials(request));
     }
+
+    // Under --allow-anonymous every request is served unchecked (ADR-0032 section 1), except a
+    // Negotiate token once --keytab gave a Kerberos acceptor: a Kerberos ticket must still decrypt,
+    // since the final token needs its session key; only its account match is skipped (ADR-0057
+    // decision 8). The Negotiate verifier answers every other token AcceptedUnchecked.
+    private ValueTask<HttpAuthenticationVerdict> JudgeAnonymously(
+        HttpAuthorization? authorization, HttpAuthenticationRequest request, CancellationToken cancellationToken) =>
+        authorization is { Method: AuthenticationMethod.Negotiate }
+            && policy.Settings.KerberosAcceptor is not null
+            && verifiers.TryGetValue(authorization.Method, out var verifier)
+            ? VerifyAsync(verifier, authorization, request, cancellationToken)
+            : ValueTask.FromResult(ProceedAnonymously);
 
     private bool SendsRefusedPlaintextSecret(AuthenticationMethod method) =>
         AuthenticationMethods.SendsPlaintextSecret(method) && !policy.OffersPlaintextSecrets(isEncrypted);
@@ -99,6 +111,8 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         {
             case HttpCredentialOutcome.Accepted:
                 return ValueTask.FromResult(Accepted(check, method));
+            case HttpCredentialOutcome.AcceptedUnchecked:
+                return ValueTask.FromResult(new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, check.WwwAuthenticateValues, null));
             case HttpCredentialOutcome.Continue when check.WwwAuthenticateValues.Count > 0:
                 return ValueTask.FromResult(new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Challenge, check.WwwAuthenticateValues, null));
             case HttpCredentialOutcome.AwaitingBody when check.CheckBody is not null:

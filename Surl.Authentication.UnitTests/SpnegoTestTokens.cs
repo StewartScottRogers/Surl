@@ -21,7 +21,11 @@ internal static class SpnegoTestTokens
     /// <c>mechListMIC</c> when asked for, as a client may send them.
     /// </summary>
     public static byte[] NegTokenInit(
-        string[] mechTypes, byte[]? mechToken, bool withReqFlags = false, bool withMechListMic = false)
+        string[] mechTypes,
+        byte[]? mechToken,
+        bool withReqFlags = false,
+        bool withMechListMic = false,
+        byte[]? mechListMic = null)
     {
         var writer = new AsnWriter(AsnEncodingRules.DER);
         using (writer.PushSequence(new Asn1Tag(TagClass.Application, 0, isConstructed: true)))
@@ -46,7 +50,24 @@ internal static class SpnegoTestTokens
                 }
 
                 WriteOctetStringField(writer, 2, mechToken);
-                WriteOctetStringField(writer, 3, withMechListMic ? [1, 2, 3] : null);
+                WriteOctetStringField(writer, 3, mechListMic ?? (withMechListMic ? [1, 2, 3] : null));
+            }
+        }
+
+        return writer.Encode();
+    }
+
+    /// <summary>
+    /// The DER of a <c>MechTypeList</c>, which a <c>mechListMIC</c> is taken over (RFC 4178 section 5).
+    /// </summary>
+    public static byte[] MechTypesDer(string[] mechTypes)
+    {
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        using (writer.PushSequence())
+        {
+            foreach (var mechType in mechTypes)
+            {
+                writer.WriteObjectIdentifier(mechType);
             }
         }
 

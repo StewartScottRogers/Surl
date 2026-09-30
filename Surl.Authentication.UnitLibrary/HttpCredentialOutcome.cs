@@ -29,4 +29,12 @@ public enum HttpCredentialOutcome
     /// as <see cref="Accepted"/> or <see cref="Refused"/>.
     /// </summary>
     AwaitingBody,
+
+    /// <summary>
+    /// Under <c>--allow-anonymous</c>, the request is served unchecked and with no login note,
+    /// sending <see cref="HttpCredentialCheck.WwwAuthenticateValues"/>: Negotiate's answer to a
+    /// Kerberos ticket that decrypted, whatever account it names, and to every other token
+    /// (ADR-0057 decision 8).
+    /// </summary>
+    AcceptedUnchecked,
 }

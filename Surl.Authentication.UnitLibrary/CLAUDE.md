@@ -10,10 +10,9 @@ MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`
 `OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`, `GSSAPI`, which checks a Kerberos ticket with the
 `--keytab` acceptor and is offered first (ADR-0057 decisions 9 and 10), and `EXTERNAL`, which logs in as the
 verified TLS client certificate's subject simple name and is offered only on a connection that
-has one) and POP3 `APOP` (ADR-0049), and SSH password and public-key logins (ADR-0051). Not here yet:
-Kerberos inside Negotiate (ADR-0032 decision 11, ADR-0057 decision 8, BL-241, later
-work, built by hand), `Proxy-Authenticate`, and the logins of servers not yet
-built (FTP, SMB, LDAP). Anything time-dependent (the
+has one) and POP3 `APOP` (ADR-0049), SSH password and public-key logins (ADR-0051), and
+Kerberos inside Negotiate once `--keytab` is given (ADR-0057 decision 8, ADR-0063). Not here
+yet: `Proxy-Authenticate`, and the logins of servers not yet built (FTP, SMB, LDAP). Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.
 
@@ -21,7 +20,7 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary`, and
 `Surl.Cryptography.UnitLibrary` for MD4 and SHA-512/256 (ADR-0032 decision 7), and
 `Surl.Kerberos.UnitLibrary` for the Kerberos acceptor (ADR-0057 decision 6), and no
 protocol server. `AuthenticationSettings.KerberosAcceptor` carries the acceptor `Surl.Console`
-builds from `--keytab` (`null` without one, BL-240); SASL `GSSAPI` (`GssapiSaslExchange`) is offered and run only when it is set. Protocol servers receive what it provides through the contracts in
+builds from `--keytab` (`null` without one, BL-240); SASL `GSSAPI` (`GssapiSaslExchange`) is offered and run only when it is set, and Negotiate carries Kerberos only when `Surl.Console` hands it to `NegotiateAuthenticationMethod`. Protocol servers receive what it provides through the contracts in
 Abstractions (`IAuthenticationPolicy`, `IMailAuthenticationPolicy`, `ISshAuthenticationPolicy`); `Surl.Console`'s `AuthenticationComposition`
 builds the policy from the command line.
 
@@ -132,13 +131,34 @@ builds the policy from the command line.
   served with `Negotiate oQcwBaADCgEA` (`accept-completed`). No `mechListMIC` is read or sent.
 - `SpnegoToken` reads and writes the RFC 4178 tokens with `System.Formats.Asn1` (DER), into
   `SpnegoNegTokenInit` and `SpnegoNegState`; malformed DER reads as `null`, never an exception.
-- A `NegTokenInit` offering no NTLM, a bare Kerberos token, a `negTokenResp` out of turn and
-  malformed DER are refused. **Kerberos inside Negotiate is later work** (ADR-0032 decision 11),
-  built by hand, not a package.
+- Without a Kerberos acceptor, a `NegTokenInit` offering no NTLM, a bare Kerberos token, a
+  `negTokenResp` out of turn and malformed DER are refused.
 - The pinned Windows reference build sent no Negotiate token on the lane machine
   (`SEC_E_NO_CREDENTIALS`, `Fixtures/negotiate-no-token`), so the tests wrap the NTLM messages
   recorded for BL-120 in SPNEGO (`SpnegoTestTokens`). `surl` composes Negotiate, and the
   end-to-end proof uses the unpatched 8.21.0 Windows build (ADR-0042, BL-134).
+
+## Negotiate, carrying Kerberos (BL-241)
+
+- Given `--keytab`'s `KerberosAcceptor` (the constructor
+  `NegotiateAuthenticationMethod(accounts, kerberosAcceptor, allowAnonymous)`), the verifier hands
+  every `InitialContextToken` that is not SPNEGO, and every `NegTokenInit` whose first supported
+  mechanism is Kerberos (either OID), to `NegotiateKerberosLogin`: one leg, service `HTTP`
+  (ADR-0057 decisions 2 and 8). Kerberos must be listed first with its AP-REQ as the optimistic
+  token; otherwise the token is refused, with no NTLM fallback (ADR-0063). NTLM listed first runs
+  as ADR-0040 decides. The same AP-REQ read on another connection is a replay.
+- An accepted ticket is the account named exactly as the client principal's display form
+  (`user@EXAMPLE.COM`), served with `negTokenResp { accept-completed, supportedMech <the client's
+  OID>, responseToken <AP-REP> when mutual-required, mechListMIC <surl's> when the client sent
+  one }`; a bare token gets the bare AP-REP token when mutual-required, else no final token. A
+  client `mechListMIC` is checked over `SpnegoNegTokenInit.MechTypesDer` (key usage 25).
+- `UserAsSent` is the principal once the ticket decrypted (no account, a bad MIC), and `null`
+  before. Under `--allow-anonymous` the ticket must still decrypt; it and every other Negotiate
+  token are `HttpCredentialOutcome.AcceptedUnchecked`, served with no login note
+  (`HttpAuthenticationSession` reads a Negotiate `Authorization` under `--allow-anonymous` only
+  when a Kerberos acceptor is set, ADR-0063).
+- The tests (`NegotiateKerberosTests`) replay AP-REQs made by hand by `Surl.Kerberos.UnitTests`'
+  `ApRequestBuilder` and `InitiatorTokens`, linked into the test project.
 
 ## AWS Signature Version 4 (BL-122)
 
