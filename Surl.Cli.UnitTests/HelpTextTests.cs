@@ -189,6 +189,8 @@ public sealed class HelpTextTests
             Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
             Row(38, "-S, --show-error", "Show error even when -s is used"),
             Row(38, "-s, --silent", "Silent mode"),
+            Row(38, "    --ssh-ciphers <names>", "Offer only these SSH ciphers"),
+            Row(38, "    --ssh-macs <names>", "Offer only these SSH MACs"),
             Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
             Row(38, "    --tls-max <version>", "Highest TLS version accepted"),
             Row(38, "    --tlsv1.0", "Accept TLS 1.0 or later"),
@@ -588,6 +590,8 @@ public sealed class HelpTextTests
             Row(37, "    --max-message <bytes>", "Largest framed message accepted"),
             Row(37, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
             Row(37, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(37, "    --ssh-ciphers <names>", "Offer only these SSH ciphers"),
+            Row(37, "    --ssh-macs <names>", "Offer only these SSH MACs"),
             Row(37, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
             Row(37, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(37, "    --user-file <file>", "Read accounts from a file"));

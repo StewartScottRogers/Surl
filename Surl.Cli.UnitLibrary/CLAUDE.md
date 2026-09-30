@@ -32,7 +32,9 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   to `HostKeyFiles` and `HostCertificateFiles`; `--authorized-keys <user:file>` adds a
   `CommandLineAuthorizedKeys` to `AuthorizedKeys`, split at the first `:`, a user given twice
   refused after the whole line is read; `--throwaway-hostkey` (`ThrowawayHostKey`) with
-  `--hostkey` is refused; `--allow-weak-ssh-algorithms` sets `AllowWeakSshAlgorithms`. `--pass`
+  `--hostkey` is refused; `--allow-weak-ssh-algorithms` sets `AllowWeakSshAlgorithms`;
+  `--ssh-ciphers` and `--ssh-macs` set `SshCiphers` and `SshMacs` to their comma-separated names,
+  kept as given (`OptionArgumentReader.SshAlgorithmNames`, ADR-0066), which `Surl.Console` checks. `--pass`
   without `--cert` is accepted when a `--hostkey` is given. Each is in the `ssh` help category
   (`SSH protocol`, schemes `scp` and `sftp`, ADR-0051 decision 12), with every option the SSH
   server reads. `Surl.Console` reads the files, serves `--allow-weak-ssh-algorithms` (BL-250), and still

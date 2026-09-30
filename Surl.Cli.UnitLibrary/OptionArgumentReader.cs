@@ -153,6 +153,12 @@ internal static class OptionArgumentReader
             "word list",
             "comma-separated, in any case, no empty item: " + string.Join(", ", AuthenticationMethodWords)));
 
+    /// <summary><see cref="ReadSshAlgorithmNames"/> and its argument type (ADR-0046 decision 5, ADR-0066).</summary>
+    public static readonly OptionArgumentReading<IReadOnlyList<string>> SshAlgorithmNames =
+        new(ReadSshAlgorithmNames, new(
+            "name list",
+            "comma-separated SSH algorithm names, exact case, no empty item; each one surl offers, a weak one only with --allow-weak-ssh-algorithms (see surl --aihelp ssh)"));
+
     /// <summary>Reads <c>&lt;seconds&gt;</c>: digits, optionally <c>.</c> and more digits, at most 2147483.647.</summary>
     /// <param name="argument">The argument as given.</param>
     /// <param name="value">The duration, rounded up to whole ticks; <see cref="Timeout.InfiniteTimeSpan"/> for 0.</param>
@@ -326,6 +332,26 @@ internal static class OptionArgumentReader
 
         value = [.. AuthenticationMethodWords.Where((_, index) => named[index])];
         return null;
+    }
+
+    /// <summary>
+    /// Reads an <c>--ssh-ciphers</c> or <c>--ssh-macs</c> name list (ADR-0066): comma-separated
+    /// names kept as given, in the order given; an empty argument is blank and an empty item is
+    /// refused. Whether surl offers each name is <c>Surl.Console</c>'s to check.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The names, as given.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadSshAlgorithmNames(string argument, out IReadOnlyList<string> value)
+    {
+        var names = argument.Split(',');
+        value = names;
+        if (argument.Length == 0)
+        {
+            return Blank;
+        }
+
+        return names.Contains(string.Empty) ? BadlyUsed : null;
     }
 
     private static int IndexOfAuthenticationMethodWord(string item)

@@ -220,6 +220,18 @@ public sealed record SurlCommandLine
     /// </summary>
     public bool AllowWeakSshAlgorithms { get; init; }
 
+    /// <summary>
+    /// The SSH cipher names of the last <c>--ssh-ciphers</c>, as given and in the order given, the
+    /// only ciphers the SSH server offers (ADR-0066); <see langword="null"/> when it was not given.
+    /// </summary>
+    public IReadOnlyList<string>? SshCiphers { get; init; }
+
+    /// <summary>
+    /// The SSH MAC names of the last <c>--ssh-macs</c>, as given and in the order given, the only
+    /// MACs the SSH server offers (ADR-0066); <see langword="null"/> when it was not given.
+    /// </summary>
+    public IReadOnlyList<string>? SshMacs { get; init; }
+
     /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
     private static readonly IReadOnlyList<string> DefaultAuthenticationMethods =
         ["digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4"];

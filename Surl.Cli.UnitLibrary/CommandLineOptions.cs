@@ -174,6 +174,10 @@ internal static class CommandLineOptions
             new("<user:file>", "SSH public keys a user may use", ["auth", "ssh"], IsInShortList: false, Default: "none")),
         Flag("allow-weak-ssh-algorithms", null, negatable: true, (c, on) => c with { AllowWeakSshAlgorithms = on },
             new(null, "Offer weak SSH algorithms (warns)", ["security", "ssh"], IsInShortList: false, Default: "off")),
+        WithArgument<IReadOnlyList<string>>("ssh-ciphers", null, OptionArgumentReader.SshAlgorithmNames, (c, v) => c with { SshCiphers = v },
+            new("<names>", "Offer only these SSH ciphers", ["ssh"], IsInShortList: false, Default: "every cipher offered")),
+        WithArgument<IReadOnlyList<string>>("ssh-macs", null, OptionArgumentReader.SshAlgorithmNames, (c, v) => c with { SshMacs = v },
+            new("<names>", "Offer only these SSH MACs", ["ssh"], IsInShortList: false, Default: "every MAC offered")),
     ];
 #pragma warning restore SYSLIB0039
 

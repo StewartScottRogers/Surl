@@ -576,6 +576,8 @@ public sealed partial class AiHelpTextTests
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
             "surl: (2) --hostcert is not available in this build",
+            "surl: (2) --ssh-ciphers: surl does not offer the SSH cipher <name>",
+            "surl: (2) --ssh-ciphers: <name> needs --allow-weak-ssh-algorithms",
             "surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman SSH algorithms are offered",
             "surl: (37) Could not read authorized keys <file>",
             "surl: (37) Could not read keytab <file>",

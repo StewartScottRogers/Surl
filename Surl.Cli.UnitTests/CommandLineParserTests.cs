@@ -1153,6 +1153,30 @@ public sealed class CommandLineParserTests
         Assert.IsFalse(defaults.ThrowawayHostKey);
         Assert.IsEmpty(defaults.AuthorizedKeys);
         Assert.IsFalse(defaults.AllowWeakSshAlgorithms);
+        Assert.IsNull(defaults.SshCiphers);
+        Assert.IsNull(defaults.SshMacs);
+    }
+
+    [TestMethod]
+    public void Parse_SshCiphersAndSshMacs_KeepTheLastListsNamesAsGivenInOrder()
+    {
+        var commandLine = Served("--ssh-ciphers", "aes256-ctr", "--ssh-ciphers", "cast128-cbc,Blowfish-cbc,cast128-cbc", Url, "--ssh-macs=hmac-ripemd160,hmac-sha1");
+
+        CollectionAssert.AreEqual(new[] { "cast128-cbc", "Blowfish-cbc", "cast128-cbc" }, commandLine.SshCiphers!.ToArray());
+        CollectionAssert.AreEqual(new[] { "hmac-ripemd160", "hmac-sha1" }, commandLine.SshMacs!.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("--ssh-ciphers")]
+    [DataRow("--ssh-macs")]
+    public void Parse_SshAlgorithmListRefused_IsRefusedWithItsReason(string name)
+    {
+        AssertOptionRefused([name, "", Url], $"option {name}: blank argument where content is expected");
+        AssertOptionRefused([name, "aes256-ctr,", Url], $"option {name}: is badly used here");
+        AssertOptionRefused([name, ",aes256-ctr", Url], $"option {name}: is badly used here");
+        AssertOptionRefused([name, "a,,b", Url], $"option {name}: is badly used here");
+        AssertOptionRefused([Url, name], $"option {name}: requires parameter");
+        AssertOptionRefused([$"--no-{name[2..]}", Url], $"option --no-{name[2..]}: the given option cannot be reversed with a --no- prefix");
     }
 
     [TestMethod]

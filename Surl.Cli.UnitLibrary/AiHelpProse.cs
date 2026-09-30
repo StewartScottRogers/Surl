@@ -173,6 +173,10 @@ internal static class AiHelpProse
             "curl checks the host key: with `-v`, surl writes `* Serving SSH host key <key type>, --hostpubsha256 <base64> --hostpubmd5 <hex>` for each key before the Listening on lines, and a test passes `--hostpubsha256 <base64>` to curl, or `-k` to skip the check.",
             "Every login needs an account unless `--allow-anonymous` is given: a password or keyboard-interactive login is checked against `--user` and `--user-file`, and a public-key login against `--authorized-keys` (see the auth topic). Six refused attempts end the connection.",
             "`--head-timeout` covers everything from the connection to the login, `--max-message` bounds one SSH packet, and `--max-filesize` one upload.",
+            "`--ssh-ciphers <names>` and `--ssh-macs <names>` narrow the offer to the comma-separated ciphers or MACs named, in the order named, as sshd's `Ciphers` and `MACs` do, so a test can make one algorithm the only one curl can agree to; the last one given wins. "
+            + "The ciphers are `chacha20-poly1305@openssh.com`, `aes256-gcm@openssh.com` and `aes128-gcm@openssh.com` (where the machine has AES-GCM), `aes256-ctr`, `aes192-ctr` and `aes128-ctr`, and with `--allow-weak-ssh-algorithms` also `aes256-cbc`, `rijndael-cbc@lysator.liu.se`, `aes192-cbc`, `aes128-cbc`, `3des-cbc`, `arcfour128`, `arcfour`, `blowfish-cbc` and `cast128-cbc`. "
+            + "The MACs are `hmac-sha2-256-etm@openssh.com`, `hmac-sha2-512-etm@openssh.com`, `hmac-sha2-256` and `hmac-sha2-512`, and with `--allow-weak-ssh-algorithms` also `hmac-sha1-etm@openssh.com`, `hmac-sha1`, `hmac-sha1-96`, `hmac-md5`, `hmac-md5-96`, `hmac-ripemd160` and `hmac-ripemd160@openssh.com`. "
+            + "Names are exact, in lower case as listed. Any other name writes `surl: (2) --ssh-ciphers: surl does not offer the SSH cipher <name>` (or `--ssh-macs: surl does not offer the SSH MAC <name>`), and a weak one without `--allow-weak-ssh-algorithms` writes `surl: (2) --ssh-ciphers: <name> needs --allow-weak-ssh-algorithms`; each exits 2.",
         ],
         ["surl"] =
         [
