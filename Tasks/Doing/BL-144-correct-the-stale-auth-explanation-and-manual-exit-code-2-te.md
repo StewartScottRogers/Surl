@@ -42,3 +42,4 @@ BL-138 rechecks every meaning against the code.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
