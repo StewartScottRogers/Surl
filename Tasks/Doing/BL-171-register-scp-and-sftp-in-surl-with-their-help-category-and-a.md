@@ -34,6 +34,10 @@ completed:
   `--serve-dot-files`, `--max-message`, `--max-filesize`, `--head-timeout`, `--user`,
   `--user-file`, `--allow-anonymous` and the SSH options), `AiHelpProse.cs`, `AiHelpExamples.cs`,
   `ManualText.cs`.
+- `--allow-weak-ssh-algorithms` (BL-221): pass `SurlCommandLine.AllowWeakSshAlgorithms` as
+  `SshAlgorithmOffer.Default`'s `allowWeakAlgorithms` (which also sets the offer's
+  `AllowsWeakAlgorithms`, so the server accepts `ssh-rsa`/`ssh-dss` user signatures and RSA user
+  keys under 2048 bits) and as `SshHostKeyFile.Read`'s `allowWeakAlgorithms`.
 - Keep this task to wiring; any server behaviour found wrong becomes a `Surl.Protocol.Ssh` task
   filed by `task-planner`.
 
