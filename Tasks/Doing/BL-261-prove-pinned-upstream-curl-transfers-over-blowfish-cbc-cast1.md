@@ -46,3 +46,4 @@ completes an SFTP transfer against `surl --allow-weak-ssh-algorithms` with each 
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
