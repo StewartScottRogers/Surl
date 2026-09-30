@@ -8,7 +8,7 @@ depends-on: [BL-145]
 touches: [Surl.Output.UnitLibrary, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Console, Surl.Console.UnitTests, Documentation/Wiki, Documentation/Planning/Decisions]
 requirement: none
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-146 — Align the plain-text authentication setting's name, the silent exchange log's doc comment and ADR-0028's factory name
 
@@ -58,25 +58,29 @@ This is a docs task: a rename and doc comments, no behaviour change. BL-145 chan
 
 ## Acceptance criteria
 
-- [ ] The `<summary>` of `SilentExchangeLog` in `Surl.Output.UnitLibrary/SilentExchangeLog.cs` no
+- [x] The `<summary>` of `SilentExchangeLog` in `Surl.Output.UnitLibrary/SilentExchangeLog.cs` no
       longer says "without -v"; it says it is the exchange log at the `none` log level
       (`LogLevel.None`), where every call writes nothing.
-- [ ] `grep -rnw "AllowPlaintextAuth" --include=*.cs .` (whole word, outside `bin/` and `obj/`)
+- [x] `grep -rnw "AllowPlaintextAuth" --include=*.cs .` (whole word, outside `bin/` and `obj/`)
       finds nothing: `AuthenticationSettings`'s parameter and its `<param>` are
       `AllowPlaintextAuthentication`, and `AuthenticationPolicy.cs` and
       `CommandLineRunnerAuthenticationTests.cs` use that name.
-- [ ] `Documentation/Wiki/Glossary.md` names the property the same way wherever it names it
+- [x] `Documentation/Wiki/Glossary.md` names the property the same way wherever it names it
       (`SurlCommandLine.AllowPlaintextAuthentication`, and `AuthenticationSettings.AllowPlaintextAuthentication`
       if a row names the settings), and no row names `AllowPlaintextAuth` as a member.
-- [ ] ADR-0028's Decision item 2 is unchanged, and the ADR carries a note dated 2026-09-29 (or the
+- [x] ADR-0028's Decision item 2 is unchanged, and the ADR carries a note dated 2026-09-29 (or the
       day the task runs) saying `VerboseExchangeLogFactory` was removed in BL-126 and the
       `#- * <text>` line is now written by `LevelledExchangeLogFactory.NoteOutsideExchange`.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"`
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"`
       passes; no test is added or removed, and no new test needs `TestCategory=Integration`.
 
 ## Notes
+
+- 2026-09-29: Renamed `AuthenticationSettings.AllowPlaintextAuth` to `AllowPlaintextAuthentication` (parameter, `<param>`, `AuthenticationPolicy.OffersPlaintextSecrets`, two assertions in `CommandLineRunnerAuthenticationTests`); every construction is positional, so no other file changed. The glossary already named only `SurlCommandLine.AllowPlaintextAuthentication` and no row names the settings member, so it needed no edit; `Surl.Cli.*` untouched.
+- 2026-09-29: ADR-0028 gets a closing `## Note (BL-146, 2026-09-29)` section rather than an edit to Decision item 2, since an ADR decision is history; the note also says the line is written at `info` and above, per `LevelledExchangeLogFactory.NoteOutsideExchange`.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. AuthenticationSettings.AllowPlaintextAuthentication matches SurlCommandLine, SilentExchangeLog's summary names the none level, ADR-0028 notes LevelledExchangeLogFactory
