@@ -85,3 +85,4 @@ ADR-0053 decision 6 say.
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-214 (Phase 3 mail documentation found SMTP diverging from ADR-0050 decision 7 and ADR-0053 decision 6).
+- 2026-09-30: Backlog -> Doing.
