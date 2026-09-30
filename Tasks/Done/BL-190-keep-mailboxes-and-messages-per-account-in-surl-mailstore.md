@@ -59,7 +59,7 @@ Choices, each within ADR-0050 and decided by Claude under Stewart's delegation:
 - **Type name `MailboxStore`, not `MailStore`:** inside namespace `Surl.MailStore`, a type
   `MailStore` is shadowed by the namespace for every caller in another `Surl.*` namespace.
   The ADR's constants exist with its values on `MailboxStore`. ADR-0050 could not be edited
-  here (BL-154 holds `Documentation/Planning/Decisions`), so BL-220 renames them in the ADR.
+  here (BL-154 holds `Documentation/Planning/Decisions`), so BL-225 renames them in the ADR.
 - **The store's own message bound** (`maxMessageBytes`, 0 = no limit, as
   `ExchangeLimits.MaxUploadBytes`) refuses with a new `MessageTooLarge` outcome rather than
   `StoreFull`, so a server can answer it as ADR-0006's too-large reply.

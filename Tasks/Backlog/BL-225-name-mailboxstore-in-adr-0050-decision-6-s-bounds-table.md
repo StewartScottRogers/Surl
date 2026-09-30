@@ -1,5 +1,5 @@
 ---
-id: BL-220
+id: BL-225
 title: Name MailboxStore in ADR-0050 decision 6's bounds table
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-29
 completed:
 ---
-# BL-220 — Name MailboxStore in ADR-0050 decision 6's bounds table
+# BL-225 — Name MailboxStore in ADR-0050 decision 6's bounds table
 
 ## Goal
 
