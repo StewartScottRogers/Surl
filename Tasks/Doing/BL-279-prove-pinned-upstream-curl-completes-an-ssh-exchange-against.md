@@ -49,3 +49,4 @@ An integration test in `Surl.Conformance.UnitTests` shows each upstream curl bui
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
