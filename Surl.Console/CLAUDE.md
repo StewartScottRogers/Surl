@@ -12,13 +12,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
   says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
   start whose `--auth` names `gssapi` without `--keytab` with `surl: (2) --auth gssapi needs
-  --keytab` (`KeytabComposition.IsGssapiWithoutKeytab`, ADR-0057 decision 1), then a
-  start that gives the SSH server option this build does not
-  serve yet (`FindUnavailableOption`: `--hostcert`) with
-  `surl: (2) --hostcert is not available in this build`, then an `--ssh-ciphers` or `--ssh-macs`
+  --keytab` (`KeytabComposition.IsGssapiWithoutKeytab`, ADR-0057 decision 1), then an `--ssh-ciphers` or `--ssh-macs`
   name surl cannot offer (`SshAlgorithmComposition.FindRefusal`: `surl: (2) --ssh-ciphers: surl
   does not offer the SSH cipher <name>`, or `<name> needs --allow-weak-ssh-algorithms`, ADR-0066), each with
-  exit 2 before anything else is checked (ADR-0051 decision 5, until BL-222), checks the
+  exit 2 before anything else is checked, checks the
   data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
@@ -43,7 +40,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`SshHostKeyComposition.Compose`, ADR-0051 decision 4): each `--hostkey` file read through
   the same seam and parsed by `SshHostKeyFile.Read` (37 unreadable, 2 with the parser's
   refusal or a second key of one type, naming the file), and with `--throwaway-hostkey` an RSA
-  3072-bit key made only when an `scp` or `sftp` URL is served; the
+  3072-bit key made only when an `scp` or `sftp` URL is served; then each `--hostcert` file
+  read the same way and parsed by `SshHostCertificate.Read` (37 unreadable, 2 when it is no host
+  certificate, certifies no key held, or repeats a certificate type, naming the file, ADR-0051
+  Amendment 2) and served for the key it certifies; the
   `--user` accounts and then the file's go into one `AccountBook`; each `--auth` word maps to
   its `AuthenticationMethod`, the SASL mechanism words (`digest-md5`, `cram-md5`, `apop`,
   `plain`, `login`, `oauthbearer`, `xoauth2`, `external`, and `ntlm` for both) included, ADR-0049

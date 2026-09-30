@@ -329,35 +329,6 @@ public sealed class CommandLineRunnerAuthenticationTests
 
     private static SurlCommandLine Parse(params string[] args) => CommandLineParser.Parse(args).CommandLine!;
 
-    // The SSH server option this build does not serve yet: --hostcert until BL-222.
-
-    [TestMethod]
-    [DataRow("--hostcert", new[] { "--hostcert", "host-cert.pub" })]
-    public async Task RunAsync_UnservedSshOption_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string option, string[] arguments)
-    {
-        var run = await RunRefusedAsync(_ => throw new AssertFailedException("the user file is not read"), [.. arguments, "--user-file", UserFile, Http]);
-
-        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
-        Assert.AreEqual($"surl: (2) {option} is not available in this build" + NewLine, run.Error);
-        Assert.IsEmpty(run.Factory.StartedListenUrls);
-    }
-
-    [TestMethod]
-    public async Task RunAsync_HostCertificateBesideServedSshOptions_IsStillRefused()
-    {
-        var run = await RunRefusedAsync(null, "--allow-weak-ssh-algorithms", "--authorized-keys", "a:k", "--hostcert", "c", Http);
-
-        Assert.AreEqual("surl: (2) --hostcert is not available in this build" + NewLine, run.Error);
-    }
-
-    [TestMethod]
-    public void FindUnavailableOption_NoUnservedSshOptionOrOnlyNegatedFlags_IsNull()
-    {
-        Assert.IsNull(CommandLineRunner.FindUnavailableOption(new SurlCommandLine()));
-        Assert.IsNull(CommandLineRunner.FindUnavailableOption(
-            CommandLineParser.Parse(["--no-throwaway-hostkey", "--no-allow-weak-ssh-algorithms", Http]).CommandLine!));
-    }
-
     // The SASL mechanism words (ADR-0049 section 3).
 
     [TestMethod]

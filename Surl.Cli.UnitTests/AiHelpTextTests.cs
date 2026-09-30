@@ -435,8 +435,8 @@ public sealed partial class AiHelpTextTests
             "| 1 | `UnsupportedProtocol` | A listen URL names a scheme this build does not serve "
                 + "| Run surl --version to list the schemes this build serves, and use one of them |",
             "| 2 | `FailedInit` | The command line cannot be used: an option or its argument refused, "
-                + "an option not available in this build, no listen URL, a malformed --user-file, --authorized-keys or --keytab file, "
-                + "a --keytab with no key surl can use, a --hostkey file surl cannot use, "
+                + "no listen URL, a malformed --user-file, --authorized-keys or --keytab file, "
+                + "a --keytab with no key surl can use, a --hostkey or --hostcert file surl cannot use, "
                 + "an scp or sftp listen URL with no host key, or a --cacert file that does not exist "
                 + "| Read the surl: line on stderr, which names what was refused, and fix it; "
                 + "the option tables give each option's allowed values |",
@@ -448,7 +448,7 @@ public sealed partial class AiHelpTextTests
                 + "or the trace file is the --log-file file "
                 + "| Make the data directory writable by the user surl runs as, or give a log or trace file that can be opened "
                 + "and is not the --log-file file |",
-            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab or --hostkey file, the MQTT retained-message file or the mail store "
+            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, the MQTT retained-message file or the mail store "
                 + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates none of them |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",
@@ -575,7 +575,10 @@ public sealed partial class AiHelpTextTests
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
-            "surl: (2) --hostcert is not available in this build",
+            "surl: (37) Could not read host certificate <file>",
+            "surl: (2) Host certificate <file>: not an OpenSSH host certificate",
+            "surl: (2) Host certificate <file>: certifies no --hostkey key",
+            "surl: (2) Host certificate <file>: a <type> host certificate is already given by <file>",
             "surl: (2) --ssh-ciphers: surl does not offer the SSH cipher <name>",
             "surl: (2) --ssh-ciphers: <name> needs --allow-weak-ssh-algorithms",
             "surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman SSH algorithms are offered",

@@ -7,7 +7,7 @@ namespace Surl.Console;
 
 /// <summary>
 /// The SSH server's composition (ADR-0051 decision 13, BL-171): <c>scp</c> and <c>sftp</c> listen
-/// URLs served by it, the <c>--hostkey</c> and <c>--authorized-keys</c> files read before any
+/// URLs served by it, the <c>--hostkey</c>, <c>--hostcert</c> and <c>--authorized-keys</c> files read before any
 /// listener binds with decisions 4 and 6's refusals, and the <c>--throwaway-hostkey</c> warning and
 /// host-key notes of decisions 8 and 11.
 /// </summary>
@@ -21,6 +21,8 @@ public sealed class CommandLineRunnerSshTests
     private const string Http = "http://127.0.0.1:0/";
 
     private const string HostKey = "host.key";
+
+    private const string HostCertificate = "host-cert.pub";
 
     private const string AliceKeys = "alice.keys";
 
@@ -132,6 +134,74 @@ public sealed class CommandLineRunnerSshTests
 
         Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
         Assert.AreEqual("surl: (2) Host key second.key: a ssh-rsa host key is already given by first.key" + NewLine, run.Error);
+        Assert.IsFalse(run.FactoryCreated);
+    }
+
+    // --hostcert (ADR-0051 decision 4, BL-222).
+
+    [TestMethod]
+    public async Task RunAsync_HostCertificateOfAHostKey_IsOfferedBeforeItsKeyInTheServersKexInit()
+    {
+        var connection = new FakeConnection("SSH-2.0-libssh2_1.11.1\r\n"u8.ToArray());
+        var factory = new FakeListenerFactory { Connection = connection };
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var running = CreateRunner(factory, Files((HostKey, TestSshCertificateFiles.Ed25519HostKey), (HostCertificate, TestSshCertificateFiles.Ed25519HostCertificate)))
+            .RunAsync(["--hostkey", HostKey, "--hostcert", HostCertificate, Sftp], output, error, stop.Token);
+        await connection.Disposed.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode, error.ToString());
+        Assert.DoesNotContain("Host certificate", error.ToString());
+        CollectionAssert.AreEqual(new[] { new ListenUrl("sftp", "127.0.0.1", 0) }, factory.StartedListenUrls);
+        StringAssert.Contains(
+            Encoding.Latin1.GetString(connection.WrittenBytes),
+            "\0\0\0\x2cssh-ed25519-cert-v01@openssh.com,ssh-ed25519\0");
+    }
+
+    [TestMethod]
+    [DataRow("missing", SurlExitCode.CouldNotReadFile, "(37) Could not read host certificate host-cert.pub", DisplayName = "Missing")]
+    [DataRow("denied", SurlExitCode.CouldNotReadFile, "(37) Could not read host certificate host-cert.pub", DisplayName = "Unreadable")]
+    [DataRow("not a certificate", SurlExitCode.FailedInit, "(2) Host certificate host-cert.pub: not an OpenSSH host certificate", DisplayName = "Not a certificate")]
+    [DataRow("user certificate", SurlExitCode.FailedInit, "(2) Host certificate host-cert.pub: not an OpenSSH host certificate", DisplayName = "A user certificate")]
+    [DataRow("another key's", SurlExitCode.FailedInit, "(2) Host certificate host-cert.pub: certifies no --hostkey key", DisplayName = "Another key's")]
+    public async Task RunAsync_HostCertificateFileSurlCannotUse_WritesItsRefusalAndReturnsItsExitCodeBeforeAnyListenerBinds(
+        string file, SurlExitCode exitCode, string message)
+    {
+        var run = await RunRefusedAsync(ReadHostCertificateAs(file), "--hostkey", HostKey, "--hostcert", HostCertificate, Sftp);
+
+        Assert.AreEqual(exitCode, run.ExitCode);
+        Assert.AreEqual("surl: " + message + NewLine, run.Error);
+        Assert.IsFalse(run.FactoryCreated);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_HostCertificateWithoutAnyHostKey_IsStillReadAndCertifiesNoHostKey()
+    {
+        var run = await RunRefusedAsync(Files((HostCertificate, TestSshCertificateFiles.Ed25519HostCertificate)), "--hostcert", HostCertificate, Http);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
+        Assert.AreEqual("surl: (2) Host certificate host-cert.pub: certifies no --hostkey key" + NewLine, run.Error);
+        Assert.IsFalse(run.FactoryCreated);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_TwoHostCertificatesOfOneType_NamesTheFileThatGaveTheFirst()
+    {
+        var run = await RunRefusedAsync(
+            Files(
+                (HostKey, TestSshCertificateFiles.Ed25519HostKey),
+                ("first-cert.pub", TestSshCertificateFiles.Ed25519HostCertificate),
+                ("second-cert.pub", TestSshCertificateFiles.Ed25519HostCertificate)),
+            "--hostkey", HostKey, "--hostcert", "first-cert.pub", "--hostcert", "second-cert.pub", Sftp);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
+        Assert.AreEqual(
+            "surl: (2) Host certificate second-cert.pub: a ssh-ed25519-cert-v01@openssh.com host certificate is already given by first-cert.pub" + NewLine,
+            run.Error);
         Assert.IsFalse(run.FactoryCreated);
     }
 
@@ -421,6 +491,15 @@ public sealed class CommandLineRunnerSshTests
         "encrypted openssh" => Files((HostKey, TestSshKeyFiles.EncryptedOpenSsh)),
         "rsa 1024" => Files((HostKey, TestSshKeyFiles.Rsa1024)),
         _ => Files((HostKey, TestSshKeyFiles.X25519)),
+    };
+
+    private static Func<string, byte[]> ReadHostCertificateAs(string file) => file switch
+    {
+        "missing" => Files((HostKey, TestSshCertificateFiles.Ed25519HostKey)),
+        "denied" => path => path == HostKey ? TestSshCertificateFiles.Ed25519HostKey : throw new UnauthorizedAccessException("denied"),
+        "not a certificate" => Files((HostKey, TestSshCertificateFiles.Ed25519HostKey), (HostCertificate, TestSshKeyFiles.NotAKey)),
+        "user certificate" => Files((HostKey, TestSshCertificateFiles.Ed25519HostKey), (HostCertificate, TestSshCertificateFiles.Ed25519UserCertificate)),
+        _ => Files((HostKey, TestSshCertificateFiles.Ed25519HostKey), (HostCertificate, TestSshCertificateFiles.OtherEcdsaP384HostCertificate)),
     };
 
     private static CommandLineRunner CreateRunner(FakeListenerFactory factory, Func<string, byte[]> readStartFile, Action? onFactoryCreated = null) =>

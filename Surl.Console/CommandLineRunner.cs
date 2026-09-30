@@ -497,42 +497,19 @@ internal sealed class CommandLineRunner(
     private DataDirectoryLockOutcome TakeDataDirectoryLockWhenGiven(SurlCommandLine commandLine) =>
         commandLine.DataDirectory is { } dataDirectory ? takeDataDirectoryLock(dataDirectory) : DataDirectoryLockOutcome.NoLock;
 
-    /// <summary>
-    /// The first option given that names something this build does not serve yet, in option-table
-    /// order: <c>--hostcert</c>, refused until the SSH server serves host
-    /// certificates (BL-222, ADR-0051 decision 5), after ADR-0032 section 1's precedent.
-    /// </summary>
-    /// <param name="commandLine">The parsed command line.</param>
-    /// <returns>The option as <c>--&lt;name&gt;</c>, or <see langword="null"/> when none is given.</returns>
-    internal static string? FindUnavailableOption(SurlCommandLine commandLine) =>
-        UnavailableOptions.FirstOrDefault(unavailable => unavailable.IsGiven(commandLine)).Option;
-
-    private static readonly (string Option, Func<SurlCommandLine, bool> IsGiven)[] UnavailableOptions =
-    [
-        ("--hostcert", commandLine => commandLine.HostCertificateFiles.Count > 0),
-    ];
-
-    // --auth gssapi without --keytab (ADR-0057, decision 1), then an option this build does not
-    // serve yet, then an --ssh-ciphers or --ssh-macs name surl cannot offer (ADR-0066), is refused
-    // before anything else is checked.
+    // --auth gssapi without --keytab (ADR-0057, decision 1), then an --ssh-ciphers or --ssh-macs
+    // name surl cannot offer (ADR-0066), is refused before anything else is checked.
     private Task<SurlExitCode> ServeAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
         FindOptionRefusal(commandLine) is { } refusal
             ? Task.FromResult(WriteFailure(error, SurlExitCode.FailedInit, refusal))
             : ServeAvailableAsync(commandLine, output, error, cancellationToken);
 
-    // The first refusal of the options' consistency or availability, after the surl: prefix.
-    private static string? FindOptionRefusal(SurlCommandLine commandLine)
-    {
-        if (KeytabComposition.IsGssapiWithoutKeytab(commandLine))
-        {
-            return "(2) --auth gssapi needs --keytab";
-        }
-
-        return FindUnavailableOption(commandLine) is { } unavailableOption
-            ? $"(2) {unavailableOption} is not available in this build"
+    // The first refusal of the options' consistency, after the surl: prefix.
+    private static string? FindOptionRefusal(SurlCommandLine commandLine) =>
+        KeytabComposition.IsGssapiWithoutKeytab(commandLine)
+            ? "(2) --auth gssapi needs --keytab"
             : SshAlgorithmComposition.FindRefusal(commandLine);
-    }
 
     private async Task<SurlExitCode> ServeAvailableAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken)
@@ -556,7 +533,7 @@ internal sealed class CommandLineRunner(
     }
 
     // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey
-    // files, are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
+    // and --hostcert files, are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
     // ADR-0051, decisions 4 and 6; ADR-0057, decision 1).
     private (ComposedAuthentication? Authentication, SurlExitCode ExitCode, string? FailureMessage) ComposeAuthentication(
         SurlCommandLine commandLine)

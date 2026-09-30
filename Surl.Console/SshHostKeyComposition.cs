@@ -9,7 +9,8 @@ namespace Surl.Console;
 /// <summary>
 /// The SSH server's host keys as the command line asks for them (ADR-0051, decision 4): every
 /// <c>--hostkey</c> file, read whenever one is given, and with <c>--throwaway-hostkey</c> a
-/// throwaway RSA 3072-bit key, made only when an <c>scp</c> or <c>sftp</c> listen URL is served.
+/// throwaway RSA 3072-bit key, made only when an <c>scp</c> or <c>sftp</c> listen URL is served;
+/// then every <c>--hostcert</c> file, each an OpenSSH host certificate for one of those keys.
 /// Each file is read before any listener binds, and a file that cannot be used ends the start
 /// with ADR-0051 decision 4's exit code and text.
 /// </summary>
@@ -57,8 +58,9 @@ internal sealed record SshHostKeyComposition(SshHostKeySet HostKeys, SshHostKey?
 
     /// <summary>
     /// Reads every <c>--hostkey</c> file through <paramref name="readFile"/>, in command-line
-    /// order, and makes the throwaway key when <c>--throwaway-hostkey</c> is given and an
-    /// <c>scp</c> or <c>sftp</c> listen URL is served.
+    /// order, makes the throwaway key when <c>--throwaway-hostkey</c> is given and an
+    /// <c>scp</c> or <c>sftp</c> listen URL is served, then reads every <c>--hostcert</c> file, in
+    /// command-line order, each served for the key it certifies.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="readFile">Reads a file's bytes, given its path as given.</param>
@@ -88,7 +90,63 @@ internal sealed record SshHostKeyComposition(SshHostKeySet HostKeys, SshHostKey?
             pathsByKey.Add(key, path);
         }
 
-        return (new SshHostKeyComposition(hostKeys, AddThrowawayHostKeyWhenAsked(commandLine, hostKeys)), SurlExitCode.Ok, null);
+        var throwawayHostKey = AddThrowawayHostKeyWhenAsked(commandLine, hostKeys);
+        return AddHostCertificates(commandLine, readFile, hostKeys) is { } failure
+            ? (null, failure.ExitCode, failure.Message)
+            : (new SshHostKeyComposition(hostKeys, throwawayHostKey), SurlExitCode.Ok, null);
+    }
+
+    // Each --hostcert file, in command-line order, served for the --hostkey key it certifies; the
+    // first that cannot be used ends the start (ADR-0051, decision 4).
+    private static (SurlExitCode ExitCode, string Message)? AddHostCertificates(
+        SurlCommandLine commandLine, Func<string, byte[]> readFile, SshHostKeySet hostKeys)
+    {
+        var pathsByCertificate = new Dictionary<SshHostCertificate, string>(ReferenceEqualityComparer.Instance);
+        foreach (var path in commandLine.HostCertificateFiles)
+        {
+            var (certificate, failure) = ReadHostCertificate(path, readFile, hostKeys);
+            if (certificate is null)
+            {
+                return failure;
+            }
+
+            if (!hostKeys.TryAdd(certificate, out var heldCertificate))
+            {
+                return (SurlExitCode.FailedInit,
+                    $"(2) Host certificate {path}: a {certificate.CertificateType} host certificate is already given by {pathsByCertificate[heldCertificate]}");
+            }
+
+            pathsByCertificate.Add(certificate, path);
+        }
+
+        return null;
+    }
+
+    // A file that cannot be read is 37; one that is no host certificate, or certifies no key held, 2.
+    private static (SshHostCertificate? Certificate, (SurlExitCode ExitCode, string Message)? Failure) ReadHostCertificate(
+        string path, Func<string, byte[]> readFile, SshHostKeySet hostKeys)
+    {
+        byte[] content;
+        try
+        {
+            content = readFile(path);
+        }
+        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+        {
+            return (null, (SurlExitCode.CouldNotReadFile, $"(37) Could not read host certificate {path}"));
+        }
+
+        var reading = SshHostCertificate.Read(content);
+        var refusal = reading.Certificate switch
+        {
+            null => reading.Refusal,
+            { } certificate when !hostKeys.HoldsKeyCertifiedBy(certificate) => SshHostCertificateRefusal.CertifiesNoHostKey,
+            _ => null,
+        };
+
+        return refusal is null
+            ? (reading.Certificate, null)
+            : (null, (SurlExitCode.FailedInit, $"(2) Host certificate {path}: {refusal.Text}"));
     }
 
     /// <summary>

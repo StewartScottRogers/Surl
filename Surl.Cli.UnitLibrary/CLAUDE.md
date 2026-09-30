@@ -37,8 +37,8 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   kept as given (`OptionArgumentReader.SshAlgorithmNames`, ADR-0066), which `Surl.Console` checks. `--pass`
   without `--cert` is accepted when a `--hostkey` is given. Each is in the `ssh` help category
   (`SSH protocol`, schemes `scp` and `sftp`, ADR-0051 decision 12), with every option the SSH
-  server reads. `Surl.Console` reads the files, serves `--allow-weak-ssh-algorithms` (BL-250), and still
-  refuses `--hostcert` (until BL-222) as not available in this build.
+  server reads. `Surl.Console` reads the files and serves every one of these options, `--hostcert`
+  included (BL-222).
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,
