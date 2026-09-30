@@ -52,3 +52,4 @@ engine, and `surl --help` and `--aihelp` list the `ftp` category and topic.
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-182-20260930-070942-L6.jsonl
