@@ -4,7 +4,7 @@ title: Check SASL GSSAPI logins in Surl.Authentication
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-217, BL-193, BL-197]
+depends-on: [BL-217, BL-193, BL-197, BL-240]
 touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Surl.Console.UnitTests]
 requirement: FR-046
 created: 2026-09-29
@@ -45,6 +45,17 @@ offered first in the mechanism list (ADR-0049 decision 2). `--auth gssapi` stops
   vectors and the command-line options. Read it first and use the library it names; do not
   re-decide any of it here. If that ADR files a Kerberos library task, this task's
   `depends-on` should already include it (BL-217 updates this file).
+- BL-217's ADR is
+  `Documentation/Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md`.
+  Its decision 9 decides the RFC 4752 `GSSAPI` exchange (initial token, AP-REP only when
+  `mutual-required` with an empty client answer, the wrapped 4-byte offer `01 00 00 00`, the
+  client's wrapped choice and authorization identity) and its decision 10 the account (the ticket's
+  client principal in RFC 1964 display form, e.g. `user@EXAMPLE.COM`; `CheckedLogin` method
+  `GSSAPI`). The check itself is `Surl.Kerberos`'s `KerberosAcceptor` and
+  `KerberosSecurityContext` (ADR-0057 decision 6; built by BL-238 and BL-239), with the service
+  word `smtp`, `imap` or `pop` (decision 2), reached through the Kerberos acceptor BL-240 composes
+  onto `AuthenticationSettings`. BL-240 also adds the `--auth gssapi needs --keytab` refusal; this
+  task removes only the "not available in this build" one.
 - RFC 4752: the client's first response is a GSS-API initial context token (AP-REQ); the server
   answers with the AP-REP token when mutual authentication is requested, then an empty-response
   round, then a wrapped 4-byte security-layer offer (no layer, and the maximum buffer size);
@@ -92,3 +103,4 @@ offered first in the mechanism list (ADR-0049 decision 2). `--auth gssapi` stops
 
 - 2026-09-29: Created.
 - 2026-09-29: Filed by BL-185 (ADR-0049 decision 8).
+- 2026-09-30: depends-on and Context updated by BL-217 (ADR-0057).

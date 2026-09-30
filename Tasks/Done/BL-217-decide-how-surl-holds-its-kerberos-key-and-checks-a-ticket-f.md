@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-046
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-217 — Decide how Surl holds its Kerberos key and checks a ticket for Negotiate and SASL GSSAPI
 
@@ -69,25 +69,42 @@ on it. The ADR files the implementation tasks it needs.
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, status Accepted, marked "Decided by
+- [x] A new ADR under `Documentation/Planning/Decisions/`, status Accepted, marked "Decided by
       Claude under Stewart's delegation", states a decision for every bullet listed under "The
       ADR must decide at least" in Context, and names the curl version and pinned build (path and
       SHA-256) of every measurement it cites.
-- [ ] The ADR states how the Kerberos path is tested in CI on Windows, Linux and macOS without a
+- [x] The ADR states how the Kerberos path is tested in CI on Windows, Linux and macOS without a
       KDC and without `TestCategory=Integration`.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the new ADR.
-- [ ] The implementation tasks the ADR needs (at least the Kerberos library and Negotiate's
+- [x] `Documentation/Planning/Decisions/README.md` indexes the new ADR.
+- [x] The implementation tasks the ADR needs (at least the Kerberos library and Negotiate's
       Kerberos path; SASL `GSSAPI` is already BL-218) are filed through `task-planner`, each
       depending on this task, and their IDs are listed in this task's Log and in the ADR.
-- [ ] If `Record-CurlExchange.ps1` was extended, its help describes the new parameters.
+- [x] If `Record-CurlExchange.ps1` was extended, its help describes the new parameters. (Not extended:
+      its `-Smtp`, `-SaslChallenge` and `-ResponsesPerConnection` modes covered every measurement.)
 
 ## Notes
 
 - BL-218 (SASL `GSSAPI`) depends on this task; update its Context if the ADR names types or a
   library it should use, rather than widening this task into code.
+- Outcome: ADR-0057. Measured 2026-09-30 with the Windows reference build and the unpatched
+  8.21.0 build (ADR-0042's Negotiate use): neither makes a Kerberos token without a KDC (SASL
+  `GSSAPI` exits 94, `--negotiate` sends nothing or bare NTLM). The Kerberos bytes were decided
+  from the RFCs and curl 8.21.0's source (`lib/curl_sasl.c`, `lib/vauth/krb5_sspi.c` at tag
+  `curl-8_21_0`): SASL `GSSAPI` never asks for mutual authentication, sends `--sasl-authzid`
+  as the identity, and needs a 4-byte offer with the no-layer bit.
+- Choices with a sensible default, taken: keytab only (no password option); AES enctypes 17-20,
+  no `rc4-hmac`; 300-second skew, not an option; 65536-entry replay cache that refuses when full;
+  the account is named as the client principal. Why: in ADR-0057.
+- The end-to-end proof against a pinned curl needs a KDC and a machine realm (`ksetup`), so it
+  is its own decision task, BL-242, not done here.
+- Filed through task-planner: BL-238 (`Surl.Kerberos` enctypes), BL-239 (keytab, AP-REQ,
+  tokens, replay cache), BL-240 (`--keytab` and composition), BL-241 (Kerberos inside
+  Negotiate), BL-242 (the end-to-end proof); BL-218 now depends on BL-240 too.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Filed by BL-185 (ADR-0049 decision 8).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: ADR-0057 written; filed BL-238, BL-239, BL-240, BL-241, BL-242.
+- 2026-09-30: Doing -> Done. ADR-0057 decides Surl's Kerberos (keytab, AES enctypes, hand-built AP-REQ check, Negotiate and SASL GSSAPI use) and files BL-238 to BL-242
