@@ -17,8 +17,17 @@ namespace Surl.Protocol.Smtp;
 /// <c>8BITMIME</c>, <c>SMTPUTF8</c>, <c>PIPELINING</c> and <c>ENHANCEDSTATUSCODES</c>; enhanced
 /// status codes on every reply but the greeting and <c>EHLO</c>'s and <c>HELO</c>'s. <c>VRFY</c>
 /// and <c>EXPN</c> answer <c>252</c> whatever is asked, so no peer can enumerate accounts.
-/// <c>STARTTLS</c> is answered <c>454</c> (<c>503</c> on a TLS connection) and <c>AUTH</c>
-/// <c>502</c>: the upgrade and the logins are BL-199's and BL-200's.
+/// <c>AUTH</c> is answered <c>502</c>: the logins are BL-200's.
+/// </para>
+/// <para>
+/// <b>TLS.</b> On a plaintext connection of a server that can upgrade, <c>EHLO</c> advertises
+/// <c>STARTTLS</c>, which is answered <c>220</c>; every byte read past its line is discarded,
+/// the connection is upgraded, and the session starts over (RFC 3207): no hello, no login, no
+/// transaction. A server that cannot upgrade answers <c>454</c>, and a connection already on
+/// TLS (after <c>STARTTLS</c>, or implicit <c>smtps</c>) <c>503</c>. A failed handshake ends
+/// the exchange with the engine's note. The server tells TLS by
+/// <see cref="IConnection.TlsSession"/>, never by the scheme, so it serves <c>smtps</c> when
+/// registered for it through the engine's implicit TLS.
 /// </para>
 /// <para>
 /// <b>Logins.</b> The first <c>MAIL</c> of a session asks the authentication policy about the
@@ -50,19 +59,27 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
 
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly MailboxStore mailStore;
+    private readonly bool isStartTlsAvailable;
 
     /// <summary>
     /// Creates an SMTP server that delivers into <paramref name="mailStore"/>.
     /// </summary>
     /// <param name="authenticationPolicy">Decides whether a session may send mail without a login.</param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
-    public SmtpProtocolServer(IAuthenticationPolicy authenticationPolicy, MailboxStore mailStore)
+    /// <param name="isStartTlsAvailable">
+    /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>: <see langword="true"/>
+    /// when a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so
+    /// <c>EHLO</c> advertises it and <c>STARTTLS</c> is answered <c>220</c> and upgraded; when
+    /// <see langword="false"/>, <c>STARTTLS</c> is answered <c>454</c> (ADR-0053, decision 5).
+    /// </param>
+    public SmtpProtocolServer(IAuthenticationPolicy authenticationPolicy, MailboxStore mailStore, bool isStartTlsAvailable = false)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(mailStore);
 
         this.authenticationPolicy = authenticationPolicy;
         this.mailStore = mailStore;
+        this.isStartTlsAvailable = isStartTlsAvailable;
     }
 
     /// <summary>
@@ -83,7 +100,7 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new SmtpSession(connection, context, reader, authenticationPolicy, mailStore).RunAsync();
+        await new SmtpSession(connection, context, reader, authenticationPolicy, mailStore, isStartTlsAvailable).RunAsync();
     }
 
     /// <summary>

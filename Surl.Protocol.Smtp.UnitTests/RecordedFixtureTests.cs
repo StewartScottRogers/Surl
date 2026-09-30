@@ -57,6 +57,43 @@ public sealed class RecordedFixtureTests
         CollectionAssert.AreEqual(new[] { TraceFields("a@x") + Dots }, Inbox(store, string.Empty).ToList());
     }
 
+    // curl --ssl-reqd: EHLO, STARTTLS, then everything after the handshake, which the connection
+    // hands out only once the server has upgraded (ADR-0053 row 40).
+    [TestMethod]
+    public async Task ServeAsync_RecordedStartTlsRequest_UpgradesAfter220AndWritesTheRecordedReplies()
+    {
+        Assert.AreEqual("0", Read("starttls", "exitcode.txt").Trim());
+        var clock = new ManualTimeProvider();
+        var store = AnonymousStore(clock);
+        var request = ReadBytes("starttls", "request.bin");
+        var upgradePoint = Encoding.ASCII.GetString(request).IndexOf("STARTTLS\r\n", StringComparison.Ordinal) + "STARTTLS\r\n".Length;
+        var connection = new UpgradePointRecordingConnection([request.AsMemory(0, upgradePoint), request.AsMemory(upgradePoint)], plaintextChunkCount: 1);
+
+        await StartTlsServer(store).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+
+        Assert.AreEqual(RecordedReplies("starttls"), Utf8(connection.WrittenBytes));
+        Assert.AreEqual((Greeting + EhloReplyWithStartTls + "220 2.0.0 Ready to start TLS\r\n").Length, connection.WrittenBytesAtUpgrade);
+        Assert.IsTrue(connection.WritesCompleted);
+        CollectionAssert.AreEqual(new[] { TraceFields("a@x", protocol: "ESMTPS") + Mail }, Inbox(store, string.Empty).ToList());
+    }
+
+    // curl smtps://: TLS from the first byte, which the engine completes before ServeAsync (ADR-0053 row 44).
+    [TestMethod]
+    public async Task ServeAsync_RecordedSmtpsRequest_WritesTheRecordedRepliesWithoutStartTls()
+    {
+        Assert.AreEqual("0", Read("smtps", "exitcode.txt").Trim());
+        var clock = new ManualTimeProvider();
+        var store = AnonymousStore(clock);
+        var connection = new InMemoryConnection([ReadBytes("smtps", "request.bin")], initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
+
+        await StartTlsServer(store).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+
+        Assert.AreEqual(RecordedReplies("smtps"), Utf8(connection.WrittenBytes));
+        Assert.IsFalse(connection.UpgradeRequested);
+        Assert.IsTrue(connection.WritesCompleted);
+        CollectionAssert.AreEqual(new[] { TraceFields("a@x", protocol: "ESMTPS") + Mail }, Inbox(store, string.Empty).ToList());
+    }
+
     // Every line the recorder sent, in order, each ending CRLF.
     private static string RecordedReplies(string caseName) =>
         string.Concat(Read(caseName, "transcript.txt")

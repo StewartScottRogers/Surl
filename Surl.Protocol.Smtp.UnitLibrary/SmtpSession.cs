@@ -23,19 +23,21 @@ internal sealed class SmtpSession
     private readonly CrlfLineReader reader;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly MailboxStore mailStore;
+    private readonly bool isStartTlsAvailable;
     private readonly Dictionary<string, Func<byte[]?, ValueTask<bool>>> commands;
     private byte[]? heloDomain;
     private bool isExtendedHello;
     private PasswordLoginVerdict? mailLoginVerdict;
     private SmtpMailTransaction? transaction;
 
-    public SmtpSession(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, MailboxStore mailStore)
+    public SmtpSession(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, MailboxStore mailStore, bool isStartTlsAvailable)
     {
         this.connection = connection;
         this.context = context;
         this.reader = reader;
         this.authenticationPolicy = authenticationPolicy;
         this.mailStore = mailStore;
+        this.isStartTlsAvailable = isStartTlsAvailable;
         commands = new(StringComparer.Ordinal)
         {
             ["EHLO"] = argument => AnswerHelloAsync(argument, isExtended: true),
@@ -49,7 +51,7 @@ internal sealed class SmtpSession
             ["EXPN"] = argument => ReplyAsync(argument is null ? SmtpReplies.ExpnSyntax : SmtpReplies.ExpnAnswer),
             ["HELP"] = _ => ReplyAsync(SmtpReplies.Help),
             ["QUIT"] = AnswerQuitAsync,
-            ["STARTTLS"] = argument => ReplyAsync(AnswerStartTls(argument)),
+            ["STARTTLS"] = AnswerStartTlsAsync,
         };
         foreach (var verb in NotImplementedVerbs)
         {
@@ -125,16 +127,28 @@ internal sealed class SmtpSession
     private static bool IsDomainArgument(byte[]? argument) =>
         argument is not null && argument.AsSpan().IndexOfAnyInRange((byte)0x00, (byte)0x1F) < 0 && !argument.AsSpan().Contains((byte)0x7F);
 
-    // ADR-0053 decision 2's list, without STARTTLS (BL-199) and AUTH (BL-200).
-    private string[] EhloReplyLines() =>
-    [
-        "250-surl Hello",
-        "250-SIZE " + context.Limits.MaxUploadBytes.ToString(CultureInfo.InvariantCulture),
-        "250-8BITMIME",
-        "250-SMTPUTF8",
-        "250-PIPELINING",
-        "250 ENHANCEDSTATUSCODES",
-    ];
+    // ADR-0053 decision 2's list, without AUTH (BL-200): every line but the last is "250-".
+    private List<string> EhloReplyLines()
+    {
+        List<string> capabilities =
+        [
+            "surl Hello",
+            "SIZE " + context.Limits.MaxUploadBytes.ToString(CultureInfo.InvariantCulture),
+            "8BITMIME",
+            "SMTPUTF8",
+            "PIPELINING",
+            "ENHANCEDSTATUSCODES",
+        ];
+        if (CanUpgrade)
+        {
+            capabilities.Add("STARTTLS");
+        }
+
+        return capabilities.Select((capability, index) => (index == capabilities.Count - 1 ? "250 " : "250-") + capability).ToList();
+    }
+
+    // STARTTLS is offered only on a plaintext connection of a server with a certificate (RFC 3207).
+    private bool CanUpgrade => isStartTlsAvailable && connection.TlsSession is null;
 
     private async ValueTask<bool> AnswerMailAsync(byte[]? argument)
     {
@@ -292,10 +306,34 @@ internal sealed class SmtpSession
         return await ReplyAsync(SmtpReplies.Reset);
     }
 
-    private string AnswerStartTls(byte[]? argument) =>
-        argument is not null ? SmtpReplies.TakesNoArgument("STARTTLS")
-        : connection.TlsSession is not null ? SmtpReplies.AlreadyUsingTls
-        : SmtpReplies.TlsNotAvailable;
+    private async ValueTask<bool> AnswerStartTlsAsync(byte[]? argument)
+    {
+        var refusal = argument is not null ? SmtpReplies.TakesNoArgument("STARTTLS")
+            : connection.TlsSession is not null ? SmtpReplies.AlreadyUsingTls
+            : isStartTlsAvailable ? null
+            : SmtpReplies.TlsNotAvailable;
+        return refusal is null ? await UpgradeToTlsAsync() : await ReplyAsync(refusal);
+    }
+
+    // 220, then every byte pipelined after the STARTTLS line thrown away unrun, then the
+    // handshake; the session starts over (RFC 3207 section 4.2). A failed handshake throws
+    // TlsHandshakeException, which the engine notes (ADR-0053, decision 5).
+    private async ValueTask<bool> UpgradeToTlsAsync()
+    {
+        await WriteLineAsync(SmtpReplies.ReadyToStartTls, CancellationToken);
+        var discarded = reader.DiscardBuffered();
+        if (discarded > 0)
+        {
+            context.Log.Note($"Discarded {discarded} bytes sent after STARTTLS");
+        }
+
+        await connection.UpgradeToTlsAsync(CancellationToken);
+        heloDomain = null;
+        isExtendedHello = false;
+        mailLoginVerdict = null;
+        transaction = null;
+        return true;
+    }
 
     private async ValueTask<bool> AnswerQuitAsync(byte[]? argument)
     {

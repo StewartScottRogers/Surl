@@ -16,9 +16,17 @@ policy's `AcceptedUnchecked` for the login with no credentials (`--allow-anonymo
 `530`. A delivered message is `SmtpTraceFields` (`Return-Path`, `Received`) then the unstuffed
 body, bounded as a whole by `--max-filesize` through `SmtpMessageBodyBuffer`.
 
-Intent, not yet built: `STARTTLS` upgrades and its `EHLO` line (BL-199; until then
-`STARTTLS` is `454`, or `503` on TLS), `AUTH` and its `EHLO` line (BL-200; until then
-`502`), and the `smtps` registration and composition in `Surl.Console` (BL-207).
+Built (BL-199): the constructor's `isStartTlsAvailable` (default `false`) says whether a
+certificate is configured. With it, `EHLO` on a plaintext connection lists `STARTTLS` last,
+and `STARTTLS` is answered `220`, discards every buffered byte after its line (noted when not
+0), calls `IConnection.UpgradeToTlsAsync` and starts the session over: no hello, no login, no
+transaction. Without it `STARTTLS` is `454`; on a TLS connection it is `503`. A failed
+handshake's `TlsHandshakeException` goes to the engine. `smtps` is the same server on a
+connection the engine has already made TLS: the server reads `connection.TlsSession`, never
+the scheme.
+
+Intent, not yet built: `AUTH` and its `EHLO` line (BL-200; until then `502`), and the `smtps`
+registration and composition in `Surl.Console` (BL-207).
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing

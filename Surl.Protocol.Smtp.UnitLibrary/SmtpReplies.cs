@@ -39,6 +39,7 @@ internal static class SmtpReplies
     public const string MessageTooLarge = "552 5.3.4 Message exceeds the size limit";
     public const string StoreFull = "452 4.3.1 Insufficient system storage";
     public const string TlsNotAvailable = "454 4.7.0 TLS not available";
+    public const string ReadyToStartTls = "220 2.0.0 Ready to start TLS";
     public const string AlreadyUsingTls = "503 5.5.1 Already using TLS";
     public const string TooManyConnections = "421 4.3.2 surl Too many connections, closing";
     public const string HeadTimedOut = "421 4.4.2 surl Timeout waiting for a command, closing";

@@ -54,3 +54,25 @@ Every URL is `smtp://127.0.0.1:18025/c`, so curl sends `EHLO c`.
 | `expn` | `$ok` | `-sS --mail-rcpt list -X EXPN` | `EXPN list SMTPUTF8` |
 | `help` | `$ok` | `-sS` | `HELP` |
 | `noop` | `$ok` | `-sS -X NOOP` | `NOOP` |
+
+## TLS cases (BL-199)
+
+Recorded on 2026-09-30 the same way, with `mail.txt` as above, the common replies `GREETING`,
+`MAIL`, `RCPT=250 2.1.5 Recipient OK`, `DATA`, `DATADONE` and `QUIT` from the list above, and
+these `EHLO` replies (ADR-0053 decision 2, before and after TLS):
+
+```powershell
+$plain = 'EHLO=250-surl Hello\r\n250-SIZE 104857600\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n250-ENHANCEDSTATUSCODES\r\n250 STARTTLS'
+$tls = 'EHLO=250-surl Hello\r\n250-SIZE 104857600\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n250 ENHANCEDSTATUSCODES'
+```
+
+| Folder | Recorder options and extra replies | curl arguments (then the URL) | curl sends |
+| --- | --- | --- | --- |
+| `starttls` | `-Smtp`, `$plain`, `STARTTLS=220 2.0.0 Ready to start TLS`, `$tls` | `-sS -k --ssl-reqd --mail-from a@x --mail-rcpt b@y -T mail.txt`, `smtp://127.0.0.1:18025/c` | `EHLO c`, `STARTTLS`, then over TLS `EHLO c` again and the one-recipient exchange |
+| `smtps` | `-Smtp -Tls`, `$tls` | `-sS -k --mail-from a@x --mail-rcpt b@y -T mail.txt`, `smtps://127.0.0.1:18025/c` | TLS from the first byte, then the one-recipient exchange |
+
+Both exit 0. `request.bin` holds the decrypted bytes. `RecordedFixtureTests` hands the
+`starttls` request out in two reads split after the `STARTTLS` line, through
+`UpgradePointRecordingConnection`, which fails the test if the server reads the second before
+upgrading and pins the upgrade point right after the `220`; it serves `smtps` on a connection
+that is TLS from the start, as the engine's implicit TLS gives it (ADR-0053 decision 5).
