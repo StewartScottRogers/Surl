@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-046
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-185 — Decide the SASL login contract, the mechanisms the mail servers offer and their --auth words
 
@@ -63,17 +63,36 @@ without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", records each measurement (build path, SHA-256, tool and
       arguments, date, transcript excerpt) and decides every point in Context.
-- [ ] It gives the contract as C#, states that no existing `IAuthenticationPolicy` implementer
+- [x] It gives the contract as C#, states that no existing `IAuthenticationPolicy` implementer
       changes, and assigns each decided mechanism to BL-194, BL-195, BL-196 or a task it files.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help.
 
 ## Notes
+
+- Decided in `Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md`,
+  from about 60 recordings of the Windows reference build (SMTP, IMAP, POP3), 2026-09-29.
+- `Record-CurlExchange.ps1` gains `-SaslChallenge 'MECHANISM=line'` for `-Smtp`, `-Imap` and
+  `-Pop3`: scripted continuations and final answers per mechanism (DIGEST-MD5 challenge and
+  rspauth, NTLM type 2, XOAUTH2/OAUTHBEARER error challenges, a refusal after a response).
+- Key measurements: curl's preference is OAUTHBEARER, XOAUTH2 (only with `--oauth2-bearer`), GSSAPI
+  (a user with a realm), DIGEST-MD5, CRAM-MD5, NTLM, PLAIN, LOGIN; it never falls back and every
+  refusal is exit 67; it sends an empty DIGEST-MD5 realm and hashes with it; it prefers SASL over
+  APOP.
+- Choices with a sensible default: new `--auth` words named as curl's `AUTH=` (`ntlm` shared with
+  HTTP); `digest-md5` (Historic, and curl's first pick) and `apop` (MD5-prefix attack) are not in
+  the default set; `EXTERNAL` identity is the client certificate's simple name matched to an
+  account name; `AnonymousAuthenticationPolicy` offers `PLAIN` and accepts after at most one empty
+  challenge, because a one-step accept makes curl exit 67 for mechanisms that expect a
+  continuation (so BL-193's "in one step" means that).
+- The ADR also amends ADR-0032 section 3; its header says so.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Filed BL-216 (SASL EXTERNAL), BL-217 (decide Kerberos for Negotiate and GSSAPI) and BL-218 (SASL GSSAPI) through task-planner, as ADR-0049 decision 8 assigns.
+- 2026-09-29: Doing -> Done. ADR-0049 decides the mail servers' SASL and APOP mechanisms, their --auth words and the IMailAuthenticationPolicy contract from measured curl 8.21.0; Record-CurlExchange.ps1 gains -SaslChallenge
