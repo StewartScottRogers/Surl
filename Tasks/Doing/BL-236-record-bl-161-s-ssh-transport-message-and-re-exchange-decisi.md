@@ -46,3 +46,4 @@ ADR and `SshProtocolServer` say the same thing.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
