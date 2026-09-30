@@ -8,7 +8,7 @@ depends-on: [BL-254]
 touches: [Surl.Cryptography.Ripemd160.UnitLibrary, Surl.Cryptography.Ripemd160.UnitTests]
 requirement: FR-039
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-257 — Build RIPEMD-160 and HMAC-RIPEMD-160 in Surl.Cryptography.Ripemd160
 
@@ -42,26 +42,40 @@ HMAC-RIPEMD-160 (RFC 2286), so `Surl.Protocol.Ssh` can offer `hmac-ripemd160` an
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cryptography.Ripemd160.UnitLibrary` holds the public RIPEMD-160 and HMAC-RIPEMD-160
+- [x] `Surl.Cryptography.Ripemd160.UnitLibrary` holds the public RIPEMD-160 and HMAC-RIPEMD-160
       types and references nothing.
-- [ ] `Surl.Cryptography.Ripemd160.UnitTests` has tests, each citing the authors' published list
+- [x] `Surl.Cryptography.Ripemd160.UnitTests` has tests, each citing the authors' published list
       beside it, that pass for every message in it: `""`, `"a"`, `"abc"`, `"message digest"`,
       `"abcdefghijklmnopqrstuvwxyz"`,
       `"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"`,
       `"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"`, eight repetitions of
       `"1234567890"`, and 1,000,000 repetitions of `"a"` - each giving the listed digest.
-- [ ] Tests, each citing RFC 2286 section 2, pass for all seven HMAC-RIPEMD-160 test cases there,
+- [x] Tests, each citing RFC 2286 section 2, pass for all seven HMAC-RIPEMD-160 test cases there,
       including the ones with an 80-byte key (hashed first).
-- [ ] `Surl.Cryptography.Ripemd160.UnitLibrary/CLAUDE.md` states what the library now holds.
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean; `dotnet test --filter "TestCategory!=Integration"`
+- [x] `Surl.Cryptography.Ripemd160.UnitLibrary/CLAUDE.md` states what the library now holds.
+- [x] `dotnet build Surl.slnx -warnaserror` is clean; `dotnet test --filter "TestCategory!=Integration"`
       passes; no test needs `TestCategory=Integration`.
-- [ ] Quality gates: 100% line and 100% branch coverage, cyclomatic complexity at most 10 per
+- [x] Quality gates: 100% line and 100% branch coverage, cyclomatic complexity at most 10 per
       method (`CA1502`), CRAP at most 30 (`powershell -NoProfile -File Measure-CodeQuality.ps1`).
-- [ ] Tests are platform-neutral.
+- [x] Tests are platform-neutral.
 
 ## Notes
+
+- The project scaffold already existed. RIPEMD-160 and HMAC-RIPEMD-160 were copied from the
+  Curl port's `Curl.Cryptography` (code only, ADR-0003) and adapted. Every expected value is
+  from the authors' published list or RFC 2286 section 2, cited beside each test.
+- Choice: the port's shared `LittleEndianMerkleDamgard`/`ILittleEndianCompressionFunction` is
+  folded into `Ripemd160` itself. This library has only one hash, so a generic padding class
+  would have only one user. `Ripemd160.BlockSize` is public so `HmacRipemd160` can use it.
+- Choice: the API mirrors the BCL's hash statics: `HashData(source, destination)` and
+  `HashData(source)` returning `byte[]`; `HmacRipemd160.HashData(key, source[, destination])`
+  and a fixed-time `Verify`. A `byte[]` key converts implicitly to `ReadOnlySpan<byte>`, so
+  `SshHmac.Tag` (BL-258) can call `HmacRipemd160.HashData(key, message)` directly.
+- The 1,000,000 x "a" vector runs in well under a second, so it stays a fast test.
+- Measured: 100% line, 100% branch, worst CRAP 6 (`Measure-CodeQuality.ps1`); 38 tests.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Surl.Cryptography.Ripemd160 holds RIPEMD-160 and HMAC-RIPEMD-160, pinned to the authors' vectors and RFC 2286
