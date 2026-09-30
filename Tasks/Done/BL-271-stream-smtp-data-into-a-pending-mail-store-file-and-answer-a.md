@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Surl.Protocol.Smtp.UnitLibrary, Surl.Protocol.Smtp.UnitTests]
+touches: [Surl.Protocol.Smtp.UnitLibrary, Surl.Protocol.Smtp.UnitTests, Documentation/Product/Product-Overview.md]
 requirement: FR-043
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-271 — Stream SMTP DATA into a pending mail-store file and answer a failed store write with 451 4.3.0
 
@@ -52,24 +52,24 @@ ADR-0053 decision 6 say.
 
 ## Acceptance criteria
 
-- [ ] `SmtpSession` no longer calls `MailboxStore.Deliver` with a byte array or span; it writes the
+- [x] `SmtpSession` no longer calls `MailboxStore.Deliver` with a byte array or span; it writes the
       trace fields and the body into a `PendingMessage` and delivers that.
-- [ ] `SmtpReplies` has a `451 4.3.0 Local error in processing` reply, and a delivery answered
+- [x] `SmtpReplies` has a `451 4.3.0 Local error in processing` reply, and a delivery answered
       `StorageFailed` gets it, notes `Mail store: <exception message>`, stores nothing, and the
       session goes on (a following `MAIL` is answered).
-- [ ] In `Surl.Protocol.Smtp.UnitTests/SmtpDeliveryTests.cs`,
+- [x] In `Surl.Protocol.Smtp.UnitTests/SmtpDeliveryTests.cs`,
       `ServeAsync_StoreThatCannotBeWritten_AcceptsTheMessageAndNotesTheFailure` is replaced by a test
       (named for what it shows, e.g. `ServeAsync_MessageFileCannotBeWritten_Answers451AndTheSessionGoesOn`)
       pinning the `451` reply, the note and an empty `INBOX`; and a test pins that an index save that
       throws after a delivered message still answers `250` and notes the failure (ADR-0050 decision 7).
-- [ ] Tests pin that a body past the budget and a peer closing mid-body leave no `.pending-` file
+- [x] Tests pin that a body past the budget and a peer closing mid-body leave no `.pending-` file
       in the store's file system, and that a stored message's bytes are the trace fields followed by
       the body exactly as before (the existing delivery tests pass unchanged).
-- [ ] The recorded fixture rows in `Surl.Protocol.Smtp.UnitTests/RecordedFixtureTests.cs` still pass.
-- [ ] `dotnet build Surl.Protocol.Smtp.UnitLibrary -warnaserror` is clean; the fast tests pass; no
+- [x] The recorded fixture rows in `Surl.Protocol.Smtp.UnitTests/RecordedFixtureTests.cs` still pass.
+- [x] `dotnet build Surl.Protocol.Smtp.UnitLibrary -warnaserror` is clean; the fast tests pass; no
       test needs `TestCategory=Integration`; `Surl.Protocol.Smtp.UnitLibrary` keeps 100% line and
       branch coverage.
-- [ ] `SmtpProtocolServer`'s and `SmtpSession`'s doc comments and
+- [x] `SmtpProtocolServer`'s and `SmtpSession`'s doc comments and
       `Surl.Protocol.Smtp.UnitLibrary/CLAUDE.md` say the body streams into a pending file and name
       the `451` reply.
 
@@ -78,6 +78,30 @@ ADR-0053 decision 6 say.
 - Touches only the SMTP library and its tests. Once SMTP streams, no server calls
   `MailboxStore.Deliver(..., ReadOnlySpan<byte>)`; retiring that overload and its CLAUDE.md
   paragraph in `Surl.MailStore.UnitLibrary` is a separate follow-up task to file, not part of this one.
+  Filed as BL-277.
+- Plan (decided in the run): no wrapper stream. `ReceiveMessageAsync` writes the trace fields
+  and then the unstuffed body straight to `PendingMessage.Body` under a `using`, so every path
+  that does not deliver (peer close, 552) deletes the pending file. The budget check is
+  `pending.Length > MaxUploadBytes` (trace fields and body together, 0 = no limit), the same
+  test as the old `body > MaxUploadBytes - traceFields.Length`; the reader's own
+  `BodyTooLarge` still stops a body past `MaxUploadBytes`, so at most the trace fields' length
+  of excess reaches the pending file before it is deleted. `SmtpMessageBodyBuffer` is removed.
+  The 552 note still counts body bytes (`DotStuffedBodyReadResult.BytesWritten`), so the pinned
+  notes in `SmtpLimitTests` are unchanged.
+- `DeliverAsync`'s refusals moved to `RefuseMessage`: `StoreFull` 452, `MessageTooLarge` 552,
+  and anything else `Deliver(..., PendingMessage)` returns (only `StorageFailed`) 451 with
+  `Mail store: <PendingMessage.StorageFailure>`.
+- Test fake: `UnitTestUnwritableContentFileSystem` gained `keepsMessageFiles` (as IMAP's fake
+  does): off, every write throws (the 451 test); on, message files are kept and the index write
+  throws (the index-save 250 test, and the `OperationCanceledException` test, which keeps
+  covering `SaveMailStoreAsync`'s exception filter). Pending-file tests use
+  `InMemoryContentFileSystem` with `MailStoreFiles`.
+- Added `Documentation/Product/Product-Overview.md` to `touches`: its SMTP paragraph named
+  `SmtpMessageBodyBuffer` and said the body is held in memory, false once this lands. No task
+  in Doing names it.
+- Verified: `dotnet build` clean (0 warnings), fast tests green (Smtp 218), Smtp library at
+  100% line and branch coverage (cobertura), `dotnet format --verify-no-changes` clean. No ADR
+  change: the code now matches ADR-0050 decision 7 and ADR-0053 decision 6 as written.
 - If implementing shows a reason to keep buffering, amend ADR-0050 decision 7 and ADR-0053
   decision 6 instead (a `docs` follow-up), rather than leaving code and ADR apart.
 
@@ -86,3 +110,4 @@ ADR-0053 decision 6 say.
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-214 (Phase 3 mail documentation found SMTP diverging from ADR-0050 decision 7 and ADR-0053 decision 6).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. SMTP DATA streams into a PendingMessage and a message file that cannot be written is answered 451 4.3.0
