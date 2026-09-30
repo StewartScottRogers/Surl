@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-240]
-touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Documentation/Planning/Decisions/ADR-0063-kerberos-inside-negotiate-the-choices-adr-0057-decision-8-left-open.md, Documentation/Planning/Decisions/README.md]
+touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Documentation/Planning/Decisions/ADR-0064-kerberos-inside-negotiate-the-choices-adr-0057-decision-8-left-open.md, Documentation/Planning/Decisions/README.md]
 requirement: FR-046
 created: 2026-09-30
 completed: 2026-09-30
@@ -112,9 +112,9 @@ behaves exactly as ADR-0040 decides.
 - Touches widened: `Surl.Console` (one line in `AuthenticationComposition` hands `--keytab`'s
   acceptor and `--allow-anonymous` to the new constructor
   `NegotiateAuthenticationMethod(accounts, kerberosAcceptor, allowAnonymous)`; no task in Doing
-  names it), and the new ADR-0063 with its row in the Decisions README (no task in Doing names
+  names it), and the new ADR-0064 with its row in the Decisions README (no task in Doing names
   them).
-- Decisions (ADR-0063, decided by Claude under Stewart's delegation): Kerberos selected but not
+- Decisions (ADR-0064, decided by Claude under Stewart's delegation): Kerberos selected but not
   first in `mechTypes` is refused (one leg, no NTLM fallback); under `--allow-anonymous` with
   `--keytab`, `HttpAuthenticationSession` now reads a Negotiate `Authorization`: a Kerberos ticket
   must decrypt and is served unchecked with its final token, every other Negotiate token is served
