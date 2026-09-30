@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-036
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-173 — Decide how the FTP server answers upstream curl and the FTP data-connection seam
 
@@ -67,19 +67,31 @@ without constructing a socket, so BL-174 to BL-183 can be built without a questi
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", records each measurement (build path, SHA-256, tool and
       arguments, date, transcript excerpt) and decides every point in Context.
-- [ ] It gives the data-connection contract as C# (as ADR-0032 section 6 did) and states that
+- [x] It gives the data-connection contract as C# (as ADR-0032 section 6 did) and states that
       no existing interface with outside implementers changes.
-- [ ] It lists the curl 8.21.0 command lines BL-183 must prove, with the expected exit code for
+- [x] It lists the curl 8.21.0 command lines BL-183 must prove, with the expected exit code for
       each.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help.
 
 ## Notes
+
+- ADR-0052 records 57 sessions of the pinned Windows reference build against
+  `Record-CurlExchange.ps1 -Ftp` (2026-09-29) and decides every point in Context.
+- `Record-CurlExchange.ps1` gained `-FtpMaxUploadBytes` (an earlier run of this task), `MLSD`
+  served like `LIST`, and `CCC` answered with a `close_notify` exchange and a return to
+  plaintext; each is in the script's comment-based help.
+- Default taken: `CCC` is refused with `534`. Measured, the Schannel build fails an accepted
+  `CCC` (exit 81) and completes after a refused one (exit 0), and refusing keeps `IConnection`
+  unchanged.
+- Filed BL-225 (`Surl.Content`: delete, rename, directories, append), which `ContentStore`
+  lacks, and added it to BL-180's `depends-on`, as BL-180's own Context asks.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0052 accepted: FTP replies, logins, data-connection seam and BL-183 proof table, from 57 measured sessions
