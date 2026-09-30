@@ -46,3 +46,4 @@ contract), with the `CAPA` list BL-188's and BL-185's ADRs give for each state.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
