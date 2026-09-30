@@ -59,3 +59,4 @@ reason, and ADR-0051's Consequences point to it.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
