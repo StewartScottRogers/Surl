@@ -18,13 +18,7 @@ internal static class StoredMail
     public static async Task<IReadOnlyList<byte[]>> ReadInboxAsync(
         string dataDirectory, string? accountName, CancellationToken cancellationToken)
     {
-        var files = new MailStoreFiles(new DiskContentFileSystem(), Path.Join(Path.GetFullPath(dataDirectory), ".surl", "mail"));
-        var store = await MailboxStore.LoadAsync(
-            files,
-            accountName is null ? [] : [accountName],
-            allowAnonymous: accountName is null,
-            TimeProvider.System,
-            cancellationToken: cancellationToken);
+        var store = await LoadStoreAsync(dataDirectory, accountName, cancellationToken);
 
         var view = store.ViewFor(accountName);
         Assert.AreEqual(MailStoreOutcome.Succeeded, store.ReadMailbox(view, "INBOX", out var inbox));
@@ -37,4 +31,25 @@ internal static class StoredMail
 
         return messages;
     }
+
+    /// <summary>
+    /// Returns the <c>UIDVALIDITY</c> of one owner's <c>INBOX</c>, the owner named as
+    /// <see cref="ReadInboxAsync"/> names it.
+    /// </summary>
+    public static async Task<uint> ReadInboxUidValidityAsync(
+        string dataDirectory, string? accountName, CancellationToken cancellationToken)
+    {
+        var store = await LoadStoreAsync(dataDirectory, accountName, cancellationToken);
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.ReadMailbox(store.ViewFor(accountName), "INBOX", out var inbox));
+        return inbox!.UidValidity;
+    }
+
+    private static Task<MailboxStore> LoadStoreAsync(string dataDirectory, string? accountName, CancellationToken cancellationToken) =>
+        MailboxStore.LoadAsync(
+            new MailStoreFiles(new DiskContentFileSystem(), Path.Join(Path.GetFullPath(dataDirectory), ".surl", "mail")),
+            accountName is null ? [] : [accountName],
+            allowAnonymous: accountName is null,
+            TimeProvider.System,
+            cancellationToken: cancellationToken);
 }
