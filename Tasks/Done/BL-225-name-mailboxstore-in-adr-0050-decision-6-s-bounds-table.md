@@ -8,7 +8,7 @@ depends-on: [BL-190]
 touches: [Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md]
 requirement: none
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-225 — Name MailboxStore in ADR-0050 decision 6's bounds table
 
@@ -33,16 +33,19 @@ true of the code.
 
 ## Acceptance criteria
 
-- [ ] ADR-0050 decision 6's table names `MailboxStore.DefaultMaxMessages`,
+- [x] ADR-0050 decision 6's table names `MailboxStore.DefaultMaxMessages`,
       `MailboxStore.DefaultMaxTotalMessageBytes`, `MailboxStore.DefaultMaxMailboxes` and
       `MailboxStore.MaxMailboxNameBytes`, with a sentence saying why the type is not `MailStore`.
-- [ ] ADR-0050 decision 6 names the `MessageTooLarge` outcome for a message past the store's own
+- [x] ADR-0050 decision 6 names the `MessageTooLarge` outcome for a message past the store's own
       bound.
-- [ ] `git grep -n "MailStore\.Default\|MailStore\.MaxMailbox" -- Documentation` finds nothing.
+- [x] `git grep -n "MailStore\.Default\|MailStore\.MaxMailbox" -- Documentation` finds nothing.
 
 ## Notes
+
+- Also corrected decision 6's "larger than `MaxUploadBytes`" to the store's own `MailboxStore.MaxMessageBytes` (set by `Surl.Console` from `ExchangeLimits.MaxUploadBytes`), and noted `StoreFull` for a `UIDVALIDITY` past `uint.MaxValue`. Docs only; no `.cs` or project file changed, so no build was needed for the ADR, but the fast gate was run anyway.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0050 decision 6 names MailboxStore's constants, why it is not MailStore, and the MessageTooLarge outcome
