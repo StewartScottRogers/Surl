@@ -98,6 +98,24 @@ protocol server.
 - The TLS tests run real `SslStream` handshakes over `InMemoryDuplexStream` (test project)
   with certificates made by `CertificateRequest`, so they are fast tests on every platform;
   `TcpConnectionListenerTlsTests` (Integration) repeats one over a loopback socket.
+- FTP data connections (ADR-0052, decisions 5, 6 and 9; BL-175). `SocketDataConnectionOpener`
+  (public, constructed with the control listener's `ServerTlsSettings` and an optional
+  `TimeProvider`) implements `IDataConnectionOpener`. `StartPassiveListenerAsync` binds the
+  control connection's local address (as IPv4 when IPv4-mapped) on an ephemeral port and
+  returns a `SocketPassiveDataListener`: its `AcceptAsync` hands out the first connection whose
+  address is the control connection's peer (`DataConnectionPeer`, IPv4-mapped compared as IPv4),
+  resets every other connection unseen and goes on waiting, is `TimedOut` at the timeout (on the
+  `TimeProvider`), `Unreachable` when the listening socket fails, absorbs one client's accept
+  failure through `AcceptRace` (ADR-0022), and stops listening once it has handed its
+  connection out (a second `AcceptAsync` is `InvalidOperationException`). `ConnectActiveAsync`
+  refuses (`Refused`) any target but the peer's address on port 1024 or above without
+  connecting, is `TimedOut` at the timeout and `Unreachable` on a `SocketException`. Every data
+  connection is a `StreamConnection` (lingering close included) whose `UpgradeToTlsAsync` uses
+  the server's settings with no ALPN. A bind failure or a non-IP control end point is
+  `Unreachable`. Only `SocketDataConnectionSockets` (behind `IDataConnectionSockets` and
+  `IPassiveDataSocket`) touches a socket, excluded from coverage and exercised by
+  `SocketDataConnectionOpenerIntegrationTests`; the rules are fast-tested over
+  `FakeDataConnectionSockets`.
 - All of that runs over `IDatagramSocket`, so the fast tests drive it with a fake; only
   `UdpDatagramSocket` and the public `StartAsync` touch a socket, excluded from coverage and
   exercised by the `[TestCategory("Integration")]` tests.
