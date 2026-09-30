@@ -8,7 +8,7 @@ depends-on: [BL-160]
 touches: [Documentation/Planning/Decisions]
 requirement: FR-039
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-231 — Record BL-160's SSH key exchange and host-key reading choices in an ADR
 
@@ -48,15 +48,20 @@ reason, and ADR-0051's Consequences point to it.
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/` records choices 1 to 8 above, each
+- [x] A new ADR under `Documentation/Planning/Decisions/` records choices 1 to 8 above, each
       with its reason, is marked "Decided by Claude under Stewart's delegation", and amends
       ADR-0051.
-- [ ] ADR-0051's Consequences (or an Amended-by line) names the new ADR.
-- [ ] `Documentation/Planning/Decisions/README.md` lists the new ADR if it lists the others.
+- [x] ADR-0051's Consequences (or an Amended-by line) names the new ADR.
+- [x] `Documentation/Planning/Decisions/README.md` lists the new ADR if it lists the others.
 
 ## Notes
+
+- Delivered directly rather than through `align-and-document`: one new ADR and two link edits, each choice checked against the code first (`SshDiffieHellman`, `SshNistCurve`, `SshEcdhKeyExchange`, `SshGroupExchangeKeyExchange`, `SshHostKeyFile`, `SshPkcs8Decryption`, `SshPacketReader`, `SshPacketWriter`) and BL-160's Notes.
+- ADR-0058 records choices 1 to 8, amends ADR-0051 decisions 2.1, 4 and 9; ADR-0051 gains an Amended-by line and a Consequences bullet; README row added. Choice 2 cites libssh2 1.11.1's `kex.c` (three-value `GEX_REQUEST`); nothing new was measured because no choice changes a byte upstream curl sends or reads on a successful exchange.
+- Two details from BL-160's review notes are folded into decision 4: an IV that is not one AES block is "not a private key", and PBKDF2 iterations are not capped.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0058 records BL-160's eight SSH key exchange and host-key reading choices and amends ADR-0051, which names it

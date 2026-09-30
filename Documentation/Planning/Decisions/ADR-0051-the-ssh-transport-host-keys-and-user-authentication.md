@@ -11,6 +11,8 @@
   section 9's warnings grow by two lines (decision 11). `IAuthenticationPolicy` (ADR-0032 section 6,
   amended by [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md))
   is unchanged; SSH logins get a new interface beside it (decision 7).
+- **Amended by:** [ADR-0058](ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
+  the key exchange and host-key reading choices BL-160 made where decisions 2.1, 4 and 9 are silent.
 
 ## Context
 
@@ -636,6 +638,11 @@ memberships.
 ## Consequences
 
 - BL-156 to BL-172 read their decisions here; BL-155 decides SCP and SFTP on top of this.
+- [ADR-0058](ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md)
+  records what BL-160 chose where this ADR is silent: bad client public values and
+  `GEX_REQUEST_OLD` are `DISCONNECT` 2, the server's ephemeral secrets, encrypted PKCS #8 and
+  legacy PEM, Ed25519 and DSA until BL-168 and BL-221, OID-named key types, and the strict-kex
+  sequence-number check.
 - Five tasks are filed: BL-224 to BL-223. `Surl.Cryptography.Rc4` and
   `Surl.Cryptography.BcryptPbkdf` join ADR-0002's table.
 - `--pass`'s help description becomes `Passphrase for --key and --hostkey` (BL-158).
