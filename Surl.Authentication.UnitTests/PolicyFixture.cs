@@ -40,7 +40,8 @@ internal static class PolicyFixture
                 accounts, allowAnonymous, false, acceptedMethods ?? AuthenticationMethods.DefaultAccepted),
             [],
             clock,
-            FixedSaslNonceSource.Instance);
+            FixedSaslNonceSource.Instance,
+            new FixedNtlmServerChallengeSource());
 
     public static HttpAuthenticationRequest Get(params string[] authorization) =>
         Request("GET", false, authorization);

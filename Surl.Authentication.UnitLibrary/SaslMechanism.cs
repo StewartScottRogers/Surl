@@ -21,6 +21,7 @@ internal sealed record SaslMechanism(
     [
         new("DIGEST-MD5", AuthenticationMethod.DigestMd5, context => new DigestMd5SaslExchange(context)),
         new("CRAM-MD5", AuthenticationMethod.CramMd5, context => new CramMd5SaslExchange(context)),
+        new("NTLM", AuthenticationMethod.Ntlm, context => new NtlmSaslExchange(context)),
         new("OAUTHBEARER", AuthenticationMethod.OAuthBearer, context => new OAuthBearerSaslExchange(context)),
         new("XOAUTH2", AuthenticationMethod.XOAuth2, context => new XOAuth2SaslExchange(context)),
         new("PLAIN", AuthenticationMethod.Plain, context => new PlainSaslExchange(context)),

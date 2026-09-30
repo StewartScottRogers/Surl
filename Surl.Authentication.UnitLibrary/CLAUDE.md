@@ -5,10 +5,12 @@ Phase 1.
 The server side of the authentication schemes upstream curl sends, secure by default
 (ADR-0032): the accounts, the policy that judges every login, and each HTTP method's
 challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,
-Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, and the password check the
-MQTT `CONNECT` asks for. Not here yet: Kerberos inside Negotiate (ADR-0032 decision 11,
-later work, built by hand), `Proxy-Authenticate`, and the logins of servers not yet built
-(FTP, the mail protocols' SASL mechanisms, SSH, SMB, LDAP). Anything time-dependent (the
+Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, the password check the
+MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`, `XOAUTH2`,
+`OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`) and POP3 `APOP` (ADR-0049). Not here yet:
+Kerberos inside Negotiate and SASL `GSSAPI` (ADR-0032 decision 11, ADR-0049 section 4, later
+work, built by hand), SASL `EXTERNAL`, `Proxy-Authenticate`, and the logins of servers not yet
+built (FTP, SSH, SMB, LDAP). Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.
 
@@ -105,6 +107,14 @@ builds the policy from the command line.
 - The handshake itself is `NtlmHandshake` (answering decoded messages with an
   `NtlmHandshakeStep`), shared by NTLM and Negotiate; `NtlmConnectionVerifier` only decodes the
   base64 (`Base64Credentials`) and writes `NTLM <base64>`.
+- SASL `NTLM` for the mail servers (ADR-0049 section 5, BL-196) is `NtlmSaslExchange`: it holds
+  its own `NtlmHandshake` (from `SaslExchangeContext.StartNtlmHandshake`, over the policy's
+  `INtlmServerChallengeSource`), so the handshake dies with the `AUTH` command. An empty
+  challenge when no initial response was sent, one `CHALLENGE_MESSAGE` per exchange, and every
+  other ending - wrong answer, malformed message, a second `NEGOTIATE_MESSAGE` - refused after
+  the delay with the user the message named. `ntlm` in `--auth` accepts it and HTTP NTLM alike;
+  it is not plain-text, so it is offered without TLS. The tests replay curl's measured type 1
+  and type 3 (`NtlmSaslMechanismTests`).
 
 ## Negotiate, carrying NTLM (BL-121)
 

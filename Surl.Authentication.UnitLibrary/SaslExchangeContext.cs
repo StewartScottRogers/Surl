@@ -34,6 +34,12 @@ internal sealed record SaslExchangeContext(
     public string CreateTimestamp() => Policy.CreateTimestamp();
 
     /// <summary>
+    /// A new NTLM handshake over the accounts, with the policy's server challenges (ADR-0039).
+    /// </summary>
+    /// <returns>The handshake, with no server challenge issued yet.</returns>
+    public NtlmHandshake StartNtlmHandshake() => new(Accounts, Policy.NtlmServerChallenges);
+
+    /// <summary>
     /// Waits the refusal delay on the policy's clock (ADR-0032, section 8).
     /// </summary>
     /// <param name="cancellationToken">Cancels the wait.</param>

@@ -56,7 +56,7 @@ public sealed class MailAuthenticationPolicyTests
         var offer = Policy(acceptedMethods: new HashSet<AuthenticationMethod>(Enum.GetValues<AuthenticationMethod>()))
             .GetMailLoginOffer(null);
 
-        CollectionAssert.AreEqual(new[] { "DIGEST-MD5", "CRAM-MD5" }, offer.SaslMechanisms.ToArray());
+        CollectionAssert.AreEqual(new[] { "DIGEST-MD5", "CRAM-MD5", "NTLM" }, offer.SaslMechanisms.ToArray());
         Assert.IsTrue(offer.IsApopOffered);
     }
 
@@ -84,6 +84,7 @@ public sealed class MailAuthenticationPolicyTests
 
     [TestMethod]
     [DataRow("DIGEST-MD5", false, DisplayName = "not in the default set")]
+    [DataRow("NTLM", false, DisplayName = "NTLM, not in the default set")]
     [DataRow("SCRAM-SHA-256", false, DisplayName = "unknown")]
     [DataRow("", false, DisplayName = "empty")]
     [DataRow("PLAIN", true, DisplayName = "not accepted by --auth")]

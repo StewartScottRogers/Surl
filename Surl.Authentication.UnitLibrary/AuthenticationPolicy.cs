@@ -12,7 +12,7 @@ namespace Surl.Authentication;
 /// refused credential answered after <see cref="RefusalDelay"/> on the injected
 /// <see cref="TimeProvider"/>. As the <see cref="IMailAuthenticationPolicy"/> it offers and runs
 /// the SASL mechanisms <c>--auth</c> accepts (ADR-0049, sections 2 and 5): today
-/// <c>DIGEST-MD5</c> and <c>CRAM-MD5</c>, offered on any connection, and <c>PLAIN</c>,
+/// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection, and <c>PLAIN</c>,
 /// <c>LOGIN</c>, <c>XOAUTH2</c> and <c>OAUTHBEARER</c>, all plain-text, so offered and run only over
 /// TLS or with <c>--allow-plaintext-auth</c>; and POP3 <c>APOP</c> when <c>--auth</c> accepts it.
 /// </summary>
@@ -51,23 +51,26 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         AuthenticationSettings settings,
         IEnumerable<IHttpAuthenticationMethod> httpMethods,
         TimeProvider timeProvider)
-        : this(settings, httpMethods, timeProvider, RandomSaslNonceSource.Instance)
+        : this(settings, httpMethods, timeProvider, RandomSaslNonceSource.Instance, RandomNtlmServerChallengeSource.Instance)
     {
     }
 
     /// <summary>
     /// As the public constructor, with the SASL challenges' random bytes from
-    /// <paramref name="nonceSource"/>, so tests can check answers measured from upstream curl.
+    /// <paramref name="nonceSource"/> and SASL <c>NTLM</c>'s server challenges from
+    /// <paramref name="ntlmServerChallenges"/>, so tests can check answers measured from upstream curl.
     /// </summary>
     /// <param name="settings">The accounts and loosening options.</param>
     /// <param name="httpMethods">Every HTTP method this build implements; at most one per method.</param>
     /// <param name="timeProvider">The clock the refusal delay waits on and <c>CRAM-MD5</c> challenges carry.</param>
     /// <param name="nonceSource">Where <c>CRAM-MD5</c> and <c>DIGEST-MD5</c> challenges' random bytes come from.</param>
+    /// <param name="ntlmServerChallenges">Where SASL <c>NTLM</c>'s server challenges come from.</param>
     internal AuthenticationPolicy(
         AuthenticationSettings settings,
         IEnumerable<IHttpAuthenticationMethod> httpMethods,
         TimeProvider timeProvider,
-        ISaslNonceSource nonceSource)
+        ISaslNonceSource nonceSource,
+        INtlmServerChallengeSource ntlmServerChallenges)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(httpMethods);
@@ -86,6 +89,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
         NonceSource = nonceSource;
+        NtlmServerChallenges = ntlmServerChallenges;
         saslMechanisms = [.. SaslMechanism.InOfferOrder.Where(mechanism => settings.AcceptedMethods.Contains(mechanism.Method))];
     }
 
@@ -201,6 +205,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     internal AuthenticationSettings Settings => settings;
 
     internal ISaslNonceSource NonceSource { get; }
+
+    internal INtlmServerChallengeSource NtlmServerChallenges { get; }
 
     /// <summary>
     /// A <c>CRAM-MD5</c> challenge, RFC 2195's <c>msg-id</c> form: <c>&lt;</c>, 16 lower-case hex
