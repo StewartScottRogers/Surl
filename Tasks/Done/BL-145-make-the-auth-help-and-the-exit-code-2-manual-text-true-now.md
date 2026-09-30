@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
 requirement: none
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-145 — Make the --auth help and the exit code 2 manual text true now every --auth method is served
 
@@ -51,26 +51,26 @@ curl behaviour is claimed or changed, so no measurement is needed. The uncommitt
 
 ## Acceptance criteria
 
-- [ ] `AuthExplanation` in `Surl.Cli.UnitLibrary/CommandLineOptions.cs` no longer contains
+- [x] `AuthExplanation` in `Surl.Cli.UnitLibrary/CommandLineOptions.cs` no longer contains
       "refuses to start" nor claims any listed method is unchecked; it states that every one of the
       six listed methods is checked, and that a word outside the list is refused (exit code 2).
-- [ ] The EXIT CODES entry for code 2 in `Surl.Cli.UnitLibrary/ManualText.cs` no longer contains
+- [x] The EXIT CODES entry for code 2 in `Surl.Cli.UnitLibrary/ManualText.cs` no longer contains
       "an --auth method this build does not have"; it still names an option refused, a malformed
       --user-file and a --cacert file that does not exist.
-- [ ] The `<summary>` of `CommandLineAccount` in `Surl.Cli.UnitLibrary/CommandLineAccount.cs` no
+- [x] The `<summary>` of `CommandLineAccount` in `Surl.Cli.UnitLibrary/CommandLineAccount.cs` no
       longer mentions BL-117 or "nothing reads them", and says `Surl.Console`'s
       `AuthenticationComposition` hands the accounts to `Surl.Authentication`.
-- [ ] `AuthExplanationLines` in `Surl.Cli.UnitTests/HelpTextTests.cs` and the EXIT CODES lines in
+- [x] `AuthExplanationLines` in `Surl.Cli.UnitTests/HelpTextTests.cs` and the EXIT CODES lines in
       `Surl.Cli.UnitTests/ManualTextTests.cs` pin the new wording, and
       `grep -rn "refuses to start when --auth\|this build does not have" --include=*.cs .` finds
       nothing outside `bin/` and `obj/`.
-- [ ] The new wording matches what the parser tests already pin, unchanged and passing:
+- [x] The new wording matches what the parser tests already pin, unchanged and passing:
       `Parse_Auth_IsTheAcceptedMethodSet` ("Every word" row, all six words accepted) and
       `Parse_AuthBadWord_IsBadlyUsed` ("An unknown word" row, `--auth kerberos` refused with
       "option --auth: is badly used here", which is `SurlExitCode.FailedInit` = 2) in
       `Surl.Cli.UnitTests/CommandLineParserTests.cs`. The text says exit code 2 for an unknown word
       only because those tests prove it.
-- [ ] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean and
+- [x] `dotnet build Surl.Cli.UnitLibrary -warnaserror` is clean and
       `dotnet test Surl.Cli.UnitTests --filter "TestCategory!=Integration"` passes; no new test
       needs `TestCategory=Integration`.
 
@@ -79,7 +79,16 @@ curl behaviour is claimed or changed, so no measurement is needed. The uncommitt
 BL-146 (naming and doc-comment alignment) waits on this task because both change
 `Surl.Cli.UnitLibrary`.
 
+Delivered directly rather than through the full /feature stages: three stale sentences and their
+pins, no behaviour change and no upstream curl claim. Wording chosen: "surl checks every one of
+the six, and refuses a word outside the list as an option badly used (exit code 2)" - "badly used"
+echoes the parser's own "option --auth: is badly used here", pinned by
+`Parse_AuthBadWord_IsBadlyUsed`. Help wraps at 79 columns, so the lines after the new sentence
+rewrapped. Fast tests: Surl.Cli.UnitTests 639/639, whole solution green (the SMB test scaffold
+matches no fast test, which makes `dotnet test` exit 255 with no failure; pre-existing).
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. --help --auth, --help testing and --manual now say every --auth method is checked and an unknown word is exit code 2
