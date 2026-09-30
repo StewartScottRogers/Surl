@@ -49,3 +49,4 @@ The SMTP, IMAP and POP3 servers name the setting "whether this server offers a T
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-274 (ADR-0069).
+- 2026-09-30: Backlog -> Doing.
