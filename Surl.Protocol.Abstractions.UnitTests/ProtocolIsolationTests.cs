@@ -24,14 +24,15 @@ public sealed class ProtocolIsolationTests
     private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
     private const string Rc4 = "Surl.Cryptography.Rc4.UnitLibrary";
     private const string Ripemd160 = "Surl.Cryptography.Ripemd160.UnitLibrary";
+    private const string HttpMessage = "Surl.HttpMessage.UnitLibrary";
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
 
     /// <summary>
-    /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057 and ADR-0061 add: each horizontal
-    /// library a protocol server may reference, with the projects that library may itself
-    /// reference.
+    /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061 and
+    /// ADR-0070 add: each horizontal library a protocol server may reference, with the projects
+    /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
     {
@@ -46,6 +47,7 @@ public sealed class ProtocolIsolationTests
         [Poly1305] = [],
         [Rc4] = [],
         [Ripemd160] = [],
+        [HttpMessage] = [Abstractions],
         [Kerberos] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
@@ -104,6 +106,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Poly1305)]
     [DataRow(Rc4)]
     [DataRow(Ripemd160)]
+    [DataRow(HttpMessage)]
     [DataRow(Kerberos)]
     [DataRow(LineProtocol)]
     [DataRow(MailStore)]
@@ -132,6 +135,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Content, Abstractions)]
     [DataRow(BcryptPbkdf, Blowfish)]
     [DataRow(Ed25519, Curve25519)]
+    [DataRow(HttpMessage, Abstractions)]
     [DataRow(LineProtocol, Abstractions)]
     [DataRow(MailStore, Abstractions)]
     [DataRow(MailStore, Content)]
@@ -155,6 +159,10 @@ public sealed class ProtocolIsolationTests
     [DataRow(Kerberos, Cryptography)]
     [DataRow(Kerberos, Abstractions)]
     [DataRow(Ed25519, Cryptography)]
+    [DataRow(HttpMessage, Content)]
+    [DataRow(HttpMessage, LineProtocol)]
+    [DataRow(HttpMessage, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow(HttpMessage, "Surl.Networking.UnitLibrary")]
     [DataRow(LineProtocol, Content)]
     [DataRow(LineProtocol, MailStore)]
     [DataRow(MailStore, LineProtocol)]

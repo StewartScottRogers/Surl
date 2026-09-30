@@ -8,7 +8,7 @@ depends-on: [BL-281]
 touches: [Surl.slnx, Surl.HttpMessage.UnitLibrary, Surl.HttpMessage.UnitTests, Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-048
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-292 — Create the Surl.HttpMessage projects
 
@@ -41,17 +41,29 @@ into it with no edit to `Surl.slnx`.
 
 ## Acceptance criteria
 
-- [ ] Both folders exist with their csproj files; the production csproj has no `PackageReference`
+- [x] Both folders exist with their csproj files; the production csproj has no `PackageReference`
       and references exactly what the ADR allows.
-- [ ] `Surl.slnx` lists both projects in ordinal order, the tests directly after the library.
-- [ ] `Surl.HttpMessage.UnitLibrary/CLAUDE.md` exists.
-- [ ] `ProtocolIsolationTests` know the row and pass.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is
+- [x] `Surl.slnx` lists both projects in ordinal order, the tests directly after the library.
+- [x] `Surl.HttpMessage.UnitLibrary/CLAUDE.md` exists.
+- [x] `ProtocolIsolationTests` know the row and pass.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is
       green.
 
 ## Notes
+
+- ADR-0070 kept the planning name `Surl.HttpMessage` and its row (Abstractions only), so the
+  projects follow it as filed.
+- The production csproj copies `Surl.LineProtocol`: one `ProjectReference` to Abstractions and
+  `InternalsVisibleTo` its tests; no code yet, so `CLAUDE.md` states the contents as intent until
+  BL-293.
+- The test project is empty for now, as `Surl.Protocol.Ws.UnitTests` and `Surl.Protocol.Rtsp.UnitTests`
+  are; `dotnet test` accepts an empty project (exit 0).
+- `ProtocolIsolationTests`: row `[HttpMessage] = [Abstractions]`, allowed as a protocol reference,
+  `HttpMessage -> Abstractions` allowed, and `-> Content`, `-> LineProtocol`, `-> Protocol.Http`,
+  `-> Networking` forbidden (ADR-0070 decision 1). 267 Abstractions tests pass.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Surl.HttpMessage.UnitLibrary and .UnitTests exist, build, sit in Surl.slnx, and ProtocolIsolationTests hold their ADR-0070 row
