@@ -51,3 +51,4 @@ encrypt-then-MAC forms), and re-keys when the client or the ADR's limits ask.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
