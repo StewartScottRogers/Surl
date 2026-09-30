@@ -13,6 +13,13 @@ public enum AuthenticationMethod
     Negotiate,
 
     /// <summary>
+    /// SASL <c>GSSAPI</c>, RFC 4752 (<c>--auth gssapi</c>), for the mail servers: a Kerberos
+    /// ticket checked against the <c>--keytab</c> keys, so no secret is sent; not in the default
+    /// set (ADR-0049, section 3; ADR-0057, decision 9).
+    /// </summary>
+    Gssapi,
+
+    /// <summary>
     /// NTLM (<c>--auth ntlm</c>); not in the default set.
     /// </summary>
     Ntlm,

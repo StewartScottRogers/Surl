@@ -26,8 +26,8 @@ public sealed record AuthenticationSettings(
 
     /// <summary>
     /// What checks a client's Kerberos AP-REQ against the service keys of <c>--keytab</c>
-    /// (ADR-0057, decisions 1 and 6); <see langword="null"/> when no keytab is given. No
-    /// authentication method reads it yet.
+    /// (ADR-0057, decisions 1 and 6); <see langword="null"/> when no keytab is given. SASL
+    /// <c>GSSAPI</c> is offered and run only when it is set (decision 9).
     /// </summary>
     public KerberosAcceptor? KerberosAcceptor { get; init; }
 }

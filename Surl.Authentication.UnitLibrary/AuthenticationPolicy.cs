@@ -11,7 +11,8 @@ namespace Surl.Authentication;
 /// <c>--allow-plaintext-auth</c>, only the accepted methods offered and checked, and every
 /// refused credential answered after <see cref="RefusalDelay"/> on the injected
 /// <see cref="TimeProvider"/>. As the <see cref="IMailAuthenticationPolicy"/> it offers and runs
-/// the SASL mechanisms <c>--auth</c> accepts (ADR-0049, sections 2 and 5): today
+/// the SASL mechanisms <c>--auth</c> accepts (ADR-0049, sections 2 and 5): today <c>GSSAPI</c>,
+/// offered on any connection when <c>--keytab</c> gave a Kerberos acceptor (ADR-0057, decision 9),
 /// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection, and <c>PLAIN</c>,
 /// <c>LOGIN</c>, <c>XOAUTH2</c> and <c>OAUTHBEARER</c>, all plain-text, so offered and run only over
 /// TLS or with <c>--allow-plaintext-auth</c>; <c>EXTERNAL</c>, offered and run only on a
@@ -148,7 +149,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <summary>
     /// Starts the exchange of the mechanism <paramref name="start"/> names, matched
     /// case-insensitively: refused as <see cref="MailLoginOutcome.RefusedMechanism"/> when it is
-    /// unknown, not accepted, or <c>EXTERNAL</c> on a connection with no TLS client certificate,
+    /// unknown, not accepted, <c>EXTERNAL</c> on a connection with no TLS client certificate, or
+    /// <c>GSSAPI</c> with no Kerberos acceptor,
     /// and as <see cref="MailLoginOutcome.RefusedPlaintext"/> when it is
     /// plain-text on an unencrypted connection without <c>--allow-plaintext-auth</c> or
     /// <c>--allow-anonymous</c> (ADR-0049, sections 1 and 5).
@@ -167,7 +169,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         }
 
         return settings.AllowAnonymous || MayUseSaslMechanism(mechanism, start.TlsSession is not null)
-            ? mechanism.Start(new SaslExchangeContext(this, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate))
+            ? mechanism.Start(new SaslExchangeContext(this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate))
             : new RefusedSaslExchange(MailLoginOutcome.RefusedPlaintext);
     }
 
@@ -175,10 +177,15 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     private bool MayUseSaslMechanism(SaslMechanism mechanism, bool isEncrypted) =>
         OffersPlaintextSecrets(isEncrypted || !AuthenticationMethods.SendsPlaintextSecret(mechanism.Method));
 
-    // EXTERNAL's client is its TLS client certificate, so it needs one, even under --allow-anonymous
-    // (ADR-0049, sections 2 and 4).
-    private static bool CanIdentifyClient(SaslMechanism mechanism, TlsSession? tlsSession) =>
-        mechanism.Method != AuthenticationMethod.External || tlsSession?.ClientCertificate is not null;
+    // EXTERNAL's client is its TLS client certificate, so it needs one, and GSSAPI's is its Kerberos
+    // ticket, so it needs the --keytab acceptor, even under --allow-anonymous (ADR-0049, sections 2
+    // and 4; ADR-0057, decision 9).
+    private bool CanIdentifyClient(SaslMechanism mechanism, TlsSession? tlsSession) => mechanism.Method switch
+    {
+        AuthenticationMethod.External => tlsSession?.ClientCertificate is not null,
+        AuthenticationMethod.Gssapi => settings.KerberosAcceptor is not null,
+        _ => true,
+    };
 
     /// <summary>
     /// POP3 <c>APOP</c>, RFC 1939 section 7 (ADR-0049, sections 5 and 7):

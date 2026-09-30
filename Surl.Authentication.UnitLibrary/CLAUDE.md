@@ -7,10 +7,11 @@ The server side of the authentication schemes upstream curl sends, secure by def
 challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,
 Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, the password check the
 MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`, `XOAUTH2`,
-`OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`, and `EXTERNAL`, which logs in as the
+`OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`, `GSSAPI`, which checks a Kerberos ticket with the
+`--keytab` acceptor and is offered first (ADR-0057 decisions 9 and 10), and `EXTERNAL`, which logs in as the
 verified TLS client certificate's subject simple name and is offered only on a connection that
 has one) and POP3 `APOP` (ADR-0049), and SSH password and public-key logins (ADR-0051). Not here yet:
-Kerberos inside Negotiate and SASL `GSSAPI` (ADR-0032 decision 11, ADR-0049 section 4, later
+Kerberos inside Negotiate (ADR-0032 decision 11, ADR-0057 decision 8, BL-241, later
 work, built by hand), `Proxy-Authenticate`, and the logins of servers not yet
 built (FTP, SMB, LDAP). Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
@@ -20,7 +21,7 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary`, and
 `Surl.Cryptography.UnitLibrary` for MD4 and SHA-512/256 (ADR-0032 decision 7), and
 `Surl.Kerberos.UnitLibrary` for the Kerberos acceptor (ADR-0057 decision 6), and no
 protocol server. `AuthenticationSettings.KerberosAcceptor` carries the acceptor `Surl.Console`
-builds from `--keytab` (`null` without one, BL-240); no authentication method reads it yet. Protocol servers receive what it provides through the contracts in
+builds from `--keytab` (`null` without one, BL-240); SASL `GSSAPI` (`GssapiSaslExchange`) is offered and run only when it is set. Protocol servers receive what it provides through the contracts in
 Abstractions (`IAuthenticationPolicy`, `IMailAuthenticationPolicy`, `ISshAuthenticationPolicy`); `Surl.Console`'s `AuthenticationComposition`
 builds the policy from the command line.
 

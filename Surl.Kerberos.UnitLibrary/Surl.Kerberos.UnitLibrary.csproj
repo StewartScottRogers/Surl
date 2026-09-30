@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Surl.Kerberos.UnitTests" />
+    <!-- Surl.Authentication's GSSAPI tests encrypt their hand-made tickets with the same profiles (ADR-0057, decision 11). -->
+    <InternalsVisibleTo Include="Surl.Authentication.UnitTests" />
   </ItemGroup>
 
 </Project>
