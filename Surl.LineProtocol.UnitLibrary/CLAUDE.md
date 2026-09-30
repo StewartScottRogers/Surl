@@ -2,14 +2,23 @@
 
 Phase 1.
 
-The CRLF line machinery the mail servers share (ADR-0050 decision 8). It is empty until
-BL-192 lands; what follows is the intent. It will hold a command-line reader over one
-connection (a line ends only at CRLF, bounded by `ExchangeLimits.MaxLineBytes` and the head
-timeout, outcomes as values, pipelining kept, counted runs for IMAP literals, and a discard
-of what is buffered before a `STARTTLS` or `STLS` upgrade), a dot-stuffed body reader for
-SMTP `DATA` bounded by `ExchangeLimits.MaxUploadBytes`, a dot-stuffing body writer for POP3
-`RETR` and `TOP`, a reply-line writer that refuses a CR, an LF or a non-printable byte, and a
-SASL continuation reader.
+The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in BL-192:
+
+- `CrlfLineReader` - one buffer over one connection. `ReadLineAsync` ends a line only at
+  CRLF (a bare LF or CR is part of the line), bounded by `ExchangeLimits.MaxLineBytes` with no
+  byte read past it, and by the head timeout (from creation for the first line, from the first
+  byte for later ones); outcomes are `CrlfLineReadOutcome` values, and pipelined bytes stay
+  buffered. `ReadCountedRunAsync` copies an IMAP literal, `ReadDotStuffedBodyAsync` reads SMTP
+  `DATA` unstuffed to CRLF `.` CRLF bounded by `ExchangeLimits.MaxUploadBytes`,
+  `ReadSaslContinuationAsync` reads and classifies a SASL continuation, and `DiscardBuffered`
+  throws away what is buffered before a `STARTTLS` or `STLS` upgrade. Counted runs and bodies
+  are not under the head timeout.
+- `DotUnstuffer` - the body reader's state machine (internal).
+- `DotStuffedBodyWriter` - POP3 `RETR` and `TOP`: stuffs after CRLF only, adds a CRLF to a
+  non-empty message that lacks one, ends with `.` CRLF; an empty message is `.` CRLF alone.
+- `ReplyLineWriter` - one printable-ASCII line and CRLF; throws `ArgumentException` otherwise.
+- `SaslContinuationLine` - `*` cancels, empty is an empty response, whitespace or anything
+  else not base64 is `NotBase64`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and nothing else
 (ADR-0050 decision 1, amending ADR-0002's table); protocol servers may reference it, and
