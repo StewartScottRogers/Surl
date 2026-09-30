@@ -164,8 +164,9 @@ Two rules carry the design, the same two the Curl port is built on, turned aroun
 
 **Rule 1 - protocol servers depend on abstractions, never on each other.** A protocol
 server references `Surl.Protocol.Abstractions` and the horizontal libraries ADR-0002
-lists (`Surl.Content`, `Surl.Cryptography`); referencing another protocol server is a
-build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
+lists (`Surl.Content`, `Surl.Cryptography`, the four SSH primitive libraries of
+ADR-0048, and, once BL-189 adds them, the mail servers' `Surl.MailStore` and
+`Surl.LineProtocol` of ADR-0050); referencing another protocol server is a build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
 
 **Rule 2 - the transport is an injected seam.** A protocol server receives an accepted
 connection (or a datagram channel, for TFTP) from a listener seam; it never constructs a
@@ -193,9 +194,10 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Executable | `Surl.Console` | everything below, as the composition root |
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
-| Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and `Surl.Content` or `Surl.Cryptography` where needed |
+| Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, and for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol` |
 | Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) |
-| Hand-built primitives | `Surl.Cryptography` | nothing |
+| Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md), to be added by BL-189 | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
+| Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305`, decided by [ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md) and added by BL-149 | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519` |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
 | Upstream's test cases | `Surl.Conformance` | Abstractions |
 
@@ -203,7 +205,9 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
 Flat: every project is a directory immediately under the repository root, each production
 project followed by its `.UnitTests` twin (`CLAUDE.md`, "Repository layout"). Every
-project exists from the first commit (ADR-0002):
+project of ADR-0002's map exists from the first commit; the four hand-built SSH primitive
+libraries of ADR-0048 and their twins were added by BL-149, and the mail servers' two shared
+libraries of ADR-0050 and their twins will be added by BL-189:
 
 | Production | Tests |
 | --- | --- |
@@ -214,7 +218,13 @@ project exists from the first commit (ADR-0002):
 | `Surl.Content.UnitLibrary` | `Surl.Content.UnitTests` |
 | `Surl.Cookies.UnitLibrary` | `Surl.Cookies.UnitTests` |
 | `Surl.Core.UnitLibrary` | `Surl.Core.UnitTests` |
+| `Surl.Cryptography.ChaCha20.UnitLibrary` | `Surl.Cryptography.ChaCha20.UnitTests` |
+| `Surl.Cryptography.Curve25519.UnitLibrary` | `Surl.Cryptography.Curve25519.UnitTests` |
+| `Surl.Cryptography.Ed25519.UnitLibrary` | `Surl.Cryptography.Ed25519.UnitTests` |
+| `Surl.Cryptography.Poly1305.UnitLibrary` | `Surl.Cryptography.Poly1305.UnitTests` |
 | `Surl.Cryptography.UnitLibrary` | `Surl.Cryptography.UnitTests` |
+| `Surl.LineProtocol.UnitLibrary` (to be added by BL-189) | `Surl.LineProtocol.UnitTests` (to be added by BL-189) |
+| `Surl.MailStore.UnitLibrary` (to be added by BL-189) | `Surl.MailStore.UnitTests` (to be added by BL-189) |
 | `Surl.Networking.UnitLibrary` | `Surl.Networking.UnitTests` |
 | `Surl.Output.UnitLibrary` | `Surl.Output.UnitTests` |
 | `Surl.Protocol.Abstractions.UnitLibrary` | `Surl.Protocol.Abstractions.UnitTests` |
@@ -252,7 +262,7 @@ project exists from the first commit (ADR-0002):
 | --- | --- | --- |
 | 0 | The solution, every project, conventions, quality gates, the dark factory, the first pinned upstream build | The shell holds (Milestone 0) |
 | 1 | The listener seam and contracts, `Surl.Networking`, `Surl.Core`, `Surl.Cli`, `Surl.Output`, `Surl.Console`, `Surl.Content`, the HTTP/1.x server with `Surl.Authentication` and `Surl.Cookies`; DICT, Gopher, TELNET, TFTP and MQTT alongside | `surl http://...` serves and upstream curl fetches from it; the seams hold |
-| 2 | FTP, then SSH with SCP and SFTP over `Surl.Cryptography` | A control channel and data channels; the hand-built SSH primitives |
+| 2 | FTP, then SSH with SCP and SFTP over the hand-built primitive libraries of ADR-0048 | A control channel and data channels; the hand-built SSH primitives |
 | 3 | SMTP, IMAP, POP3 | The line-oriented servers share their machinery |
 | 4 | WebSocket | The upgrade from HTTP |
 | 5 | LDAP, SMB, RTSP | The awkward remainder |

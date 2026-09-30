@@ -1,0 +1,80 @@
+namespace Surl.Protocol.Ssh;
+
+/// <summary>
+/// The algorithms the server's <c>SSH_MSG_KEXINIT</c> offers, each list in the server's order
+/// of preference, the same in both directions (ADR-0051, decision 2).
+/// </summary>
+/// <param name="KeyExchange">The key exchange methods, ending with the strict key exchange marker.</param>
+/// <param name="ServerHostKey">The host-key algorithms: only those of the host keys the server holds.</param>
+/// <param name="Cipher">The ciphers.</param>
+/// <param name="Mac">The MACs.</param>
+/// <param name="Compression">The compression methods.</param>
+public sealed record SshAlgorithmOffer(
+    IReadOnlyList<string> KeyExchange,
+    IReadOnlyList<string> ServerHostKey,
+    IReadOnlyList<string> Cipher,
+    IReadOnlyList<string> Mac,
+    IReadOnlyList<string> Compression)
+{
+    /// <summary>
+    /// The pseudo-algorithm the server lists last among its key exchange methods: it will
+    /// hold a client that lists <see cref="StrictKeyExchangeClientMarker"/> to strict key
+    /// exchange (OpenSSH <c>PROTOCOL</c>, ADR-0051 decision 2.1).
+    /// </summary>
+    public const string StrictKeyExchangeServerMarker = "kex-strict-s-v00@openssh.com";
+
+    /// <summary>
+    /// The pseudo-algorithm a client lists to ask for strict key exchange.
+    /// </summary>
+    public const string StrictKeyExchangeClientMarker = "kex-strict-c-v00@openssh.com";
+
+    private static readonly string[] HostKeyOrder =
+    [
+        "ssh-ed25519",
+        "ecdsa-sha2-nistp256",
+        "ecdsa-sha2-nistp384",
+        "ecdsa-sha2-nistp521",
+        "rsa-sha2-512",
+        "rsa-sha2-256",
+    ];
+
+    /// <summary>
+    /// The default offer of ADR-0051 decision 2: every default key exchange method, cipher, MAC
+    /// and compression method in the decision's order, and of its host-key algorithms those
+    /// in <paramref name="heldHostKeyAlgorithms"/>, still in the decision's order.
+    /// </summary>
+    /// <param name="heldHostKeyAlgorithms">
+    /// The host-key algorithms the server's keys sign with, e.g. <c>rsa-sha2-512</c> and
+    /// <c>rsa-sha2-256</c> for an RSA key. A name the decision does not list is left out.
+    /// </param>
+    /// <param name="aesGcmIsSupported">
+    /// Whether <c>aes256-gcm@openssh.com</c> and <c>aes128-gcm@openssh.com</c> are offered:
+    /// <see cref="System.Security.Cryptography.AesGcm.IsSupported"/> on the machine serving.
+    /// </param>
+    /// <returns>The offer.</returns>
+    public static SshAlgorithmOffer Default(IEnumerable<string> heldHostKeyAlgorithms, bool aesGcmIsSupported)
+    {
+        ArgumentNullException.ThrowIfNull(heldHostKeyAlgorithms);
+
+        var held = heldHostKeyAlgorithms.ToHashSet(StringComparer.Ordinal);
+        string[] aesGcm = aesGcmIsSupported ? ["aes256-gcm@openssh.com", "aes128-gcm@openssh.com"] : [];
+
+        return new SshAlgorithmOffer(
+            [
+                "curve25519-sha256",
+                "curve25519-sha256@libssh.org",
+                "ecdh-sha2-nistp256",
+                "ecdh-sha2-nistp384",
+                "ecdh-sha2-nistp521",
+                "diffie-hellman-group-exchange-sha256",
+                "diffie-hellman-group16-sha512",
+                "diffie-hellman-group18-sha512",
+                "diffie-hellman-group14-sha256",
+                StrictKeyExchangeServerMarker,
+            ],
+            [.. HostKeyOrder.Where(held.Contains)],
+            ["chacha20-poly1305@openssh.com", .. aesGcm, "aes256-ctr", "aes192-ctr", "aes128-ctr"],
+            ["hmac-sha2-256-etm@openssh.com", "hmac-sha2-512-etm@openssh.com", "hmac-sha2-256", "hmac-sha2-512"],
+            ["none", "zlib@openssh.com", "zlib"]);
+    }
+}

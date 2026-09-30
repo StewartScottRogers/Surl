@@ -143,4 +143,17 @@ public sealed class DiskContentFileSystem : IContentFileSystem
     // by design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
     [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
     public void CreateDirectory(string path) => Directory.CreateDirectory(path);
+
+    /// <inheritdoc/>
+    // Excluded from coverage: it renames a directory on disk, and the fast tests run without one
+    // by design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public void MoveDirectory(string source, string destination) => Directory.Move(source, destination);
+
+    /// <inheritdoc/>
+    /// <remarks>A directory that is not empty is kept, and <see cref="IOException"/> thrown.</remarks>
+    // Excluded from coverage: it removes a directory on disk, and the fast tests run without one
+    // by design. The Integration tests in Surl.Content.UnitTests (DiskContentFileSystemTests) cover it.
+    [ExcludeFromCodeCoverage(Justification = "Covered by the Integration tests in Surl.Content.UnitTests.")]
+    public void RemoveEmptyDirectory(string path) => Directory.Delete(path, recursive: false);
 }

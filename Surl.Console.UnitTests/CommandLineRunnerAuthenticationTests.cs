@@ -329,6 +329,147 @@ public sealed class CommandLineRunnerAuthenticationTests
 
     private static SurlCommandLine Parse(params string[] args) => CommandLineParser.Parse(args).CommandLine!;
 
+    // The SSH server options, refused until the SSH server is composed (ADR-0051 decision 5).
+
+    [TestMethod]
+    [DataRow("--hostkey", new[] { "--hostkey", "host.key" })]
+    [DataRow("--hostcert", new[] { "--hostcert", "host-cert.pub" })]
+    [DataRow("--throwaway-hostkey", new[] { "--throwaway-hostkey" })]
+    [DataRow("--authorized-keys", new[] { "--authorized-keys", "alice:alice.keys" })]
+    [DataRow("--allow-weak-ssh-algorithms", new[] { "--allow-weak-ssh-algorithms" })]
+    public async Task RunAsync_SshOption_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string option, string[] arguments)
+    {
+        var run = await RunRefusedAsync(_ => throw new AssertFailedException("the user file is not read"), [.. arguments, "--user-file", UserFile, Http]);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
+        Assert.AreEqual($"surl: (2) {option} is not available in this build" + NewLine, run.Error);
+        Assert.IsEmpty(run.Factory.StartedListenUrls);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SeveralSshOptions_NamesTheFirstInOptionTableOrder()
+    {
+        var run = await RunRefusedAsync(null, "--allow-weak-ssh-algorithms", "--authorized-keys", "a:k", "--hostcert", "c", Http);
+
+        Assert.AreEqual("surl: (2) --hostcert is not available in this build" + NewLine, run.Error);
+    }
+
+    [TestMethod]
+    public void FindUnavailableOption_NoSshOptionOrOnlyNegatedFlags_IsNull()
+    {
+        Assert.IsNull(CommandLineRunner.FindUnavailableOption(new SurlCommandLine()));
+        Assert.IsNull(CommandLineRunner.FindUnavailableOption(
+            CommandLineParser.Parse(["--no-throwaway-hostkey", "--no-allow-weak-ssh-algorithms", Http]).CommandLine!));
+    }
+
+    // The SASL mechanism words (ADR-0049 section 3).
+
+    [TestMethod]
+    [DataRow("ntlm", "NTLM")]
+    [DataRow("digest-md5", "DIGEST-MD5")]
+    [DataRow("CRAM-MD5", "CRAM-MD5")]
+    [DataRow("plain", "PLAIN")]
+    [DataRow("Login", "LOGIN")]
+    [DataRow("oauthbearer", "OAUTHBEARER")]
+    [DataRow("xoauth2", "XOAUTH2")]
+    public void Compose_SaslMechanismWord_TheComposedPolicyOffersThatMechanismAlone(string word, string mechanism)
+    {
+        var (policy, _, _) = AuthenticationComposition.Compose(
+            Parse("--allow-plaintext-auth", "--auth", word, Http), ReadsAs(string.Empty), TimeProvider.System);
+
+        var offer = policy!.GetMailLoginOffer(null);
+        CollectionAssert.AreEqual(new[] { mechanism }, offer.SaslMechanisms.ToArray());
+        Assert.IsFalse(offer.IsApopOffered);
+    }
+
+    [TestMethod]
+    public void Compose_Apop_TheComposedPolicyOffersApopAndNoSaslMechanism()
+    {
+        var (policy, _, _) = AuthenticationComposition.Compose(Parse("--auth", "apop", Http), ReadsAs(string.Empty), TimeProvider.System);
+
+        var offer = policy!.GetMailLoginOffer(null);
+        Assert.IsEmpty(offer.SaslMechanisms);
+        Assert.IsTrue(offer.IsApopOffered);
+    }
+
+    [TestMethod]
+    public void Compose_EveryAvailableWord_OffersEverySaslMechanismInOfferOrder()
+    {
+        var (policy, _, _) = AuthenticationComposition.Compose(
+            Parse("--allow-plaintext-auth", "--auth", "external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlm,negotiate,aws-sigv4", Http),
+            ReadsAs(string.Empty),
+            TimeProvider.System);
+
+        var offer = policy!.GetMailLoginOffer(null);
+        CollectionAssert.AreEqual(
+            new[] { "DIGEST-MD5", "CRAM-MD5", "NTLM", "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN" }, offer.SaslMechanisms.ToArray());
+        Assert.IsTrue(offer.IsApopOffered);
+    }
+
+    [TestMethod]
+    [DataRow("negotiate", AuthenticationMethod.Negotiate)]
+    [DataRow("ntlm", AuthenticationMethod.Ntlm)]
+    [DataRow("digest", AuthenticationMethod.Digest)]
+    [DataRow("digest-md5", AuthenticationMethod.DigestMd5)]
+    [DataRow("cram-md5", AuthenticationMethod.CramMd5)]
+    [DataRow("apop", AuthenticationMethod.Apop)]
+    [DataRow("basic", AuthenticationMethod.Basic)]
+    [DataRow("plain", AuthenticationMethod.Plain)]
+    [DataRow("login", AuthenticationMethod.Login)]
+    [DataRow("bearer", AuthenticationMethod.Bearer)]
+    [DataRow("oauthbearer", AuthenticationMethod.OAuthBearer)]
+    [DataRow("xoauth2", AuthenticationMethod.XOAuth2)]
+    [DataRow("external", AuthenticationMethod.External)]
+    [DataRow("aws-sigv4", AuthenticationMethod.AwsSigV4)]
+    public void ComposeSettings_EachWord_AcceptsItsMethodAlone(string word, AuthenticationMethod method)
+    {
+        var settings = AuthenticationComposition.ComposeSettings(Parse("--auth", word, Http), []);
+
+        Assert.IsTrue(settings.AcceptedMethods.SetEquals([method]));
+    }
+
+    [TestMethod]
+    public void ComposeSettings_TheDefaultWordsGivenAsAuth_AreTheDefaultAcceptedMethods()
+    {
+        var defaultWords = string.Join(",", new SurlCommandLine().AcceptedAuthenticationMethods);
+
+        var settings = AuthenticationComposition.ComposeSettings(Parse("--auth", defaultWords, Http), []);
+
+        Assert.IsTrue(settings.AcceptedMethods.SetEquals(AuthenticationMethods.DefaultAccepted));
+    }
+
+    [TestMethod]
+    public async Task RunAsync_AuthWithSaslWords_WritesTheAcceptedMethodsInSectionThreesOrderOnStart()
+    {
+        var run = await ServeOneConnectionAsync(
+            null, ReadsAs(string.Empty), "--auth", "XOAUTH2,aws-sigv4,plain,apop,External,basic,cram-md5,digest-md5,ntlm,oauthbearer,login", Http);
+
+        Assert.AreEqual(
+            "surl: warning: --auth: accepted methods are ntlm, digest-md5, cram-md5, apop, basic, plain, login, oauthbearer, xoauth2, external, aws-sigv4" + NewLine,
+            run.Error);
+    }
+
+    [TestMethod]
+    [DataRow("gssapi", "gssapi")]
+    [DataRow("GSSAPI,plain", "gssapi")]
+    [DataRow("external,gssapi", "gssapi")]
+    public async Task RunAsync_AuthGssapi_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string words, string refused)
+    {
+        var run = await RunRefusedAsync(_ => throw new AssertFailedException("the user file is not read"), "--auth", words, "--user-file", UserFile, Http);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
+        Assert.AreEqual($"surl: (2) --auth {refused} is not available in this build" + NewLine, run.Error);
+        Assert.IsEmpty(run.Factory.StartedListenUrls);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_AuthGssapiAndAnSshOption_NamesAuthFirstInOptionTableOrder()
+    {
+        var run = await RunRefusedAsync(null, "--hostkey", "host.key", "--auth", "gssapi", Http);
+
+        Assert.AreEqual("surl: (2) --auth gssapi is not available in this build" + NewLine, run.Error);
+    }
+
     private async Task<Run> RunRefusedAsync(Func<string, byte[]>? readUserFile, params string[] args)
     {
         var factory = new FakeListenerFactory();

@@ -40,11 +40,46 @@ internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
             throw new IOException("The rename failed.");
         }
 
-        entries[destination] = entries[source];
-        entries.Remove(source);
+        MoveKey(entries, source, destination);
         fileContents.Remove(destination);
-        writtenFiles[destination] = writtenFiles[source];
-        writtenFiles.Remove(source);
+        writtenFiles.Remove(destination);
+        MoveKey(fileContents, source, destination);
+        MoveKey(writtenFiles, source, destination);
+        MoveKey(lastWriteTimes, source, destination);
+    }
+
+    public void MoveDirectory(string source, string destination)
+    {
+        Calls.Add($"{nameof(MoveDirectory)}({source}, {destination})");
+        string prefix = source + Path.DirectorySeparatorChar;
+        foreach (string key in entries.Keys.Where(key => key == source || key.StartsWith(prefix, StringComparison.Ordinal)).ToList())
+        {
+            string moved = destination + key[source.Length..];
+            MoveKey(entries, key, moved);
+            MoveKey(fileContents, key, moved);
+            MoveKey(writtenFiles, key, moved);
+            MoveKey(lastWriteTimes, key, moved);
+        }
+    }
+
+    public void CreateDirectory(string path)
+    {
+        Calls.Add($"{nameof(CreateDirectory)}({path})");
+        entries[path] = ContentEntryKind.Directory;
+    }
+
+    public void RemoveEmptyDirectory(string path)
+    {
+        Calls.Add($"{nameof(RemoveEmptyDirectory)}({path})");
+        entries.Remove(path);
+    }
+
+    private static void MoveKey<TValue>(Dictionary<string, TValue> dictionary, string source, string destination)
+    {
+        if (dictionary.Remove(source, out TValue? value))
+        {
+            dictionary[destination] = value;
+        }
     }
 
     /// <summary>

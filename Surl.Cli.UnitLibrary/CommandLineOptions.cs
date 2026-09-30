@@ -30,13 +30,20 @@ internal static class CommandLineOptions
         + "surl warns on every start while it is on, from the info log level up.";
 
     private const string AuthExplanation =
-        "Sets the HTTP authentication methods surl accepts and offers, a comma-separated list of basic, bearer, "
-        + "digest, ntlm, negotiate and aws-sigv4; the default is basic,bearer,digest,aws-sigv4. surl checks "
-        + "every one of the six, and refuses a word outside the list as an option badly used (exit code 2). A test uses it to offer one "
-        + "method alone, such as --auth digest for curl's --digest. ntlm and negotiate are not in the default "
-        + "because an NTLM response is built on MD4 and HMAC-MD5 of the password and is open to relay and offline "
-        + "cracking, and Negotiate carries NTLM. surl warns on every start while --auth is given, from the info log "
-        + "level up, naming the methods it accepts.";
+        "Sets the authentication methods surl accepts and offers, a comma-separated list in any case. For HTTP: "
+        + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL "
+        + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: ntlm, digest-md5, "
+        + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP; this build serves none of "
+        + "those three protocols yet. external logs in as the TLS client certificate --cacert verifies, so it is "
+        + "offered only on a connection that sent one. gssapi is read, but a start that gives it is refused as "
+        + "not available in this build (exit code 2). surl refuses a word outside the "
+        + "list as an option badly used (exit code 2). A test uses it to offer one method alone, such as --auth "
+        + "digest for curl's --digest. ntlm and negotiate are not in the default because an NTLM response is built "
+        + "on MD4 and HMAC-MD5 of the password and is open to relay and offline cracking, and Negotiate carries "
+        + "NTLM; digest-md5 is not because RFC 6331 made it Historic and curl picks it over every other mechanism; "
+        + "apop is not because its MD5 construction leaks password characters to anyone who can choose the "
+        + "timestamp it signs. surl warns on every start while --auth is given, from the info log level up, "
+        + "naming the methods it accepts.";
 
     private const string SelfSignedExplanation =
         "Serves a throwaway self-signed certificate, made at start, for a listen URL of a scheme that starts "
@@ -45,6 +52,14 @@ internal static class CommandLineOptions
         + "-k. It is not the default because no client can verify the certificate, so a client cannot tell surl "
         + "from anyone else on the path. It cannot be used with --cert. surl warns when it makes the certificate, "
         + "from the info log level up.";
+
+    private const string ThrowawayHostKeyExplanation =
+        "Makes a throwaway RSA 3072-bit SSH host key at start for an scp or sftp listen URL when no --hostkey is "
+        + "given; without it, and without --hostkey, such a URL is to be refused at start. A test uses it to serve "
+        + "SSH without a key file; curl then needs the key's SHA-256 hash pinned, or -k. It is not the default "
+        + "because no client can know the key beforehand, so a client cannot tell surl from anyone else on the path. "
+        + "It cannot be used with --hostkey. This build has no SSH server yet, so a start that gives it is refused "
+        + "(exit code 2).";
 
 #pragma warning disable SYSLIB0039 // --tlsv1.0 and --tlsv1.1 name the old versions on purpose (ADR-0007 section 2).
     private static readonly CommandLineOption[] Table =
@@ -122,7 +137,7 @@ internal static class CommandLineOptions
         WithArgument<CertificateFileFormat>("key-type", null, OptionArgumentReader.KeyType, (c, v) => c with { KeyType = v },
             new("<type>", "Format of --key: PEM or DER", ["tls"], IsInShortList: false, Default: "PEM")),
         WithArgument<string>("pass", null, OptionArgumentReader.Text, (c, v) => c with { KeyPassphrase = v },
-            new("<phrase>", "Passphrase for the private key", ["tls"], IsInShortList: false, Default: "none")),
+            new("<phrase>", "Passphrase for --key and --hostkey", ["tls"], IsInShortList: false, Default: "none")),
         WithArgument<string>("cacert", null, OptionArgumentReader.Path, (c, v) => c with { CaCertificateFile = v },
             new("<file>", "CA certificates for client certs", ["tls"], IsInShortList: false, Default: "none")),
         WithArgument<CommandLineAccount>("user", 'u', OptionArgumentReader.Account, (c, v) => c with { Accounts = [.. c.Accounts, v] },
@@ -137,11 +152,23 @@ internal static class CommandLineOptions
             new(null, "Accept passwords in clear (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off",
                 AllowPlaintextAuthExplanation)),
         WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
-            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "basic,bearer,digest,aws-sigv4",
+            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
                 AuthExplanation)),
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
             new(null, "Throwaway certificate (warns)", ["security", "testing", "tls"], IsInShortList: false, Default: "off",
                 SelfSignedExplanation)),
+        WithArgument<string>("hostkey", null, OptionArgumentReader.Path, (c, v) => c with { HostKeyFiles = [.. c.HostKeyFiles, v] },
+            new("<file>", "SSH host private key file", ["auth"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("hostcert", null, OptionArgumentReader.Path, (c, v) => c with { HostCertificateFiles = [.. c.HostCertificateFiles, v] },
+            new("<file>", "SSH host certificate file", ["auth"], IsInShortList: false, Default: "none")),
+        Flag("throwaway-hostkey", null, negatable: true, (c, on) => c with { ThrowawayHostKey = on },
+            new(null, "Throwaway SSH host key (warns)", ["security", "testing"], IsInShortList: false, Default: "off",
+                ThrowawayHostKeyExplanation)),
+        WithArgument<CommandLineAuthorizedKeys>("authorized-keys", null, OptionArgumentReader.AuthorizedKeys,
+            (c, v) => c with { AuthorizedKeys = [.. c.AuthorizedKeys, v] },
+            new("<user:file>", "SSH public keys a user may use", ["auth"], IsInShortList: false, Default: "none")),
+        Flag("allow-weak-ssh-algorithms", null, negatable: true, (c, on) => c with { AllowWeakSshAlgorithms = on },
+            new(null, "Offer weak SSH algorithms (warns)", ["security"], IsInShortList: false, Default: "off")),
     ];
 #pragma warning restore SYSLIB0039
 

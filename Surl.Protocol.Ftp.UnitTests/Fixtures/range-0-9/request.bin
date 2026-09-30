@@ -1,0 +1,9 @@
+USER anonymous
+PASS ftp@example.com
+PWD
+EPSV
+TYPE I
+SIZE a.txt
+RETR a.txt
+ABOR
+QUIT

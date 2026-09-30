@@ -91,6 +91,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/task-board/ta
 | --- | --- | --- |
 | `status` | | Every state, with each Backlog task marked ready (and its queue position), waiting on named tasks, or needing Stewart. |
 | `next` | `-Skip BL-001,BL-002` | The task `/task-run` takes next: highest priority, then the one the most unfinished tasks wait on, then lowest ID, skipping any whose `touches` overlap a task in `Doing`. Prints `No task is ready.`, or `No task can start yet: …` when every ready task overlaps work in progress. |
+| `capacity` | | How many tasks the board could have running at once right now, as one line parseable with `^Capacity (\d+):`: the tasks in `Doing`, plus the ready tasks that could start beside them, picked greedily in `next` order so no two overlap in `touches`. E.g. `Capacity 7: 3 in Doing, 4 more can start (BL-099, BL-103, BL-104, BL-106).` The dark factory's `-Lanes Auto` caps its lane count with it. |
 | `next-id` | | The next free ID. |
 | `new` | `-Title` (required), `-Priority`, `-Assignee`, `-Pipeline`, `-DependsOn BL-001,BL-002`, `-Requirement` | Creates the task in `Backlog` from `TASK-TEMPLATE.md` and prints its path. Fill in the body with an edit afterwards. |
 | `move` | `-Id`, `-To`, `-Reason` | Validates the transition, appends the `Log` line, and moves the file. `-Reason` is required for every destination except `Doing`. |

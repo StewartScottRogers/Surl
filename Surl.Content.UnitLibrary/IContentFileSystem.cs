@@ -95,10 +95,25 @@ public interface IContentFileSystem
     /// <see cref="NotSupportedException"/>.
     /// </remarks>
     /// <param name="source">The full path of an existing file.</param>
-    /// <param name="destination">The full path the file is renamed to, in the same
-    /// directory.</param>
+    /// <param name="destination">The full path the file is renamed to, in an existing
+    /// directory of the same file system.</param>
     /// <exception cref="NotSupportedException">The seam is read-only.</exception>
     void MoveFileReplacing(string source, string destination) =>
+        throw new NotSupportedException("This content file system is read-only.");
+
+    /// <summary>
+    /// Renames the directory at <paramref name="source"/>, with everything inside it, to
+    /// <paramref name="destination"/>, where nothing may be.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>.
+    /// </remarks>
+    /// <param name="source">The full path of an existing directory.</param>
+    /// <param name="destination">The full path the directory is renamed to, in an existing
+    /// directory of the same file system and not inside <paramref name="source"/>.</param>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    void MoveDirectory(string source, string destination) =>
         throw new NotSupportedException("This content file system is read-only.");
 
     /// <summary>
@@ -112,5 +127,17 @@ public interface IContentFileSystem
     /// <param name="path">The full path of the directory to create.</param>
     /// <exception cref="NotSupportedException">The seam is read-only.</exception>
     void CreateDirectory(string path) =>
+        throw new NotSupportedException("This content file system is read-only.");
+
+    /// <summary>
+    /// Removes the empty directory at <paramref name="path"/>.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>.
+    /// </remarks>
+    /// <param name="path">The full path of an existing directory with no entry inside it.</param>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    void RemoveEmptyDirectory(string path) =>
         throw new NotSupportedException("This content file system is read-only.");
 }

@@ -1,0 +1,12 @@
+EHLO c
+MAIL FROM:<a@x> SIZE=33
+RCPT TO:<b@y>
+DATA
+Subject: dots
+
+..
+...
+..x
+end
+.
+QUIT

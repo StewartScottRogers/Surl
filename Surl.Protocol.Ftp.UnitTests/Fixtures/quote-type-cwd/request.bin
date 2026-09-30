@@ -1,0 +1,10 @@
+USER anonymous
+PASS ftp@example.com
+PWD
+TYPE A
+TYPE I
+NOOP
+SYST
+CWD dir
+CWD nodir
+QUIT

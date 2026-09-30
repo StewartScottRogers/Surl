@@ -4,10 +4,16 @@ namespace Surl.Authentication;
 public sealed class AuthenticationMethodsTests
 {
     [TestMethod]
-    public void DefaultAccepted_IsBasicBearerDigestAndAwsSigV4()
+    public void DefaultAccepted_IsAdr0049sDefaultSet()
     {
         CollectionAssert.AreEquivalent(
-            new[] { AuthenticationMethod.Basic, AuthenticationMethod.Bearer, AuthenticationMethod.Digest, AuthenticationMethod.AwsSigV4 },
+            new[]
+            {
+                AuthenticationMethod.Digest, AuthenticationMethod.CramMd5, AuthenticationMethod.Basic,
+                AuthenticationMethod.Plain, AuthenticationMethod.Login,
+                AuthenticationMethod.Bearer, AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.External,
+                AuthenticationMethod.AwsSigV4,
+            },
             AuthenticationMethods.DefaultAccepted.ToArray());
     }
 
@@ -18,7 +24,9 @@ public sealed class AuthenticationMethodsTests
             new[]
             {
                 AuthenticationMethod.Negotiate, AuthenticationMethod.Ntlm, AuthenticationMethod.Digest,
-                AuthenticationMethod.Basic, AuthenticationMethod.Bearer, AuthenticationMethod.AwsSigV4,
+                AuthenticationMethod.DigestMd5, AuthenticationMethod.CramMd5, AuthenticationMethod.Apop,
+                AuthenticationMethod.Basic, AuthenticationMethod.Plain, AuthenticationMethod.Login, AuthenticationMethod.Bearer,
+                AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.External, AuthenticationMethod.AwsSigV4,
             },
             Enum.GetValues<AuthenticationMethod>());
     }
@@ -27,10 +35,18 @@ public sealed class AuthenticationMethodsTests
     [DataRow(AuthenticationMethod.Negotiate, false)]
     [DataRow(AuthenticationMethod.Ntlm, false)]
     [DataRow(AuthenticationMethod.Digest, false)]
+    [DataRow(AuthenticationMethod.DigestMd5, false)]
+    [DataRow(AuthenticationMethod.CramMd5, false)]
+    [DataRow(AuthenticationMethod.Apop, false)]
     [DataRow(AuthenticationMethod.Basic, true)]
+    [DataRow(AuthenticationMethod.Plain, true)]
+    [DataRow(AuthenticationMethod.Login, true)]
     [DataRow(AuthenticationMethod.Bearer, true)]
+    [DataRow(AuthenticationMethod.OAuthBearer, true)]
+    [DataRow(AuthenticationMethod.XOAuth2, true)]
+    [DataRow(AuthenticationMethod.External, false)]
     [DataRow(AuthenticationMethod.AwsSigV4, false)]
-    public void SendsPlaintextSecret_IsTrueOnlyForBasicAndBearer(AuthenticationMethod method, bool expected)
+    public void SendsPlaintextSecret_IsTrueOnlyForMethodsSendingAPasswordOrToken(AuthenticationMethod method, bool expected)
     {
         Assert.AreEqual(expected, AuthenticationMethods.SendsPlaintextSecret(method));
     }

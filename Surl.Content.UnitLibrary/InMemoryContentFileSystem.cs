@@ -244,6 +244,59 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
         }
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Every entry inside the directory moves with it, keeping its bytes and last-write time; a
+    /// file still being written moves too, and its bytes land at the new path.
+    /// </remarks>
+    /// <exception cref="DirectoryNotFoundException">No directory is at <paramref name="source"/>,
+    /// or none is above <paramref name="destination"/>.</exception>
+    /// <exception cref="IOException">Something is at <paramref name="destination"/>, or it is
+    /// inside <paramref name="source"/>.</exception>
+    public void MoveDirectory(string source, string destination)
+    {
+        string from = Normalise(source);
+        string to = Normalise(destination);
+        string prefix = from + Path.DirectorySeparatorChar;
+        lock (gate)
+        {
+            RequireDirectory(from);
+            RequireParentDirectory(to);
+            if (entries.ContainsKey(to) || to.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                throw new IOException($"The directory cannot be moved to this path in memory: {to}");
+            }
+
+            List<string> moving = [.. entries.Keys.Where(key => key == from || key.StartsWith(prefix, StringComparison.Ordinal))];
+            foreach (string key in moving)
+            {
+                StoredEntry entry = entries[key];
+                entries.Remove(key);
+                entries.Add(to + key[from.Length..], entry);
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    /// <exception cref="DirectoryNotFoundException">No directory is at
+    /// <paramref name="path"/>.</exception>
+    /// <exception cref="IOException">The directory holds an entry.</exception>
+    public void RemoveEmptyDirectory(string path)
+    {
+        string key = Normalise(path);
+        string prefix = key + Path.DirectorySeparatorChar;
+        lock (gate)
+        {
+            RequireDirectory(key);
+            if (entries.Keys.Any(other => other.StartsWith(prefix, StringComparison.Ordinal)))
+            {
+                throw new IOException($"The directory in memory is not empty: {key}");
+            }
+
+            entries.Remove(key);
+        }
+    }
+
     private static string Normalise(string path) =>
         Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 

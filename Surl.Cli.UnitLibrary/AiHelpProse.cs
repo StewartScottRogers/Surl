@@ -50,7 +50,9 @@ internal static class AiHelpProse
             "Other local users can read `--user` in the process list, and the `--user-file` passwords are in clear: outside a test, use `--user-file` and let only the user surl runs as read it.",
             "Unless `--allow-anonymous` is given: with no account configured, an HTTP GET or HEAD needs no login, and every login is refused; once any account is configured, every HTTP request needs a login; any other HTTP method, and every MQTT CONNECT, always needs one.",
             "A password or token sent in clear over an unencrypted connection (HTTP Basic or Bearer over `http://`, an MQTT password over `mqtt://`) is refused unchecked unless `--allow-plaintext-auth` is given, which is for tests only. Digest sends no password in clear, so `curl --digest -u user:password` logs in over `http://`; over `https://` and `mqtts://` every method is accepted.",
-            "`--auth <methods>` sets the HTTP methods accepted and offered; without it they are basic, bearer, digest and aws-sigv4. It is a loosening option for tests (see the testing topic).",
+            "`--auth <methods>` sets the methods accepted and offered: negotiate, ntlm, digest, basic, bearer and aws-sigv4 for HTTP, and for SMTP, IMAP and POP3 logins each SASL mechanism by its lower-case name, as curl's login option `AUTH=<mech>` names it (ntlm, digest-md5, cram-md5, plain, login, oauthbearer, xoauth2, external), plus apop for POP3's APOP; this build serves none of those three protocols yet. Without it they are digest, cram-md5, basic, plain, login, bearer, oauthbearer, xoauth2, external and aws-sigv4. `external` logs in as the TLS client certificate `--cacert` verifies, so it is offered only on a connection that sent one. `gssapi` is read, but a start that gives it writes `surl: (2) --auth gssapi is not available in this build` and exits 2. It is a loosening option for tests (see the testing topic).",
+            "The SSH server's options are read and checked here: `--hostkey <file>` names one SSH host private key and `--hostcert <file>` one OpenSSH host certificate, each repeatable; `--pass <phrase>` decrypts a `--hostkey` key as it does a `--key`. `--authorized-keys <user:file>` names the OpenSSH `authorized_keys` file whose public keys `<user>` may log in with, repeatable for other users; the value is split at its first colon, and a user given twice is refused.",
+            "This build has no SSH server yet: a start that gives `--hostkey`, `--hostcert`, `--throwaway-hostkey`, `--authorized-keys` or `--allow-weak-ssh-algorithms` writes `surl: (2) --<option> is not available in this build` and exits 2.",
         ],
         ["content"] =
         [
@@ -131,7 +133,8 @@ internal static class AiHelpProse
         ["security"] =
         [
             "Every option here widens what a peer may do, and each is off by default. Six are deployment choices that write no warning: `--allow-uploads`, `--list-directories`, `--follow-symlinks`, `--serve-dot-files`, `--tlsv1.0` and `--tlsv1.1`; leave each off unless it is needed.",
-            "The other four, `--allow-anonymous`, `--allow-plaintext-auth`, `--auth` and `--self-signed`, loosen a secure default and are for tests only; each writes a `surl: warning:` line at start (see the testing topic).",
+            "`--allow-weak-ssh-algorithms` also offers SSH algorithms built on SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman. This build has no SSH server yet, so a start that gives it is refused, exit 2 (see the auth topic).",
+            "The other five, `--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--self-signed` and `--throwaway-hostkey`, loosen a secure default and are for tests only (see the testing topic).",
             "Before running surl where others can reach it: bind a specific address rather than `0.0.0.0` or `[::]`; give `--cert` and `--key` for secure schemes, never `--self-signed`; configure accounts with `--user-file`; review the limits; start with no loosening option, and treat any `surl: warning:` line at start as one left on.",
         ],
         ["surl"] =
@@ -149,6 +152,7 @@ internal static class AiHelpProse
         [
             "`--allow-anonymous`, `--allow-plaintext-auth`, `--auth` and `--self-signed` each loosen a secure default so a test can reach surl without accounts, without TLS or without a certificate file. They are for tests only.",
             "Each writes a `surl: warning:` line on start, from the info level up, to the log (stderr unless `--log-file` is given); `--self-signed` writes its line only when it makes its certificate. What each one loosens, and why none is the default, follows the option table.",
+            "`--throwaway-hostkey` loosens the SSH host key the same way `--self-signed` loosens the certificate. This build has no SSH server yet, so a start that gives it is refused, exit 2 (see the auth topic).",
         ],
         ["tftp"] =
         [
@@ -158,7 +162,7 @@ internal static class AiHelpProse
         ["tls"] =
         [
             "`https`, `gophers` and `mqtts` start with a TLS handshake, so a listen URL of one of them needs a certificate: `--cert <file>` (PEM unless `--cert-type` says DER or P12), with `--key <file>` when the key is not in the `--cert` file and `--pass <phrase>` when the key needs one.",
-            "Without `--cert` and without `--self-signed`, such a listen URL writes `surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one` and exits 58, and a `--cert` or `--key` file that cannot be used exits 58. `--key`, `--key-type` or `--pass` without `--cert`, `--key` with `--cert-type P12`, and `--self-signed` with `--cert` are refused, exit 2.",
+            "Without `--cert` and without `--self-signed`, such a listen URL writes `surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one` and exits 58, and a `--cert` or `--key` file that cannot be used exits 58. `--key` or `--key-type` without `--cert`, `--pass` without `--cert` or `--hostkey`, `--key` with `--cert-type P12`, and `--self-signed` with `--cert` are refused, exit 2.",
             "`--self-signed` is for tests: surl makes a throwaway certificate at start and writes `surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)`.",
             "surl accepts TLS 1.2 and 1.3 by default. `--tlsv1.0`, `--tlsv1.1`, `--tlsv1.2` and `--tlsv1.3` set the lowest version accepted, and `--tls-max <version>` the highest.",
             "`--cacert <file>` names the CA certificates for client certificates; a file that does not exist exits 2, and one that cannot be read exits 77.",

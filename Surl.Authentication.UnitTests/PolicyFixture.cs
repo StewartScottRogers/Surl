@@ -30,6 +30,19 @@ internal static class PolicyFixture
             httpMethods,
             clock);
 
+    public static AuthenticationPolicy CreateWithFixedNonces(
+        AccountBook accounts,
+        TimeProvider clock,
+        bool allowAnonymous = false,
+        IReadOnlySet<AuthenticationMethod>? acceptedMethods = null) =>
+        new(
+            new AuthenticationSettings(
+                accounts, allowAnonymous, false, acceptedMethods ?? AuthenticationMethods.DefaultAccepted),
+            [],
+            clock,
+            FixedSaslNonceSource.Instance,
+            new FixedNtlmServerChallengeSource());
+
     public static HttpAuthenticationRequest Get(params string[] authorization) =>
         Request("GET", false, authorization);
 

@@ -37,12 +37,23 @@ public static class CommandLineParser
     private const string KeyLongName = "key";
     private const string UserLongName = "user";
     private const string SelfSignedOption = "--self-signed";
+    private const string PassLongName = "pass";
+    private const string HostKeyLongName = "hostkey";
+    private const string AuthorizedKeysLongName = "authorized-keys";
+    private const string ThrowawayHostKeyOption = "--throwaway-hostkey";
 
     /// <summary><c>--self-signed</c> given with <c>--cert</c> (ADR-0032 section 1).</summary>
     public const string CannotBeUsedWithCert = "cannot be used with --cert";
 
-    /// <summary>The options refused without <c>--cert</c>, in the order the first one given is reported.</summary>
-    private static readonly string[] OptionsNeedingCert = [KeyLongName, "key-type", "pass"];
+    /// <summary><c>--throwaway-hostkey</c> given with <c>--hostkey</c> (ADR-0051 decision 4).</summary>
+    public const string CannotBeUsedWithHostKey = "cannot be used with --hostkey";
+
+    /// <summary>
+    /// The options refused without <c>--cert</c>, in the order the first one given is reported;
+    /// <c>--pass</c> only when no <c>--hostkey</c> is given either, since it decrypts a host key
+    /// too (ADR-0051 decision 4).
+    /// </summary>
+    private static readonly string[] OptionsNeedingCert = [KeyLongName, "key-type", PassLongName];
 
     /// <summary>
     /// Parses <paramref name="arguments"/>, the command line after the program name.
@@ -266,9 +277,9 @@ public static class CommandLineParser
         }
 
         reading.GivenOptions.Add(option.LongName);
-        if (option.LongName == UserLongName)
+        if (option.LongName is UserLongName or AuthorizedKeysLongName)
         {
-            reading.AccountOptionNames.Add(reportedName);
+            reading.OptionNamesByUser(option.LongName).Add(reportedName);
         }
 
         return null;
@@ -299,7 +310,7 @@ public static class CommandLineParser
     /// <summary>The checks made once the whole command line is read.</summary>
     private static CommandLineParseResult Finish(CommandLineReading reading)
     {
-        var refusedCombination = RefuseTlsCombination(reading) ?? RefuseRepeatedUserName(reading);
+        var refusedCombination = RefuseCombination(reading);
         if (refusedCombination is not null)
         {
             return refusedCombination;
@@ -339,19 +350,44 @@ public static class CommandLineParser
     }
 
     /// <summary>
-    /// Refuses the first account whose user name an earlier account already has, the empty
-    /// name included, naming the option that gave it (ADR-0032 section 1); null when none does.
+    /// Refuses the first option combination that cannot work, in this order: the TLS options,
+    /// <c>--throwaway-hostkey</c> with <c>--hostkey</c>, a repeated <c>--user</c> name, then a
+    /// repeated <c>--authorized-keys</c> user; null when none is.
     /// </summary>
-    private static CommandLineParseResult? RefuseRepeatedUserName(CommandLineReading reading)
+    private static CommandLineParseResult? RefuseCombination(CommandLineReading reading) =>
+        RefuseTlsCombination(reading)
+        ?? RefuseThrowawayHostKeyWithHostKey(reading)
+        ?? RefuseRepeatedUserName(reading.CommandLine.Accounts.Select(account => account.UserName), reading.AccountOptionNames)
+        ?? RefuseRepeatedUserName(reading.CommandLine.AuthorizedKeys.Select(keys => keys.UserName), reading.AuthorizedKeysOptionNames);
+
+    /// <summary>
+    /// Refuses <c>--throwaway-hostkey</c> left on with any <c>--hostkey</c> (ADR-0051 decision 4);
+    /// null otherwise.
+    /// </summary>
+    private static CommandLineParseResult? RefuseThrowawayHostKeyWithHostKey(CommandLineReading reading) =>
+        reading.CommandLine.ThrowawayHostKey && reading.GivenOptions.Contains(HostKeyLongName)
+            ? RefusedOption(ThrowawayHostKeyOption, CannotBeUsedWithHostKey)
+            : null;
+
+    /// <summary>
+    /// Refuses the first user name an earlier one of the same option already gave, the empty
+    /// name included, naming the option that gave it: <c>-u</c>/<c>--user</c> accounts (ADR-0032
+    /// section 1) and <c>--authorized-keys</c> users (ADR-0051 decision 6); null when none repeats.
+    /// </summary>
+    /// <param name="userNames">The user names, in command-line order.</param>
+    /// <param name="optionNames">The name each one's option was written with, in the same order.</param>
+    private static CommandLineParseResult? RefuseRepeatedUserName(IEnumerable<string> userNames, List<string> optionNames)
     {
-        var accounts = reading.CommandLine.Accounts;
-        var userNames = new HashSet<string>(StringComparer.Ordinal);
-        for (var index = 0; index < accounts.Count; index++)
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var index = 0;
+        foreach (var userName in userNames)
         {
-            if (!userNames.Add(accounts[index].UserName))
+            if (!seen.Add(userName))
             {
-                return RefusedOption(reading.AccountOptionNames[index], $"user {accounts[index].UserName} is given twice");
+                return RefusedOption(optionNames[index], $"user {userName} is given twice");
             }
+
+            index++;
         }
 
         return null;
@@ -374,14 +410,14 @@ public static class CommandLineParser
 
     /// <summary>
     /// The first certificate option ADR-0010 section 3 refuses in combination: <c>--key</c>,
-    /// <c>--key-type</c> or <c>--pass</c> without <c>--cert</c>, then <c>--key</c> with
-    /// <c>--cert-type P12</c>; null when none is.
+    /// <c>--key-type</c> or <c>--pass</c> without <c>--cert</c> (<c>--pass</c> only without
+    /// <c>--hostkey</c> as well), then <c>--key</c> with <c>--cert-type P12</c>; null when none is.
     /// </summary>
     private static string? FindUnusableCertificateOption(CommandLineReading reading)
     {
         if (!reading.GivenOptions.Contains(CertLongName))
         {
-            var withoutCertificate = OptionsNeedingCert.FirstOrDefault(reading.GivenOptions.Contains);
+            var withoutCertificate = OptionsNeedingCert.FirstOrDefault(name => NeedsCertificate(reading, name));
             return withoutCertificate is null ? null : LongOptionPrefix + withoutCertificate;
         }
 
@@ -389,6 +425,14 @@ public static class CommandLineParser
             ? LongOptionPrefix + KeyLongName
             : null;
     }
+
+    /// <summary>
+    /// Whether the certificate option <paramref name="longName"/> was given with nothing it can
+    /// apply to once <c>--cert</c> is missing: <c>--pass</c> still applies to a <c>--hostkey</c>.
+    /// </summary>
+    private static bool NeedsCertificate(CommandLineReading reading, string longName) =>
+        reading.GivenOptions.Contains(longName)
+        && !(longName == PassLongName && reading.GivenOptions.Contains(HostKeyLongName));
 
     private static CommandLineParseResult RefusedOption(string writtenName, string reason) =>
         CommandLineParseResult.Refused(
@@ -409,6 +453,13 @@ public static class CommandLineParser
 
         /// <summary>The name each accepted <c>-u</c>/<c>--user</c> was written with, one per account, in order.</summary>
         public List<string> AccountOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--authorized-keys</c> was written with, one per user, in order.</summary>
+        public List<string> AuthorizedKeysOptionNames { get; } = [];
+
+        /// <summary>The written names of <c>--user</c> (<paramref name="longName"/> <c>user</c>) or <c>--authorized-keys</c>.</summary>
+        public List<string> OptionNamesByUser(string longName) =>
+            longName == UserLongName ? AccountOptionNames : AuthorizedKeysOptionNames;
 
         /// <summary><see langword="true"/> once <c>--</c> is read: every later argument is a listen URL.</summary>
         public bool OptionsEnded { get; set; }

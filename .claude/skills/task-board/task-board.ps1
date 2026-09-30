@@ -15,6 +15,11 @@
       next     The task /task-run should take next, or "No task is ready.". A ready
                task whose touches overlap a task in Doing is not offered, so lanes
                of the dark factory never work on the same files at once.
+      capacity How many tasks the board could have running at once right now: the
+               tasks in Doing, plus the ready tasks that could start beside them,
+               picked in 'next' order so no two overlap in touches. One line,
+               parseable with '^Capacity (\d+):'. The dark factory's -Lanes Auto
+               caps its lane count with it.
       next-id  The next free task ID.
       new      Create a task in Backlog from TASK-TEMPLATE.md.
       move     Move a task to another state, appending a Log line.
@@ -45,7 +50,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('status', 'next', 'next-id', 'new', 'move', 'archive', 'dedupe')]
+    [ValidateSet('status', 'next', 'capacity', 'next-id', 'new', 'move', 'archive', 'dedupe')]
     [string] $Command,
 
     [string] $Id,
@@ -338,6 +343,26 @@ switch ($Command) {
         Write-Output ('{0}  pipeline: {1}  {2}' -f $task.Id, $task.Pipeline, $task.Relative)
     }
 
+    'capacity' {
+        # Greedy in 'next' order: a ready task is picked when its touches overlap
+        # neither a Doing task nor a task picked before it.
+        $tasks = Get-Tasks
+        $doing = @($tasks | Where-Object { $_.State -eq 'Doing' })
+        $claimed = @($doing | ForEach-Object { , $_.Touches })
+        $picked = @()
+        foreach ($task in (Get-ReadyTasks $tasks)) {
+            $overlaps = $false
+            foreach ($touches in $claimed) {
+                if (Test-Overlap $task.Touches $touches) { $overlaps = $true; break }
+            }
+            if ($overlaps) { continue }
+            $picked += $task.Id
+            $claimed += , $task.Touches
+        }
+        if ($picked.Count -eq 0) { $more = 'none more can start' }
+        else { $more = '{0} more can start ({1})' -f $picked.Count, ($picked -join ', ') }
+        Write-Output ('Capacity {0}: {1} in Doing, {2}.' -f ($doing.Count + $picked.Count), $doing.Count, $more)
+    }
     'next-id' {
         Write-Output (Get-NextId (Get-Tasks))
     }

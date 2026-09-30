@@ -37,4 +37,11 @@ public sealed record ExchangeContext(
     /// <see cref="ExchangeLimits.Default"/> unless the engine sets others.
     /// </summary>
     public ExchangeLimits Limits { get; init; } = ExchangeLimits.Default;
+
+    /// <summary>
+    /// Opens the exchange's FTP data connections (ADR-0052, decision 9):
+    /// <see cref="RefusingDataConnectionOpener.Instance"/>, which refuses every one, unless the
+    /// engine sets another.
+    /// </summary>
+    public IDataConnectionOpener DataConnections { get; init; } = RefusingDataConnectionOpener.Instance;
 }

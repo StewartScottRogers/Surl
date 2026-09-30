@@ -1,0 +1,5 @@
+< 220 surl FTP server ready
+> USER tester
+< 331 Password required
+> PASS secret
+< 530 Login needs TLS first: send AUTH TLS

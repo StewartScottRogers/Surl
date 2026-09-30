@@ -39,6 +39,30 @@ What it holds:
   (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request
   proceed, and is the test double protocol tests share.
+- The mail login contract (ADR-0049, section 6), beside `IAuthenticationPolicy`:
+  `IMailAuthenticationPolicy` (the `MailLoginOffer` a mail server advertises, one
+  `ISaslExchange` per `AUTH`/`AUTHENTICATE` started from a `SaslExchangeStart`, and POP3's
+  `ApopLogin`), each step a `MailLoginStep` with its `MailLoginOutcome`. The server owns the
+  base64 framing; the policy owns every mechanism. `AnonymousAuthenticationPolicy` implements
+  it too: it offers `PLAIN` and the clear-password login, and ends every exchange
+  `AcceptedUnchecked` in the fewest steps (the initial response, or one empty challenge).
+- The SSH login contract (ADR-0051, section 7), beside `IAuthenticationPolicy`:
+  `ISshAuthenticationPolicy` judges an `SshNoneLogin`, an `SshPasswordLogin` (`password` or
+  `keyboard-interactive`) and an `SshPublicKeyLogin` (with its `SshPublicKeyProof`: a query,
+  or a signature the server has already verified or not), each as an `SshLoginVerdict` with
+  its `SshLoginOutcome`. The server owns the RFC 4252 framing and the signature check; the
+  policy owns the accounts, keys, delay and note. `AnonymousAuthenticationPolicy` implements
+  it too: every login `AcceptedUnchecked` and every public-key query `KeyAcceptable`.
+
+- The FTP data-connection seam (ADR-0052, decision 9): `IDataConnectionOpener` (a passive
+  listener, `IPassiveDataListener`, or an active connection, each an `IConnection`), a failure
+  as `DataConnectionException` with its `DataConnectionFailure`, and
+  `ExchangeContext.DataConnections`, whose default `RefusingDataConnectionOpener` refuses every
+  request with `Unavailable`. `Surl.Networking` implements it over sockets. Its test double is
+  `InMemoryDataConnections`: a script of passive listeners (each an
+  `InMemoryPassiveDataListener` handing out one scripted `InMemoryConnection`, or none so the
+  accept times out) and active connections or failures, with every request recorded as a
+  `PassiveListenerRequest` or `ActiveConnectionRequest`.
 
 There is no in-memory datagram flow here: TFTP is its only user, so its tests drive the
 server through their own hand-written `ScriptedDatagramFlow` (BL-037, in

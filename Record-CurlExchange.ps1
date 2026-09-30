@@ -126,7 +126,7 @@
     with the data port, PASV 227 with 127.0.0.1 and the data port, TYPE 200, SIZE 213
     with FtpData's length, MDTM 213 20260927123456, CWD 250, REST 350 (remembering the
     offset), RETR 150 then FtpData from the last REST offset over the data connection
-    then 226 (LIST and NLST the same), STOR 150 then every byte curl sends over the data
+    then 226 (LIST, NLST and MLSD the same), STOR 150 then every byte curl sends over the data
     connection until it closes it then 226 (APPE the same), QUIT 221 (and the session
     ends), and 502 for any other command. A data connection curl closes early (a range
     read) is not an error. The bytes received on STOR's and APPE's data connections are
@@ -140,15 +140,22 @@
     "= TLS handshake completed on the control connection" line in transcript.txt; an
     overridden AUTH whose reply starts 234 is upgraded the same way. PBSZ is answered 200,
     PROT 200, and after PROT P (or with -Tls, until a PROT C or a refused PROT) every data
-    connection is TLS too, ended with close_notify when the server sends.
+    connection is TLS too, ended with close_notify when the server sends. CCC is answered
+    200 and, on a TLS control connection, the server then sends close_notify, reads the one
+    TLS record curl answers with (its own close_notify), and serves the rest of the session
+    in plaintext, with a "= TLS ended on the control connection by CCC; ..." line in
+    transcript.txt saying whether that record arrived; an overridden CCC whose reply starts 2
+    does the same.
 
 .PARAMETER FtpReply
     Overrides for the FTP reply table, each 'VERB=reply' with the same backslash escapes
     as Response, e.g. 'PASS=430 Access denied'. The reply is sent as given with CRLF
     appended. VERB is a command name in capitals, GREETING for the greeting, or RETRDONE
     for the reply sent after RETR's or LIST's data, or STORDONE for the reply sent after
-    STOR's or APPE's data. An overridden EPSV, PASV, RETR, LIST, NLST, STOR or APPE sends
-    only the reply: no data connection is offered. The reply CLOSE closes the control
+    STOR's or APPE's data. An overridden EPSV, PASV, RETR, LIST, NLST, MLSD, STOR or APPE sends
+    only the reply: no data connection is offered - except that an overridden RETR, LIST,
+    NLST, MLSD, STOR or APPE whose reply starts with 1 replaces only the preliminary 150
+    reply, and the data connection is then used as without an override. The reply CLOSE closes the control
     connection instead of answering, e.g. 'PWD=CLOSE'. Several overrides for one VERB are
     answered in the order given, one per command, the last repeating for the rest, e.g.
     'CWD=550 No such directory' 'CWD=250 OK'. In a reply, {DATAPORT} stands for
@@ -193,6 +200,15 @@
 .PARAMETER SmtpIdleMilliseconds
     How long, in -Smtp mode, the server waits for curl's next line before it hangs up.
     Default 5000.
+
+.PARAMETER SmtpMaxMessageBytes
+    In -Smtp mode, a cap on the message body after DATA's 354: once the body lines read
+    pass this many bytes (checked at the end of each line), the server stops reading,
+    sends the DATADONE reply (default 552 5.3.4 Message exceeds the size limit) and closes
+    the connection under curl, as a server refusing a message past its size limit
+    part-way through does, and transcript.txt notes it. Default -1: no cap, read up to the
+    lone "." line. The bytes counted are the lines as sent, line endings and
+    dot-stuffing included.
 
 .PARAMETER Imap
     Serve one IMAP4rev1 session instead of HTTP responses: send an untagged
@@ -288,6 +304,19 @@
 .PARAMETER Pop3IdleMilliseconds
     How long, in -Pop3 mode, the server waits for curl's next line before it hangs up.
     Default 5000.
+
+.PARAMETER SaslChallenge
+    Scripted SASL exchanges for -Smtp, -Imap and -Pop3, each 'MECHANISM=line' with the
+    same backslash escapes as Response, e.g. 'DIGEST-MD5=334 bm9uY2U9...'. When curl
+    starts AUTH (AUTHENTICATE in IMAP) with a mechanism named here, the server sends that
+    mechanism's lines in the order given instead of the default continuations. A
+    continuation line - one starting 334 in SMTP, + in IMAP, "+ " or a lone + in POP3 - is
+    sent and curl's next line read and recorded; any other line is the final answer and
+    ends the exchange (in IMAP it is sent tagged, e.g. 'XOAUTH2=NO denied'). When every
+    scripted line was a continuation, the default success follows (235, OK, +OK). This
+    drives what the fixed tables cannot: a DIGEST-MD5 challenge and rspauth, an NTLM type 2
+    message, an XOAUTH2 error challenge, or a refusal after a response. Overrides of AUTH
+    (AUTHENTICATE) still win over it. Default none.
 
 .PARAMETER Raw
     Serve one TCP conversation driven by scripted replies instead of HTTP
@@ -422,6 +451,12 @@
     Default 5000. Raise it to measure a wait longer than five seconds, such as curl's
     60-second accept timeout when an active-mode data connection never arrives.
 
+.PARAMETER FtpMaxUploadBytes
+    In -Ftp mode, how many bytes STOR and APPE read from the data connection before the
+    server stops reading and closes it under curl, then sends the STORDONE reply. Default
+    -1: no cap, read until curl closes. Use it with -FtpReply 'STORDONE=552 ...' to measure
+    what curl does when a server refuses an upload past its size limit part-way through.
+
 .PARAMETER Curl
     The upstream curl executable to run. Defaults to curl 8.21.0 from Git for Windows'
     mingw64 directory, found beside git.exe. Whatever the path, the file's SHA-256 must
@@ -442,8 +477,8 @@
     server cannot speak. Only stdout.bin, stderr.txt and exitcode.txt are
     written; there is no request.bin, since the script sees none of the traffic. Port,
     Response, Connections, ResponsesPerConnection, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds,
-    RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, SmtpReply,
-    SmtpIdleMilliseconds, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
+    RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, FtpMaxUploadBytes, SmtpReply,
+    SmtpIdleMilliseconds, SmtpMaxMessageBytes, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
     Pop3Message, Pop3IdleMilliseconds, TftpData, TftpReply, TftpIdleMilliseconds and
     ListenAddress are ignored, and Port need not be given. Combining it with a server
     mode, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Tftp or -Tls, is refused. StandardInput and Curl work as in every other mode.
@@ -520,9 +555,11 @@ param(
     [string[]] $FtpReply = @(),
     [string] $FtpData = '',
     [ValidateRange(1, 600000)] [int] $FtpIdleMilliseconds = 5000,
+    [ValidateRange(-1, [long]::MaxValue)] [long] $FtpMaxUploadBytes = -1,
     [switch] $Smtp,
     [string[]] $SmtpReply = @(),
     [ValidateRange(1, 600000)] [int] $SmtpIdleMilliseconds = 5000,
+    [ValidateRange(-1, [long]::MaxValue)] [long] $SmtpMaxMessageBytes = -1,
     [switch] $Imap,
     [string[]] $ImapReply = @(),
     [string] $ImapMessage = 'From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Recorded\r\n\r\nHello from the recorder.\r\n',
@@ -531,6 +568,7 @@ param(
     [string[]] $Pop3Reply = @(),
     [string] $Pop3Message = 'From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Recorded\r\n\r\nHello from the recorder.\r\n.A line that starts with a dot.\r\n',
     [ValidateRange(1, 600000)] [int] $Pop3IdleMilliseconds = 5000,
+    [string[]] $SaslChallenge = @(),
     [switch] $Raw,
     [string[]] $RawReply = @(),
     [switch] $RawReplyFirst,
@@ -797,7 +835,7 @@ $sessionHelpers = {
 # one array, writes the two-way transcript into $Transcript, and the bytes uploaded on
 # STOR and APPE data connections into $UploadedData.
 $serveFtpSession = {
-    param($Listener, [hashtable] $Overrides, [byte[]] $DataBytes, [System.Text.StringBuilder] $Transcript, [System.IO.MemoryStream] $UploadedData, $TlsCertificate, [bool] $ImplicitTls, [int] $ControlIdleMilliseconds, [System.Net.IPAddress] $ListenAddress, [string] $SessionHelpers)
+    param($Listener, [hashtable] $Overrides, [byte[]] $DataBytes, [System.Text.StringBuilder] $Transcript, [System.IO.MemoryStream] $UploadedData, $TlsCertificate, [bool] $ImplicitTls, [int] $ControlIdleMilliseconds, [System.Net.IPAddress] $ListenAddress, [string] $SessionHelpers, [long] $MaxUploadBytes)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -843,6 +881,40 @@ $serveFtpSession = {
         return New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Parse(($numbers[0..3] -join '.')), $activePort)
     }
 
+    # After CCC's 2xx reply: end TLS on the control connection with close_notify, read the
+    # one TLS record curl answers with (its own close_notify) off the plaintext stream, and
+    # return that stream, over which the session then goes on in plaintext.
+    function Clear-CommandChannel {
+        param($Stream, $PlainStream)
+        if ($Stream -isnot [System.Net.Security.SslStream]) { return $Stream }
+        $Stream.ShutdownAsync().Wait()
+        $PlainStream.ReadTimeout = 2000
+        $header = New-Object byte[] 5
+        $seen = 'no TLS record from curl within two seconds'
+        try {
+            $read = 0
+            while ($read -lt 5) {
+                $count = $PlainStream.Read($header, $read, 5 - $read)
+                if ($count -le 0) { break }
+                $read += $count
+            }
+            if ($read -eq 5) {
+                $body = New-Object byte[] ($header[3] * 256 + $header[4])
+                $read = 0
+                while ($read -lt $body.Length) {
+                    $count = $PlainStream.Read($body, $read, $body.Length - $read)
+                    if ($count -le 0) { break }
+                    $read += $count
+                }
+                $seen = "curl's TLS record of type $($header[0]) and $($body.Length) bytes read"
+            }
+        } catch [System.IO.IOException] {
+        }
+        $PlainStream.ReadTimeout = $ControlIdleMilliseconds
+        [void] $Transcript.Append("= TLS ended on the control connection by CCC; $seen`r`n")
+        return $PlainStream
+    }
+
     function Send-Reply {
         param($Stream, [string] $Reply)
         $Reply = $Reply.Replace('{DATAPORT_HI}', [string] [Math]::Floor($dataPort / 256)).Replace('{DATAPORT_LO}', [string] ($dataPort % 256)).Replace('{DATAPORT}', [string] $dataPort)
@@ -860,6 +932,8 @@ $serveFtpSession = {
         }
         try {
             $stream = $client.GetStream()
+            # The plaintext stream under any TLS, which CCC returns the control connection to.
+            $plainStream = $stream
             if ($ImplicitTls) { $stream = Wrap-Tls -Stream $stream }
             $stream.ReadTimeout = $ControlIdleMilliseconds
             $greeting = if ($Overrides.ContainsKey('GREETING')) { Get-Override -Verb 'GREETING' } else { '220 Recorder ready' }
@@ -880,8 +954,15 @@ $serveFtpSession = {
                 [void] $Transcript.Append("> $command`r`n")
                 $verb = ($command -split ' ', 2)[0].ToUpperInvariant()
                 $argument = if ($command.Contains(' ')) { ($command -split ' ', 2)[1] } else { '' }
-                if ($Overrides.ContainsKey($verb)) {
-                    $override = Get-Override -Verb $verb
+                $override = if ($Overrides.ContainsKey($verb)) { Get-Override -Verb $verb } else { $null }
+                # A transfer command's overridden 1xx reply replaces the preliminary reply
+                # alone: the data connection is still used, as without an override.
+                $preliminary = '150 Opening BINARY mode data connection'
+                if ($null -ne $override -and @('RETR', 'LIST', 'NLST', 'MLSD', 'STOR', 'APPE') -contains $verb -and $override.StartsWith('1')) {
+                    $preliminary = $override
+                    $override = $null
+                }
+                if ($null -ne $override) {
                     if ($override -ceq 'CLOSE') { break }  # Hang up instead of replying.
                     Send-Reply -Stream $stream -Reply $override
                     if ($verb -eq 'QUIT') { break }
@@ -892,6 +973,7 @@ $serveFtpSession = {
                         $stream.ReadTimeout = $ControlIdleMilliseconds
                         [void] $Transcript.Append("= TLS handshake completed on the control connection`r`n")
                     }
+                    if ($verb -eq 'CCC' -and $override.StartsWith('2')) { $stream = Clear-CommandChannel -Stream $stream -PlainStream $plainStream }
                     continue
                 }
                 switch ($verb) {
@@ -902,6 +984,10 @@ $serveFtpSession = {
                         [void] $Transcript.Append("= TLS handshake completed on the control connection`r`n")
                     }
                     'PBSZ' { Send-Reply -Stream $stream -Reply '200 PBSZ=0' }
+                    'CCC' {
+                        Send-Reply -Stream $stream -Reply '200 Command channel cleared'
+                        $stream = Clear-CommandChannel -Stream $stream -PlainStream $plainStream
+                    }
                     'PROT' {
                         $protectData = $argument -ceq 'P'
                         Send-Reply -Stream $stream -Reply "200 Protection level set to $argument"
@@ -923,8 +1009,8 @@ $serveFtpSession = {
                     }
                     'EPSV' { Send-Reply -Stream $stream -Reply "229 Entering Extended Passive Mode (|||$dataPort|)" }
                     'PASV' { Send-Reply -Stream $stream -Reply "227 Entering Passive Mode ($($ListenAddress.ToString().Replace('.', ',')),$([Math]::Floor($dataPort / 256)),$($dataPort % 256))" }
-                    { $_ -eq 'RETR' -or $_ -eq 'LIST' -or $_ -eq 'NLST' } {
-                        Send-Reply -Stream $stream -Reply '150 Opening BINARY mode data connection'
+                    { $_ -eq 'RETR' -or $_ -eq 'LIST' -or $_ -eq 'NLST' -or $_ -eq 'MLSD' } {
+                        Send-Reply -Stream $stream -Reply $preliminary
                         $dataClient, $dataStream = Open-DataConnection -Verb $verb -ActiveEndPoint $activeEndPoint -Protect $protectData
                         try {
                             $start = [int] [Math]::Max(0, [Math]::Min($restOffset, $DataBytes.Length))
@@ -941,12 +1027,23 @@ $serveFtpSession = {
                         Send-Reply -Stream $stream -Reply $done
                     }
                     { $_ -eq 'STOR' -or $_ -eq 'APPE' } {
-                        Send-Reply -Stream $stream -Reply '150 Opening BINARY mode data connection'
+                        Send-Reply -Stream $stream -Reply $preliminary
                         $dataClient, $dataStream = Open-DataConnection -Verb $verb -ActiveEndPoint $activeEndPoint -Protect $protectData
                         $uploaded = New-Object System.IO.MemoryStream
                         try {
                             $dataStream.ReadTimeout = 5000
-                            $dataStream.CopyTo($uploaded)
+                            if ($MaxUploadBytes -lt 0) {
+                                $dataStream.CopyTo($uploaded)
+                            } else {
+                                # Stop reading once the cap is reached and close the data
+                                # connection under curl, as a server refusing an upload does.
+                                $chunk = New-Object byte[] 65536
+                                while ($uploaded.Length -lt $MaxUploadBytes) {
+                                    $count = $dataStream.Read($chunk, 0, [int] [Math]::Min($chunk.Length, $MaxUploadBytes - $uploaded.Length))
+                                    if ($count -le 0) { break }
+                                    $uploaded.Write($chunk, 0, $count)
+                                }
+                            }
                         } catch [System.IO.IOException] {
                             # Five seconds without a byte, or a reset: keep what arrived.
                         } finally {
@@ -978,13 +1075,14 @@ $serveFtpSession = {
 # after DATA up to its lone "." line. It returns every byte curl sent, as one array, and
 # writes the two-way transcript into $Transcript.
 $serveSmtpSession = {
-    param($Listener, [hashtable] $Overrides, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds, [string] $SessionHelpers)
+    param($Listener, [hashtable] $Overrides, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds, [string] $SessionHelpers, [long] $MaxMessageBytes)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
     . ([scriptblock]::Create($SessionHelpers))
     $latin1 = [System.Text.Encoding]::GetEncoding(28591)
     $received = New-Object System.IO.MemoryStream
+    $script:lastLineBytes = 0
 
     function Send-Reply {
         param($Stream, [string] $Reply)
@@ -995,10 +1093,11 @@ $serveSmtpSession = {
     }
 
     # One line from curl, recorded, without its line ending; $null once curl hangs up or
-    # stays silent for IdleMilliseconds.
+    # stays silent for IdleMilliseconds. $script:lastLineBytes holds its length as sent.
     function Read-Line {
         param($Stream)
         $line = New-Object System.IO.MemoryStream
+        $script:lastLineBytes = 0
         while ($true) {
             try {
                 $next = $Stream.ReadByte()
@@ -1010,6 +1109,7 @@ $serveSmtpSession = {
             $line.WriteByte([byte] $next)
             if ($next -eq 10) { break }
         }
+        $script:lastLineBytes = $line.Length
         $text = $latin1.GetString($line.ToArray()).TrimEnd("`r", "`n")
         [void] $Transcript.Append("> $text`r`n")
         return $text
@@ -1029,6 +1129,15 @@ $serveSmtpSession = {
         param($Stream, [string] $Argument)
         $mechanism = ($Argument -split ' ', 2)[0].ToUpperInvariant()
         $hasInitialResponse = $Argument.Contains(' ')
+        if ($Overrides.ContainsKey("SASL:$mechanism")) {
+            foreach ($scripted in $Overrides["SASL:$mechanism"]) {
+                Send-Reply -Stream $Stream -Reply $scripted
+                if (-not $scripted.StartsWith('334')) { return $true }
+                if ($null -eq (Read-Line -Stream $Stream)) { return $false }
+            }
+            Send-Reply -Stream $Stream -Reply '235 Authentication successful'
+            return $true
+        }
         $challenges = switch ($mechanism) {
             'PLAIN' { if ($hasInitialResponse) { @() } else { @('334 ') } }
             'LOGIN' { if ($hasInitialResponse) { @('334 UGFzc3dvcmQ6') } else { @('334 VXNlcm5hbWU6', '334 UGFzc3dvcmQ6') } }
@@ -1043,13 +1152,22 @@ $serveSmtpSession = {
         return $true
     }
 
-    # The body after DATA's 354, up to and including the lone "." line, then the reply.
+    # The body after DATA's 354, up to and including the lone "." line, then the reply;
+    # with MaxMessageBytes, the reply and a hang-up once the body read passes that many bytes.
     function Receive-MessageBody {
         param($Stream)
+        $bodyBytes = [long] 0
         while ($true) {
             $bodyLine = Read-Line -Stream $Stream
             if ($null -eq $bodyLine) { return $false }
             if ($bodyLine -ceq '.') { break }
+            $bodyBytes += $script:lastLineBytes
+            if ($MaxMessageBytes -ge 0 -and $bodyBytes -gt $MaxMessageBytes) {
+                $refusal = if ($Overrides.ContainsKey('DATADONE')) { Get-Override -Verb 'DATADONE' } else { '552 5.3.4 Message exceeds the size limit' }
+                Send-Reply -Stream $Stream -Reply $refusal
+                [void] $Transcript.Append("= stopped reading after $bodyBytes body bytes and closed`r`n")
+                return $false
+            }
         }
         $done = if ($Overrides.ContainsKey('DATADONE')) { Get-Override -Verb 'DATADONE' } else { '250 OK message accepted' }
         Send-Reply -Stream $Stream -Reply $done
@@ -1223,6 +1341,18 @@ $serveImapSession = {
         $words = @($Argument -split ' ')
         $mechanism = $words[0].ToUpperInvariant()
         $hasInitialResponse = $words.Count -gt 1
+        if ($Overrides.ContainsKey("SASL:$mechanism")) {
+            foreach ($scripted in $Overrides["SASL:$mechanism"]) {
+                if (-not $scripted.StartsWith('+')) {
+                    Send-Tagged -Stream $Stream -Tag $Tag -Reply $scripted
+                    return $true
+                }
+                Send-Reply -Stream $Stream -Reply $scripted
+                if ($null -eq (Read-Line -Stream $Stream)) { return $false }
+            }
+            Send-Tagged -Stream $Stream -Tag $Tag -Reply 'OK Authenticated'
+            return $true
+        }
         $challenges = switch ($mechanism) {
             'PLAIN' { if ($hasInitialResponse) { @() } else { @('+ ') } }
             'LOGIN' { if ($hasInitialResponse) { @('+ UGFzc3dvcmQ6') } else { @('+ VXNlcm5hbWU6', '+ UGFzc3dvcmQ6') } }
@@ -1405,6 +1535,15 @@ $servePop3Session = {
         $words = @($Argument -split ' ')
         $mechanism = $words[0].ToUpperInvariant()
         $hasInitialResponse = $words.Count -gt 1
+        if ($Overrides.ContainsKey("SASL:$mechanism")) {
+            foreach ($scripted in $Overrides["SASL:$mechanism"]) {
+                Send-Reply -Stream $Stream -Reply $scripted
+                if (-not ($scripted -ceq '+' -or $scripted.StartsWith('+ '))) { return $true }
+                if ($null -eq (Read-Line -Stream $Stream)) { return $false }
+            }
+            Send-Reply -Stream $Stream -Reply '+OK Authenticated'
+            return $true
+        }
         $challenges = switch ($mechanism) {
             'PLAIN' { if ($hasInitialResponse) { @() } else { @('+ ') } }
             'LOGIN' { if ($hasInitialResponse) { @('+ UGFzc3dvcmQ6') } else { @('+ VXNlcm5hbWU6', '+ UGFzc3dvcmQ6') } }
@@ -2079,6 +2218,11 @@ $ftpOverrides = ConvertTo-ReplyOverrides -Entries $FtpReply -ParameterName 'FtpR
 $smtpOverrides = ConvertTo-ReplyOverrides -Entries $SmtpReply -ParameterName 'SmtpReply'
 $imapOverrides = ConvertTo-ReplyOverrides -Entries $ImapReply -ParameterName 'ImapReply'
 $pop3Overrides = ConvertTo-ReplyOverrides -Entries $Pop3Reply -ParameterName 'Pop3Reply'
+# -SaslChallenge rides in each mail mode's table under SASL:<mechanism>, which no verb can be.
+$saslChallenges = ConvertTo-ReplyOverrides -Entries $SaslChallenge -ParameterName 'SaslChallenge'
+foreach ($mechanismName in $saslChallenges.Keys) {
+    foreach ($table in @($smtpOverrides, $imapOverrides, $pop3Overrides)) { $table["SASL:$mechanismName"] = $saslChallenges[$mechanismName] }
+}
 $transcript = New-Object System.Text.StringBuilder
 $uploadedData = New-Object System.IO.MemoryStream
 $OutDirectory = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).ProviderPath, $OutDirectory))
@@ -2119,9 +2263,9 @@ try {
     if ($NoServer) {
         $serverRun = $null
     } elseif ($Ftp) {
-        [void] $server.AddScript($serveFtpSession).AddArgument($listener).AddArgument($ftpOverrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $FtpData)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($FtpIdleMilliseconds).AddArgument($ListenAddress).AddArgument($sessionHelpers.ToString())
+        [void] $server.AddScript($serveFtpSession).AddArgument($listener).AddArgument($ftpOverrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $FtpData)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($FtpIdleMilliseconds).AddArgument($ListenAddress).AddArgument($sessionHelpers.ToString()).AddArgument($FtpMaxUploadBytes)
     } elseif ($Smtp) {
-        [void] $server.AddScript($serveSmtpSession).AddArgument($listener).AddArgument($smtpOverrides).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($SmtpIdleMilliseconds).AddArgument($sessionHelpers.ToString())
+        [void] $server.AddScript($serveSmtpSession).AddArgument($listener).AddArgument($smtpOverrides).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($SmtpIdleMilliseconds).AddArgument($sessionHelpers.ToString()).AddArgument($SmtpMaxMessageBytes)
     } elseif ($Imap) {
         [void] $server.AddScript($serveImapSession).AddArgument($listener).AddArgument($imapOverrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $ImapMessage)).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($ImapIdleMilliseconds).AddArgument($sessionHelpers.ToString())
     } elseif ($Pop3) {

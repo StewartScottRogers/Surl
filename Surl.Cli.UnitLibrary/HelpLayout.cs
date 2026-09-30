@@ -50,12 +50,25 @@ internal static class HelpLayout
     /// <summary>
     /// Wraps <paramref name="paragraph"/> greedily at single spaces into lines of
     /// <see cref="ParagraphIndent"/> and words, none passing <see cref="Columns"/> unless it
-    /// holds one word too long for any line.
+    /// holds one word too long for any line. A word too long for any line may also break after
+    /// each of its commas, as a long comma-separated default (<c>--auth</c>'s) does.
     /// </summary>
     /// <param name="paragraph">The paragraph, its words separated by single spaces.</param>
     /// <returns>The lines, without line ends.</returns>
     public static IReadOnlyList<string> WrapParagraph(string paragraph) =>
-        Wrap(paragraph.Split(' ').Select(word => word + " "), ParagraphIndent, countTrailingSpace: false);
+        Wrap(paragraph.Split(' ').SelectMany(BreakWord), ParagraphIndent, countTrailingSpace: false);
+
+    // A word that fits a line is one piece; a longer one is a piece per comma-separated part.
+    private static IEnumerable<string> BreakWord(string word)
+    {
+        if (ParagraphIndent.Length + word.Length <= Columns)
+        {
+            return [word + " "];
+        }
+
+        var parts = word.Split(',');
+        return parts.Select((part, index) => index == parts.Length - 1 ? part + " " : part + ",");
+    }
 
     private static string FormatOptionLine(string leftSide, string description, int longestLeftSide)
     {

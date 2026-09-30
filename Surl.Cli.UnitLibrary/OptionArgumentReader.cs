@@ -36,12 +36,21 @@ internal static class OptionArgumentReader
     /// <summary>A <c>&lt;user:password&gt;</c> argument whose name holds U+0000 to U+001F or U+007F.</summary>
     public const string ControlCharacterInUserName = "the user name holds a control character";
 
+    /// <summary>A <c>&lt;user:file&gt;</c> argument with no <c>:</c> (ADR-0051 decision 6).</summary>
+    public const string ExpectedUserColonFile = "expected <user:file>";
+
+    /// <summary>A <c>&lt;user:file&gt;</c> argument with nothing before its first <c>:</c>.</summary>
+    public const string EmptyUserName = "the user name is empty";
+
     /// <summary>
-    /// The <c>--auth</c> words in ADR-0032 section 3's listing order, the order
-    /// <see cref="ReadAuthenticationMethods"/> returns them in.
+    /// The <c>--auth</c> words in ADR-0032 section 3's listing order, as ADR-0049 section 3 grows
+    /// it, the order <see cref="ReadAuthenticationMethods"/> returns them in.
     /// </summary>
     public static readonly IReadOnlyList<string> AuthenticationMethodWords =
-        ["negotiate", "ntlm", "digest", "basic", "bearer", "aws-sigv4"];
+    [
+        "negotiate", "gssapi", "ntlm", "digest", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
+        "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4",
+    ];
 
     private const string SizeSuffixes = "kmgtp";
     private const decimal BytesPerSuffixStep = 1024m;
@@ -128,6 +137,12 @@ internal static class OptionArgumentReader
         new(ReadAccount, new(
             "user:password",
             "a user name, a colon and a non-empty password, split at the first colon; no control character in the user name"));
+
+    /// <summary><see cref="ReadAuthorizedKeys"/> and its argument type (ADR-0046 decision 5).</summary>
+    public static readonly OptionArgumentReading<CommandLineAuthorizedKeys> AuthorizedKeys =
+        new(ReadAuthorizedKeys, new(
+            "user:file",
+            "a non-empty user name, a colon and a non-empty path, split at the first colon; no control character in the user name"));
 
     /// <summary>
     /// <see cref="ReadAuthenticationMethods"/> and its argument type (ADR-0046 decision 5), its
@@ -271,6 +286,22 @@ internal static class OptionArgumentReader
     }
 
     /// <summary>
+    /// Reads <c>&lt;user:file&gt;</c> (ADR-0051 decision 6): split at the first <c>:</c>, so
+    /// <c>alice:C:\keys</c> is the user <c>alice</c> and the file <c>C:\keys</c>, and nothing
+    /// trimmed. An empty argument or file is blank; no <c>:</c>, an empty user name or a control
+    /// character in it is refused.
+    /// </summary>
+    /// <param name="argument">The argument as given.</param>
+    /// <param name="value">The user and the file.</param>
+    /// <returns>The refusal reason, or <see langword="null"/>.</returns>
+    public static string? ReadAuthorizedKeys(string argument, out CommandLineAuthorizedKeys value)
+    {
+        var colon = argument.IndexOf(':', StringComparison.Ordinal);
+        value = colon < 0 ? new(argument, string.Empty) : new(argument[..colon], argument[(colon + 1)..]);
+        return RefuseAuthorizedKeys(argument, colon, value);
+    }
+
+    /// <summary>
     /// Reads the <c>--auth</c> method list (ADR-0032 sections 1 and 3): comma-separated words
     /// from <see cref="AuthenticationMethodWords"/>, in any case, with no empty item. A word
     /// given twice counts once.
@@ -329,6 +360,32 @@ internal static class OptionArgumentReader
         }
 
         return account.UserName.Any(IsControlCharacter) ? ControlCharacterInUserName : null;
+    }
+
+    /// <summary>The refusal of a <c>&lt;user:file&gt;</c> argument split at <paramref name="colon"/>, or null.</summary>
+    private static string? RefuseAuthorizedKeys(string argument, int colon, CommandLineAuthorizedKeys authorizedKeys)
+    {
+        if (argument.Length == 0)
+        {
+            return Blank;
+        }
+
+        if (colon < 0)
+        {
+            return ExpectedUserColonFile;
+        }
+
+        if (authorizedKeys.UserName.Length == 0)
+        {
+            return EmptyUserName;
+        }
+
+        if (authorizedKeys.UserName.Any(IsControlCharacter))
+        {
+            return ControlCharacterInUserName;
+        }
+
+        return authorizedKeys.File.Length == 0 ? Blank : null;
     }
 
     private static bool IsControlCharacter(char character) => character < ' ' || character == '\u007F';
