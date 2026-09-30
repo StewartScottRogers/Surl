@@ -132,7 +132,9 @@ the board's parallel capacity (`task-board.ps1 capacity`), the machine's cap
 (`-ProbeMachine`) and `-MaxLanes`, so it suits whichever Claude plan is in use. Running
 out of tokens is not a stall: the shift announces it with the reset time, waits (the wait
 does not count against `-Hours`), warns a minute before the new session and reruns the
-cut-off task. See the script's header for the details.
+cut-off task. See the script's header for the details, and
+`Documentation/Wiki/Dark-Factory-Recipes.md` for the recipes: start, watch, feed, restart,
+and what needs Stewart. Keep the recipes true when the script changes.
 
 When Claude starts a shift it always passes `-NewTab`, e.g.
 `RunDarkFactory.cmd -NewTab -Lanes Auto -Continuous`; `-Continuous` makes a shift that
