@@ -67,6 +67,12 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   section 9, ADR-0033 section 7).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
+- `CommandLineRunner.ComposeRegisteredSchemes` lists every registered server's schemes, the
+  `--version` `Protocols:` line's source. `CommandLineRunnerAiHelpTests` (ADR-0046 decision 9)
+  fails when a registered scheme has no `--aihelp` protocol topic, when a topic names an
+  unregistered scheme, or when an `AiHelpExamples.All` entry's shown output differs from what
+  `RunAsync` writes: registering a server in `ComposeProtocolServers` means adding its
+  `HelpCategories` row with its schemes, its `AiHelpProse` text and its example in `Surl.Cli`.
 
 Keep this project thin: parsing belongs in `Surl.Cli`, serving in `Surl.Core`, each
 protocol in its own library. Code here is wiring, tested in `Surl.Console.UnitTests`

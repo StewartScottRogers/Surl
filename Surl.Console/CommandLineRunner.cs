@@ -183,11 +183,19 @@ internal sealed class CommandLineRunner(
             .GetCustomAttributes<AssemblyInformationalVersionAttribute>()
             .Select(attribute => attribute.InformationalVersion)
             .FirstOrDefault();
-        var servers = ComposeUnservedProtocolServers(ComposeContentStore(new SurlCommandLine(), timeProvider));
 
-        return VersionText.Compose(
-            informationalVersion, RuntimeInformation.RuntimeIdentifier, servers.SelectMany(server => server.Schemes));
+        return VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ComposeRegisteredSchemes());
     }
+
+    /// <summary>
+    /// Lists the scheme of every protocol server surl registers, in registration order: what
+    /// <c>--version</c>'s <c>Protocols:</c> line lists, and what every <c>--aihelp</c> protocol
+    /// topic's schemes must match (ADR-0046 decision 9).
+    /// </summary>
+    /// <returns>The schemes.</returns>
+    internal IReadOnlyList<string> ComposeRegisteredSchemes() =>
+        [.. ComposeUnservedProtocolServers(ComposeContentStore(new SurlCommandLine(), timeProvider))
+            .SelectMany(server => server.Schemes)];
 
     /// <summary>
     /// Builds the one content store every protocol server reads, exposing what the command
