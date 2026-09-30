@@ -45,3 +45,4 @@ type 2 and type 3 messages carried in base64 continuations - reusing the HTTP NT
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
