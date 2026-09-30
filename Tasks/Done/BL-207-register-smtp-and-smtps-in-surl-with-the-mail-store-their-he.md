@@ -82,7 +82,7 @@ loaded at start - and `surl --help` and `--aihelp` list the `smtp` category and 
 - Renamed, since their names carried counts that grew: `AiHelpExamplesTests.Examples_AreTheAdrsNineteenAndSmtpsInItsOrder`
   and `AiHelpFactsTests.OnlyTheSevenProtocolCategories_HaveSchemes`.
   `AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder` keeps its name (the root `CLAUDE.md`
-  names it, outside `touches`); BL-238 renames all three without a count.
+  names it, outside `touches`); BL-244 renames all three without a count.
 - Tests: `Surl.Console.UnitTests/CommandLineRunnerSmtpTests.cs` (greeting over `smtp` and
   `smtps`, 58 without a certificate, `STARTTLS` advertised or 454, anonymous delivery into the
   in-memory store, 530 without a login, the store's path, load, malformed refusal before the

@@ -1,5 +1,5 @@
 ---
-id: BL-238
+id: BL-244
 title: Rename AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder now that smtp makes seventeen
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-30
 completed:
 ---
-# BL-238 — Rename AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder now that smtp makes seventeen
+# BL-244 — Rename AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder now that smtp makes seventeen
 
 ## Goal
 
