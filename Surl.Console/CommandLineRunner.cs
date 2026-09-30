@@ -11,6 +11,7 @@ using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Dict;
+using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 using Surl.Protocol.Mqtt;
@@ -61,6 +62,12 @@ namespace Surl.Console;
 /// <c>--hostkey</c> file (ADR-0051, decisions 4 and 6); never called when none is given.
 /// <see cref="File.ReadAllBytes(string)"/> when <see langword="null"/>, which is what <c>surl</c> passes.
 /// </param>
+/// <param name="createDataConnectionOpener">
+/// Creates what opens the FTP server's data connections, given the process's TLS settings, the
+/// ones the listeners secure connections with (ADR-0052, decision 9); a
+/// <see cref="SocketDataConnectionOpener"/> on the one clock when <see langword="null"/>, which
+/// is what <c>surl</c> passes.
+/// </param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
     Func<string, bool> canOpenDataDirectory,
@@ -68,7 +75,8 @@ internal sealed class CommandLineRunner(
     TimeProvider timeProvider,
     IContentFileSystem? dataDirectoryFileSystem = null,
     Func<string, FileMode, TextWriter>? openLogFile = null,
-    Func<string, byte[]>? readStartFile = null)
+    Func<string, byte[]>? readStartFile = null,
+    Func<ServerTlsSettings?, IDataConnectionOpener>? createDataConnectionOpener = null)
 {
     private const string MessagePrefix = "surl: ";
 
@@ -77,6 +85,12 @@ internal sealed class CommandLineRunner(
     private readonly Func<string, FileMode, TextWriter> openLogFile = openLogFile ?? LogFile.Open;
 
     private readonly Func<string, byte[]> readStartFile = readStartFile ?? File.ReadAllBytes;
+
+    // The opener createDataConnectionOpener makes, or surl's own over sockets on the one clock.
+    private IDataConnectionOpener CreateDataConnectionOpener(ServerTlsSettings? tlsSettings) =>
+        createDataConnectionOpener is null
+            ? new SocketDataConnectionOpener(tlsSettings, timeProvider)
+            : createDataConnectionOpener(tlsSettings);
 
     /// <summary>
     /// Runs <paramref name="args"/>.
@@ -374,24 +388,27 @@ internal sealed class CommandLineRunner(
     // the one content store, the MQTT server keeps its retained messages in the store it is
     // given, and the SMTP server delivers into the one mail store. https and smtps are the HTTP
     // and SMTP servers themselves, over a connection the engine has secured (ADR-0020,
-    // ADR-0053 decision 5). The HTTP, MQTT, SMTP and SSH servers, the ones with a login, judge it
-    // by the one policy (ADR-0032). The SSH server answers scp and sftp with its host keys and
+    // ADR-0053 decision 5). The FTP server answers ftp and, TLS from the first byte, ftps itself
+    // (ADR-0052 decision 5). The HTTP, MQTT, SMTP, FTP and SSH servers, the ones with a login,
+    // judge it by the one policy (ADR-0032); SMTP offers STARTTLS and FTP AUTH TLS only when a
+    // certificate is configured. The SSH server answers scp and sftp with its host keys and
     // offers ADR-0051 decision 2's default algorithms for them (ADR-0051 decision 13).
     private static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
         ServiceState serviceState,
         AuthenticationPolicy authenticationPolicy,
         SshHostKeySet sshHostKeys,
-        bool isStartTlsAvailable)
+        bool isTlsUpgradeAvailable)
     {
         var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
-        var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isStartTlsAvailable);
+        var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
 
         return
         [
             httpServer,
             new ImplicitTlsSchemeServer(httpServer, "https"),
             new DictProtocolServer(contentStore),
+            new FtpProtocolServer(contentStore, authenticationPolicy, isTlsUpgradeAvailable),
             new GopherProtocolServer(contentStore),
             new MqttProtocolServer(serviceState.RetainedMessages, authenticationPolicy),
             smtpServer,
@@ -415,7 +432,7 @@ internal sealed class CommandLineRunner(
             new ServiceState(new MqttRetainedMessages(), new MailboxStore([], allowAnonymous: false, timeProvider)),
             AuthenticationComposition.ComposeWithoutAccounts(timeProvider),
             new SshHostKeySet(),
-            isStartTlsAvailable: false);
+            isTlsUpgradeAvailable: false);
 
     // What the servers keep across connections, loaded after the lock: the MQTT retained
     // messages and the mail store (ADR-0031 decision 6, ADR-0050 decision 7).
@@ -699,7 +716,7 @@ internal sealed class CommandLineRunner(
             timeProvider,
             ServingEngine.DefaultShutdownGracePeriod,
             ComposeConnectionLimits(commandLine),
-            RefusingDataConnectionOpener.Instance,
+            CreateDataConnectionOpener(tls.Settings),
             commandLine.Limits);
 
         try

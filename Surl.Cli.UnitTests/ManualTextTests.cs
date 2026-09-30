@@ -119,7 +119,7 @@ public sealed class ManualTextTests
             "    Unless --allow-anonymous is given: with no account configured, an HTTP GET",
             "    or HEAD needs no login, and every login is refused; once any account is",
             "    configured, every HTTP request needs a login; any other HTTP method,",
-            "    every MQTT CONNECT and every SMTP MAIL always needs one.",
+            "    every MQTT CONNECT, every SMTP MAIL and every FTP login always needs one.",
             "",
             "    --auth <methods> sets the methods accepted and offered, comma-separated,",
             "    in any case. For HTTP: negotiate, ntlm, digest, basic, bearer and",

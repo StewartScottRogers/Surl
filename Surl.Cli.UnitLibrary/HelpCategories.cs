@@ -10,6 +10,7 @@ internal static class HelpCategories
         new("auth", "Accounts and authentication methods", []),
         new("content", "Served files and the data directory", []),
         new("dict", "DICT protocol", ["dict"]),
+        new("ftp", "FTP and FTPS protocol", ["ftp", "ftps"]),
         new("gopher", "GOPHER and GOPHERS protocol", ["gopher", "gophers"]),
         new("http", "HTTP and HTTPS protocol", ["http", "https"]),
         new("limits", "Connection, time and size limits", []),

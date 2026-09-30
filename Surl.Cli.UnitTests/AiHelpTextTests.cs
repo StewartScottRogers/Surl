@@ -12,7 +12,7 @@ public sealed partial class AiHelpTextTests
     // ADR-0046 decision 3's sixteen topics and smtp (BL-207), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "content", "dict", "exit-codes", "gopher", "http", "limits", "listen-urls",
+        "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "limits", "listen-urls",
         "logging", "mqtt", "security", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls",
     ];
 
@@ -27,6 +27,7 @@ public sealed partial class AiHelpTextTests
         "| `content` | Served files and the data directory |",
         "| `dict` | DICT protocol |",
         "| `exit-codes` | Exit codes and what to do next |",
+        "| `ftp` | FTP and FTPS protocol |",
         "| `gopher` | GOPHER and GOPHERS protocol |",
         "| `http` | HTTP and HTTPS protocol |",
         "| `limits` | Connection, time and size limits |",
@@ -360,7 +361,7 @@ public sealed partial class AiHelpTextTests
             "| --- | --- | --- | --- | --- | --- | --- |",
             "| `--max-line <bytes>` | bytes | 8192 | digits with an optional decimal point and more digits, then at most one suffix "
                 + "k, m, g, t or p in either case, each 1024 times the one before; at most 9223372036854775807 bytes; 0 means no limit "
-                + "| no | dict, gopher, limits, smtp, telnet | Longest command line accepted |",
+                + "| no | dict, ftp, gopher, limits, smtp, telnet | Longest command line accepted |",
             "",
             "## Exit codes",
             "",

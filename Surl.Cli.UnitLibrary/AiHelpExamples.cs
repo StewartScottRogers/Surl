@@ -24,7 +24,7 @@ public static class AiHelpExamples
             [ListeningOnHttp, "Listening on tftp://127.0.0.1:<port>/"],
             [],
             []),
-        Refused("listen-urls", "A scheme this build does not serve", ["ftp://127.0.0.1:0/"], ["surl: (1) Protocol \"ftp\" not supported"], SurlExitCode.UnsupportedProtocol),
+        Refused("listen-urls", "A scheme this build does not serve", ["rtsp://127.0.0.1:0/"], ["surl: (1) Protocol \"rtsp\" not supported"], SurlExitCode.UnsupportedProtocol),
         Refused(
             "surl",
             "No listen URL",
@@ -70,6 +70,13 @@ public static class AiHelpExamples
             ["surl: option --max-time: " + OptionArgumentReader.NotANumber, "surl: " + CommandLineFailure.TryHelpLine],
             SurlExitCode.FailedInit),
         Serving("dict", "Serve DICT", ["dict://127.0.0.1:0/"], ["Listening on dict://127.0.0.1:<port>/"], [], ["curl dict://127.0.0.1:<port>/d:surl"]),
+        Serving(
+            "ftp",
+            "For a test: serve FTP without accounts",
+            ["--allow-anonymous", "ftp://127.0.0.1:0/"],
+            ["Listening on ftp://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl ftp://127.0.0.1:<port>/example.txt"]),
         Serving("gopher", "Serve Gopher", ["gopher://127.0.0.1:0/"], ["Listening on gopher://127.0.0.1:<port>/"], [], ["curl gopher://127.0.0.1:<port>/"]),
         Serving("http", "Serve HTTP", [HttpListenUrl], [ListeningOnHttp], [], ["curl -I http://127.0.0.1:<port>/"]),
         Serving(
