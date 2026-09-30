@@ -64,3 +64,4 @@ HMAC-RIPEMD-160 (RFC 2286), so `Surl.Protocol.Ssh` can offer `hmac-ripemd160` an
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
