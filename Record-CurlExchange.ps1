@@ -126,7 +126,7 @@
     with the data port, PASV 227 with 127.0.0.1 and the data port, TYPE 200, SIZE 213
     with FtpData's length, MDTM 213 20260927123456, CWD 250, REST 350 (remembering the
     offset), RETR 150 then FtpData from the last REST offset over the data connection
-    then 226 (LIST and NLST the same), STOR 150 then every byte curl sends over the data
+    then 226 (LIST, NLST and MLSD the same), STOR 150 then every byte curl sends over the data
     connection until it closes it then 226 (APPE the same), QUIT 221 (and the session
     ends), and 502 for any other command. A data connection curl closes early (a range
     read) is not an error. The bytes received on STOR's and APPE's data connections are
@@ -140,14 +140,19 @@
     "= TLS handshake completed on the control connection" line in transcript.txt; an
     overridden AUTH whose reply starts 234 is upgraded the same way. PBSZ is answered 200,
     PROT 200, and after PROT P (or with -Tls, until a PROT C or a refused PROT) every data
-    connection is TLS too, ended with close_notify when the server sends.
+    connection is TLS too, ended with close_notify when the server sends. CCC is answered
+    200 and, on a TLS control connection, the server then sends close_notify, reads the one
+    TLS record curl answers with (its own close_notify), and serves the rest of the session
+    in plaintext, with a "= TLS ended on the control connection by CCC; ..." line in
+    transcript.txt saying whether that record arrived; an overridden CCC whose reply starts 2
+    does the same.
 
 .PARAMETER FtpReply
     Overrides for the FTP reply table, each 'VERB=reply' with the same backslash escapes
     as Response, e.g. 'PASS=430 Access denied'. The reply is sent as given with CRLF
     appended. VERB is a command name in capitals, GREETING for the greeting, or RETRDONE
     for the reply sent after RETR's or LIST's data, or STORDONE for the reply sent after
-    STOR's or APPE's data. An overridden EPSV, PASV, RETR, LIST, NLST, STOR or APPE sends
+    STOR's or APPE's data. An overridden EPSV, PASV, RETR, LIST, NLST, MLSD, STOR or APPE sends
     only the reply: no data connection is offered. The reply CLOSE closes the control
     connection instead of answering, e.g. 'PWD=CLOSE'. Several overrides for one VERB are
     answered in the order given, one per command, the last repeating for the rest, e.g.
@@ -435,6 +440,12 @@
     Default 5000. Raise it to measure a wait longer than five seconds, such as curl's
     60-second accept timeout when an active-mode data connection never arrives.
 
+.PARAMETER FtpMaxUploadBytes
+    In -Ftp mode, how many bytes STOR and APPE read from the data connection before the
+    server stops reading and closes it under curl, then sends the STORDONE reply. Default
+    -1: no cap, read until curl closes. Use it with -FtpReply 'STORDONE=552 ...' to measure
+    what curl does when a server refuses an upload past its size limit part-way through.
+
 .PARAMETER Curl
     The upstream curl executable to run. Defaults to curl 8.21.0 from Git for Windows'
     mingw64 directory, found beside git.exe. Whatever the path, the file's SHA-256 must
@@ -455,7 +466,7 @@
     server cannot speak. Only stdout.bin, stderr.txt and exitcode.txt are
     written; there is no request.bin, since the script sees none of the traffic. Port,
     Response, Connections, ResponsesPerConnection, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds,
-    RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, SmtpReply,
+    RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, FtpMaxUploadBytes, SmtpReply,
     SmtpIdleMilliseconds, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
     Pop3Message, Pop3IdleMilliseconds, TftpData, TftpReply, TftpIdleMilliseconds and
     ListenAddress are ignored, and Port need not be given. Combining it with a server
@@ -533,6 +544,7 @@ param(
     [string[]] $FtpReply = @(),
     [string] $FtpData = '',
     [ValidateRange(1, 600000)] [int] $FtpIdleMilliseconds = 5000,
+    [ValidateRange(-1, [long]::MaxValue)] [long] $FtpMaxUploadBytes = -1,
     [switch] $Smtp,
     [string[]] $SmtpReply = @(),
     [ValidateRange(1, 600000)] [int] $SmtpIdleMilliseconds = 5000,
@@ -811,7 +823,7 @@ $sessionHelpers = {
 # one array, writes the two-way transcript into $Transcript, and the bytes uploaded on
 # STOR and APPE data connections into $UploadedData.
 $serveFtpSession = {
-    param($Listener, [hashtable] $Overrides, [byte[]] $DataBytes, [System.Text.StringBuilder] $Transcript, [System.IO.MemoryStream] $UploadedData, $TlsCertificate, [bool] $ImplicitTls, [int] $ControlIdleMilliseconds, [System.Net.IPAddress] $ListenAddress, [string] $SessionHelpers)
+    param($Listener, [hashtable] $Overrides, [byte[]] $DataBytes, [System.Text.StringBuilder] $Transcript, [System.IO.MemoryStream] $UploadedData, $TlsCertificate, [bool] $ImplicitTls, [int] $ControlIdleMilliseconds, [System.Net.IPAddress] $ListenAddress, [string] $SessionHelpers, [long] $MaxUploadBytes)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -857,6 +869,40 @@ $serveFtpSession = {
         return New-Object System.Net.IPEndPoint([System.Net.IPAddress]::Parse(($numbers[0..3] -join '.')), $activePort)
     }
 
+    # After CCC's 2xx reply: end TLS on the control connection with close_notify, read the
+    # one TLS record curl answers with (its own close_notify) off the plaintext stream, and
+    # return that stream, over which the session then goes on in plaintext.
+    function Clear-CommandChannel {
+        param($Stream, $PlainStream)
+        if ($Stream -isnot [System.Net.Security.SslStream]) { return $Stream }
+        $Stream.ShutdownAsync().Wait()
+        $PlainStream.ReadTimeout = 2000
+        $header = New-Object byte[] 5
+        $seen = 'no TLS record from curl within two seconds'
+        try {
+            $read = 0
+            while ($read -lt 5) {
+                $count = $PlainStream.Read($header, $read, 5 - $read)
+                if ($count -le 0) { break }
+                $read += $count
+            }
+            if ($read -eq 5) {
+                $body = New-Object byte[] ($header[3] * 256 + $header[4])
+                $read = 0
+                while ($read -lt $body.Length) {
+                    $count = $PlainStream.Read($body, $read, $body.Length - $read)
+                    if ($count -le 0) { break }
+                    $read += $count
+                }
+                $seen = "curl's TLS record of type $($header[0]) and $($body.Length) bytes read"
+            }
+        } catch [System.IO.IOException] {
+        }
+        $PlainStream.ReadTimeout = $ControlIdleMilliseconds
+        [void] $Transcript.Append("= TLS ended on the control connection by CCC; $seen`r`n")
+        return $PlainStream
+    }
+
     function Send-Reply {
         param($Stream, [string] $Reply)
         $Reply = $Reply.Replace('{DATAPORT_HI}', [string] [Math]::Floor($dataPort / 256)).Replace('{DATAPORT_LO}', [string] ($dataPort % 256)).Replace('{DATAPORT}', [string] $dataPort)
@@ -874,6 +920,8 @@ $serveFtpSession = {
         }
         try {
             $stream = $client.GetStream()
+            # The plaintext stream under any TLS, which CCC returns the control connection to.
+            $plainStream = $stream
             if ($ImplicitTls) { $stream = Wrap-Tls -Stream $stream }
             $stream.ReadTimeout = $ControlIdleMilliseconds
             $greeting = if ($Overrides.ContainsKey('GREETING')) { Get-Override -Verb 'GREETING' } else { '220 Recorder ready' }
@@ -906,6 +954,7 @@ $serveFtpSession = {
                         $stream.ReadTimeout = $ControlIdleMilliseconds
                         [void] $Transcript.Append("= TLS handshake completed on the control connection`r`n")
                     }
+                    if ($verb -eq 'CCC' -and $override.StartsWith('2')) { $stream = Clear-CommandChannel -Stream $stream -PlainStream $plainStream }
                     continue
                 }
                 switch ($verb) {
@@ -916,6 +965,10 @@ $serveFtpSession = {
                         [void] $Transcript.Append("= TLS handshake completed on the control connection`r`n")
                     }
                     'PBSZ' { Send-Reply -Stream $stream -Reply '200 PBSZ=0' }
+                    'CCC' {
+                        Send-Reply -Stream $stream -Reply '200 Command channel cleared'
+                        $stream = Clear-CommandChannel -Stream $stream -PlainStream $plainStream
+                    }
                     'PROT' {
                         $protectData = $argument -ceq 'P'
                         Send-Reply -Stream $stream -Reply "200 Protection level set to $argument"
@@ -937,7 +990,7 @@ $serveFtpSession = {
                     }
                     'EPSV' { Send-Reply -Stream $stream -Reply "229 Entering Extended Passive Mode (|||$dataPort|)" }
                     'PASV' { Send-Reply -Stream $stream -Reply "227 Entering Passive Mode ($($ListenAddress.ToString().Replace('.', ',')),$([Math]::Floor($dataPort / 256)),$($dataPort % 256))" }
-                    { $_ -eq 'RETR' -or $_ -eq 'LIST' -or $_ -eq 'NLST' } {
+                    { $_ -eq 'RETR' -or $_ -eq 'LIST' -or $_ -eq 'NLST' -or $_ -eq 'MLSD' } {
                         Send-Reply -Stream $stream -Reply '150 Opening BINARY mode data connection'
                         $dataClient, $dataStream = Open-DataConnection -Verb $verb -ActiveEndPoint $activeEndPoint -Protect $protectData
                         try {
@@ -960,7 +1013,18 @@ $serveFtpSession = {
                         $uploaded = New-Object System.IO.MemoryStream
                         try {
                             $dataStream.ReadTimeout = 5000
-                            $dataStream.CopyTo($uploaded)
+                            if ($MaxUploadBytes -lt 0) {
+                                $dataStream.CopyTo($uploaded)
+                            } else {
+                                # Stop reading once the cap is reached and close the data
+                                # connection under curl, as a server refusing an upload does.
+                                $chunk = New-Object byte[] 65536
+                                while ($uploaded.Length -lt $MaxUploadBytes) {
+                                    $count = $dataStream.Read($chunk, 0, [int] [Math]::Min($chunk.Length, $MaxUploadBytes - $uploaded.Length))
+                                    if ($count -le 0) { break }
+                                    $uploaded.Write($chunk, 0, $count)
+                                }
+                            }
                         } catch [System.IO.IOException] {
                             # Five seconds without a byte, or a reset: keep what arrived.
                         } finally {
@@ -2168,7 +2232,7 @@ try {
     if ($NoServer) {
         $serverRun = $null
     } elseif ($Ftp) {
-        [void] $server.AddScript($serveFtpSession).AddArgument($listener).AddArgument($ftpOverrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $FtpData)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($FtpIdleMilliseconds).AddArgument($ListenAddress).AddArgument($sessionHelpers.ToString())
+        [void] $server.AddScript($serveFtpSession).AddArgument($listener).AddArgument($ftpOverrides).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $FtpData)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($FtpIdleMilliseconds).AddArgument($ListenAddress).AddArgument($sessionHelpers.ToString()).AddArgument($FtpMaxUploadBytes)
     } elseif ($Smtp) {
         [void] $server.AddScript($serveSmtpSession).AddArgument($listener).AddArgument($smtpOverrides).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($SmtpIdleMilliseconds).AddArgument($sessionHelpers.ToString())
     } elseif ($Imap) {
