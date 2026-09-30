@@ -66,3 +66,4 @@ requirements, each `Draft`, so every Phase 4 and 5 task can cite one.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
