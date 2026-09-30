@@ -209,22 +209,24 @@ list:
 | `bearer` | Bearer, RFC 6750 | HTTP | yes |
 | `oauthbearer` | SASL `OAUTHBEARER` | SMTP, IMAP, POP3 | yes |
 | `xoauth2` | SASL `XOAUTH2` | SMTP, IMAP, POP3 | yes |
-| `external` | SASL `EXTERNAL` | SMTP, IMAP, POP3 | refused as not available until BL-216, which then adds it to the default set |
+| `external` | SASL `EXTERNAL` | SMTP, IMAP, POP3 | yes (refused as not available until BL-216 built it and added it to the default set; BL-216 is done) |
 | `aws-sigv4` | AWS Signature Version 4 | HTTP | yes |
 
 - The order: methods computed from a secret, strongest first, then clear secrets, then
   `external`, with `aws-sigv4` last as before; each mail word sits beside its HTTP kin.
 - **The default set** becomes
-  `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,aws-sigv4` (and `external`
-  once BL-216 lands). **`digest-md5`** stays a named choice because RFC 6331 moved it to Historic
+  `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,aws-sigv4`, and `external` joined
+  it when BL-216 landed (done), so it is now
+  `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4`. **`digest-md5`** stays a named choice because RFC 6331 moved it to Historic
   for its weaknesses, and curl prefers it above every other mechanism, so offering it by default
   would make it the one every curl client uses. **`apop`** stays a named choice because its
   MD5-prefix construction lets a party that chooses the timestamp recover password characters
   (Leurent, "Message Freedom in MD4 and MD5 Collisions: Application to APOP", 2007), and a POP3
   client that sees a timestamp may use it. Both are named, like `ntlm`, with `--auth`.
 - The words are matched and stored as ADR-0032 section 1 says; the refusal
-  `surl: (2) --auth <word> is not available in this build` covers `gssapi` and `external` until
-  their tasks land, and nothing else once BL-194 to BL-196 are Done.
+  `surl: (2) --auth <word> is not available in this build` covered `gssapi` and `external` until
+  their tasks landed, and nothing else once BL-194 to BL-196 were Done; since BL-216 (done) it
+  covers `gssapi` alone, until BL-218 lands.
 - **Help** (ADR-0034, one line within curl's 79 columns): `--auth`'s description stays
   "Authentication methods accepted", its `Default` becomes the default set above, and its
   explanation lists the words with the protocols each applies to, as the table does. BL-197
@@ -246,7 +248,8 @@ list:
   not used) and the authorization identity curl sends (the `-u` user name, measured) is empty or
   equal to it (ordinal). Otherwise it is `RefusedCredentials`. It is offered only on a
   connection whose `TlsSession.ClientCertificate` is not `null`, and is not plain-text. BL-216
-  builds it.
+  built it (done); amendment 1 records how it answers a connection without a client
+  certificate.
 
 ### 5. Each mechanism's exchange
 
@@ -440,7 +443,7 @@ public sealed record MailLoginStep(
 | `CRAM-MD5`, `DIGEST-MD5`, `APOP` | BL-195 |
 | `NTLM` | BL-196 |
 | The `--auth` words, default set, order, help, manual and AI help | BL-197 |
-| `EXTERNAL`, then `external` joins the default set | BL-216 (filed by this task) |
+| `EXTERNAL`, then `external` joins the default set | BL-216 (filed by this task; done) |
 | How Surl holds a Kerberos key and checks a ticket, for Negotiate and `GSSAPI` | BL-217 (filed by this task) |
 | SASL `GSSAPI` | BL-218 (filed by this task) |
 | Offering, framing and answering the logins | the SMTP, IMAP and POP3 servers' login tasks (BL-200, BL-204, BL-206) |
@@ -474,3 +477,32 @@ public sealed record MailLoginStep(
   fixtures and the servers' conformance.
 - `--auth`'s default set, table and warning order change (BL-197), and `Requirements.md`'s FR-046
   and FR-008 rows read this ADR when those tasks land.
+
+## Amendment 1 - `EXTERNAL` without a client certificate, and help's long `--auth` default (BL-216, recorded by BL-235, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29, in
+BL-216, and recorded here by BL-235 because BL-155 held this folder while BL-216 ran.
+
+1. **A client that sends `AUTH EXTERNAL` on a connection with no TLS client certificate** gets
+   `RefusedMechanism` from `AuthenticationPolicy.StartSaslExchange`: at once, with no
+   `RefusalDelay` and no login note, and even under `--allow-anonymous`
+   (`AuthenticationPolicy.CanIdentifyClient`). Why: decision 2 offers `EXTERNAL` only on a
+   connection whose `TlsSession.ClientCertificate` is not `null`, so there the mechanism is one the
+   server did not offer, and a mechanism not offered is refused as a mechanism (decision 7), not as
+   credentials. There is also no client identity for `EXTERNAL` to accept - its identity *is* the
+   certificate - so `--allow-anonymous`, which accepts whatever identity a login names, has nothing
+   to accept; answering `RefusedCredentials` after the delay would claim a check that never ran.
+   `ExternalSaslMechanismTests.NoClientCertificate_IsRefusedAsAMechanismUndelayedAndNotOffered`
+   (`Surl.Authentication.UnitTests`) pins it.
+2. **Help wraps `--auth`'s default within 79 columns** ([ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md)
+   decision 3's width). With `external` in it the default
+   `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4` is one word
+   too long for any eight-space-indented paragraph line, and ADR-0034 put such a word alone on a
+   line past 79 columns. `HelpLayout.WrapParagraph` now breaks a word too long for any line after
+   each of its commas and wraps the pieces greedily, so the `Default:` paragraph stays within 79
+   columns and every piece still reads as part of the list. A word that fits a line is never
+   broken, so no other page changes. Why: ADR-0034 fixes the width at 79 so a page is one text a
+   test can pin and every line fits curl's columns; breaking at the list's own separators keeps
+   that without inventing a hyphenation rule.
+   `HelpTextTests.Answer_Auth_IsItsPageWithItsDefaultWrappedAndItsExplanation`
+   (`Surl.Cli.UnitTests`) pins it. ADR-0034 decision 3 states the same rule.
