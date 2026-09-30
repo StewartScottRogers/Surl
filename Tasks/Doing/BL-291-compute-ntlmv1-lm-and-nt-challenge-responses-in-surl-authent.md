@@ -58,3 +58,4 @@ responses upstream curl's SMB client sends in its session setup - from an accoun
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
