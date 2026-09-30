@@ -47,3 +47,4 @@ and are disposed when the exchange ends.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
