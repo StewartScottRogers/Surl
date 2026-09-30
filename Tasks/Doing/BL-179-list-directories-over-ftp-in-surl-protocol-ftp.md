@@ -42,3 +42,4 @@ BL-173's ADR lists) over data connections in the ADR's formats, only with
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
