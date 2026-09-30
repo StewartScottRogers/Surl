@@ -8,8 +8,8 @@ ADR-0055 decides every response. `ImapProtocolServer` answers `LOGIN`, `CAPABILI
 `UNSELECT` from the shared mail store (BL-201), `FETCH`, `UID FETCH`, `SEARCH` and
 `UID SEARCH` (BL-202), and `APPEND`, `CREATE`, `DELETE`, `RENAME`, `SUBSCRIBE`, `UNSUBSCRIBE`,
 `STORE`, `COPY`, `MOVE`, `EXPUNGE` and their `UID` forms (BL-203, in `ImapSession.Changes.cs`), and
-`STARTTLS` and `AUTHENTICATE` (BL-204, in `ImapSession.Authentication.cs`). It is not yet
-registered in `Surl.Console` (BL-208), which sets the constructor's `isStartTlsAvailable` when a
+`STARTTLS` and `AUTHENTICATE` (BL-204, in `ImapSession.Authentication.cs`). `Surl.Console`
+registers it (BL-208) with the mail store the SMTP server delivers into, sets the constructor's `isStartTlsAvailable` when a
 server certificate is configured and wraps it in `ImplicitTlsSchemeServer` for `imaps`: the server
 claims `imap` only and tells implicit TLS apart by `IConnection.TlsSession`.
 

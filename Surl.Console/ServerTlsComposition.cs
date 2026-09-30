@@ -26,10 +26,11 @@ internal sealed class ServerTlsComposition : IDisposable
 
     /// <summary>
     /// The listen URL schemes whose server can upgrade a plaintext connection to TLS in the
-    /// middle of it (SMTP's <c>STARTTLS</c>, ADR-0053 decision 5; FTP's <c>AUTH TLS</c>, ADR-0052
-    /// decision 5), which it does only when a certificate is configured.
+    /// middle of it (SMTP's <c>STARTTLS</c>, ADR-0053 decision 5; IMAP's <c>STARTTLS</c>, ADR-0055
+    /// decision 11; FTP's <c>AUTH TLS</c>, ADR-0052 decision 5), which it does only when a
+    /// certificate is configured.
     /// </summary>
-    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "smtp" };
+    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "imap", "smtp" };
 
     /// <summary>
     /// The settings every listener secures its connections with, or <see langword="null"/>

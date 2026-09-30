@@ -52,7 +52,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its
   `AuthenticationSettings`, is handed to the HTTP (`http`, `https`), MQTT (`mqtt`,
-  `mqtts`), SMTP (`smtp`, `smtps`) and FTP (`ftp`, `ftps`) servers; `Compose` also returns every account's user
+  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`) and FTP (`ftp`, `ftps`) servers; `Compose` also returns every account's user
   name, the mail store's owners. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `FtpProtocolServer` for `ftp` and `ftps` (it declares
   both itself; `AUTH TLS` when `--cert` or `--self-signed` is given, ADR-0052 decision 5), given the
@@ -72,6 +72,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   messages, before any listener binds, with `--directory` (a store that cannot be loaded ends
   surl with 37 and `surl: (37) Could not read <file>: <reason>`, ADR-0050 decision 7), and in
   memory only without it,
+  `ImapProtocolServer` for `imap` and, through `ImplicitTlsSchemeServer`, `imaps`, given the
+  policy as both its authentication policies, `STARTTLS` when `--cert` or `--self-signed` is
+  given (ADR-0055 decision 11) and the same `MailboxStore` instance as the SMTP server, so mail
+  delivered over `smtp` is read over `imap` in the same run,
   `SshProtocolServer` for `scp` and `sftp`, given the host keys, `SshAlgorithmOffer.Default`
   for them, the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the
   content store, `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
@@ -96,13 +100,13 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   last listener, connection or datagram, has bound, and keeps a bind failure for the
   `(45)` or `(6)` message.
 - `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
-  TLS from the first byte, or can be upgraded (`smtp` for `STARTTLS`, `ftp` for `AUTH TLS`) and `--cert` or
+  TLS from the first byte, or can be upgraded (`smtp` and `imap` for `STARTTLS`, `ftp` for `AUTH TLS`) and `--cert` or
   `--self-signed` is given: the `--cert`/`--key` certificate or, with `--self-signed`, a
   throwaway one, the `--cacert` trust anchors and the accepted TLS versions. A bad file ends
   surl with 58, 2 or 77 before any listener binds (ADR-0020). A listen URL TLS from the first byte with neither
   `--cert` nor `--self-signed` ends surl with 58 before any listener binds
   (`ServerTlsComposition.FindListenUrlWithoutCertificate`, ADR-0032 section 10); a start
-  with `--self-signed` and neither such a listen URL nor an `smtp` or `ftp` one makes no certificate.
+  with `--self-signed` and neither such a listen URL nor an `smtp`, `imap` or `ftp` one makes no certificate.
 - Once the log streams are open, the startup warnings go to the log stream, unstamped:
   `AuthenticationComposition.WriteLooseningWarnings` writes the `--allow-anonymous`,
   `--allow-plaintext-auth` and `--auth` lines, in that order, then
