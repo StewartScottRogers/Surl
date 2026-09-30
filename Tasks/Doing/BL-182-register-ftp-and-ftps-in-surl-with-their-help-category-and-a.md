@@ -54,3 +54,4 @@ engine, and `surl --help` and `--aihelp` list the `ftp` category and topic.
 - 2026-09-30: Backlog -> Doing.
 - 2026-09-30: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-182-20260930-070942-L6.jsonl
 - 2026-09-30: Blocked -> Backlog. Requeued by Claude: not a question for Stewart. The run timed out after 120 min chasing one Surl.Console.UnitTests test that hangs only under parallel load once FtpProtocolServer is registered in CommandLineRunner (each test class passes alone, 281; the full run finishes 280). Find that test first: run the full class set with detailed logging and diff the names; its lane-6 work was not kept.
+- 2026-09-30: Backlog -> Doing.
