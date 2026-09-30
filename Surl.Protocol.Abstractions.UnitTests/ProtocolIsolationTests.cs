@@ -15,15 +15,23 @@ public sealed class ProtocolIsolationTests
     private const string Abstractions = "Surl.Protocol.Abstractions.UnitLibrary";
     private const string Content = "Surl.Content.UnitLibrary";
     private const string Cryptography = "Surl.Cryptography.UnitLibrary";
+    private const string ChaCha20 = "Surl.Cryptography.ChaCha20.UnitLibrary";
+    private const string Curve25519 = "Surl.Cryptography.Curve25519.UnitLibrary";
+    private const string Ed25519 = "Surl.Cryptography.Ed25519.UnitLibrary";
+    private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
 
     /// <summary>
-    /// ADR-0002's table: each horizontal library a protocol server may reference, with the
-    /// projects that library may itself reference.
+    /// ADR-0002's table, with the rows ADR-0048 adds: each horizontal library a protocol
+    /// server may reference, with the projects that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
     {
         [Content] = [Abstractions],
         [Cryptography] = [],
+        [ChaCha20] = [],
+        [Curve25519] = [],
+        [Ed25519] = [Curve25519],
+        [Poly1305] = [],
     };
 
     [TestMethod]
@@ -70,6 +78,10 @@ public sealed class ProtocolIsolationTests
     [DataRow(Abstractions)]
     [DataRow(Content)]
     [DataRow(Cryptography)]
+    [DataRow(ChaCha20)]
+    [DataRow(Curve25519)]
+    [DataRow(Ed25519)]
+    [DataRow(Poly1305)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)
     {
         Assert.IsEmpty(ForbiddenProtocolReferences([referenced]));
@@ -93,6 +105,7 @@ public sealed class ProtocolIsolationTests
 
     [TestMethod]
     [DataRow(Content, Abstractions)]
+    [DataRow(Ed25519, Curve25519)]
     public void ForbiddenHorizontalReferences_ReferenceInItsRow_IsNotForbidden(
         string library, string referenced)
     {
@@ -105,6 +118,10 @@ public sealed class ProtocolIsolationTests
     [DataRow(Content, "Surl.Protocol.Http.UnitLibrary")]
     [DataRow(Content, "Surl.Networking.UnitLibrary")]
     [DataRow(Cryptography, "Surl.Core.UnitLibrary")]
+    [DataRow(Curve25519, Ed25519)]
+    [DataRow(ChaCha20, Poly1305)]
+    [DataRow(Poly1305, ChaCha20)]
+    [DataRow(Ed25519, Cryptography)]
     public void ForbiddenHorizontalReferences_ReferenceOutsideItsRow_IsForbidden(
         string library, string referenced)
     {

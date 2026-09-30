@@ -8,7 +8,7 @@ depends-on: [BL-148]
 touches: [Surl.slnx, Surl.Cryptography.Curve25519.UnitLibrary, Surl.Cryptography.Curve25519.UnitTests, Surl.Cryptography.Ed25519.UnitLibrary, Surl.Cryptography.Ed25519.UnitTests, Surl.Cryptography.ChaCha20.UnitLibrary, Surl.Cryptography.ChaCha20.UnitTests, Surl.Cryptography.Poly1305.UnitLibrary, Surl.Cryptography.Poly1305.UnitTests, Surl.Protocol.Abstractions.UnitTests, Surl.Cryptography.UnitLibrary/CLAUDE.md]
 requirement: FR-039
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-149 — Create the Curve25519, Ed25519, ChaCha20 and Poly1305 primitive projects
 
@@ -47,20 +47,26 @@ their own lane with no edit to `Surl.slnx`.
 
 ## Acceptance criteria
 
-- [ ] The eight folders exist with their csproj files; no production csproj has a
+- [x] The eight folders exist with their csproj files; no production csproj has a
       `PackageReference`, and the references are exactly the ADR's.
-- [ ] `Surl.slnx` lists the eight projects in ordinal order, each `.UnitTests` directly after
+- [x] `Surl.slnx` lists the eight projects in ordinal order, each `.UnitTests` directly after
       its library, with no solution folder around them.
-- [ ] Each of the four production projects has a `CLAUDE.md`, and
+- [x] Each of the four production projects has a `CLAUDE.md`, and
       `Surl.Cryptography.UnitLibrary/CLAUDE.md` no longer claims the SSH primitives.
-- [ ] `ProtocolIsolationTests` knows the four rows and passes, including
+- [x] `ProtocolIsolationTests` knows the four rows and passes, including
       `EveryHorizontalLibrary_ReferencesOnlyItsRow`.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"`
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"`
       is green.
 
 ## Notes
+
+- Built with `dotnet build -warnaserror` (0 warnings) and the fast tests (all green); the four empty test projects report "No test matches", which `dotnet test` accepts with exit 0, as for the other Phase 0 shells (ADR-0002).
+- `Surl.Cryptography.UnitLibrary/CLAUDE.md` now says Phase 1 (its `Sha512Slash256` and `Md4` serve FR-014, a Phase 1 requirement) and points the SSH primitives to the four libraries (ADR-0048 decision 5).
+- `ProtocolIsolationTests` gained the four rows, their allowed data rows, `Ed25519 -> Curve25519` as an in-row reference, and four out-of-row references (Curve25519 -> Ed25519, ChaCha20 <-> Poly1305, Ed25519 -> Cryptography).
+- `dotnet format --verify-no-changes` reports end-of-line errors only in files outside this task (e.g. `Surl.Output.UnitTests/VerboseLogEscapingTests.cs`); none in the files this task changed.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. The four SSH primitive libraries and their test twins exist, build, are in Surl.slnx and are guarded by ProtocolIsolationTests

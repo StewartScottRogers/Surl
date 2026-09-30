@@ -67,6 +67,14 @@
   <Project Path="Surl.Cookies.UnitTests/Surl.Cookies.UnitTests.csproj" />
   <Project Path="Surl.Core.UnitLibrary/Surl.Core.UnitLibrary.csproj" />
   <Project Path="Surl.Core.UnitTests/Surl.Core.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.ChaCha20.UnitLibrary/Surl.Cryptography.ChaCha20.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.ChaCha20.UnitTests/Surl.Cryptography.ChaCha20.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Curve25519.UnitLibrary/Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Curve25519.UnitTests/Surl.Cryptography.Curve25519.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Ed25519.UnitLibrary/Surl.Cryptography.Ed25519.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Ed25519.UnitTests/Surl.Cryptography.Ed25519.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Poly1305.UnitLibrary/Surl.Cryptography.Poly1305.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Poly1305.UnitTests/Surl.Cryptography.Poly1305.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.UnitTests/Surl.Cryptography.UnitTests.csproj" />
   <Project Path="Surl.Networking.UnitLibrary/Surl.Networking.UnitLibrary.csproj" />
