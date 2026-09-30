@@ -52,3 +52,4 @@ login over SSH's encrypted transport and a public-key login - with
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
