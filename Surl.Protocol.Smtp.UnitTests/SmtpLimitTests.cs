@@ -65,18 +65,116 @@ public sealed class SmtpLimitTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ExchangeCancelledWhileALimitReplyWaits_Throws()
+    public async Task ServeAsync_ShutdownWhileALimitReplyWaits_Throws()
     {
         var clock = new ManualTimeProvider();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var limits = ExchangeLimits.Default with { MaxLineBytes = 16 };
+        var connection = new WriteStallingConnection(Ascii("NOOP " + new string('x', 40)), writesBeforeStalling: 1);
+
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, shutdown.Token, limits, shutdownToken: shutdown.Token));
+        await connection.WriteStalled;
+        await shutdown.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ExchangeCancelledForALimitWhileALimitReplyWaits_StillClosesAtTheWriteDeadline()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var limits = ExchangeLimits.Default with { MaxLineBytes = 16 };
         var connection = new WriteStallingConnection(Ascii("NOOP " + new string('x', 40)), writesBeforeStalling: 1);
 
-        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, cancellation.Token, limits));
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, cancellation.Token, limits, log));
         await connection.WriteStalled;
         await cancellation.CancelAsync();
+        Assert.IsFalse(serving.IsCompleted);
+        clock.Advance(SmtpProtocolServer.LimitReplyWriteDeadline);
+        await serving;
+
+        Assert.AreEqual(Greeting, Utf8(connection.WrittenBytes));
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreEqual("The reply was not written within the one-second write deadline; the connection was closed.", log.Notes[^1]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_IdleTimeout_Answers421TimeoutClosingThenCompletesWrites()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var idleTimeout = TimeSpan.FromSeconds(120);
+        using var idle = new CancellationTokenSource(idleTimeout, clock);
+        var connection = new InMemoryConnection(Ascii("EHLO c\r\n"), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, idle.Token, log: log));
+        clock.Advance(idleTimeout - TimeSpan.FromTicks(1));
+        Assert.IsFalse(serving.IsCompleted);
+        clock.Advance(TimeSpan.FromTicks(1));
+        await serving;
+
+        Assert.AreEqual(Greeting + EhloReply + "421 4.4.2 surl Timeout, closing\r\n", Utf8(connection.WrittenBytes));
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreEqual("The exchange was cancelled for a limit; answered 421 and closed.", log.Notes.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_MaxExchangeDurationMidBody_Answers421TimeoutClosingStoresNothingAndCompletesWrites()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var store = AnonymousStore(clock);
+        var maxExchangeDuration = TimeSpan.FromSeconds(3600);
+        using var duration = new CancellationTokenSource(maxExchangeDuration, clock);
+        var connection = new InMemoryConnection(Ascii(Envelope + "Subject: s\r\n\r\npart of a body"), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server(store).ServeAsync(connection, Context(clock, duration.Token, log: log));
+        clock.Advance(maxExchangeDuration);
+        await serving;
+
+        StringAssert.EndsWith(Utf8(connection.WrittenBytes), "354 End data with <CR><LF>.<CR><LF>\r\n421 4.4.2 surl Timeout, closing\r\n");
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.IsEmpty(Inbox(store, string.Empty));
+        Assert.AreEqual("The exchange was cancelled for a limit; answered 421 and closed.", log.Notes.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Shutdown_EndsWithNoFarewell()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new InMemoryConnection(Ascii("EHLO c\r\n"), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, shutdown.Token, log: log, shutdownToken: shutdown.Token));
+        await shutdown.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual(Greeting + EhloReply, Utf8(connection.WrittenBytes));
+        Assert.IsFalse(connection.WritesCompleted);
+        Assert.IsEmpty(log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FarewellNotReadWithinTheWriteDeadline_ClosesAndNotesIt()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        using var idle = new CancellationTokenSource(TimeSpan.FromSeconds(10), clock);
+        var connection = new WriteStallingConnection(Ascii("NOOP\r\n"), writesBeforeStalling: 2);
+
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, idle.Token, log: log));
+        clock.Advance(TimeSpan.FromSeconds(10));
+        await connection.WriteStalled;
+        clock.Advance(SmtpProtocolServer.LimitReplyWriteDeadline);
+        await serving;
+
+        Assert.AreEqual(Greeting + "250 2.0.0 OK\r\n", Utf8(connection.WrittenBytes));
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreEqual("The reply was not written within the one-second write deadline; the connection was closed.", log.Notes[^1]);
     }
 
     [TestMethod]

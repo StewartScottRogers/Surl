@@ -36,6 +36,12 @@ cancelled, bad base64 `501`, and the end is `235`, `535`, `538` or `504`, with t
 `CheckedLogin` note written first. A logged-in session may send mail without asking the policy,
 and its `Received` field says `ESMTPA` (`ESMTPSA` over TLS); `STARTTLS` logs it out.
 
+Built (BL-234, ADR-0059): `SmtpSession.RunAsync` catches the exchange's cancellation when
+`ExchangeContext.IsCancelledForALimit` (the idle timeout or maximum duration, not shutdown) and
+answers `421 4.4.2 surl Timeout, closing`, then completes writes. Every limit reply is written
+within `LimitReplyWriteDeadline` on a deadline linked to `ExchangeContext.ShutdownToken`, never
+to the exchange's token; at shutdown the cancellation escapes with no farewell.
+
 Intent, not yet built: the `smtps` registration and composition in `Surl.Console` (BL-207).
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference

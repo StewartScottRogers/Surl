@@ -52,8 +52,12 @@ namespace Surl.Protocol.Smtp;
 /// <b>Limits.</b> A command line longer than <see cref="ExchangeLimits.MaxLineBytes"/> is
 /// answered <c>500</c>, one not complete within <see cref="ExchangeLimits.HeadTimeout"/>
 /// <c>421</c>, and a body past <c>--max-filesize</c> <c>552</c> with nothing stored; each then
-/// closes the connection, the reply written within <see cref="LimitReplyWriteDeadline"/>. A
-/// connection past a connection limit is answered <c>421</c> by <see cref="WriteRefusalAsync"/>.
+/// closes the connection, the reply written within <see cref="LimitReplyWriteDeadline"/>. An
+/// exchange the engine cancels for a limit - its idle timeout or maximum duration, as
+/// <see cref="ExchangeContext.IsCancelledForALimit"/> says - is answered <c>421 4.4.2 surl
+/// Timeout, closing</c> within the same deadline, on that deadline alone; one cancelled at
+/// shutdown ends with no farewell (ADR-0059). A connection past a connection limit is answered
+/// <c>421</c> by <see cref="WriteRefusalAsync"/>.
 /// </para>
 /// </remarks>
 public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter

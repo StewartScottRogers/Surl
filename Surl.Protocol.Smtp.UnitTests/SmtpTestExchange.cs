@@ -50,7 +50,8 @@ internal static class SmtpTestExchange
         TimeProvider timeProvider,
         CancellationToken cancellationToken,
         ExchangeLimits? limits = null,
-        IExchangeLog? log = null) => new(
+        IExchangeLog? log = null,
+        CancellationToken shutdownToken = default) => new(
             1,
             new ListenUrl("smtp", "127.0.0.1", 18025).WithBoundPort(18025),
             new IPEndPoint(IPAddress.Loopback, 18025),
@@ -60,6 +61,7 @@ internal static class SmtpTestExchange
             cancellationToken)
         {
             Limits = limits ?? ExchangeLimits.Default,
+            ShutdownToken = shutdownToken,
         };
 
     /// <summary>

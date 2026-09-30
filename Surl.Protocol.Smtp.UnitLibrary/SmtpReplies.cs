@@ -46,6 +46,7 @@ internal static class SmtpReplies
     public const string AlreadyUsingTls = "503 5.5.1 Already using TLS";
     public const string TooManyConnections = "421 4.3.2 surl Too many connections, closing";
     public const string HeadTimedOut = "421 4.4.2 surl Timeout waiting for a command, closing";
+    public const string TimedOut = "421 4.4.2 surl Timeout, closing";
     public const string LineTooLong = "500 5.5.6 Command line too long";
     public const string AuthSyntax = "501 5.5.4 Syntax: AUTH <mechanism> [<initial response>]";
     public const string SendEhloFirst = "503 5.5.1 Send EHLO first";
