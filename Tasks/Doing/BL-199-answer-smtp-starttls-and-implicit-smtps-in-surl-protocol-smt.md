@@ -46,3 +46,4 @@ capability list and session state BL-186's ADR gives for each TLS state, so
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
