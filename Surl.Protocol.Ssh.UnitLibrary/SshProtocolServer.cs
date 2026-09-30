@@ -62,7 +62,9 @@ namespace Surl.Protocol.Ssh;
 /// <para>
 /// <b>Transport messages.</b> After the first exchange a client's <c>KEXINIT</c> starts a
 /// re-exchange, and the server starts one itself before reading on once either direction has
-/// carried 1 GiB or an hour has passed under one set of keys. <c>IGNORE</c>, <c>DEBUG</c> and
+/// carried 1 GiB or an hour has passed under one set of keys. A channel or other message the
+/// client sends before it answers the server's <c>KEXINIT</c> is answered after the server's
+/// <c>NEWKEYS</c>, in the order it came (ADR-0060). <c>IGNORE</c>, <c>DEBUG</c> and
 /// <c>UNIMPLEMENTED</c> are skipped, and any other message the server does not know is answered
 /// <c>UNIMPLEMENTED</c> with its sequence number (RFC 4253, section 11.4); so is a
 /// connection-protocol message the server never expects, such as a reply to a request it did not
@@ -292,7 +294,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
 
         var unimplemented = new SshWireWriter();
         unimplemented.WriteByte(SshMessageNumber.Unimplemented);
-        unimplemented.WriteUInt32(unchecked(transport.PacketReader!.SequenceNumber - 1));
+        unimplemented.WriteUInt32(transport.LastMessageSequenceNumber);
 
         return connectionProtocol.WriteAsync(unimplemented.ToArray(), cancellationToken);
     }

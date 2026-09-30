@@ -134,9 +134,11 @@ internal sealed class SshTestTransportClient
     /// <summary>
     /// Runs a key re-exchange under the keys in force - the client's <c>KEXINIT</c>, method
     /// messages and <c>NEWKEYS</c>, then the server's - and uses the new keys from then on.
-    /// Whichever side started it, the server's <c>KEXINIT</c> is read here.
+    /// The server's <c>KEXINIT</c> is read here unless <paramref name="serverKexInit"/> gives it.
     /// </summary>
-    public async Task ReExchangeAsync()
+    /// <param name="serverKexInit">The server's <c>KEXINIT</c>, when the caller has read it already.</param>
+    /// <returns>Every packet the server sent from its <c>KEXINIT</c> to its <c>NEWKEYS</c>.</returns>
+    public async Task<IReadOnlyList<byte[]>> ReExchangeAsync(byte[]? serverKexInit = null)
     {
         using var client = NewKeyExchangeClient(strict: false);
         Send(client.KexInitPayload);
@@ -146,7 +148,7 @@ internal sealed class SshTestTransportClient
         }
 
         Send([21]);
-        var packets = new List<byte[]>();
+        var packets = serverKexInit is null ? new List<byte[]>() : [serverKexInit];
         do
         {
             packets.Add(await ReceiveAsync());
@@ -155,6 +157,8 @@ internal sealed class SshTestTransportClient
 
         var (sharedSecret, exchangeHash) = client.CheckKeyExchange(packets, HostKeyBlob);
         UseKeys(client, sharedSecret, exchangeHash);
+
+        return packets;
     }
 
     private static byte[] HostKeyBlob => SshHostKey.FromRsa(SshTestKeys.Rsa2048).PublicKeyBlob.ToArray();
