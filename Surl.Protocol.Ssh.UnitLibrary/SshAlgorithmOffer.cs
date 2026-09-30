@@ -48,9 +48,9 @@ public sealed record SshAlgorithmOffer(
 
     private static readonly string[] WeakHostKeyOrder = [SshRsaHostKey.RsaKeyType, SshDsaHostKey.DsaKeyType];
 
-    private static readonly string[] WeakCipher = ["aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour"];
+    private static readonly string[] WeakCipher = ["aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour", "blowfish-cbc", "cast128-cbc"];
 
-    private static readonly string[] WeakMac = ["hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96"];
+    private static readonly string[] WeakMac = ["hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96", "hmac-ripemd160", "hmac-ripemd160@openssh.com"];
 
     /// <summary>
     /// Whether the offer is <c>--allow-weak-ssh-algorithms</c>'s (ADR-0051, decision 5): the

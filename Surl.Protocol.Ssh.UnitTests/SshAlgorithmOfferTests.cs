@@ -8,8 +8,8 @@ public sealed class SshAlgorithmOfferTests
     [
         "diffie-hellman-group14-sha1", "diffie-hellman-group-exchange-sha1", "diffie-hellman-group1-sha1",
         "ssh-rsa", "ssh-dss",
-        "aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour",
-        "hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96",
+        "aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour", "blowfish-cbc", "cast128-cbc",
+        "hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96", "hmac-ripemd160", "hmac-ripemd160@openssh.com",
     ];
 
     [TestMethod]
@@ -74,14 +74,14 @@ public sealed class SshAlgorithmOfferTests
             new[]
             {
                 "chacha20-poly1305@openssh.com", "aes256-ctr", "aes192-ctr", "aes128-ctr",
-                "aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour",
+                "aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour", "blowfish-cbc", "cast128-cbc",
             },
             offer.Cipher.ToArray());
         CollectionAssert.AreEqual(
             new[]
             {
                 "hmac-sha2-256-etm@openssh.com", "hmac-sha2-512-etm@openssh.com", "hmac-sha2-256", "hmac-sha2-512",
-                "hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96",
+                "hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96", "hmac-ripemd160", "hmac-ripemd160@openssh.com",
             },
             offer.Mac.ToArray());
         CollectionAssert.AreEqual(new[] { "none", "zlib@openssh.com", "zlib" }, offer.Compression.ToArray());

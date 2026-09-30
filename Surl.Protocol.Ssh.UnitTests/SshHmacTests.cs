@@ -24,6 +24,22 @@ public sealed class SshHmacTests
         Assert.AreEqual(expected.Length / 2, mac.MacLength);
     }
 
+    // RFC 2286 section 2, test case 1: key 0x0b repeated 20 times, data "Hi There".
+    [TestMethod]
+    [DataRow("hmac-ripemd160")]
+    [DataRow("hmac-ripemd160@openssh.com")]
+    public void Tag_Rfc2286TestCase1_IsItsHmacRipemd160Digest(string name)
+    {
+        var mac = SshHmac.ForName(name)!;
+
+        var tag = mac.Tag(Enumerable.Repeat((byte)0x0b, 20).ToArray(), Encoding.ASCII.GetBytes("Hi There"));
+
+        Assert.AreEqual("24cb4bd67d20fc1a5d2ed7732dcc39377f0a5668", Convert.ToHexStringLower(tag));
+        Assert.AreEqual(20, mac.KeyLength);
+        Assert.AreEqual(20, mac.MacLength);
+        Assert.IsFalse(mac.EncryptThenMac);
+    }
+
     [TestMethod]
     public void ForName_Sha1EncryptThenMac_IsHmacSha1ComputedOverTheCiphertext() =>
         Assert.AreEqual(new SshHmac(HashAlgorithmName.SHA1, 20, 20, true), SshHmac.ForName("hmac-sha1-etm@openssh.com"));

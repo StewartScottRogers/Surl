@@ -8,7 +8,10 @@ performs, over the hand-built primitives ADR-0048 places in four libraries:
 `Surl.Cryptography.Curve25519.UnitLibrary` (X25519), `Surl.Cryptography.Ed25519.UnitLibrary`,
 `Surl.Cryptography.ChaCha20.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, and ADR-0051's
 `Surl.Cryptography.Rc4.UnitLibrary` for the `arcfour` ciphers offered with `--allow-weak-ssh-algorithms`
-and `Surl.Cryptography.BcryptPbkdf.UnitLibrary` for encrypted `openssh-key-v1` host keys.
+and `Surl.Cryptography.BcryptPbkdf.UnitLibrary` for encrypted `openssh-key-v1` host keys, and
+ADR-0061's `Surl.Cryptography.Blowfish.UnitLibrary`, `Surl.Cryptography.Cast128.UnitLibrary` and
+`Surl.Cryptography.Ripemd160.UnitLibrary` for `blowfish-cbc`, `cast128-cbc` and the
+`hmac-ripemd160` MACs, also offered only with `--allow-weak-ssh-algorithms`.
 Everything else it needs (SHA-2, HMAC, AES, AES-GCM, ECDH, ECDSA, RSA, `BigInteger`, and for the weak algorithms SHA-1, MD5, triple DES and DSA) comes
 from the base class library.
 

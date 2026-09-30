@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using Surl.Cryptography.Ripemd160;
 
 namespace Surl.Protocol.Ssh;
 
@@ -8,10 +9,12 @@ namespace Surl.Protocol.Ssh;
 /// <c>hmac-sha2-512</c> (RFC 6668) and their <c>-etm@openssh.com</c> forms (OpenSSH
 /// <c>PROTOCOL</c> section 1.7); with <c>--allow-weak-ssh-algorithms</c> also <c>hmac-sha1</c>,
 /// <c>hmac-sha1-etm@openssh.com</c>, <c>hmac-sha1-96</c>, <c>hmac-md5</c> and
-/// <c>hmac-md5-96</c> (RFC 4253, section 6.4). Each is keyed with as many bytes as its hash
+/// <c>hmac-md5-96</c> (RFC 4253, section 6.4), and OpenSSH's <c>hmac-ripemd160</c> and its other name
+/// <c>hmac-ripemd160@openssh.com</c> (ADR-0061), HMAC-RIPEMD-160 (RFC 2286) over the packet in the
+/// clear, computed by <see cref="HmacRipemd160"/> because the BCL has no RIPEMD-160. Each is keyed with as many bytes as its hash
 /// gives, and sends the whole HMAC, or its first 12 bytes for the <c>-96</c> forms.
 /// </summary>
-/// <param name="HashAlgorithm">The HMAC's hash.</param>
+/// <param name="HashAlgorithm">The HMAC's hash: a BCL hash's name, or <see cref="Ripemd160HashName"/>.</param>
 /// <param name="KeyLength">The integrity key's length: the hash's.</param>
 /// <param name="MacLength">How many bytes of the HMAC are sent: the hash's, or 12 for a <c>-96</c> form.</param>
 /// <param name="EncryptThenMac">
@@ -20,6 +23,11 @@ namespace Surl.Protocol.Ssh;
 /// </param>
 internal sealed record SshHmac(HashAlgorithmName HashAlgorithm, int KeyLength, int MacLength, bool EncryptThenMac)
 {
+    /// <summary>
+    /// The name <see cref="HashAlgorithm"/> holds for RIPEMD-160, which the BCL does not compute.
+    /// </summary>
+    public static readonly HashAlgorithmName Ripemd160HashName = new("RIPEMD160");
+
     private const int TruncatedLength = 12;
 
     private static readonly Dictionary<string, SshHmac> Macs = new(StringComparer.Ordinal)
@@ -33,6 +41,8 @@ internal sealed record SshHmac(HashAlgorithmName HashAlgorithm, int KeyLength, i
         ["hmac-sha1-96"] = new(HashAlgorithmName.SHA1, 20, TruncatedLength, false),
         ["hmac-md5"] = new(HashAlgorithmName.MD5, 16, 16, false),
         ["hmac-md5-96"] = new(HashAlgorithmName.MD5, 16, TruncatedLength, false),
+        ["hmac-ripemd160"] = new(Ripemd160HashName, HmacRipemd160.HashSize, HmacRipemd160.HashSize, false),
+        ["hmac-ripemd160@openssh.com"] = new(Ripemd160HashName, HmacRipemd160.HashSize, HmacRipemd160.HashSize, false),
     };
 
     /// <summary>
@@ -64,5 +74,6 @@ internal sealed record SshHmac(HashAlgorithmName HashAlgorithm, int KeyLength, i
     /// <param name="key">The integrity key.</param>
     /// <param name="message">What is authenticated.</param>
     /// <returns>The first <see cref="MacLength"/> bytes of the HMAC.</returns>
-    public byte[] Tag(byte[] key, ReadOnlySpan<byte> message) => CryptographicOperations.HmacData(HashAlgorithm, key, message)[..MacLength];
+    public byte[] Tag(byte[] key, ReadOnlySpan<byte> message) =>
+        (HashAlgorithm == Ripemd160HashName ? HmacRipemd160.HashData(key, message) : CryptographicOperations.HmacData(HashAlgorithm, key, message))[..MacLength];
 }

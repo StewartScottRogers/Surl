@@ -1,6 +1,8 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using Surl.Cryptography.Cast128;
 using Surl.Cryptography.Rc4;
+using Surl.Cryptography.Ripemd160;
 using static Surl.Protocol.Ssh.SshTestExchange;
 
 namespace Surl.Protocol.Ssh;
@@ -8,16 +10,20 @@ namespace Surl.Protocol.Ssh;
 /// <summary>
 /// The test client's own packet protection for one direction, written out from RFC 4253
 /// section 6 (CBC, <c>arcfour</c>, HMAC-SHA1 and HMAC-MD5 and their <c>-96</c> forms), RFC 4344
-/// section 4 (AES-CTR), RFC 4345 (<c>arcfour128</c>), RFC 6668 (HMAC-SHA2), OpenSSH's
+/// section 4 (AES-CTR), RFC 4345 (<c>arcfour128</c>), RFC 6668 (HMAC-SHA2), RFC 2286 (HMAC-RIPEMD-160), OpenSSH's
 /// <c>PROTOCOL</c> sections 1.6 and 1.7 (AES-GCM and encrypt-then-MAC),
 /// <see cref="SshTestChaCha20Poly1305"/>, the BCL's block ciphers run one block at a time and
-/// the hand-built <see cref="Rc4"/>, so no test checks the server's packet protection against
+/// the hand-built <see cref="Rc4"/>, Blowfish, <see cref="Cast128"/> and <see cref="HmacRipemd160"/>,
+/// each run one block or one message at a time here, so no test checks the server's packet protection against
 /// the server's own code.
 /// </summary>
 internal sealed class SshTestPacketProtection
 {
     private readonly SymmetricAlgorithm? blockCipher;
     private readonly bool chainsBlocks;
+    private readonly Func<byte[], byte[]>? encryptBlock;
+    private readonly Func<byte[], byte[]>? decryptBlock;
+    private readonly bool macIsRipemd160;
     private readonly byte[] counter = new byte[16];
     private readonly Rc4? rc4;
     private readonly int blockSize = 16;
@@ -55,6 +61,14 @@ internal sealed class SshTestPacketProtection
             rc4 = new Rc4(deriveKey(keyLetter, 16), cipher == "arcfour128" ? 1536 : 0);
             blockSize = 8;
         }
+        else if (cipher is "blowfish-cbc" or "cast128-cbc")
+        {
+            // RFC 4253 section 6.3: Blowfish and CAST-128 with 128-bit keys, in CBC mode.
+            (encryptBlock, decryptBlock) = BlockFunctions(cipher, deriveKey(keyLetter, 16));
+            blockSize = 8;
+            chainsBlocks = true;
+            chainingBlock = deriveKey(ivLetter, blockSize);
+        }
         else
         {
             var (algorithm, keyLength) = cipher switch
@@ -65,6 +79,8 @@ internal sealed class SshTestPacketProtection
             };
             blockCipher = algorithm;
             blockCipher.Key = deriveKey(keyLetter, keyLength);
+            encryptBlock = block => algorithm.EncryptEcb(block, PaddingMode.None);
+            decryptBlock = block => algorithm.DecryptEcb(block, PaddingMode.None);
             blockSize = blockCipher.BlockSize / 8;
             chainsBlocks = cipher.EndsWith("-cbc", StringComparison.Ordinal) || cipher.EndsWith("-cbc@lysator.liu.se", StringComparison.Ordinal);
             chainingBlock = deriveKey(ivLetter, blockSize);
@@ -76,8 +92,10 @@ internal sealed class SshTestPacketProtection
             _ when mac.StartsWith("hmac-sha2-512", StringComparison.Ordinal) => (HashAlgorithmName.SHA512, 64),
             _ when mac.StartsWith("hmac-sha2-256", StringComparison.Ordinal) => (HashAlgorithmName.SHA256, 32),
             _ when mac.StartsWith("hmac-sha1", StringComparison.Ordinal) => (HashAlgorithmName.SHA1, 20),
+            _ when mac.StartsWith("hmac-ripemd160", StringComparison.Ordinal) => (default, 20),
             _ => (HashAlgorithmName.MD5, 16),
         };
+        macIsRipemd160 = mac.StartsWith("hmac-ripemd160", StringComparison.Ordinal);
         macKey = deriveKey(macLetter, macKeyLength);
         macLength = mac.EndsWith("-96", StringComparison.Ordinal) ? 12 : macKeyLength;
         encryptThenMac = mac.EndsWith("-etm@openssh.com", StringComparison.Ordinal);
@@ -172,7 +190,31 @@ internal sealed class SshTestPacketProtection
     }
 
     private byte[] Mac(uint sequenceNumber, byte[] covered) =>
-        CryptographicOperations.HmacData(macHash, macKey, Concat(UInt32(sequenceNumber), covered))[..macLength];
+        (macIsRipemd160
+            ? HmacRipemd160.HashData(macKey, Concat(UInt32(sequenceNumber), covered))
+            : CryptographicOperations.HmacData(macHash, macKey, Concat(UInt32(sequenceNumber), covered)))[..macLength];
+
+    private static (Func<byte[], byte[]> Encrypt, Func<byte[], byte[]> Decrypt) BlockFunctions(string cipher, byte[] key)
+    {
+        if (cipher == "blowfish-cbc")
+        {
+            var blowfish = new Surl.Cryptography.Blowfish.Blowfish(key);
+
+            return (block => Transform(blowfish.EncryptBlock, block), block => Transform(blowfish.DecryptBlock, block));
+        }
+
+        var cast128 = new Cast128(key);
+
+        return (block => Transform(cast128.EncryptBlock, block), block => Transform(cast128.DecryptBlock, block));
+    }
+
+    private static byte[] Transform(BlockTransform transform, byte[] block)
+    {
+        var output = new byte[block.Length];
+        transform(block, output);
+
+        return output;
+    }
 
     private byte[] Encrypt(byte[] bytes) => rc4 is not null ? ApplyRc4(bytes) : chainsBlocks ? CbcEncrypt(bytes) : Ctr(bytes);
 
@@ -193,7 +235,7 @@ internal sealed class SshTestPacketProtection
         for (var block = 0; block < bytes.Length; block += blockSize)
         {
             var mixed = bytes.Skip(block).Take(blockSize).Select((value, index) => (byte)(value ^ chainingBlock[index])).ToArray();
-            chainingBlock = blockCipher!.EncryptEcb(mixed, PaddingMode.None);
+            chainingBlock = encryptBlock!(mixed);
             chainingBlock.CopyTo(output, block);
         }
 
@@ -207,7 +249,7 @@ internal sealed class SshTestPacketProtection
         for (var block = 0; block < bytes.Length; block += blockSize)
         {
             var ciphertext = bytes[block..(block + blockSize)];
-            var decrypted = blockCipher!.DecryptEcb(ciphertext, PaddingMode.None);
+            var decrypted = decryptBlock!(ciphertext);
             decrypted.Select((value, index) => (byte)(value ^ chainingBlock[index])).ToArray().CopyTo(output, block);
             chainingBlock = ciphertext;
         }
@@ -228,6 +270,8 @@ internal sealed class SshTestPacketProtection
 
         return [.. bytes.Select((value, index) => (byte)(value ^ keyStream[index]))];
     }
+
+    private delegate void BlockTransform(ReadOnlySpan<byte> source, Span<byte> destination);
 
     private void CountInvocation()
     {

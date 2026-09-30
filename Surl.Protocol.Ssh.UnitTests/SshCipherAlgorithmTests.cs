@@ -14,6 +14,8 @@ public sealed class SshCipherAlgorithmTests
     [DataRow("3des-cbc", 24, 8, 8)]
     [DataRow("arcfour", 16, 0, 8)]
     [DataRow("arcfour128", 16, 0, 8)]
+    [DataRow("blowfish-cbc", 16, 8, 8)]
+    [DataRow("cast128-cbc", 16, 8, 8)]
     public void ForName_BuiltCipher_IsKeyedAsRfc4253Says(string name, int keyLength, int ivLength, int blockSize)
     {
         var algorithm = SshCipherAlgorithm.ForName(name)!;

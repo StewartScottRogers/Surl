@@ -36,11 +36,11 @@ public sealed class SshPacketProtectionTests
     /// each weak MAC with <c>aes128-ctr</c>.
     /// </summary>
     public static IEnumerable<object[]> WeakCiphersAndMacs =>
-        (from cipher in new[] { "aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour" }
+        (from cipher in new[] { "aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour", "blowfish-cbc", "cast128-cbc" }
          from mac in new[] { "hmac-sha2-256", "hmac-sha1", "hmac-sha1-etm@openssh.com" }
          select new object[] { cipher, mac })
         .Concat(
-            from mac in new[] { "hmac-sha1", "hmac-sha1-etm@openssh.com", "hmac-sha1-96", "hmac-md5", "hmac-md5-96" }
+            from mac in new[] { "hmac-sha1", "hmac-sha1-etm@openssh.com", "hmac-sha1-96", "hmac-md5", "hmac-md5-96", "hmac-ripemd160", "hmac-ripemd160@openssh.com" }
             select new object[] { "aes128-ctr", mac });
 
     public static IEnumerable<object[]> EveryProtectionAndTamperedByte =>
@@ -263,7 +263,7 @@ public sealed class SshPacketProtectionTests
     {
         var keys = new SshKeyDerivation(HashAlgorithmName.SHA256, BigInteger.One, new byte[32], new byte[32]);
 
-        var protection = SshPacketProtection.Create("aes128-ctr", "hmac-ripemd160", keys, clientToServer: true);
+        var protection = SshPacketProtection.Create("aes128-ctr", "umac-64@openssh.com", keys, clientToServer: true);
 
         Assert.IsNull(protection);
     }
@@ -272,7 +272,7 @@ public sealed class SshPacketProtectionTests
     public void HmacForName_NoMacOrOneNotBuilt_IsNull()
     {
         Assert.IsNull(SshHmac.ForName(null));
-        Assert.IsNull(SshHmac.ForName("hmac-ripemd160"));
+        Assert.IsNull(SshHmac.ForName("umac-64@openssh.com"));
         Assert.AreEqual(new SshHmac(HashAlgorithmName.SHA512, 64, 64, true), SshHmac.ForName("hmac-sha2-512-etm@openssh.com"));
     }
 
