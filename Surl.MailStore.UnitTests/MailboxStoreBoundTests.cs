@@ -111,7 +111,25 @@ public sealed class MailboxStoreBoundTests
         Assert.AreEqual(MailStoreOutcome.StoreFull, Deliver(store, "m", "<alice@x>"));
         Assert.AreEqual(MailStoreOutcome.StoreFull, store.Append(view, "INBOX", "m"u8, MailFlags.None, null, out _));
         Assert.AreEqual(MailStoreOutcome.StoreFull, store.Copy(view, "INBOX", [uint.MaxValue - 1], "INBOX", out _));
+        Assert.AreEqual(MailStoreOutcome.StoreFull, store.Move(view, "INBOX", [uint.MaxValue - 1], "INBOX", out var moved));
+        Assert.IsNull(moved);
         CollectionAssert.AreEqual(new[] { uint.MaxValue - 1 }, Uids(store, view, "INBOX"));
+    }
+
+    [TestMethod]
+    public void Move_AtMaxMessages_MovesAllTheSame()
+    {
+        var store = new MailboxStore(["alice"], false, new SettableTimeProvider(), maxMessages: 2);
+        var view = store.ViewFor("alice");
+        store.CreateMailbox(view, "Keep");
+        Deliver(store, "1", "<alice@x>");
+        Deliver(store, "2", "<alice@x>");
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.Move(view, "INBOX", [1, 2], "Keep", out var moved));
+
+        CollectionAssert.AreEqual(new uint[] { 1, 2 }, moved!.CopyUids.ToArray());
+        Assert.AreEqual(0, Read(store, view, "INBOX").Messages.Count);
+        Assert.AreEqual(MailStoreOutcome.StoreFull, Deliver(store, "3", "<alice@x>"));
     }
 
     [TestMethod]

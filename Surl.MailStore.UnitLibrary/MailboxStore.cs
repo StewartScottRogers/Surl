@@ -622,6 +622,36 @@ public sealed class MailboxStore
     }
 
     /// <summary>
+    /// Removes the messages flagged <c>\Deleted</c> among <paramref name="uids"/> from a
+    /// mailbox, as IMAP's <c>UID EXPUNGE</c> does (RFC 4315). A UID the mailbox does not hold,
+    /// or whose message is not flagged <c>\Deleted</c>, is skipped.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="uids">The UIDs that may be removed.</param>
+    /// <param name="expungedUids">The UIDs removed, in ascending order.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailStoreOutcome Expunge(MailView view, string mailboxName, IEnumerable<uint> uids, out IReadOnlyList<uint> expungedUids)
+    {
+        ArgumentNullException.ThrowIfNull(uids);
+        var allowed = uids.ToHashSet();
+        lock (storeLock)
+        {
+            var mailbox = FindMailbox(view, mailboxName);
+            expungedUids = [];
+            if (mailbox is null)
+            {
+                return MailStoreOutcome.MailboxMissing;
+            }
+
+            expungedUids = [.. mailbox.DeletedUids().Where(allowed.Contains)];
+            changeCount += RemoveMessages(mailbox, expungedUids) == 0 ? 0 : 1;
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
     /// Copies messages to another mailbox of the same view, as IMAP's <c>COPY</c> does: each
     /// copy keeps its flags and internal date, gets a new UID there, and shares the original's
     /// bytes. A UID the source does not hold is skipped. All of them or none are copied.
@@ -640,6 +670,40 @@ public sealed class MailboxStore
         string sourceMailboxName,
         IEnumerable<uint> uids,
         string destinationMailboxName,
+        out MailCopyResult? copied) =>
+        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: false, out copied);
+
+    /// <summary>
+    /// Moves messages to another mailbox of the same view, as IMAP's <c>MOVE</c> does (RFC 6851):
+    /// a <see cref="Copy"/>, then the originals removed from the source, in one step. The moved
+    /// messages count against no bound twice, so a store at <see cref="MaxMessages"/> can still
+    /// move. A UID the source does not hold is skipped. All of them or none are moved.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="sourceMailboxName">The mailbox moved from.</param>
+    /// <param name="uids">The UIDs to move.</param>
+    /// <param name="destinationMailboxName">The mailbox moved to; may be the source, which gives
+    /// the messages new UIDs there.</param>
+    /// <param name="moved">What was moved, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
+    /// otherwise <see langword="null"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>
+    /// (the destination has no UIDs left to give).</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailStoreOutcome Move(
+        MailView view,
+        string sourceMailboxName,
+        IEnumerable<uint> uids,
+        string destinationMailboxName,
+        out MailCopyResult? moved) =>
+        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: true, out moved);
+
+    private MailStoreOutcome CopyMessages(
+        MailView view,
+        string sourceMailboxName,
+        IEnumerable<uint> uids,
+        string destinationMailboxName,
+        bool isMove,
         out MailCopyResult? copied)
     {
         ArgumentNullException.ThrowIfNull(uids);
@@ -654,16 +718,22 @@ public sealed class MailboxStore
             }
 
             var originals = uids.Distinct().Order().Select(uid => source.Messages.GetValueOrDefault(uid)).OfType<StoredMessage>().ToList();
-            if (!HasRoomForCopies(destination, originals.Count))
-            {
-                return MailStoreOutcome.StoreFull;
-            }
-
-            var copyUids = originals.Select(original => AddMessage(destination, original.Body, original.InternalDate, original.Flags)).ToList();
-            changeCount += copyUids.Count == 0 ? 0 : 1;
-            copied = new MailCopyResult(destination.UidValidity, [.. originals.Select(original => original.Uid)], copyUids);
-            return MailStoreOutcome.Succeeded;
+            copied = HasRoomToCopy(destination, originals.Count, isMove) ? CopyInto(source, originals, destination, isMove) : null;
+            return copied is null ? MailStoreOutcome.StoreFull : MailStoreOutcome.Succeeded;
         }
+    }
+
+    // A move adds no message to the store, so it needs only the destination's UIDs.
+    private bool HasRoomToCopy(StoredMailbox destination, int count, bool isMove) =>
+        isMove ? destination.CanGiveUids(count) : HasRoomForCopies(destination, count);
+
+    private MailCopyResult CopyInto(StoredMailbox source, List<StoredMessage> originals, StoredMailbox destination, bool isMove)
+    {
+        var copyUids = originals.Select(original => AddMessage(destination, original.Body, original.InternalDate, original.Flags)).ToList();
+        List<uint> sourceUids = [.. originals.Select(original => original.Uid)];
+        RemoveMessages(source, isMove ? sourceUids : []);
+        changeCount += copyUids.Count == 0 ? 0 : 1;
+        return new MailCopyResult(destination.UidValidity, sourceUids, copyUids);
     }
 
     /// <summary>

@@ -317,6 +317,88 @@ public sealed class MailboxStoreMessageTests
         var store = NewStore("alice");
 
         Assert.ThrowsExactly<ArgumentNullException>(() => store.Copy(store.ViewFor("alice"), "INBOX", null!, "INBOX", out _));
+        Assert.ThrowsExactly<ArgumentNullException>(() => store.Move(store.ViewFor("alice"), "INBOX", null!, "INBOX", out _));
+    }
+
+    [TestMethod]
+    public void Move_CopiesThenRemovesTheOriginals()
+    {
+        var store = NewStore("alice");
+        var view = store.ViewFor("alice");
+        store.CreateMailbox(view, "Keep");
+        var date = new DateTimeOffset(2001, 2, 3, 4, 5, 6, TimeSpan.FromHours(2));
+        store.Append(view, "INBOX", "one"u8, MailFlags.Seen, date, out _);
+        store.Append(view, "INBOX", "two"u8, MailFlags.Flagged, date, out _);
+        store.Append(view, "INBOX", "three"u8, MailFlags.None, date, out _);
+
+        var outcome = store.Move(view, "INBOX", [3, 1, 99], "Keep", out var moved);
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, outcome);
+        Assert.AreEqual(Read(store, view, "Keep").UidValidity, moved!.DestinationUidValidity);
+        CollectionAssert.AreEqual(new uint[] { 1, 3 }, moved.SourceUids.ToArray());
+        CollectionAssert.AreEqual(new uint[] { 1, 2 }, moved.CopyUids.ToArray());
+        CollectionAssert.AreEqual(new uint[] { 2 }, Uids(store, view, "INBOX"));
+        Assert.AreEqual(new MailMessageSummary(1, MailFlags.Seen, date, 3), Read(store, view, "Keep").Messages[0]);
+        Assert.AreEqual("three", Fetch(store, view, "Keep", 2));
+    }
+
+    [TestMethod]
+    public void Move_IntoTheSameMailbox_GivesNewUids()
+    {
+        var store = NewStore("alice");
+        var view = store.ViewFor("alice");
+        Deliver(store, "m", "<alice@x>");
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.Move(view, "INBOX", [1], "INBOX", out _));
+
+        CollectionAssert.AreEqual(new uint[] { 2 }, Uids(store, view, "INBOX"));
+        Assert.AreEqual("m", Fetch(store, view, "INBOX", 2));
+    }
+
+    [TestMethod]
+    public void Move_NothingFoundOrMailboxMissing_MovesNothing()
+    {
+        var store = NewStore("alice");
+        var view = store.ViewFor("alice");
+        Deliver(store, "m", "<alice@x>");
+        var changes = store.ChangeCount;
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.Move(view, "INBOX", [7], "INBOX", out var moved));
+        Assert.AreEqual(0, moved!.CopyUids.Count);
+        Assert.AreEqual(changes, store.ChangeCount);
+        Assert.AreEqual(MailStoreOutcome.MailboxMissing, store.Move(view, "INBOX", [1], "Sent", out moved));
+        Assert.IsNull(moved);
+        CollectionAssert.AreEqual(new uint[] { 1 }, Uids(store, view, "INBOX"));
+    }
+
+    [TestMethod]
+    public void ExpungeUids_RemovesOnlyDeletedMessagesNamed()
+    {
+        var store = NewStore("alice");
+        var view = store.ViewFor("alice");
+        store.Append(view, "INBOX", "1"u8, MailFlags.Deleted, null, out _);
+        store.Append(view, "INBOX", "2"u8, MailFlags.Seen, null, out _);
+        store.Append(view, "INBOX", "3"u8, MailFlags.Deleted, null, out _);
+        var changes = store.ChangeCount;
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.Expunge(view, "INBOX", [2, 9], out var expunged));
+        Assert.AreEqual(0, expunged.Count);
+        Assert.AreEqual(changes, store.ChangeCount);
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.Expunge(view, "INBOX", [3, 2], out expunged));
+
+        CollectionAssert.AreEqual(new uint[] { 3 }, expunged.ToArray());
+        CollectionAssert.AreEqual(new uint[] { 1, 2 }, Uids(store, view, "INBOX"));
+    }
+
+    [TestMethod]
+    public void ExpungeUids_MissingMailboxOrNullUids_IsMailboxMissingOrThrows()
+    {
+        var store = NewStore("alice");
+        var view = store.ViewFor("alice");
+
+        Assert.AreEqual(MailStoreOutcome.MailboxMissing, store.Expunge(view, "Sent", [1], out var expunged));
+        Assert.AreEqual(0, expunged.Count);
+        Assert.ThrowsExactly<ArgumentNullException>(() => store.Expunge(view, "INBOX", null!, out _));
     }
 
     [TestMethod]
