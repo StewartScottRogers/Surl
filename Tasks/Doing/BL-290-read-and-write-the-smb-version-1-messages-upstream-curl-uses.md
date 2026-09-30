@@ -71,3 +71,4 @@ so the server tasks (BL-296 to BL-298) build on a codec already held to the qual
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
