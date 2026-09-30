@@ -11,11 +11,11 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`CommandLineOutcome.ShowAiHelp`: `AiHelpText.Answer(parsed.AiHelpTopic)` written by
   `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
   says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
-  start that gives the `--auth` word `gssapi` or `external` or an SSH server option
-  (`FindUnavailableOption`: `--auth gssapi`, `--auth external`, `--hostkey`, `--hostcert`,
+  start that gives the `--auth` word `gssapi` or an SSH server option
+  (`FindUnavailableOption`: `--auth gssapi`, `--hostkey`, `--hostcert`,
   `--throwaway-hostkey`, `--authorized-keys`, `--allow-weak-ssh-algorithms`, the first in
-  that order) with `surl: (2) --<option> is not available in this build` (`--auth <word>`
-  for the two words) and exit 2 before anything else is checked (ADR-0049 section 3, until
+  that order) with `surl: (2) --<option> is not available in this build` (`--auth gssapi`
+  for the word) and exit 2 before anything else is checked (ADR-0049 section 3, until
   BL-218 and BL-216 build the two mechanisms; ADR-0051 decision 5, until BL-171 composes the
   SSH server), checks the
   data directory when `--directory` names one
@@ -32,7 +32,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `surl`), 37 when it cannot be read and 2 naming the line when it is malformed; the
   `--user` accounts and then the file's go into one `AccountBook`; each `--auth` word maps to
   its `AuthenticationMethod`, the SASL mechanism words (`digest-md5`, `cram-md5`, `apop`,
-  `plain`, `login`, `oauthbearer`, `xoauth2`, and `ntlm` for both) included, ADR-0049
+  `plain`, `login`, `oauthbearer`, `xoauth2`, `external`, and `ntlm` for both) included, ADR-0049
   section 3 (the default set without `--auth`); and
   `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its

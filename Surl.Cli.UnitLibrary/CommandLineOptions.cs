@@ -33,8 +33,9 @@ internal static class CommandLineOptions
         "Sets the authentication methods surl accepts and offers, a comma-separated list in any case. For HTTP: "
         + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL "
         + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: ntlm, digest-md5, "
-        + "cram-md5, plain, login, oauthbearer and xoauth2, and apop for POP3's APOP; this build serves none of "
-        + "those three protocols yet. gssapi and external are read, but a start that gives either is refused as "
+        + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP; this build serves none of "
+        + "those three protocols yet. external logs in as the TLS client certificate --cacert verifies, so it is "
+        + "offered only on a connection that sent one. gssapi is read, but a start that gives it is refused as "
         + "not available in this build (exit code 2). surl refuses a word outside the "
         + "list as an option badly used (exit code 2). A test uses it to offer one method alone, such as --auth "
         + "digest for curl's --digest. ntlm and negotiate are not in the default because an NTLM response is built "
@@ -151,7 +152,7 @@ internal static class CommandLineOptions
             new(null, "Accept passwords in clear (warns)", ["auth", "http", "mqtt", "security", "testing"], IsInShortList: false, Default: "off",
                 AllowPlaintextAuthExplanation)),
         WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
-            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,aws-sigv4",
+            new("<methods>", "Authentication methods accepted", ["auth", "http", "security", "testing"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
                 AuthExplanation)),
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
             new(null, "Throwaway certificate (warns)", ["security", "testing", "tls"], IsInShortList: false, Default: "off",

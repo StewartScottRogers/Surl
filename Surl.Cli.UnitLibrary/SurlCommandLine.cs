@@ -173,7 +173,7 @@ public sealed record SurlCommandLine
     /// <summary>
     /// The authentication methods accepted: <see cref="GivenAuthenticationMethods"/>, or
     /// ADR-0049 section 3's default set (<c>digest</c>, <c>cram-md5</c>, <c>basic</c>, <c>plain</c>,
-    /// <c>login</c>, <c>bearer</c>, <c>oauthbearer</c>, <c>xoauth2</c> and <c>aws-sigv4</c>) when
+    /// <c>login</c>, <c>bearer</c>, <c>oauthbearer</c>, <c>xoauth2</c>, <c>external</c> and <c>aws-sigv4</c>) when
     /// <c>--auth</c> was not given (ADR-0032 section 1), in ADR-0032 section 3's order.
     /// </summary>
     public IReadOnlyList<string> AcceptedAuthenticationMethods => GivenAuthenticationMethods ?? DefaultAuthenticationMethods;
@@ -216,5 +216,5 @@ public sealed record SurlCommandLine
 
     /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
     private static readonly IReadOnlyList<string> DefaultAuthenticationMethods =
-        ["digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "aws-sigv4"];
+        ["digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4"];
 }

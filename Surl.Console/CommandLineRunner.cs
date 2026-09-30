@@ -380,8 +380,8 @@ internal sealed class CommandLineRunner(
 
     /// <summary>
     /// The first option given that names something this build does not serve yet, in option-table
-    /// order: the <c>--auth</c> words <c>gssapi</c> and <c>external</c>, parsed but refused until
-    /// their mechanisms are built (ADR-0049 section 3), then the SSH server options, parsed but
+    /// order: the <c>--auth</c> word <c>gssapi</c>, parsed but refused until its mechanism is
+    /// built (ADR-0049 section 3), then the SSH server options, parsed but
     /// refused until the SSH server is composed (ADR-0051 decision 5, after ADR-0032 section 1's
     /// precedent).
     /// </summary>
@@ -393,7 +393,6 @@ internal sealed class CommandLineRunner(
     private static readonly (string Option, Func<SurlCommandLine, bool> IsGiven)[] UnavailableOptions =
     [
         ("--auth gssapi", commandLine => commandLine.AcceptedAuthenticationMethods.Contains("gssapi")),
-        ("--auth external", commandLine => commandLine.AcceptedAuthenticationMethods.Contains("external")),
         ("--hostkey", commandLine => commandLine.HostKeyFiles.Count > 0),
         ("--hostcert", commandLine => commandLine.HostCertificateFiles.Count > 0),
         ("--throwaway-hostkey", commandLine => commandLine.ThrowawayHostKey),

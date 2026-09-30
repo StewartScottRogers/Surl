@@ -396,7 +396,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     public void Compose_EveryAvailableWord_OffersEverySaslMechanismInOfferOrder()
     {
         var (policy, _, _) = AuthenticationComposition.Compose(
-            Parse("--allow-plaintext-auth", "--auth", "xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlm,negotiate,aws-sigv4", Http),
+            Parse("--allow-plaintext-auth", "--auth", "external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlm,negotiate,aws-sigv4", Http),
             ReadsAs(string.Empty),
             TimeProvider.System);
 
@@ -419,6 +419,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [DataRow("bearer", AuthenticationMethod.Bearer)]
     [DataRow("oauthbearer", AuthenticationMethod.OAuthBearer)]
     [DataRow("xoauth2", AuthenticationMethod.XOAuth2)]
+    [DataRow("external", AuthenticationMethod.External)]
     [DataRow("aws-sigv4", AuthenticationMethod.AwsSigV4)]
     public void ComposeSettings_EachWord_AcceptsItsMethodAlone(string word, AuthenticationMethod method)
     {
@@ -441,20 +442,18 @@ public sealed class CommandLineRunnerAuthenticationTests
     public async Task RunAsync_AuthWithSaslWords_WritesTheAcceptedMethodsInSectionThreesOrderOnStart()
     {
         var run = await ServeOneConnectionAsync(
-            null, ReadsAs(string.Empty), "--auth", "XOAUTH2,aws-sigv4,plain,apop,basic,cram-md5,digest-md5,ntlm,oauthbearer,login", Http);
+            null, ReadsAs(string.Empty), "--auth", "XOAUTH2,aws-sigv4,plain,apop,External,basic,cram-md5,digest-md5,ntlm,oauthbearer,login", Http);
 
         Assert.AreEqual(
-            "surl: warning: --auth: accepted methods are ntlm, digest-md5, cram-md5, apop, basic, plain, login, oauthbearer, xoauth2, aws-sigv4" + NewLine,
+            "surl: warning: --auth: accepted methods are ntlm, digest-md5, cram-md5, apop, basic, plain, login, oauthbearer, xoauth2, external, aws-sigv4" + NewLine,
             run.Error);
     }
 
     [TestMethod]
     [DataRow("gssapi", "gssapi")]
     [DataRow("GSSAPI,plain", "gssapi")]
-    [DataRow("external", "external")]
-    [DataRow("plain,External", "external")]
     [DataRow("external,gssapi", "gssapi")]
-    public async Task RunAsync_AuthGssapiOrExternal_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string words, string refused)
+    public async Task RunAsync_AuthGssapi_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string words, string refused)
     {
         var run = await RunRefusedAsync(_ => throw new AssertFailedException("the user file is not read"), "--auth", words, "--user-file", UserFile, Http);
 
@@ -464,11 +463,11 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     [TestMethod]
-    public async Task RunAsync_AuthExternalAndAnSshOption_NamesAuthFirstInOptionTableOrder()
+    public async Task RunAsync_AuthGssapiAndAnSshOption_NamesAuthFirstInOptionTableOrder()
     {
-        var run = await RunRefusedAsync(null, "--hostkey", "host.key", "--auth", "external", Http);
+        var run = await RunRefusedAsync(null, "--hostkey", "host.key", "--auth", "gssapi", Http);
 
-        Assert.AreEqual("surl: (2) --auth external is not available in this build" + NewLine, run.Error);
+        Assert.AreEqual("surl: (2) --auth gssapi is not available in this build" + NewLine, run.Error);
     }
 
     private async Task<Run> RunRefusedAsync(Func<string, byte[]>? readUserFile, params string[] args)

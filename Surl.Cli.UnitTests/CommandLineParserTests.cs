@@ -346,7 +346,7 @@ public sealed class CommandLineParserTests
         Assert.IsFalse(defaults.AllowPlaintextAuthentication);
         Assert.IsFalse(defaults.SelfSigned);
         Assert.IsNull(defaults.GivenAuthenticationMethods);
-        CollectionAssert.AreEqual(new[] { "digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "aws-sigv4" }, defaults.AcceptedAuthenticationMethods.ToArray());
+        CollectionAssert.AreEqual(new[] { "digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4" }, defaults.AcceptedAuthenticationMethods.ToArray());
     }
 
     [TestMethod]
