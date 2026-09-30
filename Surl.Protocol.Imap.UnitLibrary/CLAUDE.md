@@ -25,6 +25,11 @@ ADR-0055 decision 18 records the details BL-204 settled, among them that curl 8.
 store's `PendingMessage`, bounded by the idle timeout rather than `--max-line` (ADR-0055,
 decisions 8 and 9). ADR-0055 decision 17 records the details BL-203 settled.
 
+An exchange the engine cancels for its idle timeout or maximum duration
+(`ExchangeContext.IsCancelledForALimit`) is answered `* BYE surl Timeout, closing` and closed;
+every limit response is written on a one-second deadline linked to `ShutdownToken`, never to the
+exchange's token, and shutdown ends with no `BYE` (ADR-0059, BL-247).
+
 The RFC 5322 and MIME structure reader `FETCH` and `SEARCH` need lives here, not in the store
 (ADR-0055, decision 4): `ImapBodyPart` reads a message's header, fields and parts,
 `ImapSection` names the bytes of a `BODY[<section>]`, `ImapStructureWriter` writes `ENVELOPE`,

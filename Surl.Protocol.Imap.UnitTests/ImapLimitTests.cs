@@ -1,3 +1,4 @@
+using Surl.MailStore;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Imap.ImapTestExchange;
 
@@ -124,21 +125,22 @@ public sealed class ImapLimitTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ExchangeCancelledInsideALiteral_Throws()
+    public async Task ServeAsync_ShutdownInsideALiteral_Throws()
     {
         var clock = new ManualTimeProvider();
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var connection = new InMemoryConnection(Bytes("a LOGIN {10}\r\nabc"), peerHalfClosesWhenExhausted: false);
 
-        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, cancellation.Token));
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, shutdown.Token, shutdownToken: shutdown.Token));
         while (!Utf8(connection.WrittenBytes).Contains('+', StringComparison.Ordinal))
         {
             await Task.Yield();
         }
 
-        await cancellation.CancelAsync();
+        await shutdown.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual("+ Ready for literal data\r\n", AfterGreeting(connection));
     }
 
     [TestMethod]
@@ -159,16 +161,100 @@ public sealed class ImapLimitTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_ExchangeCancelledWhileALimitResponseWaits_Throws()
+    public async Task ServeAsync_ShutdownWhileALimitResponseWaits_Throws()
     {
         var clock = new ManualTimeProvider();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new WriteStallingConnection(Bytes("a NOOP " + new string('x', 40)), writesBeforeStalling: 1);
+
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, shutdown.Token, ThirtyByteLines, shutdownToken: shutdown.Token));
+        await connection.WriteStalled;
+        await shutdown.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ExchangeCancelledForALimitWhileALimitResponseWaits_StillClosesAtTheWriteDeadline()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var connection = new WriteStallingConnection(Bytes("a NOOP " + new string('x', 40)), writesBeforeStalling: 1);
 
-        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, cancellation.Token, ThirtyByteLines));
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, cancellation.Token, ThirtyByteLines, log));
         await connection.WriteStalled;
         await cancellation.CancelAsync();
+        Assert.IsFalse(serving.IsCompleted);
+        clock.Advance(ImapProtocolServer.LimitReplyWriteDeadline);
+        await serving;
+
+        Assert.AreEqual(Greeting, Utf8(connection.WrittenBytes));
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreEqual("The response was not written within the one-second write deadline; the connection was closed.", log.Notes[^1]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_IdleTimeout_SaysByeTimeoutClosingThenCompletesWrites()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var idleTimeout = TimeSpan.FromSeconds(120);
+        using var idle = new CancellationTokenSource(idleTimeout, clock);
+        var connection = new InMemoryConnection(Bytes("a NOOP\r\n"), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, idle.Token, log: log));
+        clock.Advance(idleTimeout - TimeSpan.FromTicks(1));
+        Assert.IsFalse(serving.IsCompleted);
+        clock.Advance(TimeSpan.FromTicks(1));
+        await serving;
+
+        Assert.AreEqual("a OK NOOP completed\r\n* BYE surl Timeout, closing\r\n", AfterGreeting(connection));
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreEqual("The exchange was cancelled for a limit; answered * BYE and closed.", log.Notes.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_MaxExchangeDurationInsideAnAppend_SaysByeTimeoutClosingStoresNothingAndCompletesWrites()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var store = AnonymousStore(clock);
+        var maxExchangeDuration = TimeSpan.FromSeconds(3600);
+        using var duration = new CancellationTokenSource(maxExchangeDuration, clock);
+        var connection = new InMemoryConnection(Bytes("a APPEND INBOX {20}\r\nSubject: s\r\n"), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server(store).ServeAsync(connection, Context(clock, duration.Token, log: log));
+        clock.Advance(maxExchangeDuration);
+        await serving;
+
+        Assert.AreEqual("+ Ready for literal data\r\n* BYE surl Timeout, closing\r\n", AfterGreeting(connection));
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.ReadMailbox(store.ViewFor(null), "INBOX", out var snapshot));
+        Assert.IsEmpty(snapshot!.Messages);
+        Assert.AreEqual("The exchange was cancelled for a limit; answered * BYE and closed.", log.Notes.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Shutdown_EndsWithNoBye()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new InMemoryConnection(Bytes("a NOOP\r\n"), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server(AnonymousStore(clock)).ServeAsync(connection, Context(clock, shutdown.Token, log: log, shutdownToken: shutdown.Token));
+        while (!Utf8(connection.WrittenBytes).Contains("a OK", StringComparison.Ordinal))
+        {
+            await Task.Yield();
+        }
+
+        await shutdown.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual("a OK NOOP completed\r\n", AfterGreeting(connection));
+        Assert.IsFalse(connection.WritesCompleted);
+        Assert.IsEmpty(log.Notes);
     }
 }

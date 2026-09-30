@@ -50,8 +50,11 @@ namespace Surl.Protocol.Imap;
 /// the bound is answered <c>BAD Literal too long</c> before its continuation, and the session goes
 /// on. <c>APPEND</c>'s message is the exception: it is checked against
 /// <see cref="ExchangeLimits.MaxUploadBytes"/> (<c>NO [TOOBIG]</c> before the continuation), then
-/// streamed into the store under the idle timeout alone. A connection past a connection limit is
-/// answered <c>* BYE</c> by <see cref="WriteRefusalAsync"/>.
+/// streamed into the store under the idle timeout alone. An exchange the engine cancels for a
+/// limit - its idle timeout or maximum duration, as <see cref="ExchangeContext.IsCancelledForALimit"/>
+/// says - is answered <c>* BYE surl Timeout, closing</c> within the same deadline, on that deadline
+/// alone; one cancelled at shutdown ends with no farewell (ADR-0059). A connection past a
+/// connection limit is answered <c>* BYE</c> by <see cref="WriteRefusalAsync"/>.
 /// </para>
 /// </remarks>
 public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter

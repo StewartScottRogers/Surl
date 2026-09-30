@@ -113,14 +113,23 @@ internal sealed partial class ImapSession
     private bool CanUpgrade => isStartTlsAvailable && connection.TlsSession is null;
 
     /// <summary>
-    /// Sends the greeting, then answers every command until the session ends.
+    /// Sends the greeting, then answers every command until the session ends. An exchange the
+    /// engine cancels for a limit - the idle timeout or the maximum exchange duration - is answered
+    /// <c>* BYE</c> and closed; one cancelled at shutdown ends with no farewell (ADR-0059).
     /// </summary>
     /// <returns>A task that completes when the session is over.</returns>
     public async Task RunAsync()
     {
-        await WriteLineAsync($"* OK [CAPABILITY {Capabilities}] {ImapResponses.Greeting}", CancellationToken);
-        while (await AnswerNextCommandAsync())
+        try
         {
+            await WriteLineAsync($"* OK [CAPABILITY {Capabilities}] {ImapResponses.Greeting}", CancellationToken);
+            while (await AnswerNextCommandAsync())
+            {
+            }
+        }
+        catch (OperationCanceledException) when (context.IsCancelledForALimit)
+        {
+            await CloseWithAsync((ImapResponses.TimedOut, "The exchange was cancelled for a limit; answered * BYE and closed."));
         }
     }
 
@@ -559,18 +568,19 @@ internal sealed partial class ImapSession
 
     // A limit's response gets ImapProtocolServer.LimitReplyWriteDeadline to be written, and then
     // writes are completed; a peer that does not read it in time is closed all the same, never
-    // aborted (ADR-0006, section 5).
+    // aborted (ADR-0006, section 5). The deadline is linked to shutdown, never to the exchange's
+    // token, which a limit may already have cancelled (ADR-0059).
     private async ValueTask<bool> CloseWithAsync((string Line, string Note) limit)
     {
         context.Log.Note(limit.Note);
         using var deadline = new CancellationTokenSource(ImapProtocolServer.LimitReplyWriteDeadline, context.TimeProvider);
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(CancellationToken, deadline.Token);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.ShutdownToken, deadline.Token);
         try
         {
             await WriteLineAsync(limit.Line, cancellation.Token);
             await connection.CompleteWritesAsync(cancellation.Token);
         }
-        catch (OperationCanceledException) when (!CancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!context.ShutdownToken.IsCancellationRequested)
         {
             context.Log.Note("The response was not written within the one-second write deadline; the connection was closed.");
         }

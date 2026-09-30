@@ -26,6 +26,7 @@ internal static class ImapResponses
     public const string LineTooLong = "BAD Command line too long";
     public const string LineTooLongBye = "* BYE surl Command line too long, closing";
     public const string HeadTimedOut = "* BYE surl Timeout waiting for a command, closing";
+    public const string TimedOut = "* BYE surl Timeout, closing";
     public const string TooManyConnections = "* BYE surl Too many connections, closing";
     public const string InvalidSequenceNumber = "BAD Invalid message sequence number";
     public const string BadCharset = "NO [BADCHARSET (US-ASCII UTF-8)] Unsupported charset";
