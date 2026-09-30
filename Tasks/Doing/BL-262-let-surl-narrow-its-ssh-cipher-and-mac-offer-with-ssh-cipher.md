@@ -48,3 +48,4 @@ the only overlap with a client (sshd's `Ciphers` and `MACs`, as a surl option).
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
