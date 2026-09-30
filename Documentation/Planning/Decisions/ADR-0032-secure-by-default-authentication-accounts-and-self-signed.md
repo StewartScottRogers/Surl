@@ -3,6 +3,9 @@
 - **Status:** Accepted
 - **Superseded in part:** section 1's "Descriptions for `--help`" are superseded by [ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md) decision 2, which shortens them to fit curl's 79 columns.
 - **Amended:** section 6's contract by [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md) (`CheckedLogin`, the verdict's fourth parameter, `PasswordLoginVerdict.AcceptedUnchecked`).
+- **Amended:** section 3's table of `--auth` words, default set and order by
+  [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3 (the SASL mechanism
+  words and `apop`); the mail logins' contract is ADR-0049 decision 6, beside section 6's.
 - **Date:** 2026-09-29
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29,
   in BL-100. Stewart approved the feature on 2026-09-29; the details he left to this ADR.
