@@ -46,6 +46,15 @@ namespace Surl.Protocol.Ssh;
 /// or tag that does not verify is <c>DISCONNECT</c> 5.
 /// </para>
 /// <para>
+/// <b>Compression.</b> <c>none</c>, <c>zlib@openssh.com</c> and <c>zlib</c> are offered, so
+/// upstream curl's <c>--compressed-ssh</c> needs nothing on the server. A direction that agrees
+/// <c>zlib</c> compresses every payload from <c>NEWKEYS</c> on; one that agrees
+/// <c>zlib@openssh.com</c> from the packet after <c>USERAUTH_SUCCESS</c> on. Each is one zlib
+/// stream per direction, each payload sync-flushed, and a new one after every <c>NEWKEYS</c>. A
+/// payload that does not inflate, or inflates past <see cref="ExchangeLimits.MaxMessageBytes"/>,
+/// is <c>DISCONNECT</c> 6, stopped the moment it passes the limit.
+/// </para>
+/// <para>
 /// <b>Transport messages.</b> After the first exchange a client's <c>KEXINIT</c> starts a
 /// re-exchange, and the server starts one itself before reading on once either direction has
 /// carried 1 GiB or an hour has passed under one set of keys. <c>IGNORE</c>, <c>DEBUG</c> and
@@ -167,7 +176,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
 
         using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
-        var transport = new SshTransportHandshake(connection, context, offer, hostKeys, randomSource, reExchangeLimits);
+        using var transport = new SshTransportHandshake(connection, context, offer, hostKeys, randomSource, reExchangeLimits);
         try
         {
             var firstExchange = await transport.RunAsync(cancellation.Token);

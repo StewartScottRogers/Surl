@@ -362,6 +362,7 @@ internal sealed class SshUserAuthentication(
                 IsLoggedIn = true;
                 stopHeadTimeout();
                 await transport.WriteAsync([SshMessageNumber.UserAuthSuccess], cancellationToken);
+                transport.StartDelayedCompression();
                 return;
             case Answer.Written:
                 return;

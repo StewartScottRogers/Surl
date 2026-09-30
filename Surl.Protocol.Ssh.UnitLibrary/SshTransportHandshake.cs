@@ -16,7 +16,9 @@ namespace Surl.Protocol.Ssh;
 /// skipped. Under strict key exchange the client's first <c>KEXINIT</c> must be its first packet,
 /// nothing but the method's messages and <c>NEWKEYS</c> may follow it, a packet that would wrap the
 /// client's sequence number is refused, and each direction's sequence number is set back to 0
-/// after every <c>NEWKEYS</c>. Any other message is <c>DISCONNECT</c> 2. A client's
+/// after every <c>NEWKEYS</c>. Any other message is <c>DISCONNECT</c> 2. Each <c>NEWKEYS</c> also
+/// starts a new zlib stream in each direction that agreed <c>zlib</c>, or <c>zlib@openssh.com</c>
+/// once the login has succeeded (<see cref="StartDelayedCompression"/>). A client's
 /// <c>DISCONNECT</c> is noted and ends the exchange without a reply. A cipher or MAC that is not
 /// built yet is <c>DISCONNECT</c> 11 once both <c>NEWKEYS</c> are exchanged, sent under the keys
 /// that were in force before them.
@@ -33,7 +35,7 @@ internal sealed class SshTransportHandshake(
     SshAlgorithmOffer offer,
     SshHostKeySet hostKeys,
     ISshRandomSource randomSource,
-    SshReExchangeLimits? reExchangeLimits = null) : ISshKeyExchangeChannel
+    SshReExchangeLimits? reExchangeLimits = null) : ISshKeyExchangeChannel, IDisposable
 {
     // Fields rather than method groups, so each call site passes one delegate made once.
     private static readonly Func<byte, bool> IsKeyExchangeMethodMessage = messageNumber =>
@@ -50,6 +52,9 @@ internal sealed class SshTransportHandshake(
     private bool strict;
     private bool clientTakesExtensionInfo;
     private long lastExchangeTimestamp;
+    private string compressionClientToServer = "none";
+    private string compressionServerToClient = "none";
+    private bool loggedIn;
 
     /// <summary>
     /// The reader of the client's packets, which reads on after the key exchange; set once the
@@ -267,8 +272,43 @@ internal sealed class SshTransportHandshake(
 
         packetReader!.UseProtection(inbound);
         packetWriter.UseProtection(outbound);
+        compressionClientToServer = algorithms.CompressionClientToServer;
+        compressionServerToClient = algorithms.CompressionServerToClient;
+        packetReader.UseDecompression(CompressesNow(compressionClientToServer));
+        packetWriter.UseCompression(CompressesNow(compressionServerToClient));
         lastExchangeTimestamp = context.TimeProvider.GetTimestamp();
     }
+
+    /// <summary>
+    /// Starts <c>zlib@openssh.com</c> compression in each direction that agreed it, once
+    /// <c>USERAUTH_SUCCESS</c> is written (OpenSSH <c>PROTOCOL</c>, section 2.2): every later
+    /// packet both ways, the client's next included, is compressed.
+    /// </summary>
+    public void StartDelayedCompression()
+    {
+        loggedIn = true;
+        if (compressionClientToServer == SshZlibCompressor.DelayedZlib)
+        {
+            packetReader!.UseDecompression(true);
+        }
+
+        if (compressionServerToClient == SshZlibCompressor.DelayedZlib)
+        {
+            packetWriter.UseCompression(true);
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        packetReader?.Dispose();
+        packetWriter.Dispose();
+    }
+
+    // Each NEWKEYS starts a new zlib stream (RFC 4253 section 6.2, as libssh2 does): zlib at
+    // once, zlib@openssh.com only once the login has succeeded.
+    private bool CompressesNow(string compression) =>
+        compression == SshZlibCompressor.Zlib || (compression == SshZlibCompressor.DelayedZlib && loggedIn);
 
     private async ValueTask<byte[]> ReadClientKexInitAsync(CancellationToken cancellationToken)
     {

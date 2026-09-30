@@ -41,7 +41,8 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         string mac = "hmac-sha2-256",
         string? cipherServerToClient = null,
         string? macServerToClient = null,
-        bool extensionInfo = false)
+        bool extensionInfo = false,
+        string compression = "none")
     {
         this.keyExchange = keyExchange;
         this.hostKeyAlgorithm = hostKeyAlgorithm;
@@ -53,7 +54,8 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
             mac: mac,
             firstKexPacketFollows: firstKexPacketFollows,
             cipherServerToClient: cipherServerToClient,
-            macServerToClient: macServerToClient);
+            macServerToClient: macServerToClient,
+            compression: compression);
         ellipticKey = CurveOf(keyExchange) is { } curve ? ECDiffieHellman.Create(curve) : null;
         curvePrivateKey = keyExchange.StartsWith("curve25519-sha256", StringComparison.Ordinal) ? RandomNumberGenerator.GetBytes(X25519.KeySize) : null;
         prime = PrimeOf(keyExchange);

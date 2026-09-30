@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO.Compression;
 using System.Numerics;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Ssh.SshTestExchange;
@@ -11,6 +12,9 @@ namespace Surl.Protocol.Ssh;
 /// <see cref="SshTestKeyExchangeClient"/>, then sends and reads packets protected with its own
 /// <see cref="SshTestPacketProtection"/>, and can re-key. The connection is strict, as upstream
 /// curl's is, so each direction's sequence number starts again at 0 after every <c>NEWKEYS</c>.
+/// With <c>zlib</c> or <c>zlib@openssh.com</c> agreed it compresses and inflates payloads with the
+/// BCL's <see cref="ZLibStream"/>, one stream per direction, sync-flushed per packet, started
+/// again after every <c>NEWKEYS</c>, as RFC 4253 section 6.2 and libssh2 do.
 /// </summary>
 internal sealed class SshTestTransportClient
 {
@@ -22,6 +26,12 @@ internal sealed class SshTestTransportClient
     private readonly string? macServerToClient;
     private readonly CancellationToken cancellationToken;
     private readonly bool extensionInfo;
+    private readonly string compression;
+    private ZLibStream? deflater;
+    private MemoryStream? deflated;
+    private ZLibStream? inflater;
+    private MemoryStream? inflaterFeed;
+    private bool delayedCompressionStarted;
     private SshTestPacketProtection? outbound;
     private SshTestPacketProtection? inbound;
     private byte[] sessionIdentifier = [];
@@ -32,8 +42,10 @@ internal sealed class SshTestTransportClient
         CancellationToken cancellationToken,
         string? cipherServerToClient = null,
         string? macServerToClient = null,
-        bool extensionInfo = false)
+        bool extensionInfo = false,
+        string compression = "none")
     {
+        this.compression = compression;
         this.extensionInfo = extensionInfo;
         this.cipher = cipher;
         this.mac = mac;
@@ -54,6 +66,9 @@ internal sealed class SshTestTransportClient
 
     /// <summary>The first key exchange's hash, which a public-key login signs.</summary>
     public byte[] SessionIdentifier => sessionIdentifier;
+
+    /// <summary>The payload of the server's last packet as it came on the wire, before it was inflated.</summary>
+    public byte[] LastReceivedWirePayload { get; private set; } = [];
 
     /// <summary>
     /// Starts <paramref name="server"/> on the connection and runs the first key exchange.
@@ -84,13 +99,37 @@ internal sealed class SshTestTransportClient
     /// <summary>
     /// Protects <paramref name="payload"/> as the client's next packet, without sending it.
     /// </summary>
-    public byte[] Seal(byte[] payload) => outbound!.Seal(SendSequenceNumber++, payload);
+    public byte[] Seal(byte[] payload) => SealWirePayload(Compress(payload));
+
+    /// <summary>
+    /// Protects <paramref name="wirePayload"/> as the client's next packet exactly as given, compressed
+    /// or not, without sending it.
+    /// </summary>
+    public byte[] SealWirePayload(byte[] wirePayload) => outbound!.Seal(SendSequenceNumber++, wirePayload);
 
     public void Send(byte[] payload) => Connection.Send(Seal(payload));
 
     /// <summary>Reads and opens the server's next packet.</summary>
     /// <returns>Its payload.</returns>
-    public Task<byte[]> ReceiveAsync() => inbound!.OpenAsync(ReadServerAsync, ReceiveSequenceNumber++);
+    public async Task<byte[]> ReceiveAsync()
+    {
+        LastReceivedWirePayload = await inbound!.OpenAsync(ReadServerAsync, ReceiveSequenceNumber++);
+
+        return Inflate(LastReceivedWirePayload);
+    }
+
+    /// <summary>
+    /// Starts <c>zlib@openssh.com</c> compression both ways, as the client does once it has read
+    /// <c>USERAUTH_SUCCESS</c>; a no-op for any other method.
+    /// </summary>
+    public void StartDelayedCompression()
+    {
+        delayedCompressionStarted = true;
+        if (compression == "zlib@openssh.com")
+        {
+            StartCompression();
+        }
+    }
 
     /// <summary>
     /// Runs a key re-exchange under the keys in force - the client's <c>KEXINIT</c>, method
@@ -128,7 +167,8 @@ internal sealed class SshTestTransportClient
         mac: mac,
         cipherServerToClient: cipherServerToClient,
         macServerToClient: macServerToClient,
-        extensionInfo: listsExtensionInfo);
+        extensionInfo: listsExtensionInfo,
+        compression: compression);
 
     private void UseKeys(SshTestKeyExchangeClient client, BigInteger sharedSecret, byte[] exchangeHash)
     {
@@ -137,6 +177,51 @@ internal sealed class SshTestTransportClient
         inbound = new SshTestPacketProtection(cipherServerToClient ?? cipher, macServerToClient ?? mac, DeriveKey, clientToServer: false);
         SendSequenceNumber = 0;
         ReceiveSequenceNumber = 0;
+        deflater = null;
+        inflater = null;
+        if (compression == "zlib" || (compression == "zlib@openssh.com" && delayedCompressionStarted))
+        {
+            StartCompression();
+        }
+    }
+
+    private void StartCompression()
+    {
+        deflated = new MemoryStream();
+        deflater = new ZLibStream(deflated, CompressionLevel.Optimal, leaveOpen: true);
+        inflaterFeed = new MemoryStream();
+        inflater = new ZLibStream(inflaterFeed, CompressionMode.Decompress, leaveOpen: true);
+    }
+
+    private byte[] Compress(byte[] payload)
+    {
+        if (deflater is null)
+        {
+            return payload;
+        }
+
+        deflater.Write(payload);
+        deflater.Flush();
+        var wirePayload = deflated!.ToArray();
+        deflated.SetLength(0);
+
+        return wirePayload;
+    }
+
+    private byte[] Inflate(byte[] wirePayload)
+    {
+        if (inflater is null)
+        {
+            return wirePayload;
+        }
+
+        inflaterFeed!.SetLength(0);
+        inflaterFeed.Write(wirePayload);
+        inflaterFeed.Position = 0;
+        using var payload = new MemoryStream();
+        inflater.CopyTo(payload);
+
+        return payload.ToArray();
     }
 
     private async Task<byte[]> ReadServerAsync(int count) =>
