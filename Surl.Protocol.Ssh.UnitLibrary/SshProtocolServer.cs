@@ -11,8 +11,10 @@ namespace Surl.Protocol.Ssh;
 /// authenticates every packet with the cipher and MAC agreed, re-keying when the client or
 /// <see cref="SshReExchangeLimits"/> asks. It then answers the <c>ssh-userauth</c> service as
 /// <see cref="SshUserAuthentication"/> says, every credential judged by its
-/// <see cref="ISshAuthenticationPolicy"/>. Channels (BL-163) are not built yet: after the login a
-/// connection-protocol message is answered <c>UNIMPLEMENTED</c>.
+/// <see cref="ISshAuthenticationPolicy"/>. After the login it runs the connection protocol as
+/// <see cref="SshConnectionProtocol"/> says: <c>session</c> channels, each <c>exec</c> of an SCP
+/// command and the <c>sftp</c> subsystem handed to its handler. No handler is registered yet
+/// (SCP is BL-164, SFTP BL-165), so both are answered <c>CHANNEL_FAILURE</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -45,7 +47,9 @@ namespace Surl.Protocol.Ssh;
 /// re-exchange, and the server starts one itself before reading on once either direction has
 /// carried 1 GiB or an hour has passed under one set of keys. <c>IGNORE</c>, <c>DEBUG</c> and
 /// <c>UNIMPLEMENTED</c> are skipped, and any other message the server does not know is answered
-/// <c>UNIMPLEMENTED</c> with its sequence number (RFC 4253, section 11.4). A client whose
+/// <c>UNIMPLEMENTED</c> with its sequence number (RFC 4253, section 11.4); so is a
+/// connection-protocol message the server never expects, such as a reply to a request it did not
+/// send. A connection-protocol message before the login is <c>DISCONNECT</c> 2. A client whose
 /// first <c>KEXINIT</c> lists <c>ext-info-c</c> is sent <c>EXT_INFO</c> with
 /// <c>server-sig-algs</c> right after the first <c>NEWKEYS</c> (RFC 8308).
 /// </para>
@@ -69,6 +73,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     private readonly ISshRandomSource randomSource;
     private readonly ISshAuthenticationPolicy authenticationPolicy;
     private readonly SshReExchangeLimits reExchangeLimits;
+    private readonly ISshChannelHandlers channelHandlers;
 
     /// <summary>
     /// Creates an SSH server that serves <paramref name="hostKeys"/>, offers <paramref name="offer"/>
@@ -95,13 +100,18 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     /// <param name="authenticationPolicy">Who may log in.</param>
     /// <param name="randomSource">Where the cookie, the padding and a finite-field private exponent come from.</param>
     /// <param name="reExchangeLimits">When the server starts a key re-exchange itself.</param>
+    /// <param name="channelHandlers">
+    /// The handlers an accepted <c>exec</c> or <c>subsystem</c> goes to;
+    /// <see cref="SshNoChannelHandlers"/> when <see langword="null"/>.
+    /// </param>
     /// <exception cref="ArgumentException"><paramref name="offer"/> names a host-key algorithm no key in <paramref name="hostKeys"/> signs with.</exception>
     internal SshProtocolServer(
         SshHostKeySet hostKeys,
         SshAlgorithmOffer offer,
         ISshAuthenticationPolicy authenticationPolicy,
         ISshRandomSource randomSource,
-        SshReExchangeLimits reExchangeLimits)
+        SshReExchangeLimits reExchangeLimits,
+        ISshChannelHandlers? channelHandlers = null)
     {
         ArgumentNullException.ThrowIfNull(hostKeys);
         ArgumentNullException.ThrowIfNull(offer);
@@ -118,6 +128,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
         this.randomSource = randomSource;
         this.authenticationPolicy = authenticationPolicy;
         this.reExchangeLimits = reExchangeLimits;
+        this.channelHandlers = channelHandlers ?? SshNoChannelHandlers.Instance;
     }
 
     /// <summary>
@@ -148,7 +159,15 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 context.Log,
                 firstExchange.SessionIdentifier,
                 () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan));
-            await AnswerMessagesAsync(transport, authentication, cancellation.Token);
+            var connectionProtocol = new SshConnectionProtocol(transport, channelHandlers, context.Log, context.Limits.MaxLineBytes);
+
+            // However the message loop ends, every channel ends and its handler returns before
+            // the loop's outcome - its exception included - is taken up below.
+            var answering = AnswerMessagesAsync(transport, authentication, connectionProtocol, cancellation.Token);
+            await Task.WhenAny(answering);
+            await connectionProtocol.EndChannelsAsync();
+            connectionProtocol.Dispose();
+            await answering;
         }
         catch (SshExchangeEndedException ended) when (ended.Note is not null)
         {
@@ -174,13 +193,14 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     private static async Task AnswerMessagesAsync(
         SshTransportHandshake transport,
         SshUserAuthentication authentication,
+        SshConnectionProtocol connectionProtocol,
         CancellationToken cancellationToken)
     {
         while (true)
         {
             if (transport.ReExchangeIsDue)
             {
-                await transport.ReExchangeAsync(null, cancellationToken);
+                await connectionProtocol.ReExchangeAsync(null, cancellationToken);
             }
 
             byte[] payload;
@@ -193,13 +213,14 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 return;
             }
 
-            await AnswerMessageAsync(transport, authentication, payload, cancellationToken);
+            await AnswerMessageAsync(transport, authentication, connectionProtocol, payload, cancellationToken);
         }
     }
 
     private static async Task AnswerMessageAsync(
         SshTransportHandshake transport,
         SshUserAuthentication authentication,
+        SshConnectionProtocol connectionProtocol,
         byte[] payload,
         CancellationToken cancellationToken)
     {
@@ -208,13 +229,16 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
             case SshMessageNumber.Ignore or SshMessageNumber.Debug or SshMessageNumber.Unimplemented:
                 return;
             case SshMessageNumber.KeyExchangeInit:
-                await transport.ReExchangeAsync(payload, cancellationToken);
+                await connectionProtocol.ReExchangeAsync(payload, cancellationToken);
                 return;
             case var messageNumber when SshUserAuthentication.Answers(messageNumber):
                 await authentication.AnswerAsync(payload, cancellationToken);
                 return;
+            case var messageNumber when authentication.IsLoggedIn && SshConnectionProtocol.Answers(messageNumber):
+                await connectionProtocol.AnswerAsync(payload, cancellationToken);
+                return;
             default:
-                await AnswerUnknownMessageAsync(transport, authentication, payload[0], cancellationToken);
+                await AnswerUnknownMessageAsync(transport, authentication, connectionProtocol, payload[0], cancellationToken);
                 return;
         }
     }
@@ -224,6 +248,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     private static ValueTask AnswerUnknownMessageAsync(
         SshTransportHandshake transport,
         SshUserAuthentication authentication,
+        SshConnectionProtocol connectionProtocol,
         byte messageNumber,
         CancellationToken cancellationToken)
     {
@@ -236,7 +261,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
         unimplemented.WriteByte(SshMessageNumber.Unimplemented);
         unimplemented.WriteUInt32(unchecked(transport.PacketReader!.SequenceNumber - 1));
 
-        return transport.WriteAsync(unimplemented.ToArray(), cancellationToken);
+        return connectionProtocol.WriteAsync(unimplemented.ToArray(), cancellationToken);
     }
 
     // The DISCONNECT gets one second to be written, sealed with the server's keys in force, and

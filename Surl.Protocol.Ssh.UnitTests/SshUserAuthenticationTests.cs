@@ -90,9 +90,9 @@ public sealed class SshUserAuthenticationTests
         client.Send(LoginRequest("none"));
         CollectionAssert.AreEqual(new byte[] { 52 }, await client.ReceiveAsync());
         client.Send(LoginRequest("none"));
-        client.Send([90]);
+        client.Send([81]);
 
-        CollectionAssert.AreEqual(Concat([3], UInt32(3)), await client.ReceiveAsync(), "The later request had no answer; the channel message is UNIMPLEMENTED.");
+        CollectionAssert.AreEqual(Concat([3], UInt32(3)), await client.ReceiveAsync(), "The later request had no answer; the unexpected REQUEST_SUCCESS is UNIMPLEMENTED.");
         await CloseAsync(client, serving);
     }
 
