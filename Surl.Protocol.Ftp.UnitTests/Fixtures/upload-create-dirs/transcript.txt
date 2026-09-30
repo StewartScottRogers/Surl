@@ -1,0 +1,30 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> CWD new
+< 550 No such directory
+> MKD new
+< 257 "/new" created
+> CWD new
+< 250 Directory changed
+> CWD deep
+< 550 No such directory
+> MKD deep
+< 257 "/new/deep" created
+> CWD deep
+< 250 Directory changed
+> EPSV
+< 229 Entering Extended Passive Mode (|||62267|)
+> TYPE I
+< 200 Type set to I
+> STOR b.txt
+< 150 Opening data connection for b.txt
+= 14 bytes received on the data connection: uploaded body
+
+< 226 Transfer complete
+> QUIT
+< 221 Goodbye

@@ -1,0 +1,30 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> MKD x
+< 257 "/x" created
+> SITE CHMOD 644 a.txt
+< 504 SITE CHMOD is not supported
+> EPSV
+< 229 Entering Extended Passive Mode (|||62270|)
+> TYPE I
+< 200 Type set to I
+> SIZE a.txt
+< 213 12
+> RETR a.txt
+< 150 Opening data connection for a.txt (12 bytes)
+< 226 Transfer complete
+> RNFR a.txt
+< 350 Ready for RNTO
+> RNTO x/c.txt
+< 250 Renamed
+> DELE x/c.txt
+< 250 File deleted
+> RMD x
+< 250 Directory removed
+> QUIT
+< 221 Goodbye

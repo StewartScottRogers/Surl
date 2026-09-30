@@ -82,3 +82,30 @@ $base = "GREETING=$g",'USER=331 Password required','PASS=230 Logged in','PWD=257
 | --- | --- | --- |
 | `list-directory` | `PWD`, `CWD dir`, `EPSV`, `TYPE A`, `LIST`, `QUIT`; printed the listing as sent | `.\Record-CurlExchange.ps1 -Port 18779 -Ftp -FtpData '-rw-r--r-- 1 surl surl            4 Sep 27 12:34 b.txt\r\ndrwxr-xr-x 1 surl surl            0 Sep 27 12:34 sub\r\n' -FtpReply ($base + 'LIST=150 Opening data connection for directory listing') -CurlArgs '-sS','ftp://127.0.0.1:18779/dir/' -OutDirectory Surl.Protocol.Ftp.UnitTests\Fixtures\list-directory` |
 | `name-list-directory` | as `list-directory` with `NLST`; printed the names as sent | `.\Record-CurlExchange.ps1 -Port 18779 -Ftp -FtpData 'b.txt\r\nsub\r\n' -FtpReply ($base + 'NLST=150 Opening data connection for directory listing') -CurlArgs '-sS','-l','ftp://127.0.0.1:18779/dir/' -OutDirectory Surl.Protocol.Ftp.UnitTests\Fixtures\name-list-directory` |
+
+## Uploads and file management (BL-180)
+
+Recorded on 2026-09-30 the same way, with `-FtpData 'hello world\n'` and every reply surl sends
+given through `-FtpReply`, so each `< ` line is surl's own text; the `226 Transfer complete`
+after an upload is the recorder's default, which is surl's text too. `up.txt` held
+`uploaded body\n` (14 bytes) and `up-longer.txt` `hello world\nmore\n` (17 bytes), both in a
+temporary folder. Each folder also holds the recorder's `upload.bin`: the bytes curl sent on
+the data connection. `RecordedUploadTests` replays each `request.bin` against a content store
+with `--allow-uploads`, with an in-memory passive data connection on the port the recorder
+announced carrying what curl sent, and asserts the replies equal the `< ` lines and the
+uploaded bytes land in the store. With `$g` as above and
+
+```powershell
+$base = "GREETING=$g",'USER=331 Password required','PASS=230 Logged in','PWD=257 \"/\" is the current directory','EPSV=229 Entering Extended Passive Mode (|||{DATAPORT}|)','TYPE=200 Type set to I','QUIT=221 Goodbye'
+```
+
+each was `.\Record-CurlExchange.ps1 -Port <port> -Ftp -FtpData 'hello world\n' -FtpReply ($base + <replies>) -CurlArgs '-sS',<arguments> -OutDirectory Surl.Protocol.Ftp.UnitTests\Fixtures\<folder>`:
+
+| Folder | curl arguments | Added replies | What curl did | Exit |
+| --- | --- | --- | --- | --- |
+| `upload` | `-T up.txt ftp://127.0.0.1:18801/dir/b.txt` | `'CWD=250 Directory changed','STOR=150 Opening data connection for b.txt'` | `PWD`, `CWD dir`, `EPSV`, `TYPE I`, `STOR b.txt`; 14 bytes sent | 0 |
+| `upload-resume` | `-C - -T up-longer.txt ftp://127.0.0.1:18802/a.txt` | `'APPE=150 Opening data connection for a.txt'` | `PWD`, `EPSV`, `TYPE I`, `SIZE a.txt` (`213 12`), `APPE a.txt`; the 5 bytes past 12 sent | 0 |
+| `upload-create-dirs` | `--ftp-create-dirs -T up.txt ftp://127.0.0.1:18803/new/deep/b.txt` | `'CWD=550 No such directory','CWD=250 Directory changed','CWD=550 No such directory','CWD=250 Directory changed','MKD=257 \"/new\" created','MKD=257 \"/new/deep\" created','STOR=150 Opening data connection for b.txt'` | `CWD new` (550), `MKD new`, `CWD new`, the same for `deep`, then `EPSV`, `TYPE I`, `STOR b.txt` | 0 |
+| `quote-file-management` | `-Q 'MKD x' -Q '*SITE CHMOD 644 a.txt' -Q '-RNFR a.txt' -Q '-RNTO x/c.txt' -Q '-DELE x/c.txt' -Q '-RMD x' ftp://127.0.0.1:18804/a.txt` | `'MKD=257 \"/x\" created','SITE=504 SITE CHMOD is not supported','RNFR=350 Ready for RNTO','RNTO=250 Renamed','DELE=250 File deleted','RMD=250 Directory removed','RETR=150 Opening data connection for a.txt (12 bytes)'` | `MKD x`, `SITE CHMOD 644 a.txt` (504, ignored for its `*`), the download, then `RNFR`, `RNTO`, `DELE`, `RMD` | 0 |
+| `upload-too-large` | `-T up.txt ftp://127.0.0.1:18805/b.txt`, with `-FtpMaxUploadBytes 4` | `'STOR=150 Opening data connection for b.txt','STORDONE=552 Upload exceeds the size limit'` | `STOR b.txt`; the recorder read 4 bytes and closed; `curl: (70) Exceeded storage allocation` | 70 |
+| `upload-not-permitted` | `-T up.txt ftp://127.0.0.1:18806/b.txt` | `'STOR=550 Not permitted'` | `STOR b.txt`, no data connection; `curl: (25) Failed FTP upload: 550` | 25 |

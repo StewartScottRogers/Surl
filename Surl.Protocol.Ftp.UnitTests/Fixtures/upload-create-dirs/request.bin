@@ -1,0 +1,13 @@
+USER anonymous
+PASS ftp@example.com
+PWD
+CWD new
+MKD new
+CWD new
+CWD deep
+MKD deep
+CWD deep
+EPSV
+TYPE I
+STOR b.txt
+QUIT

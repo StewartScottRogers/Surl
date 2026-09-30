@@ -1,0 +1,14 @@
+USER anonymous
+PASS ftp@example.com
+PWD
+MKD x
+SITE CHMOD 644 a.txt
+EPSV
+TYPE I
+SIZE a.txt
+RETR a.txt
+RNFR a.txt
+RNTO x/c.txt
+DELE x/c.txt
+RMD x
+QUIT
