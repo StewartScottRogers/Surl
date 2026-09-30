@@ -1,5 +1,5 @@
 ---
-id: BL-265
+id: BL-270
 title: Say in the product docs that surl serves --allow-weak-ssh-algorithms
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-30
 completed:
 ---
-# BL-265 — Say in the product docs that surl serves --allow-weak-ssh-algorithms
+# BL-270 — Say in the product docs that surl serves --allow-weak-ssh-algorithms
 
 ## Goal
 
