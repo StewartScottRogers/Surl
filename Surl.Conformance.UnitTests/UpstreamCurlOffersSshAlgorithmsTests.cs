@@ -4,8 +4,9 @@ namespace Surl.Conformance;
 /// Records the <c>SSH_MSG_KEXINIT</c> the pinned upstream curl build sends for <c>sftp://</c>,
 /// the lists surl's offer (ADR-0051 decision 2) is negotiated against, and pins each platform's
 /// in its own test: the Windows build's WinCNG lists ADR-0051 measured, and the Linux and macOS
-/// builds' OpenSSL lists (BL-172). A failing run writes the lists it recorded to the test's log.
-/// Inconclusive where no pinned build is installed for the platform.
+/// builds' OpenSSL lists (BL-172), which the supplementary OpenSSL Windows build also offers
+/// (ADR-0063). A failing run writes the lists it recorded to the test's log. Inconclusive where no
+/// pinned build is installed for the platform.
 /// </summary>
 [TestClass]
 [TestCategory("Integration")]
@@ -43,6 +44,10 @@ public sealed class UpstreamCurlOffersSshAlgorithmsTests
 
     private const string OpenSslMac = WinCngMac + ",hmac-ripemd160,hmac-ripemd160@openssh.com";
 
+    // stunnel/static-curls Windows build of upstream curls tag 8.21.0 on OpenSSL 4.0.1: the one
+    // pinned Windows build that offers the OpenSSL-only SSH algorithms (ADR-0063).
+    private const string OpenSslWindowsBuildSha256 = "589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648";
+
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
@@ -72,6 +77,21 @@ public sealed class UpstreamCurlOffersSshAlgorithmsTests
     }
 
     [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task KexInit_OpenSslWindowsBuild_ListsTheOpenSslAlgorithms()
+    {
+        var (identification, nameLists) = await RecordKexInitAsync(
+            (environment, arguments) => PinnedUpstreamCurl.RunSupplementaryBuildWithEnvironmentAsync(
+                TestContext, OpenSslWindowsBuildSha256, environment, arguments));
+
+        Assert.AreEqual("SSH-2.0-libssh2_1.11.1", identification);
+        CollectionAssert.AreEqual(
+            (string[])[OpenSslKex, OpenSslHostKey, OpenSslCipher, OpenSslCipher, OpenSslMac, OpenSslMac, "none", "none", string.Empty, string.Empty],
+            nameLists.ToArray(),
+            string.Join('\n', nameLists));
+    }
+
+    [TestMethod]
     public async Task KexInit_CompressedSsh_ListsZlibBeforeNone()
     {
         var (_, nameLists) = await RecordKexInitAsync("--compressed-ssh");
@@ -80,14 +100,19 @@ public sealed class UpstreamCurlOffersSshAlgorithmsTests
         Assert.AreEqual("zlib,zlib@openssh.com,none", nameLists[7], string.Join('\n', nameLists));
     }
 
-    private async Task<(string Identification, IReadOnlyList<string> NameLists)> RecordKexInitAsync(params string[] options)
+    private Task<(string Identification, IReadOnlyList<string> NameLists)> RecordKexInitAsync(params string[] options) =>
+        RecordKexInitAsync(
+            (environment, arguments) => PinnedUpstreamCurl.RunWithEnvironmentAsync(TestContext, environment, arguments),
+            options);
+
+    private async Task<(string Identification, IReadOnlyList<string> NameLists)> RecordKexInitAsync(
+        Func<IReadOnlyDictionary<string, string>, string[], Task<UpstreamCurlRunResult>> runCurl, params string[] options)
     {
         using var curlHome = new IsolatedCurlHome();
         using var recorder = ClientKexInitRecorder.Start();
         var recording = recorder.RecordAsync(TestContext.CancellationToken);
 
-        var curl = PinnedUpstreamCurl.RunWithEnvironmentAsync(
-            TestContext, curlHome.Environment, ["-sS", "-k", .. options, $"sftp://127.0.0.1:{recorder.Port}/x"]);
+        var curl = runCurl(curlHome.Environment, ["-sS", "-k", .. options, $"sftp://127.0.0.1:{recorder.Port}/x"]);
         await Task.WhenAny(recording, curl);
         if (!recording.IsCompleted)
         {

@@ -47,13 +47,23 @@ internal static class PinnedUpstreamCurl
     /// platform with <paramref name="arguments"/>, for a case only that build can measure,
     /// writing the result to the test's log.
     /// </summary>
-    public static async Task<UpstreamCurlRunResult> RunSupplementaryBuildAsync(
-        TestContext testContext, string sha256, params string[] arguments)
+    public static Task<UpstreamCurlRunResult> RunSupplementaryBuildAsync(
+        TestContext testContext, string sha256, params string[] arguments) =>
+        RunSupplementaryBuildWithEnvironmentAsync(testContext, sha256, NoEnvironmentChanges, arguments);
+
+    /// <summary>
+    /// Runs the one supplementary build pinned with <paramref name="sha256"/> for the current
+    /// platform with <paramref name="arguments"/> and each of <paramref name="environment"/>'s
+    /// variables set in its environment, for a case only that build can measure, writing the
+    /// result to the test's log.
+    /// </summary>
+    public static async Task<UpstreamCurlRunResult> RunSupplementaryBuildWithEnvironmentAsync(
+        TestContext testContext, string sha256, IReadOnlyDictionary<string, string> environment, params string[] arguments)
     {
         var pins = (await ReadPinsAsync(testContext)).Where(pin => pin.Sha256 == sha256).ToList();
         var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
             .Locate(pins, UpstreamCurlLocator.CurrentPlatform, UpstreamCurlBuildRole.Supplementary);
-        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, NoEnvironmentChanges, arguments);
+        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, environment, arguments);
     }
 
     private static async Task<IReadOnlyList<PinnedUpstreamCurlBuild>> ReadPinsAsync(TestContext testContext) =>

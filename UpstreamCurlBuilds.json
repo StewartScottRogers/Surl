@@ -28,7 +28,7 @@
     {
       "platform": "win-x64",
       "role": "supplementary",
-      "origin": "stunnel/static-curl release 8.21.0, curl-windows-x86_64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1; used only for SMB (smb, smbs) (ADR-0030) and for HTTP Negotiate, which it still carries over NTLM (ADR-0042)",
+      "origin": "stunnel/static-curl release 8.21.0, curl-windows-x86_64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1; used only for SMB (smb, smbs) (ADR-0030) and for HTTP Negotiate, which it still carries over NTLM (ADR-0042), and for the SSH algorithms only OpenSSL builds offer (blowfish-cbc, cast128-cbc, hmac-ripemd160, hmac-ripemd160@openssh.com) and the sftp KEXINIT that lists them (ADR-0063)",
       "defaultPath": "C:\\UpstreamCurl\\static-curl-8.21.0-windows-x86_64\\curl.exe",
       "sha256": "589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648",
       "version": "curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",

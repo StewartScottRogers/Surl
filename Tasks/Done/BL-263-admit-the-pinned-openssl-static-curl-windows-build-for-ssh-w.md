@@ -8,7 +8,7 @@ depends-on: []
 touches: [UpstreamCurlBuilds.json, Documentation/Planning/Decisions, Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: FR-039
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-263 — Admit the pinned OpenSSL static-curl Windows build for SSH weak-algorithm measurements
 
@@ -39,14 +39,27 @@ cannot make: the OpenSSL-only algorithms `blowfish-cbc`, `cast128-cbc`, `hmac-ri
 
 ## Acceptance criteria
 
-- [ ] An ADR admits the build for these SSH measurements and states why.
-- [ ] `UpstreamCurlBuilds.json` names the new use in the build's `origin`; `UpstreamCurlBuildPinsTests` pass.
-- [ ] An Integration test in `Surl.Conformance.UnitTests` pins that build's `sftp://` KEXINIT name lists.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
+- [x] An ADR admits the build for these SSH measurements and states why.
+- [x] `UpstreamCurlBuilds.json` names the new use in the build's `origin`; `UpstreamCurlBuildPinsTests` pass.
+- [x] An Integration test in `Surl.Conformance.UnitTests` pins that build's `sftp://` KEXINIT name lists.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` passes.
 
 ## Notes
+
+- 2026-09-30 (lane 1): delivered in-session rather than through `align-and-document`, because the
+  task needed a measurement and an Integration test as well as the ADR.
+- Measured: the build's sftp KEXINIT equals the Linux and macOS pins' OpenSSL lists exactly;
+  pinned by `KexInit_OpenSslWindowsBuild_ListsTheOpenSslAlgorithms`, which uses the new
+  `PinnedUpstreamCurl.RunSupplementaryBuildWithEnvironmentAsync`.
+- Measured with a throwaway, uncommitted narrowing of surl's offer: `hmac-ripemd160` and
+  `hmac-ripemd160@openssh.com` download fine; `blowfish-cbc` and `cast128-cbc` are agreed and then
+  curl crashes (exit -1073741819, 0xC0000005) - OpenSSL 4 keeps both in the `legacy` provider,
+  which libssh2 never loads. With `OPENSSL_CONF` naming a file that activates `default` and
+  `legacy`, both download fine. ADR-0063 decision 3: BL-261 sets `OPENSSL_CONF` for its two
+  cipher cases.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. The static-curl OpenSSL Windows pin is admitted for the four OpenSSL-only SSH algorithms (ADR-0063); its sftp KEXINIT is pinned, and Blowfish/CAST-128 need OPENSSL_CONF's legacy provider
