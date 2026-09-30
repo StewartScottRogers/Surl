@@ -94,7 +94,7 @@ public sealed class RecordedFixtureTests
         var connection = new UpgradePointRecordingConnection([request.AsMemory(0, upgradePoint), request.AsMemory(upgradePoint)], plaintextChunkCount: 1);
         var policy = new Pop3TestPolicy { IsClearPasswordOffered = false, IsClearPasswordOfferedOverTls = true };
 
-        await Server(store, policy, isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(store, policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         var replies = RecordedReplies("stls");
         Assert.AreEqual(replies, Utf8(connection.WrittenBytes));
@@ -126,7 +126,7 @@ public sealed class RecordedFixtureTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection([ReadBytes("pop3s", "request.bin")], initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
 
-        await Server(AccountStore(clock, Message, Message), isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AccountStore(clock, Message, Message), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(RecordedReplies("pop3s"), Utf8(connection.WrittenBytes));
         Assert.IsFalse(connection.UpgradeRequested);

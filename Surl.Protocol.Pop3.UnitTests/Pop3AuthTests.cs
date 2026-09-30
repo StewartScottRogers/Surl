@@ -247,7 +247,7 @@ public sealed class Pop3AuthTests
         var clock = new ManualTimeProvider();
         var policy = new Pop3TestPolicy { SaslMechanisms = ["PLAIN"], Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.Accepted)] };
 
-        var connection = await ServeAsync(AccountStore(clock), "AUTH PLAIN =\r\nCAPA\r\n", clock, TestContext.CancellationToken, policy, isStlsAvailable: true);
+        var connection = await ServeAsync(AccountStore(clock), "AUTH PLAIN =\r\nCAPA\r\n", clock, TestContext.CancellationToken, policy, isTlsUpgradeAvailable: true);
 
         Assert.AreEqual(
             "+OK Authentication successful\r\n+OK Capability list follows\r\nTOP\r\nUIDL\r\nRESP-CODES\r\nAUTH-RESP-CODE\r\nPIPELINING\r\n.\r\n",

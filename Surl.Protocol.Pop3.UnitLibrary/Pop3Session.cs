@@ -20,7 +20,7 @@ internal sealed class Pop3Session
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
-    private readonly bool isStlsAvailable;
+    private readonly bool isTlsUpgradeAvailable;
     private readonly RandomNumberGenerator timestampRandom;
     private readonly Dictionary<string, Func<Pop3CommandLine, ValueTask<bool>>> commands;
     private string? apopTimestamp;
@@ -35,7 +35,7 @@ internal sealed class Pop3Session
         IAuthenticationPolicy authenticationPolicy,
         IMailAuthenticationPolicy mailAuthenticationPolicy,
         MailboxStore mailStore,
-        bool isStlsAvailable,
+        bool isTlsUpgradeAvailable,
         RandomNumberGenerator timestampRandom)
     {
         this.connection = connection;
@@ -44,7 +44,7 @@ internal sealed class Pop3Session
         this.authenticationPolicy = authenticationPolicy;
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
-        this.isStlsAvailable = isStlsAvailable;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
         this.timestampRandom = timestampRandom;
         commands = new(StringComparer.Ordinal)
         {
@@ -170,7 +170,7 @@ internal sealed class Pop3Session
 
     private bool IsClearPasswordOffered => LoginOffer.IsClearPasswordLoginOffered;
 
-    private bool CanUpgrade => isStlsAvailable && connection.TlsSession is null;
+    private bool CanUpgrade => isTlsUpgradeAvailable && connection.TlsSession is null;
 
     private async ValueTask<bool> AnswerQuitAsync(Pop3CommandLine command)
     {
@@ -296,7 +296,7 @@ internal sealed class Pop3Session
         var refusal = maildrop is not null ? Pop3Replies.AlreadyLoggedIn
             : command.Argument is not null ? Pop3Replies.InvalidArguments
             : connection.TlsSession is not null ? Pop3Replies.AlreadyUsingTls
-            : isStlsAvailable ? null
+            : isTlsUpgradeAvailable ? null
             : Pop3Replies.StlsNotAvailable;
         return refusal is null ? await UpgradeToTlsAsync() : await ReplyAsync(refusal);
     }

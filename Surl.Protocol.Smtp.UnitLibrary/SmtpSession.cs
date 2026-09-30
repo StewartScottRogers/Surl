@@ -26,7 +26,7 @@ internal sealed class SmtpSession
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
-    private readonly bool isStartTlsAvailable;
+    private readonly bool isTlsUpgradeAvailable;
     private readonly Dictionary<string, Func<byte[]?, ValueTask<bool>>> commands;
     private byte[]? heloDomain;
     private bool isExtendedHello;
@@ -34,7 +34,7 @@ internal sealed class SmtpSession
     private bool isLoggedIn;
     private SmtpMailTransaction? transaction;
 
-    public SmtpSession(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isStartTlsAvailable)
+    public SmtpSession(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable)
     {
         this.connection = connection;
         this.context = context;
@@ -42,7 +42,7 @@ internal sealed class SmtpSession
         this.authenticationPolicy = authenticationPolicy;
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
-        this.isStartTlsAvailable = isStartTlsAvailable;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
         commands = new(StringComparer.Ordinal)
         {
             ["EHLO"] = argument => AnswerHelloAsync(argument, isExtended: true),
@@ -172,7 +172,7 @@ internal sealed class SmtpSession
     }
 
     // STARTTLS is offered only on a plaintext connection of a server with a certificate (RFC 3207).
-    private bool CanUpgrade => isStartTlsAvailable && connection.TlsSession is null;
+    private bool CanUpgrade => isTlsUpgradeAvailable && connection.TlsSession is null;
 
     private async ValueTask<bool> AnswerMailAsync(byte[]? argument)
     {
@@ -354,7 +354,7 @@ internal sealed class SmtpSession
     {
         var refusal = argument is not null ? SmtpReplies.TakesNoArgument("STARTTLS")
             : connection.TlsSession is not null ? SmtpReplies.AlreadyUsingTls
-            : isStartTlsAvailable ? null
+            : isTlsUpgradeAvailable ? null
             : SmtpReplies.TlsNotAvailable;
         return refusal is null ? await UpgradeToTlsAsync() : await ReplyAsync(refusal);
     }

@@ -75,7 +75,7 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
-    private readonly bool isStartTlsAvailable;
+    private readonly bool isTlsUpgradeAvailable;
 
     /// <summary>
     /// Creates an SMTP server that delivers into <paramref name="mailStore"/>.
@@ -87,13 +87,13 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// as <paramref name="authenticationPolicy"/>.
     /// </param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
-    /// <param name="isStartTlsAvailable">
+    /// <param name="isTlsUpgradeAvailable">
     /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>: <see langword="true"/>
     /// when a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so
     /// <c>EHLO</c> advertises it and <c>STARTTLS</c> is answered <c>220</c> and upgraded; when
     /// <see langword="false"/>, <c>STARTTLS</c> is answered <c>454</c> (ADR-0053, decision 5).
     /// </param>
-    public SmtpProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isStartTlsAvailable = false)
+    public SmtpProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable = false)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(mailAuthenticationPolicy);
@@ -102,7 +102,7 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
         this.authenticationPolicy = authenticationPolicy;
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
-        this.isStartTlsAvailable = isStartTlsAvailable;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
     }
 
     /// <summary>
@@ -123,7 +123,7 @@ public sealed class SmtpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new SmtpSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isStartTlsAvailable).RunAsync();
+        await new SmtpSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable).RunAsync();
     }
 
     /// <summary>

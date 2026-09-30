@@ -71,7 +71,7 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
-    private readonly bool isStlsAvailable;
+    private readonly bool isTlsUpgradeAvailable;
     private readonly RandomNumberGenerator timestampRandom;
 
     /// <summary>
@@ -85,7 +85,7 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     /// section 6). <c>Surl.Console</c> passes the same object as
     /// <paramref name="authenticationPolicy"/>.</param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
-    /// <param name="isStlsAvailable">
+    /// <param name="isTlsUpgradeAvailable">
     /// Whether a plaintext connection can be upgraded with <c>STLS</c>: <see langword="true"/> when
     /// a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so <c>CAPA</c>
     /// advertises it and <c>STLS</c> is answered <c>+OK</c> and upgraded; when
@@ -100,7 +100,7 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
         IAuthenticationPolicy authenticationPolicy,
         IMailAuthenticationPolicy mailAuthenticationPolicy,
         MailboxStore mailStore,
-        bool isStlsAvailable = false,
+        bool isTlsUpgradeAvailable = false,
         RandomNumberGenerator? timestampRandom = null)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
@@ -110,7 +110,7 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
         this.authenticationPolicy = authenticationPolicy;
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
-        this.isStlsAvailable = isStlsAvailable;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
         this.timestampRandom = timestampRandom ?? RandomNumberGenerator.Create();
     }
 
@@ -132,7 +132,7 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new Pop3Session(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isStlsAvailable, timestampRandom).RunAsync();
+        await new Pop3Session(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, timestampRandom).RunAsync();
     }
 
     /// <summary>

@@ -68,7 +68,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
-    private readonly bool isStartTlsAvailable;
+    private readonly bool isTlsUpgradeAvailable;
 
     /// <summary>
     /// Creates an IMAP server that serves <paramref name="mailStore"/>.
@@ -80,14 +80,14 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     /// <c>Surl.Console</c> passes the same object as <paramref name="authenticationPolicy"/>.
     /// </param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
-    /// <param name="isStartTlsAvailable">
+    /// <param name="isTlsUpgradeAvailable">
     /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>: <see langword="true"/>
     /// when a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so the
     /// capabilities advertise it and <c>STARTTLS</c> is answered <c>OK</c> and upgraded; when
     /// <see langword="false"/>, <c>STARTTLS</c> is answered <c>BAD STARTTLS not available</c>
     /// (ADR-0055, decision 11).
     /// </param>
-    public ImapProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isStartTlsAvailable = false)
+    public ImapProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isTlsUpgradeAvailable = false)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(mailAuthenticationPolicy);
@@ -96,7 +96,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         this.authenticationPolicy = authenticationPolicy;
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
-        this.isStartTlsAvailable = isStartTlsAvailable;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
     }
 
     /// <summary>
@@ -117,7 +117,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isStartTlsAvailable).RunAsync();
+        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable).RunAsync();
     }
 
     /// <summary>

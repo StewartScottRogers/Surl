@@ -8,7 +8,7 @@ depends-on: [BL-274]
 touches: [Surl.Protocol.Imap.UnitLibrary, Surl.Protocol.Imap.UnitTests, Surl.Protocol.Pop3.UnitLibrary, Surl.Protocol.Pop3.UnitTests, Surl.Protocol.Smtp.UnitLibrary, Surl.Protocol.Smtp.UnitTests, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-280 — Rename the mail servers' TLS-upgrade parameter to isTlsUpgradeAvailable
 
@@ -33,20 +33,29 @@ The SMTP, IMAP and POP3 servers name the setting "whether this server offers a T
 
 ## Acceptance criteria
 
-- [ ] `rg -n "isStartTlsAvailable|isStlsAvailable" --glob "*.cs"` over the solution finds nothing.
-- [ ] `rg -n "isStartTlsAvailable|isStlsAvailable"` finds nothing in
+- [x] `rg -n "isStartTlsAvailable|isStlsAvailable" --glob "*.cs"` over the solution finds nothing.
+- [x] `rg -n "isStartTlsAvailable|isStlsAvailable"` finds nothing in
       `Surl.Protocol.Smtp.UnitLibrary/CLAUDE.md`, `Surl.Protocol.Imap.UnitLibrary/CLAUDE.md` or
       `Surl.Protocol.Pop3.UnitLibrary/CLAUDE.md`.
-- [ ] Each changed `<param>` doc comment says what the flag means under the new name.
-- [ ] `Documentation/Wiki/Glossary.md`'s "TLS upgrade" row names `isTlsUpgradeAvailable` as the
+- [x] Each changed `<param>` doc comment says what the flag means under the new name.
+- [x] `Documentation/Wiki/Glossary.md`'s "TLS upgrade" row names `isTlsUpgradeAvailable` as the
       one name, from `CommandLineRunner.ComposeProtocolServers` into every server's constructor,
       and cites ADR-0069.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+- Renamed with a whole-word text replacement across the six touched projects: field, constructor
+  and session parameters, test helpers, named arguments, and the three libraries' `CLAUDE.md`.
+- The `<param>` comments already said what the flag means (a certificate is configured, so the
+  command is advertised and upgraded; otherwise refused in the protocol's words), and they still
+  read true under the new name, so only the name changed.
+- Test method names keep `STARTTLS`/`STLS`. `Surl.Console` passes the argument positionally and
+  needed no change. The glossary's "TLS upgrade" row now gives one name and cites ADR-0069.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-274 (ADR-0069).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. SMTP, IMAP and POP3 name the TLS-upgrade flag isTlsUpgradeAvailable, as FTP and Surl.Console do (ADR-0069)

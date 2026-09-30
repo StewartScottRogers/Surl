@@ -32,7 +32,7 @@ internal sealed partial class ImapSession
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
     private readonly CrlfLineReader lineReader;
-    private readonly bool isStartTlsAvailable;
+    private readonly bool isTlsUpgradeAvailable;
     private readonly Dictionary<string, (ImapCommandState State, Func<ImapArguments, ValueTask<bool>> Answer)> commands;
     private readonly Dictionary<string, Func<ImapArguments, ValueTask<bool>>> uidCommands;
     private MailView? view;
@@ -47,7 +47,7 @@ internal sealed partial class ImapSession
         IAuthenticationPolicy authenticationPolicy,
         IMailAuthenticationPolicy mailAuthenticationPolicy,
         MailboxStore mailStore,
-        bool isStartTlsAvailable)
+        bool isTlsUpgradeAvailable)
     {
         this.connection = connection;
         this.context = context;
@@ -56,7 +56,7 @@ internal sealed partial class ImapSession
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
         this.lineReader = lineReader;
-        this.isStartTlsAvailable = isStartTlsAvailable;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
         commands = new(StringComparer.Ordinal)
         {
             ["CAPABILITY"] = (ImapCommandState.Any, arguments => RespondAsync(Capability(arguments))),
@@ -110,7 +110,7 @@ internal sealed partial class ImapSession
 
     // STARTTLS is offered, and answered, only on a plaintext connection of a server that can
     // upgrade (ADR-0055, decision 11).
-    private bool CanUpgrade => isStartTlsAvailable && connection.TlsSession is null;
+    private bool CanUpgrade => isTlsUpgradeAvailable && connection.TlsSession is null;
 
     /// <summary>
     /// Sends the greeting, then answers every command until the session ends. An exchange the

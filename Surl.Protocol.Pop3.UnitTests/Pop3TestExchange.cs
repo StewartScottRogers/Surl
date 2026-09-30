@@ -67,10 +67,10 @@ internal static class Pop3TestExchange
         return store;
     }
 
-    public static Pop3ProtocolServer Server(MailboxStore store, Pop3TestPolicy? policy = null, bool isStlsAvailable = false)
+    public static Pop3ProtocolServer Server(MailboxStore store, Pop3TestPolicy? policy = null, bool isTlsUpgradeAvailable = false)
     {
         policy ??= new Pop3TestPolicy();
-        return new Pop3ProtocolServer(policy, policy, store, isStlsAvailable, new PatternRandomNumberGenerator());
+        return new Pop3ProtocolServer(policy, policy, store, isTlsUpgradeAvailable, new PatternRandomNumberGenerator());
     }
 
     public static ExchangeContext Context(
@@ -100,10 +100,10 @@ internal static class Pop3TestExchange
         Pop3TestPolicy? policy = null,
         ExchangeLimits? limits = null,
         IExchangeLog? log = null,
-        bool isStlsAvailable = false)
+        bool isTlsUpgradeAvailable = false)
     {
         var connection = new InMemoryConnection(Ascii(request));
-        await Server(store, policy, isStlsAvailable).ServeAsync(connection, Context(clock, cancellationToken, limits, log));
+        await Server(store, policy, isTlsUpgradeAvailable).ServeAsync(connection, Context(clock, cancellationToken, limits, log));
         return connection;
     }
 

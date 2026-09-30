@@ -58,8 +58,8 @@ internal static class ImapTestExchange
     public static ImapProtocolServer Server(MailboxStore store) =>
         Server(store, new ScriptedLoginPolicy(PasswordLoginVerdict.AcceptedUnchecked, PasswordLoginVerdict.AcceptedUnchecked));
 
-    public static ImapProtocolServer Server(MailboxStore store, ScriptedLoginPolicy policy, bool isStartTlsAvailable = false) =>
-        new(policy, policy, store, isStartTlsAvailable);
+    public static ImapProtocolServer Server(MailboxStore store, ScriptedLoginPolicy policy, bool isTlsUpgradeAvailable = false) =>
+        new(policy, policy, store, isTlsUpgradeAvailable);
 
     public static ExchangeContext Context(
         TimeProvider timeProvider,

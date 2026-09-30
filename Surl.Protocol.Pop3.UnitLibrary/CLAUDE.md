@@ -21,7 +21,7 @@ timestamp) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authent
   (`-ERR surl Too many connections, closing`). Its constructor takes the
   `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
   `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into,
-  `isStlsAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given, and an
+  `isTlsUpgradeAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given, and an
   optional `RandomNumberGenerator` for the `APOP` timestamp.
 - `Pop3Session`: one connection, in the AUTHORIZATION state until a login and the TRANSACTION
   state after it. It greets `+OK surl ready`, followed by an `APOP` timestamp only when the

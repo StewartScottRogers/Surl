@@ -99,7 +99,7 @@ public sealed class Pop3ApopTests
         var policy = new Pop3TestPolicy { IsApopOffered = true, IsApopOfferedOverTls = false };
         var connection = new InMemoryConnection(Ascii("STLS\r\n", "APOP u 0123abcd\r\n"));
 
-        await Server(AccountStore(clock), policy, isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AccountStore(clock), policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(
             "+OK surl ready " + Timestamp + "\r\n+OK Begin TLS negotiation\r\n-ERR Unsupported authentication mechanism\r\n",

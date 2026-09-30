@@ -22,7 +22,7 @@ public sealed class ImapStartTlsTests
         var policy = new ScriptedLoginPolicy();
         var connection = new InMemoryConnection(Bytes("a STARTTLS\r\nb LOGIN u p\r\n", "c NOOP\r\n"));
 
-        await Server(AnonymousStore(clock), policy, isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
+        await Server(AnonymousStore(clock), policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
 
         Assert.AreEqual("a OK Begin TLS negotiation now\r\nc OK NOOP completed\r\n", AfterStartTlsGreeting(connection));
         Assert.IsTrue(connection.UpgradeRequested);
@@ -37,7 +37,7 @@ public sealed class ImapStartTlsTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(Bytes("a STARTTLS\r\n", "b NOOP\r\n"));
 
-        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
+        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
 
         Assert.AreEqual("a OK Begin TLS negotiation now\r\nb OK NOOP completed\r\n", AfterStartTlsGreeting(connection));
         Assert.IsEmpty(log.Notes);
@@ -59,7 +59,7 @@ public sealed class ImapStartTlsTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Bytes("a STARTTLS\r\n", "b STARTTLS\r\n"));
 
-        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual("a OK Begin TLS negotiation now\r\nb BAD Already using TLS\r\n", AfterStartTlsGreeting(connection));
     }
@@ -70,7 +70,7 @@ public sealed class ImapStartTlsTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Bytes("a STARTTLS\r\n"), initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
 
-        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(Greeting + "a BAD Already using TLS\r\n", Utf8(connection.WrittenBytes));
         Assert.IsFalse(connection.UpgradeRequested);
@@ -82,7 +82,7 @@ public sealed class ImapStartTlsTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Bytes("a STARTTLS now\r\n"));
 
-        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual("a BAD Invalid arguments\r\n", AfterStartTlsGreeting(connection));
         Assert.IsFalse(connection.UpgradeRequested);
@@ -94,7 +94,7 @@ public sealed class ImapStartTlsTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Bytes("a LOGIN u p\r\nb STARTTLS\r\n"));
 
-        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual("a OK LOGIN completed\r\nb BAD Already authenticated\r\n", AfterStartTlsGreeting(connection));
     }
@@ -106,7 +106,7 @@ public sealed class ImapStartTlsTests
         var connection = new InMemoryConnection(Bytes("a STARTTLS\r\n", "b NOOP\r\n"), upgradeFails: true);
 
         await Assert.ThrowsExactlyAsync<TlsHandshakeException>(() =>
-            Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken)));
+            Server(AnonymousStore(clock), new ScriptedLoginPolicy(), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken)));
 
         Assert.AreEqual("a OK Begin TLS negotiation now\r\n", AfterStartTlsGreeting(connection));
     }
@@ -125,7 +125,7 @@ public sealed class ImapStartTlsTests
         };
         var connection = new InMemoryConnection(Bytes("a CAPABILITY\r\nb STARTTLS\r\n", "c CAPABILITY\r\nd LOGIN u p\r\ne CAPABILITY\r\n"));
 
-        await Server(AnonymousStore(clock), policy, isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AnonymousStore(clock), policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(
             $"* OK [CAPABILITY {Capabilities} STARTTLS LOGINDISABLED AUTH=CRAM-MD5] surl ready\r\n"
@@ -145,7 +145,7 @@ public sealed class ImapStartTlsTests
         var policy = new ScriptedLoginPolicy(isClearPasswordLoginOffered: false) { IsClearPasswordLoginOfferedOverTls = true };
         var connection = new InMemoryConnection(Bytes("a LOGIN u p\r\nb STARTTLS\r\n", "c LOGIN u p\r\nd SELECT INBOX\r\n"));
 
-        await Server(AnonymousStore(clock), policy, isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AnonymousStore(clock), policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.StartsWith(
             "a NO [PRIVACYREQUIRED] Encryption required\r\nb OK Begin TLS negotiation now\r\nc OK LOGIN completed\r\n* FLAGS",
@@ -160,7 +160,7 @@ public sealed class ImapStartTlsTests
         var policy = new ScriptedLoginPolicy();
         var connection = new InMemoryConnection(Bytes("a LIST \"\" *\r\nb STARTTLS\r\n", "c LIST \"\" *\r\n"));
 
-        await Server(AnonymousStore(clock), policy, isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AnonymousStore(clock), policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.HasCount(2, policy.Logins);
         Assert.IsNull(policy.Logins[0].TlsSession);

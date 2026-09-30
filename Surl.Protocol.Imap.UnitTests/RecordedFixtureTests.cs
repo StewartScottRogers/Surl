@@ -136,7 +136,7 @@ public sealed class RecordedFixtureTests
             Steps = [.. RecordedChallenges(caseName).Select(challenge => ScriptedLoginPolicy.Challenge(challenge)), ScriptedLoginPolicy.Ended(MailLoginOutcome.Accepted)],
         };
 
-        await Server(store, policy, isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(store, policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         var responses = RecordedResponses(caseName);
         Assert.AreEqual(responses, Utf8(connection.WrittenBytes));
@@ -171,7 +171,7 @@ public sealed class RecordedFixtureTests
         var connection = new InMemoryConnection([ReadBytes("imaps", "request.bin")], initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
         var policy = new ScriptedLoginPolicy(isClearPasswordLoginOffered: false) { IsClearPasswordLoginOfferedOverTls = true };
 
-        await Server(store, policy, isStartTlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(store, policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(RecordedResponses("imaps"), Utf8(connection.WrittenBytes));
         Assert.IsFalse(connection.UpgradeRequested);

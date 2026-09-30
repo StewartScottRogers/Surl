@@ -50,7 +50,7 @@ public sealed class SmtpAuthTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Ascii("EHLO c\r\nSTARTTLS\r\n", "EHLO c\r\n"));
 
-        await new SmtpProtocolServer(new AnonymousAuthenticationPolicy(), mailPolicy, AnonymousStore(clock), isStartTlsAvailable: true)
+        await new SmtpProtocolServer(new AnonymousAuthenticationPolicy(), mailPolicy, AnonymousStore(clock), isTlsUpgradeAvailable: true)
             .ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         var written = Utf8(connection.WrittenBytes);
@@ -295,7 +295,7 @@ public sealed class SmtpAuthTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Ascii($"EHLO c\r\nAUTH PLAIN {PlainResponse}\r\nSTARTTLS\r\n", "EHLO c\r\nMAIL FROM:<a@x>\r\n"));
 
-        await new SmtpProtocolServer(new UnitTestRefusingPolicy(), mailPolicy, AnonymousStore(clock), isStartTlsAvailable: true)
+        await new SmtpProtocolServer(new UnitTestRefusingPolicy(), mailPolicy, AnonymousStore(clock), isTlsUpgradeAvailable: true)
             .ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         StringAssert.EndsWith(Utf8(connection.WrittenBytes), "250 AUTH PLAIN\r\n530 5.7.0 Authentication required\r\n");

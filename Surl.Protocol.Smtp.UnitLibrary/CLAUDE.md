@@ -21,7 +21,7 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 - `SmtpProtocolServer`: `IConnectionProtocolServer` and `IConnectionRefusalWriter`
   (`421 4.3.2 surl Too many connections, closing`). Its constructor takes the
   `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
-  `AuthenticationPolicy` as both), the shared `MailboxStore`, and `isStartTlsAvailable`, which
+  `AuthenticationPolicy` as both), the shared `MailboxStore`, and `isTlsUpgradeAvailable`, which
   `Surl.Console` sets when `--cert` or `--self-signed` is given.
 - `SmtpSession`: one connection. The greeting, then each CRLF line read with `CrlfLineReader`
   and answered with `ReplyLineWriter` (`Surl.LineProtocol`) from the fixed lines in

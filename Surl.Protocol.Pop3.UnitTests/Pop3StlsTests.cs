@@ -27,7 +27,7 @@ public sealed class Pop3StlsTests
         };
         var connection = new InMemoryConnection(Ascii("CAPA\r\nSTLS\r\n", "CAPA\r\n"));
 
-        await Server(AccountStore(clock), policy, isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AccountStore(clock), policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(
             CapaStart + "SASL CRAM-MD5\r\nSTLS\r\n.\r\n"
@@ -44,7 +44,7 @@ public sealed class Pop3StlsTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(Ascii("STLS\r\nUSER u\r\nPASS p\r\n", "NOOP\r\n"));
 
-        await Server(AccountStore(clock), isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
+        await Server(AccountStore(clock), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
 
         Assert.AreEqual("+OK Begin TLS negotiation\r\n-ERR [AUTH] Authentication required\r\n", RepliesAfterGreeting(connection));
         CollectionAssert.Contains(log.Notes.ToList(), "Discarded 16 bytes sent after STLS");
@@ -57,7 +57,7 @@ public sealed class Pop3StlsTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(Ascii("STLS\r\n"));
 
-        await Server(AccountStore(clock), isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
+        await Server(AccountStore(clock), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
 
         Assert.AreEqual("+OK Begin TLS negotiation\r\n", RepliesAfterGreeting(connection));
         Assert.IsEmpty(log.Notes);
@@ -72,7 +72,7 @@ public sealed class Pop3StlsTests
         var policy = new Pop3TestPolicy();
         var connection = new InMemoryConnection(Ascii("USER u\r\nSTAT\r\nSTLS\r\n", "PASS p\r\nSTAT\r\n"));
 
-        await Server(AccountStore(clock), policy, isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AccountStore(clock), policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(
             "+OK User accepted\r\n-ERR [AUTH] Authentication required\r\n+OK Begin TLS negotiation\r\n-ERR Send USER first\r\n-ERR [AUTH] Authentication required\r\n",
@@ -99,7 +99,7 @@ public sealed class Pop3StlsTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Ascii("CAPA\r\nSTLS\r\n"), initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
 
-        await Server(AccountStore(clock), isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+        await Server(AccountStore(clock), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
 
         Assert.AreEqual(CapaStart + "USER\r\n.\r\n-ERR Already using TLS\r\n", RepliesAfterGreeting(connection));
         Assert.IsFalse(connection.UpgradeRequested);
@@ -110,7 +110,7 @@ public sealed class Pop3StlsTests
     {
         var clock = new ManualTimeProvider();
 
-        var connection = await ServeAsync(AccountStore(clock), "STLS now\r\n", clock, TestContext.CancellationToken, isStlsAvailable: true);
+        var connection = await ServeAsync(AccountStore(clock), "STLS now\r\n", clock, TestContext.CancellationToken, isTlsUpgradeAvailable: true);
 
         Assert.AreEqual("-ERR Invalid arguments\r\n", RepliesAfterGreeting(connection));
         Assert.IsFalse(connection.UpgradeRequested);
@@ -121,7 +121,7 @@ public sealed class Pop3StlsTests
     {
         var clock = new ManualTimeProvider();
 
-        var connection = await ServeAsync(AccountStore(clock), Login + "STLS\r\n", clock, TestContext.CancellationToken, isStlsAvailable: true);
+        var connection = await ServeAsync(AccountStore(clock), Login + "STLS\r\n", clock, TestContext.CancellationToken, isTlsUpgradeAvailable: true);
 
         Assert.AreEqual("-ERR Already logged in\r\n", RepliesAfterLogin(connection));
     }
@@ -133,7 +133,7 @@ public sealed class Pop3StlsTests
         var connection = new InMemoryConnection(Ascii("STLS\r\n", "NOOP\r\n"), upgradeFails: true);
 
         await Assert.ThrowsExactlyAsync<TlsHandshakeException>(() =>
-            Server(AccountStore(clock), isStlsAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken)));
+            Server(AccountStore(clock), isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken)));
 
         Assert.AreEqual("+OK Begin TLS negotiation\r\n", RepliesAfterGreeting(connection));
     }

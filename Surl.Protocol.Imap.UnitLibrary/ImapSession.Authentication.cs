@@ -25,7 +25,7 @@ internal sealed partial class ImapSession
     {
         var refusal = !arguments.IsAtEnd ? ImapResponses.InvalidArguments
             : connection.TlsSession is not null ? ImapResponses.AlreadyUsingTls
-            : isStartTlsAvailable ? null
+            : isTlsUpgradeAvailable ? null
             : ImapResponses.StartTlsNotAvailable;
         return refusal is null ? await UpgradeToTlsAsync() : await ReplyAsync($"{tag} {refusal}");
     }

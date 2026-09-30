@@ -24,7 +24,7 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   (`* BYE surl Too many connections, closing`). Its constructor takes the
   `IAuthenticationPolicy`, the `IMailAuthenticationPolicy` (`Surl.Console` passes one
   `AuthenticationPolicy` as both), the `MailboxStore` the SMTP server delivers into, and
-  `isStartTlsAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given.
+  `isTlsUpgradeAvailable`, which `Surl.Console` sets when `--cert` or `--self-signed` is given.
 - `ImapSession` (with `ImapSession.Authentication.cs` and `ImapSession.Changes.cs`): one
   connection, its state and its responses from `ImapResponses`. `ImapCommandReader` reads each
   command, its synchronizing literals checked before the `+` continuation and the whole bounded
