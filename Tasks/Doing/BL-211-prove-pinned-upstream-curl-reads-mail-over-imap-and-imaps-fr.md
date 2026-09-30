@@ -43,3 +43,4 @@ SMTP to the same `surl`.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
