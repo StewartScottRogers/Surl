@@ -378,7 +378,33 @@ internal sealed class CommandLineRunner(
     private DataDirectoryLockOutcome TakeDataDirectoryLockWhenGiven(SurlCommandLine commandLine) =>
         commandLine.DataDirectory is { } dataDirectory ? takeDataDirectoryLock(dataDirectory) : DataDirectoryLockOutcome.NoLock;
 
-    private async Task<SurlExitCode> ServeAsync(
+    /// <summary>
+    /// The first option given that names something this build does not serve yet, in option-table
+    /// order: the SSH server options, parsed but refused until the SSH server is composed
+    /// (ADR-0051 decision 5, after ADR-0032 section 1's precedent).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <returns>The option as <c>--&lt;name&gt;</c>, or <see langword="null"/> when none is given.</returns>
+    internal static string? FindUnavailableOption(SurlCommandLine commandLine) =>
+        UnavailableOptions.FirstOrDefault(unavailable => unavailable.IsGiven(commandLine)).Option;
+
+    private static readonly (string Option, Func<SurlCommandLine, bool> IsGiven)[] UnavailableOptions =
+    [
+        ("--hostkey", commandLine => commandLine.HostKeyFiles.Count > 0),
+        ("--hostcert", commandLine => commandLine.HostCertificateFiles.Count > 0),
+        ("--throwaway-hostkey", commandLine => commandLine.ThrowawayHostKey),
+        ("--authorized-keys", commandLine => commandLine.AuthorizedKeys.Count > 0),
+        ("--allow-weak-ssh-algorithms", commandLine => commandLine.AllowWeakSshAlgorithms),
+    ];
+
+    // An option this build does not serve yet is refused before anything else is checked.
+    private Task<SurlExitCode> ServeAsync(
+        SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
+        FindUnavailableOption(commandLine) is { } unavailableOption
+            ? Task.FromResult(WriteFailure(error, SurlExitCode.FailedInit, $"(2) {unavailableOption} is not available in this build"))
+            : ServeAvailableAsync(commandLine, output, error, cancellationToken);
+
+    private async Task<SurlExitCode> ServeAvailableAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
         if (commandLine.DataDirectory is { } dataDirectory && !canOpenDataDirectory(dataDirectory))

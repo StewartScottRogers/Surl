@@ -329,6 +329,39 @@ public sealed class CommandLineRunnerAuthenticationTests
 
     private static SurlCommandLine Parse(params string[] args) => CommandLineParser.Parse(args).CommandLine!;
 
+    // The SSH server options, refused until the SSH server is composed (ADR-0051 decision 5).
+
+    [TestMethod]
+    [DataRow("--hostkey", new[] { "--hostkey", "host.key" })]
+    [DataRow("--hostcert", new[] { "--hostcert", "host-cert.pub" })]
+    [DataRow("--throwaway-hostkey", new[] { "--throwaway-hostkey" })]
+    [DataRow("--authorized-keys", new[] { "--authorized-keys", "alice:alice.keys" })]
+    [DataRow("--allow-weak-ssh-algorithms", new[] { "--allow-weak-ssh-algorithms" })]
+    public async Task RunAsync_SshOption_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string option, string[] arguments)
+    {
+        var run = await RunRefusedAsync(_ => throw new AssertFailedException("the user file is not read"), [.. arguments, "--user-file", UserFile, Http]);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
+        Assert.AreEqual($"surl: (2) {option} is not available in this build" + NewLine, run.Error);
+        Assert.IsEmpty(run.Factory.StartedListenUrls);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SeveralSshOptions_NamesTheFirstInOptionTableOrder()
+    {
+        var run = await RunRefusedAsync(null, "--allow-weak-ssh-algorithms", "--authorized-keys", "a:k", "--hostcert", "c", Http);
+
+        Assert.AreEqual("surl: (2) --hostcert is not available in this build" + NewLine, run.Error);
+    }
+
+    [TestMethod]
+    public void FindUnavailableOption_NoSshOptionOrOnlyNegatedFlags_IsNull()
+    {
+        Assert.IsNull(CommandLineRunner.FindUnavailableOption(new SurlCommandLine()));
+        Assert.IsNull(CommandLineRunner.FindUnavailableOption(
+            CommandLineParser.Parse(["--no-throwaway-hostkey", "--no-allow-weak-ssh-algorithms", Http]).CommandLine!));
+    }
+
     private async Task<Run> RunRefusedAsync(Func<string, byte[]>? readUserFile, params string[] args)
     {
         var factory = new FakeListenerFactory();

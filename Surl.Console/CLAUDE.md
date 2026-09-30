@@ -10,7 +10,11 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help`, `--aihelp`
   (`CommandLineOutcome.ShowAiHelp`: `AiHelpText.Answer(parsed.AiHelpTopic)` written by
   `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
-  says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, checks the
+  says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
+  start that gives an SSH server option (`FindUnavailableOption`: `--hostkey`, `--hostcert`,
+  `--throwaway-hostkey`, `--authorized-keys`, `--allow-weak-ssh-algorithms`, the first in
+  that order) with `surl: (2) --<option> is not available in this build` and exit 2 before
+  anything else is checked (ADR-0051 decision 5; BL-171 composes the SSH server), checks the
   data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
