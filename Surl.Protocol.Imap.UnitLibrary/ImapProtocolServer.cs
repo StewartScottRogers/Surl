@@ -6,8 +6,8 @@ namespace Surl.Protocol.Imap;
 
 /// <summary>
 /// The IMAP4rev1 server (RFC 3501): greets the client, reads tagged commands with their
-/// synchronizing literals, logs users in with <c>LOGIN</c> through the authentication policy,
-/// and answers <c>CAPABILITY</c>, <c>NOOP</c>, <c>LOGOUT</c>, <c>ID</c>, <c>NAMESPACE</c>,
+/// synchronizing literals, upgrades to TLS with <c>STARTTLS</c>, logs users in with <c>LOGIN</c>
+/// and <c>AUTHENTICATE</c> through the authentication policies, and answers <c>CAPABILITY</c>, <c>NOOP</c>, <c>LOGOUT</c>, <c>ID</c>, <c>NAMESPACE</c>,
 /// <c>SELECT</c>, <c>EXAMINE</c>, <c>LIST</c>, <c>LSUB</c>, <c>STATUS</c>, <c>CHECK</c>,
 /// <c>CLOSE</c>, <c>UNSELECT</c>, <c>FETCH</c> and <c>SEARCH</c> from the shared mail store, and
 /// changes it with <c>APPEND</c>, <c>CREATE</c>, <c>DELETE</c>, <c>RENAME</c>, <c>SUBSCRIBE</c>,
@@ -20,7 +20,7 @@ namespace Surl.Protocol.Imap;
 /// mailbox names it asked about, written back in modified UTF-7, and the section and header field
 /// names of a <c>FETCH</c>, in capitals; message data goes out only inside literals and quoted
 /// strings. The greeting is <c>* OK [CAPABILITY ...] surl ready</c>, <c>CAPABILITY</c> answers
-/// the capabilities of the connection's state, and every command this server does not answer yet
+/// the capabilities of the connection's state, and every command this server does not answer
 /// is answered <c>BAD Command not recognized</c>.
 /// </para>
 /// <para>
@@ -30,6 +30,16 @@ namespace Surl.Protocol.Imap;
 /// that needs a login, sent before one, asks the policy once about the login that carries no
 /// credentials; only <see cref="PasswordLoginVerdict.AcceptedUnchecked"/> (<c>--allow-anonymous</c>)
 /// lets it through, and anything else is answered <c>NO [AUTHENTICATIONFAILED]</c>.
+/// <c>AUTHENTICATE</c> runs one SASL exchange of <see cref="IMailAuthenticationPolicy"/>, its
+/// initial response taken from the command line (<c>SASL-IR</c>, RFC 4959), and answers each step
+/// in ADR-0049 section 7's IMAP words.
+/// </para>
+/// <para>
+/// <b>TLS.</b> <c>STARTTLS</c> is offered and answered only on a plaintext connection of a server
+/// that can upgrade, before a login: every byte the client sent after its line is discarded unrun,
+/// then the connection is upgraded (ADR-0010). <c>imaps</c> is implicit TLS, which
+/// <c>Surl.Console</c> wraps round this server; the session tells the two apart by
+/// <see cref="IConnection.TlsSession"/>, never by the scheme (ADR-0055, decision 11).
 /// </para>
 /// <para>
 /// <b>Limits.</b> A command, its lines and literals together, longer than
@@ -55,14 +65,26 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
+    private readonly bool isStartTlsAvailable;
 
     /// <summary>
     /// Creates an IMAP server that serves <paramref name="mailStore"/>.
     /// </summary>
     /// <param name="authenticationPolicy">Judges <c>LOGIN</c>, and whether a session may act without a login.</param>
-    /// <param name="mailAuthenticationPolicy">Says whether the clear-password login is offered on a connection.</param>
+    /// <param name="mailAuthenticationPolicy">
+    /// Says which SASL mechanisms are offered on a connection in its TLS state and whether the
+    /// clear-password login is, and runs each <c>AUTHENTICATE</c> exchange (ADR-0049, section 6).
+    /// <c>Surl.Console</c> passes the same object as <paramref name="authenticationPolicy"/>.
+    /// </param>
     /// <param name="mailStore">The mail store the SMTP, IMAP and POP3 servers share.</param>
-    public ImapProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore)
+    /// <param name="isStartTlsAvailable">
+    /// Whether a plaintext connection can be upgraded with <c>STARTTLS</c>: <see langword="true"/>
+    /// when a server certificate is configured (<c>--cert</c> or <c>--self-signed</c>), so the
+    /// capabilities advertise it and <c>STARTTLS</c> is answered <c>OK</c> and upgraded; when
+    /// <see langword="false"/>, <c>STARTTLS</c> is answered <c>BAD STARTTLS not available</c>
+    /// (ADR-0055, decision 11).
+    /// </param>
+    public ImapProtocolServer(IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore, bool isStartTlsAvailable = false)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(mailAuthenticationPolicy);
@@ -71,6 +93,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         this.authenticationPolicy = authenticationPolicy;
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
+        this.isStartTlsAvailable = isStartTlsAvailable;
     }
 
     /// <summary>
@@ -91,7 +114,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore).RunAsync();
+        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isStartTlsAvailable).RunAsync();
     }
 
     /// <summary>

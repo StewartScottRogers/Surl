@@ -38,6 +38,12 @@ internal static class ImapResponses
     public const string TooBig = "NO [TOOBIG] Message exceeds the size limit";
     public const string StoreFull = "NO [OVERQUOTA] The mail store is full";
     public const string StorageFailed = "NO [SERVERBUG] Could not store the change";
+    public const string BeginTls = "OK Begin TLS negotiation now";
+    public const string StartTlsNotAvailable = "BAD STARTTLS not available";
+    public const string AlreadyUsingTls = "BAD Already using TLS";
+    public const string UnsupportedMechanism = "NO Unsupported authentication mechanism";
+    public const string AuthenticationCancelled = "BAD Authentication cancelled";
+    public const string CannotDecodeResponse = "BAD Cannot decode response";
 
     // The store's refusals in IMAP's words (ADR-0055, decision 3); a missing mailbox is
     // MailboxMissing or MailboxMissingTryCreate by the command.

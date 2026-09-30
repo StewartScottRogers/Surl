@@ -31,6 +31,8 @@ internal sealed partial class ImapSession
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
+    private readonly CrlfLineReader lineReader;
+    private readonly bool isStartTlsAvailable;
     private readonly Dictionary<string, (ImapCommandState State, Func<ImapArguments, ValueTask<bool>> Answer)> commands;
     private readonly Dictionary<string, Func<ImapArguments, ValueTask<bool>>> uidCommands;
     private MailView? view;
@@ -44,7 +46,8 @@ internal sealed partial class ImapSession
         CrlfLineReader lineReader,
         IAuthenticationPolicy authenticationPolicy,
         IMailAuthenticationPolicy mailAuthenticationPolicy,
-        MailboxStore mailStore)
+        MailboxStore mailStore,
+        bool isStartTlsAvailable)
     {
         this.connection = connection;
         this.context = context;
@@ -52,6 +55,8 @@ internal sealed partial class ImapSession
         this.authenticationPolicy = authenticationPolicy;
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
+        this.lineReader = lineReader;
+        this.isStartTlsAvailable = isStartTlsAvailable;
         commands = new(StringComparer.Ordinal)
         {
             ["CAPABILITY"] = (ImapCommandState.Any, arguments => RespondAsync(Capability(arguments))),
@@ -59,6 +64,8 @@ internal sealed partial class ImapSession
             ["LOGOUT"] = (ImapCommandState.Any, AnswerLogoutAsync),
             ["ID"] = (ImapCommandState.Any, _ => RespondAsync(new ImapResponse([ImapResponses.Id], ImapResponses.Completed("ID")))),
             ["LOGIN"] = (ImapCommandState.NotAuthenticated, AnswerLoginAsync),
+            ["STARTTLS"] = (ImapCommandState.NotAuthenticated, AnswerStartTlsAsync),
+            ["AUTHENTICATE"] = (ImapCommandState.NotAuthenticated, AnswerAuthenticateAsync),
             ["SELECT"] = (ImapCommandState.Authenticated, arguments => RespondAsync(Select(arguments, isReadOnly: false))),
             ["EXAMINE"] = (ImapCommandState.Authenticated, arguments => RespondAsync(Select(arguments, isReadOnly: true))),
             ["LIST"] = (ImapCommandState.Authenticated, arguments => RespondAsync(List(arguments, "LIST"))),
@@ -99,7 +106,11 @@ internal sealed partial class ImapSession
 
     // Asked afresh each time: it changes with the login and with TLS (ADR-0055, decision 2).
     private string Capabilities =>
-        ImapCapabilities.List(view is null ? mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession) : null, context.Limits.MaxUploadBytes);
+        ImapCapabilities.List(view is null ? mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession) : null, context.Limits.MaxUploadBytes, CanUpgrade);
+
+    // STARTTLS is offered, and answered, only on a plaintext connection of a server that can
+    // upgrade (ADR-0055, decision 11).
+    private bool CanUpgrade => isStartTlsAvailable && connection.TlsSession is null;
 
     /// <summary>
     /// Sends the greeting, then answers every command until the session ends.

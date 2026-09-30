@@ -7,9 +7,17 @@ ADR-0055 decides every response. `ImapProtocolServer` answers `LOGIN`, `CAPABILI
 `LOGOUT`, `ID`, `NAMESPACE`, `SELECT`, `EXAMINE`, `LIST`, `LSUB`, `STATUS`, `CHECK`, `CLOSE` and
 `UNSELECT` from the shared mail store (BL-201), `FETCH`, `UID FETCH`, `SEARCH` and
 `UID SEARCH` (BL-202), and `APPEND`, `CREATE`, `DELETE`, `RENAME`, `SUBSCRIBE`, `UNSUBSCRIBE`,
-`STORE`, `COPY`, `MOVE`, `EXPUNGE` and their `UID` forms (BL-203, in `ImapSession.Changes.cs`);
-`STARTTLS` and `AUTHENTICATE` (BL-204) are still answered `BAD Command not recognized`. It is not
-yet registered in `Surl.Console` (BL-208).
+`STORE`, `COPY`, `MOVE`, `EXPUNGE` and their `UID` forms (BL-203, in `ImapSession.Changes.cs`), and
+`STARTTLS` and `AUTHENTICATE` (BL-204, in `ImapSession.Authentication.cs`). It is not yet
+registered in `Surl.Console` (BL-208), which sets the constructor's `isStartTlsAvailable` when a
+server certificate is configured and wraps it in `ImplicitTlsSchemeServer` for `imaps`: the server
+claims `imap` only and tells implicit TLS apart by `IConnection.TlsSession`.
+
+`AUTHENTICATE` frames ADR-0049's SASL exchange - base64, `=`, `*`, the `+ ` continuations read
+through `CrlfLineReader.ReadSaslContinuationAsync` - and `IMailAuthenticationPolicy` decides every
+step. `STARTTLS` discards what `CrlfLineReader` buffered after its line before the upgrade.
+ADR-0055 decision 18 records the details BL-204 settled, among them that curl 8.21.0 remembers
+`LOGINDISABLED` across `STARTTLS`.
 
 `APPEND`'s message literal is not read like other literals: `ImapCommandReader` stops at it
 (`ImapCommandReadOutcome.AppendMessage`), the session checks the login, the mailbox and

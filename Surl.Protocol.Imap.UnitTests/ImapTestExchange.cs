@@ -50,9 +50,16 @@ internal static class ImapTestExchange
         }
     }
 
-    public static ImapProtocolServer Server(MailboxStore store) => new(new AnonymousAuthenticationPolicy(), new AnonymousAuthenticationPolicy(), store);
+    /// <summary>
+    /// A server whose policy answers every login <see cref="PasswordLoginVerdict.AcceptedUnchecked"/>,
+    /// as <c>--allow-anonymous</c> does, and offers the clear-password login and no SASL mechanism,
+    /// as the recordings in <c>Fixtures/</c> were served.
+    /// </summary>
+    public static ImapProtocolServer Server(MailboxStore store) =>
+        Server(store, new ScriptedLoginPolicy(PasswordLoginVerdict.AcceptedUnchecked, PasswordLoginVerdict.AcceptedUnchecked));
 
-    public static ImapProtocolServer Server(MailboxStore store, ScriptedLoginPolicy policy) => new(policy, policy, store);
+    public static ImapProtocolServer Server(MailboxStore store, ScriptedLoginPolicy policy, bool isStartTlsAvailable = false) =>
+        new(policy, policy, store, isStartTlsAvailable);
 
     public static ExchangeContext Context(
         TimeProvider timeProvider,

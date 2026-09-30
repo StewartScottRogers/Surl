@@ -108,3 +108,39 @@ row 28) are pinned by the fast tests in `ImapAppendTests`.
 | `uid-expunge` | `-X 'UID EXPUNGE 1:2' imap://.../INBOX` | `SELECT INBOX`, the command | `* 1 EXPUNGE` |
 
 Every case also gives `-sS -u u:p`; each reply ends with its tagged completion.
+
+## STARTTLS, imaps and AUTHENTICATE (BL-204)
+
+Recorded on 2026-09-30 the same way, on port 18343, with `-ImapIdleMilliseconds 3000`, the `LIST`
+and `LOGOUT` replies above, and the greeting and capabilities below (`$caps` as above). Every URL is
+`imap://127.0.0.1:18343/` but `imaps`'s, so after the login curl sends `LIST "" *` and `LOGOUT`.
+
+| Folder | Greeting and `CAPABILITY` replies | curl arguments | curl sends | Exit |
+| --- | --- | --- | --- | --- |
+| `starttls` | `$caps STARTTLS`, then after TLS `$caps`; `STARTTLS=OK Begin TLS negotiation now`, `LOGIN=OK LOGIN completed` | `-sS -k --ssl-reqd -u u:p` | `CAPABILITY`, `STARTTLS`, over TLS `CAPABILITY`, `LOGIN u p`, `LIST`, `LOGOUT` | 0 |
+| `starttls-logindisabled-remembered` | `$caps STARTTLS LOGINDISABLED`, then after TLS `$caps`; `STARTTLS` as above | as `starttls` | `CAPABILITY`, `STARTTLS`, over TLS `CAPABILITY`, then hangs up: `curl: (67) Login denied` | 67 |
+| `starttls-authenticate` | `$caps STARTTLS LOGINDISABLED AUTH=CRAM-MD5`, then after TLS `$caps AUTH=CRAM-MD5 AUTH=OAUTHBEARER AUTH=XOAUTH2 AUTH=PLAIN AUTH=LOGIN`; `STARTTLS` as above; `-SaslChallenge` as `authenticate-cram-md5` | `-sS -k --ssl-reqd -u user:secret` | as `starttls`, with `AUTHENTICATE CRAM-MD5` and its response for the login | 0 |
+| `starttls-not-offered` | `$caps` | `-sS --ssl-reqd -u u:p` | `CAPABILITY`, then hangs up: `curl: (64) STARTTLS not available.` | 64 |
+| `imaps` | `$caps`; `LOGIN` as above; `-Tls` | `-sS -k -u u:p imaps://127.0.0.1:18343/` | TLS from the first byte, `CAPABILITY`, `LOGIN u p`, `LIST`, `LOGOUT` | 0 |
+| `authenticate-<mechanism>` | `$caps LOGINDISABLED AUTH=<MECHANISM>`; `-SaslChallenge` scripting the challenges below, then `<MECHANISM>=OK AUTHENTICATE completed` | `-sS -u <credentials> --login-options AUTH=<MECHANISM>` | `CAPABILITY`, `AUTHENTICATE <MECHANISM>` with the initial response where the mechanism has one (`SASL-IR` is advertised, ADR-0055 D3), the responses, `LIST`, `LOGOUT` | 0 |
+| `authenticate-refused` | `$caps LOGINDISABLED AUTH=CRAM-MD5`; `-SaslChallenge` the `CRAM-MD5` challenge, then `CRAM-MD5=NO [AUTHENTICATIONFAILED] Authentication failed` | `-sS -u user:wrong --login-options AUTH=CRAM-MD5` | `CAPABILITY`, `AUTHENTICATE CRAM-MD5`, the response, then hangs up: `curl: (67) Login denied` | 67 |
+
+The challenges are POP3's (its `Fixtures/README.md`); with `SASL-IR` curl sends the first response
+on the command line, so the mechanisms that have an initial response get one challenge fewer:
+
+| Mechanism | Credentials | Challenges scripted |
+| --- | --- | --- |
+| `PLAIN` | `user:secret` | none |
+| `LOGIN` | `user:secret` | `Password:` in base64 (`Username:`'s answer is the initial response) |
+| `CRAM-MD5` | `user:secret` | `<0123456789abcdef.1790640000@surl>` |
+| `DIGEST-MD5` | `user:secret` | a `realm="surl"` challenge, then `rspauth=`, answered with an empty line |
+| `NTLM` | `user:secret` | ADR-0039's type 2 message (the type 1 message is the initial response) |
+| `XOAUTH2`, `OAUTHBEARER` | `user: --oauth2-bearer tok` | none |
+| `EXTERNAL` | `user:` | none |
+
+`request.bin` holds the decrypted bytes. `RecordedFixtureTests` hands each `starttls` request out in
+two reads split after the `STARTTLS` line, through `UpgradePointRecordingConnection`, which fails
+the test if the server reads the second before upgrading and pins the upgrade point right after
+the `OK`; it serves `imaps` on a connection that is TLS from the start. The policy is a
+`ScriptedLoginPolicy` offering what the capabilities above say for each TLS state, scripted with
+every `+ ` challenge of the transcript then acceptance (refusal for `authenticate-refused`).
