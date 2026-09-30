@@ -17,7 +17,7 @@ internal static class CommandLineOptions
     private const string AllowAnonymousExplanation =
         "Accepts every request and every login without checking credentials: HTTP serves every request as "
         + "anonymous and sends no challenge, MQTT answers every well-formed CONNECT with CONNACK 0 whatever credentials it "
-        + "carries, SMTP takes mail and IMAP opens mailboxes with no login, FTP logs every USER and PASS in, and SSH logs every client in, with any credential or none. "
+        + "carries, SMTP takes mail and IMAP and POP3 open mailboxes with no login, FTP logs every USER and PASS in, and SSH logs every client in, with any credential or none. "
         + "A test uses it to fetch or publish without setting up accounts. It is not the default because anyone "
         + "who can reach a listener then gets everything surl serves, and can publish and subscribe over MQTT and send and read mail, "
         + "with no login at all. surl warns on every start while it is on, from the info log level up.";
@@ -26,6 +26,7 @@ internal static class CommandLineOptions
         "Accepts passwords and tokens sent over an unencrypted connection: HTTP Basic and Bearer over http:// "
         + "and an MQTT password over mqtt:// are checked instead of refused unchecked (403 Forbidden, CONNACK 5), "
         + "Basic and Bearer are offered in a 401 over http://, SMTP offers PLAIN and LOGIN over smtp:// and IMAP accepts LOGIN and offers PLAIN and LOGIN over imap:// without STARTTLS, "
+        + "POP3 offers USER, PLAIN and LOGIN over pop3:// without STLS, "
         + "and an FTP password over ftp:// without AUTH TLS is checked instead of refused (530). A test uses it to log in without a certificate. "
         + "It is not the default because anyone who can watch the network reads the password as it is sent. "
         + "surl warns on every start while it is on, from the info log level up.";
@@ -34,8 +35,8 @@ internal static class CommandLineOptions
         "Sets the authentication methods surl accepts and offers, a comma-separated list in any case. For HTTP: "
         + "negotiate, ntlm, digest, basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL "
         + "mechanism by its name in lower case, as curl's login option AUTH=<mech> names it: ntlm, digest-md5, "
-        + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP; of those three "
-        + "protocols this build serves SMTP and IMAP, not POP3 yet. external logs in as the TLS client certificate --cacert verifies, so it is "
+        + "cram-md5, plain, login, oauthbearer, xoauth2 and external, and apop for POP3's APOP. "
+        + "external logs in as the TLS client certificate --cacert verifies, so it is "
         + "offered only on a connection that sent one. gssapi is read, but a start that gives it is refused as "
         + "needing --keytab without one and as not available in this build with one (exit code 2). surl refuses a word outside the "
         + "list as an option badly used (exit code 2). A test uses it to offer one method alone, such as --auth "
@@ -92,7 +93,7 @@ internal static class CommandLineOptions
         WithArgument<string>("log-file", null, OptionArgumentReader.Path, (c, v) => c with { LogFile = v },
             new("<file>", "Append the log to <file>", ["logging"], IsInShortList: false, Default: "stderr")),
         WithArgument<string>("directory", null, OptionArgumentReader.Path, (c, v) => c with { DataDirectory = v },
-            new("<directory>", "Data directory, else in memory", ["content", "dict", "ftp", "gopher", "http", "imap", "mqtt", "smtp", "ssh", "tftp"], IsInShortList: true, Default: "in memory")),
+            new("<directory>", "Data directory, else in memory", ["content", "dict", "ftp", "gopher", "http", "imap", "mqtt", "pop3", "smtp", "ssh", "tftp"], IsInShortList: true, Default: "in memory")),
         Flag("allow-uploads", null, negatable: true, (c, on) => c with { AllowUploads = on },
             new(null, "Accept uploads into served files", ["content", "ftp", "security", "ssh", "tftp"], IsInShortList: true, Default: "off")),
         Flag("list-directories", null, negatable: true, (c, on) => c with { ListDirectories = on },
@@ -110,11 +111,11 @@ internal static class CommandLineOptions
         WithArgument<TimeSpan>("max-time", 'm', OptionArgumentReader.Seconds, (c, v) => c with { MaxTime = v },
             new("<seconds>", "Longest time one exchange may take", ["limits"], IsInShortList: false, Default: "3600")),
         WithArgument<TimeSpan>("head-timeout", null, OptionArgumentReader.Seconds, (c, v) => c with { Limits = c.Limits with { HeadTimeout = v } },
-            new("<seconds>", "Time to send a request head", ["dict", "ftp", "gopher", "http", "imap", "limits", "mqtt", "smtp", "ssh"], IsInShortList: false, Default: "30")),
+            new("<seconds>", "Time to send a request head", ["dict", "ftp", "gopher", "http", "imap", "limits", "mqtt", "pop3", "smtp", "ssh"], IsInShortList: false, Default: "30")),
         WithArgument<long>("max-request-head", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxRequestHeadBytes = v } },
             new("<bytes>", "Largest HTTP or RTSP request head", ["http", "limits"], IsInShortList: false, Default: "100k")),
         WithArgument<long>("max-line", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxLineBytes = v } },
-            new("<bytes>", "Longest command line accepted", ["dict", "ftp", "gopher", "imap", "limits", "smtp", "telnet"], IsInShortList: false, Default: "8192")),
+            new("<bytes>", "Longest command line accepted", ["dict", "ftp", "gopher", "imap", "limits", "pop3", "smtp", "telnet"], IsInShortList: false, Default: "8192")),
         WithArgument<long>("max-message", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxMessageBytes = v } },
             new("<bytes>", "Largest framed message accepted", ["limits", "mqtt", "ssh"], IsInShortList: false, Default: "1M")),
         WithArgument<long>("max-filesize", null, OptionArgumentReader.Bytes, (c, v) => c with { Limits = c.Limits with { MaxUploadBytes = v } },
@@ -142,20 +143,20 @@ internal static class CommandLineOptions
         WithArgument<string>("cacert", null, OptionArgumentReader.Path, (c, v) => c with { CaCertificateFile = v },
             new("<file>", "CA certificates for client certs", ["tls"], IsInShortList: false, Default: "none")),
         WithArgument<CommandLineAccount>("user", 'u', OptionArgumentReader.Account, (c, v) => c with { Accounts = [.. c.Accounts, v] },
-            new("<user:password>", "Add an account (repeatable)", ["auth", "ftp", "http", "imap", "mqtt", "smtp", "ssh"], IsInShortList: true, Default: "no accounts"))
+            new("<user:password>", "Add an account (repeatable)", ["auth", "ftp", "http", "imap", "mqtt", "pop3", "smtp", "ssh"], IsInShortList: true, Default: "no accounts"))
             with { ArgumentHoldsSecret = true },
         WithArgument<string>("user-file", null, OptionArgumentReader.Path, (c, v) => c with { UserFile = v },
-            new("<file>", "Read accounts from a file", ["auth", "ftp", "http", "imap", "mqtt", "smtp", "ssh"], IsInShortList: true, Default: "none")),
+            new("<file>", "Read accounts from a file", ["auth", "ftp", "http", "imap", "mqtt", "pop3", "smtp", "ssh"], IsInShortList: true, Default: "none")),
         WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
             new("<file>", "Read Kerberos service keys from a keytab file", ["auth"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
-            new(null, "Accept any login, or none (warns)", ["auth", "ftp", "http", "imap", "mqtt", "security", "smtp", "ssh", "testing"], IsInShortList: false, Default: "off",
+            new(null, "Accept any login, or none (warns)", ["auth", "ftp", "http", "imap", "mqtt", "pop3", "security", "smtp", "ssh", "testing"], IsInShortList: false, Default: "off",
                 AllowAnonymousExplanation)),
         Flag("allow-plaintext-auth", null, negatable: true, (c, on) => c with { AllowPlaintextAuthentication = on },
-            new(null, "Accept passwords in clear (warns)", ["auth", "ftp", "http", "imap", "mqtt", "security", "smtp", "testing"], IsInShortList: false, Default: "off",
+            new(null, "Accept passwords in clear (warns)", ["auth", "ftp", "http", "imap", "mqtt", "pop3", "security", "smtp", "testing"], IsInShortList: false, Default: "off",
                 AllowPlaintextAuthExplanation)),
         WithArgument<IReadOnlyList<string>>("auth", null, OptionArgumentReader.AuthenticationMethods, (c, v) => c with { GivenAuthenticationMethods = v },
-            new("<methods>", "Authentication methods accepted", ["auth", "http", "imap", "security", "smtp", "testing"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
+            new("<methods>", "Authentication methods accepted", ["auth", "http", "imap", "pop3", "security", "smtp", "testing"], IsInShortList: false, Default: "digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4",
                 AuthExplanation)),
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
             new(null, "Throwaway certificate (warns)", ["security", "testing", "tls"], IsInShortList: false, Default: "off",

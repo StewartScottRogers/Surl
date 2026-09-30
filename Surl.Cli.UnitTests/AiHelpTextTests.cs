@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207) and imap (BL-208), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208) and pop3 (BL-209), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "imap", "limits", "listen-urls",
-        "logging", "mqtt", "security", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls",
+        "logging", "mqtt", "pop3", "security", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -35,6 +35,7 @@ public sealed partial class AiHelpTextTests
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
         "| `mqtt` | MQTT and MQTTS protocol |",
+        "| `pop3` | POP3 and POP3S protocol |",
         "| `security` | Options that widen what a peer may do |",
         "| `smtp` | SMTP and SMTPS protocol |",
         "| `ssh` | SSH protocol |",
@@ -362,7 +363,7 @@ public sealed partial class AiHelpTextTests
             "| --- | --- | --- | --- | --- | --- | --- |",
             "| `--max-line <bytes>` | bytes | 8192 | digits with an optional decimal point and more digits, then at most one suffix "
                 + "k, m, g, t or p in either case, each 1024 times the one before; at most 9223372036854775807 bytes; 0 means no limit "
-                + "| no | dict, ftp, gopher, imap, limits, smtp, telnet | Longest command line accepted |",
+                + "| no | dict, ftp, gopher, imap, limits, pop3, smtp, telnet | Longest command line accepted |",
             "",
             "## Exit codes",
             "",

@@ -102,6 +102,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl mqtt://127.0.0.1:<port>/example"]),
         Serving(
+            "pop3",
+            "For a test: retrieve mail without accounts",
+            ["--allow-anonymous", "pop3://127.0.0.1:0/"],
+            ["Listening on pop3://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl pop3://127.0.0.1:<port>/"]),
+        Serving(
             "smtp",
             "For a test: receive mail without accounts",
             ["--allow-anonymous", "smtp://127.0.0.1:0/"],
