@@ -27,6 +27,13 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `--allow-plaintext-auth`, `--auth <methods>` (`GivenAuthenticationMethods`, matched
   case-insensitively, in ADR-0032 section 3's order) and `--self-signed` are parsed here;
   `--self-signed` with `--cert` is refused.
+- SSH server options (ADR-0051 decisions 4 to 6): `--hostkey` and `--hostcert` each add a path
+  to `HostKeyFiles` and `HostCertificateFiles`; `--authorized-keys <user:file>` adds a
+  `CommandLineAuthorizedKeys` to `AuthorizedKeys`, split at the first `:`, a user given twice
+  refused after the whole line is read; `--throwaway-hostkey` (`ThrowawayHostKey`) with
+  `--hostkey` is refused; `--allow-weak-ssh-algorithms` sets `AllowWeakSshAlgorithms`. `--pass`
+  without `--cert` is accepted when a `--hostkey` is given. `Surl.Console` refuses a start that
+  gives any of them as not available in this build until the SSH server is composed (BL-171).
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,

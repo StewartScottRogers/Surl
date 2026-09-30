@@ -23,8 +23,8 @@ internal static class ExitCodeGuidanceTable
             ["listen-urls"]),
         new(
             SurlExitCode.FailedInit,
-            "The command line cannot be used: an option or its argument refused, no listen URL, a malformed --user-file, "
-            + "or a --cacert file that does not exist",
+            "The command line cannot be used: an option or its argument refused, an option not available in this build, "
+            + "no listen URL, a malformed --user-file, or a --cacert file that does not exist",
             "Read the surl: line on stderr, which names what was refused, and fix it; the option tables give each option's allowed values",
             ["auth", "limits", "surl", "tls"]),
         new(

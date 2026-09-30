@@ -128,8 +128,9 @@ public sealed record SurlCommandLine
     public CertificateFileFormat KeyType { get; init; } = CertificateFileFormat.Pem;
 
     /// <summary>
-    /// <c>--pass</c>: the passphrase for an encrypted <see cref="KeyFile"/> or a PKCS#12
-    /// <see cref="CertificateFile"/>, as given, the empty string included; none by default.
+    /// <c>--pass</c>: the passphrase for an encrypted <see cref="KeyFile"/>, a PKCS#12
+    /// <see cref="CertificateFile"/> or an encrypted <see cref="HostKeyFiles"/> key (ADR-0051
+    /// decision 4), as given, the empty string included; none by default.
     /// </summary>
     public string? KeyPassphrase { get; init; }
 
@@ -181,6 +182,36 @@ public sealed record SurlCommandLine
     /// given. Off by default.
     /// </summary>
     public bool SelfSigned { get; init; }
+
+    /// <summary>
+    /// The SSH host private key files from every <c>--hostkey</c>, as given, in command-line order:
+    /// each one adds a key (ADR-0051 decision 4). None by default.
+    /// </summary>
+    public IReadOnlyList<string> HostKeyFiles { get; init; } = [];
+
+    /// <summary>
+    /// The OpenSSH host certificate files from every <c>--hostcert</c>, as given, in command-line
+    /// order (ADR-0051 decision 4). None by default.
+    /// </summary>
+    public IReadOnlyList<string> HostCertificateFiles { get; init; } = [];
+
+    /// <summary>
+    /// <c>--throwaway-hostkey</c>: make a throwaway RSA host key at start when an <c>scp</c> or
+    /// <c>sftp</c> URL is served and no <c>--hostkey</c> is given (ADR-0051 decision 4). Off by default.
+    /// </summary>
+    public bool ThrowawayHostKey { get; init; }
+
+    /// <summary>
+    /// The users and <c>authorized_keys</c> files from every <c>--authorized-keys</c>, in
+    /// command-line order; no user name is given twice (ADR-0051 decision 6). None by default.
+    /// </summary>
+    public IReadOnlyList<CommandLineAuthorizedKeys> AuthorizedKeys { get; init; } = [];
+
+    /// <summary>
+    /// <c>--allow-weak-ssh-algorithms</c>: also offer ADR-0051 decision 2's weak SSH algorithms.
+    /// Off by default.
+    /// </summary>
+    public bool AllowWeakSshAlgorithms { get; init; }
 
     /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
     private static readonly IReadOnlyList<string> DefaultAuthenticationMethods = ["digest", "basic", "bearer", "aws-sigv4"];

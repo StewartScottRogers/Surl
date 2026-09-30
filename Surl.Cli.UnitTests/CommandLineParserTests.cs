@@ -19,6 +19,8 @@ public sealed class CommandLineParserTests
         ["allow-anonymous"] = c => c.AllowAnonymous,
         ["allow-plaintext-auth"] = c => c.AllowPlaintextAuthentication,
         ["self-signed"] = c => c.SelfSigned,
+        ["throwaway-hostkey"] = c => c.ThrowawayHostKey,
+        ["allow-weak-ssh-algorithms"] = c => c.AllowWeakSshAlgorithms,
     };
 
     [TestMethod]
@@ -280,6 +282,8 @@ public sealed class CommandLineParserTests
     [DataRow("allow-anonymous", "--allow-anonymous")]
     [DataRow("allow-plaintext-auth", "--allow-plaintext-auth")]
     [DataRow("self-signed", "--self-signed")]
+    [DataRow("throwaway-hostkey", "--throwaway-hostkey")]
+    [DataRow("allow-weak-ssh-algorithms", "--allow-weak-ssh-algorithms")]
     public void Parse_Flag_TurnsItOn(string longName, string written) =>
         Assert.IsTrue(FlagValues[longName](Served(written, Url)));
 
@@ -292,6 +296,8 @@ public sealed class CommandLineParserTests
     [DataRow("allow-anonymous")]
     [DataRow("allow-plaintext-auth")]
     [DataRow("self-signed")]
+    [DataRow("throwaway-hostkey")]
+    [DataRow("allow-weak-ssh-algorithms")]
     public void Parse_NegatedAfterFlag_LaterWinsAndTurnsItOff(string longName)
     {
         Assert.IsFalse(FlagValues[longName](Served($"--{longName}", $"--no-{longName}", Url)));
@@ -1087,6 +1093,120 @@ public sealed class CommandLineParserTests
         Assert.IsNull(CommandLineParser.Parse(["--no-such"]).AiHelpTopic);
         Assert.IsNull(CommandLineParser.Parse([Url]).AiHelpTopic);
     }
+
+    // The SSH server options (ADR-0051 decisions 4 to 6).
+
+    [TestMethod]
+    public void NewSurlCommandLine_HoldsTheSshDefaults()
+    {
+        var defaults = new SurlCommandLine();
+
+        Assert.IsEmpty(defaults.HostKeyFiles);
+        Assert.IsEmpty(defaults.HostCertificateFiles);
+        Assert.IsFalse(defaults.ThrowawayHostKey);
+        Assert.IsEmpty(defaults.AuthorizedKeys);
+        Assert.IsFalse(defaults.AllowWeakSshAlgorithms);
+    }
+
+    [TestMethod]
+    public void Parse_HostKeyAndHostCert_EachAddAFileInOrder()
+    {
+        var commandLine = Served("--hostkey", "rsa.key", Url, "--hostkey=ed25519.key", "--hostcert", "rsa-cert.pub", "--hostcert=a=b");
+
+        CollectionAssert.AreEqual(new[] { "rsa.key", "ed25519.key" }, commandLine.HostKeyFiles.ToArray());
+        CollectionAssert.AreEqual(new[] { "rsa-cert.pub", "a=b" }, commandLine.HostCertificateFiles.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("--hostkey")]
+    [DataRow("--hostcert")]
+    [DataRow("--authorized-keys")]
+    public void Parse_SshFileOptionWithAnEmptyArgument_IsBlank(string name)
+    {
+        AssertOptionRefused([name, "", Url], $"option {name}: blank argument where content is expected");
+        AssertOptionRefused([$"{name}=", Url], $"option {name}=: blank argument where content is expected");
+    }
+
+    [TestMethod]
+    [DataRow("--hostkey")]
+    [DataRow("--hostcert")]
+    [DataRow("--authorized-keys")]
+    public void Parse_SshOptionMissingItsArgument_RequiresParameter(string name) =>
+        AssertOptionRefused([Url, name], $"option {name}: requires parameter");
+
+    [TestMethod]
+    [DataRow("--hostkey")]
+    [DataRow("--hostcert")]
+    [DataRow("--authorized-keys")]
+    public void Parse_NegatedSshFileOption_CannotBeReversed(string name) =>
+        AssertOptionRefused([$"--no-{name[2..]}", Url], $"option --no-{name[2..]}: the given option cannot be reversed with a --no- prefix");
+
+    [TestMethod]
+    public void Parse_AuthorizedKeys_EachAddAUserAndFileInOrder() =>
+        CollectionAssert.AreEqual(
+            new[] { new CommandLineAuthorizedKeys("alice", "alice.keys"), new CommandLineAuthorizedKeys("bob", "bob.keys") },
+            Served("--authorized-keys", "alice:alice.keys", Url, "--authorized-keys=bob:bob.keys").AuthorizedKeys.ToArray());
+
+    [TestMethod]
+    [DataRow(@"alice:C:\Users\alice\.ssh\authorized_keys", "alice", @"C:\Users\alice\.ssh\authorized_keys", DisplayName = "A drive colon is kept")]
+    [DataRow(" a :: b ", " a ", ": b ", DisplayName = "Nothing trimmed")]
+    [DataRow("hé:clés", "hé", "clés", DisplayName = "Non-ASCII")]
+    public void Parse_AuthorizedKeysValue_IsSplitAtItsFirstColon(string value, string userName, string file) =>
+        Assert.AreEqual(new CommandLineAuthorizedKeys(userName, file), Served("--authorized-keys", value, Url).AuthorizedKeys.Single());
+
+    [TestMethod]
+    [DataRow(new[] { "--authorized-keys", "alice" }, "option --authorized-keys: expected <user:file>", DisplayName = "No colon")]
+    [DataRow(new[] { "--authorized-keys", ":alice.keys" }, "option --authorized-keys: the user name is empty", DisplayName = "Empty user")]
+    [DataRow(new[] { "--authorized-keys", ":" }, "option --authorized-keys: the user name is empty", DisplayName = "Empty user and file")]
+    [DataRow(new[] { "--authorized-keys", "al\tice:k" }, "option --authorized-keys: the user name holds a control character", DisplayName = "TAB in the user")]
+    [DataRow(new[] { "--authorized-keys", "al\u007Fice:k" }, "option --authorized-keys: the user name holds a control character", DisplayName = "DEL in the user")]
+    [DataRow(new[] { "--authorized-keys", "alice:" }, "option --authorized-keys: blank argument where content is expected", DisplayName = "Empty file")]
+    [DataRow(new[] { "--authorized-keys", "alice:a.keys", "--authorized-keys", "alice:b.keys" }, "option --authorized-keys: user alice is given twice", DisplayName = "A user twice")]
+    [DataRow(new[] { "--authorized-keys=bob:b", "--authorized-keys=alice:a", "--authorized-keys=alice:a" }, "option --authorized-keys=alice:a: user alice is given twice", DisplayName = "Named as written")]
+    public void Parse_AuthorizedKeysRefused_IsRefusedWithItsReason(string[] arguments, string message) =>
+        AssertOptionRefused([.. arguments, Url], message);
+
+    [TestMethod]
+    public void Parse_AuthorizedKeysUserAlsoGivenByUser_IsServed()
+    {
+        var commandLine = Served("--user", "alice:secret", "--authorized-keys", "alice:alice.keys", Url);
+
+        Assert.AreEqual("alice", commandLine.Accounts.Single().UserName);
+        Assert.AreEqual("alice", commandLine.AuthorizedKeys.Single().UserName);
+    }
+
+    [TestMethod]
+    public void Parse_AuthorizedKeysUserGivenTwice_IsCheckedAfterTheWholeLine() =>
+        AssertOptionRefused(["--authorized-keys", "a:a", "--authorized-keys", "a:b", "--nosuch", Url], "option --nosuch: is unknown");
+
+    [TestMethod]
+    [DataRow(new[] { "--throwaway-hostkey", "--hostkey", "k" }, DisplayName = "Throwaway first")]
+    [DataRow(new[] { "--hostkey", "k", "--throwaway-hostkey" }, DisplayName = "Host key first")]
+    public void Parse_ThrowawayHostKeyWithHostKey_IsRefused(string[] arguments) =>
+        AssertOptionRefused([.. arguments, Url], "option --throwaway-hostkey: cannot be used with --hostkey");
+
+    [TestMethod]
+    public void Parse_ThrowawayHostKeyTurnedOffWithHostKey_IsServed() =>
+        Assert.HasCount(1, Served("--throwaway-hostkey", "--no-throwaway-hostkey", "--hostkey", "k", Url).HostKeyFiles);
+
+    [TestMethod]
+    public void Parse_ThrowawayHostKeyWithoutHostKey_IsServed() =>
+        Assert.IsTrue(Served("--throwaway-hostkey", Url).ThrowawayHostKey);
+
+    [TestMethod]
+    [DataRow("x")]
+    [DataRow("")]
+    public void Parse_PassWithHostKeyAndNoCert_IsServed(string passphrase)
+    {
+        var commandLine = Served("--pass", passphrase, "--hostkey", "k", Url);
+
+        Assert.AreEqual(passphrase, commandLine.KeyPassphrase);
+        Assert.IsNull(commandLine.CertificateFile);
+    }
+
+    [TestMethod]
+    public void Parse_KeyWithHostKeyAndNoCert_IsStillRefused() =>
+        AssertOptionRefused(["--hostkey", "h", "--key", "k.pem", Url], "option --key: is badly used here");
 
     private static void AssertHelp(string? subject, params string[] arguments)
     {

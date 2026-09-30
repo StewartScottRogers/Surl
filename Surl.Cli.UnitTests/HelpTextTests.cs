@@ -74,6 +74,18 @@ public sealed class HelpTextTests
         "        certificate, from the info log level up.",
     ];
 
+    private static readonly string[] ThrowawayHostKeyExplanationLines =
+    [
+        "        Makes a throwaway RSA 3072-bit SSH host key at start for an scp or sftp",
+        "        listen URL when no --hostkey is given; without it, and without",
+        "        --hostkey, such a URL is to be refused at start. A test uses it to",
+        "        serve SSH without a key file; curl then needs the key's SHA-256 hash",
+        "        pinned, or -k. It is not the default because no client can know the key",
+        "        beforehand, so a client cannot tell surl from anyone else on the path.",
+        "        It cannot be used with --hostkey. This build has no SSH server yet, so",
+        "        a start that gives it is refused (exit code 2).",
+    ];
+
     // --help with no subject.
 
     [TestMethod]
@@ -122,7 +134,9 @@ public sealed class HelpTextTests
             Row(46, "    --allow-anonymous", "Accept any login, or none (warns)"),
             Row(46, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
             "     --allow-uploads                         Accept uploads into served files",
+            Row(46, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
             Row(46, "    --auth <methods>", "Authentication methods accepted"),
+            Row(46, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
             "     --cacert <file>                         CA certificates for client certs",
             "     --cert <file>                           Server certificate file",
             "     --cert-type <type>                      Format of --cert: PEM, DER or P12",
@@ -130,6 +144,8 @@ public sealed class HelpTextTests
             "     --follow-symlinks                       Follow links that stay in the root",
             "     --head-timeout <seconds>                Time to send a request head",
             " -h, --help <subject>                        Get help for commands",
+            Row(46, "    --hostcert <file>", "SSH host certificate file"),
+            Row(46, "    --hostkey <file>", "SSH host private key file"),
             "     --idle-timeout <seconds>                Close an exchange idle this long",
             "     --key <file>                            Private key for --cert",
             "     --key-type <type>                       Format of --key: PEM or DER",
@@ -144,11 +160,12 @@ public sealed class HelpTextTests
             "     --max-message <bytes>                   Largest framed message accepted",
             "     --max-request-head <bytes>              Largest HTTP or RTSP request head",
             " -m, --max-time <seconds>                    Longest time one exchange may take",
-            "     --pass <phrase>                         Passphrase for the private key",
+            "     --pass <phrase>                         Passphrase for --key and --hostkey",
             Row(46, "    --self-signed", "Throwaway certificate (warns)"),
             "     --serve-dot-files                       Serve names that start with a dot",
             " -S, --show-error                            Show error even when -s is used",
             " -s, --silent                                Silent mode",
+            Row(46, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
             "     --tls-max <version>                     Highest TLS version accepted",
             "     --tlsv1.0                               Accept TLS 1.0 or later",
             "     --tlsv1.1                               Accept TLS 1.1 or later",
@@ -186,11 +203,14 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("auth"),
             "auth: Accounts and authentication methods",
-            Row(30, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
-            Row(30, "    --auth <methods>", "Authentication methods accepted"),
-            Row(30, "-u, --user <user:password>", "Add an account (repeatable)"),
-            Row(30, "    --user-file <file>", "Read accounts from a file"));
+            Row(37, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(37, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(37, "    --auth <methods>", "Authentication methods accepted"),
+            Row(37, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(37, "    --hostcert <file>", "SSH host certificate file"),
+            Row(37, "    --hostkey <file>", "SSH host private key file"),
+            Row(37, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(37, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Testing_ListsItsOptions() =>
@@ -202,6 +222,7 @@ public sealed class HelpTextTests
                 Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
                 Row(30, "    --auth <methods>", "Authentication methods accepted"),
                 Row(30, "    --self-signed", "Throwaway certificate (warns)"),
+                Row(30, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
                 "",
                 "    --allow-anonymous",
                 .. AllowAnonymousExplanationLines,
@@ -214,6 +235,9 @@ public sealed class HelpTextTests
                 "",
                 "    --self-signed",
                 .. SelfSignedExplanationLines,
+                "",
+                "    --throwaway-hostkey",
+                .. ThrowawayHostKeyExplanationLines,
                 "",
             ]);
 
@@ -462,16 +486,18 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("security"),
             "security: Options that widen what a peer may do",
-            Row(30, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
-            Row(30, "    --allow-uploads", "Accept uploads into served files"),
-            Row(30, "    --auth <methods>", "Authentication methods accepted"),
-            Row(30, "    --follow-symlinks", "Follow links that stay in the root"),
-            Row(30, "    --list-directories", "Answer directory listings"),
-            Row(30, "    --self-signed", "Throwaway certificate (warns)"),
-            Row(30, "    --serve-dot-files", "Serve names that start with a dot"),
-            Row(30, "    --tlsv1.0", "Accept TLS 1.0 or later"),
-            Row(30, "    --tlsv1.1", "Accept TLS 1.1 or later"));
+            Row(35, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(35, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(35, "    --allow-uploads", "Accept uploads into served files"),
+            Row(35, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
+            Row(35, "    --auth <methods>", "Authentication methods accepted"),
+            Row(35, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(35, "    --list-directories", "Answer directory listings"),
+            Row(35, "    --self-signed", "Throwaway certificate (warns)"),
+            Row(35, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(35, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
+            Row(35, "    --tlsv1.0", "Accept TLS 1.0 or later"),
+            Row(35, "    --tlsv1.1", "Accept TLS 1.1 or later"));
 
     [TestMethod]
     public void Answer_Surl_ListsItsOptions() =>
@@ -513,7 +539,7 @@ public sealed class HelpTextTests
             "     --cert-type <type>   Format of --cert: PEM, DER or P12",
             "     --key <file>         Private key for --cert",
             "     --key-type <type>    Format of --key: PEM or DER",
-            "     --pass <phrase>      Passphrase for the private key",
+            "     --pass <phrase>      Passphrase for --key and --hostkey",
             "     --self-signed        Throwaway certificate (warns)",
             "     --tls-max <version>  Highest TLS version accepted",
             "     --tlsv1.0            Accept TLS 1.0 or later",
@@ -618,7 +644,7 @@ public sealed class HelpTextTests
     {
         var text = HelpText.Answer("testing").Output;
 
-        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--self-signed" })
+        foreach (var looseningOption in new[] { "--allow-anonymous", "--allow-plaintext-auth", "--auth <methods>", "--self-signed", "--throwaway-hostkey" })
         {
             StringAssert.Contains(text, NewLine + "    " + looseningOption + NewLine, looseningOption);
         }

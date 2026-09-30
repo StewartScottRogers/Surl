@@ -63,6 +63,9 @@ public sealed class AiHelpFactsTests
     [DataRow("directory", "path")]
     [DataRow("pass", "text")]
     [DataRow("user", "user:password")]
+    [DataRow("authorized-keys", "user:file")]
+    [DataRow("hostkey", "path")]
+    [DataRow("hostcert", "path")]
     [DataRow("cert-type", "word")]
     [DataRow("key-type", "word")]
     public void ArgumentOption_HasTheArgumentTypeOfItsReader(string longName, string argumentType)
@@ -73,12 +76,12 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
-    public void LoosensSecurityForTestsOnly_IsExactlyTheFourTestingOptions()
+    public void LoosensSecurityForTestsOnly_IsExactlyTheFiveTestingOptions()
     {
         var testing = CommandLineOptions.All.Where(option => option.Help.Categories.Contains("testing")).ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "self-signed" },
+            new[] { "allow-anonymous", "allow-plaintext-auth", "auth", "self-signed", "throwaway-hostkey" },
             testing.Select(option => option.LongName).ToArray());
         foreach (var option in testing)
         {
@@ -96,7 +99,7 @@ public sealed class AiHelpFactsTests
             .ToArray();
 
         CollectionAssert.AreEquivalent(
-            new[] { "allow-uploads", "list-directories", "follow-symlinks", "serve-dot-files", "tlsv1.0", "tlsv1.1" },
+            new[] { "allow-uploads", "list-directories", "follow-symlinks", "serve-dot-files", "tlsv1.0", "tlsv1.1", "allow-weak-ssh-algorithms" },
             widening);
     }
 

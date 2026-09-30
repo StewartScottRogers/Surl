@@ -429,8 +429,8 @@ public sealed partial class AiHelpTextTests
                 + "| Nothing: surl succeeded, or stopped cleanly when asked |",
             "| 1 | `UnsupportedProtocol` | A listen URL names a scheme this build does not serve "
                 + "| Run surl --version to list the schemes this build serves, and use one of them |",
-            "| 2 | `FailedInit` | The command line cannot be used: an option or its argument refused, no listen URL, "
-                + "a malformed --user-file, or a --cacert file that does not exist "
+            "| 2 | `FailedInit` | The command line cannot be used: an option or its argument refused, "
+                + "an option not available in this build, no listen URL, a malformed --user-file, or a --cacert file that does not exist "
                 + "| Read the surl: line on stderr, which names what was refused, and fix it; "
                 + "the option tables give each option's allowed values |",
             "| 3 | `MalformedUrl` | A listen URL is malformed "
@@ -564,6 +564,7 @@ public sealed partial class AiHelpTextTests
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
+            "surl: (2) --<option> is not available in this build",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

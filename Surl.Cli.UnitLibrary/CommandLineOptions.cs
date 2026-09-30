@@ -46,6 +46,14 @@ internal static class CommandLineOptions
         + "from anyone else on the path. It cannot be used with --cert. surl warns when it makes the certificate, "
         + "from the info log level up.";
 
+    private const string ThrowawayHostKeyExplanation =
+        "Makes a throwaway RSA 3072-bit SSH host key at start for an scp or sftp listen URL when no --hostkey is "
+        + "given; without it, and without --hostkey, such a URL is to be refused at start. A test uses it to serve "
+        + "SSH without a key file; curl then needs the key's SHA-256 hash pinned, or -k. It is not the default "
+        + "because no client can know the key beforehand, so a client cannot tell surl from anyone else on the path. "
+        + "It cannot be used with --hostkey. This build has no SSH server yet, so a start that gives it is refused "
+        + "(exit code 2).";
+
 #pragma warning disable SYSLIB0039 // --tlsv1.0 and --tlsv1.1 name the old versions on purpose (ADR-0007 section 2).
     private static readonly CommandLineOption[] Table =
     [
@@ -122,7 +130,7 @@ internal static class CommandLineOptions
         WithArgument<CertificateFileFormat>("key-type", null, OptionArgumentReader.KeyType, (c, v) => c with { KeyType = v },
             new("<type>", "Format of --key: PEM or DER", ["tls"], IsInShortList: false, Default: "PEM")),
         WithArgument<string>("pass", null, OptionArgumentReader.Text, (c, v) => c with { KeyPassphrase = v },
-            new("<phrase>", "Passphrase for the private key", ["tls"], IsInShortList: false, Default: "none")),
+            new("<phrase>", "Passphrase for --key and --hostkey", ["tls"], IsInShortList: false, Default: "none")),
         WithArgument<string>("cacert", null, OptionArgumentReader.Path, (c, v) => c with { CaCertificateFile = v },
             new("<file>", "CA certificates for client certs", ["tls"], IsInShortList: false, Default: "none")),
         WithArgument<CommandLineAccount>("user", 'u', OptionArgumentReader.Account, (c, v) => c with { Accounts = [.. c.Accounts, v] },
@@ -142,6 +150,18 @@ internal static class CommandLineOptions
         Flag("self-signed", null, negatable: true, (c, on) => c with { SelfSigned = on },
             new(null, "Throwaway certificate (warns)", ["security", "testing", "tls"], IsInShortList: false, Default: "off",
                 SelfSignedExplanation)),
+        WithArgument<string>("hostkey", null, OptionArgumentReader.Path, (c, v) => c with { HostKeyFiles = [.. c.HostKeyFiles, v] },
+            new("<file>", "SSH host private key file", ["auth"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("hostcert", null, OptionArgumentReader.Path, (c, v) => c with { HostCertificateFiles = [.. c.HostCertificateFiles, v] },
+            new("<file>", "SSH host certificate file", ["auth"], IsInShortList: false, Default: "none")),
+        Flag("throwaway-hostkey", null, negatable: true, (c, on) => c with { ThrowawayHostKey = on },
+            new(null, "Throwaway SSH host key (warns)", ["security", "testing"], IsInShortList: false, Default: "off",
+                ThrowawayHostKeyExplanation)),
+        WithArgument<CommandLineAuthorizedKeys>("authorized-keys", null, OptionArgumentReader.AuthorizedKeys,
+            (c, v) => c with { AuthorizedKeys = [.. c.AuthorizedKeys, v] },
+            new("<user:file>", "SSH public keys a user may use", ["auth"], IsInShortList: false, Default: "none")),
+        Flag("allow-weak-ssh-algorithms", null, negatable: true, (c, on) => c with { AllowWeakSshAlgorithms = on },
+            new(null, "Offer weak SSH algorithms (warns)", ["security"], IsInShortList: false, Default: "off")),
     ];
 #pragma warning restore SYSLIB0039
 
