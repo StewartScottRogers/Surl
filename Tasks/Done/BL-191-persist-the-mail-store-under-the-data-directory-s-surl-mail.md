@@ -60,7 +60,7 @@ with a typed failure; without one it stays in memory, so mail survives a restart
 - Decision: every message's bytes are still held in memory, loaded from their files at start,
   and a message file is written by the save rather than streamed into its pending file as the
   server reads the body. ADR-0050 decision 7's streaming, its `StorageFailed` refusal and
-  read-on-fetch change the API the servers use, so they are BL-226 (filed), not widened into
+  read-on-fetch change the API the servers use, so they are BL-227 (filed), not widened into
   this task. The library's CLAUDE.md states it as intent.
 - Decision: message file numbers are given from 0 by every store, persisted or not, so an
   in-memory store's numbering matches what it would write; an `INBOX` created at load counts

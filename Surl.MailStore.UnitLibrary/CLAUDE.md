@@ -29,7 +29,7 @@ writes what is still needed. A store made by the constructor has no files. The s
 Intent, not yet built: streaming a message body into its pending file as a server reads it,
 refusing that delivery with a typed outcome when the file cannot be written, and reading a
 message's bytes from its file on fetch rather than holding them in memory (ADR-0050
-decision 7; BL-226). Until then every message's bytes are held in memory, loaded at start.
+decision 7; BL-227). Until then every message's bytes are held in memory, loaded at start.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,

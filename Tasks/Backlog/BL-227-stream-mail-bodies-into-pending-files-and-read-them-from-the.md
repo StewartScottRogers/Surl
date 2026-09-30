@@ -1,5 +1,5 @@
 ---
-id: BL-226
+id: BL-227
 title: Stream mail bodies into pending files and read them from their files on fetch
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-047
 created: 2026-09-29
 completed:
 ---
-# BL-226 — Stream mail bodies into pending files and read them from their files on fetch
+# BL-227 — Stream mail bodies into pending files and read them from their files on fetch
 
 ## Goal
 
