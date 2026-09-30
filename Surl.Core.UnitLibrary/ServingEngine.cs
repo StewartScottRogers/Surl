@@ -34,6 +34,7 @@ public sealed partial class ServingEngine
     private readonly TimeProvider timeProvider;
     private readonly TimeSpan shutdownGracePeriod;
     private readonly ConnectionLimits connectionLimits;
+    private readonly IDataConnectionOpener dataConnectionOpener;
     private long lastExchangeId;
 
     /// <summary>
@@ -68,7 +69,9 @@ public sealed partial class ServingEngine
     }
 
     /// <summary>
-    /// Creates the engine.
+    /// Creates the engine with no data connections: every exchange's
+    /// <see cref="ExchangeContext.DataConnections"/> refuses, through
+    /// <see cref="RefusingDataConnectionOpener.Instance"/> (ADR-0052, decision 9).
     /// </summary>
     /// <param name="listenerFactory">Starts the listeners.</param>
     /// <param name="protocolServers">Every protocol server, each answering the schemes it lists.</param>
@@ -91,12 +94,49 @@ public sealed partial class ServingEngine
         TimeProvider timeProvider,
         TimeSpan shutdownGracePeriod,
         ConnectionLimits connectionLimits)
+        : this(listenerFactory, protocolServers, exchangeLogFactory, timeProvider, shutdownGracePeriod, connectionLimits, RefusingDataConnectionOpener.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Creates the engine.
+    /// </summary>
+    /// <param name="listenerFactory">Starts the listeners.</param>
+    /// <param name="protocolServers">Every protocol server, each answering the schemes it lists.</param>
+    /// <param name="exchangeLogFactory">Hands out one log per exchange.</param>
+    /// <param name="timeProvider">The one clock: the shutdown grace period and every exchange's time come from it.</param>
+    /// <param name="shutdownGracePeriod">
+    /// How long shutdown waits for exchanges in flight before cancelling them; zero or more.
+    /// </param>
+    /// <param name="connectionLimits">
+    /// How many connections the engine holds at once, and how long one exchange may idle or last.
+    /// </param>
+    /// <param name="dataConnectionOpener">
+    /// Opens the FTP data connections each connection exchange asks for through its
+    /// <see cref="ExchangeContext.DataConnections"/> (ADR-0052, decision 9). The engine wraps it
+    /// per exchange: data bytes restart the exchange's idle clock and reach its log, and what
+    /// the server leaves open is disposed when the exchange ends. Data connections do not count
+    /// against <paramref name="connectionLimits"/>.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Two protocol servers list the same scheme, or one takes both connections and datagram flows.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
+    public ServingEngine(
+        IListenerFactory listenerFactory,
+        IReadOnlyList<IProtocolServer> protocolServers,
+        IExchangeLogFactory exchangeLogFactory,
+        TimeProvider timeProvider,
+        TimeSpan shutdownGracePeriod,
+        ConnectionLimits connectionLimits,
+        IDataConnectionOpener dataConnectionOpener)
     {
         ArgumentNullException.ThrowIfNull(listenerFactory);
         ArgumentNullException.ThrowIfNull(protocolServers);
         ArgumentNullException.ThrowIfNull(exchangeLogFactory);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(connectionLimits);
+        ArgumentNullException.ThrowIfNull(dataConnectionOpener);
         ArgumentOutOfRangeException.ThrowIfLessThan(shutdownGracePeriod, TimeSpan.Zero);
 
         this.listenerFactory = listenerFactory;
@@ -105,6 +145,7 @@ public sealed partial class ServingEngine
         this.timeProvider = timeProvider;
         this.shutdownGracePeriod = shutdownGracePeriod;
         this.connectionLimits = connectionLimits;
+        this.dataConnectionOpener = dataConnectionOpener;
     }
 
     /// <summary>
@@ -463,7 +504,12 @@ public sealed partial class ServingEngine
         var (exchangeId, log, context) = OpenExchange(route.ListenUrl, connection.LocalEndPoint, connection.RemoteEndPoint, deadlines);
 
         var recordingConnection = new RecordingConnection(connection, log);
-        var failure = await CaptureFailureAsync(() => SecureThenServeAsync(recordingConnection, route, deadlines, context));
+        var dataConnections = new ExchangeDataConnections(dataConnectionOpener, log, deadlines);
+        var failure = await CaptureFailureAsync(() => SecureThenServeAsync(
+            recordingConnection, route, deadlines, context with { DataConnections = dataConnections }));
+
+        // Never throws: a data connection that fails to dispose does not stop the exchange ending.
+        await dataConnections.DisposeAsync();
 
         if (NoteHowTheExchangeEnded(failure?.SourceException, log, exchangeId, deadlines.Reason))
         {
