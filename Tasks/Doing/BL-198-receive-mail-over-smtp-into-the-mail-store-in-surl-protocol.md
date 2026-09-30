@@ -54,3 +54,4 @@ ADR decides (TLS is BL-199, `AUTH` is BL-200).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
