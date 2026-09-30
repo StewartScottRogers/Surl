@@ -8,7 +8,7 @@ depends-on: [BL-184, BL-185]
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-044
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-187 — Decide how the IMAP server answers upstream curl
 
@@ -44,17 +44,31 @@ BL-204 and BL-208 can be built without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", records each measurement (build path, SHA-256, arguments,
       date, transcript excerpt) and decides every point in Context.
-- [ ] It lists the curl 8.21.0 command lines BL-211 must prove, with the expected exit code and
+- [x] It lists the curl 8.21.0 command lines BL-211 must prove, with the expected exit code and
       stdout for each.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help.
 
 ## Notes
+
+- ADR-0055 (`ADR-0055-how-the-imap-server-answers-upstream-curl.md`) decides it, from 50 recorded
+  sessions of the pinned Windows reference build on 2026-09-30 plus five sessions serving the
+  decided responses (D1 to D5).
+- `Record-CurlExchange.ps1` needed no extension: `-Imap`, `-ImapReply` (with `CLOSE`), `-Tls` and
+  `-SaslChallenge` covered every case, so the script is unchanged and its help needs nothing.
+- Findings that shaped the decisions: `imap://h/INBOX` without `;UID=` lists (`LIST "INBOX" *`);
+  a body sent as a quoted string is exit 8, so every body is a literal; curl never logs in without
+  `-u` (so a command before login asks the policy, as SMTP's first `MAIL` does); a `PREAUTH`
+  greeting makes curl skip `-u`; with `SASL-IR` advertised curl sends the initial response unasked;
+  an `APPEND` refused before `+` is exit 25 and the session can go on.
+- Defaults taken (recorded in the ADR's alternatives): IMAP4rev1 only; `/` delimiter; every mailbox
+  counts as subscribed; no `IDLE`, no `LITERAL+`; keywords ignored on `STORE`/`APPEND`.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0055 decides every IMAP response from 55 measured curl 8.21.0 sessions and lists BL-211's command lines
