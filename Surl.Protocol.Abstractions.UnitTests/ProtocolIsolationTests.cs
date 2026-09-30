@@ -15,6 +15,7 @@ public sealed class ProtocolIsolationTests
     private const string Abstractions = "Surl.Protocol.Abstractions.UnitLibrary";
     private const string Content = "Surl.Content.UnitLibrary";
     private const string Cryptography = "Surl.Cryptography.UnitLibrary";
+    private const string BcryptPbkdf = "Surl.Cryptography.BcryptPbkdf.UnitLibrary";
     private const string ChaCha20 = "Surl.Cryptography.ChaCha20.UnitLibrary";
     private const string Curve25519 = "Surl.Cryptography.Curve25519.UnitLibrary";
     private const string Ed25519 = "Surl.Cryptography.Ed25519.UnitLibrary";
@@ -23,13 +24,15 @@ public sealed class ProtocolIsolationTests
     private const string MailStore = "Surl.MailStore.UnitLibrary";
 
     /// <summary>
-    /// ADR-0002's table, with the rows ADR-0048 and ADR-0050 add: each horizontal library a
-    /// protocol server may reference, with the projects that library may itself reference.
+    /// ADR-0002's table, with the rows ADR-0048, ADR-0050 and ADR-0051 add: each horizontal
+    /// library a protocol server may reference, with the projects that library may itself
+    /// reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
     {
         [Content] = [Abstractions],
         [Cryptography] = [],
+        [BcryptPbkdf] = [],
         [ChaCha20] = [],
         [Curve25519] = [],
         [Ed25519] = [Curve25519],
@@ -82,6 +85,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Abstractions)]
     [DataRow(Content)]
     [DataRow(Cryptography)]
+    [DataRow(BcryptPbkdf)]
     [DataRow(ChaCha20)]
     [DataRow(Curve25519)]
     [DataRow(Ed25519)]

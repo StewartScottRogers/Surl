@@ -67,6 +67,8 @@
   <Project Path="Surl.Cookies.UnitTests/Surl.Cookies.UnitTests.csproj" />
   <Project Path="Surl.Core.UnitLibrary/Surl.Core.UnitLibrary.csproj" />
   <Project Path="Surl.Core.UnitTests/Surl.Core.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.BcryptPbkdf.UnitLibrary/Surl.Cryptography.BcryptPbkdf.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.BcryptPbkdf.UnitTests/Surl.Cryptography.BcryptPbkdf.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.ChaCha20.UnitLibrary/Surl.Cryptography.ChaCha20.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.ChaCha20.UnitTests/Surl.Cryptography.ChaCha20.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.Curve25519.UnitLibrary/Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
