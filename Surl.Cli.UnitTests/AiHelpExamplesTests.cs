@@ -7,7 +7,7 @@ namespace Surl.Cli;
 public sealed class AiHelpExamplesTests
 {
     [TestMethod]
-    public void Examples_AreTheAdrsNineteenSmtpsSshFtpKeytabImapAndPop3InItsOrder()
+    public void Examples_AreTheAdrsExamplesAndEachAddedSinceInItsOrder()
     {
         string[] topics =
         [

@@ -161,7 +161,7 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
-    public void OnlyTheElevenProtocolCategories_HaveSchemes()
+    public void OnlyTheProtocolCategories_HaveSchemes()
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 

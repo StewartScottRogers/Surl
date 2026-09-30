@@ -216,7 +216,7 @@ Each project folder may contain its own `CLAUDE.md` with project-specific rules;
     `HelpCategories` row with its schemes, its `AiHelpProse.TopicAbout` paragraphs and an
     `AiHelpExamples` entry, and the topic list pinned in `AiHelpTextTests` grows by one
     (`CommandLineRunnerAiHelpTests.RegisteredSchemes_AreEachClaimedByExactlyOneProtocolTopic`,
-    `AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder`,
+    `AiHelpTextTests.Topics_AreTheAdrsTopicsAndEachProtocolAddedInOrdinalOrder`,
     `AiHelpTextTests.Answer_EveryTopicAndTheOverview_HasItsAboutText`,
     `AiHelpTextTests.Answer_EveryTopicButExitCodesAndSecurity_HasAnExample`);
   - a `SurlExitCode` member needs its `ExitCodeGuidanceTable` row

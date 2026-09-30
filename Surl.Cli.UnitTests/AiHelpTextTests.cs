@@ -47,7 +47,7 @@ public sealed partial class AiHelpTextTests
     ];
 
     [TestMethod]
-    public void Topics_AreTheAdrsSixteenInOrdinalOrder()
+    public void Topics_AreTheAdrsTopicsAndEachProtocolAddedInOrdinalOrder()
     {
         CollectionAssert.AreEqual(AdrTopicNames, AiHelpTopics.All.Select(topic => topic.Name).ToArray());
     }
