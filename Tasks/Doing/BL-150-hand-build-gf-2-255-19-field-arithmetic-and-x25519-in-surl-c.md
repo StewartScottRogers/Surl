@@ -54,3 +54,4 @@ offer `curve25519-sha256` (BL-167).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
