@@ -1,0 +1,42 @@
+---
+id: BL-238
+title: Rename AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder now that smtp makes seventeen
+priority: Low
+assignee: Claude
+pipeline: docs
+depends-on: []
+touches: [Surl.Cli.UnitTests, CLAUDE.md]
+requirement: none
+created: 2026-09-30
+completed:
+---
+# BL-238 — Rename AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder now that smtp makes seventeen
+
+## Goal
+
+The test that pins the `--aihelp` topic list has a name that stays true as protocol topics are
+added, and the root `CLAUDE.md` names it by that name.
+
+## Context
+
+- BL-207 added the `smtp` topic, so `AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder`
+  (`Surl.Cli.UnitTests/AiHelpTextTests.cs`) now pins seventeen topics; its name says sixteen.
+  BL-207 kept the name because the root `CLAUDE.md` ("`surl --aihelp` is how an agent learns the
+  command line") names the test and was outside its `touches`; it corrected the comment above
+  `AdrTopicNames` only.
+- IMAP and POP3 (BL-208, BL-209) will add more topics, so a count in the name goes stale again:
+  name it for what it checks, such as `Topics_AreTheAdrsTopicsAndEachProtocolAddedInOrdinalOrder`.
+- The same holds for `AiHelpExamplesTests.Examples_AreTheAdrsNineteenAndSmtpsInItsOrder` and
+  `AiHelpFactsTests.OnlyTheSevenProtocolCategories_HaveSchemes`, which BL-207 renamed with a count.
+
+## Acceptance criteria
+
+- [ ] The three tests named above have names without a count, and pass.
+- [ ] The root `CLAUDE.md` names the topic-list test by its new name; `grep -r "AdrsSixteen"` over
+      the repository outside `Tasks/Done` finds nothing.
+
+## Notes
+
+## Log
+
+- 2026-09-30: Created.
