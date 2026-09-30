@@ -562,8 +562,52 @@ were served to the pinned build and it exited 0 on each.
   filter. `SENT*` read the `Date:` field's first three words after an optional `<day>,` as day, month
   and year (two-digit years 00 to 49 are 20xx, others and three-digit years 19xx, RFC 5322 section
   4.3); anything else makes the message match no `SENT*` key.
-- **`UID` with any command but `FETCH` and `SEARCH`** answers `BAD Command not recognized` until
-  BL-203 builds `UID STORE`, `UID COPY`, `UID MOVE` and `UID EXPUNGE`.
+- **`UID` with any command but `FETCH` and `SEARCH`** answered `BAD Command not recognized` until
+  BL-203 built `UID STORE`, `UID COPY`, `UID MOVE` and `UID EXPUNGE` (decision 17); `UID` with any
+  other command still does.
+
+### 17. Details of decisions 6 to 8 settled in BL-203
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-203, where decisions 6 to 8 left a detail open. None changes a byte curl 8.21.0 sends or reads
+in the rows above; the twelve `-T` and `-X` fixtures of BL-203 (`Surl.Protocol.Imap.UnitTests/Fixtures`)
+were served to the pinned build and it exited 0 on each.
+
+- **`APPEND`'s checks, in order**, before the `+`: the login (decision 10), the arguments (`BAD
+  Invalid arguments`), the name (`NO [CANNOT] Invalid mailbox name`, decision 3's row, not
+  `TRYCREATE`: creating it would not help), the mailbox (`NO [TRYCREATE]`), the size
+  (`NO [TOOBIG]`). A literal is `APPEND`'s message when the command before it reads as a tag,
+  `APPEND` and a mailbox; a literal before that is the mailbox, read as any literal is. The
+  `date-time` is read strictly by RFC 3501's grammar: 26 characters, the day's first digit a space
+  or a digit, an English month name, a zone of at most 14 hours either way, and a moment that in
+  UTC still falls between the years 1 and 9999. **Why:** each refusal
+  that can come before the `+` does, so the client sends no message byte for it.
+- **After the message** the rest of the line must be empty; anything else (a second message, as
+  the unadvertised `MULTIAPPEND` sends) is `BAD Invalid arguments` and nothing is stored. A message
+  past the store's own `MaxMessageBytes`, found only once it is read, is `NO [TOOBIG]` with no note.
+- **`STORE`** answers an untagged `FETCH` for each message whose flags the change altered, as
+  decision 7 says, and none for one whose flags stayed the same or one another session expunged.
+  A keyword, or a `\` flag that is not a system flag, is read and ignored; `\Recent` and `\*` are
+  `BAD Invalid arguments`. `STORE`, `COPY` and `MOVE` take message numbers as `FETCH` does: one
+  past `EXISTS` is `BAD Invalid message sequence number`.
+- **`COPYUID`** writes each UID set with runs of consecutive UIDs as `n:m`, the sources in
+  ascending order and the copies paired with them (RFC 4315). A `COPY` or `MOVE` that copies
+  nothing (a UID set naming no message) answers plain `OK`, with no `COPYUID` and, for `MOVE`, no
+  `* OK ... Moved` line.
+- **`MOVE`** is one step in the store (`MailboxStore.Move`): all or none, the originals removed
+  as the copies are made, and a store at its message bound can still move. Its `* <n> EXPUNGE`
+  lines are for its own sources only, highest number first; expunges by other sessions wait for
+  the next command that may send them (RFC 3501 section 7.4.1). `COPY` is allowed under `EXAMINE`,
+  `MOVE` is not.
+- **`UID EXPUNGE <set>`** removes, in one step in the store (`MailboxStore.Expunge` with UIDs),
+  the `\Deleted` messages among the UIDs the set names that the session sees.
+- **`CREATE`** also answers `NO [CANNOT] Invalid mailbox name` for a name the store refuses
+  (ADR-0050 decision 3, e.g. past 1024 bytes). **`DELETE` or `RENAME` of the selected mailbox**
+  leaves the session selected on a name that no longer exists: its next response that may carry
+  updates reports every message expunged, and the session stays selected until `CLOSE`,
+  `UNSELECT` or another `SELECT`.
+- **`UNSUBSCRIBE`** of any `astring` is `OK`, even one that is not a mailbox name, since nothing is
+  kept to refuse.
 
 ## Alternatives considered
 
