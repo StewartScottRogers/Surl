@@ -52,3 +52,4 @@ writes its service principals' keys as an MIT keytab `surl --keytab` reads.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
