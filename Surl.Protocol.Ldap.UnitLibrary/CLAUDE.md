@@ -7,6 +7,12 @@ The LDAP server (RFC 4511): answers the search upstream curl encodes in an `ldap
 
 **URL schemes answered:** `ldap`, `ldaps`
 
+What is here so far is the BER codec (BL-289), internal and with no transport of its own:
+`LdapMessageFrameReader` reads one whole `LDAPMessage` off an `IConnection` under the
+message limit, `LdapMessageDecoder` (with `LdapFilterDecoder` and `LdapBerFieldReader`)
+decodes it into an `LdapMessage` or an `LdapDecodeOutcome` carrying the message ID, and
+`LdapMessageEncoder` writes the responses. All of it uses the BCL's `System.Formats.Asn1`.
+
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
 else. Referencing another protocol server is a
