@@ -8,7 +8,7 @@ depends-on: [BL-180]
 touches: [Documentation/Planning/Decisions/ADR-0052-how-the-ftp-server-answers-and-the-ftp-data-connection-seam.md]
 requirement: FR-036
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-238 — Record BL-180's FTP upload reply choices in ADR-0052
 
@@ -38,14 +38,17 @@ management, including the cases BL-180 decided that the ADR left open.
 
 ## Acceptance criteria
 
-- [ ] ADR-0052 decision 8 states each of the seven choices above, marked as decided in BL-180 by Claude under Stewart's delegation.
-- [ ] Every reply text decision 8 names matches a constant or literal in `Surl.Protocol.Ftp.UnitLibrary/FtpCommandResponder.cs`.
+- [x] ADR-0052 decision 8 states each of the seven choices above, marked as decided in BL-180 by Claude under Stewart's delegation.
+- [x] Every reply text decision 8 names matches a constant or literal in `Surl.Protocol.Ftp.UnitLibrary/FtpCommandResponder.cs`.
 
 ## Notes
 
 - Filed by BL-180.
+- Rewrote decision 8 in place: its intro now names `SITE` among the commands `--allow-uploads` gates, the table gains APPE's REST rule, MKD's absolute path and RNTO's two added replies, the stale "ContentStore has only WriteUploadAsync" bullet now names the BL-226 methods, and a numbered "decided in BL-180" list states the seven choices with why. Decision 1's `SITE` row was updated to match (it said 504 unconditionally).
+- Every reply text in decision 8 was checked against a literal or constant in `FtpCommandResponder.cs` (150, 226, 257, 250 x3, 350, 426, 451 x2, 503, 504, 550 x5, 552, 553 x3, 554).
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0052 decision 8 states every upload and file-management reply FtpCommandResponder sends, with BL-180's seven choices recorded
