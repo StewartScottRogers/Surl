@@ -52,6 +52,24 @@ public sealed class SshKeyDerivationTests
     }
 
     [TestMethod]
+    public void DeriveKey_SharedSecretWithATopByteOfZero_HashesItsMpintWithoutThatByte()
+    {
+        // K as a fixed-width buffer whose top byte is zero, as a Diffie-Hellman round gives about
+        // 1 time in 256: its mpint is the 31 bytes after the zero (RFC 4251 section 5; BL-251).
+        byte[] fixedWidth = [0x00, 0x7F, .. Enumerable.Range(1, 30).Select(value => (byte)value)];
+        byte[] canonicalMpint = [0x00, 0x00, 0x00, 0x1F, .. fixedWidth[1..]];
+        var derivation = new SshKeyDerivation(
+            HashAlgorithmName.SHA256,
+            new BigInteger(fixedWidth, isUnsigned: true, isBigEndian: true),
+            ExchangeHash,
+            SessionIdentifier);
+
+        var expected = SHA256.HashData([.. canonicalMpint, .. ExchangeHash, (byte)'C', .. SessionIdentifier]);
+
+        CollectionAssert.AreEqual(expected, derivation.DeriveKey('C', 32));
+    }
+
+    [TestMethod]
     public void Letters_AreAToFInOrder()
     {
         CollectionAssert.AreEqual("ABCDEF".ToCharArray(), SshKeyDerivation.Letters.ToArray());
