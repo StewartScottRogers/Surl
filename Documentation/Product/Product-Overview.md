@@ -1,8 +1,8 @@
 # Product Overview
 
-- **Status:** Draft. Written for the Phase 0 shell; the numbers below are measured, not
-  estimated. Sections still awaiting a decision are marked `> **TODO**`.
-- **Last updated:** 2026-09-29
+- **Status:** Draft. Written for the Phase 0 shell and kept true as the phases are built; the
+  numbers below are measured, not estimated. No section is awaiting a decision.
+- **Last updated:** 2026-09-30
 - **Measured against:** upstream curl 8.21.0 (released 2026-06-24), tag `curl-8_21_0` of
   https://github.com/curl/curl, and the builds pinned in `UpstreamCurlBuilds.json`
 
@@ -115,6 +115,64 @@ is decided in
 | `Surl.Protocol.Dict` | `dict` |
 | none | `file` has no wire and no server; `Surl.Content` serves files to every protocol that needs them instead (ADR-0002) |
 
+### Built for Phase 2: FTP, FTPS, SCP and SFTP
+
+`surl` registers both Phase 2 servers (`Surl.Console`'s `ComposeProtocolServers`), each with
+its help category and `--aihelp` topic, `ftp` and `ssh`. The terms below are defined in the
+[glossary](../Wiki/Glossary.md), sections "FTP" and "SSH, SCP and SFTP".
+
+- **FTP and FTPS** (`Surl.Protocol.Ftp`,
+  [ADR-0052](../Planning/Decisions/ADR-0052-how-the-ftp-server-answers-and-the-ftp-data-connection-seam.md)):
+  a control connection with `USER`/`PASS` logins through the authentication policy; downloads
+  (`RETR` with `REST`, `SIZE`, `MDTM`, `ABOR`) over passive (`EPSV`, `PASV`) or active (`EPRT`,
+  `PORT`) data connections, to and from the client's own address only; listings (`LIST`,
+  `NLST`, `MLSD`, `MLST`) only with `--list-directories`; uploads and file management (`STOR`,
+  `APPE`, `MKD`, `RMD`, `DELE`, `RNFR`/`RNTO`) only with `--allow-uploads`; explicit FTPS
+  (`AUTH TLS`, `PBSZ`, `PROT`, with `CCC` refused) when a certificate is configured, and
+  implicit FTPS on `ftps://`; and the limit replies of ADR-0052 decision 10, a limit told from
+  shutdown as [ADR-0059](../Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
+  decides. The data connections come through a seam, `IDataConnectionOpener`, that only
+  `Surl.Networking` implements over sockets, so the FTP server stays off the network in its tests.
+- **SCP and SFTP** (`Surl.Protocol.Ssh`,
+  [ADR-0051](../Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md)
+  for the transport, host keys and logins,
+  [ADR-0054](../Planning/Decisions/ADR-0054-how-the-ssh-server-answers-upstream-curls-scp-and-sftp-requests.md)
+  for SCP and SFTP): one SSH server for both schemes. The transport offers the key exchanges,
+  host-key algorithms, ciphers, MACs and compression of ADR-0051 decision 2, among them
+  `curve25519-sha256`, `ssh-ed25519` and `chacha20-poly1305@openssh.com` over the hand-built
+  primitive libraries of
+  [ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md), with
+  strict key exchange and key re-exchange
+  ([ADR-0058](../Planning/Decisions/ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
+  [ADR-0060](../Planning/Decisions/ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md));
+  host keys from `--hostkey` or `--throwaway-hostkey`; logins by password,
+  keyboard-interactive and public key (`--authorized-keys`); session channels running an SCP
+  command (download and upload of one file) or the SFTP subsystem (reads, listings with
+  `--list-directories`, writes, appends, resumed uploads and tree changes with
+  `--allow-uploads`, and curl's `-Q` commands), all through the content store.
+- **Built but not served by `surl`:** the weak SSH algorithms of ADR-0051 decision 2 and
+  [ADR-0061](../Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)
+  (SHA-1, MD5, CBC, RC4, 3DES, Blowfish, CAST-128, RIPEMD-160 and 1024-bit Diffie-Hellman) are
+  built in `Surl.Protocol.Ssh`, but a start that gives `--allow-weak-ssh-algorithms` ends with
+  `surl: (2) --allow-weak-ssh-algorithms is not available in this build`, so `surl` never
+  offers them. Host certificates are not built: a start that gives `--hostcert` ends the same
+  way (ADR-0051 decision 5).
+
+**What pinned upstream curl has proven.** The integration tests in `Surl.Conformance.UnitTests`
+run each Phase 2 case against a live `surl` on loopback. With the Windows reference build
+(curl 8.21.0, libssh2 1.11.1 on WinCNG) every case of ADR-0052 decision 12 over `ftp` and
+`ftps` passed, and every row of ADR-0054 decision 16 over `scp` and `sftp`, with the logins and
+host-key checks of ADR-0051, as ADR-0054's Amendment 1 records; that build negotiates
+`diffie-hellman-group-exchange-sha256`, `rsa-sha2-512` and `chacha20-poly1305@openssh.com`, and
+cannot use an ECDSA-only or Ed25519-only `surl`, since WinCNG offers only RSA host-key
+algorithms. About one SSH connection in 256 with that build fails its key exchange, a libssh2
+1.11.1 defect `surl` does not work around
+([ADR-0062](../Planning/Decisions/ADR-0062-surl-keeps-ks-canonical-mpint-though-libssh2-1-11-1-on-wincng-fails-1-exchange-in-256.md)).
+The same tests run on CI's Linux and macOS legs with the OpenSSL reference builds; what those
+builds negotiate (`curve25519-sha256`, and `ecdsa-sha2-nistp256` or `ssh-ed25519` for such a
+host key) is pinned there as predicted and not yet recorded as measured (ADR-0051 decision 2).
+An algorithm no run negotiates - the weak ones among them - is proven by unit tests only.
+
 ### Also in scope
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
@@ -126,10 +184,13 @@ is decided in
   options (`--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--self-signed`)
   warns on every start. Accounts come from `-u`/`--user` and `--user-file`. Built today:
   HTTP Basic, Bearer, Digest (MD5, SHA-256 and SHA-512-256), NTLM (NTLMv2), Negotiate
-  carrying NTLM (bare or in SPNEGO) and AWS Signature Version 4, and the MQTT `CONNECT`
-  user name and password. In scope, not built yet: Kerberos inside Negotiate,
-  `Proxy-Authenticate` for the proxies, and the logins of the servers not yet built -
-  FTP, the SASL mechanisms of the mail protocols, SSH, SMB and LDAP.
+  carrying NTLM (bare or in SPNEGO) and AWS Signature Version 4; the MQTT `CONNECT`
+  user name and password; FTP `USER`/`PASS`, whose password is a plain-text secret on `ftp://`
+  before `AUTH TLS` (ADR-0052 decision 3); and SSH `password`, `keyboard-interactive` and
+  `publickey` logins, the last against `--authorized-keys`, through `ISshAuthenticationPolicy`
+  (ADR-0051 decisions 6 and 7). The mail servers' logins are decided in ADR-0049. In scope,
+  not built yet: Kerberos inside Negotiate, `Proxy-Authenticate` for the proxies, and the
+  logins of the servers not yet built - SMB and LDAP.
 - **Proxies:** acting as the HTTP `CONNECT` proxy, HTTPS proxy and SOCKS4, SOCKS4a,
   SOCKS5 and SOCKS5h server that curl's proxy options talk to.
 - **TLS on the server side:** certificates and keys, client-certificate verification for
@@ -164,9 +225,10 @@ Two rules carry the design, the same two the Curl port is built on, turned aroun
 
 **Rule 1 - protocol servers depend on abstractions, never on each other.** A protocol
 server references `Surl.Protocol.Abstractions` and the horizontal libraries ADR-0002
-lists (`Surl.Content`, `Surl.Cryptography`, the four SSH primitive libraries of
-ADR-0048, and, once BL-189 adds them, the mail servers' `Surl.MailStore` and
-`Surl.LineProtocol` of ADR-0050); referencing another protocol server is a build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
+lists, as later ADRs amend it (`Surl.Content`, `Surl.Cryptography`, the four SSH primitive
+libraries of ADR-0048, the two of ADR-0051 decision 3 and the three of ADR-0061, and the mail
+servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050); referencing another protocol
+server is a build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
 
 **Rule 2 - the transport is an injected seam.** A protocol server receives an accepted
 connection (or a datagram channel, for TFTP) from a listener seam; it never constructs a
@@ -195,9 +257,9 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, and for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol` |
-| Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7), and will reference `Surl.Kerberos` for Kerberos inside Negotiate and SASL `GSSAPI` (ADR-0057 decision 6, BL-240) |
-| Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md), to be added by BL-189 | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
-| Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305`, decided by [ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md) and added by BL-149; for Kerberos, `Surl.Kerberos`, decided by [ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md) and added by BL-243 | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519` |
+| Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7), and `Surl.Kerberos` (ADR-0057 decision 6) |
+| Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
+| Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305` ([ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md)), `Surl.Cryptography.Rc4` and `Surl.Cryptography.BcryptPbkdf` ([ADR-0051](../Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md) decision 3), and `Surl.Cryptography.Blowfish`, `Surl.Cryptography.Cast128` and `Surl.Cryptography.Ripemd160` ([ADR-0061](../Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)); for Kerberos, `Surl.Kerberos` ([ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)) | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519`, and `Surl.Cryptography.BcryptPbkdf` references `Surl.Cryptography.Blowfish` |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
 | Upstream's test cases | `Surl.Conformance` | Abstractions |
 
@@ -205,10 +267,10 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
 Flat: every project is a directory immediately under the repository root, each production
 project followed by its `.UnitTests` twin (`CLAUDE.md`, "Repository layout"). Every
-project of ADR-0002's map exists from the first commit; the four hand-built SSH primitive
-libraries of ADR-0048 and their twins were added by BL-149, the Kerberos library of ADR-0057
-and its twin by BL-243, and the mail servers' two shared
-libraries of ADR-0050 and their twins will be added by BL-189:
+project of ADR-0002's map exists from the first commit; the nine hand-built SSH primitive
+libraries (four of ADR-0048, two of ADR-0051 and three of ADR-0061), the Kerberos library of
+ADR-0057 and the mail servers' two shared libraries of ADR-0050 were added later, each with
+its twin:
 
 | Production | Tests |
 | --- | --- |
@@ -219,14 +281,19 @@ libraries of ADR-0050 and their twins will be added by BL-189:
 | `Surl.Content.UnitLibrary` | `Surl.Content.UnitTests` |
 | `Surl.Cookies.UnitLibrary` | `Surl.Cookies.UnitTests` |
 | `Surl.Core.UnitLibrary` | `Surl.Core.UnitTests` |
+| `Surl.Cryptography.BcryptPbkdf.UnitLibrary` | `Surl.Cryptography.BcryptPbkdf.UnitTests` |
+| `Surl.Cryptography.Blowfish.UnitLibrary` | `Surl.Cryptography.Blowfish.UnitTests` |
+| `Surl.Cryptography.Cast128.UnitLibrary` | `Surl.Cryptography.Cast128.UnitTests` |
 | `Surl.Cryptography.ChaCha20.UnitLibrary` | `Surl.Cryptography.ChaCha20.UnitTests` |
 | `Surl.Cryptography.Curve25519.UnitLibrary` | `Surl.Cryptography.Curve25519.UnitTests` |
 | `Surl.Cryptography.Ed25519.UnitLibrary` | `Surl.Cryptography.Ed25519.UnitTests` |
 | `Surl.Cryptography.Poly1305.UnitLibrary` | `Surl.Cryptography.Poly1305.UnitTests` |
+| `Surl.Cryptography.Rc4.UnitLibrary` | `Surl.Cryptography.Rc4.UnitTests` |
+| `Surl.Cryptography.Ripemd160.UnitLibrary` | `Surl.Cryptography.Ripemd160.UnitTests` |
 | `Surl.Cryptography.UnitLibrary` | `Surl.Cryptography.UnitTests` |
 | `Surl.Kerberos.UnitLibrary` | `Surl.Kerberos.UnitTests` |
-| `Surl.LineProtocol.UnitLibrary` (to be added by BL-189) | `Surl.LineProtocol.UnitTests` (to be added by BL-189) |
-| `Surl.MailStore.UnitLibrary` (to be added by BL-189) | `Surl.MailStore.UnitTests` (to be added by BL-189) |
+| `Surl.LineProtocol.UnitLibrary` | `Surl.LineProtocol.UnitTests` |
+| `Surl.MailStore.UnitLibrary` | `Surl.MailStore.UnitTests` |
 | `Surl.Networking.UnitLibrary` | `Surl.Networking.UnitTests` |
 | `Surl.Output.UnitLibrary` | `Surl.Output.UnitTests` |
 | `Surl.Protocol.Abstractions.UnitLibrary` | `Surl.Protocol.Abstractions.UnitTests` |

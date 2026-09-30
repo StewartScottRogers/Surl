@@ -50,10 +50,11 @@ surl --directory site --self-signed https://127.0.0.1:8443/
 curl -k https://127.0.0.1:8443/hello.txt
 ```
 
-The aim is every scheme upstream curl can request. **Today `surl` answers** `http` and `https` (HTTP/1.1, `GET` and
-`HEAD`), `dict`, `gopher` and `gophers`, `mqtt` and `mqtts`, `telnet` and `tftp`, until
-Ctrl+C; every other scheme is refused with exit code 1 until its server lands.
-`surl --version` lists the schemes a build serves.
+The aim is every scheme upstream curl can request. **Today `surl` answers** `http` and
+`https` (HTTP/1.1, `GET` and `HEAD`), `dict`, `ftp` and `ftps`, `gopher` and `gophers`,
+`imap` and `imaps`, `mqtt` and `mqtts`, `pop3` and `pop3s`, `scp` and `sftp`, `smtp` and
+`smtps`, `telnet` and `tftp`, until Ctrl+C; every other scheme is refused with exit code 1
+until its server lands. `surl --version` lists the schemes a build serves.
 
 What it serves depends on `--directory` (ADR-0031):
 
@@ -73,7 +74,8 @@ Uploads still need `--allow-uploads`, in memory too.
 Surl is secure by default ([ADR-0032](Documentation/Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)).
 With no account configured, HTTP `GET` and `HEAD` need no login and every login is
 refused; once any account is configured, every HTTP request needs one. Every other HTTP
-method, and every MQTT `CONNECT`, needs one either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
+method, every MQTT `CONNECT`, and every FTP and SSH login - curl's own anonymous FTP login
+included - needs one either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
 of the file `--user-file` names - one `user:password` per line, `#` lines skipped - which
 keeps the password out of the process list. An empty user name holds a Bearer token.
 Here `accounts.txt` holds the line `alice:s3cret`:
@@ -89,16 +91,70 @@ curl -k -u alice:s3cret https://127.0.0.1:8443/hello.txt
 ```
 
 Surl checks HTTP Basic, Bearer, Digest (MD5, SHA-256 and SHA-512-256), NTLM, Negotiate
-carrying NTLM, and AWS Signature Version 4, and an MQTT `CONNECT`'s user name and
-password. A password or token sent in clear - Basic or Bearer over `http://`, an MQTT
-password over `mqtt://` - is refused without being checked (`403 Forbidden`, `CONNACK` 5).
+carrying NTLM, and AWS Signature Version 4; an MQTT `CONNECT`'s user name and password; FTP
+`USER` and `PASS`; and SSH password, keyboard-interactive and public-key logins, a public key
+against the OpenSSH `authorized_keys` file `--authorized-keys <user:file>` names. A password
+or token sent in clear - Basic or Bearer over `http://`, an MQTT password over `mqtt://`, an
+FTP password over `ftp://` before `AUTH TLS` - is refused without being checked
+(`403 Forbidden`, `CONNACK` 5, FTP `530`). An SSH password is never sent in clear.
 
-Four *loosening options* turn a secure default off for a test, and each writes a
-`surl: warning:` line on every start: `--allow-anonymous` (accept every request and login
+Five *loosening options* turn a secure default off for a test, and each writes a
+`surl: warning:` line on every start it takes effect in: `--allow-anonymous` (accept every request and login
 unchecked), `--allow-plaintext-auth` (check passwords sent in clear), `--auth <methods>`
-(the methods accepted, `basic,bearer,digest,aws-sigv4` by default; `ntlm` and `negotiate`
-only when named) and `--self-signed`. `surl --help testing` says what each loosens and why
-none is the default.
+(the HTTP and mail methods accepted), `--self-signed` and `--throwaway-hostkey`.
+`surl --help testing` says what each loosens and why none is the default.
+
+## FTP, FTPS, SCP and SFTP
+
+The FTP server answers `ftp` and `ftps`
+([ADR-0052](Documentation/Planning/Decisions/ADR-0052-how-the-ftp-server-answers-and-the-ftp-data-connection-seam.md)),
+over passive or active data connections (curl's `-P`) to the client's own address only.
+curl's anonymous FTP login is refused unless `--allow-anonymous` is given, which is for tests:
+
+```
+surl --directory site --allow-anonymous ftp://127.0.0.1:2121/
+curl ftp://127.0.0.1:2121/hello.txt
+```
+
+With an account, protect the password with TLS: `AUTH TLS` on `ftp://` (curl's `--ssl-reqd`),
+or implicit TLS on `ftps://`. Either needs `--cert` or `--self-signed`. Listings need
+`--list-directories`, and uploads and `-Q` commands `--allow-uploads`:
+
+```
+surl --directory site --self-signed --user alice:s3cret --allow-uploads ftp://127.0.0.1:2121/
+curl -k --ssl-reqd -u alice:s3cret -T hello.txt ftp://127.0.0.1:2121/copy.txt
+```
+
+```
+surl --directory site --self-signed --user alice:s3cret ftps://127.0.0.1:9990/
+curl -k -u alice:s3cret ftps://127.0.0.1:9990/hello.txt
+```
+
+The SSH server answers `scp` and `sftp` alike
+([ADR-0051](Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md),
+[ADR-0054](Documentation/Planning/Decisions/ADR-0054-how-the-ssh-server-answers-upstream-curls-scp-and-sftp-requests.md)).
+An `scp` or `sftp` listen URL needs a host key: `--hostkey <file>`, or `--throwaway-hostkey`
+for a throwaway RSA key made at start, which a client must pin or skip the check for (`-k`):
+
+```
+surl --directory site --throwaway-hostkey --user alice:s3cret sftp://127.0.0.1:2222/
+curl -k -u alice:s3cret sftp://127.0.0.1:2222/hello.txt
+```
+
+With `-v`, surl writes `* Serving SSH host key <key type>, --hostpubsha256 <base64>
+--hostpubmd5 <hex>` for each host key, so curl can pin it. Here `host_key` is an RSA key
+written by `ssh-keygen -t rsa -b 3072 -N "" -f host_key`; curl's Windows build offers only RSA
+host-key algorithms, so an ECDSA or Ed25519 host key alone does not serve it:
+
+```
+surl -v --directory site --hostkey host_key --user alice:s3cret scp://127.0.0.1:2222/
+curl --hostpubsha256 <base64> -u alice:s3cret scp://127.0.0.1:2222/hello.txt
+```
+
+SFTP listings need `--list-directories`; uploads over either scheme, and SFTP `-Q` commands
+such as `rm` and `rename`, need `--allow-uploads`. `--allow-weak-ssh-algorithms` and
+`--hostcert` are parsed, but this build does not serve them: a start that gives either exits 2
+with `surl: (2) <option> is not available in this build`.
 
 ## Logging
 
