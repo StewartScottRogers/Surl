@@ -20,6 +20,7 @@ public sealed class ProtocolIsolationTests
     private const string Curve25519 = "Surl.Cryptography.Curve25519.UnitLibrary";
     private const string Ed25519 = "Surl.Cryptography.Ed25519.UnitLibrary";
     private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
+    private const string Rc4 = "Surl.Cryptography.Rc4.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
 
@@ -37,6 +38,7 @@ public sealed class ProtocolIsolationTests
         [Curve25519] = [],
         [Ed25519] = [Curve25519],
         [Poly1305] = [],
+        [Rc4] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
     };
@@ -90,6 +92,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Curve25519)]
     [DataRow(Ed25519)]
     [DataRow(Poly1305)]
+    [DataRow(Rc4)]
     [DataRow(LineProtocol)]
     [DataRow(MailStore)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)

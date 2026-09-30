@@ -77,6 +77,8 @@
   <Project Path="Surl.Cryptography.Ed25519.UnitTests/Surl.Cryptography.Ed25519.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.Poly1305.UnitLibrary/Surl.Cryptography.Poly1305.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.Poly1305.UnitTests/Surl.Cryptography.Poly1305.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Rc4.UnitLibrary/Surl.Cryptography.Rc4.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Rc4.UnitTests/Surl.Cryptography.Rc4.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.UnitTests/Surl.Cryptography.UnitTests.csproj" />
   <Project Path="Surl.LineProtocol.UnitLibrary/Surl.LineProtocol.UnitLibrary.csproj" />
