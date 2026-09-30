@@ -8,7 +8,7 @@ depends-on: [BL-243]
 touches: [Surl.Kerberos.UnitLibrary, Surl.Kerberos.UnitTests]
 requirement: FR-046
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-239 — Check Kerberos AP-REQs, keytabs and RFC 4121 tokens in Surl.Kerberos
 
@@ -76,14 +76,14 @@ RFC 4121 wrap and MIC tokens, with a replay cache refusing a replayed authentica
 
 ## Acceptance criteria
 
-- [ ] `KerberosKeytabTests` read hand-written byte-array keytabs and pin: entries of all four
+- [x] `KerberosKeytabTests` read hand-written byte-array keytabs and pin: entries of all four
       enctypes; a deleted (negative-length) entry skipped; a trailing 32-bit kvno overriding the
       8-bit one, and ignored when 0; an `rc4-hmac` (23) entry skipped and reported with its enctype
       and principal; version `0x0501` and a truncated entry each reported malformed at the exact
       byte offset.
-- [ ] `KerberosPrincipalNameTests` pin the display forms `user@EXAMPLE.COM` and
+- [x] `KerberosPrincipalNameTests` pin the display forms `user@EXAMPLE.COM` and
       `host/web01@EXAMPLE.COM`, and the `\`-escaping of `/`, `@` and `\` inside a component.
-- [ ] `KerberosAcceptorTests` accept a hand-built AP-REQ for each of the four enctypes and return a
+- [x] `KerberosAcceptorTests` accept a hand-built AP-REQ for each of the four enctypes and return a
       context whose `ClientPrincipal` is the ticket's client; accept the `1.2.840.48018.1.2.2` OID
       only when the token came inside SPNEGO; match the service and realm case-insensitively; and
       refuse, with the reason in ADR-0057 decision 4's words and no exception thrown: a wrong
@@ -92,7 +92,7 @@ RFC 4121 wrap and MIC tokens, with a replay cache refusing a replayed authentica
       `use-session-key`, an `invalid` ticket, an authenticator `cname` differing from the ticket's,
       a checksum not of type `0x8003` or shorter than 24 bytes, a replayed authenticator, malformed
       DER and trailing bytes.
-- [ ] `KerberosSecurityContextTests` pin: `IsMutualAuthenticationRequested` follows
+- [x] `KerberosSecurityContextTests` pin: `IsMutualAuthenticationRequested` follows
       `mutual-required`; `CreateApRepToken` decrypts (in the test) under key usage 12 to the
       authenticator's `ctime`/`cusec` and the injected 4 random bytes as `seq-number`; `Wrap` gives
       `TOK_ID` `05 04` with `SentByAcceptor` set, no confidentiality and RRC 0, checksummed under key
@@ -100,15 +100,15 @@ RFC 4121 wrap and MIC tokens, with a replay cache refusing a replayed authentica
       `TryUnwrap` reads client tokens with and without confidentiality (key usage 24), with RRC 0
       and non-zero, and returns false for a tampered token, a wrong sequence number and an
       acceptor-flagged token; `GetMic` uses key usage 23 and `VerifyMic` key usage 25.
-- [ ] `KerberosReplayCacheTests` pin expiry at `ctime + 300 s` on the fake `TimeProvider`, and that
+- [x] `KerberosReplayCacheTests` pin expiry at `ctime + 300 s` on the fake `TimeProvider`, and that
       with 65536 live entries the next AP-REQ is refused with `replay cache full` and no entry is
       evicted.
-- [ ] A test asserts that the refusal reason for a wrong-key case contains neither the key's bytes
+- [x] A test asserts that the refusal reason for a wrong-key case contains neither the key's bytes
       in hex nor any decrypted field.
-- [ ] `dotnet build Surl.Kerberos.UnitLibrary -warnaserror` is clean;
+- [x] `dotnet build Surl.Kerberos.UnitLibrary -warnaserror` is clean;
       `dotnet test --filter "TestCategory!=Integration"` passes; no test needs
       `TestCategory=Integration` or a KDC; every test is platform-neutral.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports 100% line and 100% branch
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports 100% line and 100% branch
       coverage, no method over complexity 10 and no CRAP score over 30 for
       `Surl.Kerberos.UnitLibrary`.
 
@@ -117,9 +117,51 @@ RFC 4121 wrap and MIC tokens, with a replay cache refusing a replayed authentica
 - No command-line option, no composition and no change to `Surl.Authentication` here; those are
   BL-240 and BL-241. `KerberosReplayCache` is constructed once and shared by every listener, since
   BL-240 composes one per process.
+- Delivered (2026-09-30, lane 2), plan taken from ADR-0057 itself (decisions 1 to 7 already fix
+  the seams): public `KerberosKeytab` (+ `Read`), `KerberosKeytabEntry`,
+  `KerberosKeytabSkippedEntry`, `KerberosKeytabReadResult`, `KerberosPrincipalName`,
+  `KerberosAcceptor`, `KerberosAcceptResult`, `KerberosSecurityContext`, `KerberosReplayCache`,
+  `IKerberosRandomSource`; internal DER readers per RFC 4120 message, `GssApiToken`,
+  `GssApiChecksum`, `KeytabByteReader`. 260 Kerberos tests; `Surl.Kerberos.UnitLibrary` measured
+  100% line, 100% branch, worst CRAP 10 (Measure-CodeQuality.ps1 over the Kerberos tests'
+  Cobertura report, `-SkipTestRun -Library Surl.Kerberos.UnitLibrary`; no other test project
+  covers the library). Full solution build clean and every fast test green.
+- Choices taken where ADR-0057 left a detail open (sensible defaults, recorded here):
+  - **Names.** The ADR's `KerberosKeytabReadResult` needed a type for a skipped entry:
+    `KerberosKeytabSkippedEntry(Principal, EncryptionTypeNumber)`; BL-240 maps the number to the
+    warning's enctype name. SPNEGO-only acceptance of Microsoft's OID is a second method,
+    `AcceptInsideSpnego`, rather than a flag on `Accept`, so each says what it does.
+  - **Keytab offsets.** `MalformedOffset` is the offset of the first field that cannot be read:
+    0 for any version other than `05 02` (and for an empty or one-byte file), a record's length
+    field when the record runs past the file, the field itself when a field runs past its record.
+    A zero record length ends the file (MIT krb5 reads it so); a principal with no components and
+    a key not as long as its enctype's keys are malformed at that field.
+  - **Refusal words beyond the ADR's list**, each naming the check that failed and nothing
+    secret: `use-session-key not supported`, `ticket invalid`, `ticket not yet valid` (now before
+    `starttime - skew`; the ADR only named `ticket expired`), `authenticator client differs from
+    ticket client`, `bad GSS-API checksum` (type not `0x8003`, absent, shorter than 24 bytes,
+    `Lgth` not 16, or a delegated credential that does not fit), `unsupported enctype <n>` (a
+    session key or subkey outside decision 3). `no key for <principal> <enctype> kvno <n>` names
+    the enctype by its RFC name (`enctype <n>` for others) and says `kvno any` when the ticket
+    carries no kvno. A wrong service is `no key for ...`, as decision 2 says.
+  - **Sequence numbers.** Surl's first sequence number is the AP-REP's random one when
+    `mutual-required`, drawn at accept time; without it, the client's own, as MIT krb5 does. A
+    `seq-number` absent from the authenticator is 0; a negative 32-bit one (older Windows) is taken
+    as its two's complement.
+  - **Wrap checks.** A client token flagged `SentByAcceptor` or `AcceptorSubkey` is refused (surl
+    never sends an acceptor subkey). Without confidentiality EC must equal the checksum length and
+    the checksum covers the message and the header with EC and RRC zero (MIT's layout); with
+    confidentiality the decrypted header copy must match the clear header's `TOK_ID`, flags,
+    filler and sequence number (MIT compares the same bytes).
+  - **Replay cache** drops an entry once `ctime + cusec + 300 s` is strictly past; at exactly
+    `+300 s` it still refuses. It is locked, since BL-240 shares one across listeners.
+  - `CreateApRepToken` throws `InvalidOperationException` when mutual authentication was not
+    asked, since no AP-REP is sent then (decision 5); the AP-REP's confounder also comes from
+    `IKerberosRandomSource`.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-217 (ADR-0057 decision 12).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Surl.Kerberos reads MIT keytabs, checks AP-REQs for all four AES enctypes, makes the AP-REP and RFC 4121 wrap/MIC tokens, and refuses replays
