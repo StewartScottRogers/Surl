@@ -50,3 +50,4 @@ hand-built ChaCha20 and Poly1305, in BL-154's ADR's preference position.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
