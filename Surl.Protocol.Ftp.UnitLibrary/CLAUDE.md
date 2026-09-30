@@ -18,8 +18,14 @@ through `ExchangeContext.DataConnections` (`FtpDataConnections`, `FtpActiveTarge
 `SIZE`, `MDTM`, `REST`, `RETR` and `ABOR` in `FtpCommandResponder`. BL-179 (decision 7)
 added listings: `LIST`, `NLST` and `MLSD` over a data connection, only with
 `--list-directories` (a directory listing is otherwise answered as a missing directory), and
-`MLST` on the control connection, in the forms `FtpListingFormat` writes. Every other command
-answers `502 Command not implemented` until its task (BL-180, BL-181) builds it.
+`MLST` on the control connection, in the forms `FtpListingFormat` writes. BL-180 (decision 8)
+added uploads and file management, each only with `--allow-uploads` (`550 Not permitted`
+otherwise): `STOR` and `APPE` (and `REST` before them) written through the content store's
+temporary-file upload path, reading the data connection through `DataConnectionUploadStream`,
+which opens it only at the store's first read, so a refused upload never uses one; an upload
+past `--max-filesize` is `552` with nothing left behind. `MKD`/`XMKD`, `RMD`/`XRMD`, `DELE`,
+`RNFR`/`RNTO` and `SITE` (always `504`) are answered in `FtpCommandResponder`. The TLS commands
+answer `502 Command not implemented` until BL-181 builds them.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
