@@ -90,3 +90,4 @@ on it. The ADR files the implementation tasks it needs.
 
 - 2026-09-29: Created.
 - 2026-09-29: Filed by BL-185 (ADR-0049 decision 8).
+- 2026-09-30: Backlog -> Doing.
