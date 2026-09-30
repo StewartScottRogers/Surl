@@ -8,7 +8,7 @@ depends-on: [BL-185]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-046
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-193 — Add the SASL and APOP login contract to Surl.Protocol.Abstractions
 
@@ -32,17 +32,30 @@ and `Surl.Authentication` (BL-194 to BL-196) can be built against it.
 
 ## Acceptance criteria
 
-- [ ] The types BL-185's ADR gives exist with XML docs, and `AnonymousAuthenticationPolicy`
+- [x] The types BL-185's ADR gives exist with XML docs, and `AnonymousAuthenticationPolicy`
       implements the new interface.
-- [ ] Tests in `Surl.Protocol.Abstractions.UnitTests` cover every new member and record.
-- [ ] `ProtocolIsolationTests` pass; `dotnet build -warnaserror` of the whole solution is clean;
+- [x] Tests in `Surl.Protocol.Abstractions.UnitTests` cover every new member and record.
+- [x] `ProtocolIsolationTests` pass; `dotnet build -warnaserror` of the whole solution is clean;
       the fast tests are green; `Measure-CodeQuality.ps1 -Library
       Surl.Protocol.Abstractions.UnitLibrary` reports 100% line and branch coverage and no
       failing member.
 
 ## Notes
 
+- Built ADR-0049 section 6's C# as given: `IMailAuthenticationPolicy`, `ISaslExchange`,
+  `MailLoginOffer`, `SaslExchangeStart`, `ApopLogin`, `MailLoginOutcome`, `MailLoginStep`, one
+  file each. `IAuthenticationPolicy` and its implementers are untouched, so no re-scope was needed.
+- `AnonymousAuthenticationPolicy` offers `["PLAIN"]`, the clear-password login and no `APOP`
+  whatever the TLS state; each exchange accepts its initial response (empty `=` included) or
+  sends one empty challenge and accepts the answer, all `AcceptedUnchecked` with no note.
+- Choice: the anonymous exchange also throws `InvalidOperationException` on a second
+  `BeginAsync` and on `ContinueAsync` before `BeginAsync`, not only after a non-challenge step;
+  the contract's doc says so, so a server that drives it out of order fails loudly in tests.
+- Measured: `Measure-CodeQuality.ps1 -Library Surl.Protocol.Abstractions.UnitLibrary` - 100%
+  line, 100% branch, 65 members, 0 failing, worst CRAP 8. Abstractions tests: 186 passed.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. IMailAuthenticationPolicy and its SASL/APOP records are in Surl.Protocol.Abstractions, implemented by AnonymousAuthenticationPolicy
