@@ -8,7 +8,7 @@ depends-on: [BL-239]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Surl.Console.UnitTests, Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests]
 requirement: FR-046
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-240 — Add --keytab and compose the Kerberos keytab into Surl.Authentication
 
@@ -75,10 +75,10 @@ method using it yet.
 
 ## Acceptance criteria
 
-- [ ] `CommandLineParserTests` pin: `--keytab http.keytab` sets the keytab path; the last
+- [x] `CommandLineParserTests` pin: `--keytab http.keytab` sets the keytab path; the last
       `--keytab` wins; `--keytab ""` is refused while parsing with exit 2; `--no-keytab` is an
       unknown option.
-- [ ] `CommandLineRunnerAuthenticationTests` (or a new `CommandLineRunnerKeytabTests` in
+- [x] `CommandLineRunnerAuthenticationTests` (or a new `CommandLineRunnerKeytabTests` in
       `Surl.Console.UnitTests`) pin, with injected file reads and no listener bound in any refused
       case: a missing keytab exits 37 with `surl: (37) Could not read keytab <path>`; a version
       `0x0501` keytab and a truncated one exit 2 with `surl: (2) Keytab <path> is malformed at byte
@@ -89,23 +89,23 @@ method using it yet.
       `--keytab` exits 2 with `surl: (2) --auth gssapi needs --keytab`; `--keytab` with the default
       `--auth` starts and writes `surl: warning: --keytab is unused: --auth accepts neither
       negotiate nor gssapi`; `--auth negotiate` without `--keytab` starts with no new warning.
-- [ ] A test in `Surl.Console.UnitTests` shows the composed `AuthenticationSettings` carries a
+- [x] A test in `Surl.Console.UnitTests` shows the composed `AuthenticationSettings` carries a
       Kerberos acceptor when `--keytab` is given and null when it is not, and a test asserts that no
       key byte (in hex or Base64) appears in stdout, stderr or the verbose log.
-- [ ] `HelpTextTests`, `ManualTextTests`, `AiHelpFactsTests` (including
+- [x] `HelpTextTests`, `ManualTextTests`, `AiHelpFactsTests` (including
       `EveryOption_HasAnArgumentTypeAndAllowedValues`), `AiHelpTextTests` (including
       `Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName`) and
       `CommandLineRunnerAiHelpTests` (including
       `RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows`) pass with `--keytab` described
       "Read Kerberos service keys from a keytab file" in the `auth` category.
-- [ ] `Surl.Authentication.UnitLibrary.csproj` references `Surl.Kerberos.UnitLibrary`; every
+- [x] `Surl.Authentication.UnitLibrary.csproj` references `Surl.Kerberos.UnitLibrary`; every
       existing `Surl.Authentication.UnitTests` test (the ADR-0040 Negotiate tests in
       `NegotiateAuthenticationMethodTests` included) passes unchanged.
-- [ ] `dotnet build Surl.Authentication.UnitLibrary -warnaserror`,
+- [x] `dotnet build Surl.Authentication.UnitLibrary -warnaserror`,
       `dotnet build Surl.Cli.UnitLibrary -warnaserror` and `dotnet build Surl.Console -warnaserror`
       are clean; `dotnet test --filter "TestCategory!=Integration"` passes; no test needs
       `TestCategory=Integration`; every test is platform-neutral (no drive-letter path).
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports 100% line and 100% branch
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports 100% line and 100% branch
       coverage, no method over complexity 10 and no CRAP score over 30 for
       `Surl.Authentication.UnitLibrary`, `Surl.Cli.UnitLibrary` and `Surl.Console`.
 
@@ -115,9 +115,37 @@ method using it yet.
   `ProjectReference` only if composition needs a `Surl.Kerberos` type by name (it does, for the
   replay cache and the keytab), and keep it AOT-clean.
 - Negotiate behaviour is BL-241; SASL `GSSAPI` is BL-218. Do not change either here.
+- Delivered (2026-09-30): `--keytab` row in `CommandLineOptions` (`SurlCommandLine.KeytabFile`);
+  `Surl.Console/KeytabComposition.cs` reads it (after the `--user-file` and `--authorized-keys`
+  files, before the `--hostkey` files) and builds the `KerberosAcceptor` with one
+  `KerberosReplayCache` and `RandomKerberosRandomSource`; `AuthenticationComposition.Compose` puts
+  it on `AuthenticationSettings.KerberosAcceptor` and now also returns the skipped entries, which
+  `KeytabComposition.WriteStartLines` writes after the loosening warnings, then the unused warning.
+  `--auth gssapi` without `--keytab` is checked in `CommandLineRunner.FindOptionRefusal` before
+  `FindUnavailableOption`.
+- Choices taken (sensible defaults, rule 1):
+  - The skipped-key warning names each enctype by MIT krb5's name (`rc4-hmac`, `des-cbc-crc`,
+    `des3-cbc-sha1`, `camellia128-cts-cmac`, ...), and `enctype <n>` for a number without one,
+    since ADR-0057 says "<enctype name>" and MIT's names are the ones `klist -e` and `ktutil`
+    print.
+  - `AuthenticationPolicy.Settings` became public (was internal) so `Surl.Console.UnitTests` can
+    show the composed settings carry the acceptor; it exposes nothing a caller could not already
+    have passed in.
+  - The `--aihelp` example has a new precondition, `AiHelpExamplePrecondition.KeytabAndUserFileExist`,
+    rendered as "Given: ...", because it is the first example that reads files; it names no curl
+    command line, since no pinned build makes a Kerberos token and Negotiate still carries only
+    NTLM in this build. Its stdout shows `<port>`, as the test's fake listener binds its own port.
+  - ADR-0057's description "Read Kerberos service keys from a keytab file" (45 characters) is the
+    longest in the table, so curl's help layout (`HelpLayout`) moves `--help all` descriptions
+    from column 46 to 38 and sets the `--keytab` row narrower; the pinned help tests follow it
+    (`Answer_All_ListsEveryOptionWithDescriptionsInColumn38`).
+  - The exit-code guidance and the manual's EXIT CODES now name the keytab under 2 and 37.
+- Measured: `Measure-CodeQuality.ps1 -Library Surl.Authentication.UnitLibrary,Surl.Cli.UnitLibrary,Surl.Console`
+  reports 100% line and branch for all three, 0 failing members, worst CRAP 10.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-217 (ADR-0057 decision 12).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. surl --keytab reads an MIT keytab before binding, refuses and warns per ADR-0057 decision 1, is in help, manual and --aihelp, and puts a KerberosAcceptor on AuthenticationSettings
