@@ -8,7 +8,7 @@ depends-on: [BL-154]
 touches: [Documentation/Planning/Decisions]
 requirement: FR-042
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-155 — Decide how the SSH server answers upstream curl's SCP and SFTP requests
 
@@ -54,17 +54,30 @@ options, limits and refusals - so BL-164 to BL-166 can be built without a questi
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", decides every point in Context, each source cited with its
       version.
-- [ ] It lists the curl 8.21.0 command lines BL-172 must prove against surl (at least: an scp
+- [x] It lists the curl 8.21.0 command lines BL-172 must prove against surl (at least: an scp
       and an sftp download, an scp and an sftp upload, an sftp directory listing, each `-Q`
       command decided, `--append` and `-C -`), with the result the ADR expects for each.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR.
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR.
 
 ## Notes
+
+- ADR-0054 decides it from primary sources read at their tags: curl 8.21.0's `lib/vssh/libssh2.c`
+  and `vssh.c` (tag `curl-8_21_0`), libssh2 1.11.1's `src/scp.c` and `src/sftp.c`, and `curl -M`
+  from the pinned reference build (SHA-256 verified). No wire measurement: a canned server cannot
+  pass SSH's key exchange, so BL-172 proves the ADR's 36 rows against the pinned build.
+- Choices worth knowing: home is `/` (`REALPATH .` answers `/`); SFTP version 3, no extensions;
+  SCP upload commits when the announced size has arrived (libssh2 sends EOF, not a final `\0`);
+  permission/owner changes, `SYMLINK` and every `EXTENDED` (`statvfs@openssh.com` too) answer
+  `OP_UNSUPPORTED`, so those `-Q` commands exit 21; a peer learns no disk sizes.
+- `ContentStore` lacks four members the ADR needs (decision 14). Filed BL-230 (entry status,
+  last-write-time setting, non-replacing rename) and BL-231 (random-access upload session), both
+  touching `Surl.Content` only; BL-164 and BL-165 now depend on BL-230, BL-166 on BL-230 and BL-231.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0054 decides how the SSH server answers curl 8.21.0's SCP and SFTP requests; BL-230 and BL-231 filed for ContentStore
