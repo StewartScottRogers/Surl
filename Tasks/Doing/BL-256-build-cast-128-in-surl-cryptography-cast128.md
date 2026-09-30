@@ -65,3 +65,4 @@ build `cast128-cbc` on it (BL-258).
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
