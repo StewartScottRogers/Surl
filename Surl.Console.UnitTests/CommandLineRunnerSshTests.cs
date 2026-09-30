@@ -235,6 +235,76 @@ public sealed class CommandLineRunnerSshTests
         Assert.AreEqual(string.Empty, run.Error);
     }
 
+    // --allow-weak-ssh-algorithms: the offer and the warning (ADR-0051 decisions 2 and 11, BL-250).
+
+    [TestMethod]
+    [DataRow(true, DisplayName = "With --allow-weak-ssh-algorithms")]
+    [DataRow(false, DisplayName = "Without it")]
+    public async Task RunAsync_AllowWeakSshAlgorithms_TheServersKexInitNamesTheWeakAlgorithmsOnlyWithIt(bool allowWeak)
+    {
+        var connection = new FakeConnection("SSH-2.0-libssh2_1.11.1\r\n"u8.ToArray());
+        var factory = new FakeListenerFactory { Connection = connection };
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        string[] weak = allowWeak ? ["--allow-weak-ssh-algorithms"] : [];
+
+        var running = CreateRunner(factory, Files((HostKey, TestSshKeyFiles.Rsa2048)))
+            .RunAsync([.. weak, "--hostkey", HostKey, Sftp], output, error, stop.Token);
+        await connection.Disposed.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode, error.ToString());
+        CollectionAssert.AreEqual(new[] { new ListenUrl("sftp", "127.0.0.1", 0) }, factory.StartedListenUrls);
+        var written = Encoding.Latin1.GetString(connection.WrittenBytes);
+        StringAssert.Contains(written, "curve25519-sha256");
+        foreach (var weakAlgorithm in new[] { "diffie-hellman-group14-sha1", "aes128-cbc", "3des-cbc", "arcfour", "hmac-sha1", "hmac-md5" })
+        {
+            Assert.AreEqual(allowWeak, written.Contains(weakAlgorithm, StringComparison.Ordinal), weakAlgorithm);
+        }
+    }
+
+    [TestMethod]
+    public async Task RunAsync_AllowWeakSshAlgorithmsWithAShortRsaHostKey_ServesIt()
+    {
+        var run = await ServeUntilListeningAsync(Files((HostKey, TestSshKeyFiles.Rsa1024)), "--allow-weak-ssh-algorithms", "--hostkey", HostKey, Sftp);
+
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode, run.Error);
+    }
+
+    [TestMethod]
+    [DataRow(Sftp, DisplayName = "An SSH listen URL")]
+    [DataRow(Http, DisplayName = "No SSH listen URL")]
+    public async Task RunAsync_AllowWeakSshAlgorithmsAtTheInfoLevel_WritesTheWarningWheneverItIsGiven(string listenUrl)
+    {
+        var run = await ServeUntilListeningAsync(Files((HostKey, TestSshKeyFiles.Rsa2048)), "--allow-weak-ssh-algorithms", "--hostkey", HostKey, listenUrl);
+
+        Assert.AreEqual(
+            "surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman SSH algorithms are offered" + NewLine,
+            run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_VerboseAllowWeakSshAlgorithmsWithAThrowawayHostKey_WritesItsWarningAfterTheThrowawayOneAndBeforeTheNote()
+    {
+        var run = await ServeUntilListeningAsync(Files(), "-v", "--throwaway-hostkey", "--allow-weak-ssh-algorithms", Sftp);
+
+        Assert.MatchesRegex(
+            "^surl: warning: --throwaway-hostkey: [^\r\n]*" + NewLine
+            + "surl: warning: " + Regex.Escape(SshHostKeyComposition.WeakAlgorithmsWarning) + NewLine
+            + "\\* Serving SSH host key ssh-rsa, [^\r\n]*" + NewLine + "$",
+            run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_SilentAllowWeakSshAlgorithms_WritesNothing()
+    {
+        var run = await ServeUntilListeningAsync(Files(), "-s", "--allow-weak-ssh-algorithms", "--throwaway-hostkey", Sftp);
+
+        Assert.AreEqual(string.Empty, run.Error);
+    }
+
     [TestMethod]
     public async Task RunAsync_VerboseHostKeys_WritesOneNotePerKeyInCommandLineOrder()
     {

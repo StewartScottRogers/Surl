@@ -397,12 +397,14 @@ internal sealed class CommandLineRunner(
     // first byte, ftps itself (ADR-0052 decision 5). The HTTP, MQTT, SMTP, IMAP, POP3, FTP and
     // SSH servers, the ones with a login, judge it by the one policy (ADR-0032); SMTP and IMAP
     // offer STARTTLS, POP3 STLS and FTP AUTH TLS only when a certificate is configured. The SSH server answers scp and sftp with its host keys and
-    // offers ADR-0051 decision 2's default algorithms for them (ADR-0051 decision 13).
+    // offers ADR-0051 decision 2's default algorithms for them, and its weak ones too with
+    // --allow-weak-ssh-algorithms (ADR-0051 decision 13).
     private static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
         ServiceState serviceState,
         AuthenticationPolicy authenticationPolicy,
         SshHostKeySet sshHostKeys,
+        bool allowWeakSshAlgorithms,
         bool isTlsUpgradeAvailable)
     {
         var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
@@ -426,7 +428,7 @@ internal sealed class CommandLineRunner(
             new ImplicitTlsSchemeServer(smtpServer, "smtps"),
             new SshProtocolServer(
                 sshHostKeys,
-                SshAlgorithmOffer.Default(sshHostKeys.SignatureAlgorithms, AesGcm.IsSupported),
+                SshAlgorithmOffer.Default(sshHostKeys.SignatureAlgorithms, AesGcm.IsSupported, allowWeakSshAlgorithms),
                 authenticationPolicy,
                 new SshSystemRandomSource(),
                 contentStore),
@@ -443,6 +445,7 @@ internal sealed class CommandLineRunner(
             new ServiceState(new MqttRetainedMessages(), new MailboxStore([], allowAnonymous: false, timeProvider)),
             AuthenticationComposition.ComposeWithoutAccounts(timeProvider),
             new SshHostKeySet(),
+            allowWeakSshAlgorithms: false,
             isTlsUpgradeAvailable: false);
 
     // What the servers keep across connections, loaded after the lock: the MQTT retained
@@ -496,8 +499,7 @@ internal sealed class CommandLineRunner(
     /// <summary>
     /// The first option given that names something this build does not serve yet, in option-table
     /// order: <c>--hostcert</c>, refused until the SSH server serves host
-    /// certificates (BL-222, ADR-0051 decision 5), and <c>--allow-weak-ssh-algorithms</c>, refused
-    /// until the SSH server offers the weak algorithms (BL-221), after ADR-0032 section 1's precedent.
+    /// certificates (BL-222, ADR-0051 decision 5), after ADR-0032 section 1's precedent.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <returns>The option as <c>--&lt;name&gt;</c>, or <see langword="null"/> when none is given.</returns>
@@ -507,7 +509,6 @@ internal sealed class CommandLineRunner(
     private static readonly (string Option, Func<SurlCommandLine, bool> IsGiven)[] UnavailableOptions =
     [
         ("--hostcert", commandLine => commandLine.HostCertificateFiles.Count > 0),
-        ("--allow-weak-ssh-algorithms", commandLine => commandLine.AllowWeakSshAlgorithms),
     ];
 
     // --auth gssapi without --keytab (ADR-0057, decision 1), then an option this build does not
@@ -629,6 +630,7 @@ internal sealed class CommandLineRunner(
                     loaded.State,
                     authentication.Policy,
                     authentication.SshHostKeys.HostKeys,
+                    commandLine.AllowWeakSshAlgorithms,
                     ServerTlsComposition.IsCertificateConfigured(commandLine)),
                 authentication,
                 output,
@@ -706,7 +708,8 @@ internal sealed class CommandLineRunner(
                 WriteThrowawayCertificateLines(commandLine.LogLevel, fingerprint, logStreams.Log);
             }
 
-            // The --throwaway-hostkey warning, then each SSH host key's note (ADR-0051, decisions 8 and 11).
+            // The --throwaway-hostkey and --allow-weak-ssh-algorithms warnings, then each SSH host key's note
+            // (ADR-0051, decisions 8 and 11).
             authentication.SshHostKeys.WriteStartLines(commandLine, logStreams.Log);
 
             return await ServeLoggedAsync(commandLine, servers, tls, logStreams, output, error, cancellationToken);

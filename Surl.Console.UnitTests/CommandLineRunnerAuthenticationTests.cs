@@ -329,11 +329,10 @@ public sealed class CommandLineRunnerAuthenticationTests
 
     private static SurlCommandLine Parse(params string[] args) => CommandLineParser.Parse(args).CommandLine!;
 
-    // The SSH server options this build does not serve yet: --hostcert until BL-222, --allow-weak-ssh-algorithms until BL-221.
+    // The SSH server option this build does not serve yet: --hostcert until BL-222.
 
     [TestMethod]
     [DataRow("--hostcert", new[] { "--hostcert", "host-cert.pub" })]
-    [DataRow("--allow-weak-ssh-algorithms", new[] { "--allow-weak-ssh-algorithms" })]
     public async Task RunAsync_UnservedSshOption_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string option, string[] arguments)
     {
         var run = await RunRefusedAsync(_ => throw new AssertFailedException("the user file is not read"), [.. arguments, "--user-file", UserFile, Http]);
@@ -344,7 +343,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     [TestMethod]
-    public async Task RunAsync_BothUnservedSshOptions_NamesTheFirstInOptionTableOrder()
+    public async Task RunAsync_HostCertificateBesideServedSshOptions_IsStillRefused()
     {
         var run = await RunRefusedAsync(null, "--allow-weak-ssh-algorithms", "--authorized-keys", "a:k", "--hostcert", "c", Http);
 

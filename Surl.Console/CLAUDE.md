@@ -13,12 +13,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
   start whose `--auth` names `gssapi` without `--keytab` with `surl: (2) --auth gssapi needs
   --keytab` (`KeytabComposition.IsGssapiWithoutKeytab`, ADR-0057 decision 1), then a
-  start that gives an SSH server option this build does not
-  serve yet (`FindUnavailableOption`: `--hostcert`,
-  `--allow-weak-ssh-algorithms`, the first in that order) with
-  `surl: (2) --<option> is not available in this build` and
-  exit 2 before anything else is checked (ADR-0051 decision 5, `--hostcert` until BL-222 and
-  `--allow-weak-ssh-algorithms` until BL-221), checks the
+  start that gives the SSH server option this build does not
+  serve yet (`FindUnavailableOption`: `--hostcert`) with
+  `surl: (2) --hostcert is not available in this build` and
+  exit 2 before anything else is checked (ADR-0051 decision 5, until BL-222), checks the
   data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
@@ -80,7 +78,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (ADR-0056 decision 8) and the same `MailboxStore` instance, so mail delivered over `smtp` is
   retrieved over `pop3` in the same run,
   `SshProtocolServer` for `scp` and `sftp`, given the host keys, `SshAlgorithmOffer.Default`
-  for them, the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the
+  for them (with decision 2's weak algorithms too under `--allow-weak-ssh-algorithms`), the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the
   content store, `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   exchange log of the parsed log level and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,
@@ -121,7 +119,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   verbose level up `* Serving a throwaway certificate, SHA-256 <fingerprint>` (ADR-0032
   section 9, ADR-0033 section 7); then `SshHostKeyComposition.WriteStartLines` writes the
   `--throwaway-hostkey` warning (with the key's `--hostpubsha256` value) when the key was made,
-  and from the verbose level up, when an `scp` or `sftp` URL is served,
+  then `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit
+  Diffie-Hellman SSH algorithms are offered` whenever that option is given, and from the verbose level up, when an `scp` or `sftp` URL is served,
   `* Serving SSH host key <key type>, --hostpubsha256 <base64> --hostpubmd5 <hex>` per key
   (ADR-0051 decisions 8 and 11).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created

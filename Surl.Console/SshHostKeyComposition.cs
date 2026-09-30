@@ -22,6 +22,10 @@ internal sealed record SshHostKeyComposition(SshHostKeySet HostKeys, SshHostKey?
 
     private const string WarningPrefix = "surl: warning: ";
 
+    /// <summary>The <c>--allow-weak-ssh-algorithms</c> warning after its prefix (ADR-0051, decision 11).</summary>
+    public const string WeakAlgorithmsWarning =
+        "--allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman SSH algorithms are offered";
+
     /// <summary>
     /// Whether any listen URL is an <c>scp</c> or <c>sftp</c> one, which the SSH server answers.
     /// </summary>
@@ -99,7 +103,8 @@ internal sealed record SshHostKeyComposition(SshHostKeySet HostKeys, SshHostKey?
 
     /// <summary>
     /// Writes the <c>--throwaway-hostkey</c> warning from the info level up when the throwaway key
-    /// was made (ADR-0051, decision 11), then, from the verbose level up and only when an
+    /// was made, then the <c>--allow-weak-ssh-algorithms</c> warning from the info level up
+    /// whenever the option is given (ADR-0051, decision 11), then, from the verbose level up and only when an
     /// <c>scp</c> or <c>sftp</c> listen URL is served, the note for each host key served
     /// (decision 8).
     /// </summary>
@@ -107,11 +112,9 @@ internal sealed record SshHostKeyComposition(SshHostKeySet HostKeys, SshHostKey?
     /// <param name="log">The log stream.</param>
     public void WriteStartLines(SurlCommandLine commandLine, TextWriter log)
     {
-        if (ThrowawayHostKey is { } throwawayHostKey && commandLine.LogLevel >= LogLevel.Info)
+        if (commandLine.LogLevel >= LogLevel.Info)
         {
-            log.WriteLine(
-                WarningPrefix + $"--throwaway-hostkey: serving a throwaway SSH host key (--hostpubsha256 {FormatSha256(throwawayHostKey)}); "
-                + "clients must pin it or skip the check (curl -k)");
+            WriteWarnings(commandLine, log);
         }
 
         if (commandLine.LogLevel < LogLevel.Verbose || !IsSshServed(commandLine))
@@ -122,6 +125,23 @@ internal sealed record SshHostKeyComposition(SshHostKeySet HostKeys, SshHostKey?
         foreach (var hostKey in HostKeys.Keys)
         {
             log.WriteLine(FormatHostKeyNote(hostKey));
+        }
+    }
+
+    // The --throwaway-hostkey warning when the key was made, then the --allow-weak-ssh-algorithms
+    // one when the option is given (ADR-0051, decision 11).
+    private void WriteWarnings(SurlCommandLine commandLine, TextWriter log)
+    {
+        if (ThrowawayHostKey is { } throwawayHostKey)
+        {
+            log.WriteLine(
+                WarningPrefix + $"--throwaway-hostkey: serving a throwaway SSH host key (--hostpubsha256 {FormatSha256(throwawayHostKey)}); "
+                + "clients must pin it or skip the check (curl -k)");
+        }
+
+        if (commandLine.AllowWeakSshAlgorithms)
+        {
+            log.WriteLine(WarningPrefix + WeakAlgorithmsWarning);
         }
     }
 
