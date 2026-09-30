@@ -4,7 +4,7 @@ title: Accept FTP uploads and file-management commands in Surl.Protocol.Ftp
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-178, BL-225]
+depends-on: [BL-178, BL-226]
 touches: [Surl.Protocol.Ftp.UnitLibrary, Surl.Protocol.Ftp.UnitTests]
 requirement: FR-036
 created: 2026-09-29

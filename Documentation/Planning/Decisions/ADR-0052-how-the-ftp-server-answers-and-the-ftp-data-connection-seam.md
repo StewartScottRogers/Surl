@@ -336,7 +336,7 @@ row 18; 21 for a `-Q` command, row 27; 9 for `--ftp-create-dirs`, row 20).
 - A path under `/.surl`, or a dot-file without `--serve-dot-files`, is answered as absent, or
   `550 Not permitted` for a new name (ADR-0031 decision 5).
 - `ContentStore` has `WriteUploadAsync` and nothing else that writes; delete, rename, directory
-  creation and removal and append are filed as BL-225 (`Surl.Content`), on which BL-180 depends.
+  creation and removal and append are filed as BL-226 (`Surl.Content`), on which BL-180 depends.
 
 ### 9. The data-connection seam
 
@@ -520,7 +520,7 @@ pinned per platform in its own test (root `CLAUDE.md`), and recorded against thi
   implements `SocketDataConnectionOpener` in `Surl.Networking`; BL-176 wraps it per exchange in
   `Surl.Core`; BL-177 to BL-181 build `Surl.Protocol.Ftp` from decisions 1 to 8 and 10; BL-182
   composes it and adds decision 11's help; BL-183 proves decision 12's table.
-- BL-225 (`Surl.Content`: delete, rename, create and remove a directory, append) is filed, and
+- BL-226 (`Surl.Content`: delete, rename, create and remove a directory, append) is filed, and
   BL-180 depends on it.
 - The recordings behind every row can be made again with the arguments in the table; BL-177 to
   BL-181 record their own fixtures from them.

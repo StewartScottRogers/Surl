@@ -87,7 +87,7 @@ without constructing a socket, so BL-174 to BL-183 can be built without a questi
 - Default taken: `CCC` is refused with `534`. Measured, the Schannel build fails an accepted
   `CCC` (exit 81) and completes after a refused one (exit 0), and refusing keeps `IConnection`
   unchanged.
-- Filed BL-225 (`Surl.Content`: delete, rename, directories, append), which `ContentStore`
+- Filed BL-226 (`Surl.Content`: delete, rename, directories, append), which `ContentStore`
   lacks, and added it to BL-180's `depends-on`, as BL-180's own Context asks.
 
 ## Log

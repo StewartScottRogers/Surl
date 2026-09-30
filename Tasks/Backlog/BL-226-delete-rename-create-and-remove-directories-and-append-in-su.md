@@ -1,5 +1,5 @@
 ---
-id: BL-225
+id: BL-226
 title: Delete, rename, create and remove directories and append in Surl.Content's ContentStore
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-036
 created: 2026-09-29
 completed:
 ---
-# BL-225 — Delete, rename, create and remove directories and append in Surl.Content's ContentStore
+# BL-226 — Delete, rename, create and remove directories and append in Surl.Content's ContentStore
 
 ## Goal
 
