@@ -5,7 +5,9 @@ Phase 1.
 The content store every file-serving protocol server shares (ADR-0002): maps a request
 path onto the served root (the data directory with `--directory`, an in-memory file
 system without it, ADR-0031), lists directories, names media types, reads byte ranges,
-reports sizes and modification times, and decides where uploads land. It stands where a
+reports sizes and modification times, decides where uploads and appends land, and
+deletes, renames, creates and removes entries for FTP (`ContentChangeResult`, ADR-0052
+decision 8), every write needing `--allow-uploads`. It stands where a
 file protocol library stands in the Curl port: `file://` has no wire and no server, so
 what curl's `file` scheme reads locally, Surl serves remotely through this library.
 
@@ -27,7 +29,8 @@ safe for concurrent use, bounded by `MaxTotalBytes`, fully covered by the fast t
 `.surl` as the first segment of a request path is the data directory's service-state
 folder (ADR-0031 decision 5) and is never served: `ContentStore` answers a read of it or
 anything under it as missing, leaves it out of the root's listing, refuses an upload into
-it with `ContentUploadResult.NotPermitted`, and treats a symbolic link resolving into it as
+it with `ContentUploadResult.NotPermitted` (and a new name in it, from `CreateDirectory` or
+`RenameEntry`, with `ContentChangeResult.NotPermitted`), and treats a symbolic link resolving into it as
 missing - whatever `ContentExposureOptions.ServeDotFiles` and `FollowSymbolicLinks` say.
 The match is case-insensitive on every platform and whole-segment only: `.surlx`,
 `.surl-upload-<guid>` and `sub/.surl` are ordinary dot-files. Never weaken this rule; the

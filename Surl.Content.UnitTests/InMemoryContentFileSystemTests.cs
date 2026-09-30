@@ -324,6 +324,94 @@ public sealed class InMemoryContentFileSystemTests
     }
 
     [TestMethod]
+    public void MoveDirectory_WithEntriesInside_MovesThemAllKeepingBytesAndTimes()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        string source = Path.Join(Root, "dir");
+        fileSystem.CreateDirectory(Path.Join(source, "sub"));
+        WriteFile(fileSystem, Path.Join(source, "sub", "a.bin"), [1, 2]);
+        WriteFile(fileSystem, Path.Join(Root, "dir-sibling.bin"), [3]);
+        string destination = Path.Join(Root, "moved");
+        clock.Now = Later;
+
+        fileSystem.MoveDirectory(source, destination);
+
+        Assert.AreEqual(ContentEntryKind.None, fileSystem.GetEntryKind(source));
+        CollectionAssert.AreEqual(new byte[] { 1, 2 }, ReadFile(fileSystem, Path.Join(destination, "sub", "a.bin")));
+        Assert.AreEqual(Started, fileSystem.GetLastWriteTimeUtc(Path.Join(destination, "sub", "a.bin")));
+        Assert.AreEqual(ContentEntryKind.File, fileSystem.GetEntryKind(Path.Join(Root, "dir-sibling.bin")));
+        Assert.AreEqual(3, fileSystem.TotalBytes);
+    }
+
+    [TestMethod]
+    public void MoveDirectory_FileStillBeingWritten_LandsAtTheNewPath()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        string source = Path.Join(Root, "dir");
+        fileSystem.CreateDirectory(source);
+        Stream writing = fileSystem.CreateFileForAsyncWrite(Path.Join(source, "a.bin"));
+
+        fileSystem.MoveDirectory(source, Path.Join(Root, "moved"));
+        writing.Write([7]);
+        writing.Dispose();
+
+        CollectionAssert.AreEqual(new byte[] { 7 }, ReadFile(fileSystem, Path.Join(Root, "moved", "a.bin")));
+    }
+
+    [TestMethod]
+    public void MoveDirectory_MissingSourceOrDestinationDirectory_ThrowsDirectoryNotFound()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        WriteFile(fileSystem, FilePath, [1]);
+        fileSystem.CreateDirectory(Path.Join(Root, "dir"));
+
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => fileSystem.MoveDirectory(Path.Join(Root, "missing"), Path.Join(Root, "moved")));
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => fileSystem.MoveDirectory(FilePath, Path.Join(Root, "moved")));
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => fileSystem.MoveDirectory(Path.Join(Root, "dir"), Path.Join(Root, "missing", "moved")));
+        Assert.AreEqual(ContentEntryKind.Directory, fileSystem.GetEntryKind(Path.Join(Root, "dir")));
+    }
+
+    [TestMethod]
+    public void MoveDirectory_SomethingAtTheDestinationOrItInsideTheSource_ThrowsIOException()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        string source = Path.Join(Root, "dir");
+        fileSystem.CreateDirectory(Path.Join(source, "sub"));
+        WriteFile(fileSystem, FilePath, [1]);
+
+        Assert.ThrowsExactly<IOException>(() => fileSystem.MoveDirectory(source, FilePath));
+        fileSystem.CreateDirectory(Path.Join(Root, "other"));
+        Assert.ThrowsExactly<IOException>(() => fileSystem.MoveDirectory(source, Path.Join(Root, "other")));
+        Assert.ThrowsExactly<IOException>(() => fileSystem.MoveDirectory(source, Path.Join(source, "sub", "inner")));
+        Assert.AreEqual(ContentEntryKind.Directory, fileSystem.GetEntryKind(Path.Join(source, "sub")));
+    }
+
+    [TestMethod]
+    public void RemoveEmptyDirectory_Empty_IsRemoved()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        string directory = Path.Join(Root, "dir");
+        fileSystem.CreateDirectory(directory);
+
+        fileSystem.RemoveEmptyDirectory(directory);
+
+        Assert.AreEqual(ContentEntryKind.None, fileSystem.GetEntryKind(directory));
+        Assert.AreEqual(ContentEntryKind.Directory, fileSystem.GetEntryKind(Root));
+    }
+
+    [TestMethod]
+    public void RemoveEmptyDirectory_NotEmptyMissingOrAFile_ThrowsAndRemovesNothing()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        WriteFile(fileSystem, FilePath, [1]);
+
+        Assert.ThrowsExactly<IOException>(() => fileSystem.RemoveEmptyDirectory(Root));
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => fileSystem.RemoveEmptyDirectory(FilePath));
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => fileSystem.RemoveEmptyDirectory(Path.Join(Root, "missing")));
+        Assert.AreEqual(ContentEntryKind.File, fileSystem.GetEntryKind(FilePath));
+    }
+
+    [TestMethod]
     public void Write_PastTheBound_ThrowsIOExceptionAndKeepsNothingPastIt()
     {
         InMemoryContentFileSystem fileSystem = NewFileSystem(maxTotalBytes: 10);

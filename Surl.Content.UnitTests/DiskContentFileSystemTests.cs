@@ -289,6 +289,37 @@ public sealed class DiskContentFileSystemTests
     }
 
     [TestMethod]
+    public async Task EveryChange_OnDisk_WorksAndLeavesNoTemporaryFile()
+    {
+        var options = new ContentExposureOptions { AllowUploads = true, MaxUploadBytes = Contents.Length + 3 };
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), options);
+
+        Assert.AreEqual(ContentChangeResult.Done, store.CreateDirectory(store.MapRequestPath("/made")));
+        Assert.AreEqual(ContentChangeResult.Exists, store.CreateDirectory(store.MapRequestPath("/made")));
+        Assert.AreEqual(ContentUploadResult.Written, await store.AppendUploadAsync(store.MapRequestPath("/docs/file.bin"), new MemoryStream("abc"u8.ToArray()), CancellationToken.None));
+        Assert.AreEqual(ContentUploadResult.TooLarge, await store.AppendUploadAsync(store.MapRequestPath("/docs/file.bin"), new MemoryStream("d"u8.ToArray()), CancellationToken.None));
+        Assert.AreEqual(ContentChangeResult.Done, store.RenameEntry(store.MapRequestPath("/docs/file.bin"), store.MapRequestPath("/made/renamed.bin")));
+        Assert.AreEqual(ContentChangeResult.NotEmpty, store.RemoveEmptyDirectory(store.MapRequestPath("/made")));
+        Assert.AreEqual(ContentChangeResult.Done, store.RenameEntry(store.MapRequestPath("/made"), store.MapRequestPath("/docs/moved")));
+
+        string moved = Path.Join(servedRoot, "docs", "moved", "renamed.bin");
+        CollectionAssert.AreEqual(Contents.Concat("abc"u8.ToArray()).ToArray(), await File.ReadAllBytesAsync(moved));
+        Assert.AreEqual(ContentChangeResult.Done, store.DeleteFile(store.MapRequestPath("/docs/moved/renamed.bin")));
+        Assert.AreEqual(ContentChangeResult.Done, store.RemoveEmptyDirectory(store.MapRequestPath("/docs/moved")));
+        Assert.IsEmpty(Directory.GetFileSystemEntries(Path.Join(servedRoot, "docs")));
+        CollectionAssert.AreEqual(new[] { "docs" }, Directory.GetFileSystemEntries(servedRoot).Select(Path.GetFileName).ToArray());
+    }
+
+    [TestMethod]
+    public void RemoveEmptyDirectory_NotEmpty_ThrowsIOExceptionAndKeepsIt()
+    {
+        string docs = Path.Join(servedRoot, "docs");
+
+        Assert.ThrowsExactly<IOException>(() => new DiskContentFileSystem().RemoveEmptyDirectory(docs));
+        Assert.IsTrue(File.Exists(Path.Join(docs, "file.bin")));
+    }
+
+    [TestMethod]
     public void DeleteFile_NoFileThere_DoesNothing()
     {
         string path = Path.Join(servedRoot, "docs", "never-written.bin");
