@@ -64,3 +64,4 @@ BL-154's ADR decides - the foundation every later SSH task builds on.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
