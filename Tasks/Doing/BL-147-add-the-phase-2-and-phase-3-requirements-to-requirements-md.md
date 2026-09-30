@@ -83,3 +83,4 @@ variants), so every Phase 2 and 3 task can cite the requirement it serves.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
