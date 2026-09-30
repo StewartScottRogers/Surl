@@ -58,3 +58,4 @@ uses them with no change in any byte it sends.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
