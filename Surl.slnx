@@ -69,6 +69,10 @@
   <Project Path="Surl.Core.UnitTests/Surl.Core.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.BcryptPbkdf.UnitLibrary/Surl.Cryptography.BcryptPbkdf.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.BcryptPbkdf.UnitTests/Surl.Cryptography.BcryptPbkdf.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Blowfish.UnitLibrary/Surl.Cryptography.Blowfish.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Blowfish.UnitTests/Surl.Cryptography.Blowfish.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Cast128.UnitLibrary/Surl.Cryptography.Cast128.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Cast128.UnitTests/Surl.Cryptography.Cast128.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.ChaCha20.UnitLibrary/Surl.Cryptography.ChaCha20.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.ChaCha20.UnitTests/Surl.Cryptography.ChaCha20.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.Curve25519.UnitLibrary/Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
@@ -79,6 +83,8 @@
   <Project Path="Surl.Cryptography.Poly1305.UnitTests/Surl.Cryptography.Poly1305.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.Rc4.UnitLibrary/Surl.Cryptography.Rc4.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.Rc4.UnitTests/Surl.Cryptography.Rc4.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Ripemd160.UnitLibrary/Surl.Cryptography.Ripemd160.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Ripemd160.UnitTests/Surl.Cryptography.Ripemd160.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.UnitTests/Surl.Cryptography.UnitTests.csproj" />
   <Project Path="Surl.Kerberos.UnitLibrary/Surl.Kerberos.UnitLibrary.csproj" />

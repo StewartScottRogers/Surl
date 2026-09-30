@@ -8,7 +8,7 @@ depends-on: [BL-252]
 touches: [Surl.slnx, Surl.Cryptography.Blowfish.UnitLibrary, Surl.Cryptography.Blowfish.UnitTests, Surl.Cryptography.Cast128.UnitLibrary, Surl.Cryptography.Cast128.UnitTests, Surl.Cryptography.Ripemd160.UnitLibrary, Surl.Cryptography.Ripemd160.UnitTests, Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-039
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-254 — Create the Blowfish, Cast128 and Ripemd160 cryptography projects
 
@@ -51,28 +51,28 @@ The six empty projects ADR-0061 names exist, are listed in `Surl.slnx`, and
 
 ## Acceptance criteria
 
-- [ ] `Surl.Cryptography.Blowfish.UnitLibrary`, `Surl.Cryptography.Blowfish.UnitTests`,
+- [x] `Surl.Cryptography.Blowfish.UnitLibrary`, `Surl.Cryptography.Blowfish.UnitTests`,
       `Surl.Cryptography.Cast128.UnitLibrary`, `Surl.Cryptography.Cast128.UnitTests`,
       `Surl.Cryptography.Ripemd160.UnitLibrary` and `Surl.Cryptography.Ripemd160.UnitTests`
       exist at the repository root, each with its csproj and no `.cs` file; no library has a
       `ProjectReference`, each test project references only its own library, and no csproj
       has a `Version` attribute, `IsAotCompatible` or `PublishAot`.
-- [ ] `Surl.slnx` lists the six in the alphabetical positions given in Context, with no
+- [x] `Surl.slnx` lists the six in the alphabetical positions given in Context, with no
       solution folder around them.
-- [ ] Each of the three `.UnitLibrary` folders has a `CLAUDE.md` stating its purpose, that it
+- [x] Each of the three `.UnitLibrary` folders has a `CLAUDE.md` stating its purpose, that it
       references nothing (ADR-0061), and the specification its test vectors come from
       (Blowfish: Eric Young's vectors in Schneier's `vectors-2.txt`; Cast128: RFC 2144
       Appendix B; Ripemd160: the RIPEMD-160 authors' published vectors and RFC 2286 section 2).
-- [ ] `ProtocolIsolationTests`: constants `Blowfish`, `Cast128` and `Ripemd160`;
+- [x] `ProtocolIsolationTests`: constants `Blowfish`, `Cast128` and `Ripemd160`;
       `HorizontalLibraries` gains `[Blowfish] = []`, `[Cast128] = []`, `[Ripemd160] = []`, and
       `[BcryptPbkdf]` becomes `[Blowfish]`; its summary names ADR-0061 among the ADRs whose rows
       it holds; `ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden` gains a `DataRow`
       for each of the three; `ForbiddenHorizontalReferences_ReferenceInItsRow_IsNotForbidden`
       gains `(BcryptPbkdf, Blowfish)`; `ForbiddenHorizontalReferences_ReferenceOutsideItsRow_IsForbidden`
       gains `(Blowfish, BcryptPbkdf)` and `(Cast128, Blowfish)`.
-- [ ] `dotnet build Surl.slnx -warnaserror` is clean and
+- [x] `dotnet build Surl.slnx -warnaserror` is clean and
       `dotnet test --filter "TestCategory!=Integration"` passes, `ProtocolIsolationTests` included.
-- [ ] No package is added; nothing outside the `touches` list changes.
+- [x] No package is added; nothing outside the `touches` list changes.
 
 ## Notes
 
@@ -80,7 +80,14 @@ The six empty projects ADR-0061 names exist, are listed in `Surl.slnx`, and
   30) apply to every `.UnitLibrary`; they are met trivially here because the libraries hold no
   code yet. Any test added must be platform-neutral (Windows, Linux, macOS).
 
+- 2026-09-30: Delivered as BL-149 was: csproj files and a `CLAUDE.md` per library, no `.cs` files.
+  Each library has `InternalsVisibleTo` its tests, as Rc4 does (the sensible default for the
+  primitives BL-255 to BL-257 add). Each `CLAUDE.md` says the library is empty until its filling
+  task (BL-255, BL-256, BL-257) and states its contents as intent. `[BcryptPbkdf] = [Blowfish]`
+  allows a reference BcryptPbkdf does not yet make; BL-255 adds it.
+
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. The Blowfish, Cast128 and Ripemd160 library and test projects exist in Surl.slnx and ProtocolIsolationTests holds their rows
