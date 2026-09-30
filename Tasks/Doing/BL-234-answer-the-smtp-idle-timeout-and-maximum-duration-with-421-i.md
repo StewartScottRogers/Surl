@@ -45,3 +45,4 @@ and ADR-0006 section 5's FTP, SMTP column say.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
