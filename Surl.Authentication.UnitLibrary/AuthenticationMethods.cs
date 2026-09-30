@@ -9,25 +9,32 @@ namespace Surl.Authentication;
 public static class AuthenticationMethods
 {
     /// <summary>
-    /// The methods accepted without <c>--auth</c>: <c>basic,bearer,digest,aws-sigv4</c>. NTLM
-    /// and Negotiate are left out (ADR-0032, section 3).
+    /// The methods accepted without <c>--auth</c>:
+    /// <c>digest,basic,plain,login,bearer,oauthbearer,xoauth2,aws-sigv4</c>. NTLM and Negotiate
+    /// are left out (ADR-0032, section 3; ADR-0049, section 3).
     /// </summary>
     public static IReadOnlySet<AuthenticationMethod> DefaultAccepted { get; } = new[]
     {
         AuthenticationMethod.Digest,
         AuthenticationMethod.Basic,
+        AuthenticationMethod.Plain,
+        AuthenticationMethod.Login,
         AuthenticationMethod.Bearer,
+        AuthenticationMethod.OAuthBearer,
+        AuthenticationMethod.XOAuth2,
         AuthenticationMethod.AwsSigV4,
     }.ToFrozenSet();
 
     /// <summary>
     /// Whether <paramref name="method"/> sends the secret itself, which a passive listener reads
-    /// straight off the wire: Basic and Bearer (ADR-0032, section 3).
+    /// straight off the wire: Basic, Bearer and the SASL <c>PLAIN</c>, <c>LOGIN</c>,
+    /// <c>OAUTHBEARER</c> and <c>XOAUTH2</c> (ADR-0032, section 3; ADR-0049, section 1).
     /// </summary>
     /// <param name="method">The method.</param>
-    /// <returns><see langword="true"/> for Basic and Bearer.</returns>
+    /// <returns><see langword="true"/> for the six methods that send a password or token.</returns>
     public static bool SendsPlaintextSecret(AuthenticationMethod method) =>
-        method is AuthenticationMethod.Basic or AuthenticationMethod.Bearer;
+        method is AuthenticationMethod.Basic or AuthenticationMethod.Bearer or AuthenticationMethod.Plain
+            or AuthenticationMethod.Login or AuthenticationMethod.OAuthBearer or AuthenticationMethod.XOAuth2;
 
     /// <summary>
     /// Whether <paramref name="method"/> logs in the connection rather than the request, so an
