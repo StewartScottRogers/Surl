@@ -329,15 +329,12 @@ public sealed class CommandLineRunnerAuthenticationTests
 
     private static SurlCommandLine Parse(params string[] args) => CommandLineParser.Parse(args).CommandLine!;
 
-    // The SSH server options, refused until the SSH server is composed (ADR-0051 decision 5).
+    // The SSH server options this build does not serve yet: --hostcert until BL-222, --allow-weak-ssh-algorithms until BL-221.
 
     [TestMethod]
-    [DataRow("--hostkey", new[] { "--hostkey", "host.key" })]
     [DataRow("--hostcert", new[] { "--hostcert", "host-cert.pub" })]
-    [DataRow("--throwaway-hostkey", new[] { "--throwaway-hostkey" })]
-    [DataRow("--authorized-keys", new[] { "--authorized-keys", "alice:alice.keys" })]
     [DataRow("--allow-weak-ssh-algorithms", new[] { "--allow-weak-ssh-algorithms" })]
-    public async Task RunAsync_SshOption_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string option, string[] arguments)
+    public async Task RunAsync_UnservedSshOption_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string option, string[] arguments)
     {
         var run = await RunRefusedAsync(_ => throw new AssertFailedException("the user file is not read"), [.. arguments, "--user-file", UserFile, Http]);
 
@@ -347,7 +344,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     [TestMethod]
-    public async Task RunAsync_SeveralSshOptions_NamesTheFirstInOptionTableOrder()
+    public async Task RunAsync_BothUnservedSshOptions_NamesTheFirstInOptionTableOrder()
     {
         var run = await RunRefusedAsync(null, "--allow-weak-ssh-algorithms", "--authorized-keys", "a:k", "--hostcert", "c", Http);
 
@@ -355,7 +352,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     [TestMethod]
-    public void FindUnavailableOption_NoSshOptionOrOnlyNegatedFlags_IsNull()
+    public void FindUnavailableOption_NoUnservedSshOptionOrOnlyNegatedFlags_IsNull()
     {
         Assert.IsNull(CommandLineRunner.FindUnavailableOption(new SurlCommandLine()));
         Assert.IsNull(CommandLineRunner.FindUnavailableOption(
@@ -465,7 +462,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     public async Task RunAsync_AuthGssapiAndAnSshOption_NamesAuthFirstInOptionTableOrder()
     {
-        var run = await RunRefusedAsync(null, "--hostkey", "host.key", "--auth", "gssapi", Http);
+        var run = await RunRefusedAsync(null, "--hostcert", "host-cert.pub", "--auth", "gssapi", Http);
 
         Assert.AreEqual("surl: (2) --auth gssapi is not available in this build" + NewLine, run.Error);
     }
@@ -503,7 +500,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     private static CommandLineRunner CreateRunner(FakeListenerFactory factory, Func<string, byte[]>? readUserFile) =>
-        new(_ => factory, _ => true, _ => DataDirectoryLockOutcome.NoLock, TimeProvider.System, readUserFile: readUserFile);
+        new(_ => factory, _ => true, _ => DataDirectoryLockOutcome.NoLock, TimeProvider.System, readStartFile: readUserFile);
 
     private sealed record Run(FakeListenerFactory Factory, SurlExitCode ExitCode, string Error, byte[] Written);
 }

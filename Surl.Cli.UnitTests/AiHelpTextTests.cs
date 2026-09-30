@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "dict", "exit-codes", "gopher", "http", "limits", "listen-urls",
-        "logging", "mqtt", "security", "smtp", "surl", "telnet", "testing", "tftp", "tls",
+        "logging", "mqtt", "security", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -35,6 +35,7 @@ public sealed partial class AiHelpTextTests
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `security` | Options that widen what a peer may do |",
         "| `smtp` | SMTP and SMTPS protocol |",
+        "| `ssh` | SSH protocol |",
         "| `surl` | The command line tool itself |",
         "| `telnet` | TELNET protocol |",
         "| `testing` | Loosening options for tests (warned) |",
@@ -431,7 +432,8 @@ public sealed partial class AiHelpTextTests
             "| 1 | `UnsupportedProtocol` | A listen URL names a scheme this build does not serve "
                 + "| Run surl --version to list the schemes this build serves, and use one of them |",
             "| 2 | `FailedInit` | The command line cannot be used: an option or its argument refused, "
-                + "an option not available in this build, no listen URL, a malformed --user-file, or a --cacert file that does not exist "
+                + "an option not available in this build, no listen URL, a malformed --user-file or --authorized-keys file, a --hostkey file surl cannot use, "
+                + "an scp or sftp listen URL with no host key, or a --cacert file that does not exist "
                 + "| Read the surl: line on stderr, which names what was refused, and fix it; "
                 + "the option tables give each option's allowed values |",
             "| 3 | `MalformedUrl` | A listen URL is malformed "
@@ -442,8 +444,8 @@ public sealed partial class AiHelpTextTests
                 + "or the trace file is the --log-file file "
                 + "| Make the data directory writable by the user surl runs as, or give a log or trace file that can be opened "
                 + "and is not the --log-file file |",
-            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, the MQTT retained-message file or the mail store "
-                + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates neither |",
+            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys or --hostkey file, the MQTT retained-message file or the mail store "
+                + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates none of them |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",
             "| 58 | `CertificateProblem` | A secure listen URL has no certificate, or the --cert or --key file cannot be used "
@@ -530,7 +532,11 @@ public sealed partial class AiHelpTextTests
     [TestMethod]
     public void Answer_EveryPage_NamesOnlyOptionsThatExist()
     {
-        foreach (var name in NamedLongOptions())
+        // surl's SSH host-key note and --throwaway-hostkey warning name the curl options that pin
+        // the key (ADR-0051, decisions 8 and 11).
+        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5"];
+
+        foreach (var name in NamedLongOptions().Except(curlOptionsSurlNames))
         {
             var exists = CommandLineOptions.TryFindLong(name, out _)
                 || (name.StartsWith("no-", StringComparison.Ordinal) && CommandLineOptions.TryFindLong(name[3..], out var negated) && negated.Negatable);
@@ -565,8 +571,12 @@ public sealed partial class AiHelpTextTests
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
-            "surl: (2) --<option> is not available in this build",
             "surl: (2) --auth gssapi is not available in this build",
+            "surl: (2) --hostcert is not available in this build",
+            "surl: (2) --allow-weak-ssh-algorithms is not available in this build",
+            "surl: (37) Could not read authorized keys <file>",
+            "surl: (2) <url> needs a host key: give --hostkey <file>, or --throwaway-hostkey for a throwaway one",
+            "surl: warning: --throwaway-hostkey: serving a throwaway SSH host key (--hostpubsha256 <base64>); clients must pin it or skip the check (curl -k)",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

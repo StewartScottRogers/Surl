@@ -1,6 +1,7 @@
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
@@ -14,6 +15,7 @@ using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 using Surl.Protocol.Mqtt;
 using Surl.Protocol.Smtp;
+using Surl.Protocol.Ssh;
 using Surl.Protocol.Telnet;
 using Surl.Protocol.Tftp;
 
@@ -53,10 +55,11 @@ namespace Surl.Console;
 /// section 6); <see cref="LogFile.Open"/> when <see langword="null"/>, which is what
 /// <c>surl</c> passes.
 /// </param>
-/// <param name="readUserFile">
-/// Reads the <c>--user-file</c>'s bytes, given its path as given, before any listener binds
-/// (ADR-0032, section 2); never called without <c>--user-file</c>. <see cref="File.ReadAllBytes(string)"/>
-/// when <see langword="null"/>, which is what <c>surl</c> passes.
+/// <param name="readStartFile">
+/// Reads the bytes of a file surl reads at start, given its path as given, before any listener
+/// binds: the <c>--user-file</c> (ADR-0032, section 2), each <c>--authorized-keys</c> file and each
+/// <c>--hostkey</c> file (ADR-0051, decisions 4 and 6); never called when none is given.
+/// <see cref="File.ReadAllBytes(string)"/> when <see langword="null"/>, which is what <c>surl</c> passes.
 /// </param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
@@ -65,7 +68,7 @@ internal sealed class CommandLineRunner(
     TimeProvider timeProvider,
     IContentFileSystem? dataDirectoryFileSystem = null,
     Func<string, FileMode, TextWriter>? openLogFile = null,
-    Func<string, byte[]>? readUserFile = null)
+    Func<string, byte[]>? readStartFile = null)
 {
     private const string MessagePrefix = "surl: ";
 
@@ -73,7 +76,7 @@ internal sealed class CommandLineRunner(
 
     private readonly Func<string, FileMode, TextWriter> openLogFile = openLogFile ?? LogFile.Open;
 
-    private readonly Func<string, byte[]> readUserFile = readUserFile ?? File.ReadAllBytes;
+    private readonly Func<string, byte[]> readStartFile = readStartFile ?? File.ReadAllBytes;
 
     /// <summary>
     /// Runs <paramref name="args"/>.
@@ -371,10 +374,15 @@ internal sealed class CommandLineRunner(
     // the one content store, the MQTT server keeps its retained messages in the store it is
     // given, and the SMTP server delivers into the one mail store. https and smtps are the HTTP
     // and SMTP servers themselves, over a connection the engine has secured (ADR-0020,
-    // ADR-0053 decision 5). The HTTP, MQTT and SMTP servers, the ones with a login, judge it by
-    // the one policy (ADR-0032).
+    // ADR-0053 decision 5). The HTTP, MQTT, SMTP and SSH servers, the ones with a login, judge it
+    // by the one policy (ADR-0032). The SSH server answers scp and sftp with its host keys and
+    // offers ADR-0051 decision 2's default algorithms for them (ADR-0051 decision 13).
     private static IProtocolServer[] ComposeProtocolServers(
-        ContentStore contentStore, ServiceState serviceState, AuthenticationPolicy authenticationPolicy, bool isStartTlsAvailable)
+        ContentStore contentStore,
+        ServiceState serviceState,
+        AuthenticationPolicy authenticationPolicy,
+        SshHostKeySet sshHostKeys,
+        bool isStartTlsAvailable)
     {
         var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
         var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isStartTlsAvailable);
@@ -388,18 +396,25 @@ internal sealed class CommandLineRunner(
             new MqttProtocolServer(serviceState.RetainedMessages, authenticationPolicy),
             smtpServer,
             new ImplicitTlsSchemeServer(smtpServer, "smtps"),
+            new SshProtocolServer(
+                sshHostKeys,
+                SshAlgorithmOffer.Default(sshHostKeys.SignatureAlgorithms, AesGcm.IsSupported),
+                authenticationPolicy,
+                new SshSystemRandomSource(),
+                contentStore),
             new TelnetProtocolServer(),
             new TftpProtocolServer(contentStore),
         ];
     }
 
     // The servers composed only to ask for their schemes: nothing is served through them, so
-    // they need no retained messages, no mail and no accounts.
+    // they need no retained messages, no mail, no accounts and no host keys.
     private IProtocolServer[] ComposeUnservedProtocolServers(ContentStore contentStore) =>
         ComposeProtocolServers(
             contentStore,
             new ServiceState(new MqttRetainedMessages(), new MailboxStore([], allowAnonymous: false, timeProvider)),
             AuthenticationComposition.ComposeWithoutAccounts(timeProvider),
+            new SshHostKeySet(),
             isStartTlsAvailable: false);
 
     // What the servers keep across connections, loaded after the lock: the MQTT retained
@@ -427,7 +442,8 @@ internal sealed class CommandLineRunner(
     }
 
     // A listen URL no registered server answers, then one TLS from the first byte with no
-    // certificate to serve (ADR-0032, section 10): each refused before any listener binds.
+    // certificate to serve (ADR-0032, section 10), then an scp or sftp one with no host key to
+    // serve (ADR-0051, decision 4): each refused before any listener binds.
     private static (SurlExitCode ExitCode, string Message)? FindListenUrlRefusal(
         SurlCommandLine commandLine, IProtocolServer[] servers)
     {
@@ -436,8 +452,13 @@ internal sealed class CommandLineRunner(
             return (SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
         }
 
-        return ServerTlsComposition.FindListenUrlWithoutCertificate(commandLine) is { } uncertified
-            ? (SurlExitCode.CertificateProblem, FormatMissingCertificate(uncertified))
+        if (ServerTlsComposition.FindListenUrlWithoutCertificate(commandLine) is { } uncertified)
+        {
+            return (SurlExitCode.CertificateProblem, FormatMissingCertificate(uncertified));
+        }
+
+        return SshHostKeyComposition.FindListenUrlWithoutHostKey(commandLine) is { } keyless
+            ? (SurlExitCode.FailedInit, SshHostKeyComposition.FormatMissingHostKey(keyless))
             : null;
     }
 
@@ -447,9 +468,9 @@ internal sealed class CommandLineRunner(
     /// <summary>
     /// The first option given that names something this build does not serve yet, in option-table
     /// order: the <c>--auth</c> word <c>gssapi</c>, parsed but refused until its mechanism is
-    /// built (ADR-0049 section 3), then the SSH server options, parsed but
-    /// refused until the SSH server is composed (ADR-0051 decision 5, after ADR-0032 section 1's
-    /// precedent).
+    /// built (ADR-0049 section 3), then <c>--hostcert</c>, refused until the SSH server serves host
+    /// certificates (BL-222, ADR-0051 decision 5), and <c>--allow-weak-ssh-algorithms</c>, refused
+    /// until the SSH server offers the weak algorithms (BL-221), after ADR-0032 section 1's precedent.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <returns>The option as <c>--&lt;name&gt;</c> (and the word, for <c>--auth</c>), or <see langword="null"/> when none is given.</returns>
@@ -459,10 +480,7 @@ internal sealed class CommandLineRunner(
     private static readonly (string Option, Func<SurlCommandLine, bool> IsGiven)[] UnavailableOptions =
     [
         ("--auth gssapi", commandLine => commandLine.AcceptedAuthenticationMethods.Contains("gssapi")),
-        ("--hostkey", commandLine => commandLine.HostKeyFiles.Count > 0),
         ("--hostcert", commandLine => commandLine.HostCertificateFiles.Count > 0),
-        ("--throwaway-hostkey", commandLine => commandLine.ThrowawayHostKey),
-        ("--authorized-keys", commandLine => commandLine.AuthorizedKeys.Count > 0),
         ("--allow-weak-ssh-algorithms", commandLine => commandLine.AllowWeakSshAlgorithms),
     ];
 
@@ -488,20 +506,39 @@ internal sealed class CommandLineRunner(
             return WriteFailure(error, refusal.ExitCode, refusal.Message);
         }
 
-        // The --auth words and the --user-file are checked before the lock is taken and any
-        // listener binds (ADR-0032, sections 1 and 2).
-        var authentication = AuthenticationComposition.Compose(commandLine, readUserFile, timeProvider);
-        return authentication.Policy is null
-            ? WriteFailure(error, authentication.ExitCode, authentication.FailureMessage!)
-            : await LockThenServeAsync(
-                commandLine, fileSystem, contentStore, (authentication.Policy, authentication.AccountNames), output, error, cancellationToken);
+        var (authentication, exitCode, failureMessage) = ComposeAuthentication(commandLine);
+        return authentication is null
+            ? WriteFailure(error, exitCode, failureMessage!)
+            : await LockThenServeAsync(commandLine, fileSystem, contentStore, authentication, output, error, cancellationToken);
     }
+
+    // The --auth words, the --user-file and the --authorized-keys files, then the --hostkey files,
+    // are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
+    // ADR-0051, decisions 4 and 6).
+    private (ComposedAuthentication? Authentication, SurlExitCode ExitCode, string? FailureMessage) ComposeAuthentication(
+        SurlCommandLine commandLine)
+    {
+        var (policy, accountNames, exitCode, failureMessage) = AuthenticationComposition.Compose(commandLine, readStartFile, timeProvider);
+        if (policy is null)
+        {
+            return (null, exitCode, failureMessage);
+        }
+
+        var (sshHostKeys, hostKeyExitCode, hostKeyFailureMessage) = SshHostKeyComposition.Compose(commandLine, readStartFile);
+        return sshHostKeys is null
+            ? (null, hostKeyExitCode, hostKeyFailureMessage)
+            : (new ComposedAuthentication(policy, accountNames, sshHostKeys), SurlExitCode.Ok, null);
+    }
+
+    // What the servers judge logins by and the SSH server proves itself with.
+    private sealed record ComposedAuthentication(
+        AuthenticationPolicy Policy, IReadOnlyList<string> AccountNames, SshHostKeyComposition SshHostKeys);
 
     private async Task<SurlExitCode> LockThenServeAsync(
         SurlCommandLine commandLine,
         IContentFileSystem fileSystem,
         ContentStore contentStore,
-        (AuthenticationPolicy Policy, IReadOnlyList<string> AccountNames) authentication,
+        ComposedAuthentication authentication,
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken)
@@ -523,7 +560,7 @@ internal sealed class CommandLineRunner(
         SurlCommandLine commandLine,
         IContentFileSystem fileSystem,
         ContentStore contentStore,
-        (AuthenticationPolicy Policy, IReadOnlyList<string> AccountNames) authentication,
+        ComposedAuthentication authentication,
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken)
@@ -544,7 +581,12 @@ internal sealed class CommandLineRunner(
             : await ServeUnderTheLockAsync(
                 commandLine,
                 ComposeProtocolServers(
-                    contentStore, loaded.State, authentication.Policy, ServerTlsComposition.IsCertificateConfigured(commandLine)),
+                    contentStore,
+                    loaded.State,
+                    authentication.Policy,
+                    authentication.SshHostKeys.HostKeys,
+                    ServerTlsComposition.IsCertificateConfigured(commandLine)),
+                authentication.SshHostKeys,
                 output,
                 error,
                 cancellationToken);
@@ -569,6 +611,7 @@ internal sealed class CommandLineRunner(
     private async Task<SurlExitCode> ServeUnderTheLockAsync(
         SurlCommandLine commandLine,
         IProtocolServer[] servers,
+        SshHostKeyComposition sshHostKeys,
         TextWriter output,
         TextWriter error,
         CancellationToken cancellationToken)
@@ -585,13 +628,14 @@ internal sealed class CommandLineRunner(
 
         using (tls)
         {
-            return await ServeSecuredAsAskedAsync(commandLine, servers, tls, output, error, cancellationToken);
+            return await ServeSecuredAsAskedAsync(commandLine, servers, sshHostKeys, tls, output, error, cancellationToken);
         }
     }
 
     private async Task<SurlExitCode> ServeSecuredAsAskedAsync(
         SurlCommandLine commandLine,
         IProtocolServer[] servers,
+        SshHostKeyComposition sshHostKeys,
         ServerTlsComposition tls,
         TextWriter output,
         TextWriter error,
@@ -614,6 +658,9 @@ internal sealed class CommandLineRunner(
             {
                 WriteThrowawayCertificateLines(commandLine.LogLevel, fingerprint, logStreams.Log);
             }
+
+            // The --throwaway-hostkey warning, then each SSH host key's note (ADR-0051, decisions 8 and 11).
+            sshHostKeys.WriteStartLines(commandLine, logStreams.Log);
 
             return await ServeLoggedAsync(commandLine, servers, tls, logStreams, output, error, cancellationToken);
         }

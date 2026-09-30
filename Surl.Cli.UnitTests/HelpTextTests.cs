@@ -17,6 +17,7 @@ public sealed class HelpTextTests
         " mqtt      MQTT and MQTTS protocol",
         " security  Options that widen what a peer may do",
         " smtp      SMTP and SMTPS protocol",
+        " ssh       SSH protocol",
         " surl      The command line tool itself",
         " telnet    TELNET protocol",
         " testing   Loosening options for tests (warned)",
@@ -31,12 +32,12 @@ public sealed class HelpTextTests
         "        Accepts every request and every login without checking credentials:",
         "        HTTP serves every request as anonymous and sends no challenge, MQTT",
         "        answers every well-formed CONNECT with CONNACK 0 whatever credentials",
-        "        it carries, and SMTP takes mail with no login. A test uses it to fetch",
-        "        or publish without setting up accounts. It is not the default because",
-        "        anyone who can reach a listener then gets everything surl serves, and",
-        "        can publish and subscribe over MQTT and send mail, with no login at",
-        "        all. surl warns on every start while it is on, from the info log level",
-        "        up.",
+        "        it carries, SMTP takes mail with no login, and SSH logs every client",
+        "        in, with any credential or none. A test uses it to fetch or publish",
+        "        without setting up accounts. It is not the default because anyone who",
+        "        can reach a listener then gets everything surl serves, and can publish",
+        "        and subscribe over MQTT and send mail, with no login at all. surl warns",
+        "        on every start while it is on, from the info log level up.",
     ];
 
     private static readonly string[] AllowPlaintextAuthExplanationLines =
@@ -91,12 +92,12 @@ public sealed class HelpTextTests
     [
         "        Makes a throwaway RSA 3072-bit SSH host key at start for an scp or sftp",
         "        listen URL when no --hostkey is given; without it, and without",
-        "        --hostkey, such a URL is to be refused at start. A test uses it to",
-        "        serve SSH without a key file; curl then needs the key's SHA-256 hash",
-        "        pinned, or -k. It is not the default because no client can know the key",
+        "        --hostkey, such a URL is refused at start. A test uses it to serve SSH",
+        "        without a key file; curl then needs the key's SHA-256 hash pinned, or",
+        "        -k. It is not the default because no client can know the key",
         "        beforehand, so a client cannot tell surl from anyone else on the path.",
-        "        It cannot be used with --hostkey. This build has no SSH server yet, so",
-        "        a start that gives it is refused (exit code 2).",
+        "        It cannot be used with --hostkey. surl warns when it makes the key,",
+        "        from the info log level up, naming the hash to pin.",
     ];
 
     // --help with no subject.
@@ -126,7 +127,7 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, content, dict, gopher, http, limits, logging, mqtt, security, smtp,",
+            "auth, content, dict, gopher, http, limits, logging, mqtt, security, smtp, ssh,",
             "surl, telnet, testing, tftp, tls.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
@@ -385,7 +386,7 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, http, mqtt, smtp.",
+            "        Categories: auth, http, mqtt, smtp, ssh.",
             "");
 
     [TestMethod]
@@ -395,7 +396,7 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, http, mqtt, smtp.",
+            "        Categories: auth, http, mqtt, smtp, ssh.",
             "");
 
     [TestMethod]
@@ -408,7 +409,7 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, http, mqtt, security, smtp, testing.",
+                "        Categories: auth, http, mqtt, security, smtp, ssh, testing.",
                 "",
             ]);
 
@@ -508,6 +509,29 @@ public sealed class HelpTextTests
             Row(32, "    --max-line <bytes>", "Longest command line accepted"),
             Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Ssh_ListsEveryOptionTheSshServerReads() =>
+        AssertOutput(
+            HelpText.Answer("ssh"),
+            "ssh: SSH protocol",
+            Row(37, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(37, "    --allow-uploads", "Accept uploads into served files"),
+            Row(37, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
+            Row(37, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(37, "    --directory <directory>", "Data directory, else in memory"),
+            Row(37, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(37, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(37, "    --hostcert <file>", "SSH host certificate file"),
+            Row(37, "    --hostkey <file>", "SSH host private key file"),
+            Row(37, "    --list-directories", "Answer directory listings"),
+            Row(37, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(37, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(37, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
+            Row(37, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(37, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
+            Row(37, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(37, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Security_ListsItsOptions() =>

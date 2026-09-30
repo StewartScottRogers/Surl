@@ -11,25 +11,32 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`CommandLineOutcome.ShowAiHelp`: `AiHelpText.Answer(parsed.AiHelpTopic)` written by
   `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
   says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
-  start that gives the `--auth` word `gssapi` or an SSH server option
-  (`FindUnavailableOption`: `--auth gssapi`, `--hostkey`, `--hostcert`,
-  `--throwaway-hostkey`, `--authorized-keys`, `--allow-weak-ssh-algorithms`, the first in
-  that order) with `surl: (2) --<option> is not available in this build` (`--auth gssapi`
-  for the word) and exit 2 before anything else is checked (ADR-0049 section 3, until
-  BL-218 and BL-216 build the two mechanisms; ADR-0051 decision 5, until BL-171 composes the
-  SSH server), checks the
+  start that gives the `--auth` word `gssapi` or an SSH server option this build does not
+  serve yet (`FindUnavailableOption`: `--auth gssapi`, `--hostcert`,
+  `--allow-weak-ssh-algorithms`, the first in that order) with
+  `surl: (2) --<option> is not available in this build` (`--auth gssapi` for the word) and
+  exit 2 before anything else is checked (ADR-0049 section 3, until BL-218 and BL-216 build
+  the two mechanisms; ADR-0051 decision 5, `--hostcert` until BL-222 and
+  `--allow-weak-ssh-algorithms` until BL-221), checks the
   data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
   full path with `--directory`, a new, empty `InMemoryContentFileSystem` at
   `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4), checks
-  every scheme against the registered protocol servers, and with `--directory` takes the
+  every scheme against the registered protocol servers, then refuses a TLS-first listen URL
+  with no certificate (58) and an `scp` or `sftp` one with neither `--hostkey` nor
+  `--throwaway-hostkey` (2, `surl: (2) <url> needs a host key: ...`), and with `--directory` takes the
   data directory's `.surl/lock` (`DataDirectoryLock.Take`, held until serving ends; a
   second surl on the same path gets 124, a `.surl` or lock file that cannot be created 23,
   ADR-0031 decision 7; no lock and no disk access without `--directory`). Before the lock it
   builds the authentication policy (`AuthenticationComposition.Compose`, ADR-0032): the
-  `--user-file` is read through the runner's `readUserFile` seam (`File.ReadAllBytes` in
-  `surl`), 37 when it cannot be read and 2 naming the line when it is malformed; the
+  `--user-file` and then each `--authorized-keys` file are read through the runner's
+  `readStartFile` seam (`File.ReadAllBytes` in `surl`), 37 when one cannot be read and 2
+  naming the line when it is malformed (ADR-0051 decision 6); then the SSH host keys
+  (`SshHostKeyComposition.Compose`, ADR-0051 decision 4): each `--hostkey` file read through
+  the same seam and parsed by `SshHostKeyFile.Read` (37 unreadable, 2 with the parser's
+  refusal or a second key of one type, naming the file), and with `--throwaway-hostkey` an RSA
+  3072-bit key made only when an `scp` or `sftp` URL is served; the
   `--user` accounts and then the file's go into one `AccountBook`; each `--auth` word maps to
   its `AuthenticationMethod`, the SASL mechanism words (`digest-md5`, `cram-md5`, `apop`,
   `plain`, `login`, `oauthbearer`, `xoauth2`, `external`, and `ntlm` for both) included, ADR-0049
@@ -55,7 +62,9 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   messages, before any listener binds, with `--directory` (a store that cannot be loaded ends
   surl with 37 and `surl: (37) Could not read <file>: <reason>`, ADR-0050 decision 7), and in
   memory only without it,
-  `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
+  `SshProtocolServer` for `scp` and `sftp`, given the host keys, `SshAlgorithmOffer.Default`
+  for them, the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the
+  content store, `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
   exchange log of the parsed log level and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,
   `--max-connections-per-address`, `--idle-timeout` and `-m`/`--max-time` give, and serves. It writes ADR-0007 section 5's
@@ -87,7 +96,11 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `--allow-plaintext-auth` and `--auth` lines, in that order, then `CommandLineRunner`
   writes the `--self-signed` line when a throwaway certificate was made, and from the
   verbose level up `* Serving a throwaway certificate, SHA-256 <fingerprint>` (ADR-0032
-  section 9, ADR-0033 section 7).
+  section 9, ADR-0033 section 7); then `SshHostKeyComposition.WriteStartLines` writes the
+  `--throwaway-hostkey` warning (with the key's `--hostpubsha256` value) when the key was made,
+  and from the verbose level up, when an `scp` or `sftp` URL is served,
+  `* Serving SSH host key <key type>, --hostpubsha256 <base64> --hostpubmd5 <hex>` per key
+  (ADR-0051 decisions 8 and 11).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
 - `CommandLineRunner.ComposeRegisteredSchemes` lists every registered server's schemes, the

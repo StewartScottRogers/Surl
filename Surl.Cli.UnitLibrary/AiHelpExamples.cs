@@ -86,6 +86,12 @@ public static class AiHelpExamples
             ["Listening on smtp://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl --mail-from a@example.com --mail-rcpt b@example.com -T mail.txt smtp://127.0.0.1:<port>/example.com"]),
+        Refused(
+            "ssh",
+            "An SFTP listen URL with no host key",
+            ["sftp://127.0.0.1:0/"],
+            ["surl: (2) sftp://127.0.0.1:0/ needs a host key: give --hostkey <file>, or --throwaway-hostkey for a throwaway one"],
+            SurlExitCode.FailedInit),
         Serving("telnet", "Serve TELNET", ["telnet://127.0.0.1:0/"], ["Listening on telnet://127.0.0.1:<port>/"], [], ["curl telnet://127.0.0.1:<port>/"]),
         Serving("tftp", "Serve TFTP", ["tftp://127.0.0.1:0/"], ["Listening on tftp://127.0.0.1:<port>/"], [], ["curl tftp://127.0.0.1:<port>/example.txt"]),
     ];

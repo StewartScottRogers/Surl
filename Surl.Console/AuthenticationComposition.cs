@@ -6,9 +6,9 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Console;
 
 /// <summary>
-/// The authentication policy the HTTP, MQTT and SMTP servers are given, as the command line asks for
-/// it (ADR-0032): the accounts from every <c>--user</c> and then the <c>--user-file</c>, the
-/// methods <c>--auth</c> accepts, and <c>--allow-anonymous</c> and
+/// The authentication policy the HTTP, MQTT, SMTP and SSH servers are given, as the command line asks for
+/// it (ADR-0032, ADR-0051 section 6): the accounts from every <c>--user</c> and then the <c>--user-file</c>,
+/// the public keys of every <c>--authorized-keys</c> file, the methods <c>--auth</c> accepts, and <c>--allow-anonymous</c> and
 /// <c>--allow-plaintext-auth</c>; and the warning line each loosening option writes on start.
 /// </summary>
 internal static class AuthenticationComposition
@@ -36,25 +36,33 @@ internal static class AuthenticationComposition
     };
 
     /// <summary>
-    /// Builds the policy: reads the <c>--user-file</c> through <paramref name="readUserFile"/> when
-    /// one was given, and composes the Negotiate, NTLM, Basic, Bearer, Digest and AWS Signature
-    /// Version 4 methods over the accounts.
+    /// Builds the policy: reads the <c>--user-file</c> and then each <c>--authorized-keys</c> file
+    /// through <paramref name="readFile"/> when given, and composes the Negotiate, NTLM, Basic,
+    /// Bearer, Digest and AWS Signature Version 4 methods over the accounts; the SSH server checks
+    /// its logins against the accounts and the authorized keys (ADR-0051, section 6).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
-    /// <param name="readUserFile">Reads the <c>--user-file</c>'s bytes, given its path as given.</param>
+    /// <param name="readFile">Reads a file's bytes, given its path as given.</param>
     /// <param name="timeProvider">The clock the refusal delay, the Digest nonces and the Signature Version 4 window run on.</param>
     /// <returns>
     /// The policy and every account's user name, the <c>--user</c> ones first, which the mail
     /// store's owners are (ADR-0050, decision 2); or, when it cannot be built, <see langword="null"/>
-    /// with the exit code and the message after the <c>surl: </c> prefix (ADR-0032, sections 1 and 2).
+    /// with the exit code and the message after the <c>surl: </c> prefix (ADR-0032, sections 1 and 2;
+    /// ADR-0051, section 6).
     /// </returns>
     public static (AuthenticationPolicy? Policy, IReadOnlyList<string> AccountNames, SurlExitCode ExitCode, string? FailureMessage) Compose(
-        SurlCommandLine commandLine, Func<string, byte[]> readUserFile, TimeProvider timeProvider)
+        SurlCommandLine commandLine, Func<string, byte[]> readFile, TimeProvider timeProvider)
     {
-        var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readUserFile);
-        return accounts is null
-            ? (null, [], exitCode, failureMessage)
-            : (ComposePolicy(ComposeSettings(commandLine, accounts), timeProvider),
+        var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readFile);
+        if (accounts is null)
+        {
+            return (null, [], exitCode, failureMessage);
+        }
+
+        var (authorizedKeys, keysExitCode, keysFailureMessage) = ReadAuthorizedKeys(commandLine, readFile);
+        return authorizedKeys is null
+            ? (null, [], keysExitCode, keysFailureMessage)
+            : (ComposePolicy(ComposeSettings(commandLine, accounts) with { AuthorizedKeys = authorizedKeys }, timeProvider),
                 [.. accounts.Select(account => account.UserName)],
                 SurlExitCode.Ok,
                 null);
@@ -141,6 +149,36 @@ internal static class AuthenticationComposition
         return parsed.Failure is { } lineFailure
             ? (null, SurlExitCode.FailedInit, $"(2) User file {userFile}, {lineFailure.Describe()}")
             : (parsed.Accounts, SurlExitCode.Ok, null);
+    }
+
+    // Every --authorized-keys file, in command-line order (ADR-0051, section 6): a file that
+    // cannot be read is 37, a malformed line 2, each naming the file as given and never a key.
+    private static (AuthorizedKeyBook? AuthorizedKeys, SurlExitCode ExitCode, string? FailureMessage) ReadAuthorizedKeys(
+        SurlCommandLine commandLine, Func<string, byte[]> readFile)
+    {
+        List<AuthorizedKey> keys = [];
+        foreach (var (userName, file) in commandLine.AuthorizedKeys)
+        {
+            byte[] content;
+            try
+            {
+                content = readFile(file);
+            }
+            catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
+            {
+                return (null, SurlExitCode.CouldNotReadFile, $"(37) Could not read authorized keys {file}");
+            }
+
+            var parsed = AuthorizedKeysParser.Parse(content, userName);
+            if (parsed.Failure is { } lineFailure)
+            {
+                return (null, SurlExitCode.FailedInit, $"(2) Authorized keys {file}, {lineFailure.Describe()}");
+            }
+
+            keys.AddRange(parsed.Keys);
+        }
+
+        return (new AuthorizedKeyBook(keys), SurlExitCode.Ok, null);
     }
 
     private static AuthenticationPolicy ComposePolicy(AuthenticationSettings settings, TimeProvider timeProvider) =>

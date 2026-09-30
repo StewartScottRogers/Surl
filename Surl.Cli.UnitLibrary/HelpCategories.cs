@@ -17,6 +17,7 @@ internal static class HelpCategories
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
         new("security", "Options that widen what a peer may do", []),
         new("smtp", "SMTP and SMTPS protocol", ["smtp", "smtps"]),
+        new("ssh", "SSH protocol", ["scp", "sftp"]),
         new("surl", "The command line tool itself", []),
         new("telnet", "TELNET protocol", ["telnet"]),
         new("testing", "Loosening options for tests (warned)", []),

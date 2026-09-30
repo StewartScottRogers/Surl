@@ -159,11 +159,11 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
-    public void OnlyTheSevenProtocolCategories_HaveSchemes()
+    public void OnlyTheEightProtocolCategories_HaveSchemes()
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "gopher", "http", "mqtt", "smtp", "telnet", "tftp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dict", "gopher", "http", "mqtt", "smtp", "ssh", "telnet", "tftp" }, withSchemes.ToArray());
     }
 
     [TestMethod]

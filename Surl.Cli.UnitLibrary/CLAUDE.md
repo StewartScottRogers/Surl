@@ -32,8 +32,10 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `CommandLineAuthorizedKeys` to `AuthorizedKeys`, split at the first `:`, a user given twice
   refused after the whole line is read; `--throwaway-hostkey` (`ThrowawayHostKey`) with
   `--hostkey` is refused; `--allow-weak-ssh-algorithms` sets `AllowWeakSshAlgorithms`. `--pass`
-  without `--cert` is accepted when a `--hostkey` is given. `Surl.Console` refuses a start that
-  gives any of them as not available in this build until the SSH server is composed (BL-171).
+  without `--cert` is accepted when a `--hostkey` is given. Each is in the `ssh` help category
+  (`SSH protocol`, schemes `scp` and `sftp`, ADR-0051 decision 12), with every option the SSH
+  server reads. `Surl.Console` reads the files and still refuses `--hostcert` (until BL-222) and
+  `--allow-weak-ssh-algorithms` (until BL-221) as not available in this build.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,
