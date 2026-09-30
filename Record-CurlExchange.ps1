@@ -153,7 +153,9 @@
     appended. VERB is a command name in capitals, GREETING for the greeting, or RETRDONE
     for the reply sent after RETR's or LIST's data, or STORDONE for the reply sent after
     STOR's or APPE's data. An overridden EPSV, PASV, RETR, LIST, NLST, MLSD, STOR or APPE sends
-    only the reply: no data connection is offered. The reply CLOSE closes the control
+    only the reply: no data connection is offered - except that an overridden RETR, LIST,
+    NLST, MLSD, STOR or APPE whose reply starts with 1 replaces only the preliminary 150
+    reply, and the data connection is then used as without an override. The reply CLOSE closes the control
     connection instead of answering, e.g. 'PWD=CLOSE'. Several overrides for one VERB are
     answered in the order given, one per command, the last repeating for the rest, e.g.
     'CWD=550 No such directory' 'CWD=250 OK'. In a reply, {DATAPORT} stands for
@@ -952,8 +954,15 @@ $serveFtpSession = {
                 [void] $Transcript.Append("> $command`r`n")
                 $verb = ($command -split ' ', 2)[0].ToUpperInvariant()
                 $argument = if ($command.Contains(' ')) { ($command -split ' ', 2)[1] } else { '' }
-                if ($Overrides.ContainsKey($verb)) {
-                    $override = Get-Override -Verb $verb
+                $override = if ($Overrides.ContainsKey($verb)) { Get-Override -Verb $verb } else { $null }
+                # A transfer command's overridden 1xx reply replaces the preliminary reply
+                # alone: the data connection is still used, as without an override.
+                $preliminary = '150 Opening BINARY mode data connection'
+                if ($null -ne $override -and @('RETR', 'LIST', 'NLST', 'MLSD', 'STOR', 'APPE') -contains $verb -and $override.StartsWith('1')) {
+                    $preliminary = $override
+                    $override = $null
+                }
+                if ($null -ne $override) {
                     if ($override -ceq 'CLOSE') { break }  # Hang up instead of replying.
                     Send-Reply -Stream $stream -Reply $override
                     if ($verb -eq 'QUIT') { break }
@@ -1001,7 +1010,7 @@ $serveFtpSession = {
                     'EPSV' { Send-Reply -Stream $stream -Reply "229 Entering Extended Passive Mode (|||$dataPort|)" }
                     'PASV' { Send-Reply -Stream $stream -Reply "227 Entering Passive Mode ($($ListenAddress.ToString().Replace('.', ',')),$([Math]::Floor($dataPort / 256)),$($dataPort % 256))" }
                     { $_ -eq 'RETR' -or $_ -eq 'LIST' -or $_ -eq 'NLST' -or $_ -eq 'MLSD' } {
-                        Send-Reply -Stream $stream -Reply '150 Opening BINARY mode data connection'
+                        Send-Reply -Stream $stream -Reply $preliminary
                         $dataClient, $dataStream = Open-DataConnection -Verb $verb -ActiveEndPoint $activeEndPoint -Protect $protectData
                         try {
                             $start = [int] [Math]::Max(0, [Math]::Min($restOffset, $DataBytes.Length))
@@ -1018,7 +1027,7 @@ $serveFtpSession = {
                         Send-Reply -Stream $stream -Reply $done
                     }
                     { $_ -eq 'STOR' -or $_ -eq 'APPE' } {
-                        Send-Reply -Stream $stream -Reply '150 Opening BINARY mode data connection'
+                        Send-Reply -Stream $stream -Reply $preliminary
                         $dataClient, $dataStream = Open-DataConnection -Verb $verb -ActiveEndPoint $activeEndPoint -Protect $protectData
                         $uploaded = New-Object System.IO.MemoryStream
                         try {
