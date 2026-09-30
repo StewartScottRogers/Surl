@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-320 — Add the Phase 4 and Phase 5 requirements to Requirements.md
 
@@ -53,17 +53,29 @@ requirements, each `Draft`, so every Phase 4 and 5 task can cite one.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Product/Requirements.md` has rows FR-048, FR-049, FR-050, FR-051 and FR-052,
+- [x] `Documentation/Product/Requirements.md` has rows FR-048, FR-049, FR-050, FR-051 and FR-052,
       each with an "Answers (upstream curl)" cell, a "Measured against" build, priority `Must` and
       status `Draft`.
-- [ ] No row states behaviour its cited sources do not; every ADR cited exists.
-- [ ] The header paragraph names FR-048 to FR-052 as Phases 4 and 5's.
+- [x] No row states behaviour its cited sources do not; every ADR cited exists.
+- [x] The header paragraph names FR-048 to FR-052 as Phases 4 and 5's.
 
 ## Notes
 
 - The task IDs filed with this plan cite these IDs in their `requirement` field; keep the numbers.
+- Done in the session rather than through `align-and-document`: one file, five table rows.
+- FR-052 does not credit ADR-0032 with RTSP or WebSocket logins: ADR-0032 names only SMB NTLM
+  and LDAP simple and SASL bind among the servers not yet built. The RTSP and WebSocket logins
+  are cited to the product overview's "Also in scope" ("for every scheme upstream curl sends").
+- FR-050's `NT LM 0.12` is cited to upstream curl's source, as the task's Context gives it; no
+  Surl document measures it yet. The SMB server's own ADR should.
+- FR-051 names the Linux reference build beside Windows, and macOS as Inconclusive, because
+  ADR-0026 decides exactly that.
+- Must for Phase 4 and 5 rows (unlike Phases 2 and 3's Should), as the acceptance criteria
+  require; the MoSCoW paragraph now says why.
+- No `.cs` or project file touched, so the build and tests are unaffected.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Requirements.md carries FR-048 to FR-052, the Phase 4 and 5 requirements, each Must and Draft
