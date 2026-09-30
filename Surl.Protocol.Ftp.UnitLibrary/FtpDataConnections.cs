@@ -51,6 +51,42 @@ internal sealed class FtpDataConnections : IAsyncDisposable
     public bool IsPrepared => passiveListener is not null || activeTarget is not null;
 
     /// <summary>
+    /// Whether data connections are TLS: the protection level <c>PROT P</c> sets and
+    /// <c>PROT C</c> clears (ADR-0052, decision 5).
+    /// </summary>
+    public bool IsProtected { get; set; }
+
+    /// <summary>
+    /// Runs the server side of a TLS handshake on <paramref name="dataConnection"/> when
+    /// <see cref="IsProtected"/>; a fresh handshake, never tied to the control connection's
+    /// session (ADR-0052, decision 5).
+    /// </summary>
+    /// <param name="dataConnection">The data connection just opened.</param>
+    /// <returns>
+    /// <see langword="true"/> when the connection is ready for the transfer; <see langword="false"/>
+    /// when the handshake failed, and the connection has been reset.
+    /// </returns>
+    public async ValueTask<bool> ProtectAsync(IConnection dataConnection)
+    {
+        if (!IsProtected)
+        {
+            return true;
+        }
+
+        try
+        {
+            await dataConnection.UpgradeToTlsAsync(context.CancellationToken);
+            return true;
+        }
+        catch (Exception exception) when (exception is TlsHandshakeException or IOException)
+        {
+            dataConnection.Abort();
+            context.Log.Note($"The TLS handshake on the data connection failed ({exception.Message}); answered 425.");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Answers <c>EPSV</c>, <c>EPSV 1</c>, <c>EPSV 2</c> and <c>EPSV ALL</c>.
     /// </summary>
     /// <param name="argument">The argument as sent, or <see langword="null"/>.</param>

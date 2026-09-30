@@ -6,8 +6,8 @@ The FTP server: a control channel and a separate data channel, passive (`PASV`, 
 and active (`PORT`, `EPRT`), explicit TLS (`AUTH TLS`) and implicit TLS (`ftps://`),
 serving and receiving files through the content store.
 
-**URL schemes answered:** `ftp`, `ftps` when finished; `FtpProtocolServer.Schemes` is `ftp`
-alone until `ftps` is built (BL-181).
+**URL schemes answered:** `ftp` and `ftps`; the engine completes `ftps`'s implicit TLS
+handshake before `ServeAsync`, so the server claims it directly (BL-181).
 
 Built so far (BL-177, ADR-0052 decisions 1 to 3 and 10): `FtpProtocolServer`, the control
 connection - the greeting, bounded command lines (`FtpLineReader`), logins through
@@ -24,8 +24,13 @@ otherwise): `STOR` and `APPE` (and `REST` before them) written through the conte
 temporary-file upload path, reading the data connection through `DataConnectionUploadStream`,
 which opens it only at the store's first read, so a refused upload never uses one; an upload
 past `--max-filesize` is `552` with nothing left behind. `MKD`/`XMKD`, `RMD`/`XRMD`, `DELE`,
-`RNFR`/`RNTO` and `SITE` (always `504`) are answered in `FtpCommandResponder`. The TLS commands
-answer `502 Command not implemented` until BL-181 builds them.
+`RNFR`/`RNTO` and `SITE` (always `504`) are answered in `FtpCommandResponder`. BL-181
+(decision 5) added TLS: `AUTH TLS`/`AUTH SSL` (`234`, the bytes buffered after the line thrown
+away by `FtpLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`) only when the
+server is constructed with `isAuthTlsAvailable` (a listener certificate), `534` otherwise;
+`PBSZ` after TLS, `PROT C`/`P` after `PBSZ`, `CCC` always `534`. Under `PROT P` - the default on
+`ftps` - `FtpDataConnections.ProtectAsync` upgrades each data connection after its `150`, and a
+failed handshake is `425`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing

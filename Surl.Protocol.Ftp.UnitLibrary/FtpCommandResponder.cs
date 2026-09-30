@@ -17,12 +17,13 @@ namespace Surl.Protocol.Ftp;
 /// <c>SITE</c> command and the entry <c>MLST</c> describes - are rendered by
 /// <see cref="FtpPath.ToQuotedReplyText"/> and <see cref="FtpPath.ToReplyText(byte[])"/>
 /// (ADR-0006, section 3); a listing sent over a data connection names each entry in UTF-8, as
-/// <c>FEAT</c>'s <c>UTF8</c> says. TLS (<c>AUTH</c>, <c>PBSZ</c>, <c>PROT</c>, <c>CCC</c>) is
-/// answered <c>502 Command not implemented</c> until BL-181 builds it, which is true of this
-/// server now. It is not safe for concurrent calls.
+/// <c>FEAT</c>'s <c>UTF8</c> says. TLS is <c>AUTH TLS</c> (or <c>AUTH SSL</c>), <c>PBSZ</c> and
+/// <c>PROT</c>, with <c>CCC</c> always refused (ADR-0052, decision 5). It is not safe for
+/// concurrent calls.
 /// </remarks>
 internal sealed class FtpCommandResponder : IAsyncDisposable
 {
+    private const string AuthFeatures = " AUTH TLS\r\n PBSZ\r\n PROT\r\n";
     private const string CommandNotImplemented = "502 Command not implemented";
     private const string SyntaxError = "501 Syntax error in arguments";
     private const string DirectoryChanged = "250 Directory changed";
@@ -43,13 +44,16 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
 
     private readonly IConnection connection;
     private readonly ExchangeContext context;
+    private readonly FtpLineReader reader;
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly bool isAuthTlsAvailable;
     private readonly Dictionary<string, Func<byte[]?, ValueTask<bool>>> commands;
     private readonly string[] recognizedCommands;
     private readonly FtpDataConnections dataConnections;
     private string? userName;
     private bool isLoggedIn;
+    private bool isProtectionBufferSizeSet;
     private IReadOnlyList<string> currentDirectory = [];
     private long restartOffset;
     private IReadOnlyList<string>? renameSource;
@@ -60,20 +64,39 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
     /// </summary>
     /// <param name="connection">The control connection every reply is written to.</param>
     /// <param name="context">The exchange: its scheme, data-connection opener, limits, log and cancellation token.</param>
+    /// <param name="reader">The control connection's line reader, whose buffered bytes <c>AUTH</c> throws away.</param>
     /// <param name="contentStore">Where <c>CWD</c> looks for directories and <c>RETR</c> for files.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
+    /// <param name="isAuthTlsAvailable">Whether the listener has a certificate, so <c>AUTH</c> can upgrade the connection.</param>
     public FtpCommandResponder(
-        IConnection connection, ExchangeContext context, ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
+        IConnection connection,
+        ExchangeContext context,
+        FtpLineReader reader,
+        ContentStore contentStore,
+        IAuthenticationPolicy authenticationPolicy,
+        bool isAuthTlsAvailable)
     {
         this.connection = connection;
         this.context = context;
+        this.reader = reader;
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
-        dataConnections = new FtpDataConnections(connection, context);
+        this.isAuthTlsAvailable = isAuthTlsAvailable;
+
+        // Data connections are private from the start on ftps:// and clear on ftp:// until PROT
+        // says otherwise (ADR-0052, decision 5).
+        dataConnections = new FtpDataConnections(connection, context)
+        {
+            IsProtected = string.Equals(context.Scheme, "ftps", StringComparison.OrdinalIgnoreCase),
+        };
         commands = new(StringComparer.Ordinal)
         {
             ["USER"] = AnswerUserAsync,
             ["PASS"] = AnswerPassAsync,
+            ["AUTH"] = AnswerAuthAsync,
+            ["PBSZ"] = AnswerProtectionBufferSizeAsync,
+            ["PROT"] = AnswerProtectionLevelAsync,
+            ["CCC"] = _ => ReplyAsync("534 Request denied for policy reasons"),
             ["PWD"] = _ => AnswerPrintWorkingDirectoryAsync(),
             ["XPWD"] = _ => AnswerPrintWorkingDirectoryAsync(),
             ["CWD"] = AnswerChangeWorkingDirectoryAsync,
@@ -84,7 +107,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
             ["MODE"] = argument => AnswerOneWordSettingAsync(argument, "S", "200 Mode set to S", "504 Mode not supported"),
             ["STRU"] = argument => AnswerOneWordSettingAsync(argument, "F", "200 Structure set to F", "504 Structure not supported"),
             ["SYST"] = _ => ReplyAsync("215 UNIX Type: L8"),
-            ["FEAT"] = _ => ReplyAsync("211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n MLST type*;size*;modify*;\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n211 End"),
+            ["FEAT"] = _ => ReplyAsync($"211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n MLST type*;size*;modify*;\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n{(isAuthTlsAvailable ? AuthFeatures : "")}211 End"),
             ["EPSV"] = async argument => await ReplyAsync(await dataConnections.AnswerExtendedPassiveAsync(argument)),
             ["PASV"] = async _ => await ReplyAsync(await dataConnections.AnswerPassiveAsync()),
             ["EPRT"] = async argument => await ReplyAsync(await dataConnections.AnswerActiveAsync(argument, isExtended: true)),
@@ -210,6 +233,79 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
         }
     }
 
+    // AUTH TLS and AUTH SSL (curl sends SSL first): 234, then every byte pipelined after the
+    // AUTH line thrown away unrun, then the handshake (ADR-0010, section 1; ADR-0052, decision
+    // 5). A failed handshake throws TlsHandshakeException, which the engine notes.
+    private async ValueTask<bool> AnswerAuthAsync(byte[]? argument)
+    {
+        if (AuthRefusal(argument) is { } refusal)
+        {
+            return await ReplyAsync(refusal);
+        }
+
+        await ReplyAsync("234 AUTH accepted, start TLS");
+        var discarded = reader.DiscardBuffered();
+        if (discarded > 0)
+        {
+            context.Log.Note($"Discarded {discarded} bytes sent after AUTH");
+        }
+
+        await connection.UpgradeToTlsAsync(context.CancellationToken);
+        return true;
+    }
+
+    private string? AuthRefusal(byte[]? argument) =>
+        argument is null ? SyntaxError
+        : connection.TlsSession is not null ? "503 Already using TLS"
+        : !IsWord(argument, "TLS") && !IsWord(argument, "SSL") ? "504 Security mechanism not understood"
+        : !isAuthTlsAvailable ? "534 TLS is not available"
+        : null;
+
+    // Only a buffer size of 0 exists under TLS, so any size is answered PBSZ=0 (RFC 4217,
+    // section 9); it needs TLS first, from AUTH or from ftps://.
+    private ValueTask<bool> AnswerProtectionBufferSizeAsync(byte[]? argument)
+    {
+        if (argument is null)
+        {
+            return ReplyAsync(SyntaxError);
+        }
+
+        if (connection.TlsSession is null)
+        {
+            return ReplyAsync("503 Send AUTH first");
+        }
+
+        isProtectionBufferSizeSet = true;
+        return ReplyAsync("200 PBSZ=0");
+    }
+
+    // PROT P makes every later data connection TLS and PROT C plaintext; S and E have no TLS
+    // meaning (RFC 4217, section 9).
+    private ValueTask<bool> AnswerProtectionLevelAsync(byte[]? argument)
+    {
+        if (argument is null)
+        {
+            return ReplyAsync(SyntaxError);
+        }
+
+        if (!isProtectionBufferSizeSet)
+        {
+            return ReplyAsync("503 Send PBSZ first");
+        }
+
+        var level = Encoding.ASCII.GetString(argument).ToUpperInvariant();
+        switch (level)
+        {
+            case "C" or "P":
+                dataConnections.IsProtected = level == "P";
+                return ReplyAsync($"200 Protection level set to {level}");
+            case "S" or "E":
+                return ReplyAsync("536 Protection level not supported");
+            default:
+                return ReplyAsync("504 Protection level not understood");
+        }
+    }
+
     private ValueTask<bool> AnswerPrintWorkingDirectoryAsync() =>
         ReplyAsync($"257 \"{FtpPath.ToQuotedReplyText(currentDirectory)}\" is the current directory");
 
@@ -324,6 +420,8 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
 
     // The data connection is opened before 150, so 150 always means the bytes follow; the reply
     // send returns follows them. Each data connection carries one transfer (ADR-0052, decision 6).
+    // Under PROT P the TLS handshake runs after 150, the order pinned upstream curl completed
+    // against the recorder, and a failed one is 425 in place of the transfer.
     private async ValueTask<bool> TransferAsync(string openingReply, Func<IConnection, Task<string>> send)
     {
         if (!dataConnections.IsPrepared)
@@ -339,7 +437,9 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
         await using (dataConnection)
         {
             await ReplyAsync(openingReply);
-            return await ReplyAsync(await send(dataConnection));
+            return await ReplyAsync(await dataConnections.ProtectAsync(dataConnection)
+                ? await send(dataConnection)
+                : FtpDataConnections.CannotOpenDataConnection);
         }
     }
 

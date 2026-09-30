@@ -9,7 +9,8 @@ namespace Surl.Protocol.Ftp;
 /// used (ADR-0052, decision 8).
 /// </summary>
 /// <remarks>
-/// A read after the data connection could not be opened throws
+/// Under <c>PROT P</c> the data connection's TLS handshake runs after the <c>150</c>. A read
+/// after the data connection could not be opened, or its handshake failed, throws
 /// <see cref="FtpDataConnectionNotOpenedException"/>. A read the data connection fails with
 /// <see cref="IOException"/> sets <see cref="ConnectionReadFailed"/>, so the caller can tell
 /// the client going away from the file system failing. Disposing it disposes the data
@@ -104,6 +105,12 @@ internal sealed class DataConnectionUploadStream : Stream
     {
         var opened = await dataConnections.OpenAsync() ?? throw new FtpDataConnectionNotOpenedException();
         await sendOpeningReplyAsync();
+        if (!await dataConnections.ProtectAsync(opened))
+        {
+            await opened.DisposeAsync();
+            throw new FtpDataConnectionNotOpenedException();
+        }
+
         return opened;
     }
 }

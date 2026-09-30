@@ -33,8 +33,20 @@ namespace Surl.Protocol.Ftp;
 /// <c>QUIT</c>; and for downloads <c>EPSV</c>, <c>PASV</c>, <c>EPRT</c>, <c>PORT</c>,
 /// <c>SIZE</c>, <c>MDTM</c>, <c>REST</c>, <c>RETR</c> and <c>ABOR</c> (ADR-0052, decisions 4
 /// and 6); and for listings <c>LIST</c>, <c>NLST</c>, <c>MLSD</c> and <c>MLST</c> (decision 7).
-/// Every other command, the upload and TLS commands included until they are built, is
+/// And for uploads and file management <c>STOR</c>, <c>APPE</c>, <c>MKD</c>, <c>RMD</c>,
+/// <c>DELE</c>, <c>RNFR</c>, <c>RNTO</c> and <c>SITE</c> (decision 8). Every other command is
 /// <c>502 Command not implemented</c>.
+/// </para>
+/// <para>
+/// <b>TLS</b> (ADR-0052, decision 5). On <c>ftp://</c>, <c>AUTH TLS</c> or <c>AUTH SSL</c> is
+/// answered <c>234</c>, every byte pipelined after the <c>AUTH</c> line is thrown away unrun,
+/// and the control connection is upgraded with <see cref="IConnection.UpgradeToTlsAsync"/> -
+/// only when the listener has a certificate; without one it is <c>534 TLS is not available</c>,
+/// and a login the policy wants over TLS stays refused as plain text. <c>PBSZ</c> needs TLS,
+/// <c>PROT</c> needs <c>PBSZ</c>, and after <c>PROT P</c> each data connection is upgraded to
+/// TLS after its <c>150</c>; <c>CCC</c> is refused, so the control connection stays
+/// encrypted. <c>ftps://</c> is TLS from the first byte - the engine's handshake - and its
+/// data connections are TLS until a <c>PROT C</c>.
 /// </para>
 /// <para>
 /// <b>Listings.</b> <c>LIST</c>, <c>NLST</c> and <c>MLSD</c> of a directory are sent over a
@@ -82,6 +94,7 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
 
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly bool isAuthTlsAvailable;
 
     /// <summary>
     /// Creates an FTP server over <paramref name="contentStore"/> whose logins
@@ -89,19 +102,26 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     /// </summary>
     /// <param name="contentStore">The content store the server's paths name.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
-    public FtpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
+    /// <param name="isAuthTlsAvailable">
+    /// Whether the listener has a certificate (<c>--cert</c> or <c>--self-signed</c>), so
+    /// <c>AUTH TLS</c> can upgrade the control connection and <c>FEAT</c> lists it; without one
+    /// <c>AUTH</c> is <c>534 TLS is not available</c> (ADR-0032, section 10).
+    /// </param>
+    public FtpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool isAuthTlsAvailable = false)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
+        this.isAuthTlsAvailable = isAuthTlsAvailable;
     }
 
     /// <summary>
-    /// The one scheme answered so far: <c>ftp</c>.
+    /// The schemes answered: <c>ftp</c>, and <c>ftps</c>, whose TLS handshake the engine
+    /// completes before <see cref="ServeAsync"/>.
     /// </summary>
-    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ftp"]);
+    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ftp", "ftps"]);
 
     /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>
@@ -121,7 +141,7 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
         var cancellationToken = context.CancellationToken;
         await WriteAsync(connection, Greeting, cancellationToken);
 
-        var responder = new FtpCommandResponder(connection, context, contentStore, authenticationPolicy);
+        var responder = new FtpCommandResponder(connection, context, reader, contentStore, authenticationPolicy, isAuthTlsAvailable);
         var failure = await CaptureFailureAsync(() => AnswerEveryLineAsync(connection, context, reader, responder));
         await responder.DisposeAsync();
         failure?.Throw();

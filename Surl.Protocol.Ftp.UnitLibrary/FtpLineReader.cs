@@ -105,6 +105,22 @@ internal sealed class FtpLineReader : IDisposable
     }
 
     /// <summary>
+    /// Throws away every buffered byte. The server calls it after answering <c>AUTH</c> and
+    /// before <see cref="IConnection.UpgradeToTlsAsync"/>, so plaintext pipelined after the
+    /// <c>AUTH</c> line is never run as a command (ADR-0010, section 1).
+    /// </summary>
+    /// <returns>How many bytes were thrown away, for the server's log note.</returns>
+    public int DiscardBuffered()
+    {
+        var discarded = BufferedCount;
+        bufferedStart = 0;
+        bufferedEnd = 0;
+        scannedCount = 0;
+
+        return discarded;
+    }
+
+    /// <summary>
     /// Stops the head timeout's clock.
     /// </summary>
     public void Dispose() => StopHeadTimeout();

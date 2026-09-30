@@ -161,7 +161,7 @@ public sealed class FtpCommandTests
         Assert.AreEqual(
             Greeting
             + "214-The following commands are recognized:\r\n"
-            + " ABOR ACCT ALLO APPE CDUP CWD DELE EPRT EPSV FEAT HELP LIST MDTM MKD MLSD MLST MODE NLST NOOP OPTS PASS PASV PORT PWD QUIT REST RETR RMD RNFR RNTO SITE SIZE STOR STRU SYST TYPE USER XCUP XCWD XMKD XPWD XRMD\r\n"
+            + " ABOR ACCT ALLO APPE AUTH CCC CDUP CWD DELE EPRT EPSV FEAT HELP LIST MDTM MKD MLSD MLST MODE NLST NOOP OPTS PASS PASV PBSZ PORT PROT PWD QUIT REST RETR RMD RNFR RNTO SITE SIZE STOR STRU SYST TYPE USER XCUP XCWD XMKD XPWD XRMD\r\n"
             + "214 End\r\n",
             written);
     }
@@ -201,9 +201,9 @@ public sealed class FtpCommandTests
     }
 
     [TestMethod]
-    public void Schemes_AreFtp()
+    public void Schemes_AreFtpAndFtps()
     {
-        CollectionAssert.AreEqual(new[] { "ftp" }, Server().Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "ftp", "ftps" }, Server().Schemes.ToArray());
     }
 
     [TestMethod]

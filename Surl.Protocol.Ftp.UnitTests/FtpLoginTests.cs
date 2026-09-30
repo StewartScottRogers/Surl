@@ -194,7 +194,9 @@ public sealed class FtpLoginTests
     [DataRow("SYST", "215 UNIX Type: L8\r\n")]
     [DataRow("NOOP", "200 NOOP ok\r\n")]
     [DataRow("OPTS UTF8 ON", "200 UTF8 set to on\r\n")]
-    [DataRow("AUTH TLS", "502 Command not implemented\r\n")]
+    [DataRow("AUTH TLS", "534 TLS is not available\r\n")]
+    [DataRow("PBSZ 0", "503 Send AUTH first\r\n")]
+    [DataRow("PROT P", "503 Send PBSZ first\r\n")]
     [DataRow("QUIT", "221 Goodbye\r\n")]
     public async Task Command_AnsweredBeforeLogin_IsAnswered(string command, string reply)
     {

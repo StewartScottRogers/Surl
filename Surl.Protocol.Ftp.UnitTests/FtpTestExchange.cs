@@ -50,17 +50,19 @@ internal static class FtpTestExchange
     public static ContentStore StandardContentStore() =>
         new(InMemoryContentFileSystem.RootPath, StandardFileSystem(), new ContentExposureOptions());
 
-    public static FtpProtocolServer Server(IAuthenticationPolicy? authenticationPolicy = null, ContentStore? contentStore = null) =>
-        new(contentStore ?? StandardContentStore(), authenticationPolicy ?? new AnonymousAuthenticationPolicy());
+    public static FtpProtocolServer Server(
+        IAuthenticationPolicy? authenticationPolicy = null, ContentStore? contentStore = null, bool isAuthTlsAvailable = false) =>
+        new(contentStore ?? StandardContentStore(), authenticationPolicy ?? new AnonymousAuthenticationPolicy(), isAuthTlsAvailable);
 
     public static ExchangeContext Context(
         TimeProvider timeProvider,
         CancellationToken cancellationToken,
         ExchangeLimits? limits = null,
         IExchangeLog? log = null,
-        IDataConnectionOpener? dataConnections = null) => new(
+        IDataConnectionOpener? dataConnections = null,
+        string scheme = "ftp") => new(
             1,
-            new ListenUrl("ftp", "127.0.0.1", 2121).WithBoundPort(2121),
+            new ListenUrl(scheme, "127.0.0.1", 2121).WithBoundPort(2121),
             new IPEndPoint(IPAddress.Loopback, 2121),
             new IPEndPoint(IPAddress.Loopback, 50000),
             log ?? new RecordingExchangeLog(),
