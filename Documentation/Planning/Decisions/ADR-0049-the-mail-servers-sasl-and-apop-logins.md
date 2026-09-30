@@ -392,7 +392,9 @@ public sealed record MailLoginStep(
   server writes `CheckedLogin.Note` to its exchange log whenever it is not `null`, before it
   answers. It is set on the step that decided the credentials: `Accepted` or
   `RefusedCredentials`, `DIGEST-MD5`'s final `Accepted` (not the `rspauth` challenge), and the
-  bearer mechanisms' error challenge (not the refusal after it).
+  bearer mechanisms' error challenge (not the refusal after it). Since BL-260 the step also
+  carries an optional `RefusalNote`, written right after it (Amendment 3,
+  [ADR-0067](ADR-0067-mailloginstep-carries-an-optional-refusal-note.md)).
 - **`AnonymousAuthenticationPolicy`** (the test double and the pre-composition default) offers
   `PLAIN` and the clear-password login and not `APOP`; its exchange for any mechanism accepts the
   initial response when one was sent and otherwise sends one empty challenge and accepts
@@ -531,3 +533,14 @@ decisions 1 and 9 decide; this amendment brings decisions 1 to 4 above up to dat
 5. **`surl: (2) --auth <word> is not available in this build` covers no `--auth` word** any more.
    The refusal remains only for an option this build does not serve yet
    (`CommandLineRunner.FindUnavailableOption`).
+
+## Amendment 3 - `MailLoginStep` carries an optional `RefusalNote` (BL-260, recorded by BL-276, 2026-09-30)
+
+Recorded by BL-276, 2026-09-30, in
+[ADR-0067](ADR-0067-mailloginstep-carries-an-optional-refusal-note.md). Section 6's
+`MailLoginStep` has a fifth member, `string? RefusalNote = null`: why the credentials were
+refused, which the SMTP, IMAP and POP3 servers write to the exchange log immediately after
+`CheckedLogin.Note` and before they answer. `SaslMechanismExchange.RefuseAsync` takes it as an
+optional argument, and today only `GssapiSaslExchange` sets it, to ADR-0057 decision 4's
+`Kerberos: <reason>` line. ADR-0067 gives the reasons, and why a reason field on `CheckedLogin` was
+rejected.
