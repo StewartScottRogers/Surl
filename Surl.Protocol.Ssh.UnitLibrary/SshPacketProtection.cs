@@ -76,18 +76,19 @@ internal abstract class SshPacketProtection
     }
 
     /// <summary>
-    /// The AES-CTR and HMAC protection of <see cref="Create"/>, keyed with the direction's letters.
+    /// The cipher and HMAC protection of <see cref="Create"/> - AES-CTR, or a weak cipher of
+    /// <see cref="SshCipherAlgorithm"/> - keyed with the direction's letters.
     /// </summary>
     /// <returns>The protection, or <see langword="null"/> for a cipher or MAC not built.</returns>
     private static SshCipherAndMacProtection? CreateCipherAndMac(string cipher, string? mac, SshKeyDerivation keys, char ivLetter, char keyLetter, char macLetter)
     {
-        if (SshCipherAndMacProtection.KeyLengthFor(cipher) is not { } ctrKeyLength || SshHmac.ForName(mac) is not { } hmac)
+        if (SshCipherAlgorithm.ForName(cipher) is not { } algorithm || SshHmac.ForName(mac) is not { } hmac)
         {
             return null;
         }
 
         return new SshCipherAndMacProtection(
-            new SshAesCtr(keys.DeriveKey(keyLetter, ctrKeyLength), keys.DeriveKey(ivLetter, SshAesCtr.BlockSize)),
+            algorithm.Create(keys.DeriveKey(keyLetter, algorithm.KeyLength), keys.DeriveKey(ivLetter, algorithm.InitializationVectorLength)),
             hmac,
             keys.DeriveKey(macLetter, hmac.KeyLength));
     }

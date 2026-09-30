@@ -44,10 +44,28 @@ public sealed record SshAlgorithmOffer(
         "rsa-sha2-256",
     ];
 
+    private static readonly string[] WeakKeyExchange = ["diffie-hellman-group14-sha1", "diffie-hellman-group-exchange-sha1", "diffie-hellman-group1-sha1"];
+
+    private static readonly string[] WeakHostKeyOrder = [SshRsaHostKey.RsaKeyType, SshDsaHostKey.DsaKeyType];
+
+    private static readonly string[] WeakCipher = ["aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour"];
+
+    private static readonly string[] WeakMac = ["hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96"];
+
+    /// <summary>
+    /// Whether the offer is <c>--allow-weak-ssh-algorithms</c>'s (ADR-0051, decision 5): the
+    /// weak algorithms are listed, and <c>ssh-rsa</c> and <c>ssh-dss</c> user-key signatures and
+    /// RSA user keys shorter than 2048 bits are accepted at login.
+    /// </summary>
+    public bool AllowsWeakAlgorithms { get; init; }
+
     /// <summary>
     /// The default offer of ADR-0051 decision 2: every default key exchange method, cipher, MAC
     /// and compression method in the decision's order, and of its host-key algorithms those
-    /// in <paramref name="heldHostKeyAlgorithms"/>, still in the decision's order.
+    /// in <paramref name="heldHostKeyAlgorithms"/>, still in the decision's order. With
+    /// <paramref name="allowWeakAlgorithms"/>, each list also offers the decision's weak
+    /// algorithms after its default ones - the key exchange methods before the strict key
+    /// exchange marker, which stays last.
     /// </summary>
     /// <param name="heldHostKeyAlgorithms">
     /// The host-key algorithms the server's keys sign with, e.g. <c>rsa-sha2-512</c> and
@@ -57,13 +75,15 @@ public sealed record SshAlgorithmOffer(
     /// Whether <c>aes256-gcm@openssh.com</c> and <c>aes128-gcm@openssh.com</c> are offered:
     /// <see cref="System.Security.Cryptography.AesGcm.IsSupported"/> on the machine serving.
     /// </param>
+    /// <param name="allowWeakAlgorithms">Whether <c>--allow-weak-ssh-algorithms</c> was given.</param>
     /// <returns>The offer.</returns>
-    public static SshAlgorithmOffer Default(IEnumerable<string> heldHostKeyAlgorithms, bool aesGcmIsSupported)
+    public static SshAlgorithmOffer Default(IEnumerable<string> heldHostKeyAlgorithms, bool aesGcmIsSupported, bool allowWeakAlgorithms = false)
     {
         ArgumentNullException.ThrowIfNull(heldHostKeyAlgorithms);
 
         var held = heldHostKeyAlgorithms.ToHashSet(StringComparer.Ordinal);
         string[] aesGcm = aesGcmIsSupported ? ["aes256-gcm@openssh.com", "aes128-gcm@openssh.com"] : [];
+        string[] Weak(string[] names) => allowWeakAlgorithms ? names : [];
 
         return new SshAlgorithmOffer(
             [
@@ -76,11 +96,15 @@ public sealed record SshAlgorithmOffer(
                 "diffie-hellman-group16-sha512",
                 "diffie-hellman-group18-sha512",
                 "diffie-hellman-group14-sha256",
+                .. Weak(WeakKeyExchange),
                 StrictKeyExchangeServerMarker,
             ],
-            [.. HostKeyOrder.Where(held.Contains)],
-            ["chacha20-poly1305@openssh.com", .. aesGcm, "aes256-ctr", "aes192-ctr", "aes128-ctr"],
-            ["hmac-sha2-256-etm@openssh.com", "hmac-sha2-512-etm@openssh.com", "hmac-sha2-256", "hmac-sha2-512"],
-            ["none", "zlib@openssh.com", "zlib"]);
+            [.. HostKeyOrder.Concat(Weak(WeakHostKeyOrder)).Where(held.Contains)],
+            ["chacha20-poly1305@openssh.com", .. aesGcm, "aes256-ctr", "aes192-ctr", "aes128-ctr", .. Weak(WeakCipher)],
+            ["hmac-sha2-256-etm@openssh.com", "hmac-sha2-512-etm@openssh.com", "hmac-sha2-256", "hmac-sha2-512", .. Weak(WeakMac)],
+            ["none", "zlib@openssh.com", "zlib"])
+        {
+            AllowsWeakAlgorithms = allowWeakAlgorithms,
+        };
     }
 }

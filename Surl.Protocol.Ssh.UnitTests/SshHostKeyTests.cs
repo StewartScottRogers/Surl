@@ -8,14 +8,14 @@ namespace Surl.Protocol.Ssh;
 public sealed class SshHostKeyTests
 {
     [TestMethod]
-    public void FromRsa_Key_IsAnSshRsaBlobSigningWithRsaSha2()
+    public void FromRsa_Key_IsAnSshRsaBlobSigningWithRsaSha2AndSshRsa()
     {
         var parameters = SshTestKeys.Rsa2048.ExportParameters(false);
 
         var key = SshHostKey.FromRsa(SshTestKeys.Rsa2048);
 
         Assert.AreEqual("ssh-rsa", key.KeyType);
-        CollectionAssert.AreEqual(new[] { "rsa-sha2-512", "rsa-sha2-256" }, key.SignatureAlgorithms.ToArray());
+        CollectionAssert.AreEqual(new[] { "rsa-sha2-512", "rsa-sha2-256", "ssh-rsa" }, key.SignatureAlgorithms.ToArray());
         CollectionAssert.AreEqual(
             Concat(String("ssh-rsa"), Mpint(SshKeyFileBuilder.Unsigned(parameters.Exponent!)), Mpint(SshKeyFileBuilder.Unsigned(parameters.Modulus!))),
             key.PublicKeyBlob.ToArray());
@@ -24,15 +24,66 @@ public sealed class SshHostKeyTests
     [TestMethod]
     [DataRow("rsa-sha2-512")]
     [DataRow("rsa-sha2-256")]
+    [DataRow("ssh-rsa")]
     public void Sign_Rsa_IsAPkcs1V15SignatureWithTheAlgorithmsHash(string algorithm)
     {
-        var hash = algorithm == "rsa-sha2-512" ? HashAlgorithmName.SHA512 : HashAlgorithmName.SHA256;
+        var hash = algorithm switch
+        {
+            "rsa-sha2-512" => HashAlgorithmName.SHA512,
+            "rsa-sha2-256" => HashAlgorithmName.SHA256,
+            _ => HashAlgorithmName.SHA1,
+        };
 
         var reader = new SshWireReader(SshHostKey.FromRsa(SshTestKeys.Rsa2048).Sign(algorithm, [7, 8]));
 
         CollectionAssert.AreEqual(Ascii(algorithm), reader.ReadString().ToArray());
         Assert.IsTrue(SshTestKeys.Rsa2048.VerifyData(new byte[] { 7, 8 }, reader.ReadString().ToArray(), hash, RSASignaturePadding.Pkcs1));
     }
+
+    [TestMethod]
+    public void FromDsa_Key_IsAnSshDssBlobSigningWithSshDss()
+    {
+        var parameters = SshTestKeys.Dsa1024.ExportParameters(false);
+
+        var key = SshHostKey.FromDsa(SshTestKeys.Dsa1024);
+
+        Assert.AreEqual("ssh-dss", key.KeyType);
+        CollectionAssert.AreEqual(new[] { "ssh-dss" }, key.SignatureAlgorithms.ToArray());
+        CollectionAssert.AreEqual(
+            Concat(
+                String("ssh-dss"),
+                Mpint(SshKeyFileBuilder.Unsigned(parameters.P!)),
+                Mpint(SshKeyFileBuilder.Unsigned(parameters.Q!)),
+                Mpint(SshKeyFileBuilder.Unsigned(parameters.G!)),
+                Mpint(SshKeyFileBuilder.Unsigned(parameters.Y!))),
+            key.PublicKeyBlob.ToArray());
+    }
+
+    // RFC 4253 section 6.6: the signature blob is r and s as 160-bit unsigned integers, 40 bytes, over SHA-1.
+    [TestMethod]
+    public void Sign_Dsa_IsFortyBytesOfRAndSOverSha1()
+    {
+        var reader = new SshWireReader(SshHostKey.FromDsa(SshTestKeys.Dsa1024).Sign("ssh-dss", [7, 8]));
+
+        CollectionAssert.AreEqual(Ascii("ssh-dss"), reader.ReadString().ToArray());
+        var signature = reader.ReadString().ToArray();
+        Assert.HasCount(40, signature);
+        Assert.IsTrue(SshTestKeys.Dsa1024.VerifyData(new byte[] { 7, 8 }, signature, HashAlgorithmName.SHA1, DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+    }
+
+    [TestMethod]
+    public void FromDsa_KeyWithA256BitQ_IsRefused()
+    {
+        var parameters = SshTestKeys.Dsa1024.ExportParameters(true);
+        parameters.Q = new byte[32];
+        using var longQ = new DsaExportingParameters(parameters);
+
+        Assert.ThrowsExactly<ArgumentException>(() => SshHostKey.FromDsa(longQ));
+    }
+
+    [TestMethod]
+    public void FromDsa_Null_IsRefused() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => SshHostKey.FromDsa(null!));
 
     [TestMethod]
     public void FromEcdsa_Key_IsAnEcdsaBlobOnItsCurve()
@@ -111,5 +162,17 @@ public sealed class SshHostKeyTests
         public override byte[] SignHash(byte[] hash) => throw new NotSupportedException();
 
         public override bool VerifyHash(byte[] hash, byte[] signature) => throw new NotSupportedException();
+    }
+
+    // A DSA key that exports the parameters it was given; it is never asked to sign.
+    private sealed class DsaExportingParameters(DSAParameters parameters) : DSA
+    {
+        public override DSAParameters ExportParameters(bool includePrivateParameters) => parameters;
+
+        public override void ImportParameters(DSAParameters parameters) => throw new NotSupportedException();
+
+        public override byte[] CreateSignature(byte[] rgbHash) => throw new NotSupportedException();
+
+        public override bool VerifySignature(byte[] rgbHash, byte[] rgbSignature) => throw new NotSupportedException();
     }
 }

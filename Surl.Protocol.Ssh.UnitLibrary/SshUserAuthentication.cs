@@ -35,12 +35,14 @@ namespace Surl.Protocol.Ssh;
 /// <param name="log">Where the login requests and the login notes are written.</param>
 /// <param name="sessionIdentifier">The first key exchange's hash, which a public-key signature covers.</param>
 /// <param name="stopHeadTimeout">Called once a login succeeds, before <c>USERAUTH_SUCCESS</c> is written (ADR-0051, decision 9).</param>
+/// <param name="allowWeakAlgorithms">Whether <c>ssh-rsa</c> and <c>ssh-dss</c> signatures and RSA keys shorter than 2048 bits are accepted (<c>--allow-weak-ssh-algorithms</c>).</param>
 internal sealed class SshUserAuthentication(
     SshTransportHandshake transport,
     ISshAuthenticationPolicy policy,
     IExchangeLog log,
     byte[] sessionIdentifier,
-    Action stopHeadTimeout)
+    Action stopHeadTimeout,
+    bool allowWeakAlgorithms)
 {
     /// <summary>The service the client asks for before it logs in.</summary>
     public const string UserAuthService = "ssh-userauth";
@@ -297,7 +299,7 @@ internal sealed class SshUserAuthentication(
         var keyType = new SshWireReader(keyBlob).ReadString();
         var keyDescription = $", key {SshLogText.Render(keyType.Span)} SHA-256 {Convert.ToBase64String(SHA256.HashData(keyBlob.Span))}";
         NoteRequest("publickey", keyDescription);
-        if (SshUserKeySignature.KeyTypeFor(algorithm) != Encoding.Latin1.GetString(keyType.Span))
+        if (!SshUserKeySignature.AcceptsKey(algorithm, keyBlob, allowWeakAlgorithms))
         {
             return Answer.Failure;
         }

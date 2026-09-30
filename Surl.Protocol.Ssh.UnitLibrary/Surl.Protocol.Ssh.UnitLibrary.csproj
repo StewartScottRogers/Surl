@@ -10,6 +10,7 @@
     <ProjectReference Include="..\Surl.Cryptography.Curve25519.UnitLibrary\Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cryptography.Ed25519.UnitLibrary\Surl.Cryptography.Ed25519.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cryptography.Poly1305.UnitLibrary\Surl.Cryptography.Poly1305.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Cryptography.Rc4.UnitLibrary\Surl.Cryptography.Rc4.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
   </ItemGroup>
 

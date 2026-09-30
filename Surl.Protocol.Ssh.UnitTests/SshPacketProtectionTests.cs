@@ -6,9 +6,10 @@ using static Surl.Protocol.Ssh.SshTestExchange;
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
-/// Every cipher and MAC combination BL-161 builds, run by <see cref="SshTestTransportClient"/>
-/// against the server after <c>NEWKEYS</c>: packets of several lengths go both ways, and a
-/// flipped ciphertext or MAC byte ends the connection with <c>DISCONNECT</c> 5.
+/// Every cipher and MAC combination BL-161 builds, and each weak cipher and MAC BL-221 builds
+/// behind <c>--allow-weak-ssh-algorithms</c>, run by <see cref="SshTestTransportClient"/>
+/// against a server offering both after <c>NEWKEYS</c>: packets of several lengths go both
+/// ways, and a flipped ciphertext or MAC byte ends the connection with <c>DISCONNECT</c> 5.
 /// </summary>
 [TestClass]
 public sealed class SshPacketProtectionTests
@@ -28,7 +29,19 @@ public sealed class SshPacketProtectionTests
             ["aes128-gcm@openssh.com", "hmac-sha2-256"],
             ["aes256-gcm@openssh.com", "hmac-sha2-256"],
             ["chacha20-poly1305@openssh.com", "hmac-sha2-256"],
-        ]);
+        ]).Concat(WeakCiphersAndMacs);
+
+    /// <summary>
+    /// Each weak cipher with <c>hmac-sha2-256</c>, and with its own weak MAC in both MAC forms;
+    /// each weak MAC with <c>aes128-ctr</c>.
+    /// </summary>
+    public static IEnumerable<object[]> WeakCiphersAndMacs =>
+        (from cipher in new[] { "aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour" }
+         from mac in new[] { "hmac-sha2-256", "hmac-sha1", "hmac-sha1-etm@openssh.com" }
+         select new object[] { cipher, mac })
+        .Concat(
+            from mac in new[] { "hmac-sha1", "hmac-sha1-etm@openssh.com", "hmac-sha1-96", "hmac-md5", "hmac-md5-96" }
+            select new object[] { "aes128-ctr", mac });
 
     public static IEnumerable<object[]> EveryProtectionAndTamperedByte =>
         from protection in EveryProtection
@@ -40,7 +53,7 @@ public sealed class SshPacketProtectionTests
     public async Task PacketsBothWays_UnderEachProtection_AreOpenedAndAnsweredInOrder(string cipher, string mac)
     {
         var client = new SshTestTransportClient(cipher, mac, TestContext.CancellationToken);
-        var serving = await client.OpenAsync(Server(), TimeProvider.System);
+        var serving = await client.OpenAsync(Server(WeakRsaOffer), TimeProvider.System);
 
         int[] payloadLengths = [1, 10, 11, 12, 27, 100, 1000];
         foreach (var length in payloadLengths)
@@ -69,7 +82,7 @@ public sealed class SshPacketProtectionTests
     public async Task FlippedByte_UnderEachProtection_IsAnsweredDisconnect5(string cipher, string mac, string tampered)
     {
         var client = new SshTestTransportClient(cipher, mac, TestContext.CancellationToken);
-        var serving = await client.OpenAsync(Server(), TimeProvider.System);
+        var serving = await client.OpenAsync(Server(WeakRsaOffer), TimeProvider.System);
         client.Send([2]);
         var packet = client.Seal(Concat([LocalExtensionMessage], new byte[40]));
 
@@ -224,8 +237,8 @@ public sealed class SshPacketProtectionTests
     }
 
     [TestMethod]
-    [DataRow("aes128-cbc", "aes128-ctr", DisplayName = "Client to server not built")]
-    [DataRow("aes128-ctr", "aes128-cbc", DisplayName = "Server to client not built")]
+    [DataRow("twofish256-cbc", "aes128-ctr", DisplayName = "Client to server not built")]
+    [DataRow("aes128-ctr", "twofish256-cbc", DisplayName = "Server to client not built")]
     public async Task CipherNotBuiltInOneDirection_IsAnsweredDisconnect11AfterNewKeysWithNoKeys(string cipherClientToServer, string cipherServerToClient)
     {
         var log = new RecordingExchangeLog();
@@ -250,7 +263,7 @@ public sealed class SshPacketProtectionTests
     {
         var keys = new SshKeyDerivation(HashAlgorithmName.SHA256, BigInteger.One, new byte[32], new byte[32]);
 
-        var protection = SshPacketProtection.Create("aes128-ctr", "hmac-sha1", keys, clientToServer: true);
+        var protection = SshPacketProtection.Create("aes128-ctr", "hmac-ripemd160", keys, clientToServer: true);
 
         Assert.IsNull(protection);
     }
@@ -259,8 +272,8 @@ public sealed class SshPacketProtectionTests
     public void HmacForName_NoMacOrOneNotBuilt_IsNull()
     {
         Assert.IsNull(SshHmac.ForName(null));
-        Assert.IsNull(SshHmac.ForName("hmac-md5"));
-        Assert.AreEqual(new SshHmac(HashAlgorithmName.SHA512, 64, true), SshHmac.ForName("hmac-sha2-512-etm@openssh.com"));
+        Assert.IsNull(SshHmac.ForName("hmac-ripemd160"));
+        Assert.AreEqual(new SshHmac(HashAlgorithmName.SHA512, 64, 64, true), SshHmac.ForName("hmac-sha2-512-etm@openssh.com"));
     }
 
     [TestMethod]

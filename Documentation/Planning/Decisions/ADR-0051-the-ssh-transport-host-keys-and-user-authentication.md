@@ -275,6 +275,32 @@ BL-161 (FR-039), and recorded here on 2026-09-30 by BL-236, because BL-155 held
    server's `KEXINIT`, and a channel message sent then is to reach the connection layer instead
    of ending a long transfer.
 
+#### 2.3 The weak algorithms, as BL-221 built them
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-221 (FR-039). `SshAlgorithmOffer`, `SshUserKeySignature` and `SshProtocolServer` say the same
+in their XML docs.
+
+1. **The setting is the offer's.** `SshAlgorithmOffer.Default(..., allowWeakAlgorithms)` appends
+   decision 2's weak entries and sets the offer's `AllowsWeakAlgorithms`, which the server also
+   reads for `server-sig-algs` and for user keys. Why: the offer is already the one record the
+   transport reads its lists from, so one value decides both what is listed and what is accepted,
+   and they cannot disagree.
+2. **Without the option, a weak user key is refused before the policy sees it.** A `publickey`
+   request naming `ssh-rsa` or `ssh-dss`, or an RSA key shorter than 2048 bits under any
+   algorithm, is answered `USERAUTH_FAILURE`, counted like any refused request, whether it is a
+   query or signed, and the policy is not asked. Why: it is how the server already answers an
+   algorithm it does not verify, so a client learns nothing more from a weak key than from an
+   unknown one, and a query cannot win a `PK_OK` for a key its signature could never pass.
+3. **`ssh-rsa` host signatures come from every RSA host key.** An RSA key lists `rsa-sha2-512`,
+   `rsa-sha2-256` and `ssh-rsa`; the offer keeps `ssh-rsa` only with the option. A DSA host key
+   (`SshHostKey.FromDsa`) must have a 160-bit q, since the `ssh-dss` signature holds 160-bit r and
+   s. Reading a DSA key from a `--hostkey` file is BL-248's.
+4. **Stream ciphers pad to 8 bytes; CBC chains across packets.** `arcfour` and `arcfour128` use a
+   block size of 8 (RFC 4253 section 6); each CBC direction's next packet chains from the last
+   ciphertext block of the one before, as RFC 4253 section 6.3 and OpenSSH do. Why: both are what
+   the RFCs require of a peer, so libssh2 interoperates.
+
 ### 3. Two new hand-built libraries
 
 RC4 (for `arcfour`, `arcfour128`) and OpenSSH's `bcrypt_pbkdf` (for encrypted `openssh-key-v1`

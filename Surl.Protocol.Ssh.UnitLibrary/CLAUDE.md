@@ -6,8 +6,9 @@ The SSH server with its SCP and SFTP subsystems: key exchange, host keys, passwo
 public-key user authentication, and the file operations upstream curl's libssh2 build
 performs, over the hand-built primitives ADR-0048 places in four libraries:
 `Surl.Cryptography.Curve25519.UnitLibrary` (X25519), `Surl.Cryptography.Ed25519.UnitLibrary`,
-`Surl.Cryptography.ChaCha20.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`.
-Everything else it needs (SHA-2, HMAC, AES, AES-GCM, ECDH, ECDSA, RSA, `BigInteger`) comes
+`Surl.Cryptography.ChaCha20.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, and ADR-0051's
+`Surl.Cryptography.Rc4.UnitLibrary` for the `arcfour` ciphers offered with `--allow-weak-ssh-algorithms`.
+Everything else it needs (SHA-2, HMAC, AES, AES-GCM, ECDH, ECDSA, RSA, `BigInteger`, and for the weak algorithms SHA-1, MD5, triple DES and DSA) comes
 from the base class library.
 
 **URL schemes answered:** `scp`, `sftp`

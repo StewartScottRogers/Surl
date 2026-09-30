@@ -32,7 +32,9 @@ namespace Surl.Protocol.Ssh;
 /// <b>Key exchange.</b> <c>curve25519-sha256</c> and <c>curve25519-sha256@libssh.org</c>,
 /// <c>ecdh-sha2-nistp256/384/521</c>, <c>diffie-hellman-group14-sha256</c>,
 /// <c>group16-sha512</c>, <c>group18-sha512</c> and <c>diffie-hellman-group-exchange-sha256</c>
-/// are run; a method the offer names but the server has not built is <c>DISCONNECT</c> 11, "Key
+/// are run, and with an offer that <see cref="SshAlgorithmOffer.AllowsWeakAlgorithms"/>
+/// <c>diffie-hellman-group14-sha1</c>, <c>diffie-hellman-group-exchange-sha1</c> and
+/// <c>diffie-hellman-group1-sha1</c> too; a method the offer names but the server has not built is <c>DISCONNECT</c> 11, "Key
 /// exchange not implemented", at its first message. A client public value that is not a point
 /// on the curve, a curve25519 key that is not 32 bytes or gives an all-zero shared secret, or a
 /// value not in 1 &lt; e &lt; p - 1 is <c>DISCONNECT</c> 2; a group exchange request no RFC 3526
@@ -42,8 +44,11 @@ namespace Surl.Protocol.Ssh;
 /// <b>Packet protection.</b> After <c>NEWKEYS</c> each direction uses the cipher and MAC agreed
 /// for it: <c>chacha20-poly1305@openssh.com</c>, <c>aes256-gcm@openssh.com</c> and
 /// <c>aes128-gcm@openssh.com</c>, or <c>aes256-ctr</c>, <c>aes192-ctr</c> and <c>aes128-ctr</c>
-/// with <c>hmac-sha2-256</c>, <c>hmac-sha2-512</c> or their <c>-etm@openssh.com</c> forms. A MAC
-/// or tag that does not verify is <c>DISCONNECT</c> 5.
+/// with <c>hmac-sha2-256</c>, <c>hmac-sha2-512</c> or their <c>-etm@openssh.com</c> forms; with
+/// weak algorithms allowed also <c>aes256-cbc</c>, <c>rijndael-cbc@lysator.liu.se</c>,
+/// <c>aes192-cbc</c>, <c>aes128-cbc</c>, <c>3des-cbc</c>, <c>arcfour128</c> and <c>arcfour</c>,
+/// with <c>hmac-sha1</c>, <c>hmac-sha1-etm@openssh.com</c>, <c>hmac-sha1-96</c>, <c>hmac-md5</c>
+/// or <c>hmac-md5-96</c> as well. A MAC or tag that does not verify is <c>DISCONNECT</c> 5.
 /// </para>
 /// <para>
 /// <b>Compression.</b> <c>none</c>, <c>zlib@openssh.com</c> and <c>zlib</c> are offered, so
@@ -185,7 +190,8 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 authenticationPolicy,
                 context.Log,
                 firstExchange.SessionIdentifier,
-                () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan));
+                () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan),
+                offer.AllowsWeakAlgorithms);
             var connectionProtocol = new SshConnectionProtocol(transport, channelHandlers, context);
 
             // However the message loop ends, every channel ends and its handler returns before

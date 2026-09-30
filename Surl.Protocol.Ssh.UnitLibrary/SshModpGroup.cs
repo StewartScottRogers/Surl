@@ -6,12 +6,20 @@ namespace Surl.Protocol.Ssh;
 /// <summary>
 /// One of the five MODP groups of RFC 3526 (sections 3 to 7), generator 2, that the
 /// finite-field key exchange methods compute in: group 14 for
-/// <c>diffie-hellman-group14-sha256</c>, 16 and 18 for <c>group16-sha512</c> and
-/// <c>group18-sha512</c> (RFC 8268), and all five for
-/// <c>diffie-hellman-group-exchange-sha256</c> (RFC 4419; ADR-0051 decision 2).
+/// <c>diffie-hellman-group14-sha256</c> and <c>diffie-hellman-group14-sha1</c>, 16 and 18 for
+/// <c>group16-sha512</c> and <c>group18-sha512</c> (RFC 8268), and all five for
+/// <c>diffie-hellman-group-exchange-sha256</c> and <c>-sha1</c> (RFC 4419; ADR-0051 decision 2);
+/// or the 1024-bit Oakley group 2 of RFC 2409 for <c>diffie-hellman-group1-sha1</c>, which a
+/// group exchange never picks.
 /// </summary>
 internal sealed class SshModpGroup
 {
+    private const string Oakley2PrimeHex =
+        "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74" +
+        "020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F1437" +
+        "4FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+        "EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF";
+
     private const string Group14PrimeHex =
         "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74" +
         "020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F1437" +
@@ -119,6 +127,12 @@ internal sealed class SshModpGroup
         Bits = bits;
         Prime = BigInteger.Parse("0" + primeHex, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
     }
+
+    /// <summary>
+    /// The 1024-bit Oakley group 2 (RFC 2409, section 6.2), which <c>diffie-hellman-group1-sha1</c>
+    /// computes in (RFC 4253, section 8.1). It is not one of <see cref="All"/>.
+    /// </summary>
+    public static SshModpGroup Oakley2 { get; } = new(1024, Oakley2PrimeHex);
 
     /// <summary>The 2048-bit group 14 (RFC 3526, section 3).</summary>
     public static SshModpGroup Group14 { get; } = new(2048, Group14PrimeHex);

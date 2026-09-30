@@ -21,7 +21,10 @@ internal abstract class SshKeyExchangeMethod(HashAlgorithmName hashAlgorithm)
         ["diffie-hellman-group14-sha256"] = random => new SshFiniteFieldKeyExchange(SshModpGroup.Group14, HashAlgorithmName.SHA256, random),
         ["diffie-hellman-group16-sha512"] = random => new SshFiniteFieldKeyExchange(SshModpGroup.Group16, HashAlgorithmName.SHA512, random),
         ["diffie-hellman-group18-sha512"] = random => new SshFiniteFieldKeyExchange(SshModpGroup.Group18, HashAlgorithmName.SHA512, random),
-        ["diffie-hellman-group-exchange-sha256"] = random => new SshGroupExchangeKeyExchange(random),
+        ["diffie-hellman-group-exchange-sha256"] = random => new SshGroupExchangeKeyExchange(HashAlgorithmName.SHA256, random),
+        ["diffie-hellman-group14-sha1"] = random => new SshFiniteFieldKeyExchange(SshModpGroup.Group14, HashAlgorithmName.SHA1, random),
+        ["diffie-hellman-group1-sha1"] = random => new SshFiniteFieldKeyExchange(SshModpGroup.Oakley2, HashAlgorithmName.SHA1, random),
+        ["diffie-hellman-group-exchange-sha1"] = random => new SshGroupExchangeKeyExchange(HashAlgorithmName.SHA1, random),
     };
 
     /// <summary>
@@ -34,11 +37,14 @@ internal abstract class SshKeyExchangeMethod(HashAlgorithmName hashAlgorithm)
     /// and <c>curve25519-sha256@libssh.org</c> (RFC 8731, BL-167),
     /// <c>ecdh-sha2-nistp256</c>, <c>-nistp384</c> and <c>-nistp521</c> (RFC 5656),
     /// <c>diffie-hellman-group14-sha256</c>, <c>group16-sha512</c> and <c>group18-sha512</c>
-    /// (RFC 8268), and <c>diffie-hellman-group-exchange-sha256</c> (RFC 4419).
+    /// (RFC 8268), and <c>diffie-hellman-group-exchange-sha256</c> (RFC 4419); and the weak
+    /// methods offered only with <c>--allow-weak-ssh-algorithms</c>,
+    /// <c>diffie-hellman-group14-sha1</c> and <c>diffie-hellman-group1-sha1</c> (RFC 4253,
+    /// section 8) and <c>diffie-hellman-group-exchange-sha1</c> (RFC 4419).
     /// </summary>
     /// <param name="name">The method agreed.</param>
     /// <param name="randomSource">Where a curve25519 private key or a finite-field private exponent comes from.</param>
-    /// <returns>The method, or <see langword="null"/> for one not built yet, such as the weak methods BL-221 builds.</returns>
+    /// <returns>The method, or <see langword="null"/> for a name the server has not built.</returns>
     public static SshKeyExchangeMethod? ForName(string name, ISshRandomSource randomSource) =>
         Methods.TryGetValue(name, out var create) ? create(randomSource) : null;
 

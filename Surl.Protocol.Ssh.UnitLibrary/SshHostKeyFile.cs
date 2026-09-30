@@ -15,7 +15,7 @@ namespace Surl.Protocol.Ssh;
 /// RSA keys of at least 2048 bits, ECDSA keys on P-256, P-384 and P-521, and Ed25519 keys (in
 /// PKCS #8, encrypted or not, and <c>openssh-key-v1</c>) are served. A shorter RSA key is
 /// served only with <c>--allow-weak-ssh-algorithms</c>; a DSA key without it is refused as weak
-/// and with it as not supported until BL-221 serves <c>ssh-dss</c>. A PEM block
+/// and with it as not supported until BL-248 reads it. A PEM block
 /// with RFC 1421 headers (the legacy <c>Proc-Type: 4,ENCRYPTED</c> form) is not a block this
 /// reads, so it is not a private key surl can read.
 /// </remarks>
@@ -87,8 +87,8 @@ public static class SshHostKeyFile
     }
 
     /// <summary>
-    /// The refusal of a DSA key: weak without <c>--allow-weak-ssh-algorithms</c>, not supported
-    /// with it until BL-221 serves <c>ssh-dss</c>.
+    /// The refusal of a DSA key: weak without <c>--allow-weak-ssh-algorithms</c>, and not read
+    /// from a file with it until BL-248, though <see cref="SshHostKey.FromDsa"/> serves <c>ssh-dss</c>.
     /// </summary>
     /// <param name="bits">The size of the key's prime p.</param>
     /// <param name="allowWeakAlgorithms">Whether weak algorithms are allowed.</param>

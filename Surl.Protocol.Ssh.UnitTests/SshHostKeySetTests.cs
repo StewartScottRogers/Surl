@@ -16,7 +16,7 @@ public sealed class SshHostKeySetTests
         Assert.IsNull(heldForRsa);
         Assert.IsNull(heldForEcdsa);
         CollectionAssert.AreEqual(new[] { rsa, ecdsa }, set.Keys.ToArray());
-        CollectionAssert.AreEqual(new[] { "rsa-sha2-512", "rsa-sha2-256", "ecdsa-sha2-nistp256" }, set.SignatureAlgorithms.ToArray());
+        CollectionAssert.AreEqual(new[] { "rsa-sha2-512", "rsa-sha2-256", "ssh-rsa", "ecdsa-sha2-nistp256" }, set.SignatureAlgorithms.ToArray());
     }
 
     [TestMethod]

@@ -118,7 +118,7 @@ public sealed class SshHostKeyFileTests
 
     [TestMethod]
     [DataRow(false, SshHostKeyRefusalReason.NeedsWeakAlgorithms, "DSA keys of 1024 bits need --allow-weak-ssh-algorithms", DisplayName = "Without weak algorithms")]
-    [DataRow(true, SshHostKeyRefusalReason.UnsupportedKeyType, "key type ssh-dss is not supported", DisplayName = "With weak algorithms, until BL-221")]
+    [DataRow(true, SshHostKeyRefusalReason.UnsupportedKeyType, "key type ssh-dss is not supported", DisplayName = "With weak algorithms, until BL-248")]
     public void Read_DsaKey_IsRefused(bool allowWeakAlgorithms, SshHostKeyRefusalReason reason, string text)
     {
         var pkcs8 = SshHostKeyFile.Read(Pem("PRIVATE KEY", Pkcs8Dsa(1024)), null, allowWeakAlgorithms);

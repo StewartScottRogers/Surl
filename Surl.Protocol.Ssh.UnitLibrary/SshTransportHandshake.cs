@@ -246,13 +246,13 @@ internal sealed class SshTransportHandshake(
 
     // SSH_MSG_EXT_INFO with one extension, server-sig-algs: the user-key signature algorithms
     // verified (RFC 8308, sections 2.3 and 3.1; ADR-0051 decision 2.1).
-    private static byte[] ExtensionInfoPayload()
+    private byte[] ExtensionInfoPayload()
     {
         var extensionInfo = new SshWireWriter();
         extensionInfo.WriteByte(SshMessageNumber.ExtensionInfo);
         extensionInfo.WriteUInt32(1);
         extensionInfo.WriteString("server-sig-algs");
-        extensionInfo.WriteNameList(SshUserKeySignature.Algorithms);
+        extensionInfo.WriteNameList(SshUserKeySignature.AlgorithmsFor(offer.AllowsWeakAlgorithms));
 
         return extensionInfo.ToArray();
     }

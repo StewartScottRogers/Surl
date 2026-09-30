@@ -13,6 +13,8 @@ internal static class SshTestKeys
 
     private static readonly Lazy<RSA> Rsa1024Key = new(() => Made(RSA.Create(1024)));
 
+    private static readonly Lazy<DSA> Dsa1024Key = new(() => Made(DSA.Create(1024)));
+
     private static readonly Lazy<ECDsa> EcdsaP256Key = new(() => Made(ECDsa.Create(ECCurve.NamedCurves.nistP256)));
 
     private static readonly Lazy<ECDsa> EcdsaP384Key = new(() => Made(ECDsa.Create(ECCurve.NamedCurves.nistP384)));
@@ -22,6 +24,8 @@ internal static class SshTestKeys
     public static RSA Rsa2048 => Rsa2048Key.Value;
 
     public static RSA Rsa1024 => Rsa1024Key.Value;
+
+    public static DSA Dsa1024 => Dsa1024Key.Value;
 
     public static ECDsa EcdsaP256 => EcdsaP256Key.Value;
 
@@ -46,7 +50,7 @@ internal static class SshTestKeys
         var set = new SshHostKeySet();
         foreach (var key in keys)
         {
-            set.TryAdd(key is RSA rsa ? SshHostKey.FromRsa(rsa) : SshHostKey.FromEcdsa((ECDsa)key), out _);
+            set.TryAdd(key switch { RSA rsa => SshHostKey.FromRsa(rsa), DSA dsa => SshHostKey.FromDsa(dsa), _ => SshHostKey.FromEcdsa((ECDsa)key) }, out _);
         }
 
         return set;

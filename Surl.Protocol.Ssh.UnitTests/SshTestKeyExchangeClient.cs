@@ -79,10 +79,11 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     {
         "ecdh-sha2-nistp384" => HashAlgorithmName.SHA384,
         "ecdh-sha2-nistp521" or "diffie-hellman-group16-sha512" or "diffie-hellman-group18-sha512" => HashAlgorithmName.SHA512,
+        _ when keyExchange.EndsWith("-sha1", StringComparison.Ordinal) => HashAlgorithmName.SHA1,
         _ => HashAlgorithmName.SHA256,
     };
 
-    private bool IsGroupExchange => keyExchange == "diffie-hellman-group-exchange-sha256";
+    private bool IsGroupExchange => keyExchange.StartsWith("diffie-hellman-group-exchange-", StringComparison.Ordinal);
 
     private BigInteger ClientPublicValue => BigInteger.ModPow(2, privateExponent, prime!.Value);
 
@@ -206,10 +207,11 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
 
     private static BigInteger? PrimeOf(string keyExchange) => keyExchange switch
     {
-        "diffie-hellman-group14-sha256" => SshModpGroup.Group14.Prime,
+        "diffie-hellman-group14-sha256" or "diffie-hellman-group14-sha1" => SshModpGroup.Group14.Prime,
+        "diffie-hellman-group1-sha1" => SshModpGroup.Oakley2.Prime,
         "diffie-hellman-group16-sha512" => SshModpGroup.Group16.Prime,
         "diffie-hellman-group18-sha512" => SshModpGroup.Group18.Prime,
-        "diffie-hellman-group-exchange-sha256" => SshModpGroup.Group15.Prime,
+        "diffie-hellman-group-exchange-sha256" or "diffie-hellman-group-exchange-sha1" => SshModpGroup.Group15.Prime,
         _ => null,
     };
 
@@ -225,8 +227,28 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         {
             "ssh-rsa" => VerifyRsa(key, algorithm, signatureBytes, exchangeHash),
             "ssh-ed25519" => VerifyEd25519(key, algorithm, signatureBytes, exchangeHash),
+            "ssh-dss" => VerifyDsa(key, algorithm, signatureBytes, exchangeHash),
             _ => VerifyEcdsa(key, keyType, algorithm, signatureBytes, exchangeHash),
         };
+    }
+
+    // RFC 4253 section 6.6: mpint p, q, g, y; the signature is r and s as 160-bit unsigned
+    // integers, 40 bytes, over SHA-1.
+    private static bool VerifyDsa(SshWireReader key, string algorithm, byte[] signature, byte[] exchangeHash)
+    {
+        Assert.AreEqual("ssh-dss", algorithm);
+        Assert.HasCount(40, signature);
+        var p = key.ReadMpint();
+        var length = p.ToByteArray(isUnsigned: true, isBigEndian: true).Length;
+        using var dsa = DSA.Create(new DSAParameters
+        {
+            P = Fixed(p, length),
+            Q = Fixed(key.ReadMpint(), 20),
+            G = Fixed(key.ReadMpint(), length),
+            Y = Fixed(key.ReadMpint(), length),
+        });
+
+        return dsa.VerifyData(exchangeHash, signature, HashAlgorithmName.SHA1, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
     }
 
     // RFC 8709: string the 32-byte public key; the signature is RFC 8032's 64 bytes.
@@ -246,6 +268,7 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         {
             "rsa-sha2-512" => HashAlgorithmName.SHA512,
             "rsa-sha2-256" => HashAlgorithmName.SHA256,
+            "ssh-rsa" => HashAlgorithmName.SHA1,
             _ => throw new AssertFailedException($"An RSA key signed with {algorithm}."),
         };
 

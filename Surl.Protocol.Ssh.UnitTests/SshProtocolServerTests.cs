@@ -42,7 +42,7 @@ public sealed class SshProtocolServerTests
     public async Task UnbuiltKeyExchangeMethodMessage_IsAnsweredDisconnect11()
     {
         var log = new RecordingExchangeLog();
-        var connection = Connection(Ascii(ClientLine), Packet(ClientKexInitPayload(keyExchange: "diffie-hellman-group14-sha1")), Packet(30, 0, 0, 0, 0));
+        var connection = Connection(Ascii(ClientLine), Packet(ClientKexInitPayload(keyExchange: "diffie-hellman-group15-sha512")), Packet(30, 0, 0, 0, 0));
 
         await Server(OfferWithAnUnbuiltKeyExchange).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
 
@@ -51,7 +51,7 @@ public sealed class SshProtocolServerTests
             connection.WrittenBytes);
         Assert.IsTrue(connection.WritesCompleted);
         Assert.AreEqual(
-            "The SSH key exchange diffie-hellman-group14-sha1 is not built yet; the connection was ended after the negotiation.",
+            "The SSH key exchange diffie-hellman-group15-sha512 is not built yet; the connection was ended after the negotiation.",
             log.Notes[2]);
         Assert.AreEqual("SSH disconnect sent: 11 Key exchange not implemented", log.Notes[3]);
     }
@@ -85,6 +85,60 @@ public sealed class SshProtocolServerTests
             Concat(Ascii(ServerLine), ServerKexInitPacket(), ServerDisconnectPacket(2, "Protocol error")),
             connection.WrittenBytes);
         Assert.AreEqual("An SSH packet announced 1088 bytes, over the 1000-byte packet limit.", log.Notes[1]);
+    }
+
+    public static IEnumerable<object[]> EachWeakNameAndItsList =>
+        from name in SshAlgorithmOfferTests.WeakNames
+        select new object[] { name, ListOf(name) };
+
+    [TestMethod]
+    [DynamicData(nameof(EachWeakNameAndItsList))]
+    public async Task ClientOfferingOnlyAWeakName_WithoutWeakAlgorithms_IsAnsweredDisconnect3AndKexInitListsNoWeakName(string name, string list)
+    {
+        var log = new RecordingExchangeLog();
+        var kexInit = list switch
+        {
+            "kex" => ClientKexInitPayload(keyExchange: name),
+            "host key" => ClientKexInitPayload(hostKey: name),
+            "cipher" => ClientKexInitPayload(cipher: name),
+            _ => ClientKexInitPayload(cipher: "aes128-ctr", mac: name),
+        };
+        var connection = Connection(Ascii(ClientLine), Packet(kexInit));
+
+        await WeakCapableServer(allowWeakAlgorithms: false).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
+
+        var packets = SshTestKeyExchangeClient.ServerPackets(connection.WrittenBytes[ServerLine.Length..]);
+        Assert.IsEmpty(NameLists(packets[0]).SelectMany(names => names).Intersect(SshAlgorithmOfferTests.WeakNames));
+        CollectionAssert.AreEqual(Concat([1], UInt32(3), String("No common algorithm"), String(string.Empty)), packets[1]);
+        Assert.AreEqual($"SSH no common {list} algorithm; client offered {name}", log.Notes[1]);
+    }
+
+    [TestMethod]
+    public async Task KexInit_WithWeakAlgorithms_ListsEachWeakNameAfterItsListsDefaultOnesInTheDecisionsOrder()
+    {
+        var connection = Connection(Ascii(ClientLine), Packet(ClientKexInitPayload(cipher: "twofish256-cbc")));
+
+        await WeakCapableServer(allowWeakAlgorithms: true).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken));
+
+        var lists = NameLists(SshTestKeyExchangeClient.ServerPackets(connection.WrittenBytes[ServerLine.Length..])[0]);
+        string[][] weakInEachList =
+        [
+            ["diffie-hellman-group14-sha1", "diffie-hellman-group-exchange-sha1", "diffie-hellman-group1-sha1"],
+            ["ssh-rsa", "ssh-dss"],
+            ["aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour"],
+            ["aes256-cbc", "rijndael-cbc@lysator.liu.se", "aes192-cbc", "aes128-cbc", "3des-cbc", "arcfour128", "arcfour"],
+            ["hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96"],
+            ["hmac-sha1-etm@openssh.com", "hmac-sha1", "hmac-sha1-96", "hmac-md5", "hmac-md5-96"],
+        ];
+        for (var index = 0; index < weakInEachList.Length; index++)
+        {
+            var list = lists[index];
+            var firstWeak = list.Length - weakInEachList[index].Length - (index == 0 ? 1 : 0);
+            CollectionAssert.AreEqual(weakInEachList[index], list[firstWeak..(firstWeak + weakInEachList[index].Length)], $"Name-list {index}");
+            Assert.IsEmpty(list[..firstWeak].Intersect(SshAlgorithmOfferTests.WeakNames), $"Name-list {index}");
+        }
+
+        Assert.AreEqual(SshAlgorithmOffer.StrictKeyExchangeServerMarker, lists[0][^1]);
     }
 
     [TestMethod]
@@ -224,7 +278,7 @@ public sealed class SshProtocolServerTests
             Ascii(ClientLine),
             Packet(Concat([2], String("padding"))),
             Packet(Concat([4, 1], String("debug"), String(string.Empty))),
-            Packet(ClientKexInitPayload(keyExchange: "diffie-hellman-group14-sha1")),
+            Packet(ClientKexInitPayload(keyExchange: "diffie-hellman-group15-sha512")),
             Packet(Concat([3], UInt32(7))),
             Packet(Concat([2], String(string.Empty))),
             Packet(30, 0));
@@ -440,4 +494,32 @@ public sealed class SshProtocolServerTests
     }
 
     private static string Text(byte[] bytes) => System.Text.Encoding.ASCII.GetString(bytes);
+
+    // Which of the four negotiated lists a weak name belongs to, as the negotiation notes name it.
+    private static string ListOf(string name) =>
+        name.StartsWith("diffie-hellman", StringComparison.Ordinal) ? "kex"
+        : name.StartsWith("ssh-", StringComparison.Ordinal) ? "host key"
+        : name.StartsWith("hmac-", StringComparison.Ordinal) ? "MAC"
+        : "cipher";
+
+    /// <summary>A server holding an RSA and a DSA host key, offering the default lists and, when asked, the weak ones.</summary>
+    private static SshProtocolServer WeakCapableServer(bool allowWeakAlgorithms)
+    {
+        var hostKeys = SshTestKeys.HostKeysOf(SshTestKeys.Rsa2048, SshTestKeys.Dsa1024);
+
+        return new SshProtocolServer(
+            hostKeys,
+            SshAlgorithmOffer.Default(hostKeys.SignatureAlgorithms, aesGcmIsSupported: true, allowWeakAlgorithms),
+            new AnonymousAuthenticationPolicy(),
+            new FixedRandomSource());
+    }
+
+    // RFC 4253 section 7.1: byte 20, the 16-byte cookie, then the ten name-lists.
+    private static string[][] NameLists(byte[] kexInitPayload)
+    {
+        Assert.AreEqual(20, kexInitPayload[0]);
+        var reader = new SshWireReader(kexInitPayload.AsMemory(17));
+
+        return [.. Enumerable.Range(0, 10).Select(_ => Text(reader.ReadString().ToArray()).Split(',', StringSplitOptions.RemoveEmptyEntries))];
+    }
 }
