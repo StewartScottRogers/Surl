@@ -49,3 +49,4 @@ check `ssh-ed25519` user keys (BL-168).
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
