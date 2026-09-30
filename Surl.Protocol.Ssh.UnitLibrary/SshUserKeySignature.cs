@@ -1,16 +1,17 @@
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using Surl.Cryptography.Ed25519;
 
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// Verifies the signature a <c>publickey</c> login carries (RFC 4252, section 7) with the user's
-/// public key and the algorithm the request names: <c>ecdsa-sha2-nistp256</c>, <c>-nistp384</c>
-/// and <c>-nistp521</c> (RFC 5656, section 3.1.2) and <c>rsa-sha2-512</c> and
-/// <c>rsa-sha2-256</c> (RFC 8332, section 3), all with the base class library (ADR-0051,
-/// decision 6). <c>ssh-ed25519</c> is BL-168's; <c>ssh-rsa</c> and <c>ssh-dss</c> are only ever
-/// offered with <c>--allow-weak-ssh-algorithms</c> (BL-221).
+/// public key and the algorithm the request names: <c>ssh-ed25519</c> (RFC 8709, section 6) with
+/// the hand-built <see cref="Ed25519"/>, and <c>ecdsa-sha2-nistp256</c>, <c>-nistp384</c> and
+/// <c>-nistp521</c> (RFC 5656, section 3.1.2) and <c>rsa-sha2-512</c> and <c>rsa-sha2-256</c>
+/// (RFC 8332, section 3) with the base class library (ADR-0051, decision 6). <c>ssh-rsa</c> and
+/// <c>ssh-dss</c> are only ever offered with <c>--allow-weak-ssh-algorithms</c> (BL-221).
 /// </summary>
 internal static class SshUserKeySignature
 {
@@ -21,11 +22,11 @@ internal static class SshUserKeySignature
     /// <c>EXT_INFO</c>'s <c>server-sig-algs</c> lists (RFC 8308, section 3.1).
     /// </summary>
     public static IReadOnlyList<string> Algorithms { get; } =
-        Array.AsReadOnly(["ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521", RsaSha512, "rsa-sha2-256"]);
+        Array.AsReadOnly([SshEd25519HostKey.Ed25519KeyType, "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521", RsaSha512, "rsa-sha2-256"]);
 
     /// <summary>
     /// The key type a key signing with <paramref name="algorithm"/> has: <c>ssh-rsa</c> for
-    /// <c>rsa-sha2-*</c>, the algorithm's own name for <c>ecdsa-sha2-*</c>.
+    /// <c>rsa-sha2-*</c>, the algorithm's own name for <c>ssh-ed25519</c> and <c>ecdsa-sha2-*</c>.
     /// </summary>
     /// <param name="algorithm">The signature algorithm a request names.</param>
     /// <returns>The key type, or <see langword="null"/> when the algorithm is not verified.</returns>
@@ -59,14 +60,25 @@ internal static class SshUserKeySignature
             var key = new SshWireReader(keyBlob);
             key.ReadString();
 
-            return algorithm.StartsWith("rsa-", StringComparison.Ordinal)
-                ? VerifiesRsa(algorithm, key, rawSignature, signedData)
+            return algorithm == SshEd25519HostKey.Ed25519KeyType ? VerifiesEd25519(key, rawSignature, signedData)
+                : algorithm.StartsWith("rsa-", StringComparison.Ordinal) ? VerifiesRsa(algorithm, key, rawSignature, signedData)
                 : VerifiesEcdsa(algorithm, key, rawSignature, signedData);
         }
         catch (Exception exception) when (exception is SshDisconnectRequiredException or CryptographicException)
         {
             return false;
         }
+    }
+
+    // The blob after its type: string the 32-byte public key. The signature is the 64 bytes of
+    // RFC 8032 (RFC 8709, section 6); a key or signature of another length does not verify.
+    private static bool VerifiesEd25519(SshWireReader key, ReadOnlyMemory<byte> rawSignature, byte[] signedData)
+    {
+        var publicKey = key.ReadString();
+
+        return publicKey.Length == Ed25519.PublicKeySize
+            && rawSignature.Length == Ed25519.SignatureSize
+            && Ed25519.Verify(publicKey.Span, signedData, rawSignature.Span);
     }
 
     // The blob after its type: mpint e, mpint n (RFC 4253, section 6.6). The signature is the

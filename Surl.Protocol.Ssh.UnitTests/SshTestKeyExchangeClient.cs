@@ -216,9 +216,20 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         var algorithm = Encoding.ASCII.GetString(signature.ReadString().Span);
         var signatureBytes = signature.ReadString().ToArray();
 
-        return keyType == "ssh-rsa"
-            ? VerifyRsa(key, algorithm, signatureBytes, exchangeHash)
-            : VerifyEcdsa(key, keyType, algorithm, signatureBytes, exchangeHash);
+        return keyType switch
+        {
+            "ssh-rsa" => VerifyRsa(key, algorithm, signatureBytes, exchangeHash),
+            "ssh-ed25519" => VerifyEd25519(key, algorithm, signatureBytes, exchangeHash),
+            _ => VerifyEcdsa(key, keyType, algorithm, signatureBytes, exchangeHash),
+        };
+    }
+
+    // RFC 8709: string the 32-byte public key; the signature is RFC 8032's 64 bytes.
+    private static bool VerifyEd25519(SshWireReader key, string algorithm, byte[] signature, byte[] exchangeHash)
+    {
+        Assert.AreEqual("ssh-ed25519", algorithm);
+
+        return Surl.Cryptography.Ed25519.Ed25519.Verify(key.ReadString().Span, exchangeHash, signature);
     }
 
     private static bool VerifyRsa(SshWireReader key, string algorithm, byte[] signature, byte[] exchangeHash)

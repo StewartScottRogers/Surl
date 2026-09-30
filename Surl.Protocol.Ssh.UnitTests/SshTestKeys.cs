@@ -29,6 +29,15 @@ internal static class SshTestKeys
 
     public static ECDsa EcdsaP521 => EcdsaP521Key.Value;
 
+    /// <summary>The secret key of RFC 8032 section 7.1's TEST 1, an Ed25519 seed.</summary>
+    public static byte[] Ed25519Seed => Convert.FromHexString("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60");
+
+    /// <summary>The public key of RFC 8032 section 7.1's TEST 1, <see cref="Ed25519Seed"/>'s.</summary>
+    public static byte[] Ed25519PublicKey => Convert.FromHexString("d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a");
+
+    /// <summary>The host key of <see cref="Ed25519Seed"/>.</summary>
+    public static SshHostKey Ed25519HostKey => SshEd25519HostKey.FromSeed(Ed25519Seed);
+
     /// <summary>
     /// A host-key set holding the host key of each key given.
     /// </summary>
@@ -44,9 +53,16 @@ internal static class SshTestKeys
     }
 
     /// <summary>
-    /// A set holding the RSA key and the three ECDSA keys, so every host-key algorithm is offered.
+    /// A set holding the RSA key, the three ECDSA keys and the Ed25519 key, so every host-key
+    /// algorithm is offered.
     /// </summary>
-    public static SshHostKeySet AllHostKeys() => HostKeysOf(Rsa2048, EcdsaP256, EcdsaP384, EcdsaP521);
+    public static SshHostKeySet AllHostKeys()
+    {
+        var set = HostKeysOf(Rsa2048, EcdsaP256, EcdsaP384, EcdsaP521);
+        set.TryAdd(Ed25519HostKey, out _);
+
+        return set;
+    }
 
     private static T Made<T>(T key)
         where T : AsymmetricAlgorithm

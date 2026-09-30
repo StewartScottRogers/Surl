@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Security.Cryptography;
+using Surl.Cryptography.Ed25519;
 using static Surl.Protocol.Ssh.SshTestExchange;
 using static Surl.Protocol.Ssh.SshTestKeyExchangeClient;
 
@@ -20,7 +21,8 @@ public sealed class SshUserKeySignatureTests
     [DataRow("rsa-sha2-512", "ssh-rsa")]
     [DataRow("rsa-sha2-256", "ssh-rsa")]
     [DataRow("ssh-rsa", null)]
-    [DataRow("ssh-ed25519", null)]
+    [DataRow("ssh-ed25519", "ssh-ed25519")]
+    [DataRow("ssh-dss", null)]
     public void KeyTypeFor_Algorithm_IsTheKeyTypeItSignsWith(string algorithm, string? keyType) =>
         Assert.AreEqual(keyType, SshUserKeySignature.KeyTypeFor(algorithm));
 
@@ -114,6 +116,64 @@ public sealed class SshUserKeySignatureTests
 
         Assert.IsFalse(SshUserKeySignature.Verifies("ecdsa-sha2-nistp256", EcdsaBlob(), signature, Data));
     }
+
+    [TestMethod]
+    public void Verifies_Ed25519SignatureOfTheData_IsTrue() =>
+        Assert.IsTrue(SshUserKeySignature.Verifies("ssh-ed25519", Ed25519Blob(SshTestKeys.Ed25519PublicKey), Ed25519Signature(), Data));
+
+    [TestMethod]
+    public void Verifies_Rfc8032sTestSignature_IsTrue()
+    {
+        var signature = SignatureField(
+            "ssh-ed25519",
+            Convert.FromHexString("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b"));
+
+        Assert.IsTrue(SshUserKeySignature.Verifies("ssh-ed25519", Ed25519Blob(SshTestKeys.Ed25519PublicKey), signature, []));
+    }
+
+    [TestMethod]
+    [DataRow(0, DisplayName = "A bit of R flipped")]
+    [DataRow(63, DisplayName = "A bit of S flipped")]
+    public void Verifies_Ed25519SignatureFlipped_IsFalse(int flippedByte)
+    {
+        var signature = Ed25519Signature();
+        signature[^(64 - flippedByte)] ^= 1;
+
+        Assert.IsFalse(SshUserKeySignature.Verifies("ssh-ed25519", Ed25519Blob(SshTestKeys.Ed25519PublicKey), signature, Data));
+    }
+
+    [TestMethod]
+    [DataRow(31)]
+    [DataRow(33)]
+    public void Verifies_Ed25519KeyOfAnotherLength_IsFalse(int length)
+    {
+        byte[] publicKey = [.. SshTestKeys.Ed25519PublicKey, 0];
+
+        Assert.IsFalse(SshUserKeySignature.Verifies("ssh-ed25519", Ed25519Blob(publicKey[..length]), Ed25519Signature(), Data));
+    }
+
+    [TestMethod]
+    [DataRow(63)]
+    [DataRow(65)]
+    public void Verifies_Ed25519SignatureOfAnotherLength_IsFalse(int length)
+    {
+        byte[] raw = [.. Ed25519.Sign(SshTestKeys.Ed25519Seed, Data), 0];
+
+        Assert.IsFalse(SshUserKeySignature.Verifies("ssh-ed25519", Ed25519Blob(SshTestKeys.Ed25519PublicKey), SignatureField("ssh-ed25519", raw[..length]), Data));
+    }
+
+    [TestMethod]
+    public void Verifies_Ed25519KeyThatIsNoPoint_IsFalse()
+    {
+        var notAPoint = Enumerable.Repeat((byte)0xff, 32).ToArray();
+        notAPoint[^1] = 0x7f;
+
+        Assert.IsFalse(SshUserKeySignature.Verifies("ssh-ed25519", Ed25519Blob(notAPoint), Ed25519Signature(), Data));
+    }
+
+    private static byte[] Ed25519Blob(byte[] publicKey) => Concat(String("ssh-ed25519"), Str(publicKey));
+
+    private static byte[] Ed25519Signature() => SignatureField("ssh-ed25519", Ed25519.Sign(SshTestKeys.Ed25519Seed, Data));
 
     private static byte[] RsaBlob() => SshHostKey.FromRsa(SshTestKeys.Rsa1024).PublicKeyBlob.ToArray();
 

@@ -61,6 +61,36 @@ public sealed class SshHostKeyTests
     }
 
     [TestMethod]
+    public void Ed25519FromSeed_Seed_IsAnSshEd25519BlobOfItsPublicKey()
+    {
+        var key = SshEd25519HostKey.FromSeed(SshTestKeys.Ed25519Seed);
+
+        Assert.AreEqual("ssh-ed25519", key.KeyType);
+        CollectionAssert.AreEqual(new[] { "ssh-ed25519" }, key.SignatureAlgorithms.ToArray());
+        CollectionAssert.AreEqual(Concat(String("ssh-ed25519"), Str(SshTestKeys.Ed25519PublicKey)), key.PublicKeyBlob.ToArray());
+    }
+
+    [TestMethod]
+    public void Sign_Ed25519_IsRfc8032sSignatureUnderTheAlgorithmsName()
+    {
+        var reader = new SshWireReader(SshTestKeys.Ed25519HostKey.Sign("ssh-ed25519", []));
+
+        CollectionAssert.AreEqual(Ascii("ssh-ed25519"), reader.ReadString().ToArray());
+        CollectionAssert.AreEqual(
+            Convert.FromHexString("e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901555fb8821590a33bacc61e39701cf9b46bd25bf5f0595bbe24655141438e7a100b"),
+            reader.ReadString().ToArray(),
+            "RFC 8032 section 7.1, TEST 1: the empty message.");
+    }
+
+    [TestMethod]
+    [DataRow(31)]
+    [DataRow(33)]
+    public void Ed25519FromSeed_SeedOfAnotherLength_IsRefused(int length)
+    {
+        Assert.ThrowsExactly<CryptographicException>(() => SshEd25519HostKey.FromSeed(new byte[length]));
+    }
+
+    [TestMethod]
     public void FromRsaAndFromEcdsa_Null_AreRefused()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => SshHostKey.FromRsa(null!));

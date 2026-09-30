@@ -12,10 +12,10 @@ namespace Surl.Protocol.Ssh;
 /// disk is <c>Surl.Console</c>'s (BL-171).
 /// </summary>
 /// <remarks>
-/// RSA keys of at least 2048 bits and ECDSA keys on P-256, P-384 and P-521 are served. A
-/// shorter RSA key is served only with <c>--allow-weak-ssh-algorithms</c>; a DSA key without
-/// it is refused as weak and with it as not supported until BL-221 serves <c>ssh-dss</c>;
-/// Ed25519 is refused as not supported until BL-168 serves <c>ssh-ed25519</c>. A PEM block
+/// RSA keys of at least 2048 bits, ECDSA keys on P-256, P-384 and P-521, and Ed25519 keys (in
+/// PKCS #8, encrypted or not, and <c>openssh-key-v1</c>) are served. A shorter RSA key is
+/// served only with <c>--allow-weak-ssh-algorithms</c>; a DSA key without it is refused as weak
+/// and with it as not supported until BL-221 serves <c>ssh-dss</c>. A PEM block
 /// with RFC 1421 headers (the legacy <c>Proc-Type: 4,ENCRYPTED</c> form) is not a block this
 /// reads, so it is not a private key surl can read.
 /// </remarks>
@@ -141,7 +141,7 @@ public static class SshHostKeyFile
             RsaEncryptionOid => DecodePkcs8Rsa(der, allowWeakAlgorithms),
             EcPublicKeyOid => DecodePkcs8Ecdsa(der, CurveForOid(algorithm.ReadObjectIdentifier())),
             DsaOid => throw DsaRefusal(algorithm.ReadSequence().ReadInteger().GetBitLength(), allowWeakAlgorithms),
-            Ed25519Oid => throw new SshHostKeyRefusedException(SshHostKeyRefusal.UnsupportedKeyType("ssh-ed25519")),
+            Ed25519Oid => DecodePkcs8Ed25519(algorithm, info),
             _ => throw new SshHostKeyRefusedException(SshHostKeyRefusal.UnsupportedKeyType(algorithmOid)),
         };
     }
@@ -160,6 +160,19 @@ public static class SshHostKeyFile
         ecdsa.ImportPkcs8PrivateKey(der, out _);
 
         return new SshEcdsaHostKey(curve, ecdsa.ExportParameters(includePrivateParameters: true));
+    }
+
+    // RFC 8410 section 7: the algorithm has no parameters, and the private key octets hold
+    // CurvePrivateKey, an OCTET STRING of the 32-byte seed. The attributes and public key a
+    // version 2 OneAsymmetricKey may carry after it are not read: the key served is the seed's.
+    private static SshHostKey DecodePkcs8Ed25519(AsnReader algorithm, AsnReader info)
+    {
+        algorithm.ThrowIfNotEmpty();
+        var curvePrivateKey = new AsnReader(info.ReadOctetString(), AsnEncodingRules.DER);
+        var seed = curvePrivateKey.ReadOctetString();
+        curvePrivateKey.ThrowIfNotEmpty();
+
+        return SshEd25519HostKey.FromSeed(seed);
     }
 
     // ECPrivateKey (RFC 5915): version, privateKey, then the curve [0] this reader needs.

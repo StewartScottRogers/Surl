@@ -2,6 +2,7 @@ using System.Formats.Asn1;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using Surl.Cryptography.Ed25519;
 
 namespace Surl.Protocol.Ssh;
 
@@ -68,6 +69,7 @@ internal static class SshOpenSshKeyDecoder
         return keyType switch
         {
             SshRsaHostKey.RsaKeyType => ReadRsa(section, allowWeakAlgorithms),
+            SshEd25519HostKey.Ed25519KeyType => ReadEd25519(section),
             "ssh-dss" => throw SshHostKeyFile.DsaRefusal(section.ReadMpint().GetBitLength(), allowWeakAlgorithms),
             _ when keyType.StartsWith(EcdsaKeyTypePrefix, StringComparison.Ordinal) => ReadEcdsa(section, keyType),
             _ => throw new SshHostKeyRefusedException(SshHostKeyRefusal.UnsupportedKeyType(keyType)),
@@ -106,6 +108,28 @@ internal static class SshOpenSshKeyDecoder
         rsa.ImportRSAPrivateKey(writer.Encode(), out _);
 
         return SshHostKeyFile.FromRsa(rsa, allowWeakAlgorithms);
+    }
+
+    // The 32-byte public key, then the 64-byte private key: the seed and the public key again
+    // (OpenSSH's sshkey.c). Both copies of the public key must be the seed's, so a damaged file
+    // is refused rather than serving a key its signatures do not match.
+    private static SshHostKey ReadEd25519(SshWireReader section)
+    {
+        var publicKey = section.ReadString();
+        var privateKey = section.ReadString();
+        if (privateKey.Length != 2 * Ed25519.SeedSize)
+        {
+            throw new CryptographicException("An OpenSSH Ed25519 private key is the seed and the public key.");
+        }
+
+        var key = SshEd25519HostKey.FromSeed(privateKey.Span[..Ed25519.SeedSize]);
+        var computedBlobKey = key.PublicKeyBlob[^Ed25519.PublicKeySize..].Span;
+        if (!publicKey.Span.SequenceEqual(computedBlobKey) || !privateKey.Span[Ed25519.SeedSize..].SequenceEqual(computedBlobKey))
+        {
+            throw new CryptographicException("The Ed25519 key's public key is not its seed's.");
+        }
+
+        return key;
     }
 
     // The curve's SSH name, Q, then d.

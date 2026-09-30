@@ -23,6 +23,8 @@ internal static class SshKeyFileBuilder
 
     public const string HmacSha256Oid = "1.2.840.113549.2.9";
 
+    public const string Ed25519Oid = "1.3.101.112";
+
     public static byte[] Pem(string label, byte[] der) =>
         Encoding.ASCII.GetBytes(PemEncoding.WriteString(label, der) + "\n");
 
@@ -65,6 +67,40 @@ internal static class SshKeyFileBuilder
     /// <summary>The ECDSA fields of <c>openssh-key-v1</c>: the curve name, Q, d.</summary>
     public static byte[] OpenSshEcdsaFields(string curveName, byte[] point, BigInteger privateValue) =>
         Concat(String(curveName), Str(point), Mpint(privateValue));
+
+    /// <summary>The Ed25519 fields of <c>openssh-key-v1</c>: the public key, then the private key (the seed and the public key).</summary>
+    public static byte[] OpenSshEd25519Fields(byte[] publicKey, byte[] privateKey) => Concat(Str(publicKey), Str(privateKey));
+
+    /// <summary>The PKCS #8 private key octets of an Ed25519 key: <c>CurvePrivateKey</c>, an OCTET STRING of the seed (RFC 8410, section 7).</summary>
+    public static byte[] Pkcs8Ed25519PrivateKey(byte[] seed)
+    {
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        writer.WriteOctetString(seed);
+
+        return writer.Encode();
+    }
+
+    /// <summary>
+    /// A version 2 <c>OneAsymmetricKey</c> (RFC 5958) of an Ed25519 key, with its public key in
+    /// <c>[1]</c> after the private key, as RFC 8410 section 10.3's second example has.
+    /// </summary>
+    public static byte[] Pkcs8Ed25519WithPublicKey(byte[] seed, byte[] publicKey)
+    {
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        using (writer.PushSequence())
+        {
+            writer.WriteInteger(1);
+            using (writer.PushSequence())
+            {
+                writer.WriteObjectIdentifier(Ed25519Oid);
+            }
+
+            writer.WriteOctetString(Pkcs8Ed25519PrivateKey(seed));
+            writer.WriteBitString(publicKey, tag: new Asn1Tag(TagClass.ContextSpecific, 1));
+        }
+
+        return writer.Encode();
+    }
 
     public static byte[] Point(ECParameters key) => Concat([4], key.Q.X!, key.Q.Y!);
 

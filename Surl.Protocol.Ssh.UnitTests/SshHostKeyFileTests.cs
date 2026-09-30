@@ -67,6 +67,28 @@ public sealed class SshHostKeyFileTests
         CollectionAssert.AreEqual(expectedKey.PublicKeyBlob.ToArray(), reading.Key.PublicKeyBlob.ToArray(), caseName);
     }
 
+    public static IEnumerable<object[]> ReadableEd25519Keys()
+    {
+        var seed = SshTestKeys.Ed25519Seed;
+        var publicKey = SshTestKeys.Ed25519PublicKey;
+
+        yield return ["PKCS #8 Ed25519", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, null, Pkcs8Ed25519PrivateKey(seed)))];
+        yield return ["PKCS #8 version 2 Ed25519 with its public key", Pem("PRIVATE KEY", Pkcs8Ed25519WithPublicKey(seed, publicKey))];
+        yield return ["PKCS #8 Ed25519 encrypted", Pem("ENCRYPTED PRIVATE KEY", EncryptedPkcs8(Pkcs8(Ed25519Oid, null, Pkcs8Ed25519PrivateKey(seed)), Passphrase))];
+        yield return ["OpenSSH Ed25519", OpenSshPem(OpenSshBody("ssh-ed25519", OpenSshEd25519Fields(publicKey, [.. seed, .. publicKey])))];
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(ReadableEd25519Keys))]
+    public void Read_EachEd25519Format_GivesTheSeedsKey(string caseName, byte[] file)
+    {
+        var reading = SshHostKeyFile.Read(file, Passphrase, allowWeakAlgorithms: false);
+
+        Assert.IsNull(reading.Refusal, caseName);
+        Assert.AreEqual("ssh-ed25519", reading.Key!.KeyType, caseName);
+        CollectionAssert.AreEqual(Concat(String("ssh-ed25519"), Str(SshTestKeys.Ed25519PublicKey)), reading.Key.PublicKeyBlob.ToArray(), caseName);
+    }
+
     [TestMethod]
     public void Read_KeyRead_SignsWhatItsPublicKeyVerifies()
     {
@@ -108,8 +130,6 @@ public sealed class SshHostKeyFileTests
 
     public static IEnumerable<object[]> UnsupportedKeys()
     {
-        yield return ["PKCS #8 Ed25519", Pem("PRIVATE KEY", Pkcs8("1.3.101.112", null, [4, 32, .. new byte[32]])), "ssh-ed25519"];
-        yield return ["OpenSSH Ed25519", OpenSshPem(OpenSshBody("ssh-ed25519", Str(new byte[32]))), "ssh-ed25519"];
         yield return ["PKCS #8 X25519", Pem("PRIVATE KEY", Pkcs8("1.3.101.110", null, [4, 32, .. new byte[32]])), "1.3.101.110"];
         yield return [
             "PKCS #8 EC on brainpoolP256r1",
@@ -169,6 +189,19 @@ public sealed class SshHostKeyFileTests
             "OpenSSH ECDSA point of another key",
             OpenSshPem(OpenSshBody("ecdsa-sha2-nistp256", OpenSshEcdsaFields("nistp256", Point(ECDsa.Create(ECCurve.NamedCurves.nistP256).ExportParameters(false)), d)))];
         yield return ["Encrypted PKCS #8 of an empty key", Pem("ENCRYPTED PRIVATE KEY", EncryptedPkcs8([0x30, 0x00], Passphrase))];
+
+        var seed = SshTestKeys.Ed25519Seed;
+        var publicKey = SshTestKeys.Ed25519PublicKey;
+        var otherPublicKey = (byte[])publicKey.Clone();
+        otherPublicKey[0] ^= 1;
+        yield return ["PKCS #8 Ed25519 with algorithm parameters", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, writer => writer.WriteNull(), Pkcs8Ed25519PrivateKey(seed)))];
+        yield return ["PKCS #8 Ed25519 whose private key is not an OCTET STRING", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, null, [0x30, 0x00]))];
+        yield return ["PKCS #8 Ed25519 with a 31-byte seed", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, null, Pkcs8Ed25519PrivateKey(seed[..31])))];
+        yield return ["PKCS #8 Ed25519 with bytes after its seed", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, null, [.. Pkcs8Ed25519PrivateKey(seed), 5, 0]))];
+        yield return ["OpenSSH Ed25519 private key of the seed alone", OpenSshPem(OpenSshBody("ssh-ed25519", OpenSshEd25519Fields(publicKey, seed)))];
+        yield return ["OpenSSH Ed25519 public key of another seed", OpenSshPem(OpenSshBody("ssh-ed25519", OpenSshEd25519Fields(otherPublicKey, [.. seed, .. publicKey])))];
+        yield return ["OpenSSH Ed25519 private key ending in another public key", OpenSshPem(OpenSshBody("ssh-ed25519", OpenSshEd25519Fields(publicKey, [.. seed, .. otherPublicKey])))];
+        yield return ["OpenSSH Ed25519 private key running past the section", OpenSshPem(OpenSshBody("ssh-ed25519", Concat(Str(publicKey), UInt32(1000))))];
     }
 
     [TestMethod]

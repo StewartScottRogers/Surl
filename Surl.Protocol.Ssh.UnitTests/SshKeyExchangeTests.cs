@@ -34,6 +34,7 @@ public sealed class SshKeyExchangeTests
     [DataRow("ecdsa-sha2-nistp256")]
     [DataRow("ecdsa-sha2-nistp384")]
     [DataRow("ecdsa-sha2-nistp521")]
+    [DataRow("ssh-ed25519")]
     public async Task EveryHostKeyAlgorithm_SignsTheExchangeHash(string hostKeyAlgorithm)
     {
         await CompleteAsync("ecdh-sha2-nistp256", hostKeyAlgorithm, SshTestKeys.AllHostKeys());

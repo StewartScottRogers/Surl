@@ -38,6 +38,7 @@ public sealed class SshHostKeySetTests
     {
         var set = SshTestKeys.AllHostKeys();
 
+        Assert.AreEqual("ssh-ed25519", set.ForSignatureAlgorithm("ssh-ed25519").KeyType);
         Assert.AreEqual("ecdsa-sha2-nistp384", set.ForSignatureAlgorithm("ecdsa-sha2-nistp384").KeyType);
         Assert.AreEqual("ssh-rsa", set.ForSignatureAlgorithm("rsa-sha2-256").KeyType);
     }

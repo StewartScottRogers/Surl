@@ -6,7 +6,8 @@ namespace Surl.Protocol.Ssh;
 /// One host key the SSH server holds: its public key blob (RFC 4253, section 6.6), the
 /// host-key algorithms it signs with, and the signing of the exchange hash (ADR-0051,
 /// decisions 2 and 4). An RSA key signs <c>rsa-sha2-512</c> and <c>rsa-sha2-256</c> (RFC 8332);
-/// an ECDSA key on P-256, P-384 or P-521 its curve's <c>ecdsa-sha2-*</c> (RFC 5656, section 3).
+/// an ECDSA key on P-256, P-384 or P-521 its curve's <c>ecdsa-sha2-*</c> (RFC 5656, section 3);
+/// an Ed25519 key <c>ssh-ed25519</c> (RFC 8709).
 /// </summary>
 public abstract class SshHostKey
 {
@@ -20,7 +21,7 @@ public abstract class SshHostKey
     }
 
     /// <summary>
-    /// The key type the public key blob starts with: <c>ssh-rsa</c>, or
+    /// The key type the public key blob starts with: <c>ssh-rsa</c>, <c>ssh-ed25519</c>, or
     /// <c>ecdsa-sha2-nistp256</c>, <c>-nistp384</c> or <c>-nistp521</c>. The server holds at
     /// most one key of each type (ADR-0051, decision 4).
     /// </summary>

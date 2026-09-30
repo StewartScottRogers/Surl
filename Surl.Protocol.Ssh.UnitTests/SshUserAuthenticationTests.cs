@@ -208,6 +208,7 @@ public sealed class SshUserAuthenticationTests
     [DataRow("ecdsa-sha2-nistp384")]
     [DataRow("ecdsa-sha2-nistp521")]
     [DataRow("rsa-sha2-256")]
+    [DataRow("ssh-ed25519")]
     [DataRow("rsa-sha2-512")]
     public async Task AnswerLoginRequest_PublicKeyQueryForAnAuthorizedKey_IsAnsweredPkOk(string algorithm)
     {
@@ -238,6 +239,7 @@ public sealed class SshUserAuthenticationTests
     [DataRow("ecdsa-sha2-nistp384")]
     [DataRow("ecdsa-sha2-nistp521")]
     [DataRow("rsa-sha2-256")]
+    [DataRow("ssh-ed25519")]
     [DataRow("rsa-sha2-512")]
     public async Task AnswerLoginRequest_ValidSignatureByAnAuthorizedKey_Succeeds(string algorithm)
     {
@@ -255,6 +257,7 @@ public sealed class SshUserAuthenticationTests
     [TestMethod]
     [DataRow("ecdsa-sha2-nistp256")]
     [DataRow("rsa-sha2-256")]
+    [DataRow("ssh-ed25519")]
     public async Task AnswerLoginRequest_InvalidSignature_IsJudgedInvalidAndRefused(string algorithm)
     {
         var policy = new SshTestAuthenticationPolicy { AuthorizedKeyBlob = UserKeyBlob(algorithm) };
@@ -293,7 +296,7 @@ public sealed class SshUserAuthenticationTests
     }
 
     [TestMethod]
-    [DataRow("ssh-ed25519", "rsa-sha2-256", DisplayName = "An algorithm not verified yet")]
+    [DataRow("ssh-dss", "rsa-sha2-256", DisplayName = "An algorithm not verified yet")]
     [DataRow("ssh-rsa", "rsa-sha2-256", DisplayName = "SHA-1 RSA, without --allow-weak-ssh-algorithms")]
     [DataRow("ecdsa-sha2-nistp384", "ecdsa-sha2-nistp256", DisplayName = "A key of another type than the algorithm's")]
     public async Task AnswerLoginRequest_AlgorithmTheKeyCannotSignWith_IsRefusedUnchecked(string algorithm, string keyAlgorithm)
@@ -421,7 +424,7 @@ public sealed class SshUserAuthenticationTests
         var extensionInfo = await client.ReceiveAsync();
 
         CollectionAssert.AreEqual(
-            Concat([7], UInt32(1), String("server-sig-algs"), String("ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256")),
+            Concat([7], UInt32(1), String("server-sig-algs"), String("ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256")),
             extensionInfo);
         await client.ReExchangeAsync();
         client.Send([200]);
@@ -437,6 +440,7 @@ public sealed class SshUserAuthenticationTests
         "rsa-sha2-256" or "rsa-sha2-512" or "ssh-rsa" => SshHostKey.FromRsa(SshTestKeys.Rsa1024).PublicKeyBlob.ToArray(),
         "ecdsa-sha2-nistp384" => SshHostKey.FromEcdsa(SshTestKeys.EcdsaP384).PublicKeyBlob.ToArray(),
         "ecdsa-sha2-nistp521" => SshHostKey.FromEcdsa(SshTestKeys.EcdsaP521).PublicKeyBlob.ToArray(),
+        "ssh-ed25519" => Concat(String("ssh-ed25519"), Str(SshTestKeys.Ed25519PublicKey)),
         _ => SshHostKey.FromEcdsa(SshTestKeys.EcdsaP256).PublicKeyBlob.ToArray(),
     };
 
@@ -461,6 +465,8 @@ public sealed class SshUserAuthenticationTests
                 return SshTestKeys.Rsa1024.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
             case "rsa-sha2-512":
                 return SshTestKeys.Rsa1024.SignData(data, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+            case "ssh-ed25519":
+                return Surl.Cryptography.Ed25519.Ed25519.Sign(SshTestKeys.Ed25519Seed, data);
         }
 
         var (key, hash) = algorithm switch
