@@ -4,7 +4,7 @@ title: Prove pinned upstream curl transfers over blowfish-cbc, cast128-cbc and h
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-258]
+depends-on: [BL-258, BL-250, BL-262, BL-263]
 touches: [Surl.Conformance.UnitTests]
 requirement: FR-039
 created: 2026-09-30
@@ -43,7 +43,21 @@ completes an SFTP transfer against `surl --allow-weak-ssh-algorithms` with each 
 
 ## Notes
 
+- 2026-09-30 (lane 1): cannot be finished yet; three prerequisites, now in `depends-on`:
+  - BL-250: surl still refuses `--allow-weak-ssh-algorithms` (`CommandLineRunner.UnavailableOptions`)
+    and `ComposeProtocolServers` never passes it to `SshAlgorithmOffer.Default`, so no surl process
+    offers the four names yet.
+  - BL-262 (filed): libssh2 picks the first name in its own list that surl offers, and curl has no
+    option to change it; rewriting a KEXINIT on the wire breaks the exchange hash. Decided to give
+    surl sshd-style `--ssh-ciphers`/`--ssh-macs` rather than have the conformance test compose
+    `SshProtocolServer` itself, so the test runs the real `surl` command line the goal names.
+  - BL-263 (filed): the only pins offering the names are the Linux and macOS reference builds, not
+    installed here; the pinned OpenSSL static-curl Windows build (same sources) should be admitted
+    for these SSH measurements by ADR. It also has to measure whether OpenSSL 4 lets libssh2 run
+    blowfish-cbc and cast128-cbc at all (legacy provider), which may change what this task proves.
+
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Backlog. Waits on BL-250 (surl serves --allow-weak-ssh-algorithms), BL-262 (narrow the SSH offer) and BL-263 (admit an OpenSSL build on Windows)
