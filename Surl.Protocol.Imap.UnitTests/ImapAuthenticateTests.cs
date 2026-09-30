@@ -71,6 +71,21 @@ public sealed class ImapAuthenticateTests
         Assert.AreEqual(RefusedLogin.Note, log.Notes[0]);
     }
 
+    // ADR-0057 decision 4: a refused GSSAPI ticket's reason follows the login note in the
+    // verbose log, and nothing else of the ticket does.
+    [TestMethod]
+    public async Task ServeAsync_RefusedGssapiTicket_NotesTheKerberosReasonAfterTheLogin()
+    {
+        var log = new RecordingExchangeLog();
+        var policy = Policy(
+            ScriptedLoginPolicy.Ended(MailLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" });
+
+        var (responses, _) = await ServeAsync(policy, "a AUTHENTICATE GSSAPI YQ==\r\n", log);
+
+        Assert.AreEqual("a NO [AUTHENTICATIONFAILED] Authentication failed\r\n", responses);
+        CollectionAssert.AreEqual(new[] { "Login refused: GSSAPI", "Kerberos: ticket expired" }, log.Notes.ToArray());
+    }
+
     [TestMethod]
     [DataRow(MailLoginOutcome.RefusedPlaintext, "a NO [PRIVACYREQUIRED] Encryption required")]
     [DataRow(MailLoginOutcome.RefusedMechanism, "a NO Unsupported authentication mechanism")]

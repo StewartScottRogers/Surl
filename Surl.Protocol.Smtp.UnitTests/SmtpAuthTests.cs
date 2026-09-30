@@ -138,6 +138,20 @@ public sealed class SmtpAuthTests
         Assert.AreEqual("Login refused: PLAIN user", log.Notes[0]);
     }
 
+    // ADR-0057 decision 4: a refused GSSAPI ticket's reason follows the login note in the
+    // verbose log, and nothing else of the ticket does.
+    [TestMethod]
+    public async Task ServeAsync_RefusedGssapiTicket_NotesTheKerberosReasonAfterTheLogin()
+    {
+        var mailPolicy = PlainPolicy(
+            Ended(MailLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" });
+
+        var (connection, log) = await ServeAsync(mailPolicy, "EHLO c\r\nAUTH GSSAPI YQ==\r\n");
+
+        Assert.AreEqual("535 5.7.8 Authentication credentials invalid\r\n", Replies(connection));
+        CollectionAssert.AreEqual(new[] { "Login refused: GSSAPI", "Kerberos: ticket expired" }, log.Notes.ToArray());
+    }
+
     // ADR-0049 section 1: a plain-text mechanism started without TLS is refused before any
     // credential is read, so no 334 goes out and nothing more is read for it.
     [TestMethod]

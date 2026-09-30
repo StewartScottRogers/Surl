@@ -398,6 +398,11 @@ internal sealed class SmtpSession
                 context.Log.Note(checkedLogin.Note);
             }
 
+            if (step.RefusalNote is { } refusalNote)
+            {
+                context.Log.Note(refusalNote);
+            }
+
             if (step.Outcome != MailLoginOutcome.Challenge)
             {
                 isLoggedIn = step.Outcome is MailLoginOutcome.Accepted or MailLoginOutcome.AcceptedUnchecked;

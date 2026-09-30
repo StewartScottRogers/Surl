@@ -13,7 +13,8 @@ namespace Surl.Authentication;
 /// <c>01 00 00 00</c>, no layer and no maximum size. The client's wrapped answer must choose no
 /// layer, and the authorization identity after it must be empty or the ticket's client principal
 /// in display form, such as <c>user@EXAMPLE.COM</c>, which is also the account name the login
-/// needs. A refused ticket names no user; every later refusal names the principal. Under
+/// needs. A refused ticket names no user, and its step's refusal note is the acceptor's reason as
+/// <c>Kerberos: &lt;reason&gt;</c> (ADR-0057, decision 4); every later refusal names the principal. Under
 /// <c>--allow-anonymous</c> every step still runs, since the tokens need the ticket's keys, and only
 /// the account match is skipped.
 /// </summary>
@@ -62,7 +63,7 @@ internal sealed class GssapiSaslExchange(SaslExchangeContext context) : SaslMech
         var result = Context.KerberosAcceptor.Accept(token, ServiceOf(Context.Scheme));
         if (result.Context is not { } accepted)
         {
-            return RefuseAsync(null, cancellationToken);
+            return RefuseAsync(null, cancellationToken, "Kerberos: " + result.RefusalReason);
         }
 
         securityContext = accepted;

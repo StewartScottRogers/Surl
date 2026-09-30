@@ -437,6 +437,11 @@ internal sealed class Pop3Session
         {
             context.Log.Note(checkedLogin.Note);
         }
+
+        if (step.RefusalNote is { } refusalNote)
+        {
+            context.Log.Note(refusalNote);
+        }
     }
 
     // A maildrop command before any login asks the policy once about the login with no

@@ -101,6 +101,7 @@ public sealed class GssapiSaslMechanismTests
         Assert.AreEqual(
             new MailLoginStep(MailLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, Principal, new CheckedLogin("GSSAPI", Principal, true)),
             steps[2]);
+        Assert.IsTrue(steps.All(step => step.RefusalNote is null), "an accepted login carries no refusal note");
     }
 
     [TestMethod]
@@ -132,7 +133,7 @@ public sealed class GssapiSaslMechanismTests
         Assert.IsFalse(pending.IsCompleted, "a refused ticket waits the refusal delay");
         clock.Advance(AuthenticationPolicy.RefusalDelay);
         Assert.AreEqual(
-            new MailLoginStep(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("GSSAPI", null, false)),
+            new MailLoginStep(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("GSSAPI", null, false), "Kerberos: integrity check failed"),
             await pending);
     }
 
@@ -146,7 +147,9 @@ public sealed class GssapiSaslMechanismTests
 
         Assert.IsFalse(pending.IsCompleted);
         clock.Advance(AuthenticationPolicy.RefusalDelay);
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, (await pending).Outcome);
+        var refusal = await pending;
+        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, refusal.Outcome);
+        Assert.AreEqual("Kerberos: ticket expired", refusal.RefusalNote);
     }
 
     [TestMethod]

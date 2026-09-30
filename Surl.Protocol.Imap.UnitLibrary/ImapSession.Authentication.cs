@@ -144,6 +144,11 @@ internal sealed partial class ImapSession
         {
             context.Log.Note(checkedLogin.Note);
         }
+
+        if (step.RefusalNote is { } refusalNote)
+        {
+            context.Log.Note(refusalNote);
+        }
     }
 
     // An accepted login opens the account's view, the anonymous owner's when it was not checked;

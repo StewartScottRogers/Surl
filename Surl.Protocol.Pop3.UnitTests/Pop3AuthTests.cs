@@ -109,6 +109,24 @@ public sealed class Pop3AuthTests
         Assert.AreEqual("Login refused: PLAIN u", log.Notes[0]);
     }
 
+    // ADR-0057 decision 4: a refused GSSAPI ticket's reason follows the login note in the
+    // verbose log, and nothing else of the ticket does.
+    [TestMethod]
+    public async Task ServeAsync_RefusedGssapiTicket_NotesTheKerberosReasonAfterTheLogin()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var policy = new Pop3TestPolicy
+        {
+            Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" }],
+        };
+
+        var connection = await ServeAsync(AccountStore(clock), "AUTH GSSAPI YQ==\r\n", clock, TestContext.CancellationToken, policy, log: log);
+
+        Assert.AreEqual("-ERR [AUTH] Authentication failed\r\n", RepliesAfterGreeting(connection));
+        CollectionAssert.AreEqual(new[] { "Login refused: GSSAPI", "Kerberos: ticket expired" }, log.Notes.ToArray());
+    }
+
     // A plain-text mechanism over no TLS is refused before any credential is read (ADR-0049,
     // section 1).
     [TestMethod]

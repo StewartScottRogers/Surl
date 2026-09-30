@@ -17,8 +17,15 @@ namespace Surl.Protocol.Abstractions;
 /// The credentials checked on this step and the answer, which the server writes to the verbose log
 /// as <see cref="CheckedLogin.Note"/> before it answers; <see langword="null"/> when nothing was checked.
 /// </param>
+/// <param name="RefusalNote">
+/// Why the credentials were refused, as the server writes it to the verbose log after
+/// <see cref="CheckedLogin.Note"/>, such as <c>Kerberos: ticket expired</c> (ADR-0057, decision 4);
+/// <see langword="null"/> when the mechanism names no reason. It never holds a key byte, a password
+/// or a decrypted field.
+/// </param>
 public sealed record MailLoginStep(
     MailLoginOutcome Outcome,
     ReadOnlyMemory<byte> Challenge,
     string? AccountName,
-    CheckedLogin? CheckedLogin);
+    CheckedLogin? CheckedLogin,
+    string? RefusalNote = null);

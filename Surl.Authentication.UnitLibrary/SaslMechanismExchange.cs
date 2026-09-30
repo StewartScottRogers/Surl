@@ -95,12 +95,14 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     /// </summary>
     /// <param name="user">The user as the note names it.</param>
     /// <param name="cancellationToken">Cancels the delay.</param>
+    /// <param name="refusalNote">Why, for the verbose log after the login note; <see langword="null"/> for no reason.</param>
     /// <returns>The step.</returns>
-    protected async ValueTask<MailLoginStep> RefuseAsync(string? user, CancellationToken cancellationToken)
+    protected async ValueTask<MailLoginStep> RefuseAsync(
+        string? user, CancellationToken cancellationToken, string? refusalNote = null)
     {
         await Context.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
 
-        return new MailLoginStep(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, Note(user, false));
+        return new MailLoginStep(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, Note(user, false), refusalNote);
     }
 
     /// <summary>
