@@ -53,3 +53,4 @@ content store as BL-155's ADR decides, under every exposure option and limit, so
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
