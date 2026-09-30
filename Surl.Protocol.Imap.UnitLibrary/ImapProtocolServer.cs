@@ -9,14 +9,17 @@ namespace Surl.Protocol.Imap;
 /// synchronizing literals, logs users in with <c>LOGIN</c> through the authentication policy,
 /// and answers <c>CAPABILITY</c>, <c>NOOP</c>, <c>LOGOUT</c>, <c>ID</c>, <c>NAMESPACE</c>,
 /// <c>SELECT</c>, <c>EXAMINE</c>, <c>LIST</c>, <c>LSUB</c>, <c>STATUS</c>, <c>CHECK</c>,
-/// <c>CLOSE</c> and <c>UNSELECT</c> from the shared mail store. ADR-0055 records every response.
+/// <c>CLOSE</c>, <c>UNSELECT</c>, <c>FETCH</c>, <c>SEARCH</c> and their <c>UID</c> forms from the
+/// shared mail store. ADR-0055 records every response.
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Responses.</b> Each is fixed text, never an echo of the peer's bytes but its tag and the
-/// mailbox names it asked about, written back in modified UTF-7: the greeting
-/// <c>* OK [CAPABILITY ...] surl ready</c>, the capabilities of the connection's state, and
-/// <c>BAD Command not recognized</c> for every command this server does not answer yet.
+/// <b>Responses.</b> Each is fixed text, never an echo of the peer's bytes but its tag, the
+/// mailbox names it asked about, written back in modified UTF-7, and the section and header field
+/// names of a <c>FETCH</c>, in capitals; message data goes out only inside literals and quoted
+/// strings. The greeting is <c>* OK [CAPABILITY ...] surl ready</c>, <c>CAPABILITY</c> answers
+/// the capabilities of the connection's state, and every command this server does not answer yet
+/// is answered <c>BAD Command not recognized</c>.
 /// </para>
 /// <para>
 /// <b>Logins.</b> <c>LOGIN</c> is judged by <see cref="IAuthenticationPolicy.CheckPasswordLoginAsync"/>,

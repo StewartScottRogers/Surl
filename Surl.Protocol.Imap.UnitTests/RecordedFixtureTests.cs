@@ -22,6 +22,17 @@ public sealed class RecordedFixtureTests
     [DataRow("select")]
     [DataRow("examine")]
     [DataRow("status")]
+    [DataRow("fetch-uid")]
+    [DataRow("fetch-mailindex")]
+    [DataRow("fetch-section-text")]
+    [DataRow("fetch-header-fields")]
+    [DataRow("fetch-section-1")]
+    [DataRow("fetch-partial")]
+    [DataRow("fetch-text-partial")]
+    [DataRow("search-subject")]
+    [DataRow("fetch-all")]
+    [DataRow("uid-fetch-bodystructure")]
+    [DataRow("uid-search")]
     public async Task ServeAsync_RecordedRequest_WritesTheRecordedResponses(string caseName)
     {
         Assert.AreEqual("0", Read(caseName, "exitcode.txt").Trim());

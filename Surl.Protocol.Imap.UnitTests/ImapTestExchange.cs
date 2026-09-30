@@ -99,9 +99,11 @@ internal static class ImapTestExchange
         return AfterGreeting(connection);
     }
 
-    public static string AfterGreeting(InMemoryConnection connection)
+    public static string AfterGreeting(InMemoryConnection connection) => AfterGreeting(connection.WrittenBytes);
+
+    public static string AfterGreeting(byte[] writtenBytes)
     {
-        var written = Utf8(connection.WrittenBytes);
+        var written = Utf8(writtenBytes);
         Assert.StartsWith(Greeting, written);
         return written[Greeting.Length..];
     }

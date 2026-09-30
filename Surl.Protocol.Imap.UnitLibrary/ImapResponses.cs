@@ -25,6 +25,9 @@ internal static class ImapResponses
     public const string LineTooLongBye = "* BYE surl Command line too long, closing";
     public const string HeadTimedOut = "* BYE surl Timeout waiting for a command, closing";
     public const string TooManyConnections = "* BYE surl Too many connections, closing";
+    public const string InvalidSequenceNumber = "BAD Invalid message sequence number";
+    public const string BadCharset = "NO [BADCHARSET (US-ASCII UTF-8)] Unsupported charset";
+    public const string ReadFailed = "NO [SERVERBUG] Could not read the message";
     public const string SystemFlags = @"(\Answered \Flagged \Deleted \Seen \Draft)";
     public const string Namespace = "* NAMESPACE ((\"\" \"/\")) NIL NIL";
     public const string Id = "* ID NIL";

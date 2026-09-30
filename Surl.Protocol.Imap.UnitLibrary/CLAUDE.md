@@ -5,10 +5,16 @@ Phase 3.
 The IMAP4rev1 server (RFC 3501; not IMAP4rev2, ADR-0055 decision 1), as upstream curl uses it.
 ADR-0055 decides every response. `ImapProtocolServer` answers `LOGIN`, `CAPABILITY`, `NOOP`,
 `LOGOUT`, `ID`, `NAMESPACE`, `SELECT`, `EXAMINE`, `LIST`, `LSUB`, `STATUS`, `CHECK`, `CLOSE` and
-`UNSELECT` from the shared mail store (BL-201); `FETCH` and `SEARCH` (BL-202), `APPEND`, `STORE`,
-`COPY`, `MOVE`, `EXPUNGE` and the mailbox changes (BL-203), `STARTTLS` and `AUTHENTICATE`
-(BL-204) are still answered `BAD Command not recognized`. It is not yet registered in
-`Surl.Console` (BL-208).
+`UNSELECT` from the shared mail store (BL-201), and `FETCH`, `UID FETCH`, `SEARCH` and
+`UID SEARCH` (BL-202); `APPEND`, `STORE`, `COPY`, `MOVE`, `EXPUNGE`, the other `UID` commands and
+the mailbox changes (BL-203), `STARTTLS` and `AUTHENTICATE` (BL-204) are still answered
+`BAD Command not recognized`. It is not yet registered in `Surl.Console` (BL-208).
+
+The RFC 5322 and MIME structure reader `FETCH` and `SEARCH` need lives here, not in the store
+(ADR-0055, decision 4): `ImapBodyPart` reads a message's header, fields and parts,
+`ImapSection` names the bytes of a `BODY[<section>]`, `ImapStructureWriter` writes `ENVELOPE`,
+`BODY` and `BODYSTRUCTURE`, and `ImapDataWriter` keeps every message byte inside a literal or a
+quoted string. ADR-0055 decision 16 records the details BL-202 settled.
 
 **URL schemes answered:** `imap`, `imaps`
 

@@ -128,17 +128,39 @@ internal sealed class ImapArguments
         return TryReadByte((byte)')') ? atoms : null;
     }
 
-    // ATOM-CHAR (RFC 3501 section 9): any byte but "(" ")" "{" SP CTL "%" "*" DQUOTE "\" "]".
-    private static bool IsAtomChar(byte value) =>
-        value > 0x20 && value != 0x7F && "(){%*\"\\]"u8.IndexOf(value) < 0;
+    /// <summary>
+    /// Reads the atom <paramref name="expected"/>, compared without regard to case, and nothing
+    /// when another atom or no atom is next.
+    /// </summary>
+    /// <param name="expected">The atom in capitals.</param>
+    /// <returns>Whether it was next, and read.</returns>
+    public bool TryReadAtom(string expected)
+    {
+        var start = position;
+        if (ReadAtom() == expected)
+        {
+            return true;
+        }
 
-    private static bool IsAStringChar(byte value) => IsAtomChar(value) || value == ']';
+        position = start;
+        return false;
+    }
 
-    private static bool IsListChar(byte value) => IsAStringChar(value) || value is (byte)'%' or (byte)'*';
+    /// <summary>
+    /// Reads one or more bytes of the line, each one <paramref name="isRunByte"/> accepts, as
+    /// ASCII text: a sequence set, a number, or a fetch item's name.
+    /// </summary>
+    /// <param name="isRunByte">Which bytes the run holds; each must be 7-bit ASCII.</param>
+    /// <returns>The run, or <see langword="null"/> when its first byte is not next.</returns>
+    public string? ReadRun(Func<byte, bool> isRunByte) =>
+        ReadAtom(isRunByte) is { } run ? Encoding.ASCII.GetString(run) : null;
 
-    private static bool IsTagChar(byte value) => value < 0x80 && value != '+' && IsAStringChar(value);
-
-    private bool TryReadByte(byte expected)
+    /// <summary>
+    /// Reads one byte of the line.
+    /// </summary>
+    /// <param name="expected">The byte expected next.</param>
+    /// <returns>Whether it was next, and read.</returns>
+    public bool TryReadByte(byte expected)
     {
         if (position < Line.Length && Line[position] == expected)
         {
@@ -148,6 +170,16 @@ internal sealed class ImapArguments
 
         return false;
     }
+
+    // ATOM-CHAR (RFC 3501 section 9): any byte but "(" ")" "{" SP CTL "%" "*" DQUOTE "\" "]".
+    private static bool IsAtomChar(byte value) =>
+        value > 0x20 && value != 0x7F && "(){%*\"\\]"u8.IndexOf(value) < 0;
+
+    private static bool IsAStringChar(byte value) => IsAtomChar(value) || value == ']';
+
+    private static bool IsListChar(byte value) => IsAStringChar(value) || value is (byte)'%' or (byte)'*';
+
+    private static bool IsTagChar(byte value) => value < 0x80 && value != '+' && IsAStringChar(value);
 
     private byte[]? ReadAtom(Func<byte, bool> isAtomChar)
     {

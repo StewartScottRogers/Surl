@@ -32,6 +32,39 @@ internal sealed class ImapSelectedMailbox
     public bool IsReadOnly { get; }
 
     /// <summary>
+    /// The UIDs the session sees, in ascending order: message <c>n</c> is <c>Uids[n - 1]</c>.
+    /// </summary>
+    public IReadOnlyList<uint> Uids => uids;
+
+    /// <summary>
+    /// The highest UID the session sees, what <c>*</c> stands for in a UID set; 0 when it sees
+    /// no message.
+    /// </summary>
+    public uint HighestUid => uids.Count == 0 ? 0 : uids[^1];
+
+    /// <summary>
+    /// The messages a <c>FETCH</c> or <c>UID FETCH</c> names (ADR-0055, decision 4), in ascending
+    /// order.
+    /// </summary>
+    /// <param name="set">The sequence set.</param>
+    /// <param name="isUidSet">Whether the set holds UIDs: those that name no message are left
+    /// out. Otherwise it holds message numbers, all of which must name a message.</param>
+    /// <returns>Each message's number and UID, or <see langword="null"/> when a message number
+    /// names no message.</returns>
+    public IReadOnlyList<(int Number, uint Uid)>? Resolve(ImapSequenceSet set, bool isUidSet)
+    {
+        var count = (uint)uids.Count;
+        if (!isUidSet && !set.IsWithin(count))
+        {
+            return null;
+        }
+
+        return uids.Select((uid, index) => (Number: index + 1, Uid: uid))
+            .Where(message => isUidSet ? set.Contains(message.Uid, HighestUid) : set.Contains((uint)message.Number, count))
+            .ToList();
+    }
+
+    /// <summary>
     /// Selects the mailbox <paramref name="snapshot"/> shows, and writes the untagged data of
     /// <c>SELECT</c> or, when <paramref name="isReadOnly"/>, <c>EXAMINE</c>.
     /// </summary>

@@ -67,6 +67,9 @@ internal sealed class ImapSession
             ["CHECK"] = (ImapCommandState.Selected, arguments => RespondAsync(WithoutArguments(arguments, "CHECK"))),
             ["CLOSE"] = (ImapCommandState.Selected, AnswerCloseAsync),
             ["UNSELECT"] = (ImapCommandState.Selected, arguments => RespondAsync(Unselect(arguments))),
+            ["FETCH"] = (ImapCommandState.Selected, arguments => AnswerFetchAsync(arguments, isUid: false)),
+            ["SEARCH"] = (ImapCommandState.Selected, arguments => AnswerSearchAsync(arguments, isUid: false)),
+            ["UID"] = (ImapCommandState.Selected, AnswerUidAsync),
         };
     }
 
@@ -326,6 +329,149 @@ internal sealed class ImapSession
 
         selected = null;
         return ImapResponse.Only(ImapResponses.Completed("UNSELECT"));
+    }
+
+    // UID FETCH and UID SEARCH; the other UID commands are BL-203's.
+    private ValueTask<bool> AnswerUidAsync(ImapArguments arguments) => (arguments.TryReadSpace() ? arguments.ReadAtom() : null) switch
+    {
+        "FETCH" => AnswerFetchAsync(arguments, isUid: true),
+        "SEARCH" => AnswerSearchAsync(arguments, isUid: true),
+        _ => RespondAsync(ImapResponse.Only(ImapResponses.NotRecognized)),
+    };
+
+    // One untagged FETCH per message, then the tagged completion, with no pending updates
+    // between them (ADR-0055, decisions 4 and 5).
+    private async ValueTask<bool> AnswerFetchAsync(ImapArguments arguments, bool isUid)
+    {
+        var request = ImapFetchRequest.Read(arguments);
+        var messages = request is null ? null : selected!.Resolve(request.Set, isUid);
+        if (messages is null)
+        {
+            return await ReplyAsync($"{tag} {(request is null ? ImapResponses.InvalidArguments : ImapResponses.InvalidSequenceNumber)}");
+        }
+
+        return await ReplyAsync($"{tag} {await FetchEachAsync(messages, request!.Items, isUid)}");
+    }
+
+    // Writes each message's FETCH response and saves the \Seen flags set; returns the tagged
+    // completion, NO once a message cannot be read.
+    private async ValueTask<string> FetchEachAsync(IReadOnlyList<(int Number, uint Uid)> messages, IReadOnlyList<ImapFetchItem> items, bool isUid)
+    {
+        var summaries = ReadSummaries();
+        var seenCount = 0;
+        var completion = ImapResponses.Completed("FETCH");
+        foreach (var (number, uid) in messages)
+        {
+            if (TryFetch(number, uid, summaries, items) is not { } fetched)
+            {
+                completion = ImapResponses.ReadFailed;
+                break;
+            }
+
+            seenCount += fetched.IsSeenSet ? 1 : 0;
+            await connection.WriteAsync(ImapFetchResponse.Write(fetched, items, isUid), CancellationToken);
+        }
+
+        await SaveMailStoreIfChangedAsync(seenCount);
+        return completion;
+    }
+
+    // The selected mailbox's messages as they are now; none when another session deleted it.
+    private Dictionary<uint, MailMessageSummary> ReadSummaries()
+    {
+        mailStore.ReadMailbox(view!, selected!.Name, out var snapshot);
+        return snapshot?.Messages.ToDictionary(message => message.Uid) ?? [];
+    }
+
+    // The message to answer, \Seen set first when an item asks for it; null when its bytes
+    // could not be read.
+    private ImapFetchedMessage? TryFetch(int number, uint uid, Dictionary<uint, MailMessageSummary> summaries, IReadOnlyList<ImapFetchItem> items)
+    {
+        if (!summaries.TryGetValue(uid, out var summary))
+        {
+            context.Log.Note($"Message {uid} in {selected!.Name} was expunged by another session");
+            return new ImapFetchedMessage(number, uid, MailFlags.None, false, DateTimeOffset.UnixEpoch, 0, ImapBodyPart.ReadMessage(ReadOnlyMemory<byte>.Empty));
+        }
+
+        if (TryReadMessage(uid, items.Any(item => item.ReadsMessage)) is not { } message)
+        {
+            return null;
+        }
+
+        var isSeenSet = MarkSeen(uid, summary.Flags, items);
+        return new ImapFetchedMessage(number, uid, summary.Flags | (isSeenSet ? MailFlags.Seen : MailFlags.None), isSeenSet, summary.InternalDate, summary.Size, message);
+    }
+
+    // Sets \Seen when a non-peek body item asks for it in a read-write mailbox and it is not set;
+    // returns whether it did.
+    private bool MarkSeen(uint uid, MailFlags flags, IReadOnlyList<ImapFetchItem> items)
+    {
+        var isSeenSet = !selected!.IsReadOnly && items.Any(item => item.SetsSeen) && !flags.HasFlag(MailFlags.Seen);
+        if (isSeenSet)
+        {
+            mailStore.ChangeFlags(view!, selected.Name, uid, MailFlagChange.Add, MailFlags.Seen, out _);
+        }
+
+        return isSeenSet;
+    }
+
+    // The message read from its bytes (empty when it is not needed); null, with the store's
+    // exception in a note, when they cannot be read.
+    private ImapBodyPart? TryReadMessage(uint uid, bool isNeeded)
+    {
+        try
+        {
+            return isNeeded ? ReadMessage(uid) : ImapBodyPart.ReadMessage(ReadOnlyMemory<byte>.Empty);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            context.Log.Note($"Mail store: {exception.Message}");
+            return null;
+        }
+    }
+
+    // A message another session expunged meanwhile reads as no bytes.
+    private ImapBodyPart ReadMessage(uint uid)
+    {
+        mailStore.FetchMessage(view!, selected!.Name, uid, out var bytes);
+        return ImapBodyPart.ReadMessage(bytes);
+    }
+
+    // "* SEARCH" and the numbers (or UIDs) that match in ascending order, then the tagged
+    // completion; a message another session expunged matches nothing (ADR-0055, decision 7).
+    private async ValueTask<bool> AnswerSearchAsync(ImapArguments arguments, bool isUid)
+    {
+        var parse = new ImapSearchParser(arguments, (uint)selected!.Uids.Count, selected.HighestUid).Read(out var criteria);
+        if (parse != ImapSearchParse.Read)
+        {
+            return await ReplyAsync($"{tag} {(parse == ImapSearchParse.Invalid ? ImapResponses.InvalidArguments : ImapResponses.BadCharset)}");
+        }
+
+        var summaries = ReadSummaries();
+        var candidates = selected.Uids
+            .Select((uid, index) => (Uid: uid, Number: index + 1))
+            .Where(message => summaries.ContainsKey(message.Uid))
+            .Select(message => new ImapSearchCandidate(message.Number, summaries[message.Uid], () => ReadMessage(message.Uid)));
+        if (TrySearch(candidates, criteria!, isUid) is not { } found)
+        {
+            return await ReplyAsync($"{tag} {ImapResponses.ReadFailed}");
+        }
+
+        await WriteLineAsync("* SEARCH" + found, CancellationToken);
+        return await ReplyAsync($"{tag} {ImapResponses.Completed("SEARCH")}");
+    }
+
+    private string? TrySearch(IEnumerable<ImapSearchCandidate> candidates, Func<ImapSearchCandidate, bool> criteria, bool isUid)
+    {
+        try
+        {
+            return string.Concat(candidates.Where(criteria).Select(candidate => " " + (isUid ? candidate.Summary.Uid : (uint)candidate.Number).ToString(CultureInfo.InvariantCulture)));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            context.Log.Note($"Mail store: {exception.Message}");
+            return null;
+        }
     }
 
     // A store that cannot be written keeps the change in memory; the next save writes it (ADR-0050, decision 7).
