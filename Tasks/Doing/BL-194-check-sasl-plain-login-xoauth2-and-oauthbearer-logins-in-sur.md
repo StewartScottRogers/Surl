@@ -48,3 +48,4 @@ checking them against the accounts, refusing them over a connection without TLS 
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
