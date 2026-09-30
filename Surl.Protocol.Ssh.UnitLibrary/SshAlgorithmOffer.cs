@@ -107,4 +107,23 @@ public sealed record SshAlgorithmOffer(
             AllowsWeakAlgorithms = allowWeakAlgorithms,
         };
     }
+
+    /// <summary>
+    /// This offer with its cipher and MAC lists narrowed to the names given, in the order given,
+    /// as sshd's <c>Ciphers</c> and <c>MACs</c> narrow its own (<c>--ssh-ciphers</c> and
+    /// <c>--ssh-macs</c>, ADR-0066). A name this offer does not list is left out, and a name
+    /// given twice counts once; a list not given stays as it is.
+    /// </summary>
+    /// <param name="ciphers">The ciphers to offer, or <see langword="null"/> to keep <see cref="Cipher"/>.</param>
+    /// <param name="macs">The MACs to offer, or <see langword="null"/> to keep <see cref="Mac"/>.</param>
+    /// <returns>The narrowed offer.</returns>
+    public SshAlgorithmOffer Narrowed(IReadOnlyList<string>? ciphers, IReadOnlyList<string>? macs) =>
+        this with
+        {
+            Cipher = Narrow(Cipher, ciphers),
+            Mac = Narrow(Mac, macs),
+        };
+
+    private static IReadOnlyList<string> Narrow(IReadOnlyList<string> offered, IReadOnlyList<string>? given) =>
+        given is null ? offered : [.. given.Distinct(StringComparer.Ordinal).Where(offered.Contains)];
 }

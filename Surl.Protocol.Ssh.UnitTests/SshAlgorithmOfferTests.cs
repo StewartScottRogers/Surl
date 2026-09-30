@@ -100,4 +100,30 @@ public sealed class SshAlgorithmOfferTests
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => SshAlgorithmOffer.Default(null!, aesGcmIsSupported: true));
     }
+
+    [TestMethod]
+    public void Narrowed_GivenNames_AreOfferedAloneInTheGivenOrderOnceEachWithUnofferedNamesLeftOut()
+    {
+        var offer = SshAlgorithmOffer.Default(["rsa-sha2-256"], aesGcmIsSupported: true, allowWeakAlgorithms: true);
+
+        var narrowed = offer.Narrowed(
+            ["cast128-cbc", "blowfish-cbc", "cast128-cbc", "no-such-cipher"],
+            ["hmac-ripemd160", "hmac-sha2-256"]);
+
+        CollectionAssert.AreEqual(new[] { "cast128-cbc", "blowfish-cbc" }, narrowed.Cipher.ToArray());
+        CollectionAssert.AreEqual(new[] { "hmac-ripemd160", "hmac-sha2-256" }, narrowed.Mac.ToArray());
+        Assert.AreSame(offer.KeyExchange, narrowed.KeyExchange);
+        Assert.IsTrue(narrowed.AllowsWeakAlgorithms);
+    }
+
+    [TestMethod]
+    public void Narrowed_NoListGiven_KeepsTheOffersLists()
+    {
+        var offer = SshAlgorithmOffer.Default(["rsa-sha2-256"], aesGcmIsSupported: true);
+
+        var narrowed = offer.Narrowed(null, null);
+
+        Assert.AreSame(offer.Cipher, narrowed.Cipher);
+        Assert.AreSame(offer.Mac, narrowed.Mac);
+    }
 }

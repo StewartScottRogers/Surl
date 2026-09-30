@@ -37,9 +37,10 @@ subsystem) are the glossary's, section "SSH, SCP and SFTP".
   `ScpUploadHandler` (`-t`), and the `sftp` subsystem to `SftpSession`, all serving the
   content store through `SshContentChannelHandlers` and `SshContentPath`.
 - **The weak algorithms** of ADR-0051 decision 2 and ADR-0061, offered only when
-  `SshAlgorithmOffer.Default` is given `allowWeakAlgorithms`. `Surl.Console` never gives it
-  today: a start with `--allow-weak-ssh-algorithms` is refused with exit 2. Host certificates
-  (`--hostcert`) are not built here.
+  `SshAlgorithmOffer.Default` is given `allowWeakAlgorithms`, as `Surl.Console` does under
+  `--allow-weak-ssh-algorithms`. `SshAlgorithmOffer.Narrowed` narrows an offer's ciphers and MACs
+  to the names given, in the order given (`--ssh-ciphers`, `--ssh-macs`, ADR-0066). Host
+  certificates (`--hostcert`) are not built here.
 
 ## References
 
