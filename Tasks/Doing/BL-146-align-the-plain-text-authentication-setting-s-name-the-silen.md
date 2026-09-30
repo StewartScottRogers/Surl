@@ -79,3 +79,4 @@ This is a docs task: a rename and doc comments, no behaviour change. BL-145 chan
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
