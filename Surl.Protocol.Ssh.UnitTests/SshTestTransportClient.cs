@@ -21,6 +21,7 @@ internal sealed class SshTestTransportClient
     private readonly string? cipherServerToClient;
     private readonly string? macServerToClient;
     private readonly CancellationToken cancellationToken;
+    private readonly bool extensionInfo;
     private SshTestPacketProtection? outbound;
     private SshTestPacketProtection? inbound;
     private byte[] sessionIdentifier = [];
@@ -30,8 +31,10 @@ internal sealed class SshTestTransportClient
         string mac,
         CancellationToken cancellationToken,
         string? cipherServerToClient = null,
-        string? macServerToClient = null)
+        string? macServerToClient = null,
+        bool extensionInfo = false)
     {
+        this.extensionInfo = extensionInfo;
         this.cipher = cipher;
         this.mac = mac;
         this.cipherServerToClient = cipherServerToClient;
@@ -49,6 +52,9 @@ internal sealed class SshTestTransportClient
     /// <summary>The sequence number of the server's next packet.</summary>
     public uint ReceiveSequenceNumber { get; private set; }
 
+    /// <summary>The first key exchange's hash, which a public-key login signs.</summary>
+    public byte[] SessionIdentifier => sessionIdentifier;
+
     /// <summary>
     /// Starts <paramref name="server"/> on the connection and runs the first key exchange.
     /// </summary>
@@ -56,7 +62,7 @@ internal sealed class SshTestTransportClient
     public async Task<Task> OpenAsync(SshProtocolServer server, TimeProvider timeProvider, ExchangeLimits? limits = null)
     {
         var serving = server.ServeAsync(Connection, Context(timeProvider, cancellationToken, limits, Log));
-        using var client = NewKeyExchangeClient(strict: true);
+        using var client = NewKeyExchangeClient(strict: true, extensionInfo);
         Connection.Send(client.InboundBytes());
         CollectionAssert.AreEqual(Ascii(ServerLine), await ReadServerAsync(ServerLine.Length));
         var packets = new List<byte[]>();
@@ -114,14 +120,15 @@ internal sealed class SshTestTransportClient
 
     private static byte[] HostKeyBlob => SshHostKey.FromRsa(SshTestKeys.Rsa2048).PublicKeyBlob.ToArray();
 
-    private SshTestKeyExchangeClient NewKeyExchangeClient(bool strict) => new(
+    private SshTestKeyExchangeClient NewKeyExchangeClient(bool strict, bool listsExtensionInfo = false) => new(
         KeyExchange,
         "rsa-sha2-512",
         strict: strict,
         cipher: cipher,
         mac: mac,
         cipherServerToClient: cipherServerToClient,
-        macServerToClient: macServerToClient);
+        macServerToClient: macServerToClient,
+        extensionInfo: listsExtensionInfo);
 
     private void UseKeys(SshTestKeyExchangeClient client, BigInteger sharedSecret, byte[] exchangeHash)
     {

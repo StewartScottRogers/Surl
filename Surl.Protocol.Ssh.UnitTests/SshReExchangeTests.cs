@@ -1,3 +1,4 @@
+using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Ssh.SshTestExchange;
 
 namespace Surl.Protocol.Ssh;
@@ -129,5 +130,5 @@ public sealed class SshReExchangeTests
         Assert.AreEqual(new SshReExchangeLimits(1073741824, TimeSpan.FromHours(1)), SshReExchangeLimits.Default);
     }
 
-    private static SshProtocolServer ServerWith(SshReExchangeLimits limits) => new(RsaHostKeys, RsaOffer, new FixedRandomSource(), limits);
+    private static SshProtocolServer ServerWith(SshReExchangeLimits limits) => new(RsaHostKeys, RsaOffer, new AnonymousAuthenticationPolicy(), new FixedRandomSource(), limits);
 }

@@ -20,6 +20,12 @@ internal static class SshMessageNumber
     /// <summary><c>SSH_MSG_SERVICE_REQUEST</c>.</summary>
     public const byte ServiceRequest = 5;
 
+    /// <summary><c>SSH_MSG_SERVICE_ACCEPT</c>.</summary>
+    public const byte ServiceAccept = 6;
+
+    /// <summary><c>SSH_MSG_EXT_INFO</c> (RFC 8308, section 2.3).</summary>
+    public const byte ExtensionInfo = 7;
+
     /// <summary><c>SSH_MSG_KEXINIT</c>.</summary>
     public const byte KeyExchangeInit = 20;
 
@@ -55,4 +61,31 @@ internal static class SshMessageNumber
 
     /// <summary>The last message number a key exchange method's own messages use (RFC 4250, section 4.1.2).</summary>
     public const byte LastKeyExchangeMethodMessage = 49;
+
+    /// <summary><c>SSH_MSG_USERAUTH_REQUEST</c> (RFC 4252, section 5).</summary>
+    public const byte UserAuthRequest = 50;
+
+    /// <summary><c>SSH_MSG_USERAUTH_FAILURE</c>: the methods that can continue, and partial success.</summary>
+    public const byte UserAuthFailure = 51;
+
+    /// <summary><c>SSH_MSG_USERAUTH_SUCCESS</c>.</summary>
+    public const byte UserAuthSuccess = 52;
+
+    /// <summary><c>SSH_MSG_USERAUTH_PK_OK</c> (RFC 4252, section 7): the key queried is acceptable.</summary>
+    public const byte UserAuthPublicKeyOk = 60;
+
+    /// <summary>
+    /// <c>SSH_MSG_USERAUTH_INFO_REQUEST</c> (RFC 4256, section 3.2), which shares its number
+    /// with <c>PK_OK</c>: the method in progress tells them apart.
+    /// </summary>
+    public const byte UserAuthInfoRequest = 60;
+
+    /// <summary><c>SSH_MSG_USERAUTH_INFO_RESPONSE</c> (RFC 4256, section 3.4): the client's answers.</summary>
+    public const byte UserAuthInfoResponse = 61;
+
+    /// <summary>The first message number of the connection protocol (RFC 4250, section 4.1.2).</summary>
+    public const byte FirstConnectionMessage = 80;
+
+    /// <summary>The last message number of the connection protocol (RFC 4250, section 4.1.2).</summary>
+    public const byte LastConnectionMessage = 127;
 }

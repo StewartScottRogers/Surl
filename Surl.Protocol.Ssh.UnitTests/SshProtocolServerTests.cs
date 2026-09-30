@@ -392,11 +392,12 @@ public sealed class SshProtocolServerTests
     [TestMethod]
     public async Task NullArguments_AreRefused()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(null!, RsaOffer, new FixedRandomSource()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(RsaHostKeys, null!, new FixedRandomSource()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(RsaHostKeys, RsaOffer, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(null!, RsaOffer, new AnonymousAuthenticationPolicy(), new FixedRandomSource()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(RsaHostKeys, null!, new AnonymousAuthenticationPolicy(), new FixedRandomSource()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(RsaHostKeys, RsaOffer, new AnonymousAuthenticationPolicy(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SshProtocolServer(RsaHostKeys, RsaOffer, null!, new FixedRandomSource()));
         var unsigned = Assert.ThrowsExactly<ArgumentException>(
-            () => new SshProtocolServer(RsaHostKeys, SshAlgorithmOffer.Default(["ecdsa-sha2-nistp256", "rsa-sha2-256"], aesGcmIsSupported: false), new FixedRandomSource()));
+            () => new SshProtocolServer(RsaHostKeys, SshAlgorithmOffer.Default(["ecdsa-sha2-nistp256", "rsa-sha2-256"], aesGcmIsSupported: false), new AnonymousAuthenticationPolicy(), new FixedRandomSource()));
         StringAssert.StartsWith(unsigned.Message, "The offer names the host-key algorithm ecdsa-sha2-nistp256, but no host key given signs with it.");
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(
             () => Server().ServeAsync(null!, Context(TimeProvider.System, TestContext.CancellationToken)));

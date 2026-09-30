@@ -102,20 +102,16 @@ public sealed class SshPacketProtectionTests
     }
 
     [TestMethod]
-    public async Task ServiceRequest_IsAnsweredDisconnect11UnderTheKeys()
+    public async Task ServiceRequest_IsAnsweredServiceAcceptUnderTheKeys()
     {
         var client = new SshTestTransportClient("aes256-ctr", "hmac-sha2-256-etm@openssh.com", TestContext.CancellationToken);
         var serving = await client.OpenAsync(Server(), TimeProvider.System);
 
         client.Send(Concat([5], String("ssh-userauth")));
 
-        CollectionAssert.AreEqual(
-            Concat([1], UInt32(11), String("User authentication not implemented"), String(string.Empty)),
-            await client.ReceiveAsync());
+        CollectionAssert.AreEqual(Concat([6], String("ssh-userauth")), await client.ReceiveAsync());
+        client.Connection.CloseClientWrites();
         await serving;
-        Assert.AreEqual(
-            "The client asked for an SSH service, and user authentication is not built yet; the connection was ended.",
-            client.Log.Notes[2]);
     }
 
     [TestMethod]
