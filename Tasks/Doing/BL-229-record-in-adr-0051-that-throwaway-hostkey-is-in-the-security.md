@@ -36,3 +36,4 @@ the `security` and `testing` categories until BL-171, not `testing` alone.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
