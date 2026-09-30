@@ -22,8 +22,11 @@ namespace Surl.MailStore;
 /// </para>
 /// <para>
 /// It lives in memory. <see cref="ChangeCount"/> rises by one with every change that alters
-/// the store, and not with a refused or no-op one, which is where persistence (BL-191) writes
-/// the index.
+/// the store, and not with a refused or no-op one. A store made by <see cref="LoadAsync"/>
+/// starts with what its <see cref="MailStoreFiles"/> hold and writes every change back to them
+/// when <see cref="SaveChangesAsync"/> is called, so its mail survives a restart (ADR-0050,
+/// decision 7). A store made by the constructor has no files, and its changes are never
+/// written anywhere.
 /// </para>
 /// </remarks>
 public sealed class MailboxStore
@@ -53,16 +56,23 @@ public sealed class MailboxStore
         MailFlags.Seen | MailFlags.Answered | MailFlags.Flagged | MailFlags.Deleted | MailFlags.Draft;
 
     private readonly Lock storeLock = new();
+    private readonly SemaphoreSlim saveLock = new(1, 1);
     private readonly TimeProvider timeProvider;
-    private readonly OwnerMailboxes? anonymousOwner;
+    private readonly Dictionary<string, OwnerMailboxes> owners = new(StringComparer.Ordinal);
     private readonly Dictionary<string, OwnerMailboxes> accounts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, OwnerMailboxes?> accountsIgnoringCase = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<OwnerMailboxes> lockedMaildrops = [];
+    private readonly HashSet<MessageBody> unwrittenBodies = [];
+    private readonly List<ulong> releasedFileNumbers = [];
+    private OwnerMailboxes? anonymousOwner;
+    private MailStoreFiles? files;
+    private ulong nextFileNumber;
     private uint lastUidValidity;
     private int messageCount;
     private long totalMessageBytes;
     private int mailboxCount;
     private long changeCount;
+    private long savedChangeCount;
 
     /// <summary>
     /// Creates an empty store whose owners are <paramref name="accountNames"/>, or the anonymous
@@ -90,8 +100,17 @@ public sealed class MailboxStore
         int maxMessages = DefaultMaxMessages,
         long maxTotalMessageBytes = DefaultMaxTotalMessageBytes,
         int maxMailboxes = DefaultMaxMailboxes)
+        : this(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes)
     {
         ArgumentNullException.ThrowIfNull(accountNames);
+        anonymousOwner = ReachOwners(accountNames, allowAnonymous);
+
+        // A new store starts with no change: its INBOXes are where it begins, not a change to it.
+        changeCount = 0;
+    }
+
+    private MailboxStore(TimeProvider timeProvider, long maxMessageBytes, int maxMessages, long maxTotalMessageBytes, int maxMailboxes)
+    {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMessageBytes);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxMessages, 1);
@@ -103,17 +122,54 @@ public sealed class MailboxStore
         MaxMessages = maxMessages;
         MaxTotalMessageBytes = maxTotalMessageBytes;
         MaxMailboxes = maxMailboxes;
+    }
 
-        if (allowAnonymous)
+    /// <summary>
+    /// Creates a store that holds what <paramref name="files"/> hold and writes every later
+    /// change back to them through <see cref="SaveChangesAsync"/> (ADR-0050, decision 7). A
+    /// missing index is an empty store; leftover temporary files, and message files the index
+    /// does not name, are ignored. Owners the index holds that are no longer accounts are kept,
+    /// unreached. Every owner reached that lacks an <c>INBOX</c> gets one, which counts as a
+    /// change, so the first <see cref="SaveChangesAsync"/> writes the index.
+    /// </summary>
+    /// <param name="files">The files the store is read from now and written to after each change.</param>
+    /// <param name="accountNames">The configured accounts' names, as the constructor takes them.</param>
+    /// <param name="allowAnonymous">Whether <c>--allow-anonymous</c> is set.</param>
+    /// <param name="timeProvider">The clock for internal dates and <c>UIDVALIDITY</c>.</param>
+    /// <param name="maxMessageBytes">The value of <see cref="MaxMessageBytes"/>; 0 means no limit.</param>
+    /// <param name="maxMessages">The value of <see cref="MaxMessages"/>; at least 1.</param>
+    /// <param name="maxTotalMessageBytes">The value of <see cref="MaxTotalMessageBytes"/>; at least 1.</param>
+    /// <param name="maxMailboxes">The value of <see cref="MaxMailboxes"/>; at least 0.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The loaded store.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A bound is out of range.</exception>
+    /// <exception cref="MailStoreLoadException">The index cannot be read or does not parse, or
+    /// holds more than the bounds allow, or a message file it names is missing, unreadable or
+    /// not the size it gives; nothing is loaded or written.</exception>
+    public static async Task<MailboxStore> LoadAsync(
+        MailStoreFiles files,
+        IEnumerable<string> accountNames,
+        bool allowAnonymous,
+        TimeProvider timeProvider,
+        long maxMessageBytes = 0,
+        int maxMessages = DefaultMaxMessages,
+        long maxTotalMessageBytes = DefaultMaxTotalMessageBytes,
+        int maxMailboxes = DefaultMaxMailboxes,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        ArgumentNullException.ThrowIfNull(accountNames);
+        var store = new MailboxStore(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes);
+        var index = await files.ReadIndexAsync(cancellationToken);
+        if (index is not null)
         {
-            anonymousOwner = CreateOwner(string.Empty);
-            return;
+            await store.RestoreAsync(files, index, cancellationToken);
         }
 
-        foreach (var name in accountNames.Where(name => !string.IsNullOrEmpty(name)).Distinct(StringComparer.Ordinal))
-        {
-            AddAccount(CreateOwner(name));
-        }
+        store.anonymousOwner = store.ReachOwners(accountNames, allowAnonymous);
+        store.files = files;
+        return store;
     }
 
     /// <summary>
@@ -149,6 +205,39 @@ public sealed class MailboxStore
             {
                 return changeCount;
             }
+        }
+    }
+
+    /// <summary>
+    /// Writes the store to its files when it has changed since the last write; does nothing for
+    /// a store made without files, or when nothing has changed (ADR-0050, decision 7). Each new
+    /// message's file is written first, then the whole index, then the files of messages no
+    /// longer held are deleted. Writes are serialised, and each writes the store as it is when
+    /// the write starts, so the index always holds a state the store held.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the write; the next save writes the change instead.</param>
+    /// <returns>A task that completes when the files hold the store's latest state.</returns>
+    /// <exception cref="IOException">A message file or the index cannot be written: the change
+    /// stays in memory, and the next save writes every message file and the index it still
+    /// needs. Or a message file no longer held cannot be deleted: the index is written, and the
+    /// file is left behind, ignored at the next load. The caller notes the message with
+    /// <c>IExchangeLog.Note</c>; nothing ends. Other exceptions the file system throws, such as
+    /// <see cref="UnauthorizedAccessException"/>, mean the same.</exception>
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        if (files is null)
+        {
+            return;
+        }
+
+        await saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            await WriteChangesAsync(files, cancellationToken);
+        }
+        finally
+        {
+            saveLock.Release();
         }
     }
 
@@ -636,10 +725,137 @@ public sealed class MailboxStore
         return message is null ? MailStoreOutcome.MessageMissing : MailStoreOutcome.Succeeded;
     }
 
-    private OwnerMailboxes CreateOwner(string name)
+    private static void DeleteMessageFiles(MailStoreFiles files, IReadOnlyList<ulong> fileNumbers)
     {
-        var owner = new OwnerMailboxes(name);
-        owner.Mailboxes.Add(MailboxName.Inbox, new StoredMailbox(MailboxName.Inbox, IssueUidValidity(), 1));
+        Exception? firstFailure = null;
+        foreach (var fileNumber in fileNumbers)
+        {
+            try
+            {
+                files.DeleteMessage(fileNumber);
+            }
+            catch (Exception failure)
+            {
+                // Left behind: the index no longer names it, so the next load ignores it.
+                firstFailure ??= failure;
+            }
+        }
+
+        if (firstFailure is not null)
+        {
+            throw new IOException(firstFailure.Message, firstFailure);
+        }
+    }
+
+    private async Task RestoreAsync(MailStoreFiles files, byte[] index, CancellationToken cancellationToken)
+    {
+        MailStoreIndexContents contents;
+        try
+        {
+            contents = MailStoreIndex.Decode(index, MaxMessages, MaxTotalMessageBytes, MaxMailboxes);
+        }
+        catch (InvalidDataException malformed)
+        {
+            throw new MailStoreLoadException(files.IndexPath, malformed.Message, malformed);
+        }
+
+        foreach (var (fileNumber, (body, size)) in contents.Bodies)
+        {
+            body.Bytes = await files.ReadMessageAsync(fileNumber, size, cancellationToken);
+        }
+
+        nextFileNumber = contents.NextFileNumber;
+        lastUidValidity = contents.LastUidValidity;
+        messageCount = contents.MessageCount;
+        totalMessageBytes = contents.TotalMessageBytes;
+        mailboxCount = contents.MailboxCount;
+        contents.Owners.ForEach(owner => owners.Add(owner.Name, owner));
+    }
+
+    private async Task WriteChangesAsync(MailStoreFiles files, CancellationToken cancellationToken)
+    {
+        MessageBody[] bodies;
+        byte[] index;
+        ulong[] released;
+        long snapshotChangeCount;
+        lock (storeLock)
+        {
+            if (changeCount == savedChangeCount)
+            {
+                return;
+            }
+
+            bodies = [.. unwrittenBodies];
+            index = MailStoreIndex.Encode(nextFileNumber, lastUidValidity, owners.Values);
+            released = [.. releasedFileNumbers];
+            snapshotChangeCount = changeCount;
+        }
+
+        foreach (var body in bodies)
+        {
+            await files.WriteMessageAsync(body.FileNumber, body.Bytes, cancellationToken);
+            MarkWritten(body);
+        }
+
+        await files.WriteIndexAsync(index, cancellationToken);
+        lock (storeLock)
+        {
+            savedChangeCount = snapshotChangeCount;
+            releasedFileNumbers.RemoveAll(released.Contains);
+        }
+
+        DeleteMessageFiles(files, released);
+    }
+
+    private void MarkWritten(MessageBody body)
+    {
+        lock (storeLock)
+        {
+            body.IsWritten = true;
+            unwrittenBodies.Remove(body);
+
+            // Released while it was being written: its file goes once an index no longer names it.
+            if (body.ReferenceCount == 0)
+            {
+                releasedFileNumbers.Add(body.FileNumber);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Makes the owners reached - the anonymous owner alone with <c>--allow-anonymous</c>,
+    /// otherwise every account with a non-empty name - and gives each an <c>INBOX</c> it lacks.
+    /// </summary>
+    /// <returns>The anonymous owner with <c>--allow-anonymous</c>; otherwise <see langword="null"/>.</returns>
+    private OwnerMailboxes? ReachOwners(IEnumerable<string> accountNames, bool allowAnonymous)
+    {
+        if (allowAnonymous)
+        {
+            return ReachOwner(string.Empty);
+        }
+
+        foreach (var name in accountNames.Where(name => !string.IsNullOrEmpty(name)).Distinct(StringComparer.Ordinal))
+        {
+            AddAccount(ReachOwner(name));
+        }
+
+        return null;
+    }
+
+    private OwnerMailboxes ReachOwner(string name)
+    {
+        if (!owners.TryGetValue(name, out var owner))
+        {
+            owner = new OwnerMailboxes(name);
+            owners.Add(name, owner);
+        }
+
+        if (!owner.Mailboxes.ContainsKey(MailboxName.Inbox))
+        {
+            owner.Mailboxes.Add(MailboxName.Inbox, new StoredMailbox(MailboxName.Inbox, IssueUidValidity(), 1));
+            changeCount++;
+        }
+
         return owner;
     }
 
@@ -724,7 +940,30 @@ public sealed class MailboxStore
     private MessageBody AddBody(ReadOnlySpan<byte> message)
     {
         totalMessageBytes += message.Length;
-        return new MessageBody(message.ToArray());
+        var body = new MessageBody(nextFileNumber++, message.ToArray());
+        if (files is not null)
+        {
+            unwrittenBodies.Add(body);
+        }
+
+        return body;
+    }
+
+    /// <summary>
+    /// Lets go of bytes no message refers to any more: a written file is deleted after the next
+    /// index, and bytes never written are never written.
+    /// </summary>
+    private void ReleaseBody(MessageBody body)
+    {
+        totalMessageBytes -= body.Bytes.Length;
+        if (body.IsWritten)
+        {
+            releasedFileNumbers.Add(body.FileNumber);
+        }
+        else
+        {
+            unwrittenBodies.Remove(body);
+        }
     }
 
     private uint AddMessage(StoredMailbox mailbox, MessageBody body, DateTimeOffset internalDate, MailFlags flags)
@@ -748,7 +987,10 @@ public sealed class MailboxStore
             var body = mailbox.Messages[uid].Body;
             mailbox.Messages.Remove(uid);
             messageCount--;
-            totalMessageBytes -= --body.ReferenceCount == 0 ? body.Bytes.Length : 0;
+            if (--body.ReferenceCount == 0)
+            {
+                ReleaseBody(body);
+            }
         }
 
         return uids.Count;

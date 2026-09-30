@@ -36,5 +36,8 @@ internal static class MailboxName
         return Utf8.FromUtf16(name, utf8, out _, out _, replaceInvalidSequences: false) == OperationStatus.Done;
     }
 
-    private static bool IsControl(char character) => character is < ' ' or '\u007F';
+    /// <summary>
+    /// Whether <paramref name="character"/> is a control character: U+0000 to U+001F, or U+007F.
+    /// </summary>
+    public static bool IsControl(char character) => character is < ' ' or '\u007F';
 }

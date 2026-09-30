@@ -15,9 +15,21 @@ The type is `MailboxStore`, not `MailStore` as ADR-0050 decision 6 writes it: a 
 `MailStore` inside the namespace `Surl.MailStore` would be shadowed by the namespace in every
 other `Surl.*` namespace.
 
-Intent, not yet built: persistence under the data directory's `.surl/mail` folder with
-`--directory`, loaded once at start (BL-191). `ChangeCount` rises with every change that
-alters the store, which is where that work writes the index.
+Persistence (BL-191, ADR-0050 decision 7): `MailboxStore.LoadAsync` reads the store from a
+`MailStoreFiles` - `<state folder>/index` and one file per distinct message under
+`messages/`, named by its file number in 16 lower-case hex digits - and refuses a malformed
+store with `MailStoreLoadException` (the file at fault and the reason; the composition root
+answers it with `CouldNotReadFile`, 37). `MailStoreIndex` is the index's byte format.
+`SaveChangesAsync` writes each new message file, then the whole index, then deletes the files
+of messages no longer held; a write that throws leaves the change in memory and the next save
+writes what is still needed. A store made by the constructor has no files. The servers call
+`SaveChangesAsync` after every change and note what it throws; `Surl.Console` loads the store
+(BL-207).
+
+Intent, not yet built: streaming a message body into its pending file as a server reads it,
+refusing that delivery with a typed outcome when the file cannot be written, and reading a
+message's bytes from its file on fetch rather than holding them in memory (ADR-0050
+decision 7; BL-226). Until then every message's bytes are held in memory, loaded at start.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,
