@@ -8,7 +8,7 @@ depends-on: [BL-217]
 touches: [Surl.Kerberos.UnitLibrary, Surl.Kerberos.UnitTests, Surl.slnx, Surl.Protocol.Abstractions.UnitTests, Documentation/Planning/Decisions/ADR-0002-mirror-the-curl-ports-project-map.md, Documentation/Product/Product-Overview.md]
 requirement: FR-046
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-243 — Create Surl.Kerberos with the RFC 3961, 3962 and 8009 enctype profiles
 
@@ -54,28 +54,28 @@ in `Surl.slnx` and encrypts, decrypts and checksums with the four AES Kerberos e
 
 ## Acceptance criteria
 
-- [ ] `Surl.Kerberos.UnitLibrary` and `Surl.Kerberos.UnitTests` exist at the repository root and in
+- [x] `Surl.Kerberos.UnitLibrary` and `Surl.Kerberos.UnitTests` exist at the repository root and in
       `Surl.slnx` in sorted position; the library's project file has no `ProjectReference` and no
       `PackageReference`.
-- [ ] `KerberosEncryptionType` is public in namespace `Surl.Kerberos` with exactly the four members
+- [x] `KerberosEncryptionType` is public in namespace `Surl.Kerberos` with exactly the four members
       and values of ADR-0057 decision 6; every other type added is internal.
-- [ ] Tests in `Surl.Kerberos.UnitTests` (e.g. `NFoldTests`, `AesCtsHmacSha1EncryptionTests`,
+- [x] Tests in `Surl.Kerberos.UnitTests` (e.g. `NFoldTests`, `AesCtsHmacSha1EncryptionTests`,
       `AesCtsHmacSha2EncryptionTests`, `KerberosChecksumTests`) reproduce every RFC 3961 appendix
       A.1 `n-fold` vector, every RFC 3962 appendix B AES-CTS encryption and its derived keys used as
       fixed keys, and every RFC 8009 appendix A key derivation, encryption (with its confounder) and
       checksum for enctypes 19 and 20; decryption round-trips each vector and a tampered cipher text
       fails its integrity check (compared with `CryptographicOperations.FixedTimeEquals`) without
       throwing.
-- [ ] `ADR-0002-mirror-the-curl-ports-project-map.md` decision 3's table has a
+- [x] `ADR-0002-mirror-the-curl-ports-project-map.md` decision 3's table has a
       `Surl.Kerberos.UnitLibrary` row referencing nothing, citing ADR-0057.
-- [ ] `ProtocolIsolationTests` in `Surl.Protocol.Abstractions.UnitTests` names
+- [x] `ProtocolIsolationTests` in `Surl.Protocol.Abstractions.UnitTests` names
       `Surl.Kerberos.UnitLibrary` and passes.
-- [ ] `Documentation/Product/Product-Overview.md` "Layers" states that `Surl.Authentication` will
+- [x] `Documentation/Product/Product-Overview.md` "Layers" states that `Surl.Authentication` will
       reference `Surl.Kerberos` (ADR-0057 decision 6) and lists the new project pair.
-- [ ] `dotnet build Surl.Kerberos.UnitLibrary -warnaserror` is clean;
+- [x] `dotnet build Surl.Kerberos.UnitLibrary -warnaserror` is clean;
       `dotnet test --filter "TestCategory!=Integration"` passes; no test needs
       `TestCategory=Integration`; every test is platform-neutral (no OS-specific path or text).
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports 100% line and 100% branch
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports 100% line and 100% branch
       coverage, no method over complexity 10 and no CRAP score over 30 for
       `Surl.Kerberos.UnitLibrary`.
 
@@ -87,9 +87,30 @@ in `Surl.slnx` and encrypts, decrypts and checksums with the four AES Kerberos e
   `Surl.Authentication.UnitLibrary.csproj` does.
 - ADR-0057 decision 6 lets the implementer rename internal members where the code shows a truer
   name; the split and responsibilities stand.
+- Built (2026-09-30): `NFold` (RFC 3961 5.1), `SimplifiedProfileKeyDerivation` (`DK`/`DR`),
+  `AesCiphertextStealing` (CBC-CS3 over `Aes.EncryptCbc`/`DecryptCbc`/`EncryptEcb`/`DecryptEcb`),
+  `KdfHmacSha2`, and `KerberosEncryptionProfile` (abstract; `For(enctype)`, `DeriveKey`, `Encrypt`,
+  `TryDecrypt`, `ComputeChecksum`, `VerifyChecksum`) with `AesCtsHmacSha1Profile` and
+  `AesCtsHmacSha2Profile`; internal enums `KerberosChecksumType` (15, 16, 19, 20) and
+  `KerberosDerivedKeyPurpose` (0x99, 0xAA, 0x55). 85 tests, every RFC vector matched.
+- Choice: RFC 3962 appendix B has no whole-message encryption vectors, so enctypes 17/18 are
+  pinned by its CTS vectors and by its string-to-key cases' last step, `DK(PBKDF2 output,
+  "kerberos")` = the published AES key (the PBKDF2 output taken as a fixed key, as ADR-0057
+  decision 11 asks), then round-trip and tamper tests. RFC 8009's PRF vectors are not used: no PRF
+  is built (nothing in ADR-0057 needs one).
+- Choice: `AesCiphertextStealing` refuses input shorter than one block (`ArgumentException`)
+  rather than padding it: Kerberos always encrypts a 16-byte confounder first, so such input never
+  occurs, and RFC 3962 leaves the padding unspecified. `TryDecrypt` checks the length first, so a
+  short cipher text is a `false`, never an exception.
+- Choice: only the default cipher state (all-zero IV) is supported; RFC 4120 and RFC 4121 use no
+  other. `KerberosEncryptionProfileTests.KerberosEncryptionType_IsTheLibrarysOnlyPublicType` pins
+  today's public surface; BL-239 widens it when it adds the keytab and acceptor types.
+- Measured: `Measure-CodeQuality.ps1 -Library Surl.Kerberos.UnitLibrary`: 100% line, 100% branch,
+  28 members, 0 failing, worst CRAP 5. No upstream curl measurement: nothing here is on the wire.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-217 (ADR-0057 decision 12).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Surl.Kerberos encrypts, decrypts and checksums with enctypes 17-20, pinned by the RFC 3961, 3962 and 8009 vectors
