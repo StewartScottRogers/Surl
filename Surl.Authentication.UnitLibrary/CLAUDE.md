@@ -11,7 +11,7 @@ MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`
 `--keytab` acceptor and is offered first (ADR-0057 decisions 9 and 10), and `EXTERNAL`, which logs in as the
 verified TLS client certificate's subject simple name and is offered only on a connection that
 has one) and POP3 `APOP` (ADR-0049), SSH password and public-key logins (ADR-0051), and
-Kerberos inside Negotiate once `--keytab` is given (ADR-0057 decision 8, ADR-0063). Not here
+Kerberos inside Negotiate once `--keytab` is given (ADR-0057 decision 8, ADR-0064). Not here
 yet: `Proxy-Authenticate`, and the logins of servers not yet built (FTP, SMB, LDAP). Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.
@@ -145,7 +145,7 @@ builds the policy from the command line.
   every `InitialContextToken` that is not SPNEGO, and every `NegTokenInit` whose first supported
   mechanism is Kerberos (either OID), to `NegotiateKerberosLogin`: one leg, service `HTTP`
   (ADR-0057 decisions 2 and 8). Kerberos must be listed first with its AP-REQ as the optimistic
-  token; otherwise the token is refused, with no NTLM fallback (ADR-0063). NTLM listed first runs
+  token; otherwise the token is refused, with no NTLM fallback (ADR-0064). NTLM listed first runs
   as ADR-0040 decides. The same AP-REQ read on another connection is a replay.
 - An accepted ticket is the account named exactly as the client principal's display form
   (`user@EXAMPLE.COM`), served with `negTokenResp { accept-completed, supportedMech <the client's
@@ -156,7 +156,7 @@ builds the policy from the command line.
   before. Under `--allow-anonymous` the ticket must still decrypt; it and every other Negotiate
   token are `HttpCredentialOutcome.AcceptedUnchecked`, served with no login note
   (`HttpAuthenticationSession` reads a Negotiate `Authorization` under `--allow-anonymous` only
-  when a Kerberos acceptor is set, ADR-0063).
+  when a Kerberos acceptor is set, ADR-0064).
 - The tests (`NegotiateKerberosTests`) replay AP-REQs made by hand by `Surl.Kerberos.UnitTests`'
   `ApRequestBuilder` and `InitiatorTokens`, linked into the test project.
 
