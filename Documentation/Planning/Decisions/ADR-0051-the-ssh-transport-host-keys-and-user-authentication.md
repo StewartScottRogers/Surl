@@ -17,8 +17,9 @@
   which replaces decision 2.2's fifth choice (BL-237);
   [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md), which adds
   `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160` and `hmac-ripemd160@openssh.com` from curl's
-  OpenSSL builds to decision 2's weak table (BL-252); and Amendment 1 below, the choices BL-171
-  made composing the SSH server in `Surl.Console`.
+  OpenSSL builds to decision 2's weak table (BL-252); Amendment 1 below, the choices BL-171
+  made composing the SSH server in `Surl.Console`; and Amendment 2 below, the choices BL-222 made
+  serving host certificates.
 
 ## Context
 
@@ -853,3 +854,55 @@ The code is `Surl.Console/SshHostKeyComposition.cs` and `Surl.Console/CommandLin
    (`CommandLineOptions`), and so on its `--help` page and `--aihelp` topic. Why: ADR-0034
    decision 1 puts in a category every option the protocol server reads, and the SSH server reads
    both.
+
+## Amendment 2 - How surl serves `--hostcert` host certificates (BL-222, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-222 (FR-039), where decisions 2, 4 and 5 are silent. The code is
+`Surl.Protocol.Ssh.UnitLibrary/SshHostCertificate.cs`, `SshCertifiedHostKey.cs`, `SshHostKeySet.cs`
+and `SshAlgorithmOffer.cs`, and `Surl.Console/SshHostKeyComposition.cs`. Nothing here was measured
+from upstream curl: a host certificate is read by surl alone, and the names offered are the ones
+decision 2's measured lists already hold.
+
+1. **The certificate names and their order.** A key a `--hostcert` certificate certifies is also
+   offered under each of its host-key algorithms with `-cert-v01@openssh.com` added, each just
+   before the plain name: `ssh-ed25519-cert-v01@openssh.com`, `ecdsa-sha2-nistp256-cert-v01@openssh.com`
+   (and `-nistp384-`, `-nistp521-`), `rsa-sha2-512-cert-v01@openssh.com`,
+   `rsa-sha2-256-cert-v01@openssh.com`, and `ssh-rsa-cert-v01@openssh.com` only with
+   `--allow-weak-ssh-algorithms` (`SshAlgorithmOffer.Default`). `K_S` is then the certificate blob,
+   and the signature is the key's, its blob naming the key's own algorithm (`rsa-sha2-512`, not
+   `rsa-sha2-512-cert-v01@openssh.com`), as OpenSSH `PROTOCOL.certkeys` and `PROTOCOL` section 3.1
+   have it. Why: decision 2 says "before its plain name", and every pinned build lists each
+   certificate name next to its plain one; OpenSSH signs a certificate key exchange that way, so
+   libssh2 verifies it.
+2. **Certificate types read.** `ssh-rsa-cert-v01@openssh.com`, the three
+   `ecdsa-sha2-nistp*-cert-v01@openssh.com` and `ssh-ed25519-cert-v01@openssh.com`. A DSA
+   certificate (`ssh-dss-cert-v01@openssh.com`), a security-key certificate (`sk-*`), a user
+   certificate (type 1), a file that is not one line of type, base64 blob and optional comment, a
+   line whose type is not its blob's, and a blob cut short or running on past its signature are all
+   `(2) Host certificate <path>: not an OpenSSH host certificate`. Why: no pinned build's host-key
+   list names a DSA or security-key certificate, so none could be served to curl; decision 4 gives
+   one text for every certificate surl cannot serve, and the operator's fix is the same for each -
+   give the `ssh-keygen -h` certificate of an RSA, ECDSA or Ed25519 `--hostkey` key.
+3. **What the server does not judge.** Neither the validity period (decision 4) nor the CA's
+   signature, the principals, the critical options or the extensions. Why: the client judges all of
+   them against the CA it trusts; a server check would add a second, possibly different, opinion
+   and a failure mode curl cannot see.
+4. **"Certifies" is byte equality of the public key.** A certificate certifies a `--hostkey` key when
+   the key's public key blob (RFC 4253 section 6.6) equals the key type followed by the
+   certificate's public-key fields, byte for byte. Why: it is what OpenSSH's `sshkey_equal_public`
+   compares, and surl writes each blob canonically.
+5. **At most one certificate per certificate type.** A second is
+   `(2) Host certificate <path>: a <certificate type> host certificate is already given by <other path>`,
+   mirroring decision 4's "at most one key per key type". Why: two certificates of one type would
+   offer one algorithm name twice, and only one could be sent.
+6. **Read order.** The `--hostcert` files are read after every `--hostkey` file and after the
+   throwaway key is made, in command-line order, whenever given (even with no `scp` or `sftp` URL,
+   as `--hostkey` files are), all before any listener binds. A certificate can never certify the
+   throwaway key, so it is then `certifies no --hostkey key`. Why: a certificate names a key, so the
+   keys must be held first; the rest follows Amendment 1 decision 3.
+7. **The unavailable-option refusal is gone.** `--hostcert` was the last option
+   `CommandLineRunner.FindUnavailableOption` refused (decision 5; Amendment 1 decision 2's
+   `--allow-weak-ssh-algorithms` refusal had already been lifted), so the check and its
+   `(2) --<option> is not available in this build` text were removed with it, and the exit-code
+   guidance for 2 no longer names it.

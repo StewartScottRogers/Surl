@@ -161,9 +161,9 @@ such as `rm` and `rename`, need `--allow-uploads`. `--allow-weak-ssh-algorithms`
 offers the weak SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman algorithms (and RSA keys
 shorter than 2048 bits and DSA keys) for peers that support nothing stronger, and warns
 `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit
-Diffie-Hellman SSH algorithms are offered`. `--hostcert` is parsed, but this build does not
-serve it: a start that gives it exits 2 with `surl: (2) --hostcert is not available in this
-build`.
+Diffie-Hellman SSH algorithms are offered`. `--hostcert <file>` serves an OpenSSH host
+certificate (`ssh-keygen -s <ca> -h`) for a `--hostkey` key, offered under the key's
+`*-cert-v01@openssh.com` algorithms for clients that trust the CA.
 
 ## SMTP, IMAP and POP3
 

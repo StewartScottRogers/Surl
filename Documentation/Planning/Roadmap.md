@@ -33,7 +33,7 @@ task board in `Tasks/`, never here.
 ## Milestone 2 — Phase 2
 
 - **Status:** Built, and proven with the Windows reference build (2026-09-30). Not closed:
-  `surl` refuses `--hostcert` with exit 2 as not available in this build, and what the Linux and macOS reference builds negotiate over SSH is pinned as
+  what the Linux and macOS reference builds negotiate over SSH is pinned as
   predicted, not yet recorded as measured.
 - **Delivers:** the FTP server (`Surl.Protocol.Ftp`, schemes `ftp` and `ftps`) with passive
   and active data connections through the data-connection seam (`IDataConnectionOpener`,

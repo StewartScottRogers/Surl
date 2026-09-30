@@ -157,8 +157,11 @@ its help category and `--aihelp` topic, `ftp` and `ssh`. The terms below are def
   default algorithms only when a start gives `--allow-weak-ssh-algorithms`, which then writes
   `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit
   Diffie-Hellman SSH algorithms are offered` from the info level up (ADR-0051 decision 11).
-- **Not built:** host certificates. A start that gives `--hostcert` ends with
-  `surl: (2) --hostcert is not available in this build` (ADR-0051 decision 5).
+- **Host certificates:** `--hostcert <file>` serves an OpenSSH host certificate for a
+  `--hostkey` key, offered under the key's algorithms with `-cert-v01@openssh.com` added, each
+  just before the plain one (`ssh-rsa-cert-v01@openssh.com` only with
+  `--allow-weak-ssh-algorithms`), and sent as the host key when curl picks it (ADR-0051
+  decision 4 and Amendment 2).
 
 **What pinned upstream curl has proven.** The integration tests in `Surl.Conformance.UnitTests`
 run each Phase 2 case against a live `surl` on loopback. With the Windows reference build
