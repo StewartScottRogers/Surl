@@ -25,7 +25,7 @@ handshake before `ServeAsync`, so `FtpProtocolServer` claims `ftps` itself.
   `--list-directories`, in the forms `FtpListingFormat` writes, decision 7); uploads and file
   management (`STOR`, `APPE`, `MKD`/`XMKD`, `RMD`/`XRMD`, `DELE`, `RNFR`/`RNTO`, only with
   `--allow-uploads`, `550 Not permitted` otherwise; `SITE` always `504`, decision 8); and TLS
-  (`AUTH TLS`/`AUTH SSL` only when the server is constructed with `isAuthTlsAvailable`,
+  (`AUTH TLS`/`AUTH SSL` only when the server is constructed with `isTlsUpgradeAvailable`,
   `PBSZ`, `PROT C`/`P`, `CCC` always `534`, decision 5).
 - `FtpDataConnections`: one control connection's passive listener or active target
   (`EPSV`, `PASV`, `EPRT`, `PORT`, target parsed by `FtpActiveTargetParser`, decision 6), and

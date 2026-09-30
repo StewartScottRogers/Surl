@@ -100,7 +100,7 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
 
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;
-    private readonly bool isAuthTlsAvailable;
+    private readonly bool isTlsUpgradeAvailable;
 
     /// <summary>
     /// Creates an FTP server over <paramref name="contentStore"/> whose logins
@@ -108,19 +108,19 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     /// </summary>
     /// <param name="contentStore">The content store the server's paths name.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
-    /// <param name="isAuthTlsAvailable">
+    /// <param name="isTlsUpgradeAvailable">
     /// Whether the listener has a certificate (<c>--cert</c> or <c>--self-signed</c>), so
     /// <c>AUTH TLS</c> can upgrade the control connection and <c>FEAT</c> lists it; without one
     /// <c>AUTH</c> is <c>534 TLS is not available</c> (ADR-0032, section 10).
     /// </param>
-    public FtpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool isAuthTlsAvailable = false)
+    public FtpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool isTlsUpgradeAvailable = false)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
-        this.isAuthTlsAvailable = isAuthTlsAvailable;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
     }
 
     /// <summary>
@@ -146,7 +146,7 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
 
         await WriteAsync(connection, Greeting, context.CancellationToken);
 
-        var responder = new FtpCommandResponder(connection, context, reader, contentStore, authenticationPolicy, isAuthTlsAvailable);
+        var responder = new FtpCommandResponder(connection, context, reader, contentStore, authenticationPolicy, isTlsUpgradeAvailable);
         var failure = await CaptureFailureAsync(() => AnswerEveryLineAsync(connection, context, reader, responder));
         await responder.DisposeAsync();
 

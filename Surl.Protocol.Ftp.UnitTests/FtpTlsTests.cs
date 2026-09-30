@@ -32,7 +32,7 @@ public sealed class FtpTlsTests
         var log = new RecordingExchangeLog();
         var control = new InMemoryConnection(Ascii("AUTH TLS\r\nUSER evil\r\nPASS x\r\n", "NOOP\r\n"));
 
-        await Server(policy, isAuthTlsAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken, log: log));
+        await Server(policy, isTlsUpgradeAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken, log: log));
 
         Assert.IsTrue(control.UpgradeRequested);
         Assert.AreEqual(Greeting + AuthAccepted + "200 NOOP ok\r\n", Text(control.WrittenBytes));
@@ -49,7 +49,7 @@ public sealed class FtpTlsTests
         var log = new RecordingExchangeLog();
         var control = new InMemoryConnection(Ascii(command + "\r\n"));
 
-        await Server(isAuthTlsAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken, log: log));
+        await Server(isTlsUpgradeAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken, log: log));
 
         Assert.IsTrue(control.UpgradeRequested);
         Assert.AreEqual(Greeting + AuthAccepted, Text(control.WrittenBytes));
@@ -62,7 +62,7 @@ public sealed class FtpTlsTests
         var control = new InMemoryConnection(Ascii("AUTH TLS\r\n", "NOOP\r\n"), upgradeFails: true);
 
         await Assert.ThrowsExactlyAsync<TlsHandshakeException>(
-            () => Server(isAuthTlsAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken)));
+            () => Server(isTlsUpgradeAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken)));
 
         Assert.IsTrue(control.UpgradeRequested);
         Assert.AreEqual(Greeting + AuthAccepted, Text(control.WrittenBytes));
@@ -89,7 +89,7 @@ public sealed class FtpTlsTests
         var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted) { RefuseWithoutTls = true };
         var control = new InMemoryConnection(Ascii("USER tester\r\nPASS secret\r\nAUTH TLS\r\n", "USER tester\r\nPASS secret\r\n"));
 
-        await Server(policy, isAuthTlsAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken));
+        await Server(policy, isTlsUpgradeAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken));
 
         Assert.AreEqual(
             Greeting + "331 Password required\r\n530 Login needs TLS first: send AUTH TLS\r\n" + AuthAccepted + "331 Password required\r\n" + LoggedIn,
@@ -107,7 +107,7 @@ public sealed class FtpTlsTests
     {
         var control = new InMemoryConnection(Ascii(command + "\r\n"));
 
-        await Server(isAuthTlsAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken));
+        await Server(isTlsUpgradeAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken));
 
         Assert.IsFalse(control.UpgradeRequested);
         Assert.AreEqual(Greeting + reply, Text(control.WrittenBytes));
@@ -122,7 +122,7 @@ public sealed class FtpTlsTests
     {
         var control = TlsControl(command + "\r\n");
 
-        await Server(isAuthTlsAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken, scheme: "ftps"));
+        await Server(isTlsUpgradeAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken, scheme: "ftps"));
 
         Assert.IsFalse(control.UpgradeRequested);
         Assert.AreEqual(Greeting + reply, Text(control.WrittenBytes));
@@ -164,7 +164,7 @@ public sealed class FtpTlsTests
     {
         var control = new InMemoryConnection(Ascii("FEAT\r\n"));
 
-        await Server(isAuthTlsAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken));
+        await Server(isTlsUpgradeAvailable: true).ServeAsync(control, Context(new ManualTimeProvider(), TestContext.CancellationToken));
 
         Assert.AreEqual(
             Greeting + "211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n MLST type*;size*;modify*;\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n AUTH TLS\r\n PBSZ\r\n PROT\r\n211 End\r\n",

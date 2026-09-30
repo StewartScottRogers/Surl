@@ -47,7 +47,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
     private readonly FtpLineReader reader;
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;
-    private readonly bool isAuthTlsAvailable;
+    private readonly bool isTlsUpgradeAvailable;
     private readonly Dictionary<string, Func<byte[]?, ValueTask<bool>>> commands;
     private readonly string[] recognizedCommands;
     private readonly FtpDataConnections dataConnections;
@@ -67,21 +67,21 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
     /// <param name="reader">The control connection's line reader, whose buffered bytes <c>AUTH</c> throws away.</param>
     /// <param name="contentStore">Where <c>CWD</c> looks for directories and <c>RETR</c> for files.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
-    /// <param name="isAuthTlsAvailable">Whether the listener has a certificate, so <c>AUTH</c> can upgrade the connection.</param>
+    /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>AUTH</c> can upgrade the connection.</param>
     public FtpCommandResponder(
         IConnection connection,
         ExchangeContext context,
         FtpLineReader reader,
         ContentStore contentStore,
         IAuthenticationPolicy authenticationPolicy,
-        bool isAuthTlsAvailable)
+        bool isTlsUpgradeAvailable)
     {
         this.connection = connection;
         this.context = context;
         this.reader = reader;
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
-        this.isAuthTlsAvailable = isAuthTlsAvailable;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
 
         // Data connections are private from the start on ftps:// and clear on ftp:// until PROT
         // says otherwise (ADR-0052, decision 5).
@@ -107,7 +107,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
             ["MODE"] = argument => AnswerOneWordSettingAsync(argument, "S", "200 Mode set to S", "504 Mode not supported"),
             ["STRU"] = argument => AnswerOneWordSettingAsync(argument, "F", "200 Structure set to F", "504 Structure not supported"),
             ["SYST"] = _ => ReplyAsync("215 UNIX Type: L8"),
-            ["FEAT"] = _ => ReplyAsync($"211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n MLST type*;size*;modify*;\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n{(isAuthTlsAvailable ? AuthFeatures : "")}211 End"),
+            ["FEAT"] = _ => ReplyAsync($"211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n MLST type*;size*;modify*;\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n{(isTlsUpgradeAvailable ? AuthFeatures : "")}211 End"),
             ["EPSV"] = async argument => await ReplyAsync(await dataConnections.AnswerExtendedPassiveAsync(argument)),
             ["PASV"] = async _ => await ReplyAsync(await dataConnections.AnswerPassiveAsync()),
             ["EPRT"] = async argument => await ReplyAsync(await dataConnections.AnswerActiveAsync(argument, isExtended: true)),
@@ -258,7 +258,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
         argument is null ? SyntaxError
         : connection.TlsSession is not null ? "503 Already using TLS"
         : !IsWord(argument, "TLS") && !IsWord(argument, "SSL") ? "504 Security mechanism not understood"
-        : !isAuthTlsAvailable ? "534 TLS is not available"
+        : !isTlsUpgradeAvailable ? "534 TLS is not available"
         : null;
 
     // Only a buffer size of 0 exists under TLS, so any size is answered PBSZ=0 (RFC 4217,

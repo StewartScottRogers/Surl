@@ -52,8 +52,8 @@ internal static class FtpTestExchange
         new(InMemoryContentFileSystem.RootPath, StandardFileSystem(), new ContentExposureOptions());
 
     public static FtpProtocolServer Server(
-        IAuthenticationPolicy? authenticationPolicy = null, ContentStore? contentStore = null, bool isAuthTlsAvailable = false) =>
-        new(contentStore ?? StandardContentStore(), authenticationPolicy ?? new AnonymousAuthenticationPolicy(), isAuthTlsAvailable);
+        IAuthenticationPolicy? authenticationPolicy = null, ContentStore? contentStore = null, bool isTlsUpgradeAvailable = false) =>
+        new(contentStore ?? StandardContentStore(), authenticationPolicy ?? new AnonymousAuthenticationPolicy(), isTlsUpgradeAvailable);
 
     public static ExchangeContext Context(
         TimeProvider timeProvider,

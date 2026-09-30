@@ -68,7 +68,7 @@ public sealed class RecordedTlsTests
             .ScriptPassiveListener(new IPEndPoint(IPAddress.Loopback, AnnouncedPassivePort(caseName)), dataConnection);
         var context = Context(new ManualTimeProvider(), TestContext.CancellationToken, dataConnections: dataConnections, scheme: scheme);
 
-        await Server(policy, isAuthTlsAvailable: true).ServeAsync(control, context);
+        await Server(policy, isTlsUpgradeAvailable: true).ServeAsync(control, context);
 
         Assert.AreEqual(RecordedFixture.ReadServerReplies(caseName), Text(control.WrittenBytes));
         Assert.AreEqual(FileText, Text(dataConnection.WrittenBytes));
