@@ -8,7 +8,7 @@ depends-on: [BL-234]
 touches: [Surl.Protocol.Ftp.UnitLibrary, Surl.Protocol.Ftp.UnitTests]
 requirement: FR-038
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-246 — End an FTP exchange cancelled at shutdown with no 421 in Surl.Protocol.Ftp
 
@@ -30,18 +30,21 @@ When the engine cancels an FTP exchange at shutdown, `FtpProtocolServer` ends it
 
 ## Acceptance criteria
 
-- [ ] A fast test in `Surl.Protocol.Ftp.UnitTests` with both tokens cancelled (shutdown) shows
+- [x] A fast test in `Surl.Protocol.Ftp.UnitTests` with both tokens cancelled (shutdown) shows
       `ServeAsync` throws `OperationCanceledException` and writes nothing after the last reply.
-- [ ] `FtpLimitTests.ExchangeCancelledWhileWaitingForACommand_Answers421TimeoutClosingAndCloses`
+- [x] `FtpLimitTests.ExchangeCancelledWhileWaitingForACommand_Answers421TimeoutClosingAndCloses`
       still passes.
-- [ ] `Surl.Protocol.Ftp.UnitLibrary/CLAUDE.md` and the `FtpProtocolServer` remarks say
+- [x] `Surl.Protocol.Ftp.UnitLibrary/CLAUDE.md` and the `FtpProtocolServer` remarks say
       shutdown ends with no farewell.
-- [ ] `Measure-CodeQuality.ps1` reports 100% line and branch coverage and no failing member for
+- [x] `Measure-CodeQuality.ps1` reports 100% line and branch coverage and no failing member for
       `Surl.Protocol.Ftp.UnitLibrary`.
 
 ## Notes
+
+- Followed SmtpSession's pattern (BL-234): ServeAsync answers 421 Timeout, closing only when ExchangeContext.IsCancelledForALimit; at shutdown the captured OperationCanceledException is rethrown with no farewell. WriteLimitReplyAsync links its one-second deadline to ShutdownToken and swallows only a deadline cancellation, so shutdown cuts a limit reply off and propagates. The log note for a limit cancellation is unchanged so FtpLimitTests.ExchangeCancelledWhileWaitingForACommand_Answers421TimeoutClosingAndCloses passes as written. New tests: FtpLimitTests.ExchangeCancelledAtShutdownWhileWaitingForACommand_ThrowsWithNoFarewell and ShutdownWhileALimitReplyIsWritten_Throws; FtpTestExchange.Context gained a shutdownToken parameter. No new ADR: ADR-0059 already decides this. Measure-CodeQuality: Surl.Protocol.Ftp.UnitLibrary 100% line, 100% branch, 0 failing members.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. FTP ends a shutdown-cancelled exchange with no 421; limits still answer 421 Timeout, closing
