@@ -41,3 +41,18 @@ account of libssh2's `scp_recv` and `scp_send` (a `\0` to start and after each c
 download; a `C` line, the file's bytes and `EOF` on an upload), not from a recording. BL-172
 proves them against the pinned upstream curl build above, never against the Curl port
 (ADR-0003); a disagreement there is a new task, never a changed expectation.
+
+## Encrypted OpenSSH host keys
+
+`openssh-encrypted-keys` holds test-only host keys in `openssh-key-v1` format, encrypted under
+the `bcrypt` KDF, for `SshOpenSshKeyDecryptionTests` (BL-223). They are not curl recordings: a
+host key is read by surl alone, so the writer is OpenSSH's `ssh-keygen`, from OpenSSH_10.3p1
+(`C:\Program Files\Git\usr\bin\ssh-keygen.exe`, Git for Windows). Every key's passphrase is
+`correct horse` and its round count 2, to keep the tests fast; each `.key.pub` is the key's public
+half as `ssh-keygen` wrote it. Written on 2026-09-30, in Git Bash:
+
+| File | Command line |
+| --- | --- |
+| `ed25519-<cipher>.key` for `aes128-ctr`, `aes192-ctr`, `aes256-ctr`, `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`, `chacha20-poly1305@openssh.com`, `aes256-cbc` | `ssh-keygen -q -t ed25519 -a 2 -Z <cipher> -N "correct horse" -C "surl test key <cipher>" -f ed25519-<cipher>.key` |
+| `rsa-aes256-ctr.key` | `ssh-keygen -q -t rsa -b 2048 -a 2 -N "correct horse" -C "surl test key rsa" -f rsa-aes256-ctr.key` |
+| `ecdsa-nistp384-aes256-ctr.key` | `ssh-keygen -q -t ecdsa -b 384 -a 2 -N "correct horse" -C "surl test key ecdsa" -f ecdsa-nistp384-aes256-ctr.key` |

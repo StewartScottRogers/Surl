@@ -215,7 +215,7 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         _ => null,
     };
 
-    private static bool SignatureVerifies(byte[] hostKeyBlob, byte[] signatureBlob, byte[] exchangeHash)
+    internal static bool SignatureVerifies(byte[] hostKeyBlob, byte[] signatureBlob, byte[] exchangeHash)
     {
         var key = new SshWireReader(hostKeyBlob);
         var keyType = Encoding.ASCII.GetString(key.ReadString().Span);

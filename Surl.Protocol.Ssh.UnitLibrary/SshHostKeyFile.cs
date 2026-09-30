@@ -38,7 +38,7 @@ public static class SshHostKeyFile
     // --allow-weak-ssh-algorithms.
     private static readonly Dictionary<string, Func<byte[], string?, bool, SshHostKey>> DecodersByLabel = new(StringComparer.Ordinal)
     {
-        ["OPENSSH PRIVATE KEY"] = (der, _, allowWeak) => SshOpenSshKeyDecoder.Decode(der, allowWeak),
+        ["OPENSSH PRIVATE KEY"] = (der, passphrase, allowWeak) => SshOpenSshKeyDecoder.Decode(der, passphrase, allowWeak),
         ["PRIVATE KEY"] = (der, _, allowWeak) => DecodePkcs8(der, allowWeak),
         ["ENCRYPTED PRIVATE KEY"] = (der, passphrase, allowWeak) => DecodePkcs8(SshPkcs8Decryption.Decrypt(der, passphrase), allowWeak),
         ["RSA PRIVATE KEY"] = (der, _, allowWeak) => DecodePkcs1(der, allowWeak),
@@ -49,7 +49,7 @@ public static class SshHostKeyFile
     /// Reads one host key from a file's bytes.
     /// </summary>
     /// <param name="fileBytes">The file's bytes.</param>
-    /// <param name="passphrase">The <c>--pass</c> value, which decrypts an encrypted PKCS #8 key; <see langword="null"/> when not given.</param>
+    /// <param name="passphrase">The <c>--pass</c> value, which decrypts an encrypted PKCS #8 or <c>openssh-key-v1</c> key; <see langword="null"/> when not given.</param>
     /// <param name="allowWeakAlgorithms">Whether <c>--allow-weak-ssh-algorithms</c> was given.</param>
     /// <returns>The key, or the refusal.</returns>
     public static SshHostKeyReading Read(ReadOnlySpan<byte> fileBytes, string? passphrase, bool allowWeakAlgorithms)

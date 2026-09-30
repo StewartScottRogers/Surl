@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Cryptography.BcryptPbkdf.UnitLibrary\Surl.Cryptography.BcryptPbkdf.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cryptography.ChaCha20.UnitLibrary\Surl.Cryptography.ChaCha20.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cryptography.Curve25519.UnitLibrary\Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cryptography.Ed25519.UnitLibrary\Surl.Cryptography.Ed25519.UnitLibrary.csproj" />

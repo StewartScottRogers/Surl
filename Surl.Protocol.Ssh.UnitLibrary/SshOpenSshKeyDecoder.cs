@@ -13,8 +13,8 @@ namespace Surl.Protocol.Ssh;
 /// the key's type and fields.
 /// </summary>
 /// <remarks>
-/// Only an unencrypted key (cipher and KDF <c>none</c>) is read; an encrypted one is refused
-/// as not available until BL-223 reads it (ADR-0051, decision 4).
+/// A key is either unencrypted (cipher and KDF <c>none</c>) or encrypted under the <c>bcrypt</c>
+/// KDF, whose private section <see cref="SshOpenSshKeyDecryption"/> decrypts with <c>--pass</c>.
 /// </remarks>
 internal static class SshOpenSshKeyDecoder
 {
@@ -23,15 +23,17 @@ internal static class SshOpenSshKeyDecoder
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("openssh-key-v1\0");
 
     /// <summary>
-    /// Decodes the body of an <c>OPENSSH PRIVATE KEY</c> block.
+    /// Decodes the body of an <c>OPENSSH PRIVATE KEY</c> block, decrypting its private section
+    /// with <paramref name="passphrase"/> when it is encrypted.
     /// </summary>
     /// <param name="body">The block's decoded body.</param>
+    /// <param name="passphrase">The <c>--pass</c> value; <see langword="null"/> when not given.</param>
     /// <param name="allowWeakAlgorithms">Whether <c>--allow-weak-ssh-algorithms</c> was given.</param>
     /// <returns>The host key.</returns>
     /// <exception cref="SshHostKeyRefusedException">The key is refused.</exception>
     /// <exception cref="SshDisconnectRequiredException">A field runs past the body's end.</exception>
     /// <exception cref="CryptographicException">The key's values do not form a key.</exception>
-    public static SshHostKey Decode(byte[] body, bool allowWeakAlgorithms)
+    public static SshHostKey Decode(byte[] body, string? passphrase, bool allowWeakAlgorithms)
     {
         if (!body.AsSpan().StartsWith(Magic))
         {
@@ -41,27 +43,39 @@ internal static class SshOpenSshKeyDecoder
         var reader = new SshWireReader(body.AsMemory(Magic.Length));
         var cipher = ReadName(reader);
         var kdf = ReadName(reader);
-        reader.ReadString();
-        if (cipher != "none")
-        {
-            throw new SshHostKeyRefusedException(SshHostKeyRefusal.EncryptedOpenSshKey);
-        }
-
-        if (kdf != "none" || reader.ReadUInt32() != 1)
+        var kdfOptions = reader.ReadString();
+        var encrypted = IsEncrypted(cipher, kdf);
+        if (reader.ReadUInt32() != 1)
         {
             throw NotAPrivateKey();
         }
 
         reader.ReadString();
+        if (!encrypted)
+        {
+            return ReadPrivateSection(new SshWireReader(reader.ReadString()), SshHostKeyRefusal.NotAPrivateKey, allowWeakAlgorithms);
+        }
 
-        return ReadPrivateSection(new SshWireReader(reader.ReadString()), allowWeakAlgorithms);
+        var section = SshOpenSshKeyDecryption.DecryptSection(reader, cipher, kdfOptions, passphrase);
+
+        return ReadPrivateSection(new SshWireReader(section), SshHostKeyRefusal.PassphraseDoesNotDecrypt, allowWeakAlgorithms);
     }
 
-    private static SshHostKey ReadPrivateSection(SshWireReader section, bool allowWeakAlgorithms)
+    // Cipher and KDF none, or a cipher under the bcrypt KDF; anything else is not a key surl reads.
+    private static bool IsEncrypted(string cipher, string kdf) => (cipher, kdf) switch
+    {
+        ("none", "none") => false,
+        (not "none", SshOpenSshKeyDecryption.BcryptKdf) => true,
+        _ => throw NotAPrivateKey(),
+    };
+
+    // The two check integers differ when the key is damaged or, encrypted, when the passphrase
+    // is wrong: checkMismatch is the refusal for that.
+    private static SshHostKey ReadPrivateSection(SshWireReader section, SshHostKeyRefusal checkMismatch, bool allowWeakAlgorithms)
     {
         if (section.ReadUInt32() != section.ReadUInt32())
         {
-            throw NotAPrivateKey();
+            throw new SshHostKeyRefusedException(checkMismatch);
         }
 
         var keyType = ReadName(section);

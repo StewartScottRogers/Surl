@@ -7,7 +7,8 @@ public-key user authentication, and the file operations upstream curl's libssh2 
 performs, over the hand-built primitives ADR-0048 places in four libraries:
 `Surl.Cryptography.Curve25519.UnitLibrary` (X25519), `Surl.Cryptography.Ed25519.UnitLibrary`,
 `Surl.Cryptography.ChaCha20.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, and ADR-0051's
-`Surl.Cryptography.Rc4.UnitLibrary` for the `arcfour` ciphers offered with `--allow-weak-ssh-algorithms`.
+`Surl.Cryptography.Rc4.UnitLibrary` for the `arcfour` ciphers offered with `--allow-weak-ssh-algorithms`
+and `Surl.Cryptography.BcryptPbkdf.UnitLibrary` for encrypted `openssh-key-v1` host keys.
 Everything else it needs (SHA-2, HMAC, AES, AES-GCM, ECDH, ECDSA, RSA, `BigInteger`, and for the weak algorithms SHA-1, MD5, triple DES and DSA) comes
 from the base class library.
 

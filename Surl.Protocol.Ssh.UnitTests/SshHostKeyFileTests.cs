@@ -240,17 +240,6 @@ public sealed class SshHostKeyFileTests
         AssertRefused(SshHostKeyFile.Read(file, Passphrase, allowWeakAlgorithms: false), SshHostKeyRefusalReason.NeedsWeakAlgorithms, "DSA keys of 2048 bits need --allow-weak-ssh-algorithms");
     }
 
-    [TestMethod]
-    [DataRow("aes256-ctr", "bcrypt")]
-    [DataRow("aes256-gcm@openssh.com", "bcrypt")]
-    [DataRow("aes128-cbc", "none")]
-    public void Read_EncryptedOpenSshKey_IsRefusedAsNotAvailable(string cipher, string kdf)
-    {
-        var file = OpenSshPem(OpenSshBody("ssh-rsa", [], cipher, kdf));
-
-        AssertRefused(SshHostKeyFile.Read(file, Passphrase, allowWeakAlgorithms: false), SshHostKeyRefusalReason.EncryptedOpenSshKey, "encrypted OpenSSH keys are not available in this build");
-    }
-
     private static byte[] RsaFieldsWith(RSAParameters key, int? prime1 = null, int? prime2 = null, int? modulus = null) => Concat(
         Mpint(modulus ?? Unsigned(key.Modulus!)),
         Mpint(Unsigned(key.Exponent!)),

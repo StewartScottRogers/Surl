@@ -324,8 +324,23 @@ curl's "host public key" (`--hostpubsha256`, `--hostpubmd5`) and OpenSSH's `Host
 - **Encrypted keys** take their passphrase from **`--pass`**, which already means "passphrase for
   the private key" (curl's name): it now applies to `--key` and to every `--hostkey`. An encrypted
   PKCS#8 (`-----BEGIN ENCRYPTED PRIVATE KEY-----`) is read with the BCL; an encrypted
-  `openssh-key-v1` (`bcrypt` KDF) is refused as not available until BL-223 reads it with BL-220's
-  `bcrypt_pbkdf`.
+  `openssh-key-v1` (`bcrypt` KDF) is decrypted with BL-220's `bcrypt_pbkdf` (BL-223). How BL-223
+  reads it, decided by Claude under Stewart's delegation (2026-09-30), following OpenSSH's
+  `sshkey.c` (`private2_decrypt`), the reader `ssh-keygen` writes for:
+  - The ciphers read are the six `ssh-keygen -Z` writes today (`aes128-ctr`, `aes192-ctr`,
+    `aes256-ctr`, `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`,
+    `chacha20-poly1305@openssh.com`) and, because the transport already builds them for
+    `--allow-weak-ssh-algorithms`, the CBC and `arcfour` ciphers older OpenSSH releases wrote.
+    Any other `ciphername`, and any `kdfname` but `bcrypt`, is `not a private key surl can read`:
+    the table below has no other words for a key surl cannot read, and none is needed.
+  - The passphrase is UTF-8 encoded, as for PKCS #8. An empty `--pass` is `--pass does not
+    decrypt the key`, not `give --pass`: OpenSSH treats an empty passphrase as a wrong one, and
+    `bcrypt_pbkdf` takes no empty password.
+  - A wrong passphrase shows as an AEAD tag that does not verify, or, for the other ciphers, as
+    the private section's two check integers differing; both are `--pass does not decrypt the
+    key`. An empty salt, a salt longer than `bcrypt_pbkdf` takes, a round count of 0 or above
+    2^31 - 1, an encrypted section that is not whole cipher blocks, and a missing tag are
+    `not a private key surl can read`.
 - **At most one key per key type** (`ssh-rsa`, each ECDSA curve, `ssh-ed25519`, `ssh-dss`); all
   are offered together, and the client's host-key list picks one.
 - **`--hostcert <file>`**, repeatable: an OpenSSH host certificate (`*-cert.pub`,
@@ -356,7 +371,6 @@ configuration surl cannot act on.
 | Not one private key in a format above | 2 | `(2) Host key <path>: not a private key surl can read` |
 | Encrypted, no `--pass` | 2 | `(2) Host key <path>: the key is encrypted; give --pass` |
 | Encrypted, `--pass` does not decrypt it | 2 | `(2) Host key <path>: --pass does not decrypt the key` |
-| Encrypted `openssh-key-v1`, until BL-223 | 2 | `(2) Host key <path>: encrypted OpenSSH keys are not available in this build` |
 | RSA shorter than 2048 bits, or DSA, without `--allow-weak-ssh-algorithms` | 2 | `(2) Host key <path>: <key type> keys of <bits> bits need --allow-weak-ssh-algorithms` |
 | Another key type | 2 | `(2) Host key <path>: key type <type> is not supported` |
 | A second key of one type | 2 | `(2) Host key <path>: a <key type> host key is already given by <other path>` |
@@ -666,7 +680,7 @@ memberships.
 | `bcrypt_pbkdf` in `Surl.Cryptography.BcryptPbkdf` | BL-220 (filed by this task) |
 | The weak algorithms behind `--allow-weak-ssh-algorithms` | BL-221 (filed by this task) |
 | Host certificates, `--hostcert` | BL-222 (filed by this task) |
-| Encrypted `openssh-key-v1` host keys | BL-223 (filed by this task) |
+| Encrypted `openssh-key-v1` host keys | BL-223 (filed by this task; its choices are in decision 4) |
 
 ## Alternatives considered
 
