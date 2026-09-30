@@ -47,3 +47,4 @@ runs, and leaves `service.keytab` and `kdc.log` beside the other fixtures.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
