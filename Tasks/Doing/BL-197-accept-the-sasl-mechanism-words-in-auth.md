@@ -48,3 +48,4 @@ the help, manual, AI help and start-up warning describe them.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
