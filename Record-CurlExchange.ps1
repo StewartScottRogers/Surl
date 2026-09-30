@@ -289,6 +289,19 @@
     How long, in -Pop3 mode, the server waits for curl's next line before it hangs up.
     Default 5000.
 
+.PARAMETER SaslChallenge
+    Scripted SASL exchanges for -Smtp, -Imap and -Pop3, each 'MECHANISM=line' with the
+    same backslash escapes as Response, e.g. 'DIGEST-MD5=334 bm9uY2U9...'. When curl
+    starts AUTH (AUTHENTICATE in IMAP) with a mechanism named here, the server sends that
+    mechanism's lines in the order given instead of the default continuations. A
+    continuation line - one starting 334 in SMTP, + in IMAP, "+ " or a lone + in POP3 - is
+    sent and curl's next line read and recorded; any other line is the final answer and
+    ends the exchange (in IMAP it is sent tagged, e.g. 'XOAUTH2=NO denied'). When every
+    scripted line was a continuation, the default success follows (235, OK, +OK). This
+    drives what the fixed tables cannot: a DIGEST-MD5 challenge and rspauth, an NTLM type 2
+    message, an XOAUTH2 error challenge, or a refusal after a response. Overrides of AUTH
+    (AUTHENTICATE) still win over it. Default none.
+
 .PARAMETER Raw
     Serve one TCP conversation driven by scripted replies instead of HTTP
     responses, for a protocol the script has no mode for, such as DICT (RFC 2229), Gopher
@@ -531,6 +544,7 @@ param(
     [string[]] $Pop3Reply = @(),
     [string] $Pop3Message = 'From: sender@example.com\r\nTo: recipient@example.com\r\nSubject: Recorded\r\n\r\nHello from the recorder.\r\n.A line that starts with a dot.\r\n',
     [ValidateRange(1, 600000)] [int] $Pop3IdleMilliseconds = 5000,
+    [string[]] $SaslChallenge = @(),
     [switch] $Raw,
     [string[]] $RawReply = @(),
     [switch] $RawReplyFirst,
@@ -1029,6 +1043,15 @@ $serveSmtpSession = {
         param($Stream, [string] $Argument)
         $mechanism = ($Argument -split ' ', 2)[0].ToUpperInvariant()
         $hasInitialResponse = $Argument.Contains(' ')
+        if ($Overrides.ContainsKey("SASL:$mechanism")) {
+            foreach ($scripted in $Overrides["SASL:$mechanism"]) {
+                Send-Reply -Stream $Stream -Reply $scripted
+                if (-not $scripted.StartsWith('334')) { return $true }
+                if ($null -eq (Read-Line -Stream $Stream)) { return $false }
+            }
+            Send-Reply -Stream $Stream -Reply '235 Authentication successful'
+            return $true
+        }
         $challenges = switch ($mechanism) {
             'PLAIN' { if ($hasInitialResponse) { @() } else { @('334 ') } }
             'LOGIN' { if ($hasInitialResponse) { @('334 UGFzc3dvcmQ6') } else { @('334 VXNlcm5hbWU6', '334 UGFzc3dvcmQ6') } }
@@ -1223,6 +1246,18 @@ $serveImapSession = {
         $words = @($Argument -split ' ')
         $mechanism = $words[0].ToUpperInvariant()
         $hasInitialResponse = $words.Count -gt 1
+        if ($Overrides.ContainsKey("SASL:$mechanism")) {
+            foreach ($scripted in $Overrides["SASL:$mechanism"]) {
+                if (-not $scripted.StartsWith('+')) {
+                    Send-Tagged -Stream $Stream -Tag $Tag -Reply $scripted
+                    return $true
+                }
+                Send-Reply -Stream $Stream -Reply $scripted
+                if ($null -eq (Read-Line -Stream $Stream)) { return $false }
+            }
+            Send-Tagged -Stream $Stream -Tag $Tag -Reply 'OK Authenticated'
+            return $true
+        }
         $challenges = switch ($mechanism) {
             'PLAIN' { if ($hasInitialResponse) { @() } else { @('+ ') } }
             'LOGIN' { if ($hasInitialResponse) { @('+ UGFzc3dvcmQ6') } else { @('+ VXNlcm5hbWU6', '+ UGFzc3dvcmQ6') } }
@@ -1405,6 +1440,15 @@ $servePop3Session = {
         $words = @($Argument -split ' ')
         $mechanism = $words[0].ToUpperInvariant()
         $hasInitialResponse = $words.Count -gt 1
+        if ($Overrides.ContainsKey("SASL:$mechanism")) {
+            foreach ($scripted in $Overrides["SASL:$mechanism"]) {
+                Send-Reply -Stream $Stream -Reply $scripted
+                if (-not ($scripted -ceq '+' -or $scripted.StartsWith('+ '))) { return $true }
+                if ($null -eq (Read-Line -Stream $Stream)) { return $false }
+            }
+            Send-Reply -Stream $Stream -Reply '+OK Authenticated'
+            return $true
+        }
         $challenges = switch ($mechanism) {
             'PLAIN' { if ($hasInitialResponse) { @() } else { @('+ ') } }
             'LOGIN' { if ($hasInitialResponse) { @('+ UGFzc3dvcmQ6') } else { @('+ VXNlcm5hbWU6', '+ UGFzc3dvcmQ6') } }
@@ -2079,6 +2123,11 @@ $ftpOverrides = ConvertTo-ReplyOverrides -Entries $FtpReply -ParameterName 'FtpR
 $smtpOverrides = ConvertTo-ReplyOverrides -Entries $SmtpReply -ParameterName 'SmtpReply'
 $imapOverrides = ConvertTo-ReplyOverrides -Entries $ImapReply -ParameterName 'ImapReply'
 $pop3Overrides = ConvertTo-ReplyOverrides -Entries $Pop3Reply -ParameterName 'Pop3Reply'
+# -SaslChallenge rides in each mail mode's table under SASL:<mechanism>, which no verb can be.
+$saslChallenges = ConvertTo-ReplyOverrides -Entries $SaslChallenge -ParameterName 'SaslChallenge'
+foreach ($mechanismName in $saslChallenges.Keys) {
+    foreach ($table in @($smtpOverrides, $imapOverrides, $pop3Overrides)) { $table["SASL:$mechanismName"] = $saslChallenges[$mechanismName] }
+}
 $transcript = New-Object System.Text.StringBuilder
 $uploadedData = New-Object System.IO.MemoryStream
 $OutDirectory = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).ProviderPath, $OutDirectory))
