@@ -82,3 +82,4 @@ without constructing a socket, so BL-174 to BL-183 can be built without a questi
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
