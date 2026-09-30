@@ -116,6 +116,41 @@ public sealed class FtpLimitTests
     }
 
     [TestMethod]
+    public async Task ExchangeCancelledAtShutdownWhileWaitingForACommand_ThrowsWithNoFarewell()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new InMemoryConnection(Ascii(AnonymousLogin), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server().ServeAsync(connection, Context(clock, shutdown.Token, log: log, shutdownToken: shutdown.Token));
+        Assert.IsFalse(serving.IsCompleted);
+        await shutdown.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual(Greeting + AnonymousLoginReplies, Text(connection.WrittenBytes));
+        Assert.IsFalse(connection.WritesCompleted);
+        Assert.IsEmpty(log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ShutdownWhileALimitReplyIsWritten_Throws()
+    {
+        var clock = new ManualTimeProvider();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new WriteStallingConnection([], writesBeforeStalling: 1);
+
+        var serving = Server().ServeAsync(connection, Context(clock, shutdown.Token, shutdownToken: shutdown.Token));
+        clock.Advance(HeadTimeout);
+        await connection.WriteStalled.WaitAsync(TestContext.CancellationToken);
+        await shutdown.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual(Greeting, Text(connection.WrittenBytes));
+        Assert.IsFalse(connection.Aborted);
+    }
+
+    [TestMethod]
     public async Task CancellationThrownWhileTheExchangeIsNotCancelled_PropagatesWithoutAReply()
     {
         var fileSystem = new UnitTestThrowingContentFileSystem(new OperationCanceledException(), failsStatus: true);

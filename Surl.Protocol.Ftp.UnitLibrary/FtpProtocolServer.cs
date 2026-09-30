@@ -74,9 +74,12 @@ namespace Surl.Protocol.Ftp;
 /// <see cref="ExchangeLimits.HeadTimeout"/> is answered <c>421 Timeout waiting for a
 /// command</c> and the connection is closed; the first line's clock starts when the connection
 /// is served, and every later line's at its first byte. When the engine cancels the exchange -
-/// its idle timeout or maximum duration - the server stops, closes any data connection and
-/// answers <c>421 Timeout, closing</c>. Each of those three replies is written within
-/// <see cref="LimitReplyWriteDeadline"/>, on that deadline alone, then writes are completed. A connection past a
+/// its idle timeout or maximum duration, as <see cref="ExchangeContext.IsCancelledForALimit"/>
+/// says - the server stops, closes any data connection and answers <c>421 Timeout, closing</c>;
+/// when the engine cancels it at shutdown, the server stops with no farewell and the
+/// cancellation propagates (ADR-0059). Each of those three replies is written within
+/// <see cref="LimitReplyWriteDeadline"/>, on that deadline linked to
+/// <see cref="ExchangeContext.ShutdownToken"/>, then writes are completed; shutdown cuts one off. A connection past a
 /// connection limit is answered <c>421 Too many connections</c> by
 /// <see cref="WriteRefusalAsync"/> (ADR-0006, section 5; ADR-0052, decision 10). A client that
 /// closes the connection part way through a line gets no reply.
@@ -141,14 +144,13 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
         using var reader = new FtpLineReader(connection, context.Limits.MaxLineBytes, context.Limits.HeadTimeout, context.TimeProvider);
         reader.StartHeadTimeout();
 
-        var cancellationToken = context.CancellationToken;
-        await WriteAsync(connection, Greeting, cancellationToken);
+        await WriteAsync(connection, Greeting, context.CancellationToken);
 
         var responder = new FtpCommandResponder(connection, context, reader, contentStore, authenticationPolicy, isAuthTlsAvailable);
         var failure = await CaptureFailureAsync(() => AnswerEveryLineAsync(connection, context, reader, responder));
         await responder.DisposeAsync();
 
-        if (failure?.SourceException is OperationCanceledException && cancellationToken.IsCancellationRequested)
+        if (failure?.SourceException is OperationCanceledException && context.IsCancelledForALimit)
         {
             context.Log.Note("The exchange was cancelled; answered 421 and closed.");
             await WriteLimitReplyAsync(connection, context, ExchangeCancelledReply);
@@ -226,18 +228,19 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
 
     // A limit's reply gets one second to be written, and then writes are completed; a peer
     // that does not read it in time is closed all the same, never aborted (ADR-0006, section 5).
-    // The deadline is the reply's own, never the exchange's token: the reply to the exchange's
+    // The deadline is linked to shutdown, never to the exchange's token: the reply to a limit's
     // cancellation is written after that token is cancelled, and a reply already being written
-    // when the exchange is cancelled still gets its second.
+    // when the exchange is cancelled for a limit still gets its second; shutdown cuts it off (ADR-0059).
     private static async Task WriteLimitReplyAsync(IConnection connection, ExchangeContext context, string reply)
     {
         using var deadline = new CancellationTokenSource(LimitReplyWriteDeadline, context.TimeProvider);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.ShutdownToken, deadline.Token);
         try
         {
-            await WriteAsync(connection, reply, deadline.Token);
-            await connection.CompleteWritesAsync(deadline.Token);
+            await WriteAsync(connection, reply, cancellation.Token);
+            await connection.CompleteWritesAsync(cancellation.Token);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (!context.ShutdownToken.IsCancellationRequested)
         {
             context.Log.Note("The reply was not written within the one-second write deadline; the connection was closed.");
         }

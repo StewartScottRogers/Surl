@@ -61,7 +61,8 @@ internal static class FtpTestExchange
         ExchangeLimits? limits = null,
         IExchangeLog? log = null,
         IDataConnectionOpener? dataConnections = null,
-        string scheme = "ftp") => new(
+        string scheme = "ftp",
+        CancellationToken shutdownToken = default) => new(
             1,
             new ListenUrl(scheme, "127.0.0.1", 2121).WithBoundPort(2121),
             new IPEndPoint(IPAddress.Loopback, 2121),
@@ -72,6 +73,7 @@ internal static class FtpTestExchange
         {
             Limits = limits ?? ExchangeLimits.Default,
             DataConnections = dataConnections ?? RefusingDataConnectionOpener.Instance,
+            ShutdownToken = shutdownToken,
         };
 
     public static IEnumerable<ReadOnlyMemory<byte>> Ascii(params string[] chunks) =>

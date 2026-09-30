@@ -33,7 +33,10 @@ server is constructed with `isAuthTlsAvailable` (a listener certificate), `534` 
 failed handshake is `425`. BL-230 (decision 10) answers the engine's cancellation of the
 exchange - its idle timeout or maximum duration - with `421 Timeout, closing`, written after any
 data connection is closed and within `LimitReplyWriteDeadline` on its own deadline, since the
-exchange's token is already cancelled.
+exchange's token is already cancelled. BL-246 (ADR-0059) answers only a limit's cancellation
+(`ExchangeContext.IsCancelledForALimit`) that way: shutdown ends the exchange with no farewell,
+the cancellation propagating, and the limit reply's deadline is linked to
+`ExchangeContext.ShutdownToken`, so shutdown cuts a limit reply off too.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
