@@ -8,7 +8,7 @@ depends-on: [BL-184, BL-185]
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-045
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-188 — Decide how the POP3 server answers upstream curl
 
@@ -42,17 +42,31 @@ BL-209 can be built without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", records each measurement (build path, SHA-256, arguments,
       date, transcript excerpt) and decides every point in Context.
-- [ ] It lists the curl 8.21.0 command lines BL-212 must prove, with the expected exit code and
+- [x] It lists the curl 8.21.0 command lines BL-212 must prove, with the expected exit code and
       stdout for each.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help.
 
 ## Notes
+
+- Decided in [ADR-0056](../../Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)
+  from 33 recorded sessions and 6 decided-reply checks against the Windows reference build,
+  2026-09-30, with `Record-CurlExchange.ps1 -Pop3`. The script needed no extension.
+- Measured facts that shaped it: curl reads a `-X` reply as multi-line from the `-X` text
+  alone (`-X LIST pop3://h/1` waits on a single-line `+OK`); curl prints one CRLF for an
+  empty listing; `-I` changes nothing; every `-ERR` outside the login is exit 8.
+- Choices with a sensible default, recorded in the ADR: `TOP` without a line count reads it
+  as 0 (curl's `-X TOP pop3://h/1` sends exactly that); `UIDL` is `<uidvalidity>.<uid>`;
+  `USER` accepts any name (no account enumeration); `AUTH` with no mechanism lists the
+  mechanisms (RFC 1734 form); `PIPELINING`, `RESP-CODES` and `AUTH-RESP-CODE` advertised.
+- `USER`/`PASS` in BL-212 is reached with `--auth basic`: it leaves the mail servers no SASL
+  mechanism and no `APOP`, so curl falls to `USER`/`PASS` (measured rule, ADR-0049).
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0056 decides every POP3 reply from 33 measured curl 8.21.0 sessions and lists BL-212's command lines
