@@ -113,7 +113,7 @@ public sealed class SshKeyExchangeTests
     public async Task CompletedKeyExchange_IsAnsweredDisconnect11AfterNewKeys()
     {
         var log = new RecordingExchangeLog();
-        using var client = new SshTestKeyExchangeClient("diffie-hellman-group-exchange-sha256", "rsa-sha2-512", strict: true);
+        using var client = new SshTestKeyExchangeClient("diffie-hellman-group-exchange-sha256", "rsa-sha2-512", strict: true, cipher: "chacha20-poly1305@openssh.com");
         var connection = new InMemoryConnection([client.InboundBytes()]);
 
         await Server().ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));

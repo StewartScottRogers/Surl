@@ -29,7 +29,16 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     private readonly BigInteger? prime;
     private readonly bool padClientValue;
 
-    public SshTestKeyExchangeClient(string keyExchange, string hostKeyAlgorithm, bool strict = false, bool firstKexPacketFollows = false, bool padClientValue = false)
+    public SshTestKeyExchangeClient(
+        string keyExchange,
+        string hostKeyAlgorithm,
+        bool strict = false,
+        bool firstKexPacketFollows = false,
+        bool padClientValue = false,
+        string cipher = "aes128-ctr",
+        string mac = "hmac-sha2-256",
+        string? cipherServerToClient = null,
+        string? macServerToClient = null)
     {
         this.keyExchange = keyExchange;
         this.hostKeyAlgorithm = hostKeyAlgorithm;
@@ -37,7 +46,11 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         KexInitPayload = ClientKexInitPayload(
             keyExchange: keyExchange + (strict ? ",kex-strict-c-v00@openssh.com" : string.Empty),
             hostKey: hostKeyAlgorithm,
-            firstKexPacketFollows: firstKexPacketFollows);
+            cipher: cipher,
+            mac: mac,
+            firstKexPacketFollows: firstKexPacketFollows,
+            cipherServerToClient: cipherServerToClient,
+            macServerToClient: macServerToClient);
         ellipticKey = CurveOf(keyExchange) is { } curve ? ECDiffieHellman.Create(curve) : null;
         prime = PrimeOf(keyExchange);
         privateExponent = new BigInteger(RandomNumberGenerator.GetBytes(64), isUnsigned: true, isBigEndian: true);
@@ -71,13 +84,19 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     /// The method's messages from the client: the ECDH or DH init, preceded by the group
     /// exchange request for a group exchange.
     /// </summary>
-    public byte[] MethodPackets() => ellipticKey is not null
-        ? Packet(Concat([30], Str(ClientPoint())))
+    public byte[] MethodPackets() => Concat([.. MethodPayloads().Select(payload => Packet(payload))]);
+
+    /// <summary>
+    /// The payloads of <see cref="MethodPackets"/>, for a client that protects them itself.
+    /// </summary>
+    public byte[][] MethodPayloads() => ellipticKey is not null
+        ? [Concat([30], Str(ClientPoint()))]
         : IsGroupExchange
-            ? Concat(
-                Packet(Concat([34], UInt32(GroupExchangeMinBits), UInt32(GroupExchangePreferredBits), UInt32(GroupExchangeMaxBits))),
-                Packet(Concat([32], ClientValueField())))
-            : Packet(Concat([30], ClientValueField()));
+            ? [
+                Concat([34], UInt32(GroupExchangeMinBits), UInt32(GroupExchangePreferredBits), UInt32(GroupExchangeMaxBits)),
+                Concat([32], ClientValueField()),
+            ]
+            : [Concat([30], ClientValueField())];
 
     /// <summary>
     /// Everything the client sends, in order: its identification line, its <c>KEXINIT</c>, the
@@ -94,7 +113,17 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     public (BigInteger SharedSecret, byte[] ExchangeHash) CheckServerAnswer(byte[] writtenBytes, ReadOnlySpan<byte> expectedHostKeyBlob)
     {
         CollectionAssert.AreEqual(Ascii(ServerLine), writtenBytes[..ServerLine.Length]);
-        var packets = ServerPackets(writtenBytes[ServerLine.Length..]);
+
+        return CheckKeyExchange(ServerPackets(writtenBytes[ServerLine.Length..]), expectedHostKeyBlob);
+    }
+
+    /// <summary>
+    /// Checks the server's payloads of one key exchange, its <c>KEXINIT</c> first and
+    /// <c>NEWKEYS</c> last, as <see cref="CheckServerAnswer"/> does.
+    /// </summary>
+    /// <returns>K and H as the client computes them.</returns>
+    public (BigInteger SharedSecret, byte[] ExchangeHash) CheckKeyExchange(List<byte[]> packets, ReadOnlySpan<byte> expectedHostKeyBlob)
+    {
         Assert.AreEqual(20, packets[0][0]);
         CollectionAssert.AreEqual(new byte[] { 21 }, packets[^1]);
         var serverKexInit = packets[0];
@@ -119,12 +148,13 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     }
 
     /// <summary>
-    /// Derives one key as RFC 4253 section 7.2 writes it, the first exchange's H being the session identifier.
+    /// Derives one key as RFC 4253 section 7.2 writes it, the session identifier being
+    /// <paramref name="sessionIdentifier"/>, or this exchange's H for the first exchange.
     /// </summary>
-    public byte[] DeriveKey(BigInteger sharedSecret, byte[] exchangeHash, char letter, int length)
+    public byte[] DeriveKey(BigInteger sharedSecret, byte[] exchangeHash, char letter, int length, byte[]? sessionIdentifier = null)
     {
         var prefix = Concat(Mpint(sharedSecret), exchangeHash);
-        var key = CryptographicOperations.HashData(HashAlgorithm, Concat(prefix, [(byte)letter], exchangeHash));
+        var key = CryptographicOperations.HashData(HashAlgorithm, Concat(prefix, [(byte)letter], sessionIdentifier ?? exchangeHash));
         while (key.Length < length)
         {
             key = Concat(key, CryptographicOperations.HashData(HashAlgorithm, Concat(prefix, key)));

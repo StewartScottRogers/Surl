@@ -4,12 +4,13 @@ namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// The SSH server upstream curl's <c>scp://</c> and <c>sftp://</c> transfers talk to
-/// (ADR-0051). So far it runs the connection's first key exchange: it exchanges identification
-/// lines, reads and writes unencrypted binary packets, sends its <c>SSH_MSG_KEXINIT</c> and
-/// agrees the algorithms with the client's, runs the key exchange method, signing the exchange
-/// hash with one of its <see cref="SshHostKeySet"/>, and exchanges <c>NEWKEYS</c>; it then ends
-/// the connection with <c>DISCONNECT</c> 11, "Packet protection not implemented" (BL-161 builds
-/// it).
+/// (ADR-0051). So far it runs the transport layer: it exchanges identification lines, sends its
+/// <c>SSH_MSG_KEXINIT</c> and agrees the algorithms with the client's, runs the key exchange
+/// method, signing the exchange hash with one of its <see cref="SshHostKeySet"/>, exchanges
+/// <c>NEWKEYS</c>, and from then on encrypts and authenticates every packet with the cipher and
+/// MAC agreed, re-keying when the client or <see cref="SshReExchangeLimits"/> asks. A
+/// <c>SERVICE_REQUEST</c> is <c>DISCONNECT</c> 11, "User authentication not implemented"
+/// (BL-162 builds it).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,6 +31,21 @@ namespace Surl.Protocol.Ssh;
 /// group fits is <c>DISCONNECT</c> 3.
 /// </para>
 /// <para>
+/// <b>Packet protection.</b> After <c>NEWKEYS</c> each direction uses the cipher and MAC agreed
+/// for it: <c>aes256-gcm@openssh.com</c> and <c>aes128-gcm@openssh.com</c>, or
+/// <c>aes256-ctr</c>, <c>aes192-ctr</c> and <c>aes128-ctr</c> with <c>hmac-sha2-256</c>,
+/// <c>hmac-sha2-512</c> or their <c>-etm@openssh.com</c> forms. A MAC or tag that does not
+/// verify is <c>DISCONNECT</c> 5; <c>chacha20-poly1305@openssh.com</c> (BL-169) is
+/// <c>DISCONNECT</c> 11, "Packet protection not implemented", once <c>NEWKEYS</c> is exchanged.
+/// </para>
+/// <para>
+/// <b>Transport messages.</b> After the first exchange a client's <c>KEXINIT</c> starts a
+/// re-exchange, and the server starts one itself before reading on once either direction has
+/// carried 1 GiB or an hour has passed under one set of keys. <c>IGNORE</c>, <c>DEBUG</c> and
+/// <c>UNIMPLEMENTED</c> are skipped, and any other message the server does not know is answered
+/// <c>UNIMPLEMENTED</c> with its sequence number (RFC 4253, section 11.4).
+/// </para>
+/// <para>
 /// <b>Limits.</b> A packet longer than <see cref="ExchangeLimits.MaxMessageBytes"/> with its
 /// length field, or badly framed, is <c>DISCONNECT</c> 2 before its body is read. Everything
 /// up to the end of the opening runs under <see cref="ExchangeLimits.HeadTimeout"/>, which
@@ -47,6 +63,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     private readonly SshHostKeySet hostKeys;
     private readonly SshAlgorithmOffer offer;
     private readonly ISshRandomSource randomSource;
+    private readonly SshReExchangeLimits reExchangeLimits;
 
     /// <summary>
     /// Creates an SSH server that serves <paramref name="hostKeys"/> and offers <paramref name="offer"/>.
@@ -59,6 +76,19 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     /// </param>
     /// <exception cref="ArgumentException"><paramref name="offer"/> names a host-key algorithm no key in <paramref name="hostKeys"/> signs with.</exception>
     public SshProtocolServer(SshHostKeySet hostKeys, SshAlgorithmOffer offer, ISshRandomSource randomSource)
+        : this(hostKeys, offer, randomSource, SshReExchangeLimits.Default)
+    {
+    }
+
+    /// <summary>
+    /// Creates an SSH server that re-keys itself at <paramref name="reExchangeLimits"/>.
+    /// </summary>
+    /// <param name="hostKeys">The host keys; <paramref name="offer"/>'s host-key algorithms are theirs.</param>
+    /// <param name="offer">The algorithms the server's <c>KEXINIT</c> offers.</param>
+    /// <param name="randomSource">Where the cookie, the padding and a finite-field private exponent come from.</param>
+    /// <param name="reExchangeLimits">When the server starts a key re-exchange itself.</param>
+    /// <exception cref="ArgumentException"><paramref name="offer"/> names a host-key algorithm no key in <paramref name="hostKeys"/> signs with.</exception>
+    internal SshProtocolServer(SshHostKeySet hostKeys, SshAlgorithmOffer offer, ISshRandomSource randomSource, SshReExchangeLimits reExchangeLimits)
     {
         ArgumentNullException.ThrowIfNull(hostKeys);
         ArgumentNullException.ThrowIfNull(offer);
@@ -72,6 +102,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
         this.hostKeys = hostKeys;
         this.offer = offer;
         this.randomSource = randomSource;
+        this.reExchangeLimits = reExchangeLimits;
     }
 
     /// <summary>
@@ -92,16 +123,11 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
 
         using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
+        var transport = new SshTransportHandshake(connection, context, offer, hostKeys, randomSource, reExchangeLimits);
         try
         {
-            var keys = await new SshTransportHandshake(connection, context, offer, hostKeys, randomSource).RunAsync(cancellation.Token);
-
-            // BL-161 protects packets with the keys; until then the connection ends after NEWKEYS.
-            throw new SshDisconnectRequiredException(
-                SshDisconnectReason.ByApplication,
-                "Packet protection not implemented",
-                $"The SSH packet protection {keys.Algorithms.CipherClientToServer}/{keys.Algorithms.CipherServerToClient} "
-                + "is not built yet; the connection was ended after NEWKEYS.");
+            await transport.RunAsync(cancellation.Token);
+            await AnswerTransportMessagesAsync(transport, cancellation.Token);
         }
         catch (SshExchangeEndedException ended) when (ended.Note is not null)
         {
@@ -113,7 +139,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
         catch (SshDisconnectRequiredException refusal)
         {
             context.Log.Note(refusal.Message);
-            await WriteDisconnectAsync(connection, context, refusal);
+            await WriteDisconnectAsync(connection, transport.PacketWriter, context, refusal);
         }
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
         {
@@ -121,16 +147,65 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
         }
     }
 
-    // The DISCONNECT gets one second to be written, and then writes are completed; a peer
-    // that does not read it in time is closed all the same (ADR-0006, section 5).
-    private async Task WriteDisconnectAsync(IConnection connection, ExchangeContext context, SshDisconnectRequiredException refusal)
+    // Reads the client's messages after the first key exchange until the client closes the
+    // connection or sends a DISCONNECT, and starts a re-exchange between two of them once one is due.
+    private static async Task AnswerTransportMessagesAsync(SshTransportHandshake transport, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            if (transport.ReExchangeIsDue)
+            {
+                await transport.ReExchangeAsync(null, cancellationToken);
+            }
+
+            byte[] payload;
+            try
+            {
+                payload = await transport.ReadMessageAsync(cancellationToken);
+            }
+            catch (SshExchangeEndedException ended) when (ended.Note is null)
+            {
+                return;
+            }
+
+            await AnswerTransportMessageAsync(transport, payload, cancellationToken);
+        }
+    }
+
+    private static async Task AnswerTransportMessageAsync(SshTransportHandshake transport, byte[] payload, CancellationToken cancellationToken)
+    {
+        switch (payload[0])
+        {
+            case SshMessageNumber.Ignore or SshMessageNumber.Debug or SshMessageNumber.Unimplemented:
+                return;
+            case SshMessageNumber.KeyExchangeInit:
+                await transport.ReExchangeAsync(payload, cancellationToken);
+                return;
+            case SshMessageNumber.ServiceRequest:
+                throw new SshDisconnectRequiredException(
+                    SshDisconnectReason.ByApplication,
+                    "User authentication not implemented",
+                    "The client asked for an SSH service, and user authentication is not built yet; the connection was ended.");
+            default:
+                var unimplemented = new SshWireWriter();
+                unimplemented.WriteByte(SshMessageNumber.Unimplemented);
+                unimplemented.WriteUInt32(unchecked(transport.PacketReader!.SequenceNumber - 1));
+                await transport.WriteAsync(unimplemented.ToArray(), cancellationToken);
+                return;
+        }
+    }
+
+    // The DISCONNECT gets one second to be written, sealed with the server's keys in force, and
+    // then writes are completed; a peer that does not read it in time is closed all the same
+    // (ADR-0006, section 5).
+    private static async Task WriteDisconnectAsync(IConnection connection, SshPacketWriter packetWriter, ExchangeContext context, SshDisconnectRequiredException refusal)
     {
         context.Log.Note($"SSH disconnect sent: {(uint)refusal.Reason} {refusal.Description}");
         using var deadline = new CancellationTokenSource(DisconnectWriteDeadline, context.TimeProvider);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, deadline.Token);
         try
         {
-            await new SshPacketWriter(connection, randomSource).WriteAsync(DisconnectPayload(refusal), cancellation.Token);
+            await packetWriter.WriteAsync(DisconnectPayload(refusal), cancellation.Token);
             await connection.CompleteWritesAsync(cancellation.Token);
         }
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)

@@ -3,15 +3,16 @@ using System.Buffers.Binary;
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
-/// Reads unencrypted binary packets (RFC 4253, section 6) from the client, one after another,
-/// and hands back each packet's payload.
+/// Reads binary packets (RFC 4253, section 6) from the client, one after another, opens each
+/// with the <see cref="Protection"/> in force, and hands back each packet's payload.
 /// </summary>
 /// <remarks>
-/// Before a cipher is agreed the block size is 8. A packet whose <c>packet_length</c> plus 4
-/// is over the packet limit, or is not a multiple of the block size, is refused from its
-/// length field alone, before any of its body is read (ADR-0006 sections 1 and 5, ADR-0051
-/// decision 9); so is one that leaves fewer than 4 padding bytes or no payload, once read.
-/// Each is <c>DISCONNECT</c> 2. It is not safe for concurrent calls.
+/// A packet whose <c>packet_length</c> plus 4 is over the packet limit, is 0, or is not a
+/// multiple of the protection's block size (<c>packet_length</c> alone beside an encrypt-then-MAC
+/// MAC or an AEAD cipher) is refused from its length field alone, before the rest of it is read
+/// (ADR-0006 sections 1 and 5, ADR-0051 decision 9); so is one that leaves fewer than 4 padding
+/// bytes or no payload, once read. Each is <c>DISCONNECT</c> 2; a MAC or tag that does not verify
+/// is <c>DISCONNECT</c> 5. It is not safe for concurrent calls.
 /// </remarks>
 /// <param name="reader">The buffered reader over the connection.</param>
 /// <param name="maxPacketBytes">The most bytes a packet may hold, its length field included; 0 means no limit.</param>
@@ -43,12 +44,34 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
     public bool RefusesSequenceWrap { get; set; }
 
     /// <summary>
+    /// How the client's packets are protected: <see cref="SshPacketProtection.None"/> until the
+    /// first <c>NEWKEYS</c> is read.
+    /// </summary>
+    public SshPacketProtection Protection { get; private set; } = SshPacketProtection.None;
+
+    /// <summary>
+    /// How many bytes have been read, MACs and tags included, since <see cref="Protection"/> was last set.
+    /// </summary>
+    public long BytesSinceNewKeys { get; private set; }
+
+    /// <summary>
+    /// Opens every later packet with <paramref name="protection"/>, as the client's <c>NEWKEYS</c>
+    /// says, and counts <see cref="BytesSinceNewKeys"/> from 0.
+    /// </summary>
+    /// <param name="protection">The client-to-server protection just keyed.</param>
+    public void UseProtection(SshPacketProtection protection)
+    {
+        Protection = protection;
+        BytesSinceNewKeys = 0;
+    }
+
+    /// <summary>
     /// Reads the next packet.
     /// </summary>
     /// <param name="cancellationToken">Cuts the read off.</param>
     /// <returns>The payload, message number first.</returns>
     /// <exception cref="SshExchangeEndedException">The client closed the connection, between packets or part way through one.</exception>
-    /// <exception cref="SshDisconnectRequiredException">The packet is refused: <c>DISCONNECT</c> 2.</exception>
+    /// <exception cref="SshDisconnectRequiredException">The packet is refused: <c>DISCONNECT</c> 2, or 5 for its MAC.</exception>
     public async ValueTask<byte[]> ReadPayloadAsync(CancellationToken cancellationToken)
     {
         var firstByte = await reader.ReadByteAsync(cancellationToken);
@@ -57,11 +80,13 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
             throw new SshExchangeEndedException(null);
         }
 
-        var lengthField = await ReadOrEndAsync(LengthFieldBytes - 1, cancellationToken);
-        var packetLength = ((uint)firstByte << 24) | (uint)(lengthField[0] << 16) | BinaryPrimitives.ReadUInt16BigEndian(lengthField.AsSpan(1));
+        byte[] head = [(byte)firstByte, .. await ReadOrEndAsync(Protection.HeadLength - 1, cancellationToken)];
+        var plainHead = Protection.OpenHead(head);
+        var packetLength = BinaryPrimitives.ReadUInt32BigEndian(plainHead);
         RefuseBadLength(packetLength);
 
-        var body = await ReadOrEndAsync((int)packetLength, cancellationToken);
+        var rest = await ReadOrEndAsync((int)packetLength + LengthFieldBytes - head.Length + Protection.TagLength, cancellationToken);
+        var body = Protection.OpenBody(SequenceNumber, plainHead, rest);
         var paddingLength = body[0];
         var payloadLength = body.Length - 1 - paddingLength;
         if (paddingLength < MinPaddingBytes || payloadLength < 1)
@@ -70,12 +95,12 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
                 $"An SSH packet of {packetLength} bytes announced {paddingLength} padding bytes: fewer than {MinPaddingBytes}, or no room for a message.");
         }
 
-        CountPacket();
+        CountPacket(head.Length + rest.Length);
 
         return body[1..(1 + payloadLength)];
     }
 
-    private void CountPacket()
+    private void CountPacket(int bytesRead)
     {
         if (SequenceNumber == uint.MaxValue && RefusesSequenceWrap)
         {
@@ -84,12 +109,14 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
         }
 
         SequenceNumber = unchecked(SequenceNumber + 1);
+        BytesSinceNewKeys += bytesRead;
     }
 
     private void RefuseBadLength(uint packetLength)
     {
-        // With no limit set, a packet still has to fit in one array.
-        var limit = maxPacketBytes > 0 ? Math.Min(maxPacketBytes, Array.MaxLength) : Array.MaxLength;
+        // With no limit set, a packet and its MAC still have to fit in one array.
+        var arrayLimit = Array.MaxLength - Protection.TagLength;
+        var limit = maxPacketBytes > 0 ? Math.Min(maxPacketBytes, arrayLimit) : arrayLimit;
         var wholeLength = packetLength + (long)LengthFieldBytes;
         if (wholeLength > limit)
         {
@@ -97,10 +124,16 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
                 $"An SSH packet announced {wholeLength} bytes, over the {limit}-byte packet limit.");
         }
 
-        if (wholeLength % BlockSize != 0)
+        var alignedLength = Protection.AlignsLength ? wholeLength : packetLength;
+        if (alignedLength % Protection.BlockSize != 0)
         {
             throw SshDisconnectRequiredException.ProtocolError(
-                $"An SSH packet announced {wholeLength} bytes, not a multiple of the {BlockSize}-byte block size.");
+                $"An SSH packet announced {wholeLength} bytes, not a multiple of the {Protection.BlockSize}-byte block size.");
+        }
+
+        if (packetLength == 0)
+        {
+            throw SshDisconnectRequiredException.ProtocolError("An SSH packet announced no bytes after its length field.");
         }
     }
 

@@ -12,6 +12,9 @@ internal enum SshDisconnectReason : uint
     /// <summary><c>SSH_DISCONNECT_KEY_EXCHANGE_FAILED</c>: no algorithm in common.</summary>
     KeyExchangeFailed = 3,
 
+    /// <summary><c>SSH_DISCONNECT_MAC_ERROR</c>: a MAC or AEAD tag that does not verify.</summary>
+    MacError = 5,
+
     /// <summary><c>SSH_DISCONNECT_PROTOCOL_VERSION_NOT_SUPPORTED</c>: a bad identification line.</summary>
     ProtocolVersionNotSupported = 8,
 

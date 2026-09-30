@@ -96,8 +96,21 @@ internal static class SshTestExchange
         string cipher = "chacha20-poly1305@openssh.com",
         string mac = "hmac-sha2-256",
         string compression = "none",
-        bool firstKexPacketFollows = false) =>
-        KexInitPayload(firstKexPacketFollows, keyExchange, hostKey, cipher, cipher, mac, mac, compression, compression, string.Empty, string.Empty);
+        bool firstKexPacketFollows = false,
+        string? cipherServerToClient = null,
+        string? macServerToClient = null) =>
+        KexInitPayload(
+            firstKexPacketFollows,
+            keyExchange,
+            hostKey,
+            cipher,
+            cipherServerToClient ?? cipher,
+            mac,
+            macServerToClient ?? mac,
+            compression,
+            compression,
+            string.Empty,
+            string.Empty);
 
     public static byte[] DisconnectPacket(uint reason, string description) =>
         Packet(Concat([1], UInt32(reason), String(description), String(string.Empty)));

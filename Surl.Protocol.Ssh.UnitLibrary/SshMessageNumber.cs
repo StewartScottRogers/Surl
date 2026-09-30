@@ -17,6 +17,9 @@ internal static class SshMessageNumber
     /// <summary><c>SSH_MSG_DEBUG</c>.</summary>
     public const byte Debug = 4;
 
+    /// <summary><c>SSH_MSG_SERVICE_REQUEST</c>.</summary>
+    public const byte ServiceRequest = 5;
+
     /// <summary><c>SSH_MSG_KEXINIT</c>.</summary>
     public const byte KeyExchangeInit = 20;
 
