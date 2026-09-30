@@ -46,3 +46,4 @@ Found by BL-213's alignment pass (2026-09-30); outside BL-213's `touches`, so fi
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
