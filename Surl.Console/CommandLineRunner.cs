@@ -17,6 +17,7 @@ using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
 using Surl.Protocol.Imap;
 using Surl.Protocol.Mqtt;
+using Surl.Protocol.Pop3;
 using Surl.Protocol.Smtp;
 using Surl.Protocol.Ssh;
 using Surl.Protocol.Telnet;
@@ -389,13 +390,13 @@ internal sealed class CommandLineRunner(
 
     // Every protocol server surl registers, over TCP or (TFTP) UDP; those that serve files serve
     // the one content store, the MQTT server keeps its retained messages in the store it is
-    // given, the SMTP server delivers into the one mail store and the IMAP server serves it.
-    // https, smtps and imaps are the HTTP, SMTP and IMAP servers themselves, over a connection
-    // the engine has secured (ADR-0020, ADR-0053 decision 5, ADR-0055 decision 11). The FTP
-    // server answers ftp and, TLS from the first byte, ftps itself (ADR-0052 decision 5). The
-    // HTTP, MQTT, SMTP, IMAP, FTP and SSH servers, the ones with a login, judge it by the one
-    // policy (ADR-0032); SMTP and IMAP offer STARTTLS and FTP AUTH TLS only when a certificate
-    // is configured. The SSH server answers scp and sftp with its host keys and
+    // given, the SMTP server delivers into the one mail store and the IMAP and POP3 servers
+    // serve it. https, smtps, imaps and pop3s are the HTTP, SMTP, IMAP and POP3 servers
+    // themselves, over a connection the engine has secured (ADR-0020, ADR-0053 decision 5,
+    // ADR-0055 decision 11, ADR-0056 decision 8). The FTP server answers ftp and, TLS from the
+    // first byte, ftps itself (ADR-0052 decision 5). The HTTP, MQTT, SMTP, IMAP, POP3, FTP and
+    // SSH servers, the ones with a login, judge it by the one policy (ADR-0032); SMTP and IMAP
+    // offer STARTTLS, POP3 STLS and FTP AUTH TLS only when a certificate is configured. The SSH server answers scp and sftp with its host keys and
     // offers ADR-0051 decision 2's default algorithms for them (ADR-0051 decision 13).
     private static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
@@ -407,6 +408,7 @@ internal sealed class CommandLineRunner(
         var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
         var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
         var imapServer = new ImapProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
+        var pop3Server = new Pop3ProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
 
         return
         [
@@ -418,6 +420,8 @@ internal sealed class CommandLineRunner(
             imapServer,
             new ImplicitTlsSchemeServer(imapServer, "imaps"),
             new MqttProtocolServer(serviceState.RetainedMessages, authenticationPolicy),
+            pop3Server,
+            new ImplicitTlsSchemeServer(pop3Server, "pop3s"),
             smtpServer,
             new ImplicitTlsSchemeServer(smtpServer, "smtps"),
             new SshProtocolServer(

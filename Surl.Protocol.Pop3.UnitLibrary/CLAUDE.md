@@ -34,8 +34,11 @@ opens, the greeting carries a timestamp `<16 hex digits.unix seconds@surl>` from
 `ISaslExchange` (`+ ` continuations, base64, `=`, `*`); bare `AUTH` lists the offered mechanisms.
 `pop3s` is implicit TLS told apart by `connection.TlsSession`; the server claims only `pop3`.
 
-Intent, not yet built: the `pop3s` registration through `ImplicitTlsSchemeServer` and the
-composition in `Surl.Console` (BL-209).
+Built (BL-209, ADR-0056 decisions 8 and 11): `Surl.Console` registers the server for `pop3` and,
+through `ImplicitTlsSchemeServer`, `pop3s`, with the policy as both its authentication policies,
+`isStlsAvailable` set when `--cert` or `--self-signed` is given, and the same `MailboxStore`
+instance the SMTP and IMAP servers use, so mail delivered over `smtp` is retrieved over `pop3` in
+the same run. `Surl.Cli` has its `pop3` help category and `--aihelp pop3` topic and example.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing

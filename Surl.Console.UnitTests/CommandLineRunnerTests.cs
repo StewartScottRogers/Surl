@@ -78,7 +78,7 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public async Task RunAsync_Version_WritesVersionWithEveryRegisteredSchemeFtpImapScpAndSftpIncludedAndReturnsOk()
+    public async Task RunAsync_Version_WritesVersionWithEveryRegisteredSchemeFtpImapPop3ScpAndSftpIncludedAndReturnsOk()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
@@ -86,8 +86,8 @@ public sealed class CommandLineRunnerTests
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "mqtt", "mqtts", "scp", "sftp", "smtp", "smtps", "telnet", "tftp"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps mqtt mqtts scp sftp smtp smtps telnet tftp" + NewLine);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "mqtt", "mqtts", "pop3", "pop3s", "scp", "sftp", "smtp", "smtps", "telnet", "tftp"]), output);
+        StringAssert.EndsWith(output, NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps mqtt mqtts pop3 pop3s scp sftp smtp smtps telnet tftp" + NewLine);
         Assert.AreEqual(string.Empty, error);
     }
 
