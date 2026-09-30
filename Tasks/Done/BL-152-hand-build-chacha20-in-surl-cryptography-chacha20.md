@@ -8,7 +8,7 @@ depends-on: [BL-149]
 touches: [Surl.Cryptography.ChaCha20.UnitLibrary, Surl.Cryptography.ChaCha20.UnitTests]
 requirement: FR-039
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-152 — Hand-build ChaCha20 in Surl.Cryptography.ChaCha20
 
@@ -34,20 +34,36 @@ that cipher.
 
 ## Acceptance criteria
 
-- [ ] Tests pass RFC 8439 section 2.1.1 (quarter round), 2.2.1 (block function), 2.4.2
+- [x] Tests pass RFC 8439 section 2.1.1 (quarter round), 2.2.1 (block function), 2.4.2
       (encryption of the "sunscreen" plaintext) and the Appendix A.1 and A.2 vectors; each
       expected value copied from the RFC and cited beside it.
-- [ ] Tests pass at least two published vectors for the 64-bit-nonce form with a non-zero
+- [x] Tests pass at least two published vectors for the 64-bit-nonce form with a non-zero
       nonce (for example from draft-strombergson-chacha-test-vectors or from D. J.
       Bernstein's ChaCha reference), the source named beside each.
-- [ ] A test shows the counter-wrap behaviour stated in the XML doc.
-- [ ] `dotnet build Surl.Cryptography.ChaCha20.UnitLibrary -warnaserror` is clean; the fast
+- [x] A test shows the counter-wrap behaviour stated in the XML doc.
+- [x] `dotnet build Surl.Cryptography.ChaCha20.UnitLibrary -warnaserror` is clean; the fast
       tests pass; `Measure-CodeQuality.ps1 -Library Surl.Cryptography.ChaCha20.UnitLibrary`
       reports 100% line and branch coverage and no failing member.
 
 ## Notes
 
+- Shape (decided, within BL-148/ADR-0048's scope, so no new ADR): one method per form
+  rather than dispatching on nonce length, so the counter's type states its width -
+  `ComputeBlock`/`ApplyKeyStream` take a 12-byte nonce and a `uint` counter,
+  `ComputeOriginalBlock`/`ApplyOriginalKeyStream` an 8-byte nonce and a `ulong` counter.
+  Both run through one private keystream routine. The code is adapted from the Curl
+  port's `ChaCha20.cs` (code only, ADR-0003).
+- Counter wrap: never wraps. A call whose last block would pass `uint.MaxValue` (RFC form)
+  or `ulong.MaxValue` (original form) throws `ArgumentOutOfRangeException` before writing;
+  a block at the largest counter is allowed. Wrong span lengths throw `ArgumentException`.
+- Every expected value was checked against the published text, not the port's tests:
+  RFC 8439 downloaded from rfc-editor.org, and draft-strombergson-chacha-test-vectors-01
+  from datatracker.ietf.org (TC7 and TC8, 256-bit key, 20 rounds, keystream blocks 0 and 1).
+- `Measure-CodeQuality.ps1 -Library Surl.Cryptography.ChaCha20.UnitLibrary`: line 100%,
+  branch 100%, 13 members, 0 failing, worst CRAP 4. 32 tests.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ChaCha20 computes RFC 8439 and original 64-bit-nonce blocks and keystreams, pinned to RFC 8439 and Strombergson vectors
