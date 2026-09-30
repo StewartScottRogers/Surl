@@ -44,3 +44,4 @@ messages the client sent before it saw the server's `KEXINIT` are handled rather
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
