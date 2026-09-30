@@ -46,7 +46,11 @@ namespace Surl.Protocol.Smtp;
 /// <see cref="MailboxStore.LookUpRecipient"/> says; a path with no domain is read as naming
 /// surl's own. A recipient that names no account is answered as one that does, and its copy is
 /// discarded. The stored message is <c>Return-Path</c> and <c>Received</c> trace fields, then the
-/// body as unstuffed, and <c>--max-filesize</c> bounds the whole.
+/// body as unstuffed, streamed as it is read into a <see cref="PendingMessage"/> - the store's
+/// pending file - and <c>--max-filesize</c> bounds the whole. A message the store refuses is
+/// answered <c>452 4.3.1</c> when the store is full, <c>552</c> when it is too large, and
+/// <c>451 4.3.0 Local error in processing</c> when its file cannot be written, the reason in a
+/// note; nothing is stored and the session goes on.
 /// </para>
 /// <para>
 /// <b>Limits.</b> A command line longer than <see cref="ExchangeLimits.MaxLineBytes"/> is

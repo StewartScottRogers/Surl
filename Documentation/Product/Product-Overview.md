@@ -218,8 +218,9 @@ The terms below are defined in the [glossary](../Wiki/Glossary.md), section "Mai
   `Return-Path` and a `Received` trace field in the `INBOX` of every recipient whose local part
   names an account, a recipient that names none answered alike and its copy discarded; `VRFY`
   and `EXPN` answered `252` whatever is asked. `MAIL` needs a login unless `--allow-anonymous`
-  is given. The body is held in memory up to `--max-filesize` (`SmtpMessageBodyBuffer`) and
-  handed to the store whole.
+  is given. The body streams into a pending message (a pending file with a data directory) as
+  it is read, bounded by `--max-filesize`, and a message file that cannot be written is
+  answered `451 4.3.0`.
 - **IMAP** (`Surl.Protocol.Imap`,
   [ADR-0055](../Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md)):
   IMAP4rev1 with `SASL-IR`, `UIDPLUS`, `UNSELECT`, `NAMESPACE`, `CHILDREN`, `ID`, `MOVE` and

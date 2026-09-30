@@ -8,7 +8,9 @@ namespace Surl.Protocol.Smtp;
 
 /// <summary>
 /// One SMTP connection's session (ADR-0053): the greeting, then every command line answered in
-/// order until <c>QUIT</c>, the peer's close, or a limit.
+/// order until <c>QUIT</c>, the peer's close, or a limit. A <c>DATA</c> body streams, after its
+/// trace fields, into a <see cref="PendingMessage"/> that is delivered or deleted, and a message
+/// file that cannot be written is answered <c>451 4.3.0 Local error in processing</c>.
 /// </summary>
 internal sealed class SmtpSession
 {
@@ -260,44 +262,43 @@ internal sealed class SmtpSession
             : await ReplyAsync(SmtpReplies.SendRecipientFirst);
     }
 
+    // The trace fields, then the body as it is unstuffed, are streamed into a pending message;
+    // every path that does not deliver it deletes its pending file (ADR-0050, decision 7).
     private async ValueTask<bool> ReceiveMessageAsync(SmtpMailTransaction accepted)
     {
         transaction = null;
         var traceFields = SmtpTraceFields.Build(accepted.ReversePath, heloDomain!, connection.RemoteEndPoint, ReceivedProtocol, context.TimeProvider.GetUtcNow());
         await WriteLineAsync(SmtpReplies.StartData, CancellationToken);
 
-        var maxUploadBytes = context.Limits.MaxUploadBytes;
-        await using var body = new SmtpMessageBodyBuffer(maxUploadBytes == 0 ? long.MaxValue : maxUploadBytes - traceFields.Length);
-        var read = await reader.ReadDotStuffedBodyAsync(body, CancellationToken);
+        using var pending = mailStore.CreatePendingMessage();
+        await pending.Body.WriteAsync(traceFields, CancellationToken);
+        var read = await reader.ReadDotStuffedBodyAsync(pending.Body, CancellationToken);
         if (read.Outcome == DotStuffedBodyReadOutcome.Closed)
         {
             context.Log.Note("The client closed the connection part way through a message; nothing was stored.");
             return false;
         }
 
-        if (read.Outcome == DotStuffedBodyReadOutcome.BodyTooLarge || body.IsPastBudget)
+        if (read.Outcome == DotStuffedBodyReadOutcome.BodyTooLarge || IsPastMaxFilesize(pending.Length))
         {
-            context.Log.Note($"Message refused: past --max-filesize after {body.ReceivedBytes} bytes");
+            context.Log.Note($"Message refused: past --max-filesize after {read.BytesWritten} bytes");
             await WriteLimitReplyAsync(SmtpReplies.MessageTooLarge);
             return false;
         }
 
-        return await ReplyAsync(await DeliverAsync(accepted, [.. traceFields, .. body.ToArray()]));
+        return await ReplyAsync(await DeliverAsync(accepted, pending));
     }
 
-    private async ValueTask<string> DeliverAsync(SmtpMailTransaction accepted, byte[] message)
+    // --max-filesize bounds the trace fields and the body together; 0 is no limit (ADR-0053, decision 6).
+    private bool IsPastMaxFilesize(long messageBytes) =>
+        context.Limits.MaxUploadBytes > 0 && messageBytes > context.Limits.MaxUploadBytes;
+
+    private async ValueTask<string> DeliverAsync(SmtpMailTransaction accepted, PendingMessage message)
     {
         var outcome = mailStore.Deliver(accepted.Deliverable, message);
-        if (outcome == MailStoreOutcome.StoreFull)
+        if (outcome != MailStoreOutcome.Succeeded)
         {
-            context.Log.Note("Message refused: the mail store is full");
-            return SmtpReplies.StoreFull;
-        }
-
-        if (outcome == MailStoreOutcome.MessageTooLarge)
-        {
-            context.Log.Note($"Message refused: past --max-filesize after {message.Length} bytes");
-            return SmtpReplies.MessageTooLarge;
+            return RefuseMessage(outcome, message);
         }
 
         foreach (var path in accepted.Discarded)
@@ -310,7 +311,22 @@ internal sealed class SmtpSession
         return SmtpReplies.MessageAccepted;
     }
 
-    // A store that cannot be written keeps the message in memory; the next save writes it (ADR-0050, decision 7).
+    // A refused message stores nothing and the session goes on; a pending file that could not be
+    // written is answered 451, its reason in a note and never in the reply (ADR-0053, decision 6).
+    private string RefuseMessage(MailStoreOutcome outcome, PendingMessage message)
+    {
+        var (note, reply) = outcome switch
+        {
+            MailStoreOutcome.StoreFull => ("Message refused: the mail store is full", SmtpReplies.StoreFull),
+            MailStoreOutcome.MessageTooLarge => ($"Message refused: past --max-filesize after {message.Length} bytes", SmtpReplies.MessageTooLarge),
+            _ => ($"Mail store: {message.StorageFailure}", SmtpReplies.StorageFailed),
+        };
+        context.Log.Note(note);
+        return reply;
+    }
+
+    // The message file is in place already; an index that cannot be written keeps the change in
+    // memory, and the next save writes it (ADR-0050, decision 7).
     private async Task SaveMailStoreAsync()
     {
         try

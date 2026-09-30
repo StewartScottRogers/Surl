@@ -39,10 +39,15 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
 - Mail (decisions 4 and 6): `SmtpPathArgument` and `SmtpMailParameters` read `MAIL FROM` and
   `RCPT TO`; `SmtpMailTransaction` keeps up to `MaxRecipients` (100) recipients, each looked up
   with `MailboxStore.LookUpRecipient`, one that names no account discarded at delivery.
-  `DATA` is unstuffed by `CrlfLineReader.ReadDotStuffedBodyAsync` into `SmtpMessageBodyBuffer`,
-  which holds the body in memory up to `--max-filesize` less the trace fields' length; the
-  message, `SmtpTraceFields` then the body, goes to `MailboxStore.Deliver` whole, and
-  `SaveChangesAsync` writes it. It does not stream into a `PendingMessage`.
+  `DATA` streams into a `PendingMessage` from `MailboxStore.CreatePendingMessage`: first
+  `SmtpTraceFields`, then the body as `CrlfLineReader.ReadDotStuffedBodyAsync` unstuffs it, so
+  with a data directory the message goes straight into the store's pending file. A message past
+  `--max-filesize` (trace fields and body together) or a peer that closes mid-body disposes it,
+  deleting the pending file; otherwise `MailboxStore.Deliver(..., PendingMessage)` stores it
+  and `SaveChangesAsync` writes the index. `StoreFull` is answered `452 4.3.1`,
+  `MessageTooLarge` `552 5.3.4`, and `StorageFailed` `451 4.3.0 Local error in processing` with
+  `Mail store: <reason>` noted; each stores nothing and the session goes on. An index save
+  that throws after a delivered message is noted and still answered `250`.
 - `STARTTLS` (decision 5): `220`, then `CrlfLineReader.DiscardBuffered`, then
   `IConnection.UpgradeToTlsAsync`, and the session starts over; `454` without a certificate,
   `503` on a TLS connection.
