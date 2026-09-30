@@ -46,3 +46,4 @@ says Phase 3 is still to come.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-30: Backlog -> Doing.
