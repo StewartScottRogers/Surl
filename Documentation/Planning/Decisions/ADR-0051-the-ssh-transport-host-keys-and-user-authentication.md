@@ -14,7 +14,8 @@
 - **Amended by:** [ADR-0058](ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
   the key exchange and host-key reading choices BL-160 made where decisions 2.1, 4 and 9 are silent;
   [ADR-0060](ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md),
-  which replaces decision 2.2's fifth choice (BL-237).
+  which replaces decision 2.2's fifth choice (BL-237); and Amendment 1 below, the choices BL-171
+  made composing the SSH server in `Surl.Console`.
 
 ## Context
 
@@ -731,3 +732,43 @@ memberships.
 - Fixtures: this task's `touches` do not include `Surl.Protocol.Ssh.UnitTests`, so the
   recordings live above as hex; BL-159 turns runs D and F into fixtures under
   `Surl.Protocol.Ssh.UnitTests/Fixtures/`, re-recorded with the same command lines.
+
+## Amendment 1 - How `Surl.Console` composes the SSH server (BL-171, recorded by BL-249, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-171 (FR-041), and recorded here by BL-249 because this folder was outside BL-171's `touches`.
+The code is `Surl.Console/SshHostKeyComposition.cs` and `Surl.Console/CommandLineRunner.cs`.
+
+1. **The host-key note carries the `* ` prefix, and is written only when SSH is served.** Decision
+   8's note is written `* Serving SSH host key <key type>, --hostpubsha256 <base64> --hostpubmd5 <hex>`
+   (`SshHostKeyComposition.FormatHostKeyNote`), one per served key, from `-v` up, and only when an
+   `scp` or `sftp` listen URL is served (`SshHostKeyComposition.WriteStartLines`), though
+   `--hostkey` files are read whenever given (decision 4). Why: every verbose note surl writes
+   starts `* ` ([ADR-0033](ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md)), as
+   [ADR-0020](ADR-0020-how-surl-composes-https.md) decision 4 wrote the throwaway-certificate note
+   [ADR-0010](ADR-0010-the-server-side-tls-contract.md) gave without it; and a key no listener
+   serves is not being served, so naming it would say something false.
+2. **`--allow-weak-ssh-algorithms` stays refused until BL-250.** A start that gives it still ends
+   `FailedInit`, `surl: (2) --allow-weak-ssh-algorithms is not available in this build`, beside
+   `--hostcert` (until BL-222, decision 5), from `CommandLineRunner.FindUnavailableOption`. Why:
+   BL-221, which makes the server offer the weak algorithms, was not done when BL-171 was built,
+   and decision 11's warning would then claim algorithms the server does not offer. BL-250 lifts
+   the refusal and writes the warning; the host-key reader already receives the option.
+3. **The start's refusal order.** After an option this build does not serve and the data
+   directory check, the listen URLs are refused in this order: a scheme no server answers (1), a
+   URL TLS from the first byte with no certificate (58, ADR-0032 section 10), then an `scp` or
+   `sftp` URL with no host key (2, decision 4) (`CommandLineRunner.FindListenUrlRefusal`). Only
+   then are files read: the `--user-file`, then each `--authorized-keys` file
+   (`AuthenticationComposition.Compose`), then each `--hostkey` file
+   (`SshHostKeyComposition.Compose`), all before the data-directory lock is taken and any listener
+   binds. Why: a refusal that needs only the command line comes before any file is read, so the
+   operator's first error is the cheapest to fix; the missing host key follows the missing
+   certificate because both say a listen URL lacks what it needs to prove itself, and the TLS one
+   was there first; and the files are read in the order the accounts they describe are built -
+   accounts, their keys, then the server's own keys.
+4. **The `ssh` category and topic also hold `--directory` and `--pass`.** Besides decision 5's
+   options and the existing options the task named, `--directory` (the SSH server serves the
+   content store) and `--pass` (it decrypts encrypted `--hostkey` files) are in the `ssh` category
+   (`CommandLineOptions`), and so on its `--help` page and `--aihelp` topic. Why: ADR-0034
+   decision 1 puts in a category every option the protocol server reads, and the SSH server reads
+   both.

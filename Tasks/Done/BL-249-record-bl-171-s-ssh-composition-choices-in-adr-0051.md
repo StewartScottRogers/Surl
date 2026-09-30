@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-041
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-249 — Record BL-171's SSH composition choices in ADR-0051
 
@@ -35,12 +35,20 @@ wording, each marked "Decided by Claude under Stewart's delegation".
 
 ## Acceptance criteria
 
-- [ ] ADR-0051 has a section recording the four choices above, each with its reason and marked
+- [x] ADR-0051 has a section recording the four choices above, each with its reason and marked
       "Decided by Claude under Stewart's delegation", and every statement is true of the code.
 
 ## Notes
+
+- Done directly rather than through align-and-document: one ADR section, every statement checked
+  against `SshHostKeyComposition.cs`, `CommandLineRunner.cs`, `AuthenticationComposition.cs` and
+  `CommandLineOptions.cs` as they are now. BL-250 is still in Backlog, so choice 2 is still true.
+- Written as "Amendment 1" at the end of ADR-0051, after ADR-0049's amendment form, and linked
+  from the header's "Amended by" line. Choice 3 also names the refusals before the listen-URL
+  checks (unavailable option, data directory), which the code does first.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0051 Amendment 1 records BL-171's four SSH composition choices
