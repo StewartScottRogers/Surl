@@ -8,8 +8,8 @@ does (`-t` sets curl's side), then carries the session.
 **URL schemes answered:** `telnet`
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
-the horizontal libraries ADR-0002 lists (`Surl.Content.UnitLibrary`,
-`Surl.Cryptography.UnitLibrary`) - nothing else. Referencing another protocol server is a
+the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
+else. Referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener`

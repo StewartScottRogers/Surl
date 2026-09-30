@@ -27,8 +27,8 @@ these additions specific to a protocol server:
    live client means the seam is wrong, so report it instead of tagging around it.
 
 4. `protocol-implementer` writes the server. It references
-   `Surl.Protocol.Abstractions.UnitLibrary` and the horizontal libraries ADR-0002 lists,
-   and nothing else. A need for another protocol server's code is a stop-and-report, not
+   `Surl.Protocol.Abstractions.UnitLibrary` and the horizontal libraries in ADR-0002
+   decision 3's table, as later ADRs amend it, and nothing else. A need for another protocol server's code is a stop-and-report, not
    a project reference.
 
 5. `conformance-auditor` is mandatory here, not optional: a protocol server is not done

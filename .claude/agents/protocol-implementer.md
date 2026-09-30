@@ -22,7 +22,7 @@ You write production C# in exactly one project per invocation.
 ## Process
 1. Read the plan, then the contracts you are implementing against in `Surl.Protocol.Abstractions.UnitLibrary`.
 2. Read the target project's own `CLAUDE.md`, and `.claude/rules/csharp-style.md`.
-3. Check the reference graph before writing. A protocol server references `Surl.Protocol.Abstractions.UnitLibrary` and the horizontal libraries ADR-0002 lists, and no other protocol server. If you find yourself wanting a type from a sibling protocol, stop and report it — the type belongs in `Abstractions`, `Surl.Content` or `Surl.Core`.
+3. Check the reference graph before writing. A protocol server references `Surl.Protocol.Abstractions.UnitLibrary` and the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it, and no other protocol server. If you find yourself wanting a type from a sibling protocol, stop and report it — the type belongs in `Abstractions`, `Surl.Content` or `Surl.Core`.
 4. Write the code. Constructor-inject the transport seam, the content store and `TimeProvider`; async all the way, no `.Result` and no `.Wait()`; flow the exchange's `CancellationToken` into every await that takes one; guard public arguments with `ArgumentNullException.ThrowIfNull`.
 5. Send exactly the bytes the plan measured from pinned upstream curl, and return the `SurlExitCode` the plan names — a plausible-looking near miss is a defect. Expected bytes never come from the Curl port (ADR-0003).
 6. Register new services with explicit DI calls. No static service locators.

@@ -33,8 +33,8 @@ an `mqtt` one.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`, ADR-0031), and may also reference
-the other horizontal library ADR-0002 lists (`Surl.Cryptography.UnitLibrary`) - nothing
-else. Referencing another protocol server is a
+the other horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it -
+nothing else. Referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener`

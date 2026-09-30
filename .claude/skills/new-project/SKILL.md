@@ -20,7 +20,7 @@ There is no `src/` and no `tests/` — do not create them.
    `dotnet sln Surl.slnx add Surl.<Area>.UnitLibrary Surl.<Area>.UnitTests`
 6. Reference production from test:
    `dotnet add Surl.<Area>.UnitTests reference Surl.<Area>.UnitLibrary`
-7. For a protocol server, also reference the contracts, and nothing else horizontal beyond the libraries ADR-0002 lists:
+7. For a protocol server, also reference the contracts, and nothing else horizontal beyond the libraries in ADR-0002 decision 3's table, as later ADRs amend it (read the table; it is the list):
    `dotnet add Surl.Protocol.<Name>.UnitLibrary reference Surl.Protocol.Abstractions.UnitLibrary`
 8. Strip any `Version` attributes and settings duplicated by `Directory.Build.props` /
    `Directory.Packages.props` (create those at the root if missing).
