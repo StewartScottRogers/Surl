@@ -54,3 +54,4 @@ signatures itself, and writes the login note, so no login succeeds without an ac
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
