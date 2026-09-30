@@ -40,3 +40,4 @@ added, and the root `CLAUDE.md` names it by that name.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
