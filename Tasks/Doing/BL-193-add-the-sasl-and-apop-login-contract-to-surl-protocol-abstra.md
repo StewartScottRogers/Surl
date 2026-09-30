@@ -45,3 +45,4 @@ and `Surl.Authentication` (BL-194 to BL-196) can be built against it.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
