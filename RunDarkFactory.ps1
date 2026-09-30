@@ -2554,6 +2554,9 @@ if ($Restart) {
         $waiting = @($phases.Keys | Where-Object { $phases[$_] -in 'claim', 'integrate' })
         if ($waiting.Count) { Start-Sleep -Seconds 5 }
     }
+    # A lane that finished integrating while we waited has pushed, which leaves this checkout
+    # behind origin; the new shift refuses to start on a branch that differs from origin.
+    git -C $Root pull --ff-only --quiet 2>&1 | Out-Null
     $where = Start-Detached -Label 'DF shift starting' -Dir $Root -ScriptArgs $forward
     Write-Host "New shift started ($(if ($where.Tab) { "herdr tab $($where.Tab)" } else { "pid $($where.Process.Id)" })) with: $($forward -join ' ')"
     exit 0
