@@ -15,10 +15,21 @@ namespace Surl.Authentication;
 /// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection, and <c>PLAIN</c>,
 /// <c>LOGIN</c>, <c>XOAUTH2</c> and <c>OAUTHBEARER</c>, all plain-text, so offered and run only over
 /// TLS or with <c>--allow-plaintext-auth</c>; and POP3 <c>APOP</c> when <c>--auth</c> accepts it.
+/// As the <see cref="ISshAuthenticationPolicy"/> it checks SSH passwords against the accounts,
+/// never refused as plain-text since SSH encrypts first, and public keys against
+/// <see cref="AuthenticationSettings.AuthorizedKeys"/> (ADR-0051, sections 6 and 7).
 /// </summary>
-public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthenticationPolicy
+public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy
 {
     private const string ApopMethod = "APOP";
+
+    private const string SshPublicKeyMethod = "publickey";
+
+    private static readonly SshLoginVerdict SshRefusedUnchecked = new(SshLoginOutcome.Refused, null, null);
+
+    private static readonly SshLoginVerdict SshAcceptedUnchecked = new(SshLoginOutcome.AcceptedUnchecked, null, null);
+
+    private static readonly SshLoginVerdict SshKeyAcceptable = new(SshLoginOutcome.KeyAcceptable, null, null);
 
     private static readonly MailLoginStep RefusedApop =
         new(MailLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null);
@@ -200,6 +211,94 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         return new MailLoginStep(
             MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin(ApopMethod, user, false));
+    }
+
+    /// <summary>
+    /// An SSH <c>none</c> request (ADR-0051, section 6): <see cref="SshLoginOutcome.AcceptedUnchecked"/>
+    /// under <c>--allow-anonymous</c>, otherwise <see cref="SshLoginOutcome.Refused"/>; never
+    /// delayed, never noted.
+    /// </summary>
+    /// <param name="login">The request as the client sent it.</param>
+    /// <returns>Whether the client is logged in without a credential.</returns>
+    public SshLoginVerdict CheckSshNoneLogin(SshNoneLogin login)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+
+        return settings.AllowAnonymous ? SshAcceptedUnchecked : SshRefusedUnchecked;
+    }
+
+    /// <summary>
+    /// An SSH <c>password</c> request or <c>keyboard-interactive</c> answer (ADR-0051, section 6):
+    /// <see cref="SshLoginOutcome.AcceptedUnchecked"/> under <c>--allow-anonymous</c>; otherwise
+    /// checked against the named accounts whatever <c>--allow-plaintext-auth</c> says, and a
+    /// refusal - wrong password, unknown user, no accounts - answered alike after
+    /// <see cref="RefusalDelay"/>. Either way the verdict carries the login note.
+    /// </summary>
+    /// <param name="login">The login as the client sent it.</param>
+    /// <param name="cancellationToken">Cancels the check and the refusal delay.</param>
+    /// <returns>Whether the login is accepted.</returns>
+    public async ValueTask<SshLoginVerdict> CheckSshPasswordLoginAsync(
+        SshPasswordLogin login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (settings.AllowAnonymous)
+        {
+            return SshAcceptedUnchecked;
+        }
+
+        var isAccepted = settings.Accounts.CheckPassword(login.UserName, login.Password.Span);
+
+        return await DecideSshLoginAsync(isAccepted, login.Method, login.UserName, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// An SSH <c>publickey</c> request (ADR-0051, sections 6 and 7). Under <c>--allow-anonymous</c> a
+    /// query is <see cref="SshLoginOutcome.KeyAcceptable"/> and a signed request
+    /// <see cref="SshLoginOutcome.AcceptedUnchecked"/>. Otherwise a query is
+    /// <see cref="SshLoginOutcome.KeyAcceptable"/> when the key is authorized for the user and
+    /// <see cref="SshLoginOutcome.Refused"/> when not, undelayed and unnoted; a signed request is
+    /// accepted only when the server verified its signature and the key is authorized, and refused
+    /// after <see cref="RefusalDelay"/> otherwise, with the login note either way.
+    /// </summary>
+    /// <param name="login">The login as the client sent it, with the server's verdict on its signature.</param>
+    /// <param name="cancellationToken">Cancels the check and the refusal delay.</param>
+    /// <returns>Whether the key is acceptable or the login accepted.</returns>
+    public async ValueTask<SshLoginVerdict> CheckSshPublicKeyLoginAsync(
+        SshPublicKeyLogin login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var isQuery = login.Proof == SshPublicKeyProof.None;
+        if (settings.AllowAnonymous)
+        {
+            return isQuery ? SshKeyAcceptable : SshAcceptedUnchecked;
+        }
+
+        var isAuthorized = settings.AuthorizedKeys.IsAuthorized(login.UserName, login.PublicKeyBlob.Span);
+        if (isQuery)
+        {
+            return isAuthorized ? SshKeyAcceptable : SshRefusedUnchecked;
+        }
+
+        var isAccepted = isAuthorized & login.Proof == SshPublicKeyProof.ValidSignature;
+
+        return await DecideSshLoginAsync(isAccepted, SshPublicKeyMethod, login.UserName, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask<SshLoginVerdict> DecideSshLoginAsync(
+        bool isAccepted, string method, string? userName, CancellationToken cancellationToken)
+    {
+        if (isAccepted)
+        {
+            return new SshLoginVerdict(SshLoginOutcome.Accepted, userName, new CheckedLogin(method, userName, true));
+        }
+
+        await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+
+        return new SshLoginVerdict(SshLoginOutcome.Refused, null, new CheckedLogin(method, userName, false));
     }
 
     internal AuthenticationSettings Settings => settings;

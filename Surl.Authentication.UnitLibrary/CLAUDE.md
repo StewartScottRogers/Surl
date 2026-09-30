@@ -7,17 +7,17 @@ The server side of the authentication schemes upstream curl sends, secure by def
 challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,
 Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, the password check the
 MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`, `XOAUTH2`,
-`OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`) and POP3 `APOP` (ADR-0049). Not here yet:
+`OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`) and POP3 `APOP` (ADR-0049), and SSH password and public-key logins (ADR-0051). Not here yet:
 Kerberos inside Negotiate and SASL `GSSAPI` (ADR-0032 decision 11, ADR-0049 section 4, later
 work, built by hand), SASL `EXTERNAL`, `Proxy-Authenticate`, and the logins of servers not yet
-built (FTP, SSH, SMB, LDAP). Anything time-dependent (the
+built (FTP, SMB, LDAP). Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and
 `Surl.Cryptography.UnitLibrary` for MD4 and SHA-512/256 (ADR-0032 decision 7), and no
 protocol server. Protocol servers receive what it provides through the contracts in
-Abstractions (`IAuthenticationPolicy`); `Surl.Console`'s `AuthenticationComposition`
+Abstractions (`IAuthenticationPolicy`, `IMailAuthenticationPolicy`, `ISshAuthenticationPolicy`); `Surl.Console`'s `AuthenticationComposition`
 builds the policy from the command line.
 
 ## What is here now (BL-110)
@@ -162,3 +162,26 @@ builds the policy from the command line.
   the body and asks it, and a body that does not match is refused after the refusal delay
   with the login note, as any refusal is.
 - The tests replay the `aws-sigv4-*` requests in `Surl.Authentication.UnitTests/Fixtures`.
+
+## SSH logins (BL-157)
+
+- `AuthenticationPolicy` implements `ISshAuthenticationPolicy` (ADR-0051, sections 6 and 7).
+  `none` is refused, undelayed and unnoted, except under `--allow-anonymous`. A `password`
+  request or `keyboard-interactive` answer is checked against the named accounts through
+  `AccountBook.CheckPassword`, never refused as plain-text (SSH encrypts first), so
+  `--allow-plaintext-auth` plays no part. A `publickey` query is `KeyAcceptable` or `Refused`,
+  undelayed and unnoted; a signed request is `Accepted` only when the server verified the
+  signature and the key is authorized for the user. Every refused credential waits
+  `RefusalDelay`, and every checked one carries a `CheckedLogin` whose method is the RFC 4252
+  name as on the wire. Under `--allow-anonymous` everything is `AcceptedUnchecked` (a query
+  `KeyAcceptable`), with no note.
+- `AuthorizedKeysParser` reads an `--authorized-keys` file's bytes (OpenSSH's `authorized_keys`
+  format) into `AuthorizedKey`s for one user, or the first refused line as an
+  `AuthorizedKeysLineFailure` whose `Describe()` is ADR-0051 section 6's text after the path,
+  the key type escaped as ADR-0006 section 3 escapes a peer's bytes. `SshPublicKeyBlob` knows
+  the six key types and checks each blob's fields (RFC 4253 section 6.6, RFC 5656, RFC 8709).
+  Key options before the type are refused, never ignored.
+- `AuthorizedKeyBook` (on `AuthenticationSettings.AuthorizedKeys`, `AuthorizedKeyBook.Empty` by
+  default) keeps each key as the SHA-256 of its blob and compares the SHA-256 of the blob sent
+  against every key of the user with `ISecretComparer`; an unknown user is compared against a
+  random dummy hash, so "no such user", "key not authorized" and "no keys" answer alike.

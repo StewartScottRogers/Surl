@@ -14,4 +14,11 @@ public sealed record AuthenticationSettings(
     AccountBook Accounts,
     bool AllowAnonymous,
     bool AllowPlaintextAuthentication,
-    IReadOnlySet<AuthenticationMethod> AcceptedMethods);
+    IReadOnlySet<AuthenticationMethod> AcceptedMethods)
+{
+    /// <summary>
+    /// The public keys each user may log in to the SSH server with, from every
+    /// <c>--authorized-keys</c> (ADR-0051, section 6); <see cref="AuthorizedKeyBook.Empty"/> when none is given.
+    /// </summary>
+    public AuthorizedKeyBook AuthorizedKeys { get; init; } = AuthorizedKeyBook.Empty;
+}
