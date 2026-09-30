@@ -7,8 +7,9 @@ namespace Surl.Protocol.Ssh;
 /// <summary>
 /// The test client's own packet protection for one direction, written out from RFC 4253
 /// section 6, RFC 4344 section 4 (AES-CTR), RFC 6668 (HMAC-SHA2), OpenSSH's <c>PROTOCOL</c>
-/// sections 1.6 and 1.7 (AES-GCM and encrypt-then-MAC) and the BCL's primitives, so no test
-/// checks the server's packet protection against the server's own code.
+/// sections 1.6 and 1.7 (AES-GCM and encrypt-then-MAC), <see cref="SshTestChaCha20Poly1305"/>
+/// and the BCL's primitives, so no test checks the server's packet protection against the
+/// server's own code.
 /// </summary>
 internal sealed class SshTestPacketProtection
 {
@@ -19,11 +20,19 @@ internal sealed class SshTestPacketProtection
     private readonly byte[] macKey = [];
     private readonly HashAlgorithmName macHash;
     private readonly bool encryptThenMac;
+    private readonly SshTestChaCha20Poly1305? chaCha20Poly1305;
 
     /// <param name="deriveKey">Derives one key of the exchange by its letter and length.</param>
     public SshTestPacketProtection(string cipher, string mac, Func<char, int, byte[]> deriveKey, bool clientToServer)
     {
         var (ivLetter, keyLetter, macLetter) = clientToServer ? ('A', 'C', 'E') : ('B', 'D', 'F');
+        if (cipher == "chacha20-poly1305@openssh.com")
+        {
+            chaCha20Poly1305 = new SshTestChaCha20Poly1305(deriveKey(keyLetter, 64));
+
+            return;
+        }
+
         var keyBits = int.Parse(cipher[3..6], System.Globalization.CultureInfo.InvariantCulture);
         if (cipher.EndsWith("-gcm@openssh.com", StringComparison.Ordinal))
         {
@@ -51,6 +60,11 @@ internal sealed class SshTestPacketProtection
     /// </summary>
     public byte[] Seal(uint sequenceNumber, byte[] payload)
     {
+        if (chaCha20Poly1305 is not null)
+        {
+            return chaCha20Poly1305.Seal(sequenceNumber, SshTestChaCha20Poly1305.Frame(payload));
+        }
+
         var aligned = (LengthInClear ? 0 : 4) + 1 + payload.Length;
         var padding = 16 - (aligned % 16);
         padding += padding < 4 ? 16 : 0;
@@ -84,7 +98,14 @@ internal sealed class SshTestPacketProtection
     public async Task<byte[]> OpenAsync(Func<int, Task<byte[]>> readExactly, uint sequenceNumber)
     {
         byte[] packet;
-        if (LengthInClear)
+        if (chaCha20Poly1305 is not null)
+        {
+            var sentLength = await readExactly(4);
+            var length = chaCha20Poly1305.OpenLength(sequenceNumber, sentLength);
+            var rest = await readExactly((int)BinaryPrimitives.ReadUInt32BigEndian(length) + 16);
+            packet = Concat(length, chaCha20Poly1305.OpenRest(sequenceNumber, sentLength, rest));
+        }
+        else if (LengthInClear)
         {
             var length = await readExactly(4);
             var rest = await readExactly((int)BinaryPrimitives.ReadUInt32BigEndian(length) + TagLength);

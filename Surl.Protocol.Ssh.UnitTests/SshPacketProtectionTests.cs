@@ -27,6 +27,7 @@ public sealed class SshPacketProtectionTests
         [
             ["aes128-gcm@openssh.com", "hmac-sha2-256"],
             ["aes256-gcm@openssh.com", "hmac-sha2-256"],
+            ["chacha20-poly1305@openssh.com", "hmac-sha2-256"],
         ]);
 
     public static IEnumerable<object[]> EveryProtectionAndTamperedByte =>
@@ -58,7 +59,7 @@ public sealed class SshPacketProtectionTests
 
         Assert.AreEqual(
             $"SSH negotiated kex ecdh-sha2-nistp256, host key rsa-sha2-512, cipher {cipher}/{cipher}, "
-            + $"MAC {(cipher.Contains("gcm", StringComparison.Ordinal) ? "implicit/implicit" : $"{mac}/{mac}")}, compression none/none, strict kex on",
+            + $"MAC {(cipher.EndsWith("@openssh.com", StringComparison.Ordinal) ? "implicit/implicit" : $"{mac}/{mac}")}, compression none/none, strict kex on",
             client.Log.Notes[1]);
         Assert.HasCount(2, client.Log.Notes);
     }
@@ -81,6 +82,40 @@ public sealed class SshPacketProtectionTests
         CollectionAssert.AreEqual(
             new[] { "The MAC of the client's SSH packet 1 does not verify.", "SSH disconnect sent: 5 MAC error" },
             client.Log.Notes.Skip(2).ToArray());
+    }
+
+    [TestMethod]
+    public async Task FlippedLengthByteThatStillAligns_UnderChaCha20Poly1305_IsAnsweredDisconnect5()
+    {
+        var client = new SshTestTransportClient("chacha20-poly1305@openssh.com", "hmac-sha2-256", TestContext.CancellationToken);
+        var serving = await client.OpenAsync(Server(), TimeProvider.System);
+        client.Send([2]);
+        var packet = client.Seal(Concat([LocalExtensionMessage], new byte[45]));
+
+        packet[3] ^= 0x08;
+        client.Connection.Send(packet);
+
+        CollectionAssert.AreEqual(Concat([1], UInt32(5), String("MAC error"), String(string.Empty)), await client.ReceiveAsync());
+        await serving;
+        CollectionAssert.AreEqual(
+            new[] { "The MAC of the client's SSH packet 1 does not verify.", "SSH disconnect sent: 5 MAC error" },
+            client.Log.Notes.Skip(2).ToArray(),
+            "packet_length 56 read as 48: the tag is taken from the ciphertext and does not verify.");
+    }
+
+    [TestMethod]
+    public async Task FlippedLengthByteThatNoLongerAligns_UnderChaCha20Poly1305_IsAnsweredDisconnect2()
+    {
+        var client = new SshTestTransportClient("chacha20-poly1305@openssh.com", "hmac-sha2-256", TestContext.CancellationToken);
+        var serving = await client.OpenAsync(Server(), TimeProvider.System);
+        var packet = client.Seal(Concat([LocalExtensionMessage], new byte[45]));
+
+        packet[3] ^= 0x01;
+        client.Connection.Send(packet);
+
+        CollectionAssert.AreEqual(Concat([1], UInt32(2), String("Protocol error"), String(string.Empty)), await client.ReceiveAsync());
+        await serving;
+        Assert.AreEqual("An SSH packet announced 61 bytes, not a multiple of the 8-byte block size.", client.Log.Notes[2]);
     }
 
     [TestMethod]
@@ -189,8 +224,8 @@ public sealed class SshPacketProtectionTests
     }
 
     [TestMethod]
-    [DataRow("chacha20-poly1305@openssh.com", "aes128-ctr", DisplayName = "Client to server not built")]
-    [DataRow("aes128-ctr", "chacha20-poly1305@openssh.com", DisplayName = "Server to client not built")]
+    [DataRow("aes128-cbc", "aes128-ctr", DisplayName = "Client to server not built")]
+    [DataRow("aes128-ctr", "aes128-cbc", DisplayName = "Server to client not built")]
     public async Task CipherNotBuiltInOneDirection_IsAnsweredDisconnect11AfterNewKeysWithNoKeys(string cipherClientToServer, string cipherServerToClient)
     {
         var log = new RecordingExchangeLog();
@@ -201,7 +236,7 @@ public sealed class SshPacketProtectionTests
             cipherServerToClient: cipherServerToClient);
         var connection = new InMemoryConnection([client.InboundBytes()]);
 
-        await Server().ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
+        await Server(OfferWithAnUnbuiltCipher).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
 
         var disconnect = ServerDisconnectPacket(11, "Packet protection not implemented");
         CollectionAssert.AreEqual(disconnect, connection.WrittenBytes[^disconnect.Length..]);

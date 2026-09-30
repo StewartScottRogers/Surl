@@ -38,11 +38,10 @@ namespace Surl.Protocol.Ssh;
 /// </para>
 /// <para>
 /// <b>Packet protection.</b> After <c>NEWKEYS</c> each direction uses the cipher and MAC agreed
-/// for it: <c>aes256-gcm@openssh.com</c> and <c>aes128-gcm@openssh.com</c>, or
-/// <c>aes256-ctr</c>, <c>aes192-ctr</c> and <c>aes128-ctr</c> with <c>hmac-sha2-256</c>,
-/// <c>hmac-sha2-512</c> or their <c>-etm@openssh.com</c> forms. A MAC or tag that does not
-/// verify is <c>DISCONNECT</c> 5; <c>chacha20-poly1305@openssh.com</c> (BL-169) is
-/// <c>DISCONNECT</c> 11, "Packet protection not implemented", once <c>NEWKEYS</c> is exchanged.
+/// for it: <c>chacha20-poly1305@openssh.com</c>, <c>aes256-gcm@openssh.com</c> and
+/// <c>aes128-gcm@openssh.com</c>, or <c>aes256-ctr</c>, <c>aes192-ctr</c> and <c>aes128-ctr</c>
+/// with <c>hmac-sha2-256</c>, <c>hmac-sha2-512</c> or their <c>-etm@openssh.com</c> forms. A MAC
+/// or tag that does not verify is <c>DISCONNECT</c> 5.
 /// </para>
 /// <para>
 /// <b>Transport messages.</b> After the first exchange a client's <c>KEXINIT</c> starts a

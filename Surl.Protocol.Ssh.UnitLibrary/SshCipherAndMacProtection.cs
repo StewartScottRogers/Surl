@@ -41,7 +41,7 @@ internal sealed class SshCipherAndMacProtection(SshAesCtr cipher, SshHmac mac, b
     };
 
     /// <inheritdoc/>
-    public override byte[] OpenHead(byte[] head) => EncryptsLength ? cipher.Transform(head) : head;
+    public override byte[] OpenHead(uint sequenceNumber, byte[] head) => EncryptsLength ? cipher.Transform(head) : head;
 
     /// <inheritdoc/>
     public override byte[] OpenBody(uint sequenceNumber, byte[] plainHead, byte[] rest)

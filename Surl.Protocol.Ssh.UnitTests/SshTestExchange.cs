@@ -21,6 +21,12 @@ internal static class SshTestExchange
 
     public static SshAlgorithmOffer RsaOffer { get; } = SshAlgorithmOffer.Default(["rsa-sha2-512", "rsa-sha2-256"], aesGcmIsSupported: true);
 
+    /// <summary>
+    /// <see cref="RsaOffer"/> with <c>aes128-cbc</c> added to its ciphers: a cipher the server
+    /// has no packet protection for, so a client that agrees it reaches the refusal after <c>NEWKEYS</c>.
+    /// </summary>
+    public static SshAlgorithmOffer OfferWithAnUnbuiltCipher { get; } = RsaOffer with { Cipher = [.. RsaOffer.Cipher, "aes128-cbc"] };
+
     public static SshProtocolServer Server(SshAlgorithmOffer? offer = null, ISshAuthenticationPolicy? policy = null) =>
         new(RsaHostKeys, offer ?? RsaOffer, policy ?? new AnonymousAuthenticationPolicy(), new FixedRandomSource());
 

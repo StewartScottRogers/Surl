@@ -81,7 +81,7 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
         }
 
         byte[] head = [(byte)firstByte, .. await ReadOrEndAsync(Protection.HeadLength - 1, cancellationToken)];
-        var plainHead = Protection.OpenHead(head);
+        var plainHead = Protection.OpenHead(SequenceNumber, head);
         var packetLength = BinaryPrimitives.ReadUInt32BigEndian(plainHead);
         RefuseBadLength(packetLength);
 

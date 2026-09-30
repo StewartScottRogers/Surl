@@ -114,10 +114,10 @@ public sealed class SshKeyExchangeTests
     public async Task CompletedKeyExchange_IsAnsweredDisconnect11AfterNewKeys()
     {
         var log = new RecordingExchangeLog();
-        using var client = new SshTestKeyExchangeClient("diffie-hellman-group-exchange-sha256", "rsa-sha2-512", strict: true, cipher: "chacha20-poly1305@openssh.com");
+        using var client = new SshTestKeyExchangeClient("diffie-hellman-group-exchange-sha256", "rsa-sha2-512", strict: true, cipher: "aes128-cbc");
         var connection = new InMemoryConnection([client.InboundBytes()]);
 
-        await Server().ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
+        await Server(OfferWithAnUnbuiltCipher).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
 
         var disconnect = ServerDisconnectPacket(11, "Packet protection not implemented");
         var written = connection.WrittenBytes;
@@ -125,7 +125,7 @@ public sealed class SshKeyExchangeTests
         client.CheckServerAnswer(written[..^disconnect.Length], SshHostKey.FromRsa(SshTestKeys.Rsa2048).PublicKeyBlob.Span);
         Assert.IsTrue(connection.WritesCompleted);
         Assert.AreEqual(
-            "The SSH packet protection chacha20-poly1305@openssh.com/chacha20-poly1305@openssh.com is not built yet; "
+            "The SSH packet protection aes128-cbc/aes128-cbc is not built yet; "
             + "the connection was ended after NEWKEYS.",
             log.Notes[2]);
         Assert.AreEqual("SSH disconnect sent: 11 Packet protection not implemented", log.Notes[3]);
