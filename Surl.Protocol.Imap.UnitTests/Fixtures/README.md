@@ -78,3 +78,33 @@ curl exited 0 on every case.
 
 Every case also gives `-sS -u u:p`; each reply ends with its `OK FETCH completed` or
 `OK SEARCH completed`. `transcript.txt` holds each reply as sent.
+
+## Append and the changing commands (BL-203)
+
+Recorded on 2026-09-30 the same way, on port 18343, with the `GREETING`, `CAPABILITY`, `LOGIN`,
+`SELECT` and `LOGOUT` replies above and one reply more for the command each case sends.
+`mail.txt` is `From: a@x`, `Subject: hi`, an empty line and `hello`, CRLF line ends (33 bytes).
+curl exited 0 on every case. `RecordedFixtureTests` replays each against the store above
+(`INBOX` UIDs 1 and 2, `Sent` with `UIDVALIDITY` 1790668801), with UID 1 flagged `\Deleted`
+first for the two expunge cases, and asserts the store's mailboxes, UIDs and flags afterwards.
+
+The recorder always sends `+` before a literal, so only an `APPEND` Surl accepts can be served
+exactly as Surl serves it; the refusals Surl sends in place of `+` (`TRYCREATE`, `TOOBIG`, ADR-0055
+row 28) are pinned by the fast tests in `ImapAppendTests`.
+
+| Folder | curl arguments | curl sends after `CAPABILITY` and `LOGIN u p` | Reply given |
+| --- | --- | --- | --- |
+| `append` | `-T mail.txt imap://.../INBOX` | `APPEND INBOX (\Seen) {33}`, the 33 bytes after `+`, CRLF (row 26) | `OK [APPENDUID 1790668800 3] APPEND completed` |
+| `create` | `-X 'CREATE Archive' imap://.../` | `CREATE Archive` | `OK CREATE completed` |
+| `delete` | `-X 'DELETE Sent' imap://.../` | `DELETE Sent` | `OK DELETE completed` |
+| `rename` | `-X 'RENAME Sent Archive' imap://.../` | `RENAME Sent Archive` | `OK RENAME completed` |
+| `subscribe` | `-X 'SUBSCRIBE Sent' imap://.../` | `SUBSCRIBE Sent` | `OK SUBSCRIBE completed` |
+| `unsubscribe` | `-X 'UNSUBSCRIBE Sent' imap://.../` | `UNSUBSCRIBE Sent` | `OK UNSUBSCRIBE completed` |
+| `store` | `-X 'STORE 1 +FLAGS \Deleted' imap://.../INBOX` | `SELECT INBOX`, the command (row 33) | `* 1 FETCH (FLAGS (\Deleted))` |
+| `uid-store-silent` | `-X 'UID STORE 1:2 +FLAGS.SILENT (\Seen)' imap://.../INBOX` | `SELECT INBOX`, the command | `OK STORE completed` |
+| `copy` | `-X 'COPY 1:2 Sent' imap://.../INBOX` | `SELECT INBOX`, the command | `OK [COPYUID 1790668801 1:2 1:2] COPY completed` |
+| `uid-move` | `-X 'UID MOVE 1 Sent' imap://.../INBOX` | `SELECT INBOX`, the command | `* OK [COPYUID 1790668801 1 1] Moved`, `* 1 EXPUNGE` |
+| `expunge` | `-X EXPUNGE imap://.../INBOX` | `SELECT INBOX`, `EXPUNGE` (row 34) | `* 1 EXPUNGE` |
+| `uid-expunge` | `-X 'UID EXPUNGE 1:2' imap://.../INBOX` | `SELECT INBOX`, the command | `* 1 EXPUNGE` |
+
+Every case also gives `-sS -u u:p`; each reply ends with its tagged completion.

@@ -40,7 +40,7 @@ internal sealed class ImapCommandReader
         while (true)
         {
             var read = await lineReader.ReadLineAsync(cancellationToken);
-            if (command.AddLine(read) is { } ended)
+            if ((command.AddLine(read) ?? command.AppendMessage()) is { } ended)
             {
                 return ended;
             }
@@ -86,6 +86,16 @@ internal sealed class ImapCommandReader
             return Literal is null ? new ImapCommandReadResult(ImapCommandReadOutcome.CommandRead, tag, new ImapCommandText(lines, literals)) : null;
         }
 
+        // The command so far when the literal it announces is APPEND's message, which is not
+        // read here; otherwise null.
+        public ImapCommandReadResult? AppendMessage()
+        {
+            var text = new ImapCommandText(lines, literals);
+            return !Literal!.IsNonSynchronizing && ImapAppendRequest.IsMessageNext(text)
+                ? new ImapCommandReadResult(ImapCommandReadOutcome.AppendMessage, tag, text, Literal.Length)
+                : null;
+        }
+
         // Null when the literal was read; otherwise the command's end.
         public ImapCommandReadResult? AddLiteral(ImapCommandReadOutcome outcome, byte[] literal)
         {
@@ -95,6 +105,30 @@ internal sealed class ImapCommandReader
         }
 
         private ImapCommandReadResult End(ImapCommandReadOutcome outcome) => new(outcome, tag, null);
+    }
+
+    /// <summary>
+    /// Reads <c>APPEND</c>'s message once the session has accepted it: sends the <c>+</c>
+    /// continuation, copies the literal's bytes to <paramref name="destination"/> under the idle
+    /// timeout alone (ADR-0055, decision 9), then reads the rest of the command's line.
+    /// </summary>
+    /// <param name="length">The bytes the literal announced.</param>
+    /// <param name="destination">Where the message goes.</param>
+    /// <param name="cancellationToken">The exchange's cancellation.</param>
+    /// <returns>How the read ended, with the rest of the line as <see cref="ImapCommandText"/>
+    /// when it was read.</returns>
+    public async ValueTask<ImapCommandReadResult> ReadAppendMessageAsync(long length, Stream destination, CancellationToken cancellationToken)
+    {
+        await ReplyLineWriter.WriteAsync(connection, ImapResponses.ReadyForLiteral, cancellationToken);
+        if (!await lineReader.ReadCountedRunAsync(length, destination, cancellationToken))
+        {
+            return new ImapCommandReadResult(ImapCommandReadOutcome.Closed, null, null);
+        }
+
+        var read = await lineReader.ReadLineAsync(cancellationToken);
+        return read.Line is { } line
+            ? new ImapCommandReadResult(ImapCommandReadOutcome.CommandRead, null, new ImapCommandText([line], []))
+            : new ImapCommandReadResult(ToCommandOutcome(read.Outcome), null, null);
     }
 
     private static ImapCommandReadOutcome ToCommandOutcome(CrlfLineReadOutcome outcome) => outcome switch

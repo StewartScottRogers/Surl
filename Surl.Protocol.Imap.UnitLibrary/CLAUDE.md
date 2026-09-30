@@ -5,10 +5,17 @@ Phase 3.
 The IMAP4rev1 server (RFC 3501; not IMAP4rev2, ADR-0055 decision 1), as upstream curl uses it.
 ADR-0055 decides every response. `ImapProtocolServer` answers `LOGIN`, `CAPABILITY`, `NOOP`,
 `LOGOUT`, `ID`, `NAMESPACE`, `SELECT`, `EXAMINE`, `LIST`, `LSUB`, `STATUS`, `CHECK`, `CLOSE` and
-`UNSELECT` from the shared mail store (BL-201), and `FETCH`, `UID FETCH`, `SEARCH` and
-`UID SEARCH` (BL-202); `APPEND`, `STORE`, `COPY`, `MOVE`, `EXPUNGE`, the other `UID` commands and
-the mailbox changes (BL-203), `STARTTLS` and `AUTHENTICATE` (BL-204) are still answered
-`BAD Command not recognized`. It is not yet registered in `Surl.Console` (BL-208).
+`UNSELECT` from the shared mail store (BL-201), `FETCH`, `UID FETCH`, `SEARCH` and
+`UID SEARCH` (BL-202), and `APPEND`, `CREATE`, `DELETE`, `RENAME`, `SUBSCRIBE`, `UNSUBSCRIBE`,
+`STORE`, `COPY`, `MOVE`, `EXPUNGE` and their `UID` forms (BL-203, in `ImapSession.Changes.cs`);
+`STARTTLS` and `AUTHENTICATE` (BL-204) are still answered `BAD Command not recognized`. It is not
+yet registered in `Surl.Console` (BL-208).
+
+`APPEND`'s message literal is not read like other literals: `ImapCommandReader` stops at it
+(`ImapCommandReadOutcome.AppendMessage`), the session checks the login, the mailbox and
+`--max-filesize` before it sends `+`, and `ReadAppendMessageAsync` then streams the bytes into the
+store's `PendingMessage`, bounded by the idle timeout rather than `--max-line` (ADR-0055,
+decisions 8 and 9). ADR-0055 decision 17 records the details BL-203 settled.
 
 The RFC 5322 and MIME structure reader `FETCH` and `SEARCH` need lives here, not in the store
 (ADR-0055, decision 4): `ImapBodyPart` reads a message's header, fields and parts,

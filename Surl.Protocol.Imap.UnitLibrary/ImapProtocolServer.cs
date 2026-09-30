@@ -9,8 +9,10 @@ namespace Surl.Protocol.Imap;
 /// synchronizing literals, logs users in with <c>LOGIN</c> through the authentication policy,
 /// and answers <c>CAPABILITY</c>, <c>NOOP</c>, <c>LOGOUT</c>, <c>ID</c>, <c>NAMESPACE</c>,
 /// <c>SELECT</c>, <c>EXAMINE</c>, <c>LIST</c>, <c>LSUB</c>, <c>STATUS</c>, <c>CHECK</c>,
-/// <c>CLOSE</c>, <c>UNSELECT</c>, <c>FETCH</c>, <c>SEARCH</c> and their <c>UID</c> forms from the
-/// shared mail store. ADR-0055 records every response.
+/// <c>CLOSE</c>, <c>UNSELECT</c>, <c>FETCH</c> and <c>SEARCH</c> from the shared mail store, and
+/// changes it with <c>APPEND</c>, <c>CREATE</c>, <c>DELETE</c>, <c>RENAME</c>, <c>SUBSCRIBE</c>,
+/// <c>UNSUBSCRIBE</c>, <c>STORE</c>, <c>COPY</c>, <c>MOVE</c> and <c>EXPUNGE</c>, with the
+/// <c>UID</c> forms of each that has one. ADR-0055 records every response.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -36,7 +38,10 @@ namespace Surl.Protocol.Imap;
 /// within <see cref="ExchangeLimits.HeadTimeout"/> <c>* BYE</c>; each then closes the connection,
 /// the response written within <see cref="LimitReplyWriteDeadline"/>. A literal that would pass
 /// the bound is answered <c>BAD Literal too long</c> before its continuation, and the session goes
-/// on. A connection past a connection limit is answered <c>* BYE</c> by <see cref="WriteRefusalAsync"/>.
+/// on. <c>APPEND</c>'s message is the exception: it is checked against
+/// <see cref="ExchangeLimits.MaxUploadBytes"/> (<c>NO [TOOBIG]</c> before the continuation), then
+/// streamed into the store under the idle timeout alone. A connection past a connection limit is
+/// answered <c>* BYE</c> by <see cref="WriteRefusalAsync"/>.
 /// </para>
 /// </remarks>
 public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter

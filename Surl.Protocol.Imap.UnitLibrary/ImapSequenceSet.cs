@@ -73,6 +73,34 @@ internal sealed class ImapSequenceSet
     public bool IsWithin(uint count) =>
         ranges.All(range => IsNumberOf(Resolve(range.First, count), count) && IsNumberOf(Resolve(range.Last, count), count));
 
+    /// <summary>
+    /// Writes numbers as a set, each run of consecutive numbers as <c>n:m</c>, for the UID sets
+    /// of <c>COPYUID</c> (RFC 4315, section 3): the n-th number of one set pairs with the n-th of
+    /// the other, so the order given is kept.
+    /// </summary>
+    /// <param name="numbers">The numbers, at least one, in the order they pair.</param>
+    /// <returns>The set, e.g. <c>1:3,7</c>.</returns>
+    public static string Format(IReadOnlyList<uint> numbers)
+    {
+        List<string> members = [];
+        var first = 0;
+        for (var index = 1; index <= numbers.Count; index++)
+        {
+            if (index == numbers.Count || numbers[index] != numbers[index - 1] + 1)
+            {
+                members.Add(FormatRun(numbers[first], numbers[index - 1]));
+                first = index;
+            }
+        }
+
+        return string.Join(',', members);
+    }
+
+    private static string FormatRun(uint first, uint last) =>
+        first == last
+            ? first.ToString(CultureInfo.InvariantCulture)
+            : first.ToString(CultureInfo.InvariantCulture) + ":" + last.ToString(CultureInfo.InvariantCulture);
+
     private static bool IsNumberOf(uint number, uint count) => number > 0 && number <= count;
 
     private static uint Resolve(uint end, uint highest) => end == 0 ? highest : end;

@@ -1,3 +1,5 @@
+using Surl.MailStore;
+
 namespace Surl.Protocol.Imap;
 
 /// <summary>
@@ -31,6 +33,24 @@ internal static class ImapResponses
     public const string SystemFlags = @"(\Answered \Flagged \Deleted \Seen \Draft)";
     public const string Namespace = "* NAMESPACE ((\"\" \"/\")) NIL NIL";
     public const string Id = "* ID NIL";
+    public const string MailboxMissingTryCreate = "NO [TRYCREATE] Mailbox does not exist";
+    public const string ReadOnly = "NO [READ-ONLY] Mailbox is read-only";
+    public const string TooBig = "NO [TOOBIG] Message exceeds the size limit";
+    public const string StoreFull = "NO [OVERQUOTA] The mail store is full";
+    public const string StorageFailed = "NO [SERVERBUG] Could not store the change";
+
+    // The store's refusals in IMAP's words (ADR-0055, decision 3); a missing mailbox is
+    // MailboxMissing or MailboxMissingTryCreate by the command.
+    private static readonly Dictionary<MailStoreOutcome, string> Refusals = new()
+    {
+        [MailStoreOutcome.MailboxMissing] = MailboxMissing,
+        [MailStoreOutcome.AlreadyExists] = "NO [ALREADYEXISTS] Mailbox already exists",
+        [MailStoreOutcome.InboxCannotBeDeleted] = "NO [CANNOT] INBOX cannot be deleted",
+        [MailStoreOutcome.InvalidName] = InvalidMailboxName,
+        [MailStoreOutcome.StoreFull] = StoreFull,
+        [MailStoreOutcome.TooManyMailboxes] = "NO [LIMIT] Too many mailboxes",
+        [MailStoreOutcome.MessageTooLarge] = TooBig,
+    };
 
     /// <summary>
     /// The success text of a command: <c>OK &lt;COMMAND&gt; completed</c>.
@@ -38,4 +58,24 @@ internal static class ImapResponses
     /// <param name="command">The command's name in capitals.</param>
     /// <returns>The tagged text, without the tag.</returns>
     public static string Completed(string command) => $"OK {command} completed";
+
+    /// <summary>
+    /// The tagged text of a command that changed the store, by the store's outcome.
+    /// </summary>
+    /// <param name="outcome">What the store answered.</param>
+    /// <param name="command">The command's name in capitals, for success.</param>
+    /// <returns>The tagged text, without the tag: <see cref="StorageFailed"/> for an outcome the
+    /// command cannot otherwise meet.</returns>
+    public static string ForOutcome(MailStoreOutcome outcome, string command) =>
+        outcome == MailStoreOutcome.Succeeded ? Completed(command) : Refusals.GetValueOrDefault(outcome, StorageFailed);
+
+    /// <summary>
+    /// As <see cref="ForOutcome"/>, but a missing mailbox is a target the client may create:
+    /// <c>APPEND</c>, <c>COPY</c> and <c>MOVE</c> (RFC 3501, section 6.3.11).
+    /// </summary>
+    /// <param name="outcome">What the store answered.</param>
+    /// <param name="command">The command's name in capitals, for success.</param>
+    /// <returns>The tagged text, without the tag.</returns>
+    public static string ForTargetOutcome(MailStoreOutcome outcome, string command) =>
+        outcome == MailStoreOutcome.MailboxMissing ? MailboxMissingTryCreate : ForOutcome(outcome, command);
 }

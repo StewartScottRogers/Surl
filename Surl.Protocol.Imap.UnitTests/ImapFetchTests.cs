@@ -103,9 +103,9 @@ public sealed class ImapFetchTests
 
     [TestMethod]
     [DataRow("c UID\r\n")]
-    [DataRow("c UID STORE 1 FLAGS (\\Seen)\r\n")]
+    [DataRow("c UID XYZZY 1\r\n")]
     [DataRow("c UID (\r\n")]
-    public async Task ServeAsync_UidWithoutFetchOrSearch_AnswersNotRecognized(string command)
+    public async Task ServeAsync_UidWithoutAUidCommand_AnswersNotRecognized(string command)
     {
         var responses = await AfterSelectAsync(command, store => Deliver(store, string.Empty, 1));
 

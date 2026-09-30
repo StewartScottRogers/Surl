@@ -10,7 +10,7 @@ namespace Surl.Protocol.Imap;
 /// One IMAP connection's session (ADR-0055): the greeting, then every command answered in order
 /// until <c>LOGOUT</c>, the peer's close, or a limit.
 /// </summary>
-internal sealed class ImapSession
+internal sealed partial class ImapSession
 {
     // STATUS's items (ADR-0055, decision 5): RECENT is always 0, since \Recent is not kept.
     private static readonly Dictionary<string, Func<MailboxSnapshot, long>> StatusItems = new(StringComparer.Ordinal)
@@ -32,6 +32,7 @@ internal sealed class ImapSession
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
     private readonly Dictionary<string, (ImapCommandState State, Func<ImapArguments, ValueTask<bool>> Answer)> commands;
+    private readonly Dictionary<string, Func<ImapArguments, ValueTask<bool>>> uidCommands;
     private MailView? view;
     private PasswordLoginVerdict? anonymousVerdict;
     private ImapSelectedMailbox? selected;
@@ -70,6 +71,27 @@ internal sealed class ImapSession
             ["FETCH"] = (ImapCommandState.Selected, arguments => AnswerFetchAsync(arguments, isUid: false)),
             ["SEARCH"] = (ImapCommandState.Selected, arguments => AnswerSearchAsync(arguments, isUid: false)),
             ["UID"] = (ImapCommandState.Selected, AnswerUidAsync),
+
+            // APPEND with its message's literal is read apart (AnswerAppendAsync); one without is malformed.
+            ["APPEND"] = (ImapCommandState.Authenticated, _ => RespondAsync(InvalidArguments)),
+            ["CREATE"] = (ImapCommandState.Authenticated, arguments => RespondAfterSavingAsync(CreateMailbox(arguments))),
+            ["DELETE"] = (ImapCommandState.Authenticated, arguments => RespondAfterSavingAsync(DeleteMailbox(arguments))),
+            ["RENAME"] = (ImapCommandState.Authenticated, arguments => RespondAfterSavingAsync(RenameMailbox(arguments))),
+            ["SUBSCRIBE"] = (ImapCommandState.Authenticated, arguments => RespondAsync(Subscribe(arguments))),
+            ["UNSUBSCRIBE"] = (ImapCommandState.Authenticated, arguments => RespondAsync(Unsubscribe(arguments))),
+            ["STORE"] = (ImapCommandState.Selected, arguments => AnswerStoreAsync(arguments, isUid: false)),
+            ["COPY"] = (ImapCommandState.Selected, arguments => AnswerCopyAsync(arguments, isUid: false, isMove: false)),
+            ["MOVE"] = (ImapCommandState.Selected, arguments => AnswerCopyAsync(arguments, isUid: false, isMove: true)),
+            ["EXPUNGE"] = (ImapCommandState.Selected, arguments => AnswerExpungeAsync(arguments, isUid: false)),
+        };
+        uidCommands = new(StringComparer.Ordinal)
+        {
+            ["FETCH"] = arguments => AnswerFetchAsync(arguments, isUid: true),
+            ["SEARCH"] = arguments => AnswerSearchAsync(arguments, isUid: true),
+            ["STORE"] = arguments => AnswerStoreAsync(arguments, isUid: true),
+            ["COPY"] = arguments => AnswerCopyAsync(arguments, isUid: true, isMove: false),
+            ["MOVE"] = arguments => AnswerCopyAsync(arguments, isUid: true, isMove: true),
+            ["EXPUNGE"] = arguments => AnswerExpungeAsync(arguments, isUid: true),
         };
     }
 
@@ -97,6 +119,11 @@ internal sealed class ImapSession
         if (read.Outcome == ImapCommandReadOutcome.CommandRead)
         {
             return await AnswerCommandAsync(read.Command!);
+        }
+
+        if (read.Outcome == ImapCommandReadOutcome.AppendMessage)
+        {
+            return await AnswerAppendAsync(read);
         }
 
         if (read.Outcome == ImapCommandReadOutcome.LiteralTooLong)
@@ -331,13 +358,11 @@ internal sealed class ImapSession
         return ImapResponse.Only(ImapResponses.Completed("UNSELECT"));
     }
 
-    // UID FETCH and UID SEARCH; the other UID commands are BL-203's.
-    private ValueTask<bool> AnswerUidAsync(ImapArguments arguments) => (arguments.TryReadSpace() ? arguments.ReadAtom() : null) switch
-    {
-        "FETCH" => AnswerFetchAsync(arguments, isUid: true),
-        "SEARCH" => AnswerSearchAsync(arguments, isUid: true),
-        _ => RespondAsync(ImapResponse.Only(ImapResponses.NotRecognized)),
-    };
+    // UID FETCH, SEARCH, STORE, COPY, MOVE and EXPUNGE.
+    private ValueTask<bool> AnswerUidAsync(ImapArguments arguments) =>
+        (arguments.TryReadSpace() ? arguments.ReadAtom() : null) is { } name && uidCommands.TryGetValue(name, out var answer)
+            ? answer(arguments)
+            : RespondAsync(ImapResponse.Only(ImapResponses.NotRecognized));
 
     // One untagged FETCH per message, then the tagged completion, with no pending updates
     // between them (ADR-0055, decisions 4 and 5).

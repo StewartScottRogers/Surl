@@ -24,4 +24,9 @@ internal enum ImapCommandReadOutcome
 
     /// <summary>A non-synchronizing literal (<c>{n+}</c>), whose bytes are already on the way.</summary>
     NonSynchronizingLiteral,
+
+    /// <summary>An <c>APPEND</c> reached its message's synchronizing literal, which is not read:
+    /// the session checks it, then answers with the continuation or a refusal (ADR-0055,
+    /// decision 8).</summary>
+    AppendMessage,
 }

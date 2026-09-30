@@ -100,11 +100,24 @@ internal sealed class ImapSelectedMailbox
     /// <param name="snapshot">The mailbox as it is now, or <see langword="null"/> when it no
     /// longer exists, which is as if every message were expunged.</param>
     /// <returns>The untagged lines to send before the next tagged response.</returns>
-    public IReadOnlyList<string> Update(MailboxSnapshot? snapshot) => snapshot is null ? RemoveExpunged([]) : Refresh(snapshot);
+    public IReadOnlyList<string> Update(MailboxSnapshot? snapshot) => snapshot is null ? RemoveExpunged(_ => false) : Refresh(snapshot);
+
+    /// <summary>
+    /// Takes the messages this session itself removed out of the view, as <c>MOVE</c> does
+    /// (RFC 6851): <c>* &lt;n&gt; EXPUNGE</c> for each, highest number first, and no other update.
+    /// </summary>
+    /// <param name="removedUids">The UIDs removed; one the view does not hold is ignored.</param>
+    /// <returns>The untagged lines to send.</returns>
+    public IReadOnlyList<string> Remove(IReadOnlyCollection<uint> removedUids)
+    {
+        var removed = removedUids.ToHashSet();
+        return RemoveExpunged(uid => !removed.Contains(uid));
+    }
 
     private List<string> Refresh(MailboxSnapshot snapshot)
     {
-        var lines = RemoveExpunged(snapshot.Messages.Select(message => message.Uid).ToHashSet());
+        var present = snapshot.Messages.Select(message => message.Uid).ToHashSet();
+        var lines = RemoveExpunged(present.Contains);
         var added = snapshot.Messages.Where(message => message.Uid >= nextUid).Select(message => message.Uid).ToList();
         nextUid = snapshot.NextUid;
         uids.AddRange(added);
@@ -117,12 +130,12 @@ internal sealed class ImapSelectedMailbox
     }
 
     // Numbers the gone messages from the highest down, so each number is right when it is read.
-    private List<string> RemoveExpunged(HashSet<uint> present)
+    private List<string> RemoveExpunged(Func<uint, bool> isKept)
     {
         List<string> lines = [];
         for (var index = uids.Count - 1; index >= 0; index--)
         {
-            if (!present.Contains(uids[index]))
+            if (!isKept(uids[index]))
             {
                 lines.Add($"* {index + 1} EXPUNGE");
                 uids.RemoveAt(index);

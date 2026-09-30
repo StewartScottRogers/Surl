@@ -1,4 +1,5 @@
 using System.Text;
+using Surl.MailStore;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Imap.ImapTestExchange;
 
@@ -49,6 +50,53 @@ public sealed class RecordedFixtureTests
     }
 
     [TestMethod]
+    [DataRow("append", "INBOX[1 None, 2 None, 3 Seen] Sent[]")]
+    [DataRow("create", "Archive[] INBOX[1 None, 2 None] Sent[]")]
+    [DataRow("delete", "INBOX[1 None, 2 None]")]
+    [DataRow("rename", "Archive[] INBOX[1 None, 2 None]")]
+    [DataRow("subscribe", "INBOX[1 None, 2 None] Sent[]")]
+    [DataRow("unsubscribe", "INBOX[1 None, 2 None] Sent[]")]
+    [DataRow("store", "INBOX[1 Deleted, 2 None] Sent[]")]
+    [DataRow("uid-store-silent", "INBOX[1 Seen, 2 Seen] Sent[]")]
+    [DataRow("copy", "INBOX[1 None, 2 None] Sent[1 None, 2 None]")]
+    [DataRow("uid-move", "INBOX[2 None] Sent[1 None]")]
+    [DataRow("expunge", "INBOX[2 None] Sent[]")]
+    [DataRow("uid-expunge", "INBOX[2 None] Sent[]")]
+    public async Task ServeAsync_RecordedChange_WritesTheRecordedResponsesAndChangesTheStore(string caseName, string expectedStore)
+    {
+        Assert.AreEqual("0", Read(caseName, "exitcode.txt").Trim());
+        var clock = new ManualTimeProvider();
+        var store = AnonymousStore(clock);
+        Deliver(store, string.Empty, 2);
+        Create(store, string.Empty, "Sent");
+        if (caseName.EndsWith("expunge", StringComparison.Ordinal))
+        {
+            store.ChangeFlags(store.ViewFor(null), "INBOX", 1, MailFlagChange.Add, MailFlags.Deleted, out _);
+        }
+
+        var connection = new InMemoryConnection([ReadBytes(caseName, "request.bin")]);
+
+        await Server(store).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+
+        Assert.AreEqual(RecordedResponses(caseName), Utf8(connection.WrittenBytes));
+        Assert.AreEqual(expectedStore, Describe(store));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecordedAppend_StoresTheUploadedBytesExactly()
+    {
+        var clock = new ManualTimeProvider();
+        var store = AnonymousStore(clock);
+        Deliver(store, string.Empty, 2);
+        var connection = new InMemoryConnection([ReadBytes("append", "request.bin")]);
+
+        await Server(store).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.FetchMessage(store.ViewFor(null), "INBOX", 3, out var message));
+        Assert.AreEqual("From: a@x\r\nSubject: hi\r\n\r\nhello\r\n", Encoding.UTF8.GetString(message.Span));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_RecordedRequestOneBytePerRead_WritesTheRecordedResponses()
     {
         var clock = new ManualTimeProvider();
@@ -69,6 +117,17 @@ public sealed class RecordedFixtureTests
             .Split("\r\n")
             .Where(line => line.StartsWith("< ", StringComparison.Ordinal))
             .Select(line => line[2..] + "\r\n"));
+
+    // Every mailbox in the store's order, each with its messages' UIDs and flags.
+    private static string Describe(MailboxStore store)
+    {
+        var view = store.ViewFor(null);
+        return string.Join(' ', store.ListMailboxes(view).Select(name =>
+        {
+            store.ReadMailbox(view, name, out var snapshot);
+            return $"{name}[{string.Join(", ", snapshot!.Messages.Select(message => $"{message.Uid} {message.Flags}"))}]";
+        }));
+    }
 
     private static string Read(string caseName, string fileName) => Encoding.UTF8.GetString(ReadBytes(caseName, fileName));
 

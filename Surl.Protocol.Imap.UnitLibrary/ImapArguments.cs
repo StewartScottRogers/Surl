@@ -156,13 +156,20 @@ internal sealed class ImapArguments
         ReadAtom(isRunByte) is { } run ? Encoding.ASCII.GetString(run) : null;
 
     /// <summary>
+    /// Whether the line's next byte is <paramref name="expected"/>; nothing is read.
+    /// </summary>
+    /// <param name="expected">The byte looked for.</param>
+    /// <returns>Whether it is next.</returns>
+    public bool IsAt(byte expected) => position < Line.Length && Line[position] == expected;
+
+    /// <summary>
     /// Reads one byte of the line.
     /// </summary>
     /// <param name="expected">The byte expected next.</param>
     /// <returns>Whether it was next, and read.</returns>
     public bool TryReadByte(byte expected)
     {
-        if (position < Line.Length && Line[position] == expected)
+        if (IsAt(expected))
         {
             position++;
             return true;

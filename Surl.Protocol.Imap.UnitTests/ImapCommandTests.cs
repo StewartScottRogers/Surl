@@ -100,7 +100,7 @@ public sealed class ImapCommandTests
     [DataRow("a NAMESPACE\r\n", "* NAMESPACE ((\"\" \"/\")) NIL NIL\r\na OK NAMESPACE completed\r\n")]
     [DataRow("a NAMESPACE x\r\n", "a BAD Invalid arguments\r\n")]
     [DataRow("a XYZZY\r\n", "a BAD Command not recognized\r\n")]
-    [DataRow("a STORE 1 FLAGS (\\Seen)\r\n", "a BAD Command not recognized\r\n")]
+    [DataRow("a STORE 1 FLAGS (\\Seen)\r\n", "a BAD No mailbox selected\r\n")]
     [DataRow("a\r\n", "a BAD Command not recognized\r\n")]
     [DataRow("a (\r\n", "a BAD Command not recognized\r\n")]
     [DataRow("\r\n", "* BAD Invalid tag\r\n")]
