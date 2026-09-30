@@ -69,3 +69,4 @@ BL-185's ADRs expect, and that the mail lands in the store.
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
 - 2026-09-30: Doing -> Backlog. Waits on BL-245: ServingEngine never hands --max-filesize (ExchangeLimits) to ExchangeContext, so the two max-filesize cases exit 8 not 55; 34 of 36 SMTP conformance tests pass
+- 2026-09-30: Backlog -> Doing.
