@@ -76,3 +76,35 @@ Both exit 0. `request.bin` holds the decrypted bytes. `RecordedFixtureTests` han
 `UpgradePointRecordingConnection`, which fails the test if the server reads the second before
 upgrading and pins the upgrade point right after the `220`; it serves `smtps` on a connection
 that is TLS from the start, as the engine's implicit TLS gives it (ADR-0053 decision 5).
+
+## AUTH cases (BL-200)
+
+Recorded on 2026-09-30 the same way, with `mail.txt` as above, the common replies `GREETING`,
+`MAIL`, `RCPT=250 2.1.5 Recipient OK`, `DATA`, `DATADONE` and `QUIT` from the first list, an
+`EHLO` reply advertising the one mechanism last, and `-SaslChallenge` scripting that
+mechanism's continuations and then `235 2.7.0 Authentication successful` (ADR-0049 section 7):
+
+```powershell
+$ehlo = 'EHLO=250-surl Hello\r\n250-SIZE 104857600\r\n250-8BITMIME\r\n250-SMTPUTF8\r\n250-PIPELINING\r\n250-ENHANCEDSTATUSCODES\r\n250 AUTH <MECHANISM>'
+.\Record-CurlExchange.ps1 -Port 18025 -Smtp -SmtpReply ($common + $ehlo) -SaslChallenge '<MECHANISM>=334 <challenge>', ..., '<MECHANISM>=235 2.7.0 Authentication successful' -CurlArgs '-sS', <credentials>, '--login-options', 'AUTH=<MECHANISM>', [--sasl-ir,] '--mail-from', 'a@x', '--mail-rcpt', 'b@y', '-T', 'mail.txt', 'smtp://127.0.0.1:18025/c' -OutDirectory Surl.Protocol.Smtp.UnitTests\Fixtures\<folder>
+```
+
+Each mechanism has a folder `auth-<mechanism>` and, recorded with `--sasl-ir`, one
+`auth-<mechanism>-sasl-ir`. The challenges are the `334` lines each `transcript.txt` shows; the
+`-sasl-ir` cases drop what curl's initial response already answers, as the table says.
+
+| Mechanism | Credentials | Challenges scripted |
+| --- | --- | --- |
+| `PLAIN` | `-u user:secret` | an empty one (not with `--sasl-ir`) |
+| `LOGIN` | `-u user:secret` | `Username:` (not with `--sasl-ir`) and `Password:`, in base64 |
+| `CRAM-MD5` | `-u user:secret` | `<0123456789abcdef.1790640000@surl>` (curl sends no initial response even with `--sasl-ir`) |
+| `DIGEST-MD5` | `-u user:secret` | a `realm="surl"` challenge, then `rspauth=`, answered with an empty line |
+| `NTLM` | `-u user:secret` | an empty one (not with `--sasl-ir`), then a type 2 message |
+| `XOAUTH2` | `-u user: --oauth2-bearer tok` | an empty one (not with `--sasl-ir`) |
+| `OAUTHBEARER` | `-u user: --oauth2-bearer tok` | an empty one, kept with `--sasl-ir`, where curl answers it `AQ==` |
+| `EXTERNAL` | `-u user:` | an empty one (not with `--sasl-ir`) |
+
+Every case exits 0. `RecordedFixtureTests` replays each against a store without
+`--allow-anonymous`, with a `ScriptedMailAuthenticationPolicy` offering the one mechanism and
+scripted with the recorded challenges then acceptance, and asserts the bytes Surl writes, what
+the policy was handed, the login note, and the message stored with protocol `ESMTPA`.

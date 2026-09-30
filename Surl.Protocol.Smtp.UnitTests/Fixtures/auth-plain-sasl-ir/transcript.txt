@@ -1,0 +1,27 @@
+< 220 surl ESMTP ready
+> EHLO c
+< 250-surl Hello
+< 250-SIZE 104857600
+< 250-8BITMIME
+< 250-SMTPUTF8
+< 250-PIPELINING
+< 250-ENHANCEDSTATUSCODES
+< 250 AUTH PLAIN
+> AUTH PLAIN AHVzZXIAc2VjcmV0
+< 235 2.7.0 Authentication successful
+> MAIL FROM:<a@x> SIZE=53
+< 250 2.1.0 Sender OK
+> RCPT TO:<b@y>
+< 250 2.1.5 Recipient OK
+> DATA
+< 354 End data with <CR><LF>.<CR><LF>
+> From: a@x
+> To: b@y
+> Subject: hi
+> 
+> hello
+> ..dot line
+> .
+< 250 2.0.0 Message accepted
+> QUIT
+< 221 2.0.0 Bye

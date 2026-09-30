@@ -1,0 +1,14 @@
+EHLO c
+AUTH OAUTHBEARER
+bixhPXVzZXIsAWhvc3Q9MTI3LjAuMC4xAXBvcnQ9MTgwMjUBYXV0aD1CZWFyZXIgdG9rAQE=
+MAIL FROM:<a@x> SIZE=53
+RCPT TO:<b@y>
+DATA
+From: a@x
+To: b@y
+Subject: hi
+
+hello
+..dot line
+.
+QUIT
