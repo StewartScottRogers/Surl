@@ -8,7 +8,7 @@ depends-on: [BL-241, BL-218]
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-046
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-242 — Decide how Kerberos logins are proved against pinned upstream curl with a KDC
 
@@ -58,30 +58,45 @@ a KDC can be stood up without Stewart, records what the pinned build actually se
 
 ## Acceptance criteria
 
-- [ ] A new ADR under `Documentation/Planning/Decisions/`, with the next free ADR number, marked
+- [x] A new ADR under `Documentation/Planning/Decisions/`, with the next free ADR number, marked
       "Decided by Claude under Stewart's delegation", states: how the KDC is provided; how the
       pinned Windows client is configured to use it and who does that; whether the proof is
       `TestCategory=Integration` only; what `Record-CurlExchange.ps1` needs; and which later tasks
       build and run the proof.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the new ADR.
-- [ ] If the ADR's approach needs a machine change, a download or a package, a
+- [x] `Documentation/Planning/Decisions/README.md` indexes the new ADR.
+- [x] If the ADR's approach needs a machine change, a download or a package, a
       `-Assignee Stewart` task is filed for exactly that, and the ADR names its ID.
-- [ ] If a KDC was available during this task and the pinned build was measured, the ADR records
+- [x] If a KDC was available during this task and the pinned build was measured, the ADR records
       the measured SPNEGO `mechTypes`, `mutual-required` and `mechListMIC`, and the SASL `GSSAPI`
       exchange, with the build's path, SHA-256 and curl version (8.21.0), and states for each
       whether ADR-0057 decisions 8 and 9 hold; any difference is recorded as an amendment of
       ADR-0057 and filed as a task. If no KDC was available, the ADR says so and names the task
       that will measure.
-- [ ] Any change to `Record-CurlExchange.ps1` keeps its refusal to run a binary not pinned in
+- [x] Any change to `Record-CurlExchange.ps1` keeps its refusal to run a binary not pinned in
       `UpstreamCurlBuilds.json`.
 
 ## Notes
 
 - A `docs` task: no behaviour change in any library. Code for a KDC fixture or an integration test
   belongs to tasks this ADR files.
+- Decided in ADR-0065 (Decided by Claude under Stewart's delegation): a hand-built loopback test KDC
+  (`Surl.Kerberos.TestKdc`, realm `SURL.TEST`, `127.0.0.1:88` UDP and TCP) as a test fixture;
+  Stewart maps the realm once with `ksetup` (BL-265, assignee Stewart); the proof is
+  `TestCategory=Integration`, Windows only, Inconclusive without the mapping;
+  `Record-CurlExchange.ps1 -KerberosTestKdc`.
+- No KDC was available: checked 2026-09-30, the lane machine is a workgroup member
+  (`PartOfDomain` False, `ksetup`: "not configured to log on to an external KDC", no
+  `Lsa\Kerberos\Domains` key) and the lane is not an administrator. Nothing measured; BL-268 measures.
+- `Record-CurlExchange.ps1` was not changed in this task (the extension is BL-267), so its
+  pinned-build refusal is untouched.
+- Filed: BL-265 (Stewart: ksetup), BL-266 (test KDC), BL-267 (recorder switch), BL-268 (measure),
+  BL-269 (Integration proof).
+- Choice: host names under `.surl.test` pinned with curl's `--resolve`, so no hosts-file edit is
+  needed; `.test` is reserved by RFC 6761.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-217 (ADR-0057 decision 12).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0065 decides how Kerberos logins are proved: hand-built loopback test KDC, Stewart's one-time ksetup mapping (BL-265), Integration-only Windows proof; BL-265 to BL-269 filed
