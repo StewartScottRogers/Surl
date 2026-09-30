@@ -1,8 +1,10 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// No handler for anything: every <c>exec</c> and <c>subsystem</c> is refused. What the server
-/// uses until SCP (BL-164) and SFTP (BL-165) are built.
+/// uses when it is given no content store to serve.
 /// </summary>
 internal sealed class SshNoChannelHandlers : ISshChannelHandlers
 {
@@ -12,8 +14,8 @@ internal sealed class SshNoChannelHandlers : ISshChannelHandlers
     public static SshNoChannelHandlers Instance { get; } = new();
 
     /// <inheritdoc/>
-    public ISshChannelHandler? ForScp(SshScpCommand command) => null;
+    public ISshChannelHandler? ForScp(SshScpCommand command, ExchangeContext context) => null;
 
     /// <inheritdoc/>
-    public ISshChannelHandler? ForSftp() => null;
+    public ISshChannelHandler? ForSftp(ExchangeContext context) => null;
 }

@@ -23,3 +23,12 @@ Recorded on 2026-09-29 from the repository root, in Windows PowerShell:
 | --- | --- | --- | --- |
 | `sftp-insecure` | 2 | identification line and `KEXINIT` with compression `none` | `.\Record-CurlExchange.ps1 -Port 47301 -Raw -RawReplyFirst -RawReply 'SSH-2.0-surl\r\n' -CurlArgs '-sS','-v','sftp://127.0.0.1:47301/x','-k' -OutDirectory Surl.Protocol.Ssh.UnitTests\Fixtures\sftp-insecure` |
 | `sftp-insecure-compressed` | 2 | the same, with compression `zlib,zlib@openssh.com,none` | `.\Record-CurlExchange.ps1 -Port 47301 -Raw -RawReplyFirst -RawReply 'SSH-2.0-surl\r\n' -CurlArgs '-sS','-v','sftp://127.0.0.1:47301/x','-k','--compressed-ssh' -OutDirectory Surl.Protocol.Ssh.UnitTests\Fixtures\sftp-insecure-compressed` |
+
+## SFTP byte scripts
+
+Nothing after `KEXINIT` can be recorded until surl itself serves `sftp` (ADR-0054, Context), so
+`SftpSessionTests` drives the `sftp` subsystem at channel level with byte scripts written by hand
+from draft-ietf-secsh-filexfer-02 and ADR-0054's worked bytes (`VERSION`, `REALPATH .`, `ATTRS`
+for `a.txt`, `STATUS OK`), not from a recording. BL-172 proves those answers against the pinned
+upstream curl build above, never against the Curl port (ADR-0003); a disagreement there is a new
+task, never a changed expectation.

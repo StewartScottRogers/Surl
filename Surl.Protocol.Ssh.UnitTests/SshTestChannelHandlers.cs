@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Ssh;
 
@@ -16,14 +17,14 @@ internal sealed class SshTestChannelHandlers : ISshChannelHandlers
 
     public ConcurrentQueue<object> Requests { get; } = new();
 
-    public ISshChannelHandler? ForScp(SshScpCommand command)
+    public ISshChannelHandler? ForScp(SshScpCommand command, ExchangeContext context)
     {
         Requests.Enqueue(command);
 
         return ServesScp ? new Handler(Run) : null;
     }
 
-    public ISshChannelHandler? ForSftp()
+    public ISshChannelHandler? ForSftp(ExchangeContext context)
     {
         Requests.Enqueue("sftp");
 

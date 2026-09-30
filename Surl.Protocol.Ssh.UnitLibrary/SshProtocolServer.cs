@@ -1,3 +1,4 @@
+using Surl.Content;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Ssh;
@@ -13,8 +14,9 @@ namespace Surl.Protocol.Ssh;
 /// <see cref="SshUserAuthentication"/> says, every credential judged by its
 /// <see cref="ISshAuthenticationPolicy"/>. After the login it runs the connection protocol as
 /// <see cref="SshConnectionProtocol"/> says: <c>session</c> channels, each <c>exec</c> of an SCP
-/// command and the <c>sftp</c> subsystem handed to its handler. No handler is registered yet
-/// (SCP is BL-164, SFTP BL-165), so both are answered <c>CHANNEL_FAILURE</c>.
+/// command and the <c>sftp</c> subsystem handed to its handler. Given a <see cref="ContentStore"/>,
+/// it answers the <c>sftp</c> subsystem's read side as <see cref="SftpSession"/> says; without one,
+/// and for SCP until BL-164, both are answered <c>CHANNEL_FAILURE</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -93,6 +95,21 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     }
 
     /// <summary>
+    /// Creates an SSH server that also serves <paramref name="contentStore"/> over the <c>sftp</c>
+    /// subsystem (ADR-0054, decisions 5 to 8).
+    /// </summary>
+    /// <param name="hostKeys">The host keys; <paramref name="offer"/>'s host-key algorithms are theirs.</param>
+    /// <param name="offer">The algorithms the server's <c>KEXINIT</c> offers.</param>
+    /// <param name="authenticationPolicy">Who may log in (ADR-0051, decision 7).</param>
+    /// <param name="randomSource">Where the cookie, the padding and a finite-field private exponent come from.</param>
+    /// <param name="contentStore">The content store SFTP reads.</param>
+    /// <exception cref="ArgumentException"><paramref name="offer"/> names a host-key algorithm no key in <paramref name="hostKeys"/> signs with.</exception>
+    public SshProtocolServer(SshHostKeySet hostKeys, SshAlgorithmOffer offer, ISshAuthenticationPolicy authenticationPolicy, ISshRandomSource randomSource, ContentStore contentStore)
+        : this(hostKeys, offer, authenticationPolicy, randomSource, SshReExchangeLimits.Default, new SshContentChannelHandlers(contentStore))
+    {
+    }
+
+    /// <summary>
     /// Creates an SSH server that re-keys itself at <paramref name="reExchangeLimits"/>.
     /// </summary>
     /// <param name="hostKeys">The host keys; <paramref name="offer"/>'s host-key algorithms are theirs.</param>
@@ -159,7 +176,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 context.Log,
                 firstExchange.SessionIdentifier,
                 () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan));
-            var connectionProtocol = new SshConnectionProtocol(transport, channelHandlers, context.Log, context.Limits.MaxLineBytes);
+            var connectionProtocol = new SshConnectionProtocol(transport, channelHandlers, context);
 
             // However the message loop ends, every channel ends and its handler returns before
             // the loop's outcome - its exception included - is taken up below.

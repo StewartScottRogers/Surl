@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
@@ -10,12 +12,14 @@ internal interface ISshChannelHandlers
     /// The handler for an <c>exec</c> of <paramref name="command"/>.
     /// </summary>
     /// <param name="command">The SCP command the <c>exec</c> named.</param>
+    /// <param name="context">The exchange the channel belongs to: its log, clock and limits.</param>
     /// <returns>The handler, or <see langword="null"/> when SCP is not served: the request is refused.</returns>
-    ISshChannelHandler? ForScp(SshScpCommand command);
+    ISshChannelHandler? ForScp(SshScpCommand command, ExchangeContext context);
 
     /// <summary>
     /// The handler for the <c>sftp</c> subsystem.
     /// </summary>
+    /// <param name="context">The exchange the channel belongs to: its log, clock and limits.</param>
     /// <returns>The handler, or <see langword="null"/> when SFTP is not served: the request is refused.</returns>
-    ISshChannelHandler? ForSftp();
+    ISshChannelHandler? ForSftp(ExchangeContext context);
 }

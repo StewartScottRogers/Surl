@@ -31,19 +31,22 @@ namespace Surl.Protocol.Ssh;
 /// </remarks>
 /// <param name="transport">The transport the messages travel on.</param>
 /// <param name="handlers">The handlers an accepted <c>exec</c> or <c>subsystem</c> goes to.</param>
-/// <param name="log">Where the channel notes go.</param>
-/// <param name="maxLineBytes">The most bytes an <c>exec</c> command may hold (<c>--max-line</c>); 0 means no limit.</param>
+/// <param name="context">
+/// The exchange: where the channel notes go, the most bytes an <c>exec</c> command may hold
+/// (<see cref="ExchangeLimits.MaxLineBytes"/>, <c>--max-line</c>; 0 means no limit), and what the
+/// handlers are given.
+/// </param>
 internal sealed class SshConnectionProtocol(
     SshTransportHandshake transport,
     ISshChannelHandlers handlers,
-    IExchangeLog log,
-    long maxLineBytes) : IDisposable
+    ExchangeContext context) : IDisposable
 {
     /// <summary>
     /// The most channels open at once on one connection (OpenSSH's <c>MaxSessions</c>).
     /// </summary>
     public const int MaxOpenChannels = 10;
 
+    private readonly IExchangeLog log = context.Log;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly Dictionary<uint, SshSessionChannel> channels = [];
     private readonly List<Task> handlerRuns = [];
@@ -305,8 +308,8 @@ internal sealed class SshConnectionProtocol(
     // channel closed.
     private async ValueTask AnswerExecAsync(SshSessionChannel channel, ReadOnlyMemory<byte> command, bool wantsReply, CancellationToken cancellationToken)
     {
-        var scpCommand = SshScpCommand.Parse(command.Span, maxLineBytes, out var refusal);
-        var handler = scpCommand is null ? null : handlers.ForScp(scpCommand);
+        var scpCommand = SshScpCommand.Parse(command.Span, context.Limits.MaxLineBytes, out var refusal);
+        var handler = scpCommand is null ? null : handlers.ForScp(scpCommand, context);
         if (handler is null)
         {
             var reason = scpCommand is null ? SshLogText.Render(Encoding.UTF8.GetBytes(refusal)) : "SCP is not served";
@@ -323,7 +326,7 @@ internal sealed class SshConnectionProtocol(
     // ADR-0054 decision 5: the subsystem named exactly sftp, when SFTP is served.
     private async ValueTask AnswerSubsystemAsync(SshSessionChannel channel, ReadOnlyMemory<byte> name, bool wantsReply, CancellationToken cancellationToken)
     {
-        var handler = name.Span.SequenceEqual("sftp"u8) ? handlers.ForSftp() : null;
+        var handler = name.Span.SequenceEqual("sftp"u8) ? handlers.ForSftp(context) : null;
         if (handler is null)
         {
             log.Note($"SSH subsystem refused: {Render(name)}");
