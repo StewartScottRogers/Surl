@@ -99,7 +99,7 @@ public sealed class CommandLineRunnerSshTests
     [DataRow("not a key", SurlExitCode.FailedInit, "(2) Host key host.key: not a private key surl can read", DisplayName = "Not a key")]
     [DataRow("encrypted", SurlExitCode.FailedInit, "(2) Host key host.key: the key is encrypted; give --pass", DisplayName = "Encrypted, no --pass")]
     [DataRow("encrypted, wrong pass", SurlExitCode.FailedInit, "(2) Host key host.key: --pass does not decrypt the key", DisplayName = "Wrong --pass")]
-    [DataRow("encrypted openssh", SurlExitCode.FailedInit, "(2) Host key host.key: encrypted OpenSSH keys are not available in this build", DisplayName = "Encrypted OpenSSH")]
+    [DataRow("encrypted openssh", SurlExitCode.FailedInit, "(2) Host key host.key: the key is encrypted; give --pass", DisplayName = "Encrypted OpenSSH, no --pass")]
     [DataRow("rsa 1024", SurlExitCode.FailedInit, "(2) Host key host.key: RSA keys of 1024 bits need --allow-weak-ssh-algorithms", DisplayName = "Weak RSA")]
     [DataRow("x25519", SurlExitCode.FailedInit, "(2) Host key host.key: key type 1.3.101.110 is not supported", DisplayName = "Another key type")]
     public async Task RunAsync_HostKeyFileSurlCannotUse_WritesItsRefusalAndReturnsItsExitCodeBeforeAnyListenerBinds(
