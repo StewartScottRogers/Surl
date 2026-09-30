@@ -495,19 +495,17 @@ internal sealed class CommandLineRunner(
 
     /// <summary>
     /// The first option given that names something this build does not serve yet, in option-table
-    /// order: the <c>--auth</c> word <c>gssapi</c>, parsed but refused until its mechanism is
-    /// built (ADR-0049 section 3), then <c>--hostcert</c>, refused until the SSH server serves host
+    /// order: <c>--hostcert</c>, refused until the SSH server serves host
     /// certificates (BL-222, ADR-0051 decision 5), and <c>--allow-weak-ssh-algorithms</c>, refused
     /// until the SSH server offers the weak algorithms (BL-221), after ADR-0032 section 1's precedent.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
-    /// <returns>The option as <c>--&lt;name&gt;</c> (and the word, for <c>--auth</c>), or <see langword="null"/> when none is given.</returns>
+    /// <returns>The option as <c>--&lt;name&gt;</c>, or <see langword="null"/> when none is given.</returns>
     internal static string? FindUnavailableOption(SurlCommandLine commandLine) =>
         UnavailableOptions.FirstOrDefault(unavailable => unavailable.IsGiven(commandLine)).Option;
 
     private static readonly (string Option, Func<SurlCommandLine, bool> IsGiven)[] UnavailableOptions =
     [
-        ("--auth gssapi", commandLine => commandLine.AcceptedAuthenticationMethods.Contains("gssapi")),
         ("--hostcert", commandLine => commandLine.HostCertificateFiles.Count > 0),
         ("--allow-weak-ssh-algorithms", commandLine => commandLine.AllowWeakSshAlgorithms),
     ];

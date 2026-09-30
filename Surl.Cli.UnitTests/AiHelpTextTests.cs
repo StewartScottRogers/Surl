@@ -575,7 +575,6 @@ public sealed partial class AiHelpTextTests
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
-            "surl: (2) --auth gssapi is not available in this build",
             "surl: (2) --hostcert is not available in this build",
             "surl: (2) --allow-weak-ssh-algorithms is not available in this build",
             "surl: (37) Could not read authorized keys <file>",

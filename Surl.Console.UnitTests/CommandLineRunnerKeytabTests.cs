@@ -97,12 +97,13 @@ public sealed class CommandLineRunnerKeytabTests
     }
 
     [TestMethod]
-    public async Task RunAsync_AuthGssapiWithKeytab_IsStillNotAvailableAndReadsNoFile()
+    public void Compose_AuthGssapiWithKeytab_PolicyOffersGssapiFirst()
     {
-        var run = await RunRefusedAsync(_ => throw new AssertFailedException("no file is read"), "--auth", "gssapi", "--keytab", Keytab, Http);
+        var (policy, _, _, exitCode, _) = AuthenticationComposition.Compose(
+            Parse("--auth", "cram-md5,gssapi", "--keytab", Keytab, Http), _ => TestKeytabFiles.AesOnly, TimeProvider.System);
 
-        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
-        Assert.AreEqual("surl: (2) --auth gssapi is not available in this build" + NewLine, run.Error);
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        CollectionAssert.AreEqual(new[] { "GSSAPI", "CRAM-MD5" }, policy!.GetMailLoginOffer(null).SaslMechanisms.ToArray());
     }
 
     [TestMethod]

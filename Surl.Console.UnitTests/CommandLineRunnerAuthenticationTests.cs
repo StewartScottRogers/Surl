@@ -447,26 +447,16 @@ public sealed class CommandLineRunnerAuthenticationTests
     }
 
     [TestMethod]
-    [DataRow("gssapi", "gssapi")]
-    [DataRow("GSSAPI,plain", "gssapi")]
-    [DataRow("external,gssapi", "gssapi")]
-    public async Task RunAsync_AuthGssapiWithKeytab_WritesNotAvailableAndReturnsFailedInitBeforeAnyListenerBinds(string words, string refused)
+    [DataRow("ntlm,GSSAPI,negotiate", "negotiate, gssapi, ntlm", DisplayName = "between negotiate and ntlm")]
+    [DataRow("gssapi,plain", "gssapi, plain", DisplayName = "with a SASL word")]
+    public async Task RunAsync_AuthGssapiWithKeytab_StartsAndWritesGssapiAfterNegotiateAndBeforeNtlm(string words, string accepted)
     {
-        var run = await RunRefusedAsync(
-            _ => throw new AssertFailedException("neither the user file nor the keytab is read"),
-            "--auth", words, "--keytab", "http.keytab", "--user-file", UserFile, Http);
+        var run = await ServeOneConnectionAsync(
+            null, path => path == "mail.keytab" ? TestKeytabFiles.AesOnly : Encoding.UTF8.GetBytes(string.Empty),
+            "--auth", words, "--keytab", "mail.keytab", "--user-file", UserFile, Http);
 
-        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
-        Assert.AreEqual($"surl: (2) --auth {refused} is not available in this build" + NewLine, run.Error);
-        Assert.IsEmpty(run.Factory.StartedListenUrls);
-    }
-
-    [TestMethod]
-    public async Task RunAsync_AuthGssapiAndAnSshOption_NamesAuthFirstInOptionTableOrder()
-    {
-        var run = await RunRefusedAsync(null, "--hostcert", "host-cert.pub", "--auth", "gssapi", "--keytab", "http.keytab", Http);
-
-        Assert.AreEqual("surl: (2) --auth gssapi is not available in this build" + NewLine, run.Error);
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
+        Assert.AreEqual($"surl: warning: --auth: accepted methods are {accepted}" + NewLine, run.Error);
     }
 
     private async Task<Run> RunRefusedAsync(Func<string, byte[]>? readUserFile, params string[] args)

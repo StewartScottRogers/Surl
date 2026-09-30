@@ -348,6 +348,7 @@ public sealed class CommandLineParserTests
         Assert.IsFalse(defaults.SelfSigned);
         Assert.IsNull(defaults.GivenAuthenticationMethods);
         CollectionAssert.AreEqual(new[] { "digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4" }, defaults.AcceptedAuthenticationMethods.ToArray());
+        CollectionAssert.DoesNotContain(defaults.AcceptedAuthenticationMethods.ToArray(), "gssapi", "gssapi needs --keytab, so it is never a default (ADR-0049, section 3)");
     }
 
     [TestMethod]

@@ -17,10 +17,11 @@ internal static class AuthenticationComposition
     private const string WarningPrefix = "surl: warning: ";
 
     // The method each --auth word names (ADR-0032 section 3, as ADR-0049 section 3 grows it).
-    // gssapi is refused as not available before the policy is composed.
+    // gssapi without --keytab is refused before the policy is composed (ADR-0057, decision 1).
     private static readonly Dictionary<string, AuthenticationMethod> MethodsByWord = new(StringComparer.Ordinal)
     {
         ["negotiate"] = AuthenticationMethod.Negotiate,
+        ["gssapi"] = AuthenticationMethod.Gssapi,
         ["ntlm"] = AuthenticationMethod.Ntlm,
         ["digest"] = AuthenticationMethod.Digest,
         ["digest-md5"] = AuthenticationMethod.DigestMd5,
@@ -41,7 +42,7 @@ internal static class AuthenticationComposition
     /// the <c>--keytab</c> file through <paramref name="readFile"/> when given, and composes the
     /// Negotiate, NTLM, Basic, Bearer, Digest and AWS Signature Version 4 methods over the accounts;
     /// the SSH server checks its logins against the accounts and the authorized keys (ADR-0051,
-    /// section 6). The keytab's Kerberos acceptor rides on the settings, read by no method yet
+    /// section 6). The keytab's Kerberos acceptor rides on the settings, where SASL GSSAPI reads it
     /// (ADR-0057, decision 6).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>

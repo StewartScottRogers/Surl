@@ -13,12 +13,11 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
   start whose `--auth` names `gssapi` without `--keytab` with `surl: (2) --auth gssapi needs
   --keytab` (`KeytabComposition.IsGssapiWithoutKeytab`, ADR-0057 decision 1), then a
-  start that gives the `--auth` word `gssapi` or an SSH server option this build does not
-  serve yet (`FindUnavailableOption`: `--auth gssapi`, `--hostcert`,
+  start that gives an SSH server option this build does not
+  serve yet (`FindUnavailableOption`: `--hostcert`,
   `--allow-weak-ssh-algorithms`, the first in that order) with
-  `surl: (2) --<option> is not available in this build` (`--auth gssapi` for the word) and
-  exit 2 before anything else is checked (ADR-0049 section 3, until BL-218 and BL-216 build
-  the two mechanisms; ADR-0051 decision 5, `--hostcert` until BL-222 and
+  `surl: (2) --<option> is not available in this build` and
+  exit 2 before anything else is checked (ADR-0051 decision 5, `--hostcert` until BL-222 and
   `--allow-weak-ssh-algorithms` until BL-221), checks the
   data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
@@ -40,7 +39,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   is malformed at byte <offset>` or `holds no key surl can use`), whose keys become a
   `KerberosAcceptor` (one `KerberosReplayCache` per process, the one clock and
   `RandomKerberosRandomSource`) on `AuthenticationSettings.KerberosAcceptor`, `null` without
-  `--keytab`, read by no method yet (ADR-0057 decision 6); then the SSH host keys
+  `--keytab`, where SASL `GSSAPI` reads it (ADR-0057 decisions 6 and 9); then the SSH host keys
   (`SshHostKeyComposition.Compose`, ADR-0051 decision 4): each `--hostkey` file read through
   the same seam and parsed by `SshHostKeyFile.Read` (37 unreadable, 2 with the parser's
   refusal or a second key of one type, naming the file), and with `--throwaway-hostkey` an RSA
