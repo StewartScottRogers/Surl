@@ -72,7 +72,7 @@ text, and refuses a start that gives them until BL-171 composes the SSH server.
   ADR-0051's table says: `AiHelpFactsTests` holds every testing option to be a security option
   too (as `--self-signed` is), and `--help testing` needs its `Explanation` paragraph, which it
   has. ADR-0051 could not be edited here (BL-173 held `Documentation/Planning/Decisions`), so
-  BL-227 records it there. `--allow-weak-ssh-algorithms` is `security` only, as the ADR says, and
+  BL-229 records it there. `--allow-weak-ssh-algorithms` is `security` only, as the ADR says, and
   so has no `Explanation`.
 - Choice: `Surl.Console`'s refusal (`CommandLineRunner.FindUnavailableOption`) fires when an
   option's value is set - a file option given, or a flag left on - so `--no-throwaway-hostkey`
@@ -85,7 +85,7 @@ text, and refuses a start that gives them until BL-171 composes the SSH server.
   Abstractions` was not changed.
 - Measured: Surl.Cli.UnitLibrary and Surl.Console 100% line and branch, 0 failing members.
   `Surl.Content.UnitLibrary`'s `ContentStore.DescribeDirectoryEntry` (complexity 12) fails the
-  gate from before this task; filed as BL-226.
+  gate from before this task; filed as BL-228.
 
 ## Log
 

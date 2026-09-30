@@ -1,5 +1,5 @@
 ---
-id: BL-226
+id: BL-228
 title: Bring ContentStore.DescribeDirectoryEntry under complexity 10
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-29
 completed:
 ---
-# BL-226 — Bring ContentStore.DescribeDirectoryEntry under complexity 10
+# BL-228 — Bring ContentStore.DescribeDirectoryEntry under complexity 10
 
 ## Goal
 

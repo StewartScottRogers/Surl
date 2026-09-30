@@ -1,5 +1,5 @@
 ---
-id: BL-227
+id: BL-229
 title: Record in ADR-0051 that --throwaway-hostkey is in the security category too
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-29
 completed:
 ---
-# BL-227 — Record in ADR-0051 that --throwaway-hostkey is in the security category too
+# BL-229 — Record in ADR-0051 that --throwaway-hostkey is in the security category too
 
 ## Goal
 
