@@ -4,6 +4,7 @@
 - **Date:** 2026-09-28
 - **Decided by:** Stewart, approving the proposed shell on 2026-09-28
 - **Amended:** decision 3's table by [ADR-0048](ADR-0048-the-hand-built-ssh-primitive-libraries.md) (2026-09-29), which adds the four hand-built SSH primitive libraries: `Surl.Cryptography.ChaCha20.UnitLibrary`, `Surl.Cryptography.Curve25519.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, each referencing nothing, and `Surl.Cryptography.Ed25519.UnitLibrary`, referencing `Surl.Cryptography.Curve25519.UnitLibrary`.
+- **Amended:** decision 3's table by [ADR-0050](ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) (2026-09-29), which adds the two libraries the mail servers share: `Surl.LineProtocol.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`, and `Surl.MailStore.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`.
 
 ## Context
 
@@ -49,10 +50,12 @@ Three questions followed:
    | `Surl.Cryptography.Ed25519.UnitLibrary` (ADR-0048) | `Surl.Cryptography.Curve25519.UnitLibrary` |
    | `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.UnitLibrary` | nothing |
+   | `Surl.LineProtocol.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary` |
+   | `Surl.MailStore.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` |
 
    `Surl.Protocol.Abstractions.UnitTests` enforces the table and that Abstractions
-   references nothing. The rows marked ADR-0048 name projects BL-149 creates; the test
-   learns them then. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
+   references nothing. The rows marked ADR-0048 name projects BL-149 created, and the rows
+   marked ADR-0050 projects BL-189 creates; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
    or HTTP/3 library, say) joins the table through a new ADR when Surl needs one.
 
 ## Consequences
