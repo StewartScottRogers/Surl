@@ -8,9 +8,9 @@ depends-on: []
 touches: []
 requirement: FR-046
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
-# BL-265 — Map the SURL.TEST Kerberos realm to a loopback KDC on the lane machine
+# BL-265 â€” Map the SURL.TEST Kerberos realm to a loopback KDC on the lane machine
 
 ## Goal
 
@@ -33,8 +33,8 @@ ticket from the hand-built test KDC.
 
 ## Acceptance criteria
 
-- [ ] `ksetup` (run without arguments) lists realm `SURL.TEST` with KDC `127.0.0.1`.
-- [ ] `Test-Path HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Domains\SURL.TEST` is `True`.
+- [x] `ksetup` (run without arguments) lists realm `SURL.TEST` with KDC `127.0.0.1`.
+- [x] `Test-Path HKLM:\SYSTEM\CurrentControlSet\Control\Lsa\Kerberos\Domains\SURL.TEST` is `True`.
 
 ## Notes
 
@@ -43,3 +43,4 @@ ticket from the hand-built test KDC.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Done. Stewart, 2026-09-30: asked Claude to run both ksetup commands from an elevated PowerShell (he approved the UAC prompt). ksetup lists realm SURL.TEST with kdc 127.0.0.1; HKLM Kerberos Domains\SURL.TEST exists; HostToRealm SURL.TEST maps .surl.test.
