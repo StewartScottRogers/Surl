@@ -1,5 +1,5 @@
 ---
-id: BL-260
+id: BL-261
 title: Prove pinned upstream curl transfers over blowfish-cbc, cast128-cbc and hmac-ripemd160
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-30
 completed:
 ---
-# BL-260 — Prove pinned upstream curl transfers over blowfish-cbc, cast128-cbc and hmac-ripemd160
+# BL-261 — Prove pinned upstream curl transfers over blowfish-cbc, cast128-cbc and hmac-ripemd160
 
 ## Goal
 

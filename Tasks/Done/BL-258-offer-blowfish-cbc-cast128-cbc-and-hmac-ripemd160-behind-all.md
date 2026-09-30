@@ -105,7 +105,7 @@ that upstream curl 8.21.0's OpenSSL builds offer; without the option it offers n
 - Proving the exchange end to end with a pinned upstream curl build that offers these names
   (the Linux or macOS reference pin) is conformance work in `Surl.Conformance.UnitTests`, outside
   this task's `touches`; if the conformance stage finds it missing, it files a follow-up task.
-  It was missing: filed as BL-260.
+  It was missing: filed as BL-261.
 - Delivered: `SshBlockCbc` runs CBC over a `SshBlockFunction` delegate (Blowfish's or
   CAST-128's `EncryptBlock`/`DecryptBlock`), chaining across calls and leaving the chain as it
   is for no bytes. `SshHmac` keeps its record shape (so record equality in the tests still
