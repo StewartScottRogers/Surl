@@ -84,7 +84,7 @@ internal static class SshOpenSshKeyDecoder
         {
             SshRsaHostKey.RsaKeyType => ReadRsa(section, allowWeakAlgorithms),
             SshEd25519HostKey.Ed25519KeyType => ReadEd25519(section),
-            "ssh-dss" => throw SshHostKeyFile.DsaRefusal(section.ReadMpint().GetBitLength(), allowWeakAlgorithms),
+            SshDsaHostKey.DsaKeyType => ReadDsa(section, allowWeakAlgorithms),
             _ when keyType.StartsWith(EcdsaKeyTypePrefix, StringComparison.Ordinal) => ReadEcdsa(section, keyType),
             _ => throw new SshHostKeyRefusedException(SshHostKeyRefusal.UnsupportedKeyType(keyType)),
         };
@@ -122,6 +122,18 @@ internal static class SshOpenSshKeyDecoder
         rsa.ImportRSAPrivateKey(writer.Encode(), out _);
 
         return SshHostKeyFile.FromRsa(rsa, allowWeakAlgorithms);
+    }
+
+    // p, q, g, y, x (OpenSSH's sshkey.c); y must be g^x mod p.
+    private static SshHostKey ReadDsa(SshWireReader section, bool allowWeakAlgorithms)
+    {
+        var prime = section.ReadMpint();
+        SshHostKeyFile.RequireWeakAlgorithmsForDsa(prime, allowWeakAlgorithms);
+        var subgroupOrder = section.ReadMpint();
+        var generator = section.ReadMpint();
+        var publicValue = section.ReadMpint();
+
+        return SshHostKeyFile.FromDsa(prime, subgroupOrder, generator, publicValue, section.ReadMpint());
     }
 
     // The 32-byte public key, then the 64-byte private key: the seed and the public key again

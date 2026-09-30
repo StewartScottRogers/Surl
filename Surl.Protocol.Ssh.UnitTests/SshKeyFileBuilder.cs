@@ -145,6 +145,33 @@ internal static class SshKeyFileBuilder
         [2, 1, 5]);
 
     /// <summary>
+    /// A PKCS #8 DSA key (RFC 3279 section 2.3.2): Dss-Parms p, q, g, and x as an INTEGER in
+    /// the private key octets.
+    /// </summary>
+    public static byte[] Pkcs8Dsa(BigInteger prime, BigInteger subgroupOrder, BigInteger generator, BigInteger privateValue)
+    {
+        var privateKey = new AsnWriter(AsnEncodingRules.DER);
+        privateKey.WriteInteger(privateValue);
+
+        return Pkcs8(
+            "1.2.840.10040.4.1",
+            writer =>
+            {
+                using (writer.PushSequence())
+                {
+                    writer.WriteInteger(prime);
+                    writer.WriteInteger(subgroupOrder);
+                    writer.WriteInteger(generator);
+                }
+            },
+            privateKey.Encode());
+    }
+
+    /// <summary>The DSA fields of <c>openssh-key-v1</c>: p, q, g, y, x.</summary>
+    public static byte[] OpenSshDsaFields(BigInteger prime, BigInteger subgroupOrder, BigInteger generator, BigInteger publicValue, BigInteger privateValue) =>
+        Concat(Mpint(prime), Mpint(subgroupOrder), Mpint(generator), Mpint(publicValue), Mpint(privateValue));
+
+    /// <summary>
     /// A SEC 1 <c>ECPrivateKey</c> naming <paramref name="curveOid"/>, or no curve.
     /// </summary>
     public static byte[] Sec1(string? curveOid)

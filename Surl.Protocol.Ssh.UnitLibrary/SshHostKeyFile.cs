@@ -1,4 +1,5 @@
 using System.Formats.Asn1;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -14,8 +15,8 @@ namespace Surl.Protocol.Ssh;
 /// <remarks>
 /// RSA keys of at least 2048 bits, ECDSA keys on P-256, P-384 and P-521, and Ed25519 keys (in
 /// PKCS #8, encrypted or not, and <c>openssh-key-v1</c>) are served. A shorter RSA key is
-/// served only with <c>--allow-weak-ssh-algorithms</c>; a DSA key without it is refused as weak
-/// and with it as not supported until BL-248 reads it. A PEM block
+/// served only with <c>--allow-weak-ssh-algorithms</c>, and so is a DSA key (PKCS #8, encrypted or
+/// not, and <c>openssh-key-v1</c>), as <c>ssh-dss</c> when its q is 160 bits. A PEM block
 /// with RFC 1421 headers (the legacy <c>Proc-Type: 4,ENCRYPTED</c> form) is not a block this
 /// reads, so it is not a private key surl can read.
 /// </remarks>
@@ -87,14 +88,68 @@ public static class SshHostKeyFile
     }
 
     /// <summary>
-    /// The refusal of a DSA key: weak without <c>--allow-weak-ssh-algorithms</c>, and not read
-    /// from a file with it until BL-248, though <see cref="SshHostKey.FromDsa"/> serves <c>ssh-dss</c>.
+    /// Refuses a DSA key as weak unless <c>--allow-weak-ssh-algorithms</c> was given; read before
+    /// the rest of the key, so a DSA key without it is refused for its size alone.
     /// </summary>
-    /// <param name="bits">The size of the key's prime p.</param>
+    /// <param name="prime">The key's prime p.</param>
     /// <param name="allowWeakAlgorithms">Whether weak algorithms are allowed.</param>
-    /// <returns>The exception to throw.</returns>
-    internal static SshHostKeyRefusedException DsaRefusal(long bits, bool allowWeakAlgorithms) =>
-        new(allowWeakAlgorithms ? SshHostKeyRefusal.UnsupportedKeyType("ssh-dss") : SshHostKeyRefusal.NeedsWeakAlgorithms("DSA", bits));
+    /// <exception cref="SshHostKeyRefusedException">Weak algorithms are not allowed.</exception>
+    internal static void RequireWeakAlgorithmsForDsa(BigInteger prime, bool allowWeakAlgorithms)
+    {
+        if (!allowWeakAlgorithms)
+        {
+            throw new SshHostKeyRefusedException(SshHostKeyRefusal.NeedsWeakAlgorithms("DSA", prime.GetBitLength()));
+        }
+    }
+
+    /// <summary>
+    /// The <c>ssh-dss</c> host key for a DSA private key's values, checked so a damaged key is
+    /// refused rather than served with signatures that do not verify.
+    /// </summary>
+    /// <param name="prime">p.</param>
+    /// <param name="subgroupOrder">q, which must be 160 bits, the only size an <c>ssh-dss</c> signature holds.</param>
+    /// <param name="generator">g.</param>
+    /// <param name="publicValue">y as the file holds it, which must be g^x mod p; <see langword="null"/> when the file holds none (PKCS #8).</param>
+    /// <param name="privateValue">x.</param>
+    /// <returns>The host key.</returns>
+    /// <exception cref="SshHostKeyRefusedException">q is not 160 bits.</exception>
+    /// <exception cref="CryptographicException">The values do not form a DSA key.</exception>
+    internal static SshHostKey FromDsa(BigInteger prime, BigInteger subgroupOrder, BigInteger generator, BigInteger? publicValue, BigInteger privateValue)
+    {
+        RequireDsaValuesInRange(prime, subgroupOrder, generator, privateValue);
+        if (subgroupOrder.GetBitLength() != SshDsaHostKey.SubgroupLength * 8)
+        {
+            throw new SshHostKeyRefusedException(SshHostKeyRefusal.UnsupportedKeyType(SshDsaHostKey.DsaKeyType));
+        }
+
+        if (!BigInteger.ModPow(generator, subgroupOrder, prime).IsOne)
+        {
+            throw new CryptographicException("The DSA key's g does not generate a subgroup of order q.");
+        }
+
+        var y = BigInteger.ModPow(generator, privateValue, prime);
+        if (publicValue is { } given && given != y)
+        {
+            throw new CryptographicException("The DSA key's public value is not its private value's.");
+        }
+
+        var primeLength = prime.GetByteCount(isUnsigned: true);
+        var parameters = new DSAParameters
+        {
+            P = FixedLength(prime, primeLength),
+            Q = FixedLength(subgroupOrder, SshDsaHostKey.SubgroupLength),
+            G = FixedLength(generator, primeLength),
+            Y = FixedLength(y, primeLength),
+            X = FixedLength(privateValue, SshDsaHostKey.SubgroupLength),
+        };
+
+        // The platform's DSA refuses sizes it cannot sign with (Windows' CNG, a p over 1024 bits
+        // with a 160-bit q) here, while reading the file, rather than at the first handshake.
+        using (DSA.Create(parameters))
+        {
+            return new SshDsaHostKey(parameters);
+        }
+    }
 
     /// <summary>
     /// The curve a key file names by object identifier.
@@ -140,7 +195,7 @@ public static class SshHostKeyFile
         {
             RsaEncryptionOid => DecodePkcs8Rsa(der, allowWeakAlgorithms),
             EcPublicKeyOid => DecodePkcs8Ecdsa(der, CurveForOid(algorithm.ReadObjectIdentifier())),
-            DsaOid => throw DsaRefusal(algorithm.ReadSequence().ReadInteger().GetBitLength(), allowWeakAlgorithms),
+            DsaOid => DecodePkcs8Dsa(algorithm, info, allowWeakAlgorithms),
             Ed25519Oid => DecodePkcs8Ed25519(algorithm, info),
             _ => throw new SshHostKeyRefusedException(SshHostKeyRefusal.UnsupportedKeyType(algorithmOid)),
         };
@@ -152,6 +207,40 @@ public static class SshHostKeyFile
         rsa.ImportPkcs8PrivateKey(der, out _);
 
         return FromRsa(rsa, allowWeakAlgorithms);
+    }
+
+    // RFC 3279 section 2.3.2: the algorithm's parameters are Dss-Parms (p, q, g), and the
+    // private key octets hold x as an INTEGER. y is computed.
+    private static SshHostKey DecodePkcs8Dsa(AsnReader algorithm, AsnReader info, bool allowWeakAlgorithms)
+    {
+        var domain = algorithm.ReadSequence();
+        var prime = domain.ReadInteger();
+        RequireWeakAlgorithmsForDsa(prime, allowWeakAlgorithms);
+        var subgroupOrder = domain.ReadInteger();
+        var generator = domain.ReadInteger();
+        var privateValue = new AsnReader(info.ReadOctetString(), AsnEncodingRules.DER).ReadInteger();
+
+        return FromDsa(prime, subgroupOrder, generator, null, privateValue);
+    }
+
+    // 1 < q < p, 1 < g < p and 0 < x < q, checked before any exponentiation.
+    private static void RequireDsaValuesInRange(BigInteger prime, BigInteger subgroupOrder, BigInteger generator, BigInteger privateValue)
+    {
+        if (!IsBetween(subgroupOrder, BigInteger.One, prime) || !IsBetween(generator, BigInteger.One, prime) || !IsBetween(privateValue, BigInteger.Zero, subgroupOrder))
+        {
+            throw new CryptographicException("The DSA key's values are out of range.");
+        }
+    }
+
+    // Whether low < value < high.
+    private static bool IsBetween(BigInteger value, BigInteger low, BigInteger high) => value > low && value < high;
+
+    private static byte[] FixedLength(BigInteger value, int length)
+    {
+        var bytes = new byte[length];
+        value.TryWriteBytes(bytes.AsSpan(length - value.GetByteCount(isUnsigned: true)), out _, isUnsigned: true, isBigEndian: true);
+
+        return bytes;
     }
 
     private static SshHostKey DecodePkcs8Ecdsa(byte[] der, SshNistCurve curve)
