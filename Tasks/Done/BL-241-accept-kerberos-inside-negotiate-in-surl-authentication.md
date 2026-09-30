@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-240]
-touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
+touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Documentation/Planning/Decisions/ADR-0063-kerberos-inside-negotiate-the-choices-adr-0057-decision-8-left-open.md, Documentation/Planning/Decisions/README.md]
 requirement: FR-046
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-241 — Accept Kerberos inside Negotiate in Surl.Authentication
 
@@ -64,37 +64,37 @@ behaves exactly as ADR-0040 decides.
 
 ## Acceptance criteria
 
-- [ ] `NegotiateAuthenticationMethodTests` (or a new `NegotiateKerberosTests` beside it) pin: a
+- [x] `NegotiateAuthenticationMethodTests` (or a new `NegotiateKerberosTests` beside it) pin: a
       SPNEGO `NegTokenInit` listing `1.2.840.48018.1.2.2` first with a valid AP-REQ is `Accepted`
       as the matching account, and the final `WWW-Authenticate: Negotiate` token decodes to
       `negState accept-completed` with `supportedMech` `1.2.840.48018.1.2.2`; the same with
       `1.2.840.113554.1.2.2` echoes that OID.
-- [ ] Tests pin: with `mutual-required` the `negTokenResp` carries the AP-REP token as
+- [x] Tests pin: with `mutual-required` the `negTokenResp` carries the AP-REP token as
       `responseToken`, without it no `responseToken`; a bare Kerberos token is accepted and
       answered with the bare AP-REP token only when `mutual-required` was set.
-- [ ] Tests pin `mechListMIC`: a valid client MIC is accepted and surl's reply carries a MIC over
+- [x] Tests pin `mechListMIC`: a valid client MIC is accepted and surl's reply carries a MIC over
       the same `mechTypes` DER that verifies under key usage 23; a tampered client MIC is
       `RefusedCredentials`; no client MIC means no MIC in the reply.
-- [ ] Tests pin refusals, each `RefusedCredentials` decided only after the 1-second delay is
+- [x] Tests pin refusals, each `RefusedCredentials` decided only after the 1-second delay is
       advanced on the fake `TimeProvider`, answered `401` with every challenge again and with no
       NTLM fallback: a Kerberos-first `NegTokenInit` without an optimistic token, a ticket under
       the wrong key, an expired ticket, a replayed authenticator, and a valid ticket for a principal
       with no account.
-- [ ] Tests pin the `CheckedLogin`: method `Negotiate`, user `user@EXAMPLE.COM` on `Accepted` and
+- [x] Tests pin the `CheckedLogin`: method `Negotiate`, user `user@EXAMPLE.COM` on `Accepted` and
       on the no-account refusal; no user for a token that never decrypted; under
       `--allow-anonymous` a valid ticket with no account is accepted unchecked and a wrong-key
       ticket is still refused.
-- [ ] Without a Kerberos acceptor on `AuthenticationSettings`, every existing ADR-0040 test in
+- [x] Without a Kerberos acceptor on `AuthenticationSettings`, every existing ADR-0040 test in
       `NegotiateAuthenticationMethodTests` passes unchanged and a Kerberos token is refused as
       ADR-0040 decision 3 says.
-- [ ] `AiHelpProse.cs` and `ManualText.cs` state that `negotiate` accepts Kerberos with
+- [x] `AiHelpProse.cs` and `ManualText.cs` state that `negotiate` accepts Kerberos with
       `--keytab`; `AiHelpTextTests`, `ManualTextTests` and
       `CommandLineRunnerAiHelpTests.RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` pass.
-- [ ] `dotnet build Surl.Authentication.UnitLibrary -warnaserror` and
+- [x] `dotnet build Surl.Authentication.UnitLibrary -warnaserror` and
       `dotnet build Surl.Cli.UnitLibrary -warnaserror` are clean;
       `dotnet test --filter "TestCategory!=Integration"` passes; no test needs
       `TestCategory=Integration` or a KDC; every test is platform-neutral.
-- [ ] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports 100% line and 100% branch
+- [x] `powershell -NoProfile -File Measure-CodeQuality.ps1` reports 100% line and 100% branch
       coverage, no method over complexity 10 and no CRAP score over 30 for
       `Surl.Authentication.UnitLibrary`.
 
@@ -104,9 +104,32 @@ behaves exactly as ADR-0040 decides.
   upstream curl 8.21.0 does (measured)"); the bytes here come from the RFCs and MS-SPNG. The
   end-to-end proof is BL-242.
 - SASL `GSSAPI` is BL-218, not this task.
+- Built (2026-09-30, lane 2): `NegotiateKerberosLogin` answers the Kerberos leg;
+  `NegotiateConnectionVerifier` hands it every non-SPNEGO `InitialContextToken` and every
+  `NegTokenInit` whose first supported mechanism is Kerberos; `SpnegoToken` now reads the
+  `mechTypes` DER and the client `mechListMIC` and writes surl's; `HttpCredentialOutcome` gains
+  `AcceptedUnchecked`. Tests: `NegotiateKerberosTests` (29), every ADR-0040 test unchanged.
+- Touches widened: `Surl.Console` (one line in `AuthenticationComposition` hands `--keytab`'s
+  acceptor and `--allow-anonymous` to the new constructor
+  `NegotiateAuthenticationMethod(accounts, kerberosAcceptor, allowAnonymous)`; no task in Doing
+  names it), and the new ADR-0063 with its row in the Decisions README (no task in Doing names
+  them).
+- Decisions (ADR-0063, decided by Claude under Stewart's delegation): Kerberos selected but not
+  first in `mechTypes` is refused (one leg, no NTLM fallback); under `--allow-anonymous` with
+  `--keytab`, `HttpAuthenticationSession` now reads a Negotiate `Authorization`: a Kerberos ticket
+  must decrypt and is served unchecked with its final token, every other Negotiate token is served
+  unchecked as before. The acceptance criterion's `--allow-anonymous` case needed this, since
+  ADR-0032 otherwise never reads `Authorization` under `--allow-anonymous`.
+- A new public constructor rather than one taking `AuthenticationSettings`: an
+  `(AuthenticationSettings)` overload made the existing `new NegotiateAuthenticationMethod(null!)`
+  test ambiguous, and the criteria keep every ADR-0040 test unchanged.
+- The HTTP Kerberos refusal reason is not logged at the verbose level (as BL-260 files for SASL).
+- `dotnet format --verify-no-changes` reports only ENDOFLINE on this checkout, also for files this
+  task never touched (working-copy line endings); nothing else.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Filed by BL-217 (ADR-0057 decision 12).
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Negotiate accepts Kerberos with --keytab: bare or SPNEGO AP-REQ, AP-REP and mechListMIC in the final token, no-account and bad-ticket refusals after the delay
