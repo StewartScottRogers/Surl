@@ -108,3 +108,4 @@ default set (ADR-0049 decision 3), with `--help`, the manual and `--aihelp` sayi
 
 - 2026-09-29: Created.
 - 2026-09-29: Filed by BL-185 (ADR-0049 decision 8).
+- 2026-09-29: Backlog -> Doing.
