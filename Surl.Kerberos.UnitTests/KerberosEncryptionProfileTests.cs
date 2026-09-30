@@ -47,10 +47,28 @@ public sealed class KerberosEncryptionProfileTests
     }
 
     [TestMethod]
-    public void KerberosEncryptionType_IsTheLibrarysOnlyPublicType()
+    public void PublicTypes_AreAdr0057Decision6sSurface()
     {
-        Type[] publicTypes = typeof(KerberosEncryptionType).Assembly.GetExportedTypes();
+        string[] publicTypes = typeof(KerberosEncryptionType).Assembly.GetExportedTypes()
+            .Select(type => type.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
 
-        CollectionAssert.AreEqual(new[] { typeof(KerberosEncryptionType) }, publicTypes);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "IKerberosRandomSource",
+                "KerberosAcceptResult",
+                "KerberosAcceptor",
+                "KerberosEncryptionType",
+                "KerberosKeytab",
+                "KerberosKeytabEntry",
+                "KerberosKeytabReadResult",
+                "KerberosKeytabSkippedEntry",
+                "KerberosPrincipalName",
+                "KerberosReplayCache",
+                "KerberosSecurityContext",
+            },
+            publicTypes);
     }
 }
