@@ -104,3 +104,4 @@ offered first in the mechanism list (ADR-0049 decision 2). `--auth gssapi` stops
 - 2026-09-29: Created.
 - 2026-09-29: Filed by BL-185 (ADR-0049 decision 8).
 - 2026-09-30: depends-on and Context updated by BL-217 (ADR-0057).
+- 2026-09-30: Backlog -> Doing.
