@@ -50,3 +50,4 @@ safe for concurrent SMTP, IMAP and POP3 sessions, so the three servers share one
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
