@@ -54,3 +54,4 @@ generated from the option table, and what a change must keep in step.
 ## Log
 
 - 2026-09-29: Created.
+- 2026-09-29: Backlog -> Doing.
