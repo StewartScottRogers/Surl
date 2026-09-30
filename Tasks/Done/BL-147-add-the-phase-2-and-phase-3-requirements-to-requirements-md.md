@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-147 — Add the Phase 2 and Phase 3 requirements to Requirements.md
 
@@ -71,16 +71,27 @@ variants), so every Phase 2 and 3 task can cite the requirement it serves.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Product/Requirements.md`'s "Functional" table has rows FR-036 to FR-047,
+- [x] `Documentation/Product/Requirements.md`'s "Functional" table has rows FR-036 to FR-047,
       after FR-035, in ID order, with the meanings listed in Context and every column the
       table has filled in its existing format.
-- [ ] No row states a behaviour as already built, and each row names the ADRs it relies on
+- [x] No row states a behaviour as already built, and each row names the ADRs it relies on
       (ADR-0006, ADR-0031, ADR-0032 as they apply).
-- [ ] The document's "Last updated" line (if it has one) reads 2026-09-29 or later.
+- [x] The document's "Last updated" line (if it has one) reads 2026-09-29 or later.
 
 ## Notes
+
+- Written in the session rather than through `align-and-document`: a single table append in
+  one file, with the rows' meanings given verbatim in Context.
+- Rows are worded as intent ("is to ..."), Status `Draft`, Priority `Should`, measured against
+  curl 8.21.0 (Git for Windows), each citing ADR-0006, ADR-0031 and ADR-0032 where they apply
+  (FR-036 also ADR-0034 and ADR-0046, which apply to every protocol row).
+- The document had no "Last updated" line; one was added (2026-09-29), and the intro
+  paragraph that said every row is Phase 1's now says FR-036 to FR-047 are Phases 2 and 3's
+  and not built yet, so it stays true.
+- `dotnet build` clean; fast tests green (no code changed).
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. Requirements.md holds FR-036 to FR-047, the Phase 2 and 3 functional requirements
