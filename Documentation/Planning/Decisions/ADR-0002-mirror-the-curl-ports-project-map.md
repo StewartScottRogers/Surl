@@ -5,6 +5,7 @@
 - **Decided by:** Stewart, approving the proposed shell on 2026-09-28
 - **Amended:** decision 3's table by [ADR-0048](ADR-0048-the-hand-built-ssh-primitive-libraries.md) (2026-09-29), which adds the four hand-built SSH primitive libraries: `Surl.Cryptography.ChaCha20.UnitLibrary`, `Surl.Cryptography.Curve25519.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, each referencing nothing, and `Surl.Cryptography.Ed25519.UnitLibrary`, referencing `Surl.Cryptography.Curve25519.UnitLibrary`.
 - **Amended:** decision 3's table by [ADR-0050](ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) (2026-09-29), which adds the two libraries the mail servers share: `Surl.LineProtocol.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`, and `Surl.MailStore.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`.
+- **Amended:** decision 3's table by [ADR-0057](ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md) (2026-09-30), which adds the hand-built Kerberos library, `Surl.Kerberos.UnitLibrary`, referencing nothing. `Surl.Authentication.UnitLibrary` will reference it (BL-240); no protocol server needs it, since every login goes through the policy contracts.
 
 ## Context
 
@@ -50,6 +51,7 @@ Three questions followed:
    | `Surl.Cryptography.Ed25519.UnitLibrary` (ADR-0048) | `Surl.Cryptography.Curve25519.UnitLibrary` |
    | `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.UnitLibrary` | nothing |
+   | `Surl.Kerberos.UnitLibrary` (ADR-0057) | nothing |
    | `Surl.LineProtocol.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary` |
    | `Surl.MailStore.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` |
 

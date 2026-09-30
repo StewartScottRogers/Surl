@@ -195,9 +195,9 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, and for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol` |
-| Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) |
+| Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7), and will reference `Surl.Kerberos` for Kerberos inside Negotiate and SASL `GSSAPI` (ADR-0057 decision 6, BL-240) |
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md), to be added by BL-189 | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
-| Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305`, decided by [ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md) and added by BL-149 | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519` |
+| Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305`, decided by [ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md) and added by BL-149; for Kerberos, `Surl.Kerberos`, decided by [ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md) and added by BL-243 | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519` |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
 | Upstream's test cases | `Surl.Conformance` | Abstractions |
 
@@ -206,7 +206,8 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 Flat: every project is a directory immediately under the repository root, each production
 project followed by its `.UnitTests` twin (`CLAUDE.md`, "Repository layout"). Every
 project of ADR-0002's map exists from the first commit; the four hand-built SSH primitive
-libraries of ADR-0048 and their twins were added by BL-149, and the mail servers' two shared
+libraries of ADR-0048 and their twins were added by BL-149, the Kerberos library of ADR-0057
+and its twin by BL-243, and the mail servers' two shared
 libraries of ADR-0050 and their twins will be added by BL-189:
 
 | Production | Tests |
@@ -223,6 +224,7 @@ libraries of ADR-0050 and their twins will be added by BL-189:
 | `Surl.Cryptography.Ed25519.UnitLibrary` | `Surl.Cryptography.Ed25519.UnitTests` |
 | `Surl.Cryptography.Poly1305.UnitLibrary` | `Surl.Cryptography.Poly1305.UnitTests` |
 | `Surl.Cryptography.UnitLibrary` | `Surl.Cryptography.UnitTests` |
+| `Surl.Kerberos.UnitLibrary` | `Surl.Kerberos.UnitTests` |
 | `Surl.LineProtocol.UnitLibrary` (to be added by BL-189) | `Surl.LineProtocol.UnitTests` (to be added by BL-189) |
 | `Surl.MailStore.UnitLibrary` (to be added by BL-189) | `Surl.MailStore.UnitTests` (to be added by BL-189) |
 | `Surl.Networking.UnitLibrary` | `Surl.Networking.UnitTests` |
