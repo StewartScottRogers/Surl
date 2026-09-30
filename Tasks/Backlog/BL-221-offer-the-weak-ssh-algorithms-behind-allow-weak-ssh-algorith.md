@@ -4,7 +4,7 @@ title: Offer the weak SSH algorithms behind --allow-weak-ssh-algorithms in Surl.
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-161, BL-162, BL-219]
+depends-on: [BL-161, BL-162, BL-224]
 touches: [Surl.Protocol.Ssh.UnitLibrary, Surl.Protocol.Ssh.UnitTests]
 requirement: FR-039
 created: 2026-09-29
@@ -41,7 +41,7 @@ MACs listed below; without it, none of them is offered or accepted.
   as `aes256-cbc` under OpenSSH's older name), `aes192-cbc`, `aes128-cbc` (BCL `Aes` in CBC
   mode, the IV chained from packet to packet), `3des-cbc` (BCL `TripleDES`, 24-byte key),
   `arcfour` (RFC 4253, 128-bit key, no discard) and `arcfour128` (RFC 4345, discard 1536),
-  both from `Surl.Cryptography.Rc4` (BL-219; add the `ProjectReference`).
+  both from `Surl.Cryptography.Rc4` (BL-224; add the `ProjectReference`).
 - MACs (RFC 4253 section 6.4): `hmac-sha1`, `hmac-sha1-etm@openssh.com` (OpenSSH `PROTOCOL`
   section 1.7, on BL-161's encrypt-then-MAC path), `hmac-sha1-96`, `hmac-md5`, `hmac-md5-96`
   (the `-96` forms the first 12 bytes), BCL `HMACSHA1` and `HMACMD5`, compared with

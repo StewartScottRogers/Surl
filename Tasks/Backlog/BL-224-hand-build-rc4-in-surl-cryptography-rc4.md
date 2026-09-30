@@ -1,5 +1,5 @@
 ---
-id: BL-219
+id: BL-224
 title: Hand-build RC4 in Surl.Cryptography.Rc4
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-09-29
 completed:
 ---
-# BL-219 — Hand-build RC4 in Surl.Cryptography.Rc4
+# BL-224 — Hand-build RC4 in Surl.Cryptography.Rc4
 
 ## Goal
 

@@ -210,7 +210,7 @@ entries of each list, and all built by **BL-221** (filed by this task):
 | --- | --- | --- |
 | kex | `diffie-hellman-group14-sha1`, `diffie-hellman-group-exchange-sha1`, `diffie-hellman-group1-sha1` | SHA-1; group 1 is 1024-bit |
 | host key | `ssh-rsa` (and `ssh-rsa-cert-v01@openssh.com` with `--hostcert`), `ssh-dss` for a DSA host key | SHA-1 signatures; DSA 1024 |
-| cipher | `aes256-cbc`, `rijndael-cbc@lysator.liu.se`, `aes192-cbc`, `aes128-cbc`, `3des-cbc`, `arcfour128`, `arcfour` | CBC, 64-bit-block 3DES, RC4 (`arcfour` from BL-219's `Surl.Cryptography.Rc4`) |
+| cipher | `aes256-cbc`, `rijndael-cbc@lysator.liu.se`, `aes192-cbc`, `aes128-cbc`, `3des-cbc`, `arcfour128`, `arcfour` | CBC, 64-bit-block 3DES, RC4 (`arcfour` from BL-224's `Surl.Cryptography.Rc4`) |
 | MAC | `hmac-sha1-etm@openssh.com`, `hmac-sha1`, `hmac-sha1-96`, `hmac-md5`, `hmac-md5-96` | SHA-1, MD5, truncation |
 
 With it, RSA host and user keys shorter than 2048 bits and DSA user keys are also accepted.
@@ -241,7 +241,7 @@ Every entry of the measured lists is thereby assigned: none is left out.
 
 RC4 (for `arcfour`, `arcfour128`) and OpenSSH's `bcrypt_pbkdf` (for encrypted `openssh-key-v1`
 host keys, decision 4) are not in the BCL, so each is built by hand in its own library, as the
-root `CLAUDE.md` requires: **`Surl.Cryptography.Rc4`** (BL-219) and
+root `CLAUDE.md` requires: **`Surl.Cryptography.Rc4`** (BL-224) and
 **`Surl.Cryptography.BcryptPbkdf`** (BL-220, with its Blowfish inside it). They join ADR-0002
 decision 3's table referencing nothing, and `Surl.Protocol.Ssh` references them. How the
 algorithms compose into SSH stays in `Surl.Protocol.Ssh`, as ADR-0048 decision 3 says.
@@ -595,7 +595,7 @@ memberships.
 | The decision 5 options, help, manual and AI help, the "not available" refusals | BL-158 |
 | Composition, the files read at start, the refusals of decisions 4 and 6, the fingerprint note and warnings, the `ssh` category | BL-171 |
 | Proof against the pinned builds, the Linux and macOS `KEXINIT` lists, what curl does with an unknown or changed host key and with a refused login | BL-172 |
-| RC4 in `Surl.Cryptography.Rc4` | BL-219 (filed by this task) |
+| RC4 in `Surl.Cryptography.Rc4` | BL-224 (filed by this task) |
 | `bcrypt_pbkdf` in `Surl.Cryptography.BcryptPbkdf` | BL-220 (filed by this task) |
 | The weak algorithms behind `--allow-weak-ssh-algorithms` | BL-221 (filed by this task) |
 | Host certificates, `--hostcert` | BL-222 (filed by this task) |
@@ -633,7 +633,7 @@ memberships.
 ## Consequences
 
 - BL-156 to BL-172 read their decisions here; BL-155 decides SCP and SFTP on top of this.
-- Five tasks are filed: BL-219 to BL-223. `Surl.Cryptography.Rc4` and
+- Five tasks are filed: BL-224 to BL-223. `Surl.Cryptography.Rc4` and
   `Surl.Cryptography.BcryptPbkdf` join ADR-0002's table.
 - `--pass`'s help description becomes `Passphrase for --key and --hostkey` (BL-158).
 - `Requirements.md`'s FR-039 and FR-040 read this ADR when BL-171 and BL-172 land.

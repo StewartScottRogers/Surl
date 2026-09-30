@@ -116,10 +116,10 @@ built without a question.
 
 ## Log
 
-- 2026-09-29: Filed by task-planner for ADR-0051: BL-219 (RC4 library), BL-220 (bcrypt_pbkdf
+- 2026-09-29: Filed by task-planner for ADR-0051: BL-224 (RC4 library), BL-220 (bcrypt_pbkdf
   library), BL-221 (weak SSH algorithms), BL-222 (host certificates, `--hostcert`), BL-223
   (encrypted OpenSSH host keys).
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
-- 2026-09-29: Doing -> Done. ADR-0051 accepted; BL-219 to BL-223 filed
+- 2026-09-29: Doing -> Done. ADR-0051 accepted; BL-224 to BL-223 filed
