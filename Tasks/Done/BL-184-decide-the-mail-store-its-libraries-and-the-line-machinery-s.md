@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Product-Overview.md]
 requirement: FR-047
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-184 — Decide the mail store, its libraries and the line machinery SMTP, IMAP and POP3 share
 
@@ -60,19 +60,39 @@ to BL-192 can be built without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude
       under Stewart's delegation", decides every point in Context, with the two libraries'
       contents and reference rows, the model, the bounds and their constants, and the persisted
       byte format precise enough to pin in a test.
-- [ ] `ADR-0002-mirror-the-curl-ports-project-map.md` carries an "Amended" line naming the new
+- [x] `ADR-0002-mirror-the-curl-ports-project-map.md` carries an "Amended" line naming the new
       ADR.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR.
-- [ ] `Documentation/Product/Product-Overview.md` "Layers" and "Project layout" list the two
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR.
+- [x] `Documentation/Product/Product-Overview.md` "Layers" and "Project layout" list the two
       libraries, written as intent until BL-189 creates them.
 
 ## Notes
+
+- ADR-0050 decides it. Choices worth knowing, each argued in the ADR:
+  - Owners are the named accounts. A Bearer login acts as the name it sends (BL-194 gained a
+    criterion for that). `--allow-anonymous` reaches one anonymous owner (empty name) for every
+    recipient and session.
+  - An unknown recipient gets the same reply as a known one, and its copy is discarded with a
+    log note. No `550`, so no account enumeration (ADR-0032 section 8). A syntactically invalid
+    address is still refused, which exercises `--mail-rcpt-allowfails`.
+  - `--allow-uploads` gates no mail. The bounds are 100000 messages, 256 MiB (distinct message
+    files), 10000 mailboxes and 1024-byte names.
+  - Persistence has one file per message, written once, plus an index rewritten whole in a
+    pinned byte format. This departs from MQTT's single file because the store can hold 256 MiB.
+  - Lines end only at CRLF (the SMTP-smuggling defence). A body past `--max-filesize` stops
+    reading, so the server answers `552` and closes.
+- No upstream curl measurement was needed: the ADR pins only Surl's own persisted bytes, plus
+  RFC reply and response codes whose texts BL-186 to BL-188 measure.
+- `touches` stays as it is. Product-Overview's statements about BL-149 were stale (its projects
+  exist), so they were corrected while there. BL-194's Context and criteria gained one line
+  each for ADR-0050 decision 2 (a Backlog task, not in Doing).
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. ADR-0050 decides the mail store (owners, mailboxes, POP3 lock, recipients, bounds, persisted index format) and Surl.LineProtocol's line machinery, amending ADR-0002's table

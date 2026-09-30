@@ -31,6 +31,9 @@ checking them against the accounts, refusing them over a connection without TLS 
   `Base64Credentials.cs`.
 - `LOGIN` is the two-prompt exchange of draft-murchison-sasl-login; `XOAUTH2` is Google's format
   (`user=...^Aauth=Bearer ...^A^A`), its failure a JSON challenge as BL-185's ADR measured.
+- ADR-0050 decision 2 (BL-184): an accepted `XOAUTH2` or `OAUTHBEARER` login's
+  `MailLoginStep.AccountName` is the user the client sent (`user=`, or `OAUTHBEARER`'s `a=`),
+  the mailbox owner the session then acts as; the token still matches only empty-name accounts.
 
 ## Acceptance criteria
 
@@ -39,6 +42,8 @@ checking them against the accounts, refusing them over a connection without TLS 
       refused as plain-text over no TLS and accepted with `--allow-plaintext-auth`; accepted
       unchecked with `--allow-anonymous`; a malformed response (bad base64, missing field) refused;
       the `CheckedLogin` note naming the mechanism and user and never the secret.
+- [ ] A fast test shows an accepted `XOAUTH2` and `OAUTHBEARER` login carrying the sent user
+      name as `MailLoginStep.AccountName` (ADR-0050 decision 2).
 - [ ] `dotnet build Surl.Authentication.UnitLibrary -warnaserror` is clean; the fast tests pass;
       `Measure-CodeQuality.ps1 -Library Surl.Authentication.UnitLibrary` reports 100% line and
       branch coverage and no failing member.
