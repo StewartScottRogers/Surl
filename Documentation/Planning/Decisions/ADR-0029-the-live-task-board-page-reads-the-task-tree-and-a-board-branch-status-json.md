@@ -46,7 +46,9 @@ is copying code, which ADR-0003 allows.
    `state`, `publishedAt` and one lane object per lane (`lane`, `task`, `title`, `phase`,
    `step`, `taskStartedAt`, `heartbeatAt`). Pushes to `board` start neither the CI nor the
    Gource workflow. Keeping the schema identical lets one page source serve both
-   repositories.
+   repositories. ADR-0047 adds a top-level `autoLanes` object (`lanes`, `target`,
+   `binding`, `reason`, `changedAt`; `null` on a fixed-lane shift), additive to schema 1,
+   which the page shows above the lane cards.
 
 ## Consequences
 
