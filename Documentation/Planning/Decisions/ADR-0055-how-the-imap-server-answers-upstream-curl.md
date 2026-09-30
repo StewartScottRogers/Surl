@@ -526,6 +526,45 @@ The rows are pinned from this ADR's measurements; where the Linux or macOS OpenS
 another exit, it is pinned per platform in its own test (root `CLAUDE.md`) and recorded against
 this ADR.
 
+### 16. Details of decisions 4 and 7 settled in BL-202
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-202, where decisions 4 and 7 left a detail open. None changes a byte curl 8.21.0 sends or reads
+in the rows above; the fetch and search fixtures of BL-202 (`Surl.Protocol.Imap.UnitTests/Fixtures`)
+were served to the pinned build and it exited 0 on each.
+
+- **Quoted or literal.** An `ENVELOPE` or `BODYSTRUCTURE` string is quoted only when every byte is
+  printable ASCII (0x20 to 0x7E); anything else, a tab included, is a literal. **Why:** it is within
+  decision 4's rule (a literal is always allowed) and keeps every byte outside a literal a byte the
+  reply-line rule of ADR-0050 decision 8 allows.
+- **Header and MIME reading.** A line ends at LF, with or without CR. The header ends at the first
+  empty line and keeps it; a message with none is all header. A line starting with space or tab
+  folds into the field before it; a line with no colon is a field with no name, which `HEADER.FIELDS`
+  never names and `HEADER.FIELDS.NOT` keeps. `HEADER.FIELDS` output is each field's lines as stored,
+  CRLF added after a last field that has no line end, then CRLF. Multipart and `message/rfc822`
+  nesting is read 32 levels deep (`ImapBodyPart.MaxDepth`); below that a part is a leaf, and a
+  multipart there is read as `text/plain`. **Why:** a message is the peer's data, so reading it must
+  end whatever it holds.
+- **Body structure values.** Type, subtype and parameter names are sent in capitals, parameter and
+  disposition values as stored; a part with no `Content-Type` is `("TEXT" "PLAIN" ("CHARSET"
+  "US-ASCII"))` (RFC 2045 section 5.2) and one with a `Content-Type` naming no charset has no
+  `CHARSET`; the encoding is `Content-Transfer-Encoding` in capitals, else `7BIT`; lines are LFs
+  plus one for bytes after the last LF. An address with no `@` has the empty host `""`, since
+  `NIL` would make it a group's start (RFC 3501 section 7.4.2); comments are dropped, not used as
+  names.
+- **A message another session expunged** (decision 4) is answered with no flags, `RFC822.SIZE 0`,
+  `INTERNALDATE "01-Jan-1970 00:00:00 +0000"` and empty message data, and never matches a search key.
+- **A message whose bytes cannot be read** (its file removed or unreadable) ends the `FETCH` after
+  the responses already sent, or answers the `SEARCH`, with `NO [SERVERBUG] Could not read the
+  message` and the note `Mail store: <exception message>`; `\Seen` flags already set are saved.
+- **`SEARCH` sequence sets** name message numbers; a number past the messages the session sees
+  matches nothing rather than making the command `BAD` (unlike `FETCH`), since a search key is a
+  filter. `SENT*` read the `Date:` field's first three words after an optional `<day>,` as day, month
+  and year (two-digit years 00 to 49 are 20xx, others and three-digit years 19xx, RFC 5322 section
+  4.3); anything else makes the message match no `SENT*` key.
+- **`UID` with any command but `FETCH` and `SEARCH`** answers `BAD Command not recognized` until
+  BL-203 builds `UID STORE`, `UID COPY`, `UID MOVE` and `UID EXPUNGE`.
+
 ## Alternatives considered
 
 - **Advertise `IMAP4rev2` too.** Rejected in decision 1: curl never enables it, and it doubles the
