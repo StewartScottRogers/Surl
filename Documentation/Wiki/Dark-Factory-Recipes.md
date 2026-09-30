@@ -64,12 +64,14 @@ project's chain into smaller tasks does not help.
 
 | When | Command |
 | --- | --- |
-| Pick up a change to `RunDarkFactory.ps1`, or change its arguments | `RunDarkFactory.cmd -Restart` |
+| Pick up a change to `RunDarkFactory.ps1` | `RunDarkFactory.cmd -Restart` |
+| Change one setting of a running shift, e.g. pace the weekly budget | `RunDarkFactory.cmd -Restart -WeeklyPace` (or `-Lanes 3`, `-WeeklyPace:$false`, ...) |
 | The token limit was reset by hand and the shift is still waiting | `RunDarkFactory.cmd -Wake` |
 | Stop the shift | close its herdr tabs (or kill its process tree) |
 
 - `-Restart` stops the coordinator, then each lane once it is neither claiming nor
-  integrating, and starts a new shift with the same arguments that adopts the lanes.
+  integrating, and starts a new shift that adopts the lanes, with the old shift's
+  arguments plus any given beside `-Restart`, which replace the old ones of the same name.
   Never hand-kill processes for a restart.
 - After a stop, leave the tasks in `Doing` and the lane worktrees
   (`Z:\repos\Surl.lanes\lane-<n>`) as they are: the next shift resumes each task from the

@@ -152,7 +152,8 @@ tabs (or killing its process tree). Leave its tasks in `Doing` and its lane work
 they are: the next shift adopts each stopped lane and resumes its task from the work in
 place. To restart a running shift, run `RunDarkFactory.cmd -Restart` (in the background:
 it waits for each lane to finish any claim or integration). It stops only this
-checkout's shift, lane by lane, and starts the next one with the same arguments; never
+checkout's shift, lane by lane, and starts the next one with the same arguments, except
+those given beside `-Restart`, which replace or add to them (`-Restart -WeeklyPace`); never
 hand-kill the processes for a restart. While a shift runs, its coordinator restarts any
 lane whose process dies, and lanes wait out the usage limit and carry on when tokens
 return - nobody needs to restart them. The lanes' heartbeats are published as

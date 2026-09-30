@@ -68,7 +68,8 @@
     `RunDarkFactory.cmd -Restart`. It stops the coordinator first, so nothing restarts the
     lanes, then each lane as soon as that lane is neither claiming nor integrating, and
     starts a new shift with the old one's arguments, which adopts the stopped lanes and
-    their tasks. Only this checkout's shift is touched.
+    their tasks. Arguments given beside -Restart replace the old ones of the same name or
+    are added: `RunDarkFactory.cmd -Restart -WeeklyPace` changes only that. Only this checkout's shift is touched.
 
     A shift keeps this checkout on its branch: if something switched it (Visual Studio did,
     once), the coordinator switches it back before its shift-end pull, and -Continuous
@@ -229,6 +230,7 @@ param(
     [switch]$TestShiftBranch,
     # Stop this checkout's running shift and start a new one with the same arguments: the
     # coordinator first, then each lane as soon as it is neither claiming nor integrating.
+    # Arguments given beside it replace or add to the old ones: -Restart -WeeklyPace.
     [switch]$Restart,
     # Prove which lanes -Restart may stop from their heartbeat phases, and exit.
     [switch]$TestRestart,
@@ -2467,7 +2469,47 @@ function Select-LanesToStop {
     return @($Phases.Keys | Where-Object { $Phases[$_] -notin 'claim', 'integrate' } | Sort-Object)
 }
 
+function Merge-RestartArguments {
+    # The old shift's arguments (-Old, as tokens) with every argument given beside -Restart
+    # (-Given, the bound parameters) put in place of the old one of the same name, or added:
+    # `-Restart -WeeklyPace` or `-Restart -Lanes 3` changes that one setting and keeps the rest.
+    # A switch given as false (-WeeklyPace:$false) removes it.
+    param([string[]]$Old, [System.Collections.IDictionary]$Given)
+    $result = [System.Collections.Generic.List[string]]::new()
+    $names = @($Given.Keys | Where-Object { $_ -notin 'Restart', 'NewTab' })
+    for ($i = 0; $i -lt $Old.Count; $i++) {
+        $token = $Old[$i]
+        $name = if ($token -match '^-(\w+)$') { $Matches[1] } else { $null }
+        if ($name -and ($names | Where-Object { $_ -ieq $name })) {
+            # Drop the old one, and its value when it has one.
+            if ($i + 1 -lt $Old.Count -and $Old[$i + 1] -notmatch '^-\w') { $i++ }
+            continue
+        }
+        $result.Add($token)
+    }
+    foreach ($name in $names) {
+        $value = $Given[$name]
+        if ($value -is [System.Management.Automation.SwitchParameter]) {
+            if ($value.IsPresent) { $result.Add("-$name") }
+        } else {
+            $result.Add("-$name")
+            $text = "$value"
+            $result.Add($(if ($text -match '\s') { "`"$text`"" } else { $text }))
+        }
+    }
+    return , $result.ToArray()
+}
+
 if ($TestRestart) {
+    $merged = (Merge-RestartArguments -Old @('-Lanes', 'Auto', '-Continuous', '-ShiftBranch', 'factory/phase-1') `
+        -Given @{ Restart = [switch]$true; WeeklyPace = [switch]$true; Lanes = '3' }) -join ' '
+    $okMerge = $merged -ceq '-Continuous -ShiftBranch factory/phase-1 -WeeklyPace -Lanes 3' -or
+        $merged -ceq '-Continuous -ShiftBranch factory/phase-1 -Lanes 3 -WeeklyPace'
+    Write-Host "$(if ($okMerge) { 'PASS' } else { 'FAIL' }) arguments beside -Restart replace or add to the old ones: $merged" -ForegroundColor $(if ($okMerge) { 'Green' } else { 'Red' })
+    $dropped = (Merge-RestartArguments -Old @('-Lanes', 'Auto', '-WeeklyPace') -Given @{ WeeklyPace = [switch]$false }) -join ' '
+    $okDrop = $dropped -ceq '-Lanes Auto'
+    Write-Host "$(if ($okDrop) { 'PASS' } else { 'FAIL' }) a switch given as false is removed: $dropped" -ForegroundColor $(if ($okDrop) { 'Green' } else { 'Red' })
+    if (-not ($okMerge -and $okDrop)) { exit 1 }
     $phases = @{ 1 = 'run'; 2 = 'integrate'; 3 = 'claim'; 4 = 'tokens'; 5 = 'wait'; 6 = 'finished'; 7 = '' }
     $got = (Select-LanesToStop $phases) -join ','
     $ok = $got -ceq '1,4,5,6,7'
@@ -2489,6 +2531,7 @@ if ($Restart) {
     # The same arguments, so a fixed lane count, -WeeklyPace or -Hours carry over.
     $rest = ($coordinator.CommandLine -split [regex]::Escape((Split-Path $PSCommandPath -Leaf)), 2)[1]
     $forward = @([regex]::Matches("$rest".Trim().TrimStart('"').Trim(), '"[^"]*"|\S+') | ForEach-Object { $_.Value })
+    $forward = Merge-RestartArguments -Old $forward -Given $PSBoundParameters
     $branchNow = "$(git -C $Root rev-parse --abbrev-ref HEAD)".Trim()
     if ($forward -notcontains '-ShiftBranch' -and $branchNow -notin 'master', 'main', 'HEAD') { $forward += @('-ShiftBranch', $branchNow) }
     $lanesDir = Get-ChildItem $LogDir -Directory -Filter 'lanes-*' -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1
