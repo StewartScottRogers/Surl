@@ -78,7 +78,7 @@ ADR-0053 decision 6 say.
 - Touches only the SMTP library and its tests. Once SMTP streams, no server calls
   `MailboxStore.Deliver(..., ReadOnlySpan<byte>)`; retiring that overload and its CLAUDE.md
   paragraph in `Surl.MailStore.UnitLibrary` is a separate follow-up task to file, not part of this one.
-  Filed as BL-277.
+  Filed as BL-278.
 - Plan (decided in the run): no wrapper stream. `ReceiveMessageAsync` writes the trace fields
   and then the unstuffed body straight to `PendingMessage.Body` under a `using`, so every path
   that does not deliver (peer close, 552) deletes the pending file. The budget check is

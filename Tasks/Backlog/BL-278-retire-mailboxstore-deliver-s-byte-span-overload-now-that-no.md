@@ -1,5 +1,5 @@
 ---
-id: BL-277
+id: BL-278
 title: Retire MailboxStore.Deliver's byte-span overload now that no mail server calls it
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-043
 created: 2026-09-30
 completed:
 ---
-# BL-277 — Retire MailboxStore.Deliver's byte-span overload now that no mail server calls it
+# BL-278 — Retire MailboxStore.Deliver's byte-span overload now that no mail server calls it
 
 ## Goal
 
