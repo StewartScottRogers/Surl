@@ -8,7 +8,7 @@ depends-on: [BL-124, BL-142]
 touches: [Documentation/Wiki, README.md, Documentation/Product/Product-Overview.md, CLAUDE.md, Surl.Cli.UnitLibrary/CLAUDE.md, Surl.Console/CLAUDE.md]
 requirement: FR-035
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-143 — Document surl --aihelp in the glossary, README, product overview and CLAUDE.md files
 
@@ -39,19 +39,33 @@ generated from the option table, and what a change must keep in step.
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Wiki/Glossary.md` defines the `--aihelp` term(s) once, with the names
+- [x] `Documentation/Wiki/Glossary.md` defines the `--aihelp` term(s) once, with the names
       the code uses (`rg` each type name the entry cites finds it in `Surl.Cli.UnitLibrary`).
-- [ ] `README.md` has the section above, and every command line in it runs as written
+- [x] `README.md` has the section above, and every command line in it runs as written
       (`dotnet run --project Surl.Console -- --aihelp` and each other one, exit 0).
-- [ ] The product overview and the three `CLAUDE.md` files name only types, options and files
+- [x] The product overview and the three `CLAUDE.md` files name only types, options and files
       that exist (`rg` each name) and state the rule that options, protocol servers and exit
       codes keep `--aihelp` complete.
-- [ ] No behaviour change: `git diff --stat` shows only `*.md` files; `dotnet build` and
+- [x] No behaviour change: `git diff --stat` shows only `*.md` files; `dotnet build` and
       `dotnet test --filter "TestCategory!=Integration"` still pass.
 
 ## Notes
+
+- 2026-09-29: Delivered by `align-and-document`. The glossary gains "AI help", "AI help topic",
+  "AI help example", "argument type" and "exit-code guidance", and "help category" now says
+  each category is also an AI help topic. The README gains "Help for AI agents", and each of
+  its five command lines (`--aihelp`, `listen-urls`, `http`, `exit-codes`, `all`) ran through
+  `dotnet run --project Surl.Console` and exited 0.
+- Decision: the root `CLAUDE.md` rule names only the completeness tests that actually fail.
+  An option's help category is left out because no test enforces it. The rule adds
+  `AiHelpTextTests.Topics_AreTheAdrsSixteenInOrdinalOrder`, which pins the topic list, so a
+  new protocol topic breaks it too.
+- Checks: every type, member, file and test the documents name was found with `rg`.
+  `git diff --stat` shows only the six `*.md` files. The build is clean, and the fast tests
+  pass with 0 failures across 16 test projects.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. surl --aihelp is documented in the glossary, README, product overview and the three CLAUDE.md files, with the completeness rule for options, protocol servers and exit codes
