@@ -8,7 +8,7 @@ depends-on: [BL-161]
 touches: [Documentation/Planning/Decisions]
 requirement: FR-039
 created: 2026-09-29
-completed:
+completed: 2026-09-30
 ---
 # BL-236 — Record BL-161's SSH transport-message and re-exchange decisions in ADR-0051
 
@@ -37,13 +37,22 @@ ADR and `SshProtocolServer` say the same thing.
 
 ## Acceptance criteria
 
-- [ ] ADR-0051 states each of the five choices above, with its reason, marked "Decided by
+- [x] ADR-0051 states each of the five choices above, with its reason, marked "Decided by
       Claude under Stewart's delegation".
-- [ ] ADR-0051 decision 9's placeholder row lists `User authentication not implemented`.
+- [x] ADR-0051 decision 9's placeholder row lists `User authentication not implemented`.
 
 ## Notes
+
+- Done directly rather than through `align-and-document`: one ADR section and one index row.
+- The five choices are ADR-0051's new decision 2.2 (beside 2.1, which they refine), not a new
+  ADR: the task names ADR-0051, and each choice is a detail of 2.1's re-keying bullet.
+- BL-162 has landed, so decision 2.2's second choice and decision 9's row describe the
+  `SERVICE_REQUEST` placeholder in the past tense ("until BL-162 landed").
+- Decisions/README.md's ADR-0051 row gained a one-clause summary of decision 2.2.
+- Docs only; no `.cs` or project file changed.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0051 decision 2.2 records BL-161's five transport-message and re-exchange choices; decision 9's placeholder row lists User authentication not implemented

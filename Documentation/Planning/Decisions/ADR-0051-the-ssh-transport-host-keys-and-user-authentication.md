@@ -239,6 +239,42 @@ Every entry of the measured lists is thereby assigned: none is left out.
   any time after the first exchange; the server starts one itself after 1 GiB in either direction
   or one hour since the last exchange. BL-161.
 
+#### 2.2 Transport messages and re-exchange, as BL-161 built them
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29, in
+BL-161 (FR-039), and recorded here on 2026-09-30 by BL-236, because BL-155 held
+`Documentation/Planning/Decisions` while BL-161 ran. `SshProtocolServer` and
+`SshTransportHandshake` say the same in their XML docs.
+
+1. **An unknown message is answered `SSH_MSG_UNIMPLEMENTED`.** After `NEWKEYS`, a message the
+   server does not know - a key exchange method message or `NEWKEYS` outside a key exchange
+   included - is answered `UNIMPLEMENTED` carrying the sequence number of the packet it answers.
+   Why: RFC 4253 section 11.4 requires it, and OpenSSH answers those messages the same way, so a
+   client that probes with one gets the reply it expects rather than a dropped connection.
+2. **`SERVICE_REQUEST` was a placeholder until BL-162.** Before user authentication was built,
+   `SERVICE_REQUEST` was answered `DISCONNECT` 11 `BY_APPLICATION`, `User authentication not
+   implemented`: one more row among decision 9's placeholders. Why: it follows those
+   placeholders' pattern; `DISCONNECT` 7 was not used because decision 9 keeps 7 for a service
+   other than `ssh-userauth`. BL-162 has since replaced it with the `ssh-userauth` service.
+3. **The re-exchange limits are checked between the client's packets.** Before reading each
+   client message the server asks whether 1 GiB has passed in either direction or an hour under
+   one set of keys (`SshReExchangeLimits`), and starts a re-exchange if so. An idle connection is
+   therefore re-keyed when it next sends. Why: the check sits in the one loop that reads the
+   client, so no timer races that reader for the connection; the head and idle timeouts bound
+   an idle connection meanwhile.
+4. **Strict key exchange's ordering rule holds for the first exchange only.** No `IGNORE`,
+   `DEBUG` or `UNIMPLEMENTED` is allowed during the first key exchange of a strict connection;
+   during a re-exchange they are skipped. The sequence numbers are reset to 0 after every
+   `NEWKEYS`, re-exchanges included. Why: OpenSSH's `PROTOCOL` states the ordering rule for the
+   initial exchange, which is what the Terrapin attack (CVE-2023-48795) targets, and the reset
+   after each `NEWKEYS`, as decision 2.1 says.
+5. **During a server-started re-exchange, an unexpected message before the client's `KEXINIT`
+   is `DISCONNECT` 2.** Only `IGNORE`, `DEBUG` and `UNIMPLEMENTED` are skipped in that window.
+   Why: when BL-161 was built no channel existed, so no other message could rightly arrive
+   there. BL-237 changes it: RFC 4253 section 9 lets the client keep sending until it sees the
+   server's `KEXINIT`, and a channel message sent then is to reach the connection layer instead
+   of ending a long transfer.
+
 ### 3. Two new hand-built libraries
 
 RC4 (for `arcfour`, `arcfour128`) and OpenSSH's `bcrypt_pbkdf` (for encrypted `openssh-key-v1`
@@ -528,7 +564,7 @@ section 5's one-second deadline and followed by a graceful close:
 | A payload that does not decompress, or decompresses past `--max-message` | 6 `COMPRESSION_ERROR` | `Compression error` |
 | A `SERVICE_REQUEST` other than `ssh-userauth` (before login) or a login for a service other than `ssh-connection` | 7 `SERVICE_NOT_AVAILABLE` | `Service not available` |
 | The sixth refused login | 14 `NO_MORE_AUTH_METHODS_AVAILABLE` | `Too many authentication failures` |
-| The `NEWKEYS` placeholders BL-159 and BL-160 use until the next task lands | 11 `BY_APPLICATION` | `Key exchange not implemented` / `Packet protection not implemented` |
+| The `NEWKEYS` placeholders BL-159 and BL-160 use until the next task lands, and the `SERVICE_REQUEST` placeholder BL-161 used until BL-162 landed (decision 2.2) | 11 `BY_APPLICATION` | `Key exchange not implemented` / `Packet protection not implemented` / `User authentication not implemented` |
 
 - The description names no algorithm, user or path: a peer learns nothing it did not send
   (ADR-0006 section 3). `DISCONNECT` 3 does not say which list failed; the verbose note does.
@@ -643,6 +679,8 @@ memberships.
   `GEX_REQUEST_OLD` are `DISCONNECT` 2, the server's ephemeral secrets, encrypted PKCS #8 and
   legacy PEM, Ed25519 and DSA until BL-168 and BL-221, OID-named key types, and the strict-kex
   sequence-number check.
+- Decision 2.2 records what BL-161 chose for transport messages and re-exchange; BL-237 is to
+  replace its fifth choice once channels exist.
 - Five tasks are filed: BL-224 to BL-223. `Surl.Cryptography.Rc4` and
   `Surl.Cryptography.BcryptPbkdf` join ADR-0002's table.
 - `--pass`'s help description becomes `Passphrase for --key and --hostkey` (BL-158).
