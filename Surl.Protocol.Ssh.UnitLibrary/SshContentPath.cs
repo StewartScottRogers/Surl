@@ -1,15 +1,16 @@
 using System.Text;
+using Surl.Content;
 
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
-/// An SFTP path as ADR-0054 decision 1 reads it: UTF-8, resolved against the home directory
+/// An SCP or SFTP path as ADR-0054 decision 1 reads it: UTF-8, resolved against the home directory
 /// <c>/</c>, with repeated <c>/</c> collapsed, <c>.</c> segments dropped and each <c>..</c>
 /// removing the segment before it, stopping at <c>/</c>; a trailing <c>/</c> is kept. The
 /// canonical path is then percent-encoded segment by segment for the content store, so every
 /// exposure rule applies to it exactly as over HTTP and FTP.
 /// </summary>
-internal static class SftpPath
+internal static class SshContentPath
 {
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
@@ -61,6 +62,24 @@ internal static class SftpPath
     /// <returns>The percent-encoded request path.</returns>
     public static string ToRequestPath(string canonical) =>
         string.Join('/', canonical.Split('/').Select(Uri.EscapeDataString));
+
+    /// <summary>
+    /// Maps the path a client sent onto <paramref name="store"/> (decision 1).
+    /// </summary>
+    /// <param name="store">The content store.</param>
+    /// <param name="path">The path's bytes as the client sent them.</param>
+    /// <param name="canonical">The canonical path, or <see langword="null"/> when the bytes are not one.</param>
+    /// <returns>
+    /// The mapping; <see langword="null"/> when the path is not UTF-8, holds a NUL or is refused by
+    /// the store, all of which are answered as absent.
+    /// </returns>
+    public static ContentPathMapping? Map(ContentStore store, ReadOnlySpan<byte> path, out string? canonical)
+    {
+        canonical = Canonicalise(path);
+        var mapping = canonical is null ? null : store.MapRequestPath(ToRequestPath(canonical));
+
+        return mapping is { IsMapped: true } ? mapping : null;
+    }
 
     private static List<string> ResolveSegments(string text)
     {

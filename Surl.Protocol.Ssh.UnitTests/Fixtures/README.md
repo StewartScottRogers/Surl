@@ -32,3 +32,12 @@ from draft-ietf-secsh-filexfer-02 and ADR-0054's worked bytes (`VERSION`, `REALP
 for `a.txt`, `STATUS OK`), not from a recording. BL-172 proves those answers against the pinned
 upstream curl build above, never against the Curl port (ADR-0003); a disagreement there is a new
 task, never a changed expectation.
+
+## SCP byte scripts
+
+`ScpDownloadHandlerTests` and `ScpUploadHandlerTests` drive `scp -f` and `scp -t` at channel
+level the same way, with byte scripts written by hand from ADR-0054 decisions 3 and 4 and their
+account of libssh2's `scp_recv` and `scp_send` (a `\0` to start and after each control line on a
+download; a `C` line, the file's bytes and `EOF` on an upload), not from a recording. BL-172
+proves them against the pinned upstream curl build above, never against the Curl port
+(ADR-0003); a disagreement there is a new task, never a changed expectation.

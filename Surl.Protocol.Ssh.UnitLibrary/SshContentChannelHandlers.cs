@@ -5,8 +5,8 @@ namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// The handlers that serve a content store over SSH (ADR-0054): the <c>sftp</c> subsystem as an
-/// <see cref="SftpSession"/> reading the store. SCP is BL-164's, so an <c>exec</c> of an SCP command
-/// is refused until it is built.
+/// <see cref="SftpSession"/>, and an <c>exec</c> of an SCP command as an <see cref="ScpDownloadHandler"/>
+/// (<c>-f</c>) or an <see cref="ScpUploadHandler"/> (<c>-t</c>).
 /// </summary>
 internal sealed class SshContentChannelHandlers : ISshChannelHandlers
 {
@@ -23,7 +23,8 @@ internal sealed class SshContentChannelHandlers : ISshChannelHandlers
     }
 
     /// <inheritdoc/>
-    public ISshChannelHandler? ForScp(SshScpCommand command, ExchangeContext context) => null;
+    public ISshChannelHandler? ForScp(SshScpCommand command, ExchangeContext context) =>
+        command.IsSource ? new ScpDownloadHandler(store, command, context) : new ScpUploadHandler(store, command, context);
 
     /// <inheritdoc/>
     public ISshChannelHandler? ForSftp(ExchangeContext context) => new SftpSession(store, context);

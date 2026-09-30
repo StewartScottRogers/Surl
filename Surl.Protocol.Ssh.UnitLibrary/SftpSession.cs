@@ -170,11 +170,11 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
     {
         var path = request.ReadString();
         request.RequireEnd();
-        var canonical = SftpPath.Canonicalise(path.Span);
+        var canonical = SshContentPath.Canonicalise(path.Span);
 
         return canonical is null
             ? Absent(request, Render(path))
-            : SftpReply.RealPath(request.Id, SftpPath.WithoutTrailingSlash(canonical));
+            : SftpReply.RealPath(request.Id, SshContentPath.WithoutTrailingSlash(canonical));
     }
 
     private byte[] AnswerStat(SftpRequest request)
@@ -392,13 +392,8 @@ internal sealed class SftpSession(ContentStore store, ExchangeContext context) :
     }
 
     // Decision 1: a path that is not UTF-8, holds a NUL or is refused by the store maps nowhere.
-    private ContentPathMapping? Map(ReadOnlyMemory<byte> path, out string? canonical)
-    {
-        canonical = SftpPath.Canonicalise(path.Span);
-        var mapping = canonical is null ? null : store.MapRequestPath(SftpPath.ToRequestPath(canonical));
-
-        return mapping is { IsMapped: true } ? mapping : null;
-    }
+    private ContentPathMapping? Map(ReadOnlyMemory<byte> path, out string? canonical) =>
+        SshContentPath.Map(store, path.Span, out canonical);
 
     private ContentEntryStatus? StatusAt(ContentPathMapping? mapping) =>
         mapping is null ? null : store.GetEntryStatus(mapping);

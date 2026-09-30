@@ -689,13 +689,12 @@ public sealed class SftpSessionTests
     }
 
     [TestMethod]
-    public void ContentChannelHandlers_ServeSftpButNotYetScp()
+    public void ContentChannelHandlers_ServeSftp()
     {
         var handlers = new SshContentChannelHandlers(Store(new(), clock));
         var context = Context(clock, TestContext.CancellationToken);
 
         Assert.IsInstanceOfType<SftpSession>(handlers.ForSftp(context));
-        Assert.IsNull(handlers.ForScp(new SshScpCommand(true, false, false, "/a.txt"), context));
         Assert.ThrowsExactly<ArgumentNullException>(() => new SshContentChannelHandlers(null!));
     }
 
