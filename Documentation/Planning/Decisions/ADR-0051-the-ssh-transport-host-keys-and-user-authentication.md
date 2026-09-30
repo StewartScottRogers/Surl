@@ -308,12 +308,15 @@ No new `SurlExitCode` member is needed.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `--hostkey` | `<file>` | An SSH host private key (decision 4) | none | no | **adds** a key each time | `SSH host private key file` | `auth` |
 | `--hostcert` | `<file>` | An OpenSSH host certificate | none | no | adds | `SSH host certificate file` | `auth` |
-| `--throwaway-hostkey` | none | Make a throwaway RSA host key when no `--hostkey` is given | off | yes | later wins | `Throwaway SSH host key (warns)` | `testing` |
+| `--throwaway-hostkey` | none | Make a throwaway RSA host key when no `--hostkey` is given | off | yes | later wins | `Throwaway SSH host key (warns)` | `security`, `testing` |
 | `--authorized-keys` | `<user:file>` | The public keys a user may log in with (decision 6) | none | no | adds | `SSH public keys a user may use` | `auth` |
 | `--allow-weak-ssh-algorithms` | none | Also offer decision 2's weak algorithms | off | yes | later wins | `Offer weak SSH algorithms (warns)` | `security` |
 | `--pass` (existing) | `<phrase>` | Now also decrypts `--hostkey` files | none | no | last wins | `Passphrase for --key and --hostkey` | unchanged |
 
 - `<file>` arguments follow ADR-0007 section 2 (an empty argument refused while parsing).
+- `--throwaway-hostkey` is in `security` as well as `testing`: every option that loosens security
+  for tests is also a security option (ADR-0034, as `--self-signed` is), and
+  `AiHelpFactsTests.LoosensSecurityForTestsOnly_IsExactlyTheFiveTestingOptions` holds it to that.
 - BL-171 adds the `ssh` category (decision 12) to every option above and to each existing option
   the SSH server reads (ADR-0034 decision 1).
 - Until BL-171 composes the SSH server, `Surl.Console` refuses a start that gives any of the new
