@@ -8,7 +8,7 @@ depends-on: [BL-173]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-036
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-174 — Add the FTP data-connection contract to Surl.Protocol.Abstractions
 
@@ -35,18 +35,32 @@ it in parallel.
 
 ## Acceptance criteria
 
-- [ ] The types BL-173's ADR gives exist with XML docs, including the refusing default and the
+- [x] The types BL-173's ADR gives exist with XML docs, including the refusing default and the
       in-memory fake.
-- [ ] Tests in `Surl.Protocol.Abstractions.UnitTests` cover every member of the contract, the
+- [x] Tests in `Surl.Protocol.Abstractions.UnitTests` cover every member of the contract, the
       default's refusal, and the fake's scripted accept, connect, early close and upgrade.
-- [ ] `ProtocolIsolationTests` pass; `dotnet build -warnaserror` of the whole solution is clean;
+- [x] `ProtocolIsolationTests` pass; `dotnet build -warnaserror` of the whole solution is clean;
       the fast tests are green; `Measure-CodeQuality.ps1 -Library
       Surl.Protocol.Abstractions.UnitLibrary` reports 100% line and branch coverage and no
       failing member.
 
 ## Notes
 
+- Built ADR-0052 decision 9 as written: `IDataConnectionOpener`, `IPassiveDataListener`,
+  `DataConnectionFailure`, `DataConnectionException`, `RefusingDataConnectionOpener` and
+  `ExchangeContext.DataConnections` (an `init` property; the positional constructor is unchanged,
+  so every call site compiles as before).
+- Fake shape (my choice): `InMemoryDataConnections` keeps one script for passive and one for
+  active requests (`ScriptPassiveListener`, `ScriptPassiveFailure`, `ScriptActiveConnection`,
+  `ScriptActiveFailure`, chainable); an exhausted script throws `Unavailable`, like the default.
+  Each passive listener is an `InMemoryPassiveDataListener` that hands out its connection once
+  (null = curl never connects, `TimedOut`) and records accept timeouts and disposal. Bytes, early
+  close and TLS upgrade are scripted on the `InMemoryConnection` handed out, reusing ADR-0010.
+  Requests are recorded as `PassiveListenerRequest` and `ActiveConnectionRequest`.
+- Measured: 246 Abstractions tests, 100% line and branch, worst CRAP 8.
+
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. The FTP data-connection seam, its refusing default and InMemoryDataConnections exist in Surl.Protocol.Abstractions
