@@ -651,7 +651,9 @@ internal sealed class CommandLineRunner(
             logStreams.CreateExchangeLogFactory(commandLine, timeProvider),
             timeProvider,
             ServingEngine.DefaultShutdownGracePeriod,
-            ComposeConnectionLimits(commandLine));
+            ComposeConnectionLimits(commandLine),
+            RefusingDataConnectionOpener.Instance,
+            commandLine.Limits);
 
         try
         {

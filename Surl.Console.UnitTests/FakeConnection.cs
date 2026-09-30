@@ -10,7 +10,11 @@ namespace Surl.Console;
 /// <c>mqtts</c> listen URL's), and completes <see cref="Disposed"/> once the engine is done with it.
 /// </summary>
 /// <param name="request">The bytes the client sends before closing its side.</param>
-internal sealed class FakeConnection(byte[] request) : IConnection
+/// <param name="stallsWhenExhausted">
+/// When true, a read after <paramref name="request"/> is delivered waits until it is cancelled
+/// instead of seeing the end of the stream: the client sent everything and stays silent.
+/// </param>
+internal sealed class FakeConnection(byte[] request, bool stallsWhenExhausted = false) : IConnection
 {
     private readonly MemoryStream written = new();
     private int delivered;
@@ -39,10 +43,21 @@ internal sealed class FakeConnection(byte[] request) : IConnection
 
     public ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
     {
+        if (stallsWhenExhausted && delivered == request.Length)
+        {
+            return StallAsync(cancellationToken);
+        }
+
         var count = Math.Min(buffer.Length, request.Length - delivered);
         request.AsSpan(delivered, count).CopyTo(buffer.Span);
         delivered += count;
         return ValueTask.FromResult(count);
+    }
+
+    private static async ValueTask<int> StallAsync(CancellationToken cancellationToken)
+    {
+        await Task.Delay(Timeout.Infinite, cancellationToken);
+        return 0;
     }
 
     public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
