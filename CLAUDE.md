@@ -255,8 +255,9 @@ Each project folder may contain its own `CLAUDE.md` with project-specific rules;
 - Async all the way; no `.Result` or `.Wait()`.
 - Register new services with dependency injection; no static service locators.
 - Protocol servers reference `Surl.Protocol.Abstractions.UnitLibrary` and the horizontal
-  libraries ADR-0002 lists (`Surl.Content.UnitLibrary`, `Surl.Cryptography.UnitLibrary`),
-  and never each other. A protocol server referencing another is a build break, not a
+  libraries in ADR-0002 decision 3's table, as later ADRs amend it (ADR-0048 adds the four
+  hand-built SSH primitive libraries, ADR-0050 the two the mail servers share); that table,
+  not a copy of it, is the list. They never reference each other. A protocol server referencing another is a build break, not a
   smell, and `Surl.Protocol.Abstractions.UnitTests` fails on one.
 - Protocol servers never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or
   `HttpListener`; they receive their transport from the listener seam in

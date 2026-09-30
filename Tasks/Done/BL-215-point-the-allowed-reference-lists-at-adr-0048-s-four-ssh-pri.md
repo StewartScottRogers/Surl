@@ -8,7 +8,7 @@ depends-on: [BL-148]
 touches: [CLAUDE.md, .claude/agents/protocol-architect.md, Surl.Protocol.Ssh.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-09-29
-completed:
+completed: 2026-09-29
 ---
 # BL-215 — Point the allowed-reference lists at ADR-0048's four SSH primitive libraries
 
@@ -32,15 +32,19 @@ ADR-0002 decision 3's table as ADR-0048 amended it.
 
 ## Acceptance criteria
 
-- [ ] Root `CLAUDE.md`'s protocol-server reference rule names ADR-0002 decision 3's
+- [x] Root `CLAUDE.md`'s protocol-server reference rule names ADR-0002 decision 3's
       table (as amended by ADR-0048) as the list of allowed horizontal libraries.
-- [ ] `.claude/agents/protocol-architect.md` says the same.
-- [ ] `Surl.Protocol.Ssh.UnitLibrary/CLAUDE.md` names the four ADR-0048 libraries as the
+- [x] `.claude/agents/protocol-architect.md` says the same.
+- [x] `Surl.Protocol.Ssh.UnitLibrary/CLAUDE.md` names the four ADR-0048 libraries as the
       home of the hand-built primitives and as allowed references.
 
 ## Notes
+
+- Delivered in-session rather than through `align-and-document`: three short prose edits, no code. Each rule now points at ADR-0002 decision 3's table "as later ADRs amend it" and names ADR-0048 (and ADR-0050, which amended the same table since this task was filed) only as examples, so the next amendment does not need these documents changed. The SSH CLAUDE.md names the four libraries explicitly, as the criterion asks, and says the rest comes from the BCL (ADR-0048 decision 3).
+- Follow-up filed: BL-219, for the fifteen protocol `CLAUDE.md` files and three `.claude` files that still restate or allude to the old two-library list.
 
 ## Log
 
 - 2026-09-29: Created.
 - 2026-09-29: Backlog -> Doing.
+- 2026-09-29: Doing -> Done. Root CLAUDE.md, protocol-architect and the SSH CLAUDE.md point at ADR-0002 decision 3's amended table; the SSH doc names ADR-0048's four primitive libraries
