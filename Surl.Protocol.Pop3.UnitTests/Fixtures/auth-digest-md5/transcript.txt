@@ -1,0 +1,27 @@
+< +OK surl ready
+> CAPA
+< +OK Capability list follows
+< TOP
+< UIDL
+< RESP-CODES
+< AUTH-RESP-CODE
+< PIPELINING
+< SASL DIGEST-MD5
+< .
+> AUTH DIGEST-MD5
+< + cmVhbG09InN1cmwiLG5vbmNlPSJNREV5TXpRMU5qYzRPV0ZpWTJSbFpnPT0iLHFvcD0iYXV0aCIsY2hhcnNldD11dGYtOCxhbGdvcml0aG09bWQ1LXNlc3M=
+> dXNlcm5hbWU9InVzZXIiLHJlYWxtPSIiLG5vbmNlPSJNREV5TXpRMU5qYzRPV0ZpWTJSbFpnPT0iLGRpZ2VzdC11cmk9InBvcC8xMjcuMC4wLjEiLGNub25jZT0iNzU4N2MzYzk2ZWY5YmRkY2FhNDNjNzU5NzRhNjdkZGQiLG5jPTAwMDAwMDAxLHJlc3BvbnNlPTczYzc3YjAzM2NiMzhlMTY0OWI2YWM3YjA2NDUwZWU3LHFvcD1hdXRoLGNoYXJzZXQ9dXRmLTg=
+< + cnNwYXV0aD0wMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZg==
+> 
+< +OK Authentication successful
+> RETR 1
+< +OK 133 octets
+< From: sender@example.com
+< To: recipient@example.com
+< Subject: Recorded
+< 
+< Hello from the recorder.
+< ..A line that starts with a dot.
+< .
+> QUIT
+< +OK surl signing off

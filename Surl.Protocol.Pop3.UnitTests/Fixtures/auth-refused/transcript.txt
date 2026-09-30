@@ -1,0 +1,14 @@
+< +OK surl ready
+> CAPA
+< +OK Capability list follows
+< TOP
+< UIDL
+< RESP-CODES
+< AUTH-RESP-CODE
+< PIPELINING
+< SASL CRAM-MD5
+< .
+> AUTH CRAM-MD5
+< + PDAxMjM0NTY3ODlhYmNkZWYuMTc5MDY0MDAwMEBzdXJsPg==
+> dXNlciAxNzJmN2M2MTkzM2I1ZmFjYzhlN2ZhMTdjNmU3YmRhNw==
+< -ERR [AUTH] Authentication failed

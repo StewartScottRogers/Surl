@@ -63,3 +63,53 @@ in `CAPA` and neither `SASL` nor a timestamp in the greeting, curl logs in with 
 
 `1790668800` is the `UIDVALIDITY` a test store's `INBOX` gets from the tests' clock
 (2026-09-29T08:00:00Z). `anonymous-retr` is replayed against an `--allow-anonymous` store.
+
+## TLS, APOP and AUTH cases (BL-206)
+
+Recorded on 2026-09-30 the same way, on port 18126, with the recorder's default message and these
+replies (ADR-0056 decisions 2 to 4 and 8, ADR-0049 section 7):
+
+```powershell
+$fixed = 'CAPA=+OK Capability list follows\r\nTOP\r\nUIDL\r\nRESP-CODES\r\nAUTH-RESP-CODE\r\nPIPELINING'
+$common = @('USER=+OK User accepted', 'PASS=+OK Logged in', 'QUIT=+OK surl signing off')
+$greeting = 'GREETING=+OK surl ready'
+$stamped = 'GREETING=+OK surl ready <0123456789abcdef.1790640000@surl>'
+.\Record-CurlExchange.ps1 -Port 18126 -Pop3 -Pop3IdleMilliseconds 3000 -Pop3Reply ($common + <greeting> + <CAPA replies> + <extra replies>) [-SaslChallenge <lines>] [-Tls] -CurlArgs <curl arguments> -OutDirectory Surl.Protocol.Pop3.UnitTests\Fixtures\<folder>
+```
+
+`CAPA` below lists what follows `$fixed`, then `\r\n.`; two `CAPA` replies are sent in turn.
+
+| Folder | Greeting, `CAPA` and extra replies | curl arguments (then the URL) | curl sends | Exit |
+| --- | --- | --- | --- | --- |
+| `stls` | `$greeting`; `STLS`, then after TLS `USER`; `STLS=+OK Begin TLS negotiation` | `-sS -k --ssl-reqd -u u:p`, `/1` | `CAPA`, `STLS`, over TLS `CAPA`, `USER u`, `PASS p`, `RETR 1`, `QUIT` | 0 |
+| `stls-not-offered` | `$greeting`; nothing | `-sS --ssl-reqd -u u:p`, `/1` | `CAPA`, then hangs up: `curl: (64) STLS not supported.` | 64 |
+| `pop3s` | `$greeting`; `USER`; `-Tls` | `-sS -k -u u:p`, `pop3s://127.0.0.1:18126/1` | TLS from the first byte, `CAPA`, `USER u`, `PASS p`, `RETR 1`, `QUIT` | 0 |
+| `apop` | `$stamped`; nothing; `APOP=+OK Authentication successful` | `-sS -u user:secret`, `/1` | `CAPA`, `APOP user 32d4437494fda0ae78d0559952474e34`, `RETR 1`, `QUIT` | 0 |
+| `apop-forced` | `$stamped`; `USER`, `SASL CRAM-MD5 PLAIN`; as `apop` | `-sS -u user:secret --login-options AUTH=+APOP`, `/1` | as `apop` | 0 |
+| `apop-refused` | `$stamped`; nothing; `APOP=-ERR [AUTH] Authentication failed` | `-sS -u user:secret`, `/1` | `CAPA`, `APOP ...`, then hangs up: `curl: (67) Authentication failed: 45` | 67 |
+| `auth-refused` | `$greeting`; `SASL CRAM-MD5`; `-SaslChallenge 'CRAM-MD5=+ PDAxMjM0NTY3ODlhYmNkZWYuMTc5MDY0MDAwMEBzdXJsPg==', 'CRAM-MD5=-ERR [AUTH] Authentication failed'` | `-sS -u user:wrong`, `/1` | `CAPA`, `AUTH CRAM-MD5`, the response, then hangs up: `curl: (67) Login denied` | 67 |
+| `auth-<mechanism>` | `$greeting`; `SASL <MECHANISM>`; `-SaslChallenge` scripting the challenges below, then `+OK Authentication successful` | `-sS -u <credentials> --login-options AUTH=<MECHANISM>`, `/1` | `CAPA`, `AUTH <MECHANISM>`, the responses, `RETR 1`, `QUIT` | 0 |
+
+The `auth-<mechanism>` folders, and with `-sasl-ir` those recorded with `--sasl-ir`, whose initial
+response answers the first challenge. The challenges are SMTP's (its `Fixtures/README.md`) with
+`+ ` in place of `334 `:
+
+| Mechanism | Credentials | Challenges scripted |
+| --- | --- | --- |
+| `PLAIN` (and `-sasl-ir`) | `user:secret` | an empty one (not with `--sasl-ir`) |
+| `LOGIN` (and `-sasl-ir`) | `user:secret` | `Username:` (not with `--sasl-ir`) and `Password:`, in base64 |
+| `CRAM-MD5` | `user:secret` | `<0123456789abcdef.1790640000@surl>` |
+| `DIGEST-MD5` | `user:secret` | a `realm="surl"` challenge, then `rspauth=`, answered with an empty line |
+| `NTLM` (and `-sasl-ir`) | `user:secret` | an empty one (not with `--sasl-ir`), then ADR-0039's type 2 message |
+| `XOAUTH2` (and `-sasl-ir`) | `user: --oauth2-bearer tok` | an empty one (not with `--sasl-ir`) |
+| `OAUTHBEARER` | `user: --oauth2-bearer tok` | an empty one |
+| `EXTERNAL` (and `-sasl-ir`) | `user:` | an empty one (not with `--sasl-ir`) |
+
+`request.bin` holds the decrypted bytes. `RecordedFixtureTests` hands the `stls` request out in two
+reads split after the `STLS` line, through `UpgradePointRecordingConnection`, which fails the test if
+the server reads the second before upgrading and pins the upgrade point right after the `+OK`; it
+serves `pop3s` on a connection that is TLS from the start. The `apop` cases run on a clock at
+1790640000 and a random source giving `0123456789abcdef`, so Surl's greeting is the recorded one.
+The `auth-` cases run with a `Pop3TestPolicy` offering the one mechanism, scripted with every `+ `
+challenge of the transcript then acceptance (refusal for `auth-refused`), and assert the bytes Surl
+writes and the mechanism and responses the policy was handed.

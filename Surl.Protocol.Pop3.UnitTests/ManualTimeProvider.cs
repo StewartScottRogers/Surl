@@ -5,11 +5,11 @@ namespace Surl.Protocol.Pop3;
 /// falls due on the way, on the caller's thread. A server may create and dispose timers from
 /// another thread, so the timer list is locked.
 /// </summary>
-internal sealed class ManualTimeProvider : TimeProvider
+internal sealed class ManualTimeProvider(DateTimeOffset? start = null) : TimeProvider
 {
     private readonly Lock gate = new();
     private readonly List<ManualTimer> timers = [];
-    private DateTimeOffset utcNow = new(2026, 9, 29, 8, 0, 0, TimeSpan.Zero);
+    private DateTimeOffset utcNow = start ?? new(2026, 9, 29, 8, 0, 0, TimeSpan.Zero);
 
     /// <summary>
     /// How many timers are waiting to fire.

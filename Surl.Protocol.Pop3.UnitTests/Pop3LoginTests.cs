@@ -203,11 +203,12 @@ public sealed class Pop3LoginTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_StlsApopAndAuthBeforeLogin_AreNotOffered()
+    public async Task ServeAsync_StlsApopAndAuthWithNothingOffered_AreRefused()
     {
         var clock = new ManualTimeProvider();
+        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.RefusedMechanism)] };
 
-        var connection = await ServeAsync(AccountStore(clock), "STLS\r\nAPOP u d\r\nAUTH\r\nAUTH PLAIN\r\n", clock, TestContext.CancellationToken);
+        var connection = await ServeAsync(AccountStore(clock), "STLS\r\nAPOP u d\r\nAUTH\r\nAUTH PLAIN\r\n", clock, TestContext.CancellationToken, policy);
 
         Assert.AreEqual(
             "-ERR STLS not available\r\n-ERR Unsupported authentication mechanism\r\n+OK SASL mechanisms follow\r\n.\r\n-ERR Unsupported authentication mechanism\r\n",

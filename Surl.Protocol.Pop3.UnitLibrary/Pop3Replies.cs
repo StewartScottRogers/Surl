@@ -1,4 +1,6 @@
 using System.Globalization;
+using Surl.LineProtocol;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Pop3;
 
@@ -30,6 +32,11 @@ internal static class Pop3Replies
     public const string UnsupportedMechanism = "-ERR Unsupported authentication mechanism";
     public const string MaildropLocked = "-ERR [IN-USE] Maildrop is locked by another session";
     public const string StlsNotAvailable = "-ERR STLS not available";
+    public const string BeginTls = "+OK Begin TLS negotiation";
+    public const string AlreadyUsingTls = "-ERR Already using TLS";
+    public const string AuthenticationSuccessful = "+OK Authentication successful";
+    public const string AuthenticationCancelled = "-ERR Authentication cancelled";
+    public const string CannotDecodeResponse = "-ERR Cannot decode response";
     public const string TooManyConnections = "-ERR surl Too many connections, closing";
     public const string HeadTimedOut = "-ERR Timeout waiting for a command, closing";
     public const string LineTooLong = "-ERR Command line too long, closing";
@@ -63,6 +70,39 @@ internal static class Pop3Replies
     /// A single-line <c>LIST n</c> or <c>UIDL n</c> reply.
     /// </summary>
     public static string OneLine(string line) => "+OK " + line;
+
+    /// <summary>
+    /// The greeting with the <c>APOP</c> timestamp after it (ADR-0056, decision 2).
+    /// </summary>
+    public static string GreetingWith(string timestamp) => Greeting + " " + timestamp;
+
+    /// <summary>
+    /// A SASL continuation: <c>+ </c> and the challenge in base64 (RFC 5034, section 4).
+    /// </summary>
+    public static string Continuation(ReadOnlySpan<byte> challenge) => "+ " + Convert.ToBase64String(challenge);
+
+    /// <summary>
+    /// The refusal that ends an <c>AUTH</c> exchange or an <c>APOP</c> check whose outcome is
+    /// neither a challenge nor an acceptance (ADR-0049, section 7). <c>APOP</c> never takes a
+    /// challenge, so one answered with it is a failed login.
+    /// </summary>
+    public static string LoginRefused(MailLoginOutcome outcome) => outcome switch
+    {
+        MailLoginOutcome.RefusedPlaintext => EncryptionRequired,
+        MailLoginOutcome.RefusedMechanism => UnsupportedMechanism,
+        _ => AuthenticationFailed,
+    };
+
+    /// <summary>
+    /// The reply to a continuation that is no response: <c>*</c>, or not base64. Any other
+    /// outcome ends the session and is <see langword="null"/>.
+    /// </summary>
+    public static string? SaslExchangeAbandoned(SaslContinuationOutcome outcome) => outcome switch
+    {
+        SaslContinuationOutcome.Cancelled => AuthenticationCancelled,
+        SaslContinuationOutcome.NotBase64 => CannotDecodeResponse,
+        _ => null,
+    };
 
     private static string Invariant(FormattableString text) => text.ToString(CultureInfo.InvariantCulture);
 }

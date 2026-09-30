@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using Surl.LineProtocol;
 using Surl.MailStore;
@@ -19,12 +20,23 @@ internal sealed class Pop3Session
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly IMailAuthenticationPolicy mailAuthenticationPolicy;
     private readonly MailboxStore mailStore;
+    private readonly bool isStlsAvailable;
+    private readonly RandomNumberGenerator timestampRandom;
     private readonly Dictionary<string, Func<Pop3CommandLine, ValueTask<bool>>> commands;
+    private string? apopTimestamp;
     private string? pendingUserName;
     private PasswordLoginVerdict? anonymousVerdict;
     private Pop3Maildrop? maildrop;
 
-    public Pop3Session(IConnection connection, ExchangeContext context, CrlfLineReader reader, IAuthenticationPolicy authenticationPolicy, IMailAuthenticationPolicy mailAuthenticationPolicy, MailboxStore mailStore)
+    public Pop3Session(
+        IConnection connection,
+        ExchangeContext context,
+        CrlfLineReader reader,
+        IAuthenticationPolicy authenticationPolicy,
+        IMailAuthenticationPolicy mailAuthenticationPolicy,
+        MailboxStore mailStore,
+        bool isStlsAvailable,
+        RandomNumberGenerator timestampRandom)
     {
         this.connection = connection;
         this.context = context;
@@ -32,14 +44,16 @@ internal sealed class Pop3Session
         this.authenticationPolicy = authenticationPolicy;
         this.mailAuthenticationPolicy = mailAuthenticationPolicy;
         this.mailStore = mailStore;
+        this.isStlsAvailable = isStlsAvailable;
+        this.timestampRandom = timestampRandom;
         commands = new(StringComparer.Ordinal)
         {
             ["CAPA"] = AnswerCapabilitiesAsync,
             ["QUIT"] = AnswerQuitAsync,
             ["USER"] = AnswerUserAsync,
             ["PASS"] = AnswerPassAsync,
-            ["STLS"] = _ => ReplyBeforeLoginAsync(Pop3Replies.StlsNotAvailable),
-            ["APOP"] = _ => ReplyBeforeLoginAsync(Pop3Replies.UnsupportedMechanism),
+            ["STLS"] = AnswerStlsAsync,
+            ["APOP"] = AnswerApopAsync,
             ["AUTH"] = AnswerAuthAsync,
             ["STAT"] = command => WithMaildropAsync(command, AnswerStatAsync),
             ["LIST"] = command => WithMaildropAsync(command, AnswerListAsync),
@@ -63,7 +77,7 @@ internal sealed class Pop3Session
     {
         try
         {
-            await WriteLineAsync(Pop3Replies.Greeting, CancellationToken);
+            await WriteLineAsync(Greeting(), CancellationToken);
             while (await AnswerNextLineAsync())
             {
             }
@@ -72,6 +86,21 @@ internal sealed class Pop3Session
         {
             maildrop?.Dispose();
         }
+    }
+
+    // The greeting carries an APOP timestamp only when APOP is offered as the connection opens;
+    // a fresh one each connection, so a digest is never valid twice (ADR-0056, decision 2).
+    private string Greeting()
+    {
+        if (!mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession).IsApopOffered)
+        {
+            return Pop3Replies.Greeting;
+        }
+
+        var random = new byte[8];
+        timestampRandom.GetBytes(random);
+        apopTimestamp = Invariant($"<{Convert.ToHexStringLower(random)}.{context.TimeProvider.GetUtcNow().ToUnixTimeSeconds()}@surl>");
+        return Pop3Replies.GreetingWith(apopTimestamp);
     }
 
     private async ValueTask<bool> AnswerNextLineAsync()
@@ -108,20 +137,40 @@ internal sealed class Pop3Session
             ? WriteMultiLineAsync(Pop3Replies.CapabilityListFollows, CapabilityLines())
             : ReplyAsync(Pop3Replies.InvalidArguments);
 
-    // ADR-0056 decision 3's list, asked afresh each time: USER only before a login, and only
-    // when the policy offers a clear password on this connection.
+    // ADR-0056 decision 3's list, asked afresh each time, since it changes with TLS and the
+    // login: USER, SASL and STLS only before a login, each only when it may be used.
     private List<string> CapabilityLines()
     {
         List<string> capabilities = [.. Pop3Replies.FixedCapabilities];
-        if (maildrop is null && IsClearPasswordOffered)
+        if (maildrop is not null)
+        {
+            return capabilities;
+        }
+
+        var offer = LoginOffer;
+        if (offer.IsClearPasswordLoginOffered)
         {
             capabilities.Add("USER");
+        }
+
+        if (offer.SaslMechanisms.Count > 0)
+        {
+            capabilities.Add("SASL " + string.Join(' ', offer.SaslMechanisms));
+        }
+
+        if (CanUpgrade)
+        {
+            capabilities.Add("STLS");
         }
 
         return capabilities;
     }
 
-    private bool IsClearPasswordOffered => mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession).IsClearPasswordLoginOffered;
+    private MailLoginOffer LoginOffer => mailAuthenticationPolicy.GetMailLoginOffer(connection.TlsSession);
+
+    private bool IsClearPasswordOffered => LoginOffer.IsClearPasswordLoginOffered;
+
+    private bool CanUpgrade => isStlsAvailable && connection.TlsSession is null;
 
     private async ValueTask<bool> AnswerQuitAsync(Pop3CommandLine command)
     {
@@ -242,14 +291,153 @@ internal sealed class Pop3Session
         return null;
     }
 
-    private ValueTask<bool> ReplyBeforeLoginAsync(string reply) =>
-        ReplyAsync(maildrop is null ? reply : Pop3Replies.AlreadyLoggedIn);
+    private async ValueTask<bool> AnswerStlsAsync(Pop3CommandLine command)
+    {
+        var refusal = maildrop is not null ? Pop3Replies.AlreadyLoggedIn
+            : command.Argument is not null ? Pop3Replies.InvalidArguments
+            : connection.TlsSession is not null ? Pop3Replies.AlreadyUsingTls
+            : isStlsAvailable ? null
+            : Pop3Replies.StlsNotAvailable;
+        return refusal is null ? await UpgradeToTlsAsync() : await ReplyAsync(refusal);
+    }
 
-    // AUTH with no mechanism is RFC 1734's listing, empty since no mechanism is offered.
+    // +OK, then every byte pipelined after the STLS line thrown away unrun, then the handshake;
+    // the session starts over in AUTHORIZATION with the USER forgotten, and keeps the greeting's
+    // timestamp (RFC 2595 section 4, ADR-0056 decision 8). A failed handshake throws
+    // TlsHandshakeException, which the engine notes.
+    private async ValueTask<bool> UpgradeToTlsAsync()
+    {
+        await WriteLineAsync(Pop3Replies.BeginTls, CancellationToken);
+        var discarded = reader.DiscardBuffered();
+        if (discarded > 0)
+        {
+            context.Log.Note($"Discarded {discarded} bytes sent after STLS");
+        }
+
+        await connection.UpgradeToTlsAsync(CancellationToken);
+        pendingUserName = null;
+        anonymousVerdict = null;
+        return true;
+    }
+
+    // APOP <name> <digest> (RFC 1939, section 7): checked by the policy against the timestamp
+    // this connection's greeting carried; without one, or once APOP is no longer offered, the
+    // mechanism is unsupported (ADR-0056, decision 4).
+    private async ValueTask<bool> AnswerApopAsync(Pop3CommandLine command)
+    {
+        if (maildrop is not null)
+        {
+            return await ReplyAsync(Pop3Replies.AlreadyLoggedIn);
+        }
+
+        if (!command.TrySplitArguments(out var words) || words.Length != 2)
+        {
+            return await ReplyAsync(Pop3Replies.InvalidArguments);
+        }
+
+        if (apopTimestamp is null || !LoginOffer.IsApopOffered)
+        {
+            return await ReplyAsync(Pop3Replies.UnsupportedMechanism);
+        }
+
+        var step = await mailAuthenticationPolicy.CheckApopLoginAsync(
+            new ApopLogin(context.Scheme, words[0], apopTimestamp, words[1], connection.TlsSession), CancellationToken);
+        return await AnswerLoginEndedAsync(step);
+    }
+
+    // AUTH with no mechanism is RFC 1734's listing of what is offered; with one, the SASL
+    // exchange (RFC 5034), its initial response "=" for an empty one.
     private ValueTask<bool> AnswerAuthAsync(Pop3CommandLine command) =>
-        maildrop is null && command.Argument is null
-            ? WriteMultiLineAsync(Pop3Replies.SaslMechanismsFollow, [])
-            : ReplyBeforeLoginAsync(Pop3Replies.UnsupportedMechanism);
+        maildrop is not null ? ReplyAsync(Pop3Replies.AlreadyLoggedIn)
+        : command.Argument is null ? WriteMultiLineAsync(Pop3Replies.SaslMechanismsFollow, LoginOffer.SaslMechanisms)
+        : AnswerAuthMechanismAsync(command);
+
+    private ValueTask<bool> AnswerAuthMechanismAsync(Pop3CommandLine command)
+    {
+        if (!command.TrySplitArguments(out var words) || words.Length > 2)
+        {
+            return ReplyAsync(Pop3Replies.InvalidArguments);
+        }
+
+        if (words.Length == 1)
+        {
+            return RunSaslExchangeAsync(words[0], null);
+        }
+
+        return DecodeInitialResponse(words[1]) is { } initialResponse
+            ? RunSaslExchangeAsync(words[0], initialResponse)
+            : ReplyAsync(Pop3Replies.CannotDecodeResponse);
+    }
+
+    private static byte[]? DecodeInitialResponse(string word) =>
+        word == "=" ? [] : SaslContinuationLine.Classify(Encoding.ASCII.GetBytes(word)).Response;
+
+    // The server frames the exchange - "+ " continuations, the client's base64 responses, "*" -
+    // and the policy decides every step (ADR-0049, section 6).
+    private async ValueTask<bool> RunSaslExchangeAsync(string mechanism, byte[]? initialResponse)
+    {
+        // A null array, or a bare null beside a memory, converts to an empty memory, which means
+        // "=", not "none sent".
+        ReadOnlyMemory<byte>? sent = default;
+        if (initialResponse is not null)
+        {
+            sent = initialResponse;
+        }
+
+        var exchange = mailAuthenticationPolicy.StartSaslExchange(
+            new SaslExchangeStart(context.Scheme, mechanism, sent, connection.TlsSession));
+        var step = await exchange.BeginAsync(CancellationToken);
+        while (step.Outcome == MailLoginOutcome.Challenge)
+        {
+            NoteCheckedLogin(step);
+            await WriteLineAsync(Pop3Replies.Continuation(step.Challenge.Span), CancellationToken);
+            var read = await reader.ReadSaslContinuationAsync(CancellationToken);
+            if (read.Response is null)
+            {
+                return await AnswerNoResponseAsync(read.Outcome);
+            }
+
+            step = await exchange.ContinueAsync(read.Response, CancellationToken);
+        }
+
+        return await AnswerLoginEndedAsync(step);
+    }
+
+    // A cancel or an undecodable response ends the exchange and the session goes on; a limit or
+    // the peer's close ends the session as a command line's would.
+    private ValueTask<bool> AnswerNoResponseAsync(SaslContinuationOutcome outcome) =>
+        Pop3Replies.SaslExchangeAbandoned(outcome) is { } reply ? ReplyAsync(reply) : AnswerNoLineAsync(AsLineReadOutcome(outcome));
+
+    /// <summary>
+    /// The command-line read outcome that ends the session as a continuation read's does.
+    /// </summary>
+    /// <param name="outcome">How the continuation read ended.</param>
+    /// <returns><see cref="CrlfLineReadOutcome.LineTooLong"/> or <see cref="CrlfLineReadOutcome.HeadTimedOut"/>
+    /// for those limits, and <see cref="CrlfLineReadOutcome.Closed"/> for anything else.</returns>
+    internal static CrlfLineReadOutcome AsLineReadOutcome(SaslContinuationOutcome outcome) => outcome switch
+    {
+        SaslContinuationOutcome.LineTooLong => CrlfLineReadOutcome.LineTooLong,
+        SaslContinuationOutcome.HeadTimedOut => CrlfLineReadOutcome.HeadTimedOut,
+        _ => CrlfLineReadOutcome.Closed,
+    };
+
+    // The note is written before the reply (ADR-0038); an accepted login takes the maildrop lock
+    // before it is answered (ADR-0056, decision 6).
+    private ValueTask<bool> AnswerLoginEndedAsync(MailLoginStep step)
+    {
+        NoteCheckedLogin(step);
+        return ReplyAsync(step.Outcome is MailLoginOutcome.Accepted or MailLoginOutcome.AcceptedUnchecked
+            ? OpenMaildrop(step.AccountName) ?? Pop3Replies.AuthenticationSuccessful
+            : Pop3Replies.LoginRefused(step.Outcome));
+    }
+
+    private void NoteCheckedLogin(MailLoginStep step)
+    {
+        if (step.CheckedLogin is { } checkedLogin)
+        {
+            context.Log.Note(checkedLogin.Note);
+        }
+    }
 
     // A maildrop command before any login asks the policy once about the login with no
     // credentials, and only --allow-anonymous opens the anonymous owner's maildrop (ADR-0056,

@@ -9,7 +9,8 @@ The POP3 server (RFC 1939): `USER` and `PASS`, `APOP`, SASL, `LIST`, `RETR`, `DE
 
 Built (BL-205, ADR-0056): `Pop3ProtocolServer` (`IConnectionProtocolServer` and
 `IConnectionRefusalWriter`, scheme `pop3`) takes an `IAuthenticationPolicy`, an
-`IMailAuthenticationPolicy` and the shared `MailboxStore`. `Pop3Session` greets `+OK surl ready`
+`IMailAuthenticationPolicy`, the shared `MailboxStore`, `isStlsAvailable` and an optional
+`RandomNumberGenerator`. `Pop3Session` greets `+OK surl ready`
 and answers `CAPA`, `USER`, `PASS`, `STAT`, `LIST`, `UIDL`, `RETR`, `TOP`, `DELE`, `RSET`, `NOOP`
 and `QUIT` from the fixed lines in `Pop3Replies`, reading with `CrlfLineReader` and writing with
 `ReplyLineWriter` and `DotStuffedBodyWriter` (`Surl.LineProtocol`). `CAPA` offers `USER` before a
@@ -21,10 +22,20 @@ another session holds it). A maildrop command before a login needs the policy's
 `DELE` marks; only `QUIT` after a login removes the marked messages, and the lock is released
 however the session ends. `Pop3TopSection` cuts what `TOP` sends.
 
-Intent, not yet built: `STLS`, the `APOP` timestamp and SASL `AUTH` (BL-206; until then `STLS` is
-`-ERR STLS not available`, `APOP` and `AUTH <mechanism>` `-ERR Unsupported authentication
-mechanism`, and bare `AUTH` an empty listing), and the `pop3s` registration and composition in
-`Surl.Console` (BL-209).
+Built (BL-206, ADR-0056 decisions 2, 3, 4 and 8): the constructor's `isStlsAvailable` (set by
+`Surl.Console` when a certificate is configured) makes `CAPA` advertise `STLS` on a plaintext
+connection and `STLS` answer `+OK Begin TLS negotiation`, throw away what was pipelined after it
+(`CrlfLineReader.DiscardBuffered`) and upgrade; the session starts over with the `USER` forgotten.
+Without it `STLS` is `-ERR STLS not available`; over TLS `-ERR Already using TLS`. `CAPA` adds
+`SASL <mechanisms>` from `GetMailLoginOffer`. When the offer has `IsApopOffered` as the connection
+opens, the greeting carries a timestamp `<16 hex digits.unix seconds@surl>` from the injected
+`RandomNumberGenerator` and the context's `TimeProvider`, and `APOP` goes to
+`CheckApopLoginAsync` with it. `AUTH <mechanism> [<initial response>]` frames the policy's
+`ISaslExchange` (`+ ` continuations, base64, `=`, `*`); bare `AUTH` lists the offered mechanisms.
+`pop3s` is implicit TLS told apart by `connection.TlsSession`; the server claims only `pop3`.
+
+Intent, not yet built: the `pop3s` registration through `ImplicitTlsSchemeServer` and the
+composition in `Surl.Console` (BL-209).
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing

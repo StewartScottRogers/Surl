@@ -1,0 +1,23 @@
+< +OK surl ready
+> CAPA
+< +OK Capability list follows
+< TOP
+< UIDL
+< RESP-CODES
+< AUTH-RESP-CODE
+< PIPELINING
+< SASL EXTERNAL
+< .
+> AUTH EXTERNAL dXNlcg==
+< +OK Authentication successful
+> RETR 1
+< +OK 133 octets
+< From: sender@example.com
+< To: recipient@example.com
+< Subject: Recorded
+< 
+< Hello from the recorder.
+< ..A line that starts with a dot.
+< .
+> QUIT
+< +OK surl signing off
