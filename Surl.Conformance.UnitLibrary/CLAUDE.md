@@ -19,7 +19,12 @@ Each pin has a `Kind`: `Curl` (the default) or `Library`, a shared libcurl such 
 reference build's `libcurl-4.dll` (ADR-0071 decision 10). `Locate`, `LocateForProtocol` and
 `RequirePinned` only ever answer with a curl; `LocateLibrary` and `RequirePinnedLibrary` only
 with a library, which `Run-LibcurlWebSocketScript.cs` at the repository root loads to drive
-`curl_ws_send` and `curl_ws_recv`. `UpstreamCurlRunner` refuses a library.
+`curl_ws_send` and `curl_ws_recv`, and `Run-LibcurlRtspScript.cs` loads to drive RTSP requests
+(`CURLOPT_RTSP_REQUEST`) and the interleaved receive (ADR-0074 decision 12).
+`UpstreamCurlRunner` refuses a library. `PinnedLibcurlChoice.Choose` decides which file a
+driver may load before anything is loaded; `LibcurlRtspScript`, `LibcurlRtspReport` and
+`LibcurlBytes` are the RTSP driver's command line, its output lines and the byte escapes,
+kept here so they are unit tested while the driver itself only calls libcurl.
 `UpstreamCurlRunner` takes the locator's `UpstreamCurlLocation` - never a path - so the
 only curl it starts is a verified pin; it passes arguments through
 `ProcessStartInfo.ArgumentList`, writes the given standard input bytes (none by default)
