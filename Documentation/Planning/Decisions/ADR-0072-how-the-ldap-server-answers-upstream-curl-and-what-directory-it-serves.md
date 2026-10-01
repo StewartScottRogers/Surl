@@ -353,7 +353,7 @@ SASL and is not listed: it is answered when `ntlm` is accepted.
   (measured), and reaching it needs a host name in the machine's own name resolution. BL-327
   (Low) decides and builds it with RFC 4121's wrap tokens as its security layer.
 
-**The contract** (amends ADR-0049 decision 6; BL-324 builds it). The SASL contract is
+**The contract** (amends ADR-0049 decision 6; BL-328 builds it). The SASL contract is
 protocol-neutral, since LDAP is not mail: `MailLoginStep` becomes `SaslLoginStep`,
 `MailLoginOutcome` becomes `SaslLoginOutcome`, and `StartSaslExchange` with the per-connection
 mechanism list moves to a new `ISaslAuthenticationPolicy` (`IReadOnlyList<string>
@@ -366,7 +366,7 @@ SecurityLayer`, set on an accepted step that negotiated one. `ISaslSecurityLayer
 MaximumProtectedBytes`, `byte[] Protect(ReadOnlySpan<byte> message)` and `bool
 TryUnprotect(ReadOnlySpan<byte> buffer, out byte[] message)`; the server owns the 4-byte length
 framing. `ntlm` and the Sicily exchange use the same `ISaslExchange` under the mechanism name
-`NTLM`, the server mapping Sicily's choices to it. BL-325 builds NTLM sealing and the LDAP NTLM and
+`NTLM`, the server mapping Sicily's choices to it. BL-329 builds NTLM sealing and the LDAP NTLM and
 `GSS-SPNEGO` exchanges in `Surl.Authentication`; BL-326 builds `DIGEST-MD5`'s integrity and
 confidentiality.
 
@@ -485,8 +485,8 @@ successes), BL-311 records the measured one against this ADR rather than changin
 | BL-306 | decision 1's entries, DNs, matching rules, filters, selection, root DSE, bounds |
 | BL-307 | decision 1's LDIF loading and its malformed-file texts |
 | BL-308 | decisions 2 and 3, simple binds, limits (decision 6), notes (decision 7); until BL-309 lands, every Sicily and SASL bind is answered `authMethodNotSupported` (7) and the root DSE lists no `supportedSASLMechanisms` |
-| BL-324 | decision 4's contract: the protocol-neutral rename, `ISaslAuthenticationPolicy`, `ISaslSecurityLayer` |
-| BL-325 | NTLM sealing and signing, the LDAP NTLM challenge, the `NTLM` and `GSS-SPNEGO` exchanges for LDAP |
+| BL-328 | decision 4's contract: the protocol-neutral rename, `ISaslAuthenticationPolicy`, `ISaslSecurityLayer` |
+| BL-329 | NTLM sealing and signing, the LDAP NTLM challenge, the `NTLM` and `GSS-SPNEGO` exchanges for LDAP |
 | BL-326 | `DIGEST-MD5`'s LDAP challenge, `rspauth` as final data, `auth-int` and `auth-conf` |
 | BL-309 | decisions 4 and 5 in the server: Sicily, SASL binds, the security-layer framing, `StartTLS`, `ldaps` |
 | BL-310 | decision 8, the directory's loading at start, registration |
@@ -521,7 +521,7 @@ successes), BL-311 records the measured one against this ADR rather than changin
 - `Record-CurlExchange.ps1` gains `-Ldap`, `-LdapEntry`, `-LdapReply`, `-LdapIdleMilliseconds` and
   `-CurlTimeoutMilliseconds` (its help), used again by BL-308, BL-309 and BL-311 to record their
   fixtures.
-- BL-309 depends on BL-324, BL-325 and BL-326; BL-324 touches `Surl.Protocol.Abstractions`,
+- BL-309 depends on BL-328, BL-329 and BL-326; BL-328 touches `Surl.Protocol.Abstractions`,
   `Surl.Authentication` and the three mail servers, so it runs apart from them.
 - The Windows build's `ldaps` cannot succeed against surl without trusting its certificate on the
   machine; the success case waits for BL-312.

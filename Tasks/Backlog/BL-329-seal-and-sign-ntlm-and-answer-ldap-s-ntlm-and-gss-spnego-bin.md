@@ -1,16 +1,16 @@
 ---
-id: BL-325
+id: BL-329
 title: Seal and sign NTLM and answer LDAP's NTLM and GSS-SPNEGO binds in Surl.Authentication
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-324]
+depends-on: [BL-328]
 touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests]
 requirement: FR-049
 created: 2026-09-30
 completed:
 ---
-# BL-325 — Seal and sign NTLM and answer LDAP's NTLM and GSS-SPNEGO binds in Surl.Authentication
+# BL-329 — Seal and sign NTLM and answer LDAP's NTLM and GSS-SPNEGO binds in Surl.Authentication
 
 ## Goal
 

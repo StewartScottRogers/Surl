@@ -100,10 +100,10 @@ and registration tasks can be built without a question.
 - The finding that reshaped the plan: after an NTLM (Sicily or `GSS-SPNEGO`) or `DIGEST-MD5` bind,
   `WinLDAP` seals every later message (NTLM signature then 68 sealed bytes, the plain search's
   length; Digest insists on `qop=auth-conf`, `cipher=3des`). So the SASL contract needs a security
-  layer: filed BL-324 (protocol-neutral contract, renaming `MailLoginStep`/`MailLoginOutcome` to
-  `SaslLoginStep`/`SaslLoginOutcome`), BL-325 (NTLM sealing), BL-326 (`DIGEST-MD5` layers) and
+  layer: filed BL-328 (protocol-neutral contract, renaming `MailLoginStep`/`MailLoginOutcome` to
+  `SaslLoginStep`/`SaslLoginOutcome`), BL-329 (NTLM sealing), BL-326 (`DIGEST-MD5` layers) and
   BL-327 (Low: Kerberos inside `GSS-SPNEGO`, unreachable from `WinLDAP` on loopback as measured);
-  added BL-324, BL-325 and BL-326 to BL-309's `depends-on`.
+  added BL-328, BL-329 and BL-326 to BL-309's `depends-on`.
 - Other measured surprises recorded in the ADR: curl opens a silent connection before `WinLDAP`'s;
   `WinLDAP` resolves the host itself and ignores `--resolve`; `-k` does not reach `WinLDAP`, so
   `ldaps` fails 38 against an untrusted certificate; an empty password (`-u :`, `-u alice:`) still
@@ -118,4 +118,4 @@ and registration tasks can be built without a question.
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
-- 2026-09-30: Doing -> Done. ADR-0072 decides the LDAP server from 31 measured WinLDAP exchanges; Record-CurlExchange.ps1 -Ldap records them; BL-324 to BL-327 filed for the SASL security layer
+- 2026-09-30: Doing -> Done. ADR-0072 decides the LDAP server from 31 measured WinLDAP exchanges; Record-CurlExchange.ps1 -Ldap records them; BL-328 to BL-327 filed for the SASL security layer

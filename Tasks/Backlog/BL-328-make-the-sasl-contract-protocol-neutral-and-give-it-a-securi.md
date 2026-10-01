@@ -1,5 +1,5 @@
 ---
-id: BL-324
+id: BL-328
 title: Make the SASL contract protocol-neutral and give it a security layer
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-049
 created: 2026-09-30
 completed:
 ---
-# BL-324 — Make the SASL contract protocol-neutral and give it a security layer
+# BL-328 — Make the SASL contract protocol-neutral and give it a security layer
 
 ## Goal
 

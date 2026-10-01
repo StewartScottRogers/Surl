@@ -4,7 +4,7 @@ title: Give DIGEST-MD5 its LDAP challenge, final rspauth and auth-int and auth-c
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-324]
+depends-on: [BL-328]
 touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests]
 requirement: FR-049
 created: 2026-09-30
@@ -30,7 +30,7 @@ ciphers.
 - RFC 2831: `Kic`/`Kis`/`Kcc`/`Kcs`, the 10-byte HMAC-MD5 MAC, message type 1, 4-byte sequence
   number, 3DES-CBC (the BCL's `TripleDES`, two-key, IV from the key) and RC4
   (`Surl.Cryptography.Rc4.UnitLibrary`). The final success carries `rspauth` (RFC 4422 section 5);
-  how the step carries final data is this task's to add to `SaslLoginStep` if BL-324 did not
+  how the step carries final data is this task's to add to `SaslLoginStep` if BL-328 did not
   (that would touch Abstractions: re-check `touches` first).
 - Fixtures: re-record `curl --digest -u alice:secret` with `Record-CurlExchange.ps1 -Ldap` and a
   fixed nonce; computing `rspauth` needs the recorder to know the password, so record up to the

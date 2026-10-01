@@ -4,7 +4,7 @@ title: Decide and build Kerberos inside LDAP GSS-SPNEGO binds with an RFC 4121 s
 priority: Low
 assignee: Claude
 pipeline: feature
-depends-on: [BL-325]
+depends-on: [BL-329]
 touches: [Surl.Authentication.UnitLibrary, Surl.Authentication.UnitTests, Surl.Kerberos.UnitLibrary, Surl.Kerberos.UnitTests, Documentation/Planning/Decisions]
 requirement: FR-049
 created: 2026-09-30
