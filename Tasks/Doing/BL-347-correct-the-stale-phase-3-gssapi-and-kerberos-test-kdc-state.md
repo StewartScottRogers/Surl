@@ -35,3 +35,4 @@ BL-260, BL-267, BL-268 and BL-269 have done.
 ## Log
 
 - 2026-10-01: Created.
+- 2026-10-01: Backlog -> Doing.
