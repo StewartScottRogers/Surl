@@ -260,6 +260,76 @@ with the OpenSSL reference builds; no result from them is recorded against these
 `EXTERNAL` and `GSSAPI` are proven by unit tests only: proving `GSSAPI` from pinned upstream
 curl needs a KDC, and how to provide one is still to be decided (BL-242).
 
+### Built for Phase 4: WebSocket
+
+`surl` registers the WebSocket server (`Surl.Console`'s `ComposeProtocolServers`) with its help
+category and `--aihelp` topic, `websocket`. `WsProtocolServer` claims `ws` only; `wss` is the
+same server behind `ImplicitTlsSchemeServer`, over a connection the engine has already secured
+with TLS from the first byte. It is handed the one content store and the one
+`AuthenticationPolicy` the HTTP server is. An upgrade is answered only on a `ws://` or `wss://`
+listen URL: an `http://` listener answers a request carrying `Upgrade: websocket` as the
+ordinary `GET` it also is
+([ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md)
+decision 6). The terms below are defined in the [glossary](../Wiki/Glossary.md), section
+"WebSocket".
+
+- **The upgrade** (`Surl.Protocol.Ws`,
+  [ADR-0071](../Planning/Decisions/ADR-0071-how-the-websocket-server-answers-upstream-curl.md)
+  decisions 1 and 2): the request head is read with `Surl.HttpMessage`'s `HttpConnectionReader`
+  within `--max-request-head` and `--head-timeout` (`431`, `408`, `505` or `400`, as the HTTP
+  server answers them), then checked in ADR-0071's order, the first failure answering: one
+  `Host` (`400`), the login (`401` or `403`), `GET` (`405`, `Allow: GET`), `HTTP/1.1` (`400`),
+  `Upgrade: websocket` (`426`), `Connection: Upgrade` (`400`), no body announced (`400`), one
+  `Sec-WebSocket-Key` of 16 base64 bytes (`400`), `Sec-WebSocket-Version: 13` (`426`), and a
+  request path naming a file, or a directory with `--list-directories`, in the content store
+  (`404`). Every refusal has an empty body and closes the connection, but a `401` keeps it. The
+  `101 Switching Protocols` carries `Date`, `Server: surl`, `Upgrade`, `Connection` and the
+  `Sec-WebSocket-Accept` RFC 6455 requires; no subprotocol or extension is ever selected.
+- **The logins** (ADR-0071 decision 3): the upgrade is judged through
+  `IHttpAuthenticationSession` as an HTTP `GET` is - no login needed with no account configured,
+  one needed once any is, Basic and Bearer over `ws://` refused `403` unchecked without
+  `--allow-plaintext-auth` - and a `401` carries the HTTP challenges.
+- **What surl sends** (decision 4): the file at the request path as one binary message, or a
+  directory's listing as one text message (each name, `/` after a directory, then LF), in frames
+  of at most 65536 payload bytes, then an empty `CLOSE` (`88 00`), since curl writes a `CLOSE`'s
+  code into its output; a file that cannot be read once upgraded is answered `CLOSE` 1011.
+  With `--ws-echo` the path is not looked up, and every complete client message is sent back
+  whole with its opcode until the client's `CLOSE`, a protocol error or a limit. surl never
+  sends `PING`.
+- **How client frames are answered** (decision 6): a `PING` with a `PONG` carrying its payload;
+  a `PONG` ignored; a data message discarded unless echoed; a client `CLOSE` with a `CLOSE`
+  echoing its code (two bytes, no reason), or an empty one for an empty one; an unmasked frame,
+  a reserved bit or opcode, a control frame over 125 bytes or fragmented, a misplaced
+  continuation or data frame, a non-minimal length or a `CLOSE` code not allowed on the wire
+  with `CLOSE` 1002; text or a `CLOSE` reason that is not UTF-8 with 1007; a frame or message
+  past `--max-message` with 1009. The codes allowed on the wire are 1000 to 1003, 1007 to 1014
+  and 3000 to 4999 (`WebSocketCloseCodes`).
+- **Closing and limits** (decisions 5 and 7): after its `CLOSE` surl half-closes and reads and
+  discards what the client still sends for at most one second, never waiting for a `CLOSE`
+  answer, which curl never sends. An exchange past `--idle-timeout` or `--max-time` is answered
+  `CLOSE` 1001; shutdown writes no farewell
+  ([ADR-0059](../Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)).
+- **`wss`** (decision 8): TLS from the first byte with the certificate from `--cert` or
+  `--self-signed`, then `ws`'s exchange byte for byte.
+
+**What pinned upstream curl has proven.** The integration tests in `Surl.Conformance.UnitTests`
+run each case against a live `surl` on loopback. With the Windows reference build (curl 8.21.0,
+Schannel) every tool row of ADR-0071 decision 11 over `ws` and `wss` passed
+(`UpstreamCurlTalksToSurlOverWebSocketTests`): a file downloaded byte for byte to stdout and with
+`-o`, an empty file, a listing only with `--list-directories`, the `404`, `405`, `401` and `403`
+refusals ending curl with 22, logins with Basic, Bearer and AWS Signature Version 4, Digest and
+NTLM ending 22 at the `401` (curl answers no challenge on an upgrade), and an echo ended by
+surl's `--idle-timeout` or `--max-time` with `CLOSE` 1001. Through the pinned `libcurl-4.dll`,
+driven by `Run-LibcurlWebSocketScript.cs` against `--ws-echo`, every row of ADR-0071's
+Amendment 1 passed (`PinnedLibcurlTalksToSurlOverWebSocketTests`, Windows only): text, binary
+and a three-fragment message echoed whole, a `PING` answered by its `PONG`, `CLOSE` 1000
+echoed, a 2 MiB message answered 1009 and invalid UTF-8 1007. The tool tests run on CI's Linux
+and macOS legs with the OpenSSL reference builds; no result from them is recorded against
+ADR-0071 yet, and the libcurl tests report `Inconclusive` there, since those builds carry no
+shared library. A `PING` from the tool (it sends none) and the 1002 answers (libcurl sends no
+invalid frame) are proven by the unit tests in `Surl.Protocol.Ws.UnitTests` only, and Negotiate
+on the upgrade has no row in decision 11.
+
 ### Also in scope
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
@@ -280,7 +350,10 @@ curl needs a KDC, and how to provide one is still to be decided (BL-242).
   `IMailAuthenticationPolicy` (ADR-0049): the SASL mechanisms `GSSAPI` (a Kerberos ticket
   checked against `--keytab`, ADR-0057 decision 9), `DIGEST-MD5`, `CRAM-MD5`, `NTLM`,
   `OAUTHBEARER`, `XOAUTH2`, `PLAIN`, `LOGIN` and `EXTERNAL` (the TLS client certificate
-  `--cacert` verifies), IMAP `LOGIN`, POP3 `USER`/`PASS` and POP3 `APOP`. In scope, not built
+  `--cacert` verifies), IMAP `LOGIN`, POP3 `USER`/`PASS` and POP3 `APOP`; and the WebSocket
+upgrade's, judged through `IHttpAuthenticationSession` as an HTTP `GET` and challenged with the
+HTTP challenges (ADR-0071 decision 3), of which upstream curl completes only the ones it sends
+unasked - Basic, Bearer and AWS Signature Version 4 - since it answers no `401` on an upgrade. In scope, not built
   yet: Kerberos inside Negotiate (BL-241), `Proxy-Authenticate` for the proxies, and the logins
   of the servers not yet built - SMB and LDAP.
 - **Proxies:** acting as the HTTP `CONNECT` proxy, HTTPS proxy and SOCKS4, SOCKS4a,
@@ -319,8 +392,8 @@ Two rules carry the design, the same two the Curl port is built on, turned aroun
 server references `Surl.Protocol.Abstractions` and the horizontal libraries ADR-0002
 lists, as later ADRs amend it (`Surl.Content`, `Surl.Cryptography`, the four SSH primitive
 libraries of ADR-0048, the two of ADR-0051 decision 3 and the three of ADR-0061, and the mail
-servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050, and, once BL-292 creates it,
-the HTTP, WebSocket and RTSP servers' `Surl.HttpMessage` of ADR-0070); referencing another protocol
+servers' `Surl.MailStore` and `Surl.LineProtocol` of ADR-0050, and the HTTP, WebSocket and RTSP
+servers' `Surl.HttpMessage` of ADR-0070); referencing another protocol
 server is a build break, and `Surl.Protocol.Abstractions.UnitTests` asserts the reference graph.
 
 **Rule 2 - the transport is an injected seam.** A protocol server receives an accepted
@@ -352,7 +425,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol`, and for HTTP, WebSocket and RTSP `Surl.HttpMessage` (ADR-0070) |
 | Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7), and `Surl.Kerberos` (ADR-0057 decision 6) |
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
-| HTTP message library | `Surl.HttpMessage` (filled by BL-293: the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), used by `Surl.Protocol.Http` and to be shared with `Surl.Protocol.Ws` and `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
+| HTTP message library | `Surl.HttpMessage` (the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), used by `Surl.Protocol.Http` and `Surl.Protocol.Ws` and referenced by `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
 | Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305` ([ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md)), `Surl.Cryptography.Rc4` and `Surl.Cryptography.BcryptPbkdf` ([ADR-0051](../Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md) decision 3), and `Surl.Cryptography.Blowfish`, `Surl.Cryptography.Cast128` and `Surl.Cryptography.Ripemd160` ([ADR-0061](../Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)); for Kerberos, `Surl.Kerberos` ([ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)) | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519`, and `Surl.Cryptography.BcryptPbkdf` references `Surl.Cryptography.Blowfish` |
 | Test fixtures | `Surl.Kerberos.TestKdc`, the hand-built loopback KDC for realm `SURL.TEST` ([ADR-0065](../Planning/Decisions/ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md) decision 1). Not a protocol server and not a horizontal library of ADR-0002's table: only its own test project references it (BL-267's `Run-KerberosTestKdc.cs` file-based app is to be the other user), and `Surl.Console` never does | `Surl.Kerberos`, Abstractions |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
@@ -364,9 +437,8 @@ Flat: every project is a directory immediately under the repository root, each p
 project followed by its `.UnitTests` twin (`CLAUDE.md`, "Repository layout"). Every
 project of ADR-0002's map exists from the first commit; the nine hand-built SSH primitive
 libraries (four of ADR-0048, two of ADR-0051 and three of ADR-0061), the Kerberos library of
-ADR-0057, the mail servers' two shared libraries of ADR-0050 and the loopback test KDC of
-ADR-0065 were added later, each with its twin; the HTTP message library of ADR-0070 is to
-be added the same way:
+ADR-0057, the mail servers' two shared libraries of ADR-0050, the loopback test KDC of
+ADR-0065 and the HTTP message library of ADR-0070 were added later, each with its twin:
 
 | Production | Tests |
 | --- | --- |

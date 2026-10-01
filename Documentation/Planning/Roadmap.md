@@ -83,8 +83,32 @@ task board in `Tasks/`, never here.
   IMAP server), ADR-0056 (the POP3 server), ADR-0057 (the keytab and the AP-REQ check behind
   SASL `GSSAPI`) and ADR-0059 (a limit told from shutdown, first for SMTP).
 
+## Milestone 4 — Phase 4
+
+- **Status:** Built, and proven with the Windows reference build and its `libcurl-4.dll`
+  (2026-09-30). Not closed: what the Linux and macOS reference builds do against the WebSocket
+  server is not yet recorded against ADR-0071, and the libcurl cases cannot run there, since
+  those builds carry no shared library (ADR-0071 decision 10).
+- **Delivers:** the HTTP message library the HTTP, WebSocket and RTSP servers share
+  (`Surl.HttpMessage`: the bounded HTTP/1.x request-head reader and its head timeout, request-line
+  and field-line parsing, response heads and `WWW-Authenticate` challenge fields), with the HTTP
+  server moved onto it byte for byte; and the WebSocket server (`Surl.Protocol.Ws`, schemes `ws`
+  and `wss`): the upgrade and its refusals, logins through the HTTP authentication session, a
+  file or listing sent as one message in 65536-byte frames, `--ws-echo`, `PING`, `PONG` and
+  `CLOSE` answered, invalid frames closed with 1002, 1007 or 1009, `CLOSE` 1001 at a limit, and
+  the one-second lingering close. What it answers, and what pinned upstream curl has proven, is
+  in the product overview, "Built for Phase 4: WebSocket".
+- **Exit criteria:** the Phase 4 row's "Proves", the upgrade from HTTP: pinned upstream curl
+  completes every row of ADR-0071 decision 11 over `ws` and `wss` against a live `surl`, and the
+  pinned `libcurl-4.dll` every row of ADR-0071's Amendment 1 against `surl --ws-echo`, in
+  `Surl.Conformance.UnitTests`; the tool rows on Windows, Linux and macOS, the libcurl rows on
+  Windows.
+- **Decisions:** ADR-0070 (`Surl.HttpMessage`, and the upgrade answered only on `ws://` and
+  `wss://` listen URLs) and ADR-0071 (how the WebSocket server answers upstream curl, with its
+  Amendment 1, libcurl's client frames measured).
+
 ## Later
 
-Phases 4 to 6 follow the product overview. Phase 7, the last, turns Surl on the Curl port:
+Phases 5 and 6 follow the product overview. Phase 7, the last, turns Surl on the Curl port:
 the port runs the same conversations against Surl beside pinned upstream curl, and every
 disagreement is filed as the port's defect on the port's own board (ADR-0003).

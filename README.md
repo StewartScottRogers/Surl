@@ -53,7 +53,7 @@ curl -k https://127.0.0.1:8443/hello.txt
 The aim is every scheme upstream curl can request. **Today `surl` answers** `http` and
 `https` (HTTP/1.1, `GET` and `HEAD`), `dict`, `ftp` and `ftps`, `gopher` and `gophers`,
 `imap` and `imaps`, `mqtt` and `mqtts`, `pop3` and `pop3s`, `scp` and `sftp`, `smtp` and
-`smtps`, `telnet` and `tftp`, until Ctrl+C; every other scheme is refused with exit code 1
+`smtps`, `telnet`, `tftp`, and `ws` and `wss` (WebSocket), until Ctrl+C; every other scheme is refused with exit code 1
 until its server lands. `surl --version` lists the schemes a build serves.
 
 What it serves depends on `--directory` (ADR-0031):
@@ -73,8 +73,9 @@ Uploads still need `--allow-uploads`, in memory too.
 ## Logging in
 
 Surl is secure by default ([ADR-0032](Documentation/Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)).
-With no account configured, HTTP `GET` and `HEAD` need no login and every login is
-refused; once any account is configured, every HTTP request needs one. Every other HTTP
+With no account configured, HTTP `GET` and `HEAD` and WebSocket upgrades need no login and
+every login is refused; once any account is configured, every HTTP request and WebSocket
+upgrade needs one. Every other HTTP
 method, every MQTT `CONNECT`, every FTP and SSH login - curl's own anonymous FTP login
 included - and every SMTP `MAIL`, IMAP mailbox command and POP3 maildrop command needs one
 either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
@@ -97,7 +98,7 @@ carrying NTLM, and AWS Signature Version 4; an MQTT `CONNECT`'s user name and pa
 `USER` and `PASS`; SSH password, keyboard-interactive and public-key logins, a public key
 against the OpenSSH `authorized_keys` file `--authorized-keys <user:file>` names; and the mail
 servers' SASL mechanisms, IMAP `LOGIN`, POP3 `USER`/`PASS` and `APOP`. A password or token
-sent in clear - Basic or Bearer over `http://`, an MQTT password over `mqtt://`, an FTP
+sent in clear - Basic or Bearer over `http://` or `ws://`, an MQTT password over `mqtt://`, an FTP
 password over `ftp://` before `AUTH TLS` - is refused without being checked
 (`403 Forbidden`, `CONNACK` 5, FTP `530`); the mail servers do not offer a clear-password login
 or mechanism on a connection without TLS, and refuse one sent anyway. An SSH password is never
@@ -218,6 +219,38 @@ curl -k -u alice:s3cret --login-options AUTH=PLAIN pop3s://127.0.0.1:9950/1
 and `gssapi` needs `--keytab`. Without `--directory` the mail lives in memory; with it, the mail
 store is kept in `<path>/.surl/mail` and survives a restart. `--allow-uploads` gates neither SMTP
 delivery nor IMAP `APPEND`: mail is not a served file.
+
+## WebSocket
+
+The WebSocket server answers `ws` and `wss`
+([ADR-0071](Documentation/Planning/Decisions/ADR-0071-how-the-websocket-server-answers-upstream-curl.md)).
+It answers curl's upgrade request with `101 Switching Protocols`, then sends the file at the
+request path as one binary message (a directory's listing as one text message, with
+`--list-directories`) and closes, so curl writes the file as it would a download:
+
+```
+surl --directory site ws://127.0.0.1:8081/
+curl ws://127.0.0.1:8081/hello.txt
+curl -o hello.txt ws://127.0.0.1:8081/hello.txt
+```
+
+A path that is not there is refused `404 Not Found`, and curl exits 22, as it does for any answer
+but `101`. `wss` is TLS from the first byte, so it needs `--cert` or `--self-signed`; there,
+curl's `-u` Basic login is checked rather than refused as a password in clear. curl answers no
+`401` on an upgrade, so it logs in only with what it sends unasked: Basic (`-u`), Bearer
+(`--oauth2-bearer`) and AWS Signature Version 4 (`--aws-sigv4`):
+
+```
+surl --directory site --self-signed --user alice:s3cret wss://127.0.0.1:8443/
+curl -k -u alice:s3cret wss://127.0.0.1:8443/hello.txt
+```
+
+`--ws-echo` makes the server an echo server instead: the path is not looked up, and every client
+message is sent back whole until the client closes. The `curl` tool sends no message of its own,
+so this is for programs that use libcurl's `curl_ws_send` and `curl_ws_recv`. Once upgraded surl
+answers a `PING` with a `PONG` and a client `CLOSE` with a `CLOSE`, closes a frame past
+`--max-message` with 1009, and closes an exchange past `--idle-timeout` or `--max-time` with
+1001, whose two bytes curl writes to its output like any payload.
 
 ## Logging
 
