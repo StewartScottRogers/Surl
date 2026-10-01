@@ -12,4 +12,12 @@
     <ProjectReference Include="..\Surl.Protocol.Smb.UnitLibrary\Surl.Protocol.Smb.UnitLibrary.csproj" />
   </ItemGroup>
 
+  <!--
+    Bytes recorded from pinned upstream curl (Fixtures/README.md), embedded so a fast test
+    reads them without touching the file system. Each is named Fixtures/<case>/<file>.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures\*\*" LogicalName="Fixtures/$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(FullPath)'))))/%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>
