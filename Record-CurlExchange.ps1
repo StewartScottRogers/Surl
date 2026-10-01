@@ -339,8 +339,8 @@
     request.bin and transcript.txt hold the decrypted bytes, transcript.txt opens with
     "= TLS handshake completed", and the server sends a TLS close_notify before it
     closes. A burst then ends when a read of the decrypted stream has not completed
-    within RawIdleMilliseconds. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Tftp or
-    -NoServer is refused.
+    within RawIdleMilliseconds. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Ldap, -Tftp
+    or -NoServer is refused.
 
 .PARAMETER RawReply
     The replies -Raw sends, one per pause in what curl sends, in order, each with the
@@ -365,6 +365,73 @@
     How long, in -Raw mode, a pause in what curl sends must last before the server
     treats the burst as complete and sends the next reply, and, after the last reply,
     before it hangs up. Default 1000.
+
+.PARAMETER Ldap
+    Serve LDAPv3 (RFC 4511) instead of HTTP responses, for ldap:// (and, with -Tls,
+    ldaps://). The server accepts one connection after another until curl exits - the
+    Windows build opens two: curl's own connect, which sends nothing, then WinLDAP's - and
+    on each reads one whole BER LDAPMessage at a time (both length forms) and answers it by
+    operation, echoing curl's message ID: a bindRequest with a bindResponse; a searchRequest
+    with a searchResultEntry for each -LdapEntry that applies, then a searchResultDone; an
+    extendedRequest with an extendedResponse; compare, add, delete, modify and modify DN
+    with their own response; an unbindRequest by closing the connection; an abandonRequest
+    with nothing. Every result code is 0 (success) unless -LdapReply says otherwise, except
+    an extended or unknown operation's, which is 2 (protocolError). A connection on which
+    curl sends nothing for LdapIdleMilliseconds is closed.
+
+    Once a bind has installed a SASL security layer (NTLM sealing, DIGEST-MD5
+    confidentiality), what curl sends is no longer an LDAPMessage: a message that does not
+    start with 30 is read as a security-layer buffer (a four-byte big-endian length and that
+    many bytes), recorded as "> SASL-wrapped buffer of <n> bytes: <hex>", and the connection
+    is closed, since the recorder cannot unseal it.
+
+    request.bin then holds every byte curl sent, in order, and transcript.txt one line per
+    event: "= connection <n> accepted"; for each message curl sent, "> #<id> <decoded>"
+    (e.g. '> #2 searchRequest base "dc=example,dc=com" scope 2 deref 0 sizeLimit 0
+    timeLimit 0 typesOnly 00 filter (&(cn=a*)(!(mail=*))) attributes [cn, mail]', a bind's
+    name and simple password or SASL mechanism and credentials in hex, any other
+    authentication choice by its tag and hex, any controls in hex) then ">   <the whole
+    message in hex>"; for each reply, "< #<id> <operation> <result code>"; and
+    "= curl closed the connection or went idle", "= server closed the connection" or
+    "= recorder could not answer: <why>" (a message it cannot decode ends that connection,
+    not the recording). Response, Connections, ResponsesPerConnection,
+    ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds and RespondAfterBodyBytes are
+    ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Tftp or -NoServer is
+    refused. WinLDAP ignores curl's -m, so give -CurlTimeoutMilliseconds too.
+
+.PARAMETER LdapEntry
+    The entries -Ldap's searches return, one per element, each written as LDIF lines
+    (RFC 2849) with the same backslash escapes as Response: 'dn: <dn>' then one
+    '<type>: <value>' or '<type>:: <base64>' line per value, lines separated by \n, e.g.
+    'dn: cn=alice,dc=example,dc=com\ncn: alice\nmail: alice@example.com'. Values of one
+    type are sent as one attribute, types in the order first given. An entry whose dn is
+    empty ('dn: \nsupportedSASLMechanisms: GSS-SPNEGO') is the root DSE: it answers every
+    search of the empty base, and every other entry answers every other search, whatever its
+    base, scope, filter and attributes. Default none: searches find nothing.
+
+.PARAMETER LdapReply
+    Overrides for -Ldap's answers, each 'OPERATION=<code>[|<diagnostic>[|<sasl hex>[|<matched
+    DN hex>]]]'. OPERATION is BIND, SEARCH (a search of a non-empty base), ROOTDSE (a search
+    of the empty base), EXTENDED, COMPARE, or OP<tag> for another operation by its
+    application tag in hex (e.g. OP66 for modify). <code> is the LDAPResult resultCode in
+    decimal; <diagnostic> the diagnosticMessage; <sasl hex> becomes a bindResponse's
+    serverSaslCreds (any other response's responseValue, tag [11]), e.g. an NTLM
+    CHALLENGE_MESSAGE with 'BIND=14||4E544C4D...'; <matched DN hex> becomes the matchedDN's
+    bytes, which a Sicily NTLM bind (MS-ADTS 5.1.1.1.3) reads its challenge from, e.g.
+    'BIND=0|||4E544C4D...'. CLOSE closes the connection instead of answering, and SILENT
+    sends nothing. Several overrides for one OPERATION are used in the order given, the last
+    repeating for the rest, e.g. 'BIND=14||<challenge>' 'BIND=0'. A search's entries are sent
+    whatever its code.
+
+.PARAMETER LdapIdleMilliseconds
+    How long, in -Ldap mode, the server waits for curl's next message before it closes the
+    connection. Default 5000.
+
+.PARAMETER CurlTimeoutMilliseconds
+    Kill curl if it has not exited after this many milliseconds, and write killed to
+    exitcode.txt instead of an exit code. Default 0: wait for curl however long it runs. Use
+    it where curl's own -m does not reach, such as WinLDAP's blocking calls, which wait
+    forever for a reply that never comes.
 
 .PARAMETER Tftp
     Serve one TFTP transfer (RFC 1350) over UDP instead of HTTP responses: bind
@@ -394,7 +461,7 @@
     other byte as \xHH, e.g. "> curl:52001 -> server:18069 \x00\x01file.txt\x00octet\x00".
     Response, Connections, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds and
     RespondAfterBodyBytes are ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Raw,
-    -Tls or -NoServer is refused.
+    -Ldap, -Tls or -NoServer is refused.
 
 .PARAMETER TftpData
     The file a read request is served, in -Tftp mode, with the same backslash escapes as
@@ -427,8 +494,9 @@
     from its first byte, as ftps:// expects; with -Smtp, implicit SMTPS, as
     smtps:// expects; with -Imap, implicit IMAPS, as imaps:// expects;
     with -Pop3, implicit POP3S, as pop3s:// expects; with -Raw, the raw conversation
-    over TLS from its first byte, as gophers:// expects. A -Raw connection whose
-    handshake fails is recorded as empty too.
+    over TLS from its first byte, as gophers:// expects; with -Ldap, every connection TLS
+    from its first byte, as ldaps:// expects. A -Raw connection whose
+    handshake fails is recorded as empty too, and -Ldap notes a failed one in transcript.txt.
 
 .PARAMETER TlsRootCertificateFile
     With -Tls, serve a certificate issued by a throwaway private root CA in place of the
@@ -487,9 +555,10 @@
     Response, Connections, ResponsesPerConnection, ResponseDelayMilliseconds, Reset, HoldOpenMilliseconds,
     RespondAfterBodyBytes, FtpReply, FtpData, FtpIdleMilliseconds, FtpMaxUploadBytes, SmtpReply,
     SmtpIdleMilliseconds, SmtpMaxMessageBytes, ImapReply, ImapMessage, ImapIdleMilliseconds, Pop3Reply,
-    Pop3Message, Pop3IdleMilliseconds, TftpData, TftpReply, TftpIdleMilliseconds and
+    Pop3Message, Pop3IdleMilliseconds, LdapReply, LdapEntry, LdapIdleMilliseconds, TftpData,
+    TftpReply, TftpIdleMilliseconds and
     ListenAddress are ignored, and Port need not be given. Combining it with a server
-    mode, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Tftp or -Tls, is refused. StandardInput and Curl work as in every other mode.
+    mode, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp or -Tls, is refused. StandardInput and Curl work as in every other mode.
 
 .PARAMETER KerberosTestKdc
     Run the hand-built loopback KDC of ADR-0065 (Surl.Kerberos.TestKdc, through the C#
@@ -573,6 +642,14 @@
     221. request.bin holds curl's three lines and transcript.txt both directions.
 
 .EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18389 -Ldap -CurlTimeoutMilliseconds 20000 -LdapEntry 'dn: cn=alice,dc=example,dc=com\ncn: alice' -CurlArgs '-sS','-u','alice:secret','ldap://127.0.0.1:18389/dc=example,dc=com?cn?sub?(cn=a*)' -OutDirectory fixtures\ldap-search
+
+    Answers curl's simple bind with success and its subtree search with the one entry;
+    transcript.txt shows the bindRequest, the decoded searchRequest and the unbindRequest,
+    and stdout.bin holds "DN: cn=alice,dc=example,dc=com\n\tcn: alice\n\n". Add
+    -LdapReply 'BIND=49' to record a refused bind and the version 2 retry that follows it.
+
+.EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18069 -Tftp -TftpData 'hello\n' -CurlArgs '-sS','tftp://127.0.0.1:18069/file.txt' -OutDirectory fixtures\tftp-read
 
     Serves one TFTP read; transcript.txt shows curl's RRQ to port 18069, the server's
@@ -622,6 +699,11 @@ param(
     [string[]] $RawReply = @(),
     [switch] $RawReplyFirst,
     [ValidateRange(1, 600000)] [int] $RawIdleMilliseconds = 1000,
+    [switch] $Ldap,
+    [string[]] $LdapReply = @(),
+    [string[]] $LdapEntry = @(),
+    [ValidateRange(1, 600000)] [int] $LdapIdleMilliseconds = 5000,
+    [ValidateRange(0, 3600000)] [int] $CurlTimeoutMilliseconds = 0,
     [switch] $Tftp,
     [string] $TftpData = '',
     [string] $TftpReply = '',
@@ -644,10 +726,10 @@ $ErrorActionPreference = 'Stop'
 # powershell -File binds '-sS','http://...' as the one string "-sS,http://..."; only then
 # is the invocation line empty, so only then is that string split back into its elements.
 if ([string]::IsNullOrEmpty($MyInvocation.Line) -and $CurlArgs.Count -eq 1) { $CurlArgs = $CurlArgs[0].Split(',') }
-if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Tftp -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Tftp or -Tls.' }
-if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Tftp | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3, -Raw and -Tftp each serve a whole session; give one of them.' }
+if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp or -Tls.' }
+if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Ldap, $Tftp | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap and -Tftp each serve a whole session; give one of them.' }
 if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined with -Tls.' }
-if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode, and cannot be combined with -Reset.' }
+if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode, and cannot be combined with -Reset.' }
 if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
 if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword') -or $PSBoundParameters.ContainsKey('KerberosServicePrincipal'))) { throw '-KerberosPassword and -KerberosServicePrincipal configure the test KDC, so they need -KerberosTestKdc.' }
 if ($KerberosTestKdc -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-KerberosTestKdc runs only on Windows: no pinned upstream curl build on Linux or macOS has Kerberos, SPNEGO or GSS-API (UpstreamCurlBuilds.json, ADR-0065).' }
@@ -1867,6 +1949,382 @@ $serveRawSession = {
     return , @(, $received.ToArray())
 }
 
+# The -Ldap server: LDAPv3 (RFC 4511) over TCP, plain or (with a certificate) implicit TLS,
+# one connection after another until the listener is stopped. Each BER message curl sends is
+# read whole, recorded, decoded into one transcript line and answered by its operation, with
+# curl's message ID echoed. It returns every byte curl sent, decrypted, as one array.
+$serveLdapSession = {
+    param($Listener, $Overrides, $Entries, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [int] $IdleMilliseconds)
+
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+    $received = New-Object System.IO.MemoryStream
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $replyCounts = @{}
+
+    function Read-Exactly {
+        param($Stream, [int] $Count)
+        $buffer = New-Object byte[] $Count
+        $offset = 0
+        while ($offset -lt $Count) {
+            $read = $Stream.Read($buffer, $offset, $Count - $offset)
+            if ($read -le 0) { return $null }
+            $offset += $read
+        }
+        return , $buffer
+    }
+
+    # One whole BER element from the stream (tag, length and contents), or $null once curl
+    # hung up or went idle.
+    function Read-LdapMessage {
+        param($Stream)
+        try {
+            $head = Read-Exactly -Stream $Stream -Count 2
+            if ($null -eq $head) { return $null }
+            if ($head[0] -ne 0x30) {
+                # Not an LDAPMessage: a SASL security layer buffer (RFC 4422 section 3.7), a
+                # four-byte big-endian length and that many protected bytes.
+                $rest = Read-Exactly -Stream $Stream -Count 2
+                if ($null -eq $rest) { return $null }
+                $length = ((([int] $head[0] * 256) + $head[1]) * 256 + $rest[0]) * 256 + $rest[1]
+                $contents = Read-Exactly -Stream $Stream -Count ([math]::Min($length, 1048576))
+                if ($null -eq $contents) { return $null }
+                return , (Join-Bytes @($head, $rest, $contents))
+            }
+            $lengthBytes = New-Object System.Collections.Generic.List[byte]
+            $lengthBytes.Add($head[1])
+            $length = [int] $head[1]
+            if ($head[1] -ge 0x80) {
+                $more = Read-Exactly -Stream $Stream -Count ($head[1] -band 0x7F)
+                if ($null -eq $more) { return $null }
+                $length = 0
+                foreach ($byte in $more) { $lengthBytes.Add($byte); $length = $length * 256 + $byte }
+            }
+            $contents = Read-Exactly -Stream $Stream -Count $length
+            if ($null -eq $contents) { return $null }
+        } catch [System.IO.IOException] {
+            return $null
+        }
+        $message = New-Object System.IO.MemoryStream
+        $message.WriteByte($head[0])
+        $message.Write($lengthBytes.ToArray(), 0, $lengthBytes.Count)
+        $message.Write($contents, 0, $contents.Length)
+        return , $message.ToArray()
+    }
+
+    # The elements inside Bytes[Start, Start + Count), each as Tag, Start (of its contents)
+    # and Length.
+    function Get-BerElements {
+        param([byte[]] $Bytes, [int] $Start, [int] $Count)
+        $elements = New-Object System.Collections.Generic.List[object]
+        $index = $Start
+        while ($index -lt $Start + $Count) {
+            $tag = $Bytes[$index]
+            $length = [int] $Bytes[$index + 1]
+            $index += 2
+            if ($length -ge 0x80) {
+                $lengthOctets = $length -band 0x7F
+                $length = 0
+                for ($octet = 0; $octet -lt $lengthOctets; $octet++) { $length = $length * 256 + $Bytes[$index + $octet] }
+                $index += $lengthOctets
+            }
+            $elements.Add([pscustomobject] @{ Tag = $tag; Start = $index; Length = $length })
+            $index += $length
+        }
+        return , $elements
+    }
+
+    function Get-BerInteger {
+        param([byte[]] $Bytes, $Element)
+        $value = [long] 0
+        for ($index = 0; $index -lt $Element.Length; $index++) {
+            $byte = $Bytes[$Element.Start + $index]
+            if ($index -eq 0 -and $byte -ge 0x80) { $value = -1 }
+            $value = $value * 256 + $byte
+        }
+        return $value
+    }
+
+    function Get-BerText {
+        param([byte[]] $Bytes, $Element)
+        return $utf8.GetString($Bytes, $Element.Start, $Element.Length)
+    }
+
+    function Get-BerHex {
+        param([byte[]] $Bytes, [int] $Start, [int] $Count)
+        if ($Count -le 0) { return '' }
+        return [System.BitConverter]::ToString($Bytes, $Start, $Count).Replace('-', '')
+    }
+
+    # An RFC 4511 section 4.5.1 Filter as its RFC 4515 string.
+    function ConvertTo-FilterText {
+        param([byte[]] $Bytes, $Element)
+        $inner = Get-BerElements -Bytes $Bytes -Start $Element.Start -Count $Element.Length
+        switch ($Element.Tag) {
+            0xA0 { return '(&' + (($inner | ForEach-Object { ConvertTo-FilterText -Bytes $Bytes -Element $_ }) -join '') + ')' }
+            0xA1 { return '(|' + (($inner | ForEach-Object { ConvertTo-FilterText -Bytes $Bytes -Element $_ }) -join '') + ')' }
+            0xA2 { return '(!' + (ConvertTo-FilterText -Bytes $Bytes -Element (Get-BerElements -Bytes $Bytes -Start $Element.Start -Count $Element.Length)[0]) + ')' }
+            0xA3 { return '(' + (Get-BerText $Bytes $inner[0]) + '=' + (Get-BerText $Bytes $inner[1]) + ')' }
+            0xA5 { return '(' + (Get-BerText $Bytes $inner[0]) + '>=' + (Get-BerText $Bytes $inner[1]) + ')' }
+            0xA6 { return '(' + (Get-BerText $Bytes $inner[0]) + '<=' + (Get-BerText $Bytes $inner[1]) + ')' }
+            0xA8 { return '(' + (Get-BerText $Bytes $inner[0]) + '~=' + (Get-BerText $Bytes $inner[1]) + ')' }
+            0x87 { return '(' + (Get-BerText $Bytes $Element) + '=*)' }
+            0xA4 {
+                $parts = Get-BerElements -Bytes $Bytes -Start $inner[1].Start -Count $inner[1].Length
+                $text = ''
+                foreach ($part in $parts) {
+                    $value = Get-BerText $Bytes $part
+                    if ($part.Tag -eq 0x80) { $text += $value + '*' } elseif ($part.Tag -eq 0x81) { $text += '*' + $value + '*' } else { $text += '*' + $value }
+                }
+                return '(' + (Get-BerText $Bytes $inner[0]) + '=' + $text.Replace('**', '*') + ')'
+            }
+            default { return '(?tag=0x' + $Element.Tag.ToString('X2') + ' ' + (Get-BerHex $Bytes $Element.Start $Element.Length) + ')' }
+        }
+    }
+
+    function ConvertTo-BerElement {
+        param([int] $Tag, [byte[]] $Contents)
+        $element = New-Object System.IO.MemoryStream
+        $element.WriteByte($Tag)
+        if ($Contents.Length -lt 0x80) {
+            $element.WriteByte($Contents.Length)
+        } else {
+            $lengthOctets = New-Object System.Collections.Generic.List[byte]
+            $remaining = $Contents.Length
+            while ($remaining -gt 0) { $lengthOctets.Insert(0, [byte] ($remaining -band 0xFF)); $remaining = [math]::Floor($remaining / 256) }
+            $element.WriteByte(0x80 + $lengthOctets.Count)
+            $element.Write($lengthOctets.ToArray(), 0, $lengthOctets.Count)
+        }
+        $element.Write($Contents, 0, $Contents.Length)
+        return , $element.ToArray()
+    }
+
+    function ConvertTo-BerInteger {
+        param([int] $Tag, [long] $Value)
+        $octets = New-Object System.Collections.Generic.List[byte]
+        do {
+            $octets.Insert(0, [byte] ($Value -band 0xFF))
+            $Value = $Value -shr 8
+        } while (-not (($Value -eq 0 -and $octets[0] -lt 0x80) -or ($Value -eq -1 -and $octets[0] -ge 0x80)))
+        return , (ConvertTo-BerElement -Tag $Tag -Contents $octets.ToArray())
+    }
+
+    function Join-Bytes {
+        param([object[]] $Parts)
+        $joined = New-Object System.IO.MemoryStream
+        foreach ($part in $Parts) { $joined.Write([byte[]] $part, 0, $part.Length) }
+        return , $joined.ToArray()
+    }
+
+    function ConvertFrom-HexText {
+        param([string] $Hex)
+        $bytes = New-Object byte[] ($Hex.Length / 2)
+        for ($index = 0; $index -lt $bytes.Length; $index++) { $bytes[$index] = [System.Convert]::ToByte($Hex.Substring($index * 2, 2), 16) }
+        return , $bytes
+    }
+
+    # The next override for Operation (BIND, SEARCH, ROOTDSE, EXTENDED, ...), as Code,
+    # Diagnostic, SASL credentials and matched DN, or $null for none.
+    function Get-LdapOverride {
+        param([string] $Operation)
+        if (-not $Overrides.ContainsKey($Operation)) { return $null }
+        $list = $Overrides[$Operation]
+        $count = if ($replyCounts.ContainsKey($Operation)) { $replyCounts[$Operation] } else { 0 }
+        $replyCounts[$Operation] = $count + 1
+        $text = $list[[math]::Min($count, $list.Count - 1)]
+        if ($text -eq 'CLOSE' -or $text -eq 'SILENT') { return [pscustomobject] @{ Action = $text } }
+        $fields = $text.Split([char] '|')
+        $credentials = if ($fields.Count -gt 2 -and $fields[2] -ne '') { ConvertFrom-HexText -Hex $fields[2] } else { $null }
+        $matchedDn = if ($fields.Count -gt 3 -and $fields[3] -ne '') { ConvertFrom-HexText -Hex $fields[3] } else { New-Object byte[] 0 }
+        $diagnostic = if ($fields.Count -gt 1) { $fields[1] } else { '' }
+        return [pscustomobject] @{ Action = 'REPLY'; Code = [int] $fields[0]; Diagnostic = $diagnostic; Credentials = $credentials; MatchedDn = $matchedDn }
+    }
+
+    # An LDAPResult (RFC 4511 section 4.1.9) under Tag, with Extra appended to its sequence.
+    function ConvertTo-LdapResponse {
+        param([long] $MessageId, [int] $Tag, [int] $Code, [string] $Diagnostic, [byte[]] $Extra, [byte[]] $MatchedDn)
+        # An empty array assigned from an if expression arrives as $null.
+        if ($null -eq $MatchedDn) { $MatchedDn = New-Object byte[] 0 }
+        $result = Join-Bytes @(
+            (ConvertTo-BerInteger -Tag 0x0A -Value $Code),
+            (ConvertTo-BerElement -Tag 0x04 -Contents $MatchedDn),
+            (ConvertTo-BerElement -Tag 0x04 -Contents $utf8.GetBytes($Diagnostic)),
+            $Extra)
+        return , (ConvertTo-BerElement -Tag 0x30 -Contents (Join-Bytes @((ConvertTo-BerInteger -Tag 0x02 -Value $MessageId), (ConvertTo-BerElement -Tag $Tag -Contents $result))))
+    }
+
+    # A SearchResultEntry for one -LdapEntry: 'dn: ...' then 'type: value' lines.
+    function ConvertTo-LdapEntry {
+        param([long] $MessageId, [string] $Text)
+        $dn = ''
+        $attributes = New-Object System.Collections.Specialized.OrderedDictionary
+        foreach ($line in ($Text -split "`n")) {
+            $line = $line.TrimEnd("`r")
+            $separator = $line.IndexOf(':')
+            if ($separator -lt 1) { continue }
+            $type = $line.Substring(0, $separator)
+            if ($line.Length -gt $separator + 1 -and $line[$separator + 1] -eq ':') {
+                $value = [System.Convert]::FromBase64String($line.Substring($separator + 2).Trim())
+            } else {
+                $value = $utf8.GetBytes($line.Substring($separator + 1).TrimStart(' '))
+            }
+            if ($type -ieq 'dn') { $dn = $utf8.GetString($value); continue }
+            if (-not $attributes.Contains($type)) { $attributes[$type] = New-Object System.Collections.Generic.List[byte[]] }
+            $attributes[$type].Add($value)
+        }
+        $partials = New-Object System.Collections.Generic.List[object]
+        foreach ($type in $attributes.Keys) {
+            $values = Join-Bytes @($attributes[$type] | ForEach-Object { , (ConvertTo-BerElement -Tag 0x04 -Contents $_) })
+            $partials.Add((ConvertTo-BerElement -Tag 0x30 -Contents (Join-Bytes @((ConvertTo-BerElement -Tag 0x04 -Contents $utf8.GetBytes($type)), (ConvertTo-BerElement -Tag 0x31 -Contents $values)))))
+        }
+        $entry = Join-Bytes @((ConvertTo-BerElement -Tag 0x04 -Contents $utf8.GetBytes($dn)), (ConvertTo-BerElement -Tag 0x30 -Contents (Join-Bytes $partials.ToArray())))
+        return , (ConvertTo-BerElement -Tag 0x30 -Contents (Join-Bytes @((ConvertTo-BerInteger -Tag 0x02 -Value $MessageId), (ConvertTo-BerElement -Tag 0x64 -Contents $entry))))
+    }
+
+    # The transcript line for one request, and the operation name its override uses.
+    function Get-LdapRequestSummary {
+        param([byte[]] $Bytes, $Operation)
+        $fields = Get-BerElements -Bytes $Bytes -Start $Operation.Start -Count $Operation.Length
+        switch ($Operation.Tag) {
+            0x60 {
+                $authentication = $fields[2]
+                $how = switch ($authentication.Tag) {
+                    0x80 { 'simple "' + (Get-BerText $Bytes $authentication) + '"' }
+                    0xA3 {
+                        $sasl = Get-BerElements -Bytes $Bytes -Start $authentication.Start -Count $authentication.Length
+                        $credentials = if ($sasl.Count -gt 1) { ' credentials ' + (Get-BerHex $Bytes $sasl[1].Start $sasl[1].Length) } else { ' no credentials' }
+                        'sasl ' + (Get-BerText $Bytes $sasl[0]) + $credentials
+                    }
+                    default { 'choice 0x' + $authentication.Tag.ToString('X2') + ' ' + (Get-BerHex $Bytes $authentication.Start $authentication.Length) }
+                }
+                return @('BIND', ('bindRequest version ' + (Get-BerInteger $Bytes $fields[0]) + ' name "' + (Get-BerText $Bytes $fields[1]) + '" ' + $how))
+            }
+            0x42 { return @('UNBIND', 'unbindRequest') }
+            0x63 {
+                $attributeElements = Get-BerElements -Bytes $Bytes -Start $fields[7].Start -Count $fields[7].Length
+                $attributes = @($attributeElements | ForEach-Object { Get-BerText $Bytes $_ })
+                $searchName = if ($fields[0].Length -eq 0) { 'ROOTDSE' } else { 'SEARCH' }
+                return @($searchName, ('searchRequest base "' + (Get-BerText $Bytes $fields[0]) + '" scope ' + (Get-BerInteger $Bytes $fields[1]) + ' deref ' + (Get-BerInteger $Bytes $fields[2]) + ' sizeLimit ' + (Get-BerInteger $Bytes $fields[3]) + ' timeLimit ' + (Get-BerInteger $Bytes $fields[4]) + ' typesOnly ' + (Get-BerHex $Bytes $fields[5].Start $fields[5].Length) + ' filter ' + (ConvertTo-FilterText -Bytes $Bytes -Element $fields[6]) + ' attributes [' + ($attributes -join ', ') + ']'))
+            }
+            0x77 {
+                $name = if ($fields.Count -gt 0) { Get-BerText $Bytes $fields[0] } else { '' }
+                return @('EXTENDED', ('extendedRequest ' + $name))
+            }
+            0x50 { return @('ABANDON', ('abandonRequest ' + (Get-BerInteger $Bytes $Operation))) }
+            default { return @(('OP' + $Operation.Tag.ToString('X2')), ('operation 0x' + $Operation.Tag.ToString('X2'))) }
+        }
+    }
+
+    # The replies to one request: none for unbind and abandon, entries then a done for a
+    # search, and an LDAPResult of the operation's response type for everything else.
+    function Get-LdapReplies {
+        param([long] $MessageId, [string] $Name, [int] $OperationTag)
+        $replies = New-Object System.Collections.Generic.List[object]
+        if ($Name -eq 'UNBIND' -or $Name -eq 'ABANDON') { return , $replies }
+        $override = Get-LdapOverride -Operation $Name
+        if ($null -ne $override -and $override.Action -ne 'REPLY') { return $override.Action }
+        $defaultCode = if ($Name -eq 'EXTENDED' -or $Name.StartsWith('OP')) { 2 } else { 0 }
+        $code = if ($null -ne $override) { $override.Code } else { $defaultCode }
+        $diagnostic = if ($null -ne $override) { $override.Diagnostic } else { '' }
+        $extra = New-Object byte[] 0
+        $matched = if ($null -ne $override) { $override.MatchedDn } else { New-Object byte[] 0 }
+        # serverSaslCreds is [7] in a BindResponse; responseValue is [11] in an ExtendedResponse.
+        $extraTag = if ($Name -eq 'BIND') { 0x87 } else { 0x8B }
+        if ($null -ne $override -and $null -ne $override.Credentials) { $extra = ConvertTo-BerElement -Tag $extraTag -Contents $override.Credentials }
+        if ($Name -eq 'SEARCH' -or $Name -eq 'ROOTDSE') {
+            # An entry written with an empty dn is the root DSE: it answers searches of the
+            # empty base, and every other entry answers every other search.
+            foreach ($entry in $Entries) {
+                $isRootDse = $entry -match '(?im)^dn:[ \t]*\r?$'
+                if ($isRootDse -eq ($Name -eq 'ROOTDSE')) { $replies.Add((ConvertTo-LdapEntry -MessageId $MessageId -Text $entry)) }
+            }
+            $replies.Add((ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x65 -Code $code -Diagnostic $diagnostic -Extra $extra -MatchedDn $matched))
+        } elseif ($Name -eq 'BIND') {
+            $replies.Add((ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x61 -Code $code -Diagnostic $diagnostic -Extra $extra -MatchedDn $matched))
+        } elseif ($Name -eq 'EXTENDED') {
+            $replies.Add((ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x78 -Code $code -Diagnostic $diagnostic -Extra $extra -MatchedDn $matched))
+        } else {
+            # An operation with a response type of tag + 1 (compare, add, delete, modify,
+            # modify DN); anything else is answered as an extended response.
+            $responseTag = if (@(0x66, 0x68, 0x4A, 0x6C, 0x6E) -contains $OperationTag) { $OperationTag + 1 } else { 0x78 }
+            if ($OperationTag -eq 0x4A) { $responseTag = 0x6B }
+            $replies.Add((ConvertTo-LdapResponse -MessageId $MessageId -Tag $responseTag -Code $code -Diagnostic $diagnostic -Extra $extra -MatchedDn $matched))
+        }
+        return , $replies
+    }
+
+    $connectionNumber = 0
+    while ($true) {
+        try {
+            $client = $Listener.AcceptTcpClient()
+        } catch {
+            break  # The listener was stopped: curl has exited.
+        }
+        $connectionNumber++
+        [void] $Transcript.Append("= connection $connectionNumber accepted`r`n")
+        try {
+            $stream = $client.GetStream()
+            $stream.ReadTimeout = $IdleMilliseconds
+            if ($null -ne $TlsCertificate) {
+                $secure = New-Object System.Net.Security.SslStream($stream, $false)
+                try {
+                    $secure.AuthenticateAsServer($TlsCertificate, $false, [System.Security.Authentication.SslProtocols]::Tls12, $false)
+                } catch {
+                    [void] $Transcript.Append("= TLS handshake failed`r`n")
+                    continue
+                }
+                $secure.ReadTimeout = $IdleMilliseconds
+                $stream = $secure
+                [void] $Transcript.Append("= TLS handshake completed`r`n")
+            }
+            while ($true) {
+                $message = Read-LdapMessage -Stream $stream
+                if ($null -eq $message) { [void] $Transcript.Append("= curl closed the connection or went idle`r`n"); break }
+                $received.Write($message, 0, $message.Length)
+                if ($message[0] -ne 0x30) {
+                    [void] $Transcript.Append("> SASL-wrapped buffer of $($message.Length - 4) bytes: " + (Get-BerHex $message 0 $message.Length) + "`r`n")
+                    [void] $Transcript.Append("= server closed the connection: the recorder has no SASL security layer`r`n")
+                    break
+                }
+                $outer =(Get-BerElements -Bytes $message -Start 0 -Count $message.Length)[0]
+                $parts = Get-BerElements -Bytes $message -Start $outer.Start -Count $outer.Length
+                $messageId = Get-BerInteger $message $parts[0]
+                $summary = Get-LdapRequestSummary -Bytes $message -Operation $parts[1]
+                $controls = if ($parts.Count -gt 2) { ' controls ' + (Get-BerHex $message $parts[2].Start $parts[2].Length) } else { '' }
+                [void] $Transcript.Append("> #$messageId $($summary[1])$controls`r`n")
+                [void] $Transcript.Append(">   " + (Get-BerHex $message 0 $message.Length) + "`r`n")
+                if ($summary[0] -eq 'UNBIND') { break }
+                $replies = Get-LdapReplies -MessageId $messageId -Name $summary[0] -OperationTag $parts[1].Tag
+                if ($replies -is [string]) {
+                    if ($replies -eq 'CLOSE') { [void] $Transcript.Append("= server closed the connection`r`n"); break }
+                    [void] $Transcript.Append("= server sent no reply`r`n")
+                    continue
+                }
+                foreach ($reply in $replies) {
+                    $stream.Write($reply, 0, $reply.Length)
+                    $replyOuter = (Get-BerElements -Bytes $reply -Start 0 -Count $reply.Length)[0]
+                    $replyParts = Get-BerElements -Bytes $reply -Start $replyOuter.Start -Count $replyOuter.Length
+                    $replyName = switch ($replyParts[1].Tag) { 0x61 { 'bindResponse' } 0x64 { 'searchResultEntry' } 0x65 { 'searchResultDone' } 0x78 { 'extendedResponse' } default { 'response 0x' + $replyParts[1].Tag.ToString('X2') } }
+                    if ($replyParts[1].Tag -ne 0x64) {
+                        $codeElement = (Get-BerElements -Bytes $reply -Start $replyParts[1].Start -Count $replyParts[1].Length)[0]
+                        $replyName += ' ' + (Get-BerInteger $reply $codeElement)
+                    }
+                    [void] $Transcript.Append("< #$messageId $replyName`r`n")
+                }
+                $stream.Flush()
+            }
+        } catch [System.IO.IOException] {
+            [void] $Transcript.Append("= connection broken`r`n")
+        } catch {
+            # A message the recorder cannot decode ends the connection, not the recording.
+            [void] $Transcript.Append("= recorder could not answer: $($_.Exception.Message) $($_.InvocationInfo.ScriptLineNumber)`r`n")
+        } finally {
+            $client.Close()
+        }
+    }
+    return , @(, $received.ToArray())
+}
+
 # The -Tftp server: one transfer over UDP. The first datagram arrives on the listening
 # socket; every reply goes out from a new socket, the server's transfer identifier. It
 # returns every datagram curl sent, as one array, writes the transcript into $Transcript
@@ -2327,6 +2785,7 @@ $ftpOverrides = ConvertTo-ReplyOverrides -Entries $FtpReply -ParameterName 'FtpR
 $smtpOverrides = ConvertTo-ReplyOverrides -Entries $SmtpReply -ParameterName 'SmtpReply'
 $imapOverrides = ConvertTo-ReplyOverrides -Entries $ImapReply -ParameterName 'ImapReply'
 $pop3Overrides = ConvertTo-ReplyOverrides -Entries $Pop3Reply -ParameterName 'Pop3Reply'
+$ldapOverrides = ConvertTo-ReplyOverrides -Entries $LdapReply -ParameterName 'LdapReply'
 # -SaslChallenge rides in each mail mode's table under SASL:<mechanism>, which no verb can be.
 $saslChallenges = ConvertTo-ReplyOverrides -Entries $SaslChallenge -ParameterName 'SaslChallenge'
 foreach ($mechanismName in $saslChallenges.Keys) {
@@ -2385,6 +2844,9 @@ try {
         $rawReplies = New-Object System.Collections.Generic.List[byte[]]
         foreach ($text in $RawReply) { $rawReplies.Add((ConvertFrom-EscapedResponse -Text $text)) }
         [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds).AddArgument($tlsCertificate)
+    } elseif ($Ldap) {
+        $ldapEntries = @($LdapEntry | ForEach-Object { [System.Text.Encoding]::UTF8.GetString((ConvertFrom-EscapedResponse -Text $_)) })
+        [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument($LdapIdleMilliseconds)
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
@@ -2422,10 +2884,15 @@ try {
         # Both pipes drain at once, so curl never blocks on a full one.
         $stdoutCopy = $curlProcess.StandardOutput.BaseStream.CopyToAsync($stdout)
         $stderrCopy = $curlProcess.StandardError.BaseStream.CopyToAsync($stderr)
+        $curlTimedOut = $false
+        if ($CurlTimeoutMilliseconds -gt 0 -and -not $curlProcess.WaitForExit($CurlTimeoutMilliseconds)) {
+            $curlTimedOut = $true
+            $curlProcess.Kill()
+        }
         $curlProcess.WaitForExit()
         $curlClock.Stop()
         [System.Threading.Tasks.Task]::WaitAll(@($stdoutCopy, $stderrCopy))
-        $exitCode = $curlProcess.ExitCode
+        $exitCode = if ($curlTimedOut) { 'killed' } else { $curlProcess.ExitCode }
     } finally {
         $curlProcess.Dispose()
     }
@@ -2470,7 +2937,7 @@ if ($Ftp -or $Tftp) {
     [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'transcript.txt'), $transcript.ToString(), [System.Text.Encoding]::GetEncoding(28591))
     [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'upload.bin'), $uploadedData.ToArray())
 }
-if ($Smtp -or $Imap -or $Pop3 -or $Raw) {
+if ($Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap) {
     [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'transcript.txt'), $transcript.ToString(), [System.Text.Encoding]::GetEncoding(28591))
 }
 
