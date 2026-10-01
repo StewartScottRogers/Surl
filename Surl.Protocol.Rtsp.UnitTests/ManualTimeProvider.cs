@@ -5,6 +5,12 @@ namespace Surl.Protocol.Rtsp;
 /// <see cref="Advance"/>, firing every timer that falls due, so a timeout is tested without
 /// waiting for it.
 /// </summary>
+/// <remarks>
+/// A timer is counted in <see cref="ActiveTimerCount"/> only once its due time is set, under the
+/// same lock <see cref="Advance"/> takes: a test that waits for the count on one thread and then
+/// advances the clock can never see a timer whose due time is still being set on another, which
+/// would miss the advance and wait forever.
+/// </remarks>
 internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
 {
     private readonly List<ManualTimer> timers = [];
@@ -37,10 +43,9 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
         var timer = new ManualTimer(this, callback, state);
         lock (timers)
         {
+            timer.Change(dueTime, period);
             timers.Add(timer);
         }
-
-        timer.Change(dueTime, period);
 
         return timer;
     }
@@ -55,6 +60,10 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
         {
             utcNow += by;
             due = timers.Where(timer => timer.DueAt is { } dueAt && dueAt <= utcNow).ToArray();
+            foreach (var timer in due)
+            {
+                timer.DueAt = null;
+            }
         }
 
         foreach (var timer in due)
@@ -73,20 +82,20 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
 
     private sealed class ManualTimer(ManualTimeProvider owner, TimerCallback callback, object? state) : ITimer
     {
-        public DateTimeOffset? DueAt { get; private set; }
+        /// <summary>When the timer is next due; read and written only under the owner's lock.</summary>
+        public DateTimeOffset? DueAt { get; set; }
 
         public bool Change(TimeSpan dueTime, TimeSpan period)
         {
-            DueAt = dueTime == Timeout.InfiniteTimeSpan ? null : owner.GetUtcNow() + dueTime;
+            lock (owner.timers)
+            {
+                DueAt = dueTime == Timeout.InfiniteTimeSpan ? null : owner.utcNow + dueTime;
+            }
 
             return true;
         }
 
-        public void Fire()
-        {
-            DueAt = null;
-            callback(state);
-        }
+        public void Fire() => callback(state);
 
         public void Dispose() => owner.Remove(this);
 
