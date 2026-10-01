@@ -39,3 +39,4 @@ the test that hung is found and its race fixed or its wait bounded.
 ## Log
 
 - 2026-10-01: Created.
+- 2026-10-01: Backlog -> Doing.
