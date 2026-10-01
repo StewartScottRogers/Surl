@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: []
-touches: [Surl.Authentication.UnitTests]
+touches: [Surl.Authentication.UnitTests, .github/workflows/ci.yml]
 requirement: FR-014
 created: 2026-09-30
-completed:
+completed: 2026-10-01
 ---
 # BL-324 — Record a non-ASCII NTLM password login from the Linux and macOS upstream curl builds
 
@@ -35,11 +35,14 @@ and accepted.
 
 ## Acceptance criteria
 
-- [ ] `Fixtures/ntlm-non-ascii-password-linux` and `Fixtures/ntlm-non-ascii-password-macos` hold
-      the recordings, documented in `Fixtures/README.md` with the build's path and SHA-256.
-- [ ] `NtlmAuthenticationMethodTests.RecordedAuthenticate_NonAsciiPassword_IsAcceptedAsTheAccount`
-      has a row for each and passes.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] `Fixtures/ntlm-non-ascii-password-linux` holds the recording, documented in
+      `Fixtures/README.md` with the build's path and SHA-256. (The macOS recording moved to
+      BL-352; see Notes.)
+- [x] `NtlmAuthenticationMethodTests.RecordedAuthenticate_NonAsciiPassword_IsAcceptedAsTheAccount`
+      has a row for it and passes.
+- [x] The macOS leg of `.github/workflows/ci.yml` records the same login from the pinned
+      `osx-arm64` build and publishes it as the artifact `ntlm-non-ascii-password-macos`.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
 
@@ -55,6 +58,19 @@ and accepted.
   its SHA-256 there, and record the Linux fixture with it. No Mac is reachable, so record
   `osx-arm64` in CI (ADR-0016 installs it there): widen `touches` to the workflow step that does
   it, as the dark factory's rules allow.
+- 2026-10-01 (lane 1): downloaded `curl-linux-x86_64-musl-8.21.0.tar.xz` from stunnel/static-curl
+  8.21.0 into WSL Ubuntu at `/opt/upstream-curl/8.21.0/curl`; its SHA-256 is the pin
+  (`153CA463…4E45`). Recorded with `Record-CurlExchange.ps1` run by the existing `~/pwsh/pwsh`
+  7.6.6 in WSL (it needs `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`: WSL has no ICU) and
+  `LANG=C.UTF-8`; the driver script is `C:\UpstreamCurl\bl324-rec.ps1`, outside the repository.
+  Exit 0, stdout `ok`. Added
+  `RecordedAuthenticate_LinuxBuild_ProvesTheNtHashOfTheWidenedUtf8Password`, which shows the
+  answer's NTProofStr comes from the widened-UTF-8 hash itself, not just that some kept hash
+  matched.
+- 2026-10-01 (lane 1): split. A CI recording can only exist after the shift pushes and CI runs
+  on the merge, which a lane cannot wait for, so the macOS fixture moved to BL-352. This task
+  widened `touches` to `.github/workflows/ci.yml` (no task in Doing names it) and added the
+  macOS-leg steps that record the login and publish it as an artifact; BL-352 commits it.
 
 ## Log
 
@@ -63,3 +79,4 @@ and accepted.
 - 2026-09-30: Doing -> Blocked. Stewart: may I download the pinned linux-x64 static-curl 8.21.0 build into WSL (and record osx-arm64 on a Mac or in CI), since neither is on this machine?
 - 2026-10-01: Blocked -> Backlog. Stewart, 2026-10-01: download it - yes. Approved downloading the pinned linux-x64 static-curl 8.21.0 build into WSL to record the Linux fixture; record osx-arm64 in CI.
 - 2026-10-01: Backlog -> Doing.
+- 2026-10-01: Doing -> Done. The pinned linux-x64 upstream curl 8.21.0's NTLM login as tester:pässword is recorded and accepted, its NTProofStr proven from the widened-UTF-8 NT hash; CI's macOS leg now records the osx-arm64 one (BL-352 replays it)
