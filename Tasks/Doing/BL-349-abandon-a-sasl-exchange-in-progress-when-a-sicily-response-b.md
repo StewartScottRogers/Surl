@@ -41,3 +41,4 @@ non-continuing bind does (RFC 4513 section 5.2.1.2).
 ## Log
 
 - 2026-10-01: Created.
+- 2026-10-01: Backlog -> Doing.
