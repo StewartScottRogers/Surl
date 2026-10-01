@@ -330,6 +330,134 @@ shared library. A `PING` from the tool (it sends none) and the 1002 answers (lib
 invalid frame) are proven by the unit tests in `Surl.Protocol.Ws.UnitTests` only, and Negotiate
 on the upgrade has no row in decision 11.
 
+### Built for Phase 5: LDAP, SMB and RTSP
+
+`surl` registers the three Phase 5 servers (`Surl.Console`'s `ComposeProtocolServers`), each with
+its help category and `--aihelp` topic, `ldap`, `smb` and `rtsp`. `LdapProtocolServer` claims
+`ldap` only, and `ldaps` is the same server behind `ImplicitTlsSchemeServer`; `SmbProtocolServer`
+claims `smb` and `smbs` itself, as the FTP server claims `ftps`; `RtspProtocolServer` claims
+`rtsp`, and there is no `rtsps`, since upstream curl has none. All three are handed the one
+`AuthenticationPolicy`, and the SMB and RTSP servers the one content store. No library
+was added for Phase 5: the LDAP server's BER codec is the BCL's `System.Formats.Asn1`
+(ADR-0072 decision 9), the SMB codec lives in `Surl.Protocol.Smb` (ADR-0073 decision 10), and the
+RTSP server reads and writes its heads with `Surl.HttpMessage` (ADR-0070). The terms below are
+defined in the [glossary](../Wiki/Glossary.md), section "LDAP, SMB and RTSP".
+
+- **The LDAP directory** (`Surl.Protocol.Ldap`,
+  [ADR-0072](../Planning/Decisions/ADR-0072-how-the-ldap-server-answers-upstream-curl-and-what-directory-it-serves.md)
+  decision 1): with `--directory`, `<path>/.surl/ldap/directory.ldif` (RFC 2849 LDIF content
+  records, UTF-8) is read once at start, after the data-directory lock and before any listener
+  binds; a missing file, and in-memory mode, is an empty directory. The directory is read-only:
+  surl never writes the file, and LDAP's add, delete, modify and rename are answered
+  `unwillingToPerform`. A file that cannot be read or is not LDIF the directory can hold ends surl
+  with 37, `surl: (37) Could not read <file>: line <n>: <what>`. It is bounded
+  (`LdapDirectory.DefaultMaxEntries`, 100000 entries; 256 MiB; one value at most 1 MiB), and one
+  search returns at most `LdapDirectory.DefaultMaxSearchEntries`, 10000, then `sizeLimitExceeded`.
+- **LDAP searches** (decisions 1 and 3): base, one-level and subtree scopes; every filter of RFC
+  4511, evaluated three-valued with RFC 4517's matching rules chosen by attribute type; attribute
+  selection and `typesOnly`; `noSuchObject` with the nearest existing superior; compare; the root
+  DSE, computed per connection, listing the SASL mechanisms offered and, with a certificate,
+  `StartTLS`. A request the codec cannot read, or an unknown operation, gets the Notice of
+  Disconnection and the close.
+- **LDAP binds** (decisions 2 and 4): every search but the root DSE's needs a successful bind on
+  the connection unless `--allow-anonymous` is given (`insufficientAccessRights` otherwise). A
+  simple bind is checked through `IAuthenticationPolicy`, the bind name being the account name or
+  a DN's leading `cn` or `uid` value, and is refused `confidentialityRequired` unchecked over
+  plaintext without `--allow-plaintext-auth`; a version 2 bind is answered as version 3. Sicily
+  NTLM binds (`WinLDAP`'s `--ntlm`) and SASL binds - `GSS-SPNEGO` carrying NTLM, `DIGEST-MD5`, and
+  the mail servers' mechanisms - run through `ISaslAuthenticationPolicy`, offered as `--auth`
+  accepts them; once a bind negotiates NTLM sealing or signing or `DIGEST-MD5` integrity or
+  confidentiality, every later message both ways is one buffer the `ISaslSecurityLayer` protects.
+  Kerberos inside `GSS-SPNEGO` is answered with NTLM selected (ADR-0040's rule); BL-327 is to
+  decide and build Kerberos there, with RFC 4121 wrap tokens as its security layer.
+- **`StartTLS` and `ldaps`** (decision 5): `StartTLS` is offered and accepted only when a
+  certificate is configured (`--cert` or `--self-signed`), and refused `protocolError` otherwise;
+  `ldaps` is TLS from the first byte, then `ldap`'s exchange.
+- **SMB** (`Surl.Protocol.Smb`,
+  [ADR-0073](../Planning/Decisions/ADR-0073-how-the-smb-server-answers-upstream-curl-and-checks-its-ntlmv1-session-setup.md)):
+  SMB version 1, `NT LM 0.12` without extended security, over NetBIOS session framing, answering
+  the eight requests curl sends - negotiate, session setup, tree connect, NT create, read, write,
+  close and tree disconnect - with DOS-class statuses (`SmbStatus`). A share is a top-level
+  directory of the content store, so `smb://h/docs/a.txt` reads what `http://h/docs/a.txt` reads;
+  files at the store's root are not reachable over SMB. Up to 16 trees and 16 open files per
+  session. Reads answer at most 61440 bytes each; uploads need `--allow-uploads`, are written at
+  each write's offset, answered with exactly the count received, bounded by `--max-filesize` and
+  committed by the close. The server keeps answering every request it reads, because curl does not
+  notice the server closing while it waits; it closes only after a refused session setup, a
+  negotiate without `NT LM 0.12`, a limit or shutdown. `smbs` is TLS from the first byte.
+- **The SMB login** (decision 3): curl's only login is an NTLMv1 session setup. It is checked
+  through `ISmbAuthenticationPolicy` against the account's NT hash, the LM response ignored and the
+  domain not matched, and only when `--auth` names `ntlmv1`, a word that is not in the default set;
+  a refusal is `ERRSRV/ERRbadpw` and the close. Under `--allow-anonymous` every session setup is
+  accepted as a guest. The NTLMv1 arithmetic is `NtlmV1Calculation` in `Surl.Authentication`, over
+  `Surl.Cryptography`'s hand-built `Des` and `Md4`.
+- **RTSP** (`Surl.Protocol.Rtsp`,
+  [ADR-0074](../Planning/Decisions/ADR-0074-how-the-rtsp-server-answers-upstream-curl.md)):
+  RTSP/1.0 heads read with `HttpConnectionReader` for `HttpMessageProtocol.Rtsp10`, judged in
+  decision 2's order; every answer to a request carries `Date`, `Server: surl` and, once the
+  request's one `CSeq` has been read, that `CSeq`, and only `DESCRIBE`'s has a body. `OPTIONS` answers `Public` with all ten methods; `DESCRIBE` answers
+  an SDP describing the file as one stream whose RTP payloads are its bytes; `SETUP` accepts only
+  interleaved `RTP/AVP/TCP` (`461` otherwise) and makes the connection's one session, 16
+  upper-case hex digits, ending after 60 seconds without a request unless playing or recording;
+  `PLAY` streams the file in interleaved RTP packets of 1400 payload bytes, then an RTCP sender
+  report and `BYE`; `PAUSE`, `TEARDOWN`, `GET_PARAMETER` and `SET_PARAMETER` as decision 5 says,
+  with a torn-down session's ID kept by the connection and reused by a later `SETUP` naming it
+  (Amendment 1). `ANNOUNCE` stores its body as `<path>.sdp`, and `SETUP` with `mode=record`,
+  `RECORD` and `TEARDOWN` store the RTP payloads the client sends, both only with
+  `--allow-uploads` and within `--max-filesize`.
+- **The RTSP login** (decision 7): every request is judged through `IHttpAuthenticationSession`
+  as an HTTP request is: no login for a read while no account is configured, one for every
+  request, `OPTIONS` included, once any is, and always for an upload; Basic and Bearer refused
+  `403` unchecked without `--allow-plaintext-auth`; a `401` carrying the HTTP challenges, which
+  curl's `--digest` answers on the same connection.
+- **Limits** (ADR-0072 decision 6, ADR-0073 decision 7, ADR-0074 decision 8): an LDAP message
+  past `--max-message` gets the Notice of Disconnection, and the idle timeout and maximum duration
+  the Notice `unavailable`; an SMB message past `--max-message` (at most 131071 bytes) is answered
+  `ERRSRV/ERRerror` and the session goes on; an RTSP head past `--max-request-head` or
+  `--head-timeout` is answered `431` or `408` and closed, and a connection past the connection
+  limits `503`. Shutdown writes no farewell
+  ([ADR-0059](../Planning/Decisions/ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)).
+
+**What pinned upstream curl has proven.** The integration tests in `Surl.Conformance.UnitTests`
+run each case against a live `surl` on loopback.
+
+- **LDAP**, with the Windows reference build (curl 8.21.0 over `WinLDAP`): every row of ADR-0072
+  decision 10 over `ldap` and `ldaps` passed (`UpstreamCurlSearchesSurlOverLdapTests`):
+  searches by scope, filter and attributes, a non-ASCII value in base64, `noSuchObject` (39), the
+  10000-entry search bound, the simple bind accepted and refused (38), the plain-text refusal
+  (38), `--allow-anonymous`, the Sicily NTLM, `GSS-SPNEGO` and `DIGEST-MD5` binds completed through
+  their security layers, the in-memory directory, and `--ssl-reqd` (4). `WinLDAP` checks an
+  `ldaps` certificate itself and ignores `-k`, so against surl's throwaway certificate it ends 38
+  `Server Down` (60 without `-k`): no test proves an `ldaps` search succeeding. These tests run the
+  platform's reference build only and are Inconclusive on Linux and macOS, whose reference builds
+  list no `ldap`. **LDAP over the OpenLDAP-backed upstream curl is not yet proven**: ADR-0076 pins
+  that build (`linux-x64`, supplementary, built reproducibly in CI) and measured what its
+  `lib/openldap.c` sends - `STARTTLS`, the root-DSE `supportedSASLMechanisms` search, SASL binds
+  through curl's own SASL code and the anonymous bind, none of which `WinLDAP` sends - but the tests
+  that run it against `surl` are BL-312's and not yet written. SASL `GSSAPI` over LDAP is
+  unmeasured, since that build has no GSS-API (BL-342).
+- **SMB**, with ADR-0030's static-curl Windows build (the reference build has no `smb`): every
+  row of ADR-0073 decision 11 over `smb` and `smbs` passed
+  (`UpstreamCurlTransfersFilesWithSurlOverSmbTests`): downloads, a domain in `-u` ignored, the
+  wrong password and user-name case (67), missing shares, files, hidden paths and directories
+  (78), uploads refused (9), stored, and past `--max-filesize` (25), `ntlmv1` not accepted (67),
+  `--allow-anonymous`, and `smbs` with and without `-k` (0, 60). The same tests run on CI's Linux
+  and macOS legs with the reference builds, which list `smb`; no result from them is recorded
+  against ADR-0073 yet.
+- **RTSP**, with the Windows reference build: every tool row of ADR-0074 decision 11 passed
+  (`UpstreamCurlTalksToSurlOverRtspTests`): the `OPTIONS *` answer and its head under `-i`, the
+  upload that sends no body, the `401`, Basic and Bearer refused `403` in plain text and accepted
+  with `--allow-plaintext-auth`, Digest on one connection, `--anyauth`, `--allow-anonymous` and the
+  `431`. Through the pinned `libcurl-4.dll`, every libcurl row of ADR-0074's Amendment 1 passed
+  (`PinnedLibcurlTalksToSurlOverRtspTests`, Windows only): `DESCRIBE`'s SDP, a `SETUP` session,
+  `PLAY` packets joining to the file then the RTCP `BYE`, `PAUSE`, `GET_PARAMETER`, `TEARDOWN`
+  and a second `SETUP` on the same ID, the `461`, `454`, `455`, `451`, `401` and `403` refusals,
+  and `ANNOUNCE` and `RECORD` storing their files. The tool tests run on CI's Linux leg with the
+  reference build; no result from it is recorded against ADR-0074 yet. On macOS, whose pinned
+  build has no `rtsp`, they report Inconclusive
+  ([ADR-0026](../Planning/Decisions/ADR-0026-rtsp-conformance-on-macos-where-the-pinned-build-has-no-rtsp.md)).
+  NTLM and Negotiate over RTSP have no row in decision 11.
+
 ### Also in scope
 
 - **HTTP versions:** 1.0, 1.1, 2 and 3 over QUIC, on the server side.
@@ -350,12 +478,21 @@ on the upgrade has no row in decision 11.
   `IMailAuthenticationPolicy` (ADR-0049): the SASL mechanisms `GSSAPI` (a Kerberos ticket
   checked against `--keytab`, ADR-0057 decision 9), `DIGEST-MD5`, `CRAM-MD5`, `NTLM`,
   `OAUTHBEARER`, `XOAUTH2`, `PLAIN`, `LOGIN` and `EXTERNAL` (the TLS client certificate
-  `--cacert` verifies), IMAP `LOGIN`, POP3 `USER`/`PASS` and POP3 `APOP`; and the WebSocket
-upgrade's, judged through `IHttpAuthenticationSession` as an HTTP `GET` and challenged with the
-HTTP challenges (ADR-0071 decision 3), of which upstream curl completes only the ones it sends
-unasked - Basic, Bearer and AWS Signature Version 4 - since it answers no `401` on an upgrade. In scope, not built
-  yet: Kerberos inside Negotiate (BL-241), `Proxy-Authenticate` for the proxies, and the logins
-  of the servers not yet built - SMB and LDAP.
+  `--cacert` verifies), IMAP `LOGIN`, POP3 `USER`/`PASS` and POP3 `APOP`; the WebSocket
+  upgrade's, judged through `IHttpAuthenticationSession` as an HTTP `GET` and challenged with the
+  HTTP challenges (ADR-0071 decision 3), of which upstream curl completes only the ones it sends
+  unasked - Basic, Bearer and AWS Signature Version 4 - since it answers no `401` on an upgrade;
+  the LDAP binds (ADR-0072 decisions 2 and 4): the simple bind through `IAuthenticationPolicy`,
+  a plain-text secret on `ldap://` before `StartTLS`, and `WinLDAP`'s Sicily NTLM bind and the
+  SASL binds - `GSS-SPNEGO` carrying NTLM, `DIGEST-MD5` and the mail servers' mechanisms -
+  through `ISaslAuthenticationPolicy`, with the NTLM and `DIGEST-MD5` security layers; SMB's
+  NTLMv1 session setup through `ISmbAuthenticationPolicy`, accepted only when `--auth` names
+  `ntlmv1` (ADR-0073 decision 3); and RTSP's, judged through `IHttpAuthenticationSession` as an
+  HTTP request with the HTTP challenges, which upstream curl's `--digest` answers on the same
+  connection (ADR-0074 decision 7). Kerberos inside Negotiate is built for HTTP
+  ([ADR-0064](../Planning/Decisions/ADR-0064-kerberos-inside-negotiate-the-choices-adr-0057-decision-8-left-open.md));
+  inside LDAP's `GSS-SPNEGO` it is in scope, not built yet (BL-327), as is `Proxy-Authenticate`
+  for the proxies.
 - **Proxies:** acting as the HTTP `CONNECT` proxy, HTTPS proxy and SOCKS4, SOCKS4a,
   SOCKS5 and SOCKS5h server that curl's proxy options talk to.
 - **TLS on the server side:** certificates and keys, client-certificate verification for
@@ -423,9 +560,9 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Command line | `Surl.Cli` | `Surl.Core`, `Surl.Output`, Abstractions |
 | Serving engine | `Surl.Core` | Abstractions |
 | Protocol servers | `Surl.Protocol.<Name>` (15) | Abstractions, and the horizontal libraries of ADR-0002's table where needed: `Surl.Content`, `Surl.Cryptography` and its SSH primitives, for SMTP, IMAP and POP3 `Surl.MailStore` and `Surl.LineProtocol`, and for HTTP, WebSocket and RTSP `Surl.HttpMessage` (ADR-0070) |
-| Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7), and `Surl.Kerberos` (ADR-0057 decision 6) |
+| Services | `Surl.Networking`, `Surl.Authentication`, `Surl.Cookies`, `Surl.Output`, `Surl.Content` | Abstractions; `Surl.Authentication` also `Surl.Cryptography`, for MD4 and SHA-512/256 (ADR-0032 decision 7) and for the DES of SMB's NTLMv1 (ADR-0073 decision 10), `Surl.Cryptography.Rc4`, for NTLM's key exchange and the LDAP security layers (ADR-0072 decision 4), and `Surl.Kerberos` (ADR-0057 decision 6) |
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
-| HTTP message library | `Surl.HttpMessage` (the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), used by `Surl.Protocol.Http` and `Surl.Protocol.Ws` and referenced by `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
+| HTTP message library | `Surl.HttpMessage` (the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), used by `Surl.Protocol.Http`, `Surl.Protocol.Ws` and `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
 | Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305` ([ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md)), `Surl.Cryptography.Rc4` and `Surl.Cryptography.BcryptPbkdf` ([ADR-0051](../Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md) decision 3), and `Surl.Cryptography.Blowfish`, `Surl.Cryptography.Cast128` and `Surl.Cryptography.Ripemd160` ([ADR-0061](../Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)); for Kerberos, `Surl.Kerberos` ([ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)) | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519`, and `Surl.Cryptography.BcryptPbkdf` references `Surl.Cryptography.Blowfish` |
 | Test fixtures | `Surl.Kerberos.TestKdc`, the hand-built loopback KDC for realm `SURL.TEST` ([ADR-0065](../Planning/Decisions/ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md) decision 1). Not a protocol server and not a horizontal library of ADR-0002's table: only its own test project references it (BL-267's `Run-KerberosTestKdc.cs` file-based app is to be the other user), and `Surl.Console` never does | `Surl.Kerberos`, Abstractions |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |

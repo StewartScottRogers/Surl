@@ -52,9 +52,10 @@ curl -k https://127.0.0.1:8443/hello.txt
 
 The aim is every scheme upstream curl can request. **Today `surl` answers** `http` and
 `https` (HTTP/1.1, `GET` and `HEAD`), `dict`, `ftp` and `ftps`, `gopher` and `gophers`,
-`imap` and `imaps`, `mqtt` and `mqtts`, `pop3` and `pop3s`, `scp` and `sftp`, `smtp` and
-`smtps`, `telnet`, `tftp`, and `ws` and `wss` (WebSocket), until Ctrl+C; every other scheme is refused with exit code 1
-until its server lands. `surl --version` lists the schemes a build serves.
+`imap` and `imaps`, `ldap` and `ldaps`, `mqtt` and `mqtts`, `pop3` and `pop3s`, `rtsp`, `scp`
+and `sftp`, `smb` and `smbs`, `smtp` and `smtps`, `telnet`, `tftp`, and `ws` and `wss`
+(WebSocket), until Ctrl+C; any other scheme is refused with exit code 1. `surl --version` lists
+the schemes a build serves.
 
 What it serves depends on `--directory` (ADR-0031):
 
@@ -64,7 +65,8 @@ What it serves depends on `--directory` (ADR-0031):
 - `surl --directory <path> http://127.0.0.1:8080/` serves the files under `<path>` and
   persists what the services keep there across restarts: files at the top of the path,
   every other kind of service state (MQTT retained messages and the mail store) under
-  `<path>/.surl/`.
+  `<path>/.surl/`. The LDAP directory is read from `<path>/.surl/ldap/directory.ldif` at start
+  and never written.
   `.surl` is never served, even with `--serve-dot-files`. One surl process holds a path
   at a time: a second one given the same path is refused with exit code 124.
 
@@ -73,12 +75,12 @@ Uploads still need `--allow-uploads`, in memory too.
 ## Logging in
 
 Surl is secure by default ([ADR-0032](Documentation/Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)).
-With no account configured, HTTP `GET` and `HEAD` and WebSocket upgrades need no login and
-every login is refused; once any account is configured, every HTTP request and WebSocket
-upgrade needs one. Every other HTTP
-method, every MQTT `CONNECT`, every FTP and SSH login - curl's own anonymous FTP login
-included - and every SMTP `MAIL`, IMAP mailbox command and POP3 maildrop command needs one
-either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
+With no account configured, HTTP `GET` and `HEAD`, WebSocket upgrades and RTSP reads need no
+login and every login is refused; once any account is configured, every HTTP and RTSP request
+and WebSocket upgrade needs one. Every other HTTP method, every RTSP upload, every MQTT
+`CONNECT`, every FTP and SSH login - curl's own anonymous FTP login included - every SMTP
+`MAIL`, IMAP mailbox command and POP3 maildrop command, every LDAP search but the root DSE's and
+every SMB session setup needs one either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
 of the file `--user-file` names - one `user:password` per line, `#` lines skipped - which
 keeps the password out of the process list. An empty user name holds a Bearer token.
 Here `accounts.txt` holds the line `alice:s3cret`:
@@ -96,18 +98,20 @@ curl -k -u alice:s3cret https://127.0.0.1:8443/hello.txt
 Surl checks HTTP Basic, Bearer, Digest (MD5, SHA-256 and SHA-512-256), NTLM, Negotiate
 carrying NTLM, and AWS Signature Version 4; an MQTT `CONNECT`'s user name and password; FTP
 `USER` and `PASS`; SSH password, keyboard-interactive and public-key logins, a public key
-against the OpenSSH `authorized_keys` file `--authorized-keys <user:file>` names; and the mail
-servers' SASL mechanisms, IMAP `LOGIN`, POP3 `USER`/`PASS` and `APOP`. A password or token
-sent in clear - Basic or Bearer over `http://` or `ws://`, an MQTT password over `mqtt://`, an FTP
-password over `ftp://` before `AUTH TLS` - is refused without being checked
-(`403 Forbidden`, `CONNACK` 5, FTP `530`); the mail servers do not offer a clear-password login
+against the OpenSSH `authorized_keys` file `--authorized-keys <user:file>` names; the mail
+servers' SASL mechanisms, IMAP `LOGIN`, POP3 `USER`/`PASS` and `APOP`; LDAP simple binds,
+Windows curl's NTLM, Negotiate and Digest binds and the SASL binds; and SMB's NTLMv1 session
+setup. A password or token sent in clear - Basic or Bearer over `http://`, `ws://` or `rtsp://`,
+an MQTT password over `mqtt://`, an FTP password over `ftp://` before `AUTH TLS`, an LDAP simple
+bind's over `ldap://` before `StartTLS` - is refused without being checked (`403 Forbidden`,
+`CONNACK` 5, FTP `530`, LDAP `confidentialityRequired`); the mail servers do not offer a clear-password login
 or mechanism on a connection without TLS, and refuse one sent anyway. An SSH password is never
 sent in clear.
 
 Five *loosening options* turn a secure default off for a test, and each writes a
 `surl: warning:` line on every start it takes effect in: `--allow-anonymous` (accept every request and login
 unchecked), `--allow-plaintext-auth` (check passwords sent in clear), `--auth <methods>`
-(the HTTP and mail methods accepted), `--self-signed` and `--throwaway-hostkey`.
+(the HTTP, SASL and SMB methods accepted), `--self-signed` and `--throwaway-hostkey`.
 `surl --help testing` says what each loosens and why none is the default.
 
 ## FTP, FTPS, SCP and SFTP
@@ -251,6 +255,66 @@ so this is for programs that use libcurl's `curl_ws_send` and `curl_ws_recv`. On
 answers a `PING` with a `PONG` and a client `CLOSE` with a `CLOSE`, closes a frame past
 `--max-message` with 1009, and closes an exchange past `--idle-timeout` or `--max-time` with
 1001, whose two bytes curl writes to its output like any payload.
+
+## LDAP, SMB and RTSP
+
+The LDAP server answers `ldap` and `ldaps`
+([ADR-0072](Documentation/Planning/Decisions/ADR-0072-how-the-ldap-server-answers-upstream-curl-and-what-directory-it-serves.md))
+from a read-only directory: with `--directory`, the LDIF file `<path>/.surl/ldap/directory.ldif`,
+read at start; without it, or without the file, an empty one. Every search but the root DSE's
+needs a bind, and a simple bind's password over `ldap://` is refused unchecked unless
+`--allow-plaintext-auth` is given. Here `site/.surl/ldap/directory.ldif` holds the entries
+`dc=example,dc=com` and `cn=alice,dc=example,dc=com` (`objectClass: person`), and curl is the
+Windows build, which binds over `WinLDAP` and is the one these commands have been proven with:
+
+```
+surl --directory site --allow-plaintext-auth --user alice:s3cret ldap://127.0.0.1:3389/
+curl -u alice:s3cret "ldap://127.0.0.1:3389/dc=example,dc=com?cn,mail?sub?(objectClass=person)"
+```
+
+Its `--ntlm`, `--negotiate` and `--digest` binds are NTLM and `DIGEST-MD5` with a security
+layer; `--auth ntlm`, `negotiate` or `digest-md5` accepts
+them, with an account, and no password then crosses the wire in clear:
+
+```
+surl --directory site --auth ntlm --user alice:s3cret ldap://127.0.0.1:3389/
+curl --ntlm -u alice:s3cret "ldap://127.0.0.1:3389/dc=example,dc=com"
+```
+
+With `--cert` or `--self-signed`, `ldap://` offers `StartTLS`, and `ldaps` is TLS from the first
+byte; Windows curl checks an `ldaps` certificate itself and ignores `-k`, so it cannot search an
+`ldaps` listener whose certificate Windows does not trust.
+
+The SMB server answers `smb` and `smbs`
+([ADR-0073](Documentation/Planning/Decisions/ADR-0073-how-the-smb-server-answers-upstream-curl-and-checks-its-ntlmv1-session-setup.md)).
+Each top-level directory under `--directory` is a share, so `smb://host/docs/readme.txt` is the
+file `http://host/docs/readme.txt` serves. curl logs in to SMB with NTLMv1 only, a weak method
+that `--auth ntlmv1` must name; uploads (`-T`) need `--allow-uploads`, and `smbs` needs `--cert`
+or `--self-signed`. Here `site/docs/readme.txt` exists, and curl is a build that lists `smb`
+(the Git for Windows build does not):
+
+```
+surl --directory site --auth ntlmv1 --user alice:s3cret smb://127.0.0.1:4445/
+curl -u alice:s3cret smb://127.0.0.1:4445/docs/readme.txt
+```
+
+The RTSP server answers `rtsp`
+([ADR-0074](Documentation/Planning/Decisions/ADR-0074-how-the-rtsp-server-answers-upstream-curl.md)).
+The `curl` tool sends one `OPTIONS *` whatever the URL, so it sees the answer and the login;
+`DESCRIBE`, `SETUP`, `PLAY` with interleaved RTP, `PAUSE`, `TEARDOWN`, `GET_PARAMETER`,
+`SET_PARAMETER`, and the uploads `ANNOUNCE` and `RECORD` (with `--allow-uploads`) are for programs
+that use libcurl's `CURLOPT_RTSP_REQUEST`. Every file is served as one stream whose RTP payloads
+are its bytes. Logins are HTTP's, and curl's `--digest` answers the `401` on the same connection:
+
+```
+surl --directory site rtsp://127.0.0.1:8554/
+curl -i rtsp://127.0.0.1:8554/
+```
+
+```
+surl --directory site --user alice:s3cret rtsp://127.0.0.1:8554/
+curl -f --digest -u alice:s3cret rtsp://127.0.0.1:8554/
+```
 
 ## Logging
 

@@ -107,8 +107,46 @@ task board in `Tasks/`, never here.
   `wss://` listen URLs) and ADR-0071 (how the WebSocket server answers upstream curl, with its
   Amendment 1, libcurl's client frames measured).
 
+## Milestone 5 — Phase 5
+
+- **Status:** Built, and proven with the Windows builds (2026-09-30): the reference build over
+  `WinLDAP` for LDAP, ADR-0030's static-curl build for SMB, and the reference build and its
+  `libcurl-4.dll` for RTSP. Not closed: LDAP over the OpenLDAP-backed upstream curl that ADR-0076
+  pins - its `STARTTLS`, root-DSE SASL discovery, SASL binds, anonymous bind and a succeeding
+  `ldaps` search - is measured but not yet proven against `surl` (BL-312); Kerberos inside LDAP's
+  `GSS-SPNEGO` is answered with NTLM selected and is still to be decided and built (BL-327); LDAP
+  SASL `GSSAPI` is unmeasured, since the pinned OpenLDAP build has no GSS-API (BL-342); what the
+  Linux and macOS reference builds do over SMB, and the Linux one over RTSP, is not yet recorded
+  against ADR-0073 and ADR-0074; and choices the building tasks made where ADR-0072, ADR-0073 and
+  ADR-0074 were silent are recorded in those tasks, not yet in the ADRs.
+- **Delivers:** the LDAP server (`Surl.Protocol.Ldap`, schemes `ldap` and `ldaps`): a BER codec on
+  `System.Formats.Asn1`, a read-only directory loaded from `<path>/.surl/ldap/directory.ldif`
+  (empty in memory), searches, compares, the root DSE, simple, Sicily and SASL binds with their
+  security layers, and `StartTLS`; the SMB server (`Surl.Protocol.Smb`, schemes `smb` and `smbs`):
+  SMB version 1 over NetBIOS framing, the content store's top-level directories as shares, reads,
+  uploads under `--allow-uploads`, and the NTLMv1 session setup under the new `--auth` word
+  `ntlmv1`; the RTSP server (`Surl.Protocol.Rtsp`, scheme `rtsp`): all ten RTSP/1.0 methods,
+  every file a one-stream presentation of its bytes, one session per connection, interleaved RTP
+  and RTCP, and `ANNOUNCE` and `RECORD` uploads; the protocol-neutral SASL contract
+  (`ISaslAuthenticationPolicy`, `ISaslSecurityLayer`) and the SMB login contract
+  (`ISmbAuthenticationPolicy`) in `Surl.Protocol.Abstractions`; and in `Surl.Authentication` NTLM
+  sealing and signing, `DIGEST-MD5` integrity and confidentiality, and the NTLMv1 check over
+  `Surl.Cryptography`'s `Des` and `Md4`. What each answers, and what pinned upstream curl has proven, is in the product
+  overview, "Built for Phase 5: LDAP, SMB and RTSP".
+- **Exit criteria:** the Phase 5 row's "Proves", the awkward remainder: pinned upstream curl
+  completes every row of ADR-0072 decision 10 over `ldap` and `ldaps` with the `WinLDAP` build,
+  and every case ADR-0076 measured with the OpenLDAP build; every row of ADR-0073 decision 11 over
+  `smb` and `smbs`; and every tool row of ADR-0074 decision 11 over `rtsp` and every libcurl row
+  of its Amendment 1, against a live `surl`, in `Surl.Conformance.UnitTests`, on each platform
+  whose pinned build lists the scheme.
+- **Decisions:** ADR-0072 (the LDAP server and its directory, as ADR-0076 amends decision 4),
+  ADR-0073 (the SMB server and its NTLMv1 session setup), ADR-0074 (the RTSP server, with its
+  Amendment 1, libcurl's requests measured), ADR-0075 (the four NT hashes an NTLM account keeps
+  for a non-ASCII password) and ADR-0076 (the OpenLDAP upstream curl build, built reproducibly in
+  CI).
+
 ## Later
 
-Phases 5 and 6 follow the product overview. Phase 7, the last, turns Surl on the Curl port:
+Phase 6 follows the product overview. Phase 7, the last, turns Surl on the Curl port:
 the port runs the same conversations against Surl beside pinned upstream curl, and every
 disagreement is filed as the port's defect on the port's own board (ADR-0003).

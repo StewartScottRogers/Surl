@@ -1,6 +1,8 @@
 # Surl.Protocol.Rtsp.UnitLibrary
 
-Phase 5.
+Phase 5, built. What it answers, and what pinned upstream curl has proven against it, is in
+`Documentation/Product/Product-Overview.md`, "Built for Phase 5: LDAP, SMB and RTSP", and its
+terms are in `Documentation/Wiki/Glossary.md`, section "LDAP, SMB and RTSP".
 
 The RTSP server (RFC 2326): the requests upstream libcurl's `CURLOPT_RTSP_REQUEST` sends -
 `OPTIONS`, `DESCRIBE`, `ANNOUNCE`, `SETUP`, `PLAY`, `PAUSE`, `TEARDOWN`,
@@ -58,13 +60,19 @@ told from heads only after the first head, so a frame first on the connection is
 The random source is an injected `RandomNumberGenerator` (as the POP3 server's); the
 two-argument constructor uses the system one.
 
-`Surl.Protocol.Rtsp.UnitTests/Fixtures` holds the `OPTIONS` exchanges recorded from pinned
-upstream curl, with the response bytes curl accepted; its README says how each was recorded.
+`Surl.Protocol.Rtsp.UnitTests/Fixtures` holds the `OPTIONS` exchanges recorded from the pinned
+`curl` tool and the `DESCRIBE`, `SETUP`-`PLAY`-`TEARDOWN` and `ANNOUNCE`-`RECORD` exchanges
+recorded from the pinned `libcurl-4.dll` (ADR-0074 Amendment 1), with the response bytes each
+accepted; its README says how each was recorded.
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
-the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
-else. Referencing another protocol server is a
-build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
+`UpstreamCurlTalksToSurlOverRtspTests` (the tool) and `PinnedLibcurlTalksToSurlOverRtspTests`
+(the pinned `libcurl-4.dll`, Windows only) in `Surl.Conformance.UnitTests` prove the server
+against ADR-0074 decision 11 and Amendment 1. NTLM and Negotiate over RTSP have no case there.
+
+This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` and
+`Surl.HttpMessage.UnitLibrary` (ADR-0070), horizontal libraries in ADR-0002 decision 3's table,
+as later ADRs amend it - nothing else. Referencing another protocol server is a build break, and
+`Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener`
 here. The server receives its transport from the listener seam in
