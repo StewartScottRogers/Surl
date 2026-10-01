@@ -4,7 +4,7 @@ title: Answer LDAP StartTLS, ldaps and SASL binds in Surl.Protocol.Ldap
 priority: Normal
 assignee: Claude
 pipeline: protocol
-depends-on: [BL-308, BL-274]
+depends-on: [BL-308, BL-274, BL-324, BL-325, BL-326]
 touches: [Surl.Protocol.Ldap.UnitLibrary, Surl.Protocol.Ldap.UnitTests]
 requirement: FR-052
 created: 2026-09-30
@@ -49,6 +49,12 @@ the SASL contract, as BL-284's ADR decides.
       `Surl.Protocol.Ldap.UnitLibrary`.
 
 ## Notes
+
+- BL-284 (ADR-0072 decision 4): `WinLDAP` seals every message after an NTLM, `GSS-SPNEGO` or
+  `DIGEST-MD5` bind, so this task also frames the SASL security layer, and depends on BL-324 (the
+  protocol-neutral contract with `ISaslSecurityLayer`; it renames `MailLoginStep` to
+  `SaslLoginStep`), BL-325 (NTLM sealing) and BL-326 (`DIGEST-MD5` layers). Sicily's `[9]`, `[10]`
+  and `[11]` choices are answered here, mapped onto the `NTLM` exchange.
 
 ## Log
 

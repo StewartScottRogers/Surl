@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-049
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-284 — Decide how the LDAP server answers upstream curl and what directory it serves
 
@@ -82,18 +82,40 @@ and registration tasks can be built without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
       Stewart's delegation", records each measurement (build path, SHA-256, arguments, date,
       transcript excerpt) and decides every point in Context, with the persisted byte format
       precise enough to pin in a test.
-- [ ] It lists the curl 8.21.0 command lines the Windows LDAP conformance task must prove, with the
+- [x] It lists the curl 8.21.0 command lines the Windows LDAP conformance task must prove, with the
       expected exit code for each.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help.
 
 ## Notes
+
+- Decided in ADR-0072 from 31 recorded cases against the Windows reference build, through the new
+  `Record-CurlExchange.ps1 -Ldap` mode (plus `-LdapEntry`, `-LdapReply`, `-LdapIdleMilliseconds`
+  and a general `-CurlTimeoutMilliseconds`, since `WinLDAP` ignores curl's `-m` and hung the first
+  run). `-Raw` could not answer: `WinLDAP` needs its message IDs echoed.
+- The finding that reshaped the plan: after an NTLM (Sicily or `GSS-SPNEGO`) or `DIGEST-MD5` bind,
+  `WinLDAP` seals every later message (NTLM signature then 68 sealed bytes, the plain search's
+  length; Digest insists on `qop=auth-conf`, `cipher=3des`). So the SASL contract needs a security
+  layer: filed BL-324 (protocol-neutral contract, renaming `MailLoginStep`/`MailLoginOutcome` to
+  `SaslLoginStep`/`SaslLoginOutcome`), BL-325 (NTLM sealing), BL-326 (`DIGEST-MD5` layers) and
+  BL-327 (Low: Kerberos inside `GSS-SPNEGO`, unreachable from `WinLDAP` on loopback as measured);
+  added BL-324, BL-325 and BL-326 to BL-309's `depends-on`.
+- Other measured surprises recorded in the ADR: curl opens a silent connection before `WinLDAP`'s;
+  `WinLDAP` resolves the host itself and ignores `--resolve`; `-k` does not reach `WinLDAP`, so
+  `ldaps` fails 38 against an untrusted certificate; an empty password (`-u :`, `-u alice:`) still
+  takes the current-Windows-user NTLM path, so the Windows build never binds anonymously.
+- Defaults taken: the directory is read-only over LDAP (writes `unwillingToPerform`), loaded from
+  `<path>/.surl/ldap/directory.ldif`, empty in memory, no seed option, no schema (matching rules
+  by type); 10000 entries per search; version 2 binds answered like version 3 so curl's message
+  names the real refusal.
+- Measurement scratch (not committed): `%TEMP%\bl284\m01..m31`. No Python used.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0072 decides the LDAP server from 31 measured WinLDAP exchanges; Record-CurlExchange.ps1 -Ldap records them; BL-324 to BL-327 filed for the SASL security layer
