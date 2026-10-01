@@ -8,7 +8,7 @@ depends-on: [BL-311, BL-300, BL-318, BL-320]
 touches: [Documentation/Product/Product-Overview.md, Documentation/Wiki/Glossary.md, README.md, Documentation/Planning/Roadmap.md, Documentation/Product/Requirements.md, Surl.Protocol.Ldap.UnitLibrary/CLAUDE.md, Surl.Protocol.Smb.UnitLibrary/CLAUDE.md, Surl.Protocol.Rtsp.UnitLibrary/CLAUDE.md]
 requirement: FR-049
 created: 2026-09-30
-completed:
+completed: 2026-10-01
 ---
 # BL-319 — Document the LDAP, SMB and RTSP servers in the product overview, glossary, README, roadmap and requirements
 
@@ -43,13 +43,31 @@ pinned upstream curl has proven against each.
 
 ## Acceptance criteria
 
-- [ ] Each file in Context carries the section or rows it names, and every ADR, type and test it cites
+- [x] Each file in Context carries the section or rows it names, and every ADR, type and test it cites
       exists.
-- [ ] No document claims a behaviour the conformance tests do not prove or the code does not have.
+- [x] No document claims a behaviour the conformance tests do not prove or the code does not have.
 
 ## Notes
+
+- Delivered by `align-and-document`. Product overview gained "Built for Phase 5: LDAP, SMB and
+  RTSP"; glossary a 20-term "LDAP, SMB and RTSP" section; README the five schemes and examples;
+  roadmap "Milestone 5 — Phase 5" (decisions ADR-0072 to ADR-0076); FR-049 to FR-052 restated as
+  built; the three library CLAUDE.md files list what each holds and references.
+- BL-312 (OpenLDAP upstream curl against surl) is still in Doing on another lane, so LDAP over the
+  OpenLDAP build is written as measured (ADR-0076) but not yet proven. SASL `GSSAPI` over LDAP is
+  unmeasured (BL-342); Kerberos inside `GSS-SPNEGO` (BL-327) is written as intent.
+- Choice: the LDAP directory's persistence is written as "read once at start, never written",
+  because no code writes it.
+- Choice: the stale "Kerberos inside Negotiate (BL-241)" sentence, in a passage being rewritten,
+  now says built for HTTP (ADR-0064), since BL-241 is Done.
+- Cited conformance tests verified to exist: `UpstreamCurlSearchesSurlOverLdapTests`,
+  `UpstreamCurlTransfersFilesWithSurlOverSmbTests`, `UpstreamCurlTalksToSurlOverRtspTests`,
+  `PinnedLibcurlTalksToSurlOverRtspTests`.
+- Follow-ups filed: BL-345 (stale Phase 3 GSSAPI / test-KDC statements in roadmap and overview),
+  BL-346 (`IPC$` tree connect not special-cased as ADR-0073 says).
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-10-01: Doing -> Done. Overview, glossary, README, roadmap, FR-049 to FR-052 and the LDAP, SMB and RTSP library CLAUDE.md files describe Phase 5 as built and proven
