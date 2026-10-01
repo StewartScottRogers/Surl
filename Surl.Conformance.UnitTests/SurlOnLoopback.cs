@@ -65,8 +65,22 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     /// with <paramref name="options"/> before the listen URL,
     /// returning once surl has written its status line.
     /// </summary>
-    public static async Task<SurlOnLoopback> StartAsync(
+    public static Task<SurlOnLoopback> StartAsync(
         string scheme,
+        IReadOnlyDictionary<string, byte[]> files,
+        IReadOnlyList<string> subdirectories,
+        IReadOnlyList<string> options,
+        CancellationToken cancellationToken) =>
+        StartOnPortAsync(scheme, 0, files, subdirectories, options, cancellationToken);
+
+    /// <summary>
+    /// As <see cref="StartAsync(string, IReadOnlyDictionary{string, byte[]}, IReadOnlyList{string}, IReadOnlyList{string}, CancellationToken)"/>,
+    /// but on <c><paramref name="scheme"/>://127.0.0.1:<paramref name="port"/>/</c>, for a test
+    /// that must name the port before surl starts, such as in a Kerberos service principal.
+    /// </summary>
+    public static async Task<SurlOnLoopback> StartOnPortAsync(
+        string scheme,
+        int port,
         IReadOnlyDictionary<string, byte[]> files,
         IReadOnlyList<string> subdirectories,
         IReadOnlyList<string> options,
@@ -84,7 +98,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
         }
 
         return await StartServingAsync(
-            directory, [.. options, "--directory", directory.FullName, $"{scheme}://127.0.0.1:0/"], cancellationToken);
+            directory, [.. options, "--directory", directory.FullName, $"{scheme}://127.0.0.1:{port}/"], cancellationToken);
     }
 
     /// <summary>
