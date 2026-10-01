@@ -46,9 +46,9 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 
 | Term | Meaning | Name in code |
 | --- | --- | --- |
-| request head | Everything an HTTP/1.x request sends before its body: the request line, then zero or more field lines, then the empty line that ends them (RFC 9112, sections 2.1 and 3). Empty lines before the request line are skipped (RFC 9112, section 2.2). Bounded by the request-head limit (ADR-0006). | `HttpRequestHead`, read by `HttpConnectionReader`, which reports how the read ended as an `HttpRequestHeadReadOutcome` |
-| request line | The first line of a request head, `method SP request-target SP HTTP-version` (RFC 9112, section 3). | `HttpRequestHead.Method`, `HttpRequestHead.RequestTarget`, `HttpRequestHead.Version`; parsed by `HttpRequestLineParser` |
-| field line | One header field in a request head, `field-name ":" OWS field-value OWS`, the whitespace around the value not part of it (RFC 9112, section 5). | `HttpRequestField`; parsed by `HttpFieldLineParser`; a head's field lines are `HttpRequestHead.Fields` |
+| request head | Everything an HTTP/1.x request - or an RTSP/1.0 one, which borrows its syntax - sends before its body: the request line, then zero or more field lines, then the empty line that ends them (RFC 9112, sections 2.1 and 3). Empty lines before the request line are skipped (RFC 9112, section 2.2). Bounded by the request-head limit (ADR-0006). | `HttpRequestHead`, read by `HttpConnectionReader`, which reports how the read ended as an `HttpRequestHeadReadOutcome`, all in `Surl.HttpMessage`; the HTTP server reads one today, and the WebSocket and RTSP servers are to (ADR-0070) |
+| request line | The first line of a request head, `method SP request-target SP HTTP-version` (RFC 9112, section 3), or `RTSP/1.0` in place of the HTTP version (RFC 2326, section 6.1). | `HttpRequestHead.Method`, `HttpRequestHead.RequestTarget`, `HttpRequestHead.Version`, `HttpRequestHead.Protocol`; parsed by `HttpRequestLineParser` for the `HttpMessageProtocol` it is given, in `Surl.HttpMessage` |
+| field line | One header field in a request head, `field-name ":" OWS field-value OWS`, the whitespace around the value not part of it (RFC 9112, section 5). | `HttpRequestField`; parsed by `HttpFieldLineParser`; a head's field lines are `HttpRequestHead.Fields`; in `Surl.HttpMessage` |
 
 ## FTP
 
