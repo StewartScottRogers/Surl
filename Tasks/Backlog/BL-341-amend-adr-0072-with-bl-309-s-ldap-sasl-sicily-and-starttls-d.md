@@ -1,5 +1,5 @@
 ---
-id: BL-339
+id: BL-341
 title: Amend ADR-0072 with BL-309's LDAP SASL, Sicily and StartTLS decisions
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-052
 created: 2026-09-30
 completed:
 ---
-# BL-339 — Amend ADR-0072 with BL-309's LDAP SASL, Sicily and StartTLS decisions
+# BL-341 — Amend ADR-0072 with BL-309's LDAP SASL, Sicily and StartTLS decisions
 
 ## Goal
 

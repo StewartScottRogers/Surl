@@ -70,7 +70,7 @@ the SASL contract, as BL-284's ADR decides.
   win-x64 build); no new measurement was needed, and no upstream curl was run.
 - **Decisions taken here (Decided by Claude under Stewart's delegation).** The ADR text could not
   be written in this task: BL-333 (Doing) holds `Documentation/Planning/Decisions`, so they are
-  recorded here and BL-339 writes them into ADR-0072.
+  recorded here and BL-341 writes them into ADR-0072.
   1. `RefusedPlaintext` is `confidentialityRequired` (13), `SASL mechanism needs TLS or
      --allow-plaintext-auth` - the simple bind's code for the same rule, which curl reports as
      `Confidentiality Required`. `RefusedMechanism`, and every choice but simple, SASL and Sicily,
@@ -109,7 +109,7 @@ the SASL contract, as BL-284's ADR decides.
   code commit (`495b84b`) onto the current branch without conflicts and re-ran the gates: `dotnet
   build` clean (0 warnings), every fast test green (493 in `Surl.Protocol.Ldap.UnitTests`),
   `Measure-CodeQuality.ps1 -Library Surl.Protocol.Ldap.UnitLibrary` 100% line, 100% branch,
-  0 failing members, worst CRAP 10. Lane 5's follow-up BL-337 was refiled as BL-339 because
+  0 failing members, worst CRAP 10. Lane 5's follow-up BL-337 was refiled as BL-341 because
   another lane took BL-337 first.
 
 ## Log
