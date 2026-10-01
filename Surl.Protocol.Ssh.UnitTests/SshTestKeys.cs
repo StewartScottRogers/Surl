@@ -3,7 +3,8 @@ using System.Security.Cryptography;
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
-/// Private keys the tests share, each made once per test run by the BCL: RSA is slow to make.
+/// Private keys the tests share, each made once per test run by the BCL (RSA is slow to make),
+/// except the DSA key, which is imported from fixed bytes.
 /// </summary>
 internal static class SshTestKeys
 {
@@ -13,13 +14,21 @@ internal static class SshTestKeys
 
     private static readonly Lazy<RSA> Rsa1024Key = new(() => Made(RSA.Create(1024)));
 
-    private static readonly Lazy<DSA> Dsa1024Key = new(() => Made(DSA.Create(1024)));
+    // A fixed key, imported rather than made: macOS's BCL can import a DSA key but not make one.
+    private static readonly Lazy<DSA> Dsa1024Key = new(() => Made(ImportedDsa(Dsa1024Pkcs8)));
 
     private static readonly Lazy<ECDsa> EcdsaP256Key = new(() => Made(ECDsa.Create(ECCurve.NamedCurves.nistP256)));
 
     private static readonly Lazy<ECDsa> EcdsaP384Key = new(() => Made(ECDsa.Create(ECCurve.NamedCurves.nistP384)));
 
     private static readonly Lazy<ECDsa> EcdsaP521Key = new(() => Made(ECDsa.Create(ECCurve.NamedCurves.nistP521)));
+
+    /// <summary>A 1024-bit DSA private key in PKCS #8, made once on Windows by the BCL.</summary>
+    private const string Dsa1024Pkcs8 =
+        "MIIBSwIBADCCASwGByqGSM44BAEwggEfAoGBAMGjJPLvrwPXriablslJvZsdQJn5cX0Sqm7MMCzMp7pqk4yUEIzXT3OBWbPIDiMMg2P9Y6Mg9n/VX41J" +
+        "qC5MXzHqRc2XDN3kFUMrHhtETaJCfFSF0QP2Ih6JiB4ktdjbVOmVkeip05N/zsdsy+VFW6CfUpdUKf76E2tIQMYYlMfXAhUA7gXZZlYqbpoP+qRKVbjw" +
+        "4Xt2hZ0CgYEArVOFEWBWUd2wSOAwrnEHyArgKttU4/jhxZxpQWG1kei8gjPuIcDLbIMK/Y70wfidvCToBNhJ2NnpP3bPecZ9WSFa4eL73cETNXw3+KIi" +
+        "XzgorxQSunIejw0gYtcSJ4pRXsqpYgzRdt0GQEVdy7dPlT0BOsUYOGcoQeK90ENzCJsEFgIU7Dtuyo0h32F4q9rN4OFRzV6oSMc=";
 
     public static RSA Rsa2048 => Rsa2048Key.Value;
 
@@ -66,6 +75,14 @@ internal static class SshTestKeys
         set.TryAdd(Ed25519HostKey, out _);
 
         return set;
+    }
+
+    private static DSA ImportedDsa(string pkcs8)
+    {
+        var dsa = DSA.Create();
+        dsa.ImportPkcs8PrivateKey(Convert.FromBase64String(pkcs8), out _);
+
+        return dsa;
     }
 
     private static T Made<T>(T key)

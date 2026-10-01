@@ -8,7 +8,7 @@ depends-on: []
 touches: [Surl.Protocol.Ssh.UnitTests]
 requirement: none
 created: 2026-10-01
-completed:
+completed: 2026-10-01
 ---
 # BL-353 — Import a fixed DSA test key in Surl.Protocol.Ssh.UnitTests so the macOS fast tests pass
 
@@ -32,15 +32,26 @@ fixed parameters instead of generated, because macOS's BCL cannot generate DSA k
 
 ## Acceptance criteria
 
-- [ ] `SshTestKeys.Dsa1024` is imported from fixed parameters; no test in
+- [x] `SshTestKeys.Dsa1024` is imported from fixed parameters; no test in
       `Surl.Protocol.Ssh.UnitTests` calls `DSA.Create(<keySize>)` or otherwise generates a DSA key.
-- [ ] `dotnet build` is clean and the fast tests are green on Windows.
-- [ ] The CI "Fast tests" step passes on macOS for the commit that carries the change
+- [x] `dotnet build` is clean and the fast tests are green on Windows.
+- [x] The CI "Fast tests" step passes on macOS for the commit that carries the change
       (or, if CI has not run it yet, no remaining `DSA.Create(` with a key size exists in the repository's tests).
 
 ## Notes
+
+- The key is held as PKCS #8 (base64) and imported with `DSA.Create()` +
+  `ImportPkcs8PrivateKey`: one blob instead of six `DSAParameters` fields, and the BCL
+  derives the public value Y from X on import. It was made once on Windows with
+  `[DSA]::Create(1024).ExportPkcs8PrivateKey()`.
+- CI has not run this commit yet; `grep "DSA.Create("` finds no call with a key size left
+  in any test project (the remaining calls all take `DSAParameters`).
+- Fast tests on Windows: every project green, Ssh 1049/1049. The first full run hung in
+  `Surl.Protocol.Ws.UnitTests` (unrelated to this change); run alone it passed 184/184.
+  Filed as BL-354.
 
 ## Log
 
 - 2026-10-01: Created.
 - 2026-10-01: Backlog -> Doing.
+- 2026-10-01: Doing -> Done. Surl.Protocol.Ssh.UnitTests imports a fixed 1024-bit DSA key instead of generating one, so it can pass on macOS
