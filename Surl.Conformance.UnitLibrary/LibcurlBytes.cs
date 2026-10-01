@@ -31,21 +31,7 @@ public static class LibcurlBytes
         var bytes = new List<byte>(text.Length);
         for (var index = 0; index < text.Length; index++)
         {
-            if (text[index] != '\\' || index + 1 == text.Length)
-            {
-                bytes.Add(Latin1(text[index]));
-                continue;
-            }
-
-            var escape = text[++index];
-            if (escape == 'x')
-            {
-                bytes.Add(Hexadecimal(text, index + 1));
-                index += 2;
-                continue;
-            }
-
-            bytes.Add(escape switch { 'r' => 13, 'n' => 10, 't' => 9, '0' => 0, _ => Latin1(escape) });
+            bytes.Add(ByteAt(text, ref index));
         }
 
         return [.. bytes];
@@ -84,6 +70,27 @@ public static class LibcurlBytes
         bytes.Length <= LongestShown
             ? $"{bytes.Length} bytes \"{Show(bytes)}\""
             : $"{bytes.Length} bytes sha256 {Convert.ToHexString(SHA256.HashData(bytes))}";
+
+    private static byte ByteAt(string text, ref int index)
+    {
+        if (text[index] != '\\' || index + 1 == text.Length)
+        {
+            return Latin1(text[index]);
+        }
+
+        var escape = text[++index];
+        if (escape != 'x')
+        {
+            return Escaped(escape);
+        }
+
+        var value = Hexadecimal(text, index + 1);
+        index += 2;
+        return value;
+    }
+
+    private static byte Escaped(char escape) =>
+        escape switch { 'r' => 13, 'n' => 10, 't' => 9, '0' => 0, _ => Latin1(escape) };
 
     private static byte Latin1(char character) =>
         character <= 'ÿ' ? (byte)character : throw new FormatException($"'{character}' is not a single byte; write it as \\xHH.");

@@ -110,6 +110,11 @@ public sealed record LibcurlRtspScript(string? LibraryPath, TimeSpan Timeout, st
             return new LibcurlRtspStep(LibcurlRtspStepKind.NoBody, LibcurlRtspRequest.Options, [], 0);
         }
 
+        return ParseValueStep(step);
+    }
+
+    private static LibcurlRtspStep ParseValueStep(string step)
+    {
         var colon = step.IndexOf(':', StringComparison.Ordinal);
         if (colon < 0 || !ValueOptions.TryGetValue(step[..colon], out var kind))
         {
