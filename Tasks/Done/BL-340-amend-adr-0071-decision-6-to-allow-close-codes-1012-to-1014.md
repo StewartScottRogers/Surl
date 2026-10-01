@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions/ADR-0071-how-the-websocket-server-answers-upstream-curl.md]
 requirement: FR-048
 created: 2026-09-30
-completed:
+completed: 2026-10-01
 ---
 # BL-340 — Amend ADR-0071 decision 6 to allow close codes 1012 to 1014 as the code does
 
@@ -30,10 +30,10 @@ ADR-0071 decision 6 states the close codes surl accepts from a client exactly as
 
 ## Acceptance criteria
 
-- [ ] ADR-0071 carries an amendment, marked "Decided by Claude under Stewart's delegation",
+- [x] ADR-0071 carries an amendment, marked "Decided by Claude under Stewart's delegation",
       saying a client `CLOSE` with 1012, 1013 or 1014 is echoed and 1015 to 2999 is answered 1002,
       and why (the IANA registry).
-- [ ] The decision 6 table no longer says 1012 to 1014 are answered 1002.
+- [x] The decision 6 table no longer says 1012 to 1014 are answered 1002.
 
 ## Notes
 
@@ -41,3 +41,4 @@ ADR-0071 decision 6 states the close codes surl accepts from a client exactly as
 
 - 2026-09-30: Created.
 - 2026-10-01: Backlog -> Doing.
+- 2026-10-01: Doing -> Done. ADR-0071 decision 6 and Amendment 2 state the close codes surl echoes as IsAllowedOnTheWire does (1012-1014 echoed, 1015-2999 answered 1002)

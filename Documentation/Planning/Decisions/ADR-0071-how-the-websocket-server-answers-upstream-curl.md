@@ -269,8 +269,8 @@ reason), then decision 5's close. The codes are RFC 6455 section 7.4.1's.
 | `PING` | `PONG` with the same payload, sent before surl's next data frame (RFC 6455 section 5.5.3) |
 | `PONG` | ignored |
 | `CLOSE` with no payload | `CLOSE` with no payload, then decision 5 |
-| `CLOSE` with a code 1000 to 1003, 1007 to 1011, or 3000 to 4999, and a reason that is valid UTF-8 | `CLOSE` echoing the code (two bytes, no reason), then decision 5 |
-| `CLOSE` with a 1-byte payload, any other code (1004, 1005, 1006, 1015, below 1000, 1012 to 2999 unregistered), or invalid UTF-8 in its reason | close **1002** (or **1007** for the reason's UTF-8) |
+| `CLOSE` with a code 1000 to 1003, 1007 to 1014, or 3000 to 4999, and a reason that is valid UTF-8 (1012 to 1014: Amendment 2) | `CLOSE` echoing the code (two bytes, no reason), then decision 5 |
+| `CLOSE` with a 1-byte payload, any other code (1004, 1005, 1006, below 1000, 1015 to 2999 unregistered, 5000 and above), or invalid UTF-8 in its reason | close **1002** (or **1007** for the reason's UTF-8) |
 | A text message (echoed or not) that is not valid UTF-8 once reassembled | close **1007** |
 | A data message without `--ws-echo` | read, checked as above, and discarded |
 
@@ -491,3 +491,20 @@ libcurl rows; Windows only, `Inconclusive` elsewhere). Each starts `perform: CUR
 recorder replies only once the driver pauses); if libcurl's send fails with a reset there, BL-304
 pins the measured `CURLcode` against this amendment. The Linux and macOS builds carry no shared
 libcurl (decision 10).
+
+## Amendment 2 - close codes 1012 to 1014 are echoed (BL-340, 2026-10-01)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-10-01, in
+BL-340, from BL-305's finding.
+
+Decision 6 as first written answered a client `CLOSE` carrying 1012 to 2999 with close **1002**.
+The code does not, and the code is right: `WebSocketCloseCodes.IsAllowedOnTheWire` (BL-288)
+allows 1000 to 1003, 1007 to 1014 and 3000 to 4999. The IANA WebSocket Close Code Number
+Registry, which RFC 6455 section 7.4.2 reserves 1000 to 2999 for, has since assigned 1012
+(Service Restart), 1013 (Try Again Later) and 1014 (Bad Gateway), so a peer may send them and
+the protocol's current specification is the registry, not the RFC's 2011 list.
+
+So a client `CLOSE` with 1012, 1013 or 1014 and a reason that is valid UTF-8 is echoed like
+1000, then decision 5; a client `CLOSE` with 1015 to 2999 (1015 must never be sent, the rest is
+unassigned) is answered close **1002**. Decision 6's table says so above. The Product overview
+and the Glossary already state this set (BL-305); no code changes.
