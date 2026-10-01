@@ -52,3 +52,4 @@ recorded by CI, is committed as `Fixtures/ntlm-non-ascii-password-macos` and rep
 ## Log
 
 - 2026-10-01: Created.
+- 2026-10-01: Backlog -> Doing.
