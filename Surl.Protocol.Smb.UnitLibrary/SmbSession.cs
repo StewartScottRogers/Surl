@@ -5,13 +5,13 @@ namespace Surl.Protocol.Smb;
 
 /// <summary>
 /// One connection's SMB version 1 session: the negotiate, the NTLMv1 session setup checked
-/// through <see cref="ISmbAuthenticationPolicy"/>, and the trees connected to shares, answering
-/// each decoded request as ADR-0073 decisions 1 to 4 say.
+/// through <see cref="ISmbAuthenticationPolicy"/>, the trees connected to shares and the files
+/// opened for reading on them, answering each decoded request as ADR-0073 decisions 1 to 5 say.
 /// </summary>
 /// <remarks>
-/// Files are not served yet: an <c>SMB_COM_NT_CREATE_ANDX</c> on a connected tree is answered
-/// <c>ERRDOS/ERRbadfile</c>, so no FID is ever open and a read, write or close is answered
-/// <c>ERRDOS/ERRbadfid</c>. Not safe for concurrent calls.
+/// Uploads are not taken yet: an <c>SMB_COM_NT_CREATE_ANDX</c> that asks to write is answered
+/// <c>ERRDOS/ERRnoaccess</c>, as with uploads off, and a write on a file opened for reading
+/// <c>ERRDOS/ERRbadaccess</c>. Not safe for concurrent calls.
 /// </remarks>
 internal sealed class SmbSession
 {
@@ -20,6 +20,12 @@ internal sealed class SmbSession
 
     /// <summary>The most trees one session may have connected at once (ADR-0073, decision 2).</summary>
     public const int MaxTrees = 16;
+
+    /// <summary>The most files one session may have open at once (ADR-0073, decision 2).</summary>
+    public const int MaxOpenFiles = 16;
+
+    /// <summary>The most bytes one read answers, so the response's byte count stays under 65535 (ADR-0073, decision 5).</summary>
+    public const int MaxReadBytes = 61440;
 
     /// <summary>The dialect the server speaks, the only one curl offers.</summary>
     public const string Dialect = "NT LM 0.12";
@@ -37,6 +43,12 @@ internal sealed class SmbSession
     private const ushort LoggedOnAsUser = 0;
     private const ushort LoggedOnAsGuest = 1;
     private const string DiskShareService = "A:";
+    private const uint FileOpenDisposition = 1;
+    private const uint FileOpened = 1;
+    private const uint NormalFileAttributes = 0x80;
+
+    // GENERIC_ALL, GENERIC_WRITE, FILE_APPEND_DATA and FILE_WRITE_DATA.
+    private const uint WriteAccessMask = 0x50000006;
 
     private readonly IConnection connection;
     private readonly ExchangeContext context;
@@ -44,6 +56,7 @@ internal sealed class SmbSession
     private readonly ISmbAuthenticationPolicy authenticationPolicy;
     private readonly ISmbChallengeSource challengeSource;
     private readonly Dictionary<ushort, string> sharesByTreeId = [];
+    private readonly Dictionary<ushort, SmbOpenFile> openFilesByFileId = [];
     private byte[]? challenge;
     private bool isLoggedIn;
 
@@ -79,16 +92,24 @@ internal sealed class SmbSession
         SmbNegotiateRequest negotiate => AnswerNegotiate(negotiate),
         SmbSessionSetupRequest sessionSetup => await AnswerSessionSetupAsync(sessionSetup),
         _ when !isLoggedIn || request.Header.UserId != UserId => Refuse(request.Header, SmbStatus.BadUserId),
-        _ => AnswerLoggedIn(request),
+        _ => await AnswerLoggedInAsync(request),
     };
 
-    private SmbAnswer AnswerLoggedIn(SmbRequest request) => request switch
+    private async ValueTask<SmbAnswer> AnswerLoggedInAsync(SmbRequest request) => request switch
     {
         SmbTreeConnectRequest treeConnect => AnswerTreeConnect(treeConnect),
         _ when !sharesByTreeId.ContainsKey(request.Header.TreeId) => Refuse(request.Header, SmbStatus.InvalidTreeId),
+        _ => await AnswerOnTreeAsync(request),
+    };
+
+    private async ValueTask<SmbAnswer> AnswerOnTreeAsync(SmbRequest request) => request switch
+    {
         SmbTreeDisconnectRequest treeDisconnect => AnswerTreeDisconnect(treeDisconnect),
         SmbNtCreateRequest ntCreate => AnswerNtCreate(ntCreate),
-        _ => Refuse(request.Header, SmbStatus.BadFileId),
+        SmbReadRequest read => await AnswerReadAsync(read),
+        SmbCloseRequest close => AnswerClose(close),
+        // Negotiate and session setup were answered before a login was needed: a write is all that is left.
+        _ => AnswerWrite((SmbWriteRequest)request),
     };
 
     /// <summary>
@@ -245,12 +266,130 @@ internal sealed class SmbSession
     private SmbAnswer AnswerTreeDisconnect(SmbTreeDisconnectRequest request)
     {
         sharesByTreeId.Remove(request.Header.TreeId);
+        foreach (var (fileId, _) in openFilesByFileId.Where(entry => entry.Value.TreeId == request.Header.TreeId).ToList())
+        {
+            openFilesByFileId.Remove(fileId);
+        }
+
         return new SmbAnswer(SmbResponseEncoder.EncodeTreeDisconnect(request.Header));
     }
 
+    // Opens a file of the share for reading (ADR-0073, decisions 2 and 5). An open that asks to
+    // write is refused as uploads off are until the server takes uploads.
     private SmbAnswer AnswerNtCreate(SmbNtCreateRequest request)
     {
-        context.Log.Note($"SMB open {sharesByTreeId[request.Header.TreeId]}\\{request.FileName} refused: ERRbadfile");
-        return Refuse(request.Header, SmbStatus.BadFile);
+        var share = sharesByTreeId[request.Header.TreeId];
+        var noteName = $"{share}\\{request.FileName}";
+        if (AsksToWrite(request))
+        {
+            return RefuseOpen(request.Header, noteName, SmbStatus.NoAccess, "ERRnoaccess");
+        }
+
+        if (openFilesByFileId.Count >= MaxOpenFiles)
+        {
+            return RefuseOpen(request.Header, noteName, SmbStatus.NoFileIds, "ERRnofids");
+        }
+
+        var mapping = contentStore.MapRequestPath(FileRequestPath(share, request.FileName));
+        if ((mapping.IsMapped ? contentStore.GetFileStatus(mapping) : null) is not { } status)
+        {
+            return RefuseOpen(request.Header, noteName, SmbStatus.BadFile, "ERRbadfile");
+        }
+
+        var fileId = LowestFreeFileId();
+        openFilesByFileId[fileId] = new SmbOpenFile(request.Header.TreeId, noteName, mapping, status.Length);
+        context.Log.Note($"SMB open {noteName} for reading: {status.Length} bytes");
+        var lastWriteTime = status.LastModifiedUtc.ToFileTime();
+        var response = new SmbNtCreateResponse(
+            OplockLevel: 0,
+            fileId,
+            FileOpened,
+            lastWriteTime,
+            lastWriteTime,
+            lastWriteTime,
+            lastWriteTime,
+            NormalFileAttributes,
+            status.Length,
+            status.Length,
+            ResourceType: 0,
+            NamedPipeStatus: 0,
+            IsDirectory: false);
+        return new SmbAnswer(SmbResponseEncoder.EncodeNtCreate(request.Header, response));
     }
+
+    private static bool AsksToWrite(SmbNtCreateRequest request) =>
+        (request.DesiredAccess & WriteAccessMask) != 0 || request.CreateDisposition != FileOpenDisposition;
+
+    private SmbAnswer RefuseOpen(SmbHeader header, string noteName, uint status, string statusName)
+    {
+        context.Log.Note($"SMB open {noteName} refused: {statusName}");
+        return Refuse(header, status);
+    }
+
+    // The share, then each backslash-separated part of the name percent-encoded (every byte but
+    // the unreserved ones), so the content store's path rules apply unchanged (ADR-0073, decision 2).
+    private static string FileRequestPath(string share, string fileName) =>
+        "/" + string.Join('/', fileName.Split('\\').Prepend(share).Select(Uri.EscapeDataString));
+
+    private ushort LowestFreeFileId()
+    {
+        ushort fileId = 1;
+        while (openFilesByFileId.ContainsKey(fileId))
+        {
+            fileId++;
+        }
+
+        return fileId;
+    }
+
+    // The file open under that FID on the request's tree; null when there is none.
+    private SmbOpenFile? FindOpenFile(SmbHeader header, ushort fileId) =>
+        openFilesByFileId.GetValueOrDefault(fileId) is { } openFile && openFile.TreeId == header.TreeId ? openFile : null;
+
+    // Answers min(MaxCount, 61440, bytes left) bytes from the offset; at or past the end, none
+    // (ADR-0073, decision 5). MaxCountHigh is not read: the negotiate announces no CAP_LARGE_READX.
+    private async ValueTask<SmbAnswer> AnswerReadAsync(SmbReadRequest request)
+    {
+        if (FindOpenFile(request.Header, request.FileId) is not { } openFile)
+        {
+            return Refuse(request.Header, SmbStatus.BadFileId);
+        }
+
+        var byteCount = request.Offset < 0 ? 0 : Math.Min(Math.Min((long)request.MaxCount, MaxReadBytes), openFile.Length - request.Offset);
+        if (byteCount <= 0)
+        {
+            return new SmbAnswer(SmbResponseEncoder.EncodeRead(request.Header, 0, []));
+        }
+
+        using var data = new MemoryStream();
+        try
+        {
+            var range = ContentByteRange.Select(openFile.Length, request.Offset, request.Offset + byteCount - 1);
+            await contentStore.CopyFileBytesAsync(openFile.Mapping, range, data, context.CancellationToken);
+        }
+        catch (IOException exception)
+        {
+            context.Log.Note($"SMB read {openFile.NoteName} failed: {exception.Message}");
+            return Refuse(request.Header, SmbStatus.GeneralFailure);
+        }
+
+        openFile.BytesRead += data.Length;
+        return new SmbAnswer(SmbResponseEncoder.EncodeRead(request.Header, 0, data.GetBuffer().AsSpan(0, (int)data.Length)));
+    }
+
+    private SmbAnswer AnswerClose(SmbCloseRequest request)
+    {
+        if (FindOpenFile(request.Header, request.FileId) is not { } openFile)
+        {
+            return Refuse(request.Header, SmbStatus.BadFileId);
+        }
+
+        openFilesByFileId.Remove(request.FileId);
+        context.Log.Note($"SMB close {openFile.NoteName}: {openFile.BytesRead} bytes read");
+        return new SmbAnswer(SmbResponseEncoder.EncodeClose(request.Header));
+    }
+
+    // Every open file is open for reading, so a write on one is ERRbadaccess (ADR-0073, decision 4).
+    private SmbAnswer AnswerWrite(SmbWriteRequest request) =>
+        Refuse(request.Header, FindOpenFile(request.Header, request.FileId) is not null ? SmbStatus.BadAccess : SmbStatus.BadFileId);
 }

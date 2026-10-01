@@ -6,7 +6,9 @@ namespace Surl.Protocol.Smb;
 /// <summary>
 /// The SMB version 1 server upstream curl's <c>smb://</c> and <c>smbs://</c> transfers talk to
 /// (FR-050): answers <c>SMB_COM_NEGOTIATE</c>, the NTLMv1 <c>SMB_COM_SESSION_SETUP_ANDX</c>,
-/// <c>SMB_COM_TREE_CONNECT_ANDX</c> and <c>SMB_COM_TREE_DISCONNECT</c> as ADR-0073 decides.
+/// <c>SMB_COM_TREE_CONNECT_ANDX</c>, <c>SMB_COM_TREE_DISCONNECT</c>, and the
+/// <c>SMB_COM_NT_CREATE_ANDX</c>, <c>SMB_COM_READ_ANDX</c> and <c>SMB_COM_CLOSE</c> of a download
+/// from the content store, as ADR-0073 decides.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,9 +32,22 @@ namespace Surl.Protocol.Smb;
 /// the last backslash-separated part of the tree connect's path; anything else is
 /// <c>ERRSRV/ERRinvnetname</c>. Up to 16 trees, TIDs from 1. Every request but negotiate and
 /// session setup needs the login's UID (<c>ERRSRV/ERRbaduid</c>) and every request but tree
-/// connect a connected TID (<c>ERRSRV/ERRinvtid</c>). Files are not served yet: an NT create
-/// is <c>ERRDOS/ERRbadfile</c>, and a read, write or close <c>ERRDOS/ERRbadfid</c>. A command
-/// curl never sends is <c>ERRSRV/ERRsmbcmd</c>, a malformed message <c>ERRSRV/ERRerror</c>.
+/// connect a connected TID (<c>ERRSRV/ERRinvtid</c>). A command curl never sends is
+/// <c>ERRSRV/ERRsmbcmd</c>, a malformed message <c>ERRSRV/ERRerror</c>.
+/// </para>
+/// <para>
+/// <b>Reads</b> (decisions 2 and 5). An NT create with <c>FILE_OPEN</c> and no write access opens
+/// the share's file named by its backslash-separated components, each percent-encoded and
+/// mapped through <see cref="ContentStore.MapRequestPath"/>: FIDs from 1, at most 16 open
+/// (<c>ERRDOS/ERRnofids</c>), answered <c>FILE_OPENED</c> with the file's last write time as all
+/// four times, <c>FILE_ATTRIBUTE_NORMAL</c> and its length. Anything that is not a served file -
+/// absent, hidden, refused by the path rules, a directory, the share itself - is
+/// <c>ERRDOS/ERRbadfile</c>. Uploads are not taken yet, so an open that asks to write is
+/// <c>ERRDOS/ERRnoaccess</c>, as with uploads off. Each read answers at most its
+/// <c>MaxCount</c>, 61440 and the bytes left from its offset, none at or past the end;
+/// a content store failure is <c>ERRHRD/ERRgeneral</c>. A close forgets the FID, a tree
+/// disconnect its tree's FIDs; a read or close of a FID not open on that tree is
+/// <c>ERRDOS/ERRbadfid</c>, a write on an open file <c>ERRDOS/ERRbadaccess</c>.
 /// </para>
 /// <para>
 /// <b>Keep answering</b> (decision 5). Curl does not notice the server close while it waits,

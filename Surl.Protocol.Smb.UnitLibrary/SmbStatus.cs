@@ -17,6 +17,18 @@ internal static class SmbStatus
     /// <summary><c>ERRDOS/ERRbadfid</c>: the FID is not open.</summary>
     public const uint BadFileId = 0x00060001;
 
+    /// <summary><c>ERRDOS/ERRnofids</c>: the session already has as many files open as it may.</summary>
+    public const uint NoFileIds = 0x00040001;
+
+    /// <summary><c>ERRDOS/ERRnoaccess</c>: the open asked for access the server does not grant; curl exits 9.</summary>
+    public const uint NoAccess = 0x00050001;
+
+    /// <summary><c>ERRDOS/ERRbadaccess</c>: a write on a file opened for reading.</summary>
+    public const uint BadAccess = 0x000C0001;
+
+    /// <summary><c>ERRHRD/ERRgeneral</c>: the content store failed to read the file.</summary>
+    public const uint GeneralFailure = 0x001F0003;
+
     /// <summary><c>ERRSRV/ERRerror</c>: a message that does not decode, past <c>--max-message</c>, or out of turn.</summary>
     public const uint ServerError = 0x00010002;
 

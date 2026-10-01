@@ -9,7 +9,8 @@ namespace Surl.Protocol.Smb;
 
 /// <summary>
 /// What the SMB server tests share: a server over an in-memory content store holding the
-/// share <c>/share/</c> (with <c>file.txt</c> in it), the file <c>/afile.txt</c> and the
+/// share <c>/share/</c> (with <c>file.txt</c>, the 40000-byte <c>big.bin</c>, the 70000-byte <c>huge.bin</c>, the dot-file <c>.secret</c> and
+/// <c>sub/café x.txt</c> in it), the file <c>/afile.txt</c> and the
 /// dot-directory <c>/.hidden/</c>; the challenge <see cref="ChallengeHex"/>; requests laid out
 /// as upstream curl 8.21.0 sends them (Fixtures/README.md); and their expected responses,
 /// built field by field from [MS-CIFS], independent of the code under test.
@@ -68,22 +69,68 @@ internal static class SmbTestExchange
     public static string TreeDisconnectHex(ushort treeId) => RequestHex(SmbCommand.TreeDisconnect, treeId, SmbSession.UserId, "000000");
 
     /// <summary>curl's NT create of <c>dir\file.txt</c> for reading on <paramref name="treeId"/>, from the login-tree-connect recording.</summary>
-    public static string NtCreateHex(ushort treeId) => RequestHex(
-        SmbCommand.NtCreateAndX,
-        treeId,
-        SmbSession.UserId,
-        "18FF000000000C0000000000000000000000008000000000000000000000000007000000010000000000000000000000000D006469725C66696C652E74787400");
+    public static string NtCreateHex(ushort treeId) => NtCreateHex(treeId, @"dir\file.txt");
+
+    /// <summary>curl's NT create of <paramref name="fileName"/> for reading on <paramref name="treeId"/>, laid out as in the login-tree-connect recording.</summary>
+    public static string NtCreateHex(ushort treeId, string fileName, string desiredAccessHex = "00000080", string dispositionHex = "01000000")
+    {
+        var name = Convert.ToHexString(Encoding.UTF8.GetBytes(fileName));
+        return RequestHex(
+            SmbCommand.NtCreateAndX,
+            treeId,
+            SmbSession.UserId,
+            "18FF00000000" + Word((ushort)(name.Length / 2)) + "00000000" + "00000000" + desiredAccessHex + "0000000000000000" + "00000000"
+            + "07000000" + dispositionHex + "00000000" + "00000000" + "00" + Word((ushort)((name.Length / 2) + 1)) + name + "00");
+    }
+
+    /// <summary>The NT create response opening a file of <paramref name="length"/> bytes as <paramref name="fileId"/>, last written when the test clock started.</summary>
+    public static string NtCreateResponseHex(ushort fileId, long length, ushort treeId = 1)
+    {
+        var time = QuadWord(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero).ToFileTime());
+        return ResponseHex(
+            SmbCommand.NtCreateAndX,
+            0,
+            treeId,
+            SmbSession.UserId,
+            "22FF00000000" + Word(fileId) + "01000000" + time + time + time + time + "80000000" + QuadWord(length) + QuadWord(length) + "0000" + "0000" + "00" + "0000");
+    }
 
     /// <summary>curl's read of 32768 bytes from FID 0x4000 at offset 0.</summary>
-    public static string ReadHex(ushort treeId) => RequestHex(
-        SmbCommand.ReadAndX, treeId, SmbSession.UserId, "0CFF000000004000000000008000800000000000000000000000000000");
+    public static string ReadHex(ushort treeId) => ReadHex(treeId, 0x4000, 0);
+
+    /// <summary>curl's read of <paramref name="maxCount"/> bytes from <paramref name="fileId"/> at <paramref name="offset"/>, laid out as curl lays out its reads.</summary>
+    public static string ReadHex(ushort treeId, ushort fileId, long offset, ushort maxCount = 0x8000)
+    {
+        Span<byte> offsetBytes = stackalloc byte[8];
+        BinaryPrimitives.WriteInt64LittleEndian(offsetBytes, offset);
+        var offsetHex = Convert.ToHexString(offsetBytes);
+        return RequestHex(
+            SmbCommand.ReadAndX,
+            treeId,
+            SmbSession.UserId,
+            "0CFF000000" + Word(fileId) + offsetHex[..8] + Word(maxCount) + Word(maxCount) + "00000000" + "0000" + offsetHex[8..] + "0000");
+    }
+
+    /// <summary>The read response carrying <paramref name="data"/>: data offset 60, after one pad byte.</summary>
+    public static string ReadResponseHex(ReadOnlySpan<byte> data, ushort treeId = 1) => ResponseHex(
+        SmbCommand.ReadAndX,
+        0,
+        treeId,
+        SmbSession.UserId,
+        "0CFF000000" + "0000" + "0000" + "0000" + Word((ushort)data.Length) + "3C00" + "00000000000000000000" + Word((ushort)(data.Length + 1)) + "00" + Convert.ToHexString(data));
 
     /// <summary>A write of one byte, <c>A</c>, to FID 0x4000 at offset 0, laid out as curl lays out its writes.</summary>
-    public static string WriteHex(ushort treeId) => RequestHex(
-        SmbCommand.WriteAndX, treeId, SmbSession.UserId, "0EFF000000004000000000000000000000000000000100400000000000" + "0200" + "0041");
+    public static string WriteHex(ushort treeId) => WriteHex(treeId, 0x4000);
+
+    /// <summary>A write of one byte, <c>A</c>, to <paramref name="fileId"/> at offset 0, laid out as curl lays out its writes.</summary>
+    public static string WriteHex(ushort treeId, ushort fileId) => RequestHex(
+        SmbCommand.WriteAndX, treeId, SmbSession.UserId, "0EFF000000" + Word(fileId) + "00000000000000000000000000000100400000000000" + "0200" + "0041");
 
     /// <summary>curl's close of FID 0x4000.</summary>
-    public static string CloseHex(ushort treeId) => RequestHex(SmbCommand.Close, treeId, SmbSession.UserId, "03004000000000" + "0000");
+    public static string CloseHex(ushort treeId) => CloseHex(treeId, 0x4000);
+
+    /// <summary>curl's close of <paramref name="fileId"/>.</summary>
+    public static string CloseHex(ushort treeId, ushort fileId) => RequestHex(SmbCommand.Close, treeId, SmbSession.UserId, "03" + Word(fileId) + "00000000" + "0000");
 
     /// <summary>An error response to <paramref name="command"/>, echoing <paramref name="treeId"/> and <paramref name="userId"/>.</summary>
     public static string ErrorHex(byte command, uint status, ushort treeId = 1, ushort userId = SmbSession.UserId) =>
@@ -97,14 +144,33 @@ internal static class SmbTestExchange
         fileSystem.CreateDirectory(Path.Join(root, ".hidden"));
         WriteFile(fileSystem, Path.Join(root, "share", "file.txt"), "hello smb\n");
         WriteFile(fileSystem, Path.Join(root, "afile.txt"), "not a share\n");
+        WriteFile(fileSystem, Path.Join(root, "share", ".secret"), "hidden\n");
+        fileSystem.CreateDirectory(Path.Join(root, "share", "sub"));
+        WriteFile(fileSystem, Path.Join(root, "share", "sub", "café x.txt"), "accented\n");
+        using (var big = fileSystem.CreateFileForAsyncWrite(Path.Join(root, "share", "big.bin")))
+        {
+            big.Write(BigFileBytes());
+        }
+
+        using (var huge = fileSystem.CreateFileForAsyncWrite(Path.Join(root, "share", "huge.bin")))
+        {
+            huge.Write(HugeFileBytes());
+        }
+
         return fileSystem;
     }
+
+    /// <summary>The 70000 bytes of <c>/share/huge.bin</c>, more than the 61440 one read answers: byte <c>i</c> is <c>i % 253</c>.</summary>
+    public static byte[] HugeFileBytes() => Enumerable.Range(0, 70000).Select(index => (byte)(index % 253)).ToArray();
+
+    /// <summary>The 40000 bytes of <c>/share/big.bin</c>, more than one of curl's 32768-byte reads: byte <c>i</c> is <c>i % 251</c>.</summary>
+    public static byte[] BigFileBytes() => Enumerable.Range(0, 40000).Select(index => (byte)(index % 251)).ToArray();
 
     public static ContentStore StandardContentStore() =>
         new(InMemoryContentFileSystem.RootPath, StandardFileSystem(), new ContentExposureOptions());
 
-    public static SmbProtocolServer Server(ISmbAuthenticationPolicy? authenticationPolicy = null) =>
-        new(StandardContentStore(), authenticationPolicy ?? new SecretPasswordPolicy(), new FixedChallengeSource());
+    public static SmbProtocolServer Server(ISmbAuthenticationPolicy? authenticationPolicy = null, ContentStore? contentStore = null) =>
+        new(contentStore ?? StandardContentStore(), authenticationPolicy ?? new SecretPasswordPolicy(), new FixedChallengeSource());
 
     public static ExchangeContext Context(
         TimeProvider timeProvider,
@@ -130,17 +196,22 @@ internal static class SmbTestExchange
         IEnumerable<string> requestsHex,
         ISmbAuthenticationPolicy? authenticationPolicy = null,
         IExchangeLog? log = null,
-        ExchangeLimits? limits = null)
+        ExchangeLimits? limits = null,
+        ContentStore? contentStore = null)
     {
         var connection = new InMemoryConnection([Hex(string.Concat(requestsHex))]);
-        await Server(authenticationPolicy).ServeAsync(connection, Context(new ManualTimeProvider(), cancellationToken, limits, log));
+        await Server(authenticationPolicy, contentStore).ServeAsync(connection, Context(new ManualTimeProvider(), cancellationToken, limits, log));
         return Convert.ToHexString(connection.WrittenBytes);
     }
 
     /// <summary>Serves the negotiate, the accepted session setup, a tree connect to <c>share</c> and then <paramref name="requestsHex"/>, and returns what the server wrote after the tree connect's response.</summary>
-    public static async Task<string> ServeConnectedAsync(CancellationToken cancellationToken, IExchangeLog? log, params string[] requestsHex)
+    public static async Task<string> ServeConnectedAsync(CancellationToken cancellationToken, IExchangeLog? log, params string[] requestsHex) =>
+        await ServeConnectedAsync(null, cancellationToken, log, requestsHex);
+
+    /// <summary>Serves the negotiate, the accepted session setup, a tree connect to <c>share</c> and then <paramref name="requestsHex"/> over <paramref name="contentStore"/> (the standard one when null), and returns what the server wrote after the tree connect's response.</summary>
+    public static async Task<string> ServeConnectedAsync(ContentStore? contentStore, CancellationToken cancellationToken, IExchangeLog? log, params string[] requestsHex)
     {
-        var written = await ServeAsync(cancellationToken, [NegotiateHex, SessionSetupHex, TreeConnectHex("share"), .. requestsHex], log: log);
+        var written = await ServeAsync(cancellationToken, [NegotiateHex, SessionSetupHex, TreeConnectHex("share"), .. requestsHex], log: log, contentStore: contentStore);
         var prefix = NegotiateResponseHex + SessionSetupResponseHex + TreeConnectResponseHex(1);
         Assert.StartsWith(prefix, written);
         return written[prefix.Length..];
@@ -155,6 +226,13 @@ internal static class SmbTestExchange
     {
         Span<byte> bytes = stackalloc byte[2];
         BinaryPrimitives.WriteUInt16LittleEndian(bytes, value);
+        return Convert.ToHexString(bytes);
+    }
+
+    private static string QuadWord(long value)
+    {
+        Span<byte> bytes = stackalloc byte[8];
+        BinaryPrimitives.WriteInt64LittleEndian(bytes, value);
         return Convert.ToHexString(bytes);
     }
 

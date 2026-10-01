@@ -20,6 +20,10 @@ public sealed class RecordedExchangeTests
     [DataRow("login-refused", true, "67")]
     [DataRow("unknown-share", false, "78")]
     [DataRow("unknown-share", true, "78")]
+    [DataRow("download-small", false, "0")]
+    [DataRow("download-small", true, "0")]
+    [DataRow("download-large", false, "0")]
+    [DataRow("download-large", true, "0")]
     public async Task ServeAsync_RecordedRequests_AreAnsweredWithTheBytesCurlWasFed(string caseName, bool oneBytePerRead, string curlExit)
     {
         var request = RecordedFixture.ReadBytes(caseName, "request.bin");
@@ -29,6 +33,31 @@ public sealed class RecordedExchangeTests
 
         Assert.AreEqual(curlExit, Encoding.ASCII.GetString(RecordedFixture.ReadBytes(caseName, "exitcode.txt")).Trim());
         CollectionAssert.AreEqual(RecordedFixture.ReadBytes(caseName, "response.bin"), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    [DataRow("download-small", "file.txt")]
+    [DataRow("download-large", "big.bin")]
+    public void RecordedDownload_WroteTheServedFileToCurlsStdout(string caseName, string fileName)
+    {
+        var served = fileName == "big.bin" ? BigFileBytes() : Encoding.ASCII.GetBytes("hello smb\n");
+
+        var stdout = RecordedFixture.ReadBytes(caseName, "stdout.bin");
+
+        CollectionAssert.AreEqual(served, stdout, $"curl's stdout for share\\{fileName}");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecordedLargeDownload_NotesTheOpenAndTheBytesRead()
+    {
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection(RecordedFixture.Whole(RecordedFixture.ReadBytes("download-large", "request.bin")));
+
+        await Server().ServeAsync(connection, Context(new ManualTimeProvider(), TestContext.CancellationToken, log: log));
+
+        CollectionAssert.AreEqual(
+            new[] { "Login accepted: ntlmv1 alice", "SMB tree connect share: connected", @"SMB open share\big.bin for reading: 40000 bytes", @"SMB close share\big.bin: 40000 bytes read" },
+            log.Notes.ToArray());
     }
 
     [TestMethod]
