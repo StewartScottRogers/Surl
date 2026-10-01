@@ -546,6 +546,30 @@
     (ADR-0003): the Curl port reports upstream's own version number, so only the file
     itself can tell the two apart.
 
+.PARAMETER LibcurlWebSocket
+    Run the C# file-based app Run-LibcurlWebSocketScript.cs in place of curl, so the WebSocket
+    frames only libcurl's API sends - curl_ws_send's text, binary, fragments (CONT), PING,
+    PONG and CLOSE with a code - can be measured (ADR-0071 decision 10). It loads the pinned
+    libcurl (Libcurl), runs curl_easy_perform with CURLOPT_CONNECT_ONLY 2 on the URL, then
+    one call per step. CurlArgs are its arguments: the ws:// URL, then the steps, each
+    send:<FLAGS>:<payload> (FLAGS '+'-joined from TEXT, BINARY, CONT, CLOSE, PING and PONG;
+    the payload with the backslash escapes \r \n \t \0 \\ and \xHH) or recv (one
+    curl_ws_recv, waiting up to --recv-timeout <ms>, default 5000, for data). Use it with
+    -Raw and a 101 carrying {WS_ACCEPT}: request.bin then holds the upgrade request and the
+    masked frames, transcript.txt both directions, stdout.bin one line per call with the
+    CURLcode it returned (and, for recv, the curl_ws_frame flags, offset, bytesleft and
+    bytes), and exitcode.txt the driver's exit code: 0 once every step ran, 1 when
+    curl_easy_perform failed, 2 for a malformed step, 3 when the library is not pinned.
+    Combining it with -Curl is refused, and so is running it outside Windows: the Linux and
+    macOS builds pinned in UpstreamCurlBuilds.json are static and carry no shared libcurl.
+    Needs dotnet on PATH; the first run builds the app, which takes a while.
+
+.PARAMETER Libcurl
+    The shared libcurl -LibcurlWebSocket loads. Defaults to libcurl-4.dll beside the reference
+    curl.exe in Git for Windows' mingw64 directory. Its SHA-256 must match an entry of kind
+    library in UpstreamCurlBuilds.json, so a pinned curl.exe is refused here and a pinned
+    libcurl is refused as -Curl. Needs -LibcurlWebSocket.
+
 .PARAMETER ListenAddress
     The address the server (and, with -Ftp, its passive data listener, named in PASV's
     227 reply) binds. Default 127.0.0.1. Surl refuses -Curl wsl.exe, which the
@@ -648,6 +672,13 @@
     221. request.bin holds curl's three lines and transcript.txt both directions.
 
 .EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18923 -Raw -LibcurlWebSocket -RawReply 'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {WS_ACCEPT}\r\n\r\n' -CurlArgs 'ws://127.0.0.1:18923/chat','send:TEXT:hello' -OutDirectory fixtures\libcurl-ws-text
+
+    The pinned libcurl upgrades to WebSocket and sends hello with curl_ws_send; request.bin
+    ends with the masked text frame \x81\x85, its four-byte mask and the masked payload, and
+    stdout.bin holds "perform: CURLcode 0 (No error)" and the send's line.
+
+.EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18389 -Ldap -CurlTimeoutMilliseconds 20000 -LdapEntry 'dn: cn=alice,dc=example,dc=com\ncn: alice' -CurlArgs '-sS','-u','alice:secret','ldap://127.0.0.1:18389/dc=example,dc=com?cn?sub?(cn=a*)' -OutDirectory fixtures\ldap-search
 
     Answers curl's simple bind with success and its subtree search with the one entry;
@@ -719,6 +750,8 @@ param(
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
     [switch] $TlsRenegotiationOff,
     [string] $Curl,
+    [switch] $LibcurlWebSocket,
+    [string] $Libcurl,
     [System.Net.IPAddress] $ListenAddress = [System.Net.IPAddress]::Loopback,
     [switch] $NoServer,
     [switch] $KerberosTestKdc,
@@ -741,6 +774,9 @@ if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword
 if ($KerberosTestKdc -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-KerberosTestKdc runs only on Windows: no pinned upstream curl build on Linux or macOS has Kerberos, SPNEGO or GSS-API (UpstreamCurlBuilds.json, ADR-0065).' }
 if ($KerberosTestKdc -and [string]::IsNullOrEmpty($KerberosPassword)) { throw '-KerberosTestKdc needs -KerberosPassword, the password of tester@SURL.TEST that curl gives with -u.' }
 if ($KerberosTestKdc -and @($KerberosServicePrincipal | Where-Object { $_ }).Count -eq 0) { throw '-KerberosTestKdc needs at least one -KerberosServicePrincipal.' }
+if (-not $LibcurlWebSocket -and $PSBoundParameters.ContainsKey('Libcurl')) { throw '-Libcurl names the library -LibcurlWebSocket loads, so it needs -LibcurlWebSocket.' }
+if ($LibcurlWebSocket -and $PSBoundParameters.ContainsKey('Curl')) { throw '-LibcurlWebSocket runs Run-LibcurlWebSocketScript.cs in place of curl, so it cannot be combined with -Curl; name the library with -Libcurl.' }
+if ($LibcurlWebSocket -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-LibcurlWebSocket runs only on Windows: the Linux and macOS builds pinned in UpstreamCurlBuilds.json are static and carry no shared libcurl (ADR-0071 decision 10).' }
 
 function Get-ReferenceCurlPath {
     $git = Get-Command git.exe -ErrorAction SilentlyContinue
@@ -758,17 +794,32 @@ function Get-ReferenceCurlPath {
 # Surl is measured against upstream curl and nothing else (ADR-0003). The Curl port reports
 # upstream's own version number, so neither a name nor --version can tell the two apart;
 # only the file can. UpstreamCurlBuilds.json pins every build by SHA-256.
+# Each pin has a kind, curl (the default) or library: a pinned libcurl is never run as a curl,
+# and a pinned curl.exe never loaded as the library (ADR-0071 decision 10).
 function Assert-PinnedUpstreamCurl {
-    param([string] $Path)
+    param([string] $Path, [ValidateSet('curl', 'library')] [string] $Kind = 'curl')
 
-    $command = Get-Command -Name $Path -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($null -eq $command) { throw "The curl to run, $Path, was not found." }
-    $pins = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'UpstreamCurlBuilds.json')) | ConvertFrom-Json
-    $hash = (Get-FileHash -LiteralPath $command.Source -Algorithm SHA256).Hash
-    $pinned = @($pins.builds | Where-Object { $_.sha256 -eq $hash })
-    if ($pinned.Count -eq 0) {
-        throw "$($command.Source) (SHA-256 $hash) is not a pinned upstream curl build. Surl is measured only against the builds in UpstreamCurlBuilds.json (ADR-0003); pinning another is a decision, and the Curl port is never one."
+    if ($Kind -eq 'library') {
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "The libcurl to load, $Path, was not found." }
+        $source = (Resolve-Path -LiteralPath $Path).ProviderPath
+        $noun = 'upstream libcurl'
+    } else {
+        $command = Get-Command -Name $Path -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -eq $command) { throw "The curl to run, $Path, was not found." }
+        $source = $command.Source
+        $noun = 'upstream curl build'
     }
+    $pins = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'UpstreamCurlBuilds.json')) | ConvertFrom-Json
+    $hash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+    $pinned = @($pins.builds | Where-Object {
+        $kindProperty = $_.PSObject.Properties['kind']
+        $pinKind = if ($null -eq $kindProperty) { 'curl' } else { $kindProperty.Value }
+        $_.sha256 -eq $hash -and $pinKind -eq $Kind
+    })
+    if ($pinned.Count -eq 0) {
+        throw "$source (SHA-256 $hash) is not a pinned $noun. Surl is measured only against the builds in UpstreamCurlBuilds.json (ADR-0003); pinning another is a decision, and the Curl port is never one."
+    }
+    return $source
 }
 
 function ConvertFrom-EscapedResponse {
@@ -2783,8 +2834,13 @@ function Stop-KerberosTestKdc {
     $KdcProcess.Dispose()
 }
 
-if ([string]::IsNullOrEmpty($Curl)) { $Curl = Get-ReferenceCurlPath }
-Assert-PinnedUpstreamCurl -Path $Curl
+if ($LibcurlWebSocket) {
+    if ([string]::IsNullOrEmpty($Libcurl)) { $Libcurl = Join-Path (Split-Path (Get-ReferenceCurlPath) -Parent) 'libcurl-4.dll' }
+    $Libcurl = Assert-PinnedUpstreamCurl -Path $Libcurl -Kind library
+} else {
+    if ([string]::IsNullOrEmpty($Curl)) { $Curl = Get-ReferenceCurlPath }
+    [void] (Assert-PinnedUpstreamCurl -Path $Curl)
+}
 $responseBytes = New-Object System.Collections.Generic.List[byte[]]
 foreach ($text in $Response) { $responseBytes.Add((ConvertFrom-EscapedResponse -Text $text)) }
 function ConvertTo-ReplyOverrides {
@@ -2875,8 +2931,16 @@ try {
     if ($null -ne $tlsRelay) { Connect-TlsRelay -Relay $tlsRelay -BackendPort $listener.LocalEndpoint.Port }
 
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $startInfo.FileName = $Curl
-    $startInfo.Arguments = (@($CurlArgs | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
+    if ($LibcurlWebSocket) {
+        # The driver checks the library's pin again itself before it loads it.
+        $startInfo.FileName = 'dotnet'
+        $driverArguments = @('run', '--file', (Join-Path $PSScriptRoot 'Run-LibcurlWebSocketScript.cs'), '--', '--library', $Libcurl) + @($CurlArgs)
+        $startInfo.Arguments = (@($driverArguments | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
+        $startInfo.WorkingDirectory = $PSScriptRoot
+    } else {
+        $startInfo.FileName = $Curl
+        $startInfo.Arguments = (@($CurlArgs | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
+    }
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardInput = $true
     $startInfo.RedirectStandardOutput = $true
