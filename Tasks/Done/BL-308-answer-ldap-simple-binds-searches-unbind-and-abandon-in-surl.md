@@ -66,7 +66,7 @@ operation, as BL-284's ADR decides, replaying request bytes recorded from that b
   malformed message, compare or writes: those are built by hand in
   `LdapProtocolServerOperationTests`. The anonymous search cases replay the recorded search
   message without its bind, since the Windows build never binds anonymously (ADR-0072).
-- **Decisions (sensible defaults, recorded for BL-331 to put in ADR-0072, whose folder BL-286
+- **Decisions (sensible defaults, recorded for BL-335 to put in ADR-0072, whose folder BL-286
   held):** the idle timeout and maximum duration share one Notice, `unavailable`
   `idle timeout or maximum duration`, because ADR-0059 decision 5 gives a server no reason;
   an extended operation is `protocolError` `unsupported extended operation`; a critical
@@ -86,7 +86,7 @@ operation, as BL-284's ADR decides, replaying request bytes recorded from that b
   100% branch, 260 members, 0 failing, worst CRAP 10. 386 tests in
   `Surl.Protocol.Ldap.UnitTests`. Conformance against upstream curl waits for registration
   (BL-310) and is BL-311's.
-- **Filed:** BL-331 (docs, Low): amend ADR-0072 with the decisions above.
+- **Filed:** BL-335 (docs, Low): amend ADR-0072 with the decisions above.
 
 ## Log
 

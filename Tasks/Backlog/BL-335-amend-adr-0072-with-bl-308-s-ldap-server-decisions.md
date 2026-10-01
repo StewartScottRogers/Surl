@@ -1,5 +1,5 @@
 ---
-id: BL-331
+id: BL-335
 title: Amend ADR-0072 with BL-308's LDAP server decisions
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-049
 created: 2026-09-30
 completed:
 ---
-# BL-331 — Amend ADR-0072 with BL-308's LDAP server decisions
+# BL-335 — Amend ADR-0072 with BL-308's LDAP server decisions
 
 ## Goal
 
