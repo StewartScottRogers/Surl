@@ -37,8 +37,26 @@ None has a body, so curl keeps the connection.
 | `basic-login` | `... -RawReply <ok> -CurlArgs '-sS','-w','%{response_code}','-u','tester:secret','rtsp://127.0.0.1:18554/media'` | 0, `200`; `Authorization: Basic dGVzdGVyOnNlY3JldA==` sent unasked |
 | `basic-forbidden-403` | `... -RawReply <403> -CurlArgs '-sS','-w','%{response_code}','-u','tester:secret','rtsp://127.0.0.1:18554/media'` | 0, `403` |
 
-`rfc2326-describe/request.bin` is not a recording: the `curl` tool sends only `OPTIONS *`, and
-`DESCRIBE` is libcurl's alone (ADR-0074 decision 12). Until BL-333 records libcurl's, it is
-RFC 2326 section 10.2's example request, with CRLF line endings:
-`DESCRIBE rtsp://server.example.com/fizzle/foo RTSP/1.0`, `CSeq: 312`,
-`Accept: application/sdp, application/rtsl, application/mheg`.
+The `curl` tool sends only `OPTIONS`; every other method is libcurl's alone (ADR-0074 decision
+12). The `libcurl-` cases (BL-337, ADR-0074 Amendment 1) were recorded on 2026-09-30 on Windows
+through the pinned shared library `C:\Program Files\Git\mingw64\bin\libcurl-4.dll` (libcurl
+8.21.0, kind library in `UpstreamCurlBuilds.json`, SHA-256
+`799F7EEFC3C9DA9C80EC5AEA221A02B3AFE2C5350C6B45FD5A4865E7E2D4E574`), driven by
+`Run-LibcurlRtspScript.cs` with `Record-CurlExchange.ps1 -LibcurlRtsp`. Here `stdout.bin` is the
+driver's report, one line per step, and `request.bin` every request of the one connection.
+`response.bin` is every scripted reply in order with `{CSEQ}` filled in - Surl's answers at
+2026-09-28 12:00:00 UTC, with sessions drawn from `PatternRandomNumberGenerator` (ID
+`0123456789ABCDEF`, SSRC `01234567`).
+
+The command, from the repository root, with `S` the case's stream URL
+(`rtsp://127.0.0.1:18554/clip.bin`, `.../rec.bin` for `libcurl-announce-record`):
+
+```
+.\Record-CurlExchange.ps1 -Port 18554 -Raw -RawIdleMilliseconds 400 -LibcurlRtsp -RawReply <replies> -CurlArgs '--timeout','3000',S,'stream-uri:S',<steps> -OutDirectory Surl.Protocol.Rtsp.UnitTests\Fixtures\<case>
+```
+
+| Folder | Steps | Driver's report |
+| --- | --- | --- |
+| `libcurl-describe` | `DESCRIBE` | `CURLcode 0`, status 200, the 170 SDP bytes |
+| `libcurl-play-teardown-setup` | `transport:RTP/AVP/TCP;interleaved=0-1`, `SETUP`, `PLAY`, `TEARDOWN`, `OPTIONS`, `SETUP` | each `CURLcode 0`, status 200, session `0123456789ABCDEF`; `OPTIONS` and the second `SETUP` carry `Session: 0123456789ABCDEF`, which the second `SETUP`'s answer reuses (amended decision 5) |
+| `libcurl-announce-record` | `body:v=0\r\n`, `ANNOUNCE`, `no-body`, `transport:RTP/AVP/TCP;unicast;interleaved=0-1;mode=record`, `SETUP`, `RECORD`, `TEARDOWN` | each `CURLcode 0`, status 200; `RECORD` sends no body |

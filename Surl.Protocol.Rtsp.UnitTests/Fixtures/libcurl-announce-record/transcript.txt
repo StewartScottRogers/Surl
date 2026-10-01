@@ -1,0 +1,42 @@
+> ANNOUNCE rtsp://127.0.0.1:18554/rec.bin RTSP/1.0
+> CSeq: 1
+> Content-Length: 5
+> Content-Type: application/sdp
+> 
+> v=0
+< RTSP/1.0 200 OK
+< CSeq: 1
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< 
+> SETUP rtsp://127.0.0.1:18554/rec.bin RTSP/1.0
+> CSeq: 2
+> Transport: RTP/AVP/TCP;unicast;interleaved=0-1;mode=record
+> 
+< RTSP/1.0 200 OK
+< CSeq: 2
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Session: 0123456789ABCDEF;timeout=60
+< Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=01234567;mode=record
+< 
+> RECORD rtsp://127.0.0.1:18554/rec.bin RTSP/1.0
+> CSeq: 3
+> Session: 0123456789ABCDEF
+> 
+< RTSP/1.0 200 OK
+< CSeq: 3
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Session: 0123456789ABCDEF
+< 
+> TEARDOWN rtsp://127.0.0.1:18554/rec.bin RTSP/1.0
+> CSeq: 4
+> Session: 0123456789ABCDEF
+> 
+< RTSP/1.0 200 OK
+< CSeq: 4
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< 
+= curl closed the connection

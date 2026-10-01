@@ -1,0 +1,8 @@
+setopt RTSP_STREAM_URI "rtsp://127.0.0.1:18554/rec.bin": CURLcode 0 (No error)
+setopt COPYPOSTFIELDS 5 bytes "v=0\x0D\x0A": CURLcode 0 (No error)
+ANNOUNCE: CURLcode 0 (No error), status 200, session none, cseq received 1, next cseq 2, body 0 bytes "", interleaved none
+setopt no body (UPLOAD 0, POSTFIELDSIZE -1, POSTFIELDS NULL): CURLcode 0 (No error)
+setopt RTSP_TRANSPORT "RTP/AVP/TCP;unicast;interleaved=0-1;mode=record": CURLcode 0 (No error)
+SETUP: CURLcode 0 (No error), status 200, session "0123456789ABCDEF", cseq received 2, next cseq 3, body 0 bytes "", interleaved none
+RECORD: CURLcode 0 (No error), status 200, session "0123456789ABCDEF", cseq received 3, next cseq 4, body 0 bytes "", interleaved none
+TEARDOWN: CURLcode 0 (No error), status 200, session "0123456789ABCDEF", cseq received 4, next cseq 5, body 0 bytes "", interleaved none

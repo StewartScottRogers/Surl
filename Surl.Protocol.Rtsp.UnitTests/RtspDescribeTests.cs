@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Text;
 using static Surl.Protocol.Rtsp.RtspServerHarness;
@@ -11,27 +10,11 @@ public sealed class RtspDescribeTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    public async Task Rfc2326Describe_IsAnsweredWithTheSessionDescriptionOfTheFile()
+    public async Task LibcurlDescribe_IsAnsweredWithTheSessionDescriptionOfTheFile()
     {
-        var (connection, log) = await ServeAsync([RecordedRequest("rfc2326-describe")], TestContext.CancellationToken);
+        var (connection, log) = await ServeAsync([RecordedRequest("libcurl-describe")], TestContext.CancellationToken);
 
-        var description = "v=0\r\n"
-            + "o=- 0 0 IN IP4 127.0.0.1\r\n"
-            + "s=foo\r\n"
-            + "c=IN IP4 0.0.0.0\r\n"
-            + "t=0 0\r\n"
-            + "a=control:*\r\n"
-            + "a=range:npt=0-\r\n"
-            + "m=application 0 RTP/AVP 96\r\n"
-            + "a=rtpmap:96 octet-stream/90000\r\n"
-            + "a=control:*\r\n";
-        var expected = ResponseHead(
-            "200 OK",
-            "312",
-            "Content-Type: application/sdp",
-            "Content-Base: rtsp://server.example.com/fizzle/foo",
-            "Content-Length: " + description.Length.ToString(CultureInfo.InvariantCulture)) + description;
-        Assert.AreEqual(expected, Latin1(connection.WrittenBytes));
+        Assert.AreEqual(Latin1(RecordedResponse("libcurl-describe")), Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.WritesCompleted);
         CollectionAssert.AreEqual(new[] { "The client closed the connection: ConnectionClosed." }, log.Notes.ToArray());
     }

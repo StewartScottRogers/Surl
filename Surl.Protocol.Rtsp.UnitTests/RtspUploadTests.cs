@@ -37,6 +37,18 @@ public sealed class RtspUploadTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
+    public async Task LibcurlAnnounceSetupRecordTeardown_IsAnsweredAsRecordedAndStoresBothFiles()
+    {
+        var fileSystem = UploadFileSystem();
+
+        var (connection, _) = await ServeAsync([RecordedRequest("libcurl-announce-record")], TestContext.CancellationToken, fileSystem: fileSystem, exposureOptions: UploadsAllowed);
+
+        Assert.AreEqual(Latin1(RecordedResponse("libcurl-announce-record")), Latin1(connection.WrittenBytes));
+        CollectionAssert.AreEqual(Ascii("v=0\r\n"), StoredBytes(fileSystem, "rec.bin.sdp"));
+        Assert.IsEmpty(StoredBytes(fileSystem, "rec.bin"));
+    }
+
+    [TestMethod]
     public async Task Announce_WithUploadsAllowed_StoresTheBodyByteForByteBesideThePresentation()
     {
         var fileSystem = UploadFileSystem();
