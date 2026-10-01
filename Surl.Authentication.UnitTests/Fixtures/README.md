@@ -211,3 +211,25 @@ curl exited 38 (`bind via ldap_win_bind Protocol Error`): the recorder's success
 (`68d9795fbde795dac0fdfdbd4461a106`) were checked with PowerShell's MD5 alone when recorded.
 `LdapDigestMd5SaslMechanismTests` replays the bind, and checks the 3DES, RC4 and integrity
 layers against RFC 2831 sections 2.3 and 2.4's layout computed in the test.
+
+## LDAP Kerberos inside GSS-SPNEGO (BL-327)
+
+Recorded on 2026-09-30 at 23:24 (-07:00) with the win-x64 reference build on the lane machine,
+which has BL-265's `SURL.TEST` realm mapping, through `Record-CurlExchange.ps1 -Ldap
+-LdapKerberosAcceptor -KerberosTestKdc -KerberosPassword 'surl-test-password'
+-KerberosServicePrincipal 'ldap/Stewart-Rogers-AI-PC:18389'`, `-Port 18389
+-LdapIdleMilliseconds 3000 -CurlTimeoutMilliseconds 30000`, two `-LdapEntry` values - the root
+DSE `dn: \nsupportedSASLMechanisms: GSS-SPNEGO\nsupportedSASLMechanisms: GSSAPI` and
+`dn: dc=example,dc=com\ncn: example` - and `-CurlArgs`
+`'-sS','--negotiate','-u','tester@SURL.TEST:surl-test-password','ldap://localhost:18389/dc=example,dc=com?cn?base'`.
+The recorder answered the bind and wrapped its replies through `Run-KerberosAcceptor.cs` (ADR-0072
+Amendment 1).
+
+| Folder | What it shows |
+| --- | --- |
+| `ldap-kerberos-sealed` | `WinLDAP` asks the KDC for `ldap/Stewart-Rogers-AI-PC:18389` (`kdc.log`), binds `GSS-SPNEGO` with a `NegTokenInit` (MS-KRB5, Kerberos, NEGOEX, NTLMSSP) whose optimistic AP-REQ asks for mutual authentication and confidentiality, takes the `accept-completed` `negTokenResp` with the AP-REP, then sends the base search and the unbind as sealed RFC 4121 wrap tokens (`EC` 0, `RRC` 28) |
+
+curl exited 0 and printed `DN: dc=example,dc=com` with `cn: example`. The folder also holds
+`service.keytab`, the keys the test KDC drew for that run, and `kdc.log`.
+`LdapKerberosSaslMechanismTests` replays the bind with that keytab on a clock set to the
+recording's time and unwraps both buffers.

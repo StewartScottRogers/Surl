@@ -229,9 +229,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 ## LDAP's NTLM and GSS-SPNEGO binds and NTLM sealing (BL-329)
 
 - A SASL exchange started with `SaslExchangeStart.CanCarrySecurityLayer` (LDAP) carries it on
-  `SaslExchangeContext`. `NTLM` (which LDAP's Sicily binds map to) and `GSS-SPNEGO`
-  (`SaslMechanism.GssSpnego`, accepted by `negotiate`, outside `InOfferOrder`) both run
-  `NtlmSaslExchange` over a bare NTLM message, as `WinLDAP` sends it (ADR-0072 decision 4).
+  `SaslExchangeContext`. `NTLM` (which LDAP's Sicily binds map to) runs `NtlmSaslExchange`, and
+  so does `GSS-SPNEGO` (`SaslMechanism.GssSpnego`, accepted by `negotiate`, outside
+  `InOfferOrder`) through `GssSpnegoSaslExchange` for every token that does not select Kerberos
+  (BL-327, below), over a bare NTLM message, as `WinLDAP` sends it (ADR-0072 decision 4).
 - Its `NtlmHandshake` (`grantsSecurityLayer`) answers with the LDAP `CHALLENGE_MESSAGE`:
   `NtlmChallengeMessage.ChooseFlags(clientFlags, true)` also grants sign, seal and key exchange
   when asked. On acceptance it exports the session key (`NtlmSessionKey`: NTLMv2's session base
@@ -288,3 +289,22 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - Never unchecked: under `--allow-anonymous` a user with no account is refused with
   `NtlmSaslExchange.SecurityLayerNeedsPasswordNote`, and a known user is checked as usual.
 - The tests replay `Fixtures/ldap-digest-md5` and compute RFC 2831's layout themselves.
+
+## Kerberos inside LDAP's GSS-SPNEGO bind (BL-327)
+
+- `GssSpnegoSaslExchange` is `GSS-SPNEGO`'s exchange (ADR-0072 Amendment 1). A first token that
+  is a `NegTokenInit` selecting Kerberos (`NegotiateKerberosLogin.SelectedKerberosOid`), with a
+  Kerberos acceptor set, is answered in one leg: Kerberos first with its AP-REQ as the optimistic
+  token (else refused, `Kerberos: no optimistic AP-REQ`), checked by `AcceptInsideSpnego` for the
+  service `ldap` (`WinLDAP` names `ldap/<host>:<port>`), a client `mechListMIC` checked and
+  answered, the principal's display form as the account (unchecked under `--allow-anonymous`).
+  Success carries the `accept-completed` `negTokenResp` (the AP-REP when mutual) as
+  `AdditionalSuccessData`. Every other token, and every token without a keytab, starts an
+  `NtlmSaslExchange` the exchange forwards to.
+- `KerberosSaslSecurityLayer` (`ISaslSecurityLayer`) wraps the accepted `KerberosSecurityContext`:
+  `Seal` when the client asked for confidentiality (as `WinLDAP` does), `Wrap` for integrity
+  alone, no layer for neither; `TryUnwrap` reads the client's tokens. No RFC 4752 layer
+  negotiation runs: measured, `WinLDAP` has none in `GSS-SPNEGO`.
+- `LdapKerberosSaslMechanismTests` replays `Fixtures/ldap-kerberos-sealed`, pinned curl's whole
+  bind recorded against the test KDC, with the keytab the recording wrote, and unwraps its sealed
+  search and unbind; hand-made AP-REQs (`ApRequestBuilder.Keytab("ldap")`) cover the rest.

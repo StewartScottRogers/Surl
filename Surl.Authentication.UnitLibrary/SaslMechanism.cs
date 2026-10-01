@@ -32,10 +32,11 @@ internal sealed record SaslMechanism(
 
     /// <summary>
     /// LDAP's <c>GSS-SPNEGO</c>, accepted by <c>negotiate</c> and run only where the server carries
-    /// a security layer: it carries a bare NTLM message, as <c>WinLDAP</c> sends it, and is
-    /// answered as <c>NTLM</c> is (ADR-0072, decision 4). It is not in
-    /// <see cref="InOfferOrder"/>, since the mail servers never offer it.
+    /// a security layer: a SPNEGO token selecting Kerberos is checked against <c>--keytab</c>, and
+    /// a bare NTLM message, as <c>WinLDAP</c> sends it for an address, is answered as <c>NTLM</c>
+    /// is (ADR-0072, decision 4, and its Amendment 1). It is not in <see cref="InOfferOrder"/>,
+    /// since the mail servers never offer it.
     /// </summary>
     public static SaslMechanism GssSpnego { get; } =
-        new("GSS-SPNEGO", AuthenticationMethod.Negotiate, context => new NtlmSaslExchange(context));
+        new("GSS-SPNEGO", AuthenticationMethod.Negotiate, context => new GssSpnegoSaslExchange(context));
 }

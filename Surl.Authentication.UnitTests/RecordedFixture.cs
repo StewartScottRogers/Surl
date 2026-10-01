@@ -62,7 +62,11 @@ internal static class RecordedFixture
     public static string ReadText(string caseName, string fileName) =>
         Encoding.UTF8.GetString(ReadBytes(caseName, fileName));
 
-    private static byte[] ReadBytes(string caseName, string fileName)
+    /// <summary>
+    /// One of a case's files as its bytes, such as the <c>service.keytab</c> a
+    /// <c>-KerberosTestKdc</c> recording wrote.
+    /// </summary>
+    public static byte[] ReadBytes(string caseName, string fileName)
     {
         using var stream = typeof(RecordedFixture).Assembly.GetManifestResourceStream($"Fixtures/{caseName}/{fileName}")
             ?? throw new InvalidOperationException($"No embedded fixture Fixtures/{caseName}/{fileName}.");
