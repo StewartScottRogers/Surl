@@ -1,5 +1,5 @@
 ---
-id: BL-338
+id: BL-342
 title: Measure LDAP SASL GSSAPI against an OpenLDAP upstream curl build that has GSS-API, and settle its security layer
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-049
 created: 2026-09-30
 completed:
 ---
-# BL-338 — Measure LDAP SASL GSSAPI against an OpenLDAP upstream curl build that has GSS-API, and settle its security layer
+# BL-342 — Measure LDAP SASL GSSAPI against an OpenLDAP upstream curl build that has GSS-API, and settle its security layer
 
 ## Goal
 

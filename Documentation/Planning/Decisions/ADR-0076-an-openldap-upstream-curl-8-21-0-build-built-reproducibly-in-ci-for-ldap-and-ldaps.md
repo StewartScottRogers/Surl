@@ -184,7 +184,7 @@ section 4.14.2's answer for a server that does not support TLS - curl then goes 
 
 **Amended:** decision 4's `GSSAPI` line said "BL-287 measures what the OpenLDAP build accepts and
 amends this if it asks for more". This build has no GSS-API, so that stays unmeasured; the line
-stands as decided (no security layer offered) and BL-338 measures it against a build that has
+stands as decided (no security layer offered) and BL-342 measures it against a build that has
 GSS-API.
 
 **For BL-312**, the cases and exit codes above are what the OpenLDAP build must reach against

@@ -66,7 +66,7 @@ LDAP ADR with what that build sends, so the LDAP server can be proved against it
 - `Record-CurlExchange.ps1 -Ldap` gained StartTLS (`EXTENDED=0` upgrades the connection) and a
   cross-platform certificate key, so it measures on Linux; measured under pwsh 7.6.6 in WSL.
 - 39 cases measured; ADR-0072 confirmed except its `GSSAPI` line (the build has no GSS-API), which
-  is amended to point at the follow-up BL-338.
+  is amended to point at the follow-up BL-342.
 - `UpstreamCurlLocatorTests` gained two tests on the real pin file for linux-x64; its helper now
   filters by platform, since the Linux and macOS reference pins share one default path.
 - Not verified here: CI's own run of the build step (lanes do not push); a hash mismatch there
