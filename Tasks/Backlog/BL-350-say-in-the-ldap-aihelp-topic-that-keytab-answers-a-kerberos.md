@@ -1,5 +1,5 @@
 ---
-id: BL-349
+id: BL-350
 title: Say in the ldap --aihelp topic that --keytab answers a Kerberos Negotiate bind
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-049
 created: 2026-10-01
 completed:
 ---
-# BL-349 — Say in the ldap --aihelp topic that --keytab answers a Kerberos Negotiate bind
+# BL-350 — Say in the ldap --aihelp topic that --keytab answers a Kerberos Negotiate bind
 
 ## Goal
 

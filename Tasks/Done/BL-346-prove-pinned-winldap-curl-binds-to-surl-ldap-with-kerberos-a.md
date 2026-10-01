@@ -48,7 +48,7 @@ RFC 4121 layer, exiting 0 with the entry, as ADR-0072 Amendment 1 decides.
 - Choice: `WinLDAP`'s SPN carries the port, so the test takes a free loopback port first, starts
   the KDC with `ldap/<Dns.GetHostName()>:<port>`, then surl on that port
   (`SurlOnLoopback.StartOnPortAsync`, added); the small reuse race is accepted for an Integration test.
-- The `ldap` `--aihelp` topic does not mention Kerberos: filed BL-349 (Surl.Cli).
+- The `ldap` `--aihelp` topic does not mention Kerberos: filed BL-350 (Surl.Cli).
 - No other project touched.
 
 ## Log
