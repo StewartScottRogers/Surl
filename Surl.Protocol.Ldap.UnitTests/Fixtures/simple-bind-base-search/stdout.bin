@@ -1,0 +1,9 @@
+DN: cn=alice,dc=example,dc=com
+	objectClass: person
+
+	cn: alice
+
+	sn: Smith
+
+	mail: alice@example.com
+

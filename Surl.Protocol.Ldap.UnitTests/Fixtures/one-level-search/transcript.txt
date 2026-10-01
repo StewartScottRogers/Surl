@@ -1,0 +1,12 @@
+= connection 1 accepted
+= curl closed the connection or went idle
+= connection 2 accepted
+> #1 bindRequest version 3 name "alice" simple "secret"
+>   30840000001B0201016084000000120201030405616C6963658006736563726574
+< #1 bindResponse 0
+> #2 searchRequest base "dc=example,dc=com" scope 1 deref 0 sizeLimit 0 timeLimit 0 typesOnly 00 filter (ObjectClass=*) attributes [cn, mail]
+>   30840000004802010263840000003F041164633D6578616D706C652C64633D636F6D0A01010A0100020100020100010100870B4F626A656374436C61737330840000000A0402636E04046D61696C
+< #2 searchResultEntry
+< #2 searchResultDone 0
+> #3 unbindRequest
+>   3084000000050201034200
