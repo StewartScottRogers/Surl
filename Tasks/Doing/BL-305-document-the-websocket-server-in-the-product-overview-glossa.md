@@ -49,3 +49,4 @@ answer and what pinned upstream curl has proven against them.
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
 - 2026-09-30: Doing -> Backlog. Lane 1 could not integrate: push kept being refused. The work is on branch factory/BL-305-lane-1-20260930-162236; start with git cherry-pick --no-commit factory/BL-305-lane-1-20260930-162236 and fix it.
+- 2026-09-30: Backlog -> Doing.
