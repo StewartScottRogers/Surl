@@ -88,3 +88,4 @@ under ADR-0032, so the SMB codec, contract, login and server tasks can be built 
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
