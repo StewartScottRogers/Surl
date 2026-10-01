@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "RTSP OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -159,6 +159,14 @@ public sealed class ManualTextTests
             "    offered first; a start that gives it without --keytab writes \"surl: (2)",
             "    --auth gssapi needs --keytab\" and exits 2.",
             "",
+            "RTSP OPTIONS",
+            "",
+            "    The RTSP server answers rtsp listen URLs: every served file is a",
+            "    presentation of one stream whose RTP payloads are its bytes, played over",
+            "    interleaved TCP only. ANNOUNCE and RECORD are uploads and need",
+            "    --allow-uploads. Logins are judged as HTTP's are. curl has no rtsps.",
+            "    surl --aihelp rtsp says how each request is answered.",
+            "",
             "SMB OPTIONS",
             "",
             "    The SMB server answers smb and smbs listen URLs with SMB version 1: each",
@@ -260,8 +268,8 @@ public sealed class ManualTextTests
             "      3600.",
             "    - --head-timeout <seconds>: the time a client has to send a request head,",
             "      command line or first packet; default 30.",
-            "    - --max-request-head <bytes>: the largest HTTP or WebSocket upgrade",
-            "      request head; default 100k.",
+            "    - --max-request-head <bytes>: the largest HTTP, RTSP or WebSocket",
+            "      upgrade request head; default 100k.",
             "    - --max-line <bytes>: the longest command line; default 8192.",
             "    - --max-message <bytes>: the largest framed message, such as an MQTT",
             "      packet or a WebSocket message; default 1M.",

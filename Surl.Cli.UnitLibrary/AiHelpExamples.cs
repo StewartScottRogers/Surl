@@ -24,7 +24,7 @@ public static class AiHelpExamples
             [ListeningOnHttp, "Listening on tftp://127.0.0.1:<port>/"],
             [],
             []),
-        Refused("listen-urls", "A scheme this build does not serve", ["rtsp://127.0.0.1:0/"], ["surl: (1) Protocol \"rtsp\" not supported"], SurlExitCode.UnsupportedProtocol),
+        Refused("listen-urls", "A scheme this build does not serve", ["ldap://127.0.0.1:0/"], ["surl: (1) Protocol \"ldap\" not supported"], SurlExitCode.UnsupportedProtocol),
         Refused(
             "surl",
             "No listen URL",
@@ -108,6 +108,7 @@ public static class AiHelpExamples
             ["Listening on pop3://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl pop3://127.0.0.1:<port>/"]),
+        Serving("rtsp", "Serve RTSP", ["rtsp://127.0.0.1:0/"], ["Listening on rtsp://127.0.0.1:<port>/"], [], ["curl rtsp://127.0.0.1:<port>/"]),
         Serving(
             "smb",
             "Serve SMB shares to an NTLMv1 login",

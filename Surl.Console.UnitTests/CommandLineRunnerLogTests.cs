@@ -35,7 +35,7 @@ public sealed class CommandLineRunnerLogTests
     [TestMethod]
     public async Task RunAsync_SilentWithAnUnsupportedScheme_WritesNothingAndReturnsUnsupportedProtocol()
     {
-        var run = await RunRefusedAsync("-s", "rtsp://127.0.0.1:0/");
+        var run = await RunRefusedAsync("-s", "ldap://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, run.ExitCode);
         Assert.AreEqual(string.Empty, run.Output);
@@ -65,11 +65,11 @@ public sealed class CommandLineRunnerLogTests
     [TestMethod]
     public async Task RunAsync_SilentShowErrorWithAnUnsupportedScheme_WritesOnlyTheFailureLine()
     {
-        var run = await RunRefusedAsync("-s", "-S", "rtsp://127.0.0.1:0/");
+        var run = await RunRefusedAsync("-s", "-S", "ldap://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, run.ExitCode);
         Assert.AreEqual(string.Empty, run.Output);
-        Assert.AreEqual("surl: (1) Protocol \"rtsp\" not supported" + NewLine, run.Error);
+        Assert.AreEqual("surl: (1) Protocol \"ldap\" not supported" + NewLine, run.Error);
     }
 
     [TestMethod]

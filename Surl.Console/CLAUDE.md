@@ -52,7 +52,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its
   `AuthenticationSettings`, is handed to the HTTP (`http`, `https`), MQTT (`mqtt`,
-  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`), SMB (`smb`, `smbs`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
+  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`), RTSP (`rtsp`), SMB (`smb`, `smbs`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
   name, the mail store's owners. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `FtpProtocolServer` for `ftp` and `ftps` (it declares
   both itself; `AUTH TLS` when `--cert` or `--self-signed` is given, ADR-0052 decision 5), given the
@@ -80,6 +80,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   policy as both its authentication policies, `STLS` when `--cert` or `--self-signed` is given
   (ADR-0056 decision 8) and the same `MailboxStore` instance, so mail delivered over `smtp` is
   retrieved over `pop3` in the same run,
+  `RtspProtocolServer` for `rtsp` (curl has no `rtsps`), given the content store and the policy,
+  each request judged by the HTTP authentication session (ADR-0074 decision 7),
   `SmbProtocolServer` for `smb` and `smbs` (it declares both itself, so no
   `ImplicitTlsSchemeServer` wraps it), given the content store, whose top-level directories are
   its shares, and the policy as its `ISmbAuthenticationPolicy` (ADR-0073 decisions 2, 3 and 6),

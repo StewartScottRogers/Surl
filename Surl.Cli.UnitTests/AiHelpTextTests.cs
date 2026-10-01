@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303) and smb (BL-299), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299) and rtsp (BL-317), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "imap", "limits", "listen-urls",
-        "logging", "mqtt", "pop3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
+        "logging", "mqtt", "pop3", "rtsp", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -36,6 +36,7 @@ public sealed partial class AiHelpTextTests
         "| `logging` | Log levels, tracing and the log file |",
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `pop3` | POP3 and POP3S protocol |",
+        "| `rtsp` | RTSP protocol |",
         "| `security` | Options that widen what a peer may do |",
         "| `smb` | SMB and SMBS protocol |",
         "| `smtp` | SMTP and SMTPS protocol |",

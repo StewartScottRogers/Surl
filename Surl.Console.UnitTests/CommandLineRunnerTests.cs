@@ -86,8 +86,8 @@ public sealed class CommandLineRunnerTests
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "mqtt", "mqtts", "pop3", "pop3s", "scp", "sftp", "smb", "smbs", "smtp", "smtps", "telnet", "tftp", "ws", "wss"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps mqtt mqtts pop3 pop3s scp sftp smb smbs smtp smtps telnet tftp ws wss" + NewLine);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "mqtt", "mqtts", "pop3", "pop3s", "rtsp", "scp", "sftp", "smb", "smbs", "smtp", "smtps", "telnet", "tftp", "ws", "wss"]), output);
+        StringAssert.EndsWith(output, NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss" + NewLine);
         Assert.AreEqual(string.Empty, error);
     }
 
@@ -132,11 +132,11 @@ public sealed class CommandLineRunnerTests
     {
         var factory = new FakeListenerFactory();
 
-        var (exitCode, output, error) = await RunAsync(factory, "http://127.0.0.1:0/", "rtsp://127.0.0.1:0/");
+        var (exitCode, output, error) = await RunAsync(factory, "http://127.0.0.1:0/", "ldap://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.AreEqual(string.Empty, output);
-        Assert.AreEqual("surl: (1) Protocol \"rtsp\" not supported" + NewLine, error);
+        Assert.AreEqual("surl: (1) Protocol \"ldap\" not supported" + NewLine, error);
         Assert.IsEmpty(factory.StartedListenUrls);
     }
 
@@ -310,7 +310,7 @@ public sealed class CommandLineRunnerTests
             },
             "--directory",
             "served",
-            "rtsp://127.0.0.1:0/");
+            "ldap://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.IsEmpty(lockedPaths);

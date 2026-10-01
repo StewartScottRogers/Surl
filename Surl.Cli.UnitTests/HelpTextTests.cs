@@ -18,6 +18,7 @@ public sealed class HelpTextTests
         " logging    Log levels, tracing and the log file",
         " mqtt       MQTT and MQTTS protocol",
         " pop3       POP3 and POP3S protocol",
+        " rtsp       RTSP protocol",
         " security   Options that widen what a peer may do",
         " smb        SMB and SMBS protocol",
         " smtp       SMTP and SMTPS protocol",
@@ -142,7 +143,7 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, content, dict, ftp, gopher, http, imap, limits, logging, mqtt, pop3,",
-            "security, smb, smtp, ssh, surl, telnet, testing, tftp, tls, websocket.",
+            "rtsp, security, smb, smtp, ssh, surl, telnet, testing, tftp, tls, websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -405,7 +406,7 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, imap, mqtt, pop3, smb, smtp, ssh,",
+            "        Categories: auth, ftp, http, imap, mqtt, pop3, rtsp, smb, smtp, ssh,",
             "        websocket.",
             "");
 
@@ -416,7 +417,7 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, imap, mqtt, pop3, smb, smtp, ssh,",
+            "        Categories: auth, ftp, http, imap, mqtt, pop3, rtsp, smb, smtp, ssh,",
             "        websocket.",
             "");
 
@@ -430,8 +431,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, mqtt, pop3, security, smb, smtp,",
-                "        ssh, testing, websocket.",
+                "        Categories: auth, ftp, http, imap, mqtt, pop3, rtsp, security, smb,",
+                "        smtp, ssh, testing, websocket.",
                 "",
             ]);
 
@@ -447,8 +448,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, mqtt, pop3, security, smtp, testing,",
-                "        websocket.",
+                "        Categories: auth, ftp, http, imap, mqtt, pop3, rtsp, security, smtp,",
+                "        testing, websocket.",
                 "",
             ]);
 
@@ -477,7 +478,7 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, imap, pop3, security, smb, smtp, testing,",
+                "        Categories: auth, http, imap, pop3, rtsp, security, smb, smtp, testing,",
                 "        websocket.",
                 "",
             ]);
@@ -565,6 +566,22 @@ public sealed class HelpTextTests
             Row(32, "    --max-line <bytes>", "Longest command line accepted"),
             Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Rtsp_ListsEveryOptionTheRtspServerReads() =>
+        AssertOutput(
+            HelpText.Answer("rtsp"),
+            "rtsp: RTSP protocol",
+            Row(34, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(34, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(34, "    --allow-uploads", "Accept uploads into served files"),
+            Row(34, "    --auth <methods>", "Authentication methods accepted"),
+            Row(34, "    --directory <directory>", "Data directory, else in memory"),
+            Row(34, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(34, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(34, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
+            Row(34, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(34, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Smb_ListsEveryOptionTheSmbServerReads() =>

@@ -18,6 +18,7 @@ using Surl.Protocol.Http;
 using Surl.Protocol.Imap;
 using Surl.Protocol.Mqtt;
 using Surl.Protocol.Pop3;
+using Surl.Protocol.Rtsp;
 using Surl.Protocol.Smb;
 using Surl.Protocol.Smtp;
 using Surl.Protocol.Ssh;
@@ -406,7 +407,8 @@ internal sealed class CommandLineRunner(
     // --ws-echo it echoes every client message instead (ADR-0071 decisions 3, 4 and 8). The SMB
     // server serves the content store's top-level directories as shares, its NTLMv1 session setups
     // judged by the one policy; it answers smb and, TLS from the first byte, smbs itself
-    // (ADR-0073 decisions 3 and 6).
+    // (ADR-0073 decisions 3 and 6). The RTSP server serves the one content store, each request
+    // judged by the one policy as HTTP is; curl has no rtsps (ADR-0074 decision 7).
     private static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
         ServiceState serviceState,
@@ -434,6 +436,7 @@ internal sealed class CommandLineRunner(
             new MqttProtocolServer(serviceState.RetainedMessages, authenticationPolicy),
             pop3Server,
             new ImplicitTlsSchemeServer(pop3Server, "pop3s"),
+            new RtspProtocolServer(contentStore, authenticationPolicy),
             new SmbProtocolServer(contentStore, authenticationPolicy),
             smtpServer,
             new ImplicitTlsSchemeServer(smtpServer, "smtps"),

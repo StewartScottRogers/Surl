@@ -12,7 +12,7 @@ public sealed class AiHelpExamplesTests
         string[] topics =
         [
             "overview", "listen-urls", "listen-urls", "surl", "content", "content", "content", "auth", "auth", "testing", "tls", "tls",
-            "logging", "limits", "dict", "ftp", "gopher", "http", "imap", "mqtt", "pop3", "smb", "smtp", "ssh", "telnet", "tftp",
+            "logging", "limits", "dict", "ftp", "gopher", "http", "imap", "mqtt", "pop3", "rtsp", "smb", "smtp", "ssh", "telnet", "tftp",
             "websocket", "websocket",
         ];
 
