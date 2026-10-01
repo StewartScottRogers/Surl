@@ -125,14 +125,39 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
             $"curl: (60) Denied establishing ssh session: mismatch SHA256 fingerprint. Remote {Sha256(surl)} is not equal to {otherSha256}");
     }
 
+    // Off Windows, upstream curl's findfile falls back from HOME to the account's own home
+    // directory (getpwuid, src/tool_findfile.c), which no environment variable redirects; where
+    // that holds a .ssh/known_hosts file - as on GitHub's macOS runners - curl reads it, does not
+    // find surl's key and exits 60 instead of 2. Each case is pinned in its own test.
     [TestMethod]
     public async Task HostKey_NoPinAndNoKnownHostsFile_Exits2()
     {
+        if (AccountsOwnKnownHostsFileExists())
+        {
+            Assert.Inconclusive("The account's own home directory holds .ssh/known_hosts, which curl falls back to.");
+        }
+
         await using var surl = await StartSurlAsync("sftp", "--throwaway-hostkey", "--user", Account);
 
         var result = await RunCurlAsync(surl, "-u", Account, surl.UrlOf("a.txt"));
 
         Assert.AreEqual(2, result.ExitCode, result.StandardError);
+    }
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public async Task HostKey_NoPinAndOnlyTheAccountsOwnKnownHostsFile_Exits60()
+    {
+        if (!AccountsOwnKnownHostsFileExists())
+        {
+            Assert.Inconclusive("The account's own home directory holds no .ssh/known_hosts for curl to fall back to.");
+        }
+
+        await using var surl = await StartSurlAsync("sftp", "--throwaway-hostkey", "--user", Account);
+
+        var result = await RunCurlAsync(surl, "-u", Account, surl.UrlOf("a.txt"));
+
+        Assert.AreEqual(60, result.ExitCode, result.StandardError);
     }
 
     [TestMethod]
@@ -254,6 +279,11 @@ public sealed class UpstreamCurlLogsInToSurlOverSshTests
 
     private Task<SurlOnLoopback> StartSurlAsync(string scheme, params string[] options) =>
         SurlOnLoopback.StartAsync(scheme, ServedFiles, [], ["-v", .. options], TestContext.CancellationToken);
+
+    private static bool AccountsOwnKnownHostsFileExists() =>
+        !OperatingSystem.IsWindows()
+        && File.Exists(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh", "known_hosts"));
 
     private Task<UpstreamCurlRunResult> RunCurlAsync(SurlOnLoopback surl, params string[] arguments) =>
         PinnedUpstreamCurlOverSsh.RunAsync(TestContext, curlHome, surl, arguments);

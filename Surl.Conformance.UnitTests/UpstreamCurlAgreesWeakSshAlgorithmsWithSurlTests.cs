@@ -4,7 +4,8 @@ namespace Surl.Conformance;
 /// The pinned upstream curl build agrees each of the four OpenSSL-only SSH algorithms ADR-0061 has
 /// surl offer behind <c>--allow-weak-ssh-algorithms</c> - <c>blowfish-cbc</c>, <c>cast128-cbc</c>,
 /// <c>hmac-ripemd160</c> and <c>hmac-ripemd160@openssh.com</c> - with a live, in-process
-/// <c>surl sftp://</c> and downloads a file over it. libssh2 takes the first name in its own list
+/// <c>surl sftp://</c> and downloads a file over it - except the macOS pin, which agrees each cipher
+/// and then crashes. libssh2 takes the first name in its own list
 /// that surl offers, so surl narrows its offer to the one name with <c>--ssh-ciphers</c> or
 /// <c>--ssh-macs</c> (ADR-0066); a MAC case also narrows the cipher to <c>aes128-ctr</c>, because
 /// an AEAD cipher would leave the MAC unused. On Windows the build is the supplementary OpenSSL
@@ -44,20 +45,39 @@ public sealed class UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests
     [TestCleanup]
     public void DeleteCurlHome() => curlHome.Dispose();
 
+    // A process killed by SIGSEGV, as .NET reports it on Unix: 128 + 11.
+    private const int KilledBySegmentationFault = 139;
+
     [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.OSX)]
     [DataRow("blowfish-cbc")]
     [DataRow("cast128-cbc")]
     public async Task Download_CipherOnlySurlOffers_AgreesItAndWritesTheFile(string cipher)
     {
         await using var surl = await StartSurlAsync("--ssh-ciphers", cipher);
-        var configuration = await curlHome.WriteFileAsync(
-            "openssl.cnf", System.Text.Encoding.UTF8.GetBytes(LegacyProviderConfiguration), TestContext.CancellationToken);
-        var environment = new Dictionary<string, string>(curlHome.Environment) { ["OPENSSL_CONF"] = configuration };
 
-        var result = await RunCurlAsync(surl, environment);
+        var result = await RunCurlAsync(surl, await LegacyProviderEnvironmentAsync());
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(HelloWorld, result.StandardOutput);
+        StringAssert.Contains(NegotiatedAlgorithms(surl), $"cipher {cipher}/{cipher},");
+    }
+
+    // The macOS pin (stunnel/static-curl's osx-arm64 build) offers both ciphers and agrees them
+    // with surl, then crashes with SIGSEGV after NEWKEYS, when it first encrypts with the agreed
+    // cipher, even with OPENSSL_CONF activating the legacy provider (CI, 2026-10-01).
+    [TestMethod]
+    [OSCondition(OperatingSystems.OSX)]
+    [DataRow("blowfish-cbc")]
+    [DataRow("cast128-cbc")]
+    public async Task Download_CipherOnlySurlOffersOnTheMacOsBuild_AgreesItAndCurlCrashes(string cipher)
+    {
+        await using var surl = await StartSurlAsync("--ssh-ciphers", cipher);
+
+        var result = await RunCurlAsync(surl, await LegacyProviderEnvironmentAsync());
+
+        Assert.AreEqual(KilledBySegmentationFault, result.ExitCode, result.StandardError);
+        Assert.IsEmpty(result.StandardOutput);
         StringAssert.Contains(NegotiatedAlgorithms(surl), $"cipher {cipher}/{cipher},");
     }
 
@@ -80,6 +100,13 @@ public sealed class UpstreamCurlAgreesWeakSshAlgorithmsWithSurlTests
         var notes = string.Join('\n', SshLogNotes.NegotiatedAlgorithms(surl.Log));
         TestContext.WriteLine($"surl negotiated with {UpstreamCurlLocator.CurrentPlatform}'s OpenSSL build: {notes}");
         return notes;
+    }
+
+    private async Task<Dictionary<string, string>> LegacyProviderEnvironmentAsync()
+    {
+        var configuration = await curlHome.WriteFileAsync(
+            "openssl.cnf", System.Text.Encoding.UTF8.GetBytes(LegacyProviderConfiguration), TestContext.CancellationToken);
+        return new Dictionary<string, string>(curlHome.Environment) { ["OPENSSL_CONF"] = configuration };
     }
 
     private Task<SurlOnLoopback> StartSurlAsync(params string[] options) =>
