@@ -21,6 +21,25 @@ internal static class SshTestExchange
 
     public static SshAlgorithmOffer RsaOffer { get; } = SshAlgorithmOffer.Default(["rsa-sha2-512", "rsa-sha2-256"], aesGcmIsSupported: true);
 
+    /// <summary>
+    /// <see cref="RsaOffer"/> with <c>--allow-weak-ssh-algorithms</c>: the weak algorithms of
+    /// every list too, <c>ssh-rsa</c> among them.
+    /// </summary>
+    public static SshAlgorithmOffer WeakRsaOffer { get; } = SshAlgorithmOffer.Default(RsaHostKeys.SignatureAlgorithms, aesGcmIsSupported: true, allowWeakAlgorithms: true);
+
+    /// <summary>
+    /// <see cref="RsaOffer"/> with <c>twofish256-cbc</c> added to its ciphers: a cipher the server
+    /// has no packet protection for, so a client that agrees it reaches the refusal after <c>NEWKEYS</c>.
+    /// </summary>
+    public static SshAlgorithmOffer OfferWithAnUnbuiltCipher { get; } = RsaOffer with { Cipher = [.. RsaOffer.Cipher, "twofish256-cbc"] };
+
+    /// <summary>
+    /// <see cref="RsaOffer"/> with <c>diffie-hellman-group15-sha512</c> put first among its key exchange
+    /// methods: a method the server has not built (ADR-0051 does not offer it), so a client that agrees it
+    /// reaches the refusal at its first message.
+    /// </summary>
+    public static SshAlgorithmOffer OfferWithAnUnbuiltKeyExchange { get; } = RsaOffer with { KeyExchange = ["diffie-hellman-group15-sha512", .. RsaOffer.KeyExchange] };
+
     public static SshProtocolServer Server(SshAlgorithmOffer? offer = null, ISshAuthenticationPolicy? policy = null) =>
         new(RsaHostKeys, offer ?? RsaOffer, policy ?? new AnonymousAuthenticationPolicy(), new FixedRandomSource());
 
@@ -127,9 +146,9 @@ internal static class SshTestExchange
         return packet;
     }
 
-    public static byte[] ServerKexInitPacket()
+    public static byte[] ServerKexInitPacket(SshAlgorithmOffer? offer = null)
     {
-        var packet = Packet(SshKexInit.ForServer(RsaOffer, new FixedRandomSource()).ToPayload());
+        var packet = Packet(SshKexInit.ForServer(offer ?? RsaOffer, new FixedRandomSource()).ToPayload());
         packet.AsSpan(packet.Length - packet[4]).Fill(RandomByte);
 
         return packet;

@@ -63,7 +63,10 @@ not measured here, only in the conformance test that proves the whole exchange.
    method's; an unknown name, and the empty one (the Bearer token's), gets a dummy with a random
    hash, so it costs the same work and is refused. NTOWFv2 upper-cases the user, so an answer
    computed for `TESTER` proves the same password as one for `tester`, but only the name the
-   account was configured with is found.
+   account was configured with is found. *Amended by
+   [ADR-0075](ADR-0075-an-ntlm-account-keeps-four-nt-hashes-for-a-non-ascii-password.md): each
+   account keeps four NT hashes, one for each way a pinned build hashes a non-ASCII password,
+   and an answer proving any of them is accepted.*
 7. **Outcomes.** A malformed message, a type 2, an answer on a connection with no challenge and a
    wrong proof are all `Refused` (delayed by the policy, ADR-0032 section 8) and never thrown; a
    refused or accepted answer names its user for the login note (ADR-0038).

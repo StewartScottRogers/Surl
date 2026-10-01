@@ -1,0 +1,14 @@
+EHLO c
+AUTH CRAM-MD5
+dXNlciA3OWE0Y2UyNDU3YzQyMGY5ZGQ4MzBkZTcyZjc4YTdkMg==
+MAIL FROM:<a@x> SIZE=53
+RCPT TO:<b@y>
+DATA
+From: a@x
+To: b@y
+Subject: hi
+
+hello
+..dot line
+.
+QUIT

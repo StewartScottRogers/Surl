@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317) and ldap (BL-310), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "content", "dict", "exit-codes", "gopher", "http", "limits", "listen-urls",
-        "logging", "mqtt", "security", "surl", "telnet", "testing", "tftp", "tls",
+        "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
+        "logging", "mqtt", "pop3", "rtsp", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -27,22 +27,31 @@ public sealed partial class AiHelpTextTests
         "| `content` | Served files and the data directory |",
         "| `dict` | DICT protocol |",
         "| `exit-codes` | Exit codes and what to do next |",
+        "| `ftp` | FTP and FTPS protocol |",
         "| `gopher` | GOPHER and GOPHERS protocol |",
         "| `http` | HTTP and HTTPS protocol |",
+        "| `imap` | IMAP and IMAPS protocol |",
+        "| `ldap` | LDAP protocol |",
         "| `limits` | Connection, time and size limits |",
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
         "| `mqtt` | MQTT and MQTTS protocol |",
+        "| `pop3` | POP3 and POP3S protocol |",
+        "| `rtsp` | RTSP protocol |",
         "| `security` | Options that widen what a peer may do |",
+        "| `smb` | SMB and SMBS protocol |",
+        "| `smtp` | SMTP and SMTPS protocol |",
+        "| `ssh` | SSH protocol |",
         "| `surl` | The command line tool itself |",
         "| `telnet` | TELNET protocol |",
         "| `testing` | Loosening options for tests (warned) |",
         "| `tftp` | TFTP protocol |",
         "| `tls` | TLS certificates and versions |",
+        "| `websocket` | WebSocket protocol |",
     ];
 
     [TestMethod]
-    public void Topics_AreTheAdrsSixteenInOrdinalOrder()
+    public void Topics_AreTheAdrsTopicsAndEachProtocolAddedInOrdinalOrder()
     {
         CollectionAssert.AreEqual(AdrTopicNames, AiHelpTopics.All.Select(topic => topic.Name).ToArray());
     }
@@ -358,7 +367,7 @@ public sealed partial class AiHelpTextTests
             "| --- | --- | --- | --- | --- | --- | --- |",
             "| `--max-line <bytes>` | bytes | 8192 | digits with an optional decimal point and more digits, then at most one suffix "
                 + "k, m, g, t or p in either case, each 1024 times the one before; at most 9223372036854775807 bytes; 0 means no limit "
-                + "| no | dict, gopher, limits, telnet | Longest command line accepted |",
+                + "| no | dict, ftp, gopher, imap, limits, pop3, smtp, telnet | Longest command line accepted |",
             "",
             "## Exit codes",
             "",
@@ -396,6 +405,18 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Ldap_SaysKeytabAnswersANegotiateBindWithKerberosAndNtlmWithoutIt()
+    {
+        var page = AiHelpText.Answer("ldap").Output;
+
+        StringAssert.Contains(page, "With `--keytab` and `--auth negotiate`, the Windows curl's Negotiate bind to `ldap://localhost:<port>`");
+        StringAssert.Contains(page, "answered with Kerberos inside `GSS-SPNEGO`");
+        StringAssert.Contains(page, "the service principal `ldap/<the machine's host name>:<port>`, with the port");
+        StringAssert.Contains(page, "sealed in RFC 4121 wrap tokens");
+        StringAssert.Contains(page, "without `--keytab` the Negotiate bind is answered with NTLM");
+    }
+
+    [TestMethod]
     public void Answer_ExitCodes_IsPinned()
     {
         string[] expected =
@@ -430,7 +451,9 @@ public sealed partial class AiHelpTextTests
             "| 1 | `UnsupportedProtocol` | A listen URL names a scheme this build does not serve "
                 + "| Run surl --version to list the schemes this build serves, and use one of them |",
             "| 2 | `FailedInit` | The command line cannot be used: an option or its argument refused, "
-                + "an option not available in this build, no listen URL, a malformed --user-file, or a --cacert file that does not exist "
+                + "no listen URL, a malformed --user-file, --authorized-keys or --keytab file, "
+                + "a --keytab with no key surl can use, a --hostkey or --hostcert file surl cannot use, "
+                + "an scp or sftp listen URL with no host key, or a --cacert file that does not exist "
                 + "| Read the surl: line on stderr, which names what was refused, and fix it; "
                 + "the option tables give each option's allowed values |",
             "| 3 | `MalformedUrl` | A listen URL is malformed "
@@ -441,8 +464,8 @@ public sealed partial class AiHelpTextTests
                 + "or the trace file is the --log-file file "
                 + "| Make the data directory writable by the user surl runs as, or give a log or trace file that can be opened "
                 + "and is not the --log-file file |",
-            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file or the MQTT retained-message file "
-                + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates neither |",
+            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, the MQTT retained-message file or the mail store "
+                + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates none of them |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",
             "| 58 | `CertificateProblem` | A secure listen URL has no certificate, or the --cert or --key file cannot be used "
@@ -529,7 +552,11 @@ public sealed partial class AiHelpTextTests
     [TestMethod]
     public void Answer_EveryPage_NamesOnlyOptionsThatExist()
     {
-        foreach (var name in NamedLongOptions())
+        // surl's SSH host-key note and --throwaway-hostkey warning name the curl options that pin
+        // the key (ADR-0051, decisions 8 and 11).
+        string[] curlOptionsSurlNames = ["hostpubsha256", "hostpubmd5"];
+
+        foreach (var name in NamedLongOptions().Except(curlOptionsSurlNames))
         {
             var exists = CommandLineOptions.TryFindLong(name, out _)
                 || (name.StartsWith("no-", StringComparison.Ordinal) && CommandLineOptions.TryFindLong(name[3..], out var negated) && negated.Negatable);
@@ -560,12 +587,27 @@ public sealed partial class AiHelpTextTests
             "surl: warning:",
             "surl: (124) Directory <path> is in use by another surl process",
             "surl: (37) Could not open directory <path>",
+            "surl: (37) Could not read <file>: line <n>: <what>",
             "surl: (45) Could not bind <scheme>://<address>:<port>/: <reason>",
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
             "surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)",
-            "surl: (2) --<option> is not available in this build",
-            "surl: (2) --auth gssapi is not available in this build",
+            "surl: (37) Could not read host certificate <file>",
+            "surl: (2) Host certificate <file>: not an OpenSSH host certificate",
+            "surl: (2) Host certificate <file>: certifies no --hostkey key",
+            "surl: (2) Host certificate <file>: a <type> host certificate is already given by <file>",
+            "surl: (2) --ssh-ciphers: surl does not offer the SSH cipher <name>",
+            "surl: (2) --ssh-ciphers: <name> needs --allow-weak-ssh-algorithms",
+            "surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman SSH algorithms are offered",
+            "surl: (37) Could not read authorized keys <file>",
+            "surl: (37) Could not read keytab <file>",
+            "surl: (2) Keytab <file> is malformed at byte <offset>",
+            "surl: (2) Keytab <file> holds no key surl can use",
+            "surl: warning: --keytab: skipped the <enctype> key of <principal>",
+            "surl: (2) --auth gssapi needs --keytab",
+            "surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi",
+            "surl: (2) <url> needs a host key: give --hostkey <file>, or --throwaway-hostkey for a throwaway one",
+            "surl: warning: --throwaway-hostkey: serving a throwaway SSH host key (--hostpubsha256 <base64>); clients must pin it or skip the check (curl -k)",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

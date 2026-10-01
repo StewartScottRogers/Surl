@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using Surl.Kerberos;
 
 namespace Surl.Authentication;
 
@@ -7,17 +8,24 @@ namespace Surl.Authentication;
 /// the client's start.
 /// </summary>
 /// <param name="Policy">The policy: its accounts, <c>--allow-anonymous</c> and refusal delay.</param>
+/// <param name="Scheme">The listen URL's scheme, which names the Kerberos service SASL <c>GSSAPI</c> answers (ADR-0057, decision 2).</param>
 /// <param name="Mechanism">The mechanism's registered name, upper case: the login note's method.</param>
 /// <param name="InitialResponse">The decoded initial response, or <see langword="null"/> when none was sent.</param>
 /// <param name="ClientCertificate">
 /// The connection's verified TLS client certificate, or <see langword="null"/> when it has none:
 /// the identity SASL <c>EXTERNAL</c> logs in as (ADR-0049, section 4).
 /// </param>
+/// <param name="CanCarrySecurityLayer">
+/// Whether the server carries a security layer after the login (LDAP), so NTLM grants and negotiates one
+/// and is never accepted unchecked (ADR-0072, decision 4).
+/// </param>
 internal sealed record SaslExchangeContext(
     AuthenticationPolicy Policy,
+    string Scheme,
     string Mechanism,
     ReadOnlyMemory<byte>? InitialResponse,
-    X509Certificate2? ClientCertificate)
+    X509Certificate2? ClientCertificate,
+    bool CanCarrySecurityLayer = false)
 {
     /// <summary>
     /// The configured accounts.
@@ -44,7 +52,13 @@ internal sealed record SaslExchangeContext(
     /// A new NTLM handshake over the accounts, with the policy's server challenges (ADR-0039).
     /// </summary>
     /// <returns>The handshake, with no server challenge issued yet.</returns>
-    public NtlmHandshake StartNtlmHandshake() => new(Accounts, Policy.NtlmServerChallenges);
+    public NtlmHandshake StartNtlmHandshake() => new(Accounts, Policy.NtlmServerChallenges, CanCarrySecurityLayer);
+
+    /// <summary>
+    /// What checks a client's Kerberos AP-REQ against the <c>--keytab</c> keys; the policy offers
+    /// and starts SASL <c>GSSAPI</c> only when there is one (ADR-0057, decision 9).
+    /// </summary>
+    public KerberosAcceptor KerberosAcceptor => Policy.Settings.KerberosAcceptor!;
 
     /// <summary>
     /// Waits the refusal delay on the policy's clock (ADR-0032, section 8).

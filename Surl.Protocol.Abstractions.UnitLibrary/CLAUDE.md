@@ -17,6 +17,8 @@ What it holds:
   `ExchangeContext.Limits`, and the optional refusal contracts a server implements to
   answer a connection or flow past a connection limit, `IConnectionRefusalWriter` and
   `IDatagramRefusalWriter` with `ConnectionRefusal`.
+- How a server tells a limit's cancellation from shutdown (ADR-0059):
+  `ExchangeContext.ShutdownToken`, set by the engine, and `ExchangeContext.IsCancelledForALimit`.
 - The listener seam `Surl.Networking` implements: `IListenerFactory`,
   `IConnectionListener`, `IDatagramListener`, and a failure to bind,
   `ListenerBindException` with `ListenerBindFailure`.
@@ -39,13 +41,19 @@ What it holds:
   (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request
   proceed, and is the test double protocol tests share.
-- The mail login contract (ADR-0049, section 6), beside `IAuthenticationPolicy`:
-  `IMailAuthenticationPolicy` (the `MailLoginOffer` a mail server advertises, one
-  `ISaslExchange` per `AUTH`/`AUTHENTICATE` started from a `SaslExchangeStart`, and POP3's
-  `ApopLogin`), each step a `MailLoginStep` with its `MailLoginOutcome`. The server owns the
-  base64 framing; the policy owns every mechanism. `AnonymousAuthenticationPolicy` implements
-  it too: it offers `PLAIN` and the clear-password login, and ends every exchange
-  `AcceptedUnchecked` in the fewest steps (the initial response, or one empty challenge).
+- The SASL login contract (ADR-0049, section 6, made protocol-neutral by ADR-0072 decision
+  4), beside `IAuthenticationPolicy`: `ISaslAuthenticationPolicy` (the mechanisms a
+  connection offers, asked with a `SaslOfferRequest`, and one `ISaslExchange` per login
+  started from a `SaslExchangeStart`), each step a `SaslLoginStep` with its
+  `SaslLoginOutcome`, and an accepted step's `ISaslSecurityLayer` when the server said it
+  `CanCarrySecurityLayer` and the mechanism negotiated one, with any data its success carries
+  (`AdditionalSuccessData`, such as LDAP `DIGEST-MD5`'s `rspauth`). `IMailAuthenticationPolicy`
+  extends it with the mail-only members: the `MailLoginOffer` a mail server advertises and
+  POP3's `ApopLogin`. The server owns the framing (base64, and the security layer's 4-byte
+  lengths); the policy owns every mechanism. `AnonymousAuthenticationPolicy` implements it
+  too: it offers `PLAIN` and the clear-password login, and ends every exchange
+  `AcceptedUnchecked`, with no security layer, in the fewest steps (the initial response, or
+  one empty challenge).
 - The SSH login contract (ADR-0051, section 7), beside `IAuthenticationPolicy`:
   `ISshAuthenticationPolicy` judges an `SshNoneLogin`, an `SshPasswordLogin` (`password` or
   `keyboard-interactive`) and an `SshPublicKeyLogin` (with its `SshPublicKeyProof`: a query,
@@ -53,6 +61,13 @@ What it holds:
   its `SshLoginOutcome`. The server owns the RFC 4252 framing and the signature check; the
   policy owns the accounts, keys, delay and note. `AnonymousAuthenticationPolicy` implements
   it too: every login `AcceptedUnchecked` and every public-key query `KeyAcceptable`.
+- The SMB login contract (ADR-0073, decision 3), beside `IAuthenticationPolicy`:
+  `ISmbAuthenticationPolicy` judges an `SmbNtlmV1Login` (the user and domain as sent, the
+  server challenge, the LM and NT responses and the TLS session; its `ToString` shows only
+  the user and domain) as an `SmbLoginVerdict` with its `SmbLoginOutcome`. The server owns
+  the SMB framing and the challenge; the policy owns the accounts, the NTLMv1 check, the
+  delay and the note. `AnonymousAuthenticationPolicy` implements it too: every login
+  `AcceptedUnchecked`.
 
 - The FTP data-connection seam (ADR-0052, decision 9): `IDataConnectionOpener` (a passive
   listener, `IPassiveDataListener`, or an active connection, each an `IConnection`), a failure

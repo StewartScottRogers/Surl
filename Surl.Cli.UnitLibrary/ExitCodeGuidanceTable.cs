@@ -23,10 +23,12 @@ internal static class ExitCodeGuidanceTable
             ["listen-urls"]),
         new(
             SurlExitCode.FailedInit,
-            "The command line cannot be used: an option or its argument refused, an option not available in this build, "
-            + "no listen URL, a malformed --user-file, or a --cacert file that does not exist",
+            "The command line cannot be used: an option or its argument refused, "
+            + "no listen URL, a malformed --user-file, --authorized-keys or --keytab file, a --keytab with no key surl can use, "
+            + "a --hostkey or --hostcert file surl cannot use, "
+            + "an scp or sftp listen URL with no host key, or a --cacert file that does not exist",
             "Read the surl: line on stderr, which names what was refused, and fix it; the option tables give each option's allowed values",
-            ["auth", "limits", "surl", "tls"]),
+            ["auth", "limits", "ssh", "surl", "tls"]),
         new(
             SurlExitCode.MalformedUrl,
             "A listen URL is malformed",
@@ -46,9 +48,9 @@ internal static class ExitCodeGuidanceTable
             ["content", "logging"]),
         new(
             SurlExitCode.CouldNotReadFile,
-            "The data directory cannot be opened, or the --user-file or the MQTT retained-message file cannot be read",
-            "Check the path exists and the user surl runs as can read it; surl creates neither",
-            ["auth", "content", "mqtt"]),
+            "The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, the MQTT retained-message file or the mail store cannot be read",
+            "Check the path exists and the user surl runs as can read it; surl creates none of them",
+            ["auth", "content", "imap", "mqtt", "pop3", "smtp", "ssh"]),
         new(
             SurlExitCode.BindFailed,
             "A listener cannot bind its address and port",

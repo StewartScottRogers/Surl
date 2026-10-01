@@ -1,0 +1,55 @@
+> SETUP rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+> CSeq: 1
+> Transport: RTP/AVP/TCP;interleaved=0-1
+> 
+< RTSP/1.0 200 OK
+< CSeq: 1
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Session: 0123456789ABCDEF;timeout=60
+< Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=01234567
+< 
+> PLAY rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+> CSeq: 2
+> Session: 0123456789ABCDEF
+> 
+< RTSP/1.0 200 OK
+< CSeq: 2
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Session: 0123456789ABCDEF
+< Range: npt=0-
+< RTP-Info: url=rtsp://127.0.0.1:18554/clip.bin;seq=35243;rtptime=3454992675
+< 
+> TEARDOWN rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+> CSeq: 3
+> Session: 0123456789ABCDEF
+> 
+< RTSP/1.0 200 OK
+< CSeq: 3
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< 
+> OPTIONS rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+> CSeq: 4
+> Session: 0123456789ABCDEF
+> 
+< RTSP/1.0 200 OK
+< CSeq: 4
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Public: OPTIONS, DESCRIBE, ANNOUNCE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, SET_PARAMETER, RECORD
+< 
+> SETUP rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+> CSeq: 5
+> Session: 0123456789ABCDEF
+> Transport: RTP/AVP/TCP;interleaved=0-1
+> 
+< RTSP/1.0 200 OK
+< CSeq: 5
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Session: 0123456789ABCDEF;timeout=60
+< Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=01234567
+< 
+= curl closed the connection

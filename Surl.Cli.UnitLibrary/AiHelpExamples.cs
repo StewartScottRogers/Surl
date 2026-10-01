@@ -24,7 +24,7 @@ public static class AiHelpExamples
             [ListeningOnHttp, "Listening on tftp://127.0.0.1:<port>/"],
             [],
             []),
-        Refused("listen-urls", "A scheme this build does not serve", ["ftp://127.0.0.1:0/"], ["surl: (1) Protocol \"ftp\" not supported"], SurlExitCode.UnsupportedProtocol),
+        Refused("listen-urls", "A scheme this build does not serve", ["rtmp://127.0.0.1:0/"], ["surl: (1) Protocol \"rtmp\" not supported"], SurlExitCode.UnsupportedProtocol),
         Refused(
             "surl",
             "No listen URL",
@@ -42,6 +42,14 @@ public static class AiHelpExamples
             SurlExitCode.DataDirectoryInUse)
             with { Precondition = AiHelpExamplePrecondition.DataDirectoryHeldByAnotherSurl },
         Serving("auth", "Require a login", ["-u", "alice:secret", HttpListenUrl], [ListeningOnHttp], [], ["curl --digest -u alice:secret http://127.0.0.1:<port>/"]),
+        Serving(
+            "auth",
+            "Read Kerberos service keys for Negotiate",
+            ["--auth", "negotiate", "--keytab", "http.keytab", "--user-file", "users.txt", "http://0.0.0.0:8080/"],
+            ["Listening on http://0.0.0.0:<port>/"],
+            ["surl: warning: --auth: accepted methods are negotiate"],
+            [])
+            with { Precondition = AiHelpExamplePrecondition.KeytabAndUserFileExist },
         Serving(
             "testing",
             "For a test: accept a password over plain HTTP",
@@ -70,8 +78,29 @@ public static class AiHelpExamples
             ["surl: option --max-time: " + OptionArgumentReader.NotANumber, "surl: " + CommandLineFailure.TryHelpLine],
             SurlExitCode.FailedInit),
         Serving("dict", "Serve DICT", ["dict://127.0.0.1:0/"], ["Listening on dict://127.0.0.1:<port>/"], [], ["curl dict://127.0.0.1:<port>/d:surl"]),
+        Serving(
+            "ftp",
+            "For a test: serve FTP without accounts",
+            ["--allow-anonymous", "ftp://127.0.0.1:0/"],
+            ["Listening on ftp://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl ftp://127.0.0.1:<port>/example.txt"]),
         Serving("gopher", "Serve Gopher", ["gopher://127.0.0.1:0/"], ["Listening on gopher://127.0.0.1:<port>/"], [], ["curl gopher://127.0.0.1:<port>/"]),
         Serving("http", "Serve HTTP", [HttpListenUrl], [ListeningOnHttp], [], ["curl -I http://127.0.0.1:<port>/"]),
+        Serving(
+            "imap",
+            "For a test: read mail without accounts",
+            ["--allow-anonymous", "imap://127.0.0.1:0/"],
+            ["Listening on imap://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl imap://127.0.0.1:<port>/"]),
+        Serving(
+            "ldap",
+            "For a test: accept a simple bind over plain LDAP",
+            ["--allow-plaintext-auth", "-u", "alice:secret", "ldap://127.0.0.1:0/"],
+            ["Listening on ldap://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections"],
+            ["curl -u alice:secret ldap://127.0.0.1:<port>/"]),
         Serving(
             "mqtt",
             "For a test: serve MQTT without accounts",
@@ -79,8 +108,38 @@ public static class AiHelpExamples
             ["Listening on mqtt://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl mqtt://127.0.0.1:<port>/example"]),
+        Serving(
+            "pop3",
+            "For a test: retrieve mail without accounts",
+            ["--allow-anonymous", "pop3://127.0.0.1:0/"],
+            ["Listening on pop3://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl pop3://127.0.0.1:<port>/"]),
+        Serving("rtsp", "Serve RTSP", ["rtsp://127.0.0.1:0/"], ["Listening on rtsp://127.0.0.1:<port>/"], [], ["curl rtsp://127.0.0.1:<port>/"]),
+        Serving(
+            "smb",
+            "Serve SMB shares to an NTLMv1 login",
+            ["--auth", "ntlmv1", "-u", "alice:secret", "--directory", "<path>", "smb://127.0.0.1:0/"],
+            ["Listening on smb://127.0.0.1:<port>/"],
+            ["surl: warning: --auth: accepted methods are ntlmv1"],
+            ["curl -u alice:secret smb://127.0.0.1:<port>/docs/readme.txt"]),
+        Serving(
+            "smtp",
+            "For a test: receive mail without accounts",
+            ["--allow-anonymous", "smtp://127.0.0.1:0/"],
+            ["Listening on smtp://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
+            ["curl --mail-from a@example.com --mail-rcpt b@example.com -T mail.txt smtp://127.0.0.1:<port>/example.com"]),
+        Refused(
+            "ssh",
+            "An SFTP listen URL with no host key",
+            ["sftp://127.0.0.1:0/"],
+            ["surl: (2) sftp://127.0.0.1:0/ needs a host key: give --hostkey <file>, or --throwaway-hostkey for a throwaway one"],
+            SurlExitCode.FailedInit),
         Serving("telnet", "Serve TELNET", ["telnet://127.0.0.1:0/"], ["Listening on telnet://127.0.0.1:<port>/"], [], ["curl telnet://127.0.0.1:<port>/"]),
         Serving("tftp", "Serve TFTP", ["tftp://127.0.0.1:0/"], ["Listening on tftp://127.0.0.1:<port>/"], [], ["curl tftp://127.0.0.1:<port>/example.txt"]),
+        Serving("websocket", "Serve WebSocket", ["ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], ["curl ws://127.0.0.1:<port>/example.txt"]),
+        Serving("websocket", "Echo WebSocket messages", ["--ws-echo", "ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], []),
     ];
 
     /// <summary>Every example, in ADR-0046 decision 7's order.</summary>

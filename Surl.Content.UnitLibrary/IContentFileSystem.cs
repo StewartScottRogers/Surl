@@ -75,6 +75,23 @@ public interface IContentFileSystem
         throw new NotSupportedException("This content file system is read-only.");
 
     /// <summary>
+    /// Opens the file at <paramref name="path"/> for asynchronous reading and writing at any
+    /// offset, creating it empty when nothing is there.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>, so the store opens no random-access upload through
+    /// it.
+    /// </remarks>
+    /// <param name="path">The full path of a file, or of nothing, in an existing directory.</param>
+    /// <returns>A readable, writable, seekable stream positioned at the start of the file, whose
+    /// <see cref="Stream.SetLength(long)"/> resizes it and whose writes past its end fill the gap
+    /// with zero bytes. The caller disposes it.</returns>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    Stream OpenFileForAsyncReadWrite(string path) =>
+        throw new NotSupportedException("This content file system is read-only.");
+
+    /// <summary>
     /// Deletes the file at <paramref name="path"/>; does nothing when no file is there.
     /// </summary>
     /// <remarks>
@@ -99,6 +116,35 @@ public interface IContentFileSystem
     /// directory of the same file system.</param>
     /// <exception cref="NotSupportedException">The seam is read-only.</exception>
     void MoveFileReplacing(string source, string destination) =>
+        throw new NotSupportedException("This content file system is read-only.");
+
+    /// <summary>
+    /// Renames the file at <paramref name="source"/> to <paramref name="destination"/>, where
+    /// nothing may be: the check and the rename are one step, so an entry that appears at the
+    /// destination meanwhile is never replaced.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>.
+    /// </remarks>
+    /// <param name="source">The full path of an existing file.</param>
+    /// <param name="destination">The full path the file is renamed to, in an existing
+    /// directory of the same file system.</param>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    void MoveFileWithoutReplacing(string source, string destination) =>
+        throw new NotSupportedException("This content file system is read-only.");
+
+    /// <summary>
+    /// Sets when the file or directory at <paramref name="path"/> was last written.
+    /// </summary>
+    /// <remarks>
+    /// A read-only seam need not implement it: the default throws
+    /// <see cref="NotSupportedException"/>.
+    /// </remarks>
+    /// <param name="path">The full path of an existing file or directory.</param>
+    /// <param name="lastWriteTimeUtc">The last write time to set.</param>
+    /// <exception cref="NotSupportedException">The seam is read-only.</exception>
+    void SetLastWriteTimeUtc(string path, DateTimeOffset lastWriteTimeUtc) =>
         throw new NotSupportedException("This content file system is read-only.");
 
     /// <summary>

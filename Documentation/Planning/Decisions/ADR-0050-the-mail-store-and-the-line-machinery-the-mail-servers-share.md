@@ -185,19 +185,27 @@ are; no command-line option sets them in this work:
 
 | Constant | Default | Counts |
 | --- | --- | --- |
-| `MailStore.DefaultMaxMessages` | 100000 | messages held, every owner and mailbox together |
-| `MailStore.DefaultMaxTotalMessageBytes` | 268435456 (256 MiB) | bytes of the distinct message files held (decision 7: copies share one) |
-| `MailStore.DefaultMaxMailboxes` | 10000 | mailboxes held other than the owners' `INBOX`es |
-| `MailStore.MaxMailboxNameBytes` | 1024 | UTF-8 bytes of one mailbox name (a limit, not a parameter) |
+| `MailboxStore.DefaultMaxMessages` | 100000 | messages held, every owner and mailbox together |
+| `MailboxStore.DefaultMaxTotalMessageBytes` | 268435456 (256 MiB) | bytes of the distinct message files held (decision 7: copies share one) |
+| `MailboxStore.DefaultMaxMailboxes` | 10000 | mailboxes held other than the owners' `INBOX`es |
+| `MailboxStore.MaxMailboxNameBytes` | 1024 | UTF-8 bytes of one mailbox name (a limit, not a parameter) |
+
+The type is `Surl.MailStore.MailboxStore`, not `MailStore`: a type named `MailStore` in the
+namespace `Surl.MailStore` would be shadowed by that namespace in every other `Surl.*`
+namespace (C# name lookup finds the namespace `Surl.MailStore` before any `using`-imported
+type), so each server would have to write `global::Surl.MailStore.MailStore`.
 
 - 256 MiB matches `InMemoryContentFileSystem.DefaultMaxTotalBytes` (ADR-0031 decision 4): room
   for two messages of ADR-0006's 100 MiB `--max-filesize` default at once. Without
   `--directory` every byte is in memory, so the bound is a memory bound too.
 - **One message** is bounded by `--max-filesize` as each server reads it (decision 8), and the
-  store refuses one larger than `MaxUploadBytes` again as a second line of defence.
+  store refuses one larger than its own `MailboxStore.MaxMessageBytes` (`Surl.Console` sets it from
+  `ExchangeLimits.MaxUploadBytes`; 0 means no limit) again as a second line of defence, with
+  the typed `MessageTooLarge` outcome and nothing stored.
 - **Past a bound** nothing is stored, and the operation (a whole delivery, a whole `COPY`) gets
   the typed `StoreFull` or `TooManyMailboxes` outcome, answered in each protocol's words (texts
-  in BL-186's and BL-187's ADRs):
+  in BL-186's and BL-187's ADRs). `StoreFull` also answers a new mailbox that would need a
+  `UIDVALIDITY` past `uint.MaxValue` (the year 2106 as Unix seconds):
 
   | Outcome | SMTP | IMAP | POP3 |
   | --- | --- | --- | --- |

@@ -126,9 +126,6 @@ public sealed class FtpCommandTests
     [DataRow("SMNT /")]
     [DataRow("STOU")]
     [DataRow("STAT")]
-    [DataRow("SITE CHMOD 644 a.txt")]
-    [DataRow("LIST")]
-    [DataRow("STOR a.txt")]
     [DataRow("")]
     public async Task Command_Unknown_Answers502(string command)
     {
@@ -153,7 +150,7 @@ public sealed class FtpCommandTests
     {
         var written = await ServeAsync("FEAT\r\n", TestContext.CancellationToken);
 
-        Assert.AreEqual(Greeting + "211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n211 End\r\n", written);
+        Assert.AreEqual(Greeting + "211-Features:\r\n EPRT\r\n EPSV\r\n MDTM\r\n MLST type*;size*;modify*;\r\n PASV\r\n REST STREAM\r\n SIZE\r\n TVFS\r\n UTF8\r\n211 End\r\n", written);
     }
 
     [TestMethod]
@@ -164,7 +161,7 @@ public sealed class FtpCommandTests
         Assert.AreEqual(
             Greeting
             + "214-The following commands are recognized:\r\n"
-            + " ABOR ACCT ALLO CDUP CWD EPRT EPSV FEAT HELP MDTM MODE NOOP OPTS PASS PASV PORT PWD QUIT REST RETR SIZE STRU SYST TYPE USER XCUP XCWD XPWD\r\n"
+            + " ABOR ACCT ALLO APPE AUTH CCC CDUP CWD DELE EPRT EPSV FEAT HELP LIST MDTM MKD MLSD MLST MODE NLST NOOP OPTS PASS PASV PBSZ PORT PROT PWD QUIT REST RETR RMD RNFR RNTO SITE SIZE STOR STRU SYST TYPE USER XCUP XCWD XMKD XPWD XRMD\r\n"
             + "214 End\r\n",
             written);
     }
@@ -204,9 +201,9 @@ public sealed class FtpCommandTests
     }
 
     [TestMethod]
-    public void Schemes_AreFtp()
+    public void Schemes_AreFtpAndFtps()
     {
-        CollectionAssert.AreEqual(new[] { "ftp" }, Server().Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "ftp", "ftps" }, Server().Schemes.ToArray());
     }
 
     [TestMethod]

@@ -1,0 +1,77 @@
+namespace Surl.HttpMessage;
+
+/// <summary>
+/// A status code and the reason phrase sent with it (RFC 9110, section 15).
+/// </summary>
+/// <param name="Code">The three-digit status code.</param>
+/// <param name="ReasonPhrase">The reason phrase RFC 9110 gives the code.</param>
+public sealed record HttpStatus(int Code, string ReasonPhrase)
+{
+    /// <summary>
+    /// 100 Continue: an interim response, sent before the server reads the body of an
+    /// HTTP/1.1 request that carries <c>Expect: 100-continue</c>.
+    /// </summary>
+    public static HttpStatus Continue { get; } = new(100, "Continue");
+
+    /// <summary>
+    /// 200 OK: the file follows.
+    /// </summary>
+    public static HttpStatus Ok { get; } = new(200, "OK");
+
+    /// <summary>
+    /// 400 Bad Request: a malformed request head, or a missing or repeated <c>Host</c>.
+    /// </summary>
+    public static HttpStatus BadRequest { get; } = new(400, "Bad Request");
+
+    /// <summary>
+    /// 401 Unauthorized: the request needs a login it did not carry, or its login was
+    /// refused; the authentication contract's challenges go with it (ADR-0032, section 4).
+    /// </summary>
+    public static HttpStatus Unauthorized { get; } = new(401, "Unauthorized");
+
+    /// <summary>
+    /// 403 Forbidden: the authentication contract refused the request outright, as for a
+    /// plain-text secret sent over an unencrypted connection (ADR-0032, section 4).
+    /// </summary>
+    public static HttpStatus Forbidden { get; } = new(403, "Forbidden");
+
+    /// <summary>
+    /// 404 Not Found: nothing to serve at the path, or a path refused or hidden.
+    /// </summary>
+    public static HttpStatus NotFound { get; } = new(404, "Not Found");
+
+    /// <summary>
+    /// 405 Method Not Allowed: a method RFC 9110 defines that the content store refuses.
+    /// </summary>
+    public static HttpStatus MethodNotAllowed { get; } = new(405, "Method Not Allowed");
+
+    /// <summary>
+    /// 408 Request Timeout: the head timeout ran out part way through a head.
+    /// </summary>
+    public static HttpStatus RequestTimeout { get; } = new(408, "Request Timeout");
+
+    /// <summary>
+    /// 413 Content Too Large: a request body past the upload limit.
+    /// </summary>
+    public static HttpStatus ContentTooLarge { get; } = new(413, "Content Too Large");
+
+    /// <summary>
+    /// 431 Request Header Fields Too Large: the head grew past its limit.
+    /// </summary>
+    public static HttpStatus RequestHeaderFieldsTooLarge { get; } = new(431, "Request Header Fields Too Large");
+
+    /// <summary>
+    /// 501 Not Implemented: a method the server does not know.
+    /// </summary>
+    public static HttpStatus NotImplemented { get; } = new(501, "Not Implemented");
+
+    /// <summary>
+    /// 503 Service Unavailable: a connection past a connection limit (ADR-0006, section 5).
+    /// </summary>
+    public static HttpStatus ServiceUnavailable { get; } = new(503, "Service Unavailable");
+
+    /// <summary>
+    /// 505 HTTP Version Not Supported: a major version other than 1.
+    /// </summary>
+    public static HttpStatus HttpVersionNotSupported { get; } = new(505, "HTTP Version Not Supported");
+}

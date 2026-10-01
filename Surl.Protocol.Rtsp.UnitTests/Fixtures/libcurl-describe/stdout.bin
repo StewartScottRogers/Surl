@@ -1,0 +1,2 @@
+setopt RTSP_STREAM_URI "rtsp://127.0.0.1:18554/clip.bin": CURLcode 0 (No error)
+DESCRIBE: CURLcode 0 (No error), status 200, session none, cseq received 1, next cseq 2, body 170 bytes "v=0\x0D\x0Ao=- 0 0 IN IP4 127.0.0.1\x0D\x0As=clip.bin\x0D\x0Ac=IN IP4 0.0.0.0\x0D\x0At=0 0\x0D\x0Aa=control:*\x0D\x0Aa=range:npt=0-\x0D\x0Am=application 0 RTP/AVP 96\x0D\x0Aa=rtpmap:96 octet-stream/90000\x0D\x0Aa=control:*\x0D\x0A", interleaved none

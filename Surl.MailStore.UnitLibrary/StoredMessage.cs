@@ -13,5 +13,5 @@ internal sealed class StoredMessage(uint uid, MessageBody body, DateTimeOffset i
 
     public MailFlags Flags { get; set; } = flags;
 
-    public MailMessageSummary Summarize() => new(Uid, Flags, InternalDate, Body.Bytes.Length);
+    public MailMessageSummary Summarize() => new(Uid, Flags, InternalDate, Body.Length);
 }

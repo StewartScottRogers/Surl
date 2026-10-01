@@ -24,13 +24,13 @@ internal abstract class BearerTokenSaslExchange(SaslExchangeContext context) : S
 
     private const string BearerPrefix = "Bearer ";
 
-    private static readonly MailLoginStep RefusedAfterErrorChallenge =
-        new(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, null);
+    private static readonly SaslLoginStep RefusedAfterErrorChallenge =
+        new(SaslLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, null);
 
     private bool isTokenRefused;
 
     /// <inheritdoc/>
-    protected override ValueTask<MailLoginStep> AnswerAsync(
+    protected override ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken)
     {
         if (isTokenRefused)
@@ -91,7 +91,7 @@ internal abstract class BearerTokenSaslExchange(SaslExchangeContext context) : S
             ? auth[BearerPrefix.Length..]
             : null;
 
-    private async ValueTask<MailLoginStep> CheckAsync(BearerLogin? login, CancellationToken cancellationToken)
+    private async ValueTask<SaslLoginStep> CheckAsync(BearerLogin? login, CancellationToken cancellationToken)
     {
         var token = login?.Token;
         // A malformed response still costs one comparison, as a wrong token does (ADR-0032, section 8).

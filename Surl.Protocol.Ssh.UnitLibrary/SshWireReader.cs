@@ -41,6 +41,13 @@ internal sealed class SshWireReader(ReadOnlyMemory<byte> payload)
     public uint ReadUInt32() => BinaryPrimitives.ReadUInt32BigEndian(ReadBytes(4).Span);
 
     /// <summary>
+    /// Reads a <c>uint64</c>, most significant byte first (SFTP's sizes and offsets).
+    /// </summary>
+    /// <returns>The value.</returns>
+    /// <exception cref="SshDisconnectRequiredException">Fewer than eight bytes remain.</exception>
+    public ulong ReadUInt64() => BinaryPrimitives.ReadUInt64BigEndian(ReadBytes(8).Span);
+
+    /// <summary>
     /// Reads <paramref name="count"/> raw bytes.
     /// </summary>
     /// <param name="count">How many bytes to read.</param>

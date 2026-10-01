@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
+- **Amended by:** [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md) (section 6: `ExchangeContext.ShutdownToken` tells a limit's cancellation from shutdown)
 
 ## Context
 

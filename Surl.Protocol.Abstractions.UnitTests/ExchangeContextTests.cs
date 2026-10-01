@@ -41,12 +41,37 @@ public sealed class ExchangeContextTests
         Assert.AreSame(limits, context.Limits);
     }
 
-    private static ExchangeContext NewContext() => new(
+    [TestMethod]
+    public void ShutdownToken_DefaultsToNone()
+    {
+        var context = NewContext();
+
+        Assert.AreEqual(CancellationToken.None, context.ShutdownToken);
+    }
+
+    [TestMethod]
+    [DataRow(false, false, false)]
+    [DataRow(true, false, true)]
+    [DataRow(true, true, false)]
+    public void IsCancelledForALimit_IsTheExchangeCancelledWhileShutdownIsNot(
+        bool isExchangeCancelled, bool isShutdown, bool expected)
+    {
+        var context = NewContext(new CancellationToken(isExchangeCancelled)) with
+        {
+            ShutdownToken = new CancellationToken(isShutdown),
+        };
+
+        Assert.AreEqual(expected, context.IsCancelledForALimit);
+    }
+
+    private static ExchangeContext NewContext() => NewContext(CancellationToken.None);
+
+    private static ExchangeContext NewContext(CancellationToken cancellationToken) => new(
         1,
         new ListenUrl("http", "localhost", 0).WithBoundPort(8080),
         new IPEndPoint(IPAddress.Loopback, 8080),
         new IPEndPoint(IPAddress.Loopback, 50000),
         new RecordingExchangeLog(),
         TimeProvider.System,
-        CancellationToken.None);
+        cancellationToken);
 }

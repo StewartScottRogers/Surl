@@ -37,6 +37,7 @@
     <ProjectReference Include="..\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cookies.UnitLibrary\Surl.Cookies.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Kerberos.UnitLibrary\Surl.Kerberos.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />

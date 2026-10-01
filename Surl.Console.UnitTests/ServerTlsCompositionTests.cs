@@ -37,6 +37,32 @@ public sealed class ServerTlsCompositionTests
     }
 
     [TestMethod]
+    public void Compose_SmtpWithSelfSigned_ServesAThrowawayCertificateForStartTls()
+    {
+        using var composition = ServerTlsComposition.Compose(Parse("--self-signed", "smtp://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsNotNull(composition.Settings);
+        Assert.IsNotNull(composition.ThrowawayCertificateFingerprint);
+    }
+
+    [TestMethod]
+    public void Compose_SmtpWithoutACertificate_HasNoSettings()
+    {
+        using var composition = ServerTlsComposition.Compose(Parse("smtp://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsNull(composition.Settings);
+    }
+
+    [TestMethod]
+    [DataRow(true, new[] { "--self-signed", "smtp://127.0.0.1:0/" })]
+    [DataRow(true, new[] { "--cert", "cert.pem", "smtp://127.0.0.1:0/" })]
+    [DataRow(false, new[] { "smtp://127.0.0.1:0/" })]
+    public void IsCertificateConfigured_CommandLine_IsTrueOnlyWithCertOrSelfSigned(bool expected, string[] args)
+    {
+        Assert.AreEqual(expected, ServerTlsComposition.IsCertificateConfigured(Parse(args)));
+    }
+
+    [TestMethod]
     public void Compose_HttpsWithoutCert_ServesAThrowawayCertificateWithTheDefaultVersions()
     {
         using var composition = ServerTlsComposition.Compose(Parse("https://127.0.0.1:0/"), TimeProvider.System);

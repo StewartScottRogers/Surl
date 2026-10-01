@@ -7,20 +7,29 @@ public sealed class HelpTextTests
 
     private static readonly string[] CategoryListLines =
     [
-        " auth      Accounts and authentication methods",
-        " content   Served files and the data directory",
-        " dict      DICT protocol",
-        " gopher    GOPHER and GOPHERS protocol",
-        " http      HTTP and HTTPS protocol",
-        " limits    Connection, time and size limits",
-        " logging   Log levels, tracing and the log file",
-        " mqtt      MQTT and MQTTS protocol",
-        " security  Options that widen what a peer may do",
-        " surl      The command line tool itself",
-        " telnet    TELNET protocol",
-        " testing   Loosening options for tests (warned)",
-        " tftp      TFTP protocol",
-        " tls       TLS certificates and versions",
+        " auth       Accounts and authentication methods",
+        " content    Served files and the data directory",
+        " dict       DICT protocol",
+        " ftp        FTP and FTPS protocol",
+        " gopher     GOPHER and GOPHERS protocol",
+        " http       HTTP and HTTPS protocol",
+        " imap       IMAP and IMAPS protocol",
+        " ldap       LDAP protocol",
+        " limits     Connection, time and size limits",
+        " logging    Log levels, tracing and the log file",
+        " mqtt       MQTT and MQTTS protocol",
+        " pop3       POP3 and POP3S protocol",
+        " rtsp       RTSP protocol",
+        " security   Options that widen what a peer may do",
+        " smb        SMB and SMBS protocol",
+        " smtp       SMTP and SMTPS protocol",
+        " ssh        SSH protocol",
+        " surl       The command line tool itself",
+        " telnet     TELNET protocol",
+        " testing    Loosening options for tests (warned)",
+        " tftp       TFTP protocol",
+        " tls        TLS certificates and versions",
+        " websocket  WebSocket protocol",
     ];
 
     // ADR-0034 decision 5's paragraphs, as --help testing and each option's page lay them out.
@@ -28,24 +37,30 @@ public sealed class HelpTextTests
     private static readonly string[] AllowAnonymousExplanationLines =
     [
         "        Accepts every request and every login without checking credentials:",
-        "        HTTP serves every request as anonymous and sends no challenge, and MQTT",
+        "        HTTP serves every request as anonymous and sends no challenge, MQTT",
         "        answers every well-formed CONNECT with CONNACK 0 whatever credentials",
-        "        it carries. A test uses it to fetch or publish without setting up",
-        "        accounts. It is not the default because anyone who can reach a listener",
-        "        then gets everything surl serves, and can publish and subscribe over",
-        "        MQTT, with no login at all. surl warns on every start while it is on,",
-        "        from the info log level up.",
+        "        it carries, SMTP takes mail and IMAP and POP3 open mailboxes with no",
+        "        login, FTP logs every USER and PASS in, and SSH logs every client in,",
+        "        with any credential or none. A test uses it to fetch or publish without",
+        "        setting up accounts. It is not the default because anyone who can reach",
+        "        a listener then gets everything surl serves, and can publish and",
+        "        subscribe over MQTT and send and read mail, with no login at all. surl",
+        "        warns on every start while it is on, from the info log level up.",
     ];
 
     private static readonly string[] AllowPlaintextAuthExplanationLines =
     [
         "        Accepts passwords and tokens sent over an unencrypted connection: HTTP",
         "        Basic and Bearer over http:// and an MQTT password over mqtt:// are",
-        "        checked instead of refused unchecked (403 Forbidden, CONNACK 5), and",
-        "        Basic and Bearer are offered in a 401 over http://. A test uses it to",
-        "        log in without a certificate. It is not the default because anyone who",
-        "        can watch the network reads the password as it is sent. surl warns on",
-        "        every start while it is on, from the info log level up.",
+        "        checked instead of refused unchecked (403 Forbidden, CONNACK 5), Basic",
+        "        and Bearer are offered in a 401 over http://, SMTP offers PLAIN and",
+        "        LOGIN over smtp:// and IMAP accepts LOGIN and offers PLAIN and LOGIN",
+        "        over imap:// without STARTTLS, POP3 offers USER, PLAIN and LOGIN over",
+        "        pop3:// without STLS, and an FTP password over ftp:// without AUTH TLS",
+        "        is checked instead of refused (530). A test uses it to log in without a",
+        "        certificate. It is not the default because anyone who can watch the",
+        "        network reads the password as it is sent. surl warns on every start",
+        "        while it is on, from the info log level up.",
     ];
 
     private static readonly string[] AuthExplanationLines =
@@ -54,22 +69,27 @@ public sealed class HelpTextTests
         "        comma-separated list in any case. For HTTP: negotiate, ntlm, digest,",
         "        basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL",
         "        mechanism by its name in lower case, as curl's login option AUTH=<mech>",
-        "        names it: ntlm, digest-md5, cram-md5, plain, login, oauthbearer,",
-        "        xoauth2 and external, and apop for POP3's APOP; this build serves none",
-        "        of those three protocols yet. external logs in as the TLS client",
-        "        certificate --cacert verifies, so it is offered only on a connection",
-        "        that sent one. gssapi is read, but a start that gives it is refused as",
-        "        not available in this build (exit code 2). surl refuses a word outside",
-        "        the list as an option badly used (exit code 2). A test uses it to offer",
-        "        one method alone, such as --auth digest for curl's --digest. ntlm and",
+        "        names it: gssapi, ntlm, digest-md5, cram-md5, plain, login,",
+        "        oauthbearer, xoauth2 and external, and apop for POP3's APOP. For SMB:",
+        "        ntlmv1, the only login curl makes in an SMB session setup; accepting",
+        "        ntlm never accepts it. external logs in as the TLS client certificate",
+        "        --cacert verifies, so it is offered only on a connection that sent one.",
+        "        gssapi logs in with a Kerberos ticket checked against the --keytab",
+        "        keys, as the account named for the ticket's client principal, such as",
+        "        user@EXAMPLE.COM, and is offered first; a start that gives it without",
+        "        --keytab is refused (exit code 2). surl refuses a word outside the list",
+        "        as an option badly used (exit code 2). A test uses it to offer one",
+        "        method alone, such as --auth digest for curl's --digest. ntlm and",
         "        negotiate are not in the default because an NTLM response is built on",
         "        MD4 and HMAC-MD5 of the password and is open to relay and offline",
-        "        cracking, and Negotiate carries NTLM; digest-md5 is not because RFC",
-        "        6331 made it Historic and curl picks it over every other mechanism;",
-        "        apop is not because its MD5 construction leaks password characters to",
-        "        anyone who can choose the timestamp it signs. surl warns on every start",
-        "        while --auth is given, from the info log level up, naming the methods",
-        "        it accepts.",
+        "        cracking, and Negotiate carries NTLM; ntlmv1 is not because its",
+        "        responses are DES over the bare MD4 hash of the password, open to",
+        "        offline cracking by anyone who sees one; gssapi is not because it needs",
+        "        --keytab; digest-md5 is not because RFC 6331 made it Historic and curl",
+        "        picks it over every other mechanism; apop is not because its MD5",
+        "        construction leaks password characters to anyone who can choose the",
+        "        timestamp it signs. surl warns on every start while --auth is given,",
+        "        from the info log level up, naming the methods it accepts.",
     ];
 
     private static readonly string[] SelfSignedExplanationLines =
@@ -88,12 +108,12 @@ public sealed class HelpTextTests
     [
         "        Makes a throwaway RSA 3072-bit SSH host key at start for an scp or sftp",
         "        listen URL when no --hostkey is given; without it, and without",
-        "        --hostkey, such a URL is to be refused at start. A test uses it to",
-        "        serve SSH without a key file; curl then needs the key's SHA-256 hash",
-        "        pinned, or -k. It is not the default because no client can know the key",
+        "        --hostkey, such a URL is refused at start. A test uses it to serve SSH",
+        "        without a key file; curl then needs the key's SHA-256 hash pinned, or",
+        "        -k. It is not the default because no client can know the key",
         "        beforehand, so a client cannot tell surl from anyone else on the path.",
-        "        It cannot be used with --hostkey. This build has no SSH server yet, so",
-        "        a start that gives it is refused (exit code 2).",
+        "        It cannot be used with --hostkey. surl warns when it makes the key,",
+        "        from the info log level up, naming the hash to pin.",
     ];
 
     // --help with no subject.
@@ -123,8 +143,9 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, content, dict, gopher, http, limits, logging, mqtt, security, surl,",
-            "telnet, testing, tftp, tls.",
+            "auth, content, dict, ftp, gopher, http, imap, ldap, limits, logging, mqtt,",
+            "pop3, rtsp, security, smb, smtp, ssh, surl, telnet, testing, tftp, tls,",
+            "websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -134,60 +155,64 @@ public sealed class HelpTextTests
     [TestMethod]
     [DataRow("all")]
     [DataRow("ALL", DisplayName = "Any case")]
-    public void Answer_All_ListsEveryOptionWithDescriptionsInColumn46(string subject)
+    public void Answer_All_ListsEveryOptionWithDescriptionsInColumn38(string subject)
     {
         var answer = HelpText.Answer(subject);
 
         AssertOutput(
             answer,
-            "     --aihelp <topic>                        Markdown help for AI agents",
-            Row(46, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(46, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
-            "     --allow-uploads                         Accept uploads into served files",
-            Row(46, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
-            Row(46, "    --auth <methods>", "Authentication methods accepted"),
-            Row(46, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
-            "     --cacert <file>                         CA certificates for client certs",
-            "     --cert <file>                           Server certificate file",
-            "     --cert-type <type>                      Format of --cert: PEM, DER or P12",
-            "     --directory <directory>                 Data directory, else in memory",
-            "     --follow-symlinks                       Follow links that stay in the root",
-            "     --head-timeout <seconds>                Time to send a request head",
-            " -h, --help <subject>                        Get help for commands",
-            Row(46, "    --hostcert <file>", "SSH host certificate file"),
-            Row(46, "    --hostkey <file>", "SSH host private key file"),
-            "     --idle-timeout <seconds>                Close an exchange idle this long",
-            "     --key <file>                            Private key for --cert",
-            "     --key-type <type>                       Format of --key: PEM or DER",
-            "     --list-directories                      Answer directory listings",
-            "     --log-file <file>                       Append the log to <file>",
-            "     --log-level <level>                     Set the log level",
-            " -M, --manual                                Display the full manual",
-            "     --max-connections <number>              Connections at once, all listeners",
-            "     --max-connections-per-address <number>  Connections at once per address",
-            "     --max-filesize <bytes>                  Largest upload accepted",
-            "     --max-line <bytes>                      Longest command line accepted",
-            "     --max-message <bytes>                   Largest framed message accepted",
-            "     --max-request-head <bytes>              Largest HTTP or RTSP request head",
-            " -m, --max-time <seconds>                    Longest time one exchange may take",
-            "     --pass <phrase>                         Passphrase for --key and --hostkey",
-            Row(46, "    --self-signed", "Throwaway certificate (warns)"),
-            "     --serve-dot-files                       Serve names that start with a dot",
-            " -S, --show-error                            Show error even when -s is used",
-            " -s, --silent                                Silent mode",
-            Row(46, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
-            "     --tls-max <version>                     Highest TLS version accepted",
-            "     --tlsv1.0                               Accept TLS 1.0 or later",
-            "     --tlsv1.1                               Accept TLS 1.1 or later",
-            "     --tlsv1.2                               Accept TLS 1.2 or later (default)",
-            "     --tlsv1.3                               Accept TLS 1.3 or later",
-            "     --trace <file>                          Write a debug trace to <file>",
-            "     --trace-ascii <file>                    Like --trace, but without hex",
-            "     --trace-time                            Add time stamps to log lines",
-            Row(46, "-u, --user <user:password>", "Add an account (repeatable)"),
-            Row(46, "    --user-file <file>", "Read accounts from a file"),
-            " -v, --verbose                               Log every exchange event",
-            " -V, --version                               Show version number and quit");
+            Row(38, "    --aihelp <topic>", "Markdown help for AI agents"),
+            Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(38, "    --allow-uploads", "Accept uploads into served files"),
+            Row(38, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
+            Row(38, "    --auth <methods>", "Authentication methods accepted"),
+            Row(38, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(38, "    --cacert <file>", "CA certificates for client certs"),
+            Row(38, "    --cert <file>", "Server certificate file"),
+            Row(38, "    --cert-type <type>", "Format of --cert: PEM, DER or P12"),
+            Row(38, "    --directory <directory>", "Data directory, else in memory"),
+            Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(38, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(38, "-h, --help <subject>", "Get help for commands"),
+            Row(38, "    --hostcert <file>", "SSH host certificate file"),
+            Row(38, "    --hostkey <file>", "SSH host private key file"),
+            Row(38, "    --idle-timeout <seconds>", "Close an exchange idle this long"),
+            Row(38, "    --key <file>", "Private key for --cert"),
+            Row(38, "    --key-type <type>", "Format of --key: PEM or DER"),
+            Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
+            Row(38, "    --list-directories", "Answer directory listings"),
+            Row(38, "    --log-file <file>", "Append the log to <file>"),
+            Row(38, "    --log-level <level>", "Set the log level"),
+            Row(38, "-M, --manual", "Display the full manual"),
+            Row(38, "    --max-connections <number>", "Connections at once, all listeners"),
+            Row(38, "    --max-connections-per-address <number>", "Connections at once per address"),
+            Row(38, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(38, "    --max-line <bytes>", "Longest command line accepted"),
+            Row(38, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(38, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
+            Row(38, "-m, --max-time <seconds>", "Longest time one exchange may take"),
+            Row(38, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
+            Row(38, "    --self-signed", "Throwaway certificate (warns)"),
+            Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(38, "-S, --show-error", "Show error even when -s is used"),
+            Row(38, "-s, --silent", "Silent mode"),
+            Row(38, "    --ssh-ciphers <names>", "Offer only these SSH ciphers"),
+            Row(38, "    --ssh-macs <names>", "Offer only these SSH MACs"),
+            Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
+            Row(38, "    --tls-max <version>", "Highest TLS version accepted"),
+            Row(38, "    --tlsv1.0", "Accept TLS 1.0 or later"),
+            Row(38, "    --tlsv1.1", "Accept TLS 1.1 or later"),
+            Row(38, "    --tlsv1.2", "Accept TLS 1.2 or later (default)"),
+            Row(38, "    --tlsv1.3", "Accept TLS 1.3 or later"),
+            Row(38, "    --trace <file>", "Write a debug trace to <file>"),
+            Row(38, "    --trace-ascii <file>", "Like --trace, but without hex"),
+            Row(38, "    --trace-time", "Add time stamps to log lines"),
+            Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(38, "    --user-file <file>", "Read accounts from a file"),
+            Row(38, "-v, --verbose", "Log every exchange event"),
+            Row(38, "-V, --version", "Show version number and quit"),
+            Row(38, "    --ws-echo", "Echo client messages, not the path"));
     }
 
     [TestMethod]
@@ -219,6 +244,7 @@ public sealed class HelpTextTests
             Row(37, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
             Row(37, "    --hostcert <file>", "SSH host certificate file"),
             Row(37, "    --hostkey <file>", "SSH host private key file"),
+            Row(35, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
             Row(37, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(37, "    --user-file <file>", "Read accounts from a file"));
 
@@ -382,7 +408,8 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, http, mqtt.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, smb, smtp,",
+            "        ssh, websocket.",
             "");
 
     [TestMethod]
@@ -392,7 +419,8 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, http, mqtt.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, smb, smtp,",
+            "        ssh, websocket.",
             "");
 
     [TestMethod]
@@ -405,7 +433,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, http, mqtt, security, testing.",
+                "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, security,",
+                "        smb, smtp, ssh, testing, websocket.",
                 "",
             ]);
 
@@ -421,7 +450,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, http, mqtt, security, testing.",
+                "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, security,",
+                "        smtp, testing, websocket.",
                 "",
             ]);
 
@@ -435,7 +465,7 @@ public sealed class HelpTextTests
                 "",
                 .. SelfSignedExplanationLines,
                 "",
-                "        Categories: security, testing, tls.",
+                "        Categories: ldap, security, smb, testing, tls.",
                 "",
             ]);
 
@@ -450,7 +480,8 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, security, testing.",
+                "        Categories: auth, http, imap, ldap, pop3, rtsp, security, smb, smtp,",
+                "        testing, websocket.",
                 "",
             ]);
 
@@ -490,6 +521,148 @@ public sealed class HelpTextTests
             Row(32, "    --max-message <bytes>", "Largest framed message accepted"),
             Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Ftp_ListsEveryOptionTheFtpServerReads() =>
+        AssertOutput(
+            HelpText.Answer("ftp"),
+            "ftp: FTP and FTPS protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(32, "    --allow-uploads", "Accept uploads into served files"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --list-directories", "Answer directory listings"),
+            Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(32, "    --max-line <bytes>", "Longest command line accepted"),
+            Row(32, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Imap_ListsEveryOptionTheImapServerReads() =>
+        AssertOutput(
+            HelpText.Answer("imap"),
+            "imap: IMAP and IMAPS protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(32, "    --max-line <bytes>", "Longest command line accepted"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Pop3_ListsEveryOptionThePop3ServerReads() =>
+        AssertOutput(
+            HelpText.Answer("pop3"),
+            "pop3: POP3 and POP3S protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --max-line <bytes>", "Longest command line accepted"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Rtsp_ListsEveryOptionTheRtspServerReads() =>
+        AssertOutput(
+            HelpText.Answer("rtsp"),
+            "rtsp: RTSP protocol",
+            Row(34, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(34, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(34, "    --allow-uploads", "Accept uploads into served files"),
+            Row(34, "    --auth <methods>", "Authentication methods accepted"),
+            Row(34, "    --directory <directory>", "Data directory, else in memory"),
+            Row(34, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(34, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(34, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
+            Row(34, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(34, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Ldap_ListsEveryOptionTheLdapServerReads() =>
+        AssertOutput(
+            HelpText.Answer("ldap"),
+            "ldap: LDAP protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --cacert <file>", "CA certificates for client certs"),
+            Row(32, "    --cert <file>", "Server certificate file"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --key <file>", "Private key for --cert"),
+            Row(32, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
+            Row(32, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(32, "    --self-signed", "Throwaway certificate (warns)"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Smb_ListsEveryOptionTheSmbServerReads() =>
+        AssertOutput(
+            HelpText.Answer("smb"),
+            "smb: SMB and SMBS protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-uploads", "Accept uploads into served files"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --cert <file>", "Server certificate file"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --key <file>", "Private key for --cert"),
+            Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(32, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(32, "    --self-signed", "Throwaway certificate (warns)"),
+            Row(32, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Smtp_ListsEveryOptionTheSmtpServerReads() =>
+        AssertOutput(
+            HelpText.Answer("smtp"),
+            "smtp: SMTP and SMTPS protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(32, "    --max-line <bytes>", "Longest command line accepted"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Ssh_ListsEveryOptionTheSshServerReads() =>
+        AssertOutput(
+            HelpText.Answer("ssh"),
+            "ssh: SSH protocol",
+            Row(37, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(37, "    --allow-uploads", "Accept uploads into served files"),
+            Row(37, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
+            Row(37, "    --authorized-keys <user:file>", "SSH public keys a user may use"),
+            Row(37, "    --directory <directory>", "Data directory, else in memory"),
+            Row(37, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(37, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(37, "    --hostcert <file>", "SSH host certificate file"),
+            Row(37, "    --hostkey <file>", "SSH host private key file"),
+            Row(37, "    --list-directories", "Answer directory listings"),
+            Row(37, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(37, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(37, "    --pass <phrase>", "Passphrase for --key and --hostkey"),
+            Row(37, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(37, "    --ssh-ciphers <names>", "Offer only these SSH ciphers"),
+            Row(37, "    --ssh-macs <names>", "Offer only these SSH MACs"),
+            Row(37, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
+            Row(37, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(37, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Security_ListsItsOptions() =>
@@ -566,7 +739,7 @@ public sealed class HelpTextTests
             "    --max-line <bytes>",
             "        Longest command line accepted. Default: 8192.",
             "",
-            "        Categories: dict, gopher, limits, telnet.",
+            "        Categories: dict, ftp, gopher, imap, limits, pop3, smtp, telnet.",
             "");
 
     [TestMethod]
@@ -610,7 +783,7 @@ public sealed class HelpTextTests
             "    --key <file>",
             "        Private key for --cert. Default: the key in the --cert file.",
             "",
-            "        Categories: tls.",
+            "        Categories: ldap, smb, tls.",
             "");
 
     [TestMethod]

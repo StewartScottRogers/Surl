@@ -1,0 +1,8 @@
+USER anonymous
+PASS ftp@example.com
+PWD
+CWD dir
+EPSV
+TYPE A
+NLST
+QUIT

@@ -11,6 +11,15 @@
   section 9's warnings grow by two lines (decision 11). `IAuthenticationPolicy` (ADR-0032 section 6,
   amended by [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md))
   is unchanged; SSH logins get a new interface beside it (decision 7).
+- **Amended by:** [ADR-0058](ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md),
+  the key exchange and host-key reading choices BL-160 made where decisions 2.1, 4 and 9 are silent;
+  [ADR-0060](ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md),
+  which replaces decision 2.2's fifth choice (BL-237);
+  [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md), which adds
+  `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160` and `hmac-ripemd160@openssh.com` from curl's
+  OpenSSL builds to decision 2's weak table (BL-252); Amendment 1 below, the choices BL-171
+  made composing the SSH server in `Surl.Console`; and Amendment 2 below, the choices BL-222 made
+  serving host certificates.
 
 ## Context
 
@@ -128,6 +137,32 @@ ADR.
   `aes*-gcm@openssh.com`); they run only on CI, so **BL-172 records their lists** from the same
   command lines, and any name in them that no row of decision 2 covers gets a task filed then.
 
+- **The Linux and macOS builds' lists (OpenSSL).** Recorded from BL-172's measurement
+  (2026-09-30). A lane cannot run CI, so BL-172 recorded them with `Record-CurlExchange.ps1 -Raw
+  -RawReplyFirst -RawReply 'SSH-2.0-surl\r\n' -Curl
+  C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe`: the supplementary Windows build
+  `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`, stunnel/static-curl's build
+  of the same tag with the same libssh2 1.11.1 and OpenSSL 4.0.1 as the Linux and macOS
+  reference pins (`UpstreamCurlBuilds.json`). It was used only as a predictor, never as evidence
+  against the reference build (ADR-0017); `UpstreamCurlOffersSshAlgorithmsTests.KexInit_LinuxAndMacOSBuilds_ListTheOpenSslAlgorithms`
+  pins these lists on the Linux and macOS CI legs, so the first CI run confirms them or fails
+  with the lists it recorded. Identification `SSH-2.0-libssh2_1.11.1`; each list the same both
+  ways where the message has two:
+
+  | List | Upstream curl 8.21.0 with libssh2's OpenSSL backend, in curl's order |
+  | --- | --- |
+  | `kex_algorithms` | `curve25519-sha256`, `curve25519-sha256@libssh.org`, `ecdh-sha2-nistp256`, `ecdh-sha2-nistp384`, `ecdh-sha2-nistp521`, then the whole Windows list above (`diffie-hellman-group-exchange-sha256` ... `kex-strict-c-v00@openssh.com`) |
+  | `server_host_key_algorithms` | `ecdsa-sha2-nistp256`, `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521`, `ecdsa-sha2-nistp256-cert-v01@openssh.com`, `ecdsa-sha2-nistp384-cert-v01@openssh.com`, `ecdsa-sha2-nistp521-cert-v01@openssh.com`, `ssh-ed25519`, `ssh-ed25519-cert-v01@openssh.com`, then the whole Windows list above (`rsa-sha2-512` ... `ssh-rsa-cert-v01@openssh.com`) |
+  | `encryption_algorithms` | `chacha20-poly1305@openssh.com`, `aes256-gcm@openssh.com`, `aes128-gcm@openssh.com`, `aes256-ctr`, `aes192-ctr`, `aes128-ctr`, `aes256-cbc`, `rijndael-cbc@lysator.liu.se`, `aes192-cbc`, `aes128-cbc`, `blowfish-cbc`, `arcfour128`, `arcfour`, `cast128-cbc`, `3des-cbc` |
+  | `mac_algorithms` | the whole Windows list above, then `hmac-ripemd160`, `hmac-ripemd160@openssh.com` |
+  | `compression_algorithms` | `none`; with `--compressed-ssh`: `zlib`, `zlib@openssh.com`, `none` |
+  | `languages` | empty |
+
+  Four of these names are in no row of decision 2 as first written: `blowfish-cbc`,
+  `cast128-cbc`, `hmac-ripemd160` and `hmac-ripemd160@openssh.com`. BL-172 filed BL-252 for
+  them, which [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)
+  decides.
+
 ### What curl does with the host key and the login (documented)
 
 - **The host-key check.** Measured above, the pinned build refuses to start an `scp://` or
@@ -143,15 +178,32 @@ ADR.
   establishing ssh session: mismatch SHA256 fingerprint". What the pinned build does with a key
   that is missing from, or differs from, its `known_hosts` file happens after the key exchange,
   which no canned server reaches: **BL-172 measures it against surl**.
+- **The host-key check, measured against surl.** Recorded from BL-172's measurement, with the
+  Windows reference build (`0E773709...`, WinCNG) against a live `surl sftp://` on 2026-09-30,
+  pinned in `Surl.Conformance.UnitTests`' `UpstreamCurlLogsInToSurlOverSshTests`:
+  - a `--hostpubsha256` that is not surl's key's is exit 60, stderr starting `curl: (60) Denied
+    establishing ssh session: mismatch SHA256 fingerprint. Remote <surl's base64> is not equal to
+    <pinned>`, followed by curl's sslcerts help text;
+  - `--knownhosts` naming an empty file (surl's key missing) is exit 60, and naming a file that
+    holds another key for `[127.0.0.1]:<port>` is exit 60 too;
+  - no pin and no `known_hosts` file is exit 2, as runs A to C above;
+  - `--hostpubmd5` with surl's MD5 value, and `-k`, both complete the transfer.
 - **User authentication** (`lib/vssh/libssh2.c` at `curl-8_21_0`, and libcurl's
   `CURLOPT_SSH_AUTH_TYPES`, default any): curl asks for the method list with a `none` request
   (`libssh2_userauth_list`), then tries, each only when the list names it: `publickey` (with
   `--key`/`--pubkey`, else `$HOME/.ssh/id_rsa`, then `id_dsa`, then the same names in the current
   directory), `password`, `hostbased`, the SSH agent (`publickey` again), and
   `keyboard-interactive` (answering every prompt with the password). When none succeeds it fails
-  with `CURLE_LOGIN_DENIED` (67), "Authentication failure". A `none` request answered
-  `SSH_MSG_USERAUTH_SUCCESS` ends authentication there (libssh2's `userauth_list` then reports
-  the session authenticated).
+  with `CURLE_LOGIN_DENIED` (67). This ADR first gave the text as "Authentication failure", a
+  guess the measurement replaced: recorded from BL-172's measurement, a refused login with the
+  Windows reference build writes stderr `curl: (67) Login denied`, over `scp://` and `sftp://`
+  alike (`UpstreamCurlLogsInToSurlOverSshTests.Login_WrongPassword_Exits67LoginDenied`). A `none`
+  request answered `SSH_MSG_USERAUTH_SUCCESS` ends authentication there (libssh2's
+  `userauth_list` then reports the session authenticated).
+- **Logins, measured against surl.** Recorded from BL-172's measurement: `-u tester:secret`
+  logs in with `password`, and `--key`/`--pubkey` with an RSA key pair (the private key PKCS #1
+  PEM, which WinCNG libssh2 reads) logs in with `publickey` naming an `ssh-rsa` key (surl's note
+  `SSH login request: publickey for tester, key ssh-rsa SHA-256 ...`), each over both schemes.
 
 ## Decision
 
@@ -171,6 +223,37 @@ own order decide (the first client algorithm the server also offers), so against
 reference build the negotiation is `diffie-hellman-group-exchange-sha256`, `rsa-sha2-512`,
 `chacha20-poly1305@openssh.com` (no MAC), and `none` or, with `--compressed-ssh`, `zlib`. The
 server order says what surl prefers and is what a client that follows the server would get.
+
+**What was negotiated.** Recorded from BL-172's measurement (2026-09-30), read from surl's
+`SSH negotiated` note (decision 10) in `UpstreamCurlLogsInToSurlOverSshTests`; it records, and
+decides nothing:
+
+- **Windows reference build (WinCNG), RSA host key** (`--throwaway-hostkey`'s 3072 bits, or a
+  2048-bit `--hostkey`): measured as predicted above - kex `diffie-hellman-group-exchange-sha256`,
+  host key `rsa-sha2-512`, cipher `chacha20-poly1305@openssh.com` both ways, MAC `implicit`,
+  compression `none` (`zlib` both ways with `--compressed-ssh`), strict kex on.
+- **Windows reference build, only an ECDSA P-256 or only an Ed25519 host key:** no common
+  host-key algorithm, since WinCNG lists only RSA ones. curl exits 2, `curl: (2) Failure
+  establishing ssh session: -5, Unable to exchange encryption keys`, and surl notes `SSH no common
+  host key algorithm; client offered rsa-sha2-512,...`
+  (`HostKey_OnlyEllipticCurveOnTheWindowsBuild_Exits2NoCommonHostKeyAlgorithm`).
+- **Linux and macOS reference builds (OpenSSL):** predicted from their `KEXINIT` lists (Context),
+  not yet measured by a Linux or macOS run: kex `curve25519-sha256`; host key `rsa-sha2-512` for
+  an RSA key, `ecdsa-sha2-nistp256` for an ECDSA P-256 key and `ssh-ed25519` for an Ed25519 key,
+  so an ECDSA-only or Ed25519-only surl completes the transfer; cipher
+  `chacha20-poly1305@openssh.com`, MAC `implicit`, compression `none` (`zlib` with
+  `--compressed-ssh`), strict kex on. Pinned for the CI legs in
+  `HostKey_OnlyEllipticCurveOnOpenSslBuilds_NegotiatesItAndDownloadsTheFile`.
+- **Never negotiated by any run**, so covered by `Surl.Protocol.Ssh`'s unit tests only: the
+  `curve25519-sha256@libssh.org`, `ecdh-sha2-*`, `diffie-hellman-group16-sha512`,
+  `diffie-hellman-group18-sha512` and `diffie-hellman-group14-sha256` kex methods, the
+  `ecdsa-sha2-nistp384`, `ecdsa-sha2-nistp521` and `rsa-sha2-256` host-key algorithms, the
+  `aes*-gcm@openssh.com` and `aes*-ctr` ciphers, every `hmac-*` MAC (`chacha20-poly1305` wins on
+  both backends), `zlib@openssh.com`, and every `--allow-weak-ssh-algorithms` entry.
+- **One disagreement:** about one connection in 270 with the Windows build fails with `curl: (2)
+  Failure establishing ssh session: -8, Unable to exchange encryption keys` after surl has noted
+  the agreed algorithms (`diffie-hellman-group-exchange-sha256`), with no further note. BL-172 did
+  not hide it with a retry; BL-251 is its fix in `Surl.Protocol.Ssh`.
 
 **Offered by default:**
 
@@ -214,7 +297,10 @@ entries of each list, and all built by **BL-221** (filed by this task):
 | MAC | `hmac-sha1-etm@openssh.com`, `hmac-sha1`, `hmac-sha1-96`, `hmac-md5`, `hmac-md5-96` | SHA-1, MD5, truncation |
 
 With it, RSA host and user keys shorter than 2048 bits and DSA user keys are also accepted.
-Every entry of the measured lists is thereby assigned: none is left out.
+Every entry of the measured lists is thereby assigned: none is left out. The Linux and macOS
+builds' OpenSSL lists (BL-172) add `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160` and
+`hmac-ripemd160@openssh.com`; [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)
+appends them to this table's cipher and MAC rows, in that order, and BL-254 to BL-258 build them.
 
 #### 2.1 Strict key exchange and `ext-info`
 
@@ -236,6 +322,69 @@ Every entry of the measured lists is thereby assigned: none is left out.
 - **Re-keying** (RFC 4253 section 9, RFC 4344 section 3.1): a client's `KEXINIT` is answered at
   any time after the first exchange; the server starts one itself after 1 GiB in either direction
   or one hour since the last exchange. BL-161.
+
+#### 2.2 Transport messages and re-exchange, as BL-161 built them
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29, in
+BL-161 (FR-039), and recorded here on 2026-09-30 by BL-236, because BL-155 held
+`Documentation/Planning/Decisions` while BL-161 ran. `SshProtocolServer` and
+`SshTransportHandshake` say the same in their XML docs.
+
+1. **An unknown message is answered `SSH_MSG_UNIMPLEMENTED`.** After `NEWKEYS`, a message the
+   server does not know - a key exchange method message or `NEWKEYS` outside a key exchange
+   included - is answered `UNIMPLEMENTED` carrying the sequence number of the packet it answers.
+   Why: RFC 4253 section 11.4 requires it, and OpenSSH answers those messages the same way, so a
+   client that probes with one gets the reply it expects rather than a dropped connection.
+2. **`SERVICE_REQUEST` was a placeholder until BL-162.** Before user authentication was built,
+   `SERVICE_REQUEST` was answered `DISCONNECT` 11 `BY_APPLICATION`, `User authentication not
+   implemented`: one more row among decision 9's placeholders. Why: it follows those
+   placeholders' pattern; `DISCONNECT` 7 was not used because decision 9 keeps 7 for a service
+   other than `ssh-userauth`. BL-162 has since replaced it with the `ssh-userauth` service.
+3. **The re-exchange limits are checked between the client's packets.** Before reading each
+   client message the server asks whether 1 GiB has passed in either direction or an hour under
+   one set of keys (`SshReExchangeLimits`), and starts a re-exchange if so. An idle connection is
+   therefore re-keyed when it next sends. Why: the check sits in the one loop that reads the
+   client, so no timer races that reader for the connection; the head and idle timeouts bound
+   an idle connection meanwhile.
+4. **Strict key exchange's ordering rule holds for the first exchange only.** No `IGNORE`,
+   `DEBUG` or `UNIMPLEMENTED` is allowed during the first key exchange of a strict connection;
+   during a re-exchange they are skipped. The sequence numbers are reset to 0 after every
+   `NEWKEYS`, re-exchanges included. Why: OpenSSH's `PROTOCOL` states the ordering rule for the
+   initial exchange, which is what the Terrapin attack (CVE-2023-48795) targets, and the reset
+   after each `NEWKEYS`, as decision 2.1 says.
+5. **During a server-started re-exchange, an unexpected message before the client's `KEXINIT`
+   is `DISCONNECT` 2.** Only `IGNORE`, `DEBUG` and `UNIMPLEMENTED` are skipped in that window.
+   Why: when BL-161 was built no channel existed, so no other message could rightly arrive
+   there. Replaced by [ADR-0060](ADR-0060-messages-before-the-clients-kexinit-in-a-server-started-ssh-re-exchange.md)
+   (BL-237): RFC 4253 section 9 lets the client keep sending until it sees the server's
+   `KEXINIT`, so such a message is now held and answered after `NEWKEYS`; only a key exchange
+   message there is still `DISCONNECT` 2.
+
+#### 2.3 The weak algorithms, as BL-221 built them
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-221 (FR-039). `SshAlgorithmOffer`, `SshUserKeySignature` and `SshProtocolServer` say the same
+in their XML docs.
+
+1. **The setting is the offer's.** `SshAlgorithmOffer.Default(..., allowWeakAlgorithms)` appends
+   decision 2's weak entries and sets the offer's `AllowsWeakAlgorithms`, which the server also
+   reads for `server-sig-algs` and for user keys. Why: the offer is already the one record the
+   transport reads its lists from, so one value decides both what is listed and what is accepted,
+   and they cannot disagree.
+2. **Without the option, a weak user key is refused before the policy sees it.** A `publickey`
+   request naming `ssh-rsa` or `ssh-dss`, or an RSA key shorter than 2048 bits under any
+   algorithm, is answered `USERAUTH_FAILURE`, counted like any refused request, whether it is a
+   query or signed, and the policy is not asked. Why: it is how the server already answers an
+   algorithm it does not verify, so a client learns nothing more from a weak key than from an
+   unknown one, and a query cannot win a `PK_OK` for a key its signature could never pass.
+3. **`ssh-rsa` host signatures come from every RSA host key.** An RSA key lists `rsa-sha2-512`,
+   `rsa-sha2-256` and `ssh-rsa`; the offer keeps `ssh-rsa` only with the option. A DSA host key
+   (`SshHostKey.FromDsa`) must have a 160-bit q, since the `ssh-dss` signature holds 160-bit r and
+   s. Reading a DSA key from a `--hostkey` file is BL-248's.
+4. **Stream ciphers pad to 8 bytes; CBC chains across packets.** `arcfour` and `arcfour128` use a
+   block size of 8 (RFC 4253 section 6); each CBC direction's next packet chains from the last
+   ciphertext block of the one before, as RFC 4253 section 6.3 and OpenSSH do. Why: both are what
+   the RFCs require of a peer, so libssh2 interoperates.
 
 ### 3. Two new hand-built libraries
 
@@ -260,8 +409,23 @@ curl's "host public key" (`--hostpubsha256`, `--hostpubmd5`) and OpenSSH's `Host
 - **Encrypted keys** take their passphrase from **`--pass`**, which already means "passphrase for
   the private key" (curl's name): it now applies to `--key` and to every `--hostkey`. An encrypted
   PKCS#8 (`-----BEGIN ENCRYPTED PRIVATE KEY-----`) is read with the BCL; an encrypted
-  `openssh-key-v1` (`bcrypt` KDF) is refused as not available until BL-223 reads it with BL-220's
-  `bcrypt_pbkdf`.
+  `openssh-key-v1` (`bcrypt` KDF) is decrypted with BL-220's `bcrypt_pbkdf` (BL-223). How BL-223
+  reads it, decided by Claude under Stewart's delegation (2026-09-30), following OpenSSH's
+  `sshkey.c` (`private2_decrypt`), the reader `ssh-keygen` writes for:
+  - The ciphers read are the six `ssh-keygen -Z` writes today (`aes128-ctr`, `aes192-ctr`,
+    `aes256-ctr`, `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`,
+    `chacha20-poly1305@openssh.com`) and, because the transport already builds them for
+    `--allow-weak-ssh-algorithms`, the CBC and `arcfour` ciphers older OpenSSH releases wrote.
+    Any other `ciphername`, and any `kdfname` but `bcrypt`, is `not a private key surl can read`:
+    the table below has no other words for a key surl cannot read, and none is needed.
+  - The passphrase is UTF-8 encoded, as for PKCS #8. An empty `--pass` is `--pass does not
+    decrypt the key`, not `give --pass`: OpenSSH treats an empty passphrase as a wrong one, and
+    `bcrypt_pbkdf` takes no empty password.
+  - A wrong passphrase shows as an AEAD tag that does not verify, or, for the other ciphers, as
+    the private section's two check integers differing; both are `--pass does not decrypt the
+    key`. An empty salt, a salt longer than `bcrypt_pbkdf` takes, a round count of 0 or above
+    2^31 - 1, an encrypted section that is not whole cipher blocks, and a missing tag are
+    `not a private key surl can read`.
 - **At most one key per key type** (`ssh-rsa`, each ECDSA curve, `ssh-ed25519`, `ssh-dss`); all
   are offered together, and the client's host-key list picks one.
 - **`--hostcert <file>`**, repeatable: an OpenSSH host certificate (`*-cert.pub`,
@@ -292,7 +456,6 @@ configuration surl cannot act on.
 | Not one private key in a format above | 2 | `(2) Host key <path>: not a private key surl can read` |
 | Encrypted, no `--pass` | 2 | `(2) Host key <path>: the key is encrypted; give --pass` |
 | Encrypted, `--pass` does not decrypt it | 2 | `(2) Host key <path>: --pass does not decrypt the key` |
-| Encrypted `openssh-key-v1`, until BL-223 | 2 | `(2) Host key <path>: encrypted OpenSSH keys are not available in this build` |
 | RSA shorter than 2048 bits, or DSA, without `--allow-weak-ssh-algorithms` | 2 | `(2) Host key <path>: <key type> keys of <bits> bits need --allow-weak-ssh-algorithms` |
 | Another key type | 2 | `(2) Host key <path>: key type <type> is not supported` |
 | A second key of one type | 2 | `(2) Host key <path>: a <key type> host key is already given by <other path>` |
@@ -308,12 +471,15 @@ No new `SurlExitCode` member is needed.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `--hostkey` | `<file>` | An SSH host private key (decision 4) | none | no | **adds** a key each time | `SSH host private key file` | `auth` |
 | `--hostcert` | `<file>` | An OpenSSH host certificate | none | no | adds | `SSH host certificate file` | `auth` |
-| `--throwaway-hostkey` | none | Make a throwaway RSA host key when no `--hostkey` is given | off | yes | later wins | `Throwaway SSH host key (warns)` | `testing` |
+| `--throwaway-hostkey` | none | Make a throwaway RSA host key when no `--hostkey` is given | off | yes | later wins | `Throwaway SSH host key (warns)` | `security`, `testing` |
 | `--authorized-keys` | `<user:file>` | The public keys a user may log in with (decision 6) | none | no | adds | `SSH public keys a user may use` | `auth` |
 | `--allow-weak-ssh-algorithms` | none | Also offer decision 2's weak algorithms | off | yes | later wins | `Offer weak SSH algorithms (warns)` | `security` |
 | `--pass` (existing) | `<phrase>` | Now also decrypts `--hostkey` files | none | no | last wins | `Passphrase for --key and --hostkey` | unchanged |
 
 - `<file>` arguments follow ADR-0007 section 2 (an empty argument refused while parsing).
+- `--throwaway-hostkey` is in `security` as well as `testing`: every option that loosens security
+  for tests is also a security option (ADR-0034, as `--self-signed` is), and
+  `AiHelpFactsTests.LoosensSecurityForTestsOnly_IsExactlyTheFiveTestingOptions` holds it to that.
 - BL-171 adds the `ssh` category (decision 12) to every option above and to each existing option
   the SSH server reads (ADR-0034 decision 1).
 - Until BL-171 composes the SSH server, `Surl.Console` refuses a start that gives any of the new
@@ -523,7 +689,7 @@ section 5's one-second deadline and followed by a graceful close:
 | A payload that does not decompress, or decompresses past `--max-message` | 6 `COMPRESSION_ERROR` | `Compression error` |
 | A `SERVICE_REQUEST` other than `ssh-userauth` (before login) or a login for a service other than `ssh-connection` | 7 `SERVICE_NOT_AVAILABLE` | `Service not available` |
 | The sixth refused login | 14 `NO_MORE_AUTH_METHODS_AVAILABLE` | `Too many authentication failures` |
-| The `NEWKEYS` placeholders BL-159 and BL-160 use until the next task lands | 11 `BY_APPLICATION` | `Key exchange not implemented` / `Packet protection not implemented` |
+| The `NEWKEYS` placeholders BL-159 and BL-160 use until the next task lands, and the `SERVICE_REQUEST` placeholder BL-161 used until BL-162 landed (decision 2.2) | 11 `BY_APPLICATION` | `Key exchange not implemented` / `Packet protection not implemented` / `User authentication not implemented` |
 
 - The description names no algorithm, user or path: a peer learns nothing it did not send
   (ADR-0006 section 3). `DISCONNECT` 3 does not say which list failed; the verbose note does.
@@ -599,7 +765,8 @@ memberships.
 | `bcrypt_pbkdf` in `Surl.Cryptography.BcryptPbkdf` | BL-220 (filed by this task) |
 | The weak algorithms behind `--allow-weak-ssh-algorithms` | BL-221 (filed by this task) |
 | Host certificates, `--hostcert` | BL-222 (filed by this task) |
-| Encrypted `openssh-key-v1` host keys | BL-223 (filed by this task) |
+| Encrypted `openssh-key-v1` host keys | BL-223 (filed by this task; its choices are in decision 4) |
+| `blowfish-cbc`, `cast128-cbc`, `hmac-ripemd160`, `hmac-ripemd160@openssh.com` and their primitives | BL-254 to BL-258 (filed by BL-252; ADR-0061) |
 
 ## Alternatives considered
 
@@ -633,6 +800,13 @@ memberships.
 ## Consequences
 
 - BL-156 to BL-172 read their decisions here; BL-155 decides SCP and SFTP on top of this.
+- [ADR-0058](ADR-0058-the-ssh-key-exchange-and-host-key-reading-choices-adr-0051-left-open.md)
+  records what BL-160 chose where this ADR is silent: bad client public values and
+  `GEX_REQUEST_OLD` are `DISCONNECT` 2, the server's ephemeral secrets, encrypted PKCS #8 and
+  legacy PEM, Ed25519 and DSA until BL-168 and BL-221, OID-named key types, and the strict-kex
+  sequence-number check.
+- Decision 2.2 records what BL-161 chose for transport messages and re-exchange; BL-237 replaced
+  its fifth choice with ADR-0060 once channels existed.
 - Five tasks are filed: BL-224 to BL-223. `Surl.Cryptography.Rc4` and
   `Surl.Cryptography.BcryptPbkdf` join ADR-0002's table.
 - `--pass`'s help description becomes `Passphrase for --key and --hostkey` (BL-158).
@@ -640,3 +814,95 @@ memberships.
 - Fixtures: this task's `touches` do not include `Surl.Protocol.Ssh.UnitTests`, so the
   recordings live above as hex; BL-159 turns runs D and F into fixtures under
   `Surl.Protocol.Ssh.UnitTests/Fixtures/`, re-recorded with the same command lines.
+
+## Amendment 1 - How `Surl.Console` composes the SSH server (BL-171, recorded by BL-249, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-171 (FR-041), and recorded here by BL-249 because this folder was outside BL-171's `touches`.
+The code is `Surl.Console/SshHostKeyComposition.cs` and `Surl.Console/CommandLineRunner.cs`.
+
+1. **The host-key note carries the `* ` prefix, and is written only when SSH is served.** Decision
+   8's note is written `* Serving SSH host key <key type>, --hostpubsha256 <base64> --hostpubmd5 <hex>`
+   (`SshHostKeyComposition.FormatHostKeyNote`), one per served key, from `-v` up, and only when an
+   `scp` or `sftp` listen URL is served (`SshHostKeyComposition.WriteStartLines`), though
+   `--hostkey` files are read whenever given (decision 4). Why: every verbose note surl writes
+   starts `* ` ([ADR-0033](ADR-0033-console-log-levels-trace-dumps-and-the-log-file.md)), as
+   [ADR-0020](ADR-0020-how-surl-composes-https.md) decision 4 wrote the throwaway-certificate note
+   [ADR-0010](ADR-0010-the-server-side-tls-contract.md) gave without it; and a key no listener
+   serves is not being served, so naming it would say something false.
+2. **`--allow-weak-ssh-algorithms` stays refused until BL-250.** A start that gives it still ends
+   `FailedInit`, `surl: (2) --allow-weak-ssh-algorithms is not available in this build`, beside
+   `--hostcert` (until BL-222, decision 5), from `CommandLineRunner.FindUnavailableOption`. Why:
+   BL-221, which makes the server offer the weak algorithms, was not done when BL-171 was built,
+   and decision 11's warning would then claim algorithms the server does not offer. BL-250 lifts
+   the refusal and writes the warning; the host-key reader already receives the option.
+3. **The start's refusal order.** After an option this build does not serve and the data
+   directory check, the listen URLs are refused in this order: a scheme no server answers (1), a
+   URL TLS from the first byte with no certificate (58, ADR-0032 section 10), then an `scp` or
+   `sftp` URL with no host key (2, decision 4) (`CommandLineRunner.FindListenUrlRefusal`). Only
+   then are files read: the `--user-file`, then each `--authorized-keys` file
+   (`AuthenticationComposition.Compose`), then each `--hostkey` file
+   (`SshHostKeyComposition.Compose`), all before the data-directory lock is taken and any listener
+   binds. Why: a refusal that needs only the command line comes before any file is read, so the
+   operator's first error is the cheapest to fix; the missing host key follows the missing
+   certificate because both say a listen URL lacks what it needs to prove itself, and the TLS one
+   was there first; and the files are read in the order the accounts they describe are built -
+   accounts, their keys, then the server's own keys.
+4. **The `ssh` category and topic also hold `--directory` and `--pass`.** Besides decision 5's
+   options and the existing options the task named, `--directory` (the SSH server serves the
+   content store) and `--pass` (it decrypts encrypted `--hostkey` files) are in the `ssh` category
+   (`CommandLineOptions`), and so on its `--help` page and `--aihelp` topic. Why: ADR-0034
+   decision 1 puts in a category every option the protocol server reads, and the SSH server reads
+   both.
+
+## Amendment 2 - How surl serves `--hostcert` host certificates (BL-222, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
+BL-222 (FR-039), where decisions 2, 4 and 5 are silent. The code is
+`Surl.Protocol.Ssh.UnitLibrary/SshHostCertificate.cs`, `SshCertifiedHostKey.cs`, `SshHostKeySet.cs`
+and `SshAlgorithmOffer.cs`, and `Surl.Console/SshHostKeyComposition.cs`. Nothing here was measured
+from upstream curl: a host certificate is read by surl alone, and the names offered are the ones
+decision 2's measured lists already hold.
+
+1. **The certificate names and their order.** A key a `--hostcert` certificate certifies is also
+   offered under each of its host-key algorithms with `-cert-v01@openssh.com` added, each just
+   before the plain name: `ssh-ed25519-cert-v01@openssh.com`, `ecdsa-sha2-nistp256-cert-v01@openssh.com`
+   (and `-nistp384-`, `-nistp521-`), `rsa-sha2-512-cert-v01@openssh.com`,
+   `rsa-sha2-256-cert-v01@openssh.com`, and `ssh-rsa-cert-v01@openssh.com` only with
+   `--allow-weak-ssh-algorithms` (`SshAlgorithmOffer.Default`). `K_S` is then the certificate blob,
+   and the signature is the key's, its blob naming the key's own algorithm (`rsa-sha2-512`, not
+   `rsa-sha2-512-cert-v01@openssh.com`), as OpenSSH `PROTOCOL.certkeys` and `PROTOCOL` section 3.1
+   have it. Why: decision 2 says "before its plain name", and every pinned build lists each
+   certificate name next to its plain one; OpenSSH signs a certificate key exchange that way, so
+   libssh2 verifies it.
+2. **Certificate types read.** `ssh-rsa-cert-v01@openssh.com`, the three
+   `ecdsa-sha2-nistp*-cert-v01@openssh.com` and `ssh-ed25519-cert-v01@openssh.com`. A DSA
+   certificate (`ssh-dss-cert-v01@openssh.com`), a security-key certificate (`sk-*`), a user
+   certificate (type 1), a file that is not one line of type, base64 blob and optional comment, a
+   line whose type is not its blob's, and a blob cut short or running on past its signature are all
+   `(2) Host certificate <path>: not an OpenSSH host certificate`. Why: no pinned build's host-key
+   list names a DSA or security-key certificate, so none could be served to curl; decision 4 gives
+   one text for every certificate surl cannot serve, and the operator's fix is the same for each -
+   give the `ssh-keygen -h` certificate of an RSA, ECDSA or Ed25519 `--hostkey` key.
+3. **What the server does not judge.** Neither the validity period (decision 4) nor the CA's
+   signature, the principals, the critical options or the extensions. Why: the client judges all of
+   them against the CA it trusts; a server check would add a second, possibly different, opinion
+   and a failure mode curl cannot see.
+4. **"Certifies" is byte equality of the public key.** A certificate certifies a `--hostkey` key when
+   the key's public key blob (RFC 4253 section 6.6) equals the key type followed by the
+   certificate's public-key fields, byte for byte. Why: it is what OpenSSH's `sshkey_equal_public`
+   compares, and surl writes each blob canonically.
+5. **At most one certificate per certificate type.** A second is
+   `(2) Host certificate <path>: a <certificate type> host certificate is already given by <other path>`,
+   mirroring decision 4's "at most one key per key type". Why: two certificates of one type would
+   offer one algorithm name twice, and only one could be sent.
+6. **Read order.** The `--hostcert` files are read after every `--hostkey` file and after the
+   throwaway key is made, in command-line order, whenever given (even with no `scp` or `sftp` URL,
+   as `--hostkey` files are), all before any listener binds. A certificate can never certify the
+   throwaway key, so it is then `certifies no --hostkey key`. Why: a certificate names a key, so the
+   keys must be held first; the rest follows Amendment 1 decision 3.
+7. **The unavailable-option refusal is gone.** `--hostcert` was the last option
+   `CommandLineRunner.FindUnavailableOption` refused (decision 5; Amendment 1 decision 2's
+   `--allow-weak-ssh-algorithms` refusal had already been lifted), so the check and its
+   `(2) --<option> is not available in this build` text were removed with it, and the exit-code
+   guidance for 2 no longer names it.

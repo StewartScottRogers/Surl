@@ -11,44 +11,100 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`CommandLineOutcome.ShowAiHelp`: `AiHelpText.Answer(parsed.AiHelpTopic)` written by
   `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
   says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
-  start that gives the `--auth` word `gssapi` or an SSH server option
-  (`FindUnavailableOption`: `--auth gssapi`, `--hostkey`, `--hostcert`,
-  `--throwaway-hostkey`, `--authorized-keys`, `--allow-weak-ssh-algorithms`, the first in
-  that order) with `surl: (2) --<option> is not available in this build` (`--auth gssapi`
-  for the word) and exit 2 before anything else is checked (ADR-0049 section 3, until
-  BL-218 and BL-216 build the two mechanisms; ADR-0051 decision 5, until BL-171 composes the
-  SSH server), checks the
+  start whose `--auth` names `gssapi` without `--keytab` with `surl: (2) --auth gssapi needs
+  --keytab` (`KeytabComposition.IsGssapiWithoutKeytab`, ADR-0057 decision 1), then an `--ssh-ciphers` or `--ssh-macs`
+  name surl cannot offer (`SshAlgorithmComposition.FindRefusal`: `surl: (2) --ssh-ciphers: surl
+  does not offer the SSH cipher <name>`, or `<name> needs --allow-weak-ssh-algorithms`, ADR-0066), each with
+  exit 2 before anything else is checked, checks the
   data directory when `--directory` names one
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
   full path with `--directory`, a new, empty `InMemoryContentFileSystem` at
-  `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4), checks
-  every scheme against the registered protocol servers, and with `--directory` takes the
+  `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4) - every
+  scheme a listen URL may name has a registered server, so `ListenUrlParser`'s (1) is the only
+  scheme refusal - then refuses a TLS-first listen URL
+  with no certificate (58) and an `scp` or `sftp` one with neither `--hostkey` nor
+  `--throwaway-hostkey` (2, `surl: (2) <url> needs a host key: ...`), and with `--directory` takes the
   data directory's `.surl/lock` (`DataDirectoryLock.Take`, held until serving ends; a
   second surl on the same path gets 124, a `.surl` or lock file that cannot be created 23,
   ADR-0031 decision 7; no lock and no disk access without `--directory`). Before the lock it
   builds the authentication policy (`AuthenticationComposition.Compose`, ADR-0032): the
-  `--user-file` is read through the runner's `readUserFile` seam (`File.ReadAllBytes` in
-  `surl`), 37 when it cannot be read and 2 naming the line when it is malformed; the
+  `--user-file` and then each `--authorized-keys` file are read through the runner's
+  `readStartFile` seam (`File.ReadAllBytes` in `surl`), 37 when one cannot be read and 2
+  naming the line when it is malformed (ADR-0051 decision 6); then the `--keytab` file
+  (`KeytabComposition.Read`, ADR-0057 decision 1) through the same seam, read by
+  `Surl.Kerberos`'s `KerberosKeytab.Read` (37 `Could not read keytab <path>`, 2 `Keytab <path>
+  is malformed at byte <offset>` or `holds no key surl can use`), whose keys become a
+  `KerberosAcceptor` (one `KerberosReplayCache` per process, the one clock and
+  `RandomKerberosRandomSource`) on `AuthenticationSettings.KerberosAcceptor`, `null` without
+  `--keytab`, where SASL `GSSAPI` reads it (ADR-0057 decisions 6 and 9); then the SSH host keys
+  (`SshHostKeyComposition.Compose`, ADR-0051 decision 4): each `--hostkey` file read through
+  the same seam and parsed by `SshHostKeyFile.Read` (37 unreadable, 2 with the parser's
+  refusal or a second key of one type, naming the file), and with `--throwaway-hostkey` an RSA
+  3072-bit key made only when an `scp` or `sftp` URL is served; then each `--hostcert` file
+  read the same way and parsed by `SshHostCertificate.Read` (37 unreadable, 2 when it is no host
+  certificate, certifies no key held, or repeats a certificate type, naming the file, ADR-0051
+  Amendment 2) and served for the key it certifies; the
   `--user` accounts and then the file's go into one `AccountBook`; each `--auth` word maps to
   its `AuthenticationMethod`, the SASL mechanism words (`digest-md5`, `cram-md5`, `apop`,
   `plain`, `login`, `oauthbearer`, `xoauth2`, `external`, and `ntlm` for both) included, ADR-0049
-  section 3 (the default set without `--auth`); and
+  section 3 (the default set without `--auth`), and `ntlmv1` to `NtlmV1`, SMB's alone (ADR-0073
+  decision 3); and
   `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its
-  `AuthenticationSettings`, is handed to the HTTP (`http`, `https`) and MQTT (`mqtt`,
-  `mqtts`) servers. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
-  `https`, `DictProtocolServer` for `dict`, `GopherProtocolServer` for `gopher` and
+  `AuthenticationSettings`, is handed to the HTTP (`http`, `https`), MQTT (`mqtt`,
+  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`), LDAP (`ldap`, `ldaps`), RTSP (`rtsp`), SMB (`smb`, `smbs`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
+  name, the mail store's owners. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
+  `https`, `DictProtocolServer` for `dict`, `FtpProtocolServer` for `ftp` and `ftps` (it declares
+  both itself; `AUTH TLS` when `--cert` or `--self-signed` is given, ADR-0052 decision 5), given the
+  content store and the policy, `GopherProtocolServer` for `gopher` and
   `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),
   `MqttProtocolServer` for `mqtt` and `mqtts` (it too declares both itself), whose
   retained messages are kept in `<data directory>/.surl/mqtt/retained-messages` and loaded
   after the lock and before any listener binds with `--directory` (a file that cannot be
   read or does not parse ends surl with 37), and in memory only without it (ADR-0031
   decision 6),
-  `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
+  `SmtpProtocolServer` for `smtp` and, through `ImplicitTlsSchemeServer`, `smtps`, given the
+  policy as both its authentication policies, `STARTTLS` when `--cert` or `--self-signed` is
+  given (`ServerTlsComposition.IsCertificateConfigured`, ADR-0053 decision 5) and the one
+  `MailboxStore` (`LoadMailStoreAsync`: owners the account names, or the anonymous owner under
+  `--allow-anonymous`, one message bounded by `--max-filesize`), kept in
+  `<data directory>/.surl/mail` (`ComposeMailStoreFiles`) and loaded after the retained
+  messages, before any listener binds, with `--directory` (a store that cannot be loaded ends
+  surl with 37 and `surl: (37) Could not read <file>: <reason>`, ADR-0050 decision 7), and in
+  memory only without it,
+  `ImapProtocolServer` for `imap` and, through `ImplicitTlsSchemeServer`, `imaps`, given the
+  policy as both its authentication policies, `STARTTLS` when `--cert` or `--self-signed` is
+  given (ADR-0055 decision 11) and the same `MailboxStore` instance as the SMTP server, so mail
+  delivered over `smtp` is read over `imap` in the same run,
+  `Pop3ProtocolServer` for `pop3` and, through `ImplicitTlsSchemeServer`, `pop3s`, given the
+  policy as both its authentication policies, `STLS` when `--cert` or `--self-signed` is given
+  (ADR-0056 decision 8) and the same `MailboxStore` instance, so mail delivered over `smtp` is
+  retrieved over `pop3` in the same run,
+  `LdapProtocolServer` for `ldap` and, through `ImplicitTlsSchemeServer`, `ldaps`, given the policy
+  as both its authentication policies and `StartTLS` when `--cert` or `--self-signed` is given
+  (ADR-0072 decision 5), over the directory `LoadLdapServerAsync` reads from
+  `<data directory>/.surl/ldap/directory.ldif` (`ComposeLdapDirectoryFile`) after the mail store,
+  before any listener binds, with `--directory` (a file that cannot be read or is not LDIF the
+  directory can hold ends surl with 37 and `surl: (37) Could not read <file>: <reason>`), and over
+  an empty directory without it (ADR-0072 decision 1),
+  `RtspProtocolServer` for `rtsp` (curl has no `rtsps`), given the content store and the policy,
+  each request judged by the HTTP authentication session (ADR-0074 decision 7),
+  `SmbProtocolServer` for `smb` and `smbs` (it declares both itself, so no
+  `ImplicitTlsSchemeServer` wraps it), given the content store, whose top-level directories are
+  its shares, and the policy as its `ISmbAuthenticationPolicy` (ADR-0073 decisions 2, 3 and 6),
+  `SshProtocolServer` for `scp` and `sftp`, given the host keys, `SshAlgorithmComposition.Compose`'s
+  offer for them (`SshAlgorithmOffer.Default`, with decision 2's weak algorithms too under
+  `--allow-weak-ssh-algorithms`, its ciphers and MACs narrowed by `--ssh-ciphers` and `--ssh-macs`, ADR-0066), the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the
+  content store, `TelnetProtocolServer` for `telnet`, `TftpProtocolServer` for `tftp`, over UDP,
+  and `WsProtocolServer` for `ws` and, through `ImplicitTlsSchemeServer`, `wss`, given the content
+  store, the policy (its upgrades judged by the HTTP authentication session, ADR-0071 decision 3)
+  and `--ws-echo`, ADR-0071 decisions 4 and 8), the
   exchange log of the parsed log level and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,
-  `--max-connections-per-address`, `--idle-timeout` and `-m`/`--max-time` give, and serves. It writes ADR-0007 section 5's
+  `--max-connections-per-address`, `--idle-timeout` and `-m`/`--max-time` give, and the FTP
+  data connection opener the runner's `createDataConnectionOpener` seam makes from the TLS settings
+  (`Surl.Networking`'s `SocketDataConnectionOpener` in `surl`, ADR-0052 decision 9), and serves. It writes ADR-0007 section 5's
   texts and returns its exit codes.
 - `LogStreams` opens the log stream (stderr, or `--log-file`, appended, `-` for stdout)
   and the trace file (truncated, `-` for stdout) once TLS is composed and before any
@@ -65,18 +121,28 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   last listener, connection or datagram, has bound, and keeps a bind failure for the
   `(45)` or `(6)` message.
 - `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
-  TLS from the first byte: the `--cert`/`--key` certificate or, with `--self-signed`, a
+  TLS from the first byte, or can be upgraded (`smtp` and `imap` for `STARTTLS`, `pop3` for `STLS`, `ftp` for `AUTH TLS`, `ldap` for `StartTLS`) and `--cert` or
+  `--self-signed` is given: the `--cert`/`--key` certificate or, with `--self-signed`, a
   throwaway one, the `--cacert` trust anchors and the accepted TLS versions. A bad file ends
-  surl with 58, 2 or 77 before any listener binds (ADR-0020). Such a listen URL with neither
+  surl with 58, 2 or 77 before any listener binds (ADR-0020). A listen URL TLS from the first byte with neither
   `--cert` nor `--self-signed` ends surl with 58 before any listener binds
   (`ServerTlsComposition.FindListenUrlWithoutCertificate`, ADR-0032 section 10); a start
-  with `--self-signed` and no such listen URL makes no certificate.
+  with `--self-signed` and neither such a listen URL nor an `smtp`, `imap`, `pop3`, `ftp` or `ldap` one makes no certificate.
 - Once the log streams are open, the startup warnings go to the log stream, unstamped:
   `AuthenticationComposition.WriteLooseningWarnings` writes the `--allow-anonymous`,
-  `--allow-plaintext-auth` and `--auth` lines, in that order, then `CommandLineRunner`
+  `--allow-plaintext-auth` and `--auth` lines, in that order, then
+  `KeytabComposition.WriteStartLines` writes `surl: warning: --keytab: skipped the <enctype
+  name> key of <principal>` for each keytab entry of an enctype surl does not accept, and
+  `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi` when that
+  is so, never a key byte, then `CommandLineRunner`
   writes the `--self-signed` line when a throwaway certificate was made, and from the
   verbose level up `* Serving a throwaway certificate, SHA-256 <fingerprint>` (ADR-0032
-  section 9, ADR-0033 section 7).
+  section 9, ADR-0033 section 7); then `SshHostKeyComposition.WriteStartLines` writes the
+  `--throwaway-hostkey` warning (with the key's `--hostpubsha256` value) when the key was made,
+  then `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit
+  Diffie-Hellman SSH algorithms are offered` whenever that option is given, and from the verbose level up, when an `scp` or `sftp` URL is served,
+  `* Serving SSH host key <key type>, --hostpubsha256 <base64> --hostpubmd5 <hex>` per key
+  (ADR-0051 decisions 8 and 11).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
 - `CommandLineRunner.ComposeRegisteredSchemes` lists every registered server's schemes, the

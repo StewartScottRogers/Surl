@@ -5,7 +5,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Surl.Cryptography.Rc4.UnitLibrary\Surl.Cryptography.Rc4.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cryptography.UnitLibrary\Surl.Cryptography.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Kerberos.UnitLibrary\Surl.Kerberos.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
   </ItemGroup>
 

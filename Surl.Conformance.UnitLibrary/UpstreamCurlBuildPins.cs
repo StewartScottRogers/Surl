@@ -78,7 +78,8 @@ public static class UpstreamCurlBuildPins
             ParseSha256(RequiredString(entry, index, "sha256"), index),
             OptionalString(entry, index, "version") ?? string.Empty,
             ParseProtocols(OptionalString(entry, index, "protocols")),
-            ParseRole(OptionalString(entry, index, "role"), index));
+            ParseRole(OptionalString(entry, index, "role"), index),
+            ParseKind(OptionalString(entry, index, "kind"), index));
     }
 
     private static string RequiredString(JsonElement entry, int index, string name)
@@ -123,5 +124,12 @@ public static class UpstreamCurlBuildPins
         null or "reference" => UpstreamCurlBuildRole.Reference,
         "supplementary" => UpstreamCurlBuildRole.Supplementary,
         _ => throw new FormatException($"The role of entry {index} of builds in {FileName} is '{role}', not reference or supplementary."),
+    };
+
+    private static UpstreamCurlBuildKind ParseKind(string? kind, int index) => kind switch
+    {
+        null or "curl" => UpstreamCurlBuildKind.Curl,
+        "library" => UpstreamCurlBuildKind.Library,
+        _ => throw new FormatException($"The kind of entry {index} of builds in {FileName} is '{kind}', not curl or library."),
     };
 }

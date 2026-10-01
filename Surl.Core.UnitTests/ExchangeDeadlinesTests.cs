@@ -15,6 +15,17 @@ public sealed class ExchangeDeadlinesTests
     }
 
     [TestMethod]
+    public void ShutdownToken_IsTheShutdownTokenItWasGiven()
+    {
+        using var shutdown = new CancellationTokenSource();
+        using var deadlines = new ExchangeDeadlines(TenSecondsIdleThirtyAtMost, new ManualTimeProvider(), shutdown.Token);
+
+        var shutdownToken = deadlines.ShutdownToken;
+
+        Assert.AreEqual(shutdown.Token, shutdownToken);
+    }
+
+    [TestMethod]
     public void Reason_ShutdownFirst_IsShutdown()
     {
         using var shutdown = new CancellationTokenSource();

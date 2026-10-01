@@ -15,7 +15,7 @@ namespace Surl.Authentication;
 internal sealed class PlainSaslExchange(SaslExchangeContext context) : SaslMechanismExchange(context)
 {
     /// <inheritdoc/>
-    protected override ValueTask<MailLoginStep> AnswerAsync(
+    protected override ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken)
     {
         if (response is not { } message)
@@ -27,7 +27,7 @@ internal sealed class PlainSaslExchange(SaslExchangeContext context) : SaslMecha
     }
 
     // The password is always compared, so a refused authzid costs what a wrong password does.
-    private ValueTask<MailLoginStep> CheckAsync(ReadOnlySpan<byte> message, CancellationToken cancellationToken)
+    private ValueTask<SaslLoginStep> CheckAsync(ReadOnlySpan<byte> message, CancellationToken cancellationToken)
     {
         if (!TrySplit(message, out var authzid, out var authcid, out var passwordStart))
         {

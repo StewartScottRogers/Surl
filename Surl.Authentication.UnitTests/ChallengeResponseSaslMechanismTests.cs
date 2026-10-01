@@ -34,7 +34,7 @@ public sealed class ChallengeResponseSaslMechanismTests
     private static byte[] Latin1(string text) => Encoding.Latin1.GetBytes(text);
 
     private static void AssertStep(
-        MailLoginOutcome outcome, string challenge, string? accountName, string? note, MailLoginStep step)
+        SaslLoginOutcome outcome, string challenge, string? accountName, string? note, SaslLoginStep step)
     {
         Assert.AreEqual(outcome, step.Outcome);
         Assert.AreEqual(challenge, Encoding.Latin1.GetString(step.Challenge.Span));
@@ -42,7 +42,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         Assert.AreEqual(note, step.CheckedLogin?.Note);
     }
 
-    private static async Task<MailLoginStep> Undelayed(ValueTask<MailLoginStep> pending)
+    private static async Task<SaslLoginStep> Undelayed(ValueTask<SaslLoginStep> pending)
     {
         Assert.IsTrue(pending.IsCompleted);
 
@@ -50,7 +50,7 @@ public sealed class ChallengeResponseSaslMechanismTests
     }
 
     // A refusal waits the refusal delay on the injected clock, and only then is answered.
-    private async Task<MailLoginStep> AfterTheRefusalDelay(ValueTask<MailLoginStep> pending)
+    private async Task<SaslLoginStep> AfterTheRefusalDelay(ValueTask<SaslLoginStep> pending)
     {
         var step = pending.AsTask();
         clock.Advance(AuthenticationPolicy.RefusalDelay - TimeSpan.FromMilliseconds(1));
@@ -96,9 +96,9 @@ public sealed class ChallengeResponseSaslMechanismTests
     {
         var exchange = Start(Policy(), "cram-md5");
 
-        AssertStep(MailLoginOutcome.Challenge, CurlTimestamp, null, null, await Undelayed(exchange.BeginAsync(CancellationToken.None)));
+        AssertStep(SaslLoginOutcome.Challenge, CurlTimestamp, null, null, await Undelayed(exchange.BeginAsync(CancellationToken.None)));
         AssertStep(
-            MailLoginOutcome.Accepted, string.Empty, "user", "Login accepted: CRAM-MD5 user",
+            SaslLoginOutcome.Accepted, string.Empty, "user", "Login accepted: CRAM-MD5 user",
             await Undelayed(exchange.ContinueAsync(Latin1(response), CancellationToken.None)));
     }
 
@@ -118,7 +118,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         await exchange.BeginAsync(CancellationToken.None);
 
         AssertStep(
-            MailLoginOutcome.RefusedCredentials, string.Empty, null, note,
+            SaslLoginOutcome.RefusedCredentials, string.Empty, null, note,
             await AfterTheRefusalDelay(exchange.ContinueAsync(Latin1(response), CancellationToken.None)));
     }
 
@@ -129,7 +129,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         await exchange.BeginAsync(CancellationToken.None);
 
         AssertStep(
-            MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: CRAM-MD5 user",
+            SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: CRAM-MD5 user",
             await AfterTheRefusalDelay(exchange.ContinueAsync(Latin1(CurlCramMd5), CancellationToken.None)));
     }
 
@@ -142,7 +142,7 @@ public sealed class ChallengeResponseSaslMechanismTests
 
         var step = await AfterTheRefusalDelay(exchange.ContinueAsync(Latin1(" " + digest), CancellationToken.None));
 
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, step.Outcome);
     }
 
     [TestMethod]
@@ -150,7 +150,7 @@ public sealed class ChallengeResponseSaslMechanismTests
     {
         var step = await AfterTheRefusalDelay(Start(Policy(), "CRAM-MD5", CurlCramMd5).BeginAsync(CancellationToken.None));
 
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: CRAM-MD5", step);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: CRAM-MD5", step);
     }
 
     [TestMethod]
@@ -163,11 +163,11 @@ public sealed class ChallengeResponseSaslMechanismTests
         var step = await exchange.BeginAsync(CancellationToken.None);
         if (initialResponse is null)
         {
-            AssertStep(MailLoginOutcome.Challenge, CurlTimestamp, null, null, step);
+            AssertStep(SaslLoginOutcome.Challenge, CurlTimestamp, null, null, step);
             step = await Undelayed(exchange.ContinueAsync(Latin1("nobody 00"), CancellationToken.None));
         }
 
-        AssertStep(MailLoginOutcome.AcceptedUnchecked, string.Empty, null, null, step);
+        AssertStep(SaslLoginOutcome.AcceptedUnchecked, string.Empty, null, null, step);
     }
 
     // ---- DIGEST-MD5 ----
@@ -195,12 +195,12 @@ public sealed class ChallengeResponseSaslMechanismTests
             DigestMd5Calculation.ComputeResponseAuth(DigestMd5Response.Read(CurlDigestMd5)!, "secret"u8));
         var exchange = Start(Policy(), "DIGEST-MD5");
 
-        AssertStep(MailLoginOutcome.Challenge, CurlDigestMd5Challenge, null, null, await Undelayed(exchange.BeginAsync(CancellationToken.None)));
+        AssertStep(SaslLoginOutcome.Challenge, CurlDigestMd5Challenge, null, null, await Undelayed(exchange.BeginAsync(CancellationToken.None)));
         AssertStep(
-            MailLoginOutcome.Challenge, "rspauth=" + expectedResponseAuth, null, null,
+            SaslLoginOutcome.Challenge, "rspauth=" + expectedResponseAuth, null, null,
             await Undelayed(exchange.ContinueAsync(Latin1(CurlDigestMd5), CancellationToken.None)));
         AssertStep(
-            MailLoginOutcome.Accepted, string.Empty, "user", "Login accepted: DIGEST-MD5 user",
+            SaslLoginOutcome.Accepted, string.Empty, "user", "Login accepted: DIGEST-MD5 user",
             await Undelayed(exchange.ContinueAsync(ReadOnlyMemory<byte>.Empty, CancellationToken.None)));
     }
 
@@ -215,8 +215,8 @@ public sealed class ChallengeResponseSaslMechanismTests
         var rspauth = await exchange.ContinueAsync(Latin1(DigestMd5(realm: realm, authorizationId: authorizationId)), CancellationToken.None);
         var step = await exchange.ContinueAsync(ReadOnlyMemory<byte>.Empty, CancellationToken.None);
 
-        Assert.AreEqual(MailLoginOutcome.Challenge, rspauth.Outcome);
-        Assert.AreEqual(MailLoginOutcome.Accepted, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Challenge, rspauth.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, step.Outcome);
     }
 
     [TestMethod]
@@ -253,7 +253,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         await exchange.BeginAsync(CancellationToken.None);
 
         AssertStep(
-            MailLoginOutcome.RefusedCredentials, string.Empty, null, note,
+            SaslLoginOutcome.RefusedCredentials, string.Empty, null, note,
             await AfterTheRefusalDelay(exchange.ContinueAsync(Latin1(response), CancellationToken.None)));
     }
 
@@ -264,7 +264,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         await exchange.BeginAsync(CancellationToken.None);
 
         AssertStep(
-            MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: DIGEST-MD5 user",
+            SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: DIGEST-MD5 user",
             await AfterTheRefusalDelay(exchange.ContinueAsync(Latin1(CurlDigestMd5), CancellationToken.None)));
     }
 
@@ -276,7 +276,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         await exchange.ContinueAsync(Latin1(CurlDigestMd5), CancellationToken.None);
 
         AssertStep(
-            MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: DIGEST-MD5 user",
+            SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: DIGEST-MD5 user",
             await AfterTheRefusalDelay(exchange.ContinueAsync(Latin1("x"), CancellationToken.None)));
     }
 
@@ -285,7 +285,7 @@ public sealed class ChallengeResponseSaslMechanismTests
     {
         var step = await AfterTheRefusalDelay(Start(Policy(), "DIGEST-MD5", CurlDigestMd5).BeginAsync(CancellationToken.None));
 
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: DIGEST-MD5", step);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: DIGEST-MD5", step);
     }
 
     [TestMethod]
@@ -293,12 +293,12 @@ public sealed class ChallengeResponseSaslMechanismTests
     {
         var exchange = Start(Policy(allowAnonymous: true), "DIGEST-MD5");
 
-        AssertStep(MailLoginOutcome.Challenge, CurlDigestMd5Challenge, null, null, await exchange.BeginAsync(CancellationToken.None));
+        AssertStep(SaslLoginOutcome.Challenge, CurlDigestMd5Challenge, null, null, await exchange.BeginAsync(CancellationToken.None));
         AssertStep(
-            MailLoginOutcome.Challenge, "rspauth=d41d8cd98f00b204e9800998ecf8427e", null, null,
+            SaslLoginOutcome.Challenge, "rspauth=d41d8cd98f00b204e9800998ecf8427e", null, null,
             await Undelayed(exchange.ContinueAsync(Latin1("nonsense"), CancellationToken.None)));
         AssertStep(
-            MailLoginOutcome.AcceptedUnchecked, string.Empty, null, null,
+            SaslLoginOutcome.AcceptedUnchecked, string.Empty, null, null,
             await Undelayed(exchange.ContinueAsync(Latin1("x"), CancellationToken.None)));
     }
 
@@ -307,7 +307,7 @@ public sealed class ChallengeResponseSaslMechanismTests
     {
         var step = await Start(Policy(allowAnonymous: true), "DIGEST-MD5", "x").BeginAsync(CancellationToken.None);
 
-        AssertStep(MailLoginOutcome.AcceptedUnchecked, string.Empty, null, null, step);
+        AssertStep(SaslLoginOutcome.AcceptedUnchecked, string.Empty, null, null, step);
     }
 
     // ---- APOP ----
@@ -324,7 +324,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         var step = await Undelayed(policy.CheckApopLoginAsync(
             Apop("mrose", "<1896.697170952@dbc.mtview.ca.us>", "c4c9334bac560ecc979e58001b3e22fb"), CancellationToken.None));
 
-        AssertStep(MailLoginOutcome.Accepted, string.Empty, "mrose", "Login accepted: APOP mrose", step);
+        AssertStep(SaslLoginOutcome.Accepted, string.Empty, "mrose", "Login accepted: APOP mrose", step);
     }
 
     [TestMethod]
@@ -334,7 +334,7 @@ public sealed class ChallengeResponseSaslMechanismTests
     {
         var step = await Undelayed(Policy().CheckApopLoginAsync(Apop("user", CurlTimestamp, digest), CancellationToken.None));
 
-        AssertStep(MailLoginOutcome.Accepted, string.Empty, "user", "Login accepted: APOP user", step);
+        AssertStep(SaslLoginOutcome.Accepted, string.Empty, "user", "Login accepted: APOP user", step);
     }
 
     [TestMethod]
@@ -347,7 +347,7 @@ public sealed class ChallengeResponseSaslMechanismTests
     {
         var step = await AfterTheRefusalDelay(Policy().CheckApopLoginAsync(Apop(userName, CurlTimestamp, digest), CancellationToken.None));
 
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, note, step);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, note, step);
     }
 
     [TestMethod]
@@ -356,7 +356,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         var step = await AfterTheRefusalDelay(
             Policy(PolicyFixture.NoAccounts).CheckApopLoginAsync(Apop("user", CurlTimestamp, CurlApopDigest), CancellationToken.None));
 
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: APOP user", step);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: APOP user", step);
     }
 
     [TestMethod]
@@ -366,7 +366,7 @@ public sealed class ChallengeResponseSaslMechanismTests
 
         var step = await AfterTheRefusalDelay(Policy().CheckApopLoginAsync(Apop(string.Empty, CurlTimestamp, digest), CancellationToken.None));
 
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, step.Outcome);
     }
 
     [TestMethod]
@@ -375,7 +375,7 @@ public sealed class ChallengeResponseSaslMechanismTests
         var step = await Undelayed(
             Policy(allowAnonymous: true).CheckApopLoginAsync(Apop("nobody", CurlTimestamp, "x"), CancellationToken.None));
 
-        AssertStep(MailLoginOutcome.AcceptedUnchecked, string.Empty, null, null, step);
+        AssertStep(SaslLoginOutcome.AcceptedUnchecked, string.Empty, null, null, step);
     }
 
     // ---- The login note ----
@@ -393,7 +393,7 @@ public sealed class ChallengeResponseSaslMechanismTests
                 var pending = exchange.ContinueAsync(Latin1(response), CancellationToken.None).AsTask();
                 clock.Advance(AuthenticationPolicy.RefusalDelay);
                 var step = await pending;
-                step = step.Outcome == MailLoginOutcome.Challenge
+                step = step.Outcome == SaslLoginOutcome.Challenge
                     ? await exchange.ContinueAsync(ReadOnlyMemory<byte>.Empty, CancellationToken.None)
                     : step;
                 notes.Add(step.CheckedLogin?.Note);

@@ -92,6 +92,14 @@ public sealed class CommandLineRunnerAiHelpTests
             ? DataDirectoryLockOutcome.InUse(path)
             : DataDirectoryLockOutcome.Taken(new FakeLockHolder());
 
+    // The files AiHelpExamplePrecondition.KeytabAndUserFileExist names; no other example reads a file.
+    private static byte[] ReadStartFileAsThePreconditionSays(string path) => path switch
+    {
+        "http.keytab" => TestKeytabFiles.AesOnly,
+        "users.txt" => "alice:secret\n"u8.ToArray(),
+        _ => throw new FileNotFoundException(path),
+    };
+
     private static string[] SplitLines(string text) =>
         text.Length == 0 ? [] : text.TrimEnd('\n').Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
 
@@ -107,7 +115,8 @@ public sealed class CommandLineRunnerAiHelpTests
                 _ => factory,
                 DataDirectoryProbe.CanOpen,
                 path => TakeLockAsThePreconditionSays(example.Precondition, path),
-                TimeProvider.System)
+                TimeProvider.System,
+                readStartFile: ReadStartFileAsThePreconditionSays)
             .RunAsync(Substitute(example.Arguments, dataDirectory), output, error, stop.Token);
         if (example.ServesUntilStopped)
         {

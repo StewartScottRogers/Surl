@@ -78,7 +78,7 @@ public sealed class CommandLineRunnerTests
     }
 
     [TestMethod]
-    public async Task RunAsync_Version_WritesVersionWithTheDictGopherGophersHttpHttpsMqttMqttsTelnetAndTftpSchemesAndReturnsOk()
+    public async Task RunAsync_Version_WritesVersionWithEveryRegisteredSchemeAndReturnsOk()
     {
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
@@ -86,9 +86,20 @@ public sealed class CommandLineRunnerTests
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "gopher", "gophers", "http", "https", "mqtt", "mqtts", "telnet", "tftp"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: dict gopher gophers http https mqtt mqtts telnet tftp" + NewLine);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "ldap", "ldaps", "mqtt", "mqtts", "pop3", "pop3s", "rtsp", "scp", "sftp", "smb", "smbs", "smtp", "smtps", "telnet", "tftp", "ws", "wss"]), output);
+        StringAssert.EndsWith(output, NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps ldap ldaps mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss" + NewLine);
         Assert.AreEqual(string.Empty, error);
+    }
+
+    [TestMethod]
+    public void ComposeRegisteredSchemes_AreEverySchemeAListenUrlMayName()
+    {
+        // ListenUrlParser refuses every other scheme with (1), so no listen URL reaches the
+        // runner with a scheme no server answers.
+        var registeredSchemes = new CommandLineRunner(_ => new FakeListenerFactory(), _ => true, _ => DataDirectoryLockOutcome.NoLock, TimeProvider.System)
+            .ComposeRegisteredSchemes();
+
+        CollectionAssert.AreEquivalent(SchemeDefaultPorts.Schemes.ToArray(), registeredSchemes.ToArray());
     }
 
     [TestMethod]
@@ -132,11 +143,11 @@ public sealed class CommandLineRunnerTests
     {
         var factory = new FakeListenerFactory();
 
-        var (exitCode, output, error) = await RunAsync(factory, "http://127.0.0.1:0/", "rtsp://127.0.0.1:0/");
+        var (exitCode, output, error) = await RunAsync(factory, "http://127.0.0.1:0/", "rtmp://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.AreEqual(string.Empty, output);
-        Assert.AreEqual("surl: (1) Protocol \"rtsp\" not supported" + NewLine, error);
+        Assert.AreEqual("surl: (1) Protocol \"rtmp\" not supported" + NewLine, error);
         Assert.IsEmpty(factory.StartedListenUrls);
     }
 
@@ -310,7 +321,7 @@ public sealed class CommandLineRunnerTests
             },
             "--directory",
             "served",
-            "rtsp://127.0.0.1:0/");
+            "rtmp://127.0.0.1:0/");
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
         Assert.IsEmpty(lockedPaths);

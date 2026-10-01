@@ -13,9 +13,23 @@ public enum AuthenticationMethod
     Negotiate,
 
     /// <summary>
+    /// SASL <c>GSSAPI</c>, RFC 4752 (<c>--auth gssapi</c>), for the mail servers: a Kerberos
+    /// ticket checked against the <c>--keytab</c> keys, so no secret is sent; not in the default
+    /// set (ADR-0049, section 3; ADR-0057, decision 9).
+    /// </summary>
+    Gssapi,
+
+    /// <summary>
     /// NTLM (<c>--auth ntlm</c>); not in the default set.
     /// </summary>
     Ntlm,
+
+    /// <summary>
+    /// NTLMv1 without extended session security (<c>--auth ntlmv1</c>), the only login upstream
+    /// curl makes in an SMB session setup; its own word, not in the default set, so accepting
+    /// HTTP's NTLMv2 never accepts it (ADR-0073, decision 3).
+    /// </summary>
+    NtlmV1,
 
     /// <summary>
     /// Digest, RFC 7616 (<c>--auth digest</c>).

@@ -32,11 +32,11 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     /// <summary>
     /// The step accepting a login unchecked, under <c>--allow-anonymous</c> (ADR-0049, section 5).
     /// </summary>
-    protected static MailLoginStep AcceptedUnchecked { get; } =
-        new(MailLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
+    protected static SaslLoginStep AcceptedUnchecked { get; } =
+        new(SaslLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
 
     /// <inheritdoc/>
-    public ValueTask<MailLoginStep> BeginAsync(CancellationToken cancellationToken)
+    public ValueTask<SaslLoginStep> BeginAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (isBegun)
@@ -49,7 +49,7 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     }
 
     /// <inheritdoc/>
-    public ValueTask<MailLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
+    public ValueTask<SaslLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!isAwaitingResponse)
@@ -68,7 +68,7 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     /// <param name="response">The decoded response, or <see langword="null"/> for none.</param>
     /// <param name="cancellationToken">Cancels the step and the refusal delay.</param>
     /// <returns>A challenge, or how the login ended.</returns>
-    protected abstract ValueTask<MailLoginStep> AnswerAsync(
+    protected abstract ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken);
 
     /// <summary>
@@ -77,8 +77,8 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     /// <param name="challenge">The continuation's bytes; empty for an empty challenge.</param>
     /// <param name="checkedLogin">The login note, when the challenge answers checked credentials.</param>
     /// <returns>The step.</returns>
-    protected static MailLoginStep Challenge(ReadOnlyMemory<byte> challenge, CheckedLogin? checkedLogin = null) =>
-        new(MailLoginOutcome.Challenge, challenge, null, checkedLogin);
+    protected static SaslLoginStep Challenge(ReadOnlyMemory<byte> challenge, CheckedLogin? checkedLogin = null) =>
+        new(SaslLoginOutcome.Challenge, challenge, null, checkedLogin);
 
     /// <summary>
     /// Accepts the login as <paramref name="accountName"/>, noting <paramref name="user"/>.
@@ -86,8 +86,8 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     /// <param name="accountName">The account whose credentials matched.</param>
     /// <param name="user">The user as the note names it.</param>
     /// <returns>The step.</returns>
-    protected MailLoginStep Accept(string accountName, string? user) =>
-        new(MailLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, accountName, Note(user, true));
+    protected SaslLoginStep Accept(string accountName, string? user) =>
+        new(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, accountName, Note(user, true));
 
     /// <summary>
     /// Refuses the credentials after the refusal delay, noting <paramref name="user"/>; a user that
@@ -95,12 +95,14 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     /// </summary>
     /// <param name="user">The user as the note names it.</param>
     /// <param name="cancellationToken">Cancels the delay.</param>
+    /// <param name="refusalNote">Why, for the verbose log after the login note; <see langword="null"/> for no reason.</param>
     /// <returns>The step.</returns>
-    protected async ValueTask<MailLoginStep> RefuseAsync(string? user, CancellationToken cancellationToken)
+    protected async ValueTask<SaslLoginStep> RefuseAsync(
+        string? user, CancellationToken cancellationToken, string? refusalNote = null)
     {
         await Context.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
 
-        return new MailLoginStep(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, Note(user, false));
+        return new SaslLoginStep(SaslLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, Note(user, false), refusalNote);
     }
 
     /// <summary>
@@ -111,10 +113,10 @@ internal abstract class SaslMechanismExchange : ISaslExchange
     /// <returns>The note.</returns>
     protected CheckedLogin Note(string? user, bool isAccepted) => new(Context.Mechanism, user, isAccepted);
 
-    private async ValueTask<MailLoginStep> TrackAsync(ValueTask<MailLoginStep> answer)
+    private async ValueTask<SaslLoginStep> TrackAsync(ValueTask<SaslLoginStep> answer)
     {
         var step = await answer.ConfigureAwait(false);
-        isAwaitingResponse = step.Outcome == MailLoginOutcome.Challenge;
+        isAwaitingResponse = step.Outcome == SaslLoginOutcome.Challenge;
 
         return step;
     }

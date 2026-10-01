@@ -61,7 +61,7 @@ internal sealed class SshAesGcmProtection : SshPacketProtection
     };
 
     /// <inheritdoc/>
-    public override byte[] OpenHead(byte[] head) => head;
+    public override byte[] OpenHead(uint sequenceNumber, byte[] head) => head;
 
     /// <inheritdoc/>
     public override byte[] OpenBody(uint sequenceNumber, byte[] plainHead, byte[] rest)

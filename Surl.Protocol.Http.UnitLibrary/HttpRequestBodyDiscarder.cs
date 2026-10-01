@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Cryptography;
+using Surl.HttpMessage;
 
 namespace Surl.Protocol.Http;
 

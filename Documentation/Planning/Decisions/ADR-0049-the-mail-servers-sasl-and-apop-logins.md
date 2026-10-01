@@ -139,7 +139,7 @@ is exit 67:
 | POP3 `APOP` | RFC 1939 section 7 | no | BL-195 |
 | `NTLM` | MS-NLMP, carried as in HTTP (ADR-0039) | no | BL-196 |
 | `EXTERNAL` | RFC 4422 appendix A, the TLS client certificate | no (no secret is sent) | BL-216 |
-| `GSSAPI` | RFC 4752, Kerberos V5 | no | BL-218, after BL-217 decides Kerberos |
+| `GSSAPI` | RFC 4752, Kerberos V5 | no | BL-218, after BL-217 decides Kerberos (BL-218 is done; see Amendment 2) |
 | IMAP `LOGIN`, POP3 `USER`/`PASS` | RFC 3501, RFC 1939 | **yes** | the IMAP and POP3 servers, through ADR-0032's `CheckPasswordLoginAsync` |
 
 - A bearer token read off the wire is as good as a password, so `XOAUTH2` and `OAUTHBEARER`
@@ -165,8 +165,9 @@ any account is configured (ADR-0006 section 3).
   on the connection: `GSSAPI`, `DIGEST-MD5`, `CRAM-MD5`, `NTLM`, `OAUTHBEARER`, `XOAUTH2`,
   `PLAIN`, `LOGIN`, `EXTERNAL`. This is curl's measured preference, so the list reads as what a
   curl client will pick; the order changes nothing for curl. `EXTERNAL` is offered only when
-  `TlsSession.ClientCertificate` is not `null` (ADR-0010 section 5, `--cacert`); `GSSAPI` is not
-  offered until BL-218 lands.
+  `TlsSession.ClientCertificate` is not `null` (ADR-0010 section 5, `--cacert`); `GSSAPI` was not
+  offered until BL-218 landed; since it did (done), `GSSAPI` is offered first on every connection,
+  TLS or not, whenever `gssapi` is accepted (Amendment 2).
 - **SMTP**: the mechanisms on one `250-AUTH <m1> <m2> ...` line of the `EHLO` reply, left out when
   none may be offered.
 - **IMAP**: `AUTH=<m>` capabilities in the same order; `LOGINDISABLED` (RFC 3501 section 6.2.3)
@@ -197,7 +198,7 @@ list:
 | `--auth` word | Method | Protocols | In the default set |
 | --- | --- | --- | --- |
 | `negotiate` | Negotiate, RFC 4559 | HTTP | no (ADR-0032) |
-| `gssapi` | SASL `GSSAPI` | SMTP, IMAP, POP3 | no; refused as not available until BL-218 |
+| `gssapi` | SASL `GSSAPI` | SMTP, IMAP, POP3 | no (refused as not available until BL-218 built it; BL-218 is done, and `gssapi` now needs `--keytab`; see Amendment 2) |
 | `ntlm` | NTLM | HTTP, SMTP, IMAP, POP3 | no (ADR-0032) |
 | `digest` | Digest, RFC 7616 | HTTP | yes |
 | `digest-md5` | SASL `DIGEST-MD5` | SMTP, IMAP, POP3 | **no** |
@@ -209,22 +210,24 @@ list:
 | `bearer` | Bearer, RFC 6750 | HTTP | yes |
 | `oauthbearer` | SASL `OAUTHBEARER` | SMTP, IMAP, POP3 | yes |
 | `xoauth2` | SASL `XOAUTH2` | SMTP, IMAP, POP3 | yes |
-| `external` | SASL `EXTERNAL` | SMTP, IMAP, POP3 | refused as not available until BL-216, which then adds it to the default set |
+| `external` | SASL `EXTERNAL` | SMTP, IMAP, POP3 | yes (refused as not available until BL-216 built it and added it to the default set; BL-216 is done) |
 | `aws-sigv4` | AWS Signature Version 4 | HTTP | yes |
 
 - The order: methods computed from a secret, strongest first, then clear secrets, then
   `external`, with `aws-sigv4` last as before; each mail word sits beside its HTTP kin.
 - **The default set** becomes
-  `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,aws-sigv4` (and `external`
-  once BL-216 lands). **`digest-md5`** stays a named choice because RFC 6331 moved it to Historic
+  `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,aws-sigv4`, and `external` joined
+  it when BL-216 landed (done), so it is now
+  `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4`. **`digest-md5`** stays a named choice because RFC 6331 moved it to Historic
   for its weaknesses, and curl prefers it above every other mechanism, so offering it by default
   would make it the one every curl client uses. **`apop`** stays a named choice because its
   MD5-prefix construction lets a party that chooses the timestamp recover password characters
   (Leurent, "Message Freedom in MD4 and MD5 Collisions: Application to APOP", 2007), and a POP3
   client that sees a timestamp may use it. Both are named, like `ntlm`, with `--auth`.
 - The words are matched and stored as ADR-0032 section 1 says; the refusal
-  `surl: (2) --auth <word> is not available in this build` covers `gssapi` and `external` until
-  their tasks land, and nothing else once BL-194 to BL-196 are Done.
+  `surl: (2) --auth <word> is not available in this build` covered `gssapi` and `external` until
+  their tasks landed, and nothing else once BL-194 to BL-196 were Done; since BL-216 (done) it
+  covered `gssapi` alone, and since BL-218 (done) it covers no `--auth` word (Amendment 2).
 - **Help** (ADR-0034, one line within curl's 79 columns): `--auth`'s description stays
   "Authentication methods accepted", its `Default` becomes the default set above, and its
   explanation lists the words with the protocols each applies to, as the table does. BL-197
@@ -235,8 +238,9 @@ list:
 - **`GSSAPI`** is Kerberos V5, which ADR-0032 section 11 made later work for Negotiate. It is
   built by hand like every other missing primitive, not refused as a decision: BL-217 decides how
   Surl holds its Kerberos key and checks a ticket, and BL-218 builds the SASL `GSSAPI` exchange
-  on it. Until then `--auth gssapi` is refused as not available, `GSSAPI` is never offered, and
-  a client that sends `AUTH GSSAPI` anyway gets `RefusedMechanism`. Measured, curl picks
+  on it. Until BL-218 landed, `--auth gssapi` was refused as not available, `GSSAPI` was never
+  offered, and a client that sent `AUTH GSSAPI` anyway got `RefusedMechanism`; BL-218 is done,
+  and Amendment 2 records what holds now. Measured, curl picks
   `GSSAPI` unasked only for a user name holding a realm (`user@EXAMPLE.COM`); a server that
   offered it without being able to finish it would break those logins with exit 94.
 - **`EXTERNAL`** logs in as the verified TLS client certificate (ADR-0010 section 5: `--cacert`
@@ -246,7 +250,8 @@ list:
   not used) and the authorization identity curl sends (the `-u` user name, measured) is empty or
   equal to it (ordinal). Otherwise it is `RefusedCredentials`. It is offered only on a
   connection whose `TlsSession.ClientCertificate` is not `null`, and is not plain-text. BL-216
-  builds it.
+  built it (done); amendment 1 records how it answers a connection without a client
+  certificate.
 
 ### 5. Each mechanism's exchange
 
@@ -387,7 +392,9 @@ public sealed record MailLoginStep(
   server writes `CheckedLogin.Note` to its exchange log whenever it is not `null`, before it
   answers. It is set on the step that decided the credentials: `Accepted` or
   `RefusedCredentials`, `DIGEST-MD5`'s final `Accepted` (not the `rspauth` challenge), and the
-  bearer mechanisms' error challenge (not the refusal after it).
+  bearer mechanisms' error challenge (not the refusal after it). Since BL-260 the step also
+  carries an optional `RefusalNote`, written right after it (Amendment 3,
+  [ADR-0067](ADR-0067-mailloginstep-carries-an-optional-refusal-note.md)).
 - **`AnonymousAuthenticationPolicy`** (the test double and the pre-composition default) offers
   `PLAIN` and the clear-password login and not `APOP`; its exchange for any mechanism accepts the
   initial response when one was sent and otherwise sends one empty challenge and accepts
@@ -440,9 +447,9 @@ public sealed record MailLoginStep(
 | `CRAM-MD5`, `DIGEST-MD5`, `APOP` | BL-195 |
 | `NTLM` | BL-196 |
 | The `--auth` words, default set, order, help, manual and AI help | BL-197 |
-| `EXTERNAL`, then `external` joins the default set | BL-216 (filed by this task) |
-| How Surl holds a Kerberos key and checks a ticket, for Negotiate and `GSSAPI` | BL-217 (filed by this task) |
-| SASL `GSSAPI` | BL-218 (filed by this task) |
+| `EXTERNAL`, then `external` joins the default set | BL-216 (filed by this task; done) |
+| How Surl holds a Kerberos key and checks a ticket, for Negotiate and `GSSAPI` | BL-217 (filed by this task; done) |
+| SASL `GSSAPI` | BL-218 (filed by this task; done, with `--keytab` from BL-240; see Amendment 2) |
 | Offering, framing and answering the logins | the SMTP, IMAP and POP3 servers' login tasks (BL-200, BL-204, BL-206) |
 
 ## Alternatives considered
@@ -474,3 +481,66 @@ public sealed record MailLoginStep(
   fixtures and the servers' conformance.
 - `--auth`'s default set, table and warning order change (BL-197), and `Requirements.md`'s FR-046
   and FR-008 rows read this ADR when those tasks land.
+
+## Amendment 1 - `EXTERNAL` without a client certificate, and help's long `--auth` default (BL-216, recorded by BL-235, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29, in
+BL-216, and recorded here by BL-235 because BL-155 held this folder while BL-216 ran.
+
+1. **A client that sends `AUTH EXTERNAL` on a connection with no TLS client certificate** gets
+   `RefusedMechanism` from `AuthenticationPolicy.StartSaslExchange`: at once, with no
+   `RefusalDelay` and no login note, and even under `--allow-anonymous`
+   (`AuthenticationPolicy.CanIdentifyClient`). Why: decision 2 offers `EXTERNAL` only on a
+   connection whose `TlsSession.ClientCertificate` is not `null`, so there the mechanism is one the
+   server did not offer, and a mechanism not offered is refused as a mechanism (decision 7), not as
+   credentials. There is also no client identity for `EXTERNAL` to accept - its identity *is* the
+   certificate - so `--allow-anonymous`, which accepts whatever identity a login names, has nothing
+   to accept; answering `RefusedCredentials` after the delay would claim a check that never ran.
+   `ExternalSaslMechanismTests.NoClientCertificate_IsRefusedAsAMechanismUndelayedAndNotOffered`
+   (`Surl.Authentication.UnitTests`) pins it.
+2. **Help wraps `--auth`'s default within 79 columns** ([ADR-0034](ADR-0034-curl-style-help-categories-and-the-manual.md)
+   decision 3's width). With `external` in it the default
+   `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4` is one word
+   too long for any eight-space-indented paragraph line, and ADR-0034 put such a word alone on a
+   line past 79 columns. `HelpLayout.WrapParagraph` now breaks a word too long for any line after
+   each of its commas and wraps the pieces greedily, so the `Default:` paragraph stays within 79
+   columns and every piece still reads as part of the list. A word that fits a line is never
+   broken, so no other page changes. Why: ADR-0034 fixes the width at 79 so a page is one text a
+   test can pin and every line fits curl's columns; breaking at the list's own separators keeps
+   that without inventing a hyphenation rule.
+   `HelpTextTests.Answer_Auth_IsItsPageWithItsDefaultWrappedAndItsExplanation`
+   (`Surl.Cli.UnitTests`) pins it. ADR-0034 decision 3 states the same rule.
+
+## Amendment 2 - `--auth gssapi` is available and needs only `--keytab` (BL-218 and BL-240, recorded by BL-273, 2026-09-30)
+
+Recorded by BL-273, 2026-09-30. BL-218 built SASL `GSSAPI` and BL-240 added `--keytab`, as
+[ADR-0057](ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)
+decisions 1 and 9 decide; this amendment brings decisions 1 to 4 above up to date with them.
+
+1. **`--auth gssapi` is available.** It is no longer refused as not available: a SASL `GSSAPI`
+   login checks the client's Kerberos ticket against the `--keytab` keys (ADR-0057 decision 9).
+2. **It needs `--keytab`.** A start whose `--auth` names `gssapi` without `--keytab` is refused
+   before anything else is checked, writing `surl: (2) --auth gssapi needs --keytab` and exiting
+   2 (`FailedInit`): `CommandLineRunner.FindOptionRefusal`, through
+   `KeytabComposition.IsGssapiWithoutKeytab` (ADR-0057 decision 1).
+3. **It is not in the default set**, which stays
+   `digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4`
+   (`CommandLineOptions`, `--auth`'s `Default`), because it needs `--keytab`.
+4. **`GSSAPI` is offered first** when `gssapi` is accepted, on any connection, TLS or not: it
+   sends no clear secret (`SaslMechanism.InOfferOrder` puts it first, and
+   `AuthenticationPolicy.GetMailLoginOffer` offers it whenever the `--keytab` acceptor is
+   composed, which point 2 of this amendment guarantees).
+5. **`surl: (2) --auth <word> is not available in this build` covers no `--auth` word** any more.
+   The refusal remains only for an option this build does not serve yet
+   (`CommandLineRunner.FindUnavailableOption`).
+
+## Amendment 3 - `MailLoginStep` carries an optional `RefusalNote` (BL-260, recorded by BL-276, 2026-09-30)
+
+Recorded by BL-276, 2026-09-30, in
+[ADR-0067](ADR-0067-mailloginstep-carries-an-optional-refusal-note.md). Section 6's
+`MailLoginStep` has a fifth member, `string? RefusalNote = null`: why the credentials were
+refused, which the SMTP, IMAP and POP3 servers write to the exchange log immediately after
+`CheckedLogin.Note` and before they answer. `SaslMechanismExchange.RefuseAsync` takes it as an
+optional argument, and today only `GssapiSaslExchange` sets it, to ADR-0057 decision 4's
+`Kerberos: <reason>` line. ADR-0067 gives the reasons, and why a reason field on `CheckedLogin` was
+rejected.

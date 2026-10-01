@@ -23,7 +23,8 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `CommandLineAccount` to `SurlCommandLine.Accounts`, split at the first `:`; a refusal
   of one never echoes its value (`CommandLineOption.ArgumentHoldsSecret`), and a user name
   given twice is refused after the whole line is read. `--user-file` is kept as a path
-  (`SurlCommandLine.UserFile`) and read by `Surl.Console`. `--allow-anonymous`,
+  (`SurlCommandLine.UserFile`) and read by `Surl.Console`, and so is `--keytab`
+  (`SurlCommandLine.KeytabFile`, ADR-0057 decision 1: category `auth`, not negatable). `--allow-anonymous`,
   `--allow-plaintext-auth`, `--auth <methods>` (`GivenAuthenticationMethods`, matched
   case-insensitively, in ADR-0032 section 3's order) and `--self-signed` are parsed here;
   `--self-signed` with `--cert` is refused.
@@ -31,9 +32,13 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   to `HostKeyFiles` and `HostCertificateFiles`; `--authorized-keys <user:file>` adds a
   `CommandLineAuthorizedKeys` to `AuthorizedKeys`, split at the first `:`, a user given twice
   refused after the whole line is read; `--throwaway-hostkey` (`ThrowawayHostKey`) with
-  `--hostkey` is refused; `--allow-weak-ssh-algorithms` sets `AllowWeakSshAlgorithms`. `--pass`
-  without `--cert` is accepted when a `--hostkey` is given. `Surl.Console` refuses a start that
-  gives any of them as not available in this build until the SSH server is composed (BL-171).
+  `--hostkey` is refused; `--allow-weak-ssh-algorithms` sets `AllowWeakSshAlgorithms`;
+  `--ssh-ciphers` and `--ssh-macs` set `SshCiphers` and `SshMacs` to their comma-separated names,
+  kept as given (`OptionArgumentReader.SshAlgorithmNames`, ADR-0066), which `Surl.Console` checks. `--pass`
+  without `--cert` is accepted when a `--hostkey` is given. Each is in the `ssh` help category
+  (`SSH protocol`, schemes `scp` and `sftp`, ADR-0051 decision 12), with every option the SSH
+  server reads. `Surl.Console` reads the files and serves every one of these options, `--hostcert`
+  included (BL-222).
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,

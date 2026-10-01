@@ -1,7 +1,10 @@
 # Builds Surl and runs the fast tests on every operating system a release ships for, so a
 # change that only works on Windows fails here rather than in someone's shell script. On
 # Linux and macOS it also obtains the pinned upstream curl build, verifies its SHA-256 and
-# runs the Surl.Conformance tests against it (ADR-0016).
+# runs the Surl.Conformance tests against it (ADR-0016); on Linux, beside it, the OpenLDAP
+# build of the same release, with MIT Kerberos GSS-API, that ldap and ldaps are proved against
+# (ADR-0076, ADR-0078), with kinit for the GSSAPI test (BL-351). On macOS it also records the
+# build's NTLM login with a non-ASCII password and publishes it as an artifact (BL-324).
 name: CI
 
 on:
@@ -29,9 +32,12 @@ jobs:
         # Windows has neither: its conformance runs where the pinned file is.
         include:
           - os: windows-latest
+          # openldap-upstream-curl: the leg also builds the supplementary OpenLDAP build of
+          # curl 8.21.0 that ldap and ldaps are proved against (ADR-0076, ADR-0078).
           - os: ubuntu-latest
             upstream-curl-platform: linux-x64
             upstream-curl-asset: curl-linux-x86_64-musl-8.21.0.tar.xz
+            openldap-upstream-curl: true
           - os: macos-latest
             upstream-curl-platform: osx-arm64
             upstream-curl-asset: curl-macos-arm64-8.21.0.tar.xz
@@ -123,6 +129,98 @@ jobs:
               Write-Output "::warning::The $field of the $env:PLATFORM pin is '$($pin.$field)', but the build reports '$($reported[$field])'. The build wins (ADR-0016): correct the pin."
             }
           }
+
+      # The OpenLDAP build has no published download: Build-OpenLdapUpstreamCurl.ps1 builds it
+      # from pinned sources in a digest-pinned container, the same bytes every time, only when
+      # the cache does not already hold the pinned file (ADR-0076, ADR-0078).
+      - name: Read the OpenLDAP upstream curl pin
+        id: openldap-pin
+        if: matrix.openldap-upstream-curl
+        shell: pwsh
+        env:
+          PLATFORM: ${{ matrix.upstream-curl-platform }}
+        run: |
+          $pin = @((Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json).builds |
+            Where-Object { $_.platform -eq $env:PLATFORM -and $_.role -eq 'supplementary' -and ($_.protocols -split ' ') -contains 'ldap' })
+          if ($pin.Count -ne 1) {
+            Write-Output "::error::UpstreamCurlBuilds.json pins $($pin.Count) supplementary ldap builds for $env:PLATFORM; exactly one is needed."
+            exit 1
+          }
+          "sha256=$($pin[0].sha256)" >> $env:GITHUB_OUTPUT
+          "path=$($pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+          "directory=$(Split-Path -Parent $pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+
+      - name: Prepare the OpenLDAP upstream curl directory
+        if: matrix.openldap-upstream-curl
+        run: |
+          sudo mkdir -p "${{ steps.openldap-pin.outputs.directory }}"
+          sudo chown "$(id -u):$(id -g)" "${{ steps.openldap-pin.outputs.directory }}"
+
+      - name: Restore the OpenLDAP upstream curl build
+        id: openldap-cache
+        if: matrix.openldap-upstream-curl
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.openldap-pin.outputs.directory }}
+          key: openldap-upstream-curl-${{ matrix.upstream-curl-platform }}-${{ steps.openldap-pin.outputs.sha256 }}
+
+      - name: Build the OpenLDAP upstream curl build
+        if: matrix.openldap-upstream-curl && steps.openldap-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: ./Build-OpenLdapUpstreamCurl.ps1 -OutputPath "${{ steps.openldap-pin.outputs.path }}"
+
+      # As for the reference build: nothing runs the file before its SHA-256 matches the pin.
+      - name: Verify the OpenLDAP upstream curl build
+        if: matrix.openldap-upstream-curl
+        shell: pwsh
+        env:
+          PINNED_PATH: ${{ steps.openldap-pin.outputs.path }}
+          PINNED_SHA256: ${{ steps.openldap-pin.outputs.sha256 }}
+        run: |
+          if (-not (Test-Path -LiteralPath $env:PINNED_PATH)) {
+            Write-Output "::error::$env:PINNED_PATH does not exist."
+            exit 1
+          }
+          $actual = (Get-FileHash -LiteralPath $env:PINNED_PATH -Algorithm SHA256).Hash
+          if ($actual -ne $env:PINNED_SHA256) {
+            Write-Output "::error::$env:PINNED_PATH hashes to $actual, but UpstreamCurlBuilds.json pins $env:PINNED_SHA256. The build did not reproduce; not running it (ADR-0076)."
+            exit 1
+          }
+          Write-Output "$env:PINNED_PATH matches the pin $env:PINNED_SHA256."
+          chmod 755 $env:PINNED_PATH
+          & $env:PINNED_PATH --version
+
+      # The OpenLDAP build's GSS-API is MIT's, which reads a credential cache rather than -u's
+      # password: the GSSAPI conformance test runs kinit against the hand-built test KDC to fill
+      # one (ADR-0078, BL-351). An OS package for the runner, not a NuGet package.
+      - name: Install kinit
+        if: matrix.openldap-upstream-curl
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends krb5-user
+          command -v kinit
+
+      # No Mac is reachable from the dark factory's machine, so the macOS build's NTLM login
+      # with a non-ASCII password is recorded here, as Fixtures/README.md records the Linux
+      # build's, and published as an artifact for Surl.Authentication.UnitTests (BL-324).
+      - name: Record the non-ASCII NTLM password login
+        if: matrix.upstream-curl-platform == 'osx-arm64'
+        shell: pwsh
+        env:
+          LANG: en_US.UTF-8
+        run: |
+          ./Record-CurlExchange.ps1 -Port 18325 -ResponsesPerConnection 2 `
+            -Response 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM TlRMTVNTUAACAAAACAAIADAAAAAFgoqgASNFZ4mrze8AAAAAAAAAABwAHAA4AAAAUwBVAFIATAACAAgAUwBVAFIATAABAAgAUwBVAFIATAAAAAAA\r\nContent-Length: 0\r\n\r\n', 'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok' `
+            -Curl '${{ steps.pin.outputs.path }}' `
+            -CurlArgs '-sS', '--ntlm', '-u', "tester:p$([char]0xE4)ssword", 'http://127.0.0.1:18325/x' `
+            -OutDirectory "$env:RUNNER_TEMP/ntlm-non-ascii-password-macos"
+
+      - name: Publish the non-ASCII NTLM password recording
+        if: matrix.upstream-curl-platform == 'osx-arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ntlm-non-ascii-password-macos
+          path: ${{ runner.temp }}/ntlm-non-ascii-password-macos
 
       - name: Conformance tests
         if: matrix.upstream-curl-platform

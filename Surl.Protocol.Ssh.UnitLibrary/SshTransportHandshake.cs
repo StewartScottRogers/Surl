@@ -16,7 +16,12 @@ namespace Surl.Protocol.Ssh;
 /// skipped. Under strict key exchange the client's first <c>KEXINIT</c> must be its first packet,
 /// nothing but the method's messages and <c>NEWKEYS</c> may follow it, a packet that would wrap the
 /// client's sequence number is refused, and each direction's sequence number is set back to 0
-/// after every <c>NEWKEYS</c>. Any other message is <c>DISCONNECT</c> 2. A client's
+/// after every <c>NEWKEYS</c>. In a re-exchange the server starts, a message before the client's
+/// <c>KEXINIT</c> that is neither one of those three nor a key exchange message is held, up to
+/// <see cref="SshReExchangeLimits.HeldBytes"/>, and <see cref="ReadMessageAsync"/> returns it after
+/// <c>NEWKEYS</c> (ADR-0060). Any other message is <c>DISCONNECT</c> 2. Each <c>NEWKEYS</c> also
+/// starts a new zlib stream in each direction that agreed <c>zlib</c>, or <c>zlib@openssh.com</c>
+/// once the login has succeeded (<see cref="StartDelayedCompression"/>). A client's
 /// <c>DISCONNECT</c> is noted and ends the exchange without a reply. A cipher or MAC that is not
 /// built yet is <c>DISCONNECT</c> 11 once both <c>NEWKEYS</c> are exchanged, sent under the keys
 /// that were in force before them.
@@ -33,23 +38,26 @@ internal sealed class SshTransportHandshake(
     SshAlgorithmOffer offer,
     SshHostKeySet hostKeys,
     ISshRandomSource randomSource,
-    SshReExchangeLimits? reExchangeLimits = null) : ISshKeyExchangeChannel
+    SshReExchangeLimits? reExchangeLimits = null) : ISshKeyExchangeChannel, IDisposable
 {
     // Fields rather than method groups, so each call site passes one delegate made once.
     private static readonly Func<byte, bool> IsKeyExchangeMethodMessage = messageNumber =>
         messageNumber is >= SshMessageNumber.FirstKeyExchangeMethodMessage and <= SshMessageNumber.LastKeyExchangeMethodMessage;
 
-    private static readonly Func<byte, bool> IsKeyExchangeInit = messageNumber => messageNumber == SshMessageNumber.KeyExchangeInit;
-
     private readonly SshConnectionReader connectionReader = new(connection);
     private readonly SshPacketWriter packetWriter = new(connection, randomSource);
     private readonly SshReExchangeLimits limits = reExchangeLimits ?? SshReExchangeLimits.Default;
+    private readonly Queue<(byte[] Payload, uint SequenceNumber)> heldMessages = new();
+    private long heldBytes;
     private SshPacketReader? packetReader;
     private byte[] clientLine = [];
     private byte[]? sessionIdentifier;
     private bool strict;
     private bool clientTakesExtensionInfo;
     private long lastExchangeTimestamp;
+    private string compressionClientToServer = "none";
+    private string compressionServerToClient = "none";
+    private bool loggedIn;
 
     /// <summary>
     /// The reader of the client's packets, which reads on after the key exchange; set once the
@@ -117,20 +125,44 @@ internal sealed class SshTransportHandshake(
     {
         context.Log.Note($"SSH key re-exchange started by the {(clientKexInit is null ? "server" : "client")}");
         var serverKexInit = await WriteServerKexInitAsync(cancellationToken);
-        clientKexInit ??= await ReadDuringKeyExchangeAsync(IsKeyExchangeInit, cancellationToken);
+        clientKexInit ??= await ReadClientKexInitHoldingOthersAsync(cancellationToken);
 
         return await ExchangeAsync(clientKexInit, serverKexInit, cancellationToken);
     }
 
     /// <summary>
-    /// Reads the client's next message, whatever it is; a <c>DISCONNECT</c> is noted and ends
-    /// the exchange.
+    /// The sequence number of the packet <see cref="ReadMessageAsync"/> last returned, which an
+    /// <c>UNIMPLEMENTED</c> answering it carries.
+    /// </summary>
+    public uint LastMessageSequenceNumber { get; private set; }
+
+    /// <summary>
+    /// Reads the client's next message, whatever it is: first any held while a server-started
+    /// re-exchange waited for the client's <c>KEXINIT</c>, in the order they came, then the next
+    /// packet. A <c>DISCONNECT</c> is noted and ends the exchange.
     /// </summary>
     /// <param name="cancellationToken">Cuts the read off.</param>
     /// <returns>The payload, message number first.</returns>
     /// <exception cref="SshExchangeEndedException">The client closed the connection or sent a <c>DISCONNECT</c>.</exception>
     /// <exception cref="SshDisconnectRequiredException">The packet is refused.</exception>
     public async ValueTask<byte[]> ReadMessageAsync(CancellationToken cancellationToken)
+    {
+        if (heldMessages.TryDequeue(out var held))
+        {
+            heldBytes -= held.Payload.Length;
+            LastMessageSequenceNumber = held.SequenceNumber;
+
+            return held.Payload;
+        }
+
+        var payload = await ReadPacketAsync(cancellationToken);
+        LastMessageSequenceNumber = unchecked(packetReader!.SequenceNumber - 1);
+
+        return payload;
+    }
+
+    // Reads the client's next packet off the wire; a DISCONNECT is noted and ends the exchange.
+    private async ValueTask<byte[]> ReadPacketAsync(CancellationToken cancellationToken)
     {
         var payload = await packetReader!.ReadPayloadAsync(cancellationToken);
         if (payload[0] != SshMessageNumber.Disconnect)
@@ -241,13 +273,13 @@ internal sealed class SshTransportHandshake(
 
     // SSH_MSG_EXT_INFO with one extension, server-sig-algs: the user-key signature algorithms
     // verified (RFC 8308, sections 2.3 and 3.1; ADR-0051 decision 2.1).
-    private static byte[] ExtensionInfoPayload()
+    private byte[] ExtensionInfoPayload()
     {
         var extensionInfo = new SshWireWriter();
         extensionInfo.WriteByte(SshMessageNumber.ExtensionInfo);
         extensionInfo.WriteUInt32(1);
         extensionInfo.WriteString("server-sig-algs");
-        extensionInfo.WriteNameList(SshUserKeySignature.Algorithms);
+        extensionInfo.WriteNameList(SshUserKeySignature.AlgorithmsFor(offer.AllowsWeakAlgorithms));
 
         return extensionInfo.ToArray();
     }
@@ -267,15 +299,50 @@ internal sealed class SshTransportHandshake(
 
         packetReader!.UseProtection(inbound);
         packetWriter.UseProtection(outbound);
+        compressionClientToServer = algorithms.CompressionClientToServer;
+        compressionServerToClient = algorithms.CompressionServerToClient;
+        packetReader.UseDecompression(CompressesNow(compressionClientToServer));
+        packetWriter.UseCompression(CompressesNow(compressionServerToClient));
         lastExchangeTimestamp = context.TimeProvider.GetTimestamp();
     }
+
+    /// <summary>
+    /// Starts <c>zlib@openssh.com</c> compression in each direction that agreed it, once
+    /// <c>USERAUTH_SUCCESS</c> is written (OpenSSH <c>PROTOCOL</c>, section 2.2): every later
+    /// packet both ways, the client's next included, is compressed.
+    /// </summary>
+    public void StartDelayedCompression()
+    {
+        loggedIn = true;
+        if (compressionClientToServer == SshZlibCompressor.DelayedZlib)
+        {
+            packetReader!.UseDecompression(true);
+        }
+
+        if (compressionServerToClient == SshZlibCompressor.DelayedZlib)
+        {
+            packetWriter.UseCompression(true);
+        }
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        packetReader?.Dispose();
+        packetWriter.Dispose();
+    }
+
+    // Each NEWKEYS starts a new zlib stream (RFC 4253 section 6.2, as libssh2 does): zlib at
+    // once, zlib@openssh.com only once the login has succeeded.
+    private bool CompressesNow(string compression) =>
+        compression == SshZlibCompressor.Zlib || (compression == SshZlibCompressor.DelayedZlib && loggedIn);
 
     private async ValueTask<byte[]> ReadClientKexInitAsync(CancellationToken cancellationToken)
     {
         var packetsBefore = 0;
         while (true)
         {
-            var payload = await ReadMessageAsync(cancellationToken);
+            var payload = await ReadPacketAsync(cancellationToken);
             if (payload[0] == SshMessageNumber.KeyExchangeInit)
             {
                 RefuseLateStrictKexInit(payload, packetsBefore);
@@ -301,13 +368,51 @@ internal sealed class SshTransportHandshake(
         }
     }
 
+    // RFC 4253 section 9: the client may send anything until it has seen the server's KEXINIT.
+    // Until its own KEXINIT comes, IGNORE, DEBUG and UNIMPLEMENTED are skipped, a key exchange
+    // message is refused, and every other message is held, to be read after NEWKEYS; so nothing it
+    // asks for is sent inside the key exchange (ADR-0060).
+    private async ValueTask<byte[]> ReadClientKexInitHoldingOthersAsync(CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var payload = await ReadPacketAsync(cancellationToken);
+            if (payload[0] == SshMessageNumber.KeyExchangeInit)
+            {
+                return payload;
+            }
+
+            if (payload[0] is >= SshMessageNumber.KeyExchangeInit and <= SshMessageNumber.LastKeyExchangeMethodMessage)
+            {
+                throw SshDisconnectRequiredException.ProtocolError($"The client sent SSH message {payload[0]} before its KEXINIT in the key re-exchange.");
+            }
+
+            if (!IsSkippable(payload[0]))
+            {
+                Hold(payload);
+            }
+        }
+    }
+
+    private void Hold(byte[] payload)
+    {
+        heldBytes += payload.Length;
+        if (heldBytes > limits.HeldBytes)
+        {
+            throw SshDisconnectRequiredException.ProtocolError(
+                $"The client sent more than {limits.HeldBytes} bytes of messages before its KEXINIT in the key re-exchange.");
+        }
+
+        heldMessages.Enqueue((payload, unchecked(packetReader!.SequenceNumber - 1)));
+    }
+
     // Reads up to the next message the key exchange wants (RFC 4253 section 7: nothing else
     // may come between KEXINIT and NEWKEYS but the generic transport messages).
     private async ValueTask<byte[]> ReadDuringKeyExchangeAsync(Func<byte, bool> isWanted, CancellationToken cancellationToken)
     {
         while (true)
         {
-            var payload = await ReadMessageAsync(cancellationToken);
+            var payload = await ReadPacketAsync(cancellationToken);
             if (isWanted(payload[0]))
             {
                 return payload;

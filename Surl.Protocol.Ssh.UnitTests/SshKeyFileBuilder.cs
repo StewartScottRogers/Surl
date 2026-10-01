@@ -23,6 +23,8 @@ internal static class SshKeyFileBuilder
 
     public const string HmacSha256Oid = "1.2.840.113549.2.9";
 
+    public const string Ed25519Oid = "1.3.101.112";
+
     public static byte[] Pem(string label, byte[] der) =>
         Encoding.ASCII.GetBytes(PemEncoding.WriteString(label, der) + "\n");
 
@@ -66,6 +68,40 @@ internal static class SshKeyFileBuilder
     public static byte[] OpenSshEcdsaFields(string curveName, byte[] point, BigInteger privateValue) =>
         Concat(String(curveName), Str(point), Mpint(privateValue));
 
+    /// <summary>The Ed25519 fields of <c>openssh-key-v1</c>: the public key, then the private key (the seed and the public key).</summary>
+    public static byte[] OpenSshEd25519Fields(byte[] publicKey, byte[] privateKey) => Concat(Str(publicKey), Str(privateKey));
+
+    /// <summary>The PKCS #8 private key octets of an Ed25519 key: <c>CurvePrivateKey</c>, an OCTET STRING of the seed (RFC 8410, section 7).</summary>
+    public static byte[] Pkcs8Ed25519PrivateKey(byte[] seed)
+    {
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        writer.WriteOctetString(seed);
+
+        return writer.Encode();
+    }
+
+    /// <summary>
+    /// A version 2 <c>OneAsymmetricKey</c> (RFC 5958) of an Ed25519 key, with its public key in
+    /// <c>[1]</c> after the private key, as RFC 8410 section 10.3's second example has.
+    /// </summary>
+    public static byte[] Pkcs8Ed25519WithPublicKey(byte[] seed, byte[] publicKey)
+    {
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        using (writer.PushSequence())
+        {
+            writer.WriteInteger(1);
+            using (writer.PushSequence())
+            {
+                writer.WriteObjectIdentifier(Ed25519Oid);
+            }
+
+            writer.WriteOctetString(Pkcs8Ed25519PrivateKey(seed));
+            writer.WriteBitString(publicKey, tag: new Asn1Tag(TagClass.ContextSpecific, 1));
+        }
+
+        return writer.Encode();
+    }
+
     public static byte[] Point(ECParameters key) => Concat([4], key.Q.X!, key.Q.Y!);
 
     public static BigInteger Unsigned(byte[] bigEndian) => new(bigEndian, isUnsigned: true, isBigEndian: true);
@@ -107,6 +143,33 @@ internal static class SshKeyFileBuilder
             }
         },
         [2, 1, 5]);
+
+    /// <summary>
+    /// A PKCS #8 DSA key (RFC 3279 section 2.3.2): Dss-Parms p, q, g, and x as an INTEGER in
+    /// the private key octets.
+    /// </summary>
+    public static byte[] Pkcs8Dsa(BigInteger prime, BigInteger subgroupOrder, BigInteger generator, BigInteger privateValue)
+    {
+        var privateKey = new AsnWriter(AsnEncodingRules.DER);
+        privateKey.WriteInteger(privateValue);
+
+        return Pkcs8(
+            "1.2.840.10040.4.1",
+            writer =>
+            {
+                using (writer.PushSequence())
+                {
+                    writer.WriteInteger(prime);
+                    writer.WriteInteger(subgroupOrder);
+                    writer.WriteInteger(generator);
+                }
+            },
+            privateKey.Encode());
+    }
+
+    /// <summary>The DSA fields of <c>openssh-key-v1</c>: p, q, g, y, x.</summary>
+    public static byte[] OpenSshDsaFields(BigInteger prime, BigInteger subgroupOrder, BigInteger generator, BigInteger publicValue, BigInteger privateValue) =>
+        Concat(Mpint(prime), Mpint(subgroupOrder), Mpint(generator), Mpint(publicValue), Mpint(privateValue));
 
     /// <summary>
     /// A SEC 1 <c>ECPrivateKey</c> naming <paramref name="curveOid"/>, or no curve.

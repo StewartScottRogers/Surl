@@ -1,4 +1,5 @@
 using Surl.Content;
+using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Http;
@@ -117,8 +118,6 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         .AddField("Connection", "close")
         .ToBytes();
 
-    private static readonly TimeSpan MaxTimerDelay = TimeSpan.FromMilliseconds(uint.MaxValue - 1.0);
-
     private readonly ContentStore contentStore;
 
     private readonly IAuthenticationPolicy authenticationPolicy;
@@ -167,7 +166,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
         while (keepsConnectionOpen)
         {
-            var result = await ReadNextHeadAsync(reader, context, isFirstHead);
+            var result = await reader.ReadNextRequestHeadAsync(context, isFirstHead);
             isFirstHead = false;
             keepsConnectionOpen = result.Head is { } head
                 ? await responder.AnswerRequestAsync(head)
@@ -190,33 +189,5 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
         await connection.WriteAsync(ServiceUnavailableResponse, cancellationToken);
         await connection.CompleteWritesAsync(cancellationToken);
-    }
-
-    // A timer cannot wait longer than uint.MaxValue - 1 milliseconds (about 49.7 days); a
-    // head timeout past that never fires in practice, so it is treated as none.
-    private static TimeSpan TimerDelay(TimeSpan headTimeout) =>
-        headTimeout > MaxTimerDelay ? Timeout.InfiniteTimeSpan : headTimeout;
-
-    // The first head is timed from now; a later one from its first byte, and a client that
-    // closes before sending it simply ends the connection.
-    private static async Task<HttpRequestHeadReadResult> ReadNextHeadAsync(HttpConnectionReader reader, ExchangeContext context, bool isFirstHead)
-    {
-        if (!isFirstHead && !await reader.WaitForBytesAsync(context.CancellationToken))
-        {
-            return HttpRequestHeadReadResult.NoHead(HttpRequestHeadReadOutcome.ConnectionClosed);
-        }
-
-        using var headTimeout = new CancellationTokenSource(TimerDelay(context.Limits.HeadTimeout), context.TimeProvider);
-        using var headTimeoutOrExchange = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
-        try
-        {
-            return await reader.ReadRequestHeadAsync(headTimeoutOrExchange.Token);
-        }
-        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
-        {
-            return HttpRequestHeadReadResult.NoHead(reader.HasReceivedHeadBytes
-                ? HttpRequestHeadReadOutcome.HeadTimedOut
-                : HttpRequestHeadReadOutcome.HeadTimedOutBeforeAnyByte);
-        }
     }
 }

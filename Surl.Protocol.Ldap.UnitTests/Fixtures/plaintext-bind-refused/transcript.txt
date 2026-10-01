@@ -1,0 +1,11 @@
+= connection 1 accepted
+= curl closed the connection or went idle
+= connection 2 accepted
+> #1 bindRequest version 3 name "alice" simple "secret"
+>   30840000001B0201016084000000120201030405616C6963658006736563726574
+< #1 bindResponse 13
+> #2 bindRequest version 2 name "alice" simple "secret"
+>   30840000001B0201026084000000120201020405616C6963658006736563726574
+< #2 bindResponse 13
+> #3 unbindRequest
+>   3084000000050201034200

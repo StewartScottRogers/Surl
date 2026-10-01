@@ -44,6 +44,61 @@ public sealed class MailAuthenticationContractTests
 
         Assert.IsNull(start.InitialResponse);
         Assert.IsNull(start.TlsSession);
+        Assert.IsFalse(start.CanCarrySecurityLayer);
+    }
+
+    [TestMethod]
+    public void SaslExchangeStart_CanCarrySecurityLayer_KeepsIt()
+    {
+        var start = new SaslExchangeStart("ldap", "DIGEST-MD5", null, null, CanCarrySecurityLayer: true);
+
+        Assert.IsTrue(start.CanCarrySecurityLayer);
+    }
+
+    [TestMethod]
+    public void SaslOfferRequest_Constructed_KeepsWhatItWasGiven()
+    {
+        var tlsSession = new TlsSession(SslProtocols.Tls13, TlsCipherSuite.TLS_AES_128_GCM_SHA256, null, "ldap.example", null);
+
+        var request = new SaslOfferRequest("ldaps", tlsSession);
+
+        Assert.AreEqual("ldaps", request.Scheme);
+        Assert.AreSame(tlsSession, request.TlsSession);
+        Assert.AreEqual(new SaslOfferRequest("ldaps", tlsSession), request);
+    }
+
+    [TestMethod]
+    public void SaslLoginStep_Accepted_KeepsItsSecurityLayer()
+    {
+        var securityLayer = new UnitTestPassThroughSecurityLayer();
+
+        var step = new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null, SecurityLayer: securityLayer);
+
+        Assert.AreSame(securityLayer, step.SecurityLayer);
+        Assert.IsNull(new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null).SecurityLayer);
+    }
+
+    [TestMethod]
+    public void SaslLoginStep_Accepted_KeepsItsAdditionalSuccessDataAndHasNoneByDefault()
+    {
+        var step = new SaslLoginStep(
+            SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null, AdditionalSuccessData: "rspauth=00"u8.ToArray());
+
+        Assert.AreEqual("rspauth=00", System.Text.Encoding.ASCII.GetString(step.AdditionalSuccessData.Span));
+        Assert.IsTrue(new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null).AdditionalSuccessData.IsEmpty);
+    }
+
+    private sealed class UnitTestPassThroughSecurityLayer : ISaslSecurityLayer
+    {
+        public int MaximumProtectedBytes => 0;
+
+        public byte[] Protect(ReadOnlySpan<byte> message) => message.ToArray();
+
+        public bool TryUnprotect(ReadOnlySpan<byte> buffer, out byte[] message)
+        {
+            message = buffer.ToArray();
+            return true;
+        }
     }
 
     [TestMethod]
@@ -66,54 +121,54 @@ public sealed class MailAuthenticationContractTests
     }
 
     [TestMethod]
-    public void MailLoginStep_Accepted_KeepsAccountAndCheckedLogin()
+    public void SaslLoginStep_Accepted_KeepsAccountAndCheckedLogin()
     {
         var checkedLogin = new CheckedLogin("PLAIN", "alice", true);
-        var step = new MailLoginStep(MailLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", checkedLogin);
+        var step = new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", checkedLogin);
 
-        Assert.AreEqual(MailLoginOutcome.Accepted, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, step.Outcome);
         Assert.IsTrue(step.Challenge.IsEmpty);
         Assert.AreEqual("alice", step.AccountName);
         Assert.AreEqual("Login accepted: PLAIN alice", step.CheckedLogin!.Note);
     }
 
     [TestMethod]
-    public void MailLoginStep_Challenge_KeepsItsBytes()
+    public void SaslLoginStep_Challenge_KeepsItsBytes()
     {
-        var step = new MailLoginStep(MailLoginOutcome.Challenge, new ReadOnlyMemory<byte>("Username:"u8.ToArray()), null, null);
+        var step = new SaslLoginStep(SaslLoginOutcome.Challenge, new ReadOnlyMemory<byte>("Username:"u8.ToArray()), null, null);
 
-        Assert.AreEqual(MailLoginOutcome.Challenge, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Challenge, step.Outcome);
         CollectionAssert.AreEqual("Username:"u8.ToArray(), step.Challenge.ToArray());
         Assert.IsNull(step.AccountName);
         Assert.IsNull(step.CheckedLogin);
     }
 
     [TestMethod]
-    public void MailLoginStep_SameValues_AreEqual()
+    public void SaslLoginStep_SameValues_AreEqual()
     {
         var challenge = new ReadOnlyMemory<byte>([0x41]);
 
         Assert.AreEqual(
-            new MailLoginStep(MailLoginOutcome.Challenge, challenge, null, null),
-            new MailLoginStep(MailLoginOutcome.Challenge, challenge, null, null));
+            new SaslLoginStep(SaslLoginOutcome.Challenge, challenge, null, null),
+            new SaslLoginStep(SaslLoginOutcome.Challenge, challenge, null, null));
         Assert.AreNotEqual(
-            new MailLoginStep(MailLoginOutcome.RefusedCredentials, challenge, null, null),
-            new MailLoginStep(MailLoginOutcome.RefusedMechanism, challenge, null, null));
+            new SaslLoginStep(SaslLoginOutcome.RefusedCredentials, challenge, null, null),
+            new SaslLoginStep(SaslLoginOutcome.RefusedMechanism, challenge, null, null));
     }
 
     [TestMethod]
-    public void MailLoginOutcome_HasTheSixOutcomesAdr0049Names_InOrder()
+    public void SaslLoginOutcome_HasTheSixOutcomesAdr0049Names_InOrder()
     {
         CollectionAssert.AreEqual(
             new[]
             {
-                MailLoginOutcome.Challenge,
-                MailLoginOutcome.Accepted,
-                MailLoginOutcome.AcceptedUnchecked,
-                MailLoginOutcome.RefusedCredentials,
-                MailLoginOutcome.RefusedPlaintext,
-                MailLoginOutcome.RefusedMechanism,
+                SaslLoginOutcome.Challenge,
+                SaslLoginOutcome.Accepted,
+                SaslLoginOutcome.AcceptedUnchecked,
+                SaslLoginOutcome.RefusedCredentials,
+                SaslLoginOutcome.RefusedPlaintext,
+                SaslLoginOutcome.RefusedMechanism,
             },
-            Enum.GetValues<MailLoginOutcome>());
+            Enum.GetValues<SaslLoginOutcome>());
     }
 }

@@ -1,0 +1,22 @@
+< 220 surl FTP server ready
+> USER tester
+< 331 Password required
+> PASS secret
+< 230 Logged in
+> PBSZ 0
+< 200 PBSZ=0
+> PROT P
+< 200 Protection level set to P
+> PWD
+< 257 "/" is the current directory
+> EPSV
+< 229 Entering Extended Passive Mode (|||59121|)
+> TYPE I
+< 200 Type set to I
+> SIZE a.txt
+< 213 12
+> RETR a.txt
+< 150 Opening data connection for a.txt (12 bytes)
+< 226 Transfer complete
+> QUIT
+< 221 Goodbye

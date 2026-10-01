@@ -84,6 +84,15 @@ internal static class FtpPath
     /// <returns>The rendered path.</returns>
     public static string ToReplyText(byte[] sentPath) => Render(sentPath, doublesQuotes: false);
 
+    /// <summary>
+    /// A resolved path as a reply outside quotes names it, as <see cref="ToReplyText(byte[])"/>
+    /// renders its UTF-8 bytes.
+    /// </summary>
+    /// <param name="path">A resolved path.</param>
+    /// <returns>The rendered path, starting with <c>/</c>.</returns>
+    public static string ToReplyText(IReadOnlyList<string> path) =>
+        Render(Encoding.UTF8.GetBytes("/" + string.Join('/', path)), doublesQuotes: false);
+
     private static string Render(byte[] bytes, bool doublesQuotes)
     {
         var rendered = new StringBuilder();

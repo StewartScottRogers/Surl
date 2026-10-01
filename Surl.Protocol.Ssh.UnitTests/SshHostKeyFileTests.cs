@@ -67,6 +67,28 @@ public sealed class SshHostKeyFileTests
         CollectionAssert.AreEqual(expectedKey.PublicKeyBlob.ToArray(), reading.Key.PublicKeyBlob.ToArray(), caseName);
     }
 
+    public static IEnumerable<object[]> ReadableEd25519Keys()
+    {
+        var seed = SshTestKeys.Ed25519Seed;
+        var publicKey = SshTestKeys.Ed25519PublicKey;
+
+        yield return ["PKCS #8 Ed25519", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, null, Pkcs8Ed25519PrivateKey(seed)))];
+        yield return ["PKCS #8 version 2 Ed25519 with its public key", Pem("PRIVATE KEY", Pkcs8Ed25519WithPublicKey(seed, publicKey))];
+        yield return ["PKCS #8 Ed25519 encrypted", Pem("ENCRYPTED PRIVATE KEY", EncryptedPkcs8(Pkcs8(Ed25519Oid, null, Pkcs8Ed25519PrivateKey(seed)), Passphrase))];
+        yield return ["OpenSSH Ed25519", OpenSshPem(OpenSshBody("ssh-ed25519", OpenSshEd25519Fields(publicKey, [.. seed, .. publicKey])))];
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(ReadableEd25519Keys))]
+    public void Read_EachEd25519Format_GivesTheSeedsKey(string caseName, byte[] file)
+    {
+        var reading = SshHostKeyFile.Read(file, Passphrase, allowWeakAlgorithms: false);
+
+        Assert.IsNull(reading.Refusal, caseName);
+        Assert.AreEqual("ssh-ed25519", reading.Key!.KeyType, caseName);
+        CollectionAssert.AreEqual(Concat(String("ssh-ed25519"), Str(SshTestKeys.Ed25519PublicKey)), reading.Key.PublicKeyBlob.ToArray(), caseName);
+    }
+
     [TestMethod]
     public void Read_KeyRead_SignsWhatItsPublicKeyVerifies()
     {
@@ -95,21 +117,80 @@ public sealed class SshHostKeyFileTests
     }
 
     [TestMethod]
-    [DataRow(false, SshHostKeyRefusalReason.NeedsWeakAlgorithms, "DSA keys of 1024 bits need --allow-weak-ssh-algorithms", DisplayName = "Without weak algorithms")]
-    [DataRow(true, SshHostKeyRefusalReason.UnsupportedKeyType, "key type ssh-dss is not supported", DisplayName = "With weak algorithms, until BL-221")]
-    public void Read_DsaKey_IsRefused(bool allowWeakAlgorithms, SshHostKeyRefusalReason reason, string text)
+    [DataRow(false, DisplayName = "Only p")]
+    [DataRow(true, DisplayName = "A whole key")]
+    public void Read_DsaKeyWithoutWeakAlgorithms_IsRefusedAsWeak(bool wholeKey)
     {
-        var pkcs8 = SshHostKeyFile.Read(Pem("PRIVATE KEY", Pkcs8Dsa(1024)), null, allowWeakAlgorithms);
-        var openSsh = SshHostKeyFile.Read(OpenSshPem(OpenSshBody("ssh-dss", Mpint(BigInteger.One << 1023))), null, allowWeakAlgorithms);
+        var dsa = SshTestKeys.Dsa1024.ExportParameters(true);
+        var pkcs8 = wholeKey ? Pkcs8Dsa(Unsigned(dsa.P!), Unsigned(dsa.Q!), Unsigned(dsa.G!), Unsigned(dsa.X!)) : Pkcs8Dsa(1024);
+        var openSshFields = wholeKey ? OpenSshDsaFields(Unsigned(dsa.P!), Unsigned(dsa.Q!), Unsigned(dsa.G!), Unsigned(dsa.Y!), Unsigned(dsa.X!)) : Mpint(BigInteger.One << 1023);
 
-        AssertRefused(pkcs8, reason, text);
-        AssertRefused(openSsh, reason, text);
+        var pkcs8Reading = SshHostKeyFile.Read(Pem("PRIVATE KEY", pkcs8), null, allowWeakAlgorithms: false);
+        var openSshReading = SshHostKeyFile.Read(OpenSshPem(OpenSshBody("ssh-dss", openSshFields)), null, allowWeakAlgorithms: false);
+
+        AssertRefused(pkcs8Reading, SshHostKeyRefusalReason.NeedsWeakAlgorithms, "DSA keys of 1024 bits need --allow-weak-ssh-algorithms");
+        AssertRefused(openSshReading, SshHostKeyRefusalReason.NeedsWeakAlgorithms, "DSA keys of 1024 bits need --allow-weak-ssh-algorithms");
     }
+
+    public static IEnumerable<object[]> ReadableDsaKeys()
+    {
+        var dsa = SshTestKeys.Dsa1024.ExportParameters(true);
+        var pkcs8 = Pkcs8Dsa(Unsigned(dsa.P!), Unsigned(dsa.Q!), Unsigned(dsa.G!), Unsigned(dsa.X!));
+
+        yield return ["PKCS #8 DSA", Pem("PRIVATE KEY", pkcs8)];
+        yield return ["PKCS #8 DSA encrypted", Pem("ENCRYPTED PRIVATE KEY", EncryptedPkcs8(pkcs8, Passphrase))];
+        yield return ["OpenSSH DSA", OpenSshPem(OpenSshBody("ssh-dss", OpenSshDsaFields(Unsigned(dsa.P!), Unsigned(dsa.Q!), Unsigned(dsa.G!), Unsigned(dsa.Y!), Unsigned(dsa.X!))))];
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(ReadableDsaKeys))]
+    public void Read_DsaKeyWithWeakAlgorithms_SignsSshDssThatTheKeyVerifies(string caseName, byte[] file)
+    {
+        var reading = SshHostKeyFile.Read(file, Passphrase, allowWeakAlgorithms: true);
+
+        Assert.IsNull(reading.Refusal, caseName);
+        Assert.AreEqual("ssh-dss", reading.Key!.KeyType, caseName);
+        CollectionAssert.AreEqual(SshHostKey.FromDsa(SshTestKeys.Dsa1024).PublicKeyBlob.ToArray(), reading.Key.PublicKeyBlob.ToArray(), caseName);
+        var signature = new SshWireReader(reading.Key.Sign("ssh-dss", [1, 2, 3]));
+        Assert.AreEqual("ssh-dss", Encoding.ASCII.GetString(signature.ReadString().Span), caseName);
+        Assert.IsTrue(SshTestKeys.Dsa1024.VerifyData(new byte[] { 1, 2, 3 }, signature.ReadString().ToArray(), HashAlgorithmName.SHA1, DSASignatureFormat.IeeeP1363FixedFieldConcatenation), caseName);
+    }
+
+    [TestMethod]
+    public void Read_DsaKeyWithA256BitQ_IsRefusedAsNotSupported()
+    {
+        var prime = Unsigned(SshTestKeys.Dsa1024.ExportParameters(false).P!);
+        var subgroupOrder = (BigInteger.One << 255) + 1;
+
+        var pkcs8 = SshHostKeyFile.Read(Pem("PRIVATE KEY", Pkcs8Dsa(prime, subgroupOrder, 2, 5)), null, allowWeakAlgorithms: true);
+        var openSsh = SshHostKeyFile.Read(OpenSshPem(OpenSshBody("ssh-dss", OpenSshDsaFields(prime, subgroupOrder, 2, 32, 5))), null, allowWeakAlgorithms: true);
+
+        AssertRefused(pkcs8, SshHostKeyRefusalReason.UnsupportedKeyType, "key type ssh-dss is not supported");
+        AssertRefused(openSsh, SshHostKeyRefusalReason.UnsupportedKeyType, "key type ssh-dss is not supported");
+    }
+
+    public static IEnumerable<object[]> DamagedDsaKeys()
+    {
+        var dsa = SshTestKeys.Dsa1024.ExportParameters(true);
+        var (p, q, g, y, x) = (Unsigned(dsa.P!), Unsigned(dsa.Q!), Unsigned(dsa.G!), Unsigned(dsa.Y!), Unsigned(dsa.X!));
+
+        yield return ["q not above one", Pem("PRIVATE KEY", Pkcs8Dsa(23, 1, 4, 1))];
+        yield return ["p not above q", Pem("PRIVATE KEY", Pkcs8Dsa(11, 23, 4, 5))];
+        yield return ["g not above one", Pem("PRIVATE KEY", Pkcs8Dsa(23, 11, 1, 5))];
+        yield return ["g not below p", Pem("PRIVATE KEY", Pkcs8Dsa(23, 11, 23, 5))];
+        yield return ["x zero", Pem("PRIVATE KEY", Pkcs8Dsa(23, 11, 4, 0))];
+        yield return ["x not below q", Pem("PRIVATE KEY", Pkcs8Dsa(23, 11, 4, 11))];
+        yield return ["g not of order q", Pem("PRIVATE KEY", Pkcs8Dsa(p, q, 2, x))];
+        yield return ["OpenSSH y not g^x mod p", OpenSshPem(OpenSshBody("ssh-dss", OpenSshDsaFields(p, q, g, y == 2 ? 3 : 2, x)))];
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(DamagedDsaKeys))]
+    public void Read_DamagedDsaKeyWithWeakAlgorithms_IsNotAPrivateKey(string caseName, byte[] file) =>
+        AssertRefused(SshHostKeyFile.Read(file, null, allowWeakAlgorithms: true), SshHostKeyRefusalReason.NotAPrivateKey, "not a private key surl can read", caseName);
 
     public static IEnumerable<object[]> UnsupportedKeys()
     {
-        yield return ["PKCS #8 Ed25519", Pem("PRIVATE KEY", Pkcs8("1.3.101.112", null, [4, 32, .. new byte[32]])), "ssh-ed25519"];
-        yield return ["OpenSSH Ed25519", OpenSshPem(OpenSshBody("ssh-ed25519", Str(new byte[32]))), "ssh-ed25519"];
         yield return ["PKCS #8 X25519", Pem("PRIVATE KEY", Pkcs8("1.3.101.110", null, [4, 32, .. new byte[32]])), "1.3.101.110"];
         yield return [
             "PKCS #8 EC on brainpoolP256r1",
@@ -169,6 +250,19 @@ public sealed class SshHostKeyFileTests
             "OpenSSH ECDSA point of another key",
             OpenSshPem(OpenSshBody("ecdsa-sha2-nistp256", OpenSshEcdsaFields("nistp256", Point(ECDsa.Create(ECCurve.NamedCurves.nistP256).ExportParameters(false)), d)))];
         yield return ["Encrypted PKCS #8 of an empty key", Pem("ENCRYPTED PRIVATE KEY", EncryptedPkcs8([0x30, 0x00], Passphrase))];
+
+        var seed = SshTestKeys.Ed25519Seed;
+        var publicKey = SshTestKeys.Ed25519PublicKey;
+        var otherPublicKey = (byte[])publicKey.Clone();
+        otherPublicKey[0] ^= 1;
+        yield return ["PKCS #8 Ed25519 with algorithm parameters", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, writer => writer.WriteNull(), Pkcs8Ed25519PrivateKey(seed)))];
+        yield return ["PKCS #8 Ed25519 whose private key is not an OCTET STRING", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, null, [0x30, 0x00]))];
+        yield return ["PKCS #8 Ed25519 with a 31-byte seed", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, null, Pkcs8Ed25519PrivateKey(seed[..31])))];
+        yield return ["PKCS #8 Ed25519 with bytes after its seed", Pem("PRIVATE KEY", Pkcs8(Ed25519Oid, null, [.. Pkcs8Ed25519PrivateKey(seed), 5, 0]))];
+        yield return ["OpenSSH Ed25519 private key of the seed alone", OpenSshPem(OpenSshBody("ssh-ed25519", OpenSshEd25519Fields(publicKey, seed)))];
+        yield return ["OpenSSH Ed25519 public key of another seed", OpenSshPem(OpenSshBody("ssh-ed25519", OpenSshEd25519Fields(otherPublicKey, [.. seed, .. publicKey])))];
+        yield return ["OpenSSH Ed25519 private key ending in another public key", OpenSshPem(OpenSshBody("ssh-ed25519", OpenSshEd25519Fields(publicKey, [.. seed, .. otherPublicKey])))];
+        yield return ["OpenSSH Ed25519 private key running past the section", OpenSshPem(OpenSshBody("ssh-ed25519", Concat(Str(publicKey), UInt32(1000))))];
     }
 
     [TestMethod]
@@ -205,17 +299,6 @@ public sealed class SshHostKeyFileTests
         var file = Pem("ENCRYPTED PRIVATE KEY", EncryptedPkcs8(Pkcs8Dsa(2048), Passphrase));
 
         AssertRefused(SshHostKeyFile.Read(file, Passphrase, allowWeakAlgorithms: false), SshHostKeyRefusalReason.NeedsWeakAlgorithms, "DSA keys of 2048 bits need --allow-weak-ssh-algorithms");
-    }
-
-    [TestMethod]
-    [DataRow("aes256-ctr", "bcrypt")]
-    [DataRow("aes256-gcm@openssh.com", "bcrypt")]
-    [DataRow("aes128-cbc", "none")]
-    public void Read_EncryptedOpenSshKey_IsRefusedAsNotAvailable(string cipher, string kdf)
-    {
-        var file = OpenSshPem(OpenSshBody("ssh-rsa", [], cipher, kdf));
-
-        AssertRefused(SshHostKeyFile.Read(file, Passphrase, allowWeakAlgorithms: false), SshHostKeyRefusalReason.EncryptedOpenSshKey, "encrypted OpenSSH keys are not available in this build");
     }
 
     private static byte[] RsaFieldsWith(RSAParameters key, int? prime1 = null, int? prime2 = null, int? modulus = null) => Concat(

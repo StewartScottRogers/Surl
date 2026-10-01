@@ -25,12 +25,14 @@ internal static class PersistedStoreFixture
         TimeProvider? timeProvider = null,
         int maxMessages = MailboxStore.DefaultMaxMessages,
         long maxTotalMessageBytes = MailboxStore.DefaultMaxTotalMessageBytes,
-        int maxMailboxes = MailboxStore.DefaultMaxMailboxes) =>
+        int maxMailboxes = MailboxStore.DefaultMaxMailboxes,
+        long maxMessageBytes = 0) =>
         MailboxStore.LoadAsync(
             new MailStoreFiles(fileSystem, StateFolder),
             accountNames,
             allowAnonymous,
             timeProvider ?? new SettableTimeProvider(),
+            maxMessageBytes: maxMessageBytes,
             maxMessages: maxMessages,
             maxTotalMessageBytes: maxTotalMessageBytes,
             maxMailboxes: maxMailboxes);

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Cryptography.Blowfish.UnitTests" />
+  </ItemGroup>
+
+</Project>

@@ -8,21 +8,25 @@ namespace Surl.MailStore;
 /// <remarks>
 /// The lock does not stop SMTP or IMAP. A message delivered after the lock was taken is not in
 /// <see cref="Messages"/>; a message IMAP expunged meanwhile can still be read, since a stored
-/// message's bytes never change, and removing it is then a no-op.
+/// message's bytes never change and the lock keeps them - and their message file - until it is
+/// released, and removing it is then a no-op.
 /// </remarks>
 public sealed class MaildropLock : IDisposable
 {
     private readonly MailboxStore store;
     private readonly OwnerMailboxes? owner;
-    private readonly byte[][] bodies;
+    private readonly MessageBody[] bodies;
     private int disposed;
 
+    /// <summary>
+    /// Holds <paramref name="messages"/>, whose bodies the store has pinned for the lock.
+    /// </summary>
     internal MaildropLock(MailboxStore store, OwnerMailboxes? owner, IReadOnlyList<StoredMessage> messages)
     {
         this.store = store;
         this.owner = owner;
-        bodies = [.. messages.Select(message => message.Body.Bytes)];
-        Messages = [.. messages.Select((message, index) => new MaildropMessage(index + 1, message.Uid, message.Body.Bytes.Length))];
+        bodies = [.. messages.Select(message => message.Body)];
+        Messages = [.. messages.Select((message, index) => new MaildropMessage(index + 1, message.Uid, message.Body.Length))];
     }
 
     /// <summary>
@@ -32,17 +36,33 @@ public sealed class MaildropLock : IDisposable
     public IReadOnlyList<MaildropMessage> Messages { get; }
 
     /// <summary>
-    /// The bytes of message <paramref name="number"/>.
+    /// The bytes of message <paramref name="number"/>, read whole: with a data directory from its
+    /// message file, otherwise from memory (ADR-0050, decision 7).
     /// </summary>
     /// <param name="number">A message number from <see cref="Messages"/>.</param>
     /// <returns>The message's bytes.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="number"/> is not in <see cref="Messages"/>.</exception>
     /// <exception cref="ObjectDisposedException">The lock has been released.</exception>
-    public ReadOnlyMemory<byte> ReadMessage(int number)
+    /// <exception cref="IOException">As <see cref="OpenMessage"/> throws it, or the message file
+    /// cannot be read.</exception>
+    public ReadOnlyMemory<byte> ReadMessage(int number) => MailboxStore.ReadAll(OpenMessage(number));
+
+    /// <summary>
+    /// Opens the bytes of message <paramref name="number"/> to read: with a data directory from
+    /// its message file, otherwise from memory (ADR-0050, decision 7).
+    /// </summary>
+    /// <param name="number">A message number from <see cref="Messages"/>.</param>
+    /// <returns>A readable stream of the message's bytes, which the caller disposes.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="number"/> is not in <see cref="Messages"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The lock has been released.</exception>
+    /// <exception cref="IOException">The message file cannot be opened, as when something other
+    /// than the store removed it. Other exceptions the file system throws, such as
+    /// <see cref="UnauthorizedAccessException"/>, mean the same.</exception>
+    public Stream OpenMessage(int number)
     {
         ThrowIfReleased();
         ThrowIfNotANumber(number);
-        return bodies[number - 1];
+        return store.OpenBody(bodies[number - 1]);
     }
 
     /// <summary>
@@ -77,7 +97,7 @@ public sealed class MaildropLock : IDisposable
     {
         if (Interlocked.Exchange(ref disposed, 1) == 0 && owner is not null)
         {
-            store.ReleaseMaildrop(owner);
+            store.ReleaseMaildrop(owner, bodies);
         }
     }
 

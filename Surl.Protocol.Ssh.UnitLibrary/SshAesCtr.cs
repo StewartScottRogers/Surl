@@ -9,7 +9,7 @@ namespace Surl.Protocol.Ssh;
 /// 2^128, carrying on from one packet to the next. The block cipher is the BCL's
 /// <c>Aes.EncryptEcb</c> (ADR-0051, decision 2).
 /// </summary>
-internal sealed class SshAesCtr
+internal sealed class SshAesCtr : ISshPacketCipher
 {
     /// <summary>
     /// AES's block size in bytes, which is also the counter's.
@@ -30,6 +30,15 @@ internal sealed class SshAesCtr
         aes.Key = key;
         counter = (byte[])initialCounter.Clone();
     }
+
+    /// <inheritdoc/>
+    int ISshPacketCipher.BlockSize => BlockSize;
+
+    /// <inheritdoc/>
+    byte[] ISshPacketCipher.Encrypt(ReadOnlySpan<byte> plaintext) => Transform(plaintext);
+
+    /// <inheritdoc/>
+    byte[] ISshPacketCipher.Decrypt(ReadOnlySpan<byte> ciphertext) => Transform(ciphertext);
 
     /// <summary>
     /// XORs <paramref name="input"/> with the next <paramref name="input"/>.Length bytes of key

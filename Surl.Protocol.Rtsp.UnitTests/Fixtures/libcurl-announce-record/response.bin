@@ -1,0 +1,23 @@
+RTSP/1.0 200 OK
+CSeq: 1
+Date: Mon, 28 Sep 2026 12:00:00 GMT
+Server: surl
+
+RTSP/1.0 200 OK
+CSeq: 2
+Date: Mon, 28 Sep 2026 12:00:00 GMT
+Server: surl
+Session: 0123456789ABCDEF;timeout=60
+Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=01234567;mode=record
+
+RTSP/1.0 200 OK
+CSeq: 3
+Date: Mon, 28 Sep 2026 12:00:00 GMT
+Server: surl
+Session: 0123456789ABCDEF
+
+RTSP/1.0 200 OK
+CSeq: 4
+Date: Mon, 28 Sep 2026 12:00:00 GMT
+Server: surl
+

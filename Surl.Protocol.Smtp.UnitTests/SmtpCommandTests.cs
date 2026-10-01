@@ -34,7 +34,7 @@ public sealed class SmtpCommandTests
     [DataRow("QUIT now\r\n", "501 5.5.4 Syntax: QUIT takes no argument\r\n", DisplayName = "QUIT with an argument")]
     [DataRow("STARTTLS\r\n", "454 4.7.0 TLS not available\r\n", DisplayName = "STARTTLS with no certificate")]
     [DataRow("STARTTLS x\r\n", "501 5.5.4 Syntax: STARTTLS takes no argument\r\n", DisplayName = "STARTTLS with an argument")]
-    [DataRow("AUTH PLAIN\r\n", "502 5.5.1 Command not implemented\r\n", DisplayName = "AUTH, until BL-200")]
+    [DataRow("AUTH PLAIN\r\n", "503 5.5.1 Send EHLO first\r\n", DisplayName = "AUTH before EHLO")]
     [DataRow("BDAT 10 LAST\r\n", "502 5.5.1 Command not implemented\r\n", DisplayName = "BDAT")]
     [DataRow("VERB\r\n", "502 5.5.1 Command not implemented\r\n", DisplayName = "VERB")]
     [DataRow("XYZZY\r\n", "500 5.5.2 Command not recognized\r\n", DisplayName = "an unknown command")]
@@ -187,7 +187,7 @@ public sealed class SmtpCommandTests
         var policy = new UnitTestRefusingPolicy();
         var connection = new InMemoryConnection(Ascii("EHLO c\r\nMAIL FROM:<a@x>\r\nMAIL FROM:<a@x>\r\n"));
 
-        await new SmtpProtocolServer(policy, AnonymousStore(clock)).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
+        await new SmtpProtocolServer(policy, NoSaslMechanisms(), AnonymousStore(clock)).ServeAsync(connection, Context(clock, TestContext.CancellationToken, log: log));
 
         Assert.AreEqual("530 5.7.0 Authentication required\r\n530 5.7.0 Authentication required\r\n", RepliesAfterHello(connection));
         Assert.HasCount(1, policy.Logins);
@@ -257,8 +257,9 @@ public sealed class SmtpCommandTests
     {
         var store = AnonymousStore(new ManualTimeProvider());
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SmtpProtocolServer(null!, store));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new SmtpProtocolServer(new AnonymousAuthenticationPolicy(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SmtpProtocolServer(null!, NoSaslMechanisms(), store));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SmtpProtocolServer(new AnonymousAuthenticationPolicy(), NoSaslMechanisms(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SmtpProtocolServer(new AnonymousAuthenticationPolicy(), null!, store));
     }
 
     [TestMethod]
@@ -289,18 +290,5 @@ public sealed class SmtpCommandTests
     {
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(
             async () => await Server(AnonymousStore(new ManualTimeProvider())).WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, TestContext.CancellationToken));
-    }
-
-    private sealed class UnitTestRefusingPolicy : IAuthenticationPolicy
-    {
-        public List<PasswordLogin> Logins { get; } = [];
-
-        public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken)
-        {
-            Logins.Add(login);
-            return ValueTask.FromResult(PasswordLoginVerdict.RefusedAnonymous);
-        }
-
-        public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession) => throw new NotSupportedException();
     }
 }

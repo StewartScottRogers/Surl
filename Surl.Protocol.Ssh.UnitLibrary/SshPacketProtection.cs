@@ -24,15 +24,16 @@ internal abstract class SshPacketProtection
     public abstract int BlockSize { get; }
 
     /// <summary>
-    /// Whether <c>packet_length</c> is encrypted with the rest of the packet, as it is under a
-    /// cipher and an encrypt-and-MAC MAC, rather than sent in the clear.
+    /// Whether <c>packet_length</c> is encrypted, as it is under a cipher and an encrypt-and-MAC
+    /// MAC and, with its own key, under <c>chacha20-poly1305@openssh.com</c>, rather than sent in the clear.
     /// </summary>
     public abstract bool EncryptsLength { get; }
 
     /// <summary>
     /// Whether the 4-byte <c>packet_length</c> counts towards the block alignment: it does
-    /// unless it is sent in the clear beside an encrypt-then-MAC MAC or an AEAD cipher, where
-    /// only the rest of the packet is encrypted (OpenSSH <c>PROTOCOL</c> sections 1.5 and 1.6).
+    /// unless it is kept apart from the rest of the packet - in the clear beside an encrypt-then-MAC
+    /// MAC or AES-GCM, or under its own key with <c>chacha20-poly1305@openssh.com</c> - where
+    /// only the rest of the packet is aligned (OpenSSH <c>PROTOCOL</c> sections 1.5 and 1.6, <c>PROTOCOL.chacha20poly1305</c>).
     /// </summary>
     public abstract bool AlignsLength { get; }
 
@@ -42,10 +43,10 @@ internal abstract class SshPacketProtection
     public abstract int TagLength { get; }
 
     /// <summary>
-    /// How many bytes are read before <c>packet_length</c> is known: a whole block when it is
-    /// encrypted, else its own 4 bytes.
+    /// How many bytes are read before <c>packet_length</c> is known: by default a whole block when it is
+    /// encrypted with the rest of the packet, else its own 4 bytes.
     /// </summary>
-    public int HeadLength => EncryptsLength ? BlockSize : sizeof(uint);
+    public virtual int HeadLength => EncryptsLength ? BlockSize : sizeof(uint);
 
     /// <summary>
     /// The protection agreed for one direction, keyed from <paramref name="keys"/>.
@@ -57,22 +58,37 @@ internal abstract class SshPacketProtection
     /// Whether the direction is client to server, keyed with the letters <c>A</c>, <c>C</c> and
     /// <c>E</c>, rather than server to client, keyed with <c>B</c>, <c>D</c> and <c>F</c> (RFC 4253, section 7.2).
     /// </param>
-    /// <returns>The protection, or <see langword="null"/> for a cipher or MAC not built yet (<c>chacha20-poly1305@openssh.com</c> is BL-169's).</returns>
+    /// <returns>The protection, or <see langword="null"/> for a cipher or MAC not built.</returns>
     public static SshPacketProtection? Create(string cipher, string? mac, SshKeyDerivation keys, bool clientToServer)
     {
         var (ivLetter, keyLetter, macLetter) = clientToServer ? ('A', 'C', 'E') : ('B', 'D', 'F');
+        if (cipher == SshChaCha20Poly1305Protection.Name)
+        {
+            return new SshChaCha20Poly1305Protection(keys.DeriveKey(keyLetter, SshChaCha20Poly1305Protection.KeyMaterialLength));
+        }
+
         if (SshAesGcmProtection.KeyLengthFor(cipher) is { } gcmKeyLength)
         {
             return new SshAesGcmProtection(keys.DeriveKey(keyLetter, gcmKeyLength), keys.DeriveKey(ivLetter, SshAesGcmProtection.NonceLength));
         }
 
-        if (SshCipherAndMacProtection.KeyLengthFor(cipher) is not { } ctrKeyLength || SshHmac.ForName(mac) is not { } hmac)
+        return CreateCipherAndMac(cipher, mac, keys, ivLetter, keyLetter, macLetter);
+    }
+
+    /// <summary>
+    /// The cipher and HMAC protection of <see cref="Create"/> - AES-CTR, or a weak cipher of
+    /// <see cref="SshCipherAlgorithm"/> - keyed with the direction's letters.
+    /// </summary>
+    /// <returns>The protection, or <see langword="null"/> for a cipher or MAC not built.</returns>
+    private static SshCipherAndMacProtection? CreateCipherAndMac(string cipher, string? mac, SshKeyDerivation keys, char ivLetter, char keyLetter, char macLetter)
+    {
+        if (SshCipherAlgorithm.ForName(cipher) is not { } algorithm || SshHmac.ForName(mac) is not { } hmac)
         {
             return null;
         }
 
         return new SshCipherAndMacProtection(
-            new SshAesCtr(keys.DeriveKey(keyLetter, ctrKeyLength), keys.DeriveKey(ivLetter, SshAesCtr.BlockSize)),
+            algorithm.Create(keys.DeriveKey(keyLetter, algorithm.KeyLength), keys.DeriveKey(ivLetter, algorithm.InitializationVectorLength)),
             hmac,
             keys.DeriveKey(macLetter, hmac.KeyLength));
     }
@@ -81,9 +97,10 @@ internal abstract class SshPacketProtection
     /// Gives the first <see cref="HeadLength"/> bytes of a packet in the clear, decrypting them
     /// when <c>packet_length</c> is encrypted.
     /// </summary>
+    /// <param name="sequenceNumber">The packet's sequence number.</param>
     /// <param name="head">The bytes as read.</param>
     /// <returns>The same bytes in the clear, <c>packet_length</c> first.</returns>
-    public abstract byte[] OpenHead(byte[] head);
+    public abstract byte[] OpenHead(uint sequenceNumber, byte[] head);
 
     /// <summary>
     /// Checks the MAC or tag of the rest of a packet and decrypts it.
@@ -121,7 +138,7 @@ internal abstract class SshPacketProtection
 
         public override int TagLength => 0;
 
-        public override byte[] OpenHead(byte[] head) => head;
+        public override byte[] OpenHead(uint sequenceNumber, byte[] head) => head;
 
         public override byte[] OpenBody(uint sequenceNumber, byte[] plainHead, byte[] rest) => rest;
 

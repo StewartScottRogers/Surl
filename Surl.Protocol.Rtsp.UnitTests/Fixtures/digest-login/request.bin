@@ -1,0 +1,9 @@
+OPTIONS * RTSP/1.0
+CSeq: 1
+User-Agent: curl/8.21.0
+
+OPTIONS * RTSP/1.0
+CSeq: 2
+User-Agent: curl/8.21.0
+Authorization: Digest username="tester",realm="surl",nonce="MDAwMDAwMDAwMDAwMDAwMA",uri="*",cnonce="5c573a707f1114e01e20bd9caa5c8418",nc=00000001,algorithm=MD5,response="68ab5351aab91767d686a89ee0f0203a",qop="auth"
+

@@ -19,6 +19,7 @@ internal sealed record SaslMechanism(
     /// </summary>
     public static IReadOnlyList<SaslMechanism> InOfferOrder { get; } =
     [
+        new("GSSAPI", AuthenticationMethod.Gssapi, context => new GssapiSaslExchange(context)),
         new("DIGEST-MD5", AuthenticationMethod.DigestMd5, context => new DigestMd5SaslExchange(context)),
         new("CRAM-MD5", AuthenticationMethod.CramMd5, context => new CramMd5SaslExchange(context)),
         new("NTLM", AuthenticationMethod.Ntlm, context => new NtlmSaslExchange(context)),
@@ -28,4 +29,14 @@ internal sealed record SaslMechanism(
         new("LOGIN", AuthenticationMethod.Login, context => new LoginSaslExchange(context)),
         new("EXTERNAL", AuthenticationMethod.External, context => new ExternalSaslExchange(context)),
     ];
+
+    /// <summary>
+    /// LDAP's <c>GSS-SPNEGO</c>, accepted by <c>negotiate</c> and run only where the server carries
+    /// a security layer: a SPNEGO token selecting Kerberos is checked against <c>--keytab</c>, and
+    /// a bare NTLM message, as <c>WinLDAP</c> sends it for an address, is answered as <c>NTLM</c>
+    /// is (ADR-0072, decision 4, and its Amendment 1). It is not in <see cref="InOfferOrder"/>,
+    /// since the mail servers never offer it.
+    /// </summary>
+    public static SaslMechanism GssSpnego { get; } =
+        new("GSS-SPNEGO", AuthenticationMethod.Negotiate, context => new GssSpnegoSaslExchange(context));
 }

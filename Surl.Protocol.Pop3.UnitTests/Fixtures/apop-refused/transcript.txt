@@ -1,0 +1,11 @@
+< +OK surl ready <0123456789abcdef.1790640000@surl>
+> CAPA
+< +OK Capability list follows
+< TOP
+< UIDL
+< RESP-CODES
+< AUTH-RESP-CODE
+< PIPELINING
+< .
+> APOP user 32d4437494fda0ae78d0559952474e34
+< -ERR [AUTH] Authentication failed

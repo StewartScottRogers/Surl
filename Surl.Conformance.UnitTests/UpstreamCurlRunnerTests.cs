@@ -27,6 +27,18 @@ public sealed class UpstreamCurlRunnerTests
     }
 
     [TestMethod]
+    public void Constructor_LocationHoldsALibrary_RefusesToRunIt()
+    {
+        var library = Build with { DefaultPath = "/pinned/libcurl-4.dll", Kind = UpstreamCurlBuildKind.Library };
+
+        var exception = Assert.ThrowsExactly<ArgumentException>(
+            () => new UpstreamCurlRunner(UpstreamCurlLocation.Found(library), TimeSpan.FromSeconds(1), TimeProvider.System));
+
+        StringAssert.StartsWith(exception.Message, "/pinned/libcurl-4.dll is a pinned upstream libcurl, not a curl to run.");
+        Assert.AreEqual("location", exception.ParamName);
+    }
+
+    [TestMethod]
     [DataRow(0)]
     [DataRow(-1)]
     public void Constructor_TimeoutNotPositive_ThrowsArgumentOutOfRangeException(int seconds)
@@ -65,6 +77,28 @@ public sealed class UpstreamCurlRunnerTests
         Assert.IsTrue(startInfo.RedirectStandardInput);
         Assert.IsTrue(startInfo.RedirectStandardOutput);
         Assert.IsTrue(startInfo.RedirectStandardError);
+    }
+
+    [TestMethod]
+    public void CreateStartInfo_Environment_SetsEachVariableAndKeepsTheRest()
+    {
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);
+        var inherited = Environment.GetEnvironmentVariable("PATH");
+
+        var startInfo = runner.CreateStartInfo(
+            ["-s"], new Dictionary<string, string> { ["HOME"] = "/tmp/curl-home", ["USERPROFILE"] = "/tmp/curl-home" });
+
+        Assert.AreEqual("/tmp/curl-home", startInfo.Environment["HOME"]);
+        Assert.AreEqual("/tmp/curl-home", startInfo.Environment["USERPROFILE"]);
+        Assert.AreEqual(inherited, startInfo.Environment["PATH"]);
+    }
+
+    [TestMethod]
+    public void CreateStartInfo_NullEnvironment_ThrowsArgumentNullException()
+    {
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => runner.CreateStartInfo(["-s"], null!));
     }
 
     [TestMethod]

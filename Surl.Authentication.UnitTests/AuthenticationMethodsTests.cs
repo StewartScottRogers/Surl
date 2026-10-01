@@ -23,7 +23,7 @@ public sealed class AuthenticationMethodsTests
         CollectionAssert.AreEqual(
             new[]
             {
-                AuthenticationMethod.Negotiate, AuthenticationMethod.Ntlm, AuthenticationMethod.Digest,
+                AuthenticationMethod.Negotiate, AuthenticationMethod.Gssapi, AuthenticationMethod.Ntlm, AuthenticationMethod.NtlmV1, AuthenticationMethod.Digest,
                 AuthenticationMethod.DigestMd5, AuthenticationMethod.CramMd5, AuthenticationMethod.Apop,
                 AuthenticationMethod.Basic, AuthenticationMethod.Plain, AuthenticationMethod.Login, AuthenticationMethod.Bearer,
                 AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.External, AuthenticationMethod.AwsSigV4,
@@ -33,7 +33,9 @@ public sealed class AuthenticationMethodsTests
 
     [TestMethod]
     [DataRow(AuthenticationMethod.Negotiate, false)]
+    [DataRow(AuthenticationMethod.Gssapi, false)]
     [DataRow(AuthenticationMethod.Ntlm, false)]
+    [DataRow(AuthenticationMethod.NtlmV1, false)]
     [DataRow(AuthenticationMethod.Digest, false)]
     [DataRow(AuthenticationMethod.DigestMd5, false)]
     [DataRow(AuthenticationMethod.CramMd5, false)]
@@ -53,7 +55,9 @@ public sealed class AuthenticationMethodsTests
 
     [TestMethod]
     [DataRow(AuthenticationMethod.Negotiate, true)]
+    [DataRow(AuthenticationMethod.Gssapi, false)]
     [DataRow(AuthenticationMethod.Ntlm, true)]
+    [DataRow(AuthenticationMethod.NtlmV1, false)]
     [DataRow(AuthenticationMethod.Digest, false)]
     [DataRow(AuthenticationMethod.Basic, false)]
     [DataRow(AuthenticationMethod.Bearer, false)]

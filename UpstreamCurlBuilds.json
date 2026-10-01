@@ -1,5 +1,5 @@
 {
-  "comment": "Upstream curl builds Surl may be measured against, pinned by SHA-256. Anything else is refused (ADR-0003). Pinning another build is a decision; never pin the Curl port. Each build's role is 'reference' (the release named below, used for every measurement unless a case needs what it lacks; a build with no role is a reference build) or 'supplementary' (pinned only for the protocols and features its ADR names, never to second-guess a reference build; ADR-0017).",
+  "comment": "Upstream curl builds Surl may be measured against, pinned by SHA-256. Anything else is refused (ADR-0003). Pinning another build is a decision; never pin the Curl port. Each build's role is 'reference' (the release named below, used for every measurement unless a case needs what it lacks; a build with no role is a reference build) or 'supplementary' (pinned only for the protocols and features its ADR names, never to second-guess a reference build; ADR-0017). Each entry's kind is 'curl' (an executable run as a command; an entry with no kind is a curl) or 'library' (a shared libcurl loaded by a driver of libcurl's API, never run as a curl; ADR-0071 decision 10).",
   "release": "8.21.0",
   "releaseDate": "2026-06-24",
   "builds": [
@@ -28,13 +28,24 @@
     {
       "platform": "win-x64",
       "role": "supplementary",
-      "origin": "stunnel/static-curl release 8.21.0, curl-windows-x86_64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1; used only for SMB (smb, smbs) (ADR-0030) and for HTTP Negotiate, which it still carries over NTLM (ADR-0042)",
+      "origin": "stunnel/static-curl release 8.21.0, curl-windows-x86_64-8.21.0.tar.xz: tag curl-8_21_0 of upstream curl, unpatched, statically linked against OpenSSL 4.0.1; used only for SMB (smb, smbs) (ADR-0030) and for HTTP Negotiate, which it still carries over NTLM (ADR-0042), and for the SSH algorithms only OpenSSL builds offer (blowfish-cbc, cast128-cbc, hmac-ripemd160, hmac-ripemd160@openssh.com) and the sftp KEXINIT that lists them (ADR-0063)",
       "defaultPath": "C:\\UpstreamCurl\\static-curl-8.21.0-windows-x86_64\\curl.exe",
       "sha256": "589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648",
       "version": "curl 8.21.0 (x86_64-w64-mingw32) libcurl/8.21.0 OpenSSL/4.0.1 zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 c-ares/1.34.6 libidn2/2.3.8 libpsl/0.22.0 libssh2/1.11.1 nghttp2/1.69.0 ngtcp2/1.23.0 nghttp3/1.16.0",
       "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss",
       "features": "alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Kerberos Largefile libz NativeCA NTLM PSL SPNEGO SSL SSLS-EXPORT SSPI threadsafe TLS-SRP Unicode UnixSockets zstd",
       "pinned": "2026-09-29"
+    },
+    {
+      "platform": "win-x64",
+      "role": "reference",
+      "kind": "library",
+      "origin": "Git for Windows, mingw64 build of upstream curl: the libcurl the reference curl.exe beside it runs, loaded only by Run-LibcurlWebSocketScript.cs to drive curl_ws_send and curl_ws_recv, never run as a curl (ADR-0071 decision 10)",
+      "defaultPath": "C:\\Program Files\\Git\\mingw64\\bin\\libcurl-4.dll",
+      "sha256": "799F7EEFC3C9DA9C80EC5AEA221A02B3AFE2C5350C6B45FD5A4865E7E2D4E574",
+      "version": "libcurl/8.21.0 Schannel zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.5 libssh2/1.11.1 WinLDAP",
+      "protocols": "ws wss",
+      "pinned": "2026-09-30"
     },
     {
       "platform": "linux-x64",
@@ -46,6 +57,17 @@
       "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss",
       "features": "alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Largefile libz NTLM PSL SSL SSLS-EXPORT threadsafe TLS-SRP UnixSockets zstd",
       "pinned": "2026-09-28"
+    },
+    {
+      "platform": "linux-x64",
+      "role": "supplementary",
+      "origin": "Built from source by Build-OpenLdapUpstreamCurl.ps1: curl-8.21.0.tar.xz (tag curl-8_21_0 of upstream curl, unpatched), statically linked against musl, OpenSSL 3.5.9, OpenLDAP 2.6.15's libldap and MIT Kerberos 1.22.2's GSS-API, so its ldap and ldaps run over lib/openldap.c with SASL GSSAPI; used only for ldap and ldaps (ADR-0076, ADR-0078)",
+      "defaultPath": "/opt/upstream-curl/8.21.0-openldap/curl",
+      "sha256": "62061C585462734FC83361FA873CD6893A7A7D66E8739FD9B230FF9C51237E55",
+      "version": "curl 8.21.0 (x86_64-pc-linux-musl) libcurl/8.21.0 OpenSSL/3.5.9 mit-krb5/1.22.2 OpenLDAP/2.6.15",
+      "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns ldap ldaps mqtt mqtts pop3 pop3s rtsp smtp smtps telnet tftp ws wss",
+      "features": "alt-svc AsynchDNS GSS-API HSTS HTTPS-proxy IPv6 Kerberos Largefile NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets",
+      "pinned": "2026-10-01"
     },
     {
       "platform": "osx-arm64",

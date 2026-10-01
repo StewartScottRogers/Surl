@@ -451,6 +451,8 @@ public sealed partial class ServingEngineTests
         Assert.IsTrue(exchange.Context.CancellationToken.IsCancellationRequested);
         Assert.IsTrue(connection.Disposed && !connection.Aborted);
         CollectionAssert.Contains(logs.LogOf(1).Notes.ToList(), "Exchange 1 cancelled at shutdown.");
+        Assert.IsTrue(exchange.Context.ShutdownToken.IsCancellationRequested);
+        Assert.IsFalse(exchange.Context.IsCancelledForALimit);
     }
 
     [TestMethod]

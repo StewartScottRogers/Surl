@@ -1,0 +1,24 @@
+< +OK surl ready <0123456789abcdef.1790640000@surl>
+> CAPA
+< +OK Capability list follows
+< TOP
+< UIDL
+< RESP-CODES
+< AUTH-RESP-CODE
+< PIPELINING
+< USER
+< SASL CRAM-MD5 PLAIN
+< .
+> APOP user 32d4437494fda0ae78d0559952474e34
+< +OK Authentication successful
+> RETR 1
+< +OK 133 octets
+< From: sender@example.com
+< To: recipient@example.com
+< Subject: Recorded
+< 
+< Hello from the recorder.
+< ..A line that starts with a dot.
+< .
+> QUIT
+< +OK surl signing off

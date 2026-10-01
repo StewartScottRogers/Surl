@@ -16,27 +16,39 @@ public sealed class ProtocolIsolationTests
     private const string Content = "Surl.Content.UnitLibrary";
     private const string Cryptography = "Surl.Cryptography.UnitLibrary";
     private const string BcryptPbkdf = "Surl.Cryptography.BcryptPbkdf.UnitLibrary";
+    private const string Blowfish = "Surl.Cryptography.Blowfish.UnitLibrary";
+    private const string Cast128 = "Surl.Cryptography.Cast128.UnitLibrary";
     private const string ChaCha20 = "Surl.Cryptography.ChaCha20.UnitLibrary";
     private const string Curve25519 = "Surl.Cryptography.Curve25519.UnitLibrary";
     private const string Ed25519 = "Surl.Cryptography.Ed25519.UnitLibrary";
     private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
+    private const string Rc4 = "Surl.Cryptography.Rc4.UnitLibrary";
+    private const string Ripemd160 = "Surl.Cryptography.Ripemd160.UnitLibrary";
+    private const string HttpMessage = "Surl.HttpMessage.UnitLibrary";
+    private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
 
     /// <summary>
-    /// ADR-0002's table, with the rows ADR-0048, ADR-0050 and ADR-0051 add: each horizontal
-    /// library a protocol server may reference, with the projects that library may itself
-    /// reference.
+    /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061 and
+    /// ADR-0070 add: each horizontal library a protocol server may reference, with the projects
+    /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
     {
         [Content] = [Abstractions],
         [Cryptography] = [],
-        [BcryptPbkdf] = [],
+        [BcryptPbkdf] = [Blowfish],
+        [Blowfish] = [],
+        [Cast128] = [],
         [ChaCha20] = [],
         [Curve25519] = [],
         [Ed25519] = [Curve25519],
         [Poly1305] = [],
+        [Rc4] = [],
+        [Ripemd160] = [],
+        [HttpMessage] = [Abstractions],
+        [Kerberos] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
     };
@@ -86,10 +98,16 @@ public sealed class ProtocolIsolationTests
     [DataRow(Content)]
     [DataRow(Cryptography)]
     [DataRow(BcryptPbkdf)]
+    [DataRow(Blowfish)]
+    [DataRow(Cast128)]
     [DataRow(ChaCha20)]
     [DataRow(Curve25519)]
     [DataRow(Ed25519)]
     [DataRow(Poly1305)]
+    [DataRow(Rc4)]
+    [DataRow(Ripemd160)]
+    [DataRow(HttpMessage)]
+    [DataRow(Kerberos)]
     [DataRow(LineProtocol)]
     [DataRow(MailStore)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)
@@ -115,7 +133,9 @@ public sealed class ProtocolIsolationTests
 
     [TestMethod]
     [DataRow(Content, Abstractions)]
+    [DataRow(BcryptPbkdf, Blowfish)]
     [DataRow(Ed25519, Curve25519)]
+    [DataRow(HttpMessage, Abstractions)]
     [DataRow(LineProtocol, Abstractions)]
     [DataRow(MailStore, Abstractions)]
     [DataRow(MailStore, Content)]
@@ -134,7 +154,15 @@ public sealed class ProtocolIsolationTests
     [DataRow(Curve25519, Ed25519)]
     [DataRow(ChaCha20, Poly1305)]
     [DataRow(Poly1305, ChaCha20)]
+    [DataRow(Blowfish, BcryptPbkdf)]
+    [DataRow(Cast128, Blowfish)]
+    [DataRow(Kerberos, Cryptography)]
+    [DataRow(Kerberos, Abstractions)]
     [DataRow(Ed25519, Cryptography)]
+    [DataRow(HttpMessage, Content)]
+    [DataRow(HttpMessage, LineProtocol)]
+    [DataRow(HttpMessage, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow(HttpMessage, "Surl.Networking.UnitLibrary")]
     [DataRow(LineProtocol, Content)]
     [DataRow(LineProtocol, MailStore)]
     [DataRow(MailStore, LineProtocol)]

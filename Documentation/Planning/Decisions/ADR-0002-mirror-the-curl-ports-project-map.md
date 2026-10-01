@@ -4,7 +4,11 @@
 - **Date:** 2026-09-28
 - **Decided by:** Stewart, approving the proposed shell on 2026-09-28
 - **Amended:** decision 3's table by [ADR-0048](ADR-0048-the-hand-built-ssh-primitive-libraries.md) (2026-09-29), which adds the four hand-built SSH primitive libraries: `Surl.Cryptography.ChaCha20.UnitLibrary`, `Surl.Cryptography.Curve25519.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, each referencing nothing, and `Surl.Cryptography.Ed25519.UnitLibrary`, referencing `Surl.Cryptography.Curve25519.UnitLibrary`.
+- **Amended:** decision 3's table by [ADR-0051](ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md) (2026-09-29), which adds `Surl.Cryptography.Rc4.UnitLibrary` and `Surl.Cryptography.BcryptPbkdf.UnitLibrary`, each referencing nothing (their rows recorded here on 2026-09-30 by BL-252).
 - **Amended:** decision 3's table by [ADR-0050](ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) (2026-09-29), which adds the two libraries the mail servers share: `Surl.LineProtocol.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`, and `Surl.MailStore.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`.
+- **Amended:** decision 3's table by [ADR-0057](ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md) (2026-09-30), which adds the hand-built Kerberos library, `Surl.Kerberos.UnitLibrary`, referencing nothing. `Surl.Authentication.UnitLibrary` will reference it (BL-240); no protocol server needs it, since every login goes through the policy contracts.
+- **Amended:** decision 3's table by [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md) (2026-09-30), which adds `Surl.Cryptography.Blowfish.UnitLibrary`, `Surl.Cryptography.Cast128.UnitLibrary` and `Surl.Cryptography.Ripemd160.UnitLibrary`, each referencing nothing, and lets `Surl.Cryptography.BcryptPbkdf.UnitLibrary` reference `Surl.Cryptography.Blowfish.UnitLibrary`. BL-254 created the projects.
+- **Amended:** decision 3's table by [ADR-0070](ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) (2026-09-30), which adds the library the HTTP, WebSocket and RTSP servers share, `Surl.HttpMessage.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`. BL-292 creates the projects and BL-293 moves the HTTP/1.x message machinery into it from `Surl.Protocol.Http.UnitLibrary`.
 
 ## Context
 
@@ -45,17 +49,24 @@ Three questions followed:
    | Horizontal library | May itself reference |
    | --- | --- |
    | `Surl.Content.UnitLibrary` | `Surl.Protocol.Abstractions.UnitLibrary` |
+   | `Surl.Cryptography.BcryptPbkdf.UnitLibrary` (ADR-0051, ADR-0061) | `Surl.Cryptography.Blowfish.UnitLibrary` |
+   | `Surl.Cryptography.Blowfish.UnitLibrary` (ADR-0061) | nothing |
+   | `Surl.Cryptography.Cast128.UnitLibrary` (ADR-0061) | nothing |
    | `Surl.Cryptography.ChaCha20.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Curve25519.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Ed25519.UnitLibrary` (ADR-0048) | `Surl.Cryptography.Curve25519.UnitLibrary` |
    | `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0048) | nothing |
+   | `Surl.Cryptography.Rc4.UnitLibrary` (ADR-0051) | nothing |
+   | `Surl.Cryptography.Ripemd160.UnitLibrary` (ADR-0061) | nothing |
    | `Surl.Cryptography.UnitLibrary` | nothing |
+   | `Surl.HttpMessage.UnitLibrary` (ADR-0070) | `Surl.Protocol.Abstractions.UnitLibrary` |
+   | `Surl.Kerberos.UnitLibrary` (ADR-0057) | nothing |
    | `Surl.LineProtocol.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary` |
    | `Surl.MailStore.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` |
 
    `Surl.Protocol.Abstractions.UnitTests` enforces the table and that Abstractions
    references nothing. The rows marked ADR-0048 name projects BL-149 created, and the rows
-   marked ADR-0050 projects BL-189 creates; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
+   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
    or HTTP/3 library, say) joins the table through a new ADR when Surl needs one.
 
 ## Consequences

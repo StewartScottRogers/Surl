@@ -139,7 +139,7 @@ says, with `"` doubled inside `257`'s quoted path (RFC 959 appendix II).
 | `NOOP` | `200 NOOP ok` |
 | `HELP` | `214-` the commands of this table, `214 End` |
 | `ALLO`, `ACCT` | `202 Not needed` |
-| `SITE <anything>` | `504 SITE <word> is not supported` (decision 8) |
+| `SITE <anything>` | decision 8: `504 SITE <word> is not supported` with `--allow-uploads`, `550 Not permitted` without |
 | `QUIT` | `221 Goodbye`, then close |
 | `REIN`, `SMNT`, `STOU`, `STAT`, anything else | `502 Command not implemented` |
 
@@ -312,19 +312,19 @@ says, with `"` doubled inside `257`'s quoted path (RFC 959 appendix II).
 
 ### 8. Uploads and file management
 
-Every command in this decision needs `--allow-uploads`; without it each is answered `550 Not
-permitted` (ADR-0006 section 2), before any data connection is used (curl exits 25 for `STOR`,
-row 18; 21 for a `-Q` command, row 27; 9 for `--ftp-create-dirs`, row 20).
+Every command in this decision, `SITE` included, needs `--allow-uploads`; without it each is
+answered `550 Not permitted` (ADR-0006 section 2), before any data connection is used (curl exits
+25 for `STOR`, row 18; 21 for a `-Q` command, row 27; 9 for `--ftp-create-dirs`, row 20).
 
 | Command | With `--allow-uploads` |
 | --- | --- |
 | `STOR <path>` | `150 Opening data connection for <path>`, the bytes read to the data connection's end and written through `ContentStore.WriteUploadAsync` (a temporary dot-file renamed into place), then `226 Transfer complete`. A `REST <n>` before it: `n` equal to the current length appends as `APPE`; `0` writes afresh; anything else `554 Restart offset must equal the file's length`. The directory must exist: `553 No such directory` otherwise. |
-| `APPE <path>` | as `STOR`, appending to the existing file (creating it when absent), rows 8 and 16 |
-| `MKD <path>`, `XMKD` | `257 "<path>" created`; `550 Already exists` for an existing entry, `550 No such directory` for a missing parent (rows 19, 20) |
+| `APPE <path>` | as `STOR`, appending to the existing file (creating it when absent), rows 8 and 16, with `STOR`'s rule for a `REST <n>` before it |
+| `MKD <path>`, `XMKD` | `257 "<absolute path>" created`; `550 Already exists` for an existing entry, `550 No such directory` for a missing parent (rows 19, 20) |
 | `RMD <path>`, `XRMD` | `250 Directory removed` for an empty directory; `550 Directory not empty`, or `550 No such directory` |
 | `DELE <path>` | `250 File deleted`; `550 No such file` for anything else (a directory too) |
 | `RNFR <path>` | `350 Ready for RNTO` for an existing entry, `550 No such file` otherwise |
-| `RNTO <path>` | after `RNFR`: `250 Renamed`, replacing an existing file; `553 Cannot rename onto a directory`, or `553 No such directory` for a missing target directory. Without `RNFR` immediately before: `503 Send RNFR first` |
+| `RNTO <path>` | after `RNFR`: `250 Renamed`, replacing an existing file; `553 Cannot rename onto a directory`, `553 Cannot rename a directory onto a file`, or `553 No such directory` for a missing target directory; `550 Not permitted` when the source has gone since `RNFR`. Without `RNFR` immediately before: `503 Send RNFR first` |
 | `SITE ...` | `504 SITE <word> is not supported` for every form: the content store has no permissions, owners or times to set (`SITE CHMOD`, `SITE UTIME`), so no form can be true. curl sends `SITE` only when `-Q` asks (row 26); a failing `-Q` command ends curl with 21 unless prefixed `*`. |
 
 - **Upload past `--max-filesize`** (ADR-0006 section 5): the server stops reading at the limit,
@@ -335,8 +335,37 @@ row 18; 21 for a `-Q` command, row 27; 9 for `--ftp-create-dirs`, row 20).
   deleted and the reply is `426 Connection closed; transfer aborted`.
 - A path under `/.surl`, or a dot-file without `--serve-dot-files`, is answered as absent, or
   `550 Not permitted` for a new name (ADR-0031 decision 5).
-- `ContentStore` has `WriteUploadAsync` and nothing else that writes; delete, rename, directory
-  creation and removal and append are filed as BL-226 (`Surl.Content`), on which BL-180 depends.
+- `ContentStore` writes uploads (`WriteUploadAsync`, `AppendUploadAsync`) and makes the
+  file-management changes (`CreateDirectory`, `RemoveEmptyDirectory`, `DeleteFile`,
+  `RenameEntry`), added by BL-226 (`Surl.Content`) for BL-180.
+
+**The cases this decision left open, decided in BL-180** by Claude under Stewart's delegation
+(root `CLAUDE.md`, "Decisions"), 2026-09-30, as `FtpCommandResponder` answers them (tests in
+`FtpUploadTests` and `FtpFileManagementTests`):
+
+1. **`SITE` without `--allow-uploads`.** `SITE` is one of this decision's commands, so without
+   the option it is `550 Not permitted`, like the others; with it, `504 SITE <word> is not
+   supported`. Why: one rule for every command that could change the content is simpler to state
+   and to check than an exception for the one form that changes nothing.
+2. **`STOR`/`APPE` to a directory, to `/`, or to a hidden new name:** `550 Not permitted`, before
+   any data connection is used - the content store refuses before it reads a byte, so curl is
+   never asked to send bytes that would be thrown away.
+3. **`STOR`/`APPE` whose directory is missing, is a file, or is hidden** (`/.surl/x` included):
+   `553 No such directory`. The hidden directory is answered as absent, as ADR-0031 decision 5
+   answers every hidden path, so the reply does not reveal it exists.
+4. **`REST <n>` before `APPE`** follows `STOR`'s rule: `n` must equal the file's length (or be
+   `0`), else `554 Restart offset must equal the file's length`. Why: one rule for both upload
+   commands; an offset that is not the end of the file cannot be appended to faithfully.
+5. **The file system failing.** An upload: `451 Cannot write the file`, the partial upload
+   deleted and the data connection reset; a file-management command: `451 The change could not
+   be made`. Both are noted in the log (ADR-0023). `451` is RFC 959's "local error in
+   processing", which is what a failing disk is.
+6. **`RNTO` of a directory onto an existing file:** `553 Cannot rename a directory onto a file`,
+   the counterpart of `553 Cannot rename onto a directory`. A source gone between `RNFR` and
+   `RNTO`: `550 Not permitted`, as any other refusal the content store makes.
+7. **`MKD`'s path.** `257 "<absolute path>" created` names the resolved absolute path, not the
+   argument as sent, as RFC 959 appendix II recommends, so a relative `MKD` tells the client
+   exactly where the directory is.
 
 ### 9. The data-connection seam
 

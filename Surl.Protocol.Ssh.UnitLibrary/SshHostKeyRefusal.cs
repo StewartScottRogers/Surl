@@ -21,10 +21,6 @@ public sealed record SshHostKeyRefusal(SshHostKeyRefusalReason Reason, string Te
     public static SshHostKeyRefusal PassphraseDoesNotDecrypt { get; } =
         new(SshHostKeyRefusalReason.PassphraseDoesNotDecrypt, "--pass does not decrypt the key");
 
-    /// <summary><c>encrypted OpenSSH keys are not available in this build</c>.</summary>
-    public static SshHostKeyRefusal EncryptedOpenSshKey { get; } =
-        new(SshHostKeyRefusalReason.EncryptedOpenSshKey, "encrypted OpenSSH keys are not available in this build");
-
     /// <summary>
     /// <c>&lt;key type&gt; keys of &lt;bits&gt; bits need --allow-weak-ssh-algorithms</c>.
     /// </summary>

@@ -90,9 +90,9 @@ public sealed class SshUserAuthenticationTests
         client.Send(LoginRequest("none"));
         CollectionAssert.AreEqual(new byte[] { 52 }, await client.ReceiveAsync());
         client.Send(LoginRequest("none"));
-        client.Send([90]);
+        client.Send([81]);
 
-        CollectionAssert.AreEqual(Concat([3], UInt32(3)), await client.ReceiveAsync(), "The later request had no answer; the channel message is UNIMPLEMENTED.");
+        CollectionAssert.AreEqual(Concat([3], UInt32(3)), await client.ReceiveAsync(), "The later request had no answer; the unexpected REQUEST_SUCCESS is UNIMPLEMENTED.");
         await CloseAsync(client, serving);
     }
 
@@ -208,6 +208,7 @@ public sealed class SshUserAuthenticationTests
     [DataRow("ecdsa-sha2-nistp384")]
     [DataRow("ecdsa-sha2-nistp521")]
     [DataRow("rsa-sha2-256")]
+    [DataRow("ssh-ed25519")]
     [DataRow("rsa-sha2-512")]
     public async Task AnswerLoginRequest_PublicKeyQueryForAnAuthorizedKey_IsAnsweredPkOk(string algorithm)
     {
@@ -238,6 +239,7 @@ public sealed class SshUserAuthenticationTests
     [DataRow("ecdsa-sha2-nistp384")]
     [DataRow("ecdsa-sha2-nistp521")]
     [DataRow("rsa-sha2-256")]
+    [DataRow("ssh-ed25519")]
     [DataRow("rsa-sha2-512")]
     public async Task AnswerLoginRequest_ValidSignatureByAnAuthorizedKey_Succeeds(string algorithm)
     {
@@ -255,6 +257,7 @@ public sealed class SshUserAuthenticationTests
     [TestMethod]
     [DataRow("ecdsa-sha2-nistp256")]
     [DataRow("rsa-sha2-256")]
+    [DataRow("ssh-ed25519")]
     public async Task AnswerLoginRequest_InvalidSignature_IsJudgedInvalidAndRefused(string algorithm)
     {
         var policy = new SshTestAuthenticationPolicy { AuthorizedKeyBlob = UserKeyBlob(algorithm) };
@@ -293,8 +296,9 @@ public sealed class SshUserAuthenticationTests
     }
 
     [TestMethod]
-    [DataRow("ssh-ed25519", "rsa-sha2-256", DisplayName = "An algorithm not verified yet")]
+    [DataRow("ssh-dss", "ssh-dss", DisplayName = "DSA, without --allow-weak-ssh-algorithms")]
     [DataRow("ssh-rsa", "rsa-sha2-256", DisplayName = "SHA-1 RSA, without --allow-weak-ssh-algorithms")]
+    [DataRow("ssh-rsa-cert-v01@openssh.com", "rsa-sha2-256", DisplayName = "An algorithm not verified")]
     [DataRow("ecdsa-sha2-nistp384", "ecdsa-sha2-nistp256", DisplayName = "A key of another type than the algorithm's")]
     public async Task AnswerLoginRequest_AlgorithmTheKeyCannotSignWith_IsRefusedUnchecked(string algorithm, string keyAlgorithm)
     {
@@ -421,7 +425,7 @@ public sealed class SshUserAuthenticationTests
         var extensionInfo = await client.ReceiveAsync();
 
         CollectionAssert.AreEqual(
-            Concat([7], UInt32(1), String("server-sig-algs"), String("ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256")),
+            Concat([7], UInt32(1), String("server-sig-algs"), String("ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256")),
             extensionInfo);
         await client.ReExchangeAsync();
         client.Send([200]);
@@ -429,22 +433,82 @@ public sealed class SshUserAuthenticationTests
         await CloseAsync(client, serving);
     }
 
+    [TestMethod]
+    [DataRow("ssh-rsa")]
+    [DataRow("ssh-dss")]
+    public async Task AnswerLoginRequest_ValidWeakSignatureWithWeakAlgorithmsAllowed_Succeeds(string algorithm)
+    {
+        var policy = new SshTestAuthenticationPolicy { AuthorizedKeyBlob = UserKeyBlob(algorithm) };
+        var (client, serving) = await OpenAsync(policy, allowWeakAlgorithms: true);
+
+        client.Send(SignedRequest(client, algorithm));
+
+        CollectionAssert.AreEqual(new byte[] { 52 }, await client.ReceiveAsync());
+        await CloseAsync(client, serving);
+        Assert.AreEqual(SshPublicKeyProof.ValidSignature, ((SshPublicKeyLogin)policy.Logins.Single()).Proof);
+    }
+
+    [TestMethod]
+    [DataRow("ssh-rsa")]
+    [DataRow("ssh-dss")]
+    public async Task AnswerLoginRequest_FlippedWeakSignatureWithWeakAlgorithmsAllowed_IsJudgedInvalidAndRefused(string algorithm)
+    {
+        var policy = new SshTestAuthenticationPolicy { AuthorizedKeyBlob = UserKeyBlob(algorithm) };
+        var (client, serving) = await OpenAsync(policy, allowWeakAlgorithms: true);
+
+        client.Send(SignedRequest(client, algorithm, tamper: true));
+
+        CollectionAssert.AreEqual(Failure, await client.ReceiveAsync());
+        await CloseAsync(client, serving);
+        Assert.AreEqual(SshPublicKeyProof.InvalidSignature, ((SshPublicKeyLogin)policy.Logins.Single()).Proof);
+    }
+
+    [TestMethod]
+    [DataRow(false, DisplayName = "Without --allow-weak-ssh-algorithms: refused unchecked")]
+    [DataRow(true, DisplayName = "With --allow-weak-ssh-algorithms: accepted")]
+    public async Task AnswerLoginRequest_1024BitRsaKey_IsAcceptedOnlyWithWeakAlgorithms(bool allowWeakAlgorithms)
+    {
+        var policy = new SshTestAuthenticationPolicy { AuthorizedKeyBlob = UserKeyBlob("rsa-sha2-256", SshTestKeys.Rsa1024) };
+        var (client, serving) = await OpenAsync(policy, allowWeakAlgorithms: allowWeakAlgorithms);
+
+        client.Send(SignedRequest(client, "rsa-sha2-256", rsa: SshTestKeys.Rsa1024));
+
+        CollectionAssert.AreEqual(allowWeakAlgorithms ? new byte[] { 52 } : Failure, await client.ReceiveAsync());
+        await CloseAsync(client, serving);
+        Assert.HasCount(allowWeakAlgorithms ? 1 : 0, policy.Logins);
+    }
+
+    [TestMethod]
+    public async Task ExtensionInfo_WithWeakAlgorithmsAllowed_ListsSshRsaAndSshDssLast()
+    {
+        var (client, serving) = await OpenAsync(new SshTestAuthenticationPolicy(), requestService: false, allowWeakAlgorithms: true, extensionInfo: true);
+
+        var extensionInfo = await client.ReceiveAsync();
+
+        CollectionAssert.AreEqual(
+            Concat([7], UInt32(1), String("server-sig-algs"), String("ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256,ssh-rsa,ssh-dss")),
+            extensionInfo);
+        await CloseAsync(client, serving);
+    }
+
     private static byte[] LoginRequest(string method, params byte[][] fields) =>
         Concat([.. new[] { new byte[] { 50 }, String("alice"), String("ssh-connection"), String(method) }, .. fields]);
 
-    private static byte[] UserKeyBlob(string algorithm) => algorithm switch
+    private static byte[] UserKeyBlob(string algorithm, RSA? rsa = null) => algorithm switch
     {
-        "rsa-sha2-256" or "rsa-sha2-512" or "ssh-rsa" => SshHostKey.FromRsa(SshTestKeys.Rsa1024).PublicKeyBlob.ToArray(),
+        "rsa-sha2-256" or "rsa-sha2-512" or "ssh-rsa" => SshHostKey.FromRsa(rsa ?? SshTestKeys.Rsa2048).PublicKeyBlob.ToArray(),
+        "ssh-dss" => SshHostKey.FromDsa(SshTestKeys.Dsa1024).PublicKeyBlob.ToArray(),
         "ecdsa-sha2-nistp384" => SshHostKey.FromEcdsa(SshTestKeys.EcdsaP384).PublicKeyBlob.ToArray(),
         "ecdsa-sha2-nistp521" => SshHostKey.FromEcdsa(SshTestKeys.EcdsaP521).PublicKeyBlob.ToArray(),
+        "ssh-ed25519" => Concat(String("ssh-ed25519"), Str(SshTestKeys.Ed25519PublicKey)),
         _ => SshHostKey.FromEcdsa(SshTestKeys.EcdsaP256).PublicKeyBlob.ToArray(),
     };
 
     // RFC 4252 section 7: the signature covers string session identifier, then the request up to it.
-    private static byte[] SignedRequest(SshTestTransportClient client, string algorithm, bool tamper = false)
+    private static byte[] SignedRequest(SshTestTransportClient client, string algorithm, bool tamper = false, RSA? rsa = null)
     {
-        var request = LoginRequest("publickey", [1], String(algorithm), Str(UserKeyBlob(algorithm)));
-        var signature = Sign(algorithm, Concat(Str(client.SessionIdentifier), request));
+        var request = LoginRequest("publickey", [1], String(algorithm), Str(UserKeyBlob(algorithm, rsa)));
+        var signature = Sign(algorithm, Concat(Str(client.SessionIdentifier), request), rsa ?? SshTestKeys.Rsa2048);
         if (tamper)
         {
             signature[^1] ^= 1;
@@ -453,14 +517,20 @@ public sealed class SshUserAuthenticationTests
         return Concat(request, Str(Concat(String(algorithm), Str(signature))));
     }
 
-    private static byte[] Sign(string algorithm, byte[] data)
+    private static byte[] Sign(string algorithm, byte[] data, RSA rsa)
     {
         switch (algorithm)
         {
             case "rsa-sha2-256":
-                return SshTestKeys.Rsa1024.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                return rsa.SignData(data, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
             case "rsa-sha2-512":
-                return SshTestKeys.Rsa1024.SignData(data, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+                return rsa.SignData(data, HashAlgorithmName.SHA512, RSASignaturePadding.Pkcs1);
+            case "ssh-rsa":
+                return rsa.SignData(data, HashAlgorithmName.SHA1, RSASignaturePadding.Pkcs1);
+            case "ssh-dss":
+                return SshTestKeys.Dsa1024.SignData(data, HashAlgorithmName.SHA1, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+            case "ssh-ed25519":
+                return Surl.Cryptography.Ed25519.Ed25519.Sign(SshTestKeys.Ed25519Seed, data);
         }
 
         var (key, hash) = algorithm switch
@@ -504,10 +574,12 @@ public sealed class SshUserAuthenticationTests
     private async Task<(SshTestTransportClient Client, Task Serving)> OpenAsync(
         ISshAuthenticationPolicy policy,
         bool requestService = true,
-        TimeProvider? clock = null)
+        TimeProvider? clock = null,
+        bool allowWeakAlgorithms = false,
+        bool extensionInfo = false)
     {
-        var client = new SshTestTransportClient("aes128-ctr", "hmac-sha2-256", TestContext.CancellationToken);
-        var serving = await client.OpenAsync(Server(policy: policy), clock ?? TimeProvider.System);
+        var client = new SshTestTransportClient("aes128-ctr", "hmac-sha2-256", TestContext.CancellationToken, extensionInfo: extensionInfo);
+        var serving = await client.OpenAsync(Server(allowWeakAlgorithms ? WeakRsaOffer : null, policy), clock ?? TimeProvider.System);
         if (requestService)
         {
             client.Send(Concat([5], String("ssh-userauth")));

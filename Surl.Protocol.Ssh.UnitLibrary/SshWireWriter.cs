@@ -35,6 +35,16 @@ internal sealed class SshWireWriter
     }
 
     /// <summary>
+    /// Appends a <c>uint64</c>, most significant byte first (SFTP's sizes).
+    /// </summary>
+    /// <param name="value">The value.</param>
+    public void WriteUInt64(ulong value)
+    {
+        BinaryPrimitives.WriteUInt64BigEndian(buffer.GetSpan(8), value);
+        buffer.Advance(8);
+    }
+
+    /// <summary>
     /// Appends raw bytes with no length prefix.
     /// </summary>
     /// <param name="bytes">The bytes.</param>

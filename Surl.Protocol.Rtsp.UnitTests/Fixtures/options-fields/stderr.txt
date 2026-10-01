@@ -1,0 +1,16 @@
+*   Trying 127.0.0.1:18554...
+* Established connection to 127.0.0.1 (127.0.0.1 port 18554) from 127.0.0.1 port 65353 
+> OPTIONS * RTSP/1.0
+> CSeq: 1
+> Referer: http://ref/
+> User-Agent: surl-test/1
+> X-Test: 1
+> 
+* Request completely sent off
+< RTSP/1.0 200 OK
+< CSeq: 1
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Public: OPTIONS, DESCRIBE, ANNOUNCE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, SET_PARAMETER, RECORD
+< 
+* Connection #0 to host 127.0.0.1:18554 left intact

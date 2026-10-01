@@ -16,6 +16,12 @@ internal enum SshDisconnectReason : uint
     MacError = 5,
 
     /// <summary>
+    /// <c>SSH_DISCONNECT_COMPRESSION_ERROR</c>: a payload that does not decompress, or
+    /// decompresses past <c>--max-message</c>.
+    /// </summary>
+    CompressionError = 6,
+
+    /// <summary>
     /// <c>SSH_DISCONNECT_SERVICE_NOT_AVAILABLE</c>: a <c>SERVICE_REQUEST</c> other than
     /// <c>ssh-userauth</c>, or a login for a service other than <c>ssh-connection</c>.
     /// </summary>

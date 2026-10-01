@@ -152,6 +152,153 @@ public sealed class InMemoryContentFileSystemTests
     }
 
     [TestMethod]
+    public void OpenFileForAsyncReadWrite_NothingThere_CreatesAnEmptyFile()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        clock.Now = Later;
+
+        using Stream stream = fileSystem.OpenFileForAsyncReadWrite(FilePath);
+
+        Assert.IsTrue(stream.CanRead);
+        Assert.IsTrue(stream.CanSeek);
+        Assert.IsTrue(stream.CanWrite);
+        Assert.AreEqual(0, stream.Length);
+        Assert.AreEqual(ContentEntryKind.File, fileSystem.GetEntryKind(FilePath));
+        Assert.AreEqual(Later, fileSystem.GetLastWriteTimeUtc(FilePath));
+    }
+
+    [TestMethod]
+    public void OpenFileForAsyncReadWrite_ExistingFile_StartsFromItsBytesAndReplacesThemOnDispose()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        WriteFile(fileSystem, FilePath, "0123"u8.ToArray());
+        Stream stream = fileSystem.OpenFileForAsyncReadWrite(FilePath);
+        byte[] firstTwo = new byte[2];
+
+        Assert.AreEqual(2, stream.Read(firstTwo, 0, 2));
+        Assert.AreEqual(2, stream.Position);
+        stream.Write("ab"u8);
+        CollectionAssert.AreEqual("0123"u8.ToArray(), ReadFile(fileSystem, FilePath));
+        clock.Now = Later;
+        stream.Dispose();
+
+        CollectionAssert.AreEqual("01"u8.ToArray(), firstTwo);
+        CollectionAssert.AreEqual("01ab"u8.ToArray(), ReadFile(fileSystem, FilePath));
+        Assert.AreEqual(Later, fileSystem.GetLastWriteTimeUtc(FilePath));
+        Assert.AreEqual(4, fileSystem.TotalBytes);
+    }
+
+    [TestMethod]
+    public void OpenFileForAsyncReadWrite_MissingParent_ThrowsDirectoryNotFound()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => fileSystem.OpenFileForAsyncReadWrite(Path.Join(Root, "missing", "x")));
+        Assert.AreEqual(ContentEntryKind.None, fileSystem.GetEntryKind(Path.Join(Root, "missing", "x")));
+    }
+
+    [TestMethod]
+    public void OpenFileForAsyncReadWrite_DirectoryThere_ThrowsUnauthorizedAccessAndKeepsIt()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        string directory = Path.Join(Root, "sub");
+        fileSystem.CreateDirectory(directory);
+
+        Assert.ThrowsExactly<UnauthorizedAccessException>(() => fileSystem.OpenFileForAsyncReadWrite(directory));
+        Assert.AreEqual(ContentEntryKind.Directory, fileSystem.GetEntryKind(directory));
+    }
+
+    [TestMethod]
+    public void RandomAccessStream_WriteSeekedPastTheEnd_ZeroFillsTheGapAndChargesTheNewLength()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        using (Stream stream = fileSystem.OpenFileForAsyncReadWrite(FilePath))
+        {
+            stream.Seek(3, SeekOrigin.Begin);
+            stream.Write([9]);
+            Assert.AreEqual(4, stream.Length);
+            Assert.AreEqual(4, fileSystem.TotalBytes);
+            stream.Position = 0;
+            stream.Write([1]);
+            Assert.AreEqual(4, fileSystem.TotalBytes);
+        }
+
+        CollectionAssert.AreEqual(new byte[] { 1, 0, 0, 9 }, ReadFile(fileSystem, FilePath));
+    }
+
+    [TestMethod]
+    public void RandomAccessStream_SetLength_GrowsWithZeroBytesAndShrinkingGivesBytesBack()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem(maxTotalBytes: 8);
+        using Stream stream = fileSystem.OpenFileForAsyncReadWrite(FilePath);
+
+        stream.SetLength(8);
+        Assert.AreEqual(8, fileSystem.TotalBytes);
+        Assert.ThrowsExactly<IOException>(() => stream.SetLength(9));
+        stream.SetLength(3);
+
+        Assert.AreEqual(3, stream.Length);
+        Assert.AreEqual(3, fileSystem.TotalBytes);
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => stream.SetLength(-1));
+    }
+
+    [TestMethod]
+    public void RandomAccessStream_WritePastTheBound_ThrowsAndKeepsNothing()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem(maxTotalBytes: 4);
+        using Stream stream = fileSystem.OpenFileForAsyncReadWrite(FilePath);
+        stream.Write([1, 2]);
+
+        Assert.ThrowsExactly<IOException>(() => stream.Write([3, 4, 5]));
+
+        Assert.AreEqual(2, stream.Length);
+        Assert.AreEqual(2, fileSystem.TotalBytes);
+    }
+
+    [TestMethod]
+    public async Task RandomAccessStream_ReadAsync_ReadsAndHonoursCancellation()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        WriteFile(fileSystem, FilePath, [1, 2, 3]);
+        await using Stream stream = fileSystem.OpenFileForAsyncReadWrite(FilePath);
+        byte[] buffer = new byte[4];
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        Assert.AreEqual(3, await stream.ReadAsync(buffer, CancellationToken.None));
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 0 }, buffer);
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(async () => _ = await stream.ReadAsync(buffer, cancelled.Token));
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => stream.Read(new byte[1], 0, 2));
+    }
+
+    [TestMethod]
+    public void RandomAccessStream_FileDeletedWhileOpen_RefusesWritesAndResizes()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        using Stream stream = fileSystem.OpenFileForAsyncReadWrite(FilePath);
+        fileSystem.DeleteFile(FilePath);
+
+        Assert.ThrowsExactly<IOException>(() => stream.Write([1]));
+        Assert.ThrowsExactly<IOException>(() => stream.SetLength(1));
+        Assert.AreEqual(0, fileSystem.TotalBytes);
+    }
+
+    [TestMethod]
+    public void RandomAccessStream_AfterDispose_IsNeitherReadableNorSeekable()
+    {
+        Stream stream = NewFileSystem().OpenFileForAsyncReadWrite(FilePath);
+
+        stream.Dispose();
+
+        Assert.IsFalse(stream.CanRead);
+        Assert.IsFalse(stream.CanSeek);
+        Assert.IsFalse(stream.CanWrite);
+        Assert.ThrowsExactly<ObjectDisposedException>(() => stream.Length);
+        Assert.ThrowsExactly<ObjectDisposedException>(() => stream.Seek(0, SeekOrigin.Begin));
+    }
+
+    [TestMethod]
     public void OpenFileForAsyncRead_FileReplacedAfterOpening_KeepsReadingTheOldBytes()
     {
         InMemoryContentFileSystem fileSystem = NewFileSystem();
@@ -187,6 +334,70 @@ public sealed class InMemoryContentFileSystemTests
 
         Assert.AreEqual(Path.Join(Root, "b"), NewFileSystem().ResolveFinalPath(unnormalised));
     }
+
+    [TestMethod]
+    public void MoveFileWithoutReplacing_NothingAtTheDestination_MovesKeepingBytesAndTime()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        WriteFile(fileSystem, FilePath, [1, 2]);
+        string destination = Path.Join(Root, "moved.bin");
+        clock.Now = Later;
+
+        fileSystem.MoveFileWithoutReplacing(FilePath, destination);
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2 }, ReadFile(fileSystem, destination));
+        Assert.AreEqual(Started, fileSystem.GetLastWriteTimeUtc(destination));
+        Assert.AreEqual(ContentEntryKind.None, fileSystem.GetEntryKind(FilePath));
+        Assert.AreEqual(2, fileSystem.TotalBytes);
+    }
+
+    [TestMethod]
+    public void MoveFileWithoutReplacing_EntryAtTheDestinationOrTheSourceItself_ThrowsIOExceptionAndKeepsBoth()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        WriteFile(fileSystem, FilePath, [1]);
+        string other = Path.Join(Root, "other.bin");
+        WriteFile(fileSystem, other, [2]);
+        string directory = Path.Join(Root, "sub");
+        fileSystem.CreateDirectory(directory);
+
+        Assert.ThrowsExactly<IOException>(() => fileSystem.MoveFileWithoutReplacing(FilePath, other));
+        Assert.ThrowsExactly<IOException>(() => fileSystem.MoveFileWithoutReplacing(FilePath, directory));
+        Assert.ThrowsExactly<IOException>(() => fileSystem.MoveFileWithoutReplacing(FilePath, FilePath));
+        CollectionAssert.AreEqual(new byte[] { 1 }, ReadFile(fileSystem, FilePath));
+        CollectionAssert.AreEqual(new byte[] { 2 }, ReadFile(fileSystem, other));
+        Assert.AreEqual(ContentEntryKind.Directory, fileSystem.GetEntryKind(directory));
+    }
+
+    [TestMethod]
+    public void MoveFileWithoutReplacing_MissingSourceOrDestinationDirectory_ThrowsAndKeepsTheSource()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        WriteFile(fileSystem, FilePath, [1]);
+
+        Assert.ThrowsExactly<FileNotFoundException>(() => fileSystem.MoveFileWithoutReplacing(Path.Join(Root, "missing"), Path.Join(Root, "new")));
+        Assert.ThrowsExactly<DirectoryNotFoundException>(() => fileSystem.MoveFileWithoutReplacing(FilePath, Path.Join(Root, "missing", "x")));
+        Assert.AreEqual(ContentEntryKind.File, fileSystem.GetEntryKind(FilePath));
+    }
+
+    [TestMethod]
+    public void SetLastWriteTimeUtc_FileAndDirectory_AreSetInUtc()
+    {
+        InMemoryContentFileSystem fileSystem = NewFileSystem();
+        WriteFile(fileSystem, FilePath, [1]);
+        var set = new DateTimeOffset(2020, 2, 3, 6, 5, 6, TimeSpan.FromHours(-3));
+
+        fileSystem.SetLastWriteTimeUtc(FilePath, set);
+        fileSystem.SetLastWriteTimeUtc(Root, set.AddHours(1));
+
+        Assert.AreEqual(set, fileSystem.GetLastWriteTimeUtc(FilePath));
+        Assert.AreEqual(TimeSpan.Zero, fileSystem.GetLastWriteTimeUtc(FilePath).Offset);
+        Assert.AreEqual(set.AddHours(1), fileSystem.GetLastWriteTimeUtc(Root));
+    }
+
+    [TestMethod]
+    public void SetLastWriteTimeUtc_Missing_ThrowsFileNotFound() =>
+        Assert.ThrowsExactly<FileNotFoundException>(() => NewFileSystem().SetLastWriteTimeUtc(FilePath, Later));
 
     [TestMethod]
     public void MoveFileReplacing_ExistingFile_IsReplaced()

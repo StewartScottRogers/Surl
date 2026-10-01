@@ -252,6 +252,22 @@ public sealed class LevelledExchangeLogFactoryTests
         Assert.AreEqual(string.Empty, writer.ToString());
     }
 
+    // ADR-0057 decision 4: a Kerberos refusal's reason goes to the verbose log only.
+    [TestMethod]
+    [DataRow(LogLevel.None, "")]
+    [DataRow(LogLevel.Error, "")]
+    [DataRow(LogLevel.Info, "")]
+    [DataRow(LogLevel.Verbose, "#1 * Kerberos: ticket expired")]
+    public void KerberosRefusalNote_IsWrittenAtTheVerboseLevelOnly(LogLevel level, string expectedLine)
+    {
+        using var writer = new StringWriter();
+        var log = Factory(writer, level).Create(1, Remote);
+
+        log.Note("Kerberos: ticket expired");
+
+        Assert.AreEqual(expectedLine.Length == 0 ? string.Empty : Lines(expectedLine), writer.ToString());
+    }
+
     [TestMethod]
     public void Info_OpenNoteWithControlBytes_IsEscaped()
     {

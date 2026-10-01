@@ -53,24 +53,31 @@ internal static class NtlmTestMessages
         return Authenticate(user, domain, [.. proof, .. ClientBlob], unicode ? Unicode : Oem);
     }
 
-    public static byte[] Authenticate(string user, string domain, byte[] ntResponse, uint flags)
+    public static byte[] Authenticate(string user, string domain, byte[] ntResponse, uint flags) =>
+        Authenticate(user, domain, ntResponse, flags, []);
+
+    /// <summary>
+    /// As <see cref="Authenticate(string, string, byte[], uint)"/>, carrying <paramref name="encryptedSessionKey"/>
+    /// as the <c>EncryptedRandomSessionKey</c>.
+    /// </summary>
+    public static byte[] Authenticate(string user, string domain, byte[] ntResponse, uint flags, byte[] encryptedSessionKey)
     {
         var encoding = (flags & Unicode) != 0 ? Encoding.Unicode : Encoding.Latin1;
         var domainBytes = encoding.GetBytes(domain);
         var userBytes = encoding.GetBytes(user);
-        var message = new byte[64 + ntResponse.Length + domainBytes.Length + userBytes.Length];
+        var message = new byte[64 + ntResponse.Length + domainBytes.Length + userBytes.Length + encryptedSessionKey.Length];
         var span = message.AsSpan();
         "NTLMSSP\0"u8.CopyTo(span);
         BinaryPrimitives.WriteUInt32LittleEndian(span[8..], 3);
         var offset = 64;
-        foreach (var (field, payload) in new[] { (20, ntResponse), (28, domainBytes), (36, userBytes) })
+        foreach (var (field, payload) in new[] { (20, ntResponse), (28, domainBytes), (36, userBytes), (52, encryptedSessionKey) })
         {
             WriteField(span[field..], payload.Length, offset);
             payload.CopyTo(span[offset..]);
             offset += payload.Length;
         }
 
-        foreach (var emptyField in new[] { 12, 44, 52 })
+        foreach (var emptyField in new[] { 12, 44 })
         {
             WriteField(span[emptyField..], 0, 64);
         }

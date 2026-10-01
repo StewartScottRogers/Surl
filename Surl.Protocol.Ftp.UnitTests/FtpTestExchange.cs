@@ -17,6 +17,7 @@ internal static class FtpTestExchange
     public const string Greeting = "220 surl FTP server ready\r\n";
     public const string HeadTimedOutReply = "421 Timeout waiting for a command\r\n";
     public const string LineTooLongReply = "500 Command line too long\r\n";
+    public const string ExchangeCancelledReply = "421 Timeout, closing\r\n";
     public const string LoggedIn = "230 Logged in\r\n";
 
     /// <summary>The bytes of <c>/a.txt</c>.</summary>
@@ -50,17 +51,20 @@ internal static class FtpTestExchange
     public static ContentStore StandardContentStore() =>
         new(InMemoryContentFileSystem.RootPath, StandardFileSystem(), new ContentExposureOptions());
 
-    public static FtpProtocolServer Server(IAuthenticationPolicy? authenticationPolicy = null, ContentStore? contentStore = null) =>
-        new(contentStore ?? StandardContentStore(), authenticationPolicy ?? new AnonymousAuthenticationPolicy());
+    public static FtpProtocolServer Server(
+        IAuthenticationPolicy? authenticationPolicy = null, ContentStore? contentStore = null, bool isTlsUpgradeAvailable = false) =>
+        new(contentStore ?? StandardContentStore(), authenticationPolicy ?? new AnonymousAuthenticationPolicy(), isTlsUpgradeAvailable);
 
     public static ExchangeContext Context(
         TimeProvider timeProvider,
         CancellationToken cancellationToken,
         ExchangeLimits? limits = null,
         IExchangeLog? log = null,
-        IDataConnectionOpener? dataConnections = null) => new(
+        IDataConnectionOpener? dataConnections = null,
+        string scheme = "ftp",
+        CancellationToken shutdownToken = default) => new(
             1,
-            new ListenUrl("ftp", "127.0.0.1", 2121).WithBoundPort(2121),
+            new ListenUrl(scheme, "127.0.0.1", 2121).WithBoundPort(2121),
             new IPEndPoint(IPAddress.Loopback, 2121),
             new IPEndPoint(IPAddress.Loopback, 50000),
             log ?? new RecordingExchangeLog(),
@@ -69,6 +73,7 @@ internal static class FtpTestExchange
         {
             Limits = limits ?? ExchangeLimits.Default,
             DataConnections = dataConnections ?? RefusingDataConnectionOpener.Instance,
+            ShutdownToken = shutdownToken,
         };
 
     public static IEnumerable<ReadOnlyMemory<byte>> Ascii(params string[] chunks) =>

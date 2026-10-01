@@ -1,3 +1,5 @@
+using Surl.Kerberos;
+
 namespace Surl.Authentication;
 
 /// <summary>
@@ -21,4 +23,11 @@ public sealed record AuthenticationSettings(
     /// <c>--authorized-keys</c> (ADR-0051, section 6); <see cref="AuthorizedKeyBook.Empty"/> when none is given.
     /// </summary>
     public AuthorizedKeyBook AuthorizedKeys { get; init; } = AuthorizedKeyBook.Empty;
+
+    /// <summary>
+    /// What checks a client's Kerberos AP-REQ against the service keys of <c>--keytab</c>
+    /// (ADR-0057, decisions 1 and 6); <see langword="null"/> when no keytab is given. SASL
+    /// <c>GSSAPI</c> is offered and run only when it is set (decision 9).
+    /// </summary>
+    public KerberosAcceptor? KerberosAcceptor { get; init; }
 }

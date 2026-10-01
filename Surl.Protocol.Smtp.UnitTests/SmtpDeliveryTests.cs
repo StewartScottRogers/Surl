@@ -1,3 +1,4 @@
+using Surl.Content;
 using Surl.MailStore;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Smtp.SmtpTestExchange;
@@ -144,16 +145,30 @@ public sealed class SmtpDeliveryTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_StoreThatCannotBeWritten_AcceptsTheMessageAndNotesTheFailure()
+    public async Task ServeAsync_MessageFileCannotBeWritten_Answers451AndTheSessionGoesOn()
     {
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
-        var store = await PersistedStoreAsync(clock, new IOException("The disk failed."));
+        var store = await PersistedStoreAsync(clock, new UnitTestUnwritableContentFileSystem(new IOException("The disk failed.")));
+
+        var connection = await ServeAsync(store, $"EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<b@y>\r\nDATA\r\n{Body}.\r\nMAIL FROM:<a@x>\r\n", clock, TestContext.CancellationToken, log: log);
+
+        StringAssert.EndsWith(RepliesAfterHello(connection), "354 End data with <CR><LF>.<CR><LF>\r\n451 4.3.0 Local error in processing\r\n250 2.1.0 Sender OK\r\n");
+        Assert.IsEmpty(Inbox(store, string.Empty));
+        Assert.AreEqual("Mail store: The disk failed.", log.Notes.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_IndexCannotBeSavedAfterTheMessageFileIsWritten_Answers250AndNotesTheFailure()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var store = await PersistedStoreAsync(clock, new UnitTestUnwritableContentFileSystem(new IOException("The disk failed."), keepsMessageFiles: true));
 
         var connection = await ServeAsync(store, $"EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<b@y>\r\nDATA\r\n{Body}.\r\n", clock, TestContext.CancellationToken, log: log);
 
         StringAssert.EndsWith(RepliesAfterHello(connection), "250 2.0.0 Message accepted\r\n");
-        Assert.HasCount(1, Inbox(store, string.Empty));
+        CollectionAssert.AreEqual(new[] { TraceFields("a@x") + Body }, Inbox(store, string.Empty).ToList());
         Assert.AreEqual("Mail store: The disk failed.", log.Notes[^1]);
     }
 
@@ -161,10 +176,52 @@ public sealed class SmtpDeliveryTests
     public async Task ServeAsync_StoreWriteCancelled_EndsTheExchange()
     {
         var clock = new ManualTimeProvider();
-        var store = await PersistedStoreAsync(clock, new OperationCanceledException());
+        var store = await PersistedStoreAsync(clock, new UnitTestUnwritableContentFileSystem(new OperationCanceledException(), keepsMessageFiles: true));
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(
             () => ServeAsync(store, $"EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<b@y>\r\nDATA\r\n{Body}.\r\n", clock, TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_MessageStoredOnDisk_IsTheTraceFieldsThenTheBodyInOneMessageFile()
+    {
+        var clock = new ManualTimeProvider();
+        var fileSystem = new InMemoryContentFileSystem(clock);
+        var store = await PersistedStoreAsync(clock, fileSystem);
+
+        await ServeAsync(store, $"EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<b@y>\r\nDATA\r\n{Body}.\r\n", clock, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(new[] { TraceFields("a@x") + Body }, Inbox(store, string.Empty).ToList());
+        var messageFile = MessageFileNames(fileSystem).Single();
+        Assert.IsFalse(messageFile.StartsWith(PendingFilePrefix, StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BodyPastMaxFilesize_LeavesNoPendingFile()
+    {
+        var clock = new ManualTimeProvider();
+        var fileSystem = new InMemoryContentFileSystem(clock);
+        var store = await PersistedStoreAsync(clock, fileSystem);
+        var limits = ExchangeLimits.Default with { MaxUploadBytes = 200 };
+
+        var connection = await ServeAsync(store, $"EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<b@y>\r\nDATA\r\n{new string('x', 150)}\r\n.\r\n", clock, TestContext.CancellationToken, limits);
+
+        StringAssert.EndsWith(RepliesAfterHello(connection), "552 5.3.4 Message exceeds the size limit\r\n");
+        Assert.IsEmpty(Inbox(store, string.Empty));
+        Assert.IsEmpty(MessageFileNames(fileSystem));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PeerClosesMidBody_LeavesNoPendingFile()
+    {
+        var clock = new ManualTimeProvider();
+        var fileSystem = new InMemoryContentFileSystem(clock);
+        var store = await PersistedStoreAsync(clock, fileSystem);
+
+        await ServeAsync(store, "EHLO c\r\nMAIL FROM:<a@x>\r\nRCPT TO:<b@y>\r\nDATA\r\nhalf a mess", clock, TestContext.CancellationToken);
+
+        Assert.IsEmpty(Inbox(store, string.Empty));
+        Assert.IsEmpty(MessageFileNames(fileSystem));
     }
 
     [TestMethod]
@@ -181,9 +238,6 @@ public sealed class SmtpDeliveryTests
         Assert.AreEqual($"Message stored: {TraceFields("a@x").Length + Body.Length} bytes for 0 recipients", log.Notes[^1]);
     }
 
-    private static Task<MailboxStore> PersistedStoreAsync(TimeProvider clock, Exception writeFailure) =>
-        MailboxStore.LoadAsync(new MailStoreFiles(new UnitTestUnwritableContentFileSystem(writeFailure), "state"), [], allowAnonymous: true, clock);
-
     [TestMethod]
     public async Task ServeAsync_NoMaxFilesize_StoresTheMessage()
     {
@@ -195,4 +249,17 @@ public sealed class SmtpDeliveryTests
 
         CollectionAssert.AreEqual(new[] { TraceFields("a@x") + Body }, Inbox(store, string.Empty).ToList());
     }
+
+    private const string PendingFilePrefix = ".pending-";
+
+    private static readonly string StateFolder = Path.Join(InMemoryContentFileSystem.RootPath, "state");
+
+    private static readonly string MessagesFolder = Path.Join(StateFolder, MailStoreFiles.MessagesFolderName);
+
+    private static Task<MailboxStore> PersistedStoreAsync(TimeProvider clock, IContentFileSystem fileSystem) =>
+        MailboxStore.LoadAsync(new MailStoreFiles(fileSystem, StateFolder), [], allowAnonymous: true, clock);
+
+    // Every file in the store's messages folder, pending ones included.
+    private static List<string> MessageFileNames(InMemoryContentFileSystem fileSystem) =>
+        fileSystem.GetEntryKind(MessagesFolder) == ContentEntryKind.Directory ? fileSystem.EnumerateDirectoryEntryNames(MessagesFolder).ToList() : [];
 }

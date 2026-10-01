@@ -39,6 +39,12 @@ internal sealed class ExchangeDeadlines : IDisposable
     public CancellationToken Token => anyReason.Token;
 
     /// <summary>
+    /// Cancelled when the engine gives up on every exchange: the exchange's
+    /// <see cref="Protocol.Abstractions.ExchangeContext.ShutdownToken"/>.
+    /// </summary>
+    public CancellationToken ShutdownToken => shutdownToken;
+
+    /// <summary>
     /// Why <see cref="Token"/> was cancelled: the first reason that fired, even when another
     /// fired after it; <see langword="null"/> while it is not cancelled.
     /// </summary>

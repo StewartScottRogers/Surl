@@ -1,0 +1,21 @@
+< +OK surl ready
+> CAPA
+< +OK Capability list follows
+< TOP
+< UIDL
+< RESP-CODES
+< AUTH-RESP-CODE
+< PIPELINING
+< USER
+< .
+> USER u
+< +OK User accepted
+> PASS p
+< +OK Logged in
+> UIDL
+< +OK Unique-ID listing follows
+< 1 1790668800.1
+< 2 1790668800.2
+< .
+> QUIT
+< +OK surl signing off

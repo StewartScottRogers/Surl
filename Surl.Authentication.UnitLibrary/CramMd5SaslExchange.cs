@@ -19,7 +19,7 @@ internal sealed class CramMd5SaslExchange(SaslExchangeContext context) : SaslMec
     private byte[]? challenge;
 
     /// <inheritdoc/>
-    protected override ValueTask<MailLoginStep> AnswerAsync(
+    protected override ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken)
     {
         if (response is not { } message)
@@ -46,7 +46,7 @@ internal sealed class CramMd5SaslExchange(SaslExchangeContext context) : SaslMec
     public static byte[] ComputeDigest(ReadOnlySpan<byte> password, ReadOnlySpan<byte> challenge) =>
         HMACMD5.HashData(password, challenge);
 
-    private ValueTask<MailLoginStep> CheckAsync(byte[] issued, ReadOnlySpan<byte> message, CancellationToken cancellationToken)
+    private ValueTask<SaslLoginStep> CheckAsync(byte[] issued, ReadOnlySpan<byte> message, CancellationToken cancellationToken)
     {
         var space = message.LastIndexOf((byte)' ');
         var userBytes = message[..Math.Max(space, 0)];

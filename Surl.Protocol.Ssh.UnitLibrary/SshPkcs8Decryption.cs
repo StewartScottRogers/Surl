@@ -10,8 +10,8 @@ namespace Surl.Protocol.Ssh;
 /// -512 and AES-128, -192 or -256 in CBC mode - what OpenSSL and <c>ssh-keygen -m PKCS8</c>
 /// write - from the BCL's <see cref="Rfc2898DeriveBytes.Pbkdf2(byte[], byte[], int, HashAlgorithmName, int)"/>
 /// and <see cref="Aes"/>. It is done here rather than by an <c>ImportEncryptedPkcs8PrivateKey</c>,
-/// which needs the key's algorithm known before it is decrypted, so a DSA or Ed25519 key is
-/// refused for its type and not for its passphrase.
+/// which needs the key's algorithm known before it is decrypted, so an Ed25519 key, which the
+/// BCL does not import, is read, and a DSA key is refused for its type and not for its passphrase.
 /// </summary>
 internal static class SshPkcs8Decryption
 {

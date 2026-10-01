@@ -32,8 +32,29 @@ namespace Surl.Protocol.Ftp;
 /// <c>FEAT</c>, <c>OPTS UTF8 ON</c>, <c>NOOP</c>, <c>HELP</c>, <c>ALLO</c>, <c>ACCT</c> and
 /// <c>QUIT</c>; and for downloads <c>EPSV</c>, <c>PASV</c>, <c>EPRT</c>, <c>PORT</c>,
 /// <c>SIZE</c>, <c>MDTM</c>, <c>REST</c>, <c>RETR</c> and <c>ABOR</c> (ADR-0052, decisions 4
-/// and 6). Every other command, the listing, upload and TLS commands included until they are
-/// built, is <c>502 Command not implemented</c>.
+/// and 6); and for listings <c>LIST</c>, <c>NLST</c>, <c>MLSD</c> and <c>MLST</c> (decision 7).
+/// And for uploads and file management <c>STOR</c>, <c>APPE</c>, <c>MKD</c>, <c>RMD</c>,
+/// <c>DELE</c>, <c>RNFR</c>, <c>RNTO</c> and <c>SITE</c> (decision 8). Every other command is
+/// <c>502 Command not implemented</c>.
+/// </para>
+/// <para>
+/// <b>TLS</b> (ADR-0052, decision 5). On <c>ftp://</c>, <c>AUTH TLS</c> or <c>AUTH SSL</c> is
+/// answered <c>234</c>, every byte pipelined after the <c>AUTH</c> line is thrown away unrun,
+/// and the control connection is upgraded with <see cref="IConnection.UpgradeToTlsAsync"/> -
+/// only when the listener has a certificate; without one it is <c>534 TLS is not available</c>,
+/// and a login the policy wants over TLS stays refused as plain text. <c>PBSZ</c> needs TLS,
+/// <c>PROT</c> needs <c>PBSZ</c>, and after <c>PROT P</c> each data connection is upgraded to
+/// TLS after its <c>150</c>; <c>CCC</c> is refused, so the control connection stays
+/// encrypted. <c>ftps://</c> is TLS from the first byte - the engine's handshake - and its
+/// data connections are TLS until a <c>PROT C</c>.
+/// </para>
+/// <para>
+/// <b>Listings.</b> <c>LIST</c>, <c>NLST</c> and <c>MLSD</c> of a directory are sent over a
+/// data connection only when the content store lists directories (<c>--list-directories</c>);
+/// otherwise each is <c>550 No such directory</c>, exactly as for a missing one, before any
+/// data connection is used. The content store leaves out <c>/.surl</c> and, unless
+/// <c>--serve-dot-files</c>, dot-files. <c>LIST</c> and <c>NLST</c> naming one file, and
+/// <c>MLST</c> of any exposed entry, are not directory listings and are answered either way.
 /// </para>
 /// <para>
 /// <b>Data connections.</b> The server never opens a socket: <c>EPSV</c> and <c>PASV</c> ask
@@ -52,8 +73,13 @@ namespace Surl.Protocol.Ftp;
 /// without reading the rest. A command line not complete within
 /// <see cref="ExchangeLimits.HeadTimeout"/> is answered <c>421 Timeout waiting for a
 /// command</c> and the connection is closed; the first line's clock starts when the connection
-/// is served, and every later line's at its first byte. Each of those two replies is written
-/// within <see cref="LimitReplyWriteDeadline"/>, then writes are completed. A connection past a
+/// is served, and every later line's at its first byte. When the engine cancels the exchange -
+/// its idle timeout or maximum duration, as <see cref="ExchangeContext.IsCancelledForALimit"/>
+/// says - the server stops, closes any data connection and answers <c>421 Timeout, closing</c>;
+/// when the engine cancels it at shutdown, the server stops with no farewell and the
+/// cancellation propagates (ADR-0059). Each of those three replies is written within
+/// <see cref="LimitReplyWriteDeadline"/>, on that deadline linked to
+/// <see cref="ExchangeContext.ShutdownToken"/>, then writes are completed; shutdown cuts one off. A connection past a
 /// connection limit is answered <c>421 Too many connections</c> by
 /// <see cref="WriteRefusalAsync"/> (ADR-0006, section 5; ADR-0052, decision 10). A client that
 /// closes the connection part way through a line gets no reply.
@@ -70,9 +96,11 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     private const string RefusalReply = "421 Too many connections\r\n";
     private const string HeadTimedOutReply = "421 Timeout waiting for a command\r\n";
     private const string LineTooLongReply = "500 Command line too long\r\n";
+    private const string ExchangeCancelledReply = "421 Timeout, closing\r\n";
 
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly bool isTlsUpgradeAvailable;
 
     /// <summary>
     /// Creates an FTP server over <paramref name="contentStore"/> whose logins
@@ -80,19 +108,26 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     /// </summary>
     /// <param name="contentStore">The content store the server's paths name.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
-    public FtpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
+    /// <param name="isTlsUpgradeAvailable">
+    /// Whether the listener has a certificate (<c>--cert</c> or <c>--self-signed</c>), so
+    /// <c>AUTH TLS</c> can upgrade the control connection and <c>FEAT</c> lists it; without one
+    /// <c>AUTH</c> is <c>534 TLS is not available</c> (ADR-0032, section 10).
+    /// </param>
+    public FtpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool isTlsUpgradeAvailable = false)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
     }
 
     /// <summary>
-    /// The one scheme answered so far: <c>ftp</c>.
+    /// The schemes answered: <c>ftp</c>, and <c>ftps</c>, whose TLS handshake the engine
+    /// completes before <see cref="ServeAsync"/>.
     /// </summary>
-    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ftp"]);
+    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ftp", "ftps"]);
 
     /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>
@@ -109,12 +144,19 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
         using var reader = new FtpLineReader(connection, context.Limits.MaxLineBytes, context.Limits.HeadTimeout, context.TimeProvider);
         reader.StartHeadTimeout();
 
-        var cancellationToken = context.CancellationToken;
-        await WriteAsync(connection, Greeting, cancellationToken);
+        await WriteAsync(connection, Greeting, context.CancellationToken);
 
-        var responder = new FtpCommandResponder(connection, context, contentStore, authenticationPolicy);
+        var responder = new FtpCommandResponder(connection, context, reader, contentStore, authenticationPolicy, isTlsUpgradeAvailable);
         var failure = await CaptureFailureAsync(() => AnswerEveryLineAsync(connection, context, reader, responder));
         await responder.DisposeAsync();
+
+        if (failure?.SourceException is OperationCanceledException && context.IsCancelledForALimit)
+        {
+            context.Log.Note("The exchange was cancelled; answered 421 and closed.");
+            await WriteLimitReplyAsync(connection, context, ExchangeCancelledReply);
+            return;
+        }
+
         failure?.Throw();
     }
 
@@ -186,16 +228,19 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
 
     // A limit's reply gets one second to be written, and then writes are completed; a peer
     // that does not read it in time is closed all the same, never aborted (ADR-0006, section 5).
+    // The deadline is linked to shutdown, never to the exchange's token: the reply to a limit's
+    // cancellation is written after that token is cancelled, and a reply already being written
+    // when the exchange is cancelled for a limit still gets its second; shutdown cuts it off (ADR-0059).
     private static async Task WriteLimitReplyAsync(IConnection connection, ExchangeContext context, string reply)
     {
         using var deadline = new CancellationTokenSource(LimitReplyWriteDeadline, context.TimeProvider);
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, deadline.Token);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.ShutdownToken, deadline.Token);
         try
         {
             await WriteAsync(connection, reply, cancellation.Token);
             await connection.CompleteWritesAsync(cancellation.Token);
         }
-        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!context.ShutdownToken.IsCancellationRequested)
         {
             context.Log.Note("The reply was not written within the one-second write deadline; the connection was closed.");
         }

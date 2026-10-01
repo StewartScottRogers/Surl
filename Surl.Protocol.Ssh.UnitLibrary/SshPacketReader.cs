@@ -12,11 +12,12 @@ namespace Surl.Protocol.Ssh;
 /// MAC or an AEAD cipher) is refused from its length field alone, before the rest of it is read
 /// (ADR-0006 sections 1 and 5, ADR-0051 decision 9); so is one that leaves fewer than 4 padding
 /// bytes or no payload, once read. Each is <c>DISCONNECT</c> 2; a MAC or tag that does not verify
-/// is <c>DISCONNECT</c> 5. It is not safe for concurrent calls.
+/// is <c>DISCONNECT</c> 5. Once decompression is in use, a payload that does not inflate, or
+/// inflates past the packet limit, is <c>DISCONNECT</c> 6. It is not safe for concurrent calls.
 /// </remarks>
 /// <param name="reader">The buffered reader over the connection.</param>
 /// <param name="maxPacketBytes">The most bytes a packet may hold, its length field included; 0 means no limit.</param>
-internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacketBytes)
+internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacketBytes) : IDisposable
 {
     /// <summary>
     /// The block size packets are padded to before a cipher is agreed (RFC 4253, section 6).
@@ -29,6 +30,8 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
     public const int MinPaddingBytes = 4;
 
     private const int LengthFieldBytes = 4;
+
+    private SshZlibDecompressor? decompressor;
 
     /// <summary>
     /// The sequence number of the next packet read (RFC 4253, section 6.4): 0 for the first,
@@ -66,6 +69,21 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
     }
 
     /// <summary>
+    /// Inflates every later payload with a new zlib stream when <paramref name="decompresses"/>,
+    /// else none; either way the stream before it ends. A payload is inflated to at most the
+    /// packet limit (ADR-0051, decision 9).
+    /// </summary>
+    /// <param name="decompresses">Whether later payloads are compressed.</param>
+    public void UseDecompression(bool decompresses)
+    {
+        decompressor?.Dispose();
+        decompressor = decompresses ? new SshZlibDecompressor(maxPacketBytes > 0 ? maxPacketBytes : Array.MaxLength) : null;
+    }
+
+    /// <inheritdoc/>
+    public void Dispose() => decompressor?.Dispose();
+
+    /// <summary>
     /// Reads the next packet.
     /// </summary>
     /// <param name="cancellationToken">Cuts the read off.</param>
@@ -81,7 +99,7 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
         }
 
         byte[] head = [(byte)firstByte, .. await ReadOrEndAsync(Protection.HeadLength - 1, cancellationToken)];
-        var plainHead = Protection.OpenHead(head);
+        var plainHead = Protection.OpenHead(SequenceNumber, head);
         var packetLength = BinaryPrimitives.ReadUInt32BigEndian(plainHead);
         RefuseBadLength(packetLength);
 
@@ -96,8 +114,9 @@ internal sealed class SshPacketReader(SshConnectionReader reader, long maxPacket
         }
 
         CountPacket(head.Length + rest.Length);
+        var payload = body[1..(1 + payloadLength)];
 
-        return body[1..(1 + payloadLength)];
+        return decompressor is null ? payload : decompressor.Decompress(payload);
     }
 
     private void CountPacket(int bytesRead)

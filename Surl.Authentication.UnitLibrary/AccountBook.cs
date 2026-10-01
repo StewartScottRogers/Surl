@@ -11,7 +11,8 @@ namespace Surl.Authentication;
 /// dummy hash, so it costs the same work as a wrong password and gets the same answer. For
 /// Digest it also keeps each named account's <c>H(name:surl:password)</c> under every
 /// <see cref="DigestAlgorithm"/>, computed once here (ADR-0036); for NTLM, each named account's
-/// NT hash (ADR-0039); and for AWS Signature Version 4, each named account's password as UTF-8
+/// NT hashes, one for each way an upstream curl build hashes the password (ADR-0039,
+/// <see cref="NtlmPasswordHashes"/>); and for AWS Signature Version 4, each named account's password as UTF-8
 /// bytes, since every signing key derives from the secret itself (ADR-0043); and, for the
 /// challenge-response mail logins, the same bytes (ADR-0049, section 5).
 /// </summary>
@@ -25,7 +26,7 @@ public sealed class AccountBook
         .Select(algorithm => DigestCalculation.HashHex(algorithm, RandomNumberGenerator.GetBytes(32)))];
     private readonly DigestAccount dummyDigestAccount;
     private readonly Dictionary<string, NtlmAccount> ntlmAccounts = new(StringComparer.Ordinal);
-    private readonly NtlmAccount dummyNtlmAccount = new(null, RandomNumberGenerator.GetBytes(16));
+    private readonly NtlmAccount dummyNtlmAccount = new(null, NtlmPasswordHashes.ComputeRandom());
     private readonly Dictionary<string, AwsSigV4Account> awsSigV4Accounts = new(StringComparer.Ordinal);
     private readonly AwsSigV4Account dummyAwsSigV4Account = new(null, RandomNumberGenerator.GetBytes(40));
     private readonly Dictionary<string, ChallengeResponseAccount> challengeResponseAccounts = new(StringComparer.Ordinal);
@@ -63,7 +64,7 @@ public sealed class AccountBook
         foreach (var account in named)
         {
             ntlmAccounts[account.UserName] =
-                new NtlmAccount(account.UserName, NtlmV2Calculation.ComputeNtHash(account.Password));
+                new NtlmAccount(account.UserName, NtlmPasswordHashes.Compute(account.Password));
             awsSigV4Accounts[account.UserName] = new AwsSigV4Account(account.UserName, Encoding.UTF8.GetBytes(account.Password));
             challengeResponseAccounts[account.UserName] =
                 new ChallengeResponseAccount(account.UserName, Encoding.UTF8.GetBytes(account.Password));
@@ -141,12 +142,13 @@ public sealed class AccountBook
         digestAccounts.GetValueOrDefault(userName, dummyDigestAccount);
 
     /// <summary>
-    /// The account an NTLM <c>UserName</c> names, matched exactly, with the NT hash of its
-    /// password computed at start-up. Any other name, the empty one included, gets a dummy with
-    /// a random hash, so it costs the same work and matches nothing (ADR-0032, section 8).
+    /// The account an NTLM <c>UserName</c> names, matched exactly, with the NT hashes of its
+    /// password computed at start-up (<see cref="NtlmPasswordHashes"/>). Any other name, the
+    /// empty one included, gets a dummy with as many random hashes, so it costs the same work and
+    /// matches nothing (ADR-0032, section 8).
     /// </summary>
     /// <param name="userName">The user name as sent.</param>
-    /// <returns>The account's name and NT hash, or the dummy's.</returns>
+    /// <returns>The account's name and NT hashes, or the dummy's.</returns>
     internal NtlmAccount FindNtlmAccount(string userName) =>
         ntlmAccounts.GetValueOrDefault(userName, dummyNtlmAccount);
 

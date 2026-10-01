@@ -88,4 +88,43 @@ internal static class SshMessageNumber
 
     /// <summary>The last message number of the connection protocol (RFC 4250, section 4.1.2).</summary>
     public const byte LastConnectionMessage = 127;
+
+    /// <summary><c>SSH_MSG_GLOBAL_REQUEST</c> (RFC 4254, section 4): a request for the whole connection.</summary>
+    public const byte GlobalRequest = 80;
+
+    /// <summary><c>SSH_MSG_REQUEST_FAILURE</c>: the global request is refused.</summary>
+    public const byte RequestFailure = 82;
+
+    /// <summary><c>SSH_MSG_CHANNEL_OPEN</c> (RFC 4254, section 5.1).</summary>
+    public const byte ChannelOpen = 90;
+
+    /// <summary><c>SSH_MSG_CHANNEL_OPEN_CONFIRMATION</c>: the channel is open, with the server's number, window and maximum packet.</summary>
+    public const byte ChannelOpenConfirmation = 91;
+
+    /// <summary><c>SSH_MSG_CHANNEL_OPEN_FAILURE</c>: the channel is refused, with a reason code.</summary>
+    public const byte ChannelOpenFailure = 92;
+
+    /// <summary><c>SSH_MSG_CHANNEL_WINDOW_ADJUST</c> (RFC 4254, section 5.2): more bytes the sender may be sent.</summary>
+    public const byte ChannelWindowAdjust = 93;
+
+    /// <summary><c>SSH_MSG_CHANNEL_DATA</c>.</summary>
+    public const byte ChannelData = 94;
+
+    /// <summary><c>SSH_MSG_CHANNEL_EXTENDED_DATA</c>: data of a numbered type, <c>stderr</c> in a session.</summary>
+    public const byte ChannelExtendedData = 95;
+
+    /// <summary><c>SSH_MSG_CHANNEL_EOF</c> (RFC 4254, section 5.3): the sender sends no more data.</summary>
+    public const byte ChannelEof = 96;
+
+    /// <summary><c>SSH_MSG_CHANNEL_CLOSE</c>: the channel is closed; each side sends one.</summary>
+    public const byte ChannelClose = 97;
+
+    /// <summary><c>SSH_MSG_CHANNEL_REQUEST</c> (RFC 4254, section 5.4): <c>exec</c>, <c>subsystem</c>, <c>exit-status</c> and the rest.</summary>
+    public const byte ChannelRequest = 98;
+
+    /// <summary><c>SSH_MSG_CHANNEL_SUCCESS</c>: the channel request is granted.</summary>
+    public const byte ChannelSuccess = 99;
+
+    /// <summary><c>SSH_MSG_CHANNEL_FAILURE</c>: the channel request is refused.</summary>
+    public const byte ChannelFailure = 100;
 }

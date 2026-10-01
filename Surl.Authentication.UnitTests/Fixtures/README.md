@@ -79,6 +79,39 @@ the tests.
 | `ntlm-two-urls` | `3`: `<ntlm401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` twice; `-Port 18133` (BL-133) | `'-sS','--ntlm','-u','tester:secret','http://127.0.0.1:18133/x','http://127.0.0.1:18133/y'` | 0 | the same handshake for `/x`, then `request-3.bin`: `GET /y` on the same connection with no `Authorization`, since the connection is logged in; stdout `okok` (ADR-0041) |
 | `ntlm-wrong-password` | `3`: `<ntlm401>`, then `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM\r\nContent-Length: 0\r\n\r\n` | `'-sS','-f','--ntlm','-u','tester:wrong','http://127.0.0.1:18120/x'` | 22 | the answer for `tester:wrong`; after the second `401` curl gives up (`curl: (22) The requested URL returned error: 401`) and sends no third request. Without `-f` the same run exits 0 with an empty body. |
 
+## Non-ASCII NTLM password (BL-321)
+
+Recorded on 2026-09-30 with `-ResponsesPerConnection 2 -Response <ntlm401>,'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok'`,
+on a Windows 11 machine with ANSI code page 1252 and OEM code page 437. `<cfg>` is a UTF-8 file
+holding `user = "tester:pässword"`. Every case exited 0 with stdout `ok`; each `request-2.bin`
+holds an NTLMv2 answer for `tester`, empty domain. The builds hash `pässword` differently, so
+`NtlmPasswordHashes` keeps one hash for each:
+
+| Folder | Build | `-Port` | `-CurlArgs` | The NT hash the answer proves |
+| --- | --- | --- | --- | --- |
+| `ntlm-non-ascii-password` | reference | 18321 | `'-sS','--ntlm','-u',"tester:p$([char]0xE4)ssword",'http://127.0.0.1:18321/x'` | `MD4(UTF-16LE("pΣssword"))`: SSPI reads the argument's Windows-1252 byte `E4` in the OEM code page 437 |
+| `ntlm-non-ascii-password-utf8-config` | reference | 18323 | `'-sS','--ntlm','-K',<cfg>,'http://127.0.0.1:18323/x'` | `MD4(UTF-16LE("p├ñssword"))`: the UTF-8 bytes `C3 A4` read in code page 437 |
+| `ntlm-non-ascii-password-static` | static-curl (`C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe`, SHA-256 `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`) | 18322 | as `ntlm-non-ascii-password` | `MD4(UTF-16LE("pässword"))`, the specification's |
+| `ntlm-non-ascii-password-static-utf8-config` | static-curl | 18324 | as `ntlm-non-ascii-password-utf8-config` | `MD4(UTF-16LE("pässword"))` |
+
+The reference build has no `Unicode` feature and hands SSPI an ANSI identity; static-curl's has
+it and hands SSPI the password as UTF-16. Upstream curl's own NTLM code, which the Linux and macOS
+builds use, widens each UTF-8 byte instead (`Curl_ntlm_core_mk_nt_hash` in `lib/curl_ntlm_core.c`).
+
+| Folder | Build | `-Port` | `-CurlArgs` | The NT hash the answer proves |
+| --- | --- | --- | --- | --- |
+| `ntlm-non-ascii-password-linux` | linux-x64 reference (`/opt/upstream-curl/8.21.0/curl`, SHA-256 `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45`) | 18325 | `'-sS','--ntlm','-u',"tester:p$([char]0xE4)ssword",'http://127.0.0.1:18325/x'` | `MD4` of the UTF-8 bytes `70 C3 A4 73 73 77 6F 72 64`, each widened to 16 bits |
+| `ntlm-non-ascii-password-macos` | osx-arm64 reference (`/opt/upstream-curl/8.21.0/curl`, SHA-256 `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF`) | 18325 | as `ntlm-non-ascii-password-linux` | as `ntlm-non-ascii-password-linux` |
+
+The Linux folder was recorded on 2026-10-01 (BL-324) by `pwsh` 7.6 in WSL Ubuntu 26.04 on the
+same Windows machine, with the same `-ResponsesPerConnection` and `-Response` values and
+`LANG=C.UTF-8`, so the argument reached curl as UTF-8. The macOS folder is the artifact
+`ntlm-non-ascii-password-macos` that the macOS leg of `.github/workflows/ci.yml` recorded on
+2026-10-01 in CI run https://github.com/StewartScottRogers/Surl/actions/runs/36848637228
+(commit 32f41ad0), committed as downloaded (BL-352). Both exited 0 with stdout `ok`.
+`NtlmAuthenticationMethodTests.RecordedAuthenticate_LinuxAndMacOsBuilds_ProveTheNtHashOfTheWidenedUtf8Password`
+checks each answer's `NTProofStr` against that hash.
+
 ## Negotiate (BL-121)
 
 Recorded on 2026-09-29 with the same build and `-Port 18121 -ResponsesPerConnection 2`, every
@@ -147,3 +180,70 @@ is a file holding the four bytes `body`. What they show is ADR-0045's "Measured"
 | `aws-sigv4-unsigned-payload` | `aws:amz:us-east-1:s3` | `'-H','x-amz-content-sha256: UNSIGNED-PAYLOAD','-X','PUT','-d','body','http://127.0.0.1:18136/x'` | the field sent once, as given, and signed with `UNSIGNED-PAYLOAD` as the payload hash |
 | `aws-sigv4-upload` | `aws:amz:us-east-1:s3` | `'-T',<file>,'http://127.0.0.1:18136/upload'` | `-T` sends `x-amz-content-sha256: UNSIGNED-PAYLOAD` itself |
 | `aws-sigv4-ec2-upload` | `aws:amz:us-east-1:ec2` | `'-T',<file>,'http://127.0.0.1:18136/upload'` | no content hash field, and the signature is over the empty body's hash though `body` is sent |
+
+## LDAP NTLM sealing (BL-329)
+
+Recorded on 2026-09-30 with the win-x64 reference build and `Record-CurlExchange.ps1 -Ldap`,
+`-Port 18329 -CurlTimeoutMilliseconds 20000`, two `-LdapEntry` values - the root DSE
+`dn: \nsupportedSASLMechanisms: GSS-SPNEGO\nsupportedSASLMechanisms: NTLM` and
+`dn: cn=alice,dc=example,dc=com\nobjectClass: person\ncn: alice\nsn: Smith\nmail: alice@example.com` -
+and `<challenge>`, the `CHALLENGE_MESSAGE` Surl's LDAP handshake answers `WinLDAP`'s
+`NEGOTIATE_MESSAGE` (flags `E20882B7`) with over the server challenge `0123456789abcdef`
+(ADR-0072 decision 4: flags `E08A8235`, sign, seal and key exchange granted):
+`4E544C4D53535000020000000800080030000000` `35828AE0` `0123456789ABCDEF` `0000000000000000`
+`1C001C0038000000` `5300550052004C00` `020008005300550052004C00` `010008005300550052004C00`
+`00000000`. Each folder holds the recorder's files and `transcript.txt`, which the tests read.
+
+| Folder | `-LdapReply` | `-CurlArgs` | What it shows |
+| --- | --- | --- | --- |
+| `ldap-ntlm-sealed` | `"BIND=0\|\|\|<challenge>"`, `'BIND=0'` | `'-sS','--ntlm','-u','alice:secret','ldap://127.0.0.1:18329/dc=example,dc=com'` | Sicily: `[10]` with the `NEGOTIATE_MESSAGE`, `[11]` with the `AUTHENTICATE_MESSAGE` (flags `E2888235`), then an 84-byte sealed buffer: the base search, message ID 4 |
+| `ldap-negotiate-sealed` | `"BIND=14\|\|<challenge>"`, `'BIND=0'` | the same with `--negotiate` | `GSS-SPNEGO` with bare NTLM both ways, then an 84-byte sealed buffer: the base search, message ID 5 |
+
+Both exited 39 (`LDAP remote: Server Down`): the recorder cannot unseal and closed, and
+`WinLDAP`'s reconnect found no server it could use. `LdapNtlmSaslMechanismTests` replays both
+binds with the fixed challenge and unseals each buffer to the base search of ADR-0072's
+simple-bind transcript.
+
+## LDAP DIGEST-MD5 (BL-326)
+
+Recorded on 2026-09-30 with the win-x64 reference build and `Record-CurlExchange.ps1 -Ldap`,
+`-Port 18326 -CurlTimeoutMilliseconds 20000`, two `-LdapEntry` values - the root DSE
+`dn: \nsupportedSASLMechanisms: DIGEST-MD5` and
+`dn: cn=alice,dc=example,dc=com\nobjectClass: person\ncn: alice` - and `-LdapReply`
+`"BIND=14||<challenge hex>"`, `'BIND=0'`, where `<challenge>` is Surl's LDAP challenge over the
+fixed nonce (ADR-0072 decision 4):
+`realm="surl",nonce="MDEyMzQ1Njc4OWFiY2RlZg==",qop="auth,auth-int,auth-conf",cipher="3des,rc4",maxbuf=65536,charset=utf-8,algorithm=md5-sess`.
+`-CurlArgs` were `'-sS','--digest','-u','alice:secret','ldap://127.0.0.1:18326/dc=example,dc=com'`.
+
+| Folder | What it shows |
+| --- | --- |
+| `ldap-digest-md5` | `WinLDAP` opens the bind with empty credentials, then answers the challenge with `qop=auth-conf,cipher=3des`, `realm=""`, `digest-uri="ldap/127.0.0.1"` and `response=a5161e5d54e3950512ceb4bd61f5a564` |
+
+curl exited 38 (`bind via ldap_win_bind Protocol Error`): the recorder's success carried no
+`rspauth`, and it cannot compute one, since it does not know the password. The response and the
+`rspauth` it calls for (`317c080c54526d1d62d9f392f87cf69a`) and `H(A1)`
+(`68d9795fbde795dac0fdfdbd4461a106`) were checked with PowerShell's MD5 alone when recorded.
+`LdapDigestMd5SaslMechanismTests` replays the bind, and checks the 3DES, RC4 and integrity
+layers against RFC 2831 sections 2.3 and 2.4's layout computed in the test.
+
+## LDAP Kerberos inside GSS-SPNEGO (BL-327)
+
+Recorded on 2026-09-30 at 23:24 (-07:00) with the win-x64 reference build on the lane machine,
+which has BL-265's `SURL.TEST` realm mapping, through `Record-CurlExchange.ps1 -Ldap
+-LdapKerberosAcceptor -KerberosTestKdc -KerberosPassword 'surl-test-password'
+-KerberosServicePrincipal 'ldap/Stewart-Rogers-AI-PC:18389'`, `-Port 18389
+-LdapIdleMilliseconds 3000 -CurlTimeoutMilliseconds 30000`, two `-LdapEntry` values - the root
+DSE `dn: \nsupportedSASLMechanisms: GSS-SPNEGO\nsupportedSASLMechanisms: GSSAPI` and
+`dn: dc=example,dc=com\ncn: example` - and `-CurlArgs`
+`'-sS','--negotiate','-u','tester@SURL.TEST:surl-test-password','ldap://localhost:18389/dc=example,dc=com?cn?base'`.
+The recorder answered the bind and wrapped its replies through `Run-KerberosAcceptor.cs` (ADR-0072
+Amendment 1).
+
+| Folder | What it shows |
+| --- | --- |
+| `ldap-kerberos-sealed` | `WinLDAP` asks the KDC for `ldap/Stewart-Rogers-AI-PC:18389` (`kdc.log`), binds `GSS-SPNEGO` with a `NegTokenInit` (MS-KRB5, Kerberos, NEGOEX, NTLMSSP) whose optimistic AP-REQ asks for mutual authentication and confidentiality, takes the `accept-completed` `negTokenResp` with the AP-REP, then sends the base search and the unbind as sealed RFC 4121 wrap tokens (`EC` 0, `RRC` 28) |
+
+curl exited 0 and printed `DN: dc=example,dc=com` with `cn: example`. The folder also holds
+`service.keytab`, the keys the test KDC drew for that run, and `kdc.log`.
+`LdapKerberosSaslMechanismTests` replays the bind with that keytab on a clock set to the
+recording's time and unwraps both buffers.

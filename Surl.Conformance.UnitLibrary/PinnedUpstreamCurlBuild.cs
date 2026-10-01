@@ -10,10 +10,12 @@ namespace Surl.Conformance;
 /// <param name="Version">The build's <c>curl --version</c> first line, or empty when the entry has none.</param>
 /// <param name="Protocols">The protocols the build supports, in the order its entry lists them.</param>
 /// <param name="Role">Whether the build is the reference build or a supplementary one.</param>
+/// <param name="Kind">Whether the file is a curl executable or a shared libcurl.</param>
 public sealed record PinnedUpstreamCurlBuild(
     string Platform,
     string DefaultPath,
     string Sha256,
     string Version,
     IReadOnlyList<string> Protocols,
-    UpstreamCurlBuildRole Role);
+    UpstreamCurlBuildRole Role,
+    UpstreamCurlBuildKind Kind = UpstreamCurlBuildKind.Curl);

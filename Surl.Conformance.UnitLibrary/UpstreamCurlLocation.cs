@@ -39,7 +39,7 @@ public sealed class UpstreamCurlLocation
     /// <param name="build">The verified build.</param>
     /// <returns>An available location.</returns>
     public static UpstreamCurlLocation Found(PinnedUpstreamCurlBuild build) =>
-        new(build, UpstreamCurlUnavailability.None, $"{build.DefaultPath} is the pinned {RoleName(build.Role)} upstream curl build for {build.Platform}.");
+        new(build, UpstreamCurlUnavailability.None, $"{build.DefaultPath} is the pinned {RoleName(build.Role)} {UnpinnedUpstreamCurlException.KindName(build.Kind)} for {build.Platform}.");
 
     /// <summary>
     /// Creates the result for a platform and role with no pinned build.
@@ -60,12 +60,21 @@ public sealed class UpstreamCurlLocation
         new(null, UpstreamCurlUnavailability.NoPinnedBuildForPlatform, $"UpstreamCurlBuilds.json pins no upstream curl build for {platform} that supports {protocol}.");
 
     /// <summary>
+    /// Creates the result for a platform with no pinned libcurl, such as Linux and macOS,
+    /// whose static builds carry no shared library.
+    /// </summary>
+    /// <param name="platform">The platform asked for.</param>
+    /// <returns>An unavailable location.</returns>
+    public static UpstreamCurlLocation NoPinnedLibrary(string platform) =>
+        new(null, UpstreamCurlUnavailability.NoPinnedBuildForPlatform, $"UpstreamCurlBuilds.json pins no upstream libcurl for {platform}.");
+
+    /// <summary>
     /// Creates the result for a pinned build whose file is not on this machine.
     /// </summary>
     /// <param name="build">The first pinned build that was looked for.</param>
     /// <returns>An unavailable location.</returns>
     public static UpstreamCurlLocation FileAbsent(PinnedUpstreamCurlBuild build) =>
-        new(null, UpstreamCurlUnavailability.PinnedBuildFileAbsent, $"The pinned {RoleName(build.Role)} upstream curl build for {build.Platform} is not installed: {build.DefaultPath} does not exist.");
+        new(null, UpstreamCurlUnavailability.PinnedBuildFileAbsent, $"The pinned {RoleName(build.Role)} {UnpinnedUpstreamCurlException.KindName(build.Kind)} for {build.Platform} is not installed: {build.DefaultPath} does not exist.");
 
     private static string RoleName(UpstreamCurlBuildRole role) =>
         role == UpstreamCurlBuildRole.Reference ? "reference" : "supplementary";

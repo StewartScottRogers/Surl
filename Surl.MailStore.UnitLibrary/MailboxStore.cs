@@ -21,12 +21,14 @@ namespace Surl.MailStore;
 /// other than the owners' <c>INBOX</c>es. An operation that would pass a bound stores nothing.
 /// </para>
 /// <para>
-/// It lives in memory. <see cref="ChangeCount"/> rises by one with every change that alters
-/// the store, and not with a refused or no-op one. A store made by <see cref="LoadAsync"/>
-/// starts with what its <see cref="MailStoreFiles"/> hold and writes every change back to them
-/// when <see cref="SaveChangesAsync"/> is called, so its mail survives a restart (ADR-0050,
-/// decision 7). A store made by the constructor has no files, and its changes are never
-/// written anywhere.
+/// Its mailboxes and flags live in memory. <see cref="ChangeCount"/> rises by one with every
+/// change that alters the store, and not with a refused or no-op one. A store made by
+/// <see cref="LoadAsync"/> starts with what its <see cref="MailStoreFiles"/> hold, streams each
+/// new message body into a pending file that becomes its message file when it is stored, reads
+/// a message's bytes from that file when a server fetches them, and writes the index back when
+/// <see cref="SaveChangesAsync"/> is called, so its mail survives a restart (ADR-0050,
+/// decision 7). A store made by the constructor has no files: it holds every message's bytes in
+/// memory, and its changes are never written anywhere.
 /// </para>
 /// </remarks>
 public sealed class MailboxStore
@@ -62,7 +64,6 @@ public sealed class MailboxStore
     private readonly Dictionary<string, OwnerMailboxes> accounts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, OwnerMailboxes?> accountsIgnoringCase = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<OwnerMailboxes> lockedMaildrops = [];
-    private readonly HashSet<MessageBody> unwrittenBodies = [];
     private readonly List<ulong> releasedFileNumbers = [];
     private OwnerMailboxes? anonymousOwner;
     private MailStoreFiles? files;
@@ -164,7 +165,7 @@ public sealed class MailboxStore
         var index = await files.ReadIndexAsync(cancellationToken);
         if (index is not null)
         {
-            await store.RestoreAsync(files, index, cancellationToken);
+            store.Restore(files, index);
         }
 
         store.anonymousOwner = store.ReachOwners(accountNames, allowAnonymous);
@@ -209,19 +210,18 @@ public sealed class MailboxStore
     }
 
     /// <summary>
-    /// Writes the store to its files when it has changed since the last write; does nothing for
-    /// a store made without files, or when nothing has changed (ADR-0050, decision 7). Each new
-    /// message's file is written first, then the whole index, then the files of messages no
-    /// longer held are deleted. Writes are serialised, and each writes the store as it is when
-    /// the write starts, so the index always holds a state the store held.
+    /// Writes the store's index to its files when the store has changed since the last write,
+    /// then deletes the files of messages no longer held; does nothing for a store made without
+    /// files (ADR-0050, decision 7). A message's own file is in place already, renamed from its
+    /// pending file when the message was stored. Writes are serialised, and each writes the
+    /// store as it is when the write starts, so the index always holds a state the store held.
     /// </summary>
     /// <param name="cancellationToken">Cancels the write; the next save writes the change instead.</param>
     /// <returns>A task that completes when the files hold the store's latest state.</returns>
-    /// <exception cref="IOException">A message file or the index cannot be written: the change
-    /// stays in memory, and the next save writes every message file and the index it still
-    /// needs. Or a message file no longer held cannot be deleted: the index is written, and the
-    /// file is left behind, ignored at the next load. The caller notes the message with
-    /// <c>IExchangeLog.Note</c>; nothing ends. Other exceptions the file system throws, such as
+    /// <exception cref="IOException">The index cannot be written: the change stays in memory,
+    /// and the next save writes the index. Or a message file no longer held cannot be deleted:
+    /// the index is written, and the file is left behind, ignored at the next load. The caller
+    /// notes the message with <c>IExchangeLog.Note</c>; nothing ends. Other exceptions the file system throws, such as
     /// <see cref="UnauthorizedAccessException"/>, mean the same.</exception>
     public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -284,40 +284,64 @@ public sealed class MailboxStore
         new(anonymousOwner ?? (accountName is null ? null : accounts.GetValueOrDefault(accountName)));
 
     /// <summary>
-    /// Delivers one message to the <c>INBOX</c> of every recipient, one copy per entry, all of
-    /// them or none. The copies share the message's bytes, counted once.
+    /// Starts a message body on its way into the store (ADR-0050, decision 7): with a data
+    /// directory it is streamed into a new pending file, otherwise held in memory. Hand it to
+    /// <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/> or
+    /// <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/>
+    /// once its bytes are written, or dispose it to abandon it.
+    /// </summary>
+    /// <returns>The pending message. A pending file that cannot be created does not throw; the
+    /// message is refused with <see cref="MailStoreOutcome.StorageFailed"/> when it is handed over.</returns>
+    public PendingMessage CreatePendingMessage() =>
+        new(files, MaxMessageBytes > 0 ? Math.Min(MaxMessageBytes, MaxTotalMessageBytes) : MaxTotalMessageBytes);
+
+    /// <summary>
+    /// Delivers one message, streamed in through <paramref name="message"/>, to the
+    /// <c>INBOX</c> of every recipient, one copy per entry, all of them or none. The copies share
+    /// the message's bytes and its message file, counted once. <paramref name="message"/> is
+    /// disposed whatever the outcome: its pending file becomes the message file when it is
+    /// stored, and is deleted when it is not.
     /// </summary>
     /// <param name="recipients">The owners <see cref="LookUpRecipient"/> found; an owner named
     /// twice gets two copies.</param>
-    /// <param name="message">The message's bytes, stored exactly.</param>
+    /// <param name="message">The pending message, its bytes all written.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
-    /// <see cref="MailStoreOutcome.MessageTooLarge"/> or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="recipients"/> is <see langword="null"/>.</exception>
-    public MailStoreOutcome Deliver(IReadOnlyList<MailRecipient> recipients, ReadOnlySpan<byte> message)
+    /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
+    /// or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
+    /// or disposed already.</exception>
+    public MailStoreOutcome Deliver(IReadOnlyList<MailRecipient> recipients, PendingMessage message)
     {
         ArgumentNullException.ThrowIfNull(recipients);
-        if (IsTooLarge(message.Length))
+        ArgumentNullException.ThrowIfNull(message);
+        message.Close();
+        using (message)
         {
-            return MailStoreOutcome.MessageTooLarge;
+            var outcome = CheckPending(message);
+            return outcome != MailStoreOutcome.Succeeded || recipients.Count == 0
+                ? outcome
+                : DeliverPending(recipients, message);
         }
+    }
 
+    private MailStoreOutcome DeliverPending(IReadOnlyList<MailRecipient> recipients, PendingMessage message)
+    {
         lock (storeLock)
         {
             var inboxes = recipients.Select(recipient => recipient.Owner.Inbox).ToList();
-            if (inboxes.Count == 0)
-            {
-                return MailStoreOutcome.Succeeded;
-            }
-
             if (!HasRoomFor(inboxes, message.Length))
             {
                 return MailStoreOutcome.StoreFull;
             }
 
-            var body = AddBody(message);
-            var now = timeProvider.GetUtcNow();
-            inboxes.ForEach(inbox => AddMessage(inbox, body, now, MailFlags.None));
-            changeCount++;
+            var body = KeepBody(message);
+            if (body is null)
+            {
+                return MailStoreOutcome.StorageFailed;
+            }
+
+            DeliverBody(inboxes, body);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -332,9 +356,7 @@ public sealed class MailboxStore
     /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
     /// <param name="stored">Where the message was stored, when the outcome is
     /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
-    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
-    /// <see cref="MailStoreOutcome.MailboxMissing"/>,
-    /// <see cref="MailStoreOutcome.MessageTooLarge"/> or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <returns>As <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/> returns.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
@@ -347,20 +369,61 @@ public sealed class MailboxStore
         out MailStoredUid stored)
     {
         ThrowIfNotFlags(flags);
-        stored = default;
-        lock (storeLock)
-        {
-            var mailbox = FindMailbox(view, mailboxName);
-            var outcome = mailbox is null ? MailStoreOutcome.MailboxMissing : CheckRoomForOne(mailbox, message.Length);
-            if (outcome != MailStoreOutcome.Succeeded)
-            {
-                return outcome;
-            }
+        var pending = CreatePendingMessage();
+        pending.Body.Write(message);
+        return Append(view, mailboxName, pending, flags, internalDate, out stored);
+    }
 
-            var uid = AddMessage(mailbox!, AddBody(message), internalDate ?? timeProvider.GetUtcNow(), flags);
-            stored = new MailStoredUid(mailbox!.UidValidity, uid);
-            changeCount++;
-            return MailStoreOutcome.Succeeded;
+    /// <summary>
+    /// Appends one message, streamed in through <paramref name="message"/>, to a named mailbox,
+    /// as IMAP's <c>APPEND</c> does. <paramref name="message"/> is disposed whatever the
+    /// outcome: its pending file becomes the message file when it is stored, and is deleted when
+    /// it is not.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="message">The pending message, its bytes all written.</param>
+    /// <param name="flags">The message's flags.</param>
+    /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
+    /// <param name="stored">Where the message was stored, when the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/>,
+    /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
+    /// or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
+    /// or disposed already.</exception>
+    public MailStoreOutcome Append(
+        MailView view,
+        string mailboxName,
+        PendingMessage message,
+        MailFlags flags,
+        DateTimeOffset? internalDate,
+        out MailStoredUid stored)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        stored = default;
+        message.Close();
+        using (message)
+        {
+            ThrowIfNotFlags(flags);
+            lock (storeLock)
+            {
+                var mailbox = FindMailbox(view, mailboxName);
+                var outcome = mailbox is null ? MailStoreOutcome.MailboxMissing : CheckRoomForOne(mailbox, message);
+                var body = outcome == MailStoreOutcome.Succeeded ? KeepBody(message) : null;
+                if (body is null)
+                {
+                    return outcome == MailStoreOutcome.Succeeded ? MailStoreOutcome.StorageFailed : outcome;
+                }
+
+                var uid = AddMessage(mailbox!, body, internalDate ?? timeProvider.GetUtcNow(), flags);
+                stored = new MailStoredUid(mailbox!.UidValidity, uid);
+                changeCount++;
+                return MailStoreOutcome.Succeeded;
+            }
         }
     }
 
@@ -400,24 +463,50 @@ public sealed class MailboxStore
     }
 
     /// <summary>
-    /// The bytes of one message.
+    /// The bytes of one message, read whole: with a data directory from its message file, as it
+    /// is now; otherwise from memory (ADR-0050, decision 7).
     /// </summary>
     /// <param name="view">The session's view.</param>
     /// <param name="mailboxName">The mailbox's name.</param>
     /// <param name="uid">The message's UID.</param>
     /// <param name="message">The message's bytes when the outcome is
     /// <see cref="MailStoreOutcome.Succeeded"/>; otherwise empty.</param>
+    /// <returns>As <see cref="OpenMessage"/> returns.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="IOException">As <see cref="OpenMessage"/> throws it, or the message file
+    /// cannot be read.</exception>
+    public MailStoreOutcome FetchMessage(MailView view, string mailboxName, uint uid, out ReadOnlyMemory<byte> message)
+    {
+        var outcome = OpenMessage(view, mailboxName, uid, out var stream);
+        message = stream is null ? ReadOnlyMemory<byte>.Empty : ReadAll(stream);
+        return outcome;
+    }
+
+    /// <summary>
+    /// Opens the bytes of one message to read: with a data directory from its message file, as
+    /// it is now; otherwise from memory (ADR-0050, decision 7).
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="uid">The message's UID.</param>
+    /// <param name="message">A readable stream of the message's bytes when the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>, which the caller disposes; otherwise
+    /// <see langword="null"/>.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.MessageMissing"/>
     /// (a message another session expunged meanwhile is missing).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="view"/> or
     /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
-    public MailStoreOutcome FetchMessage(MailView view, string mailboxName, uint uid, out ReadOnlyMemory<byte> message)
+    /// <exception cref="IOException">The message file cannot be opened, as when something other
+    /// than the store removed it. Other exceptions the file system throws, such as
+    /// <see cref="UnauthorizedAccessException"/>, mean the same.</exception>
+    public MailStoreOutcome OpenMessage(MailView view, string mailboxName, uint uid, out Stream? message)
     {
         lock (storeLock)
         {
             var outcome = FindMessage(view, mailboxName, uid, out var stored);
-            message = stored?.Body.Bytes ?? ReadOnlyMemory<byte>.Empty;
+            message = stored is null ? null : OpenBody(stored.Body);
             return outcome;
         }
     }
@@ -492,6 +581,36 @@ public sealed class MailboxStore
     }
 
     /// <summary>
+    /// Removes the messages flagged <c>\Deleted</c> among <paramref name="uids"/> from a
+    /// mailbox, as IMAP's <c>UID EXPUNGE</c> does (RFC 4315). A UID the mailbox does not hold,
+    /// or whose message is not flagged <c>\Deleted</c>, is skipped.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="uids">The UIDs that may be removed.</param>
+    /// <param name="expungedUids">The UIDs removed, in ascending order.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailStoreOutcome Expunge(MailView view, string mailboxName, IEnumerable<uint> uids, out IReadOnlyList<uint> expungedUids)
+    {
+        ArgumentNullException.ThrowIfNull(uids);
+        var allowed = uids.ToHashSet();
+        lock (storeLock)
+        {
+            var mailbox = FindMailbox(view, mailboxName);
+            expungedUids = [];
+            if (mailbox is null)
+            {
+                return MailStoreOutcome.MailboxMissing;
+            }
+
+            expungedUids = [.. mailbox.DeletedUids().Where(allowed.Contains)];
+            changeCount += RemoveMessages(mailbox, expungedUids) == 0 ? 0 : 1;
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
     /// Copies messages to another mailbox of the same view, as IMAP's <c>COPY</c> does: each
     /// copy keeps its flags and internal date, gets a new UID there, and shares the original's
     /// bytes. A UID the source does not hold is skipped. All of them or none are copied.
@@ -510,6 +629,40 @@ public sealed class MailboxStore
         string sourceMailboxName,
         IEnumerable<uint> uids,
         string destinationMailboxName,
+        out MailCopyResult? copied) =>
+        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: false, out copied);
+
+    /// <summary>
+    /// Moves messages to another mailbox of the same view, as IMAP's <c>MOVE</c> does (RFC 6851):
+    /// a <see cref="Copy"/>, then the originals removed from the source, in one step. The moved
+    /// messages count against no bound twice, so a store at <see cref="MaxMessages"/> can still
+    /// move. A UID the source does not hold is skipped. All of them or none are moved.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="sourceMailboxName">The mailbox moved from.</param>
+    /// <param name="uids">The UIDs to move.</param>
+    /// <param name="destinationMailboxName">The mailbox moved to; may be the source, which gives
+    /// the messages new UIDs there.</param>
+    /// <param name="moved">What was moved, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
+    /// otherwise <see langword="null"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>
+    /// (the destination has no UIDs left to give).</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailStoreOutcome Move(
+        MailView view,
+        string sourceMailboxName,
+        IEnumerable<uint> uids,
+        string destinationMailboxName,
+        out MailCopyResult? moved) =>
+        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: true, out moved);
+
+    private MailStoreOutcome CopyMessages(
+        MailView view,
+        string sourceMailboxName,
+        IEnumerable<uint> uids,
+        string destinationMailboxName,
+        bool isMove,
         out MailCopyResult? copied)
     {
         ArgumentNullException.ThrowIfNull(uids);
@@ -524,16 +677,22 @@ public sealed class MailboxStore
             }
 
             var originals = uids.Distinct().Order().Select(uid => source.Messages.GetValueOrDefault(uid)).OfType<StoredMessage>().ToList();
-            if (!HasRoomForCopies(destination, originals.Count))
-            {
-                return MailStoreOutcome.StoreFull;
-            }
-
-            var copyUids = originals.Select(original => AddMessage(destination, original.Body, original.InternalDate, original.Flags)).ToList();
-            changeCount += copyUids.Count == 0 ? 0 : 1;
-            copied = new MailCopyResult(destination.UidValidity, [.. originals.Select(original => original.Uid)], copyUids);
-            return MailStoreOutcome.Succeeded;
+            copied = HasRoomToCopy(destination, originals.Count, isMove) ? CopyInto(source, originals, destination, isMove) : null;
+            return copied is null ? MailStoreOutcome.StoreFull : MailStoreOutcome.Succeeded;
         }
+    }
+
+    // A move adds no message to the store, so it needs only the destination's UIDs.
+    private bool HasRoomToCopy(StoredMailbox destination, int count, bool isMove) =>
+        isMove ? destination.CanGiveUids(count) : HasRoomForCopies(destination, count);
+
+    private MailCopyResult CopyInto(StoredMailbox source, List<StoredMessage> originals, StoredMailbox destination, bool isMove)
+    {
+        var copyUids = originals.Select(original => AddMessage(destination, original.Body, original.InternalDate, original.Flags)).ToList();
+        List<uint> sourceUids = [.. originals.Select(original => original.Uid)];
+        RemoveMessages(source, isMove ? sourceUids : []);
+        changeCount += copyUids.Count == 0 ? 0 : 1;
+        return new MailCopyResult(destination.UidValidity, sourceUids, copyUids);
     }
 
     /// <summary>
@@ -663,8 +822,34 @@ public sealed class MailboxStore
                 return MailStoreOutcome.MaildropLocked;
             }
 
-            maildrop = new MaildropLock(this, owner, owner is null ? [] : [.. owner.Inbox.Messages.Values]);
+            StoredMessage[] messages = owner is null ? [] : [.. owner.Inbox.Messages.Values];
+
+            // Pinned while the lock is held, so a message removed meanwhile can still be read.
+            Array.ForEach(messages, message => message.Body.ReferenceCount++);
+            maildrop = new MaildropLock(this, owner, messages);
             return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// Opens a message's bytes to read: its message file, or its bytes in memory.
+    /// </summary>
+    internal Stream OpenBody(MessageBody body)
+    {
+        var bytes = body.Bytes;
+        return bytes is null ? files!.OpenMessage(body.FileNumber) : new MemoryStream(bytes, writable: false);
+    }
+
+    /// <summary>
+    /// Reads <paramref name="stream"/> to its end and disposes it.
+    /// </summary>
+    internal static byte[] ReadAll(Stream stream)
+    {
+        using (stream)
+        {
+            var bytes = new MemoryStream();
+            stream.CopyTo(bytes);
+            return bytes.ToArray();
         }
     }
 
@@ -685,13 +870,18 @@ public sealed class MailboxStore
     }
 
     /// <summary>
-    /// Releases <paramref name="owner"/>'s maildrop lock.
+    /// Releases <paramref name="owner"/>'s maildrop lock, and unpins the bodies it held,
+    /// releasing any no message refers to any more.
     /// </summary>
-    internal void ReleaseMaildrop(OwnerMailboxes owner)
+    internal void ReleaseMaildrop(OwnerMailboxes owner, IReadOnlyList<MessageBody> bodies)
     {
         lock (storeLock)
         {
             lockedMaildrops.Remove(owner);
+            foreach (var body in bodies)
+            {
+                Unreference(body);
+            }
         }
     }
 
@@ -747,7 +937,7 @@ public sealed class MailboxStore
         }
     }
 
-    private async Task RestoreAsync(MailStoreFiles files, byte[] index, CancellationToken cancellationToken)
+    private void Restore(MailStoreFiles files, byte[] index)
     {
         MailStoreIndexContents contents;
         try
@@ -759,9 +949,9 @@ public sealed class MailboxStore
             throw new MailStoreLoadException(files.IndexPath, malformed.Message, malformed);
         }
 
-        foreach (var (fileNumber, (body, size)) in contents.Bodies)
+        foreach (var body in contents.Bodies.Values)
         {
-            body.Bytes = await files.ReadMessageAsync(fileNumber, size, cancellationToken);
+            files.RequireMessageFile(body.FileNumber, body.Length);
         }
 
         nextFileNumber = contents.NextFileNumber;
@@ -774,30 +964,22 @@ public sealed class MailboxStore
 
     private async Task WriteChangesAsync(MailStoreFiles files, CancellationToken cancellationToken)
     {
-        MessageBody[] bodies;
-        byte[] index;
+        byte[]? index;
         ulong[] released;
         long snapshotChangeCount;
         lock (storeLock)
         {
-            if (changeCount == savedChangeCount)
-            {
-                return;
-            }
-
-            bodies = [.. unwrittenBodies];
-            index = MailStoreIndex.Encode(nextFileNumber, lastUidValidity, owners.Values);
+            // Unchanged since the last write: the index written then names none of the released files.
+            index = changeCount == savedChangeCount ? null : MailStoreIndex.Encode(nextFileNumber, lastUidValidity, owners.Values);
             released = [.. releasedFileNumbers];
             snapshotChangeCount = changeCount;
         }
 
-        foreach (var body in bodies)
+        if (index is not null)
         {
-            await files.WriteMessageAsync(body.FileNumber, body.Bytes, cancellationToken);
-            MarkWritten(body);
+            await files.WriteIndexAsync(index, cancellationToken);
         }
 
-        await files.WriteIndexAsync(index, cancellationToken);
         lock (storeLock)
         {
             savedChangeCount = snapshotChangeCount;
@@ -805,21 +987,6 @@ public sealed class MailboxStore
         }
 
         DeleteMessageFiles(files, released);
-    }
-
-    private void MarkWritten(MessageBody body)
-    {
-        lock (storeLock)
-        {
-            body.IsWritten = true;
-            unwrittenBodies.Remove(body);
-
-            // Released while it was being written: its file goes once an index no longer names it.
-            if (body.ReferenceCount == 0)
-            {
-                releasedFileNumbers.Add(body.FileNumber);
-            }
-        }
     }
 
     /// <summary>
@@ -924,45 +1091,74 @@ public sealed class MailboxStore
         && totalMessageBytes + size <= MaxTotalMessageBytes
         && inboxes.GroupBy(inbox => inbox).All(group => group.Key.CanGiveUids(group.Count()));
 
-    private MailStoreOutcome CheckRoomForOne(StoredMailbox mailbox, long size)
+    /// <summary>
+    /// What refuses a closed pending message before the store is looked at: its size, or a
+    /// pending file that failed.
+    /// </summary>
+    private MailStoreOutcome CheckPending(PendingMessage message)
     {
-        if (IsTooLarge(size))
+        if (IsTooLarge(message.Length))
         {
             return MailStoreOutcome.MessageTooLarge;
         }
 
-        return HasRoomFor([mailbox], size) ? MailStoreOutcome.Succeeded : MailStoreOutcome.StoreFull;
+        return message.StorageFailure is null ? MailStoreOutcome.Succeeded : MailStoreOutcome.StorageFailed;
+    }
+
+    private MailStoreOutcome CheckRoomForOne(StoredMailbox mailbox, PendingMessage message)
+    {
+        var outcome = CheckPending(message);
+        if (outcome != MailStoreOutcome.Succeeded)
+        {
+            return outcome;
+        }
+
+        return HasRoomFor([mailbox], message.Length) ? MailStoreOutcome.Succeeded : MailStoreOutcome.StoreFull;
     }
 
     private bool HasRoomForCopies(StoredMailbox destination, int count) =>
         messageCount + (long)count <= MaxMessages && destination.CanGiveUids(count);
 
-    private MessageBody AddBody(ReadOnlySpan<byte> message)
+    private void DeliverBody(List<StoredMailbox> inboxes, MessageBody body)
     {
-        totalMessageBytes += message.Length;
-        var body = new MessageBody(nextFileNumber++, message.ToArray());
-        if (files is not null)
-        {
-            unwrittenBodies.Add(body);
-        }
-
-        return body;
+        var now = timeProvider.GetUtcNow();
+        inboxes.ForEach(inbox => AddMessage(inbox, body, now, MailFlags.None));
+        changeCount++;
     }
 
     /// <summary>
-    /// Lets go of bytes no message refers to any more: a written file is deleted after the next
-    /// index, and bytes never written are never written.
+    /// Keeps a closed pending message's bytes under the next message file number: its pending
+    /// file renamed to it, or its bytes taken from memory.
     /// </summary>
-    private void ReleaseBody(MessageBody body)
+    /// <returns>The body; <see langword="null"/> when the pending file cannot be renamed, which
+    /// <see cref="PendingMessage.StorageFailure"/> then says why.</returns>
+    private MessageBody? KeepBody(PendingMessage message)
     {
-        totalMessageBytes -= body.Bytes.Length;
-        if (body.IsWritten)
+        if (!message.TryKeep(nextFileNumber, out var bytes))
+        {
+            return null;
+        }
+
+        totalMessageBytes += message.Length;
+        return new MessageBody(nextFileNumber++, message.Length, bytes);
+    }
+
+    /// <summary>
+    /// Drops one reference to <paramref name="body"/>, and lets go of it when none is left: its
+    /// bytes leave the count, and its message file is deleted after the next index.
+    /// </summary>
+    private void Unreference(MessageBody body)
+    {
+        if (--body.ReferenceCount > 0)
+        {
+            return;
+        }
+
+        // Bytes held by a store without files have no file.
+        totalMessageBytes -= body.Length;
+        if (body.Bytes is null)
         {
             releasedFileNumbers.Add(body.FileNumber);
-        }
-        else
-        {
-            unwrittenBodies.Remove(body);
         }
     }
 
@@ -987,10 +1183,7 @@ public sealed class MailboxStore
             var body = mailbox.Messages[uid].Body;
             mailbox.Messages.Remove(uid);
             messageCount--;
-            if (--body.ReferenceCount == 0)
-            {
-                ReleaseBody(body);
-            }
+            Unreference(body);
         }
 
         return uids.Count;

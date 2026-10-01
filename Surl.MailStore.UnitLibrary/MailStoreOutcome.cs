@@ -42,4 +42,9 @@ public enum MailStoreOutcome
 
     /// <summary>Another POP3 session holds the owner's maildrop lock.</summary>
     MaildropLocked,
+
+    /// <summary>The message's pending file could not be created, written or renamed into place
+    /// (ADR-0050, decision 7); <see cref="PendingMessage.StorageFailure"/> holds the exception's
+    /// message, and nothing was stored.</summary>
+    StorageFailed,
 }

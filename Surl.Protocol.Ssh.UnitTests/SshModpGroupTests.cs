@@ -37,6 +37,19 @@ public sealed class SshModpGroupTests
         Assert.AreEqual(bits, SshModpGroup.ForGroupExchange(min, preferred, max)!.Bits);
     }
 
+    // RFC 2409 section 6.2: p = 2^1024 - 2^960 - 1 + 2^64 * { [2^894 pi] + 129093 }, generator 2.
+    [TestMethod]
+    public void Oakley2_Prime_IsRfc2409sFormulaOverPiAndNoGroupExchangePicksIt()
+    {
+        var expected = BigInteger.Pow(2, 1024) - BigInteger.Pow(2, 960) - 1 + (BigInteger.Pow(2, 64) * (PiTimesPowerOfTwo(894) + 129093));
+
+        Assert.AreEqual(expected, SshModpGroup.Oakley2.Prime);
+        Assert.AreEqual(1024, SshModpGroup.Oakley2.Bits);
+        Assert.AreEqual(new BigInteger(2), SshModpGroup.Oakley2.Generator);
+        CollectionAssert.DoesNotContain(SshModpGroup.All.ToArray(), SshModpGroup.Oakley2);
+        Assert.IsNull(SshModpGroup.ForGroupExchange(1024, 1024, 1024));
+    }
+
     [TestMethod]
     [DataRow(8193u, 8193u, 9000u)]
     [DataRow(1024u, 1024u, 2047u)]

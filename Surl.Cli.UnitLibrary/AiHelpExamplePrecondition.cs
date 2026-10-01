@@ -11,4 +11,10 @@ public enum AiHelpExamplePrecondition
 
     /// <summary>Another surl is serving <c>&lt;path&gt;</c> with <c>--directory</c>.</summary>
     DataDirectoryHeldByAnotherSurl,
+
+    /// <summary>
+    /// <c>http.keytab</c> is a keytab holding an AES key for an <c>HTTP</c> principal, and
+    /// <c>users.txt</c> a <c>--user-file</c>.
+    /// </summary>
+    KeytabAndUserFileExist,
 }

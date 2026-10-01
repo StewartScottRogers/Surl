@@ -1,0 +1,21 @@
+SETUP rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+CSeq: 1
+Transport: RTP/AVP/TCP;interleaved=0-1
+
+PLAY rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+CSeq: 2
+Session: 0123456789ABCDEF
+
+TEARDOWN rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+CSeq: 3
+Session: 0123456789ABCDEF
+
+OPTIONS rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+CSeq: 4
+Session: 0123456789ABCDEF
+
+SETUP rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+CSeq: 5
+Session: 0123456789ABCDEF
+Transport: RTP/AVP/TCP;interleaved=0-1
+

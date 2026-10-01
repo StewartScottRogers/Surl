@@ -255,7 +255,7 @@ public sealed partial class ServingEngineTests
         harness.Time.Advance(Tick);
         await WaitUntilDisposedAsync(connection);
 
-        Assert.IsTrue(exchange.Context.CancellationToken.IsCancellationRequested);
+        Assert.IsTrue(exchange.Context.IsCancelledForALimit);
         Assert.IsFalse(connection.Aborted);
         Assert.IsEmpty(connection.WrittenBytes);
         CollectionAssert.Contains(
@@ -304,7 +304,7 @@ public sealed partial class ServingEngineTests
         harness.Time.Advance(Tick);
         await WaitUntilDisposedAsync(connection);
 
-        Assert.IsTrue(exchange.Context.CancellationToken.IsCancellationRequested);
+        Assert.IsTrue(exchange.Context.IsCancelledForALimit);
         await harness.StopAsync();
     }
 
@@ -323,7 +323,7 @@ public sealed partial class ServingEngineTests
         harness.Time.Advance(Tick);
         await WaitUntilDisposedAsync(connection);
 
-        Assert.IsTrue(exchange.Context.CancellationToken.IsCancellationRequested);
+        Assert.IsTrue(exchange.Context.IsCancelledForALimit);
         Assert.IsFalse(connection.Aborted);
         Assert.IsEmpty(connection.WrittenBytes);
         CollectionAssert.Contains(

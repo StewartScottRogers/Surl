@@ -1,12 +1,12 @@
 # Surl
 
-<a href="https://stewartscottrogers.github.io/Surl/" target="_blank"><img src="https://github.com/StewartScottRogers/Surl/raw/gource/gource.gif" alt="Gource animation of Surl's commit history across every branch - click to watch in 8K, full screen" width="800"></a>
+<a href="https://stewartscottrogers.github.io/Surl/" target="_blank"><img src="https://github.com/StewartScottRogers/Surl/raw/gource/gource.gif" alt="Gource animation of Surl's commit history across every branch - click to watch in 4K, full screen" width="800"></a>
 
-### [▶ Watch in 8K, full screen](https://stewartscottrogers.github.io/Surl/)
+### [▶ Watch in 4K, full screen](https://stewartscottrogers.github.io/Surl/)
 
 *Every commit on every branch, human and AI, drawn by [Gource](https://gource.io) at
-7680 × 4320 and re-rendered after new commits and at least once a day. The viewer plays
-the best quality your screen can show - 8K, 4K or HD - with a 4K MP4 and an 8K still to
+3840 × 2160 and re-rendered after new commits and at least once a day. The viewer plays
+the best quality your screen can show - 4K or HD - with a 4K MP4 and a 4K still to
 download. Ctrl-click (⌘-click on a Mac) to open it in its own tab.*
 
 ### Code coverage
@@ -23,6 +23,30 @@ and regenerated on the same schedule as the video above.*
 *The [live task board](https://stewartscottrogers.github.io/Surl/board/) shows every task
 by state and refreshes itself every few minutes. One card per dark factory lane joins it
 once the dark factory publishes its lane status ([ADR-0029](Documentation/Planning/Decisions/ADR-0029-the-live-task-board-page-reads-the-task-tree-and-a-board-branch-status-json.md)).*
+
+## Status: paused, 2026-10-01
+
+The dark factory is stopped and no shift is running. Work ended with the task board
+empty: all 356 tasks are Done, and nothing sits in Backlog, Doing or Blocked.
+
+Where it stands:
+
+- **Protocols.** `surl` answers every scheme listed under [What this is](#what-this-is),
+  each checked against a pinned upstream curl build (ADR-0003).
+- **Size.** 1,240 commits since 2026-09-28; 39 production libraries, each with its own
+  test project, holding about 5,100 test methods; 78 architecture decision records under
+  `Documentation/Planning/Decisions`.
+- **Gates.** CI builds and runs the fast tests on Windows, Linux and macOS, and this
+  state of `master` passed all three.
+- **Not done yet.** Phases 6 and 7 of the
+  [plan](Documentation/Product/Product-Overview.md) have not been planned onto the board:
+  HTTP/2 and HTTP/3 (HTTP is 1.0 and 1.1 today), the push of upstream curl's own test
+  cases, native publishing on every platform, and finally measuring the Curl port
+  against Surl. No release has been tagged, so there are no downloadable binaries yet
+  (see [Download](#download)).
+
+To resume, plan the next work onto the board (`/task-plan`) and start a shift
+(`RunDarkFactory.cmd -NewTab -Lanes Auto -Continuous`).
 
 ## What this is
 
@@ -50,19 +74,23 @@ surl --directory site --self-signed https://127.0.0.1:8443/
 curl -k https://127.0.0.1:8443/hello.txt
 ```
 
-The aim is every scheme upstream curl can request. **Today `surl` answers** `http` and `https` (HTTP/1.1, `GET` and
-`HEAD`), `dict`, `gopher` and `gophers`, `mqtt` and `mqtts`, `telnet` and `tftp`, until
-Ctrl+C; every other scheme is refused with exit code 1 until its server lands.
-`surl --version` lists the schemes a build serves.
+The aim is every scheme upstream curl can request. **Today `surl` answers** `http` and
+`https` (HTTP/1.1, `GET` and `HEAD`), `dict`, `ftp` and `ftps`, `gopher` and `gophers`,
+`imap` and `imaps`, `ldap` and `ldaps`, `mqtt` and `mqtts`, `pop3` and `pop3s`, `rtsp`, `scp`
+and `sftp`, `smb` and `smbs`, `smtp` and `smtps`, `telnet`, `tftp`, and `ws` and `wss`
+(WebSocket), until Ctrl+C; any other scheme is refused with exit code 1. `surl --version` lists
+the schemes a build serves.
 
 What it serves depends on `--directory` (ADR-0031):
 
 - `surl http://127.0.0.1:8080/` serves an empty in-memory store. Everything the services
-  keep - uploaded files, MQTT retained messages - lives in memory for as long as the
+  keep - uploaded files, MQTT retained messages, mail - lives in memory for as long as the
   process runs, and nothing is written to disk.
 - `surl --directory <path> http://127.0.0.1:8080/` serves the files under `<path>` and
   persists what the services keep there across restarts: files at the top of the path,
-  every other kind of service state (today MQTT retained messages) under `<path>/.surl/`.
+  every other kind of service state (MQTT retained messages and the mail store) under
+  `<path>/.surl/`. The LDAP directory is read from `<path>/.surl/ldap/directory.ldif` at start
+  and never written.
   `.surl` is never served, even with `--serve-dot-files`. One surl process holds a path
   at a time: a second one given the same path is refused with exit code 124.
 
@@ -71,9 +99,12 @@ Uploads still need `--allow-uploads`, in memory too.
 ## Logging in
 
 Surl is secure by default ([ADR-0032](Documentation/Planning/Decisions/ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)).
-With no account configured, HTTP `GET` and `HEAD` need no login and every login is
-refused; once any account is configured, every HTTP request needs one. Every other HTTP
-method, and every MQTT `CONNECT`, needs one either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
+With no account configured, HTTP `GET` and `HEAD`, WebSocket upgrades and RTSP reads need no
+login and every login is refused; once any account is configured, every HTTP and RTSP request
+and WebSocket upgrade needs one. Every other HTTP method, every RTSP upload, every MQTT
+`CONNECT`, every FTP and SSH login - curl's own anonymous FTP login included - every SMTP
+`MAIL`, IMAP mailbox command and POP3 maildrop command, every LDAP search but the root DSE's and
+every SMB session setup needs one either way. An account is `-u`/`--user <user:password>` (repeatable), or a line
 of the file `--user-file` names - one `user:password` per line, `#` lines skipped - which
 keeps the password out of the process list. An empty user name holds a Bearer token.
 Here `accounts.txt` holds the line `alice:s3cret`:
@@ -89,16 +120,225 @@ curl -k -u alice:s3cret https://127.0.0.1:8443/hello.txt
 ```
 
 Surl checks HTTP Basic, Bearer, Digest (MD5, SHA-256 and SHA-512-256), NTLM, Negotiate
-carrying NTLM, and AWS Signature Version 4, and an MQTT `CONNECT`'s user name and
-password. A password or token sent in clear - Basic or Bearer over `http://`, an MQTT
-password over `mqtt://` - is refused without being checked (`403 Forbidden`, `CONNACK` 5).
+carrying NTLM, and AWS Signature Version 4; an MQTT `CONNECT`'s user name and password; FTP
+`USER` and `PASS`; SSH password, keyboard-interactive and public-key logins, a public key
+against the OpenSSH `authorized_keys` file `--authorized-keys <user:file>` names; the mail
+servers' SASL mechanisms, IMAP `LOGIN`, POP3 `USER`/`PASS` and `APOP`; LDAP simple binds,
+Windows curl's NTLM, Negotiate and Digest binds and the SASL binds; and SMB's NTLMv1 session
+setup. A password or token sent in clear - Basic or Bearer over `http://`, `ws://` or `rtsp://`,
+an MQTT password over `mqtt://`, an FTP password over `ftp://` before `AUTH TLS`, an LDAP simple
+bind's over `ldap://` before `StartTLS` - is refused without being checked (`403 Forbidden`,
+`CONNACK` 5, FTP `530`, LDAP `confidentialityRequired`); the mail servers do not offer a clear-password login
+or mechanism on a connection without TLS, and refuse one sent anyway. An SSH password is never
+sent in clear.
 
-Four *loosening options* turn a secure default off for a test, and each writes a
-`surl: warning:` line on every start: `--allow-anonymous` (accept every request and login
+Five *loosening options* turn a secure default off for a test, and each writes a
+`surl: warning:` line on every start it takes effect in: `--allow-anonymous` (accept every request and login
 unchecked), `--allow-plaintext-auth` (check passwords sent in clear), `--auth <methods>`
-(the methods accepted, `basic,bearer,digest,aws-sigv4` by default; `ntlm` and `negotiate`
-only when named) and `--self-signed`. `surl --help testing` says what each loosens and why
-none is the default.
+(the HTTP, SASL and SMB methods accepted), `--self-signed` and `--throwaway-hostkey`.
+`surl --help testing` says what each loosens and why none is the default.
+
+## FTP, FTPS, SCP and SFTP
+
+The FTP server answers `ftp` and `ftps`
+([ADR-0052](Documentation/Planning/Decisions/ADR-0052-how-the-ftp-server-answers-and-the-ftp-data-connection-seam.md)),
+over passive or active data connections (curl's `-P`) to the client's own address only.
+curl's anonymous FTP login is refused unless `--allow-anonymous` is given, which is for tests:
+
+```
+surl --directory site --allow-anonymous ftp://127.0.0.1:2121/
+curl ftp://127.0.0.1:2121/hello.txt
+```
+
+With an account, protect the password with TLS: `AUTH TLS` on `ftp://` (curl's `--ssl-reqd`),
+or implicit TLS on `ftps://`. Either needs `--cert` or `--self-signed`. Listings need
+`--list-directories`, and uploads and `-Q` commands `--allow-uploads`:
+
+```
+surl --directory site --self-signed --user alice:s3cret --allow-uploads ftp://127.0.0.1:2121/
+curl -k --ssl-reqd -u alice:s3cret -T hello.txt ftp://127.0.0.1:2121/copy.txt
+```
+
+```
+surl --directory site --self-signed --user alice:s3cret ftps://127.0.0.1:9990/
+curl -k -u alice:s3cret ftps://127.0.0.1:9990/hello.txt
+```
+
+The SSH server answers `scp` and `sftp` alike
+([ADR-0051](Documentation/Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md),
+[ADR-0054](Documentation/Planning/Decisions/ADR-0054-how-the-ssh-server-answers-upstream-curls-scp-and-sftp-requests.md)).
+An `scp` or `sftp` listen URL needs a host key: `--hostkey <file>`, or `--throwaway-hostkey`
+for a throwaway RSA key made at start, which a client must pin or skip the check for (`-k`):
+
+```
+surl --directory site --throwaway-hostkey --user alice:s3cret sftp://127.0.0.1:2222/
+curl -k -u alice:s3cret sftp://127.0.0.1:2222/hello.txt
+```
+
+With `-v`, surl writes `* Serving SSH host key <key type>, --hostpubsha256 <base64>
+--hostpubmd5 <hex>` for each host key, so curl can pin it. Here `host_key` is an RSA key
+written by `ssh-keygen -t rsa -b 3072 -N "" -f host_key`; curl's Windows build offers only RSA
+host-key algorithms, so an ECDSA or Ed25519 host key alone does not serve it:
+
+```
+surl -v --directory site --hostkey host_key --user alice:s3cret scp://127.0.0.1:2222/
+curl --hostpubsha256 <base64> -u alice:s3cret scp://127.0.0.1:2222/hello.txt
+```
+
+SFTP listings need `--list-directories`; uploads over either scheme, and SFTP `-Q` commands
+such as `rm` and `rename`, need `--allow-uploads`. `--allow-weak-ssh-algorithms` also
+offers the weak SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman algorithms (and RSA keys
+shorter than 2048 bits and DSA keys) for peers that support nothing stronger, and warns
+`surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit
+Diffie-Hellman SSH algorithms are offered`. `--hostcert <file>` serves an OpenSSH host
+certificate (`ssh-keygen -s <ca> -h`) for a `--hostkey` key, offered under the key's
+`*-cert-v01@openssh.com` algorithms for clients that trust the CA.
+
+## SMTP, IMAP and POP3
+
+The SMTP server answers `smtp` and `smtps`
+([ADR-0053](Documentation/Planning/Decisions/ADR-0053-how-the-smtp-server-answers-upstream-curl.md)),
+the IMAP server `imap` and `imaps`
+([ADR-0055](Documentation/Planning/Decisions/ADR-0055-how-the-imap-server-answers-upstream-curl.md))
+and the POP3 server `pop3` and `pop3s`
+([ADR-0056](Documentation/Planning/Decisions/ADR-0056-how-the-pop3-server-answers-upstream-curl.md)).
+All three share one mail store
+([ADR-0050](Documentation/Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md)):
+SMTP delivers into it, and IMAP and POP3 read it, so give one `surl` all the listen URLs you
+need. Here `mail.txt` is a message (`From: a@example.com`, `Subject: hi`, an empty line, then
+the body). With `--allow-anonymous`, which is for tests, every recipient's copy goes to one
+anonymous `INBOX` and no login is needed:
+
+```
+surl --allow-anonymous smtp://127.0.0.1:2525/ imap://127.0.0.1:1143/ pop3://127.0.0.1:1110/
+curl --mail-from a@example.com --mail-rcpt b@example.com -T mail.txt smtp://127.0.0.1:2525/example.com
+curl "imap://127.0.0.1:1143/INBOX;UID=1"
+curl pop3://127.0.0.1:1110/1
+```
+
+With accounts, a message is stored in the `INBOX` of each recipient whose local part names an
+account; a recipient that names none is answered alike and its copy discarded, so no peer learns
+which accounts exist. curl's `-u` then logs in with `CRAM-MD5` by default, which sends no password
+in clear ([ADR-0049](Documentation/Planning/Decisions/ADR-0049-the-mail-servers-sasl-and-apop-logins.md)):
+
+```
+surl --user alice:s3cret smtp://127.0.0.1:2525/ imap://127.0.0.1:1143/ pop3://127.0.0.1:1110/
+curl -u alice:s3cret --mail-from a@example.com --mail-rcpt alice@example.com -T mail.txt smtp://127.0.0.1:2525/example.com
+curl -u alice:s3cret imap://127.0.0.1:1143/
+curl -u alice:s3cret "imap://127.0.0.1:1143/INBOX?SUBJECT%20hi"
+curl -u alice:s3cret pop3://127.0.0.1:1110/1
+```
+
+The first IMAP command lists the mailboxes and the second searches `INBOX`; `curl -T <file>
+imap://.../INBOX` appends a message, and `-X` sends any other command (`-X 'STORE 1 +FLAGS
+\Deleted'`, `-X EXPUNGE`, `-X UIDL` or `-X 'DELE 1'` over POP3). With `--cert` or
+`--self-signed`, `smtp://` and `imap://` offer `STARTTLS` and `pop3://` `STLS` (curl's
+`--ssl-reqd`), and `smtps`, `imaps` and `pop3s` are TLS from the first byte; over TLS `PLAIN`,
+`LOGIN`, `XOAUTH2`, `OAUTHBEARER`, IMAP `LOGIN` and POP3 `USER`/`PASS` are offered too:
+
+```
+surl --self-signed --user alice:s3cret smtp://127.0.0.1:2525/ imaps://127.0.0.1:9930/ pop3s://127.0.0.1:9950/
+curl -k --ssl-reqd -u alice:s3cret --mail-from a@example.com --mail-rcpt alice@example.com -T mail.txt smtp://127.0.0.1:2525/example.com
+curl -k -u alice:s3cret "imaps://127.0.0.1:9930/INBOX;UID=1"
+curl -k -u alice:s3cret --login-options AUTH=PLAIN pop3s://127.0.0.1:9950/1
+```
+
+`--auth` chooses the mechanisms; `digest-md5`, `ntlm`, `apop` and `gssapi` are off until named,
+and `gssapi` needs `--keytab`. Without `--directory` the mail lives in memory; with it, the mail
+store is kept in `<path>/.surl/mail` and survives a restart. `--allow-uploads` gates neither SMTP
+delivery nor IMAP `APPEND`: mail is not a served file.
+
+## WebSocket
+
+The WebSocket server answers `ws` and `wss`
+([ADR-0071](Documentation/Planning/Decisions/ADR-0071-how-the-websocket-server-answers-upstream-curl.md)).
+It answers curl's upgrade request with `101 Switching Protocols`, then sends the file at the
+request path as one binary message (a directory's listing as one text message, with
+`--list-directories`) and closes, so curl writes the file as it would a download:
+
+```
+surl --directory site ws://127.0.0.1:8081/
+curl ws://127.0.0.1:8081/hello.txt
+curl -o hello.txt ws://127.0.0.1:8081/hello.txt
+```
+
+A path that is not there is refused `404 Not Found`, and curl exits 22, as it does for any answer
+but `101`. `wss` is TLS from the first byte, so it needs `--cert` or `--self-signed`; there,
+curl's `-u` Basic login is checked rather than refused as a password in clear. curl answers no
+`401` on an upgrade, so it logs in only with what it sends unasked: Basic (`-u`), Bearer
+(`--oauth2-bearer`) and AWS Signature Version 4 (`--aws-sigv4`):
+
+```
+surl --directory site --self-signed --user alice:s3cret wss://127.0.0.1:8443/
+curl -k -u alice:s3cret wss://127.0.0.1:8443/hello.txt
+```
+
+`--ws-echo` makes the server an echo server instead: the path is not looked up, and every client
+message is sent back whole until the client closes. The `curl` tool sends no message of its own,
+so this is for programs that use libcurl's `curl_ws_send` and `curl_ws_recv`. Once upgraded surl
+answers a `PING` with a `PONG` and a client `CLOSE` with a `CLOSE`, closes a frame past
+`--max-message` with 1009, and closes an exchange past `--idle-timeout` or `--max-time` with
+1001, whose two bytes curl writes to its output like any payload.
+
+## LDAP, SMB and RTSP
+
+The LDAP server answers `ldap` and `ldaps`
+([ADR-0072](Documentation/Planning/Decisions/ADR-0072-how-the-ldap-server-answers-upstream-curl-and-what-directory-it-serves.md))
+from a read-only directory: with `--directory`, the LDIF file `<path>/.surl/ldap/directory.ldif`,
+read at start; without it, or without the file, an empty one. Every search but the root DSE's
+needs a bind, and a simple bind's password over `ldap://` is refused unchecked unless
+`--allow-plaintext-auth` is given. Here `site/.surl/ldap/directory.ldif` holds the entries
+`dc=example,dc=com` and `cn=alice,dc=example,dc=com` (`objectClass: person`), and curl is the
+Windows build, which binds over `WinLDAP` and is the one these commands have been proven with:
+
+```
+surl --directory site --allow-plaintext-auth --user alice:s3cret ldap://127.0.0.1:3389/
+curl -u alice:s3cret "ldap://127.0.0.1:3389/dc=example,dc=com?cn,mail?sub?(objectClass=person)"
+```
+
+Its `--ntlm`, `--negotiate` and `--digest` binds are NTLM and `DIGEST-MD5` with a security
+layer; `--auth ntlm`, `negotiate` or `digest-md5` accepts
+them, with an account, and no password then crosses the wire in clear:
+
+```
+surl --directory site --auth ntlm --user alice:s3cret ldap://127.0.0.1:3389/
+curl --ntlm -u alice:s3cret "ldap://127.0.0.1:3389/dc=example,dc=com"
+```
+
+With `--cert` or `--self-signed`, `ldap://` offers `StartTLS`, and `ldaps` is TLS from the first
+byte; Windows curl checks an `ldaps` certificate itself and ignores `-k`, so it cannot search an
+`ldaps` listener whose certificate Windows does not trust.
+
+The SMB server answers `smb` and `smbs`
+([ADR-0073](Documentation/Planning/Decisions/ADR-0073-how-the-smb-server-answers-upstream-curl-and-checks-its-ntlmv1-session-setup.md)).
+Each top-level directory under `--directory` is a share, so `smb://host/docs/readme.txt` is the
+file `http://host/docs/readme.txt` serves. curl logs in to SMB with NTLMv1 only, a weak method
+that `--auth ntlmv1` must name; uploads (`-T`) need `--allow-uploads`, and `smbs` needs `--cert`
+or `--self-signed`. Here `site/docs/readme.txt` exists, and curl is a build that lists `smb`
+(the Git for Windows build does not):
+
+```
+surl --directory site --auth ntlmv1 --user alice:s3cret smb://127.0.0.1:4445/
+curl -u alice:s3cret smb://127.0.0.1:4445/docs/readme.txt
+```
+
+The RTSP server answers `rtsp`
+([ADR-0074](Documentation/Planning/Decisions/ADR-0074-how-the-rtsp-server-answers-upstream-curl.md)).
+The `curl` tool sends one `OPTIONS *` whatever the URL, so it sees the answer and the login;
+`DESCRIBE`, `SETUP`, `PLAY` with interleaved RTP, `PAUSE`, `TEARDOWN`, `GET_PARAMETER`,
+`SET_PARAMETER`, and the uploads `ANNOUNCE` and `RECORD` (with `--allow-uploads`) are for programs
+that use libcurl's `CURLOPT_RTSP_REQUEST`. Every file is served as one stream whose RTP payloads
+are its bytes. Logins are HTTP's, and curl's `--digest` answers the `401` on the same connection:
+
+```
+surl --directory site rtsp://127.0.0.1:8554/
+curl -i rtsp://127.0.0.1:8554/
+```
+
+```
+surl --directory site --user alice:s3cret rtsp://127.0.0.1:8554/
+curl -f --digest -u alice:s3cret rtsp://127.0.0.1:8554/
+```
 
 ## Logging
 

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
 using Surl.Protocol.Abstractions;
@@ -29,6 +30,19 @@ internal sealed class FakeListenerFactory : IListenerFactory
     }
 
     private FakeConnection? connection;
+
+    private readonly ConcurrentDictionary<string, Task<FakeConnection>> connectionsByScheme = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Handed out, once each, by the first connection accept of the listener for its scheme,
+    /// when set: the accept waits for the task, so a test can hand one scheme its connection
+    /// only after another's has ended. Checked after <see cref="Connection"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, Task<FakeConnection>> ConnectionsByScheme
+    {
+        get => connectionsByScheme;
+        init => connectionsByScheme = new(value, StringComparer.Ordinal);
+    }
 
     /// <summary>Every listen URL a listener was started for, in order.</summary>
     public List<ListenUrl> StartedListenUrls { get; } = [];
@@ -85,6 +99,11 @@ internal sealed class FakeListenerFactory : IListenerFactory
             if (Interlocked.Exchange(ref factory.connection, null) is { } connection)
             {
                 return connection;
+            }
+
+            if (factory.connectionsByScheme.TryRemove(ListenUrl.Scheme, out var schemeConnection))
+            {
+                return await schemeConnection.WaitAsync(cancellationToken);
             }
 
             await factory.WaitUntilCancelledAsync(cancellationToken);

@@ -1,0 +1,17 @@
+> HEAD /chat HTTP/1.1
+> Host: 127.0.0.1:18301
+> User-Agent: curl/8.21.0
+> Accept: */*
+> Upgrade: websocket
+> Sec-WebSocket-Version: 13
+> Sec-WebSocket-Key: degnD6F9L4lFUD5wmu+l7g==
+> Connection: Upgrade
+> 
+< HTTP/1.1 405 Method Not Allowed
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Allow: GET
+< Content-Length: 0
+< Connection: close
+< 
+= curl closed the connection

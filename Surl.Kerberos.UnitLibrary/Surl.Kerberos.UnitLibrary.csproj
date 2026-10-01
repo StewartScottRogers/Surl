@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Kerberos.UnitTests" />
+    <!-- Surl.Authentication's GSSAPI tests encrypt their hand-made tickets with the same profiles (ADR-0057, decision 11). -->
+    <InternalsVisibleTo Include="Surl.Authentication.UnitTests" />
+    <!-- The hand-built test KDC encrypts and reads RFC 4120 messages with the same profiles and DER readers (ADR-0065, decision 1). -->
+    <InternalsVisibleTo Include="Surl.Kerberos.TestKdc.UnitLibrary" />
+    <InternalsVisibleTo Include="Surl.Kerberos.TestKdc.UnitTests" />
+  </ItemGroup>
+
+</Project>

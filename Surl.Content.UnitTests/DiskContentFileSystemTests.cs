@@ -311,6 +311,77 @@ public sealed class DiskContentFileSystemTests
     }
 
     [TestMethod]
+    public void StatusTimeAndRenameWithoutReplacing_OnDisk_WorkAndReadBack()
+    {
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), new ContentExposureOptions { AllowUploads = true });
+        File.WriteAllBytes(Path.Join(servedRoot, "docs", "other.bin"), [1]);
+        var fileTime = new DateTimeOffset(2021, 3, 4, 5, 6, 7, TimeSpan.Zero);
+        var directoryTime = new DateTimeOffset(2022, 4, 5, 6, 7, 8, TimeSpan.Zero);
+
+        Assert.AreEqual(ContentChangeResult.Done, store.SetLastWriteTime(store.MapRequestPath("/docs/file.bin"), fileTime));
+        Assert.AreEqual(ContentChangeResult.Done, store.SetLastWriteTime(store.MapRequestPath("/docs/"), directoryTime));
+        Assert.AreEqual(new ContentEntryStatus(ContentEntryKind.File, Contents.Length, fileTime), store.GetEntryStatus(store.MapRequestPath("/docs/file.bin")));
+        Assert.AreEqual(new ContentEntryStatus(ContentEntryKind.Directory, null, directoryTime), store.GetEntryStatus(store.MapRequestPath("/docs")));
+        Assert.AreEqual(ContentChangeResult.Exists, store.RenameEntryWithoutReplacing(store.MapRequestPath("/docs/file.bin"), store.MapRequestPath("/docs/other.bin")));
+        Assert.AreEqual(ContentChangeResult.Done, store.RenameEntryWithoutReplacing(store.MapRequestPath("/docs/file.bin"), store.MapRequestPath("/renamed.bin")));
+        Assert.AreEqual(ContentChangeResult.Done, store.RenameEntryWithoutReplacing(store.MapRequestPath("/docs"), store.MapRequestPath("/moved")));
+
+        CollectionAssert.AreEqual(Contents, File.ReadAllBytes(Path.Join(servedRoot, "renamed.bin")));
+        Assert.AreEqual(fileTime, store.GetEntryStatus(store.MapRequestPath("/renamed.bin"))!.LastModifiedUtc);
+        CollectionAssert.AreEqual(new byte[] { 1 }, File.ReadAllBytes(Path.Join(servedRoot, "moved", "other.bin")));
+        Assert.IsNull(store.GetEntryStatus(store.MapRequestPath("/docs")));
+    }
+
+    [TestMethod]
+    public async Task OpenUploadAsync_OnDisk_WritesReadsResizesCommitsAndDiscards()
+    {
+        var store = new ContentStore(servedRoot, new DiskContentFileSystem(), new ContentExposureOptions { AllowUploads = true, MaxUploadBytes = 32 });
+        ContentPathMapping mapping = store.MapRequestPath("/docs/file.bin");
+        var startFromExistingBytes = new ContentUploadOpening(StartsFromExistingBytes: true, CreatesMissingFile: false, RefusesExistingFile: false);
+
+        Assert.AreEqual(ContentUploadOpeningResult.Exists, (await store.OpenUploadAsync(mapping, new ContentUploadOpening(false, true, true), CancellationToken.None)).Result);
+        Assert.AreEqual(ContentUploadOpeningResult.Absent, (await store.OpenUploadAsync(store.MapRequestPath("/docs/new.bin"), startFromExistingBytes, CancellationToken.None)).Result);
+        Assert.AreEqual(ContentUploadOpeningResult.NoSuchDirectory, (await store.OpenUploadAsync(store.MapRequestPath("/missing/new.bin"), startFromExistingBytes, CancellationToken.None)).Result);
+        Assert.AreEqual(ContentUploadOpeningResult.IsADirectory, (await store.OpenUploadAsync(store.MapRequestPath("/docs"), startFromExistingBytes, CancellationToken.None)).Result);
+        await using (ContentUploadSession session = (await store.OpenUploadAsync(mapping, startFromExistingBytes, CancellationToken.None)).Session!)
+        {
+            Assert.AreEqual(ContentUploadResult.Written, await session.WriteAtAsync(20, "!"u8.ToArray(), CancellationToken.None));
+            Assert.AreEqual(ContentUploadResult.Written, await session.SetLengthAsync(22));
+            byte[] readBack = new byte[32];
+            Assert.AreEqual(22, await session.ReadAtAsync(0, readBack, CancellationToken.None));
+            CollectionAssert.AreEqual(Contents.Concat(new byte[] { 0, 0, 0, 0, (byte)'!', 0 }).ToArray(), readBack[..22]);
+            CollectionAssert.AreEqual(Contents, await File.ReadAllBytesAsync(Path.Join(servedRoot, "docs", "file.bin")));
+            Assert.AreEqual(ContentUploadResult.Written, await session.CommitAsync(CancellationToken.None));
+        }
+
+        await using (ContentUploadSession discarded = (await store.OpenUploadAsync(mapping, startFromExistingBytes, CancellationToken.None)).Session!)
+        {
+            await discarded.WriteAtAsync(0, "discarded"u8.ToArray(), CancellationToken.None);
+        }
+
+        await using (ContentUploadSession tooLarge = (await store.OpenUploadAsync(mapping, startFromExistingBytes, CancellationToken.None)).Session!)
+        {
+            Assert.AreEqual(ContentUploadResult.TooLarge, await tooLarge.WriteAtAsync(32, "x"u8.ToArray(), CancellationToken.None));
+        }
+
+        Assert.AreEqual(22, (await File.ReadAllBytesAsync(Path.Join(servedRoot, "docs", "file.bin"))).Length);
+        Assert.AreEqual((byte)'!', (await File.ReadAllBytesAsync(Path.Join(servedRoot, "docs", "file.bin")))[20]);
+        CollectionAssert.AreEqual(new[] { "file.bin" }, Directory.GetFileSystemEntries(Path.Join(servedRoot, "docs")).Select(Path.GetFileName).ToArray());
+    }
+
+    [TestMethod]
+    public void MoveFileWithoutReplacing_FileAtTheDestination_ThrowsIOExceptionAndKeepsBoth()
+    {
+        string source = Path.Join(servedRoot, "docs", "file.bin");
+        string destination = Path.Join(servedRoot, "docs", "other.bin");
+        File.WriteAllBytes(destination, [1]);
+
+        Assert.ThrowsExactly<IOException>(() => new DiskContentFileSystem().MoveFileWithoutReplacing(source, destination));
+        CollectionAssert.AreEqual(Contents, File.ReadAllBytes(source));
+        CollectionAssert.AreEqual(new byte[] { 1 }, File.ReadAllBytes(destination));
+    }
+
+    [TestMethod]
     public void RemoveEmptyDirectory_NotEmpty_ThrowsIOExceptionAndKeepsIt()
     {
         string docs = Path.Join(servedRoot, "docs");

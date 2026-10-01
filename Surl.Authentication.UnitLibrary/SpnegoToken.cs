@@ -22,6 +22,16 @@ internal static class SpnegoToken
     /// </summary>
     public const string NtlmOid = "1.3.6.1.4.1.311.2.2.10";
 
+    /// <summary>
+    /// The Kerberos V5 mechanism object identifier (RFC 1964).
+    /// </summary>
+    public const string KerberosOid = "1.2.840.113554.1.2.2";
+
+    /// <summary>
+    /// Microsoft's Kerberos object identifier, which Windows lists first ([MS-SPNG] section 3.3.5.1).
+    /// </summary>
+    public const string MicrosoftKerberosOid = "1.2.840.48018.1.2.2";
+
     private static readonly Asn1Tag InitialContextTokenTag = new(TagClass.Application, 0, isConstructed: true);
 
     private static readonly Asn1Tag NegTokenInitTag = new(TagClass.ContextSpecific, 0, isConstructed: true);
@@ -80,8 +90,8 @@ internal static class SpnegoToken
     /// Reads a later client token.
     /// </summary>
     /// <param name="token">The decoded <c>negTokenResp</c>.</param>
-    /// <returns>Its <c>responseToken</c>, empty when it carries none, or <see langword="null"/> when it is not well-formed.</returns>
-    public static byte[]? ReadNegTokenResp(byte[] token)
+    /// <returns>Its <c>responseToken</c> and <c>mechListMIC</c>, or <see langword="null"/> when it is not well-formed.</returns>
+    public static SpnegoNegTokenResp? ReadNegTokenResp(byte[] token)
     {
         try
         {
@@ -105,8 +115,10 @@ internal static class SpnegoToken
     /// <param name="negState">The <c>negState</c>.</param>
     /// <param name="supportedMech">The <c>supportedMech</c>, sent in the first reply only; <see langword="null"/> to leave it out.</param>
     /// <param name="responseToken">The <c>responseToken</c>; <see langword="null"/> to leave it out.</param>
+    /// <param name="mechListMic">The <c>mechListMIC</c>; <see langword="null"/> to leave it out.</param>
     /// <returns>The DER bytes.</returns>
-    public static byte[] WriteNegTokenResp(SpnegoNegState negState, string? supportedMech, byte[]? responseToken)
+    public static byte[] WriteNegTokenResp(
+        SpnegoNegState negState, string? supportedMech, byte[]? responseToken, byte[]? mechListMic = null)
     {
         var writer = new AsnWriter(AsnEncodingRules.DER);
         using (writer.PushSequence(NegTokenRespTag))
@@ -123,14 +135,20 @@ internal static class SpnegoToken
                 writer.WriteObjectIdentifier(supportedMech);
             }
 
-            if (responseToken is not null)
-            {
-                using var responseTokenField = writer.PushSequence(ContextTag(2));
-                writer.WriteOctetString(responseToken);
-            }
+            WriteOctetStringField(writer, 2, responseToken);
+            WriteOctetStringField(writer, 3, mechListMic);
         }
 
         return writer.Encode();
+    }
+
+    private static void WriteOctetStringField(AsnWriter writer, int number, byte[]? value)
+    {
+        if (value is not null)
+        {
+            using var field = writer.PushSequence(ContextTag(number));
+            writer.WriteOctetString(value);
+        }
     }
 
     private static Asn1Tag ContextTag(int number) => new(TagClass.ContextSpecific, number, isConstructed: true);
@@ -140,8 +158,9 @@ internal static class SpnegoToken
     private static SpnegoNegTokenInit ReadNegTokenInitFields(AsnReader fields)
     {
         var mechTypesField = fields.ReadSequence(ContextTag(0));
-        var mechTypeList = mechTypesField.ReadSequence();
+        var mechTypesDer = mechTypesField.ReadEncodedValue().ToArray();
         mechTypesField.ThrowIfNotEmpty();
+        var mechTypeList = new AsnReader(mechTypesDer, AsnEncodingRules.DER).ReadSequence();
         var mechTypes = new List<string>();
         while (mechTypeList.HasData)
         {
@@ -150,23 +169,23 @@ internal static class SpnegoToken
 
         SkipField(fields, 1);
         var mechToken = ReadOctetStringField(fields, 2);
-        SkipField(fields, 3);
+        var mechListMic = ReadOctetStringField(fields, 3);
         fields.ThrowIfNotEmpty();
 
-        return new SpnegoNegTokenInit(mechTypes, mechToken);
+        return new SpnegoNegTokenInit(mechTypes, mechToken, mechTypesDer, mechListMic);
     }
 
     // NegTokenResp ::= SEQUENCE { negState [0] ENUMERATED OPTIONAL, supportedMech [1] MechType
     //   OPTIONAL, responseToken [2] OCTET STRING OPTIONAL, mechListMIC [3] OCTET STRING OPTIONAL }
-    private static byte[] ReadNegTokenRespFields(AsnReader fields)
+    private static SpnegoNegTokenResp ReadNegTokenRespFields(AsnReader fields)
     {
         SkipField(fields, 0);
         SkipField(fields, 1);
         var responseToken = ReadOctetStringField(fields, 2);
-        SkipField(fields, 3);
+        var mechListMic = ReadOctetStringField(fields, 3);
         fields.ThrowIfNotEmpty();
 
-        return responseToken ?? [];
+        return new SpnegoNegTokenResp(responseToken ?? [], mechListMic);
     }
 
     private static void SkipField(AsnReader fields, int number)

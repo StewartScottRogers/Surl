@@ -424,7 +424,10 @@ as curl (rows 4 and 8).
 5. one empty line, as curl ends its option pages.
 
 Each paragraph line is eight spaces and words wrapped greedily at single spaces so no line
-passes 79 columns (a word too long for a line is put alone on one). surl indents with spaces,
+passes 79 columns. A word too long for any line is broken after each of its commas and the
+pieces wrapped the same way, so a long comma-separated default such as `--auth`'s stays within
+79 columns ([ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) amendment 1, decided
+in BL-216); a piece still too long for a line is put alone on one. surl indents with spaces,
 not curl's TAB and four spaces, and does not justify: the justification is curl's manual
 renderer's, and ragged spaces-only text has one width on every terminal and diffs cleanly.
 For example:

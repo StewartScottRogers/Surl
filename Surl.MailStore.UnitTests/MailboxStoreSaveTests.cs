@@ -168,53 +168,6 @@ public sealed class MailboxStoreSaveTests
     }
 
     [TestMethod]
-    public async Task SaveChangesAsync_MessageRemovedWhileItsFileIsBeingWritten_ItsFileIsDeletedByTheNextSave()
-    {
-        var fileSystem = new UnitTestFaultingContentFileSystem();
-        var store = await LoadAsync(fileSystem, ["al"]);
-        var al = store.ViewFor("al");
-        Assert.AreEqual(MailStoreOutcome.Succeeded, MailStoreFixture.Deliver(store, "racing", "al@x"));
-        fileSystem.BeforeMoveTo = destination =>
-        {
-            if (destination == MessagePath(0))
-            {
-                store.ChangeFlags(al, "INBOX", 1, MailFlagChange.Add, MailFlags.Deleted, out _);
-                store.Expunge(al, "INBOX", out _);
-            }
-        };
-
-        await store.SaveChangesAsync(TestContext.CancellationToken);
-
-        Assert.IsTrue(Exists(fileSystem, MessagePath(0)), "The index just written still names it.");
-        fileSystem.BeforeMoveTo = null;
-        await store.SaveChangesAsync(TestContext.CancellationToken);
-        Assert.IsFalse(Exists(fileSystem, MessagePath(0)));
-    }
-
-    [TestMethod]
-    public async Task SaveChangesAsync_MessageFileWriteThrows_LeavesTheStoreChangedAndTheNextChangeWritesItAll()
-    {
-        var fileSystem = new UnitTestFaultingContentFileSystem { FailMovesTo = "messages" };
-        var store = await LoadAsync(fileSystem, ["al"]);
-        await store.SaveChangesAsync(TestContext.CancellationToken);
-        Assert.AreEqual(MailStoreOutcome.Succeeded, MailStoreFixture.Deliver(store, "kept", "al@x"));
-
-        var failure = await Assert.ThrowsExactlyAsync<IOException>(() => store.SaveChangesAsync(TestContext.CancellationToken));
-
-        Assert.AreEqual("The disk failed.", failure.Message);
-        Assert.AreEqual("kept", MailStoreFixture.Fetch(store, store.ViewFor("al"), "INBOX", 1));
-        Assert.IsEmpty(fileSystem.Files.EnumerateDirectoryEntryNames(MessagesFolder), "The pending file is deleted.");
-        var beforeRetry = await LoadAsync(fileSystem.Files, ["al"]);
-        Assert.IsEmpty(MailStoreFixture.Uids(beforeRetry, beforeRetry.ViewFor("al"), "INBOX"));
-        fileSystem.FailMovesTo = null;
-        Assert.AreEqual(MailStoreOutcome.Succeeded, MailStoreFixture.Deliver(store, "next", "al@x"));
-        await store.SaveChangesAsync(TestContext.CancellationToken);
-        var reloaded = await LoadAsync(fileSystem.Files, ["al"]);
-        Assert.AreEqual("kept", MailStoreFixture.Fetch(reloaded, reloaded.ViewFor("al"), "INBOX", 1));
-        Assert.AreEqual("next", MailStoreFixture.Fetch(reloaded, reloaded.ViewFor("al"), "INBOX", 2));
-    }
-
-    [TestMethod]
     public async Task SaveChangesAsync_IndexWriteThrows_LeavesTheStoreChangedAndTheNextChangeRewritesTheIndex()
     {
         var fileSystem = new UnitTestFaultingContentFileSystem { FailMovesTo = "index", Failure = new UnauthorizedAccessException("Access denied.") };

@@ -60,7 +60,7 @@ public sealed class BcryptPbkdfTests
 
         byte[] hash = new byte[BcryptPbkdf.HashSize];
 
-        BcryptPbkdf.ComputeHash(new BlowfishState(), passwordHash, saltHash, hash);
+        BcryptPbkdf.ComputeHash(new Blowfish.Blowfish(), passwordHash, saltHash, hash);
 
         Assert.AreEqual("87904870eef9deddf8e7611a140106e6aaf1a363d9a2c504db356443721eb555", Convert.ToHexStringLower(hash));
     }

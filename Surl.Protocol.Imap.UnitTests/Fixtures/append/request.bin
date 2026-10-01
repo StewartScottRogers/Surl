@@ -1,0 +1,9 @@
+A001 CAPABILITY
+A002 LOGIN u p
+A003 APPEND INBOX (\Seen) {33}
+From: a@x
+Subject: hi
+
+hello
+
+A004 LOGOUT

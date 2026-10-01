@@ -28,6 +28,7 @@
   <Folder Name="/Scripts/">
     <File Path="RunClaude.cmd" />
     <File Path="hrdrClaudeNative.cmd" />
+    <File Path="Build-OpenLdapUpstreamCurl.ps1" />
     <File Path="Measure-CodeQuality.ps1" />
     <File Path="Record-CurlExchange.ps1" />
     <File Path="RunDarkFactory.ps1" />
@@ -69,6 +70,10 @@
   <Project Path="Surl.Core.UnitTests/Surl.Core.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.BcryptPbkdf.UnitLibrary/Surl.Cryptography.BcryptPbkdf.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.BcryptPbkdf.UnitTests/Surl.Cryptography.BcryptPbkdf.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Blowfish.UnitLibrary/Surl.Cryptography.Blowfish.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Blowfish.UnitTests/Surl.Cryptography.Blowfish.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Cast128.UnitLibrary/Surl.Cryptography.Cast128.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Cast128.UnitTests/Surl.Cryptography.Cast128.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.ChaCha20.UnitLibrary/Surl.Cryptography.ChaCha20.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.ChaCha20.UnitTests/Surl.Cryptography.ChaCha20.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.Curve25519.UnitLibrary/Surl.Cryptography.Curve25519.UnitLibrary.csproj" />
@@ -77,8 +82,18 @@
   <Project Path="Surl.Cryptography.Ed25519.UnitTests/Surl.Cryptography.Ed25519.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.Poly1305.UnitLibrary/Surl.Cryptography.Poly1305.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.Poly1305.UnitTests/Surl.Cryptography.Poly1305.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Rc4.UnitLibrary/Surl.Cryptography.Rc4.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Rc4.UnitTests/Surl.Cryptography.Rc4.UnitTests.csproj" />
+  <Project Path="Surl.Cryptography.Ripemd160.UnitLibrary/Surl.Cryptography.Ripemd160.UnitLibrary.csproj" />
+  <Project Path="Surl.Cryptography.Ripemd160.UnitTests/Surl.Cryptography.Ripemd160.UnitTests.csproj" />
   <Project Path="Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
   <Project Path="Surl.Cryptography.UnitTests/Surl.Cryptography.UnitTests.csproj" />
+  <Project Path="Surl.HttpMessage.UnitLibrary/Surl.HttpMessage.UnitLibrary.csproj" />
+  <Project Path="Surl.HttpMessage.UnitTests/Surl.HttpMessage.UnitTests.csproj" />
+  <Project Path="Surl.Kerberos.TestKdc.UnitLibrary/Surl.Kerberos.TestKdc.UnitLibrary.csproj" />
+  <Project Path="Surl.Kerberos.TestKdc.UnitTests/Surl.Kerberos.TestKdc.UnitTests.csproj" />
+  <Project Path="Surl.Kerberos.UnitLibrary/Surl.Kerberos.UnitLibrary.csproj" />
+  <Project Path="Surl.Kerberos.UnitTests/Surl.Kerberos.UnitTests.csproj" />
   <Project Path="Surl.LineProtocol.UnitLibrary/Surl.LineProtocol.UnitLibrary.csproj" />
   <Project Path="Surl.LineProtocol.UnitTests/Surl.LineProtocol.UnitTests.csproj" />
   <Project Path="Surl.MailStore.UnitLibrary/Surl.MailStore.UnitLibrary.csproj" />

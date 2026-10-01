@@ -5,6 +5,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Surl.LineProtocol.UnitLibrary\Surl.LineProtocol.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.MailStore.UnitLibrary\Surl.MailStore.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
   </ItemGroup>
 

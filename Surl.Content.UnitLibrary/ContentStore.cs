@@ -198,6 +198,32 @@ public sealed class ContentStore
     }
 
     /// <summary>
+    /// Reports the kind, a file's length and the last write time of the file or directory at a
+    /// mapped location.
+    /// </summary>
+    /// <param name="mapping">A mapping this content store returned with
+    /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
+    /// <returns>The entry's status; <see langword="null"/> when the location holds nothing, is
+    /// hidden by the exposure options, or is a file asked for with a trailing <c>/</c>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
+    public ContentEntryStatus? GetEntryStatus(ContentPathMapping mapping)
+    {
+        string location = RequireLocation(mapping);
+        return CurrentEntryKind(mapping, location) switch
+        {
+            ContentEntryKind.File => new ContentEntryStatus(
+                ContentEntryKind.File,
+                fileSystem.GetFileLength(location),
+                fileSystem.GetLastWriteTimeUtc(location).ToUniversalTime()),
+            ContentEntryKind.Directory => new ContentEntryStatus(
+                ContentEntryKind.Directory,
+                null,
+                fileSystem.GetLastWriteTimeUtc(location).ToUniversalTime()),
+            _ => null,
+        };
+    }
+
+    /// <summary>
     /// Copies the bytes of <paramref name="range"/> from the file at a mapped location to
     /// <paramref name="destination"/>, reading and writing asynchronously.
     /// </summary>
@@ -433,6 +459,57 @@ public sealed class ContentStore
     }
 
     /// <summary>
+    /// Opens a random-access upload to the file at a mapped location: a
+    /// <see cref="ContentUploadSession"/> written and read at any offset, resized, and committed
+    /// over the target or discarded (ADR-0054 decision 14 item 4).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The answer, first match wins: <see cref="ContentUploadOpeningResult.NotPermitted"/> when
+    /// <see cref="ContentExposureOptions.AllowUploads"/> is off;
+    /// <see cref="ContentUploadOpeningResult.IsADirectory"/> for a visible directory, the served
+    /// root included; <see cref="ContentUploadOpeningResult.NoSuchDirectory"/> when the location
+    /// is not directly inside an existing directory;
+    /// <see cref="ContentUploadOpeningResult.NotPermitted"/> when it is hidden, under
+    /// <c>/.surl</c>, or asked for with a trailing <c>/</c>;
+    /// <see cref="ContentUploadOpeningResult.Exists"/> for a file when the opening refuses one;
+    /// <see cref="ContentUploadOpeningResult.Absent"/> for nothing when the opening does not
+    /// create a missing file; otherwise <see cref="ContentUploadOpeningResult.Opened"/>.
+    /// </para>
+    /// <para>
+    /// An opened upload lives in a temporary dot-file beside the target, holding a copy of the
+    /// target's bytes when the opening starts from them and a file is there, else nothing. The
+    /// target is untouched until the session commits. A copy that throws, cancellation included,
+    /// deletes the temporary file before the exception goes on.
+    /// </para>
+    /// </remarks>
+    /// <param name="mapping">A mapping this content store returned with
+    /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
+    /// <param name="opening">What the upload starts from, and what it does about a file that is
+    /// there or missing.</param>
+    /// <param name="cancellationToken">Checked before anything is looked at and while the
+    /// target's bytes are copied; cancellation throws
+    /// <see cref="OperationCanceledException"/>.</param>
+    /// <returns>The result and, when opened, the session, which the caller disposes.</returns>
+    /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="opening"/> is null.</exception>
+    public async Task<ContentUploadOpeningOutcome> OpenUploadAsync(ContentPathMapping mapping, ContentUploadOpening opening, CancellationToken cancellationToken)
+    {
+        string location = RequireLocation(mapping);
+        ArgumentNullException.ThrowIfNull(opening);
+        cancellationToken.ThrowIfCancellationRequested();
+        ContentEntryKind kind = mapping.IsAnsweredAsAbsent ? ContentEntryKind.None : fileSystem.GetEntryKind(location);
+        ContentUploadOpeningResult result = UploadOpeningResult(mapping, location, kind, opening);
+        if (result != ContentUploadOpeningResult.Opened)
+        {
+            return new ContentUploadOpeningOutcome(result, null);
+        }
+
+        bool copiesTheTarget = opening.StartsFromExistingBytes && kind == ContentEntryKind.File;
+        return new ContentUploadOpeningOutcome(result, await StartUploadSessionAsync(location, copiesTheTarget, cancellationToken));
+    }
+
+    /// <summary>
     /// Deletes the file at a mapped location.
     /// </summary>
     /// <remarks>
@@ -493,28 +570,63 @@ public sealed class ContentStore
     /// <returns>What became of the rename.</returns>
     /// <exception cref="ArgumentException"><paramref name="source"/> or
     /// <paramref name="destination"/> is a refusal.</exception>
-    public ContentChangeResult RenameEntry(ContentPathMapping source, ContentPathMapping destination)
+    public ContentChangeResult RenameEntry(ContentPathMapping source, ContentPathMapping destination) =>
+        Rename(source, destination, replacingAFile: true);
+
+    /// <summary>
+    /// Renames the file or directory at one mapped location to another where nothing is.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="RenameEntry(ContentPathMapping, ContentPathMapping)"/>'s rules, except that any
+    /// entry at the destination answers <see cref="ContentChangeResult.Exists"/>: a file there is
+    /// never replaced, and a source renamed onto itself is in its own way (ADR-0054 decision 14).
+    /// </para>
+    /// <para>
+    /// A file is renamed through
+    /// <see cref="IContentFileSystem.MoveFileWithoutReplacing(string, string)"/>, so a file that
+    /// appears at the destination after the check is still not replaced, and a directory
+    /// through <see cref="IContentFileSystem.MoveDirectory(string, string)"/>.
+    /// </para>
+    /// </remarks>
+    /// <param name="source">The mapping of the entry to rename.</param>
+    /// <param name="destination">The mapping of its new name.</param>
+    /// <returns>What became of the rename.</returns>
+    /// <exception cref="ArgumentException"><paramref name="source"/> or
+    /// <paramref name="destination"/> is a refusal.</exception>
+    public ContentChangeResult RenameEntryWithoutReplacing(ContentPathMapping source, ContentPathMapping destination) =>
+        Rename(source, destination, replacingAFile: false);
+
+    /// <summary>
+    /// Sets when the file or directory at a mapped location was last written.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ContentChangeResult.NotPermitted"/> when
+    /// <see cref="ContentExposureOptions.AllowUploads"/> is off;
+    /// <see cref="ContentChangeResult.Absent"/> when the location holds nothing, is hidden, or
+    /// is a file asked for with a trailing <c>/</c>. A symbolic link that is followed is
+    /// resolved, so its final target's time is set.
+    /// </remarks>
+    /// <param name="mapping">A mapping this content store returned with
+    /// <see cref="ContentPathMapping.IsMapped"/> set.</param>
+    /// <param name="lastWriteTime">The last write time to set.</param>
+    /// <returns><see cref="ContentChangeResult.Done"/>, <see cref="ContentChangeResult.Absent"/>
+    /// or <see cref="ContentChangeResult.NotPermitted"/>.</returns>
+    /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
+    public ContentChangeResult SetLastWriteTime(ContentPathMapping mapping, DateTimeOffset lastWriteTime)
     {
-        string from = RequireLocation(source);
-        string to = RequireLocation(destination);
+        string location = RequireLocation(mapping);
         if (!ExposureOptions.AllowUploads)
         {
             return ContentChangeResult.NotPermitted;
         }
 
-        ContentEntryKind sourceKind = CurrentEntryKind(source, from);
-        if (sourceKind == ContentEntryKind.None)
+        if (CurrentEntryKind(mapping, location) == ContentEntryKind.None)
         {
             return ContentChangeResult.Absent;
         }
 
-        ContentChangeResult refusal = RenameRefusal(sourceKind, from, destination, to);
-        if (refusal != ContentChangeResult.Done || IsSamePath(from, to))
-        {
-            return refusal;
-        }
-
-        MoveEntry(sourceKind, from, to);
+        fileSystem.SetLastWriteTimeUtc(location, lastWriteTime.ToUniversalTime());
         return ContentChangeResult.Done;
     }
 
@@ -590,14 +702,39 @@ public sealed class ContentStore
         return ContentChangeResult.Done;
     }
 
+    private ContentChangeResult Rename(ContentPathMapping source, ContentPathMapping destination, bool replacingAFile)
+    {
+        string from = RequireLocation(source);
+        string to = RequireLocation(destination);
+        if (!ExposureOptions.AllowUploads)
+        {
+            return ContentChangeResult.NotPermitted;
+        }
+
+        ContentEntryKind sourceKind = CurrentEntryKind(source, from);
+        if (sourceKind == ContentEntryKind.None)
+        {
+            return ContentChangeResult.Absent;
+        }
+
+        ContentChangeResult refusal = RenameRefusal(sourceKind, from, destination, to, replacingAFile);
+        if (refusal != ContentChangeResult.Done || IsSamePath(from, to))
+        {
+            return refusal;
+        }
+
+        MoveEntry(sourceKind, from, to, replacingAFile);
+        return ContentChangeResult.Done;
+    }
+
     // Done means nothing refuses the rename.
-    private ContentChangeResult RenameRefusal(ContentEntryKind sourceKind, string from, ContentPathMapping destination, string to)
+    private ContentChangeResult RenameRefusal(ContentEntryKind sourceKind, string from, ContentPathMapping destination, string to, bool replacingAFile)
     {
         bool isForbidden = IsServedRoot(from)
             || IsServedRoot(to)
             || destination.IsAnsweredAsAbsent
             || IsForbiddenDestinationFor(sourceKind, from, destination, to);
-        return isForbidden ? ContentChangeResult.NotPermitted : RenameDestinationRefusal(sourceKind, from, to);
+        return isForbidden ? ContentChangeResult.NotPermitted : RenameDestinationRefusal(sourceKind, from, to, replacingAFile);
     }
 
     // A file cannot take a name that ends in '/', and a directory cannot move inside itself.
@@ -606,11 +743,12 @@ public sealed class ContentStore
             ? destination.NamesADirectory
             : !IsSamePath(from, to) && IsInsideOrAt(to, from);
 
-    private ContentChangeResult RenameDestinationRefusal(ContentEntryKind sourceKind, string from, string to)
+    // Only a rename that replaces a file lets a file stand at the destination, itself included.
+    private ContentChangeResult RenameDestinationRefusal(ContentEntryKind sourceKind, string from, string to, bool replacingAFile)
     {
         if (IsSamePath(from, to))
         {
-            return ContentChangeResult.Done;
+            return replacingAFile ? ContentChangeResult.Done : ContentChangeResult.Exists;
         }
 
         if (!IsDirectlyInsideADirectory(to))
@@ -618,21 +756,27 @@ public sealed class ContentStore
             return ContentChangeResult.NoSuchDirectory;
         }
 
-        ContentEntryKind destinationKind = fileSystem.GetEntryKind(to);
-        bool isInTheWay = destinationKind == ContentEntryKind.Directory
-            || (destinationKind == ContentEntryKind.File && sourceKind == ContentEntryKind.Directory);
+        bool isInTheWay = IsInTheWayOfARename(fileSystem.GetEntryKind(to), sourceKind == ContentEntryKind.File && replacingAFile);
         return isInTheWay ? ContentChangeResult.Exists : ContentChangeResult.Done;
     }
 
-    private void MoveEntry(ContentEntryKind sourceKind, string from, string to)
+    private static bool IsInTheWayOfARename(ContentEntryKind destinationKind, bool replacingAFile) =>
+        destinationKind == ContentEntryKind.Directory
+        || (destinationKind == ContentEntryKind.File && !replacingAFile);
+
+    private void MoveEntry(ContentEntryKind sourceKind, string from, string to, bool replacingAFile)
     {
         if (sourceKind == ContentEntryKind.Directory)
         {
             fileSystem.MoveDirectory(from, to);
         }
-        else
+        else if (replacingAFile)
         {
             fileSystem.MoveFileReplacing(from, to);
+        }
+        else
+        {
+            fileSystem.MoveFileWithoutReplacing(from, to);
         }
     }
 
@@ -659,6 +803,54 @@ public sealed class ContentStore
         }
         catch (Exception)
         {
+            fileSystem.DeleteFile(temporaryLocation);
+            throw;
+        }
+    }
+
+    private ContentUploadOpeningResult UploadOpeningResult(ContentPathMapping mapping, string location, ContentEntryKind kind, ContentUploadOpening opening)
+    {
+        if (!ExposureOptions.AllowUploads)
+        {
+            return ContentUploadOpeningResult.NotPermitted;
+        }
+
+        if (kind == ContentEntryKind.Directory)
+        {
+            return ContentUploadOpeningResult.IsADirectory;
+        }
+
+        if (!IsDirectlyInsideADirectory(location))
+        {
+            return ContentUploadOpeningResult.NoSuchDirectory;
+        }
+
+        return mapping.IsAnsweredAsAbsent || mapping.NamesADirectory
+            ? ContentUploadOpeningResult.NotPermitted
+            : UploadOpeningResultFor(kind == ContentEntryKind.File, opening);
+    }
+
+    private static ContentUploadOpeningResult UploadOpeningResultFor(bool fileIsThere, ContentUploadOpening opening) =>
+        fileIsThere
+            ? (opening.RefusesExistingFile ? ContentUploadOpeningResult.Exists : ContentUploadOpeningResult.Opened)
+            : (opening.CreatesMissingFile ? ContentUploadOpeningResult.Opened : ContentUploadOpeningResult.Absent);
+
+    private async Task<ContentUploadSession> StartUploadSessionAsync(string location, bool copiesTheTarget, CancellationToken cancellationToken)
+    {
+        string temporaryLocation = TemporaryUploadLocationBeside(location);
+        Stream temporaryFile = fileSystem.OpenFileForAsyncReadWrite(temporaryLocation);
+        try
+        {
+            if (copiesTheTarget)
+            {
+                await CopyExistingFileAsync(location, temporaryFile, cancellationToken);
+            }
+
+            return new ContentUploadSession(fileSystem, temporaryLocation, location, temporaryFile, ExposureOptions.MaxUploadBytes);
+        }
+        catch (Exception)
+        {
+            temporaryFile.Dispose();
             fileSystem.DeleteFile(temporaryLocation);
             throw;
         }

@@ -71,7 +71,106 @@ public sealed class FtpLimitTests
         Assert.AreEqual(Greeting + "200 NOOP ok\r\n", Text(connection.WrittenBytes));
 
         await idleTimeout.CancelAsync();
+        await serving;
+        Assert.AreEqual(Greeting + "200 NOOP ok\r\n" + ExchangeCancelledReply, Text(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task ExchangeCancelledWhileWaitingForACommand_Answers421TimeoutClosingAndCloses()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        using var idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new InMemoryConnection(Ascii(AnonymousLogin), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server().ServeAsync(connection, Context(clock, idleTimeout.Token, log: log));
+        Assert.IsFalse(serving.IsCompleted);
+        await idleTimeout.CancelAsync();
+        await serving;
+
+        Assert.AreEqual(Greeting + AnonymousLoginReplies + "421 Timeout, closing\r\n", Text(connection.WrittenBytes));
+        Assert.IsTrue(connection.WritesCompleted);
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreEqual("The exchange was cancelled; answered 421 and closed.", log.Notes[^1]);
+    }
+
+    [TestMethod]
+    public async Task CancellationReplyNotTakenWithinTheWriteDeadline_ClosesWithoutAborting()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        using var idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new WriteStallingConnection([], writesBeforeStalling: 1);
+
+        var serving = Server().ServeAsync(connection, Context(clock, idleTimeout.Token, log: log));
+        await idleTimeout.CancelAsync();
+        await connection.WriteStalled.WaitAsync(TestContext.CancellationToken);
+        Assert.IsFalse(serving.IsCompleted);
+        clock.Advance(FtpProtocolServer.LimitReplyWriteDeadline);
+        await serving;
+
+        Assert.AreEqual(Greeting, Text(connection.WrittenBytes));
+        Assert.IsFalse(connection.WritesCompleted);
+        Assert.IsFalse(connection.Aborted);
+        Assert.AreEqual("The reply was not written within the one-second write deadline; the connection was closed.", log.Notes[^1]);
+    }
+
+    [TestMethod]
+    public async Task ExchangeCancelledAtShutdownWhileWaitingForACommand_ThrowsWithNoFarewell()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new InMemoryConnection(Ascii(AnonymousLogin), peerHalfClosesWhenExhausted: false);
+
+        var serving = Server().ServeAsync(connection, Context(clock, shutdown.Token, log: log, shutdownToken: shutdown.Token));
+        Assert.IsFalse(serving.IsCompleted);
+        await shutdown.CancelAsync();
+
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual(Greeting + AnonymousLoginReplies, Text(connection.WrittenBytes));
+        Assert.IsFalse(connection.WritesCompleted);
+        Assert.IsEmpty(log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ShutdownWhileALimitReplyIsWritten_Throws()
+    {
+        var clock = new ManualTimeProvider();
+        using var shutdown = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new WriteStallingConnection([], writesBeforeStalling: 1);
+
+        var serving = Server().ServeAsync(connection, Context(clock, shutdown.Token, shutdownToken: shutdown.Token));
+        clock.Advance(HeadTimeout);
+        await connection.WriteStalled.WaitAsync(TestContext.CancellationToken);
+        await shutdown.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual(Greeting, Text(connection.WrittenBytes));
+        Assert.IsFalse(connection.Aborted);
+    }
+
+    [TestMethod]
+    public async Task CancellationThrownWhileTheExchangeIsNotCancelled_PropagatesWithoutAReply()
+    {
+        var fileSystem = new UnitTestThrowingContentFileSystem(new OperationCanceledException(), failsStatus: true);
+        var connection = new InMemoryConnection(Ascii(AnonymousLogin + "SIZE a.txt\r\n"));
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => Server(contentStore: fileSystem.ContentStore())
+            .ServeAsync(connection, Context(new ManualTimeProvider(), TestContext.CancellationToken)));
+
+        Assert.AreEqual(Greeting + AnonymousLoginReplies, Text(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task ReadFailure_PropagatesWithoutAReply()
+    {
+        var connection = new ReadFailingConnection(Ascii("NOOP\r\n"));
+
+        await Assert.ThrowsExactlyAsync<IOException>(
+            () => Server().ServeAsync(connection, Context(new ManualTimeProvider(), TestContext.CancellationToken)));
+
+        Assert.AreEqual(Greeting + "200 NOOP ok\r\n", Text(connection.WrittenBytes));
     }
 
     [TestMethod]
@@ -94,7 +193,7 @@ public sealed class FtpLimitTests
     }
 
     [TestMethod]
-    public async Task ExchangeCancelledWhileTheLimitReplyIsWritten_PropagatesTheCancellation()
+    public async Task ExchangeCancelledWhileTheLimitReplyIsWritten_StillClosesAtTheWriteDeadline()
     {
         var clock = new ManualTimeProvider();
         using var idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
@@ -104,8 +203,12 @@ public sealed class FtpLimitTests
         clock.Advance(HeadTimeout);
         await connection.WriteStalled.WaitAsync(TestContext.CancellationToken);
         await idleTimeout.CancelAsync();
+        Assert.IsFalse(serving.IsCompleted);
+        clock.Advance(FtpProtocolServer.LimitReplyWriteDeadline);
+        await serving;
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual(Greeting, Text(connection.WrittenBytes));
+        Assert.IsFalse(connection.Aborted);
     }
 
     [TestMethod]

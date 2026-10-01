@@ -38,7 +38,7 @@ public sealed class PlainTextSaslMechanismTests
         PolicyFixture.Create(accounts ?? SaslExchangeRunner.UserAndToken, clock, allowAnonymous, allowPlaintextAuth, acceptedMethods);
 
     private static void AssertStep(
-        MailLoginOutcome outcome, string challenge, string? accountName, string? note, MailLoginStep step)
+        SaslLoginOutcome outcome, string challenge, string? accountName, string? note, SaslLoginStep step)
     {
         Assert.AreEqual(outcome, step.Outcome);
         Assert.AreEqual(challenge, Encoding.Latin1.GetString(step.Challenge.Span));
@@ -62,7 +62,7 @@ public sealed class PlainTextSaslMechanismTests
             ? await first
             : await exchange.ContinueAsync(Convert.FromBase64String(secondResponse), CancellationToken.None);
 
-        AssertStep(MailLoginOutcome.Accepted, string.Empty, accountName, note, last);
+        AssertStep(SaslLoginOutcome.Accepted, string.Empty, accountName, note, last);
     }
 
     [TestMethod]
@@ -76,8 +76,8 @@ public sealed class PlainTextSaslMechanismTests
 
         var steps = await runner.RunAsync(exchange, response);
 
-        AssertStep(MailLoginOutcome.Challenge, string.Empty, null, null, steps[0]);
-        Assert.AreEqual(MailLoginOutcome.Accepted, steps[1].Outcome);
+        AssertStep(SaslLoginOutcome.Challenge, string.Empty, null, null, steps[0]);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, steps[1].Outcome);
     }
 
     [TestMethod]
@@ -91,7 +91,7 @@ public sealed class PlainTextSaslMechanismTests
         // VXNlcm5hbWU6 and UGFzc3dvcmQ6, the challenges curl was measured answering.
         Assert.AreEqual("VXNlcm5hbWU6", Convert.ToBase64String(steps[0].Challenge.Span));
         Assert.AreEqual("UGFzc3dvcmQ6", Convert.ToBase64String(steps[1].Challenge.Span));
-        AssertStep(MailLoginOutcome.Accepted, string.Empty, "user", "Login accepted: LOGIN user", steps[2]);
+        AssertStep(SaslLoginOutcome.Accepted, string.Empty, "user", "Login accepted: LOGIN user", steps[2]);
     }
 
     [TestMethod]
@@ -103,12 +103,12 @@ public sealed class PlainTextSaslMechanismTests
         var unknownUser = await RefuseAsync(Policy(), mechanism, "bob", "secret");
         var noAccounts = await RefuseAsync(Policy(PolicyFixture.NoAccounts), mechanism, "user", "secret");
 
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, $"Login refused: {mechanism} user", wrongPassword);
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, $"Login refused: {mechanism} bob", unknownUser);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, $"Login refused: {mechanism} user", wrongPassword);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, $"Login refused: {mechanism} bob", unknownUser);
         Assert.AreEqual(wrongPassword, noAccounts);
     }
 
-    private async Task<MailLoginStep> RefuseAsync(AuthenticationPolicy policy, string mechanism, string user, string secret)
+    private async Task<SaslLoginStep> RefuseAsync(AuthenticationPolicy policy, string mechanism, string user, string secret)
     {
         var (initialResponse, responses) = SaslExchangeRunner.Login(mechanism, user, secret);
         var steps = await runner.RunAsync(SaslExchangeRunner.Start(policy, mechanism, initialResponse, PolicyFixture.Tls), responses);
@@ -130,10 +130,10 @@ public sealed class PlainTextSaslMechanismTests
             SaslExchangeRunner.Start(Policy(PolicyFixture.NoAccounts), mechanism, rightToken, PolicyFixture.Tls), OAuthBearerFinalResponse);
 
         AssertStep(
-            MailLoginOutcome.Challenge, "{\"status\":\"invalid_token\"}", null, $"Login refused: {mechanism} bearer token", refused[0]);
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, null, refused[1]);
+            SaslLoginOutcome.Challenge, "{\"status\":\"invalid_token\"}", null, $"Login refused: {mechanism} bearer token", refused[0]);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, null, refused[1]);
         AssertStep(
-            MailLoginOutcome.Challenge, "{\"status\":\"invalid_token\"}", null, $"Login refused: {mechanism} bearer token", noAccounts[0]);
+            SaslLoginOutcome.Challenge, "{\"status\":\"invalid_token\"}", null, $"Login refused: {mechanism} bearer token", noAccounts[0]);
         Assert.AreEqual(refused[1], noAccounts[1]);
     }
 
@@ -146,7 +146,7 @@ public sealed class PlainTextSaslMechanismTests
 
         var steps = await runner.RunAsync(SaslExchangeRunner.Start(Policy(), mechanism, response, PolicyFixture.Tls));
 
-        Assert.AreEqual(MailLoginOutcome.Accepted, steps[0].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, steps[0].Outcome);
     }
 
     [TestMethod]
@@ -159,7 +159,7 @@ public sealed class PlainTextSaslMechanismTests
         var last = exchange.ContinueAsync(OAuthBearerFinalResponse, CancellationToken.None);
 
         Assert.IsTrue(last.IsCompleted);
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, (await last).Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, (await last).Outcome);
     }
 
     [TestMethod]
@@ -194,7 +194,7 @@ public sealed class PlainTextSaslMechanismTests
     }
 
     // The step that checks a wrong secret, started and left waiting out the refusal delay.
-    private async Task<Task<MailLoginStep>> StartCheckingStepAsync(string mechanism, CancellationToken cancellationToken)
+    private async Task<Task<SaslLoginStep>> StartCheckingStepAsync(string mechanism, CancellationToken cancellationToken)
     {
         var (initialResponse, responses) = SaslExchangeRunner.Login(mechanism, "user", "wrong");
         var exchange = SaslExchangeRunner.Start(Policy(), mechanism, initialResponse, PolicyFixture.Tls);
@@ -223,8 +223,8 @@ public sealed class PlainTextSaslMechanismTests
         var withoutInitialResponse = SaslExchangeRunner.Start(Policy(accounts), mechanism, null, null).BeginAsync(CancellationToken.None);
 
         Assert.IsTrue(withInitialResponse.IsCompleted);
-        AssertStep(MailLoginOutcome.RefusedPlaintext, string.Empty, null, null, await withInitialResponse);
-        AssertStep(MailLoginOutcome.RefusedPlaintext, string.Empty, null, null, await withoutInitialResponse);
+        AssertStep(SaslLoginOutcome.RefusedPlaintext, string.Empty, null, null, await withInitialResponse);
+        AssertStep(SaslLoginOutcome.RefusedPlaintext, string.Empty, null, null, await withoutInitialResponse);
         Assert.AreEqual(0, comparer.Comparisons.Count);
     }
 
@@ -240,7 +240,7 @@ public sealed class PlainTextSaslMechanismTests
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(allowPlaintextAuth: true), mechanism, initialResponse, null), responses);
 
-        Assert.AreEqual(MailLoginOutcome.Accepted, steps[^1].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, steps[^1].Outcome);
     }
 
     [TestMethod]
@@ -258,8 +258,8 @@ public sealed class PlainTextSaslMechanismTests
 
         Assert.AreEqual(responsesRead, withInitialResponse.Count);
         Assert.AreEqual(responsesRead + 1, withoutInitialResponse.Count);
-        AssertStep(MailLoginOutcome.AcceptedUnchecked, string.Empty, null, null, withInitialResponse[^1]);
-        AssertStep(MailLoginOutcome.AcceptedUnchecked, string.Empty, null, null, withoutInitialResponse[^1]);
+        AssertStep(SaslLoginOutcome.AcceptedUnchecked, string.Empty, null, null, withInitialResponse[^1]);
+        AssertStep(SaslLoginOutcome.AcceptedUnchecked, string.Empty, null, null, withoutInitialResponse[^1]);
     }
 
     [TestMethod]
@@ -274,7 +274,7 @@ public sealed class PlainTextSaslMechanismTests
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(), "PLAIN", Encoding.Latin1.GetBytes(latin1Response), PolicyFixture.Tls));
 
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: PLAIN", steps[0]);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: PLAIN", steps[0]);
     }
 
     [TestMethod]
@@ -283,7 +283,7 @@ public sealed class PlainTextSaslMechanismTests
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(), "PLAIN", SaslExchangeRunner.Plain(string.Empty, string.Empty, "tok"), PolicyFixture.Tls));
 
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: PLAIN", steps[0]);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: PLAIN", steps[0]);
     }
 
     [TestMethod]
@@ -292,7 +292,7 @@ public sealed class PlainTextSaslMechanismTests
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(), "PLAIN", Convert.FromBase64String(CurlPlainWithAuthzidBoss), PolicyFixture.Tls));
 
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: PLAIN user", steps[0]);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: PLAIN user", steps[0]);
     }
 
     [TestMethod]
@@ -301,7 +301,7 @@ public sealed class PlainTextSaslMechanismTests
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(), "PLAIN", SaslExchangeRunner.Plain("user", "user", "secret"), PolicyFixture.Tls));
 
-        AssertStep(MailLoginOutcome.Accepted, string.Empty, "user", "Login accepted: PLAIN user", steps[0]);
+        AssertStep(SaslLoginOutcome.Accepted, string.Empty, "user", "Login accepted: PLAIN user", steps[0]);
     }
 
     [TestMethod]
@@ -312,8 +312,8 @@ public sealed class PlainTextSaslMechanismTests
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(), "LOGIN", userName, PolicyFixture.Tls), SaslExchangeRunner.Utf8("secret"));
 
-        AssertStep(MailLoginOutcome.Challenge, "Password:", null, null, steps[0]);
-        AssertStep(MailLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: LOGIN", steps[1]);
+        AssertStep(SaslLoginOutcome.Challenge, "Password:", null, null, steps[0]);
+        AssertStep(SaslLoginOutcome.RefusedCredentials, string.Empty, null, "Login refused: LOGIN", steps[1]);
     }
 
     [TestMethod]
@@ -354,7 +354,7 @@ public sealed class PlainTextSaslMechanismTests
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(), "OAUTHBEARER", Encoding.Latin1.GetBytes(latin1Response), PolicyFixture.Tls));
 
-        AssertStep(MailLoginOutcome.Accepted, string.Empty, accountName, "Login accepted: OAUTHBEARER bearer token", steps[0]);
+        AssertStep(SaslLoginOutcome.Accepted, string.Empty, accountName, "Login accepted: OAUTHBEARER bearer token", steps[0]);
     }
 
     private async Task AssertMalformedBearerResponseAsync(string mechanism, string latin1Response)
@@ -362,7 +362,7 @@ public sealed class PlainTextSaslMechanismTests
         var steps = await runner.RunAsync(
             SaslExchangeRunner.Start(Policy(), mechanism, Encoding.Latin1.GetBytes(latin1Response), PolicyFixture.Tls));
 
-        AssertStep(MailLoginOutcome.Challenge, "{\"status\":\"invalid_token\"}", null, $"Login refused: {mechanism}", steps[0]);
+        AssertStep(SaslLoginOutcome.Challenge, "{\"status\":\"invalid_token\"}", null, $"Login refused: {mechanism}", steps[0]);
     }
 
     [TestMethod]

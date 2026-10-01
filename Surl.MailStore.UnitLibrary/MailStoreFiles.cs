@@ -17,10 +17,16 @@ namespace Surl.MailStore;
 /// before each write.
 /// </para>
 /// <para>
-/// <b>How it is written.</b> The index to <c>.index-&lt;guid&gt;</c> beside it, a message to
-/// <c>messages/.pending-&lt;guid&gt;</c>, then renamed over the file, so a failure mid-write
-/// leaves the file as it was and never a partial one. A write that throws deletes the
-/// temporary file before the exception is rethrown; one left by a crash is ignored at load.
+/// <b>How it is written.</b> The index to <c>.index-&lt;guid&gt;</c> beside it, then renamed
+/// over the index; a message body is streamed into <c>messages/.pending-&lt;guid&gt;</c> as a
+/// server reads it, then renamed to its number when the delivery or append is stored. A failure
+/// mid-write leaves the file as it was and never a partial one: an index write that throws
+/// deletes its temporary file before the exception is rethrown, and a pending file not stored
+/// is deleted; one left by a crash is ignored at load.
+/// </para>
+/// <para>
+/// <b>How it is read.</b> The index at load; a message file's bytes only when a server fetches
+/// the message, never held in memory.
 /// </para>
 /// </remarks>
 public sealed class MailStoreFiles
@@ -107,31 +113,67 @@ public sealed class MailStoreFiles
                 ? await ReadAllAsync(IndexPath, cancellationToken)
                 : null;
         }
-        catch (Exception exception) when (IsReadFailure(exception))
+        catch (Exception exception) when (IsStorageFailure(exception))
         {
             throw new MailStoreLoadException(IndexPath, exception.Message, exception);
         }
     }
 
     /// <summary>
-    /// Reads one message file's bytes, which the index says number <paramref name="size"/>.
+    /// Checks that one message file the index names is there and holds the
+    /// <paramref name="size"/> bytes the index gives it. Its bytes are not read: a server reads
+    /// them from the file when it fetches the message.
     /// </summary>
     /// <exception cref="MailStoreLoadException">The file is missing, not
-    /// <paramref name="size"/> bytes long, or cannot be read.</exception>
-    internal async Task<byte[]> ReadMessageAsync(ulong fileNumber, long size, CancellationToken cancellationToken)
+    /// <paramref name="size"/> bytes long, or cannot be examined.</exception>
+    internal void RequireMessageFile(ulong fileNumber, long size)
     {
         var path = MessageFilePath(fileNumber);
+        bool matches;
         try
         {
-            return fileSystem.GetEntryKind(path) == ContentEntryKind.File && fileSystem.GetFileLength(path) == size
-                ? await ReadAllAsync(path, cancellationToken)
-                : throw new MailStoreLoadException(path, MismatchedMessageFileReason);
+            matches = fileSystem.GetEntryKind(path) == ContentEntryKind.File && fileSystem.GetFileLength(path) == size;
         }
-        catch (Exception exception) when (IsReadFailure(exception))
+        catch (Exception exception) when (IsStorageFailure(exception))
         {
             throw new MailStoreLoadException(path, exception.Message, exception);
         }
+
+        if (!matches)
+        {
+            throw new MailStoreLoadException(path, MismatchedMessageFileReason);
+        }
     }
+
+    /// <summary>
+    /// Opens one message file to read its bytes.
+    /// </summary>
+    internal Stream OpenMessage(ulong fileNumber) => fileSystem.OpenFileForAsyncRead(MessageFilePath(fileNumber));
+
+    /// <summary>
+    /// Creates a new, empty pending file, <c>messages/.pending-&lt;guid&gt;</c>, for a message
+    /// body to be streamed into, creating its folder first.
+    /// </summary>
+    /// <param name="pendingPath">The pending file's full path.</param>
+    /// <returns>The stream the body is written through.</returns>
+    internal Stream CreatePendingMessage(out string pendingPath)
+    {
+        fileSystem.CreateDirectory(MessagesFolderPath);
+        pendingPath = Path.Join(MessagesFolderPath, PendingMessagePrefix + Guid.NewGuid().ToString("N"));
+        return fileSystem.CreateFileForAsyncWrite(pendingPath);
+    }
+
+    /// <summary>
+    /// Renames a written pending file to its message file number; a file already at the number,
+    /// left by a crash, is replaced.
+    /// </summary>
+    internal void KeepPendingMessage(string pendingPath, ulong fileNumber) =>
+        fileSystem.MoveFileReplacing(pendingPath, MessageFilePath(fileNumber));
+
+    /// <summary>
+    /// Deletes a pending file; nothing happens when there is none.
+    /// </summary>
+    internal void DeletePendingMessage(string pendingPath) => fileSystem.DeleteFile(pendingPath);
 
     /// <summary>
     /// Replaces the index with <paramref name="bytes"/>, through a temporary file renamed into
@@ -139,32 +181,6 @@ public sealed class MailStoreFiles
     /// </summary>
     internal Task WriteIndexAsync(byte[] bytes, CancellationToken cancellationToken) =>
         WriteReplacingAsync(StateFolderPath, TemporaryIndexPrefix, IndexPath, bytes, cancellationToken);
-
-    /// <summary>
-    /// Writes one message file, through a pending file renamed into place; a file already at
-    /// its number, left by a crash, is replaced.
-    /// </summary>
-    internal Task WriteMessageAsync(ulong fileNumber, byte[] bytes, CancellationToken cancellationToken) =>
-        WriteReplacingAsync(MessagesFolderPath, PendingMessagePrefix, MessageFilePath(fileNumber), bytes, cancellationToken);
-
-    /// <summary>
-    /// Deletes one message file; nothing happens when there is none.
-    /// </summary>
-    internal void DeleteMessage(ulong fileNumber) => fileSystem.DeleteFile(MessageFilePath(fileNumber));
-
-    private static bool IsReadFailure(Exception exception) =>
-        exception is IOException or UnauthorizedAccessException;
-
-    private async Task<byte[]> ReadAllAsync(string path, CancellationToken cancellationToken)
-    {
-        var bytes = new MemoryStream();
-        await using (var stream = fileSystem.OpenFileForAsyncRead(path))
-        {
-            await stream.CopyToAsync(bytes, cancellationToken);
-        }
-
-        return bytes.ToArray();
-    }
 
     private async Task WriteReplacingAsync(string folderPath, string temporaryPrefix, string destinationPath, byte[] bytes, CancellationToken cancellationToken)
     {
@@ -184,5 +200,60 @@ public sealed class MailStoreFiles
             fileSystem.DeleteFile(temporaryPath);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Deletes one message file; nothing happens when there is none.
+    /// </summary>
+    internal void DeleteMessage(ulong fileNumber) => fileSystem.DeleteFile(MessageFilePath(fileNumber));
+
+    /// <summary>
+    /// Runs <paramref name="action"/>, and catches the exceptions a file system throws when a
+    /// file cannot be read or written: <see cref="IOException"/> and
+    /// <see cref="UnauthorizedAccessException"/>.
+    /// </summary>
+    /// <returns>The caught exception's message; <see langword="null"/> when none was thrown.</returns>
+    internal static string? CatchStorageFailure(Action action)
+    {
+        try
+        {
+            action();
+            return null;
+        }
+        catch (Exception exception) when (IsStorageFailure(exception))
+        {
+            return exception.Message;
+        }
+    }
+
+    /// <summary>
+    /// Runs <paramref name="action"/>, and catches what <see cref="CatchStorageFailure"/> catches.
+    /// </summary>
+    /// <returns>The caught exception's message; <see langword="null"/> when none was thrown.</returns>
+    internal static async Task<string?> CatchStorageFailureAsync(Func<Task> action)
+    {
+        try
+        {
+            await action();
+            return null;
+        }
+        catch (Exception exception) when (IsStorageFailure(exception))
+        {
+            return exception.Message;
+        }
+    }
+
+    private static bool IsStorageFailure(Exception exception) =>
+        exception is IOException or UnauthorizedAccessException;
+
+    private async Task<byte[]> ReadAllAsync(string path, CancellationToken cancellationToken)
+    {
+        var bytes = new MemoryStream();
+        await using (var stream = fileSystem.OpenFileForAsyncRead(path))
+        {
+            await stream.CopyToAsync(bytes, cancellationToken);
+        }
+
+        return bytes.ToArray();
     }
 }

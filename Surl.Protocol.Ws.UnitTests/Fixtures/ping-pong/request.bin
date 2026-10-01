@@ -1,0 +1,10 @@
+GET /chat HTTP/1.1
+Host: 127.0.0.1:18301
+User-Agent: curl/8.21.0
+Accept: */*
+Upgrade: websocket
+Sec-WebSocket-Version: 13
+Sec-WebSocket-Key: zoZkq9onSsyYJQub0Xm8Qg==
+Connection: Upgrade
+
+Š„MQ‰Ÿ=8çø

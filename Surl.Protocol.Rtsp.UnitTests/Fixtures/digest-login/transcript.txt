@@ -1,0 +1,23 @@
+> OPTIONS * RTSP/1.0
+> CSeq: 1
+> User-Agent: curl/8.21.0
+> 
+< RTSP/1.0 401 Unauthorized
+< CSeq: 1
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=MD5, nonce="MDAwMDAwMDAwMDAwMDAwMA"
+< WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=SHA-256, nonce="MDAwMDAwMDAwMDAwMDAwMA"
+< 
+> OPTIONS * RTSP/1.0
+> CSeq: 2
+> User-Agent: curl/8.21.0
+> Authorization: Digest username="tester",realm="surl",nonce="MDAwMDAwMDAwMDAwMDAwMA",uri="*",cnonce="5c573a707f1114e01e20bd9caa5c8418",nc=00000001,algorithm=MD5,response="68ab5351aab91767d686a89ee0f0203a",qop="auth"
+> 
+< RTSP/1.0 200 OK
+< CSeq: 2
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Public: OPTIONS, DESCRIBE, ANNOUNCE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, SET_PARAMETER, RECORD
+< 
+= curl closed the connection

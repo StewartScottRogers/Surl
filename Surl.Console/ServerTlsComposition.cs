@@ -8,8 +8,9 @@ namespace Surl.Console;
 /// <summary>
 /// The process's server-side TLS settings as the command line asks for them (ADR-0010,
 /// section 3; ADR-0020; ADR-0032, section 10): none when no listen URL is TLS from the first
-/// byte; otherwise the <c>--cert</c> certificate, or a throwaway one with <c>--self-signed</c>, with the <c>--cacert</c>
-/// trust anchors and the accepted TLS versions. It owns every certificate it loaded or made,
+/// byte and none can be upgraded with a certificate given; otherwise the <c>--cert</c> certificate,
+/// or a throwaway one with <c>--self-signed</c>, with the <c>--cacert</c> trust anchors and the
+/// accepted TLS versions. It owns every certificate it loaded or made,
 /// and disposing it disposes them.
 /// </summary>
 internal sealed class ServerTlsComposition : IDisposable
@@ -24,8 +25,17 @@ internal sealed class ServerTlsComposition : IDisposable
     }
 
     /// <summary>
+    /// The listen URL schemes whose server can upgrade a plaintext connection to TLS in the
+    /// middle of it (SMTP's <c>STARTTLS</c>, ADR-0053 decision 5; IMAP's <c>STARTTLS</c>, ADR-0055
+    /// decision 11; POP3's <c>STLS</c>, ADR-0056 decision 8; FTP's <c>AUTH TLS</c>, ADR-0052
+    /// decision 5; LDAP's <c>StartTLS</c>, ADR-0072 decision 5), which it does only when a
+    /// certificate is configured.
+    /// </summary>
+    private static readonly HashSet<string> UpgradableSchemes = new(StringComparer.OrdinalIgnoreCase) { "ftp", "imap", "ldap", "pop3", "smtp" };
+
+    /// <summary>
     /// The settings every listener secures its connections with, or <see langword="null"/>
-    /// when no listen URL is TLS from the first byte.
+    /// when no listen URL is TLS from the first byte and none can be upgraded.
     /// </summary>
     public ServerTlsSettings? Settings { get; }
 
@@ -48,7 +58,17 @@ internal sealed class ServerTlsComposition : IDisposable
             : null;
 
     /// <summary>
-    /// Reads the TLS option files and builds the settings, when a listen URL needs them. The
+    /// Whether a certificate is configured, <c>--cert</c> or <c>--self-signed</c>: what makes a
+    /// server that can upgrade a plaintext connection offer it (ADR-0053, decision 5).
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <returns><see langword="true"/> when either is given.</returns>
+    public static bool IsCertificateConfigured(SurlCommandLine commandLine) =>
+        commandLine.CertificateFile is not null || commandLine.SelfSigned;
+
+    /// <summary>
+    /// Reads the TLS option files and builds the settings, when a listen URL needs them: one
+    /// TLS from the first byte, or, with a certificate configured, one that can be upgraded. The
     /// files are read only then, as upstream curl reads <c>--cert</c> only for a TLS transfer.
     /// Without <c>--cert</c> it makes the throwaway certificate, which the caller allows only
     /// with <c>--self-signed</c> (<see cref="FindListenUrlWithoutCertificate"/>).
@@ -59,7 +79,7 @@ internal sealed class ServerTlsComposition : IDisposable
     /// <exception cref="TlsFileLoadException">A <c>--cert</c>, <c>--key</c> or <c>--cacert</c> file cannot be loaded.</exception>
     public static ServerTlsComposition Compose(SurlCommandLine commandLine, TimeProvider timeProvider)
     {
-        if (!commandLine.ListenUrls.Any(listenUrl => TlsSchemes.IsImplicitTls(listenUrl.Scheme)))
+        if (!commandLine.ListenUrls.Any(listenUrl => NeedsTls(commandLine, listenUrl.Scheme)))
         {
             return new ServerTlsComposition(null, null, []);
         }
@@ -80,6 +100,9 @@ internal sealed class ServerTlsComposition : IDisposable
             throw;
         }
     }
+
+    private static bool NeedsTls(SurlCommandLine commandLine, string scheme) =>
+        TlsSchemes.IsImplicitTls(scheme) || (IsCertificateConfigured(commandLine) && UpgradableSchemes.Contains(scheme));
 
     /// <summary>
     /// The <see cref="ServerCertificateFormat"/> a <c>--cert-type</c> word names.

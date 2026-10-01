@@ -35,6 +35,7 @@ public sealed partial class ServingEngine
     private readonly TimeSpan shutdownGracePeriod;
     private readonly ConnectionLimits connectionLimits;
     private readonly IDataConnectionOpener dataConnectionOpener;
+    private readonly ExchangeLimits exchangeLimits;
     private long lastExchangeId;
 
     /// <summary>
@@ -99,7 +100,8 @@ public sealed partial class ServingEngine
     }
 
     /// <summary>
-    /// Creates the engine.
+    /// Creates the engine with ADR-0006's default exchange limits,
+    /// <see cref="ExchangeLimits.Default"/>, in every exchange's <see cref="ExchangeContext.Limits"/>.
     /// </summary>
     /// <param name="listenerFactory">Starts the listeners.</param>
     /// <param name="protocolServers">Every protocol server, each answering the schemes it lists.</param>
@@ -130,6 +132,48 @@ public sealed partial class ServingEngine
         TimeSpan shutdownGracePeriod,
         ConnectionLimits connectionLimits,
         IDataConnectionOpener dataConnectionOpener)
+        : this(listenerFactory, protocolServers, exchangeLogFactory, timeProvider, shutdownGracePeriod, connectionLimits, dataConnectionOpener, ExchangeLimits.Default)
+    {
+    }
+
+    /// <summary>
+    /// Creates the engine.
+    /// </summary>
+    /// <param name="listenerFactory">Starts the listeners.</param>
+    /// <param name="protocolServers">Every protocol server, each answering the schemes it lists.</param>
+    /// <param name="exchangeLogFactory">Hands out one log per exchange.</param>
+    /// <param name="timeProvider">The one clock: the shutdown grace period and every exchange's time come from it.</param>
+    /// <param name="shutdownGracePeriod">
+    /// How long shutdown waits for exchanges in flight before cancelling them; zero or more.
+    /// </param>
+    /// <param name="connectionLimits">
+    /// How many connections the engine holds at once, and how long one exchange may idle or last.
+    /// </param>
+    /// <param name="dataConnectionOpener">
+    /// Opens the FTP data connections each connection exchange asks for through its
+    /// <see cref="ExchangeContext.DataConnections"/> (ADR-0052, decision 9). The engine wraps it
+    /// per exchange: data bytes restart the exchange's idle clock and reach its log, and what
+    /// the server leaves open is disposed when the exchange ends. Data connections do not count
+    /// against <paramref name="connectionLimits"/>.
+    /// </param>
+    /// <param name="exchangeLimits">
+    /// The limits every exchange's <see cref="ExchangeContext.Limits"/> holds, as the command line
+    /// gave them (ADR-0006, sections 1 and 6); the engine's own TLS handshake on a listen URL that
+    /// is TLS from the first byte runs within their head timeout.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Two protocol servers list the same scheme, or one takes both connections and datagram flows.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
+    public ServingEngine(
+        IListenerFactory listenerFactory,
+        IReadOnlyList<IProtocolServer> protocolServers,
+        IExchangeLogFactory exchangeLogFactory,
+        TimeProvider timeProvider,
+        TimeSpan shutdownGracePeriod,
+        ConnectionLimits connectionLimits,
+        IDataConnectionOpener dataConnectionOpener,
+        ExchangeLimits exchangeLimits)
     {
         ArgumentNullException.ThrowIfNull(listenerFactory);
         ArgumentNullException.ThrowIfNull(protocolServers);
@@ -137,6 +181,7 @@ public sealed partial class ServingEngine
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(connectionLimits);
         ArgumentNullException.ThrowIfNull(dataConnectionOpener);
+        ArgumentNullException.ThrowIfNull(exchangeLimits);
         ArgumentOutOfRangeException.ThrowIfLessThan(shutdownGracePeriod, TimeSpan.Zero);
 
         this.listenerFactory = listenerFactory;
@@ -146,6 +191,7 @@ public sealed partial class ServingEngine
         this.shutdownGracePeriod = shutdownGracePeriod;
         this.connectionLimits = connectionLimits;
         this.dataConnectionOpener = dataConnectionOpener;
+        this.exchangeLimits = exchangeLimits;
     }
 
     /// <summary>
@@ -570,7 +616,11 @@ public sealed partial class ServingEngine
         var exchangeId = Interlocked.Increment(ref lastExchangeId);
         var log = exchangeLogFactory.Create(exchangeId, remoteEndPoint);
         var context = new ExchangeContext(
-            exchangeId, listenUrl, localEndPoint, remoteEndPoint, log, timeProvider, deadlines.Token);
+            exchangeId, listenUrl, localEndPoint, remoteEndPoint, log, timeProvider, deadlines.Token)
+        {
+            Limits = exchangeLimits,
+            ShutdownToken = deadlines.ShutdownToken,
+        };
 
         log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");
 

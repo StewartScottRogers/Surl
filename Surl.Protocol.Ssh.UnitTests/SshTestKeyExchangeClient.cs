@@ -1,13 +1,14 @@
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using Surl.Cryptography.Curve25519;
 using static Surl.Protocol.Ssh.SshTestExchange;
 
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// The client's side of one key exchange, built in the test from the BCL's primitives and
-/// written out from RFC 4253 section 8, RFC 5656 section 4, RFC 4419 and RFC 8268, so no test
+/// written out from RFC 4253 section 8, RFC 5656 section 4, RFC 8731, RFC 4419 and RFC 8268, so no test
 /// checks the server's exchange hash, signature or key derivation against the server's own
 /// code. None of the client's messages depends on the server's answers - the group a group
 /// exchange gets is predicted from the request - so the client sends them all at once through
@@ -25,6 +26,7 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     private readonly string keyExchange;
     private readonly string hostKeyAlgorithm;
     private readonly ECDiffieHellman? ellipticKey;
+    private readonly byte[]? curvePrivateKey;
     private readonly BigInteger privateExponent;
     private readonly BigInteger? prime;
     private readonly bool padClientValue;
@@ -39,7 +41,8 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         string mac = "hmac-sha2-256",
         string? cipherServerToClient = null,
         string? macServerToClient = null,
-        bool extensionInfo = false)
+        bool extensionInfo = false,
+        string compression = "none")
     {
         this.keyExchange = keyExchange;
         this.hostKeyAlgorithm = hostKeyAlgorithm;
@@ -51,8 +54,10 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
             mac: mac,
             firstKexPacketFollows: firstKexPacketFollows,
             cipherServerToClient: cipherServerToClient,
-            macServerToClient: macServerToClient);
+            macServerToClient: macServerToClient,
+            compression: compression);
         ellipticKey = CurveOf(keyExchange) is { } curve ? ECDiffieHellman.Create(curve) : null;
+        curvePrivateKey = keyExchange.StartsWith("curve25519-sha256", StringComparison.Ordinal) ? RandomNumberGenerator.GetBytes(X25519.KeySize) : null;
         prime = PrimeOf(keyExchange);
         privateExponent = new BigInteger(RandomNumberGenerator.GetBytes(64), isUnsigned: true, isBigEndian: true);
     }
@@ -74,10 +79,11 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     {
         "ecdh-sha2-nistp384" => HashAlgorithmName.SHA384,
         "ecdh-sha2-nistp521" or "diffie-hellman-group16-sha512" or "diffie-hellman-group18-sha512" => HashAlgorithmName.SHA512,
+        _ when keyExchange.EndsWith("-sha1", StringComparison.Ordinal) => HashAlgorithmName.SHA1,
         _ => HashAlgorithmName.SHA256,
     };
 
-    private bool IsGroupExchange => keyExchange == "diffie-hellman-group-exchange-sha256";
+    private bool IsGroupExchange => keyExchange.StartsWith("diffie-hellman-group-exchange-", StringComparison.Ordinal);
 
     private BigInteger ClientPublicValue => BigInteger.ModPow(2, privateExponent, prime!.Value);
 
@@ -90,7 +96,7 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     /// <summary>
     /// The payloads of <see cref="MethodPackets"/>, for a client that protects them itself.
     /// </summary>
-    public byte[][] MethodPayloads() => ellipticKey is not null
+    public byte[][] MethodPayloads() => ellipticKey is not null || curvePrivateKey is not null
         ? [Concat([30], Str(ClientPoint()))]
         : IsGroupExchange
             ? [
@@ -201,24 +207,64 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
 
     private static BigInteger? PrimeOf(string keyExchange) => keyExchange switch
     {
-        "diffie-hellman-group14-sha256" => SshModpGroup.Group14.Prime,
+        "diffie-hellman-group14-sha256" or "diffie-hellman-group14-sha1" => SshModpGroup.Group14.Prime,
+        "diffie-hellman-group1-sha1" => SshModpGroup.Oakley2.Prime,
         "diffie-hellman-group16-sha512" => SshModpGroup.Group16.Prime,
         "diffie-hellman-group18-sha512" => SshModpGroup.Group18.Prime,
-        "diffie-hellman-group-exchange-sha256" => SshModpGroup.Group15.Prime,
+        "diffie-hellman-group-exchange-sha256" or "diffie-hellman-group-exchange-sha1" => SshModpGroup.Group15.Prime,
         _ => null,
     };
 
-    private static bool SignatureVerifies(byte[] hostKeyBlob, byte[] signatureBlob, byte[] exchangeHash)
+    internal static bool SignatureVerifies(byte[] hostKeyBlob, byte[] signatureBlob, byte[] exchangeHash)
     {
         var key = new SshWireReader(hostKeyBlob);
         var keyType = Encoding.ASCII.GetString(key.ReadString().Span);
+        if (keyType.EndsWith(SshHostCertificate.CertificateSuffix, StringComparison.Ordinal))
+        {
+            // PROTOCOL.certkeys: the nonce, then the certified key's public fields, which verify
+            // the signature as the key's own blob does.
+            key.ReadString();
+            keyType = keyType[..^SshHostCertificate.CertificateSuffix.Length];
+        }
+
         var signature = new SshWireReader(signatureBlob);
         var algorithm = Encoding.ASCII.GetString(signature.ReadString().Span);
         var signatureBytes = signature.ReadString().ToArray();
 
-        return keyType == "ssh-rsa"
-            ? VerifyRsa(key, algorithm, signatureBytes, exchangeHash)
-            : VerifyEcdsa(key, keyType, algorithm, signatureBytes, exchangeHash);
+        return keyType switch
+        {
+            "ssh-rsa" => VerifyRsa(key, algorithm, signatureBytes, exchangeHash),
+            "ssh-ed25519" => VerifyEd25519(key, algorithm, signatureBytes, exchangeHash),
+            "ssh-dss" => VerifyDsa(key, algorithm, signatureBytes, exchangeHash),
+            _ => VerifyEcdsa(key, keyType, algorithm, signatureBytes, exchangeHash),
+        };
+    }
+
+    // RFC 4253 section 6.6: mpint p, q, g, y; the signature is r and s as 160-bit unsigned
+    // integers, 40 bytes, over SHA-1.
+    private static bool VerifyDsa(SshWireReader key, string algorithm, byte[] signature, byte[] exchangeHash)
+    {
+        Assert.AreEqual("ssh-dss", algorithm);
+        Assert.HasCount(40, signature);
+        var p = key.ReadMpint();
+        var length = p.ToByteArray(isUnsigned: true, isBigEndian: true).Length;
+        using var dsa = DSA.Create(new DSAParameters
+        {
+            P = Fixed(p, length),
+            Q = Fixed(key.ReadMpint(), 20),
+            G = Fixed(key.ReadMpint(), length),
+            Y = Fixed(key.ReadMpint(), length),
+        });
+
+        return dsa.VerifyData(exchangeHash, signature, HashAlgorithmName.SHA1, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+    }
+
+    // RFC 8709: string the 32-byte public key; the signature is RFC 8032's 64 bytes.
+    private static bool VerifyEd25519(SshWireReader key, string algorithm, byte[] signature, byte[] exchangeHash)
+    {
+        Assert.AreEqual("ssh-ed25519", algorithm);
+
+        return Surl.Cryptography.Ed25519.Ed25519.Verify(key.ReadString().Span, exchangeHash, signature);
     }
 
     private static bool VerifyRsa(SshWireReader key, string algorithm, byte[] signature, byte[] exchangeHash)
@@ -230,6 +276,7 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
         {
             "rsa-sha2-512" => HashAlgorithmName.SHA512,
             "rsa-sha2-256" => HashAlgorithmName.SHA256,
+            "ssh-rsa" => HashAlgorithmName.SHA1,
             _ => throw new AssertFailedException($"An RSA key signed with {algorithm}."),
         };
 
@@ -266,6 +313,14 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
 
     private byte[] ClientPoint()
     {
+        if (curvePrivateKey is not null)
+        {
+            var publicKey = new byte[X25519.KeySize];
+            X25519.ComputePublicKey(curvePrivateKey, publicKey);
+
+            return publicKey;
+        }
+
         var q = ellipticKey!.ExportParameters(includePrivateParameters: false).Q;
 
         return Concat([4], q.X!, q.Y!);
@@ -275,6 +330,22 @@ internal sealed class SshTestKeyExchangeClient : IDisposable
     // value; and a reader of the server's value that returns its H field and K.
     private (SshWireReader Reply, byte[] MethodFields, Func<SshWireReader, (byte[], BigInteger)> SharedSecret) ReadMethodAnswer(List<byte[]> packets)
     {
+        if (curvePrivateKey is not null)
+        {
+            Assert.HasCount(3, packets);
+            return (Reply(packets[1], 31), Str(ClientPoint()), reply =>
+            {
+                var serverPublicKey = reply.ReadString().ToArray();
+                Assert.HasCount(X25519.KeySize, serverPublicKey);
+                var secret = new byte[X25519.KeySize];
+                X25519.ScalarMultiply(curvePrivateKey, serverPublicKey, secret);
+
+                // RFC 8731 section 3.1: the 32 bytes read as an unsigned big-endian integer.
+                return (Str(serverPublicKey), new BigInteger(secret, isUnsigned: true, isBigEndian: true));
+            }
+            );
+        }
+
         if (ellipticKey is not null)
         {
             Assert.HasCount(3, packets);

@@ -2,6 +2,7 @@ using System.Formats.Asn1;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using Surl.Cryptography.Ed25519;
 
 namespace Surl.Protocol.Ssh;
 
@@ -12,8 +13,8 @@ namespace Surl.Protocol.Ssh;
 /// the key's type and fields.
 /// </summary>
 /// <remarks>
-/// Only an unencrypted key (cipher and KDF <c>none</c>) is read; an encrypted one is refused
-/// as not available until BL-223 reads it (ADR-0051, decision 4).
+/// A key is either unencrypted (cipher and KDF <c>none</c>) or encrypted under the <c>bcrypt</c>
+/// KDF, whose private section <see cref="SshOpenSshKeyDecryption"/> decrypts with <c>--pass</c>.
 /// </remarks>
 internal static class SshOpenSshKeyDecoder
 {
@@ -22,15 +23,17 @@ internal static class SshOpenSshKeyDecoder
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("openssh-key-v1\0");
 
     /// <summary>
-    /// Decodes the body of an <c>OPENSSH PRIVATE KEY</c> block.
+    /// Decodes the body of an <c>OPENSSH PRIVATE KEY</c> block, decrypting its private section
+    /// with <paramref name="passphrase"/> when it is encrypted.
     /// </summary>
     /// <param name="body">The block's decoded body.</param>
+    /// <param name="passphrase">The <c>--pass</c> value; <see langword="null"/> when not given.</param>
     /// <param name="allowWeakAlgorithms">Whether <c>--allow-weak-ssh-algorithms</c> was given.</param>
     /// <returns>The host key.</returns>
     /// <exception cref="SshHostKeyRefusedException">The key is refused.</exception>
     /// <exception cref="SshDisconnectRequiredException">A field runs past the body's end.</exception>
     /// <exception cref="CryptographicException">The key's values do not form a key.</exception>
-    public static SshHostKey Decode(byte[] body, bool allowWeakAlgorithms)
+    public static SshHostKey Decode(byte[] body, string? passphrase, bool allowWeakAlgorithms)
     {
         if (!body.AsSpan().StartsWith(Magic))
         {
@@ -40,27 +43,39 @@ internal static class SshOpenSshKeyDecoder
         var reader = new SshWireReader(body.AsMemory(Magic.Length));
         var cipher = ReadName(reader);
         var kdf = ReadName(reader);
-        reader.ReadString();
-        if (cipher != "none")
-        {
-            throw new SshHostKeyRefusedException(SshHostKeyRefusal.EncryptedOpenSshKey);
-        }
-
-        if (kdf != "none" || reader.ReadUInt32() != 1)
+        var kdfOptions = reader.ReadString();
+        var encrypted = IsEncrypted(cipher, kdf);
+        if (reader.ReadUInt32() != 1)
         {
             throw NotAPrivateKey();
         }
 
         reader.ReadString();
+        if (!encrypted)
+        {
+            return ReadPrivateSection(new SshWireReader(reader.ReadString()), SshHostKeyRefusal.NotAPrivateKey, allowWeakAlgorithms);
+        }
 
-        return ReadPrivateSection(new SshWireReader(reader.ReadString()), allowWeakAlgorithms);
+        var section = SshOpenSshKeyDecryption.DecryptSection(reader, cipher, kdfOptions, passphrase);
+
+        return ReadPrivateSection(new SshWireReader(section), SshHostKeyRefusal.PassphraseDoesNotDecrypt, allowWeakAlgorithms);
     }
 
-    private static SshHostKey ReadPrivateSection(SshWireReader section, bool allowWeakAlgorithms)
+    // Cipher and KDF none, or a cipher under the bcrypt KDF; anything else is not a key surl reads.
+    private static bool IsEncrypted(string cipher, string kdf) => (cipher, kdf) switch
+    {
+        ("none", "none") => false,
+        (not "none", SshOpenSshKeyDecryption.BcryptKdf) => true,
+        _ => throw NotAPrivateKey(),
+    };
+
+    // The two check integers differ when the key is damaged or, encrypted, when the passphrase
+    // is wrong: checkMismatch is the refusal for that.
+    private static SshHostKey ReadPrivateSection(SshWireReader section, SshHostKeyRefusal checkMismatch, bool allowWeakAlgorithms)
     {
         if (section.ReadUInt32() != section.ReadUInt32())
         {
-            throw NotAPrivateKey();
+            throw new SshHostKeyRefusedException(checkMismatch);
         }
 
         var keyType = ReadName(section);
@@ -68,7 +83,8 @@ internal static class SshOpenSshKeyDecoder
         return keyType switch
         {
             SshRsaHostKey.RsaKeyType => ReadRsa(section, allowWeakAlgorithms),
-            "ssh-dss" => throw SshHostKeyFile.DsaRefusal(section.ReadMpint().GetBitLength(), allowWeakAlgorithms),
+            SshEd25519HostKey.Ed25519KeyType => ReadEd25519(section),
+            SshDsaHostKey.DsaKeyType => ReadDsa(section, allowWeakAlgorithms),
             _ when keyType.StartsWith(EcdsaKeyTypePrefix, StringComparison.Ordinal) => ReadEcdsa(section, keyType),
             _ => throw new SshHostKeyRefusedException(SshHostKeyRefusal.UnsupportedKeyType(keyType)),
         };
@@ -106,6 +122,40 @@ internal static class SshOpenSshKeyDecoder
         rsa.ImportRSAPrivateKey(writer.Encode(), out _);
 
         return SshHostKeyFile.FromRsa(rsa, allowWeakAlgorithms);
+    }
+
+    // p, q, g, y, x (OpenSSH's sshkey.c); y must be g^x mod p.
+    private static SshHostKey ReadDsa(SshWireReader section, bool allowWeakAlgorithms)
+    {
+        var prime = section.ReadMpint();
+        SshHostKeyFile.RequireWeakAlgorithmsForDsa(prime, allowWeakAlgorithms);
+        var subgroupOrder = section.ReadMpint();
+        var generator = section.ReadMpint();
+        var publicValue = section.ReadMpint();
+
+        return SshHostKeyFile.FromDsa(prime, subgroupOrder, generator, publicValue, section.ReadMpint());
+    }
+
+    // The 32-byte public key, then the 64-byte private key: the seed and the public key again
+    // (OpenSSH's sshkey.c). Both copies of the public key must be the seed's, so a damaged file
+    // is refused rather than serving a key its signatures do not match.
+    private static SshHostKey ReadEd25519(SshWireReader section)
+    {
+        var publicKey = section.ReadString();
+        var privateKey = section.ReadString();
+        if (privateKey.Length != 2 * Ed25519.SeedSize)
+        {
+            throw new CryptographicException("An OpenSSH Ed25519 private key is the seed and the public key.");
+        }
+
+        var key = SshEd25519HostKey.FromSeed(privateKey.Span[..Ed25519.SeedSize]);
+        var computedBlobKey = key.PublicKeyBlob[^Ed25519.PublicKeySize..].Span;
+        if (!publicKey.Span.SequenceEqual(computedBlobKey) || !privateKey.Span[Ed25519.SeedSize..].SequenceEqual(computedBlobKey))
+        {
+            throw new CryptographicException("The Ed25519 key's public key is not its seed's.");
+        }
+
+        return key;
     }
 
     // The curve's SSH name, Q, then d.

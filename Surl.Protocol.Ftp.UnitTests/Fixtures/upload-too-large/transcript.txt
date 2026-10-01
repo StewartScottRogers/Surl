@@ -1,0 +1,17 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> EPSV
+< 229 Entering Extended Passive Mode (|||62273|)
+> TYPE I
+< 200 Type set to I
+> STOR b.txt
+< 150 Opening data connection for b.txt
+= 4 bytes received on the data connection: uplo
+< 552 Upload exceeds the size limit
+> QUIT
+< 221 Goodbye

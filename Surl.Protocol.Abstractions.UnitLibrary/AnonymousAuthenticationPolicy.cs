@@ -1,38 +1,43 @@
 namespace Surl.Protocol.Abstractions;
 
 /// <summary>
-/// An <see cref="IAuthenticationPolicy"/>, <see cref="IMailAuthenticationPolicy"/> and
-/// <see cref="ISshAuthenticationPolicy"/> that lets everyone in (ADR-0032, section 6; ADR-0049,
-/// section 6; ADR-0051, section 7): every password login is
+/// An <see cref="IAuthenticationPolicy"/>, <see cref="IMailAuthenticationPolicy"/>,
+/// <see cref="ISshAuthenticationPolicy"/> and <see cref="ISmbAuthenticationPolicy"/> that lets
+/// everyone in (ADR-0032, section 6; ADR-0049, section 6; ADR-0051, section 7; ADR-0073,
+/// decision 3): every password login is
 /// <see cref="PasswordLoginVerdict.AcceptedUnchecked"/>, every HTTP request
 /// <see cref="HttpAuthenticationOutcome.Proceed"/>s with no <c>WWW-Authenticate</c> values and
-/// no account, and every mail login ends <see cref="MailLoginOutcome.AcceptedUnchecked"/> - the
-/// behaviour of <c>--allow-anonymous</c>. A mail server is offered <c>PLAIN</c> and the
-/// clear-password login but not <c>APOP</c>, and any SASL mechanism is accepted on its initial
+/// no account, and every SASL login ends <see cref="SaslLoginOutcome.AcceptedUnchecked"/>, with no
+/// security layer - the behaviour of <c>--allow-anonymous</c>. Every scheme is offered the SASL
+/// mechanism <c>PLAIN</c> alone, a mail server the clear-password login too but not <c>APOP</c>,
+/// and any SASL mechanism is accepted on its initial
 /// response, or on whatever answers one empty challenge when none was sent. Every SSH
 /// <c>none</c>, password and signed public-key login is
 /// <see cref="SshLoginOutcome.AcceptedUnchecked"/> and every public-key query
 /// <see cref="SshLoginOutcome.KeyAcceptable"/>, with no note, so upstream curl completes its login
-/// in one <c>none</c> request. It is the test double protocol tests share, and the policy a
-/// server's policy-less constructor passes until BL-117 composes the real one.
+/// in one <c>none</c> request. Every SMB NTLMv1 session setup is
+/// <see cref="SmbLoginOutcome.AcceptedUnchecked"/>, with no note. It is the test double protocol
+/// tests share, and the policy a server's policy-less constructor passes until BL-117 composes the real one.
 /// </summary>
 public sealed class AnonymousAuthenticationPolicy :
-    IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy
+    IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy, ISmbAuthenticationPolicy
 {
     private static readonly SshLoginVerdict SshAcceptUnchecked = new(SshLoginOutcome.AcceptedUnchecked, null, null);
 
     private static readonly SshLoginVerdict SshKeyAcceptable = new(SshLoginOutcome.KeyAcceptable, null, null);
+
+    private static readonly SmbLoginVerdict SmbAcceptUnchecked = new(SmbLoginOutcome.AcceptedUnchecked, null, null);
 
     private static readonly HttpAuthenticationVerdict ProceedAnonymously =
         new(HttpAuthenticationOutcome.Proceed, [], null);
 
     private static readonly MailLoginOffer PlainAndClearPasswordOffer = new(["PLAIN"], true, false);
 
-    private static readonly MailLoginStep AcceptUnchecked =
-        new(MailLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
+    private static readonly SaslLoginStep AcceptUnchecked =
+        new(SaslLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
 
-    private static readonly MailLoginStep ChallengeEmpty =
-        new(MailLoginOutcome.Challenge, ReadOnlyMemory<byte>.Empty, null, null);
+    private static readonly SaslLoginStep ChallengeEmpty =
+        new(SaslLoginOutcome.Challenge, ReadOnlyMemory<byte>.Empty, null, null);
 
     private readonly AnonymousHttpAuthenticationSession session = new();
 
@@ -53,6 +58,14 @@ public sealed class AnonymousAuthenticationPolicy :
     public MailLoginOffer GetMailLoginOffer(TlsSession? tlsSession) => PlainAndClearPasswordOffer;
 
     /// <inheritdoc/>
+    public IReadOnlyList<string> GetSaslMechanisms(SaslOfferRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return PlainAndClearPasswordOffer.SaslMechanisms;
+    }
+
+    /// <inheritdoc/>
     public ISaslExchange StartSaslExchange(SaslExchangeStart start)
     {
         ArgumentNullException.ThrowIfNull(start);
@@ -61,7 +74,7 @@ public sealed class AnonymousAuthenticationPolicy :
     }
 
     /// <inheritdoc/>
-    public ValueTask<MailLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
+    public ValueTask<SaslLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(login);
         cancellationToken.ThrowIfCancellationRequested();
@@ -97,6 +110,16 @@ public sealed class AnonymousAuthenticationPolicy :
         return ValueTask.FromResult(login.Proof == SshPublicKeyProof.None ? SshKeyAcceptable : SshAcceptUnchecked);
     }
 
+    /// <inheritdoc/>
+    public ValueTask<SmbLoginVerdict> CheckSmbNtlmV1LoginAsync(
+        SmbNtlmV1Login login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return ValueTask.FromResult(SmbAcceptUnchecked);
+    }
+
     private sealed class AnonymousHttpAuthenticationSession : IHttpAuthenticationSession
     {
         public ValueTask<HttpAuthenticationVerdict> JudgeAsync(
@@ -114,7 +137,7 @@ public sealed class AnonymousAuthenticationPolicy :
         private bool isBegun;
         private bool isAwaitingResponse;
 
-        public ValueTask<MailLoginStep> BeginAsync(CancellationToken cancellationToken)
+        public ValueTask<SaslLoginStep> BeginAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (isBegun)
@@ -127,7 +150,7 @@ public sealed class AnonymousAuthenticationPolicy :
             return ValueTask.FromResult(hasInitialResponse ? AcceptUnchecked : ChallengeEmpty);
         }
 
-        public ValueTask<MailLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
+        public ValueTask<SaslLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!isAwaitingResponse)

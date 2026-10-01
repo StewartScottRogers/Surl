@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using Surl.Content;
+using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Http;
@@ -369,34 +370,25 @@ internal sealed class HttpRequestResponder
     }
 
     private HttpResponseHead EmptyResponseHead(HttpStatus status, string? allow, bool keepsConnectionOpen, Version requestVersion) =>
-        AddWwwAuthenticateFields(new HttpResponseHead(status)
+        new HttpResponseHead(status)
             .AddField("Date", FormatHttpDate(Now()))
             .AddField("Server", HttpResponseHead.ServerName)
             .AddField("Allow", allow)
-            .AddField("Content-Length", "0"))
+            .AddField("Content-Length", "0")
+            .AddChallengeFields(wwwAuthenticateValues)
             .AddField("Connection", HttpConnectionPersistence.ConnectionFieldValue(keepsConnectionOpen, requestVersion));
-
-    // One WWW-Authenticate field per value, in order (ADR-0032, section 6).
-    private HttpResponseHead AddWwwAuthenticateFields(HttpResponseHead responseHead)
-    {
-        foreach (var value in wwwAuthenticateValues)
-        {
-            responseHead.AddField("WWW-Authenticate", value);
-        }
-
-        return responseHead;
-    }
 
     private async Task<bool> WriteFileResponseAsync(HttpRequestHead head, ContentPathMapping mapping, ContentFileStatus status, bool keepsConnectionOpen)
     {
         var now = Now();
         var lastModified = status.LastModifiedUtc < now ? status.LastModifiedUtc : now;
-        var responseHead = AddWwwAuthenticateFields(new HttpResponseHead(HttpStatus.Ok)
+        var responseHead = new HttpResponseHead(HttpStatus.Ok)
             .AddField("Date", FormatHttpDate(now))
             .AddField("Server", HttpResponseHead.ServerName)
             .AddField("Last-Modified", FormatHttpDate(lastModified))
             .AddField("Content-Type", "application/octet-stream")
-            .AddField("Content-Length", status.Length.ToString(CultureInfo.InvariantCulture)))
+            .AddField("Content-Length", status.Length.ToString(CultureInfo.InvariantCulture))
+            .AddChallengeFields(wwwAuthenticateValues)
             .AddField("Connection", HttpConnectionPersistence.ConnectionFieldValue(keepsConnectionOpen, head.Version));
 
         context.Log.Note($"{head.Method} {head.RequestTarget}: 200, {status.Length} bytes of {mapping.Location}");

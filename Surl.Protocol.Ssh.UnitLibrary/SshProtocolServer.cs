@@ -1,18 +1,23 @@
+using Surl.Content;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Ssh;
 
 /// <summary>
 /// The SSH server upstream curl's <c>scp://</c> and <c>sftp://</c> transfers talk to
-/// (ADR-0051). So far it runs the transport layer and user authentication: it exchanges
+/// (ADR-0051). It runs the transport layer and user authentication: it exchanges
 /// identification lines, sends its <c>SSH_MSG_KEXINIT</c> and agrees the algorithms with the
 /// client's, runs the key exchange method, signing the exchange hash with one of its
 /// <see cref="SshHostKeySet"/>, exchanges <c>NEWKEYS</c>, and from then on encrypts and
 /// authenticates every packet with the cipher and MAC agreed, re-keying when the client or
 /// <see cref="SshReExchangeLimits"/> asks. It then answers the <c>ssh-userauth</c> service as
 /// <see cref="SshUserAuthentication"/> says, every credential judged by its
-/// <see cref="ISshAuthenticationPolicy"/>. Channels (BL-163) are not built yet: after the login a
-/// connection-protocol message is answered <c>UNIMPLEMENTED</c>.
+/// <see cref="ISshAuthenticationPolicy"/>. After the login it runs the connection protocol as
+/// <see cref="SshConnectionProtocol"/> says: <c>session</c> channels, each <c>exec</c> of an SCP
+/// command and the <c>sftp</c> subsystem handed to its handler. Given a <see cref="ContentStore"/>,
+/// it serves it over SCP, downloads (<c>-f</c>) and uploads (<c>-t</c>), and over the <c>sftp</c>
+/// subsystem, reads and writes, as <see cref="SshContentChannelHandlers"/> says (ADR-0054); without
+/// one, both are answered <c>CHANNEL_FAILURE</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,27 +30,46 @@ namespace Surl.Protocol.Ssh;
 /// handled as <see cref="SshTransportHandshake"/> says.
 /// </para>
 /// <para>
-/// <b>Key exchange.</b> <c>ecdh-sha2-nistp256/384/521</c>, <c>diffie-hellman-group14-sha256</c>,
+/// <b>Key exchange.</b> <c>curve25519-sha256</c> and <c>curve25519-sha256@libssh.org</c>,
+/// <c>ecdh-sha2-nistp256/384/521</c>, <c>diffie-hellman-group14-sha256</c>,
 /// <c>group16-sha512</c>, <c>group18-sha512</c> and <c>diffie-hellman-group-exchange-sha256</c>
-/// are run; <c>curve25519-sha256</c> (BL-167) is <c>DISCONNECT</c> 11, "Key exchange not
-/// implemented", at its first message. A client public value that is not a point on the curve
-/// or not in 1 &lt; e &lt; p - 1 is <c>DISCONNECT</c> 2; a group exchange request no RFC 3526
+/// are run, and with an offer that <see cref="SshAlgorithmOffer.AllowsWeakAlgorithms"/>
+/// <c>diffie-hellman-group14-sha1</c>, <c>diffie-hellman-group-exchange-sha1</c> and
+/// <c>diffie-hellman-group1-sha1</c> too; a method the offer names but the server has not built is <c>DISCONNECT</c> 11, "Key
+/// exchange not implemented", at its first message. A client public value that is not a point
+/// on the curve, a curve25519 key that is not 32 bytes or gives an all-zero shared secret, or a
+/// value not in 1 &lt; e &lt; p - 1 is <c>DISCONNECT</c> 2; a group exchange request no RFC 3526
 /// group fits is <c>DISCONNECT</c> 3.
 /// </para>
 /// <para>
 /// <b>Packet protection.</b> After <c>NEWKEYS</c> each direction uses the cipher and MAC agreed
-/// for it: <c>aes256-gcm@openssh.com</c> and <c>aes128-gcm@openssh.com</c>, or
-/// <c>aes256-ctr</c>, <c>aes192-ctr</c> and <c>aes128-ctr</c> with <c>hmac-sha2-256</c>,
-/// <c>hmac-sha2-512</c> or their <c>-etm@openssh.com</c> forms. A MAC or tag that does not
-/// verify is <c>DISCONNECT</c> 5; <c>chacha20-poly1305@openssh.com</c> (BL-169) is
-/// <c>DISCONNECT</c> 11, "Packet protection not implemented", once <c>NEWKEYS</c> is exchanged.
+/// for it: <c>chacha20-poly1305@openssh.com</c>, <c>aes256-gcm@openssh.com</c> and
+/// <c>aes128-gcm@openssh.com</c>, or <c>aes256-ctr</c>, <c>aes192-ctr</c> and <c>aes128-ctr</c>
+/// with <c>hmac-sha2-256</c>, <c>hmac-sha2-512</c> or their <c>-etm@openssh.com</c> forms; with
+/// weak algorithms allowed also <c>aes256-cbc</c>, <c>rijndael-cbc@lysator.liu.se</c>,
+/// <c>aes192-cbc</c>, <c>aes128-cbc</c>, <c>3des-cbc</c>, <c>arcfour128</c> and <c>arcfour</c>,
+/// with <c>hmac-sha1</c>, <c>hmac-sha1-etm@openssh.com</c>, <c>hmac-sha1-96</c>, <c>hmac-md5</c>
+/// or <c>hmac-md5-96</c> as well. A MAC or tag that does not verify is <c>DISCONNECT</c> 5.
+/// </para>
+/// <para>
+/// <b>Compression.</b> <c>none</c>, <c>zlib@openssh.com</c> and <c>zlib</c> are offered, so
+/// upstream curl's <c>--compressed-ssh</c> needs nothing on the server. A direction that agrees
+/// <c>zlib</c> compresses every payload from <c>NEWKEYS</c> on; one that agrees
+/// <c>zlib@openssh.com</c> from the packet after <c>USERAUTH_SUCCESS</c> on. Each is one zlib
+/// stream per direction, each payload sync-flushed, and a new one after every <c>NEWKEYS</c>. A
+/// payload that does not inflate, or inflates past <see cref="ExchangeLimits.MaxMessageBytes"/>,
+/// is <c>DISCONNECT</c> 6, stopped the moment it passes the limit.
 /// </para>
 /// <para>
 /// <b>Transport messages.</b> After the first exchange a client's <c>KEXINIT</c> starts a
 /// re-exchange, and the server starts one itself before reading on once either direction has
-/// carried 1 GiB or an hour has passed under one set of keys. <c>IGNORE</c>, <c>DEBUG</c> and
+/// carried 1 GiB or an hour has passed under one set of keys. A channel or other message the
+/// client sends before it answers the server's <c>KEXINIT</c> is answered after the server's
+/// <c>NEWKEYS</c>, in the order it came (ADR-0060). <c>IGNORE</c>, <c>DEBUG</c> and
 /// <c>UNIMPLEMENTED</c> are skipped, and any other message the server does not know is answered
-/// <c>UNIMPLEMENTED</c> with its sequence number (RFC 4253, section 11.4). A client whose
+/// <c>UNIMPLEMENTED</c> with its sequence number (RFC 4253, section 11.4); so is a
+/// connection-protocol message the server never expects, such as a reply to a request it did not
+/// send. A connection-protocol message before the login is <c>DISCONNECT</c> 2. A client whose
 /// first <c>KEXINIT</c> lists <c>ext-info-c</c> is sent <c>EXT_INFO</c> with
 /// <c>server-sig-algs</c> right after the first <c>NEWKEYS</c> (RFC 8308).
 /// </para>
@@ -69,6 +93,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     private readonly ISshRandomSource randomSource;
     private readonly ISshAuthenticationPolicy authenticationPolicy;
     private readonly SshReExchangeLimits reExchangeLimits;
+    private readonly ISshChannelHandlers channelHandlers;
 
     /// <summary>
     /// Creates an SSH server that serves <paramref name="hostKeys"/>, offers <paramref name="offer"/>
@@ -88,6 +113,21 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     }
 
     /// <summary>
+    /// Creates an SSH server that also serves <paramref name="contentStore"/> over the <c>sftp</c>
+    /// subsystem (ADR-0054, decisions 5 to 8).
+    /// </summary>
+    /// <param name="hostKeys">The host keys; <paramref name="offer"/>'s host-key algorithms are theirs.</param>
+    /// <param name="offer">The algorithms the server's <c>KEXINIT</c> offers.</param>
+    /// <param name="authenticationPolicy">Who may log in (ADR-0051, decision 7).</param>
+    /// <param name="randomSource">Where the cookie, the padding and a finite-field private exponent come from.</param>
+    /// <param name="contentStore">The content store SFTP reads.</param>
+    /// <exception cref="ArgumentException"><paramref name="offer"/> names a host-key algorithm no key in <paramref name="hostKeys"/> signs with.</exception>
+    public SshProtocolServer(SshHostKeySet hostKeys, SshAlgorithmOffer offer, ISshAuthenticationPolicy authenticationPolicy, ISshRandomSource randomSource, ContentStore contentStore)
+        : this(hostKeys, offer, authenticationPolicy, randomSource, SshReExchangeLimits.Default, new SshContentChannelHandlers(contentStore))
+    {
+    }
+
+    /// <summary>
     /// Creates an SSH server that re-keys itself at <paramref name="reExchangeLimits"/>.
     /// </summary>
     /// <param name="hostKeys">The host keys; <paramref name="offer"/>'s host-key algorithms are theirs.</param>
@@ -95,13 +135,18 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     /// <param name="authenticationPolicy">Who may log in.</param>
     /// <param name="randomSource">Where the cookie, the padding and a finite-field private exponent come from.</param>
     /// <param name="reExchangeLimits">When the server starts a key re-exchange itself.</param>
+    /// <param name="channelHandlers">
+    /// The handlers an accepted <c>exec</c> or <c>subsystem</c> goes to;
+    /// <see cref="SshNoChannelHandlers"/> when <see langword="null"/>.
+    /// </param>
     /// <exception cref="ArgumentException"><paramref name="offer"/> names a host-key algorithm no key in <paramref name="hostKeys"/> signs with.</exception>
     internal SshProtocolServer(
         SshHostKeySet hostKeys,
         SshAlgorithmOffer offer,
         ISshAuthenticationPolicy authenticationPolicy,
         ISshRandomSource randomSource,
-        SshReExchangeLimits reExchangeLimits)
+        SshReExchangeLimits reExchangeLimits,
+        ISshChannelHandlers? channelHandlers = null)
     {
         ArgumentNullException.ThrowIfNull(hostKeys);
         ArgumentNullException.ThrowIfNull(offer);
@@ -118,6 +163,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
         this.randomSource = randomSource;
         this.authenticationPolicy = authenticationPolicy;
         this.reExchangeLimits = reExchangeLimits;
+        this.channelHandlers = channelHandlers ?? SshNoChannelHandlers.Instance;
     }
 
     /// <summary>
@@ -138,7 +184,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
 
         using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
-        var transport = new SshTransportHandshake(connection, context, offer, hostKeys, randomSource, reExchangeLimits);
+        using var transport = new SshTransportHandshake(connection, context, offer, hostKeys, randomSource, reExchangeLimits);
         try
         {
             var firstExchange = await transport.RunAsync(cancellation.Token);
@@ -147,8 +193,17 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 authenticationPolicy,
                 context.Log,
                 firstExchange.SessionIdentifier,
-                () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan));
-            await AnswerMessagesAsync(transport, authentication, cancellation.Token);
+                () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan),
+                offer.AllowsWeakAlgorithms);
+            var connectionProtocol = new SshConnectionProtocol(transport, channelHandlers, context);
+
+            // However the message loop ends, every channel ends and its handler returns before
+            // the loop's outcome - its exception included - is taken up below.
+            var answering = AnswerMessagesAsync(transport, authentication, connectionProtocol, cancellation.Token);
+            await Task.WhenAny(answering);
+            await connectionProtocol.EndChannelsAsync();
+            connectionProtocol.Dispose();
+            await answering;
         }
         catch (SshExchangeEndedException ended) when (ended.Note is not null)
         {
@@ -174,13 +229,14 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     private static async Task AnswerMessagesAsync(
         SshTransportHandshake transport,
         SshUserAuthentication authentication,
+        SshConnectionProtocol connectionProtocol,
         CancellationToken cancellationToken)
     {
         while (true)
         {
             if (transport.ReExchangeIsDue)
             {
-                await transport.ReExchangeAsync(null, cancellationToken);
+                await connectionProtocol.ReExchangeAsync(null, cancellationToken);
             }
 
             byte[] payload;
@@ -193,13 +249,14 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 return;
             }
 
-            await AnswerMessageAsync(transport, authentication, payload, cancellationToken);
+            await AnswerMessageAsync(transport, authentication, connectionProtocol, payload, cancellationToken);
         }
     }
 
     private static async Task AnswerMessageAsync(
         SshTransportHandshake transport,
         SshUserAuthentication authentication,
+        SshConnectionProtocol connectionProtocol,
         byte[] payload,
         CancellationToken cancellationToken)
     {
@@ -208,13 +265,16 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
             case SshMessageNumber.Ignore or SshMessageNumber.Debug or SshMessageNumber.Unimplemented:
                 return;
             case SshMessageNumber.KeyExchangeInit:
-                await transport.ReExchangeAsync(payload, cancellationToken);
+                await connectionProtocol.ReExchangeAsync(payload, cancellationToken);
                 return;
             case var messageNumber when SshUserAuthentication.Answers(messageNumber):
                 await authentication.AnswerAsync(payload, cancellationToken);
                 return;
+            case var messageNumber when authentication.IsLoggedIn && SshConnectionProtocol.Answers(messageNumber):
+                await connectionProtocol.AnswerAsync(payload, cancellationToken);
+                return;
             default:
-                await AnswerUnknownMessageAsync(transport, authentication, payload[0], cancellationToken);
+                await AnswerUnknownMessageAsync(transport, authentication, connectionProtocol, payload[0], cancellationToken);
                 return;
         }
     }
@@ -224,6 +284,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
     private static ValueTask AnswerUnknownMessageAsync(
         SshTransportHandshake transport,
         SshUserAuthentication authentication,
+        SshConnectionProtocol connectionProtocol,
         byte messageNumber,
         CancellationToken cancellationToken)
     {
@@ -234,9 +295,9 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
 
         var unimplemented = new SshWireWriter();
         unimplemented.WriteByte(SshMessageNumber.Unimplemented);
-        unimplemented.WriteUInt32(unchecked(transport.PacketReader!.SequenceNumber - 1));
+        unimplemented.WriteUInt32(transport.LastMessageSequenceNumber);
 
-        return transport.WriteAsync(unimplemented.ToArray(), cancellationToken);
+        return connectionProtocol.WriteAsync(unimplemented.ToArray(), cancellationToken);
     }
 
     // The DISCONNECT gets one second to be written, sealed with the server's keys in force, and

@@ -153,6 +153,12 @@ public sealed record SurlCommandLine
     public string? UserFile { get; init; }
 
     /// <summary>
+    /// <c>--keytab</c>: the MIT keytab file of Kerberos service keys, as given; none by default.
+    /// It is read when surl starts serving, not while parsing (ADR-0057 decision 1).
+    /// </summary>
+    public string? KeytabFile { get; init; }
+
+    /// <summary>
     /// <c>--allow-anonymous</c>: accept every request and login without checking credentials.
     /// Off by default.
     /// </summary>
@@ -213,6 +219,24 @@ public sealed record SurlCommandLine
     /// Off by default.
     /// </summary>
     public bool AllowWeakSshAlgorithms { get; init; }
+
+    /// <summary>
+    /// The SSH cipher names of the last <c>--ssh-ciphers</c>, as given and in the order given, the
+    /// only ciphers the SSH server offers (ADR-0066); <see langword="null"/> when it was not given.
+    /// </summary>
+    public IReadOnlyList<string>? SshCiphers { get; init; }
+
+    /// <summary>
+    /// The SSH MAC names of the last <c>--ssh-macs</c>, as given and in the order given, the only
+    /// MACs the SSH server offers (ADR-0066); <see langword="null"/> when it was not given.
+    /// </summary>
+    public IReadOnlyList<string>? SshMacs { get; init; }
+
+    /// <summary>
+    /// <c>--ws-echo</c>: the WebSocket server echoes every client message instead of sending the
+    /// requested path (ADR-0071 decision 4). Off by default.
+    /// </summary>
+    public bool WsEcho { get; init; }
 
     /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
     private static readonly IReadOnlyList<string> DefaultAuthenticationMethods =

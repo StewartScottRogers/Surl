@@ -50,7 +50,9 @@ public sealed class UpstreamCurlLocator(IUpstreamCurlFileAccess fileAccess)
         ArgumentNullException.ThrowIfNull(pins);
         ArgumentNullException.ThrowIfNull(platform);
 
-        var candidates = pins.Where(pin => pin.Platform == platform && pin.Role == role).ToList();
+        var candidates = pins
+            .Where(pin => pin.Kind == UpstreamCurlBuildKind.Curl && pin.Platform == platform && pin.Role == role)
+            .ToList();
 
         return candidates.Count == 0
             ? UpstreamCurlLocation.NoPinnedBuild(platform, role)
@@ -85,7 +87,8 @@ public sealed class UpstreamCurlLocator(IUpstreamCurlFileAccess fileAccess)
         ArgumentNullException.ThrowIfNull(protocol);
 
         var supporting = pins
-            .Where(pin => pin.Platform == platform
+            .Where(pin => pin.Kind == UpstreamCurlBuildKind.Curl
+                && pin.Platform == platform
                 && pin.Protocols.Contains(protocol, StringComparer.OrdinalIgnoreCase))
             .ToList();
         var references = supporting.Where(pin => pin.Role == UpstreamCurlBuildRole.Reference).ToList();
@@ -113,36 +116,83 @@ public sealed class UpstreamCurlLocator(IUpstreamCurlFileAccess fileAccess)
                 return UpstreamCurlLocation.Found(candidate);
             }
 
-            refusal ??= new UnpinnedUpstreamCurlException(candidate.DefaultPath, sha256);
+            refusal ??= new UnpinnedUpstreamCurlException(candidate.DefaultPath, sha256, candidate.Kind);
         }
 
         return refusal is null ? UpstreamCurlLocation.FileAbsent(candidates[0]) : throw refusal;
     }
 
     /// <summary>
-    /// Checks that the curl at <paramref name="path"/> is one of the pinned builds, whatever
+    /// Finds the first libcurl pinned for <paramref name="platform"/> whose file exists at its
+    /// default path and hashes to its pin, for a driver of libcurl's API to load (ADR-0071
+    /// decision 10). A curl executable's pin is never returned.
+    /// </summary>
+    /// <param name="pins">The builds <c>UpstreamCurlBuilds.json</c> pins.</param>
+    /// <param name="platform">The platform to find a library for, such as <c>win-x64</c>.</param>
+    /// <returns>
+    /// The verified library, or a location saying that no library is pinned for the platform,
+    /// as on Linux and macOS, whose static builds carry none, or that its file does not exist.
+    /// </returns>
+    /// <exception cref="UnpinnedUpstreamCurlException">
+    /// A pinned library's file exists but hashes to something else, and no other pinned library
+    /// of the platform verifies.
+    /// </exception>
+    public UpstreamCurlLocation LocateLibrary(IReadOnlyList<PinnedUpstreamCurlBuild> pins, string platform)
+    {
+        ArgumentNullException.ThrowIfNull(pins);
+        ArgumentNullException.ThrowIfNull(platform);
+
+        var candidates = pins
+            .Where(pin => pin.Kind == UpstreamCurlBuildKind.Library && pin.Platform == platform)
+            .ToList();
+
+        return candidates.Count == 0
+            ? UpstreamCurlLocation.NoPinnedLibrary(platform)
+            : VerifyFirstPresent(candidates);
+    }
+
+    /// <summary>
+    /// Checks that the curl at <paramref name="path"/> is one of the pinned curl builds, whatever
     /// its platform or role, as <c>Assert-PinnedUpstreamCurl</c> does for a curl named on
-    /// <c>Record-CurlExchange.ps1</c>'s command line.
+    /// <c>Record-CurlExchange.ps1</c>'s command line. A pinned libcurl is never a curl to run.
     /// </summary>
     /// <param name="pins">The builds <c>UpstreamCurlBuilds.json</c> pins.</param>
     /// <param name="path">The path of the curl executable.</param>
-    /// <returns>The first pinned build whose SHA-256 the file matches.</returns>
-    /// <exception cref="UnpinnedUpstreamCurlException">The file's SHA-256 matches no pin.</exception>
+    /// <returns>The first pinned curl build whose SHA-256 the file matches.</returns>
+    /// <exception cref="UnpinnedUpstreamCurlException">The file's SHA-256 matches no curl pin.</exception>
     /// <exception cref="FileNotFoundException">No file exists at <paramref name="path"/>.</exception>
-    public PinnedUpstreamCurlBuild RequirePinned(IReadOnlyList<PinnedUpstreamCurlBuild> pins, string path)
+    public PinnedUpstreamCurlBuild RequirePinned(IReadOnlyList<PinnedUpstreamCurlBuild> pins, string path) =>
+        RequirePinnedOfKind(pins, path, UpstreamCurlBuildKind.Curl);
+
+    /// <summary>
+    /// Checks that the libcurl at <paramref name="path"/> is one of the pinned libraries, as
+    /// <c>Assert-PinnedUpstreamCurl -Kind library</c> does for the library
+    /// <c>Record-CurlExchange.ps1 -Libcurl</c> names. A pinned curl executable is never a
+    /// library to load.
+    /// </summary>
+    /// <param name="pins">The builds <c>UpstreamCurlBuilds.json</c> pins.</param>
+    /// <param name="path">The path of the shared library.</param>
+    /// <returns>The first pinned library whose SHA-256 the file matches.</returns>
+    /// <exception cref="UnpinnedUpstreamCurlException">The file's SHA-256 matches no library pin.</exception>
+    /// <exception cref="FileNotFoundException">No file exists at <paramref name="path"/>.</exception>
+    public PinnedUpstreamCurlBuild RequirePinnedLibrary(IReadOnlyList<PinnedUpstreamCurlBuild> pins, string path) =>
+        RequirePinnedOfKind(pins, path, UpstreamCurlBuildKind.Library);
+
+    private PinnedUpstreamCurlBuild RequirePinnedOfKind(IReadOnlyList<PinnedUpstreamCurlBuild> pins, string path, UpstreamCurlBuildKind kind)
     {
         ArgumentNullException.ThrowIfNull(pins);
         ArgumentNullException.ThrowIfNull(path);
 
         if (!fileAccess.FileExists(path))
         {
-            throw new FileNotFoundException($"The curl to run, {path}, was not found.", path);
+            var what = kind == UpstreamCurlBuildKind.Library ? "libcurl to load" : "curl to run";
+            throw new FileNotFoundException($"The {what}, {path}, was not found.", path);
         }
 
         var sha256 = HashFile(path);
 
-        return pins.FirstOrDefault(pin => MatchesPin(sha256, pin))
-            ?? throw new UnpinnedUpstreamCurlException(path, sha256);
+        return pins.FirstOrDefault(pin => pin.Kind == kind && MatchesPin(sha256, pin))
+            ?? throw new UnpinnedUpstreamCurlException(path, sha256, kind);
     }
 
     /// <summary>
