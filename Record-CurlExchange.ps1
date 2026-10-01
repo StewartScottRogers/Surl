@@ -356,6 +356,12 @@
     followed by server frames written in \xHH. Curl's frames after the upgrade (a masked
     PONG, a CLOSE) are then recorded like any other burst.
 
+    For RTSP (rtsp://), a reply may carry {CSEQ}, which is replaced, when the reply is
+    sent, with the value of the last CSeq field curl has sent on the connection, so each
+    response echoes the request it answers, e.g.
+    'RTSP/1.0 200 OK\r\nCSeq: {CSEQ}\r\nPublic: OPTIONS\r\n\r\n'. A 401 and the reply
+    to the retried request are given as two replies, one per pause.
+
 .PARAMETER RawReplyFirst
     With -Raw, send the first RawReply as soon as the connection is accepted, before
     reading anything, for a protocol where the server speaks first, such as DICT's 220
@@ -1890,10 +1896,23 @@ $serveRawSession = {
         return , $latin1.GetBytes($text.Replace('{WS_ACCEPT}', $accept))
     }
 
+    # A reply's {CSEQ}, replaced with the value of the last CSeq field curl sent so far
+    # (RFC 2326 section 12.17), so an RTSP response echoes the request it answers.
+    function Resolve-RtspCSeq {
+        param([byte[]] $Reply)
+        $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+        $text = $latin1.GetString($Reply)
+        if (-not $text.Contains('{CSEQ}')) { return , $Reply }
+        $fields = [regex]::Matches($latin1.GetString($received.ToArray()), '(?im)^CSeq:[ \t]*([^\r\n]*?)[ \t]*\r?$')
+        $cseq = if ($fields.Count -gt 0) { $fields[$fields.Count - 1].Groups[1].Value } else { '' }
+        return , $latin1.GetBytes($text.Replace('{CSEQ}', $cseq))
+    }
+
     # Sends one reply; $false once curl has hung up and it could not be sent.
     function Send-RawReply {
         param($Socket, [byte[]] $Reply)
         $Reply = Resolve-WebSocketAccept -Reply $Reply
+        $Reply = Resolve-RtspCSeq -Reply $Reply
         try {
             if ($null -ne $tlsRead.Stream) {
                 $tlsRead.Stream.Write($Reply, 0, $Reply.Length)
