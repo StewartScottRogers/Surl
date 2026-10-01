@@ -96,7 +96,7 @@ holds an NTLMv2 answer for `tester`, empty domain. The builds hash `pässword` d
 
 The reference build has no `Unicode` feature and hands SSPI an ANSI identity; static-curl's has
 it and hands SSPI the password as UTF-16. Upstream curl's own NTLM code, which the Linux and macOS
-builds use, widens each UTF-8 byte instead; those builds are not on this machine (BL-322).
+builds use, widens each UTF-8 byte instead; those builds are not on this machine (BL-324).
 
 ## Negotiate (BL-121)
 

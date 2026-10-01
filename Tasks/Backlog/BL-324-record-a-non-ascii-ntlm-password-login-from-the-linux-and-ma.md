@@ -1,5 +1,5 @@
 ---
-id: BL-322
+id: BL-324
 title: Record a non-ASCII NTLM password login from the Linux and macOS upstream curl builds
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-014
 created: 2026-09-30
 completed:
 ---
-# BL-322 — Record a non-ASCII NTLM password login from the Linux and macOS upstream curl builds
+# BL-324 — Record a non-ASCII NTLM password login from the Linux and macOS upstream curl builds
 
 ## Goal
 

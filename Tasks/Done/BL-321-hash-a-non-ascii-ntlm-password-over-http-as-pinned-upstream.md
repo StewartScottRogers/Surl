@@ -40,7 +40,7 @@ the password the way that build computes it.
       is accepted. (Both Windows builds on this machine, from the command line and a `-K` file:
       `NtlmAuthenticationMethodTests.RecordedAuthenticate_NonAsciiPassword_IsAcceptedAsTheAccount`.
       The Linux and macOS builds are not installed here; their hash is tested synthesized and
-      recording them is BL-322.)
+      recording them is BL-324.)
 - [x] An ASCII-password NTLM fixture that passes today still passes.
 - [x] `dotnet build` is clean, the fast tests are green, and `Measure-CodeQuality.ps1` reports no
       failing member for `Surl.Authentication.UnitLibrary`.
@@ -60,9 +60,9 @@ the password the way that build computes it.
   `CodePagesEncodingProvider.Instance`, in the shared framework, so no package. Each extra hash
   is a deterministic form of the same password, admitting only a near-guess of it.
 - The ADR could not be written here: `Documentation/Planning/Decisions` is held by BL-285 in
-  Doing and is outside this task's `touches`. Filed BL-323 to record it, with the decision text.
+  Doing and is outside this task's `touches`. Filed BL-325 to record it, with the decision text.
 - The Linux and macOS builds are not on this machine (CI downloads them, ADR-0016) and a download
-  needs Stewart, so the widened-UTF-8 hash is tested with a synthesized answer; BL-322 records the
+  needs Stewart, so the widened-UTF-8 hash is tested with a synthesized answer; BL-324 records the
   real ones.
 - SASL `NTLM` and Negotiate carrying NTLM share `NtlmHandshake`, so they get the same hashes.
 
@@ -70,4 +70,4 @@ the password the way that build computes it.
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
-- 2026-09-30: Doing -> Done. NTLM accounts keep four NT hashes, so a non-ASCII password logs in from both pinned Windows builds (and curl's own widened-UTF-8 form); filed BL-322, BL-323
+- 2026-09-30: Doing -> Done. NTLM accounts keep four NT hashes, so a non-ASCII password logs in from both pinned Windows builds (and curl's own widened-UTF-8 form); filed BL-324, BL-325

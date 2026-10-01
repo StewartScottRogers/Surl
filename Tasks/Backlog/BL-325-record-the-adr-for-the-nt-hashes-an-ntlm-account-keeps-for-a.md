@@ -1,5 +1,5 @@
 ---
-id: BL-323
+id: BL-325
 title: Record the ADR for the NT hashes an NTLM account keeps for a non-ASCII password
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-014
 created: 2026-09-30
 completed:
 ---
-# BL-323 — Record the ADR for the NT hashes an NTLM account keeps for a non-ASCII password
+# BL-325 — Record the ADR for the NT hashes an NTLM account keeps for a non-ASCII password
 
 ## Goal
 
@@ -33,7 +33,7 @@ implemented: every NTLM account keeps four NT hashes and accepts an answer provi
     `MD4(UTF-16LE(cp437(UTF-8(password))))` from a `-K` file, on a machine with ANSI code page
     1252 and OEM code page 437.
   - Upstream curl's own NTLM code (Linux and macOS builds) widens each UTF-8 byte
-    (`lib/curl_ntlm_core.c` at `curl-8_21_0`); recording it is BL-322.
+    (`lib/curl_ntlm_core.c` at `curl-8_21_0`); recording it is BL-324.
 - What the ADR must say: the four hashes and which build each serves; that the code pages 1252
   and 437 are fixed (US-English Windows, the machine the reference build was measured on) and a
   client with other code pages is not matched; that each extra hash is a deterministic form of
