@@ -181,7 +181,8 @@ BL-269 pins the behaviour in a test.
 ## Consequences
 
 - Nothing in surl changes; ADR-0057 decisions 8 and 9 stay as decided from the RFCs and curl's
-  source until BL-268 measures them.
+  source until BL-268 measures them. BL-268 measured them on 2026-09-30 (ADR-0057 Amendment 1):
+  both hold, and pinned curl logged in to `surl --keytab` in all 14 cases measured.
 - Until Stewart does BL-265, BL-268 and BL-269 wait, and the Kerberos Integration tests, once
   written, are `Inconclusive` everywhere.
 - `Surl.Kerberos.TestKdc.UnitLibrary` and its tests join the solution as a test fixture library,

@@ -4,6 +4,9 @@
 - **Date:** 2026-09-30
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30,
   in BL-217 (FR-046).
+- **Amended by:** Amendment 1 below (BL-268): decisions 8 and 9 measured against the test KDC
+  of [ADR-0065](ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md);
+  both hold.
 - **Amends:** [ADR-0040](ADR-0040-http-negotiate-carrying-ntlm-bare-or-in-spnego.md) decision 3
   (a Kerberos token inside Negotiate is no longer refused once a keytab is configured, decision 8
   below); [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)
@@ -420,3 +423,95 @@ Every Kerberos test is a fast test, platform-neutral, with no KDC, no network an
   end-to-end proof waits for BL-242.
 - `Surl.Kerberos.UnitLibrary` and its tests join the solution; `Surl.Authentication` references
   it, and the product overview's "Layers" row says so (BL-243).
+
+## Amendment 1 - decisions 8 and 9 measured against the test KDC (BL-268, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, as
+[ADR-0065](ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md)
+decision 6 asks. **Both decisions hold; nothing in surl changes, and no task is filed.**
+
+### How it was measured
+
+On the lane machine (Windows 11 Pro 10.0.26200, a workgroup member) with BL-265's realm mapping
+(`ksetup` shows `SURL.TEST: kdc = 127.0.0.1`), the hand-built test KDC of ADR-0065 decision 1
+(`Run-KerberosTestKdc.cs`) serving `tester@SURL.TEST` and the service principals
+`HTTP/web.surl.test`, `smtp/mail.surl.test`, `imap/mail.surl.test` and `pop/mail.surl.test`,
+with these builds:
+
+| Build | Path | SHA-256 | Version |
+| --- | --- | --- | --- |
+| Windows reference | `C:\Program Files\Git\mingw64\bin\curl.exe` | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 8.21.0 |
+| Unpatched static-curl, HTTP Negotiate only (ADR-0042) | `C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe` | `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648` | 8.21.0 |
+
+- **The token alone**: `Record-CurlExchange.ps1 -KerberosTestKdc -KerberosPassword
+  surl-test-password -KerberosServicePrincipal HTTP/web.surl.test` with the canned
+  `401 WWW-Authenticate: Negotiate` and `-CurlArgs -sS --negotiate -u
+  tester@SURL.TEST:surl-test-password --resolve web.surl.test:18080:127.0.0.1
+  http://web.surl.test:18080/`: curl exits 0, `kdc.log` shows the AS exchange answered
+  `KDC_ERR_PREAUTH_REQUIRED` (25), the AS exchange with pre-authentication, and the TGS exchange
+  for `HTTP/web.surl.test`, each ticket `aes256-cts-hmac-sha1-96` (18).
+- **The whole exchange**: the test KDC started once with all four principals, its
+  `service.keytab` handed to four `surl --keytab service.keytab --user-file users.txt` (one
+  account, `tester@SURL.TEST`), `--auth negotiate` on `http://127.0.0.1:18180/` and
+  `--auth gssapi` on `smtp://127.0.0.1:18125/`, `imap://127.0.0.1:18143/` and
+  `pop3://127.0.0.1:18110/`; then `Record-CurlExchange.ps1 -NoServer` ran 14 cases: HTTP
+  `--negotiate` with each build, and for each of SMTP, IMAP and POP3 the reference build with
+  `--login-options AUTH=GSSAPI -u tester@SURL.TEST:surl-test-password --resolve
+  mail.surl.test:<port>:127.0.0.1`, with and without `--sasl-ir`, with and without
+  `--sasl-authzid tester@SURL.TEST`. **Every case exits 0** and its login is accepted.
+- Each token was taken from curl's `-v` output and decoded with the run's `service.keytab`: the
+  ticket decrypted with the service key (key usage 2), the authenticator with the ticket's
+  session key (key usage 11), and the client's wrap token read with the authenticator's subkey.
+
+### HTTP Negotiate (decision 8)
+
+| | Reference build | Static-curl build |
+| --- | --- | --- |
+| Sent | On the first request, unasked: with `--negotiate` the only method, curl picks it at once | The same |
+| Outer token | SPNEGO `NegTokenInit` (`1.3.6.1.5.5.2`), 701 bytes | The same, 713 bytes |
+| `mechTypes`, in order | `1.2.840.48018.1.2.2` (Microsoft Kerberos), `1.2.840.113554.1.2.2` (Kerberos), `1.3.6.1.4.1.311.2.2.30` (NEGOEX) | The same three, then `1.3.6.1.4.1.311.2.2.10` (NTLM) |
+| `reqFlags` | none | none |
+| Optimistic token | A Kerberos AP-REQ, framed `[APPLICATION 0]` with the **standard** OID `1.2.840.113554.1.2.2` (not the Microsoft one the list leads with), `TOK_ID` `01 00` | The same |
+| `ap-options` | `20000000`: `mutual-required` set, `use-session-key` clear | The same |
+| Authenticator checksum | type `0x8003`, 24 bytes: `Lgth` 16, zero channel bindings, flags `0x3E` (`MUTUAL`, `REPLAY`, `SEQUENCE`, `CONF`, `INTEG`; no `DELEG`) | The same |
+| Authenticator | an aes256 subkey, a sequence number, and `AD-IF-RELEVANT` holding types 143 (`00 40 00 00`) and 144 (the target `HTTP/web.surl.test@SURL.TEST`, UTF-16LE) | The same |
+| `mechListMIC` | **not sent** | **not sent** |
+| surl's answer | `negTokenResp { negState accept-completed, supportedMech 1.2.840.48018.1.2.2, responseToken <AP-REP token, standard OID> }`, no `mechListMIC`; curl exits 0 with no complaint in `-v` | The same |
+
+Decision 8 holds: Kerberos (under the Microsoft OID) is the first mechanism listed, so ADR-0064
+decision 1's refusal of Kerberos-not-first never fires for either build; the optimistic token is
+its AP-REQ; with no `mechListMIC` from the client, surl sends none; and the echoed Microsoft OID is
+accepted. One detail decision 8 did not spell out is now measured: the AP-REQ inside the SPNEGO
+token is framed with the standard Kerberos OID even though the list leads with Microsoft's, which
+`KerberosAcceptor.AcceptInsideSpnego` already accepts (it takes either OID). Without a KDC the
+static-curl build falls back to bare NTLM (Context above); with one it sends SPNEGO and Kerberos.
+
+### SASL `GSSAPI` (decision 9)
+
+Identical in every case except where the table says otherwise:
+
+| | SMTP | IMAP | POP3 |
+| --- | --- | --- | --- |
+| How the initial token travels, without `--sasl-ir` | `AUTH GSSAPI`, `334 `, the token | `AUTHENTICATE GSSAPI <token>` (surl advertises `SASL-IR`, and curl's IMAP sends an initial response whenever the server does) | `AUTH GSSAPI`, `+ `, the token |
+| With `--sasl-ir` | the same: the 852-character token would make the `AUTH` line longer than curl's 512-byte SMTP limit, so curl sends it after the `334` | the same | the same: over curl's 255-byte POP3 limit |
+
+- **The initial token** is a bare RFC 1964 `InitialContextToken` (`[APPLICATION 0]`, OID
+  `1.2.840.113554.1.2.2`, `TOK_ID` `01 00`, the AP-REQ), not SPNEGO: 638 bytes for `smtp` and
+  `imap`, 635 for `pop`.
+- **`mutual-required` is not set**: `ap-options` `00000000`, and the authenticator checksum
+  (type `0x8003`, `Lgth` 16, zero channel bindings) has flags `0x00000000`. The authenticator
+  carries an aes256 subkey and a sequence number. So no AP-REP is asked for, and curl reads surl's
+  next challenge, the wrapped `01 00 00 00` offer, at once.
+- **The client's answer** is an RFC 4121 wrap token, `TOK_ID` `05 04`, flags `00` (no
+  confidentiality, no acceptor subkey), `EC` 12, **`RRC` 12** (Windows rotates the 12-byte
+  checksum to the front, which surl undoes, decision 5), its sequence number the authenticator's.
+  Unwrapped it is:
+  - without `--sasl-authzid`: `01 00 00 00` - the no-security-layer bit alone, a maximum size of
+    0 and an empty authorization identity;
+  - with `--sasl-authzid tester@SURL.TEST`: `01 00 00 00` followed by `tester@SURL.TEST` in UTF-8.
+
+Decision 9 holds at every step: the bare `InitialContextToken`, no mutual authentication, the
+4-byte offer curl accepts, and a choice of `01` with the identity after the 3 size bytes, empty or
+equal to the ticket's client principal. SMTP and POP3 never carry curl's `GSSAPI` token as an
+initial response, because of the line limits above; surl's initial-response path for them is
+still right for a client with a shorter token, and IMAP exercises it.
