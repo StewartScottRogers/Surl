@@ -1,0 +1,17 @@
+> GET /chat HTTP/1.1
+> Host: 127.0.0.1:18301
+> User-Agent: curl/8.21.0
+> Accept: */*
+> Upgrade: websocket
+> Sec-WebSocket-Version: 13
+> Sec-WebSocket-Key: szGrtY8MlApNe9oYLpNz0A==
+> Connection: Upgrade
+> 
+< HTTP/1.1 101 Switching Protocols
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Upgrade: websocket
+< Connection: Upgrade
+< Sec-WebSocket-Accept: ktpdlwK4CWD8HWwKyLX0kug7bZ8=
+< 
+< \x88\x00
