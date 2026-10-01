@@ -405,6 +405,18 @@ public sealed partial class AiHelpTextTests
     }
 
     [TestMethod]
+    public void Answer_Ldap_SaysKeytabAnswersANegotiateBindWithKerberosAndNtlmWithoutIt()
+    {
+        var page = AiHelpText.Answer("ldap").Output;
+
+        StringAssert.Contains(page, "With `--keytab` and `--auth negotiate`, the Windows curl's Negotiate bind to `ldap://localhost:<port>`");
+        StringAssert.Contains(page, "answered with Kerberos inside `GSS-SPNEGO`");
+        StringAssert.Contains(page, "the service principal `ldap/<the machine's host name>:<port>`, with the port");
+        StringAssert.Contains(page, "sealed in RFC 4121 wrap tokens");
+        StringAssert.Contains(page, "without `--keytab` the Negotiate bind is answered with NTLM");
+    }
+
+    [TestMethod]
     public void Answer_ExitCodes_IsPinned()
     {
         string[] expected =
