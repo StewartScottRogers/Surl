@@ -56,3 +56,4 @@ operation, as BL-284's ADR decides, replaying request bytes recorded from that b
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
