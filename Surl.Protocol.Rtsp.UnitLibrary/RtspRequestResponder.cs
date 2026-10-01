@@ -10,7 +10,7 @@ namespace Surl.Protocol.Rtsp;
 /// Writes the response to each request read from one connection, as
 /// <see cref="RtspProtocolServer"/> describes, and says whether the connection stays open.
 /// </summary>
-internal sealed class RtspRequestResponder
+internal sealed partial class RtspRequestResponder
 {
     /// <summary>
     /// How long a refusal that closes the connection may take to write before the server gives
@@ -32,6 +32,19 @@ internal sealed class RtspRequestResponder
 
     private static readonly string[] RtspMethods = PublicMethods.Split(", ");
 
+    // How each method served is answered once decision 2's checks have passed.
+    private static readonly Dictionary<string, Func<RtspRequestResponder, HttpRequestHead, string, Task<bool>>> MethodAnswers = new(StringComparer.Ordinal)
+    {
+        ["OPTIONS"] = (responder, _, cseq) => responder.RespondAsync(responder.ResponseHead(RtspStatus.Ok, cseq).AddField("Public", PublicMethods), null),
+        ["DESCRIBE"] = (responder, head, cseq) => responder.DescribeAsync(head, cseq),
+        ["SETUP"] = (responder, head, cseq) => responder.SetupAsync(head, cseq),
+        ["PLAY"] = (responder, head, cseq) => responder.PlayAsync(head, cseq),
+        ["PAUSE"] = (responder, head, cseq) => responder.PauseAsync(head, cseq),
+        ["TEARDOWN"] = (responder, head, cseq) => responder.TeardownAsync(head, cseq),
+        ["GET_PARAMETER"] = (responder, head, cseq) => responder.AnswerParameterRequestAsync(head, cseq),
+        ["SET_PARAMETER"] = (responder, head, cseq) => responder.AnswerParameterRequestAsync(head, cseq),
+    };
+
     // Every other failure to read a head is a malformed head: 400.
     private static readonly Dictionary<HttpRequestHeadReadOutcome, HttpStatus> StatusesForHeadsNotRead = new()
     {
@@ -52,6 +65,9 @@ internal sealed class RtspRequestResponder
     // answered, written on whatever response it gets; none before a request is judged.
     private IReadOnlyList<string> wwwAuthenticateValues = [];
 
+    // The Content-Length of the request being answered; 0 when it has no body.
+    private long requestBodyLength;
+
     /// <summary>
     /// Creates a responder for one connection.
     /// </summary>
@@ -60,13 +76,15 @@ internal sealed class RtspRequestResponder
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="contentStore">Where presentation paths are looked up.</param>
     /// <param name="authenticationSession">The connection's authentication session, which judges every request.</param>
-    public RtspRequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession)
+    /// <param name="random">The random source of session IDs, SSRCs, and first sequence numbers and timestamps.</param>
+    public RtspRequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession, RandomNumberGenerator random)
     {
         this.connection = connection;
         this.reader = reader;
         this.context = context;
         this.contentStore = contentStore;
         this.authenticationSession = authenticationSession;
+        this.random = random;
         unreadRequestDrainer = new RtspUnreadRequestDrainer(reader, context);
     }
 
@@ -108,7 +126,9 @@ internal sealed class RtspRequestResponder
     public async Task<bool> AnswerRequestAsync(HttpRequestHead head)
     {
         wwwAuthenticateValues = [];
+        sessionField = null;
         var framing = HttpRequestBodyFraming.Of(head);
+        requestBodyLength = framing.ContentLength;
         var cseq = SingleCSeq(head);
         if (cseq is null)
         {
@@ -238,8 +258,8 @@ internal sealed class RtspRequestResponder
         return true;
     }
 
-    // Checks 5 to 7. ANNOUNCE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, SET_PARAMETER and
-    // RECORD are answered 501 until their tasks land (BL-315 and BL-316).
+    // Checks 5 to 7, a Session the request names being the connection's (ADR-0074 decision 5)
+    // the first of the method's own.
     private Task<bool> AnswerMethodAsync(HttpRequestHead head, string cseq)
     {
         if (!RtspMethods.Contains(head.Method, StringComparer.Ordinal))
@@ -252,13 +272,19 @@ internal sealed class RtspRequestResponder
             return RefuseAsync(RtspStatus.BadRequest, cseq, head.Method, "the Request-URI is neither * nor an rtsp:// URL");
         }
 
-        return head.Method switch
+        if (!AcceptsTheNamedSession(head))
         {
-            "OPTIONS" => RespondAsync(ResponseHead(RtspStatus.Ok, cseq).AddField("Public", PublicMethods), null),
-            "DESCRIBE" => DescribeAsync(head, cseq),
-            _ => RefuseAsync(RtspStatus.NotImplemented, cseq, head.Method, "the method is not served yet"),
-        };
+            return RefuseAsync(RtspStatus.SessionNotFound, cseq, head.Method, "the connection holds no session of that ID");
+        }
+
+        return AnswerRtspMethodAsync(head, cseq);
     }
+
+    // ANNOUNCE and RECORD are answered 501 until their task lands (BL-316).
+    private Task<bool> AnswerRtspMethodAsync(HttpRequestHead head, string cseq) =>
+        MethodAnswers.TryGetValue(head.Method, out var answer)
+            ? answer(this, head, cseq)
+            : RefuseAsync(RtspStatus.NotImplemented, cseq, head.Method, "the method is not served yet");
 
     private static bool IsRequestUri(string requestTarget) =>
         requestTarget == "*" || requestTarget.StartsWith(AbsoluteUrlPrefix, StringComparison.OrdinalIgnoreCase);
@@ -274,10 +300,9 @@ internal sealed class RtspRequestResponder
         }
 
         var mapping = contentStore.MapRequestPath(PresentationPath(head.RequestTarget));
-        var whyNotFound = mapping.IsMapped ? WhyNotAFile(mapping) : $"the path was refused ({mapping.Refusal})";
-        if (whyNotFound is not null)
+        if (PresentationFileStatus(mapping, out var whyNotFound) is null)
         {
-            return RefuseAsync(RtspStatus.NotFound, cseq, head.Method, whyNotFound);
+            return RefuseAsync(RtspStatus.NotFound, cseq, head.Method, whyNotFound!);
         }
 
         var description = RtspSessionDescription.Describe(Path.GetFileName(mapping.Location!), connection.LocalEndPoint);
@@ -289,17 +314,30 @@ internal sealed class RtspRequestResponder
         return RespondAsync(responseHead, description);
     }
 
-    // A file whose status cannot be read is answered as one that does not exist (ADR-0023);
-    // null when the mapping names a file.
-    private string? WhyNotAFile(ContentPathMapping mapping)
+    // The status of the file a presentation mapping names; null, with why, when the path was
+    // refused or names no file. A file whose status cannot be read is answered as one that
+    // does not exist (ADR-0023).
+    private ContentFileStatus? PresentationFileStatus(ContentPathMapping mapping, out string? whyNotFound)
     {
+        if (!mapping.IsMapped)
+        {
+            whyNotFound = $"the path was refused ({mapping.Refusal})";
+
+            return null;
+        }
+
         try
         {
-            return contentStore.GetFileStatus(mapping) is null ? $"no file exists at {mapping.Location}" : null;
+            var status = contentStore.GetFileStatus(mapping);
+            whyNotFound = status is null ? $"no file exists at {mapping.Location}" : null;
+
+            return status;
         }
         catch (Exception failure) when (failure is IOException or UnauthorizedAccessException)
         {
-            return $"{mapping.Location} could not be read ({failure.GetType().Name}: {failure.Message})";
+            whyNotFound = $"{mapping.Location} could not be read ({failure.GetType().Name}: {failure.Message})";
+
+            return null;
         }
     }
 
@@ -314,13 +352,15 @@ internal sealed class RtspRequestResponder
     }
 
     // ADR-0074 decision 1: CSeq first, copied from the request (none when it had no usable
-    // one), then Date and Server, then the authentication session's WWW-Authenticate values.
+    // one), then Date and Server, then the authentication session's WWW-Authenticate values,
+    // then the Session the request named, when the connection holds it (decision 5).
     private HttpResponseHead ResponseHead(HttpStatus status, string? cseq) =>
         new HttpResponseHead(HttpMessageProtocol.Rtsp10, status)
             .AddField("CSeq", cseq)
             .AddField("Date", context.TimeProvider.GetUtcNow().ToUniversalTime().ToString("r", CultureInfo.InvariantCulture))
             .AddField("Server", HttpResponseHead.ServerName)
-            .AddChallengeFields(wwwAuthenticateValues);
+            .AddChallengeFields(wwwAuthenticateValues)
+            .AddField("Session", sessionField);
 
     private async Task<bool> RespondAsync(HttpResponseHead responseHead, byte[]? body)
     {

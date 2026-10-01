@@ -23,8 +23,13 @@ internal static class RtspServerHarness
     public const string DateField = "Date: Mon, 28 Sep 2026 12:00:00 GMT\r\n";
 
     /// <summary>
+    /// <c>long.bin</c>s bytes: 50 full RTP payloads and 100 bytes more, so it streams as 51 packets.
+    /// </summary>
+    public static readonly byte[] LongClip = Enumerable.Range(0, (50 * RtspSession.PayloadBytes) + 100).Select(index => (byte)(index % 251)).ToArray();
+
+    /// <summary>
     /// <c>clip.bin</c>, <c>.hidden</c> and <c>fizzle/foo</c> (RFC 2326 section 10.2's example
-    /// presentation) as files, and <c>fizzle</c> and <c>media</c> as directories.
+    /// presentation), <c>long.bin</c> and the empty <c>empty.bin</c> as files, and <c>fizzle</c> and <c>media</c> as directories.
     /// </summary>
     public static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
@@ -32,14 +37,16 @@ internal static class RtspServerHarness
         .AddFile(Path.Join(Root, ".hidden"), Ascii(ClipBody), Now)
         .AddDirectory(Path.Join(Root, "fizzle"))
         .AddFile(Path.Join(Root, "fizzle", "foo"), Ascii(ClipBody), Now)
-        .AddDirectory(Path.Join(Root, "media"));
+        .AddDirectory(Path.Join(Root, "media"))
+        .AddFile(Path.Join(Root, "long.bin"), LongClip, Now)
+        .AddFile(Path.Join(Root, "empty.bin"), [], Now);
 
     /// <summary>
     /// A server over <paramref name="fileSystem"/> (the standard one when none is given) that
     /// lets in what <paramref name="authenticationPolicy"/> does, everyone when none is given.
     /// </summary>
     public static RtspProtocolServer Server(IContentFileSystem? fileSystem = null, IAuthenticationPolicy? authenticationPolicy = null) =>
-        new(new ContentStore(Root, fileSystem ?? StandardFileSystem(), new ContentExposureOptions()), authenticationPolicy ?? new AnonymousAuthenticationPolicy());
+        new(new ContentStore(Root, fileSystem ?? StandardFileSystem(), new ContentExposureOptions()), authenticationPolicy ?? new AnonymousAuthenticationPolicy(), new PatternRandomNumberGenerator());
 
     public static ExchangeContext Context(IExchangeLog log, TimeProvider timeProvider, CancellationToken cancellationToken, ExchangeLimits? limits = null) => new(
         1,

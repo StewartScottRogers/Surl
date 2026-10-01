@@ -72,7 +72,7 @@ public sealed class RtspOptionsTests
 
         var expected = ResponseHead("200 OK", "1", PublicField)
             + ResponseHead("400 Bad Request", "2")
-            + ResponseHead("501 Not Implemented", "3")
+            + ResponseHead("454 Session Not Found", "3")
             + ResponseHead("200 OK", "4", PublicField);
         Assert.AreEqual(expected, Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.WritesCompleted, "No response closed the connection; the client did.");
@@ -80,7 +80,7 @@ public sealed class RtspOptionsTests
             new[]
             {
                 "RTSP DESCRIBE refused: 400 Bad Request: * names no presentation",
-                "RTSP PLAY refused: 501 Not Implemented: the method is not served yet",
+                "RTSP PLAY refused: 454 Session Not Found: the request names no session",
                 "The client closed the connection: ConnectionClosed.",
             },
             log.Notes.ToArray());

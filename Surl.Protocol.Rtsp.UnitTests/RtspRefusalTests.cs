@@ -21,12 +21,6 @@ public sealed class RtspRefusalTests
 
     [TestMethod]
     [DataRow("ANNOUNCE")]
-    [DataRow("SETUP")]
-    [DataRow("PLAY")]
-    [DataRow("PAUSE")]
-    [DataRow("TEARDOWN")]
-    [DataRow("GET_PARAMETER")]
-    [DataRow("SET_PARAMETER")]
     [DataRow("RECORD")]
     [DataRow("REDIRECT")]
     [DataRow("options")]

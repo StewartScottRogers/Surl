@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
@@ -48,12 +49,30 @@ namespace Surl.Protocol.Rtsp;
 /// <c>Transport</c> asks for <c>mode=record</c> are judged as writes. The session's login note is
 /// written to the exchange log, and a login bound to the body is judged with the body's SHA-256
 /// once it is read (ADR-0045). A method that
-/// is not one of RFC 2326's ten is <c>501 Not Implemented</c>, as is, until their tasks land,
-/// every one of the ten but <c>OPTIONS</c> and <c>DESCRIBE</c>; a Request-URI that is neither
-/// <c>*</c> nor an <c>rtsp://</c> URL is <c>400 Bad Request</c>. A closing refusal gets one
+/// is not one of RFC 2326's ten is <c>501 Not Implemented</c>, as are, until their task lands,
+/// <c>ANNOUNCE</c>, <c>RECORD</c> and a <c>SETUP</c> for <c>mode=record</c>; a Request-URI that
+/// is neither <c>*</c> nor an <c>rtsp://</c> URL is <c>400 Bad Request</c>; and a <c>Session</c>
+/// field that does not name the connection's live session is <c>454 Session Not Found</c>. A closing refusal gets one
 /// second to be written, is followed by a half-close, and what the client still sends is
 /// drained (ADR-0019, ADR-0024). Each refusal is noted
 /// <c>RTSP &lt;method&gt; refused: &lt;status&gt; &lt;reason&gt;: &lt;check&gt;</c>.
+/// </para>
+/// <para>
+/// Sessions (ADR-0074 decision 5): a connection holds at most one. <c>SETUP</c> of a file with
+/// a <c>Transport</c> whose first acceptable alternative is unicast <c>RTP/AVP/TCP</c>
+/// interleaved on an even channel and the next makes it - an ID of 16 upper-case hexadecimal
+/// digits, an SSRC, a first sequence number and timestamp, all from the injected
+/// <see cref="RandomNumberGenerator"/> - and answers <c>Session: &lt;id&gt;;timeout=60</c>
+/// and the <c>Transport</c> taken; UDP, multicast and bad channels are
+/// <c>461 Unsupported Transport</c>. <c>PLAY</c> answers <c>Range</c> and <c>RTP-Info</c>,
+/// then streams the file as RTP packets of 1400 payload bytes, the last marked, then an RTCP
+/// sender report and <c>BYE</c>, as fast as the connection takes them; a request arriving
+/// meanwhile is read and answered between two frames. <c>PAUSE</c> keeps the position,
+/// <c>TEARDOWN</c> ends the session, and <c>GET_PARAMETER</c> and <c>SET_PARAMETER</c> without
+/// a body are <c>200</c> (<c>451 Parameter Not Understood</c> with one). A session not playing
+/// that no request names for 60 seconds on the exchange's clock has ended. A request invalid
+/// in the session's state is <c>455 Method Not Valid in This State</c>, and a <c>Range</c>
+/// other than <c>npt=0-</c> or <c>npt=now-</c> is <c>457 Invalid Range</c>.
 /// </para>
 /// <para>
 /// The idle timeout and the exchange's other limits end the exchange through its cancellation,
@@ -70,6 +89,7 @@ public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionR
 
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly RandomNumberGenerator random;
 
     /// <summary>
     /// Creates an RTSP server whose presentations are the files of <paramref name="contentStore"/>,
@@ -80,12 +100,30 @@ public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionR
     /// Judges every request: served, challenged with <c>401</c>, or refused with <c>403</c>.
     /// </param>
     public RtspProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
+        : this(contentStore, authenticationPolicy, RandomNumberGenerator.Create())
+    {
+    }
+
+    /// <summary>
+    /// Creates an RTSP server whose presentations are the files of <paramref name="contentStore"/>,
+    /// serving the requests <paramref name="authenticationPolicy"/> lets in, and drawing every
+    /// session's ID, SSRC, first sequence number and first timestamp from
+    /// <paramref name="random"/> (ADR-0074 decision 5).
+    /// </summary>
+    /// <param name="contentStore">The content store every presentation path is looked up in.</param>
+    /// <param name="authenticationPolicy">
+    /// Judges every request: served, challenged with <c>401</c>, or refused with <c>403</c>.
+    /// </param>
+    /// <param name="random">The random source of everything a session makes unguessable.</param>
+    public RtspProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, RandomNumberGenerator random)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
+        ArgumentNullException.ThrowIfNull(random);
 
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
+        this.random = random;
     }
 
     /// <summary>
@@ -107,17 +145,25 @@ public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionR
 
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes, HttpMessageProtocol.Rtsp10);
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
-        var responder = new RtspRequestResponder(connection, reader, context, contentStore, authenticationSession);
+        var responder = new RtspRequestResponder(connection, reader, context, contentStore, authenticationSession, random);
         var isFirstHead = true;
         var keepsConnectionOpen = true;
 
-        while (keepsConnectionOpen)
+        try
         {
-            var result = await reader.ReadNextRequestHeadAsync(context, isFirstHead);
-            isFirstHead = false;
-            keepsConnectionOpen = result.Head is { } head
-                ? await responder.AnswerRequestAsync(head)
-                : await responder.AnswerHeadNotReadAsync(result.Outcome);
+            while (keepsConnectionOpen)
+            {
+                await responder.StreamUntilARequestArrivesAsync();
+                var result = await reader.ReadNextRequestHeadAsync(context, isFirstHead);
+                isFirstHead = false;
+                keepsConnectionOpen = result.Head is { } head
+                    ? await responder.AnswerRequestAsync(head)
+                    : await responder.AnswerHeadNotReadAsync(result.Outcome);
+            }
+        }
+        finally
+        {
+            responder.EndSessionAsTheConnectionCloses();
         }
     }
 
