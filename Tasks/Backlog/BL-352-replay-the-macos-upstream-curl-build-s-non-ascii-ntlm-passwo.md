@@ -4,7 +4,7 @@ title: Replay the macOS upstream curl build's non-ASCII NTLM password login from
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-324]
+depends-on: [BL-324, BL-353]
 touches: [Surl.Authentication.UnitTests]
 requirement: FR-014
 created: 2026-10-01
@@ -49,7 +49,17 @@ recorded by CI, is committed as `Fixtures/ntlm-non-ascii-password-macos` and rep
 
 ## Notes
 
+- 2026-10-01 (lane 1): no CI run has published `ntlm-non-ascii-password-macos` yet. The last
+  successful `master` run (36677388670) predates BL-324's CI steps. The first runs carrying
+  them, 36840327050 (70f965c8, cancelled by the next push) and 36840335608 (33959f8b), never
+  reached the recording step: macOS's "Fast tests" step fails first, with 47
+  `Surl.Protocol.Ssh.UnitTests` tests throwing `PlatformNotSupportedException` because
+  `SshTestKeys` generates a DSA key, which macOS's BCL cannot do. Filed BL-353 to import a
+  fixed DSA key instead, and made this task depend on it. Once BL-353 lands, any CI run (a
+  pull request run is fine; the step does not need `master`) publishes the artifact.
+
 ## Log
 
 - 2026-10-01: Created.
 - 2026-10-01: Backlog -> Doing.
+- 2026-10-01: Doing -> Backlog. Waits on BL-353: macOS CI fast tests fail on DSA key generation, so the recording step never runs
