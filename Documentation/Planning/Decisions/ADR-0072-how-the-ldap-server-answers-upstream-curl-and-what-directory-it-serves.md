@@ -13,7 +13,12 @@
   recording what `LdapProtocolServer` (BL-308) does where they left a detail open or could not be
   followed as written: decision 3's diagnostics, the bind DN no account maps from, the compare
   answers and the filter depth limit; decision 6's one diagnostic for the idle timeout and the
-  maximum duration.
+  maximum duration. Decisions 4, 5 and 7 by BL-341 (2026-10-01), recording what BL-309's SASL
+  and Sicily binds, security-layer framing and `StartTLS` do where they left a detail open:
+  decision 4's refusal codes, Sicily's package discovery, which bind continues an exchange and
+  when a security layer is replaced; decision 5's `responseName`s, `StartTLS` on a TLS
+  connection and the frame reader's read-ahead; decision 7's security-layer and `StartTLS`
+  notes.
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -284,7 +289,8 @@ code (measured), so a version 2 refusal of its own (`protocolError`) would hide 
 The session that follows is version 3 regardless. Any other version is `protocolError` (2).
 
 **A bind resets the connection's identity** (RFC 4511 section 4.2.1): a failed bind leaves it
-anonymous. A bind while a SASL bind is in progress abandons that exchange.
+anonymous. A bind while a SASL bind is in progress abandons that exchange unless it continues
+it; decision 4 states which binds continue an exchange.
 
 ### 3. Operations, result codes and the Notice of Disconnection
 
@@ -408,6 +414,38 @@ framing. `ntlm` and the Sicily exchange use the same `ISaslExchange` under the m
 `GSS-SPNEGO` exchanges in `Surl.Authentication`; BL-326 builds `DIGEST-MD5`'s integrity and
 confidentiality.
 
+**The details this decision left open** (amended by BL-341, recording BL-309's code in
+`LdapBindJudge` and `LdapSaslBindJudge`; decided by Claude under Stewart's delegation):
+
+- **The refusal codes.** A step the policy answers `RefusedPlaintext` is
+  `confidentialityRequired` (13), `SASL mechanism needs TLS or --allow-plaintext-auth`: the
+  simple bind's code for the same rule (decision 2), which curl reports as `Confidentiality
+  Required` (measured). A step answered `RefusedMechanism`, and any authentication choice other
+  than simple, SASL and Sicily's `[9]`, `[10]` and `[11]`, is `authMethodNotSupported` (7),
+  `authentication method not accepted` (decision 3's bind diagnostics). `RefusedCredentials` is
+  `invalidCredentials` (49) with no diagnostic, as the table above says.
+- **Sicily `[9]`** is answered `success` with `NTLM` as the matched DN when the policy's SASL
+  offer for the connection (`ISaslAuthenticationPolicy.GetSaslMechanisms`, compared
+  case-insensitively) lists `NTLM`, and `authMethodNotSupported` (7), `authentication method not
+  accepted`, otherwise. The reason: the SASL authentication policy has no separate question
+  for "is `ntlm` accepted", and its offer already answers it per connection, TLS state and
+  `--auth` included.
+- **Which bind continues an exchange.** A SASL bind continues the SASL exchange in progress only
+  when it names the same mechanism, compared case-insensitively as the policy matches mechanism
+  names; Sicily `[11]` continues only a Sicily exchange, and with none in progress is
+  `protocolError` (2), `sicilyResponse without sicilyNegotiate`. Every other bind - simple, SASL
+  with another mechanism, Sicily `[9]` or `[10]`, a bad version, another authentication choice -
+  abandons the exchange in progress before it is answered (RFC 4513 section 5.2.1.2, RFC 4511
+  section 4.2.1). A `[11]` refused while a SASL (not Sicily) exchange is in progress leaves that
+  exchange in progress; that is a defect against RFC 4513 section 5.2.1.2, and BL-347 makes it
+  abandon the exchange. An exchange that ends - accepted or refused - is no longer in progress.
+- **A later bind's security layer replaces the earlier one** once that bind's response has been
+  sent (the response itself goes out under the earlier layer); a later bind that installs no
+  layer - a simple bind, a refused one, a mechanism with no layer - keeps the installed layer,
+  although a refused bind still leaves the connection anonymous (decision 2). The reason:
+  nothing in RFC 4422 lets a client drop a layer once installed, and its traffic stays protected
+  by the keys both sides already hold.
+
 ### 5. `StartTLS` and `ldaps`
 
 - **`StartTLS`** (OID `1.3.6.1.4.1.1466.20037`, RFC 4511 section 4.14) is offered - listed in the
@@ -427,6 +465,31 @@ confidentiality.
   surl's certificate would mean adding it to the machine's certificate store, which the
   conformance tests do not do; they prove the handshake curl itself makes and the 38, and BL-312
   proves `ldaps` through the OpenLDAP build, which honours `-k` and `--cacert`.
+
+**The details this decision left open** (amended by BL-341, recording BL-309's code in
+`LdapSession` and `LdapMessageFrameReader`; decided by Claude under Stewart's delegation):
+
+- **`responseName`.** `StartTLS`'s `success` and `operationsError` answers carry its OID,
+  `1.3.6.1.4.1.1466.20037`, as `responseName` (RFC 4511 section 4.14.2 requires it). The
+  no-certificate refusal carries none: it is decision 3's answer to an unknown extended
+  operation, `protocolError` (2), `unsupported extended operation`, and an unknown operation
+  names nothing (RFC 4511 section 4.12).
+- **`StartTLS` on a TLS connection** is `operationsError` (1), `TLS is already established`,
+  with or without a certificate configured, so `ldaps` gets that code whatever the console
+  passes the server. The other `operationsError` refusals are `a SASL bind is in progress` and
+  `a security layer is installed`, checked in that order after the TLS one.
+- **A `requestValue` is ignored**: RFC 4511 section 4.14.1 gives `StartTLS` none, so one sent
+  anyway carries nothing the server could act on.
+- **The upgrade keeps the connection's bind state**: a bound connection is still bound under
+  TLS, since RFC 4513 does not reset it. (A SASL bind in progress or a security layer is never
+  carried across: `StartTLS` is refused in both cases, above.)
+- **Discarding pipelined bytes** (ADR-0010). `LdapMessageFrameReader` reads a message's value in
+  reads of at least `ReadAheadBytes` (4096) and holds whatever arrived past the message for the
+  next read; before the handshake `DiscardReadAhead` throws the held bytes away, so bytes the
+  client pipelined after `StartTLS` and that arrived with it are discarded, never run. The tag
+  and length are still read one byte at a time, so a message past `--max-message` (and a
+  security-layer buffer past it or the layer's maximum) is still refused from its length before
+  any of its value is read.
 
 ### 6. Limits (ADR-0006)
 
@@ -454,10 +517,13 @@ wire (sealed ones sealed), with no extra note per message.
 | --- | --- |
 | A bind decided | the login note, `CheckedLogin.Note` (ADR-0038), method `simple`, `NTLM` or the SASL mechanism |
 | A bind refused unchecked | `LDAP bind refused: <code name>: <diagnostic>`, e.g. `LDAP bind refused: confidentialityRequired: simple bind needs TLS or --allow-plaintext-auth` |
-| A security layer installed | `LDAP security layer: <NTLM sealing, NTLM signing, DIGEST-MD5 auth-conf 3des, ...>` |
+| A security layer installed | `LDAP security layer: <mechanism>`, the mechanism the bind named (`NTLM` for Sicily). *Amended by BL-341:* the note does not say sealing, signing or the cipher, because `ISaslSecurityLayer` carries no description of itself, and widening the contract in `Surl.Protocol.Abstractions` for one log line was outside BL-309 |
+| A security-layer buffer that fails its check (signature, MAC or sequence) | `A security-layer buffer failed its check; closed with no reply.` *Amended by BL-341* |
+| A security-layer buffer whose length is past the layer's `MaximumProtectedBytes` or `--max-message` | `A security-layer buffer of <n> bytes is past what the layer or --max-message allows; closed with no reply.`, `<n>` the buffer's announced length. *Amended by BL-341* |
 | A search answered | `LDAP search <base> scope <base, one or sub>: <n> entries, <code name>` |
 | A write refused | `LDAP <operation> refused: the directory is read-only` |
-| `StartTLS` | `LDAP StartTLS accepted` or `LDAP StartTLS refused: <code name>` |
+| `StartTLS` | `LDAP StartTLS accepted` or `LDAP StartTLS refused: operationsError`. *Amended by BL-341:* the no-certificate refusal is decision 3's unknown extended operation and writes no `StartTLS` note |
+| Bytes pipelined after `StartTLS` discarded (decision 5) | `Discarded <n> bytes sent after StartTLS`, the mail servers' wording, only when `<n>` is more than 0. *Amended by BL-341* |
 | A Notice of Disconnection | `LDAP Notice of Disconnection: <code name>: <diagnostic>` |
 | A connection that closes before its first message | nothing beyond the engine's info line: it is curl's own connect (measured) |
 
