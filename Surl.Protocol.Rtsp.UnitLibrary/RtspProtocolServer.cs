@@ -53,7 +53,8 @@ namespace Surl.Protocol.Rtsp;
 /// once it is read (ADR-0045). A method that
 /// is not one of RFC 2326's ten is <c>501 Not Implemented</c>; a Request-URI that
 /// is neither <c>*</c> nor an <c>rtsp://</c> URL is <c>400 Bad Request</c>; and a <c>Session</c>
-/// field that does not name the connection's live session is <c>454 Session Not Found</c>. A closing refusal gets one
+/// field that names neither the connection's live session nor the one its last <c>TEARDOWN</c>
+/// ended is <c>454 Session Not Found</c>. A closing refusal gets one
 /// second to be written, is followed by a half-close, and what the client still sends is
 /// drained (ADR-0019, ADR-0024). Each refusal is noted
 /// <c>RTSP &lt;method&gt; refused: &lt;status&gt; &lt;reason&gt;: &lt;check&gt;</c>.
@@ -69,7 +70,10 @@ namespace Surl.Protocol.Rtsp;
 /// then streams the file as RTP packets of 1400 payload bytes, the last marked, then an RTCP
 /// sender report and <c>BYE</c>, as fast as the connection takes them; a request arriving
 /// meanwhile is read and answered between two frames. <c>PAUSE</c> keeps the position,
-/// <c>TEARDOWN</c> ends the session, and <c>GET_PARAMETER</c> and <c>SET_PARAMETER</c> without
+/// <c>TEARDOWN</c> ends the session but leaves its ID the connection's, so a later request naming
+/// it is served as naming none - <c>PLAY</c>, <c>PAUSE</c>, <c>RECORD</c> and <c>TEARDOWN</c> are
+/// <c>454</c> - and a <c>SETUP</c> naming it makes the new session under that ID, as libcurl
+/// needs (ADR-0074 Amendment 1). <c>GET_PARAMETER</c> and <c>SET_PARAMETER</c> without
 /// a body are <c>200</c> (<c>451 Parameter Not Understood</c> with one). A session not playing
 /// that no request names for 60 seconds on the exchange's clock has ended. A request invalid
 /// in the session's state is <c>455 Method Not Valid in This State</c>, and a <c>Range</c>

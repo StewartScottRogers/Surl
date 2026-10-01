@@ -127,6 +127,7 @@ internal sealed partial class RtspRequestResponder
     {
         wwwAuthenticateValues = [];
         sessionField = null;
+        namesTheTornDownSession = false;
         announcement = null;
         await EndTheSessionIfTimedOutAsync();
         var framing = HttpRequestBodyFraming.Of(head);

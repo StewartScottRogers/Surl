@@ -33,7 +33,9 @@ recording rows):
 - `RtspSession` - the connection's one session: ID, presentation, transport, playing and
   recording state, the recording's upload, position, sequence numbers and timestamps, the
   60-second timeout (checked as each request arrives; not while playing or recording). Ending
-  it any way but `TEARDOWN` discards a recording. `RtspTransport` - the `Transport` alternative taken, or why none is (`461`).
+  it any way but `TEARDOWN` discards a recording. `TEARDOWN` leaves the ended ID the
+  connection's: a request naming it is served as session-less, and a `SETUP` naming it takes the
+  ID (ADR-0074 Amendment 1). `RtspTransport` - the `Transport` alternative taken, or why none is (`461`).
   `RtspInterleavedFrame` - the `$` frames: RTP packets and the closing RTCP sender report and
   `BYE`, and where a received RTP packet's payload lies (`RtpPayload`).
 - `RtspSessionDescription` - decision 4's SDP; `RtspStatus` - the statuses and their reason

@@ -1,4 +1,0 @@
-DESCRIBE rtsp://server.example.com/fizzle/foo RTSP/1.0
-CSeq: 312
-Accept: application/sdp, application/rtsl, application/mheg
-

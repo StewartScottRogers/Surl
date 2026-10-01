@@ -321,21 +321,49 @@ public sealed class RtspSessionTests
     }
 
     [TestMethod]
-    public async Task Teardown_EndsTheSessionSoItIsNotFoundAfterwardsAndANewSetupSucceeds()
+    public async Task LibcurlSetupPlayTeardownOptionsSetup_IsAnsweredAsRecorded()
     {
-        var requests = SetupClip
-            + $"TEARDOWN rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\n{SessionField}\r\n\r\n"
-            + $"PLAY * RTSP/1.0\r\nCSeq: 3\r\n{SessionField}\r\n\r\n"
-            + SetupClip.Replace("CSeq: 1", "CSeq: 4", StringComparison.Ordinal);
+        var (connection, log) = await ServeAsync([RecordedRequest("libcurl-play-teardown-setup")], TestContext.CancellationToken);
 
-        var (connection, log) = await ServeAsync([Ascii(requests)], TestContext.CancellationToken);
+        Assert.AreEqual(Latin1(RecordedResponse("libcurl-play-teardown-setup")), Latin1(connection.WrittenBytes));
+        Assert.AreEqual(2, log.Notes.Count(note => note == $"RTSP session {SessionId} set up for /clip.bin, interleaved 0-1"));
+        Assert.Contains($"RTSP session {SessionId} ended: TEARDOWN", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task Teardown_LeavesTheEndedIdServedAsSessionlessAndASetupNamingItTakesTheId()
+    {
+        var ended = "Session: " + CountingRandomNumberGenerator.FirstSessionId;
+        var requests = SetupClip
+            + $"TEARDOWN rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\n{ended}\r\n\r\n"
+            + $"OPTIONS * RTSP/1.0\r\nCSeq: 3\r\n{ended}\r\n\r\n"
+            + $"PLAY * RTSP/1.0\r\nCSeq: 4\r\n{ended}\r\n\r\n"
+            + $"SETUP rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 5\r\n{ended}\r\nTransport: RTP/AVP/TCP;interleaved=0-1\r\n\r\n";
+
+        var (connection, log) = await ServeCountingSessionIdsAsync(requests);
 
         var heads = RtspOutput.Heads(connection.WrittenBytes);
         Assert.AreEqual(ResponseHead("200 OK", "2"), heads[1]);
-        Assert.AreEqual(ResponseHead("454 Session Not Found", "3"), heads[2]);
-        Assert.StartsWith("RTSP/1.0 200 OK\r\nCSeq: 4\r\n", heads[3]);
-        Assert.AreEqual($"RTSP session {SessionId} ended: TEARDOWN", log.Notes[1]);
-        Assert.AreEqual($"RTSP session {SessionId} ended: connection closed", log.Notes[^1]);
+        Assert.AreEqual(ResponseHead("200 OK", "3", "Public: " + RtspRequestResponder.PublicMethods), heads[2]);
+        Assert.AreEqual(ResponseHead("454 Session Not Found", "4"), heads[3]);
+        Assert.AreEqual(ResponseHead("200 OK", "5", ended + ";timeout=60", "Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=02020202"), heads[4]);
+        Assert.AreEqual("RTSP PLAY refused: 454 Session Not Found: the request names no session", log.Notes[2]);
+        Assert.AreEqual($"RTSP session {CountingRandomNumberGenerator.FirstSessionId} set up for /clip.bin, interleaved 0-1", log.Notes[3]);
+    }
+
+    [TestMethod]
+    public async Task Teardown_ThenASetupNamingNoSession_DrawsANewIdAndTheEndedOneIsNotFound()
+    {
+        var requests = SetupClip
+            + $"TEARDOWN rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\nSession: {CountingRandomNumberGenerator.FirstSessionId}\r\n\r\n"
+            + SetupClip.Replace("CSeq: 1", "CSeq: 3", StringComparison.Ordinal)
+            + $"OPTIONS * RTSP/1.0\r\nCSeq: 4\r\nSession: {CountingRandomNumberGenerator.FirstSessionId}\r\n\r\n";
+
+        var (connection, _) = await ServeCountingSessionIdsAsync(requests);
+
+        var heads = RtspOutput.Heads(connection.WrittenBytes);
+        Assert.StartsWith($"RTSP/1.0 200 OK\r\nCSeq: 3\r\n{DateField}Server: surl\r\nSession: {CountingRandomNumberGenerator.SecondSessionId};timeout=60\r\n", heads[2]);
+        Assert.AreEqual(ResponseHead("454 Session Not Found", "4"), heads[3]);
     }
 
     [TestMethod]
@@ -355,6 +383,19 @@ public sealed class RtspSessionTests
         var contentStore = new ContentStore(Root, StandardFileSystem(), new ContentExposureOptions());
 
         Assert.ThrowsExactly<ArgumentNullException>(() => new RtspProtocolServer(contentStore, new AnonymousAuthenticationPolicy(), null!));
+    }
+
+    // Serves the requests, then a half-close, with session IDs drawn from a
+    // CountingRandomNumberGenerator, so a second session's ID differs from the first's.
+    private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeCountingSessionIdsAsync(string requests)
+    {
+        var server = new RtspProtocolServer(new ContentStore(Root, StandardFileSystem(), new ContentExposureOptions()), new AnonymousAuthenticationPolicy(), new CountingRandomNumberGenerator());
+        var connection = new InMemoryConnection([Ascii(requests)]);
+        var log = new RecordingExchangeLog();
+
+        await server.ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken));
+
+        return (connection, log);
     }
 
     // Serves the requests over an InMemoryConnection whose client never half-closes, so the

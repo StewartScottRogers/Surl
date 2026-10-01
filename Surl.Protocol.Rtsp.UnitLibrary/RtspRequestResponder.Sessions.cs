@@ -26,6 +26,13 @@ internal sealed partial class RtspRequestResponder
     // connection holds it, or the SETUP answer's ID and timeout; null for neither.
     private string? sessionField;
 
+    // The ID of the session TEARDOWN last ended, which stays the connection's until another
+    // session is set up, because libcurl goes on naming it (ADR-0074 Amendment 1, decision 5).
+    private string? tornDownSessionId;
+
+    // Whether the request being answered names the torn-down session, so a SETUP takes its ID.
+    private bool namesTheTornDownSession;
+
     /// <summary>
     /// While the connection's session is playing, writes its RTP packets one after another
     /// until the client starts another request or the presentation ends, so a request is read
@@ -73,7 +80,8 @@ internal sealed partial class RtspRequestResponder
     }
 
     // A Session field the request carries must name the connection's live session, whose
-    // timeout it then restarts and which the answer names back; a request with none passes.
+    // timeout it then restarts and which the answer names back; a request with none passes, and
+    // so does one naming the session TEARDOWN ended, judged as naming none.
     private bool AcceptsTheNamedSession(HttpRequestHead head)
     {
         var namedId = head.GetFieldValues("Session").Select(value => value.Split(';')[0].Trim()).FirstOrDefault();
@@ -84,7 +92,9 @@ internal sealed partial class RtspRequestResponder
 
         if (session is null || !string.Equals(session.Id, namedId, StringComparison.Ordinal))
         {
-            return false;
+            namesTheTornDownSession = string.Equals(tornDownSessionId, namedId, StringComparison.Ordinal);
+
+            return namesTheTornDownSession;
         }
 
         session.LastActivity = context.TimeProvider.GetUtcNow();
@@ -204,13 +214,17 @@ internal sealed partial class RtspRequestResponder
         return RespondAsync(ResponseHead(RtspStatus.Ok, cseq).AddField("Transport", transport.Describe(setUp.Ssrc)), null);
     }
 
+    // A SETUP naming the torn-down session makes the new one under its ID, which libcurl
+    // compares, failing 86 on any other (ADR-0074 Amendment 1).
     private RtspSession NewSession(ContentPathMapping mapping, string path, RtspTransport transport)
     {
         var bytes = new byte[SessionRandomBytes];
         random.GetBytes(bytes);
         var span = bytes.AsSpan();
+        var id = namesTheTornDownSession ? tornDownSessionId! : Convert.ToHexString(span[..8]);
+        tornDownSessionId = null;
         session = new RtspSession(
-            Convert.ToHexString(span[..8]),
+            id,
             mapping,
             path,
             transport,
@@ -275,8 +289,9 @@ internal sealed partial class RtspRequestResponder
         return RespondAsync(ResponseHead(RtspStatus.Ok, cseq), null);
     }
 
-    // TEARDOWN: commits a recording, then ends the session; the answer names none, and the
-    // connection stays open. A recording whose location can no longer take a file is 403.
+    // TEARDOWN: commits a recording, then ends the session, whose ID the connection keeps; the
+    // answer names none, and the connection stays open. A recording whose location can no
+    // longer take a file is 403.
     private async Task<bool> TeardownAsync(HttpRequestHead head, string cseq)
     {
         var named = NamedSession();
@@ -288,6 +303,7 @@ internal sealed partial class RtspRequestResponder
 
         var committed = named!.Recording is null || await CommitRecordingAsync(named);
         await EndSessionAsync("TEARDOWN");
+        tornDownSessionId = named.Id;
         sessionField = null;
 
         return committed
