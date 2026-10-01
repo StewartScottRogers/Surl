@@ -60,6 +60,13 @@ What it holds:
   its `SshLoginOutcome`. The server owns the RFC 4252 framing and the signature check; the
   policy owns the accounts, keys, delay and note. `AnonymousAuthenticationPolicy` implements
   it too: every login `AcceptedUnchecked` and every public-key query `KeyAcceptable`.
+- The SMB login contract (ADR-0073, decision 3), beside `IAuthenticationPolicy`:
+  `ISmbAuthenticationPolicy` judges an `SmbNtlmV1Login` (the user and domain as sent, the
+  server challenge, the LM and NT responses and the TLS session; its `ToString` shows only
+  the user and domain) as an `SmbLoginVerdict` with its `SmbLoginOutcome`. The server owns
+  the SMB framing and the challenge; the policy owns the accounts, the NTLMv1 check, the
+  delay and the note. `AnonymousAuthenticationPolicy` implements it too: every login
+  `AcceptedUnchecked`.
 
 - The FTP data-connection seam (ADR-0052, decision 9): `IDataConnectionOpener` (a passive
   listener, `IPassiveDataListener`, or an active connection, each an `IConnection`), a failure

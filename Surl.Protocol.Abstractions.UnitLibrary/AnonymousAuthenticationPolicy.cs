@@ -1,9 +1,10 @@
 namespace Surl.Protocol.Abstractions;
 
 /// <summary>
-/// An <see cref="IAuthenticationPolicy"/>, <see cref="IMailAuthenticationPolicy"/> and
-/// <see cref="ISshAuthenticationPolicy"/> that lets everyone in (ADR-0032, section 6; ADR-0049,
-/// section 6; ADR-0051, section 7): every password login is
+/// An <see cref="IAuthenticationPolicy"/>, <see cref="IMailAuthenticationPolicy"/>,
+/// <see cref="ISshAuthenticationPolicy"/> and <see cref="ISmbAuthenticationPolicy"/> that lets
+/// everyone in (ADR-0032, section 6; ADR-0049, section 6; ADR-0051, section 7; ADR-0073,
+/// decision 3): every password login is
 /// <see cref="PasswordLoginVerdict.AcceptedUnchecked"/>, every HTTP request
 /// <see cref="HttpAuthenticationOutcome.Proceed"/>s with no <c>WWW-Authenticate</c> values and
 /// no account, and every SASL login ends <see cref="SaslLoginOutcome.AcceptedUnchecked"/>, with no
@@ -14,15 +15,18 @@ namespace Surl.Protocol.Abstractions;
 /// <c>none</c>, password and signed public-key login is
 /// <see cref="SshLoginOutcome.AcceptedUnchecked"/> and every public-key query
 /// <see cref="SshLoginOutcome.KeyAcceptable"/>, with no note, so upstream curl completes its login
-/// in one <c>none</c> request. It is the test double protocol tests share, and the policy a
-/// server's policy-less constructor passes until BL-117 composes the real one.
+/// in one <c>none</c> request. Every SMB NTLMv1 session setup is
+/// <see cref="SmbLoginOutcome.AcceptedUnchecked"/>, with no note. It is the test double protocol
+/// tests share, and the policy a server's policy-less constructor passes until BL-117 composes the real one.
 /// </summary>
 public sealed class AnonymousAuthenticationPolicy :
-    IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy
+    IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy, ISmbAuthenticationPolicy
 {
     private static readonly SshLoginVerdict SshAcceptUnchecked = new(SshLoginOutcome.AcceptedUnchecked, null, null);
 
     private static readonly SshLoginVerdict SshKeyAcceptable = new(SshLoginOutcome.KeyAcceptable, null, null);
+
+    private static readonly SmbLoginVerdict SmbAcceptUnchecked = new(SmbLoginOutcome.AcceptedUnchecked, null, null);
 
     private static readonly HttpAuthenticationVerdict ProceedAnonymously =
         new(HttpAuthenticationOutcome.Proceed, [], null);
@@ -104,6 +108,16 @@ public sealed class AnonymousAuthenticationPolicy :
         cancellationToken.ThrowIfCancellationRequested();
 
         return ValueTask.FromResult(login.Proof == SshPublicKeyProof.None ? SshKeyAcceptable : SshAcceptUnchecked);
+    }
+
+    /// <inheritdoc/>
+    public ValueTask<SmbLoginVerdict> CheckSmbNtlmV1LoginAsync(
+        SmbNtlmV1Login login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return ValueTask.FromResult(SmbAcceptUnchecked);
     }
 
     private sealed class AnonymousHttpAuthenticationSession : IHttpAuthenticationSession

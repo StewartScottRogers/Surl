@@ -8,7 +8,7 @@ depends-on: [BL-283]
 touches: [Surl.Protocol.Abstractions.UnitLibrary, Surl.Protocol.Abstractions.UnitTests]
 requirement: FR-052
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-294 — Add the SMB NTLM session-setup login contract to Surl.Protocol.Abstractions
 
@@ -35,11 +35,14 @@ and `Surl.Authentication` can be built against it in parallel.
 
 ## Acceptance criteria
 
-- [ ] The ADR's contract types exist in `Surl.Protocol.Abstractions.UnitLibrary` with XML doc
+- [x] The ADR's contract types exist in `Surl.Protocol.Abstractions.UnitLibrary` with XML doc
       comments naming the ADR.
-- [ ] Tests in `Surl.Protocol.Abstractions.UnitTests` show `AnonymousAuthenticationPolicy` refuses
-      an SMB login, and that the login type's `ToString` shows no response bytes.
-- [ ] `dotnet build -warnaserror` is clean; the fast tests are green; `Measure-CodeQuality.ps1`
+- [x] Tests in `Surl.Protocol.Abstractions.UnitTests` show `AnonymousAuthenticationPolicy` refuses
+      an SMB login, and that the login type's `ToString` shows no response bytes. (As ADR-0073
+      decision 3 corrects it: the policy answers `AcceptedUnchecked` with no note -
+      `AnonymousAuthenticationPolicyTests.CheckSmbNtlmV1LoginAsync_AnyResponses_IsAcceptedUncheckedWithNoNote`;
+      `SmbAuthenticationContractTests.SmbNtlmV1Login_ToString_ShowsTheUserAndDomainButNoChallengeOrResponse`.)
+- [x] `dotnet build -warnaserror` is clean; the fast tests are green; `Measure-CodeQuality.ps1`
       reports 100% line and branch coverage and no failing member for
       `Surl.Protocol.Abstractions.UnitLibrary`.
 
@@ -50,8 +53,17 @@ and `Surl.Authentication` can be built against it in parallel.
   `SmbLoginOutcome`, `SmbLoginVerdict`) and corrects the Goal's Context on one point:
   `AnonymousAuthenticationPolicy` answers every SMB login `AcceptedUnchecked` with no note, as it
   answers every SSH login, rather than refusing it; the acceptance test shows that instead.
+- Built as the ADR writes it: `ISmbAuthenticationPolicy.CheckSmbNtlmV1LoginAsync`, `SmbNtlmV1Login`,
+  `SmbLoginOutcome { Accepted, AcceptedUnchecked, Refused }`, `SmbLoginVerdict`. Default choice:
+  `SmbNtlmV1Login` overrides the record's `PrintMembers` so `ToString` is
+  `SmbNtlmV1Login { UserName = alice, DomainName = DOM }` - it leaves out the challenge too (not
+  secret, but useless in a log) and the TLS session, so nothing derived from the password can leak.
+- Verified 2026-09-30: `dotnet build -warnaserror` clean; fast tests green (Abstractions 283);
+  `Measure-CodeQuality.ps1 -Library Surl.Protocol.Abstractions.UnitLibrary` 100% line, 100%
+  branch, 0 failing members.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. Abstractions carries ISmbAuthenticationPolicy with SmbNtlmV1Login, SmbLoginVerdict and SmbLoginOutcome (ADR-0073 decision 3); AnonymousAuthenticationPolicy answers every SMB login AcceptedUnchecked

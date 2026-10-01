@@ -335,6 +335,39 @@ public sealed class AnonymousAuthenticationPolicyTests
                 SshPublicKeyLoginWith(SshPublicKeyProof.None), new CancellationToken(canceled: true)));
     }
 
+    [TestMethod]
+    public async Task CheckSmbNtlmV1LoginAsync_AnyResponses_IsAcceptedUncheckedWithNoNote()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        var verdict = await policy.CheckSmbNtlmV1LoginAsync(SmbLogin, CancellationToken.None);
+
+        Assert.AreEqual(SmbLoginOutcome.AcceptedUnchecked, verdict.Outcome);
+        Assert.IsNull(verdict.AccountName);
+        Assert.IsNull(verdict.CheckedLogin);
+    }
+
+    [TestMethod]
+    public async Task CheckSmbNtlmV1LoginAsync_NullLogin_Throws()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+            async () => await policy.CheckSmbNtlmV1LoginAsync(null!, CancellationToken.None));
+    }
+
+    [TestMethod]
+    public async Task CheckSmbNtlmV1LoginAsync_Cancelled_Throws()
+    {
+        var policy = new AnonymousAuthenticationPolicy();
+
+        await Assert.ThrowsExactlyAsync<OperationCanceledException>(
+            async () => await policy.CheckSmbNtlmV1LoginAsync(SmbLogin, new CancellationToken(canceled: true)));
+    }
+
+    private static SmbNtlmV1Login SmbLogin =>
+        new("alice", "WORKGROUP", new byte[8], new byte[24], new byte[24], null);
+
     private static SshPublicKeyLogin SshPublicKeyLoginWith(SshPublicKeyProof proof) =>
         new("alice", "ssh-ed25519", new ReadOnlyMemory<byte>([0x00, 0x0b]), proof);
 
