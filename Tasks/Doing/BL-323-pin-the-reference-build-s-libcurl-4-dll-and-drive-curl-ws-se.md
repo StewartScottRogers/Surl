@@ -50,3 +50,4 @@ client frames only libcurl's API sends can be measured and proved (ADR-0071 deci
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
