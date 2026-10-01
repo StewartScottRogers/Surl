@@ -40,3 +40,4 @@ ADR-0071 decision 6 states the close codes surl accepts from a client exactly as
 ## Log
 
 - 2026-09-30: Created.
+- 2026-10-01: Backlog -> Doing.
