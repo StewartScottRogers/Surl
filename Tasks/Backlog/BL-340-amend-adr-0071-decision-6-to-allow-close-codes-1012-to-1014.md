@@ -1,5 +1,5 @@
 ---
-id: BL-339
+id: BL-340
 title: Amend ADR-0071 decision 6 to allow close codes 1012 to 1014 as the code does
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-048
 created: 2026-09-30
 completed:
 ---
-# BL-339 — Amend ADR-0071 decision 6 to allow close codes 1012 to 1014 as the code does
+# BL-340 — Amend ADR-0071 decision 6 to allow close codes 1012 to 1014 as the code does
 
 ## Goal
 

@@ -61,12 +61,12 @@ answer and what pinned upstream curl has proven against them.
 - Found, not fixed here (outside `touches`): ADR-0071 decision 6 refuses a client `CLOSE` code
   1012 to 2999 with 1002, but `WebSocketCloseCodes.IsAllowedOnTheWire` (BL-288's default, from
   the IANA registry) allows 1012 to 1014, so surl echoes them. The documents state the code's
-  set; filed BL-339 to amend the ADR (the IANA registry is the current specification, so the
+  set; filed BL-340 to amend the ADR (the IANA registry is the current specification, so the
   code stays).
 - Lane 2 (second attempt): cherry-picked lane 1's docs commit from
   factory/BL-305-lane-1-20260930-162236 onto the current board; it applied cleanly and every
   ADR, type and test it cites still exists. Lane 1's follow-up was numbered BL-338, which another
-  lane has since taken, so it is refiled as BL-339.
+  lane has since taken, so it is refiled as BL-340.
 
 ## Log
 
