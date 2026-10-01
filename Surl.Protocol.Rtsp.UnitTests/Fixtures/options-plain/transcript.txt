@@ -1,0 +1,11 @@
+> OPTIONS * RTSP/1.0
+> CSeq: 1
+> User-Agent: curl/8.21.0
+> 
+< RTSP/1.0 200 OK
+< CSeq: 1
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Public: OPTIONS, DESCRIBE, ANNOUNCE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, SET_PARAMETER, RECORD
+< 
+= curl closed the connection

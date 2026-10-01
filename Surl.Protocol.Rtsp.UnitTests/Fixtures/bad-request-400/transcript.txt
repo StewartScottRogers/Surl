@@ -1,0 +1,10 @@
+> OPTIONS * RTSP/1.0
+> CSeq: 1
+> User-Agent: curl/8.21.0
+> 
+< RTSP/1.0 400 Bad Request
+< CSeq: 1
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< 
+= curl closed the connection
