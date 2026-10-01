@@ -348,6 +348,14 @@
     MQTT CONNACK is given as '\x20\x02\x00\x00'. Each is sent exactly as given; the
     script adds no line ending. Default none: curl is only listened to.
 
+    For a WebSocket upgrade (ws://, wss://), a reply may carry {WS_ACCEPT}, which is
+    replaced, when the reply is sent, with the RFC 6455 accept value of the last
+    Sec-WebSocket-Key curl has sent on the connection (base64 of the SHA-1 of the key and
+    258EAFA5-E914-47DA-95CA-C5AB0DC85B11), so a 101 can answer curl's random key, e.g.
+    'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {WS_ACCEPT}\r\n\r\n\x81\x05hello'
+    followed by server frames written in \xHH. Curl's frames after the upgrade (a masked
+    PONG, a CLOSE) are then recorded like any other burst.
+
 .PARAMETER RawReplyFirst
     With -Raw, send the first RawReply as soon as the connection is accepted, before
     reading anything, for a protocol where the server speaks first, such as DICT's 220
@@ -1782,9 +1790,28 @@ $serveRawSession = {
         return $closed
     }
 
+    # A reply's {WS_ACCEPT}, replaced with the RFC 6455 section 4.2.2 accept value of the
+    # last Sec-WebSocket-Key curl sent so far: base64(SHA-1(key + the protocol's GUID)).
+    function Resolve-WebSocketAccept {
+        param([byte[]] $Reply)
+        $latin1 = [System.Text.Encoding]::GetEncoding(28591)
+        $text = $latin1.GetString($Reply)
+        if (-not $text.Contains('{WS_ACCEPT}')) { return , $Reply }
+        $keys = [regex]::Matches($latin1.GetString($received.ToArray()), '(?im)^Sec-WebSocket-Key:[ \t]*([^\r\n]*?)[ \t]*\r?$')
+        $key = if ($keys.Count -gt 0) { $keys[$keys.Count - 1].Groups[1].Value } else { '' }
+        $sha1 = [System.Security.Cryptography.SHA1]::Create()
+        try {
+            $accept = [System.Convert]::ToBase64String($sha1.ComputeHash([System.Text.Encoding]::ASCII.GetBytes($key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')))
+        } finally {
+            $sha1.Dispose()
+        }
+        return , $latin1.GetBytes($text.Replace('{WS_ACCEPT}', $accept))
+    }
+
     # Sends one reply; $false once curl has hung up and it could not be sent.
     function Send-RawReply {
         param($Socket, [byte[]] $Reply)
+        $Reply = Resolve-WebSocketAccept -Reply $Reply
         try {
             if ($null -ne $tlsRead.Stream) {
                 $tlsRead.Stream.Write($Reply, 0, $Reply.Length)
