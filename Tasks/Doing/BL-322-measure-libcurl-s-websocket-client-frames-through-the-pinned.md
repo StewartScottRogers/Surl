@@ -39,3 +39,4 @@ gives, so BL-304 proves those cases with expected results from upstream.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
