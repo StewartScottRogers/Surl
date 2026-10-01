@@ -50,9 +50,15 @@ and accepted.
   needs a workflow step outside this task's `touches`. Per the task's Context, Blocked for
   Stewart: either approve installing the pinned `linux-x64` build in WSL (and record macOS on a
   Mac), or have the recordings made in CI.
+- 2026-10-01: Stewart answered "download it" / "yes": download the pinned `linux-x64`
+  static-curl 8.21.0 build into WSL at its `defaultPath` from `UpstreamCurlBuilds.json`, verify
+  its SHA-256 there, and record the Linux fixture with it. No Mac is reachable, so record
+  `osx-arm64` in CI (ADR-0016 installs it there): widen `touches` to the workflow step that does
+  it, as the dark factory's rules allow.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
 - 2026-09-30: Doing -> Blocked. Stewart: may I download the pinned linux-x64 static-curl 8.21.0 build into WSL (and record osx-arm64 on a Mac or in CI), since neither is on this machine?
+- 2026-10-01: Blocked -> Backlog. Stewart, 2026-10-01: download it - yes. Approved downloading the pinned linux-x64 static-curl 8.21.0 build into WSL to record the Linux fixture; record osx-arm64 in CI.
