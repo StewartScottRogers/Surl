@@ -63,7 +63,7 @@ report); `InMemoryConnection` itself drives the whole-file `PLAY`, re-`SETUP`, s
 read-failure tests. No test opens a socket.
 
 **Choices where decision 5 is silent** (decided by Claude under Stewart's delegation; the ADR
-folder was held by BL-322, so BL-335 folds these into ADR-0074):
+folder was held by BL-322, so BL-338 folds these into ADR-0074):
 
 - A client that half-closes while its session plays is streamed the rest of the presentation, and
   the connection then closes: a half-close says no more requests, not "stop reading".

@@ -34,7 +34,7 @@ and session rows):
 - `RtspSessionDescription` - decision 4's SDP; `RtspStatus` - the statuses and their reason
   phrases; `RtspUnreadRequestDrainer` - the lingering close after a closing refusal.
 
-Choices BL-315 made inside decision 5 (recorded in the task; BL-335 folds them into ADR-0074):
+Choices BL-315 made inside decision 5 (recorded in the task; BL-338 folds them into ADR-0074):
 a client that half-closes while a session plays is streamed the rest before the connection
 closes; a `SETUP` naming the session for another presentation is `455`; `PLAY` while playing
 carries on from the current position; refusals of a request naming the live session name it

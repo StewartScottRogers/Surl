@@ -1,5 +1,5 @@
 ---
-id: BL-335
+id: BL-338
 title: Fold BL-315's session choices into ADR-0074 decision 5
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-051
 created: 2026-09-30
 completed:
 ---
-# BL-335 — Fold BL-315's session choices into ADR-0074 decision 5
+# BL-338 — Fold BL-315's session choices into ADR-0074 decision 5
 
 ## Goal
 
