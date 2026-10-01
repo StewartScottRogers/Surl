@@ -77,7 +77,7 @@ public sealed class WsExchangeTests
         var connection = new InMemoryConnection([RecordedUpgradeRequestWith("GET /chat ", "GET /sub/ ")]);
         var log = new RecordingExchangeLog();
 
-        await Server(fileSystem, echoesMessages: false, listDirectories: true).ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken));
+        await WithinTimeout(Server(fileSystem, echoesMessages: false, listDirectories: true).ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken)));
 
         Assert.AreEqual(Recorded101Head + "\u0081\u000Da.txt\ninner/\n" + EmptyClose, Latin1(connection.WrittenBytes));
         Assert.Contains("Sent 13 bytes of /sub/ as a text message in 1 frames", log.Notes);
@@ -110,7 +110,7 @@ public sealed class WsExchangeTests
         var connection = new InMemoryConnection([RecordedFixture.ReadRequestBytes("ping-pong")]);
         var log = new RecordingExchangeLog();
 
-        await Server().ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken));
+        await WithinTimeout(Server().ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken)));
 
         var expected = Recorded101Head.Replace("ktpdlwK4CWD8HWwKyLX0kug7bZ8=", "gUJdUVfWcfIKTSK+89U8hTGPDx8=", StringComparison.Ordinal) + "\u0082\u0004chat" + EmptyClose;
         Assert.AreEqual(expected, Latin1(connection.WrittenBytes));

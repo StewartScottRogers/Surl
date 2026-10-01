@@ -79,7 +79,7 @@ public sealed class WsHeadLimitTests
         var serving = Server().ServeAsync(connection, Context(log, clock, TestContext.CancellationToken));
 
         clock.Advance(HeadTimeout);
-        await serving;
+        await WithinTimeout(serving);
 
         Assert.IsEmpty(connection.WrittenBytes);
         CollectionAssert.AreEqual(new[] { "No request head was read: HeadTimedOutBeforeAnyByte; closed with no bytes." }, log.Notes.ToArray());

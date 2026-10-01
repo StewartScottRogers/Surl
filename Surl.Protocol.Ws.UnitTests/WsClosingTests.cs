@@ -43,7 +43,7 @@ public sealed class WsClosingTests
         var connection = new ResettingConnection(RecordedFixture.ReadRequestBytes("head-405"));
         var log = new RecordingExchangeLog();
 
-        await Server().ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken));
+        await WithinTimeout(Server().ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken)));
 
         Assert.AreEqual("The connection failed during the lingering close (reset by the client).", log.Notes[^1]);
     }
@@ -54,7 +54,7 @@ public sealed class WsClosingTests
         var connection = new ResettingConnection(RecordedFixture.ReadRequestBytes("upgrade-101"));
         var log = new RecordingExchangeLog();
 
-        await Server().ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken));
+        await WithinTimeout(Server().ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken)));
 
         Assert.AreEqual("The connection failed (reset by the client).", log.Notes[^1]);
     }
@@ -91,7 +91,7 @@ public sealed class WsClosingTests
         await WaitUntilAsync(() => connection.WrittenBytes.Length == Recorded101Head.Length);
         await exchange.CancelAsync();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => WithinTimeout(serving));
         Assert.AreEqual(Recorded101Head, Latin1(connection.WrittenBytes));
         Assert.IsFalse(connection.WritesCompleted);
     }
@@ -110,7 +110,7 @@ public sealed class WsClosingTests
         await exchange.CancelAsync();
         await WaitForTimersAsync(clock, 1);
         clock.Advance(WebSocketExchange.LimitCloseWriteDeadline);
-        await serving;
+        await WithinTimeout(serving);
 
         Assert.IsFalse(connection.WritesCompleted);
         Assert.AreEqual("The CLOSE 1001 was not written within its 1-second write deadline; the connection is closed without it.", log.Notes[^1]);
@@ -138,7 +138,7 @@ public sealed class WsClosingTests
         await WaitForLingeringCloseAsync(clock, connection);
         await exchange.CancelAsync();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => WithinTimeout(serving));
     }
 
     [TestMethod]
@@ -151,7 +151,7 @@ public sealed class WsClosingTests
 
         await WaitForTimersAsync(clock, 1);
         clock.Advance(WebSocketUpgradeResponder.RefusalWriteDeadline);
-        await serving;
+        await WithinTimeout(serving);
 
         Assert.IsFalse(connection.WritesCompleted);
         Assert.IsFalse(connection.Aborted);
@@ -169,7 +169,7 @@ public sealed class WsClosingTests
         await WaitForTimersAsync(clock, 1);
         await exchange.CancelAsync();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        await Assert.ThrowsAsync<OperationCanceledException>(() => WithinTimeout(serving));
     }
 
     /// <summary>

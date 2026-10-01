@@ -16,6 +16,13 @@ internal static class WsServerHarness
     public static readonly DateTimeOffset Now = new(2026, 9, 28, 12, 0, 0, TimeSpan.Zero);
 
     /// <summary>
+    /// The longest a test waits for an exchange to end: far beyond any exchange here, which ends
+    /// in milliseconds, so a regression that leaves one waiting fails the test instead of
+    /// hanging the run.
+    /// </summary>
+    public static readonly TimeSpan ExchangeEndTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// The 101 the recorded upgrade request is answered with, which pinned upstream curl
     /// completed with exit 0 (Fixtures/upgrade-101/transcript.txt).
     /// </summary>
@@ -102,7 +109,7 @@ internal static class WsServerHarness
         var connection = new InMemoryConnection(chunks);
         var log = new RecordingExchangeLog();
 
-        await Server(policy, listDirectories).ServeAsync(connection, Context(log, new ManualTimeProvider(Now), cancellationToken, limits));
+        await WithinTimeout(Server(policy, listDirectories).ServeAsync(connection, Context(log, new ManualTimeProvider(Now), cancellationToken, limits)));
 
         return (connection, log);
     }
@@ -117,7 +124,7 @@ internal static class WsServerHarness
         var connection = new InMemoryConnection([RecordedFixture.ReadRequestBytes("upgrade-101"), .. clientFrames.Select(frame => new ReadOnlyMemory<byte>(frame))]);
         var log = new RecordingExchangeLog();
 
-        await Server(fileSystem ?? StandardFileSystem(), echoesMessages).ServeAsync(connection, Context(log, new ManualTimeProvider(Now), cancellationToken, limits));
+        await WithinTimeout(Server(fileSystem ?? StandardFileSystem(), echoesMessages).ServeAsync(connection, Context(log, new ManualTimeProvider(Now), cancellationToken, limits)));
 
         return (connection, log);
     }
@@ -131,8 +138,14 @@ internal static class WsServerHarness
         await WaitForLingeringCloseAsync(clock, connection);
         clock.Advance(WebSocketLingeringClose.MaxLingerTime);
 
-        await serving;
+        await WithinTimeout(serving);
     }
+
+    /// <summary>
+    /// The exchange <paramref name="serving"/>, failed with <see cref="TimeoutException"/> if it
+    /// has not ended within <see cref="ExchangeEndTimeout"/>.
+    /// </summary>
+    public static Task WithinTimeout(Task serving) => serving.WaitAsync(ExchangeEndTimeout);
 
     /// <summary>
     /// Waits until the server has half-closed and its lingering close's timer runs.
