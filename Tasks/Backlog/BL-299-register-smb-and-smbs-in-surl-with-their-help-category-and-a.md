@@ -53,3 +53,4 @@ SMB category and topic.
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Backlog. Lane 2 could not integrate: push kept being refused. The work is on branch factory/BL-299-lane-2-20260930-162236; start with git cherry-pick --no-commit factory/BL-299-lane-2-20260930-162236 and fix it.
