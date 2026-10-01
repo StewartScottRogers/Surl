@@ -1,5 +1,5 @@
 ---
-id: BL-346
+id: BL-348
 title: Answer an SMB tree connect to IPC$ with ERRinvnetname as ADR-0073 says
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-050
 created: 2026-10-01
 completed:
 ---
-# BL-346 — Answer an SMB tree connect to IPC$ with ERRinvnetname as ADR-0073 says
+# BL-348 — Answer an SMB tree connect to IPC$ with ERRinvnetname as ADR-0073 says
 
 ## Goal
 

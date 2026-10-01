@@ -63,8 +63,8 @@ pinned upstream curl has proven against each.
 - Cited conformance tests verified to exist: `UpstreamCurlSearchesSurlOverLdapTests`,
   `UpstreamCurlTransfersFilesWithSurlOverSmbTests`, `UpstreamCurlTalksToSurlOverRtspTests`,
   `PinnedLibcurlTalksToSurlOverRtspTests`.
-- Follow-ups filed: BL-345 (stale Phase 3 GSSAPI / test-KDC statements in roadmap and overview),
-  BL-346 (`IPC$` tree connect not special-cased as ADR-0073 says).
+- Follow-ups filed: BL-347 (stale Phase 3 GSSAPI / test-KDC statements in roadmap and overview),
+  BL-348 (`IPC$` tree connect not special-cased as ADR-0073 says).
 
 ## Log
 

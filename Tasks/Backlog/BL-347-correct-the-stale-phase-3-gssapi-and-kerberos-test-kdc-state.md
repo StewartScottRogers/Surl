@@ -1,5 +1,5 @@
 ---
-id: BL-345
+id: BL-347
 title: Correct the stale Phase 3 GSSAPI and Kerberos test-KDC statements in the roadmap and product overview
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-10-01
 completed:
 ---
-# BL-345 — Correct the stale Phase 3 GSSAPI and Kerberos test-KDC statements in the roadmap and product overview
+# BL-347 — Correct the stale Phase 3 GSSAPI and Kerberos test-KDC statements in the roadmap and product overview
 
 ## Goal
 
