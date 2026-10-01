@@ -1,0 +1,773 @@
+{
+    "measuredAt":  "2026-10-01T16:33:23Z",
+    "thresholds":  {
+                       "linePercent":  100,
+                       "branchPercent":  100,
+                       "complexity":  10,
+                       "crap":  30
+                   },
+    "totals":  {
+                   "linePercent":  100,
+                   "branchPercent":  100,
+                   "linesCovered":  29029,
+                   "linesTotal":  29029,
+                   "branchesCovered":  10102,
+                   "branchesTotal":  10102,
+                   "libraries":  39,
+                   "librariesAtGate":  38,
+                   "failingMembers":  1
+               },
+    "libraries":  [
+                      {
+                          "name":  "Surl.Authentication.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2505,
+                          "linesTotal":  2505,
+                          "branchesCovered":  1156,
+                          "branchesTotal":  1156,
+                          "members":  480,
+                          "failingMembers":  1,
+                          "worstCrap":  12
+                      },
+                      {
+                          "name":  "Surl.Cli.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1878,
+                          "linesTotal":  1878,
+                          "branchesCovered":  452,
+                          "branchesTotal":  452,
+                          "members":  261,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Conformance.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  397,
+                          "linesTotal":  397,
+                          "branchesCovered":  176,
+                          "branchesTotal":  176,
+                          "members":  71,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Console",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  844,
+                          "linesTotal":  844,
+                          "branchesCovered":  290,
+                          "branchesTotal":  290,
+                          "members":  129,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Content.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  973,
+                          "linesTotal":  973,
+                          "branchesCovered":  224,
+                          "branchesTotal":  224,
+                          "members":  158,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Core.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  638,
+                          "linesTotal":  638,
+                          "branchesCovered":  156,
+                          "branchesTotal":  156,
+                          "members":  152,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Cryptography.BcryptPbkdf.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  82,
+                          "linesTotal":  82,
+                          "branchesCovered":  22,
+                          "branchesTotal":  22,
+                          "members":  4,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Blowfish.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  244,
+                          "linesTotal":  244,
+                          "branchesCovered":  22,
+                          "branchesTotal":  22,
+                          "members":  17,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Cast128.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  416,
+                          "linesTotal":  416,
+                          "branchesCovered":  26,
+                          "branchesTotal":  26,
+                          "members":  13,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Cryptography.ChaCha20.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  113,
+                          "linesTotal":  113,
+                          "branchesCovered":  22,
+                          "branchesTotal":  22,
+                          "members":  13,
+                          "failingMembers":  0,
+                          "worstCrap":  4
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Curve25519.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  283,
+                          "linesTotal":  283,
+                          "branchesCovered":  40,
+                          "branchesTotal":  40,
+                          "members":  25,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Ed25519.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  346,
+                          "linesTotal":  346,
+                          "branchesCovered":  42,
+                          "branchesTotal":  42,
+                          "members":  36,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Poly1305.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  108,
+                          "linesTotal":  108,
+                          "branchesCovered":  8,
+                          "branchesTotal":  8,
+                          "members":  9,
+                          "failingMembers":  0,
+                          "worstCrap":  4
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Rc4.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  47,
+                          "linesTotal":  47,
+                          "branchesCovered":  16,
+                          "branchesTotal":  16,
+                          "members":  5,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Cryptography.Ripemd160.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  223,
+                          "linesTotal":  223,
+                          "branchesCovered":  29,
+                          "branchesTotal":  29,
+                          "members":  24,
+                          "failingMembers":  0,
+                          "worstCrap":  6
+                      },
+                      {
+                          "name":  "Surl.Cryptography.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  312,
+                          "linesTotal":  312,
+                          "branchesCovered":  48,
+                          "branchesTotal":  48,
+                          "members":  21,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.HttpMessage.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  334,
+                          "linesTotal":  334,
+                          "branchesCovered":  132,
+                          "branchesTotal":  132,
+                          "members":  56,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Kerberos.TestKdc.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  605,
+                          "linesTotal":  605,
+                          "branchesCovered":  130,
+                          "branchesTotal":  130,
+                          "members":  85,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Kerberos.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  896,
+                          "linesTotal":  896,
+                          "branchesCovered":  242,
+                          "branchesTotal":  242,
+                          "members":  136,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.LineProtocol.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  248,
+                          "linesTotal":  248,
+                          "branchesCovered":  82,
+                          "branchesTotal":  82,
+                          "members":  34,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.MailStore.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  968,
+                          "linesTotal":  968,
+                          "branchesCovered":  364,
+                          "branchesTotal":  364,
+                          "members":  189,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Networking.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1053,
+                          "linesTotal":  1053,
+                          "branchesCovered":  234,
+                          "branchesTotal":  234,
+                          "members":  150,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Output.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  252,
+                          "linesTotal":  252,
+                          "branchesCovered":  72,
+                          "branchesTotal":  72,
+                          "members":  46,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Abstractions.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  434,
+                          "linesTotal":  434,
+                          "branchesCovered":  40,
+                          "branchesTotal":  40,
+                          "members":  103,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Protocol.Dict.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  483,
+                          "linesTotal":  483,
+                          "branchesCovered":  146,
+                          "branchesTotal":  146,
+                          "members":  91,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Ftp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  988,
+                          "linesTotal":  988,
+                          "branchesCovered":  422,
+                          "branchesTotal":  422,
+                          "members":  195,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Gopher.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  209,
+                          "linesTotal":  209,
+                          "branchesCovered":  76,
+                          "branchesTotal":  76,
+                          "members":  38,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Http.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  455,
+                          "linesTotal":  455,
+                          "branchesCovered":  164,
+                          "branchesTotal":  164,
+                          "members":  72,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Imap.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  2099,
+                          "linesTotal":  2099,
+                          "branchesCovered":  1352,
+                          "branchesTotal":  1352,
+                          "members":  497,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Ldap.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  1771,
+                          "linesTotal":  1771,
+                          "branchesCovered":  782,
+                          "branchesTotal":  782,
+                          "members":  330,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Mqtt.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  716,
+                          "linesTotal":  716,
+                          "branchesCovered":  300,
+                          "branchesTotal":  300,
+                          "members":  105,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Pop3.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  479,
+                          "linesTotal":  479,
+                          "branchesCovered":  202,
+                          "branchesTotal":  202,
+                          "members":  97,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Rtsp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  836,
+                          "linesTotal":  836,
+                          "branchesCovered":  333,
+                          "branchesTotal":  333,
+                          "members":  116,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Smb.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  880,
+                          "linesTotal":  880,
+                          "branchesCovered":  223,
+                          "branchesTotal":  223,
+                          "members":  106,
+                          "failingMembers":  0,
+                          "worstCrap":  8
+                      },
+                      {
+                          "name":  "Surl.Protocol.Smtp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  486,
+                          "linesTotal":  486,
+                          "branchesCovered":  250,
+                          "branchesTotal":  250,
+                          "members":  85,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Ssh.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  3974,
+                          "linesTotal":  3974,
+                          "branchesCovered":  1271,
+                          "branchesTotal":  1271,
+                          "members":  648,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Telnet.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  358,
+                          "linesTotal":  358,
+                          "branchesCovered":  153,
+                          "branchesTotal":  153,
+                          "members":  53,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Tftp.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  375,
+                          "linesTotal":  375,
+                          "branchesCovered":  148,
+                          "branchesTotal":  148,
+                          "members":  65,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      },
+                      {
+                          "name":  "Surl.Protocol.Ws.UnitLibrary",
+                          "linePercent":  100,
+                          "branchPercent":  100,
+                          "linesCovered":  721,
+                          "linesTotal":  721,
+                          "branchesCovered":  255,
+                          "branchesTotal":  255,
+                          "members":  99,
+                          "failingMembers":  0,
+                          "worstCrap":  10
+                      }
+                  ],
+    "failing":  [
+                    {
+                        "library":  "Surl.Authentication.UnitLibrary",
+                        "member":  "GssapiSaslExchange.ServiceOf(string)",
+                        "file":  "Surl.Authentication.UnitLibrary\\GssapiSaslExchange.cs",
+                        "line":  55,
+                        "linePercent":  100,
+                        "branchPercent":  100,
+                        "complexity":  12,
+                        "crap":  12,
+                        "fails":  [
+                                      "complexity"
+                                  ],
+                        "uncoveredLines":  ""
+                    }
+                ],
+    "exclusions":  [
+                       {
+                           "file":  "Surl.Conformance.UnitLibrary\\FileSystemUpstreamCurlFileAccess.cs",
+                           "line":  10,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Surl.Conformance.UnitLibrary\\UpstreamCurlRunner.cs",
+                           "line":  64,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Surl.Conformance.UnitLibrary\\UpstreamCurlRunner.cs",
+                           "line":  81,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Surl.Conformance.UnitLibrary\\UpstreamCurlRunner.cs",
+                           "line":  100,
+                           "text":  "[ExcludeFromCodeCoverage]"
+                       },
+                       {
+                           "file":  "Surl.Console\\DataDirectoryLock.cs",
+                           "line":  31,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Asks the disk; covered by the integration tests in DataDirectoryLockTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Console\\DataDirectoryProbe.cs",
+                           "line":  17,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Asks the disk; covered by the integration tests in Surl.Console.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Console\\LogFile.cs",
+                           "line":  23,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Opens a file on disk; covered by the integration tests in LogFileTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  23,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  45,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  71,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  77,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  88,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  105,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  118,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  135,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  148,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  154,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  162,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  173,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  189,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  195,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Content.UnitLibrary\\DiskContentFileSystem.cs",
+                           "line":  202,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Covered by the Integration tests in Surl.Content.UnitTests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketDataConnectionSockets.cs",
+                           "line":  16,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketDataConnectionSockets.cs",
+                           "line":  41,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Connects a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketDataConnectionSockets.cs",
+                           "line":  61,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Wraps a connected socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketDataConnectionSockets.cs",
+                           "line":  70,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Wraps a listening socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketListenerFactory.cs",
+                           "line":  32,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Delegates to TcpConnectionListener.StartAsync, which binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketListenerFactory.cs",
+                           "line":  37,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Delegates to UdpDatagramListener.StartAsync, which binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketTransportControl.cs",
+                           "line":  16,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Constructed only over an accepted socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketTransportControl.cs",
+                           "line":  20,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Socket.Shutdown; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\SocketTransportControl.cs",
+                           "line":  26,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Sets Socket.LingerState and calls Socket.Close; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  27,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.LocalEndPoint; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  41,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Set only by the socket-reading constructor; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  49,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Set only by the socket-reading constructor; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  66,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Dns and binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  84,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Dns and binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  101,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Accepts a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  111,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  122,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  147,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.LocalEndPoint; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  151,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.LocalEndPoint; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  155,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  159,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  163,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Wraps an accepted socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  177,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Accepts on a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\TcpConnectionListener.cs",
+                           "line":  196,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Made only from an accepted socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\UdpDatagramListener.cs",
+                           "line":  53,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Resolves with Dns and binds sockets; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  22,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Reads Socket.LocalEndPoint; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  34,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Set only by the socket-reading constructor; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  46,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Binds a socket; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  72,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Socket.ReceiveFromAsync; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  82,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Calls Socket.SendToAsync; covered by the integration tests.\")]"
+                       },
+                       {
+                           "file":  "Surl.Networking.UnitLibrary\\UdpDatagramSocket.cs",
+                           "line":  88,
+                           "text":  "[ExcludeFromCodeCoverage(Justification = \"Disposes a socket; covered by the integration tests.\")]"
+                       }
+                   ]
+}

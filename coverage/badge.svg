@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="235" height="20" role="img" aria-label="coverage: 100% lines &#183; 100% branches">
+  <title>coverage: 100% lines &#183; 100% branches</title>
+  <rect width="235" height="20" rx="3" fill="#555"/>
+  <rect x="61" width="174" height="20" rx="3" fill="#b58900"/>
+  <rect x="61" width="4" height="20" fill="#b58900"/>
+  <g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle">
+    <text x="30" y="14">coverage</text>
+    <text x="148" y="14">100% lines &#183; 100% branches</text>
+  </g>
+</svg>
