@@ -62,3 +62,4 @@ and accepted.
 - 2026-09-30: Backlog -> Doing.
 - 2026-09-30: Doing -> Blocked. Stewart: may I download the pinned linux-x64 static-curl 8.21.0 build into WSL (and record osx-arm64 on a Mac or in CI), since neither is on this machine?
 - 2026-10-01: Blocked -> Backlog. Stewart, 2026-10-01: download it - yes. Approved downloading the pinned linux-x64 static-curl 8.21.0 build into WSL to record the Linux fixture; record osx-arm64 in CI.
+- 2026-10-01: Backlog -> Doing.
