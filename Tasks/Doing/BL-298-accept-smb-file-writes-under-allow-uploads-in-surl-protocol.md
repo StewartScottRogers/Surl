@@ -42,3 +42,4 @@ with `--allow-uploads`, bounded by `--max-filesize`, as BL-283's ADR decides.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
