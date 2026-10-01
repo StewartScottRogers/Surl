@@ -8,7 +8,7 @@ depends-on: [BL-330]
 touches: [Documentation/Planning/Decisions]
 requirement: FR-049
 created: 2026-09-30
-completed:
+completed: 2026-10-01
 ---
 # BL-336 — Correct ADR-0072's SPNEGO reconnect claim and record BL-330's mechListMIC decisions
 
@@ -37,17 +37,27 @@ SPNEGO-wrapped NTLM and its `mechListMIC`.
 
 ## Acceptance criteria
 
-- [ ] ADR-0072's measurement bullet and decision 4's Sicily row no longer say the reconnect sent
+- [x] ADR-0072's measurement bullet and decision 4's Sicily row no longer say the reconnect sent
       SPNEGO; they say `WinLDAP` sends bare NTLM in every measured configuration (BL-330).
-- [ ] A new ADR, marked "Decided by Claude under Stewart's delegation", records BL-330's
+- [x] A new ADR, marked "Decided by Claude under Stewart's delegation", records BL-330's
       SPNEGO and `mechListMIC` decisions above and why, and `Documentation/Planning/Decisions/README.md`
       lists it.
 
 ## Notes
 
 - Filed by BL-330.
+- ADR-0072: the measurement bullet now says the reconnect was a version 2 Sicily bind holding
+  bare NTLM, with a "Corrected by BL-336" note citing BL-330's ten configurations and BL-329's
+  fixture; decision 4's Sicily `[10]` row says bare NTLM is what `WinLDAP` sends in every measured
+  configuration and points SPNEGO at ADR-0077; the header's **Amended:** line lists BL-336.
+- New ADR-0077 (decided by Claude under Stewart's delegation, in BL-330) records serving
+  SPNEGO-wrapped NTLM, the `mechListMIC` (sequence 0, fresh RC4 handles, first sealed message 1),
+  the refusal rules and HTTP Negotiate unchanged; each claim checked against
+  `NtlmSaslExchange` and `NtlmSecurityLayer`. Listed in `Decisions/README.md`.
+- Took the next ADR number, 0077; if another lane lands an ADR-0077 first, renumber on rebase.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-10-01: Backlog -> Doing.
+- 2026-10-01: Doing -> Done. ADR-0072 says WinLDAP sends bare NTLM in every measured configuration, and ADR-0077 records BL-330's SPNEGO and mechListMIC decisions

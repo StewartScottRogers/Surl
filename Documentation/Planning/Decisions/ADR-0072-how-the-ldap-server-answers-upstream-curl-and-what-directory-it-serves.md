@@ -18,7 +18,10 @@
   decision 4's refusal codes, Sicily's package discovery, which bind continues an exchange and
   when a security layer is replaced; decision 5's `responseName`s, `StartTLS` on a TLS
   connection and the frame reader's read-ahead; decision 7's security-layer and `StartTLS`
-  notes.
+  notes. The measurement of the sealed NTLM bind's reconnect and decision 4's Sicily `[10]` row
+  by BL-336 (2026-10-01): the reconnect sent bare NTLM, not SPNEGO, and how an SPNEGO-wrapped
+  NTLM bind and its `mechListMIC` are answered is
+  [ADR-0077](ADR-0077-ldap-ntlm-binds-serve-spnego-wrapped-ntlm-and-check-its-mechlistmic.md).
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -148,8 +151,12 @@ With a `CHALLENGE_MESSAGE` scripted (flags `E2888205`, no signing or sealing gra
   (an NTLM signature, version 1, sequence number 0), then 68 bytes - exactly the length of the
   plain base search above. Every message after an NTLM bind is sealed with NTLM's session keys
   (MS-NLMP 3.4). The recorder cannot unseal it and closed; curl exited 39 `LDAP remote: Server
-  Down` (after the reconnect, which used Sicily with the NTLM token wrapped in SPNEGO in a version
-  2 bind).
+  Down` (after the reconnect, a version 2 Sicily bind holding a bare NTLM token). *Corrected by
+  BL-336:* this line first said the reconnect wrapped the NTLM token in SPNEGO; BL-330 could not
+  reproduce that in ten configurations (Sicily and `GSS-SPNEGO`, a closed or refused bind and a
+  challenge granting sign and seal or not, every root DSE listing, `127.0.0.1` and `localhost`),
+  and BL-329's `Fixtures/ldap-negotiate-sealed` shows the same bare version 2 bind: `WinLDAP`
+  sends bare NTLM in every measured configuration.
 - **`DIGEST-MD5`:** answered `bindResponse 14` with
   `realm="surl.test",nonce="...",qop="auth",charset=utf-8,algorithm=md5-sess` (ADR-0049's mail
   challenge), `WinLDAP` sends nothing more for it and starts again; exit 38 `Protocol Error`. With
@@ -356,7 +363,7 @@ SASL and is not listed: it is answered when `ntlm` is accepted.
 | `WinLDAP` bind | Mechanism (`--auth` word) | Exchange |
 | --- | --- | --- |
 | Sicily `[9]` `sicilyPackageDiscovery` | `ntlm` | `bindResponse success`, matched DN `NTLM` (MS-ADTS 5.1.1.1.3); `authMethodNotSupported` (7) when `ntlm` is not accepted |
-| Sicily `[10]` `sicilyNegotiate` | `ntlm` | the token goes to the NTLM handshake (bare NTLM, or SPNEGO by ADR-0040's rules: the reconnect sent SPNEGO here); its `CHALLENGE_MESSAGE` goes back as `bindResponse success` with the message as the **matched DN** (measured) |
+| Sicily `[10]` `sicilyNegotiate` | `ntlm` | the token goes to the NTLM handshake (bare NTLM, which is what `WinLDAP` sends in every measured configuration (BL-330); an SPNEGO-wrapped token is still served, by ADR-0040's rules and [ADR-0077](ADR-0077-ldap-ntlm-binds-serve-spnego-wrapped-ntlm-and-check-its-mechlistmic.md)); its `CHALLENGE_MESSAGE` goes back as `bindResponse success` with the message as the **matched DN** (measured) |
 | Sicily `[11]` `sicilyResponse` | `ntlm` | the `AUTHENTICATE_MESSAGE` checked by ADR-0039's NTLMv2 check: `success` with nothing else, or `invalidCredentials` (49) after the delay. A `[11]` with no `[10]` before it on the connection is `protocolError` (2) |
 | SASL `GSS-SPNEGO` | `negotiate` | a bare NTLM token is the NTLM handshake as above, its `CHALLENGE_MESSAGE` sent as `saslBindInProgress` (14) `serverSaslCreds` (measured); an SPNEGO token follows ADR-0040 decision 3 (NTLM is the mechanism selected) with ADR-0040's `negTokenResp`s as `serverSaslCreds`, the last one on `success` |
 | SASL `DIGEST-MD5` | `digest-md5` | ADR-0049 decision 5's exchange with an LDAP challenge `realm="surl",nonce="<base64 of 16 random bytes>",qop="auth,auth-int,auth-conf",cipher="3des,rc4",maxbuf=65536,charset=utf-8,algorithm=md5-sess`; the response checked as ADR-0049 says (`digest-uri` `ldap/<host>`, hashed as sent); success is `bindResponse success` **with `rspauth=<hex>` as `serverSaslCreds`** (RFC 4422 section 5's additional data; measured: without it `WinLDAP` fails) |
