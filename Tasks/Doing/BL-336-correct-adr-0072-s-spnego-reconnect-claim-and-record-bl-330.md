@@ -50,3 +50,4 @@ SPNEGO-wrapped NTLM and its `mechListMIC`.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-10-01: Backlog -> Doing.
