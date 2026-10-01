@@ -22,6 +22,7 @@ using Surl.Protocol.Smtp;
 using Surl.Protocol.Ssh;
 using Surl.Protocol.Telnet;
 using Surl.Protocol.Tftp;
+using Surl.Protocol.Ws;
 
 namespace Surl.Console;
 
@@ -399,19 +400,23 @@ internal sealed class CommandLineRunner(
     // offer STARTTLS, POP3 STLS and FTP AUTH TLS only when a certificate is configured. The SSH server answers scp and sftp with its host keys and
     // offers the algorithms given: ADR-0051 decision 2's default ones, its weak ones too with
     // --allow-weak-ssh-algorithms, the ciphers and MACs narrowed by --ssh-ciphers and --ssh-macs
-    // (ADR-0051 decision 13, ADR-0066).
+    // (ADR-0051 decision 13, ADR-0066). The WebSocket server serves the one content store, judged
+    // by the one policy as HTTP is, and is registered for wss too, over a secured connection; with
+    // --ws-echo it echoes every client message instead (ADR-0071 decisions 3, 4 and 8).
     private static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
         ServiceState serviceState,
         AuthenticationPolicy authenticationPolicy,
         SshHostKeySet sshHostKeys,
         SshAlgorithmOffer sshAlgorithms,
-        bool isTlsUpgradeAvailable)
+        bool isTlsUpgradeAvailable,
+        bool echoesWebSocketMessages)
     {
         var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
         var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
         var imapServer = new ImapProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
         var pop3Server = new Pop3ProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
+        var wsServer = new WsProtocolServer(contentStore, authenticationPolicy, echoesWebSocketMessages);
 
         return
         [
@@ -435,6 +440,8 @@ internal sealed class CommandLineRunner(
                 contentStore),
             new TelnetProtocolServer(),
             new TftpProtocolServer(contentStore),
+            wsServer,
+            new ImplicitTlsSchemeServer(wsServer, "wss"),
         ];
     }
 
@@ -447,7 +454,8 @@ internal sealed class CommandLineRunner(
             AuthenticationComposition.ComposeWithoutAccounts(timeProvider),
             new SshHostKeySet(),
             SshAlgorithmOffer.Default([], AesGcm.IsSupported),
-            isTlsUpgradeAvailable: false);
+            isTlsUpgradeAvailable: false,
+            echoesWebSocketMessages: false);
 
     // What the servers keep across connections, loaded after the lock: the MQTT retained
     // messages and the mail store (ADR-0031 decision 6, ADR-0050 decision 7).
@@ -610,7 +618,8 @@ internal sealed class CommandLineRunner(
                     authentication.Policy,
                     authentication.SshHostKeys.HostKeys,
                     SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
-                    ServerTlsComposition.IsCertificateConfigured(commandLine)),
+                    ServerTlsComposition.IsCertificateConfigured(commandLine),
+                    commandLine.WsEcho),
                 authentication,
                 output,
                 error,

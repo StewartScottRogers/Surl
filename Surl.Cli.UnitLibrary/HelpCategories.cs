@@ -26,6 +26,7 @@ internal static class HelpCategories
         new("testing", "Loosening options for tests (warned)", []),
         new("tftp", "TFTP protocol", ["tftp"]),
         new("tls", "TLS certificates and versions", []),
+        new("websocket", "WebSocket protocol", ["ws", "wss"]),
     ];
 
     /// <summary>Every category, in ordinal order of its name.</summary>

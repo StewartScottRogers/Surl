@@ -9,7 +9,8 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "SSH OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS", "EXIT CODES", "SEE ALSO",
+        "IN-MEMORY MODE", "ACCOUNTS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
+        "EXIT CODES", "SEE ALSO",
     ];
 
     [TestMethod]
@@ -191,6 +192,15 @@ public sealed class ManualTextTests
             "    --allow-weak-ssh-algorithms, exits 2, naming it. surl --aihelp ssh lists",
             "    the names.",
             "",
+            "WEBSOCKET OPTIONS",
+            "",
+            "    The WebSocket server answers ws and wss listen URLs: it sends the file at",
+            "    the upgrade request's path as one binary message, or a directory's",
+            "    listing as one text message with --list-directories, then closes.",
+            "    --ws-echo makes it echo every client message instead, without looking",
+            "    up the path. wss needs --cert or --self-signed. surl --aihelp websocket",
+            "    says how each upgrade and frame is answered.",
+            "",
             "LOOSENING OPTIONS",
             "",
             "    --allow-anonymous, --allow-plaintext-auth, --auth, --self-signed and",
@@ -240,10 +250,11 @@ public sealed class ManualTextTests
             "      3600.",
             "    - --head-timeout <seconds>: the time a client has to send a request head,",
             "      command line or first packet; default 30.",
-            "    - --max-request-head <bytes>: the largest HTTP request head; default 100k.",
+            "    - --max-request-head <bytes>: the largest HTTP or WebSocket upgrade",
+            "      request head; default 100k.",
             "    - --max-line <bytes>: the longest command line; default 8192.",
             "    - --max-message <bytes>: the largest framed message, such as an MQTT",
-            "      packet; default 1M.",
+            "      packet or a WebSocket message; default 1M.",
             "    - --max-filesize <bytes>: the largest upload; default 100M.",
             "",
             "    A size may end in k, M, G, T or P, each 1024 times the one before. A limit",

@@ -51,7 +51,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its
   `AuthenticationSettings`, is handed to the HTTP (`http`, `https`), MQTT (`mqtt`,
-  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`) and FTP (`ftp`, `ftps`) servers; `Compose` also returns every account's user
+  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
   name, the mail store's owners. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `FtpProtocolServer` for `ftp` and `ftps` (it declares
   both itself; `AUTH TLS` when `--cert` or `--self-signed` is given, ADR-0052 decision 5), given the
@@ -82,7 +82,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `SshProtocolServer` for `scp` and `sftp`, given the host keys, `SshAlgorithmComposition.Compose`'s
   offer for them (`SshAlgorithmOffer.Default`, with decision 2's weak algorithms too under
   `--allow-weak-ssh-algorithms`, its ciphers and MACs narrowed by `--ssh-ciphers` and `--ssh-macs`, ADR-0066), the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the
-  content store, `TelnetProtocolServer` for `telnet` and `TftpProtocolServer` for `tftp`, over UDP), the
+  content store, `TelnetProtocolServer` for `telnet`, `TftpProtocolServer` for `tftp`, over UDP,
+  and `WsProtocolServer` for `ws` and, through `ImplicitTlsSchemeServer`, `wss`, given the content
+  store, the policy (its upgrades judged by the HTTP authentication session, ADR-0071 decision 3)
+  and `--ws-echo`, ADR-0071 decisions 4 and 8), the
   exchange log of the parsed log level and the serving engine, with the connection limits
   (`ComposeConnectionLimits`) the command line's `--max-connections`,
   `--max-connections-per-address`, `--idle-timeout` and `-m`/`--max-time` give, and the FTP

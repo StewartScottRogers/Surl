@@ -165,7 +165,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "imap", "mqtt", "pop3", "smtp", "ssh", "telnet", "tftp" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "imap", "mqtt", "pop3", "smtp", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
     }
 
     [TestMethod]

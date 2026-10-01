@@ -13,7 +13,7 @@ public sealed partial class AiHelpTextTests
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "imap", "limits", "listen-urls",
-        "logging", "mqtt", "pop3", "security", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls",
+        "logging", "mqtt", "pop3", "security", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -44,6 +44,7 @@ public sealed partial class AiHelpTextTests
         "| `testing` | Loosening options for tests (warned) |",
         "| `tftp` | TFTP protocol |",
         "| `tls` | TLS certificates and versions |",
+        "| `websocket` | WebSocket protocol |",
     ];
 
     [TestMethod]

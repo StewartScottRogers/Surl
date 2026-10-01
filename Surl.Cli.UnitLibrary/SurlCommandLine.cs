@@ -232,6 +232,12 @@ public sealed record SurlCommandLine
     /// </summary>
     public IReadOnlyList<string>? SshMacs { get; init; }
 
+    /// <summary>
+    /// <c>--ws-echo</c>: the WebSocket server echoes every client message instead of sending the
+    /// requested path (ADR-0071 decision 4). Off by default.
+    /// </summary>
+    public bool WsEcho { get; init; }
+
     /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
     private static readonly IReadOnlyList<string> DefaultAuthenticationMethods =
         ["digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4"];

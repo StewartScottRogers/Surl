@@ -7,25 +7,26 @@ public sealed class HelpTextTests
 
     private static readonly string[] CategoryListLines =
     [
-        " auth      Accounts and authentication methods",
-        " content   Served files and the data directory",
-        " dict      DICT protocol",
-        " ftp       FTP and FTPS protocol",
-        " gopher    GOPHER and GOPHERS protocol",
-        " http      HTTP and HTTPS protocol",
-        " imap      IMAP and IMAPS protocol",
-        " limits    Connection, time and size limits",
-        " logging   Log levels, tracing and the log file",
-        " mqtt      MQTT and MQTTS protocol",
-        " pop3      POP3 and POP3S protocol",
-        " security  Options that widen what a peer may do",
-        " smtp      SMTP and SMTPS protocol",
-        " ssh       SSH protocol",
-        " surl      The command line tool itself",
-        " telnet    TELNET protocol",
-        " testing   Loosening options for tests (warned)",
-        " tftp      TFTP protocol",
-        " tls       TLS certificates and versions",
+        " auth       Accounts and authentication methods",
+        " content    Served files and the data directory",
+        " dict       DICT protocol",
+        " ftp        FTP and FTPS protocol",
+        " gopher     GOPHER and GOPHERS protocol",
+        " http       HTTP and HTTPS protocol",
+        " imap       IMAP and IMAPS protocol",
+        " limits     Connection, time and size limits",
+        " logging    Log levels, tracing and the log file",
+        " mqtt       MQTT and MQTTS protocol",
+        " pop3       POP3 and POP3S protocol",
+        " security   Options that widen what a peer may do",
+        " smtp       SMTP and SMTPS protocol",
+        " ssh        SSH protocol",
+        " surl       The command line tool itself",
+        " telnet     TELNET protocol",
+        " testing    Loosening options for tests (warned)",
+        " tftp       TFTP protocol",
+        " tls        TLS certificates and versions",
+        " websocket  WebSocket protocol",
     ];
 
     // ADR-0034 decision 5's paragraphs, as --help testing and each option's page lay them out.
@@ -137,7 +138,7 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, content, dict, ftp, gopher, http, imap, limits, logging, mqtt, pop3,",
-            "security, smtp, ssh, surl, telnet, testing, tftp, tls.",
+            "security, smtp, ssh, surl, telnet, testing, tftp, tls, websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -203,7 +204,8 @@ public sealed class HelpTextTests
             Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(38, "    --user-file <file>", "Read accounts from a file"),
             Row(38, "-v, --verbose", "Log every exchange event"),
-            Row(38, "-V, --version", "Show version number and quit"));
+            Row(38, "-V, --version", "Show version number and quit"),
+            Row(38, "    --ws-echo", "Echo client messages, not the path"));
     }
 
     [TestMethod]
@@ -399,7 +401,7 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, imap, mqtt, pop3, smtp, ssh.",
+            "        Categories: auth, ftp, http, imap, mqtt, pop3, smtp, ssh, websocket.",
             "");
 
     [TestMethod]
@@ -409,7 +411,7 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, imap, mqtt, pop3, smtp, ssh.",
+            "        Categories: auth, ftp, http, imap, mqtt, pop3, smtp, ssh, websocket.",
             "");
 
     [TestMethod]
@@ -423,7 +425,7 @@ public sealed class HelpTextTests
                 .. AllowAnonymousExplanationLines,
                 "",
                 "        Categories: auth, ftp, http, imap, mqtt, pop3, security, smtp, ssh,",
-                "        testing.",
+                "        testing, websocket.",
                 "",
             ]);
 
@@ -439,7 +441,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, mqtt, pop3, security, smtp, testing.",
+                "        Categories: auth, ftp, http, imap, mqtt, pop3, security, smtp, testing,",
+                "        websocket.",
                 "",
             ]);
 
@@ -468,7 +471,7 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, imap, pop3, security, smtp, testing.",
+                "        Categories: auth, http, imap, pop3, security, smtp, testing, websocket.",
                 "",
             ]);
 
