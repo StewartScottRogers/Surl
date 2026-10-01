@@ -14,6 +14,12 @@ public sealed class GssApiChecksumTests
     }
 
     [TestMethod]
+    public void ReadFlags_GivesTheLittleEndianFlagsAfterTheBindings()
+    {
+        Assert.AreEqual(0x1234003EU, GssApiChecksum.ReadFlags(ApRequestBuilder.GssApiChecksumBytes(0x1234003E)));
+    }
+
+    [TestMethod]
     public void IsWellFormed_LgthNot16_IsFalse()
     {
         byte[] checksum = ApRequestBuilder.GssApiChecksumBytes(0x3E);

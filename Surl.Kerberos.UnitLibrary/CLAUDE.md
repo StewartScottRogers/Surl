@@ -34,3 +34,8 @@ It references nothing but the shared framework (ADR-0002): never open a socket o
 public type per file, namespace `Surl.Kerberos`. Every primitive is pinned by its RFC's
 published vectors, with the source cited beside each vector; an integrity failure is a `false`
 return, compared with `CryptographicOperations.FixedTimeEquals`, never an exception.
+
+`KerberosSecurityContext` also reads the authenticator checksum's GSS-API flags
+(`GssApiChecksum.ReadFlags`) into `IsConfidentialityRequested` and `IsIntegrityRequested`, and
+`Seal` makes an acceptor wrap token with confidentiality (`EC` 0, `RRC` 28, as Windows sends it),
+for LDAP's Kerberos security layer (BL-327, ADR-0072 Amendment 1).

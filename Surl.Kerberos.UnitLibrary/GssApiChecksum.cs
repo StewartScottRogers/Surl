@@ -32,9 +32,13 @@ internal static class GssApiChecksum
             return false;
         }
 
-        uint flags = BinaryPrimitives.ReadUInt32LittleEndian(checksum.AsSpan(FlagsOffset));
-        return (flags & DelegationFlag) == 0 || DelegatedCredentialFits(checksum);
+        return (ReadFlags(checksum) & DelegationFlag) == 0 || DelegatedCredentialFits(checksum);
     }
+
+    /// <summary>Reads the GSS-API <c>Flags</c> of a checksum <see cref="IsWellFormed" /> accepted.</summary>
+    /// <param name="checksum">The checksum bytes, at least 24 long.</param>
+    /// <returns>The flags, such as <c>GSS_C_CONF_FLAG</c> (<c>0x10</c>) and <c>GSS_C_INTEG_FLAG</c> (<c>0x20</c>).</returns>
+    public static uint ReadFlags(byte[] checksum) => BinaryPrimitives.ReadUInt32LittleEndian(checksum.AsSpan(FlagsOffset));
 
     private static bool DelegatedCredentialFits(byte[] checksum) =>
         checksum.Length >= DelegationOffset

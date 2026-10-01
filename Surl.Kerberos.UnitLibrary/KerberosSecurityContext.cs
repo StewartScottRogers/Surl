@@ -23,6 +23,9 @@ public sealed class KerberosSecurityContext
     private const int WrapFillerLength = 1;
     private const int MicFillerLength = 5;
     private const ushort MicCountFields = 0xFFFF;
+    private const uint ConfidentialityFlag = 0x10;
+    private const uint IntegrityFlag = 0x20;
+    private const ushort SealedRightRotationCount = 28;
 
     private static readonly byte[] WrapTokenId = [0x05, 0x04];
     private static readonly byte[] MicTokenId = [0x04, 0x04];
@@ -52,6 +55,9 @@ public sealed class KerberosSecurityContext
     {
         ClientPrincipal = clientPrincipal;
         IsMutualAuthenticationRequested = isMutualAuthenticationRequested;
+        uint flags = GssApiChecksum.ReadFlags(authenticator.Checksum);
+        IsConfidentialityRequested = (flags & ConfidentialityFlag) != 0;
+        IsIntegrityRequested = (flags & IntegrityFlag) != 0;
         this.keys = keys;
         clientTime = authenticator.ClientTime;
         clientMicroseconds = authenticator.ClientMicroseconds;
@@ -66,6 +72,19 @@ public sealed class KerberosSecurityContext
 
     /// <summary>Gets whether the client asked for an AP-REP: the AP-REQ's <c>ap-options</c> had <c>mutual-required</c>.</summary>
     public bool IsMutualAuthenticationRequested { get; }
+
+    /// <summary>
+    /// Gets whether the client asked for confidentiality: its authenticator checksum's GSS-API
+    /// flags had <c>GSS_C_CONF_FLAG</c>, so the messages it wraps are sealed and it expects
+    /// <see cref="Seal" />'s tokens back.
+    /// </summary>
+    public bool IsConfidentialityRequested { get; }
+
+    /// <summary>
+    /// Gets whether the client asked for integrity: its authenticator checksum's GSS-API flags had
+    /// <c>GSS_C_INTEG_FLAG</c>, so its messages are at least signed.
+    /// </summary>
+    public bool IsIntegrityRequested { get; }
 
     /// <summary>
     /// Makes the AP-REP token (ADR-0057 decision 5): an <c>EncAPRepPart</c> holding the
@@ -101,6 +120,26 @@ public sealed class KerberosSecurityContext
         byte[] checksum = keys.ContextProfile.ComputeChecksum(keys.ContextKey, AcceptorSealKeyUsage, [.. message, .. header]);
         BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(4), (ushort)checksum.Length);
         return [.. header, .. message, .. checksum];
+    }
+
+    /// <summary>
+    /// Wraps <paramref name="message" /> in an RFC 4121 wrap token with confidentiality:
+    /// <c>TOK_ID</c> <c>05 04</c>, <c>SentByAcceptor</c> and <c>Sealed</c>, no filler (<c>EC</c>
+    /// 0), surl's next sequence number, and the message followed by a copy of the header (with
+    /// <c>RRC</c> 0) encrypted under key usage 22, then rotated right by the header's
+    /// <c>RRC</c> of 28 (section 4.2.5), as Windows' own Kerberos sends it (ADR-0072 Amendment 1).
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <returns>The token.</returns>
+    public byte[] Seal(ReadOnlySpan<byte> message)
+    {
+        byte[] header = WriteHeader(WrapTokenId, extraCount: 0, rightRotationCount: 0, nextAcceptorSequenceNumber++);
+        header[2] |= SealedFlag;
+        byte[] confounder = new byte[KerberosEncryptionProfile.ConfounderLength];
+        randomSource.Fill(confounder);
+        byte[] cipherText = keys.ContextProfile.Encrypt(keys.ContextKey, AcceptorSealKeyUsage, confounder, [.. message, .. header]);
+        BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(6), SealedRightRotationCount);
+        return [.. header, .. RotateRight(cipherText, SealedRightRotationCount)];
     }
 
     /// <summary>
@@ -179,6 +218,13 @@ public sealed class KerberosSecurityContext
     {
         int count = data.Length == 0 ? 0 : rightRotationCount % data.Length;
         return [.. data[count..], .. data[..count]];
+    }
+
+    // The sender's side of RotateLeft; data is never empty, since a ciphertext has its confounder.
+    private static byte[] RotateRight(ReadOnlySpan<byte> data, int rightRotationCount)
+    {
+        int count = rightRotationCount % data.Length;
+        return [.. data[^count..], .. data[..^count]];
     }
 
     private bool IsClientsNextToken(ReadOnlySpan<byte> token, byte[] tokenId, int fillerLength) =>

@@ -113,6 +113,45 @@ public sealed class KerberosSecurityContextTests
     }
 
     [TestMethod]
+    [DataRow(0x3EU, true, true, DisplayName = "WinLDAP's conf and integ")]
+    [DataRow(0x10U, true, false, DisplayName = "conf alone")]
+    [DataRow(0x20U, false, true, DisplayName = "integ alone")]
+    [DataRow(0x02U, false, false, DisplayName = "neither")]
+    public void IsConfidentialityAndIntegrityRequested_FollowTheChecksumsFlags(uint flags, bool confidentiality, bool integrity)
+    {
+        KerberosSecurityContext context = Accept(new ApRequestBuilder { Checksum = ApRequestBuilder.GssApiChecksumBytes(flags) });
+
+        Assert.AreEqual(confidentiality, context.IsConfidentialityRequested);
+        Assert.AreEqual(integrity, context.IsIntegrityRequested);
+    }
+
+    [TestMethod]
+    public void Seal_Message_IsAnAcceptorSealedWrapTokenEncryptedUnderKeyUsage22AndRotated28()
+    {
+        ApRequestBuilder builder = new();
+        KerberosSecurityContext context = Accept(builder);
+
+        byte[] token = context.Seal(Message);
+
+        CollectionAssert.AreEqual(InitiatorTokens.Header([0x05, 0x04], 0x03, 0, 28, 0xA0A1A2A3), token[..16]);
+        byte[] cipherText = [.. token[(16 + 28)..], .. token[16..(16 + 28)]];
+        KerberosEncryptionProfile profile = KerberosEncryptionProfile.For(KerberosEncryptionType.Aes256CtsHmacSha196);
+        Assert.IsTrue(profile.TryDecrypt(builder.SessionKey, 22, cipherText, out byte[] plainText));
+        CollectionAssert.AreEqual(Message.Concat(InitiatorTokens.Header([0x05, 0x04], 0x03, 0, 0, 0xA0A1A2A3)).ToArray(), plainText);
+    }
+
+    [TestMethod]
+    public void Seal_ThenWrap_ShareTheSequenceNumber()
+    {
+        KerberosSecurityContext context = Accept(new ApRequestBuilder());
+
+        context.Seal(Message);
+        byte[] second = context.Wrap(Message);
+
+        Assert.AreEqual(0xA0A1A2A4UL, BinaryPrimitives.ReadUInt64BigEndian(second.AsSpan(8)));
+    }
+
+    [TestMethod]
     public void GetMic_Message_IsAnAcceptorMicTokenUnderKeyUsage23()
     {
         ApRequestBuilder builder = new() { MutualRequired = false };

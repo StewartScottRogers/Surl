@@ -110,8 +110,8 @@ internal sealed record ApRequestBuilder
     /// A keytab holding <c>HTTP/web01.example.com@EXAMPLE.COM</c> at key version 3 in all four
     /// enctypes.
     /// </summary>
-    public static KerberosKeytab Keytab() => new(Enum.GetValues<KerberosEncryptionType>().Select(encryptionType =>
-        new KerberosKeytabEntry(new KerberosPrincipalName(Realm, ["HTTP", Host]), 3, encryptionType, ServiceKeyOf(encryptionType))));
+    public static KerberosKeytab Keytab(string service = "HTTP") => new(Enum.GetValues<KerberosEncryptionType>().Select(encryptionType =>
+        new KerberosKeytabEntry(new KerberosPrincipalName(Realm, [service, Host]), 3, encryptionType, ServiceKeyOf(encryptionType))));
 
     /// <summary>An RFC 4121 section 4.1.1 checksum with no delegation: <c>Lgth</c> 16, zero bindings, then the flags.</summary>
     public static byte[] GssApiChecksumBytes(uint flags)
