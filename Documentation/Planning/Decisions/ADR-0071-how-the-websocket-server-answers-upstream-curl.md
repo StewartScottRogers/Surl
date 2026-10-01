@@ -409,3 +409,82 @@ this ADR.
 - BL-323 and BL-322 are filed and BL-304 depends on them.
 - The server-half-close in decision 5 was not measured; if BL-304 finds curl mishandles it, the
   finding amends decision 5.
+
+## Amendment 1 - libcurl's client frames, measured (BL-322, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30.
+
+Measured 2026-09-30 on Windows with the pinned `C:\Program Files\Git\mingw64\bin\libcurl-4.dll`,
+SHA-256 `799F7EEFC3C9DA9C80EC5AEA221A02B3AFE2C5350C6B45FD5A4865E7E2D4E574` (kind library in
+`UpstreamCurlBuilds.json`), driven by BL-323's `Run-LibcurlWebSocketScript.cs` through
+`Record-CurlExchange.ps1 -Raw -RawIdleMilliseconds 400 -LibcurlWebSocket`. Every case's first
+reply was `H` (as above); its second reply, sent once the driver's frames paused, is the
+"Server's frame" column. A command was, for the text case:
+
+```
+.\Record-CurlExchange.ps1 -Port 18923 -Raw -RawIdleMilliseconds 400 -LibcurlWebSocket -RawReply 'HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {WS_ACCEPT}\r\n\r\n','\x81\x05hello' -CurlArgs 'ws://127.0.0.1:18923/chat','send:TEXT:hello','recv' -OutDirectory <dir>
+```
+
+The other cases change only `-RawReply`'s second value and the steps. To send 2 MiB, which no
+command line holds, this task gave the driver the step `send*<count>:<FLAGS>:<payload>` (the
+payload repeated) and made a send that libcurl takes in part go on from where it stopped, as
+`curl_ws_send`'s documentation requires. `M` below is the four-byte mask, which libcurl draws
+at random for every frame; the payload after it is masked with it.
+
+**The upgrade request** is the tool's head without `User-Agent` (the driver sets no
+`CURLOPT_USERAGENT`): `GET /chat HTTP/1.1`, `Host`, `Accept: */*`, `Upgrade: websocket`,
+`Sec-WebSocket-Version: 13`, `Sec-WebSocket-Key`, `Connection: Upgrade`.
+
+| Case | Driver steps | Bytes libcurl sent after the head | Server's frame | What the driver printed |
+| --- | --- | --- | --- | --- |
+| text | `send:TEXT:hello`, `recv` | `81 85` `M` + 5 | `81 05 hello` | send `CURLcode 0`, sent 5; recv `CURLcode 0`, flags `TEXT`, offset 0, bytesleft 0, `hello` |
+| binary | `send:BINARY:\x00\x01\x02`, `recv` | `82 83` `M` + 3 | `82 03 00 01 02` | recv flags `BINARY`, 3 bytes `00 01 02` |
+| three fragments | `send:TEXT+CONT:hel`, `send:TEXT+CONT:l`, `send:TEXT:o`, `recv` | `01 83` `M` + 3, `00 81` `M` + 1, `80 81` `M` + 1 | `81 05 hello` | each send `CURLcode 0`; recv flags `TEXT`, 5 bytes `hello` |
+| `PING` | `send:PING:ping`, `recv` | `89 84` `M` + 4 | `8A 04 ping` | recv flags `PONG`, 4 bytes `ping`: **a `PONG` reaches the application** |
+| `CLOSE` 1000 | `send:CLOSE:\x03\xE8`, `recv`, `recv` | `88 82` `M` + `03 E8` | `88 02 03 E8`, then the TCP close | recv flags `CLOSE`, 2 bytes `03 E8`; recv `CURLcode 52` |
+| `CLOSE` with a reason | `send:CLOSE:\x03\xE8bye` | `88 85` `M` + `03 E8 bye` | - | sent 5 |
+| client `PONG` | `send:PONG:hi` | `8A 82` `M` + `hi` | - | sent 2 |
+| length forms | `send*125:TEXT:t`, `send*126:TEXT:u`, `send*65535:BINARY:v`, `send*65536:BINARY:w` | `81 FD`, `81 FE 00 7E`, `82 FE FF FF`, `82 FF 00 00 00 00 00 01 00 00`, each + `M` + payload | - | each sent whole in one call |
+| 2 MiB | `--recv-timeout 60000`, `send*2097152:BINARY:a`, `recv`, `recv` | `82 FF 00 00 00 00 00 20 00 00` `M` + 2097152 | `88 02 03 F1`, then the TCP close | send `CURLcode 0`, sent 2097152 in 8 calls; recv flags `CLOSE`, 2 bytes `03 F1`; recv `CURLcode 52` |
+| text `FF FE` | `send:TEXT:\xFF\xFE`, `recv`, `recv` | `81 82` `M` + `FF FE`: **libcurl sends invalid UTF-8 unchecked** | `88 02 03 EF`, then the TCP close | recv flags `CLOSE`, 2 bytes `03 EF`; recv `CURLcode 52` |
+| server `CLOSE` 1009 | `send:TEXT:hello`, `recv`, `recv` | `81 85` `M` + 5 | `88 02 03 F1`, then the TCP close | recv flags `CLOSE`, 2 bytes `03 F1`; recv `CURLcode 52` |
+| empty server `CLOSE` | the length-form steps, `recv` | as above | `88 00` | recv flags `CLOSE`, 0 bytes |
+| server `CLOSE`, connection held 4 s | `send:TEXT:x`, `recv` | `81 81` `M` + `x`, and nothing after the `CLOSE` | `88 02 03 E8` | recv flags `CLOSE`, `03 E8`; at `curl_easy_cleanup` libcurl closed the TCP connection **without sending a `CLOSE`** |
+| unsolicited `PONG` | `send:TEXT:x`, `recv`, `recv` | `81 81` `M` + `x` | `8A 02 hi`, `81 02 ok` | recv flags `PONG`, `hi`; recv flags `TEXT`, `ok` |
+| server `PING` | `send:TEXT:x`, `recv`, `send:TEXT:y`, `recv` | `81 81` `M` + `x`; then `8A 84` `M` + `ping` and `81 81` `M` + `y` in one write | `89 04 ping`, `81 02 ok` | recv flags `TEXT`, `ok` (the `PING` is not returned): **the automatic `PONG` waits for the application's next `curl_ws_send`** |
+| a message in 65536-byte frames | `send:TEXT:x`, five `recv` | `81 81` `M` + `x` | `01 7F ..01 00 00` + 65536, `00 7F ..01 00 00` + 65536, `80 0A` + 10 | recv flags `TEXT+CONT`, 65536 bytes; recv flags `TEXT+CONT`, 65536 bytes; recv flags `TEXT`, 10 bytes; then `CURLcode 52` |
+| one 70000-byte frame | `send:TEXT:x`, `recv`, `recv` | as above | `82 7F ..01 11 70` + 70000 | recv flags `BINARY`, offset 0, bytesleft 4464, 65536 bytes; recv flags `BINARY`, offset 65536, bytesleft 0, 4464 bytes |
+
+What this settles:
+
+1. **libcurl's frames are what decision 6 assumes**: every frame masked with a fresh key, `RSV`
+   clear, the length in its shortest form, `FIN` clear on every fragment but the last, the
+   first fragment carrying the opcode and the rest `0`. Nothing measured contradicts decision 6,
+   so it stands as written.
+2. **libcurl never answers a `CLOSE` itself** through the API, and its automatic `PONG` is sent
+   only with the application's next `curl_ws_send`. Decision 5 (surl never waits for a `CLOSE`
+   answer) is right for libcurl as for the tool; decision 4's "surl never sends `PING`" also
+   spares a libcurl program a `PONG` that may never come.
+3. **libcurl does not check UTF-8 on the way out**, so BL-304's `FF FE` case reaches surl and
+   decision 6's 1007 is what answers it.
+4. **`curl_ws_recv` reports a continuation frame with the message's type plus `CONT`**, and a
+   frame larger than the buffer in pieces through `offset` and `bytesleft`; decision 4's
+   65536-byte frames therefore arrive one `curl_ws_recv` each into a 65536-byte buffer.
+
+**What BL-304 expects through the pinned `libcurl-4.dll` against `surl --ws-echo`** (decision 11's
+libcurl rows; Windows only, `Inconclusive` elsewhere). Each starts `perform: CURLcode 0`.
+
+| Case (decision 11) | Driver steps | Expected |
+| --- | --- | --- |
+| text | `send:TEXT:hello`, `recv` | recv `CURLcode 0`, flags `TEXT`, offset 0, bytesleft 0, 5 bytes `hello` |
+| binary | `send:BINARY:\x00\x01\x02`, `recv` | recv flags `BINARY`, 3 bytes `00 01 02` |
+| three-fragment message | `send:TEXT+CONT:hel`, `send:TEXT+CONT:l`, `send:TEXT:o`, `recv` | recv flags `TEXT`, 5 bytes `hello` (surl echoes the message as one frame, decision 4) |
+| `PING` | `send:PING:ping`, `recv` | recv flags `PONG`, 4 bytes `ping` |
+| `CLOSE` 1000 | `send:CLOSE:\x03\xE8`, `recv`, `recv` | recv flags `CLOSE`, 2 bytes `03 E8`; then recv `CURLcode 52` once surl closes (decision 5) |
+| 2 MiB message | `send*2097152:BINARY:a`, `recv`, `recv` | send `CURLcode 0`, sent 2097152 (surl reads and discards the rest during decision 5's one-second linger); recv flags `CLOSE`, 2 bytes `03 F1`; then `CURLcode 52` |
+| text `FF FE` | `send:TEXT:\xFF\xFE`, `recv`, `recv` | recv flags `CLOSE`, 2 bytes `03 EF`; then `CURLcode 52` |
+
+**Not measured:** surl's own early close of the 2 MiB case before the payload is read (the
+recorder replies only once the driver pauses); if libcurl's send fails with a reset there, BL-304
+pins the measured `CURLcode` against this amendment. The Linux and macOS builds carry no shared
+libcurl (decision 10).
