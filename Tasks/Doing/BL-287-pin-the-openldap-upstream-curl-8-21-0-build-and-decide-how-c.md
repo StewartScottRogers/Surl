@@ -56,3 +56,4 @@ LDAP ADR with what that build sends, so the LDAP server can be proved against it
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
