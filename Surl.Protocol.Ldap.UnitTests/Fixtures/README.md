@@ -35,4 +35,21 @@ Recorded on 2026-09-30 from the repository root, in PowerShell 7, with
 **Abandon is never sent.** With `-LdapReply 'SEARCH=SILENT'` and `-LdapIdleMilliseconds 30000`,
 `WinLDAP` sent no `abandonRequest` in the 40 seconds before the recorder killed curl, so no
 fixture holds one; `LdapProtocolServerOperationTests` builds abandon, unknown operations,
-malformed messages, compare, writes, SASL and Sicily binds by hand.
+malformed messages, compare and writes by hand, and `LdapProtocolServerSaslBindTests` and
+`LdapProtocolServerStartTlsTests` the SASL, Sicily and `StartTLS` cases no recording holds.
+
+## SASL and Sicily binds (BL-309)
+
+`ldap-ntlm-sealed`, `ldap-negotiate-sealed` and `ldap-digest-md5` are byte-for-byte copies of the
+folders of the same names in `Surl.Authentication.UnitTests/Fixtures`, recorded there by BL-329
+and BL-326 with the same pinned build; that folder's README says how, with which `-LdapReply`
+answers and which `CHALLENGE_MESSAGE` and `DIGEST-MD5` challenge. Their `request.bin` also holds
+`WinLDAP`'s security-layer buffers - a 4-byte big-endian length then that many sealed bytes -
+which `RecordedFixture.ReadRequestMessages` keeps whole, and the reconnect after the recorder
+closed.
+
+| Folder | curl sent | What `LdapProtocolServerSaslBindTests` replays |
+| --- | --- | --- |
+| `ldap-ntlm-sealed` | root DSE read, Sicily `[10]` `NEGOTIATE_MESSAGE`, `[11]` `AUTHENTICATE_MESSAGE`, an 84-byte sealed buffer | the first four, through a fake SASL policy answering the recorded challenge: `[10]` answered `success` with the challenge as the matched DN, the sealed buffer handed to the security layer |
+| `ldap-negotiate-sealed` | two root DSE reads, `GSS-SPNEGO` with bare NTLM both ways, an 84-byte sealed buffer | the first five: `saslBindInProgress` with the challenge as `serverSaslCreds`, then `success` |
+| `ldap-digest-md5` | two root DSE reads, `DIGEST-MD5` with **empty** credentials, then its response | the first four: the empty initial response passed as empty, not absent, and `success` carrying `rspauth=...` as `serverSaslCreds` |

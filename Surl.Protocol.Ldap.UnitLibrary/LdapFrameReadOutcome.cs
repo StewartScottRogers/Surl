@@ -25,4 +25,7 @@ internal enum LdapFrameReadOutcome
 
     /// <summary>The length announced a message longer than the message limit; none of its value was read.</summary>
     MessageTooLarge,
+
+    /// <summary>A security-layer buffer failed its signature or MAC, or came out of sequence (ADR-0072 decision 4).</summary>
+    SecurityLayerRefused,
 }

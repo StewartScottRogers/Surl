@@ -64,6 +64,29 @@ public sealed class LdapMessageDecoderRequestTests
     }
 
     [TestMethod]
+    [DataRow("89", (int)LdapSicilyChoice.PackageDiscovery, DisplayName = "[9] sicilyPackageDiscovery")]
+    [DataRow("8A", (int)LdapSicilyChoice.Negotiate, DisplayName = "[10] sicilyNegotiate")]
+    [DataRow("8B", (int)LdapSicilyChoice.Response, DisplayName = "[11] sicilyResponse")]
+    public void Decode_SicilyBind_CarriesItsChoiceAndToken(string tagHex, int choice)
+    {
+        // messageID 1, BindRequest { 3, "NTLM", [n] "NTLMSSP" }, as WinLDAP sends for --ntlm.
+        var bind = (LdapBindRequest)Decoded(Hex($"3017020101601202010304044E544C4D{tagHex}074E544C4D535350")).Operation;
+
+        var sicily = (LdapSicilyAuthentication)bind.Authentication;
+        Assert.AreEqual((LdapSicilyChoice)choice, sicily.Choice);
+        Assert.AreEqual("NTLMSSP", Encoding.ASCII.GetString(sicily.Token));
+    }
+
+    [TestMethod]
+    public void Decode_BindWithAnApplicationTagNumberedAsASicilyChoice_IsUnsupported()
+    {
+        // messageID 1, BindRequest { 3, "NTLM", [APPLICATION 10] "NTLMSSP" }: not Sicily's context tag.
+        var bind = (LdapBindRequest)Decoded(Hex("3017020101601202010304044E544C4D4A074E544C4D535350")).Operation;
+
+        Assert.AreEqual(new LdapUnsupportedAuthentication(new Asn1Tag(TagClass.Application, 10)), bind.Authentication);
+    }
+
+    [TestMethod]
     public void Decode_BindWithAReservedAuthenticationChoice_ReportsItsTag()
     {
         // [1], one of the two tags RFC 4511 reserves in AuthenticationChoice.

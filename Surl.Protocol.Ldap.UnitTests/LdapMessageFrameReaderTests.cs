@@ -91,6 +91,73 @@ public sealed class LdapMessageFrameReaderTests
         Assert.AreEqual(LdapFrameReadResult.NoFrame((LdapFrameReadOutcome)expected), result);
     }
 
+    [TestMethod]
+    public async Task ReadFrameAsync_TwoMessagesInOneRead_HoldsTheSecondForTheNextRead()
+    {
+        var bind = Hex("300c020101600702010304008000");
+        var unbind = Hex("30050201024200");
+        var reader = new LdapMessageFrameReader(Connection([(byte[])[.. bind, .. unbind]]), 0);
+
+        var first = await reader.ReadFrameAsync(TestContext.CancellationToken);
+        var second = await reader.ReadFrameAsync(TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(bind, first.Message);
+        CollectionAssert.AreEqual(unbind, second.Message);
+    }
+
+    [TestMethod]
+    public async Task DiscardReadAhead_BytesReadPastAMessage_AreThrownAwayAndCounted()
+    {
+        var bind = Hex("300c020101600702010304008000");
+        var unbind = Hex("30050201024200");
+        var reader = new LdapMessageFrameReader(Connection([(byte[])[.. bind, .. unbind], unbind]), 0);
+        await reader.ReadFrameAsync(TestContext.CancellationToken);
+
+        var discarded = reader.DiscardReadAhead();
+        var next = await reader.ReadFrameAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(unbind.Length, discarded);
+        CollectionAssert.AreEqual(unbind, next.Message);
+        Assert.AreEqual(0, reader.DiscardReadAhead());
+    }
+
+    [TestMethod]
+    public async Task ReadSecurityLayerBufferAsync_LengthThenBytes_ReturnsTheBytesWithoutTheLength()
+    {
+        var reader = new LdapMessageFrameReader(Connection([Hex("00000003 AABBCC 00000000")]), 0);
+
+        var first = await reader.ReadSecurityLayerBufferAsync(100, TestContext.CancellationToken);
+        var empty = await reader.ReadSecurityLayerBufferAsync(100, TestContext.CancellationToken);
+        var closed = await reader.ReadSecurityLayerBufferAsync(100, TestContext.CancellationToken);
+
+        CollectionAssert.AreEqual(Hex("AABBCC"), first.Message);
+        Assert.IsEmpty(empty.Message!);
+        Assert.AreEqual(LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.ConnectionClosed), closed);
+    }
+
+    [TestMethod]
+    [DataRow(3, 0, DisplayName = "Past the layer's maximum")]
+    [DataRow(100, 4, DisplayName = "Past the message limit")]
+    public async Task ReadSecurityLayerBufferAsync_TooLong_IsRefusedBeforeItsBytesAreRead(int maxProtectedBytes, int maxMessageBytes)
+    {
+        var connection = new ReadCountingConnection(new InMemoryConnection(OneBytePerRead(Hex("00000005 0102030405"))));
+
+        var result = await new LdapMessageFrameReader(connection, maxMessageBytes).ReadSecurityLayerBufferAsync(maxProtectedBytes, TestContext.CancellationToken);
+
+        Assert.AreEqual(LdapFrameReadResult.TooLarge(5), result);
+        Assert.AreEqual(4, connection.BytesRead);
+    }
+
+    [TestMethod]
+    [DataRow("0000", DisplayName = "Closed inside the length")]
+    [DataRow("0000000501", DisplayName = "Closed inside the bytes")]
+    public async Task ReadSecurityLayerBufferAsync_ClosedPartWay_IsClosedMidMessage(string hex)
+    {
+        var result = await new LdapMessageFrameReader(Connection([Hex(hex)]), 0).ReadSecurityLayerBufferAsync(100, TestContext.CancellationToken);
+
+        Assert.AreEqual(LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.ConnectionClosedMidMessage), result);
+    }
+
     private static InMemoryConnection Connection(IEnumerable<ReadOnlyMemory<byte>> chunks) => new(chunks);
 
     private static IEnumerable<ReadOnlyMemory<byte>> OneBytePerRead(byte[] bytes) => bytes.Select(octet => (ReadOnlyMemory<byte>)new[] { octet });

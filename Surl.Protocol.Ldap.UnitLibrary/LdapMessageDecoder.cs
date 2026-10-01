@@ -66,10 +66,19 @@ internal sealed class LdapMessageDecoder
             return new LdapSimpleAuthentication(ReadOctetString(reader, LdapTags.Context(0)));
         }
 
-        return tag.HasSameClassAndValue(LdapTags.Context(3))
-            ? ReadSaslAuthentication(reader)
+        if (tag.HasSameClassAndValue(LdapTags.Context(3)))
+        {
+            return ReadSaslAuthentication(reader);
+        }
+
+        return IsSicilyChoice(tag)
+            ? new LdapSicilyAuthentication((LdapSicilyChoice)tag.TagValue, ReadOctetString(reader, tag))
             : new LdapUnsupportedAuthentication(Skip(reader));
     }
+
+    // Sicily's [9], [10] and [11] (MS-ADTS section 5.1.1.1.3), each an OCTET STRING.
+    private static bool IsSicilyChoice(Asn1Tag tag) =>
+        tag.TagClass == TagClass.ContextSpecific && Enum.IsDefined((LdapSicilyChoice)tag.TagValue);
 
     private static LdapSaslAuthentication ReadSaslAuthentication(AsnReader reader)
     {

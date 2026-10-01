@@ -157,10 +157,12 @@ public sealed class LdapDirectoryFileTests
     {
         var file = WriteDirectoryFile([]);
         var policy = new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted);
+        var sasl = new UnitTestSaslAuthenticationPolicy();
 
-        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => LdapProtocolServer.LoadAsync(null!, policy, TimeProvider.System, TestContext.CancellationToken));
-        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => LdapProtocolServer.LoadAsync(file, null!, TimeProvider.System, TestContext.CancellationToken));
-        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => LdapProtocolServer.LoadAsync(file, policy, null!, TestContext.CancellationToken));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => LdapProtocolServer.LoadAsync(file, policy, null!, TimeProvider.System, cancellationToken: TestContext.CancellationToken));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => LdapProtocolServer.LoadAsync(null!, policy, sasl, TimeProvider.System, cancellationToken: TestContext.CancellationToken));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => LdapProtocolServer.LoadAsync(file, null!, sasl, TimeProvider.System, cancellationToken: TestContext.CancellationToken));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => LdapProtocolServer.LoadAsync(file, policy, sasl, null!, cancellationToken: TestContext.CancellationToken));
     }
 
     [TestMethod]
@@ -169,8 +171,9 @@ public sealed class LdapDirectoryFileTests
         var server = await LdapProtocolServer.LoadAsync(
             WriteDirectoryFile(ReadDirectoryFile("people.ldif")),
             new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted),
+            new UnitTestSaslAuthenticationPolicy(),
             TimeProvider.System,
-            TestContext.CancellationToken);
+            cancellationToken: TestContext.CancellationToken);
         var connection = new InMemoryConnection([
             Message(1, SimpleBind(3, "alice", "secret")),
             Message(2, Search(Present("objectClass"), baseObject: "ou=staff,dc=example,dc=com", scope: 1, attributes: "uid")),
@@ -189,7 +192,7 @@ public sealed class LdapDirectoryFileTests
         var file = WriteDirectoryFile("dn: o=a\no:< file:///etc/passwd\n"u8.ToArray());
 
         var exception = await Assert.ThrowsExactlyAsync<LdapDirectoryLoadException>(() => LdapProtocolServer.LoadAsync(
-            file, new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), TimeProvider.System, TestContext.CancellationToken));
+            file, new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), new UnitTestSaslAuthenticationPolicy(), TimeProvider.System, cancellationToken: TestContext.CancellationToken));
 
         Assert.AreEqual("line 2: a URL value", exception.Message);
         Assert.IsInstanceOfType<LdifFormatException>(exception.InnerException);

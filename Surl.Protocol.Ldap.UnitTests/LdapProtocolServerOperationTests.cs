@@ -22,7 +22,8 @@ public sealed class LdapProtocolServerOperationTests
     [TestMethod]
     public void Constructor_NoPolicy_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new LdapProtocolServer(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new LdapProtocolServer(null!, new UnitTestSaslAuthenticationPolicy()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), null!));
     }
 
     [TestMethod]
@@ -37,13 +38,13 @@ public sealed class LdapProtocolServerOperationTests
     [TestMethod]
     public void Schemes_AreLdap()
     {
-        CollectionAssert.AreEqual(new[] { "ldap" }, new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted)).Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "ldap" }, new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), new UnitTestSaslAuthenticationPolicy()).Schemes.ToArray());
     }
 
     [TestMethod]
     public async Task ServeAsync_PublicServerOverItsEmptyDirectory_AnswersNoSuchObject()
     {
-        var server = new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted));
+        var server = new LdapProtocolServer(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), new UnitTestSaslAuthenticationPolicy());
         var connection = new InMemoryConnection([AliceBind, Message(2, Search(Present("objectClass"), scope: 0))]);
 
         await server.ServeAsync(connection, Context(TestContext.CancellationToken));
@@ -178,32 +179,16 @@ public sealed class LdapProtocolServerOperationTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_SaslBind_IsAuthMethodNotSupported()
+    public async Task ServeAsync_ReservedAuthenticationChoice_IsAuthMethodNotSupported()
     {
         var log = new RecordingExchangeLog();
-        var saslBind = Message(1, writer =>
-        {
-            using var bind = writer.PushSequence(LdapTags.BindRequest);
-            writer.WriteInteger(3);
-            Text(writer, string.Empty);
-            using var sasl = writer.PushSequence(LdapTags.Context(3, isConstructed: true));
-            Text(writer, "GSS-SPNEGO");
-        });
 
-        var connection = await RunAsync(new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), TestContext.CancellationToken, log, saslBind);
-
-        Assert.AreEqual("#1 bindResponse authMethodNotSupported \"only simple binds are answered\"", LdapResponseTranscript.Of(connection.WrittenBytes).Single());
-        Assert.AreEqual("LDAP bind refused: authMethodNotSupported: only simple binds are answered", log.Notes.Single());
-    }
-
-    [TestMethod]
-    public async Task ServeAsync_SicilyBind_IsAuthMethodNotSupported()
-    {
-        // messageID 1, BindRequest { 3, "NTLM", [10] "NTLMSSP" }, WinLDAP's sicilyNegotiate.
+        // messageID 1, BindRequest { 3, "", [1] "" }: a choice RFC 4511 reserves.
         var connection = await RunAsync(
-            new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), TestContext.CancellationToken, null, Hex("3017020101601202010304044E544C4D8A074E544C4D535350"));
+            new UnitTestAuthenticationPolicy(PasswordLoginVerdict.Accepted), TestContext.CancellationToken, log, Hex("300C020101600702010304008100"));
 
-        Assert.AreEqual("#1 bindResponse authMethodNotSupported \"only simple binds are answered\"", LdapResponseTranscript.Of(connection.WrittenBytes).Single());
+        Assert.AreEqual("#1 bindResponse authMethodNotSupported \"authentication method not accepted\"", LdapResponseTranscript.Of(connection.WrittenBytes).Single());
+        Assert.AreEqual("LDAP bind refused: authMethodNotSupported: authentication method not accepted", log.Notes.Single());
     }
 
     [TestMethod]

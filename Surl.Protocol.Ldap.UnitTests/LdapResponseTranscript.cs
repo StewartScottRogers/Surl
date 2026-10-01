@@ -37,6 +37,19 @@ internal static class LdapResponseTranscript
         return lines;
     }
 
+    /// <summary>Each <c>LDAPMessage</c> the server wrote, as its whole encoding.</summary>
+    public static IReadOnlyList<byte[]> Encodings(byte[] written)
+    {
+        var messages = new List<byte[]>();
+        var reader = new AsnReader(written, AsnEncodingRules.BER);
+        while (reader.HasData)
+        {
+            messages.Add(reader.ReadEncodedValue().ToArray());
+        }
+
+        return messages;
+    }
+
     private static string Describe(AsnReader message)
     {
         var tag = message.PeekTag();

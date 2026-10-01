@@ -14,9 +14,10 @@ internal static class LdapServerExchange
         TimeProvider? timeProvider = null,
         ExchangeLimits? limits = null,
         RecordingExchangeLog? log = null,
-        CancellationToken shutdownToken = default) => new(
+        CancellationToken shutdownToken = default,
+        string scheme = "ldap") => new(
             1,
-            new ListenUrl("ldap", "127.0.0.1", 18389).WithBoundPort(18389),
+            new ListenUrl(scheme, "127.0.0.1", 18389).WithBoundPort(18389),
             new IPEndPoint(IPAddress.Loopback, 18389),
             new IPEndPoint(IPAddress.Loopback, 50000),
             log ?? new RecordingExchangeLog(),
@@ -27,8 +28,9 @@ internal static class LdapServerExchange
             ShutdownToken = shutdownToken,
         };
 
-    public static LdapProtocolServer Server(IAuthenticationPolicy policy) =>
-        new(LdapDirectoryFixture.PeopleDirectory(), policy);
+    public static LdapProtocolServer Server(
+        IAuthenticationPolicy policy, ISaslAuthenticationPolicy? saslPolicy = null, bool isTlsUpgradeAvailable = false) =>
+        new(LdapDirectoryFixture.PeopleDirectory(), policy, saslPolicy ?? new UnitTestSaslAuthenticationPolicy(), isTlsUpgradeAvailable);
 
     /// <summary>
     /// Sends <paramref name="messages"/>, then half-closes, and returns what the server wrote.

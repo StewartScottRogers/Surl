@@ -30,6 +30,24 @@ internal static class LdapMessageEncoder
         });
 
     /// <summary>
+    /// Encodes the <c>BindResponse</c> <c>success</c> that answers a Sicily package discovery or
+    /// negotiate (MS-ADTS section 5.1.1.1.3): its <c>matchedDN</c> carries
+    /// <paramref name="matchedDn"/> as given - the package names, or an NTLM
+    /// <c>CHALLENGE_MESSAGE</c>, which is not text - and its diagnostic is empty.
+    /// </summary>
+    /// <param name="messageId">The <c>messageID</c> of the bind answered.</param>
+    /// <param name="matchedDn">The <c>matchedDN</c>'s octets.</param>
+    /// <returns>The message's encoding.</returns>
+    public static byte[] EncodeSicilyBindResponse(int messageId, byte[] matchedDn) =>
+        EncodeMessage(messageId, writer =>
+        {
+            using var response = writer.PushSequence(LdapTags.BindResponse);
+            writer.WriteEnumeratedValue(LdapResultCode.Success);
+            writer.WriteOctetString(matchedDn);
+            writer.WriteOctetString([]);
+        });
+
+    /// <summary>
     /// Encodes a <c>SearchResultEntry</c> (RFC 4511, section 4.5.2).
     /// </summary>
     /// <param name="messageId">The <c>messageID</c> of the search answered.</param>

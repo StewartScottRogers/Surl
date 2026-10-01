@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Formats.Asn1;
 using System.Globalization;
 using Surl.Protocol.Abstractions;
@@ -5,13 +6,20 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Ldap;
 
 /// <summary>
-/// One LDAP connection's exchange (ADR-0072 decisions 2, 3, 6 and 7): reads each
-/// <c>LDAPMessage</c>, answers it in order, and ends at an unbind, a close, a Notice of
+/// One LDAP connection's exchange (ADR-0072 decisions 2 to 7): reads each <c>LDAPMessage</c> -
+/// inside the SASL security layer once a bind has installed one - answers it in order, upgrades
+/// the connection after <c>StartTLS</c>, and ends at an unbind, a close, a Notice of
 /// Disconnection or a limit.
 /// </summary>
 internal sealed class LdapSession
 {
-    private static readonly LdapRootDseFacts NothingOffered = new([], IsStartTlsOffered: false);
+    /// <summary>The <c>StartTLS</c> extended operation's OID (RFC 4511, section 4.14).</summary>
+    public const string StartTlsName = "1.3.6.1.4.1.1466.20037";
+
+    private const int SecurityLayerLengthBytes = 4;
+
+    // What a search whose base is not the root DSE's hands the directory, which reads it only for the root DSE.
+    private static readonly LdapRootDseFacts UnusedRootDseFacts = new([], IsStartTlsOffered: false);
 
     private static readonly IReadOnlyDictionary<int, string> WriteOperationNames = new Dictionary<int, string>
     {
@@ -25,17 +33,28 @@ internal sealed class LdapSession
     private readonly ExchangeContext context;
     private readonly LdapDirectory directory;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly ISaslAuthenticationPolicy saslAuthenticationPolicy;
+    private readonly bool isTlsUpgradeAvailable;
     private readonly LdapBindJudge bindJudge;
     private readonly LdapMessageFrameReader reader;
     private bool isBound;
+    private ISaslSecurityLayer? securityLayer;
 
-    public LdapSession(IConnection connection, ExchangeContext context, LdapDirectory directory, IAuthenticationPolicy authenticationPolicy)
+    public LdapSession(
+        IConnection connection,
+        ExchangeContext context,
+        LdapDirectory directory,
+        IAuthenticationPolicy authenticationPolicy,
+        ISaslAuthenticationPolicy saslAuthenticationPolicy,
+        bool isTlsUpgradeAvailable)
     {
         this.connection = connection;
         this.context = context;
         this.directory = directory;
         this.authenticationPolicy = authenticationPolicy;
-        bindJudge = new LdapBindJudge(authenticationPolicy, connection, context);
+        this.saslAuthenticationPolicy = saslAuthenticationPolicy;
+        this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
+        bindJudge = new LdapBindJudge(authenticationPolicy, saslAuthenticationPolicy, connection, context);
         reader = new LdapMessageFrameReader(connection, context.Limits.MaxMessageBytes);
     }
 
@@ -60,7 +79,7 @@ internal sealed class LdapSession
                     return;
                 }
 
-                frame = await reader.ReadFrameAsync(CancellationToken);
+                frame = await ReadNextFrameAsync();
             }
 
             await AnswerNoFrameAsync(frame);
@@ -92,6 +111,26 @@ internal sealed class LdapSession
         }
     }
 
+    // Inside the security layer each message is one buffer, unprotected before it is decoded
+    // (ADR-0072 decision 4).
+    private async ValueTask<LdapFrameReadResult> ReadNextFrameAsync()
+    {
+        if (securityLayer is not { } layer)
+        {
+            return await reader.ReadFrameAsync(CancellationToken);
+        }
+
+        var buffer = await reader.ReadSecurityLayerBufferAsync(layer.MaximumProtectedBytes, CancellationToken);
+        if (buffer.Message is not { } protectedBytes)
+        {
+            return buffer;
+        }
+
+        return layer.TryUnprotect(protectedBytes, out var message)
+            ? LdapFrameReadResult.Read(message)
+            : LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.SecurityLayerRefused);
+    }
+
     private async ValueTask AnswerNoFrameAsync(LdapFrameReadResult? frame)
     {
         switch (frame?.Outcome)
@@ -103,6 +142,14 @@ internal sealed class LdapSession
                 break;
             case LdapFrameReadOutcome.ConnectionClosedMidMessage:
                 context.Log.Note("The client closed the connection part way through a message.");
+                break;
+            case LdapFrameReadOutcome.SecurityLayerRefused:
+                context.Log.Note("A security-layer buffer failed its check; closed with no reply.");
+                break;
+            case LdapFrameReadOutcome.MessageTooLarge when securityLayer is not null:
+                context.Log.Note(string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"A security-layer buffer of {frame.AnnouncedBytes} bytes is past what the layer or --max-message allows; closed with no reply."));
                 break;
             case LdapFrameReadOutcome.MessageTooLarge:
                 await SendNoticeOfDisconnectionAsync(
@@ -157,24 +204,69 @@ internal sealed class LdapSession
         LdapBindRequest bind => AnswerBindAsync(messageId, bind),
         LdapSearchRequest search => AnswerSearchAsync(messageId, search),
         LdapCompareRequest compare => AnswerCompareAsync(messageId, compare),
-        _ => SendAsync(LdapMessageEncoder.EncodeExtendedResponse(
-            messageId, new LdapResult(LdapResultCode.ProtocolError, string.Empty, "unsupported extended operation"), null, null)),
+        _ => AnswerExtendedAsync(messageId, (LdapExtendedRequest)operation),
     };
 
+    // StartTLS where it is recognized; any other extended operation is unknown (ADR-0072 decision 3).
+    private ValueTask AnswerExtendedAsync(int messageId, LdapExtendedRequest extended) =>
+        extended.RequestName == StartTlsName && IsStartTlsRecognized
+            ? AnswerStartTlsAsync(messageId)
+            : SendAsync(LdapMessageEncoder.EncodeExtendedResponse(
+                messageId, new LdapResult(LdapResultCode.ProtocolError, string.Empty, "unsupported extended operation"), null, null));
+
+    // StartTLS is offered only by a server with a certificate, on a connection not yet TLS
+    // (ADR-0072 decision 5); otherwise it is an unknown extended operation, or refused
+    // operationsError on a connection already TLS.
+    private bool IsStartTlsRecognized => isTlsUpgradeAvailable || connection.TlsSession is not null;
+
     // A bind resets the connection's identity: a failed bind leaves it anonymous (RFC 4511,
-    // section 4.2.1).
+    // section 4.2.1). A security layer starts with the first message after the response, and a
+    // later bind's layer replaces it (ADR-0072 decision 4).
     private async ValueTask AnswerBindAsync(int messageId, LdapBindRequest bind)
     {
         isBound = false;
-        var result = await bindJudge.JudgeAsync(bind);
-        isBound = result.ResultCode == LdapResultCode.Success;
-        await SendAsync(LdapMessageEncoder.EncodeBindResponse(messageId, result, null));
+        var answer = await bindJudge.JudgeAsync(bind);
+        isBound = answer.IsBound;
+        await SendAsync(answer.Encode(messageId));
+        if (answer.SecurityLayer is { } layer)
+        {
+            securityLayer = layer;
+            context.Log.Note($"LDAP security layer: {answer.Mechanism}");
+        }
+    }
+
+    // ADR-0072 decision 5: success, then every byte read past the request thrown away unrun,
+    // then the handshake. A failed handshake throws TlsHandshakeException, which the engine notes.
+    private async ValueTask AnswerStartTlsAsync(int messageId)
+    {
+        var refusal = connection.TlsSession is not null ? "TLS is already established"
+            : bindJudge.IsBindInProgress ? "a SASL bind is in progress"
+            : securityLayer is not null ? "a security layer is installed"
+            : null;
+        if (refusal is not null)
+        {
+            context.Log.Note($"LDAP StartTLS refused: {LdapLogText.NameOf(LdapResultCode.OperationsError)}");
+            await SendAsync(LdapMessageEncoder.EncodeExtendedResponse(
+                messageId, new LdapResult(LdapResultCode.OperationsError, string.Empty, refusal), StartTlsName, null));
+            return;
+        }
+
+        await SendAsync(LdapMessageEncoder.EncodeExtendedResponse(
+            messageId, new LdapResult(LdapResultCode.Success, string.Empty, string.Empty), StartTlsName, null));
+        context.Log.Note("LDAP StartTLS accepted");
+        var discarded = reader.DiscardReadAhead();
+        if (discarded > 0)
+        {
+            context.Log.Note(string.Create(CultureInfo.InvariantCulture, $"Discarded {discarded} bytes sent after StartTLS"));
+        }
+
+        await connection.UpgradeToTlsAsync(CancellationToken);
     }
 
     private async ValueTask AnswerSearchAsync(int messageId, LdapSearchRequest search)
     {
-        var outcome = search.BaseObject.Length == 0 || await MayReadAsync()
-            ? directory.Search(search, NothingOffered)
+        var outcome = search.BaseObject.Length == 0 ? directory.Search(search, RootDseFacts())
+            : await MayReadAsync() ? directory.Search(search, UnusedRootDseFacts)
             : new LdapSearchOutcome([], BindFirst());
         foreach (var entry in outcome.Entries)
         {
@@ -221,6 +313,12 @@ internal sealed class LdapSession
         return await authenticationPolicy.CheckPasswordLoginAsync(anonymous, CancellationToken) == PasswordLoginVerdict.AcceptedUnchecked;
     }
 
+    // The root DSE's per-connection part, computed afresh for each search, so a StartTLS
+    // upgrade changes it (ADR-0072 decisions 1 and 5).
+    private LdapRootDseFacts RootDseFacts() => new(
+        saslAuthenticationPolicy.GetSaslMechanisms(new SaslOfferRequest(context.Scheme, connection.TlsSession)),
+        IsStartTlsOffered: isTlsUpgradeAvailable && connection.TlsSession is null);
+
     // Nothing is learned about the directory before a bind (ADR-0006, section 3).
     private static LdapResult BindFirst() => new(LdapResultCode.InsufficientAccessRights, string.Empty, "bind first");
 
@@ -240,7 +338,24 @@ internal sealed class LdapSession
         _ => null,
     };
 
-    private ValueTask SendAsync(byte[] message) => connection.WriteAsync(message, CancellationToken);
+    private ValueTask SendAsync(byte[] message) => connection.WriteAsync(Protected(message), CancellationToken);
+
+    // Inside the security layer each message goes as one buffer: a 4-byte big-endian length,
+    // then the protected bytes (ADR-0072 decision 4).
+    private byte[] Protected(byte[] message)
+    {
+        if (securityLayer is not { } layer)
+        {
+            return message;
+        }
+
+        var protectedBytes = layer.Protect(message);
+        var buffer = new byte[SecurityLayerLengthBytes + protectedBytes.Length];
+        BinaryPrimitives.WriteInt32BigEndian(buffer, protectedBytes.Length);
+        protectedBytes.CopyTo(buffer, SecurityLayerLengthBytes);
+
+        return buffer;
+    }
 
     // Written within the limit-reply deadline, linked to shutdown alone, since the exchange's
     // own token may already be cancelled (ADR-0059 decision 3).
@@ -251,7 +366,7 @@ internal sealed class LdapSession
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.ShutdownToken, deadline.Token);
         try
         {
-            await connection.WriteAsync(LdapMessageEncoder.EncodeNoticeOfDisconnection(new LdapResult(code, string.Empty, diagnostic)), cancellation.Token);
+            await connection.WriteAsync(Protected(LdapMessageEncoder.EncodeNoticeOfDisconnection(new LdapResult(code, string.Empty, diagnostic))), cancellation.Token);
             await connection.CompleteWritesAsync(cancellation.Token);
         }
         catch (OperationCanceledException) when (!context.ShutdownToken.IsCancellationRequested)
