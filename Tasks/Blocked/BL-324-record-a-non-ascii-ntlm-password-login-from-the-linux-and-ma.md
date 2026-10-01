@@ -43,7 +43,16 @@ and accepted.
 
 ## Notes
 
+- 2026-09-30 (lane 2): neither pinned build is reachable without a new download. The dark
+  factory's machine is Windows 11; its WSL Ubuntu has nothing at `/opt/upstream-curl/8.21.0/`
+  and no `curl-linux-*` archive exists on the machine or in WSL; no macOS machine is reachable.
+  CI installs both builds (ADR-0016), but a lane may not push or run CI, and recording there
+  needs a workflow step outside this task's `touches`. Per the task's Context, Blocked for
+  Stewart: either approve installing the pinned `linux-x64` build in WSL (and record macOS on a
+  Mac), or have the recordings made in CI.
+
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Blocked. Stewart: may I download the pinned linux-x64 static-curl 8.21.0 build into WSL (and record osx-arm64 on a Mac or in CI), since neither is on this machine?
