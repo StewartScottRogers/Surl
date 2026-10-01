@@ -40,3 +40,4 @@ where it differs from what the ADR wrote by decision rather than measurement.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-10-01: Backlog -> Doing.
