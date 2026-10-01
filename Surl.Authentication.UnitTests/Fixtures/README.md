@@ -96,7 +96,18 @@ holds an NTLMv2 answer for `tester`, empty domain. The builds hash `pässword` d
 
 The reference build has no `Unicode` feature and hands SSPI an ANSI identity; static-curl's has
 it and hands SSPI the password as UTF-16. Upstream curl's own NTLM code, which the Linux and macOS
-builds use, widens each UTF-8 byte instead; those builds are not on this machine (BL-324).
+builds use, widens each UTF-8 byte instead (`Curl_ntlm_core_mk_nt_hash` in `lib/curl_ntlm_core.c`).
+
+| Folder | Build | `-Port` | `-CurlArgs` | The NT hash the answer proves |
+| --- | --- | --- | --- | --- |
+| `ntlm-non-ascii-password-linux` | linux-x64 reference (`/opt/upstream-curl/8.21.0/curl`, SHA-256 `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45`) | 18325 | `'-sS','--ntlm','-u',"tester:p$([char]0xE4)ssword",'http://127.0.0.1:18325/x'` | `MD4` of the UTF-8 bytes `70 C3 A4 73 73 77 6F 72 64`, each widened to 16 bits |
+
+Recorded on 2026-10-01 (BL-324) by `pwsh` 7.6 in WSL Ubuntu 26.04 on the same Windows machine,
+with the same `-ResponsesPerConnection` and `-Response` values and `LANG=C.UTF-8`, so the
+argument reached curl as UTF-8. It exited 0 with stdout `ok`.
+`NtlmAuthenticationMethodTests.RecordedAuthenticate_LinuxBuild_ProvesTheNtHashOfTheWidenedUtf8Password`
+checks the answer's `NTProofStr` against that hash. The macOS build is recorded in CI (BL-324's
+follow-up).
 
 ## Negotiate (BL-121)
 

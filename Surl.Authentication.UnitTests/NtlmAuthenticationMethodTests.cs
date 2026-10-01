@@ -475,12 +475,14 @@ public sealed class NtlmAuthenticationMethodTests
     }
 
     // BL-321: each pinned Windows build's answer for tester:pässword, from the command line and
-    // from a UTF-8 -K config file (Fixtures/README.md), hashes the password its own way.
+    // from a UTF-8 -K config file (Fixtures/README.md), hashes the password its own way; BL-324
+    // adds the Linux build's.
     [TestMethod]
     [DataRow("ntlm-non-ascii-password")]
     [DataRow("ntlm-non-ascii-password-utf8-config")]
     [DataRow("ntlm-non-ascii-password-static")]
     [DataRow("ntlm-non-ascii-password-static-utf8-config")]
+    [DataRow("ntlm-non-ascii-password-linux")]
     public async Task RecordedAuthenticate_NonAsciiPassword_IsAcceptedAsTheAccount(string caseName)
     {
         var accounts = new AccountBook([new Account("tester", "pässword")]);
@@ -504,7 +506,24 @@ public sealed class NtlmAuthenticationMethodTests
     }
 
     // Upstream curl's own NTLM code, which the Linux and macOS builds use, widens each UTF-8
-    // byte of the password (lib/curl_ntlm_core.c at curl-8_21_0); no recording yet (BL-322).
+    // byte of the password (lib/curl_ntlm_core.c at curl-8_21_0); the Linux build's recording
+    // proves it (BL-324).
+    [TestMethod]
+    public void RecordedAuthenticate_LinuxBuild_ProvesTheNtHashOfTheWidenedUtf8Password()
+    {
+        var message = RecordedMessage("ntlm-non-ascii-password-linux", 2);
+        var length = BitConverter.ToUInt16(message, 20);
+        var offset = BitConverter.ToInt32(message, 24);
+        var answer = message.AsSpan(offset, length);
+        var key = NtlmV2Calculation.ComputeResponseKeyNt(
+            NtlmV1Calculation.ComputeNtHashOfWidenedUtf8("pässword"), "tester", string.Empty);
+
+        var proof = NtlmV2Calculation.ComputeNtProof(
+            key, FixedNtlmServerChallengeSource.FixtureChallenge, answer[NtlmV2Calculation.NtProofLength..]);
+
+        CollectionAssert.AreEqual(answer[..NtlmV2Calculation.NtProofLength].ToArray(), proof);
+    }
+
     [TestMethod]
     public async Task Authenticate_NtHashOfTheWidenedUtf8Password_IsAccepted()
     {
