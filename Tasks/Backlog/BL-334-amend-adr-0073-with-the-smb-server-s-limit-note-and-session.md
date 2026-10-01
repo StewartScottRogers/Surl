@@ -1,5 +1,5 @@
 ---
-id: BL-330
+id: BL-334
 title: Amend ADR-0073 with the SMB server's limit note and session setup and tree connect strings
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-050
 created: 2026-09-30
 completed:
 ---
-# BL-330 — Amend ADR-0073 with the SMB server's limit note and session setup and tree connect strings
+# BL-334 — Amend ADR-0073 with the SMB server's limit note and session setup and tree connect strings
 
 ## Goal
 

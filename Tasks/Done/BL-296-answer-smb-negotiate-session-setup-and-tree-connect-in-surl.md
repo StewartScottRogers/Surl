@@ -66,8 +66,8 @@ enforces the ADR's limits, replaying request bytes recorded from the pinned buil
   so the server cannot tell them apart. It writes `SMB connection closed: idle timeout or
   maximum duration` either way. When a request was being answered, it sends `ERRSRV/ERRerror`
   first (decision 7's maximum-duration row); when none was, it sends nothing (the idle row).
-  Filed BL-330 to bring decision 8's wording into line.
-- **Choices the ADR left open** (sensible defaults, also in BL-330): the session setup response
+  Filed BL-334 to bring decision 8's wording into line.
+- **Choices the ADR left open** (sensible defaults, also in BL-334): the session setup response
   sends an empty native OS, an empty LAN manager and the domain `SURL`. The tree connect
   response sends service `A:` and an empty native file system, so nothing about the host goes
   out (ADR-0006 section 3). A session setup before the negotiate, or after a login, is answered
