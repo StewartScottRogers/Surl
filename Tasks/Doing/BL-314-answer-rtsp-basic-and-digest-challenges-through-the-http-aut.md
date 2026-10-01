@@ -46,3 +46,4 @@ and answers `401` with one `WWW-Authenticate` field per challenge value, refusin
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
