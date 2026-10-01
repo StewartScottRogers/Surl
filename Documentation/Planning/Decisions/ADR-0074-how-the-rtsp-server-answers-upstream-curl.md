@@ -320,6 +320,24 @@ upload session (ADR-0015) and bounded by `--max-filesize`:
 Interleaved frames that arrive outside a recording are read and discarded, bounded by their own
 16-bit length.
 
+**Where this decision was first silent** (decided by Claude under Stewart's delegation in BL-316,
+2026-09-30, and folded in here by BL-339):
+
+- **A `SETUP` naming the held session cannot switch it between play and record: `455 Method Not
+  Valid in This State`.** The mode is what the session's upload, or its file, was made for.
+- **A path the store refuses outright (`..` and the like) is `403 Forbidden` for `ANNOUNCE` and for
+  a `SETUP` to record** - this decision's one answer for refused uploads - where `DESCRIBE` and a play
+  `SETUP` keep `404`.
+- **A `TEARDOWN` whose commit the store refuses** (a directory appeared at the path) **answers
+  `403`**; the session is still ended and the recording gone, noted as discarded.
+- **An `ANNOUNCE` within `--max-filesize` but past the content store's own upload limit is `403`**,
+  noted `could not be stored (TooLarge)`, with the body already read so the connection stays in step.
+- **A session does not time out while recording**, as it does not while playing; a paused one does,
+  and its recording is discarded. The timeout is checked as each request arrives, before it is
+  judged.
+- **Frames are told from heads only after the first head**, so the first head keeps its timed wait;
+  a `$` first on the connection is a malformed head, `400 Bad Request`, and the connection closes.
+
 ### 7. Logins
 
 Every request is judged through `IHttpAuthenticationSession` exactly as the HTTP server judges one
