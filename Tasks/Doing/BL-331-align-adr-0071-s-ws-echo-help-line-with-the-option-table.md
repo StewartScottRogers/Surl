@@ -40,3 +40,4 @@ ADR-0071 decision 9 names the `--ws-echo` help line the code actually shows,
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
