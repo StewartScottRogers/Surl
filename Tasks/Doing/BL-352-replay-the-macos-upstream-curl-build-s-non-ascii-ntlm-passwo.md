@@ -63,3 +63,4 @@ recorded by CI, is committed as `Fixtures/ntlm-non-ascii-password-macos` and rep
 - 2026-10-01: Created.
 - 2026-10-01: Backlog -> Doing.
 - 2026-10-01: Doing -> Backlog. Waits on BL-353: macOS CI fast tests fail on DSA key generation, so the recording step never runs
+- 2026-10-01: Backlog -> Doing.
