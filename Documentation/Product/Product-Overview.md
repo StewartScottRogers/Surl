@@ -257,8 +257,13 @@ read back, byte for byte, mail the same curl first sent to the same `surl` over 
 rows log in with `CRAM-MD5`, `PLAIN`, `LOGIN`, `XOAUTH2`, `OAUTHBEARER`, `DIGEST-MD5`, `NTLM`,
 IMAP `LOGIN`, POP3 `USER`/`PASS` and `APOP`. The same tests run on CI's Linux and macOS legs
 with the OpenSSL reference builds; no result from them is recorded against these ADRs yet.
-`EXTERNAL` and `GSSAPI` are proven by unit tests only: proving `GSSAPI` from pinned upstream
-curl needs a KDC, and how to provide one is still to be decided (BL-242).
+`EXTERNAL` is proven by unit tests only. `GSSAPI` is proven with the Windows reference build
+through the hand-built loopback test KDC of
+[ADR-0065](../Planning/Decisions/ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md)
+(`UpstreamCurlLogsInToSurlWithKerberosTests`): the same curl logs in to `surl --keytab` over
+`smtp`, `imap` and `pop3`, with and without `--sasl-ir`, and is refused for a principal with no
+account. A refused `GSSAPI` ticket's reason (`Kerberos: ticket expired`) is written to the
+verbose log.
 
 ### Built for Phase 4: WebSocket
 
@@ -564,7 +569,7 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 | Mail servers' shared libraries | `Surl.MailStore` (the mail store: mailboxes per account, messages with UIDs, bounds, persistence under `<path>/.surl/mail`) and `Surl.LineProtocol` (bounded CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines), decided by [ADR-0050](../Planning/Decisions/ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md) | Abstractions; `Surl.MailStore` also `Surl.Content`, for `IContentFileSystem` |
 | HTTP message library | `Surl.HttpMessage` (the bounded HTTP/1.x request-head reader and its head timeout, request-line and field-line parsing for `HTTP/1.x` and `RTSP/1.0`, response heads and `WWW-Authenticate` challenge fields), used by `Surl.Protocol.Http`, `Surl.Protocol.Ws` and `Surl.Protocol.Rtsp`, decided by [ADR-0070](../Planning/Decisions/ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) | Abstractions |
 | Hand-built primitives | `Surl.Cryptography`; for SSH, `Surl.Cryptography.ChaCha20`, `Surl.Cryptography.Curve25519`, `Surl.Cryptography.Ed25519` and `Surl.Cryptography.Poly1305` ([ADR-0048](../Planning/Decisions/ADR-0048-the-hand-built-ssh-primitive-libraries.md)), `Surl.Cryptography.Rc4` and `Surl.Cryptography.BcryptPbkdf` ([ADR-0051](../Planning/Decisions/ADR-0051-the-ssh-transport-host-keys-and-user-authentication.md) decision 3), and `Surl.Cryptography.Blowfish`, `Surl.Cryptography.Cast128` and `Surl.Cryptography.Ripemd160` ([ADR-0061](../Planning/Decisions/ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md)); for Kerberos, `Surl.Kerberos` ([ADR-0057](../Planning/Decisions/ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)) | nothing; `Surl.Cryptography.Ed25519` references `Surl.Cryptography.Curve25519`, and `Surl.Cryptography.BcryptPbkdf` references `Surl.Cryptography.Blowfish` |
-| Test fixtures | `Surl.Kerberos.TestKdc`, the hand-built loopback KDC for realm `SURL.TEST` ([ADR-0065](../Planning/Decisions/ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md) decision 1). Not a protocol server and not a horizontal library of ADR-0002's table: only its own test project references it (BL-267's `Run-KerberosTestKdc.cs` file-based app is to be the other user), and `Surl.Console` never does | `Surl.Kerberos`, Abstractions |
+| Test fixtures | `Surl.Kerberos.TestKdc`, the hand-built loopback KDC for realm `SURL.TEST` ([ADR-0065](../Planning/Decisions/ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md) decision 1). Not a protocol server and not a horizontal library of ADR-0002's table: only test code references it - its own test project, `Surl.Conformance.UnitTests` (ADR-0065 decision 1 allows test projects to) and the `Run-KerberosTestKdc.cs` file-based app behind `Record-CurlExchange.ps1 -KerberosTestKdc` - and `Surl.Console` never does | `Surl.Kerberos`, Abstractions |
 | Contracts | `Surl.Protocol.Abstractions` | nothing |
 | Upstream's test cases | `Surl.Conformance` | Abstractions |
 

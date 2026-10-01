@@ -58,11 +58,11 @@ task board in `Tasks/`, never here.
 ## Milestone 3 — Phase 3
 
 - **Status:** Built, and proven with the Windows reference build (2026-09-30). Not closed:
-  SASL `GSSAPI` and `EXTERNAL` are proven by unit tests only, since proving `GSSAPI` from pinned
-  upstream curl needs a KDC and how to provide one is still to be decided (BL-242); a refused
-  `GSSAPI` ticket's reason is not yet written to the verbose log (BL-260); and what the Linux
-  and macOS reference builds do against the mail servers is not yet recorded against the
-  servers' ADRs.
+  SASL `EXTERNAL` over the mail servers is proven by unit tests only, and what the Linux and
+  macOS reference builds do against the mail servers is not yet recorded against the servers'
+  ADRs. SASL `GSSAPI` is proven with the Windows reference build through the hand-built
+  loopback test KDC of ADR-0065 (`UpstreamCurlLogsInToSurlWithKerberosTests`, over `smtp`,
+  `imap` and `pop3`), and a refused `GSSAPI` ticket's reason is written to the verbose log.
 - **Delivers:** the mail store (`Surl.MailStore`: mailboxes per owner, the POP3 maildrop lock,
   bounds, persistence under `<path>/.surl/mail`) and the line machinery (`Surl.LineProtocol`:
   CRLF command lines, dot-stuffing, the `STARTTLS` discard, SASL continuation lines) the three
@@ -81,7 +81,8 @@ task board in `Tasks/`, never here.
 - **Decisions:** ADR-0049 (the SASL and `APOP` logins and `IMailAuthenticationPolicy`),
   ADR-0050 (the mail store and the line machinery), ADR-0053 (the SMTP server), ADR-0055 (the
   IMAP server), ADR-0056 (the POP3 server), ADR-0057 (the keytab and the AP-REQ check behind
-  SASL `GSSAPI`) and ADR-0059 (a limit told from shutdown, first for SMTP).
+  SASL `GSSAPI`), ADR-0059 (a limit told from shutdown, first for SMTP) and ADR-0065 (Kerberos
+  logins proved through a hand-built loopback test KDC).
 
 ## Milestone 4 — Phase 4
 
