@@ -48,3 +48,4 @@ against a live surl, so the ADR's case table is true of the cases it did not mea
 ## Log
 
 - 2026-09-30: Created.
+- 2026-10-01: Backlog -> Doing.
