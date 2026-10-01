@@ -8,7 +8,7 @@ namespace Surl.Authentication;
 /// SASL <c>GSSAPI</c>, RFC 4752 with Kerberos V5 (ADR-0049, section 4; ADR-0057, decisions 9 and
 /// 10): one empty challenge when no initial response was sent, then the client's
 /// <c>InitialContextToken</c> checked by the <c>--keytab</c> acceptor for the service the scheme
-/// names (<c>smtp</c>, <c>imap</c> or <c>pop</c>); the AP-REP token when the client asked for
+/// names (<c>smtp</c>, <c>imap</c>, <c>pop</c> or <c>ldap</c>); the AP-REP token when the client asked for
 /// mutual authentication, which the client must answer empty; then the wrapped security-layer offer
 /// <c>01 00 00 00</c>, no layer and no maximum size. The client's wrapped answer must choose no
 /// layer, and the authorization identity after it must be empty or the ticket's client principal
@@ -49,12 +49,14 @@ internal sealed class GssapiSaslExchange(SaslExchangeContext context) : SaslMech
             : CheckSecurityLayerChoiceAsync(accepted, token.Span, cancellationToken);
     }
 
-    // The Kerberos service each mail scheme answers (ADR-0057, decision 2); only the mail servers
-    // start a SASL exchange, so what is not SMTP or IMAP is POP3.
+    // The Kerberos service each scheme answers (ADR-0057, decision 2; ldap/<host> for LDAP, as
+    // ADR-0078 measured upstream curl ask): only the mail and LDAP servers start a SASL exchange,
+    // so what is not SMTP, IMAP or LDAP is POP3.
     private static string ServiceOf(string scheme) => scheme.ToLowerInvariant() switch
     {
         "smtp" or "smtps" => "smtp",
         "imap" or "imaps" => "imap",
+        "ldap" or "ldaps" => "ldap",
         _ => "pop",
     };
 

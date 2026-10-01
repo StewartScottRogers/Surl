@@ -6,7 +6,7 @@
   in BL-217 (FR-046).
 - **Amended by:** Amendment 1 below (BL-268): decisions 8 and 9 measured against the test KDC
   of [ADR-0065](ADR-0065-kerberos-logins-are-proved-against-pinned-upstream-curl-through-a-hand-built-loopback-kdc.md);
-  both hold.
+  both hold. Amendment 2 below (BL-351): decision 2's table gains `ldap`.
 - **Amends:** [ADR-0040](ADR-0040-http-negotiate-carrying-ntlm-bare-or-in-spnego.md) decision 3
   (a Kerberos token inside Negotiate is no longer refused once a keytab is configured, decision 8
   below); [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md)
@@ -515,3 +515,22 @@ Decision 9 holds at every step: the bare `InitialContextToken`, no mutual authen
 equal to the ticket's client principal. SMTP and POP3 never carry curl's `GSSAPI` token as an
 initial response, because of the line limits above; surl's initial-response path for them is
 still right for a client with a shorter token, and IMAP exercises it.
+
+## Amendment 2 - decision 2's table gains `ldap` (BL-351, 2026-10-01)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-10-01, in
+BL-351 (FR-052). Decision 2's table predates the LDAP server's SASL binds (ADR-0072), and
+`GssapiSaslExchange` followed it: every scheme that was not SMTP or IMAP answered the service
+`pop`, so SASL `GSSAPI` over `ldap` and `ldaps` refused every ticket (`Kerberos: no key for
+ldap/<host>@<REALM>`). BL-351's conformance test found it: the OpenLDAP build of
+[ADR-0078](ADR-0078-ldap-sasl-gssapi-measured-against-an-openldap-build-with-mit-kerberos.md),
+holding a ticket for `ldap/ldap.surl.test@SURL.TEST` from the test KDC, ended 67 against
+`surl --auth gssapi --keytab`. The table gains a row:
+
+| Schemes | Service |
+| --- | --- |
+| `ldap`, `ldaps` | `ldap` |
+
+`ldap` is the service upstream curl asks for (ADR-0078 decision 1 measured its TGS request for
+`ldap/ldap.surl.test`), and the one `GSS-SPNEGO` already answered (ADR-0072 Amendment 1). With it,
+the same test exits 0 with the entry on stdout.

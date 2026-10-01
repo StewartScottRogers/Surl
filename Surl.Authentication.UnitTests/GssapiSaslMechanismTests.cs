@@ -13,7 +13,7 @@ namespace Surl.Authentication;
 public sealed class GssapiSaslMechanismTests
 {
     private const string Principal = "user@EXAMPLE.COM";
-    private const string MailHost = "mail.example.com";
+    private const string ServiceHost = "host.example.com";
     private const ulong ClientSequenceNumber = 0x01020304;
 
     private static readonly byte[] NoBytes = [];
@@ -32,17 +32,17 @@ public sealed class GssapiSaslMechanismTests
     }
 
     private static ApRequestBuilder Ticket(string service = "smtp", bool mutualRequired = true) =>
-        new() { ServerName = [service, MailHost], MutualRequired = mutualRequired };
+        new() { ServerName = [service, ServiceHost], MutualRequired = mutualRequired };
 
     private static InitiatorTokens Client(ApRequestBuilder ticket) => new(ticket.SessionKeyType, ticket.SessionKey);
 
     private static byte[] Choice(byte layer = 0x01, string authzid = "") =>
         [layer, 0x00, 0x00, 0x00, .. Encoding.UTF8.GetBytes(authzid)];
 
-    private static KerberosKeytab MailKeytab() => new(
-        from service in new[] { "smtp", "imap", "pop" }
+    private static KerberosKeytab ServiceKeytab() => new(
+        from service in new[] { "smtp", "imap", "pop", "ldap" }
         select new KerberosKeytabEntry(
-            new KerberosPrincipalName(ApRequestBuilder.Realm, [service, MailHost]),
+            new KerberosPrincipalName(ApRequestBuilder.Realm, [service, ServiceHost]),
             3,
             KerberosEncryptionType.Aes256CtsHmacSha196,
             ApRequestBuilder.ServiceKeyOf(KerberosEncryptionType.Aes256CtsHmacSha196)));
@@ -57,7 +57,7 @@ public sealed class GssapiSaslMechanismTests
                 new AccountBook([new Account(accountName, "unused")]), allowAnonymous, false, acceptedMethods ?? GssapiAndDigestMd5)
             {
                 KerberosAcceptor = hasKeytab
-                    ? new KerberosAcceptor(MailKeytab(), new KerberosReplayCache(clock), clock, new ZeroKerberosRandomSource())
+                    ? new KerberosAcceptor(ServiceKeytab(), new KerberosReplayCache(clock), clock, new ZeroKerberosRandomSource())
                     : null,
             },
             [],
@@ -82,6 +82,8 @@ public sealed class GssapiSaslMechanismTests
     [DataRow("imaps", "imap", DisplayName = "imaps")]
     [DataRow("pop3", "pop", DisplayName = "pop3")]
     [DataRow("pop3s", "pop", DisplayName = "pop3s")]
+    [DataRow("ldap", "ldap", DisplayName = "ldap")]
+    [DataRow("LDAPS", "ldap", DisplayName = "ldaps, any case")]
     public async Task Login_MutualAuthentication_IsAcceptedAsTheTicketsPrincipal(string scheme, string service)
     {
         var ticket = Ticket(service);

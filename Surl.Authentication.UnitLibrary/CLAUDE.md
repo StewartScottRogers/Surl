@@ -308,3 +308,10 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - `LdapKerberosSaslMechanismTests` replays `Fixtures/ldap-kerberos-sealed`, pinned curl's whole
   bind recorded against the test KDC, with the keytab the recording wrote, and unwraps its sealed
   search and unbind; hand-made AP-REQs (`ApRequestBuilder.Keytab("ldap")`) cover the rest.
+
+## SASL `GSSAPI` over LDAP (BL-351)
+
+- `GssapiSaslExchange` checks the ticket for the service `ldap` on `ldap` and `ldaps`, as it does
+  `smtp`, `imap` and `pop` on the mail schemes (ADR-0057 Amendment 2); before BL-351 it answered
+  `pop` there and refused every LDAP ticket. ADR-0078's OpenLDAP build of upstream curl proves it
+  on CI's Linux leg (`Surl.Conformance.UnitTests`).
