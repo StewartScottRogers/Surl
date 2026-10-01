@@ -47,11 +47,12 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `--user` accounts and then the file's go into one `AccountBook`; each `--auth` word maps to
   its `AuthenticationMethod`, the SASL mechanism words (`digest-md5`, `cram-md5`, `apop`,
   `plain`, `login`, `oauthbearer`, `xoauth2`, `external`, and `ntlm` for both) included, ADR-0049
-  section 3 (the default set without `--auth`); and
+  section 3 (the default set without `--auth`), and `ntlmv1` to `NtlmV1`, SMB's alone (ADR-0073
+  decision 3); and
   `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its
   `AuthenticationSettings`, is handed to the HTTP (`http`, `https`), MQTT (`mqtt`,
-  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
+  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`), SMB (`smb`, `smbs`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
   name, the mail store's owners. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `FtpProtocolServer` for `ftp` and `ftps` (it declares
   both itself; `AUTH TLS` when `--cert` or `--self-signed` is given, ADR-0052 decision 5), given the
@@ -79,6 +80,9 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   policy as both its authentication policies, `STLS` when `--cert` or `--self-signed` is given
   (ADR-0056 decision 8) and the same `MailboxStore` instance, so mail delivered over `smtp` is
   retrieved over `pop3` in the same run,
+  `SmbProtocolServer` for `smb` and `smbs` (it declares both itself, so no
+  `ImplicitTlsSchemeServer` wraps it), given the content store, whose top-level directories are
+  its shares, and the policy as its `ISmbAuthenticationPolicy` (ADR-0073 decisions 2, 3 and 6),
   `SshProtocolServer` for `scp` and `sftp`, given the host keys, `SshAlgorithmComposition.Compose`'s
   offer for them (`SshAlgorithmOffer.Default`, with decision 2's weak algorithms too under
   `--allow-weak-ssh-algorithms`, its ciphers and MACs narrowed by `--ssh-ciphers` and `--ssh-macs`, ADR-0066), the policy as its `ISshAuthenticationPolicy`, `SshSystemRandomSource` and the

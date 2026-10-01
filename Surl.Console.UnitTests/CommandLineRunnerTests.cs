@@ -86,8 +86,8 @@ public sealed class CommandLineRunnerTests
         var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "mqtt", "mqtts", "pop3", "pop3s", "scp", "sftp", "smtp", "smtps", "telnet", "tftp", "ws", "wss"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps mqtt mqtts pop3 pop3s scp sftp smtp smtps telnet tftp ws wss" + NewLine);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "mqtt", "mqtts", "pop3", "pop3s", "scp", "sftp", "smb", "smbs", "smtp", "smtps", "telnet", "tftp", "ws", "wss"]), output);
+        StringAssert.EndsWith(output, NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps mqtt mqtts pop3 pop3s scp sftp smb smbs smtp smtps telnet tftp ws wss" + NewLine);
         Assert.AreEqual(string.Empty, error);
     }
 

@@ -376,6 +376,7 @@ public sealed class CommandLineRunnerAuthenticationTests
     [TestMethod]
     [DataRow("negotiate", AuthenticationMethod.Negotiate)]
     [DataRow("ntlm", AuthenticationMethod.Ntlm)]
+    [DataRow("ntlmv1", AuthenticationMethod.NtlmV1)]
     [DataRow("digest", AuthenticationMethod.Digest)]
     [DataRow("digest-md5", AuthenticationMethod.DigestMd5)]
     [DataRow("cram-md5", AuthenticationMethod.CramMd5)]

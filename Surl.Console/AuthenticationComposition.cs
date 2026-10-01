@@ -23,6 +23,7 @@ internal static class AuthenticationComposition
         ["negotiate"] = AuthenticationMethod.Negotiate,
         ["gssapi"] = AuthenticationMethod.Gssapi,
         ["ntlm"] = AuthenticationMethod.Ntlm,
+        ["ntlmv1"] = AuthenticationMethod.NtlmV1,
         ["digest"] = AuthenticationMethod.Digest,
         ["digest-md5"] = AuthenticationMethod.DigestMd5,
         ["cram-md5"] = AuthenticationMethod.CramMd5,
