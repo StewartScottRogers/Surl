@@ -20,4 +20,12 @@
     <EmbeddedResource Include="Fixtures\*\*" LogicalName="Fixtures/$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(FullPath)'))))/%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!--
+    Directory files in ADR-0072 decision 1's LDIF, embedded so a test writes them into an
+    in-memory file system. Each is named DirectoryFiles/<file>.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="DirectoryFiles\*.ldif" LogicalName="DirectoryFiles/%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

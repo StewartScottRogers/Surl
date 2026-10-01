@@ -83,6 +83,32 @@ public sealed class LdapProtocolServer : IConnectionProtocolServer
     }
 
     /// <summary>
+    /// Loads the directory from <paramref name="directoryFile"/> and creates an LDAP server over
+    /// it, as surl does at start with <c>--directory</c>, after the data-directory lock and before
+    /// any listener binds (ADR-0072 decision 1, ADR-0031 decision 7). A missing file serves an
+    /// empty directory.
+    /// </summary>
+    /// <param name="directoryFile">The directory's file.</param>
+    /// <param name="authenticationPolicy">Judges every simple bind, and says whether an unbound connection may read.</param>
+    /// <param name="timeProvider">The clock a search's <c>timeLimit</c> is measured by.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The server.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="LdapDirectoryLoadException">The file cannot be read, or cannot be the directory.</exception>
+    public static async Task<LdapProtocolServer> LoadAsync(
+        LdapDirectoryFile directoryFile,
+        IAuthenticationPolicy authenticationPolicy,
+        TimeProvider timeProvider,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(directoryFile);
+        ArgumentNullException.ThrowIfNull(authenticationPolicy);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        return new LdapProtocolServer(await directoryFile.LoadAsync(timeProvider, cancellationToken: cancellationToken), authenticationPolicy);
+    }
+
+    /// <summary>
     /// The schemes answered: <c>ldap</c>. <c>ldaps</c> joins with BL-309.
     /// </summary>
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["ldap"]);

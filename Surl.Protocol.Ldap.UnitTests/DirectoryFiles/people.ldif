@@ -1,0 +1,33 @@
+version: 1
+
+# The fixture directory: a naming context, two people and an organisational
+ unit with a person under it, as ADR-0072 decision 1 reads them.
+dn: dc=example,dc=com
+objectClass: top
+objectClass: domain
+dc: example
+
+
+dn: cn=alice,dc=example,dc=com
+objectClass: person
+cn: alice
+sn: Smith
+description: A person whose description is folded over
+  two lines.
+cn: Alice
+mail: alice@example.com
+
+dn:: Y249YsOpYixkYz1leGFtcGxlLGRjPWNvbQ==
+objectClass: person
+cn:: YsOpYg==
+sn: Jones
+
+dn: ou=staff,dc=example,dc=com
+objectClass: organizationalUnit
+ou: staff
+
+dn: uid=carol,ou=staff,dc=example,dc=com
+objectClass: person
+uid: carol
+cn;lang-en: Carol
+2.5.4.4: Ann
