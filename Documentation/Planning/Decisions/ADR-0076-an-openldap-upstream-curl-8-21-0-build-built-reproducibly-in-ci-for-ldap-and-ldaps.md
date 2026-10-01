@@ -11,6 +11,10 @@
   decision 4's `GSSAPI` line (decision 6 below). [ADR-0016](ADR-0016-the-linux-and-macos-upstream-curl-builds-and-how-ci-obtains-them.md)
   and [ADR-0030](ADR-0030-static-curl-8-21-0-windows-build-as-a-supplementary-build-for-smb.md) are
   applied as written.
+- **Amended:** decision 1 by [ADR-0078](ADR-0078-ldap-sasl-gssapi-measured-against-an-openldap-build-with-mit-kerberos.md)
+  (BL-342, 2026-10-01): the build also links MIT Kerberos 1.22.2's GSS-API and is re-pinned
+  (`62061C58...7E55`) at the same path; every case below that was re-run is unchanged, and the
+  `AUTH=GSSAPI` row's "no GSS-API" is now ADR-0078's measured exchange.
 
 ## Context
 

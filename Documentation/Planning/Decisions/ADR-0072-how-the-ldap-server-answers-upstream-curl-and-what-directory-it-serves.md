@@ -6,7 +6,8 @@
   in BL-284 (FR-049).
 - **Amended:** decision 4's `GSSAPI` line by [ADR-0076](ADR-0076-an-openldap-upstream-curl-8-21-0-build-built-reproducibly-in-ci-for-ldap-and-ldaps.md)
   (2026-09-30), which measured the OpenLDAP build (`lib/openldap.c`) and changed no other decision:
-  that build has no GSS-API, so the `GSSAPI` measurement moves to BL-342. Decision 4's Kerberos
+  that build has no GSS-API, so the `GSSAPI` measurement moves to BL-342; ADR-0078 (BL-342,
+  2026-10-01) measured it and confirmed the line unchanged. Decision 4's Kerberos
   inside `GSS-SPNEGO` line by [Amendment 1](#amendment-1---kerberos-inside-gss-spnego-measured-and-built-bl-327-2026-09-30)
   below (BL-327, 2026-09-30): `WinLDAP` does use Kerberos for a host name, measured, and surl
   answers it with `--keytab` and RFC 4121 wrap tokens. Decisions 3 and 6 by BL-335 (2026-09-30),
@@ -388,9 +389,10 @@ SASL and is not listed: it is answered when `ntlm` is accepted.
     number; `3des` (two-key 3DES-CBC, the BCL's `TripleDES`, its IV from the key as section 2.4
     says) or `rc4` for `auth-conf`. `qop=auth`: no layer.
   - **`GSSAPI`** (RFC 4752): the server's last challenge offers "no security layer" only (bit 1,
-    max size 0), so the session continues in clear; ADR-0057's check is unchanged. The OpenLDAP
-    build ADR-0076 pins has no GSS-API, so BL-342 measures what a build that has it accepts and
-    amends this if it asks for more.
+    max size 0), so the session continues in clear; ADR-0057's check is unchanged. Confirmed by
+    [ADR-0078](ADR-0078-ldap-sasl-gssapi-measured-against-an-openldap-build-with-mit-kerberos.md)
+    (BL-342): the OpenLDAP build with MIT Kerberos answers every offer with no security layer and
+    max size 0, and asks for no mutual authentication.
   - A buffer past `--max-message`, one that fails its signature or MAC, or one out of sequence
     ends the connection with no answer (the peer's keys are no longer trusted, so a Notice of
     Disconnection could not be read).
