@@ -1,5 +1,5 @@
 ---
-id: BL-343
+id: BL-346
 title: Prove pinned WinLDAP curl binds to surl ldap with Kerberos and --keytab
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-049
 created: 2026-09-30
 completed:
 ---
-# BL-343 — Prove pinned WinLDAP curl binds to surl ldap with Kerberos and --keytab
+# BL-346 — Prove pinned WinLDAP curl binds to surl ldap with Kerberos and --keytab
 
 ## Goal
 

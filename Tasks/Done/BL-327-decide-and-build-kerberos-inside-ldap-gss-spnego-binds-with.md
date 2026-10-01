@@ -57,7 +57,7 @@ records from measurement.
   receivers to accept any); `--allow-anonymous` accepts an unchecked Kerberos bind, since the
   layer's keys come from the ticket, not a password; no layer when the client asks for neither
   confidentiality nor integrity. All recorded in ADR-0072 Amendment 1.
-- Follow-up filed: BL-343, the end-to-end proof against a live `surl ldap --keytab` once BL-310 and
+- Follow-up filed: BL-346, the end-to-end proof against a live `surl ldap --keytab` once BL-310 and
   BL-311 land.
 
 ## Log
