@@ -46,6 +46,10 @@ and `Surl.Authentication` can be built against it in parallel.
 ## Notes
 
 - Touches Abstractions, so it runs apart from every protocol task: keep it to the contract.
+- ADR-0073 decision 3 names the types (`ISmbAuthenticationPolicy`, `SmbNtlmV1Login`,
+  `SmbLoginOutcome`, `SmbLoginVerdict`) and corrects the Goal's Context on one point:
+  `AnonymousAuthenticationPolicy` answers every SMB login `AcceptedUnchecked` with no note, as it
+  answers every SSH login, rather than refusing it; the acceptance test shows that instead.
 
 ## Log
 

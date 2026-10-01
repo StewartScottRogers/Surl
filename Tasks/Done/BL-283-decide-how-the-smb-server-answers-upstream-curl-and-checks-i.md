@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-050
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-283 — Decide how the SMB server answers upstream curl and checks its NTLM session setup
 
@@ -75,17 +75,35 @@ under ADR-0032, so the SMB codec, contract, login and server tasks can be built 
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
       Stewart's delegation", records each measurement (build path, SHA-256, arguments, date,
       transcript excerpt) and decides every point in Context.
-- [ ] It lists the curl 8.21.0 command lines the SMB conformance task must prove, with the expected
+- [x] It lists the curl 8.21.0 command lines the SMB conformance task must prove, with the expected
       exit code for each.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help.
 
 ## Notes
+
+- ADR-0073. 27 cases measured 2026-09-30 against ADR-0030's static-curl 8.21.0 Windows build
+  with `Record-CurlExchange.ps1 -Raw` and fixed SMB replies built by a throwaway PowerShell
+  helper; the replies' hex is in the ADR so BL-296 to BL-298 can re-record. `-Raw` sufficed, so
+  the script is unchanged (no help to update). Both NTLMv1 responses were reproduced with a
+  throwaway C# file-based app over `Surl.Cryptography`.
+- Key finding: curl's SMB client never notices the server closing while it waits for an answer
+  (exit 28 under `-m`, a hang without it), so the server answers every request, refusals
+  included, and closes only after a refused login, at a limit or at shutdown.
+- Decisions taken as defaults: shares are the top-level directories (URL paths match HTTP's);
+  a new `--auth` word `ntlmv1`, not in the default set, rather than widening `ntlm` (ADR-0039
+  refused NTLMv1 for HTTP); LM response ignored; domain not matched; `AnonymousAuthenticationPolicy`
+  answers SMB `AcceptedUnchecked` as it does SSH - BL-294's Notes now say so, since its Context
+  said "refuses".
+- Context's DES note was out of date: BL-291 built `Surl.Cryptography.Des` by hand because the
+  BCL's `DES` refuses NTLMv1's weak keys; the ADR records that.
+- `--directory` has no short form; the ADR's command lines use the long one.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0073 decides, from 27 measured exchanges with pinned curl 8.21.0, how the SMB server answers smb and smbs and checks NTLMv1 under --auth ntlmv1
