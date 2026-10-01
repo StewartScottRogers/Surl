@@ -64,7 +64,7 @@ public sealed class LdapMessageFrameReaderTests
 
         var result = await new LdapMessageFrameReader(connection, message.Length - 1).ReadFrameAsync(TestContext.CancellationToken);
 
-        Assert.AreEqual(LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.MessageTooLarge), result);
+        Assert.AreEqual(LdapFrameReadResult.TooLarge(message.Length), result);
         Assert.AreEqual(4, connection.BytesRead);
     }
 
@@ -73,7 +73,7 @@ public sealed class LdapMessageFrameReaderTests
     {
         var result = await ReadOnlyAsync("3084ffffffff00");
 
-        Assert.AreEqual(LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.MessageTooLarge), result);
+        Assert.AreEqual(LdapFrameReadResult.TooLarge(0xFFFFFFFFL + 6), result);
     }
 
     [TestMethod]

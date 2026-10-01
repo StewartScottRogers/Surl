@@ -20,6 +20,14 @@ public sealed class LdapMessageEncoderTests
     }
 
     [TestMethod]
+    public void EncodeResultResponse_CompareTrue_IsAnLdapResultUnderTheGivenTag()
+    {
+        var bytes = LdapMessageEncoder.EncodeResultResponse(5, LdapTags.CompareResponse, new LdapResult(LdapResultCode.CompareTrue, string.Empty, string.Empty));
+
+        CollectionAssert.AreEqual(Hex("300c020105 6f07 0a0106 0400 0400"), bytes);
+    }
+
+    [TestMethod]
     public void EncodeBindResponse_WithServerSaslCredentials_CarriesThemAfterTheResult()
     {
         var bytes = LdapMessageEncoder.EncodeBindResponse(

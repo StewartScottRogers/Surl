@@ -90,6 +90,17 @@ public sealed class LdapMessageDecoderRequestTests
     }
 
     [TestMethod]
+    public void Decode_CompareRequest_CarriesTheEntryTypeAndValue()
+    {
+        // messageID 5, CompareRequest { "o=x", { "sn", "Smith" } }.
+        var compare = (LdapCompareRequest)Decoded(Hex("3017020105 6E12 04036F3D78 300B 0402736E 0405536D697468")).Operation;
+
+        Assert.AreEqual("o=x", compare.Entry);
+        Assert.AreEqual("sn", compare.AttributeDescription);
+        Assert.AreEqual("Smith", Encoding.UTF8.GetString(compare.AssertionValue));
+    }
+
+    [TestMethod]
     public void Decode_StartTlsExtendedRequest_HasTheNameAndNoValue()
     {
         var message = Decoded(Message(1, writer =>

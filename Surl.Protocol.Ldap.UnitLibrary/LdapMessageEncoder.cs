@@ -92,6 +92,22 @@ internal static class LdapMessageEncoder
         });
 
     /// <summary>
+    /// Encodes a response that is an <c>LDAPResult</c> and nothing more under
+    /// <paramref name="responseTag"/>: a <c>CompareResponse</c>, the response to a write, or a
+    /// bind, search or extended operation's refusal (RFC 4511, section 4.1.9).
+    /// </summary>
+    /// <param name="messageId">The <c>messageID</c> of the request answered.</param>
+    /// <param name="responseTag">The response's application tag.</param>
+    /// <param name="result">The result.</param>
+    /// <returns>The whole message's BER encoding.</returns>
+    public static byte[] EncodeResultResponse(int messageId, Asn1Tag responseTag, LdapResult result) =>
+        EncodeMessage(messageId, writer =>
+        {
+            using var response = writer.PushSequence(responseTag);
+            WriteResult(writer, result);
+        });
+
+    /// <summary>
     /// Encodes the Notice of Disconnection (RFC 4511, section 4.4.1): an unsolicited
     /// <c>ExtendedResponse</c> with <c>messageID</c> 0, <see cref="NoticeOfDisconnectionName"/> as
     /// its name and no value, sent before the server closes the connection.

@@ -107,6 +107,39 @@ internal sealed class LdapDirectory
             : new LdapSearchOutcome([], new LdapResult(LdapResultCode.NoSuchObject, FindNearestSuperior(baseDn)?.Dn.Text ?? string.Empty, string.Empty));
     }
 
+    /// <summary>
+    /// Answers a <c>CompareRequest</c> (RFC 4511, section 4.10; ADR-0072 decision 3) by the
+    /// asserted type's equality rule: <c>compareTrue</c> or <c>compareFalse</c>,
+    /// <c>undefinedAttributeType</c> for a type the entry lacks, <c>noSuchObject</c> with the
+    /// nearest superior as matched DN for an entry that does not exist, and
+    /// <c>invalidDNSyntax</c> for a DN that is not RFC 4514.
+    /// </summary>
+    /// <param name="request">The compare, as decoded.</param>
+    /// <returns>The <c>CompareResponse</c>'s result.</returns>
+    public LdapResult Compare(LdapCompareRequest request)
+    {
+        if (!LdapDistinguishedName.TryParse(request.Entry, out var dn))
+        {
+            return new LdapResult(LdapResultCode.InvalidDnSyntax, string.Empty, "the entry is not an RFC 4514 DN");
+        }
+
+        return FindEntry(dn) is { } entry
+            ? CompareIn(entry, request)
+            : new LdapResult(LdapResultCode.NoSuchObject, FindNearestSuperior(dn)?.Dn.Text ?? string.Empty, string.Empty);
+    }
+
+    private static LdapResult CompareIn(LdapEntry entry, LdapCompareRequest request)
+    {
+        if (LdapFilterEvaluator.Evaluate(new LdapPresentFilter(request.AttributeDescription), entry.Dn, entry.Attributes) != LdapFilterResult.True)
+        {
+            return new LdapResult(LdapResultCode.UndefinedAttributeType, string.Empty, string.Empty);
+        }
+
+        var equality = new LdapComparisonFilter(LdapComparison.EqualityMatch, request.AttributeDescription, request.AssertionValue);
+        var isTrue = LdapFilterEvaluator.Evaluate(equality, entry.Dn, entry.Attributes) == LdapFilterResult.True;
+        return new LdapResult(isTrue ? LdapResultCode.CompareTrue : LdapResultCode.CompareFalse, string.Empty, string.Empty);
+    }
+
     private static LdapAttribute Attribute(string description, params IEnumerable<string> values) =>
         new(description, values.Select(Encoding.UTF8.GetBytes).ToArray());
 

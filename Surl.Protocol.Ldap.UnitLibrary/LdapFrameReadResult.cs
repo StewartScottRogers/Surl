@@ -8,7 +8,11 @@ namespace Surl.Protocol.Ldap;
 /// The message's tag, length and value; <see langword="null"/> unless <paramref name="Outcome"/> is
 /// <see cref="LdapFrameReadOutcome.FrameRead"/>.
 /// </param>
-internal sealed record LdapFrameReadResult(LdapFrameReadOutcome Outcome, byte[]? Message)
+/// <param name="AnnouncedBytes">
+/// The bytes the message's tag and length announced, tag and length included, when
+/// <paramref name="Outcome"/> is <see cref="LdapFrameReadOutcome.MessageTooLarge"/>; 0 otherwise.
+/// </param>
+internal sealed record LdapFrameReadResult(LdapFrameReadOutcome Outcome, byte[]? Message, long AnnouncedBytes = 0)
 {
     /// <summary>
     /// A result that carries a message.
@@ -23,4 +27,12 @@ internal sealed record LdapFrameReadResult(LdapFrameReadOutcome Outcome, byte[]?
     /// <param name="outcome">Why there is no message.</param>
     /// <returns>A result with <see cref="Message"/> <see langword="null"/>.</returns>
     public static LdapFrameReadResult NoFrame(LdapFrameReadOutcome outcome) => new(outcome, null);
+
+    /// <summary>
+    /// A result for a message whose length announced more than the reader may hold; none of its
+    /// value was read.
+    /// </summary>
+    /// <param name="announcedBytes">The bytes the message announced, tag and length included.</param>
+    /// <returns>A <see cref="LdapFrameReadOutcome.MessageTooLarge"/> result.</returns>
+    public static LdapFrameReadResult TooLarge(long announcedBytes) => new(LdapFrameReadOutcome.MessageTooLarge, null, announcedBytes);
 }

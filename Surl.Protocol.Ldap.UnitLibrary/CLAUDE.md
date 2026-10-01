@@ -24,6 +24,17 @@ them in normal form; `LdapMatchingRules` picks and applies each type's RFC 4517 
 `LdapFilterEvaluator` evaluates filters three-valued; `LdapAttributeSelection` picks the
 attributes returned.
 
+On top of both is the server (BL-308, ADR-0072 decisions 2, 3, 6 and 7): the public
+`LdapProtocolServer` answers `ldap` - its public constructor over an empty directory, an
+internal one over an `LdapDirectory` until BL-307 and BL-310 load one - and runs one
+`LdapSession` per connection. `LdapBindJudge` decides each bind (simple binds through
+`IAuthenticationPolicy.CheckPasswordLoginAsync`, the name mapped by `LdapBindNames`; Sicily
+and SASL binds `authMethodNotSupported` until BL-309); the session answers searches,
+compares, writes (refused), extended operations, abandon and unbind, sends the Notice of
+Disconnection for what it cannot read (`LdapDiagnostics`) and for a limit, and notes each
+decision (`LdapLogText`). Its tests replay request bytes recorded from the pinned Windows
+build (`Surl.Protocol.Ldap.UnitTests/Fixtures/README.md`).
+
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
 else. Referencing another protocol server is a

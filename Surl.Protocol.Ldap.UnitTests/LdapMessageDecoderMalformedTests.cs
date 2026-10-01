@@ -168,5 +168,17 @@ public sealed class LdapMessageDecoderMalformedTests
         Assert.AreEqual(LdapDecodeResult.Malformed(LdapDecodeOutcome.InvalidValue, 1), Decode("300502010140 00"));
     }
 
+    [TestMethod]
+    public void Decode_CompareAssertionWithATrailingElement_IsTrailingBytesWithTheMessageId()
+    {
+        Assert.AreEqual(LdapDecodeResult.Malformed(LdapDecodeOutcome.TrailingBytes, 5), Decode("301A020105 6E15 04036F3D78 300E 0402736E 0405536D697468 040178"));
+    }
+
+    [TestMethod]
+    public void Decode_CompareWithATrailingElement_IsTrailingBytesWithTheMessageId()
+    {
+        Assert.AreEqual(LdapDecodeResult.Malformed(LdapDecodeOutcome.TrailingBytes, 5), Decode("301A020105 6E15 04036F3D78 300B 0402736E 0405536D697468 040178"));
+    }
+
     private static LdapDecodeResult Decode(string hex) => LdapMessageDecoder.Decode(Hex(hex), 32);
 }

@@ -25,6 +25,12 @@ internal static class LdapTags
     /// <summary><c>SearchResultDone</c>, [APPLICATION 5].</summary>
     public static readonly Asn1Tag SearchResultDone = new(TagClass.Application, 5, isConstructed: true);
 
+    /// <summary><c>CompareRequest</c>, [APPLICATION 14].</summary>
+    public static readonly Asn1Tag CompareRequest = new(TagClass.Application, 14, isConstructed: true);
+
+    /// <summary><c>CompareResponse</c>, [APPLICATION 15].</summary>
+    public static readonly Asn1Tag CompareResponse = new(TagClass.Application, 15, isConstructed: true);
+
     /// <summary><c>AbandonRequest</c>, [APPLICATION 16], a <c>MessageID</c>.</summary>
     public static readonly Asn1Tag AbandonRequest = new(TagClass.Application, 16);
 

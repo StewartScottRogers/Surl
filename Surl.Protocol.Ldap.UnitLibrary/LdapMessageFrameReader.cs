@@ -60,22 +60,27 @@ internal sealed class LdapMessageFrameReader
             return LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.ConnectionClosed);
         }
 
-        if (tag != SequenceTag)
-        {
-            return LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.NotASequence);
-        }
+        return tag == SequenceTag
+            ? await ReadSequenceAsync(cancellationToken)
+            : LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.NotASequence);
+    }
 
+    // Reads the length and value of a message whose SEQUENCE tag is already read.
+    private async ValueTask<LdapFrameReadResult> ReadSequenceAsync(CancellationToken cancellationToken)
+    {
         var header = new List<byte> { SequenceTag };
         var (outcome, valueLength) = await ReadLengthAsync(header, cancellationToken);
-        if (outcome != LdapFrameReadOutcome.FrameRead)
+        if (outcome is not LdapFrameReadOutcome.FrameRead and not LdapFrameReadOutcome.MessageTooLarge)
         {
             return LdapFrameReadResult.NoFrame(outcome);
         }
 
-        return maxMessageBytes > 0 && header.Count + valueLength > maxMessageBytes
-            ? LdapFrameReadResult.NoFrame(LdapFrameReadOutcome.MessageTooLarge)
+        return outcome == LdapFrameReadOutcome.MessageTooLarge || IsPastTheLimit(header.Count + valueLength)
+            ? LdapFrameReadResult.TooLarge(header.Count + valueLength)
             : await ReadValueAsync(header, (int)valueLength, cancellationToken);
     }
+
+    private bool IsPastTheLimit(long messageBytes) => maxMessageBytes > 0 && messageBytes > maxMessageBytes;
 
     // Reads the length octets into header, after the tag already there.
     private async ValueTask<(LdapFrameReadOutcome Outcome, long ValueLength)> ReadLengthAsync(
@@ -115,7 +120,7 @@ internal sealed class LdapMessageFrameReader
 
         // A value this long could never be held in one array, whatever the limit.
         return length > Array.MaxLength - header.Count
-            ? (LdapFrameReadOutcome.MessageTooLarge, 0)
+            ? (LdapFrameReadOutcome.MessageTooLarge, length)
             : (LdapFrameReadOutcome.FrameRead, length);
     }
 

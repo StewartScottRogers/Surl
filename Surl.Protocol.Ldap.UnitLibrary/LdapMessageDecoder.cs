@@ -88,6 +88,19 @@ internal sealed class LdapMessageDecoder
         return new LdapUnbindRequest();
     }
 
+    private static LdapProtocolOperation ReadCompareRequest(AsnReader reader)
+    {
+        var compare = ReadSequence(reader, LdapTags.CompareRequest);
+        var entry = ReadString(compare, Asn1Tag.PrimitiveOctetString);
+        var assertion = ReadSequence(compare, Asn1Tag.Sequence);
+        var description = ReadString(assertion, Asn1Tag.PrimitiveOctetString);
+        var value = ReadOctetString(assertion, Asn1Tag.PrimitiveOctetString);
+        EnsureEnd(assertion);
+        EnsureEnd(compare);
+
+        return new LdapCompareRequest(entry, description, value);
+    }
+
     private static LdapProtocolOperation ReadAbandonRequest(AsnReader reader) =>
         new LdapAbandonRequest(ReadInt32(reader, LdapTags.AbandonRequest, 0));
 
@@ -149,11 +162,18 @@ internal sealed class LdapMessageDecoder
             0 => ReadBindRequest(reader),
             2 => ReadUnbindRequest(reader),
             3 => ReadSearchRequest(reader),
-            16 => ReadAbandonRequest(reader),
-            23 => ReadExtendedRequest(reader),
-            _ => new LdapUnrecognizedOperation(Skip(reader)),
+            var number => ReadOtherOperation(reader, number),
         };
     }
+
+    // The requests no curl build sends, and every unrecognized one.
+    private static LdapProtocolOperation ReadOtherOperation(AsnReader reader, int applicationTagNumber) => applicationTagNumber switch
+    {
+        14 => ReadCompareRequest(reader),
+        16 => ReadAbandonRequest(reader),
+        23 => ReadExtendedRequest(reader),
+        _ => new LdapUnrecognizedOperation(Skip(reader)),
+    };
 
     // The tag's number when it is an application tag, as every request's is; -1 otherwise.
     private static int ApplicationTagNumber(Asn1Tag tag) => tag.TagClass == TagClass.Application ? tag.TagValue : -1;
