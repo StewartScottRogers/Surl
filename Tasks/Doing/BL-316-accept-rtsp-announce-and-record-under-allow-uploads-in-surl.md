@@ -44,3 +44,4 @@ description and the recorded interleaved media through the content store only wi
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
