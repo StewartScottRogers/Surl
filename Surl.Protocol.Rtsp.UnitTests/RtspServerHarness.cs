@@ -45,8 +45,8 @@ internal static class RtspServerHarness
     /// A server over <paramref name="fileSystem"/> (the standard one when none is given) that
     /// lets in what <paramref name="authenticationPolicy"/> does, everyone when none is given.
     /// </summary>
-    public static RtspProtocolServer Server(IContentFileSystem? fileSystem = null, IAuthenticationPolicy? authenticationPolicy = null) =>
-        new(new ContentStore(Root, fileSystem ?? StandardFileSystem(), new ContentExposureOptions()), authenticationPolicy ?? new AnonymousAuthenticationPolicy(), new PatternRandomNumberGenerator());
+    public static RtspProtocolServer Server(IContentFileSystem? fileSystem = null, IAuthenticationPolicy? authenticationPolicy = null, ContentExposureOptions? exposureOptions = null) =>
+        new(new ContentStore(Root, fileSystem ?? StandardFileSystem(), exposureOptions ?? new ContentExposureOptions()), authenticationPolicy ?? new AnonymousAuthenticationPolicy(), new PatternRandomNumberGenerator());
 
     public static ExchangeContext Context(IExchangeLog log, TimeProvider timeProvider, CancellationToken cancellationToken, ExchangeLimits? limits = null) => new(
         1,
@@ -104,13 +104,14 @@ internal static class RtspServerHarness
         bool peerHalfCloses = true,
         IContentFileSystem? fileSystem = null,
         EndPoint? localEndPoint = null,
-        IAuthenticationPolicy? authenticationPolicy = null)
+        IAuthenticationPolicy? authenticationPolicy = null,
+        ContentExposureOptions? exposureOptions = null)
     {
         var connection = new InMemoryConnection(chunks, localEndPoint, peerHalfClosesWhenExhausted: peerHalfCloses);
         var log = new RecordingExchangeLog();
         var clock = new ManualTimeProvider(Now);
 
-        var serving = Server(fileSystem, authenticationPolicy).ServeAsync(connection, Context(log, clock, cancellationToken, limits));
+        var serving = Server(fileSystem, authenticationPolicy, exposureOptions).ServeAsync(connection, Context(log, clock, cancellationToken, limits));
         await (peerHalfCloses ? serving : AdvanceUntilCompletedAsync(clock, serving));
 
         return (connection, log);

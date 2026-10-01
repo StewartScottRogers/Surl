@@ -30,13 +30,13 @@ internal sealed partial class RtspRequestResponder
 
     private const int BodyBufferBytes = 8192;
 
-    private static readonly string[] RtspMethods = PublicMethods.Split(", ");
-
-    // How each method served is answered once decision 2's checks have passed.
+    // How each of the ten methods is answered once decision 2's checks have passed.
     private static readonly Dictionary<string, Func<RtspRequestResponder, HttpRequestHead, string, Task<bool>>> MethodAnswers = new(StringComparer.Ordinal)
     {
         ["OPTIONS"] = (responder, _, cseq) => responder.RespondAsync(responder.ResponseHead(RtspStatus.Ok, cseq).AddField("Public", PublicMethods), null),
         ["DESCRIBE"] = (responder, head, cseq) => responder.DescribeAsync(head, cseq),
+        ["ANNOUNCE"] = (responder, head, cseq) => responder.AnnounceAsync(head, cseq),
+        ["RECORD"] = (responder, head, cseq) => responder.RecordAsync(head, cseq),
         ["SETUP"] = (responder, head, cseq) => responder.SetupAsync(head, cseq),
         ["PLAY"] = (responder, head, cseq) => responder.PlayAsync(head, cseq),
         ["PAUSE"] = (responder, head, cseq) => responder.PauseAsync(head, cseq),
@@ -127,6 +127,8 @@ internal sealed partial class RtspRequestResponder
     {
         wwwAuthenticateValues = [];
         sessionField = null;
+        announcement = null;
+        await EndTheSessionIfTimedOutAsync();
         var framing = HttpRequestBodyFraming.Of(head);
         requestBodyLength = framing.ContentLength;
         var cseq = SingleCSeq(head);
@@ -143,7 +145,9 @@ internal sealed partial class RtspRequestResponder
 
         var verdict = await authenticationSession.JudgeAsync(AuthenticationRequest(head), context.CancellationToken);
         using var bodyHash = verdict.BodyCheck is null ? null : IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        if (!await DiscardBodyAsync(framing.ContentLength, bodyHash))
+        announcement = await OpenAnnouncementAsync(head, verdict);
+        await using var announcedDescription = announcement?.Session;
+        if (!await ReadBodyAsync(framing.ContentLength, bodyHash, announcedDescription))
         {
             return await RefuseAndCloseAsync(RtspStatus.BadRequest, cseq, head.Method, "the body ended before its Content-Length");
         }
@@ -238,9 +242,10 @@ internal sealed partial class RtspRequestResponder
         context.Limits.MaxUploadBytes != 0 && contentLength > context.Limits.MaxUploadBytes;
 
     // The body is read before the answer, so the next head starts where the client expects
-    // (ADR-0074 decision 2); no method this server answers yet needs it, but a login bound to
-    // it needs its hash. False when the client closed before all of it arrived.
-    private async Task<bool> DiscardBodyAsync(long contentLength, IncrementalHash? bodyHash)
+    // (ADR-0074 decision 2): an ANNOUNCE's into the upload of its description, every other
+    // discarded, and hashed when a login is bound to it. False when the client closed before
+    // all of it arrived.
+    private async Task<bool> ReadBodyAsync(long contentLength, IncrementalHash? bodyHash, ContentUploadSession? upload)
     {
         var left = contentLength;
         while (left > 0)
@@ -252,6 +257,11 @@ internal sealed partial class RtspRequestResponder
             }
 
             bodyHash?.AppendData(bodyBuffer, 0, read);
+            if (upload is not null)
+            {
+                await upload.WriteAtAsync(upload.Length, bodyBuffer.AsMemory(0, read), context.CancellationToken);
+            }
+
             left -= read;
         }
 
@@ -262,7 +272,7 @@ internal sealed partial class RtspRequestResponder
     // the first of the method's own.
     private Task<bool> AnswerMethodAsync(HttpRequestHead head, string cseq)
     {
-        if (!RtspMethods.Contains(head.Method, StringComparer.Ordinal))
+        if (!MethodAnswers.TryGetValue(head.Method, out var answer))
         {
             return RefuseAsync(RtspStatus.NotImplemented, cseq, head.Method, "the method is not an RTSP method");
         }
@@ -277,14 +287,8 @@ internal sealed partial class RtspRequestResponder
             return RefuseAsync(RtspStatus.SessionNotFound, cseq, head.Method, "the connection holds no session of that ID");
         }
 
-        return AnswerRtspMethodAsync(head, cseq);
+        return answer(this, head, cseq);
     }
-
-    // ANNOUNCE and RECORD are answered 501 until their task lands (BL-316).
-    private Task<bool> AnswerRtspMethodAsync(HttpRequestHead head, string cseq) =>
-        MethodAnswers.TryGetValue(head.Method, out var answer)
-            ? answer(this, head, cseq)
-            : RefuseAsync(RtspStatus.NotImplemented, cseq, head.Method, "the method is not served yet");
 
     private static bool IsRequestUri(string requestTarget) =>
         requestTarget == "*" || requestTarget.StartsWith(AbsoluteUrlPrefix, StringComparison.OrdinalIgnoreCase);
@@ -388,7 +392,15 @@ internal sealed partial class RtspRequestResponder
     {
         NoteRefusal(status, method, check);
 
-        if (await TryWriteRefusalAsync(ResponseHead(status, cseq)))
+        return await CloseAfterAsync(ResponseHead(status, cseq).ToBytes(), status.Code.ToString(CultureInfo.InvariantCulture));
+    }
+
+    // Writes the last bytes, half-closes and drains what the client still sends, within the
+    // refusal deadline (ADR-0059's farewell window); a recording past the upload limit closes
+    // this way with no bytes, there being no request to answer (ADR-0074 decision 6).
+    private async Task<bool> CloseAfterAsync(byte[] lastBytes, string what)
+    {
+        if (await TryWriteAndHalfCloseAsync(lastBytes, what))
         {
             await unreadRequestDrainer.DrainAsync();
         }
@@ -396,18 +408,18 @@ internal sealed partial class RtspRequestResponder
         return false;
     }
 
-    private async Task<bool> TryWriteRefusalAsync(HttpResponseHead responseHead)
+    private async Task<bool> TryWriteAndHalfCloseAsync(byte[] lastBytes, string what)
     {
         using var deadline = new CancellationTokenSource(RefusalWriteDeadline, context.TimeProvider);
         using var deadlineOrExchange = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, deadline.Token);
         try
         {
-            await connection.WriteAsync(responseHead.ToBytes(), deadlineOrExchange.Token);
+            await connection.WriteAsync(lastBytes, deadlineOrExchange.Token);
             await connection.CompleteWritesAsync(deadlineOrExchange.Token);
         }
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
         {
-            context.Log.Note($"The {responseHead.Status.Code} was not written within its {RefusalWriteDeadline.TotalSeconds}-second write deadline; the connection is closed without it.");
+            context.Log.Note($"The {what} was not written within its {RefusalWriteDeadline.TotalSeconds}-second write deadline; the connection is closed without it.");
 
             return false;
         }

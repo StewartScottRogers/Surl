@@ -60,13 +60,15 @@ internal sealed partial class RtspRequestResponder
         arrival.IsCompleted && (!arrival.IsCompletedSuccessfully || arrival.Result);
 
     /// <summary>
-    /// Ends the connection's session, if it holds one, as the connection closes.
+    /// Ends the connection's session, if it holds one, as the connection closes, discarding a
+    /// recording not committed (ADR-0074 decision 6).
     /// </summary>
-    public void EndSessionAsTheConnectionCloses()
+    /// <returns>A task that completes when the session has ended.</returns>
+    public async Task EndSessionAsTheConnectionClosesAsync()
     {
         if (session is not null)
         {
-            EndSession("connection closed");
+            await EndSessionAsync("connection closed");
         }
     }
 
@@ -80,34 +82,39 @@ internal sealed partial class RtspRequestResponder
             return true;
         }
 
-        var held = LiveSession();
-        if (held is null || !string.Equals(held.Id, namedId, StringComparison.Ordinal))
+        if (session is null || !string.Equals(session.Id, namedId, StringComparison.Ordinal))
         {
             return false;
         }
 
-        held.LastActivity = context.TimeProvider.GetUtcNow();
-        sessionField = held.Id;
+        session.LastActivity = context.TimeProvider.GetUtcNow();
+        sessionField = session.Id;
 
         return true;
     }
 
-    // The connection's session, ended first if it has timed out.
-    private RtspSession? LiveSession()
+    // A session neither playing nor recording that no request named for its timeout has ended;
+    // checked as each request arrives, before it is judged.
+    private async Task EndTheSessionIfTimedOutAsync()
     {
         if (session is not null && session.HasTimedOut(context.TimeProvider.GetUtcNow()))
         {
-            EndSession("timeout");
+            await EndSessionAsync("timeout");
         }
-
-        return session;
     }
 
-    private void EndSession(string why)
+    // A recording still open when the session ends any way but TEARDOWN is discarded with it.
+    private async Task EndSessionAsync(string why)
     {
-        context.Log.Note($"RTSP session {session!.Id} ended: {why}");
-        session.End();
+        var ending = session!;
         session = null;
+        context.Log.Note($"RTSP session {ending.Id} ended: {why}");
+        if (ending.Recording is not null)
+        {
+            context.Log.Note($"Recording of {ending.PresentationPath} discarded: {why}");
+        }
+
+        await ending.EndAsync();
     }
 
     // The session the request named, which every request but SETUP's first needs.
@@ -129,10 +136,37 @@ internal sealed partial class RtspRequestResponder
             return RefuseAsync(RtspStatus.UnsupportedTransport, cseq, head.Method, whyUnsupported!);
         }
 
-        return transport.Records
-            ? RefuseAsync(RtspStatus.NotImplemented, cseq, head.Method, "recording is not served yet")
-            : SetUpPresentationAsync(head, cseq, named, transport);
+        return SetUpPresentationToPlayOrRecordAsync(head, cseq, named, transport);
     }
+
+    // A session keeps the mode its first SETUP gave it; the presentation is then checked for
+    // the mode the transport asks for.
+    private Task<bool> SetUpPresentationToPlayOrRecordAsync(HttpRequestHead head, string cseq, RtspSession? named, RtspTransport transport)
+    {
+        if (named is not null && named.Transport.Records != transport.Records)
+        {
+            return RefuseAsync(RtspStatus.MethodNotValidInThisState, cseq, head.Method, "a SETUP cannot change whether the session plays or records");
+        }
+
+        var path = PresentationPath(head.RequestTarget);
+        var mapping = contentStore.MapRequestPath(path);
+        var presentationRefusal = transport.Records ? WhyRecordingIsRefused(mapping) : WhyPlayingIsRefused(mapping);
+
+        return presentationRefusal is { } refusedPresentation
+            ? RefuseAsync(refusedPresentation.Status, cseq, head.Method, refusedPresentation.Check)
+            : SetUpPresentationAsync(head, cseq, named, transport, path, mapping);
+    }
+
+    // A presentation to play is a file in the content store (ADR-0074 decision 4).
+    private (HttpStatus Status, string Check)? WhyPlayingIsRefused(ContentPathMapping mapping) =>
+        PresentationFileStatus(mapping, out var whyNotFound) is null ? (RtspStatus.NotFound, whyNotFound!) : null;
+
+    // A presentation to record need not exist, but a SETUP to record is a write: refused without
+    // --allow-uploads before a session is made, and for a path the store refuses (decision 6).
+    private (HttpStatus Status, string Check)? WhyRecordingIsRefused(ContentPathMapping mapping) =>
+        !contentStore.ExposureOptions.AllowUploads ? (RtspStatus.Forbidden, "uploads are not allowed")
+        : !mapping.IsMapped ? (RtspStatus.Forbidden, $"the path was refused ({mapping.Refusal})")
+        : null;
 
     // SETUP * names no presentation, a SETUP needs a Transport, a connection holds one session,
     // and a playing session cannot be set up again; null when none of those refuses it.
@@ -145,23 +179,18 @@ internal sealed partial class RtspRequestResponder
     {
         if (named is null)
         {
-            return LiveSession() is null ? null : (RtspStatus.MethodNotValidInThisState, "the connection already holds a session");
+            return session is null ? null : (RtspStatus.MethodNotValidInThisState, "the connection already holds a session");
         }
 
-        return named.IsPlaying ? (RtspStatus.MethodNotValidInThisState, "the session is playing") : null;
+        return named.IsPlaying ? (RtspStatus.MethodNotValidInThisState, "the session is playing")
+            : named.IsRecording ? (RtspStatus.MethodNotValidInThisState, "the session is recording")
+            : null;
     }
 
     // A first SETUP makes the session; a later one re-negotiates the transport of the session's
     // own presentation.
-    private Task<bool> SetUpPresentationAsync(HttpRequestHead head, string cseq, RtspSession? named, RtspTransport transport)
+    private Task<bool> SetUpPresentationAsync(HttpRequestHead head, string cseq, RtspSession? named, RtspTransport transport, string path, ContentPathMapping mapping)
     {
-        var path = PresentationPath(head.RequestTarget);
-        var mapping = contentStore.MapRequestPath(path);
-        if (PresentationFileStatus(mapping, out var whyNotFound) is null)
-        {
-            return RefuseAsync(RtspStatus.NotFound, cseq, head.Method, whyNotFound!);
-        }
-
         if (named is not null && !string.Equals(named.Presentation.Location, mapping.Location, StringComparison.Ordinal))
         {
             return RefuseAsync(RtspStatus.MethodNotValidInThisState, cseq, head.Method, "the session holds another presentation");
@@ -203,12 +232,17 @@ internal sealed partial class RtspRequestResponder
             return refusal;
         }
 
+        if (named!.Transport.Records)
+        {
+            return RefuseAsync(RtspStatus.MethodNotValidInThisState, cseq, head.Method, "the session was set up to record");
+        }
+
         if (!head.GetFieldValues("Range").All(range => range.Trim() is "npt=0-" or "npt=now-"))
         {
             return RefuseAsync(RtspStatus.InvalidRange, cseq, head.Method, "only npt=0- and npt=now- are served");
         }
 
-        var status = PresentationFileStatus(named!.Presentation, out var whyNotFound);
+        var status = PresentationFileStatus(named.Presentation, out var whyNotFound);
         if (status is null)
         {
             return RefuseAsync(RtspStatus.NotFound, cseq, head.Method, whyNotFound!);
@@ -236,25 +270,32 @@ internal sealed partial class RtspRequestResponder
             named.Pause();
         }
 
+        named.IsRecording = false;
+
         return RespondAsync(ResponseHead(RtspStatus.Ok, cseq), null);
     }
 
-    // TEARDOWN: ends the session; the answer names none, and the connection stays open.
-    private Task<bool> TeardownAsync(HttpRequestHead head, string cseq)
+    // TEARDOWN: commits a recording, then ends the session; the answer names none, and the
+    // connection stays open. A recording whose location can no longer take a file is 403.
+    private async Task<bool> TeardownAsync(HttpRequestHead head, string cseq)
     {
-        var refusal = RefuseWithoutTheSessionsPresentation(head, cseq, NamedSession());
+        var named = NamedSession();
+        var refusal = RefuseWithoutTheSessionsPresentation(head, cseq, named);
         if (refusal is not null)
         {
-            return refusal;
+            return await refusal;
         }
 
-        EndSession("TEARDOWN");
+        var committed = named!.Recording is null || await CommitRecordingAsync(named);
+        await EndSessionAsync("TEARDOWN");
         sessionField = null;
 
-        return RespondAsync(ResponseHead(RtspStatus.Ok, cseq), null);
+        return committed
+            ? await RespondAsync(ResponseHead(RtspStatus.Ok, cseq), null)
+            : await RefuseAsync(RtspStatus.Forbidden, cseq, head.Method, "the recording's location can no longer take a file");
     }
 
-    // PLAY, PAUSE and TEARDOWN need a session, and a Request-URI of * or the session's own
+    // PLAY, PAUSE, RECORD and TEARDOWN need a session, and a Request-URI of * or the session's own
     // presentation; null when the request has both.
     private Task<bool>? RefuseWithoutTheSessionsPresentation(HttpRequestHead head, string cseq, RtspSession? named)
     {

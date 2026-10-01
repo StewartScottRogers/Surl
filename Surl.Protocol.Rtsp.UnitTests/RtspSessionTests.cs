@@ -245,7 +245,7 @@ public sealed class RtspSessionTests
     [DataRow("SETUP rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\nTransport: RTP/AVP/TCP;multicast\r\n\r\n", "461 Unsupported Transport", "no RTP/AVP/TCP alternative")]
     [DataRow("SETUP rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\nTransport: RTP/AVP/TCP;interleaved=1-2\r\n\r\n", "461 Unsupported Transport", "the interleaved channels are not an even channel and the one after it, both below 256")]
     [DataRow("SETUP rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\nTransport: RTP/AVP/TCP;mode=receive\r\n\r\n", "461 Unsupported Transport", "the mode is neither play nor record")]
-    [DataRow("SETUP rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\nTransport: RTP/AVP/TCP;mode=record\r\n\r\n", "501 Not Implemented", "recording is not served yet")]
+    [DataRow("SETUP rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\nTransport: RTP/AVP/TCP;mode=record\r\n\r\n", "403 Forbidden", "uploads are not allowed")]
     [DataRow("PLAY * RTSP/1.0\r\nCSeq: 2\r\n\r\n", "454 Session Not Found", "the request names no session")]
     [DataRow("PAUSE rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 2\r\n\r\n", "454 Session Not Found", "the request names no session")]
     [DataRow("TEARDOWN * RTSP/1.0\r\nCSeq: 2\r\n\r\n", "454 Session Not Found", "the request names no session")]

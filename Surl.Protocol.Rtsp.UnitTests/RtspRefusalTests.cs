@@ -20,11 +20,9 @@ public sealed class RtspRefusalTests
     }
 
     [TestMethod]
-    [DataRow("ANNOUNCE")]
-    [DataRow("RECORD")]
     [DataRow("REDIRECT")]
     [DataRow("options")]
-    public async Task MethodNotServedYet_Is501AndKeepsTheConnection(string method)
+    public async Task MethodNotOneOfTheTen_Is501AndKeepsTheConnection(string method)
     {
         var (connection, _) = await ServeAsync([Ascii($"{method} rtsp://h/clip.bin RTSP/1.0\r\nCSeq: 1\r\n\r\n{NextOptions}")], TestContext.CancellationToken);
 

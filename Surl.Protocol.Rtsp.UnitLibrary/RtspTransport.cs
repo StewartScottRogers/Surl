@@ -23,14 +23,14 @@ internal sealed record RtspTransport(byte RtpChannel, bool Records)
     public byte RtcpChannel => (byte)(RtpChannel + 1);
 
     /// <summary>
-    /// The <c>Transport</c> field of the <c>SETUP</c> answer to play, with the SSRC packets are
-    /// sent with.
+    /// The <c>Transport</c> field of the <c>SETUP</c> answer, with the SSRC packets are sent
+    /// with, and <c>;mode=record</c> when the session records (ADR-0074 decision 5).
     /// </summary>
     /// <param name="ssrc">The session's synchronization source.</param>
     /// <returns>The field's value.</returns>
     public string Describe(uint ssrc) => string.Create(
         CultureInfo.InvariantCulture,
-        $"{InterleavedTcpProfile};unicast;interleaved={RtpChannel}-{RtcpChannel};ssrc={ssrc:X8}");
+        $"{InterleavedTcpProfile};unicast;interleaved={RtpChannel}-{RtcpChannel};ssrc={ssrc:X8}{(Records ? ";mode=record" : string.Empty)}");
 
     /// <summary>
     /// Chooses the transport from a <c>SETUP</c>'s <c>Transport</c> field values.

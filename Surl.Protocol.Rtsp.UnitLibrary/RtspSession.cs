@@ -76,6 +76,20 @@ internal sealed class RtspSession
 
     public bool IsPlaying { get; private set; }
 
+    /// <summary>
+    /// Whether a session set up to record is recording: <c>RECORD</c> starts it and
+    /// <c>PAUSE</c> stops it, and while it is on every RTP packet's payload is appended to
+    /// <see cref="Recording"/> (ADR-0074 decision 6).
+    /// </summary>
+    public bool IsRecording { get; set; }
+
+    /// <summary>
+    /// The upload a session set up to record appends to, opened by its first <c>RECORD</c>;
+    /// <see langword="null"/> before that and once <c>TEARDOWN</c> has committed it. Ending the
+    /// session with it still open discards it.
+    /// </summary>
+    public ContentUploadSession? Recording { get; set; }
+
     public ushort NextSequenceNumber { get; private set; }
 
     public uint NextTimestamp { get; private set; }
@@ -101,7 +115,7 @@ internal sealed class RtspSession
     /// </summary>
     /// <param name="now">The time now.</param>
     /// <returns><see langword="true"/> when the session has timed out.</returns>
-    public bool HasTimedOut(DateTimeOffset now) => !IsPlaying && now - LastActivity >= Timeout;
+    public bool HasTimedOut(DateTimeOffset now) => !IsPlaying && !IsRecording && now - LastActivity >= Timeout;
 
     /// <summary>
     /// Starts playing: from the start of a presentation <paramref name="fileLength"/> bytes long,
@@ -163,9 +177,18 @@ internal sealed class RtspSession
     }
 
     /// <summary>
-    /// Lets go of the bytes read ahead when the session ends.
+    /// Lets go of the bytes read ahead when the session ends, and discards a recording not
+    /// committed, deleting its partial file (ADR-0015).
     /// </summary>
-    public void End() => readAhead.Dispose();
+    /// <returns>A task that completes when the recording is discarded.</returns>
+    public async Task EndAsync()
+    {
+        readAhead.Dispose();
+        if (Recording is not null)
+        {
+            await Recording.DisposeAsync();
+        }
+    }
 
     private async Task FinishPlayingAsync(IConnection connection, ExchangeContext context)
     {

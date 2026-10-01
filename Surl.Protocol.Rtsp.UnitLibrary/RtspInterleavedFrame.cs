@@ -21,7 +21,23 @@ internal static class RtspInterleavedFrame
     /// </summary>
     public const int RtpHeaderBytes = 12;
 
-    private const int FrameHeaderBytes = 4;
+    /// <summary>
+    /// The byte every interleaved frame starts with, which no request head does.
+    /// </summary>
+    public const byte Marker = (byte)'$';
+
+    /// <summary>
+    /// The length of a frame's header: the marker, the channel and the two-byte length.
+    /// </summary>
+    public const int FrameHeaderBytes = 4;
+
+    private const int RtpVersionShift = 6;
+
+    private const byte PaddingBit = 0x20;
+
+    private const byte ExtensionBit = 0x10;
+
+    private const byte CsrcCountMask = 0x0F;
 
     private const byte RtpVersion2 = 0x80;
 
@@ -86,9 +102,44 @@ internal static class RtspInterleavedFrame
         return frame;
     }
 
+    /// <summary>
+    /// Where a recorded RTP packet's payload lies: after the 12-byte header, the CSRC list and
+    /// any header extension, and before any padding (RFC 3550 section 5.1; ADR-0074 decision 6).
+    /// </summary>
+    /// <param name="packet">One RTP packet, the frame's header already taken off.</param>
+    /// <returns>The payload's range, possibly empty; <see langword="null"/> when the packet is not
+    /// RTP version 2 or is too short for its own header and padding.</returns>
+    public static Range? RtpPayload(ReadOnlySpan<byte> packet)
+    {
+        if (packet.Length < RtpHeaderBytes || packet[0] >> RtpVersionShift != 2)
+        {
+            return null;
+        }
+
+        var start = PayloadStart(packet);
+        var end = packet.Length - ((packet[0] & PaddingBit) != 0 ? packet[^1] : 0);
+
+        return start <= end ? start..end : null;
+    }
+
+    // After the header and its CSRCs, and after the extension when there is one; past the
+    // packet's end when the extension's own header is cut off.
+    private static int PayloadStart(ReadOnlySpan<byte> packet)
+    {
+        var start = RtpHeaderBytes + (4 * (packet[0] & CsrcCountMask));
+        if ((packet[0] & ExtensionBit) == 0)
+        {
+            return start;
+        }
+
+        return packet.Length < start + 4
+            ? packet.Length + 1
+            : start + 4 + (4 * BinaryPrimitives.ReadUInt16BigEndian(packet[(start + 2)..]));
+    }
+
     private static Span<byte> WriteFrameHeader(byte[] frame, byte channel)
     {
-        frame[0] = (byte)'$';
+        frame[0] = Marker;
         frame[1] = channel;
         BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(2), (ushort)(frame.Length - FrameHeaderBytes));
 

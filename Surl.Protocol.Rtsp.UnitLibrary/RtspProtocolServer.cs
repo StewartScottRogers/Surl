@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using Surl.Content;
 using Surl.HttpMessage;
@@ -14,7 +15,8 @@ namespace Surl.Protocol.Rtsp;
 /// Every response is <c>RTSP/1.0 &lt;status&gt; &lt;reason&gt;</c>, then the request's
 /// <c>CSeq</c> copied byte for byte, <c>Date</c> from the exchange's
 /// <see cref="ExchangeContext.TimeProvider"/> and <c>Server: surl</c> (ADR-0074 decision 1).
-/// Only <c>DESCRIBE</c>'s answer has a body and a <c>Content-Length</c>; every other response,
+/// After the first request, a <c>$</c> where the next head would start is an interleaved frame
+/// (RFC 2326 section 10.12), read whole. Only <c>DESCRIBE</c>'s answer has a body and a <c>Content-Length</c>; every other response,
 /// refusals included, has neither.
 /// </para>
 /// <para>
@@ -38,7 +40,7 @@ namespace Surl.Protocol.Rtsp;
 /// connection unless it announced a body. A <c>Transfer-Encoding</c> or a malformed
 /// <c>Content-Length</c> is <c>400 Bad Request</c>, and a body past
 /// <see cref="ExchangeLimits.MaxUploadBytes"/> <c>413 Request Entity Too Large</c>, both closing
-/// with the body unread; any other body is read and discarded before the answer. The login is
+/// with the body unread; any other body is read before the answer, and discarded unless it is an <c>ANNOUNCE</c>'s. The login is
 /// judged next (ADR-0074 decision 7): each connection gets one
 /// <see cref="IHttpAuthenticationSession"/> from the <see cref="IAuthenticationPolicy"/>, started
 /// with the connection's <see cref="IConnection.TlsSession"/> - none for <c>rtsp://</c>, so Basic
@@ -49,8 +51,7 @@ namespace Surl.Protocol.Rtsp;
 /// <c>Transport</c> asks for <c>mode=record</c> are judged as writes. The session's login note is
 /// written to the exchange log, and a login bound to the body is judged with the body's SHA-256
 /// once it is read (ADR-0045). A method that
-/// is not one of RFC 2326's ten is <c>501 Not Implemented</c>, as are, until their task lands,
-/// <c>ANNOUNCE</c>, <c>RECORD</c> and a <c>SETUP</c> for <c>mode=record</c>; a Request-URI that
+/// is not one of RFC 2326's ten is <c>501 Not Implemented</c>; a Request-URI that
 /// is neither <c>*</c> nor an <c>rtsp://</c> URL is <c>400 Bad Request</c>; and a <c>Session</c>
 /// field that does not name the connection's live session is <c>454 Session Not Found</c>. A closing refusal gets one
 /// second to be written, is followed by a half-close, and what the client still sends is
@@ -73,6 +74,22 @@ namespace Surl.Protocol.Rtsp;
 /// that no request names for 60 seconds on the exchange's clock has ended. A request invalid
 /// in the session's state is <c>455 Method Not Valid in This State</c>, and a <c>Range</c>
 /// other than <c>npt=0-</c> or <c>npt=now-</c> is <c>457 Invalid Range</c>.
+/// </para>
+/// <para>
+/// Uploads (ADR-0074 decision 6), through the content store's upload session, so they are
+/// refused unless <see cref="ContentExposureOptions.AllowUploads"/>: <c>ANNOUNCE</c> of an
+/// <c>rtsp://</c> URL stores its body, byte for byte, as the path with <c>.sdp</c> added, and
+/// is <c>400 Bad Request</c> for <c>*</c> or an empty body. <c>SETUP</c> with
+/// <c>mode=record</c> is <c>403 Forbidden</c> without uploads, before a session is made, and
+/// answers its <c>Transport</c> with <c>;mode=record</c>; <c>RECORD</c> opens the
+/// presentation's upload, and from then on every interleaved frame the client sends on the
+/// session's RTP channel has its RTP payload - after the header, CSRCs, extension and padding -
+/// appended, until <c>PAUSE</c>; <c>TEARDOWN</c> commits it. The store's refusals are
+/// <c>404 Not Found</c> where the directory does not exist and <c>403 Forbidden</c> otherwise.
+/// Every other frame is read and discarded. A recording that grows past
+/// <see cref="ContentExposureOptions.MaxUploadBytes"/> is discarded, its session ended and the
+/// connection closed with no answer; a session ended any other way but <c>TEARDOWN</c> - the
+/// connection closing, its timeout while paused, a limit or shutdown - discards its recording.
 /// </para>
 /// <para>
 /// The idle timeout and the exchange's other limits end the exchange through its cancellation,
@@ -146,25 +163,52 @@ public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionR
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes, HttpMessageProtocol.Rtsp10);
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
         var responder = new RtspRequestResponder(connection, reader, context, contentStore, authenticationSession, random);
+
+        // The session ends however the exchange does - a recording not committed is discarded
+        // (ADR-0074 decision 6) - with the await outside any catch or finally block.
+        var failure = await CaptureFailureAsync(() => AnswerUntilClosedAsync(reader, responder, context));
+        await responder.EndSessionAsTheConnectionClosesAsync();
+        failure?.Throw();
+    }
+
+    // Requests and interleaved frames, one after another, until the client closes the
+    // connection or an answer closes it; a frame is told from a head by its first byte.
+    private static async Task AnswerUntilClosedAsync(HttpConnectionReader reader, RtspRequestResponder responder, ExchangeContext context)
+    {
         var isFirstHead = true;
         var keepsConnectionOpen = true;
+        while (keepsConnectionOpen)
+        {
+            await responder.StreamUntilARequestArrivesAsync();
+            keepsConnectionOpen = !isFirstHead && await reader.PeekByteAsync(context.CancellationToken) == RtspInterleavedFrame.Marker
+                ? await responder.ReceiveInterleavedFrameAsync()
+                : await AnswerNextRequestAsync(reader, responder, context, isFirstHead);
+            isFirstHead = false;
+        }
+    }
 
+    // Runs work and hands back what it threw instead of throwing it.
+    private static async Task<ExceptionDispatchInfo?> CaptureFailureAsync(Func<Task> work)
+    {
         try
         {
-            while (keepsConnectionOpen)
-            {
-                await responder.StreamUntilARequestArrivesAsync();
-                var result = await reader.ReadNextRequestHeadAsync(context, isFirstHead);
-                isFirstHead = false;
-                keepsConnectionOpen = result.Head is { } head
-                    ? await responder.AnswerRequestAsync(head)
-                    : await responder.AnswerHeadNotReadAsync(result.Outcome);
-            }
+            await work();
+
+            return null;
         }
-        finally
+        catch (Exception exception)
         {
-            responder.EndSessionAsTheConnectionCloses();
+            return ExceptionDispatchInfo.Capture(exception);
         }
+    }
+
+    private static async Task<bool> AnswerNextRequestAsync(HttpConnectionReader reader, RtspRequestResponder responder, ExchangeContext context, bool isFirstHead)
+    {
+        var result = await reader.ReadNextRequestHeadAsync(context, isFirstHead);
+
+        return result.Head is { } head
+            ? await responder.AnswerRequestAsync(head)
+            : await responder.AnswerHeadNotReadAsync(result.Outcome);
     }
 
     /// <summary>
