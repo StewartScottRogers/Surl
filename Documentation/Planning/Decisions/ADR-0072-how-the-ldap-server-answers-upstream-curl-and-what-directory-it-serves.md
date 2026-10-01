@@ -437,7 +437,7 @@ confidentiality.
   with another mechanism, Sicily `[9]` or `[10]`, a bad version, another authentication choice -
   abandons the exchange in progress before it is answered (RFC 4513 section 5.2.1.2, RFC 4511
   section 4.2.1). A `[11]` refused while a SASL (not Sicily) exchange is in progress leaves that
-  exchange in progress; that is a defect against RFC 4513 section 5.2.1.2, and BL-347 makes it
+  exchange in progress; that is a defect against RFC 4513 section 5.2.1.2, and BL-349 makes it
   abandon the exchange. An exchange that ends - accepted or refused - is no longer in progress.
 - **A later bind's security layer replaces the earlier one** once that bind's response has been
   sent (the response itself goes out under the earlier layer); a later bind that installs no

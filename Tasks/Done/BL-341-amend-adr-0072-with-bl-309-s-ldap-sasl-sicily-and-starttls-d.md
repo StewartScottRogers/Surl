@@ -57,7 +57,7 @@ delegation", so the ADR is true of the code.
 - One difference from criterion 1: a Sicily `[11]` refused while a SASL (not Sicily) exchange is
   in progress does not abandon it (`LdapSaslBindJudge.JudgeAsync(LdapSicilyAuthentication)`
   never calls `Abandon()` on that arm). The ADR states what the code does and names it a defect;
-  BL-347 fixes the code. Every other bind abandons the exchange, as the criterion says.
+  BL-349 fixes the code. Every other bind abandons the exchange, as the criterion says.
 - Decision 2's "a bind while a SASL bind is in progress abandons that exchange" was untrue for a
   continuing bind; corrected to point at decision 4.
 - Also recorded: the no-certificate `StartTLS` refusal writes no `StartTLS` note (it is answered
@@ -69,4 +69,4 @@ delegation", so the ADR is true of the code.
 
 - 2026-09-30: Created.
 - 2026-10-01: Backlog -> Doing.
-- 2026-10-01: Doing -> Done. ADR-0072 decisions 4, 5 and 7 record BL-309's SASL, Sicily, security-layer and StartTLS decisions; BL-347 filed for the refused-[11] abandon defect
+- 2026-10-01: Doing -> Done. ADR-0072 decisions 4, 5 and 7 record BL-309's SASL, Sicily, security-layer and StartTLS decisions; BL-349 filed for the refused-[11] abandon defect

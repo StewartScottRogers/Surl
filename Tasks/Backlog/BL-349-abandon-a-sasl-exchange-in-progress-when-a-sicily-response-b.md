@@ -1,5 +1,5 @@
 ---
-id: BL-347
+id: BL-349
 title: Abandon a SASL exchange in progress when a Sicily response bind is refused
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-052
 created: 2026-10-01
 completed:
 ---
-# BL-347 — Abandon a SASL exchange in progress when a Sicily response bind is refused
+# BL-349 — Abandon a SASL exchange in progress when a Sicily response bind is refused
 
 ## Goal
 
