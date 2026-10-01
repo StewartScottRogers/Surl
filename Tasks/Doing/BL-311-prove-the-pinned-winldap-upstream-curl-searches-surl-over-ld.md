@@ -49,3 +49,4 @@ in every case BL-284's ADR lists, with the exit codes and output it expects.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
