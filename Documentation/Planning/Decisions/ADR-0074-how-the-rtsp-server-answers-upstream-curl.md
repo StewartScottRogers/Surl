@@ -443,3 +443,113 @@ libcurl's. This ADR adopts the pin - no further download or question - and files
   Digest legs) are recorded with it.
 - BL-332 and BL-333 are filed and BL-318 depends on BL-333.
 - If the Linux build or the libcurl measurements disagree with a decision, the finding amends it here.
+
+## Amendment 1 - libcurl's RTSP requests, measured (BL-333, 2026-09-30)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30.
+
+Measured 2026-09-30 on Windows with the pinned `C:\Program Files\Git\mingw64\bin\libcurl-4.dll`,
+SHA-256 `799F7EEFC3C9DA9C80EC5AEA221A02B3AFE2C5350C6B45FD5A4865E7E2D4E574` (kind library in
+`UpstreamCurlBuilds.json`), driven by BL-332's `Run-LibcurlRtspScript.cs` through
+`Record-CurlExchange.ps1 -Raw -RawIdleMilliseconds 400 -LibcurlRtsp`, one `-RawReply` per request,
+each echoing `CSeq: {CSEQ}` and carrying `Date` and `Server: surl` as decision 1 writes them. The
+play case was:
+
+```
+.\Record-CurlExchange.ps1 -Port 18554 -Raw -RawIdleMilliseconds 400 -LibcurlRtsp -RawReply <replies> -CurlArgs '--timeout','3000','rtsp://127.0.0.1:18554/clip.bin','stream-uri:rtsp://127.0.0.1:18554/clip.bin','transport:RTP/AVP/TCP;interleaved=0-1','SETUP','PLAY','RECEIVE','TEARDOWN' -OutDirectory <dir>
+```
+
+The other cases change only the replies and the steps. `S` is the URL
+`rtsp://127.0.0.1:18554/clip.bin` (`.../rec.bin` for the uploads), set with `stream-uri:`; `ID` is
+the session `0123456789ABCDEF` the `SETUP` reply named, with `;timeout=60`. The driver sets no
+`CURLOPT_USERAGENT`, so no request carries `User-Agent`.
+
+**The requests libcurl sends**, byte for byte (each head ends `\r\n\r\n`, every line `\r\n`):
+
+| Request | Bytes |
+| --- | --- |
+| `DESCRIBE` | `DESCRIBE S RTSP/1.0`, `CSeq: 1`, `Accept: application/sdp` |
+| `SETUP` | `SETUP S RTSP/1.0`, `CSeq: n`, `Transport: <CURLOPT_RTSP_TRANSPORT as set>`; plus `Session: ID` once libcurl holds one |
+| `PLAY`, `PAUSE`, `RECORD`, `TEARDOWN` | `<METHOD> S RTSP/1.0`, `CSeq: n`, `Session: ID` - nothing else; **`RECORD` sends no body and no RTP** |
+| `GET_PARAMETER` without a body | `GET_PARAMETER S RTSP/1.0`, `CSeq: n`, `Session: ID` |
+| `GET_PARAMETER` with `body:volume\r\n` | the same, then `Content-Length: 8`, `Content-Type: text/parameters`, the 8 bytes |
+| `ANNOUNCE` with `body:v=0\r\n` (`CURLOPT_COPYPOSTFIELDS`) | `ANNOUNCE S RTSP/1.0`, `CSeq: n`, `Content-Length: 5`, `Content-Type: application/sdp`, the 5 bytes |
+| `ANNOUNCE` with `upload:` (`CURLOPT_UPLOAD`, 10 bytes) | the same with `Content-Length: 10` |
+| `OPTIONS` | `OPTIONS S RTSP/1.0`, `CSeq: n`, and `Session: ID` once libcurl holds one |
+
+**The Request-URI** is `CURLOPT_RTSP_STREAM_URI` as set, absolute; without it every request line
+is `<METHOD> * RTSP/1.0`, whatever `CURLOPT_URL` names (`SETUP * RTSP/1.0` included), as BL-332
+measured. Decision 2's `400` for `DESCRIBE`, `ANNOUNCE` and `SETUP` with `*` stands: a libcurl
+client must name the stream, and BL-318 sets `stream-uri:` in every libcurl case.
+
+**What libcurl does with decision 4 and 5's answers:**
+
+| Case | Steps | Server's reply | What the driver printed |
+| --- | --- | --- | --- |
+| describe | `DESCRIBE` | `200`, `Content-Type: application/sdp`, `Content-Base: S`, `Content-Length: 170`, decision 4's SDP for `clip.bin` | `CURLcode 0`, status 200, the 170 SDP bytes in the write callback, session none |
+| setup | `transport:RTP/AVP/TCP;interleaved=0-1`, `SETUP` | `200`, `Session: ID;timeout=60`, `Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=AABBCCDD` | `CURLcode 0`, status 200, session `ID` (no `timeout`) |
+| frames with the `PLAY` answer | `PLAY`, `RECEIVE` | `200`, `Session: ID`, `Range: npt=0-`, `RTP-Info: ...`, then in the same write two RTP frames on channel 0 (`$ 00 00 10`, 12-byte header, 4 payload bytes) and one RTCP `BYE` frame on channel 1 (`$ 01 00 08 81 CB 00 01` + SSRC) | `PLAY`: `CURLcode 0`, status 200, **the interleave callback called three times during `PLAY`'s own perform**, once per frame, each with the whole frame from `$` on; `RECEIVE` then had nothing to read |
+| frames after the `PLAY` answer | `PLAY`, `RECEIVE` | `PLAY`'s head alone; once it paused, the three frames | `PLAY`: interleaved none; `RECEIVE`: `CURLcode 0`, status 0, the same three calls |
+| frames before the `PAUSE` answer | `PLAY`, `PAUSE` | two RTP frames, then the `200` with `Session: ID`, in one write | `PAUSE`: `CURLcode 0`, status 200, the two frames in the interleave callback |
+| `TEARDOWN` | `TEARDOWN` | `200` with no `Session` | `CURLcode 0`, status 200; **libcurl keeps `ID`** |
+| after `TEARDOWN` | `OPTIONS`, `SETUP` | `200` with no `Session`; then `200` with `Session: 1111111111111111;timeout=60` | both requests **carry `Session: ID`**; `OPTIONS` `CURLcode 0`; `SETUP` **`CURLcode 86` (RTSP session error)** |
+| UDP refused | `transport:RTP/AVP;unicast;client_port=5000-5001`, `SETUP` | `461 Unsupported Transport` | `CURLcode 0`, status 461, session none |
+| wrong state | `RECORD` on a play session | `455 Method Not Valid in This State`, `Session: ID` | `CURLcode 0`, status 455 |
+| parameter with a body | `body:volume\r\n`, `GET_PARAMETER` | `451 Parameter Not Understood`, `Session: ID` | `CURLcode 0`, status 451 |
+| made-up session | `session-id:DEADBEEF`, `PLAY` | `454 Session Not Found`, no `Session` | `CURLcode 0`, status 454 |
+| `ANNOUNCE` refused, then stored | `body:v=0\r\n`, `ANNOUNCE`, `ANNOUNCE` | `403 Forbidden`; then `200` | `CURLcode 0`, status 403; then 200 |
+| record | `transport:RTP/AVP/TCP;unicast;interleaved=0-1;mode=record`, `SETUP` twice, `RECORD`, `TEARDOWN` | `403`; then `200` with `Session: ID;timeout=60` and `Transport: ...;mode=record`; `200`; `200` | each `CURLcode 0`: 403, then 200 with session `ID`, 200, 200 |
+| without a session | `SET_PARAMETER` before any `SETUP` | none: nothing is sent | `CURLcode 43`, BL-332's measurement |
+
+What this settles:
+
+1. **Every refusal decision 5 and 6 name - `403`, `451`, `454`, `455`, `461` - is `CURLcode 0` with
+   the status**: libcurl, like the tool, treats a status as no error. A refusal with no `Session`
+   field (`454`, `461`, `403` on `SETUP`) is accepted. Decisions 1 to 6 stand as written, except
+   decision 5's handling of a torn-down session below.
+2. **Interleaved frames are delivered whole, one callback per frame, by whichever perform reads
+   them** - `PLAY`'s when they follow its answer in the same read, `PAUSE`'s when they precede its
+   answer, `RECEIVE`'s otherwise. So decision 5's unpaced streaming and in-place answers suit
+   libcurl: no frame is lost however the bytes fall.
+3. **`DESCRIBE` sends `Accept: application/sdp`**, which decision 4's SDP satisfies; **`ANNOUNCE`
+   sends `Content-Type: application/sdp`** and the parameter bodies `text/parameters`, which
+   decision 5 and 6 do not check.
+4. **libcurl keeps the session ID after `TEARDOWN` and sends it on every later request on the
+   handle**, and fails 86 when a later `SETUP` answer names another ID. Decision 5 as written would
+   answer each of those requests `454`, and a second session on the handle could never be made.
+
+**Decision 5 amended: a torn-down session's ID stays the connection's.** When `TEARDOWN` ends a
+session, the connection remembers its ID. A later request naming that ID is judged as if it named
+no session - `OPTIONS`, `DESCRIBE`, `ANNOUNCE`, `GET_PARAMETER` and `SET_PARAMETER` are served, and
+the answer carries no `Session` field - except that `PLAY`, `PAUSE`, `RECORD` and `TEARDOWN`, which
+need a live session, are still `454 Session Not Found`, and **a `SETUP` naming it makes the new
+session under that same ID** (answered `Session: ID;timeout=60`), because libcurl compares the ID
+and fails 86 on any other. Reusing the ID costs nothing RFC 2326 section 12.37 protects: the ID is
+bound to the one connection that already holds it. An ID the connection never held, or one ended
+by the 60-second timeout or a limit, is `454` as before. Why not clear it in the client: libcurl's
+only way is resetting `CURLOPT_RTSP_SESSION_ID`, which no RTSP client knows to do, and the server is
+the mate of the client as it is.
+
+**Decision 11's libcurl cases, with the expected libcurl results** (every one through the pinned
+`libcurl-4.dll`, Windows only, `stream-uri:` set to the case's file, `P` holding `clip.bin`):
+
+| surl options | Driver steps | Expected |
+| --- | --- | --- |
+| `-d P` | `DESCRIBE` | `CURLcode 0`, status 200, body decision 4's SDP for `clip.bin` |
+| `-d P` | `transport:RTP/AVP/TCP;interleaved=0-1`, `SETUP` | `CURLcode 0`, status 200, a 16-hex-digit session |
+| `-d P` | the same, `PLAY`, `RECEIVE` | `PLAY` and `RECEIVE` `CURLcode 0`, status 200 then 0; the payloads after each frame's 12-byte RTP header, from every interleave call of both steps on channel 0, join to `clip.bin`; the last channel-1 call ends with `81 CB 00 01` and the SSRC |
+| `-d P` | after `PLAY`: `PAUSE`, `GET_PARAMETER`, `TEARDOWN` | each `CURLcode 0`, status 200, the same session |
+| `-d P` | after `TEARDOWN`: `OPTIONS`, `SETUP` | `CURLcode 0`, status 200 each; `SETUP`'s session the same ID (amended decision 5) |
+| `-d P` | `transport:RTP/AVP;unicast;client_port=5000-5001`, `SETUP` | `CURLcode 0`, status 461, session none |
+| `-d P` | `session-id:DEADBEEF`, `PLAY` | `CURLcode 0`, status 454 |
+| `-d P` | `SETUP` to play, `RECORD` | `CURLcode 0`, status 455 |
+| `-d P` | `SETUP`, `body:volume\r\n`, `GET_PARAMETER` | `CURLcode 0`, status 451 |
+| `-d P` | `body:v=0\r\n`, `ANNOUNCE` | `CURLcode 0`, status 403 (uploads off), `P` holds no `rec.bin.sdp` |
+| `-d P --allow-uploads` (and an account where decision 7 needs one) | `body:v=0\r\n`, `ANNOUNCE` | `CURLcode 0`, status 200, `P/rec.bin.sdp` is the 5 bytes |
+| the same | `no-body`, `transport:RTP/AVP/TCP;unicast;interleaved=0-1;mode=record`, `SETUP`, `RECORD`, `TEARDOWN` | each `CURLcode 0`, status 200, and `P/rec.bin` an empty file |
+
+**Follow-up.** BL-313 and BL-314 are done with RFC 2326 section 14's `DESCRIBE` example as their
+fixture (`Surl.Protocol.Rtsp.UnitTests/Fixtures/rfc2326-describe`), and BL-315 is in progress
+against decision 5 as first written; BL-336 re-pins the fixtures to the requests above and builds
+the amended decision 5, and BL-318 depends on it. BL-316, not yet started, takes its fixtures from
+the `ANNOUNCE`, `SETUP` `mode=record`, `RECORD` and `TEARDOWN` rows above.
