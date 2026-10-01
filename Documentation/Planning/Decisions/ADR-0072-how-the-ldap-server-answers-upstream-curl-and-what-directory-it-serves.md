@@ -23,6 +23,9 @@
   by BL-336 (2026-10-01): the reconnect sent bare NTLM, not SPNEGO, and how an SPNEGO-wrapped
   NTLM bind and its `mechListMIC` are answered is
   [ADR-0077](ADR-0077-ldap-ntlm-binds-serve-spnego-wrapped-ntlm-and-check-its-mechlistmic.md).
+  Decision 10 by BL-344 (2026-10-01), recording what BL-311 measured with the pinned Windows
+  build: the refusal's wording, the three sealed binds, the `ou=many` child in the one-level
+  search and why the `ou=many` entries carry `objectClass`.
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -558,13 +561,15 @@ reader gains the security-layer buffer (decision 4) in BL-309.
 Against `surl` over loopback through the conformance harness; `P` is a temporary `--directory`
 whose `.surl/ldap/directory.ldif` holds `dc=example,dc=com` (`objectClass: domain`), `E`, a
 second person `cn=bob,dc=example,dc=com` (`sn: Jones`, `mail: bob@other.example`, `description:
-café`) and 10001 entries under `ou=many,dc=example,dc=com`; `A` is `--user alice:secret`; `U` is
+café`) and 10001 entries under `ou=many,dc=example,dc=com`, each with an `objectClass`
+(`WinLDAP`'s default filter is `(ObjectClass=*)`, so curl sends it for a URL with none, and
+surl rightly returns no entry that lacks one); `A` is `--user alice:secret`; `U` is
 `ldap://127.0.0.1:<p>/dc=example,dc=com`.
 
 | surl options | curl command line | Exit, and what is checked |
 | --- | --- | --- |
 | `-d P A --allow-plaintext-auth` | `curl -sS -u alice:secret U` | 0, stdout the base entry in curl's layout |
-| the same | `curl -sS -u alice:secret "U?cn,mail?one"` | 0, the two people, `cn` and `mail` only |
+| the same | `curl -sS -u alice:secret "U?cn,mail?one"` | 0, the two people, `cn` and `mail` only, then `DN: ou=many,dc=example,dc=com` alone (a one-level child with neither attribute prints its DN line only) |
 | the same | `curl -sS -u alice:secret "U?cn?sub?(&(objectClass=person)(\|(cn=al*)(sn>=K))(!(mail=*@other.example)))"` | 0, alice only |
 | the same | `curl -sS -u alice:secret "U?description?sub?(cn=bob)"` | 0, `\tdescription:: Y2Fmw6k=` |
 | the same | `curl -sS -u alice:secret "U??sub?(cn=nobody)"` | 0, empty stdout |
@@ -578,7 +583,7 @@ café`) and 10001 entries under `ou=many,dc=example,dc=com`; `A` is `--user alic
 | `-d P A --auth negotiate` | `curl -sS --negotiate -u alice:secret U` | 0, the base entry (`GSS-SPNEGO`, sealed) |
 | `-d P A --auth digest-md5` | `curl -sS --digest -u alice:secret U` | 0, the base entry (`DIGEST-MD5` `auth-conf`, 3DES) |
 | `-d P A --auth ntlm` | `curl -sS --ntlm -u alice:wrong U` | 38, `Invalid Credentials` |
-| `-d P A` (`ntlm` not accepted) | `curl -sS --ntlm -u alice:secret U` | 38, `Auth Method Not Supported` |
+| `-d P A` (`ntlm` not accepted) | `curl -sS --ntlm -u alice:secret U` | 38, `Authentication Method Not Supported` |
 | `-d P A --auth ntlm,negotiate` | `curl -sS U` (no `-u`: the Windows user, who has no account) | 38, `Invalid Credentials` |
 | `-d P --self-signed A` | `curl -sS -k -u alice:secret ldaps://127.0.0.1:<p>/dc=example,dc=com` | 38, `Server Down` (decision 5) |
 | `-d P --self-signed A` | `curl -sS -u alice:secret ldaps://...` | 60 |
@@ -586,10 +591,22 @@ café`) and 10001 entries under `ou=many,dc=example,dc=com`; `A` is `--user alic
 | (no `-d`) `A --allow-plaintext-auth` | `curl -sS -u alice:secret U` | 39, `No Such Object` (the empty in-memory directory) |
 
 Plus, fast, in `Surl.Console.UnitTests` (BL-310): a malformed `directory.ldif` ends surl with 37
-and decision 1's text before any listener binds. The exit codes above are pinned from this ADR's
-measurements and its decisions; where `WinLDAP`'s wording differs from the one written here
-(the four marked by decision, not measured: `Auth Method Not Supported`, and the three sealed
-successes), BL-311 records the measured one against this ADR rather than changing the server.
+and decision 1's text before any listener binds.
+
+Four rows were first written by decision rather than measurement; BL-311 measured all four with
+the pinned Windows build against a live surl (`UpstreamCurlSearchesSurlOverLdapTests` in
+`Surl.Conformance.UnitTests`), and the table above holds the measured answers:
+
+- `--ntlm` when `ntlm` is not accepted: exit 38 with `Authentication Method Not Supported`,
+  `WinLDAP`'s wording for result code 7. This ADR first wrote `Auth Method Not Supported`.
+- The three sealed binds, `--ntlm` (Sicily), `--negotiate` (`GSS-SPNEGO`) and `--digest`
+  (`DIGEST-MD5` `auth-conf`), each exit 0 with the base entry: `WinLDAP` completes all three
+  security layers against surl.
+
+Two more things measured that the first table did not say: the `?cn,mail?one` search also
+returns `ou=many,dc=example,dc=com`, which has neither attribute, so curl prints its `DN:` line
+alone (`DN: ou=many,dc=example,dc=com`); and the `ou=many` entries need an `objectClass`, because
+`WinLDAP`'s default filter is `(ObjectClass=*)`. Neither changed the server.
 
 ### 11. Who builds what
 
