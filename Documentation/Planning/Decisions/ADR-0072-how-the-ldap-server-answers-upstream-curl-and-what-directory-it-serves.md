@@ -4,6 +4,9 @@
 - **Date:** 2026-09-30
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30,
   in BL-284 (FR-049).
+- **Amended:** decision 4's `GSSAPI` line by [ADR-0076](ADR-0076-an-openldap-upstream-curl-8-21-0-build-built-reproducibly-in-ci-for-ldap-and-ldaps.md)
+  (2026-09-30), which measured the OpenLDAP build (`lib/openldap.c`) and changed no other decision:
+  that build has no GSS-API, so the `GSSAPI` measurement moves to BL-338.
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -338,8 +341,9 @@ SASL and is not listed: it is answered when `ntlm` is accepted.
     number; `3des` (two-key 3DES-CBC, the BCL's `TripleDES`, its IV from the key as section 2.4
     says) or `rc4` for `auth-conf`. `qop=auth`: no layer.
   - **`GSSAPI`** (RFC 4752): the server's last challenge offers "no security layer" only (bit 1,
-    max size 0), so the session continues in clear; ADR-0057's check is unchanged. BL-287
-    measures what the OpenLDAP build accepts and amends this if it asks for more.
+    max size 0), so the session continues in clear; ADR-0057's check is unchanged. The OpenLDAP
+    build ADR-0076 pins has no GSS-API, so BL-338 measures what a build that has it accepts and
+    amends this if it asks for more.
   - A buffer past `--max-message`, one that fails its signature or MAC, or one out of sequence
     ends the connection with no answer (the peer's keys are no longer trusted, so a Notice of
     Disconnection could not be read).
