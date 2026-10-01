@@ -5,8 +5,13 @@ namespace Surl.Protocol.Smb;
 /// </summary>
 /// <param name="Outcome">How the read ended.</param>
 /// <param name="FrameType">The frame's type byte, when its header was read; 0 otherwise.</param>
-/// <param name="Message">The SMB message, without its NetBIOS header, when <paramref name="Outcome"/> is <see cref="SmbFrameReadOutcome.MessageRead"/>; empty otherwise.</param>
-internal sealed record SmbFrameReadResult(SmbFrameReadOutcome Outcome, byte FrameType, byte[] Message)
+/// <param name="Message">
+/// The SMB message, without its NetBIOS header, when <paramref name="Outcome"/> is
+/// <see cref="SmbFrameReadOutcome.MessageRead"/>; its first bytes, up to the 32-byte SMB header,
+/// when it is <see cref="SmbFrameReadOutcome.MessageTooLarge"/>; empty otherwise.
+/// </param>
+/// <param name="MessageLength">The length the frame's header announced, when it was read; 0 otherwise.</param>
+internal sealed record SmbFrameReadResult(SmbFrameReadOutcome Outcome, byte FrameType, byte[] Message, int MessageLength = 0)
 {
     /// <summary>
     /// A read that produced no SMB message.

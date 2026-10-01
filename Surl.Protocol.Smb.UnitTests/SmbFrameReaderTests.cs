@@ -76,18 +76,54 @@ public sealed class SmbFrameReaderTests
     }
 
     [TestMethod]
-    public async Task ReadFrameAsync_LengthOverTheMaximum_IsRefusedBeforeItsBodyIsRead()
+    public async Task ReadFrameAsync_LengthOverTheMaximum_KeepsTheShortBodyWholeAndReadsNoFurther()
     {
-        var connection = Connection(SmbTestBytes.Hex("00000005"), SmbTestBytes.Hex("0102030405"));
+        var connection = Connection(SmbTestBytes.Hex("00000005"), SmbTestBytes.Hex("0102030405"), SmbTestBytes.Hex("00000001 CC"));
+        var reader = new SmbFrameReader(connection, 4);
 
-        var result = await new SmbFrameReader(connection, 4).ReadFrameAsync(TestContext.CancellationToken);
-        var unread = new byte[5];
-        var unreadCount = await connection.ReadAsync(unread, TestContext.CancellationToken);
+        var result = await reader.ReadFrameAsync(TestContext.CancellationToken);
 
         Assert.AreEqual(SmbFrameReadOutcome.MessageTooLarge, result.Outcome);
         Assert.AreEqual((byte)0x00, result.FrameType);
-        Assert.AreEqual(5, unreadCount);
-        CollectionAssert.AreEqual(SmbTestBytes.Hex("0102030405"), unread);
+        Assert.AreEqual(5, result.MessageLength);
+        CollectionAssert.AreEqual(SmbTestBytes.Hex("0102030405"), result.Message);
+        CollectionAssert.AreEqual(SmbTestBytes.Hex("CC"), (await reader.ReadFrameAsync(TestContext.CancellationToken)).Message);
+    }
+
+    [TestMethod]
+    public async Task ReadFrameAsync_LengthOverTheMaximum_KeepsTheSmbHeaderAndDiscardsTheRestBeforeTheNextFrame()
+    {
+        var body = Enumerable.Range(0, 20000).Select(index => (byte)index).ToArray();
+        var connection = Connection(SmbTestBytes.Hex("00004E20"), body[..100], body[100..], SmbTestBytes.Hex("00000001 CC"));
+        var reader = new SmbFrameReader(connection, 1000);
+
+        var result = await reader.ReadFrameAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(SmbFrameReadOutcome.MessageTooLarge, result.Outcome);
+        Assert.AreEqual(20000, result.MessageLength);
+        CollectionAssert.AreEqual(body[..SmbHeader.Length], result.Message);
+        CollectionAssert.AreEqual(SmbTestBytes.Hex("CC"), (await reader.ReadFrameAsync(TestContext.CancellationToken)).Message);
+    }
+
+    [TestMethod]
+    public async Task ReadFrameAsync_LengthOverTheMaximumOfAnotherFrameType_IsDiscardedAndReportedAsUnexpected()
+    {
+        var connection = Connection(SmbTestBytes.Hex("81000005 0102030405"));
+
+        var result = await new SmbFrameReader(connection, 4).ReadFrameAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(SmbFrameReadOutcome.UnexpectedFrameType, result.Outcome);
+        Assert.AreEqual((byte)0x81, result.FrameType);
+    }
+
+    [TestMethod]
+    [DataRow("00000040 0102")]
+    [DataRow("00000040 0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F20 2122")]
+    public async Task ReadFrameAsync_ClosedInsideABodyOverTheMaximum_ReportsATruncatedFrame(string hex)
+    {
+        var result = await new SmbFrameReader(Connection(SmbTestBytes.Hex(hex)), 4).ReadFrameAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(SmbFrameReadOutcome.ConnectionClosedMidFrame, result.Outcome);
     }
 
     [TestMethod]

@@ -14,7 +14,10 @@ internal enum SmbFrameReadOutcome
     /// <summary>A frame of any other type was read and its body discarded; the type is reported.</summary>
     UnexpectedFrameType,
 
-    /// <summary>The frame announced a length over the caller's maximum; none of its body was read.</summary>
+    /// <summary>
+    /// A session message announced a length over the caller's maximum: its first bytes, up to the
+    /// SMB header, were kept and the rest read and discarded, so the next frame can be read.
+    /// </summary>
     MessageTooLarge,
 
     /// <summary>The client closed the connection between frames.</summary>
