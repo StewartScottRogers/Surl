@@ -5,10 +5,11 @@ using System.Security.Cryptography.X509Certificates;
 namespace Surl.Conformance;
 
 /// <summary>
-/// A throwaway certificate authority and a server certificate it signed for <c>127.0.0.1</c>,
-/// generated with <see cref="CertificateRequest"/> at test time and written as PEM to a
-/// temporary directory: <c>ca.pem</c> for curl's <c>--cacert</c>, <c>server.pem</c> and
-/// <c>server.key</c> for surl's <c>--cert</c> and <c>--key</c>. Nothing is committed and nothing
+/// A throwaway certificate authority, a server certificate it signed for <c>127.0.0.1</c> and a
+/// client certificate it signed for <c>alice</c>, generated with <see cref="CertificateRequest"/>
+/// at test time and written as PEM to a temporary directory: <c>ca.pem</c> for curl's and surl's
+/// <c>--cacert</c>, <c>server.pem</c> and <c>server.key</c> for surl's <c>--cert</c> and
+/// <c>--key</c>, <c>client.pem</c> and <c>client.key</c> for curl's. Nothing is committed and nothing
 /// enters a certificate store. Disposing it deletes the directory.
 /// </summary>
 internal sealed class TestCertificateAuthority : IDisposable
@@ -26,8 +27,17 @@ internal sealed class TestCertificateAuthority : IDisposable
     /// <summary>The server certificate's PKCS#8 private key, PEM.</summary>
     public string ServerKeyFile => Path.Combine(directory.FullName, "server.key");
 
+    /// <summary>The client certificate's common name, the account SASL <c>EXTERNAL</c> logs in as.</summary>
+    public const string ClientCommonName = "alice";
+
+    /// <summary>The client certificate the CA signed, <c>CN=alice</c>, PEM, for curl's <c>--cert</c>.</summary>
+    public string ClientCertificateFile => Path.Combine(directory.FullName, "client.pem");
+
+    /// <summary>The client certificate's PKCS#8 private key, PEM, for curl's <c>--key</c>.</summary>
+    public string ClientKeyFile => Path.Combine(directory.FullName, "client.key");
+
     /// <summary>
-    /// Generates the CA and the server certificate in a new temporary directory.
+    /// Generates the CA, the server certificate and the client certificate in a new temporary directory.
     /// </summary>
     public static TestCertificateAuthority Create()
     {
@@ -54,9 +64,20 @@ internal sealed class TestCertificateAuthority : IDisposable
         serverRequest.CertificateExtensions.Add(names.Build());
         using var server = serverRequest.Create(ca, now.AddMinutes(-30), now.AddHours(12), Guid.NewGuid().ToByteArray());
 
+        using var clientKey = RSA.Create(2048);
+        var clientRequest = new CertificateRequest(
+            $"CN={ClientCommonName}", clientKey, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        clientRequest.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
+        clientRequest.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
+        clientRequest.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(
+            [new Oid("1.3.6.1.5.5.7.3.2", "Client Authentication")], false));
+        using var client = clientRequest.Create(ca, now.AddMinutes(-30), now.AddHours(12), Guid.NewGuid().ToByteArray());
+
         File.WriteAllText(authority.CaCertificateFile, ca.ExportCertificatePem());
         File.WriteAllText(authority.ServerCertificateFile, server.ExportCertificatePem());
         File.WriteAllText(authority.ServerKeyFile, serverKey.ExportPkcs8PrivateKeyPem());
+        File.WriteAllText(authority.ClientCertificateFile, client.ExportCertificatePem());
+        File.WriteAllText(authority.ClientKeyFile, clientKey.ExportPkcs8PrivateKeyPem());
 
         return authority;
     }

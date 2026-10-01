@@ -108,6 +108,47 @@ internal static class PinnedUpstreamCurl
         return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, NoEnvironmentChanges, arguments);
     }
 
+    /// <summary>
+    /// Runs the build pinned for the current platform whose version line names
+    /// <paramref name="library"/> (such as <c>OpenLDAP</c>, for ADR-0076's build) with
+    /// <paramref name="arguments"/>, whatever its role, for cases only a build linked against
+    /// that library answers. Where no such build is pinned for the platform, the test is
+    /// inconclusive naming the pins that are, and their platforms (ADR-0026 decision 2); where
+    /// it is not installed, inconclusive as <see cref="RunAsync"/> is.
+    /// </summary>
+    public static async Task<UpstreamCurlRunResult> RunBuildLinkedAgainstAsync(
+        TestContext testContext, string library, params string[] arguments)
+    {
+        var forPlatform = await RequireBuildLinkedAgainstAsync(testContext, library);
+        var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
+            .Locate(forPlatform, UpstreamCurlLocator.CurrentPlatform, forPlatform[0].Role);
+        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, NoEnvironmentChanges, arguments);
+    }
+
+    /// <summary>
+    /// Returns the builds pinned for the current platform whose version line names
+    /// <paramref name="library"/>, leaving the test inconclusive, naming the pins that are and
+    /// their platforms, when there is none - so a test can stop before it starts surl.
+    /// </summary>
+    public static async Task<IReadOnlyList<PinnedUpstreamCurlBuild>> RequireBuildLinkedAgainstAsync(
+        TestContext testContext, string library)
+    {
+        var pins = await ReadPinsAsync(testContext);
+        var platform = UpstreamCurlLocator.CurrentPlatform;
+        var linked = pins
+            .Where(pin => pin.Kind == UpstreamCurlBuildKind.Curl && pin.Version.Contains($" {library}/", StringComparison.Ordinal))
+            .ToList();
+        var forPlatform = linked.Where(pin => pin.Platform == platform).ToList();
+        if (forPlatform.Count == 0)
+        {
+            Assert.Inconclusive(
+                $"UpstreamCurlBuilds.json pins no upstream curl linked against {library} for {platform}; it pins "
+                + string.Join("; ", linked.Select(pin => $"{pin.DefaultPath} ({pin.Version}) for {pin.Platform}")) + ".");
+        }
+
+        return forPlatform;
+    }
+
     private static async Task<IReadOnlyList<PinnedUpstreamCurlBuild>> ReadPinsAsync(TestContext testContext) =>
         UpstreamCurlBuildPins.Parse(
             await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName), testContext.CancellationToken));

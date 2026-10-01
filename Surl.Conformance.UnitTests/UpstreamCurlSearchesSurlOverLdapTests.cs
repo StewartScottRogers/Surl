@@ -16,20 +16,12 @@ namespace Surl.Conformance;
 [TestCategory("Integration")]
 public sealed class UpstreamCurlSearchesSurlOverLdapTests
 {
-    private const string Account = "alice:secret";
-    private const string WrongPassword = "alice:wrong";
-    private const int ManyEntries = 10001;
+    private const string Account = LdapConformanceDirectory.Account;
+    private const string WrongPassword = LdapConformanceDirectory.WrongPassword;
 
     private const string BaseEntry = "DN: dc=example,dc=com\n\tobjectClass: domain\n\n";
 
     private static readonly string[] AccountOptions = ["--user", Account];
-
-    private static readonly Dictionary<string, byte[]> DirectoryFiles = new()
-    {
-        [Path.Combine(".surl", "ldap", "directory.ldif")] = Encoding.UTF8.GetBytes(DirectoryLdif()),
-    };
-
-    private static readonly string[] DirectorySubdirectories = [".surl", Path.Combine(".surl", "ldap")];
 
     public TestContext TestContext { get; set; } = null!;
 
@@ -257,30 +249,13 @@ public sealed class UpstreamCurlSearchesSurlOverLdapTests
         StringAssert.Contains(result.StandardError, "No Such Object");
     }
 
-    private static string BaseUrl(SurlOnLoopback surl) => surl.BaseUrl.AbsoluteUri + "dc=example,dc=com";
-
-    /// <summary>ADR-0072 decision 10's directory: the base, two people and 10001 entries under <c>ou=many</c>.</summary>
-    private static string DirectoryLdif()
-    {
-        var ldif = new StringBuilder()
-            .Append("version: 1\n\n")
-            .Append("dn: dc=example,dc=com\nobjectClass: domain\n\n")
-            .Append("dn: cn=alice,dc=example,dc=com\nobjectClass: person\ncn: alice\nsn: Smith\nmail: alice@example.com\n\n")
-            .Append("dn: cn=bob,dc=example,dc=com\nobjectClass: person\ncn: bob\nsn: Jones\nmail: bob@other.example\n")
-            .Append("description:: Y2Fmw6k=\n\n")
-            .Append("dn: ou=many,dc=example,dc=com\nobjectClass: organizationalUnit\nou: many\n\n");
-        for (var entry = 0; entry < ManyEntries; entry++)
-        {
-            ldif.Append(System.Globalization.CultureInfo.InvariantCulture, $"dn: cn=entry{entry},ou=many,dc=example,dc=com\nobjectClass: person\ncn: entry{entry}\n\n");
-        }
-
-        return ldif.ToString();
-    }
+    private static string BaseUrl(SurlOnLoopback surl) => surl.BaseUrl.AbsoluteUri + LdapConformanceDirectory.BaseDn;
 
     private Task<SurlOnLoopback> StartSurlAsync(params string[] options) => StartSurlAsync("ldap", options);
 
     private Task<SurlOnLoopback> StartSurlAsync(string scheme, string[] options) =>
-        SurlOnLoopback.StartAsync(scheme, DirectoryFiles, DirectorySubdirectories, options, TestContext.CancellationToken);
+        SurlOnLoopback.StartAsync(
+            scheme, LdapConformanceDirectory.Files, LdapConformanceDirectory.Subdirectories, options, TestContext.CancellationToken);
 
     private Task<UpstreamCurlRunResult> RunCurlAsync(params string[] arguments) =>
         PinnedUpstreamCurl.RunReferenceForProtocolAsync(TestContext, "ldap", ["-sS", "-m", "20", .. arguments]);
