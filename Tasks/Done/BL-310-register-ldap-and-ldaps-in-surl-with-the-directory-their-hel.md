@@ -89,7 +89,7 @@ topic.
   the glossary may list the served schemes.
 - `Measure-CodeQuality.ps1`: `Surl.Cli.UnitLibrary` and `Surl.Console` at 100% line and branch, no
   failing member. It also reports two pre-existing complexity failures in
-  `Surl.Conformance.UnitLibrary` (BL-332's), filed as BL-342.
+  `Surl.Conformance.UnitLibrary` (BL-332's), filed as BL-343.
 
 ## Log
 

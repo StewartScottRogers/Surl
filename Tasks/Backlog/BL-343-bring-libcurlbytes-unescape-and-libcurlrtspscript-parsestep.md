@@ -1,5 +1,5 @@
 ---
-id: BL-342
+id: BL-343
 title: Bring LibcurlBytes.Unescape and LibcurlRtspScript.ParseStep in Surl.Conformance under the complexity limit
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-09-30
 completed:
 ---
-# BL-342 — Bring LibcurlBytes.Unescape and LibcurlRtspScript.ParseStep in Surl.Conformance under the complexity limit
+# BL-343 — Bring LibcurlBytes.Unescape and LibcurlRtspScript.ParseStep in Surl.Conformance under the complexity limit
 
 ## Goal
 
