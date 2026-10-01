@@ -44,3 +44,4 @@ proves the libcurl cases of decision 11 with expected results from upstream.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
