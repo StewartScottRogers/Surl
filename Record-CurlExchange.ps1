@@ -644,9 +644,16 @@
     -Smtp, -Imap and -Pop3 and -SaslChallenge, with -NoServer against a started
     surl --keytab service.keytab, and with every other mode. The pinned Windows client finds
     the KDC only through the SURL.TEST realm mapping of BL-265 (ksetup); without it curl never
-    asks the KDC, kdc.log is empty and curl's failure is recorded like any other. It is
-    refused outside Windows: no pinned build there has Kerberos (UpstreamCurlBuilds.json).
-    Needs dotnet on PATH; the first run builds Run-KerberosTestKdc.cs, which takes a while.
+    asks the KDC, kdc.log is empty and curl's failure is recorded like any other.
+
+    Outside Windows the pinned build with Kerberos is the OpenLDAP build's MIT GSS-API
+    (ADR-0078), which takes no password from -u: it uses a credential cache. So there the
+    script also writes krb5.conf to OutDirectory (default realm SURL.TEST, its KDC TCP-only
+    at 127.0.0.1:88, .surl.test mapped to SURL.TEST, no DNS and no reverse lookup), runs
+    kinit tester@SURL.TEST from PATH with KerberosPassword into OutDirectory's tester.ccache,
+    and runs curl with KRB5_CONFIG and KRB5CCNAME naming them. Binding port 88 there needs
+    root (the .NET SDK container BL-342 measured in runs as root). Needs dotnet on PATH; the
+    first run builds Run-KerberosTestKdc.cs, which takes a while.
 
 .PARAMETER KerberosPassword
     The password of tester@SURL.TEST, which -KerberosTestKdc derives the user's keys from and
@@ -670,6 +677,20 @@
     for confidentiality) behind its four-byte length. A bind the acceptor refuses is noted
     and answered as -LdapReply says. WinLDAP names the service ldap/<host>:<port>, with the
     machine's own host name for localhost, so give that principal to -KerberosServicePrincipal.
+
+    It also answers a SASL GSSAPI bind (RFC 4752, BL-342) whose credentials are a bare
+    Kerberos InitialContextToken: noted "= Kerberos accepted ...", answered bindResponse
+    saslBindInProgress (14) carrying the AP-REP when curl asked for mutual authentication,
+    otherwise - and on the empty bind that follows an AP-REP - carrying the security-layer
+    offer LdapGssapiSecurityLayers wrapped (RFC 4121, integrity only). The bind that answers
+    it is unwrapped, noted "=   unwrapped (signed) to <hex>: layer 0x<nn>, max size <n>,
+    authzid "<text>"", and answered success.
+
+.PARAMETER LdapGssapiSecurityLayers
+    The four bytes, in hex, a SASL GSSAPI bind's security-layer offer carries with
+    -LdapKerberosAcceptor (RFC 4752 section 3.3): the bit mask of layers offered (01 none,
+    02 integrity, 04 confidentiality) then the largest buffer the server receives, three
+    bytes big-endian. Default 07100000: every layer, 1 MiB.
 
 .EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18081 -Response 'HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello' -CurlArgs 'http://127.0.0.1:18081/a?b' -OutDirectory fixtures\default-get
@@ -813,7 +834,8 @@ param(
     [switch] $KerberosTestKdc,
     [string] $KerberosPassword,
     [string[]] $KerberosServicePrincipal = @('HTTP/web.surl.test', 'smtp/mail.surl.test', 'imap/mail.surl.test', 'pop/mail.surl.test'),
-    [switch] $LdapKerberosAcceptor
+    [switch] $LdapKerberosAcceptor,
+    [ValidatePattern('^[0-9A-Fa-f]{8}$')] [string] $LdapGssapiSecurityLayers = '07100000'
 )
 
 Set-StrictMode -Version Latest
@@ -828,7 +850,8 @@ if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined w
 if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode, and cannot be combined with -Reset.' }
 if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
 if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword') -or $PSBoundParameters.ContainsKey('KerberosServicePrincipal'))) { throw '-KerberosPassword and -KerberosServicePrincipal configure the test KDC, so they need -KerberosTestKdc.' }
-if ($KerberosTestKdc -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-KerberosTestKdc runs only on Windows: no pinned upstream curl build on Linux or macOS has Kerberos, SPNEGO or GSS-API (UpstreamCurlBuilds.json, ADR-0065).' }
+$isWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+if ($KerberosTestKdc -and -not $isWindowsHost -and $null -eq (Get-Command kinit -ErrorAction SilentlyContinue)) { throw '-KerberosTestKdc outside Windows runs kinit for curl''s GSS-API credential cache, and there is no kinit on PATH.' }
 if ($KerberosTestKdc -and [string]::IsNullOrEmpty($KerberosPassword)) { throw '-KerberosTestKdc needs -KerberosPassword, the password of tester@SURL.TEST that curl gives with -u.' }
 if ($KerberosTestKdc -and @($KerberosServicePrincipal | Where-Object { $_ }).Count -eq 0) { throw '-KerberosTestKdc needs at least one -KerberosServicePrincipal.' }
 if ($LdapKerberosAcceptor -and -not ($Ldap -and $KerberosTestKdc)) { throw '-LdapKerberosAcceptor answers -Ldap binds with the keys -KerberosTestKdc writes, so it needs both.' }
@@ -2085,7 +2108,7 @@ $serveRawSession = {
 # read whole, recorded, decoded into one transcript line and answered by its operation, with
 # curl's message ID echoed. It returns every byte curl sent, decrypted, as one array.
 $serveLdapSession = {
-    param($Listener, $Overrides, $Entries, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds, $KerberosAcceptor)
+    param($Listener, $Overrides, $Entries, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds, $KerberosAcceptor, [string] $GssapiSecurityLayers)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -2106,6 +2129,7 @@ $serveLdapSession = {
     # bindResponse success carrying its negTokenResp, or $null when it refused.
     function Get-KerberosBindReply {
         param([long] $MessageId, [string] $Summary)
+        if ($Summary -match '^bindRequest .* sasl GSSAPI( credentials ([0-9A-F]*)| no credentials)$') { return Get-GssapiBindReply -MessageId $MessageId -Token $(if ($Matches[2]) { $Matches[2] } else { '' }) }
         if ($Summary -notmatch '^bindRequest .* sasl GSS-SPNEGO credentials (60[0-9A-F]+)$') { return $null }
         $answer = Invoke-KerberosAcceptor -Request ('spnego ' + $Matches[1])
         if ($answer[0] -ne 'ok') {
@@ -2116,6 +2140,43 @@ $serveLdapSession = {
         $credentials = ConvertTo-BerElement -Tag 0x87 -Contents (ConvertFrom-HexText -Hex $answer[1])
         return , (ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x61 -Code 0 -Diagnostic '' -Extra $credentials -MatchedDn (New-Object byte[] 0))
     }
+
+    # A SASL GSSAPI bind (RFC 4752): the first carries the InitialContextToken, the next (after
+    # an AP-REP) is empty, and the last answers the security-layer offer; $gssapi.Stage says
+    # which is due. $null hands a bind the acceptor refused to -LdapReply.
+    function Get-GssapiBindReply {
+        param([long] $MessageId, [string] $Token)
+        $saslInProgress = { param($Credentials) , (ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x61 -Code 14 -Diagnostic '' -Extra (ConvertTo-BerElement -Tag 0x87 -Contents $Credentials) -MatchedDn (New-Object byte[] 0)) }
+        $offer = { , (ConvertFrom-HexText -Hex (Invoke-KerberosAcceptor -Request ('sign ' + $GssapiSecurityLayers.ToUpperInvariant()))[1]) }
+        if ($gssapi.Stage -eq 'offer' -and $Token -eq '') {
+            $gssapi.Stage = 'answer'
+            return & $saslInProgress (& $offer)
+        }
+        if ($gssapi.Stage -eq 'answer') {
+            $gssapi.Stage = ''
+            $answer = Invoke-KerberosAcceptor -Request ('unwrap ' + $Token)
+            if ($answer[0] -ne 'ok') { [void] $Transcript.Append("= Kerberos refused the security-layer answer`r`n"); return $null }
+            $layer = ConvertFrom-HexText -Hex $answer[1]
+            $size = if ($layer.Length -ge 4) { ($layer[1] -shl 16) -bor ($layer[2] -shl 8) -bor $layer[3] } else { -1 }
+            $authzid = if ($layer.Length -gt 4) { $utf8.GetString($layer, 4, $layer.Length - 4) } else { '' }
+            [void] $Transcript.Append("=   unwrapped ($($answer[2])) to $($answer[1]): layer 0x$(if ($layer.Length) { $layer[0].ToString('X2') }), max size $size, authzid `"$authzid`"`r`n")
+            return , (ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x61 -Code 0 -Diagnostic '' -Extra (New-Object byte[] 0) -MatchedDn (New-Object byte[] 0))
+        }
+        if ($Token -notmatch '^60') { return $null }
+        $answer = Invoke-KerberosAcceptor -Request ('gssapi ' + $Token)
+        if ($answer[0] -ne 'ok') {
+            [void] $Transcript.Append("= Kerberos refused: $($answer[1..($answer.Count - 1)] -join ' ')`r`n")
+            return $null
+        }
+        [void] $Transcript.Append("= Kerberos accepted $($answer[3]), $($answer[2])$(if ($answer[1] -ne '-') { ', mutual' })`r`n")
+        if ($answer[1] -ne '-') {
+            $gssapi.Stage = 'offer'
+            return & $saslInProgress (ConvertFrom-HexText -Hex $answer[1])
+        }
+        $gssapi.Stage = 'answer'
+        return & $saslInProgress (& $offer)
+    }
+    $gssapi = @{ Stage = '' }
 
     function Read-Exactly {
         param($Stream, [int] $Count)
@@ -2957,6 +3018,33 @@ function Start-KerberosTestKdc {
     return $kdcProcess
 }
 
+# -KerberosTestKdc outside Windows: an MIT GSS-API curl reads its realm from krb5.conf and its
+# ticket from a credential cache, so both are made here, beside the keytab; the result is the
+# environment curl runs with.
+function Initialize-KerberosClient {
+    param([string] $Password, [string] $Directory)
+    $configuration = Join-Path $Directory 'krb5.conf'
+    $cache = 'FILE:' + (Join-Path $Directory 'tester.ccache')
+    $text = "[libdefaults]`n  default_realm = SURL.TEST`n  dns_lookup_kdc = false`n  dns_lookup_realm = false`n  rdns = false`n  dns_canonicalize_hostname = false`n  udp_preference_limit = 1`n[realms]`n  SURL.TEST = {`n    kdc = 127.0.0.1:88`n  }`n[domain_realm]`n  .surl.test = SURL.TEST`n"
+    [System.IO.File]::WriteAllText($configuration, $text)
+    $environment = @{ KRB5_CONFIG = $configuration; KRB5CCNAME = $cache }
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = 'kinit'
+    $startInfo.Arguments = 'tester@SURL.TEST'
+    foreach ($name in $environment.Keys) { $startInfo.Environment[$name] = $environment[$name] }
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $kinit = [System.Diagnostics.Process]::Start($startInfo)
+    $kinit.StandardInput.WriteLine($Password)
+    $kinit.StandardInput.Close()
+    $said = $kinit.StandardOutput.ReadToEnd() + $kinit.StandardError.ReadToEnd()
+    $kinit.WaitForExit()
+    if ($kinit.ExitCode -ne 0) { throw "kinit tester@SURL.TEST exited $($kinit.ExitCode): $said" }
+    return $environment
+}
+
 function Stop-KerberosTestKdc {
     param([System.Diagnostics.Process] $KdcProcess)
     try { $KdcProcess.StandardInput.Close() } catch [System.IO.IOException] { }
@@ -3048,11 +3136,13 @@ $tlsRelay = $null
 # accept from ending when Stop-Listener closes it, so the recording never finished (BL-327).
 $kerberosKdc = $null
 $kerberosAcceptor = $null
+$kerberosClientEnvironment = @{}
 # -NoServer binds nothing: the caller's own server answers curl.
 $listener = $null
 $server = $null
 try {
     if ($KerberosTestKdc) { $kerberosKdc = Start-KerberosTestKdc -Password $KerberosPassword -ServicePrincipals $KerberosServicePrincipal -Directory $OutDirectory }
+    if ($KerberosTestKdc -and -not $isWindowsHost) { $kerberosClientEnvironment = Initialize-KerberosClient -Password $KerberosPassword -Directory $OutDirectory }
     if ($LdapKerberosAcceptor) { $kerberosAcceptor = Start-KerberosAcceptor -Directory $OutDirectory }
     if ($Tftp) {
         $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
@@ -3095,7 +3185,7 @@ try {
         [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds).AddArgument($tlsCertificate)
     } elseif ($Ldap) {
         $ldapEntries = @($LdapEntry | ForEach-Object { [System.Text.Encoding]::UTF8.GetString((ConvertFrom-EscapedResponse -Text $_)) })
-        [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds).AddArgument($kerberosAcceptor)
+        [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds).AddArgument($kerberosAcceptor).AddArgument($LdapGssapiSecurityLayers)
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
@@ -3115,6 +3205,7 @@ try {
         $startInfo.FileName = $Curl
         $startInfo.Arguments = (@($CurlArgs | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
     }
+    foreach ($name in $kerberosClientEnvironment.Keys) { $startInfo.Environment[$name] = $kerberosClientEnvironment[$name] }
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardInput = $true
     $startInfo.RedirectStandardOutput = $true

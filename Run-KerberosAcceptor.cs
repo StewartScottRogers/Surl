@@ -13,8 +13,14 @@
 //                      for a NegTokenInit whose optimistic token is a Kerberos AP-REQ: the
 //                      negTokenResp is accept-completed, supportedMech the client's first OID,
 //                      and the AP-REP when the client asked for mutual authentication
+//   gssapi <token>  -> ok <AP-REP token, or - when none> <conf|integ> <client principal>, or
+//                      refused <reason>, for a bare Kerberos InitialContextToken, the first
+//                      token of a SASL GSSAPI bind (RFC 4752, BL-342): the AP-REP only when
+//                      the client asked for mutual authentication
 //   unwrap <token>  -> ok <message> sealed|signed, or refused
 //   wrap <message>  -> ok <token>: sealed when the client asked for confidentiality
+//   sign <message>  -> ok <token>: never sealed, as RFC 4752 section 3.1 wraps the GSSAPI
+//                      security-layer offer
 //
 // It is a measuring fixture, never a surl server: surl answers these binds through
 // Surl.Authentication's GSS-SPNEGO exchange.
@@ -54,8 +60,10 @@ internal sealed class KerberosAcceptorFixture(KerberosAcceptor acceptor, string 
         return (words[0], context) switch
         {
             ("spnego", _) => AnswerNegTokenInit(bytes),
+            ("gssapi", _) => AnswerInitialContextToken(bytes),
             ("unwrap", { } accepted) => Unwrap(accepted, bytes),
             ("wrap", { } accepted) => "ok " + Convert.ToHexString(accepted.IsConfidentialityRequested ? accepted.Seal(bytes) : accepted.Wrap(bytes)),
+            ("sign", { } accepted) => "ok " + Convert.ToHexString(accepted.Wrap(bytes)),
             _ => "refused no accepted bind",
         };
     }
@@ -99,6 +107,20 @@ internal sealed class KerberosAcceptorFixture(KerberosAcceptor acceptor, string 
         }
 
         return null;
+    }
+
+    private string AnswerInitialContextToken(byte[] token)
+    {
+        KerberosAcceptResult result = acceptor.Accept(token, service);
+        if (result.Context is not { } accepted)
+        {
+            return "refused " + result.RefusalReason;
+        }
+
+        context = accepted;
+        string layer = accepted.IsConfidentialityRequested ? "conf" : "integ";
+        string apReply = accepted.IsMutualAuthenticationRequested ? Convert.ToHexString(accepted.CreateApRepToken()) : "-";
+        return $"ok {apReply} {layer} {accepted.ClientPrincipal}";
     }
 
     private string Accept(byte[] apRequest, string firstMech)
