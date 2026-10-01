@@ -103,13 +103,16 @@ builds the policy from the command line.
   (`ComputeNtHashOfWidenedUtf8`) and `DESL` (`ComputeResponse`), over `Surl.Cryptography`'s
   `Des`, tested against section 4.2.2's example. It follows upstream curl's
   `lib/curl_ntlm_core.c`, not the specification, for a non-ASCII password: the UTF-8 bytes,
-  ASCII-only upper-casing and a 14-byte cut for LM, each byte widened to 16 bits for NT. Nothing
-  reaches it yet; the SMB login check (BL-295) will.
+  ASCII-only upper-casing and a 14-byte cut for LM, each byte widened to 16 bits for NT. Its NT
+  hash is also one of the four `NtlmPasswordHashes` keeps; the rest of it waits for the SMB
+  login check (BL-295).
 - The server challenge comes from `INtlmServerChallengeSource`: `RandomNtlmServerChallengeSource`
   in production, a fixed one in the tests, which replay the handshakes recorded from pinned
   upstream curl in `Surl.Authentication.UnitTests/Fixtures/ntlm*`.
-- `AccountBook.FindNtlmAccount` holds each named account's NT hash, computed at start-up; an
-  unknown or empty name gets a random dummy.
+- `AccountBook.FindNtlmAccount` holds each named account's four NT hashes (`NtlmPasswordHashes`,
+  BL-321: one per way a pinned upstream curl build hashes a non-ASCII password, measured in
+  `Fixtures/README.md`), computed at start-up; every hash is checked whichever matches; an
+  unknown or empty name gets a dummy with four random hashes.
 - An accepted NTLM login is remembered by the connection (ADR-0041, BL-133):
   `HttpAuthenticationSession` serves a later request on it without an `Authorization` as that
   account, with no login note, as upstream curl expects (`Fixtures/ntlm-two-urls`). Which

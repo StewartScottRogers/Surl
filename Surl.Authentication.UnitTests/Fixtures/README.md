@@ -79,6 +79,25 @@ the tests.
 | `ntlm-two-urls` | `3`: `<ntlm401>`, then `HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok` twice; `-Port 18133` (BL-133) | `'-sS','--ntlm','-u','tester:secret','http://127.0.0.1:18133/x','http://127.0.0.1:18133/y'` | 0 | the same handshake for `/x`, then `request-3.bin`: `GET /y` on the same connection with no `Authorization`, since the connection is logged in; stdout `okok` (ADR-0041) |
 | `ntlm-wrong-password` | `3`: `<ntlm401>`, then `HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM\r\nContent-Length: 0\r\n\r\n` | `'-sS','-f','--ntlm','-u','tester:wrong','http://127.0.0.1:18120/x'` | 22 | the answer for `tester:wrong`; after the second `401` curl gives up (`curl: (22) The requested URL returned error: 401`) and sends no third request. Without `-f` the same run exits 0 with an empty body. |
 
+## Non-ASCII NTLM password (BL-321)
+
+Recorded on 2026-09-30 with `-ResponsesPerConnection 2 -Response <ntlm401>,'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok'`,
+on a Windows 11 machine with ANSI code page 1252 and OEM code page 437. `<cfg>` is a UTF-8 file
+holding `user = "tester:pässword"`. Every case exited 0 with stdout `ok`; each `request-2.bin`
+holds an NTLMv2 answer for `tester`, empty domain. The builds hash `pässword` differently, so
+`NtlmPasswordHashes` keeps one hash for each:
+
+| Folder | Build | `-Port` | `-CurlArgs` | The NT hash the answer proves |
+| --- | --- | --- | --- | --- |
+| `ntlm-non-ascii-password` | reference | 18321 | `'-sS','--ntlm','-u',"tester:p$([char]0xE4)ssword",'http://127.0.0.1:18321/x'` | `MD4(UTF-16LE("pΣssword"))`: SSPI reads the argument's Windows-1252 byte `E4` in the OEM code page 437 |
+| `ntlm-non-ascii-password-utf8-config` | reference | 18323 | `'-sS','--ntlm','-K',<cfg>,'http://127.0.0.1:18323/x'` | `MD4(UTF-16LE("p├ñssword"))`: the UTF-8 bytes `C3 A4` read in code page 437 |
+| `ntlm-non-ascii-password-static` | static-curl (`C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe`, SHA-256 `589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`) | 18322 | as `ntlm-non-ascii-password` | `MD4(UTF-16LE("pässword"))`, the specification's |
+| `ntlm-non-ascii-password-static-utf8-config` | static-curl | 18324 | as `ntlm-non-ascii-password-utf8-config` | `MD4(UTF-16LE("pässword"))` |
+
+The reference build has no `Unicode` feature and hands SSPI an ANSI identity; static-curl's has
+it and hands SSPI the password as UTF-16. Upstream curl's own NTLM code, which the Linux and macOS
+builds use, widens each UTF-8 byte instead; those builds are not on this machine (BL-322).
+
 ## Negotiate (BL-121)
 
 Recorded on 2026-09-29 with the same build and `-Port 18121 -ResponsesPerConnection 2`, every

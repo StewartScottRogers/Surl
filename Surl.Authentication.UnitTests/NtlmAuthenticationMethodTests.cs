@@ -467,5 +467,61 @@ public sealed class NtlmAuthenticationMethodTests
         Assert.IsNull(Accounts.FindNtlmAccount("TESTER").AccountName);
     }
 
+    [TestMethod]
+    public void FindNtlmAccount_DummyAndAccount_KeepTheSameNumberOfHashes()
+    {
+        Assert.HasCount(NtlmPasswordHashes.Count, Accounts.FindNtlmAccount("nobody").NtHashes);
+        Assert.HasCount(NtlmPasswordHashes.Count, Accounts.FindNtlmAccount("tester").NtHashes);
+    }
+
+    // BL-321: each pinned Windows build's answer for tester:pässword, from the command line and
+    // from a UTF-8 -K config file (Fixtures/README.md), hashes the password its own way.
+    [TestMethod]
+    [DataRow("ntlm-non-ascii-password")]
+    [DataRow("ntlm-non-ascii-password-utf8-config")]
+    [DataRow("ntlm-non-ascii-password-static")]
+    [DataRow("ntlm-non-ascii-password-static-utf8-config")]
+    public async Task RecordedAuthenticate_NonAsciiPassword_IsAcceptedAsTheAccount(string caseName)
+    {
+        var accounts = new AccountBook([new Account("tester", "pässword")]);
+        var verifier = await ChallengedConnectionAsync(accounts);
+
+        var check = await VerifyAsync(verifier, RecordedAuthorization(caseName, 2));
+
+        Assert.AreEqual(HttpCredentialOutcome.Accepted, check.Outcome);
+        Assert.AreEqual("tester", check.AccountName);
+    }
+
+    [TestMethod]
+    [DataRow("ntlm-non-ascii-password")]
+    [DataRow("ntlm-non-ascii-password-static")]
+    public async Task RecordedAuthenticate_NonAsciiPasswordForAnAsciiAccount_IsRefused(string caseName)
+    {
+        var accounts = new AccountBook([new Account("tester", "password")]);
+        var verifier = await ChallengedConnectionAsync(accounts);
+
+        AssertRefused(await VerifyAsync(verifier, RecordedAuthorization(caseName, 2)), "tester");
+    }
+
+    // Upstream curl's own NTLM code, which the Linux and macOS builds use, widens each UTF-8
+    // byte of the password (lib/curl_ntlm_core.c at curl-8_21_0); no recording yet (BL-322).
+    [TestMethod]
+    public async Task Authenticate_NtHashOfTheWidenedUtf8Password_IsAccepted()
+    {
+        var accounts = new AccountBook([new Account("tester", "pässword")]);
+        var challenge = FixedNtlmServerChallengeSource.FixtureChallenge;
+        var key = NtlmV2Calculation.ComputeResponseKeyNt(
+            NtlmV1Calculation.ComputeNtHashOfWidenedUtf8("pässword"), "tester", string.Empty);
+        var proof = NtlmV2Calculation.ComputeNtProof(key, challenge, NtlmTestMessages.ClientBlob);
+        var message = NtlmTestMessages.Authenticate(
+            "tester", string.Empty, [.. proof, .. NtlmTestMessages.ClientBlob], NtlmTestMessages.Unicode);
+        var verifier = await ChallengedConnectionAsync(accounts);
+
+        var check = await VerifyAsync(verifier, message);
+
+        Assert.AreEqual(HttpCredentialOutcome.Accepted, check.Outcome);
+        Assert.AreEqual("tester", check.AccountName);
+    }
+
     private static int IndexOf(byte[] message, byte[] part) => message.AsSpan().IndexOf(part);
 }

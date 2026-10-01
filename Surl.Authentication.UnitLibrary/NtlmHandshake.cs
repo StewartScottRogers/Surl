@@ -75,13 +75,23 @@ internal sealed class NtlmHandshake(AccountBook accounts, INtlmServerChallengeSo
     private string? FindAnsweringAccount(NtlmAuthenticateMessage answer, byte[] challenge)
     {
         var account = accounts.FindNtlmAccount(answer.UserName);
-        var response = answer.NtChallengeResponse.AsSpan();
-        var responseKey = NtlmV2Calculation.ComputeResponseKeyNt(account.NtHash, answer.UserName, answer.DomainName);
-        var expectedProof = NtlmV2Calculation.ComputeNtProof(
-            responseKey, challenge, response[NtlmV2Calculation.NtProofLength..]);
-        var matches = accounts.SecretComparer.FixedTimeEquals(
-            expectedProof, response[..NtlmV2Calculation.NtProofLength]);
+        var matches = false;
+        foreach (var ntHash in account.NtHashes)
+        {
+            // Every hash is checked, so the work never says which one matched.
+            matches |= ProvesNtHash(ntHash, answer, challenge);
+        }
 
         return matches ? account.AccountName : null;
+    }
+
+    private bool ProvesNtHash(byte[] ntHash, NtlmAuthenticateMessage answer, byte[] challenge)
+    {
+        var response = answer.NtChallengeResponse.AsSpan();
+        var responseKey = NtlmV2Calculation.ComputeResponseKeyNt(ntHash, answer.UserName, answer.DomainName);
+        var expectedProof = NtlmV2Calculation.ComputeNtProof(
+            responseKey, challenge, response[NtlmV2Calculation.NtProofLength..]);
+
+        return accounts.SecretComparer.FixedTimeEquals(expectedProof, response[..NtlmV2Calculation.NtProofLength]);
     }
 }
