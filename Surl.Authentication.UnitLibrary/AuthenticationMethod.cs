@@ -25,6 +25,13 @@ public enum AuthenticationMethod
     Ntlm,
 
     /// <summary>
+    /// NTLMv1 without extended session security (<c>--auth ntlmv1</c>), the only login upstream
+    /// curl makes in an SMB session setup; its own word, not in the default set, so accepting
+    /// HTTP's NTLMv2 never accepts it (ADR-0073, decision 3).
+    /// </summary>
+    NtlmV1,
+
+    /// <summary>
     /// Digest, RFC 7616 (<c>--auth digest</c>).
     /// </summary>
     Digest,

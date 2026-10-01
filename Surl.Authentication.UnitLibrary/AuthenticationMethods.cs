@@ -11,8 +11,8 @@ public static class AuthenticationMethods
     /// <summary>
     /// The methods accepted without <c>--auth</c>:
     /// <c>digest,cram-md5,basic,plain,login,bearer,oauthbearer,xoauth2,external,aws-sigv4</c>. NTLM,
-    /// Negotiate, <c>DIGEST-MD5</c> and <c>APOP</c> are left out (ADR-0032, section 3; ADR-0049,
-    /// section 3).
+    /// NTLMv1, Negotiate, <c>DIGEST-MD5</c> and <c>APOP</c> are left out (ADR-0032, section 3;
+    /// ADR-0049, section 3; ADR-0073, decision 3).
     /// </summary>
     public static IReadOnlySet<AuthenticationMethod> DefaultAccepted { get; } = new[]
     {

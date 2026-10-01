@@ -20,9 +20,12 @@ namespace Surl.Authentication;
 /// connection with a verified TLS client certificate; and POP3 <c>APOP</c> when <c>--auth</c> accepts it.
 /// As the <see cref="ISshAuthenticationPolicy"/> it checks SSH passwords against the accounts,
 /// never refused as plain-text since SSH encrypts first, and public keys against
-/// <see cref="AuthenticationSettings.AuthorizedKeys"/> (ADR-0051, sections 6 and 7).
+/// <see cref="AuthenticationSettings.AuthorizedKeys"/> (ADR-0051, sections 6 and 7). As the
+/// <see cref="ISmbAuthenticationPolicy"/> it checks an SMB session setup's NTLMv1 NT response
+/// against the accounts when <c>--auth</c> accepts <c>ntlmv1</c>, on <c>smb</c> and <c>smbs</c> alike
+/// (ADR-0073, decision 3).
 /// </summary>
-public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy
+public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthenticationPolicy, ISshAuthenticationPolicy, ISmbAuthenticationPolicy
 {
     private const string ApopMethod = "APOP";
 
@@ -35,6 +38,12 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     private static readonly SshLoginVerdict SshAcceptedUnchecked = new(SshLoginOutcome.AcceptedUnchecked, null, null);
 
     private static readonly SshLoginVerdict SshKeyAcceptable = new(SshLoginOutcome.KeyAcceptable, null, null);
+
+    private const string SmbNtlmV1Method = "ntlmv1";
+
+    private static readonly SmbLoginVerdict SmbRefusedUnchecked = new(SmbLoginOutcome.Refused, null, null);
+
+    private static readonly SmbLoginVerdict SmbAcceptedUnchecked = new(SmbLoginOutcome.AcceptedUnchecked, null, null);
 
     private static readonly SaslLoginStep RefusedApop =
         new(SaslLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null);
@@ -364,6 +373,50 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
 
         return new SshLoginVerdict(SshLoginOutcome.Refused, null, new CheckedLogin(method, userName, false));
+    }
+
+    /// <summary>
+    /// An SMB session setup's NTLMv1 login (ADR-0073, decision 3):
+    /// <see cref="SmbLoginOutcome.AcceptedUnchecked"/> under <c>--allow-anonymous</c>, whatever was
+    /// sent; <see cref="SmbLoginOutcome.Refused"/> unchecked, undelayed and unnoted when <c>--auth</c>
+    /// does not accept <c>ntlmv1</c>; otherwise the NT response checked in fixed time against
+    /// <c>DESL</c> of the server challenge under the NT hash upstream curl computes from the
+    /// password of the account the user names, the domain ignored and the LM response unread, on a
+    /// connection with or without TLS. An unknown user is checked against a dummy account, and a
+    /// refusal - wrong response, unknown user, no accounts - is answered alike after
+    /// <see cref="RefusalDelay"/>. A checked verdict carries the login note.
+    /// </summary>
+    /// <param name="login">The session setup as the client sent it, with the server challenge.</param>
+    /// <param name="cancellationToken">Cancels the check and the refusal delay.</param>
+    /// <returns>Whether the login is accepted.</returns>
+    public async ValueTask<SmbLoginVerdict> CheckSmbNtlmV1LoginAsync(SmbNtlmV1Login login, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(login);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (settings.AllowAnonymous)
+        {
+            return SmbAcceptedUnchecked;
+        }
+
+        if (!settings.AcceptedMethods.Contains(AuthenticationMethod.NtlmV1))
+        {
+            return SmbRefusedUnchecked;
+        }
+
+        var account = settings.Accounts.FindNtlmAccount(login.UserName);
+        var expected = NtlmV1Calculation.ComputeResponse(
+            account.NtHashes[NtlmPasswordHashes.WidenedUtf8Index], login.ServerChallenge.Span);
+        var matches = settings.Accounts.SecretComparer.FixedTimeEquals(expected, login.NtResponse.Span);
+        if (account.AccountName is not null & matches)
+        {
+            return new SmbLoginVerdict(
+                SmbLoginOutcome.Accepted, account.AccountName, new CheckedLogin(SmbNtlmV1Method, login.UserName, true));
+        }
+
+        await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+
+        return new SmbLoginVerdict(SmbLoginOutcome.Refused, null, new CheckedLogin(SmbNtlmV1Method, login.UserName, false));
     }
 
     /// <summary>

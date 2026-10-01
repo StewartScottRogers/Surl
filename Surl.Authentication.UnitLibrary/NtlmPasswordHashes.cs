@@ -30,6 +30,12 @@ internal static class NtlmPasswordHashes
     /// <summary>How many hashes <see cref="Compute"/> gives, and the dummy account keeps.</summary>
     public const int Count = 4;
 
+    /// <summary>
+    /// Where <see cref="Compute"/> puts upstream curl's own NT hash, the widened UTF-8 one, which
+    /// its SMB session setup's NTLMv1 response is computed from (ADR-0073, decision 3).
+    /// </summary>
+    public const int WidenedUtf8Index = 1;
+
     private const int NtHashLength = 16;
 
     private static readonly Encoding Windows1252 = CodePagesEncodingProvider.Instance.GetEncoding(1252)!;
