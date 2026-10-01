@@ -49,3 +49,4 @@ libcurl's API sends can be measured (BL-333) and proved (BL-318) - ADR-0074 deci
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
