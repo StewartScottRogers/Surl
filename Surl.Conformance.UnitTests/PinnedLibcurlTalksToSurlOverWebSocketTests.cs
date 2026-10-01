@@ -91,7 +91,7 @@ public sealed class PinnedLibcurlTalksToSurlOverWebSocketTests
     {
         await using var surl = await SurlOnLoopback.StartInMemoryAsync("ws", ["--ws-echo"], TestContext.CancellationToken);
 
-        var lines = await PinnedLibcurlWebSocketDriver.RunAsync(TestContext, [.. options, surl.UrlOf("echo"), .. steps]);
+        var lines = await PinnedLibcurlDriver.RunAsync(TestContext, PinnedLibcurlDriver.WebSocketScript, [.. options, surl.UrlOf("echo"), .. steps]);
 
         Assert.AreEqual(Performed, lines[0], string.Join('\n', lines));
         Assert.HasCount(1 + steps.Length, lines, string.Join('\n', lines));

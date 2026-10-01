@@ -4,13 +4,20 @@ using System.Text;
 namespace Surl.Conformance;
 
 /// <summary>
-/// Runs <c>Run-LibcurlWebSocketScript.cs</c>, the driver of the pinned upstream
-/// <c>libcurl-4.dll</c>'s WebSocket API (ADR-0071 decision 10), through <c>dotnet run</c>, and
-/// returns what it printed, one line per libcurl call. Inconclusive off Windows, whose pinned
-/// builds carry no shared libcurl, and wherever the driver reports no pinned library installed.
+/// Runs a driver of the pinned upstream <c>libcurl-4.dll</c>'s API through <c>dotnet run</c> -
+/// <see cref="WebSocketScript"/> (ADR-0071 decision 10) or <see cref="RtspScript"/> (ADR-0074
+/// decision 12) - and returns what it printed, one line per libcurl call or step. Inconclusive
+/// off Windows, whose pinned builds carry no shared libcurl, and wherever the driver reports no
+/// pinned library installed.
 /// </summary>
-internal static class PinnedLibcurlWebSocketDriver
+internal static class PinnedLibcurlDriver
 {
+    /// <summary>The driver of libcurl's WebSocket API, <c>curl_ws_send</c> and <c>curl_ws_recv</c>.</summary>
+    public const string WebSocketScript = "Run-LibcurlWebSocketScript.cs";
+
+    /// <summary>The driver of libcurl's RTSP requests and interleaved receive.</summary>
+    public const string RtspScript = "Run-LibcurlRtspScript.cs";
+
     // The driver's exit code when no libcurl is pinned or installed for this platform.
     private const int NoPinnedLibrary = 4;
 
@@ -19,14 +26,14 @@ internal static class PinnedLibcurlWebSocketDriver
     private static readonly SemaphoreSlim OneRunAtATime = new(1, 1);
 
     /// <summary>
-    /// Runs the driver with <paramref name="arguments"/> (its options, the URL, then the steps), asserting it
-    /// ran every step, and returns its standard output's lines.
+    /// Runs the driver <paramref name="script"/> with <paramref name="arguments"/> (its options,
+    /// the URL, then the steps), asserting it ran every step, and returns its standard output's lines.
     /// </summary>
-    public static async Task<IReadOnlyList<string>> RunAsync(TestContext testContext, params string[] arguments)
+    public static async Task<IReadOnlyList<string>> RunAsync(TestContext testContext, string script, params string[] arguments)
     {
         if (!OperatingSystem.IsWindows())
         {
-            Assert.Inconclusive("Only the Windows reference build ships a shared libcurl to pin (ADR-0071 decision 10).");
+            Assert.Inconclusive("Only the Windows reference build ships a shared libcurl to pin (ADR-0071 decision 10, ADR-0074 decision 12).");
         }
 
         var startInfo = new ProcessStartInfo("dotnet")
@@ -39,7 +46,7 @@ internal static class PinnedLibcurlWebSocketDriver
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
-        foreach (var argument in (string[])["run", "--file", "Run-LibcurlWebSocketScript.cs", "--", .. arguments])
+        foreach (var argument in (string[])["run", "--file", script, "--", .. arguments])
         {
             startInfo.ArgumentList.Add(argument);
         }
@@ -64,7 +71,7 @@ internal static class PinnedLibcurlWebSocketDriver
             var output = await standardOutput;
             var error = await standardError;
 
-            testContext.WriteLine($"Run-LibcurlWebSocketScript.cs {string.Join(' ', arguments)}: exit {driver.ExitCode}\n{output}{error}");
+            testContext.WriteLine($"{script} {string.Join(' ', arguments)}: exit {driver.ExitCode}\n{output}{error}");
             if (driver.ExitCode == NoPinnedLibrary)
             {
                 Assert.Inconclusive(error);
