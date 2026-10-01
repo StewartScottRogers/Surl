@@ -9,7 +9,11 @@
   that build has no GSS-API, so the `GSSAPI` measurement moves to BL-342. Decision 4's Kerberos
   inside `GSS-SPNEGO` line by [Amendment 1](#amendment-1---kerberos-inside-gss-spnego-measured-and-built-bl-327-2026-09-30)
   below (BL-327, 2026-09-30): `WinLDAP` does use Kerberos for a host name, measured, and surl
-  answers it with `--keytab` and RFC 4121 wrap tokens.
+  answers it with `--keytab` and RFC 4121 wrap tokens. Decisions 3 and 6 by BL-335 (2026-09-30),
+  recording what `LdapProtocolServer` (BL-308) does where they left a detail open or could not be
+  followed as written: decision 3's diagnostics, the bind DN no account maps from, the compare
+  answers and the filter depth limit; decision 6's one diagnostic for the idle timeout and the
+  maximum duration.
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -287,18 +291,45 @@ anonymous. A bind while a SASL bind is in progress abandons that exchange.
 | Request | Answer |
 | --- | --- |
 | Bind | decisions 2 and 4 |
-| Search | decision 1's entries, then `searchResultDone`: `success`; `noSuchObject` (32) with the matched DN of the nearest existing superior (RFC 4511 section 4.1.9) when the base does not exist and the session may search; decision 1's `sizeLimitExceeded`, `timeLimitExceeded`; `insufficientAccessRights` (50) per decision 2. No referrals, no `searchResultReference` |
-| Compare | `compareTrue` (6) or `compareFalse` (5) by decision 1's equality rule, `undefinedAttributeType` (17) for a type the entry lacks, `noSuchObject`, and decision 2's access rule |
+| Search | decision 1's entries, then `searchResultDone`: `success`; `noSuchObject` (32) with the matched DN of the nearest existing superior (RFC 4511 section 4.1.9) when the base does not exist and the session may search; `invalidDNSyntax` (34), `the base is not an RFC 4514 DN`, for a base that is not an RFC 4514 DN; decision 1's `sizeLimitExceeded`, `timeLimitExceeded`; `insufficientAccessRights` (50) per decision 2. No referrals, no `searchResultReference` |
+| Compare | `compareTrue` (6) when decision 1's equality rule answers TRUE, `compareFalse` (5) when it answers FALSE **or Undefined**, `undefinedAttributeType` (17) for a type the entry lacks, `noSuchObject`, `invalidDNSyntax` (34), `the entry is not an RFC 4514 DN`, for an entry DN that is not RFC 4514, and decision 2's access rule |
 | Add, Delete, Modify, ModifyDN | `unwillingToPerform` (53), `the directory is read-only over LDAP` |
 | Extended: `StartTLS` | decision 5 |
-| Extended: any other OID | `extendedResponse` `protocolError` (2) with no `responseName` (RFC 4511 section 4.12) |
+| Extended: any other OID | `extendedResponse` `protocolError` (2), `unsupported extended operation`, with no `responseName` (RFC 4511 section 4.12) |
 | Abandon | no response (RFC 4511 section 4.11); operations are answered in order, so nothing is ever pending to abandon |
 | Unbind | the connection is closed, nothing sent |
-| A control marked critical | `unavailableCriticalExtension` (12) for the operation (no control is supported); a non-critical one is ignored |
+| A control marked critical | `unavailableCriticalExtension` (12), `critical control not supported`, for the operation (no control is supported); a non-critical one is ignored |
 | An unknown operation, or a message the codec refuses (BL-289's `LdapDecodeOutcome`) | the **Notice of Disconnection** (RFC 4511 section 4.4.1: `extendedResponse`, message ID 0, `responseName` `1.3.6.1.4.1.1466.20036`) with `protocolError` (2) and a diagnostic naming the fault, then the connection is closed |
 
 Diagnostics are short ASCII, never echo a peer's value (ADR-0006 section 3), and say nothing
 that differs between a missing user, a wrong secret and no accounts.
+
+**The details this decision left open** (amended by BL-335, recording BL-308's code; decided by
+Claude under Stewart's delegation):
+
+- **The bind diagnostics.** A bind of version 1, or of 4 and up, is `protocolError` (2), `only
+  LDAP versions 2 and 3 are answered`. An authentication choice that is neither `simple`, `sasl`
+  nor one of Sicily's `[9]`, `[10]`, `[11]` (the reserved tags 1 and 2, say), and a SASL or
+  Sicily mechanism the policy does not accept, is `authMethodNotSupported` (7), `authentication
+  method not accepted`. (BL-308 first answered every Sicily and SASL bind so, with `only simple
+  binds are answered`; decision 4's exchanges have since replaced that.)
+- **A bind DN no account maps from** - a DN whose leftmost RDN is not one `uid` or `cn` AVA - is
+  checked by the policy with the whole DN as the user name, an account no one has, so it fails
+  `invalidCredentials` (49) after the same delay as a wrong password and tells the peer nothing
+  more (`LdapBindNames.AccountNameOf`).
+- **A compare whose rule answers Undefined** (an `integerMatch` type compared with a value that is not an integer, say)
+  is `compareFalse`: RFC 4511 section 4.10 has no third answer, and `compareFalse` claims no more
+  than that the assertion did not hold.
+- **Filter depth.** A search filter that nests `and`, `or` and `not` deeper than
+  `LdapProtocolServer.MaxFilterDepth` (64) is a message the codec refuses, so it is answered with
+  the Notice of Disconnection `protocolError`, `a filter nested too deep`, and the connection is
+  closed. The bound keeps the decoder's recursion, and its stack, finite.
+- **The Notice of Disconnection's diagnostics** are `LdapDiagnostics`': for a frame the reader
+  refuses, `not an LDAPMessage`, `an indefinite length` or `a length of more than four octets`;
+  for a message the decoder refuses, `a malformed tag or length`, `an indefinite length`, `an
+  unexpected tag`, `a missing element`, `trailing bytes`, `an enumeration out of range`, `an
+  invalid value` or `a filter nested too deep`; for an operation tag that is no LDAP operation,
+  `unknown operation`.
 
 ### 4. SASL binds and the security layer
 
@@ -403,8 +434,8 @@ confidentiality.
 | --- | --- |
 | `--max-message` (1 MiB) | one `LDAPMessage`, by its BER length, and one security-layer buffer, by its 4-byte length: before the body is read, the Notice of Disconnection `protocolError` (`a message of <n> bytes is past --max-message <m>`) on a clear connection, and the close alone inside a security layer |
 | `--head-timeout` (30 s) | the first message of a connection (ADR-0006's "first packet"): the close, no Notice (nothing has been said yet) |
-| `--idle-timeout` (120 s) | the Notice of Disconnection `unavailable` (52), `idle timeout`, on ADR-0059's one-second deadline, then the close |
-| `--max-time` (3600 s) | the same Notice, `maximum duration` |
+| `--idle-timeout` (120 s) | the Notice of Disconnection `unavailable` (52), `idle timeout or maximum duration`, on ADR-0059's one-second deadline, then the close. *Amended by BL-335:* ADR-0059 decision 5 gives a server no reason for a cancellation, so this limit and `--max-time` cannot be told apart and share the one diagnostic |
+| `--max-time` (3600 s) | the same Notice, with the same diagnostic `idle timeout or maximum duration` (ADR-0059 decision 5) |
 | `--max-connections`, `--max-connections-per-address` | the engine's, before any byte |
 | Shutdown | no farewell (ADR-0059 decision 4): the connection is closed |
 | Directory bounds | decision 1 |

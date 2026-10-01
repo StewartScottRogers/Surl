@@ -8,9 +8,9 @@ depends-on: [BL-308]
 touches: [Documentation/Planning/Decisions/ADR-0072-how-the-ldap-server-answers-upstream-curl-and-what-directory-it-serves.md]
 requirement: FR-049
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
-# BL-335 — Amend ADR-0072 with BL-308's LDAP server decisions
+# BL-335 â€” Amend ADR-0072 with BL-308's LDAP server decisions
 
 ## Goal
 
@@ -38,14 +38,27 @@ could not be followed as written.
 
 ## Acceptance criteria
 
-- [ ] ADR-0072 decision 6's idle timeout and maximum duration rows name the one diagnostic
+- [x] ADR-0072 decision 6's idle timeout and maximum duration rows name the one diagnostic
       `idle timeout or maximum duration`, citing ADR-0059 decision 5.
-- [ ] ADR-0072 decision 3 lists the diagnostics, the unmappable bind DN, the compare answers
+- [x] ADR-0072 decision 3 lists the diagnostics, the unmappable bind DN, the compare answers
       and the filter depth limit above, each matching `Surl.Protocol.Ldap.UnitLibrary`.
 
 ## Notes
+
+- Checked every statement against `Surl.Protocol.Ldap.UnitLibrary` as it is now
+  (`LdapSession`, `LdapBindJudge`, `LdapSaslBindJudge`, `LdapBindNames`, `LdapDirectory`,
+  `LdapDiagnostics`). The code has moved on since BL-308's Notes: Sicily and SASL binds are now
+  answered by decision 4's exchanges, so `only simple binds are answered` no longer exists. The
+  ADR records the current refusal, `authMethodNotSupported` `authentication method not
+  accepted`, and says the old answer was replaced.
+- Also recorded the search base's `invalidDNSyntax` (34) beside the compare's, and the
+  `unknown operation` Notice diagnostic: both are in the same code and decision 3 named neither.
+- Edited ADR-0072 in place (decision 3's table plus a "details this decision left open" list,
+  decision 6's two rows) and named the amendment in the header's Amended line. No `.cs` or
+  project file touched, so `verify` was not needed by the docs pipeline.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0072 decisions 3 and 6 state the LDAP server's diagnostics, unmappable bind DN, compare answers, filter depth and shared limit diagnostic as the code does
