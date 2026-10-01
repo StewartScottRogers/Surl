@@ -3,7 +3,8 @@
 # Linux and macOS it also obtains the pinned upstream curl build, verifies its SHA-256 and
 # runs the Surl.Conformance tests against it (ADR-0016); on Linux, beside it, the OpenLDAP
 # build of the same release, with MIT Kerberos GSS-API, that ldap and ldaps are proved against
-# (ADR-0076, ADR-0078), with kinit for the GSSAPI test (BL-351).
+# (ADR-0076, ADR-0078), with kinit for the GSSAPI test (BL-351). On macOS it also records the
+# build's NTLM login with a non-ASCII password and publishes it as an artifact (BL-324).
 name: CI
 
 on:
@@ -198,6 +199,28 @@ jobs:
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends krb5-user
           command -v kinit
+
+      # No Mac is reachable from the dark factory's machine, so the macOS build's NTLM login
+      # with a non-ASCII password is recorded here, as Fixtures/README.md records the Linux
+      # build's, and published as an artifact for Surl.Authentication.UnitTests (BL-324).
+      - name: Record the non-ASCII NTLM password login
+        if: matrix.upstream-curl-platform == 'osx-arm64'
+        shell: pwsh
+        env:
+          LANG: en_US.UTF-8
+        run: |
+          ./Record-CurlExchange.ps1 -Port 18325 -ResponsesPerConnection 2 `
+            -Response 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM TlRMTVNTUAACAAAACAAIADAAAAAFgoqgASNFZ4mrze8AAAAAAAAAABwAHAA4AAAAUwBVAFIATAACAAgAUwBVAFIATAABAAgAUwBVAFIATAAAAAAA\r\nContent-Length: 0\r\n\r\n', 'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok' `
+            -Curl '${{ steps.pin.outputs.path }}' `
+            -CurlArgs '-sS', '--ntlm', '-u', "tester:p$([char]0xE4)ssword", 'http://127.0.0.1:18325/x' `
+            -OutDirectory "$env:RUNNER_TEMP/ntlm-non-ascii-password-macos"
+
+      - name: Publish the non-ASCII NTLM password recording
+        if: matrix.upstream-curl-platform == 'osx-arm64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ntlm-non-ascii-password-macos
+          path: ${{ runner.temp }}/ntlm-non-ascii-password-macos
 
       - name: Conformance tests
         if: matrix.upstream-curl-platform
