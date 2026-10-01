@@ -1,20 +1,20 @@
 ---
-id: BL-331
+id: BL-333
 title: Measure libcurl's RTSP requests through the pinned libcurl-4.dll and amend ADR-0074
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-330]
+depends-on: [BL-332]
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-051
 created: 2026-09-30
 completed:
 ---
-# BL-331 — Measure libcurl's RTSP requests through the pinned libcurl-4.dll and amend ADR-0074
+# BL-333 — Measure libcurl's RTSP requests through the pinned libcurl-4.dll and amend ADR-0074
 
 ## Goal
 
-ADR-0074 records, from measurement of the pinned `libcurl-4.dll` through BL-330's driver, the exact
+ADR-0074 records, from measurement of the pinned `libcurl-4.dll` through BL-332's driver, the exact
 requests libcurl 8.21.0 sends for `DESCRIBE`, `SETUP`, `PLAY`, `PAUSE`, `TEARDOWN`,
 `GET_PARAMETER`, `SET_PARAMETER`, `ANNOUNCE` and `RECORD`, and what it does with ADR-0074's answers
 (the SDP, the `Transport`, the interleaved RTP and RTCP frames, `454`, `455`, `461`), so BL-318

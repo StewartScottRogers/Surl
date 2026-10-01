@@ -407,14 +407,14 @@ ADR-0071 decision 10 pinned the reference build's `libcurl-4.dll` (BL-323 pins i
 driver for `curl_ws_send` and `curl_ws_recv`). RTSP needs it more: every request but `OPTIONS` is
 libcurl's. This ADR adopts the pin - no further download or question - and files:
 
-- **BL-330** (feature, after BL-323): the driver also runs RTSP - `CURLOPT_RTSP_REQUEST`,
+- **BL-332** (feature, after BL-323): the driver also runs RTSP - `CURLOPT_RTSP_REQUEST`,
   `CURLOPT_RTSP_STREAM_URI`, `CURLOPT_RTSP_TRANSPORT`, `CURLOPT_RTSP_SESSION_ID`, the upload body for
   `ANNOUNCE`, `RTSPREQ_RECEIVE` with `CURLOPT_INTERLEAVEFUNCTION` - printing each `CURLcode`, status,
   `Session` and the interleaved bytes.
-- **BL-331** (docs, after BL-330): measures decision 11's libcurl cases through it against the
+- **BL-333** (docs, after BL-332): measures decision 11's libcurl cases through it against the
   recorder and amends this ADR with the requests libcurl sends and what it does with decision 4 and
   5's answers. A measurement that contradicts a decision amends the decision.
-- BL-318 depends on BL-331. Until then, BL-313 to BL-316 use RFC 2326 section 14's request
+- BL-318 depends on BL-333. Until then, BL-313 to BL-316 use RFC 2326 section 14's request
   examples as fixtures beside the recorded `OPTIONS` requests.
 
 ## Alternatives considered
@@ -441,5 +441,5 @@ libcurl's. This ADR adopts the pin - no further download or question - and files
 - `Record-CurlExchange.ps1 -Raw` answers RTSP through `{CSEQ}`, so the `OPTIONS` fixtures of
   BL-313 and BL-314 (the plain request, the `-H`, `-A`, `-e` fields, the Basic header and both
   Digest legs) are recorded with it.
-- BL-330 and BL-331 are filed and BL-318 depends on BL-331.
+- BL-332 and BL-333 are filed and BL-318 depends on BL-333.
 - If the Linux build or the libcurl measurements disagree with a decision, the finding amends it here.

@@ -92,8 +92,8 @@ server and registration tasks can be built without a question.
 - Defaults taken: every file is a one-stream octet presentation (surl has no codecs); interleaved
   TCP only (`461` for UDP, which libcurl cannot receive); unpaced streaming; one session per
   connection.
-- libcurl: adopted ADR-0071's `libcurl-4.dll` pin; filed BL-330 (the driver runs RTSP) and BL-331
-  (measure and amend ADR-0074), and added BL-331 to BL-318's `depends-on` (a board edit to another
+- libcurl: adopted ADR-0071's `libcurl-4.dll` pin; filed BL-332 (the driver runs RTSP) and BL-333
+  (measure and amend ADR-0074), and added BL-333 to BL-318's `depends-on` (a board edit to another
   task's front matter; no task in Doing touches it).
 - The NTLM case hung the one-reply-per-pause recorder; NTLM is left out of BL-318's list and noted
   in decision 7.
@@ -102,4 +102,4 @@ server and registration tasks can be built without a question.
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
-- 2026-09-30: Doing -> Done. ADR-0074 decides every RTSP answer from 29 measured curl 8.21.0 cases; Record-CurlExchange.ps1 -Raw echoes CSeq; BL-330 and BL-331 filed for libcurl
+- 2026-09-30: Doing -> Done. ADR-0074 decides every RTSP answer from 29 measured curl 8.21.0 cases; Record-CurlExchange.ps1 -Raw echoes CSeq; BL-332 and BL-333 filed for libcurl

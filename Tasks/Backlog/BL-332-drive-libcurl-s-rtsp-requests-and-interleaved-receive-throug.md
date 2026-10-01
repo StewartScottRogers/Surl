@@ -1,5 +1,5 @@
 ---
-id: BL-330
+id: BL-332
 title: Drive libcurl's RTSP requests and interleaved receive through the pinned libcurl-4.dll
 priority: Normal
 assignee: Claude
@@ -10,13 +10,13 @@ requirement: FR-051
 created: 2026-09-30
 completed:
 ---
-# BL-330 — Drive libcurl's RTSP requests and interleaved receive through the pinned libcurl-4.dll
+# BL-332 — Drive libcurl's RTSP requests and interleaved receive through the pinned libcurl-4.dll
 
 ## Goal
 
 BL-323's driver for the pinned `libcurl-4.dll` also runs a scripted sequence of RTSP requests
 (`CURLOPT_RTSP_REQUEST`) and the interleaved receive, printing each result, so the RTSP requests only
-libcurl's API sends can be measured (BL-331) and proved (BL-318) - ADR-0074 decision 12.
+libcurl's API sends can be measured (BL-333) and proved (BL-318) - ADR-0074 decision 12.
 
 ## Context
 
