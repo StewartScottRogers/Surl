@@ -564,11 +564,35 @@
     macOS builds pinned in UpstreamCurlBuilds.json are static and carry no shared libcurl.
     Needs dotnet on PATH; the first run builds the app, which takes a while.
 
+.PARAMETER LibcurlRtsp
+    Run the C# file-based app Run-LibcurlRtspScript.cs in place of curl, so the RTSP requests
+    only libcurl's API sends - every one but OPTIONS - and its interleaved receive can be
+    measured (ADR-0074 decision 12). It loads the pinned libcurl (Libcurl), sets CURLOPT_URL on
+    one easy handle and runs the steps in order on it, so the requests share a connection and
+    each option stays set for the requests after it. CurlArgs are its arguments: optionally
+    --timeout <ms> (CURLOPT_TIMEOUT_MS of each request, default 10000), the rtsp:// URL, then the
+    steps. A step is a request - OPTIONS, DESCRIBE, ANNOUNCE, SETUP, PLAY, PAUSE, TEARDOWN,
+    GET_PARAMETER, SET_PARAMETER, RECORD or RECEIVE, each CURLOPT_RTSP_REQUEST and one
+    curl_easy_perform - or an option: stream-uri:<text> (CURLOPT_RTSP_STREAM_URI),
+    transport:<text> (CURLOPT_RTSP_TRANSPORT), session-id:<text> (CURLOPT_RTSP_SESSION_ID),
+    client-cseq:<n> (CURLOPT_RTSP_CLIENT_CSEQ), body:<bytes> (the body of ANNOUNCE,
+    GET_PARAMETER and SET_PARAMETER through CURLOPT_COPYPOSTFIELDS), upload:<bytes> (the same
+    through CURLOPT_UPLOAD and a read callback) or no-body; text and bytes take the backslash
+    escapes \r \n \t \0 \\ and \xHH. Use it with -Raw and one RawReply per request, each
+    carrying {CSEQ}: request.bin then holds every request, transcript.txt both directions,
+    stdout.bin one line per step - for a request its CURLcode, status, CURLINFO_RTSP_SESSION_ID,
+    CURLINFO_RTSP_CSEQ_RECV, the next CSeq, the response body and each interleaved packet the
+    CURLOPT_INTERLEAVEFUNCTION callback received - and exitcode.txt the driver's exit code: 0
+    once every step ran, whatever each returned, 2 for a malformed step, 3 when the library is
+    not pinned. A RECEIVE step reads the interleaved packets ($, channel, two-byte length,
+    payload) a RawReply sends. Combining it with -Curl or -LibcurlWebSocket is refused, and so
+    is running it outside Windows. Needs dotnet on PATH; the first run builds the app.
+
 .PARAMETER Libcurl
-    The shared libcurl -LibcurlWebSocket loads. Defaults to libcurl-4.dll beside the reference
-    curl.exe in Git for Windows' mingw64 directory. Its SHA-256 must match an entry of kind
-    library in UpstreamCurlBuilds.json, so a pinned curl.exe is refused here and a pinned
-    libcurl is refused as -Curl. Needs -LibcurlWebSocket.
+    The shared libcurl -LibcurlWebSocket or -LibcurlRtsp loads. Defaults to libcurl-4.dll beside
+    the reference curl.exe in Git for Windows' mingw64 directory. Its SHA-256 must match an
+    entry of kind library in UpstreamCurlBuilds.json, so a pinned curl.exe is refused here and
+    a pinned libcurl is refused as -Curl. Needs -LibcurlWebSocket or -LibcurlRtsp.
 
 .PARAMETER ListenAddress
     The address the server (and, with -Ftp, its passive data listener, named in PASV's
@@ -679,6 +703,14 @@
     stdout.bin holds "perform: CURLcode 0 (No error)" and the send's line.
 
 .EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18554 -Raw -RawIdleMilliseconds 400 -LibcurlRtsp -RawReply 'RTSP/1.0 200 OK\r\nCSeq: {CSEQ}\r\n\r\n','RTSP/1.0 200 OK\r\nCSeq: {CSEQ}\r\nSession: 12345678\r\n\r\n','$\x00\x00\x04abcd','RTSP/1.0 200 OK\r\nCSeq: {CSEQ}\r\nSession: 12345678\r\n\r\n' -CurlArgs 'rtsp://127.0.0.1:18554/clip','OPTIONS','transport:RTP/AVP/TCP;unicast;interleaved=0-1','SETUP','RECEIVE','TEARDOWN' -OutDirectory fixtures\libcurl-rtsp
+
+    The pinned libcurl sends OPTIONS, SETUP with the Transport header and, once the SETUP
+    reply has named the session, TEARDOWN with Session: 12345678, all on one connection;
+    request.bin holds the three requests, and stdout.bin a line per step, the RECEIVE line
+    ending "interleaved 1 calls: 8 bytes "$\x00\x00\x04abcd"".
+
+.EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18389 -Ldap -CurlTimeoutMilliseconds 20000 -LdapEntry 'dn: cn=alice,dc=example,dc=com\ncn: alice' -CurlArgs '-sS','-u','alice:secret','ldap://127.0.0.1:18389/dc=example,dc=com?cn?sub?(cn=a*)' -OutDirectory fixtures\ldap-search
 
     Answers curl's simple bind with success and its subtree search with the one entry;
@@ -751,6 +783,7 @@ param(
     [switch] $TlsRenegotiationOff,
     [string] $Curl,
     [switch] $LibcurlWebSocket,
+    [switch] $LibcurlRtsp,
     [string] $Libcurl,
     [System.Net.IPAddress] $ListenAddress = [System.Net.IPAddress]::Loopback,
     [switch] $NoServer,
@@ -774,7 +807,10 @@ if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword
 if ($KerberosTestKdc -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-KerberosTestKdc runs only on Windows: no pinned upstream curl build on Linux or macOS has Kerberos, SPNEGO or GSS-API (UpstreamCurlBuilds.json, ADR-0065).' }
 if ($KerberosTestKdc -and [string]::IsNullOrEmpty($KerberosPassword)) { throw '-KerberosTestKdc needs -KerberosPassword, the password of tester@SURL.TEST that curl gives with -u.' }
 if ($KerberosTestKdc -and @($KerberosServicePrincipal | Where-Object { $_ }).Count -eq 0) { throw '-KerberosTestKdc needs at least one -KerberosServicePrincipal.' }
-if (-not $LibcurlWebSocket -and $PSBoundParameters.ContainsKey('Libcurl')) { throw '-Libcurl names the library -LibcurlWebSocket loads, so it needs -LibcurlWebSocket.' }
+if (-not $LibcurlWebSocket -and -not $LibcurlRtsp -and $PSBoundParameters.ContainsKey('Libcurl')) { throw '-Libcurl names the library -LibcurlWebSocket or -LibcurlRtsp loads, so it needs one of them.' }
+if ($LibcurlWebSocket -and $LibcurlRtsp) { throw '-LibcurlWebSocket and -LibcurlRtsp each run their own driver in place of curl; give one.' }
+if ($LibcurlRtsp -and $PSBoundParameters.ContainsKey('Curl')) { throw '-LibcurlRtsp runs Run-LibcurlRtspScript.cs in place of curl, so it cannot be combined with -Curl; name the library with -Libcurl.' }
+if ($LibcurlRtsp -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-LibcurlRtsp runs only on Windows: the Linux and macOS builds pinned in UpstreamCurlBuilds.json are static and carry no shared libcurl (ADR-0071 decision 10).' }
 if ($LibcurlWebSocket -and $PSBoundParameters.ContainsKey('Curl')) { throw '-LibcurlWebSocket runs Run-LibcurlWebSocketScript.cs in place of curl, so it cannot be combined with -Curl; name the library with -Libcurl.' }
 if ($LibcurlWebSocket -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-LibcurlWebSocket runs only on Windows: the Linux and macOS builds pinned in UpstreamCurlBuilds.json are static and carry no shared libcurl (ADR-0071 decision 10).' }
 
@@ -2834,7 +2870,7 @@ function Stop-KerberosTestKdc {
     $KdcProcess.Dispose()
 }
 
-if ($LibcurlWebSocket) {
+if ($LibcurlWebSocket -or $LibcurlRtsp) {
     if ([string]::IsNullOrEmpty($Libcurl)) { $Libcurl = Join-Path (Split-Path (Get-ReferenceCurlPath) -Parent) 'libcurl-4.dll' }
     $Libcurl = Assert-PinnedUpstreamCurl -Path $Libcurl -Kind library
 } else {
@@ -2931,10 +2967,10 @@ try {
     if ($null -ne $tlsRelay) { Connect-TlsRelay -Relay $tlsRelay -BackendPort $listener.LocalEndpoint.Port }
 
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
-    if ($LibcurlWebSocket) {
+    if ($LibcurlWebSocket -or $LibcurlRtsp) {
         # The driver checks the library's pin again itself before it loads it.
         $startInfo.FileName = 'dotnet'
-        $driverArguments = @('run', '--file', (Join-Path $PSScriptRoot 'Run-LibcurlWebSocketScript.cs'), '--', '--library', $Libcurl) + @($CurlArgs)
+        $driverArguments = @('run', '--file', (Join-Path $PSScriptRoot $(if ($LibcurlRtsp) { 'Run-LibcurlRtspScript.cs' } else { 'Run-LibcurlWebSocketScript.cs' })), '--', '--library', $Libcurl) + @($CurlArgs)
         $startInfo.Arguments = (@($driverArguments | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
         $startInfo.WorkingDirectory = $PSScriptRoot
     } else {
