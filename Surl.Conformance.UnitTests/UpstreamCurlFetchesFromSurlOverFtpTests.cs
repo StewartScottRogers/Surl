@@ -142,8 +142,40 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
         Assert.AreEqual("curl: (19) RETR response: 550", result.StandardError.Trim());
     }
 
+    // Upstream curl keeps an ASCII-mode transfer's CRLF line ends on Windows and turns each into
+    // LF everywhere else (lib/urldata.h, CURL_PREFER_LF_LINEENDS), and a listing is ASCII mode,
+    // so each platform's listing is pinned in its own test; surl sends CRLF on both.
     [TestMethod]
-    public async Task List_ListingsOn_WritesTheLongListing()
+    [OSCondition(OperatingSystems.Windows)]
+    public Task List_ListingsOnOnWindows_WritesTheLongListingWithCrlf() =>
+        List_ListingsOn_WritesTheLongListingEndingWith("\r\n");
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public Task List_ListingsOnOffWindows_WritesTheLongListingWithLf() =>
+        List_ListingsOn_WritesTheLongListingEndingWith("\n");
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public Task ListNames_ListingsOnOnWindows_WritesEachNameWithCrlf() =>
+        ListNames_ListingsOn_WritesEachNameEndingWith("\r\n");
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public Task ListNames_ListingsOnOffWindows_WritesEachNameWithLf() =>
+        ListNames_ListingsOn_WritesEachNameEndingWith("\n");
+
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public Task ListMachineReadable_ListingsOnOnWindows_WritesEachEntrysFactsWithCrlf() =>
+        ListMachineReadable_ListingsOn_WritesEachEntrysFactsEndingWith("\r\n");
+
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public Task ListMachineReadable_ListingsOnOffWindows_WritesEachEntrysFactsWithLf() =>
+        ListMachineReadable_ListingsOn_WritesEachEntrysFactsEndingWith("\n");
+
+    private async Task List_ListingsOn_WritesTheLongListingEndingWith(string lineEnd)
     {
         await using var surl = await StartSurlAsync("--list-directories");
 
@@ -152,22 +184,20 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         StringAssert.Matches(
             Encoding.ASCII.GetString(result.StandardOutput),
-            new Regex(@"\A-rw-r--r-- 1 surl surl +4 [A-Z][a-z]{2} [ \d]\d +[\d:]+ b\.txt\r\n\z"));
+            new Regex(@"\A-rw-r--r-- 1 surl surl +4 [A-Z][a-z]{2} [ \d]\d +[\d:]+ b\.txt" + Regex.Escape(lineEnd) + @"\z"));
     }
 
-    [TestMethod]
-    public async Task ListNames_ListingsOn_WritesEachName()
+    private async Task ListNames_ListingsOn_WritesEachNameEndingWith(string lineEnd)
     {
         await using var surl = await StartSurlAsync("--list-directories");
 
         var result = await RunCurlAsync("-l", surl.UrlOf("d1/"));
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
-        Assert.AreEqual("d2\r\n", Encoding.ASCII.GetString(result.StandardOutput));
+        Assert.AreEqual("d2" + lineEnd, Encoding.ASCII.GetString(result.StandardOutput));
     }
 
-    [TestMethod]
-    public async Task ListMachineReadable_ListingsOn_WritesEachEntrysFacts()
+    private async Task ListMachineReadable_ListingsOn_WritesEachEntrysFactsEndingWith(string lineEnd)
     {
         await using var surl = await StartSurlAsync("--list-directories");
 
@@ -176,7 +206,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverFtpTests
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         StringAssert.Matches(
             Encoding.ASCII.GetString(result.StandardOutput),
-            new Regex(@"\Atype=file;size=4;modify=\d{14}; b\.txt\r\n\z"));
+            new Regex(@"\Atype=file;size=4;modify=\d{14}; b\.txt" + Regex.Escape(lineEnd) + @"\z"));
     }
 
     [TestMethod]
