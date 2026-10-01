@@ -385,6 +385,12 @@
     an extended or unknown operation's, which is 2 (protocolError). A connection on which
     curl sends nothing for LdapIdleMilliseconds is closed.
 
+    A StartTLS extendedRequest (1.3.6.1.4.1.1466.20037, sent by the OpenLDAP build for --ssl
+    and --ssl-reqd, ADR-0076) is answered protocolError like any extended operation; with
+    -LdapReply 'EXTENDED=0' it is answered success with the OID as responseName, and the
+    connection then switches to TLS 1.2 with the same throwaway certificate as -Tls (curl
+    needs -k), noted "= TLS handshake completed" (or "failed") in transcript.txt.
+
     Once a bind has installed a SASL security layer (NTLM sealing, DIGEST-MD5
     confidentiality), what curl sends is no longer an LDAPMessage: a message that does not
     start with 30 is read as a security-layer buffer (a four-byte big-endian length and that
@@ -2064,7 +2070,7 @@ $serveRawSession = {
 # read whole, recorded, decoded into one transcript line and answered by its operation, with
 # curl's message ID echoed. It returns every byte curl sent, decrypted, as one array.
 $serveLdapSession = {
-    param($Listener, $Overrides, $Entries, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [int] $IdleMilliseconds)
+    param($Listener, $Overrides, $Entries, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
@@ -2328,7 +2334,7 @@ $serveLdapSession = {
     # The replies to one request: none for unbind and abandon, entries then a done for a
     # search, and an LDAPResult of the operation's response type for everything else.
     function Get-LdapReplies {
-        param([long] $MessageId, [string] $Name, [int] $OperationTag)
+        param([long] $MessageId, [string] $Name, [int] $OperationTag, [string] $Summary)
         $replies = New-Object System.Collections.Generic.List[object]
         if ($Name -eq 'UNBIND' -or $Name -eq 'ABANDON') { return , $replies }
         $override = Get-LdapOverride -Operation $Name
@@ -2352,6 +2358,10 @@ $serveLdapSession = {
         } elseif ($Name -eq 'BIND') {
             $replies.Add((ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x61 -Code $code -Diagnostic $diagnostic -Extra $extra -MatchedDn $matched))
         } elseif ($Name -eq 'EXTENDED') {
+            # A StartTLS success names the operation in responseName [10] (RFC 4511 section 4.14.2).
+            if ($code -eq 0 -and $Summary -eq 'extendedRequest 1.3.6.1.4.1.1466.20037') {
+                $extra = Join-Bytes @((ConvertTo-BerElement -Tag 0x8A -Contents $utf8.GetBytes('1.3.6.1.4.1.1466.20037')), $extra)
+            }
             $replies.Add((ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x78 -Code $code -Diagnostic $diagnostic -Extra $extra -MatchedDn $matched))
         } else {
             # An operation with a response type of tag + 1 (compare, add, delete, modify,
@@ -2375,7 +2385,7 @@ $serveLdapSession = {
         try {
             $stream = $client.GetStream()
             $stream.ReadTimeout = $IdleMilliseconds
-            if ($null -ne $TlsCertificate) {
+            if ($ImplicitTls) {
                 $secure = New-Object System.Net.Security.SslStream($stream, $false)
                 try {
                     $secure.AuthenticateAsServer($TlsCertificate, $false, [System.Security.Authentication.SslProtocols]::Tls12, $false)
@@ -2404,7 +2414,7 @@ $serveLdapSession = {
                 [void] $Transcript.Append("> #$messageId $($summary[1])$controls`r`n")
                 [void] $Transcript.Append(">   " + (Get-BerHex $message 0 $message.Length) + "`r`n")
                 if ($summary[0] -eq 'UNBIND') { break }
-                $replies = Get-LdapReplies -MessageId $messageId -Name $summary[0] -OperationTag $parts[1].Tag
+                $replies = Get-LdapReplies -MessageId $messageId -Name $summary[0] -OperationTag $parts[1].Tag -Summary $summary[1]
                 if ($replies -is [string]) {
                     if ($replies -eq 'CLOSE') { [void] $Transcript.Append("= server closed the connection`r`n"); break }
                     [void] $Transcript.Append("= server sent no reply`r`n")
@@ -2422,6 +2432,21 @@ $serveLdapSession = {
                     [void] $Transcript.Append("< #$messageId $replyName`r`n")
                 }
                 $stream.Flush()
+                # A StartTLS request answered success (RFC 4511 section 4.14): TLS begins with
+                # the next byte, in both directions.
+                $isStartTls = $summary[1] -eq 'extendedRequest 1.3.6.1.4.1.1466.20037'
+                if ($isStartTls -and $stream -isnot [System.Net.Security.SslStream] -and $replies.Count -eq 1 -and $replyName -eq 'extendedResponse 0') {
+                    $secure = New-Object System.Net.Security.SslStream($stream, $false)
+                    try {
+                        $secure.AuthenticateAsServer($TlsCertificate, $false, [System.Security.Authentication.SslProtocols]::Tls12, $false)
+                    } catch {
+                        [void] $Transcript.Append("= TLS handshake failed`r`n")
+                        break
+                    }
+                    $secure.ReadTimeout = $IdleMilliseconds
+                    $stream = $secure
+                    [void] $Transcript.Append("= TLS handshake completed`r`n")
+                }
             }
         } catch [System.IO.IOException] {
             [void] $Transcript.Append("= connection broken`r`n")
@@ -2689,8 +2714,10 @@ function New-ThrowawayTlsCertificate {
     # container is deleted when the certificate is reset; no store is touched. With a
     # RootCertificateFile the leaf is issued by a throwaway root whose PEM is written there.
     # -Exportable lets the key be exported again, for the -TlsRenegotiationOff relay.
+    # RSACng is Windows only; elsewhere (the OpenLDAP build runs on Linux, ADR-0076) the
+    # platform's own RSA does the same job.
     param([string] $RootCertificateFile, [switch] $Exportable)
-    $rsa = New-Object System.Security.Cryptography.RSACng(2048)
+    $rsa = if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) { New-Object System.Security.Cryptography.RSACng(2048) } else { [System.Security.Cryptography.RSA]::Create(2048) }
     try {
         $request = New-Object System.Security.Cryptography.X509Certificates.CertificateRequest('CN=127.0.0.1', $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
         $alternativeNames = New-Object System.Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder
@@ -2916,7 +2943,7 @@ $servedTlsProtocols = switch ($TlsProtocol) {
     'Tls12AndTls13' { [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Tls13 }
     default { [System.Security.Authentication.SslProtocols]::Tls12 }
 }
-$tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile -Exportable:$TlsRenegotiationOff } else { $null }
+$tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile -Exportable:$TlsRenegotiationOff } else { $null }
 # With -TlsRenegotiationOff the relay does the TLS, so the recorder's server serves plaintext.
 $servedCertificate = if ($TlsRenegotiationOff) { $null } else { $tlsCertificate }
 $tlsRelay = $null
@@ -2961,7 +2988,7 @@ try {
         [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds).AddArgument($tlsCertificate)
     } elseif ($Ldap) {
         $ldapEntries = @($LdapEntry | ForEach-Object { [System.Text.Encoding]::UTF8.GetString((ConvertFrom-EscapedResponse -Text $_)) })
-        [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument($LdapIdleMilliseconds)
+        [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds)
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
