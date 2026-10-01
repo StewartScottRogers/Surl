@@ -2,7 +2,8 @@
 # change that only works on Windows fails here rather than in someone's shell script. On
 # Linux and macOS it also obtains the pinned upstream curl build, verifies its SHA-256 and
 # runs the Surl.Conformance tests against it (ADR-0016); on Linux, beside it, the OpenLDAP
-# build of the same release that ldap and ldaps are proved against (ADR-0076).
+# build of the same release, with MIT Kerberos GSS-API, that ldap and ldaps are proved against
+# (ADR-0076, ADR-0078).
 name: CI
 
 on:
@@ -31,7 +32,7 @@ jobs:
         include:
           - os: windows-latest
           # openldap-upstream-curl: the leg also builds the supplementary OpenLDAP build of
-          # curl 8.21.0 that ldap and ldaps are proved against (ADR-0076).
+          # curl 8.21.0 that ldap and ldaps are proved against (ADR-0076, ADR-0078).
           - os: ubuntu-latest
             upstream-curl-platform: linux-x64
             upstream-curl-asset: curl-linux-x86_64-musl-8.21.0.tar.xz
@@ -130,7 +131,7 @@ jobs:
 
       # The OpenLDAP build has no published download: Build-OpenLdapUpstreamCurl.ps1 builds it
       # from pinned sources in a digest-pinned container, the same bytes every time, only when
-      # the cache does not already hold the pinned file (ADR-0076).
+      # the cache does not already hold the pinned file (ADR-0076, ADR-0078).
       - name: Read the OpenLDAP upstream curl pin
         id: openldap-pin
         if: matrix.openldap-upstream-curl

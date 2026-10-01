@@ -61,13 +61,13 @@
     {
       "platform": "linux-x64",
       "role": "supplementary",
-      "origin": "Built from source by Build-OpenLdapUpstreamCurl.ps1: curl-8.21.0.tar.xz (tag curl-8_21_0 of upstream curl, unpatched), statically linked against musl, OpenSSL 3.5.9 and OpenLDAP 2.6.15's libldap, so its ldap and ldaps run over lib/openldap.c; used only for ldap and ldaps (ADR-0076)",
+      "origin": "Built from source by Build-OpenLdapUpstreamCurl.ps1: curl-8.21.0.tar.xz (tag curl-8_21_0 of upstream curl, unpatched), statically linked against musl, OpenSSL 3.5.9, OpenLDAP 2.6.15's libldap and MIT Kerberos 1.22.2's GSS-API, so its ldap and ldaps run over lib/openldap.c with SASL GSSAPI; used only for ldap and ldaps (ADR-0076, ADR-0078)",
       "defaultPath": "/opt/upstream-curl/8.21.0-openldap/curl",
-      "sha256": "8D4572E89081E84BDDDB147527523A80D9FAD140FF615F7B379BBCC239892398",
-      "version": "curl 8.21.0 (x86_64-pc-linux-musl) libcurl/8.21.0 OpenSSL/3.5.9 OpenLDAP/2.6.15",
+      "sha256": "62061C585462734FC83361FA873CD6893A7A7D66E8739FD9B230FF9C51237E55",
+      "version": "curl 8.21.0 (x86_64-pc-linux-musl) libcurl/8.21.0 OpenSSL/3.5.9 mit-krb5/1.22.2 OpenLDAP/2.6.15",
       "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns ldap ldaps mqtt mqtts pop3 pop3s rtsp smtp smtps telnet tftp ws wss",
-      "features": "alt-svc AsynchDNS HSTS HTTPS-proxy IPv6 Largefile NTLM SSL threadsafe TLS-SRP UnixSockets",
-      "pinned": "2026-09-30"
+      "features": "alt-svc AsynchDNS GSS-API HSTS HTTPS-proxy IPv6 Kerberos Largefile NTLM SPNEGO SSL threadsafe TLS-SRP UnixSockets",
+      "pinned": "2026-10-01"
     },
     {
       "platform": "osx-arm64",
