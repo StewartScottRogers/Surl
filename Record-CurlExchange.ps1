@@ -658,6 +658,19 @@
     four of ADR-0065: HTTP/web.surl.test, smtp/mail.surl.test, imap/mail.surl.test and
     pop/mail.surl.test.
 
+.PARAMETER LdapKerberosAcceptor
+    With -Ldap and -KerberosTestKdc, answer a GSS-SPNEGO bind whose SPNEGO NegTokenInit
+    carries a Kerberos AP-REQ for real, through the C# file-based app Run-KerberosAcceptor.cs
+    and the keys in service.keytab (BL-327, ADR-0072 Amendment 1): bindResponse success with
+    an accept-completed negTokenResp as serverSaslCreds, holding the AP-REP when curl asked
+    for mutual authentication, noted "= Kerberos accepted <client principal>, <conf|integ>"
+    in transcript.txt. Every SASL-wrapped buffer after it is unwrapped instead of ending the
+    connection - recorded as "> SASL-wrapped buffer ..." then "=   unwrapped (sealed|signed)
+    to <hex>" - and answered like a plain message, each reply wrapped (sealed when curl asked
+    for confidentiality) behind its four-byte length. A bind the acceptor refuses is noted
+    and answered as -LdapReply says. WinLDAP names the service ldap/<host>:<port>, with the
+    machine's own host name for localhost, so give that principal to -KerberosServicePrincipal.
+
 .EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18081 -Response 'HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello' -CurlArgs 'http://127.0.0.1:18081/a?b' -OutDirectory fixtures\default-get
 
@@ -799,7 +812,8 @@ param(
     [switch] $NoServer,
     [switch] $KerberosTestKdc,
     [string] $KerberosPassword,
-    [string[]] $KerberosServicePrincipal = @('HTTP/web.surl.test', 'smtp/mail.surl.test', 'imap/mail.surl.test', 'pop/mail.surl.test')
+    [string[]] $KerberosServicePrincipal = @('HTTP/web.surl.test', 'smtp/mail.surl.test', 'imap/mail.surl.test', 'pop/mail.surl.test'),
+    [switch] $LdapKerberosAcceptor
 )
 
 Set-StrictMode -Version Latest
@@ -817,6 +831,7 @@ if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword
 if ($KerberosTestKdc -and [System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw '-KerberosTestKdc runs only on Windows: no pinned upstream curl build on Linux or macOS has Kerberos, SPNEGO or GSS-API (UpstreamCurlBuilds.json, ADR-0065).' }
 if ($KerberosTestKdc -and [string]::IsNullOrEmpty($KerberosPassword)) { throw '-KerberosTestKdc needs -KerberosPassword, the password of tester@SURL.TEST that curl gives with -u.' }
 if ($KerberosTestKdc -and @($KerberosServicePrincipal | Where-Object { $_ }).Count -eq 0) { throw '-KerberosTestKdc needs at least one -KerberosServicePrincipal.' }
+if ($LdapKerberosAcceptor -and -not ($Ldap -and $KerberosTestKdc)) { throw '-LdapKerberosAcceptor answers -Ldap binds with the keys -KerberosTestKdc writes, so it needs both.' }
 if (-not $LibcurlWebSocket -and -not $LibcurlRtsp -and $PSBoundParameters.ContainsKey('Libcurl')) { throw '-Libcurl names the library -LibcurlWebSocket or -LibcurlRtsp loads, so it needs one of them.' }
 if ($LibcurlWebSocket -and $LibcurlRtsp) { throw '-LibcurlWebSocket and -LibcurlRtsp each run their own driver in place of curl; give one.' }
 if ($LibcurlRtsp -and $PSBoundParameters.ContainsKey('Curl')) { throw '-LibcurlRtsp runs Run-LibcurlRtspScript.cs in place of curl, so it cannot be combined with -Curl; name the library with -Libcurl.' }
@@ -2070,13 +2085,37 @@ $serveRawSession = {
 # read whole, recorded, decoded into one transcript line and answered by its operation, with
 # curl's message ID echoed. It returns every byte curl sent, decrypted, as one array.
 $serveLdapSession = {
-    param($Listener, $Overrides, $Entries, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds)
+    param($Listener, $Overrides, $Entries, [System.Text.StringBuilder] $Transcript, $TlsCertificate, [bool] $ImplicitTls, [int] $IdleMilliseconds, $KerberosAcceptor)
 
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
     $received = New-Object System.IO.MemoryStream
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     $replyCounts = @{}
+
+    # -LdapKerberosAcceptor: one request line to Run-KerberosAcceptor.cs, its answer line split
+    # into words ('ok', then its fields, or 'refused', then the reason).
+    function Invoke-KerberosAcceptor {
+        param([string] $Request)
+        $KerberosAcceptor.StandardInput.WriteLine($Request)
+        $KerberosAcceptor.StandardInput.Flush()
+        return , ($KerberosAcceptor.StandardOutput.ReadLine().Split([char] ' '))
+    }
+
+    # A GSS-SPNEGO bind holding a SPNEGO InitialContextToken, answered by the acceptor: the
+    # bindResponse success carrying its negTokenResp, or $null when it refused.
+    function Get-KerberosBindReply {
+        param([long] $MessageId, [string] $Summary)
+        if ($Summary -notmatch '^bindRequest .* sasl GSS-SPNEGO credentials (60[0-9A-F]+)$') { return $null }
+        $answer = Invoke-KerberosAcceptor -Request ('spnego ' + $Matches[1])
+        if ($answer[0] -ne 'ok') {
+            [void] $Transcript.Append("= Kerberos refused: $($answer[1..($answer.Count - 1)] -join ' ')`r`n")
+            return $null
+        }
+        [void] $Transcript.Append("= Kerberos accepted $($answer[3]), $($answer[2])`r`n")
+        $credentials = ConvertTo-BerElement -Tag 0x87 -Contents (ConvertFrom-HexText -Hex $answer[1])
+        return , (ConvertTo-LdapResponse -MessageId $MessageId -Tag 0x61 -Code 0 -Diagnostic '' -Extra $credentials -MatchedDn (New-Object byte[] 0))
+    }
 
     function Read-Exactly {
         param($Stream, [int] $Count)
@@ -2401,10 +2440,20 @@ $serveLdapSession = {
                 $message = Read-LdapMessage -Stream $stream
                 if ($null -eq $message) { [void] $Transcript.Append("= curl closed the connection or went idle`r`n"); break }
                 $received.Write($message, 0, $message.Length)
-                if ($message[0] -ne 0x30) {
+                $isWrapped = $message[0] -ne 0x30
+                if ($isWrapped) {
                     [void] $Transcript.Append("> SASL-wrapped buffer of $($message.Length - 4) bytes: " + (Get-BerHex $message 0 $message.Length) + "`r`n")
-                    [void] $Transcript.Append("= server closed the connection: the recorder has no SASL security layer`r`n")
-                    break
+                    if ($null -eq $KerberosAcceptor) {
+                        [void] $Transcript.Append("= server closed the connection: the recorder has no SASL security layer`r`n")
+                        break
+                    }
+                    $answer = Invoke-KerberosAcceptor -Request ('unwrap ' + (Get-BerHex $message 4 ($message.Length - 4)))
+                    if ($answer[0] -ne 'ok') {
+                        [void] $Transcript.Append("= server closed the connection: the Kerberos acceptor could not unwrap it`r`n")
+                        break
+                    }
+                    [void] $Transcript.Append("=   unwrapped ($($answer[2])) to $($answer[1])`r`n")
+                    $message = ConvertFrom-HexText -Hex $answer[1]
                 }
                 $outer =(Get-BerElements -Bytes $message -Start 0 -Count $message.Length)[0]
                 $parts = Get-BerElements -Bytes $message -Start $outer.Start -Count $outer.Length
@@ -2414,14 +2463,28 @@ $serveLdapSession = {
                 [void] $Transcript.Append("> #$messageId $($summary[1])$controls`r`n")
                 [void] $Transcript.Append(">   " + (Get-BerHex $message 0 $message.Length) + "`r`n")
                 if ($summary[0] -eq 'UNBIND') { break }
-                $replies = Get-LdapReplies -MessageId $messageId -Name $summary[0] -OperationTag $parts[1].Tag -Summary $summary[1]
+                $kerberosReply = if ($null -ne $KerberosAcceptor -and $summary[0] -eq 'BIND') { Get-KerberosBindReply -MessageId $messageId -Summary $summary[1] } else { $null }
+                if ($null -ne $kerberosReply) {
+                    $replies = New-Object System.Collections.Generic.List[object]
+                    $replies.Add($kerberosReply)
+                } else {
+                    $replies = Get-LdapReplies -MessageId $messageId -Name $summary[0] -OperationTag $parts[1].Tag -Summary $summary[1]
+                }
                 if ($replies -is [string]) {
                     if ($replies -eq 'CLOSE') { [void] $Transcript.Append("= server closed the connection`r`n"); break }
                     [void] $Transcript.Append("= server sent no reply`r`n")
                     continue
                 }
                 foreach ($reply in $replies) {
-                    $stream.Write($reply, 0, $reply.Length)
+                    if ($isWrapped) {
+                        # A reply to a wrapped request goes back wrapped, behind its length.
+                        $token = ConvertFrom-HexText -Hex (Invoke-KerberosAcceptor -Request ('wrap ' + (Get-BerHex $reply 0 $reply.Length)))[1]
+                        $length = [byte[]] @((($token.Length -shr 24) -band 0xFF), (($token.Length -shr 16) -band 0xFF), (($token.Length -shr 8) -band 0xFF), ($token.Length -band 0xFF))
+                        $stream.Write($length, 0, 4)
+                        $stream.Write($token, 0, $token.Length)
+                    } else {
+                        $stream.Write($reply, 0, $reply.Length)
+                    }
                     $replyOuter = (Get-BerElements -Bytes $reply -Start 0 -Count $reply.Length)[0]
                     $replyParts = Get-BerElements -Bytes $reply -Start $replyOuter.Start -Count $replyOuter.Length
                     $replyName = switch ($replyParts[1].Tag) { 0x61 { 'bindResponse' } 0x64 { 'searchResultEntry' } 0x65 { 'searchResultDone' } 0x78 { 'extendedResponse' } default { 'response 0x' + $replyParts[1].Tag.ToString('X2') } }
@@ -2901,6 +2964,39 @@ function Stop-KerberosTestKdc {
     $KdcProcess.Dispose()
 }
 
+# -LdapKerberosAcceptor: Run-KerberosAcceptor.cs reads the keytab the test KDC wrote and prints
+# "ready"; then it answers one line per request line until its standard input closes.
+function Start-KerberosAcceptor {
+    param([string] $Directory)
+    $arguments = @('run', '--file', (Join-Path $PSScriptRoot 'Run-KerberosAcceptor.cs'), '--', '--keytab', (Join-Path $Directory 'service.keytab'), '--service', 'ldap')
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = 'dotnet'
+    $startInfo.Arguments = (@($arguments | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+    $startInfo.WorkingDirectory = $PSScriptRoot
+    $acceptorProcess = [System.Diagnostics.Process]::Start($startInfo)
+    $acceptorError = $acceptorProcess.StandardError.ReadToEndAsync()
+    # The first run builds the app, so the wait is generous.
+    $firstLine = $acceptorProcess.StandardOutput.ReadLineAsync()
+    if (-not $firstLine.Wait(300000) -or $firstLine.Result -ne 'ready') {
+        Stop-KerberosAcceptor -AcceptorProcess $acceptorProcess
+        $said = if ($firstLine.IsCompleted) { $firstLine.Result } else { '' }
+        throw "The Kerberos acceptor did not start. It said: $said $($acceptorError.Result)"
+    }
+    return $acceptorProcess
+}
+
+function Stop-KerberosAcceptor {
+    param([System.Diagnostics.Process] $AcceptorProcess)
+    try { $AcceptorProcess.StandardInput.Close() } catch [System.IO.IOException] { }
+    if (-not $AcceptorProcess.WaitForExit(10000)) { & cmd.exe /c "taskkill /T /F /PID $($AcceptorProcess.Id) >nul 2>&1" }
+    $AcceptorProcess.Dispose()
+}
+
 if ($LibcurlWebSocket -or $LibcurlRtsp) {
     if ([string]::IsNullOrEmpty($Libcurl)) { $Libcurl = Join-Path (Split-Path (Get-ReferenceCurlPath) -Parent) 'libcurl-4.dll' }
     $Libcurl = Assert-PinnedUpstreamCurl -Path $Libcurl -Kind library
@@ -2947,31 +3043,42 @@ $tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap) { N
 # With -TlsRenegotiationOff the relay does the TLS, so the recorder's server serves plaintext.
 $servedCertificate = if ($TlsRenegotiationOff) { $null } else { $tlsCertificate }
 $tlsRelay = $null
+# The test KDC and the Kerberos acceptor start before any socket is opened: a child process
+# inherits the recorder's sockets, and an inherited listening socket keeps a server's blocked
+# accept from ending when Stop-Listener closes it, so the recording never finished (BL-327).
+$kerberosKdc = $null
+$kerberosAcceptor = $null
 # -NoServer binds nothing: the caller's own server answers curl.
 $listener = $null
 $server = $null
-if ($Tftp) {
-    $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
-    $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
-    $server = [System.Management.Automation.PowerShell]::Create()
-} elseif ($TlsRenegotiationOff) {
-    $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols)
-    $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
-    $listener.Start()
-    $server = [System.Management.Automation.PowerShell]::Create()
-} elseif (-not $NoServer) {
-    $listener = New-Object System.Net.Sockets.TcpListener($ListenAddress, $Port)
-    $listener.Start()
-    $server = [System.Management.Automation.PowerShell]::Create()
+try {
+    if ($KerberosTestKdc) { $kerberosKdc = Start-KerberosTestKdc -Password $KerberosPassword -ServicePrincipals $KerberosServicePrincipal -Directory $OutDirectory }
+    if ($LdapKerberosAcceptor) { $kerberosAcceptor = Start-KerberosAcceptor -Directory $OutDirectory }
+    if ($Tftp) {
+        $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
+        $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
+        $server = [System.Management.Automation.PowerShell]::Create()
+    } elseif ($TlsRenegotiationOff) {
+        $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols)
+        $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        $server = [System.Management.Automation.PowerShell]::Create()
+    } elseif (-not $NoServer) {
+        $listener = New-Object System.Net.Sockets.TcpListener($ListenAddress, $Port)
+        $listener.Start()
+        $server = [System.Management.Automation.PowerShell]::Create()
+    }
+} catch {
+    if ($null -ne $kerberosAcceptor) { Stop-KerberosAcceptor -AcceptorProcess $kerberosAcceptor }
+    if ($null -ne $kerberosKdc) { Stop-KerberosTestKdc -KdcProcess $kerberosKdc }
+    throw
 }
 
 # -Tftp listens on a UDP socket, which is closed rather than stopped.
 function Stop-Listener {
     if ($listener -is [System.Net.Sockets.Socket]) { $listener.Close() } else { $listener.Stop() }
 }
-$kerberosKdc = $null
 try {
-    if ($KerberosTestKdc) { $kerberosKdc = Start-KerberosTestKdc -Password $KerberosPassword -ServicePrincipals $KerberosServicePrincipal -Directory $OutDirectory }
     if ($NoServer) {
         $serverRun = $null
     } elseif ($Ftp) {
@@ -2988,7 +3095,7 @@ try {
         [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds).AddArgument($tlsCertificate)
     } elseif ($Ldap) {
         $ldapEntries = @($LdapEntry | ForEach-Object { [System.Text.Encoding]::UTF8.GetString((ConvertFrom-EscapedResponse -Text $_)) })
-        [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds)
+        [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds).AddArgument($kerberosAcceptor)
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
     } else {
@@ -3057,6 +3164,7 @@ try {
         if ($server.Streams.Error.Count -gt 0) { throw $server.Streams.Error[0] }
     }
 } finally {
+    if ($null -ne $kerberosAcceptor) { Stop-KerberosAcceptor -AcceptorProcess $kerberosAcceptor }
     if ($null -ne $kerberosKdc) { Stop-KerberosTestKdc -KdcProcess $kerberosKdc }
     if ($null -ne $tlsRelay) { Stop-TlsRelay -Relay $tlsRelay }
     if ($null -ne $listener) { Stop-Listener }
