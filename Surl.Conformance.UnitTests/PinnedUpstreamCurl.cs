@@ -82,6 +82,32 @@ internal static class PinnedUpstreamCurl
         return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, NoEnvironmentChanges, arguments);
     }
 
+    /// <summary>
+    /// Runs the reference build pinned for the current platform with <paramref name="arguments"/>,
+    /// for cases only that build answers, such as the Windows build's <c>WinLDAP</c> binds: a
+    /// supplementary build that lists <paramref name="protocol"/> is never run instead. Where the
+    /// reference pin lists no <paramref name="protocol"/>, the test is inconclusive with the pin
+    /// named (ADR-0026 decision 2); where it is not installed, inconclusive as
+    /// <see cref="RunAsync"/> is.
+    /// </summary>
+    public static async Task<UpstreamCurlRunResult> RunReferenceForProtocolAsync(
+        TestContext testContext, string protocol, params string[] arguments)
+    {
+        var pins = await ReadPinsAsync(testContext);
+        var platform = UpstreamCurlLocator.CurrentPlatform;
+        var reference = pins.FirstOrDefault(pin => pin.Kind == UpstreamCurlBuildKind.Curl
+            && pin.Platform == platform
+            && pin.Role == UpstreamCurlBuildRole.Reference);
+        if (reference is not null && !reference.Protocols.Contains(protocol, StringComparer.OrdinalIgnoreCase))
+        {
+            Assert.Inconclusive(
+                $"The reference upstream curl UpstreamCurlBuilds.json pins for {platform}, {reference.DefaultPath} ({reference.Version}), lists no {protocol}.");
+        }
+
+        var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess()).Locate(pins, platform);
+        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, NoEnvironmentChanges, arguments);
+    }
+
     private static async Task<IReadOnlyList<PinnedUpstreamCurlBuild>> ReadPinsAsync(TestContext testContext) =>
         UpstreamCurlBuildPins.Parse(
             await File.ReadAllTextAsync(Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName), testContext.CancellationToken));
