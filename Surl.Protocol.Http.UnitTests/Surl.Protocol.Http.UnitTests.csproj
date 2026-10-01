@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <Using Include="Surl.HttpMessage" />
   </ItemGroup>
 
   <ItemGroup>

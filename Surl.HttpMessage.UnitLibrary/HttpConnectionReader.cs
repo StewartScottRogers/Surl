@@ -1,9 +1,10 @@
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
-/// Reads HTTP/1.x request heads from one connection, one after another, and hands back the
+/// Reads HTTP/1.x request heads, or the request heads of a protocol that borrows their syntax
+/// (<see cref="HttpMessageProtocol"/>), from one connection, one after another, and hands back the
 /// bytes that follow each head untouched.
 /// </summary>
 /// <remarks>
@@ -24,7 +25,10 @@ public sealed class HttpConnectionReader
 {
     private const int InitialBufferBytes = 4096;
 
+    private static readonly TimeSpan MaxTimerDelay = TimeSpan.FromMilliseconds(uint.MaxValue - 1.0);
+
     private readonly IConnection connection;
+    private readonly HttpMessageProtocol protocol;
     private readonly int requestHeadLimit;
     private byte[] buffer = new byte[InitialBufferBytes];
     private int bufferedStart;
@@ -32,7 +36,8 @@ public sealed class HttpConnectionReader
     private int currentHeadBytes;
 
     /// <summary>
-    /// Creates a reader over <paramref name="connection"/>.
+    /// Creates a reader over <paramref name="connection"/> that reads HTTP request heads
+    /// (<see cref="HttpMessageProtocol.Http11"/>).
     /// </summary>
     /// <param name="connection">The connection to read from.</param>
     /// <param name="maxRequestHeadBytes">
@@ -43,11 +48,29 @@ public sealed class HttpConnectionReader
     /// </param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxRequestHeadBytes"/> is negative.</exception>
     public HttpConnectionReader(IConnection connection, long maxRequestHeadBytes)
+        : this(connection, maxRequestHeadBytes, HttpMessageProtocol.Http11)
+    {
+    }
+
+    /// <summary>
+    /// Creates a reader over <paramref name="connection"/> that reads request heads whose
+    /// request line names <paramref name="protocol"/>.
+    /// </summary>
+    /// <param name="connection">The connection to read from.</param>
+    /// <param name="maxRequestHeadBytes">
+    /// The most bytes one request head may take, as for
+    /// <see cref="HttpConnectionReader(IConnection, long)"/>.
+    /// </param>
+    /// <param name="protocol">The protocol a request line's version must name.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxRequestHeadBytes"/> is negative.</exception>
+    public HttpConnectionReader(IConnection connection, long maxRequestHeadBytes, HttpMessageProtocol protocol)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentOutOfRangeException.ThrowIfNegative(maxRequestHeadBytes);
+        ArgumentNullException.ThrowIfNull(protocol);
 
         this.connection = connection;
+        this.protocol = protocol;
         requestHeadLimit = maxRequestHeadBytes == 0 ? Array.MaxLength : (int)Math.Min(maxRequestHeadBytes, Array.MaxLength);
     }
 
@@ -72,6 +95,50 @@ public sealed class HttpConnectionReader
         BufferedCount > 0 || await FillAsync(requestHeadLimit, cancellationToken) > 0;
 
     /// <summary>
+    /// Reads the next request head of an exchange within its head timeout
+    /// (<see cref="ExchangeLimits.HeadTimeout"/>, on <see cref="ExchangeContext.TimeProvider"/>;
+    /// ADR-0006 section 1, ADR-0070 decision 3).
+    /// </summary>
+    /// <remarks>
+    /// The first head is timed from this call. A later one is timed from its first byte, and
+    /// the wait for that byte is not timed here: a client that half-closes before sending it
+    /// ends the connection with <see cref="HttpRequestHeadReadOutcome.ConnectionClosed"/>. A
+    /// timeout past <see cref="uint.MaxValue"/> - 1 milliseconds, about 49.7 days, is the most a
+    /// timer can wait and is treated as none.
+    /// </remarks>
+    /// <param name="context">The exchange: its limits, clock and cancellation.</param>
+    /// <param name="isFirstHead">Whether this is the connection's first head.</param>
+    /// <returns>
+    /// The head, or the named reason there is none: <see cref="HttpRequestHeadReadOutcome.HeadTimedOut"/>
+    /// when the timeout ran out after a byte of the head arrived,
+    /// <see cref="HttpRequestHeadReadOutcome.HeadTimedOutBeforeAnyByte"/> when none had.
+    /// </returns>
+    /// <exception cref="OperationCanceledException">The exchange's own cancellation token cut the read off.</exception>
+    /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
+    public async Task<HttpRequestHeadReadResult> ReadNextRequestHeadAsync(ExchangeContext context, bool isFirstHead)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        if (!isFirstHead && !await WaitForBytesAsync(context.CancellationToken))
+        {
+            return HttpRequestHeadReadResult.NoHead(HttpRequestHeadReadOutcome.ConnectionClosed);
+        }
+
+        using var headTimeout = new CancellationTokenSource(TimerDelay(context.Limits.HeadTimeout), context.TimeProvider);
+        using var headTimeoutOrExchange = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
+        try
+        {
+            return await ReadRequestHeadAsync(headTimeoutOrExchange.Token);
+        }
+        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            return HttpRequestHeadReadResult.NoHead(HasReceivedHeadBytes
+                ? HttpRequestHeadReadOutcome.HeadTimedOut
+                : HttpRequestHeadReadOutcome.HeadTimedOutBeforeAnyByte);
+        }
+    }
+
+    /// <summary>
     /// Reads the next request head, leaving every byte after it unread.
     /// </summary>
     /// <param name="cancellationToken">Cuts the read off.</param>
@@ -80,7 +147,7 @@ public sealed class HttpConnectionReader
     /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
     public async ValueTask<HttpRequestHeadReadResult> ReadRequestHeadAsync(CancellationToken cancellationToken)
     {
-        var lines = new HttpRequestHeadLineReader();
+        var lines = new HttpRequestHeadLineReader(protocol);
         var scannedCount = 0;
         HttpRequestHeadReadResult? result = null;
         currentHeadBytes = 0;
@@ -169,6 +236,11 @@ public sealed class HttpConnectionReader
 
         return ValueTask.FromResult(count);
     }
+
+    // A timer cannot wait longer than uint.MaxValue - 1 milliseconds (about 49.7 days); a
+    // head timeout past that never fires in practice, so it is treated as none.
+    private static TimeSpan TimerDelay(TimeSpan headTimeout) =>
+        headTimeout > MaxTimerDelay ? Timeout.InfiniteTimeSpan : headTimeout;
 
     private async ValueTask<HttpRequestHeadReadResult?> FillOrStopAsync(bool hasRequestLine, CancellationToken cancellationToken)
     {

@@ -1,10 +1,10 @@
 using System.Text;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 [TestClass]
-public sealed class HttpConnectionReaderTests
+public sealed partial class HttpConnectionReaderTests
 {
     private const string RecordedHost = "127.0.0.1:18017";
 
@@ -365,6 +365,45 @@ public sealed class HttpConnectionReaderTests
         var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("0123456789")], peerHalfClosesWhenExhausted: false);
 
         Assert.IsNull(await new HttpConnectionReader(connection, Limit).ReadLineAsync(10, TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public void Constructor_NullProtocol_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new HttpConnectionReader(new InMemoryConnection([]), Limit, null!));
+    }
+
+    [TestMethod]
+    public async Task ReadRequestHeadAsync_RtspHeadWhenGivenRtsp10_ReadsIt()
+    {
+        var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("OPTIONS * RTSP/1.0\r\nCSeq: 1\r\n\r\n")]);
+        var reader = new HttpConnectionReader(connection, Limit, HttpMessageProtocol.Rtsp10);
+
+        var result = await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(HttpRequestHeadReadOutcome.HeadRead, result.Outcome);
+        Assert.AreSame(HttpMessageProtocol.Rtsp10, result.Head!.Protocol);
+        Assert.AreEqual("OPTIONS", result.Head.Method);
+        CollectionAssert.AreEqual(new[] { "1" }, result.Head.GetFieldValues("CSeq").ToArray());
+    }
+
+    [TestMethod]
+    public async Task ReadRequestHeadAsync_RtspHeadWhenGivenHttp11_ReturnsMalformedRequestLine()
+    {
+        var result = await ReadOneHeadAsync("OPTIONS * RTSP/1.0\r\nCSeq: 1\r\n\r\n");
+
+        Assert.AreEqual(HttpRequestHeadReadOutcome.MalformedRequestLine, result.Outcome);
+    }
+
+    [TestMethod]
+    public async Task ReadRequestHeadAsync_HttpHeadWhenGivenRtsp10_ReturnsMalformedRequestLine()
+    {
+        var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\n")]);
+        var reader = new HttpConnectionReader(connection, Limit, HttpMessageProtocol.Rtsp10);
+
+        var result = await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual(HttpRequestHeadReadOutcome.MalformedRequestLine, result.Outcome);
     }
 
     private static HttpConnectionReader ReaderOver(byte[] bytes, bool oneBytePerRead) =>

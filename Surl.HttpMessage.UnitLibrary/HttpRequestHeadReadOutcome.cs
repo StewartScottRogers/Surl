@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// How reading one request head from a connection ended.
@@ -23,8 +23,9 @@ public enum HttpRequestHeadReadOutcome
     ConnectionClosedBeforeHeadEnded,
 
     /// <summary>
-    /// The request line is not <c>method SP request-target SP HTTP-version</c>
-    /// (RFC 9112, section 3).
+    /// The request line is not <c>method SP request-target SP version</c>, with a version
+    /// naming the protocol the reader was given
+    /// (RFC 9112, section 3; RFC 2326, section 6.1).
     /// </summary>
     MalformedRequestLine,
 

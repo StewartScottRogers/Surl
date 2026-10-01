@@ -1,9 +1,9 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// Which body framing a request head declares (RFC 9112, section 6.3).
 /// </summary>
-internal enum HttpRequestBodyFramingKind
+public enum HttpRequestBodyFramingKind
 {
     /// <summary>
     /// No body: neither <c>Transfer-Encoding</c> nor a <c>Content-Length</c> other than 0.

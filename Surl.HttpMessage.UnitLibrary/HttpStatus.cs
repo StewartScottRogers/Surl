@@ -1,11 +1,11 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// A status code and the reason phrase sent with it (RFC 9110, section 15).
 /// </summary>
 /// <param name="Code">The three-digit status code.</param>
 /// <param name="ReasonPhrase">The reason phrase RFC 9110 gives the code.</param>
-internal sealed record HttpStatus(int Code, string ReasonPhrase)
+public sealed record HttpStatus(int Code, string ReasonPhrase)
 {
     /// <summary>
     /// 100 Continue: an interim response, sent before the server reads the body of an

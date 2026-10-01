@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 [TestClass]
 public sealed class HttpRequestFieldTests

@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 [TestClass]
 public sealed class HttpRequestHeadTests
@@ -58,5 +58,28 @@ public sealed class HttpRequestHeadTests
         Assert.ThrowsExactly<ArgumentNullException>(() => new HttpRequestHead("GET", null!, version, []));
         Assert.ThrowsExactly<ArgumentNullException>(() => new HttpRequestHead("GET", "/", null!, []));
         Assert.ThrowsExactly<ArgumentNullException>(() => new HttpRequestHead("GET", "/", version, null!));
+    }
+
+    [TestMethod]
+    public void Constructor_WithoutProtocol_IsHttp11()
+    {
+        var head = new HttpRequestHead("GET", "/", new Version(1, 1), []);
+
+        Assert.AreSame(HttpMessageProtocol.Http11, head.Protocol);
+    }
+
+    [TestMethod]
+    public void Constructor_WithProtocol_KeepsIt()
+    {
+        var head = new HttpRequestHead(HttpMessageProtocol.Rtsp10, "OPTIONS", "*", new Version(1, 0), []);
+
+        Assert.AreSame(HttpMessageProtocol.Rtsp10, head.Protocol);
+        Assert.AreEqual("OPTIONS", head.Method);
+    }
+
+    [TestMethod]
+    public void Constructor_NullProtocol_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new HttpRequestHead(null!, "GET", "/", new Version(1, 1), []));
     }
 }

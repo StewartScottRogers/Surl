@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 [TestClass]
 public sealed class HttpSyntaxTests

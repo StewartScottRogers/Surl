@@ -1,3 +1,4 @@
+using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Http;

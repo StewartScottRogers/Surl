@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// Parses a header field line, <c>field-name ":" OWS field-value OWS</c> (RFC 9112,

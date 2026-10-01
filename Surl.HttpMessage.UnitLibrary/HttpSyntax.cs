@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// The byte classes of RFC 9110, section 5.6, and RFC 9112 that a request head is checked

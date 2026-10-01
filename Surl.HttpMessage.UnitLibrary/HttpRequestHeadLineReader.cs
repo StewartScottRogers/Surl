@@ -1,11 +1,11 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// Builds one request head from its lines, fed one at a time: empty lines before the
 /// request line are skipped (RFC 9112, section 2.2), then the request line, then header
 /// field lines until the empty line that ends the head.
 /// </summary>
-internal sealed class HttpRequestHeadLineReader
+internal sealed class HttpRequestHeadLineReader(HttpMessageProtocol protocol)
 {
     private readonly List<HttpRequestField> fields = [];
     private string? method;
@@ -40,7 +40,7 @@ internal sealed class HttpRequestHeadLineReader
             return null;
         }
 
-        var failure = HttpRequestLineParser.Parse(content, out var parsedMethod, out requestTarget, out version);
+        var failure = HttpRequestLineParser.Parse(content, protocol, out var parsedMethod, out requestTarget, out version);
         if (failure is { } outcome)
         {
             return HttpRequestHeadReadResult.NoHead(outcome);
@@ -55,7 +55,7 @@ internal sealed class HttpRequestHeadLineReader
     {
         if (content.IsEmpty)
         {
-            return HttpRequestHeadReadResult.Read(new HttpRequestHead(method!, requestTarget, version, fields));
+            return HttpRequestHeadReadResult.Read(new HttpRequestHead(protocol, method!, requestTarget, version, fields));
         }
 
         var failure = HttpFieldLineParser.Parse(content, out var field);

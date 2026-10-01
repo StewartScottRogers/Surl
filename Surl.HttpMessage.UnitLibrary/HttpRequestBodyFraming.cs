@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// How a request says its body is framed (RFC 9112, section 6.3), as far as the server reads
@@ -8,7 +8,7 @@ namespace Surl.Protocol.Http;
 /// </summary>
 /// <param name="Kind">Which framing the head declares.</param>
 /// <param name="ContentLength">The declared length, when <paramref name="Kind"/> is <see cref="HttpRequestBodyFramingKind.ContentLength"/>; otherwise 0.</param>
-internal readonly record struct HttpRequestBodyFraming(HttpRequestBodyFramingKind Kind, long ContentLength)
+public readonly record struct HttpRequestBodyFraming(HttpRequestBodyFramingKind Kind, long ContentLength)
 {
     /// <summary>
     /// Reads the framing <paramref name="head"/> declares.

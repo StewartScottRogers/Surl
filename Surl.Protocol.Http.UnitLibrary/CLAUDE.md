@@ -10,7 +10,11 @@ redirect, content encoding and authentication challenge upstream curl can exerci
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
-else. Referencing another protocol server is a
+else. Today it references `Surl.Content.UnitLibrary` (the content store) and
+`Surl.HttpMessage.UnitLibrary` (ADR-0070): the request-head reader and its head timeout, the
+request and response head types, `HttpStatus` and body framing live there; method dispatch,
+content responses, the authentication flow, `100 Continue`, persistence, body discarding and
+the lingering-close drain stay here. Referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener`

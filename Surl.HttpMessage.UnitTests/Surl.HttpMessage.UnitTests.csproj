@@ -12,4 +12,13 @@
     <ProjectReference Include="..\Surl.HttpMessage.UnitLibrary\Surl.HttpMessage.UnitLibrary.csproj" />
   </ItemGroup>
 
+  <!--
+    The request heads pinned upstream curl sent, recorded once in Surl.Protocol.Http.UnitTests
+    (its Fixtures/README.md says how) and embedded here by link, so the reader's tests read the
+    same bytes the HTTP server's tests do. Each is named Fixtures/<case>/<file>.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\Surl.Protocol.Http.UnitTests\Fixtures\default-get\*;..\Surl.Protocol.Http.UnitTests\Fixtures\head\*;..\Surl.Protocol.Http.UnitTests\Fixtures\http10\*;..\Surl.Protocol.Http.UnitTests\Fixtures\custom-header\*;..\Surl.Protocol.Http.UnitTests\Fixtures\path-as-is\*;..\Surl.Protocol.Http.UnitTests\Fixtures\query-string\*;..\Surl.Protocol.Http.UnitTests\Fixtures\two-urls\*" LogicalName="Fixtures/$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(FullPath)'))))/%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

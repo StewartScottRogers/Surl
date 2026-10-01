@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// One header field of a request head, as the client sent it (RFC 9112, section 5).

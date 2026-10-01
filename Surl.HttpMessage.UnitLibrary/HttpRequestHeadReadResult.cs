@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpMessage;
 
 /// <summary>
 /// What <see cref="HttpConnectionReader.ReadRequestHeadAsync"/> read: a request head, or the
