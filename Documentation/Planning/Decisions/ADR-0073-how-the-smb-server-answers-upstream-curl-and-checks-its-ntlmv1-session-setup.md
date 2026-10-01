@@ -17,6 +17,10 @@
   [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md) (the
   login note) and [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md)
   (limit or shutdown) are applied as written.
+- **Amended:** 2026-09-30 in BL-334, to say what BL-296 built where this ADR was silent or could
+  not be built as written: decision 1's session setup and tree connect strings, decision 4's
+  session setup out of turn, and decision 8's one note for the idle timeout and the maximum
+  duration.
 
 ## Context
 
@@ -189,6 +193,19 @@ The challenge source is a small interface in `Surl.Protocol.Smb` (BL-296), its p
 `INtlmServerChallengeSource` (ADR-0002 decision 3). A second negotiate on a connection is
 answered `ERRSRV/ERRerror`.
 
+The other two responses that carry strings, as `SmbSession` sends them (BL-296), all ASCII and
+null-terminated:
+
+| Response | Field | Value | Why |
+| --- | --- | --- | --- |
+| Session setup | `NativeOS` | empty | says nothing about the host (ADR-0006 section 3); curl reads none of the three strings |
+| Session setup | `NativeLanMan` | empty | the same |
+| Session setup | `PrimaryDomain` | `SURL` | the negotiate response's `DomainName`, so the two agree |
+| Tree connect | `Service` | `A:` | a disk share, which is what every share is (decision 2) |
+| Tree connect | `NativeFileSystem` | empty | the content store's file system is the host's, and naming it would disclose it |
+
+The tree connect's `OptionalSupport` is 0.
+
 ### 2. Shares are the content store's top-level directories
 
 The URL path curl was given is the content path, as for every other protocol:
@@ -285,6 +302,8 @@ Every refusal is a DOS-class status curl reads (`ERRDOS` 1, `ERRSRV` 2, `ERRHRD`
 | --- | --- | --- |
 | Session setup refused | `ERRSRV/ERRbadpw` `0x00020002` | 67 |
 | A request other than negotiate or session setup before a login | `ERRSRV/ERRbaduid` `0x005B0002` | (curl never does) |
+| A session setup before any negotiate, or after a login on the connection | `ERRSRV/ERRerror` `0x00010002` | (curl never does) |
+| A second negotiate on the connection (decision 1) | `ERRSRV/ERRerror` `0x00010002` | (curl never does) |
 | Unknown share (decision 2) | `ERRSRV/ERRinvnetname` `0x00060002` | 78 |
 | A TID that is not connected | `ERRSRV/ERRinvtid` `0x00050002` | |
 | File absent, hidden, refused by the path rules, a directory, or the share itself (an empty name) | `ERRDOS/ERRbadfile` `0x00020001` | 78 |
@@ -369,7 +388,14 @@ message. No note carries a response, a challenge or file data.
 | An upload past the cap | `SMB write <share>\<name> refused: past --max-filesize <m>` |
 | A command not served | `SMB command 0x<hh> refused: not supported` |
 | A message past the cap | `SMB message of <n> bytes is past --max-message <m>` |
-| A limit's close | `SMB connection closed: idle timeout`, `head timeout` or `maximum duration` |
+| The head timeout's close | `SMB connection closed: head timeout` |
+| The idle timeout's or the maximum duration's close | `SMB connection closed: idle timeout or maximum duration`, after the `ERRSRV/ERRerror` answer when a request was being answered (decision 7) |
+
+The idle timeout and the maximum duration share one note because the server cannot tell them
+apart: the engine cancels the exchange alike for both, and `ExchangeContext.IsCancelledForALimit`
+says only that a limit fired, not which. The head timeout is the server's own clock on the
+negotiate (decision 7), so its note names it. Splitting the other two would need the engine to
+say which limit fired, a change to `ExchangeContext` that no other server needs.
 
 ### 9. Help and `--aihelp`
 
