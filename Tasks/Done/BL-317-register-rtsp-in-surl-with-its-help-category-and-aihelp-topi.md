@@ -8,7 +8,7 @@ depends-on: [BL-316]
 touches: [Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Console, Surl.Console.UnitTests]
 requirement: FR-051
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-317 — Register rtsp in surl with its help category and --aihelp topic
 
@@ -37,18 +37,40 @@ category and topic.
 
 ## Acceptance criteria
 
-- [ ] A fast `CommandLineRunnerTests` test shows an `rtsp://` listen URL starts a listener with the
+- [x] A fast `CommandLineRunnerTests` test shows an `rtsp://` listen URL starts a listener with the
       RTSP server (through `FakeListenerFactory`); `--version`'s `Protocols:` line lists `rtsp`.
-- [ ] `surl --help category` lists the RTSP category; `--help <category>` lists every option the
+- [x] `surl --help category` lists the RTSP category; `--help <category>` lists every option the
       server reads; `--aihelp <topic>` answers with its `About` and example; `AiHelpTextTests`,
       `AiHelpFactsTests`, `CommandLineRunnerAiHelpTests`, `HelpTextTests` and `ManualTextTests` pass.
-- [ ] `dotnet build -warnaserror` is clean; the fast tests are green; `Measure-CodeQuality.ps1`
+- [x] `dotnet build -warnaserror` is clean; the fast tests are green; `Measure-CodeQuality.ps1`
       reports 100% line and branch coverage and no failing member in `Surl.Cli.UnitLibrary` and
       `Surl.Console`.
 
 ## Notes
 
+- Delivered the way BL-303 registered WebSocket: no plan beyond ADR-0074 decision 9, which names
+  the category, its options and the topic's content. `RtspProtocolServer` is composed in
+  `ComposeProtocolServers` with the one content store and the one `AuthenticationPolicy` (its
+  two-argument constructor, the system random source); no `ImplicitTlsSchemeServer`, since curl
+  has no `rtsps`. No new option, so `SurlCommandLine` is unchanged.
+- `rtsp` added to the categories of `--directory`, `--allow-uploads`, `--head-timeout`,
+  `--max-request-head`, `--max-filesize`, `--user`, `--user-file`, `--allow-anonymous`,
+  `--allow-plaintext-auth` and `--auth`, exactly the ADR's list; the content topic's two
+  paragraphs and the manual's `--max-request-head` line now name RTSP, and the manual has an
+  `RTSP OPTIONS` section.
+- Choice: the `listen-urls` example and the runner tests that used `rtsp` as "a scheme this build
+  does not serve" now use `ldap`, the only scheme `SchemeDefaultPorts` knows that is still
+  unregistered. Why: it keeps the example runnable and true; whichever task registers LDAP must
+  pick another unserved scheme (a scheme surl does not know is refused the same way).
+- New tests: `CommandLineRunnerRtspTests` (pinned curl 8.21.0's `OPTIONS *` answered 200 with all
+  ten methods in `Public`; with `-u` the same request is challenged 401 Digest, proving the policy
+  is wired) and `HelpTextTests.Answer_Rtsp_ListsEveryOptionTheRtspServerReads`.
+- Measured: Surl.Cli.UnitLibrary and Surl.Console 100% line and branch, 0 failing members, worst
+  CRAP 10. Fast tests all green (Cli 710, Console 386).
+- Product docs for RTSP stay with BL-319.
+
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. surl rtsp:// serves RTSP through the HTTP authentication policy; --help rtsp, --aihelp rtsp, the manual and --version list it
