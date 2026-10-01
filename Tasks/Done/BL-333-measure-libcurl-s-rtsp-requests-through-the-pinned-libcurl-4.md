@@ -52,7 +52,7 @@ proves the libcurl cases of decision 11 with expected results from upstream.
 - Contradiction found and amended (ADR-0074 Amendment 1): libcurl keeps the session ID after
   TEARDOWN and sends it on every later request, and fails 86 when a later SETUP names a new ID.
   Decision 5 now serves a torn-down ID as no session and reuses it on SETUP.
-- Filed BL-336 (re-pin BL-313/314's RFC 2326 DESCRIBE fixture, build the amended decision 5; after
+- Filed BL-337 (re-pin BL-313/314's RFC 2326 DESCRIBE fixture, build the amended decision 5; after
   BL-315 and BL-316) and added it to BL-318's `depends-on`. BL-316 is not started; its fixtures come
   from the amendment's rows.
 

@@ -1,5 +1,5 @@
 ---
-id: BL-336
+id: BL-337
 title: Re-pin RTSP fixtures to libcurl's measured requests and keep a torn-down Session usable
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-051
 created: 2026-09-30
 completed:
 ---
-# BL-336 — Re-pin RTSP fixtures to libcurl's measured requests and keep a torn-down Session usable
+# BL-337 — Re-pin RTSP fixtures to libcurl's measured requests and keep a torn-down Session usable
 
 ## Goal
 

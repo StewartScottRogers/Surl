@@ -550,6 +550,6 @@ the mate of the client as it is.
 
 **Follow-up.** BL-313 and BL-314 are done with RFC 2326 section 14's `DESCRIBE` example as their
 fixture (`Surl.Protocol.Rtsp.UnitTests/Fixtures/rfc2326-describe`), and BL-315 is in progress
-against decision 5 as first written; BL-336 re-pins the fixtures to the requests above and builds
+against decision 5 as first written; BL-337 re-pins the fixtures to the requests above and builds
 the amended decision 5, and BL-318 depends on it. BL-316, not yet started, takes its fixtures from
 the `ANNOUNCE`, `SETUP` `mode=record`, `RECORD` and `TEARDOWN` rows above.

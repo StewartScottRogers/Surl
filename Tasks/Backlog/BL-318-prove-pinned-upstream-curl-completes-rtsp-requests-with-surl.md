@@ -4,7 +4,7 @@ title: Prove pinned upstream curl completes RTSP requests with surl
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-317, BL-333, BL-336]
+depends-on: [BL-317, BL-333, BL-337]
 touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: FR-051
 created: 2026-09-30
@@ -45,7 +45,7 @@ the exit codes it expects, on Windows and Linux; on macOS they report Inconclusi
 
 - Stewart approved lanes filing follow-up tasks beyond the plan (2026-09-30, "yes extra tasks"): a
   disagreement this task finds becomes its own task rather than widening this one.
-- The libcurl cases and their expected results are ADR-0074 Amendment 1's last table (BL-333); every libcurl case sets `stream-uri:`. BL-336 builds the amended decision 5 those cases rely on.
+- The libcurl cases and their expected results are ADR-0074 Amendment 1's last table (BL-333); every libcurl case sets `stream-uri:`. BL-337 builds the amended decision 5 those cases rely on.
 
 ## Log
 
