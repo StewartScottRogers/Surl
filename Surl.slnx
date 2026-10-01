@@ -28,6 +28,7 @@
   <Folder Name="/Scripts/">
     <File Path="RunClaude.cmd" />
     <File Path="hrdrClaudeNative.cmd" />
+    <File Path="Build-OpenLdapUpstreamCurl.ps1" />
     <File Path="Measure-CodeQuality.ps1" />
     <File Path="Record-CurlExchange.ps1" />
     <File Path="RunDarkFactory.ps1" />

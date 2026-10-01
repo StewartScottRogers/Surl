@@ -250,6 +250,33 @@ public sealed class UpstreamCurlLocatorTests
     }
 
     [TestMethod]
+    [DataRow("ldap", "/opt/upstream-curl/8.21.0-openldap/curl")]
+    [DataRow("ldaps", "/opt/upstream-curl/8.21.0-openldap/curl")]
+    [DataRow("http", "/opt/upstream-curl/8.21.0/curl")]
+    public void LocateForProtocol_RealPinFileOnLinux_SelectsTheBuildItsAdrNames(string protocol, string expectedPath)
+    {
+        var fileAccess = new FakeUpstreamCurlFileAccess();
+        var pins = RealPinsWithEveryFilePresent(fileAccess, "linux-x64");
+        var locator = new UpstreamCurlLocator(fileAccess);
+
+        var location = locator.LocateForProtocol(pins, "linux-x64", protocol);
+
+        Assert.AreEqual(expectedPath, location.Build?.DefaultPath);
+    }
+
+    [TestMethod]
+    public void Locate_RealPinFileOnLinux_StillReturnsTheReferenceBuild()
+    {
+        var fileAccess = new FakeUpstreamCurlFileAccess();
+        var pins = RealPinsWithEveryFilePresent(fileAccess, "linux-x64");
+        var locator = new UpstreamCurlLocator(fileAccess);
+
+        var location = locator.Locate(pins, "linux-x64");
+
+        Assert.AreEqual("/opt/upstream-curl/8.21.0/curl", location.Build?.DefaultPath);
+    }
+
+    [TestMethod]
     public void LocateForProtocol_NullPins_ThrowsArgumentNullException()
     {
         var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
@@ -497,11 +524,14 @@ public sealed class UpstreamCurlLocatorTests
     /// Reads the repository's real <c>UpstreamCurlBuilds.json</c> and puts a distinct stand-in
     /// file at every pin's default path, re-pinning each to its stand-in's hash, so selection
     /// follows the real file's platforms, roles, protocols and order without any curl on disk.
+    /// Given a <paramref name="platform"/>, only that platform's pins are kept: the Linux and
+    /// macOS reference builds share one default path, so one stand-in cannot serve both.
     /// </summary>
-    private static List<PinnedUpstreamCurlBuild> RealPinsWithEveryFilePresent(FakeUpstreamCurlFileAccess fileAccess)
+    private static List<PinnedUpstreamCurlBuild> RealPinsWithEveryFilePresent(FakeUpstreamCurlFileAccess fileAccess, string? platform = null)
     {
         var pins = UpstreamCurlBuildPins.Parse(
-            File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamCurlBuildPins.FileName)));
+            File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamCurlBuildPins.FileName)))
+            .Where(pin => platform is null || pin.Platform == platform);
 
         return pins.Select((pin, index) =>
         {
