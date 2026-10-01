@@ -24,6 +24,30 @@ and regenerated on the same schedule as the video above.*
 by state and refreshes itself every few minutes. One card per dark factory lane joins it
 once the dark factory publishes its lane status ([ADR-0029](Documentation/Planning/Decisions/ADR-0029-the-live-task-board-page-reads-the-task-tree-and-a-board-branch-status-json.md)).*
 
+## Status: paused, 2026-10-01
+
+The dark factory is stopped and no shift is running. Work ended with the task board
+empty: all 356 tasks are Done, and nothing sits in Backlog, Doing or Blocked.
+
+Where it stands:
+
+- **Protocols.** `surl` answers every scheme listed under [What this is](#what-this-is),
+  each checked against a pinned upstream curl build (ADR-0003).
+- **Size.** 1,240 commits since 2026-09-28; 39 production libraries, each with its own
+  test project, holding about 5,100 test methods; 78 architecture decision records under
+  `Documentation/Planning/Decisions`.
+- **Gates.** CI builds and runs the fast tests on Windows, Linux and macOS, and this
+  state of `master` passed all three.
+- **Not done yet.** Phases 6 and 7 of the
+  [plan](Documentation/Product/Product-Overview.md) have not been planned onto the board:
+  HTTP/2 and HTTP/3 (HTTP is 1.0 and 1.1 today), the push of upstream curl's own test
+  cases, native publishing on every platform, and finally measuring the Curl port
+  against Surl. No release has been tagged, so there are no downloadable binaries yet
+  (see [Download](#download)).
+
+To resume, plan the next work onto the board (`/task-plan`) and start a shift
+(`RunDarkFactory.cmd -NewTab -Lanes Auto -Continuous`).
+
 ## What this is
 
 Surl ("Server URL") is the server-side mate of [curl](https://curl.se): for every request
