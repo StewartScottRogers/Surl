@@ -47,3 +47,4 @@ case BL-285's ADR lists, with the exit codes it expects, on Windows, Linux and m
 
 - 2026-09-30: Created.
 - 2026-09-30: depends-on gains BL-323 and BL-322 (BL-285, ADR-0071 decision 10: the libcurl-driven cases).
+- 2026-09-30: Backlog -> Doing.
