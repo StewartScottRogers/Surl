@@ -8,7 +8,7 @@ depends-on: [BL-311, BL-327]
 touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: FR-049
 created: 2026-09-30
-completed:
+completed: 2026-10-01
 ---
 # BL-346 — Prove pinned WinLDAP curl binds to surl ldap with Kerberos and --keytab
 
@@ -34,16 +34,25 @@ RFC 4121 layer, exiting 0 with the entry, as ADR-0072 Amendment 1 decides.
 
 ## Acceptance criteria
 
-- [ ] An Integration test in `Surl.Conformance.UnitTests` runs the pinned build with `--negotiate -u
+- [x] An Integration test in `Surl.Conformance.UnitTests` runs the pinned build with `--negotiate -u
       tester@SURL.TEST:<password> ldap://localhost:<port>/<base>?cn?base` against `surl --keytab`
       and asserts exit 0 and the entry on stdout; it is Inconclusive where ADR-0065 decision 3 says.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green; no fast test opens a socket.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green; no fast test opens a socket.
 
 ## Notes
 
 - Filed by BL-327 (ADR-0072 Amendment 1).
+- `UpstreamCurlBindsToSurlOverLdapWithKerberosTests` passed live on the lane machine (2026-10-01):
+  exit 0 with alice's entry and its `cn` on stdout. The base is alice's DN, since
+  `dc=example,dc=com` has no `cn` to print.
+- Choice: `WinLDAP`'s SPN carries the port, so the test takes a free loopback port first, starts
+  the KDC with `ldap/<Dns.GetHostName()>:<port>`, then surl on that port
+  (`SurlOnLoopback.StartOnPortAsync`, added); the small reuse race is accepted for an Integration test.
+- The `ldap` `--aihelp` topic does not mention Kerberos: filed BL-349 (Surl.Cli).
+- No other project touched.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-10-01: Backlog -> Doing.
+- 2026-10-01: Doing -> Done. Pinned WinLDAP curl binds to surl ldap --keytab with Kerberos in GSS-SPNEGO and searches over the sealed layer, exit 0, proven by an Integration test
