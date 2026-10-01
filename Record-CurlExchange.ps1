@@ -553,8 +553,12 @@
     libcurl (Libcurl), runs curl_easy_perform with CURLOPT_CONNECT_ONLY 2 on the URL, then
     one call per step. CurlArgs are its arguments: the ws:// URL, then the steps, each
     send:<FLAGS>:<payload> (FLAGS '+'-joined from TEXT, BINARY, CONT, CLOSE, PING and PONG;
-    the payload with the backslash escapes \r \n \t \0 \\ and \xHH) or recv (one
-    curl_ws_recv, waiting up to --recv-timeout <ms>, default 5000, for data). Use it with
+    the payload with the backslash escapes \r \n \t \0 \\ and \xHH), send*<count>:<FLAGS>:<payload>
+    (the payload repeated count times, for a message too long for a command line, e.g.
+    send*2097152:BINARY:a; a payload libcurl takes in part is sent on from where it stopped)
+    or recv (one curl_ws_recv, waiting up to --recv-timeout <ms>, default 5000, for data;
+    give '--recv-timeout','60000' first in CurlArgs when the recorder must read megabytes
+    before it replies). Use it with
     -Raw and a 101 carrying {WS_ACCEPT}: request.bin then holds the upgrade request and the
     masked frames, transcript.txt both directions, stdout.bin one line per call with the
     CURLcode it returned (and, for recv, the curl_ws_frame flags, offset, bytesleft and

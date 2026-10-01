@@ -17,6 +17,11 @@
 //                           BINARY, CONT, CLOSE, PING and PONG (e.g. send:TEXT+CONT:hel). The
 //                           payload takes the backslash escapes \r \n \t \0 \\ and \xHH, so a
 //                           CLOSE with code 1000 and reason bye is send:CLOSE:\x03\xE8bye.
+//                           A payload libcurl takes in part is sent on from where it
+//                           stopped, waiting out CURLE_AGAIN up to --recv-timeout.
+//   send*<count>:<FLAGS>:<payload>
+//                           the same, with the payload repeated count times, so a message
+//                           too long for a command line can be sent: send*2097152:BINARY:a.
 //   recv                    one curl_ws_recv into a 65536-byte buffer, retried on CURLE_AGAIN
 //                           until data comes or --recv-timeout (default 5000 ms) passes.
 //
@@ -113,7 +118,7 @@ internal static class LibcurlWebSocketDriver
 
             foreach (DriverStep step in arguments.Steps)
             {
-                Console.WriteLine(step.IsReceive ? await ReceiveAsync(easy, arguments.ReceiveTimeout) : Send(easy, step));
+                Console.WriteLine(step.IsReceive ? await ReceiveAsync(easy, arguments.ReceiveTimeout) : await SendAsync(easy, step, arguments.ReceiveTimeout));
             }
 
             return 0;
@@ -125,10 +130,29 @@ internal static class LibcurlWebSocketDriver
         }
     }
 
-    private static string Send(IntPtr easy, DriverStep step)
+    // A payload libcurl takes only in part is sent on from where it stopped, as curl_ws_send's
+    // documentation says, waiting out CURLE_AGAIN, until all of it is sent or a call fails.
+    private static async Task<string> SendAsync(IntPtr easy, DriverStep step, TimeSpan timeout)
     {
-        int result = Libcurl.curl_ws_send(easy, step.Payload, (nuint)step.Payload.Length, out nuint sent, 0, step.Flags);
-        return $"send {Libcurl.FlagNames(step.Flags)} {step.Payload.Length} bytes \"{Shown(step.Payload)}\": {Libcurl.Describe(result)}, sent {sent}";
+        DateTimeOffset deadline = TimeProvider.System.GetUtcNow() + timeout;
+        int offset = 0;
+        int calls = 0;
+        int result;
+        do
+        {
+            calls++;
+            result = Libcurl.curl_ws_send(easy, step.Payload[offset..], (nuint)(step.Payload.Length - offset), out nuint sent, 0, step.Flags);
+            offset += (int)sent;
+            if (result == Libcurl.ResultAgain && TimeProvider.System.GetUtcNow() < deadline)
+            {
+                await Task.Delay(20);
+                result = 0;
+            }
+        }
+        while (result == 0 && offset < step.Payload.Length);
+
+        string shown = step.Payload.Length > 64 ? $"{Shown(step.Payload[..64])}...\"" : $"{Shown(step.Payload)}\"";
+        return $"send {Libcurl.FlagNames(step.Flags)} {step.Payload.Length} bytes \"{shown}: {Libcurl.Describe(result)}, sent {offset}{(calls > 1 ? $" in {calls} calls" : string.Empty)}";
     }
 
     private static async Task<string> ReceiveAsync(IntPtr easy, TimeSpan timeout)
@@ -246,9 +270,18 @@ internal sealed record DriverArguments(string? LibraryPath, TimeSpan ReceiveTime
         }
 
         string[] parts = step.Split(':', 3);
+        int repeat = 1;
+        if (parts.Length == 3 && parts[0].StartsWith("send*", StringComparison.Ordinal))
+        {
+            repeat = int.TryParse(parts[0]["send*".Length..], out int count) && count > 0
+                ? count
+                : throw new FormatException($"step '{step}' repeats its payload a number of times that is not a positive number.");
+            parts[0] = "send";
+        }
+
         if (parts.Length != 3 || parts[0] != "send")
         {
-            throw new FormatException($"step '{step}' is neither recv nor send:<FLAGS>:<payload>.");
+            throw new FormatException($"step '{step}' is neither recv, send:<FLAGS>:<payload> nor send*<count>:<FLAGS>:<payload>.");
         }
 
         uint flags = 0;
@@ -257,7 +290,8 @@ internal sealed record DriverArguments(string? LibraryPath, TimeSpan ReceiveTime
             flags |= Libcurl.FlagValue(name) ?? throw new FormatException($"step '{step}' names flag '{name}', not TEXT, BINARY, CONT, CLOSE, PING or PONG.");
         }
 
-        return new DriverStep(false, flags, Unescape(parts[2]));
+        byte[] payload = Unescape(parts[2]);
+        return new DriverStep(false, flags, [.. Enumerable.Repeat(payload, repeat).SelectMany(bytes => bytes)]);
     }
 
     private static byte[] Unescape(string text)
