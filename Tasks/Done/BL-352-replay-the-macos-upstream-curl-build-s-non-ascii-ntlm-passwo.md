@@ -8,7 +8,7 @@ depends-on: [BL-324, BL-353]
 touches: [Surl.Authentication.UnitTests]
 requirement: FR-014
 created: 2026-10-01
-completed:
+completed: 2026-10-01
 ---
 # BL-352 — Replay the macOS upstream curl build's non-ASCII NTLM password login from CI's recording
 
@@ -39,13 +39,13 @@ recorded by CI, is committed as `Fixtures/ntlm-non-ascii-password-macos` and rep
 
 ## Acceptance criteria
 
-- [ ] `Surl.Authentication.UnitTests/Fixtures/ntlm-non-ascii-password-macos` holds the CI
+- [x] `Surl.Authentication.UnitTests/Fixtures/ntlm-non-ascii-password-macos` holds the CI
       recording, exit code `0` and stdout `ok`, documented in `Fixtures/README.md` with the
       build's path, SHA-256 and the CI run it came from.
-- [ ] `RecordedAuthenticate_NonAsciiPassword_IsAcceptedAsTheAccount` has a row for it and passes.
-- [ ] The answer's `NTProofStr` is checked against the NT hash of the widened UTF-8 password,
+- [x] `RecordedAuthenticate_NonAsciiPassword_IsAcceptedAsTheAccount` has a row for it and passes.
+- [x] The answer's `NTProofStr` is checked against the NT hash of the widened UTF-8 password,
       as the Linux recording's is, and passes.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
 
@@ -57,6 +57,15 @@ recorded by CI, is committed as `Fixtures/ntlm-non-ascii-password-macos` and rep
   `SshTestKeys` generates a DSA key, which macOS's BCL cannot do. Filed BL-353 to import a
   fixed DSA key instead, and made this task depend on it. Once BL-353 lands, any CI run (a
   pull request run is fine; the step does not need `master`) publishes the artifact.
+- 2026-10-01 (lane 2): no successful `master` run carries the artifact yet, but CI run
+  36848637228 (factory/phase-1, commit 32f41ad0, after BL-353's fix) passed macOS's fast tests,
+  recorded and published `ntlm-non-ascii-password-macos`; the run was later cancelled at its
+  conformance step by the next push. The recording steps completed, so the artifact is the
+  pinned osx-arm64 build's (CI verified its SHA-256) and was taken from that run - the
+  sensible default over waiting for a fully green run. Its request bytes, exit code `0` and
+  stdout `ok` match the Linux recording's shape; the NTLM answer differs (its own client
+  nonce and timestamp). The Linux-only proof test became a `DataRow` test,
+  `RecordedAuthenticate_LinuxAndMacOsBuilds_ProveTheNtHashOfTheWidenedUtf8Password`.
 
 ## Log
 
@@ -64,3 +73,4 @@ recorded by CI, is committed as `Fixtures/ntlm-non-ascii-password-macos` and rep
 - 2026-10-01: Backlog -> Doing.
 - 2026-10-01: Doing -> Backlog. Waits on BL-353: macOS CI fast tests fail on DSA key generation, so the recording step never runs
 - 2026-10-01: Backlog -> Doing.
+- 2026-10-01: Doing -> Done. The macOS upstream curl build's tester:pässword NTLM login from CI run 36848637228 is replayed and its NTProofStr proves the widened-UTF-8 NT hash

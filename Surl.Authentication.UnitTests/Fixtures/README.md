@@ -101,13 +101,16 @@ builds use, widens each UTF-8 byte instead (`Curl_ntlm_core_mk_nt_hash` in `lib/
 | Folder | Build | `-Port` | `-CurlArgs` | The NT hash the answer proves |
 | --- | --- | --- | --- | --- |
 | `ntlm-non-ascii-password-linux` | linux-x64 reference (`/opt/upstream-curl/8.21.0/curl`, SHA-256 `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45`) | 18325 | `'-sS','--ntlm','-u',"tester:p$([char]0xE4)ssword",'http://127.0.0.1:18325/x'` | `MD4` of the UTF-8 bytes `70 C3 A4 73 73 77 6F 72 64`, each widened to 16 bits |
+| `ntlm-non-ascii-password-macos` | osx-arm64 reference (`/opt/upstream-curl/8.21.0/curl`, SHA-256 `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF`) | 18325 | as `ntlm-non-ascii-password-linux` | as `ntlm-non-ascii-password-linux` |
 
-Recorded on 2026-10-01 (BL-324) by `pwsh` 7.6 in WSL Ubuntu 26.04 on the same Windows machine,
-with the same `-ResponsesPerConnection` and `-Response` values and `LANG=C.UTF-8`, so the
-argument reached curl as UTF-8. It exited 0 with stdout `ok`.
-`NtlmAuthenticationMethodTests.RecordedAuthenticate_LinuxBuild_ProvesTheNtHashOfTheWidenedUtf8Password`
-checks the answer's `NTProofStr` against that hash. The macOS build is recorded in CI (BL-324's
-follow-up).
+The Linux folder was recorded on 2026-10-01 (BL-324) by `pwsh` 7.6 in WSL Ubuntu 26.04 on the
+same Windows machine, with the same `-ResponsesPerConnection` and `-Response` values and
+`LANG=C.UTF-8`, so the argument reached curl as UTF-8. The macOS folder is the artifact
+`ntlm-non-ascii-password-macos` that the macOS leg of `.github/workflows/ci.yml` recorded on
+2026-10-01 in CI run https://github.com/StewartScottRogers/Surl/actions/runs/36848637228
+(commit 32f41ad0), committed as downloaded (BL-352). Both exited 0 with stdout `ok`.
+`NtlmAuthenticationMethodTests.RecordedAuthenticate_LinuxAndMacOsBuilds_ProveTheNtHashOfTheWidenedUtf8Password`
+checks each answer's `NTProofStr` against that hash.
 
 ## Negotiate (BL-121)
 
