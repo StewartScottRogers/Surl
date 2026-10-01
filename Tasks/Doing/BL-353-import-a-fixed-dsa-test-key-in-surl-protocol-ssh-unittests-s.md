@@ -43,3 +43,4 @@ fixed parameters instead of generated, because macOS's BCL cannot generate DSA k
 ## Log
 
 - 2026-10-01: Created.
+- 2026-10-01: Backlog -> Doing.
