@@ -37,6 +37,11 @@ ADR-0071 decision 6 states the close codes surl accepts from a client exactly as
 
 ## Notes
 
+- Added ADR-0071 Amendment 2 and corrected decision 6's two `CLOSE` rows: the echoed set is now
+  1000-1003, 1007-1014 and 3000-4999; the refused set lists 1015 to 2999 and 5000 and above,
+  which `IsAllowedOnTheWire` also refuses. Docs only, no code change; build clean, fast tests
+  green.
+
 ## Log
 
 - 2026-09-30: Created.
