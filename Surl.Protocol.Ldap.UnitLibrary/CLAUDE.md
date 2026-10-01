@@ -13,6 +13,17 @@ message limit, `LdapMessageDecoder` (with `LdapFilterDecoder` and `LdapBerFieldR
 decodes it into an `LdapMessage` or an `LdapDecodeOutcome` carrying the message ID, and
 `LdapMessageEncoder` writes the responses. All of it uses the BCL's `System.Formats.Asn1`.
 
+Beside it is the directory (BL-306, ADR-0072 decision 1), internal too: `LdapDirectory`
+holds `LdapEntry`s in their source's order, enforces the bounds (refusing a list it cannot
+hold with an `LdapDirectoryException` naming the `LdapDirectoryFault` and the entry), and
+answers an `LdapSearchRequest` with an `LdapSearchOutcome` - base, one-level and subtree
+scopes, the root DSE for the empty base (`LdapRootDseFacts` carry the per-connection
+part), `noSuchObject` with the nearest superior, the size and time limits.
+`LdapDistinguishedName` parses RFC 4514 DNs (`LdapDistinguishedNameParser`) and compares
+them in normal form; `LdapMatchingRules` picks and applies each type's RFC 4517 rule;
+`LdapFilterEvaluator` evaluates filters three-valued; `LdapAttributeSelection` picks the
+attributes returned.
+
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
 else. Referencing another protocol server is a
