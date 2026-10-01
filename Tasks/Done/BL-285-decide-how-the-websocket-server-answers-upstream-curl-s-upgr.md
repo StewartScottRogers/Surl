@@ -8,7 +8,7 @@ depends-on: [BL-281]
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: FR-048
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-285 — Decide how the WebSocket server answers upstream curl's upgrade and frames
 
@@ -83,18 +83,35 @@ built without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
       Stewart's delegation", records each measurement (build path, SHA-256, arguments, date,
       transcript excerpt) and decides every point in Context, including the libcurl question.
-- [ ] It lists the curl 8.21.0 cases the WebSocket conformance task must prove, with the expected
+- [x] It lists the curl 8.21.0 cases the WebSocket conformance task must prove, with the expected
       exit code for each.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help; if `libcurl-4.dll` is to be
       pinned, the pin and measurement tasks exist on the board and BL-304 depends on them.
 
 ## Notes
 
+- Delivered by the session itself rather than `align-and-document`: the decision rests on 54
+  measurements made in this run, and writing the ADR beside them kept every number first-hand.
+- `Record-CurlExchange.ps1 -Raw` gained `{WS_ACCEPT}` in a reply (the accept value of the last
+  `Sec-WebSocket-Key` curl sent), documented under `-RawReply`. A whole `-WebSocket` mode was
+  not needed: `-Raw`'s burst-by-burst replies already script a 101 and frames and record curl's
+  `PONG`.
+- Surprises measured: 8.21.0 ignores `Sec-WebSocket-Accept`; writes `CLOSE` and `PONG` payloads
+  to stdout (so surl ends a download with an empty `CLOSE`); never answers a `CLOSE` and waits
+  for the TCP close; refuses every `401` with 22 (only Basic, Bearer, SigV4 sent unasked log in).
+- Decided: pin `libcurl-4.dll` (already on disk, no download). Filed BL-321 (pin and driver,
+  feature) and BL-322 (measure and amend ADR-0071, docs); BL-304 now depends on both.
+- Decided a new option `--ws-echo` (echo server for libcurl clients), built by BL-302, registered
+  by BL-303 - both already say "as the ADR decides".
+- Not measured: the Linux and macOS builds (lane runs Windows), and a server half-close after
+  `CLOSE` (the recorder closes fully); ADR-0071 says BL-304 proves both.
+
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0071 decides, from 54 measurements of pinned curl 8.21.0, every byte the WebSocket server sends; Record-CurlExchange.ps1 -Raw answers an upgrade via {WS_ACCEPT}; libcurl pin filed as BL-321/BL-322
