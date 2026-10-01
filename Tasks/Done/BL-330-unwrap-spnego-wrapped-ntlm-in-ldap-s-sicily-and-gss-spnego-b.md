@@ -64,7 +64,7 @@ message.
   not (`058288E2`); root DSE listing `GSS-SPNEGO`+`NTLM`, `NTLM` only, or nothing; `127.0.0.1` and
   `localhost`. Every Sicily `[10]`/`[11]` and every `GSS-SPNEGO` credential was bare `NTLMSSP`,
   including the version 2 Sicily retry after a failed sealed bind. ADR-0072's "the reconnect sent
-  SPNEGO here" did not reproduce; BL-335 corrects the ADR. No new fixture was committed: the
+  SPNEGO here" did not reproduce; BL-336 corrects the ADR. No new fixture was committed: the
   recordings add nothing to BL-329's.
 - Decision (taken under Stewart's delegation): serve SPNEGO-wrapped NTLM anyway, as ADR-0072
   decision 4's rows say and "nothing is left out" asks, tested like HTTP Negotiate's SPNEGO
@@ -83,7 +83,7 @@ message.
   The server sends its own `mechListMIC` only when the client sent one.
 - `SpnegoToken.ReadNegTokenResp` now returns `SpnegoNegTokenResp` (response token and
   `mechListMIC`); HTTP Negotiate still ignores the MIC, unchanged.
-- No ADR written here: BL-268 (Doing) touches `Documentation/Planning/Decisions`. Filed BL-335
+- No ADR written here: BL-268 (Doing) touches `Documentation/Planning/Decisions`. Filed BL-336
   (docs, depends on BL-330) to correct ADR-0072 and record these decisions.
 - `Measure-CodeQuality.ps1 -Library Surl.Authentication.UnitLibrary`: 100% line, 100% branch,
   469 members, 0 failing, worst CRAP 10. Authentication tests: 905 (was 885).

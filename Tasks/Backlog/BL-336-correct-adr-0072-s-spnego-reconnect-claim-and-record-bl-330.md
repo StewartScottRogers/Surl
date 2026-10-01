@@ -1,5 +1,5 @@
 ---
-id: BL-335
+id: BL-336
 title: Correct ADR-0072's SPNEGO reconnect claim and record BL-330's mechListMIC decisions
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-049
 created: 2026-09-30
 completed:
 ---
-# BL-335 — Correct ADR-0072's SPNEGO reconnect claim and record BL-330's mechListMIC decisions
+# BL-336 — Correct ADR-0072's SPNEGO reconnect claim and record BL-330's mechListMIC decisions
 
 ## Goal
 
