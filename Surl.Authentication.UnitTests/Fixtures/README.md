@@ -189,3 +189,25 @@ Both exited 39 (`LDAP remote: Server Down`): the recorder cannot unseal and clos
 `WinLDAP`'s reconnect found no server it could use. `LdapNtlmSaslMechanismTests` replays both
 binds with the fixed challenge and unseals each buffer to the base search of ADR-0072's
 simple-bind transcript.
+
+## LDAP DIGEST-MD5 (BL-326)
+
+Recorded on 2026-09-30 with the win-x64 reference build and `Record-CurlExchange.ps1 -Ldap`,
+`-Port 18326 -CurlTimeoutMilliseconds 20000`, two `-LdapEntry` values - the root DSE
+`dn: \nsupportedSASLMechanisms: DIGEST-MD5` and
+`dn: cn=alice,dc=example,dc=com\nobjectClass: person\ncn: alice` - and `-LdapReply`
+`"BIND=14||<challenge hex>"`, `'BIND=0'`, where `<challenge>` is Surl's LDAP challenge over the
+fixed nonce (ADR-0072 decision 4):
+`realm="surl",nonce="MDEyMzQ1Njc4OWFiY2RlZg==",qop="auth,auth-int,auth-conf",cipher="3des,rc4",maxbuf=65536,charset=utf-8,algorithm=md5-sess`.
+`-CurlArgs` were `'-sS','--digest','-u','alice:secret','ldap://127.0.0.1:18326/dc=example,dc=com'`.
+
+| Folder | What it shows |
+| --- | --- |
+| `ldap-digest-md5` | `WinLDAP` opens the bind with empty credentials, then answers the challenge with `qop=auth-conf,cipher=3des`, `realm=""`, `digest-uri="ldap/127.0.0.1"` and `response=a5161e5d54e3950512ceb4bd61f5a564` |
+
+curl exited 38 (`bind via ldap_win_bind Protocol Error`): the recorder's success carried no
+`rspauth`, and it cannot compute one, since it does not know the password. The response and the
+`rspauth` it calls for (`317c080c54526d1d62d9f392f87cf69a`) and `H(A1)`
+(`68d9795fbde795dac0fdfdbd4461a106`) were checked with PowerShell's MD5 alone when recorded.
+`LdapDigestMd5SaslMechanismTests` replays the bind, and checks the 3DES, RC4 and integrity
+layers against RFC 2831 sections 2.3 and 2.4's layout computed in the test.

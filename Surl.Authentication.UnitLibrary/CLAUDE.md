@@ -12,7 +12,7 @@ MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`
 verified TLS client certificate's subject simple name and is offered only on a connection that
 has one) and POP3 `APOP` (ADR-0049), SSH password and public-key logins (ADR-0051), and
 Kerberos inside Negotiate once `--keytab` is given (ADR-0057 decision 8, ADR-0064). Not here
-yet: `Proxy-Authenticate`, the logins of servers not yet built (FTP, SMB), and LDAP's SPNEGO-wrapped NTLM and `DIGEST-MD5` layers. Anything time-dependent (the
+yet: `Proxy-Authenticate`, the logins of servers not yet built (FTP, SMB), and LDAP's SPNEGO-wrapped NTLM. Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.
 
@@ -248,3 +248,25 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - An SPNEGO-wrapped token is not unwrapped here yet (filed as a follow-up task).
 - The tests replay `Fixtures/ldap-ntlm-sealed` and `Fixtures/ldap-negotiate-sealed`, unsealing
   `WinLDAP`'s first buffer to the base search, and check [MS-NLMP] section 4.2.4.4's example.
+
+## LDAP's DIGEST-MD5 bind and its security layers (BL-326)
+
+- `DigestMd5SaslExchange` started with `CanCarrySecurityLayer` sends ADR-0072 decision 4's
+  challenge (`qop="auth,auth-int,auth-conf",cipher="3des,rc4",maxbuf=65536`), answers an empty
+  initial response (as `WinLDAP` opens the bind) with it as it would none, and accepts a match at
+  once: `rspauth=<hex>` is the accepting step's `SaslLoginStep.AdditionalSuccessData`
+  (Abstractions), which the LDAP server sends as `serverSaslCreds`. The mail exchange, its
+  challenge and its `rspauth` continuation are unchanged.
+- `DigestMd5Response` reads `cipher`; `Answers(nonce, offersSecurityLayers)` takes `auth-int`, and
+  `auth-conf` with `3des` or `rc4`, only where the LDAP challenge offered them.
+  `DigestMd5Calculation` appends `:00000000000000000000000000000000` to `A2` for both and gives
+  `H(A1)` (`ComputeSessionKey`).
+- `DigestMd5SecurityLayer` (`ISaslSecurityLayer`) is RFC 2831 sections 2.3 and 2.4:
+  per-direction `Ki` and `Kc`, the 10-byte HMAC-MD5 MAC, message type 1 and a big-endian sequence
+  number from 0, the message in clear (`auth-int`) or encrypted with its MAC (`auth-conf`): RC4
+  kept running, or two-key 3DES-CBC (the BCL's `TripleDES`, keyed K1 K2 K1) with its IV from the
+  key and chained across messages and 1 to 8 padding bytes. `qop=auth` has no layer.
+  `ForInitiator` is the client's mirror, which the tests play.
+- Never unchecked: under `--allow-anonymous` a user with no account is refused with
+  `NtlmSaslExchange.SecurityLayerNeedsPasswordNote`, and a known user is checked as usual.
+- The tests replay `Fixtures/ldap-digest-md5` and compute RFC 2831's layout themselves.
