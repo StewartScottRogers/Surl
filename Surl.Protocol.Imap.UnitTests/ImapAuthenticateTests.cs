@@ -20,7 +20,7 @@ public sealed class ImapAuthenticateTests
     public async Task ServeAsync_AuthenticateAccepted_WritesTheNoteAndLogsTheAccountIn()
     {
         var log = new RecordingExchangeLog();
-        var policy = Policy(ScriptedLoginPolicy.Challenge([]), ScriptedLoginPolicy.Ended(MailLoginOutcome.Accepted, AcceptedLogin));
+        var policy = Policy(ScriptedLoginPolicy.Challenge([]), ScriptedLoginPolicy.Ended(SaslLoginOutcome.Accepted, AcceptedLogin));
 
         var (responses, store) = await ServeAsync(policy, "a AUTHENTICATE plain\r\nAHUAcA==\r\nb SELECT INBOX\r\n", log);
 
@@ -38,7 +38,7 @@ public sealed class ImapAuthenticateTests
     [TestMethod]
     public async Task ServeAsync_AuthenticateWithAnInitialResponse_HandsItToTheExchange()
     {
-        var policy = Policy(ScriptedLoginPolicy.Ended(MailLoginOutcome.AcceptedUnchecked));
+        var policy = Policy(ScriptedLoginPolicy.Ended(SaslLoginOutcome.AcceptedUnchecked));
 
         var (responses, _) = await ServeAsync(policy, "a AUTHENTICATE PLAIN AHUAcA==\r\nb AUTHENTICATE PLAIN =\r\n");
 
@@ -49,7 +49,7 @@ public sealed class ImapAuthenticateTests
     [TestMethod]
     public async Task ServeAsync_AuthenticateWithAnEmptyInitialResponse_HandsAnEmptyOneToTheExchange()
     {
-        var policy = Policy(ScriptedLoginPolicy.Ended(MailLoginOutcome.Accepted));
+        var policy = Policy(ScriptedLoginPolicy.Ended(SaslLoginOutcome.Accepted));
 
         var (responses, _) = await ServeAsync(policy, "a AUTHENTICATE EXTERNAL =\r\n");
 
@@ -63,7 +63,7 @@ public sealed class ImapAuthenticateTests
     public async Task ServeAsync_AuthenticateRefused_WritesTheNoteAndStaysLoggedOut()
     {
         var log = new RecordingExchangeLog();
-        var policy = Policy(ScriptedLoginPolicy.Ended(MailLoginOutcome.RefusedCredentials, RefusedLogin));
+        var policy = Policy(ScriptedLoginPolicy.Ended(SaslLoginOutcome.RefusedCredentials, RefusedLogin));
 
         var (responses, _) = await ServeAsync(policy, "a AUTHENTICATE PLAIN AHUAeA==\r\nb SELECT INBOX\r\n", log);
 
@@ -78,7 +78,7 @@ public sealed class ImapAuthenticateTests
     {
         var log = new RecordingExchangeLog();
         var policy = Policy(
-            ScriptedLoginPolicy.Ended(MailLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" });
+            ScriptedLoginPolicy.Ended(SaslLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" });
 
         var (responses, _) = await ServeAsync(policy, "a AUTHENTICATE GSSAPI YQ==\r\n", log);
 
@@ -87,9 +87,9 @@ public sealed class ImapAuthenticateTests
     }
 
     [TestMethod]
-    [DataRow(MailLoginOutcome.RefusedPlaintext, "a NO [PRIVACYREQUIRED] Encryption required")]
-    [DataRow(MailLoginOutcome.RefusedMechanism, "a NO Unsupported authentication mechanism")]
-    public async Task ServeAsync_AuthenticateRefusedWithoutACheck_AnswersInImapWords(MailLoginOutcome outcome, string expected)
+    [DataRow(SaslLoginOutcome.RefusedPlaintext, "a NO [PRIVACYREQUIRED] Encryption required")]
+    [DataRow(SaslLoginOutcome.RefusedMechanism, "a NO Unsupported authentication mechanism")]
+    public async Task ServeAsync_AuthenticateRefusedWithoutACheck_AnswersInImapWords(SaslLoginOutcome outcome, string expected)
     {
         var log = new RecordingExchangeLog();
         var policy = Policy(ScriptedLoginPolicy.Ended(outcome));
@@ -106,7 +106,7 @@ public sealed class ImapAuthenticateTests
         var log = new RecordingExchangeLog();
         var policy = Policy(
             ScriptedLoginPolicy.Challenge("{\"status\":\"invalid_token\"}"u8.ToArray(), RefusedLogin),
-            ScriptedLoginPolicy.Ended(MailLoginOutcome.RefusedCredentials));
+            ScriptedLoginPolicy.Ended(SaslLoginOutcome.RefusedCredentials));
 
         var (responses, _) = await ServeAsync(policy, "a AUTHENTICATE OAUTHBEARER bixhPXUsAQE=\r\nAQ==\r\n", log);
 
@@ -169,7 +169,7 @@ public sealed class ImapAuthenticateTests
     public async Task ServeAsync_AuthenticateOverTls_HandsTheTlsSessionToTheExchange()
     {
         var clock = new ManualTimeProvider();
-        var policy = Policy(ScriptedLoginPolicy.Ended(MailLoginOutcome.Accepted));
+        var policy = Policy(ScriptedLoginPolicy.Ended(SaslLoginOutcome.Accepted));
         var connection = new InMemoryConnection(Bytes("a AUTHENTICATE PLAIN AHUAcA==\r\n"), initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
 
         await Server(AnonymousStore(clock), policy).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
@@ -220,7 +220,7 @@ public sealed class ImapAuthenticateTests
         Assert.AreEqual("+ \r\n", responses);
     }
 
-    private static ScriptedLoginPolicy Policy(params MailLoginStep[] steps) => new() { SaslMechanisms = [], Steps = steps };
+    private static ScriptedLoginPolicy Policy(params SaslLoginStep[] steps) => new() { SaslMechanisms = [], Steps = steps };
 
     private async Task<(string Responses, Surl.MailStore.MailboxStore Store)> ServeAsync(ScriptedLoginPolicy policy, string request, IExchangeLog? log = null)
     {

@@ -41,13 +41,18 @@ What it holds:
   (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request
   proceed, and is the test double protocol tests share.
-- The mail login contract (ADR-0049, section 6), beside `IAuthenticationPolicy`:
-  `IMailAuthenticationPolicy` (the `MailLoginOffer` a mail server advertises, one
-  `ISaslExchange` per `AUTH`/`AUTHENTICATE` started from a `SaslExchangeStart`, and POP3's
-  `ApopLogin`), each step a `MailLoginStep` with its `MailLoginOutcome`. The server owns the
-  base64 framing; the policy owns every mechanism. `AnonymousAuthenticationPolicy` implements
-  it too: it offers `PLAIN` and the clear-password login, and ends every exchange
-  `AcceptedUnchecked` in the fewest steps (the initial response, or one empty challenge).
+- The SASL login contract (ADR-0049, section 6, made protocol-neutral by ADR-0072 decision
+  4), beside `IAuthenticationPolicy`: `ISaslAuthenticationPolicy` (the mechanisms a
+  connection offers, asked with a `SaslOfferRequest`, and one `ISaslExchange` per login
+  started from a `SaslExchangeStart`), each step a `SaslLoginStep` with its
+  `SaslLoginOutcome`, and an accepted step's `ISaslSecurityLayer` when the server said it
+  `CanCarrySecurityLayer` and the mechanism negotiated one. `IMailAuthenticationPolicy`
+  extends it with the mail-only members: the `MailLoginOffer` a mail server advertises and
+  POP3's `ApopLogin`. The server owns the framing (base64, and the security layer's 4-byte
+  lengths); the policy owns every mechanism. `AnonymousAuthenticationPolicy` implements it
+  too: it offers `PLAIN` and the clear-password login, and ends every exchange
+  `AcceptedUnchecked`, with no security layer, in the fewest steps (the initial response, or
+  one empty challenge).
 - The SSH login contract (ADR-0051, section 7), beside `IAuthenticationPolicy`:
   `ISshAuthenticationPolicy` judges an `SshNoneLogin`, an `SshPasswordLogin` (`password` or
   `keyboard-interactive`) and an `SshPublicKeyLogin` (with its `SshPublicKeyProof`: a query,

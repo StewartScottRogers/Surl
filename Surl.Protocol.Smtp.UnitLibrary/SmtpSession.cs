@@ -419,9 +419,9 @@ internal sealed class SmtpSession
                 context.Log.Note(refusalNote);
             }
 
-            if (step.Outcome != MailLoginOutcome.Challenge)
+            if (step.Outcome != SaslLoginOutcome.Challenge)
             {
-                isLoggedIn = step.Outcome is MailLoginOutcome.Accepted or MailLoginOutcome.AcceptedUnchecked;
+                isLoggedIn = step.Outcome is SaslLoginOutcome.Accepted or SaslLoginOutcome.AcceptedUnchecked;
                 return await ReplyAsync(SmtpReplies.LoginEnded(step.Outcome));
             }
 

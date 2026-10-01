@@ -6,9 +6,10 @@ namespace Surl.Protocol.Abstractions;
 /// section 6; ADR-0051, section 7): every password login is
 /// <see cref="PasswordLoginVerdict.AcceptedUnchecked"/>, every HTTP request
 /// <see cref="HttpAuthenticationOutcome.Proceed"/>s with no <c>WWW-Authenticate</c> values and
-/// no account, and every mail login ends <see cref="MailLoginOutcome.AcceptedUnchecked"/> - the
-/// behaviour of <c>--allow-anonymous</c>. A mail server is offered <c>PLAIN</c> and the
-/// clear-password login but not <c>APOP</c>, and any SASL mechanism is accepted on its initial
+/// no account, and every SASL login ends <see cref="SaslLoginOutcome.AcceptedUnchecked"/>, with no
+/// security layer - the behaviour of <c>--allow-anonymous</c>. Every scheme is offered the SASL
+/// mechanism <c>PLAIN</c> alone, a mail server the clear-password login too but not <c>APOP</c>,
+/// and any SASL mechanism is accepted on its initial
 /// response, or on whatever answers one empty challenge when none was sent. Every SSH
 /// <c>none</c>, password and signed public-key login is
 /// <see cref="SshLoginOutcome.AcceptedUnchecked"/> and every public-key query
@@ -28,11 +29,11 @@ public sealed class AnonymousAuthenticationPolicy :
 
     private static readonly MailLoginOffer PlainAndClearPasswordOffer = new(["PLAIN"], true, false);
 
-    private static readonly MailLoginStep AcceptUnchecked =
-        new(MailLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
+    private static readonly SaslLoginStep AcceptUnchecked =
+        new(SaslLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
 
-    private static readonly MailLoginStep ChallengeEmpty =
-        new(MailLoginOutcome.Challenge, ReadOnlyMemory<byte>.Empty, null, null);
+    private static readonly SaslLoginStep ChallengeEmpty =
+        new(SaslLoginOutcome.Challenge, ReadOnlyMemory<byte>.Empty, null, null);
 
     private readonly AnonymousHttpAuthenticationSession session = new();
 
@@ -53,6 +54,14 @@ public sealed class AnonymousAuthenticationPolicy :
     public MailLoginOffer GetMailLoginOffer(TlsSession? tlsSession) => PlainAndClearPasswordOffer;
 
     /// <inheritdoc/>
+    public IReadOnlyList<string> GetSaslMechanisms(SaslOfferRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return PlainAndClearPasswordOffer.SaslMechanisms;
+    }
+
+    /// <inheritdoc/>
     public ISaslExchange StartSaslExchange(SaslExchangeStart start)
     {
         ArgumentNullException.ThrowIfNull(start);
@@ -61,7 +70,7 @@ public sealed class AnonymousAuthenticationPolicy :
     }
 
     /// <inheritdoc/>
-    public ValueTask<MailLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
+    public ValueTask<SaslLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(login);
         cancellationToken.ThrowIfCancellationRequested();
@@ -114,7 +123,7 @@ public sealed class AnonymousAuthenticationPolicy :
         private bool isBegun;
         private bool isAwaitingResponse;
 
-        public ValueTask<MailLoginStep> BeginAsync(CancellationToken cancellationToken)
+        public ValueTask<SaslLoginStep> BeginAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (isBegun)
@@ -127,7 +136,7 @@ public sealed class AnonymousAuthenticationPolicy :
             return ValueTask.FromResult(hasInitialResponse ? AcceptUnchecked : ChallengeEmpty);
         }
 
-        public ValueTask<MailLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
+        public ValueTask<SaslLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!isAwaitingResponse)

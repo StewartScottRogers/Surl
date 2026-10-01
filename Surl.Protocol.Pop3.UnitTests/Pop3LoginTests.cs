@@ -206,7 +206,7 @@ public sealed class Pop3LoginTests
     public async Task ServeAsync_StlsApopAndAuthWithNothingOffered_AreRefused()
     {
         var clock = new ManualTimeProvider();
-        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.RefusedMechanism)] };
+        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(SaslLoginOutcome.RefusedMechanism)] };
 
         var connection = await ServeAsync(AccountStore(clock), "STLS\r\nAPOP u d\r\nAUTH\r\nAUTH PLAIN\r\n", clock, TestContext.CancellationToken, policy);
 

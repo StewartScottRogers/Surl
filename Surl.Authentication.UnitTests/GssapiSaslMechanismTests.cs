@@ -67,9 +67,9 @@ public sealed class GssapiSaslMechanismTests
         policy.StartSaslExchange(new SaslExchangeStart(
             scheme, "GSSAPI", initialResponse is null ? null : (ReadOnlyMemory<byte>?)initialResponse, null));
 
-    private static void AssertWrappedOffer(MailLoginStep step)
+    private static void AssertWrappedOffer(SaslLoginStep step)
     {
-        Assert.AreEqual(MailLoginOutcome.Challenge, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Challenge, step.Outcome);
         var token = step.Challenge.ToArray();
         CollectionAssert.AreEqual(new byte[] { 0x05, 0x04, 0x01, 0xFF }, token[..4], "an RFC 4121 wrap token sent by the acceptor, unsealed");
         CollectionAssert.AreEqual(new byte[] { 0x01, 0x00, 0x00, 0x00 }, token[16..20], "no security layer, no maximum size");
@@ -92,14 +92,14 @@ public sealed class GssapiSaslMechanismTests
             Client(ticket).WrapSigned(Choice(), ClientSequenceNumber));
 
         Assert.HasCount(3, steps);
-        Assert.AreEqual(MailLoginOutcome.Challenge, steps[0].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Challenge, steps[0].Outcome);
         var apReply = steps[0].Challenge.ToArray();
         var afterOid = apReply.AsSpan().IndexOf(KerberosOid) + KerberosOid.Length;
         Assert.AreEqual(0x60, apReply[0]);
         CollectionAssert.AreEqual(new byte[] { 0x02, 0x00 }, apReply[afterOid..(afterOid + 2)], "the AP-REP's TOK_ID after the Kerberos OID");
         AssertWrappedOffer(steps[1]);
         Assert.AreEqual(
-            new MailLoginStep(MailLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, Principal, new CheckedLogin("GSSAPI", Principal, true)),
+            new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, Principal, new CheckedLogin("GSSAPI", Principal, true)),
             steps[2]);
         Assert.IsTrue(steps.All(step => step.RefusalNote is null), "an accepted login carries no refusal note");
     }
@@ -115,9 +115,9 @@ public sealed class GssapiSaslMechanismTests
             Client(ticket).WrapSealed(Choice(authzid: Principal), ClientSequenceNumber, rightRotationCount: 5));
 
         Assert.HasCount(3, steps);
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.Challenge, ReadOnlyMemory<byte>.Empty, null, null), steps[0]);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.Challenge, ReadOnlyMemory<byte>.Empty, null, null), steps[0]);
         AssertWrappedOffer(steps[1]);
-        Assert.AreEqual(MailLoginOutcome.Accepted, steps[2].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, steps[2].Outcome);
         Assert.AreEqual("Login accepted: GSSAPI user@EXAMPLE.COM", steps[2].CheckedLogin?.Note);
     }
 
@@ -133,7 +133,7 @@ public sealed class GssapiSaslMechanismTests
         Assert.IsFalse(pending.IsCompleted, "a refused ticket waits the refusal delay");
         clock.Advance(AuthenticationPolicy.RefusalDelay);
         Assert.AreEqual(
-            new MailLoginStep(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("GSSAPI", null, false), "Kerberos: integrity check failed"),
+            new SaslLoginStep(SaslLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("GSSAPI", null, false), "Kerberos: integrity check failed"),
             await pending);
     }
 
@@ -148,7 +148,7 @@ public sealed class GssapiSaslMechanismTests
         Assert.IsFalse(pending.IsCompleted);
         clock.Advance(AuthenticationPolicy.RefusalDelay);
         var refusal = await pending;
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, refusal.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, refusal.Outcome);
         Assert.AreEqual("Kerberos: ticket expired", refusal.RefusalNote);
     }
 
@@ -161,10 +161,10 @@ public sealed class GssapiSaslMechanismTests
 
         var pending = Start(policy, "smtp", token).BeginAsync(CancellationToken.None);
 
-        Assert.AreEqual(MailLoginOutcome.Challenge, first[0].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Challenge, first[0].Outcome);
         Assert.IsFalse(pending.IsCompleted);
         clock.Advance(AuthenticationPolicy.RefusalDelay);
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, (await pending).Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, (await pending).Outcome);
     }
 
     [TestMethod]
@@ -173,7 +173,7 @@ public sealed class GssapiSaslMechanismTests
         var steps = await runner.RunAsync(Start(Policy(), "smtp", Ticket().Build()), new byte[] { 0x00 });
 
         Assert.AreEqual(
-            new MailLoginStep(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("GSSAPI", Principal, false)),
+            new SaslLoginStep(SaslLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("GSSAPI", Principal, false)),
             steps[^1]);
     }
 
@@ -189,7 +189,7 @@ public sealed class GssapiSaslMechanismTests
             Start(Policy(allowAnonymous: true), "smtp", ticket.Build()), NoBytes, Client(ticket).WrapSigned(Choice((byte)layer), ClientSequenceNumber));
 
         Assert.AreEqual(new CheckedLogin("GSSAPI", Principal, false), steps[^1].CheckedLogin);
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, steps[^1].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, steps[^1].Outcome);
     }
 
     [TestMethod]
@@ -200,7 +200,7 @@ public sealed class GssapiSaslMechanismTests
         var steps = await runner.RunAsync(
             Start(Policy(), "smtp", ticket.Build()), NoBytes, Client(ticket).WrapSigned([0x01, 0x00, 0x00], ClientSequenceNumber));
 
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, steps[^1].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, steps[^1].Outcome);
     }
 
     [TestMethod]
@@ -213,7 +213,7 @@ public sealed class GssapiSaslMechanismTests
 
         var steps = await runner.RunAsync(Start(Policy(allowAnonymous: true), "smtp", ticket.Build()), NoBytes, token);
 
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, steps[^1].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, steps[^1].Outcome);
     }
 
     [TestMethod]
@@ -230,7 +230,7 @@ public sealed class GssapiSaslMechanismTests
         Assert.IsFalse(pending.IsCompleted);
         clock.Advance(AuthenticationPolicy.RefusalDelay);
         Assert.AreEqual(
-            new MailLoginStep(MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("GSSAPI", Principal, false)),
+            new SaslLoginStep(SaslLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("GSSAPI", Principal, false)),
             await pending);
     }
 
@@ -243,7 +243,7 @@ public sealed class GssapiSaslMechanismTests
             Start(Policy(accountName: "user"), "smtp", ticket.Build()), NoBytes, Client(ticket).WrapSigned(Choice(), ClientSequenceNumber));
 
         Assert.AreEqual(new CheckedLogin("GSSAPI", Principal, false), steps[^1].CheckedLogin);
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, steps[^1].Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, steps[^1].Outcome);
     }
 
     [TestMethod]
@@ -258,7 +258,7 @@ public sealed class GssapiSaslMechanismTests
 
         Assert.HasCount(3, steps);
         AssertWrappedOffer(steps[1]);
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null), steps[2]);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null), steps[2]);
     }
 
     [TestMethod]
@@ -267,6 +267,16 @@ public sealed class GssapiSaslMechanismTests
         var offer = Policy().GetMailLoginOffer(null);
 
         CollectionAssert.AreEqual(new[] { "GSSAPI", "DIGEST-MD5" }, offer.SaslMechanisms.ToArray());
+    }
+
+    [TestMethod]
+    public void GetSaslMechanisms_LdapWithGssapiAndNegotiateAccepted_ListsGssSpnegoAfterGssapi()
+    {
+        var policy = Policy(acceptedMethods: new HashSet<AuthenticationMethod>(GssapiAndDigestMd5) { AuthenticationMethod.Negotiate });
+
+        var mechanisms = policy.GetSaslMechanisms(new SaslOfferRequest("ldap", null));
+
+        CollectionAssert.AreEqual(new[] { "GSSAPI", "GSS-SPNEGO", "DIGEST-MD5" }, mechanisms.ToArray());
     }
 
     [TestMethod]
@@ -283,7 +293,7 @@ public sealed class GssapiSaslMechanismTests
 
         CollectionAssert.AreEqual(new[] { "DIGEST-MD5" }, policy.GetMailLoginOffer(null).SaslMechanisms.ToArray());
         Assert.IsTrue(step.IsCompleted);
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null), await step);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null), await step);
     }
 
     private sealed class ZeroKerberosRandomSource : IKerberosRandomSource

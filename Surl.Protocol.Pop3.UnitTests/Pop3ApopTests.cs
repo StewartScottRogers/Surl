@@ -46,7 +46,7 @@ public sealed class Pop3ApopTests
         var policy = new Pop3TestPolicy
         {
             IsApopOffered = true,
-            Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.Accepted, new CheckedLogin("APOP", "u", true))],
+            Steps = [Pop3TestPolicy.Ended(SaslLoginOutcome.Accepted, new CheckedLogin("APOP", "u", true))],
         };
 
         var connection = await ServeAsync(AccountStore(clock, Message), "APOP u 0123abcd\r\nSTAT\r\n", clock, TestContext.CancellationToken, policy, log: log);
@@ -62,11 +62,11 @@ public sealed class Pop3ApopTests
     }
 
     [TestMethod]
-    [DataRow(MailLoginOutcome.RefusedCredentials, "-ERR [AUTH] Authentication failed")]
-    [DataRow(MailLoginOutcome.RefusedPlaintext, "-ERR [AUTH] Encryption required")]
-    [DataRow(MailLoginOutcome.RefusedMechanism, "-ERR Unsupported authentication mechanism")]
-    [DataRow(MailLoginOutcome.Challenge, "-ERR [AUTH] Authentication failed")]
-    public async Task ServeAsync_ApopRefused_AnswersInPop3WordsAndStaysUnauthorized(MailLoginOutcome outcome, string reply)
+    [DataRow(SaslLoginOutcome.RefusedCredentials, "-ERR [AUTH] Authentication failed")]
+    [DataRow(SaslLoginOutcome.RefusedPlaintext, "-ERR [AUTH] Encryption required")]
+    [DataRow(SaslLoginOutcome.RefusedMechanism, "-ERR Unsupported authentication mechanism")]
+    [DataRow(SaslLoginOutcome.Challenge, "-ERR [AUTH] Authentication failed")]
+    public async Task ServeAsync_ApopRefused_AnswersInPop3WordsAndStaysUnauthorized(SaslLoginOutcome outcome, string reply)
     {
         var clock = new ManualTimeProvider();
         var policy = new Pop3TestPolicy { IsApopOffered = true, Steps = [Pop3TestPolicy.Ended(outcome)] };

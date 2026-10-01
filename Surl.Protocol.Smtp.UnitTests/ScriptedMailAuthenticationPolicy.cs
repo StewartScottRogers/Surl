@@ -11,13 +11,13 @@ internal sealed class ScriptedMailAuthenticationPolicy : IMailAuthenticationPoli
 {
     private readonly IReadOnlyList<string> plaintextMechanisms;
     private readonly IReadOnlyList<string> tlsMechanisms;
-    private readonly Queue<MailLoginStep> steps;
+    private readonly Queue<SaslLoginStep> steps;
 
-    public ScriptedMailAuthenticationPolicy(IReadOnlyList<string> plaintextMechanisms, IReadOnlyList<string>? tlsMechanisms = null, params MailLoginStep[] steps)
+    public ScriptedMailAuthenticationPolicy(IReadOnlyList<string> plaintextMechanisms, IReadOnlyList<string>? tlsMechanisms = null, params SaslLoginStep[] steps)
     {
         this.plaintextMechanisms = plaintextMechanisms;
         this.tlsMechanisms = tlsMechanisms ?? plaintextMechanisms;
-        this.steps = new Queue<MailLoginStep>(steps);
+        this.steps = new Queue<SaslLoginStep>(steps);
     }
 
     public List<TlsSession?> OffersAskedFor { get; } = [];
@@ -26,11 +26,11 @@ internal sealed class ScriptedMailAuthenticationPolicy : IMailAuthenticationPoli
 
     public List<byte[]> Responses { get; } = [];
 
-    public static MailLoginStep Challenge(byte[] challenge, CheckedLogin? checkedLogin = null) =>
-        new(MailLoginOutcome.Challenge, challenge, null, checkedLogin);
+    public static SaslLoginStep Challenge(byte[] challenge, CheckedLogin? checkedLogin = null) =>
+        new(SaslLoginOutcome.Challenge, challenge, null, checkedLogin);
 
-    public static MailLoginStep Ended(MailLoginOutcome outcome, CheckedLogin? checkedLogin = null) =>
-        new(outcome, ReadOnlyMemory<byte>.Empty, outcome == MailLoginOutcome.Accepted ? "user" : null, checkedLogin);
+    public static SaslLoginStep Ended(SaslLoginOutcome outcome, CheckedLogin? checkedLogin = null) =>
+        new(outcome, ReadOnlyMemory<byte>.Empty, outcome == SaslLoginOutcome.Accepted ? "user" : null, checkedLogin);
 
     public MailLoginOffer GetMailLoginOffer(TlsSession? tlsSession)
     {
@@ -38,21 +38,24 @@ internal sealed class ScriptedMailAuthenticationPolicy : IMailAuthenticationPoli
         return new MailLoginOffer(tlsSession is null ? plaintextMechanisms : tlsMechanisms, false, false);
     }
 
+    public IReadOnlyList<string> GetSaslMechanisms(SaslOfferRequest request) =>
+        request.TlsSession is null ? plaintextMechanisms : tlsMechanisms;
+
     public ISaslExchange StartSaslExchange(SaslExchangeStart start)
     {
         Starts.Add(start);
         return new ScriptedExchange(this);
     }
 
-    public ValueTask<MailLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken) =>
+    public ValueTask<SaslLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken) =>
         throw new NotSupportedException("SMTP has no APOP.");
 
     private sealed class ScriptedExchange(ScriptedMailAuthenticationPolicy policy) : ISaslExchange
     {
-        public ValueTask<MailLoginStep> BeginAsync(CancellationToken cancellationToken) =>
+        public ValueTask<SaslLoginStep> BeginAsync(CancellationToken cancellationToken) =>
             ValueTask.FromResult(policy.steps.Dequeue());
 
-        public ValueTask<MailLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
+        public ValueTask<SaslLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
         {
             policy.Responses.Add(response.ToArray());
             return ValueTask.FromResult(policy.steps.Dequeue());

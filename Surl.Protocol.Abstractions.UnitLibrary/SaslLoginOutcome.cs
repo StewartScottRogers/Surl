@@ -1,12 +1,12 @@
 namespace Surl.Protocol.Abstractions;
 
 /// <summary>
-/// What a <see cref="MailLoginStep"/> tells the mail server to do (ADR-0049, sections 6 and 7).
+/// What a <see cref="SaslLoginStep"/> tells the server to do (ADR-0049, sections 6 and 7).
 /// </summary>
-public enum MailLoginOutcome
+public enum SaslLoginOutcome
 {
     /// <summary>
-    /// Send <see cref="MailLoginStep.Challenge"/> as a continuation and read the next response.
+    /// Send <see cref="SaslLoginStep.Challenge"/> as a continuation and read the next response.
     /// </summary>
     Challenge,
 

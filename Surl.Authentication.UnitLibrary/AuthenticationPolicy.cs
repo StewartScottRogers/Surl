@@ -10,8 +10,9 @@ namespace Surl.Authentication;
 /// plain-text secret on an unencrypted connection refused unchecked unless
 /// <c>--allow-plaintext-auth</c>, only the accepted methods offered and checked, and every
 /// refused credential answered after <see cref="RefusalDelay"/> on the injected
-/// <see cref="TimeProvider"/>. As the <see cref="IMailAuthenticationPolicy"/> it offers and runs
-/// the SASL mechanisms <c>--auth</c> accepts (ADR-0049, sections 2 and 5): today <c>GSSAPI</c>,
+/// <see cref="TimeProvider"/>. As the <see cref="IMailAuthenticationPolicy"/>, an
+/// <see cref="ISaslAuthenticationPolicy"/>, it offers and runs the SASL mechanisms <c>--auth</c>
+/// accepts (ADR-0049, sections 2 and 5): today <c>GSSAPI</c>,
 /// offered on any connection when <c>--keytab</c> gave a Kerberos acceptor (ADR-0057, decision 9),
 /// <c>DIGEST-MD5</c>, <c>CRAM-MD5</c> and <c>NTLM</c>, offered on any connection, and <c>PLAIN</c>,
 /// <c>LOGIN</c>, <c>XOAUTH2</c> and <c>OAUTHBEARER</c>, all plain-text, so offered and run only over
@@ -27,17 +28,21 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
     private const string SshPublicKeyMethod = "publickey";
 
+    private const string GssapiMechanismName = "GSSAPI";
+
+    private const string GssSpnegoMechanismName = "GSS-SPNEGO";
+
     private static readonly SshLoginVerdict SshRefusedUnchecked = new(SshLoginOutcome.Refused, null, null);
 
     private static readonly SshLoginVerdict SshAcceptedUnchecked = new(SshLoginOutcome.AcceptedUnchecked, null, null);
 
     private static readonly SshLoginVerdict SshKeyAcceptable = new(SshLoginOutcome.KeyAcceptable, null, null);
 
-    private static readonly MailLoginStep RefusedApop =
-        new(MailLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null);
+    private static readonly SaslLoginStep RefusedApop =
+        new(SaslLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null);
 
-    private static readonly MailLoginStep AcceptedApopUnchecked =
-        new(MailLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
+    private static readonly SaslLoginStep AcceptedApopUnchecked =
+        new(SaslLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null);
 
     // The random part of a CRAM-MD5 challenge: 16 hex digits (ADR-0049, section 5).
     private const int TimestampNonceLength = 8;
@@ -139,19 +144,52 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         var isEncrypted = tlsSession is not null;
 
         return new MailLoginOffer(
-            [.. saslMechanisms
-                .Where(mechanism => MayUseSaslMechanism(mechanism, isEncrypted) && CanIdentifyClient(mechanism, tlsSession))
-                .Select(mechanism => mechanism.Name)],
+            OfferedSaslMechanismNames(tlsSession),
             OffersPlaintextSecrets(isEncrypted),
             settings.AcceptedMethods.Contains(AuthenticationMethod.Apop));
     }
 
     /// <summary>
+    /// The SASL mechanisms <see cref="GetMailLoginOffer"/> offers on a connection in this TLS
+    /// state, the same for every scheme, except that <c>ldap</c> and <c>ldaps</c> also offer
+    /// <c>GSS-SPNEGO</c> right after <c>GSSAPI</c> when <c>--auth</c> accepts <c>negotiate</c>
+    /// (ADR-0072, decision 4).
+    /// </summary>
+    /// <param name="request">The connection's scheme and TLS state.</param>
+    /// <returns>The mechanisms' registered names, upper case, in offer order.</returns>
+    public IReadOnlyList<string> GetSaslMechanisms(SaslOfferRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var names = OfferedSaslMechanismNames(request.TlsSession);
+        if (!IsLdapScheme(request.Scheme) || !settings.AcceptedMethods.Contains(AuthenticationMethod.Negotiate))
+        {
+            return names;
+        }
+
+        var afterGssapi = names.Count > 0 && names[0] == GssapiMechanismName ? 1 : 0;
+        return [.. names.Take(afterGssapi), GssSpnegoMechanismName, .. names.Skip(afterGssapi)];
+    }
+
+    private static bool IsLdapScheme(string scheme) =>
+        string.Equals(scheme, "ldap", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(scheme, "ldaps", StringComparison.OrdinalIgnoreCase);
+
+    private List<string> OfferedSaslMechanismNames(TlsSession? tlsSession)
+    {
+        var isEncrypted = tlsSession is not null;
+
+        return [.. saslMechanisms
+            .Where(mechanism => MayUseSaslMechanism(mechanism, isEncrypted) && CanIdentifyClient(mechanism, tlsSession))
+            .Select(mechanism => mechanism.Name)];
+    }
+
+    /// <summary>
     /// Starts the exchange of the mechanism <paramref name="start"/> names, matched
-    /// case-insensitively: refused as <see cref="MailLoginOutcome.RefusedMechanism"/> when it is
+    /// case-insensitively: refused as <see cref="SaslLoginOutcome.RefusedMechanism"/> when it is
     /// unknown, not accepted, <c>EXTERNAL</c> on a connection with no TLS client certificate, or
     /// <c>GSSAPI</c> with no Kerberos acceptor,
-    /// and as <see cref="MailLoginOutcome.RefusedPlaintext"/> when it is
+    /// and as <see cref="SaslLoginOutcome.RefusedPlaintext"/> when it is
     /// plain-text on an unencrypted connection without <c>--allow-plaintext-auth</c> or
     /// <c>--allow-anonymous</c> (ADR-0049, sections 1 and 5).
     /// </summary>
@@ -165,12 +203,12 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             mechanism => string.Equals(mechanism.Name, start.Mechanism, StringComparison.OrdinalIgnoreCase));
         if (mechanism is null || !CanIdentifyClient(mechanism, start.TlsSession))
         {
-            return new RefusedSaslExchange(MailLoginOutcome.RefusedMechanism);
+            return new RefusedSaslExchange(SaslLoginOutcome.RefusedMechanism);
         }
 
         return settings.AllowAnonymous || MayUseSaslMechanism(mechanism, start.TlsSession is not null)
             ? mechanism.Start(new SaslExchangeContext(this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate))
-            : new RefusedSaslExchange(MailLoginOutcome.RefusedPlaintext);
+            : new RefusedSaslExchange(SaslLoginOutcome.RefusedPlaintext);
     }
 
     // A mechanism that sends no plain-text secret may be used on any connection (ADR-0049, section 1).
@@ -189,15 +227,15 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
     /// <summary>
     /// POP3 <c>APOP</c>, RFC 1939 section 7 (ADR-0049, sections 5 and 7):
-    /// <see cref="MailLoginOutcome.RefusedMechanism"/> when <c>--auth</c> does not accept it,
-    /// <see cref="MailLoginOutcome.AcceptedUnchecked"/> under <c>--allow-anonymous</c>, and otherwise
+    /// <see cref="SaslLoginOutcome.RefusedMechanism"/> when <c>--auth</c> does not accept it,
+    /// <see cref="SaslLoginOutcome.AcceptedUnchecked"/> under <c>--allow-anonymous</c>, and otherwise
     /// the digest checked as 32 hex digits of MD5 over the timestamp's bytes then the password's
     /// UTF-8 bytes, compared in fixed time; a refusal is answered after <see cref="RefusalDelay"/>.
     /// </summary>
     /// <param name="login">The login, with the timestamp this connection's greeting carried.</param>
     /// <param name="cancellationToken">Cancels the check and the refusal delay.</param>
     /// <returns>How the login ended; never a challenge.</returns>
-    public async ValueTask<MailLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
+    public async ValueTask<SaslLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(login);
         cancellationToken.ThrowIfCancellationRequested();
@@ -217,14 +255,14 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         byte[] digested = [.. Encoding.UTF8.GetBytes(login.Timestamp), .. account.Password];
         if (Md5HexDigest.Matches(settings.Accounts.SecretComparer, MD5.HashData(digested), login.Digest) & account.AccountName is not null)
         {
-            return new MailLoginStep(
-                MailLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, account.AccountName, new CheckedLogin(ApopMethod, user, true));
+            return new SaslLoginStep(
+                SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, account.AccountName, new CheckedLogin(ApopMethod, user, true));
         }
 
         await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
 
-        return new MailLoginStep(
-            MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin(ApopMethod, user, false));
+        return new SaslLoginStep(
+            SaslLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin(ApopMethod, user, false));
     }
 
     /// <summary>

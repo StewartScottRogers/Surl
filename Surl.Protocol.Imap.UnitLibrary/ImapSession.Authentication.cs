@@ -102,7 +102,7 @@ internal sealed partial class ImapSession
         var exchange = mailAuthenticationPolicy.StartSaslExchange(
             new SaslExchangeStart(context.Scheme, mechanism, sent, connection.TlsSession));
         var step = await exchange.BeginAsync(CancellationToken);
-        while (step.Outcome == MailLoginOutcome.Challenge)
+        while (step.Outcome == SaslLoginOutcome.Challenge)
         {
             NoteCheckedLogin(step);
             await WriteLineAsync("+ " + Convert.ToBase64String(step.Challenge.Span), CancellationToken);
@@ -138,7 +138,7 @@ internal sealed partial class ImapSession
     }
 
     // The note is written before the response (ADR-0038; ADR-0049, section 6).
-    private void NoteCheckedLogin(MailLoginStep step)
+    private void NoteCheckedLogin(SaslLoginStep step)
     {
         if (step.CheckedLogin is { } checkedLogin)
         {
@@ -153,9 +153,9 @@ internal sealed partial class ImapSession
 
     // An accepted login opens the account's view, the anonymous owner's when it was not checked;
     // every refusal is in ADR-0049 section 7's IMAP words.
-    private string AcceptSaslLogin(MailLoginStep step)
+    private string AcceptSaslLogin(SaslLoginStep step)
     {
-        if (step.Outcome is MailLoginOutcome.Accepted or MailLoginOutcome.AcceptedUnchecked)
+        if (step.Outcome is SaslLoginOutcome.Accepted or SaslLoginOutcome.AcceptedUnchecked)
         {
             view = mailStore.ViewFor(step.AccountName);
             return AuthenticateCompleted;
@@ -163,8 +163,8 @@ internal sealed partial class ImapSession
 
         return step.Outcome switch
         {
-            MailLoginOutcome.RefusedCredentials => ImapResponses.LoginFailed,
-            MailLoginOutcome.RefusedPlaintext => ImapResponses.EncryptionRequired,
+            SaslLoginOutcome.RefusedCredentials => ImapResponses.LoginFailed,
+            SaslLoginOutcome.RefusedPlaintext => ImapResponses.EncryptionRequired,
             _ => ImapResponses.UnsupportedMechanism,
         };
     }

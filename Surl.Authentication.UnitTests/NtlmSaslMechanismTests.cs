@@ -31,7 +31,7 @@ public sealed class NtlmSaslMechanismTests
     private static ISaslExchange Start(AuthenticationPolicy policy, byte[]? initialResponse = null) =>
         SaslExchangeRunner.Start(policy, "NTLM", initialResponse, null);
 
-    private static async Task<MailLoginStep> Undelayed(ValueTask<MailLoginStep> pending)
+    private static async Task<SaslLoginStep> Undelayed(ValueTask<SaslLoginStep> pending)
     {
         Assert.IsTrue(pending.IsCompleted);
 
@@ -39,7 +39,7 @@ public sealed class NtlmSaslMechanismTests
     }
 
     // A refusal waits the refusal delay on the injected clock, and only then is answered.
-    private async Task<MailLoginStep> AfterTheRefusalDelay(ValueTask<MailLoginStep> pending)
+    private async Task<SaslLoginStep> AfterTheRefusalDelay(ValueTask<SaslLoginStep> pending)
     {
         var step = pending.AsTask();
         clock.Advance(AuthenticationPolicy.RefusalDelay - TimeSpan.FromMilliseconds(1));
@@ -49,17 +49,17 @@ public sealed class NtlmSaslMechanismTests
         return await step;
     }
 
-    private static void AssertChallenge(byte[] expected, MailLoginStep step)
+    private static void AssertChallenge(byte[] expected, SaslLoginStep step)
     {
-        Assert.AreEqual(MailLoginOutcome.Challenge, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Challenge, step.Outcome);
         CollectionAssert.AreEqual(expected, step.Challenge.ToArray());
         Assert.IsNull(step.AccountName);
         Assert.IsNull(step.CheckedLogin);
     }
 
-    private static void AssertRefused(string note, MailLoginStep step)
+    private static void AssertRefused(string note, SaslLoginStep step)
     {
-        Assert.AreEqual(MailLoginOutcome.RefusedCredentials, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedCredentials, step.Outcome);
         Assert.IsNull(step.AccountName);
         Assert.AreEqual(note, step.CheckedLogin?.Note);
     }
@@ -72,7 +72,7 @@ public sealed class NtlmSaslMechanismTests
         AssertChallenge(SurlType2, await Undelayed(exchange.BeginAsync(CancellationToken.None)));
         var step = await Undelayed(exchange.ContinueAsync(CurlType3, CancellationToken.None));
 
-        Assert.AreEqual(MailLoginOutcome.Accepted, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, step.Outcome);
         Assert.AreEqual("user", step.AccountName);
         Assert.AreEqual("Login accepted: NTLM user", step.CheckedLogin?.Note);
     }
@@ -86,7 +86,7 @@ public sealed class NtlmSaslMechanismTests
         AssertChallenge(SurlType2, await Undelayed(exchange.ContinueAsync(CurlType1, CancellationToken.None)));
         var step = await Undelayed(exchange.ContinueAsync(CurlType3, CancellationToken.None));
 
-        Assert.AreEqual(MailLoginOutcome.Accepted, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, step.Outcome);
         Assert.AreEqual("user", step.AccountName);
     }
 
@@ -140,7 +140,7 @@ public sealed class NtlmSaslMechanismTests
         AssertChallenge(SurlType2, await exchange.ContinueAsync(CurlType1, CancellationToken.None));
         var step = await Undelayed(exchange.ContinueAsync(CurlType3, CancellationToken.None));
 
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null), step);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null), step);
     }
 
     [TestMethod]
@@ -149,6 +149,6 @@ public sealed class NtlmSaslMechanismTests
         var offer = Policy().GetMailLoginOffer(null);
 
         CollectionAssert.Contains(offer.SaslMechanisms.ToArray(), "NTLM");
-        Assert.AreEqual(MailLoginOutcome.Challenge, (await Start(Policy()).BeginAsync(CancellationToken.None)).Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Challenge, (await Start(Policy()).BeginAsync(CancellationToken.None)).Outcome);
     }
 }

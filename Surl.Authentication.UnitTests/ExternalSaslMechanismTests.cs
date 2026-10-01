@@ -52,7 +52,7 @@ public sealed class ExternalSaslMechanismTests
 
         Assert.IsTrue(pending.IsCompleted);
         var step = await pending;
-        Assert.AreEqual(MailLoginOutcome.Accepted, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, step.Outcome);
         Assert.AreEqual("user", step.AccountName);
         Assert.AreEqual(new CheckedLogin("EXTERNAL", "user", true), step.CheckedLogin);
     }
@@ -66,8 +66,8 @@ public sealed class ExternalSaslMechanismTests
 
         var steps = await runner.RunAsync(exchange, Convert.FromBase64String(authzid));
 
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.Challenge, ReadOnlyMemory<byte>.Empty, null, null), steps[0]);
-        Assert.AreEqual(MailLoginOutcome.Accepted, steps[1].Outcome);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.Challenge, ReadOnlyMemory<byte>.Empty, null, null), steps[0]);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, steps[1].Outcome);
         Assert.AreEqual("user", steps[1].AccountName);
         Assert.AreEqual("Login accepted: EXTERNAL user", steps[1].CheckedLogin?.Note);
     }
@@ -90,8 +90,8 @@ public sealed class ExternalSaslMechanismTests
         clock.Advance(TimeSpan.FromTicks(1));
         var step = await pending;
         Assert.AreEqual(
-            new MailLoginStep(
-                MailLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("EXTERNAL", commonName, false)),
+            new SaslLoginStep(
+                SaslLoginOutcome.RefusedCredentials, ReadOnlyMemory<byte>.Empty, null, new CheckedLogin("EXTERNAL", commonName, false)),
             step);
     }
 
@@ -104,7 +104,7 @@ public sealed class ExternalSaslMechanismTests
 
         var steps = await runner.RunAsync(exchange, response is null ? [] : Convert.FromBase64String(response));
 
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null), steps[^1]);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.AcceptedUnchecked, ReadOnlyMemory<byte>.Empty, null, null), steps[^1]);
     }
 
     [TestMethod]
@@ -120,7 +120,7 @@ public sealed class ExternalSaslMechanismTests
         var pending = SaslExchangeRunner.Start(policy, "EXTERNAL", SaslExchangeRunner.Utf8("user"), tls).BeginAsync(CancellationToken.None);
 
         Assert.IsTrue(pending.IsCompleted);
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null), await pending);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null), await pending);
         CollectionAssert.DoesNotContain(policy.GetMailLoginOffer(tls).SaslMechanisms.ToArray(), "EXTERNAL");
     }
 
@@ -141,6 +141,6 @@ public sealed class ExternalSaslMechanismTests
         var step = await SaslExchangeRunner.Start(policy, "EXTERNAL", [], UserCertificateTls).BeginAsync(CancellationToken.None);
 
         CollectionAssert.AreEqual(new[] { "PLAIN" }, policy.GetMailLoginOffer(UserCertificateTls).SaslMechanisms.ToArray());
-        Assert.AreEqual(MailLoginOutcome.RefusedMechanism, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.RefusedMechanism, step.Outcome);
     }
 }

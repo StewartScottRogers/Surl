@@ -103,6 +103,22 @@ public sealed class AnonymousAuthenticationPolicyTests
     }
 
     [TestMethod]
+    [DataRow("smtp", DisplayName = "smtp")]
+    [DataRow("ldap", DisplayName = "ldap")]
+    public void GetSaslMechanisms_AnyScheme_OffersPlainAlone(string scheme)
+    {
+        var mechanisms = new AnonymousAuthenticationPolicy().GetSaslMechanisms(new SaslOfferRequest(scheme, null));
+
+        CollectionAssert.AreEqual(new[] { "PLAIN" }, mechanisms.ToArray());
+    }
+
+    [TestMethod]
+    public void GetSaslMechanisms_Null_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new AnonymousAuthenticationPolicy().GetSaslMechanisms(null!));
+    }
+
+    [TestMethod]
     public async Task SaslExchange_InitialResponse_IsAcceptedUncheckedOnTheFirstStep()
     {
         var exchange = new AnonymousAuthenticationPolicy().StartSaslExchange(
@@ -131,7 +147,7 @@ public sealed class AnonymousAuthenticationPolicyTests
         var first = await exchange.BeginAsync(CancellationToken.None);
         var second = await exchange.ContinueAsync(new ReadOnlyMemory<byte>([0x7a]), CancellationToken.None);
 
-        Assert.AreEqual(MailLoginOutcome.Challenge, first.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Challenge, first.Outcome);
         Assert.IsTrue(first.Challenge.IsEmpty);
         Assert.IsNull(first.AccountName);
         Assert.IsNull(first.CheckedLogin);
@@ -329,9 +345,9 @@ public sealed class AnonymousAuthenticationPolicyTests
         Assert.IsNull(verdict.CheckedLogin);
     }
 
-    private static void AssertAcceptedUnchecked(MailLoginStep step)
+    private static void AssertAcceptedUnchecked(SaslLoginStep step)
     {
-        Assert.AreEqual(MailLoginOutcome.AcceptedUnchecked, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.AcceptedUnchecked, step.Outcome);
         Assert.IsTrue(step.Challenge.IsEmpty);
         Assert.IsNull(step.AccountName);
         Assert.IsNull(step.CheckedLogin);

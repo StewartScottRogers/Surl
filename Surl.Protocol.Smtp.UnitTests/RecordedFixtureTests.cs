@@ -125,7 +125,7 @@ public sealed class RecordedFixtureTests
         var sentResponses = exchange.Where(line => line.StartsWith("> ", StringComparison.Ordinal)).Select(line => Convert.FromBase64String(line[2..])).ToList();
         var authWords = transcript[authIndex][2..].Split(' ');
         var steps = challenges.Select(challenge => ScriptedMailAuthenticationPolicy.Challenge(challenge))
-            .Append(ScriptedMailAuthenticationPolicy.Ended(MailLoginOutcome.Accepted, new CheckedLogin(mechanism, "user", true)))
+            .Append(ScriptedMailAuthenticationPolicy.Ended(SaslLoginOutcome.Accepted, new CheckedLogin(mechanism, "user", true)))
             .ToArray();
         var mailPolicy = new ScriptedMailAuthenticationPolicy([mechanism], null, steps);
         var clock = new ManualTimeProvider();

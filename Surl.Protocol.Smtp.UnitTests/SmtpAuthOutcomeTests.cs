@@ -9,13 +9,13 @@ namespace Surl.Protocol.Smtp;
 public sealed class SmtpAuthOutcomeTests
 {
     [TestMethod]
-    [DataRow(MailLoginOutcome.Challenge, "535 5.7.8 Authentication credentials invalid")]
-    [DataRow(MailLoginOutcome.Accepted, "235 2.7.0 Authentication successful")]
-    [DataRow(MailLoginOutcome.AcceptedUnchecked, "235 2.7.0 Authentication successful")]
-    [DataRow(MailLoginOutcome.RefusedCredentials, "535 5.7.8 Authentication credentials invalid")]
-    [DataRow(MailLoginOutcome.RefusedPlaintext, "538 5.7.11 Encryption required for requested authentication mechanism")]
-    [DataRow(MailLoginOutcome.RefusedMechanism, "504 5.5.4 Unrecognized authentication type")]
-    public void LoginEnded_EveryOutcome_AnswersItsReply(MailLoginOutcome outcome, string reply)
+    [DataRow(SaslLoginOutcome.Challenge, "535 5.7.8 Authentication credentials invalid")]
+    [DataRow(SaslLoginOutcome.Accepted, "235 2.7.0 Authentication successful")]
+    [DataRow(SaslLoginOutcome.AcceptedUnchecked, "235 2.7.0 Authentication successful")]
+    [DataRow(SaslLoginOutcome.RefusedCredentials, "535 5.7.8 Authentication credentials invalid")]
+    [DataRow(SaslLoginOutcome.RefusedPlaintext, "538 5.7.11 Encryption required for requested authentication mechanism")]
+    [DataRow(SaslLoginOutcome.RefusedMechanism, "504 5.5.4 Unrecognized authentication type")]
+    public void LoginEnded_EveryOutcome_AnswersItsReply(SaslLoginOutcome outcome, string reply)
     {
         Assert.AreEqual(reply, SmtpReplies.LoginEnded(outcome));
     }

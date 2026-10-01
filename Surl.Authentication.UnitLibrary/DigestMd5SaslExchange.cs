@@ -23,10 +23,10 @@ internal sealed class DigestMd5SaslExchange(SaslExchangeContext context) : SaslM
     private static readonly ReadOnlyMemory<byte> UncheckedResponseAuth = "rspauth=d41d8cd98f00b204e9800998ecf8427e"u8.ToArray();
 
     private string? issuedNonce;
-    private MailLoginStep? acceptance;
+    private SaslLoginStep? acceptance;
 
     /// <inheritdoc/>
-    protected override ValueTask<MailLoginStep> AnswerAsync(
+    protected override ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken)
     {
         if (acceptance is { } accepted)
@@ -53,7 +53,7 @@ internal sealed class DigestMd5SaslExchange(SaslExchangeContext context) : SaslM
 
     // Under --allow-anonymous an initial response ends the login at once; a response to the
     // challenge gets the rspauth continuation curl waits for.
-    private MailLoginStep AcceptUnchecked()
+    private SaslLoginStep AcceptUnchecked()
     {
         if (issuedNonce is null)
         {
@@ -65,13 +65,13 @@ internal sealed class DigestMd5SaslExchange(SaslExchangeContext context) : SaslM
         return Challenge(UncheckedResponseAuth);
     }
 
-    private ValueTask<MailLoginStep> AnswerResponseAuthAnswer(
-        MailLoginStep accepted, ReadOnlyMemory<byte> answer, CancellationToken cancellationToken) =>
+    private ValueTask<SaslLoginStep> AnswerResponseAuthAnswer(
+        SaslLoginStep accepted, ReadOnlyMemory<byte> answer, CancellationToken cancellationToken) =>
         answer.IsEmpty || Context.IsUnchecked
             ? ValueTask.FromResult(accepted)
             : RefuseAsync(accepted.CheckedLogin!.User, cancellationToken);
 
-    private ValueTask<MailLoginStep> CheckAsync(
+    private ValueTask<SaslLoginStep> CheckAsync(
         string nonce, DigestMd5Response? response, CancellationToken cancellationToken)
     {
         if (response is null)

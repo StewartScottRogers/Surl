@@ -39,7 +39,7 @@ internal sealed class Pop3TestPolicy : IAuthenticationPolicy, IMailAuthenticatio
     /// </summary>
     public bool IsApopOfferedOverTls { get; init; } = true;
 
-    public IReadOnlyList<MailLoginStep> Steps { get; init; } = [];
+    public IReadOnlyList<SaslLoginStep> Steps { get; init; } = [];
 
     public List<PasswordLogin> Logins { get; } = [];
 
@@ -49,11 +49,11 @@ internal sealed class Pop3TestPolicy : IAuthenticationPolicy, IMailAuthenticatio
 
     public List<ApopLogin> ApopLogins { get; } = [];
 
-    public static MailLoginStep Challenge(byte[] challenge, CheckedLogin? checkedLogin = null) =>
-        new(MailLoginOutcome.Challenge, challenge, null, checkedLogin);
+    public static SaslLoginStep Challenge(byte[] challenge, CheckedLogin? checkedLogin = null) =>
+        new(SaslLoginOutcome.Challenge, challenge, null, checkedLogin);
 
-    public static MailLoginStep Ended(MailLoginOutcome outcome, CheckedLogin? checkedLogin = null) =>
-        new(outcome, ReadOnlyMemory<byte>.Empty, outcome == MailLoginOutcome.Accepted ? "u" : null, checkedLogin);
+    public static SaslLoginStep Ended(SaslLoginOutcome outcome, CheckedLogin? checkedLogin = null) =>
+        new(outcome, ReadOnlyMemory<byte>.Empty, outcome == SaslLoginOutcome.Accepted ? "u" : null, checkedLogin);
 
     public ValueTask<PasswordLoginVerdict> CheckPasswordLoginAsync(PasswordLogin login, CancellationToken cancellationToken)
     {
@@ -71,26 +71,29 @@ internal sealed class Pop3TestPolicy : IAuthenticationPolicy, IMailAuthenticatio
         ? new(SaslMechanisms, IsClearPasswordOffered, IsApopOffered)
         : new(SaslMechanismsOverTls ?? SaslMechanisms, IsClearPasswordOfferedOverTls ?? IsClearPasswordOffered, IsApopOffered && IsApopOfferedOverTls);
 
+    public IReadOnlyList<string> GetSaslMechanisms(SaslOfferRequest request) =>
+        GetMailLoginOffer(request.TlsSession).SaslMechanisms;
+
     public ISaslExchange StartSaslExchange(SaslExchangeStart start)
     {
         Starts.Add(start);
         return new ScriptedExchange(this);
     }
 
-    public ValueTask<MailLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
+    public ValueTask<SaslLoginStep> CheckApopLoginAsync(ApopLogin login, CancellationToken cancellationToken)
     {
         ApopLogins.Add(login);
         return ValueTask.FromResult(NextStep());
     }
 
-    private MailLoginStep NextStep() => Steps[nextStep++];
+    private SaslLoginStep NextStep() => Steps[nextStep++];
 
     private sealed class ScriptedExchange(Pop3TestPolicy policy) : ISaslExchange
     {
-        public ValueTask<MailLoginStep> BeginAsync(CancellationToken cancellationToken) =>
+        public ValueTask<SaslLoginStep> BeginAsync(CancellationToken cancellationToken) =>
             ValueTask.FromResult(policy.NextStep());
 
-        public ValueTask<MailLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
+        public ValueTask<SaslLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken)
         {
             policy.Responses.Add(response.ToArray());
             return ValueTask.FromResult(policy.NextStep());

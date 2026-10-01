@@ -21,8 +21,12 @@ This library references `Surl.Protocol.Abstractions.UnitLibrary`, and
 `Surl.Kerberos.UnitLibrary` for the Kerberos acceptor (ADR-0057 decision 6), and no
 protocol server. `AuthenticationSettings.KerberosAcceptor` carries the acceptor `Surl.Console`
 builds from `--keytab` (`null` without one, BL-240); SASL `GSSAPI` (`GssapiSaslExchange`) is offered and run only when it is set, and Negotiate carries Kerberos only when `Surl.Console` hands it to `NegotiateAuthenticationMethod`. Protocol servers receive what it provides through the contracts in
-Abstractions (`IAuthenticationPolicy`, `IMailAuthenticationPolicy`, `ISshAuthenticationPolicy`); `Surl.Console`'s `AuthenticationComposition`
-builds the policy from the command line.
+Abstractions (`IAuthenticationPolicy`, `IMailAuthenticationPolicy` - which extends the
+protocol-neutral `ISaslAuthenticationPolicy` - and `ISshAuthenticationPolicy`); `Surl.Console`'s
+`AuthenticationComposition` builds the policy from the command line. `GetSaslMechanisms` is the
+mail offer's mechanisms for every scheme, with `GSS-SPNEGO` after `GSSAPI` for `ldap` and `ldaps`
+when `--auth` accepts `negotiate` (ADR-0072 decision 4, BL-328); no exchange runs `GSS-SPNEGO`
+yet (BL-329 builds it), so starting one is `RefusedMechanism`.
 
 ## What is here now (BL-110)
 

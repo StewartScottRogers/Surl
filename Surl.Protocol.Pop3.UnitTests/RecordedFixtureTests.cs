@@ -136,10 +136,10 @@ public sealed class RecordedFixtureTests
     // SASL (ADR-0056 D6), forced with --login-options AUTH=+APOP beside SASL (row 32). The clock
     // and the random bytes give the recorded timestamp, so the recorded digest is the one sent.
     [TestMethod]
-    [DataRow("apop", "0", false, MailLoginOutcome.Accepted)]
-    [DataRow("apop-forced", "0", true, MailLoginOutcome.Accepted)]
-    [DataRow("apop-refused", "67", false, MailLoginOutcome.RefusedCredentials)]
-    public async Task ServeAsync_RecordedApopRequest_WritesTheRecordedReplies(string caseName, string exitCode, bool offersMore, MailLoginOutcome outcome)
+    [DataRow("apop", "0", false, SaslLoginOutcome.Accepted)]
+    [DataRow("apop-forced", "0", true, SaslLoginOutcome.Accepted)]
+    [DataRow("apop-refused", "67", false, SaslLoginOutcome.RefusedCredentials)]
+    public async Task ServeAsync_RecordedApopRequest_WritesTheRecordedReplies(string caseName, string exitCode, bool offersMore, SaslLoginOutcome outcome)
     {
         Assert.AreEqual(exitCode, Read(caseName, "exitcode.txt").Trim());
         var clock = new ManualTimeProvider(DateTimeOffset.FromUnixTimeSeconds(1790640000));
@@ -185,7 +185,7 @@ public sealed class RecordedFixtureTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection([ReadBytes(caseName, "request.bin")]);
         var challenges = RecordedChallenges(caseName);
-        var outcome = exitCode == "0" ? MailLoginOutcome.Accepted : MailLoginOutcome.RefusedCredentials;
+        var outcome = exitCode == "0" ? SaslLoginOutcome.Accepted : SaslLoginOutcome.RefusedCredentials;
         var policy = new Pop3TestPolicy
         {
             IsClearPasswordOffered = false,

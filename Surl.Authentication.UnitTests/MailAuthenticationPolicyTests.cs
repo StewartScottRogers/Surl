@@ -78,7 +78,7 @@ public sealed class MailAuthenticationPolicyTests
         var step = await SaslExchangeRunner.Start(
             Policy(), mechanism, SaslExchangeRunner.Plain(string.Empty, "user", "secret"), PolicyFixture.Tls).BeginAsync(CancellationToken.None);
 
-        Assert.AreEqual(MailLoginOutcome.Accepted, step.Outcome);
+        Assert.AreEqual(SaslLoginOutcome.Accepted, step.Outcome);
         Assert.AreEqual("Login accepted: PLAIN user", step.CheckedLogin?.Note);
     }
 
@@ -97,7 +97,60 @@ public sealed class MailAuthenticationPolicyTests
         var step = exchange.BeginAsync(CancellationToken.None);
 
         Assert.IsTrue(step.IsCompleted);
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null), await step);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null), await step);
+    }
+
+    [TestMethod]
+    [DataRow("smtp", true, false, DisplayName = "smtp over TLS")]
+    [DataRow("smtp", false, false, DisplayName = "smtp without TLS")]
+    [DataRow("imap", false, true, DisplayName = "imap, every method accepted")]
+    [DataRow("pop3", true, true, DisplayName = "pop3 over TLS, every method accepted")]
+    public void GetSaslMechanisms_MailScheme_IsTheMailLoginOffersMechanisms(string scheme, bool isEncrypted, bool acceptsEveryMethod)
+    {
+        var policy = Policy(acceptedMethods: acceptsEveryMethod ? new HashSet<AuthenticationMethod>(Enum.GetValues<AuthenticationMethod>()) : null);
+        var tlsSession = isEncrypted ? PolicyFixture.Tls : null;
+
+        var mechanisms = policy.GetSaslMechanisms(new SaslOfferRequest(scheme, tlsSession));
+
+        CollectionAssert.AreEqual(policy.GetMailLoginOffer(tlsSession).SaslMechanisms.ToArray(), mechanisms.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("ldap", DisplayName = "ldap")]
+    [DataRow("LDAPS", DisplayName = "ldaps, upper case")]
+    public void GetSaslMechanisms_LdapWithNegotiateAcceptedAndNoGssapi_ListsGssSpnegoFirst(string scheme)
+    {
+        var policy = Policy(acceptedMethods: new HashSet<AuthenticationMethod>(Enum.GetValues<AuthenticationMethod>()));
+
+        var mechanisms = policy.GetSaslMechanisms(new SaslOfferRequest(scheme, null));
+
+        CollectionAssert.AreEqual(new[] { "GSS-SPNEGO", "DIGEST-MD5", "CRAM-MD5", "NTLM" }, mechanisms.ToArray());
+    }
+
+    [TestMethod]
+    public void GetSaslMechanisms_LdapWithoutNegotiateAccepted_IsTheMailLoginOffersMechanisms()
+    {
+        var policy = Policy();
+
+        var mechanisms = policy.GetSaslMechanisms(new SaslOfferRequest("ldap", PolicyFixture.Tls));
+
+        CollectionAssert.AreEqual(new[] { "CRAM-MD5", "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN" }, mechanisms.ToArray());
+    }
+
+    [TestMethod]
+    public void GetSaslMechanisms_LdapWithOnlyNegotiateAccepted_ListsGssSpnegoAlone()
+    {
+        var policy = Policy(acceptedMethods: new HashSet<AuthenticationMethod> { AuthenticationMethod.Negotiate });
+
+        var mechanisms = policy.GetSaslMechanisms(new SaslOfferRequest("ldap", null));
+
+        CollectionAssert.AreEqual(new[] { "GSS-SPNEGO" }, mechanisms.ToArray());
+    }
+
+    [TestMethod]
+    public void GetSaslMechanisms_Null_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => Policy().GetSaslMechanisms(null!));
     }
 
     [TestMethod]
@@ -115,7 +168,7 @@ public sealed class MailAuthenticationPolicyTests
 
         var step = await Policy(allowAnonymous: allowAnonymous).CheckApopLoginAsync(login, CancellationToken.None);
 
-        Assert.AreEqual(new MailLoginStep(MailLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null), step);
+        Assert.AreEqual(new SaslLoginStep(SaslLoginOutcome.RefusedMechanism, ReadOnlyMemory<byte>.Empty, null, null), step);
     }
 
     [TestMethod]

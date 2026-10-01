@@ -19,7 +19,7 @@ internal sealed class NtlmSaslExchange(SaslExchangeContext context) : SaslMechan
     private bool isChallengeIssued;
 
     /// <inheritdoc/>
-    protected override ValueTask<MailLoginStep> AnswerAsync(
+    protected override ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken)
     {
         if (response is not { } message)
@@ -38,7 +38,7 @@ internal sealed class NtlmSaslExchange(SaslExchangeContext context) : SaslMechan
     }
 
     // Ends the exchange on anything but its one CHALLENGE_MESSAGE.
-    private ValueTask<MailLoginStep> Conclude(NtlmHandshakeStep step, CancellationToken cancellationToken)
+    private ValueTask<SaslLoginStep> Conclude(NtlmHandshakeStep step, CancellationToken cancellationToken)
     {
         if (Context.IsUnchecked)
         {

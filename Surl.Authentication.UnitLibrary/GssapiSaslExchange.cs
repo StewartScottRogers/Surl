@@ -31,7 +31,7 @@ internal sealed class GssapiSaslExchange(SaslExchangeContext context) : SaslMech
     private bool isAwaitingEmptyAnswer;
 
     /// <inheritdoc/>
-    protected override ValueTask<MailLoginStep> AnswerAsync(
+    protected override ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken)
     {
         if (response is not { } token)
@@ -58,7 +58,7 @@ internal sealed class GssapiSaslExchange(SaslExchangeContext context) : SaslMech
         _ => "pop",
     };
 
-    private ValueTask<MailLoginStep> AcceptTicketAsync(ReadOnlySpan<byte> token, CancellationToken cancellationToken)
+    private ValueTask<SaslLoginStep> AcceptTicketAsync(ReadOnlySpan<byte> token, CancellationToken cancellationToken)
     {
         var result = Context.KerberosAcceptor.Accept(token, ServiceOf(Context.Scheme));
         if (result.Context is not { } accepted)
@@ -74,7 +74,7 @@ internal sealed class GssapiSaslExchange(SaslExchangeContext context) : SaslMech
     }
 
     // RFC 4752 section 3.1: the client answers the AP-REP with an empty response.
-    private ValueTask<MailLoginStep> AnswerApReplyAsync(
+    private ValueTask<SaslLoginStep> AnswerApReplyAsync(
         KerberosSecurityContext accepted, ReadOnlySpan<byte> answer, CancellationToken cancellationToken)
     {
         if (!answer.IsEmpty)
@@ -87,7 +87,7 @@ internal sealed class GssapiSaslExchange(SaslExchangeContext context) : SaslMech
         return ValueTask.FromResult(Challenge(accepted.Wrap(SecurityLayerOffer)));
     }
 
-    private ValueTask<MailLoginStep> CheckSecurityLayerChoiceAsync(
+    private ValueTask<SaslLoginStep> CheckSecurityLayerChoiceAsync(
         KerberosSecurityContext accepted, ReadOnlySpan<byte> token, CancellationToken cancellationToken)
     {
         var name = accepted.ClientPrincipal.ToString();

@@ -73,11 +73,11 @@ internal static class SmtpReplies
     /// </summary>
     /// <param name="outcome">How the login ended.</param>
     /// <returns><c>235</c> for either acceptance, <c>538</c>, <c>504</c>, or <c>535</c> for refused credentials.</returns>
-    public static string LoginEnded(MailLoginOutcome outcome) => outcome switch
+    public static string LoginEnded(SaslLoginOutcome outcome) => outcome switch
     {
-        MailLoginOutcome.Accepted or MailLoginOutcome.AcceptedUnchecked => AuthenticationSucceeded,
-        MailLoginOutcome.RefusedPlaintext => EncryptionRequired,
-        MailLoginOutcome.RefusedMechanism => UnrecognizedAuthenticationType,
+        SaslLoginOutcome.Accepted or SaslLoginOutcome.AcceptedUnchecked => AuthenticationSucceeded,
+        SaslLoginOutcome.RefusedPlaintext => EncryptionRequired,
+        SaslLoginOutcome.RefusedMechanism => UnrecognizedAuthenticationType,
         _ => AuthenticationFailed,
     };
 

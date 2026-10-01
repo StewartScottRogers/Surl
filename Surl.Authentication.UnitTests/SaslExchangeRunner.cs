@@ -30,12 +30,12 @@ internal sealed class SaslExchangeRunner(ManualTimeProvider clock)
     /// <paramref name="responses"/> while there are challenges and responses, waiting out the
     /// refusal delay at every step; returns every step.
     /// </summary>
-    public async Task<List<MailLoginStep>> RunAsync(ISaslExchange exchange, params byte[][] responses)
+    public async Task<List<SaslLoginStep>> RunAsync(ISaslExchange exchange, params byte[][] responses)
     {
-        var steps = new List<MailLoginStep> { await SettleAsync(exchange.BeginAsync(CancellationToken.None)) };
+        var steps = new List<SaslLoginStep> { await SettleAsync(exchange.BeginAsync(CancellationToken.None)) };
         foreach (var response in responses)
         {
-            if (steps[^1].Outcome != MailLoginOutcome.Challenge)
+            if (steps[^1].Outcome != SaslLoginOutcome.Challenge)
             {
                 break;
             }
@@ -69,7 +69,7 @@ internal sealed class SaslExchangeRunner(ManualTimeProvider clock)
     public static byte[] OAuthBearer(string user, string token) =>
         Utf8($"n,a={user},\u0001host=127.0.0.1\u0001port=18025\u0001auth=Bearer {token}\u0001\u0001");
 
-    private async Task<MailLoginStep> SettleAsync(ValueTask<MailLoginStep> pending)
+    private async Task<SaslLoginStep> SettleAsync(ValueTask<SaslLoginStep> pending)
     {
         var step = pending.AsTask();
         clock.Advance(AuthenticationPolicy.RefusalDelay);

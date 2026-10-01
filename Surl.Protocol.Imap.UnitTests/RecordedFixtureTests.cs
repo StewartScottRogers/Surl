@@ -133,7 +133,7 @@ public sealed class RecordedFixtureTests
             IsClearPasswordLoginOfferedOverTls = true,
             SaslMechanisms = mechanism is null ? [] : [mechanism],
             SaslMechanismsOverTls = mechanism is null ? [] : ["CRAM-MD5", "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN"],
-            Steps = [.. RecordedChallenges(caseName).Select(challenge => ScriptedLoginPolicy.Challenge(challenge)), ScriptedLoginPolicy.Ended(MailLoginOutcome.Accepted)],
+            Steps = [.. RecordedChallenges(caseName).Select(challenge => ScriptedLoginPolicy.Challenge(challenge)), ScriptedLoginPolicy.Ended(SaslLoginOutcome.Accepted)],
         };
 
         await Server(store, policy, isTlsUpgradeAvailable: true).ServeAsync(connection, Context(clock, TestContext.CancellationToken));
@@ -201,7 +201,7 @@ public sealed class RecordedFixtureTests
         Create(store, string.Empty, "Sent");
         var connection = new InMemoryConnection([ReadBytes(caseName, "request.bin")]);
         var challenges = RecordedChallenges(caseName);
-        var outcome = exitCode == "0" ? MailLoginOutcome.Accepted : MailLoginOutcome.RefusedCredentials;
+        var outcome = exitCode == "0" ? SaslLoginOutcome.Accepted : SaslLoginOutcome.RefusedCredentials;
         var policy = new ScriptedLoginPolicy(isClearPasswordLoginOffered: false)
         {
             SaslMechanisms = [mechanism],

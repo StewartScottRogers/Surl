@@ -23,7 +23,7 @@ public sealed class Pop3AuthTests
         var policy = new Pop3TestPolicy
         {
             SaslMechanisms = ["CRAM-MD5"],
-            Steps = [Pop3TestPolicy.Challenge("abc"u8.ToArray()), Pop3TestPolicy.Ended(MailLoginOutcome.Accepted, new CheckedLogin("CRAM-MD5", "u", true))],
+            Steps = [Pop3TestPolicy.Challenge("abc"u8.ToArray()), Pop3TestPolicy.Ended(SaslLoginOutcome.Accepted, new CheckedLogin("CRAM-MD5", "u", true))],
         };
 
         var connection = await ServeAsync(AccountStore(clock, Message), "auth cram-md5\r\ndXNlcg==\r\nSTAT\r\n", clock, TestContext.CancellationToken, policy, log: log);
@@ -42,7 +42,7 @@ public sealed class Pop3AuthTests
     public async Task ServeAsync_EmptyChallenge_IsAPlusAndASpace()
     {
         var clock = new ManualTimeProvider();
-        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Challenge([]), Pop3TestPolicy.Ended(MailLoginOutcome.Accepted)] };
+        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Challenge([]), Pop3TestPolicy.Ended(SaslLoginOutcome.Accepted)] };
 
         var connection = await ServeAsync(AccountStore(clock), "AUTH PLAIN\r\n\r\n", clock, TestContext.CancellationToken, policy);
 
@@ -56,7 +56,7 @@ public sealed class Pop3AuthTests
     public async Task ServeAsync_InitialResponse_IsDecodedAndHandedToThePolicy(string line, string expected)
     {
         var clock = new ManualTimeProvider();
-        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.Accepted)] };
+        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(SaslLoginOutcome.Accepted)] };
 
         var connection = await ServeAsync(AccountStore(clock), line + "\r\n", clock, TestContext.CancellationToken, policy);
 
@@ -100,7 +100,7 @@ public sealed class Pop3AuthTests
         var log = new RecordingExchangeLog();
         var policy = new Pop3TestPolicy
         {
-            Steps = [Pop3TestPolicy.Challenge([]), Pop3TestPolicy.Ended(MailLoginOutcome.RefusedCredentials, new CheckedLogin("PLAIN", "u", false))],
+            Steps = [Pop3TestPolicy.Challenge([]), Pop3TestPolicy.Ended(SaslLoginOutcome.RefusedCredentials, new CheckedLogin("PLAIN", "u", false))],
         };
 
         var connection = await ServeAsync(AccountStore(clock), "AUTH PLAIN\r\nAHUAeA==\r\nSTAT\r\n", clock, TestContext.CancellationToken, policy, log: log);
@@ -118,7 +118,7 @@ public sealed class Pop3AuthTests
         var log = new RecordingExchangeLog();
         var policy = new Pop3TestPolicy
         {
-            Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" }],
+            Steps = [Pop3TestPolicy.Ended(SaslLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" }],
         };
 
         var connection = await ServeAsync(AccountStore(clock), "AUTH GSSAPI YQ==\r\n", clock, TestContext.CancellationToken, policy, log: log);
@@ -130,9 +130,9 @@ public sealed class Pop3AuthTests
     // A plain-text mechanism over no TLS is refused before any credential is read (ADR-0049,
     // section 1).
     [TestMethod]
-    [DataRow(MailLoginOutcome.RefusedPlaintext, "-ERR [AUTH] Encryption required")]
-    [DataRow(MailLoginOutcome.RefusedMechanism, "-ERR Unsupported authentication mechanism")]
-    public async Task ServeAsync_AuthRefusedAtOnce_AnswersInPop3Words(MailLoginOutcome outcome, string reply)
+    [DataRow(SaslLoginOutcome.RefusedPlaintext, "-ERR [AUTH] Encryption required")]
+    [DataRow(SaslLoginOutcome.RefusedMechanism, "-ERR Unsupported authentication mechanism")]
+    public async Task ServeAsync_AuthRefusedAtOnce_AnswersInPop3Words(SaslLoginOutcome outcome, string reply)
     {
         var clock = new ManualTimeProvider();
         var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(outcome)] };
@@ -204,7 +204,7 @@ public sealed class Pop3AuthTests
     public async Task ServeAsync_AuthAcceptedUnchecked_OpensTheAnonymousMaildrop()
     {
         var clock = new ManualTimeProvider();
-        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.AcceptedUnchecked)] };
+        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(SaslLoginOutcome.AcceptedUnchecked)] };
 
         var connection = await ServeAsync(AnonymousStore(clock, Message), "AUTH PLAIN =\r\nSTAT\r\n", clock, TestContext.CancellationToken, policy);
 
@@ -217,7 +217,7 @@ public sealed class Pop3AuthTests
         var clock = new ManualTimeProvider();
         var store = AccountStore(clock);
         Assert.AreEqual(MailStoreOutcome.Succeeded, store.LockMaildrop(store.ViewFor("u"), out var held));
-        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.Accepted)] };
+        var policy = new Pop3TestPolicy { Steps = [Pop3TestPolicy.Ended(SaslLoginOutcome.Accepted)] };
 
         using (held)
         {
@@ -245,7 +245,7 @@ public sealed class Pop3AuthTests
     public async Task ServeAsync_CapaAfterAuth_LeavesOutTheLoginCapabilities()
     {
         var clock = new ManualTimeProvider();
-        var policy = new Pop3TestPolicy { SaslMechanisms = ["PLAIN"], Steps = [Pop3TestPolicy.Ended(MailLoginOutcome.Accepted)] };
+        var policy = new Pop3TestPolicy { SaslMechanisms = ["PLAIN"], Steps = [Pop3TestPolicy.Ended(SaslLoginOutcome.Accepted)] };
 
         var connection = await ServeAsync(AccountStore(clock), "AUTH PLAIN =\r\nCAPA\r\n", clock, TestContext.CancellationToken, policy, isTlsUpgradeAvailable: true);
 

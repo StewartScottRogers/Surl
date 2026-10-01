@@ -4,19 +4,19 @@ namespace Surl.Authentication;
 
 /// <summary>
 /// An exchange refused before any credential is read (ADR-0049, section 7): a mechanism that is
-/// unknown, not accepted or not offered (<see cref="MailLoginOutcome.RefusedMechanism"/>), or a
+/// unknown, not accepted or not offered (<see cref="SaslLoginOutcome.RefusedMechanism"/>), or a
 /// plain-text one on an unencrypted connection without <c>--allow-plaintext-auth</c>
-/// (<see cref="MailLoginOutcome.RefusedPlaintext"/>). Its one step is not delayed and carries no
+/// (<see cref="SaslLoginOutcome.RefusedPlaintext"/>). Its one step is not delayed and carries no
 /// note, since nothing was checked.
 /// </summary>
 /// <param name="outcome">The refusal.</param>
-internal sealed class RefusedSaslExchange(MailLoginOutcome outcome) : ISaslExchange
+internal sealed class RefusedSaslExchange(SaslLoginOutcome outcome) : ISaslExchange
 {
-    private readonly MailLoginStep refusal = new(outcome, ReadOnlyMemory<byte>.Empty, null, null);
+    private readonly SaslLoginStep refusal = new(outcome, ReadOnlyMemory<byte>.Empty, null, null);
     private bool isBegun;
 
     /// <inheritdoc/>
-    public ValueTask<MailLoginStep> BeginAsync(CancellationToken cancellationToken)
+    public ValueTask<SaslLoginStep> BeginAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (isBegun)
@@ -29,6 +29,6 @@ internal sealed class RefusedSaslExchange(MailLoginOutcome outcome) : ISaslExcha
     }
 
     /// <inheritdoc/>
-    public ValueTask<MailLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken) =>
+    public ValueTask<SaslLoginStep> ContinueAsync(ReadOnlyMemory<byte> response, CancellationToken cancellationToken) =>
         throw new InvalidOperationException("The SASL exchange's last step was not a challenge.");
 }

@@ -70,7 +70,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_AuthWithoutInitialResponse_Sends334RelaysTheResponseAndLogsIn()
     {
-        var mailPolicy = PlainPolicy(Challenge([]), Ended(MailLoginOutcome.Accepted, AcceptedUser));
+        var mailPolicy = PlainPolicy(Challenge([]), Ended(SaslLoginOutcome.Accepted, AcceptedUser));
 
         var (connection, log) = await ServeAsync(mailPolicy, $"EHLO c\r\nAUTH plain\r\n{PlainResponse}\r\n");
 
@@ -84,7 +84,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_AuthWithInitialResponse_HandsItToThePolicyDecoded()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.Accepted, AcceptedUser));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.Accepted, AcceptedUser));
 
         var (connection, _) = await ServeAsync(mailPolicy, $"EHLO c\r\nAUTH PLAIN {PlainResponse}\r\n");
 
@@ -96,7 +96,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_AuthWithEqualsSign_HandsThePolicyAnEmptyInitialResponse()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.AcceptedUnchecked));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.AcceptedUnchecked));
 
         var (connection, log) = await ServeAsync(mailPolicy, "EHLO c\r\nAUTH EXTERNAL =\r\n");
 
@@ -108,7 +108,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_AuthWithATrailingSpace_SendsNoInitialResponse()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.AcceptedUnchecked));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.AcceptedUnchecked));
 
         await ServeAsync(mailPolicy, "EHLO c\r\nAUTH PLAIN \r\n");
 
@@ -118,7 +118,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_TwoChallenges_SendsEachInBase64AndAnEmptyLineAsAnEmptyResponse()
     {
-        var mailPolicy = PlainPolicy(Challenge("Username:"u8.ToArray()), Challenge("rspauth=1"u8.ToArray()), Ended(MailLoginOutcome.Accepted, AcceptedUser));
+        var mailPolicy = PlainPolicy(Challenge("Username:"u8.ToArray()), Challenge("rspauth=1"u8.ToArray()), Ended(SaslLoginOutcome.Accepted, AcceptedUser));
 
         var (connection, _) = await ServeAsync(mailPolicy, "EHLO c\r\nAUTH LOGIN\r\ndXNlcg==\r\n\r\n");
 
@@ -130,7 +130,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_RefusedLogin_Answers535WritesTheNoteFirstAndMailStaysRefused()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.RefusedCredentials, new CheckedLogin("PLAIN", "user", false)));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.RefusedCredentials, new CheckedLogin("PLAIN", "user", false)));
 
         var (connection, log) = await ServeAsync(mailPolicy, $"EHLO c\r\nAUTH PLAIN {PlainResponse}\r\nMAIL FROM:<a@x>\r\n");
 
@@ -144,7 +144,7 @@ public sealed class SmtpAuthTests
     public async Task ServeAsync_RefusedGssapiTicket_NotesTheKerberosReasonAfterTheLogin()
     {
         var mailPolicy = PlainPolicy(
-            Ended(MailLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" });
+            Ended(SaslLoginOutcome.RefusedCredentials, new CheckedLogin("GSSAPI", null, false)) with { RefusalNote = "Kerberos: ticket expired" });
 
         var (connection, log) = await ServeAsync(mailPolicy, "EHLO c\r\nAUTH GSSAPI YQ==\r\n");
 
@@ -157,7 +157,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_PlainTextMechanismRefusedWithoutTls_Answers538WithoutAContinuation()
     {
-        var mailPolicy = new ScriptedMailAuthenticationPolicy(["CRAM-MD5"], null, Ended(MailLoginOutcome.RefusedPlaintext));
+        var mailPolicy = new ScriptedMailAuthenticationPolicy(["CRAM-MD5"], null, Ended(SaslLoginOutcome.RefusedPlaintext));
 
         var (connection, log) = await ServeAsync(mailPolicy, "EHLO c\r\nAUTH LOGIN\r\nNOOP\r\n");
 
@@ -169,7 +169,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_UnknownMechanism_Answers504()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.RefusedMechanism));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.RefusedMechanism));
 
         var (connection, _) = await ServeAsync(mailPolicy, "EHLO c\r\nAUTH SCRAM-SHA-256\r\n");
 
@@ -217,7 +217,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_AuthTwice_Answers503TheSecondTime()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.Accepted, AcceptedUser));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.Accepted, AcceptedUser));
 
         var (connection, _) = await ServeAsync(mailPolicy, $"EHLO c\r\nAUTH PLAIN {PlainResponse}\r\nAUTH PLAIN {PlainResponse}\r\n");
 
@@ -264,7 +264,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_MailRefusedBeforeLogin_IsAcceptedAfterItAndStoredAsEsmtpa()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.Accepted, AcceptedUser));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.Accepted, AcceptedUser));
         var clock = new ManualTimeProvider();
         var store = AnonymousStore(clock);
 
@@ -277,7 +277,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_LoginOnImplicitTls_IsStoredAsEsmtpsa()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.Accepted, AcceptedUser));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.Accepted, AcceptedUser));
         var clock = new ManualTimeProvider();
         var store = AnonymousStore(clock);
         var connection = new InMemoryConnection(Ascii($"EHLO c\r\nAUTH PLAIN {PlainResponse}\r\n{MailRequest}"), initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
@@ -291,7 +291,7 @@ public sealed class SmtpAuthTests
     [TestMethod]
     public async Task ServeAsync_StartTlsAfterALogin_LogsTheSessionOut()
     {
-        var mailPolicy = PlainPolicy(Ended(MailLoginOutcome.Accepted, AcceptedUser));
+        var mailPolicy = PlainPolicy(Ended(SaslLoginOutcome.Accepted, AcceptedUser));
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection(Ascii($"EHLO c\r\nAUTH PLAIN {PlainResponse}\r\nSTARTTLS\r\n", "EHLO c\r\nMAIL FROM:<a@x>\r\n"));
 
@@ -308,7 +308,7 @@ public sealed class SmtpAuthTests
     {
         var mailPolicy = PlainPolicy(
             Challenge("{\"status\":\"invalid_token\"}"u8.ToArray(), new CheckedLogin("OAUTHBEARER", CheckedLogin.BearerTokenUser, false)),
-            Ended(MailLoginOutcome.RefusedCredentials));
+            Ended(SaslLoginOutcome.RefusedCredentials));
 
         var (connection, log) = await ServeAsync(mailPolicy, "EHLO c\r\nAUTH OAUTHBEARER bixhPXVzZXIsAWF1dGg9QmVhcmVyIHRvawEB\r\nAQ==\r\n");
 
@@ -350,7 +350,7 @@ public sealed class SmtpAuthTests
         Assert.IsFalse(connection.WritesCompleted);
     }
 
-    private static ScriptedMailAuthenticationPolicy PlainPolicy(params MailLoginStep[] steps) => new(["PLAIN"], null, steps);
+    private static ScriptedMailAuthenticationPolicy PlainPolicy(params SaslLoginStep[] steps) => new(["PLAIN"], null, steps);
 
     // The replies after the greeting and the EHLO capabilities, whichever mechanisms they list.
     private static string Replies(InMemoryConnection connection)

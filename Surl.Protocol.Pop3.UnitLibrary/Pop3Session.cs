@@ -387,7 +387,7 @@ internal sealed class Pop3Session
         var exchange = mailAuthenticationPolicy.StartSaslExchange(
             new SaslExchangeStart(context.Scheme, mechanism, sent, connection.TlsSession));
         var step = await exchange.BeginAsync(CancellationToken);
-        while (step.Outcome == MailLoginOutcome.Challenge)
+        while (step.Outcome == SaslLoginOutcome.Challenge)
         {
             NoteCheckedLogin(step);
             await WriteLineAsync(Pop3Replies.Continuation(step.Challenge.Span), CancellationToken);
@@ -423,15 +423,15 @@ internal sealed class Pop3Session
 
     // The note is written before the reply (ADR-0038); an accepted login takes the maildrop lock
     // before it is answered (ADR-0056, decision 6).
-    private ValueTask<bool> AnswerLoginEndedAsync(MailLoginStep step)
+    private ValueTask<bool> AnswerLoginEndedAsync(SaslLoginStep step)
     {
         NoteCheckedLogin(step);
-        return ReplyAsync(step.Outcome is MailLoginOutcome.Accepted or MailLoginOutcome.AcceptedUnchecked
+        return ReplyAsync(step.Outcome is SaslLoginOutcome.Accepted or SaslLoginOutcome.AcceptedUnchecked
             ? OpenMaildrop(step.AccountName) ?? Pop3Replies.AuthenticationSuccessful
             : Pop3Replies.LoginRefused(step.Outcome));
     }
 
-    private void NoteCheckedLogin(MailLoginStep step)
+    private void NoteCheckedLogin(SaslLoginStep step)
     {
         if (step.CheckedLogin is { } checkedLogin)
         {

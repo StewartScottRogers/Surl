@@ -26,7 +26,7 @@ internal sealed class LoginSaslExchange(SaslExchangeContext context) : SaslMecha
     private byte[]? userNameBytes;
 
     /// <inheritdoc/>
-    protected override ValueTask<MailLoginStep> AnswerAsync(
+    protected override ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken)
     {
         if (response is not { } message)
@@ -43,7 +43,7 @@ internal sealed class LoginSaslExchange(SaslExchangeContext context) : SaslMecha
         return Context.IsUnchecked ? ValueTask.FromResult(AcceptedUnchecked) : CheckAsync(message.Span, cancellationToken);
     }
 
-    private ValueTask<MailLoginStep> CheckAsync(ReadOnlySpan<byte> password, CancellationToken cancellationToken)
+    private ValueTask<SaslLoginStep> CheckAsync(ReadOnlySpan<byte> password, CancellationToken cancellationToken)
     {
         var userName = Utf8.IsValid(userNameBytes) ? Encoding.UTF8.GetString(userNameBytes!) : null;
         var user = string.IsNullOrEmpty(userName) ? null : userName;

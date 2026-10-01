@@ -86,10 +86,10 @@ internal static class Pop3Replies
     /// neither a challenge nor an acceptance (ADR-0049, section 7). <c>APOP</c> never takes a
     /// challenge, so one answered with it is a failed login.
     /// </summary>
-    public static string LoginRefused(MailLoginOutcome outcome) => outcome switch
+    public static string LoginRefused(SaslLoginOutcome outcome) => outcome switch
     {
-        MailLoginOutcome.RefusedPlaintext => EncryptionRequired,
-        MailLoginOutcome.RefusedMechanism => UnsupportedMechanism,
+        SaslLoginOutcome.RefusedPlaintext => EncryptionRequired,
+        SaslLoginOutcome.RefusedMechanism => UnsupportedMechanism,
         _ => AuthenticationFailed,
     };
 

@@ -15,7 +15,7 @@ namespace Surl.Authentication;
 internal sealed class ExternalSaslExchange(SaslExchangeContext context) : SaslMechanismExchange(context)
 {
     /// <inheritdoc/>
-    protected override ValueTask<MailLoginStep> AnswerAsync(
+    protected override ValueTask<SaslLoginStep> AnswerAsync(
         ReadOnlyMemory<byte>? response, CancellationToken cancellationToken)
     {
         if (response is not { } authzid)
@@ -26,7 +26,7 @@ internal sealed class ExternalSaslExchange(SaslExchangeContext context) : SaslMe
         return Context.IsUnchecked ? ValueTask.FromResult(AcceptedUnchecked) : CheckAsync(authzid.Span, cancellationToken);
     }
 
-    private ValueTask<MailLoginStep> CheckAsync(ReadOnlySpan<byte> authzid, CancellationToken cancellationToken)
+    private ValueTask<SaslLoginStep> CheckAsync(ReadOnlySpan<byte> authzid, CancellationToken cancellationToken)
     {
         var name = Context.ClientCertificate!.GetNameInfo(X509NameType.SimpleName, false);
         var isAuthorized = authzid.IsEmpty || authzid.SequenceEqual(Encoding.UTF8.GetBytes(name));
