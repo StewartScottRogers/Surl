@@ -46,3 +46,4 @@ RFC 4121 layer, exiting 0 with the entry, as ADR-0072 Amendment 1 decides.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-10-01: Backlog -> Doing.
