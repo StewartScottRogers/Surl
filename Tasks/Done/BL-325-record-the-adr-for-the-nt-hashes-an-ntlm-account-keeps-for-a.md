@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: FR-014
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-325 — Record the ADR for the NT hashes an NTLM account keeps for a non-ASCII password
 
@@ -45,12 +45,15 @@ implemented: every NTLM account keeps four NT hashes and accepts an answer provi
 
 ## Acceptance criteria
 
-- [ ] An ADR in `Documentation/Planning/Decisions` states each point above, marked "Decided by
+- [x] An ADR in `Documentation/Planning/Decisions` states each point above, marked "Decided by
       Claude under Stewart's delegation", with its row in the folder's `README.md`.
 
 ## Notes
+
+- ADR-0075 records it, with a README row; ADR-0039 decision 6 and its README row carry an "amended by ADR-0075" note. Each claim was checked against the code (`NtlmPasswordHashes`, `NtlmHandshake.FindAnsweringAccount`, `AccountBook.FindNtlmAccount`, the SMB NTLMv1 check using `WidenedUtf8Index`). Docs only, so no build or test gate applies; the pipeline was run in the session rather than through `align-and-document`, as the change is one ADR.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0075 records the four NT hashes an NTLM account keeps for a non-ASCII password, amending ADR-0039
