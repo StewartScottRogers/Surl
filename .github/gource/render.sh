@@ -115,10 +115,12 @@ ffmpeg -y -loglevel error -i "$work/master.mkv" \
     -map "[a2]" "${av1_1080[@]}" "${av1_common[@]}" "${hls[@]}" \
         -hls_segment_filename "$d/av1/1080p/seg_%03d.m4s" "$d/av1/1080p/index.m3u8"
 
+# The 4K rung is also gource.mp4, one file that must stay under GitHub's 100 MB limit:
+# 8 Mbit/s for about 75 s is at most about 75 MB (14 Mbit/s made 114.5 MB and was refused).
 echo "encoding H.264 4K and 1080p"
 ffmpeg -y -loglevel error -i "$work/master.mkv" \
     -filter_complex "[0:v]split=2[h4][s2];[s2]scale=1920:1080:flags=lanczos[h2]" \
-    -map "[h4]" "${x264[@]}" -crf 18 -maxrate 14M -bufsize 28M -level 5.1 "${hls[@]}" \
+    -map "[h4]" "${x264[@]}" -crf 18 -maxrate 8M -bufsize 16M -level 5.1 "${hls[@]}" \
         -hls_segment_filename "$d/h264/2160p/seg_%03d.m4s" "$d/h264/2160p/index.m3u8" \
     -map "[h2]" "${x264[@]}" -crf 18 -maxrate 6M -bufsize 12M -level 4.1 "${hls[@]}" \
         -hls_segment_filename "$d/h264/1080p/seg_%03d.m4s" "$d/h264/1080p/index.m3u8"
