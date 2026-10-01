@@ -53,3 +53,4 @@ enforces the ADR's limits, replaying request bytes recorded from the pinned buil
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
