@@ -1,0 +1,12 @@
+> OPTIONS * RTSP/1.0
+> CSeq: 1
+> User-Agent: curl/8.21.0
+> 
+< RTSP/1.0 401 Unauthorized
+< CSeq: 1
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=MD5, nonce="MDAwMDAwMDAwMDAwMDAwMA"
+< WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=SHA-256, nonce="MDAwMDAwMDAwMDAwMDAwMA"
+< 
+= curl closed the connection

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
@@ -44,7 +45,12 @@ internal sealed class RtspRequestResponder
     private readonly ExchangeContext context;
     private readonly ContentStore contentStore;
     private readonly RtspUnreadRequestDrainer unreadRequestDrainer;
+    private readonly IHttpAuthenticationSession authenticationSession;
     private readonly byte[] bodyBuffer = new byte[BodyBufferBytes];
+
+    // The WWW-Authenticate values the authentication session gave for the request being
+    // answered, written on whatever response it gets; none before a request is judged.
+    private IReadOnlyList<string> wwwAuthenticateValues = [];
 
     /// <summary>
     /// Creates a responder for one connection.
@@ -53,12 +59,14 @@ internal sealed class RtspRequestResponder
     /// <param name="reader">The connection's reader, through which request bodies are read.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="contentStore">Where presentation paths are looked up.</param>
-    public RtspRequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore)
+    /// <param name="authenticationSession">The connection's authentication session, which judges every request.</param>
+    public RtspRequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession)
     {
         this.connection = connection;
         this.reader = reader;
         this.context = context;
         this.contentStore = contentStore;
+        this.authenticationSession = authenticationSession;
         unreadRequestDrainer = new RtspUnreadRequestDrainer(reader, context);
     }
 
@@ -92,12 +100,14 @@ internal sealed class RtspRequestResponder
 
     /// <summary>
     /// Answers a request whose head was read, judging it in ADR-0074 decision 2's order: its
-    /// <c>CSeq</c>, its body framing, its method, its Request-URI, then the method's own checks.
+    /// <c>CSeq</c>, its body framing, its login, its method, its Request-URI, then the method's
+    /// own checks.
     /// </summary>
     /// <param name="head">The request head.</param>
     /// <returns><see langword="true"/> when the connection stays open for another request.</returns>
     public async Task<bool> AnswerRequestAsync(HttpRequestHead head)
     {
+        wwwAuthenticateValues = [];
         var framing = HttpRequestBodyFraming.Of(head);
         var cseq = SingleCSeq(head);
         if (cseq is null)
@@ -111,12 +121,60 @@ internal sealed class RtspRequestResponder
             return await framingRefusal;
         }
 
-        if (!await DiscardBodyAsync(framing.ContentLength))
+        var verdict = await authenticationSession.JudgeAsync(AuthenticationRequest(head), context.CancellationToken);
+        using var bodyHash = verdict.BodyCheck is null ? null : IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        if (!await DiscardBodyAsync(framing.ContentLength, bodyHash))
         {
             return await RefuseAndCloseAsync(RtspStatus.BadRequest, cseq, head.Method, "the body ended before its Content-Length");
         }
 
-        return await AnswerMethodAsync(head, cseq);
+        if (verdict.BodyCheck is not null)
+        {
+            verdict = await verdict.BodyCheck.JudgeBodyAsync(bodyHash!.GetHashAndReset(), context.CancellationToken);
+        }
+
+        return await AnswerVerdictAsync(head, cseq, verdict);
+    }
+
+    // What the authentication session is shown of a request: never its body (ADR-0032,
+    // section 6). ANNOUNCE, RECORD and a SETUP for recording are writes (ADR-0074 decision 7).
+    private static HttpAuthenticationRequest AuthenticationRequest(HttpRequestHead head) => new(
+        head.Method,
+        head.RequestTarget,
+        IsWrite(head),
+        head.Fields.Select(field => new KeyValuePair<string, string>(field.Name, field.Value)).ToArray());
+
+    private static bool IsWrite(HttpRequestHead head) => head.Method switch
+    {
+        "ANNOUNCE" or "RECORD" => true,
+        "SETUP" => head.GetFieldValues("Transport").Any(AsksToRecord),
+        _ => false,
+    };
+
+    // RFC 2326 section 12.39: a transport's mode parameter, mode=record or mode="RECORD", or a
+    // quoted list naming it. Judging too many SETUPs as writes only asks for a login more often.
+    private static bool AsksToRecord(string transport) =>
+        transport.Split(';').Any(parameter =>
+            parameter.TrimStart().StartsWith("mode=", StringComparison.OrdinalIgnoreCase)
+            && parameter.Contains("record", StringComparison.OrdinalIgnoreCase));
+
+    // Check 4 (ADR-0074 decision 7): the session's login note, then the request served, or
+    // refused with a 401 carrying its challenges or a 403; neither closes the connection, so
+    // curl answers Digest on it. The note never repeats the Authorization field.
+    private Task<bool> AnswerVerdictAsync(HttpRequestHead head, string cseq, HttpAuthenticationVerdict verdict)
+    {
+        wwwAuthenticateValues = verdict.WwwAuthenticateValues;
+        if (verdict.CheckedLogin is not null)
+        {
+            context.Log.Note(verdict.CheckedLogin.Note);
+        }
+
+        return verdict.Outcome switch
+        {
+            HttpAuthenticationOutcome.Proceed => AnswerMethodAsync(head, cseq),
+            HttpAuthenticationOutcome.Challenge => RefuseAsync(RtspStatus.Unauthorized, cseq, head.Method, "a login is needed"),
+            _ => RefuseAsync(RtspStatus.Forbidden, cseq, head.Method, "the authentication policy forbade the request"),
+        };
     }
 
     // Check 2: exactly one CSeq of 1 to 9 decimal digits, copied byte for byte; null otherwise.
@@ -160,9 +218,9 @@ internal sealed class RtspRequestResponder
         context.Limits.MaxUploadBytes != 0 && contentLength > context.Limits.MaxUploadBytes;
 
     // The body is read before the answer, so the next head starts where the client expects
-    // (ADR-0074 decision 2); no method this server answers yet needs it. False when the
-    // client closed before all of it arrived.
-    private async Task<bool> DiscardBodyAsync(long contentLength)
+    // (ADR-0074 decision 2); no method this server answers yet needs it, but a login bound to
+    // it needs its hash. False when the client closed before all of it arrived.
+    private async Task<bool> DiscardBodyAsync(long contentLength, IncrementalHash? bodyHash)
     {
         var left = contentLength;
         while (left > 0)
@@ -173,6 +231,7 @@ internal sealed class RtspRequestResponder
                 return false;
             }
 
+            bodyHash?.AppendData(bodyBuffer, 0, read);
             left -= read;
         }
 
@@ -180,7 +239,7 @@ internal sealed class RtspRequestResponder
     }
 
     // Checks 5 to 7. ANNOUNCE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, SET_PARAMETER and
-    // RECORD are answered 501 until their tasks land (BL-314 to BL-316).
+    // RECORD are answered 501 until their tasks land (BL-315 and BL-316).
     private Task<bool> AnswerMethodAsync(HttpRequestHead head, string cseq)
     {
         if (!RtspMethods.Contains(head.Method, StringComparer.Ordinal))
@@ -255,12 +314,13 @@ internal sealed class RtspRequestResponder
     }
 
     // ADR-0074 decision 1: CSeq first, copied from the request (none when it had no usable
-    // one), then Date and Server.
+    // one), then Date and Server, then the authentication session's WWW-Authenticate values.
     private HttpResponseHead ResponseHead(HttpStatus status, string? cseq) =>
         new HttpResponseHead(HttpMessageProtocol.Rtsp10, status)
             .AddField("CSeq", cseq)
             .AddField("Date", context.TimeProvider.GetUtcNow().ToUniversalTime().ToString("r", CultureInfo.InvariantCulture))
-            .AddField("Server", HttpResponseHead.ServerName);
+            .AddField("Server", HttpResponseHead.ServerName)
+            .AddChallengeFields(wwwAuthenticateValues);
 
     private async Task<bool> RespondAsync(HttpResponseHead responseHead, byte[]? body)
     {

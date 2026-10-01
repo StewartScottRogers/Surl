@@ -13,6 +13,10 @@ internal static class RtspStatus
 
     public static HttpStatus BadRequest { get; } = HttpStatus.BadRequest;
 
+    public static HttpStatus Unauthorized { get; } = HttpStatus.Unauthorized;
+
+    public static HttpStatus Forbidden { get; } = HttpStatus.Forbidden;
+
     public static HttpStatus NotFound { get; } = HttpStatus.NotFound;
 
     public static HttpStatus RequestTimeOut { get; } = new(408, "Request Time-out");

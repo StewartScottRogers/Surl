@@ -24,6 +24,19 @@ as the table says before any test pinned the bytes. The files are embedded resou
 | `not-implemented-501` | `... -RawReply <501> -CurlArgs '-sS','-f','-w','%{response_code}','rtsp://127.0.0.1:18554/media'` | 22, `501` |
 | `bad-request-400` | `... -RawReply <400> -CurlArgs '-sS','-w','%{response_code}','rtsp://127.0.0.1:18554/media'` | 0, `400` |
 
+The login cases (BL-314, ADR-0074 decision 7) were recorded the same day with the same build.
+`<401>` is the status line `RTSP/1.0 401 Unauthorized`, the first three fields, then
+`WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=MD5, nonce="MDAwMDAwMDAwMDAwMDAwMA"` and
+the same with `algorithm=SHA-256`; `<403>` is `RTSP/1.0 403 Forbidden` with the first three fields.
+None has a body, so curl keeps the connection.
+
+| Folder | Command line | Exit, stdout |
+| --- | --- | --- |
+| `no-login-401` | `... -RawReply <401> -CurlArgs '-sS','-f','rtsp://127.0.0.1:18554/media'` | 22, `The requested URL returned error: 401` |
+| `digest-login` | `... -RawReply <401>,<ok> -CurlArgs '-sS','-v','--digest','-u','tester:secret','rtsp://127.0.0.1:18554/media'` | 0; the first `OPTIONS *` carries no `Authorization`, the second, `CSeq: 2` on the same connection, `Authorization: Digest username="tester",...,uri="*",...,algorithm=MD5,...` |
+| `basic-login` | `... -RawReply <ok> -CurlArgs '-sS','-w','%{response_code}','-u','tester:secret','rtsp://127.0.0.1:18554/media'` | 0, `200`; `Authorization: Basic dGVzdGVyOnNlY3JldA==` sent unasked |
+| `basic-forbidden-403` | `... -RawReply <403> -CurlArgs '-sS','-w','%{response_code}','-u','tester:secret','rtsp://127.0.0.1:18554/media'` | 0, `403` |
+
 `rfc2326-describe/request.bin` is not a recording: the `curl` tool sends only `OPTIONS *`, and
 `DESCRIBE` is libcurl's alone (ADR-0074 decision 12). Until BL-333 records libcurl's, it is
 RFC 2326 section 10.2's example request, with CRLF line endings:

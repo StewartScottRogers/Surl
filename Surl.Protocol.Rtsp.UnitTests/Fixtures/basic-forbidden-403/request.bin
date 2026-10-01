@@ -1,0 +1,5 @@
+OPTIONS * RTSP/1.0
+CSeq: 1
+User-Agent: curl/8.21.0
+Authorization: Basic dGVzdGVyOnNlY3JldA==
+

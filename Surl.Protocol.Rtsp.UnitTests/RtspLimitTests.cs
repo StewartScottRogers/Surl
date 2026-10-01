@@ -1,4 +1,5 @@
 using System.Net;
+using Surl.Content;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Rtsp.RtspServerHarness;
 
@@ -178,7 +179,10 @@ public sealed class RtspLimitTests
         var connection = new InMemoryConnection([]);
         var context = Context(new RecordingExchangeLog(), new ManualTimeProvider(Now), TestContext.CancellationToken);
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => new RtspProtocolServer(null!));
+        var contentStore = new ContentStore(Root, StandardFileSystem(), new ContentExposureOptions());
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => new RtspProtocolServer(null!, new AnonymousAuthenticationPolicy()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new RtspProtocolServer(contentStore, null!));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => Server().ServeAsync(null!, context));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => Server().ServeAsync(connection, null!));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await Server().WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, TestContext.CancellationToken));

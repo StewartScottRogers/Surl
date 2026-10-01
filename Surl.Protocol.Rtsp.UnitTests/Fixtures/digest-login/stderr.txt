@@ -1,0 +1,34 @@
+*   Trying 127.0.0.1:18554...
+* Established connection to 127.0.0.1 (127.0.0.1 port 18554) from 127.0.0.1 port 57307 
+* Server auth using Digest with user 'tester'
+> OPTIONS * RTSP/1.0
+> CSeq: 1
+> User-Agent: curl/8.21.0
+> 
+* Request completely sent off
+< RTSP/1.0 401 Unauthorized
+< CSeq: 1
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=MD5, nonce="MDAwMDAwMDAwMDAwMDAwMA"
+* Ignoring duplicate digest auth header.
+< WWW-Authenticate: Digest realm="surl", qop="auth", algorithm=SHA-256, nonce="MDAwMDAwMDAwMDAwMDAwMA"
+* Ignoring the response-body
+< 
+* Connection #0 to host 127.0.0.1:18554 left intact
+* Issue another request to this URL: 'rtsp://127.0.0.1:18554/media'
+* Reusing existing rtsp: connection with host 127.0.0.1
+* Server auth using Digest with user 'tester'
+> OPTIONS * RTSP/1.0
+> CSeq: 2
+> User-Agent: curl/8.21.0
+> Authorization: Digest username="tester",realm="surl",nonce="MDAwMDAwMDAwMDAwMDAwMA",uri="*",cnonce="5c573a707f1114e01e20bd9caa5c8418",nc=00000001,algorithm=MD5,response="68ab5351aab91767d686a89ee0f0203a",qop="auth"
+> 
+* Request completely sent off
+< RTSP/1.0 200 OK
+< CSeq: 2
+< Date: Mon, 28 Sep 2026 12:00:00 GMT
+< Server: surl
+< Public: OPTIONS, DESCRIBE, ANNOUNCE, SETUP, PLAY, PAUSE, TEARDOWN, GET_PARAMETER, SET_PARAMETER, RECORD
+< 
+* Connection #0 to host 127.0.0.1:18554 left intact

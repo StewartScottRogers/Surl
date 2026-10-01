@@ -10,15 +10,18 @@ is decided in ADR-0074.
 
 **URL schemes answered:** `rtsp`
 
-What exists (BL-313, ADR-0074 decisions 1 to 4 and 8's head limits):
+What exists (BL-313 and BL-314, ADR-0074 decisions 1 to 4, 7 and 8's head limits):
 
 - `RtspProtocolServer` - the `IConnectionProtocolServer` and `IConnectionRefusalWriter` (`503`
-  with no `CSeq`). Reads RTSP/1.0 heads with `Surl.HttpMessage`'s `HttpConnectionReader` for
-  `HttpMessageProtocol.Rtsp10`, one after another on the connection.
-- `RtspRequestResponder` - judges each request in ADR-0074 decision 2's order and answers
-  `OPTIONS` (`Public`, all ten methods) and `DESCRIBE` (an SDP of the content-store file).
-  The other eight methods are `501 Not Implemented` until BL-314 to BL-316 build them; the
-  login (decision 7) and sessions (decision 5) are not checked yet.
+  with no `CSeq`). Takes the `IAuthenticationPolicy` and starts one `IHttpAuthenticationSession`
+  per connection with its `TlsSession` (none for `rtsp://`). Reads RTSP/1.0 heads with
+  `Surl.HttpMessage`'s `HttpConnectionReader` for `HttpMessageProtocol.Rtsp10`, one after
+  another on the connection.
+- `RtspRequestResponder` - judges each request in ADR-0074 decision 2's order, the login
+  (decision 7: `401` with the session's `WWW-Authenticate` values, or `403`, both keeping the
+  connection) included, and answers `OPTIONS` (`Public`, all ten methods) and `DESCRIBE` (an
+  SDP of the content-store file). The other eight methods are `501 Not Implemented` until
+  BL-315 and BL-316 build them; sessions (decision 5) are not checked yet.
 - `RtspSessionDescription` - decision 4's SDP; `RtspStatus` - the statuses and their reason
   phrases; `RtspUnreadRequestDrainer` - the lingering close after a closing refusal.
 

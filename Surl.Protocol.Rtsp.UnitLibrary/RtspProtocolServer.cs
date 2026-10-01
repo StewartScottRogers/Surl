@@ -37,7 +37,17 @@ namespace Surl.Protocol.Rtsp;
 /// connection unless it announced a body. A <c>Transfer-Encoding</c> or a malformed
 /// <c>Content-Length</c> is <c>400 Bad Request</c>, and a body past
 /// <see cref="ExchangeLimits.MaxUploadBytes"/> <c>413 Request Entity Too Large</c>, both closing
-/// with the body unread; any other body is read and discarded before the answer. A method that
+/// with the body unread; any other body is read and discarded before the answer. The login is
+/// judged next (ADR-0074 decision 7): each connection gets one
+/// <see cref="IHttpAuthenticationSession"/> from the <see cref="IAuthenticationPolicy"/>, started
+/// with the connection's <see cref="IConnection.TlsSession"/> - none for <c>rtsp://</c>, so Basic
+/// and Bearer are refused unchecked unless the policy allows a clear password. <c>Challenge</c> is
+/// <c>401 Unauthorized</c> with one <c>WWW-Authenticate</c> field per value the session gave, in
+/// its order, and <c>Forbidden</c> is <c>403 Forbidden</c>; both keep the connection, so curl
+/// answers Digest on it. <c>ANNOUNCE</c>, <c>RECORD</c> and a <c>SETUP</c> whose
+/// <c>Transport</c> asks for <c>mode=record</c> are judged as writes. The session's login note is
+/// written to the exchange log, and a login bound to the body is judged with the body's SHA-256
+/// once it is read (ADR-0045). A method that
 /// is not one of RFC 2326's ten is <c>501 Not Implemented</c>, as is, until their tasks land,
 /// every one of the ten but <c>OPTIONS</c> and <c>DESCRIBE</c>; a Request-URI that is neither
 /// <c>*</c> nor an <c>rtsp://</c> URL is <c>400 Bad Request</c>. A closing refusal gets one
@@ -59,16 +69,23 @@ public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionR
         .ToBytes();
 
     private readonly ContentStore contentStore;
+    private readonly IAuthenticationPolicy authenticationPolicy;
 
     /// <summary>
-    /// Creates an RTSP server whose presentations are the files of <paramref name="contentStore"/>.
+    /// Creates an RTSP server whose presentations are the files of <paramref name="contentStore"/>,
+    /// serving the requests <paramref name="authenticationPolicy"/> lets in (ADR-0074 decision 7).
     /// </summary>
     /// <param name="contentStore">The content store every presentation path is looked up in.</param>
-    public RtspProtocolServer(ContentStore contentStore)
+    /// <param name="authenticationPolicy">
+    /// Judges every request: served, challenged with <c>401</c>, or refused with <c>403</c>.
+    /// </param>
+    public RtspProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
+        ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.contentStore = contentStore;
+        this.authenticationPolicy = authenticationPolicy;
     }
 
     /// <summary>
@@ -89,7 +106,8 @@ public sealed class RtspProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes, HttpMessageProtocol.Rtsp10);
-        var responder = new RtspRequestResponder(connection, reader, context, contentStore);
+        var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
+        var responder = new RtspRequestResponder(connection, reader, context, contentStore, authenticationSession);
         var isFirstHead = true;
         var keepsConnectionOpen = true;
 
