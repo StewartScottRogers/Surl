@@ -6,7 +6,10 @@
   in BL-284 (FR-049).
 - **Amended:** decision 4's `GSSAPI` line by [ADR-0076](ADR-0076-an-openldap-upstream-curl-8-21-0-build-built-reproducibly-in-ci-for-ldap-and-ldaps.md)
   (2026-09-30), which measured the OpenLDAP build (`lib/openldap.c`) and changed no other decision:
-  that build has no GSS-API, so the `GSSAPI` measurement moves to BL-342.
+  that build has no GSS-API, so the `GSSAPI` measurement moves to BL-342. Decision 4's Kerberos
+  inside `GSS-SPNEGO` line by [Amendment 1](#amendment-1---kerberos-inside-gss-spnego-measured-and-built-bl-327-2026-09-30)
+  below (BL-327, 2026-09-30): `WinLDAP` does use Kerberos for a host name, measured, and surl
+  answers it with `--keytab` and RFC 4121 wrap tokens.
 - **Amends:** [ADR-0049](ADR-0049-the-mail-servers-sasl-and-apop-logins.md) decision 3's table
   (LDAP joins the protocols of `ntlm`, `negotiate`, `digest-md5`, `gssapi`, `plain`, `external`)
   and decision 6 (the SASL contract becomes protocol-neutral and gains a security layer, decision
@@ -352,10 +355,10 @@ SASL and is not listed: it is answered when `ntlm` is accepted.
   an account, and refused (`invalidCredentials`, the note saying `the security layer needs the
   account's password`) when not: an accepted bind whose traffic surl cannot unseal would serve
   nothing. Every other mechanism keeps ADR-0049's `--allow-anonymous` rule.
-- **Kerberos inside `GSS-SPNEGO`** (an SPNEGO token naming Kerberos first) is answered by
-  ADR-0040's rule, NTLM selected: `WinLDAP` never reaches it against a loopback address
-  (measured), and reaching it needs a host name in the machine's own name resolution. BL-327
-  (Low) decides and builds it with RFC 4121's wrap tokens as its security layer.
+- **Kerberos inside `GSS-SPNEGO`** (an SPNEGO token naming Kerberos first): `WinLDAP` never
+  sends it for a loopback address (measured). *Amended by Amendment 1:* for a host name it does,
+  and with `--keytab` surl accepts it in one leg with RFC 4121 wrap tokens as the security layer;
+  without `--keytab` it is answered by ADR-0040's rule, NTLM selected.
 
 **The contract** (amends ADR-0049 decision 6; BL-328 builds it). The SASL contract is
 protocol-neutral, since LDAP is not mail: `MailLoginStep` becomes `SaslLoginStep`,
@@ -530,3 +533,74 @@ successes), BL-311 records the measured one against this ADR rather than changin
 - The Windows build's `ldaps` cannot succeed against surl without trusting its certificate on the
   machine; the success case waits for BL-312.
 - The measured case list above is the fixture list BL-308 and BL-309 record again as test data.
+
+## Amendment 1 - Kerberos inside GSS-SPNEGO, measured and built (BL-327, 2026-09-30)
+
+- **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30,
+  in BL-327. Amends decision 4's Kerberos line only.
+
+### What was measured
+
+With the Windows reference build (`C:\Program Files\Git\mingw64\bin\curl.exe`, SHA-256
+`0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`, curl 8.21.0, `WinLDAP`),
+ADR-0065's test KDC and BL-265's `SURL.TEST` realm mapping, on the lane machine, through
+`Record-CurlExchange.ps1 -Ldap -KerberosTestKdc` with `--negotiate -u
+tester@SURL.TEST:<password>`:
+
+- **No machine change is needed.** `ldap://localhost:<port>/...` reaches Kerberos: `WinLDAP`
+  resolves `localhost` itself and asks the KDC for the service ticket
+  `ldap/<the machine's host name>:<port>@SURL.TEST` (here `ldap/Stewart-Rogers-AI-PC:18389`) - the
+  canonical host name, **with the port** - in the realm of the user's principal, so no hosts-file
+  entry and no host-to-realm mapping is involved. `ldap://127.0.0.1` still never asks (decision
+  4's measurement stands).
+- **The bind:** after the root DSE search, one SASL `GSS-SPNEGO` bind whose credentials are an
+  RFC 4178 `NegTokenInit` listing `1.2.840.48018.1.2.2` (MS-KRB5), `1.2.840.113554.1.2.2`
+  (Kerberos), `1.3.6.1.4.1.311.2.2.30` (NEGOEX) and NTLMSSP, in that order, with the AP-REQ as its
+  optimistic token, `ap-options` `mutual-required`, and the GSS-API checksum flags asking for
+  confidentiality and integrity; no `mechListMIC`.
+- **The answer it accepts:** `bindResponse success` with `serverSaslCreds` an `accept-completed`
+  `negTokenResp` naming MS-KRB5 as `supportedMech` and the AP-REP token as `responseToken`, and no
+  `mechListMIC`: `WinLDAP` sends nothing more for the bind. **There is no RFC 4752 section 3.3
+  layer negotiation** (no wrapped 4-byte offer either way), unlike SASL `GSSAPI`: the GSS-API flags
+  alone choose the layer.
+- **The layer:** every message after the bind is a SASL buffer (4-byte length) holding one RFC
+  4121 wrap token, **sealed** (`Flags` `02`), `EC` 0, `RRC` 28, the client's sequence numbers
+  from the authenticator's. Surl's replies sealed the same way (`SentByAcceptor`, `Sealed`, `EC` 0,
+  `RRC` 28, sequence numbers from the AP-REP's) were read: curl printed the entry, sent its unbind
+  sealed, and **exited 0**. The recording is `Surl.Authentication.UnitTests/Fixtures/ldap-kerberos-sealed`.
+
+To answer the bind while recording, `Record-CurlExchange.ps1` gained `-LdapKerberosAcceptor`,
+which hands the bind and each buffer to `Run-KerberosAcceptor.cs` (a C# file-based app over
+`Surl.Kerberos` and the keytab the test KDC wrote), and the KDC now starts before the recorder's
+listener, since a child process that inherited the listening socket kept the recording from
+ever finishing.
+
+### Decision
+
+- **A `GSS-SPNEGO` token selecting Kerberos is accepted with `--keytab`** (`GssSpnegoSaslExchange`
+  in `Surl.Authentication`): the selection, the "Kerberos first with its AP-REQ as the optimistic
+  token, else refused" rule, the `mechListMIC` both ways and the account match are ADR-0057
+  decision 8 and ADR-0064's for HTTP Negotiate, with the service **`ldap`**, any host and port
+  the keytab holds a key for. One leg: success is `bindResponse success` with the
+  `accept-completed` `negTokenResp` (the AP-REP when mutual authentication was asked) as
+  `serverSaslCreds`. A refused ticket notes `Kerberos: <reason>` and names no user; every later
+  refusal names the principal.
+- **`--allow-anonymous` accepts an unchecked Kerberos bind** (the ticket must still decrypt):
+  unlike NTLM and `DIGEST-MD5`, the layer's keys come from the ticket, not the account's password.
+- **The security layer is RFC 4121's wrap token** (`KerberosSaslSecurityLayer`): surl seals
+  (`KerberosSecurityContext.Seal`: `EC` 0, `RRC` 28, as Windows sends) when the client asked for
+  confidentiality, only signs when it asked for integrity alone, and runs no layer when it asked
+  for neither; it reads the client's tokens sealed or signed with any `RRC`, in sequence.
+- **Without `--keytab`** a token selecting Kerberos is answered as before, by ADR-0040's rule
+  with NTLM selected.
+
+### Alternatives considered
+
+- **A hosts-file entry or a `ksetup /addhosttorealmmap` for a `.surl.test` name** (the task's
+  suggestion). Not needed: `localhost` reaches Kerberos with the user's realm, and a machine
+  change is Stewart's to make.
+- **RFC 4752's layer negotiation after the bind**, as SASL `GSSAPI` has it. Rejected: measured,
+  `WinLDAP` neither sends nor waits for it, and Active Directory's `GSS-SPNEGO` has none.
+- **`RRC` 0 on surl's sealed tokens**, RFC 4121's simplest. Not chosen: `RRC` 28 is what
+  Windows' own Kerberos sends and was measured to work; RFC 4121 section 4.2.5 obliges every
+  receiver to accept either.
