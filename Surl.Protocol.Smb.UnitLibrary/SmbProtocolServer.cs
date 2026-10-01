@@ -7,8 +7,8 @@ namespace Surl.Protocol.Smb;
 /// The SMB version 1 server upstream curl's <c>smb://</c> and <c>smbs://</c> transfers talk to
 /// (FR-050): answers <c>SMB_COM_NEGOTIATE</c>, the NTLMv1 <c>SMB_COM_SESSION_SETUP_ANDX</c>,
 /// <c>SMB_COM_TREE_CONNECT_ANDX</c>, <c>SMB_COM_TREE_DISCONNECT</c>, and the
-/// <c>SMB_COM_NT_CREATE_ANDX</c>, <c>SMB_COM_READ_ANDX</c> and <c>SMB_COM_CLOSE</c> of a download
-/// from the content store, as ADR-0073 decides.
+/// <c>SMB_COM_NT_CREATE_ANDX</c>, <c>SMB_COM_READ_ANDX</c>, <c>SMB_COM_WRITE_ANDX</c> and
+/// <c>SMB_COM_CLOSE</c> of a download from or an upload to the content store, as ADR-0073 decides.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -42,12 +42,26 @@ namespace Surl.Protocol.Smb;
 /// (<c>ERRDOS/ERRnofids</c>), answered <c>FILE_OPENED</c> with the file's last write time as all
 /// four times, <c>FILE_ATTRIBUTE_NORMAL</c> and its length. Anything that is not a served file -
 /// absent, hidden, refused by the path rules, a directory, the share itself - is
-/// <c>ERRDOS/ERRbadfile</c>. Uploads are not taken yet, so an open that asks to write is
-/// <c>ERRDOS/ERRnoaccess</c>, as with uploads off. Each read answers at most its
+/// <c>ERRDOS/ERRbadfile</c>. Each read answers at most its
 /// <c>MaxCount</c>, 61440 and the bytes left from its offset, none at or past the end;
 /// a content store failure is <c>ERRHRD/ERRgeneral</c>. A close forgets the FID, a tree
-/// disconnect its tree's FIDs; a read or close of a FID not open on that tree is
-/// <c>ERRDOS/ERRbadfid</c>, a write on an open file <c>ERRDOS/ERRbadaccess</c>.
+/// disconnect its tree's FIDs; a read, write or close of a FID not open on that tree is
+/// <c>ERRDOS/ERRbadfid</c>, a write on a file opened for reading or a read on one opened for
+/// writing <c>ERRDOS/ERRbadaccess</c>.
+/// </para>
+/// <para>
+/// <b>Uploads</b> (decision 5). An NT create that asks for write access or a disposition other
+/// than <c>FILE_OPEN</c> opens a random-access upload through
+/// <see cref="ContentStore.OpenUploadAsync"/> that creates a missing file and replaces an
+/// existing one, answered <c>FILE_CREATED</c> or <c>FILE_OVERWRITTEN</c> with the clock's time
+/// and a length of 0. Uploads off (no <c>--allow-uploads</c>), a hidden or <c>.surl</c>
+/// location and a directory at the name are <c>ERRDOS/ERRnoaccess</c>; a missing directory
+/// <c>ERRDOS/ERRbadpath</c>; a name the path rules refuse <c>ERRDOS/ERRbadfile</c>. Each write
+/// lands at its offset and is answered with exactly the count it carried. A write past
+/// <c>--max-filesize</c> is <c>ERRHRD/ERRdiskfull</c> and the partial file is deleted, a
+/// content store failure <c>ERRHRD/ERRgeneral</c>; the close curl then sends is answered with
+/// success. The close commits the upload over the target; a tree disconnect, or the end of the
+/// connection, discards one still open.
 /// </para>
 /// <para>
 /// <b>Keep answering</b> (decision 5). Curl does not notice the server close while it waits,
@@ -115,7 +129,19 @@ public sealed class SmbProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
+        return ServeSessionAsync(connection, context);
+    }
+
+    // The session is disposed however the exchange ends, so an upload left open is discarded
+    // (ADR-0073, decision 5); then the exchange's own outcome, cancellation included, goes on.
+    // Awaiting without throwing first, rather than in a finally, leaves the compiler no rethrow
+    // branch that no exception can take.
+    private async Task ServeSessionAsync(IConnection connection, ExchangeContext context)
+    {
         var session = new SmbSession(connection, context, contentStore, authenticationPolicy, challengeSource);
-        return new SmbExchange(connection, context, session).ServeAsync();
+        var serving = new SmbExchange(connection, context, session).ServeAsync();
+        await serving.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        await session.DisposeAsync();
+        await serving;
     }
 }

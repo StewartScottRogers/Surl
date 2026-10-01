@@ -1,4 +1,5 @@
 using System.Text;
+using Surl.Content;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Smb.SmbTestExchange;
 
@@ -33,6 +34,69 @@ public sealed class RecordedExchangeTests
 
         Assert.AreEqual(curlExit, Encoding.ASCII.GetString(RecordedFixture.ReadBytes(caseName, "exitcode.txt")).Trim());
         CollectionAssert.AreEqual(RecordedFixture.ReadBytes(caseName, "response.bin"), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    [DataRow("upload-small", false, "0", true, 0L)]
+    [DataRow("upload-small", true, "0", true, 0L)]
+    [DataRow("upload-large", false, "0", true, 0L)]
+    [DataRow("upload-large", true, "0", true, 0L)]
+    [DataRow("upload-refused", false, "9", false, 0L)]
+    [DataRow("upload-refused", true, "9", false, 0L)]
+    [DataRow("upload-too-large", false, "25", true, 1000L)]
+    [DataRow("upload-too-large", true, "25", true, 1000L)]
+    public async Task ServeAsync_RecordedUploads_AreAnsweredWithTheBytesCurlWasFed(string caseName, bool oneBytePerRead, string curlExit, bool allowUploads, long maxUploadBytes)
+    {
+        var request = RecordedFixture.ReadBytes(caseName, "request.bin");
+        var connection = new InMemoryConnection(oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request));
+        var options = new ContentExposureOptions { AllowUploads = allowUploads, MaxUploadBytes = maxUploadBytes };
+        var contentStore = new ContentStore(InMemoryContentFileSystem.RootPath, StandardFileSystem(), options);
+
+        await Server(contentStore: contentStore).ServeAsync(connection, Context(new ManualTimeProvider(), TestContext.CancellationToken));
+
+        Assert.AreEqual(curlExit, Encoding.ASCII.GetString(RecordedFixture.ReadBytes(caseName, "exitcode.txt")).Trim());
+        CollectionAssert.AreEqual(RecordedFixture.ReadBytes(caseName, "response.bin"), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    [DataRow("upload-small", false, 0L)]
+    [DataRow("upload-large", false, 0L)]
+    [DataRow("upload-refused", true, 0L)]
+    [DataRow("upload-too-large", true, 1000L)]
+    public async Task ServeAsync_RecordedUpload_StoresWhatCurlSentOrNothing(string caseName, bool storesNothing, long maxUploadBytes)
+    {
+        var fileSystem = StandardFileSystem();
+        var shareEntries = fileSystem.EnumerateDirectoryEntryNames(Path.Join(InMemoryContentFileSystem.RootPath, "share")).ToArray();
+        var options = new ContentExposureOptions { AllowUploads = caseName != "upload-refused", MaxUploadBytes = maxUploadBytes };
+        var connection = new InMemoryConnection(RecordedFixture.Whole(RecordedFixture.ReadBytes(caseName, "request.bin")));
+
+        await Server(contentStore: new ContentStore(InMemoryContentFileSystem.RootPath, fileSystem, options))
+            .ServeAsync(connection, Context(new ManualTimeProvider(), TestContext.CancellationToken));
+
+        var sent = caseName == "upload-small" ? Encoding.ASCII.GetBytes("upload me\n") : BigFileBytes();
+        var stored = StoredBytes(fileSystem, "share", "up.txt");
+        if (storesNothing)
+        {
+            Assert.IsNull(stored);
+            CollectionAssert.AreEquivalent(shareEntries, fileSystem.EnumerateDirectoryEntryNames(Path.Join(InMemoryContentFileSystem.RootPath, "share")).ToArray());
+        }
+        else
+        {
+            CollectionAssert.AreEqual(sent, stored, $"share\\up.txt after {caseName}");
+        }
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecordedLargeUpload_NotesTheOpenAndTheBytesWritten()
+    {
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection(RecordedFixture.Whole(RecordedFixture.ReadBytes("upload-large", "request.bin")));
+
+        await Server(contentStore: UploadContentStore(StandardFileSystem())).ServeAsync(connection, Context(new ManualTimeProvider(), TestContext.CancellationToken, log: log));
+
+        CollectionAssert.AreEqual(
+            new[] { "Login accepted: ntlmv1 alice", "SMB tree connect share: connected", @"SMB open share\up.txt for writing", @"SMB close share\up.txt: 40000 bytes written" },
+            log.Notes.ToArray());
     }
 
     [TestMethod]

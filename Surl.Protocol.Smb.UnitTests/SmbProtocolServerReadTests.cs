@@ -109,7 +109,7 @@ public sealed class SmbProtocolServerReadTests
     [DataRow("00000040", "01000000", DisplayName = "GENERIC_WRITE")]
     [DataRow("00000010", "01000000", DisplayName = "GENERIC_ALL")]
     [DataRow("00000080", "03000000", DisplayName = "FILE_OPEN_IF")]
-    public async Task NtCreate_AskingToWrite_IsNoAccessAndNoted(string desiredAccessHex, string dispositionHex)
+    public async Task NtCreate_AskingToWriteWithUploadsOff_IsNoAccessAndNoted(string desiredAccessHex, string dispositionHex)
     {
         var log = new RecordingExchangeLog();
 

@@ -6,14 +6,14 @@ namespace Surl.Protocol.Smb;
 /// <summary>
 /// One connection's SMB version 1 session: the negotiate, the NTLMv1 session setup checked
 /// through <see cref="ISmbAuthenticationPolicy"/>, the trees connected to shares and the files
-/// opened for reading on them, answering each decoded request as ADR-0073 decisions 1 to 5 say.
+/// opened on them for reading or for writing, answering each decoded request as ADR-0073
+/// decisions 1 to 5 say.
 /// </summary>
 /// <remarks>
-/// Uploads are not taken yet: an <c>SMB_COM_NT_CREATE_ANDX</c> that asks to write is answered
-/// <c>ERRDOS/ERRnoaccess</c>, as with uploads off, and a write on a file opened for reading
-/// <c>ERRDOS/ERRbadaccess</c>. Not safe for concurrent calls.
+/// Disposing the session discards every upload still open, as a connection that ends with one
+/// open must. Not safe for concurrent calls.
 /// </remarks>
-internal sealed class SmbSession
+internal sealed class SmbSession : IAsyncDisposable
 {
     /// <summary>The UID of the connection's one session (ADR-0073, decision 2).</summary>
     public const ushort UserId = 1;
@@ -45,7 +45,12 @@ internal sealed class SmbSession
     private const string DiskShareService = "A:";
     private const uint FileOpenDisposition = 1;
     private const uint FileOpened = 1;
+    private const uint FileCreated = 2;
+    private const uint FileOverwritten = 3;
     private const uint NormalFileAttributes = 0x80;
+
+    // FILE_OVERWRITE_IF, what curl asks for: a missing file is created, an existing one replaced.
+    private static readonly ContentUploadOpening OverwriteIfOpening = new(StartsFromExistingBytes: false, CreatesMissingFile: true, RefusesExistingFile: false);
 
     // GENERIC_ALL, GENERIC_WRITE, FILE_APPEND_DATA and FILE_WRITE_DATA.
     private const uint WriteAccessMask = 0x50000006;
@@ -104,13 +109,36 @@ internal sealed class SmbSession
 
     private async ValueTask<SmbAnswer> AnswerOnTreeAsync(SmbRequest request) => request switch
     {
-        SmbTreeDisconnectRequest treeDisconnect => AnswerTreeDisconnect(treeDisconnect),
-        SmbNtCreateRequest ntCreate => AnswerNtCreate(ntCreate),
+        SmbTreeDisconnectRequest treeDisconnect => await AnswerTreeDisconnectAsync(treeDisconnect),
+        SmbNtCreateRequest ntCreate => await AnswerNtCreateAsync(ntCreate),
         SmbReadRequest read => await AnswerReadAsync(read),
-        SmbCloseRequest close => AnswerClose(close),
+        SmbCloseRequest close => await AnswerCloseAsync(close),
         // Negotiate and session setup were answered before a login was needed: a write is all that is left.
-        _ => AnswerWrite((SmbWriteRequest)request),
+        _ => await AnswerWriteAsync((SmbWriteRequest)request),
     };
+
+    /// <summary>
+    /// Discards every upload still open: a connection that ends with one open commits nothing
+    /// (ADR-0073, decision 5).
+    /// </summary>
+    /// <returns>A task that completes when every open upload is discarded.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        foreach (var openFile in openFilesByFileId.Values)
+        {
+            await DiscardUploadAsync(openFile);
+        }
+
+        openFilesByFileId.Clear();
+    }
+
+    private static async ValueTask DiscardUploadAsync(SmbOpenFile openFile)
+    {
+        if (openFile.Upload is { } upload)
+        {
+            await upload.DisposeAsync();
+        }
+    }
 
     /// <summary>
     /// Answers a message that did not decode into a request: <c>ERRSRV/ERRsmbcmd</c> for a
@@ -263,34 +291,36 @@ internal sealed class SmbSession
         return treeId;
     }
 
-    private SmbAnswer AnswerTreeDisconnect(SmbTreeDisconnectRequest request)
+    // Forgets the tree and its files, discarding any upload among them uncommitted.
+    private async ValueTask<SmbAnswer> AnswerTreeDisconnectAsync(SmbTreeDisconnectRequest request)
     {
         sharesByTreeId.Remove(request.Header.TreeId);
-        foreach (var (fileId, _) in openFilesByFileId.Where(entry => entry.Value.TreeId == request.Header.TreeId).ToList())
+        foreach (var (fileId, openFile) in openFilesByFileId.Where(entry => entry.Value.TreeId == request.Header.TreeId).ToList())
         {
             openFilesByFileId.Remove(fileId);
+            await DiscardUploadAsync(openFile);
         }
 
         return new SmbAnswer(SmbResponseEncoder.EncodeTreeDisconnect(request.Header));
     }
 
-    // Opens a file of the share for reading (ADR-0073, decisions 2 and 5). An open that asks to
-    // write is refused as uploads off are until the server takes uploads.
-    private SmbAnswer AnswerNtCreate(SmbNtCreateRequest request)
+    // Opens a file of the share for reading, or for writing when the open asks to write
+    // (ADR-0073, decisions 2 and 5).
+    private async ValueTask<SmbAnswer> AnswerNtCreateAsync(SmbNtCreateRequest request)
     {
         var share = sharesByTreeId[request.Header.TreeId];
         var noteName = $"{share}\\{request.FileName}";
-        if (AsksToWrite(request))
-        {
-            return RefuseOpen(request.Header, noteName, SmbStatus.NoAccess, "ERRnoaccess");
-        }
-
         if (openFilesByFileId.Count >= MaxOpenFiles)
         {
             return RefuseOpen(request.Header, noteName, SmbStatus.NoFileIds, "ERRnofids");
         }
 
         var mapping = contentStore.MapRequestPath(FileRequestPath(share, request.FileName));
+        if (AsksToWrite(request))
+        {
+            return await OpenForWritingAsync(request, noteName, mapping);
+        }
+
         if ((mapping.IsMapped ? contentStore.GetFileStatus(mapping) : null) is not { } status)
         {
             return RefuseOpen(request.Header, noteName, SmbStatus.BadFile, "ERRbadfile");
@@ -319,6 +349,45 @@ internal sealed class SmbSession
 
     private static bool AsksToWrite(SmbNtCreateRequest request) =>
         (request.DesiredAccess & WriteAccessMask) != 0 || request.CreateDisposition != FileOpenDisposition;
+
+    // Opens a random-access upload that creates a missing file and replaces an existing one,
+    // as FILE_OVERWRITE_IF asks; a name the path rules refuse is answered as absent, as a read's is.
+    private async ValueTask<SmbAnswer> OpenForWritingAsync(SmbNtCreateRequest request, string noteName, ContentPathMapping mapping)
+    {
+        if (!mapping.IsMapped)
+        {
+            return RefuseOpen(request.Header, noteName, SmbStatus.BadFile, "ERRbadfile");
+        }
+
+        var isReplacingAFile = contentStore.GetFileStatus(mapping) is not null;
+        var opening = await contentStore.OpenUploadAsync(mapping, OverwriteIfOpening, context.CancellationToken);
+        if (opening.Session is not { } upload)
+        {
+            return opening.Result == ContentUploadOpeningResult.NoSuchDirectory
+                ? RefuseOpen(request.Header, noteName, SmbStatus.BadPath, "ERRbadpath")
+                : RefuseOpen(request.Header, noteName, SmbStatus.NoAccess, "ERRnoaccess");
+        }
+
+        var fileId = LowestFreeFileId();
+        openFilesByFileId[fileId] = new SmbOpenFile(request.Header.TreeId, noteName, mapping, 0) { Upload = upload };
+        context.Log.Note($"SMB open {noteName} for writing");
+        var now = context.TimeProvider.GetUtcNow().ToFileTime();
+        var response = new SmbNtCreateResponse(
+            OplockLevel: 0,
+            fileId,
+            isReplacingAFile ? FileOverwritten : FileCreated,
+            now,
+            now,
+            now,
+            now,
+            NormalFileAttributes,
+            AllocationSize: 0,
+            EndOfFile: 0,
+            ResourceType: 0,
+            NamedPipeStatus: 0,
+            IsDirectory: false);
+        return new SmbAnswer(SmbResponseEncoder.EncodeNtCreate(request.Header, response));
+    }
 
     private SmbAnswer RefuseOpen(SmbHeader header, string noteName, uint status, string statusName)
     {
@@ -355,6 +424,11 @@ internal sealed class SmbSession
             return Refuse(request.Header, SmbStatus.BadFileId);
         }
 
+        if (openFile.Upload is not null)
+        {
+            return Refuse(request.Header, SmbStatus.BadAccess);
+        }
+
         var byteCount = request.Offset < 0 ? 0 : Math.Min(Math.Min((long)request.MaxCount, MaxReadBytes), openFile.Length - request.Offset);
         if (byteCount <= 0)
         {
@@ -377,19 +451,112 @@ internal sealed class SmbSession
         return new SmbAnswer(SmbResponseEncoder.EncodeRead(request.Header, 0, data.GetBuffer().AsSpan(0, (int)data.Length)));
     }
 
-    private SmbAnswer AnswerClose(SmbCloseRequest request)
+    private async ValueTask<SmbAnswer> AnswerCloseAsync(SmbCloseRequest request)
     {
         if (FindOpenFile(request.Header, request.FileId) is not { } openFile)
         {
             return Refuse(request.Header, SmbStatus.BadFileId);
         }
 
+        if (openFile.Upload is not { } upload)
+        {
+            openFilesByFileId.Remove(request.FileId);
+            context.Log.Note($"SMB close {openFile.NoteName}: {openFile.BytesRead} bytes read");
+            return new SmbAnswer(SmbResponseEncoder.EncodeClose(request.Header));
+        }
+
+        // Every way the commit returns ends the upload; one that throws leaves it open, so the
+        // file is forgotten only afterwards and the session's disposal discards it otherwise.
+        var answer = await CommitUploadAsync(request.Header, openFile, upload);
         openFilesByFileId.Remove(request.FileId);
-        context.Log.Note($"SMB close {openFile.NoteName}: {openFile.BytesRead} bytes read");
-        return new SmbAnswer(SmbResponseEncoder.EncodeClose(request.Header));
+        return answer;
     }
 
-    // Every open file is open for reading, so a write on one is ERRbadaccess (ADR-0073, decision 4).
-    private SmbAnswer AnswerWrite(SmbWriteRequest request) =>
-        Refuse(request.Header, FindOpenFile(request.Header, request.FileId) is not null ? SmbStatus.BadAccess : SmbStatus.BadFileId);
+    // The close commits the upload (ADR-0073, decision 5). One a write already refused or failed
+    // was discarded then, so its close is answered with success, as curl's close after an error
+    // is; a target that can no longer take a file is ERRnoaccess, a store failure ERRgeneral.
+    private async ValueTask<SmbAnswer> CommitUploadAsync(SmbHeader header, SmbOpenFile openFile, ContentUploadSession upload)
+    {
+        if (openFile.HasUploadFailed)
+        {
+            context.Log.Note($"SMB close {openFile.NoteName}: upload discarded");
+            return new SmbAnswer(SmbResponseEncoder.EncodeClose(header));
+        }
+
+        var length = upload.Length;
+        ContentUploadResult result;
+        try
+        {
+            result = await upload.CommitAsync(context.CancellationToken);
+        }
+        catch (IOException exception)
+        {
+            context.Log.Note($"SMB close {openFile.NoteName} failed: {exception.Message}");
+            return Refuse(header, SmbStatus.GeneralFailure);
+        }
+
+        return result switch
+        {
+            ContentUploadResult.Written => ClosedUpload(header, $"SMB close {openFile.NoteName}: {length} bytes written"),
+            ContentUploadResult.TooLarge => ClosedUpload(header, $"SMB close {openFile.NoteName}: upload discarded"),
+            _ => ClosedUpload(header, $"SMB close {openFile.NoteName} refused: ERRnoaccess", SmbStatus.NoAccess),
+        };
+    }
+
+    private SmbAnswer ClosedUpload(SmbHeader header, string note, uint status = SmbStatus.Success)
+    {
+        context.Log.Note(note);
+        return new SmbAnswer(SmbResponseEncoder.EncodeError(header, status));
+    }
+
+    // Writes the data at its offset and answers exactly the count received, which is where curl
+    // puts its next write (ADR-0073, decision 5); a write on a file opened for reading is
+    // ERRbadaccess, one past --max-filesize ERRdiskfull with the partial file deleted.
+    private ValueTask<SmbAnswer> AnswerWriteAsync(SmbWriteRequest request)
+    {
+        var openFile = FindOpenFile(request.Header, request.FileId);
+        if (openFile?.Upload is not { } upload)
+        {
+            return ValueTask.FromResult(Refuse(request.Header, openFile is null ? SmbStatus.BadFileId : SmbStatus.BadAccess));
+        }
+
+        return WriteRefusal(request, openFile) is { } status
+            ? ValueTask.FromResult(Refuse(request.Header, status))
+            : WriteUploadAsync(request, openFile, upload);
+    }
+
+    // ERRSRV/ERRerror for an offset no file can have, ERRHRD/ERRgeneral once a write has failed;
+    // null when the write may go ahead.
+    private static uint? WriteRefusal(SmbWriteRequest request, SmbOpenFile openFile)
+    {
+        if (request.Offset < 0 || request.Offset > long.MaxValue - request.Data.Length)
+        {
+            return SmbStatus.ServerError;
+        }
+
+        return openFile.HasUploadFailed ? SmbStatus.GeneralFailure : null;
+    }
+
+    private async ValueTask<SmbAnswer> WriteUploadAsync(SmbWriteRequest request, SmbOpenFile openFile, ContentUploadSession upload)
+    {
+        ContentUploadResult result;
+        try
+        {
+            result = await upload.WriteAtAsync(request.Offset, request.Data, context.CancellationToken);
+        }
+        catch (IOException exception)
+        {
+            openFile.HasUploadFailed = true;
+            context.Log.Note($"SMB write {openFile.NoteName} failed: {exception.Message}");
+            return Refuse(request.Header, SmbStatus.GeneralFailure);
+        }
+
+        if (result != ContentUploadResult.Written)
+        {
+            context.Log.Note($"SMB write {openFile.NoteName} refused: past --max-filesize {contentStore.ExposureOptions.MaxUploadBytes}");
+            return Refuse(request.Header, SmbStatus.DiskFull);
+        }
+
+        return new SmbAnswer(SmbResponseEncoder.EncodeWrite(request.Header, (ushort)request.Data.Length, 0));
+    }
 }

@@ -126,6 +126,56 @@ internal static class SmbTestExchange
     public static string WriteHex(ushort treeId, ushort fileId) => RequestHex(
         SmbCommand.WriteAndX, treeId, SmbSession.UserId, "0EFF000000" + Word(fileId) + "00000000000000000000000000000100400000000000" + "0200" + "0041");
 
+    /// <summary>curl's NT create of <paramref name="fileName"/> for <c>-T</c> on tree 1: read and write access, <c>FILE_OVERWRITE_IF</c>.</summary>
+    public static string UploadNtCreateHex(string fileName) => NtCreateHex(1, fileName, "000000C0", "05000000");
+
+    /// <summary>The NT create response opening an upload as <paramref name="fileId"/> with <paramref name="createAction"/> (2 created, 3 overwritten), the test clock's time and a length of 0.</summary>
+    public static string UploadNtCreateResponseHex(ushort fileId, uint createAction)
+    {
+        var time = QuadWord(new DateTimeOffset(2026, 9, 30, 12, 0, 0, TimeSpan.Zero).ToFileTime());
+        return ResponseHex(
+            SmbCommand.NtCreateAndX,
+            0,
+            1,
+            SmbSession.UserId,
+            "22FF00000000" + Word(fileId) + DoubleWord(createAction) + time + time + time + time + "80000000" + QuadWord(0) + QuadWord(0) + "0000" + "0000" + "00" + "0000");
+    }
+
+    /// <summary>curl's write of <paramref name="data"/> to <paramref name="fileId"/> on tree 1 at <paramref name="offset"/>, laid out as curl lays out its writes (data offset 64).</summary>
+    public static string WriteHex(ushort fileId, long offset, ReadOnlySpan<byte> data)
+    {
+        var offsetHex = QuadWord(offset);
+        return RequestHex(
+            SmbCommand.WriteAndX,
+            1,
+            SmbSession.UserId,
+            "0EFF000000" + Word(fileId) + offsetHex[..8] + "00000000" + "0000" + "0000" + "0000" + Word((ushort)data.Length) + "4000" + offsetHex[8..]
+            + Word((ushort)(data.Length + 1)) + "00" + Convert.ToHexString(data));
+    }
+
+    /// <summary>The write response on tree 1 saying <paramref name="count"/> bytes were written.</summary>
+    public static string WriteResponseHex(ushort count) =>
+        ResponseHex(SmbCommand.WriteAndX, 0, 1, SmbSession.UserId, "06FF000000" + Word(count) + "0000" + "00000000" + "0000");
+
+    /// <summary>A content store over <paramref name="fileSystem"/> taking uploads of at most <paramref name="maxUploadBytes"/>.</summary>
+    public static ContentStore UploadContentStore(InMemoryContentFileSystem fileSystem, long maxUploadBytes = ContentExposureOptions.DefaultMaxUploadBytes) =>
+        new(InMemoryContentFileSystem.RootPath, fileSystem, new ContentExposureOptions { AllowUploads = true, MaxUploadBytes = maxUploadBytes });
+
+    /// <summary>The bytes of the file at <paramref name="relativePath"/> under the root, or null when there is none.</summary>
+    public static byte[]? StoredBytes(InMemoryContentFileSystem fileSystem, params string[] relativePath)
+    {
+        var path = Path.Join([InMemoryContentFileSystem.RootPath, .. relativePath]);
+        if (fileSystem.GetEntryKind(path) != ContentEntryKind.File)
+        {
+            return null;
+        }
+
+        using var stream = fileSystem.OpenFileForAsyncRead(path);
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
+    }
+
     /// <summary>curl's close of FID 0x4000.</summary>
     public static string CloseHex(ushort treeId) => CloseHex(treeId, 0x4000);
 
