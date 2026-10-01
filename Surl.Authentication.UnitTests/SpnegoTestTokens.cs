@@ -78,7 +78,7 @@ internal static class SpnegoTestTokens
     /// A client's <c>negTokenResp</c>, with <c>negState</c>, <c>supportedMech</c> and
     /// <c>mechListMIC</c> when asked for.
     /// </summary>
-    public static byte[] NegTokenResp(byte[]? responseToken, bool withEveryOtherField = false)
+    public static byte[] NegTokenResp(byte[]? responseToken, bool withEveryOtherField = false, byte[]? mechListMic = null)
     {
         var writer = new AsnWriter(AsnEncodingRules.DER);
         using (writer.PushSequence(Context(1)))
@@ -98,7 +98,7 @@ internal static class SpnegoTestTokens
             }
 
             WriteOctetStringField(writer, 2, responseToken);
-            WriteOctetStringField(writer, 3, withEveryOtherField ? [1, 2, 3] : null);
+            WriteOctetStringField(writer, 3, mechListMic ?? (withEveryOtherField ? [1, 2, 3] : null));
         }
 
         return writer.Encode();

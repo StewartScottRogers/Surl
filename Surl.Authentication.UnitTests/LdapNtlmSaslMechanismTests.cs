@@ -15,7 +15,7 @@ namespace Surl.Authentication;
 public sealed class LdapNtlmSaslMechanismTests
 {
     // The base search of ADR-0072's simple-bind transcript, message ID 2 at offset 8.
-    private static readonly byte[] BaseSearch = Convert.FromHexString(
+    internal static readonly byte[] BaseSearch = Convert.FromHexString(
         "30840000003E020102638400000035041164633D6578616D706C652C64633D636F6D0A01000A0100020100020100010100870B4F626A656374436C617373308400000000");
 
     // WinLDAP's NEGOTIATE_MESSAGE flags in both recordings.
@@ -39,7 +39,7 @@ public sealed class LdapNtlmSaslMechanismTests
 
     private static readonly HashSet<AuthenticationMethod> EveryMethod = [.. Enum.GetValues<AuthenticationMethod>()];
 
-    private static readonly byte[] ExportedSessionKey = Convert.FromHexString("00112233445566778899AABBCCDDEEFF");
+    internal static readonly byte[] ExportedSessionKey = Convert.FromHexString("00112233445566778899AABBCCDDEEFF");
 
     private readonly ManualTimeProvider clock = new();
 
@@ -62,7 +62,7 @@ public sealed class LdapNtlmSaslMechanismTests
     }
 
     // The hex after marker on each transcript line that has it, in order.
-    private static List<byte[]> TranscriptHex(string caseName, string marker) =>
+    internal static List<byte[]> TranscriptHex(string caseName, string marker) =>
         [.. RecordedFixture.ReadText(caseName, "transcript.txt")
             .Split("\r\n")
             .Where(line => line.Contains(marker, StringComparison.Ordinal))
@@ -70,7 +70,7 @@ public sealed class LdapNtlmSaslMechanismTests
 
     // An NTLMv2 AUTHENTICATE_MESSAGE from user with password to the fixed challenge, sending
     // ExportedSessionKey RC4-encrypted under the session base key when the flags ask for key exchange.
-    private static byte[] Authenticate(string user, string password, uint flags)
+    internal static byte[] Authenticate(string user, string password, uint flags)
     {
         var responseKey = NtlmV2Calculation.ComputeResponseKeyNt(NtlmV2Calculation.ComputeNtHash(password), user, string.Empty);
         var proof = NtlmV2Calculation.ComputeNtProof(responseKey, FixedNtlmServerChallengeSource.FixtureChallenge, NtlmTestMessages.ClientBlob);

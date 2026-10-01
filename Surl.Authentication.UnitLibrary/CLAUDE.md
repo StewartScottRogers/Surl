@@ -12,7 +12,7 @@ MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`
 verified TLS client certificate's subject simple name and is offered only on a connection that
 has one) and POP3 `APOP` (ADR-0049), SSH password and public-key logins (ADR-0051), and
 Kerberos inside Negotiate once `--keytab` is given (ADR-0057 decision 8, ADR-0064). Not here
-yet: `Proxy-Authenticate`, the logins of servers not yet built (FTP, SMB), and LDAP's SPNEGO-wrapped NTLM. Anything time-dependent (the
+yet: `Proxy-Authenticate`, the logins of servers not yet built (FTP, SMB). Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.
 
@@ -143,9 +143,9 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `NegTokenInit` offering NTLMSSP is answered with a `negTokenResp` (`accept-incomplete`,
   `supportedMech` in the first reply only, the `CHALLENGE_MESSAGE` as `responseToken`), or with
   `supportedMech` alone when the client preferred another mechanism; the accepted answer is
-  served with `Negotiate oQcwBaADCgEA` (`accept-completed`). No `mechListMIC` is read or sent.
+  served with `Negotiate oQcwBaADCgEA` (`accept-completed`). No `mechListMIC` is checked or sent.
 - `SpnegoToken` reads and writes the RFC 4178 tokens with `System.Formats.Asn1` (DER), into
-  `SpnegoNegTokenInit` and `SpnegoNegState`; malformed DER reads as `null`, never an exception.
+  `SpnegoNegTokenInit`, `SpnegoNegTokenResp` and `SpnegoNegState`; malformed DER reads as `null`, never an exception.
 - Without a Kerberos acceptor, a `NegTokenInit` offering no NTLM, a bare Kerberos token, a
   `negTokenResp` out of turn and malformed DER are refused.
 - The pinned Windows reference build sent no Negotiate token on the lane machine
@@ -245,9 +245,27 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   mirror, which the tests play.
 - Never unchecked: under `--allow-anonymous` a user with no account is refused with
   `SecurityLayerNeedsPasswordNote`, and a known user is checked as usual.
-- An SPNEGO-wrapped token is not unwrapped here yet (filed as a follow-up task).
 - The tests replay `Fixtures/ldap-ntlm-sealed` and `Fixtures/ldap-negotiate-sealed`, unsealing
   `WinLDAP`'s first buffer to the base search, and check [MS-NLMP] section 4.2.4.4's example.
+
+## SPNEGO-wrapped NTLM in LDAP binds (BL-330)
+
+- Where `CanCarrySecurityLayer`, a first token that is an `InitialContextToken` runs
+  `NtlmSaslExchange`'s handshake inside SPNEGO (ADR-0040 decision 3): a `NegTokenInit` naming
+  NTLM (else refused), the challenge in an `accept-incomplete` `negTokenResp` (`supportedMech` in
+  the first reply only; NTLM not first, or no optimistic token, gets `supportedMech` alone first),
+  and the success's `accept-completed` `negTokenResp` as `SaslLoginStep.AdditionalSuccessData`.
+  A bare message after SPNEGO started, or SPNEGO after a bare challenge, is refused. Mail `NTLM`
+  never unwraps.
+- A client `mechListMIC` (read into `SpnegoNegTokenResp`) is checked with
+  `NtlmSecurityLayer.VerifyMechListMic` over `SpnegoNegTokenInit.MechTypesDer` and answered with
+  `SignMechListMic`: NTLM signatures with sequence number 0, each RC4 handle keyed afresh after
+  ([MS-SPNG] 3.1.5.1), so the first sealed message carries 1. A wrong one is refused
+  (`WrongMechListMicNote`), none where NTLM was not first too (`MissingMechListMicNote`), and one
+  without extended session security too (`NoExtendedSessionSecurityNote`).
+- `WinLDAP` sent bare NTLM in every configuration measured, so `LdapSpnegoNtlmSaslMechanismTests`
+  wraps its recorded messages in SPNEGO and plays the client's mechListMIC; the first search it
+  seals is `WinLDAP`'s recorded ciphertext under a sequence-1 signature.
 
 ## LDAP's DIGEST-MD5 bind and its security layers (BL-326)
 

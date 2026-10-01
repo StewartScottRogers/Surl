@@ -130,6 +130,42 @@ internal sealed class NtlmSecurityLayer : ISaslSecurityLayer
         return true;
     }
 
+    /// <summary>
+    /// The server's SPNEGO <c>mechListMIC</c> over <paramref name="mechTypes"/>: NTLM's
+    /// <c>GSS_GetMIC</c> ([MS-NLMP] section 3.4.4), the signature <see cref="Protect"/> would
+    /// write, taking the sending sequence number (0, as the layer's first use) with it. The
+    /// sending handle is then keyed afresh, so the RC4 state of the first protected message is
+    /// the one the mechListMIC used ([MS-SPNG] section 3.1.5.1); the sequence number is not
+    /// reset, so that message carries 1.
+    /// </summary>
+    /// <param name="mechTypes">The DER of the client's <c>MechTypeList</c>.</param>
+    /// <returns>The 16-byte signature.</returns>
+    public byte[] SignMechListMic(ReadOnlySpan<byte> mechTypes)
+    {
+        var mechListMic = new byte[SignatureLength];
+        Sign(sending, mechTypes, mechListMic);
+        sending.RestartHandle();
+
+        return mechListMic;
+    }
+
+    /// <summary>
+    /// Checks the client's SPNEGO <c>mechListMIC</c> over <paramref name="mechTypes"/>, as
+    /// <see cref="SignMechListMic"/> makes one for the other direction: the receiving sequence
+    /// number moves on and the receiving handle is keyed afresh whatever the answer.
+    /// </summary>
+    /// <param name="mechTypes">The DER of the client's <c>MechTypeList</c>.</param>
+    /// <param name="mechListMic">The client's <c>mechListMIC</c>.</param>
+    /// <returns><see langword="true"/> when it is the signature the client's keys make.</returns>
+    public bool VerifyMechListMic(ReadOnlySpan<byte> mechTypes, ReadOnlySpan<byte> mechListMic)
+    {
+        var expected = new byte[SignatureLength];
+        Sign(receiving, mechTypes, expected);
+        receiving.RestartHandle();
+
+        return CryptographicOperations.FixedTimeEquals(expected, mechListMic);
+    }
+
     // MAC(Handle, SigningKey, SeqNum, Message) with extended session security, written to the
     // first 16 bytes of destination; the direction's sequence number then moves on.
     private void Sign(Direction direction, ReadOnlySpan<byte> message, Span<byte> destination)
@@ -156,17 +192,22 @@ internal sealed class NtlmSecurityLayer : ISaslSecurityLayer
     // handle keyed with the sealing key, and the next sequence number.
     private sealed class Direction
     {
+        private readonly byte[] sealingKey;
+
         public Direction(byte[] exportedSessionKey, NtlmNegotiateFlags flags, string mode)
         {
             SigningKey = MD5.HashData([.. exportedSessionKey, .. MagicConstant($"session key to {mode} signing key magic constant")]);
-            var sealingKey = MD5.HashData(
+            sealingKey = MD5.HashData(
                 [.. exportedSessionKey.AsSpan(0, SealingKeyLength(flags)), .. MagicConstant($"session key to {mode} sealing key magic constant")]);
             Handle = new Rc4(sealingKey, 0);
         }
 
         public byte[] SigningKey { get; }
 
-        public Rc4 Handle { get; }
+        public Rc4 Handle { get; private set; }
+
+        // Keys the handle afresh: its state before the mechListMIC, which is its first use.
+        public void RestartHandle() => Handle = new Rc4(sealingKey, 0);
 
         public uint SequenceNumber { get; set; }
 

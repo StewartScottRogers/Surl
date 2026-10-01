@@ -137,8 +137,8 @@ internal sealed class NegotiateConnectionVerifier(
     }
 
     private HttpCredentialCheck AnswerNegTokenResp(byte[] token) =>
-        SpnegoToken.ReadNegTokenResp(token) is { } responseToken
-            ? AnswerSpnegoNtlm(responseToken, null)
+        SpnegoToken.ReadNegTokenResp(token) is { } negTokenResp
+            ? AnswerSpnegoNtlm(negTokenResp.ResponseToken, null)
             : RefuseAndForget();
 
     private HttpCredentialCheck AnswerSpnegoNtlm(byte[] ntlmMessage, string? supportedMech)

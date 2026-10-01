@@ -90,8 +90,8 @@ internal static class SpnegoToken
     /// Reads a later client token.
     /// </summary>
     /// <param name="token">The decoded <c>negTokenResp</c>.</param>
-    /// <returns>Its <c>responseToken</c>, empty when it carries none, or <see langword="null"/> when it is not well-formed.</returns>
-    public static byte[]? ReadNegTokenResp(byte[] token)
+    /// <returns>Its <c>responseToken</c> and <c>mechListMIC</c>, or <see langword="null"/> when it is not well-formed.</returns>
+    public static SpnegoNegTokenResp? ReadNegTokenResp(byte[] token)
     {
         try
         {
@@ -177,15 +177,15 @@ internal static class SpnegoToken
 
     // NegTokenResp ::= SEQUENCE { negState [0] ENUMERATED OPTIONAL, supportedMech [1] MechType
     //   OPTIONAL, responseToken [2] OCTET STRING OPTIONAL, mechListMIC [3] OCTET STRING OPTIONAL }
-    private static byte[] ReadNegTokenRespFields(AsnReader fields)
+    private static SpnegoNegTokenResp ReadNegTokenRespFields(AsnReader fields)
     {
         SkipField(fields, 0);
         SkipField(fields, 1);
         var responseToken = ReadOctetStringField(fields, 2);
-        SkipField(fields, 3);
+        var mechListMic = ReadOctetStringField(fields, 3);
         fields.ThrowIfNotEmpty();
 
-        return responseToken ?? [];
+        return new SpnegoNegTokenResp(responseToken ?? [], mechListMic);
     }
 
     private static void SkipField(AsnReader fields, int number)
