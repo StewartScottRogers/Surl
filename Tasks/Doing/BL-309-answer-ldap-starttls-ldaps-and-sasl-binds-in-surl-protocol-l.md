@@ -59,3 +59,4 @@ the SASL contract, as BL-284's ADR decides.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
