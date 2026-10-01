@@ -53,3 +53,4 @@ implemented: every NTLM account keeps four NT hashes and accepts an answer provi
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
