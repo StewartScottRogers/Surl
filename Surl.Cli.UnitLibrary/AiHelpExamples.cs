@@ -109,6 +109,13 @@ public static class AiHelpExamples
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl pop3://127.0.0.1:<port>/"]),
         Serving(
+            "smb",
+            "Serve SMB shares to an NTLMv1 login",
+            ["--auth", "ntlmv1", "-u", "alice:secret", "--directory", "<path>", "smb://127.0.0.1:0/"],
+            ["Listening on smb://127.0.0.1:<port>/"],
+            ["surl: warning: --auth: accepted methods are ntlmv1"],
+            ["curl -u alice:secret smb://127.0.0.1:<port>/docs/readme.txt"]),
+        Serving(
             "smtp",
             "For a test: receive mail without accounts",
             ["--allow-anonymous", "smtp://127.0.0.1:0/"],

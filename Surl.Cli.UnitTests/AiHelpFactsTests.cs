@@ -150,6 +150,7 @@ public sealed class AiHelpFactsTests
     [DataRow("imap", new[] { "imap", "imaps" })]
     [DataRow("mqtt", new[] { "mqtt", "mqtts" })]
     [DataRow("pop3", new[] { "pop3", "pop3s" })]
+    [DataRow("smb", new[] { "smb", "smbs" })]
     [DataRow("smtp", new[] { "smtp", "smtps" })]
     [DataRow("telnet", new[] { "telnet" })]
     [DataRow("tftp", new[] { "tftp" })]
@@ -165,7 +166,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "imap", "mqtt", "pop3", "smtp", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "imap", "mqtt", "pop3", "smb", "smtp", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
     }
 
     [TestMethod]
@@ -228,7 +229,7 @@ public sealed class AiHelpFactsTests
     public void Auth_AllowedValues_AreTheMethodWordsTheReaderAccepts()
     {
         Assert.AreEqual(
-            "comma-separated, in any case, no empty item: negotiate, gssapi, ntlm, digest, digest-md5, cram-md5, apop, basic, plain, login, bearer, oauthbearer, xoauth2, external, aws-sigv4",
+            "comma-separated, in any case, no empty item: negotiate, gssapi, ntlm, ntlmv1, digest, digest-md5, cram-md5, apop, basic, plain, login, bearer, oauthbearer, xoauth2, external, aws-sigv4",
             AllowedValuesOf("auth"));
 
         foreach (var word in OptionArgumentReader.AuthenticationMethodWords)

@@ -486,10 +486,10 @@ public sealed class CommandLineParserTests
     [DataRow("External", new[] { "external" }, DisplayName = "external, any case")]
     [DataRow("plain,PLAIN,cram-md5,Plain", new[] { "cram-md5", "plain" }, DisplayName = "A mechanism word given twice counts once")]
     [DataRow(
-        "aws-sigv4,external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlm,gssapi,negotiate",
+        "aws-sigv4,external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlmv1,ntlm,gssapi,negotiate",
         new[]
         {
-            "negotiate", "gssapi", "ntlm", "digest", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
+            "negotiate", "gssapi", "ntlm", "ntlmv1", "digest", "digest-md5", "cram-md5", "apop", "basic", "plain", "login",
             "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4",
         },
         DisplayName = "Every word, in ADR-0049 section 3's order")]

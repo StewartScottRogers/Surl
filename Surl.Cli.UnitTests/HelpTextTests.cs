@@ -19,6 +19,7 @@ public sealed class HelpTextTests
         " mqtt       MQTT and MQTTS protocol",
         " pop3       POP3 and POP3S protocol",
         " security   Options that widen what a peer may do",
+        " smb        SMB and SMBS protocol",
         " smtp       SMTP and SMTPS protocol",
         " ssh        SSH protocol",
         " surl       The command line tool itself",
@@ -67,23 +68,26 @@ public sealed class HelpTextTests
         "        basic, bearer and aws-sigv4. For SMTP, IMAP and POP3 logins, each SASL",
         "        mechanism by its name in lower case, as curl's login option AUTH=<mech>",
         "        names it: gssapi, ntlm, digest-md5, cram-md5, plain, login,",
-        "        oauthbearer, xoauth2 and external, and apop for POP3's APOP. external",
-        "        logs in as the TLS client certificate --cacert verifies, so it is",
-        "        offered only on a connection that sent one. gssapi logs in with a",
-        "        Kerberos ticket checked against the --keytab keys, as the account named",
-        "        for the ticket's client principal, such as user@EXAMPLE.COM, and is",
-        "        offered first; a start that gives it without --keytab is refused (exit",
-        "        code 2). surl refuses a word outside the list as an option badly used",
-        "        (exit code 2). A test uses it to offer one method alone, such as --auth",
-        "        digest for curl's --digest. ntlm and negotiate are not in the default",
-        "        because an NTLM response is built on MD4 and HMAC-MD5 of the password",
-        "        and is open to relay and offline cracking, and Negotiate carries NTLM;",
-        "        gssapi is not because it needs --keytab; digest-md5 is not because RFC",
-        "        6331 made it Historic and curl picks it over every other mechanism;",
-        "        apop is not because its MD5 construction leaks password characters to",
-        "        anyone who can choose the timestamp it signs. surl warns on every start",
-        "        while --auth is given, from the info log level up, naming the methods",
-        "        it accepts.",
+        "        oauthbearer, xoauth2 and external, and apop for POP3's APOP. For SMB:",
+        "        ntlmv1, the only login curl makes in an SMB session setup; accepting",
+        "        ntlm never accepts it. external logs in as the TLS client certificate",
+        "        --cacert verifies, so it is offered only on a connection that sent one.",
+        "        gssapi logs in with a Kerberos ticket checked against the --keytab",
+        "        keys, as the account named for the ticket's client principal, such as",
+        "        user@EXAMPLE.COM, and is offered first; a start that gives it without",
+        "        --keytab is refused (exit code 2). surl refuses a word outside the list",
+        "        as an option badly used (exit code 2). A test uses it to offer one",
+        "        method alone, such as --auth digest for curl's --digest. ntlm and",
+        "        negotiate are not in the default because an NTLM response is built on",
+        "        MD4 and HMAC-MD5 of the password and is open to relay and offline",
+        "        cracking, and Negotiate carries NTLM; ntlmv1 is not because its",
+        "        responses are DES over the bare MD4 hash of the password, open to",
+        "        offline cracking by anyone who sees one; gssapi is not because it needs",
+        "        --keytab; digest-md5 is not because RFC 6331 made it Historic and curl",
+        "        picks it over every other mechanism; apop is not because its MD5",
+        "        construction leaks password characters to anyone who can choose the",
+        "        timestamp it signs. surl warns on every start while --auth is given,",
+        "        from the info log level up, naming the methods it accepts.",
     ];
 
     private static readonly string[] SelfSignedExplanationLines =
@@ -138,7 +142,7 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, content, dict, ftp, gopher, http, imap, limits, logging, mqtt, pop3,",
-            "security, smtp, ssh, surl, telnet, testing, tftp, tls, websocket.",
+            "security, smb, smtp, ssh, surl, telnet, testing, tftp, tls, websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -401,7 +405,8 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, imap, mqtt, pop3, smtp, ssh, websocket.",
+            "        Categories: auth, ftp, http, imap, mqtt, pop3, smb, smtp, ssh,",
+            "        websocket.",
             "");
 
     [TestMethod]
@@ -411,7 +416,8 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, imap, mqtt, pop3, smtp, ssh, websocket.",
+            "        Categories: auth, ftp, http, imap, mqtt, pop3, smb, smtp, ssh,",
+            "        websocket.",
             "");
 
     [TestMethod]
@@ -424,8 +430,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, mqtt, pop3, security, smtp, ssh,",
-                "        testing, websocket.",
+                "        Categories: auth, ftp, http, imap, mqtt, pop3, security, smb, smtp,",
+                "        ssh, testing, websocket.",
                 "",
             ]);
 
@@ -456,7 +462,7 @@ public sealed class HelpTextTests
                 "",
                 .. SelfSignedExplanationLines,
                 "",
-                "        Categories: security, testing, tls.",
+                "        Categories: security, smb, testing, tls.",
                 "",
             ]);
 
@@ -471,7 +477,8 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, imap, pop3, security, smtp, testing, websocket.",
+                "        Categories: auth, http, imap, pop3, security, smb, smtp, testing,",
+                "        websocket.",
                 "",
             ]);
 
@@ -556,6 +563,26 @@ public sealed class HelpTextTests
             Row(32, "    --directory <directory>", "Data directory, else in memory"),
             Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
             Row(32, "    --max-line <bytes>", "Longest command line accepted"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Smb_ListsEveryOptionTheSmbServerReads() =>
+        AssertOutput(
+            HelpText.Answer("smb"),
+            "smb: SMB and SMBS protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-uploads", "Accept uploads into served files"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --cert <file>", "Server certificate file"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --key <file>", "Private key for --cert"),
+            Row(32, "    --max-filesize <bytes>", "Largest upload accepted"),
+            Row(32, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(32, "    --self-signed", "Throwaway certificate (warns)"),
+            Row(32, "    --serve-dot-files", "Serve names that start with a dot"),
             Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(32, "    --user-file <file>", "Read accounts from a file"));
 
@@ -718,7 +745,7 @@ public sealed class HelpTextTests
             "    --key <file>",
             "        Private key for --cert. Default: the key in the --cert file.",
             "",
-            "        Categories: tls.",
+            "        Categories: smb, tls.",
             "");
 
     [TestMethod]
