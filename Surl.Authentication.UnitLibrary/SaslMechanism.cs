@@ -29,4 +29,13 @@ internal sealed record SaslMechanism(
         new("LOGIN", AuthenticationMethod.Login, context => new LoginSaslExchange(context)),
         new("EXTERNAL", AuthenticationMethod.External, context => new ExternalSaslExchange(context)),
     ];
+
+    /// <summary>
+    /// LDAP's <c>GSS-SPNEGO</c>, accepted by <c>negotiate</c> and run only where the server carries
+    /// a security layer: it carries a bare NTLM message, as <c>WinLDAP</c> sends it, and is
+    /// answered as <c>NTLM</c> is (ADR-0072, decision 4). It is not in
+    /// <see cref="InOfferOrder"/>, since the mail servers never offer it.
+    /// </summary>
+    public static SaslMechanism GssSpnego { get; } =
+        new("GSS-SPNEGO", AuthenticationMethod.Negotiate, context => new NtlmSaslExchange(context));
 }

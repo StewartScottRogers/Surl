@@ -28,6 +28,16 @@ internal enum NtlmNegotiateFlags : uint
     RequestTarget = 0x00000004,
 
     /// <summary>
+    /// <c>NTLMSSP_NEGOTIATE_SIGN</c>: messages after the login are signed ([MS-NLMP] section 3.4.4).
+    /// </summary>
+    Sign = 0x00000010,
+
+    /// <summary>
+    /// <c>NTLMSSP_NEGOTIATE_SEAL</c>: messages after the login are sealed and signed ([MS-NLMP] section 3.4.3).
+    /// </summary>
+    Seal = 0x00000020,
+
+    /// <summary>
     /// <c>NTLMSSP_NEGOTIATE_NTLM</c>: NTLM authentication.
     /// </summary>
     Ntlm = 0x00000200,
@@ -57,6 +67,12 @@ internal enum NtlmNegotiateFlags : uint
     /// <c>NTLMSSP_NEGOTIATE_128</c>.
     /// </summary>
     Negotiate128 = 0x20000000,
+
+    /// <summary>
+    /// <c>NTLMSSP_NEGOTIATE_KEY_EXCH</c>: the <c>AUTHENTICATE_MESSAGE</c> carries the exported
+    /// session key, encrypted with the key-exchange key ([MS-NLMP] section 3.2.5.1.2).
+    /// </summary>
+    KeyExchange = 0x40000000,
 
     /// <summary>
     /// <c>NTLMSSP_NEGOTIATE_56</c>.

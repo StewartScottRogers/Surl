@@ -12,21 +12,22 @@ MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`
 verified TLS client certificate's subject simple name and is offered only on a connection that
 has one) and POP3 `APOP` (ADR-0049), SSH password and public-key logins (ADR-0051), and
 Kerberos inside Negotiate once `--keytab` is given (ADR-0057 decision 8, ADR-0064). Not here
-yet: `Proxy-Authenticate`, and the logins of servers not yet built (FTP, SMB, LDAP). Anything time-dependent (the
+yet: `Proxy-Authenticate`, the logins of servers not yet built (FTP, SMB), and LDAP's SPNEGO-wrapped NTLM and `DIGEST-MD5` layers. Anything time-dependent (the
 refusal delay, Digest nonces, the Signature Version 4 window) takes an injected
 `TimeProvider`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and
 `Surl.Cryptography.UnitLibrary` for MD4 and SHA-512/256 (ADR-0032 decision 7), and
-`Surl.Kerberos.UnitLibrary` for the Kerberos acceptor (ADR-0057 decision 6), and no
+`Surl.Kerberos.UnitLibrary` for the Kerberos acceptor (ADR-0057 decision 6), and
+`Surl.Cryptography.Rc4.UnitLibrary` for NTLM sealing (ADR-0072 decision 4), and no
 protocol server. `AuthenticationSettings.KerberosAcceptor` carries the acceptor `Surl.Console`
 builds from `--keytab` (`null` without one, BL-240); SASL `GSSAPI` (`GssapiSaslExchange`) is offered and run only when it is set, and Negotiate carries Kerberos only when `Surl.Console` hands it to `NegotiateAuthenticationMethod`. Protocol servers receive what it provides through the contracts in
 Abstractions (`IAuthenticationPolicy`, `IMailAuthenticationPolicy` - which extends the
 protocol-neutral `ISaslAuthenticationPolicy` - and `ISshAuthenticationPolicy`); `Surl.Console`'s
 `AuthenticationComposition` builds the policy from the command line. `GetSaslMechanisms` is the
 mail offer's mechanisms for every scheme, with `GSS-SPNEGO` after `GSSAPI` for `ldap` and `ldaps`
-when `--auth` accepts `negotiate` (ADR-0072 decision 4, BL-328); no exchange runs `GSS-SPNEGO`
-yet (BL-329 builds it), so starting one is `RefusedMechanism`.
+when `--auth` accepts `negotiate` (ADR-0072 decision 4, BL-328); `GSS-SPNEGO` runs only when the
+server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMechanism` otherwise.
 
 ## What is here now (BL-110)
 
@@ -224,3 +225,26 @@ yet (BL-329 builds it), so starting one is `RefusedMechanism`.
   default) keeps each key as the SHA-256 of its blob and compares the SHA-256 of the blob sent
   against every key of the user with `ISecretComparer`; an unknown user is compared against a
   random dummy hash, so "no such user", "key not authorized" and "no keys" answer alike.
+
+## LDAP's NTLM and GSS-SPNEGO binds and NTLM sealing (BL-329)
+
+- A SASL exchange started with `SaslExchangeStart.CanCarrySecurityLayer` (LDAP) carries it on
+  `SaslExchangeContext`. `NTLM` (which LDAP's Sicily binds map to) and `GSS-SPNEGO`
+  (`SaslMechanism.GssSpnego`, accepted by `negotiate`, outside `InOfferOrder`) both run
+  `NtlmSaslExchange` over a bare NTLM message, as `WinLDAP` sends it (ADR-0072 decision 4).
+- Its `NtlmHandshake` (`grantsSecurityLayer`) answers with the LDAP `CHALLENGE_MESSAGE`:
+  `NtlmChallengeMessage.ChooseFlags(clientFlags, true)` also grants sign, seal and key exchange
+  when asked. On acceptance it exports the session key (`NtlmSessionKey`: NTLMv2's session base
+  key, or the `EncryptedRandomSessionKey` RC4-decrypted under it with key exchange; a key that
+  is not 16 bytes is refused). The mail and HTTP challenges are unchanged.
+- The accepting step carries an `NtlmSecurityLayer` (`ISaslSecurityLayer`) when the
+  `AUTHENTICATE_MESSAGE` asks for sealing or signing: [MS-NLMP] 3.4 with extended session
+  security, per-direction keys and RC4 handles, sequence numbers from 0, the 16-byte signature
+  then the sealed (or, signing only, clear) message. Asking for either without extended session
+  security is refused (`NoExtendedSessionSecurityNote`). `ForInitiator` is the client's
+  mirror, which the tests play.
+- Never unchecked: under `--allow-anonymous` a user with no account is refused with
+  `SecurityLayerNeedsPasswordNote`, and a known user is checked as usual.
+- An SPNEGO-wrapped token is not unwrapped here yet (filed as a follow-up task).
+- The tests replay `Fixtures/ldap-ntlm-sealed` and `Fixtures/ldap-negotiate-sealed`, unsealing
+  `WinLDAP`'s first buffer to the base search, and check [MS-NLMP] section 4.2.4.4's example.

@@ -15,12 +15,17 @@ namespace Surl.Authentication;
 /// The connection's verified TLS client certificate, or <see langword="null"/> when it has none:
 /// the identity SASL <c>EXTERNAL</c> logs in as (ADR-0049, section 4).
 /// </param>
+/// <param name="CanCarrySecurityLayer">
+/// Whether the server carries a security layer after the login (LDAP), so NTLM grants and negotiates one
+/// and is never accepted unchecked (ADR-0072, decision 4).
+/// </param>
 internal sealed record SaslExchangeContext(
     AuthenticationPolicy Policy,
     string Scheme,
     string Mechanism,
     ReadOnlyMemory<byte>? InitialResponse,
-    X509Certificate2? ClientCertificate)
+    X509Certificate2? ClientCertificate,
+    bool CanCarrySecurityLayer = false)
 {
     /// <summary>
     /// The configured accounts.
@@ -47,7 +52,7 @@ internal sealed record SaslExchangeContext(
     /// A new NTLM handshake over the accounts, with the policy's server challenges (ADR-0039).
     /// </summary>
     /// <returns>The handshake, with no server challenge issued yet.</returns>
-    public NtlmHandshake StartNtlmHandshake() => new(Accounts, Policy.NtlmServerChallenges);
+    public NtlmHandshake StartNtlmHandshake() => new(Accounts, Policy.NtlmServerChallenges, CanCarrySecurityLayer);
 
     /// <summary>
     /// What checks a client's Kerberos AP-REQ against the <c>--keytab</c> keys; the policy offers

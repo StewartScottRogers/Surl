@@ -7,7 +7,9 @@ namespace Surl.Authentication;
 /// Builds the <c>CHALLENGE_MESSAGE</c> ([MS-NLMP] section 2.2.1.2) Surl answers a
 /// <c>NEGOTIATE_MESSAGE</c> with (ADR-0039): no <c>Version</c>, the target name <c>SURL</c>, and
 /// target information naming <c>SURL</c> as the NetBIOS domain and computer, with no timestamp.
-/// Carrying target information is what makes a client answer with NTLMv2.
+/// Carrying target information is what makes a client answer with NTLMv2. The HTTP challenge
+/// grants no signing or sealing; the one for a protocol that carries a security layer (LDAP,
+/// ADR-0072 decision 4) also grants signing, sealing and key exchange when the client asked.
 /// </summary>
 internal static class NtlmChallengeMessage
 {
@@ -36,19 +38,24 @@ internal static class NtlmChallengeMessage
     private const NtlmNegotiateFlags GrantedWhenAsked =
         NtlmNegotiateFlags.ExtendedSessionSecurity | NtlmNegotiateFlags.Negotiate128 | NtlmNegotiateFlags.Negotiate56;
 
+    private const NtlmNegotiateFlags SecurityLayerGrantedWhenAsked =
+        GrantedWhenAsked | NtlmNegotiateFlags.Sign | NtlmNegotiateFlags.Seal | NtlmNegotiateFlags.KeyExchange;
+
     // MsvAvNbDomainName (2) and MsvAvNbComputerName (1), each SURL in UTF-16LE, then MsvAvEOL.
     private static readonly byte[] TargetInfo = CreateTargetInfo();
 
     /// <summary>
     /// The flags the challenge sets for a client that sent <paramref name="clientFlags"/>: the
     /// fixed set, UTF-16LE strings when the client offered them and OEM ones otherwise, and
-    /// extended session security, 128-bit and 56-bit only when the client asked.
+    /// extended session security, 128-bit and 56-bit only when the client asked, and signing,
+    /// sealing and key exchange too, when asked, if <paramref name="grantsSecurityLayer"/>.
     /// </summary>
     /// <param name="clientFlags">The <c>NEGOTIATE_MESSAGE</c>'s flags.</param>
+    /// <param name="grantsSecurityLayer">Whether the protocol carries a security layer after the login.</param>
     /// <returns>The <c>CHALLENGE_MESSAGE</c>'s flags.</returns>
-    public static NtlmNegotiateFlags ChooseFlags(NtlmNegotiateFlags clientFlags) =>
+    public static NtlmNegotiateFlags ChooseFlags(NtlmNegotiateFlags clientFlags, bool grantsSecurityLayer = false) =>
         AlwaysSet
-        | (clientFlags & GrantedWhenAsked)
+        | (clientFlags & (grantsSecurityLayer ? SecurityLayerGrantedWhenAsked : GrantedWhenAsked))
         | (clientFlags.HasFlag(NtlmNegotiateFlags.Unicode) ? NtlmNegotiateFlags.Unicode : NtlmNegotiateFlags.Oem);
 
     /// <summary>
@@ -57,10 +64,12 @@ internal static class NtlmChallengeMessage
     /// </summary>
     /// <param name="clientFlags">The <c>NEGOTIATE_MESSAGE</c>'s flags.</param>
     /// <param name="serverChallenge">The eight random bytes the client's answer must cover.</param>
+    /// <param name="grantsSecurityLayer">Whether the protocol carries a security layer after the login.</param>
     /// <returns>The message's bytes.</returns>
-    public static byte[] Create(NtlmNegotiateFlags clientFlags, ReadOnlySpan<byte> serverChallenge)
+    public static byte[] Create(
+        NtlmNegotiateFlags clientFlags, ReadOnlySpan<byte> serverChallenge, bool grantsSecurityLayer = false)
     {
-        var flags = ChooseFlags(clientFlags);
+        var flags = ChooseFlags(clientFlags, grantsSecurityLayer);
         var targetName = (flags.HasFlag(NtlmNegotiateFlags.Unicode) ? Encoding.Unicode : Encoding.ASCII)
             .GetBytes(TargetName);
         var message = new byte[HeaderLength + targetName.Length + TargetInfo.Length];

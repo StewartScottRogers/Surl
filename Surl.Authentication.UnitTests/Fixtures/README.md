@@ -166,3 +166,26 @@ is a file holding the four bytes `body`. What they show is ADR-0045's "Measured"
 | `aws-sigv4-unsigned-payload` | `aws:amz:us-east-1:s3` | `'-H','x-amz-content-sha256: UNSIGNED-PAYLOAD','-X','PUT','-d','body','http://127.0.0.1:18136/x'` | the field sent once, as given, and signed with `UNSIGNED-PAYLOAD` as the payload hash |
 | `aws-sigv4-upload` | `aws:amz:us-east-1:s3` | `'-T',<file>,'http://127.0.0.1:18136/upload'` | `-T` sends `x-amz-content-sha256: UNSIGNED-PAYLOAD` itself |
 | `aws-sigv4-ec2-upload` | `aws:amz:us-east-1:ec2` | `'-T',<file>,'http://127.0.0.1:18136/upload'` | no content hash field, and the signature is over the empty body's hash though `body` is sent |
+
+## LDAP NTLM sealing (BL-329)
+
+Recorded on 2026-09-30 with the win-x64 reference build and `Record-CurlExchange.ps1 -Ldap`,
+`-Port 18329 -CurlTimeoutMilliseconds 20000`, two `-LdapEntry` values - the root DSE
+`dn: \nsupportedSASLMechanisms: GSS-SPNEGO\nsupportedSASLMechanisms: NTLM` and
+`dn: cn=alice,dc=example,dc=com\nobjectClass: person\ncn: alice\nsn: Smith\nmail: alice@example.com` -
+and `<challenge>`, the `CHALLENGE_MESSAGE` Surl's LDAP handshake answers `WinLDAP`'s
+`NEGOTIATE_MESSAGE` (flags `E20882B7`) with over the server challenge `0123456789abcdef`
+(ADR-0072 decision 4: flags `E08A8235`, sign, seal and key exchange granted):
+`4E544C4D53535000020000000800080030000000` `35828AE0` `0123456789ABCDEF` `0000000000000000`
+`1C001C0038000000` `5300550052004C00` `020008005300550052004C00` `010008005300550052004C00`
+`00000000`. Each folder holds the recorder's files and `transcript.txt`, which the tests read.
+
+| Folder | `-LdapReply` | `-CurlArgs` | What it shows |
+| --- | --- | --- | --- |
+| `ldap-ntlm-sealed` | `"BIND=0\|\|\|<challenge>"`, `'BIND=0'` | `'-sS','--ntlm','-u','alice:secret','ldap://127.0.0.1:18329/dc=example,dc=com'` | Sicily: `[10]` with the `NEGOTIATE_MESSAGE`, `[11]` with the `AUTHENTICATE_MESSAGE` (flags `E2888235`), then an 84-byte sealed buffer: the base search, message ID 4 |
+| `ldap-negotiate-sealed` | `"BIND=14\|\|<challenge>"`, `'BIND=0'` | the same with `--negotiate` | `GSS-SPNEGO` with bare NTLM both ways, then an 84-byte sealed buffer: the base search, message ID 5 |
+
+Both exited 39 (`LDAP remote: Server Down`): the recorder cannot unseal and closed, and
+`WinLDAP`'s reconnect found no server it could use. `LdapNtlmSaslMechanismTests` replays both
+binds with the fixed challenge and unseals each buffer to the base search of ADR-0072's
+simple-bind transcript.

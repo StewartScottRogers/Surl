@@ -30,8 +30,6 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
     private const string GssapiMechanismName = "GSSAPI";
 
-    private const string GssSpnegoMechanismName = "GSS-SPNEGO";
-
     private static readonly SshLoginVerdict SshRefusedUnchecked = new(SshLoginOutcome.Refused, null, null);
 
     private static readonly SshLoginVerdict SshAcceptedUnchecked = new(SshLoginOutcome.AcceptedUnchecked, null, null);
@@ -168,7 +166,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         }
 
         var afterGssapi = names.Count > 0 && names[0] == GssapiMechanismName ? 1 : 0;
-        return [.. names.Take(afterGssapi), GssSpnegoMechanismName, .. names.Skip(afterGssapi)];
+        return [.. names.Take(afterGssapi), SaslMechanism.GssSpnego.Name, .. names.Skip(afterGssapi)];
     }
 
     private static bool IsLdapScheme(string scheme) =>
@@ -188,7 +186,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// Starts the exchange of the mechanism <paramref name="start"/> names, matched
     /// case-insensitively: refused as <see cref="SaslLoginOutcome.RefusedMechanism"/> when it is
     /// unknown, not accepted, <c>EXTERNAL</c> on a connection with no TLS client certificate, or
-    /// <c>GSSAPI</c> with no Kerberos acceptor,
+    /// <c>GSSAPI</c> with no Kerberos acceptor, or <c>GSS-SPNEGO</c> where no security layer can follow or
+    /// <c>--auth</c> does not accept <c>negotiate</c>,
     /// and as <see cref="SaslLoginOutcome.RefusedPlaintext"/> when it is
     /// plain-text on an unencrypted connection without <c>--allow-plaintext-auth</c> or
     /// <c>--allow-anonymous</c> (ADR-0049, sections 1 and 5).
@@ -199,16 +198,30 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     {
         ArgumentNullException.ThrowIfNull(start);
 
-        var mechanism = saslMechanisms.FirstOrDefault(
-            mechanism => string.Equals(mechanism.Name, start.Mechanism, StringComparison.OrdinalIgnoreCase));
+        var mechanism = FindSaslMechanism(start);
         if (mechanism is null || !CanIdentifyClient(mechanism, start.TlsSession))
         {
             return new RefusedSaslExchange(SaslLoginOutcome.RefusedMechanism);
         }
 
         return settings.AllowAnonymous || MayUseSaslMechanism(mechanism, start.TlsSession is not null)
-            ? mechanism.Start(new SaslExchangeContext(this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate))
+            ? mechanism.Start(new SaslExchangeContext(
+                this, start.Scheme, mechanism.Name, start.InitialResponse, start.TlsSession?.ClientCertificate, start.CanCarrySecurityLayer))
             : new RefusedSaslExchange(SaslLoginOutcome.RefusedPlaintext);
+    }
+
+    // GSS-SPNEGO runs only where a security layer can follow, and only when --auth accepts negotiate.
+    private SaslMechanism? FindSaslMechanism(SaslExchangeStart start)
+    {
+        if (string.Equals(start.Mechanism, SaslMechanism.GssSpnego.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return start.CanCarrySecurityLayer && settings.AcceptedMethods.Contains(AuthenticationMethod.Negotiate)
+                ? SaslMechanism.GssSpnego
+                : null;
+        }
+
+        return saslMechanisms.FirstOrDefault(
+            mechanism => string.Equals(mechanism.Name, start.Mechanism, StringComparison.OrdinalIgnoreCase));
     }
 
     // A mechanism that sends no plain-text secret may be used on any connection (ADR-0049, section 1).
