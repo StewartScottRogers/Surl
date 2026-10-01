@@ -8,7 +8,7 @@ depends-on: [BL-281, BL-285]
 touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1, Surl.Protocol.Rtsp.UnitLibrary/CLAUDE.md]
 requirement: FR-051
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-286 — Decide how the RTSP server answers upstream curl
 
@@ -71,18 +71,35 @@ server and registration tasks can be built without a question.
 
 ## Acceptance criteria
 
-- [ ] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
+- [x] A new ADR in `Documentation/Planning/Decisions/`, Status Accepted, "Decided by Claude under
       Stewart's delegation", records each measurement (build path, SHA-256, arguments, date,
       transcript excerpt) and decides every point in Context.
-- [ ] It lists the curl 8.21.0 cases the RTSP conformance task must prove, with the expected exit
+- [x] It lists the curl 8.21.0 cases the RTSP conformance task must prove, with the expected exit
       code for each.
-- [ ] `Surl.Protocol.Rtsp.UnitLibrary/CLAUDE.md` no longer names `--rtsp-request` as a curl option.
-- [ ] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
+- [x] `Surl.Protocol.Rtsp.UnitLibrary/CLAUDE.md` no longer names `--rtsp-request` as a curl option.
+- [x] `Documentation/Planning/Decisions/README.md` indexes the ADR; any `Record-CurlExchange.ps1`
       extension is described in the script's comment-based help.
 
 ## Notes
+
+- Decided in ADR-0074 (Accepted, "Decided by Claude under Stewart's delegation"), from 29 cases
+  recorded on 2026-09-30 with the Windows reference build through `Record-CurlExchange.ps1 -Raw`.
+- `Record-CurlExchange.ps1 -Raw` gained `{CSEQ}` (the last `CSeq` curl sent), described under
+  `-RawReply` in its help: without it no reply could echo the request a Digest retry makes.
+- Key findings: the tool sends only `OPTIONS *` (no path, no body; `-T`, `-d`, `-X`, `-I` ignored);
+  85 on a bad `CSeq`, 86 on a changed `Session`; a body on a `401` makes curl reconnect for the
+  Digest retry, so surl puts no body on any response but `DESCRIBE`.
+- Defaults taken: every file is a one-stream octet presentation (surl has no codecs); interleaved
+  TCP only (`461` for UDP, which libcurl cannot receive); unpaced streaming; one session per
+  connection.
+- libcurl: adopted ADR-0071's `libcurl-4.dll` pin; filed BL-330 (the driver runs RTSP) and BL-331
+  (measure and amend ADR-0074), and added BL-331 to BL-318's `depends-on` (a board edit to another
+  task's front matter; no task in Doing touches it).
+- The NTLM case hung the one-reply-per-pause recorder; NTLM is left out of BL-318's list and noted
+  in decision 7.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0074 decides every RTSP answer from 29 measured curl 8.21.0 cases; Record-CurlExchange.ps1 -Raw echoes CSeq; BL-330 and BL-331 filed for libcurl

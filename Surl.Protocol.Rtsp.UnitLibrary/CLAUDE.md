@@ -2,9 +2,11 @@
 
 Phase 5.
 
-The RTSP server (RFC 2326): the requests upstream curl's `--rtsp-request` sends -
+The RTSP server (RFC 2326): the requests upstream libcurl's `CURLOPT_RTSP_REQUEST` sends -
 `OPTIONS`, `DESCRIBE`, `ANNOUNCE`, `SETUP`, `PLAY`, `PAUSE`, `TEARDOWN`,
-`GET_PARAMETER`, `SET_PARAMETER`, `RECORD` - and interleaved RTP.
+`GET_PARAMETER`, `SET_PARAMETER`, `RECORD` - and interleaved RTP. The `curl` tool has no
+option that chooses the request: it sends only `OPTIONS *`. How every request is answered
+is decided in ADR-0074.
 
 **URL schemes answered:** `rtsp`
 

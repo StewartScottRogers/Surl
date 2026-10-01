@@ -4,7 +4,7 @@ title: Prove pinned upstream curl completes RTSP requests with surl
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-317]
+depends-on: [BL-317, BL-331]
 touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: FR-051
 created: 2026-09-30
