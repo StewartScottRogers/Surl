@@ -46,3 +46,4 @@ written, so the ADR is true of `Surl.Protocol.Smb` as it is.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
