@@ -14,6 +14,7 @@ internal static class HelpCategories
         new("gopher", "GOPHER and GOPHERS protocol", ["gopher", "gophers"]),
         new("http", "HTTP and HTTPS protocol", ["http", "https"]),
         new("imap", "IMAP and IMAPS protocol", ["imap", "imaps"]),
+        new("ldap", "LDAP protocol", ["ldap", "ldaps"]),
         new("limits", "Connection, time and size limits", []),
         new("logging", "Log levels, tracing and the log file", []),
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),

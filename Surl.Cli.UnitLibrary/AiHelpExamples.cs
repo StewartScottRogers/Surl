@@ -24,7 +24,7 @@ public static class AiHelpExamples
             [ListeningOnHttp, "Listening on tftp://127.0.0.1:<port>/"],
             [],
             []),
-        Refused("listen-urls", "A scheme this build does not serve", ["ldap://127.0.0.1:0/"], ["surl: (1) Protocol \"ldap\" not supported"], SurlExitCode.UnsupportedProtocol),
+        Refused("listen-urls", "A scheme this build does not serve", ["rtmp://127.0.0.1:0/"], ["surl: (1) Protocol \"rtmp\" not supported"], SurlExitCode.UnsupportedProtocol),
         Refused(
             "surl",
             "No listen URL",
@@ -94,6 +94,13 @@ public static class AiHelpExamples
             ["Listening on imap://127.0.0.1:<port>/"],
             ["surl: warning: --allow-anonymous: every request and login is accepted without checking credentials"],
             ["curl imap://127.0.0.1:<port>/"]),
+        Serving(
+            "ldap",
+            "For a test: accept a simple bind over plain LDAP",
+            ["--allow-plaintext-auth", "-u", "alice:secret", "ldap://127.0.0.1:0/"],
+            ["Listening on ldap://127.0.0.1:<port>/"],
+            ["surl: warning: --allow-plaintext-auth: passwords and tokens are accepted over unencrypted connections"],
+            ["curl -u alice:secret ldap://127.0.0.1:<port>/"]),
         Serving(
             "mqtt",
             "For a test: serve MQTT without accounts",

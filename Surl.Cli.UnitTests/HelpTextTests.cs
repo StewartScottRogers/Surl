@@ -14,6 +14,7 @@ public sealed class HelpTextTests
         " gopher     GOPHER and GOPHERS protocol",
         " http       HTTP and HTTPS protocol",
         " imap       IMAP and IMAPS protocol",
+        " ldap       LDAP protocol",
         " limits     Connection, time and size limits",
         " logging    Log levels, tracing and the log file",
         " mqtt       MQTT and MQTTS protocol",
@@ -142,8 +143,9 @@ public sealed class HelpTextTests
             "",
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
-            "auth, content, dict, ftp, gopher, http, imap, limits, logging, mqtt, pop3,",
-            "rtsp, security, smb, smtp, ssh, surl, telnet, testing, tftp, tls, websocket.",
+            "auth, content, dict, ftp, gopher, http, imap, ldap, limits, logging, mqtt,",
+            "pop3, rtsp, security, smb, smtp, ssh, surl, telnet, testing, tftp, tls,",
+            "websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
     }
@@ -406,8 +408,8 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, imap, mqtt, pop3, rtsp, smb, smtp, ssh,",
-            "        websocket.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, smb, smtp,",
+            "        ssh, websocket.",
             "");
 
     [TestMethod]
@@ -417,8 +419,8 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, imap, mqtt, pop3, rtsp, smb, smtp, ssh,",
-            "        websocket.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, smb, smtp,",
+            "        ssh, websocket.",
             "");
 
     [TestMethod]
@@ -431,8 +433,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, mqtt, pop3, rtsp, security, smb,",
-                "        smtp, ssh, testing, websocket.",
+                "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, security,",
+                "        smb, smtp, ssh, testing, websocket.",
                 "",
             ]);
 
@@ -448,8 +450,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowPlaintextAuthExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, mqtt, pop3, rtsp, security, smtp,",
-                "        testing, websocket.",
+                "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, security,",
+                "        smtp, testing, websocket.",
                 "",
             ]);
 
@@ -463,7 +465,7 @@ public sealed class HelpTextTests
                 "",
                 .. SelfSignedExplanationLines,
                 "",
-                "        Categories: security, smb, testing, tls.",
+                "        Categories: ldap, security, smb, testing, tls.",
                 "",
             ]);
 
@@ -478,8 +480,8 @@ public sealed class HelpTextTests
                 "",
                 .. AuthExplanationLines,
                 "",
-                "        Categories: auth, http, imap, pop3, rtsp, security, smb, smtp, testing,",
-                "        websocket.",
+                "        Categories: auth, http, imap, ldap, pop3, rtsp, security, smb, smtp,",
+                "        testing, websocket.",
                 "",
             ]);
 
@@ -582,6 +584,25 @@ public sealed class HelpTextTests
             Row(34, "    --max-request-head <bytes>", "Largest HTTP or RTSP request head"),
             Row(34, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(34, "    --user-file <file>", "Read accounts from a file"));
+
+    [TestMethod]
+    public void Answer_Ldap_ListsEveryOptionTheLdapServerReads() =>
+        AssertOutput(
+            HelpText.Answer("ldap"),
+            "ldap: LDAP protocol",
+            Row(32, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(32, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(32, "    --auth <methods>", "Authentication methods accepted"),
+            Row(32, "    --cacert <file>", "CA certificates for client certs"),
+            Row(32, "    --cert <file>", "Server certificate file"),
+            Row(32, "    --directory <directory>", "Data directory, else in memory"),
+            Row(32, "    --head-timeout <seconds>", "Time to send a request head"),
+            Row(32, "    --key <file>", "Private key for --cert"),
+            Row(32, "    --keytab <file>", "Read Kerberos service keys from a keytab file"),
+            Row(32, "    --max-message <bytes>", "Largest framed message accepted"),
+            Row(32, "    --self-signed", "Throwaway certificate (warns)"),
+            Row(32, "-u, --user <user:password>", "Add an account (repeatable)"),
+            Row(32, "    --user-file <file>", "Read accounts from a file"));
 
     [TestMethod]
     public void Answer_Smb_ListsEveryOptionTheSmbServerReads() =>
@@ -762,7 +783,7 @@ public sealed class HelpTextTests
             "    --key <file>",
             "        Private key for --cert. Default: the key in the --cert file.",
             "",
-            "        Categories: smb, tls.",
+            "        Categories: ldap, smb, tls.",
             "");
 
     [TestMethod]

@@ -20,8 +20,9 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
   full path with `--directory`, a new, empty `InMemoryContentFileSystem` at
-  `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4), checks
-  every scheme against the registered protocol servers, then refuses a TLS-first listen URL
+  `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4) - every
+  scheme a listen URL may name has a registered server, so `ListenUrlParser`'s (1) is the only
+  scheme refusal - then refuses a TLS-first listen URL
   with no certificate (58) and an `scp` or `sftp` one with neither `--hostkey` nor
   `--throwaway-hostkey` (2, `surl: (2) <url> needs a host key: ...`), and with `--directory` takes the
   data directory's `.surl/lock` (`DataDirectoryLock.Take`, held until serving ends; a
@@ -52,7 +53,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `Surl.Authentication`'s `AuthenticationPolicy` with Negotiate, NTLM, Basic, Bearer, Digest
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its
   `AuthenticationSettings`, is handed to the HTTP (`http`, `https`), MQTT (`mqtt`,
-  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`), RTSP (`rtsp`), SMB (`smb`, `smbs`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
+  `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`), LDAP (`ldap`, `ldaps`), RTSP (`rtsp`), SMB (`smb`, `smbs`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
   name, the mail store's owners. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `FtpProtocolServer` for `ftp` and `ftps` (it declares
   both itself; `AUTH TLS` when `--cert` or `--self-signed` is given, ADR-0052 decision 5), given the
@@ -80,6 +81,13 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   policy as both its authentication policies, `STLS` when `--cert` or `--self-signed` is given
   (ADR-0056 decision 8) and the same `MailboxStore` instance, so mail delivered over `smtp` is
   retrieved over `pop3` in the same run,
+  `LdapProtocolServer` for `ldap` and, through `ImplicitTlsSchemeServer`, `ldaps`, given the policy
+  as both its authentication policies and `StartTLS` when `--cert` or `--self-signed` is given
+  (ADR-0072 decision 5), over the directory `LoadLdapServerAsync` reads from
+  `<data directory>/.surl/ldap/directory.ldif` (`ComposeLdapDirectoryFile`) after the mail store,
+  before any listener binds, with `--directory` (a file that cannot be read or is not LDIF the
+  directory can hold ends surl with 37 and `surl: (37) Could not read <file>: <reason>`), and over
+  an empty directory without it (ADR-0072 decision 1),
   `RtspProtocolServer` for `rtsp` (curl has no `rtsps`), given the content store and the policy,
   each request judged by the HTTP authentication session (ADR-0074 decision 7),
   `SmbProtocolServer` for `smb` and `smbs` (it declares both itself, so no
@@ -113,13 +121,13 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   last listener, connection or datagram, has bound, and keeps a bind failure for the
   `(45)` or `(6)` message.
 - `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
-  TLS from the first byte, or can be upgraded (`smtp` and `imap` for `STARTTLS`, `pop3` for `STLS`, `ftp` for `AUTH TLS`) and `--cert` or
+  TLS from the first byte, or can be upgraded (`smtp` and `imap` for `STARTTLS`, `pop3` for `STLS`, `ftp` for `AUTH TLS`, `ldap` for `StartTLS`) and `--cert` or
   `--self-signed` is given: the `--cert`/`--key` certificate or, with `--self-signed`, a
   throwaway one, the `--cacert` trust anchors and the accepted TLS versions. A bad file ends
   surl with 58, 2 or 77 before any listener binds (ADR-0020). A listen URL TLS from the first byte with neither
   `--cert` nor `--self-signed` ends surl with 58 before any listener binds
   (`ServerTlsComposition.FindListenUrlWithoutCertificate`, ADR-0032 section 10); a start
-  with `--self-signed` and neither such a listen URL nor an `smtp`, `imap`, `pop3` or `ftp` one makes no certificate.
+  with `--self-signed` and neither such a listen URL nor an `smtp`, `imap`, `pop3`, `ftp` or `ldap` one makes no certificate.
 - Once the log streams are open, the startup warnings go to the log stream, unstamped:
   `AuthenticationComposition.WriteLooseningWarnings` writes the `--allow-anonymous`,
   `--allow-plaintext-auth` and `--auth` lines, in that order, then

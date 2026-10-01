@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "RTSP OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "LDAP OPTIONS", "RTSP OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -98,6 +98,12 @@ public sealed class ManualTextTests
             "    message file that cannot be read or does not parse exits 37. Without",
             "    --directory, the mail store lives in memory only.",
             "",
+            "    The LDAP server reads its directory from",
+            "    <path>/.surl/ldap/directory.ldif, LDIF content records, once at start;",
+            "    a missing file is an empty directory, and a file that cannot be read or",
+            "    is not LDIF the directory can hold exits 37. Without --directory, the",
+            "    directory is empty.",
+            "",
             "IN-MEMORY MODE",
             "",
             "    Without --directory, surl serves an in-memory file system. It starts empty,",
@@ -158,6 +164,15 @@ public sealed class ManualTextTests
             "    logs in with a Kerberos ticket checked against the --keytab keys, and is",
             "    offered first; a start that gives it without --keytab writes \"surl: (2)",
             "    --auth gssapi needs --keytab\" and exits 2.",
+            "",
+            "LDAP OPTIONS",
+            "",
+            "    The LDAP server answers ldap and ldaps listen URLs with LDAPv3: curl's",
+            "    searches are answered from one read-only directory, every search but the",
+            "    root DSE's after a bind. A simple bind over ldap without StartTLS needs",
+            "    --allow-plaintext-auth; the Windows curl's NTLM and DIGEST-MD5 binds need",
+            "    --auth and an account. StartTLS and ldaps need --cert or --self-signed.",
+            "    surl --aihelp ldap says how each request is answered.",
             "",
             "RTSP OPTIONS",
             "",

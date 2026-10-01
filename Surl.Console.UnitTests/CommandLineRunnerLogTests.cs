@@ -33,11 +33,11 @@ public sealed class CommandLineRunnerLogTests
     }
 
     [TestMethod]
-    public async Task RunAsync_SilentWithAnUnsupportedScheme_WritesNothingAndReturnsUnsupportedProtocol()
+    public async Task RunAsync_SilentWithAListenUrlNeedingACertificate_WritesNothingAndReturnsCertificateProblem()
     {
-        var run = await RunRefusedAsync("-s", "ldap://127.0.0.1:0/");
+        var run = await RunRefusedAsync("-s", "https://127.0.0.1:0/");
 
-        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, run.ExitCode);
+        Assert.AreEqual(SurlExitCode.CertificateProblem, run.ExitCode);
         Assert.AreEqual(string.Empty, run.Output);
         Assert.AreEqual(string.Empty, run.Error);
     }
@@ -63,13 +63,13 @@ public sealed class CommandLineRunnerLogTests
     }
 
     [TestMethod]
-    public async Task RunAsync_SilentShowErrorWithAnUnsupportedScheme_WritesOnlyTheFailureLine()
+    public async Task RunAsync_SilentShowErrorWithAListenUrlNeedingACertificate_WritesOnlyTheFailureLine()
     {
-        var run = await RunRefusedAsync("-s", "-S", "ldap://127.0.0.1:0/");
+        var run = await RunRefusedAsync("-s", "-S", "https://127.0.0.1:0/");
 
-        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, run.ExitCode);
+        Assert.AreEqual(SurlExitCode.CertificateProblem, run.ExitCode);
         Assert.AreEqual(string.Empty, run.Output);
-        Assert.AreEqual("surl: (1) Protocol \"ldap\" not supported" + NewLine, run.Error);
+        Assert.AreEqual("surl: (58) https://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine, run.Error);
     }
 
     [TestMethod]

@@ -9,10 +9,10 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299) and rtsp (BL-317), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317) and ldap (BL-310), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "imap", "limits", "listen-urls",
+        "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
         "logging", "mqtt", "pop3", "rtsp", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
@@ -31,6 +31,7 @@ public sealed partial class AiHelpTextTests
         "| `gopher` | GOPHER and GOPHERS protocol |",
         "| `http` | HTTP and HTTPS protocol |",
         "| `imap` | IMAP and IMAPS protocol |",
+        "| `ldap` | LDAP protocol |",
         "| `limits` | Connection, time and size limits |",
         "| `listen-urls` | Listen URLs, ports and the Listening on line |",
         "| `logging` | Log levels, tracing and the log file |",
@@ -574,6 +575,7 @@ public sealed partial class AiHelpTextTests
             "surl: warning:",
             "surl: (124) Directory <path> is in use by another surl process",
             "surl: (37) Could not open directory <path>",
+            "surl: (37) Could not read <file>: line <n>: <what>",
             "surl: (45) Could not bind <scheme>://<address>:<port>/: <reason>",
             "surl: (6) Could not resolve host: <host>",
             "surl: (58) <url> needs a certificate: give --cert <file>, or --self-signed for a throwaway one",
