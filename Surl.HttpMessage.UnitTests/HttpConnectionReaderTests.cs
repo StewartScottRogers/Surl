@@ -325,6 +325,23 @@ public sealed partial class HttpConnectionReaderTests
     }
 
     [TestMethod]
+    public async Task PeekByteAsync_BytesBufferedOrArriving_ReturnsTheNextByteAndLeavesItToBeRead()
+    {
+        var reader = ReaderOver(Encoding.ASCII.GetBytes("GET / HTTP/1.1\r\nHost: x\r\n\r\n$X"), oneBytePerRead: true);
+        await reader.ReadRequestHeadAsync(TestContext.CancellationToken);
+
+        Assert.AreEqual('$', await reader.PeekByteAsync(TestContext.CancellationToken), "The byte arrives.");
+        Assert.AreEqual('$', await reader.PeekByteAsync(TestContext.CancellationToken), "The byte is still buffered.");
+        Assert.AreEqual("$X", await ReadToEndAsync(reader));
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_ClientHalfCloses_ReturnsMinusOne()
+    {
+        Assert.AreEqual(-1, await ReaderOver([], oneBytePerRead: false).PeekByteAsync(TestContext.CancellationToken));
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task ReadLineAsync_LinesAfterAHead_ReturnsEachWithoutItsLineFeedButWithItsCarriageReturn(bool oneBytePerRead)

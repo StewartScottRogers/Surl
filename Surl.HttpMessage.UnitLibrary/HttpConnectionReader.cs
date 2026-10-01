@@ -95,6 +95,18 @@ public sealed class HttpConnectionReader
         BufferedCount > 0 || await FillAsync(requestHeadLimit, cancellationToken) > 0;
 
     /// <summary>
+    /// Waits as <see cref="WaitForBytesAsync"/> does, then returns the next byte without taking
+    /// it, so the caller can tell what follows - an RTSP interleaved frame's <c>$</c> from a
+    /// request head (RFC 2326 section 10.12) - before choosing how to read it.
+    /// </summary>
+    /// <param name="cancellationToken">Cuts the wait off.</param>
+    /// <returns>The next byte, still buffered; -1 when the client half-closed first.</returns>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the read off.</exception>
+    /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
+    public async ValueTask<int> PeekByteAsync(CancellationToken cancellationToken) =>
+        await WaitForBytesAsync(cancellationToken) ? buffer[bufferedStart] : -1;
+
+    /// <summary>
     /// Reads the next request head of an exchange within its head timeout
     /// (<see cref="ExchangeLimits.HeadTimeout"/>, on <see cref="ExchangeContext.TimeProvider"/>;
     /// ADR-0006 section 1, ADR-0070 decision 3).
