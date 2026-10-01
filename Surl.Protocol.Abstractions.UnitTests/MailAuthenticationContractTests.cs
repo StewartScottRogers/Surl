@@ -78,6 +78,16 @@ public sealed class MailAuthenticationContractTests
         Assert.IsNull(new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null).SecurityLayer);
     }
 
+    [TestMethod]
+    public void SaslLoginStep_Accepted_KeepsItsAdditionalSuccessDataAndHasNoneByDefault()
+    {
+        var step = new SaslLoginStep(
+            SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null, AdditionalSuccessData: "rspauth=00"u8.ToArray());
+
+        Assert.AreEqual("rspauth=00", System.Text.Encoding.ASCII.GetString(step.AdditionalSuccessData.Span));
+        Assert.IsTrue(new SaslLoginStep(SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, "alice", null).AdditionalSuccessData.IsEmpty);
+    }
+
     private sealed class UnitTestPassThroughSecurityLayer : ISaslSecurityLayer
     {
         public int MaximumProtectedBytes => 0;

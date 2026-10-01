@@ -28,10 +28,18 @@ namespace Surl.Protocol.Abstractions;
 /// server's answer to this step (ADR-0072, decision 4); <see langword="null"/> when none was, and
 /// always when <see cref="SaslExchangeStart.CanCarrySecurityLayer"/> was <see langword="false"/>.
 /// </param>
+/// <param name="AdditionalSuccessData">
+/// The bytes an accepted login sends with its success (RFC 4422 section 5's additional data with
+/// success), before base64 where the server encodes it, such as <c>DIGEST-MD5</c>'s
+/// <c>rspauth=&lt;hex&gt;</c> as LDAP's <c>serverSaslCreds</c> (ADR-0072, decision 4); empty for
+/// none, and always when <see cref="SaslExchangeStart.CanCarrySecurityLayer"/> was
+/// <see langword="false"/>, since the mail servers send such data as a challenge.
+/// </param>
 public sealed record SaslLoginStep(
     SaslLoginOutcome Outcome,
     ReadOnlyMemory<byte> Challenge,
     string? AccountName,
     CheckedLogin? CheckedLogin,
     string? RefusalNote = null,
-    ISaslSecurityLayer? SecurityLayer = null);
+    ISaslSecurityLayer? SecurityLayer = null,
+    ReadOnlyMemory<byte> AdditionalSuccessData = default);
