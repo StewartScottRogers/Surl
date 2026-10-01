@@ -96,3 +96,4 @@ and registration tasks can be built without a question.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
