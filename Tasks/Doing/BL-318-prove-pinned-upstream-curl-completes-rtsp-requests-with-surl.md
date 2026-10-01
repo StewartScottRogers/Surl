@@ -50,3 +50,4 @@ the exit codes it expects, on Windows and Linux; on macOS they report Inconclusi
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
