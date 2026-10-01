@@ -35,10 +35,19 @@ namespace Surl.Protocol.Ws;
 /// <para>
 /// An upgrade that passes every check is answered <c>101 Switching Protocols</c> with
 /// <c>Date</c>, <c>Server: surl</c>, <c>Upgrade: websocket</c>, <c>Connection: Upgrade</c> and
-/// <c>Sec-WebSocket-Accept</c>, then (until the message exchange is built) an empty
-/// <c>CLOSE</c>, a half-close and a lingering read of at most one second (ADR-0071 decision 5).
-/// No subprotocol or extension is ever selected. Every refusal and every <c>101</c> is noted
-/// in the exchange log (decision 9).
+/// <c>Sec-WebSocket-Accept</c>. No subprotocol or extension is ever selected. Every refusal and
+/// every <c>101</c> is noted in the exchange log (decision 9).
+/// </para>
+/// <para>
+/// After the <c>101</c> the server sends the file at the path as one binary message, or a
+/// directory's listing as one text message, in frames of at most 65536 payload bytes, then an
+/// empty <c>CLOSE</c>; or, when it echoes (<c>--ws-echo</c>), sends every client message back
+/// whole. Throughout, it answers a <c>PING</c> with a <c>PONG</c>, a client <c>CLOSE</c> with a
+/// <c>CLOSE</c> echoing its code, and an invalid client frame or message with a <c>CLOSE</c>
+/// carrying <c>1002</c>, <c>1007</c> or <c>1009</c> (past <see cref="ExchangeLimits.MaxMessageBytes"/>).
+/// An exchange cancelled for its idle timeout or maximum duration is answered <c>CLOSE</c>
+/// <c>1001</c>. After its <c>CLOSE</c> the server half-closes and reads what the client still
+/// sends for at most one second (ADR-0071 decisions 4 to 7).
 /// </para>
 /// </remarks>
 public sealed class WsProtocolServer : IConnectionProtocolServer
@@ -46,6 +55,8 @@ public sealed class WsProtocolServer : IConnectionProtocolServer
     private readonly ContentStore contentStore;
 
     private readonly IAuthenticationPolicy authenticationPolicy;
+
+    private readonly bool echoesMessages;
 
     /// <summary>
     /// Creates a WebSocket server that upgrades requests for paths in
@@ -57,12 +68,28 @@ public sealed class WsProtocolServer : IConnectionProtocolServer
     /// Judges every upgrade request: upgraded, challenged with <c>401</c>, or refused with <c>403</c>.
     /// </param>
     public WsProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
+        : this(contentStore, authenticationPolicy, echoesMessages: false)
+    {
+    }
+
+    /// <summary>
+    /// Creates a WebSocket server that, when <paramref name="echoesMessages"/> is set
+    /// (<c>--ws-echo</c>), upgrades any path <paramref name="authenticationPolicy"/> lets in and
+    /// echoes every client message instead of sending the path (ADR-0071 decision 4).
+    /// </summary>
+    /// <param name="contentStore">The content store every request path is looked up in when the server does not echo.</param>
+    /// <param name="authenticationPolicy">
+    /// Judges every upgrade request: upgraded, challenged with <c>401</c>, or refused with <c>403</c>.
+    /// </param>
+    /// <param name="echoesMessages">Whether every upgrade echoes client messages instead of sending its path.</param>
+    public WsProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool echoesMessages)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
+        this.echoesMessages = echoesMessages;
     }
 
     /// <summary>
@@ -85,7 +112,7 @@ public sealed class WsProtocolServer : IConnectionProtocolServer
 
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes);
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
-        var responder = new WebSocketUpgradeResponder(connection, reader, context, contentStore, authenticationSession);
+        var responder = new WebSocketUpgradeResponder(connection, reader, context, contentStore, authenticationSession, echoesMessages);
         var isFirstHead = true;
         var keepsConnectionOpen = true;
 

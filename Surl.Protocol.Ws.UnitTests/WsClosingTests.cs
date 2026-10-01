@@ -40,12 +40,91 @@ public sealed class WsClosingTests
     [TestMethod]
     public async Task ConnectionFailure_DuringTheLingeringClose_IsNoted()
     {
-        var connection = new ResettingConnection(RecordedFixture.ReadRequestBytes("upgrade-101"));
+        var connection = new ResettingConnection(RecordedFixture.ReadRequestBytes("head-405"));
         var log = new RecordingExchangeLog();
 
         await Server().ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken));
 
         Assert.AreEqual("The connection failed during the lingering close (reset by the client).", log.Notes[^1]);
+    }
+
+    [TestMethod]
+    public async Task ConnectionFailure_AfterThe101_EndsTheExchange_AndIsNoted()
+    {
+        var connection = new ResettingConnection(RecordedFixture.ReadRequestBytes("upgrade-101"));
+        var log = new RecordingExchangeLog();
+
+        await Server().ServeAsync(connection, Context(log, new ManualTimeProvider(Now), TestContext.CancellationToken));
+
+        Assert.AreEqual("The connection failed (reset by the client).", log.Notes[^1]);
+    }
+
+    // The engine cancels the exchange for its idle timeout and for its maximum duration alike;
+    // with no shutdown, either is a limit (ADR-0059), answered CLOSE 1001 (ADR-0071 decision 7).
+    [TestMethod]
+    [DataRow("idle timeout")]
+    [DataRow("maximum duration")]
+    public async Task ExchangeCancelledForALimit_IsClosedWith1001_ThenLingered(string limit)
+    {
+        var clock = new ManualTimeProvider(Now);
+        var connection = new InMemoryConnection([RecordedFixture.ReadRequestBytes("upgrade-101")], peerHalfClosesWhenExhausted: false);
+        var log = new RecordingExchangeLog();
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var serving = Server(StandardFileSystem(), echoesMessages: true).ServeAsync(connection, Context(log, clock, exchange.Token));
+
+        await WaitUntilAsync(() => connection.WrittenBytes.Length == Recorded101Head.Length);
+        await exchange.CancelAsync();
+        await EndLingeringCloseAsync(clock, connection, serving);
+
+        Assert.AreEqual(Recorded101Head + "\x88\x02\x03\xE9", Latin1(connection.WrittenBytes), limit);
+        Assert.Contains("Closing with 1001: the exchange reached its idle timeout or maximum duration", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ExchangeCancelledAtShutdown_EndsWithNoClose()
+    {
+        var connection = new InMemoryConnection([RecordedFixture.ReadRequestBytes("upgrade-101")], peerHalfClosesWhenExhausted: false);
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var context = Context(new RecordingExchangeLog(), new ManualTimeProvider(Now), exchange.Token) with { ShutdownToken = exchange.Token };
+        var serving = Server(StandardFileSystem(), echoesMessages: true).ServeAsync(connection, context);
+
+        await WaitUntilAsync(() => connection.WrittenBytes.Length == Recorded101Head.Length);
+        await exchange.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+        Assert.AreEqual(Recorded101Head, Latin1(connection.WrittenBytes));
+        Assert.IsFalse(connection.WritesCompleted);
+    }
+
+    [TestMethod]
+    public async Task Close1001_NotWrittenWithinOneSecond_IsGivenUp()
+    {
+        var clock = new ManualTimeProvider(Now);
+        var connection = new StalledWriteConnection(RecordedFixture.ReadRequestBytes("upgrade-101"), writesBeforeStalling: 1);
+        var fileSystem = new UnitTestInMemoryContentFileSystem().AddDirectory(Root).AddFile(Path.Join(Root, "chat"), new byte[200000], Now);
+        var log = new RecordingExchangeLog();
+        using var exchange = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var serving = Server(fileSystem, echoesMessages: false).ServeAsync(connection, Context(log, clock, exchange.Token));
+
+        await WaitUntilAsync(() => connection.WritesStarted == 2);
+        await exchange.CancelAsync();
+        await WaitForTimersAsync(clock, 1);
+        clock.Advance(WebSocketExchange.LimitCloseWriteDeadline);
+        await serving;
+
+        Assert.IsFalse(connection.WritesCompleted);
+        Assert.AreEqual("The CLOSE 1001 was not written within its 1-second write deadline; the connection is closed without it.", log.Notes[^1]);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (!condition() && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(1));
+        }
+
+        Assert.IsTrue(condition());
     }
 
     [TestMethod]

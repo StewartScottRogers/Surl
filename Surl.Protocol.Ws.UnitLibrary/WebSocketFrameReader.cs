@@ -37,7 +37,7 @@ internal sealed class WebSocketFrameReader
     /// </summary>
     private const int InitialPayloadBytes = 65536;
 
-    private readonly IConnection connection;
+    private readonly Func<Memory<byte>, CancellationToken, ValueTask<int>> readAsync;
     private readonly long maxFrameBytes;
     private readonly byte[] headerBytes = new byte[SixtyFourBitLengthBytes];
     private readonly byte[] maskingKey = new byte[MaskingKeyBytes];
@@ -48,8 +48,19 @@ internal sealed class WebSocketFrameReader
     /// <param name="connection">The connection to read from.</param>
     /// <param name="maxFrameBytes">The most bytes a frame may hold, header included; 0 means no limit beyond what an array can hold.</param>
     public WebSocketFrameReader(IConnection connection, long maxFrameBytes)
+        : this(connection.ReadAsync, maxFrameBytes)
     {
-        this.connection = connection;
+    }
+
+    /// <summary>
+    /// Creates a reader over <paramref name="readAsync"/>, such as the read of the HTTP reader
+    /// that read the upgrade request, so bytes it already buffered are read first.
+    /// </summary>
+    /// <param name="readAsync">Reads at least one byte into the buffer, or returns 0 when the peer closed.</param>
+    /// <param name="maxFrameBytes">The most bytes a frame may hold, header included; 0 means no limit beyond what an array can hold.</param>
+    public WebSocketFrameReader(Func<Memory<byte>, CancellationToken, ValueTask<int>> readAsync, long maxFrameBytes)
+    {
+        this.readAsync = readAsync;
         this.maxFrameBytes = maxFrameBytes;
     }
 
@@ -237,7 +248,7 @@ internal sealed class WebSocketFrameReader
                 Array.Resize(ref payload, (int)Math.Min(payloadLength, 2L * payload.Length));
             }
 
-            var read = await connection.ReadAsync(payload.AsMemory(filled, payload.Length - filled), cancellationToken);
+            var read = await readAsync(payload.AsMemory(filled, payload.Length - filled), cancellationToken);
             if (read == 0)
             {
                 return null;
@@ -255,7 +266,7 @@ internal sealed class WebSocketFrameReader
         var filled = 0;
         while (filled < buffer.Length)
         {
-            var read = await connection.ReadAsync(buffer[filled..], cancellationToken);
+            var read = await readAsync(buffer[filled..], cancellationToken);
             if (read == 0)
             {
                 break;

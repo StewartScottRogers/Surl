@@ -17,17 +17,23 @@ internal static class WsServerHarness
 
     /// <summary>
     /// The 101 the recorded upgrade request is answered with, which pinned upstream curl
-    /// completed with exit 0 (Fixtures/upgrade-101/transcript.txt), then the empty CLOSE.
+    /// completed with exit 0 (Fixtures/upgrade-101/transcript.txt).
     /// </summary>
-    public const string Recorded101Response =
+    public const string Recorded101Head =
         "HTTP/1.1 101 Switching Protocols\r\n"
         + "Date: Mon, 28 Sep 2026 12:00:00 GMT\r\n"
         + "Server: surl\r\n"
         + "Upgrade: websocket\r\n"
         + "Connection: Upgrade\r\n"
         + "Sec-WebSocket-Accept: ktpdlwK4CWD8HWwKyLX0kug7bZ8=\r\n"
-        + "\r\n"
-        + "\x88\x00";
+        + "\r\n";
+
+    /// <summary>
+    /// Everything the recorded upgrade request for <c>/chat</c> is answered with: the 101, the
+    /// file <c>chat</c> as one binary frame, and the empty CLOSE - the reply pinned upstream curl
+    /// completed with exit 0, writing <c>chat</c> (Fixtures/file-chat).
+    /// </summary>
+    public const string Recorded101Response = Recorded101Head + "\u0082\u0004chat" + "\x88\x00";
 
     public static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
@@ -38,6 +44,15 @@ internal static class WsServerHarness
     public static WsProtocolServer Server(IAuthenticationPolicy? policy = null, bool listDirectories = false) => new(
         new ContentStore(Root, StandardFileSystem(), new ContentExposureOptions { ListDirectories = listDirectories }),
         policy ?? new AnonymousAuthenticationPolicy());
+
+    /// <summary>
+    /// A server over <paramref name="fileSystem"/> that sends paths, or echoes when
+    /// <paramref name="echoesMessages"/> is set (<c>--ws-echo</c>).
+    /// </summary>
+    public static WsProtocolServer Server(UnitTestInMemoryContentFileSystem fileSystem, bool echoesMessages, bool listDirectories = false) => new(
+        new ContentStore(Root, fileSystem, new ContentExposureOptions { ListDirectories = listDirectories }),
+        new AnonymousAuthenticationPolicy(),
+        echoesMessages);
 
     public static ExchangeContext Context(IExchangeLog log, TimeProvider timeProvider, CancellationToken cancellationToken, ExchangeLimits? limits = null) => new(
         1,
@@ -88,6 +103,21 @@ internal static class WsServerHarness
         var log = new RecordingExchangeLog();
 
         await Server(policy, listDirectories).ServeAsync(connection, Context(log, new ManualTimeProvider(Now), cancellationToken, limits));
+
+        return (connection, log);
+    }
+
+    /// <summary>
+    /// Serves the recorded upgrade request for <c>/chat</c> followed by
+    /// <paramref name="clientFrames"/>, then the client's half-close.
+    /// </summary>
+    public static async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeFramesAsync(
+        bool echoesMessages, CancellationToken cancellationToken, ExchangeLimits? limits = null, UnitTestInMemoryContentFileSystem? fileSystem = null, params byte[][] clientFrames)
+    {
+        var connection = new InMemoryConnection([RecordedFixture.ReadRequestBytes("upgrade-101"), .. clientFrames.Select(frame => new ReadOnlyMemory<byte>(frame))]);
+        var log = new RecordingExchangeLog();
+
+        await Server(fileSystem ?? StandardFileSystem(), echoesMessages).ServeAsync(connection, Context(log, new ManualTimeProvider(Now), cancellationToken, limits));
 
         return (connection, log);
     }

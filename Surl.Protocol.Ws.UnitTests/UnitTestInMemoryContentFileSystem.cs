@@ -31,6 +31,7 @@ internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
     public UnitTestInMemoryContentFileSystem AddDirectory(string path)
     {
         entries[path] = ContentEntryKind.Directory;
+        lastWriteTimes[path] = DateTimeOffset.UnixEpoch;
         return this;
     }
 

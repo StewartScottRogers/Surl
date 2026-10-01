@@ -17,7 +17,7 @@ public sealed class WsProtocolServerTests
         Assert.AreEqual(Recorded101Response, Latin1(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
         Assert.IsFalse(connection.Aborted);
-        CollectionAssert.AreEqual(new[] { "WebSocket upgrade accepted for /chat" }, log.Notes.ToArray());
+        Assert.AreEqual("WebSocket upgrade accepted for /chat", log.Notes[0]);
     }
 
     [TestMethod]
@@ -149,7 +149,7 @@ public sealed class WsProtocolServerTests
     {
         var (connection, log) = await ServeAsync([RecordedUpgradeRequestWith("GET /chat ", "GET /sub/ ")], TestContext.CancellationToken, listDirectories: true);
 
-        Assert.AreEqual(Recorded101Response, Latin1(connection.WrittenBytes));
+        Assert.AreEqual(Recorded101Head + "\u0081\u0000" + "\u0088\u0000", Latin1(connection.WrittenBytes));
         Assert.AreEqual("WebSocket upgrade accepted for /sub/", log.Notes[0]);
     }
 

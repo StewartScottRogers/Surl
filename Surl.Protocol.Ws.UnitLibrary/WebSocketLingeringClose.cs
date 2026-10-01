@@ -41,19 +41,23 @@ internal sealed class WebSocketLingeringClose
     /// Reads and discards what the client still sends until it closes, and notes in the
     /// exchange log a linger that the time limit or a reset ended.
     /// </summary>
+    /// <param name="endingToken">
+    /// What ends the linger at once: the exchange's cancellation, or - for the farewell after a
+    /// limit, when that is already cancelled - its shutdown (ADR-0059).
+    /// </param>
     /// <returns>A task that completes when the linger has ended.</returns>
-    /// <exception cref="OperationCanceledException">The exchange was cancelled.</exception>
-    public async Task LingerAsync()
+    /// <exception cref="OperationCanceledException"><paramref name="endingToken"/> was cancelled.</exception>
+    public async Task LingerAsync(CancellationToken endingToken)
     {
         using var deadline = new CancellationTokenSource(MaxLingerTime, context.TimeProvider);
-        using var deadlineOrExchange = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, deadline.Token);
+        using var deadlineOrExchange = CancellationTokenSource.CreateLinkedTokenSource(endingToken, deadline.Token);
         try
         {
             while (await reader.ReadAsync(lingerBuffer, deadlineOrExchange.Token) > 0)
             {
             }
         }
-        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!endingToken.IsCancellationRequested)
         {
             context.Log.Note($"Stopped reading what the client still sent at the {MaxLingerTime.TotalSeconds}-second lingering close.");
         }

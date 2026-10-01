@@ -27,6 +27,21 @@ Each as `.\Record-CurlExchange.ps1 -Port 18301 -Raw -RawReply <reply> -CurlArgs 
 curl completed the `101` (exit 0, nothing written: the empty `CLOSE` carries no payload) and
 answered every refusal `curl: (22) Refused WebSocket upgrade: <status>`, as ADR-0071 measured.
 
+## After the upgrade (BL-302)
+
+Recorded on 2026-09-30 the same way, with `$h` being the `101` of `upgrade-101` above
+(`HTTP/1.1 101 Switching Protocols\r\n$date` `Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {WS_ACCEPT}\r\n\r\n`):
+
+| Folder | Replies, in order | curl arguments | Exit |
+| --- | --- | --- | --- |
+| `file-chat` | `$h\x82\x04chat\x88\x00` | `-sS`, `ws://127.0.0.1:18301/chat` | 0 |
+| `ping-pong` | `$h\x89\x04ping`, then `\x88\x00` | `-sS`, `ws://127.0.0.1:18301/chat` | 0 |
+
+`file-chat` is what `WsProtocolServer` sends for `/chat` holding `chat`: curl wrote `chat`
+(`stdout.bin`). In `ping-pong` curl answered the `PING` with a masked `PONG` carrying `ping`
+(`\x8A\x84` and a masking key, after the head in `request.bin`), and the tests replay it to
+show a client `PONG` is ignored (ADR-0071 decision 6).
+
 The other refusal cases (no `Host`, `HTTP/1.0`, no `Upgrade`, no `Connection: Upgrade`, a body,
 a missing or malformed key, a missing version, an unknown path) are the recorded `upgrade-101`
 request with one line changed by the test, since curl does not send them on its own.

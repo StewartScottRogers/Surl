@@ -18,10 +18,6 @@ internal sealed class WebSocketUpgradeResponder
     /// </summary>
     public static readonly TimeSpan RefusalWriteDeadline = TimeSpan.FromSeconds(1);
 
-    // The empty CLOSE that ends the exchange after the 101 until the message exchange is built
-    // (ADR-0071, decisions 4 and 5).
-    private static readonly byte[] EmptyCloseFrame = WebSocketFrameEncoder.EncodeFrame(true, WebSocketOpcode.Close, []);
-
     // Every other failure to read a head is a malformed head: 400 (ADR-0071 decision 1, check 1).
     private static readonly Dictionary<HttpRequestHeadReadOutcome, HttpStatus> StatusesForHeadsNotRead = new()
     {
@@ -31,9 +27,11 @@ internal sealed class WebSocketUpgradeResponder
     };
 
     private readonly IConnection connection;
+    private readonly HttpConnectionReader reader;
     private readonly ExchangeContext context;
     private readonly ContentStore contentStore;
     private readonly IHttpAuthenticationSession authenticationSession;
+    private readonly bool echoesMessages;
     private readonly WebSocketLingeringClose lingeringClose;
 
     // The WWW-Authenticate values the authentication session gave for the request being
@@ -48,12 +46,15 @@ internal sealed class WebSocketUpgradeResponder
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
     /// <param name="contentStore">Where request paths are looked up.</param>
     /// <param name="authenticationSession">The connection's authentication session, which judges every upgrade request.</param>
-    public WebSocketUpgradeResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession)
+    /// <param name="echoesMessages">Whether an upgrade echoes client messages (<c>--ws-echo</c>) instead of sending its path.</param>
+    public WebSocketUpgradeResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession, bool echoesMessages)
     {
         this.connection = connection;
+        this.reader = reader;
         this.context = context;
         this.contentStore = contentStore;
         this.authenticationSession = authenticationSession;
+        this.echoesMessages = echoesMessages;
         lingeringClose = new WebSocketLingeringClose(reader, context);
     }
 
@@ -165,37 +166,49 @@ internal sealed class WebSocketUpgradeResponder
     private Task<bool> AnswerLetInRequestAsync(HttpRequestHead head)
     {
         var path = RequestPath(head.RequestTarget);
-        var refusal = WebSocketUpgradeChecks.FindRefusal(head) ?? FindPathRefusal(path);
+        if (WebSocketUpgradeChecks.FindRefusal(head) is { } refusal)
+        {
+            return RefuseAsync(refusal);
+        }
 
-        return refusal is null ? AcceptAsync(head, path) : RefuseAsync(refusal);
+        return echoesMessages ? AcceptAsync(head, path, null) : AnswerPathAsync(head, path);
     }
 
     // Check 10: a file, or a directory when listings are on, after the content store's
-    // exposure checks; anything else is answered as absent (ADR-0006 section 2).
-    private WebSocketUpgradeRefusal? FindPathRefusal(string path)
+    // exposure checks; anything else is answered as absent (ADR-0006 section 2). Under
+    // --ws-echo the path is not looked up (ADR-0071 decision 4).
+    private Task<bool> AnswerPathAsync(HttpRequestHead head, string path)
     {
         var mapping = contentStore.MapRequestPath(path);
         if (!mapping.IsMapped)
         {
-            return WebSocketUpgradeRefusal.WithoutFields(HttpStatus.NotFound, $"the path {path} was refused ({mapping.Refusal})");
+            return RefuseAsync(WebSocketUpgradeRefusal.WithoutFields(HttpStatus.NotFound, $"the path {path} was refused ({mapping.Refusal})"));
         }
 
-        var whyNotFound = WhyMappedPathIsNotServed(mapping.EntryKind, path);
+        var status = contentStore.GetEntryStatus(mapping);
+        var whyNotFound = WhyMappedPathIsNotServed(status, path);
 
-        return whyNotFound is null ? null : WebSocketUpgradeRefusal.WithoutFields(HttpStatus.NotFound, whyNotFound);
+        return whyNotFound is null
+            ? AcceptAsync(head, path, new WebSocketServedEntry(path, mapping, status!))
+            : RefuseAsync(WebSocketUpgradeRefusal.WithoutFields(HttpStatus.NotFound, whyNotFound));
     }
 
-    // Null when a mapped path is served: a file, or a directory when listings are on.
-    private string? WhyMappedPathIsNotServed(ContentEntryKind entryKind, string path) => entryKind switch
+    // Null when a mapped path is served: a file, or a directory when listings are on. A status
+    // is only ever a file's or a directory's.
+    private string? WhyMappedPathIsNotServed(ContentEntryStatus? status, string path)
     {
-        ContentEntryKind.File => null,
-        ContentEntryKind.Directory => contentStore.ExposureOptions.ListDirectories ? null : $"{path} is a directory and directory listings are off",
-        _ => $"nothing exists at {path}",
-    };
+        if (status is null)
+        {
+            return $"nothing exists at {path}";
+        }
 
-    // The 101 (ADR-0071 decision 2), then, until the message exchange is built, the empty
-    // CLOSE and decision 5's close: the sending side shut down and a lingering read.
-    private async Task<bool> AcceptAsync(HttpRequestHead head, string path)
+        return status.Kind == ContentEntryKind.File || contentStore.ExposureOptions.ListDirectories
+            ? null
+            : $"{path} is a directory and directory listings are off";
+    }
+
+    // The 101 (ADR-0071 decision 2), then the frame exchange and its close (decisions 4 to 7).
+    private async Task<bool> AcceptAsync(HttpRequestHead head, string path, WebSocketServedEntry? entry)
     {
         var key = head.GetFieldValues("Sec-WebSocket-Key")[0];
         var accepted = new HttpResponseHead(WebSocketHttpStatuses.SwitchingProtocols)
@@ -206,11 +219,10 @@ internal sealed class WebSocketUpgradeResponder
             .AddField("Sec-WebSocket-Accept", WebSocketAcceptKey.Compute(key))
             .AddChallengeFields(wwwAuthenticateValues);
 
-        context.Log.Note($"WebSocket upgrade accepted for {path}");
+        context.Log.Note(entry is null ? $"WebSocket upgrade accepted for {path}, echoing" : $"WebSocket upgrade accepted for {path}");
         await connection.WriteAsync(accepted.ToBytes(), context.CancellationToken);
-        await connection.WriteAsync(EmptyCloseFrame, context.CancellationToken);
-        await connection.CompleteWritesAsync(context.CancellationToken);
-        await lingeringClose.LingerAsync();
+        using var exchange = new WebSocketExchange(connection, reader, context, contentStore, lingeringClose);
+        await exchange.RunAsync(entry);
 
         return false;
     }
@@ -223,7 +235,7 @@ internal sealed class WebSocketUpgradeResponder
         NoteRefusal(refusal, "closed");
         if (await TryWriteRefusalAsync(refusal))
         {
-            await lingeringClose.LingerAsync();
+            await lingeringClose.LingerAsync(context.CancellationToken);
         }
 
         return false;
