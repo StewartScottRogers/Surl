@@ -4,7 +4,7 @@ title: Prove pinned upstream curl completes WebSocket exchanges over ws and wss 
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-303, BL-321, BL-322]
+depends-on: [BL-303, BL-323, BL-322]
 touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
 requirement: FR-048
 created: 2026-09-30
@@ -46,4 +46,4 @@ case BL-285's ADR lists, with the exit codes it expects, on Windows, Linux and m
 ## Log
 
 - 2026-09-30: Created.
-- 2026-09-30: depends-on gains BL-321 and BL-322 (BL-285, ADR-0071 decision 10: the libcurl-driven cases).
+- 2026-09-30: depends-on gains BL-323 and BL-322 (BL-285, ADR-0071 decision 10: the libcurl-driven cases).

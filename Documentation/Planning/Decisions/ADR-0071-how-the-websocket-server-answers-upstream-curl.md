@@ -336,7 +336,7 @@ it downloads nothing and needs no question for Stewart. A C# file-based app (`do
 into the pinned file only, BCL only) drives `curl_easy_*` with `CURLOPT_CONNECT_ONLY` 2 and
 `curl_ws_send`/`curl_ws_recv`.
 
-- **BL-321** (feature) pins it: an entry of kind library in `UpstreamCurlBuilds.json` that
+- **BL-323** (feature) pins it: an entry of kind library in `UpstreamCurlBuilds.json` that
   `Surl.Conformance.UnitLibrary`'s `UpstreamCurlBuildPins` and `UpstreamCurlLocator` and
   `Record-CurlExchange.ps1`'s pin check know, and the driver.
 - **BL-322** (docs) measures the client frames through it against the recorder and amends this ADR
@@ -377,7 +377,7 @@ holding `file.bin` (200000 bytes, so the message spans four frames), `empty.bin`
 | `--ws-echo --max-time 2` | `curl -sS ws://.../` | 0, stdout `03 E9` |
 | `--ws-echo --idle-timeout 30` | `curl -sS -m 2 ws://.../` | 28 |
 
-Plus, once BL-321 and BL-322 land, through the pinned `libcurl-4.dll` against `--ws-echo` (Windows
+Plus, once BL-323 and BL-322 land, through the pinned `libcurl-4.dll` against `--ws-echo` (Windows
 only): a text, a binary and a three-fragment message each received back whole; a `PING` answered
 by a `PONG` with its payload; `CLOSE` 1000 answered by `CLOSE` 1000 and the close; a 2 MiB message
 answered by `CLOSE` 1009; a text message of `FF FE` answered by `CLOSE` 1007 - with the
@@ -406,6 +406,6 @@ this ADR.
 - `--ws-echo` is a new option, so BL-303's `--aihelp` facts, categories and example cover it.
 - `Record-CurlExchange.ps1 -Raw` answers a WebSocket upgrade through `{WS_ACCEPT}`, so BL-301's
   fixtures (the recorded upgrade requests) and BL-302's (the masked `PONG`) are recorded with it.
-- BL-321 and BL-322 are filed and BL-304 depends on them.
+- BL-323 and BL-322 are filed and BL-304 depends on them.
 - The server-half-close in decision 5 was not measured; if BL-304 finds curl mishandles it, the
   finding amends decision 5.

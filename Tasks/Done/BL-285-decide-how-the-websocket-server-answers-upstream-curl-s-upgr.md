@@ -103,7 +103,7 @@ built without a question.
 - Surprises measured: 8.21.0 ignores `Sec-WebSocket-Accept`; writes `CLOSE` and `PONG` payloads
   to stdout (so surl ends a download with an empty `CLOSE`); never answers a `CLOSE` and waits
   for the TCP close; refuses every `401` with 22 (only Basic, Bearer, SigV4 sent unasked log in).
-- Decided: pin `libcurl-4.dll` (already on disk, no download). Filed BL-321 (pin and driver,
+- Decided: pin `libcurl-4.dll` (already on disk, no download). Filed BL-323 (pin and driver,
   feature) and BL-322 (measure and amend ADR-0071, docs); BL-304 now depends on both.
 - Decided a new option `--ws-echo` (echo server for libcurl clients), built by BL-302, registered
   by BL-303 - both already say "as the ADR decides".
@@ -114,4 +114,4 @@ built without a question.
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
-- 2026-09-30: Doing -> Done. ADR-0071 decides, from 54 measurements of pinned curl 8.21.0, every byte the WebSocket server sends; Record-CurlExchange.ps1 -Raw answers an upgrade via {WS_ACCEPT}; libcurl pin filed as BL-321/BL-322
+- 2026-09-30: Doing -> Done. ADR-0071 decides, from 54 measurements of pinned curl 8.21.0, every byte the WebSocket server sends; Record-CurlExchange.ps1 -Raw answers an upgrade via {WS_ACCEPT}; libcurl pin filed as BL-323/BL-322

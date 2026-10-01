@@ -1,5 +1,5 @@
 ---
-id: BL-321
+id: BL-323
 title: Pin the reference build's libcurl-4.dll and drive curl_ws_send and curl_ws_recv against a recorder
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-048
 created: 2026-09-30
 completed:
 ---
-# BL-321 — Pin the reference build's libcurl-4.dll and drive curl_ws_send and curl_ws_recv against a recorder
+# BL-323 — Pin the reference build's libcurl-4.dll and drive curl_ws_send and curl_ws_recv against a recorder
 
 ## Goal
 
