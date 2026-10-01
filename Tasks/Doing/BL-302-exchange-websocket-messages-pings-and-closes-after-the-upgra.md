@@ -52,3 +52,4 @@ close code - within the ADR's limits.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
