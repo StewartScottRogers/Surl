@@ -446,11 +446,9 @@ confidentiality.
   when it names the same mechanism, compared case-insensitively as the policy matches mechanism
   names; Sicily `[11]` continues only a Sicily exchange, and with none in progress is
   `protocolError` (2), `sicilyResponse without sicilyNegotiate`. Every other bind - simple, SASL
-  with another mechanism, Sicily `[9]` or `[10]`, a bad version, another authentication choice -
-  abandons the exchange in progress before it is answered (RFC 4513 section 5.2.1.2, RFC 4511
-  section 4.2.1). A `[11]` refused while a SASL (not Sicily) exchange is in progress leaves that
-  exchange in progress; that is a defect against RFC 4513 section 5.2.1.2, and BL-349 makes it
-  abandon the exchange. An exchange that ends - accepted or refused - is no longer in progress.
+  with another mechanism, Sicily `[9]` or `[10]`, a `[11]` refused while a SASL (not Sicily)
+  exchange is in progress, a bad version, another authentication choice - abandons the exchange
+  in progress before it is answered (RFC 4513 section 5.2.1.2, RFC 4511 section 4.2.1). An exchange that ends - accepted or refused - is no longer in progress.
 - **A later bind's security layer replaces the earlier one** once that bind's response has been
   sent (the response itself goes out under the earlier layer); a later bind that installs no
   layer - a simple bind, a refused one, a mechanism with no layer - keeps the installed layer,

@@ -61,8 +61,16 @@ internal sealed class LdapSaslBindJudge(ISaslAuthenticationPolicy saslAuthentica
         LdapSicilyChoice.Negotiate => StartAsync(SicilyMechanism, sicily.Token, isSicily: true),
         _ => exchangeInProgress is { } exchange && isSicilyInProgress
             ? ContinueAsync(exchange, sicily.Token, isSicily: true)
-            : ValueTask.FromResult(Refuse(LdapResultCode.ProtocolError, "sicilyResponse without sicilyNegotiate")),
+            : ValueTask.FromResult(RefuseSicilyResponseWithoutNegotiate()),
     };
+
+    // A [11] that continues no Sicily exchange is a bind that does not continue the one in
+    // progress, so it abandons a SASL exchange before it is refused (RFC 4513 section 5.2.1.2).
+    private LdapBindAnswer RefuseSicilyResponseWithoutNegotiate()
+    {
+        Abandon();
+        return Refuse(LdapResultCode.ProtocolError, "sicilyResponse without sicilyNegotiate");
+    }
 
     private LdapBindAnswer AnswerPackageDiscovery()
     {

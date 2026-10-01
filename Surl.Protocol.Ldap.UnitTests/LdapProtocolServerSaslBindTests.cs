@@ -216,6 +216,19 @@ public sealed class LdapProtocolServerSaslBindTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_SaslBindInProgressThenARefusedSicilyResponse_AbandonsTheSaslExchange()
+    {
+        var sasl = new UnitTestSaslAuthenticationPolicy(_ => [Challenge(NtlmChallenge), Accepted("alice")]);
+
+        var connection = await ServeAsync(
+            sasl, null, [SaslBind(1, "NTLM", NtlmNegotiate), SicilyBind(2, LdapSicilyChoice.Response, [1]), SaslBind(3, "NTLM", NtlmNegotiate)]);
+
+        Assert.AreEqual("#2 bindResponse protocolError \"sicilyResponse without sicilyNegotiate\"", LdapResponseTranscript.Of(connection.WrittenBytes)[1]);
+        Assert.HasCount(2, sasl.Starts);
+        Assert.IsEmpty(sasl.Responses);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_SicilyInProgressThenASaslBind_StartsANewExchange()
     {
         var sasl = new UnitTestSaslAuthenticationPolicy(_ => [Challenge(NtlmChallenge), Accepted("alice")]);
