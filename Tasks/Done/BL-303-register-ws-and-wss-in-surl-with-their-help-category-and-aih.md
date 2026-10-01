@@ -63,7 +63,7 @@ and `--aihelp` list the WebSocket category and topic.
   ADR's `Echo every client message instead of serving the path`: `HelpLayout` narrows the
   `--help all` description column for every option once one description reaches 39 characters,
   so the ADR's 52 characters would have moved the whole list off column 38. ADR-0071 could not
-  be edited here, because BL-286 holds `Documentation/Planning/Decisions`. BL-330 is filed to
+  be edited here, because BL-286 holds `Documentation/Planning/Decisions`. BL-331 is filed to
   align the ADR.
 - The category `websocket` (`WebSocket protocol`, schemes `ws` and `wss`) was added to
   `--max-request-head`, `--head-timeout`, `--max-message`, `--user`, `--user-file`,

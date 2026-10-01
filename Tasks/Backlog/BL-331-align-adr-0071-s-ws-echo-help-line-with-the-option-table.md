@@ -1,5 +1,5 @@
 ---
-id: BL-330
+id: BL-331
 title: Align ADR-0071's --ws-echo help line with the option table
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-048
 created: 2026-09-30
 completed:
 ---
-# BL-330 — Align ADR-0071's --ws-echo help line with the option table
+# BL-331 — Align ADR-0071's --ws-echo help line with the option table
 
 ## Goal
 
