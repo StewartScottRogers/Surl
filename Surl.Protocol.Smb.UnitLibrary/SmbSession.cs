@@ -43,6 +43,7 @@ internal sealed class SmbSession : IAsyncDisposable
     private const ushort LoggedOnAsUser = 0;
     private const ushort LoggedOnAsGuest = 1;
     private const string DiskShareService = "A:";
+    private const string InterProcessCommunicationShare = "IPC$";
     private const uint FileOpenDisposition = 1;
     private const uint FileOpened = 1;
     private const uint FileCreated = 2;
@@ -269,9 +270,10 @@ internal sealed class SmbSession : IAsyncDisposable
 
     // A share is a top-level directory of the content store, mapped as /<share> with every
     // byte but the unreserved ones percent-encoded, so the store's path rules apply unchanged.
+    // IPC$, in any case, is never one, whatever the store holds (ADR-0073 decision 2).
     private bool IsShare(string share)
     {
-        if (share.Length == 0)
+        if (share.Length == 0 || share.Equals(InterProcessCommunicationShare, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

@@ -1,3 +1,4 @@
+using Surl.Content;
 using Surl.Protocol.Abstractions;
 using static Surl.Protocol.Smb.SmbTestExchange;
 
@@ -189,6 +190,26 @@ public sealed class SmbProtocolServerTests
 
         Assert.AreEqual(NegotiateResponseHex + SessionSetupResponseHex + ErrorHex(SmbCommand.TreeConnectAndX, SmbStatus.InvalidNetworkName, 0), written);
         Assert.AreEqual($"SMB tree connect {share}: no such share", log.Notes[^1]);
+    }
+
+    [TestMethod]
+    [DataRow("IPC$")]
+    [DataRow("ipc$")]
+    public async Task TreeConnect_ToIpcShare_IsInvalidNetworkNameEvenWhenTheStoreHoldsThatDirectory(string share)
+    {
+        var fileSystem = StandardFileSystem();
+        fileSystem.CreateDirectory(Path.Join(InMemoryContentFileSystem.RootPath, share));
+        fileSystem.CreateDirectory(Path.Join(InMemoryContentFileSystem.RootPath, "dollar$"));
+        var contentStore = new ContentStore(InMemoryContentFileSystem.RootPath, fileSystem, new ContentExposureOptions());
+        var log = new RecordingExchangeLog();
+
+        var written = await ServeAsync(
+            TestContext.CancellationToken, [NegotiateHex, SessionSetupHex, TreeConnectHex(share), TreeConnectHex("dollar$")], log: log, contentStore: contentStore);
+
+        Assert.AreEqual(
+            NegotiateResponseHex + SessionSetupResponseHex + ErrorHex(SmbCommand.TreeConnectAndX, SmbStatus.InvalidNetworkName, 0) + TreeConnectResponseHex(1),
+            written);
+        Assert.AreEqual($"SMB tree connect {share}: no such share", log.Notes[^2]);
     }
 
     [TestMethod]

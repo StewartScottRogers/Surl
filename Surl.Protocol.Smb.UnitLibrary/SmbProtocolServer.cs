@@ -29,8 +29,8 @@ namespace Surl.Protocol.Smb;
 /// </para>
 /// <para>
 /// <b>Trees</b> (decision 2). A share is a top-level directory of the content store, named by
-/// the last backslash-separated part of the tree connect's path; anything else is
-/// <c>ERRSRV/ERRinvnetname</c>. Up to 16 trees, TIDs from 1. Every request but negotiate and
+/// the last backslash-separated part of the tree connect's path; anything else, and <c>IPC$</c>
+/// in any case whatever the store holds, is <c>ERRSRV/ERRinvnetname</c>. Up to 16 trees, TIDs from 1. Every request but negotiate and
 /// session setup needs the login's UID (<c>ERRSRV/ERRbaduid</c>) and every request but tree
 /// connect a connected TID (<c>ERRSRV/ERRinvtid</c>). A command curl never sends is
 /// <c>ERRSRV/ERRsmbcmd</c>, a malformed message <c>ERRSRV/ERRerror</c>.
