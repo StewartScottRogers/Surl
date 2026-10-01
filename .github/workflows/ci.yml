@@ -3,7 +3,7 @@
 # Linux and macOS it also obtains the pinned upstream curl build, verifies its SHA-256 and
 # runs the Surl.Conformance tests against it (ADR-0016); on Linux, beside it, the OpenLDAP
 # build of the same release, with MIT Kerberos GSS-API, that ldap and ldaps are proved against
-# (ADR-0076, ADR-0078).
+# (ADR-0076, ADR-0078), with kinit for the GSSAPI test (BL-351).
 name: CI
 
 on:
@@ -188,6 +188,16 @@ jobs:
           Write-Output "$env:PINNED_PATH matches the pin $env:PINNED_SHA256."
           chmod 755 $env:PINNED_PATH
           & $env:PINNED_PATH --version
+
+      # The OpenLDAP build's GSS-API is MIT's, which reads a credential cache rather than -u's
+      # password: the GSSAPI conformance test runs kinit against the hand-built test KDC to fill
+      # one (ADR-0078, BL-351). An OS package for the runner, not a NuGet package.
+      - name: Install kinit
+        if: matrix.openldap-upstream-curl
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends krb5-user
+          command -v kinit
 
       - name: Conformance tests
         if: matrix.upstream-curl-platform

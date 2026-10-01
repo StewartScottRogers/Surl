@@ -116,13 +116,22 @@ internal static class PinnedUpstreamCurl
     /// inconclusive naming the pins that are, and their platforms (ADR-0026 decision 2); where
     /// it is not installed, inconclusive as <see cref="RunAsync"/> is.
     /// </summary>
-    public static async Task<UpstreamCurlRunResult> RunBuildLinkedAgainstAsync(
-        TestContext testContext, string library, params string[] arguments)
+    public static Task<UpstreamCurlRunResult> RunBuildLinkedAgainstAsync(
+        TestContext testContext, string library, params string[] arguments) =>
+        RunBuildLinkedAgainstWithEnvironmentAsync(testContext, library, NoEnvironmentChanges, arguments);
+
+    /// <summary>
+    /// As <see cref="RunBuildLinkedAgainstAsync"/>, with each of <paramref name="environment"/>'s
+    /// variables set in the build's environment, such as the <c>KRB5_CONFIG</c> and
+    /// <c>KRB5CCNAME</c> an MIT GSS-API build reads.
+    /// </summary>
+    public static async Task<UpstreamCurlRunResult> RunBuildLinkedAgainstWithEnvironmentAsync(
+        TestContext testContext, string library, IReadOnlyDictionary<string, string> environment, params string[] arguments)
     {
         var forPlatform = await RequireBuildLinkedAgainstAsync(testContext, library);
         var location = new UpstreamCurlLocator(new FileSystemUpstreamCurlFileAccess())
             .Locate(forPlatform, UpstreamCurlLocator.CurrentPlatform, forPlatform[0].Role);
-        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, NoEnvironmentChanges, arguments);
+        return await RunLocatedAsync(testContext, location, ReadOnlyMemory<byte>.Empty, environment, arguments);
     }
 
     /// <summary>

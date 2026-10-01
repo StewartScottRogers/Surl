@@ -139,8 +139,16 @@ re-run above and match.
 
 Unchanged in shape: the Linux leg's cache key holds the SHA-256, so the first run after this ADR
 misses and builds the new pin (about a minute longer than before, for krb5), then verifies it
-before anything runs it, never re-pinning (ADR-0076 decision 3). CI's conformance tests run no KDC,
-so `GSSAPI` against `surl` is not proved there yet; BL-351 files that.
+before anything runs it, never re-pinning (ADR-0076 decision 3).
+
+`GSSAPI` against `surl` is proved there since BL-351 (2026-10-01): the Linux leg installs Ubuntu's
+`krb5-user` for `kinit`, and
+`UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests.SaslBind_GssapiWithATicketFromTheTestKdc_Exits0WithTheBaseEntry`
+serves the test KDC in-process on an ephemeral loopback port (so the runner needs no root for port
+88) named in its own `krb5.conf`, the one decision 1 measured with, fills a credential cache with
+`kinit`, and has this build bind to `surl --auth gssapi --keytab` and search, exit 0. It found that
+surl answered the service `pop` for `ldap`; [ADR-0057](ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md)
+Amendment 2 corrects it.
 
 ## Consequences
 

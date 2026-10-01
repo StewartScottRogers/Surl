@@ -10,7 +10,8 @@ namespace Surl.Conformance;
 /// <c>--ssl</c> and <c>--ssl-reqd</c>, <c>ldaps</c> with <c>-k</c> and <c>--cacert</c>, and the
 /// root-DSE <c>supportedSASLMechanisms</c> search followed by a SASL bind with each mechanism
 /// ADR-0072 decision 4 offers that the build has (with and without <c>--sasl-ir</c>, and
-/// <c>--oauth2-bearer</c>). surl serves <see cref="LdapConformanceDirectory"/>. The build is pinned
+/// <c>--oauth2-bearer</c>), and <c>GSSAPI</c> with a ticket from the hand-built test KDC in an MIT
+/// credential cache (ADR-0078; inconclusive where no <c>kinit</c> is on <c>PATH</c>). surl serves <see cref="LdapConformanceDirectory"/>. The build is pinned
 /// for <c>linux-x64</c> only (ADR-0076 decision 4): elsewhere the tests are inconclusive, naming the
 /// pin (ADR-0026 decision 2).
 /// </summary>
@@ -21,6 +22,9 @@ public sealed class UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests
     private const string OpenLdap = "OpenLDAP";
     private const string Account = LdapConformanceDirectory.Account;
     private const string WrongPassword = LdapConformanceDirectory.WrongPassword;
+
+    // The host ADR-0078 measured GSSAPI with; ldap/ldap.surl.test is the service principal.
+    private const string KerberosHost = "ldap.surl.test";
 
     // lib/openldap.c ends every entry with one more newline than WinLDAP's lib/ldap.c (ADR-0076 decision 5).
     private const string BaseEntry = "DN: dc=example,dc=com\n\tobjectClass: domain\n\n\n";
@@ -435,14 +439,39 @@ public sealed class UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests
     }
 
     [TestMethod]
-    public async Task SaslBind_Gssapi_Exits67BecauseTheBuildHasNoGssApi()
+    public async Task SaslBind_GssapiWithAUserNamingNoRealm_Exits67WithoutABind()
     {
         await using var surl = await StartSurlAsync(PlainTextAccountOptions);
 
+        // ADR-0078: curl's SASL takes GSSAPI only for a user naming a domain with @, \ or /.
         var result = await RunCurlAsync("--login-options", "AUTH=GSSAPI", "-u", Account, BaseUrl(surl));
 
         Assert.AreEqual(67, result.ExitCode, result.StandardError);
         Assert.IsEmpty(result.StandardOutput);
+    }
+
+    [TestMethod]
+    public async Task SaslBind_GssapiWithATicketFromTheTestKdc_Exits0WithTheBaseEntry()
+    {
+        await using var kdc = await KerberosTestKdcOnLoopback.StartWithCredentialCacheAsync(
+            [$"ldap/{KerberosHost}"], TestContext.CancellationToken);
+        using var accounts = await KerberosAccountsFile.WriteAsync(TestContext.CancellationToken);
+        await using var surl = await StartSurlAsync(
+            "--auth", "gssapi", "--keytab", kdc.KeytabPath, "--user-file", accounts.Path);
+        var port = surl.BaseUrl.Port;
+
+        // The URL names the service host, pinned to loopback, so curl's SPN is the keytab's; 127.0.0.1 ends 94 (ADR-0078).
+        var result = await PinnedUpstreamCurl.RunBuildLinkedAgainstWithEnvironmentAsync(
+            TestContext,
+            OpenLdap,
+            kdc.ClientEnvironment,
+            [
+                "-sS", "-m", "20", "--resolve", $"{KerberosHost}:{port}:127.0.0.1", "--login-options", "AUTH=GSSAPI",
+                "-u", $"{KerberosTestKdcOnLoopback.UserPrincipal}:", $"ldap://{KerberosHost}:{port}/{LdapConformanceDirectory.BaseDn}",
+            ]);
+
+        Assert.AreEqual(0, result.ExitCode, $"{result.StandardError}\nsurl: {surl.Log}");
+        Assert.AreEqual(BaseEntry, Encoding.UTF8.GetString(result.StandardOutput));
     }
 
     private static string[] SaslInitialResponse(bool initialResponse) => initialResponse ? ["--sasl-ir"] : [];
