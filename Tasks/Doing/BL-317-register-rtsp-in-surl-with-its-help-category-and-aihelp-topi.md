@@ -51,3 +51,4 @@ category and topic.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
