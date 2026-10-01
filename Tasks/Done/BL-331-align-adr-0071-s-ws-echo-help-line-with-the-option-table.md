@@ -8,7 +8,7 @@ depends-on: [BL-303]
 touches: [Documentation/Planning/Decisions/ADR-0071-how-the-websocket-server-answers-upstream-curl.md]
 requirement: FR-048
 created: 2026-09-30
-completed:
+completed: 2026-09-30
 ---
 # BL-331 — Align ADR-0071's --ws-echo help line with the option table
 
@@ -30,14 +30,17 @@ ADR-0071 decision 9 names the `--ws-echo` help line the code actually shows,
 
 ## Acceptance criteria
 
-- [ ] ADR-0071 decision 9 names `--ws-echo`'s description as `Echo client messages, not the path`,
+- [x] ADR-0071 decision 9 names `--ws-echo`'s description as `Echo client messages, not the path`,
       with one sentence saying why it is shorter (the `--help all` column).
-- [ ] No other document names the 52-character wording (`Grep` for `Echo every client message`
+- [x] No other document names the 52-character wording (`Grep` for `Echo every client message`
       finds nothing outside `Tasks`).
 
 ## Notes
+
+- Docs-only: replaced the wording in decision 9's Help paragraph and added the column-rule sentence. Grep for `Echo every client message` outside `Tasks` now finds nothing. No `.cs` touched.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-09-30: Backlog -> Doing.
+- 2026-09-30: Doing -> Done. ADR-0071 decision 9 names --ws-echo's help line as the code shows it, with the --help all column reason

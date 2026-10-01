@@ -320,7 +320,10 @@ names the protocol rather than its schemes: curl 8.21.0 has no WebSocket categor
 the schemes `ws` and `wss`, and holds every option the server reads: `--max-request-head`,
 `--head-timeout`, `--max-message`, `--user`, `--user-file`, `--allow-anonymous`,
 `--allow-plaintext-auth`, `--auth`, `--directory`, `--list-directories`, and `--ws-echo`
-(`Echo every client message instead of serving the path`). The `--aihelp` topic is `websocket`.
+(`Echo client messages, not the path`). That description is kept under 39 characters because
+`HelpLayout` (ADR-0034 decision 3, curl's measured column rule) narrows the description column of
+`surl --help all` for every option once one description reaches 39, so a longer one would move the
+whole list's column from 38. The `--aihelp` topic is `websocket`.
 BL-303 adds the category, the option, the topic's prose and example, and grows the pinned topic
 lists, as root `CLAUDE.md` requires.
 
