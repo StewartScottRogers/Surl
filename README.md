@@ -1,12 +1,12 @@
 # Surl
 
-<a href="https://stewartscottrogers.github.io/Surl/" target="_blank"><img src="https://github.com/StewartScottRogers/Surl/raw/gource/gource.gif" alt="Gource animation of Surl's commit history across every branch - click to watch in 8K, full screen" width="800"></a>
+<a href="https://stewartscottrogers.github.io/Surl/" target="_blank"><img src="https://github.com/StewartScottRogers/Surl/raw/gource/gource.gif" alt="Gource animation of Surl's commit history across every branch - click to watch in 4K, full screen" width="800"></a>
 
-### [▶ Watch in 8K, full screen](https://stewartscottrogers.github.io/Surl/)
+### [▶ Watch in 4K, full screen](https://stewartscottrogers.github.io/Surl/)
 
 *Every commit on every branch, human and AI, drawn by [Gource](https://gource.io) at
-7680 × 4320 and re-rendered after new commits and at least once a day. The viewer plays
-the best quality your screen can show - 8K, 4K or HD - with a 4K MP4 and an 8K still to
+3840 × 2160 and re-rendered after new commits and at least once a day. The viewer plays
+the best quality your screen can show - 4K or HD - with a 4K MP4 and a 4K still to
 download. Ctrl-click (⌘-click on a Mac) to open it in its own tab.*
 
 ### Code coverage

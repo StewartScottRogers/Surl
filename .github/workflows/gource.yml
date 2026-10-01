@@ -1,5 +1,5 @@
 # Keeps the README's showcase on the `gource` branch, served by GitHub Pages at
-# https://stewartscottrogers.github.io/Surl/: a Gource video of Surl's history (an 8K
+# https://stewartscottrogers.github.io/Surl/: a Gource video of Surl's history (a 4K
 # adaptive stream with a full-screen viewer page, and the GIF the README shows) and the
 # code coverage report (coverage/index.html, and coverage/badge.svg for the README), and
 # the live task board page (board/index.html, served at .../Surl/board/; ADR-0029).
@@ -38,7 +38,8 @@
 # or running: that run is about to render, and commits it misses are rendered by the next
 # push once the 30 minutes below have passed, or by the hourly run.
 #
-# An 8K render takes the better part of an hour on a runner, hence the long timeout.
+# The render is at most 4K (3840x2160; Stewart, 2026-10-01). 90 minutes leaves a runner
+# room to spare for a 4K render of a long history.
 #
 # When it renders:
 #   * hourly (from master, once this file is merged), if any branch has new commits;
@@ -214,13 +215,13 @@ jobs:
   render:
     needs: [decide, coverage]
     # Renders even when the coverage job failed: the video does not depend on it. Not
-    # always(): a cancelled run must be able to stop a render that takes hours. Not when
+    # always(): a cancelled run must be able to stop a long render. Not when
     # coverage was cancelled either: a newer run queued in gource-coverage replaced it and
     # renders instead. The shared group only when it renders, as in the coverage job; a
     # pending render there is replaced only by a newer run's render.
     if: ${{ !cancelled() && needs.decide.outputs.render == 'yes' && needs.coverage.result != 'cancelled' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 240
+    timeout-minutes: 90
     concurrency:
       group: ${{ needs.decide.outputs.render == 'yes' && needs.coverage.result != 'cancelled' && 'gource-video' || format('gource-video-skipped-{0}', github.run_id) }}
       cancel-in-progress: false
@@ -269,7 +270,7 @@ jobs:
           echo "$FINGERPRINT" > fingerprint.txt
           date +%s > rendered-at.txt
           printf '%s\n' '# gource' '' \
-            'The README showcase of Surl: the 8K Gource viewer, the code coverage report and' \
+            'The README showcase of Surl: the 4K Gource viewer, the code coverage report and' \
             'the live task board page (board/), served by GitHub Pages at' \
             'https://stewartscottrogers.github.io/Surl/ (the board at .../Surl/board/), and' \
             'the GIF and coverage badge the README shows.' \
@@ -305,7 +306,7 @@ jobs:
             git init -q -b gource
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add index.html .nojekyll hls gource.mp4 gource.gif still-8k.jpg poster.jpg stats.json \
+            git add index.html .nojekyll hls gource.mp4 gource.gif still-4k.jpg poster.jpg stats.json \
               fingerprint.txt rendered-at.txt README.md $extra
             git commit -q -m "chore(gource): render $(date -u +%Y-%m-%dT%H:%MZ)"
             # An empty lease means the branch must still not exist.
@@ -330,7 +331,7 @@ jobs:
           gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/builds" --silent
 
   # The live task board page, published on every run and never gated on `decide`: it is
-  # one small file and must not wait behind an 8K render. It commits onto the gource
+  # one small file and must not wait behind a video render. It commits onto the gource
   # branch without force, like the coverage job, and only when the page changed. When the
   # branch does not exist yet, it starts it as an orphan branch holding only board/, as the
   # coverage job does, and the next render carries the page into its own commit.

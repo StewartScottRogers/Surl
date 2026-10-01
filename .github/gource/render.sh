@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Renders Surl's history across every branch, once, at 7680x4320 (8K), into the directory
-# given:
+# Renders Surl's history across every branch, once, at 3840x2160 (4K), into the directory
+# given. 4K is the ceiling: the video is never rendered at 8K (Stewart, 2026-10-01).
 #
-#   hls/av1/master.m3u8    adaptive stream in AV1 at 8K, 4K and 1080p, for browsers that
+#   hls/av1/master.m3u8    adaptive stream in AV1 at 4K and 1080p, for browsers that
 #                          decode AV1 - what the viewer page plays wherever it can
 #   hls/h264/master.m3u8   the same in H.264 at 4K and 1080p, for browsers that do not
 #   hls/<codec>/<height>p/ each quality as 2-second fragmented-MP4 segments, all under
 #                          GitHub's 100 MB file limit however large the render gets
 #   gource.mp4             the 4K H.264 quality as one file, for download
 #   gource.gif             the widest GIF under GitHub's 10 MB inline limit, for the README
-#   still-8k.jpg           the final frame at full 8K, for download
+#   still-4k.jpg           the final frame at full 4K, for download
 #   poster.jpg             the final frame at 1920 px, shown before the video plays
 #   stats.json             the numbers the viewer page shows
 #
@@ -28,15 +28,15 @@ export DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_SKIP_FIRST_TIME_EXPE
 cs() { dotnet run --file "$here/$1.cs" -- "${@:2}"; }
 work="$out/.work"
 rm -rf "$work"
-mkdir -p "$work/hls/av1/4320p" "$work/hls/av1/2160p" "$work/hls/av1/1080p" \
+mkdir -p "$work/hls/av1/2160p" "$work/hls/av1/1080p" \
     "$work/hls/h264/2160p" "$work/hls/h264/1080p"
 
-width=7680
-height=4320
+width=3840
+height=2160
 fps=30
-# Gource sizes text and user icons in pixels. Scaling them 4x makes 8K read like 1080p: file
-# and project names stay legible on a wall-sized screen without crowding the tree.
-scale=4
+# Gource sizes text and user icons in pixels. Scaling them 2x makes 4K read like 1080p: file
+# and project names stay legible on a large screen without crowding the tree.
+scale=2
 # Target length of the animation, however long or short the project's history is.
 seconds=75
 
@@ -65,28 +65,18 @@ if "${run[@]}" gource "$work/gource.log" --log-format custom -320x180 --multi-sa
 fi
 rm -f "$work/probe.ppm"
 
-# AV1 carries 8K at a fraction of H.264's size and is what 8K displays decode in hardware;
-# a browser plays one codec per stream, so AV1 gets a full ladder of its own. SVT-AV1 is
-# fast enough for a runner (it refuses 8K below preset 8); libaom is the slow fallback if
-# ffmpeg lacks it.
-#
-# The 8K rung is what decides whether a render fits in memory: SVT-AV1's default
-# random-access structure buffers dozens of 8K pictures, about 5 GB, and a private
-# repository's runner has 8 GB in all. Its low-delay structure (no B-frames) holds about
-# 2 GB for a slightly larger file at the same quality setting, so the 8K rung uses it
-# wherever the installed SVT-AV1 accepts it at 8K.
+# AV1 carries 4K at a fraction of H.264's size; a browser plays one codec per stream, so
+# AV1 gets a ladder of its own. SVT-AV1 is fast enough for a runner; libaom is the slow
+# fallback if ffmpeg lacks it. At 4K, SVT-AV1's default random-access structure buffers a
+# quarter of what it did at 8K (roughly 1.3 GB rather than 5 GB), well inside a runner's
+# memory, so the low-delay structure the 8K rung needed is no longer used.
 gop=$(( fps * 2 ))
 if ffmpeg -hide_banner -encoders 2> /dev/null | grep -q libsvtav1; then
-    av1_8k=(-c:v libsvtav1 -preset 8 -crf 32 -svtav1-params tune=0:scd=0)
-    if ffmpeg -hide_banner -loglevel error -f lavfi -i "color=c=black:s=${width}x${height}:r=${fps}" \
-            -frames:v 2 -c:v libsvtav1 -preset 8 -crf 32 -svtav1-params scd=0:pred-struct=1 \
-            -pix_fmt yuv420p -f null - > /dev/null 2>&1; then
-        av1_8k=(-c:v libsvtav1 -preset 8 -crf 32 -svtav1-params scd=0:pred-struct=1)
-    fi
-    av1_small=(-c:v libsvtav1 -preset 8 -crf 36 -svtav1-params tune=0:scd=0)
+    av1_4k=(-c:v libsvtav1 -preset 8 -crf 32 -svtav1-params tune=0:scd=0)
+    av1_1080=(-c:v libsvtav1 -preset 8 -crf 36 -svtav1-params tune=0:scd=0)
 else
-    av1_8k=(-c:v libaom-av1 -cpu-used 8 -row-mt 1 -crf 32 -b:v 0)
-    av1_small=("${av1_8k[@]}")
+    av1_4k=(-c:v libaom-av1 -cpu-used 8 -row-mt 1 -crf 32 -b:v 0)
+    av1_1080=(-c:v libaom-av1 -cpu-used 8 -row-mt 1 -crf 36 -b:v 0)
 fi
 av1_common=(-g "$gop" -pix_fmt yuv420p)
 hls=(-f hls -hls_time 2 -hls_playlist_type vod -hls_segment_type fmp4
@@ -95,10 +85,9 @@ x264=(-c:v libx264 -preset medium -profile:v high -pix_fmt yuv420p
       -g "$gop" -keyint_min "$gop" -sc_threshold 0)
 d="$work/hls"
 
-# Gource renders once, into a visually lossless 8K master (H.264 at CRF 8, about 1.2 MB a
-# frame) and the full-8K still; the ladder is then encoded from that master in three
-# passes, one encoder family at a time. Running every encoder in one ffmpeg, as fed
-# straight from Gource, needs over 9 GB and the runner kills it.
+# Gource renders once, into a visually lossless 4K master (H.264 at CRF 8) and the full-4K
+# still; the ladder is then encoded from that master in two passes, one encoder family at
+# a time, so no single ffmpeg holds every encoder's buffers at once.
 echo "rendering ${width}x${height} at ${fps} fps: $days day(s) at ${spd}s/day, ${msaa[*]:-no multi-sampling}"
 "${run[@]}" gource "$work/gource.log" --log-format custom -"${width}x${height}" "${msaa[@]}" \
     --title "Surl  -  the server-side mate of curl, built in C# and .NET 10 by a dark factory of AI agents" \
@@ -115,25 +104,20 @@ echo "rendering ${width}x${height} at ${fps} fps: $days day(s) at ${spd}s/day, $
   | ffmpeg -y -loglevel error -r "$fps" -f image2pipe -vcodec ppm -i - \
       -filter_complex "[0:v]split=2[m][s1];[s1]fps=1[still]" \
       -map "[m]" -c:v libx264 -preset veryfast -crf 8 -pix_fmt yuv420p "$work/master.mkv" \
-      -map "[still]" -update 1 -q:v 2 "$work/still-8k.jpg"
+      -map "[still]" -update 1 -q:v 2 "$work/still-4k.jpg"
 echo "master: $(wc -c < "$work/master.mkv") bytes"
-
-echo "encoding AV1 8K"
-ffmpeg -y -loglevel error -i "$work/master.mkv" \
-    -map 0:v "${av1_8k[@]}" "${av1_common[@]}" "${hls[@]}" \
-        -hls_segment_filename "$d/av1/4320p/seg_%03d.m4s" "$d/av1/4320p/index.m3u8"
 
 echo "encoding AV1 4K and 1080p"
 ffmpeg -y -loglevel error -i "$work/master.mkv" \
-    -filter_complex "[0:v]split=2[s4][s2];[s4]scale=3840:2160:flags=lanczos[a4];[s2]scale=1920:1080:flags=lanczos[a2]" \
-    -map "[a4]" "${av1_small[@]}" "${av1_common[@]}" "${hls[@]}" \
+    -filter_complex "[0:v]split=2[a4][s2];[s2]scale=1920:1080:flags=lanczos[a2]" \
+    -map "[a4]" "${av1_4k[@]}" "${av1_common[@]}" "${hls[@]}" \
         -hls_segment_filename "$d/av1/2160p/seg_%03d.m4s" "$d/av1/2160p/index.m3u8" \
-    -map "[a2]" "${av1_small[@]}" "${av1_common[@]}" "${hls[@]}" \
+    -map "[a2]" "${av1_1080[@]}" "${av1_common[@]}" "${hls[@]}" \
         -hls_segment_filename "$d/av1/1080p/seg_%03d.m4s" "$d/av1/1080p/index.m3u8"
 
 echo "encoding H.264 4K and 1080p"
 ffmpeg -y -loglevel error -i "$work/master.mkv" \
-    -filter_complex "[0:v]split=2[s4][s2];[s4]scale=3840:2160:flags=lanczos[h4];[s2]scale=1920:1080:flags=lanczos[h2]" \
+    -filter_complex "[0:v]split=2[h4][s2];[s2]scale=1920:1080:flags=lanczos[h2]" \
     -map "[h4]" "${x264[@]}" -crf 18 -maxrate 14M -bufsize 28M -level 5.1 "${hls[@]}" \
         -hls_segment_filename "$d/h264/2160p/seg_%03d.m4s" "$d/h264/2160p/index.m3u8" \
     -map "[h2]" "${x264[@]}" -crf 18 -maxrate 6M -bufsize 12M -level 4.1 "${hls[@]}" \
@@ -149,7 +133,7 @@ done
 cat "$d/h264/2160p/init.mp4" "$d/h264/2160p"/seg_*.m4s > "$work/2160p.frag.mp4"
 ffmpeg -y -loglevel error -i "$work/2160p.frag.mp4" -c copy -movflags +faststart "$work/gource.mp4"
 cat "$d/h264/1080p/init.mp4" "$d/h264/1080p"/seg_*.m4s > "$work/1080p.frag.mp4"
-ffmpeg -y -loglevel error -i "$work/still-8k.jpg" -vf scale=1920:-2:flags=lanczos -q:v 3 "$work/poster.jpg"
+ffmpeg -y -loglevel error -i "$work/still-4k.jpg" -vf scale=1920:-2:flags=lanczos -q:v 3 "$work/poster.jpg"
 
 # GitHub only plays a GIF inline, and shows nothing over 10 MB: the largest that fits.
 limit=$(( 9500 * 1024 ))
@@ -166,7 +150,7 @@ cs make-stats "$work/gource.log" "$width" "$height" "$fps" > "$work/stats.json"
 # Move everything into place only now that every piece exists.
 rm -rf "$out/hls"
 mv "$d" "$out/hls"
-for f in gource.mp4 gource.gif still-8k.jpg poster.jpg stats.json; do mv -f "$work/$f" "$out/$f"; done
+for f in gource.mp4 gource.gif still-4k.jpg poster.jpg stats.json; do mv -f "$work/$f" "$out/$f"; done
 rm -rf "$work"
 
 du -sh "$out/hls"/*/* | sed 's/^/  /'
