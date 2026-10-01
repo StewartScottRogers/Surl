@@ -46,3 +46,4 @@ build) bind to `surl --keytab ... --auth gssapi` with SASL `GSSAPI` and search, 
 ## Log
 
 - 2026-10-01: Created.
+- 2026-10-01: Backlog -> Doing.
