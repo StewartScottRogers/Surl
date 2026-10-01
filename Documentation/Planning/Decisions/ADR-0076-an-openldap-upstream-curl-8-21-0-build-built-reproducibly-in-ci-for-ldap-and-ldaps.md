@@ -14,7 +14,9 @@
 - **Amended:** decision 1 by [ADR-0078](ADR-0078-ldap-sasl-gssapi-measured-against-an-openldap-build-with-mit-kerberos.md)
   (BL-342, 2026-10-01): the build also links MIT Kerberos 1.22.2's GSS-API and is re-pinned
   (`62061C58...7E55`) at the same path; every case below that was re-run is unchanged, and the
-  `AUTH=GSSAPI` row's "no GSS-API" is now ADR-0078's measured exchange.
+  `AUTH=GSSAPI` row's "no GSS-API" is now ADR-0078's measured exchange. Decision 5's
+  cases by Amendment 1 below (BL-345, 2026-10-01): what BL-312 measured with the build against a
+  live `surl`, including the cases decision 5 did not record.
 
 ## Context
 
@@ -215,3 +217,34 @@ exit 1 and 64 StartTLS refusals.
   plus the hash is reviewable and rebuilds the same file.
 - **OpenSSL 4.0.1, as the reference builds use.** Rejected: OpenLDAP 2.6 is not yet known to build
   against OpenSSL 4, and the TLS library sends no LDAP byte; 3.5 is OpenSSL's long-term release.
+
+## Amendment 1 - measured against surl (BL-312, recorded by BL-345, 2026-10-01)
+
+Decision 5's cases were recorded against `Record-CurlExchange.ps1`'s scripted server. BL-312's
+`UpstreamCurlBindsAndSearchesSurlOverOpenLdapTests` (`Surl.Conformance.UnitTests`, Integration, 46
+tests) ran the same build against a live `surl` on 2026-09-30: the build of decision 1, SHA-256
+`8D4572E89081E84BDDDB147527523A80D9FAD140FF615F7B379BBCC239892398` (rebuilt with
+`Build-OpenLdapUpstreamCurl.ps1` and reproduced again), at its pin path
+`/opt/upstream-curl/8.21.0-openldap/curl`, in a `mcr.microsoft.com/dotnet/sdk:10.0` Linux container,
+through `dotnet test Surl.Conformance.UnitTests --filter "FullyQualifiedName~Surl.Conformance"`
+(191 passed, 0 failed). `U` below is `ldap://127.0.0.1:<port>/dc=example,dc=com` (`ldaps://` where
+stated) and `A` is the directory's account `alice:secret`. The cases decision 5 did not measure, or
+measured only against the scripted server:
+
+| surl | curl | Measured |
+| --- | --- | --- |
+| `ldap --user A --self-signed` | `--ssl-reqd -u A U` (StartTLS accepted, certificate not trusted) | exit **64** `curl: (64) SSL certificate OpenSSL verify result: self-signed certificate (18)` - curl's own mapping for a failed StartTLS handshake, not `ldaps`'s 60 |
+| any search | any | every entry ends with one more `\n` than the `WinLDAP` build's (decision 5), an entry with no selected attribute too: `DN: ou=many,dc=example,dc=com\n\n` |
+| `ldap --user A` (plain text refused: 13) | `-u A U` | exit 38 `curl: (38) LDAP: cannot bind` |
+| `ldap --user A --allow-plaintext-auth` (anonymous refused: 48) | `U`, no `-u` | exit 38 `curl: (38) LDAP: cannot bind`, nothing written |
+| `ldaps --user A --cert <server.pem> --key <server.key>`, the certificate signed by a test CA | `--cacert <ca.pem> -u A U` | exit 0, the base entry |
+| `ldaps --user A --cert ... --key ... --cacert <ca.pem>` | `--cacert <ca.pem> --cert <alice.pem> --key <alice.key> --login-options AUTH=EXTERNAL -u alice: U`, a client certificate (`CN=alice`) the CA signed | exit 0, the base entry |
+| `ldaps --user A --self-signed` | `-k --login-options AUTH=EXTERNAL -u alice: U`, no client certificate | exit 67 `Login denied` |
+| `ldap --user A --auth digest-md5,cram-md5,plain` | `--login-options AUTH=* -u A U` | exit 0, the base entry |
+
+Every other case BL-312 ran - the searches, the simple bind accepted and refused (67), the anonymous
+bind under `--allow-anonymous`, StartTLS refused (1 under `--ssl-reqd`, a version 2 bind in clear
+under `--ssl`) and accepted under `-k`, `ldaps` with `-k` and without (60), and every SASL mechanism
+the build has - ended as decision 5 predicts. No disagreement between surl and the build was found.
+These were measured with the build as first pinned; ADR-0078 has since re-pinned it
+(`62061C58...7E55`, adding GSS-API) and records which cases it re-ran.

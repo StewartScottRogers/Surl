@@ -8,7 +8,7 @@ depends-on: [BL-312]
 touches: [Documentation/Planning/Decisions]
 requirement: FR-052
 created: 2026-09-30
-completed:
+completed: 2026-10-01
 ---
 # BL-345 — Record BL-312's OpenLDAP measurements in ADR-0076
 
@@ -38,14 +38,16 @@ against a live surl, so the ADR's case table is true of the cases it did not mea
 
 ## Acceptance criteria
 
-- [ ] ADR-0076 states each measurement above with the build, its SHA-256, the arguments and date.
-- [ ] `Documentation/Planning/Decisions/README.md` still indexes it; the fast tests are green.
+- [x] ADR-0076 states each measurement above with the build, its SHA-256, the arguments and date.
+- [x] `Documentation/Planning/Decisions/README.md` still indexes it; the fast tests are green.
 
 ## Notes
 
 - Filed by BL-312's run (lanes may file follow-up tasks, Stewart 2026-09-30).
+- Recorded as ADR-0076 "Amendment 1 - measured against surl", a table of surl arguments, curl arguments and the measured exit, with the build SHA-256, container, command and date; header's Amended line and the README index row point to it. ADR-0072 decision 5's `ldaps` bullet now says BL-312 proved it (BL-344 had not changed that bullet). Did the docs edits directly rather than through `align-and-document`: a small, fully specified amendment.
 
 ## Log
 
 - 2026-09-30: Created.
 - 2026-10-01: Backlog -> Doing.
+- 2026-10-01: Doing -> Done. ADR-0076 Amendment 1 records BL-312's OpenLDAP measurements against a live surl; ADR-0072 decision 5 says ldaps was proved

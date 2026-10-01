@@ -475,8 +475,10 @@ confidentiality.
 - **The Windows build cannot complete `ldaps` against a certificate Windows does not trust**:
   `WinLDAP` checks the certificate itself and ignores `-k` (measured: 38 `Server Down`). Trusting
   surl's certificate would mean adding it to the machine's certificate store, which the
-  conformance tests do not do; they prove the handshake curl itself makes and the 38, and BL-312
-  proves `ldaps` through the OpenLDAP build, which honours `-k` and `--cacert`.
+  conformance tests do not do; they prove the handshake curl itself makes and the 38. BL-312 proved
+  `ldaps` through the OpenLDAP build, which honours `-k` and `--cacert`: exit 0 with `-k` and
+  with `--cacert` naming the CA that signed surl's `--cert`, 60 without either (ADR-0076
+  Amendment 1, 2026-09-30).
 
 **The details this decision left open** (amended by BL-341, recording BL-309's code in
 `LdapSession` and `LdapMessageFrameReader`; decided by Claude under Stewart's delegation):
