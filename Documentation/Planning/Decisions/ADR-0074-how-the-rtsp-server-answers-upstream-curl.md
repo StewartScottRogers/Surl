@@ -272,6 +272,26 @@ describes; it refreshes the session's 60 seconds when it names one. **`GET_PARAM
 `SET_PARAMETER` with a body** is `451 Parameter Not Understood`: surl has no parameters to report
 or set. `SET_PARAMETER` with no body is `200`.
 
+**Where this decision was first silent** (decided by Claude under Stewart's delegation in BL-315,
+2026-09-30, and folded in here by BL-338):
+
+- **A client that half-closes while its session plays is streamed the rest of the presentation**,
+  and the connection then closes: a half-close says the client sends no more requests, not that it
+  stops reading.
+- **A `SETUP` naming the held session with another presentation's URL is `455 Method Not Valid in
+  This State`**: one session holds one presentation, decision 4's single stream.
+- **`PLAY` while `Playing` answers `200`** with the next packet's `RTP-Info` and carries on from the
+  current position.
+- **Every answer to a request that named the live session names it back**, refusals (`404`, `451`,
+  `455`, `457`) included; `454` names none.
+- **The 60-second timeout is checked when a request names the session** (and before a `SETUP` that
+  names none) - the only moment a client can observe it - and never while playing or recording; the
+  session's end is noted `ended: timeout` then.
+- **The sender report's RTP timestamp is the last packet's; its packet and octet counts are the
+  session's since `SETUP`**, across every `PLAY`.
+- **A file that shrinks while playing, or can no longer be read, ends with an empty packet carrying
+  the marker** where its bytes ran out; a file gone before `PLAY` is `404`.
+
 ### 6. `ANNOUNCE` and `RECORD`: uploads
 
 Both are uploads (ADR-0006 section 2), refused unless `--allow-uploads`, through the content store's
