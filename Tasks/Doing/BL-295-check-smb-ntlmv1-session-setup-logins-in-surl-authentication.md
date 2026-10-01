@@ -47,3 +47,4 @@ rule for NTLMv1 over a connection without TLS.
 ## Log
 
 - 2026-09-30: Created.
+- 2026-09-30: Backlog -> Doing.
