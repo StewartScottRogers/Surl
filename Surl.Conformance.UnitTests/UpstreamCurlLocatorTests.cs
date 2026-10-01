@@ -7,10 +7,12 @@ public sealed class UpstreamCurlLocatorTests
 {
     private const string ReferencePath = "/pinned/reference/curl";
     private const string SupplementaryPath = "/pinned/supplementary/curl";
+    private const string LibraryPath = "/pinned/reference/libcurl-4.dll";
 
     private static readonly byte[] ReferenceBytes = [0x4D, 0x5A, 0x01];
     private static readonly byte[] SupplementaryBytes = [0x4D, 0x5A, 0x02];
     private static readonly byte[] PortBytes = [0x4D, 0x5A, 0x03];
+    private static readonly byte[] LibraryBytes = [0x4D, 0x5A, 0x04];
 
     [TestMethod]
     public void Locate_PinnedFileMatches_ReturnsTheBuild()
@@ -297,6 +299,136 @@ public sealed class UpstreamCurlLocatorTests
     }
 
     [TestMethod]
+    public void RequirePinned_FileIsThePinnedLibrary_RefusesToRunIt()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(LibraryPath, LibraryBytes));
+
+        var exception = Assert.ThrowsExactly<UnpinnedUpstreamCurlException>(
+            () => locator.RequirePinned([LibraryPin()], LibraryPath));
+
+        Assert.AreEqual(UpstreamCurlBuildKind.Curl, exception.Kind);
+    }
+
+    [TestMethod]
+    public void RequirePinnedLibrary_FileMatchesTheLibraryPin_ReturnsThatPin()
+    {
+        var library = LibraryPin();
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile("/copy/libcurl-4.dll", LibraryBytes));
+
+        var build = locator.RequirePinnedLibrary([Pin(ReferencePath, ReferenceBytes), library], "/copy/libcurl-4.dll");
+
+        Assert.AreSame(library, build);
+    }
+
+    [TestMethod]
+    public void RequirePinnedLibrary_FileIsAPinnedCurl_RefusesToLoadIt()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(ReferencePath, ReferenceBytes));
+
+        var exception = Assert.ThrowsExactly<UnpinnedUpstreamCurlException>(
+            () => locator.RequirePinnedLibrary([Pin(ReferencePath, ReferenceBytes), LibraryPin()], ReferencePath));
+
+        Assert.AreEqual(UpstreamCurlBuildKind.Library, exception.Kind);
+        StringAssert.Contains(exception.Message, "is not a pinned upstream libcurl");
+    }
+
+    [TestMethod]
+    public void RequirePinnedLibrary_FileHashDiffers_RefusesWithItsHash()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(LibraryPath, PortBytes));
+
+        var exception = Assert.ThrowsExactly<UnpinnedUpstreamCurlException>(
+            () => locator.RequirePinnedLibrary([LibraryPin()], LibraryPath));
+
+        Assert.AreEqual(FakeUpstreamCurlFileAccess.Sha256Of(PortBytes), exception.Sha256);
+    }
+
+    [TestMethod]
+    public void RequirePinnedLibrary_FileAbsent_ThrowsFileNotFoundException()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        var exception = Assert.ThrowsExactly<FileNotFoundException>(
+            () => locator.RequirePinnedLibrary([LibraryPin()], "/missing/libcurl-4.dll"));
+
+        Assert.AreEqual("The libcurl to load, /missing/libcurl-4.dll, was not found.", exception.Message);
+    }
+
+    [TestMethod]
+    public void LocateLibrary_PinnedFileMatches_ReturnsTheLibrary()
+    {
+        var library = LibraryPin();
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess()
+            .WithFile(ReferencePath, ReferenceBytes)
+            .WithFile(LibraryPath, LibraryBytes));
+
+        var location = locator.LocateLibrary([Pin(ReferencePath, ReferenceBytes), library], "win-x64");
+
+        Assert.AreSame(library, location.Build);
+        StringAssert.Contains(location.Message, "upstream libcurl");
+    }
+
+    [TestMethod]
+    public void LocateLibrary_NoLibraryPinnedForThePlatform_ReportsNoPinnedLibrary()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(LibraryPath, LibraryBytes));
+
+        var location = locator.LocateLibrary([Pin(ReferencePath, ReferenceBytes), LibraryPin()], "linux-x64");
+
+        Assert.IsFalse(location.IsAvailable);
+        Assert.AreEqual("UpstreamCurlBuilds.json pins no upstream libcurl for linux-x64.", location.Message);
+    }
+
+    [TestMethod]
+    public void LocateLibrary_FileAbsent_ReportsItAbsent()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        var location = locator.LocateLibrary([LibraryPin()], "win-x64");
+
+        Assert.AreEqual(UpstreamCurlUnavailability.PinnedBuildFileAbsent, location.Unavailability);
+    }
+
+    [TestMethod]
+    public void LocateLibrary_FileHashDiffers_RefusesAsALibrary()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(LibraryPath, PortBytes));
+
+        var exception = Assert.ThrowsExactly<UnpinnedUpstreamCurlException>(() => locator.LocateLibrary([LibraryPin()], "win-x64"));
+
+        Assert.AreEqual(UpstreamCurlBuildKind.Library, exception.Kind);
+    }
+
+    [TestMethod]
+    public void LocateLibrary_NullArguments_ThrowArgumentNullException()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateLibrary(null!, "win-x64"));
+        Assert.ThrowsExactly<ArgumentNullException>(() => locator.LocateLibrary([], null!));
+    }
+
+    [TestMethod]
+    public void Locate_OnlyALibraryPinned_ReportsNoPinnedBuild()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(LibraryPath, LibraryBytes));
+
+        var location = locator.Locate([LibraryPin()], "win-x64");
+
+        Assert.AreEqual(UpstreamCurlUnavailability.NoPinnedBuildForPlatform, location.Unavailability);
+    }
+
+    [TestMethod]
+    public void LocateForProtocol_LibrarySupportsTheProtocol_NeverReturnsTheLibrary()
+    {
+        var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess().WithFile(LibraryPath, LibraryBytes));
+
+        var location = locator.LocateForProtocol([LibraryPin()], "win-x64", "ws");
+
+        Assert.AreEqual(UpstreamCurlUnavailability.NoPinnedBuildForPlatform, location.Unavailability);
+    }
+
+    [TestMethod]
     public void RequirePinned_FileAbsent_ThrowsFileNotFoundException()
     {
         var locator = new UpstreamCurlLocator(new FakeUpstreamCurlFileAccess());
@@ -357,6 +489,9 @@ public sealed class UpstreamCurlLocatorTests
         UpstreamCurlBuildRole role = UpstreamCurlBuildRole.Reference,
         string[]? protocols = null) =>
         new("win-x64", path, FakeUpstreamCurlFileAccess.Sha256Of(contents), "curl 8.21.0", protocols ?? ["http"], role);
+
+    private static PinnedUpstreamCurlBuild LibraryPin() =>
+        new("win-x64", LibraryPath, FakeUpstreamCurlFileAccess.Sha256Of(LibraryBytes), "libcurl/8.21.0", ["ws", "wss"], UpstreamCurlBuildRole.Reference, UpstreamCurlBuildKind.Library);
 
     /// <summary>
     /// Reads the repository's real <c>UpstreamCurlBuilds.json</c> and puts a distinct stand-in

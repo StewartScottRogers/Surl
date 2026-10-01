@@ -26,7 +26,10 @@ public sealed class UpstreamCurlRunner
     /// <param name="location">What the locator found; it must hold a verified build.</param>
     /// <param name="timeout">How long one run may take before curl is stopped.</param>
     /// <param name="timeProvider">The clock the timeout runs on.</param>
-    /// <exception cref="ArgumentException"><paramref name="location"/> holds no build.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="location"/> holds no build, or holds a libcurl, which is loaded by a
+    /// driver and never run as a curl.
+    /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is not positive.</exception>
     public UpstreamCurlRunner(UpstreamCurlLocation location, TimeSpan timeout, TimeProvider timeProvider)
     {
@@ -35,6 +38,12 @@ public sealed class UpstreamCurlRunner
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         Build = location.Build ?? throw new ArgumentException(location.Message, nameof(location));
+
+        if (Build.Kind != UpstreamCurlBuildKind.Curl)
+        {
+            throw new ArgumentException($"{Build.DefaultPath} is a pinned upstream libcurl, not a curl to run.", nameof(location));
+        }
+
         this.timeout = timeout;
         this.timeProvider = timeProvider;
     }

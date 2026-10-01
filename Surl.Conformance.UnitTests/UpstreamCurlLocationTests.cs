@@ -34,6 +34,26 @@ public sealed class UpstreamCurlLocationTests
     }
 
     [TestMethod]
+    public void Found_Library_NamesItAsLibcurl()
+    {
+        var library = Supplementary with { Role = UpstreamCurlBuildRole.Reference, Kind = UpstreamCurlBuildKind.Library };
+
+        var location = UpstreamCurlLocation.Found(library);
+
+        Assert.AreEqual("/pinned/curl is the pinned reference upstream libcurl for win-x64.", location.Message);
+    }
+
+    [TestMethod]
+    public void NoPinnedLibrary_Platform_IsUnavailableAndSaysNoLibrary()
+    {
+        var location = UpstreamCurlLocation.NoPinnedLibrary("linux-x64");
+
+        Assert.IsFalse(location.IsAvailable);
+        Assert.AreEqual(UpstreamCurlUnavailability.NoPinnedBuildForPlatform, location.Unavailability);
+        Assert.AreEqual("UpstreamCurlBuilds.json pins no upstream libcurl for linux-x64.", location.Message);
+    }
+
+    [TestMethod]
     public void FileAbsent_Build_IsUnavailableAndNamesTheMissingPath()
     {
         var location = UpstreamCurlLocation.FileAbsent(Supplementary);

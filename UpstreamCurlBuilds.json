@@ -1,5 +1,5 @@
 {
-  "comment": "Upstream curl builds Surl may be measured against, pinned by SHA-256. Anything else is refused (ADR-0003). Pinning another build is a decision; never pin the Curl port. Each build's role is 'reference' (the release named below, used for every measurement unless a case needs what it lacks; a build with no role is a reference build) or 'supplementary' (pinned only for the protocols and features its ADR names, never to second-guess a reference build; ADR-0017).",
+  "comment": "Upstream curl builds Surl may be measured against, pinned by SHA-256. Anything else is refused (ADR-0003). Pinning another build is a decision; never pin the Curl port. Each build's role is 'reference' (the release named below, used for every measurement unless a case needs what it lacks; a build with no role is a reference build) or 'supplementary' (pinned only for the protocols and features its ADR names, never to second-guess a reference build; ADR-0017). Each entry's kind is 'curl' (an executable run as a command; an entry with no kind is a curl) or 'library' (a shared libcurl loaded by a driver of libcurl's API, never run as a curl; ADR-0071 decision 10).",
   "release": "8.21.0",
   "releaseDate": "2026-06-24",
   "builds": [
@@ -35,6 +35,17 @@
       "protocols": "dict file ftp ftps gopher gophers http https imap imaps ipfs ipns mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss",
       "features": "alt-svc asyn-rr AsynchDNS brotli ECH HSTS HTTP2 HTTP3 HTTPS-proxy HTTPSRR IDN IPv6 Kerberos Largefile libz NativeCA NTLM PSL SPNEGO SSL SSLS-EXPORT SSPI threadsafe TLS-SRP Unicode UnixSockets zstd",
       "pinned": "2026-09-29"
+    },
+    {
+      "platform": "win-x64",
+      "role": "reference",
+      "kind": "library",
+      "origin": "Git for Windows, mingw64 build of upstream curl: the libcurl the reference curl.exe beside it runs, loaded only by Run-LibcurlWebSocketScript.cs to drive curl_ws_send and curl_ws_recv, never run as a curl (ADR-0071 decision 10)",
+      "defaultPath": "C:\\Program Files\\Git\\mingw64\\bin\\libcurl-4.dll",
+      "sha256": "799F7EEFC3C9DA9C80EC5AEA221A02B3AFE2C5350C6B45FD5A4865E7E2D4E574",
+      "version": "libcurl/8.21.0 Schannel zlib/1.3.2 brotli/1.2.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.5 libssh2/1.11.1 WinLDAP",
+      "protocols": "ws wss",
+      "pinned": "2026-09-30"
     },
     {
       "platform": "linux-x64",

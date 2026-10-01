@@ -177,6 +177,48 @@ public sealed class UpstreamCurlBuildPinsTests
     }
 
     [TestMethod]
+    public void Parse_EntryWithoutKind_ReadsAsCurl()
+    {
+        var pins = UpstreamCurlBuildPins.Parse(Builds(Entry()));
+
+        Assert.AreEqual(UpstreamCurlBuildKind.Curl, pins[0].Kind);
+    }
+
+    [TestMethod]
+    [DataRow("curl", UpstreamCurlBuildKind.Curl)]
+    [DataRow("library", UpstreamCurlBuildKind.Library)]
+    public void Parse_Kind_ReadsTheKind(string kind, UpstreamCurlBuildKind expected)
+    {
+        var pins = UpstreamCurlBuildPins.Parse(Builds(Entry(extra: $"\"kind\": \"{kind}\"")));
+
+        Assert.AreEqual(expected, pins[0].Kind);
+    }
+
+    [TestMethod]
+    public void Parse_UnknownKind_ThrowsNamingTheKind()
+    {
+        var exception = Assert.ThrowsExactly<FormatException>(() => UpstreamCurlBuildPins.Parse(Builds(Entry(extra: "\"kind\": \"dll\""))));
+
+        StringAssert.Contains(exception.Message, "The kind of entry 0");
+        StringAssert.Contains(exception.Message, "'dll', not curl or library");
+    }
+
+    [TestMethod]
+    [TestCategory("Integration")]
+    public void Parse_RepositoryPinFile_PinsTheReferenceBuildsLibcurl()
+    {
+        var path = Path.Combine(RepositoryRoot(), UpstreamCurlBuildPins.FileName);
+
+        var pins = UpstreamCurlBuildPins.Parse(File.ReadAllText(path));
+
+        var library = pins.Single(pin => pin.Kind == UpstreamCurlBuildKind.Library);
+        Assert.AreEqual("win-x64", library.Platform);
+        Assert.AreEqual(UpstreamCurlBuildRole.Reference, library.Role);
+        Assert.AreEqual(@"C:\Program Files\Git\mingw64\bin\libcurl-4.dll", library.DefaultPath);
+        Assert.AreEqual("799F7EEFC3C9DA9C80EC5AEA221A02B3AFE2C5350C6B45FD5A4865E7E2D4E574", library.Sha256);
+    }
+
+    [TestMethod]
     public void Parse_NullText_ThrowsArgumentNullException()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamCurlBuildPins.Parse(null!));
