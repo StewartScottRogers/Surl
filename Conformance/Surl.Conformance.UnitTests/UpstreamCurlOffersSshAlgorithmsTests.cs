@@ -1,3 +1,5 @@
+using System.Net.Sockets;
+
 namespace Surl.Conformance;
 
 /// <summary>
@@ -105,6 +107,12 @@ public sealed class UpstreamCurlOffersSshAlgorithmsTests
             (environment, arguments) => PinnedUpstreamCurl.RunWithEnvironmentAsync(TestContext, environment, arguments),
             options);
 
+    // curl always exits 2 here: the recorder hangs up once it has read the KEXINIT, and that fails
+    // libssh2's handshake. So curl's exit says nothing on its own; the recording decides. curl is
+    // awaited first, then the listener is stopped so a recorder that never accepted a connection
+    // stops waiting, and only then is the recording read: once curl has exited, every byte it sent
+    // is already in the recorder's receive buffer, so which of the two finished first cannot
+    // change the outcome (BL-356).
     private async Task<(string Identification, IReadOnlyList<string> NameLists)> RecordKexInitAsync(
         Func<IReadOnlyDictionary<string, string>, string[], Task<UpstreamCurlRunResult>> runCurl, params string[] options)
     {
@@ -112,18 +120,27 @@ public sealed class UpstreamCurlOffersSshAlgorithmsTests
         using var recorder = ClientKexInitRecorder.Start();
         var recording = recorder.RecordAsync(TestContext.CancellationToken);
 
-        var curl = runCurl(curlHome.Environment, ["-sS", "-k", .. options, $"sftp://127.0.0.1:{recorder.Port}/x"]);
-        await Task.WhenAny(recording, curl);
-        if (!recording.IsCompleted)
+        var curl = await runCurl(curlHome.Environment, ["-sS", "-k", .. options, $"sftp://127.0.0.1:{recorder.Port}/x"]);
+        recorder.Dispose();
+        var curlOutcome = $"{curl}; stderr: {curl.StandardError.TrimEnd()}";
+
+        (string Identification, IReadOnlyList<string> NameLists) recorded;
+        try
         {
-            await curl;
-            Assert.Fail("curl exited before it sent its KEXINIT.");
+            recorded = await recording;
+        }
+        catch (AssertFailedException exception)
+        {
+            throw new AssertFailedException($"{exception.Message} ({curlOutcome})", exception);
+        }
+        catch (Exception exception) when (exception is IOException or SocketException or ObjectDisposedException or OperationCanceledException)
+        {
+            throw new AssertFailedException(
+                $"curl exited before it sent its KEXINIT: the recorder stopped with {exception.GetType().Name}: {exception.Message} ({curlOutcome})",
+                exception);
         }
 
-        var recorded = await recording;
-        recorder.Dispose();
-        await curl;
-        TestContext.WriteLine($"{UpstreamCurlLocator.CurrentPlatform}'s build: {recorded.Identification}\n{string.Join('\n', recorded.NameLists)}");
+        TestContext.WriteLine($"{UpstreamCurlLocator.CurrentPlatform}'s build: {recorded.Identification}\n{string.Join('\n', recorded.NameLists)}\n{curlOutcome}");
         return recorded;
     }
 }
