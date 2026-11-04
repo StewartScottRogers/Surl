@@ -4,6 +4,7 @@
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 - **Amended by:** [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md) (section 6: `ExchangeContext.ShutdownToken` tells a limit's cancellation from shutdown)
+- **Amended by:** [ADR-0081](ADR-0081-how-surl-serves-http-2.md) (section 5 on an HTTP/2 connection: each limit's `GOAWAY` or `RST_STREAM` code, and `GOAWAY` `NO_ERROR` in place of "close with no bytes" for the idle timeout and maximum duration)
 
 ## Context
 

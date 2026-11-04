@@ -50,6 +50,24 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 | request line | The first line of a request head, `method SP request-target SP HTTP-version` (RFC 9112, section 3), or `RTSP/1.0` in place of the HTTP version (RFC 2326, section 6.1). | `HttpRequestHead.Method`, `HttpRequestHead.RequestTarget`, `HttpRequestHead.Version`, `HttpRequestHead.Protocol`; parsed by `HttpRequestLineParser` for the `HttpMessageProtocol` it is given, in `Surl.HttpMessage` |
 | field line | One header field in a request head, `field-name ":" OWS field-value OWS`, the whitespace around the value not part of it (RFC 9112, section 5). | `HttpRequestField`; parsed by `HttpFieldLineParser`; a head's field lines are `HttpRequestHead.Fields`; in `Surl.HttpMessage` |
 
+## HTTP/2
+
+Decided by ADR-0081; BL-365 to BL-371 build it, so the names in code are the planned ones.
+
+| Term | Meaning | Name in code |
+| --- | --- | --- |
+| HTTP/2 | The binary-framed version of HTTP (RFC 9113): many requests at once on one connection, each on its own stream, with compressed fields. Surl serves it on `https` when ALPN agrees `h2`, and on `http` by prior knowledge or `Upgrade: h2c` (ADR-0081). | planned: `Surl.Protocol.Http` (BL-367, BL-368) |
+| ALPN | TLS's Application-Layer Protocol Negotiation (RFC 7301): the client lists protocol IDs in its ClientHello and the server picks one, `h2` or `http/1.1` for HTTPS. | `TlsApplicationProtocols` in `Surl.Networking`; the agreed one is `TlsSession.ApplicationProtocol` |
+| h2c | HTTP/2 over cleartext TCP, the `http` scheme's HTTP/2, reached by prior knowledge or by an `Upgrade: h2c` request answered `101 Switching Protocols`. Also the token in that `Upgrade` field. `h2` is HTTP/2 over TLS. | planned (BL-368, BL-369) |
+| prior knowledge | A client speaking HTTP/2 from its first byte, with no ALPN and no upgrade (`curl --http2-prior-knowledge`). | planned (BL-368) |
+| connection preface | The 24 bytes every HTTP/2 client sends first, `PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n`, followed by its `SETTINGS`; the server's preface is its own `SETTINGS` frame (RFC 9113, section 3.4). How the `http` listener tells HTTP/2 from HTTP/1.x. | planned (BL-368) |
+| frame | HTTP/2's unit on the wire: a 9-byte header (24-bit length, type, flags, 31-bit stream identifier) and a payload, e.g. `HEADERS`, `CONTINUATION`, `DATA`, `SETTINGS`, `WINDOW_UPDATE`, `PING`, `RST_STREAM`, `GOAWAY` (RFC 9113, section 4). | planned (BL-367) |
+| stream | One request and its response on an HTTP/2 connection, identified by an odd number the client picks (stream 1 first, or the upgraded request); its life runs through the states of RFC 9113 section 5.1. | planned (BL-368) |
+| header block | The HPACK-compressed fields of one request or response: a `HEADERS` frame's block and the `CONTINUATION` frames after it, up to the one flagged `END_HEADERS`. Bounded by `--max-message` (ADR-0006). | planned (BL-368) |
+| HPACK | HTTP/2's field compression (RFC 7541): a static table, a per-connection dynamic table, integer and string literals and a Huffman code. Hand-built, in its own horizontal library. | planned: `Surl.Hpack` (BL-365) |
+| flow-control window | How many `DATA` bytes a peer may still send on a stream and on the connection; `WINDOW_UPDATE` widens it (RFC 9113, section 5.2). | planned (BL-368) |
+| `GOAWAY` and `RST_STREAM` | The frames that end a whole HTTP/2 connection and one stream, each with an error code (`NO_ERROR`, `PROTOCOL_ERROR`, `REFUSED_STREAM`, `ENHANCE_YOUR_CALM`, `HTTP_1_1_REQUIRED`, ...). ADR-0081 decision 5 names the code each limit ends with. | planned (BL-367, BL-368) |
+
 ## FTP
 
 | Term | Meaning | Name in code |

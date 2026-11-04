@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Superseded in part:** section 3's throwaway certificate served without being asked for (no `--cert` for a secure scheme) is superseded by [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md): it needs `--self-signed`.
+- **Amended by:** [ADR-0081](ADR-0081-how-surl-serves-http-2.md) (section 4: `https` offers `h2` before `http/1.1`)
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 
@@ -253,8 +254,11 @@ server's own certificate.
 - For `https` and `wss` in Phase 1, `Surl.Networking` offers exactly one ALPN protocol
   ID, **`http/1.1`**. The pinned build offers `http/1.1` for every `https` request
   (`http/1.0,http/1.1` with `--http1.0`, measured), so it always agrees on `http/1.1`, and
-  the pinned build has no HTTP/2 to ask for `h2` with. `h2` joins the list with the HTTP/2
-  server, in the ADR that task records; `h3` is QUIC's and never travels over `SslStream`.
+  the pinned build has no HTTP/2 to ask for `h2` with. `h3` is QUIC's and never travels over
+  `SslStream`.
+- **Amended by [ADR-0081](ADR-0081-how-surl-serves-http-2.md) decision 2** (2026-11-04), effective
+  when BL-370 lands: `https` offers `h2`, then `http/1.1`, and serves HTTP/2 on a connection that
+  agreed `h2`; `wss` keeps exactly `http/1.1` (curl 8.21.0 sends no ALPN for `wss`, measured).
 - For every other scheme no ALPN list is offered, so none is agreed: upstream curl sends
   ALPN only for HTTP.
 - A client that offers no ALPN is served without it (`ApplicationProtocol` is `null`).
