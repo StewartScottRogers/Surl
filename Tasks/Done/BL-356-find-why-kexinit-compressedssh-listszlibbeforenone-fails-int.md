@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-356 — Find why KexInit_CompressedSsh_ListsZlibBeforeNone fails intermittently on macOS and fix it
 
@@ -44,22 +44,47 @@ what the recorder read from pinned upstream curl, never on timing, and a failure
 
 ## Acceptance criteria
 
-- [ ] Notes state the cause and its evidence: curl's stderr from a reproduction, or the reasoning from
+- [x] Notes state the cause and its evidence: curl's stderr from a reproduction, or the reasoning from
       the code when it cannot be reproduced.
-- [ ] `RecordKexInitAsync` reports "curl exited before it sent its KEXINIT" only when, once curl has
+- [x] `RecordKexInitAsync` reports "curl exited before it sent its KEXINIT" only when, once curl has
       exited, the recorder accepted no connection or read no complete `KEXINIT`. It waits for a
       recorder that has read the `KEXINIT`, whatever curl's exit. Which task finished first no
       longer decides the outcome.
-- [ ] Every failure message from `RecordKexInitAsync` includes curl's exit code and stderr text.
-- [ ] A cause inside `ClientKexInitRecorder` is fixed there. No retry is added that would hide a real
+- [x] Every failure message from `RecordKexInitAsync` includes curl's exit code and stderr text.
+- [x] A cause inside `ClientKexInitRecorder` is fixed there. No retry is added that would hide a real
       failure.
-- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests are green.
       `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~UpstreamCurlOffersSshAlgorithmsTests"`
       passes 20 times in a row on Windows, and Notes record the loop and its result.
 
 ## Notes
 
+- Cause (from the code; not reproducible here: the Windows reference build is missing since
+  2026-10-05, so this test is inconclusive on Windows, and the macOS failure was a one-off on CI).
+  `ClientKexInitRecorder.RecordAsync` disposes its `TcpClient` (the `using var client`) when it
+  returns, which is *before* the task it returns completes. That hang-up makes libssh2's handshake
+  fail and curl exit 2 at once. The old `RecordKexInitAsync` then raced `Task.WhenAny(recording,
+  curl)` and judged by `recording.IsCompleted`: a thread-pool thread descheduled between the
+  dispose and setting the result (a loaded 3-core macOS runner) lets curl's exit be observed first,
+  and the test fails with "curl exited before it sent its KEXINIT" although the KEXINIT was read.
+  The CI log matches: exit 2 (what every passing run also gets), no stderr captured (the old
+  message never included it), 111 ms. A real early failure (no connection) cannot be ruled out from
+  that log, which is why every failure now carries curl's exit code and stderr.
+- Fix, in `RecordKexInitAsync`: await curl first, then stop the listener (so a recorder that never
+  accepted stops waiting), then await the recording. Once curl has exited, every byte it sent is in
+  the recorder's receive buffer, so a recorder that accepted and got a complete KEXINIT always
+  succeeds; one that did not throws (socket/IO/disposed), which becomes "curl exited before it sent
+  its KEXINIT: the recorder stopped with <exception> (<curl exit>; stderr: <text>)". The recorder's
+  own assertion failures get the same curl suffix. No retry. Nothing in `ClientKexInitRecorder`
+  itself is wrong (its hang-up is what makes curl exit), so it is unchanged.
+- Loop: `dotnet test Surl.Conformance.UnitTests --no-build --filter
+  "FullyQualifiedName~UpstreamCurlOffersSshAlgorithmsTests"` 20 times in a row on Windows: 20
+  passed, 0 failed (each: 1 passed - the OpenSSL supplementary build, which uses the same helper -
+  and 3 skipped/inconclusive for the missing reference build and the non-Windows test).
+- `dotnet build` clean (0 warnings), fast tests green.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. KEXINIT tests judge on what the recorder read, never on which task finished first; failures carry curl's exit and stderr
