@@ -493,6 +493,35 @@
     How long, in -Tftp mode, the server waits for curl's next datagram before it sends
     its last packet again (or, after three resends, gives up). Default 2000.
 
+.PARAMETER QuicInitial
+    Record the QUIC client Initial packets curl sends for --http3-only, and answer nothing:
+    bind <ListenAddress>:<Port> for UDP and keep every datagram curl sends to it until curl
+    exits. Nothing answers, so curl gives up; give it --connect-timeout in CurlArgs. Then
+    run the C# file-based app Run-QuicInitialRecorder.cs (it needs the .NET 10 SDK's dotnet
+    on PATH; the first run builds it), which removes each version 1 Initial packet's header
+    and AEAD_AES_128_GCM protection with the client Initial keys RFC 9001 section 5.2
+    derives from its Destination Connection ID, and puts the CRYPTO frames back together at
+    their offsets. In place of request.bin it writes, beside stdout.bin, stderr.txt and
+    exitcode.txt:
+
+      datagrams.bin    every datagram curl sent, in arrival order, each preceded by its
+                       length as a two-byte big-endian number
+      clienthello.bin  the decrypted CRYPTO data from offset 0, contiguous: the TLS
+                       handshake message ClientHello, type byte and three-byte length first
+      clienthello.txt  one line per packet (version, connection IDs, packet number, its
+                       frames), then the ClientHello's server_name, ALPN list,
+                       quic_transport_parameters (one per line, id, name, hex value and
+                       integer value) and extension types in order
+
+    `dotnet run --file Run-QuicInitialRecorder.cs -- --self-test` checks the decryption: it
+    decrypts RFC 9001 Appendix A.2's protected client Initial and compares it with that
+    appendix's unprotected CRYPTO frame and PADDING, printing "self-test passed" and
+    exiting 0. Only builds whose curl --version lists HTTP3 can send an Initial: on Windows
+    the supplementary 8.22.0_2 and static 8.21.0 builds, not the Git for Windows reference
+    build, so give -Curl. Response and the TCP, TLS and other session parameters are
+    ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -Tls,
+    -NoServer, -LibcurlWebSocket or -LibcurlRtsp is refused.
+
 .PARAMETER Tls
     Answer each connection over TLS 1.2 instead of plain TCP, so the recorder can stand
     in for an HTTPS server or an HTTPS proxy. The certificate served
@@ -787,6 +816,13 @@
     replies from a port of its own and curl's ACKs, and stdout.bin holds hello.
 
 .EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18443 -QuicInitial -Curl C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe -CurlArgs '-sS','-k','--http3-only','--connect-timeout','3','https://127.0.0.1:18443/' -OutDirectory fixtures\quic-initial
+
+    Records the Initial packets curl sends for HTTP/3 and decrypts them; clienthello.bin
+    holds the TLS ClientHello and clienthello.txt its ALPN list (h3) and transport
+    parameters, and curl's connect timeout is recorded in stderr.txt and exitcode.txt.
+
+.EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18080 -KerberosTestKdc -KerberosPassword 'surl-test-password' -KerberosServicePrincipal 'HTTP/web.surl.test' -Response 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--negotiate','-u','tester@SURL.TEST:surl-test-password','--resolve','web.surl.test:18080:127.0.0.1','http://web.surl.test:18080/' -OutDirectory fixtures\negotiate-token
 
     Runs the test KDC while curl asks for http://web.surl.test:18080/; with BL-265's realm
@@ -839,6 +875,7 @@ param(
     [string] $TftpData = '',
     [string] $TftpReply = '',
     [ValidateRange(1, 600000)] [int] $TftpIdleMilliseconds = 2000,
+    [switch] $QuicInitial,
     [switch] $Tls,
     [string] $TlsRootCertificateFile,
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
@@ -866,6 +903,7 @@ if ([string]::IsNullOrEmpty($MyInvocation.Line) -and $CurlArgs.Count -eq 1) { $C
 if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp or -Tls.' }
 if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Ldap, $Tftp | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap and -Tftp each serve a whole session; give one of them.' }
 if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined with -Tls.' }
+if ($QuicInitial -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls -or $NoServer -or $LibcurlWebSocket -or $LibcurlRtsp)) { throw '-QuicInitial records UDP datagrams for a curl it runs itself, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -Tls, -NoServer, -LibcurlWebSocket or -LibcurlRtsp.' }
 if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode but -Raw, and cannot be combined with -Reset.' }
 # powershell -File binds 'h2,http/1.1' as one string, and a caller may give either form.
 $TlsAlpn = @($TlsAlpn | ForEach-Object { $_.Split(',') } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -2608,6 +2646,34 @@ $serveLdapSession = {
     return , @(, $received.ToArray())
 }
 
+# The -QuicInitial recorder: every datagram curl sends to the listening UDP socket, each
+# written to $Datagrams behind its length as two big-endian bytes, until the main script
+# closes the socket once curl has exited. Nothing is ever sent back.
+$recordQuicDatagrams = {
+    param($Listener, [System.IO.MemoryStream] $Datagrams, [System.Net.IPAddress] $ListenAddress)
+
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+    $buffer = New-Object byte[] 65536
+    $anyAddress = if ($ListenAddress.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetworkV6) { [System.Net.IPAddress]::IPv6Any } else { [System.Net.IPAddress]::Any }
+    while ($true) {
+        [System.Net.EndPoint] $from = New-Object System.Net.IPEndPoint($anyAddress, 0)
+        try {
+            $count = $Listener.ReceiveFrom($buffer, [ref] $from)
+        } catch [System.ObjectDisposedException] {
+            break
+        } catch [System.Net.Sockets.SocketException] {
+            # Closing the socket ends a blocked receive this way; anything else is an ICMP
+            # report from an earlier datagram, which says nothing about curl's next one.
+            if ($_.Exception.SocketErrorCode -eq [System.Net.Sockets.SocketError]::Interrupted -or $_.Exception.SocketErrorCode -eq [System.Net.Sockets.SocketError]::OperationAborted) { break }
+            continue
+        }
+        $Datagrams.WriteByte([byte] ($count -shr 8))
+        $Datagrams.WriteByte([byte] ($count -band 0xFF))
+        $Datagrams.Write($buffer, 0, $count)
+    }
+}
+
 # The -Tftp server: one transfer over UDP. The first datagram arrives on the listening
 # socket; every reply goes out from a new socket, the server's transfer identifier. It
 # returns every datagram curl sent, as one array, writes the transcript into $Transcript
@@ -3161,6 +3227,7 @@ foreach ($mechanismName in $saslChallenges.Keys) {
 }
 $transcript = New-Object System.Text.StringBuilder
 $uploadedData = New-Object System.IO.MemoryStream
+$quicDatagrams = New-Object System.IO.MemoryStream
 $OutDirectory = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).ProviderPath, $OutDirectory))
 New-Item -ItemType Directory -Path $OutDirectory -Force | Out-Null
 
@@ -3191,7 +3258,7 @@ try {
     if ($KerberosTestKdc) { $kerberosKdc = Start-KerberosTestKdc -Password $KerberosPassword -ServicePrincipals $KerberosServicePrincipal -Directory $OutDirectory }
     if ($KerberosTestKdc -and -not $isWindowsHost) { $kerberosClientEnvironment = Initialize-KerberosClient -Password $KerberosPassword -Directory $OutDirectory }
     if ($LdapKerberosAcceptor) { $kerberosAcceptor = Start-KerberosAcceptor -Directory $OutDirectory }
-    if ($Tftp) {
+    if ($Tftp -or $QuicInitial) {
         $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
         $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
         $server = [System.Management.Automation.PowerShell]::Create()
@@ -3211,7 +3278,7 @@ try {
     throw
 }
 
-# -Tftp listens on a UDP socket, which is closed rather than stopped.
+# -Tftp and -QuicInitial listen on a UDP socket, which is closed rather than stopped.
 function Stop-Listener {
     if ($listener -is [System.Net.Sockets.Socket]) { $listener.Close() } else { $listener.Stop() }
 }
@@ -3235,6 +3302,8 @@ try {
         [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds).AddArgument($kerberosAcceptor).AddArgument($LdapGssapiSecurityLayers)
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
+    } elseif ($QuicInitial) {
+        [void] $server.AddScript($recordQuicDatagrams).AddArgument($listener).AddArgument($quicDatagrams).AddArgument($ListenAddress)
     } else {
         [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols).AddArgument([bool] $CloseUnread).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $InterimResponse)).AddArgument($ResponsesPerConnection)
     }
@@ -3316,7 +3385,7 @@ foreach ($request in $requests) {
     foreach ($bytes in $request) { $requestBytes.Write($bytes, 0, $bytes.Length) }
 }
 
-if (-not $NoServer) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'request.bin'), $requestBytes.ToArray()) }
+if (-not $NoServer -and -not $QuicInitial) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'request.bin'), $requestBytes.ToArray()) }
 if (-not $NoServer -and $ResponsesPerConnection -gt 1) {
     $requestNumber = 0
     foreach ($request in $requests) {
@@ -3335,6 +3404,13 @@ if ($Ftp -or $Tftp) {
 }
 if ($Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap) {
     [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'transcript.txt'), $transcript.ToString(), [System.Text.Encoding]::GetEncoding(28591))
+}
+if ($QuicInitial) {
+    $datagramsPath = Join-Path $OutDirectory 'datagrams.bin'
+    [System.IO.File]::WriteAllBytes($datagramsPath, $quicDatagrams.ToArray())
+    $decryptArguments = @('run', '--file', (Join-Path $PSScriptRoot 'Run-QuicInitialRecorder.cs'), '--', '--datagrams', $datagramsPath, '--clienthello', (Join-Path $OutDirectory 'clienthello.bin'), '--summary', (Join-Path $OutDirectory 'clienthello.txt'))
+    & dotnet @decryptArguments | Out-Host
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Run-QuicInitialRecorder.cs exited ${LASTEXITCODE}: no version 1 Initial packet in datagrams.bin could be decrypted." }
 }
 
 Write-Host "curl exited $exitCode after $($curlClock.ElapsedMilliseconds) ms; fixtures written to $OutDirectory"
