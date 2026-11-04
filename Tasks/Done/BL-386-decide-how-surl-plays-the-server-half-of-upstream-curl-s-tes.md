@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-386 — Decide how Surl plays the server half of upstream curl's test cases
 
@@ -70,18 +70,38 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation". It answers decisions 1 to 6 and is listed in
       that folder's `README.md`.
-- [ ] `Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md` states what the ADR decides the library holds.
-- [ ] `Documentation/Product/Requirements.md` has a requirement row for success criterion 2 that names
+- [x] `Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md` states what the ADR decides the library holds.
+- [x] `Documentation/Product/Requirements.md` has a requirement row for success criterion 2 that names
       the ADR and the pass-rate file.
-- [ ] `Documentation/Wiki/Glossary.md` defines "upstream test case", "server half" and "pass rate" as
+- [x] `Documentation/Wiki/Glossary.md` defines "upstream test case", "server half" and "pass rate" as
       the ADR uses them.
 
 ## Notes
 
+- Resumed after a cut-off run that had done nothing beyond the claim.
+- ADR-0080 written (ADR-0080 went to the category-folder layout while this ran; lane 1's BL-362 touches only `Record-CurlExchange.ps1`).
+- Measured, not assumed: tag `curl-8_21_0` resolves to commit
+  `68720b4837284335b2d63cb358f8f6ce65f5bc55` (`git ls-remote`); a sparse `git` checkout into the
+  gitignored `artifacts/bl386/` (deleted afterwards) was counted with PowerShell: 2,041 files,
+  2,013 cases, 1,296 runnable against today's servers before features; the class counts, the
+  strip-line forms and the `%CERTDIR` finding (`tests/certs` holds only `.prm` files; runtests
+  generates certificates with Perl) are in the ADR's Context.
+- Decisions taken with a default, and why (all in ADR-0080): the server half is Surl's own
+  protocol server with an optional reply seam in each protocol library (matches BL-391 to BL-397's
+  `touches`, keeps `Surl.Conformance` on Abstractions only, and keeps a replay mode out of the
+  shipped `surl`); only reference builds run the suite (the rate is the reference release's);
+  60-second per-case timeout and a 20-minute per-leg budget in a separate CI job, so the existing
+  conformance step's time is unchanged; `test-server-choice` exclusions are listed one by one and
+  counted apart, so they cannot hide a regression.
+- Filed BL-399 (plan the proxies, Unix-socket HTTP, TLS-SRP and the test DNS server, 67 cases).
+  Its `touches` is `Tasks/Backlog` (it files tasks only).
+- BL-393 writes `Documentation/Conformance/`; Windows's row says "not run" until the Windows
+  reference build is restored on Stewart's machine.
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0080 decides the server half, data, skips, strip subset, pass rate and where the suite runs; docs updated; BL-399 filed

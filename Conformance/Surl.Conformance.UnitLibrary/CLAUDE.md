@@ -36,3 +36,28 @@ ADR-0051 decision 8), and returns an `UpstreamCurlRunResult`
 Parsing and matching are unit tested with no process and no network; a test that starts
 upstream curl is `[TestCategory("Integration")]`. Upstream test data copied into this
 repository keeps curl's `COPYING` notice beside it.
+
+## Upstream test cases (ADR-0080)
+
+ADR-0080 decides how Surl plays the server half of upstream curl's test cases; BL-387 to BL-397
+build it, so until they land this section is intent. This library holds, with no reference but
+Abstractions:
+
+- parsing a case file into an `UpstreamTestCase` (planning name): FILEFORMAT.md's preprocessing
+  (`%b64[]`, `%hex[]`, `%repeat[]`, `%include`, `%if`/`%else`/`%endif`, `crlf=`, `nonewline=`)
+  and variable substitution;
+- the table of `<server>` names - each one's port variable and whether its server half is built;
+- selecting which cases a reference pin can run, each other case given one skip reason from
+  ADR-0080 decision 3, and the build-option feature table BL-389 probes;
+- building each command line as upstream's runtests does (`-q`, `--output`, `--include`,
+  `--trace-ascii`);
+- generating the test certificates from the imported `.prm` files with `CertificateRequest`, and
+  the SSH keys and `%SSHSRVMD5`/`%SSHSRVSHA256`;
+- checking a `<verify>` section, with the `<strip>`/`<strippart>`/`<stripfile>` interpreter of
+  ADR-0080 decision 4's Perl subset (nothing outside it: `strippart-unsupported`);
+- the per-run result lines and reading the pass-rate file and passing lists of decision 5.
+
+It does not hold the server halves: each protocol library carries its own optional seam for a
+case's reply, and `Surl.Conformance.UnitTests` composes it. It hands a reply over as BCL types
+only (parts by name as bytes, `<servercmd>` lines as strings). The data itself is not here: it is
+`Surl.Conformance.UnitTests/UpstreamTestCases/`, with curl's `COPYING` and `SHA256SUMS`.

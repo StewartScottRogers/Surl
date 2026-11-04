@@ -202,3 +202,12 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 | fast tests | Every test that needs no network: `dotnet test --filter "TestCategory!=Integration"`. | — |
 | integration test | A test that starts a real process or opens a real socket, such as one that runs pinned upstream curl. | `[TestCategory("Integration")]` |
 | byte script | The ordered bytes of an exchange - what upstream curl sends, what Surl sends back - measured with `Record-CurlExchange.ps1` and replayed through a fake connection in a protocol server's tests. | — |
+
+## Upstream test cases
+
+| Term | Meaning | Name in code |
+| --- | --- | --- |
+| upstream test case | One of the 2,013 `test<N>` files in upstream curl's `tests/data` at tag `curl-8_21_0`, imported byte for byte into `Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/data/` (ADR-0080 decision 1): a command line, the server's scripted reply and what to verify, in the format of upstream's `docs/tests/FILEFORMAT.md`. Not one of Surl's own conformance tests, which are measured with `Record-CurlExchange.ps1`. | `UpstreamTestCase` (planning name, BL-388) |
+| server half | What answers the client in an upstream test case. In Surl it is Surl's own protocol server for the case's scheme, reading every byte curl sends with its real code, given the case's reply through an optional seam in its protocol library: sent verbatim for HTTP, HTTPS and RTSP, as the transfer's content for the payload protocols, and no reply for SCP, SFTP and SMB, which serve the case's files (ADR-0080 decision 2). Never composed by `Surl.Console`. | `<Protocol>UpstreamTestCaseReplies` (planning name) |
+| skip reason | The one fixed string saying why an upstream test case is not run against a pinned build, the first that applies of ADR-0080 decision 3's list (`disabled-upstream`, `libtest`, `server-not-built:<name>`, `feature-missing:<name>` and the rest). A skip never counts as a pass. | not yet (BL-389) |
+| pass rate | Per platform, the upstream test cases that pass over those runnable against that platform's reference build, stated in `Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md` with the passing cases listed in `upstream-test-cases-passing.<platform>.txt`, a row per release, and a guard that fails when a listed case stops passing, so it only rises (ADR-0080 decision 5; success criterion 2). | not yet (BL-393) |
