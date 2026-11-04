@@ -1,17 +1,5 @@
 # Surl
 
-> [!IMPORTANT]
-> **Mothballed since 2026-10-01, for about a month.** No dark factory shift is running and
-> the Gource and coverage renders are switched off, so the video and coverage report below
-> show the state of 2026-10-01. Everything built so far is on `master` and passes CI on
-> Windows, Linux and macOS; see [Status](#status-paused-2026-10-01) for where the work
-> stopped. To resume:
->
-> 1. `gh workflow enable gource.yml` to turn the renders back on.
-> 2. Remove this notice and update the Status section.
-> 3. Plan the next work onto the board with `/task-plan`.
-> 4. Start a shift: `RunDarkFactory.cmd -NewTab -Lanes Auto -Continuous`.
-
 <a href="https://stewartscottrogers.github.io/Surl/" target="_blank"><img src="https://github.com/StewartScottRogers/Surl/raw/gource/gource.gif" alt="Gource animation of Surl's commit history across every branch - click to watch in 4K, full screen" width="800"></a>
 
 ### [▶ Watch in 4K, full screen](https://stewartscottrogers.github.io/Surl/)
@@ -36,10 +24,11 @@ and regenerated on the same schedule as the video above.*
 by state and refreshes itself every few minutes. One card per dark factory lane joins it
 once the dark factory publishes its lane status ([ADR-0029](Documentation/Planning/Decisions/ADR-0029-the-live-task-board-page-reads-the-task-tree-and-a-board-branch-status-json.md)).*
 
-## Status: paused, 2026-10-01
+## Status: resumed, 2026-11-04
 
-The dark factory is stopped and no shift is running. Work ended with the task board
-empty: all 356 tasks are Done, and nothing sits in Backlog, Doing or Blocked.
+Work resumed on 2026-11-04 after a pause from 2026-10-01; the Gource and coverage renders
+are switched back on. The pause began with the task board empty: all 356 tasks Done,
+nothing in Backlog, Doing or Blocked.
 
 Where it stands:
 
@@ -57,7 +46,7 @@ Where it stands:
   against Surl. No release has been tagged, so there are no downloadable binaries yet
   (see [Download](#download)).
 
-To resume, plan the next work onto the board (`/task-plan`) and start a shift
+Next: plan Phase 6 onto the board (`/task-plan`) and start a shift
 (`RunDarkFactory.cmd -NewTab -Lanes Auto -Continuous`).
 
 ## What this is
