@@ -57,3 +57,4 @@ BL-372 can then pin what curl offers before any QUIC server exists.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
