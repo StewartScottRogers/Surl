@@ -1,6 +1,6 @@
 ---
 paths:
-  - "*.UnitTests/**"
+  - "**/*.UnitTests/**"
 ---
 # Testing rules
 
@@ -19,7 +19,7 @@ paths:
   them.
 - Test project name: the production project with `.UnitTests` in place of
   `.UnitLibrary` (e.g. `Surl.Core.UnitLibrary` -> `Surl.Core.UnitTests`), in its own
-  directory immediately under the repository root. Never under a `tests/` folder.
+  directory beside it in the same category folder (CLAUDE.md, "Repository layout"). Never under a `tests/` folder.
 - One test class per production class: `<ClassName>Tests`.
 - Test method names: `MethodName_Condition_ExpectedResult`.
 - A test project's own implementation of `IContentFileSystem` starts with `UnitTest`

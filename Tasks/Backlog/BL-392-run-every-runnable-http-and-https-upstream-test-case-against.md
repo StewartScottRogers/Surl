@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-389, BL-390, BL-391]
-touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests, .github/workflows/ci.yml]
+touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, .github/workflows/ci.yml]
 requirement: none
 created: 2026-11-04
 completed:
@@ -40,7 +40,7 @@ per case: test number, pass, fail or skip, and the reason.
 
 ## Acceptance criteria
 
-- [ ] Running `dotnet test Surl.Conformance.UnitTests --filter "FullyQualifiedName~UpstreamTestCases"`
+- [ ] Running `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~UpstreamTestCases"`
       (or the class the ADR names) on Windows runs every runnable `http` and `https` case. It writes
       the results file the ADR names, and Notes record the pass, fail and skip counts.
 - [ ] A case that hangs is ended by a per-case timeout and recorded as a failure with reason

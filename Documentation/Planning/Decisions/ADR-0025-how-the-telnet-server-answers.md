@@ -16,7 +16,7 @@ write this ADR itself, because another task held this folder at the time.
 
 Measured with `Record-CurlExchange.ps1 -Raw` against the pinned win-x64 build (SHA-256
 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`), 2026-09-28, standard
-input `hello\nquit\n`; the recordings are in `Surl.Protocol.Telnet.UnitTests/Fixtures`,
+input `hello\nquit\n`; the recordings are in `Protocols/Terminal/Surl.Protocol.Telnet.UnitTests/Fixtures`,
 whose `README.md` gives every command:
 
 | Server sends first | curl arguments | curl sends |

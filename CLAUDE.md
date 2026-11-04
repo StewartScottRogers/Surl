@@ -165,21 +165,35 @@ Every session, lanes included, whispers milestones to Stewart through the PostTo
 deleted - quietly, in Windows' Zira voice, one phrase at a time.
 
 ## Repository layout
-Flat and linear. Every project is a directory immediately under the repository root.
-There is no `src/` and no `tests/`; do not create them.
+Every project sits in a category folder (Stewart, 2026-11-04; ADR-0079), and each
+`.UnitTests` project sits in the same folder as the library it tests. There is no `src/`
+and no `tests/`; do not create them.
 ```
 Surl/
 ├── Surl.slnx
-├── Surl.Content.UnitLibrary/     ← production library
-├── Surl.Content.UnitTests/       ← its tests, immediately beside it
-├── Surl.Protocol.Http.UnitLibrary/
-├── Surl.Protocol.Http.UnitTests/
-├── ...                           ← every project, one flat alphabetical run
-├── Documentation/                ← shared project (docs and planning)
-├── Tasks/                        ← shared project (task board)
-├── data/                         ← local runtime data (gitignored, never read or modify)
-└── .claude/                      ← Claude Code configuration
+├── Application/           ← Surl.Console (the executable), Surl.Cli
+├── Conformance/           ← Surl.Conformance
+├── Cryptography/          ← Surl.Cryptography and its hand-built primitives, Surl.Kerberos, Surl.Kerberos.TestKdc
+├── Foundation/            ← Surl.Protocol.Abstractions, Surl.Core, Surl.Networking, Surl.Content,
+│                            Surl.Authentication, Surl.Cookies, Surl.Output
+├── Protocols/
+│   ├── FileTransfer/      ← Ftp, Ssh (scp, sftp), Tftp, Smb
+│   ├── Http/              ← Http, Ws, Rtsp, and Surl.HttpMessage which they share
+│   ├── Lookup/            ← Dict, Gopher
+│   ├── Mail/              ← Smtp, Imap, Pop3, and Surl.MailStore and Surl.LineProtocol which they share
+│   ├── Messaging/         ← Ldap, Mqtt
+│   └── Terminal/          ← Telnet
+├── Documentation/         ← shared project (docs and planning)
+├── Tasks/                 ← shared project (task board)
+├── data/                  ← local runtime data (gitignored, never read or modify)
+└── .claude/               ← Claude Code configuration
 ```
+For example, `Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/` sits beside
+`Protocols/Mail/Surl.Protocol.Smtp.UnitTests/`. Folders are grouped by what the
+project does. A new protocol server goes in the `Protocols/` category for its job, and
+a library its servers share goes beside them. A hand-built primitive goes in
+`Cryptography/`, and a service every server may use goes in `Foundation/`. A new category
+is a decision recorded in an ADR.
 
 ### Project naming
 - Production library: `Surl.<Area>.UnitLibrary`, protocol servers `Surl.Protocol.<Name>.UnitLibrary`.
@@ -189,8 +203,9 @@ Surl/
 - Names sort so each `.UnitTests` lands directly after the library it tests. Keep it
   that way.
 
-In `Surl.slnx`, projects are listed as one flat run with no solution folders around
-them. The `Solution Items` and `Scripts` solution folders hold loose files only.
+In `Surl.slnx`, each project sits in a solution folder named after its category folder
+on disk (`/Protocols/Mail/`), with folders and the projects inside them in ordinal order.
+The `Solution Items` and `Scripts` solution folders hold loose files only.
 
 Each project folder may contain its own `CLAUDE.md` with project-specific rules; follow it when working in that folder.
 
@@ -269,7 +284,7 @@ Each project folder may contain its own `CLAUDE.md` with project-specific rules;
   production project is AOT-compatible, `Directory.Build.props` sets it, and its
   `VerifyAotCompatibility` target fails the build if a project overrides it - so a new
   project is covered without touching its csproj. Test projects are exempt on purpose:
-  MSTest discovers tests by reflection. `dotnet publish Surl.Console` produces a native
+  MSTest discovers tests by reflection. `dotnet publish Application/Surl.Console` produces a native
   binary by default and needs
   `C:\Program Files (x86)\Microsoft Visual Studio\Installer` on PATH for vswhere.
 

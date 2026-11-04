@@ -21,7 +21,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/release.yml
-      - Surl.Console/**
+      - Application/Surl.Console/**
       - Directory.Build.props
       - global.json
   workflow_dispatch:
@@ -74,7 +74,7 @@ jobs:
 
       - name: Publish
         shell: bash
-        run: dotnet publish Surl.Console -c Release -r ${{ matrix.rid }} -p:Version="$VERSION" -o publish
+        run: dotnet publish Application/Surl.Console -c Release -r ${{ matrix.rid }} -p:Version="$VERSION" -o publish
 
       - name: Smoke test
         if: matrix.rid != 'osx-x64'

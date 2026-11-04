@@ -5,7 +5,7 @@ priority: High
 assignee: Claude
 pipeline: docs
 depends-on: []
-touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, Surl.Conformance.UnitLibrary/CLAUDE.md]
+touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-04
 completed:
@@ -25,7 +25,7 @@ and kept from falling. BL-387 to BL-397 build what it decides.
   exchanges: the server half of upstream curl's own test cases (`Surl.Conformance`), so curl's suite,
   not Surl's, decides what correct means"), and "Constraints" ("Upstream test data copied in for
   `Surl.Conformance` keeps curl's own notice beside it" and "Clean room is a choice: ... not by
-  translating upstream's test servers"). `Surl.Conformance.UnitLibrary/CLAUDE.md` says the full push is
+  translating upstream's test servers"). `Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md` says the full push is
   Phase 6.
 - The corpus: 2,013 test cases in `tests/data` at tag `curl-8_21_0` (product overview, "Scope",
   counted 2026-09-28). The format is `docs/tests/FILEFORMAT.md` at that tag:
@@ -73,7 +73,7 @@ Decide and record:
 - [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation". It answers decisions 1 to 6 and is listed in
       that folder's `README.md`.
-- [ ] `Surl.Conformance.UnitLibrary/CLAUDE.md` states what the ADR decides the library holds.
+- [ ] `Conformance/Surl.Conformance.UnitLibrary/CLAUDE.md` states what the ADR decides the library holds.
 - [ ] `Documentation/Product/Requirements.md` has a requirement row for success criterion 2 that names
       the ADR and the pass-rate file.
 - [ ] `Documentation/Wiki/Glossary.md` defines "upstream test case", "server half" and "pass rate" as

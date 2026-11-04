@@ -24,7 +24,7 @@ number. This ADR records it.
 
 ## Decision
 
-1. **The member.** `MailLoginStep` (`Surl.Protocol.Abstractions.UnitLibrary/MailLoginStep.cs`)
+1. **The member.** `MailLoginStep` (`Foundation/Surl.Protocol.Abstractions.UnitLibrary/MailLoginStep.cs`)
    has an optional fifth member, `string? RefusalNote = null`: why the credentials were refused,
    as one log line, or `null` when the mechanism names no reason. It never holds a key byte, a
    password or a decrypted field. Being optional with a `null` default, every existing

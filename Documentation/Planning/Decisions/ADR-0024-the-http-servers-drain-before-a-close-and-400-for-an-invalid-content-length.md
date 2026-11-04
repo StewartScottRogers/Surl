@@ -27,7 +27,7 @@ now such a request was served and closed.
 Measured on 2026-09-29 with pinned upstream curl 8.21.0 (win-x64 reference build, SHA-256
 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`) and
 `Record-CurlExchange.ps1 -Response`; the recordings are in
-`Surl.Protocol.Http.UnitTests/Fixtures/`:
+`Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/`:
 
 | Folder | Reply | curl arguments | Exit code | stderr |
 | --- | --- | --- | --- | --- |

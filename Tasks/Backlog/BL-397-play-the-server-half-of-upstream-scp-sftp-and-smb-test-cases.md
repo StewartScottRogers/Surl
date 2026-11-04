@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-393]
-touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests, Surl.Protocol.Ssh.UnitLibrary, Surl.Protocol.Ssh.UnitTests, Surl.Protocol.Smb.UnitLibrary, Surl.Protocol.Smb.UnitTests, Documentation/Conformance]
+touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/FileTransfer/Surl.Protocol.Ssh.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ssh.UnitTests, Protocols/FileTransfer/Surl.Protocol.Smb.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Smb.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
 completed:

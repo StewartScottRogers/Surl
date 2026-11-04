@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-364]
-touches: [Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests, Surl.HttpMessage.UnitLibrary, Surl.HttpMessage.UnitTests]
+touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Protocols/Http/Surl.HttpMessage.UnitLibrary, Protocols/Http/Surl.HttpMessage.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -22,7 +22,7 @@ HTTP/2 and HTTP/3 streams.
 ## Context
 
 - Decision: BL-364's ADR, decision 8 (the shape and names). If it names the types, use its names.
-- `Surl.Protocol.Http.UnitLibrary/HttpRequestResponder.cs` (446 lines) takes an `IConnection`,
+- `Protocols/Http/Surl.Protocol.Http.UnitLibrary/HttpRequestResponder.cs` (446 lines) takes an `IConnection`,
   `HttpConnectionReader`, `ExchangeContext`, `ContentStore` and `IHttpAuthenticationSession`.
   `AnswerRequestAsync(HttpRequestHead)` both decides the answer and writes it. The related types are
   `ConnectionWriteStream`, `HttpConnectionPersistence`, `HttpRequestBodyDiscarder` and
@@ -40,7 +40,7 @@ HTTP/2 and HTTP/3 streams.
 - [ ] The answering type depends on no HTTP/1.x framing type. A test drives it with no `IConnection`
       and asserts the decided status, fields and body for a `GET` of a content-store file, a `HEAD`, a
       `401` with its challenges, and a `404`.
-- [ ] `dotnet test Surl.Conformance.UnitTests --filter "FullyQualifiedName~OverHttp"` passes on Windows.
+- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~OverHttp"` passes on Windows.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Protocol.Http` keeps
       100% line and branch coverage.
 

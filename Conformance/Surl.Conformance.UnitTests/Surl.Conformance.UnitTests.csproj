@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Conformance.UnitLibrary\Surl.Conformance.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Application\Surl.Console\Surl.Console.csproj" />
+    <ProjectReference Include="..\..\Cryptography\Surl.Kerberos.TestKdc.UnitLibrary\Surl.Kerberos.TestKdc.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

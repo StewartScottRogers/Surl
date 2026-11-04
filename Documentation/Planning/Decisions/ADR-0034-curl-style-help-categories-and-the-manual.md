@@ -28,17 +28,17 @@ mode). Measure the pinned build first.
 
 Where the code is on 2026-09-29:
 
-- `Surl.Cli.UnitLibrary/HelpText.cs` holds one static `Lines` array and `Text`: a
+- `Application/Surl.Cli.UnitLibrary/HelpText.cs` holds one static `Lines` array and `Text`: a
   `Usage: surl [options...] <url>...` line and 28 option lines, alphabetical by long name,
   every description in column 46 (ADR-0007 section 6 with ADR-0010's `--cert-type`,
   `--key-type` and `--pass` rows and ADR-0031 decision 2's lines).
-- `Surl.Cli.UnitLibrary/CommandLineOptions.cs` is the option table; `help` is
-  `CommandLineOptionKind.Help` and takes no argument. `Surl.Cli.UnitLibrary/CommandLineParser.cs`
+- `Application/Surl.Cli.UnitLibrary/CommandLineOptions.cs` is the option table; `help` is
+  `CommandLineOptionKind.Help` and takes no argument. `Application/Surl.Cli.UnitLibrary/CommandLineParser.cs`
   returns `CommandLineParseResult.ShowHelp`, a static property with no subject, the moment it
-  reads `-h` or `--help`. `Surl.Cli.UnitLibrary/CommandLineOutcome.cs` has `Serve`,
+  reads `-h` or `--help`. `Application/Surl.Cli.UnitLibrary/CommandLineOutcome.cs` has `Serve`,
   `ShowHelp`, `ShowVersion` and `Refused`.
-- `Surl.Console/CommandLineRunner.cs` writes `HelpText.Text` to stdout for `ShowHelp`.
-- `Surl.Console/CommandLineRunner.cs` composes the servers that claim `http`, `https`,
+- `Application/Surl.Console/CommandLineRunner.cs` writes `HelpText.Text` to stdout for `ShowHelp`.
+- `Application/Surl.Console/CommandLineRunner.cs` composes the servers that claim `http`, `https`,
   `dict`, `gopher`, `gophers`, `mqtt`, `mqtts`, `telnet` and `tftp`.
 - ADR-0032 (BL-100) adds `-u`/`--user`, `--user-file`, `--allow-anonymous`,
   `--allow-plaintext-auth`, `--auth` and `--self-signed`; ADR-0033 (BL-101) adds
@@ -505,7 +505,7 @@ public sealed class CommandLineParseResult
     // Outcome, CommandLine, Failure, ShowVersion, Serve and Refused are unchanged.
 }
 
-// Surl.Cli.UnitLibrary/HelpText.cs: HelpText.Text is removed.
+// Application/Surl.Cli.UnitLibrary/HelpText.cs: HelpText.Text is removed.
 public static class HelpText
 {
     // What surl writes for a help subject: decision 3.
@@ -525,7 +525,7 @@ public sealed record HelpAnswer(string Output, string Error);
   loosening options and `null` for every other. The categories are
   `internal sealed record HelpCategory(string Name, string Description)` rows in one ordinal
   list, `HelpCategories.All`.
-- `Surl.Console/CommandLineRunner.cs` writes `answer.Output` to its output writer and
+- `Application/Surl.Console/CommandLineRunner.cs` writes `answer.Output` to its output writer and
   `answer.Error` to its error writer for `ShowHelp`, and returns `SurlExitCode.Ok`.
 
 ### 5. The `--help testing` text
@@ -571,7 +571,7 @@ rather than landing it.
 
 - **Parsing:** decision 4. **Output:** the whole text to stdout, exit `Ok` (0), at every log
   level; no subject (curl's `--manual --silent` prints the whole manual).
-- **Where the text lives:** a `string[]` of lines in `Surl.Cli.UnitLibrary/ManualText.cs`,
+- **Where the text lives:** a `string[]` of lines in `Application/Surl.Cli.UnitLibrary/ManualText.cs`,
   `public static class ManualText` with `public static string Text`, each line followed by
   `Environment.NewLine` - the shape `HelpText.cs` has today. Not an embedded resource: a
   source constant needs no resource-reading path under native AOT, has no read failure to

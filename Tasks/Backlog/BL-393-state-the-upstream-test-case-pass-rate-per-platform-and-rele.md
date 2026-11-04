@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-392]
-touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests, Documentation/Conformance, .github/workflows/release.yml]
+touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Documentation/Conformance, .github/workflows/release.yml]
 requirement: none
 created: 2026-11-04
 completed:

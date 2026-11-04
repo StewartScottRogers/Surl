@@ -17,7 +17,7 @@ ADR-0051 decision 2 assigned every algorithm name in the `KEXINIT` of the Window
 then recorded the lists of the Linux and macOS reference pins in `UpstreamCurlBuilds.json`
 (curl 8.21.0, stunnel/static-curl, libssh2 1.11.1 on OpenSSL 4.0.1). They are in BL-172's Notes
 and pinned by `KexInit_LinuxAndMacOSBuilds_ListTheOpenSslAlgorithms` in
-`Surl.Conformance.UnitTests/UpstreamCurlOffersSshAlgorithmsTests.cs` (`OpenSslCipher`,
+`Conformance/Surl.Conformance.UnitTests/UpstreamCurlOffersSshAlgorithmsTests.cs` (`OpenSslCipher`,
 `OpenSslMac`), which runs on the Linux and macOS CI legs. Those lists hold four names that no row
 of ADR-0051 decision 2 covers:
 

@@ -19,7 +19,7 @@ announced one (ADR-0008).
 Every new reply below was fed to pinned upstream curl 8.21.0 (win-x64 reference build,
 SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`) with
 `Record-CurlExchange.ps1 -Response` on 2026-09-29 before a test pinned it; the recordings
-are in `Surl.Protocol.Http.UnitTests/Fixtures/` and listed in its `README.md`:
+are in `Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/` and listed in its `README.md`:
 
 | Reply | curl arguments | Exit code | stderr |
 | --- | --- | --- | --- |

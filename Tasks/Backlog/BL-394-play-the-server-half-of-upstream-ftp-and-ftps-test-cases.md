@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-393]
-touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests, Surl.Protocol.Ftp.UnitLibrary, Surl.Protocol.Ftp.UnitTests, Documentation/Conformance]
+touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests, Documentation/Conformance]
 requirement: none
 created: 2026-11-04
 completed:

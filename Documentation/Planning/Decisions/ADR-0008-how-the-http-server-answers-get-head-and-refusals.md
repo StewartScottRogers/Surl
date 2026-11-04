@@ -58,7 +58,7 @@ a hidden or refused entry from a missing one, and be accepted by pinned upstream
 
 Upstream curl 8.21.0 (the pinned win-x64 build) was fed the 200 GET, 200 HEAD (`-I`) and
 404 (`--fail`) responses byte for byte before the tests pinned them, and exited 0, 0 and
-22; the recordings are in `Surl.Protocol.Http.UnitTests/Fixtures/` (`get-file`,
+22; the recordings are in `Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/` (`get-file`,
 `head-file`, `not-found-fail`).
 
 ## Consequences

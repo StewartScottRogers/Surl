@@ -35,7 +35,7 @@ are Stewart's call (`CLAUDE.md`).
 ## Build it yourself
 
 ```
-dotnet publish Surl.Console -c Release -r <rid> -o publish
+dotnet publish Application/Surl.Console -c Release -r <rid> -o publish
 ```
 
 `<rid>` is one of `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `osx-x64` or

@@ -690,7 +690,7 @@ tester@SURL.TEST:<password>`:
   4121 wrap token, **sealed** (`Flags` `02`), `EC` 0, `RRC` 28, the client's sequence numbers
   from the authenticator's. Surl's replies sealed the same way (`SentByAcceptor`, `Sealed`, `EC` 0,
   `RRC` 28, sequence numbers from the AP-REP's) were read: curl printed the entry, sent its unbind
-  sealed, and **exited 0**. The recording is `Surl.Authentication.UnitTests/Fixtures/ldap-kerberos-sealed`.
+  sealed, and **exited 0**. The recording is `Foundation/Surl.Authentication.UnitTests/Fixtures/ldap-kerberos-sealed`.
 
 To answer the bind while recording, `Record-CurlExchange.ps1` gained `-LdapKerberosAcceptor`,
 which hands the bind and each buffer to `Run-KerberosAcceptor.cs` (a C# file-based app over

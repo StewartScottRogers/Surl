@@ -21,11 +21,11 @@ curl was measured to send, and the HTTP/2 tasks BL-365 to BL-371 build what it d
 ## Context
 
 - Scope: the product overview, "Also in scope" ("HTTP versions: 1.0, 1.1, 2 and 3 over QUIC, on the
-  server side") and Phasing row 6. `Surl.Protocol.Http.UnitLibrary/CLAUDE.md` says "hand-built HTTP/2
+  server side") and Phasing row 6. `Protocols/Http/Surl.Protocol.Http.UnitLibrary/CLAUDE.md` says "hand-built HTTP/2
   and HTTP/3". The BCL has no public HTTP/2 server framing and no HPACK, so both are hand-built (root
   `CLAUDE.md`, "Decisions").
 - ADR-0010 section 4: `https` and `wss` offer exactly ALPN `http/1.1` today
-  (`Surl.Networking.UnitLibrary/TlsApplicationProtocols.cs`), and "`h2` joins the list with the HTTP/2
+  (`Foundation/Surl.Networking.UnitLibrary/TlsApplicationProtocols.cs`), and "`h2` joins the list with the HTTP/2
   server, in the ADR that task records".
 - What upstream curl 8.21.0 does (tag `curl-8_21_0`, `docs/cmdline-opts/http2.md` and
   `http2-prior-knowledge.md`):

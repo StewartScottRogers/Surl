@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: [BL-386]
-touches: [.gitattributes, Surl.Conformance.UnitTests]
+touches: [.gitattributes, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -21,7 +21,7 @@ ADR puts it, with curl's `COPYING` notice beside it. It is copied into the test 
 ## Context
 
 - Decision: BL-386's ADR, decision 1 (location, how it is fetched, the notice, line endings). The
-  planning assumption is a folder inside `Surl.Conformance.UnitTests`. The flat layout rule (root
+  planning assumption is a folder inside `Conformance/Surl.Conformance.UnitTests`. The layout rule (root
   `CLAUDE.md`) forbids a new top-level `tests/`.
 - Source: https://github.com/curl/curl at tag `curl-8_21_0` (commit `68720b48`). For example, fetch it
   with `git archive` or a shallow clone into the scratchpad, then copy `tests/data/*` and `COPYING`.

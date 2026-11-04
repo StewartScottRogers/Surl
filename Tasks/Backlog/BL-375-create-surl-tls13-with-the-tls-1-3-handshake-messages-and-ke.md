@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-372]
-touches: [Surl.slnx, Surl.Tls13.UnitLibrary, Surl.Tls13.UnitTests, Surl.Protocol.Abstractions.UnitTests]
+touches: [Surl.slnx, Surl.Tls13.UnitLibrary, Surl.Tls13.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:

@@ -24,7 +24,7 @@ Two rules bound every choice:
   exchange context's `TimeProvider` (ADR-0004, section 5); no package.
 
 Inputs: the listener seam and exchange context (ADR-0004), the exit-code table
-(ADR-0005), and `Surl.Content.UnitLibrary/CLAUDE.md` (a request path never escapes the
+(ADR-0005), and `Foundation/Surl.Content.UnitLibrary/CLAUDE.md` (a request path never escapes the
 content store's root).
 
 ### What upstream curl 8.21.0 does by default
@@ -146,7 +146,7 @@ What each limit means:
 | Dot-files: any path with a segment that starts with `.` | **hidden**: answered as absent, and left out of every listing | `--serve-dot-files` |
 
 - A link whose target resolves outside the root is refused whatever the options
-  (`Surl.Content.UnitLibrary/CLAUDE.md`).
+  (`Foundation/Surl.Content.UnitLibrary/CLAUDE.md`).
 - "Answered as absent" means the protocol's not-found answer, identical to the answer for
   a path that does not exist, so a peer cannot tell a hidden entry from a missing one.
   A refused listing is answered as absent too. A refused upload gets the protocol's

@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-388]
-touches: [Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests, Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests]
+touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:

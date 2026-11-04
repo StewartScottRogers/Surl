@@ -39,7 +39,7 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File .claude/skills/task-board/task-board.ps1 status
 
 .EXAMPLE
-    ... task-board.ps1 new -Title "Parse --max-time" -Pipeline feature -DependsOn BL-012,BL-013 -Touches Surl.Cli.UnitLibrary,Surl.Cli.UnitTests
+    ... task-board.ps1 new -Title "Parse --max-time" -Pipeline feature -DependsOn BL-012,BL-013 -Touches Application/Surl.Cli.UnitLibrary,Application/Surl.Cli.UnitTests
 
 .EXAMPLE
     ... task-board.ps1 move -Id BL-014 -To Blocked -Reason "Needs Stewart to approve an ADR on X."
@@ -175,8 +175,8 @@ function ConvertTo-TouchPath([string] $Item) {
 }
 
 # Two tasks overlap when either may touch anything, or one names a path equal to or
-# inside a path the other names. Surl.Core.UnitLibrary overlaps
-# Surl.Core.UnitLibrary/Transfer.cs; it does not overlap Surl.Core.UnitTests.
+# inside a path the other names. Foundation/Surl.Core.UnitLibrary overlaps
+# Foundation/Surl.Core.UnitLibrary/Transfer.cs; it does not overlap Foundation/Surl.Core.UnitTests.
 function Test-Overlap([string[]] $A, [string[]] $B) {
     if ($A -contains '*' -or $B -contains '*') { return $true }
     foreach ($x in $A) {

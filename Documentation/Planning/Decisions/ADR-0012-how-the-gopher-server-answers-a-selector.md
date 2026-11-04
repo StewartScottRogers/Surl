@@ -14,7 +14,7 @@ reply looks like. Every byte had to be accepted by pinned upstream curl 8.21.0
 (ADR-0003) before it was pinned.
 
 What the pinned build sends was measured with `Record-CurlExchange.ps1 -Raw` first
-(`Surl.Protocol.Gopher.UnitTests/Fixtures/README.md`): the URL path without its first
+(`Protocols/Lookup/Surl.Protocol.Gopher.UnitTests/Fixtures/README.md`): the URL path without its first
 character (the item type), URL-decoded, then CRLF; the empty selector for the root; a
 `%09` becomes a TAB followed by the search words. Without `--path-as-is` curl removes dot
 segments, percent-encoded ones included, before sending; with it, or with `%252e`, a

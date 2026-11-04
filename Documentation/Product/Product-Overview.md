@@ -575,8 +575,11 @@ in its own `Surl.<Area>.UnitLibrary` (`CLAUDE.md`, "Decisions").
 
 ## Project layout
 
-Flat: every project is a directory immediately under the repository root, each production
-project followed by its `.UnitTests` twin (`CLAUDE.md`, "Repository layout"). Every
+Every project sits in a category folder - `Application/`, `Conformance/`, `Cryptography/`,
+`Foundation/` and, for the protocol servers and the libraries they share, `Protocols/` with
+`FileTransfer/`, `Http/`, `Lookup/`, `Mail/`, `Messaging/` and `Terminal/` - each production
+project beside its `.UnitTests` twin ([ADR-0079](../Planning/Decisions/ADR-0079-projects-are-grouped-in-category-folders.md);
+`CLAUDE.md`, "Repository layout"). Every
 project of ADR-0002's map exists from the first commit; the nine hand-built SSH primitive
 libraries (four of ADR-0048, two of ADR-0051 and three of ADR-0061), the Kerberos library of
 ADR-0057, the mail servers' two shared libraries of ADR-0050, the loopback test KDC of

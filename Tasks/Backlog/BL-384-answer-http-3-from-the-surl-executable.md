@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-379, BL-381, BL-383]
-touches: [Surl.Console, Surl.Console.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests, Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -21,7 +21,7 @@ any `Alt-Svc` field the ADR calls for, and `surl --aihelp` describes it.
 ## Context
 
 - Decision: BL-372's ADR, decision 6 (default on or off, any option, the port, and `Alt-Svc`).
-- `Surl.Console/CommandLineRunner.cs` `ComposeProtocolServers` registers each server and its
+- `Application/Surl.Console/CommandLineRunner.cs` `ComposeProtocolServers` registers each server and its
   listeners. `Surl.Cli.UnitLibrary` holds the option table, `AiHelpProse` and `AiHelpExamples`. Root
   `CLAUDE.md`, "`surl --aihelp`": a new option needs its `OptionArgumentType` and a place on its
   categories' pages, and the behaviour that an `AiHelpProse` paragraph or `AiHelpExamples` entry
@@ -40,7 +40,7 @@ any `Alt-Svc` field the ADR calls for, and `surl --aihelp` describes it.
 - [ ] If the ADR decides on `Alt-Svc`, an `https` response over HTTP/1.1 and over HTTP/2 carries the
       field the ADR specifies, pinned in a `Surl.Protocol.Http.UnitTests` test.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, the touched projects keep 100%
-      line and branch coverage, and `dotnet publish Surl.Console -c Release -r win-x64` succeeds with
+      line and branch coverage, and `dotnet publish Application/Surl.Console -c Release -r win-x64` succeeds with
       no trim or AOT warning.
 
 ## Notes

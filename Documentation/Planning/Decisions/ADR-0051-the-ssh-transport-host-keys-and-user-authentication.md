@@ -813,13 +813,13 @@ memberships.
 - `Requirements.md`'s FR-039 and FR-040 read this ADR when BL-171 and BL-172 land.
 - Fixtures: this task's `touches` do not include `Surl.Protocol.Ssh.UnitTests`, so the
   recordings live above as hex; BL-159 turns runs D and F into fixtures under
-  `Surl.Protocol.Ssh.UnitTests/Fixtures/`, re-recorded with the same command lines.
+  `Protocols/FileTransfer/Surl.Protocol.Ssh.UnitTests/Fixtures/`, re-recorded with the same command lines.
 
 ## Amendment 1 - How `Surl.Console` composes the SSH server (BL-171, recorded by BL-249, 2026-09-30)
 
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
 BL-171 (FR-041), and recorded here by BL-249 because this folder was outside BL-171's `touches`.
-The code is `Surl.Console/SshHostKeyComposition.cs` and `Surl.Console/CommandLineRunner.cs`.
+The code is `Application/Surl.Console/SshHostKeyComposition.cs` and `Application/Surl.Console/CommandLineRunner.cs`.
 
 1. **The host-key note carries the `* ` prefix, and is written only when SSH is served.** Decision
    8's note is written `* Serving SSH host key <key type>, --hostpubsha256 <base64> --hostpubmd5 <hex>`
@@ -859,8 +859,8 @@ The code is `Surl.Console/SshHostKeyComposition.cs` and `Surl.Console/CommandLin
 
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
 BL-222 (FR-039), where decisions 2, 4 and 5 are silent. The code is
-`Surl.Protocol.Ssh.UnitLibrary/SshHostCertificate.cs`, `SshCertifiedHostKey.cs`, `SshHostKeySet.cs`
-and `SshAlgorithmOffer.cs`, and `Surl.Console/SshHostKeyComposition.cs`. Nothing here was measured
+`Protocols/FileTransfer/Surl.Protocol.Ssh.UnitLibrary/SshHostCertificate.cs`, `SshCertifiedHostKey.cs`, `SshHostKeySet.cs`
+and `SshAlgorithmOffer.cs`, and `Application/Surl.Console/SshHostKeyComposition.cs`. Nothing here was measured
 from upstream curl: a host certificate is read by surl alone, and the names offered are the ones
 decision 2's measured lists already hold.
 

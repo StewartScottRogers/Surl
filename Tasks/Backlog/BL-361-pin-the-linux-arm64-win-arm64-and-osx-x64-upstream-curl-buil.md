@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: direct
 depends-on: [BL-357, BL-360]
-touches: [UpstreamCurlBuilds.json, Documentation/Planning/Decisions, .github/workflows/ci.yml, .github/workflows/release.yml, Surl.Conformance.UnitLibrary, Surl.Conformance.UnitTests]
+touches: [UpstreamCurlBuilds.json, Documentation/Planning/Decisions, .github/workflows/ci.yml, .github/workflows/release.yml, Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -27,7 +27,7 @@ those three runtime identifiers using them.
 - Shape to copy: ADR-0016 (how CI downloads a stunnel build, caches it by SHA-256 and verifies it),
   and the steps of `.github/workflows/ci.yml` from "Read the upstream curl pin" to "Verify the
   upstream curl build".
-- `UpstreamCurlLocator.CurrentPlatform` (`Surl.Conformance.UnitLibrary/UpstreamCurlLocator.cs`) builds
+- `UpstreamCurlLocator.CurrentPlatform` (`Conformance/Surl.Conformance.UnitLibrary/UpstreamCurlLocator.cs`) builds
   the platform name from the OS and architecture. Check that it answers `linux-arm64`, `win-arm64`
   and `osx-x64` on those runners.
 - Decision 4 of BL-358's ADR says where these runs go. BL-360 wired up the other three runtime

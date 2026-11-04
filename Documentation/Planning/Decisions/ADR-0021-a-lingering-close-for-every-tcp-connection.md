@@ -27,7 +27,7 @@ recorder answered after the head with `413 Content Too Large`, `Content-Length: 
 
 With a lingering close curl read the whole reply, then stopped sending and closed its end
 within about 50 ms of the reply. One run of each is kept in
-`Surl.Networking.UnitTests/Fixtures/` (`lingering-close-off`, `lingering-close-on`).
+`Foundation/Surl.Networking.UnitTests/Fixtures/` (`lingering-close-off`, `lingering-close-on`).
 
 ## Decision
 

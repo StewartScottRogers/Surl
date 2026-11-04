@@ -19,7 +19,7 @@ through `Record-CurlExchange.ps1` (BL-083 added its `-InterimResponse` parameter
 
 | Server sends | curl |
 | --- | --- |
-| `HTTP/1.1 100 Continue\r\n\r\n` once the head arrived, then the 200 after the body | sent its 16-byte body at once and exited 0 after 105 ms; recorded as `Surl.Protocol.Http.UnitTests/Fixtures/expect-continue-get` |
+| `HTTP/1.1 100 Continue\r\n\r\n` once the head arrived, then the 200 after the body | sent its 16-byte body at once and exited 0 after 105 ms; recorded as `Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/expect-continue-get` |
 | nothing until the body, then the 200 | sent only its 178-byte head, waited, and exited 0 after 1037 ms: its one-second `--expect100-timeout` |
 
 ## Decision

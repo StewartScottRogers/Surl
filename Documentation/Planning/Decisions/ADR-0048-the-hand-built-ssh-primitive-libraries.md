@@ -21,7 +21,7 @@ Where things stand on 2026-09-29:
 
 - `Surl.Cryptography.UnitLibrary` holds `Sha512Slash256` (BL-112) and `Md4` (BL-119),
   references nothing, and is the only hand-built library in ADR-0002's table.
-  `Surl.Cryptography.UnitLibrary/CLAUDE.md` says the SSH primitives would land there too.
+  `Cryptography/Surl.Cryptography.UnitLibrary/CLAUDE.md` says the SSH primitives would land there too.
 - The plan already names four libraries for them: BL-149 creates the projects, BL-150 to
   BL-153 build one primitive each, and BL-167 to BL-169 use them in `Surl.Protocol.Ssh`.
 - The dark factory never gives two lanes tasks whose `touches` overlap, and a task's
@@ -95,7 +95,7 @@ Poly1305 whatever the platform.
 
 5. **`Surl.Cryptography.UnitLibrary` keeps what it holds** (`Sha512Slash256`, `Md4`) and is
    not where the SSH primitives go. The statement in
-   `Surl.Cryptography.UnitLibrary/CLAUDE.md` that they would land there is superseded by
+   `Cryptography/Surl.Cryptography.UnitLibrary/CLAUDE.md` that they would land there is superseded by
    this ADR.
 
 6. **Copying from the Curl port is allowed as code.** The Curl port's
@@ -120,7 +120,7 @@ Costs and caveats:
 - Eight more projects in `Surl.slnx`, and four more rows to keep true in ADR-0002's table
   and `ProtocolIsolationTests`.
 - `Surl.Cryptography.UnitLibrary` and the four libraries share a name prefix without one
-  referencing the others; the prefix groups them in the flat, ordinal project run and
+  referencing the others; the prefix groups them in the ordinal project run (now inside `Cryptography/`, ADR-0079) and
   implies no dependency.
 
 ## Alternatives considered

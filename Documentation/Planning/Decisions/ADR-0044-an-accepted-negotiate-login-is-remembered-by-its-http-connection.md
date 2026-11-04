@@ -24,7 +24,7 @@ Pinned upstream curl 8.21.0, stunnel/static-curl's Windows build
 `Record-CurlExchange.ps1 -Port 18135 -ResponsesPerConnection 3`,
 `--negotiate -u tester:secret` with two URLs, `/x` and `/y`, answered with ADR-0042's recorded
 `Negotiate` `CHALLENGE_MESSAGE` and then two `200`s (fixture `negotiate-ntlm-two-urls` in
-`Surl.Authentication.UnitTests/Fixtures`). curl sent the `NEGOTIATE_MESSAGE` and the
+`Foundation/Surl.Authentication.UnitTests/Fixtures`). curl sent the `NEGOTIATE_MESSAGE` and the
 `AUTHENTICATE_MESSAGE` after `Negotiate` for `/x`, then `GET /y` on the same connection with
 **no `Authorization` field**, and exited 0 with `okok` - as it does for NTLM (ADR-0041).
 

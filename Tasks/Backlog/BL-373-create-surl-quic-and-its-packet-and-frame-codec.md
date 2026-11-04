@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-372]
-touches: [Surl.slnx, Surl.Quic.UnitLibrary, Surl.Quic.UnitTests, Surl.Protocol.Abstractions.UnitTests]
+touches: [Surl.slnx, Surl.Quic.UnitLibrary, Surl.Quic.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -26,7 +26,7 @@ every frame type of RFC 9000 as typed values, and rejects malformed input with t
   platform with no hand-built QUIC, move this task to `Deferred` with the ADR as the reason.
 - To create the project, copy BL-292's change for `Surl.HttpMessage` (commit `5008a375`): the csproj
   pair, `CLAUDE.md`, two `Surl.slnx` lines in ordinal order, and the row in
-  `Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`.
+  `Foundation/Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`.
 - RFC 9000: section 16 (variable-length integers), 17 (packet formats: Initial, 0-RTT, Handshake,
   Retry, Version Negotiation, 1-RTT short header), 12.4 and 19 (frames), and 20 (error codes). This
   task covers headers and frames in the clear. Packet protection is BL-374.

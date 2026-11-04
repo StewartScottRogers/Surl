@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-358]
-touches: [Surl.Conformance.UnitTests]
+touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -22,7 +22,7 @@ conformance suite then proves the native binary.
 ## Context
 
 - Decision: decision 2 of BL-358's ADR. If the ADR names another setting or shape, follow the ADR.
-- `Surl.Conformance.UnitTests/SurlOnLoopback.cs` runs surl in-process through the `Surl.Console` entry
+- `Conformance/Surl.Conformance.UnitTests/SurlOnLoopback.cs` runs surl in-process through the `Surl.Console` entry
   point. It waits for each `Listening on ` status line and exposes `BaseUrl`, `BaseUrls`, `Log`
   (surl's error stream) and `ServedDirectory`. It stops surl by cancelling a `CancellationTokenSource`.
   A process needs another way to stop: read how `Surl.Console` ends on Ctrl+C or SIGTERM before
@@ -32,14 +32,14 @@ conformance suite then proves the native binary.
 ## Acceptance criteria
 
 - [ ] With the setting unset, `SurlOnLoopback` behaves as it does today.
-- [ ] With the setting naming the `surl.exe` that `dotnet publish Surl.Console -c Release -r win-x64 -o <dir>`
+- [ ] With the setting naming the `surl.exe` that `dotnet publish Application/Surl.Console -c Release -r win-x64 -o <dir>`
       produced, this passes on Windows, with the result recorded in Notes:
-      `dotnet test Surl.Conformance.UnitTests --filter "FullyQualifiedName~UpstreamCurlFetchesFromSurlOverHttp11Tests"`.
+      `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~UpstreamCurlFetchesFromSurlOverHttp11Tests"`.
 - [ ] When the setting names a file that does not exist, each test fails with a message naming the
       path instead of hanging.
 - [ ] Disposing stops the process within the test's timeout, and kills it if it is still alive. No
       `surl` process outlives the test run.
-- [ ] `dotnet build Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests are green.
+- [ ] `dotnet build Conformance/Surl.Conformance.UnitTests -warnaserror` is clean and the fast tests are green.
 
 ## Notes
 

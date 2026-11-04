@@ -530,7 +530,7 @@ this ADR.
 
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
 BL-202, where decisions 4 and 7 left a detail open. None changes a byte curl 8.21.0 sends or reads
-in the rows above; the fetch and search fixtures of BL-202 (`Surl.Protocol.Imap.UnitTests/Fixtures`)
+in the rows above; the fetch and search fixtures of BL-202 (`Protocols/Mail/Surl.Protocol.Imap.UnitTests/Fixtures`)
 were served to the pinned build and it exited 0 on each.
 
 - **Quoted or literal.** An `ENVELOPE` or `BODYSTRUCTURE` string is quoted only when every byte is
@@ -570,7 +570,7 @@ were served to the pinned build and it exited 0 on each.
 
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
 BL-203, where decisions 6 to 8 left a detail open. None changes a byte curl 8.21.0 sends or reads
-in the rows above; the twelve `-T` and `-X` fixtures of BL-203 (`Surl.Protocol.Imap.UnitTests/Fixtures`)
+in the rows above; the twelve `-T` and `-X` fixtures of BL-203 (`Protocols/Mail/Surl.Protocol.Imap.UnitTests/Fixtures`)
 were served to the pinned build and it exited 0 on each.
 
 - **`APPEND`'s checks, in order**, before the `+`: the login (decision 10), the arguments (`BAD
@@ -613,7 +613,7 @@ were served to the pinned build and it exited 0 on each.
 
 Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-30, in
 BL-204, where decisions 2, 10 and 11 left a detail open. The fifteen `STARTTLS`, `imaps` and
-`AUTHENTICATE` fixtures of BL-204 (`Surl.Protocol.Imap.UnitTests/Fixtures`, recorded with the
+`AUTHENTICATE` fixtures of BL-204 (`Protocols/Mail/Surl.Protocol.Imap.UnitTests/Fixtures`, recorded with the
 pinned win-x64 build, SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`)
 were served to that build before any test pinned them.
 
@@ -684,7 +684,7 @@ were served to that build before any test pinned them.
   decision 15's table.
 - The fixtures those tasks replay are recorded again from this ADR's rows with
   `Record-CurlExchange.ps1 -Imap` and the overrides named, and live under
-  `Surl.Protocol.Imap.UnitTests/Fixtures/<case>/` with a `README.md` (build, SHA-256, command line,
+  `Protocols/Mail/Surl.Protocol.Imap.UnitTests/Fixtures/<case>/` with a `README.md` (build, SHA-256, command line,
   date).
 - `Surl.Protocol.Imap` carries its own RFC 5322 and MIME structure parser for `ENVELOPE`,
   `BODYSTRUCTURE`, sections and `SEARCH`; the store stays bytes only.

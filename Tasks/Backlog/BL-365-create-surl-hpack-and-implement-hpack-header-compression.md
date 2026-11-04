@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-364]
-touches: [Surl.slnx, Surl.Hpack.UnitLibrary, Surl.Hpack.UnitTests, Surl.Protocol.Abstractions.UnitTests]
+touches: [Surl.slnx, Surl.Hpack.UnitLibrary, Surl.Hpack.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -27,7 +27,7 @@ That includes the Huffman code, which BL-382's QPACK reuses.
   csproj with the references the ADR allows and `InternalsVisibleTo` its tests, a test csproj that uses
   MSTest through central package management with no `Version`, a `CLAUDE.md`, two `Surl.slnx` lines in
   ordinal order with the tests directly after the library, and the library's row in
-  `Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`.
+  `Foundation/Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`.
 - RFC 7541 covers integer representation (5.1), string literals (5.2), the static table (Appendix A),
   the dynamic table and its size updates (4, 6.3), and the Huffman code (Appendix B).
 - A decoder bounds what it holds by the header-list limit the ADR maps from `--max-message` (ADR-0006

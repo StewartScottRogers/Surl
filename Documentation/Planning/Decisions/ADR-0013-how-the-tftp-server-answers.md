@@ -14,7 +14,7 @@ what `netascii` mode does. Every byte had to be accepted by pinned upstream curl
 (ADR-0003) before it was pinned.
 
 What the pinned build sends was measured with `Record-CurlExchange.ps1 -Tftp` first
-(`Surl.Protocol.Tftp.UnitTests/Fixtures/README.md`). By default curl's RRQ carries
+(`Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests/Fixtures/README.md`). By default curl's RRQ carries
 `tsize 0`, `blksize 512` and `timeout 6`, in that order; `--tftp-blksize 1024` changes
 only the `blksize` value; `--tftp-no-options` sends no option at all. curl sends the URL
 path without its first `/` and percent-decoded, so `tftp://h/sub/a%20b%25c%C3%A9.txt`

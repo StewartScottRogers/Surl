@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-369, BL-370]
-touches: [Surl.Conformance.UnitTests]
+touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:

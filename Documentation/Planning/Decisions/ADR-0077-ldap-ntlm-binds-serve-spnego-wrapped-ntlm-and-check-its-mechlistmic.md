@@ -20,7 +20,7 @@ reference build through `Record-CurlExchange.ps1 -Ldap`, in ten configurations: 
 granting sign and seal (`35828AE0`) or not (`058288E2`); a root DSE listing `GSS-SPNEGO` and
 `NTLM`, `NTLM` only, or nothing; `127.0.0.1` and `localhost`. Every Sicily `[10]` and `[11]`
 credential and every `GSS-SPNEGO` credential was a bare `NTLMSSP` message, the version 2 Sicily
-retry included, as BL-329's `Surl.Authentication.UnitTests/Fixtures/ldap-negotiate-sealed`
+retry included, as BL-329's `Foundation/Surl.Authentication.UnitTests/Fixtures/ldap-negotiate-sealed`
 transcript also shows. So no pinned upstream curl was measured to send SPNEGO-wrapped NTLM to an
 LDAP server; ADR-0072 is corrected to say so.
 

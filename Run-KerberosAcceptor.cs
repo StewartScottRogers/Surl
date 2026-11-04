@@ -1,4 +1,4 @@
-#:project Surl.Kerberos.UnitLibrary/Surl.Kerberos.UnitLibrary.csproj
+#:project Cryptography/Surl.Kerberos.UnitLibrary/Surl.Kerberos.UnitLibrary.csproj
 
 // Answers a pinned upstream curl build's Kerberos inside an LDAP GSS-SPNEGO bind for
 // Record-CurlExchange.ps1 -LdapKerberosAcceptor (BL-327, ADR-0072 Amendment 1), with the keys

@@ -18,7 +18,7 @@ step 5).
 Pinned upstream curl 8.21.0 (win-x64 reference build), `Record-CurlExchange.ps1 -Port 18133
 -ResponsesPerConnection 3`, `--ntlm -u tester:secret` with two URLs, `/x` and `/y`, answered with
 ADR-0039's recorded `CHALLENGE_MESSAGE` and then two `200`s (fixture `ntlm-two-urls` in
-`Surl.Authentication.UnitTests/Fixtures`). curl sent the `NEGOTIATE_MESSAGE` and the
+`Foundation/Surl.Authentication.UnitTests/Fixtures`). curl sent the `NEGOTIATE_MESSAGE` and the
 `AUTHENTICATE_MESSAGE` for `/x`, then `GET /y` on the same connection with **no `Authorization`
 field**, and exited 0 with `okok`. This is `lib/http_ntlm.c`'s `NTLMSTATE_LAST`: once the
 handshake succeeded, the connection is authenticated and curl stops sending the header.

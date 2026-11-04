@@ -17,7 +17,7 @@ lifetime and `stale=true` to BL-113. It keeps account passwords only as SHA-256 
 Measured on 2026-09-29 with `Record-CurlExchange.ps1 -Connections 2` and the pinned reference
 build (curl 8.21.0, win-x64, SSPI, SHA-256 `0E773709…8778`), connection 1 answering a `401`
 with the MD5 challenge above and the fixed nonce `fixturenonce`; fixtures in
-`Surl.Authentication.UnitTests/Fixtures/digest-*`:
+`Foundation/Surl.Authentication.UnitTests/Fixtures/digest-*`:
 
 - `--digest -u tester:secret` answered `algorithm=MD5`, `qop="auth"`, `uri="/x"`, a 32-digit
   `cnonce` and, on this run, `nc=00000002`; an `MD5-sess` challenge was answered with

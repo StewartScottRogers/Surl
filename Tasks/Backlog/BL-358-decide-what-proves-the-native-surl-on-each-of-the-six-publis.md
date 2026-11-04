@@ -27,7 +27,7 @@ and Phase 6's "native publish on every platform" are then proven by checks inste
 - What exists on 2026-11-04:
   - `.github/workflows/release.yml` publishes all six runtime identifiers, each on a runner of its own
     OS: `windows-latest`, `windows-11-arm`, `ubuntu-22.04`, `ubuntu-22.04-arm`, and `macos-latest` for
-    both macOS identifiers. It runs as a dry run on pull requests that touch `Surl.Console/**`,
+    both macOS identifiers. It runs as a dry run on pull requests that touch `Application/Surl.Console/**`,
     `Directory.Build.props` or `global.json`. Those dry runs passed, most recently on 2026-10-01.
   - Its smoke test only runs `surl --version` and accepts exit 0 or 2, under a stale comment ("until
     Phase 1 lands it exits 2"). The smoke test is skipped for `osx-x64`, because `macos-latest` is

@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-368]
-touches: [Surl.Networking.UnitLibrary, Surl.Networking.UnitTests, Surl.Protocol.Http.UnitLibrary, Surl.Protocol.Http.UnitTests, Surl.Conformance.UnitTests, Surl.Cli.UnitLibrary, Surl.Cli.UnitTests]
+touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests, Conformance/Surl.Conformance.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -22,10 +22,10 @@ is served as it is today.
 
 - Decision: BL-364's ADR, decision 2. That decision covers the list, the option that turns HTTP/2
   off (if there is one), and what happens to `wss`.
-- `Surl.Networking.UnitLibrary/TlsApplicationProtocols.cs` offers `http/1.1` for `https` and `wss`.
+- `Foundation/Surl.Networking.UnitLibrary/TlsApplicationProtocols.cs` offers `http/1.1` for `https` and `wss`.
   `TlsApplicationProtocolsTests` pins that. ADR-0010 section 4 is amended by BL-364.
 - The HTTP server reads the agreed protocol from `TlsSession.ApplicationProtocol`
-  (`Surl.Protocol.Abstractions.UnitLibrary/TlsSession.cs`, ADR-0010) and picks HTTP/2 (BL-368's
+  (`Foundation/Surl.Protocol.Abstractions.UnitLibrary/TlsSession.cs`, ADR-0010) and picks HTTP/2 (BL-368's
   connection) or HTTP/1.x.
 - Once `h2` is offered, the Linux and macOS reference builds negotiate HTTP/2 for every `https` test
   in `Surl.Conformance.UnitTests` (curl negotiates HTTP/2 for HTTPS by default:
@@ -44,7 +44,7 @@ is served as it is today.
       HTTP version it asks for (for example `--http1.1`) or pins the HTTP/2 output, as the ADR
       decides. Notes list each test changed.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, both libraries keep 100% line
-      and branch coverage, and `dotnet test Surl.Conformance.UnitTests --filter "FullyQualifiedName~OverHttps"`
+      and branch coverage, and `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~OverHttps"`
       passes on Windows.
 
 ## Notes

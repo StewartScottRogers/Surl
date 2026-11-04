@@ -28,29 +28,29 @@ Stewart's approval of 2026-09-29, summarised:
 
 The code this changes, as it is today:
 
-- `Surl.Cli.UnitLibrary/SurlCommandLine.cs`: `ServedDirectory` is a `string` defaulting to
-  `"."`; `Surl.Cli.UnitLibrary/HelpText.cs` says `Directory to serve (default: current directory)`.
-- `Surl.Console/CommandLineRunner.cs`: `ServeAsync` probes the directory
-  (`Surl.Console/ServedDirectoryProbe.cs`, `CouldNotReadFile` 37 with
+- `Application/Surl.Cli.UnitLibrary/SurlCommandLine.cs`: `ServedDirectory` is a `string` defaulting to
+  `"."`; `Application/Surl.Cli.UnitLibrary/HelpText.cs` says `Directory to serve (default: current directory)`.
+- `Application/Surl.Console/CommandLineRunner.cs`: `ServeAsync` probes the directory
+  (`Application/Surl.Console/ServedDirectoryProbe.cs`, `CouldNotReadFile` 37 with
   `(37) Could not open directory <path>` on failure), then checks every scheme, then serves.
   `ComposeContentStore` builds a `ContentStore` over `DiskContentFileSystem` at the
   directory's full path; `ComposeProtocolServers` builds
   `new MqttProtocolServer(new MqttRetainedMessages())`.
-- `Surl.Content.UnitLibrary/IContentFileSystem.cs` is the seam every served byte passes
-  through; `Surl.Content.UnitLibrary/DiskContentFileSystem.cs` is the only class in
-  `Surl.Content` that touches the disk. `Surl.Content.UnitLibrary/ContentStore.cs` hides
+- `Foundation/Surl.Content.UnitLibrary/IContentFileSystem.cs` is the seam every served byte passes
+  through; `Foundation/Surl.Content.UnitLibrary/DiskContentFileSystem.cs` is the only class in
+  `Surl.Content` that touches the disk. `Foundation/Surl.Content.UnitLibrary/ContentStore.cs` hides
   dot-files unless `ContentExposureOptions.ServeDotFiles`, and writes an upload to a
   temporary `.surl-upload-<guid>` dot-file beside the target before renaming it into place
   (BL-086). A write that throws is rethrown after the temporary file is deleted.
 - Of today's servers only TFTP accepts uploads
-  (`Surl.Protocol.Tftp.UnitLibrary/TftpWriteTransfer.cs`, which answers an `IOException`
+  (`Protocols/FileTransfer/Surl.Protocol.Tftp.UnitLibrary/TftpWriteTransfer.cs`, which answers an `IOException`
   with TFTP error 3, "disk full"); the HTTP server answers `PUT` with `405`.
-- `Surl.Protocol.Mqtt.UnitLibrary/MqttRetainedMessages.cs` keeps retained messages in a
+- `Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary/MqttRetainedMessages.cs` keeps retained messages in a
   dictionary bounded by `MaxTopics` (10000) and `MaxTotalPayloadBytes` (100 MiB)
   (ADR-0014 decision 7); `Retain` is its only mutator. The MQTT library references only
   `Surl.Protocol.Abstractions.UnitLibrary` today; ADR-0002 lets it reference
   `Surl.Content.UnitLibrary`.
-- `Surl.Protocol.Abstractions.UnitLibrary/SurlExitCode.cs` holds ADR-0005's table plus
+- `Foundation/Surl.Protocol.Abstractions.UnitLibrary/SurlExitCode.cs` holds ADR-0005's table plus
   ADR-0010's rows; ADR-0005 section 3 says a failure with a server-side meaning curl also
   has reuses curl's number, and one with none counts down from 125.
 

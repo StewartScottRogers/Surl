@@ -21,19 +21,19 @@ curl's own shape: levels from silent to a full byte dump.
 
 Where the code is on 2026-09-29:
 
-- `Surl.Cli.UnitLibrary/SurlCommandLine.cs` has `bool Verbose`; `Surl.Cli.UnitLibrary/CommandLineOptions.cs`
+- `Application/Surl.Cli.UnitLibrary/SurlCommandLine.cs` has `bool Verbose`; `Application/Surl.Cli.UnitLibrary/CommandLineOptions.cs`
   lists `verbose` (`-v`) as a negatable flag.
-- `Surl.Output.UnitLibrary/VerboseExchangeLogFactory.cs` creates a `VerboseExchangeLog`
-  (`Surl.Output.UnitLibrary/VerboseExchangeLog.cs`) or `SilentExchangeLog`
-  (`Surl.Output.UnitLibrary/SilentExchangeLog.cs`), and writes `NoteOutsideExchange` lines as
+- `Foundation/Surl.Output.UnitLibrary/VerboseExchangeLogFactory.cs` creates a `VerboseExchangeLog`
+  (`Foundation/Surl.Output.UnitLibrary/VerboseExchangeLog.cs`) or `SilentExchangeLog`
+  (`Foundation/Surl.Output.UnitLibrary/SilentExchangeLog.cs`), and writes `NoteOutsideExchange` lines as
   `#- * <text>` ([ADR-0028](ADR-0028-a-connection-refused-past-a-limit-is-noted-outside-any-exchange.md)).
-  `Surl.Output.UnitLibrary/ListenerStatusLine.cs` writes `Listening on ...` to stdout.
-- `Surl.Console/CommandLineRunner.cs` writes every `surl: ` message to its `error` writer, the
+  `Foundation/Surl.Output.UnitLibrary/ListenerStatusLine.cs` writes `Listening on ...` to stdout.
+- `Application/Surl.Console/CommandLineRunner.cs` writes every `surl: ` message to its `error` writer, the
   [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md) section 9
   `surl: warning: ...` lines always, and `* Serving a throwaway certificate, SHA-256 <fingerprint>`
   with `-v` only.
-- The engine's notes, as `Surl.Core.UnitLibrary/ServingEngine.cs` and
-  `Surl.Core.UnitLibrary/ServingEngine.Datagrams.cs` write them today (they have drifted from the
+- The engine's notes, as `Foundation/Surl.Core.UnitLibrary/ServingEngine.cs` and
+  `Foundation/Surl.Core.UnitLibrary/ServingEngine.Datagrams.cs` write them today (they have drifted from the
   texts ADR-0007 section 8 lists, so section 3 below restates them from the code):
   - `Exchange <id> opened: <scheme> from <remote>.` when a connection or a datagram flow starts
     an exchange (one form for both);
@@ -417,7 +417,7 @@ The dump is curl's layout, turned to the server's side and labelled with the exc
   (section 4); BL-107 composes them in `Surl.Console` (sections 1, 6, 7). BL-102's ADR-0034 puts
   the options in `--help`'s categories.
 - ADR-0007 section 8's list of the engine's notes is replaced by the list in this ADR's Context,
-  which is what `Surl.Core.UnitLibrary/ServingEngine.cs` writes.
+  which is what `Foundation/Surl.Core.UnitLibrary/ServingEngine.cs` writes.
 - Changing any engine note's opening words is now a change to what the info level writes, and
   needs this ADR's table updated by a new ADR.
 - A new option that selects a level, or a change to any text here, is a new ADR that supersedes

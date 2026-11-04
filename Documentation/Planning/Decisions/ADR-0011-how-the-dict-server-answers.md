@@ -98,12 +98,12 @@ each `:` turned into a space.
    reply in time is closed all the same, never aborted. The refusal is one fixed text for
    both refusals because a client learns nothing useful from which limit it hit, and
    RFC 2229 has the one code for both. Each was fed to the pinned build first (`refused`,
-   `head-timeout`, `line-too-long` in `Surl.Protocol.Dict.UnitTests/Fixtures/README.md`);
+   `head-timeout`, `line-too-long` in `Protocols/Lookup/Surl.Protocol.Dict.UnitTests/Fixtures/README.md`);
    curl exited 0 with an empty stderr each time.
 
 Every reply for the recorded cases (`define-hello`, `match-hel`, `bare-hello`,
 `define-missing`, `show-db`) was fed to the pinned build before it was pinned, and curl
-exited 0 with an empty stderr (`Surl.Protocol.Dict.UnitTests/Fixtures/README.md`).
+exited 0 with an empty stderr (`Protocols/Lookup/Surl.Protocol.Dict.UnitTests/Fixtures/README.md`).
 
 ## Alternatives considered
 
