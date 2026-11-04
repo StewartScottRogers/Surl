@@ -523,7 +523,7 @@
     or refuses. The -Ftp, -Smtp, -Imap, -Pop3 and -Raw sessions always serve TLS 1.2.
 
 .PARAMETER TlsRenegotiationOff
-    With -Tls and no session mode, serve TLS with renegotiation refused
+    With -Tls and no session mode (or with -Raw), serve TLS with renegotiation refused
     (SslServerAuthenticationOptions.AllowRenegotiation = false), as Surl does (ADR-0006,
     section 4). Windows PowerShell's .NET Framework SslStream cannot refuse it, so the
     handshake is run by a small TLS relay, a C# file-based app this script writes under
@@ -532,6 +532,24 @@
     -TlsProtocol versions, and forwards the plaintext to the recorder's own server on an
     ephemeral loopback port, so request.bin and the Response matching work as with -Tls.
     A connection whose handshake fails is never forwarded, so it records nothing. Not
+    combined with -Reset. With -Raw the relay's -TlsProtocol versions apply (TLS 1.2 by
+    default), and transcript.txt has no "= TLS handshake completed" line and the raw
+    session sends no close_notify of its own: the relay shakes hands and, once the raw
+    session closes, sends close_notify.
+
+.PARAMETER TlsAlpn
+    With -Tls and no session mode (or with -Raw), the ALPN protocol IDs the TLS server
+    offers, in preference order, e.g. -TlsAlpn h2,http/1.1 (a comma-separated string or
+    an array). Without it the server offers no ALPN, as before. .NET Framework's
+    SslStream has no ALPN, so the handshake is run by the same TLS relay as
+    -TlsRenegotiationOff (renegotiation stays allowed unless that is given too). The
+    agreed protocol is written to alpn.txt in OutDirectory, one line per completed
+    handshake: the protocol ID (h2, http/1.1, ...) or "none" when curl offered no ALPN or
+    none in common; an empty alpn.txt means no handshake completed. Once h2 is agreed
+    curl speaks HTTP/2, which the HTTP mode cannot read, so record it with -Raw:
+    -Tls -TlsAlpn h2,http/1.1 -Raw -RawReply '\x00\x00\x00\x04\x00\x00\x00\x00\x00'
+    serves an empty SETTINGS frame, and request.bin holds the connection preface
+    PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n, curl's SETTINGS and its first HEADERS. Not
     combined with -Reset.
 
 .PARAMETER FtpIdleMilliseconds
@@ -825,6 +843,7 @@ param(
     [string] $TlsRootCertificateFile,
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
     [switch] $TlsRenegotiationOff,
+    [string[]] $TlsAlpn = @(),
     [string] $Curl,
     [switch] $LibcurlWebSocket,
     [switch] $LibcurlRtsp,
@@ -847,7 +866,12 @@ if ([string]::IsNullOrEmpty($MyInvocation.Line) -and $CurlArgs.Count -eq 1) { $C
 if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp or -Tls.' }
 if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Ldap, $Tftp | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap and -Tftp each serve a whole session; give one of them.' }
 if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined with -Tls.' }
-if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode, and cannot be combined with -Reset.' }
+if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode but -Raw, and cannot be combined with -Reset.' }
+# powershell -File binds 'h2,http/1.1' as one string, and a caller may give either form.
+$TlsAlpn = @($TlsAlpn | ForEach-Object { $_.Split(',') } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if ($TlsAlpn.Count -gt 0 -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Reset)) { throw '-TlsAlpn needs -Tls with no session mode but -Raw, and cannot be combined with -Reset.' }
+# Both are served by the TLS relay, which forwards the plaintext to the recorder's own server.
+$useTlsRelay = $TlsRenegotiationOff -or $TlsAlpn.Count -gt 0
 if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
 if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword') -or $PSBoundParameters.ContainsKey('KerberosServicePrincipal'))) { throw '-KerberosPassword and -KerberosServicePrincipal configure the test KDC, so they need -KerberosTestKdc.' }
 $isWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
@@ -2867,11 +2891,14 @@ function New-ThrowawayTlsCertificate {
     return New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(, $pfx)
 }
 
-# The -TlsRenegotiationOff relay: a .NET 10 file-based app, because only .NET 5 and later
-# can refuse renegotiation. Arguments: listen address, port, PFX path, PFX password,
-# SslProtocols as an integer. It reads the backend port from its first line of standard
-# input, prints "listening" once bound, then relays each connection whose handshake
-# succeeds to 127.0.0.1:<backend port> until it is killed.
+# The -TlsRenegotiationOff and -TlsAlpn relay: a .NET 10 file-based app, because only .NET 5
+# and later can refuse renegotiation or offer ALPN (.NET Framework's SslStream has neither).
+# Arguments: listen address, port, PFX path, PFX password, SslProtocols as an integer,
+# "true" or "false" for renegotiation allowed, the ALPN protocol IDs comma-separated ("-"
+# for none), and the path of alpn.txt ("-" for none). It reads the backend port from its
+# first line of standard input, prints "listening" once bound, then relays each connection
+# whose handshake succeeds to 127.0.0.1:<backend port> until it is killed. With an alpn.txt
+# path it appends one line per completed handshake: the agreed protocol ID, or "none".
 $tlsRelaySource = @'
 using System.Net;
 using System.Net.Security;
@@ -2883,6 +2910,12 @@ var listenAddress = IPAddress.Parse(args[0]);
 var port = int.Parse(args[1]);
 using var certificate = X509CertificateLoader.LoadPkcs12FromFile(args[2], args[3]);
 var protocols = (SslProtocols)int.Parse(args[4]);
+var allowRenegotiation = bool.Parse(args[5]);
+List<SslApplicationProtocol>? applicationProtocols = args[6] == "-"
+    ? null
+    : args[6].Split(',', StringSplitOptions.RemoveEmptyEntries).Select(id => new SslApplicationProtocol(id)).ToList();
+var agreedProtocolPath = args[7] == "-" ? null : args[7];
+var agreedProtocolLock = new object();
 // Windows PowerShell's standard input writer may lead with a byte order mark; keep the digits.
 var backendPort = int.Parse(string.Concat(Console.ReadLine()!.Where(char.IsAsciiDigit)));
 var listener = new TcpListener(listenAddress, port);
@@ -2905,7 +2938,8 @@ async Task RelayAsync(TcpClient client)
             {
                 ServerCertificate = certificate,
                 EnabledSslProtocols = protocols,
-                AllowRenegotiation = false,
+                AllowRenegotiation = allowRenegotiation,
+                ApplicationProtocols = applicationProtocols,
                 ClientCertificateRequired = false,
                 CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
             });
@@ -2916,7 +2950,15 @@ async Task RelayAsync(TcpClient client)
             return;
         }
 
-        Console.Error.WriteLine($"relay: handshake completed: {secured.SslProtocol}, {secured.NegotiatedCipherSuite}");
+        var agreed = secured.NegotiatedApplicationProtocol.Protocol.IsEmpty ? "none" : secured.NegotiatedApplicationProtocol.ToString();
+        Console.Error.WriteLine($"relay: handshake completed: {secured.SslProtocol}, {secured.NegotiatedCipherSuite}, ALPN {agreed}");
+        if (agreedProtocolPath is not null)
+        {
+            lock (agreedProtocolLock)
+            {
+                File.AppendAllText(agreedProtocolPath, agreed + "\n");
+            }
+        }
         using var backend = new TcpClient();
         await backend.ConnectAsync(IPAddress.Loopback, backendPort);
         var backendStream = backend.GetStream();
@@ -2952,7 +2994,7 @@ function Start-TlsRelay {
     # relay. It must start before the backend listener exists: .NET Framework sockets are
     # inheritable, and a relay holding the listening socket would keep a stopped listener's
     # accept waiting. Returns the process and the PFX path, for Connect- and Stop-TlsRelay.
-    param($Certificate, [System.Net.IPAddress] $Address, [int] $ListenPort, [int] $Protocols)
+    param($Certificate, [System.Net.IPAddress] $Address, [int] $ListenPort, [int] $Protocols, [bool] $AllowRenegotiation, [string[]] $ApplicationProtocols, [string] $AgreedProtocolPath)
     $directory = Join-Path ([System.IO.Path]::GetTempPath()) 'SurlRecorder'
     New-Item -ItemType Directory -Path $directory -Force | Out-Null
     $source = Join-Path $directory 'TlsRelay.cs'
@@ -2962,7 +3004,7 @@ function Start-TlsRelay {
     [System.IO.File]::WriteAllBytes($pfxPath, $Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, $password))
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = 'dotnet'
-    $startInfo.Arguments = (@('run', $source, '--', $Address.ToString(), $ListenPort, $pfxPath, $password, $Protocols) | ForEach-Object { ConvertTo-CommandLineArgument -Argument ([string] $_) }) -join ' '
+    $startInfo.Arguments = (@('run', $source, '--', $Address.ToString(), $ListenPort, $pfxPath, $password, $Protocols, $AllowRenegotiation.ToString().ToLowerInvariant(), $(if ($ApplicationProtocols.Count -gt 0) { $ApplicationProtocols -join ',' } else { '-' }), $(if ($AgreedProtocolPath) { $AgreedProtocolPath } else { '-' })) | ForEach-Object { ConvertTo-CommandLineArgument -Argument ([string] $_) }) -join ' '
     $startInfo.WorkingDirectory = $directory
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardInput = $true
@@ -2978,7 +3020,7 @@ function Connect-TlsRelay {
     $Relay[0].StandardInput.Flush()
     $line = $Relay[0].StandardOutput.ReadLine()
     if ($line -ne 'listening') {
-        throw "The TLS relay did not start (it printed '$line'); -TlsRenegotiationOff needs the .NET 10 SDK's dotnet on PATH."
+        throw "The TLS relay did not start (it printed '$line'); -TlsRenegotiationOff and -TlsAlpn need the .NET 10 SDK's dotnet on PATH."
     }
 }
 
@@ -3127,10 +3169,15 @@ $servedTlsProtocols = switch ($TlsProtocol) {
     'Tls12AndTls13' { [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Tls13 }
     default { [System.Security.Authentication.SslProtocols]::Tls12 }
 }
-$tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile -Exportable:$TlsRenegotiationOff } else { $null }
-# With -TlsRenegotiationOff the relay does the TLS, so the recorder's server serves plaintext.
-$servedCertificate = if ($TlsRenegotiationOff) { $null } else { $tlsCertificate }
+$tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile -Exportable:$useTlsRelay } else { $null }
+# With the TLS relay (-TlsRenegotiationOff, -TlsAlpn) the relay does the TLS, so the
+# recorder's server serves plaintext.
+$servedCertificate = if ($useTlsRelay) { $null } else { $tlsCertificate }
 $tlsRelay = $null
+# With -TlsAlpn the relay appends each agreed protocol to alpn.txt; it starts empty, so a
+# recording in which no handshake completed says so by an empty file.
+$agreedProtocolPath = if ($TlsAlpn.Count -gt 0) { Join-Path $OutDirectory 'alpn.txt' } else { $null }
+if ($null -ne $agreedProtocolPath) { [System.IO.File]::WriteAllText($agreedProtocolPath, '', [System.Text.Encoding]::ASCII) }
 # The test KDC and the Kerberos acceptor start before any socket is opened: a child process
 # inherits the recorder's sockets, and an inherited listening socket keeps a server's blocked
 # accept from ending when Stop-Listener closes it, so the recording never finished (BL-327).
@@ -3148,8 +3195,8 @@ try {
         $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
         $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
         $server = [System.Management.Automation.PowerShell]::Create()
-    } elseif ($TlsRenegotiationOff) {
-        $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols)
+    } elseif ($useTlsRelay) {
+        $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols) -AllowRenegotiation (-not $TlsRenegotiationOff) -ApplicationProtocols $TlsAlpn -AgreedProtocolPath $agreedProtocolPath
         $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $listener.Start()
         $server = [System.Management.Automation.PowerShell]::Create()
@@ -3182,7 +3229,7 @@ try {
     } elseif ($Raw) {
         $rawReplies = New-Object System.Collections.Generic.List[byte[]]
         foreach ($text in $RawReply) { $rawReplies.Add((ConvertFrom-EscapedResponse -Text $text)) }
-        [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds).AddArgument($tlsCertificate)
+        [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds).AddArgument($servedCertificate)
     } elseif ($Ldap) {
         $ldapEntries = @($LdapEntry | ForEach-Object { [System.Text.Encoding]::UTF8.GetString((ConvertFrom-EscapedResponse -Text $_)) })
         [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds).AddArgument($kerberosAcceptor).AddArgument($LdapGssapiSecurityLayers)
