@@ -8,7 +8,7 @@ depends-on: [BL-362]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, UpstreamCurlBuilds.json]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-364 — Decide how Surl serves HTTP/2
 
@@ -76,20 +76,39 @@ Decide and record, with each measured fact as a table row (command, build SHA-25
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation". It answers decisions 1 to 9, with measured tables
       for prior knowledge, the Upgrade request and `h2` over TLS, and is listed in that folder's
       `README.md`.
-- [ ] ADR-0010 section 4 and ADR-0002's table are amended, or point to the new ADR, so that neither
+- [x] ADR-0010 section 4 and ADR-0002's table are amended, or point to the new ADR, so that neither
       states something the new ADR changes.
-- [ ] `Documentation/Product/Requirements.md` has a functional requirement row for HTTP/2, in the
+- [x] `Documentation/Product/Requirements.md` has a functional requirement row for HTTP/2, in the
       shape of FR-048, citing the ADR and the build it was measured with.
-- [ ] `Documentation/Wiki/Glossary.md` defines the terms the ADR introduces (for example HPACK, h2c,
+- [x] `Documentation/Wiki/Glossary.md` defines the terms the ADR introduces (for example HPACK, h2c,
       connection preface, stream).
 
 ## Notes
+
+- ADR-0081 records all nine decisions. Measured 2026-11-04 on Windows with `Record-CurlExchange.ps1`
+  (`-Tls -TlsAlpn h2,http/1.1 -Raw`, `-Raw` for prior knowledge, HTTP mode and `-Raw` for the
+  upgrade) against the static 8.21.0 build, with 8.22.0_2 for comparison: 13 HTTP/2 cases plus the
+  ALPN offers for `https`, `--http1.1`, `--http1.0`, `--http2-prior-knowledge` and `wss`.
+- Linux and macOS were not measured in CI: their reference builds are the same stunnel/static-curl
+  8.21.0 release with the same OpenSSL 4.0.1 and nghttp2 1.69.0 as the Windows build measured, so
+  the ADR takes the Windows bytes as theirs and leaves BL-371 to prove it on all three. Default
+  taken because this lane cannot push to run CI.
+- Not yet run against curl (stated in the ADR's caveats, for BL-371): curl's retry after
+  `REFUSED_STREAM`, `GOAWAY` last-stream 0 and `HTTP_1_1_REQUIRED` past the second connection's
+  ALPN (the recorder's `-Raw` serves one connection), the `413` + `RST_STREAM NO_ERROR` upload
+  refusal, `FRAME_SIZE_ERROR`, `FLOW_CONTROL_ERROR` and the idle `GOAWAY`.
+- Found: curl 8.21.0 sends `Authorization: NTLM`/`Negotiate` over HTTP/2, and on
+  `HTTP_1_1_REQUIRED` opens a new connection offering only `http/1.1`; that is decision 7's answer.
+- Found: curl sends no ALPN at all for `wss`, and no `Expect: 100-continue` over HTTP/2.
+- `UpstreamCurlBuilds.json`: only the two `origin` texts changed (8.22.0_2 now HTTP/3 only; static
+  8.21.0 adds HTTP/2 on Windows); no SHA-256 or path changed.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0081 decides how Surl serves HTTP/2 (h2 ALPN, prior knowledge, Upgrade h2c, Surl.Hpack, SETTINGS and limits), measured against pinned static 8.21.0
