@@ -61,3 +61,4 @@ bytes: the HTTP/2 connection preface, `SETTINGS` and the first `HEADERS`. BL-364
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
