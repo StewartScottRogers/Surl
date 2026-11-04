@@ -92,3 +92,4 @@ Decide and record, with each measured fact as a table row (command, build SHA-25
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
