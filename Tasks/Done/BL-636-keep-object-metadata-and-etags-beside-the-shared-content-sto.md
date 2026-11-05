@@ -61,10 +61,10 @@ metadata.
   pairs in strictly ascending ordinal name order; strings are a 2-byte UTF-8 length then bytes; big-endian.
   Ticks rather than seconds so the stamp matches the file system's time exactly. Recorded in
   `ObjectMetadataIndexFormat`'s remarks and the library `CLAUDE.md`; an ADR could not be written here because
-  `Documentation/Planning/Decisions` is in BL-641's `touches` (in Doing), so BL-680 carries it into ADR-0100.
+  `Documentation/Planning/Decisions` is in BL-641's `touches` (in Doing), so BL-685 carries it into ADR-0100.
 - **No media-type table exists** in Surl.Content (HTTP answers everything `application/octet-stream` "until the
   content store knows media types"). The default content type is therefore `application/octet-stream`, which is
-  what HTTP names every file today, so the two still agree. BL-681 builds the table for both.
+  what HTTP names every file today, so the two still agree. BL-686 builds the table for both.
 - Other choices (sensible defaults): `MaxMetadataBytes` counts the UTF-8 bytes of the five header fields and the
   user metadata names and values, not the ETag (it caps at 65535 so every string fits its 2-byte length);
   `MaxETagBytes` 1024; a store for a key with no file answers `NoSuchFile`; stale entries are dropped lazily -
@@ -75,7 +75,7 @@ metadata.
   `<root>/.surl/objects/index`. Wiring it into `Surl.Composition` and calling `LoadAsync` at start is the
   consumers' work (BL-419, BL-425, BL-431, BL-437), outside this task's touches.
 - `ContentStore.ServiceStateFolderName` went from private to internal so the index uses the same constant.
-- Filed BL-680 (record the format in ADR-0100) and BL-681 (media types).
+- Filed BL-685 (record the format in ADR-0100) and BL-686 (media types).
 
 ## Log
 

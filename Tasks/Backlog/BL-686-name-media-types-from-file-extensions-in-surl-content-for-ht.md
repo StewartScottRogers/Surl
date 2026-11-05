@@ -1,5 +1,5 @@
 ---
-id: BL-681
+id: BL-686
 title: Name media types from file extensions in Surl.Content for HTTP and the object-storage servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-681 — Name media types from file extensions in Surl.Content for HTTP and the object-storage servers
+# BL-686 — Name media types from file extensions in Surl.Content for HTTP and the object-storage servers
 
 ## Goal
 
