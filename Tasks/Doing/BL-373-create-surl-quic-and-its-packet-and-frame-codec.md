@@ -52,3 +52,4 @@ every frame type of RFC 9000 as typed values, and rejects malformed input with t
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
