@@ -2,7 +2,7 @@
 
 - **Status:** Draft. Written for the Phase 0 shell and kept true as the phases are built; the
   numbers below are measured, not estimated. No section is awaiting a decision.
-- **Last updated:** 2026-09-30
+- **Last updated:** 2026-11-04
 - **Measured against:** upstream curl 8.21.0 (released 2026-06-24), tag `curl-8_21_0` of
   https://github.com/curl/curl, and the builds pinned in `UpstreamCurlBuilds.json`
 
@@ -67,7 +67,16 @@ first - and the Curl port needs exactly that to be measured.
 - Developers testing curl, or any client that claims curl's behaviour, who want one
   `surl` on `PATH` that answers every scheme.
 - The Curl port, in the last phase: Surl is the instrument that measures it.
+- .NET test suites that stand up a server in-process, without launching a process, through
+  `Surl.Api` - planned (Stewart, 2026-11-04;
+  [ADR-0098](../Planning/Decisions/ADR-0098-surl-api-and-surl-mcp-join-surl-as-products.md)).
+- AI agents that start, list and stop Surl servers and see what a client sent, through the
+  `Surl.Mcp` MCP server host - planned (ADR-0098).
 - Contributors adding a protocol server, who need the seams to be obvious.
+
+`surl` is one of three products: `Surl.Api` and `Surl.Mcp` are planned beside it in
+`Application/` and keep its secure-by-default rules (ADR-0098). Their design is decided by
+BL-611 and BL-612; until then neither project exists.
 
 Surl is built to be exposed to the internet, not only to answer on loopback in a test
 (Stewart, 2026-09-28). The security scope that hardening sets - connection, time and size
@@ -87,8 +96,6 @@ is decided in
   (ADR-0083, Stewart 2026-11-04), served on a parallel "Extended servers" track and turned
   off with `SURL_EXTENSIONS=0`. Otherwise Surl answers curl; a protocol curl cannot speak has
   no mate to be.
-- **A managed NuGet API.** The `surl` executable is the only product; its libraries are
-  implementation, not a published API, and no package is shipped (Stewart, 2026-09-28).
 
 ## Scope: the surface Surl must answer
 
@@ -671,14 +678,14 @@ ADR-0065 and the HTTP message library of ADR-0070 were added later, each with it
 
 ## Open questions
 
-None open. The four questions this section listed are answered (Stewart, 2026-09-28):
+None open. The four questions this section listed are answered (Stewart, 2026-09-28), and the answer to question 4 was reversed (Stewart, 2026-11-04):
 
 | # | Question | Answer | Carried out by |
 | --- | --- | --- | --- |
 | 1 | Pin an upstream build with SMB, HTTP/2 and HTTP/3? | Answered: yes, the latest. curl.se's current Windows build (8.22.0_2) is pinned as a supplementary build, used only for SMB, HTTP/2 and HTTP/3; 8.21.0 stays the reference release. Stewart, 2026-09-28. | BL-026 |
 | 2 | Upstream builds on Linux and macOS? | Answered: download them. The approval covers upstream 8.21.0 builds for Linux and macOS; which builds, and how CI obtains them, is decided by ADR. Stewart, 2026-09-28. | BL-027 and BL-028 |
 | 3 | Local testing only, or hardened for internet-facing use? | Answered: internet-facing. Surl is hardened to be exposed to the internet (see "Users"). Stewart, 2026-09-28. | BL-024 |
-| 4 | A managed NuGet API, or the `surl` executable only? | Answered: the executable. `surl` is the only product; its libraries are implementation, not a published API (see "Non-goals"). Stewart, 2026-09-28. | none |
+| 4 | A managed NuGet API, or the `surl` executable only? | Reversed 2026-11-04. First answered "the executable" (Stewart, 2026-09-28); Surl will also ship `Surl.Api`, a .NET programming interface that starts and stops its servers in-process, and `Surl.Mcp`, an MCP server host for AI agents, beside `surl` (Stewart, 2026-11-04; [ADR-0098](../Planning/Decisions/ADR-0098-surl-api-and-surl-mcp-join-surl-as-products.md)). | BL-611 and BL-612 |
 
 ## Sources
 
