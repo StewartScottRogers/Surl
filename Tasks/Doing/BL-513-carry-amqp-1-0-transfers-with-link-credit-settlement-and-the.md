@@ -58,3 +58,4 @@ allows, and handles the dispositions the receiver sends.
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; nodes are Surl.MessageBus's topics and queues.
 - 2026-11-05: Depends on BL-706 (the bus carries the native form ADR-0107 decision 6 needs), added by BL-509.
+- 2026-11-05: Backlog -> Doing.
