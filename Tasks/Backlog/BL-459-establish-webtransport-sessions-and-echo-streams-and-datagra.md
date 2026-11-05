@@ -4,7 +4,7 @@ title: Establish WebTransport sessions and echo streams and datagrams over HTTP/
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-458, BL-411]
+depends-on: [BL-458, BL-411, BL-745]
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests]
 requirement: none
 created: 2026-11-04

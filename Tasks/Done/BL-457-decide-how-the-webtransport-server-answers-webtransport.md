@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-402]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/WebTransport.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-457 — Decide how the WebTransport server answers webtransport
 
@@ -56,16 +56,33 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 8, each citing the WTH3 section behind it,
       and is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/WebTransport.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/WebTransport.md` exists in the matrix format, each "covered by" naming
       BL-458, BL-459 or BL-460, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0117 decides it; matrix `Documentation/Conformance/Extended/WebTransport.md` (rows to BL-458, BL-459,
+  BL-460 or n/a).
+- Draft revision: -16 kept. draft-ietf-webtrans-http3-17 appeared 2026-11-02 and changes `SETTINGS_WT_ENABLED`
+  (`0x2c7cf000` -> `0x20b8933b`), so it would not recognise the port's -16 client; -17's section 7.1 lets a later
+  ADR offer both drafts.
+- Two planning assumptions were wrong for -16 and are corrected in the ADR and in BL-458 and BL-460:
+  `SETTINGS_WT_MAX_SESSIONS` no longer exists (section 5.1/5.2: 1 session without flow control, refused
+  `H3_REQUEST_REJECTED`; ADR picks 16 with flow control), and `:protocol` is `webtransport-h3`, not
+  `webtransport`. BL-458's close-message test now says 1024 bytes accepted, 1025 refused.
+- -16 requires an empty `reset_stream_at` transport parameter and `RESET_STREAM_AT` resets (sections 3.1, 4.4),
+  which no task built: filed BL-745 (Surl.Quic) and added it to BL-459's `depends-on`.
+- Defaults taken: echo as planned (uni answered on a new server uni stream, echoing as bytes arrive); no
+  `WT-Protocol`; same-origin only; paths at or below the listen URL's, else 405 (the draft's SHOULD); flow
+  control offered with 100/100/1 MiB; no new option.
+- `touches` unchanged: the ADR folder, the matrix, and task files only.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: logins read the one account set.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0117 decides how the WebTransport server answers webtransport (draft -16 pinned), with its requirement matrix; BL-745 filed for RESET_STREAM_AT

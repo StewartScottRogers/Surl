@@ -33,7 +33,7 @@ needs no HTTP/3 yet.
 - [ ] Both projects exist, are in `Surl.slnx`, and `ProtocolIsolationTests` passes.
 - [ ] Named tests show:
       - every capsule the ADR uses round-tripped, with bytes written from the draft's layouts;
-      - a `WT_CLOSE_SESSION` with a 1024-byte message refused (the draft's limit);
+      - a `WT_CLOSE_SESSION` with a 1024-byte message accepted and a 1025-byte one refused (WTH3 6, ADR-0117 decision 6);
       - each stream header read with a 1-, 2-, 4- and 8-byte session ID;
       - a truncated capsule reported as incomplete, not malformed.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library has 100% line and branch
