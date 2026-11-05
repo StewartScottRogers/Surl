@@ -51,7 +51,7 @@ public static class HubMessageJsonReader
         (int)HubMessageType.Invocation or (int)HubMessageType.StreamInvocation => BuildInvocation(members),
         (int)HubMessageType.StreamItem => BuildStreamItem(members),
         (int)HubMessageType.Completion => BuildCompletion(members),
-        (int)HubMessageType.CancelInvocation => members.InvocationId is { } id ? new HubCancelInvocation(id) : null,
+        (int)HubMessageType.CancelInvocation => BuildCancelInvocation(members),
         (int)HubMessageType.Ping => new HubPing(),
         (int)HubMessageType.Close => new HubClose(members.Error, members.AllowReconnect),
         _ => null,
@@ -67,6 +67,9 @@ public static class HubMessageJsonReader
 
         return new HubInvocation(isStreaming, members.InvocationId, target, arguments, members.StreamIds ?? []);
     }
+
+    private static HubCancelInvocation? BuildCancelInvocation(HubMessageMembers members) =>
+        members.InvocationId is { } id ? new HubCancelInvocation(id) : null;
 
     private static HubStreamItem? BuildStreamItem(HubMessageMembers members) =>
         members.InvocationId is { } id && members.Item is { } item ? new HubStreamItem(id, item) : null;

@@ -260,8 +260,93 @@ public sealed partial class SignalRRequestAnswererTests
         var response = await harness.SendAsync("GET", "/chat?id=x", SignalRServerHarness.BearerField);
 
         Assert.AreEqual(
-            "HTTP/1.1 426 Upgrade Required\r\nDate: " + SignalRServerHarness.NowHttpDate + "\r\nContent-Length: 0\r\nSec-WebSocket-Version: 13\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 426 Upgrade Required\r\nDate: " + SignalRServerHarness.NowHttpDate + "\r\nContent-Length: 0\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nConnection: close\r\n\r\n",
             response);
+    }
+
+    [TestMethod]
+    [DataRow(true)]
+    [DataRow(false)]
+    public async Task AnswerAsync_UpgradeNamingANegotiatedConnection_Switches(bool isVersionOne)
+    {
+        var harness = new SignalRServerHarness();
+        var negotiated = harness.Connections.Negotiate(string.Empty, isVersionOne, TimeSpan.FromSeconds(30))!;
+
+        var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + Uri.EscapeDataString(negotiated.UpgradeId)));
+
+        Assert.StartsWith("HTTP/1.1 101 Switching Protocols\r\n", response);
+        Assert.AreEqual(0, harness.Connections.Count);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_UpgradeByAccessTokenWithoutAnId_SwitchesToANewConnection()
+    {
+        var harness = new SignalRServerHarness();
+
+        var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?access_token=" + UnitTestBearerAuthenticationPolicy.Token, "X-Unit-Test: 1"));
+
+        Assert.StartsWith("HTTP/1.1 101 Switching Protocols\r\n", response);
+    }
+
+    [TestMethod]
+    [DataRow("/chat?id=not-from-negotiate", 404, "Not Found")]
+    [DataRow("/chat?id=", 404, "Not Found")]
+    public async Task AnswerAsync_UpgradeWithAConnectionTokenNotFromNegotiate_IsNotFound(string target, int status, string reason)
+    {
+        var harness = new SignalRServerHarness();
+        harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30));
+
+        var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest(target));
+
+        Assert.AreEqual($"HTTP/1.1 {status} {reason}\r\nDate: " + SignalRServerHarness.NowHttpDate + "\r\nContent-Length: 0\r\n\r\n", response);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_UpgradeWithAVersionOneConnectionsId_IsNotFound()
+    {
+        var harness = new SignalRServerHarness();
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+
+        var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.ConnectionId));
+
+        Assert.StartsWith("HTTP/1.1 404 Not Found\r\n", response);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_UpgradeOfAConnectionAlreadyTakenUp_IsConflict()
+    {
+        var harness = new SignalRServerHarness();
+        var negotiated = harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30))!;
+        harness.Connections.TakeUp(negotiated.UpgradeId, string.Empty, out _);
+
+        var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.UpgradeId));
+
+        Assert.StartsWith("HTTP/1.1 409 Conflict\r\n", response);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_UpgradeByACallerOtherThanTheNegotiator_IsForbidden()
+    {
+        var harness = new SignalRServerHarness(allowsAnonymous: true);
+        var negotiated = harness.Connections.Negotiate(null, true, TimeSpan.FromSeconds(30))!;
+
+        var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat?id=" + negotiated.UpgradeId));
+
+        Assert.StartsWith("HTTP/1.1 403 Forbidden\r\n", response);
+    }
+
+    [TestMethod]
+    public async Task AnswerAsync_UpgradeWithoutAnIdOnAFullHub_IsServiceUnavailable()
+    {
+        var harness = new SignalRServerHarness();
+        for (var index = 0; index < SignalRHubConnections.MaxConnections; index++)
+        {
+            harness.Connections.Negotiate(string.Empty, true, TimeSpan.FromSeconds(30));
+        }
+
+        var response = await harness.SendRawAsync(SignalRHubClient.UpgradeRequest("/chat"));
+
+        Assert.StartsWith("HTTP/1.1 503 Service Unavailable\r\n", response);
     }
 
     [TestMethod]

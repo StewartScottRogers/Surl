@@ -60,11 +60,7 @@ public static class HubHandshake
 
     private static HubHandshakeOutcome JudgeRoot(JsonElement root)
     {
-        if (root.ValueKind != JsonValueKind.Object
-            || !root.TryGetProperty("protocol", out var protocol)
-            || !root.TryGetProperty("version", out var version)
-            || protocol.ValueKind != JsonValueKind.String
-            || version.ValueKind != JsonValueKind.Number)
+        if (!TryReadMembers(root, out var protocol, out var version))
         {
             return HubHandshakeOutcome.Invalid;
         }
@@ -74,5 +70,21 @@ public static class HubHandshake
         return protocol.ValueEquals("json") && isVersionOne
             ? HubHandshakeOutcome.Accepted
             : HubHandshakeOutcome.ProtocolNotAvailable;
+    }
+
+    // An object with a string protocol and a number version.
+    private static bool TryReadMembers(JsonElement root, out JsonElement protocol, out JsonElement version)
+    {
+        version = default;
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("protocol", out protocol))
+        {
+            protocol = default;
+
+            return false;
+        }
+
+        return root.TryGetProperty("version", out version)
+            && protocol.ValueKind == JsonValueKind.String
+            && version.ValueKind == JsonValueKind.Number;
     }
 }

@@ -10,8 +10,8 @@ namespace Surl.Extended.Protocol.SignalR;
 /// </summary>
 /// <remarks>
 /// It answers negotiate and judges every request's login through the
-/// <see cref="IAuthenticationPolicy"/>'s HTTP session (BL-448); the WebSocket transport and the hub's
-/// methods are BL-449's. <c>signalrs</c> is <c>signalr</c> inside the TLS the listener seam provides.
+/// <see cref="IAuthenticationPolicy"/>'s HTTP session, and serves the hub over the WebSocket
+/// transport. <c>signalrs</c> is <c>signalr</c> inside the TLS the listener seam provides.
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s.
 /// </remarks>
 public sealed class SignalRProtocolServer : IConnectionProtocolServer

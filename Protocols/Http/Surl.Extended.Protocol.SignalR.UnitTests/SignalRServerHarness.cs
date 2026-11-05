@@ -21,13 +21,13 @@ internal sealed class SignalRServerHarness
 
     public SignalRServerHarness(bool allowsAnonymous = false, string listenPath = "/chat")
     {
-        Clock = new SteppingTimeProvider(Now);
+        Clock = new ManualTimeProvider();
         Policy = new UnitTestBearerAuthenticationPolicy(allowsAnonymous);
         Connections = new SignalRHubConnections(Clock);
         Server = new SignalRProtocolServer(SignalRHubPath.FromListenPath(listenPath), Connections, Policy);
     }
 
-    public SteppingTimeProvider Clock { get; }
+    public ManualTimeProvider Clock { get; }
 
     public UnitTestBearerAuthenticationPolicy Policy { get; }
 
@@ -37,14 +37,17 @@ internal sealed class SignalRServerHarness
 
     public RecordingExchangeLog Log { get; } = new();
 
-    public ExchangeContext Context() => new(
+    public ExchangeContext Context(ExchangeLimits? limits = null, CancellationToken cancellationToken = default) => new(
         1,
         new ListenUrl(SignalRProtocolServer.PlainScheme, "127.0.0.1", 5000).WithBoundPort(5000),
         new IPEndPoint(IPAddress.Loopback, 5000),
         new IPEndPoint(IPAddress.Loopback, 50000),
         Log,
         Clock,
-        CancellationToken.None);
+        cancellationToken)
+    {
+        Limits = limits ?? ExchangeLimits.Default,
+    };
 
     /// <summary>
     /// Sends one request head, <c>Host</c> and <c>Connection: close</c> added, and returns what

@@ -10,8 +10,8 @@ namespace Surl.Extended.Protocol.SignalR;
 /// </summary>
 /// <remarks>
 /// It holds at most <see cref="MaxConnections"/>; a negotiated connection not taken up by its
-/// <see cref="SignalRNegotiatedConnection.ExpiresAt"/> is forgotten. BL-449 adds the upgraded
-/// connections and the upgrade's lookup.
+/// <see cref="SignalRNegotiatedConnection.ExpiresAt"/> is forgotten. A connection a WebSocket has
+/// taken up is held until <see cref="End"/>, and counts toward the ceiling meanwhile.
 /// </remarks>
 /// <param name="timeProvider">The clock expiry is judged on.</param>
 public sealed class SignalRHubConnections(TimeProvider timeProvider)
@@ -25,6 +25,7 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
 
     private readonly Lock gate = new();
     private readonly Dictionary<string, SignalRNegotiatedConnection> negotiated = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, SignalRNegotiatedConnection> upgraded = new(StringComparer.Ordinal);
 
     /// <summary>
     /// How many connections the hub holds now, the expired ones forgotten first.
@@ -37,9 +38,80 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
             {
                 ForgetExpired();
 
-                return negotiated.Count;
+                return negotiated.Count + upgraded.Count;
             }
         }
+    }
+
+    /// <summary>
+    /// Finds the connection a WebSocket upgrade's <c>id</c> names and hands it to the upgrade, or a
+    /// new connection when it names none (TransportProtocols.md: "the client is not required to use
+    /// the negotiate request").
+    /// </summary>
+    /// <param name="upgradeId">The query's <c>id</c>, or <see langword="null"/> when it has none.</param>
+    /// <param name="accountName">The account the upgrade was judged as, or <see langword="null"/> for the anonymous caller.</param>
+    /// <param name="connection">The connection taken up, or <see langword="null"/> when the outcome is a refusal.</param>
+    /// <returns>Whether the connection was taken up, and if not, why.</returns>
+    public SignalRUpgradeOutcome TakeUp(string? upgradeId, string? accountName, out SignalRNegotiatedConnection? connection)
+    {
+        connection = null;
+        lock (gate)
+        {
+            ForgetExpired();
+            if (upgradeId is null)
+            {
+                return TakeUpNew(accountName, out connection);
+            }
+
+            if (upgraded.ContainsKey(upgradeId))
+            {
+                return SignalRUpgradeOutcome.AlreadyTakenUp;
+            }
+
+            if (!negotiated.TryGetValue(upgradeId, out var found))
+            {
+                return SignalRUpgradeOutcome.NotFound;
+            }
+
+            if (found.AccountName != accountName)
+            {
+                return SignalRUpgradeOutcome.NegotiatedByAnotherCaller;
+            }
+
+            negotiated.Remove(upgradeId);
+            upgraded.Add(upgradeId, found);
+            connection = found;
+
+            return SignalRUpgradeOutcome.TakenUp;
+        }
+    }
+
+    /// <summary>
+    /// Forgets a connection whose WebSocket has ended, so its <c>id</c> is then <c>404</c>.
+    /// </summary>
+    /// <param name="connection">The connection <see cref="TakeUp"/> handed out.</param>
+    public void End(SignalRNegotiatedConnection connection)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+
+        lock (gate)
+        {
+            upgraded.Remove(connection.UpgradeId);
+        }
+    }
+
+    private SignalRUpgradeOutcome TakeUpNew(string? accountName, out SignalRNegotiatedConnection? connection)
+    {
+        connection = null;
+        if (negotiated.Count + upgraded.Count >= MaxConnections)
+        {
+            return SignalRUpgradeOutcome.HubFull;
+        }
+
+        connection = new SignalRNegotiatedConnection(NewId(), NewId(), accountName, DateTimeOffset.MaxValue);
+        upgraded.Add(connection.UpgradeId, connection);
+
+        return SignalRUpgradeOutcome.TakenUp;
     }
 
     /// <summary>
@@ -59,7 +131,7 @@ public sealed class SignalRHubConnections(TimeProvider timeProvider)
         lock (gate)
         {
             ForgetExpired();
-            if (negotiated.Count >= MaxConnections)
+            if (negotiated.Count + upgraded.Count >= MaxConnections)
             {
                 return null;
             }

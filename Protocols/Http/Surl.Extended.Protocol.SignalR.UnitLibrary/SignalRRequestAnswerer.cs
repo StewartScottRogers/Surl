@@ -3,13 +3,14 @@ using System.Text.Json;
 using Surl.HttpMessage;
 using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
+using Surl.WebSocket;
 
 namespace Surl.Extended.Protocol.SignalR;
 
 /// <summary>
 /// Answers each HTTP request a SignalR hub's connection sends: judges its login, then answers
-/// negotiate, refuses what the hub does not serve, and leaves the WebSocket transport to BL-449
-/// (TransportProtocols.md "negotiate"; ADR-0119, decisions 1, 2, 5 and 7).
+/// negotiate, upgrades the WebSocket transport, and refuses what the hub does not serve
+/// (TransportProtocols.md "negotiate" and "WebSockets"; ADR-0119, decisions 1, 2, 5 and 7).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -24,9 +25,13 @@ namespace Surl.Extended.Protocol.SignalR;
 /// or 1 by <c>negotiateVersion</c>), or with <c>{"error":"The server has too many connections."}</c>
 /// when the hub is full; another method there is <c>405</c> with <c>Allow: POST</c>, and a
 /// <c>negotiateVersion</c> that is not a non-negative integer is <c>400</c>. On
-/// <c>[endpoint-base]</c>, <c>GET</c> is <c>426 Upgrade Required</c> with
-/// <c>Sec-WebSocket-Version: 13</c> until BL-449 serves the upgrade, and any other method is
-/// <c>405</c> with <c>Allow: GET</c>. Every other path is <c>404</c>.
+/// <c>[endpoint-base]</c>, a WebSocket upgrade is checked as ADR-0071 orders it (another method is
+/// <c>405</c> with <c>Allow: GET</c>, a <c>GET</c> without an upgrade <c>426</c>), then its
+/// <c>id</c>: a connection negotiated by the same caller and not yet taken up, or a new one when
+/// there is no <c>id</c>, is answered <c>101</c> and served by a <see cref="SignalRHubSession"/>;
+/// an unknown <c>id</c> is <c>404</c>, one already taken up <c>409</c>, one another caller
+/// negotiated <c>403</c>, and a new connection on a full hub <c>503</c>. Every other path is
+/// <c>404</c>.
 /// </para>
 /// </remarks>
 internal sealed class SignalRRequestAnswerer(
@@ -40,7 +45,7 @@ internal sealed class SignalRRequestAnswerer(
     /// </summary>
     public const string HubFullText = "The server has too many connections.";
 
-    private static readonly HttpStatus UpgradeRequired = new(426, "Upgrade Required");
+    private static readonly HttpStatus Conflict = new(409, "Conflict");
 
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
@@ -60,7 +65,7 @@ internal sealed class SignalRRequestAnswerer(
         }
 
         return target.Path == hubPath.EndpointBase
-            ? AnswerEndpointBase(request)
+            ? AnswerEndpointBase(request, target, verdict.AccountName)
             : Answer(request, HttpStatus.NotFound);
     }
 
@@ -181,9 +186,46 @@ internal sealed class SignalRRequestAnswerer(
         writer.WriteEndArray();
     }
 
-    private HttpAnswer AnswerEndpointBase(HttpRequest request) => request.Method == "GET"
-        ? Answer(request, UpgradeRequired, [new("Sec-WebSocket-Version", "13")])
-        : Answer(request, HttpStatus.MethodNotAllowed, [new("Allow", "GET")]);
+    // ADR-0071's checks in order (a method other than GET is 405 Allow: GET, a GET without an
+    // upgrade 426), then the id: the connection it names, or a new one when it names none.
+    private HttpAnswer AnswerEndpointBase(HttpRequest request, SignalRRequestTarget target, string? accountName)
+    {
+        // Http1ConnectionServer, the only server of this handler, always sets the version.
+        var head = new HttpRequestHead(request.Method, request.Target, request.Http1Version!, request.Fields.Select(field => new HttpRequestField(field.Key, field.Value)));
+        if (WebSocketUpgradeChecks.FindRefusal(head) is { } refusal)
+        {
+            return Answer(request, refusal.Status, refusal.Fields);
+        }
+
+        var outcome = connections.TakeUp(target.QueryParameter("id"), accountName, out var hubConnection);
+        context.Log.Note($"WebSocket upgrade: {outcome}.");
+
+        return outcome == SignalRUpgradeOutcome.TakenUp
+            ? Upgrade(head, hubConnection!)
+            : Answer(request, UpgradeRefusalStatus(outcome));
+    }
+
+    private static HttpStatus UpgradeRefusalStatus(SignalRUpgradeOutcome outcome) => outcome switch
+    {
+        SignalRUpgradeOutcome.AlreadyTakenUp => Conflict,
+        SignalRUpgradeOutcome.NegotiatedByAnotherCaller => HttpStatus.Forbidden,
+        SignalRUpgradeOutcome.HubFull => HttpStatus.ServiceUnavailable,
+        _ => HttpStatus.NotFound,
+    };
+
+    private HttpAnswer Upgrade(HttpRequestHead head, SignalRNegotiatedConnection hubConnection) =>
+        new(
+            WebSocketHttpStatuses.SwitchingProtocols,
+            [
+                new("Date", context.TimeProvider.GetUtcNow().ToString("r", CultureInfo.InvariantCulture)),
+                new("Upgrade", "websocket"),
+                new("Connection", "Upgrade"),
+                new("Sec-WebSocket-Accept", WebSocketAcceptKey.Compute(head.GetFieldValues("Sec-WebSocket-Key")[0])),
+            ],
+            HttpAnswerBody.None,
+            IsRefusal: false,
+            LeavesRequestBodyUnread: false,
+            new SignalRWebSocketTakeover(connections, hubConnection, context));
 
     private HttpAnswer Answer(HttpRequest request, HttpStatus status, IReadOnlyList<KeyValuePair<string, string>>? fields = null) =>
         new(status, [.. CommonFields(0), .. fields ?? []], HttpAnswerBody.None, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);

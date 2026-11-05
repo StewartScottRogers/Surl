@@ -2,7 +2,7 @@ namespace Surl.Extended.Protocol.SignalR;
 
 /// <summary>
 /// A request target split into the path the hub compares byte for byte and the query parameters
-/// it reads: <c>negotiateVersion</c>, <c>access_token</c> and, from BL-449, <c>id</c>
+/// it reads: <c>negotiateVersion</c>, <c>access_token</c> and <c>id</c>
 /// (ADR-0119, decisions 1, 2 and 5).
 /// </summary>
 internal sealed class SignalRRequestTarget
