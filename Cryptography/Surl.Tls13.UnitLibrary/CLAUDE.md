@@ -18,6 +18,28 @@ What it holds now (BL-375):
   running Transcript-Hash with the HelloRetryRequest `message_hash` of section 4.4.1. HKDF, HMAC
   and the SHA-2 hashes are the base class library's.
 
+And the server handshake (BL-376):
+
+- `TlsServerHandshake.Receive(level, bytes)` takes the client's handshake bytes per
+  `TlsEncryptionLevel` as QUIC reassembles them (a message may span calls) and returns a
+  `TlsHandshakeOutput`: the server's Initial bytes (ServerHello or HelloRetryRequest), its
+  Handshake bytes (EncryptedExtensions, Certificate, CertificateVerify, Finished), and the
+  handshake and application traffic secrets once known. It then checks the client's Finished.
+  `CipherSuite`, `KeyExchangeGroup`, `ApplicationProtocol` and `ClientHello` (for the client's
+  transport parameters) say what was negotiated.
+- `TlsServerHandshakeOptions` carries the certificate chain and key (`RSA` signs
+  rsa_pss_rsae_sha256, `ECDsa` the scheme of its P-256/P-384/P-521 curve), the ALPN protocols
+  (`h3`), the encoded `quic_transport_parameters`, and any extensions EncryptedExtensions sends
+  first. Empty ALPN or null transport parameters turn those checks off, which only the RFC 8448
+  test (not QUIC) uses.
+- Choices, all ADR-0082 decision 3: the client's first supported suite; groups in the order
+  x25519, secp256r1, secp384r1, secp521r1 (X25519MLKEM768 joins first with BL-544); with no
+  share for one of them, a HelloRetryRequest for the first the client's `supported_groups` lists.
+  x25519 is `Surl.Cryptography.Curve25519`; the NIST curves are `ECDiffieHellman`, with the
+  point checked on the curve by `TlsNistCurve` first, so a bad point is the same alert on every
+  platform. Randomness comes from an injected `RandomNumberGenerator`: the server random, then
+  an x25519 private key. No session ticket, no CertificateRequest yet (BL-600).
+
 Malformed input throws `TlsAlertException` carrying the RFC 8446 section 6 alert; nothing is sent
 on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 9001 section 4.8):
 
@@ -26,13 +48,21 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 | a length that overruns, a vector below its minimum (an empty cipher-suite list), trailing bytes | `decode_error` |
 | a `legacy_version` that is not `0x0303` | `protocol_version` |
 | a repeated extension, a group with two key shares, compression other than null, `pre_shared_key` not last | `illegal_parameter` |
-| a message that is not the expected type | `unexpected_message` |
+| a message that is not the expected type, or at the wrong level or time; any byte at the 1-RTT level | `unexpected_message` |
+| no TLS 1.3 in `supported_versions` | `protocol_version` |
+| no `supported_groups` or `signature_algorithms`; no `quic_transport_parameters` when the server sends its own | `missing_extension` |
+| no shared cipher suite, no offered scheme for the certificate key, no group the server serves | `handshake_failure` |
+| no `h3` (or no ALPN at all) | `no_application_protocol` |
+| a malformed key share, a NIST point off its curve, an x25519 low-order point; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
+| a client Finished that does not verify | `decrypt_error` |
 
-It may reference `Surl.Cryptography.Curve25519.UnitLibrary` and
-`Surl.Cryptography.MlKem.UnitLibrary` (ADR-0082 decision 2) and references neither yet: the key
-exchange and the server handshake arrive with BL-376 and BL-544. Bytes in, bytes out: never open a
-socket or a file, and never read a clock.
+After an alert the handshake is over: a later `Receive` throws `InvalidOperationException`.
+
+It references `Surl.Cryptography.Curve25519.UnitLibrary` and may reference
+`Surl.Cryptography.MlKem.UnitLibrary` (ADR-0082 decision 2), which arrives with BL-544. Bytes in,
+bytes out: never open a socket or a file, and never read a clock.
 
 Every expected value in its tests comes from RFC 8448 (sections 3 and 5) or from ClientHellos
 recorded from pinned upstream curl builds (`Fixtures/ClientHello`, BL-363's `-QuicInitial`),
-never from the Curl port (ADR-0003).
+never from the Curl port (ADR-0003). Handshakes are checked by `UnitTestTlsClient`, a test-side
+TLS 1.3 client written from RFC 8446 that shares no code with the library's key schedule.

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace Surl.Tls13;
 
 /// <summary>
@@ -92,6 +94,49 @@ internal static class Rfc8448
 
     public static readonly byte[] ServerHandshakeIv = Convert.FromHexString(
         "5d313eb2671276ee13000b30");
+
+    /// <summary>Section 3, "{client} create an ephemeral x25519 key pair": the private key.</summary>
+    public static readonly byte[] ClientEphemeralPrivateKey = Convert.FromHexString(
+        "49af42ba7f7994852d713ef2784bcbcaa7911de26adc5642cb634540e7ea5005");
+
+    /// <summary>Section 3, "{server} create an ephemeral x25519 key pair": the private key.</summary>
+    public static readonly byte[] ServerEphemeralPrivateKey = Convert.FromHexString(
+        "b1580eeadf6dd589b8ef4f2d5652578cc810e9980191ec8d058308cea216a21e");
+
+    /// <summary>Section 3's ServerHello random, bytes 6 to 37 of <see cref="ServerHello"/>.</summary>
+    public static byte[] ServerRandom => ServerHello[6..38];
+
+    /// <summary>Section 3's certificate in DER: the one CertificateEntry of <see cref="Certificate"/>.</summary>
+    public static byte[] CertificateDer => Certificate[11..(11 + 0x1B0)];
+
+    /// <summary>Section 2's RSA private key of the server certificate, field by field.</summary>
+    public static RSAParameters ServerRsaKey => new()
+    {
+        Modulus = Convert.FromHexString(
+            "b4bb498f8279303d980836399b36c6988c0c68de55e1bdb826d3901a2461eafd2de49a91d015abbc9a95137ace6c1af1" +
+            "9eaa6af98c7ced43120998e187a80ee0ccb0524b1b018c3e0b63264d449a6d38e22a5fda430846748030530ef0461c8c" +
+            "a9d9efbfae8ea6d1d03e2bd193eff0ab9a8002c47428a6d35a8d88d79f7f1e3f"),
+        Exponent = Convert.FromHexString("010001"),
+        D = Convert.FromHexString(
+            "04dea705d43a6ea7209dd8072111a83c81e322a59278b33480641eaf7c0a6985b8e31c44f6de62e1b4c2309f6126e77b" +
+            "7c41e923314bbfa3881305dc1217f16c819ce538e922f369828d0e57195d8c8488460207b2faa726bcf708bbd7db7f67" +
+            "9f893492fc2a622e08970aac441ce4e0c3088df25ae679233df8a3bda2ff9941"),
+        P = Convert.FromHexString(
+            "e435fb7cc83737756dacea96ab7f59a2cc1069db7deb190e17e33a532b273f30a327aa0aaabc58cd67466af9845fadc6" +
+            "75fe094af92c4bd1f2c1bc33dd2e0515"),
+        Q = Convert.FromHexString(
+            "cabd3bc0e0438664c8d4cc9f99977a94d9bbfead8e43870abae3f7eb8b4e0eee8af1d9b4719ba6196cf2cbbaeeebf8b3" +
+            "490afe9e9ffa74a88aa51fc645629303"),
+        DP = Convert.FromHexString(
+            "3f57345c27fe1b687e6e761627b78b1b826433dd760fa0bea6a6acf39490aa1b47cda4869d68f584dd5b5029bd32093b" +
+            "8258661fe715025e5d70a45a08d3d319"),
+        DQ = Convert.FromHexString(
+            "183da01363bd2f2885cacbdc9964bf4764f1517636f86401286f71893c52ccfe40a6c23d0d086b47c6fb10d8fd1041e0" +
+            "4def7e9a40ce957c417794e10412d139"),
+        InverseQ = Convert.FromHexString(
+            "839ca9a085e4286b2c90e466997a2c681f21339aa3477814e4dec11833050ed50dd13cc038048a43c59b2acc416889c0" +
+            "37665fe5afa605969f8c01dfa5ca969d"),
+    };
 
     public static readonly byte[] Section5ClientHello1 = Convert.FromHexString(
         "010000b00303b0b1c5a5aa37c5919f2ed1d5c6fff7fcb7849716945a2b8cee9258a346677b6f00000613011303130201" +
