@@ -1,5 +1,5 @@
 ---
-id: BL-773
+id: BL-779
 title: Start a new handshake on an epoch 0 hello with a valid cookie on an established Surl.Dtls association
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-773 — Start a new handshake on an epoch 0 hello with a valid cookie on an established Surl.Dtls association
+# BL-779 — Start a new handshake on an epoch 0 hello with a valid cookie on an established Surl.Dtls association
 
 ## Goal
 

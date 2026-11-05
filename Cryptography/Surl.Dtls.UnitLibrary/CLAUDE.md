@@ -103,7 +103,7 @@ decisions 3, 5, 6 and 10, and its BL-738 amendment):
   `no_renegotiation`, and the association carries on.
 
 Still to come: closing with `close_notify` before the 48-bit sequence number wraps (BL-745); an
-epoch 0 hello with a valid cookie replacing an established association (BL-773); reporting the
+epoch 0 hello with a valid cookie replacing an established association (BL-779); reporting the
 peer (BL-650).
 
 Never construct a socket here: records travel over the `IDatagramFlow` the caller gives.

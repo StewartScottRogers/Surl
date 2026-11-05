@@ -61,7 +61,7 @@ mode, client certificates under `--cacert`, `max_fragment_length`, and a hello o
   in-memory test CA around `ManualTimeProvider`'s clock, so validity is judged by the session's clock.
 - Coverage of `Surl.Dtls.UnitLibrary` measured with the Dtls tests alone: line 100%, branch 100%. The
   state machine's expected message per state is a static table, so it adds no untestable switch branches.
-- Follow-up filed: BL-773, an epoch 0 hello with a valid cookie replacing an established association
+- Follow-up filed: BL-779, an epoch 0 hello with a valid cookie replacing an established association
   (ADR-0087 decision 6, third bullet), which the acceptance criteria here do not name.
 
 ## Log

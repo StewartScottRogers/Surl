@@ -312,7 +312,7 @@ seconds of the head timeout, and nothing would tell an operator why a wrong key 
 - **An epoch 1 `ClientHello`** is recognised by the handshake header at the start of an epoch 1 handshake
   record; each is answered with one warning `no_renegotiation` in epoch 1, and it never counts as the
   client's final flight sent again.
-- **The epoch 0 hello on an established association** (decision 6's third bullet) is BL-773's.
+- **The epoch 0 hello on an established association** (decision 6's third bullet) is BL-779's.
 
 ## Alternatives considered
 
