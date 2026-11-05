@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Stomp.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-530 — Decide how the STOMP broker answers stomp and stomps
 
@@ -48,16 +48,31 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 8, each citing the specification section, and
       is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/Stomp.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/Stomp.md` exists in the matrix format, each "covered by" naming
       BL-531 or BL-532, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0118 decides it (the next free number on 2026-11-05). Summary: versions 1.0, 1.1 and 1.2 all
+  served (a complete mate refuses no conforming client; the differences fit one table); one virtual
+  host; logins through `IAuthenticationPolicy`; `/topic/` live fan-out and `/queue/` bus queues created
+  durable on first use (as ADR-0107 does for AMQP 1.0); cumulative NACK in `client` mode; unknown ACKs
+  ignored; every ERROR closes, which amends ADR-0100 3.6's STOMP `TooManySubscriptions` cell because
+  the specification requires the close; heart-beat offer `1000,<quarter of --idle-timeout>` with a 2x
+  tolerance; 128 headers a frame as a fixed bound; no new option.
+- The port's client was read only for what it sends (`accept-version:1.2`, `host`, `heart-beat:0,0`,
+  SEND to the URL path with its leading `/`, SUBSCRIBE `ack:auto`, DISCONNECT with `receipt`). So
+  `stomp://host/queue/x` and `stomp://host/topic/x` reach the bus, and a bare path gets
+  `Unknown destination`.
+- The two `stomps` TLS rows in the matrix are n/a: `ImplicitTlsSchemeServer` wraps the broker and
+  BL-533 composes and tests it. The acceptance criterion allows only BL-531, BL-532 or n/a.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0118 decides how the STOMP broker answers stomp and stomps; Stomp.md traces each server-side requirement to BL-531 or BL-532
