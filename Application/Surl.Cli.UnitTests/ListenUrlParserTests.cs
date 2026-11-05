@@ -139,6 +139,46 @@ public sealed class ListenUrlParserTests
     public void Parse_NullArgument_Throws()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => ListenUrlParser.Parse(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ListenUrlParser.Parse(null!, []));
+        Assert.ThrowsExactly<ArgumentNullException>(() => ListenUrlParser.Parse("s3://127.0.0.1/", null!));
+    }
+
+    [TestMethod]
+    [DataRow("s3://127.0.0.1/", "s3", 443)]
+    [DataRow("S3://127.0.0.1/", "s3", 443, DisplayName = "Scheme lower-cased before the lookup")]
+    [DataRow("redis://127.0.0.1/", "redis", 6379)]
+    public void Parse_ExtendedSchemeARegisteredServerClaims_UsesItsExtendedDefaultPort(string argument, string scheme, int port)
+    {
+        var result = ListenUrlParser.Parse(argument, ["s3", "redis"]);
+
+        Assert.AreEqual(new ListenUrl(scheme, "127.0.0.1", port), result.ListenUrl);
+    }
+
+    [TestMethod]
+    public void Parse_ExtendedSchemeWithPort_UsesThePortGiven()
+    {
+        var result = ListenUrlParser.Parse("s3://127.0.0.1:0/", ["s3"]);
+
+        Assert.AreEqual(new ListenUrl("s3", "127.0.0.1", 0), result.ListenUrl);
+    }
+
+    [TestMethod]
+    [DataRow("s3", new string[0], DisplayName = "No extended server registered")]
+    [DataRow("s3", new[] { "redis" }, DisplayName = "Another extended scheme registered")]
+    [DataRow("mcp+stdio", new[] { "mcp+stdio" }, DisplayName = "A claimed scheme with no extended default port")]
+    public void Parse_ExtendedSchemeNotAccepted_IsRefusedAsAnUnknownSchemeIs(string scheme, string[] extendedSchemes)
+    {
+        var result = ListenUrlParser.Parse($"{scheme}://127.0.0.1/", extendedSchemes);
+
+        AssertRefused(result, SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
+    }
+
+    [TestMethod]
+    public void Parse_OriginalSchemeAlsoListedAsExtended_KeepsUpstreamCurlsDefaultPort()
+    {
+        var result = ListenUrlParser.Parse("mqtt://127.0.0.1/", ["mqtt"]);
+
+        Assert.AreEqual(new ListenUrl("mqtt", "127.0.0.1", 1883), result.ListenUrl);
     }
 
     private static void AssertRefused(ListenUrlParseResult result, SurlExitCode exitCode, string message)

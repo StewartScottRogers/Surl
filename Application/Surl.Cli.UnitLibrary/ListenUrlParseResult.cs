@@ -4,7 +4,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Cli;
 
 /// <summary>
-/// What <see cref="ListenUrlParser.Parse"/> made of one argument: a listen URL, or the
+/// What <see cref="ListenUrlParser.Parse(string, IReadOnlyCollection{string})"/> made of one argument: a listen URL, or the
 /// failure that refuses it. Exactly one of the two is set.
 /// </summary>
 public sealed class ListenUrlParseResult

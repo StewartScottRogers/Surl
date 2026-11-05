@@ -37,5 +37,24 @@ public sealed class VersionTextTests
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => VersionText.Compose("1.0.0", null!, []));
         Assert.ThrowsExactly<ArgumentNullException>(() => VersionText.Compose("1.0.0", "win-x64", null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => VersionText.Compose("1.0.0", "win-x64", [], null!));
+    }
+
+    [TestMethod]
+    public void Compose_ExtendedSchemes_FollowProtocolsOnAnExtendedLineInOrdinalOrder()
+    {
+        var text = VersionText.Compose("1.0.0", "win-x64", ["http", "dict"], ["s3", "redis"]);
+
+        var newLine = Environment.NewLine;
+        Assert.AreEqual($"surl 1.0.0 (win-x64){newLine}Protocols: dict http{newLine}Extended: redis s3{newLine}", text);
+    }
+
+    [TestMethod]
+    public void Compose_NoExtendedScheme_WritesNoExtendedLine()
+    {
+        var text = VersionText.Compose("1.0.0", "win-x64", ["http"], []);
+
+        Assert.AreEqual(VersionText.Compose("1.0.0", "win-x64", ["http"]), text);
+        Assert.DoesNotContain("Extended:", text);
     }
 }

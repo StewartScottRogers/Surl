@@ -19,6 +19,11 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   `CommandLineParseResult`: `Serve` with a `SurlCommandLine`, `ShowHelp` with its
   `HelpSubject`, `ShowAiHelp` with its `AiHelpTopic`, `ShowManual`, `ShowVersion`, or `Refused` with a `CommandLineFailure`.
   `ListenUrlParser` reads each listen URL; `OptionArgumentReader` reads each argument kind.
+  `SchemeDefaultPorts` is upstream curl's port per scheme and stays so; the overloads taking
+  `extendedSchemes` also accept each scheme a registered extended server claims at its
+  `ExtendedSchemeDefaultPorts` row (ADR-0083 decision 7), consulted only after upstream curl's
+  table, and `VersionText.Compose` then adds an `Extended:` line. The `extended` `--aihelp`
+  topic sits beside `exit-codes` and `listen-urls`.
 - Accounts and loosening options (ADR-0032 section 1): each `-u`/`--user` adds a
   `CommandLineAccount` to `SurlCommandLine.Accounts`, split at the first `:`; a refusal
   of one never echoes its value (`CommandLineOption.ArgumentHoldsSecret`), and a user name

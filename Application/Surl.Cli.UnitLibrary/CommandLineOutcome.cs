@@ -21,7 +21,7 @@ public enum CommandLineOutcome
     /// <summary>Write <see cref="ManualText.Text"/> to stdout and exit with <c>SurlExitCode.Ok</c> (ADR-0034 decision 6).</summary>
     ShowManual,
 
-    /// <summary>Write <see cref="VersionText.Compose"/>'s text to stdout and exit with <c>SurlExitCode.Ok</c>.</summary>
+    /// <summary>Write <see cref="VersionText.Compose(string?, string, IEnumerable{string}, IEnumerable{string})"/>'s text to stdout and exit with <c>SurlExitCode.Ok</c>.</summary>
     ShowVersion,
 
     /// <summary>Write the failure to stderr and exit with its exit code.</summary>

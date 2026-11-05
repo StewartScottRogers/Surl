@@ -140,6 +140,12 @@ public static class AiHelpExamples
         Serving("tftp", "Serve TFTP", ["tftp://127.0.0.1:0/"], ["Listening on tftp://127.0.0.1:<port>/"], [], ["curl tftp://127.0.0.1:<port>/example.txt"]),
         Serving("websocket", "Serve WebSocket", ["ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], ["curl ws://127.0.0.1:<port>/example.txt"]),
         Serving("websocket", "Echo WebSocket messages", ["--ws-echo", "ws://127.0.0.1:0/"], ["Listening on ws://127.0.0.1:<port>/"], [], []),
+        Refused(
+            "extended",
+            "An extended scheme no extended server in this build answers",
+            ["s3://127.0.0.1:0/"],
+            ["surl: (1) Protocol \"s3\" not supported"],
+            SurlExitCode.UnsupportedProtocol),
     ];
 
     /// <summary>Every example, in ADR-0046 decision 7's order.</summary>

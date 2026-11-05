@@ -9,10 +9,10 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317) and ldap (BL-310), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310) and extended (BL-405), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "content", "dict", "exit-codes", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
+        "auth", "content", "dict", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
         "logging", "mqtt", "pop3", "rtsp", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
@@ -27,6 +27,7 @@ public sealed partial class AiHelpTextTests
         "| `content` | Served files and the data directory |",
         "| `dict` | DICT protocol |",
         "| `exit-codes` | Exit codes and what to do next |",
+        "| `extended` | Extended protocol servers, for schemes upstream curl does not have |",
         "| `ftp` | FTP and FTPS protocol |",
         "| `gopher` | GOPHER and GOPHERS protocol |",
         "| `http` | HTTP and HTTPS protocol |",

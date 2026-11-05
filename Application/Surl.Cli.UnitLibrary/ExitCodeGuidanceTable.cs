@@ -20,7 +20,7 @@ internal static class ExitCodeGuidanceTable
             SurlExitCode.UnsupportedProtocol,
             "A listen URL names a scheme this build does not serve",
             "Run surl --version to list the schemes this build serves, and use one of them",
-            ["listen-urls"]),
+            ["extended", "listen-urls"]),
         new(
             SurlExitCode.FailedInit,
             "The command line cannot be used: an option or its argument refused, "

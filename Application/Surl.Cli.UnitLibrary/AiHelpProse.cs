@@ -70,6 +70,13 @@ internal static class AiHelpProse
             "It serves one database, `surl`: each file directly in the served root is a headword, its name the word and its bytes the definition. Headwords are compared case and all; a name that starts with a dot and a directory are never headwords.",
             "`curl dict://127.0.0.1:<port>/d:<word>` asks for the definition of `<word>`, and `m:<word>` for the headwords that match it.",
         ],
+        ["extended"] =
+        [
+            "The extended protocol servers answer schemes the Curl port (https://github.com/StewartScottRogers/Curl) adds and upstream curl does not have. Each is judged by its protocol's specification and is not validated against upstream curl, unlike every other protocol topic's server.",
+            "They are on unless the environment variable `SURL_EXTENSIONS` is `0`; unset, empty or any other value leaves them on. With `SURL_EXTENSIONS=0` no extended server is registered, and a listen URL naming an extended scheme writes `surl: (1) Protocol \"<scheme>\" not supported` and exits 1, as any scheme this build does not serve does. No command-line option turns them off.",
+            "An extended scheme never changes how an original scheme is served, and has its own default port, which its topic's Schemes section lists. `surl --version` lists the extended schemes this build serves on an `Extended:` line after the `Protocols:` line; with none registered, or with `SURL_EXTENSIONS=0`, there is no such line.",
+            "This build registers no extended protocol server yet, so it has no extended topic; each one added gets its own.",
+        ],
         ["exit-codes"] =
         [
             "Every exit code surl returns, with what it means and what to do next. The Exit codes section of every other topic lists the codes tied to that topic; this page lists them all.",

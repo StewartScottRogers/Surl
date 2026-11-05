@@ -48,9 +48,24 @@ public static class ListenUrlParser
     /// default port; or a failure with <see cref="SurlExitCode.MalformedUrl"/> or
     /// <see cref="SurlExitCode.UnsupportedProtocol"/> and the message after <c>surl: </c>.
     /// </returns>
-    public static ListenUrlParseResult Parse(string argument)
+    public static ListenUrlParseResult Parse(string argument) => Parse(argument, []);
+
+    /// <summary>
+    /// Parses <paramref name="argument"/> as a listen URL, accepting besides upstream curl's
+    /// schemes each of <paramref name="extendedSchemes"/> that
+    /// <see cref="ExtendedSchemeDefaultPorts"/> gives a default port (ADR-0083, decisions 6 and 7).
+    /// </summary>
+    /// <param name="argument">One positional command-line argument.</param>
+    /// <param name="extendedSchemes">
+    /// The lower-case schemes the registered extended protocol servers claim; empty when
+    /// <c>SURL_EXTENSIONS=0</c> turns them off, so each is then refused as an unknown scheme is.
+    /// An original scheme listed here keeps upstream curl's default port.
+    /// </param>
+    /// <returns>As <see cref="Parse(string)"/> returns.</returns>
+    public static ListenUrlParseResult Parse(string argument, IReadOnlyCollection<string> extendedSchemes)
     {
         ArgumentNullException.ThrowIfNull(argument);
+        ArgumentNullException.ThrowIfNull(extendedSchemes);
 
         var separator = argument.IndexOf(SchemeSeparator, StringComparison.Ordinal);
         if (separator < 0 || !IsSchemeText(argument.AsSpan(0, separator)))
@@ -59,7 +74,7 @@ public static class ListenUrlParser
         }
 
         var scheme = argument[..separator].ToLowerInvariant();
-        if (!SchemeDefaultPorts.TryGetDefaultPort(scheme, out var defaultPort))
+        if (!TryGetDefaultPort(scheme, extendedSchemes, out var defaultPort))
         {
             return ListenUrlParseResult.Refused(SurlExitCode.UnsupportedProtocol, $"(1) Protocol \"{scheme}\" not supported");
         }
@@ -73,6 +88,11 @@ public static class ListenUrlParser
 
         return ParseAuthority(scheme, defaultPort, afterScheme[..authorityLength], afterScheme[authorityLength..]);
     }
+
+    // Upstream curl's table first, so no extended scheme shadows an original one.
+    private static bool TryGetDefaultPort(string scheme, IReadOnlyCollection<string> extendedSchemes, out int defaultPort) =>
+        SchemeDefaultPorts.TryGetDefaultPort(scheme, out defaultPort)
+        || (extendedSchemes.Contains(scheme, StringComparer.Ordinal) && ExtendedSchemeDefaultPorts.TryGetDefaultPort(scheme, out defaultPort));
 
     private static ListenUrlParseResult ParseAuthority(string scheme, int defaultPort, string authority, string afterAuthority)
     {

@@ -28,6 +28,28 @@ public sealed class CommandLineParserTests
         Assert.ThrowsExactly<ArgumentNullException>(() => CommandLineParser.Parse(null!));
 
     [TestMethod]
+    public void Parse_NullExtendedSchemes_Throws() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => CommandLineParser.Parse([Url], null!));
+
+    [TestMethod]
+    public void Parse_ExtendedSchemeGiven_AcceptsItsListenUrlAtItsExtendedDefaultPort()
+    {
+        var result = CommandLineParser.Parse([Url, "s3://127.0.0.1/"], ["s3"]);
+
+        CollectionAssert.AreEqual(
+            new[] { new ListenUrl("http", "127.0.0.1", 8080), new ListenUrl("s3", "127.0.0.1", 443) },
+            result.CommandLine!.ListenUrls.ToArray());
+    }
+
+    [TestMethod]
+    public void Parse_ExtendedSchemeNotGiven_RefusesItsListenUrlAsAnUnknownScheme()
+    {
+        var result = CommandLineParser.Parse(["s3://127.0.0.1/"]);
+
+        Assert.AreEqual(new CommandLineFailure(SurlExitCode.UnsupportedProtocol, "(1) Protocol \"s3\" not supported"), result.Failure);
+    }
+
+    [TestMethod]
     public void Parse_OnlyAListenUrl_ServesItWithEveryDefault()
     {
         var commandLine = Served(Url);

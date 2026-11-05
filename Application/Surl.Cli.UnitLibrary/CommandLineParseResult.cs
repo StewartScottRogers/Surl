@@ -1,7 +1,7 @@
 namespace Surl.Cli;
 
 /// <summary>
-/// What <see cref="CommandLineParser.Parse"/> made of a whole command line: serve a
+/// What <see cref="CommandLineParser.Parse(IReadOnlyList{string}, IReadOnlyCollection{string})"/> made of a whole command line: serve a
 /// <see cref="SurlCommandLine"/>, show the help, show the version, or a refusal.
 /// </summary>
 public sealed class CommandLineParseResult

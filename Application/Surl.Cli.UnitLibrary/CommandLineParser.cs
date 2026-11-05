@@ -69,11 +69,24 @@ public static class CommandLineParser
     /// a serve result carrying the <see cref="SurlCommandLine"/>; or the first failure, with
     /// its <see cref="SurlExitCode"/> and message.
     /// </returns>
-    public static CommandLineParseResult Parse(IReadOnlyList<string> arguments)
+    public static CommandLineParseResult Parse(IReadOnlyList<string> arguments) => Parse(arguments, []);
+
+    /// <summary>
+    /// Parses <paramref name="arguments"/>, accepting besides upstream curl's schemes the listen
+    /// URLs of <paramref name="extendedSchemes"/> (ADR-0083, decision 6).
+    /// </summary>
+    /// <param name="arguments">The arguments, as the process received them.</param>
+    /// <param name="extendedSchemes">
+    /// The schemes the registered extended protocol servers claim, as
+    /// <see cref="ListenUrlParser.Parse(string, IReadOnlyCollection{string})"/> takes them.
+    /// </param>
+    /// <returns>As <see cref="Parse(IReadOnlyList{string})"/> returns.</returns>
+    public static CommandLineParseResult Parse(IReadOnlyList<string> arguments, IReadOnlyCollection<string> extendedSchemes)
     {
         ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(extendedSchemes);
 
-        var reading = new CommandLineReading(arguments);
+        var reading = new CommandLineReading(arguments, extendedSchemes);
         while (reading.TryTakeArgument(out var argument))
         {
             var ended = ReadArgument(reading, argument);
@@ -112,7 +125,7 @@ public static class CommandLineParser
 
     private static CommandLineParseResult? ReadListenUrl(CommandLineReading reading, string argument)
     {
-        var parsed = ListenUrlParser.Parse(argument);
+        var parsed = ListenUrlParser.Parse(argument, reading.ExtendedSchemes);
         if (!parsed.Succeeded)
         {
             return CommandLineParseResult.Refused(parsed.Failure);
@@ -439,7 +452,7 @@ public static class CommandLineParser
             new CommandLineFailure(SurlExitCode.FailedInit, $"option {writtenName}: {reason}", FollowedByTryHelpLine: true));
 
     /// <summary>The state of one left-to-right reading of a command line.</summary>
-    private sealed class CommandLineReading(IReadOnlyList<string> arguments)
+    private sealed class CommandLineReading(IReadOnlyList<string> arguments, IReadOnlyCollection<string> extendedSchemes)
     {
         private int _next;
 
@@ -447,6 +460,9 @@ public static class CommandLineParser
         public SurlCommandLine CommandLine = new();
 
         public List<ListenUrl> ListenUrls { get; } = [];
+
+        /// <summary>The schemes the registered extended protocol servers claim.</summary>
+        public IReadOnlyCollection<string> ExtendedSchemes => extendedSchemes;
 
         /// <summary>The long names of the options whose argument was read and accepted.</summary>
         public HashSet<string> GivenOptions { get; } = new(StringComparer.Ordinal);

@@ -4,7 +4,7 @@ namespace Surl.Cli;
 
 /// <summary>
 /// ADR-0046 decision 3's <c>--aihelp</c> topics: every help category, with its name,
-/// description and schemes, plus <c>exit-codes</c> and <c>listen-urls</c>, in ordinal order of
+/// description and schemes, plus <c>exit-codes</c>, <c>extended</c> (ADR-0083 decision 8) and <c>listen-urls</c>, in ordinal order of
 /// the name.
 /// </summary>
 public static class AiHelpTopics
@@ -12,6 +12,7 @@ public static class AiHelpTopics
     private static readonly AiHelpTopic[] TopicsAddedBesideTheCategories =
     [
         new("exit-codes", "Exit codes and what to do next", []),
+        new("extended", "Extended protocol servers, for schemes upstream curl does not have", []),
         new("listen-urls", "Listen URLs, ports and the Listening on line", []),
     ];
 

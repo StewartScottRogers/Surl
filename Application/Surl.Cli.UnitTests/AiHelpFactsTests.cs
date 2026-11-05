@@ -6,8 +6,8 @@ namespace Surl.Cli;
 [TestClass]
 public sealed class AiHelpFactsTests
 {
-    // The topics ADR-0046 decision 3 adds beside the help categories.
-    private static readonly string[] TopicsAddedBesideTheCategories = ["exit-codes", "listen-urls"];
+    // The topics ADR-0046 decision 3 and ADR-0083 decision 8 add beside the help categories.
+    private static readonly string[] TopicsAddedBesideTheCategories = ["exit-codes", "extended", "listen-urls"];
 
     [TestMethod]
     public void EveryOption_HasAnArgumentTypeAndAllowedValues()
