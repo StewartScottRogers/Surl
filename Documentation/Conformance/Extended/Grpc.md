@@ -29,12 +29,12 @@ own handling of statuses and resets) are not rows.
 | Grpc:HTTP2-Requests-5 | MUST | `:path` `/<service>/<method>` selects the method; an unknown service or method is Trailers-Only `UNIMPLEMENTED` (12), judged after authentication. | BL-443 |
 | Grpc:HTTP2-Requests-6 | MUST | Custom-Metadata, ASCII and `-bin`, is accepted and never fails the call, never echoed. | BL-443 |
 | Grpc:HTTP2-Requests-7 | MAY | Request-Headers are bounded; the bound is `Surl.Http2`'s `MAX_HEADER_LIST_SIZE` (`--max-message`), not the suggested 8 KiB (ADR-0116 decision 3). | n/a: `Surl.Http2` enforces it and its own tests prove it (BL-409, ADR-0081 decision 5); the gRPC server adds nothing |
-| Grpc:HTTP2-Timeout-1 | MUST | `grpc-timeout` is 1 to 8 ASCII digits and one unit of `H M S m u n`; each unit is read at its scale. | BL-442 |
-| Grpc:HTTP2-Timeout-2 | MUST | A malformed `grpc-timeout` (9 digits, no unit, two units, a sign, two fields) is Trailers-Only `INTERNAL`, `grpc-message` `malformed grpc-timeout`; a value of 0 is a deadline already passed (ADR-0116 decision 5). | BL-442 (parsing), BL-443 (the answer) |
+| Grpc:HTTP2-Timeout-1 | MUST | `grpc-timeout` is 1 to 8 ASCII digits and one unit of `H M S m u n`; each unit is read at its scale. | `GrpcTimeoutTests.Read_EachUnit_IsReadAtItsScale` |
+| Grpc:HTTP2-Timeout-2 | MUST | A malformed `grpc-timeout` (9 digits, no unit, two units, a sign, two fields) is Trailers-Only `INTERNAL`, `grpc-message` `malformed grpc-timeout`; a value of 0 is a deadline already passed (ADR-0116 decision 5). | `GrpcTimeoutTests.Read_MalformedValue_ThrowsInternalMalformedGrpcTimeout`, `GrpcTimeoutTests.Read_TwoFields_ThrowsInternalMalformedGrpcTimeout` and `Read_EachUnit_IsReadAtItsScale` (`0S`) (parsing); BL-443 (the answer) |
 | Grpc:HTTP2-Timeout-3 | SHOULD | Without `grpc-timeout` the server assumes an infinite timeout (bounded only by `--max-time`). | BL-443 |
 | Grpc:HTTP2-Timeout-4 | MUST | A deadline that passes ends the call `DEADLINE_EXCEEDED` (4): Trailers-Only if nothing was written, otherwise trailers after the last whole message; measured on the injected `TimeProvider`. | BL-443 |
-| Grpc:HTTP2-Message-1 | MUST | A Length-Prefixed-Message is a 1-byte Compressed-Flag, a 4-byte big-endian length and the message, read however its bytes are split across `DATA` frames. | BL-442 |
-| Grpc:HTTP2-Message-2 | MUST | A Compressed-Flag other than 0 or 1 is `INTERNAL` (the message does not parse). | BL-442 |
+| Grpc:HTTP2-Message-1 | MUST | A Length-Prefixed-Message is a 1-byte Compressed-Flag, a 4-byte big-endian length and the message, read however its bytes are split across `DATA` frames. | `LengthPrefixedMessageReaderTests.TryRead_MessageSplitAcrossReadsByteByByte_ReassemblesIt`, `TryRead_TwoMessagesInOneReadAndOneEmpty_ReadsEachInOrder`; `LengthPrefixedMessageTests` |
+| Grpc:HTTP2-Message-2 | MUST | A Compressed-Flag other than 0 or 1 is `INTERNAL` (the message does not parse). | `LengthPrefixedMessageReaderTests.TryRead_CompressedFlagOtherThanZeroOrOne_ThrowsInternal` |
 
 ## Responses (PROTOCOL-HTTP2.md "Responses")
 
@@ -44,8 +44,8 @@ own handling of statuses and resets) are not rows.
 | Grpc:HTTP2-Responses-2 | MUST | Each reply is a Length-Prefixed-Message with Compressed-Flag 0. | BL-443 |
 | Grpc:HTTP2-Responses-3 | MUST | Trailers are a `HEADERS` frame with `END_STREAM` after the messages, carrying `grpc-status` even when it is 0, and `grpc-message` when it is not. | BL-443 |
 | Grpc:HTTP2-Responses-4 | MUST | A call that ends before any message is sent is Trailers-Only: one `HEADERS` frame with `END_STREAM` holding `:status 200`, `content-type`, `grpc-status`, `grpc-message` and `grpc-accept-encoding`. | BL-443 |
-| Grpc:HTTP2-Responses-5 | MUST | `grpc-message` is UTF-8 percent-encoded: each byte outside `%x20-%x7E`, and `%`, as `%` and two upper-case hex digits. | BL-442 |
-| Grpc:HTTP2-Responses-6 | MUST | `grpc-status` is the decimal code 0 to 16. | BL-442 |
+| Grpc:HTTP2-Responses-5 | MUST | `grpc-message` is UTF-8 percent-encoded: each byte outside `%x20-%x7E`, and `%`, as `%` and two upper-case hex digits. | `GrpcStatusMessageTests.Encode_Text_PercentEncodesEveryByteOutsidePrintableAsciiAndPercent` |
+| Grpc:HTTP2-Responses-6 | MUST | `grpc-status` is the decimal code 0 to 16. | `GrpcStatusTests.StatusValue_Code_IsItsDecimalNumber`, `GrpcStatusTests.StatusCodes_AreTheSeventeenOfStatuscodes` |
 | Grpc:HTTP2-Responses-7 | MUST | After the trailers, a stream whose client half is still open is reset `NO_ERROR` (RFC 9113 section 8.1). | BL-443 |
 
 ## HTTP/2 transport mapping (PROTOCOL-HTTP2.md "HTTP2 Transport Mapping")
@@ -67,29 +67,29 @@ own handling of statuses and resets) are not rows.
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | Grpc:Status-1 | MUST | A method not found at the server is `UNIMPLEMENTED` (12). | BL-443 |
-| Grpc:Status-2 | MUST | A request message that does not parse is `INTERNAL` (13), `grpc-message` `request message did not parse`. | BL-442 |
+| Grpc:Status-2 | MUST | A request message that does not parse is `INTERNAL` (13), `grpc-message` `request message did not parse`. | `GrpcStatusTests.FromException_ProtobufFormatException_ReturnsInternalRequestMessageDidNotParse` (the map); BL-443 (the answer) |
 | Grpc:Status-3 | MUST | A unary or server-streaming call with zero or more than one request message is `UNIMPLEMENTED` (12), `grpc-message` `request cardinality violation`. | BL-443 |
-| Grpc:Status-4 | MUST | A message larger than `--max-message` (from its prefix, or once decompressed) is `RESOURCE_EXHAUSTED` (8); so is a call's request total past `--max-filesize` and a reply past `--max-message`. | BL-442 (the message), BL-443 (the call and the reply) |
+| Grpc:Status-4 | MUST | A message larger than `--max-message` (from its prefix, or once decompressed) is `RESOURCE_EXHAUSTED` (8); so is a call's request total past `--max-filesize` and a reply past `--max-message`. | `LengthPrefixedMessageReaderTests.TryRead_MessageLengthOverTheLimit_ThrowsResourceExhaustedFromThePrefixAlone`, `GrpcMessageDecompressionTests.ReadPayload_DecompressedPastTheLimit_ThrowsResourceExhausted` and `LengthPrefixedMessageReaderTests.TryRead_MessagesTogetherOverTheCallLimit_ThrowsResourceExhausted` (the message and the call's total); BL-443 (the reply, and each answered) |
 | Grpc:Status-5 | MUST | Incorrect auth metadata is `UNAUTHENTICATED` (16). | BL-443 |
 | Grpc:Status-6 | MUST | An exception the service did not expect is `UNKNOWN` (2), `grpc-message` `server error`. | BL-443 |
-| Grpc:Status-7 | MUST NOT | The library never generates `INVALID_ARGUMENT`, `NOT_FOUND`, `ALREADY_EXISTS`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE` or `DATA_LOSS`; only the `surl.test.Echo` service (by request) and reflection's `error_response` send them. | BL-442 (the status map), BL-443 |
+| Grpc:Status-7 | MUST NOT | The library never generates `INVALID_ARGUMENT`, `NOT_FOUND`, `ALREADY_EXISTS`, `FAILED_PRECONDITION`, `ABORTED`, `OUT_OF_RANGE` or `DATA_LOSS`; only the `surl.test.Echo` service (by request) and reflection's `error_response` send them. | `GrpcStatusTests.LibraryStatuses_AreTheCodesAndTextsADR0116Names`, `GrpcStatusTests.FromException_AnyOtherException_ReturnsUnknownServerError` (the status map); BL-443 |
 
 ## Compression (compression.md)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Grpc:Compression-1 | MUST | `grpc-encoding` `identity`, `gzip` and `deflate` (zlib) requests are read; a compressed message is decompressed. | BL-442 (decompression), BL-443 (a gzip call answered) |
+| Grpc:Compression-1 | MUST | `grpc-encoding` `identity`, `gzip` and `deflate` (zlib) requests are read; a compressed message is decompressed. | `GrpcMessageDecompressionTests.ReadEncoding_ServedEncoding_ReturnsIt`, `ReadPayload_GzipFlaggedMessage_IsDecompressed`, `ReadPayload_DeflateFlaggedMessage_IsDecompressedFromTheZlibFormat` (decompression); BL-443 (a gzip call answered) |
 | Grpc:Compression-2 | MUST | Another `grpc-encoding` is Trailers-Only `UNIMPLEMENTED` with `grpc-accept-encoding: identity,deflate,gzip`, which never names the refused encoding. | BL-443 |
-| Grpc:Compression-3 | MUST | Compressed-Flag 1 without a `grpc-encoding` (or with `identity`) is `INTERNAL`, `grpc-message` `compressed flag set without grpc-encoding`. | BL-442 |
-| Grpc:Compression-4 | MUST | A message that does not decompress under a served encoding is `INTERNAL`, `grpc-message` `message did not decompress`. | BL-442 |
+| Grpc:Compression-3 | MUST | Compressed-Flag 1 without a `grpc-encoding` (or with `identity`) is `INTERNAL`, `grpc-message` `compressed flag set without grpc-encoding`. | `GrpcMessageDecompressionTests.ReadPayload_CompressedFlagUnderIdentity_ThrowsInternal` |
+| Grpc:Compression-4 | MUST | A message that does not decompress under a served encoding is `INTERNAL`, `grpc-message` `message did not decompress`. | `GrpcMessageDecompressionTests.ReadPayload_BytesThatDoNotDecompress_ThrowsInternal` |
 | Grpc:Compression-5 | MUST | Every response's `grpc-accept-encoding` lists each encoding the server reads; replies are sent uncompressed with no `grpc-encoding`. | BL-443 |
 
 ## Protobuf (encoding guide)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Grpc:Protobuf-1 | MUST | Varints, zigzag, the `I64`, `LEN` and `I32` wire types, and packed repeated fields encode and decode as the guide's worked examples show. | BL-442 |
-| Grpc:Protobuf-2 | MUST | Unknown fields are skipped; a known field with the wrong wire type, a truncated varint or length, or a non-UTF-8 string is a parse failure. | BL-442 |
+| Grpc:Protobuf-1 | MUST | Varints, zigzag, the `I64`, `LEN` and `I32` wire types, and packed repeated fields encode and decode as the guide's worked examples show. | `ProtobufEncodingGuideExampleTests`; `ProtobufReaderTests.TryReadField_Fixed64AndFixed32_ReadsThemLittleEndian` |
+| Grpc:Protobuf-2 | MUST | Unknown fields are skipped; a known field with the wrong wire type, a truncated varint or length, or a non-UTF-8 string is a parse failure. | `ProtobufReaderTests.TryReadField_UnknownFields_AreKeptByWritingThemBack`, `TryReadField_BytesThatAreNotAField_ThrowsProtobufFormatException`, `ReadAccessors_KnownFieldWithTheWrongWireType_ThrowProtobufFormatException`, `ReadString_BytesThatAreNotUtf8_ThrowsProtobufFormatException` |
 
 ## Server reflection (server-reflection.md; reflection.proto)
 
