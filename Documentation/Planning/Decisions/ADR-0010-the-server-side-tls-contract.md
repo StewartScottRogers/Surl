@@ -4,6 +4,7 @@
 - **Superseded in part:** section 3's throwaway certificate served without being asked for (no `--cert` for a secure scheme) is superseded by [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md): it needs `--self-signed`.
 - **Amended by:** [ADR-0081](ADR-0081-how-surl-serves-http-2.md) (section 4: `https` offers `h2` before `http/1.1`)
 - **Amended by:** [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) (section 4: with `surl --http3`, `h3` is served over QUIC by Surl's hand-built TLS 1.3, `Surl.Tls13`, not by `SslStream`; sections 3 and 5 apply to it as written)
+- **Amended by:** [ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) (sections 3 and 4: with `surl --tlsauthtype SRP`, every TLS listener is served by Surl's hand-built TLS 1.2 SRP server, `Surl.TlsSrp`, not by `SslStream`; no certificate is needed, `--cert` or `--self-signed` adds the RSA- or DSS-signed suites, and ALPN agrees only `http/1.1`)
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 

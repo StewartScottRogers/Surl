@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-563 — Decide how Surl serves HTTPS over TLS-SRP
 
@@ -70,11 +70,11 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation", answering decisions 1 to 7, each citing its
       RFC section or the curl 8.21.0 measurement it rests on (with the pinned build's file and
       SHA-256 from `UpstreamCurlBuilds.json`), and it is listed in the folder's `README.md`.
-- [ ] The ADR names cases 320, 321, 322 and 324, states that they run on the Linux and macOS
+- [x] The ADR names cases 320, 321, 322 and 324, states that they run on the Linux and macOS
       reference pins only, and names the tasks that act on it: BL-564, BL-565, BL-566, BL-567 and
       BL-568.
 
@@ -84,8 +84,28 @@ Decide and record:
   of them, and the build tasks' `touches` follow the ADR (a task records the change in its Notes).
 - Measuring needs the Linux or macOS reference pin; if neither is available on the machine running
   this task, the measurement runs in CI's Linux leg, and the ADR says which.
+- 2026-11-05: Decided in ADR-0122. Neither the Linux nor the macOS reference pin is on this
+  machine, so the ClientHello was measured with the supplementary static Windows build (same tag,
+  same OpenSSL 4.0.1, reports `TLS-SRP`; SHA-256 `589C8E4D…2648`) through `Record-CurlExchange.ps1
+  -Raw`; BL-566 measures the full exchange and BL-568's CI legs observe the Linux and macOS pins.
+  Measured: TLS 1.3 and 1.2 offered, all nine RFC 5054 suites, `srp`, `renegotiation_info`, EMS,
+  EtM and ALPN `h2,http/1.1`.
+- Upstream's server for the cases is `gnutls-serv --http --priority NORMAL:+SRP --srppasswd
+  certs/srp-verifier-db --srppasswdconf certs/srp-verifier-conf` (no certificate), read from
+  `tests/servers.pm` at the tag; its page shape from GnuTLS `src/serv.c` `peer_print_info`.
+- Choices taken as defaults (ADR-0122): planning names `Surl.Cryptography.Srp` and `Surl.TlsSrp`
+  kept; verifier options named `--srp-verifiers`/`--srp-groups` rather than gnutls-serv's
+  `--srppasswd`/`--srppasswdconf` (say what it does); `--tlsuser`/`--tlspassword` use the
+  2048-bit Appendix A group; unknown users simulated (RFC 5054 2.5.1.3), as gnutls-serv does.
+- `touches` widened: ADR-0002 and ADR-0010 under `Documentation/Planning/Decisions` (already in
+  `touches`) gain amendment lines; BL-567's `touches` gained `Foundation/Surl.Networking.*` and
+  `Foundation/Surl.Protocol.Abstractions.*` because decision 5 puts the handshake in
+  `Surl.Networking` and adds `TlsSession.SrpUserName` (no Doing task edits BL-567's file).
+  `UpstreamCurlBuilds.json`'s origin text for the static Windows build is left as is; ADR-0122's
+  "Amends" line records the extra use.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0122 decides how Surl serves HTTPS over TLS-SRP, from curl 8.21.0's measured ClientHello; BL-564 to BL-568 act on it

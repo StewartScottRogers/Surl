@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-566]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -52,6 +52,11 @@ options.
 ## Notes
 
 - Planning assumption (BL-399): the option names mirror curl's; BL-563's ADR decides them.
+- BL-563 decided it in ADR-0122: options `--tlsauthtype`, `--tlsuser`, `--tlspassword`,
+  `--srp-verifiers`, `--srp-groups` (decision 6); the TLS-SRP handshake plugs in through
+  `Surl.Networking` for every TLS listener and `TlsSession` gains `SrpUserName` (decision 5), so
+  BL-563 added `Foundation/Surl.Networking.*` and `Foundation/Surl.Protocol.Abstractions.*` to
+  `touches` on 2026-11-05.
 
 ## Log
 

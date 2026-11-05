@@ -18,6 +18,7 @@
 - **Amended:** decision 3's table by [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md) (2026-11-04), which adds the message bus the MQTT and extended messaging servers share, `Surl.MessageBus.UnitLibrary` in `Protocols/Messaging/`, referencing `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary` (for `IContentFileSystem`). BL-629 creates the projects.
 - **Amended:** decision 3's table by [ADR-0103](ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md) (2026-11-05), which adds the MCP core the `Surl.Mcp` host and the extended MCP server share, `Surl.McpServing.UnitLibrary` in `Protocols/Http/`, referencing nothing. BL-619 creates the projects.
 - **Amended:** decision 3's table by [ADR-0105](ADR-0105-how-the-kafka-broker-answers-kafka-and-kafkas.md) (2026-11-05), which adds the hand-built codecs the Kafka broker needs and any server may use, `Surl.Compression.UnitLibrary` in `Foundation/`, referencing nothing. BL-702 creates the projects.
+- **Amended:** decision 3's table by [ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) (2026-11-05), which adds the two hand-built libraries TLS-SRP needs, in `Cryptography/`: `Surl.Cryptography.Srp.UnitLibrary`, referencing nothing, and `Surl.TlsSrp.UnitLibrary`, referencing `Surl.Cryptography.Srp.UnitLibrary`. BL-564 and BL-565 create the projects; `Surl.Networking.UnitLibrary` references `Surl.TlsSrp` (BL-567).
 
 ## Context
 
@@ -69,6 +70,7 @@ Three questions followed:
    | `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Rc4.UnitLibrary` (ADR-0051) | nothing |
    | `Surl.Cryptography.Ripemd160.UnitLibrary` (ADR-0061) | nothing |
+   | `Surl.Cryptography.Srp.UnitLibrary` (ADR-0122) | nothing |
    | `Surl.Cryptography.UnitLibrary` | nothing |
    | `Surl.Hpack.UnitLibrary` (ADR-0081) | nothing |
    | `Surl.Http2.UnitLibrary` (ADR-0086) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Hpack.UnitLibrary` |
@@ -82,10 +84,11 @@ Three questions followed:
    | `Surl.Qpack.UnitLibrary` (ADR-0082) | `Surl.Hpack.UnitLibrary` |
    | `Surl.Quic.UnitLibrary` (ADR-0082, ADR-0086) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Tls13.UnitLibrary`, `Surl.Cryptography.ChaCha20.UnitLibrary`, `Surl.Cryptography.Poly1305.UnitLibrary` |
    | `Surl.Tls13.UnitLibrary` (ADR-0082) | `Surl.Cryptography.Curve25519.UnitLibrary`, `Surl.Cryptography.MlKem.UnitLibrary` |
+   | `Surl.TlsSrp.UnitLibrary` (ADR-0122) | `Surl.Cryptography.Srp.UnitLibrary` |
 
    `Surl.Protocol.Abstractions.UnitTests` enforces the table and that Abstractions
    references nothing. The rows marked ADR-0048 name projects BL-149 created, and the rows
-   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates, and the row marked ADR-0081 a project BL-365 creates, and the rows marked ADR-0082 projects BL-373, BL-375, BL-382 and BL-544 create, and the rows marked ADR-0086 projects BL-409 and BL-410 create (BL-572 adds `Surl.Quic`'s ADR-0086 reference), and the row marked ADR-0100 a project BL-629 creates, and the row marked ADR-0103 a project BL-619 creates, and the row marked ADR-0105 a project BL-702 creates; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
+   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates, and the row marked ADR-0081 a project BL-365 creates, and the rows marked ADR-0082 projects BL-373, BL-375, BL-382 and BL-544 create, and the rows marked ADR-0086 projects BL-409 and BL-410 create (BL-572 adds `Surl.Quic`'s ADR-0086 reference), and the row marked ADR-0100 a project BL-629 creates, and the row marked ADR-0103 a project BL-619 creates, and the row marked ADR-0105 a project BL-702 creates, and the rows marked ADR-0122 projects BL-564 and BL-565 create; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
    or HTTP/3 library, say) joins the table through a new ADR when Surl needs one.
 
 ## Consequences
