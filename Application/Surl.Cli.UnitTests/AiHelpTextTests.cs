@@ -577,6 +577,8 @@ public sealed partial class AiHelpTextTests
             ["surl: option --<name>: <reason>"] = "surl: " + CommandLineParser.Parse(["--max-time", "abc"]).Failure!.Message,
             ["surl: (3) URL rejected: <reason>"] = "surl: " + CommandLineParser.Parse(["http://user@127.0.0.1/"]).Failure!.Message,
             ["surl: (1) Protocol \"<scheme>\" not supported"] = "surl: " + CommandLineParser.Parse(["nosuch://127.0.0.1/"]).Failure!.Message,
+            ["surl: (37) Could not read config file <file>"] = "surl: " + CommandLineParser.Parse(["-K", "missing.cfg"]).Failure!.Message,
+            ["surl: a.cfg:2: option --log-file: requires parameter"] = "surl: " + CommandLineParser.Parse(["-K", "a.cfg"], [], new FakeConfigFileSource(("a.cfg", "verbose\nlog-file\n"))).Failure!.Message,
         };
 
         // Written by Surl.Console, checked against its source (BL-140's Notes); the examples that

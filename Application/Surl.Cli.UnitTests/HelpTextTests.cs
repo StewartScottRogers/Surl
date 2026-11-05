@@ -171,6 +171,7 @@ public sealed class HelpTextTests
             Row(38, "    --cacert <file>", "CA certificates for client certs"),
             Row(38, "    --cert <file>", "Server certificate file"),
             Row(38, "    --cert-type <type>", "Format of --cert: PEM, DER or P12"),
+            Row(38, "-K, --config <file>", "Read options from a file (repeatable)"),
             Row(38, "    --directory <directory>", "Data directory, else in memory"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --group <name>=<member>,...", "Name a group of accounts (repeatable)"),
@@ -210,6 +211,7 @@ public sealed class HelpTextTests
             Row(38, "    --trace <file>", "Write a debug trace to <file>"),
             Row(38, "    --trace-ascii <file>", "Like --trace, but without hex"),
             Row(38, "    --trace-time", "Add time stamps to log lines"),
+            Row(38, "    --url <listen URL>", "Add a listen URL (repeatable)"),
             Row(38, "-u, --user <user:password>", "Add an account (repeatable)"),
             Row(38, "    --user-file <file>", "Read accounts from a file"),
             Row(38, "-v, --verbose", "Log every exchange event"),
@@ -691,10 +693,12 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("surl"),
             "surl: The command line tool itself",
-            "     --aihelp <topic>  Markdown help for AI agents",
-            " -h, --help <subject>  Get help for commands",
-            " -M, --manual          Display the full manual",
-            " -V, --version         Show version number and quit");
+            "     --aihelp <topic>    Markdown help for AI agents",
+            " -K, --config <file>     Read options from a file (repeatable)",
+            " -h, --help <subject>    Get help for commands",
+            " -M, --manual            Display the full manual",
+            "     --url <listen URL>  Add a listen URL (repeatable)",
+            " -V, --version           Show version number and quit");
 
     [TestMethod]
     public void Answer_Telnet_ListsItsOptions() =>

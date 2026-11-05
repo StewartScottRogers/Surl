@@ -218,6 +218,11 @@ internal static class AiHelpProse
             "`-h, --help <subject>`, `-M, --manual` and `-V, --version` each end the reading of the command line, write their text to stdout and exit 0, whatever else is on it. The first of them read wins; an error read before it still refuses the command line.",
             "`surl --help` writes the short list; `surl --help <subject>` writes a category (`surl --help category` lists them), `all` for every option, or one option's page. `surl --manual` writes the whole manual, and `surl --version` the version and the schemes this build serves.",
             "A command line with no listen URL writes `surl: (2) no URL specified` and the `try` line to stderr and exits 2.",
+            "`-K, --config <file>` reads options from a file in curl's config-file syntax, in place: the file's options act as if they stood where the `-K` stands, so a later option overrides one from the file and the file overrides an earlier one; it may be given again, and `-K -` reads standard input, once. No file is read unless named. "
+            + "Each line holds one option and at most its value: `user = \"ann:pass word\"`, `--user \"ann:pass word\"` and `-u \"ann:pass word\"` alike; a name without dashes is separated from its value by spaces, tabs, `=` or `:`, a dashed one by spaces or tabs. "
+            + "In double quotes `\\\\`, `\\\"`, `\\t`, `\\n`, `\\r` and `\\v` are escapes and a backslash before another character is dropped. Blank lines and lines starting with `#` are skipped, and `#` after a value starts a comment. "
+            + "A listen URL is written `url = <listen URL>` (`--url <listen URL>` on the command line too); a URL alone on a line is an unknown option. `config = <file>` reads another file in place, at most 5 open at once. "
+            + "Unlike curl, surl refuses text after a value, a missing closing quote, a file including one already being read and a second `-K -`, and counts every physical line. A refusal is prefixed by `<file>:<line>: ` (`<stdin>` for `-`) and exits 2, such as `surl: a.cfg:2: option --log-file: requires parameter`; a file that cannot be read writes `surl: (37) Could not read config file <file>` and exits 37. A file is at most 16 MiB, a line at most 10 MiB, in UTF-8.",
         ],
         ["telnet"] =
         [

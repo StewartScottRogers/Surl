@@ -31,6 +31,8 @@ public static class AiHelpExamples
             [],
             ["surl: " + CommandLineParser.NoUrlSpecified, "surl: " + CommandLineFailure.TryHelpLine],
             SurlExitCode.FailedInit),
+        Serving("surl", "Read the listen URL from a config file", ["-K", "surl.cfg"], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/"])
+            with { Precondition = AiHelpExamplePrecondition.ConfigFileExists },
         Serving("content", "Serve in memory, with listings", ["--list-directories", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/"]),
         Serving("content", "Serve a data directory", ["--directory", "<path>", HttpListenUrl], [ListeningOnHttp], [], ["curl http://127.0.0.1:<port>/<file>"])
             with { Precondition = AiHelpExamplePrecondition.DataDirectoryExists },

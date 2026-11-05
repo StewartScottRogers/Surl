@@ -6,12 +6,15 @@ namespace Surl.Cli;
 [TestClass]
 public sealed class AiHelpExamplesTests
 {
+    // The file AiHelpExamplePrecondition.ConfigFileExists names.
+    private static readonly FakeConfigFileSource ExampleConfigFiles = new(("surl.cfg", "url = http://127.0.0.1:0/\n"));
+
     [TestMethod]
     public void Examples_AreTheAdrsExamplesAndEachAddedSinceInItsOrder()
     {
         string[] topics =
         [
-            "overview", "listen-urls", "listen-urls", "surl", "content", "content", "content", "auth", "auth", "testing", "tls", "tls",
+            "overview", "listen-urls", "listen-urls", "surl", "surl", "content", "content", "content", "auth", "auth", "testing", "tls", "tls",
             "logging", "limits", "dict", "ftp", "gopher", "http", "http", "imap", "ldap", "mqtt", "pop3", "rtsp", "smb", "smtp", "ssh", "telnet", "tftp",
             "websocket", "websocket", "extended",
         ];
@@ -24,7 +27,7 @@ public sealed class AiHelpExamplesTests
     {
         foreach (var example in AiHelpExamples.All)
         {
-            var parsed = CommandLineParser.Parse(example.Arguments.ToArray());
+            var parsed = CommandLineParser.Parse(example.Arguments.ToArray(), [], ExampleConfigFiles);
             if (parsed.Outcome != CommandLineOutcome.Refused)
             {
                 continue;
@@ -46,7 +49,7 @@ public sealed class AiHelpExamplesTests
         const int boundPort = 49731;
         foreach (var example in AiHelpExamples.All.Where(example => example.ServesUntilStopped))
         {
-            var parsed = CommandLineParser.Parse(example.Arguments.Select(argument => argument.Replace("<path>", "data", StringComparison.Ordinal)).ToArray());
+            var parsed = CommandLineParser.Parse(example.Arguments.Select(argument => argument.Replace("<path>", "data", StringComparison.Ordinal)).ToArray(), [], ExampleConfigFiles);
             Assert.AreEqual(CommandLineOutcome.Serve, parsed.Outcome, example.Title);
 
             var commandLine = parsed.CommandLine!;

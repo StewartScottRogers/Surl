@@ -108,6 +108,13 @@ internal static class OptionArgumentReader
             "digits with an optional decimal point and more digits, then at most one suffix k, m, g, t or p in either case, "
             + "each 1024 times the one before; at most 9223372036854775807 bytes"));
 
+    /// <summary>
+    /// <c>--url</c>'s argument (ADR-0101 decision 1 row 12): any non-empty text, which the parser
+    /// then reads as a listen URL exactly as a bare argument.
+    /// </summary>
+    public static readonly OptionArgumentReading<string> ListenUrlText =
+        new(ReadPath, new("listen URL", "a listen URL, as a bare argument takes it; see surl --aihelp listen-urls"));
+
     /// <summary><see cref="ReadPath"/> and its argument type (ADR-0046 decision 5).</summary>
     public static readonly OptionArgumentReading<string> Path =
         new(ReadPath, new("path", "any non-empty text"));

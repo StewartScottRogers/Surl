@@ -17,4 +17,9 @@ public enum AiHelpExamplePrecondition
     /// <c>users.txt</c> a <c>--user-file</c>.
     /// </summary>
     KeytabAndUserFileExist,
+
+    /// <summary>
+    /// <c>surl.cfg</c> is a config file holding the line <c>url = http://127.0.0.1:0/</c>.
+    /// </summary>
+    ConfigFileExists,
 }

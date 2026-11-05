@@ -41,6 +41,23 @@ public static class CommandLineParser
     private const string HostKeyLongName = "hostkey";
     private const string AuthorizedKeysLongName = "authorized-keys";
     private const string GroupLongName = "group";
+    private const string ConfigLongName = "config";
+    private const string ConfigOption = "--config";
+    private const string UrlLongName = "url";
+    private const string StandardInputPath = "-";
+    private const string StandardInputName = "<stdin>";
+
+    /// <summary>The most config files open at once, the command line's own <c>-K</c> counted, as curl (ADR-0101 decision 1 row 14).</summary>
+    public const int MaxConfigFileDepth = 5;
+
+    /// <summary>A sixth config file open at once (ADR-0101 decision 5 row 8).</summary>
+    public const string NestTooDeep = "config files nest more than 5 deep";
+
+    /// <summary>A config file that includes one already being read, or a second <c>-K -</c>, after its name (ADR-0101 decision 5 row 9).</summary>
+    public const string IsAlreadyBeingRead = "is already being read";
+
+    /// <summary>A config file past 16 MiB, after its name (ADR-0101 decision 5 row 2).</summary>
+    public const string FileTooLarge = "the file is larger than 16777216 bytes";
     private const string ThrowawayHostKeyOption = "--throwaway-hostkey";
     private const string Http3Option = "--http3";
     private const string HttpsScheme = "https";
@@ -93,12 +110,29 @@ public static class CommandLineParser
     /// <see cref="ListenUrlParser.Parse(string, IReadOnlyCollection{string})"/> takes them.
     /// </param>
     /// <returns>As <see cref="Parse(IReadOnlyList{string})"/> returns.</returns>
-    public static CommandLineParseResult Parse(IReadOnlyList<string> arguments, IReadOnlyCollection<string> extendedSchemes)
+    public static CommandLineParseResult Parse(IReadOnlyList<string> arguments, IReadOnlyCollection<string> extendedSchemes) =>
+        Parse(arguments, extendedSchemes, UnreadableConfigFileSource.Instance);
+
+    /// <summary>
+    /// Parses <paramref name="arguments"/> as <see cref="Parse(IReadOnlyList{string}, IReadOnlyCollection{string})"/>
+    /// does, reading each <c>-K</c>/<c>--config</c> file through <paramref name="configFiles"/> and
+    /// its options in place, as if their words stood where the <c>-K</c> stands (ADR-0101 decision 1).
+    /// </summary>
+    /// <param name="arguments">The arguments, as the process received them.</param>
+    /// <param name="extendedSchemes">The schemes the registered extended protocol servers claim.</param>
+    /// <param name="configFiles">Reads the config files; the overloads without it read none.</param>
+    /// <returns>
+    /// As <see cref="Parse(IReadOnlyList{string})"/> returns; a refusal inside a config file is
+    /// prefixed by <c>&lt;file&gt;:&lt;line&gt;: </c> (ADR-0101 decision 5).
+    /// </returns>
+    public static CommandLineParseResult Parse(
+        IReadOnlyList<string> arguments, IReadOnlyCollection<string> extendedSchemes, IConfigFileSource configFiles)
     {
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(extendedSchemes);
+        ArgumentNullException.ThrowIfNull(configFiles);
 
-        var reading = new CommandLineReading(arguments, extendedSchemes);
+        var reading = new CommandLineReading(arguments, extendedSchemes, configFiles);
         while (reading.TryTakeArgument(out var argument))
         {
             var ended = ReadArgument(reading, argument);
@@ -307,7 +341,132 @@ public static class CommandLineParser
             reading.OptionNamesByUser(option.LongName).Add(reportedName);
         }
 
-        return option.LongName == GroupLongName ? CountGroup(reading, reportedName) : null;
+        return ActOnAcceptedArgument(reading, option.LongName, reportedName, argument);
+    }
+
+    /// <summary>
+    /// What an accepted argument does besides setting its value: counts a <c>--group</c>, reads a
+    /// <c>-K</c> file in place, adds a <c>--url</c> listen URL; null to read on.
+    /// </summary>
+    private static CommandLineParseResult? ActOnAcceptedArgument(
+        CommandLineReading reading, string longName, string reportedName, string argument) =>
+        longName switch
+        {
+            GroupLongName => CountGroup(reading, reportedName),
+            ConfigLongName => ReadConfigFile(reading, argument),
+            UrlLongName => ReadListenUrl(reading, argument),
+            _ => null,
+        };
+
+    /// <summary>
+    /// Reads the config file <paramref name="path"/> in place (ADR-0101 decision 1): refuses a file
+    /// already being read and a sixth file open at once, then reads its option lines in order.
+    /// </summary>
+    private static CommandLineParseResult? ReadConfigFile(CommandLineReading reading, string path)
+    {
+        var isStandardInput = path == StandardInputPath;
+        var name = isStandardInput ? StandardInputName : path;
+        var identity = isStandardInput ? StandardInputName : reading.ConfigFileSource.IdentityOf(path);
+        var refused = RefuseConfigFileOpening(reading, name, isStandardInput ? reading.StandardInputRead : reading.OpenConfigFiles.Contains(identity));
+        if (refused is not null)
+        {
+            return refused;
+        }
+
+        var content = reading.ConfigFileSource.Read(path, ConfigFileText.MaxFileBytes + 1);
+        if (content is null)
+        {
+            return CommandLineParseResult.Refused(
+                new CommandLineFailure(SurlExitCode.CouldNotReadFile, $"(37) Could not read config file {name}"));
+        }
+
+        reading.StandardInputRead |= isStandardInput;
+        reading.OpenConfigFiles.Add(identity);
+        var result = ReadConfigFileContent(reading, name, content);
+        reading.OpenConfigFiles.RemoveAt(reading.OpenConfigFiles.Count - 1);
+        return result;
+    }
+
+    /// <summary>
+    /// Refuses opening the config file <paramref name="name"/> when it is already being read (or is a
+    /// second <c>-K -</c>) or when <see cref="MaxConfigFileDepth"/> files are open (ADR-0101 decision 5
+    /// rows 8 and 9); null otherwise.
+    /// </summary>
+    private static CommandLineParseResult? RefuseConfigFileOpening(CommandLineReading reading, string name, bool isAlreadyRead)
+    {
+        if (isAlreadyRead)
+        {
+            return RefusedOption(ConfigOption, $"{name} {IsAlreadyBeingRead}");
+        }
+
+        return reading.OpenConfigFiles.Count == MaxConfigFileDepth ? RefusedOption(ConfigOption, NestTooDeep) : null;
+    }
+
+    /// <summary>Reads a config file's lines in order; the first refusal or ending result ends the reading.</summary>
+    private static CommandLineParseResult? ReadConfigFileContent(CommandLineReading reading, string name, byte[] content)
+    {
+        if (content.Length > ConfigFileText.MaxFileBytes)
+        {
+            reading.FailureLocated = true;
+            return CommandLineParseResult.Refused(
+                new CommandLineFailure(SurlExitCode.FailedInit, $"{name}: {FileTooLarge}", FollowedByTryHelpLine: true));
+        }
+
+        foreach (var line in ConfigFileText.Lines(content))
+        {
+            var result = line.Failure is null
+                ? ReadConfigLine(reading, line.Words)
+                : CommandLineParseResult.Refused(new CommandLineFailure(SurlExitCode.FailedInit, line.Failure, FollowedByTryHelpLine: true));
+            if (result is not null)
+            {
+                return Locate(reading, name, line.Number, result);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Reads one config line's words as if they stood alone on the command line: an option taking a
+    /// value takes only the line's own, and a value no option took is refused.
+    /// </summary>
+    private static CommandLineParseResult? ReadConfigLine(CommandLineReading reading, IReadOnlyList<string> words)
+    {
+        var optionWord = words[0];
+        reading.LineWords.Push(new Queue<string>(words.Skip(1)));
+        var result = optionWord == EndOfOptions ? RefusedOption(optionWord, IsUnknown) : ReadArgument(reading, optionWord);
+        var valueLeft = reading.LineWords.Pop().Count > 0;
+        return result ?? (valueLeft ? RefuseValueLeft(optionWord) : null);
+    }
+
+    /// <summary>
+    /// Refuses a config line's value no option took: <c>does not take a parameter</c> for a flag
+    /// (<c>verbose = 1</c>), and the text-after-a-value refusal when the value was already written
+    /// into the option word (<c>--header=X Y</c>).
+    /// </summary>
+    private static CommandLineParseResult RefuseValueLeft(string optionWord)
+    {
+        var name = ConfigFileText.NameWithoutValue(optionWord);
+        return name == optionWord
+            ? RefusedOption(name, DoesNotTakeParameter)
+            : CommandLineParseResult.Refused(
+                new CommandLineFailure(SurlExitCode.FailedInit, ConfigFileText.TextFollowsTheValue(name), FollowedByTryHelpLine: true));
+    }
+
+    /// <summary>
+    /// Prefixes a refusal made by line <paramref name="number"/> of <paramref name="name"/> with
+    /// <c>&lt;file&gt;:&lt;line&gt;: </c>, once: a refusal a nested file already located keeps its own place.
+    /// </summary>
+    private static CommandLineParseResult Locate(CommandLineReading reading, string name, int number, CommandLineParseResult result)
+    {
+        if (result.Outcome != CommandLineOutcome.Refused || reading.FailureLocated)
+        {
+            return result;
+        }
+
+        reading.FailureLocated = true;
+        var failure = result.Failure!;
+        return CommandLineParseResult.Refused(failure with { Message = $"{name}:{number}: {failure.Message}" });
     }
 
     /// <summary>
@@ -508,9 +667,28 @@ public static class CommandLineParser
             new CommandLineFailure(SurlExitCode.FailedInit, $"option {writtenName}: {reason}", FollowedByTryHelpLine: true));
 
     /// <summary>The state of one left-to-right reading of a command line.</summary>
-    private sealed class CommandLineReading(IReadOnlyList<string> arguments, IReadOnlyCollection<string> extendedSchemes)
+    private sealed class CommandLineReading(
+        IReadOnlyList<string> arguments, IReadOnlyCollection<string> extendedSchemes, IConfigFileSource configFileSource)
     {
         private int _next;
+
+        /// <summary>Reads the <c>-K</c> files.</summary>
+        public IConfigFileSource ConfigFileSource => configFileSource;
+
+        /// <summary>The identities of the config files being read, outermost first.</summary>
+        public List<string> OpenConfigFiles { get; } = [];
+
+        /// <summary><see langword="true"/> once a <c>-K -</c> has read standard input.</summary>
+        public bool StandardInputRead { get; set; }
+
+        /// <summary><see langword="true"/> once a refusal carries its <c>&lt;file&gt;:&lt;line&gt;: </c>.</summary>
+        public bool FailureLocated { get; set; }
+
+        /// <summary>
+        /// The values of the config lines being read, innermost on top: while one is, an option
+        /// takes its value from the line alone, never from the command line or a later line.
+        /// </summary>
+        public Stack<Queue<string>> LineWords { get; } = new();
 
         /// <summary>The command line so far; a field so an option's argument can replace it by reference.</summary>
         public SurlCommandLine CommandLine = new();
@@ -546,6 +724,14 @@ public static class CommandLineParser
             return taken is not null;
         }
 
-        public string? TakeArgumentOrNull() => _next < arguments.Count ? arguments[_next++] : null;
+        public string? TakeArgumentOrNull()
+        {
+            if (LineWords.TryPeek(out var line))
+            {
+                return line.TryDequeue(out var word) ? word : null;
+            }
+
+            return _next < arguments.Count ? arguments[_next++] : null;
+        }
     }
 }

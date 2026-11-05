@@ -62,6 +62,17 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   the 10001st `--group` is refused (`GivenTooOften`). Whether members name accounts or groups,
   cycles and the reserved `everyone` are checked at start by `Surl.Composition`'s
   `AccountGroupExpansion`. BL-653, BL-654, BL-663 and BL-666 add the other item options.
+- Config files (ADR-0101 decisions 1, 2, 5 rows 1 to 9, and 6; BL-644): `-K`/`--config <file>`
+  (category `surl`) reads a file in curl's config-file syntax in place, through the
+  `IConfigFileSource` seam the host passes to `CommandLineParser.Parse`'s third overload (the
+  overloads without one use `UnreadableConfigFileSource`, so every `-K` there exits 37).
+  `ConfigFileText.Lines` splits the bytes into `ConfigFileLine`s (UTF-8, LF or CR LF, blank and `#`
+  lines skipped, undashed names, quoted values and their escapes, text after a value and a missing
+  quote refused); the parser reads each line's words as if they stood alone on the command line
+  (`CommandLineReading.LineWords`), so an option never takes a value from another line. A refusal
+  inside a file is prefixed once by `<file>:<line>: `; at most `MaxConfigFileDepth` (5) files are
+  open at once, a cycle and a second `-K -` are refused, a file past 16 MiB and a line past 10 MiB
+  too. `--url <listen URL>` adds a listen URL exactly as a bare argument does.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,
