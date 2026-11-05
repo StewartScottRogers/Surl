@@ -49,3 +49,4 @@ keep-alive pings, and closes a connection whose client went quiet past the timeo
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
