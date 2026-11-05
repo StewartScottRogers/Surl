@@ -51,7 +51,7 @@ the closing and draining periods with BL-608.
   (`InvalidOperationException` otherwise; `ArgumentOutOfRangeException` for a frame over that or over
   `MaxApplicationFrameLength`). It is ack-eliciting and in flight, waits for the congestion window like
   other frames, and is never sent again when lost. The HTTP server never sets the option.
-  `QuicApplicationConnection` does not carry them yet (BL-749).
+  `QuicApplicationConnection` does not carry them yet (BL-753).
 - `QuicStream` - one stream (ADR-0096): `Read` returns the client's bytes in order (put back by
   `QuicOrderedBytes`, which `CRYPTO` shares), `Write(data, fin)` queues bytes, `Reset` and
   `StopSending` send their frames. Nothing is sent until `QuicServerConnection.Transmit` or the next

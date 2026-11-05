@@ -62,7 +62,7 @@ implementation defaults within it, so no new ADR.
 - Loss: `Retransmittable` drops `DATAGRAM` frames; the packet is still ack-eliciting and in flight, so loss
   detection and NewReno count it (test `SendDatagram_DatagramLost_IsNotSentAgainButCountsAsACongestionEvent`
   reads the window through a new internal `QuicServerConnection.Congestion`).
-- Follow-up filed: BL-749, the same through `QuicApplicationConnection` and the flow loop, which HTTP/3 rides;
+- Follow-up filed: BL-753, the same through `QuicApplicationConnection` and the flow loop, which HTTP/3 rides;
   BL-411 now depends on it too.
 - Coverage of `Surl.Quic.UnitLibrary` after the change: 100% line, 100% branch (420 tests).
 

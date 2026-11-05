@@ -1,5 +1,5 @@
 ---
-id: BL-749
+id: BL-753
 title: Carry QUIC DATAGRAM frames through QuicApplicationConnection and the flow loop
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-749 — Carry QUIC DATAGRAM frames through QuicApplicationConnection and the flow loop
+# BL-753 — Carry QUIC DATAGRAM frames through QuicApplicationConnection and the flow loop
 
 ## Goal
 
