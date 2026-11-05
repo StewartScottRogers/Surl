@@ -17,6 +17,17 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
     private int startedListenerCount;
     private int disposedListenerCount;
+    private IConnection? connectionToAccept;
+
+    /// <summary>
+    /// A connection the first accept of any connection listener returns, once; every other accept
+    /// waits until cancelled.
+    /// </summary>
+    public IConnection? ConnectionToAccept
+    {
+        get => Volatile.Read(ref connectionToAccept);
+        init => connectionToAccept = value;
+    }
 
     /// <summary>Whether every start throws an address-in-use <see cref="ListenerBindException"/>.</summary>
     public bool BindFails { get; init; }
@@ -70,6 +81,11 @@ internal sealed class FakeListenerFactory : IListenerFactory
 
         public async ValueTask<IConnection> AcceptAsync(CancellationToken cancellationToken)
         {
+            if (Interlocked.Exchange(ref factory.connectionToAccept, null) is { } connection)
+            {
+                return connection;
+            }
+
             await WaitUntilCancelledAsync(cancellationToken);
             throw new UnreachableException();
         }

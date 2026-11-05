@@ -28,8 +28,15 @@ measures it by name.
   host keys and limits are typed properties (BL-616), each composed as its option by
   `SurlServerArguments.Compose`; a null or default property adds no word, so the default is
   `surl`'s. Misuse `--user` could not spell (a null, a `:` in a user name) and a negative
-  duration other than `Timeout.InfiniteTimeSpan` are `ArgumentException`s. Recording exchanges
-  is BL-617's.
+  duration other than `Timeout.InfiniteTimeSpan` are `ArgumentException`s.
+- `RecordExchanges` (ADR-0099 decision 7, off by default and adding no word) gives the serving
+  a `FanOutExchangeLogFactory` that passes every call to the levelled or trace log and to a
+  `RecordingExchangeLogFactory`. `SurlServer.Exchanges` snapshots it as `SurlExchangeRecord`s
+  (exchange ID, client, `StartedAt`, the `SurlExchangeChunk`s in order, `Received`, `Sent`,
+  `IsTruncated`) and `DroppedExchangeCount` counts the oldest dropped past
+  `MaxRecordedExchanges`; bytes past `MaxRecordedBytesPerExchange` (both directions together)
+  are cut. With recording off both throw `InvalidOperationException`; a non-positive bound is an
+  `ArgumentException`. Notes are not recorded, and a record names no listen URL.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.

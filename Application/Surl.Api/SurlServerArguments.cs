@@ -41,6 +41,10 @@ internal static class SurlServerArguments
         ThrowIfAuthenticationMisused(options);
         ThrowIfNegativeDuration(options.IdleTimeout, nameof(options.IdleTimeout));
         ThrowIfNegativeDuration(options.MaxTime, nameof(options.MaxTime));
+        if (options.MaxRecordedExchanges <= 0 || options.MaxRecordedBytesPerExchange <= 0)
+        {
+            throw new ArgumentException("MaxRecordedExchanges and MaxRecordedBytesPerExchange must be positive.", nameof(options));
+        }
     }
 
     // A null word, or a user name --user would split at a colon inside it.

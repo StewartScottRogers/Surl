@@ -24,16 +24,34 @@ public sealed class SurlServer : IAsyncDisposable
     private readonly CancellationTokenSource stop;
     private readonly Task<SurlServingOutcome> serving;
     private readonly Lazy<Task<SurlExitCode>> stopping;
+    private readonly RecordingExchangeLogFactory? record;
 
     private SurlServer(
-        ComposedServing composedServing, CancellationTokenSource stop, Task<SurlServingOutcome> serving, IReadOnlyList<Uri> boundUrls)
+        ComposedServing composedServing,
+        CancellationTokenSource stop,
+        Task<SurlServingOutcome> serving,
+        IReadOnlyList<Uri> boundUrls,
+        RecordingExchangeLogFactory? record)
     {
         this.composedServing = composedServing;
         this.stop = stop;
         this.serving = serving;
+        this.record = record;
         BoundUrls = boundUrls;
         stopping = new Lazy<Task<SurlExitCode>>(StopServingAsync);
     }
+
+    /// <summary>
+    /// Every exchange recorded so far, oldest first, at most <see cref="SurlServerOptions.MaxRecordedExchanges"/>
+    /// of them (ADR-0099, decision 7): a snapshot that later exchanges and bytes do not change. Safe to
+    /// read while the server serves.
+    /// </summary>
+    /// <exception cref="InvalidOperationException"><see cref="SurlServerOptions.RecordExchanges"/> is off, so nothing was recorded.</exception>
+    public IReadOnlyList<SurlExchangeRecord> Exchanges => RecordOrThrow().Snapshot();
+
+    /// <summary>How many recorded exchanges were dropped, oldest first, past <see cref="SurlServerOptions.MaxRecordedExchanges"/>.</summary>
+    /// <exception cref="InvalidOperationException"><see cref="SurlServerOptions.RecordExchanges"/> is off, so nothing was recorded.</exception>
+    public long DroppedExchangeCount => RecordOrThrow().DroppedExchangeCount;
 
     /// <summary>
     /// Each listen URL in the order given, as the status line writes it, with port 0 replaced by the
@@ -100,7 +118,10 @@ public sealed class SurlServer : IAsyncDisposable
             throw new SurlServerStartException(failure);
         }
 
-        return await ServeUntilBoundAsync(commandLine, start.Serving!, options.Log, timeProvider, cancellationToken);
+        var record = options.RecordExchanges
+            ? new RecordingExchangeLogFactory(options.MaxRecordedExchanges, options.MaxRecordedBytesPerExchange, timeProvider)
+            : null;
+        return await ServeUntilBoundAsync(commandLine, start.Serving!, options.Log, record, timeProvider, cancellationToken);
     }
 
     /// <summary>The exchange log <c>surl</c> would write at the command line's level, to <paramref name="log"/>.</summary>
@@ -117,14 +138,19 @@ public sealed class SurlServer : IAsyncDisposable
         SurlCommandLine commandLine,
         ComposedServing composedServing,
         TextWriter? optionsLog,
+        RecordingExchangeLogFactory? record,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         var log = optionsLog is null ? TextWriter.Null : TextWriter.Synchronized(optionsLog);
         var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
         var stop = new CancellationTokenSource();
+        var exchangeLogFactory = CreateExchangeLogFactory(commandLine, log, timeProvider);
         var outputs = new SurlServingOutputs(
-            log, log, CreateExchangeLogFactory(commandLine, log, timeProvider), boundUrls => bound.TrySetResult(boundUrls));
+            log,
+            log,
+            record is null ? exchangeLogFactory : new FanOutExchangeLogFactory(exchangeLogFactory, record),
+            boundUrls => bound.TrySetResult(boundUrls));
         var serving = composedServing.ServeAsync(outputs, stop.Token);
         using (cancellationToken.Register(stop.Cancel))
         {
@@ -133,7 +159,7 @@ public sealed class SurlServer : IAsyncDisposable
 
         if (bound.Task.IsCompletedSuccessfully)
         {
-            return new SurlServer(composedServing, stop, serving, [.. bound.Task.Result.Select(ToUri)]);
+            return new SurlServer(composedServing, stop, serving, [.. bound.Task.Result.Select(ToUri)], record);
         }
 
         // Serving ended before every listener bound: cancelled, or a bind failure (45 or 6).
@@ -143,6 +169,10 @@ public sealed class SurlServer : IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
         throw new SurlServerStartException(outcome.Failure!);
     }
+
+    private RecordingExchangeLogFactory RecordOrThrow() =>
+        record ?? throw new InvalidOperationException(
+            "RecordExchanges is off, so no exchange was recorded; set SurlServerOptions.RecordExchanges to read Exchanges.");
 
     private static Uri ToUri(ListenUrl boundUrl) => new(ListenerStatusLine.FormatBoundListenUrl(boundUrl));
 

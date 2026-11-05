@@ -152,4 +152,24 @@ public sealed class SurlServerOptions
     /// <see langword="null"/>, the default, to read the process's <c>SURL_EXTENSIONS</c> at start.
     /// </summary>
     public bool? AreExtensionsTurnedOn { get; set; }
+
+    /// <summary>
+    /// Whether the server records what each client sent and was sent, for
+    /// <see cref="SurlServer.Exchanges"/> (ADR-0099, decision 7); off by default, and nothing is
+    /// recorded or kept when off. It is not a <c>surl</c> option and adds no word.
+    /// </summary>
+    public bool RecordExchanges { get; set; }
+
+    /// <summary>
+    /// The most exchanges <see cref="SurlServer.Exchanges"/> keeps, 1000 by default; past it the
+    /// oldest is dropped and <see cref="SurlServer.DroppedExchangeCount"/> grows. Must be positive.
+    /// </summary>
+    public int MaxRecordedExchanges { get; set; } = 1000;
+
+    /// <summary>
+    /// The most bytes kept of one exchange, both directions together, 1 MiB by default; past it no
+    /// more of that exchange's bytes are kept and its <see cref="SurlExchangeRecord.IsTruncated"/> is
+    /// true. Must be positive.
+    /// </summary>
+    public int MaxRecordedBytesPerExchange { get; set; } = 1_048_576;
 }
