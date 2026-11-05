@@ -215,6 +215,67 @@ public sealed class QuicFrameReaderTests
         Assert.IsNull(exception.FrameType);
     }
 
+    [TestMethod]
+    public void Read_DatagramFrameWithoutLength_TakesTheRestOfThePayload()
+    {
+        var frames = Read("30010203");
+
+        var frame = (QuicDatagramFrame)frames.Single();
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, frame.Data.ToArray());
+        Assert.IsFalse(frame.HasLength);
+        Assert.AreEqual("30010203", Convert.ToHexString(frame.ToBytes()));
+    }
+
+    [TestMethod]
+    public void Read_DatagramFrameWithLength_TakesItsLengthAndReadsOn()
+    {
+        var frames = Read("31020102" + "01");
+
+        Assert.HasCount(2, frames);
+        var frame = (QuicDatagramFrame)frames[0];
+        CollectionAssert.AreEqual(new byte[] { 1, 2 }, frame.Data.ToArray());
+        Assert.IsTrue(frame.HasLength);
+        Assert.AreEqual("31020102", Convert.ToHexString(frame.ToBytes()));
+        Assert.IsInstanceOfType<QuicPingFrame>(frames[1]);
+    }
+
+    [TestMethod]
+    [DataRow("3000", QuicPacketType.Initial)]
+    [DataRow("3100", QuicPacketType.Handshake)]
+    public void Read_DatagramFrameOutsideZeroRttAndOneRtt_ThrowsProtocolViolation(string hex, QuicPacketType packetType)
+    {
+        var exception = Assert.ThrowsExactly<QuicTransportException>(() => QuicFrameReader.Read(Convert.FromHexString(hex), packetType));
+
+        Assert.AreEqual(QuicTransportErrorCode.ProtocolViolation, exception.ErrorCode);
+    }
+
+    [TestMethod]
+    public void Read_DatagramFrameInZeroRtt_ReadsIt()
+    {
+        var frames = QuicFrameReader.Read(Convert.FromHexString("3100"), QuicPacketType.ZeroRtt);
+
+        Assert.IsEmpty(((QuicDatagramFrame)frames.Single()).Data.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("20")]
+    [DataRow("2f")]
+    [DataRow("32")]
+    public void Read_FrameTypeBetweenOrAfterTheDefinedOnes_ThrowsFrameEncodingError(string hex)
+    {
+        var exception = Assert.ThrowsExactly<QuicTransportException>(() => Read(hex));
+
+        Assert.AreEqual(QuicTransportErrorCode.FrameEncodingError, exception.ErrorCode);
+    }
+
+    [TestMethod]
+    public void Read_DatagramFrameTypeNotInItsShortestEncoding_ThrowsProtocolViolation()
+    {
+        var exception = Assert.ThrowsExactly<QuicTransportException>(() => Read("403000"));
+
+        Assert.AreEqual(QuicTransportErrorCode.ProtocolViolation, exception.ErrorCode);
+    }
+
     private static IReadOnlyList<QuicFrame> Read(string hex) =>
         QuicFrameReader.Read(Convert.FromHexString(hex), QuicPacketType.OneRtt);
 }

@@ -46,4 +46,12 @@ public sealed class QuicServerConnectionOptions
 
     /// <summary><c>initial_max_streams_uni</c>: 3 by default, HTTP/3's control and QPACK streams.</summary>
     public ulong InitialMaxStreamsUni { get; init; } = 3;
+
+    /// <summary>
+    /// <c>max_datagram_frame_size</c> (RFC 9221 section 3): the largest <c>DATAGRAM</c> frame the
+    /// server takes, type and length included, or null - the default, and HTTP/3's (ADR-0082
+    /// decision 4) - to send no such parameter. A <c>DATAGRAM</c> frame received when this is null
+    /// or 0, or one larger than it, ends the connection with <c>PROTOCOL_VIOLATION</c>.
+    /// </summary>
+    public ulong? MaxDatagramFrameSize { get; init; }
 }

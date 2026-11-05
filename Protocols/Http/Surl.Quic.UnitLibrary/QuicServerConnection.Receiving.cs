@@ -174,6 +174,9 @@ public sealed partial class QuicServerConnection
             case QuicConnectionCloseFrame:
                 Discard();
                 break;
+            case QuicDatagramFrame datagram:
+                ReceiveDatagramFrame(datagram);
+                break;
             default:
                 ProcessOtherFrame(frame);
                 break;

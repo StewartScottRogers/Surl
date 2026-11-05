@@ -1,12 +1,12 @@
 namespace Surl.Quic;
 
 /// <summary>
-/// Reads a QUIC packet payload, in the clear, into its frames (RFC 9000 sections 12.4 and 19).
+/// Reads a QUIC packet payload, in the clear, into its frames (RFC 9000 sections 12.4 and 19, RFC 9221 section 4).
 /// Malformed input throws a <see cref="QuicTransportException"/> naming the transport error and
 /// the frame type:
 /// <list type="bullet">
 /// <item>a payload with no frames, a frame type not in its shortest encoding, and a frame type the packet type does not permit: <see cref="QuicTransportErrorCode.ProtocolViolation"/>;</item>
-/// <item>a frame type RFC 9000 does not define, a frame that ends early, and a field out of its range: <see cref="QuicTransportErrorCode.FrameEncodingError"/>;</item>
+/// <item>a frame type neither RFC 9000 nor RFC 9221 (<c>DATAGRAM</c>) defines, a frame that ends early, and a field out of its range: <see cref="QuicTransportErrorCode.FrameEncodingError"/>;</item>
 /// <item>a <c>CRYPTO</c> frame ending beyond offset 2^62-1: <see cref="QuicTransportErrorCode.CryptoBufferExceeded"/>.</item>
 /// </list>
 /// Byte strings in the frames returned are slices of <c>payload</c>, not copies.
@@ -57,6 +57,9 @@ public static class QuicFrameReader
         (QuicHandshakeDoneFrame.ReadFrom, OneRttBit),
     ];
 
+    /// <summary>The <c>DATAGRAM</c> frame types (RFC 9221 section 4), permitted in 0-RTT and 1-RTT packets.</summary>
+    private static readonly (Func<QuicReader, byte, QuicFrame> Read, int PacketTypes) DatagramFrameType = (QuicDatagramFrame.ReadFrom, ApplicationData);
+
     /// <summary>Reads every frame in a packet payload.</summary>
     /// <param name="payload">The payload, in the clear, with no AEAD tag.</param>
     /// <param name="packetType">The type of packet that carried it: Initial, 0-RTT, Handshake or 1-RTT.</param>
@@ -87,21 +90,24 @@ public static class QuicFrameReader
         var start = reader.Position;
         var frameType = reader.ReadVariableLengthInteger();
         reader.FrameType = frameType;
-        if (frameType >= (ulong)FrameTypes.Length)
-        {
-            throw reader.Fault(QuicTransportErrorCode.FrameEncodingError, $"Frame type 0x{frameType:x} is unknown.");
-        }
-
+        var (read, packetTypes) = FrameTypeOf(frameType) ?? throw reader.Fault(QuicTransportErrorCode.FrameEncodingError, $"Frame type 0x{frameType:x} is unknown.");
         if (reader.Position - start != QuicVariableLengthInteger.EncodedLength(frameType))
         {
             throw reader.Fault(QuicTransportErrorCode.ProtocolViolation, $"Frame type 0x{frameType:x} is not in its shortest encoding.");
         }
 
-        var (read, packetTypes) = FrameTypes[frameType];
         return (packetTypes & packetTypeBit) == 0
             ? throw reader.Fault(QuicTransportErrorCode.ProtocolViolation, $"Frame type 0x{frameType:x} is not permitted in a {packetType} packet.")
             : read(reader, (byte)frameType);
     }
+
+    /// <summary>The reader and permitted packet types of a frame type RFC 9000 or RFC 9221 defines; null for any other.</summary>
+    private static (Func<QuicReader, byte, QuicFrame> Read, int PacketTypes)? FrameTypeOf(ulong frameType) => frameType switch
+    {
+        < 0x1f => FrameTypes[frameType],
+        QuicFrameTypes.Datagram or QuicFrameTypes.DatagramWithLength => DatagramFrameType,
+        _ => null,
+    };
 
     private static int PacketTypeBit(QuicPacketType packetType) => packetType switch
     {

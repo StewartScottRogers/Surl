@@ -5,7 +5,7 @@ Phase 6.
 QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
-loss recovery and congestion control (BL-379), and the flow loop an application protocol rides (BL-572); key updates come with BL-606, the client's spare connection IDs with BL-607 and
+loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), and `DATAGRAM` frames (BL-573); key updates come with BL-606, the client's spare connection IDs with BL-607 and
 the closing and draining periods with BL-608.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
@@ -33,7 +33,7 @@ the closing and draining periods with BL-608.
   flight; Application Data only once the handshake is confirmed). Lost frames are sent again ahead
   of new ones as RFC 9000 section 13.3 says: `CRYPTO`, `HANDSHAKE_DONE`, `STREAM` unless the stream
   was reset, the current `MAX_DATA`, `MAX_STREAMS` and `MAX_STREAM_DATA` (while the stream still
-  receives), everything else as it was; never `ACK`, `PADDING`, `PING`, `PATH_RESPONSE` or
+  receives), everything else as it was; never `ACK`, `PADDING`, `PING`, `PATH_RESPONSE`, `DATAGRAM` or
   `CONNECTION_CLOSE`. A probe sends the space's waiting data, else its oldest packet's frames again,
   else a `PING`, whatever the congestion window. A `CRYPTO` or `STREAM` frame too long for the room
   left is split when the first part keeps at least 64 bytes. `QuicCongestionController` is NewReno
@@ -41,6 +41,17 @@ the closing and draining periods with BL-608.
   recovery period, the minimum on persistent congestion (judged on one space's losses); ACK-only
   packets are outside the window, and an ack-eliciting Initial waits for a datagram the window and
   the amplification limit let reach 1200 bytes. Spaces whose keys go are forgotten (section 6.4).
+- `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
+  `QuicServerConnectionOptions.MaxDatagramFrameSize` is set; then `max_datagram_frame_size` (0x20) is
+  sent, and each `QuicDatagramFrame` (type `0x30` to the end of the packet, `0x31` with a Length) the
+  client sends comes back in `QuicConnectionOutput.ReceivedDatagramFrames` from `ReceiveDatagram`. One
+  received when the option is null or 0, or larger than it (type and length counted), ends the
+  connection `PROTOCOL_VIOLATION` with the frame's type. `SendDatagram` sends its data in a type `0x31`
+  frame once the handshake is complete and the client sent a non-zero `max_datagram_frame_size`
+  (`InvalidOperationException` otherwise; `ArgumentOutOfRangeException` for a frame over that or over
+  `MaxApplicationFrameLength`). It is ack-eliciting and in flight, waits for the congestion window like
+  other frames, and is never sent again when lost. The HTTP server never sets the option.
+  `QuicApplicationConnection` does not carry them yet (BL-749).
 - `QuicStream` - one stream (ADR-0096): `Read` returns the client's bytes in order (put back by
   `QuicOrderedBytes`, which `CRYPTO` shares), `Write(data, fin)` queues bytes, `Reset` and
   `StopSending` send their frames. Nothing is sent until `QuicServerConnection.Transmit` or the next
@@ -109,7 +120,7 @@ copies. Writing a value RFC 9000 forbids throws an `ArgumentException`.
 
 | Input | Error |
 | --- | --- |
-| a frame that ends early (a truncated varint too), a frame type RFC 9000 does not define, a `STREAM` frame ending beyond 2^62-1, an `ACK` range below packet number 0, a stream count above 2^60, an empty `NEW_TOKEN`, a `NEW_CONNECTION_ID` of 0 or over 20 bytes or retiring beyond itself | `FRAME_ENCODING_ERROR` |
+| a frame that ends early (a truncated varint too), a frame type neither RFC 9000 nor RFC 9221 defines, a `STREAM` frame ending beyond 2^62-1, an `ACK` range below packet number 0, a stream count above 2^60, an empty `NEW_TOKEN`, a `NEW_CONNECTION_ID` of 0 or over 20 bytes or retiring beyond itself | `FRAME_ENCODING_ERROR` |
 | an empty payload, a frame type not in its shortest encoding, a frame the packet type does not permit (section 12.4, table 3) | `PROTOCOL_VIOLATION` |
 | a `CRYPTO` frame ending beyond 2^62-1 | `CRYPTO_BUFFER_EXCEEDED` |
 | any packet-header fault: early end, a version 1 connection ID over 20 bytes, fixed bit 0, reserved bits set, a Length shorter than the packet number, a Retry without its tag, a Version Negotiation list not whole versions | `PROTOCOL_VIOLATION` with no frame type: the caller drops the packet |

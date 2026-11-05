@@ -31,6 +31,12 @@ internal static class QuicFrameTypes
     public const byte ConnectionCloseApplication = 0x1d;
     public const byte HandshakeDone = 0x1e;
 
+    /// <summary><c>DATAGRAM</c> without a Length field (RFC 9221 section 4).</summary>
+    public const byte Datagram = 0x30;
+
+    /// <summary><c>DATAGRAM</c> with a Length field (RFC 9221 section 4).</summary>
+    public const byte DatagramWithLength = 0x31;
+
     /// <summary>The largest stream count a <c>MAX_STREAMS</c> or <c>STREAMS_BLOCKED</c> frame may carry, 2^60.</summary>
     public const ulong MaxStreamCount = 1UL << 60;
 }

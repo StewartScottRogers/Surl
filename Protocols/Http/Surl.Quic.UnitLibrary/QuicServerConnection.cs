@@ -125,7 +125,7 @@ public sealed partial class QuicServerConnection : IDisposable
 
         bytesReceived += datagram.Length;
         ReceivePacketsClosingOnError(datagram);
-        return new QuicConnectionOutput(Flush(), TakeUpdatedStreams());
+        return new QuicConnectionOutput(Flush(), TakeUpdatedStreams()) { ReceivedDatagramFrames = TakeReceivedDatagramFrames() };
     }
 
     /// <summary>
@@ -370,6 +370,7 @@ public sealed partial class QuicServerConnection : IDisposable
         DisableActiveMigration = true,
         InitialSourceConnectionId = serverConnectionId,
         VersionInformation = new QuicVersionInformation(QuicVersions.Version1, [QuicVersions.Version1]),
+        MaxDatagramFrameSize = options.MaxDatagramFrameSize,
     };
 
     /// <summary>Ends the connection with a transport error, sent as RFC 9000 section 10.2.3 says.</summary>

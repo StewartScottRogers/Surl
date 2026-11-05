@@ -132,4 +132,30 @@ public sealed class QuicTransportParametersTests
 
         Assert.AreEqual(QuicTransportErrorCode.TransportParameterError, exception.ErrorCode, description);
     }
+
+    [TestMethod]
+    public void Read_MaxDatagramFrameSize_GivesItsValue()
+    {
+        var parameters = QuicTransportParameters.Read(Convert.FromHexString("200244b0"));
+
+        Assert.AreEqual(1200UL, parameters.MaxDatagramFrameSize);
+    }
+
+    [TestMethod]
+    public void ToBytes_MaxDatagramFrameSize_WritesParameter0x20AfterVersionInformation()
+    {
+        var parameters = new QuicTransportParameters { MaxDatagramFrameSize = 65535, VersionInformation = new QuicVersionInformation(QuicVersions.Version1, []) };
+
+        var encoded = parameters.ToBytes();
+
+        Assert.AreEqual("11040000000120048000FFFF", Convert.ToHexString(encoded));
+    }
+
+    [TestMethod]
+    public void Read_MaxDatagramFrameSizeNotOneVarint_IsTransportParameterError()
+    {
+        var exception = Assert.ThrowsExactly<QuicTransportException>(() => QuicTransportParameters.Read(Convert.FromHexString("200244")));
+
+        Assert.AreEqual(QuicTransportErrorCode.TransportParameterError, exception.ErrorCode);
+    }
 }

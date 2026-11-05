@@ -4,7 +4,7 @@ namespace Surl.Quic;
 
 /// <summary>
 /// The QUIC transport parameters of RFC 9000 section 18 (and <c>version_information</c>, RFC
-/// 9368), carried in TLS's <c>quic_transport_parameters</c> extension. A null property is a
+/// 9368, and <c>max_datagram_frame_size</c>, RFC 9221), carried in TLS's <c>quic_transport_parameters</c> extension. A null property is a
 /// parameter that is absent, so its default applies. Parameters this type does not know are
 /// skipped when read (RFC 9000 section 18.1).
 /// </summary>
@@ -48,6 +48,7 @@ public sealed record QuicTransportParameters
         [0x0f] = (parameters, value) => parameters with { InitialSourceConnectionId = ConnectionId(0x0f, value) },
         [0x10] = (parameters, value) => parameters with { RetrySourceConnectionId = ConnectionId(0x10, value) },
         [0x11] = (parameters, value) => parameters with { VersionInformation = Versions(value) },
+        [0x20] = (parameters, value) => parameters with { MaxDatagramFrameSize = Integer(0x20, value) },
     };
 
     /// <summary><c>original_destination_connection_id</c> (0x00): the Destination Connection ID of the client's first Initial; the server's only.</summary>
@@ -104,6 +105,9 @@ public sealed record QuicTransportParameters
     /// <summary><c>version_information</c> (0x11, RFC 9368).</summary>
     public QuicVersionInformation? VersionInformation { get; init; }
 
+    /// <summary><c>max_datagram_frame_size</c> (0x20, RFC 9221 section 3): the largest <c>DATAGRAM</c> frame, type and length included, the sender takes; 0 or absent means it takes none.</summary>
+    public ulong? MaxDatagramFrameSize { get; init; }
+
     /// <summary>Reads the parameters of a <c>quic_transport_parameters</c> extension.</summary>
     /// <param name="encoded">The extension's value.</param>
     /// <returns>The parameters it carries.</returns>
@@ -155,6 +159,7 @@ public sealed record QuicTransportParameters
         WriteBytes(writer, 0x0f, ConnectionIdToWrite(InitialSourceConnectionId, nameof(InitialSourceConnectionId)));
         WriteBytes(writer, 0x10, ConnectionIdToWrite(RetrySourceConnectionId, nameof(RetrySourceConnectionId)));
         WriteBytes(writer, 0x11, VersionInformation is null ? (ReadOnlyMemory<byte>?)null : VersionsToWrite(VersionInformation));
+        WriteInteger(writer, 0x20, MaxDatagramFrameSize);
         return writer.ToArray();
     }
 

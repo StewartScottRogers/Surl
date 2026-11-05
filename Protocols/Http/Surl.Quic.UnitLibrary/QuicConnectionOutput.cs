@@ -8,6 +8,12 @@ namespace Surl.Quic;
 /// </param>
 public sealed record QuicConnectionOutput(IReadOnlyList<byte[]> Datagrams, IReadOnlyList<QuicStream> Streams)
 {
+    /// <summary>
+    /// The <c>DATAGRAM</c> frames (RFC 9221) the client's packets carried in this call, in the
+    /// order received; only <see cref="QuicServerConnection.ReceiveDatagram"/> fills it.
+    /// </summary>
+    public IReadOnlyList<QuicDatagramFrame> ReceivedDatagramFrames { get; init; } = [];
+
     /// <summary>Nothing to send and no stream reached.</summary>
     public static QuicConnectionOutput Empty { get; } = new([], []);
 }

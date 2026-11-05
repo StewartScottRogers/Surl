@@ -9,6 +9,9 @@ public sealed partial class QuicServerConnection
     /// <summary>When the loss detection timer fires, or null when it is not armed.</summary>
     private DateTimeOffset? LossDetectionDeadline => tls is null ? null : recovery.Timer(IsAtAmplificationLimit);
 
+    /// <summary>The connection's congestion controller, for the tests to read its window and bytes in flight.</summary>
+    internal QuicCongestionController Congestion => recovery.Congestion;
+
     /// <summary>Whether the anti-amplification limit lets the server send nothing more (RFC 9000 section 8.1).</summary>
     private bool IsAtAmplificationLimit => !addressValidated && AmplificationFactor * bytesReceived <= bytesSent;
 
@@ -88,7 +91,7 @@ public sealed partial class QuicServerConnection
     /// <summary>
     /// What is sent again of lost frames (RFC 9000 section 13.3): <c>CRYPTO</c> and
     /// <c>HANDSHAKE_DONE</c> as they were, stream and flow-control frames as <see cref="QuicStreams.Refresh"/>
-    /// says; never <c>ACK</c>, <c>PADDING</c>, <c>PING</c>, <c>PATH_RESPONSE</c> or <c>CONNECTION_CLOSE</c>.
+    /// says; never <c>ACK</c>, <c>PADDING</c>, <c>PING</c>, <c>PATH_RESPONSE</c>, <c>CONNECTION_CLOSE</c> or <c>DATAGRAM</c> (RFC 9221 section 5).
     /// </summary>
     private List<QuicFrame> Retransmittable(IEnumerable<QuicFrame> frames)
     {
@@ -97,7 +100,7 @@ public sealed partial class QuicServerConnection
         {
             var resent = frame switch
             {
-                QuicAckFrame or QuicPaddingFrame or QuicPingFrame or QuicPathResponseFrame or QuicConnectionCloseFrame => null,
+                QuicAckFrame or QuicPaddingFrame or QuicPingFrame or QuicPathResponseFrame or QuicConnectionCloseFrame or QuicDatagramFrame => null,
                 QuicCryptoFrame or QuicHandshakeDoneFrame => frame,
                 _ => streams!.Refresh(frame),
             };
