@@ -56,3 +56,4 @@ libraries that are extracted and the tasks that extract them.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
