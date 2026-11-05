@@ -1,5 +1,5 @@
 ---
-id: BL-768
+id: BL-774
 title: Let a gs head past --max-request-head be refused 400 MaxMessageLengthExceeded
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-768 — Let a gs head past --max-request-head be refused 400 MaxMessageLengthExceeded
+# BL-774 — Let a gs head past --max-request-head be refused 400 MaxMessageLengthExceeded
 
 ## Goal
 

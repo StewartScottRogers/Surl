@@ -1,5 +1,5 @@
 ---
-id: BL-769
+id: BL-775
 title: List a folder put over gs as the zero-byte object name ending in a slash
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-769 — List a folder put over gs as the zero-byte object name ending in a slash
+# BL-775 — List a folder put over gs as the zero-byte object name ending in a slash
 
 ## Goal
 

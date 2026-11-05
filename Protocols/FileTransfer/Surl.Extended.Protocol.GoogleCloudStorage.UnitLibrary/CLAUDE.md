@@ -14,7 +14,7 @@ listen URL's host when it is a DNS name, `localhost` and `storage.googleapis.com
   `x-goog-if-metageneration-match` (`GcsGenerationConditions`), the stored header fields, `x-goog-meta-*`,
   `x-goog-generation`, `x-goog-metageneration: 1`, `x-goog-stored-content-*`, `x-goog-storage-class: STANDARD`
   and `x-goog-hash` (`crc32c=…,md5=…` of the whole object, computed by `GcsObjectHashes` with
-  `BitOperations.Crc32C`, read from the file on every request until BL-767 caches it in the index).
+  `BitOperations.Crc32C`, read from the file on every request until BL-773 caches it in the index).
 - PUT Object (`GcsPutObject`): needs `--allow-uploads` (`403 AccessDenied`), `Content-Length` (`411
   MissingContentLength`), checks `Content-MD5` (`400 InvalidDigest`, `400 BadDigest`) and `x-goog-hash`
   (`400 InvalidHash`, `400 BadDigest`, `GcsSentDigests`), `x-goog-meta-*` at most 8 KiB (`400
@@ -39,7 +39,7 @@ Every other request - another method, a subresource or unlisted query parameter,
 `x-goog-encryption-*` - is `400 NotImplemented`, judged after the login. Every error is `GcsError`'s fixed
 code and message in the one-line XML body (`GcsErrorBody`); no client byte is echoed, and a `HEAD` error has
 no body. A connection past a limit is `503 SlowDown` (`WriteRefusalAsync`). A head past `--max-request-head`
-is still `Surl.HttpServing`'s `431` until BL-768.
+is still `Surl.HttpServing`'s `431` until BL-774.
 
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing` (and through it
 `Surl.HttpMessage`), nothing else (`ProtocolIsolationTests`). It never constructs a transport type. Tests

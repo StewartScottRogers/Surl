@@ -1,5 +1,5 @@
 ---
-id: BL-767
+id: BL-773
 title: Cache each object's CRC-32C in the object metadata index for the gs server
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-767 — Cache each object's CRC-32C in the object metadata index for the gs server
+# BL-773 — Cache each object's CRC-32C in the object metadata index for the gs server
 
 ## Goal
 

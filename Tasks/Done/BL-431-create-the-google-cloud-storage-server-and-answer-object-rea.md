@@ -95,10 +95,10 @@ List Objects from the content store with bearer authentication, and refuses with
     into a share answers the written file's last-write time.
   - `x-goog-if-generation-match` / `-metageneration-match` are checked on DELETE too (decision 1: "on every
     object operation").
-- Left for follow-up tasks (filed): BL-767 caches the CRC-32C in the object metadata index (today GET and
-  HEAD read the whole file to hash it; `Surl.Content` was outside this task); BL-768 answers a head past
+- Left for follow-up tasks (filed): BL-773 caches the CRC-32C in the object metadata index (today GET and
+  HEAD read the whole file to hash it; `Surl.Content` was outside this task); BL-774 answers a head past
   `--max-request-head` `400 MaxMessageLengthExceeded` once BL-720's `Surl.HttpServing` seam exists (today it is
-  `431`, pinned by a test); BL-769 lists a folder PUT over `gs` as `x/` (the index keys files only).
+  `431`, pinned by a test); BL-775 lists a folder PUT over `gs` as `x/` (the index keys files only).
 
 ## Log
 
