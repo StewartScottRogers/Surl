@@ -52,3 +52,4 @@ the broker is constructed with (`--kafka-fetch-compression`, ADR-0105 decision 4
 
 - 2026-11-04: Created.
 - 2026-11-05: Goal, Context and criteria rewritten for ADR-0105 by BL-516; depends on BL-702, BL-698 and BL-699.
+- 2026-11-05: Backlog -> Doing.
