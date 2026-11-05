@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-402]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/DnsQuery.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-478 — Decide how the DNS server answers dns and its encrypted transports
 
@@ -49,16 +49,33 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 6, each citing its RFC section, and is listed
       in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/DnsQuery.md` exists in the matrix format with the server-binding
+- [x] `Documentation/Conformance/Extended/DnsQuery.md` exists in the matrix format with the server-binding
       requirements of the RFCs above. Each "covered by" names BL-479, BL-480, BL-481,
       BL-482, BL-483, BL-484 or BL-485, or "n/a: <reason>".
 
 ## Notes
 
+- Delivered as ADR-0092 (`Documentation/Planning/Decisions/ADR-0092-how-the-dns-server-answers-dns-and-its-encrypted-transports.md`),
+  written in the session rather than through `align-and-document`: the task is one decision record and one matrix,
+  and the decisions needed the context already read. No `.cs` or project file changed; `dotnet build` is clean and
+  the fast tests are green (44 assemblies).
+- Decision 1 departs from the planning assumption: zones are `<path>/.surl/dns/*.zone` under `--directory`, not a
+  folder named by a new option, following ADR-0072's LDAP seed, ADR-0007 and ADR-0031 decision 8. BL-485's
+  Context says "the zone option"; it reads ADR-0092 decision 1, which has no option.
+- Decision 5 adds `--dns-transport <list>` (default `udp,tcp`) and decision 4 adds `--allow-zone-transfer`
+  (off); both are BL-485's to build. BL-482's AXFR acceptance follows decision 4 (refused unless the flag).
+- DoT's ALPN `dot` is registered by RFC 9103 section 7.1, not RFC 7858 or RFC 8310 as the task's Context said;
+  the ADR cites RFC 9103.
+- Defaults taken: UDP ceiling 1232 bytes (fragmentation avoidance); CNAME chain cap 16 with `SERVFAIL`; zone
+  bounds as LDAP's; no response-rate limiting; no DoH over HTTP/3 (ADR-0086 gives `dns` no HTTP/3 route).
+- `Documentation/Product/Requirements.md` gets no row here: BL-542 adds one row per extended server.
+- ADR-0006's header gains an "Amended by" line for ADR-0092 (inside this task's `Documentation/Planning/Decisions`).
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0092 decides how surl dns:// answers over UDP, TCP, DoT, DoH and DoQ; DnsQuery.md traces each requirement to BL-479..BL-485
