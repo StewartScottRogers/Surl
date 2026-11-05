@@ -8,7 +8,7 @@ depends-on: [BL-543]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Product-Overview.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-401 — Decide the libraries the extended servers share for HTTP/1.1, WebSocket and DTLS
 
@@ -58,18 +58,36 @@ protocol server, and where each shared library goes.
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". For each shared library (HTTP/1.1 serving, WebSocket, DTLS) it names
       the library, its folder, what moves into it type by type, its row in ADR-0002's table (what it may
       reference), and the task that builds it. It states the object-store and SCRAM decisions, and is listed in
       the folder's `README.md`.
-- [ ] ADR-0002 carries an "Amended by" line pointing to the new ADR.
-- [ ] `Documentation/Product/Product-Overview.md`, "Architecture" (Rule 1 and the "Layers" table), names the new
+- [x] ADR-0002 carries an "Amended by" line pointing to the new ADR.
+- [x] `Documentation/Product/Product-Overview.md`, "Architecture" (Rule 1 and the "Layers" table), names the new
       libraries.
 
 ## Notes
+
+- 2026-11-04: Written in the session rather than delegated to `align-and-document`: the work was
+  one ADR plus three one-line edits, and the decisions needed the facts already read.
+- Decided in ADR-0084: `Surl.HttpServing` (new, `Protocols/Http/`; Abstractions, `Surl.HttpMessage`,
+  `Surl.Content`) rather than growing `Surl.HttpMessage`, because RTSP shares `Surl.HttpMessage`
+  and must not carry HTTP/1.1 connection semantics; it references `Surl.Content` so ADR-0081
+  decision 8's `HttpAnswerBody` (content-store file kind) moves unchanged. Handler shape
+  `IHttpRequestHandler.AnswerAsync(HttpRequest, CancellationToken)` returning `HttpAnswer`, run by
+  `Http1ConnectionServer`; upgrades hand over through an `IHttpConnectionTakeover`.
+- `Surl.WebSocket` (`Protocols/Http/`; Abstractions, `Surl.HttpMessage`): 17 types move,
+  responder/exchange/served entry/server stay; `WebSocketUpgradeAcceptance` names the first of the
+  server's subprotocols the client offers, never refuses itself.
+- `Surl.Dtls` in `Cryptography/` (Abstractions only), beside `Surl.Tls13` (ADR-0082 precedent).
+- Logins through existing contracts; SCRAM in `Surl.Authentication` (BL-416). Object stores on
+  `Surl.Content`, no shared library.
+- Docs only: no `.cs` or project file touched, so `verify` was not needed; build and fast tests
+  run anyway as the shift requires.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0084 decides Surl.HttpServing, Surl.WebSocket and Surl.Dtls, their rows, contents and building tasks
