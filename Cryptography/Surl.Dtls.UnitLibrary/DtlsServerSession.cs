@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using Surl.Protocol.Abstractions;
 
@@ -20,6 +21,8 @@ namespace Surl.Dtls;
 /// <param name="options">The certificate, cookie secrets, clock and limits.</param>
 public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions options) : IDisposable
 {
+    private const int UnknownIdentityKeyLength = 32;
+
     private readonly DtlsAssociationRecords records = new(flow);
     private readonly List<byte> transcript = [];
     private readonly Queue<byte[]> applicationData = new();
@@ -34,6 +37,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private byte[] masterSecret = [];
     private ushort nextServerMessageSeq;
     private bool finalFlightAcknowledged;
+    private bool closeNotifyOwed;
     private bool established;
 
     private enum HandshakeState
@@ -102,7 +106,11 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// before its first application data is answered with the server's final flight again.
     /// </summary>
     /// <param name="cancellationToken">Cuts the wait off.</param>
-    /// <returns>The record's plaintext, or <see langword="null"/> once the client has closed or failed the association.</returns>
+    /// <returns>
+    /// The record's plaintext, or <see langword="null"/> once the association has ended: the client
+    /// sent <c>close_notify</c>, which is answered with <c>close_notify</c> (RFC 5246 section 7.2.1),
+    /// or a fatal alert, which is not answered; or the server closed it.
+    /// </returns>
     /// <exception cref="InvalidOperationException">The handshake has not completed.</exception>
     public async ValueTask<byte[]?> ReceiveAsync(CancellationToken cancellationToken)
     {
@@ -116,6 +124,11 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             }
         }
 
+        if (closeNotifyOwed)
+        {
+            await SendCloseNotifyAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         return applicationData.TryDequeue(out var plaintext) ? plaintext : null;
     }
 
@@ -123,11 +136,33 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// <param name="plaintext">At most 2^14 bytes.</param>
     /// <param name="cancellationToken">Cuts the send off.</param>
     /// <returns>A task that completes once the datagram is sent.</returns>
-    /// <exception cref="InvalidOperationException">The handshake has not completed.</exception>
+    /// <exception cref="InvalidOperationException">The handshake has not completed, or the association has ended.</exception>
     public ValueTask SendAsync(ReadOnlyMemory<byte> plaintext, CancellationToken cancellationToken)
     {
         ThrowIfNotEstablished();
+        if (state == HandshakeState.Closed)
+        {
+            throw new InvalidOperationException("The DTLS association has ended.");
+        }
+
         return records.SendAsync(DtlsContentType.ApplicationData, plaintext.ToArray(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Ends an established association with one warning <c>close_notify</c> in epoch 1 (RFC 5246
+    /// section 7.2.1), as at the idle timeout or the maximum duration (ADR-0087 decision 9). It sends
+    /// nothing before the handshake completes, nor once the association has ended: a <c>close_notify</c>
+    /// already sent or answered, or a fatal alert received.
+    /// </summary>
+    /// <param name="cancellationToken">Cuts the send off.</param>
+    /// <returns>A task that completes once the alert is sent, or at once when none is due.</returns>
+    public async ValueTask CloseAsync(CancellationToken cancellationToken)
+    {
+        if (state == HandshakeState.Established)
+        {
+            state = HandshakeState.Closed;
+            await SendCloseNotifyAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Disposes the ephemeral key and the record protections. The flow stays the caller's.</summary>
@@ -139,9 +174,28 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         CryptographicOperations.ZeroMemory(masterSecret);
     }
 
-    private static bool IsClosingAlert(DtlsRecord record) =>
-        DtlsAlert.TryRead(record.Plaintext, out var alert)
-        && (alert.IsFatal || alert.Description == DtlsAlertDescription.CloseNotify);
+    /// <summary>
+    /// Whether an alert record ends the association: a fatal alert, or <c>close_notify</c> at any
+    /// level. A warning other than <c>close_notify</c> is ignored (ADR-0087 decision 10).
+    /// </summary>
+    private static bool IsClosingAlert(DtlsRecord record, out bool isCloseNotify)
+    {
+        isCloseNotify = false;
+        if (!DtlsAlert.TryRead(record.Plaintext, out var alert))
+        {
+            return false;
+        }
+
+        isCloseNotify = !alert.IsFatal && alert.Description == DtlsAlertDescription.CloseNotify;
+        return alert.IsFatal || isCloseNotify;
+    }
+
+    private ValueTask SendCloseNotifyAsync(CancellationToken cancellationToken)
+    {
+        closeNotifyOwed = false;
+        return records.SendAsync(
+            DtlsContentType.Alert, new DtlsAlert(IsFatal: false, DtlsAlertDescription.CloseNotify).Write(), cancellationToken);
+    }
 
     private void ThrowIfNotEstablished()
     {
@@ -177,24 +231,36 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         records.ContinueEpoch0WritesFrom(opening.RecordSequenceNumber);
         AddToTranscript(opening.Message);
         state = HandshakeState.AwaitingClientKeyExchange;
-        negotiation = DtlsServerNegotiation.Negotiate(opening.Hello, options.Certificate, options.AesCcmSupported);
+        negotiation = DtlsServerNegotiation.Negotiate(
+            opening.Hello, options.Certificate, options.PreSharedKeys is not null, options.AesCcmSupported);
         clientRandom = opening.Hello.Random;
         serverRandom = RandomNumberGenerator.GetBytes(DtlsClientHello.RandomLength);
-        ephemeralKey = DtlsEphemeralKey.Create(negotiation.Group);
-        var unsigned = new DtlsEcdheServerKeyExchange(
-            (ushort)negotiation.Group, ephemeralKey.PublicPoint, (ushort)negotiation.SignatureScheme, []);
-        var signature = options.Certificate.Sign(negotiation.SignatureScheme, unsigned.SignedContent(clientRandom, serverRandom));
-
         nextServerMessageSeq = opening.Message.MessageSeq;
         records.StartFlight();
         var serverHello = new DtlsServerHello(
             DtlsRecordHeader.Dtls12Version, serverRandom, [], negotiation.Suite.Code, 0, negotiation.ServerExtensions);
         AddServerMessage(DtlsHandshakeType.ServerHello, serverHello.Write());
-        AddServerMessage(DtlsHandshakeType.Certificate, new DtlsCertificate(options.Certificate.Chain).Write());
-        AddServerMessage(DtlsHandshakeType.ServerKeyExchange, (unsigned with { Signature = signature }).Write());
+        if (!negotiation.Suite.UsesPreSharedKey)
+        {
+            AddCertificateAndServerKeyExchange(options.Certificate!, negotiation.Group!.Value, negotiation.SignatureScheme!.Value);
+        }
+
         AddServerMessage(DtlsHandshakeType.ServerHelloDone, DtlsServerHelloDone.Write());
         reassembler = new DtlsHandshakeReassembler(options.MaximumMessageLength, (ushort)(opening.Message.MessageSeq + 1));
         await records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Adds a certificate suite's <c>Certificate</c> and signed ECDHE <c>ServerKeyExchange</c>; a PSK
+    /// suite sends neither, as no identity hint is sent (RFC 4279 section 2, ADR-0087 decision 3).
+    /// </summary>
+    private void AddCertificateAndServerKeyExchange(DtlsServerCertificate certificate, DtlsNamedGroup group, DtlsSignatureScheme scheme)
+    {
+        ephemeralKey = DtlsEphemeralKey.Create(group);
+        var unsigned = new DtlsEcdheServerKeyExchange((ushort)group, ephemeralKey.PublicPoint, (ushort)scheme, []);
+        var signature = certificate.Sign(scheme, unsigned.SignedContent(clientRandom, serverRandom));
+        AddServerMessage(DtlsHandshakeType.Certificate, new DtlsCertificate(certificate.Chain).Write());
+        AddServerMessage(DtlsHandshakeType.ServerKeyExchange, (unsigned with { Signature = signature }).Write());
     }
 
     private async ValueTask AwaitClientFinalFlightAsync(CancellationToken cancellationToken)
@@ -243,6 +309,14 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             {
                 return false;
             }
+        }
+
+        if (records.Epoch1AuthenticationFailures > 0)
+        {
+            // The only epoch 1 record a client sends before the server's Finished is its own
+            // Finished; failing its tag means the client derived other keys, which is how a wrong
+            // or unknown PSK shows (ADR-0087 decision 10, as amended by BL-415).
+            throw new DtlsAlertException(DtlsAlertDescription.DecryptError, "The client's Finished record does not authenticate.");
         }
 
         return retransmitted;
@@ -351,10 +425,11 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
     private void AcceptClientKeyExchange(DtlsHandshakeMessage message)
     {
-        var exchange = DtlsEcdheClientKeyExchange.Read(message.Body);
-        var preMasterSecret = ephemeralKey!.DeriveSharedSecret(exchange.PublicPoint);
-        AddToTranscript(message);
         var suite = negotiation!.Suite;
+        var preMasterSecret = suite.UsesPreSharedKey
+            ? PreSharedKeyPreMasterSecret(DtlsPskClientKeyExchange.Read(message.Body).Identity)
+            : ephemeralKey!.DeriveSharedSecret(DtlsEcdheClientKeyExchange.Read(message.Body).PublicPoint);
+        AddToTranscript(message);
         masterSecret = negotiation.UsesExtendedMasterSecret
             ? DtlsPseudorandomFunction.ExtendedMasterSecret(suite.PrfHash, preMasterSecret, TranscriptHash())
             : DtlsPseudorandomFunction.MasterSecret(suite.PrfHash, preMasterSecret, clientRandom, serverRandom);
@@ -372,6 +447,24 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             keyBlock.AsSpan(salts + DtlsRecordProtection.SaltSize, DtlsRecordProtection.SaltSize));
         CryptographicOperations.ZeroMemory(keyBlock);
         state = HandshakeState.AwaitingChangeCipherSpec;
+    }
+
+    /// <summary>
+    /// The plain PSK premaster secret (RFC 4279 section 2): the key's length N as 2 bytes, N zero
+    /// bytes, N again, then the key. An identity the lookup does not know gets a random key instead,
+    /// so the handshake carries on and the client's <c>Finished</c> fails with <c>decrypt_error</c>:
+    /// never <c>unknown_psk_identity</c>, which would tell a peer which identities exist (ADR-0087
+    /// decision 10).
+    /// </summary>
+    private byte[] PreSharedKeyPreMasterSecret(byte[] identity)
+    {
+        var key = options.PreSharedKeys!(identity) is { Length: > 0 and <= ushort.MaxValue } known ? known : RandomNumberGenerator.GetBytes(UnknownIdentityKeyLength);
+        var preMasterSecret = new byte[4 + (2 * key.Length)];
+        var length = (ushort)key.Length;
+        BinaryPrimitives.WriteUInt16BigEndian(preMasterSecret, length);
+        BinaryPrimitives.WriteUInt16BigEndian(preMasterSecret.AsSpan(2 + key.Length), length);
+        key.CopyTo(preMasterSecret, 4 + key.Length);
+        return preMasterSecret;
     }
 
     private void AcceptFinished(DtlsHandshakeMessage message)
@@ -414,9 +507,10 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         var retransmitted = false;
         foreach (var record in records.Read(datagram))
         {
-            if (record.Header.ContentType == DtlsContentType.Alert && IsClosingAlert(record))
+            if (record.Header.ContentType == DtlsContentType.Alert && IsClosingAlert(record, out var isCloseNotify))
             {
                 state = HandshakeState.Closed;
+                closeNotifyOwed = isCloseNotify;
                 return false;
             }
 

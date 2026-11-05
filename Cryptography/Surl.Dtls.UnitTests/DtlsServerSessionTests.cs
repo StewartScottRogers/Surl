@@ -144,12 +144,15 @@ public sealed class DtlsServerSessionTests
     }
 
     internal static (DtlsServerSession Session, UnitTestDatagramFlow Flow) Start(
-        UnitTestDtlsClient client, DtlsServerCertificate? certificate = null, int maximumMessageLength = 65536)
+        UnitTestDtlsClient client,
+        DtlsServerCertificate? certificate = null,
+        int maximumMessageLength = 65536,
+        Func<DtlsServerOptions, DtlsServerOptions>? configure = null)
     {
         var clock = new ManualTimeProvider();
         var flow = new UnitTestDatagramFlow(client, clock);
         var options = new DtlsServerOptions(
             certificate ?? UnitTestCertificates.EcdsaP256, new DtlsCookieSecrets(clock), clock, HandshakeTimeout, maximumMessageLength);
-        return (new DtlsServerSession(flow, options), flow);
+        return (new DtlsServerSession(flow, configure?.Invoke(options) ?? options), flow);
     }
 }

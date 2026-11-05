@@ -65,7 +65,25 @@ The certificate handshake, the cookie and the timers (BL-414, ADR-0087 decisions
 - The server's first flight continues from the verified hello's record sequence number, so its
   records never repeat the sequence number its `HelloVerifyRequest` reused.
 
-Still to come: PSK, the full alert list and `close_notify` (BL-415); RawPublicKey, client
+The pre-shared-key mode, the alerts and closure (BL-415, ADR-0087 decisions 2, 3 and 10):
+
+- `DtlsCipherSuite.PreSharedKeySuitesInServerOrder` is rows 7 to 9 (0x00A8, 0xC0A8 that RFC 7252
+  mandates, 0xC0A4); `AllSuitesInServerOrder` is rows 1 to 9. A PSK suite has no
+  `KeyAlgorithm` (`UsesPreSharedKey`). The PSK suites are live while `DtlsServerOptions.PreSharedKeys`,
+  a caller-given `DtlsPreSharedKeyLookup` from identity bytes to key bytes, is set, and
+  `DtlsServerOptions.Certificate` may then be `null` for a PSK-only server.
+- A PSK handshake sends `ServerHello` and `ServerHelloDone` only: no `Certificate` and no
+  `ServerKeyExchange`, because no identity hint is sent. The premaster secret is RFC 4279 section 2's.
+- An unknown identity, or a lookup key that is empty or longer than 2^16 - 1 bytes, is keyed
+  with a random key. While `Finished` is awaited, an epoch 1 record that fails its tag ends the
+  handshake with `decrypt_error`, so a wrong key and an unknown identity end the same way and
+  `unknown_psk_identity` is never sent (ADR-0087 decision 10 as amended).
+- `CloseAsync` sends one warning `close_notify` on an established association (idle timeout,
+  maximum duration). A received `close_notify` is answered with one, and a received fatal alert
+  is not answered. Either way `ReceiveAsync` then returns `null` and `SendAsync` throws.
+
+Still to come: closing with `close_notify` before the 48-bit sequence number wraps (decision 8);
+RawPublicKey, client
 certificates, `max_fragment_length` and refusing renegotiation (BL-738); reporting the peer
 (BL-650).
 

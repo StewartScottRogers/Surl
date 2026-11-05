@@ -14,7 +14,7 @@ public sealed class DtlsServerNegotiationTests
     {
         var hello = Hello([0xC0AE, 0xC02B], Extensions());
 
-        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, aesCcmSupported: true);
+        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, false, aesCcmSupported: true);
 
         Assert.AreEqual((ushort)0xC02B, negotiation.Suite.Code);
         Assert.AreEqual(DtlsNamedGroup.Secp256r1, negotiation.Group);
@@ -28,11 +28,58 @@ public sealed class DtlsServerNegotiationTests
     }
 
     [TestMethod]
+    public void Negotiate_PskSuiteWithoutACertificate_ChoosesItAndReadsNoEcdheExtension()
+    {
+        var hello = Hello([0xC02B, 0xC0A8], [Extension(DtlsExtensionType.EcPointFormats, [1, 1]), Extension(DtlsExtensionType.ExtendedMasterSecret, [])]);
+
+        var negotiation = DtlsServerNegotiation.Negotiate(hello, certificate: null, preSharedKeysExist: true, aesCcmSupported: true);
+
+        Assert.AreEqual((ushort)0xC0A8, negotiation.Suite.Code);
+        Assert.IsTrue(negotiation.Suite.UsesPreSharedKey);
+        Assert.IsNull(negotiation.Group);
+        Assert.IsNull(negotiation.SignatureScheme);
+        CollectionAssert.AreEqual(
+            new[] { DtlsExtensionType.ExtendedMasterSecret }, negotiation.ServerExtensions.Select(extension => extension.Type).ToArray());
+    }
+
+    [TestMethod]
+    public void Negotiate_CertificateAndPskSuitesOffered_PrefersTheCertificateSuiteInTheServersOrder()
+    {
+        var hello = Hello([0x00A8, 0xC0A8, 0xC02B], Extensions());
+
+        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, preSharedKeysExist: true, aesCcmSupported: true);
+
+        Assert.AreEqual((ushort)0xC02B, negotiation.Suite.Code);
+    }
+
+    [TestMethod]
+    public void Negotiate_PskSuiteWithoutAnyPreSharedKey_IsHandshakeFailure()
+    {
+        var hello = Hello([0xC0A8, 0x00A8, 0xC0A4], Extensions());
+
+        var alert = Assert.ThrowsExactly<DtlsAlertException>(
+            () => DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, preSharedKeysExist: false, aesCcmSupported: true));
+
+        Assert.AreEqual(DtlsAlertDescription.HandshakeFailure, alert.Description);
+    }
+
+    [TestMethod]
+    public void Negotiate_CertificateSuiteWithoutACertificate_IsHandshakeFailure()
+    {
+        var hello = Hello([0xC02B, 0xC02F], Extensions());
+
+        var alert = Assert.ThrowsExactly<DtlsAlertException>(
+            () => DtlsServerNegotiation.Negotiate(hello, certificate: null, preSharedKeysExist: true, aesCcmSupported: true));
+
+        Assert.AreEqual(DtlsAlertDescription.HandshakeFailure, alert.Description);
+    }
+
+    [TestMethod]
     public void Negotiate_AesCcmUnsupported_SkipsTheCcmSuites()
     {
         var hello = Hello([0xC0AE, 0xC02C], Extensions());
 
-        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, aesCcmSupported: false);
+        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, false, aesCcmSupported: false);
 
         Assert.AreEqual((ushort)0xC02C, negotiation.Suite.Code);
     }
@@ -42,7 +89,7 @@ public sealed class DtlsServerNegotiationTests
     {
         var hello = Hello([0xC02B], [Extension(DtlsExtensionType.SignatureAlgorithms, UnitTestDtlsClient.UInt16List([0x0403]))]);
 
-        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, aesCcmSupported: true);
+        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, false, aesCcmSupported: true);
 
         Assert.AreEqual(DtlsNamedGroup.Secp256r1, negotiation.Group);
         Assert.IsFalse(negotiation.UsesExtendedMasterSecret);
@@ -54,7 +101,7 @@ public sealed class DtlsServerNegotiationTests
     {
         var hello = Hello([0xC02B, DtlsServerNegotiation.EmptyRenegotiationInfoScsv], [Extension(DtlsExtensionType.SignatureAlgorithms, UnitTestDtlsClient.UInt16List([0x0403]))]);
 
-        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, aesCcmSupported: true);
+        var negotiation = DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, false, aesCcmSupported: true);
 
         Assert.AreEqual(DtlsExtensionType.RenegotiationInfo, negotiation.ServerExtensions.Single().Type);
     }
@@ -66,7 +113,7 @@ public sealed class DtlsServerNegotiationTests
     {
         var hello = Hello([0xC02B], Extensions(groups: [0x0017 + 100, offered]));
 
-        Assert.AreEqual(expected, DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, true).Group);
+        Assert.AreEqual(expected, DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, false, true).Group);
     }
 
     [TestMethod]
@@ -138,12 +185,12 @@ public sealed class DtlsServerNegotiationTests
         var data = Extensions().Single(e => e.Type == type).Data;
         var hello = Hello([0xC02B], [.. Extensions().Where(e => e.Type != type), Extension(type, [.. data, 0])]);
 
-        Assert.ThrowsExactly<DtlsDecodeErrorException>(() => DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, true));
+        Assert.ThrowsExactly<DtlsDecodeErrorException>(() => DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, false, true));
     }
 
     private static void AssertAlert(DtlsAlertDescription expected, DtlsClientHello hello)
     {
-        var alert = Assert.ThrowsExactly<DtlsAlertException>(() => DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, true));
+        var alert = Assert.ThrowsExactly<DtlsAlertException>(() => DtlsServerNegotiation.Negotiate(hello, UnitTestCertificates.EcdsaP256, false, true));
         Assert.AreEqual(expected, alert.Description);
     }
 

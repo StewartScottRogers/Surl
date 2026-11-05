@@ -27,6 +27,12 @@ internal sealed class DtlsAssociationRecords(IDatagramFlow flow)
     public void ContinueEpoch0WritesFrom(long nextSequenceNumber) =>
         epoch0Writer = new DtlsRecordWriter(epoch: 0, protection: null, nextSequenceNumber);
 
+    /// <summary>
+    /// How many epoch 1 records failed their tag under the client's protection: during the
+    /// handshake, the sign that the client derived other keys, as a wrong or unknown PSK makes it.
+    /// </summary>
+    public int Epoch1AuthenticationFailures { get; private set; }
+
     /// <summary>Accepts epoch 1 records under the client's protection, beside epoch 0's.</summary>
     /// <param name="protection">The client's write protection.</param>
     public void StartProtectedReads(DtlsRecordProtection protection) => epoch1Reader = new DtlsRecordReader(epoch: 1, protection);
@@ -50,14 +56,25 @@ internal sealed class DtlsAssociationRecords(IDatagramFlow flow)
         while (DtlsRecordHeader.TryRead(datagram.Span, out var header) && datagram.Length - DtlsRecordHeader.Size >= header.Length)
         {
             var length = DtlsRecordHeader.Size + header.Length;
-            var reader = header.Epoch == 0 ? epoch0Reader : epoch1Reader;
-            foreach (var record in reader?.ReadDatagram(datagram.Span[..length]).Records ?? [])
+            foreach (var record in ReadOneRecord(header.Epoch, datagram.Span[..length]))
             {
                 yield return record;
             }
 
             datagram = datagram[length..];
         }
+    }
+
+    private IReadOnlyList<DtlsRecord> ReadOneRecord(ushort epoch, ReadOnlySpan<byte> record)
+    {
+        var reader = epoch == 0 ? epoch0Reader : epoch1Reader;
+        var read = reader?.ReadDatagram(record);
+        if (epoch == 1 && read?.Drops is [DtlsRecordDropReason.FailedAuthentication])
+        {
+            Epoch1AuthenticationFailures++;
+        }
+
+        return read?.Records ?? [];
     }
 
     /// <summary>Forgets the last flight; the next one is added message by message.</summary>

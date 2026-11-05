@@ -14,6 +14,26 @@ public sealed class DtlsServerSessionFailureTests
     }
 
     [TestMethod]
+    public async Task HandshakeAsync_ClientVersionBelowDtls12_SendsProtocolVersion()
+    {
+        await AssertAlertSentAsync(new UnitTestDtlsClient { ClientVersion = 0xFEFF }, DtlsAlertDescription.ProtocolVersion);
+    }
+
+    [TestMethod]
+    public async Task HandshakeAsync_NoNullCompression_SendsIllegalParameter()
+    {
+        await AssertAlertSentAsync(new UnitTestDtlsClient { CompressionMethods = [1] }, DtlsAlertDescription.IllegalParameter);
+    }
+
+    [TestMethod]
+    public async Task HandshakeAsync_ClientEcdhePointNotOnTheCurve_SendsIllegalParameter()
+    {
+        var client = new UnitTestDtlsClient { ReplacesFinalFlight = c => [c.HandshakeRecord(DtlsHandshakeType.ClientKeyExchange, [1, 4])] };
+
+        await AssertAlertSentAsync(client, DtlsAlertDescription.IllegalParameter);
+    }
+
+    [TestMethod]
     public async Task HandshakeAsync_MalformedClientKeyExchange_SendsDecodeError()
     {
         var client = new UnitTestDtlsClient { ReplacesFinalFlight = c => [c.HandshakeRecord(DtlsHandshakeType.ClientKeyExchange, [])] };

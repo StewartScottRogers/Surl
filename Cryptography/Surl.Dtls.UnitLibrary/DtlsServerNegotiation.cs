@@ -1,19 +1,19 @@
 namespace Surl.Dtls;
 
 /// <summary>
-/// What the server chose for one certificate handshake from the client's hello (ADR-0087
-/// decisions 1, 2 and 5): the suite, the ECDHE group, the signature scheme, whether the extended
-/// master secret is used, and the extensions the <c>ServerHello</c> answers with.
+/// What the server chose for one handshake from the client's hello (ADR-0087 decisions 1, 2 and
+/// 5): the suite, for a certificate suite the ECDHE group and the signature scheme, whether the
+/// extended master secret is used, and the extensions the <c>ServerHello</c> answers with.
 /// </summary>
-/// <param name="Suite">The suite, the first in the server's order the client offers and the credential serves.</param>
-/// <param name="Group">The ECDHE group.</param>
-/// <param name="SignatureScheme">The scheme that signs <c>ServerKeyExchange</c>.</param>
+/// <param name="Suite">The suite, the first in the server's order the client offers and the credentials serve.</param>
+/// <param name="Group">The ECDHE group, or <see langword="null"/> for a PSK suite.</param>
+/// <param name="SignatureScheme">The scheme that signs <c>ServerKeyExchange</c>, or <see langword="null"/> for a PSK suite.</param>
 /// <param name="UsesExtendedMasterSecret">Whether the client offered <c>extended_master_secret</c>.</param>
 /// <param name="ServerExtensions">The <c>ServerHello</c>'s extensions.</param>
 internal sealed record DtlsServerNegotiation(
     DtlsCipherSuite Suite,
-    DtlsNamedGroup Group,
-    DtlsSignatureScheme SignatureScheme,
+    DtlsNamedGroup? Group,
+    DtlsSignatureScheme? SignatureScheme,
     bool UsesExtendedMasterSecret,
     IReadOnlyList<DtlsExtension> ServerExtensions)
 {
@@ -28,15 +28,17 @@ internal sealed record DtlsServerNegotiation(
     private const byte UncompressedPointFormat = 0;
 
     /// <summary>
-    /// Negotiates a certificate handshake.
+    /// Negotiates a handshake.
     /// </summary>
     /// <param name="hello">The client's hello, its cookie already verified.</param>
-    /// <param name="certificate">The server's certificate.</param>
+    /// <param name="certificate">The server's certificate, or <see langword="null"/> when it has none.</param>
+    /// <param name="preSharedKeysExist">Whether a PSK lookup exists, which makes the PSK suites live.</param>
     /// <param name="aesCcmSupported">Whether the platform has AES-CCM; without it no CCM suite is live.</param>
     /// <returns>What was chosen.</returns>
     /// <exception cref="DtlsAlertException">The alert ADR-0087 decision 10 names for what the hello lacks.</exception>
     /// <exception cref="DtlsDecodeErrorException">An extension the server reads is malformed.</exception>
-    public static DtlsServerNegotiation Negotiate(DtlsClientHello hello, DtlsServerCertificate certificate, bool aesCcmSupported)
+    public static DtlsServerNegotiation Negotiate(
+        DtlsClientHello hello, DtlsServerCertificate? certificate, bool preSharedKeysExist, bool aesCcmSupported)
     {
         if (hello.ClientVersion > DtlsRecordHeader.Dtls12Version)
         {
@@ -49,11 +51,17 @@ internal sealed record DtlsServerNegotiation(
             throw new DtlsAlertException(DtlsAlertDescription.IllegalParameter, "The hello does not offer null compression.");
         }
 
-        var suite = ChooseSuite(hello, certificate, aesCcmSupported);
+        var suite = ChooseSuite(hello, certificate, preSharedKeysExist, aesCcmSupported);
         var extensions = new List<DtlsExtension>();
-        AnswerPointFormats(hello, extensions);
-        var group = ChooseGroup(hello);
-        var scheme = ChooseScheme(hello, certificate);
+        DtlsNamedGroup? group = null;
+        DtlsSignatureScheme? scheme = null;
+        if (!suite.UsesPreSharedKey)
+        {
+            AnswerPointFormats(hello, extensions);
+            group = ChooseGroup(hello);
+            scheme = ChooseScheme(hello, certificate!);
+        }
+
         var usesExtendedMasterSecret = Find(hello, DtlsExtensionType.ExtendedMasterSecret) is not null;
         if (usesExtendedMasterSecret)
         {
@@ -67,12 +75,13 @@ internal sealed record DtlsServerNegotiation(
     private static byte[]? Find(DtlsClientHello hello, DtlsExtensionType type) =>
         hello.Extensions.FirstOrDefault(extension => extension.Type == type)?.Data;
 
-    private static DtlsCipherSuite ChooseSuite(DtlsClientHello hello, DtlsServerCertificate certificate, bool aesCcmSupported) =>
-        DtlsCipherSuite.CertificateSuitesInServerOrder.FirstOrDefault(suite =>
-            suite.KeyAlgorithm == certificate.KeyAlgorithm
+    private static DtlsCipherSuite ChooseSuite(
+        DtlsClientHello hello, DtlsServerCertificate? certificate, bool preSharedKeysExist, bool aesCcmSupported) =>
+        DtlsCipherSuite.AllSuitesInServerOrder.FirstOrDefault(suite =>
+            (suite.UsesPreSharedKey ? preSharedKeysExist : suite.KeyAlgorithm == certificate?.KeyAlgorithm)
             && (aesCcmSupported || suite.Aead == DtlsAeadAlgorithm.AesGcm)
             && hello.CipherSuites.Contains(suite.Code))
-        ?? throw new DtlsAlertException(DtlsAlertDescription.HandshakeFailure, "The client offers no suite the server's certificate serves.");
+        ?? throw new DtlsAlertException(DtlsAlertDescription.HandshakeFailure, "The client offers no suite the server's credentials serve.");
 
     private static void AnswerPointFormats(DtlsClientHello hello, List<DtlsExtension> extensions)
     {

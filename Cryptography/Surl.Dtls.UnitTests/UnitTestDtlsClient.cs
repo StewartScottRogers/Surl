@@ -44,6 +44,18 @@ internal sealed class UnitTestDtlsClient
 
     public bool OffersExtendedMasterSecret { get; init; } = true;
 
+    /// <summary>The PSK identity the client names on a PSK suite (RFC 4279 section 2).</summary>
+    public byte[] PskIdentity { get; init; } = "alice"u8.ToArray();
+
+    /// <summary>The key the client holds for <see cref="PskIdentity"/>.</summary>
+    public byte[] PskKey { get; init; } = "secret"u8.ToArray();
+
+    /// <summary>The hello's <c>client_version</c>.</summary>
+    public ushort ClientVersion { get; init; } = DtlsRecordHeader.Dtls12Version;
+
+    /// <summary>The hello's compression methods.</summary>
+    public byte[] CompressionMethods { get; init; } = [0];
+
     /// <summary>Whether the client answers a <c>HelloVerifyRequest</c> with a second hello.</summary>
     public bool AnswersHelloVerifyRequest { get; init; } = true;
 
@@ -82,7 +94,7 @@ internal sealed class UnitTestDtlsClient
     public int ServerFlightsSeenAgain { get; private set; }
 
     public DtlsClientHello BuildHello() => new(
-        DtlsRecordHeader.Dtls12Version, Random, [], cookie, CipherSuites, [0], BuildExtensions());
+        ClientVersion, Random, [], cookie, CipherSuites, CompressionMethods, BuildExtensions());
 
     public byte[] FirstHelloDatagram() => HelloDatagram();
 
@@ -104,7 +116,7 @@ internal sealed class UnitTestDtlsClient
     public List<byte[]> BuildFinalFlight()
     {
         var keyExchange = AddClientMessage(
-            DtlsHandshakeType.ClientKeyExchange, new DtlsEcdheClientKeyExchange(AgreeAndDeriveKeys()).Write());
+            DtlsHandshakeType.ClientKeyExchange, AgreeAndDeriveKeys());
         var verifyData = DtlsPseudorandomFunction.ClientFinishedVerifyData(suite!.PrfHash, masterSecret, TranscriptHash());
         if (CorruptsFinished)
         {
@@ -201,7 +213,7 @@ internal sealed class UnitTestDtlsClient
             case DtlsHandshakeType.ServerHello:
                 ServerHello = DtlsServerHello.Read(message.Body);
                 serverRandom = ServerHello.Random;
-                suite = DtlsCipherSuite.CertificateSuitesInServerOrder.Single(candidate => candidate.Code == ServerHello.CipherSuite);
+                suite = DtlsCipherSuite.AllSuitesInServerOrder.Single(candidate => candidate.Code == ServerHello.CipherSuite);
                 usesExtendedMasterSecret = ServerHello.Extensions.Any(extension => extension.Type == DtlsExtensionType.ExtendedMasterSecret);
                 break;
             case DtlsHandshakeType.ServerKeyExchange:
@@ -278,15 +290,14 @@ internal sealed class UnitTestDtlsClient
     }
 
     /// <summary>
-    /// Makes the client's ECDHE key, derives the premaster, master secret and key block, and starts
+    /// Makes the client's key exchange (ECDHE, or PSK on a PSK suite), derives the premaster, master secret and key block, and starts
     /// epoch 1 writes; the transcript hash for the extended master secret covers the
     /// <c>ClientKeyExchange</c>, so the master secret is derived once it is added.
     /// </summary>
     private byte[] AgreeAndDeriveKeys()
     {
-        var (publicPoint, preMasterSecret) = Agree((DtlsNamedGroup)serverKeyExchange!.NamedGroup, serverKeyExchange.PublicPoint);
-        var keyExchange = new DtlsHandshakeMessage(
-            DtlsHandshakeType.ClientKeyExchange, NextMessageSeq, new DtlsEcdheClientKeyExchange(publicPoint).Write());
+        var (keyExchangeBody, preMasterSecret) = suite!.UsesPreSharedKey ? PreSharedKeyExchange() : EcdheKeyExchange();
+        var keyExchange = new DtlsHandshakeMessage(DtlsHandshakeType.ClientKeyExchange, NextMessageSeq, keyExchangeBody);
         byte[] sessionTranscript = [.. transcript, .. keyExchange.ToUnfragmentedBytes()];
         masterSecret = usesExtendedMasterSecret
             ? DtlsPseudorandomFunction.ExtendedMasterSecret(suite!.PrfHash, preMasterSecret, CryptographicOperations.HashData(suite.PrfHash, sessionTranscript))
@@ -295,7 +306,24 @@ internal sealed class UnitTestDtlsClient
         var keyLength = suite.KeyLength;
         epoch1Writer = new DtlsRecordWriter(
             epoch: 1, new DtlsRecordProtection(suite.Aead, keyBlock.AsSpan(0, keyLength), keyBlock.AsSpan(2 * keyLength, 4)));
-        return publicPoint;
+        return keyExchangeBody;
+    }
+
+    private (byte[] Body, byte[] PreMasterSecret) EcdheKeyExchange()
+    {
+        var (publicPoint, preMasterSecret) = Agree((DtlsNamedGroup)serverKeyExchange!.NamedGroup, serverKeyExchange.PublicPoint);
+        return (new DtlsEcdheClientKeyExchange(publicPoint).Write(), preMasterSecret);
+    }
+
+    /// <summary>
+    /// The PSK <c>ClientKeyExchange</c> and RFC 4279 section 2's premaster secret, written here from
+    /// the RFC: the key's length N as 2 bytes, N zero bytes, N again, then the key.
+    /// </summary>
+    private (byte[] Body, byte[] PreMasterSecret) PreSharedKeyExchange()
+    {
+        var n = PskKey.Length;
+        byte[] preMasterSecret = [(byte)(n >> 8), (byte)n, .. new byte[n], (byte)(n >> 8), (byte)n, .. PskKey];
+        return (new DtlsPskClientKeyExchange(PskIdentity).Write(), preMasterSecret);
     }
 
     private DtlsRecordProtection ServerProtection()

@@ -59,14 +59,65 @@ public sealed class DtlsServerSessionApplicationDataTests
     }
 
     [TestMethod]
-    public async Task ReceiveAsync_FatalAlert_ReturnsNull()
+    [DataRow((byte)10)]
+    [DataRow((byte)0)]
+    public async Task ReceiveAsync_FatalAlert_ReturnsNullAndIsNotAnswered(byte description)
+    {
+        var (session, flow, client) = await EstablishAsync();
+        var sentAfterHandshake = flow.Sent.Count;
+
+        flow.DeliverFromClient(client.ProtectedRecord(DtlsContentType.Alert, [2, description]));
+        var received = await session.ReceiveAsync(flow.Exhausted.Token);
+        await session.CloseAsync(flow.Exhausted.Token);
+
+        Assert.IsNull(received);
+        Assert.HasCount(sentAfterHandshake, flow.Sent);
+        Assert.IsEmpty(client.ReceivedAlerts);
+        session.Dispose();
+    }
+
+    [TestMethod]
+    public async Task ReceiveAsync_CloseNotify_IsAnsweredWithOneCloseNotifyAndEndsTheAssociation()
     {
         var (session, flow, client) = await EstablishAsync();
 
-        flow.DeliverFromClient(client.ProtectedRecord(DtlsContentType.Alert, [2, 10]));
+        flow.DeliverFromClient(client.ProtectedRecord(DtlsContentType.Alert, [1, 0]));
+        var received = await session.ReceiveAsync(flow.Exhausted.Token);
+        var again = await session.ReceiveAsync(flow.Exhausted.Token);
+        await session.CloseAsync(flow.Exhausted.Token);
 
-        Assert.IsNull(await session.ReceiveAsync(flow.Exhausted.Token));
+        Assert.IsNull(received);
+        Assert.IsNull(again);
+        Assert.AreEqual(new DtlsAlert(false, DtlsAlertDescription.CloseNotify), client.ReceivedAlerts.Single());
+        Assert.AreEqual((ushort)1, UnitTestRecords.Split(flow.Sent[^1]).Single().Header.Epoch);
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await session.SendAsync(new byte[1], flow.Exhausted.Token));
         session.Dispose();
+    }
+
+    [TestMethod]
+    public async Task CloseAsync_Established_SendsOneCloseNotifyWarningAndEndsTheAssociation()
+    {
+        var (session, flow, client) = await EstablishAsync();
+
+        await session.CloseAsync(flow.Exhausted.Token);
+        await session.CloseAsync(flow.Exhausted.Token);
+        var received = await session.ReceiveAsync(flow.Exhausted.Token);
+
+        Assert.IsNull(received);
+        Assert.AreEqual(new DtlsAlert(false, DtlsAlertDescription.CloseNotify), client.ReceivedAlerts.Single());
+        await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () => await session.SendAsync(new byte[1], flow.Exhausted.Token));
+        session.Dispose();
+    }
+
+    [TestMethod]
+    public async Task CloseAsync_BeforeTheHandshake_SendsNothing()
+    {
+        var (session, flow) = DtlsServerSessionTests.Start(new UnitTestDtlsClient());
+        using var _ = session;
+
+        await session.CloseAsync(flow.Exhausted.Token);
+
+        Assert.IsEmpty(flow.Sent);
     }
 
     /// <summary>
