@@ -28,6 +28,19 @@ public sealed record NatsServerOptions
     /// </summary>
     public static readonly TimeSpan SlowConsumerErrorTimeout = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// How long a <c>natss</c> connection waits after accept for the client to speak first: a byte
+    /// within it is a TLS-first client; none means the server sends INFO first. 50 milliseconds,
+    /// the NATS server's fallback delay for <c>handshake_first: auto</c> (ADR-0113 decision 6).
+    /// </summary>
+    public static readonly TimeSpan TlsFirstWait = TimeSpan.FromMilliseconds(50);
+
+    /// <summary>
+    /// The longest a <c>natss</c> connection waits for the client's TLS handshake after INFO when
+    /// the head timeout is off: the longest wait a timer takes, about 49.7 days.
+    /// </summary>
+    public static readonly TimeSpan LongestTlsHandshakeWait = TimeSpan.FromMilliseconds(uint.MaxValue - 1);
+
     /// <summary>The options when nothing is given: an idle timeout of 120 seconds, logins required.</summary>
     public static NatsServerOptions Default { get; } = new();
 

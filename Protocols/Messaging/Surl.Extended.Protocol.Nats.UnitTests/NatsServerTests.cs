@@ -33,9 +33,9 @@ public sealed class NatsServerTests
     }
 
     [TestMethod]
-    public void Schemes_Default_IsNats()
+    public void Schemes_Default_AreNatsAndNatss()
     {
-        CollectionAssert.AreEqual(new[] { "nats" }, new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "nats", "natss" }, new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).Schemes.ToArray());
     }
 
     [TestMethod]

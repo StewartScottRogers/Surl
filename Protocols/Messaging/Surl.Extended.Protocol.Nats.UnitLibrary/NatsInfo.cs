@@ -14,13 +14,15 @@ namespace Surl.Extended.Protocol.Nats;
 /// <param name="ClientId">The connection's number in accept order, from 1.</param>
 /// <param name="MaxPayload">The largest payload the server accepts.</param>
 /// <param name="AuthRequired">Whether CONNECT must carry credentials.</param>
+/// <param name="TlsRequired">Whether the connection must run TLS before CONNECT: <c>natss</c> (ADR-0113 decision 6).</param>
 internal sealed record NatsInfo(
     string ServerId,
     EndPoint LocalEndPoint,
     EndPoint RemoteEndPoint,
     ulong ClientId,
     long MaxPayload,
-    bool AuthRequired)
+    bool AuthRequired,
+    bool TlsRequired)
 {
     /// <summary>The NATS server version whose semantics the server follows; never surl's version.</summary>
     public const string ServedVersion = "2.10.0";
@@ -60,7 +62,7 @@ internal sealed record NatsInfo(
         json.WriteNumber("client_id", ClientId);
         json.WriteString("client_ip", AddressAndPort(RemoteEndPoint).Address);
         json.WriteBoolean("auth_required", AuthRequired);
-        json.WriteBoolean("tls_required", false);
+        json.WriteBoolean("tls_required", TlsRequired);
         json.WriteBoolean("tls_verify", false);
         json.WriteBoolean("tls_available", false);
         json.WriteEndObject();

@@ -24,6 +24,7 @@ internal static class NatsErrors
     public const string SlowConsumer = "Slow Consumer";
     public const string MaximumSubscriptionsExceeded = "Maximum Subscriptions Exceeded";
     public const string ResourceLimitExceeded = "Resource Limit Exceeded";
+    public const string SecureConnectionTlsRequired = "Secure Connection - TLS Required";
 
     /// <summary>The line <c>-ERR '&lt;text&gt;'</c> CR LF.</summary>
     public static byte[] Line(string text) => Encoding.UTF8.GetBytes($"-ERR '{text}'\r\n");

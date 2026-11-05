@@ -4,7 +4,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.Nats;
 
 /// <summary>
-/// The NATS server for the <c>nats</c> scheme the Curl port adds (ADR-0083; ADR-0113), judged by
+/// The NATS server for the <c>nats</c> and <c>natss</c> schemes the Curl port adds (ADR-0083; ADR-0113), judged by
 /// the NATS client protocol page, never by the Curl port. Its subscriptions and routing are the
 /// shared <see cref="Surl.MessageBus.MessageBus"/>'s, so a NATS subscriber receives what every
 /// other messaging server publishes, and the reverse.
@@ -44,13 +44,25 @@ namespace Surl.Extended.Protocol.Nats;
 /// <c>no_responders</c> without <c>headers</c> (<c>'No Responders Requires Headers Support'</c>);
 /// more than <see cref="NatsServerOptions.MaxPendingBytes"/> waiting unwritten (<c>'Slow
 /// Consumer'</c>, best effort); and any other operation, HPUB without <c>headers</c> and a second
-/// CONNECT included (<c>'Unknown Protocol Operation'</c>). <c>natss</c> comes with BL-527.
+/// CONNECT included (<c>'Unknown Protocol Operation'</c>).
+/// </para>
+/// <para>
+/// <c>nats</c> never offers TLS. On <c>natss</c> (decision 6) TLS comes from the listener seam
+/// before CONNECT, in either form: a client that speaks within
+/// <see cref="NatsServerOptions.TlsFirstWait"/> of accept gets the handshake at once and INFO inside
+/// TLS; otherwise INFO says <c>tls_required: true</c> in plain text, and the client's next byte must
+/// begin a TLS handshake record (<c>0x16</c>), or it is answered <c>-ERR 'Secure Connection - TLS
+/// Required'</c> and closed. No handshake begun within the head timeout is <c>-ERR 'Authorization
+/// Timeout'</c>; a handshake that fails, or does not finish within it, closes with no bytes.
 /// </para>
 /// </remarks>
 public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWriter
 {
     /// <summary>The length of <see cref="ServerId"/>.</summary>
     public const int ServerIdLength = 22;
+
+    /// <summary>The scheme whose connections must run TLS before CONNECT (ADR-0113 decision 6).</summary>
+    public const string TlsScheme = "natss";
 
     private const string ServerIdAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
@@ -81,7 +93,7 @@ public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWr
     public string ServerId { get; }
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["nats"]);
+    public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["nats", TlsScheme]);
 
     /// <inheritdoc/>
     public async Task ServeAsync(IConnection connection, ExchangeContext context)
@@ -98,7 +110,8 @@ public sealed class NatsServer : IConnectionProtocolServer, IConnectionRefusalWr
             connection.RemoteEndPoint,
             (ulong)Interlocked.Increment(ref lastClientId),
             maxPayload,
-            !options.AllowsAnonymous);
+            !options.AllowsAnonymous,
+            string.Equals(context.Scheme, TlsScheme, StringComparison.OrdinalIgnoreCase));
         using var serving = new NatsServerConnection(connection, context, policy, bus, options, info);
         await serving.ServeAsync();
     }

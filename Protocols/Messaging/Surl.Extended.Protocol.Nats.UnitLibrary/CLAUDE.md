@@ -1,19 +1,19 @@
 # Surl.Extended.Protocol.Nats.UnitLibrary
 
-An extended server (ADR-0083) for the `nats` scheme the Curl port adds, which upstream curl
-does not have; the composition registers it in BL-528, so `surl` does not serve it yet.
+An extended server (ADR-0083) for the `nats` and `natss` schemes the Curl port adds, which
+upstream curl does not have; the composition registers it in BL-528, so `surl` does not serve it yet.
 ADR-0113 decides how. It is judged by the NATS client protocol page
 (<https://docs.nats.io/reference/reference-protocols/nats-protocol>, read 2026-11-05), never by
 the Curl port's output, and its unit tests replay lines written by hand from that page.
 `Documentation/Conformance/Extended/Nats.md` traces each requirement to its test.
 
 It references `Surl.Protocol.Abstractions` and `Surl.MessageBus` (BL-526): `NatsServer` takes
-the one `MessageBus` the process shares, never a static or a second one. `natss` comes with
-BL-527.
+the one `MessageBus` the process shares, never a static or a second one.
 
 INFO, CONNECT and keep-alive (BL-525, ADR-0113 decisions 0, 1, 2, 3, 5 and 7):
 
-- `NatsServer` is the `IConnectionProtocolServer` for `nats`; its remarks list every answer.
+- `NatsServer` is the `IConnectionProtocolServer` for `nats` and `natss`; its remarks list
+  every answer.
   It draws its 22-character `ServerId` once, and numbers connections from 1 for `client_id`.
 - `NatsServerConnection` answers one connection: INFO, then CONNECT within the head timeout
   (`-ERR 'Authorization Timeout'` without one), then PING, PONG and blank lines until the client
@@ -68,3 +68,19 @@ Publishing and subscribing through the shared bus (BL-526, ADR-0113 decisions 4 
 - Under `no_responders`, a request no live subscription took gets `HMSG <reply-to> <sid> 16 16`
   with `NatsHeaderBlock.NoResponders` on each of the requester's own subscriptions matching the
   reply-to (`NatsSubjects.Matches`), in ordinal order of `sid`.
+
+`natss` over TLS (BL-527, ADR-0113 decision 6):
+
+- `nats` never offers TLS: INFO says `tls_required: false` and `tls_available: false`, and the
+  server never peeks or upgrades. On `natss`, `NatsInfo.TlsRequired` is `true`.
+- On `natss`, `NatsServerConnection` settles TLS before the outbox's writer starts, so no write
+  is pending when the handshake begins. It peeks (`IConnection.PeekByteAsync`, BL-734) for
+  `NatsServerOptions.TlsFirstWait` (50 ms): any byte means TLS first, and the handshake runs at
+  once with INFO sent inside TLS. Otherwise it writes INFO in plain text and peeks again for the
+  head timeout: `0x16` starts `UpgradeToTlsAsync`, any other byte is
+  `-ERR 'Secure Connection - TLS Required'`, then close, and a half-close closes quietly.
+- The head timeout runs from accept, the handshake included, and ends with CONNECT's line. No
+  handshake begun by then is `-ERR 'Authorization Timeout'`; a handshake cut off part-way closes
+  with no bytes, and a failed one surfaces as `TlsHandshakeException` for the engine to note.
+- Its tests use `UnitTestTlsClientConnection` over `InMemoryConnection`'s stand-in upgrade: the
+  first chunk (a stand-in ClientHello, or plain text) is consumed by the handshake.

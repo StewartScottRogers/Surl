@@ -16,6 +16,9 @@ internal sealed class NatsServerConnection : IDisposable
     private static readonly byte[] PingLine = "PING\r\n"u8.ToArray();
     private static readonly byte[] PongLine = "PONG\r\n"u8.ToArray();
 
+    // The first byte of a TLS record of content type handshake: a ClientHello begins with it.
+    private const byte TlsHandshakeRecord = 0x16;
+
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly IAuthenticationPolicy policy;
@@ -27,7 +30,10 @@ internal sealed class NatsServerConnection : IDisposable
     private readonly ConcurrentDictionary<string, NatsClientSubscription> subscriptions = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource stopReading = new();
     private readonly CancellationTokenSource stopPinging = new();
+    private readonly CancellationTokenSource headTimeout;
     private BusConnection? busConnection;
+    private bool infoWritten;
+    private bool handshakeStarted;
     private NatsConnectOptions? connected;
     private int unansweredPings;
 
@@ -42,6 +48,9 @@ internal sealed class NatsServerConnection : IDisposable
         this.info = info;
         reader = new NatsControlLineReader(connection, context.Limits.MaxLineBytes);
         outbox = new NatsOutbox(options.PendingBytesLimit);
+
+        // ADR-0113 decision 2: the head timeout runs from accept, a natss TLS handshake included.
+        headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
     }
 
     private NatsConnectOptions Connected => connected!;
@@ -50,6 +59,11 @@ internal sealed class NatsServerConnection : IDisposable
 
     public async Task ServeAsync()
     {
+        if (info.TlsRequired && !await SecureWithinHeadTimeoutAsync())
+        {
+            return;
+        }
+
         var writing = WriteThenStopAsync();
         var failure = await CaptureFailureAsync(ServeOperationsAsync);
         busConnection?.Dispose();
@@ -65,8 +79,83 @@ internal sealed class NatsServerConnection : IDisposable
     public void Dispose()
     {
         outbox.Dispose();
+        headTimeout.Dispose();
         stopReading.Dispose();
         stopPinging.Dispose();
+    }
+
+    // ADR-0113 decision 6, run before the outbox's writer starts, so no write is pending when the
+    // handshake begins. Returns whether TLS is in force and the connection goes on to CONNECT.
+    private async Task<bool> SecureWithinHeadTimeoutAsync()
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
+        try
+        {
+            return await SecureAsync(cancellation.Token);
+        }
+        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            return await AnswerTlsTimeoutAsync();
+        }
+    }
+
+    // TLS first when the client speaks within TlsFirstWait of accept: the handshake runs at once.
+    // Otherwise INFO in plain text, then the client's handshake; after INFO, a first byte that is
+    // not a TLS handshake record (0x16) is a client writing plain text where TLS is required.
+    private async Task<bool> SecureAsync(CancellationToken cancellationToken)
+    {
+        if (await connection.PeekByteAsync(NatsServerOptions.TlsFirstWait, cancellationToken) is not null)
+        {
+            return await HandshakeAsync("TLS", cancellationToken);
+        }
+
+        await connection.WriteAsync(info.Encode(), cancellationToken);
+        infoWritten = true;
+        return await AnswerFirstByteAfterInfoAsync(await connection.PeekByteAsync(TlsHandshakeWait, cancellationToken), cancellationToken);
+    }
+
+    private async Task<bool> AnswerFirstByteAfterInfoAsync(byte? first, CancellationToken cancellationToken)
+    {
+        if (first is not { } firstByte)
+        {
+            context.Log.Note("The client closed before starting TLS.");
+            return false;
+        }
+
+        if (firstByte != TlsHandshakeRecord)
+        {
+            context.Log.Note($"Plain text arrived where TLS is required; answered -ERR '{NatsErrors.SecureConnectionTlsRequired}' and closed.");
+            await connection.WriteAsync(NatsErrors.Line(NatsErrors.SecureConnectionTlsRequired), cancellationToken);
+            return false;
+        }
+
+        return await HandshakeAsync("INFO", cancellationToken);
+    }
+
+    private async Task<bool> HandshakeAsync(string firstForm, CancellationToken cancellationToken)
+    {
+        handshakeStarted = true;
+        var session = await connection.UpgradeToTlsAsync(cancellationToken);
+        context.Log.Note($"TLS {session.Protocol} in force, {firstForm} first.");
+        return true;
+    }
+
+    private TimeSpan TlsHandshakeWait =>
+        context.Limits.HeadTimeout == Timeout.InfiniteTimeSpan ? NatsServerOptions.LongestTlsHandshakeWait : context.Limits.HeadTimeout;
+
+    // A handshake cut off part-way closes with no bytes: plain text cannot follow a half-done
+    // handshake (ADR-0113 decision 6). Before it began, the auth timeout's -ERR (decision 2).
+    private async Task<bool> AnswerTlsTimeoutAsync()
+    {
+        if (handshakeStarted)
+        {
+            context.Log.Note("The TLS handshake did not finish within the head timeout; closed.");
+            return false;
+        }
+
+        context.Log.Note($"No TLS handshake began within the head timeout; answered -ERR '{NatsErrors.AuthorizationTimeout}' and closed.");
+        await connection.WriteAsync(NatsErrors.Line(NatsErrors.AuthorizationTimeout), context.CancellationToken);
+        return false;
     }
 
     // However the writing ends - the outbox drained, a slow consumer or a failed write - reading
@@ -88,7 +177,11 @@ internal sealed class NatsServerConnection : IDisposable
     {
         try
         {
-            outbox.Enqueue(info.Encode());
+            if (!infoWritten)
+            {
+                outbox.Enqueue(info.Encode());
+            }
+
             await ServeAfterInfoAsync();
         }
         catch (NatsProtocolViolationException violation)
@@ -128,7 +221,6 @@ internal sealed class NatsServerConnection : IDisposable
     // that failed or overflowed stops the reading without a word.
     private async ValueTask<NatsControlLine?> ReadConnectWithinHeadTimeoutAsync()
     {
-        using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token, stopReading.Token);
         try
         {
@@ -141,6 +233,11 @@ internal sealed class NatsServerConnection : IDisposable
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
         {
             throw new NatsProtocolViolationException(NatsErrors.AuthorizationTimeout, "No CONNECT arrived within the head timeout");
+        }
+        finally
+        {
+            // The head timeout ends with CONNECT's line; its timer is released at once.
+            headTimeout.Dispose();
         }
     }
 
