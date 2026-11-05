@@ -103,8 +103,19 @@ decisions 3, 5, 6 and 10, and its BL-738 amendment):
   `no_renegotiation`, and the association carries on.
 
 Still to come: closing with `close_notify` before the 48-bit sequence number wraps (BL-745); an
-epoch 0 hello with a valid cookie replacing an established association (BL-779); reporting the
-peer (BL-650).
+epoch 0 hello with a valid cookie replacing an established association (BL-779).
+
+Who the peer is and how much one record carries (BL-650, ADR-0087's BL-650 amendment, for
+ADR-0097 decisions 4, 6 and 7):
+
+- Once the handshake has completed, `DtlsServerSession.ClientPreSharedKeyIdentity` is the PSK
+  identity as UTF-8 text, and `ClientCertificate` the client's certificate under `--cacert`, with
+  `ClientCertificateVerified` true exactly when it is reported (an unverified one ends the
+  handshake). Each is `null` (or false) before then and in the other modes.
+- `MaximumApplicationDataLength` is what one 1200-byte datagram carries after the record header and
+  the suite's nonce and tag (1163 bytes under GCM and CCM, 1171 under CCM_8), or the client's
+  `max_fragment_length` when smaller; it throws before the handshake completes, and `SendAsync`
+  refuses more.
 
 Never construct a socket here: records travel over the `IDatagramFlow` the caller gives.
 Tests on macOS skip the AES-CCM cases (`OSCondition`), because the BCL's `AesCcm` support

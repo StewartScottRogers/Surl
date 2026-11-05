@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Dtls;
@@ -46,6 +48,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private byte[] masterSecret = [];
     private ushort nextServerMessageSeq;
     private DtlsClientCertificate? clientCertificate;
+    private byte[]? clientPreSharedKeyIdentity;
     private bool finalFlightAcknowledged;
     private bool closeNotifyOwed;
     private int renegotiationRefusalsOwed;
@@ -68,10 +71,47 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     public DtlsCipherSuite? CipherSuite => negotiation?.Suite;
 
     /// <summary>
-    /// The most plaintext <see cref="SendAsync"/> carries in one record: the client's
-    /// <c>max_fragment_length</c> when it asked for one (RFC 6066 section 4), else 2^14 bytes.
+    /// The most plaintext <see cref="SendAsync"/> carries in one record, which travels as one datagram:
+    /// what fits a <see cref="DtlsHandshakeFragmenter.MaximumDatagramLength"/>-byte datagram after the
+    /// 13-byte record header and the negotiated suite's explicit nonce and tag (ADR-0087 decision 7),
+    /// or the client's <c>max_fragment_length</c> when that is smaller (RFC 6066 section 4). Under
+    /// AES-GCM and AES-CCM that is 1163 bytes, under AES-CCM_8 1171.
     /// </summary>
-    public int MaximumApplicationDataLength => records.MaximumPlaintextLength;
+    /// <exception cref="InvalidOperationException">The handshake has not completed.</exception>
+    public int MaximumApplicationDataLength
+    {
+        get
+        {
+            ThrowIfNotEstablished();
+            var datagramRoom = DtlsHandshakeFragmenter.MaximumDatagramLength - DtlsRecordHeader.Size - serverProtection!.Overhead;
+            return Math.Min(datagramRoom, records.MaximumPlaintextLength);
+        }
+    }
+
+    /// <summary>
+    /// The PSK identity the client authenticated with, as UTF-8 text (RFC 4279 section 5.1), once a
+    /// PSK handshake has completed; <see langword="null"/> before then and after a certificate
+    /// handshake. A completed PSK handshake proves the client holds that identity's key, since a wrong
+    /// or unknown one ends it with <c>decrypt_error</c>. Bytes that are not UTF-8 read as U+FFFD.
+    /// </summary>
+    public string? ClientPreSharedKeyIdentity =>
+        established && clientPreSharedKeyIdentity is not null ? Encoding.UTF8.GetString(clientPreSharedKeyIdentity) : null;
+
+    /// <summary>
+    /// The certificate the client presented, once a certificate handshake under
+    /// <see cref="DtlsServerOptions.ClientCertificateAuthorities"/> has completed; <see langword="null"/>
+    /// before then, after a handshake that asked for none, and after a PSK handshake. It stays the
+    /// session's and is disposed with it.
+    /// </summary>
+    public X509Certificate2? ClientCertificate => established ? clientCertificate?.Leaf : null;
+
+    /// <summary>
+    /// Whether <see cref="ClientCertificate"/> chained to a <see cref="DtlsServerOptions.ClientCertificateAuthorities"/>
+    /// anchor, was valid at the <see cref="DtlsServerOptions.TimeProvider"/>'s time and signed the client's
+    /// <c>CertificateVerify</c>. A certificate failing any of those ends the handshake with its alert, so
+    /// this is true exactly when <see cref="ClientCertificate"/> is reported.
+    /// </summary>
+    public bool ClientCertificateVerified => ClientCertificate is not null;
 
     /// <summary>
     /// Runs the handshake: waits, keeping no state, for a hello with a valid cookie, then completes
@@ -535,10 +575,12 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     /// bytes, N again, then the key. An identity the lookup does not know gets a random key instead,
     /// so the handshake carries on and the client's <c>Finished</c> fails with <c>decrypt_error</c>:
     /// never <c>unknown_psk_identity</c>, which would tell a peer which identities exist (ADR-0087
-    /// decision 10).
+    /// decision 10). The identity is kept for <see cref="ClientPreSharedKeyIdentity"/>, which reports
+    /// it only once <c>Finished</c> has proved the key.
     /// </summary>
     private byte[] PreSharedKeyPreMasterSecret(byte[] identity)
     {
+        clientPreSharedKeyIdentity = identity;
         var key = options.PreSharedKeys!(identity) is { Length: > 0 and <= ushort.MaxValue } known ? known : RandomNumberGenerator.GetBytes(UnknownIdentityKeyLength);
         var preMasterSecret = new byte[4 + (2 * key.Length)];
         var length = (ushort)key.Length;

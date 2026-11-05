@@ -314,6 +314,27 @@ seconds of the head timeout, and nothing would tell an operator why a wrong key 
   client's final flight sent again.
 - **The epoch 0 hello on an established association** (decision 6's third bullet) is BL-779's.
 
+**Amendment (2026-11-05, BL-650; decided by Claude under Stewart's delegation).** How a finished
+handshake reports who the peer is (decision 3) and how much one record carries (decision 7):
+
+- **The PSK identity** is `DtlsServerSession.ClientPreSharedKeyIdentity`, the identity bytes as UTF-8
+  text (RFC 4279 section 5.1 makes identities UTF-8; bytes that are not read as U+FFFD), reported only
+  once the handshake has completed, because only then has `Finished` proved the key. Text rather than
+  bytes, because ADR-0097 decision 6 matches it to an account name and writes it in the `-v` login note.
+- **The client certificate** is `ClientCertificate`, the leaf, owned and disposed by the session, with
+  `ClientCertificateVerified`. A certificate that fails the chain or `CertificateVerify` check ends the
+  handshake (decision 10), so a reported certificate has always verified; the flag says so explicitly
+  for the CoAP server's rule rather than leaving it implied. Neither is reported before completion, on
+  a PSK handshake, or when no certificate was asked for.
+- **The record size** is `MaximumApplicationDataLength`: the smaller of what one 1200-byte datagram
+  carries after the 13-byte header and the suite's 8-byte explicit nonce and tag (1163 bytes under
+  AES-GCM and AES-CCM, 1171 under AES-CCM_8) and the client's `max_fragment_length`. It was 2^14 bytes
+  without `max_fragment_length`, which let `SendAsync` send datagrams over this decision's 1200-byte
+  MTU; one property now holds both limits, so `SendAsync` refuses what does not fit one datagram and
+  the CoAP server sizes blocks and messages by the same number. It throws before the handshake
+  completes, when no suite is fixed. Rejected: a second property beside the 2^14 one, because two
+  limits for one send invite the larger being used.
+
 ## Alternatives considered
 
 - **The client's suite order.** Rejected: CoAP clients often list the mandated CCM_8 first, and the

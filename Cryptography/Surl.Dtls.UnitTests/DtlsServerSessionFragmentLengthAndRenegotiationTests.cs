@@ -36,7 +36,7 @@ public sealed class DtlsServerSessionFragmentLengthAndRenegotiationTests
     }
 
     [TestMethod]
-    public async Task HandshakeAsync_NoMaxFragmentLength_LeavesTheRecordLimitAt16384()
+    public async Task HandshakeAsync_NoMaxFragmentLength_LimitsApplicationDataToWhatFitsOneDatagram()
     {
         var client = new UnitTestDtlsClient();
         var (session, flow) = DtlsServerSessionTests.Start(client);
@@ -44,7 +44,7 @@ public sealed class DtlsServerSessionFragmentLengthAndRenegotiationTests
 
         await session.HandshakeAsync(flow.Exhausted.Token);
 
-        Assert.AreEqual(1 << 14, session.MaximumApplicationDataLength);
+        Assert.AreEqual(1163, session.MaximumApplicationDataLength);
         Assert.IsFalse(client.ServerHello!.Extensions.Any(extension => extension.Type == DtlsExtensionType.MaxFragmentLength));
     }
 
