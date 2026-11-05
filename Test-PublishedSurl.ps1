@@ -171,7 +171,10 @@ function New-HostLauncher([string] $binary) {
 function New-ContainerLauncher([string] $publishDirectory) {
     # Resolved before PATH is scrubbed: the scrub may drop /usr/bin when it holds a dotnet link.
     $docker = (Get-Command docker -CommandType Application | Select-Object -First 1).Source
-    @{ Name = "inside a $ContainerImage container with no .NET"; Docker = $docker; PublishDirectory = $publishDirectory; Container = $null }
+    # surl runs as this user inside the container, so the .surl folder it creates in the served
+    # directory is this user's to remove afterwards, as it is on the host.
+    $user = "$((& id -u).Trim()):$((& id -g).Trim())"
+    @{ Name = "inside a $ContainerImage container with no .NET"; Docker = $docker; User = $user; PublishDirectory = $publishDirectory; Container = $null }
 }
 
 # Starts surl with its own arguments; a served directory among them is mounted into the container.
@@ -181,10 +184,12 @@ function Start-Surl($launcher, [string[]] $arguments, [string] $servedDirectory)
     }
     $launcher.Container = "surl-smoke-$([guid]::NewGuid().ToString('n'))"
     $dockerArguments = @('run', '--rm', '--name', $launcher.Container, '--network', 'host',
-        '-v', "$($launcher.PublishDirectory):/surl:ro")
+        '--user', $launcher.User, '-v', "$($launcher.PublishDirectory):/surl:ro")
     $inside = @($arguments)
     if ($servedDirectory) {
-        $dockerArguments += @('-v', "$($servedDirectory):/served:ro")
+        # Writable: --directory keeps its lock in <path>/.surl/ and exits 23 on a read-only
+        # directory (`surl --aihelp content`).
+        $dockerArguments += @('-v', "$($servedDirectory):/served")
         $inside = @($inside | ForEach-Object { if ($_ -eq $servedDirectory) { '/served' } else { $_ } })
     }
     $dockerArguments += @($ContainerImage, '/surl/surl') + $inside
