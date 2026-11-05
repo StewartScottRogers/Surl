@@ -51,3 +51,4 @@ That includes the Huffman code, which BL-382's QPACK reuses.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
