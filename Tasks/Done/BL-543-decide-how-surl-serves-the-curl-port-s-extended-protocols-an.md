@@ -5,10 +5,10 @@ priority: High
 assignee: Claude
 pipeline: docs
 depends-on: []
-touches: [Documentation/Planning/Decisions, CLAUDE.md, .claude/rules/testing.md, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md]
+touches: [Documentation/Planning/Decisions, CLAUDE.md, .claude/rules/testing.md, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, Documentation/Product/Product-Overview.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-543 — Decide how Surl serves the Curl port's extended protocols and how they are tested
 
@@ -102,22 +102,38 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It cites Stewart's approval of 2026-11-04 for the decisions that are
       his, answers decisions 1 to 10, lists the 20 servers with their schemes and folders, and is listed in
       that folder's `README.md`.
-- [ ] ADR-0003 carries an "Amended by" line pointing to the new ADR, and its text states the scope of the
+- [x] ADR-0003 carries an "Amended by" line pointing to the new ADR, and its text states the scope of the
       exception.
-- [ ] Root `CLAUDE.md`, section "Upstream curl and the Curl port", gains one paragraph that names the exception
+- [x] Root `CLAUDE.md`, section "Upstream curl and the Curl port", gains one paragraph that names the exception
       and points to the ADR, so it no longer says without qualification that the port is never a test client.
-- [ ] `.claude/rules/testing.md`'s protocol-test rule names the exception for `Surl.Extended.Protocol.*`.
-- [ ] `Documentation/Product/Requirements.md` has one functional requirement row stating that each extended
+- [x] `.claude/rules/testing.md`'s protocol-test rule names the exception for `Surl.Extended.Protocol.*`.
+- [x] `Documentation/Product/Requirements.md` has one functional requirement row stating that each extended
       server is judged by its specification and that the switch turns every extended server off.
-- [ ] `Documentation/Wiki/Glossary.md` defines "extended protocol", "extended server" and "original protocol".
+- [x] `Documentation/Wiki/Glossary.md` defines "extended protocol", "extended server" and "original protocol".
 
 ## Notes
+
+- 2026-11-04: Recorded as ADR-0083. Decisions taken: the specification is the oracle and the port's client
+  runs only in `Integration` tests; the client is pinned by path and SHA-256 in `CurlPortBuilds.json` with its
+  port commit and publish command, built locally from Stewart's own repository (no approval needed),
+  Inconclusive when missing, not run in CI; tests `CurlPortClient<Verb>SurlOver<Name>Tests` in
+  `Surl.Conformance.UnitTests`; `SURL_EXTENSIONS=0` turns them off (any other value leaves them on), read
+  through an injected reader in `Surl.Console`, an extended scheme then refused `UnsupportedProtocol` (1); a
+  separate `ExtendedSchemeDefaultPorts` table, ports from RFCs and IANA, conventions marked (Kafka, NATS,
+  STOMP, `xmpps`); one `extended` `--aihelp` topic plus one per server; `--version` keeps `Protocols:` and
+  adds an `Extended:` line; one server-side matrix per protocol; a parallel "Extended servers" track, not a
+  phase after Phase 7.
+- Added `Documentation/Product/Product-Overview.md` to `touches`: two of its non-goals (validate only
+  against upstream curl; no protocols upstream curl does not request) contradicted the approved decision.
+  No task in `Doing` names it.
+- The ADR's server table carries Plugin as a 20th row marked skipped, so all 20 port protocols appear.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0083 records how Surl serves the Curl port's extended protocols: spec as oracle, port client in Integration tests only, CurlPortBuilds.json, SURL_EXTENSIONS=0, extended ports, --aihelp shape, parallel track
