@@ -12,13 +12,17 @@ internal sealed class RedisTestServer
 {
     private readonly RedisServer server;
 
-    public RedisTestServer(RedisKeyspace? keyspace = null, RedisPubSub? pubSub = null)
+    public RedisTestServer(RedisKeyspace? keyspace = null, RedisPubSub? pubSub = null, MessageBus.MessageBus? bus = null)
     {
         Keyspace = keyspace ?? new RedisKeyspace();
-        server = new RedisServer(new UnitTestRedisAuthenticationPolicy(true), Keyspace, pubSub ?? new RedisPubSub());
+        Bus = bus ?? new MessageBus.MessageBus(Clock);
+        server = new RedisServer(new UnitTestRedisAuthenticationPolicy(true), Keyspace, pubSub ?? new RedisPubSub(Bus));
     }
 
     public ManualTimeProvider Clock { get; } = new();
+
+    /// <summary>The message bus the server's pub/sub runs on, which a test publishes and subscribes on as another protocol would.</summary>
+    public MessageBus.MessageBus Bus { get; }
 
     public RedisKeyspace Keyspace { get; }
 

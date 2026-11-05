@@ -25,6 +25,8 @@ public sealed class RedisServerTests
         var server = new RedisServer(Anonymous());
 
         Assert.ThrowsExactly<ArgumentNullException>(() => new RedisServer(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new RedisServer(null!, new MessageBus.MessageBus(TimeProvider.System)));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new RedisServer(Anonymous(), null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => server.ServeAsync(null!, Context(TestContext.CancellationToken)));
         Assert.ThrowsExactly<ArgumentNullException>(() => server.ServeAsync(Connection([]), null!));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, TestContext.CancellationToken).AsTask());

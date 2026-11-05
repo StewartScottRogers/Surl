@@ -16,7 +16,7 @@ internal static class RedisPubSubCommands
         new("unsubscribe", -1, false, call => ValueTask.FromResult(call.PubSub.Unsubscribe(call.Subscriber, Names(call), false))),
         new("psubscribe", -2, false, call => ValueTask.FromResult(call.PubSub.Subscribe(call.Subscriber, Names(call), true))),
         new("punsubscribe", -1, false, call => ValueTask.FromResult(call.PubSub.Unsubscribe(call.Subscriber, Names(call), true))),
-        new("publish", 3, false, call => ValueTask.FromResult<RespValue>(new RespInteger(call.PubSub.Publish(call.Arguments[1], call.Arguments[2])))),
+        new("publish", 3, false, call => ValueTask.FromResult(call.PubSub.Publish(call.Arguments[1], call.Arguments[2], call.Session.UserName))),
     ];
 
     /// <summary>The commands a subscribed RESP2 connection may run (the "Pub/Sub" page).</summary>

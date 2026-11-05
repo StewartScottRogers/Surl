@@ -49,6 +49,12 @@ internal static class RedisErrorReplies
 
     public static RespSimpleError MaxNumberOfSubscriptionsReached { get; } = new("ERR max number of subscriptions reached");
 
+    /// <summary>
+    /// A publish or subscribe the bus's <c>--topic-access</c> grants refuse, in Redis 7's ACL words
+    /// for a channel the user may not use (ADR-0100 decision 3.8).
+    /// </summary>
+    public static RespSimpleError NoPermissionOnChannels { get; } = new("NOPERM this user has no permissions to access one of the channels used as arguments");
+
     /// <summary>A command a RESP2 connection may not run while subscribed (ADR-0106 decision 1).</summary>
     /// <param name="commandName">The command's name in lower case.</param>
     /// <returns>The error.</returns>

@@ -1,3 +1,5 @@
+using Surl.MessageBus;
+
 namespace Surl.Extended.Protocol.Redis;
 
 /// <summary>
@@ -17,6 +19,25 @@ internal sealed class RedisSubscriber(RedisSession session, RedisReplyWriter wri
 
     /// <summary>The patterns subscribed to, by pattern (one character per byte), in the order subscribed.</summary>
     public OrderedDictionary<string, byte[]> Patterns { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The connection's place on the bus while it holds a bus subscription, made with the login
+    /// of the moment the first one was made; <see langword="null"/> while it holds none.
+    /// </summary>
+    public BusConnection? BusConnection { get; set; }
+
+    /// <summary>The bus subscription of each channel that is a bus topic, by channel name.</summary>
+    public Dictionary<string, BusSubscription> ChannelBusSubscriptions { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The bus subscription to <c>#</c> held while the connection has any pattern (ADR-0100 decision 3.8).</summary>
+    public BusSubscription? PatternBusSubscription { get; set; }
+
+    /// <summary>
+    /// The bus message the <c>#</c> subscription was last handed, kept until the bus has handed it
+    /// to every subscription of the connection, so its <c>pmessage</c>s follow its <c>message</c>
+    /// as Redis sends them.
+    /// </summary>
+    public BusMessage? MessageReachingPatterns { get; set; }
 
     /// <summary>How many channels and patterns the connection subscribes to: the count confirmations carry.</summary>
     public int SubscriptionCount => Channels.Count + Patterns.Count;

@@ -70,8 +70,15 @@ Hashes, lists, sets and pub/sub (BL-491, decisions 1, 2 and 6):
   member added first (the page's random pick, which no client can tell from a fixed one).
 - `RedisPubSub` is the server's channels and patterns, shared by its connections: subscribe
   and unsubscribe confirmations, at most 10000 subscriptions a connection, and `Publish`,
-  which reaches channel and matching pattern subscriptions and answers how many. Delivery stays
-  among this server's connections until BL-678 moves it onto the bus. `RedisSubscriber` is one
+  which reaches channel and matching pattern subscriptions and answers how many. Since BL-678
+  (ADR-0100 decision 3.8, ADR-0126) a channel that is a bus topic (`RedisChannelNames`: valid
+  UTF-8 and a canonical topic name) is published and subscribed on the shared `MessageBus`, so it
+  reaches and hears every messaging protocol; any other channel stays among this server's
+  connections. A connection with patterns holds one bus subscription to `#` and sends its
+  `pmessage`s from `AfterMessageDelivered`, after the `message`; `PUBLISH` counts each matching
+  pattern once; bus refusals are `-NOPERM …`, `-OOM …` and `-ERR max number of subscriptions
+  reached`. `RedisServer(policy, messageBus)` takes the process's bus; `RedisServer(policy)`
+  makes one of its own. `RedisSubscriber` is one
   connection as pub/sub sees it; `RedisPubSubCommands` answers `SUBSCRIBE`, `UNSUBSCRIBE`,
   `PSUBSCRIBE`, `PUNSUBSCRIBE` and `PUBLISH`, and refuses other commands on a subscribed RESP2
   connection. `RedisReplySequence` writes several confirmations as one reply.
@@ -82,7 +89,7 @@ Hashes, lists, sets and pub/sub (BL-491, decisions 1, 2 and 6):
 
 The command line (BL-492) serves the server.
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary` only (BL-678 adds
-`Surl.MessageBus`) - never another protocol server, original or extended. Never construct a
+This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.MessageBus.UnitLibrary`
+(ADR-0100 decision 3.1) - never another protocol server, original or extended. Never construct a
 `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener` here; the transport comes from
 the listener seam.

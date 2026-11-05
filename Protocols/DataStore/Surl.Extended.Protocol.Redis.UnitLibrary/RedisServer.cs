@@ -22,7 +22,8 @@ namespace Surl.Extended.Protocol.Redis;
 /// <c>LTRIM</c>, the set commands <c>SADD</c>, <c>SREM</c>, <c>SMEMBERS</c>, <c>SISMEMBER</c>,
 /// <c>SMISMEMBER</c>, <c>SCARD</c>, <c>SPOP</c>, <c>SINTER</c>, <c>SUNION</c> and <c>SDIFF</c>, and
 /// pub/sub: <c>SUBSCRIBE</c>, <c>UNSUBSCRIBE</c>, <c>PSUBSCRIBE</c>, <c>PUNSUBSCRIBE</c> and
-/// <c>PUBLISH</c>, delivered among this servers connections. Any other command is
+/// <c>PUBLISH</c>, on the shared message bus for a channel that is a bus topic and among this
+/// server's connections for any other (ADR-0100 decision 3.8, BL-678). Any other command is
 /// <c>-ERR unknown command '…', with args beginning with: …</c>, the connection kept.
 /// </para>
 /// <para>
@@ -53,13 +54,32 @@ public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalW
     private readonly RedisPubSub pubSub;
     private long lastClientId;
 
-    /// <summary>Creates a server whose logins <paramref name="authenticationPolicy"/> judges.</summary>
+    /// <summary>
+    /// Creates a server whose logins <paramref name="authenticationPolicy"/> judges, on a message
+    /// bus of its own, so its pub/sub reaches only its own connections.
+    /// </summary>
     /// <param name="authenticationPolicy">
     /// Judges <c>AUTH</c> and <c>HELLO … AUTH</c>, and is asked once a connection whether an
     /// anonymous caller is let in.
     /// </param>
     public RedisServer(IAuthenticationPolicy authenticationPolicy)
-        : this(authenticationPolicy, new RedisKeyspace(), new RedisPubSub())
+        : this(authenticationPolicy, new MessageBus.MessageBus(TimeProvider.System))
+    {
+    }
+
+    /// <summary>
+    /// Creates a server whose logins <paramref name="authenticationPolicy"/> judges and whose
+    /// pub/sub channels that are bus topics are published and subscribed on
+    /// <paramref name="messageBus"/>, the bus the process's messaging servers share (ADR-0100
+    /// decision 3.8).
+    /// </summary>
+    /// <param name="authenticationPolicy">
+    /// Judges <c>AUTH</c> and <c>HELLO … AUTH</c>, and is asked once a connection whether an
+    /// anonymous caller is let in.
+    /// </param>
+    /// <param name="messageBus">The message bus the process's messaging servers share.</param>
+    public RedisServer(IAuthenticationPolicy authenticationPolicy, MessageBus.MessageBus messageBus)
+        : this(authenticationPolicy, new RedisKeyspace(), new RedisPubSub(messageBus ?? throw new ArgumentNullException(nameof(messageBus))))
     {
     }
 
