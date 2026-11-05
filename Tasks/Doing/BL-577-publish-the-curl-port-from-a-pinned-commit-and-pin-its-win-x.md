@@ -58,3 +58,4 @@ executable from a named commit into the folder ADR-0083 decision 2 names, and re
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
