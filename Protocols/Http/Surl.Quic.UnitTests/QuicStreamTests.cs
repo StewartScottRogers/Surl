@@ -6,7 +6,8 @@ namespace Surl.Quic;
 /// <summary>
 /// Streams on a <see cref="QuicServerConnection"/> whose handshake with the test client is
 /// complete: the test client seals the frames RFC 9000 sections 2 to 4 and 19.4 to 19.14 describe,
-/// and every expected value is what those sections say. Packets are never lost here; that is BL-379.
+/// and every expected value is what those sections say. Packets are lost only where a test drops
+/// them (BL-379): QuicStreamTests.Loss.cs and QuicStreamTests.LossyExchange.cs.
 /// </summary>
 [TestClass]
 public sealed partial class QuicStreamTests

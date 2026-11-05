@@ -63,6 +63,33 @@ internal sealed class UnitTestQuicClient : IDisposable
         [QuicPacketType.OneRtt] = [],
     };
 
+    /// <summary>The packet numbers of the server's packets the client opened, by packet type.</summary>
+    public Dictionary<QuicPacketType, SortedSet<ulong>> PacketNumbersReceived { get; } = new()
+    {
+        [QuicPacketType.Initial] = [],
+        [QuicPacketType.Handshake] = [],
+        [QuicPacketType.OneRtt] = [],
+    };
+
+    /// <summary>An ACK frame for every packet of <paramref name="type"/> the client opened, ranges largest first, ACK Delay 0.</summary>
+    public QuicAckFrame AckFrame(QuicPacketType type)
+    {
+        var ranges = new List<QuicAckRange>();
+        foreach (var packetNumber in PacketNumbersReceived[type].Reverse())
+        {
+            if (ranges.Count > 0 && ranges[^1].Smallest == packetNumber + 1)
+            {
+                ranges[^1] = ranges[^1] with { Smallest = packetNumber };
+            }
+            else
+            {
+                ranges.Add(new QuicAckRange(packetNumber, packetNumber));
+            }
+        }
+
+        return new QuicAckFrame(ranges, 0, null);
+    }
+
     /// <summary>The client's Finished, once the server's flight has verified.</summary>
     public byte[]? ClientFinished { get; private set; }
 
@@ -166,6 +193,9 @@ internal sealed class UnitTestQuicClient : IDisposable
         return handshakeSend!.Protect(packet, packetNumber);
     }
 
+    /// <summary>The packet number the next 1-RTT packet this client seals takes.</summary>
+    public ulong NextOneRttPacketNumber => nextOneRttPacketNumber;
+
     public byte[] SealOneRtt(params QuicFrame[] frames) => SealOneRttPayload(QuicFrameWriter.Write(frames));
 
     /// <summary>A 1-RTT packet whose payload is exactly <paramref name="payload"/>, well-formed frames or not.</summary>
@@ -232,7 +262,8 @@ internal sealed class UnitTestQuicClient : IDisposable
 
             var result = protection.Unprotect(remaining, SourceConnectionId.Length, largestReceived.TryGetValue(type, out var largest) ? largest + 1 : 0);
             Assert.AreEqual(QuicUnprotectStatus.Unprotected, result.Status, $"A {type} packet from the server does not open.");
-            largestReceived[type] = result.PacketNumber;
+            largestReceived[type] = Math.Max(result.PacketNumber, largestReceived.GetValueOrDefault(type));
+            PacketNumbersReceived[type].Add(result.PacketNumber);
             TakeFrames(type, result.Packet!);
             remaining = remaining[result.PacketLength..];
         }

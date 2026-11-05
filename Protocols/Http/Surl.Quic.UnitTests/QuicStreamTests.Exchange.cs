@@ -66,7 +66,7 @@ public sealed partial class QuicStreamTests
         return (stream!, [.. received], creditUpdates);
     }
 
-    /// <summary>The test client takes the server's STREAM frames in order and grants a window past what it has taken after each round.</summary>
+    /// <summary>The test client takes the server's STREAM frames in order, and after each round acknowledges every packet and grants a window past what it has taken.</summary>
     private static byte[] DownloadResponse(UnitTestExchange exchange, QuicStream stream)
     {
         var seen = exchange.Client.FramesReceived[QuicPacketType.OneRtt].Count;
@@ -84,7 +84,7 @@ public sealed partial class QuicStreamTests
                 finished |= frame.Fin;
             }
 
-            exchange.Send(exchange.Client.SealOneRtt(new QuicMaxStreamDataFrame(stream.Id, (ulong)body.Count + RecordedClientStreamWindow)));
+            exchange.Send(exchange.Client.SealOneRtt(exchange.Client.AckFrame(QuicPacketType.OneRtt), new QuicMaxStreamDataFrame(stream.Id, (ulong)body.Count + RecordedClientStreamWindow)));
         }
 
         return [.. body];

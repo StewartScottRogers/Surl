@@ -58,6 +58,19 @@ internal sealed class UnitTestExchange : IDisposable
         return output;
     }
 
+    /// <summary>Gives the server an ACK of every 1-RTT packet the client has opened, and the client what the server sends back.</summary>
+    public QuicConnectionOutput AcknowledgeOneRtt() => Send(Client.SealOneRtt(Client.AckFrame(QuicPacketType.OneRtt)));
+
+    /// <summary>Moves the clock to the server's next deadline and gives the client what the server sends when it acts on it.</summary>
+    public QuicConnectionOutput AdvanceToNextDeadline()
+    {
+        var deadline = Server.NextDeadline!.Value;
+        Time.Advance(deadline - Time.GetUtcNow());
+        var output = Server.HandleTimeout();
+        Take(output);
+        return output;
+    }
+
     public void Take(QuicConnectionOutput output)
     {
         BytesFromServer += output.Datagrams.Sum(datagram => datagram.Length);

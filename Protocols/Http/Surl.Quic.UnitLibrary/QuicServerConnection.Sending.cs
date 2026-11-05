@@ -6,6 +6,9 @@ public sealed partial class QuicServerConnection
     private const int AmplificationFactor = 3;
     private const int MinPacketNumberAndPayloadLength = 4;
 
+    /// <summary>The least data a CRYPTO or STREAM frame split to fit a packet gives the packet; less waits for the next packet.</summary>
+    private const int MinSplitDataLength = 64;
+
     /// <summary>
     /// The most a CRYPTO frame and the packet's Length field can grow by once data is added to an
     /// empty CRYPTO frame: two bytes of data length and one of the Length field.
@@ -42,11 +45,12 @@ public sealed partial class QuicServerConnection
     private byte[]? BuildDatagram()
     {
         var budget = NextDatagramBudget();
+        var inFlightBudget = (int)Math.Min(budget, CongestionBudget);
         var packets = new List<(QuicPacketNumberSpace Space, List<QuicFrame> Frames)>();
         var used = 0;
         foreach (var space in (QuicPacketNumberSpace[])[initial, handshake, application])
         {
-            var frames = space.HasSomethingToSend ? FillPacket(space, budget - used, budget == MaxDatagramSize) : [];
+            var frames = space.HasSomethingToSend ? FillPacket(space, budget - used, inFlightBudget - used, inFlightBudget == MaxDatagramSize) : [];
             if (frames.Count > 0)
             {
                 packets.Add((space, frames));
@@ -64,29 +68,72 @@ public sealed partial class QuicServerConnection
     }
 
     /// <summary>
-    /// Takes what fits in <paramref name="available"/> bytes from the space's waiting ACK, CRYPTO
-    /// data and frames. Initial CRYPTO data goes only in a datagram that may be padded to 1200 bytes.
+    /// Takes what fits from the space's waiting ACK, in <paramref name="ackRoom"/> bytes, and its
+    /// CRYPTO data and frames, which count in flight, in <paramref name="room"/> bytes. Initial
+    /// CRYPTO data and other ack-eliciting Initial frames go only in a datagram that may be padded
+    /// to 1200 bytes.
     /// </summary>
-    private List<QuicFrame> FillPacket(QuicPacketNumberSpace space, int available, bool mayBePaddedToFullSize)
+    private List<QuicFrame> FillPacket(QuicPacketNumberSpace space, int ackRoom, int room, bool mayBePaddedToFullSize)
     {
         var frames = new List<QuicFrame>();
         if (space.AckPending)
         {
-            space.AckPending = !TryAddFrame(space, frames, new QuicAckFrame(space.Received.Ranges.ToArray(), 0, null), available);
+            space.AckPending = !TryAddFrame(space, frames, new QuicAckFrame(space.Received.Ranges.ToArray(), 0, null), ackRoom);
         }
 
-        if (space.CryptoToSend.Count > 0 && (space != initial || mayBePaddedToFullSize))
+        var mayElicit = space != initial || mayBePaddedToFullSize;
+        if (space.CryptoToSend.Count > 0 && mayElicit)
         {
-            AddCrypto(space, frames, available);
+            AddCrypto(space, frames, room);
         }
 
-        while (space.FramesToSend.Count > 0 && TryAddFrame(space, frames, space.FramesToSend[0], available))
+        while (space.FramesToSend.Count > 0 && (mayElicit || !IsAckEliciting(space.FramesToSend[0])) && TryAddWaitingFrame(space, frames, room))
         {
-            space.FramesToSend.RemoveAt(0);
+            // TryAddWaitingFrame has moved the first waiting frame, or its first part, into the packet.
         }
 
         return frames;
     }
+
+    /// <summary>
+    /// Moves the space's first waiting frame into the packet when it fits in <paramref name="available"/>
+    /// bytes; a CRYPTO or STREAM frame too long for the room left, as one sent again after loss can
+    /// be, is split and its first part moved, when that part carries at least <see cref="MinSplitDataLength"/> bytes.
+    /// </summary>
+    private bool TryAddWaitingFrame(QuicPacketNumberSpace space, List<QuicFrame> frames, int available)
+    {
+        var waiting = space.FramesToSend[0];
+        if (TryAddFrame(space, frames, waiting, available))
+        {
+            space.FramesToSend.RemoveAt(0);
+            return true;
+        }
+
+        frames.Add(waiting);
+        var overshoot = PacketLength(space, frames) - available;
+        frames.RemoveAt(frames.Count - 1);
+        if (Split(waiting, overshoot) is not { } parts || !TryAddFrame(space, frames, parts.First, available))
+        {
+            return false;
+        }
+
+        space.FramesToSend[0] = parts.Remainder;
+        return true;
+    }
+
+    /// <summary>Splits a CRYPTO or STREAM frame into a first part <paramref name="overshoot"/> bytes of data shorter and the remainder; null for another frame or a first part under <see cref="MinSplitDataLength"/> bytes.</summary>
+    private static (QuicFrame First, QuicFrame Remainder)? Split(QuicFrame frame, int overshoot) => frame switch
+    {
+        QuicCryptoFrame crypto when crypto.Data.Length - overshoot >= MinSplitDataLength => SplitAt(crypto, crypto.Data.Length - overshoot),
+        QuicStreamFrame stream when stream.Data.Length - overshoot >= MinSplitDataLength => SplitAt(stream, stream.Data.Length - overshoot),
+        _ => null,
+    };
+
+    private static (QuicFrame First, QuicFrame Remainder) SplitAt(QuicCryptoFrame crypto, int keep) =>
+        (new QuicCryptoFrame(crypto.Offset, crypto.Data[..keep]), new QuicCryptoFrame(crypto.Offset + (ulong)keep, crypto.Data[keep..]));
+
+    private static (QuicFrame First, QuicFrame Remainder) SplitAt(QuicStreamFrame stream, int keep) =>
+        (new QuicStreamFrame(stream.StreamId, stream.Offset, stream.Data[..keep], false), new QuicStreamFrame(stream.StreamId, stream.Offset + (ulong)keep, stream.Data[keep..], stream.Fin));
 
     /// <summary>Adds <paramref name="frame"/> when the packet still fits in <paramref name="available"/> bytes with it.</summary>
     private bool TryAddFrame(QuicPacketNumberSpace space, List<QuicFrame> frames, QuicFrame frame, int available)
@@ -151,8 +198,10 @@ public sealed partial class QuicServerConnection
         foreach (var (space, frames) in packets)
         {
             var packetNumber = space.NextPacketNumber++;
-            datagram.AddRange(SealPacket(space, frames, packetNumber));
+            var sealedPacket = SealPacket(space, frames, packetNumber);
+            datagram.AddRange(sealedPacket);
             NoteAckElicitingSent(frames);
+            RecordSent(space, packetNumber, frames, sealedPacket.Length);
         }
 
         bytesSent += datagram.Count;

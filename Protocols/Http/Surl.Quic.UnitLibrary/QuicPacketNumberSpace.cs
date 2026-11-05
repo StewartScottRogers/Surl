@@ -48,6 +48,18 @@ internal sealed class QuicPacketNumberSpace(QuicPacketType packetType, TlsEncryp
     /// <summary>Other frames waiting to be sent, in order.</summary>
     public List<QuicFrame> FramesToSend { get; } = [];
 
+    /// <summary>The packets sent and neither acknowledged nor declared lost, by packet number (RFC 9002 Appendix A.1).</summary>
+    public SortedDictionary<ulong, QuicSentPacket> SentPackets { get; } = [];
+
+    /// <summary>When the earliest packet not yet lost by the time threshold will be, or null (RFC 9002 Appendix A.3, <c>loss_time</c>).</summary>
+    public DateTimeOffset? LossTime { get; set; }
+
+    /// <summary>When the last ack-eliciting packet was sent, or null before any.</summary>
+    public DateTimeOffset? TimeOfLastAckElicitingPacket { get; set; }
+
+    /// <summary>Whether an ack-eliciting packet is in flight: sent and neither acknowledged nor declared lost.</summary>
+    public bool HasAckElicitingInFlight => SentPackets.Values.Any(packet => packet.IsAckEliciting);
+
     /// <summary>Whether the space has keys and something to send.</summary>
     public bool HasSomethingToSend => HasKeys && (AckPending || CryptoToSend.Count > 0 || FramesToSend.Count > 0);
 

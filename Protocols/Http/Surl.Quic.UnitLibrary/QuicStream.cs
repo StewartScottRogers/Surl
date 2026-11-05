@@ -67,6 +67,9 @@ public sealed class QuicStream
     /// <summary>How many bytes the server has given <see cref="Write"/> that are not sent yet, held back by the client's credit.</summary>
     public int UnsentLength => unsent.Count;
 
+    /// <summary>The highest offset the client may send to, as last granted.</summary>
+    internal ulong ReceiveLimit => receiveLimit;
+
     internal bool IsReceiveDone => !CanRead || ResetErrorCode is not null || IsReadComplete;
 
     internal bool IsSendDone => !CanWrite || finSent || resetSent;
@@ -227,6 +230,7 @@ public sealed class QuicStream
         }
 
         resetSent = true;
+        owner.RecordReset(Id);
         unsent.Clear();
         owner.QueueControlFrame(new QuicResetStreamFrame(Id, applicationErrorCode, sendOffset));
     }

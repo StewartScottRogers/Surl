@@ -4,15 +4,16 @@ Phase 6.
 
 QUIC version 1 for Surl's HTTP/3 server, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
-server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096); loss
-recovery with BL-379, key updates with BL-606, the client's spare connection IDs with BL-607 and
+server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
+loss recovery and congestion control (BL-379); key updates come with BL-606, the client's spare connection IDs with BL-607 and
 the closing and draining periods with BL-608.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
   and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the
   `QuicStream`s the client's frames reached); `HandleTimeout` acts at `NextDeadline`
   (the idle timeout discards it silently, `QuicServerConnectionOptions.HandshakeTimeout` closes it
-  `NO_ERROR`); `SendApplicationFrames` seals 1-RTT frames once the handshake is complete; `Close`
+  `NO_ERROR`, the loss detection timer declares packets lost or sends a probe);
+  `SendApplicationFrames` seals 1-RTT frames once the handshake is complete; `Close`
   sends an application `CONNECTION_CLOSE`. It starts on a version 1 Initial in a datagram of at least
   1200 bytes whose Destination Connection ID is at least 8 bytes, answers another version of that
   size with Version Negotiation, and drops everything else before it starts. The handshake is
@@ -23,7 +24,23 @@ the closing and draining periods with BL-608.
   Handshake packet opens, it sends at most three times what it received; Initial keys go when that
   packet opens, Handshake keys when the handshake completes. 1-RTT packets wait for the handshake
   to complete. Errors close with `CONNECTION_CLOSE`, no reason phrase: in 1-RTT after the handshake,
-  before it at Initial and Handshake (RFC 9000 section 10.2.3). Nothing is retransmitted yet (BL-379).
+  before it at Initial and Handshake (RFC 9000 section 10.2.3).
+- Loss recovery (BL-379, RFC 9002): every packet sent is a `QuicSentPacket` in its space until
+  acknowledged or lost. `QuicLossDetection` takes RTT samples into `QuicRttEstimator` (section 5;
+  the client's ACK Delay scaled by its `ack_delay_exponent` and capped by its `max_ack_delay`, 25 ms
+  by default), declares a packet lost by the packet threshold (3) or the time threshold (9/8 RTT),
+  and arms the probe timeout (none at the anti-amplification limit or with nothing ack-eliciting in
+  flight; Application Data only once the handshake is confirmed). Lost frames are sent again ahead
+  of new ones as RFC 9000 section 13.3 says: `CRYPTO`, `HANDSHAKE_DONE`, `STREAM` unless the stream
+  was reset, the current `MAX_DATA`, `MAX_STREAMS` and `MAX_STREAM_DATA` (while the stream still
+  receives), everything else as it was; never `ACK`, `PADDING`, `PING`, `PATH_RESPONSE` or
+  `CONNECTION_CLOSE`. A probe sends the space's waiting data, else its oldest packet's frames again,
+  else a `PING`, whatever the congestion window. A `CRYPTO` or `STREAM` frame too long for the room
+  left is split when the first part keeps at least 64 bytes. `QuicCongestionController` is NewReno
+  (section 7, ADR-0082 decision 4): 12000-byte initial window, 2400-byte minimum, halved once per
+  recovery period, the minimum on persistent congestion (judged on one space's losses); ACK-only
+  packets are outside the window, and an ack-eliciting Initial waits for a datagram the window and
+  the amplification limit let reach 1200 bytes. Spaces whose keys go are forgotten (section 6.4).
 - `QuicStream` - one stream (ADR-0096): `Read` returns the client's bytes in order (put back by
   `QuicOrderedBytes`, which `CRYPTO` shares), `Write(data, fin)` queues bytes, `Reset` and
   `StopSending` send their frames. Nothing is sent until `QuicServerConnection.Transmit` or the next
@@ -68,7 +85,8 @@ the closing and draining periods with BL-608.
   `Surl.Cryptography.Poly1305` (ADR-0082 decision 3), behind the internal `QuicPacketCipher`.
 - `QuicRetryIntegrity` - RFC 9001 section 5.8: computes and checks a Retry's integrity tag.
 - `QuicReader`, `QuicWriter`, `QuicFrameTypes`, `QuicPacketHeaderBits`, `QuicConnectionIds`,
-  `QuicPacketNumberSpace`, `QuicReceivedPacketNumbers`, `QuicCryptoReassembly`, `QuicOrderedBytes`, `QuicStreams` and the
+  `QuicPacketNumberSpace`, `QuicReceivedPacketNumbers`, `QuicCryptoReassembly`, `QuicOrderedBytes`, `QuicStreams`,
+  `QuicSentPacket`, `QuicLossDetection`, `QuicRttEstimator`, `QuicCongestionController` and the
   `QuicPacketCipher` classes are internal, visible to `Surl.Quic.UnitTests` only.
 
 Malformed input throws `QuicTransportException`; byte strings read are slices of the input, not

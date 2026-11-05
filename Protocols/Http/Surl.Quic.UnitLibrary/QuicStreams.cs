@@ -21,6 +21,7 @@ internal sealed class QuicStreams
     private readonly SortedDictionary<ulong, QuicStream> open = [];
     private readonly List<QuicFrame> controlFrames = [];
     private readonly List<QuicStream> updated = [];
+    private readonly HashSet<ulong> resetStreams = [];
     private readonly ulong[] clientStreamReceiveWindows;
     private readonly ulong[] clientStreamSendLimits;
     private readonly ulong[] initialClientStreamLimits;
@@ -72,6 +73,26 @@ internal sealed class QuicStreams
 
     /// <summary>Queues a frame the next datagrams carry: credit, <c>RESET_STREAM</c> or <c>STOP_SENDING</c>.</summary>
     public void QueueControlFrame(QuicFrame frame) => controlFrames.Add(frame);
+
+    /// <summary>Records that a stream's sending part was reset, so its lost data is not sent again (RFC 9000 section 13.3).</summary>
+    public void RecordReset(ulong streamId) => resetStreams.Add(streamId);
+
+    /// <summary>
+    /// What to send in place of a lost stream or flow-control frame (RFC 9000 section 13.3): the
+    /// data of a stream not reset, the current <c>MAX_DATA</c> and <c>MAX_STREAMS</c>, and the
+    /// current <c>MAX_STREAM_DATA</c> while the stream still receives; null for what is no longer
+    /// needed. Every other frame is sent again as it was.
+    /// </summary>
+    public QuicFrame? Refresh(QuicFrame frame) => frame switch
+    {
+        QuicStreamFrame stream => resetStreams.Contains(stream.StreamId) ? null : stream,
+        QuicMaxDataFrame => new QuicMaxDataFrame(receiveLimit),
+        QuicMaxStreamsFrame maxStreams => new QuicMaxStreamsFrame(maxStreams.Bidirectional, clientStreamLimits[maxStreams.Bidirectional ? Bidirectional : 1]),
+        QuicMaxStreamDataFrame maxStreamData => open.GetValueOrDefault(maxStreamData.StreamId) is { IsReceiveDone: false } stream
+            ? new QuicMaxStreamDataFrame(stream.Id, stream.ReceiveLimit)
+            : null,
+        _ => frame,
+    };
 
     /// <summary>Opens the server's next unidirectional stream, or reports <c>STREAMS_BLOCKED</c> and returns null when the client's <c>MAX_STREAMS</c> allows no more.</summary>
     public QuicStream? OpenUnidirectional()

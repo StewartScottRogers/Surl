@@ -43,6 +43,7 @@ public sealed partial class QuicServerConnection : IDisposable
     private readonly QuicPacketNumberSpace initial = new(QuicPacketType.Initial, TlsEncryptionLevel.Initial);
     private readonly QuicPacketNumberSpace handshake = new(QuicPacketType.Handshake, TlsEncryptionLevel.Handshake);
     private readonly QuicPacketNumberSpace application = new(QuicPacketType.OneRtt, TlsEncryptionLevel.Application);
+    private readonly QuicLossDetection recovery;
     private TlsServerHandshake? tls;
     private byte[] originalDestinationConnectionId = [];
     private byte[] clientConnectionId = [];
@@ -55,6 +56,7 @@ public sealed partial class QuicServerConnection : IDisposable
     private TimeSpan? idleTimeout;
     private DateTimeOffset? handshakeDeadline;
     private QuicStreams? streams;
+    private bool probePending;
 
     /// <summary>Creates a connection that waits for the client's first Initial.</summary>
     /// <param name="options">What the server serves.</param>
@@ -68,6 +70,7 @@ public sealed partial class QuicServerConnection : IDisposable
         this.options = options;
         this.timeProvider = timeProvider;
         this.random = random;
+        recovery = new QuicLossDetection([initial, handshake, application]);
     }
 
     /// <summary>Whether a client's first Initial has started the connection.</summary>
@@ -89,7 +92,7 @@ public sealed partial class QuicServerConnection : IDisposable
     public ReadOnlyMemory<byte> ServerConnectionId => serverConnectionId;
 
     /// <summary>When <see cref="HandleTimeout"/> next has something to do, or null when nothing is timed.</summary>
-    public DateTimeOffset? NextDeadline => IsClosed ? null : Earliest(IdleDeadline, handshakeDeadline);
+    public DateTimeOffset? NextDeadline => IsClosed ? null : Earliest(Earliest(IdleDeadline, handshakeDeadline), LossDetectionDeadline);
 
     private DateTimeOffset? IdleDeadline => tls is not null && idleTimeout is { } timeout ? lastActivity + timeout : null;
 
@@ -123,8 +126,10 @@ public sealed partial class QuicServerConnection : IDisposable
     }
 
     /// <summary>
-    /// Acts on the timers that are due: past the idle timeout the connection is discarded
-    /// silently; past the handshake timeout it ends with <c>CONNECTION_CLOSE</c> <c>NO_ERROR</c>.
+    /// Acts on the timer that is due: past the idle timeout the connection is discarded
+    /// silently; past the handshake timeout it ends with <c>CONNECTION_CLOSE</c> <c>NO_ERROR</c>;
+    /// at the loss detection timer the packets the time threshold condemns are declared lost and
+    /// their frames sent again, or at the probe timeout a probe is sent (RFC 9002 section 6).
     /// </summary>
     /// <returns>The datagrams to send.</returns>
     public QuicConnectionOutput HandleTimeout()
@@ -135,13 +140,21 @@ public sealed partial class QuicServerConnection : IDisposable
             return QuicConnectionOutput.Empty;
         }
 
-        if (deadline == IdleDeadline)
+        if (IdleDeadline <= now)
         {
             Discard();
             return QuicConnectionOutput.Empty;
         }
 
-        CloseWithTransportError((ulong)QuicTransportErrorCode.NoError, 0);
+        if (handshakeDeadline <= now)
+        {
+            CloseWithTransportError((ulong)QuicTransportErrorCode.NoError, 0);
+        }
+        else
+        {
+            HandleLossDetectionTimeout();
+        }
+
         return new QuicConnectionOutput(Flush(), []);
     }
 

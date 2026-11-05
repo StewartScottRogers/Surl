@@ -144,7 +144,7 @@ public sealed partial class QuicServerConnection
         if (space == handshake && !addressValidated)
         {
             addressValidated = true;
-            initial.DiscardKeys();
+            DiscardSpace(initial);
         }
 
         var payload = result.Packet is QuicLongHeaderPacket longHeader ? longHeader.Payload : ((QuicShortHeaderPacket)result.Packet!).Payload;
@@ -204,7 +204,7 @@ public sealed partial class QuicServerConnection
         }
     }
 
-    private static void ReceiveAck(QuicPacketNumberSpace space, QuicAckFrame ack)
+    private void ReceiveAck(QuicPacketNumberSpace space, QuicAckFrame ack)
     {
         if (ack.LargestAcknowledged >= space.NextPacketNumber)
         {
@@ -215,6 +215,7 @@ public sealed partial class QuicServerConnection
         }
 
         space.LargestAcknowledged = Math.Max(space.LargestAcknowledged ?? 0, ack.LargestAcknowledged);
+        DetectLossOnAck(space, ack);
     }
 
     private void ReceiveCrypto(QuicPacketNumberSpace space, QuicCryptoFrame crypto)
@@ -235,7 +236,8 @@ public sealed partial class QuicServerConnection
         {
             IsHandshakeComplete = true;
             handshakeDeadline = null;
-            handshake.DiscardKeys();
+            DiscardSpace(handshake);
+            recovery.HandshakeConfirmed = true;
             application.FramesToSend.Add(new QuicHandshakeDoneFrame());
         }
     }
@@ -264,6 +266,7 @@ public sealed partial class QuicServerConnection
         PeerTransportParameters = parameters;
         streams = new QuicStreams(options, parameters);
         idleTimeout = EffectiveIdleTimeout(options.IdleTimeout, parameters.MaxIdleTimeout);
+        recovery.MaxAckDelay = TimeSpan.FromMilliseconds((long)(parameters.MaxAckDelay ?? (ulong)QuicLossDetection.DefaultMaxAckDelay.TotalMilliseconds));
     }
 
     private void RequireClientParameters(QuicTransportParameters parameters)

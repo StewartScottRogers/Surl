@@ -36,12 +36,18 @@ public sealed partial class QuicServerConnectionTests
         Assert.IsTrue(exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicAckFrame>().Any());
     }
 
+    /// <summary>
+    /// curl's ClientHello fills four datagrams, so the server's first flight meets the congestion
+    /// window (12000 bytes) before three times them (14400). The test client then acknowledges the
+    /// Initial packets with a PING but never a Handshake packet, so its address stays unvalidated,
+    /// and the server's probe timeouts carry the rest of a long flight as the limit lets them.
+    /// </summary>
     [TestMethod]
     public void ReceiveDatagram_BeforeAddressValidation_SendsNoMoreThanThreeTimesTheBytesReceived()
     {
         using var key = RSA.Create(2048);
         using var exchange = new UnitTestExchange(UnitTestCertificates.Options(key, copies: 24));
-        var datagramsBeforeTheFlightArrived = 0;
+        var rounds = 0;
 
         foreach (var datagram in exchange.Client.InitialDatagrams)
         {
@@ -51,14 +57,16 @@ public sealed partial class QuicServerConnectionTests
 
         while (exchange.Client.ClientFinished is null)
         {
-            exchange.Send(exchange.Client.SealInitial(exchange.Client.ServerConnectionId!, 1200, new QuicPingFrame()));
+            Assert.IsLessThan(100, rounds++, "The flight never arrived.");
+            exchange.Send(exchange.Client.SealInitial(exchange.Client.ServerConnectionId!, 1200, exchange.Client.AckFrame(QuicPacketType.Initial), new QuicPingFrame()));
             Assert.IsLessThanOrEqualTo(3 * exchange.BytesToServer, exchange.BytesFromServer);
-            datagramsBeforeTheFlightArrived++;
+            exchange.AdvanceToNextDeadline();
+            Assert.IsLessThanOrEqualTo(3 * exchange.BytesToServer, exchange.BytesFromServer);
         }
 
         exchange.SendFinished();
 
-        Assert.IsGreaterThan(1, datagramsBeforeTheFlightArrived);
+        Assert.IsGreaterThan(1, rounds);
         Assert.IsGreaterThan(18000, exchange.BytesFromServer);
         Assert.IsTrue(exchange.Server.IsHandshakeComplete);
     }
@@ -70,10 +78,16 @@ public sealed partial class QuicServerConnectionTests
         using var exchange = UnitTestExchange.Completed(key);
         var frames = Enumerable.Range(0, 40).Select(index => new QuicStreamFrame(3, (ulong)index * 1000, new byte[1000], false)).ToArray();
 
-        var output = exchange.Server.SendApplicationFrames(frames);
+        var datagrams = exchange.Server.SendApplicationFrames(frames).Datagrams.ToList();
+        exchange.Client.Receive(datagrams);
+        while (exchange.AcknowledgeOneRtt().Datagrams is { Count: > 0 } more)
+        {
+            datagrams.AddRange(more);
+        }
 
-        Assert.IsGreaterThan(3 * exchange.BytesToServer, exchange.BytesFromServer + output.Datagrams.Sum(datagram => datagram.Length));
-        Assert.IsTrue(output.Datagrams.All(datagram => datagram.Length <= QuicServerConnection.MaxDatagramSize));
+        Assert.IsGreaterThan(3 * exchange.BytesToServer, exchange.BytesFromServer + datagrams.Sum(datagram => datagram.Length));
+        Assert.IsTrue(datagrams.All(datagram => datagram.Length <= QuicServerConnection.MaxDatagramSize));
+        Assert.AreEqual((ulong)40000, exchange.Client.FramesReceived[QuicPacketType.OneRtt].OfType<QuicStreamFrame>().Max(frame => frame.Offset + (ulong)frame.Data.Length));
     }
 
     [TestMethod]
@@ -128,6 +142,7 @@ public sealed partial class QuicServerConnectionTests
     {
         using var key = RSA.Create(2048);
         using var exchange = UnitTestExchange.Completed(key);
+        exchange.AcknowledgeOneRtt();
         var deadline = exchange.Server.NextDeadline;
 
         exchange.Time.Advance(TimeSpan.FromSeconds(30) - TimeSpan.FromMilliseconds(1));
@@ -173,6 +188,7 @@ public sealed partial class QuicServerConnectionTests
 
         exchange.SendRecordedInitials();
         exchange.SendFinished();
+        exchange.AcknowledgeOneRtt();
 
         Assert.IsNull(exchange.Server.NextDeadline);
         Assert.IsEmpty(exchange.Server.HandleTimeout().Datagrams);
