@@ -43,3 +43,4 @@ A `Surl.Dtls` server session also completes a pre-shared-key handshake under `TL
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
