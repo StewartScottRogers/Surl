@@ -56,7 +56,7 @@ in-flight packet; ACK-only packets go regardless. Tests: `QuicRttEstimatorTests`
 `UnitTestLossyChannel`, every 20th datagram dropped each way). Surl.Quic: 379 tests, 100% line and
 branch coverage.
 
-Decisions (taken under Stewart's delegation; the ADR is BL-609, since BL-470 held
+Decisions (taken under Stewart's delegation; the ADR is BL-687, since BL-470 held
 `Documentation/Planning/Decisions` while this ran - rule 3):
 - Every packet sent is recorded, ACK-only ones too (Appendix A); losing an ACK-only packet sends
   nothing, and it is outside the congestion window and arms no PTO.

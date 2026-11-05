@@ -1,5 +1,5 @@
 ---
-id: BL-609
+id: BL-687
 title: Record how Surl.Quic detects loss and controls congestion in an ADR
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-609 — Record how Surl.Quic detects loss and controls congestion in an ADR
+# BL-687 — Record how Surl.Quic detects loss and controls congestion in an ADR
 
 ## Goal
 
