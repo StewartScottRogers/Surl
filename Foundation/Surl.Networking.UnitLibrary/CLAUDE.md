@@ -70,8 +70,24 @@ protocol server.
   UDP failure, or a taken UDP port with a fixed port, releases the TCP listener and is thrown as
   the `ListenerBindException` it was. The UDP listener's listen URL names the shared port as its
   port. Fast-tested over fake starts; `SharedPortListenerPairIntegrationTests` bind `127.0.0.1:0`.
+- Unix domain sockets (ADR-0094, decisions 3, 5 and 6; BL-547). `UnixSocketConnectionListener`
+  (public) - `StartAsync(ListenUrl, ServerTlsSettings?, CancellationToken)` listens on the
+  listen URL's `UnixSocket`: a socket file, or on Linux an abstract name. Refused before any
+  socket is made, by `UnixSocketBindRules` (fast-tested on every platform's arm): an abstract
+  name off Linux (`AbstractUnixSocketUnsupported`), a path or name past `sun_path` in UTF-8
+  bytes - 107 on Linux and Windows, 103 on macOS (`UnixSocketPathTooLong`), anything already at
+  the path, never deleted (`AddressInUse`), and a directory that is not there
+  (`AddressNotAvailable`). The file is made `0600` between bind and listen off Windows, and
+  deleted at stop only while its write time is still the one the bind gave it. The bind goes
+  through `UnixSocketFileEndPoint`, because `Socket.Dispose` deletes the file of a socket bound
+  to a `UnixDomainSocketEndPoint` whatever stands there by then. Each connection's local
+  endpoint is the listener's `UnixDomainSocketEndPoint`; a client that bound no name (curl) is
+  `UnnamedUnixSocketPeer.Instance`. No `NoDelay` (it does not exist on `AF_UNIX`). The members
+  touching the socket or file are excluded from coverage and exercised by
+  `UnixSocketConnectionListenerTests`, fast tests on a socket file under `Path.GetTempPath()`.
 - `SocketListenerFactory` (public) - implements `IListenerFactory` by delegating
-  to `TcpConnectionListener.StartAsync` and `UdpDatagramListener.StartAsync`; it is what the
+  to `TcpConnectionListener.StartAsync` (or `UnixSocketConnectionListener.StartAsync` when the
+  listen URL's `UnixSocket` is set) and `UdpDatagramListener.StartAsync`; it is what the
   composition root hands the serving engine. It holds only the optional `ServerTlsSettings`
   it passes to every connection listener. Both one-line members are excluded from coverage
   and exercised by `SocketListenerFactoryTests` (Integration).

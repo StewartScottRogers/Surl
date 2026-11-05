@@ -29,9 +29,15 @@ public sealed class SocketListenerFactory : IListenerFactory
     public SocketListenerFactory(ServerTlsSettings? tlsSettings) => this.tlsSettings = tlsSettings;
 
     /// <inheritdoc/>
-    [ExcludeFromCodeCoverage(Justification = "Delegates to TcpConnectionListener.StartAsync, which binds sockets; covered by the integration tests.")]
+    /// <remarks>
+    /// A listen URL with <see cref="ListenUrl.UnixSocket"/> set listens on that socket through
+    /// <see cref="UnixSocketConnectionListener"/> (ADR-0094, decision 6); any other on TCP.
+    /// </remarks>
+    [ExcludeFromCodeCoverage(Justification = "Delegates to the listeners' StartAsync, which bind sockets; covered by SocketListenerFactoryTests and UnixSocketConnectionListenerTests.")]
     public async ValueTask<IConnectionListener> StartConnectionListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
-        await TcpConnectionListener.StartAsync(listenUrl, tlsSettings, cancellationToken);
+        listenUrl.UnixSocket is null
+            ? await TcpConnectionListener.StartAsync(listenUrl, tlsSettings, cancellationToken)
+            : await UnixSocketConnectionListener.StartAsync(listenUrl, tlsSettings, cancellationToken);
 
     /// <inheritdoc/>
     [ExcludeFromCodeCoverage(Justification = "Delegates to UdpDatagramListener.StartAsync, which binds sockets; covered by the integration tests.")]
