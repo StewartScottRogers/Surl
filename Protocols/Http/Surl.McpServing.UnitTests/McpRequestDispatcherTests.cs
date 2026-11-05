@@ -15,25 +15,25 @@ public sealed class McpRequestDispatcherTests
     private static readonly McpServerInfo ExampleServer = new("ExampleServer", "Example Server Display Name", "1.0.0");
 
     [TestMethod]
-    public void Answer_LifecycleInitializeExample_AnswersThePagesShapeWithTheCallersServerInfoAndCapabilities()
+    public async Task AnswerAsync_LifecycleInitializeExample_AnswersThePagesShapeWithTheCallersServerInfoAndCapabilities()
     {
-        McpRequestDispatcher dispatcher = new(new McpSessionOptions(
-            ExampleServer, new McpServerCapabilities(Tools: true, Resources: true), "Optional instructions for the client"));
+        McpRequestDispatcher dispatcher = new(RegistryWithOneTool(), new McpSessionOptions(
+            ExampleServer, "Optional instructions for the client"));
 
-        string response = Answer(dispatcher, LifecycleInitializeRequest);
+        string response = await AnswerAsync(dispatcher, LifecycleInitializeRequest);
 
         Assert.AreEqual(
-            """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"resources":{"subscribe":false,"listChanged":false},"tools":{"listChanged":false}},"serverInfo":{"name":"ExampleServer","version":"1.0.0"},"instructions":"Optional instructions for the client"}}""",
+            """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":false}},"serverInfo":{"name":"ExampleServer","version":"1.0.0"},"instructions":"Optional instructions for the client"}}""",
             response);
         Assert.AreEqual("2024-11-05", dispatcher.NegotiatedProtocolVersion);
     }
 
     [TestMethod]
-    public void Answer_InitializeLatestWithNoCapabilitiesOrInstructions_WritesTheTitleAndEmptyCapabilities()
+    public async Task AnswerAsync_InitializeLatestWithNoCapabilitiesOrInstructions_WritesTheTitleAndEmptyCapabilities()
     {
-        McpRequestDispatcher dispatcher = new(new McpSessionOptions(ExampleServer, new McpServerCapabilities(false, false)));
+        McpRequestDispatcher dispatcher = new(new McpServerRegistry(), new McpSessionOptions(ExampleServer));
 
-        string response = Answer(dispatcher, InitializeLatest);
+        string response = await AnswerAsync(dispatcher, InitializeLatest);
 
         Assert.AreEqual(
             """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{},"serverInfo":{"name":"ExampleServer","title":"Example Server Display Name","version":"1.0.0"}}}""",
@@ -41,11 +41,11 @@ public sealed class McpRequestDispatcherTests
     }
 
     [TestMethod]
-    public void Answer_InitializeLatestWithoutATitle_WritesNoTitle()
+    public async Task AnswerAsync_InitializeLatestWithoutATitle_WritesNoTitle()
     {
-        McpRequestDispatcher dispatcher = new(new McpSessionOptions(new McpServerInfo("s", null, "2"), new McpServerCapabilities(true, false)));
+        McpRequestDispatcher dispatcher = new(RegistryWithOneTool(), new McpSessionOptions(new McpServerInfo("s", null, "2")));
 
-        string response = Answer(dispatcher, InitializeLatest);
+        string response = await AnswerAsync(dispatcher, InitializeLatest);
 
         Assert.AreEqual(
             """{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{"listChanged":false}},"serverInfo":{"name":"s","version":"2"}}}""",
@@ -53,11 +53,11 @@ public sealed class McpRequestDispatcherTests
     }
 
     [TestMethod]
-    public void Answer_InitializeWithAnUnsupportedProtocolVersion_AnswersTheLatestVersionNotAnError()
+    public async Task AnswerAsync_InitializeWithAnUnsupportedProtocolVersion_AnswersTheLatestVersionNotAnError()
     {
         McpRequestDispatcher dispatcher = NewDispatcher();
 
-        string response = Answer(dispatcher, """{"jsonrpc":"2.0","id":"a","method":"initialize","params":{"protocolVersion":"1999-01-01","capabilities":{}}}""");
+        string response = await AnswerAsync(dispatcher, """{"jsonrpc":"2.0","id":"a","method":"initialize","params":{"protocolVersion":"1999-01-01","capabilities":{}}}""");
 
         StringAssert.StartsWith(response, """{"jsonrpc":"2.0","id":"a","result":{"protocolVersion":"2025-06-18",""");
         Assert.AreEqual("2025-06-18", dispatcher.NegotiatedProtocolVersion);
@@ -70,48 +70,48 @@ public sealed class McpRequestDispatcherTests
     [DataRow("""{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":7,"capabilities":{}}}""", "protocolVersion")]
     [DataRow("""{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}""", "capabilities")]
     [DataRow("""{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":[]}}""", "capabilities")]
-    public void Answer_InitializeWithBadParams_AnswersInvalidParamsAndStaysUninitialized(string request, string what)
+    public async Task AnswerAsync_InitializeWithBadParams_AnswersInvalidParamsAndStaysUninitialized(string request, string what)
     {
         McpRequestDispatcher dispatcher = NewDispatcher();
 
-        string response = Answer(dispatcher, request);
+        string response = await AnswerAsync(dispatcher, request);
 
         Assert.AreEqual($$$"""{"jsonrpc":"2.0","id":2,"error":{"code":-32602,"message":"Invalid params: {{{what}}}"}}""", response);
         Assert.IsNull(dispatcher.NegotiatedProtocolVersion);
     }
 
     [TestMethod]
-    public void Answer_SecondInitialize_IsRefusedAsAlreadyInitialized()
+    public async Task AnswerAsync_SecondInitialize_IsRefusedAsAlreadyInitialized()
     {
         McpRequestDispatcher dispatcher = NewDispatcher();
-        Answer(dispatcher, InitializeLatest);
+        await AnswerAsync(dispatcher, InitializeLatest);
 
-        string response = Answer(dispatcher, """{"jsonrpc":"2.0","id":3,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}""");
+        string response = await AnswerAsync(dispatcher, """{"jsonrpc":"2.0","id":3,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}""");
 
         Assert.AreEqual("""{"jsonrpc":"2.0","id":3,"error":{"code":-32600,"message":"Invalid Request: the session is already initialized"}}""", response);
         Assert.AreEqual("2025-06-18", dispatcher.NegotiatedProtocolVersion);
     }
 
     [TestMethod]
-    public void Answer_RequestBeforeInitialize_IsRefusedAsNotInitialized()
+    public async Task AnswerAsync_RequestBeforeInitialize_IsRefusedAsNotInitialized()
     {
         McpRequestDispatcher dispatcher = NewDispatcher();
 
-        string response = Answer(dispatcher, """{"jsonrpc":"2.0","id":4,"method":"tools/list"}""");
+        string response = await AnswerAsync(dispatcher, """{"jsonrpc":"2.0","id":4,"method":"tools/list"}""");
 
         Assert.AreEqual("""{"jsonrpc":"2.0","id":4,"error":{"code":-32600,"message":"Invalid Request: the session is not initialized"}}""", response);
     }
 
     [TestMethod]
-    public void Answer_PingBeforeAndAfterInitialize_IsAnsweredWithAnEmptyObject()
+    public async Task AnswerAsync_PingBeforeAndAfterInitialize_IsAnsweredWithAnEmptyObject()
     {
         McpRequestDispatcher dispatcher = NewDispatcher();
         const string ping = """{"jsonrpc":"2.0","id":"123","method":"ping"}""";
         const string expected = """{"jsonrpc":"2.0","id":"123","result":{}}""";
 
-        Assert.AreEqual(expected, Answer(dispatcher, ping));
-        Answer(dispatcher, InitializeLatest);
-        Assert.AreEqual(expected, Answer(dispatcher, ping));
+        Assert.AreEqual(expected, await AnswerAsync(dispatcher, ping));
+        await AnswerAsync(dispatcher, InitializeLatest);
+        Assert.AreEqual(expected, await AnswerAsync(dispatcher, ping));
     }
 
     [TestMethod]
@@ -119,21 +119,21 @@ public sealed class McpRequestDispatcherTests
     [DataRow("""{"jsonrpc":"2.0","method":"notifications/unknown","params":{}}""")]
     [DataRow("""{"jsonrpc":"2.0","id":9,"result":{}}""")]
     [DataRow("""{"jsonrpc":"2.0","id":9,"error":{"code":-1,"message":"x"}}""")]
-    public void Answer_NotificationOrClientResponse_GetsNoResponse(string message)
+    public async Task AnswerAsync_NotificationOrClientResponse_GetsNoResponse(string message)
     {
         McpRequestDispatcher dispatcher = NewDispatcher();
 
-        Assert.IsNull(dispatcher.Answer(Encoding.UTF8.GetBytes(message)));
+        Assert.IsNull(await dispatcher.AnswerAsync(Encoding.UTF8.GetBytes(message), CancellationToken.None));
         Assert.IsNull(dispatcher.NegotiatedProtocolVersion);
     }
 
     [TestMethod]
-    public void Answer_RequestsAfterInitializeWithoutInitializedNotification_AreAccepted()
+    public async Task AnswerAsync_RequestsAfterInitializeWithoutInitializedNotification_AreAccepted()
     {
         McpRequestDispatcher dispatcher = NewDispatcher();
-        Answer(dispatcher, InitializeLatest);
+        await AnswerAsync(dispatcher, InitializeLatest);
 
-        string response = Answer(dispatcher, """{"jsonrpc":"2.0","id":5,"method":"no/such/method"}""");
+        string response = await AnswerAsync(dispatcher, """{"jsonrpc":"2.0","id":5,"method":"no/such/method"}""");
 
         Assert.AreEqual("""{"jsonrpc":"2.0","id":5,"error":{"code":-32601,"message":"Method not found"}}""", response);
     }
@@ -142,46 +142,46 @@ public sealed class McpRequestDispatcherTests
     [DataRow("{")]
     [DataRow("not json")]
     [DataRow("""{"jsonrpc":"2.0","id":1,"method":"ping",}""")]
-    public void Answer_MalformedJson_AnswersParseErrorWithANullId(string message)
+    public async Task AnswerAsync_MalformedJson_AnswersParseErrorWithANullId(string message)
     {
-        Assert.AreEqual("""{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}""", Answer(NewDispatcher(), message));
+        Assert.AreEqual("""{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}""", await AnswerAsync(NewDispatcher(), message));
     }
 
     [TestMethod]
-    public void Answer_RequestWithANullId_AnswersInvalidRequestWithANullId()
+    public async Task AnswerAsync_RequestWithANullId_AnswersInvalidRequestWithANullId()
     {
-        string response = Answer(NewDispatcher(), """{"jsonrpc":"2.0","id":null,"method":"ping"}""");
+        string response = await AnswerAsync(NewDispatcher(), """{"jsonrpc":"2.0","id":null,"method":"ping"}""");
 
         Assert.AreEqual("""{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request"}}""", response);
     }
 
     [TestMethod]
-    public void Answer_InvalidRequestWithAReadableId_EchoesTheId()
+    public async Task AnswerAsync_InvalidRequestWithAReadableId_EchoesTheId()
     {
-        string response = Answer(NewDispatcher(), """{"jsonrpc":"1.0","id":12345678901234567890123,"method":"ping"}""");
+        string response = await AnswerAsync(NewDispatcher(), """{"jsonrpc":"1.0","id":12345678901234567890123,"method":"ping"}""");
 
         Assert.AreEqual("""{"jsonrpc":"2.0","id":12345678901234567890123,"error":{"code":-32600,"message":"Invalid Request"}}""", response);
     }
 
     [TestMethod]
-    public void Answer_MessageOverTheLimit_IsRefusedAndTheSessionContinues()
+    public async Task AnswerAsync_MessageOverTheLimit_IsRefusedAndTheSessionContinues()
     {
-        McpRequestDispatcher dispatcher = new(new McpSessionOptions(ExampleServer, new McpServerCapabilities(false, false), maximumMessageBytes: 50));
+        McpRequestDispatcher dispatcher = new(new McpServerRegistry(), new McpSessionOptions(ExampleServer, maximumMessageBytes: 50));
         string longPing = """{"jsonrpc":"2.0","id":1,"method":"ping","params":{"padding":"xxxxxxxxxxxxxxxx"}}""";
 
-        string refused = Answer(dispatcher, longPing);
+        string refused = await AnswerAsync(dispatcher, longPing);
 
         Assert.AreEqual("""{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"Invalid Request: the message is longer than 50 bytes"}}""", refused);
-        Assert.AreEqual("""{"jsonrpc":"2.0","id":1,"result":{}}""", Answer(dispatcher, """{"jsonrpc":"2.0","id":1,"method":"ping"}"""));
+        Assert.AreEqual("""{"jsonrpc":"2.0","id":1,"result":{}}""", await AnswerAsync(dispatcher, """{"jsonrpc":"2.0","id":1,"method":"ping"}"""));
     }
 
     [TestMethod]
-    public void Answer_MessageExactlyAtTheLimit_IsAnswered()
+    public async Task AnswerAsync_MessageExactlyAtTheLimit_IsAnswered()
     {
         string ping = """{"jsonrpc":"2.0","id":1,"method":"ping"}""";
-        McpRequestDispatcher dispatcher = new(new McpSessionOptions(ExampleServer, new McpServerCapabilities(false, false), maximumMessageBytes: ping.Length));
+        McpRequestDispatcher dispatcher = new(new McpServerRegistry(), new McpSessionOptions(ExampleServer, maximumMessageBytes: ping.Length));
 
-        Assert.AreEqual("""{"jsonrpc":"2.0","id":1,"result":{}}""", Answer(dispatcher, ping));
+        Assert.AreEqual("""{"jsonrpc":"2.0","id":1,"result":{}}""", await AnswerAsync(dispatcher, ping));
     }
 
     [TestMethod]
@@ -193,25 +193,32 @@ public sealed class McpRequestDispatcherTests
     }
 
     [TestMethod]
-    public void Answer_ConcurrentInitializes_ExactlyOneSucceeds()
+    public async Task AnswerAsync_ConcurrentInitializes_ExactlyOneSucceeds()
     {
         McpRequestDispatcher dispatcher = NewDispatcher();
 
-        string[] responses = new string[16];
-        Parallel.For(0, responses.Length, i => responses[i] = Answer(dispatcher, InitializeLatest));
+        string[] responses = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => Task.Run(() => AnswerAsync(dispatcher, InitializeLatest))));
 
         Assert.AreEqual(1, responses.Count(response => response.Contains("\"result\"", StringComparison.Ordinal)));
     }
 
     [TestMethod]
-    public void Constructor_NullOptions_Throws()
+    public void Constructor_NullRegistryOrOptions_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new McpRequestDispatcher(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new McpRequestDispatcher(null!, new McpSessionOptions(ExampleServer)));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new McpRequestDispatcher(new McpServerRegistry(), null!));
     }
 
     private static McpRequestDispatcher NewDispatcher() =>
-        new(new McpSessionOptions(ExampleServer, new McpServerCapabilities(Tools: true, Resources: false)));
+        new(RegistryWithOneTool(), new McpSessionOptions(ExampleServer));
 
-    private static string Answer(McpRequestDispatcher dispatcher, string message) =>
-        Encoding.UTF8.GetString(dispatcher.Answer(Encoding.UTF8.GetBytes(message))!);
+    private static McpServerRegistry RegistryWithOneTool()
+    {
+        McpServerRegistry registry = new();
+        registry.AddTool(new McpTool("echo", null, "Echoes.", """{"type":"object"}""", (_, _) => Task.FromResult(McpToolResult.FromText("echo"))));
+        return registry;
+    }
+
+    private static async Task<string> AnswerAsync(McpRequestDispatcher dispatcher, string message) =>
+        Encoding.UTF8.GetString((await dispatcher.AnswerAsync(Encoding.UTF8.GetBytes(message), CancellationToken.None))!);
 }

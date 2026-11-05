@@ -7,7 +7,8 @@ namespace Surl.McpServing;
 /// Answers the messages of one MCP session, one message at a time and independently of any transport:
 /// the MCP lifecycle of ADR-0103 decision 1 - <c>initialize</c> with version negotiation, <c>ping</c>,
 /// <c>notifications/initialized</c>, refusal of requests before <c>initialize</c>, the message limit and
-/// the JSON-RPC 2.0 errors. Safe to call from several threads at once.
+/// the JSON-RPC 2.0 errors - and the registry's tools through <c>tools/list</c> and <c>tools/call</c>.
+/// Safe to call from several threads at once.
 /// </summary>
 public sealed class McpRequestDispatcher
 {
@@ -17,15 +18,20 @@ public sealed class McpRequestDispatcher
 
     private static readonly byte[] EmptyObject = "{}"u8.ToArray();
 
+    private readonly McpServerRegistry _registry;
+
     private readonly McpSessionOptions _options;
 
     private string? _negotiatedProtocolVersion;
 
     /// <summary>Initializes a new instance of the <see cref="McpRequestDispatcher" /> class.</summary>
-    /// <param name="options">Who the server is, what it serves, and the message limit.</param>
-    public McpRequestDispatcher(McpSessionOptions options)
+    /// <param name="registry">What the server serves; every tool is added before the first message is answered.</param>
+    /// <param name="options">Who the server is, the message limit and the list page size.</param>
+    public McpRequestDispatcher(McpServerRegistry registry, McpSessionOptions options)
     {
+        ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(options);
+        _registry = registry;
         _options = options;
     }
 
@@ -37,22 +43,23 @@ public sealed class McpRequestDispatcher
 
     /// <summary>Answers one message from the client.</summary>
     /// <param name="message">The message's UTF-8 bytes, without its line terminator.</param>
+    /// <param name="cancellationToken">The request's cancellation token, given to a tool's handler.</param>
     /// <returns>
     /// The response's UTF-8 JSON on one line with no terminator, or <see langword="null" /> when the message
-    /// gets no response: a notification, or a response the client sent.
+    /// gets no response: a notification, a response the client sent, or a tool call cancelled through its token.
     /// </returns>
-    public byte[]? Answer(ReadOnlyMemory<byte> message)
+    public Task<byte[]?> AnswerAsync(ReadOnlyMemory<byte> message, CancellationToken cancellationToken)
     {
         if (message.Length > _options.MaximumMessageBytes)
         {
-            return AnswerMessageTooLong();
+            return Task.FromResult<byte[]?>(AnswerMessageTooLong());
         }
 
         return JsonRpcMessageParser.Parse(message) switch
         {
-            JsonRpcRequest request => AnswerRequest(request),
-            JsonRpcInvalidMessage invalid => JsonRpcResponseWriter.WriteError(invalid.Id, invalid.Error),
-            _ => null,
+            JsonRpcRequest request => AnswerRequestAsync(request, cancellationToken),
+            JsonRpcInvalidMessage invalid => Task.FromResult<byte[]?>(JsonRpcResponseWriter.WriteError(invalid.Id, invalid.Error)),
+            _ => Task.FromResult<byte[]?>(null),
         };
     }
 
@@ -64,20 +71,29 @@ public sealed class McpRequestDispatcher
     public byte[] AnswerMessageTooLong() =>
         JsonRpcResponseWriter.WriteError(null, JsonRpcError.MessageTooLong(_options.MaximumMessageBytes));
 
-    private byte[] AnswerRequest(JsonRpcRequest request)
+    private Task<byte[]?> AnswerRequestAsync(JsonRpcRequest request, CancellationToken cancellationToken)
     {
         if (request.Method == InitializeMethod)
         {
-            return AnswerInitialize(request);
+            return Task.FromResult<byte[]?>(AnswerInitialize(request));
         }
 
         if (request.Method == PingMethod)
         {
-            return JsonRpcResponseWriter.WriteSuccess(request.Id, ParseResult(EmptyObject));
+            return Task.FromResult<byte[]?>(JsonRpcResponseWriter.WriteSuccess(request.Id, ParseResult(EmptyObject)));
         }
 
-        JsonRpcError error = NegotiatedProtocolVersion is null ? JsonRpcError.NotInitialized : JsonRpcError.MethodNotFound;
-        return JsonRpcResponseWriter.WriteError(request.Id, error);
+        if (NegotiatedProtocolVersion is not { } version)
+        {
+            return Task.FromResult<byte[]?>(JsonRpcResponseWriter.WriteError(request.Id, JsonRpcError.NotInitialized));
+        }
+
+        return request.Method switch
+        {
+            McpToolMethods.ListMethod => Task.FromResult<byte[]?>(McpToolMethods.AnswerList(request, _registry, _options.ListPageSize, version)),
+            McpToolMethods.CallMethod => McpToolMethods.AnswerCallAsync(request, _registry, version, cancellationToken),
+            _ => Task.FromResult<byte[]?>(JsonRpcResponseWriter.WriteError(request.Id, JsonRpcError.MethodNotFound)),
+        };
     }
 
     private byte[] AnswerInitialize(JsonRpcRequest request)
@@ -101,14 +117,13 @@ public sealed class McpRequestDispatcher
         requestedVersion = string.Empty;
         invalidParams = null;
         if (parameters is not { ValueKind: JsonValueKind.Object } value
-            || !value.TryGetProperty("protocolVersion", out JsonElement version)
-            || version.ValueKind != JsonValueKind.String)
+            || !HasMember(value, "protocolVersion", JsonValueKind.String, out JsonElement version))
         {
             invalidParams = JsonRpcError.InvalidParams("protocolVersion");
             return false;
         }
 
-        if (!value.TryGetProperty("capabilities", out JsonElement capabilities) || capabilities.ValueKind != JsonValueKind.Object)
+        if (!HasMember(value, "capabilities", JsonValueKind.Object, out _))
         {
             invalidParams = JsonRpcError.InvalidParams("capabilities");
             return false;
@@ -118,6 +133,9 @@ public sealed class McpRequestDispatcher
         return true;
     }
 
+    private static bool HasMember(JsonElement value, string name, JsonValueKind kind, out JsonElement member) =>
+        value.TryGetProperty(name, out member) && member.ValueKind == kind;
+
     private JsonElement WriteInitializeResult(string version)
     {
         ArrayBufferWriter<byte> buffer = new();
@@ -125,7 +143,7 @@ public sealed class McpRequestDispatcher
         {
             writer.WriteStartObject();
             writer.WriteString("protocolVersion", version);
-            WriteCapabilities(writer, _options.Capabilities);
+            WriteCapabilities(writer, _registry);
             WriteServerInfo(writer, _options.ServerInfo, version);
             if (_options.Instructions is { } instructions)
             {
@@ -138,18 +156,11 @@ public sealed class McpRequestDispatcher
         return ParseResult(buffer.WrittenMemory);
     }
 
-    private static void WriteCapabilities(Utf8JsonWriter writer, McpServerCapabilities capabilities)
+    // The registry earns each capability: tools only once a tool is added (ADR-0103 decision 1).
+    private static void WriteCapabilities(Utf8JsonWriter writer, McpServerRegistry registry)
     {
         writer.WriteStartObject("capabilities");
-        if (capabilities.Resources)
-        {
-            writer.WriteStartObject("resources");
-            writer.WriteBoolean("subscribe", false);
-            writer.WriteBoolean("listChanged", false);
-            writer.WriteEndObject();
-        }
-
-        if (capabilities.Tools)
+        if (registry.RegisteredTools.Count > 0)
         {
             writer.WriteStartObject("tools");
             writer.WriteBoolean("listChanged", false);

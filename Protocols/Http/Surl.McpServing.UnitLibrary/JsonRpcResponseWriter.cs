@@ -20,6 +20,17 @@ public static class JsonRpcResponseWriter
             result.WriteTo(writer);
         });
 
+    /// <summary>Writes a success response whose result the caller writes straight into the response.</summary>
+    /// <param name="id">The id of the request answered.</param>
+    /// <param name="writeResult">Writes the method's result as one JSON value.</param>
+    /// <returns>The response's UTF-8 JSON.</returns>
+    internal static byte[] WriteSuccess(JsonRpcRequestId id, Action<Utf8JsonWriter> writeResult) =>
+        Write(id, writer =>
+        {
+            writer.WritePropertyName("result");
+            writeResult(writer);
+        });
+
     /// <summary>Writes an error response.</summary>
     /// <param name="id">The id of the request answered, or <see langword="null" /> to write JSON null.</param>
     /// <param name="error">The error.</param>

@@ -20,6 +20,12 @@ public sealed record JsonRpcError(int Code, string Message)
     /// <summary>Gets the answer to a second <c>initialize</c>.</summary>
     public static JsonRpcError AlreadyInitialized { get; } = new(JsonRpcErrorCodes.InvalidRequest, "Invalid Request: the session is already initialized");
 
+    /// <summary>
+    /// Gets the answer to a tool handler that threw anything but <see cref="McpToolFailureException" /> or a
+    /// cancellation; it carries no exception text, so no path or secret leaks.
+    /// </summary>
+    public static JsonRpcError InternalError { get; } = new(JsonRpcErrorCodes.InternalError, "Internal error");
+
     /// <summary>Creates the answer to a message longer than the session's limit.</summary>
     /// <param name="maximumMessageBytes">The limit, in bytes.</param>
     /// <returns>An <see cref="JsonRpcErrorCodes.InvalidRequest" /> error naming the limit.</returns>
