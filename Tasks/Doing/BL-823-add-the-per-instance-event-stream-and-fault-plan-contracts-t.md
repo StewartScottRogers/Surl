@@ -59,3 +59,4 @@ plan whether to misbehave, through contracts in `Surl.Protocol.Abstractions` tha
 
 - 2026-11-05: Created.
 - 2026-11-05: Amended by ADR-0124 (BL-822): `IsPublishingBytes`, stream-stamped `Sequence`/`At`, `HookFailedEvent`, `FindAsync`.
+- 2026-11-05: Backlog -> Doing.
