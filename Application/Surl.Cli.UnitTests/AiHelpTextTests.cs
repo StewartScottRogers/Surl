@@ -465,7 +465,7 @@ public sealed partial class AiHelpTextTests
                 + "or the trace file is the --log-file file "
                 + "| Make the data directory writable by the user surl runs as, or give a log or trace file that can be opened "
                 + "and is not the --log-file file |",
-            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, the MQTT retained-message file or the mail store "
+            "| 37 | `CouldNotReadFile` | The data directory cannot be opened, or the --user-file, an --authorized-keys, --keytab, --hostkey or --hostcert file, a message bus file or the mail store "
                 + "cannot be read | Check the path exists and the user surl runs as can read it; surl creates none of them |",
             "| 45 | `BindFailed` | A listener cannot bind its address and port "
                 + "| Use another port, or port 0 and read the bound port from the Listening on line, and an address this machine has |",
