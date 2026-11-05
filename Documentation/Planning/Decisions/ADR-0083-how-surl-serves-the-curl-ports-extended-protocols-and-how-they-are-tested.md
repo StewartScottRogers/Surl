@@ -238,6 +238,8 @@ pieces it rides - gRPC on HTTP/2 (BL-365 to BL-371), WebTransport on HTTP/3 and 
 BL-385), `coaps` on the DTLS decision (BL-403). Phase 7 then measures the port's extended clients
 against these servers beside its original ones. The product overview's non-goal "Protocols upstream
 curl does not request" is narrowed to "except the extended servers of ADR-0083".
+[ADR-0089](ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md)
+decision 9 says how Phase 7 reads the sentence about the extended clients.
 
 ## Consequences
 

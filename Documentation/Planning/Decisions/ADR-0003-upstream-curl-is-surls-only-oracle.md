@@ -69,6 +69,8 @@ has.
    against Surl beside pinned upstream curl; wherever the two disagree, upstream is right,
    and the disagreement is filed as a defect on the port's own board. Surl never changes
    to make the port pass.
+   How Phase 7 runs, compares, judges and hands off is decided in
+   [ADR-0089](ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md).
 7. **Code may be copied from the port; verdicts may not.** Copying code (a cryptographic
    primitive with its test vectors, say) saves work and decides nothing. Every expected
    result still comes from upstream curl or a published specification.
