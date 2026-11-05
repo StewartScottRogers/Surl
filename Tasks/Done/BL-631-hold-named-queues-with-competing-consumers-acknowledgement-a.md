@@ -51,7 +51,7 @@ kept until acknowledged and redelivered when a consumer goes away or rejects it,
   All 295 tests in the project pass.
 - Coverage on 2026-11-05: `Measure-CodeQuality.ps1 -Library Surl.MessageBus.UnitLibrary` reports line 100%,
   branch 100%, worst CRAP 16. It also reports three complexity failures in BL-630's name-mapping code, not in
-  this task's code. BL-693 tracks them.
+  this task's code. BL-695 tracks them.
 - Decisions, made under Stewart's delegation. ADR-0100 decisions 3.3 and 3.6 did not settle these:
   - Reject without requeue drops the message. 3.3 names only requeue as putting it back, and the bus has no
     dead-letter queue (AMQP 0-9-1 lets a server discard).
@@ -72,8 +72,8 @@ kept until acknowledged and redelivered when a consumer goes away or rejects it,
     comparisons still hold.
 - These decisions should go into an ADR. `Documentation/Planning/Decisions` is in BL-612's `touches` (Doing), so
   this task stayed inside its own `touches`. The choices are written here and in the library's `CLAUDE.md`,
-  and BL-692 will amend ADR-0100 with them.
-- Filed: BL-692 (ADR-0100 amendment) and BL-693 (pre-existing complexity failures).
+  and BL-694 will amend ADR-0100 with them.
+- Filed: BL-694 (ADR-0100 amendment) and BL-695 (pre-existing complexity failures).
 
 ## Log
 

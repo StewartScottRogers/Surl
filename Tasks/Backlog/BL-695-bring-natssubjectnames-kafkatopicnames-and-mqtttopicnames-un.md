@@ -1,5 +1,5 @@
 ---
-id: BL-693
+id: BL-695
 title: Bring NatsSubjectNames, KafkaTopicNames and MqttTopicNames under cyclomatic complexity 10 as Measure-CodeQuality counts it
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-693 — Bring NatsSubjectNames, KafkaTopicNames and MqttTopicNames under cyclomatic complexity 10 as Measure-CodeQuality counts it
+# BL-695 — Bring NatsSubjectNames, KafkaTopicNames and MqttTopicNames under cyclomatic complexity 10 as Measure-CodeQuality counts it
 
 ## Goal
 

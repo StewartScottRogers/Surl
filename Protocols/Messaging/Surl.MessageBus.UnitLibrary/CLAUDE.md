@@ -53,7 +53,7 @@ What it holds now (BL-629):
   refuses only its own copy of a topic publish. The publish still succeeds, and
   `BusPublishResult.FullQueueCount` counts the refusals. The queue outcomes that ADR-0100
   does not name yet (`InvalidQueueName`, `UnknownQueue`, `QueueLocked`, `QueueFlagsDiffer`,
-  `UnknownDeliveryTag`) follow AMQP 0-9-1's 404, 405 and 406. BL-692 adds them to the ADR.
+  `UnknownDeliveryTag`) follow AMQP 0-9-1's 404, 405 and 406. BL-694 adds them to the ADR.
 
 Not here yet, each its own task: per-topic logs (BL-633), persistence under `<path>/.surl/bus` (BL-634), the MQTT 3.1.1
 server's move onto the bus (BL-635), and access checks (BL-664).

@@ -1,5 +1,5 @@
 ---
-id: BL-692
+id: BL-694
 title: Amend ADR-0100 decision 3.3 and 3.6 with the named-queue outcomes and rules BL-631 chose
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-692 — Amend ADR-0100 decision 3.3 and 3.6 with the named-queue outcomes and rules BL-631 chose
+# BL-694 — Amend ADR-0100 decision 3.3 and 3.6 with the named-queue outcomes and rules BL-631 chose
 
 ## Goal
 
