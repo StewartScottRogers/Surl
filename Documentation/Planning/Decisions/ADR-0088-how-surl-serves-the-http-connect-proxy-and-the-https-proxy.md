@@ -1,7 +1,7 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
@@ -278,3 +278,40 @@ TLS front in front of it. Surl plays the same roles:
   origin rule bounds abuse already.
 - **Sharing `-u`, `--user-file` and `--auth` with the HTTP server.** Rejected: one surl serving both
   an origin and a proxy (as curl tests with `-u` and `-U` together) needs two sets of accounts.
+
+## Amendment 1 - what BL-552 settled inside decisions 3 and 4 (2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-552, which
+built decisions 1, 3 and 4. Each refines a decision without changing what curl sees; BL-552
+re-measured rows 1 and 2 and the `403` and `502` answers with `Record-CurlExchange.ps1` against the
+Windows reference build (`Surl.Protocol.HttpProxy.UnitTests/Fixtures`).
+
+- **`Host` is generated from the target's authority**, replacing the received one in place (or
+  leading the fields when there was none), instead of being sent "as the request carried it":
+  RFC 9112 section 3.2.2 says a proxy MUST. curl always sends the authority as `Host` (rows 1 and
+  12), so the bytes the origin receives from curl are unchanged. A request with more than one
+  `Host` is `400` (RFC 9112 section 3.2).
+- **`Proxy-Authorization` is always removed**, consumed or not: credentials for the proxy are never
+  the origin's. **Trailer fields** of a chunked body are read and dropped in both directions, as
+  `Trailer` is removed. **`Max-Forwards`** is decremented only on `OPTIONS` and `TRACE`, the methods
+  RFC 9110 section 7.6.2 defines it for; on others it passes unchanged. The local `OPTIONS` answer's
+  `Allow` is `CONNECT, DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT, TRACE`; the local `TRACE`
+  answer echoes the request head as `message/http`.
+- **Answers the proxy makes itself** carry `Date`, `Server: surl`,
+  `Content-Type: text/plain; charset=us-ascii` and the body `<code> <reason>` and a line feed.
+  curl's connection stays open after an unreachable-origin answer, a `501` for another scheme and a
+  local `OPTIONS` or `TRACE` answer, unless the request was HTTP/1.0, said `close` in `Connection`
+  or `Proxy-Connection`, or carried a body; a malformed head, target or body framing (`400`, `431`,
+  `408`, `505`, `501` for a `Transfer-Encoding` other than `chunked` alone, `413`) closes it.
+- **The origin's response** is relayed as `HTTP/1.1` with the origin's status and reason. A body
+  with disagreeing or malformed `Content-Length` fields is `502`. A `Transfer-Encoding` whose last
+  coding is not `chunked` is relayed close-delimited. A response body that ends early or is
+  malformed aborts curl's connection, since its head has already gone. An origin response with
+  `Connection: close`, or from HTTP/1.0, drops the origin connection after it.
+- **The reconnect** happens when a kept origin connection fails on the write or closes before a byte
+  of its response, for `GET`, `HEAD`, `OPTIONS`, `TRACE`, `PUT` and `DELETE` without a body.
+- **`Expect: 100-continue`**: the proxy waits for the origin's first response head before sending
+  the body; a `100` is relayed and the body follows, a final answer is relayed and curl's
+  connection closes after it, its body unsent.
+- **`Schemes`** is `http` and `https`: the proxy is chosen by `--proxy`, not by scheme (decision 7),
+  so BL-555 composes it beside the HTTP server rather than through the scheme table.
