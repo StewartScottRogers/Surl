@@ -14,6 +14,9 @@ internal sealed class BoundedDecompressionOutput(int limit, DecompressionOutcome
     /// <summary>How many bytes have been written.</summary>
     public int Count { get; private set; }
 
+    /// <summary>How many more bytes may be written before the limit.</summary>
+    public int Remaining => limit - Count;
+
     /// <summary>The bytes written so far.</summary>
     public ReadOnlySpan<byte> Written => buffer.AsSpan(0, Count);
 
