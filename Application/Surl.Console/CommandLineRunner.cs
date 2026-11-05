@@ -76,6 +76,16 @@ namespace Surl.Console;
 /// <see cref="SocketDataConnectionOpener"/> on the one clock when <see langword="null"/>, which
 /// is what <c>surl</c> passes.
 /// </param>
+/// <param name="environmentVariables">
+/// Reads the <c>SURL_EXTENSIONS</c> switch, once, at construction (ADR-0083, decision 6); a
+/// <see cref="ProcessEnvironmentVariableReader"/> when <see langword="null"/>, which is what
+/// <c>surl</c> passes.
+/// </param>
+/// <param name="composeExtendedProtocolServers">
+/// Builds the extended protocol servers while the switch leaves them on, and is never called
+/// while <c>SURL_EXTENSIONS=0</c>; <see cref="ExtendedProtocolServers.Compose"/> when
+/// <see langword="null"/>, which is what <c>surl</c> passes.
+/// </param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
     Func<string, bool> canOpenDataDirectory,
@@ -84,9 +94,17 @@ internal sealed class CommandLineRunner(
     IContentFileSystem? dataDirectoryFileSystem = null,
     Func<string, FileMode, TextWriter>? openLogFile = null,
     Func<string, byte[]>? readStartFile = null,
-    Func<ServerTlsSettings?, IDataConnectionOpener>? createDataConnectionOpener = null)
+    Func<ServerTlsSettings?, IDataConnectionOpener>? createDataConnectionOpener = null,
+    IEnvironmentVariableReader? environmentVariables = null,
+    Func<ExtendedProtocolServerServices, IReadOnlyList<IProtocolServer>>? composeExtendedProtocolServers = null)
 {
     private const string MessagePrefix = "surl: ";
+
+    // SURL_EXTENSIONS is read once, here, at composition (ADR-0083, decision 6).
+    private readonly bool areExtensionsTurnedOn = AreExtensionsTurnedOn(environmentVariables);
+
+    private static bool AreExtensionsTurnedOn(IEnvironmentVariableReader? environmentVariables) =>
+        ExtendedProtocolServers.AreTurnedOn(environmentVariables ?? new ProcessEnvironmentVariableReader());
 
     private readonly IContentFileSystem dataDirectoryFileSystem = dataDirectoryFileSystem ?? new DiskContentFileSystem();
 
@@ -118,7 +136,7 @@ internal sealed class CommandLineRunner(
     public async Task<SurlExitCode> RunAsync(
         IReadOnlyList<string> args, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
-        var parsed = CommandLineParser.Parse(args);
+        var parsed = CommandLineParser.Parse(args, ComposeExtendedSchemes());
 
         return parsed.Outcome switch
         {
@@ -212,18 +230,39 @@ internal sealed class CommandLineRunner(
             .Select(attribute => attribute.InformationalVersion)
             .FirstOrDefault();
 
-        return VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ComposeRegisteredSchemes());
+        return VersionText.Compose(
+            informationalVersion, RuntimeInformation.RuntimeIdentifier, ComposeRegisteredSchemes(), ComposeExtendedSchemes());
     }
 
     /// <summary>
-    /// Lists the scheme of every protocol server surl registers, in registration order: what
-    /// <c>--version</c>'s <c>Protocols:</c> line lists, and what every <c>--aihelp</c> protocol
-    /// topic's schemes must match (ADR-0046 decision 9).
+    /// Lists the scheme of every original protocol server surl registers, in registration order:
+    /// what <c>--version</c>'s <c>Protocols:</c> line lists, and, with
+    /// <see cref="ComposeExtendedSchemes"/>, what every <c>--aihelp</c> protocol topic's schemes
+    /// must match (ADR-0046 decision 9).
     /// </summary>
     /// <returns>The schemes.</returns>
     internal IReadOnlyList<string> ComposeRegisteredSchemes() =>
         [.. ComposeUnservedProtocolServers(ComposeContentStore(new SurlCommandLine(), timeProvider))
             .SelectMany(server => server.Schemes)];
+
+    /// <summary>
+    /// Lists the scheme of every extended protocol server surl registers, in registration order;
+    /// none while <c>SURL_EXTENSIONS=0</c>: what <c>--version</c>'s <c>Extended:</c> line lists
+    /// and the listen-URL parser accepts besides upstream curl's schemes (ADR-0083, decisions 6
+    /// and 8).
+    /// </summary>
+    /// <returns>The schemes.</returns>
+    internal IReadOnlyList<string> ComposeExtendedSchemes() =>
+        [.. ComposeExtendedProtocolServers(new ExtendedProtocolServerServices(
+                ComposeContentStore(new SurlCommandLine(), timeProvider),
+                AuthenticationComposition.ComposeWithoutAccounts(timeProvider),
+                IsTlsUpgradeAvailable: false))
+            .SelectMany(server => server.Schemes)];
+
+    // The extended servers while the switch leaves them on, and none, never composed, while
+    // SURL_EXTENSIONS=0 (ADR-0083, decision 6).
+    private IReadOnlyList<IProtocolServer> ComposeExtendedProtocolServers(ExtendedProtocolServerServices services) =>
+        areExtensionsTurnedOn ? (composeExtendedProtocolServers ?? ExtendedProtocolServers.Compose)(services) : [];
 
     /// <summary>
     /// Builds the one content store every protocol server reads, exposing what the command
@@ -667,14 +706,18 @@ internal sealed class CommandLineRunner(
             ? WriteFailure(error, SurlExitCode.CouldNotReadFile, loaded.FailureMessage!)
             : await ServeUnderTheLockAsync(
                 commandLine,
-                ComposeProtocolServers(
-                    contentStore,
-                    loaded.State,
-                    authentication.Policy,
-                    authentication.SshHostKeys.HostKeys,
-                    SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
-                    ServerTlsComposition.IsCertificateConfigured(commandLine),
-                    commandLine.WsEcho),
+                [
+                    .. ComposeProtocolServers(
+                        contentStore,
+                        loaded.State,
+                        authentication.Policy,
+                        authentication.SshHostKeys.HostKeys,
+                        SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
+                        ServerTlsComposition.IsCertificateConfigured(commandLine),
+                        commandLine.WsEcho),
+                    .. ComposeExtendedProtocolServers(new ExtendedProtocolServerServices(
+                        contentStore, authentication.Policy, ServerTlsComposition.IsCertificateConfigured(commandLine))),
+                ],
                 authentication,
                 output,
                 error,

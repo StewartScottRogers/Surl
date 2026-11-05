@@ -74,13 +74,18 @@ public sealed class CommandLineRunnerAiHelpTests
         }
     }
 
-    private static IReadOnlyList<string> ComposeRegisteredSchemes() =>
-        new CommandLineRunner(
-                _ => new FakeListenerFactory(),
-                _ => true,
-                _ => DataDirectoryLockOutcome.NoLock,
-                TimeProvider.System)
-            .ComposeRegisteredSchemes();
+    // The original servers' schemes and the extended ones', each claimed by a protocol topic
+    // (ADR-0046 decision 9, ADR-0083 decision 8).
+    private static IReadOnlyList<string> ComposeRegisteredSchemes()
+    {
+        var runner = new CommandLineRunner(
+            _ => new FakeListenerFactory(),
+            _ => true,
+            _ => DataDirectoryLockOutcome.NoLock,
+            TimeProvider.System,
+            environmentVariables: FakeEnvironmentVariableReader.Empty);
+        return [.. runner.ComposeRegisteredSchemes(), .. runner.ComposeExtendedSchemes()];
+    }
 
     private static string[] Substitute(IEnumerable<string> lines, string dataDirectory) =>
         [.. lines.Select(line => line

@@ -145,7 +145,18 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (ADR-0051 decisions 8 and 11).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
-- `CommandLineRunner.ComposeRegisteredSchemes` lists every registered server's schemes, the
+- Extended protocol servers (ADR-0083 decisions 6 to 8): `ExtendedProtocolServers.Compose` is
+  the one place they are built (none yet; each `Surl.Extended.Protocol.*` server joins with one
+  line), from an `ExtendedProtocolServerServices` (content store, policy, TLS upgrade). The
+  switch `SURL_EXTENSIONS` is read once, when `CommandLineRunner` is constructed, through its
+  `IEnvironmentVariableReader` seam (`ProcessEnvironmentVariableReader` in `surl`,
+  `FakeEnvironmentVariableReader` in tests); `0` turns them off, anything else leaves them on.
+  While on, `ComposeExtendedSchemes` lists their schemes, which `CommandLineParser.Parse` accepts
+  at `Surl.Cli`'s `ExtendedSchemeDefaultPorts` and which `--version` lists on an `Extended:` line
+  after `Protocols:`; the servers are served after the original ones. While off, the runner's
+  `composeExtendedProtocolServers` seam is never called, so their schemes get the unknown-scheme
+  `(1)` refusal.
+- `CommandLineRunner.ComposeRegisteredSchemes` lists every registered original server's schemes, the
   `--version` `Protocols:` line's source. `CommandLineRunnerAiHelpTests`
   (`Application/Surl.Console.UnitTests/CommandLineRunnerAiHelpTests.cs`, ADR-0046 decision 9) is the
   `--aihelp` check only this project can make, because only it knows what is registered:
