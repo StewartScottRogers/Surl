@@ -38,11 +38,11 @@ public sealed class AzureStorageProtocolServerTests
     }
 
     [TestMethod]
-    public void Schemes_AreAzOnly()
+    public void Schemes_AreTheBlobAndDataLakeSchemes()
     {
         var server = new AzureServerHarness().Server;
 
-        CollectionAssert.AreEqual(new[] { "az" }, server.Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "az", "abfs", "abfss" }, server.Schemes.ToArray());
     }
 
     [TestMethod]

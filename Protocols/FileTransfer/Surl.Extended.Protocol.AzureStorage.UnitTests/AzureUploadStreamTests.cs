@@ -13,7 +13,7 @@ public sealed class AzureUploadStreamTests
     public void Members_EverythingButAnAsynchronousWrite_IsNotSupported()
     {
         using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
-        using var stream = new AzureUploadStream(null!, md5);
+        using var stream = new AzureUploadStream(null!, md5, 0);
 
         Assert.IsFalse(stream.CanRead);
         Assert.IsFalse(stream.CanSeek);

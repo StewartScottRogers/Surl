@@ -24,6 +24,7 @@ internal sealed class AzureReply
 
     private readonly HttpRequest request;
     private readonly DateTimeOffset now;
+    private readonly bool writesJsonErrors;
 
     /// <summary>
     /// Starts the answers to <paramref name="request"/>.
@@ -31,10 +32,13 @@ internal sealed class AzureReply
     /// <param name="request">The request answered.</param>
     /// <param name="requestId">The request's ID, sent as <c>x-ms-request-id</c> and on an error's <c>RequestId:</c> line.</param>
     /// <param name="now">When the answer is made.</param>
-    public AzureReply(HttpRequest request, string requestId, DateTimeOffset now)
+    /// <param name="writesJsonErrors">Whether an error carries the Data Lake endpoint's JSON body
+    /// (decision 5.2) rather than the Blob endpoint's XML <c>Error</c>.</param>
+    public AzureReply(HttpRequest request, string requestId, DateTimeOffset now, bool writesJsonErrors = false)
     {
         this.request = request;
         this.now = now;
+        this.writesJsonErrors = writesJsonErrors;
         RequestId = requestId;
     }
 
@@ -100,7 +104,8 @@ internal sealed class AzureReply
 
     /// <summary>
     /// An error answer: its status, <c>x-ms-error-code</c>, <paramref name="extraFields"/>, and,
-    /// unless the request is a <c>HEAD</c>, <c>Content-Type: application/xml</c> and the body.
+    /// unless the request is a <c>HEAD</c>, <c>Content-Type</c> and the body - the XML <c>Error</c>,
+    /// or on the Data Lake endpoint the JSON error.
     /// </summary>
     /// <param name="refusal">The error and its extra elements.</param>
     /// <param name="extraFields">Fields after <c>x-ms-error-code</c>, such as <c>WWW-Authenticate</c>.</param>
@@ -113,8 +118,8 @@ internal sealed class AzureReply
             return Answer(refusal.Error.Status, fields, HttpAnswerBody.None);
         }
 
-        var body = AzureErrorBody.Render(refusal, RequestId, now);
-        fields.Add(new("Content-Type", "application/xml"));
+        var body = writesJsonErrors ? AzureDataLakeErrorBody.Render(refusal.Error, RequestId, now) : AzureErrorBody.Render(refusal, RequestId, now);
+        fields.Add(new("Content-Type", writesJsonErrors ? AzureDataLakeErrorBody.ContentType : "application/xml"));
         fields.Add(new("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture)));
 
         return Answer(refusal.Error.Status, fields, new HttpAnswerBody.Bytes(body));

@@ -50,6 +50,20 @@ internal sealed partial class AzureServerHarness
 
     public RecordingExchangeLog Log { get; } = new();
 
+    /// <summary>
+    /// The listen scheme each request is served on, which decides the endpoint: <c>az</c> unless a test sets it.
+    /// </summary>
+    public string Scheme { get; set; } = AzureStorageProtocolServer.BlobScheme;
+
+    /// <summary>
+    /// Serves every later request on <c>abfs</c>, the Data Lake endpoint.
+    /// </summary>
+    public AzureServerHarness ServingDataLake()
+    {
+        Scheme = AzureStorageProtocolServer.DataLakeScheme;
+        return this;
+    }
+
     public static string Root => InMemoryContentFileSystem.RootPath;
 
     public void CreateFolder(string relativePath) => FileSystem.CreateDirectory(Path.Join(Root, relativePath));
@@ -64,7 +78,7 @@ internal sealed partial class AzureServerHarness
 
     public ExchangeContext Context() => new(
         1,
-        new ListenUrl(AzureStorageProtocolServer.BlobScheme, "127.0.0.1", 10000).WithBoundPort(10000),
+        new ListenUrl(Scheme, "127.0.0.1", 10000).WithBoundPort(10000),
         new IPEndPoint(IPAddress.Loopback, 10000),
         new IPEndPoint(IPAddress.Loopback, 50000),
         Log,
@@ -143,6 +157,20 @@ internal sealed partial class AzureServerHarness
 
         return $"HTTP/1.1 {status}\r\n{CommonFields(response)}x-ms-error-code: {code}\r\n{extraFields}"
             + $"Content-Type: application/xml\r\nContent-Length: {Encoding.UTF8.GetByteCount(body)}\r\nConnection: close\r\n\r\n{body}";
+    }
+
+    /// <summary>
+    /// The answer a Data Lake error is expected to be: the status, the common fields,
+    /// <c>x-ms-error-code</c>, <paramref name="extraFields"/>, and the JSON error body with the code and
+    /// the message and its <c>RequestId:</c> and <c>Time:</c> lines ("Path - Create", <c>DataLakeStorageError</c>).
+    /// </summary>
+    public static string ExpectedJsonError(string response, string status, string code, string message, string extraFields = "")
+    {
+        var requestId = RequestIdOf(response);
+        var body = $"{{\"error\":{{\"code\":\"{code}\",\"message\":\"{message}\\nRequestId:{requestId}\\nTime:{NowErrorTime}\"}}}}";
+
+        return $"HTTP/1.1 {status}\r\n{CommonFields(response)}x-ms-error-code: {code}\r\n{extraFields}"
+            + $"Content-Type: application/json;charset=utf-8\r\nContent-Length: {Encoding.UTF8.GetByteCount(body)}\r\nConnection: close\r\n\r\n{body}";
     }
 
     [GeneratedRegex("\r\nx-ms-request-id: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\r\n")]

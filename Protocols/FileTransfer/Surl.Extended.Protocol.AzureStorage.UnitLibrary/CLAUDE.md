@@ -1,12 +1,16 @@
 # Surl.Extended.Protocol.AzureStorage.UnitLibrary
 
-The Azure Storage server (ADR-0109): answers the Azure Blob service REST API over HTTP/1.1 on the
-shared `ContentStore`, whose top-level folders are the containers (ADR-0100 decision 2). An
-extended server (ADR-0083): judged by the Azure Storage REST API reference at
-`x-ms-version: 2025-01-05`, never by upstream curl (which has no `az`) and never by the Curl port.
-Namespace `Surl.Extended.Protocol.AzureStorage`.
+The Azure Storage server (ADR-0109): answers the Azure Blob service REST API on `az` and the Data
+Lake Storage Gen2 endpoint on `abfs` and `abfss`, over HTTP/1.1 on the shared `ContentStore`, whose
+top-level folders are the containers and filesystems (ADR-0100 decision 2). An extended server
+(ADR-0083): judged by the Azure Storage REST API reference at `x-ms-version: 2025-01-05`, never by
+upstream curl (which has none of these schemes) and never by the Curl port. Namespace
+`Surl.Extended.Protocol.AzureStorage`.
 
-What it serves now (BL-424, BL-425), on the `az` scheme only:
+The listen scheme (`ExchangeContext.Scheme`) decides the endpoint: `AzureBlobRequestAnswerer` on
+`az`, `AzureDataLakeRequestAnswerer` on `abfs` and `abfss`. Both log in through `AzureLoginJudge`.
+
+What the Blob endpoint serves now (BL-424, BL-425), on `az`:
 
 - Get Blob and Get Blob Properties on `/<container>/<blob>` (account-host form): one `Range` or
   `x-ms-range` (`x-ms-range` wins; `206`, `416 InvalidRange`, several ranges ignored),
@@ -59,8 +63,44 @@ What it serves now (BL-424, BL-425), on the `az` scheme only:
   one-line XML `Error` body, whose `Message` ends with `RequestId:` and `Time:` lines. A `HEAD`
   error has no body. A connection past a limit is `503 ServerBusy`, then closed.
 
+What the Data Lake endpoint serves now (BL-426), on `abfs` and `abfss`, in the same order of checks
+(required headers, login, operation, `404 FilesystemNotFound`, `400 InvalidResourceName` past 1024
+characters):
+
+- Path - Read (`GET`, and its head with `HEAD`) on `/<filesystem>/<path>`: Get Blob's answer with
+  `x-ms-resource-type: file` in place of the blob, lease and encryption fields; a directory `409
+  ResourceTypeMismatch`; no file `404 PathNotFound`.
+- Path - Create (`AzurePathCreate`), `PUT …?resource=file|directory`, under `--allow-uploads`:
+  creates every missing parent; `file` writes the file empty (emptying one there), discards its
+  staged appends and keeps `x-ms-content-type`, `-encoding`, `-language`, `-disposition` and
+  `x-ms-cache-control` in `ObjectMetadataIndex`. `201` with `ETag` and `Last-Modified`; a directory's
+  ETag is `"0x<last-write ticks in hexadecimal>"`. A file in the way, a file over a directory or a
+  directory over a file is `409 PathConflict`.
+- Path - Update (`AzurePathUpdate`), `PATCH …?action=append|flush&position=<n>`, under
+  `--allow-uploads`: an append writes its body at `n` into the file's `AzureStagedPath` - a
+  `ContentUploadSession` started from the committed bytes, so nothing is visible until the flush -
+  and answers `202`; `flush=true` on an append also flushes. A flush commits the staged bytes up to
+  `n` when the staged ranges reach it from the committed length without a gap or an overlap (else
+  `400 InvalidFlushPosition`), keeps the stored header fields, and answers `200` with the new
+  `ETag`. A flush with a body is `400 ContentLengthMustBeZero`; an append before the committed end
+  or `retainUncommittedData=true` is `400 InvalidQueryParameterValue`. `AzurePathStagingArea` holds
+  at most 1000 staged files (the next `503 ServerBusy`), drops one untouched for 7 days when the next
+  staging begins, and serves appends and flushes one at a time across the server, because an upload
+  session is not safe for concurrent use.
+- Path - Delete, `DELETE /<filesystem>/<path>`, under `--allow-uploads`: a file, an empty directory,
+  or with `recursive=true` a directory and all it holds; `200`. A non-empty directory without it is
+  `409 DirectoryNotEmpty`; a missing path `404 PathNotFound`.
+- Path - List (`AzurePathList`, `AzureFilesystemWalk`), `GET /<filesystem>?resource=filesystem`,
+  under `--list-directories`: `recursive` required, `directory`, `maxResults` (1 to 5000) and
+  `continuation` (base64url of the last sort key, a directory's being its path and `/`); `{"paths":[…]}`
+  in decision 5.4's member order, `x-ms-continuation` while more remain.
+- Errors are the JSON `{"error":{"code":…,"message":…}}` (`AzureDataLakeErrorBody`) with
+  `Content-Type: application/json;charset=utf-8`; `code` and `message` only.
+
 Not yet: the conditional fields on Put Blob and Delete Blob and `x-ms-blob-content-md5` (filed
-from BL-425), the Data Lake schemes (BL-426), Shared Key and
+from BL-425); `retainUncommittedData=true`, `beginFrom`, `x-ms-properties`, the conditional fields on
+the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-754); Shared
+Key and
 SAS (BL-717), blocks (BL-715), List Containers and properties (BL-716), credentials checked under
 `--allow-anonymous` and the path-style account segment (BL-725), and `400 InvalidInput` for a head
 past `--max-request-head`, which `Surl.HttpServing` still answers `431` (BL-726).

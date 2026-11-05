@@ -21,6 +21,15 @@ internal static class AzureBlobAnswer
     private static readonly HttpStatus PartialContent = new(206, "Partial Content");
     private static readonly HttpStatus NotModified = new(304, "Not Modified");
 
+    // Get Blob's fields naming a block blob with no lease and no server encryption.
+    private static readonly KeyValuePair<string, string>[] BlobResourceFields =
+    [
+        new("x-ms-blob-type", "BlockBlob"),
+        new("x-ms-lease-status", "unlocked"),
+        new("x-ms-lease-state", "available"),
+        new("x-ms-server-encrypted", "false"),
+    ];
+
     /// <summary>
     /// Answers a read of a blob.
     /// </summary>
@@ -30,7 +39,22 @@ internal static class AzureBlobAnswer
     /// <param name="wholeBlob">The blob's bytes, as the whole file.</param>
     /// <param name="cancellationToken">Cancels the range's hashing.</param>
     /// <returns>The answer.</returns>
-    public static async Task<HttpAnswer> AnswerAsync(AzureReply reply, IReadOnlyList<KeyValuePair<string, string>> requestFields, ObjectProperties properties, HttpAnswerBody.ContentFile wholeBlob, CancellationToken cancellationToken)
+    public static Task<HttpAnswer> AnswerAsync(AzureReply reply, IReadOnlyList<KeyValuePair<string, string>> requestFields, ObjectProperties properties, HttpAnswerBody.ContentFile wholeBlob, CancellationToken cancellationToken) =>
+        AnswerAsync(reply, requestFields, properties, wholeBlob, BlobResourceFields, cancellationToken);
+
+    /// <summary>
+    /// Answers a read of a blob or a Data Lake file, whose head carries <paramref name="resourceFields"/>
+    /// after <c>Accept-Ranges</c>: the blob, lease and encryption fields, or Path - Read's
+    /// <c>x-ms-resource-type: file</c> (ADR-0109, decision 1).
+    /// </summary>
+    /// <param name="reply">The request's answers.</param>
+    /// <param name="requestFields">The request's fields, read for the conditions and the range.</param>
+    /// <param name="properties">The file's properties.</param>
+    /// <param name="wholeBlob">The file's bytes, as the whole file.</param>
+    /// <param name="resourceFields">The fields naming what kind of resource the file is.</param>
+    /// <param name="cancellationToken">Cancels the range's hashing.</param>
+    /// <returns>The answer.</returns>
+    public static async Task<HttpAnswer> AnswerAsync(AzureReply reply, IReadOnlyList<KeyValuePair<string, string>> requestFields, ObjectProperties properties, HttpAnswerBody.ContentFile wholeBlob, IReadOnlyList<KeyValuePair<string, string>> resourceFields, CancellationToken cancellationToken)
     {
         if (ConditionAnswer(reply, requestFields, properties) is { } conditionAnswer)
         {
@@ -49,7 +73,7 @@ internal static class AzureBlobAnswer
             ? await RangeMd5Async(wholeBlob, range, cancellationToken)
             : StoredMd5(properties.ETag);
 
-        return BlobAnswer(reply, properties, contentMd5, wholeBlob, range);
+        return BlobAnswer(reply, properties, contentMd5, wholeBlob, range, resourceFields);
     }
 
     // 412 ConditionNotMet, or 304 with the tag and date, or null to serve the blob.
@@ -103,7 +127,7 @@ internal static class AzureBlobAnswer
     }
 
     // 200 with the whole blob, or 206 with the one range selected; a HEAD without the bytes.
-    private static HttpAnswer BlobAnswer(AzureReply reply, ObjectProperties properties, string? contentMd5, HttpAnswerBody.ContentFile wholeBlob, ContentByteRange? range)
+    private static HttpAnswer BlobAnswer(AzureReply reply, ObjectProperties properties, string? contentMd5, HttpAnswerBody.ContentFile wholeBlob, ContentByteRange? range, IReadOnlyList<KeyValuePair<string, string>> resourceFields)
     {
         var selected = range ?? wholeBlob.Range;
         var fields = new List<KeyValuePair<string, string>>
@@ -117,7 +141,7 @@ internal static class AzureBlobAnswer
         }
 
         AddStored(fields, "Content-MD5", contentMd5);
-        fields.AddRange(BlobFields(properties));
+        fields.AddRange(BlobFields(properties, resourceFields));
         HttpAnswerBody body = reply.IsHead ? HttpAnswerBody.None : wholeBlob with { Range = selected };
 
         return reply.Answer(range is null ? HttpStatus.Ok : PartialContent, fields, body);
@@ -125,18 +149,15 @@ internal static class AzureBlobAnswer
 
     // Get Blob's head after the entity fields: the tag and date, the blob fields, the stored
     // header fields and each x-ms-meta-*.
-    private static List<KeyValuePair<string, string>> BlobFields(ObjectProperties properties)
+    private static List<KeyValuePair<string, string>> BlobFields(ObjectProperties properties, IReadOnlyList<KeyValuePair<string, string>> resourceFields)
     {
         var fields = new List<KeyValuePair<string, string>>
         {
             new("ETag", properties.ETag),
             new("Last-Modified", HttpDate(properties.LastWriteTimeUtc)),
             new("Accept-Ranges", "bytes"),
-            new("x-ms-blob-type", "BlockBlob"),
-            new("x-ms-lease-status", "unlocked"),
-            new("x-ms-lease-state", "available"),
-            new("x-ms-server-encrypted", "false"),
         };
+        fields.AddRange(resourceFields);
         AddStored(fields, "Content-Encoding", properties.ContentEncoding);
         AddStored(fields, "Content-Language", properties.ContentLanguage);
         AddStored(fields, "Content-Disposition", properties.ContentDisposition);

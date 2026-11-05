@@ -4,14 +4,31 @@ using Surl.Content;
 namespace Surl.Extended.Protocol.AzureStorage;
 
 /// <summary>
-/// The write-only stream a Put Blob body is copied into: each write is hashed into the body's MD5
-/// and appended to the content store's upload session, until the session says the upload is past
+/// The write-only stream a Put Blob or append body is copied into: each write is hashed into the
+/// body's MD5 and written into the content store's upload session after the bytes before it, from
+/// the offset the stream starts at, until the session says the upload is past
 /// <c>--max-filesize</c>, after which the rest is hashed and dropped.
 /// </summary>
-/// <param name="session">The upload session the bytes are appended to.</param>
+/// <param name="session">The upload session the bytes are written to.</param>
 /// <param name="bodyMd5">The hash every byte of the body goes through.</param>
-internal sealed class AzureUploadStream(ContentUploadSession session, IncrementalHash bodyMd5) : Stream
+/// <param name="firstOffset">Where in the upload the body's first byte lands.</param>
+internal sealed class AzureUploadStream(ContentUploadSession session, IncrementalHash bodyMd5, long firstOffset) : Stream
 {
+    /// <summary>
+    /// A stream that appends the body at the upload's end.
+    /// </summary>
+    /// <param name="session">The upload session the bytes are appended to.</param>
+    /// <param name="bodyMd5">The hash every byte of the body goes through.</param>
+    public AzureUploadStream(ContentUploadSession session, IncrementalHash bodyMd5)
+        : this(session, bodyMd5, session.Length)
+    {
+    }
+
+    /// <summary>
+    /// How many bytes of the body were written into the session.
+    /// </summary>
+    public long BytesWritten { get; private set; }
+
     /// <summary>
     /// Whether the upload went past the store's upload limit; the session has then discarded it.
     /// </summary>
@@ -72,6 +89,7 @@ internal sealed class AzureUploadStream(ContentUploadSession session, Incrementa
             return;
         }
 
-        IsTooLarge = await session.WriteAtAsync(session.Length, buffer, cancellationToken) == ContentUploadResult.TooLarge;
+        IsTooLarge = await session.WriteAtAsync(firstOffset + BytesWritten, buffer, cancellationToken) == ContentUploadResult.TooLarge;
+        BytesWritten += IsTooLarge ? 0 : buffer.Length;
     }
 }

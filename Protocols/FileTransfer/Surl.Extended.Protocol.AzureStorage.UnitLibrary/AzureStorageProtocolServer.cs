@@ -7,20 +7,23 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.AzureStorage;
 
 /// <summary>
-/// The Azure Storage server: answers the Azure Blob service REST API over HTTP/1.1 on the shared
-/// content store, whose top-level folders are the containers (ADR-0109; ADR-0100, decision 2). It
-/// is judged by the Azure Storage REST API reference at <c>x-ms-version: 2025-01-05</c>, not by
-/// upstream curl, which has no <c>az</c> scheme (ADR-0083).
+/// The Azure Storage server: answers the Azure Blob service REST API on <c>az</c> and the Data Lake
+/// Storage Gen2 endpoint on <c>abfs</c> and <c>abfss</c>, over HTTP/1.1 on the shared content
+/// store, whose top-level folders are the containers and filesystems (ADR-0109; ADR-0100,
+/// decision 2). It is judged by the Azure Storage REST API reference at
+/// <c>x-ms-version: 2025-01-05</c>, not by upstream curl, which has none of these schemes (ADR-0083).
 /// </summary>
 /// <remarks>
 /// <para>
-/// It serves Get Blob and Get Blob Properties - ranges, conditional fields, the blob's stored
-/// header fields and metadata - Put Blob (under <c>--allow-uploads</c>), Delete Blob and List Blobs
-/// (under <c>--list-directories</c>), checks <c>x-ms-version</c> and <c>x-ms-date</c>, logs in with a
-/// bearer token through the <see cref="IAuthenticationPolicy"/>'s HTTP session (or anonymously
-/// when the policy allows it), and refuses every other request with the Blob service's XML
-/// <c>Error</c> and <c>x-ms-error-code</c>. The Data Lake schemes are BL-426's, Shared Key and
-/// shared access signatures BL-717's.
+/// The listen scheme decides the endpoint. On <c>az</c> it serves Get Blob and Get Blob Properties -
+/// ranges, conditional fields, the blob's stored header fields and metadata - Put Blob (under
+/// <c>--allow-uploads</c>), Delete Blob and List Blobs (under <c>--list-directories</c>), refusing
+/// every other request with the Blob service's XML <c>Error</c>. On <c>abfs</c> and <c>abfss</c> it
+/// serves Path - Read, Path - Create, Path - Update's <c>append</c> and <c>flush</c>, Path - Delete
+/// and Path - List, refusing every other request with the Data Lake JSON error. Both check
+/// <c>x-ms-version</c> and <c>x-ms-date</c> and log in with a bearer token through the
+/// <see cref="IAuthenticationPolicy"/>'s HTTP session (or anonymously when the policy allows it).
+/// Shared Key and shared access signatures are BL-717's.
 /// </para>
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s. As an
@@ -35,10 +38,21 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     /// </summary>
     public const string BlobScheme = "az";
 
+    /// <summary>
+    /// The Data Lake endpoint's scheme over plain HTTP/1.1.
+    /// </summary>
+    public const string DataLakeScheme = "abfs";
+
+    /// <summary>
+    /// The Data Lake endpoint's scheme over TLS.
+    /// </summary>
+    public const string SecureDataLakeScheme = "abfss";
+
     private readonly ContentStore store;
     private readonly ObjectMetadataIndex index;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
+    private readonly AzurePathStagingArea staging;
 
     /// <summary>
     /// Creates the server.
@@ -58,10 +72,11 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
         this.index = index;
         this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
+        staging = new AzurePathStagingArea(timeProvider);
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> Schemes { get; } = [BlobScheme];
+    public IReadOnlyList<string> Schemes { get; } = [BlobScheme, DataLakeScheme, SecureDataLakeScheme];
 
     /// <inheritdoc/>
     public Task ServeAsync(IConnection connection, ExchangeContext context)
@@ -73,7 +88,12 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
 
         var endpointScheme = connection.TlsSession is null ? "http" : "https";
 
-        return new Http1ConnectionServer(new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme), context).ServeAsync(connection);
+        // The listen scheme decides the endpoint (ADR-0109, decision 1).
+        IHttpRequestHandler answerer = context.Scheme == BlobScheme
+            ? new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme)
+            : new AzureDataLakeRequestAnswerer(store, index, authentication, context, staging);
+
+        return new Http1ConnectionServer(answerer, context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

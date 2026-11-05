@@ -153,6 +153,51 @@ internal sealed record AzureError(string Code, HttpStatus Status, string Message
     public static AzureError OutOfRangeQueryParameterValue { get; } = new("OutOfRangeQueryParameterValue", HttpStatus.BadRequest, "A query parameter specified in the request URI is outside the permissible range.");
 
     /// <summary>
+    /// <c>404 PathNotFound</c> (Data Lake): no file or directory at the path, or a Path - List
+    /// <c>directory</c> that does not exist.
+    /// </summary>
+    public static AzureError PathNotFound { get; } = new("PathNotFound", HttpStatus.NotFound, "The specified path does not exist.");
+
+    /// <summary>
+    /// <c>404 FilesystemNotFound</c> (Data Lake): the filesystem's top-level folder does not exist.
+    /// </summary>
+    public static AzureError FilesystemNotFound { get; } = new("FilesystemNotFound", HttpStatus.NotFound, "The specified filesystem does not exist.");
+
+    /// <summary>
+    /// <c>400 InvalidFlushPosition</c> (Data Lake): a flush whose position the staged appends do not
+    /// reach without a gap or an overlap (ADR-0109, decision 5.5).
+    /// </summary>
+    public static AzureError InvalidFlushPosition { get; } = new("InvalidFlushPosition", HttpStatus.BadRequest, "The uploaded data is not contiguous or the position query parameter value is not equal to the length of the file after appending the uploaded data.");
+
+    /// <summary>
+    /// <c>409 ResourceTypeMismatch</c> (Data Lake): a read, append or flush of a directory.
+    /// </summary>
+    public static AzureError ResourceTypeMismatch { get; } = new("ResourceTypeMismatch", ConflictStatus, "The resource type specified in the request does not match the type of the resource.");
+
+    /// <summary>
+    /// <c>409 PathConflict</c> (Data Lake): a path a file stands in the way of, or a file created
+    /// over a directory or a directory over a file (ADR-0109, decision 2).
+    /// </summary>
+    public static AzureError PathConflict { get; } = new("PathConflict", ConflictStatus, "The specified path, or an element of the path, exists and its resource type is invalid for this operation.");
+
+    /// <summary>
+    /// <c>409 DirectoryNotEmpty</c> (Data Lake): Path - Delete of a non-empty directory without
+    /// <c>recursive=true</c>.
+    /// </summary>
+    public static AzureError DirectoryNotEmpty { get; } = new("DirectoryNotEmpty", ConflictStatus, "The recursive query parameter value must be true to delete a non-empty directory.");
+
+    /// <summary>
+    /// <c>400 ContentLengthMustBeZero</c> (Data Lake): a flush with a body.
+    /// </summary>
+    public static AzureError ContentLengthMustBeZero { get; } = new("ContentLengthMustBeZero", HttpStatus.BadRequest, "The Content-Length request header must be zero.");
+
+    /// <summary>
+    /// <c>400 MissingRequiredQueryParameter</c>: a request without a parameter its operation needs,
+    /// such as <c>position</c> or <c>recursive</c> (ADR-0109, decision 4).
+    /// </summary>
+    public static AzureError MissingRequiredQueryParameter { get; } = new("MissingRequiredQueryParameter", HttpStatus.BadRequest, "A query parameter that's mandatory for this request is not specified.");
+
+    /// <summary>
     /// <c>503 ServerBusy</c>: a connection past <c>--max-connections</c> or
     /// <c>--max-connections-per-address</c> (ADR-0109, decision 7).
     /// </summary>

@@ -78,6 +78,14 @@ internal sealed record AzureRefusal(AzureError Error, IReadOnlyList<AzureErrorEl
             ]);
 
     /// <summary>
+    /// <c>MissingRequiredQueryParameter</c> with <c>QueryParameterName</c>.
+    /// </summary>
+    /// <param name="parameterName">The parameter's name, as the server spells it.</param>
+    /// <returns>The refusal.</returns>
+    public static AzureRefusal MissingRequiredQueryParameter(string parameterName) =>
+        new(AzureError.MissingRequiredQueryParameter, [AzureErrorElement.Fixed("QueryParameterName", parameterName)]);
+
+    /// <summary>
     /// <c>AuthenticationFailed</c> with its fixed <c>AuthenticationErrorDetail</c> (ADR-0109, decision 3.4).
     /// </summary>
     /// <param name="detail">The fixed sentence naming the cause.</param>
