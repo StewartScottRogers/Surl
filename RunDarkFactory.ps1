@@ -1777,9 +1777,11 @@ function Get-MergeStep {
 function Get-OpenMasterPulls {
     # The open pull requests into master, as Number, Head and HeadSha.
     # --jq, not ConvertFrom-Json: Windows PowerShell turns "[]" into one empty element.
-    $lines = @(gh pr list --base master --state open --limit 50 --json number,headRefName,headRefOid --jq '.[] | "\(.number) \(.headRefName) \(.headRefOid)"' 2>$null)
-    return @($lines | Where-Object { $_ -match '^(\d+) (\S+) ([0-9a-f]{40})$' } | ForEach-Object {
-        $null = $_ -match '^(\d+) (\S+) ([0-9a-f]{40})$'
+    # @tsv, not a "\(...)" string: Windows PowerShell 5.1 drops the double quotes inside a
+    # native command's argument, which broke the filter and listed nothing.
+    $lines = @(gh pr list --base master --state open --limit 50 --json number,headRefName,headRefOid --jq '.[] | [.number, .headRefName, .headRefOid] | @tsv' 2>$null)
+    return @($lines | Where-Object { $_ -match '^(\d+)\t(\S+)\t([0-9a-f]{40})$' } | ForEach-Object {
+        $null = $_ -match '^(\d+)\t(\S+)\t([0-9a-f]{40})$'
         [pscustomobject]@{ Number = $Matches[1]; Head = $Matches[2]; HeadSha = $Matches[3] }
     })
 }
@@ -1826,8 +1828,8 @@ function Update-PendingMerges {
     $lines = @()
     foreach ($pull in @(Get-OpenMasterPulls | Where-Object { $_.Head.StartsWith($MergeBranchPrefix) })) {
         $short = $pull.HeadSha.Substring(0, 7)
-        $run = "$(gh run list --workflow CI --commit $pull.HeadSha --event pull_request --limit 1 --json databaseId,status,conclusion --jq '.[0] | "\(.databaseId) \(.status) \(.conclusion)"' 2>$null)".Trim()
-        $parts = $run -split ' '
+        $run = "$(gh run list --workflow CI --commit $pull.HeadSha --event pull_request --limit 1 --json databaseId,status,conclusion --jq '.[0] | [.databaseId, .status, .conclusion] | @tsv' 2>$null)".Trim()
+        $parts = $run -split "`t"
         $step = Get-MergeStep -Status $(if ($parts.Count -ge 2) { $parts[1] } else { '' }) -Conclusion $(if ($parts.Count -ge 3) { $parts[2] } else { '' }) -RerunUsed ([bool]$script:MergeReruns[$pull.HeadSha])
         switch ($step) {
             'merge' {
