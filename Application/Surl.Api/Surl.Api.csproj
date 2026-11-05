@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Surl.Api.UnitTests" />
+    <!-- Surl.Mcp's tests start servers through SurlServerHostSeams, so no test opens a socket (BL-624). -->
+    <InternalsVisibleTo Include="Surl.Mcp.UnitTests" />
   </ItemGroup>
 
   <ItemGroup>
