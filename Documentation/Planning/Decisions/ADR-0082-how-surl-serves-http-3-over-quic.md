@@ -383,3 +383,30 @@ follows RFC 9114 where curl's behaviour cannot be observed first.
 7. **Not built here.** Decision 9's `H3_VERSION_FALLBACK` for NTLM and Negotiate waits on the same
    work for HTTP/2 (BL-602), and a body larger than the client's credit is queued whole, since
    `QuicApplicationConnection.WriteAsync` does not wait for credit; both are filed as tasks.
+
+## Amendment 2 (2026-11-05, BL-608): the closing and draining states
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-608. RFC 9000
+section 10.2 leaves these choices to the endpoint; none of them changes a byte the server sends,
+only when it sends one again, so there is nothing of upstream curl's to measure first.
+
+1. **How long.** `QuicServerConnection` holds the closing state after it sends `CONNECTION_CLOSE`,
+   and the draining state after it receives the client's, for
+   `QuicServerConnection.ClosingPeriodProbeTimeouts` (3) probe timeouts: `smoothed_rtt +
+   max(4 * rttvar, kGranularity) + max_ack_delay` (RFC 9002 section 6.2.1) as measured when the
+   state starts, without backoff. With no RTT sample that is 3 x 1024 ms. Then the connection
+   state is discarded and `NextDeadline` is null.
+2. **What the closing state answers.** It does not open the datagrams it receives; it answers
+   the 1st, 2nd, 4th, 8th and so on with the exact datagrams that carried its `CONNECTION_CLOSE`
+   (RFC 9000 section 10.2.1 allows the same packet), within the anti-amplification limit. A
+   `CONNECTION_CLOSE` the limit held back is sent when the limit allows. Since received packets are
+   not opened, a client's `CONNECTION_CLOSE` does not move it to draining (a MAY).
+3. **The draining state sends nothing,** and is otherwise the closing state's period.
+4. **`CONNECTION_CLOSE` is not congestion controlled.** A packet that is not ack-eliciting is not
+   in flight (RFC 9002 section 2), so `CONNECTION_CLOSE`, like `ACK`, goes in the room the
+   anti-amplification limit leaves, whatever the congestion window. Before, a congested
+   connection held its `CONNECTION_CLOSE` back.
+5. **`IsClosed` keeps its meaning** - the connection has ended for the application - so
+   `QuicApplicationConnection` and `QuicDatagramFlowLoop` are unchanged, and the flow loop still
+   returns when the connection closes. Holding the flow open through the closing and draining
+   states is filed as its own task.

@@ -5,8 +5,8 @@ Phase 6.
 QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
-loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), `RESET_STREAM_AT` (BL-748), following the client's key updates (BL-606), and keeping and retiring the client's connection IDs (BL-607);
-the closing and draining periods come with BL-608.
+loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), `RESET_STREAM_AT` (BL-748), following the client's key updates (BL-606), and keeping and retiring the client's connection IDs (BL-607),
+and the closing and draining states (BL-608); the flow loop holding a flow open through them comes with BL-843.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
   and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the
@@ -39,7 +39,7 @@ the closing and draining periods come with BL-608.
   left is split when the first part keeps at least 64 bytes. `QuicCongestionController` is NewReno
   (section 7, ADR-0082 decision 4): 12000-byte initial window, 2400-byte minimum, halved once per
   recovery period, the minimum on persistent congestion (judged on one space's losses); ACK-only
-  packets are outside the window, and an ack-eliciting Initial waits for a datagram the window and
+  packets and `CONNECTION_CLOSE` are outside the window, and an ack-eliciting Initial waits for a datagram the window and
   the amplification limit let reach 1200 bytes. Spaces whose keys go are forgotten (section 6.4).
 - Key updates (BL-606, RFC 9001 section 6, ADR-0082 decision 4): the server follows the client's and never starts one. The internal `QuicKeyPhase` holds the key phase bit every 1-RTT packet sent carries, the client's next keys made in advance (the next secret is HKDF-Expand-Label(secret, `quic ku`, "", hash length), `QuicPacketProtection.NextTrafficSecret`; `ForNextKeyPhase` keeps the header-protection key), and its previous keys, kept until the next update to open late packets of the old phase (numbered below the packet that started the current one). A packet in the other phase numbered from that packet on opens with the next keys and, once it opens, switches both directions to them. A key update before the server has sent an `ACK` in the current phase - the first update too, since a client may only update once a packet of its phase is acknowledged (section 6.1) - ends the connection `KEY_UPDATE_ERROR` (section 6.2). A packet in the other phase that does not open is dropped and the keys stay.
 - The client's connection IDs (BL-607, RFC 9000 sections 5.1.1, 5.1.2 and 19.15, ADR-0082 decision 4):
@@ -53,6 +53,15 @@ the closing and draining periods come with BL-608.
   sequence number is `PROTOCOL_VIOLATION`; more than 2 active once the retirements are made is
   `CONNECTION_ID_LIMIT_ERROR`. The server issues only its handshake connection ID, so a client's
   `RETIRE_CONNECTION_ID` is still `PROTOCOL_VIOLATION`. Stateless reset tokens are not kept.
+- Closing and draining (BL-608, RFC 9000 section 10.2, ADR-0082 amendment 2): once the server sends
+  `CONNECTION_CLOSE`, `IsClosed` and `IsClosing` are true for
+  `ClosingPeriodProbeTimeouts` (3) probe timeouts with the client's `max_ack_delay`, as measured
+  then; `ReceiveDatagram` opens nothing and answers the 1st, 2nd, 4th, 8th and so on datagram with
+  the same `CONNECTION_CLOSE` datagrams, within the anti-amplification limit (one the limit held back
+  goes when it allows). On the client's `CONNECTION_CLOSE`, `IsDraining` is true for as long and
+  nothing is sent. `NextDeadline` is the state's end; `HandleTimeout` there discards the state, and
+  `NextDeadline` is null and nothing is answered after. `QuicDatagramFlowLoop` still returns when
+  `IsClosed` turns true (BL-843 holds it open).
 - `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
   `QuicServerConnectionOptions.MaxDatagramFrameSize` is set; then `max_datagram_frame_size` (0x20) is
   sent, and each `QuicDatagramFrame` (type `0x30` to the end of the packet, `0x31` with a Length) the

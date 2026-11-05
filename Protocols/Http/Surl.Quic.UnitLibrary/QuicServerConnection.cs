@@ -18,7 +18,8 @@ namespace Surl.Quic;
 /// at most three times the bytes it has received (RFC 9000 section 8.1). Initial keys are
 /// discarded when the first Handshake packet opens, Handshake keys when the handshake completes
 /// (RFC 9001 section 4.9). An error ends the connection with <c>CONNECTION_CLOSE</c> carrying its
-/// RFC 9000 code; the idle timeout ends it silently. Time comes from the injected
+/// RFC 9000 code and holds the closing state, or on the client's holds the draining state, for three
+/// probe timeouts (RFC 9000 section 10.2); the idle timeout ends it silently. Time comes from the injected
 /// <see cref="TimeProvider"/>: call <see cref="HandleTimeout"/> at <see cref="NextDeadline"/>.
 /// </remarks>
 public sealed partial class QuicServerConnection : IDisposable
@@ -84,7 +85,7 @@ public sealed partial class QuicServerConnection : IDisposable
     /// <summary>Whether the TLS handshake is complete, and so confirmed (RFC 9001 section 4.1.2).</summary>
     public bool IsHandshakeComplete { get; private set; }
 
-    /// <summary>Whether the connection has ended; it then takes and sends nothing more.</summary>
+    /// <summary>Whether the connection has ended: it takes nothing more from the client and sends nothing more of its own, and answers only as <see cref="IsClosing"/> says.</summary>
     public bool IsClosed { get; private set; }
 
     /// <summary>The ALPN protocol agreed, or null before it is.</summary>
@@ -99,8 +100,8 @@ public sealed partial class QuicServerConnection : IDisposable
     /// <summary>The server's own connection ID, or empty before the connection starts.</summary>
     public ReadOnlyMemory<byte> ServerConnectionId => serverConnectionId;
 
-    /// <summary>When <see cref="HandleTimeout"/> next has something to do, or null when nothing is timed.</summary>
-    public DateTimeOffset? NextDeadline => IsClosed ? null : Earliest(Earliest(IdleDeadline, handshakeDeadline), LossDetectionDeadline);
+    /// <summary>When <see cref="HandleTimeout"/> next has something to do - after the connection ends, the end of its closing or draining state - or null when nothing is timed.</summary>
+    public DateTimeOffset? NextDeadline => closingPeriodEnd ?? (IsClosed ? null : Earliest(Earliest(IdleDeadline, handshakeDeadline), LossDetectionDeadline));
 
     private DateTimeOffset? IdleDeadline => tls is not null && idleTimeout is { } timeout ? lastActivity + timeout : null;
 
@@ -116,7 +117,7 @@ public sealed partial class QuicServerConnection : IDisposable
     {
         if (IsClosed)
         {
-            return QuicConnectionOutput.Empty;
+            return IsClosing ? AnswerInClosingState(datagram.Length) : QuicConnectionOutput.Empty;
         }
 
         if (tls is null)
@@ -137,7 +138,8 @@ public sealed partial class QuicServerConnection : IDisposable
     /// Acts on the timer that is due: past the idle timeout the connection is discarded
     /// silently; past the handshake timeout it ends with <c>CONNECTION_CLOSE</c> <c>NO_ERROR</c>;
     /// at the loss detection timer the packets the time threshold condemns are declared lost and
-    /// their frames sent again, or at the probe timeout a probe is sent (RFC 9002 section 6).
+    /// their frames sent again, or at the probe timeout a probe is sent (RFC 9002 section 6); at the
+    /// end of the closing or draining state the connection state is discarded (RFC 9000 section 10.2).
     /// </summary>
     /// <returns>The datagrams to send.</returns>
     public QuicConnectionOutput HandleTimeout()
@@ -145,6 +147,12 @@ public sealed partial class QuicServerConnection : IDisposable
         var now = timeProvider.GetUtcNow();
         if (NextDeadline is not { } deadline || deadline > now)
         {
+            return QuicConnectionOutput.Empty;
+        }
+
+        if (closingPeriodEnd is not null)
+        {
+            EndClosingPeriod();
             return QuicConnectionOutput.Empty;
         }
 
@@ -405,9 +413,10 @@ public sealed partial class QuicServerConnection : IDisposable
 
         handshakeDeadline = null;
         IsClosed = true;
+        EnterClosingState();
     }
 
-    /// <summary>Ends the connection with nothing sent: the idle timeout, or the client's own <c>CONNECTION_CLOSE</c> (draining).</summary>
+    /// <summary>Ends the connection with nothing sent: the idle timeout, or the client's own <c>CONNECTION_CLOSE</c> as the draining state starts.</summary>
     private void Discard()
     {
         foreach (var space in (QuicPacketNumberSpace[])[initial, handshake, application])

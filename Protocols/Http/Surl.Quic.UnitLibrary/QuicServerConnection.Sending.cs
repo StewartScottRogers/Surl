@@ -32,6 +32,7 @@ public sealed partial class QuicServerConnection
             datagrams.Add(datagram);
         }
 
+        KeepConnectionCloseDatagrams(datagrams);
         return datagrams;
     }
 
@@ -68,8 +69,9 @@ public sealed partial class QuicServerConnection
     }
 
     /// <summary>
-    /// Takes what fits from the space's waiting ACK, in <paramref name="ackRoom"/> bytes, and its
-    /// CRYPTO data and frames, which count in flight, in <paramref name="room"/> bytes. Initial
+    /// Takes what fits from the space's waiting ACK and frames that are not ack-eliciting, such as
+    /// <c>CONNECTION_CLOSE</c>, which count outside the congestion window, in <paramref name="ackRoom"/> bytes, and its
+    /// CRYPTO data and ack-eliciting frames, which count in flight, in <paramref name="room"/> bytes. Initial
     /// CRYPTO data and other ack-eliciting Initial frames go only in a datagram that may be padded
     /// to 1200 bytes.
     /// </summary>
@@ -87,7 +89,7 @@ public sealed partial class QuicServerConnection
             AddCrypto(space, frames, room);
         }
 
-        while (space.FramesToSend.Count > 0 && (mayElicit || !IsAckEliciting(space.FramesToSend[0])) && TryAddWaitingFrame(space, frames, room))
+        while (space.FramesToSend.Count > 0 && (mayElicit || !IsAckEliciting(space.FramesToSend[0])) && TryAddWaitingFrame(space, frames, IsAckEliciting(space.FramesToSend[0]) ? room : ackRoom))
         {
             // TryAddWaitingFrame has moved the first waiting frame, or its first part, into the packet.
         }

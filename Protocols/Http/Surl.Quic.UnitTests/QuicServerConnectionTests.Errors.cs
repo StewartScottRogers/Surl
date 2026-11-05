@@ -23,7 +23,8 @@ public sealed partial class QuicServerConnectionTests
         Assert.IsFalse(close.IsApplicationError);
         Assert.IsTrue(close.ReasonPhrase.IsEmpty);
         Assert.IsTrue(exchange.Server.IsClosed);
-        Assert.IsEmpty(exchange.Server.ReceiveDatagram(exchange.Client.SealOneRtt(new QuicPingFrame())).Datagrams);
+        Assert.IsTrue(exchange.Server.IsClosing);
+        Assert.IsEmpty(exchange.Server.ReceiveDatagram(exchange.Client.SealOneRtt(new QuicStreamFrame(0, 0, new byte[] { 1 }, true))).Streams);
     }
 
     [TestMethod]
@@ -78,7 +79,7 @@ public sealed partial class QuicServerConnectionTests
 
         exchange.SendRecordedInitials();
 
-        var close = exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicConnectionCloseFrame>().Single();
+        var close = exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicConnectionCloseFrame>().First();
         Assert.AreEqual(0x0178UL, close.ErrorCode);
         Assert.AreEqual(0x06UL, close.FrameType);
         Assert.IsFalse(exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicCryptoFrame>().Any());
@@ -112,7 +113,7 @@ public sealed partial class QuicServerConnectionTests
 
         exchange.SendRecordedInitials();
 
-        var close = exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicConnectionCloseFrame>().Single();
+        var close = exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicConnectionCloseFrame>().First();
         Assert.AreEqual((ulong)expectedError, close.ErrorCode, description);
         Assert.IsTrue(exchange.Server.IsClosed, description);
     }
@@ -144,7 +145,7 @@ public sealed partial class QuicServerConnectionTests
 
         exchange.SendRecordedInitials();
 
-        var close = exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicConnectionCloseFrame>().Single();
+        var close = exchange.Client.FramesReceived[QuicPacketType.Initial].OfType<QuicConnectionCloseFrame>().First();
         Assert.AreEqual((ulong)QuicTransportErrorCode.TransportParameterError, close.ErrorCode, description);
     }
 

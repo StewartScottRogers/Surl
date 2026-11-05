@@ -181,7 +181,7 @@ public sealed partial class QuicServerConnection
                 ReceiveCrypto(space, crypto);
                 break;
             case QuicConnectionCloseFrame:
-                Discard();
+                EnterDrainingState();
                 break;
             case QuicDatagramFrame datagram:
                 ReceiveDatagramFrame(datagram);
