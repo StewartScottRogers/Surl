@@ -85,14 +85,19 @@ internal sealed class UnitTestTls13Client
     }
 
     /// <summary>The value of the quic_transport_parameters extension (0x39) in EncryptedExtensions.</summary>
-    public byte[] ServerTransportParameters()
+    public byte[] ServerTransportParameters() => EncryptedExtension(0x0039);
+
+    /// <summary>The ALPN protocol the server selected in EncryptedExtensions (RFC 7301 section 3.1): a list of one name.</summary>
+    public string ApplicationProtocol => System.Text.Encoding.ASCII.GetString(EncryptedExtension(0x0010).AsSpan(3));
+
+    private byte[] EncryptedExtension(ushort wanted)
     {
         var extensions = EncryptedExtensions.AsSpan(6);
         while (!extensions.IsEmpty)
         {
             var type = BinaryPrimitives.ReadUInt16BigEndian(extensions);
             var length = BinaryPrimitives.ReadUInt16BigEndian(extensions[2..]);
-            if (type == 0x0039)
+            if (type == wanted)
             {
                 return extensions.Slice(4, length).ToArray();
             }
@@ -100,7 +105,7 @@ internal sealed class UnitTestTls13Client
             extensions = extensions[(4 + length)..];
         }
 
-        Assert.Fail("EncryptedExtensions carries no quic_transport_parameters.");
+        Assert.Fail($"EncryptedExtensions carries no extension 0x{wanted:x4}.");
         return [];
     }
 

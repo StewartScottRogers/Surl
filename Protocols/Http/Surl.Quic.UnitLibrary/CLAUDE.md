@@ -2,10 +2,10 @@
 
 Phase 6.
 
-QUIC version 1 for Surl's HTTP/3 server, hand-built on every platform (ADR-0082 decisions 1, 2
+QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
-loss recovery and congestion control (BL-379); key updates come with BL-606, the client's spare connection IDs with BL-607 and
+loss recovery and congestion control (BL-379), and the flow loop an application protocol rides (BL-572); key updates come with BL-606, the client's spare connection IDs with BL-607 and
 the closing and draining periods with BL-608.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
@@ -19,7 +19,7 @@ the closing and draining periods with BL-608.
   size with Version Negotiation, and drops everything else before it starts. The handshake is
   `Surl.Tls13`'s `TlsServerHandshake` in `CRYPTO` frames, reassembled by `QuicCryptoReassembly`
   (64 KiB ahead at most); the client's transport parameters are checked (RFC 9000 sections 7.3 and
-  18.2, RFC 9368) and the server's are ADR-0082 decision 4's. Every ack-eliciting packet is
+  18.2, RFC 9368) and the server's are its options' (ADR-0082 decision 4's by default). Every ack-eliciting packet is
   acknowledged at once, ACK Delay 0 (`QuicReceivedPacketNumbers`, 32 ranges kept). Before a
   Handshake packet opens, it sends at most three times what it received; Initial keys go when that
   packet opens, Handshake keys when the handshake completes. 1-RTT packets wait for the handshake
@@ -52,6 +52,21 @@ the closing and draining periods with BL-608.
   `STREAM_DATA_BLOCKED` and `DATA_BLOCKED` once per limit. Past a stream limit is
   `STREAM_LIMIT_ERROR`, past a credit `FLOW_CONTROL_ERROR`, a broken final size `FINAL_SIZE_ERROR`,
   and a frame for a part a stream lacks, or for a server stream not opened, `STREAM_STATE_ERROR`.
+- `QuicDatagramFlowServer` (BL-572, ADR-0086 decision 4) - the only part that touches I/O: its
+  `ServeAsync` takes one `IDatagramFlow` (from `Surl.Protocol.Abstractions`), feeds the flow's
+  datagrams to a `QuicServerConnection`, sends what it returns, waits for `NextDeadline` with
+  `Task.Delay` on the injected `TimeProvider` and then calls `HandleTimeout`, and once the handshake
+  is complete hands the connection to an `IQuicApplicationProtocol` (HTTP/3, DNS over QUIC). The
+  application sees a `QuicApplicationConnection`, not the bare `QuicServerConnection`: the loop and
+  the application work at once, so every call goes through one lock. It accepts the client's
+  streams (`AcceptStreamAsync`), reads waiting for bytes (`ReadAsync`), and writes, resets, stops
+  sending, opens unidirectional streams and closes, each sent at once. The application returning
+  closes the connection with application error code 0; the connection ending (either side's
+  close, idle, the server's token) cancels `Ended`, the application's token, after which reads
+  return what is left then 0, accepts null, and other calls throw `OperationCanceledException`.
+  An exception the application throws closes the connection with code 0 and is thrown from
+  `ServeAsync`. The ALPN IDs agreed and the transport parameters sent are the caller's
+  `QuicServerConnectionOptions`; the defaults stay ADR-0082 decision 4's `h3` values, byte for byte.
 - `QuicTransportParameters` reads and writes RFC 9000 section 18's parameters and
   `version_information` (`QuicVersionInformation`); a malformed or repeated one is
   `TRANSPORT_PARAMETER_ERROR`.
@@ -99,9 +114,10 @@ copies. Writing a value RFC 9000 forbids throws an `ArgumentException`.
 | a `CRYPTO` frame ending beyond 2^62-1 | `CRYPTO_BUFFER_EXCEEDED` |
 | any packet-header fault: early end, a version 1 connection ID over 20 bytes, fixed bit 0, reserved bits set, a Length shorter than the packet number, a Retry without its tag, a Version Negotiation list not whole versions | `PROTOCOL_VIOLATION` with no frame type: the caller drops the packet |
 
-Namespace `Surl.Quic`. It may reference `Surl.Tls13.UnitLibrary`,
+Namespace `Surl.Quic`. It may reference `Surl.Protocol.Abstractions.UnitLibrary` (ADR-0086 decision 5), `Surl.Tls13.UnitLibrary`,
 `Surl.Cryptography.ChaCha20.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0082
-decision 2), and references all three. It does no I/O: never open a socket or a file, and
+decision 2), and references all four. Only `QuicDatagramFlowServer` does I/O, and only through the
+`IDatagramFlow` it is given: never open a socket or a file, and
 never read a clock - time arrives through an injected `TimeProvider` once there is a connection.
 
 Every expected value in `Surl.Quic.UnitTests` comes from RFC 9000 (Appendix A.1's varints) and

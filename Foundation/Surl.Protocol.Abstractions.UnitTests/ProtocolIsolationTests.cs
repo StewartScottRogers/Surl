@@ -75,7 +75,7 @@ public sealed class ProtocolIsolationTests
         [MailStore] = [Abstractions, Content],
         [MessageBus] = [Abstractions, Content],
         [Qpack] = [Hpack],
-        [Quic] = [Tls13, ChaCha20, Poly1305],
+        [Quic] = [Abstractions, Tls13, ChaCha20, Poly1305],
         [Tls13] = [Curve25519, MlKem],
         [WebSocket] = [Abstractions, HttpMessage],
     };
@@ -231,6 +231,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(MailStore, Abstractions)]
     [DataRow(MailStore, Content)]
     [DataRow(Qpack, Hpack)]
+    [DataRow(Quic, Abstractions)]
     [DataRow(Quic, Tls13)]
     [DataRow(Quic, ChaCha20)]
     [DataRow(Quic, Poly1305)]
@@ -271,7 +272,6 @@ public sealed class ProtocolIsolationTests
     [DataRow(MailStore, "Surl.Networking.UnitLibrary")]
     [DataRow(Qpack, Abstractions)]
     [DataRow(Qpack, Quic)]
-    [DataRow(Quic, Abstractions)]
     [DataRow(Quic, Hpack)]
     [DataRow(Tls13, Abstractions)]
     [DataRow(Tls13, Cryptography)]
