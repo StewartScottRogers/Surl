@@ -4,7 +4,7 @@ title: Report the DTLS peer's PSK identity, verified certificate and record size
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-415]
+depends-on: [BL-415, BL-738]
 touches: [Cryptography/Surl.Dtls.UnitLibrary, Cryptography/Surl.Dtls.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -39,7 +39,13 @@ application bytes one record can carry, so `coaps` (BL-475) can apply ADR-0097's
 
 ## Notes
 
+- 2026-11-05 (lane 2): `DtlsServerSession` sends no `CertificateRequest` and reads no client `Certificate`
+  or `CertificateVerify` yet; BL-738 builds that handshake. The second acceptance criterion (report the client
+  certificate and whether it verified) cannot be tested until then, so BL-738 is added to `depends-on`. The PSK
+  identity and record-size reporting wait with it, to keep one session API change in one run.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Waits on BL-738: the client-certificate handshake it reports on does not exist yet
