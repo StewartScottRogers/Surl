@@ -59,7 +59,7 @@ What it holds now (BL-629):
   newest is always kept; past `MaxLogBytes`, after that retention, a publish is `StoreFull`.
   `MaxTopics` counts topics with a log, so a publish on a new topic past it is
   `TooManyTopics`, retained or not (ADR-0100 decision 3.6). An expired message stays in the
-  log; one already expired at publish is stored nowhere. BL-696 adds these rules to the ADR.
+  log; one already expired at publish is stored nowhere. BL-697 adds these rules to the ADR.
 - **Bounds and outcomes.** `MaxTopics`, `MaxRetainedPayloadBytes`,
   `MaxSubscriptionsPerConnection`, `MaxMessageBytes`, `MaxQueues`, `MaxMessagesPerQueue`
   (unacknowledged included), `MaxQueuedBytes` (all queues), `MaxLogBytesPerTopic` and

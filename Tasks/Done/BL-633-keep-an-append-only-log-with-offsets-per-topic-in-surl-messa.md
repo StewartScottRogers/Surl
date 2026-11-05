@@ -55,7 +55,7 @@ records reach every other protocol's subscribers.
   `ReadLog_AtTheHighWatermark_ReturnsNoRecords`, `Publish_PastMaxLogBytesPerTopic_DropsTheOldestAndRaisesTheLogStartOffset`,
   `ReadLog_BelowTheLogStartOffset_ReturnsOffsetOutOfRangeAndNoRecords` and
   `Publish_AKafkaStyleRecord_IsDeliveredToLiveSubscribersAndReadableFromTheLog`. Library coverage 100% line, 100% branch.
-- Decided by Claude under Stewart's delegation (recorded in the library's CLAUDE.md; BL-696 adds them to ADR-0100,
+- Decided by Claude under Stewart's delegation (recorded in the library's CLAUDE.md; BL-697 adds them to ADR-0100,
   since `Documentation/Planning/Decisions` is outside this task's `touches`):
   - "Reading past the high watermark returns none" is read as: at the high watermark, `Succeeded` and no records;
     above it, `OffsetOutOfRange`, as a Kafka broker answers a fetch beyond its log end.

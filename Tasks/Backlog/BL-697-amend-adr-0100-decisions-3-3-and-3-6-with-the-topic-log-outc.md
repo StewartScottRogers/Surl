@@ -1,5 +1,5 @@
 ---
-id: BL-696
+id: BL-697
 title: Amend ADR-0100 decisions 3.3 and 3.6 with the topic-log outcome and rules BL-633 chose
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-696 — Amend ADR-0100 decisions 3.3 and 3.6 with the topic-log outcome and rules BL-633 chose
+# BL-697 — Amend ADR-0100 decisions 3.3 and 3.6 with the topic-log outcome and rules BL-633 chose
 
 ## Goal
 
