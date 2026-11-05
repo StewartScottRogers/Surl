@@ -59,3 +59,4 @@ as BL-503's ADR decides. Each misuse is a channel or connection exception with i
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; queues and routing are Surl.MessageBus's.
 - 2026-11-05: Waits on BL-706 and BL-730 too (BL-503, ADR-0112).
+- 2026-11-05: Backlog -> Doing.
