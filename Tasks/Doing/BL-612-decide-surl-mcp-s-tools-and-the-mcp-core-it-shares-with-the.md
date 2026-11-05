@@ -98,3 +98,4 @@ BL-468 (composition moved by BL-609 and BL-614).
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
