@@ -396,3 +396,36 @@ Costs and caveats:
   protocol task (the board's `touches` rule).
 - CRC-32 and CRC-32C are hand-written in BL-711.
 - The matrix is `Documentation/Conformance/Extended/S3.md` (ADR-0083 decision 9).
+
+## Amendment 1 - the contract decision 4.4 planned, as BL-420 built it (BL-420, 2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in
+BL-420.
+
+1. **`HttpAuthenticationRequest.AwsSigV4Service`** (`null` by default) marks a request whose only
+   method is Signature Version 4 for that service; the S3 server sets it to `s3`.
+   `Surl.Authentication`'s session then judges by decision 4.1 rather than by `--auth`: no
+   `Authorization` is anonymous under `--allow-anonymous` and `Forbidden` otherwise, another scheme
+   is `Forbidden` unchecked, a signature is checked even under `--allow-anonymous` (with a SigV4
+   method the policy builds over the account set, whatever `--auth` accepts), the scope's service
+   must be `s3`, `x-amz-content-sha256` is required, and every refusal is `Forbidden` with no
+   challenge. Why: decision 4.1's rules differ from the HTTP server's at every step, so the
+   request has to say which rules apply; the S3 server still references no account and no method.
+2. **`HttpAuthenticationRefusal`** has `MissingCredentials`, `UnsupportedScheme`,
+   `MalformedCredentials`, `MissingPayloadHash`, `UnknownAccount`, `BadSignature`, `ClockSkew` and
+   `PayloadHashMismatch`, on `HttpAuthenticationVerdict.Refusal`. `PayloadHashMismatch` is how a
+   body check says "hash mismatch" (decision 4.4's "`IHttpRequestBodyCheck` outcome"), so the body
+   check keeps its one method and verdict type. `Expired` is left to BL-711, which serves presigned
+   URLs: a member nothing sets would say something untrue of the code.
+3. **A head whose signature is verified names its account while the body is awaited.** With a
+   sent content hash the signature is checked on the head, so the verdict carrying the
+   `IHttpRequestBodyCheck` now carries the account too. The S3 server needs it before the body, to
+   refuse an anonymous write and to map the key for the caller. The HTTP, WebSocket and RTSP
+   servers take the account from the body's verdict, so none of their bytes change.
+4. **Missing credentials and another scheme are answered at once;** only a checked signature waits
+   the refusal delay (decision 4.3's "each refusal waits" applies to what was checked, as ADR-0032
+   section 8 has it for HTTP).
+5. **A signed body the operation does not read** (a `GET` with a body, an operation answered `501`)
+   is read and hashed before the answer, so a body that is not the one signed is
+   `XAmzContentSHA256Mismatch` there too. PutObject checks the hash before `Content-MD5` and before
+   committing, so a mismatched object is never stored.
