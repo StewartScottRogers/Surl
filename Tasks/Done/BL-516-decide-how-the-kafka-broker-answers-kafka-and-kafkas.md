@@ -82,9 +82,9 @@ Decide and record:
   other unserved version closes the connection, since its response schema does not exist.
 - The new codecs library amends ADR-0002 decision 3's table (row and header line added in ADR-0002, inside this
   task's `Documentation/Planning/Decisions` touch).
-- Filed (lanes may file extra tasks): BL-697 (Surl.Compression: Snappy, xerial, LZ4, XXH32), BL-698 (zstd decoder),
+- Filed (lanes may file extra tasks): BL-702 (Surl.Compression: Snappy, xerial, LZ4, XXH32), BL-698 (zstd decoder),
   BL-699 (zstd encoder), BL-700 (SCRAM-SHA-512), BL-701 (decide consumer groups, committed offsets, CreateTopics,
-  InitProducerId). BL-521 now depends on BL-697 to BL-699; BL-522 gains the option.
+  InitProducerId). BL-521 now depends on BL-702 to BL-699; BL-522 gains the option.
 
 ## Log
 

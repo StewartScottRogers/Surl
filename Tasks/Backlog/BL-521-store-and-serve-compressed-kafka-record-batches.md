@@ -4,7 +4,7 @@ title: Store and serve compressed Kafka record batches
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-520, BL-697, BL-698, BL-699]
+depends-on: [BL-520, BL-702, BL-698, BL-699]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -25,10 +25,10 @@ the broker is constructed with (`--kafka-fetch-compression`, ADR-0105 decision 4
   `Kafka:Batch-Compression-*`, `Kafka:Surl-Compression-1` and `-2`, `Kafka:RFC1952-2.3-1`, `Kafka:RFC8878-3.1.1-1`
   in `Documentation/Conformance/Extended/Kafka.md`.
 - Codecs: gzip through the BCL's `GZipStream`; Snappy, xerial, LZ4 and zstd through `Surl.Compression`
-  (BL-697 to BL-699). The library references `Foundation/Surl.Compression.UnitLibrary` (ADR-0002 as ADR-0105
+  (BL-702 to BL-699). The library references `Foundation/Surl.Compression.UnitLibrary` (ADR-0002 as ADR-0105
   amends it).
 - Test batches: built in the tests from the format documents (gzip with `GZipStream`; zstd, LZ4 and Snappy frames
-  written by hand, as BL-697 to BL-699's tests do), never from the Curl port's output.
+  written by hand, as BL-702 to BL-699's tests do), never from the Curl port's output.
 - The codec of served batches is a constructor parameter here; BL-522 adds the option that sets it.
 
 ## Acceptance criteria
@@ -46,9 +46,9 @@ the broker is constructed with (`--kafka-fetch-compression`, ADR-0105 decision 4
 
 - 2026-11-05, BL-516: rewritten for ADR-0105, which decodes produced batches into bus messages instead of storing
   them as produced (ADR-0100 decision 3.4: the bus holds one message a record) and puts the encoders in the new
-  `Surl.Compression` library (BL-697 to BL-699), so this task depends on them.
+  `Surl.Compression` library (BL-702 to BL-699), so this task depends on them.
 
 ## Log
 
 - 2026-11-04: Created.
-- 2026-11-05: Goal, Context and criteria rewritten for ADR-0105 by BL-516; depends on BL-697, BL-698 and BL-699.
+- 2026-11-05: Goal, Context and criteria rewritten for ADR-0105 by BL-516; depends on BL-702, BL-698 and BL-699.

@@ -17,7 +17,7 @@
 - **Amended:** decision 3's table by [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md) (2026-11-04), which adds the HTTP and HTTPS proxy server, `Surl.Protocol.HttpProxy.UnitLibrary` in `Protocols/Http/`, referencing `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary` and `Surl.Authentication.UnitLibrary`. BL-552 creates the projects.
 - **Amended:** decision 3's table by [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md) (2026-11-04), which adds the message bus the MQTT and extended messaging servers share, `Surl.MessageBus.UnitLibrary` in `Protocols/Messaging/`, referencing `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary` (for `IContentFileSystem`). BL-629 creates the projects.
 - **Amended:** decision 3's table by [ADR-0103](ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md) (2026-11-05), which adds the MCP core the `Surl.Mcp` host and the extended MCP server share, `Surl.McpServing.UnitLibrary` in `Protocols/Http/`, referencing nothing. BL-619 creates the projects.
-- **Amended:** decision 3's table by [ADR-0105](ADR-0105-how-the-kafka-broker-answers-kafka-and-kafkas.md) (2026-11-05), which adds the hand-built codecs the Kafka broker needs and any server may use, `Surl.Compression.UnitLibrary` in `Foundation/`, referencing nothing. BL-697 creates the projects.
+- **Amended:** decision 3's table by [ADR-0105](ADR-0105-how-the-kafka-broker-answers-kafka-and-kafkas.md) (2026-11-05), which adds the hand-built codecs the Kafka broker needs and any server may use, `Surl.Compression.UnitLibrary` in `Foundation/`, referencing nothing. BL-702 creates the projects.
 
 ## Context
 
@@ -85,7 +85,7 @@ Three questions followed:
 
    `Surl.Protocol.Abstractions.UnitTests` enforces the table and that Abstractions
    references nothing. The rows marked ADR-0048 name projects BL-149 created, and the rows
-   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates, and the row marked ADR-0081 a project BL-365 creates, and the rows marked ADR-0082 projects BL-373, BL-375, BL-382 and BL-544 create, and the rows marked ADR-0086 projects BL-409 and BL-410 create (BL-572 adds `Surl.Quic`'s ADR-0086 reference), and the row marked ADR-0100 a project BL-629 creates, and the row marked ADR-0103 a project BL-619 creates, and the row marked ADR-0105 a project BL-697 creates; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
+   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates, and the row marked ADR-0081 a project BL-365 creates, and the rows marked ADR-0082 projects BL-373, BL-375, BL-382 and BL-544 create, and the rows marked ADR-0086 projects BL-409 and BL-410 create (BL-572 adds `Surl.Quic`'s ADR-0086 reference), and the row marked ADR-0100 a project BL-629 creates, and the row marked ADR-0103 a project BL-619 creates, and the row marked ADR-0105 a project BL-702 creates; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
    or HTTP/3 library, say) joins the table through a new ADR when Surl needs one.
 
 ## Consequences

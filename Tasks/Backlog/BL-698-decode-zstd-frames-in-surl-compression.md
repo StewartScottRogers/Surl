@@ -4,7 +4,7 @@ title: Decode zstd frames in Surl.Compression
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-516, BL-697]
+depends-on: [BL-516, BL-702]
 touches: [Foundation/Surl.Compression.UnitLibrary, Foundation/Surl.Compression.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -27,7 +27,7 @@ sends.
   Predefined, RLE, FSE_Compressed and Repeat modes), 3.1.1.4 and 3.1.1.5 (sequence execution, repeat offsets),
   3.1.2 (skippable frames), 4 (FSE and Huffman), and the XXH64 specification with its published vectors. The
   RFC's appendix tables give the predefined distributions.
-- Library from BL-697. Copying the Curl port's decoder code is allowed (ADR-0083); expected output comes from
+- Library from BL-702. Copying the Curl port's decoder code is allowed (ADR-0083); expected output comes from
   frames built from the RFC, never from the port.
 
 ## Acceptance criteria
@@ -44,7 +44,7 @@ sends.
 
 ## Notes
 
-- Filed by BL-516 (ADR-0105 decision 4). Too large to share a run with BL-697 or BL-699.
+- Filed by BL-516 (ADR-0105 decision 4). Too large to share a run with BL-702 or BL-699.
 
 ## Log
 

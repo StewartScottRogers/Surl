@@ -8,7 +8,7 @@
   2 and 5), BL-519 Produce (decisions 3, 4, 6 and 7), BL-520 Fetch and ListOffsets (decisions 1, 3
   and 6), BL-521 compressed batches on produce and fetch (decision 4), and BL-522 the command line and
   the composition (decisions 4 and 7). The codecs BL-521 needs are built in a new
-  `Foundation/Surl.Compression.UnitLibrary` by BL-697 (Snappy, xerial framing, the LZ4 frame, XXH32),
+  `Foundation/Surl.Compression.UnitLibrary` by BL-702 (Snappy, xerial framing, the LZ4 frame, XXH32),
   BL-698 (zstd decoding) and BL-699 (zstd encoding); BL-700 adds SCRAM-SHA-512 to
   `Surl.Authentication` (decision 5); BL-701 decides consumer groups, committed offsets, CreateTopics
   and InitProducerId (decision 1, "Not served yet").
@@ -250,7 +250,7 @@ codecs. Nothing below is taken from the port's output, and no expected byte come
 - **`Surl.Compression`** (new, `Foundation/Surl.Compression.UnitLibrary` and its `.UnitTests`,
   namespace `Surl.Compression`, referencing nothing; amends ADR-0002 decision 3's table) holds the
   hand-built codecs and checksums: `SnappyDecoder`, `SnappyEncoder`, `XerialSnappyFraming`,
-  `Lz4FrameDecoder`, `Lz4FrameEncoder`, `XxHash32` (BL-697); `ZstdFrameDecoder` with its Huffman and
+  `Lz4FrameDecoder`, `Lz4FrameEncoder`, `XxHash32` (BL-702); `ZstdFrameDecoder` with its Huffman and
   FSE decoders and `XxHash64` (BL-698); `ZstdFrameEncoder` (BL-699). It is a library rather than part
   of the Kafka server because the codecs are protocol-free and HTTP's `Content-Encoding: zstd` (which
   curl's `--compressed` accepts) can use the same code later; `Foundation/` is the category for a
@@ -369,7 +369,7 @@ codecs. Nothing below is taken from the port's output, and no expected byte come
   broker over the shared bus: Metadata, Produce, Fetch and ListOffsets, auto-created one-partition
   topics, and consumers can be served batches in any of the five codecs.
 - A new library, `Foundation/Surl.Compression.UnitLibrary`, holds hand-built Snappy, LZ4 and zstd
-  codecs and the XXH32 and XXH64 checksums (BL-697 to BL-699); BL-521 depends on them.
+  codecs and the XXH32 and XXH64 checksums (BL-702 to BL-699); BL-521 depends on them.
 - `Surl.Authentication` gains SCRAM-SHA-512 (BL-700); every server offering SCRAM through the policy
   can then offer it.
 - Consumer groups, committed offsets, CreateTopics and InitProducerId wait for BL-701.

@@ -1,5 +1,5 @@
 ---
-id: BL-697
+id: BL-702
 title: Build Surl.Compression with Snappy, xerial and LZ4 frame codecs and XXH32
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-697 — Build Surl.Compression with Snappy, xerial and LZ4 frame codecs and XXH32
+# BL-702 — Build Surl.Compression with Snappy, xerial and LZ4 frame codecs and XXH32
 
 ## Goal
 
