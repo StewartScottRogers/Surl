@@ -74,7 +74,7 @@ and deliver two priority levels, so the AMQP 0-9-1 broker (BL-506) can answer AD
 - Added `Documentation/Conformance/Extended/Amqp0.md` to touches, to replace its BL-730 trace with the named tests.
   No task in Doing names it.
 - ADR-0112 decision 7 and ADR-0100 still need the outcome names. BL-524 in Doing touches
-  `Documentation/Planning/Decisions`, so that went to BL-734 rather than widening this task.
+  `Documentation/Planning/Decisions`, so that went to BL-742 rather than widening this task.
 - `Measure-CodeQuality.ps1 -Library Surl.MessageBus.UnitLibrary` reports 100% line and 100% branch coverage. Its four
   remaining Cobertura complexity flags are on members this task did not touch, and the build-time CA1502 gate is clean.
 

@@ -1,5 +1,5 @@
 ---
-id: BL-734
+id: BL-742
 title: Name BL-730's message bus outcomes and priority mark in ADR-0112 and ADR-0100
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-734 — Name BL-730's message bus outcomes and priority mark in ADR-0112 and ADR-0100
+# BL-742 — Name BL-730's message bus outcomes and priority mark in ADR-0112 and ADR-0100
 
 ## Goal
 
