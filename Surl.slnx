@@ -93,6 +93,8 @@
     <Project Path="Cryptography/Surl.Kerberos.TestKdc.UnitTests/Surl.Kerberos.TestKdc.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Kerberos.UnitLibrary/Surl.Kerberos.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Kerberos.UnitTests/Surl.Kerberos.UnitTests.csproj" />
+    <Project Path="Cryptography/Surl.Tls13.UnitLibrary/Surl.Tls13.UnitLibrary.csproj" />
+    <Project Path="Cryptography/Surl.Tls13.UnitTests/Surl.Tls13.UnitTests.csproj" />
   </Folder>
 
   <Folder Name="/Foundation/">

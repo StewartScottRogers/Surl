@@ -31,13 +31,15 @@ public sealed class ProtocolIsolationTests
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
+    private const string MlKem = "Surl.Cryptography.MlKem.UnitLibrary";
+    private const string Tls13 = "Surl.Tls13.UnitLibrary";
     private const string WebSocket = "Surl.WebSocket.UnitLibrary";
     private const string ExtendedRedis = "Surl.Extended.Protocol.Redis.UnitLibrary";
     private const string ExtendedServerPrefix = "Surl.Extended.Protocol.";
 
     /// <summary>
     /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061,
-    /// ADR-0070, ADR-0081 and ADR-0084 add: each horizontal library a protocol server may reference, with the projects
+    /// ADR-0070, ADR-0081, ADR-0082 and ADR-0084 add: each horizontal library a protocol server may reference, with the projects
     /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
@@ -59,6 +61,7 @@ public sealed class ProtocolIsolationTests
         [Kerberos] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
+        [Tls13] = [Curve25519, MlKem],
         [WebSocket] = [Abstractions, HttpMessage],
     };
 
@@ -172,6 +175,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Kerberos)]
     [DataRow(LineProtocol)]
     [DataRow(MailStore)]
+    [DataRow(Tls13)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)
     {
         Assert.IsEmpty(ForbiddenProtocolReferences([referenced]));
@@ -203,6 +207,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(LineProtocol, Abstractions)]
     [DataRow(MailStore, Abstractions)]
     [DataRow(MailStore, Content)]
+    [DataRow(Tls13, Curve25519)]
+    [DataRow(Tls13, MlKem)]
     public void ForbiddenHorizontalReferences_ReferenceInItsRow_IsNotForbidden(
         string library, string referenced)
     {
@@ -235,6 +241,9 @@ public sealed class ProtocolIsolationTests
     [DataRow(LineProtocol, MailStore)]
     [DataRow(MailStore, LineProtocol)]
     [DataRow(MailStore, "Surl.Networking.UnitLibrary")]
+    [DataRow(Tls13, Abstractions)]
+    [DataRow(Tls13, Cryptography)]
+    [DataRow(Tls13, "Surl.Protocol.Http.UnitLibrary")]
     public void ForbiddenHorizontalReferences_ReferenceOutsideItsRow_IsForbidden(
         string library, string referenced)
     {
