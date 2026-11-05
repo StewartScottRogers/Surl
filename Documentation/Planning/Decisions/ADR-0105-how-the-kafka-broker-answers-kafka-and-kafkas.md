@@ -375,3 +375,25 @@ codecs. Nothing below is taken from the port's output, and no expected byte come
 - Consumer groups, committed offsets, CreateTopics and InitProducerId wait for BL-701.
 - The requirement matrix [`Kafka.md`](../../Conformance/Extended/Kafka.md) traces each server-side
   requirement of the guide to BL-517 to BL-521; each task replaces its ID with the named test.
+
+## Amendment, 2026-11-05 (BL-519)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), while building Produce,
+on points decision 4 and the guide leave open:
+
+- **A compressed batch before BL-521** (codec 1 to 4) is `UNSUPPORTED_FOR_MESSAGE_FORMAT` (43), the
+  answer the "Record Batch" checks give to a format the broker does not take; BL-521 replaces it with
+  decompression. Codec 5 to 7 is `CORRUPT_MESSAGE` (2) as decision 4 says.
+- **Null or empty `records`**, a batch whose record count is below 1, a negative header count and a
+  null header key are `CORRUPT_MESSAGE` (2): the "Record" layout defines none of them, and each is a
+  batch that fails its checks.
+- **A failed partition** answers `base_offset`, `log_append_time_ms` and `log_start_offset` (v5) as -1,
+  the guide's value for "no offset" and "no time"; decision 3's "never -1" is for a partition that was
+  appended.
+- **`acks` is checked before `transactional_id`**: an invalid `acks` is 21 even with a transactional id.
+- **The topic checks come before the batch checks**: an invalid name (17), then a partition other than
+  0 (3), then topic access (29), then the batches, then the record size limit (10), then the bus's
+  topic bound (44).
+- **All or nothing** holds for every check the broker can make before it publishes; a `StoreFull` met
+  by the bus part of the way through a partition keeps the records before it until the bus can append
+  a list whole (BL-754).
