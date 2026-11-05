@@ -15,7 +15,7 @@ decision 5). This is success criterion 2 of the
   [Upstream-Test-Case-Exclusions.md](Upstream-Test-Case-Exclusions.md); they are counted on their
   own so they cannot hide among the skips.
 - Beside this file, `upstream-test-cases-passing.<platform>.txt` holds the numbers of the cases
-  that pass, one per line. The suite (`UpstreamTestCasesOverHttpTests`, `Integration` and
+  that pass, one per line. The suite (`UpstreamTestCasesAgainstSurlTests`, `Integration` and
   `UpstreamTestCases`) fails, naming each case and its first differing section, when a listed case
   does not pass; a case that passes but is not listed is written to the test log with the lines to
   add. `UpstreamTestCasePassRateStatementTests`, a fast test, fails when a platform's **Passed**
@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `b1a280aa` | 2026-11-04 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 686 | 651 | 35 | 1,327 | 0 | 94.9% |
+| `win-x64` | `50dde406` + BL-394 | 2026-11-05 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 888 | 829 | 59 | 1,125 | 0 | 93.4% |
 | `linux-x64` | not run | not run | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | not run | not run | not run | not run | not run | not run |
 | `osx-arm64` | not run | not run | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | not run | not run | not run | not run | not run | not run |
 
@@ -41,6 +41,11 @@ Linux and macOS: CI run
 [41980108989](https://github.com/StewartScottRogers/Surl/actions/runs/41980108989) (commit
 `b1a280aa`) ran the suite on both and it passed, but uploaded no results file, so their counts are
 not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next run.
+
+Windows: the run of BL-394's changes on top of commit `50dde406`, the first with the `ftp`,
+`ftp-ipv6` and `ftps` server halves composed: 686 HTTP-family cases ran (651 pass, as before) and
+202 FTP-family cases ran (178 pass; the 24 that fail each verify upstream's test-server greeting
+banner in a `-D` file, BL-769).
 
 ### Skipped, by reason
 
@@ -55,13 +60,13 @@ not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next
 | `postcheck` | 14 |
 | `precheck` | 19 |
 | `protocol-missing:<scheme>` | 2 |
-| `server-half-not-composed:<name>` | 292 |
+| `server-half-not-composed:<name>` | 159 |
 | `server-not-built:<name>` | 67 |
-| `servercmd-unsupported:<command>` | 188 |
+| `servercmd-unsupported:<command>` | 119 |
 | `strippart-unsupported` | 1 |
 | `unittest` | 81 |
 | `unparsable` | 4 |
-| **Total** | **1,327** |
+| **Total** | **1,125** |
 
 ## Releases
 

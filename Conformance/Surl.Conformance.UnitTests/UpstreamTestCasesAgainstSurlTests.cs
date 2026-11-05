@@ -4,21 +4,23 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Networking;
+using Surl.Protocol.Ftp;
 using Surl.Protocol.Http;
 
 namespace Surl.Conformance;
 
 /// <summary>
-/// Runs every upstream test case whose servers are <c>http</c> and <c>https</c> against Surl's
-/// HTTP server half, with the platform's pinned reference build as the client (ADR-0080
-/// decisions 2, 5 and 6; BL-392). Each case gets its own server half on ephemeral ports, its own
+/// Runs every upstream test case whose servers are <c>http</c>, <c>https</c>, <c>ftp</c>,
+/// <c>ftp-ipv6</c> and <c>ftps</c> against Surl's HTTP and FTP server halves
+/// (<see cref="UpstreamTestCaseServerHalves"/>), with the platform's pinned reference build as the
+/// client (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394). Each case gets its own server halves on ephemeral ports, its own
 /// <c>%LOGDIR</c> and the command line runtests builds (<see cref="UpstreamTestCaseCommandLine"/>);
 /// its verify section is checked with <see cref="UpstreamTestCaseVerifyChecker"/>. The run writes
 /// <c>upstream-test-case-results.&lt;platform&gt;.txt</c>, one line for each of the 2,013 cases.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A case naming a server other than <c>http</c> and <c>https</c> is written
+/// A case naming a server outside those five is written
 /// <c>skip server-half-not-composed:&lt;name&gt;</c> here, and a case the parser refuses
 /// (<see cref="UpstreamTestCaseCorpusTests"/>) <c>skip unparsable</c>; each other skip is decision
 /// 3's reason. curl is stopped after <see cref="CaseTimeout"/> and the case recorded
@@ -34,20 +36,23 @@ namespace Surl.Conformance;
 /// </para>
 /// </remarks>
 [TestClass]
-public sealed class UpstreamTestCasesOverHttpTests
+public sealed class UpstreamTestCasesAgainstSurlTests
 {
     private static readonly string Root = Path.Combine(AppContext.BaseDirectory, "UpstreamTestCases");
 
     private static readonly TimeSpan CaseTimeout = TimeSpan.FromSeconds(60);
 
-    private static readonly HashSet<string> ComposedServers = new(["http", "https"], StringComparer.Ordinal);
+    private static readonly HashSet<string> ComposedServers = new(["http", "https", "ftp", "ftp-ipv6", "ftps"], StringComparer.Ordinal);
+
+    // The server names whose server half is FTP's: their bytes are the case's <protocol> and <upload>.
+    private static readonly HashSet<string> FtpServers = new(["ftp", "ftp-ipv6", "ftps"], StringComparer.Ordinal);
 
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
     [TestCategory("Integration")]
     [TestCategory("UpstreamTestCases")]
-    public async Task RunAsync_EveryHttpAndHttpsCase_WritesOneResultLinePerCase()
+    public async Task RunAsync_EveryCaseWithAComposedServerHalf_WritesOneResultLinePerCase()
     {
         var pins = UpstreamCurlBuildPins.Parse(
             await File.ReadAllTextAsync(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamCurlBuildPins.FileName), TestContext.CancellationToken));
@@ -226,15 +231,18 @@ public sealed class UpstreamTestCasesOverHttpTests
             var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
-            await using var serverHalves = await HttpUpstreamTestCaseServerHalves.StartAsync(tlsSettings, cancellationToken);
+            await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, cancellationToken);
 
             var testCase = UpstreamTestCaseParser.Parse(source, RunEnvironment(number, caseDirectory, logDirectory, serverHalves));
             UpstreamTestCaseCommandLine commandLine;
             HttpUpstreamTestCaseReplies replies;
+            FtpUpstreamTestCaseReplies ftpReplies;
+            var isFtpCase = FtpServers.Contains(ServerNames(testCase).First());
             try
             {
                 commandLine = UpstreamTestCaseCommandLine.Build(number, testCase, logDirectory);
-                replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), ServerCommandLines(testCase));
+                replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), isFtpCase ? [] : ServerCommandLines(testCase));
+                ftpReplies = new FtpUpstreamTestCaseReplies(FtpReplyParts(testCase), isFtpCase ? ServerCommandLines(testCase) : []);
             }
             catch (FormatException exception)
             {
@@ -243,7 +251,7 @@ public sealed class UpstreamTestCasesOverHttpTests
             }
 
             await WriteFilesAsync(caseDirectory, commandLine, cancellationToken);
-            serverHalves.Play(replies);
+            serverHalves.Play(replies, ftpReplies);
             var curl = await runner.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -256,7 +264,10 @@ public sealed class UpstreamTestCasesOverHttpTests
             await File.WriteAllTextAsync(Path.Combine(caseDirectory, commandLine.StandardErrorFile), curl.StandardError, cancellationToken);
             var outputFile = Path.Combine(caseDirectory, commandLine.OutputFile);
             var output = File.Exists(outputFile) ? await File.ReadAllBytesAsync(outputFile, cancellationToken) : [];
-            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, replies.ReceivedBytes, []);
+            // runtests' servers all log to one server.input; a case naming both is taken to use
+            // its first server first (an HTTP redirect to FTP, or the reverse).
+            byte[] received = isFtpCase ? [.. ftpReplies.ReceivedBytes, .. replies.ReceivedBytes] : [.. replies.ReceivedBytes, .. ftpReplies.ReceivedBytes];
+            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, ftpReplies.UploadedBytes);
             var verdict = new UpstreamTestCaseVerifyChecker(new CaseFolderRunFiles(caseDirectory), features).Check(testCase, record);
             if (verdict.Passed)
             {
@@ -306,17 +317,25 @@ public sealed class UpstreamTestCasesOverHttpTests
             TimeProvider.System);
 
         private UpstreamTestCaseEnvironment RunEnvironment(
-            int number, string caseDirectory, string logDirectory, HttpUpstreamTestCaseServerHalves serverHalves) => new(
+            int number, string caseDirectory, string logDirectory, UpstreamTestCaseServerHalves serverHalves) => new(
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["HOSTIP"] = "127.0.0.1",
                 ["CLIENTIP"] = "127.0.0.1",
                 ["HTTPPORT"] = serverHalves.HttpPort.ToString(CultureInfo.InvariantCulture),
                 ["HTTPSPORT"] = serverHalves.HttpsPort.ToString(CultureInfo.InvariantCulture),
+                ["FTPPORT"] = serverHalves.FtpPort.ToString(CultureInfo.InvariantCulture),
+                ["FTP6PORT"] = serverHalves.FtpIPv6Port.ToString(CultureInfo.InvariantCulture),
+                ["FTPSPORT"] = serverHalves.FtpsPort.ToString(CultureInfo.InvariantCulture),
+                ["HOST6IP"] = "[::1]",
+                ["CLIENT6IP"] = "[::1]",
+                ["CLIENT6IP-NB"] = "::1",
+                ["FTPTIME2"] = "2",
                 ["NOLISTENPORT"] = "47",
                 ["LOGDIR"] = logDirectory,
                 ["PWD"] = Slashes(caseDirectory),
-                ["FILE_PWD"] = Slashes(caseDirectory),
+                // A file: URL's path starts with '/', so runtests puts one before a drive letter.
+                ["FILE_PWD"] = OperatingSystem.IsWindows() ? "/" + Slashes(caseDirectory) : Slashes(caseDirectory),
                 ["SRCDIR"] = Slashes(Root),
                 ["CERTDIR"] = Slashes(certificateDirectory),
                 ["CURL"] = build.DefaultPath,
@@ -362,6 +381,16 @@ public sealed class UpstreamTestCasesOverHttpTests
                 .Where(part => part.Name.StartsWith("data", StringComparison.Ordinal) || part.Name.StartsWith("connect", StringComparison.Ordinal))
                 .GroupBy(part => part.Name, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First().ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenCrlf), StringComparer.Ordinal);
+
+        // FILEFORMAT: <data*> are the files RETR sends and the listing; an empty one without
+        // sendzero="yes" is a file that does not exist. <size> and <mdtm> answer SIZE and MDTM.
+        private static Dictionary<string, byte[]> FtpReplyParts(UpstreamTestCase testCase) =>
+            (testCase.FindSection("reply")?.Parts ?? [])
+                .Where(part => part.Name.StartsWith("data", StringComparison.Ordinal) || part.Name is "size" or "mdtm")
+                .GroupBy(part => part.Name, StringComparer.Ordinal)
+                .Select(group => (group.Key, Bytes: group.First().ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenCrlf), SendsZero: group.First().IsSet("sendzero")))
+                .Where(part => part.Bytes.Length > 0 || part.SendsZero || !part.Key.StartsWith("data", StringComparison.Ordinal))
+                .ToDictionary(part => part.Key, part => part.Bytes, StringComparer.Ordinal);
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));

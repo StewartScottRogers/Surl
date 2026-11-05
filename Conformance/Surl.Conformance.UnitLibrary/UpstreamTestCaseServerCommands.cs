@@ -19,6 +19,16 @@ public static class UpstreamTestCaseServerCommands
         ["Testnum", "auth_required", "idle", "no-expect", "skip:", "swsclose", "writedelay:"],
         StringComparer.Ordinal);
 
+    /// <summary>
+    /// The FTP server half's commands (BL-394), the same words <c>Surl.Protocol.Ftp</c>'s
+    /// <c>FtpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts. <c>DELAY</c>,
+    /// <c>RETRWEIRDO</c>, <c>SLOWDOWN</c>, <c>SLOWDOWNDATA</c>, <c>PASVBADIP</c> and the
+    /// <c>NODATACONN</c> forms are not.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Ftp = new HashSet<string>(
+        ["Testnum", "REPLY", "REPLYLF", "COUNT", "RETRNOSIZE", "RETRSIZE", "NOSAVE", "STOR"],
+        StringComparer.Ordinal);
+
     /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
     public const string PostCommand = "postcmd";
 
@@ -28,6 +38,9 @@ public static class UpstreamTestCaseServerCommands
         ["http-ipv6"] = Http,
         ["https"] = Http,
         ["https-mtls"] = Http,
+        ["ftp"] = Ftp,
+        ["ftp-ipv6"] = Ftp,
+        ["ftps"] = Ftp,
     };
 
     /// <summary>

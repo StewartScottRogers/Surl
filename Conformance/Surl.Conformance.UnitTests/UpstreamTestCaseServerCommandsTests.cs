@@ -1,3 +1,4 @@
+using Surl.Protocol.Ftp;
 using Surl.Protocol.Http;
 
 namespace Surl.Conformance;
@@ -13,7 +14,12 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("http", "upgrade", false)]
     [DataRow("http", "skip", false)]
     [DataRow("http", "postcmd", false)]
-    [DataRow("ftp", "REPLY", false)]
+    [DataRow("ftp", "REPLY", true)]
+    [DataRow("ftp-ipv6", "COUNT", true)]
+    [DataRow("ftps", "RETRSIZE", true)]
+    [DataRow("ftp", "DELAY", false)]
+    [DataRow("ftp", "idle", false)]
+    [DataRow("smtp", "REPLY", false)]
     [DataRow("rtsp", "idle", false)]
     public void IsSupported_TheServerHalfsTable_SaysWhichCommandsItImplements(string server, string command, bool expected)
     {
@@ -28,6 +34,14 @@ public sealed class UpstreamTestCaseServerCommandsTests
         var table = UpstreamTestCaseServerCommands.Http.Order(StringComparer.Ordinal).ToArray();
 
         CollectionAssert.AreEqual(HttpUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
+    }
+
+    [TestMethod]
+    public void Ftp_IsTheCommandsTheFtpServerHalfAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.Ftp.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(FtpUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
     }
 
     [TestMethod]

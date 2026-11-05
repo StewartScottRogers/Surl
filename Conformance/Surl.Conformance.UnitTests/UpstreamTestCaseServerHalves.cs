@@ -3,86 +3,122 @@ using System.Text;
 using Surl.Core;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
+using Surl.Protocol.Ftp;
 using Surl.Protocol.Http;
 
 namespace Surl.Conformance;
 
 /// <summary>
-/// Surl's HTTP server half of one upstream test case (ADR-0080 decision 2) on loopback, as
-/// <c>Surl.Console</c> composes a server: <see cref="HttpUpstreamTestCaseServer"/> behind the
-/// serving engine on <c>Surl.Networking</c>'s socket listeners, once in plaintext for
-/// <c>%HTTPPORT</c> and once over TLS for <c>%HTTPSPORT</c>. The listeners bind before the case is
-/// parsed, because the case's replies name the ports; <see cref="Play"/> then hands over the
-/// case's reply before curl starts.
+/// Surl's server halves of one upstream test case (ADR-0080 decision 2) on loopback, as
+/// <c>Surl.Console</c> composes servers: <see cref="HttpUpstreamTestCaseServer"/> and
+/// <see cref="FtpUpstreamTestCaseServer"/> behind the serving engine on <c>Surl.Networking</c>'s
+/// socket listeners and data connections - HTTP in plaintext for <c>%HTTPPORT</c> and over TLS
+/// for <c>%HTTPSPORT</c>, FTP in plaintext for <c>%FTPPORT</c> and on <c>[::1]</c> for
+/// <c>%FTP6PORT</c>, and FTP over implicit TLS for <c>%FTPSPORT</c>. The listeners bind before
+/// the case is parsed, because the case's replies name the ports; <see cref="Play"/> then hands
+/// over the case's reply before curl starts.
 /// </summary>
 /// <remarks>
-/// The TLS listener is registered for the scheme <c>wss</c>, which the listener offers only
+/// <para>
+/// The HTTP TLS listener is registered for the scheme <c>wss</c>, which the listener offers only
 /// <c>http/1.1</c> by ALPN: upstream's test server for <c>https</c> is HTTP/1.1 behind a TLS
 /// tunnel that negotiates no <c>h2</c>, and Surl's <c>https</c> listener offers <c>h2</c> first
 /// (ADR-0081), which would take the exchange away from the HTTP/1.x server half.
+/// </para>
+/// <para>
+/// FTP logins go to <see cref="AnonymousAuthenticationPolicy"/>, the accept-all policy decision 2
+/// names: a case tests curl's login, not Surl's accounts.
+/// </para>
 /// </remarks>
-internal sealed class HttpUpstreamTestCaseServerHalves : IAsyncDisposable
+internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 {
-    private const string TlsScheme = "wss";
+    private const string HttpTlsScheme = "wss";
+    private const string LoopbackIPv4 = "127.0.0.1";
+    private const string LoopbackIPv6 = "::1";
 
-    private readonly CaseServer plaintext;
-    private readonly CaseServer secured;
+    private readonly CaseServer http;
+    private readonly CaseServer httpSecured;
+    private readonly CaseServer ftp;
+    private readonly CaseServer ftpSecured;
     private readonly CancellationTokenSource stop;
     private readonly Task<SurlExitCode> serving;
     private readonly NoteCollectingExchangeLogFactory log;
 
-    private HttpUpstreamTestCaseServerHalves(
-        CaseServer plaintext, CaseServer secured, CancellationTokenSource stop, Task<SurlExitCode> serving, NoteCollectingExchangeLogFactory log, IReadOnlyDictionary<string, int> ports)
+    private UpstreamTestCaseServerHalves(
+        CaseServer[] servers, CancellationTokenSource stop, Task<SurlExitCode> serving, NoteCollectingExchangeLogFactory log, IReadOnlyDictionary<string, int> ports)
     {
-        this.plaintext = plaintext;
-        this.secured = secured;
+        (http, httpSecured, ftp, ftpSecured) = (servers[0], servers[1], servers[2], servers[3]);
         this.stop = stop;
         this.serving = serving;
         this.log = log;
-        HttpPort = ports["http"];
-        HttpsPort = ports[TlsScheme];
+        HttpPort = ports[PortKey("http", LoopbackIPv4)];
+        HttpsPort = ports[PortKey(HttpTlsScheme, LoopbackIPv4)];
+        FtpPort = ports[PortKey("ftp", LoopbackIPv4)];
+        FtpIPv6Port = ports[PortKey("ftp", LoopbackIPv6)];
+        FtpsPort = ports[PortKey("ftps", LoopbackIPv4)];
     }
 
-    /// <summary>The plaintext listener's port: <c>%HTTPPORT</c>.</summary>
+    /// <summary>The plaintext HTTP listener's port: <c>%HTTPPORT</c>.</summary>
     public int HttpPort { get; }
 
-    /// <summary>The TLS listener's port: <c>%HTTPSPORT</c>.</summary>
+    /// <summary>The HTTP TLS listener's port: <c>%HTTPSPORT</c>.</summary>
     public int HttpsPort { get; }
 
-    /// <summary>The notes the server half wrote to its exchange logs so far.</summary>
+    /// <summary>The FTP listener's port on <c>127.0.0.1</c>: <c>%FTPPORT</c>.</summary>
+    public int FtpPort { get; }
+
+    /// <summary>The FTP listener's port on <c>[::1]</c>: <c>%FTP6PORT</c>.</summary>
+    public int FtpIPv6Port { get; }
+
+    /// <summary>The implicit-TLS FTP listener's port: <c>%FTPSPORT</c>.</summary>
+    public int FtpsPort { get; }
+
+    /// <summary>The notes the server halves wrote to their exchange logs so far.</summary>
     public string Notes => log.Text;
 
     /// <summary>
-    /// Binds both listeners on <c>127.0.0.1</c> and starts serving; until <see cref="Play"/>,
-    /// a connection is closed with no bytes.
+    /// Binds every listener and starts serving; until <see cref="Play"/>, a connection is closed
+    /// with no bytes.
     /// </summary>
-    public static async Task<HttpUpstreamTestCaseServerHalves> StartAsync(ServerTlsSettings tlsSettings, CancellationToken cancellationToken)
+    public static async Task<UpstreamTestCaseServerHalves> StartAsync(ServerTlsSettings tlsSettings, CancellationToken cancellationToken)
     {
-        var plaintext = new CaseServer("http");
-        var secured = new CaseServer(TlsScheme);
-        var listeners = new BoundPortRecordingListenerFactory(new SocketListenerFactory(tlsSettings), 2);
+        CaseServer[] servers = [new("http"), new(HttpTlsScheme), new("ftp"), new("ftps")];
+        ListenUrl[] urls =
+        [
+            new("http", LoopbackIPv4, 0),
+            new(HttpTlsScheme, LoopbackIPv4, 0),
+            new("ftp", LoopbackIPv4, 0),
+            new("ftp", LoopbackIPv6, 0),
+            new("ftps", LoopbackIPv4, 0),
+        ];
+        var listeners = new BoundPortRecordingListenerFactory(new SocketListenerFactory(tlsSettings), urls.Length);
         var log = new NoteCollectingExchangeLogFactory();
-        var engine = new ServingEngine(listeners, [plaintext, secured], log, TimeProvider.System, TimeSpan.Zero);
+        var engine = new ServingEngine(
+            listeners, servers, log, TimeProvider.System, TimeSpan.Zero, ConnectionLimits.Default, new SocketDataConnectionOpener(tlsSettings, TimeProvider.System));
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var serving = engine.ServeAsync([new ListenUrl("http", "127.0.0.1", 0), new ListenUrl(TlsScheme, "127.0.0.1", 0)], stop.Token);
+        var serving = engine.ServeAsync(urls, stop.Token);
 
         if (await Task.WhenAny(listeners.AllBound, serving) == serving)
         {
             stop.Dispose();
-            throw new InvalidOperationException($"The serving engine ended with {await serving} before both listeners bound.");
+            throw new InvalidOperationException($"The serving engine ended with {await serving} before every listener bound.");
         }
 
-        return new HttpUpstreamTestCaseServerHalves(plaintext, secured, stop, serving, log, await listeners.AllBound);
+        return new UpstreamTestCaseServerHalves(servers, stop, serving, log, await listeners.AllBound);
     }
 
     /// <summary>
-    /// Answers every later connection, on either listener, with <paramref name="replies"/>.
+    /// Answers every later connection with the case's replies: HTTP's on the HTTP listeners,
+    /// FTP's on the FTP listeners.
     /// </summary>
-    public void Play(HttpUpstreamTestCaseReplies replies)
+    public void Play(HttpUpstreamTestCaseReplies httpReplies, FtpUpstreamTestCaseReplies ftpReplies)
     {
-        var server = new HttpUpstreamTestCaseServer(replies);
-        plaintext.Current = server;
-        secured.Current = server;
+        var httpServer = new HttpUpstreamTestCaseServer(httpReplies);
+        http.Current = httpServer;
+        httpSecured.Current = httpServer;
+        var ftpServer = new FtpUpstreamTestCaseServer(ftpReplies, new AnonymousAuthenticationPolicy());
+        ftp.Current = ftpServer;
+        ftpSecured.Current = ftpServer;
     }
 
     /// <inheritdoc/>
@@ -92,6 +128,8 @@ internal sealed class HttpUpstreamTestCaseServerHalves : IAsyncDisposable
         await serving;
         stop.Dispose();
     }
+
+    private static string PortKey(string scheme, string host) => $"{scheme} {host}";
 
     /// <summary>
     /// Registers one scheme for whichever case server <see cref="Play"/> set.
@@ -107,7 +145,8 @@ internal sealed class HttpUpstreamTestCaseServerHalves : IAsyncDisposable
     }
 
     /// <summary>
-    /// Starts listeners through the socket factory and records each one's bound port by scheme.
+    /// Starts listeners through the socket factory and records each one's bound port by scheme
+    /// and host.
     /// </summary>
     private sealed class BoundPortRecordingListenerFactory(IListenerFactory inner, int expectedListenerCount) : IListenerFactory
     {
@@ -121,7 +160,7 @@ internal sealed class HttpUpstreamTestCaseServerHalves : IAsyncDisposable
             var listener = await inner.StartConnectionListenerAsync(listenUrl, cancellationToken);
             lock (ports)
             {
-                ports[listener.ListenUrl.Scheme] = listener.ListenUrl.BoundPort ?? listener.ListenUrl.Port;
+                ports[PortKey(listenUrl.Scheme, listenUrl.Host)] = listener.ListenUrl.BoundPort ?? listener.ListenUrl.Port;
                 if (ports.Count == expectedListenerCount)
                 {
                     allBound.SetResult(new Dictionary<string, int>(ports, StringComparer.Ordinal));
@@ -132,7 +171,7 @@ internal sealed class HttpUpstreamTestCaseServerHalves : IAsyncDisposable
         }
 
         public ValueTask<IDatagramListener> StartDatagramListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
-            throw new NotSupportedException("The HTTP server half takes no datagrams.");
+            throw new NotSupportedException("The HTTP and FTP server halves take no datagrams.");
     }
 
     /// <summary>

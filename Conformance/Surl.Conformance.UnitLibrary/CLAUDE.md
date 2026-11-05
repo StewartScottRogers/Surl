@@ -188,14 +188,24 @@ Running the http and https cases is built (BL-392):
   number order and `FileNameFor(platform)` its name, `upstream-test-case-results.<platform>.txt`.
 - `UpstreamCurlRunner.RunAsync` takes a working directory, so a case's relative paths are
   relative to its own folder, as they are to runtests'.
-- `Surl.Conformance.UnitTests`' `UpstreamTestCasesOverHttpTests` (`Integration`,
+- `Surl.Conformance.UnitTests`' `UpstreamTestCasesAgainstSurlTests` (`Integration`,
   `UpstreamTestCases`) runs every case on the reference build, each with its own
-  `HttpUpstreamTestCaseServerHalves` (plaintext and TLS, the TLS listener on the `wss` scheme so
-  ALPN offers only `http/1.1`), its own folder as curl's working directory, `%PWD` and `HOME`,
-  `%LOGDIR` the relative `log`, and a 60-second limit; a case naming another server is written
-  `skip server-half-not-composed:<name>` and an unparsable one `skip unparsable`. CI's
+  `UpstreamTestCaseServerHalves` (HTTP in plaintext and over TLS, the TLS listener on the `wss`
+  scheme so ALPN offers only `http/1.1`; FTP on `127.0.0.1` and `[::1]` and over implicit TLS for
+  `ftps`, with socket data connections and the accept-all `AnonymousAuthenticationPolicy`), its
+  own folder as curl's working directory, `%PWD` and `HOME`, `%LOGDIR` the relative `log`, and a
+  60-second limit; a case naming a server other than `http`, `https`, `ftp`, `ftp-ipv6` and
+  `ftps` is written `skip server-half-not-composed:<name>` and an unparsable one
+  `skip unparsable`. A case's `<protocol>` is checked against its first server's received bytes
+  followed by the other's, and `<upload>` against the FTP server half's uploads. CI's
   `Upstream test cases` job runs it on Linux and macOS and uploads the results file and the
   run's passing list (both are written to the test assembly's folder).
+
+Playing the ftp, ftp-ipv6 and ftps cases is built (BL-394): `UpstreamTestCaseServerCommands.Ftp`
+is the FTP row, the same words as `Surl.Protocol.Ftp`'s
+`FtpUpstreamTestCaseReplies.SupportedServerCommands` (`Testnum`, `REPLY`, `REPLYLF`, `COUNT`,
+`RETRNOSIZE`, `RETRSIZE`, `NOSAVE`, `STOR`); `DELAY`, `RETRWEIRDO`, `SLOWDOWN`, `SLOWDOWNDATA`,
+`PASVBADIP` and the `NODATACONN` forms skip `servercmd-unsupported:<command>`.
 
 The stated pass rate and its guard are built (BL-393):
 
