@@ -71,3 +71,4 @@ Decide and record:
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.
+- 2026-11-05: Backlog -> Doing.
