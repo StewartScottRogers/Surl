@@ -51,8 +51,8 @@ socket (`http-unix`), TLS-SRP (`httptls+srp`, `httptls+srp-ipv6`) and the test D
   - `httptls+srp` (4): 320, 321, 322, 324; `httptls+srp-ipv6`: none at the tag
   - `dns` (3): 2102, 2103, 2104 (need feature `override-dns`, which BL-569 measures per pin)
   - 715 and 2055 name both `http-proxy` and `socks5`, hence 69 names over 67 cases.
-- Filed by `task-planner`, BL-546 to BL-570, five families, each opening with an ADR task:
-  - Unix domain sockets: BL-546 (ADR), BL-547 listener, BL-548 executable, BL-549 server half.
+- Filed by `task-planner`, BL-571 to BL-570, five families, each opening with an ADR task:
+  - Unix domain sockets: BL-571 (ADR), BL-547 listener, BL-548 executable, BL-549 server half.
   - HTTP and HTTPS proxies: BL-550 (ADR), BL-551 outbound origin connections, BL-552 forward and
     CONNECT, BL-553 Proxy-Authorization, BL-554 HTTPS proxy, BL-555 executable, BL-556 server half.
   - SOCKS: BL-557 (ADR), BL-558 SOCKS4/4a, BL-559 SOCKS5/5h, BL-560 executable, BL-561 SOCKS5 on
@@ -70,4 +70,4 @@ socket (`http-unix`), TLS-SRP (`httptls+srp`, `httptls+srp-ipv6`) and the test D
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
-- 2026-11-04: Doing -> Done. BL-546 to BL-570 plan the proxy, SOCKS, Unix-socket, TLS-SRP and dns server halves the 67 waiting upstream test cases need, each family opening with an ADR task
+- 2026-11-04: Doing -> Done. BL-571 to BL-570 plan the proxy, SOCKS, Unix-socket, TLS-SRP and dns server halves the 67 waiting upstream test cases need, each family opening with an ADR task

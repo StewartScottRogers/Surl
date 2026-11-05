@@ -1,5 +1,5 @@
 ---
-id: BL-546
+id: BL-571
 title: Decide how Surl listens on a Unix domain socket
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-546 — Decide how Surl listens on a Unix domain socket
+# BL-571 — Decide how Surl listens on a Unix domain socket
 
 ## Goal
 

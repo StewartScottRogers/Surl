@@ -14,13 +14,13 @@ completed:
 
 ## Goal
 
-`surl` serves its SOCKS5 server on a Unix domain socket, using BL-546's command-line form (BL-548
+`surl` serves its SOCKS5 server on a Unix domain socket, using BL-571's command-line form (BL-548
 added it for HTTP), so upstream curl's `--socks5 localhost/<path>` style proxy over a Unix socket
 completes its exchange.
 
 ## Context
 
-- Decisions: BL-546's ADR (the Unix socket form, which servers may use it, Windows and abstract
+- Decisions: BL-571's ADR (the Unix socket form, which servers may use it, Windows and abstract
   names) and BL-557's ADR decision 5 (SOCKS5 on a Unix socket).
 - Code: BL-548's Unix socket option handling in `Application/Surl.Cli.UnitLibrary` and
   `Application/Surl.Console/CommandLineRunner.cs`; BL-560's SOCKS composition. Whatever BL-548

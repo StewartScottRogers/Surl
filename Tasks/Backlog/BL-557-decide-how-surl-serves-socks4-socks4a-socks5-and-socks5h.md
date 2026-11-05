@@ -4,7 +4,7 @@ title: Decide how Surl serves SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-546, BL-550]
+depends-on: [BL-571, BL-550]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
@@ -37,7 +37,7 @@ origin.
   `%SOCKSUNIXPATH` and any SOCKS `<servercmd>` lines. Measure each byte with
   `Record-CurlExchange.ps1` against the pinned 8.21.0 builds; never the Curl port (ADR-0003).
 - Building on: BL-550's ADR (the outbound-connection contract BL-551 builds, the allowed-origin
-  rule), BL-546's ADR (the Unix socket listener), ADR-0079 (category folders: a new category is a
+  rule), BL-571's ADR (the Unix socket listener), ADR-0079 (category folders: a new category is a
   decision recorded in an ADR).
 
 Decide and record:
@@ -56,7 +56,7 @@ Decide and record:
 4. RFC 1929: how accounts are named on the command line and the failure reply.
 5. The command line (planning assumption: `surl socks4://127.0.0.1:1080` and
    `surl socks5://127.0.0.1:1080`, mirroring curl's proxy URL schemes, `socks4a` and `socks5h`
-   being client-side choices the same listener serves) and SOCKS5 on a Unix socket via BL-546's
+   being client-side choices the same listener serves) and SOCKS5 on a Unix socket via BL-571's
    form.
 6. Each ADR-0006 limit the SOCKS server applies (handshake timeout, maximum user ID and host name
    lengths).

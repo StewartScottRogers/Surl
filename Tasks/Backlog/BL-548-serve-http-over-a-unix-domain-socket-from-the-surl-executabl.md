@@ -14,13 +14,13 @@ completed:
 
 ## Goal
 
-`surl` accepts BL-546's command-line form for a Unix domain socket (planning assumption:
+`surl` accepts BL-571's command-line form for a Unix domain socket (planning assumption:
 `surl --unix-socket <path> http://localhost/`) and serves its HTTP server there, so a pinned
 upstream curl run with `--unix-socket <path>` completes its exchange.
 
 ## Context
 
-- Decision: BL-546's ADR, decisions 1 to 6. The option's name, its argument and its refusals are
+- Decision: BL-571's ADR, decisions 1 to 6. The option's name, its argument and its refusals are
   the ADR's.
 - Code: `Application/Surl.Cli.UnitLibrary` (`CommandLineOptions`, `CommandLineParser`,
   `ListenUrlParser`, `OptionArgumentReading`, `HelpCategories`, `AiHelpProse`, `AiHelpExamples`,
@@ -47,7 +47,7 @@ upstream curl run with `--unix-socket <path>` completes its exchange.
 
 ## Notes
 
-- Planning assumption (BL-399): the option name mirrors curl's `--unix-socket`; BL-546's ADR may
+- Planning assumption (BL-399): the option name mirrors curl's `--unix-socket`; BL-571's ADR may
   choose another form, and this task follows the ADR.
 
 ## Log

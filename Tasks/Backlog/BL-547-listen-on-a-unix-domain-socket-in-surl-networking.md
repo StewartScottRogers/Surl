@@ -4,7 +4,7 @@ title: Listen on a Unix domain socket in Surl.Networking
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-546]
+depends-on: [BL-571]
 touches: [Foundation/Surl.Networking.UnitLibrary, Foundation/Surl.Networking.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -15,12 +15,12 @@ completed:
 ## Goal
 
 `IListenerFactory.StartConnectionListenerAsync` starts a connection listener on a Unix domain
-socket path (and, on Linux, an abstract name) when the listen request says so, as BL-546's ADR
+socket path (and, on Linux, an abstract name) when the listen request says so, as BL-571's ADR
 decides, and every connection-oriented protocol server runs on it unchanged.
 
 ## Context
 
-- Decision: BL-546's ADR. It fixes how a listen request names a Unix socket, the socket file's
+- Decision: BL-571's ADR. It fixes how a listen request names a Unix socket, the socket file's
   creation, permissions and deletion, abstract names, Windows `AF_UNIX`, and each failure's
   `SurlExitCode`. Follow it where it differs from this task.
 - Code: `Foundation/Surl.Protocol.Abstractions.UnitLibrary/ListenUrl.cs` and `IListenerFactory.cs`

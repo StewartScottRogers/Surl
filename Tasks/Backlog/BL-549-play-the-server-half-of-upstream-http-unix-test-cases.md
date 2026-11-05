@@ -22,7 +22,7 @@ cases.
 ## Context
 
 - Decision: ADR-0080 decision 2 (the `http-unix` row, mode verbatim reply as `http`) and decision 3
-  (`server-not-built:http-unix` stops applying the day the row flips); BL-546's ADR for the socket
+  (`server-not-built:http-unix` stops applying the day the row flips); BL-571's ADR for the socket
   path.
 - Cases that wait on this, tag `curl-8_21_0` (commit `68720b4837284335b2d63cb358f8f6ce65f5bc55`):
   1435 and 1436, feature `UnixSockets`, command `--unix-socket %HTTPUNIXPATH`. ADR-0016 says the

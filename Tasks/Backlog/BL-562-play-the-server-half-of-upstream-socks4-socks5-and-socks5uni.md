@@ -23,7 +23,7 @@ file counts the cases.
 ## Context
 
 - Decisions: ADR-0080 decisions 2 and 3 (`server-not-built:socks4`, `:socks5`, `:socks5unix` stop
-  applying when the rows flip); BL-557's ADR decision 7; BL-546's ADR for the socket path. If the
+  applying when the rows flip); BL-557's ADR decision 7; BL-571's ADR for the socket path. If the
   SOCKS server needs a seam to take a case's parts, it lives in `Surl.Protocol.Socks` (planning name
   `SocksUpstreamTestCaseReplies`); if it needs none, Notes say so.
 - Cases that wait on this (tag `curl-8_21_0`, commit `68720b4837284335b2d63cb358f8f6ce65f5bc55`):
