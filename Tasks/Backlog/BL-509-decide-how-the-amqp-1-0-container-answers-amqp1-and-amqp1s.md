@@ -4,7 +4,7 @@ title: Decide how the AMQP 1.0 container answers amqp1 and amqp1s
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-04
@@ -30,6 +30,11 @@ decision.
   - Part 5 (security: the TLS and SASL layers).
 - Which frames a client sends (what to accept, not a verdict): the port's `Curl.Extended.Protocol.Amqp1.UnitLibrary`
   and its matrices `Amqp1.md` and `Amqp1-Messaging.md`. The port's `Amqp1ReferenceContainer` is copyable code.
+- Shared message bus (Stewart, 2026-11-04): BL-622's ADR decides one topic space shared by every messaging
+  server in one `surl`, held by the horizontal library it names (planning `Surl.MessageBus`), and how an AMQP 1.0
+  link address maps onto its topics and queues. Decisions 4 and 6 below apply that mapping (nodes are the bus's
+  topics and queues, storage across restarts is the bus's) and add only what is AMQP 1.0-specific. Logins read
+  the one account set (ADR-0032; BL-622 decision 4).
 
 Decide and record:
 
@@ -59,3 +64,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.

@@ -4,7 +4,7 @@ title: Decide how the STOMP broker answers stomp and stomps
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Stomp.md]
 requirement: none
 created: 2026-11-04
@@ -27,6 +27,12 @@ frames, TLS and limits. A server-side requirement matrix traces each decision.
 - Which frames a client sends (what to accept, not a verdict): the port's `Curl.Extended.Protocol.Stomp.UnitLibrary`
   (the port's ADR-1059) and its matrix `Stomp.md`.
 - ADR-0006 section 3: the CONNECTED `server` header names `surl` with no version.
+- Shared message bus (Stewart, 2026-11-04): BL-622's ADR decides one topic space shared by every messaging
+  server in one `surl`, held by the horizontal library it names (planning `Surl.MessageBus`), and how STOMP
+  `/topic/…` and `/queue/…` destinations map onto its topics and queues. Decisions 4 and 5 below apply that
+  mapping (kept messages and redelivery are the bus's) and add only what is STOMP-specific; a message published
+  over `mqtt` must reach a STOMP subscriber. `login`/`passcode` read the one account set (ADR-0032; BL-622
+  decision 4).
 
 Decide and record:
 
@@ -53,3 +59,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.

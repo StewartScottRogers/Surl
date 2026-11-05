@@ -36,6 +36,9 @@ server-side requirement matrix traces each decision.
 - The HTTP/3 pieces: BL-402's library (BL-410) with extended CONNECT and datagrams (BL-411),
   on `Surl.Quic` (BL-373 to BL-379) and the QUIC seam (BL-380, BL-381). HTTP/3 is answered from the executable
   by BL-384.
+- One account set (Stewart, 2026-11-04; BL-622's ADR decision 4): whatever login the session needs reads the
+  accounts of `--user`, `--user-file` and the layer-2 options through `Surl.Authentication`'s contracts
+  (ADR-0032, ADR-0084 decision 4), never a private credential source; anonymous only under `--allow-anonymous`.
 
 Decide and record:
 
@@ -64,3 +67,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: logins read the one account set.

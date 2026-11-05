@@ -4,7 +4,7 @@ title: Decide how the OCI registry server answers oci
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/OciRegistry.md]
 requirement: none
 created: 2026-11-04
@@ -32,6 +32,11 @@ storage and limits. A server-side requirement matrix traces each decision.
   `Curl.Extended.Protocol.OciRegistry.UnitLibrary` and its matrix `OciRegistry.md`.
 - The spec's own conformance suite (opencontainers/distribution-spec `conformance/`) lists the workflows a
   registry must pass. Use it as a checklist, not as code.
+- Shared stores (Stewart, 2026-11-04): BL-622's ADR decides that the registry keeps repositories in the
+  **same** `ContentStore` as the other file servers - repository = top-level folder, laid out inside it as
+  BL-622 decides (planning: the OCI Image Layout's `blobs/<alg>/<hex>` and `index.json`) - instead of a private
+  area under `.surl/`. Decision 2 below therefore applies BL-622's layout and says only what it leaves open.
+  Token-endpoint credentials come from the one account set (BL-622 decision 4).
 
 Decide and record:
 
@@ -62,3 +67,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.

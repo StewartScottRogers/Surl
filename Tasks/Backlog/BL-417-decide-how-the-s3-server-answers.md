@@ -4,7 +4,7 @@ title: Decide how the S3 server answers
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/S3.md]
 requirement: none
 created: 2026-11-04
@@ -35,6 +35,12 @@ Reference. A server-side requirement matrix traces each decision to a test-to-be
   - accounts and secure-by-default (ADR-0032);
   - `--allow-uploads` and `--allow-anonymous` (ADR-0006 section 2).
 - BL-401's ADR decides whether buckets are top-level content-store directories.
+- Shared stores (Stewart, 2026-11-04): BL-622's ADR decides that the S3 server serves the **same** `ContentStore`
+  instance as HTTP, FTP, SFTP and SMB - bucket = top-level folder, object = file - and where object metadata and
+  ETags live. Do not re-decide that here; decision 3 below applies BL-622's mapping and adds only what is
+  S3-specific. Layer 2's named shares, `--bucket <name>=<path>` and per-account share access come from the
+  configuration ADRs that follow BL-622; leave the bucket lookup as the seam BL-622 names. Logins read the one
+  account set (ADR-0032; BL-622 decision 4). An object uploaded over FTP and read with GetObject must work.
 
 Decide and record:
 
@@ -66,3 +72,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.

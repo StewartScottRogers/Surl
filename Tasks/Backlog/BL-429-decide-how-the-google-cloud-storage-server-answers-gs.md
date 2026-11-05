@@ -4,7 +4,7 @@ title: Decide how the Google Cloud Storage server answers gs
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/GoogleCloudStorage.md]
 requirement: none
 created: 2026-11-04
@@ -32,6 +32,12 @@ matrix traces each decision.
 - V4 HMAC is SigV4's scheme with Google's names (`GOOG4-HMAC-SHA256`, `x-goog-date`, `x-goog-content-sha256`,
   the `goog4_request` scope). `Surl.Authentication` already has `AwsSigV4*`; BL-430 adds the Google variant
   beside it.
+- Shared stores (Stewart, 2026-11-04): BL-622's ADR decides that the Cloud Storage server serves the **same**
+  `ContentStore` instance as HTTP, FTP, SFTP, SMB, S3 and Azure - bucket = top-level folder, object = file -
+  and where object metadata lives. Decision 2's "bucket mapping onto the store" applies BL-622's mapping. Named
+  shares, `--bucket` mapping and per-account access come from the configuration ADRs after BL-622. HMAC keys and
+  bearer tokens come from the one account set (BL-622 decision 4). A file uploaded over FTP and read with GET
+  Object must work.
 
 Decide and record:
 
@@ -57,3 +63,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.

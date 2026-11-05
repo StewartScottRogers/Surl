@@ -4,7 +4,7 @@ title: Serve s3 from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-420, BL-405]
+depends-on: [BL-420, BL-405, BL-655]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -27,11 +27,18 @@ extension switch turns it off.
   `AiHelpProse.TopicAbout` paragraph saying the server is judged by the S3 API Reference and not by upstream
   curl, an `AiHelpExamples` entry, and the topic list pinned in `AiHelpTextTests` growing by one.
 - Any new option needs its `OptionArgumentType` and its categories (ADR-0034).
+- Shared stores (Stewart, 2026-11-04; BL-622's ADR decision 1): `s3` is handed the **same** `ContentStore`
+  instance every original file server gets (and its bucket names resolve through BL-655's lookup, which BL-663's
+  `--bucket` fills), and the same account set. If BL-609 has moved the composition to
+  `Application/Surl.Composition.UnitLibrary` (`ExtendedProtocolServers.Compose` keeps its name), register it there
+  and record the changed touches in Notes.
 
 ## Acceptance criteria
 
 - [ ] A named `Surl.Console.UnitTests` test composes the servers and finds `s3` registered when the switch is on,
       and absent when it is off.
+- [ ] A named test shows the `s3` server and the `ftp` and `http` servers composed with one and the same
+      `ContentStore` instance.
 - [ ] `CommandLineRunnerAiHelpTests.RegisteredSchemes_AreEachClaimedByExactlyOneProtocolTopic`,
       `AiHelpTextTests.Topics_AreTheAdrsTopicsAndEachProtocolAddedInOrdinalOrder`,
       `AiHelpTextTests.Answer_EveryTopicAndTheOverview_HasItsAboutText`,
@@ -45,3 +52,4 @@ extension switch turns it off.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-655; composed with the one shared content store.

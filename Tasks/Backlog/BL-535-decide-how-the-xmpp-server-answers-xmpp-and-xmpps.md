@@ -31,6 +31,10 @@ requirement matrix traces each decision.
   (the port's ADR-1068) and its matrix `Xmpp.md`. The port's `XmppReferenceServer` is copyable code.
 - SCRAM: BL-416 adds it to `Surl.Authentication`. TLS upgrade: the listener seam, as the mail servers' STARTTLS
   is (ADR-0010, ADR-0069).
+- One account set (Stewart, 2026-11-04; BL-622's ADR decision 4): SASL logins read the accounts of `--user`,
+  `--user-file` and the layer-2 options (a `--mailbox` account restricted with `protocols=` included, BL-647)
+  through `Surl.Authentication`'s SASL contracts, never a private roster of credentials. If decision 1 ties the
+  XMPP domain to an option, consider BL-642's `--mail-domain` so one domain serves mail and chat.
 
 Decide and record:
 
@@ -59,3 +63,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: logins read the one account set.

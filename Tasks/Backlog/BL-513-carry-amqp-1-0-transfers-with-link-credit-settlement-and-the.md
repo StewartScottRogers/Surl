@@ -4,7 +4,7 @@ title: Carry AMQP 1.0 transfers with link credit, settlement and the message for
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-512]
+depends-on: [BL-512, BL-664]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -28,6 +28,12 @@ allows, and handles the dispositions the receiver sends.
   - Part 3, section 3.2 (message sections: header, delivery-annotations, message-annotations, properties,
     application-properties, data / amqp-sequence / amqp-value, footer) and 3.4 (delivery states).
 - Node state is shared by connections and owned by the server instance, not a static.
+- **Shared message bus (Stewart, 2026-11-04; BL-622's ADR, applied by BL-509's ADR):** nodes are the bus's topics
+  and queues (BL-631), addresses converted with BL-630's mapping, so a message published over `mqtt` reaches an
+  `amqp1` receiver and the reverse. The library references `Surl.MessageBus.UnitLibrary`. The message sections are
+  kept byte for byte for an `amqp1` receiver; what other protocols see of them is BL-622's ADR's. Each attach passes
+  the connection's account and scheme to BL-664's access check, a refusal answered `amqp:unauthorized-access` as
+  BL-509's ADR says.
 
 ## Acceptance criteria
 
@@ -39,7 +45,9 @@ allows, and handles the dispositions the receiver sends.
       - a rejected one not redelivered;
       - an aborted transfer discarded;
       - a transfer beyond credit refused with the right condition;
-      - the message sections kept byte for byte from sender to receiver.
+      - the message sections kept byte for byte from sender to receiver;
+      - a message published on the bus under an MQTT name delivered to a receiver attached to the mapped address;
+      - an attach refused by topic access answered as the ADR says.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
@@ -48,3 +56,4 @@ allows, and handles the dispositions the receiver sends.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; nodes are Surl.MessageBus's topics and queues.

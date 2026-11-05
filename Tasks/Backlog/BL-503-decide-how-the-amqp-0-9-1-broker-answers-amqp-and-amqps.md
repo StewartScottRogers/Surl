@@ -4,7 +4,7 @@ title: Decide how the AMQP 0-9-1 broker answers amqp and amqps
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Amqp0.md]
 requirement: none
 created: 2026-11-04
@@ -26,6 +26,12 @@ served, heartbeats, the exceptions and limits. A server-side requirement matrix 
   (https://www.rabbitmq.com/amqp-0-9-1-errata.html) for the field-table types.
 - Which methods a client sends (what to accept, not a verdict): the port's `Curl.Extended.Protocol.Amqp0.UnitLibrary`
   and its matrices `Amqp0.md` and `Amqp0-Messaging.md`. The port's `Amqp0ReferenceBroker` is copyable code.
+- Shared message bus (Stewart, 2026-11-04): BL-622's ADR decides one topic space shared by `mqtt`, `mqtt5`,
+  `amqp`, `amqp1`, `kafka`, `nats` and `stomp` in one `surl`, held by the horizontal library it names (planning
+  `Surl.MessageBus`), and how AMQP 0-9-1 exchanges, binding keys, routing keys and queues map onto it.
+  Decisions 5 and 6 below apply that mapping (queues are the bus's queues, not a private store; durability and
+  restart survival are the bus's) and add only what is AMQP-specific. A message published over `mqtt` must reach
+  a queue bound on `amq.topic`. Logins read the one account set (ADR-0032; BL-622 decision 4).
 
 Decide and record:
 
@@ -55,3 +61,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.

@@ -4,7 +4,7 @@ title: Decide how the NATS server answers nats and natss
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Nats.md]
 requirement: none
 created: 2026-11-04
@@ -28,6 +28,11 @@ errors and limits. A server-side requirement matrix traces each decision.
   (the port's ADR-1065) and its matrix `Nats.md`.
 - ADR-0006 section 3: no version number in a banner. INFO's `version` field is required by the protocol, so
   decide what it carries (for example a fixed protocol-level value, not surl's version).
+- Shared message bus (Stewart, 2026-11-04): BL-622's ADR decides one topic space shared by every messaging
+  server in one `surl`, held by the horizontal library it names (planning `Surl.MessageBus`), and how NATS
+  subjects (`a.b`, `*`, `>`) and queue groups map onto it. Decision 4 below applies that mapping (routing is the
+  bus's, so a NATS subscriber receives what `mqtt` publishes) and adds only what is NATS-specific. User, password
+  and token read the one account set (ADR-0032; BL-622 decision 4).
 
 Decide and record:
 
@@ -57,3 +62,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.

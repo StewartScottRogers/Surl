@@ -4,7 +4,7 @@ title: Route MQTT 5 PUBLISH with QoS flows, retained messages, topic aliases and
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-496]
+depends-on: [BL-496, BL-664]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -32,6 +32,13 @@ properties the specification says to forward unchanged.
   - 4.9 (flow control: `0x93` Receive Maximum exceeded).
 - Delivery to another connection's subscriber goes through broker state shared by connections (as
   `MqttRetainedMessages` is for 3.1.1), owned by the server instance, not a static.
+- **Amended by the shared-stores decision (Stewart, 2026-11-04; BL-622's ADR, which amends ADR-0093 decision
+  0):** routing and retained messages go through the one `Surl.MessageBus` composed per `surl` run, shared with
+  the original `mqtt` server and the other brokers - not a private `Mqtt5RetainedMessages`. The library references
+  `Surl.MessageBus.UnitLibrary` (allowed by BL-622's ADR-0002 row); names convert with BL-630's mapping; MQTT 5
+  properties ride the bus message's properties as BL-622's ADR says; each publish passes the connection's account
+  and scheme to BL-664's access check, a refusal answered with PUBACK/PUBREC `0x87` Not authorized (MQTT 5.0
+  section 3.4.2.1) unless BL-642's ADR says otherwise. Session state (BL-499) stays the broker's.
 
 ## Acceptance criteria
 
@@ -45,7 +52,10 @@ properties the specification says to forward unchanged.
       - the remaining expiry interval sent on a delayed delivery;
       - a Payload Format Indicator of 1 with invalid UTF-8 gets `0x99`;
       - a retained message delivered to a later subscriber and cleared by an empty retained PUBLISH;
-      - user properties forwarded in order.
+      - user properties forwarded in order;
+      - a message published through the bus by another server (as `mqtt` would) delivered to an `mqtt5`
+        subscriber, and an `mqtt5` retained message visible on the bus;
+      - a publish refused by topic access answered as the ADR says.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
@@ -54,3 +64,4 @@ properties the specification says to forward unchanged.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; routes and retains through Surl.MessageBus.

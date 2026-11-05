@@ -26,6 +26,9 @@ limits, the high watermark and last stable offset, and `OFFSET_OUT_OF_RANGE` pas
   `aborted_transactions` and `records`, and the rule that the first batch is returned whole even when it exceeds
   the limit), ListOffsets v1 (timestamp -2 earliest, -1 latest), and `OFFSET_OUT_OF_RANGE` 1.
 - Time from `ExchangeContext.TimeProvider`.
+- **Shared message bus (Stewart, 2026-11-04; BL-622's ADR):** fetches read the bus's per-topic log (BL-633), so a
+  message published over `mqtt` is fetchable here as a record built as BL-622's ADR says (its offset, timestamp,
+  key and headers). Each fetch passes the connection's account and scheme to BL-664's access check.
 
 ## Acceptance criteria
 
@@ -36,7 +39,9 @@ limits, the high watermark and last stable offset, and `OFFSET_OUT_OF_RANGE` pas
       - a fetch past the end with `min_bytes` 1 waiting until a produce arrives or `max_wait_ms` passes on the
         manual clock;
       - a fetch beyond the high watermark gets `OFFSET_OUT_OF_RANGE`;
-      - ListOffsets earliest and latest.
+      - ListOffsets earliest and latest;
+      - a message published on the bus under an MQTT name fetched as a record of the mapped topic;
+      - a fetch refused by topic access gets the ADR's error code.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
@@ -45,3 +50,4 @@ limits, the high watermark and last stable offset, and `OFFSET_OUT_OF_RANGE` pas
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: fetches read Surl.MessageBus's topic logs.

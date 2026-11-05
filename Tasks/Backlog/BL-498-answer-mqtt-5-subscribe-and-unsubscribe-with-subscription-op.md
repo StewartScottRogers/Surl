@@ -30,6 +30,11 @@ members.
   - 4.8 (shared subscriptions);
   - 3.8.2.1.2 (Subscription Identifier, and `0xA1` if not supported).
 - The 3.1.1 server's `MqttTopicFilter` may be copied, not referenced.
+- **Shared message bus (Stewart, 2026-11-04; BL-622's ADR):** subscriptions are the bus's subscriptions, filters
+  converted with BL-630's mapping rather than a private filter type, and `$share/` groups use the bus's queues
+  (BL-631) if BL-622's ADR says so. Each subscribe passes the connection's account and scheme to BL-664's access
+  check; a refused filter gets SUBACK `0x87` Not authorized (MQTT 5.0 section 3.9.3) unless BL-642's ADR says
+  otherwise.
 
 ## Acceptance criteria
 
@@ -42,7 +47,8 @@ members.
       - a Subscription Identifier carried on delivery;
       - two members of a `$share/g/t` group each getting one of two messages;
       - UNSUBSCRIBE of an unknown filter gets `0x11`;
-      - an invalid filter gets `0x8F`.
+      - an invalid filter gets `0x8F`;
+      - a filter refused by topic access gets the ADR's reason code.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
@@ -51,3 +57,4 @@ members.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: subscriptions are Surl.MessageBus's, with topic access.

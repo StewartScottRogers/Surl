@@ -4,7 +4,7 @@ title: Decide how the Kafka broker answers kafka and kafkas
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-04
@@ -32,6 +32,13 @@ codes, TLS and limits. A server-side requirement matrix traces each decision.
   request header v1, Metadata v4, Produce v3, Fetch v4, SaslHandshake v1 and SaslAuthenticate v0, produces
   uncompressed batches only, and consumes gzip, Snappy, LZ4 and zstd batches. The port's `KafkaReferenceBroker` is
   copyable code.
+- Shared message bus (Stewart, 2026-11-04): BL-622's ADR decides one topic space shared by every messaging
+  server in one `surl`, held by the horizontal library it names (planning `Surl.MessageBus`), including whether
+  the per-topic log with offsets lives in the bus, and how a Kafka topic and partition map onto it. Decisions 2,
+  3 and 4 below apply that (topics and the log are the bus's, not a private store; a message published over
+  `mqtt` must be fetchable over `kafka`, and a produced record consumable over `mqtt`) and add only what is
+  Kafka-specific, including how compressed batches reconcile with a bus that holds individual messages.
+  SASL reads the one account set (ADR-0032; BL-622 decision 4).
 
 Decide and record:
 
@@ -63,3 +70,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.

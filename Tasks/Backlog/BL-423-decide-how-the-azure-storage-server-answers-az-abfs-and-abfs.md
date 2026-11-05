@@ -4,7 +4,7 @@ title: Decide how the Azure Storage server answers az, abfs and abfss
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/AzureStorage.md]
 requirement: none
 created: 2026-11-04
@@ -33,6 +33,12 @@ authentication, error bodies, TLS and limits. A server-side requirement matrix t
   `AzureDataLakeReferenceEndpoint` are copyable code.
 - Surl has bearer checking (`BearerAuthenticationMethod` in `Surl.Authentication`) and accounts (ADR-0032), and
   the HTTP/1.1 serving from BL-407. BL-401's ADR decides the store mapping.
+- Shared stores (Stewart, 2026-11-04): BL-622's ADR decides that the Azure Storage server serves the **same**
+  `ContentStore` instance as HTTP, FTP, SFTP, SMB and S3 - container (and Data Lake filesystem) = top-level
+  folder, blob or path = file - and where blob metadata and ETags live. Decision 2 below applies BL-622's
+  mapping and adds only what is Azure-specific. Named shares, `--bucket` mapping and per-account access come from
+  the configuration ADRs after BL-622. Shared Key and bearer credentials come from the one account set (BL-622
+  decision 4). A file uploaded over FTP and read with Get Blob must work.
 
 Decide and record:
 
@@ -60,3 +66,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.
