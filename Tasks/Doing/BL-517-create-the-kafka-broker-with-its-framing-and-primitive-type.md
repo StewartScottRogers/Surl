@@ -48,3 +48,4 @@ use, and answers an unknown API key or version as BL-516's ADR says.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
