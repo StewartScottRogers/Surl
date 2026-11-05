@@ -12,7 +12,7 @@ row needs no test.
 IDs are `Amqp1:Types-<section>-<n>` for Part 1, `Amqp1:Core-<section>-<n>` for Part 2,
 `Amqp1:Messaging-<section>-<n>` for Part 3, `Amqp1:Security-<section>-<n>` for Part 5,
 `Amqp1:RFC<n>-<n>` for an RFC, and `Amqp1:Surl-<Decision>-<n>` for a rule ADR-0107 adds where the
-specification leaves the container a choice. Part 4 (transactions) is BL-705's.
+specification leaves the container a choice. Part 4 (transactions) is BL-707's.
 
 ## Types and encodings (Part 1, sections 1.2 to 1.6)
 
@@ -98,7 +98,7 @@ specification leaves the container a choice. Part 4 (transactions) is BL-705's.
 | Amqp1:Surl-Nodes-3 | MUST | No address, an address that maps to no valid name, or a wildcard in a target is refused with `amqp:not-found`. | BL-512 |
 | Amqp1:Surl-Nodes-4 | MUST | An attach topic access denies is refused with `amqp:unauthorized-access`, the same whether or not the node exists. | BL-513 |
 | Amqp1:Surl-Nodes-5 | MUST | An attach the bus refuses (`TooManyQueues`, `TooManySubscriptions`) is refused with `amqp:resource-limit-exceeded`. | BL-513 |
-| Amqp1:Surl-Nodes-6 | MUST | A `coordinator` target is refused with `amqp:not-implemented` until BL-705's decision is built. | BL-512 |
+| Amqp1:Surl-Nodes-6 | MUST | A `coordinator` target is refused with `amqp:not-implemented` until BL-707's decision is built. | BL-512 |
 | Amqp1:Messaging-3.5.3-2 | MUST | The container's source states `distribution-mode` `move` for a queue and `copy` for a topic, `durable` `none` for a topic, and leaves out a `filter` it does not apply. | BL-512 |
 | Amqp1:Core-2.6.13-1 | MUST | A client's `unsettled` map is ignored and the container's attach carries none: links are not resumed. | BL-512 |
 
@@ -145,4 +145,4 @@ specification leaves the container a choice. Part 4 (transactions) is BL-705's.
 | Amqp1:Surl-Limits-3 | MUST | `--max-time` and the connection limits close a connection with `close` and `amqp:resource-limit-exceeded` once `open` has been exchanged, otherwise with no bytes. | BL-512 |
 | Amqp1:Surl-Limits-4 | MUST | Every error `description` is fixed text from the container's table, never an address, path, account or exception, and no `info` map is sent. | BL-512 |
 | Amqp1:Security-5.2.1-1 | MUST | `amqp1s` carries the same protocol inside implicit TLS (TLS 1.2 or 1.3) from the first byte. | n/a: the TLS wrapper is the composition's `ImplicitTlsSchemeServer` (ADR-0010), added by BL-514, not the container's |
-| Amqp1:Surl-Storage-1 | MUST | Queues and topic logs, with each message's native form, persist under `--directory` in `.surl/bus`; the container writes no file of its own. | n/a: persistence is the bus's (ADR-0100 decision 3.7, BL-634) and the native form's BL-704's; the container only hands the bus its messages, which BL-513's tests show |
+| Amqp1:Surl-Storage-1 | MUST | Queues and topic logs, with each message's native form, persist under `--directory` in `.surl/bus`; the container writes no file of its own. | n/a: persistence is the bus's (ADR-0100 decision 3.7, BL-634) and the native form's BL-706's; the container only hands the bus its messages, which BL-513's tests show |

@@ -1,5 +1,5 @@
 ---
-id: BL-705
+id: BL-707
 title: Decide AMQP 1.0 transactions, durable topic subscriptions and source filters
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-705 — Decide AMQP 1.0 transactions, durable topic subscriptions and source filters
+# BL-707 — Decide AMQP 1.0 transactions, durable topic subscriptions and source filters
 
 ## Goal
 

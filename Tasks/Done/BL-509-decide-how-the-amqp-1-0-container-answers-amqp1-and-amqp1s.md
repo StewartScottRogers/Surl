@@ -72,8 +72,8 @@ Decide and record:
   `MaxQueues`, rather than only `--queue` ones - the anonymous-safe, AMQP-0-9-1-like choice.
 - Default taken: the TLS header (`AMQP 2 1 0 0`) is upgraded in band on `amqp1` when a certificate is configured,
   through the existing `IConnection.UpgradeToTlsAsync`; otherwise answered with the SASL header and closed.
-- Filed BL-704 (bus carries a publisher's native encoding, so the AMQP sections reach an `amqp1` receiver byte
-  for byte, as BL-513's criteria require) and added it to BL-513's `depends-on`. Filed BL-705 (decide
+- Filed BL-706 (bus carries a publisher's native encoding, so the AMQP sections reach an `amqp1` receiver byte
+  for byte, as BL-513's criteria require) and added it to BL-513's `depends-on`. Filed BL-707 (decide
   transactions, durable topic subscriptions and source filters), which ADR-0107 marks "Not served yet".
 
 ## Log
@@ -81,4 +81,4 @@ Decide and record:
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. ADR-0107 decides how the AMQP 1.0 container answers amqp1 and amqp1s; matrix Amqp1.md traces it to BL-510 to BL-513; BL-704 and BL-705 filed
+- 2026-11-05: Doing -> Done. ADR-0107 decides how the AMQP 1.0 container answers amqp1 and amqp1s; matrix Amqp1.md traces it to BL-510 to BL-513; BL-706 and BL-707 filed

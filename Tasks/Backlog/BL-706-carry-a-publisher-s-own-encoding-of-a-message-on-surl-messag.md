@@ -1,5 +1,5 @@
 ---
-id: BL-704
+id: BL-706
 title: Carry a publisher's own encoding of a message on Surl.MessageBus
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-704 — Carry a publisher's own encoding of a message on Surl.MessageBus
+# BL-706 — Carry a publisher's own encoding of a message on Surl.MessageBus
 
 ## Goal
 

@@ -7,8 +7,8 @@
   limits), BL-511 the protocol headers and SASL (decisions 1 and 2), BL-512 the connection, sessions,
   links, nodes and their error conditions (decisions 3, 4 and 7), BL-513 transfers, credit,
   settlement, delivery states and the message format (decisions 5 and 6), and BL-514 the command
-  line and the composition (decisions 1 and 7). BL-704 lets the bus carry the native form decision 6
-  needs; BL-705 decides transactions, durable topic subscriptions and source filters (decision 5,
+  line and the composition (decisions 1 and 7). BL-706 lets the bus carry the native form decision 6
+  needs; BL-707 decides transactions, durable topic subscriptions and source filters (decision 5,
   "Not served yet").
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
@@ -37,7 +37,7 @@ the Curl port. The specification read, and pinned, is **OASIS Advanced Message Q
 - Part 2, transport (2.2 version negotiation, 2.3 framing, 2.4 connections, 2.5 sessions, 2.6 links,
   2.7 the performatives, 2.8 definitions and the error conditions of 2.8.15 to 2.8.18);
 - Part 3, messaging (3.2 message format, 3.4 delivery state, 3.5 source and target);
-- Part 4, transactions (BL-705);
+- Part 4, transactions (BL-707);
 - Part 5, security (5.1 security layers, 5.2 TLS, 5.3 SASL);
 
 with RFC 4616 (`PLAIN`) and RFC 4505 (`ANONYMOUS`).
@@ -222,7 +222,7 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   | no address and not `dynamic`; an address that maps to no canonical topic or filter or queue name (`InvalidName`); a wildcard (`+`, `#`) in a client sender's target | **`amqp:not-found`** |
   | ADR-0102 decision 3.4's topic access denies the caller: `sub` for a client receiver, `pub` for a client sender, `$queue/<q>` for queues | **`amqp:unauthorized-access`** (ADR-0102's AMQP 1.0 row) |
   | the bus refuses the queue (`TooManyQueues`) or the subscription (`TooManySubscriptions`) | **`amqp:resource-limit-exceeded`** (ADR-0100 decision 3.6) |
-  | a `coordinator` target (Part 4, BL-705) | **`amqp:not-implemented`** |
+  | a `coordinator` target (Part 4, BL-707) | **`amqp:not-implemented`** |
 
   The description is fixed text from the container's table (`no such node`, `not authorized`,
   `resource limit exceeded`, `transactions are not supported`), never the address. Access is denied
@@ -290,7 +290,7 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   fan-out has nothing to put back.
 - **Not served yet: transactions** (Part 4: a `coordinator` target, `declare`, `discharge`,
   `transactional-state`), **durable topic subscriptions** (a source on `/topic/` with `durable`
-  above `none` and `expiry-policy` `never`) and **source filters** (the `filter` map). BL-705
+  above `none` and `expiry-policy` `never`) and **source filters** (the `filter` map). BL-707
   decides them. Until then a `coordinator` target is refused (decision 4); a topic source asking
   durability is answered with `durable` `none` in the container's source, and a `filter` map is left
   out of the container's source, which Part 3 section 3.5.3 defines as the filters not applied - the
@@ -323,7 +323,7 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
     `ulong`;
   - **headers**: each `application-properties` entry whose value is a `string`, in order;
   - **retain** false; QoS as decision 5.
-- **The native form.** Beside those fields the container stores, through BL-704's
+- **The native form.** Beside those fields the container stores, through BL-706's
   `BusMessage.NativeForm` in format `amqp1`, the message as it arrived **from the
   `message-annotations` section to its end** (message annotations, the bare message and the footer),
   byte for byte, with the header's `durable`, `priority`, `ttl`, `first-acquirer` and
@@ -342,7 +342,7 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
     holding the payload.
 - **Storage across restarts is the bus's** (ADR-0100 decision 3.7): queues, which decision 4 makes
   durable, and topic logs persist under `--directory <path>` in `<path>/.surl/bus`, the native form
-  with them (BL-704); without `--directory` they live in memory. The container writes no file of its
+  with them (BL-706); without `--directory` they live in memory. The container writes no file of its
   own. A message is accepted once the bus holds it; a failed persistence write is noted, never
   answered as an error (ADR-0100 decision 3.6's `StorageFailed` row).
 
@@ -393,8 +393,8 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   says why.
 - **Keeping only the protocol-neutral fields.** Rejected: an `amqp1` receiver would lose the
   sender's `message-id`, typed application properties and body section types, which Part 3 section
-  3.2 forbids an intermediary to change; BL-704 adds the native form instead.
-- **Serving transactions, durable subscriptions and filters now.** Deferred to BL-705, which decides
+  3.2 forbids an intermediary to change; BL-706 adds the native form instead.
+- **Serving transactions, durable subscriptions and filters now.** Deferred to BL-707, which decides
   them: each needs bus support (a transactional publish, a subscription without a connection,
   selector evaluation) that ADR-0100 does not have, and the decision is better made on its own.
 
@@ -404,8 +404,8 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
   `--allow-plaintext-auth`) is an AMQP 1.0 container over the shared bus: any address is a queue
   created on first attach, `/topic/<t>` a bus topic, with credit, settlement and multi-frame
   transfers, and a message keeps its AMQP sections from `amqp1` sender to `amqp1` receiver.
-- `Surl.MessageBus` gains the native form (BL-704); BL-513 depends on it.
-- Transactions, durable topic subscriptions and source filters wait for BL-705.
+- `Surl.MessageBus` gains the native form (BL-706); BL-513 depends on it.
+- Transactions, durable topic subscriptions and source filters wait for BL-707.
 - The requirement matrix [`Amqp1.md`](../../Conformance/Extended/Amqp1.md) traces each server-side
   requirement of Parts 1, 2, 3 and 5 to BL-510 to BL-513; each task replaces its ID with the named
   test.
