@@ -42,3 +42,4 @@ other key phase opens with the next keys, and the server's later packets use the
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
