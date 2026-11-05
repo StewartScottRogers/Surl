@@ -8,7 +8,7 @@ depends-on: [BL-465, BL-621]
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-467 — Serve MCP over the stdio transport
 
@@ -30,13 +30,22 @@ executable can then bind those streams to its own standard input and output.
 
 ## Acceptance criteria
 
-- [ ] Named tests show, over in-memory streams:
+- [x] Named tests show, over in-memory streams:
       - an `initialize`, `tools/list` and `tools/call` exchange with this server's tools, each response on one line;
       - the session ending cleanly when the input closes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
+
+- `McpStdioSession.RunAsync(input, output, store, surlVersion, maximumMessageBytes, cancellationToken)` builds this
+  server's registry as `ContentCaller.Anonymous("mcp+stdio")` (ADR-0111 decision 5: no authorization on stdio) and
+  hands it with `McpServerSession.CreateOptions` to the core's `McpStreamSession`. Chosen: a static entry point taking
+  the stream pair, not an `IConnection`, because the core seam is a stream pair and BL-468 binds standard streams.
+- Tests: `McpStdioSessionTests` (initialize, tools/list, tools/call read_file and echo, each one line; write_file as
+  anonymous under uploads; an input closing with no message ends the session with nothing written; null store).
+  The class has no branch, and its one path runs in every test, so the library stays at 100% line and branch.
+- Build clean with -warnaserror; fast tests green (66 test projects, McpServer 175).
 
 ## Log
 
@@ -44,3 +53,4 @@ executable can then bind those streams to its own standard input and output.
 - 2026-11-04: Amended by task-planner: depends on BL-621, whose shared core now owns stdio framing and its limits;
   this task binds the server's session to it.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. McpStdioSession serves the MCP server's session over a stream pair through Surl.McpServing and ends when the input closes
