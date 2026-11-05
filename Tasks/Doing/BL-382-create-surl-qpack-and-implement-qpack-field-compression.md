@@ -47,3 +47,4 @@ dynamic-table behaviour that BL-372's ADR decides, and reuses `Surl.Hpack`'s Huf
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
