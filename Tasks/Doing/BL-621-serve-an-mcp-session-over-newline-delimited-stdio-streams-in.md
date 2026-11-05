@@ -44,3 +44,4 @@ Both the `Surl.Mcp` host and the extended MCP server's `mcp+stdio` bind it to re
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
