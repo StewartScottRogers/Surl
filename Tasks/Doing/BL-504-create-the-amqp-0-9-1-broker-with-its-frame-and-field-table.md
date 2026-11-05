@@ -50,3 +50,4 @@ field tables and arrays as the errata define them.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
