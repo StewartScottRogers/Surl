@@ -47,6 +47,11 @@ internal sealed class CoapRequestOptions
         [CoapOptionNumber.Accept] = (options, option) => options.Accept = option.ReadUInt(),
         [CoapOptionNumber.ProxyUri] = (options, _) => options.NamesAProxy = true,
         [CoapOptionNumber.ProxyScheme] = (options, _) => options.NamesAProxy = true,
+        [CoapOptionNumber.ContentFormat] = (options, option) => options.ContentFormat = option.ReadUInt(),
+        [CoapOptionNumber.Block1] = (options, option) => options.Block1 = CoapBlockOption.Read(option),
+        [CoapOptionNumber.Block2] = (options, option) => options.Block2 = CoapBlockOption.Read(option),
+        [CoapOptionNumber.Size1] = (options, option) => options.Size1 = option.ReadUInt(),
+        [CoapOptionNumber.Size2] = (options, _) => options.AsksForSize2 = true,
     };
 
     // Location-* numbers RFC 7252 section 5.10.7 reserves: a request carrying one is 4.02, though they are even.
@@ -82,6 +87,20 @@ internal sealed class CoapRequestOptions
     /// <summary>Whether Proxy-Uri or Proxy-Scheme was sent.</summary>
     public bool NamesAProxy { get; private set; }
 
+    /// <summary>The request's Content-Format, when sent.</summary>
+    public uint? ContentFormat { get; private set; }
+
+    /// <summary>The Block1 option: which block of a request body this is (RFC 7959 section 2.5).</summary>
+    public CoapBlockOption? Block1 { get; private set; }
+
+    /// <summary>The Block2 option: which block of the response the client asks for (RFC 7959 section 2.4).</summary>
+    public CoapBlockOption? Block2 { get; private set; }
+
+    /// <summary>The Size1 option: the size of the whole request body, when announced (RFC 7959 section 4).</summary>
+    public uint? Size1 { get; private set; }
+
+    /// <summary>Whether Size2 was sent, which asks for the representation's size (RFC 7959 section 4).</summary>
+    public bool AsksForSize2 { get; private set; }
     /// <summary>The number of the first unrecognised critical option, when there is one.</summary>
     public int? UnrecognisedCriticalOption { get; private set; }
 

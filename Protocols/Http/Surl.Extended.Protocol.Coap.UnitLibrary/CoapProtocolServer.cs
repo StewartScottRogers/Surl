@@ -31,6 +31,7 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
 {
     private readonly CoapResourceAnswerer answerer;
     private readonly ICoapRandomSource random;
+    private readonly ContentStore contentStore;
 
     /// <summary>
     /// Creates a CoAP server that serves <paramref name="contentStore"/> under
@@ -44,12 +45,17 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
     {
     }
 
-    internal CoapProtocolServer(ContentStore contentStore, CoapAccessRules accessRules, ICoapRandomSource random)
+    internal CoapProtocolServer(
+        ContentStore contentStore,
+        CoapAccessRules accessRules,
+        ICoapRandomSource random,
+        int preferredBlockSizeExponent = CoapBlockOption.LargestSizeExponent)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(accessRules);
 
-        answerer = new CoapResourceAnswerer(contentStore, accessRules, random);
+        answerer = new CoapResourceAnswerer(contentStore, accessRules, random, preferredBlockSizeExponent);
+        this.contentStore = contentStore;
         this.random = random;
     }
 
@@ -68,12 +74,22 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
         ArgumentNullException.ThrowIfNull(flow);
         ArgumentNullException.ThrowIfNull(context);
 
+        return ServeFlowAsync(flow, context).Unwrap();
+    }
+
+    // Serves the flow however it ends, then discards its Block1 uploads and their temporary files
+    // (ADR-0097 decision 4), and hands serving back so its outcome is the call's.
+    private async Task<Task> ServeFlowAsync(IDatagramFlow flow, ExchangeContext context)
+    {
+        await using var uploads = new CoapBlock1Uploads(contentStore, context.TimeProvider, answerer.PreferredSizeExponent);
         var session = new CoapFlowSession(
             flow,
             context,
-            (request, options, cancellationToken) => answerer.AnswerAsync(request, options, context.Scheme, peerIsAuthenticated: false, cancellationToken),
+            (request, options, cancellationToken) => answerer.AnswerAsync(request, options, context.Scheme, peerIsAuthenticated: false, uploads, cancellationToken),
             random);
+        var serving = session.ServeAsync();
+        await Task.WhenAny(serving);
 
-        return session.ServeAsync();
+        return serving;
     }
 }

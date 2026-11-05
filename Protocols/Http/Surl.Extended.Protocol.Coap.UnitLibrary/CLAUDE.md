@@ -6,7 +6,7 @@ RFC 7641 and RFC 6690 - never by the Curl port's output, and its unit tests repl
 by hand from those RFCs.
 
 What is here so far is the message codec (BL-471), the message layer and the resources (BL-472),
-ADR-0097 decisions 0, 1, 2, 3 and 6:
+and block-wise transfers (BL-473), ADR-0097 decisions 0, 1, 2, 3, 4 and 6:
 
 - `CoapMessage` is one message: `CoapMessageType`, `CoapCode` (`c.dd`), Message ID, a token of
   at most 8 bytes, `CoapOption`s kept in order of their numbers, and the payload. An Empty
@@ -48,8 +48,23 @@ ADR-0097 decisions 0, 1, 2, 3 and 6:
 - `ICoapRandomSource` (`CryptographicCoapRandomSource` in production) draws Message IDs, the
   ACK_RANDOM_FACTOR fraction and POST names; tests inject a fixed one.
 
-A representation goes whole in one message until BL-473 adds block-wise transfers. Decision 7's
-other limits and the `5.03` refusal are BL-751. Observation (BL-474), `coaps` (BL-475) and the
+- Block-wise transfers (RFC 7959; ADR-0097 decision 4). `CoapBlockOption` is NUM/M/SZX in one
+  uint option; SZX 7 in a request is `4.00`. `CoapBlock2Window` picks what a `2.05` carries: the
+  whole representation when it fits one block (1024 bytes, SZX 6) and no Block2 was asked for,
+  else the block named, in the smaller of the client's and the server's size, with Block2, and
+  Size2 on block 0 or when the request sent Size2; a block past the end is `4.02`. Each block is
+  read afresh as a byte range with the current ETag; `/.well-known/core` is blocked the same way.
+  `CoapBlock1Uploads`, one per flow, keeps up to 4 atomic `ContentUploadSession`s keyed by
+  Uri-Path and Uri-Query: block 0 opens one (replacing any), each block with M is `2.31` with
+  Block1 in the size the server uses, the block without M commits and gets the method's code with
+  Block1; out of order, no upload open, or a changed Content-Format is `4.08`; a repeat of the
+  last block is `2.31` again, not written twice; Size1 or a total past `--max-filesize`, or a
+  fifth upload, is `4.13` with Size1. An upload idle for EXCHANGE_LIFETIME, and every upload when
+  the flow ends, is discarded with its temporary file. The preferred SZX is an internal
+  constructor parameter (6 by default) so tests can replay RFC 7959's 128- and 32-byte figures
+  and BL-475 can shrink it for DTLS.
+
+Decision 7's other limits and the `5.03` refusal are BL-751. Observation (BL-474), `coaps` (BL-475) and the
 command line (BL-476) build on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`,

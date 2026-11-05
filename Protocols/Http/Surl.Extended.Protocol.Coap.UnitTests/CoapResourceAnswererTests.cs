@@ -98,7 +98,9 @@ public sealed class CoapResourceAnswererTests
         var answerer = new CoapResourceAnswerer(store.Store, new CoapAccessRules(false, true), new UnitTestCoapRandomSource());
         var put = Request(CoapCode.Put, Path("f.txt"), "y");
 
-        var response = await answerer.AnswerAsync(put, CoapRequestOptions.Read(put), "coaps", peerIsAuthenticated: true, CancellationToken.None);
+        await using var uploads = new CoapBlock1Uploads(store.Store, new ManualTimeProvider(), CoapBlockOption.LargestSizeExponent);
+
+        var response = await answerer.AnswerAsync(put, CoapRequestOptions.Read(put), "coaps", peerIsAuthenticated: true, uploads, CancellationToken.None);
 
         Assert.AreEqual(CoapCode.Changed, response.Code);
     }
@@ -150,7 +152,7 @@ public sealed class CoapResourceAnswererTests
             var store = new ContentStore(InMemoryContentFileSystem.RootPath, new UnitTestThrowingContentFileSystem(InMemoryContentFileSystem.RootPath, failure), new ContentExposureOptions());
             var answerer = new CoapResourceAnswerer(store, Anonymous, new UnitTestCoapRandomSource());
             var get = Request(CoapCode.Get, Path("f.txt"));
-            return answerer.AnswerAsync(get, CoapRequestOptions.Read(get), "coap", false, CancellationToken.None);
+            return answerer.AnswerAsync(get, CoapRequestOptions.Read(get), "coap", false, new CoapBlock1Uploads(store, new ManualTimeProvider(), 6), CancellationToken.None);
         }
 
         Assert.AreEqual(CoapCode.InternalServerError, (await GetThrough(new UnauthorizedAccessException("denied"))).Code);
@@ -220,7 +222,9 @@ public sealed class CoapResourceAnswererTests
         var answerer = new CoapResourceAnswerer(store, Anonymous, new UnitTestCoapRandomSource());
         var delete = Request(CoapCode.Delete, Path("ro", "f.txt"));
 
-        var response = await answerer.AnswerAsync(delete, CoapRequestOptions.Read(delete), "coap", false, CancellationToken.None);
+        await using var uploads = new CoapBlock1Uploads(store, new ManualTimeProvider(), 6);
+
+        var response = await answerer.AnswerAsync(delete, CoapRequestOptions.Read(delete), "coap", false, uploads, CancellationToken.None);
 
         Assert.AreEqual(CoapCode.MethodNotAllowed, response.Code);
     }
@@ -295,10 +299,11 @@ public sealed class CoapResourceAnswererTests
     private static CoapMessage Request(CoapCode method, CoapOption[] options, string? body = null) =>
         new(CoapMessageType.Confirmable, method, 1, new byte[] { 0xC0 }, options, body is null ? default : Encoding.UTF8.GetBytes(body));
 
-    private static Task<CoapResponse> AnswerAsync(CoapTestStore store, CoapCode method, CoapOption[] options, CoapAccessRules? rules = null, string? body = null)
+    private static async Task<CoapResponse> AnswerAsync(CoapTestStore store, CoapCode method, CoapOption[] options, CoapAccessRules? rules = null, string? body = null)
     {
         var answerer = new CoapResourceAnswerer(store.Store, rules ?? Anonymous, new UnitTestCoapRandomSource());
+        await using var uploads = new CoapBlock1Uploads(store.Store, new ManualTimeProvider(), CoapBlockOption.LargestSizeExponent);
         var request = Request(method, options, body);
-        return answerer.AnswerAsync(request, CoapRequestOptions.Read(request), "coap", peerIsAuthenticated: false, CancellationToken.None);
+        return await answerer.AnswerAsync(request, CoapRequestOptions.Read(request), "coap", peerIsAuthenticated: false, uploads, CancellationToken.None);
     }
 }

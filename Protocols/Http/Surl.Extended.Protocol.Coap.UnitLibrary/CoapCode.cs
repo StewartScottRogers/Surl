@@ -38,6 +38,9 @@ public readonly record struct CoapCode(byte Value)
     /// <summary>2.05 Content (section 5.9.1.4).</summary>
     public static CoapCode Content { get; } = new(0x45);
 
+    /// <summary>2.31 Continue (RFC 7959 section 2.9.1).</summary>
+    public static CoapCode Continue { get; } = new(0x5F);
+
     /// <summary>4.00 Bad Request (section 5.9.2.1).</summary>
     public static CoapCode BadRequest { get; } = new(0x80);
 
@@ -55,6 +58,9 @@ public readonly record struct CoapCode(byte Value)
 
     /// <summary>4.06 Not Acceptable (section 5.9.2.7).</summary>
     public static CoapCode NotAcceptable { get; } = new(0x86);
+
+    /// <summary>4.08 Request Entity Incomplete (RFC 7959 section 2.9.2).</summary>
+    public static CoapCode RequestEntityIncomplete { get; } = new(0x88);
 
     /// <summary>4.12 Precondition Failed (section 5.9.2.8).</summary>
     public static CoapCode PreconditionFailed { get; } = new(0x8C);
