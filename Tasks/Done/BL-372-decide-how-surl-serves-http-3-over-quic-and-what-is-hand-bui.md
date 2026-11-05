@@ -123,8 +123,8 @@ Decide and record:
   and W origins had to say HTTP/3 moved. No task in Doing names that file.
 - ADR-0006's header is amended too, because it is in `Documentation/Planning/Decisions`.
 - Follow-up tasks filed:
-  - BL-400: ML-KEM-768 and X25519MLKEM768.
-  - BL-401: the remaining TLS 1.3 groups curl can be told to use.
+  - BL-544: ML-KEM-768 and X25519MLKEM768.
+  - BL-545: the remaining TLS 1.3 groups curl can be told to use.
 - BL-385's "HTTP/3 turned off" test maps to running surl without `--http3`.
 - BL-373, BL-375 and BL-382 name their projects without a category folder. ADR-0082 decision 2
   gives the folders.
@@ -133,4 +133,4 @@ Decide and record:
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
-- 2026-11-04: Doing -> Done. ADR-0082 decides HTTP/3 over a hand-built QUIC, TLS 1.3 and QPACK, from measured ClientHellos of the static 8.21.0 Windows and Linux builds and 8.22.0_2; FR-055, glossary and ADR-0002/0006/0010/0017 amended; BL-400 and BL-401 filed
+- 2026-11-04: Doing -> Done. ADR-0082 decides HTTP/3 over a hand-built QUIC, TLS 1.3 and QPACK, from measured ClientHellos of the static 8.21.0 Windows and Linux builds and 8.22.0_2; FR-055, glossary and ADR-0002/0006/0010/0017 amended; BL-544 and BL-545 filed

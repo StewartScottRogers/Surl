@@ -70,7 +70,7 @@ Decided by ADR-0081; BL-365 to BL-371 build it, so the names in code are the pla
 
 ## HTTP/3 and QUIC
 
-Decided by ADR-0082; BL-373 to BL-385, BL-400 and BL-401 build it, so the names in code are the
+Decided by ADR-0082; BL-373 to BL-385, BL-544 and BL-545 build it, so the names in code are the
 planned ones.
 
 | Term | Meaning | Name in code |
@@ -87,8 +87,8 @@ planned ones.
 | Version Negotiation | The packet a QUIC server sends to a client that asked for a version it does not speak, listing the versions it does; Surl lists only version 1. | planned: `Surl.Quic` (BL-373, BL-377) |
 | TLS 1.3 for QUIC | The TLS 1.3 handshake (RFC 8446) without its record layer, its messages carried in `CRYPTO` frames and its secrets handed to QUIC per encryption level. Hand-built, because `SslStream` cannot hand out either. | planned: `Surl.Tls13` (BL-375, BL-376) |
 | HelloRetryRequest | The TLS 1.3 server's answer to a ClientHello with no key share for a group the server accepts: it names the group, and the client sends a new ClientHello with a share for it. | planned: `Surl.Tls13` (BL-376) |
-| X25519MLKEM768 | The hybrid TLS 1.3 key-exchange group (`0x11EC`) that pairs ML-KEM-768 with x25519; every measured curl sends its key share first. | planned: `Surl.Cryptography.MlKem`, `Surl.Tls13` (BL-400) |
-| ML-KEM | The post-quantum key encapsulation mechanism of FIPS 203; Surl builds ML-KEM-768 by hand because the BCL's `MLKem` is missing on most platforms. | planned: `Surl.Cryptography.MlKem` (BL-400) |
+| X25519MLKEM768 | The hybrid TLS 1.3 key-exchange group (`0x11EC`) that pairs ML-KEM-768 with x25519; every measured curl sends its key share first. | planned: `Surl.Cryptography.MlKem`, `Surl.Tls13` (BL-544) |
+| ML-KEM | The post-quantum key encapsulation mechanism of FIPS 203; Surl builds ML-KEM-768 by hand because the BCL's `MLKem` is missing on most platforms. | planned: `Surl.Cryptography.MlKem` (BL-544) |
 | QPACK | HTTP/3's field compression (RFC 9204): a static table, an optional dynamic table filled through encoder and decoder streams, and HPACK's Huffman code. Surl offers no dynamic table. | planned: `Surl.Qpack` (BL-382) |
 | field section | QPACK's name for the compressed fields of one request or response, carried in one HTTP/3 `HEADERS` frame; HTTP/2's header block. Bounded by `--max-message`, sent as `SETTINGS_MAX_FIELD_SECTION_SIZE`. | planned: `Surl.Qpack`, `Surl.Protocol.Http` (BL-382, BL-383) |
 | `Alt-Svc` | The response field (RFC 7838) by which a server says the same origin is also served another way, here `h3=":<port>"`; Surl sends it on TCP responses only under `--http3`, and curl uses it only with `--alt-svc <file>`. | planned: `Surl.Protocol.Http` (BL-384) |

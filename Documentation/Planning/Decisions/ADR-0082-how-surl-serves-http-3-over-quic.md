@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
-  in BL-372. BL-373 to BL-385, BL-400 and BL-401 build what it decides.
+  in BL-372. BL-373 to BL-385, BL-544 and BL-545 build what it decides.
 - **Amends:** [ADR-0017](ADR-0017-curl-se-8-22-0-windows-build-as-a-supplementary-build.md)
   decision 3 (HTTP/3 on Windows is measured with the static 8.21.0 build; decision 1 below),
   [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3's table (four rows;
@@ -165,7 +165,7 @@ Two more runs, on 2026-11-04:
      measured build gets x25519 with no HelloRetryRequest, since each sends an x25519 share. The
      groups curl lists only in `supported_groups` - SecP256r1MLKEM768, SecP384r1MLKEM1024, x448,
      curveSM2, ffdhe2048 and ffdhe3072 - are reached only when a curl is told `--curves` naming
-     nothing else; they are served too, by BL-401. BL-400 builds `Surl.Cryptography.MlKem` and
+     nothing else; they are served too, by BL-545. BL-544 builds `Surl.Cryptography.MlKem` and
      X25519MLKEM768.
    - *Signatures.* `CertificateVerify` is signed with the certificate's key, served as ADR-0010
      section 3 serves it: an RSA key with `rsa_pss_rsae_sha256` (`0804`), an ECDSA key with the

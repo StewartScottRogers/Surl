@@ -1,16 +1,16 @@
 ---
-id: BL-401
+id: BL-545
 title: Serve the remaining TLS 1.3 groups curl offers over QUIC in Surl.Tls13
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-400]
+depends-on: [BL-544]
 touches: [Cryptography/Surl.Tls13.UnitLibrary, Cryptography/Surl.Tls13.UnitTests]
 requirement: FR-055
 created: 2026-11-04
 completed:
 ---
-# BL-401 — Serve the remaining TLS 1.3 groups curl offers over QUIC in Surl.Tls13
+# BL-545 — Serve the remaining TLS 1.3 groups curl offers over QUIC in Surl.Tls13
 
 ## Goal
 
@@ -25,7 +25,7 @@ SecP256r1MLKEM768 (`0x11EB`), SecP384r1MLKEM1024 (`0x11EE`), x448 (`0x001E`), cu
 - Decision: ADR-0082 decision 3. These groups come after the five served ones in the server's
   order. A curl offers them only when its `--curves` option names nothing else.
 - Each piece is hand-built where the BCL cannot be relied on for all three platforms:
-  - ML-KEM-1024 extends BL-400's `Surl.Cryptography.MlKem`. If it needs that project, add it to
+  - ML-KEM-1024 extends BL-544's `Surl.Cryptography.MlKem`. If it needs that project, add it to
     `touches` as the board rules say.
   - x448 (RFC 7748) and SM2 key exchange (GB/T 32918, RFC 8998 for TLS 1.3) are new primitives.
     If they need their own `Cryptography/` libraries, a new ADR-0002 row needs an ADR.
