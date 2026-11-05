@@ -1,11 +1,12 @@
 # Surl.Extended.Protocol.Amqp0.UnitLibrary
 
-An extended server (ADR-0083): it will answer the `amqp` and `amqps` schemes the Curl port adds,
-which upstream curl does not have. ADR-0112 decides how. It is judged by its specification,
+An extended server (ADR-0083) for the `amqp` and `amqps` schemes the Curl port adds, which
+upstream curl does not have; the composition registers it in BL-507, so `surl` does not serve
+them yet. ADR-0112 decides how. It is judged by its specification,
 AMQP 0-9-1 (2008-11-13) with its XML protocol definition and RabbitMQ's errata, never by the
 Curl port's output, and its unit tests replay bytes written by hand from that specification.
 
-What is here so far is the protocol header, the framing and the data-type codec (BL-504,
+The protocol header, the framing and the data-type codec (BL-504,
 ADR-0112 decisions 1 and 8's frame limits):
 
 - `Amqp0ProtocolHeader` reads the client's first 8 bytes before writing anything: `AMQP 0 0 9 1`
@@ -29,8 +30,24 @@ ADR-0112 decisions 1 and 8's frame limits):
   (502 `SYNTAX_ERROR`).
 - `Amqp0ReplyCode` is the XML's reply-code constants.
 
-The connection class, logins, tuning and heartbeats are BL-505; channels, exchanges, queues and
-the basic class BL-506; the command line and composition BL-507.
+The connection class (BL-505, ADR-0112 decisions 2, 3, 4 and 7):
+
+- `Amqp0Broker` is the `IConnectionProtocolServer` for `amqp` and `amqps`; its remarks list every
+  answer. `Amqp0BrokerConnection` (partial: login, heartbeats, the open connection) answers one
+  connection: header, `start`, the login, `tune`, `open` of the one virtual host `/`, then frames
+  until a `close` either way.
+- Logins go through `ISaslAuthenticationPolicy`: `AMQPLAIN` is turned into a `PLAIN` response
+  (`Amqp0ConnectionStartOk.ToPlainResponse`), challenges travel as `secure`/`secure-ok`, and a
+  refusal is `connection.close` 403. `ANONYMOUS` is offered only with
+  `Amqp0BrokerOptions.OffersAnonymous`.
+- Heartbeats run on `ExchangeContext.TimeProvider`: a heartbeat whenever nothing was written for
+  the interval, and a peer silent for two intervals is closed without `connection.close`.
+- `Amqp0ConnectionStart`, `Amqp0ConnectionStartOk`, `Amqp0ConnectionTuning`, `Amqp0ConnectionOpen`
+  and `Amqp0ConnectionClose` are the connection methods' codecs; `Amqp0ConnectionMethodId` their IDs.
+- No channel opens yet: a frame on any channel but 0 is `connection.close` 504 until BL-506.
+
+The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-743;
+channels, exchanges, queues and the basic class BL-506; the command line and composition BL-507.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0112 decision 0 names (`Surl.MessageBus`, `Surl.Content`) - never
