@@ -59,3 +59,4 @@ can be slowed or cut without any protocol change.
 
 - 2026-11-05: Created.
 - 2026-11-05: Amended by ADR-0124 (BL-822): `FindAsync`, stage check, matching and TLS rules.
+- 2026-11-05: Backlog -> Doing.
