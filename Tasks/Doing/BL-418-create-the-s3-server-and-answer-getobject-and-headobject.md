@@ -48,3 +48,4 @@ content store. It answers a missing key or bucket, and an unsupported operation,
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
