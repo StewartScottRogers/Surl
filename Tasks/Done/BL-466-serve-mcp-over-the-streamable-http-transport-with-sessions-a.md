@@ -66,7 +66,7 @@ stream, and `GET` as the ADR decides. It issues and checks `Mcp-Session-Id`, che
   171 tests in the project; library at 100% line, 100% branch, worst CRAP 10 (Measure-CodeQuality.ps1).
 - Choice: the `tools/call` event is written as one `Content-Length` body, not chunked with 15-second
   `: keep-alive` comments (decision 4.3). `Surl.HttpServing`'s `HttpAnswerBody` has no streamed body and that
-  library is outside this task's `touches`; the acceptance criteria ask only for the SSE bytes. Filed BL-767.
+  library is outside this task's `touches`; the acceptance criteria ask only for the SSE bytes. Filed BL-777.
 - Choice: `ListenUrl` carries no path, so the endpoint path is a constructor argument (`listenPath`; empty or
   `/` is `/mcp`). BL-468 passes the listen URL's path when it composes the server.
 - Choice: an `initialize` the core answers is answered first and its session added after; past the 1000-session
@@ -75,7 +75,7 @@ stream, and `GET` as the ADR decides. It issues and checks `Mcp-Session-Id`, che
   server does), while the session stays bound to the login (anonymous `null` and a token's `""` differ).
 - Choice: the metadata document answers methods other than `GET` with `405 Allow: GET`; a body that cannot
   be read whole (cut short, or an unreadable transfer coding) is `400` and the connection closes.
-- Follow-up: BL-768, the `503` refusal writer for connections past the connection limits (decision 7.3).
+- Follow-up: BL-778, the `503` refusal writer for connections past the connection limits (decision 7.3).
 
 ## Log
 

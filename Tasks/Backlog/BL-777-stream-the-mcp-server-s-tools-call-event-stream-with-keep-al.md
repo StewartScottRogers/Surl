@@ -1,5 +1,5 @@
 ---
-id: BL-767
+id: BL-777
 title: Stream the MCP server's tools/call event stream with keep-alive comments
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-767 — Stream the MCP server's tools/call event stream with keep-alive comments
+# BL-777 — Stream the MCP server's tools/call event stream with keep-alive comments
 
 ## Goal
 

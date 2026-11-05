@@ -1,5 +1,5 @@
 ---
-id: BL-768
+id: BL-778
 title: Answer an MCP connection past the connection limits with 503
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-768 — Answer an MCP connection past the connection limits with 503
+# BL-778 — Answer an MCP connection past the connection limits with 503
 
 ## Goal
 
