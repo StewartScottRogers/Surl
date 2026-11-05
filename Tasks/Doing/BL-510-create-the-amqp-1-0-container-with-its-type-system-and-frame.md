@@ -50,3 +50,4 @@ lists, and the AMQP and SASL frames.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
