@@ -47,3 +47,4 @@ order, enforces and grants flow-control credit at the stream and connection leve
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
