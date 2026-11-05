@@ -1,5 +1,5 @@
 ---
-id: BL-840
+id: BL-859
 title: Amend ADR-0090 decision 6 now that BL-601 answers the HTTP/2 503 refusal
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-840 — Amend ADR-0090 decision 6 now that BL-601 answers the HTTP/2 503 refusal
+# BL-859 — Amend ADR-0090 decision 6 now that BL-601 answers the HTTP/2 503 refusal
 
 ## Goal
 

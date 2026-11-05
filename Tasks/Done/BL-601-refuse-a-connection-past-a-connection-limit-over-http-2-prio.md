@@ -37,7 +37,7 @@ A cleartext connection past a connection limit that opens with the HTTP/2 prefac
 - Choice: the server's `SETTINGS` is empty (curl accepts an empty one, ADR-0081 decision 5, measured) - the refusal has no `ExchangeContext` limits to advertise and serves no stream. The client's `SETTINGS` is not acknowledged; `GOAWAY` ends the connection. Frames before the first `HEADERS` (SETTINGS, WINDOW_UPDATE, unknown types) are passed over; a close or a malformed frame first writes nothing.
 - The `HEADERS` block is `:status 503`, `server: surl`, `content-length: 0`: the HTTP/1.1 fields without `Connection`, which RFC 9113 section 8.2.2 forbids.
 - Tests: `ConnectionRefusalTests.WriteRefusalAsync_RecordedPriorKnowledgeGetOfAFile_AnswersSettingsThen503OnStream1ThenGoAwayNoError`, `..._PrefaceWithNoHeadersWithinTheDeadline_ClosesWithNoBytes`, `..._WritesTheRecorded503AndCompletesWritesWithoutAbort` (now fed the recorded `refusal-503` request), plus `Http2ConnectionRefusalTests` in `Surl.Http2.UnitTests`. `HttpProtocolServer` and `Http2ConnectionRefusal` at 100% line and branch.
-- ADR-0090 decision 6 still says the refusal waits for BL-601; `Documentation/Planning/Decisions` is held by BL-574, so BL-840 is filed to amend it.
+- ADR-0090 decision 6 still says the refusal waits for BL-601; `Documentation/Planning/Decisions` is held by BL-574, so BL-859 is filed to amend it.
 
 ## Log
 
