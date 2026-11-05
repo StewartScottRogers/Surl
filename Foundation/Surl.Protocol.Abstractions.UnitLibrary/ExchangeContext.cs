@@ -46,6 +46,19 @@ public sealed record ExchangeContext(
     public IDataConnectionOpener DataConnections { get; init; } = RefusingDataConnectionOpener.Instance;
 
     /// <summary>
+    /// Where the server publishes what happened on its instance's event stream (ADR-0124, decision 1):
+    /// <see cref="DiscardingSurlEventPublisher.Instance"/>, which publishes nothing, unless the engine
+    /// sets another.
+    /// </summary>
+    public ISurlEventPublisher Events { get; init; } = DiscardingSurlEventPublisher.Instance;
+
+    /// <summary>
+    /// The fault plan the server asks whether to misbehave (ADR-0124, decision 4):
+    /// <see cref="EmptyFaultPlan.Instance"/>, which finds no fault, unless the engine sets another.
+    /// </summary>
+    public IFaultPlan Faults { get; init; } = EmptyFaultPlan.Instance;
+
+    /// <summary>
     /// Cancelled when the engine gives up on every exchange at shutdown (ADR-0059):
     /// <see cref="CancellationToken.None"/> unless the engine sets it. It cancels
     /// <see cref="CancellationToken"/> too; a server reads it only to tell shutdown from a limit.

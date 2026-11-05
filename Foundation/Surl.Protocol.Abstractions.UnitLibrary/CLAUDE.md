@@ -110,6 +110,22 @@ What it holds:
   connections or failures, an unscripted origin `Refused`, every request recorded as an
   `OriginConnectionRequest`; it applies no rule, so a refused origin is scripted `NotAllowed`.
 
+- The stand-in contracts (ADR-0124, decisions 1, 4 and 5; BL-823). The event stream:
+  `ISurlEventPublisher` (`IsPublishingBytes`, `Publish`), the abstract record `SurlEvent`
+  (`Sequence` and `At`, stamped by the stream, not the publisher) and its records
+  `ExchangeStartedEvent`, `ExchangeBytesEvent` (with `ExchangeDirection`), `ExchangeEndedEvent`,
+  `LoginJudgedEvent`, `StoreChangedEvent` (with `StoreKind` and `StoreChange`),
+  `FaultAppliedEvent` and `HookFailedEvent` (with `HookFailure`); no event carries a password,
+  key or token. The fault plan: `IFaultPlan.FindAsync(FaultPoint, CancellationToken)` returning
+  `ValueTask<FaultRule?>`, with `FaultPoint`, `FaultRule`, `FaultKind` and `FaultStage`. Both reach
+  a server through `ExchangeContext.Events` and `ExchangeContext.Faults`, whose defaults
+  `DiscardingSurlEventPublisher` (publishes nothing, asks for no bytes) and `EmptyFaultPlan`
+  (finds nothing) keep every server as it was. Test doubles: `RecordingSurlEventPublisher`
+  (keeps every event in order, stamps nothing, safe under concurrent publishes) and
+  `ScriptedFaultPlan` (the first given rule whose stage and set scope attributes equal the
+  point's, ordinally; never spends `Times`; records every point asked). `Surl.Core`'s
+  `SurlEventStream` and `FaultPlan` implement them (BL-787, BL-792).
+
 - The datagram flow's test double (ADR-0082, decision 5): `InMemoryDatagramFlow` hands a
   server its first datagram and then the client's datagrams one per receive (given up front,
   or delivered with `DeliverFromClient` while the server runs), records every datagram sent

@@ -88,6 +88,32 @@ public sealed class ExchangeContextTests
         Assert.AreEqual("http", context.Scheme);
     }
 
+    [TestMethod]
+    public async Task EventsAndFaults_ContextCreatedWithoutThem_PublishesNothingAndFindsNoFault()
+    {
+        var context = NewContext();
+
+        context.Events.Publish(new ExchangeEndedEvent(1, 3, 4));
+        var rule = await context.Faults.FindAsync(new FaultPoint(FaultStage.Accept), CancellationToken.None);
+
+        Assert.AreSame(DiscardingSurlEventPublisher.Instance, context.Events);
+        Assert.IsFalse(context.Events.IsPublishingBytes);
+        Assert.AreSame(EmptyFaultPlan.Instance, context.Faults);
+        Assert.IsNull(rule);
+    }
+
+    [TestMethod]
+    public void EventsAndFaults_CarryThePublisherAndPlanTheyWereGiven()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan();
+
+        var context = NewContext() with { Events = events, Faults = faults };
+
+        Assert.AreSame(events, context.Events);
+        Assert.AreSame(faults, context.Faults);
+    }
+
     private static ExchangeContext NewContext() => NewContext(CancellationToken.None);
 
     private static ExchangeContext NewContext(CancellationToken cancellationToken) => new(
