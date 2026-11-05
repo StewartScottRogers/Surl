@@ -312,6 +312,7 @@ public sealed partial class MessageBus
 
         retainedMessages[topic] = published;
         retainedPayloadBytes = newTotal;
+        retainedVersion++;
         return MessageBusOutcome.Succeeded;
     }
 
@@ -320,6 +321,7 @@ public sealed partial class MessageBus
         if (retainedMessages.Remove(topic, out var removed))
         {
             retainedPayloadBytes -= removed.Payload.Length;
+            retainedVersion++;
         }
     }
 

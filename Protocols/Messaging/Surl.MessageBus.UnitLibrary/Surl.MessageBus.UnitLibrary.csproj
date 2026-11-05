@@ -4,4 +4,8 @@
     <InternalsVisibleTo Include="Surl.MessageBus.UnitTests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
+  </ItemGroup>
+
 </Project>

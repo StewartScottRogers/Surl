@@ -66,4 +66,9 @@ public enum MessageBusOutcome
     /// has dropped it - or above its high watermark (Kafka's <c>OFFSET_OUT_OF_RANGE</c>, 1);
     /// nothing was read.</summary>
     OffsetOutOfRange,
+
+    /// <summary>Writing the bus's files under <c>&lt;path&gt;/.surl/bus</c> failed (ADR-0100,
+    /// decision 3.7): the change stays in memory and the next save writes it; the server notes
+    /// the failure and serving goes on.</summary>
+    StorageFailed,
 }

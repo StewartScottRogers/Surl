@@ -36,10 +36,28 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     public bool IsBoundTo(string[] topicLevels) =>
         bindings.Values.Any(filterLevels => CanonicalTopicName.FilterMatches(filterLevels, topicLevels));
 
+    /// <summary>Whether the queue outlives the process: durable, and neither exclusive nor
+    /// auto-delete (ADR-0100, decision 3.7).</summary>
+    public bool IsPersisted => Flags is { Durable: true, Exclusive: false, AutoDelete: false };
+
+    /// <summary>The filters the queue is bound to, in no particular order.</summary>
+    public IEnumerable<string> Filters => bindings.Keys;
+
+    /// <summary>Every message the queue holds, ready or unacknowledged, in queue order.</summary>
+    public List<QueuedMessage> AllMessages =>
+        [.. ready.Values.Concat(consumers.SelectMany(consumer => consumer.Unacknowledged)).OrderBy(message => message.Sequence)];
+
     public void Enqueue(BusMessage message)
     {
         var sequence = nextSequence++;
         ready.Add(sequence, new QueuedMessage(sequence, message));
+    }
+
+    /// <summary>Puts a message loaded from the queue's files at the end of the queue.</summary>
+    public void Restore(BusMessage message, bool redelivered, ulong fileNumber)
+    {
+        var sequence = nextSequence++;
+        ready.Add(sequence, new QueuedMessage(sequence, message) { HandedOut = redelivered, FileNumber = fileNumber });
     }
 
     /// <summary>Puts a message back at its own place, ahead of every later one.</summary>

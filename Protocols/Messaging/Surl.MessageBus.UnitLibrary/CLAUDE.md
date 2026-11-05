@@ -44,7 +44,7 @@ What it holds now (BL-629):
   connection: any other connection gets `QueueLocked` on declare, bind, consume and delete,
   but may still send to it. It is deleted when its owner goes. An auto-delete queue is
   deleted when its last consumer ends. An expired message is dropped when the queue reaches
-  it. Durable is recorded only; persistence is BL-634's.
+  it. A durable queue that is neither exclusive nor auto-delete is persisted (below).
 - **Topic logs (BL-633).** Every publish the bus takes, retained or not and whichever
   protocol made it, is appended to its topic's `TopicLog` at the next offset, from 0 and
   contiguous; one partition per topic. `BusPublishResult.LogOffset` is the offset it got
@@ -71,11 +71,31 @@ What it holds now (BL-629):
   does not name yet (`InvalidQueueName`, `UnknownQueue`, `QueueLocked`, `QueueFlagsDiffer`,
   `UnknownDeliveryTag`) follow AMQP 0-9-1's 404, 405 and 406. BL-694 adds them to the ADR.
 
-Not here yet, each its own task: persistence under `<path>/.surl/bus` (BL-634), the MQTT 3.1.1
-server's move onto the bus (BL-635), and access checks (BL-664).
+- **Persistence (BL-634).** With `--directory <path>`, the composition makes a
+  `MessageBusFiles` over `<path>/.surl` and calls `MessageBus.LoadAsync` once, after the
+  data-directory lock and before any listener binds; without it nothing touches the disk.
+  Under `.surl/bus`: `retained` (rewritten whole), `queues/index` with one file per durable
+  queue message in `queues/messages` (written once, deleted when the message leaves), and
+  one file per topic log in `logs` (appended to while the log only grows, rewritten whole
+  when its start offset rose or a write failed). Every whole write goes through a
+  `.<name>-<guid>` file renamed over the old one. `MessageBusFiles`' remarks and
+  `BusMessageCodec` give the byte formats, and `MessageBusFilesTests` pins them byte for
+  byte. Durable queues that are neither exclusive nor auto-delete persist, with their
+  bindings and every message, an unacknowledged one loaded as redelivered. A malformed
+  file, or one past a bound, is a `MessageBusLoadException` with the file's path and
+  `not a message bus file`, which the composition answers with 37. When `retained` is not
+  there, an old MQTT 3.1.1 `.surl/mqtt/retained-messages` is read (its own reason, `not a
+  retained-message file`), its messages retained at QoS 0, and `retained` is written at
+  once; the old file is never written. A server calls `SaveChangesAsync` after a change;
+  a failed write returns `StorageFailed` with the exception message for the server to note,
+  the change stays in memory, and the next save writes it. BL-698 adds the formats to
+  ADR-0100.
+
+Not here yet, each its own task: the MQTT 3.1.1 server's move onto the bus (BL-635), and
+access checks (BL-664).
 
 This library may reference `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0100 decision
-3.1, amending ADR-0002's table); today it references neither. Protocol servers may reference
+3.1, amending ADR-0002's table); it references `Surl.Content.UnitLibrary` only. Protocol servers may reference
 it. It never touches a socket, and touches the disk only through an injected
 `IContentFileSystem`; time comes from the injected `TimeProvider`.

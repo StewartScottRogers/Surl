@@ -100,6 +100,8 @@ public sealed class BusQueueConsumer : IDisposable
         return delivery;
     }
 
+    internal IEnumerable<QueuedMessage> Unacknowledged => unacknowledged.Values;
+
     internal QueuedMessage? RemoveUnacknowledged(long deliveryTag) =>
         unacknowledged.Remove(deliveryTag, out var message) ? message : null;
 

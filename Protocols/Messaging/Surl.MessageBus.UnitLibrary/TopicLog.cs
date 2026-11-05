@@ -21,7 +21,30 @@ internal sealed class TopicLog
     /// <summary>The bytes the held records count (<see cref="MessageBus.LogRecordBytes"/>).</summary>
     public long Bytes { get; private set; }
 
+    /// <summary>The number of the log's file under <c>.surl/bus/logs</c>; <see langword="null"/>
+    /// until the bus first saves it (ADR-0100, decision 3.7).</summary>
+    public ulong? FileNumber { get; set; }
+
+    /// <summary>Whether the log's file holds exactly the records from
+    /// <see cref="SavedStartOffset"/> to <see cref="SavedHighWatermark"/>, so new records can be
+    /// appended to it; <see langword="false"/> until it is first written, and after a failed write.</summary>
+    public bool IsSaved { get; set; }
+
+    /// <summary>The log start offset the log's file was last written with.</summary>
+    public long SavedStartOffset { get; set; }
+
+    /// <summary>The high watermark the log's file was last written up to.</summary>
+    public long SavedHighWatermark { get; set; }
+
     private int HeldCount => records.Count - firstHeldIndex;
+
+    /// <summary>Sets the log start offset of a log loaded from its file, before any record is
+    /// appended.</summary>
+    public void StartAt(long offset) => LogStartOffset = offset;
+
+    /// <summary>The held records' messages from <paramref name="offset"/> on, in order.</summary>
+    public List<BusMessage> MessagesFrom(long offset) =>
+        [.. records.Skip(firstHeldIndex + (int)(offset - LogStartOffset)).Select(record => record.Message)];
 
     /// <summary>
     /// How many of the oldest records must go, and the bytes they count, for a record of

@@ -59,6 +59,7 @@ public sealed partial class MessageBus
             }
 
             queues.Add(name, new NamedQueue(name, flags, flags.Exclusive ? connection : null));
+            queuesVersion++;
             return new(MessageBusOutcome.Succeeded, 0, 0);
         }
     }
@@ -86,6 +87,8 @@ public sealed partial class MessageBus
             {
                 queue.Unbind(filter);
             }
+
+            queuesVersion++;
 
             return outcome;
         }
@@ -201,6 +204,7 @@ public sealed partial class MessageBus
 
     private void Dispatch(NamedQueue queue, DateTimeOffset now)
     {
+        queuesVersion++;
         var (deliveries, droppedBytes) = queue.Dispatch(now);
         queuedBytes -= droppedBytes;
         if (deliveries.Count > 0)
@@ -269,6 +273,7 @@ public sealed partial class MessageBus
 
     private void Delete(NamedQueue queue)
     {
+        queuesVersion++;
         foreach (var consumer in queue.Consumers.ToList())
         {
             consumer.Deactivate();
