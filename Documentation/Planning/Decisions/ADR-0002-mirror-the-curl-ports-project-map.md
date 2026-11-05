@@ -10,6 +10,7 @@
 - **Amended:** decision 3's table by [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md) (2026-09-30), which adds `Surl.Cryptography.Blowfish.UnitLibrary`, `Surl.Cryptography.Cast128.UnitLibrary` and `Surl.Cryptography.Ripemd160.UnitLibrary`, each referencing nothing, and lets `Surl.Cryptography.BcryptPbkdf.UnitLibrary` reference `Surl.Cryptography.Blowfish.UnitLibrary`. BL-254 created the projects.
 - **Amended:** decision 3's table by [ADR-0070](ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) (2026-09-30), which adds the library the HTTP, WebSocket and RTSP servers share, `Surl.HttpMessage.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`. BL-292 creates the projects and BL-293 moves the HTTP/1.x message machinery into it from `Surl.Protocol.Http.UnitLibrary`.
 - **Amended:** decision 3's table by [ADR-0081](ADR-0081-how-surl-serves-http-2.md) (2026-11-04), which adds the hand-built HPACK library, `Surl.Hpack.UnitLibrary`, referencing nothing, in `Protocols/Http/`. BL-365 creates the projects; `Surl.Protocol.Http.UnitLibrary` references it for HTTP/2.
+- **Amended:** decision 3's table by [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) (2026-11-04), which adds the four libraries HTTP/3 over QUIC needs: in `Cryptography/`, `Surl.Cryptography.MlKem.UnitLibrary`, referencing nothing, and `Surl.Tls13.UnitLibrary`, referencing `Surl.Cryptography.Curve25519.UnitLibrary` and `Surl.Cryptography.MlKem.UnitLibrary`; in `Protocols/Http/`, `Surl.Quic.UnitLibrary`, referencing `Surl.Tls13.UnitLibrary`, `Surl.Cryptography.ChaCha20.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, and `Surl.Qpack.UnitLibrary`, referencing `Surl.Hpack.UnitLibrary`. BL-373, BL-375 and BL-382 create three of the projects and BL-400 creates `Surl.Cryptography.MlKem`; `Surl.Protocol.Http.UnitLibrary` references `Surl.Quic` and `Surl.Qpack` for HTTP/3.
 
 ## Context
 
@@ -56,6 +57,7 @@ Three questions followed:
    | `Surl.Cryptography.ChaCha20.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Curve25519.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Ed25519.UnitLibrary` (ADR-0048) | `Surl.Cryptography.Curve25519.UnitLibrary` |
+   | `Surl.Cryptography.MlKem.UnitLibrary` (ADR-0082) | nothing |
    | `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Rc4.UnitLibrary` (ADR-0051) | nothing |
    | `Surl.Cryptography.Ripemd160.UnitLibrary` (ADR-0061) | nothing |
@@ -65,10 +67,13 @@ Three questions followed:
    | `Surl.Kerberos.UnitLibrary` (ADR-0057) | nothing |
    | `Surl.LineProtocol.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary` |
    | `Surl.MailStore.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` |
+   | `Surl.Qpack.UnitLibrary` (ADR-0082) | `Surl.Hpack.UnitLibrary` |
+   | `Surl.Quic.UnitLibrary` (ADR-0082) | `Surl.Tls13.UnitLibrary`, `Surl.Cryptography.ChaCha20.UnitLibrary`, `Surl.Cryptography.Poly1305.UnitLibrary` |
+   | `Surl.Tls13.UnitLibrary` (ADR-0082) | `Surl.Cryptography.Curve25519.UnitLibrary`, `Surl.Cryptography.MlKem.UnitLibrary` |
 
    `Surl.Protocol.Abstractions.UnitTests` enforces the table and that Abstractions
    references nothing. The rows marked ADR-0048 name projects BL-149 created, and the rows
-   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates, and the row marked ADR-0081 a project BL-365 creates; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
+   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates, and the row marked ADR-0081 a project BL-365 creates, and the rows marked ADR-0082 projects BL-373, BL-375, BL-382 and BL-400 create; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
    or HTTP/3 library, say) joins the table through a new ADR when Surl needs one.
 
 ## Consequences

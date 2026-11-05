@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Superseded in part:** section 3's throwaway certificate served without being asked for (no `--cert` for a secure scheme) is superseded by [ADR-0032](ADR-0032-secure-by-default-authentication-accounts-and-self-signed.md): it needs `--self-signed`.
 - **Amended by:** [ADR-0081](ADR-0081-how-surl-serves-http-2.md) (section 4: `https` offers `h2` before `http/1.1`)
+- **Amended by:** [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) (section 4: with `surl --http3`, `h3` is served over QUIC by Surl's hand-built TLS 1.3, `Surl.Tls13`, not by `SslStream`; sections 3 and 5 apply to it as written)
 - **Date:** 2026-09-28
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-28
 
@@ -259,6 +260,10 @@ server's own certificate.
 - **Amended by [ADR-0081](ADR-0081-how-surl-serves-http-2.md) decision 2** (2026-11-04), effective
   when BL-370 lands: `https` offers `h2`, then `http/1.1`, and serves HTTP/2 on a connection that
   agreed `h2`; `wss` keeps exactly `http/1.1` (curl 8.21.0 sends no ALPN for `wss`, measured).
+- **Amended by [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) decisions 1, 3 and 6**
+  (2026-11-04), effective when BL-384 lands: with `surl --http3`, an `https` listen URL also
+  serves HTTP/3 over QUIC on UDP at the same port, agreeing exactly `h3` in a TLS 1.3 handshake
+  that Surl's hand-built `Surl.Tls13` performs; `SslStream` still never carries `h3`.
 - For every other scheme no ALPN list is offered, so none is agreed: upstream curl sends
   ALPN only for HTTP.
 - A client that offers no ALPN is served without it (`ApplicationProtocol` is `null`).

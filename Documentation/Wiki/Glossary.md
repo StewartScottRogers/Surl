@@ -68,6 +68,31 @@ Decided by ADR-0081; BL-365 to BL-371 build it, so the names in code are the pla
 | flow-control window | How many `DATA` bytes a peer may still send on a stream and on the connection; `WINDOW_UPDATE` widens it (RFC 9113, section 5.2). | planned (BL-368) |
 | `GOAWAY` and `RST_STREAM` | The frames that end a whole HTTP/2 connection and one stream, each with an error code (`NO_ERROR`, `PROTOCOL_ERROR`, `REFUSED_STREAM`, `ENHANCE_YOUR_CALM`, `HTTP_1_1_REQUIRED`, ...). ADR-0081 decision 5 names the code each limit ends with. | planned (BL-367, BL-368) |
 
+## HTTP/3 and QUIC
+
+Decided by ADR-0082; BL-373 to BL-385, BL-400 and BL-401 build it, so the names in code are the
+planned ones.
+
+| Term | Meaning | Name in code |
+| --- | --- | --- |
+| HTTP/3 | HTTP over QUIC (RFC 9114): each request on its own QUIC stream, fields compressed with QPACK. Surl serves it only with `surl --http3`, on UDP at the `https` listener's port; curl asks for it with `--http3` or `--http3-only`. | planned: `Surl.Protocol.Http` (BL-383, BL-384) |
+| QUIC | The UDP transport HTTP/3 runs on (RFC 9000): encrypted packets carrying frames, many streams on one connection, its own loss recovery and flow control, and TLS 1.3 built in (RFC 9001). Hand-built: Surl does not use `System.Net.Quic`. | planned: `Surl.Quic` (BL-373, BL-374, BL-377 to BL-379) |
+| connection ID | The bytes at the start of a QUIC packet that name its connection; each side picks the ID the other puts on the packets it sends (Destination Connection ID, DCID; Source Connection ID, SCID). Surl's is 8 random bytes; curl's are 20. | planned: `Surl.Quic` (BL-373) |
+| Initial packet | The first QUIC packets of a connection, sent at the Initial encryption level with keys anyone can derive from the client's DCID (RFC 9001 section 5.2); the client's carry its ClientHello in `CRYPTO` frames, padded to 1200 bytes. What `Record-CurlExchange.ps1 -QuicInitial` records. | planned: `Surl.Quic` (BL-374) |
+| encryption level | One of QUIC's four sets of packet keys - Initial, 0-RTT, Handshake and 1-RTT (application data) - each derived from a different TLS 1.3 secret; Surl never accepts 0-RTT. | planned: `Surl.Quic`, `Surl.Tls13` (BL-374, BL-376) |
+| packet number space | A sequence of packet numbers acknowledged on its own: Initial, Handshake and application data each have one (RFC 9000 section 12.3), so loss is detected per space. | planned: `Surl.Quic` (BL-377, BL-379) |
+| packet protection | QUIC's encryption of a packet's payload with the level's AEAD (AES-GCM or ChaCha20-Poly1305) and of its header's packet number and flags with a mask (header protection), RFC 9001 section 5. | planned: `Surl.Quic` (BL-374) |
+| `CRYPTO` frame | The QUIC frame that carries TLS 1.3 handshake messages, at an offset, in place of TLS records; curl splits and repeats its ClientHello across many, so they are reassembled by offset. | planned: `Surl.Quic` (BL-373, BL-377) |
+| transport parameters | The settings each QUIC endpoint declares in its handshake, in TLS's `quic_transport_parameters` extension: flow-control credit, stream counts, idle timeout, connection IDs (RFC 9000 section 18). ADR-0082 decision 4 lists Surl's. | planned: `Surl.Quic` (BL-377) |
+| Version Negotiation | The packet a QUIC server sends to a client that asked for a version it does not speak, listing the versions it does; Surl lists only version 1. | planned: `Surl.Quic` (BL-373, BL-377) |
+| TLS 1.3 for QUIC | The TLS 1.3 handshake (RFC 8446) without its record layer, its messages carried in `CRYPTO` frames and its secrets handed to QUIC per encryption level. Hand-built, because `SslStream` cannot hand out either. | planned: `Surl.Tls13` (BL-375, BL-376) |
+| HelloRetryRequest | The TLS 1.3 server's answer to a ClientHello with no key share for a group the server accepts: it names the group, and the client sends a new ClientHello with a share for it. | planned: `Surl.Tls13` (BL-376) |
+| X25519MLKEM768 | The hybrid TLS 1.3 key-exchange group (`0x11EC`) that pairs ML-KEM-768 with x25519; every measured curl sends its key share first. | planned: `Surl.Cryptography.MlKem`, `Surl.Tls13` (BL-400) |
+| ML-KEM | The post-quantum key encapsulation mechanism of FIPS 203; Surl builds ML-KEM-768 by hand because the BCL's `MLKem` is missing on most platforms. | planned: `Surl.Cryptography.MlKem` (BL-400) |
+| QPACK | HTTP/3's field compression (RFC 9204): a static table, an optional dynamic table filled through encoder and decoder streams, and HPACK's Huffman code. Surl offers no dynamic table. | planned: `Surl.Qpack` (BL-382) |
+| field section | QPACK's name for the compressed fields of one request or response, carried in one HTTP/3 `HEADERS` frame; HTTP/2's header block. Bounded by `--max-message`, sent as `SETTINGS_MAX_FIELD_SECTION_SIZE`. | planned: `Surl.Qpack`, `Surl.Protocol.Http` (BL-382, BL-383) |
+| `Alt-Svc` | The response field (RFC 7838) by which a server says the same origin is also served another way, here `h3=":<port>"`; Surl sends it on TCP responses only under `--http3`, and curl uses it only with `--alt-svc <file>`. | planned: `Surl.Protocol.Http` (BL-384) |
+
 ## FTP
 
 | Term | Meaning | Name in code |
