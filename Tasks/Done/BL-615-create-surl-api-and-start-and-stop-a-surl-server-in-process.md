@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-614]
-touches: [Application/Surl.Api, Application/Surl.Api.UnitTests, Surl.slnx]
+touches: [Application/Surl.Api, Application/Surl.Api.UnitTests, Surl.slnx, Measure-CodeQuality.ps1]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-615 — Create Surl.Api and start and stop a Surl server in-process on its bound addresses
 
@@ -38,21 +38,42 @@ same `SurlExitCode` and text.
 
 ## Acceptance criteria
 
-- [ ] `Application/Surl.Api` and `Application/Surl.Api.UnitTests` exist, are in `Surl.slnx`, and `Application/Surl.Api/CLAUDE.md`
+- [x] `Application/Surl.Api` and `Application/Surl.Api.UnitTests` exist, are in `Surl.slnx`, and `Application/Surl.Api/CLAUDE.md`
       says what the project is, what it references and how it is tested.
-- [ ] Named tests with a fake listener factory show: a start on `http://127.0.0.1:0` returning once bound with the
+- [x] Named tests with a fake listener factory show: a start on `http://127.0.0.1:0` returning once bound with the
       fake's port in the bound URL; two listen URLs reporting two bound URLs in order; an `https` URL with no
       certificate throwing the ADR's exception with `SurlExitCode.CertificateProblem` and the text `surl` writes
       after `surl: `; stopping, then disposing, ending serving with no exception; disposing without stopping
       stopping it; a second server on the same data directory refused with exit code 124 while the first runs.
-- [ ] A named test shows the defaults are the command line's: a start with only a listen URL composes the same
+- [x] A named test shows the defaults are the command line's: a start with only a listen URL composes the same
       `SurlCommandLine` as `surl <url>` with no other option.
-- [ ] `dotnet build Application/Surl.Api -warnaserror` is clean (AOT analysis included), the fast tests are green,
+- [x] `dotnet build Application/Surl.Api -warnaserror` is clean (AOT analysis included), the fast tests are green,
       and `Surl.Api` has 100% line and branch coverage.
 
 ## Notes
+
+- Built to ADR-0099 decisions 3 to 8, names as decided: `SurlServer` (`StartAsync`, `BoundUrls`, `BoundUrl`,
+  `StopAsync`, `DisposeAsync`), `SurlServerOptions` (listen URLs, `DataDirectory`, `Files`, the four content flags,
+  `AdditionalArguments`, `Log`, `LogLevel`, `TimeProvider`, `AreExtensionsTurnedOn`) and `SurlServerStartException`.
+  Accounts, TLS, host keys and limits stay BL-616's; `Exchanges` and recording stay BL-617's.
+- Choices with a sensible default: `LogLevel` is spelled `--log-level <word>` only when it is not `info`, so the
+  defaults compose exactly `surl <url>`; `LogLevel.Trace` writes the trace dump to `Log`, as `surl` writes it to the
+  log stream when no trace file is given. `Log` is wrapped in `TextWriter.Synchronized`, since listeners write from
+  several threads. Host-owned options are detected from the parse (outcome help/version/manual, `LogFile` or
+  `TraceFile` set) rather than by scanning words, so every spelling (`-h`, `-V`, `-M`) is caught.
+- `Files` paths: '/' separated, no empty, `.` or `..` segment, no `\` or `:`, and no file another path is inside
+  (that would fail later in the in-memory file system with an `IOException`); each is an `ArgumentException`.
+- The in-memory file system is always composed and handed over as `ContentWithoutDataDirectory`; with
+  `DataDirectory` it is unused (empty).
+- The tests use an internal seam, `SurlServerHostSeams` (listener factory, probe, lock, environment), with
+  `ApiTestSeams`: a fake listener factory, an in-memory lock table and an in-memory data directory - no socket,
+  no disk.
+- Added `Measure-CodeQuality.ps1` to `touches` (no task in Doing names it): its production-assembly filter only
+  knew `*.UnitLibrary` and `Surl.Console`, so it now measures `Surl.Api` too. Measured: `Surl.Api` 100% line,
+  100% branch, 28 members, worst CRAP 10.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. Surl.Api starts a Surl server in-process on its bound URLs, refuses as surl does, and stops; 100% covered
