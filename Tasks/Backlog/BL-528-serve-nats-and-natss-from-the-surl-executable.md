@@ -4,7 +4,7 @@ title: Serve nats and natss from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-527, BL-405, BL-635, BL-764]
+depends-on: [BL-527, BL-405, BL-635, BL-770]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04

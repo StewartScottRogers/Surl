@@ -1,5 +1,5 @@
 ---
-id: BL-764
+id: BL-770
 title: Forward IConnection.PeekByteAsync through Surl.Core's connection wrappers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-764 — Forward IConnection.PeekByteAsync through Surl.Core's connection wrappers
+# BL-770 — Forward IConnection.PeekByteAsync through Surl.Core's connection wrappers
 
 ## Goal
 

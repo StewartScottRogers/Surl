@@ -47,7 +47,7 @@ completed: 2026-11-05
   It is a **default interface member that throws `NotSupportedException`**: about 40 test doubles and wrappers across
   the solution implement `IConnection`, almost all outside this task's `touches`, and none of them needs a peek.
   The cost is that `Surl.Core`'s wrappers (`RecordingConnection`, `IdleClockRestartingConnection`) do not forward it
-  yet; filed as BL-764 and added to BL-528's `depends-on` (BL-527 tests on `InMemoryConnection` and is not affected).
+  yet; filed as BL-770 and added to BL-528's `depends-on` (BL-527 tests on `InMemoryConnection` and is not affected).
 - `StreamConnection`: a peek starts one one-byte read that is **never cancelled** and waits for it with
   `Task.WaitAsync(wait, timeProvider, token)`. Cancelling a socket read to end the wait could lose a byte that arrives
   at that moment; keeping the read means the next peek or read sees it. `ReadAsync` returns the peeked byte alone
