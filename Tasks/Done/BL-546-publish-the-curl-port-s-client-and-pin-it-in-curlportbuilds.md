@@ -8,7 +8,7 @@ depends-on: [BL-406]
 touches: [CurlPortBuilds.json]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-546 — Publish the Curl port's client and pin it in CurlPortBuilds.json
 
@@ -36,15 +36,28 @@ tests inconclusive.
 
 ## Acceptance criteria
 
-- [ ] `CurlPortBuilds.json` has a `win-x64` entry with all six fields, its `sha256` the SHA-256 of
+- [x] `CurlPortBuilds.json` has a `win-x64` entry with all six fields, its `sha256` the SHA-256 of
       the published `curl.exe`, and its `commit` a commit on the port's `master`.
-- [ ] `dotnet test --filter "FullyQualifiedName~UpstreamCurlBuildPinsTests|FullyQualifiedName~CurlPortClientPinsTests"`
+- [x] `dotnet test --filter "FullyQualifiedName~UpstreamCurlBuildPinsTests|FullyQualifiedName~CurlPortClientPinsTests"`
       passes, including `Parse_RepositoryPinFiles_ShareNoSha256WithCurlPortBuilds`.
-- [ ] `dotnet build` is clean and the fast tests are green.
+- [x] `dotnet build` is clean and the fast tests are green.
 
 ## Notes
+
+- Cloned the port's `master` into a temporary folder (not `Z:\repos\Curl`); HEAD was
+  `7051feb900be7ecb5b810eab587879abc5a5cffd`. Published with
+  `dotnet publish Curl.Console -c Release -r win-x64 -o %LOCALAPPDATA%\Surl\curl-port\<commit>`
+  (native AOT, vswhere's folder on PATH). `curl.exe` SHA-256
+  `3644DC0C0C23986C4CE65D4DF4D49AF0427B7D81C4AA2A1E277C7712E84399C5`; it is in no
+  `UpstreamCurlBuilds.json` entry.
+- The pinned `path` uses `%LOCALAPPDATA%` rather than Stewart's literal profile path, so the
+  pin stays true on any Windows account that publishes the same commit (choice: the default
+  ADR-0083 names). Dropped "No client is pinned yet." from the file's comment, since one now is.
+- Only win-x64 is pinned; Linux and macOS pins need a publish on those machines and are left to
+  whoever runs there (their integration tests stay inconclusive until then).
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. CurlPortBuilds.json pins the Curl port's win-x64 client (commit 7051feb9), so the extended servers' integration tests find it
