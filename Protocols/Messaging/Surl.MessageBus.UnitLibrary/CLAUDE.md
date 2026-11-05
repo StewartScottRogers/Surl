@@ -10,7 +10,16 @@ What it holds now (BL-629):
 - **One topic space.** Topics and filters are canonical, MQTT's names (`CanonicalTopicName`,
   ADR-0100 decision 3.2): levels at `/`, `+` one level, `#` zero or more levels at any level,
   and a wildcard first level never matches a `$` topic. Each server maps its own names onto
-  them before calling the bus (BL-630).
+  them before calling the bus, and the bus's topics back onto its own names before sending.
+- **Name mappings (BL-630).** One static class per protocol, so no broker maps names its own
+  way: `MqttTopicNames` (identity, and `$share/<group>/<filter>`), `NatsSubjectNames`
+  (`.`, `*`, and a last `>` as `+/#`, one or more levels), `AmqpTopicExchangeNames`
+  (`.`, `*`, `#`; keys at most 255 bytes), `KafkaTopicNames` (`[A-Za-z0-9._-]{1,249}`,
+  partition 0 only), and `Amqp1AddressNames` and `StompDestinationNames`
+  (`/topic/<t>` and `/queue/<q>` as a `BusDestination`). Each returns a
+  `TopicNameMapping` or `BusDestinationMapping` whose `TopicNameMappingOutcome` is the typed
+  refusal: `InvalidName` inbound, `Unreachable` outbound (a canonical topic the protocol
+  cannot name - the server sends nothing), `UnknownDestination`, `UnknownPartition`.
 - **Live fan-out.** `MessageBus.Connect` gives a server connection a `BusConnection`;
   `BusConnection.Subscribe` makes a `BusSubscription` whose callback receives every later
   matching `BusMessage`, in publish order, once per subscription, and one member of each
@@ -25,7 +34,7 @@ What it holds now (BL-629):
   `Default…` constants (ADR-0100 decision 3.6). Every refusal a peer can cause is a
   `MessageBusOutcome`, never an exception, and past a bound nothing changes.
 
-Not here yet, each its own task: protocol name mapping (BL-630), named queues (BL-631),
+Not here yet, each its own task: named queues (BL-631),
 per-topic logs (BL-633), persistence under `<path>/.surl/bus` (BL-634), the MQTT 3.1.1
 server's move onto the bus (BL-635), and access checks (BL-664).
 
