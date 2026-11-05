@@ -48,3 +48,4 @@ Redis `SUBSCRIBE a/b` or a matching `PSUBSCRIBE` pattern, as ADR-0100 decision 3
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
