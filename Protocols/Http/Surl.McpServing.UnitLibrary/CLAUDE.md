@@ -28,8 +28,18 @@ What it holds, all in namespace `Surl.McpServing`, every type `public`:
   `McpToolFailureException` becomes `isError: true`, any other exception `-32603 Internal error`, and a
   handler cancelled through its token gets no response.
 
-Planned beside it: `McpStreamSession` over a stream pair (BL-621), and resources (BL-623), which adds the
-`resources` capability to the registry.
+- The stdio session: `McpStreamSession.RunAsync(input, output, registry, options, token)` serves one
+  session over a stream pair. `McpInputLineReader` reads newline-delimited messages (a trailing `\r` is
+  dropped, an empty line skipped, an unterminated last line answered, a line over the limit read to its
+  newline and discarded, then answered `-32600` with a null `id`). Each response is written as one line
+  ending in `\n`, a whole line per write behind one lock, flushed. Up to `MaximumConcurrentRequests` (16)
+  requests run at once; a slot is taken before each message is read, so the 17th waits unread.
+  `notifications/cancelled` cancels the named request's token (a string id and a number id never match);
+  a cancelled request's response is never written. The session returns when the input ends or the token
+  is cancelled, after cancelling the running handlers and waiting for them; a failed read or a failed
+  write of a running answer is thrown once they have ended.
+
+Planned beside it: resources (BL-623), which adds the `resources` capability to the registry.
 
 It **references nothing** - its row in `ProtocolIsolationTests.HorizontalLibraries` is empty. It takes
 bytes and `JsonElement`s, constructs no socket and never touches `Console`. JSON goes through
