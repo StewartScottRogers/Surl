@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: docs
 depends-on: []
-touches: [Documentation/Planning/Decisions]
+touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-571 — Decide how Surl listens on a Unix domain socket
 
@@ -56,20 +56,39 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation", answering decisions 1 to 6, each failure
       naming its `SurlExitCode`, and it is listed in the folder's `README.md`.
-- [ ] The ADR names the cases that wait on it (1435, 1436, 1467, 1468, 1470) and states on which
+- [x] The ADR names the cases that wait on it (1435, 1436, 1467, 1468, 1470) and states on which
       reference pins each can run.
-- [ ] The ADR's "Consequences" name BL-547, BL-548, BL-549, BL-561 and BL-562 as the tasks that
+- [x] The ADR's "Consequences" name BL-547, BL-548, BL-549, BL-561 and BL-562 as the tasks that
       act on it.
 
 ## Notes
 
 - Planning assumptions above are BL-399's defaults for an unattended plan; the ADR may change any
   of them and the build tasks follow the ADR.
+- Delivered: ADR-0094, listed in `Documentation/Planning/Decisions/README.md`. The README's
+  ADR-0093 row lacked its Status and Date columns; they were added (`Accepted`, `2026-11-04`, as
+  the ADR itself says).
+- Measured, not assumed: `Record-CurlExchange.ps1` gained `-UnixSocket <path>` and
+  `-UnixSocketAbstract` (HTTP responses only, PowerShell 7 only), so `touches` gained
+  `Record-CurlExchange.ps1` - no task in `Doing` names it. Against the Windows reference build:
+  HTTP and HTTPS over an `AF_UNIX` socket file exit 0 with TCP's request bytes; a 108-byte path
+  exits 6 (`Unix socket path too long`), 107 is accepted; an abstract name exits 7 even when .NET
+  has bound it on Windows. The BCL binds 107 characters on Windows, refuses 108, and fails
+  `AddressAlreadyInUse` on an existing path.
+- Where the ADR departs from the planning assumptions: abstract names on Windows and macOS fail
+  `BindFailed` (45), not `UnsupportedProtocol` (1) - the scheme is supported, the address is not
+  bindable; a datagram scheme is refused `FailedInit` (2), an option conflict; FTP and FTPS are
+  refused until BL-603 (filed) measures and serves their data connections; `--unix-socket` takes
+  exactly one listen URL.
+- Defaults taken: socket file mode `0600` on Linux and macOS (secure by default; no loosening
+  option yet); start-up line `over unix://<path>` in curl's own words; an unnamed peer is
+  `UnnamedUnixSocketPeer`, logged `unix peer`.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0094 decides how surl listens on a Unix domain socket, measured against the Windows reference build
