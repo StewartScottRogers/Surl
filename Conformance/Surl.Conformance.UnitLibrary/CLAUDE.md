@@ -33,6 +33,16 @@ all at once and closes stdin, as `Record-CurlExchange.ps1` does, sets any enviro
 variables it is given (the SSH tests point `HOME` and `USERPROFILE` at a temporary directory,
 ADR-0051 decision 8), and returns an `UpstreamCurlRunResult`
 (exit code, stdout bytes, stderr text), killing curl at its timeout.
+The Curl port's client has its own types, never shared with upstream curl's (ADR-0083
+decision 2), and runs only in the extended servers' `Integration` tests, never for an original
+protocol and never as an expected value. `CurlPortClientPins.Parse` reads `CurlPortBuilds.json`
+(platform, path, sha256, commit, publishCommand, published) into `PinnedCurlPortClient`s;
+`CurlPortClientLocator.Locate` expands `%NAME%` variables in the path, never returns a path
+`UpstreamCurlBuilds.json` lists, and refuses a file whose SHA-256 is not its pin, or is an
+upstream pin's, with `UnpinnedCurlPortClientException`; `CurlPortClientRunner` takes its
+`CurlPortClientLocation` and returns a `CurlPortClientRunResult`. A missing client is a
+`CurlPortClientUnavailability`, which the tests' `PinnedCurlPortClientOnThisMachine` turns
+into an inconclusive test.
 Parsing and matching are unit tested with no process and no network; a test that starts
 upstream curl is `[TestCategory("Integration")]`. Upstream test data copied into this
 repository keeps curl's `COPYING` notice beside it.

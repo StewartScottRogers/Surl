@@ -236,6 +236,21 @@ public sealed class UpstreamCurlBuildPinsTests
         Assert.IsTrue(pins.Any(pin => pin.Platform == "win-x64" && pin.Role == UpstreamCurlBuildRole.Reference));
     }
 
+    [TestMethod]
+    [TestCategory("Integration")]
+    public void Parse_RepositoryPinFiles_ShareNoSha256WithCurlPortBuilds()
+    {
+        var root = RepositoryRoot();
+        var upstream = UpstreamCurlBuildPins.Parse(File.ReadAllText(Path.Combine(root, UpstreamCurlBuildPins.FileName)));
+        var port = CurlPortClientPins.Parse(File.ReadAllText(Path.Combine(root, CurlPortClientPins.FileName)));
+
+        var shared = upstream.Select(pin => pin.Sha256)
+            .Intersect(port.Select(pin => pin.Sha256), StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Assert.IsEmpty(shared, $"These SHA-256s are pinned as both upstream curl and the Curl port: {string.Join(", ", shared)}.");
+    }
+
     private static Dictionary<string, string> RequiredFields() => new()
     {
         ["platform"] = "win-x64",
