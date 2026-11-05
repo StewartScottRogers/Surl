@@ -1,3 +1,4 @@
+using Surl.Composition;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;

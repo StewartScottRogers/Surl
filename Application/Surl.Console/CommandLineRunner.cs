@@ -1,31 +1,15 @@
 using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography;
 using Surl.Authentication;
 using Surl.Cli;
+using Surl.Composition;
 using Surl.Content;
 using Surl.Core;
 using Surl.Kerberos;
-using Surl.MailStore;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
-using Surl.Protocol.Dict;
-using Surl.Protocol.Ftp;
-using Surl.Protocol.Gopher;
-using Surl.Protocol.Http;
-using Surl.Protocol.Imap;
-using Surl.Protocol.Ldap;
-using Surl.Protocol.Mqtt;
-using Surl.Protocol.Pop3;
-using Surl.Protocol.Rtsp;
-using Surl.Protocol.Smb;
-using Surl.Protocol.Smtp;
-using Surl.Protocol.Ssh;
-using Surl.Protocol.Telnet;
-using Surl.Protocol.Tftp;
-using Surl.Protocol.Ws;
 
 namespace Surl.Console;
 
@@ -33,9 +17,10 @@ namespace Surl.Console;
 /// Runs one <c>surl</c> command line: the composition root. It parses the command line,
 /// answers <c>--help</c>, <c>--manual</c> and <c>--version</c>, checks the data directory when one is given and
 /// the listen URLs, takes the data directory's lock, loads the MQTT retained messages, the mail store and the LDAP directory kept under it,
-/// then constructs the TLS settings, the content store (on disk or in memory), the
-/// protocol servers, the exchange log and the serving engine explicitly and serves until
-/// cancelled, writing ADR-0007 section 5's texts and returning its exit codes.
+/// then constructs the TLS settings, the exchange log and the serving engine explicitly, with the
+/// content store (on disk or in memory), the service state and the protocol servers composed by
+/// <see cref="SurlServerComposition"/>, and serves until cancelled, writing ADR-0007 section 5's
+/// texts and returning its exit codes.
 /// </summary>
 /// <param name="createListenerFactory">
 /// Creates the factory that starts the listeners, given the process's TLS settings
@@ -235,232 +220,20 @@ internal sealed class CommandLineRunner(
     }
 
     /// <summary>
-    /// Lists the scheme of every original protocol server surl registers, in registration order:
-    /// what <c>--version</c>'s <c>Protocols:</c> line lists, and, with
-    /// <see cref="ComposeExtendedSchemes"/>, what every <c>--aihelp</c> protocol topic's schemes
-    /// must match (ADR-0046 decision 9).
+    /// Lists the scheme of every original protocol server surl registers, in registration order,
+    /// as <see cref="SurlServerComposition.ComposeRegisteredSchemes"/> composes them on the one clock.
     /// </summary>
     /// <returns>The schemes.</returns>
-    internal IReadOnlyList<string> ComposeRegisteredSchemes() =>
-        [.. ComposeUnservedProtocolServers(ComposeContentStore(new SurlCommandLine(), timeProvider))
-            .SelectMany(server => server.Schemes)];
+    internal IReadOnlyList<string> ComposeRegisteredSchemes() => SurlServerComposition.ComposeRegisteredSchemes(timeProvider);
 
     /// <summary>
-    /// Lists the scheme of every extended protocol server surl registers, in registration order;
-    /// none while <c>SURL_EXTENSIONS=0</c>: what <c>--version</c>'s <c>Extended:</c> line lists
-    /// and the listen-URL parser accepts besides upstream curl's schemes (ADR-0083, decisions 6
-    /// and 8).
+    /// Lists the scheme of every extended protocol server surl registers, none while
+    /// <c>SURL_EXTENSIONS=0</c>, as <see cref="SurlServerComposition.ComposeExtendedSchemes"/>
+    /// composes them through this runner's switch and seam.
     /// </summary>
     /// <returns>The schemes.</returns>
     internal IReadOnlyList<string> ComposeExtendedSchemes() =>
-        [.. ComposeExtendedProtocolServers(new ExtendedProtocolServerServices(
-                ComposeContentStore(new SurlCommandLine(), timeProvider),
-                AuthenticationComposition.ComposeWithoutAccounts(timeProvider),
-                IsTlsUpgradeAvailable: false))
-            .SelectMany(server => server.Schemes)];
-
-    // The extended servers while the switch leaves them on, and none, never composed, while
-    // SURL_EXTENSIONS=0 (ADR-0083, decision 6).
-    private IReadOnlyList<IProtocolServer> ComposeExtendedProtocolServers(ExtendedProtocolServerServices services) =>
-        areExtensionsTurnedOn ? (composeExtendedProtocolServers ?? ExtendedProtocolServers.Compose)(services) : [];
-
-    /// <summary>
-    /// Builds the one content store every protocol server reads, exposing what the command
-    /// line's exposure options allow (ADR-0006): the data directory's full path on disk with
-    /// <c>--directory</c>, and a new, empty in-memory file system at
-    /// <see cref="InMemoryContentFileSystem.RootPath"/> without it (ADR-0031 decisions 1 and 4).
-    /// </summary>
-    /// <param name="commandLine">The parsed command line.</param>
-    /// <param name="timeProvider">The clock the in-memory file system stamps last-write times with.</param>
-    /// <returns>The content store.</returns>
-    internal static ContentStore ComposeContentStore(SurlCommandLine commandLine, TimeProvider timeProvider) =>
-        ComposeContentStore(commandLine, ComposeContentFileSystem(commandLine, timeProvider, new DiskContentFileSystem()));
-
-    private static ContentStore ComposeContentStore(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
-        new(
-            commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath,
-            fileSystem,
-            MapExposureOptions(commandLine));
-
-    /// <summary>
-    /// Chooses where the MQTT server keeps its retained messages across restarts: a
-    /// <see cref="MqttRetainedMessageFile"/> in <c>&lt;data directory's full path&gt;/.surl/mqtt</c>,
-    /// read and written through <paramref name="fileSystem"/>, with <c>--directory</c>; none
-    /// without it, so they live in memory only (ADR-0031, decision 6).
-    /// </summary>
-    /// <param name="commandLine">The parsed command line.</param>
-    /// <param name="fileSystem">The file system the content store serves.</param>
-    /// <returns>The file, or <see langword="null"/> without <c>--directory</c>.</returns>
-    internal static MqttRetainedMessageFile? ComposeRetainedMessageFile(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
-        commandLine.DataDirectory is { } dataDirectory
-            ? new MqttRetainedMessageFile(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl", "mqtt"))
-            : null;
-
-    /// <summary>
-    /// Builds the MQTT server's retained messages: loaded from <paramref name="file"/> when there
-    /// is one, empty and in memory only when not. A file that cannot be read or does not parse
-    /// is not loaded, and gives the <c>(37)</c> message ADR-0031 decision 6 names instead.
-    /// </summary>
-    /// <param name="file">The retained-message file, or <see langword="null"/> for none.</param>
-    /// <param name="cancellationToken">Cancels the read.</param>
-    /// <returns>The store, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
-    internal static async Task<(MqttRetainedMessages? RetainedMessages, string? FailureMessage)> LoadRetainedMessagesAsync(
-        MqttRetainedMessageFile? file, CancellationToken cancellationToken)
-    {
-        if (file is null)
-        {
-            return (new MqttRetainedMessages(), null);
-        }
-
-        try
-        {
-            return (await MqttRetainedMessages.LoadAsync(file, cancellationToken: cancellationToken), null);
-        }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or InvalidDataException)
-        {
-            return (null, $"(37) Could not read {file.FilePath}: {failure.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Chooses where the mail store the SMTP server delivers into persists: its
-    /// <see cref="MailStoreFiles"/> in <c>&lt;data directory's full path&gt;/.surl/mail</c>, read and
-    /// written through <paramref name="fileSystem"/>, with <c>--directory</c>; none without it, so
-    /// the mail lives in memory only (ADR-0050, decision 7).
-    /// </summary>
-    /// <param name="commandLine">The parsed command line.</param>
-    /// <param name="fileSystem">The file system the content store serves.</param>
-    /// <returns>The files, or <see langword="null"/> without <c>--directory</c>.</returns>
-    internal static MailStoreFiles? ComposeMailStoreFiles(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
-        commandLine.DataDirectory is { } dataDirectory
-            ? new MailStoreFiles(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl", "mail"))
-            : null;
-
-    /// <summary>
-    /// Builds the one mail store the mail servers share: loaded from <paramref name="files"/> when
-    /// there are some, empty and in memory only when not. Its owners are
-    /// <paramref name="accountNames"/>, or the anonymous owner alone under <c>--allow-anonymous</c>,
-    /// and one message is bounded by <c>--max-filesize</c> (ADR-0050, decisions 2, 6 and 7). A
-    /// store that cannot be loaded gives ADR-0050 decision 7's <c>(37)</c> message instead.
-    /// </summary>
-    /// <param name="files">The mail store's files, or <see langword="null"/> for none.</param>
-    /// <param name="commandLine">The parsed command line.</param>
-    /// <param name="accountNames">Every configured account's user name.</param>
-    /// <param name="timeProvider">The clock for internal dates and <c>UIDVALIDITY</c>.</param>
-    /// <param name="cancellationToken">Cancels the read.</param>
-    /// <returns>The store, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
-    internal static async Task<(MailboxStore? MailStore, string? FailureMessage)> LoadMailStoreAsync(
-        MailStoreFiles? files,
-        SurlCommandLine commandLine,
-        IReadOnlyList<string> accountNames,
-        TimeProvider timeProvider,
-        CancellationToken cancellationToken)
-    {
-        var maxMessageBytes = commandLine.Limits.MaxUploadBytes;
-        if (files is null)
-        {
-            return (new MailboxStore(accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes), null);
-        }
-
-        try
-        {
-            return (await MailboxStore.LoadAsync(
-                files, accountNames, commandLine.AllowAnonymous, timeProvider, maxMessageBytes, cancellationToken: cancellationToken), null);
-        }
-        catch (MailStoreLoadException failure)
-        {
-            return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Chooses where the LDAP server's directory is read from: its <see cref="LdapDirectoryFile"/>
-    /// in <c>&lt;data directory's full path&gt;/.surl/ldap</c>, read through
-    /// <paramref name="fileSystem"/>, with <c>--directory</c>; none without it, so the directory is
-    /// empty (ADR-0072, decision 1).
-    /// </summary>
-    /// <param name="commandLine">The parsed command line.</param>
-    /// <param name="fileSystem">The file system the content store serves.</param>
-    /// <returns>The file, or <see langword="null"/> without <c>--directory</c>.</returns>
-    internal static LdapDirectoryFile? ComposeLdapDirectoryFile(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
-        commandLine.DataDirectory is { } dataDirectory
-            ? new LdapDirectoryFile(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl", "ldap"))
-            : null;
-
-    /// <summary>
-    /// Builds the LDAP server over its directory: loaded from <paramref name="file"/> when there is
-    /// one, empty when not, its binds judged by <paramref name="authenticationPolicy"/> and
-    /// <c>StartTLS</c> offered when a certificate is configured (ADR-0072, decisions 1 and 5). A
-    /// directory that cannot be loaded gives ADR-0072 decision 1's <c>(37)</c> message instead.
-    /// </summary>
-    /// <param name="file">The directory's file, or <see langword="null"/> for none.</param>
-    /// <param name="authenticationPolicy">Judges every bind.</param>
-    /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured.</param>
-    /// <param name="timeProvider">The clock a search's time limit is measured by.</param>
-    /// <param name="cancellationToken">Cancels the read.</param>
-    /// <returns>The server, or the message after the <c>surl: </c> prefix when its directory cannot be loaded.</returns>
-    internal static async Task<(LdapProtocolServer? LdapServer, string? FailureMessage)> LoadLdapServerAsync(
-        LdapDirectoryFile? file,
-        AuthenticationPolicy authenticationPolicy,
-        bool isTlsUpgradeAvailable,
-        TimeProvider timeProvider,
-        CancellationToken cancellationToken)
-    {
-        if (file is null)
-        {
-            return (new LdapProtocolServer(authenticationPolicy, authenticationPolicy, isTlsUpgradeAvailable), null);
-        }
-
-        try
-        {
-            return (await LdapProtocolServer.LoadAsync(
-                file, authenticationPolicy, authenticationPolicy, timeProvider, isTlsUpgradeAvailable, cancellationToken), null);
-        }
-        catch (LdapDirectoryLoadException failure)
-        {
-            return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Chooses the file system the content store serves and service state is kept through:
-    /// <paramref name="dataDirectoryFileSystem"/> with <c>--directory</c>, a new
-    /// <see cref="InMemoryContentFileSystem"/> without it.
-    /// </summary>
-    /// <param name="commandLine">The parsed command line.</param>
-    /// <param name="timeProvider">The clock the in-memory file system stamps last-write times with.</param>
-    /// <param name="dataDirectoryFileSystem">The file system the data directory is read and written
-    /// through; <c>surl</c>'s is a <see cref="DiskContentFileSystem"/>.</param>
-    /// <returns>The file system.</returns>
-    internal static IContentFileSystem ComposeContentFileSystem(
-        SurlCommandLine commandLine, TimeProvider timeProvider, IContentFileSystem dataDirectoryFileSystem) =>
-        commandLine.DataDirectory is null ? new InMemoryContentFileSystem(timeProvider) : dataDirectoryFileSystem;
-
-    private static ContentExposureOptions MapExposureOptions(SurlCommandLine commandLine) => new()
-    {
-        AllowUploads = commandLine.AllowUploads,
-        ListDirectories = commandLine.ListDirectories,
-        FollowSymbolicLinks = commandLine.FollowSymlinks,
-        ServeDotFiles = commandLine.ServeDotFiles,
-        MaxUploadBytes = commandLine.Limits.MaxUploadBytes,
-    };
-
-    /// <summary>
-    /// Builds the connection limits the serving engine enforces from the command line's
-    /// <c>--max-connections</c>, <c>--max-connections-per-address</c>, <c>--idle-timeout</c>
-    /// and <c>-m</c>/<c>--max-time</c> (ADR-0006 section 1). 0 seconds, parsed as
-    /// <see cref="Timeout.InfiniteTimeSpan"/>, becomes <see cref="TimeSpan.Zero"/>: no limit.
-    /// </summary>
-    /// <param name="commandLine">The parsed command line.</param>
-    /// <returns>The connection limits.</returns>
-    internal static ConnectionLimits ComposeConnectionLimits(SurlCommandLine commandLine) => new(
-        commandLine.MaxConnections,
-        commandLine.MaxConnectionsPerAddress,
-        NoLimitAsZero(commandLine.IdleTimeout),
-        NoLimitAsZero(commandLine.MaxTime));
-
-    private static TimeSpan NoLimitAsZero(TimeSpan seconds) =>
-        seconds == Timeout.InfiniteTimeSpan ? TimeSpan.Zero : seconds;
+        SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, composeExtendedProtocolServers, timeProvider);
 
     /// <summary>
     /// Formats the message for a TLS option file that could not be loaded, after the
@@ -480,94 +253,6 @@ internal sealed class CommandLineRunner(
             _ => (SurlExitCode.CertificateProblem, [$"(58) Could not load the server certificate: {failure.Message}"]),
         };
 
-    // Every protocol server surl registers, over TCP or (TFTP) UDP; those that serve files serve
-    // the one content store, the MQTT server keeps its retained messages in the store it is
-    // given, the SMTP server delivers into the one mail store and the IMAP and POP3 servers
-    // serve it. https, smtps, imaps and pop3s are the HTTP, SMTP, IMAP and POP3 servers
-    // themselves, over a connection the engine has secured (ADR-0020, ADR-0053 decision 5,
-    // ADR-0055 decision 11, ADR-0056 decision 8). The FTP server answers ftp and, TLS from the
-    // first byte, ftps itself (ADR-0052 decision 5). The HTTP, MQTT, SMTP, IMAP, POP3, FTP and
-    // SSH servers, the ones with a login, judge it by the one policy (ADR-0032); SMTP and IMAP
-    // offer STARTTLS, POP3 STLS and FTP AUTH TLS only when a certificate is configured. The SSH server answers scp and sftp with its host keys and
-    // offers the algorithms given: ADR-0051 decision 2's default ones, its weak ones too with
-    // --allow-weak-ssh-algorithms, the ciphers and MACs narrowed by --ssh-ciphers and --ssh-macs
-    // (ADR-0051 decision 13, ADR-0066). The WebSocket server serves the one content store, judged
-    // by the one policy as HTTP is, and is registered for wss too, over a secured connection; with
-    // --ws-echo it echoes every client message instead (ADR-0071 decisions 3, 4 and 8). The SMB
-    // server serves the content store's top-level directories as shares, its NTLMv1 session setups
-    // judged by the one policy; it answers smb and, TLS from the first byte, smbs itself
-    // (ADR-0073 decisions 3 and 6). The RTSP server serves the one content store, each request
-    // judged by the one policy as HTTP is; curl has no rtsps (ADR-0074 decision 7). The LDAP
-    // server, built over its directory with the service state, answers ldap and, over a secured
-    // connection, ldaps (ADR-0072 decisions 1 and 5).
-    private static IProtocolServer[] ComposeProtocolServers(
-        ContentStore contentStore,
-        ServiceState serviceState,
-        AuthenticationPolicy authenticationPolicy,
-        SshHostKeySet sshHostKeys,
-        SshAlgorithmOffer sshAlgorithms,
-        bool isTlsUpgradeAvailable,
-        bool echoesWebSocketMessages)
-    {
-        var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
-        var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
-        var imapServer = new ImapProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
-        var pop3Server = new Pop3ProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
-        var wsServer = new WsProtocolServer(contentStore, authenticationPolicy, echoesWebSocketMessages);
-
-        return
-        [
-            httpServer,
-            new ImplicitTlsSchemeServer(httpServer, "https"),
-            new DictProtocolServer(contentStore),
-            new FtpProtocolServer(contentStore, authenticationPolicy, isTlsUpgradeAvailable),
-            new GopherProtocolServer(contentStore),
-            imapServer,
-            new ImplicitTlsSchemeServer(imapServer, "imaps"),
-            serviceState.LdapServer,
-            new ImplicitTlsSchemeServer(serviceState.LdapServer, "ldaps"),
-            new MqttProtocolServer(serviceState.RetainedMessages, authenticationPolicy),
-            pop3Server,
-            new ImplicitTlsSchemeServer(pop3Server, "pop3s"),
-            new RtspProtocolServer(contentStore, authenticationPolicy),
-            new SmbProtocolServer(contentStore, authenticationPolicy),
-            smtpServer,
-            new ImplicitTlsSchemeServer(smtpServer, "smtps"),
-            new SshProtocolServer(
-                sshHostKeys,
-                sshAlgorithms,
-                authenticationPolicy,
-                new SshSystemRandomSource(),
-                contentStore),
-            new TelnetProtocolServer(),
-            new TftpProtocolServer(contentStore),
-            wsServer,
-            new ImplicitTlsSchemeServer(wsServer, "wss"),
-        ];
-    }
-
-    // The servers composed only to ask for their schemes: nothing is served through them, so
-    // they need no retained messages, no mail, no directory, no accounts and no host keys.
-    private IProtocolServer[] ComposeUnservedProtocolServers(ContentStore contentStore)
-    {
-        var authenticationPolicy = AuthenticationComposition.ComposeWithoutAccounts(timeProvider);
-        return ComposeProtocolServers(
-            contentStore,
-            new ServiceState(
-                new MqttRetainedMessages(),
-                new MailboxStore([], allowAnonymous: false, timeProvider),
-                new LdapProtocolServer(authenticationPolicy, authenticationPolicy)),
-            authenticationPolicy,
-            new SshHostKeySet(),
-            SshAlgorithmOffer.Default([], AesGcm.IsSupported),
-            isTlsUpgradeAvailable: false,
-            echoesWebSocketMessages: false);
-    }
-
-    // What the servers keep across connections, loaded after the lock: the MQTT retained
-    // messages, the mail store and the LDAP server over its directory (ADR-0031 decision 6,
-    // ADR-0050 decision 7, ADR-0072 decision 1).
-    private sealed record ServiceState(MqttRetainedMessages RetainedMessages, MailboxStore MailStore, LdapProtocolServer LdapServer);
 
     private static SurlExitCode WriteTlsFileFailure(TextWriter error, TlsFileLoadException failure, string? caCertificateFile)
     {
@@ -621,8 +306,8 @@ internal sealed class CommandLineRunner(
             return WriteFailure(error, SurlExitCode.CouldNotReadFile, $"(37) Could not open directory {dataDirectory}");
         }
 
-        var fileSystem = ComposeContentFileSystem(commandLine, timeProvider, dataDirectoryFileSystem);
-        var contentStore = ComposeContentStore(commandLine, fileSystem);
+        var fileSystem = SurlServerComposition.ComposeContentFileSystem(commandLine, timeProvider, dataDirectoryFileSystem);
+        var contentStore = SurlServerComposition.ComposeContentStore(commandLine, fileSystem);
         if (FindListenUrlRefusal(commandLine) is { } refusal)
         {
             return WriteFailure(error, refusal.ExitCode, refusal.Message);
@@ -694,7 +379,14 @@ internal sealed class CommandLineRunner(
         (ServiceState? State, string? FailureMessage) loaded;
         try
         {
-            loaded = await LoadServiceStateAsync(commandLine, fileSystem, authentication, cancellationToken);
+            loaded = await SurlServerComposition.LoadServiceStateAsync(
+                commandLine,
+                fileSystem,
+                authentication.Policy,
+                authentication.AccountNames,
+                ServerTlsComposition.IsCertificateConfigured(commandLine),
+                timeProvider,
+                cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -707,7 +399,7 @@ internal sealed class CommandLineRunner(
             : await ServeUnderTheLockAsync(
                 commandLine,
                 [
-                    .. ComposeProtocolServers(
+                    .. SurlServerComposition.ComposeProtocolServers(
                         contentStore,
                         loaded.State,
                         authentication.Policy,
@@ -715,41 +407,13 @@ internal sealed class CommandLineRunner(
                         SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
                         ServerTlsComposition.IsCertificateConfigured(commandLine),
                         commandLine.WsEcho),
-                    .. ComposeExtendedProtocolServers(new ExtendedProtocolServerServices(
+                    .. SurlServerComposition.ComposeExtendedProtocolServers(areExtensionsTurnedOn, composeExtendedProtocolServers, new ExtendedProtocolServerServices(
                         contentStore, authentication.Policy, ServerTlsComposition.IsCertificateConfigured(commandLine))),
                 ],
                 authentication,
                 output,
                 error,
                 cancellationToken);
-    }
-
-    // The retained messages, then the mail store, then the LDAP directory; the first that cannot
-    // be loaded ends the start.
-    private async Task<(ServiceState? State, string? FailureMessage)> LoadServiceStateAsync(
-        SurlCommandLine commandLine, IContentFileSystem fileSystem, ComposedAuthentication authentication, CancellationToken cancellationToken)
-    {
-        var (retainedMessages, retainedMessagesFailure) = await LoadRetainedMessagesAsync(
-            ComposeRetainedMessageFile(commandLine, fileSystem), cancellationToken);
-        if (retainedMessages is null)
-        {
-            return (null, retainedMessagesFailure);
-        }
-
-        var (mailStore, mailStoreFailure) = await LoadMailStoreAsync(
-            ComposeMailStoreFiles(commandLine, fileSystem), commandLine, authentication.AccountNames, timeProvider, cancellationToken);
-        if (mailStore is null)
-        {
-            return (null, mailStoreFailure);
-        }
-
-        var (ldapServer, ldapFailure) = await LoadLdapServerAsync(
-            ComposeLdapDirectoryFile(commandLine, fileSystem),
-            authentication.Policy,
-            ServerTlsComposition.IsCertificateConfigured(commandLine),
-            timeProvider,
-            cancellationToken);
-        return ldapServer is null ? (null, ldapFailure) : (new ServiceState(retainedMessages, mailStore, ldapServer), null);
     }
 
     private async Task<SurlExitCode> ServeUnderTheLockAsync(
@@ -846,7 +510,7 @@ internal sealed class CommandLineRunner(
             logStreams.CreateExchangeLogFactory(commandLine, timeProvider),
             timeProvider,
             ServingEngine.DefaultShutdownGracePeriod,
-            ComposeConnectionLimits(commandLine),
+            SurlServerComposition.ComposeConnectionLimits(commandLine),
             CreateDataConnectionOpener(tls.Settings),
             commandLine.Limits);
 

@@ -1,6 +1,7 @@
 using System.Formats.Asn1;
 using System.Text;
 using Surl.Cli;
+using Surl.Composition;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ldap;
@@ -139,7 +140,7 @@ public sealed class CommandLineRunnerLdapTests
     [TestMethod]
     public void ComposeLdapDirectoryFile_DataDirectory_KeepsItInTheDotSurlLdapFolderOfTheFullPath()
     {
-        var file = CommandLineRunner.ComposeLdapDirectoryFile(
+        var file = SurlServerComposition.ComposeLdapDirectoryFile(
             ParseServing("--directory", "served", "ldap://127.0.0.1:0/"), new UnitTestReadOnlyContentFileSystem());
 
         Assert.IsNotNull(file);
@@ -149,7 +150,7 @@ public sealed class CommandLineRunnerLdapTests
     [TestMethod]
     public void ComposeLdapDirectoryFile_NoDirectory_ComposesNone()
     {
-        Assert.IsNull(CommandLineRunner.ComposeLdapDirectoryFile(ParseServing("ldap://127.0.0.1:0/"), new UnitTestReadOnlyContentFileSystem()));
+        Assert.IsNull(SurlServerComposition.ComposeLdapDirectoryFile(ParseServing("ldap://127.0.0.1:0/"), new UnitTestReadOnlyContentFileSystem()));
     }
 
     [TestMethod]
@@ -159,8 +160,8 @@ public sealed class CommandLineRunnerLdapTests
         fileSystem.Files[DirectoryFilePath] = "objectClass: top\n"u8.ToArray();
         var commandLine = ParseServing("--directory", "served", "ldap://127.0.0.1:0/");
 
-        var (ldapServer, failureMessage) = await CommandLineRunner.LoadLdapServerAsync(
-            CommandLineRunner.ComposeLdapDirectoryFile(commandLine, fileSystem),
+        var (ldapServer, failureMessage) = await SurlServerComposition.LoadLdapServerAsync(
+            SurlServerComposition.ComposeLdapDirectoryFile(commandLine, fileSystem),
             AuthenticationComposition.ComposeWithoutAccounts(TimeProvider.System),
             isTlsUpgradeAvailable: false,
             TimeProvider.System,

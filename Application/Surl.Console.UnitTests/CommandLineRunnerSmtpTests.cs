@@ -1,5 +1,6 @@
 using System.Text;
 using Surl.Cli;
+using Surl.Composition;
 using Surl.MailStore;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
@@ -106,7 +107,7 @@ public sealed class CommandLineRunnerSmtpTests
     [TestMethod]
     public void ComposeMailStoreFiles_DataDirectory_KeepsThemInTheDotSurlMailFolderOfTheFullPath()
     {
-        var files = CommandLineRunner.ComposeMailStoreFiles(
+        var files = SurlServerComposition.ComposeMailStoreFiles(
             ParseServing("--directory", "served", "smtp://127.0.0.1:0/"), new UnitTestReadOnlyContentFileSystem());
 
         Assert.IsNotNull(files);
@@ -117,13 +118,13 @@ public sealed class CommandLineRunnerSmtpTests
     [TestMethod]
     public void ComposeMailStoreFiles_NoDirectory_ComposesNone()
     {
-        Assert.IsNull(CommandLineRunner.ComposeMailStoreFiles(ParseServing("smtp://127.0.0.1:0/"), new UnitTestReadOnlyContentFileSystem()));
+        Assert.IsNull(SurlServerComposition.ComposeMailStoreFiles(ParseServing("smtp://127.0.0.1:0/"), new UnitTestReadOnlyContentFileSystem()));
     }
 
     [TestMethod]
     public async Task LoadMailStoreAsync_NoFiles_GivesAnInMemoryStoreBoundedByMaxFilesize()
     {
-        var (mailStore, failureMessage) = await CommandLineRunner.LoadMailStoreAsync(
+        var (mailStore, failureMessage) = await SurlServerComposition.LoadMailStoreAsync(
             null, ParseServing("--max-filesize", "1000", "smtp://127.0.0.1:0/"), ["alice"], TimeProvider.System, TestContext.CancellationToken);
 
         Assert.IsNotNull(mailStore);
@@ -140,8 +141,8 @@ public sealed class CommandLineRunnerSmtpTests
         fileSystem.Files[IndexPath] = EmptyIndex;
         var commandLine = ParseServing("--directory", "served", "--allow-anonymous", "smtp://127.0.0.1:0/");
 
-        var (mailStore, failureMessage) = await CommandLineRunner.LoadMailStoreAsync(
-            CommandLineRunner.ComposeMailStoreFiles(commandLine, fileSystem), commandLine, [], TimeProvider.System, TestContext.CancellationToken);
+        var (mailStore, failureMessage) = await SurlServerComposition.LoadMailStoreAsync(
+            SurlServerComposition.ComposeMailStoreFiles(commandLine, fileSystem), commandLine, [], TimeProvider.System, TestContext.CancellationToken);
 
         Assert.IsNotNull(mailStore);
         Assert.IsNull(failureMessage);
@@ -155,8 +156,8 @@ public sealed class CommandLineRunnerSmtpTests
         fileSystem.Files[IndexPath] = "not the header"u8.ToArray();
         var commandLine = ParseServing("--directory", "served", "smtp://127.0.0.1:0/");
 
-        var (mailStore, failureMessage) = await CommandLineRunner.LoadMailStoreAsync(
-            CommandLineRunner.ComposeMailStoreFiles(commandLine, fileSystem), commandLine, [], TimeProvider.System, TestContext.CancellationToken);
+        var (mailStore, failureMessage) = await SurlServerComposition.LoadMailStoreAsync(
+            SurlServerComposition.ComposeMailStoreFiles(commandLine, fileSystem), commandLine, [], TimeProvider.System, TestContext.CancellationToken);
 
         Assert.IsNull(mailStore);
         Assert.AreEqual($"(37) Could not read {IndexPath}: {MailStoreFiles.MalformedIndexReason}", failureMessage);

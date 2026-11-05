@@ -39,6 +39,13 @@ public sealed class ProtocolIsolationTests
     private const string WebSocket = "Surl.WebSocket.UnitLibrary";
     private const string ExtendedRedis = "Surl.Extended.Protocol.Redis.UnitLibrary";
     private const string ExtendedServerPrefix = "Surl.Extended.Protocol.";
+    private const string Composition = "Surl.Composition.UnitLibrary";
+
+    /// <summary>
+    /// The composition roots (ADR-0099, decision 11): the hosts and the composition they share,
+    /// which reference every protocol server and so may be referenced by none of them.
+    /// </summary>
+    private static readonly string[] CompositionRoots = ["Surl.Console", Composition, "Surl.Api", "Surl.Mcp"];
 
     /// <summary>
     /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061,
@@ -196,6 +203,8 @@ public sealed class ProtocolIsolationTests
     [DataRow("Surl.Networking.UnitLibrary")]
     [DataRow("Surl.Core.UnitLibrary")]
     [DataRow("Surl.Console")]
+    [DataRow("Surl.Composition.UnitLibrary")]
+    [DataRow("Surl.Api")]
     [DataRow("Surl.Authentication.UnitLibrary")]
     [DataRow("Surl.Cli.UnitLibrary")]
     public void ForbiddenProtocolReferences_OtherProject_IsForbidden(string referenced)
@@ -274,6 +283,51 @@ public sealed class ProtocolIsolationTests
     }
 
     [TestMethod]
+    public void EveryProjectOutsideTheHostsAndConformance_ReferencesNoCompositionRoot()
+    {
+        var root = RepositoryRoot();
+        var violations = new List<string>();
+
+        foreach (var project in ProjectsUnder(root, "Foundation", "Cryptography", "Protocols"))
+        {
+            foreach (var referenced in CompositionRootReferences(ProjectReferences(project)))
+            {
+                violations.Add($"{ProjectName(project)} -> {referenced}");
+            }
+        }
+
+        Assert.IsEmpty(
+            violations,
+            "No protocol server or horizontal library may reference a composition root (ADR-0099, decision 11): "
+                + string.Join(", ", violations));
+    }
+
+    [TestMethod]
+    public void Composition_ReferencesNoHost()
+    {
+        var project = ProjectFile(RepositoryRoot(), Composition);
+
+        var hosts = CompositionRootReferences(ProjectReferences(project));
+
+        Assert.IsEmpty(
+            hosts,
+            $"{Composition} may reference no host (ADR-0099, decision 11): " + string.Join(", ", hosts));
+    }
+
+    [TestMethod]
+    [DataRow("Surl.Console")]
+    [DataRow(Composition)]
+    [DataRow("Surl.Api")]
+    [DataRow("Surl.Mcp")]
+    public void CompositionRootReferences_CompositionRoot_IsFound(string referenced)
+    {
+        var found = CompositionRootReferences([Abstractions, referenced]);
+
+        Assert.HasCount(1, found);
+        Assert.AreEqual(referenced, found[0]);
+    }
+
+    [TestMethod]
     public void Abstractions_ReferencesNothing()
     {
         var project = ProjectFile(RepositoryRoot(), Abstractions);
@@ -328,6 +382,22 @@ public sealed class ProtocolIsolationTests
 
     private static bool IsExtendedServer(string projectName) =>
         projectName.StartsWith(ExtendedServerPrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Returns the references that name a composition root, which no protocol server, horizontal
+    /// library or (for <c>Surl.Composition</c>) composition may have (ADR-0099, decision 11).
+    /// </summary>
+    private static List<string> CompositionRootReferences(IEnumerable<string> references) =>
+        references.Where(referenced => CompositionRoots.Contains(referenced)).ToList();
+
+    /// <summary>
+    /// Returns every csproj under the named category folders of the repository, outside build output.
+    /// </summary>
+    private static IEnumerable<string> ProjectsUnder(string root, params string[] categoryFolders) =>
+        categoryFolders
+            .Select(folder => Path.Combine(root, folder))
+            .SelectMany(folder => Directory.EnumerateFiles(folder, "*.csproj", SearchOption.AllDirectories))
+            .Where(path => !IsUnderBuildOutput(root, path));
 
     /// <summary>
     /// Returns every protocol server's csproj: the original servers,

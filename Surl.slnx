@@ -59,6 +59,8 @@
   <Folder Name="/Application/">
     <Project Path="Application/Surl.Cli.UnitLibrary/Surl.Cli.UnitLibrary.csproj" />
     <Project Path="Application/Surl.Cli.UnitTests/Surl.Cli.UnitTests.csproj" />
+    <Project Path="Application/Surl.Composition.UnitLibrary/Surl.Composition.UnitLibrary.csproj" />
+    <Project Path="Application/Surl.Composition.UnitTests/Surl.Composition.UnitTests.csproj" />
     <Project Path="Application/Surl.Console.UnitTests/Surl.Console.UnitTests.csproj" />
     <Project Path="Application/Surl.Console/Surl.Console.csproj" />
   </Folder>

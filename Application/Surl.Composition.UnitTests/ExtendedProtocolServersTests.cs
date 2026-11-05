@@ -1,4 +1,4 @@
-namespace Surl.Console;
+namespace Surl.Composition;
 
 [TestClass]
 public sealed class ExtendedProtocolServersTests
@@ -33,8 +33,8 @@ public sealed class ExtendedProtocolServersTests
     public void Compose_ThisBuild_HasNoExtendedServerYet()
     {
         var services = new ExtendedProtocolServerServices(
-            CommandLineRunner.ComposeContentStore(new Cli.SurlCommandLine(), TimeProvider.System),
-            AuthenticationComposition.ComposeWithoutAccounts(TimeProvider.System),
+            SurlServerComposition.ComposeContentStore(new Cli.SurlCommandLine(), TimeProvider.System),
+            SurlServerComposition.ComposePolicyWithoutAccounts(TimeProvider.System),
             IsTlsUpgradeAvailable: false);
 
         var servers = ExtendedProtocolServers.Compose(services);

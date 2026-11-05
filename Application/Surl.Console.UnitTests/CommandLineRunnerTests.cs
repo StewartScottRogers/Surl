@@ -3,6 +3,7 @@ using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Surl.Cli;
+using Surl.Composition;
 using Surl.Content;
 using Surl.Core;
 using Surl.Networking;
@@ -564,7 +565,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_NoExposureOption_ServesWithAdr0006Defaults()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("http://127.0.0.1:0/"), TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(ParseServing("http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions(), store.ExposureOptions);
     }
@@ -572,7 +573,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_AllowUploads_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--allow-uploads", "http://127.0.0.1:0/"), TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(ParseServing("--allow-uploads", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { AllowUploads = true }, store.ExposureOptions);
     }
@@ -580,7 +581,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_ListDirectories_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--list-directories", "http://127.0.0.1:0/"), TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(ParseServing("--list-directories", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { ListDirectories = true }, store.ExposureOptions);
     }
@@ -588,7 +589,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_FollowSymlinks_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--follow-symlinks", "http://127.0.0.1:0/"), TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(ParseServing("--follow-symlinks", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { FollowSymbolicLinks = true }, store.ExposureOptions);
     }
@@ -596,7 +597,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_ServeDotFiles_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--serve-dot-files", "http://127.0.0.1:0/"), TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(ParseServing("--serve-dot-files", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { ServeDotFiles = true }, store.ExposureOptions);
     }
@@ -604,7 +605,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeContentStore_MaxFilesize_ReachesTheStore()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("--max-filesize", "4096", "http://127.0.0.1:0/"), TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(ParseServing("--max-filesize", "4096", "http://127.0.0.1:0/"), TimeProvider.System);
 
         Assert.AreEqual(new ContentExposureOptions { MaxUploadBytes = 4096 }, store.ExposureOptions);
     }
@@ -614,13 +615,13 @@ public sealed class CommandLineRunnerTests
     {
         var commandLine = ParseServing("--directory", "served", "http://127.0.0.1:0/");
 
-        var store = CommandLineRunner.ComposeContentStore(commandLine, TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(commandLine, TimeProvider.System);
 
         Assert.AreEqual(Path.GetFullPath("served"), store.ServedRoot);
         var dataDirectoryFileSystem = new UnitTestReadOnlyContentFileSystem();
         Assert.AreSame(
             dataDirectoryFileSystem,
-            CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem));
+            SurlServerComposition.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem));
     }
 
     [TestMethod]
@@ -628,22 +629,22 @@ public sealed class CommandLineRunnerTests
     {
         var commandLine = ParseServing("http://127.0.0.1:0/");
 
-        var store = CommandLineRunner.ComposeContentStore(commandLine, TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(commandLine, TimeProvider.System);
 
         Assert.AreEqual(InMemoryContentFileSystem.RootPath, store.ServedRoot);
         var dataDirectoryFileSystem = new UnitTestReadOnlyContentFileSystem();
-        var fileSystem = CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem);
+        var fileSystem = SurlServerComposition.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem);
         Assert.IsInstanceOfType<InMemoryContentFileSystem>(fileSystem);
         Assert.AreEqual(0L, ((InMemoryContentFileSystem)fileSystem).TotalBytes);
         Assert.AreNotSame(
-            fileSystem, CommandLineRunner.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem));
+            fileSystem, SurlServerComposition.ComposeContentFileSystem(commandLine, TimeProvider.System, dataDirectoryFileSystem));
     }
 
     [TestMethod]
     public async Task ComposeContentStore_NoDirectoryWithAllowUploads_KeepsAnUploadInMemoryAndServesItsBytesBack()
     {
         byte[] uploaded = [0x00, 0x01, 0xFE, 0xFF, (byte)'s', (byte)'u', (byte)'r', (byte)'l'];
-        var store = CommandLineRunner.ComposeContentStore(
+        var store = SurlServerComposition.ComposeContentStore(
             ParseServing("--allow-uploads", "tftp://127.0.0.1:0/"), TimeProvider.System);
         var mapping = store.MapRequestPath("/up.bin");
 
@@ -662,7 +663,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public async Task ComposeContentStore_NoDirectoryWithoutAllowUploads_RefusesTheUpload()
     {
-        var store = CommandLineRunner.ComposeContentStore(ParseServing("tftp://127.0.0.1:0/"), TimeProvider.System);
+        var store = SurlServerComposition.ComposeContentStore(ParseServing("tftp://127.0.0.1:0/"), TimeProvider.System);
         var mapping = store.MapRequestPath("/up.bin");
 
         using var source = new MemoryStream([1, 2, 3]);
@@ -675,7 +676,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeConnectionLimits_NoLimitOption_EnforcesAdr0006Defaults()
     {
-        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing("http://127.0.0.1:0/"));
+        var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing("http://127.0.0.1:0/"));
 
         Assert.AreEqual(ConnectionLimits.Default, limits);
     }
@@ -683,7 +684,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeConnectionLimits_MaxConnections_ReachesTheEngine()
     {
-        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing("--max-connections", "7", "http://127.0.0.1:0/"));
+        var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing("--max-connections", "7", "http://127.0.0.1:0/"));
 
         Assert.AreEqual(ConnectionLimits.Default with { MaxConnections = 7 }, limits);
     }
@@ -691,7 +692,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeConnectionLimits_MaxConnectionsPerAddress_ReachesTheEngine()
     {
-        var limits = CommandLineRunner.ComposeConnectionLimits(
+        var limits = SurlServerComposition.ComposeConnectionLimits(
             ParseServing("--max-connections-per-address", "3", "http://127.0.0.1:0/"));
 
         Assert.AreEqual(ConnectionLimits.Default with { MaxConnectionsPerAddress = 3 }, limits);
@@ -700,7 +701,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeConnectionLimits_IdleTimeout_ReachesTheEngine()
     {
-        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing("--idle-timeout", "2.5", "http://127.0.0.1:0/"));
+        var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing("--idle-timeout", "2.5", "http://127.0.0.1:0/"));
 
         Assert.AreEqual(ConnectionLimits.Default with { IdleTimeout = TimeSpan.FromSeconds(2.5) }, limits);
     }
@@ -710,7 +711,7 @@ public sealed class CommandLineRunnerTests
     [DataRow("--max-time")]
     public void ComposeConnectionLimits_MaxTime_ReachesTheEngine(string option)
     {
-        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing(option, "90", "http://127.0.0.1:0/"));
+        var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing(option, "90", "http://127.0.0.1:0/"));
 
         Assert.AreEqual(ConnectionLimits.Default with { MaxExchangeDuration = TimeSpan.FromSeconds(90) }, limits);
     }
@@ -718,7 +719,7 @@ public sealed class CommandLineRunnerTests
     [TestMethod]
     public void ComposeConnectionLimits_EveryLimitZero_EnforcesNoLimit()
     {
-        var limits = CommandLineRunner.ComposeConnectionLimits(ParseServing(
+        var limits = SurlServerComposition.ComposeConnectionLimits(ParseServing(
             "--max-connections", "0", "--max-connections-per-address", "0", "--idle-timeout", "0", "--max-time", "0",
             "http://127.0.0.1:0/"));
 

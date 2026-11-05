@@ -1,4 +1,5 @@
 using Surl.Cli;
+using Surl.Composition;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Mqtt;
@@ -30,7 +31,7 @@ public sealed class CommandLineRunnerRetainedMessagesTests
     {
         var commandLine = ParseServing("--directory", "served", "mqtt://127.0.0.1:0/");
 
-        var file = CommandLineRunner.ComposeRetainedMessageFile(commandLine, new UnitTestReadOnlyContentFileSystem());
+        var file = SurlServerComposition.ComposeRetainedMessageFile(commandLine, new UnitTestReadOnlyContentFileSystem());
 
         Assert.IsNotNull(file);
         Assert.AreEqual(Path.Join(Path.GetFullPath("served"), ".surl", "mqtt"), file.StateFolderPath);
@@ -42,7 +43,7 @@ public sealed class CommandLineRunnerRetainedMessagesTests
     {
         var commandLine = ParseServing("mqtt://127.0.0.1:0/");
 
-        var file = CommandLineRunner.ComposeRetainedMessageFile(commandLine, new UnitTestReadOnlyContentFileSystem());
+        var file = SurlServerComposition.ComposeRetainedMessageFile(commandLine, new UnitTestReadOnlyContentFileSystem());
 
         Assert.IsNull(file);
     }
@@ -51,7 +52,7 @@ public sealed class CommandLineRunnerRetainedMessagesTests
     public async Task LoadRetainedMessagesAsync_NoFile_GivesAnEmptyStoreWithTheDefaultBounds()
     {
         var (retainedMessages, failureMessage) =
-            await CommandLineRunner.LoadRetainedMessagesAsync(null, TestContext.CancellationToken);
+            await SurlServerComposition.LoadRetainedMessagesAsync(null, TestContext.CancellationToken);
 
         Assert.IsNotNull(retainedMessages);
         Assert.AreEqual(MqttRetainedMessages.DefaultMaxTopics, retainedMessages.MaxTopics);
@@ -64,10 +65,10 @@ public sealed class CommandLineRunnerRetainedMessagesTests
     {
         var fileSystem = new UnitTestReadOnlyContentFileSystem();
         fileSystem.Files[RetainedMessageFilePath] = RetainedHiOnT;
-        var file = CommandLineRunner.ComposeRetainedMessageFile(ParseServing("--directory", "served", "mqtt://127.0.0.1:0/"), fileSystem);
+        var file = SurlServerComposition.ComposeRetainedMessageFile(ParseServing("--directory", "served", "mqtt://127.0.0.1:0/"), fileSystem);
 
         var (retainedMessages, failureMessage) =
-            await CommandLineRunner.LoadRetainedMessagesAsync(file, TestContext.CancellationToken);
+            await SurlServerComposition.LoadRetainedMessagesAsync(file, TestContext.CancellationToken);
 
         Assert.IsNotNull(retainedMessages);
         Assert.IsNull(failureMessage);
@@ -79,10 +80,10 @@ public sealed class CommandLineRunnerRetainedMessagesTests
     {
         var fileSystem = new UnitTestReadOnlyContentFileSystem();
         fileSystem.Files[RetainedMessageFilePath] = "not the header"u8.ToArray();
-        var file = CommandLineRunner.ComposeRetainedMessageFile(ParseServing("--directory", "served", "mqtt://127.0.0.1:0/"), fileSystem);
+        var file = SurlServerComposition.ComposeRetainedMessageFile(ParseServing("--directory", "served", "mqtt://127.0.0.1:0/"), fileSystem);
 
         var (retainedMessages, failureMessage) =
-            await CommandLineRunner.LoadRetainedMessagesAsync(file, TestContext.CancellationToken);
+            await SurlServerComposition.LoadRetainedMessagesAsync(file, TestContext.CancellationToken);
 
         Assert.IsNull(retainedMessages);
         Assert.AreEqual($"(37) Could not read {RetainedMessageFilePath}: not a retained-message file", failureMessage);
@@ -274,10 +275,10 @@ public sealed class CommandLineRunnerRetainedMessagesTests
     {
         var fileSystem = new UnitTestReadOnlyContentFileSystem { OpenFailure = openFailure };
         fileSystem.Files[RetainedMessageFilePath] = RetainedHiOnT;
-        var file = CommandLineRunner.ComposeRetainedMessageFile(ParseServing("--directory", "served", "mqtt://127.0.0.1:0/"), fileSystem);
+        var file = SurlServerComposition.ComposeRetainedMessageFile(ParseServing("--directory", "served", "mqtt://127.0.0.1:0/"), fileSystem);
 
         var (retainedMessages, failureMessage) =
-            await CommandLineRunner.LoadRetainedMessagesAsync(file, TestContext.CancellationToken);
+            await SurlServerComposition.LoadRetainedMessagesAsync(file, TestContext.CancellationToken);
 
         Assert.IsNull(retainedMessages);
         return failureMessage;

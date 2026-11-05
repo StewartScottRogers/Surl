@@ -1,6 +1,6 @@
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// The one place <c>surl</c> composes its extended protocol servers, the
@@ -10,9 +10,9 @@ namespace Surl.Console;
 /// <remarks>
 /// An extended server joins with one line in <see cref="Compose"/>; its schemes' default ports
 /// are already rows of <c>Surl.Cli</c>'s <c>ExtendedSchemeDefaultPorts</c>. The original servers
-/// are composed by <see cref="CommandLineRunner"/> and are never touched by this class.
+/// are composed by <see cref="SurlServerComposition.ComposeProtocolServers"/> and are never touched by this class.
 /// </remarks>
-internal static class ExtendedProtocolServers
+public static class ExtendedProtocolServers
 {
     /// <summary>The environment variable whose value <see cref="TurnedOffValue"/> turns every extended server off.</summary>
     public const string SwitchVariable = "SURL_EXTENSIONS";

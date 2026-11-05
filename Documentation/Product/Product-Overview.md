@@ -128,7 +128,7 @@ is decided in
 
 ### Built for Phase 2: FTP, FTPS, SCP and SFTP
 
-`surl` registers both Phase 2 servers (`Surl.Console`'s `ComposeProtocolServers`), each with
+`surl` registers both Phase 2 servers (`Surl.Composition`'s `ComposeProtocolServers`), each with
 its help category and `--aihelp` topic, `ftp` and `ssh`. The terms below are defined in the
 [glossary](../Wiki/Glossary.md), sections "FTP" and "SSH, SCP and SFTP".
 
@@ -191,7 +191,7 @@ An algorithm no run negotiates - the weak ones among them - is proven by unit te
 
 ### Built for Phase 3: SMTP, IMAP and POP3
 
-`surl` registers the three mail servers (`Surl.Console`'s `ComposeProtocolServers`), each with
+`surl` registers the three mail servers (`Surl.Composition`'s `ComposeProtocolServers`), each with
 its help category and `--aihelp` topic, `smtp`, `imap` and `pop3`. Each server claims its
 plaintext scheme only; `smtps`, `imaps` and `pop3s` are the same server behind
 `ImplicitTlsSchemeServer`, over a connection the engine has already secured, and the server
@@ -278,7 +278,7 @@ verbose log.
 
 ### Built for Phase 4: WebSocket
 
-`surl` registers the WebSocket server (`Surl.Console`'s `ComposeProtocolServers`) with its help
+`surl` registers the WebSocket server (`Surl.Composition`'s `ComposeProtocolServers`) with its help
 category and `--aihelp` topic, `websocket`. `WsProtocolServer` claims `ws` only; `wss` is the
 same server behind `ImplicitTlsSchemeServer`, over a connection the engine has already secured
 with TLS from the first byte. It is handed the one content store and the one
@@ -348,7 +348,7 @@ on the upgrade has no row in decision 11.
 
 ### Built for Phase 5: LDAP, SMB and RTSP
 
-`surl` registers the three Phase 5 servers (`Surl.Console`'s `ComposeProtocolServers`), each with
+`surl` registers the three Phase 5 servers (`Surl.Composition`'s `ComposeProtocolServers`), each with
 its help category and `--aihelp` topic, `ldap`, `smb` and `rtsp`. `LdapProtocolServer` claims
 `ldap` only, and `ldaps` is the same server behind `ImplicitTlsSchemeServer`; `SmbProtocolServer`
 claims `smb` and `smbs` itself, as the FTP server claims `ftps`; `RtspProtocolServer` claims

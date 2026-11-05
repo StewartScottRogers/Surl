@@ -11,7 +11,7 @@ proven against it, is in `Documentation/Product/Product-Overview.md`, "Built for
 WebSocket"; the terms are in `Documentation/Wiki/Glossary.md`, section "WebSocket".
 
 **URL schemes answered:** `ws`. `WsProtocolServer.Schemes` claims `ws` only; `wss` is the same
-server registered in `Surl.Console`'s `ComposeProtocolServers` behind `ImplicitTlsSchemeServer`,
+server registered in `Surl.Composition`'s `ComposeProtocolServers` behind `ImplicitTlsSchemeServer`,
 over a connection already secured, and the server never tells the two apart by scheme.
 
 What it holds, all in namespace `Surl.Protocol.Ws`:

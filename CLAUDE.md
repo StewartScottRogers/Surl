@@ -186,7 +186,7 @@ and no `tests/`; do not create them.
 ```
 Surl/
 ├── Surl.slnx
-├── Application/           ← Surl.Console (the executable), Surl.Cli; planned: Surl.Api, Surl.Mcp (ADR-0098)
+├── Application/           ← Surl.Console (the executable), Surl.Cli, Surl.Composition; planned: Surl.Api, Surl.Mcp (ADR-0098)
 ├── Conformance/           ← Surl.Conformance
 ├── Cryptography/          ← Surl.Cryptography and its hand-built primitives, Surl.Kerberos, Surl.Kerberos.TestKdc
 ├── Foundation/            ← Surl.Protocol.Abstractions, Surl.Core, Surl.Networking, Surl.Content,
@@ -245,7 +245,7 @@ Each project folder may contain its own `CLAUDE.md` with project-specific rules;
     reader's `OptionArgumentReading<T>`, and appears on the page of each of its categories
     (`AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
     `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName`);
-  - a protocol server registered in `Surl.Console`'s `ComposeProtocolServers` needs its
+  - a protocol server registered in `Surl.Composition`'s `ComposeProtocolServers` needs its
     `HelpCategories` row with its schemes, its `AiHelpProse.TopicAbout` paragraphs and an
     `AiHelpExamples` entry, and the topic list pinned in `AiHelpTextTests` grows by one
     (`CommandLineRunnerAiHelpTests.RegisteredSchemes_AreEachClaimedByExactlyOneProtocolTopic`,

@@ -17,7 +17,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   does not offer the SSH cipher <name>`, or `<name> needs --allow-weak-ssh-algorithms`, ADR-0066), each with
   exit 2 before anything else is checked, checks the
   data directory when `--directory` names one
-  (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store
+  (`DataDirectoryProbe`, 37 when it cannot be opened), builds the content store through `Surl.Composition`
   (`ComposeContentFileSystem`: a `DiskContentFileSystem` rooted at the data directory's
   full path with `--directory`, a new, empty `InMemoryContentFileSystem` at
   `InMemoryContentFileSystem.RootPath` without it, ADR-0031 decisions 1 and 4) - every
@@ -54,7 +54,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   and AWS Signature Version 4, and `--allow-anonymous` and `--allow-plaintext-auth` in its
   `AuthenticationSettings`, is handed to the HTTP (`http`, `https`), MQTT (`mqtt`,
   `mqtts`), SMTP (`smtp`, `smtps`), IMAP (`imap`, `imaps`), POP3 (`pop3`, `pop3s`), FTP (`ftp`, `ftps`), LDAP (`ldap`, `ldaps`), RTSP (`rtsp`), SMB (`smb`, `smbs`) and WebSocket (`ws`, `wss`) servers; `Compose` also returns every account's user
-  name, the mail store's owners. Then it builds the protocol servers (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
+  name, the mail store's owners. Then it builds the protocol servers through `Surl.Composition`'s
+  `SurlServerComposition.ComposeProtocolServers` (today `HttpProtocolServer` for `http` and, through `ImplicitTlsSchemeServer`,
   `https`, `DictProtocolServer` for `dict`, `FtpProtocolServer` for `ftp` and `ftps` (it declares
   both itself; `AUTH TLS` when `--cert` or `--self-signed` is given, ADR-0052 decision 5), given the
   content store and the policy, `GopherProtocolServer` for `gopher` and
@@ -145,7 +146,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (ADR-0051 decisions 8 and 11).
 - `Program.RunAsync` serves through `Surl.Networking`'s `SocketListenerFactory`, created
   with those TLS settings: TCP connection listeners and UDP datagram listeners.
-- Extended protocol servers (ADR-0083 decisions 6 to 8): `ExtendedProtocolServers.Compose` is
+- Extended protocol servers (ADR-0083 decisions 6 to 8): `ExtendedProtocolServers.Compose`, in `Surl.Composition`, is
   the one place they are built (none yet; each `Surl.Extended.Protocol.*` server joins with one
   line), from an `ExtendedProtocolServerServices` (content store, policy, TLS upgrade). The
   switch `SURL_EXTENSIONS` is read once, when `CommandLineRunner` is constructed, through its
@@ -156,7 +157,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   after `Protocols:`; the servers are served after the original ones. While off, the runner's
   `composeExtendedProtocolServers` seam is never called, so their schemes get the unknown-scheme
   `(1)` refusal.
-- `CommandLineRunner.ComposeRegisteredSchemes` lists every registered original server's schemes, the
+- `CommandLineRunner.ComposeRegisteredSchemes` (over `SurlServerComposition.ComposeRegisteredSchemes`) lists every registered original server's schemes, the
   `--version` `Protocols:` line's source. `CommandLineRunnerAiHelpTests`
   (`Application/Surl.Console.UnitTests/CommandLineRunnerAiHelpTests.cs`, ADR-0046 decision 9) is the
   `--aihelp` check only this project can make, because only it knows what is registered:
@@ -165,7 +166,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   when a topic names an unregistered scheme, and
   `RunAsync_EveryAiHelpExample_WritesWhatTheExampleShows` when an `AiHelpExamples.All`
   entry's stdout, stderr or exit code differs from what `RunAsync` writes with
-  `FakeListenerFactory`. So registering a server in `ComposeProtocolServers` means adding,
+  `FakeListenerFactory`. So registering a server in `Surl.Composition`'s `ComposeProtocolServers` means adding,
   in `Surl.Cli` and in the same change, its `HelpCategories` row with its schemes, its
   `AiHelpProse.TopicAbout` paragraphs and its `AiHelpExamples` entry.
 

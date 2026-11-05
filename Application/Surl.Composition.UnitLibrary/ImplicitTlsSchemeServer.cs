@@ -1,6 +1,6 @@
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// Registers a connection protocol server for one implicit-TLS scheme, such as the HTTP server
@@ -8,7 +8,7 @@ namespace Surl.Console;
 /// secured (ADR-0002, "Consequences"; ADR-0010, section 2). It answers every exchange by
 /// handing it to that server unchanged, and adds no second server (ADR-0020).
 /// </summary>
-internal sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer
+public sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer
 {
     private readonly IConnectionProtocolServer server;
 

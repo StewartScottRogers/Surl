@@ -1,3 +1,5 @@
+using Surl.Composition;
+
 namespace Surl.Console;
 
 /// <summary>An environment with the variables a test gives it, and no other.</summary>

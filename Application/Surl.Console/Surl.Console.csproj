@@ -34,6 +34,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Foundation\Surl.Authentication.UnitLibrary\Surl.Authentication.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Cli.UnitLibrary\Surl.Cli.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Composition.UnitLibrary\Surl.Composition.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Cookies.UnitLibrary\Surl.Cookies.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
@@ -41,21 +42,6 @@
     <ProjectReference Include="..\..\Foundation\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Lookup\Surl.Protocol.Dict.UnitLibrary\Surl.Protocol.Dict.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Ftp.UnitLibrary\Surl.Protocol.Ftp.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Lookup\Surl.Protocol.Gopher.UnitLibrary\Surl.Protocol.Gopher.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Http\Surl.Protocol.Http.UnitLibrary\Surl.Protocol.Http.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Mail\Surl.Protocol.Imap.UnitLibrary\Surl.Protocol.Imap.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Messaging\Surl.Protocol.Ldap.UnitLibrary\Surl.Protocol.Ldap.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Messaging\Surl.Protocol.Mqtt.UnitLibrary\Surl.Protocol.Mqtt.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Mail\Surl.Protocol.Pop3.UnitLibrary\Surl.Protocol.Pop3.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Http\Surl.Protocol.Rtsp.UnitLibrary\Surl.Protocol.Rtsp.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Smb.UnitLibrary\Surl.Protocol.Smb.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Mail\Surl.Protocol.Smtp.UnitLibrary\Surl.Protocol.Smtp.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Ssh.UnitLibrary\Surl.Protocol.Ssh.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Terminal\Surl.Protocol.Telnet.UnitLibrary\Surl.Protocol.Telnet.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Tftp.UnitLibrary\Surl.Protocol.Tftp.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Protocols\Http\Surl.Protocol.Ws.UnitLibrary\Surl.Protocol.Ws.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

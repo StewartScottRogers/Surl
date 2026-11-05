@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Surl.Cli;
+using Surl.Composition;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;
