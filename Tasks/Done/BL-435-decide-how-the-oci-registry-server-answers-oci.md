@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/OciRegistry.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-435 — Decide how the OCI registry server answers oci
 
@@ -56,16 +56,33 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each citing its spec section, and is
       listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/OciRegistry.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/OciRegistry.md` exists in the matrix format, each "covered by" naming
       BL-436, BL-437 or BL-438, or "n/a: <reason>".
 
 ## Notes
+
+- 2026-11-05: Decided in ADR-0115 from the Distribution Specification v1.1.0 text (read 2026-11-05), the Image
+  Format Specification and Docker's Token Authentication Specification. The port's client and matrix were read
+  as background only.
+- Decision 2 applies ADR-0100 decision 2.4 (the repository folder is an OCI Image Layout on the shared content
+  store), not the Goal's older `.surl/` plan. Media types come from `index.json`'s descriptors, so the object
+  metadata index only caches the digest check.
+- Defaults taken: opaque in-memory tokens (300 s), not signed ones; `403 DENIED` with `insufficient_scope` for
+  a token lacking the action (RFC 6750 3.1, matching BL-438's acceptance); upload sessions expire after 1 hour
+  idle; manifests up to 4 MiB; deletes served under `--allow-uploads`; `--oci-plaintext` mirrors
+  `--s3-plaintext`.
+- The matrix's two TLS rows (`OCI:Surl-Tls-1`, `OCI:Surl-Tls-2`) name BL-439, which serves `oci` from `surl`
+  with its TLS and option. The criterion listed only BL-436 to BL-438, but BL-439 is the task that owns TLS, as
+  BL-421 owns it in the S3 matrix.
+- No `Requirements.md` row: ADR-0108 to ADR-0114 added none, FR-056 and FR-058 cover the server, and the file is
+  outside this task's `touches`.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0115 decides how surl oci:// answers as an OCI Distribution v1.1.0 registry, and OciRegistry.md traces it
