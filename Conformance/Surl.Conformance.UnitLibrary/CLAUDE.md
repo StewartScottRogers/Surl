@@ -194,7 +194,23 @@ Running the http and https cases is built (BL-392):
   ALPN offers only `http/1.1`), its own folder as curl's working directory, `%PWD` and `HOME`,
   `%LOGDIR` the relative `log`, and a 60-second limit; a case naming another server is written
   `skip server-half-not-composed:<name>` and an unparsable one `skip unparsable`. CI's
-  `Upstream test cases` job runs it on Linux and macOS and uploads the results file.
+  `Upstream test cases` job runs it on Linux and macOS and uploads the results file and the
+  run's passing list (both are written to the test assembly's folder).
+
+The stated pass rate and its guard are built (BL-393):
+
+- `UpstreamTestCasePassingList` reads and writes a platform's passing list,
+  `Documentation/Conformance/upstream-test-cases-passing.<platform>.txt` (`FileNameFor`), one
+  case number per line, ascending.
+- `UpstreamTestCasePassingListComparison.Compare(platform, list, results)` is the guard:
+  `Regressions` are the listed cases that did not pass (`DescribeRegressions` names each and how
+  it ended), `NewlyPassing` the passing cases not listed (`DescribeNewlyPassing` gives the lines
+  to add). The suite asserts no regressions and writes the newly passing to its log.
+- `UpstreamTestCasePassRateFile.Parse` reads `Upstream-Test-Case-Pass-Rate.md`'s `## Current` and
+  `## Releases` tables into `UpstreamTestCasePassRateRow`s (platform, version, passed or
+  `not run`); `FindFallingReleases` names each fall of a platform's count between releases.
+  `Surl.Conformance.UnitTests`' `UpstreamTestCasePassRateStatementTests` (fast) holds each current
+  row's Passed to its list's line count and the releases to never falling.
 
 The rest is intent until its task lands. This library will also hold, with no reference but
 Abstractions:
@@ -202,7 +218,7 @@ Abstractions:
 - generating the test certificates from the imported `.prm` files with `CertificateRequest`
   (BL-682; BL-392's run uses a stand-in CA and `localhost` certificate), and the SSH keys and
   `%SSHSRVMD5`/`%SSHSRVSHA256`;
-- reading the pass-rate file and passing lists of decision 5.
+- reading `Upstream-Test-Case-Exclusions.md` into `TestServerChoices` (BL-685).
 
 It does not hold the server halves: each protocol library carries its own optional seam for a
 case's reply, and `Surl.Conformance.UnitTests` composes it. It hands a reply over as BCL types

@@ -27,8 +27,10 @@ namespace Surl.Conformance;
 /// <para>
 /// <c>%CERTDIR/certs/test-ca.crt</c> is a test CA generated for the run, and the TLS listener
 /// serves a <c>localhost</c> certificate it issued; the imported <c>.prm</c> descriptions are not
-/// read yet. Which cases pass is reported, not asserted: the guard that a passing case keeps
-/// passing is decision 5's, built in BL-393.
+/// read yet. The run fails when a case its platform's passing list
+/// (<see cref="UpstreamTestCasePassingList"/>) names does not pass, decision 5's guard (BL-393);
+/// a case passing but not listed is written to the log with the lines to add, and the run's own
+/// passing list is written beside the results file.
 /// </para>
 /// </remarks>
 [TestClass]
@@ -69,14 +71,46 @@ public sealed class UpstreamTestCasesOverHttpTests
             await File.WriteAllTextAsync(resultsFile, text, TestContext.CancellationToken);
             TestContext.AddResultFile(resultsFile);
             WriteCounts(resultsFile, results);
+            var comparison = await CompareWithThePassingListAsync(location.Build.Platform, resultsFile, results);
 
             Assert.HasCount(2013, results);
             Assert.IsTrue(results.Any(result => result.Outcome == UpstreamTestCaseOutcome.Pass), "No case passed; see the results file.");
+            Assert.IsFalse(comparison.HasRegressions, comparison.DescribeRegressions());
         }
         finally
         {
             DeleteBestEffort(work);
         }
+    }
+
+    /// <summary>
+    /// Sets the run against the platform's passing list (ADR-0080 decision 5's guard), writes the
+    /// lines to add for each case newly passing to the test log, and writes the run's own passing
+    /// list beside the results file, ready to copy.
+    /// </summary>
+    private async Task<UpstreamTestCasePassingListComparison> CompareWithThePassingListAsync(
+        string platform, string resultsFile, IReadOnlyList<UpstreamTestCaseResult> results)
+    {
+        var listPath = Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamTestCasePassingList.Folder, UpstreamTestCasePassingList.FileNameFor(platform));
+        var listed = File.Exists(listPath)
+            ? UpstreamTestCasePassingList.Parse(await File.ReadAllTextAsync(listPath, TestContext.CancellationToken))
+            : [];
+        if (!File.Exists(listPath))
+        {
+            TestContext.WriteLine($"No passing list at {listPath}; every passing case is newly passing.");
+        }
+
+        var runList = Path.Combine(Path.GetDirectoryName(resultsFile)!, UpstreamTestCasePassingList.FileNameFor(platform));
+        await File.WriteAllTextAsync(runList, UpstreamTestCasePassingList.Format(results), TestContext.CancellationToken);
+        TestContext.AddResultFile(runList);
+
+        var comparison = UpstreamTestCasePassingListComparison.Compare(platform, listed, results);
+        if (comparison.NewlyPassing.Count > 0)
+        {
+            TestContext.WriteLine(comparison.DescribeNewlyPassing());
+        }
+
+        return comparison;
     }
 
     private void WriteCounts(string resultsFile, IReadOnlyList<UpstreamTestCaseResult> results)
