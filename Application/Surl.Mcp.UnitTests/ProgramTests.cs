@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Surl.Api;
+using Surl.Cli;
 using Surl.McpServing;
 using Surl.Protocol.Abstractions;
 
@@ -60,6 +61,62 @@ public sealed class ProgramTests
         CollectionAssert.AreEqual(
             new[] { "server_id", "after_exchange_id", "max_exchanges" },
             inputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).ToArray());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_ResourcesList_ListsTheOverviewEveryAiHelpTopicAndAllInOrder()
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"resources/list"}""");
+
+        var resources = result.GetProperty("resources").EnumerateArray().ToArray();
+        string[] expectedUris =
+        [
+            "surl://aihelp",
+            .. AiHelpTopics.All.Select(topic => $"surl://aihelp/{topic.Name}"),
+            "surl://aihelp/all",
+        ];
+        CollectionAssert.AreEqual(expectedUris, resources.Select(resource => resource.GetProperty("uri").GetString()).ToArray());
+        Assert.IsFalse(result.TryGetProperty("nextCursor", out _));
+        foreach (var resource in resources)
+        {
+            Assert.AreEqual("text/markdown", resource.GetProperty("mimeType").GetString());
+            Assert.StartsWith("surl --aihelp", resource.GetProperty("name").GetString()!);
+        }
+    }
+
+    [TestMethod]
+    public async Task RunAsync_ResourcesReadOfEachListedResource_ReturnsExactlyWhatSurlAiHelpPrintsForIt()
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+        string?[] topics = [null, .. AiHelpTopics.All.Select(topic => topic.Name), "all"];
+
+        var id = 10;
+        foreach (var topic in topics)
+        {
+            var uri = AiHelpResourceProvider.UriOf(topic);
+            var result = await host.CallAsync($$$"""{"jsonrpc":"2.0","id":{{{id++}}},"method":"resources/read","params":{"uri":"{{{uri}}}"}}""");
+
+            var contents = Assert.ContainsSingle(result.GetProperty("contents").EnumerateArray());
+            Assert.AreEqual(uri, contents.GetProperty("uri").GetString());
+            Assert.AreEqual("text/markdown", contents.GetProperty("mimeType").GetString());
+            Assert.AreEqual(AiHelpText.Answer(topic).Output, contents.GetProperty("text").GetString(), uri);
+        }
+    }
+
+    [TestMethod]
+    public async Task RunAsync_ResourcesReadOfAnUnknownTopic_AnswersResourceNotFound()
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var response = await host.CallForResponseAsync(
+            """{"jsonrpc":"2.0","id":2,"method":"resources/read","params":{"uri":"surl://aihelp/no-such-topic"}}""");
+
+        Assert.AreEqual(-32002, response.GetProperty("error").GetProperty("code").GetInt32());
     }
 
     [TestMethod]
@@ -286,11 +343,14 @@ public sealed class ProgramTests
         public string ErrorText => errorText.ToString();
 
         /// <summary>Writes one request and returns its response's <c>result</c>.</summary>
-        public async Task<JsonElement> CallAsync(string request)
+        public async Task<JsonElement> CallAsync(string request) => (await CallForResponseAsync(request)).GetProperty("result");
+
+        /// <summary>Writes one request and returns its whole response, <c>result</c> or <c>error</c>.</summary>
+        public async Task<JsonElement> CallForResponseAsync(string request)
         {
             input.WriteLine(request);
             using var response = JsonDocument.Parse(await Output.NextWriteAsync());
-            return response.RootElement.GetProperty("result").Clone();
+            return response.RootElement.Clone();
         }
 
         public Task<int> CloseInputAsync()

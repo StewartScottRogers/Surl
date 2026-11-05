@@ -139,6 +139,7 @@ internal static class Program
         registry.AddTool(ListServersTool.Create(servers));
         registry.AddTool(StopServerTool.Create(servers));
         registry.AddTool(GetExchangesTool.Create(servers));
+        registry.AddResources(new AiHelpResourceProvider());
         var options = new McpSessionOptions(new McpServerInfo(ServerName, ServerTitle, SurlMcpHelpText.Version), Instructions);
         await McpStreamSession.RunAsync(input, output, registry, options, cancellationToken);
         return (int)SurlExitCode.Ok;

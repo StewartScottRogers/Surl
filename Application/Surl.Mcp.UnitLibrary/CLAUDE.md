@@ -49,6 +49,12 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
   root for "relative to the root" to hold (BL-625). The path and the root are resolved component by component,
   following every symbolic link (at most 40) and applying `..` to the resolved directory, then compared
   ordinally.
+- `AiHelpResourceProvider` - `surl --aihelp` as MCP resources (ADR-0103 decision 6, BL-627): `surl://aihelp`
+  (the overview), `surl://aihelp/<topic>` for each entry of `AiHelpTopics.All` in its order, and
+  `surl://aihelp/all`; `mimeType` `text/markdown`, `name` the `surl --aihelp ...` command that prints it, `title`
+  the topic's description. Each read is `AiHelpText.Answer(topic).Output`, so nothing is copied; any other URI
+  is answered `-32002`. `AiHelpResourceProviderTests` enumerates `AiHelpTopics.All`, so a new topic without a
+  resource fails it.
 
 ## What it references
 
