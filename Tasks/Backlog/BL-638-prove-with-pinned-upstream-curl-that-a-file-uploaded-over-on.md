@@ -4,7 +4,7 @@ title: Prove with pinned upstream curl that a file uploaded over one protocol is
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-622]
+depends-on: [BL-622, BL-723]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -40,7 +40,21 @@ schemes, that a file uploaded over one protocol is read byte for byte over anoth
 
 ## Notes
 
+- 2026-11-05 (lane 8): Wrote `UpstreamCurlSharesFilesAcrossSurlProtocolsTests` (Integration category, as
+  ADR-0100 decision 5 and `.claude/rules/testing.md` say for tests that start a live surl; the Context's
+  "no Integration category" is overruled by the ADR, which wins) and a multi-scheme
+  `SurlOnLoopback.StartInMemoryAsync(schemes, …)`. One surl serves `ftp`, `http`, `scp`, `sftp` with
+  `--allow-uploads --allow-plaintext-auth --throwaway-hostkey --user tester:secret`; curl runs `-sS -f -u`.
+  Against pinned curl 8.21.0 on Windows, in memory and with `--directory`: `-T` ftp then GET http passes;
+  `-T` sftp then ftp fetch passes; last-write-wins (`-T` ftp, overwrite `-T` sftp, GET http) passes.
+- The ADR's third pair, `-T` over `http` (PUT) then fetch over `scp`, cannot pass: surl's HTTP server
+  answers every PUT `405 Method Not Allowed` (ADR-0008; ADR-0102 decision table "the HTTP server takes no
+  uploads"). BL-723 decides and builds PUT uploads for `surl http`, so this task now depends on it and
+  returns to Backlog. The test class is left uncommitted in the working tree for the shift to stash; when
+  resumed, rerun it once BL-723 lands (the PUT rows should then pass unchanged).
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Waits on BL-723: surl http answers every PUT 405, so the ADR-0100 PUT-then-scp pair cannot pass yet
