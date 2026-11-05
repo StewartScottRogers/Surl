@@ -44,3 +44,4 @@ Path - Create (file and directory), Path - Update (`append` then `flush`), Path 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
