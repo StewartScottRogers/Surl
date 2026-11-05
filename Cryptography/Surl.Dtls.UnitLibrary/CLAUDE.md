@@ -46,8 +46,28 @@ The handshake messages, fragmentation and the PRF (BL-413, ADR-0087 decisions 5,
   master secret, the extended master secret (RFC 7627), the key block and both `Finished`
   `verify_data`s.
 
-Still to come: the certificate and RawPublicKey handshakes, the cookie and the timers (BL-414),
-PSK and alerts (BL-415).
+The certificate handshake, the cookie and the timers (BL-414, ADR-0087 decisions 2, 4, 5 and 7):
+
+- `DtlsServerSession` is one association: `HandshakeAsync` waits, keeping no state, for a hello
+  whose cookie verifies (`DtlsCookieExchange`, under the listener's `DtlsCookieSecrets`), then
+  runs ECDHE under the caller's `DtlsServerCertificate` within `DtlsServerOptions.HandshakeTimeout`
+  and reports a `DtlsHandshakeOutcome`; `ReceiveAsync` and `SendAsync` carry application data.
+  The server's flight is sent again when the retransmission timer (1 s, doubling, capped at
+  60 s, on the options' `TimeProvider`) fires or the client sends a stale message again; its
+  final flight is sent again until the client's first application data.
+- `DtlsServerNegotiation` picks the suite (`DtlsCipherSuite`, rows 1 to 6, CCM only where
+  `AesCcmSupported`), the group (`DtlsNamedGroup`), the signature scheme and the extensions
+  answered, and throws `DtlsAlertException` with the ADR's alert for each refusal.
+- `DtlsEphemeralKey` is the server's ECDHE key on P-256, P-384 (BCL) or x25519
+  (`Surl.Cryptography.Curve25519`); a bad client point is `illegal_parameter`.
+- `DtlsAssociationRecords` reads epoch 0 and 1 side by side, one record at a time, and packs
+  flights into datagrams of at most 1200 bytes, re-sealing each record when a flight is resent.
+- The server's first flight continues from the verified hello's record sequence number, so its
+  records never repeat the sequence number its `HelloVerifyRequest` reused.
+
+Still to come: PSK, the full alert list and `close_notify` (BL-415); RawPublicKey, client
+certificates, `max_fragment_length` and refusing renegotiation (BL-725); reporting the peer
+(BL-650).
 
 Never construct a socket here: records travel over the `IDatagramFlow` the caller gives.
 Tests on macOS skip the AES-CCM cases (`OSCondition`), because the BCL's `AesCcm` support

@@ -104,6 +104,17 @@ planned ones.
 | field section | QPACK's name for the compressed fields of one request or response, carried in one HTTP/3 `HEADERS` frame; HTTP/2's header block. Bounded by `--max-message`, sent as `SETTINGS_MAX_FIELD_SECTION_SIZE`. | planned: `Surl.Qpack`, `Surl.Protocol.Http` (BL-382, BL-383) |
 | `Alt-Svc` | The response field (RFC 7838) by which a server says the same origin is also served another way, here `h3=":<port>"`; Surl sends it on TCP responses only under `--http3`, and curl uses it only with `--alt-svc <file>`. | planned: `Surl.Protocol.Http` (BL-384) |
 
+## DTLS
+
+Decided by ADR-0087; `Surl.Dtls` builds it for the `coaps` server.
+
+| Term | Meaning | Name in code |
+| --- | --- | --- |
+| DTLS | Datagram TLS: TLS 1.2 adapted to run over UDP (RFC 6347), with an explicit epoch and sequence number on every record, a handshake that survives lost and reordered datagrams, and a cookie exchange against spoofed addresses. Surl serves DTLS 1.2 only, hand-built because `SslStream` cannot run over datagrams. | `Surl.Dtls`, `DtlsServerSession` |
+| flight | The handshake messages one side sends together and retransmits together (RFC 6347 section 4.2.4): the server's `ServerHello` to `ServerHelloDone`, or its final `ChangeCipherSpec` and `Finished`. When the answer does not arrive before the retransmission timer (1 second, doubling, at most 60) fires, or the client sends its previous flight again, the server sends its last flight again, each record with a fresh sequence number. | `DtlsAssociationRecords.SendFlightAsync` |
+| cookie exchange | The DTLS server's defence against spoofed source addresses (RFC 6347 section 4.2.1): a `ClientHello` without a valid cookie is answered with a `HelloVerifyRequest` carrying one, and nothing is kept until a hello returns with it. Surl's cookie is an HMAC-SHA256 of the endpoint and the hello's fields under a secret replaced every 5 minutes. | `DtlsCookieExchange`, `DtlsCookieSecrets` |
+| epoch | The DTLS record-header counter of cipher state changes (RFC 6347 section 4.1): 0 for the plaintext handshake, 1 after `ChangeCipherSpec`, each with its own sequence numbers and replay window. Surl never goes past epoch 1, since nothing renegotiates. | `DtlsRecordHeader.Epoch` |
+
 ## FTP
 
 | Term | Meaning | Name in code |
