@@ -42,3 +42,4 @@ so, and refuses plain-text CONNECT where TLS is required.
 
 - 2026-11-04: Created.
 - 2026-11-05: Amended by BL-524: waits on BL-734 (peek before the TLS upgrade, ADR-0113 decision 6).
+- 2026-11-05: Backlog -> Doing.
