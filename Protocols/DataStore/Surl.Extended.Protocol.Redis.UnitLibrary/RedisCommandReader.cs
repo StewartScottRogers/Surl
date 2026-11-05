@@ -33,6 +33,12 @@ public sealed class RedisCommandReader
     /// <summary>The bytes one command may hold beyond its largest bulk string (Redis's query buffer limit).</summary>
     public const long CommandFramingAllowance = 65536;
 
+    /// <summary>The most elements one command may have before a login (Redis 7's bound).</summary>
+    public const int UnauthenticatedMaxMultibulkCount = 10;
+
+    /// <summary>The longest bulk string one command may hold before a login (Redis 7's bound).</summary>
+    public const int UnauthenticatedMaxBulkBytes = 16384;
+
     private const int InitialBufferSize = 16384;
 
     private readonly IConnection connection;
@@ -59,6 +65,34 @@ public sealed class RedisCommandReader
         maxBulkBytes = Math.Min(limits.MaxUploadBytes, Array.MaxLength - 2);
         maxLineBytes = limits.MaxLineBytes;
         maxCommandBytes = limits.MaxUploadBytes + CommandFramingAllowance;
+    }
+
+    /// <summary>
+    /// Whether the next commands are read under the limits Redis 7 puts on a client that has not
+    /// logged in (ADR-0106 decision 6): more than <see cref="UnauthenticatedMaxMultibulkCount"/>
+    /// elements is <c>unauthenticated multibulk length</c>, a bulk string over
+    /// <see cref="UnauthenticatedMaxBulkBytes"/> <c>unauthenticated bulk length</c>. The server sets
+    /// it before each read, by whether the connection may yet run every command.
+    /// </summary>
+    public bool AppliesUnauthenticatedLimits { get; set; }
+
+    /// <summary>
+    /// Waits until the next command's first byte has arrived, so a server can time the command
+    /// from its first byte rather than from the end of the one before (ADR-0106 decision 6).
+    /// </summary>
+    /// <param name="cancellationToken">Ends the wait.</param>
+    /// <returns><see langword="false"/> when the client closed its side first.</returns>
+    public async ValueTask<bool> WaitForCommandStartAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RequireBytesAsync(1, cancellationToken);
+            return true;
+        }
+        catch (CommandNotReadException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Reads the next command, skipping empty ones.</summary>
@@ -98,6 +132,8 @@ public sealed class RedisCommandReader
             throw new CommandNotReadException(invalidLength);
         }
 
+        ThrowIfPastUnauthenticatedLimit(count, UnauthenticatedMaxMultibulkCount, "unauthenticated multibulk length"u8);
+
         var arguments = new List<byte[]>();
 
         for (var index = 0L; index < count; index++)
@@ -125,6 +161,8 @@ public sealed class RedisCommandReader
         {
             throw new CommandNotReadException(invalidLength);
         }
+
+        ThrowIfPastUnauthenticatedLimit(length, UnauthenticatedMaxBulkBytes, "unauthenticated bulk length"u8);
 
         CountCommandBytes(length + 2);
         await RequireBytesAsync((int)length + 2, cancellationToken);
@@ -177,6 +215,14 @@ public sealed class RedisCommandReader
 
             searched = end - start;
             await RequireBytesAsync(searched + 1, cancellationToken);
+        }
+    }
+
+    private void ThrowIfPastUnauthenticatedLimit(long value, int limit, ReadOnlySpan<byte> detail)
+    {
+        if (AppliesUnauthenticatedLimits && value > limit)
+        {
+            throw new CommandNotReadException(RedisCommandReadOutcome.ProtocolError(detail));
         }
     }
 

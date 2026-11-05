@@ -252,6 +252,63 @@ public sealed class RedisCommandReaderTests
     }
 
     [TestMethod]
+    public async Task ReadCommandAsync_UnauthenticatedElevenElements_IsTheUnauthenticatedMultibulkError()
+    {
+        var reader = Reader("*11\r\n");
+        reader.AppliesUnauthenticatedLimits = true;
+
+        var outcome = await reader.ReadCommandAsync(CancellationToken.None);
+
+        AssertProtocolError(outcome, "-ERR Protocol error: unauthenticated multibulk length\r\n");
+    }
+
+    [TestMethod]
+    public async Task ReadCommandAsync_UnauthenticatedTenElementsOf16KiB_IsRead()
+    {
+        var bulk = $"$16384\r\n{new string('v', 16384)}\r\n";
+        var reader = Reader("*10\r\n" + string.Concat(Enumerable.Repeat(bulk, 10)));
+        reader.AppliesUnauthenticatedLimits = true;
+
+        var outcome = await reader.ReadCommandAsync(CancellationToken.None);
+
+        Assert.AreEqual(RedisCommandReadOutcomeKind.Command, outcome.Kind);
+        Assert.HasCount(10, outcome.Arguments);
+    }
+
+    [TestMethod]
+    public async Task ReadCommandAsync_UnauthenticatedBulkStringOver16KiB_IsTheUnauthenticatedBulkError()
+    {
+        var reader = Reader("*1\r\n$16385\r\n");
+        reader.AppliesUnauthenticatedLimits = true;
+
+        var outcome = await reader.ReadCommandAsync(CancellationToken.None);
+
+        AssertProtocolError(outcome, "-ERR Protocol error: unauthenticated bulk length\r\n");
+    }
+
+    [TestMethod]
+    public async Task WaitForCommandStartAsync_ByteArrived_IsTrueAndTheCommandIsStillRead()
+    {
+        var reader = Reader("PING\r\n");
+
+        var started = await reader.WaitForCommandStartAsync(CancellationToken.None);
+        var outcome = await reader.ReadCommandAsync(CancellationToken.None);
+
+        Assert.IsTrue(started);
+        AssertCommand(outcome, "PING");
+    }
+
+    [TestMethod]
+    public async Task WaitForCommandStartAsync_ClientClosed_IsFalse()
+    {
+        var reader = Reader(string.Empty);
+
+        var started = await reader.WaitForCommandStartAsync(CancellationToken.None);
+
+        Assert.IsFalse(started);
+    }
+
+    [TestMethod]
     public void Constructor_NullArgument_Throws()
     {
         var connection = new InMemoryConnection([]);
