@@ -3,8 +3,30 @@
 Phase 6.
 
 QUIC version 1 for Surl's HTTP/3 server, hand-built on every platform (ADR-0082 decisions 1, 2
-and 4). What it holds now is the codec, in the clear (BL-373), and packet protection (BL-374);
-the connection, streams and loss recovery come with BL-377 to BL-379.
+and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
+server connection through its handshake (BL-377); streams and flow control come with BL-378, loss
+recovery with BL-379, key updates with BL-603, the client's spare connection IDs with BL-604 and
+the closing and draining periods with BL-605.
+
+- `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
+  and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the 1-RTT
+  frames that are the caller's: streams and flow control); `HandleTimeout` acts at `NextDeadline`
+  (the idle timeout discards it silently, `QuicServerConnectionOptions.HandshakeTimeout` closes it
+  `NO_ERROR`); `SendApplicationFrames` seals 1-RTT frames once the handshake is complete; `Close`
+  sends an application `CONNECTION_CLOSE`. It starts on a version 1 Initial in a datagram of at least
+  1200 bytes whose Destination Connection ID is at least 8 bytes, answers another version of that
+  size with Version Negotiation, and drops everything else before it starts. The handshake is
+  `Surl.Tls13`'s `TlsServerHandshake` in `CRYPTO` frames, reassembled by `QuicCryptoReassembly`
+  (64 KiB ahead at most); the client's transport parameters are checked (RFC 9000 sections 7.3 and
+  18.2, RFC 9368) and the server's are ADR-0082 decision 4's. Every ack-eliciting packet is
+  acknowledged at once, ACK Delay 0 (`QuicReceivedPacketNumbers`, 32 ranges kept). Before a
+  Handshake packet opens, it sends at most three times what it received; Initial keys go when that
+  packet opens, Handshake keys when the handshake completes. 1-RTT packets wait for the handshake
+  to complete. Errors close with `CONNECTION_CLOSE`, no reason phrase: in 1-RTT after the handshake,
+  before it at Initial and Handshake (RFC 9000 section 10.2.3). Nothing is retransmitted yet (BL-379).
+- `QuicTransportParameters` reads and writes RFC 9000 section 18's parameters and
+  `version_information` (`QuicVersionInformation`); a malformed or repeated one is
+  `TRANSPORT_PARAMETER_ERROR`.
 
 - `QuicVariableLengthInteger` - RFC 9000 section 16: writes the shortest encoding, reads any.
 - `QuicPacketReader.Read` reads one packet from a datagram and says how many bytes it took, so
@@ -34,8 +56,9 @@ the connection, streams and loss recovery come with BL-377 to BL-379.
   ChaCha20-Poly1305 and the ChaCha20 mask are the hand-built `Surl.Cryptography.ChaCha20` and
   `Surl.Cryptography.Poly1305` (ADR-0082 decision 3), behind the internal `QuicPacketCipher`.
 - `QuicRetryIntegrity` - RFC 9001 section 5.8: computes and checks a Retry's integrity tag.
-- `QuicReader`, `QuicWriter`, `QuicFrameTypes`, `QuicPacketHeaderBits`, `QuicConnectionIds` and
-  the `QuicPacketCipher` classes are internal, visible to `Surl.Quic.UnitTests` only.
+- `QuicReader`, `QuicWriter`, `QuicFrameTypes`, `QuicPacketHeaderBits`, `QuicConnectionIds`,
+  `QuicPacketNumberSpace`, `QuicReceivedPacketNumbers`, `QuicCryptoReassembly` and the
+  `QuicPacketCipher` classes are internal, visible to `Surl.Quic.UnitTests` only.
 
 Malformed input throws `QuicTransportException`; byte strings read are slices of the input, not
 copies. Writing a value RFC 9000 forbids throws an `ArgumentException`.
@@ -54,3 +77,7 @@ never read a clock - time arrives through an injected `TimeProvider` once there 
 
 Every expected value in `Surl.Quic.UnitTests` comes from RFC 9000 (Appendix A.1's varints) and
 RFC 9001 Appendix A's keys, unprotected and protected packets (A.1 to A.5), never from the Curl port (ADR-0003).
+The connection tests replay the Initial datagrams pinned upstream curl builds sent
+(`Fixtures/ClientInitial`, recorded by `Record-CurlExchange.ps1 -QuicInitial`; BL-377's Notes say
+how) through `UnitTestQuicClient`, which puts its own x25519 share in the ClientHello and completes
+the handshake with its own TLS 1.3 client, `UnitTestTls13Client`.
