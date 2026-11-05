@@ -9,7 +9,10 @@ each case's replies from Surl while a pinned upstream curl build runs the case's
 line, and checks the case's verify section - so upstream curl's own suite, not one of
 Surl's invention, decides whether Surl answers correctly.
 
-Only builds pinned in `UpstreamCurlBuilds.json` run here, never the Curl port (ADR-0003).
+Only builds pinned in `UpstreamCurlBuilds.json` run here as the oracle; the Curl port is never
+the oracle, a test client of Surl or an expected value (ADR-0003). It runs here only as the thing
+measured: in the extended servers' `Integration` tests (ADR-0083) and in Phase 7, beside pinned
+upstream curl (ADR-0003 decision 6, ADR-0089; "Phase 7" below).
 `UpstreamCurlBuildPins.Parse` reads the pin file and `UpstreamCurlLocator` finds the
 pinned build for a platform and role (`Locate`) or for the protocol a test measures
 (`LocateForProtocol`: the reference build when it supports the protocol, else the first
@@ -34,8 +37,8 @@ variables it is given (the SSH tests point `HOME` and `USERPROFILE` at a tempora
 ADR-0051 decision 8), and returns an `UpstreamCurlRunResult`
 (exit code, stdout bytes, stderr text), killing curl at its timeout.
 The Curl port's client has its own types, never shared with upstream curl's (ADR-0083
-decision 2), and runs only in the extended servers' `Integration` tests, never for an original
-protocol and never as an expected value. `CurlPortClientPins.Parse` reads `CurlPortBuilds.json`
+decision 2). It runs in the extended servers' `Integration` tests and in Phase 7's
+(ADR-0089), and never as an expected value. `CurlPortClientPins.Parse` reads `CurlPortBuilds.json`
 (platform, path, sha256, commit, publishCommand, published) into `PinnedCurlPortClient`s;
 `CurlPortClientLocator.Locate` expands `%NAME%` variables in the path, never returns a path
 `UpstreamCurlBuilds.json` lists, and refuses a file whose SHA-256 is not its pin, or is an
@@ -46,6 +49,43 @@ into an inconclusive test.
 Parsing and matching are unit tested with no process and no network; a test that starts
 upstream curl is `[TestCategory("Integration")]`. Upstream test data copied into this
 repository keeps curl's `COPYING` notice beside it.
+
+## Phase 7: the Curl port beside upstream curl (ADR-0089)
+
+Phase 7 measures the Curl port against Surl beside pinned upstream curl; wherever the two disagree,
+upstream is right and the disagreement is the port's defect (ADR-0003 decision 6). Surl never changes
+to make the port pass. One case is compared and judged here (BL-578):
+
+- `CurlPortMeasurementCase` is one case: the Phase 7 test's name, the test it mirrors, the protocol
+  `LocateForProtocol` pairs an upstream build for, curl's arguments with `{surl}/` standing for each
+  run's `surl` base URL (`ArgumentsFor`), `surl`'s scheme, options and files, and the mirrored test's
+  assertions as `CheckMirroredAssertions`, applied to upstream's run only. `AssertedStandardErrorFragments`
+  picks the stderr lines compared (none by default), `ComparedStoredFiles` the uploads compared, and
+  `ReleaseDifference` names an upstream release-notes entry (decision 2).
+- `CurlPortSurlSide` is what a run's own `surl` shows: its port, its `-v` notes, the stored files the
+  case compares, and `ClientRequestBytes`, the bytes per plaintext connection, which BL-579's relay
+  fills in; until both runs carry them they are not compared.
+- `CurlPortMeasuredRun.Of` makes one run from an `UpstreamCurlRunResult` or a `CurlPortClientRunResult`.
+- `CurlPortResultNormaliser` is decision 4's normalisation column: the `surl` port as `<port>`,
+  `Date:` and `Last-Modified:` values as `<date>`, the `-w` values of `%{time_*}` and `%{speed_*}` as
+  `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines, `surl` notes'
+  loopback ports and time stamps, and the `surl` port in request bytes (BL-579 adds the other request
+  byte rules).
+- `CurlPortComparison.Compare` takes the two runners' results - never a path - and gives a
+  `CurlPortVerdict` of decision 5's `CurlPortVerdictKind`: `SurlDefect` when upstream's run fails the
+  mirrored assertions (the port is not judged), `Agreement` when every compared item agrees,
+  `NotComparable` ("release difference") when the case names a `ReleaseDifference` and the paired build
+  is not 8.21.0, and otherwise `PortDefect` with a `CurlPortFinding` in decision 6's form: test, mirrored
+  test, command line, upstream build (SHA-256, version line), port client (commit, SHA-256), Surl
+  commit, both runs and each `CurlPortDifference` (exit code, first differing line, or first differing
+  byte with its connection and offset).
+
+The tests' `PinnedCurlPortBesideUpstreamCurl.MeasureAsync` is the one call each Phase 7 test class
+makes: it locates both pinned clients (Inconclusive naming the missing file), runs each against its
+own fresh `SurlOnLoopback` with `HOME`, `CURL_HOME` and `USERPROFILE` pointed at an empty folder, is
+Inconclusive when `CURL_EXTENSIONS` or `SURL_EXTENSIONS` is set in the test process (decision 3 runs
+both as shipped), and returns the verdict. Reading a family's findings file is the family tasks' work
+(BL-580 on).
 
 ## Upstream test cases (ADR-0080)
 
