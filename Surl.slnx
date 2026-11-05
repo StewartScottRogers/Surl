@@ -138,6 +138,8 @@
     <Project Path="Protocols/Http/Surl.Protocol.Rtsp.UnitTests/Surl.Protocol.Rtsp.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Protocol.Ws.UnitLibrary/Surl.Protocol.Ws.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Protocol.Ws.UnitTests/Surl.Protocol.Ws.UnitTests.csproj" />
+    <Project Path="Protocols/Http/Surl.Quic.UnitLibrary/Surl.Quic.UnitLibrary.csproj" />
+    <Project Path="Protocols/Http/Surl.Quic.UnitTests/Surl.Quic.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.WebSocket.UnitLibrary/Surl.WebSocket.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.WebSocket.UnitTests/Surl.WebSocket.UnitTests.csproj" />
   </Folder>
