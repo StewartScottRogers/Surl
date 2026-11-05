@@ -34,7 +34,7 @@ no repository `404 NAME_UNKNOWN`. Every answer carries `Date`, `Server: surl` an
 A connection past a connection limit is `429 TOOMANYREQUESTS` (`OciRegistryProtocolServer` is the
 `IConnectionRefusalWriter`).
 
-Writes (BL-437, ADR-0115 decisions 3, 3.1 and 5.4, ADR-0127), each `403 DENIED` unless the store
+Writes (BL-437, ADR-0115 decisions 3, 3.1 and 5.4, ADR-0130), each `403 DENIED` unless the store
 allows uploads (`--allow-uploads`), and `403 DENIED` where the share forbids the write:
 
 - Blob uploads: `POST .../blobs/uploads/` opens a session (`202`, `Location`, `Range: 0-0`,
