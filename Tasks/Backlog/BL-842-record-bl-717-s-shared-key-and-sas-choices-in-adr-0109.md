@@ -1,5 +1,5 @@
 ---
-id: BL-831
+id: BL-842
 title: Record BL-717's Shared Key and SAS choices in ADR-0109
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-831 — Record BL-717's Shared Key and SAS choices in ADR-0109
+# BL-842 — Record BL-717's Shared Key and SAS choices in ADR-0109
 
 ## Goal
 

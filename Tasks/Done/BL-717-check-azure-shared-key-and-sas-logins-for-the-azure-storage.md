@@ -53,7 +53,7 @@ set, and answers every failure with ADR-0109 decision 3's code.
   account. Eight refusals added: `MissingRequestDate`, `SignatureExpired`, `SignatureNotYetValid`,
   `AddressNotAllowed`, `ProtocolNotAllowed`, `UnservedSignatureKind`, `UnreadableSignatureFields`,
   `PermissionNotGranted`.
-- Choices (defaults taken, to be recorded in ADR-0109 by BL-831, since Documentation is outside this task's
+- Choices (defaults taken, to be recorded in ADR-0109 by BL-842, since Documentation is outside this task's
   `touches`):
   - SAS permission letters per operation: listing `l`, read `r`, delete `d`, Data Lake append `a` or `w`, any
     other write `w`. `c` alone never grants a write: the login is judged before the server knows whether the
@@ -81,7 +81,7 @@ set, and answers every failure with ADR-0109 decision 3's code.
   did not change.
 - Tests: `AzureStorageVerifierTests` (Authentication, 79), `AzureLoginJudgeTests` (Azure, 30); Authentication
   1124 and Azure 307 tests pass; `dotnet build -warnaserror` clean; every fast test project green.
-- Filed BL-831 (record these choices in ADR-0109 and the conformance matrix).
+- Filed BL-842 (record these choices in ADR-0109 and the conformance matrix).
 
 ## Log
 
