@@ -84,11 +84,30 @@ DNS over HTTPS (BL-483, ADR-0092 decision 5; RFC 8484):
 - Not yet: EDNS(0) padding on the encrypted transports and the optional DoH login (ADR-0092
   decisions 2 and 5); see the tasks filed for them.
 
-DoQ (BL-484) and the command line (BL-485, which adds `--allow-zone-transfer` and binds the DoH
-listener with TLS and ALPN) build on it.
+DNS over QUIC (BL-484, ADR-0092 decision 5; RFC 9250):
+
+- `DnsOverQuicProtocolServer` (scheme `dns`, `IDatagramProtocolServer`) runs each flow as one QUIC
+  connection on `Surl.Quic`'s `QuicDatagramFlowServer`: ALPN `doq` only,
+  `initial_max_streams_bidi` 100, `initial_max_streams_uni` 0, no `max_datagram_frame_size`, the
+  idle timeout it is given, and the head timeout as the handshake timeout. Cancelled before the
+  handshake completes, the flow stops at once; after, `DnsOverQuicConnectionServer` answers it.
+- `DnsOverQuicConnectionServer` (`IQuicApplicationProtocol`) serves each client bidirectional
+  stream on a task of its own: the two-byte length and the query, answered with
+  `DnsQueryAnswerer.AnswerOverStream` (each response length-prefixed, FIN after the last) without
+  waiting for the client's FIN. A non-zero Message ID, a unidirectional stream, a length of 0 or
+  past `--max-message`, FIN before the message is whole, a dropped message and any byte after the
+  query close the connection with `DOQ_PROTOCOL_ERROR` (`DnsOverQuicErrorCode`); a fault of the
+  answer `DOQ_INTERNAL_ERROR`. A stream reset (or cut off by the connection ending) before its
+  query is whole is dropped. Cancelling the exchange, or the client closing, ends it with
+  `DOQ_NO_ERROR`. A stream past the 100 is `Surl.Quic`'s `STREAM_LIMIT_ERROR`.
+- Tests drive both over `DnsOverQuicTestClient`: pinned upstream curl's recorded HTTP/3 Initials
+  (embedded from `Surl.Protocol.Http.UnitTests/Fixtures`), the ALPN list edited to `doq`, `h3-29`.
+
+The command line (BL-485, which adds `--allow-zone-transfer`, `--dns-transport` and binds the DoH
+and DoQ listeners with TLS and ALPN) builds on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary`,
-`Surl.HttpServing.UnitLibrary` and `Surl.Http2.UnitLibrary`, and may also reference the
+`Surl.HttpServing.UnitLibrary`, `Surl.Http2.UnitLibrary` and `Surl.Quic.UnitLibrary`, and may also reference the
 horizontal libraries in ADR-0002 decision 3's table as later ADRs amend it - never another
 protocol server, original or extended. Never construct a `Socket`, `TcpListener`, `UdpClient`,
 `SslStream` or `HttpListener` here; the transport comes from the listener seam.

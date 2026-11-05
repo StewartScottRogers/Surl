@@ -12,4 +12,13 @@
     <ProjectReference Include="..\Surl.Extended.Protocol.DnsQuery.UnitLibrary\Surl.Extended.Protocol.DnsQuery.UnitLibrary.csproj" />
   </ItemGroup>
 
+  <!--
+    The Initial datagrams pinned upstream curl sent, recorded once in Surl.Protocol.Http.UnitTests
+    (its Fixtures/README.md says how) and embedded here too: the DNS over QUIC tests open their
+    QUIC connection with them, the ALPN edited to doq (DnsOverQuicTestClient).
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\Http\Surl.Protocol.Http.UnitTests\Fixtures\h3-client-initial\static-8.21.0-win.datagrams.bin" LogicalName="Fixtures/h3-client-initial/static-8.21.0-win.datagrams.bin" />
+  </ItemGroup>
+
 </Project>
