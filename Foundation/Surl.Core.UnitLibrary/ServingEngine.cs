@@ -39,6 +39,7 @@ public sealed partial class ServingEngine
     private readonly ConnectionLimits connectionLimits;
     private readonly IDataConnectionOpener dataConnectionOpener;
     private readonly ExchangeLimits exchangeLimits;
+    private readonly ISurlEventPublisher events;
     private long lastExchangeId;
 
     /// <summary>
@@ -177,6 +178,51 @@ public sealed partial class ServingEngine
         ConnectionLimits connectionLimits,
         IDataConnectionOpener dataConnectionOpener,
         ExchangeLimits exchangeLimits)
+        : this(
+            listenerFactory, protocolServers, exchangeLogFactory, timeProvider, shutdownGracePeriod,
+            connectionLimits, dataConnectionOpener, exchangeLimits, DiscardingSurlEventPublisher.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Creates the engine.
+    /// </summary>
+    /// <param name="listenerFactory">Starts the listeners.</param>
+    /// <param name="protocolServers">Every protocol server, each answering the schemes it lists.</param>
+    /// <param name="exchangeLogFactory">Hands out one log per exchange.</param>
+    /// <param name="timeProvider">The one clock: the shutdown grace period and every exchange's time come from it.</param>
+    /// <param name="shutdownGracePeriod">
+    /// How long shutdown waits for exchanges in flight before cancelling them; zero or more.
+    /// </param>
+    /// <param name="connectionLimits">
+    /// How many connections the engine holds at once, and how long one exchange may idle or last.
+    /// </param>
+    /// <param name="dataConnectionOpener">
+    /// Opens the FTP data connections each connection exchange asks for through its
+    /// <see cref="ExchangeContext.DataConnections"/> (ADR-0052, decision 9).
+    /// </param>
+    /// <param name="exchangeLimits">The limits every exchange's <see cref="ExchangeContext.Limits"/> holds.</param>
+    /// <param name="events">
+    /// The instance's event stream (ADR-0124, decision 1): every exchange's
+    /// <see cref="ExchangeContext.Events"/>, and where the engine publishes each exchange's
+    /// <see cref="ExchangeStartedEvent"/>, its <see cref="ExchangeBytesEvent"/>s in the order they
+    /// crossed the connection, flow or data connections (only while it wants bytes), and its
+    /// <see cref="ExchangeEndedEvent"/>. The exchange log is unchanged by it.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Two protocol servers list the same scheme, other than one connection server and one datagram server, or one takes both connections and datagram flows.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
+    public ServingEngine(
+        IListenerFactory listenerFactory,
+        IReadOnlyList<IProtocolServer> protocolServers,
+        IExchangeLogFactory exchangeLogFactory,
+        TimeProvider timeProvider,
+        TimeSpan shutdownGracePeriod,
+        ConnectionLimits connectionLimits,
+        IDataConnectionOpener dataConnectionOpener,
+        ExchangeLimits exchangeLimits,
+        ISurlEventPublisher events)
     {
         ArgumentNullException.ThrowIfNull(listenerFactory);
         ArgumentNullException.ThrowIfNull(protocolServers);
@@ -185,6 +231,7 @@ public sealed partial class ServingEngine
         ArgumentNullException.ThrowIfNull(connectionLimits);
         ArgumentNullException.ThrowIfNull(dataConnectionOpener);
         ArgumentNullException.ThrowIfNull(exchangeLimits);
+        ArgumentNullException.ThrowIfNull(events);
         ArgumentOutOfRangeException.ThrowIfLessThan(shutdownGracePeriod, TimeSpan.Zero);
 
         this.listenerFactory = listenerFactory;
@@ -195,6 +242,7 @@ public sealed partial class ServingEngine
         this.connectionLimits = connectionLimits;
         this.dataConnectionOpener = dataConnectionOpener;
         this.exchangeLimits = exchangeLimits;
+        this.events = events;
     }
 
     /// <summary>
@@ -596,22 +644,29 @@ public sealed partial class ServingEngine
     private async Task ServeAndLogExchangeAsync(
         IConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines)
     {
-        var (exchangeId, log, context) = OpenExchange(route.ListenUrl, connection.LocalEndPoint, connection.RemoteEndPoint, deadlines);
+        var (exchangeId, log, context, bytesLog) = OpenExchange(route.ListenUrl, connection.LocalEndPoint, connection.RemoteEndPoint, deadlines);
 
-        var recordingConnection = new RecordingConnection(connection, log);
-        var dataConnections = new ExchangeDataConnections(dataConnectionOpener, log, deadlines);
-        var failure = await CaptureFailureAsync(() => SecureThenServeAsync(
-            recordingConnection, route, deadlines, context with { DataConnections = dataConnections }));
-
-        // Never throws: a data connection that fails to dispose does not stop the exchange ending.
-        await dataConnections.DisposeAsync();
-
-        if (NoteHowTheExchangeEnded(failure?.SourceException, log, exchangeId, deadlines.Reason))
+        try
         {
-            connection.Abort();
-        }
+            var recordingConnection = new RecordingConnection(connection, bytesLog);
+            var dataConnections = new ExchangeDataConnections(dataConnectionOpener, bytesLog, deadlines);
+            var failure = await CaptureFailureAsync(() => SecureThenServeAsync(
+                recordingConnection, route, deadlines, context with { DataConnections = dataConnections }));
 
-        log.Note($"Exchange {exchangeId} ended; closing the connection.");
+            // Never throws: a data connection that fails to dispose does not stop the exchange ending.
+            await dataConnections.DisposeAsync();
+
+            if (NoteHowTheExchangeEnded(failure?.SourceException, log, exchangeId, deadlines.Reason))
+            {
+                connection.Abort();
+            }
+
+            log.Note($"Exchange {exchangeId} ended; closing the connection.");
+        }
+        finally
+        {
+            PublishExchangeEnded(exchangeId, bytesLog);
+        }
     }
 
     // A listen URL whose scheme is TLS from the first byte gets its handshake here, and the
@@ -658,8 +713,10 @@ public sealed partial class ServingEngine
         return false;
     }
 
-    // Numbers the exchange, creates its log and context, and notes that it opened.
-    private (long ExchangeId, IExchangeLog Log, ExchangeContext Context) OpenExchange(
+    // Numbers the exchange, creates its log and context, notes that it opened and publishes its
+    // start. The server's context keeps the log itself; the bytes go through the publishing log,
+    // which also counts them for the exchange's end.
+    private (long ExchangeId, IExchangeLog Log, ExchangeContext Context, EventPublishingExchangeLog BytesLog) OpenExchange(
         ListenUrl listenUrl, EndPoint localEndPoint, EndPoint remoteEndPoint, ExchangeDeadlines deadlines)
     {
         var exchangeId = Interlocked.Increment(ref lastExchangeId);
@@ -669,11 +726,29 @@ public sealed partial class ServingEngine
         {
             Limits = exchangeLimits,
             ShutdownToken = deadlines.ShutdownToken,
+            Events = events,
         };
 
         log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");
+        events.Publish(new ExchangeStartedEvent(exchangeId, FormatListenUrl(listenUrl), listenUrl.Scheme, remoteEndPoint));
 
-        return (exchangeId, log, context);
+        return (exchangeId, log, context, new EventPublishingExchangeLog(log, events, exchangeId));
+    }
+
+    private void PublishExchangeEnded(long exchangeId, EventPublishingExchangeLog bytesLog) =>
+        events.Publish(new ExchangeEndedEvent(exchangeId, bytesLog.ReceivedByteCount, bytesLog.SentByteCount));
+
+    // The listen URL as the instance reports it, the format of surl's "Listening on" line
+    // (ADR-0007, section 7): the bound port, the host bracketed when it is an IPv6 literal and a
+    // zone written as %25<zone>. A listener on a Unix domain socket binds no port, so its URL
+    // carries the port asked for.
+    internal static string FormatListenUrl(ListenUrl listenUrl)
+    {
+        var host = listenUrl.Host.Contains(':', StringComparison.Ordinal)
+            ? "[" + listenUrl.Host.Replace("%", "%25", StringComparison.Ordinal) + "]"
+            : listenUrl.Host;
+
+        return $"{listenUrl.Scheme}://{host}:{listenUrl.BoundPort ?? listenUrl.Port}/";
     }
 
     // A started listener, and the loop that accepts from it until the engine stops accepting.

@@ -76,15 +76,22 @@ public sealed partial class ServingEngine
     // engine logs it as received when the exchange opens (ADR-0004, section 5).
     private async Task ServeAndLogFlowExchangeAsync(IDatagramFlow flow, AcceptedFlowRoute route, ExchangeDeadlines deadlines)
     {
-        var (exchangeId, log, context) = OpenExchange(route.ListenUrl, flow.LocalEndPoint, flow.RemoteEndPoint, deadlines);
+        var (exchangeId, log, context, bytesLog) = OpenExchange(route.ListenUrl, flow.LocalEndPoint, flow.RemoteEndPoint, deadlines);
 
-        log.BytesReceived(flow.FirstDatagram.Span);
+        try
+        {
+            bytesLog.BytesReceived(flow.FirstDatagram.Span);
 
-        var watchedFlow = new IdleClockRestartingDatagramFlow(new RecordingDatagramFlow(flow, log), deadlines);
-        var failure = await CaptureFailureAsync(() => route.Server.ServeAsync(watchedFlow, context));
+            var watchedFlow = new IdleClockRestartingDatagramFlow(new RecordingDatagramFlow(flow, bytesLog), deadlines);
+            var failure = await CaptureFailureAsync(() => route.Server.ServeAsync(watchedFlow, context));
 
-        _ = NoteHowTheExchangeEnded(failure?.SourceException, log, exchangeId, deadlines.Reason);
-        log.Note($"Exchange {exchangeId} ended; closing the flow.");
+            _ = NoteHowTheExchangeEnded(failure?.SourceException, log, exchangeId, deadlines.Reason);
+            log.Note($"Exchange {exchangeId} ended; closing the flow.");
+        }
+        finally
+        {
+            PublishExchangeEnded(exchangeId, bytesLog);
+        }
     }
 
     // Where one datagram listener's flows go: the listen URL and server they are served under,
