@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Xmpp.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-535 — Decide how the XMPP server answers xmpp and xmpps
 
@@ -52,16 +52,22 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each citing the RFC or XEP section, and is
       listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/Xmpp.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/Xmpp.md` exists in the matrix format, each "covered by" naming
       BL-536, BL-537, BL-538 or BL-539, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0114 decides it; matrix `Documentation/Conformance/Extended/Xmpp.md` (rows split across BL-536 to BL-539; `xmpps` and the start-time certificate check go to BL-537 as the TLS task).
+- Defaults taken: no new option (`--allow-plaintext-auth` makes STARTTLS voluntary; the listen host plus `--mail-domain` are the domains); no offline storage, no rosters, no federation; a bound stream is available at priority 0 without presence so one-shot clients receive replies; a bind conflict ends the older stream; 3 SASL failures then `policy-violation`; nesting 32, attributes 64, 16 MiB unsent output.
+- Sessions are routed by the server instance, not `Surl.MessageBus`: ADR-0100 maps no XMPP address onto the bus.
+- Written by the lane directly (docs pipeline) rather than via align-and-document, to keep the run inside one session.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: logins read the one account set.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0114 decides how the XMPP server answers xmpp and xmpps; Xmpp.md traces each requirement to BL-536 to BL-539
