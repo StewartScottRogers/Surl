@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Content;
 
 /// <summary>
@@ -86,6 +88,8 @@ public sealed class ContentStore
 
     private readonly ContentContainer rootContainer;
 
+    private readonly ContentStoreEventsAndFaults eventsAndFaults;
+
     private readonly Dictionary<string, (ContentShare Share, ContentContainer Container)> sharesByName = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, ContentBucket> bucketsByName = new(StringComparer.Ordinal);
@@ -116,6 +120,12 @@ public sealed class ContentStore
     /// the root and in every share.</param>
     /// <param name="shares">The named shares; empty serves the one root.</param>
     /// <param name="buckets">The bucket names mapped onto content paths; may be empty.</param>
+    /// <param name="events">Where every change the store makes is published as a
+    /// <see cref="StoreChangedEvent"/> (ADR-0124 decision 1, ADR-0126);
+    /// <see langword="null"/> publishes nothing.</param>
+    /// <param name="faults">The fault plan asked at every upload's
+    /// <see cref="FaultStage.StoreWrite"/> point for an out-of-space rule (ADR-0124 decision 4);
+    /// <see langword="null"/> finds none.</param>
     /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty or relative to
     /// the current directory, or two shares or two buckets share a name.</exception>
     public ContentStore(
@@ -123,7 +133,9 @@ public sealed class ContentStore
         IContentFileSystem fileSystem,
         ContentExposureOptions exposureOptions,
         IReadOnlyList<ContentShare> shares,
-        IReadOnlyList<ContentBucket> buckets)
+        IReadOnlyList<ContentBucket> buckets,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null)
     {
         ThrowUnlessIndependentOfTheCurrentDirectory(servedRoot, nameof(servedRoot));
         ArgumentNullException.ThrowIfNull(fileSystem);
@@ -132,11 +144,12 @@ public sealed class ContentStore
         ArgumentNullException.ThrowIfNull(buckets);
         ServedRoot = servedRoot;
         ExposureOptions = exposureOptions;
-        rootContainer = new ContentContainer(servedRoot, fileSystem, isReadOnly: false);
+        eventsAndFaults = new ContentStoreEventsAndFaults(events, faults);
+        rootContainer = new ContentContainer(servedRoot, fileSystem, isReadOnly: false, publishedPrefix: string.Empty);
         foreach (ContentShare share in shares)
         {
             ArgumentNullException.ThrowIfNull(share, nameof(shares));
-            if (!sharesByName.TryAdd(share.Name, (share, new ContentContainer(share.Path, share.FileSystem, share.IsReadOnly))))
+            if (!sharesByName.TryAdd(share.Name, (share, new ContentContainer(share.Path, share.FileSystem, share.IsReadOnly, "/" + share.Name))))
             {
                 throw new ArgumentException($"Two shares are named {share.Name}.", nameof(shares));
             }
@@ -604,18 +617,8 @@ public sealed class ContentStore
     /// every read; cancellation throws <see cref="OperationCanceledException"/>.</param>
     /// <returns>Whether the upload was written, not permitted, or too large.</returns>
     /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
-    public async Task<ContentUploadResult> WriteUploadAsync(ContentPathMapping mapping, Stream source, CancellationToken cancellationToken)
-    {
-        string location = RequireLocation(mapping);
-        ArgumentNullException.ThrowIfNull(source);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!IsUploadPermitted(mapping, location))
-        {
-            return ContentUploadResult.NotPermitted;
-        }
-
-        return await WriteThroughTemporaryFileAsync(FileSystemOf(mapping), location, source, appending: false, cancellationToken);
-    }
+    public Task<ContentUploadResult> WriteUploadAsync(ContentPathMapping mapping, Stream source, CancellationToken cancellationToken) =>
+        UploadAsync(mapping, source, appending: false, cancellationToken);
 
     /// <summary>
     /// Appends an upload read from <paramref name="source"/> to the file at a mapped location,
@@ -644,18 +647,8 @@ public sealed class ContentStore
     /// every read; cancellation throws <see cref="OperationCanceledException"/>.</param>
     /// <returns>Whether the append was written, not permitted, or too large.</returns>
     /// <exception cref="ArgumentException"><paramref name="mapping"/> is a refusal.</exception>
-    public async Task<ContentUploadResult> AppendUploadAsync(ContentPathMapping mapping, Stream source, CancellationToken cancellationToken)
-    {
-        string location = RequireLocation(mapping);
-        ArgumentNullException.ThrowIfNull(source);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (!IsUploadPermitted(mapping, location))
-        {
-            return ContentUploadResult.NotPermitted;
-        }
-
-        return await WriteThroughTemporaryFileAsync(FileSystemOf(mapping), location, source, appending: true, cancellationToken);
-    }
+    public Task<ContentUploadResult> AppendUploadAsync(ContentPathMapping mapping, Stream source, CancellationToken cancellationToken) =>
+        UploadAsync(mapping, source, appending: true, cancellationToken);
 
     /// <summary>
     /// Opens a random-access upload to the file at a mapped location: a
@@ -706,7 +699,7 @@ public sealed class ContentStore
         }
 
         bool copiesTheTarget = opening.StartsFromExistingBytes && kind == ContentEntryKind.File;
-        return new ContentUploadOpeningOutcome(result, await StartUploadSessionAsync(fileSystem, location, copiesTheTarget, cancellationToken));
+        return new ContentUploadOpeningOutcome(result, await StartUploadSessionAsync(mapping, location, copiesTheTarget, cancellationToken));
     }
 
     /// <summary>
@@ -738,6 +731,7 @@ public sealed class ContentStore
         }
 
         FileSystemOf(mapping).DeleteFile(location);
+        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null);
         return ContentChangeResult.Done;
     }
 
@@ -864,6 +858,7 @@ public sealed class ContentStore
         }
 
         fileSystem.CreateDirectory(location);
+        eventsAndFaults.PublishChange(StoreChange.Created, PublishedNameOf(mapping, location), null);
         return ContentChangeResult.Done;
     }
 
@@ -901,6 +896,7 @@ public sealed class ContentStore
         }
 
         fileSystem.RemoveEmptyDirectory(location);
+        eventsAndFaults.PublishChange(StoreChange.Deleted, PublishedNameOf(mapping, location), null);
         return ContentChangeResult.Done;
     }
 
@@ -926,6 +922,7 @@ public sealed class ContentStore
         }
 
         MoveEntry(FileSystemOf(source), sourceKind, from, to, replacingAFile);
+        eventsAndFaults.PublishChange(StoreChange.Renamed, PublishedNameOf(destination, to), null, PublishedNameOf(source, from));
         return ContentChangeResult.Done;
     }
 
@@ -997,25 +994,65 @@ public sealed class ContentStore
         !IsSamePath(ParentDirectoryOf(location), location)
         && fileSystem.GetEntryKind(ParentDirectoryOf(location)) == ContentEntryKind.Directory;
 
-    private async Task<ContentUploadResult> WriteThroughTemporaryFileAsync(IContentFileSystem fileSystem, string location, Stream source, bool appending, CancellationToken cancellationToken)
+    // An out-of-space fault answers as a full store does: TooLarge, before a byte is read.
+    private async Task<ContentUploadResult> UploadAsync(ContentPathMapping mapping, Stream source, bool appending, CancellationToken cancellationToken)
+    {
+        string location = RequireLocation(mapping);
+        ArgumentNullException.ThrowIfNull(source);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!IsUploadPermitted(mapping, location))
+        {
+            return ContentUploadResult.NotPermitted;
+        }
+
+        string name = PublishedNameOf(mapping, location);
+        if (await eventsAndFaults.RunsOutOfSpaceAsync(name, mapping.Caller!, cancellationToken))
+        {
+            return ContentUploadResult.TooLarge;
+        }
+
+        long? writtenLength = await WriteThroughTemporaryFileAsync(FileSystemOf(mapping), location, source, appending, cancellationToken);
+        if (writtenLength is null)
+        {
+            return ContentUploadResult.TooLarge;
+        }
+
+        eventsAndFaults.PublishChange(StoreChange.Written, name, writtenLength);
+        return ContentUploadResult.Written;
+    }
+
+    // The written file's length, or null when the upload was too large.
+    private async Task<long?> WriteThroughTemporaryFileAsync(IContentFileSystem fileSystem, string location, Stream source, bool appending, CancellationToken cancellationToken)
     {
         string temporaryLocation = TemporaryUploadLocationBeside(location);
         try
         {
-            if (!await WriteWithinUploadLimitAsync(fileSystem, temporaryLocation, location, appending, source, cancellationToken))
+            long? writtenLength = await WriteWithinUploadLimitAsync(fileSystem, temporaryLocation, location, appending, source, cancellationToken);
+            if (writtenLength is null)
             {
                 fileSystem.DeleteFile(temporaryLocation);
-                return ContentUploadResult.TooLarge;
+                return null;
             }
 
             fileSystem.MoveFileReplacing(temporaryLocation, location);
-            return ContentUploadResult.Written;
+            return writtenLength;
         }
         catch (Exception)
         {
             fileSystem.DeleteFile(temporaryLocation);
             throw;
         }
+    }
+
+    // The name a change is published under: the request path that reaches the location, '/'
+    // separated, a share's name first (ADR-0126). Never a full path on the host.
+    private static string PublishedNameOf(ContentPathMapping mapping, string location)
+    {
+        ContentContainer container = mapping.Container!;
+        string relative = Path.GetRelativePath(container.ResolvedRoot, location)
+            .Replace(Path.DirectorySeparatorChar, '/')
+            .Replace(Path.AltDirectorySeparatorChar, '/');
+        return container.PublishedPrefix + "/" + relative;
     }
 
     private ContentUploadOpeningResult UploadOpeningResult(ContentPathMapping mapping, string location, ContentEntryKind kind, ContentUploadOpening opening)
@@ -1045,8 +1082,9 @@ public sealed class ContentStore
             ? (opening.RefusesExistingFile ? ContentUploadOpeningResult.Exists : ContentUploadOpeningResult.Opened)
             : (opening.CreatesMissingFile ? ContentUploadOpeningResult.Opened : ContentUploadOpeningResult.Absent);
 
-    private async Task<ContentUploadSession> StartUploadSessionAsync(IContentFileSystem fileSystem, string location, bool copiesTheTarget, CancellationToken cancellationToken)
+    private async Task<ContentUploadSession> StartUploadSessionAsync(ContentPathMapping mapping, string location, bool copiesTheTarget, CancellationToken cancellationToken)
     {
+        IContentFileSystem fileSystem = FileSystemOf(mapping);
         string temporaryLocation = TemporaryUploadLocationBeside(location);
         Stream temporaryFile = fileSystem.OpenFileForAsyncReadWrite(temporaryLocation);
         try
@@ -1056,7 +1094,8 @@ public sealed class ContentStore
                 await CopyExistingFileAsync(fileSystem, location, temporaryFile, cancellationToken);
             }
 
-            return new ContentUploadSession(fileSystem, temporaryLocation, location, temporaryFile, ExposureOptions.MaxUploadBytes);
+            var target = new ContentUploadTarget(location, PublishedNameOf(mapping, location), mapping.Caller!);
+            return new ContentUploadSession(fileSystem, temporaryLocation, target, temporaryFile, ExposureOptions.MaxUploadBytes, eventsAndFaults);
         }
         catch (Exception)
         {
@@ -1066,7 +1105,7 @@ public sealed class ContentStore
         }
     }
 
-    private async Task<bool> WriteWithinUploadLimitAsync(IContentFileSystem fileSystem, string temporaryLocation, string location, bool appending, Stream source, CancellationToken cancellationToken)
+    private async Task<long?> WriteWithinUploadLimitAsync(IContentFileSystem fileSystem, string temporaryLocation, string location, bool appending, Stream source, CancellationToken cancellationToken)
     {
         await using Stream destination = fileSystem.CreateFileForAsyncWrite(temporaryLocation);
         long existingLength = appending && fileSystem.GetEntryKind(location) == ContentEntryKind.File
@@ -1103,8 +1142,9 @@ public sealed class ContentStore
     }
 
     // Counts from alreadyWritten, the bytes an append copied from the existing file, so the limit
-    // covers the whole file; a count already past it reads nothing.
-    private async Task<bool> CopyWithinUploadLimitAsync(Stream source, Stream destination, long alreadyWritten, CancellationToken cancellationToken)
+    // covers the whole file; a count already past it reads nothing. Returns the whole length
+    // written, or null when it passed the limit.
+    private async Task<long?> CopyWithinUploadLimitAsync(Stream source, Stream destination, long alreadyWritten, CancellationToken cancellationToken)
     {
         long limit = ExposureOptions.MaxUploadBytes;
         byte[] buffer = new byte[CopyBufferSize];
@@ -1116,7 +1156,7 @@ public sealed class ContentStore
             int read = await source.ReadAsync(buffer.AsMemory(0, wanted), cancellationToken);
             if (read == 0)
             {
-                return true;
+                return received;
             }
 
             received += read;
@@ -1126,7 +1166,7 @@ public sealed class ContentStore
             }
         }
 
-        return false;
+        return null;
     }
 
     private bool IsWithinUploadLimit(long byteCount) =>

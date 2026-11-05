@@ -181,6 +181,11 @@ internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
             throw new IOException("The read failed.");
         }
 
+        if (writtenFiles.TryGetValue(path, out MemoryStream? written))
+        {
+            return new MemoryStream(written.ToArray(), writable: false);
+        }
+
         return fileContents.TryGetValue(path, out byte[]? contents)
             ? new MemoryStream(contents, writable: false)
             : throw new FileNotFoundException("No file in the fake.", path);

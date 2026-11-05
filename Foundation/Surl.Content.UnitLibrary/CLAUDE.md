@@ -70,6 +70,19 @@ and `readonly`. The lookups that name no caller (`MapRequestPath`, `MapRequestPa
 behave exactly as before, and with grants they never open a closed share. The root has no
 access rows.
 
+Stand-in events and faults (ADR-0124 decisions 1 and 4, ADR-0126, built by BL-789):
+`ContentStore`'s five-argument constructor takes an optional `ISurlEventPublisher` and
+`IFaultPlan` (null: publish nothing, find nothing), held in internal `ContentStoreEventsAndFaults`.
+After each change it publishes one `StoreChangedEvent` (`Content`, `ExchangeId` null): `Written`
+with the file's whole length (write, append, committed session), `Deleted` (file or empty
+folder), `Renamed` with `PreviousName` (one event), `Created` (folder). `Name` is the request
+path, `/`-separated, a share's name first, never a host path; a refused or failed change
+publishes nothing. Before an upload writes and before a session commits it asks the plan at a
+`StoreWrite` point (`Path` the name, `Scheme` and `Account` from the `ContentCaller`); an
+`OutOfSpace` rule answers `ContentUploadResult.TooLarge` without reading a byte and publishes
+`FaultAppliedEvent`. `ObjectMetadataIndex` takes an optional publisher too and publishes
+`MetadataStored` (`/` and the key) for each `Stored` outcome.
+
 `ObjectMetadataIndex` keeps what a file system cannot hold for the object-storage servers
 (S3, Azure Storage, Cloud Storage, the OCI registry; ADR-0100 decision 2.3, built by BL-636):
 the five header fields set at upload, user metadata, the ETag and GCS's generation, keyed by

@@ -7,12 +7,19 @@ namespace Surl.Content;
 /// </summary>
 internal sealed class ContentContainer
 {
-    internal ContentContainer(string root, IContentFileSystem fileSystem, bool isReadOnly)
+    internal ContentContainer(string root, IContentFileSystem fileSystem, bool isReadOnly, string publishedPrefix)
     {
         Root = root;
         FileSystem = fileSystem;
         IsReadOnly = isReadOnly;
+        PublishedPrefix = publishedPrefix;
     }
+
+    /// <summary>
+    /// What a published name inside the container starts with: empty for the served root, and
+    /// <c>/</c> and the share's name for a share, so a name reads as the request path that reaches it.
+    /// </summary>
+    internal string PublishedPrefix { get; }
 
     /// <summary>The full path of the container's top directory.</summary>
     internal string Root { get; }

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Content;
 
@@ -86,6 +87,7 @@ public sealed class ObjectMetadataIndex
     private const string TemporaryIndexPrefix = ".index-";
 
     private readonly IContentFileSystem fileSystem;
+    private readonly ISurlEventPublisher events;
     private readonly string servedRoot;
     private readonly string? stateFolderPath;
     private readonly Dictionary<string, ObjectMetadataEntry> entries = new(StringComparer.Ordinal);
@@ -102,6 +104,9 @@ public sealed class ObjectMetadataIndex
     /// as it is with a data directory; without one it is held in memory only.</param>
     /// <param name="maxEntries">The most entries held; at least 0.</param>
     /// <param name="maxMetadataBytes">The most bytes of metadata per object; 0 to 65535.</param>
+    /// <param name="events">Where each stored entry is published as a
+    /// <see cref="StoreChange.MetadataStored"/> change named <c>/</c> and its key (ADR-0126);
+    /// <see langword="null"/> publishes nothing.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is out of its range.</exception>
@@ -110,8 +115,10 @@ public sealed class ObjectMetadataIndex
         string servedRoot,
         bool persists,
         int maxEntries = DefaultMaxEntries,
-        int maxMetadataBytes = DefaultMaxMetadataBytes)
+        int maxMetadataBytes = DefaultMaxMetadataBytes,
+        ISurlEventPublisher? events = null)
     {
+        this.events = events ?? DiscardingSurlEventPublisher.Instance;
         ArgumentNullException.ThrowIfNull(fileSystem);
         ArgumentException.ThrowIfNullOrEmpty(servedRoot);
         ArgumentOutOfRangeException.ThrowIfNegative(maxEntries);
@@ -258,6 +265,7 @@ public sealed class ObjectMetadataIndex
                 fields[0], fields[1], fields[2], fields[3], fields[4], userMetadata);
             entries[key] = entry;
             var failure = await WriteIndexAsync(cancellationToken);
+            events.Publish(new StoreChangedEvent(StoreKind.Content, StoreChange.MetadataStored, "/" + key, null, null));
             return new ObjectMetadataStoreResult(ObjectMetadataStoreOutcome.Stored, PropertiesOf(entry), failure);
         }
         finally

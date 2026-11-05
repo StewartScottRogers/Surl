@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Content;
 
 [TestClass]
@@ -12,6 +14,21 @@ public sealed class ObjectMetadataIndexTests
     private static readonly string IndexPath = Path.Join(Root, ".surl", "objects", "index");
 
     private static readonly long StartGeneration = (Start.UtcTicks - DateTime.UnixEpoch.Ticks) / 10;
+
+    [TestMethod]
+    public async Task StoreAsync_StoredOrNoSuchFile_PublishesOneMetadataStoredChangeForTheStoredKeyOnly()
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync("b/x.txt", "hello"u8.ToArray());
+        var events = new RecordingSurlEventPublisher();
+        var index = new ObjectMetadataIndex(fixture.FileSystem, Root, persists: false, events: events);
+
+        await index.StoreAsync("b/x.txt", new ObjectMetadata(), CancellationToken.None);
+        await index.StoreAsync("b/missing.txt", new ObjectMetadata(), CancellationToken.None);
+
+        var expected = new StoreChangedEvent(StoreKind.Content, StoreChange.MetadataStored, "/b/x.txt", null, null);
+        CollectionAssert.AreEqual(new SurlEvent[] { expected }, events.Events.ToArray());
+    }
 
     [TestMethod]
     public async Task StoreAsync_ThenReadAsync_ReadsBackTheStoredMetadata()

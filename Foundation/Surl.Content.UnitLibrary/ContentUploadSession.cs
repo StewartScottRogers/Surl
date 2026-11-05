@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Content;
 
 /// <summary>
@@ -30,16 +32,18 @@ public sealed class ContentUploadSession : IAsyncDisposable
 {
     private readonly IContentFileSystem fileSystem;
     private readonly string temporaryLocation;
-    private readonly string targetLocation;
+    private readonly ContentUploadTarget target;
+    private readonly ContentStoreEventsAndFaults eventsAndFaults;
     private readonly long maxUploadBytes;
     private readonly Stream temporaryFile;
     private SessionState state = SessionState.Open;
 
-    internal ContentUploadSession(IContentFileSystem fileSystem, string temporaryLocation, string targetLocation, Stream temporaryFile, long maxUploadBytes)
+    internal ContentUploadSession(IContentFileSystem fileSystem, string temporaryLocation, ContentUploadTarget target, Stream temporaryFile, long maxUploadBytes, ContentStoreEventsAndFaults eventsAndFaults)
     {
         this.fileSystem = fileSystem;
         this.temporaryLocation = temporaryLocation;
-        this.targetLocation = targetLocation;
+        this.target = target;
+        this.eventsAndFaults = eventsAndFaults;
         this.temporaryFile = temporaryFile;
         this.maxUploadBytes = maxUploadBytes;
         Length = temporaryFile.Length;
@@ -180,9 +184,11 @@ public sealed class ContentUploadSession : IAsyncDisposable
     /// </remarks>
     /// <param name="cancellationToken">Checked before the temporary file is closed.</param>
     /// <returns><see cref="ContentUploadResult.Written"/>;
-    /// <see cref="ContentUploadResult.TooLarge"/> when the session ended as too large;
+    /// <see cref="ContentUploadResult.TooLarge"/> when the session ended as too large, or an
+    /// out-of-space fault rule matches the target (the temporary file is deleted);
     /// <see cref="ContentUploadResult.NotPermitted"/> when the target can no longer take a
-    /// file.</returns>
+    /// file. A commit that writes publishes the target's <see cref="StoreChange.Written"/>
+    /// change.</returns>
     /// <exception cref="InvalidOperationException">The upload was committed or its session ended
     /// by an exception.</exception>
     /// <exception cref="ObjectDisposedException">The session was disposed.</exception>
@@ -199,20 +205,37 @@ public sealed class ContentUploadSession : IAsyncDisposable
         try
         {
             await temporaryFile.DisposeAsync();
-            if (!CanTargetTakeAFile())
+            ContentUploadResult refusal = await CommitRefusalAsync(cancellationToken);
+            if (refusal != ContentUploadResult.Written)
             {
                 fileSystem.DeleteFile(temporaryLocation);
-                return ContentUploadResult.NotPermitted;
+                return refusal;
             }
 
-            fileSystem.MoveFileReplacing(temporaryLocation, targetLocation);
-            return ContentUploadResult.Written;
+            fileSystem.MoveFileReplacing(temporaryLocation, target.Location);
         }
         catch (Exception)
         {
             fileSystem.DeleteFile(temporaryLocation);
             throw;
         }
+
+        eventsAndFaults.PublishChange(StoreChange.Written, target.PublishedName, Length);
+        return ContentUploadResult.Written;
+    }
+
+    // Written means nothing refuses the commit. An out-of-space fault answers as a full store
+    // does, TooLarge (ADR-0126).
+    private async Task<ContentUploadResult> CommitRefusalAsync(CancellationToken cancellationToken)
+    {
+        if (!CanTargetTakeAFile())
+        {
+            return ContentUploadResult.NotPermitted;
+        }
+
+        return await eventsAndFaults.RunsOutOfSpaceAsync(target.PublishedName, target.Caller, cancellationToken)
+            ? ContentUploadResult.TooLarge
+            : ContentUploadResult.Written;
     }
 
     /// <summary>
@@ -243,8 +266,8 @@ public sealed class ContentUploadSession : IAsyncDisposable
 
     private bool CanTargetTakeAFile()
     {
-        ReadOnlySpan<char> parent = Path.GetDirectoryName(targetLocation.AsSpan());
-        return fileSystem.GetEntryKind(targetLocation) != ContentEntryKind.Directory
+        ReadOnlySpan<char> parent = Path.GetDirectoryName(target.Location.AsSpan());
+        return fileSystem.GetEntryKind(target.Location) != ContentEntryKind.Directory
             && fileSystem.GetEntryKind(parent.ToString()) == ContentEntryKind.Directory;
     }
 
