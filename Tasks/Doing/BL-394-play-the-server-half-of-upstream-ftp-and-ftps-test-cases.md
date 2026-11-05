@@ -44,3 +44,4 @@ their server half as BL-386's ADR defines, and the pass-rate file counts them.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
