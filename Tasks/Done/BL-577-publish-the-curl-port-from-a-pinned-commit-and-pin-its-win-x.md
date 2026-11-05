@@ -73,7 +73,7 @@ executable from a named commit into the folder ADR-0083 decision 2 names, and re
   the pinned Curl port client for win-x64, published from commit b42c319b..."), and `CurlPortClientRunner` ran
   `--version`, exit 0. The pin-file Integration tests (`CurlPortClientPinsTests.Parse_RepositoryPinFile_ParsesWithoutFailure`,
   `UpstreamCurlBuildPinsTests.Parse_RepositoryPinFiles_ShareNoSha256WithCurlPortBuilds` and peers) pass, 4/4.
-  Filed BL-594 to add the permanent Integration test once that project is free.
+  Filed BL-596 to add the permanent Integration test once that project is free.
 - `dotnet build -warnaserror` clean; fast tests 9571 passed, 0 failed across 42 test assemblies.
 
 ## Log

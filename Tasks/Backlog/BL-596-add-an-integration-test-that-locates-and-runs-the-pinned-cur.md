@@ -1,5 +1,5 @@
 ---
-id: BL-594
+id: BL-596
 title: Add an Integration test that locates and runs the pinned Curl port client
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-594 — Add an Integration test that locates and runs the pinned Curl port client
+# BL-596 — Add an Integration test that locates and runs the pinned Curl port client
 
 ## Goal
 
