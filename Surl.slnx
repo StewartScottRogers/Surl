@@ -136,6 +136,8 @@
     <Project Path="Protocols/Http/Surl.HttpMessage.UnitTests/Surl.HttpMessage.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.HttpServing.UnitLibrary/Surl.HttpServing.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.HttpServing.UnitTests/Surl.HttpServing.UnitTests.csproj" />
+    <Project Path="Protocols/Http/Surl.McpServing.UnitLibrary/Surl.McpServing.UnitLibrary.csproj" />
+    <Project Path="Protocols/Http/Surl.McpServing.UnitTests/Surl.McpServing.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Protocol.Http.UnitLibrary/Surl.Protocol.Http.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Protocol.Http.UnitTests/Surl.Protocol.Http.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary/Surl.Protocol.Rtsp.UnitLibrary.csproj" />

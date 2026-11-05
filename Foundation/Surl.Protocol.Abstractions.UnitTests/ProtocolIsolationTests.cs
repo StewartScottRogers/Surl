@@ -32,6 +32,7 @@ public sealed class ProtocolIsolationTests
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
+    private const string McpServing = "Surl.McpServing.UnitLibrary";
     private const string MessageBus = "Surl.MessageBus.UnitLibrary";
     private const string MlKem = "Surl.Cryptography.MlKem.UnitLibrary";
     private const string Qpack = "Surl.Qpack.UnitLibrary";
@@ -50,7 +51,7 @@ public sealed class ProtocolIsolationTests
 
     /// <summary>
     /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061,
-    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0087 and ADR-0100 add: each horizontal library a protocol server may reference, with the projects
+    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0087, ADR-0100 and ADR-0103 add: each horizontal library a protocol server may reference, with the projects
     /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
@@ -73,6 +74,7 @@ public sealed class ProtocolIsolationTests
         [Kerberos] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
+        [McpServing] = [],
         [MessageBus] = [Abstractions, Content],
         [Qpack] = [Hpack],
         [Quic] = [Abstractions, Tls13, ChaCha20, Poly1305],
@@ -191,6 +193,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Kerberos)]
     [DataRow(LineProtocol)]
     [DataRow(MailStore)]
+    [DataRow(McpServing)]
     [DataRow(MessageBus)]
     [DataRow(Qpack)]
     [DataRow(Quic)]
