@@ -61,3 +61,4 @@ in the ADR's decision 6 form. A test-side helper gives every Phase 7 test class 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
