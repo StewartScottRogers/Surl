@@ -49,3 +49,4 @@ EOLs between frames. It answers CONNECT or STOMP with CONNECTED, or with ERROR a
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
