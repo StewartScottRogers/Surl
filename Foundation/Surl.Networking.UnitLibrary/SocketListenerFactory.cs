@@ -43,4 +43,19 @@ public sealed class SocketListenerFactory : IListenerFactory
     [ExcludeFromCodeCoverage(Justification = "Delegates to UdpDatagramListener.StartAsync, which binds sockets; covered by the integration tests.")]
     public async ValueTask<IDatagramListener> StartDatagramListenerAsync(ListenUrl listenUrl, CancellationToken cancellationToken) =>
         await UdpDatagramListener.StartAsync(listenUrl, cancellationToken);
+
+    /// <summary>
+    /// Binds the TCP and UDP listeners with <see cref="SharedPortListenerPair"/>, which retries a
+    /// port-0 pair whose UDP port is taken (ADR-0082, decision 6).
+    /// </summary>
+    /// <param name="listenUrl">What to listen on.</param>
+    /// <param name="cancellationToken">Cuts the start off.</param>
+    /// <returns>Both listeners, once both are bound.</returns>
+    [ExcludeFromCodeCoverage(Justification = "Delegates to SharedPortListenerPair.StartAsync, which binds sockets; covered by its integration tests.")]
+    public async ValueTask<SharedPortListeners> StartSharedPortListenersAsync(ListenUrl listenUrl, CancellationToken cancellationToken)
+    {
+        var pair = await SharedPortListenerPair.StartAsync(
+            listenUrl, StartConnectionListenerAsync, StartDatagramListenerAsync, cancellationToken);
+        return new SharedPortListeners(pair.ConnectionListener, pair.DatagramListener);
+    }
 }

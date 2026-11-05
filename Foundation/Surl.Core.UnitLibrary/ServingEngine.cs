@@ -17,8 +17,10 @@ namespace Surl.Core;
 /// <remarks>
 /// A listen URL whose scheme belongs to an <see cref="IConnectionProtocolServer"/> gets a
 /// connection listener; one whose scheme belongs to an <see cref="IDatagramProtocolServer"/>
-/// gets a datagram listener (ADR-0004, section 4). Datagram flows are served in
-/// <c>ServingEngine.Datagrams.cs</c>.
+/// gets a datagram listener (ADR-0004, section 4). A scheme that an <see cref="IConnectionProtocolServer"/>
+/// and an <see cref="IDatagramProtocolServer"/> both list (https with HTTP/3) gets both, bound on one
+/// port through <see cref="IListenerFactory.StartSharedPortListenersAsync"/> (ADR-0082, decision 6).
+/// Datagram flows are served in <c>ServingEngine.Datagrams.cs</c>.
 /// </remarks>
 public sealed partial class ServingEngine
 {
@@ -30,6 +32,7 @@ public sealed partial class ServingEngine
 
     private readonly IListenerFactory listenerFactory;
     private readonly Dictionary<string, IProtocolServer> serversByScheme;
+    private readonly Dictionary<string, IDatagramProtocolServer> sharedPortDatagramServersByScheme = new(StringComparer.Ordinal);
     private readonly IExchangeLogFactory exchangeLogFactory;
     private readonly TimeProvider timeProvider;
     private readonly TimeSpan shutdownGracePeriod;
@@ -56,7 +59,7 @@ public sealed partial class ServingEngine
     /// How long shutdown waits for exchanges in flight before cancelling them; zero or more.
     /// </param>
     /// <exception cref="ArgumentException">
-    /// Two protocol servers list the same scheme, or one takes both connections and datagram flows.
+    /// Two protocol servers list the same scheme, other than one connection server and one datagram server, or one takes both connections and datagram flows.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
     public ServingEngine(
@@ -85,7 +88,7 @@ public sealed partial class ServingEngine
     /// How many connections the engine holds at once, and how long one exchange may idle or last.
     /// </param>
     /// <exception cref="ArgumentException">
-    /// Two protocol servers list the same scheme, or one takes both connections and datagram flows.
+    /// Two protocol servers list the same scheme, other than one connection server and one datagram server, or one takes both connections and datagram flows.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
     public ServingEngine(
@@ -121,7 +124,7 @@ public sealed partial class ServingEngine
     /// against <paramref name="connectionLimits"/>.
     /// </param>
     /// <exception cref="ArgumentException">
-    /// Two protocol servers list the same scheme, or one takes both connections and datagram flows.
+    /// Two protocol servers list the same scheme, other than one connection server and one datagram server, or one takes both connections and datagram flows.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
     public ServingEngine(
@@ -162,7 +165,7 @@ public sealed partial class ServingEngine
     /// is TLS from the first byte runs within their head timeout.
     /// </param>
     /// <exception cref="ArgumentException">
-    /// Two protocol servers list the same scheme, or one takes both connections and datagram flows.
+    /// Two protocol servers list the same scheme, other than one connection server and one datagram server, or one takes both connections and datagram flows.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
     public ServingEngine(
@@ -241,7 +244,9 @@ public sealed partial class ServingEngine
         return SurlExitCode.Ok;
     }
 
-    private static Dictionary<string, IProtocolServer> MapServersByScheme(IReadOnlyList<IProtocolServer> protocolServers)
+    // A scheme belongs to one server, except that a connection server and a datagram server may
+    // share one: its listen URLs then bind both transports on one port (ADR-0082, decision 6).
+    private Dictionary<string, IProtocolServer> MapServersByScheme(IReadOnlyList<IProtocolServer> protocolServers)
     {
         RefuseServersThatTakeBothTransports(protocolServers);
 
@@ -249,7 +254,7 @@ public sealed partial class ServingEngine
 
         foreach (var scheme in protocolServers.SelectMany(server => server.Schemes, (server, scheme) => (server, scheme)))
         {
-            if (!serversByScheme.TryAdd(scheme.scheme, scheme.server))
+            if (!serversByScheme.TryAdd(scheme.scheme, scheme.server) && !TryShareThePort(serversByScheme, scheme.scheme, scheme.server))
             {
                 throw new ArgumentException(
                     $"Two protocol servers list the scheme '{scheme.scheme}'.", nameof(protocolServers));
@@ -257,6 +262,22 @@ public sealed partial class ServingEngine
         }
 
         return serversByScheme;
+    }
+
+    // Pairs a connection server and a datagram server listing one scheme, the connection server
+    // serving the listen URL and the datagram server riding its port; false for any other pair.
+    private bool TryShareThePort(Dictionary<string, IProtocolServer> serversByScheme, string scheme, IProtocolServer server)
+    {
+        var registered = serversByScheme[scheme];
+        var connectionServer = registered as IConnectionProtocolServer ?? server as IConnectionProtocolServer;
+        var datagramServer = server as IDatagramProtocolServer ?? registered as IDatagramProtocolServer;
+        if (connectionServer is null || datagramServer is null || !sharedPortDatagramServersByScheme.TryAdd(scheme, datagramServer))
+        {
+            return false;
+        }
+
+        serversByScheme[scheme] = connectionServer;
+        return true;
     }
 
     // A server takes connections or flows, never both (ADR-0004, section 4).
@@ -391,10 +412,35 @@ public sealed partial class ServingEngine
     {
         for (var index = 0; index < servers.Length; index++)
         {
+            var listenUrl = listenUrls[index];
+            if (sharedPortDatagramServersByScheme.TryGetValue(listenUrl.Scheme, out var sharedPortServer))
+            {
+                started.AddRange(await StartSharedPortListenersAsync(
+                    listenUrl, (IConnectionProtocolServer)servers[index], sharedPortServer, cancellationToken));
+                continue;
+            }
+
             started.Add(servers[index] is IDatagramProtocolServer datagramServer
-                ? await StartDatagramListenerAsync(listenUrls[index], datagramServer, cancellationToken)
-                : await StartConnectionListenerAsync(listenUrls[index], (IConnectionProtocolServer)servers[index], cancellationToken));
+                ? await StartDatagramListenerAsync(listenUrl, datagramServer, cancellationToken)
+                : await StartConnectionListenerAsync(listenUrl, (IConnectionProtocolServer)servers[index], cancellationToken));
         }
+    }
+
+    // The connection listener and, on its port, the datagram listener of a scheme two servers
+    // share (ADR-0082, decision 6).
+    private async Task<StartedListener[]> StartSharedPortListenersAsync(
+        ListenUrl listenUrl,
+        IConnectionProtocolServer connectionServer,
+        IDatagramProtocolServer datagramServer,
+        CancellationToken cancellationToken)
+    {
+        var listeners = await listenerFactory.StartSharedPortListenersAsync(listenUrl, cancellationToken);
+
+        return
+        [
+            StartedConnectionListener(listeners.ConnectionListener, connectionServer),
+            StartedDatagramListener(listeners.DatagramListener, datagramServer),
+        ];
     }
 
     private async Task<StartedListener> StartConnectionListenerAsync(
@@ -402,7 +448,11 @@ public sealed partial class ServingEngine
     {
         var listener = await listenerFactory.StartConnectionListenerAsync(listenUrl, cancellationToken);
 
-        return new StartedListener(
+        return StartedConnectionListener(listener, server);
+    }
+
+    private StartedListener StartedConnectionListener(IConnectionListener listener, IConnectionProtocolServer server) =>
+        new(
             listener,
             state =>
             {
@@ -410,7 +460,6 @@ public sealed partial class ServingEngine
 
                 return AcceptUntilStoppedAsync(token => AcceptConnectionAsync(listener, route, token), state);
             });
-    }
 
     private async Task ServeUntilCancelledAsync(List<StartedListener> listeners, CancellationToken cancellationToken)
     {

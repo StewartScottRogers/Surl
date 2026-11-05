@@ -14,7 +14,11 @@ public sealed partial class ServingEngine
     {
         var listener = await listenerFactory.StartDatagramListenerAsync(listenUrl, cancellationToken);
 
-        return new StartedListener(
+        return StartedDatagramListener(listener, server);
+    }
+
+    private StartedListener StartedDatagramListener(IDatagramListener listener, IDatagramProtocolServer server) =>
+        new(
             listener,
             state =>
             {
@@ -22,7 +26,6 @@ public sealed partial class ServingEngine
 
                 return AcceptUntilStoppedAsync(token => AcceptFlowAsync(listener, route, token), state);
             });
-    }
 
     // Accepts one flow and hands back what to run for it. A flow past a connection limit is
     // refused, uncounted, and never becomes an exchange.
