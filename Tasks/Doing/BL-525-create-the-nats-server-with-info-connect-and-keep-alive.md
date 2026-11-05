@@ -50,3 +50,4 @@ CONNECT's credentials and options, answers PING with PONG, and sends its own PIN
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
