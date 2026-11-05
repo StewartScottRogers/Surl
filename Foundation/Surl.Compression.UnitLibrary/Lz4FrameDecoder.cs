@@ -141,18 +141,23 @@ public static class Lz4FrameDecoder
         }
 
         int blockStart = output.Count;
-        if ((size & StoredBlockBit) != 0)
+        WriteBlock(block, (size & StoredBlockBit) != 0, descriptor.IndependentBlocks ? blockStart : 0, output);
+        return output.Count - blockStart <= descriptor.BlockMaximumSize
+            ? true
+            : throw DecompressionRefusedException.Malformed("a block decodes to more than the block maximum size");
+    }
+
+    /// <summary>Appends a stored block as it is, or decodes a compressed one whose matches reach back no further than <paramref name="windowStart"/>.</summary>
+    private static void WriteBlock(ReadOnlySpan<byte> block, bool stored, int windowStart, BoundedDecompressionOutput output)
+    {
+        if (stored)
         {
             output.Append(block);
         }
         else
         {
-            DecodeBlock(block, output, descriptor.IndependentBlocks ? blockStart : 0);
+            DecodeBlock(block, output, windowStart);
         }
-
-        return output.Count - blockStart <= descriptor.BlockMaximumSize
-            ? true
-            : throw DecompressionRefusedException.Malformed("a block decodes to more than the block maximum size");
     }
 
     private static void CheckContent(ReadOnlySpan<byte> input, ref int position, Lz4FrameDescriptor descriptor, ReadOnlySpan<byte> content)
