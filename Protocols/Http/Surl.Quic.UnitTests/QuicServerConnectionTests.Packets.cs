@@ -211,6 +211,7 @@ public sealed partial class QuicServerConnectionTests
         Assert.IsFalse(exchange.Server.HasKeys(TlsEncryptionLevel.Handshake));
         Assert.IsFalse(exchange.Server.HasKeys(TlsEncryptionLevel.Application));
         Assert.IsNull(exchange.Server.ApplicationProtocol);
+        Assert.IsNull(exchange.Server.CipherSuite);
         Assert.IsTrue(exchange.Server.ServerConnectionId.IsEmpty);
     }
 }

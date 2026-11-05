@@ -50,8 +50,14 @@ whole.
 HTTP/3 (RFC 9114; ADR-0082 decisions 7 to 9 and its Amendment 1) is `Http3ConnectionServer`, the
 `IQuicApplicationProtocol` a `Surl.Quic` `QuicDatagramFlowServer` hands a connection to once its
 handshake agreed `h3`; this library references `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary`
-for it, and BL-410 moves it to `Surl.Http3.UnitLibrary` (ADR-0086). Nothing composes it yet: BL-384
-serves it from `surl`. It opens its control stream (`SETTINGS` from `Http3FrameWriter`) and its QPACK
+for it, and BL-410 moves it to `Surl.Http3.UnitLibrary` (ADR-0086). `surl --http3` serves it through
+`Http3ProtocolServer` (BL-384), the `IDatagramProtocolServer` for `https`'s UDP side: one
+`QuicDatagramFlowServer` per flow with the server certificate, `--idle-timeout` as QUIC's idle
+timeout and the head timeout as the handshake's, and `Http3ApplicationProtocol`, which starts the
+connection's authentication session with the TLS 1.3 session QUIC agreed. Cancelling the exchange
+before the handshake completes stops the flow at once; after it, the HTTP/3 server answers it. With
+`--http3`, `HttpProtocolServer` wraps its answerer in `AltSvcAdvertisingHandler` on every TLS
+connection, adding `Alt-Svc: h3=":<port>"; ma=86400`. It opens its control stream (`SETTINGS` from `Http3FrameWriter`) and its QPACK
 encoder and decoder streams, accepts the client's (the control stream's rules, and
 `Http3Settings`, close the connection with the RFC's codes), and serves each request stream on a
 task of its own with `Http3RequestStreamServer`: `HEADERS` within the head timeout, decoded by

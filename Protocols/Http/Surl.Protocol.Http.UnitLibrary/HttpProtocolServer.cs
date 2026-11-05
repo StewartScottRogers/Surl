@@ -1,3 +1,4 @@
+using System.Net;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.HttpServing;
@@ -146,6 +147,8 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
     private readonly IAuthenticationPolicy authenticationPolicy;
 
+    private readonly bool advertisesHttp3;
+
     /// <summary>
     /// Creates an HTTP server that serves <paramref name="contentStore"/> to the requests
     /// <paramref name="authenticationPolicy"/> lets in (ADR-0032, sections 4 and 6).
@@ -155,12 +158,29 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
     /// Judges every request: served, challenged with <c>401</c>, or refused with <c>403</c>.
     /// </param>
     public HttpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy)
+        : this(contentStore, authenticationPolicy, advertisesHttp3: false)
+    {
+    }
+
+    /// <summary>
+    /// Creates an HTTP server that serves <paramref name="contentStore"/> to the requests
+    /// <paramref name="authenticationPolicy"/> lets in, and, when
+    /// <paramref name="advertisesHttp3"/>, adds <c>Alt-Svc: h3=":&lt;port&gt;"; ma=86400</c> to every
+    /// answer on a TLS connection, the port being the connection's own (ADR-0082, decision 6).
+    /// </summary>
+    /// <param name="contentStore">The content store every request path is looked up in.</param>
+    /// <param name="authenticationPolicy">
+    /// Judges every request: served, challenged with <c>401</c>, or refused with <c>403</c>.
+    /// </param>
+    /// <param name="advertisesHttp3">Whether HTTP/3 is served on the port of every TLS connection (<c>--http3</c>).</param>
+    public HttpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool advertisesHttp3)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
+        this.advertisesHttp3 = advertisesHttp3;
     }
 
     /// <summary>
@@ -183,7 +203,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
-        var answerer = new HttpRequestAnswerer(context, contentStore, authenticationSession);
+        var answerer = AdvertiseHttp3(new HttpRequestAnswerer(context, contentStore, authenticationSession), connection);
         if (connection.TlsSession is { ApplicationProtocol: not Http2OverTlsApplicationProtocol })
         {
             await new Http1ConnectionServer(answerer, context).ServeAsync(connection);
@@ -208,6 +228,13 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         IHttpRequestHandler http1Handler = connection.TlsSession is null ? new Http2CleartextUpgradeHandler(answerer, context) : answerer;
         await new Http1ConnectionServer(http1Handler, context).ServeAsync(new AlreadyReadBytesConnection(connection, preface.BytesRead));
     }
+
+    // With --http3, every answer on a TLS connection names HTTP/3 on the connection's own port;
+    // a cleartext connection's, and every answer without --http3, are left as they are.
+    private IHttpRequestHandler AdvertiseHttp3(HttpRequestAnswerer answerer, IConnection connection) =>
+        advertisesHttp3 && connection is { TlsSession: not null, LocalEndPoint: IPEndPoint local }
+            ? new AltSvcAdvertisingHandler(answerer, local.Port)
+            : answerer;
 
     // The head timeout bounds the preface as it bounds a first request head: when it runs out
     // the connection closes with no bytes (ADR-0081, decision 5), as HTTP/1.x closes one that
