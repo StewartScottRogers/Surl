@@ -45,6 +45,11 @@ bad one `401 InvalidAuthenticationInfo` rather than serving it as anonymous; and
 ## Notes
 
 - Filed by BL-424, which could not change `Surl.Authentication` or `Surl.Protocol.Abstractions`.
+- BL-717 (2026-11-05): a request with `HttpAuthenticationRequest.AzureStorage` set is now judged by
+  `HttpAuthenticationSession.JudgeAzureStorageAsync`, which checks every credential even under
+  `--allow-anonymous`, so a bad bearer token there is already `401 InvalidAuthenticationInfo`; the first
+  criterion's named Azure test remains. The scope's `AccountName` is still the `Host`'s first label; the
+  path-style segment should replace it there too, so a SAS on an IP-literal host names its account.
 
 ## Log
 
