@@ -8,7 +8,7 @@ depends-on: [BL-610]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-611 — Decide the shared server composition and Surl.Api's programming interface
 
@@ -91,11 +91,11 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by Claude
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by Claude
       under Stewart's delegation", citing BL-610's ADR. It answers decisions 1 to 11 above, names every project,
       folder, public type and member it decides, and lists the follow-up tasks named in this task's Notes.
-- [ ] The ADR is listed in `Documentation/Planning/Decisions/README.md`'s index.
-- [ ] Where the ADR departs from a planning assumption above, its Consequences section names each follow-up task
+- [x] The ADR is listed in `Documentation/Planning/Decisions/README.md`'s index.
+- [x] Where the ADR departs from a planning assumption above, its Consequences section names each follow-up task
       whose Goal or touches it changes.
 
 ## Notes
@@ -108,7 +108,21 @@ BL-643 (NuGet packing, dry run only) and BL-649 (documents). BL-641, filed by an
 configuration surface (the `-K` config file and one configuration model) after this ADR; keep decision 4's options
 mappable onto a `SurlCommandLine` so they stay compatible with whatever it decides.
 
+Outcome (2026-11-04, dark factory lane 4): ADR-0099 decides all eleven points. Written in the session rather than
+through `align-and-document`: the task is one ADR read off code already in view. Choices and why:
+- Typed `SurlServerOptions` properties are turned into `surl`'s own words and parsed by `CommandLineParser`, so
+  defaults and validation cannot drift from `surl`; `AdditionalArguments` replaces a `string[]` overload.
+- The composition is split at the log streams (`ComposeAsync`, then `ComposedServing.ServeAsync`) so `LogStreams`
+  stays in `Surl.Console` and `surl`'s message order is unchanged.
+- Departures, named in the ADR's Consequences: BL-609 also adds the reference-graph tests (touches
+  `Foundation/Surl.Protocol.Abstractions.UnitTests`); BL-614 splits at the log streams, takes `SURL_EXTENSIONS` from
+  the host and adds the `ContentWithoutDataDirectory` seam; BL-615 builds in-memory `Files`; BL-617's records carry no
+  listen URL, because `IExchangeLogFactory.Create` does not know the listener.
+- BL-641 is not on this checkout's board; the ADR says so. The other tasks' files are not edited here (outside this
+  task's `touches`); each follow-up reads ADR-0099.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0099 decides the shared Surl.Composition and Surl.Api's public surface for BL-609 and BL-613 to BL-649
