@@ -1,6 +1,14 @@
 # ADR-0082 — How Surl serves HTTP/3 over QUIC, and what is hand-built
 
 - **Status:** Accepted
+- **Amended by:** [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
+  (2026-11-04, BL-402): decision 2's HTTP/3 frames and control and QPACK streams move from
+  `Surl.Protocol.Http` to the horizontal library `Surl.Http3.UnitLibrary` (BL-410), which
+  `Surl.Protocol.Http` and the WebTransport server both reference. `Surl.Quic` gains the loop
+  that drives a connection from an `IDatagramFlow` and takes its ALPN IDs and transport
+  parameters from its caller (BL-546), and sends QUIC DATAGRAM frames for a caller that asks
+  (BL-547); decision 3's ALPN `h3` and decision 4's "no datagram extension" are the HTTP server's
+  choices, not every `Surl.Quic` caller's. Every byte this ADR pins is unchanged.
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-372. BL-373 to BL-385, BL-544 and BL-545 build what it decides.

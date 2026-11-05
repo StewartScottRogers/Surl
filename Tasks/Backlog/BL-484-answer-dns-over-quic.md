@@ -4,7 +4,7 @@ title: Answer DNS over QUIC
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-482, BL-379, BL-381]
+depends-on: [BL-482, BL-379, BL-381, BL-546]
 touches: [Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary, Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests]
 requirement: none
 created: 2026-11-04

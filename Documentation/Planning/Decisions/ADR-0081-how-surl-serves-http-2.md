@@ -1,6 +1,10 @@
 # ADR-0081 — How Surl serves HTTP/2
 
 - **Status:** Accepted
+- **Amended by:** [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
+  (2026-11-04, BL-402): decision 4's frames, streams, flow control and connection move from
+  `Surl.Protocol.Http` to the horizontal library `Surl.Http2.UnitLibrary` (BL-409), which
+  `Surl.Protocol.Http` and the gRPC server both reference. Every byte this ADR pins is unchanged.
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-364. BL-365 to BL-371 build what it decides.

@@ -4,7 +4,7 @@ title: Serve HTTP/3 on a QUIC connection in Surl.Protocol.Http
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-366, BL-378, BL-380, BL-382]
+depends-on: [BL-366, BL-378, BL-380, BL-382, BL-546]
 touches: [Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-04

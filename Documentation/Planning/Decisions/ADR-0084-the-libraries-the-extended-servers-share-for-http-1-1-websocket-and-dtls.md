@@ -1,6 +1,10 @@
 # ADR-0084 — The libraries the extended servers share for HTTP/1.1, WebSocket and DTLS
 
 - **Status:** Accepted
+- **Amended by:** [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
+  (2026-11-04, BL-402), which decides what this ADR left to BL-402: the HTTP/2 connection moves
+  to `Surl.Http2` and the HTTP/3 connection to `Surl.Http3`, and an extended server answering
+  HTTP/2 or HTTP/3 implements their stream handlers rather than `IHttpRequestHandler`.
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-401. BL-407 builds `Surl.HttpServing` (decision 1), BL-408 builds `Surl.WebSocket`
