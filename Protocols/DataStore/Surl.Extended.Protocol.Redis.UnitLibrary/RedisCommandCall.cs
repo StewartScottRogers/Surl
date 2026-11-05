@@ -5,12 +5,16 @@ namespace Surl.Extended.Protocol.Redis;
 /// <param name="Session">The connection's state.</param>
 /// <param name="Logins">Judges a login the command carries.</param>
 /// <param name="Keyspace">The server's 16 databases, shared by every connection.</param>
+/// <param name="PubSub">The server's channels and patterns, shared by every connection.</param>
+/// <param name="Subscriber">The connection as pub/sub sees it.</param>
 /// <param name="NowMilliseconds">The injected clock's time when the command was read, in Unix milliseconds.</param>
 internal sealed record RedisCommandCall(
     IReadOnlyList<byte[]> Arguments,
     RedisSession Session,
     RedisLogins Logins,
     RedisKeyspace Keyspace,
+    RedisPubSub PubSub,
+    RedisSubscriber Subscriber,
     long NowMilliseconds)
 {
     /// <summary>The database the connection selected.</summary>

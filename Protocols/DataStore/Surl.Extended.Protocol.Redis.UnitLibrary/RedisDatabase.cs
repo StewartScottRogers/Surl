@@ -57,6 +57,21 @@ internal sealed class RedisDatabase(RedisKeyspace keyspace)
         return entry;
     }
 
+    /// <summary>
+    /// Recounts the keyspace after the collection <paramref name="entry"/> holds was changed in
+    /// place, and removes the key once the collection is empty (each collection command's page).
+    /// </summary>
+    /// <param name="entry">The key whose collection changed; its value is a <see cref="RedisCollectionValue"/>.</param>
+    /// <param name="previousByteCount">The collection's byte count before the change.</param>
+    public void Recount(RedisKeyEntry entry, long previousByteCount)
+    {
+        keyspace.Count(0, entry.Value.ByteCount - previousByteCount);
+        if (((RedisCollectionValue)entry.Value).Count == 0)
+        {
+            Remove(entry);
+        }
+    }
+
     /// <summary>Deletes the live key named <paramref name="key"/>.</summary>
     /// <param name="key">The key.</param>
     /// <param name="nowMilliseconds">The time, in Unix milliseconds.</param>

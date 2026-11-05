@@ -1,3 +1,4 @@
+using Surl.Protocol.Abstractions;
 using static Surl.Extended.Protocol.Redis.RedisTestExchanges;
 
 namespace Surl.Extended.Protocol.Redis;
@@ -11,10 +12,10 @@ internal sealed class RedisTestServer
 {
     private readonly RedisServer server;
 
-    public RedisTestServer(RedisKeyspace? keyspace = null)
+    public RedisTestServer(RedisKeyspace? keyspace = null, RedisPubSub? pubSub = null)
     {
         Keyspace = keyspace ?? new RedisKeyspace();
-        server = new RedisServer(new UnitTestRedisAuthenticationPolicy(true), Keyspace);
+        server = new RedisServer(new UnitTestRedisAuthenticationPolicy(true), Keyspace, pubSub ?? new RedisPubSub());
     }
 
     public ManualTimeProvider Clock { get; } = new();
@@ -30,5 +31,19 @@ internal sealed class RedisTestServer
         var connection = Connection([string.Concat(commands)]);
         await server.ServeAsync(connection, Context(cancellationToken, Clock));
         return Written(connection);
+    }
+
+    /// <summary>
+    /// Sends <paramref name="commands"/> on a new connection the client keeps open, as a
+    /// subscriber does, and returns it once they are answered.
+    /// </summary>
+    public async Task<OpenRedisConnection> OpenAsync(CancellationToken cancellationToken, params string[] commands)
+    {
+        var connection = Connection([string.Concat(commands)], peerHalfCloses: false);
+        var log = new RecordingExchangeLog();
+        var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var serving = server.ServeAsync(connection, Context(lifetime.Token, Clock, log: log));
+        await Task.Yield();
+        return new OpenRedisConnection(connection, serving, lifetime, log);
     }
 }

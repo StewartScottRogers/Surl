@@ -16,6 +16,7 @@ internal static class RedisCommandTable
 
     private static readonly FrozenDictionary<string, RedisCommand> Commands =
         RedisConnectionCommands.Commands.Concat(RedisKeyCommands.Commands).Concat(RedisStringCommands.Commands)
+            .Concat(RedisHashCommands.Commands).Concat(RedisListCommands.Commands).Concat(RedisSetCommands.Commands).Concat(RedisPubSubCommands.Commands)
             .ToFrozenDictionary(command => command.Name.ToUpperInvariant());
 
     private static readonly FrozenDictionary<string, RedisCommandContainer> Containers =

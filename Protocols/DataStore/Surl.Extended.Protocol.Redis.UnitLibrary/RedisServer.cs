@@ -15,7 +15,14 @@ namespace Surl.Extended.Protocol.Redis;
 /// <c>TTL</c>, <c>PTTL</c>, <c>PERSIST</c>, <c>TYPE</c>, <c>RENAME</c>, <c>KEYS</c>, <c>SCAN</c>,
 /// <c>DBSIZE</c>, <c>FLUSHDB</c> and <c>FLUSHALL</c>; and the string commands (BL-490) <c>GET</c>,
 /// <c>SET</c>, <c>GETDEL</c>, <c>MGET</c>, <c>MSET</c>, <c>INCR</c>, <c>DECR</c>, <c>INCRBY</c>,
-/// <c>DECRBY</c>, <c>APPEND</c> and <c>STRLEN</c>. Any other command is
+/// <c>DECRBY</c>, <c>APPEND</c> and <c>STRLEN</c>; and (BL-491) the hash commands <c>HSET</c>,
+/// <c>HGET</c>, <c>HMGET</c>, <c>HDEL</c>, <c>HEXISTS</c>, <c>HLEN</c>, <c>HKEYS</c>, <c>HVALS</c>,
+/// <c>HGETALL</c>, <c>HINCRBY</c> and <c>HSETNX</c>, the list commands <c>LPUSH</c>, <c>RPUSH</c>,
+/// <c>LPOP</c>, <c>RPOP</c>, <c>LLEN</c>, <c>LRANGE</c>, <c>LINDEX</c>, <c>LSET</c>, <c>LREM</c> and
+/// <c>LTRIM</c>, the set commands <c>SADD</c>, <c>SREM</c>, <c>SMEMBERS</c>, <c>SISMEMBER</c>,
+/// <c>SMISMEMBER</c>, <c>SCARD</c>, <c>SPOP</c>, <c>SINTER</c>, <c>SUNION</c> and <c>SDIFF</c>, and
+/// pub/sub: <c>SUBSCRIBE</c>, <c>UNSUBSCRIBE</c>, <c>PSUBSCRIBE</c>, <c>PUNSUBSCRIBE</c> and
+/// <c>PUBLISH</c>, delivered among this servers connections. Any other command is
 /// <c>-ERR unknown command '…', with args beginning with: …</c>, the connection kept.
 /// </para>
 /// <para>
@@ -34,13 +41,16 @@ namespace Surl.Extended.Protocol.Redis;
 /// <c>-ERR Protocol error: …</c> and the connection closed; a command too large closes it with no
 /// bytes; so does no complete first command within <see cref="ExchangeLimits.HeadTimeout"/> of
 /// accept, or no complete later command within it of that command's first byte. A connection
-/// past the connection limits is answered <c>-ERR max number of clients reached</c>.
+/// past the connection limits is answered <c>-ERR max number of clients reached</c>. A connection
+/// subscribes to at most 10000 channels and patterns, and one with more than 32 MiB of messages
+/// unsent is closed with no more bytes.
 /// </para>
 /// </remarks>
 public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalWriter
 {
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly RedisKeyspace keyspace;
+    private readonly RedisPubSub pubSub;
     private long lastClientId;
 
     /// <summary>Creates a server whose logins <paramref name="authenticationPolicy"/> judges.</summary>
@@ -49,19 +59,21 @@ public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalW
     /// anonymous caller is let in.
     /// </param>
     public RedisServer(IAuthenticationPolicy authenticationPolicy)
-        : this(authenticationPolicy, new RedisKeyspace())
+        : this(authenticationPolicy, new RedisKeyspace(), new RedisPubSub())
     {
     }
 
-    /// <summary>Creates a server holding its keys in <paramref name="keyspace"/>, for tests of its bounds.</summary>
+    /// <summary>Creates a server holding its keys in <paramref name="keyspace"/> and its channels in <paramref name="pubSub"/>, for tests of their bounds.</summary>
     /// <param name="authenticationPolicy">Judges logins.</param>
     /// <param name="keyspace">The 16 databases every connection shares.</param>
-    internal RedisServer(IAuthenticationPolicy authenticationPolicy, RedisKeyspace keyspace)
+    /// <param name="pubSub">The channels and patterns every connection shares.</param>
+    internal RedisServer(IAuthenticationPolicy authenticationPolicy, RedisKeyspace keyspace, RedisPubSub pubSub)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.authenticationPolicy = authenticationPolicy;
         this.keyspace = keyspace;
+        this.pubSub = pubSub;
     }
 
     /// <summary>
@@ -83,7 +95,7 @@ public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalW
         ArgumentNullException.ThrowIfNull(context);
 
         var clientId = Interlocked.Increment(ref lastClientId);
-        return new RedisServerConnection(connection, context, authenticationPolicy, clientId, keyspace).ServeAsync();
+        return new RedisServerConnection(connection, context, authenticationPolicy, clientId, keyspace, pubSub).ServeAsync();
     }
 
     /// <summary>

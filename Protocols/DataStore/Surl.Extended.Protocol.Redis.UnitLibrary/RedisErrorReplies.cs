@@ -39,6 +39,22 @@ internal static class RedisErrorReplies
 
     public static RespSimpleError OutOfMemory { get; } = new("OOM command not allowed when used memory > 'maxmemory'.");
 
+    public static RespSimpleError IndexOutOfRange { get; } = new("ERR index out of range");
+
+    /// <summary><c>HINCRBY</c> on a field whose value is not an integer, in Redis's words.</summary>
+    public static RespSimpleError HashValueNotAnInteger { get; } = new("ERR hash value is not an integer");
+
+    /// <summary>A negative count to <c>LPOP</c>, <c>RPOP</c> or <c>SPOP</c>, in Redis's words.</summary>
+    public static RespSimpleError NotPositive { get; } = new("ERR value is out of range, must be positive");
+
+    public static RespSimpleError MaxNumberOfSubscriptionsReached { get; } = new("ERR max number of subscriptions reached");
+
+    /// <summary>A command a RESP2 connection may not run while subscribed (ADR-0106 decision 1).</summary>
+    /// <param name="commandName">The command's name in lower case.</param>
+    /// <returns>The error.</returns>
+    public static RespSimpleError NotAllowedWhileSubscribed(string commandName) =>
+        new($"ERR Can't execute '{commandName}': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context");
+
     /// <summary><c>-ERR invalid expire time in '<paramref name="commandName"/>' command</c>.</summary>
     /// <param name="commandName">The command's name in lower case.</param>
     /// <returns>The error.</returns>

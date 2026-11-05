@@ -142,12 +142,22 @@ internal static class RedisConnectionCommands
         return Ok;
     }
 
-    private static RespValue Ping(RedisCommandCall call) => call.Arguments.Count switch
+    // A subscribed RESP2 connection is answered the array pong and the message, empty when none
+    // (the "Pub/Sub" page).
+    private static RespValue Ping(RedisCommandCall call)
     {
-        1 => Pong,
-        2 => new RespBulkString(call.Arguments[1]),
-        _ => RedisErrorReplies.WrongNumberOfArguments("ping"),
-    };
+        if (call.Arguments.Count > 2)
+        {
+            return RedisErrorReplies.WrongNumberOfArguments("ping");
+        }
+
+        if (call.Subscriber.IsSubscribed && call.Session.ProtocolVersion == 2)
+        {
+            return new RespArray(new RespBulkString("pong"), new RespBulkString(call.Arguments.Count == 2 ? call.Arguments[1] : []));
+        }
+
+        return call.Arguments.Count == 2 ? new RespBulkString(call.Arguments[1]) : Pong;
+    }
 
     private static RespValue Quit(RedisCommandCall call)
     {
@@ -157,6 +167,7 @@ internal static class RedisConnectionCommands
 
     private static RespValue Reset(RedisCommandCall call)
     {
+        call.PubSub.UnsubscribeAll(call.Subscriber);
         call.Session.Reset();
         return ResetDone;
     }

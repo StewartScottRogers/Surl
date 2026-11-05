@@ -49,8 +49,10 @@ The keyspace and the key and string commands (BL-490, decisions 1, 3 and 6):
   milliseconds, `SCAN` sequence number) by name and in creation order. A key is absent from the
   instant `now >= expiry` and removed when next touched; nothing sweeps in the background. Keys
   are Latin-1 strings, one character per byte (`RedisKeys`).
-- `RedisStoredValue` is a value of one type (`TypeName`, `ByteCount`), never changed in place;
-  `RedisStringValue` is the string type. BL-491 adds the hash, list and set types beside it.
+- `RedisStoredValue` is a value of one type (`TypeName`, `ByteCount`); `RedisStringValue` is
+  the string type, never changed in place. `RedisCollectionValue` (`RedisHashValue`,
+  `RedisListValue`, `RedisSetValue`, BL-491) is changed in place and keeps its own byte count;
+  `RedisDatabase.Recount` then recounts the keyspace and removes a key whose collection is empty.
 - `RedisKeyspaceCommand.Reading` / `.Growing` wrap a command's answer in the lock and the
   `-OOM` check. `RedisKeyCommands` answers `DEL`, `UNLINK`, `EXISTS`, `EXPIRE`, `PEXPIRE`
   (`RedisExpireConditions`), `TTL`, `PTTL`, `PERSIST`, `TYPE`, `RENAME`, `KEYS`
@@ -59,8 +61,26 @@ The keyspace and the key and string commands (BL-490, decisions 1, 3 and 6):
   `MGET`, `MSET`, `INCR`, `DECR`, `INCRBY`, `DECRBY`, `APPEND` and `STRLEN`. Each command reads
   the clock once: `RedisCommandCall.NowMilliseconds`, from the exchange's injected `TimeProvider`.
 
-Hashes, lists, sets and pub/sub (BL-491) add their commands to `RedisCommandTable`; the command
-line (BL-492) serves the server.
+Hashes, lists, sets and pub/sub (BL-491, decisions 1, 2 and 6):
+
+- `RedisCollections` reads or changes the collection at a command's key: `-WRONGTYPE …` for
+  another type, a new empty collection for a growing command on an absent key, and the recount
+  after. `RedisHashCommands`, `RedisListCommands` and `RedisSetCommands` answer the hash, list
+  and set commands; fields and members are answered in the order added, and `SPOP` takes the
+  member added first (the page's random pick, which no client can tell from a fixed one).
+- `RedisPubSub` is the server's channels and patterns, shared by its connections: subscribe
+  and unsubscribe confirmations, at most 10000 subscriptions a connection, and `Publish`,
+  which reaches channel and matching pattern subscriptions and answers how many. Delivery stays
+  among this server's connections until BL-678 moves it onto the bus. `RedisSubscriber` is one
+  connection as pub/sub sees it; `RedisPubSubCommands` answers `SUBSCRIBE`, `UNSUBSCRIBE`,
+  `PSUBSCRIBE`, `PUNSUBSCRIBE` and `PUBLISH`, and refuses other commands on a subscribed RESP2
+  connection. `RedisReplySequence` writes several confirmations as one reply.
+- `RedisReplyWriter` writes all of a connection's bytes, one write at a time: its own replies,
+  and messages other connections publish, which the publisher does not wait for. Past 32 MiB
+  of unsent messages, or when one cannot be written, it cancels its `Token`, which every read
+  and write of the connection uses, so the connection closes with no more bytes.
+
+The command line (BL-492) serves the server.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` only (BL-678 adds
 `Surl.MessageBus`) - never another protocol server, original or extended. Never construct a

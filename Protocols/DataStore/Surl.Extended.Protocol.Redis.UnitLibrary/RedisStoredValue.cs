@@ -1,8 +1,10 @@
 namespace Surl.Extended.Protocol.Redis;
 
 /// <summary>
-/// The value a key holds, of one Redis type (ADR-0106 decision 1). Values are never changed in
-/// place: a command that changes one stores a new one, so the keyspace's byte count stays exact.
+/// The value a key holds, of one Redis type (ADR-0106 decision 1). A string is never changed in
+/// place: a command that changes one stores a new one. A hash, list or set is a
+/// <see cref="RedisCollectionValue"/>, changed in place and then recounted. Either way the
+/// keyspace's byte count stays exact.
 /// </summary>
 internal abstract class RedisStoredValue
 {
