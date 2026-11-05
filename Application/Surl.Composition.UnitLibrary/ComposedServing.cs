@@ -44,6 +44,12 @@ public sealed class ComposedServing : IAsyncDisposable
     }
 
     /// <summary>
+    /// The protocol servers the serving engine routes each listen URL to, original and extended, in
+    /// registration order.
+    /// </summary>
+    internal IReadOnlyList<IProtocolServer> Servers => servers;
+
+    /// <summary>
     /// The SHA-256 fingerprint of the throwaway certificate <c>--self-signed</c> made, or none when
     /// no certificate was made.
     /// </summary>

@@ -20,6 +20,7 @@ public sealed class HelpTextTests
         " mqtt       MQTT and MQTTS protocol",
         " pop3       POP3 and POP3S protocol",
         " rtsp       RTSP protocol",
+        " s3         Amazon S3 protocol (extended)",
         " security   Options that widen what a peer may do",
         " smb        SMB and SMBS protocol",
         " smtp       SMTP and SMTPS protocol",
@@ -144,7 +145,7 @@ public sealed class HelpTextTests
             "This is not the full help; this menu is split into categories.",
             "Use \"--help category\" to get an overview of all categories, which are:",
             "auth, content, dict, ftp, gopher, http, imap, ldap, limits, logging, mqtt,",
-            "pop3, rtsp, security, smb, smtp, ssh, surl, telnet, testing, tftp, tls,",
+            "pop3, rtsp, s3, security, smb, smtp, ssh, surl, telnet, testing, tftp, tls,",
             "websocket.",
             "Use \"--help all\" to list all options",
             "Use \"--help [option]\" to view documentation for a given option");
@@ -414,8 +415,8 @@ public sealed class HelpTextTests
             "    -u, --user <user:password>",
             "        Add an account (repeatable). Default: no accounts.",
             "",
-            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, smb, smtp,",
-            "        ssh, websocket.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, s3, smb,",
+            "        smtp, ssh, websocket.",
             "");
 
     [TestMethod]
@@ -425,8 +426,8 @@ public sealed class HelpTextTests
             "    --user-file <file>",
             "        Read accounts from a file. Default: none.",
             "",
-            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, smb, smtp,",
-            "        ssh, websocket.",
+            "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, s3, smb,",
+            "        smtp, ssh, websocket.",
             "");
 
     [TestMethod]
@@ -439,8 +440,8 @@ public sealed class HelpTextTests
                 "",
                 .. AllowAnonymousExplanationLines,
                 "",
-                "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, security,",
-                "        smb, smtp, ssh, testing, websocket.",
+                "        Categories: auth, ftp, http, imap, ldap, mqtt, pop3, rtsp, s3,",
+                "        security, smb, smtp, ssh, testing, websocket.",
                 "",
             ]);
 

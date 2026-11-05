@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "HTTP OPTIONS", "LDAP OPTIONS", "RTSP OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "HTTP OPTIONS", "LDAP OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -229,6 +229,15 @@ public sealed class ManualTextTests
             "    interleaved TCP only. ANNOUNCE and RECORD are uploads and need",
             "    --allow-uploads. Logins are judged as HTTP's are. curl has no rtsps.",
             "    surl --aihelp rtsp says how each request is answered.",
+            "",
+            "S3 OPTIONS",
+            "",
+            "    The extended S3 server answers s3 listen URLs over TLS: each top-level",
+            "    directory of the served root is a bucket. Every request needs an AWS",
+            "    Signature Version 4 signature from an account, or --allow-anonymous for",
+            "    reads. PutObject needs --allow-uploads and ListObjectsV2",
+            "    --list-directories. s3 needs --cert or --self-signed. surl --aihelp s3",
+            "    says how each request is answered.",
             "",
             "SMB OPTIONS",
             "",

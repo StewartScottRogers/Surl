@@ -13,7 +13,7 @@ namespace Surl.Composition;
 /// entries of a composition over them have built.
 /// </summary>
 /// <param name="contentStore">The one content store every protocol server reads.</param>
-/// <param name="serviceState">The message bus, the mail store and the LDAP server.</param>
+/// <param name="serviceState">The message bus, the mail store, the LDAP server and the object metadata index.</param>
 /// <param name="authenticationPolicy">The one policy every login is judged by.</param>
 /// <param name="timeProvider">The one clock.</param>
 /// <param name="sshHostKeys">The SSH server's host keys.</param>
@@ -49,6 +49,12 @@ public sealed class ComposedProtocolServices(
 
     /// <summary>Gets the LDAP server over its loaded directory.</summary>
     public LdapProtocolServer LdapServer { get; } = serviceState.LdapServer;
+
+    /// <summary>
+    /// Gets the one object metadata index of the content store's served root, which the
+    /// object-store servers (the S3 server) keep each object's metadata and ETag in (ADR-0100, decision 2.3).
+    /// </summary>
+    public ObjectMetadataIndex ObjectMetadataIndex { get; } = serviceState.ObjectMetadataIndex;
 
     /// <summary>Gets the one policy every login is judged by.</summary>
     public AuthenticationPolicy AuthenticationPolicy { get; } = authenticationPolicy;

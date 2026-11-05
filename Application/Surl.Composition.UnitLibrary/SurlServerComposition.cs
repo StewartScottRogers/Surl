@@ -55,9 +55,18 @@ public static partial class SurlServerComposition
         [.. ComposeExtendedProtocolServers(
                 areExtensionsTurnedOn,
                 composeExtendedProtocolServers,
-                new ExtendedProtocolServerServices(
-                    ComposeUnservedProtocolServices(ComposeContentStore(new SurlCommandLine(), timeProvider), timeProvider)))
+                ComposeUnservedExtendedServices(timeProvider))
             .SelectMany(server => server.Schemes)];
+
+    /// <summary>
+    /// Builds what the extended servers are built from when only their schemes are wanted: the
+    /// services <see cref="ComposeUnservedProtocolServices"/> composes over an empty in-memory content
+    /// store, its in-memory object metadata index among them, since nothing is served through them.
+    /// </summary>
+    /// <param name="timeProvider">The clock they run on.</param>
+    /// <returns>The services.</returns>
+    public static ExtendedProtocolServerServices ComposeUnservedExtendedServices(TimeProvider timeProvider) =>
+        new(ComposeUnservedProtocolServices(ComposeContentStore(new SurlCommandLine(), timeProvider), timeProvider));
 
     /// <summary>
     /// Builds the extended protocol servers while the switch leaves them on, and none, never
@@ -109,10 +118,10 @@ public static partial class SurlServerComposition
     /// <param name="fileSystem">The file system <see cref="ComposeContentFileSystem"/> chose.</param>
     /// <returns>The content store.</returns>
     public static ContentStore ComposeContentStore(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
-        new(
-            commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath,
-            fileSystem,
-            MapExposureOptions(commandLine));
+        new(ComposeServedRoot(commandLine), fileSystem, MapExposureOptions(commandLine));
+
+    private static string ComposeServedRoot(SurlCommandLine commandLine) =>
+        commandLine.DataDirectory is { } dataDirectory ? Path.GetFullPath(dataDirectory) : InMemoryContentFileSystem.RootPath;
 
     /// <summary>
     /// Chooses the file system the content store serves and service state is kept through:
@@ -167,7 +176,7 @@ public static partial class SurlServerComposition
 
     /// <summary>
     /// Loads what the servers keep across connections: the message bus, then the mail store,
-    /// then the LDAP directory; the first that cannot be loaded ends the start with its
+    /// then the LDAP directory, then the object metadata index; the first that cannot be loaded ends the start with its
     /// <c>(37)</c> message.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
@@ -207,7 +216,51 @@ public static partial class SurlServerComposition
             isTlsUpgradeAvailable,
             timeProvider,
             cancellationToken);
-        return ldapServer is null ? (null, ldapFailure) : (new ServiceState(messageBus, mailStore, ldapServer), null);
+        if (ldapServer is null)
+        {
+            return (null, ldapFailure);
+        }
+
+        var (index, indexFailure) = await LoadObjectMetadataIndexAsync(
+            ComposeObjectMetadataIndex(commandLine, fileSystem), cancellationToken);
+        return index is null ? (null, indexFailure) : (new ServiceState(messageBus, mailStore, ldapServer, index), null);
+    }
+
+    /// <summary>
+    /// Builds the one object metadata index of the content store's served root (ADR-0100, decision
+    /// 2.3): kept in <c>&lt;data directory's full path&gt;/.surl/objects/index</c>, read and written
+    /// through <paramref name="fileSystem"/>, with <c>--directory</c>; held in memory only without it.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="fileSystem">The file system the content store serves.</param>
+    /// <returns>The index, not yet loaded.</returns>
+    public static ObjectMetadataIndex ComposeObjectMetadataIndex(SurlCommandLine commandLine, IContentFileSystem fileSystem)
+    {
+        ArgumentNullException.ThrowIfNull(commandLine);
+        return new ObjectMetadataIndex(fileSystem, ComposeServedRoot(commandLine), persists: commandLine.DataDirectory is not null);
+    }
+
+    /// <summary>
+    /// Loads <paramref name="index"/> from its file, when it has one. A file that cannot be read or
+    /// does not parse gives <c>(37) Could not read &lt;file&gt;: &lt;reason&gt;</c> instead, as the
+    /// other service state does.
+    /// </summary>
+    /// <param name="index">The index <see cref="ComposeObjectMetadataIndex"/> built.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The index, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
+    public static async Task<(ObjectMetadataIndex? Index, string? FailureMessage)> LoadObjectMetadataIndexAsync(
+        ObjectMetadataIndex index, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(index);
+        try
+        {
+            await index.LoadAsync(cancellationToken);
+            return (index, null);
+        }
+        catch (ObjectMetadataIndexLoadException failure)
+        {
+            return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
+        }
     }
 
     /// <summary>
@@ -453,7 +506,8 @@ public static partial class SurlServerComposition
             new ServiceState(
                 new MessageBus.MessageBus(timeProvider),
                 new MailboxStore([], allowAnonymous: false, timeProvider),
-                new LdapProtocolServer(authenticationPolicy, authenticationPolicy)),
+                new LdapProtocolServer(authenticationPolicy, authenticationPolicy),
+                new ObjectMetadataIndex(new InMemoryContentFileSystem(timeProvider), contentStore.ServedRoot, persists: false)),
             authenticationPolicy,
             timeProvider,
             new SshHostKeySet(),

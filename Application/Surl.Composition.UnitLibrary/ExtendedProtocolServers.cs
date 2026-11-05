@@ -1,3 +1,4 @@
+using Surl.Extended.Protocol.S3;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Composition;
@@ -33,9 +34,18 @@ public static class ExtendedProtocolServers
     /// <summary>
     /// Gets every extended protocol server's entry this build has, in ordinal order of its first
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
-    /// decision 2); none yet.
+    /// decision 2): today the S3 server for <c>s3</c> (BL-421).
     /// </summary>
-    public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } = [];
+    /// <remarks>
+    /// The S3 server answers <c>s3</c> over the one content store, its object metadata index and the
+    /// one policy (ADR-0108); <c>s3</c> is TLS from the first byte (ADR-0108, decision 5), which
+    /// the serving engine reads from <see cref="TlsSchemes"/>, so it needs no second registration.
+    /// </remarks>
+    public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
+    [
+        new(["s3"], services => new S3ProtocolServer(
+            services.ContentStore, services.ObjectMetadataIndex, services.AuthenticationPolicy, services.TimeProvider)),
+    ];
 
     /// <summary>
     /// Builds every extended protocol server <see cref="Registrations"/> lists, in its order.

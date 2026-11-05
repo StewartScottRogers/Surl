@@ -1,3 +1,6 @@
+using Surl.Content;
+using Surl.Extended.Protocol.S3;
+
 namespace Surl.Composition;
 
 [TestClass]
@@ -30,15 +33,26 @@ public sealed class ExtendedProtocolServersTests
     }
 
     [TestMethod]
-    public void Compose_ThisBuild_HasNoExtendedServerYet()
+    public void Compose_ThisBuild_IsTheS3ServerForS3Alone()
     {
-        var services = new ExtendedProtocolServerServices(SurlServerComposition.ComposeUnservedProtocolServices(
-            SurlServerComposition.ComposeContentStore(new Cli.SurlCommandLine(), TimeProvider.System), TimeProvider.System));
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
 
         var servers = ExtendedProtocolServers.Compose(services);
 
-        Assert.IsEmpty(ExtendedProtocolServers.Registrations);
-        Assert.IsEmpty(servers);
+        Assert.IsInstanceOfType<S3ProtocolServer>(servers.Single());
+        CollectionAssert.AreEqual(new[] { "s3" }, servers.SelectMany(server => server.Schemes).ToArray());
+        CollectionAssert.AreEqual(new[] { "s3" }, ExtendedProtocolServers.Registrations.SelectMany(registration => registration.Schemes).ToArray());
+    }
+
+    [TestMethod]
+    public void Compose_ThisBuild_BuildsTheS3ServerOverTheServicesContentStoreAndIndex()
+    {
+        var services = SurlServerComposition.ComposeUnservedExtendedServices(TimeProvider.System);
+
+        var server = ExtendedProtocolServers.Compose(services).Single();
+
+        Assert.AreSame(services.ComposedServices.ContentStore, ComposedServerFields.Single<ContentStore>(server));
+        Assert.AreSame(services.ComposedServices.ObjectMetadataIndex, ComposedServerFields.Single<ObjectMetadataIndex>(server));
     }
 
     [TestMethod]

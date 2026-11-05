@@ -26,14 +26,14 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         using var error = new StringWriter();
         var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, _ => [new FakeExtendedProtocolServer()]);
 
-        var running = runner.RunAsync(["s3://127.0.0.1/"], output, error, stop.Token);
+        var running = runner.RunAsync(["oci://127.0.0.1/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
         var exitCode = await running;
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(new ListenUrl("s3", "127.0.0.1", 443), factory.StartedListenUrls.Single());
-        Assert.AreEqual($"Listening on s3://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+        Assert.AreEqual(new ListenUrl("oci", "127.0.0.1", 443), factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on oci://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
         Assert.AreEqual(string.Empty, error.ToString());
     }
 
@@ -50,26 +50,26 @@ public sealed class CommandLineRunnerExtendedProtocolTests
             return [new FakeExtendedProtocolServer()];
         });
 
-        var exitCode = await runner.RunAsync(["s3://127.0.0.1/"], output, error, TestContext.CancellationToken);
+        var exitCode = await runner.RunAsync(["oci://127.0.0.1/"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
-        Assert.AreEqual("surl: (1) Protocol \"s3\" not supported" + NewLine, error.ToString());
+        Assert.AreEqual("surl: (1) Protocol \"oci\" not supported" + NewLine, error.ToString());
         Assert.AreEqual(string.Empty, output.ToString());
         Assert.IsEmpty(factory.StartedListenUrls);
         Assert.AreEqual(0, composed);
     }
 
     [TestMethod]
-    public async Task RunAsync_SwitchUnsetWithNoExtendedServer_RefusesAnExtendedSchemeAsAnUnknownScheme()
+    public async Task RunAsync_SwitchUnsetWithThisBuildsExtendedServers_RefusesAnExtendedSchemeNoneAnswersAsAnUnknownScheme()
     {
         using var output = new StringWriter();
         using var error = new StringWriter();
         var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
 
-        var exitCode = await runner.RunAsync(["s3://127.0.0.1/"], output, error, TestContext.CancellationToken);
+        var exitCode = await runner.RunAsync(["oci://127.0.0.1/"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
-        Assert.AreEqual("surl: (1) Protocol \"s3\" not supported" + NewLine, error.ToString());
+        Assert.AreEqual("surl: (1) Protocol \"oci\" not supported" + NewLine, error.ToString());
     }
 
     [TestMethod]
@@ -81,13 +81,13 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         using var error = new StringWriter();
         var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, _ => [new FakeExtendedProtocolServer()]);
 
-        var running = runner.RunAsync(["http://127.0.0.1/", "s3://127.0.0.1:0/"], output, error, stop.Token);
+        var running = runner.RunAsync(["http://127.0.0.1/", "oci://127.0.0.1:0/"], output, error, stop.Token);
         await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
         await stop.CancelAsync();
         await running;
 
         CollectionAssert.AreEqual(
-            new[] { new ListenUrl("http", "127.0.0.1", 80), new ListenUrl("s3", "127.0.0.1", 0) },
+            new[] { new ListenUrl("http", "127.0.0.1", 80), new ListenUrl("oci", "127.0.0.1", 0) },
             factory.StartedListenUrls.ToArray());
     }
 
@@ -102,10 +102,10 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
         Assert.AreEqual(
-            VersionText.Compose(InformationalVersion(), RuntimeInformation.RuntimeIdentifier, runner.ComposeRegisteredSchemes(), ["s3"]),
+            VersionText.Compose(InformationalVersion(), RuntimeInformation.RuntimeIdentifier, runner.ComposeRegisteredSchemes(), ["oci"]),
             output.ToString());
-        StringAssert.EndsWith(output.ToString(), NewLine + "Extended: s3" + NewLine);
-        Assert.DoesNotContain(" s3", output.ToString().Split(NewLine)[1]);
+        StringAssert.EndsWith(output.ToString(), NewLine + "Extended: oci" + NewLine);
+        Assert.DoesNotContain(" oci", output.ToString().Split(NewLine)[1]);
     }
 
     [TestMethod]
@@ -128,7 +128,7 @@ public sealed class CommandLineRunnerExtendedProtocolTests
 
         var schemes = runner.ComposeExtendedSchemes();
 
-        CollectionAssert.AreEqual(new[] { "s3" }, schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "oci" }, schemes.ToArray());
     }
 
     [TestMethod]
@@ -139,6 +139,73 @@ public sealed class CommandLineRunnerExtendedProtocolTests
         var schemes = runner.ComposeRegisteredSchemes();
 
         CollectionAssert.AreEquivalent(SchemeDefaultPorts.Schemes.ToArray(), schemes.ToArray());
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersS3()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        CollectionAssert.Contains(schemes.ToArray(), "s3");
+    }
+
+    [TestMethod]
+    public void ComposeExtendedSchemes_ThisBuildWithTheSwitchAtZero_RegistersNoS3()
+    {
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var schemes = runner.ComposeExtendedSchemes();
+
+        Assert.IsEmpty(schemes);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_S3WithSelfSigned_ListensAtItsDefaultPort443()
+    {
+        var factory = new FakeListenerFactory();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(factory, FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var running = runner.RunAsync(["--self-signed", "s3://127.0.0.1/"], output, error, stop.Token);
+        await factory.AcceptStarted.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var exitCode = await running;
+
+        Assert.AreEqual(SurlExitCode.Ok, exitCode);
+        Assert.AreEqual(new ListenUrl("s3", "127.0.0.1", 443), factory.StartedListenUrls.Single());
+        Assert.AreEqual($"Listening on s3://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, output.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_S3WithoutACertificate_ExitsWithCertificateProblem()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.Empty, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["s3://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.CertificateProblem, exitCode);
+        Assert.AreEqual(
+            "surl: (58) s3://127.0.0.1:0/ needs a certificate: give --cert <file>, or --self-signed for a throwaway one" + NewLine,
+            error.ToString());
+    }
+
+    [TestMethod]
+    public async Task RunAsync_S3WithTheSwitchAtZero_RefusesItsSchemeAsAnUnknownScheme()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = CreateRunner(new FakeListenerFactory(), FakeEnvironmentVariableReader.ExtensionsTurnedOff, composeExtendedProtocolServers: null);
+
+        var exitCode = await runner.RunAsync(["--self-signed", "s3://127.0.0.1:0/"], output, error, TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.UnsupportedProtocol, exitCode);
+        Assert.AreEqual("surl: (1) Protocol \"s3\" not supported" + NewLine, error.ToString());
     }
 
     private static string? InformationalVersion() =>

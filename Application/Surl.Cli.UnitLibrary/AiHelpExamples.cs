@@ -125,6 +125,13 @@ public static class AiHelpExamples
             ["curl pop3://127.0.0.1:<port>/"]),
         Serving("rtsp", "Serve RTSP", ["rtsp://127.0.0.1:0/"], ["Listening on rtsp://127.0.0.1:<port>/"], [], ["curl rtsp://127.0.0.1:<port>/"]),
         Serving(
+            "s3",
+            "For a test: serve S3 over HTTPS with a throwaway certificate",
+            ["--self-signed", "-u", "AKIAIOSFODNN7EXAMPLE:secret", "s3://127.0.0.1:0/"],
+            ["Listening on s3://127.0.0.1:<port>/"],
+            ["surl: warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)"],
+            ["curl -k --aws-sigv4 aws:amz:us-east-1:s3 -u AKIAIOSFODNN7EXAMPLE:secret https://127.0.0.1:<port>/<bucket>/<key>"]),
+        Serving(
             "smb",
             "Serve SMB shares to an NTLMv1 login",
             ["--auth", "ntlmv1", "-u", "alice:secret", "--directory", "<path>", "smb://127.0.0.1:0/"],
@@ -151,8 +158,8 @@ public static class AiHelpExamples
         Refused(
             "extended",
             "An extended scheme no extended server in this build answers",
-            ["s3://127.0.0.1:0/"],
-            ["surl: (1) Protocol \"s3\" not supported"],
+            ["oci://127.0.0.1:0/"],
+            ["surl: (1) Protocol \"oci\" not supported"],
             SurlExitCode.UnsupportedProtocol),
     ];
 

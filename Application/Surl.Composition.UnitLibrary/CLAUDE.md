@@ -26,10 +26,13 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `Alt-Svc`. `ListenerStartReporter` counts such a pair as its connection listener alone (one
   status line) and `ComposedServing` writes `* Serving HTTP/3 over QUIC on UDP port <port>` from
   verbose up.
-- `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`, none
-  composed yet) from `ExtendedProtocolServers.Registrations`, the same `ProtocolServerRegistration`
-  record, each joining with one entry; its `ExtendedProtocolServerServices` wraps the start's
-  `ComposedProtocolServices`; `ExtendedProtocolServers.AreTurnedOn` reads `SURL_EXTENSIONS`
+- `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`: today
+  the S3 server for `s3`, BL-421) from `ExtendedProtocolServers.Registrations`, the same
+  `ProtocolServerRegistration` record, each joining with one entry; its `ExtendedProtocolServerServices`
+  wraps the start's `ComposedProtocolServices` (the S3 server reads its content store, policy, object
+  metadata index and clock); `s3` is TLS from the first byte through `TlsSchemes` (ADR-0108 decision 5),
+  so it needs no `ImplicitTls` entry; `ComposeUnservedExtendedServices` wraps
+  `ComposeUnservedProtocolServices` for listing schemes. `ExtendedProtocolServers.AreTurnedOn` reads `SURL_EXTENSIONS`
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`
   turns them off (ADR-0083 decisions 6 to 8). `SurlServerComposition.ComposeExtendedProtocolServers`
   never calls the composer while they are off.
@@ -45,7 +48,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   bounded by `--max-filesize`), which the MQTT server for `mqtt` and `mqtts` keeps its retained
   messages on (BL-635), the one mail store
   (`ComposeMailStoreFiles`, `LoadMailStoreAsync`) and the LDAP server over its directory
-  (`ComposeLdapDirectoryFile`, `LoadLdapServerAsync`); the first that cannot be loaded returns its
+  (`ComposeLdapDirectoryFile`, `LoadLdapServerAsync`), then the one `ObjectMetadataIndex` of the served
+  root (`ComposeObjectMetadataIndex`, kept in `<path>/.surl/objects/index` with `--directory`,
+  `LoadObjectMetadataIndexAsync`); the first that cannot be loaded returns its
   `(37)` message, which the host writes after `surl: `.
 
 The types are `public` because more than one host calls them, but they are not a supported

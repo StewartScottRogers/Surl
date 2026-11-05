@@ -150,7 +150,7 @@ public sealed class AiHelpFactsTests
         CollectionAssert.AllItemsAreUnique(schemes);
         foreach (var scheme in schemes)
         {
-            Assert.IsTrue(SchemeDefaultPorts.TryGetDefaultPort(scheme, out _), scheme);
+            Assert.IsTrue(SchemeDefaultPorts.TryGetDefaultPort(scheme, out _) || ExtendedSchemeDefaultPorts.TryGetDefaultPort(scheme, out _), scheme);
         }
     }
 
@@ -161,6 +161,7 @@ public sealed class AiHelpFactsTests
     [DataRow("imap", new[] { "imap", "imaps" })]
     [DataRow("mqtt", new[] { "mqtt", "mqtts" })]
     [DataRow("pop3", new[] { "pop3", "pop3s" })]
+    [DataRow("s3", new[] { "s3" })]
     [DataRow("smb", new[] { "smb", "smbs" })]
     [DataRow("smtp", new[] { "smtp", "smtps" })]
     [DataRow("telnet", new[] { "telnet" })]
@@ -177,7 +178,7 @@ public sealed class AiHelpFactsTests
     {
         var withSchemes = HelpCategories.All.Where(category => category.Schemes.Count > 0).Select(category => category.Name);
 
-        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "pop3", "rtsp", "smb", "smtp", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "dict", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "telnet", "tftp", "websocket" }, withSchemes.ToArray());
     }
 
     [TestMethod]

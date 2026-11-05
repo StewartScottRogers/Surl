@@ -83,7 +83,7 @@ public sealed partial class SurlServerCompositionTests
 
         var servers = SurlServerComposition.ComposeProtocolServers(
             unserved.ContentStore,
-            new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer),
+            new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer, unserved.ObjectMetadataIndex),
             policy,
             unserved.SshHostKeys,
             unserved.SshAlgorithms,

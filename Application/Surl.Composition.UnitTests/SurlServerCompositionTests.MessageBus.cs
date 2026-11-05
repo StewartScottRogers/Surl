@@ -34,7 +34,11 @@ public sealed partial class SurlServerCompositionTests
         var policy = SurlServerComposition.ComposePolicyWithoutAccounts(TimeProvider.System);
         var servers = SurlServerComposition.ComposeProtocolServers(
             SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System),
-            new ServiceState(bus, new MailboxStore([], allowAnonymous: false, TimeProvider.System), new LdapProtocolServer(policy, policy)),
+            new ServiceState(
+                bus,
+                new MailboxStore([], allowAnonymous: false, TimeProvider.System),
+                new LdapProtocolServer(policy, policy),
+                SurlServerComposition.ComposeObjectMetadataIndex(new SurlCommandLine(), new Content.InMemoryContentFileSystem(TimeProvider.System))),
             new AuthenticationPolicy(
                 new AuthenticationSettings(new AccountBook([]), AllowAnonymous: true, AllowPlaintextAuthentication: false, AuthenticationMethods.DefaultAccepted),
                 [],

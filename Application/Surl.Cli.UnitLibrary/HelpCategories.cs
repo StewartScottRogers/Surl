@@ -20,6 +20,7 @@ internal static class HelpCategories
         new("mqtt", "MQTT and MQTTS protocol", ["mqtt", "mqtts"]),
         new("pop3", "POP3 and POP3S protocol", ["pop3", "pop3s"]),
         new("rtsp", "RTSP protocol", ["rtsp"]),
+        new("s3", "Amazon S3 protocol (extended)", ["s3"]),
         new("security", "Options that widen what a peer may do", []),
         new("smb", "SMB and SMBS protocol", ["smb", "smbs"]),
         new("smtp", "SMTP and SMTPS protocol", ["smtp", "smtps"]),

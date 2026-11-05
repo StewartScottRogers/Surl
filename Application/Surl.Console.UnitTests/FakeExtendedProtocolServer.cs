@@ -4,13 +4,13 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Console;
 
 /// <summary>
-/// A test-only extended protocol server for the <c>s3</c> scheme: it answers nothing and
-/// records nothing, and stands in for a <c>Surl.Extended.Protocol.*</c> server until one exists.
+/// A test-only extended protocol server for the <c>oci</c> scheme: it answers nothing and
+/// records nothing, and stands in for a <c>Surl.Extended.Protocol.*</c> server this build does not register.
 /// </summary>
 internal sealed class FakeExtendedProtocolServer : IConnectionProtocolServer
 {
     /// <summary>The scheme it claims.</summary>
-    public const string Scheme = "s3";
+    public const string Scheme = "oci";
 
     public IReadOnlyList<string> Schemes { get; } = [Scheme];
 

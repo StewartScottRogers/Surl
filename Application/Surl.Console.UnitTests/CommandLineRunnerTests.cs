@@ -84,12 +84,20 @@ public sealed class CommandLineRunnerTests
         var informationalVersion = typeof(CommandLineRunner).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
-        var (exitCode, output, error) = await RunAsync(new FakeListenerFactory(), "--version");
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var runner = new CommandLineRunner(
+            _ => new FakeListenerFactory(), AnyDirectoryOpens, AnyLockIsTaken, TimeProvider.System, new UnitTestReadOnlyContentFileSystem(),
+            environmentVariables: FakeEnvironmentVariableReader.Empty);
+
+        var exitCode = await runner.RunAsync(["--version"], output, error, TestContext.CancellationToken);
 
         Assert.AreEqual(SurlExitCode.Ok, exitCode);
-        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "ldap", "ldaps", "mqtt", "mqtts", "pop3", "pop3s", "rtsp", "scp", "sftp", "smb", "smbs", "smtp", "smtps", "telnet", "tftp", "ws", "wss"]), output);
-        StringAssert.EndsWith(output, NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps ldap ldaps mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss" + NewLine);
-        Assert.AreEqual(string.Empty, error);
+        Assert.AreEqual(VersionText.Compose(informationalVersion, RuntimeInformation.RuntimeIdentifier, ["dict", "ftp", "ftps", "gopher", "gophers", "http", "https", "imap", "imaps", "ldap", "ldaps", "mqtt", "mqtts", "pop3", "pop3s", "rtsp", "scp", "sftp", "smb", "smbs", "smtp", "smtps", "telnet", "tftp", "ws", "wss"], ["s3"]), output.ToString());
+        StringAssert.EndsWith(
+            output.ToString(),
+            NewLine + "Protocols: dict ftp ftps gopher gophers http https imap imaps ldap ldaps mqtt mqtts pop3 pop3s rtsp scp sftp smb smbs smtp smtps telnet tftp ws wss" + NewLine + "Extended: s3" + NewLine);
+        Assert.AreEqual(string.Empty, error.ToString());
     }
 
     [TestMethod]

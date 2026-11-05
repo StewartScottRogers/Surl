@@ -9,11 +9,11 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310) and extended (BL-405), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405) and s3 (BL-421), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
         "auth", "content", "dict", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
-        "logging", "mqtt", "pop3", "rtsp", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
+        "logging", "mqtt", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
     // ADR-0046 decision 4's section headings, in order, on every topic page.
@@ -39,6 +39,7 @@ public sealed partial class AiHelpTextTests
         "| `mqtt` | MQTT and MQTTS protocol |",
         "| `pop3` | POP3 and POP3S protocol |",
         "| `rtsp` | RTSP protocol |",
+        "| `s3` | Amazon S3 protocol (extended) |",
         "| `security` | Options that widen what a peer may do |",
         "| `smb` | SMB and SMBS protocol |",
         "| `smtp` | SMTP and SMTPS protocol |",

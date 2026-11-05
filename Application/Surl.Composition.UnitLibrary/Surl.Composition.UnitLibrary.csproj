@@ -13,6 +13,7 @@
     <ProjectReference Include="..\..\Foundation\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Extended.Protocol.S3.UnitLibrary\Surl.Extended.Protocol.S3.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Lookup\Surl.Protocol.Dict.UnitLibrary\Surl.Protocol.Dict.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Ftp.UnitLibrary\Surl.Protocol.Ftp.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Lookup\Surl.Protocol.Gopher.UnitLibrary\Surl.Protocol.Gopher.UnitLibrary.csproj" />
