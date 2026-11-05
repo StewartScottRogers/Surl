@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Http\Surl.HttpMessage.UnitLibrary\Surl.HttpMessage.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Http\Surl.WebSocket.UnitLibrary\Surl.WebSocket.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.MessageBus.UnitLibrary\Surl.MessageBus.UnitLibrary.csproj" />
   </ItemGroup>
 

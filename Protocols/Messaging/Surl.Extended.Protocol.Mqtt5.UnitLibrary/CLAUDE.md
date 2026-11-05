@@ -108,9 +108,27 @@ Sessions, DISCONNECT and AUTH (BL-499, ADR-0093 decisions 2, 3 and 6):
   The whole exchange runs within the head timeout. Re-authentication (AUTH `0x19`) must
   authenticate the CONNECT's account, or it is DISCONNECT `0x87`.
 
-`mqtt5+ws` (BL-500) and the command line (BL-501) build on it.
+`mqtt5+ws` (BL-500, ADR-0093 decision 7, MQTT 5.0 chapter 6):
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.MessageBus.UnitLibrary`
-(ADR-0100 decision 3.9), and may also reference the horizontal libraries ADR-0093 decision 0
+- `Mqtt5WebSocketServer` is the `IConnectionProtocolServer` for `mqtt5+ws`, in front of a
+  `Mqtt5Broker`. It reads the upgrade with `Surl.HttpMessage`'s `HttpConnectionReader`, refuses
+  one without exactly one `Host` `400`, one `WebSocketUpgradeChecks` refuses as it says, a path
+  other than `/mqtt` (query ignored) `404`, and one not offering subprotocol `mqtt` `400`, each
+  with `Connection: close` and a lingering close; otherwise `101` with
+  `Sec-WebSocket-Protocol: mqtt`. The broker then gets what the upgrade left of the head
+  timeout, so accept to CONNACK is one head timeout.
+- `Mqtt5WebSocketConnection` is the `IConnection` the broker serves: binary and continuation
+  payloads read as one byte stream (packets span frames, frames hold several packets), each
+  write one unmasked binary frame. Text closes `1003`; unmasked, `RSV`, misplaced continuation
+  or binary, and any frame RFC 6455 makes invalid `1002`; a frame over `--max-message` `1009`;
+  a client close is echoed with its code. Reading then ends, as a network loss, so the Will is
+  published. Ping is answered pong. Once a close is sent the broker's writes are dropped; when
+  the broker is done, close `1000` follows unless a close was sent.
+
+The command line (BL-501) builds on it.
+
+This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.MessageBus.UnitLibrary`
+(ADR-0100 decision 3.9), `Surl.HttpMessage.UnitLibrary` and `Surl.WebSocket.UnitLibrary`
+(ADR-0093 decision 7), and may also reference the horizontal libraries ADR-0093 decision 0
 names - never another protocol server, original or extended, and never `Surl.Protocol.Mqtt`. Never construct a `Socket`, `TcpListener`,
 `UdpClient`, `SslStream` or `HttpListener` here; the transport comes from the listener seam.
