@@ -14,6 +14,12 @@
   peer is authenticated by its DTLS handshake (a PSK identity through `Surl.Dtls`'s caller-given
   lookup, or a client certificate), and the server takes its access rules as a record built by
   `Surl.Console`, so no contract is added to `Surl.Protocol.Abstractions`.
+- **Amended by:** [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
+  (2026-11-04, BL-622): decision 5's "each server's own ADR decides its layout and where any
+  metadata a file system cannot hold lives" is decided once for all four object-storage servers -
+  the bucket mapping, the refused keys, one sidecar metadata index under `<path>/.surl/objects/`
+  and the OCI Image Layout per repository folder (ADR-0100 decision 2); decision 4's logins read
+  the shared accounts as ADR-0100 decision 4.1's table says.
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-401. BL-407 builds `Surl.HttpServing` (decision 1), BL-408 builds `Surl.WebSocket`

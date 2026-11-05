@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-622 — Decide the stores synergetic protocols share in one surl: files, mail, the message bus and accounts
 
@@ -117,24 +117,43 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation" and citing Stewart's approval of 2026-11-04. It answers decisions 1 to 5,
       each mapping and each dropped semantic citing the specification section (MQTT 3.1.1 and 5.0, AMQP 0-9-1,
       AMQP 1.0, the Kafka protocol guide, the NATS client protocol, STOMP 1.2, the S3, Azure, GCS and OCI
       references) it rests on, and is listed in `Documentation/Planning/Decisions/README.md`.
-- [ ] `ADR-0002-mirror-the-curl-ports-project-map.md` carries an "Amended" line naming the new ADR, and decision
+- [x] `ADR-0002-mirror-the-curl-ports-project-map.md` carries an "Amended" line naming the new ADR, and decision
       3's table has the message bus library's row with what it may reference.
-- [ ] `ADR-0093-how-the-mqtt-5-broker-answers-mqtt5-mqtt5s-and-mqtt5-ws.md` carries an "Amended" line naming
+- [x] `ADR-0093-how-the-mqtt-5-broker-answers-mqtt5-mqtt5s-and-mqtt5-ws.md` carries an "Amended" line naming
       the new ADR for decision 0's retained-message sentence.
-- [ ] `Documentation/Product/Requirements.md` has one new functional requirement row (next free FR number) for
+- [x] `Documentation/Product/Requirements.md` has one new functional requirement row (next free FR number) for
       the shared stores, citing the ADR, marked Draft, with "Not built yet" naming the build tasks.
-- [ ] The ADR's Consequences section lists the build tasks by ID (the shared-store tasks filed on 2026-11-04:
+- [x] The ADR's Consequences section lists the build tasks by ID (the shared-store tasks filed on 2026-11-04:
       find them on the board by the titles naming `Surl.MessageBus`, the content store's object metadata, and the
       cross-protocol tests) and says which existing extended-server tasks it changes.
 
 ## Notes
 
+- ADR-0100 written. Main choices, each argued in the ADR: MQTT's topic names are the canonical
+  topic space (the original, curl-measured server; every other protocol's names map into it);
+  NATS, AMQP 0-9-1 and Kafka map `.` to `/`; AMQP 1.0 and STOMP use `/topic/` and `/queue/` (both
+  specifications leave addresses opaque); a canonical topic a dotted protocol cannot name is simply
+  unreachable from it, never escaped; every topic gets a bounded log so Kafka can read what MQTT
+  published earlier; retained messages are MQTT-only to read; bus filters allow `#` anywhere, for
+  AMQP 0-9-1 binding keys.
+- Object metadata: one sidecar index under `.surl/objects`, stamped with size and last-write time,
+  dropped as stale when another protocol replaces the file; ETag = MD5 hex for files without an entry.
+- Redis pub/sub joins the topic space (decision 3.8); filed follow-up BL-678 (feature,
+  depends on BL-491, BL-629, BL-630).
+- Also amended ADR-0084 (decision 5's metadata question, decision 4's account fields): it sits in
+  `Documentation/Planning/Decisions`, inside this task's `touches`.
+- Per-server wire bytes for refused keys and bus outcomes are planning answers; each server's own
+  decision task pins them against its reference.
+- The ADR number 0100 was the next free one in this lane's checkout; if another lane lands an
+  ADR-0100 first, the integration renumbers.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0100 decides one file, mail, message-bus and account store per surl process, with FR-058 and ADR-0002, ADR-0084 and ADR-0093 amended

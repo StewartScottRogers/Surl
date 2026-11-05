@@ -8,6 +8,13 @@
   messages, topic aliases and expiry (decisions 4 and 8), BL-498 SUBSCRIBE and UNSUBSCRIBE
   (decision 5), BL-499 sessions, DISCONNECT and AUTH (decisions 2, 3 and 6), BL-500 `mqtt5+ws`
   (decision 7), and BL-501 the command line and the composition (decisions 0, 7 and 9).
+- **Amended:** decision 0 by [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
+  (2026-11-04, BL-622): the sentence "Retained messages are not shared with `mqtt`" no longer
+  holds. `mqtt5`'s retained messages, live routing and shared subscriptions go through the shared
+  `Surl.MessageBus`, so a message published on `mqtt://` is seen on `mqtt5://` and the other way
+  round; `Mqtt5RetainedMessages` and `<path>/.surl/mqtt5/retained-messages` are not built
+  (ADR-0100 decision 3.9). Sessions, the QoS flows, topic aliases and queued messages stay in the
+  broker.
 - **Amends:** [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
   decision 4's table: Mqtt5 reaches `ISaslAuthenticationPolicy` too, for enhanced authentication
   (decision 2). [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) section 5's "MQTT closes
