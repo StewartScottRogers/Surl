@@ -38,7 +38,7 @@ with the build BL-364's ADR names, and on Linux and macOS with the reference bui
       65,535 bytes (flow control); and two URLs in one invocation reusing one connection (`-v` shows
       the reuse). Each asserts what the ADR measured.
 - [x] ~~On a push, CI's Linux and macOS legs run the same tests green, and Notes record the run URL.~~
-      Moved to BL-722 (see Notes).
+      Moved to BL-724 (see Notes).
 - [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
@@ -63,7 +63,7 @@ with the build BL-364's ADR names, and on Linux and macOS with the reference bui
   ADR-0081 decision 7's `RST_STREAM NO_ERROR` for an unread body while curl is still sending past
   the initial window. Without an account the upload is `401` (ADR-0032: an upload needs a login).
   Building Range and `PUT` is filed as BL-723, which updates both tests.
-- **Criterion 3 split out to BL-722**, as BL-028's was to BL-079: observing a CI run needs a pushed
+- **Criterion 3 split out to BL-724**, as BL-028's was to BL-079: observing a CI run needs a pushed
   commit this lane may not make, and depending on a task that waits for this one's commits would be
   a deadlock.
 - ADR-0081's Consequences ask BL-371 to measure the `413`, `FRAME_SIZE_ERROR`, `FLOW_CONTROL_ERROR`
@@ -74,4 +74,4 @@ with the build BL-364's ADR names, and on Linux and macOS with the reference bui
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. Pinned upstream curl 8.21.0 completes HTTP/2 with a live surl by prior knowledge, h2c Upgrade and ALPN h2: -I, Basic, Digest, flow control, connection reuse (CI legs in BL-722)
+- 2026-11-05: Doing -> Done. Pinned upstream curl 8.21.0 completes HTTP/2 with a live surl by prior knowledge, h2c Upgrade and ALPN h2: -I, Basic, Digest, flow control, connection reuse (CI legs in BL-724)

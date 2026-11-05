@@ -1,5 +1,5 @@
 ---
-id: BL-722
+id: BL-724
 title: Confirm BL-371's HTTP/2 conformance tests green on CI's Linux and macOS legs
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-722 — Confirm BL-371's HTTP/2 conformance tests green on CI's Linux and macOS legs
+# BL-724 — Confirm BL-371's HTTP/2 conformance tests green on CI's Linux and macOS legs
 
 ## Goal
 
