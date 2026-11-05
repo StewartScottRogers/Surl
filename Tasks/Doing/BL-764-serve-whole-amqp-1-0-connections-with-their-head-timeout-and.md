@@ -46,3 +46,4 @@ Filed by BL-512 (dark factory lane 4, 2026-11-05).
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
