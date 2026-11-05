@@ -3,7 +3,7 @@
 Phase 6.
 
 QUIC version 1 for Surl's HTTP/3 server, hand-built on every platform (ADR-0082 decisions 1, 2
-and 4). What it holds now (BL-373) is the codec, in the clear; packet protection is BL-374, and
+and 4). What it holds now is the codec, in the clear (BL-373), and packet protection (BL-374);
 the connection, streams and loss recovery come with BL-377 to BL-379.
 
 - `QuicVariableLengthInteger` - RFC 9000 section 16: writes the shortest encoding, reads any.
@@ -22,8 +22,20 @@ the connection, streams and loss recovery come with BL-377 to BL-379.
   `Offset`, `HasLength` and `Fin`.
 - `QuicTransportErrorCode` - RFC 9000 section 20.1. `QuicTransportException` carries the code
   and the frame type a `CONNECTION_CLOSE` reports.
-- `QuicReader`, `QuicWriter`, `QuicFrameTypes`, `QuicPacketHeaderBits` and `QuicConnectionIds`
-  are internal, visible to `Surl.Quic.UnitTests` only.
+- `QuicInitialSecrets` - RFC 9001 section 5.2: the client and server Initial secrets from the
+  client's first Destination Connection ID, and the `QuicPacketProtection` pair they key.
+- `QuicPacketProtection` - RFC 9001 sections 5.1 to 5.5, one direction at one encryption level:
+  `FromTrafficSecret` derives `quic key`, `quic iv` and `quic hp`; `Protect` seals a
+  `QuicLongHeaderPacket` or `QuicShortHeaderPacket` and applies header protection; `Unprotect`
+  removes it, recovers the full packet number (`QuicPacketNumber.Decode`) and opens the payload.
+  A packet whose tag fails, or that is too short to sample, comes back as
+  `QuicUnprotectStatus.Undecryptable` (drop it), never thrown; reserved bits set after opening
+  come back as `ReservedBitsNotZero` (a `PROTOCOL_VIOLATION`). AES-GCM and AES-ECB are the BCL's;
+  ChaCha20-Poly1305 and the ChaCha20 mask are the hand-built `Surl.Cryptography.ChaCha20` and
+  `Surl.Cryptography.Poly1305` (ADR-0082 decision 3), behind the internal `QuicPacketCipher`.
+- `QuicRetryIntegrity` - RFC 9001 section 5.8: computes and checks a Retry's integrity tag.
+- `QuicReader`, `QuicWriter`, `QuicFrameTypes`, `QuicPacketHeaderBits`, `QuicConnectionIds` and
+  the `QuicPacketCipher` classes are internal, visible to `Surl.Quic.UnitTests` only.
 
 Malformed input throws `QuicTransportException`; byte strings read are slices of the input, not
 copies. Writing a value RFC 9000 forbids throws an `ArgumentException`.
@@ -37,8 +49,8 @@ copies. Writing a value RFC 9000 forbids throws an `ArgumentException`.
 
 Namespace `Surl.Quic`. It may reference `Surl.Tls13.UnitLibrary`,
 `Surl.Cryptography.ChaCha20.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0082
-decision 2) and references none of them yet. It does no I/O: never open a socket or a file, and
+decision 2), and references all three. It does no I/O: never open a socket or a file, and
 never read a clock - time arrives through an injected `TimeProvider` once there is a connection.
 
 Every expected value in `Surl.Quic.UnitTests` comes from RFC 9000 (Appendix A.1's varints) and
-RFC 9001 Appendix A's unprotected packets (A.2 to A.5), never from the Curl port (ADR-0003).
+RFC 9001 Appendix A's keys, unprotected and protected packets (A.1 to A.5), never from the Curl port (ADR-0003).

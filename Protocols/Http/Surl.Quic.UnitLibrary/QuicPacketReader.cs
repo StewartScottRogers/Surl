@@ -60,7 +60,8 @@ public static class QuicPacketReader
         return new QuicUnsupportedVersionPacket(version, destinationConnectionId, sourceConnectionId);
     }
 
-    private static ReadOnlyMemory<byte> ReadConnectionId(QuicReader reader, uint version)
+    /// <summary>Reads a length-prefixed connection ID, which version 1 limits to 20 bytes.</summary>
+    internal static ReadOnlyMemory<byte> ReadConnectionId(QuicReader reader, uint version)
     {
         var length = reader.ReadByte();
         return version == QuicVersions.Version1 && length > QuicConnectionIds.MaxLength

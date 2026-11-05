@@ -2,8 +2,8 @@ namespace Surl.Quic;
 
 /// <summary>
 /// A QUIC version 1 Retry packet (RFC 9000 section 17.2.5): a token the client is to echo in its
-/// next Initial, and the Retry Integrity Tag of RFC 9001 section 5.8, which this codec carries but
-/// does not compute. Surl sends none (ADR-0082 decision 4); the type exists so the codec covers
+/// next Initial, and the Retry Integrity Tag of RFC 9001 section 5.8, which this record carries and
+/// <see cref="QuicRetryIntegrity"/> computes and checks. Surl sends none (ADR-0082 decision 4); the type exists so the codec covers
 /// every long header.
 /// </summary>
 /// <param name="DestinationConnectionId">The Destination Connection ID, at most 20 bytes.</param>
