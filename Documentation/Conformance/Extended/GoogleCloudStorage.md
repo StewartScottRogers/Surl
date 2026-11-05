@@ -19,89 +19,89 @@ rule of a page and each error a server owes is a row. IDs are:
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:XmlApi-Errors-1 | MUST | A failure has the status the page gives its code and an `application/xml` body `<Error><Code>…</Code><Message>…</Message></Error>` with the page's single-quoted XML declaration. | BL-431 |
-| GCS:XmlApi-Errors-2 | MUST | Each code is sent with ADR-0110 decision 1.3's status, including `NotImplemented` as `400`. | BL-431 |
-| GCS:XmlApi-Errors-3 | MUST | A `HEAD` error has its status and no body. | BL-431 |
-| GCS:Surl-Errors-1 | MUST | `Code` and `Message` are fixed text, and no client byte is echoed (no `Details`, `Resource` or `StringToSign`). | BL-431 |
-| GCS:Surl-Operations-1 | MUST | Any request ADR-0110 decision 1 does not list is `400 NotImplemented`, judged after authentication. | BL-431 |
-| GCS:Surl-Operations-2 | MUST | Bucket creation and deletion, copy, `POST` uploads, subresources and `x-goog-encryption-*` are `400 NotImplemented`. | BL-431 |
+| GCS:XmlApi-Errors-1 | MUST | A failure has the status the page gives its code and an `application/xml` body `<Error><Code>…</Code><Message>…</Message></Error>` with the page's single-quoted XML declaration. | `GoogleCloudStorageProtocolServerTests.ServeAsync_MissingObject_Is404NoSuchKey` |
+| GCS:XmlApi-Errors-2 | MUST | Each code is sent with ADR-0110 decision 1.3's status, including `NotImplemented` as `400`. | `GcsRequestAnswererTests.ServeAsync_UnlistedRequest_Is400NotImplemented`, `GoogleCloudStorageProtocolServerTests.WriteRefusalAsync_ConnectionPastALimit_Is503SlowDownThenClose` |
+| GCS:XmlApi-Errors-3 | MUST | A `HEAD` error has its status and no body. | `GoogleCloudStorageProtocolServerTests.ServeAsync_HeadOfAMissingObject_HasTheStatusAndNoBody` |
+| GCS:Surl-Errors-1 | MUST | `Code` and `Message` are fixed text, and no client byte is echoed (no `Details`, `Resource` or `StringToSign`). | `GoogleCloudStorageProtocolServerTests.ServeAsync_MissingObject_Is404NoSuchKey` (the whole answer pinned) |
+| GCS:Surl-Operations-1 | MUST | Any request ADR-0110 decision 1 does not list is `400 NotImplemented`, judged after authentication. | `GcsRequestAnswererTests.ServeAsync_UnlistedRequest_Is400NotImplemented`, `GcsLoginJudgeTests.ServeAsync_NoTokenForAnUnlistedRequest_IsRefusedBeforeTheOperationIsJudged` |
+| GCS:Surl-Operations-2 | MUST | Bucket creation and deletion, copy, `POST` uploads, subresources and `x-goog-encryption-*` are `400 NotImplemented`. | `GcsRequestAnswererTests.ServeAsync_UnlistedRequest_Is400NotImplemented` |
 | GCS:XmlApi-Headers-ProjectId-1 | MAY | `x-goog-project-id` names the project. | n/a: accepted and ignored; Surl has one project (ADR-0110 decision 1) |
 
 ## Addressing and the store ("XML API overview"; ADR-0100 decision 2)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:XmlApi-Endpoints-1 | MUST | A path-style request `/<bucket>/<object>` names the bucket as the first segment; `/` is the service. | BL-431 |
-| GCS:XmlApi-Endpoints-2 | MUST | `Host: <bucket>.<domain>` names the bucket, and the whole path is the object name. | BL-431 |
-| GCS:Surl-Addressing-1 | MUST | The domains are the listen URL's DNS host, `localhost` and `storage.googleapis.com`; any other `Host`, an IP literal included, is path style. | BL-431 |
-| GCS:XmlApi-ObjectNames-1 | MUST | The object name is percent-decoded once from the path, as UTF-8. | BL-431 |
-| GCS:XmlApi-ObjectNames-2 | MUST | A name over 1024 UTF-8 bytes is `400 KeyTooLong`. | BL-431 |
-| GCS:Surl-Store-1 | MUST | A bucket is a top-level folder of the shared content store; a top-level file and `.surl` are not buckets. | BL-431 |
-| GCS:Surl-Store-2 | MUST | A name the store cannot hold is `400 InvalidObjectName` on a write and `404 NoSuchKey` on a read; one conflicting with an entry of the other kind is `409 InvalidObjectName`. | BL-431 |
-| GCS:Surl-Store-3 | MUST | A file another protocol wrote is served with the metadata index's defaults: `Content-Type` from the extension, the MD5 ETag and the last-write-time generation. | BL-431 |
-| GCS:Surl-Store-4 | MUST | A bucket or object the caller may not read is `404 NoSuchBucket` or `NoSuchKey`; a write it may not make is `403 AccessDenied`. | BL-431 |
+| GCS:XmlApi-Endpoints-1 | MUST | A path-style request `/<bucket>/<object>` names the bucket as the first segment; `/` is the service. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays`, `GcsListBucketsTests.ServeAsync_ListBuckets_ListsTheReadableTopLevelFoldersInNameOrder` |
+| GCS:XmlApi-Endpoints-2 | MUST | `Host: <bucket>.<domain>` names the bucket, and the whole path is the object name. | `GoogleCloudStorageProtocolServerTests.ServeAsync_VirtualHostedRequest_ReadsTheHostsBucket`, `GcsListObjectsTests.ServeAsync_VirtualHostedListing_ListsTheHostsBucket` |
+| GCS:Surl-Addressing-1 | MUST | The domains are the listen URL's DNS host, `localhost` and `storage.googleapis.com`; any other `Host`, an IP literal included, is path style. | `GcsVirtualHostTests.BucketOf_VirtualHostedName_IsTheBucket`, `GcsVirtualHostTests.BucketOf_OtherHost_IsPathStyle` |
+| GCS:XmlApi-ObjectNames-1 | MUST | The object name is percent-decoded once from the path, as UTF-8. | `GoogleCloudStorageProtocolServerTests.ServeAsync_FileWrittenWithNoMetadata_IsReadWithTheIndexDefaults` |
+| GCS:XmlApi-ObjectNames-2 | MUST | A name over 1024 UTF-8 bytes is `400 KeyTooLong`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_NameOver1024Bytes_Is400KeyTooLong` |
+| GCS:Surl-Store-1 | MUST | A bucket is a top-level folder of the shared content store; a top-level file and `.surl` are not buckets. | `GoogleCloudStorageProtocolServerTests.ServeAsync_MissingBucket_Is404NoSuchBucket` |
+| GCS:Surl-Store-2 | MUST | A name the store cannot hold is `400 InvalidObjectName` on a write and `404 NoSuchKey` on a read; one conflicting with an entry of the other kind is `409 InvalidObjectName`. | `GcsPutObjectTests.ServeAsync_PutOfANameTheStoreCannotHold_Is400InvalidObjectName`, `GoogleCloudStorageProtocolServerTests.ServeAsync_NameThatIsNoFile_Is404NoSuchKey`, `GcsPutObjectTests.ServeAsync_PutConflictingWithAnEntryOfTheOtherKind_Is409InvalidObjectName` |
+| GCS:Surl-Store-3 | MUST | A file another protocol wrote is served with the metadata index's defaults: `Content-Type` from the extension, the MD5 ETag and the last-write-time generation. | `GoogleCloudStorageProtocolServerTests.ServeAsync_FileWrittenWithNoMetadata_IsReadWithTheIndexDefaults`, `GoogleCloudStorageProtocolServerTests.ServeAsync_FileInAShare_IsReadWithComputedDefaults` |
+| GCS:Surl-Store-4 | MUST | A bucket or object the caller may not read is `404 NoSuchBucket` or `NoSuchKey`; a write it may not make is `403 AccessDenied`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_ObjectInAShareTheCallerMayNotRead_Is404NoSuchBucket`, `GcsPutObjectTests.ServeAsync_PutRefusedByShareAccess_Is403AccessDenied` |
 
 ## GET Object and HEAD Object ("GET Object", "HEAD Object", "HTTP headers")
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:XmlApi-GetObject-1 | MUST | `GET /<bucket>/<object>` answers `200` with the object's bytes. | BL-431 |
-| GCS:XmlApi-GetObject-2 | MUST | The answer carries `Content-Length`, `Content-Type`, `ETag`, `Last-Modified`, each stored header and `x-goog-meta-*`. | BL-431 |
-| GCS:XmlApi-Headers-Hash-1 | MUST | `x-goog-hash` is `crc32c=<base64 big-endian CRC-32C>,md5=<base64 MD5>` of the whole object, on a `206` too. | BL-431 |
-| GCS:XmlApi-Headers-Generation-1 | MUST | `x-goog-generation` is a positive number that changes whenever the data is replaced; `x-goog-metageneration` is `1`. | BL-431 |
-| GCS:XmlApi-Headers-Stored-1 | MUST | `x-goog-stored-content-length` is the length, `x-goog-stored-content-encoding` the stored encoding or `identity`, and `x-goog-storage-class` is `STANDARD`. | BL-431 |
-| GCS:XmlApi-GetObject-3 | MUST | One `Range: bytes=` range is `206` with `Content-Range`; an unsatisfiable one is `416 InvalidRange`; several ranges are served whole with `200`. | BL-431 |
-| GCS:XmlApi-GetObject-4 | MUST | A failing `If-Match` or `If-Unmodified-Since` is `412 PreconditionFailed`; a matching `If-None-Match` or an unmodified `If-Modified-Since` is `304`. | BL-431 |
-| GCS:XmlApi-GetObject-5 | MUST | A failing `x-goog-if-generation-match` or `x-goog-if-metageneration-match` is `412 PreconditionFailed`; a non-numeric one is `400 InvalidArgument`. | BL-431 |
-| GCS:XmlApi-GetObject-6 | MUST | `generation` equal to the current one is served; any other is `404 NoSuchKey`. | BL-431 |
-| GCS:XmlApi-GetObject-7 | MUST | A missing object is `404 NoSuchKey`; a missing bucket `404 NoSuchBucket`. | BL-431 |
-| GCS:XmlApi-HeadObject-1 | MUST | `HEAD` answers GET Object's head with no body. | BL-431 |
+| GCS:XmlApi-GetObject-1 | MUST | `GET /<bucket>/<object>` answers `200` with the object's bytes. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays` |
+| GCS:XmlApi-GetObject-2 | MUST | The answer carries `Content-Length`, `Content-Type`, `ETag`, `Last-Modified`, each stored header and `x-goog-meta-*`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObjectWithStoredMetadata_SendsEveryStoredFieldAndMetadata` |
+| GCS:XmlApi-Headers-Hash-1 | MUST | `x-goog-hash` is `crc32c=<base64 big-endian CRC-32C>,md5=<base64 MD5>` of the whole object, on a `206` too. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays`, `GoogleCloudStorageProtocolServerTests.ServeAsync_OneRange_Is206WithTheWholeObjectsHash`, `GcsObjectHashesTests` |
+| GCS:XmlApi-Headers-Generation-1 | MUST | `x-goog-generation` is a positive number that changes whenever the data is replaced; `x-goog-metageneration` is `1`. | `GcsPutObjectTests.ServeAsync_PutOverAnObject_ReplacesItAndItsGeneration` |
+| GCS:XmlApi-Headers-Stored-1 | MUST | `x-goog-stored-content-length` is the length, `x-goog-stored-content-encoding` the stored encoding or `identity`, and `x-goog-storage-class` is `STANDARD`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays`, `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObjectWithStoredMetadata_SendsEveryStoredFieldAndMetadata` |
+| GCS:XmlApi-GetObject-3 | MUST | One `Range: bytes=` range is `206` with `Content-Range`; an unsatisfiable one is `416 InvalidRange`; several ranges are served whole with `200`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_OneRange_Is206WithTheWholeObjectsHash`, `GoogleCloudStorageProtocolServerTests.ServeAsync_UnsatisfiableRange_Is416InvalidRange`, `GcsRangeSelectionTests` |
+| GCS:XmlApi-GetObject-4 | MUST | A failing `If-Match` or `If-Unmodified-Since` is `412 PreconditionFailed`; a matching `If-None-Match` or an unmodified `If-Modified-Since` is `304`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_FailingIfMatch_Is412PreconditionFailed`, `GoogleCloudStorageProtocolServerTests.ServeAsync_MatchingIfNoneMatch_Is304`, `GcsConditionsTests` |
+| GCS:XmlApi-GetObject-5 | MUST | A failing `x-goog-if-generation-match` or `x-goog-if-metageneration-match` is `412 PreconditionFailed`; a non-numeric one is `400 InvalidArgument`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GenerationCondition_DecidesAsTheHeadersPageSays` |
+| GCS:XmlApi-GetObject-6 | MUST | `generation` equal to the current one is served; any other is `404 NoSuchKey`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GenerationQuery_ServesOnlyTheCurrentGeneration` |
+| GCS:XmlApi-GetObject-7 | MUST | A missing object is `404 NoSuchKey`; a missing bucket `404 NoSuchBucket`. | `GoogleCloudStorageProtocolServerTests.ServeAsync_MissingObject_Is404NoSuchKey`, `GoogleCloudStorageProtocolServerTests.ServeAsync_MissingBucket_Is404NoSuchBucket` |
+| GCS:XmlApi-HeadObject-1 | MUST | `HEAD` answers GET Object's head with no body. | `GoogleCloudStorageProtocolServerTests.ServeAsync_HeadObject_ReturnsTheHeadersOnly` |
 
 ## PUT Object and DELETE Object ("PUT Object", "DELETE Object", "HTTP headers")
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:XmlApi-PutObject-1 | MUST | `PUT /<bucket>/<object>` stores the body, replacing any object, and answers `200` with `ETag`, `x-goog-generation` and `x-goog-hash`. | BL-431 |
-| GCS:XmlApi-PutObject-2 | MUST | `Content-Type`, `Content-Encoding`, `Content-Disposition`, `Cache-Control`, `Content-Language` and `x-goog-meta-*` are stored and returned by GET Object and HEAD Object. | BL-431 |
-| GCS:XmlApi-PutObject-3 | MUST | A `PUT` without `Content-Length` is `411 MissingContentLength`; a body shorter than it is `400 IncompleteBody`, and nothing is stored. | BL-431 |
-| GCS:XmlApi-Headers-ContentMd5-1 | MUST | `Content-MD5` not matching the body is `400 BadDigest`; one not the base64 of 16 bytes is `400 InvalidDigest`. | BL-431 |
-| GCS:XmlApi-Headers-Hash-2 | MUST | An `x-goog-hash` `md5` or `crc32c` not matching the body is `400 BadDigest`; a malformed one is `400 InvalidHash`. | BL-431 |
-| GCS:XmlApi-Headers-Meta-1 | MUST | Custom metadata past 8 KiB is `400 MetadataTooLarge`. | BL-431 |
-| GCS:XmlApi-Headers-Generation-2 | MUST | `x-goog-if-generation-match: 0` stores only when no object exists, else `412 PreconditionFailed`. | BL-431 |
-| GCS:Surl-Put-1 | MUST | A zero-byte `PUT` of a name ending in `/` creates the folder; a non-empty one is refused. | BL-431 |
+| GCS:XmlApi-PutObject-1 | MUST | `PUT /<bucket>/<object>` stores the body, replacing any object, and answers `200` with `ETag`, `x-goog-generation` and `x-goog-hash`. | `GcsPutObjectTests.ServeAsync_PutUnderAllowUploads_StoresTheObjectAndAnswersItsDigests`, `GcsPutObjectTests.ServeAsync_PutOverAnObject_ReplacesItAndItsGeneration` |
+| GCS:XmlApi-PutObject-2 | MUST | `Content-Type`, `Content-Encoding`, `Content-Disposition`, `Cache-Control`, `Content-Language` and `x-goog-meta-*` are stored and returned by GET Object and HEAD Object. | `GcsPutObjectTests.ServeAsync_PutWithMetadata_IsReturnedByALaterRead` |
+| GCS:XmlApi-PutObject-3 | MUST | A `PUT` without `Content-Length` is `411 MissingContentLength`; a body shorter than it is `400 IncompleteBody`, and nothing is stored. | `GcsPutObjectTests.ServeAsync_PutWithoutContentLength_Is411MissingContentLength`, `GcsPutObjectTests.ServeAsync_PutWhoseBodyEndsEarly_Is400IncompleteBodyAndStoresNothing` |
+| GCS:XmlApi-Headers-ContentMd5-1 | MUST | `Content-MD5` not matching the body is `400 BadDigest`; one not the base64 of 16 bytes is `400 InvalidDigest`. | `GcsPutObjectTests.ServeAsync_PutWithAMismatchedDigest_Is400BadDigestAndKeepsTheOldObject`, `GcsPutObjectTests.ServeAsync_PutWithAMalformedContentMd5_Is400InvalidDigest` |
+| GCS:XmlApi-Headers-Hash-2 | MUST | An `x-goog-hash` `md5` or `crc32c` not matching the body is `400 BadDigest`; a malformed one is `400 InvalidHash`. | `GcsPutObjectTests.ServeAsync_PutWithAMismatchedDigest_Is400BadDigestAndKeepsTheOldObject`, `GcsPutObjectTests.ServeAsync_PutWithAMalformedXGoogHash_Is400InvalidHash` |
+| GCS:XmlApi-Headers-Meta-1 | MUST | Custom metadata past 8 KiB is `400 MetadataTooLarge`. | `GcsPutObjectTests.ServeAsync_PutWithMetadataPast8KiB_Is400MetadataTooLarge` |
+| GCS:XmlApi-Headers-Generation-2 | MUST | `x-goog-if-generation-match: 0` stores only when no object exists, else `412 PreconditionFailed`. | `GcsPutObjectTests.ServeAsync_PutWithGenerationMatchZeroAndNoObject_IsStored`, `GcsPutObjectTests.ServeAsync_PutWithAFailingGenerationCondition_IsRefusedAndKeepsTheObject` |
+| GCS:Surl-Put-1 | MUST | A zero-byte `PUT` of a name ending in `/` creates the folder; a non-empty one is refused. | `GcsPutObjectTests.ServeAsync_ZeroBytePutOfANameEndingInSlash_CreatesTheFolder`, `GcsPutObjectTests.ServeAsync_NonEmptyPutOfANameEndingInSlash_Is400InvalidObjectName`; listing the folder as `x/` is BL-769 |
 | GCS:XmlApi-Headers-StorageClass-1 | MAY | `x-goog-storage-class` on a `PUT` sets the class. | n/a: accepted, and every read reports `STANDARD`; the store has one class (ADR-0110 decision 1.2) |
 | GCS:XmlApi-Headers-Acl-1 | MAY | `x-goog-acl` and `x-goog-grant-*` set object ACLs. | n/a: accepted and ignored; access is ADR-0102's share access (ADR-0110 decision 1.2) |
-| GCS:XmlApi-DeleteObject-1 | MUST | `DELETE /<bucket>/<object>` removes the object and answers `204`; a missing one is `404 NoSuchKey`. | BL-431 |
+| GCS:XmlApi-DeleteObject-1 | MUST | `DELETE /<bucket>/<object>` removes the object and answers `204`; a missing one is `404 NoSuchKey`. | `GcsRequestAnswererTests.ServeAsync_DeleteObject_Is204AndRemovesTheFile`, `GcsRequestAnswererTests.ServeAsync_DeleteOfNoObject_Is404NoSuchKey` |
 | GCS:XmlApi-Uploads-1 | MAY | XML multipart and resumable uploads. | n/a: `400 NotImplemented` until BL-718 (ADR-0110 decision 1) |
 
 ## List Objects and List Buckets ("GET Bucket (List Objects)", "GET Service")
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:XmlApi-ListObjects-1 | MUST | `GET /<bucket>` answers `ListBucketResult` in the `http://doc.s3.amazonaws.com/2006-03-01` namespace, its elements in ADR-0110 decision 6's order. | BL-431 |
-| GCS:XmlApi-ListObjects-2 | MUST | Each `Contents` holds `Key`, `Generation`, `MetaGeneration`, `LastModified`, `ETag` and `Size`. | BL-431 |
-| GCS:XmlApi-ListObjects-3 | MUST | Names are listed in ascending UTF-8 byte order. | BL-431 |
-| GCS:XmlApi-ListObjects-4 | MUST | `prefix` limits the names; with `delimiter`, names sharing a prefix up to the first delimiter after `prefix` roll up into one `CommonPrefixes`. | BL-431 |
-| GCS:XmlApi-ListObjects-5 | MUST | `max-keys` defaults to 1000, above 1000 is served as 1000, and bounds `Contents` and `CommonPrefixes` together. | BL-431 |
-| GCS:XmlApi-ListObjects-6 | MUST | Version 1: `marker` begins after that name; a truncated page has `IsTruncated` true and `NextMarker`. | BL-431 |
-| GCS:XmlApi-ListObjects-7 | MUST | Version 2 (`list-type=2`): a truncated page has `NextContinuationToken`, which resumes after the last entry; `start-after` is ignored when `continuation-token` is present; `KeyCount` counts the entries. | BL-431 |
-| GCS:XmlApi-ListObjects-8 | MUST | `encoding-type=url` percent-encodes names and prefixes; another value is `400 InvalidArgument`. | BL-431 |
-| GCS:XmlApi-ListObjects-9 | MUST | `fetch-owner=true` with `list-type=2` adds `Owner` to each `Contents`. | BL-431 |
-| GCS:XmlApi-ListObjects-10 | MUST | A parameter given with the wrong `list-type`, a bad `max-keys`, or a token that does not decode is `400 InvalidArgument`. | BL-431 |
+| GCS:XmlApi-ListObjects-1 | MUST | `GET /<bucket>` answers `ListBucketResult` in the `http://doc.s3.amazonaws.com/2006-03-01` namespace, its elements in ADR-0110 decision 6's order. | `GcsListObjectsTests.ServeAsync_ListObjects_ListsEveryObjectInNameOrder` |
+| GCS:XmlApi-ListObjects-2 | MUST | Each `Contents` holds `Key`, `Generation`, `MetaGeneration`, `LastModified`, `ETag` and `Size`. | `GcsListObjectsTests.ServeAsync_ListObjects_ListsEveryObjectInNameOrder` |
+| GCS:XmlApi-ListObjects-3 | MUST | Names are listed in ascending UTF-8 byte order. | `GcsListObjectsTests.ServeAsync_ListObjects_ListsEveryObjectInNameOrder`, `GcsNameOrderTests` |
+| GCS:XmlApi-ListObjects-4 | MUST | `prefix` limits the names; with `delimiter`, names sharing a prefix up to the first delimiter after `prefix` roll up into one `CommonPrefixes`. | `GcsListObjectsTests.ServeAsync_DelimiterSlash_RollsFoldersUpIntoCommonPrefixes`, `GcsListObjectsTests.ServeAsync_Prefix_ListsOnlyTheNamesUnderIt` |
+| GCS:XmlApi-ListObjects-5 | MUST | `max-keys` defaults to 1000, above 1000 is served as 1000, and bounds `Contents` and `CommonPrefixes` together. | `GcsListObjectsTests.ServeAsync_MaxKeysAbove1000_IsServedAs1000`, `GcsListObjectsTests.ServeAsync_Version2PagedByContinuationToken_ResumesAfterTheLastEntry` |
+| GCS:XmlApi-ListObjects-6 | MUST | Version 1: `marker` begins after that name; a truncated page has `IsTruncated` true and `NextMarker`. | `GcsListObjectsTests.ServeAsync_Version1PagedByMaxKeysAndMarker_ResumesAfterTheMarker` |
+| GCS:XmlApi-ListObjects-7 | MUST | Version 2 (`list-type=2`): a truncated page has `NextContinuationToken`, which resumes after the last entry; `start-after` is ignored when `continuation-token` is present; `KeyCount` counts the entries. | `GcsListObjectsTests.ServeAsync_Version2PagedByContinuationToken_ResumesAfterTheLastEntry` |
+| GCS:XmlApi-ListObjects-8 | MUST | `encoding-type=url` percent-encodes names and prefixes; another value is `400 InvalidArgument`. | `GcsListObjectsTests.ServeAsync_EncodingTypeUrl_PercentEncodesNames`, `GcsListObjectsTests.ServeAsync_BadListingParameter_Is400InvalidArgument` |
+| GCS:XmlApi-ListObjects-9 | MUST | `fetch-owner=true` with `list-type=2` adds `Owner` to each `Contents`. | `GcsListObjectsTests.ServeAsync_Version2PagedByContinuationToken_ResumesAfterTheLastEntry` |
+| GCS:XmlApi-ListObjects-10 | MUST | A parameter given with the wrong `list-type`, a bad `max-keys`, or a token that does not decode is `400 InvalidArgument`. | `GcsListObjectsTests.ServeAsync_BadListingParameter_Is400InvalidArgument` |
 | GCS:XmlApi-ListObjects-11 | MAY | `versions`, `key-marker`, `version-id-marker` and `generation-marker` list object versions. | n/a: `400 NotImplemented`; the store keeps one version a file (ADR-0110 decision 6) |
-| GCS:XmlApi-ListBuckets-1 | MUST | `GET /` answers `ListAllMyBucketsResult` with `Owner` and each readable bucket's `Name` and `CreationDate`. | BL-431 |
+| GCS:XmlApi-ListBuckets-1 | MUST | `GET /` answers `ListAllMyBucketsResult` with `Owner` and each readable bucket's `Name` and `CreationDate`. | `GcsListBucketsTests.ServeAsync_ListBuckets_ListsTheReadableTopLevelFoldersInNameOrder` |
 
 ## Authentication ("XML API overview", RFC 6750, "V4 signing process", "Canonical requests")
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| GCS:Surl-Auth-1 | MUST | With anonymous off, a request with no credential is `401 AuthenticationRequired` with `WWW-Authenticate: Bearer realm="storage"`. | BL-431 |
-| GCS:Surl-Auth-2 | MUST | Under `--allow-anonymous`, unauthenticated reads are served and an anonymous write is `401 AuthenticationRequired`. | BL-431 |
-| GCS:Surl-Auth-3 | MUST | A write needs `--allow-uploads`; without it a logged-in write is `403 AccessDenied`. | BL-431 |
-| GCS:XmlApi-OAuth2-1 | MUST | `Authorization: Bearer <token>` is served when the token is an empty-name account's password. | BL-431 |
-| GCS:XmlApi-OAuth2-2 | MUST | A Bearer token that is no account is `401 InvalidAuthentication` with an `error="invalid_token"` challenge. | BL-431 |
-| GCS:Surl-Auth-4 | MUST | Another `Authorization` scheme (Basic, Digest, `AWS4-HMAC-SHA256`, `GOOG1`, `AWS`) is `400 InvalidAuthentication`. | BL-431 |
-| GCS:Surl-Auth-5 | MUST | The checked account (or anonymous) is what the store's share access check receives. | BL-431 |
+| GCS:Surl-Auth-1 | MUST | With anonymous off, a request with no credential is `401 AuthenticationRequired` with `WWW-Authenticate: Bearer realm="storage"`. | `GcsLoginJudgeTests.ServeAsync_NoTokenWithAnonymousOff_Is401AuthenticationRequiredWithTheBearerChallenge` |
+| GCS:Surl-Auth-2 | MUST | Under `--allow-anonymous`, unauthenticated reads are served and an anonymous write is `401 AuthenticationRequired`. | `GcsLoginJudgeTests.ServeAsync_NoTokenUnderAllowAnonymous_ServesTheRead`, `GcsLoginJudgeTests.ServeAsync_AnonymousWrite_Is401AuthenticationRequired` |
+| GCS:Surl-Auth-3 | MUST | A write needs `--allow-uploads`; without it a logged-in write is `403 AccessDenied`. | `GcsPutObjectTests.ServeAsync_PutWithoutAllowUploads_Is403AccessDeniedAndStoresNothing`, `GcsRequestAnswererTests.ServeAsync_DeleteWithoutAllowUploads_Is403AccessDenied` |
+| GCS:XmlApi-OAuth2-1 | MUST | `Authorization: Bearer <token>` is served when the token is an empty-name account's password. | `GoogleCloudStorageProtocolServerTests.ServeAsync_GetObject_ReturnsTheBytesWithXGoogHashComputedAsTheApiSays` |
+| GCS:XmlApi-OAuth2-2 | MUST | A Bearer token that is no account is `401 InvalidAuthentication` with an `error="invalid_token"` challenge. | `GcsLoginJudgeTests.ServeAsync_TokenThatIsNoAccount_Is401InvalidAuthenticationWithTheInvalidTokenChallenge` |
+| GCS:Surl-Auth-4 | MUST | Another `Authorization` scheme (Basic, Digest, `AWS4-HMAC-SHA256`, `GOOG1`, `AWS`) is `400 InvalidAuthentication`. | `GcsLoginJudgeTests.ServeAsync_AnotherScheme_Is400InvalidAuthentication` |
+| GCS:Surl-Auth-5 | MUST | The checked account (or anonymous) is what the store's share access check receives. | `GcsPutObjectTests.ServeAsync_PutRefusedByShareAccess_Is403AccessDenied`, `GoogleCloudStorageProtocolServerTests.ServeAsync_ObjectInAShareTheCallerMayNotRead_Is404NoSuchBucket` |
 | GCS:V4Signing-Authorization-1 | MUST | `GOOG4-HMAC-SHA256 Credential=<id>/<date>/<location>/storage/goog4_request, SignedHeaders=…, Signature=…` is checked with the HMAC key from the account set; a signature worked by hand from the page's steps verifies at its date. | BL-430 |
 | GCS:V4Signing-Authorization-2 | MUST | A header that does not parse, a scope not ending `/storage/goog4_request`, or `host` not signed is `400 InvalidArgument`. | BL-432 |
 | GCS:V4Signing-CanonicalRequest-1 | MUST | The canonical request is built as the SigV4 one is, with the URI encoded once, the query re-encoded and sorted, and the signed headers' values trimmed; the AWS SigV4 check's bytes do not change. | BL-430 |
@@ -122,9 +122,9 @@ rule of a page and each error a server owes is a row. IDs are:
 | --- | --- | --- | --- |
 | GCS:Surl-Tls-1 | MUST | `gs` is implicit TLS, with `--cert` or `--self-signed` required (exit 58 without), and ALPN `http/1.1` only. | n/a: the `surl` composition's row, proved by BL-433, not by the server library |
 | GCS:Surl-Tls-2 | MUST | `--gs-plaintext` serves plain HTTP/1.1 and is warned on start. | n/a: the `surl` composition's row, proved by BL-433, not by the server library |
-| GCS:Surl-Tls-3 | MUST | A Bearer token over plain text without `--allow-plaintext-auth` is `401 InvalidAuthentication`; a V4 HMAC signature is served. | BL-431 |
-| GCS:Surl-Limits-1 | MUST | A head past `--max-request-head` is `400 MaxMessageLengthExceeded`, then close. | BL-431 |
-| GCS:Surl-Limits-2 | MUST | A body past `--max-filesize` is `400 EntityTooLarge`, then close. | BL-431 |
-| GCS:Surl-Limits-3 | MUST | A connection past `--max-connections` or `--max-connections-per-address` is `503 SlowDown`, then close. | BL-431 |
-| GCS:Surl-Limits-4 | MUST | `--head-timeout`, `--idle-timeout` and `--max-time` close with no bytes. | BL-431 |
-| GCS:Surl-Limits-5 | MUST | A full metadata index is `403 InsufficientQuota`. | BL-431 |
+| GCS:Surl-Tls-3 | MUST | A Bearer token over plain text without `--allow-plaintext-auth` is `401 InvalidAuthentication`; a V4 HMAC signature is served. | `GcsLoginJudgeTests.ServeAsync_TokenThatIsNoAccount_Is401InvalidAuthenticationWithTheInvalidTokenChallenge` (every token the session refuses); the plain-text refusal itself is the `Surl.Authentication` session, wired by BL-433; V4 HMAC over plain text is BL-432 |
+| GCS:Surl-Limits-1 | MUST | A head past `--max-request-head` is `400 MaxMessageLengthExceeded`, then close. | BL-768; until then `GoogleCloudStorageProtocolServerTests.ServeAsync_HeadPastMaxRequestHead_IsRefused431AndClosedBySurlHttpServing` pins the `431` of `Surl.HttpServing` |
+| GCS:Surl-Limits-2 | MUST | A body past `--max-filesize` is `400 EntityTooLarge`, then close. | `GcsPutObjectTests.ServeAsync_PutAnnouncedPastMaxFilesize_Is400EntityTooLarge`, `GcsHashingStreamTests.WriteAsync_PastTheUploadLimit_HashesTheRestAndDropsIt` |
+| GCS:Surl-Limits-3 | MUST | A connection past `--max-connections` or `--max-connections-per-address` is `503 SlowDown`, then close. | `GoogleCloudStorageProtocolServerTests.WriteRefusalAsync_ConnectionPastALimit_Is503SlowDownThenClose` |
+| GCS:Surl-Limits-4 | MUST | `--head-timeout`, `--idle-timeout` and `--max-time` close with no bytes. | n/a: the timeouts of `Surl.HttpServing`, which the server takes unchanged through `Http1ConnectionServer`, proved in `Surl.HttpServing.UnitTests` |
+| GCS:Surl-Limits-5 | MUST | A full metadata index is `403 InsufficientQuota`. | `GcsPutObjectTests.ServeAsync_PutWhenTheIndexIsFull_Is403InsufficientQuotaAndRemovesTheObject` |

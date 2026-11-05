@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Extended.Protocol.GoogleCloudStorage.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Http\Surl.HttpServing.UnitLibrary\Surl.HttpServing.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>
