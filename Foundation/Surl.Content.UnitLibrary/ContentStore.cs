@@ -80,7 +80,7 @@ namespace Surl.Content;
 /// dot-files.
 /// </para>
 /// </remarks>
-public sealed class ContentStore
+public sealed partial class ContentStore
 {
     private const int CopyBufferSize = 81920;
 
@@ -166,6 +166,7 @@ public sealed class ContentStore
 
         Shares = [.. shares];
         Buckets = [.. buckets];
+        configuredContents = CaptureInMemoryContents();
     }
 
     /// <summary>
@@ -321,8 +322,10 @@ public sealed class ContentStore
 
     // ADR-0102 decisions 2.1 to 2.3: a share the scheme does not see is no more there than one the
     // caller has no grant in.
+    // The test seeding the store reaches every share, whatever its schemes and grants say.
     private static ContentShareAccess? AccessOf(ContentShare share, ContentCaller caller) =>
-        share.IsVisibleTo(caller.Scheme) ? share.AccessFor(caller) : null;
+        ReferenceEquals(caller, TheTest) ? ContentShareAccess.ReadWrite
+        : share.IsVisibleTo(caller.Scheme) ? share.AccessFor(caller) : null;
 
     private ContentPathMapping MapInside(ContentContainer container, string[] segments, bool namesADirectory, ContentCaller caller, bool deniesWrites)
     {

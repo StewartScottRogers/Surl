@@ -373,6 +373,55 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
         }
     }
 
+    /// <summary>
+    /// Takes a copy of every entry held now, for the content store's configured state and its
+    /// snapshots (ADR-0124 decision 3). A file still being written - a stream open on it for
+    /// writing, such as an upload's temporary file - is left out, so a restore never brings back
+    /// a half-written file. Files share their byte arrays with the copy: an array is replaced,
+    /// never changed, once a write is committed.
+    /// </summary>
+    /// <returns>The copy.</returns>
+    internal InMemoryContentFileSystemContents CaptureContents()
+    {
+        lock (gate)
+        {
+            return new InMemoryContentFileSystemContents(
+                [.. entries
+                    .Where(pair => pair.Value.OpenWriterCount == 0)
+                    .Select(pair => new InMemoryContentFileSystemContents.Entry(pair.Key, pair.Value.Kind, pair.Value.Contents, pair.Value.LastWriteTimeUtc))]);
+        }
+    }
+
+    /// <summary>
+    /// Replaces every entry held with <paramref name="contents"/>, under the one lock, so a reader
+    /// sees the old entries or the new ones and never a mix (ADR-0124 decision 3). Every file held
+    /// before counts as replaced: a stream still writing one fails its next write with
+    /// <see cref="IOException"/>, and a move of an upload's temporary file finds nothing to move.
+    /// </summary>
+    /// <param name="contents">A copy <see cref="CaptureContents"/> took of this instance.</param>
+    internal void ReplaceContents(InMemoryContentFileSystemContents contents)
+    {
+        lock (gate)
+        {
+            foreach (StoredEntry replaced in entries.Values)
+            {
+                replaced.IsRemoved = true;
+            }
+
+            entries.Clear();
+            totalBytes = 0;
+            foreach (InMemoryContentFileSystemContents.Entry saved in contents.Entries)
+            {
+                var entry = saved.Kind == ContentEntryKind.File
+                    ? StoredEntry.NewFile(saved.LastWriteTimeUtc)
+                    : StoredEntry.NewDirectory(saved.LastWriteTimeUtc);
+                entry.Contents = saved.Contents;
+                entry.ChargedBytes = saved.Contents.Length;
+                totalBytes += saved.Contents.Length;
+                entries.Add(saved.Path, entry);
+            }
+        }
+    }
     private static string Normalise(string path) =>
         Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 
@@ -441,6 +490,7 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
     {
         lock (gate)
         {
+            file.OpenWriterCount--;
             file.Contents = contents;
             file.LastWriteTimeUtc = timeProvider.GetUtcNow();
         }
@@ -466,6 +516,10 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
 
         public bool IsRemoved { get; set; }
 
+        // The streams open on this file that have not yet handed their bytes back; a capture
+        // leaves the file out while there are any.
+        public int OpenWriterCount { get; set; }
+
         public static StoredEntry NewDirectory(DateTimeOffset now) => new(ContentEntryKind.Directory, now);
 
         public static StoredEntry NewFile(DateTimeOffset now) => new(ContentEntryKind.File, now);
@@ -488,6 +542,9 @@ public sealed class InMemoryContentFileSystem : IContentFileSystem
             this.owner = owner;
             this.file = file;
             this.isRandomAccess = isRandomAccess;
+
+            // Constructed only under the owner's lock.
+            file.OpenWriterCount++;
             written.Write(file.Contents);
             written.Position = 0;
         }

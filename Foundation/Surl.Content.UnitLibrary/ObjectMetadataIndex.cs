@@ -320,6 +320,49 @@ public sealed class ObjectMetadataIndex
         }
     }
 
+    /// <summary>
+    /// Takes a copy of every entry, for a content store snapshot (ADR-0124 decision 3).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for the index's lock.</param>
+    /// <returns>The copy.</returns>
+    internal async Task<ObjectMetadataIndexContents> CaptureEntriesAsync(CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            return new ObjectMetadataIndexContents(new Dictionary<string, ObjectMetadataEntry>(entries, StringComparer.Ordinal));
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Replaces every entry with <paramref name="contents"/>: none, for a reset, or a snapshot's
+    /// copy, for a restore (ADR-0124 decision 3). Never written to a file: only an index held in
+    /// memory is reset or restored.
+    /// </summary>
+    /// <param name="contents">The entries to hold.</param>
+    /// <param name="cancellationToken">Cancels the wait for the index's lock.</param>
+    /// <returns>A task that completes once the entries are replaced.</returns>
+    internal async Task ReplaceEntriesAsync(ObjectMetadataIndexContents contents, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            entries.Clear();
+            foreach (var (key, entry) in contents.Entries)
+            {
+                entries.Add(key, entry);
+            }
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
     private static void RequireValidKey(string key)
     {
         if (!IsValidKey(key))

@@ -83,6 +83,23 @@ publishes nothing. Before an upload writes and before a session commits it asks 
 `FaultAppliedEvent`. `ObjectMetadataIndex` takes an optional publisher too and publishes
 `MetadataStored` (`/` and the key) for each `Stored` outcome.
 
+Store control for a test stand-in (ADR-0124 decision 3, built by BL-800), in `ContentStore.Control.cs`:
+`SeedFileAsync(requestPath, stream)` and `SeedFolder(requestPath)` are the test's own writes - no
+`--allow-uploads`, no share access, `readonly` or scheme limit, never the fault plan - creating each missing
+folder above, through the upload's write (`MaxUploadBytes` gives `TooLarge`); `.surl`, a hidden path, a trailing
+`/` on a file and a file in the way are `NotPermitted`, a refused path throws `ArgumentException`; each folder
+created and each file publishes `Seeded`. `ResetAsync(index)`, `TakeSnapshotAsync(index)` and
+`RestoreAsync(snapshot)` work only while `IsControllable` - the root and every share in an
+`InMemoryContentFileSystem` and the index not persisted - else `InvalidOperationException`, so a test never empties
+a real directory (seeding a disk store is allowed). The configured state is what the in-memory file systems held
+when the store was made (a host's start files), captured in the constructor, plus every share's folder and every
+bucket's content path as a folder, with no object metadata. `InMemoryContentFileSystem.CaptureContents` /
+`ReplaceContents` (internal) copy and swap every entry under its lock, sharing byte arrays (never mutated once
+committed) and leaving out a file with a write stream open, so an upload in progress is not snapshotted and fails
+at its next write or its commit. A `ContentStoreSnapshot` is opaque, restored only by the store that took it
+(`ArgumentException` otherwise), and reports `ByteCount` for a host's `MaxSnapshotBytes`. Reset and restore
+publish one `Reset` or `Restored` change named `/`; a snapshot publishes nothing.
+
 `ObjectMetadataIndex` keeps what a file system cannot hold for the object-storage servers
 (S3, Azure Storage, Cloud Storage, the OCI registry; ADR-0100 decision 2.3, built by BL-636):
 the five header fields set at upload, user metadata, the ETag and GCS's generation, keyed by
