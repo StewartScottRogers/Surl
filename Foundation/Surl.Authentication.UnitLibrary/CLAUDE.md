@@ -405,7 +405,7 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `Accounts`, per scheme (BL-653); a view with no accounts left serves HTTP anonymous reads as
   ADR-0032 section 4 serves them with none configured.
 
-## Login events and refuse-login (BL-791, ADR-0126)
+## Login events and refuse-login (BL-791, ADR-0128)
 
 - `AuthenticationPolicy` takes an optional `ISurlEventPublisher` and `IFaultPlan` (default: publish nothing,
   find no fault). Every login whose credentials were checked - every one that carries a `CheckedLogin`, and
