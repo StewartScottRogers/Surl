@@ -114,6 +114,15 @@ namespace Surl.Protocol.Http;
 /// the connection with no bytes.
 /// </para>
 /// <para>
+/// HTTP/2 by <c>Upgrade: h2c</c> (ADR-0081, decision 3; ADR-0091): on a cleartext connection, an
+/// HTTP/1.1 request with no body that names <c>h2c</c> in <c>Upgrade</c>, carries one
+/// <c>HTTP2-Settings</c> that decodes, and names both in <c>Connection</c>
+/// (<see cref="Http2CleartextUpgrade"/>) is answered <c>HTTP/1.1 101 Switching Protocols</c>,
+/// <c>Connection: Upgrade</c>, <c>Upgrade: h2c</c>, and the connection becomes HTTP/2 with that
+/// request answered on stream 1 once the client's preface arrives. Any other request, and every
+/// request over TLS, ignores the upgrade and is answered HTTP/1.1 as above.
+/// </para>
+/// <para>
 /// As an <see cref="IConnectionRefusalWriter"/>, the server answers a connection past a
 /// connection limit with <c>503 Service Unavailable</c>, <c>Server: surl</c>,
 /// <c>Content-Length: 0</c> and <c>Connection: close</c>, then half-closes it; it carries no
@@ -190,7 +199,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
             return;
         }
 
-        await new Http1ConnectionServer(answerer, context).ServeAsync(new AlreadyReadBytesConnection(connection, preface.BytesRead));
+        await new Http1ConnectionServer(new Http2CleartextUpgradeHandler(answerer, context), context).ServeAsync(new AlreadyReadBytesConnection(connection, preface.BytesRead));
     }
 
     // The head timeout bounds the preface as it bounds a first request head: when it runs out

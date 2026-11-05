@@ -39,7 +39,11 @@ connection, not the codec.
 The HTTP/2 connection (ADR-0081, decisions 3, 5 to 7; ADR-0090) is `Http2ConnectionServer`:
 `HttpProtocolServer.ServeAsync` reads a cleartext connection's first bytes with
 `Http2ConnectionPreface` and hands it over on the whole preface, or gives the bytes back
-through `AlreadyReadBytesConnection` to `Http1ConnectionServer`. The connection reads frames in
+through `AlreadyReadBytesConnection` to `Http1ConnectionServer`, whose handler is
+`Http2CleartextUpgradeHandler`: a request `Http2CleartextUpgrade` accepts for `Upgrade: h2c`
+is answered `101` with an `IHttpConnectionTakeover` that runs
+`Http2ConnectionServer.ServeUpgradedAsync` over `HttpConnectionReaderConnection`, so the bytes
+the HTTP/1.x reader already holds come first (ADR-0091). The connection reads frames in
 order, decodes header blocks with `Surl.Hpack`'s decoder, maps each request with
 `Http2RequestHeadMapping` to an `HttpRequest` whose body is an `Http2RequestBody`, and answers
 each `Http2Stream` on a task of its own through the same `HttpRequestAnswerer`;

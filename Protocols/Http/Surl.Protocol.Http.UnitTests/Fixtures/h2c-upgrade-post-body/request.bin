@@ -1,0 +1,11 @@
+POST /file.txt HTTP/1.1
+Host: 127.0.0.1:18050
+User-Agent: curl/8.21.0
+Accept: */*
+Upgrade: h2c
+HTTP2-Settings: AAMAAABkAAQAAQAAAAIAAAAA
+Content-Length: 3
+Content-Type: application/x-www-form-urlencoded
+Connection: Upgrade, HTTP2-Settings
+
+abc

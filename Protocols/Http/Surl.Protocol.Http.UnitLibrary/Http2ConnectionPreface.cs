@@ -17,11 +17,23 @@ namespace Surl.Protocol.Http;
 /// </remarks>
 internal sealed class Http2ConnectionPreface
 {
-    /// <summary>The most bytes read in all: 4096, the HTTP/1.x head reader's first buffer.</summary>
+    /// <summary>The most bytes read in all by default: 4096, the HTTP/1.x head reader's first buffer.</summary>
     public const int ReadBufferLength = 4096;
 
-    private readonly byte[] bytesRead = new byte[ReadBufferLength];
+    private readonly byte[] bytesRead;
     private int count;
+
+    /// <summary>
+    /// Creates a reader that reads at most <paramref name="readLimit"/> bytes in all: the default
+    /// <see cref="ReadBufferLength"/> where the bytes after the preface are handed on, or the
+    /// preface's own length where the connection's later bytes must stay unread, as after an
+    /// <c>Upgrade: h2c</c>'s <c>101</c> (ADR-0091).
+    /// </summary>
+    /// <param name="readLimit">The most bytes read in all; at least the preface's length.</param>
+    public Http2ConnectionPreface(int readLimit = ReadBufferLength)
+    {
+        bytesRead = new byte[readLimit];
+    }
 
     /// <summary>The preface's 24 bytes.</summary>
     public static ReadOnlySpan<byte> Preface => "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8;

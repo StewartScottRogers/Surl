@@ -103,13 +103,31 @@ internal sealed class Http2ConnectionServer
     /// </summary>
     /// <returns>A task that completes when the exchange is over.</returns>
     /// <exception cref="OperationCanceledException">The exchange was cancelled at shutdown.</exception>
-    public async Task ServeAsync()
+    public Task ServeAsync() => ServeAsync(ReadFramesAsync);
+
+    /// <summary>
+    /// Serves a connection upgraded from HTTP/1.1 with <c>Upgrade: h2c</c> once its <c>101</c> is
+    /// written (RFC 7540 section 3.2; ADR-0091): the server's <c>SETTINGS</c> goes out at once,
+    /// <paramref name="clientSettings"/> are applied as the client's first <c>SETTINGS</c>, which
+    /// the <c>101</c> acknowledged, and once the client's preface has been read
+    /// <paramref name="upgradedRequest"/> is answered on stream 1, half-closed by the client.
+    /// Bytes other than the preface end the connection with <c>GOAWAY</c> <c>PROTOCOL_ERROR</c>,
+    /// last stream 0. After that it is served as <see cref="ServeAsync()"/> serves.
+    /// </summary>
+    /// <param name="upgradedRequest">The HTTP/1.1 request that asked for the upgrade, with no body.</param>
+    /// <param name="clientSettings">The settings its <c>HTTP2-Settings</c> field carried.</param>
+    /// <returns>A task that completes when the exchange is over.</returns>
+    /// <exception cref="OperationCanceledException">The exchange was cancelled at shutdown.</exception>
+    public Task ServeUpgradedAsync(HttpRequest upgradedRequest, IReadOnlyList<Http2Setting> clientSettings) =>
+        ServeAsync(() => ServeUpgradedStreamThenReadFramesAsync(upgradedRequest, clientSettings));
+
+    private async Task ServeAsync(Func<Task<Http2ConnectionError?>> readFramesAsync)
     {
         ExceptionDispatchInfo? cancellation = null;
         try
         {
             await frames.WriteAsync(ServerSettings(context.Limits), ConnectionToken);
-            await EndAsync(await ReadFramesAsync());
+            await EndAsync(await readFramesAsync());
         }
         catch (OperationCanceledException exception)
         {
@@ -146,6 +164,28 @@ internal sealed class Http2ConnectionServer
         }
 
         return new Http2SettingsFrame(false, settings);
+    }
+
+    // The upgraded request is stream 1 (RFC 7540 section 3.2), opened only once the client's
+    // preface is read, so the client sees its answer after it has spoken HTTP/2 itself, as
+    // measured. The preface is read exactly, leaving its first frames to the frame reader.
+    private async Task<Http2ConnectionError?> ServeUpgradedStreamThenReadFramesAsync(HttpRequest upgradedRequest, IReadOnlyList<Http2Setting> clientSettings)
+    {
+        // No stream is open yet, so INITIAL_WINDOW_SIZE cannot overflow one: this never fails.
+        _ = await ApplySettingsAsync(clientSettings);
+        var preface = new Http2ConnectionPreface(Http2ConnectionPreface.Preface.Length);
+        await preface.ReadAsync(connection, ConnectionToken);
+        if (!preface.IsComplete)
+        {
+            return new(Http2ErrorCode.ProtocolError, $"after the 101 the client sent {preface.BytesRead.Length} bytes that are not the HTTP/2 connection preface");
+        }
+
+        lastStreamId = 1;
+        OpenStream(
+            new Http2HeadersFrame(1, [], EndStream: true, EndHeaders: true, null),
+            new Http2RequestHead(upgradedRequest.Method, upgradedRequest.Target, upgradedRequest.Authority, upgradedRequest.Fields, null, false));
+
+        return await ReadFramesAsync();
     }
 
     // Null when the client closed; otherwise the connection error that ends the connection.
@@ -279,7 +319,19 @@ internal sealed class Http2ConnectionServer
             return null;
         }
 
-        foreach (var setting in settings.Settings)
+        if (await ApplySettingsAsync(settings.Settings) is { } error)
+        {
+            return error;
+        }
+
+        await frames.WriteAsync(Http2SettingsFrame.Acknowledgement, ConnectionToken);
+
+        return null;
+    }
+
+    private async Task<Http2ConnectionError?> ApplySettingsAsync(IReadOnlyList<Http2Setting> settings)
+    {
+        foreach (var setting in settings)
         {
             if (setting.Identifier == Http2SettingIdentifier.HeaderTableSize)
             {
@@ -290,8 +342,6 @@ internal sealed class Http2ConnectionServer
                 return new(Http2ErrorCode.FlowControlError, "a SETTINGS_INITIAL_WINDOW_SIZE grew a stream's send window past 2^31-1");
             }
         }
-
-        await frames.WriteAsync(Http2SettingsFrame.Acknowledgement, ConnectionToken);
 
         return null;
     }
