@@ -8,7 +8,7 @@ depends-on: [BL-463, BL-404, BL-619]
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests, Surl.slnx]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-464 — Create the MCP server over Surl.McpServing's JSON-RPC messages and lifecycle
 
@@ -33,18 +33,30 @@ codes are the core's, answered independently of any transport.
 
 ## Acceptance criteria
 
-- [ ] Both projects exist, are in `Surl.slnx`, reference `Surl.McpServing`, and `ProtocolIsolationTests` passes.
-- [ ] Named tests show, through this server's session:
+- [x] Both projects exist, are in `Surl.slnx`, reference `Surl.McpServing`, and `ProtocolIsolationTests` passes.
+- [x] Named tests show, through this server's session:
       - the "Lifecycle" page's `initialize` request example answered with a result in the page's shape carrying this
         server's `serverInfo` as BL-463's ADR names it;
       - an unsupported `protocolVersion` answered as BL-612's ADR says;
       - a request before `initialize` refused;
       - `ping` answered with `{}`.
-- [ ] No JSON-RPC parsing or writing code exists in this library (it is the core's).
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library has 100% line and branch
+- [x] No JSON-RPC parsing or writing code exists in this library (it is the core's).
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library has 100% line and branch
       coverage.
 
 ## Notes
+
+- 2026-11-05 (lane 4): Two public types. `McpServerIdentity` holds ADR-0111 decision 1's `serverInfo`
+  name and title and its `instructions`; surl's version is a parameter, because a protocol server may not
+  reference `Surl.Console` - the host (BL-468) passes its informational version. `McpServerSession` wraps
+  the core's `McpRequestDispatcher`; `CreateOptions(surlVersion, maximumMessageBytes)` builds the options
+  every session shares, so BL-466/BL-467 pass `--max-message` there.
+- Only `Surl.Protocol.Abstractions` and `Surl.McpServing` are referenced for now; ADR-0111's
+  `Surl.HttpServing` and `Surl.Content` references arrive with the tasks that use them (BL-465, BL-466).
+- With no tools registered yet (BL-465), `capabilities` is `{}`; the core earns `tools` once one is added.
+- The core's `Utf8JsonWriter` writes each `'` in `instructions` as `'`; the lifecycle test pins that
+  form, which any JSON reader reads back as the same text.
+- Tests: `McpServerSessionTests` (8), `McpServerIdentityTests` (3); the library is at 100% line and branch.
 
 ## Log
 
@@ -53,3 +65,4 @@ codes are the core's, answered independently of any transport.
   instead of writing JSON-RPC and the lifecycle itself; the core's own tests now carry the malformed-JSON, null-id,
   unknown-method, notification and size-limit cases. Title changed to match.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. Surl.Extended.Protocol.McpServer answers the MCP lifecycle through Surl.McpServing with its own serverInfo and instructions
