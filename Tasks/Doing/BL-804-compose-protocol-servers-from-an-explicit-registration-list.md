@@ -59,3 +59,4 @@ servers in the same order as today.
 
 - 2026-11-05: Created.
 - 2026-11-05: Amended by ADR-0124 (BL-822): extended servers on the same record; `AdditionalProtocolServers` input.
+- 2026-11-05: Backlog -> Doing.
