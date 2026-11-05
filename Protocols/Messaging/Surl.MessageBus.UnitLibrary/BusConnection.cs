@@ -39,8 +39,98 @@ public sealed class BusConnection : IDisposable
     }
 
     /// <summary>
-    /// Ends every subscription the connection holds; it can make no more. Disposing it again
-    /// does nothing.
+    /// Declares a named queue (AMQP 0-9-1 <c>queue.declare</c>): makes it when absent, and
+    /// otherwise checks it was made with the same <paramref name="flags"/>. An exclusive queue
+    /// belongs to this connection.
+    /// </summary>
+    /// <param name="name">The queue's name; not empty.</param>
+    /// <param name="flags">Its flags.</param>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.InvalidQueueName"/>,
+    /// <see cref="MessageBusOutcome.TooManyQueues"/>, <see cref="MessageBusOutcome.QueueLocked"/>
+    /// or <see cref="MessageBusOutcome.QueueFlagsDiffer"/> when refused - and the queue's counts.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusQueueDeclareResult DeclareQueue(string name, BusQueueFlags flags = default)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return bus.DeclareQueue(this, name, flags);
+    }
+
+    /// <summary>
+    /// Binds a queue to a canonical filter: every later publish on a matching topic is copied
+    /// into it, once however many of its filters match. Binding the same filter again does nothing.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="filter">A canonical topic filter (<see cref="CanonicalTopicName.IsValidFilter"/>).</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.InvalidFilter"/>,
+    /// <see cref="MessageBusOutcome.UnknownQueue"/> or <see cref="MessageBusOutcome.QueueLocked"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public MessageBusOutcome BindQueue(string queueName, string filter)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        ArgumentNullException.ThrowIfNull(filter);
+        return bus.BindQueue(this, queueName, filter, bind: true);
+    }
+
+    /// <summary>
+    /// Removes a queue's binding to a filter; a filter it is not bound to is no error.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="filter">The filter it was bound with.</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.InvalidFilter"/>,
+    /// <see cref="MessageBusOutcome.UnknownQueue"/> or <see cref="MessageBusOutcome.QueueLocked"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public MessageBusOutcome UnbindQueue(string queueName, string filter)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        ArgumentNullException.ThrowIfNull(filter);
+        return bus.BindQueue(this, queueName, filter, bind: false);
+    }
+
+    /// <summary>
+    /// Deletes a queue with every message in it; its consumers receive nothing more.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.UnknownQueue"/>
+    /// or <see cref="MessageBusOutcome.QueueLocked"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public MessageBusOutcome DeleteQueue(string queueName)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        return bus.DeleteQueue(this, queueName);
+    }
+
+    /// <summary>
+    /// Makes a consumer of a queue, counted against
+    /// <see cref="MessageBus.MaxSubscriptionsPerConnection"/>. It receives nothing until
+    /// <see cref="BusQueueConsumer.Start"/>.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="deliver">Called with each delivery, on the same terms as a subscription's
+    /// callback (<see cref="Subscribe"/>). It may acknowledge or reject.</param>
+    /// <param name="maxUnacknowledged">The most deliveries the consumer holds unacknowledged at
+    /// once; 0 for no limit.</param>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
+    /// <see cref="MessageBusOutcome.QueueLocked"/> or
+    /// <see cref="MessageBusOutcome.TooManySubscriptions"/> when refused - and the consumer.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxUnacknowledged"/> is negative.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusConsumeResult Consume(string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged = 0)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        ArgumentNullException.ThrowIfNull(deliver);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxUnacknowledged);
+        return bus.Consume(this, queueName, deliver, maxUnacknowledged);
+    }
+
+    /// <summary>
+    /// Ends every subscription and consumer the connection holds - each consumer's
+    /// unacknowledged deliveries go back to their queues, marked redelivered - and deletes the
+    /// queues exclusive to it; it can make no more. Disposing it again does nothing.
     /// </summary>
     public void Dispose() => bus.Disconnect(this);
 }

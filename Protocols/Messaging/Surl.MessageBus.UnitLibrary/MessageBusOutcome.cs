@@ -33,4 +33,32 @@ public enum MessageBusOutcome
     /// <summary>The connection already holds <see cref="MessageBus.MaxSubscriptionsPerConnection"/>
     /// subscriptions; no subscription was made.</summary>
     TooManySubscriptions,
+
+    /// <summary>Declaring the queue would pass <see cref="MessageBus.MaxQueues"/>; no queue was
+    /// made.</summary>
+    TooManyQueues,
+
+    /// <summary>The queue already holds <see cref="MessageBus.MaxMessagesPerQueue"/> messages,
+    /// unacknowledged included, or the copy would pass <see cref="MessageBus.MaxQueuedBytes"/>;
+    /// that queue did not take the message, and a topic publish still reached everything else
+    /// (ADR-0100, decision 3.6).</summary>
+    QueueFull,
+
+    /// <summary>The queue name is empty; no queue was made.</summary>
+    InvalidQueueName,
+
+    /// <summary>No queue of that name exists (AMQP 0-9-1 <c>404 not-found</c>).</summary>
+    UnknownQueue,
+
+    /// <summary>The queue is exclusive to another connection (AMQP 0-9-1
+    /// <c>405 resource-locked</c>); nothing changed.</summary>
+    QueueLocked,
+
+    /// <summary>The queue exists with other <see cref="BusQueueFlags"/> than the declare asked
+    /// for (AMQP 0-9-1 <c>406 precondition-failed</c>); the queue is unchanged.</summary>
+    QueueFlagsDiffer,
+
+    /// <summary>The consumer holds no unacknowledged delivery with that tag (AMQP 0-9-1
+    /// <c>406 precondition-failed</c>, "unknown delivery tag"); nothing changed.</summary>
+    UnknownDeliveryTag,
 }

@@ -3,7 +3,9 @@ namespace Surl.MessageBus;
 /// <summary>
 /// The one topic space the messaging servers of a <c>surl</c> process share (ADR-0100,
 /// decision 3): a publish to a canonical topic is handed to every live subscription whose
-/// filter matches, and a retained publish keeps the topic's one retained message. Created once
+/// filter matches, a retained publish keeps the topic's one retained message, and a copy goes
+/// into every named queue bound by a matching filter (its queue operations are in
+/// <c>MessageBus.Queues.cs</c>). Created once
 /// per process by the composition and handed to every server of the job. Safe for concurrent
 /// use: several connections publish and subscribe at once.
 /// </summary>
@@ -21,7 +23,7 @@ namespace Surl.MessageBus;
 /// another thread is delivering returns at once and its deliveries follow.
 /// </para>
 /// </remarks>
-public sealed class MessageBus
+public sealed partial class MessageBus
 {
     /// <summary>The default for <see cref="MaxTopics"/>: 10000 (ADR-0014 decision 7's number).</summary>
     public const int DefaultMaxTopics = 10_000;
@@ -36,12 +38,22 @@ public sealed class MessageBus
     /// <c>--max-filesize</c>; the composition passes the run's own.</summary>
     public const long DefaultMaxMessageBytes = 104_857_600;
 
+    /// <summary>The default for <see cref="MaxQueues"/>: 1000.</summary>
+    public const int DefaultMaxQueues = 1_000;
+
+    /// <summary>The default for <see cref="MaxMessagesPerQueue"/>: 100000.</summary>
+    public const int DefaultMaxMessagesPerQueue = 100_000;
+
+    /// <summary>The default for <see cref="MaxQueuedBytes"/>: 268435456 (256 MiB, ADR-0050
+    /// decision 6's memory bound).</summary>
+    public const long DefaultMaxQueuedBytes = 268_435_456;
+
     private readonly TimeProvider timeProvider;
     private readonly Lock stateLock = new();
     private readonly Dictionary<string, BusMessage> retainedMessages = new(StringComparer.Ordinal);
     private readonly List<BusSubscription> subscriptions = [];
     private readonly Dictionary<(string Group, string Filter), int> nextGroupMember = [];
-    private readonly Queue<(BusMessage Message, List<BusSubscription> Targets)> waitingDeliveries = new();
+    private readonly Queue<Action> waitingDeliveries = new();
     private long retainedPayloadBytes;
     private bool delivering;
 
@@ -54,6 +66,9 @@ public sealed class MessageBus
     /// <param name="maxRetainedPayloadBytes">The value of <see cref="MaxRetainedPayloadBytes"/>; at least 1.</param>
     /// <param name="maxSubscriptionsPerConnection">The value of <see cref="MaxSubscriptionsPerConnection"/>; at least 1.</param>
     /// <param name="maxMessageBytes">The value of <see cref="MaxMessageBytes"/>; at least 0.</param>
+    /// <param name="maxQueues">The value of <see cref="MaxQueues"/>; at least 1.</param>
+    /// <param name="maxMessagesPerQueue">The value of <see cref="MaxMessagesPerQueue"/>; at least 1.</param>
+    /// <param name="maxQueuedBytes">The value of <see cref="MaxQueuedBytes"/>; at least 1.</param>
     /// <exception cref="ArgumentNullException"><paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is below its least value.</exception>
     public MessageBus(
@@ -61,19 +76,28 @@ public sealed class MessageBus
         int maxTopics = DefaultMaxTopics,
         long maxRetainedPayloadBytes = DefaultMaxRetainedPayloadBytes,
         int maxSubscriptionsPerConnection = DefaultMaxSubscriptionsPerConnection,
-        long maxMessageBytes = DefaultMaxMessageBytes)
+        long maxMessageBytes = DefaultMaxMessageBytes,
+        int maxQueues = DefaultMaxQueues,
+        int maxMessagesPerQueue = DefaultMaxMessagesPerQueue,
+        long maxQueuedBytes = DefaultMaxQueuedBytes)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTopics, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxRetainedPayloadBytes, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxSubscriptionsPerConnection, 1);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMessageBytes);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxQueues, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxMessagesPerQueue, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxQueuedBytes, 1);
 
         this.timeProvider = timeProvider;
         MaxTopics = maxTopics;
         MaxRetainedPayloadBytes = maxRetainedPayloadBytes;
         MaxSubscriptionsPerConnection = maxSubscriptionsPerConnection;
         MaxMessageBytes = maxMessageBytes;
+        MaxQueues = maxQueues;
+        MaxMessagesPerQueue = maxMessagesPerQueue;
+        MaxQueuedBytes = maxQueuedBytes;
     }
 
     /// <summary>The most topics holding a retained message.</summary>
@@ -87,6 +111,15 @@ public sealed class MessageBus
 
     /// <summary>The most bytes one message's payload holds.</summary>
     public long MaxMessageBytes { get; }
+
+    /// <summary>The most named queues.</summary>
+    public int MaxQueues { get; }
+
+    /// <summary>The most messages one named queue holds, unacknowledged ones included.</summary>
+    public int MaxMessagesPerQueue { get; }
+
+    /// <summary>The most payload bytes all named queues hold together, unacknowledged ones included.</summary>
+    public long MaxQueuedBytes { get; }
 
     /// <summary>
     /// Gives a server connection its place on the bus, through which it subscribes.
@@ -121,13 +154,7 @@ public sealed class MessageBus
         }
 
         var published = Copy(message, now);
-        var (outcome, deliveredCount, startDelivering) = Accept(published);
-        if (startDelivering)
-        {
-            DeliverWaiting();
-        }
-
-        return new(outcome, deliveredCount);
+        return ChangeState(() => Accept(published, now));
     }
 
     internal BusSubscribeResult Subscribe(BusConnection connection, string filter, Action<BusMessage> deliver, string? group, bool includeRetained)
@@ -166,19 +193,41 @@ public sealed class MessageBus
         }
     }
 
-    internal void Disconnect(BusConnection connection)
+    internal void Disconnect(BusConnection connection) => ChangeState(() =>
     {
+        connection.IsClosed = true;
+        foreach (var subscription in subscriptions.Where(subscription => subscription.Connection == connection))
+        {
+            subscription.Deactivate();
+        }
+
+        subscriptions.RemoveAll(subscription => subscription.Connection == connection);
+        EndQueuesOf(connection);
+        connection.SubscriptionCount = 0;
+        return true;
+    });
+
+    /// <summary>
+    /// Makes a change under the bus's lock, then, when the change left deliveries waiting and
+    /// nobody is delivering, makes them outside the lock before returning.
+    /// </summary>
+    private T ChangeState<T>(Func<T> change)
+    {
+        T result;
+        bool startDelivering;
         lock (stateLock)
         {
-            connection.IsClosed = true;
-            foreach (var subscription in subscriptions.Where(subscription => subscription.Connection == connection))
-            {
-                subscription.Deactivate();
-            }
-
-            subscriptions.RemoveAll(subscription => subscription.Connection == connection);
-            connection.SubscriptionCount = 0;
+            result = change();
+            startDelivering = !delivering && waitingDeliveries.Count > 0;
+            delivering |= startDelivering;
         }
+
+        if (startDelivering)
+        {
+            DeliverWaiting();
+        }
+
+        return result;
     }
 
     private static bool IsExpired(BusMessage message, DateTimeOffset now) => message.ExpiresAt <= now;
@@ -200,26 +249,30 @@ public sealed class MessageBus
         : message.Payload.Length > MaxMessageBytes ? MessageBusOutcome.MessageTooLarge
         : MessageBusOutcome.Succeeded;
 
-    private (MessageBusOutcome Outcome, int DeliveredCount, bool StartDelivering) Accept(BusMessage published)
+    private BusPublishResult Accept(BusMessage published, DateTimeOffset now)
     {
-        lock (stateLock)
+        var outcome = published.Retain ? Retain(published) : MessageBusOutcome.Succeeded;
+        if (outcome is not MessageBusOutcome.Succeeded)
         {
-            var outcome = published.Retain ? Retain(published) : MessageBusOutcome.Succeeded;
-            if (outcome is not MessageBusOutcome.Succeeded)
-            {
-                return (outcome, 0, false);
-            }
+            return new(outcome, 0);
+        }
 
-            var targets = SelectTargets(CanonicalTopicName.SplitLevels(published.Topic));
-            if (targets.Count == 0)
-            {
-                return (outcome, 0, false);
-            }
+        var topicLevels = CanonicalTopicName.SplitLevels(published.Topic);
+        var targets = SelectTargets(topicLevels);
+        if (targets.Count > 0)
+        {
+            waitingDeliveries.Enqueue(() => DeliverToSubscriptions(published, targets));
+        }
 
-            waitingDeliveries.Enqueue((published, targets));
-            var startDelivering = !delivering;
-            delivering = true;
-            return (outcome, targets.Count, startDelivering);
+        var (queuedCount, fullQueueCount) = CopyIntoBoundQueues(published, topicLevels, now);
+        return new(outcome, targets.Count) { QueuedCount = queuedCount, FullQueueCount = fullQueueCount };
+    }
+
+    private static void DeliverToSubscriptions(BusMessage message, List<BusSubscription> targets)
+    {
+        foreach (var subscription in targets)
+        {
+            subscription.Deliver(message);
         }
     }
 
@@ -316,10 +369,7 @@ public sealed class MessageBus
         {
             while (TryTakeWaitingDelivery(out var delivery))
             {
-                foreach (var subscription in delivery.Targets)
-                {
-                    subscription.Deliver(delivery.Message);
-                }
+                delivery();
             }
         }
         catch (Exception)
@@ -333,7 +383,7 @@ public sealed class MessageBus
         }
     }
 
-    private bool TryTakeWaitingDelivery(out (BusMessage Message, List<BusSubscription> Targets) delivery)
+    private bool TryTakeWaitingDelivery([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Action? delivery)
     {
         lock (stateLock)
         {
