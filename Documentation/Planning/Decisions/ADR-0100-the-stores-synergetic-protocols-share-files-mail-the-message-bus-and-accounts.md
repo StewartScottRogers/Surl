@@ -14,6 +14,12 @@
   [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
   decision 5: its "each server's own ADR decides where any metadata a file system cannot hold lives"
   is decided here, once, for all four object-storage servers (decision 2).
+- **Amended:** decision 3.2's AMQP 1.0 row by
+  [ADR-0107](ADR-0107-how-the-amqp-1-0-container-answers-amqp1-and-amqp1s.md) decision 4
+  (2026-11-05, BL-509): the AMQP 1.0 container drops one leading `/` from a link address, and an
+  address with neither `topic/` nor `queue/` names the queue of that name instead of being refused
+  with `amqp:not-found`. `Amqp1AddressNames` is unchanged; the container rewrites the address
+  before calling it. STOMP's row stands.
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
