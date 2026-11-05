@@ -143,9 +143,13 @@ Selection is built (BL-389):
 - `UpstreamTestCaseDisabledList.Parse` reads `DISABLED`, its `%if` lines against those features.
 - `UpstreamTestCaseSelector.FindSkipReason(number, case)` gives the first of decision 3's
   `UpstreamTestCaseSkipReasons` that applies, or `null` when the case can run, under
-  `UpstreamTestCaseSelectionRules`. `ForBuild(pin, disabled)` is Surl as it stands: no server
-  command accepted, and the strip lines the verify checker interprets; the server halves replace
-  their predicate with `with` as they land. Parse a case for selection with the pin's features and
+  `UpstreamTestCaseSelectionRules`. `ForBuild(pin, disabled)` is Surl as it stands: the server
+  commands `UpstreamTestCaseServerCommands` lists for each built server half, and the strip lines
+  the verify checker interprets. `UpstreamTestCaseServerCommands` has one row per server name,
+  the same words the protocol library's server half accepts (a test pins the HTTP row to
+  `HttpUpstreamTestCaseReplies.SupportedServerCommands`); a server half that lands adds its row. A
+  case with a `<postcmd>` asks for `postcmd`, which no row has, so it skips
+  `servercmd-unsupported:postcmd`. Parse a case for selection with the pin's features and
   without `SRCDIR` or `PERL`, so `needs-perl` still sees them.
 - `UpstreamTestCaseCorpusTests` writes the count per skip reason for each reference pin to the
   test log.

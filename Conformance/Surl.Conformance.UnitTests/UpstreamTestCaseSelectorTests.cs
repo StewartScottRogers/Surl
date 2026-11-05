@@ -253,11 +253,13 @@ public sealed class UpstreamTestCaseSelectorTests
     }
 
     [TestMethod]
-    public void ForBuild_AsSurlStandsToday_AcceptsNoServerCommandAndTheInterpretedStripLines()
+    public void ForBuild_AsSurlStandsToday_AcceptsTheBuiltServerHalvesCommandsAndTheInterpretedStripLines()
     {
         var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>());
 
         Assert.IsFalse(rules.SupportsServerCommand("ftp", "REPLY"));
+        Assert.IsTrue(rules.SupportsServerCommand("http", "writedelay:"));
+        Assert.IsFalse(rules.SupportsServerCommand("http", "upgrade"));
         Assert.IsTrue(rules.SupportsStripLine("strip", "^Date:"));
         Assert.IsTrue(rules.SupportsStripLine("strippart", "s/^Date:.*//"));
         Assert.IsFalse(rules.SupportsStripLine("strippart", "chomp;"));
@@ -265,6 +267,22 @@ public sealed class UpstreamTestCaseSelectorTests
         Assert.Contains("http", rules.Protocols);
     }
 
+    [TestMethod]
+    [DataRow("http", "<servercmd>\nwritedelay: 10\nskip: 4\n</servercmd>\n", null)]
+    [DataRow("https", "<servercmd>\nauth_required\nswsclose\n</servercmd>\n", null)]
+    [DataRow("http", "<servercmd>\nupgrade\n</servercmd>\n", "servercmd-unsupported:upgrade")]
+    [DataRow("http", "<servercmd>\nconnection-monitor\n</servercmd>\n", "servercmd-unsupported:connection-monitor")]
+    [DataRow("http", "<postcmd>\nwait 1\n</postcmd>\n", "servercmd-unsupported:postcmd")]
+    [DataRow("http", "<postcmd>\n# nothing\n</postcmd>\n", null)]
+    [DataRow("ftp", "<servercmd>\nidle\n</servercmd>\n", "servercmd-unsupported:idle")]
+    public void FindSkipReason_ServerCommandsUnderTodaysRules_RunOrSkipByTheServerHalfsTable(string server, string reply, string? expected)
+    {
+        var rules = Rules() with { SupportsServerCommand = UpstreamTestCaseServerCommands.IsSupported };
+
+        var reason = new UpstreamTestCaseSelector(rules).FindSkipReason(Number, Case(client: Server(server), reply: reply));
+
+        Assert.AreEqual(expected, reason);
+    }
     internal static List<PinnedUpstreamCurlBuild> ReferencePins() =>
         UpstreamCurlBuildPins.Parse(File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamCurlBuildPins.FileName)))
             .Where(pin => pin.Role == UpstreamCurlBuildRole.Reference && pin.Kind == UpstreamCurlBuildKind.Curl)

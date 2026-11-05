@@ -10,7 +10,8 @@ namespace Surl.Conformance;
 /// <param name="Features">The build's features, as <see cref="UpstreamCurlBuildFeatures.For"/> derives them.</param>
 /// <param name="SupportsServerCommand">
 /// Whether the server half for a server name implements a <c>&lt;servercmd&gt;</c> command,
-/// given the name and the command's first word.
+/// given the name and the command's first word; a case with a <c>&lt;postcmd&gt;</c> asks for
+/// <see cref="UpstreamTestCaseServerCommands.PostCommand"/>.
 /// </param>
 /// <param name="SupportsStripLine">
 /// Whether the verify checker interprets a strip line, given the part's name (<c>strip</c>,
@@ -26,10 +27,10 @@ public sealed record UpstreamTestCaseSelectionRules(
     IReadOnlySet<int> TestServerChoices)
 {
     /// <summary>
-    /// The rules for <paramref name="build"/> as Surl stands today: no server half takes a
-    /// server command yet (BL-391 to BL-397 build them), the verify checker interprets the strip
-    /// lines <see cref="UpstreamTestCaseStripLine.IsSupported"/> accepts, and nothing is excluded.
-    /// Replace those with <c>with</c> as they land.
+    /// The rules for <paramref name="build"/> as Surl stands today: the server commands
+    /// <see cref="UpstreamTestCaseServerCommands"/> lists for each built server half (BL-391 to
+    /// BL-397 add their rows), the strip lines <see cref="UpstreamTestCaseStripLine.IsSupported"/>
+    /// accepts, and nothing excluded.
     /// </summary>
     /// <param name="build">The pinned build.</param>
     /// <param name="disabledCases">The case numbers <c>tests/data/DISABLED</c> lists.</param>
@@ -43,7 +44,7 @@ public sealed record UpstreamTestCaseSelectionRules(
             disabledCases,
             build.Protocols.Select(protocol => protocol.ToLowerInvariant()).ToHashSet(StringComparer.Ordinal),
             UpstreamCurlBuildFeatures.For(build),
-            static (_, _) => false,
+            UpstreamTestCaseServerCommands.IsSupported,
             UpstreamTestCaseStripLine.IsSupported,
             new HashSet<int>());
     }

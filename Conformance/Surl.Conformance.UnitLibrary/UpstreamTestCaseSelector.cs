@@ -99,7 +99,8 @@ public sealed class UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules rule
             .ToList();
 
         public IEnumerable<string> ServerCommands =>
-            Words(testCase, "reply", "servercmd").Where(line => !line.StartsWith('#')).Select(line => line.Split(' ', '\t')[0]);
+            Words(testCase, "reply", "servercmd").Where(line => !line.StartsWith('#')).Select(line => line.Split(' ', '\t')[0])
+                .Concat(Words(testCase, "reply", "postcmd").Any(line => !line.StartsWith('#')) ? [UpstreamTestCaseServerCommands.PostCommand] : []);
 
         public IEnumerable<(string Part, string Line)> StripLines =>
             (testCase.FindSection("verify")?.Parts ?? [])
