@@ -27,12 +27,12 @@ adds where the pages leave the server a choice.
 | Redis:RESP-Request-4 | MUST | `*0` and a negative multibulk length are ignored. | `RedisCommandReaderTests.ReadCommandAsync_EmptyLinesAndEmptyArrays_AreSkipped` |
 | Redis:Surl-Limits-1 | MUST | A bulk length that is negative, not numeric or above `--max-filesize`, or a bulk string without its CR LF, is `-ERR Protocol error: invalid bulk length`, then close. | `RedisCommandReaderTests.ReadCommandAsync_BadBulkLengthOrMissingCrLf_IsInvalidBulkLength` |
 | Redis:Surl-Limits-2 | MUST | A multibulk count that is not numeric or above 1048576 is `-ERR Protocol error: invalid multibulk length`, then close. | `RedisCommandReaderTests.ReadCommandAsync_BadMultibulkCount_IsInvalidMultibulkLength` |
-| Redis:Surl-Limits-3 | MUST | Before login, more than 10 elements or a bulk string over 16384 bytes is `-ERR Protocol error: unauthenticated multibulk length` / `unauthenticated bulk length`, then close. | BL-489 |
+| Redis:Surl-Limits-3 | MUST | Before login, more than 10 elements or a bulk string over 16384 bytes is `-ERR Protocol error: unauthenticated multibulk length` / `unauthenticated bulk length`, then close. | `RedisServerTests.ServeAsync_MoreThanTenElementsBeforeLogin_IsTheUnauthenticatedMultibulkError`, `RedisServerTests.ServeAsync_BulkStringOver16KiBBeforeLogin_IsTheUnauthenticatedBulkError`, `RedisServerTests.ServeAsync_ElevenElementsAfterLogin_AreRead` |
 | Redis:Surl-Limits-4 | MUST | An array element not a bulk string is `-ERR Protocol error: expected '$', got '<byte>'`, then close. | `RedisCommandReaderTests.ReadCommandAsync_ElementNotABulkString_IsExpectedDollar` |
 | Redis:Surl-Limits-5 | MUST | An inline command over `--max-line` is `-ERR Protocol error: too big inline request`, and unbalanced quotes `-ERR Protocol error: unbalanced quotes in request`; each then close. | `RedisCommandReaderTests.ReadCommandAsync_InlineLineLongerThanMaxLine_IsTooBigInlineRequest`, `RedisCommandReaderTests.ReadCommandAsync_InlineUnbalancedQuotes_IsUnbalancedQuotesInRequest` |
-| Redis:Surl-Limits-6 | MUST | One command's bytes past `--max-filesize` plus 64 KiB close the connection with no bytes. | `RedisCommandReaderTests.ReadCommandAsync_CommandPastMaxFilesizeAndFraming_IsCommandTooLarge` (the reader; BL-489's server closes) |
-| Redis:Surl-Limits-7 | MUST | No complete command by `--head-timeout` closes the connection with no bytes. | BL-489 |
-| Redis:Surl-Limits-8 | MUST | A connection past `--max-connections` or `--max-connections-per-address` is answered `-ERR max number of clients reached`, then closed. | BL-489 |
+| Redis:Surl-Limits-6 | MUST | One command's bytes past `--max-filesize` plus 64 KiB close the connection with no bytes. | `RedisCommandReaderTests.ReadCommandAsync_CommandPastMaxFilesizeAndFraming_IsCommandTooLarge` and `RedisServerTests.ServeAsync_CommandPastMaxFilesizeAndFraming_ClosesWithNoBytes` |
+| Redis:Surl-Limits-7 | MUST | No complete command by `--head-timeout` closes the connection with no bytes. | `RedisServerTests.ServeAsync_FirstCommandPastTheHeadTimeout_ClosesWithNoBytes`, `RedisServerTests.ServeAsync_LaterCommandIncompleteWithinTheHeadTimeoutOfItsFirstByte_ClosesWithNoMoreBytes` |
+| Redis:Surl-Limits-8 | MUST | A connection past `--max-connections` or `--max-connections-per-address` is answered `-ERR max number of clients reached`, then closed. | `RedisServerTests.WriteRefusalAsync_AnyRefusal_IsMaxNumberOfClientsReachedThenClose` |
 
 ## Reply types (RESP page; RESP3.md)
 
@@ -60,27 +60,27 @@ adds where the pages leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Redis:HELLO-1 | MUST | A connection starts in RESP2; `HELLO 3` switches it to RESP3 and `HELLO 2` back, from the `HELLO` reply on. | BL-489 |
-| Redis:HELLO-2 | MUST | `HELLO`'s reply holds `server`, `version`, `proto`, `id`, `mode`, `role` and `modules`: a map in RESP3, a flat array in RESP2. | BL-489 |
-| Redis:HELLO-3 | MUST | An unsupported or non-integer version is `-NOPROTO unsupported protocol version`, the version unchanged. | BL-489 |
-| Redis:HELLO-4 | MUST | `HELLO <v> AUTH <user> <password>` logs in before the switch; a refusal leaves the version unchanged. | BL-489 |
-| Redis:HELLO-5 | MUST | `HELLO <v> SETNAME <name>` names the connection. | BL-489 |
-| Redis:HELLO-6 | MUST | `HELLO` without `AUTH` before a required login is `-NOAUTH HELLO must be called with the client already authenticated, …`. | BL-489 |
-| Redis:AUTH-1 | MUST | `AUTH <password>` logs in as `default`; `AUTH <user> <password>` as `<user>`; `+OK` when accepted. | BL-489 |
-| Redis:AUTH-2 | MUST | A refused login is `-WRONGPASS invalid username-password pair or user is disabled.`, after the refusal delay, an earlier login kept. | BL-489 |
-| Redis:Surl-Auth-1 | MUST | Unless `--allow-anonymous`, any command but `AUTH`, `HELLO`, `QUIT` and `RESET` before login is `-NOAUTH Authentication required.`, the connection kept. | BL-489 |
-| Redis:Surl-Auth-2 | MUST | Under `--allow-anonymous` every command is served without login, and `AUTH` is accepted unchecked. | BL-489 |
-| Redis:Surl-Auth-3 | MUST | A login on `redis://` without TLS is refused unless `--allow-plaintext-auth`, with the `-WRONGPASS` text. | BL-489 |
-| Redis:SELECT-1 | MUST | `SELECT 0` to `SELECT 15` pick the database; another index is `-ERR DB index is out of range`, a non-integer `-ERR value is not an integer or out of range`. | BL-489 |
-| Redis:PING-1 | MUST | `PING` is `+PONG`, `PING <msg>` the bulk string `<msg>`, in both versions. | BL-489 |
-| Redis:ECHO-1 | MUST | `ECHO <msg>` is the bulk string `<msg>`. | BL-489 |
-| Redis:QUIT-1 | MUST | `QUIT` is `+OK`, then the connection closes. | BL-489 |
-| Redis:RESET-1 | MUST | `RESET` logs out, unsubscribes, selects 0, clears the name, returns to RESP2 and answers `+RESET`. | BL-489 |
-| Redis:CLIENT-1 | MUST | `CLIENT SETNAME`, `GETNAME` (null when unnamed), `ID` and `SETINFO` (`+OK`); a name with spaces or newlines is refused with the page's text. | BL-489 |
-| Redis:CLIENT-2 | MUST | Another `CLIENT` subcommand is `-ERR unknown subcommand '<sub>'. Try CLIENT HELP.` | BL-489 |
-| Redis:Surl-Commands-1 | MUST | A command not served is `-ERR unknown command '<name>', with args beginning with: …`, CR and LF echoed as spaces, cut to 128 bytes; the connection stays open. | BL-489 |
-| Redis:Surl-Commands-2 | MUST | A command with the wrong argument count is `-ERR wrong number of arguments for '<command>' command`. | BL-489 |
-| Redis:Surl-Commands-3 | MUST | Command names are case-insensitive. | BL-489 |
+| Redis:HELLO-1 | MUST | A connection starts in RESP2; `HELLO 3` switches it to RESP3 and `HELLO 2` back, from the `HELLO` reply on. | `RedisConnectionCommandsTests.ServeAsync_Hello3_AnswersARespThreeMapAndLaterRepliesAreRespThree`, `RedisConnectionCommandsTests.ServeAsync_Hello3ThenHello2_SwitchesBackToRespTwo` |
+| Redis:HELLO-2 | MUST | `HELLO`'s reply holds `server`, `version`, `proto`, `id`, `mode`, `role` and `modules`: a map in RESP3, a flat array in RESP2. | `RedisConnectionCommandsTests.ServeAsync_Hello3_AnswersARespThreeMapAndLaterRepliesAreRespThree`, `RedisConnectionCommandsTests.ServeAsync_HelloWithoutAVersion_KeepsTheVersionAndAnswersItsFields` |
+| Redis:HELLO-3 | MUST | An unsupported or non-integer version is `-NOPROTO unsupported protocol version`, the version unchanged. | `RedisConnectionCommandsTests.ServeAsync_HelloWithAnUnsupportedVersion_IsNoProtoAndKeepsTheVersion` |
+| Redis:HELLO-4 | MUST | `HELLO <v> AUTH <user> <password>` logs in before the switch; a refusal leaves the version unchanged. | `RedisConnectionCommandsTests.ServeAsync_Hello3WithAuth_LogsInAndSwitches`, `RedisConnectionCommandsTests.ServeAsync_Hello3WithRefusedAuth_IsWrongPassAndKeepsRespTwo` |
+| Redis:HELLO-5 | MUST | `HELLO <v> SETNAME <name>` names the connection. | `RedisConnectionCommandsTests.ServeAsync_HelloWithSetName_NamesTheConnection`, `RedisConnectionCommandsTests.ServeAsync_HelloWithABadOption_IsRefusedAndChangesNothing` |
+| Redis:HELLO-6 | MUST | `HELLO` without `AUTH` before a required login is `-NOAUTH HELLO must be called with the client already authenticated, …`. | `RedisConnectionCommandsTests.ServeAsync_HelloWithoutAuthBeforeALogin_IsHellosNoAuth` |
+| Redis:AUTH-1 | MUST | `AUTH <password>` logs in as `default`; `AUTH <user> <password>` as `<user>`; `+OK` when accepted. | `RedisConnectionCommandsTests.ServeAsync_AuthWithTheGoodPassword_IsOkAndLogsInAsDefault`, `RedisConnectionCommandsTests.ServeAsync_AuthWithUserAndPassword_LogsInAsThatUser` |
+| Redis:AUTH-2 | MUST | A refused login is `-WRONGPASS invalid username-password pair or user is disabled.`, after the refusal delay, an earlier login kept. | `RedisConnectionCommandsTests.ServeAsync_AuthWithABadPassword_IsWrongPassAndLeavesTheConnectionLoggedOut`, `RedisConnectionCommandsTests.ServeAsync_RefusedLoginAfterAnAcceptedOne_KeepsTheEarlierLogin` (the refusal delay is the policy's, `AuthenticationPolicy.RefusalDelay`) |
+| Redis:Surl-Auth-1 | MUST | Unless `--allow-anonymous`, any command but `AUTH`, `HELLO`, `QUIT` and `RESET` before login is `-NOAUTH Authentication required.`, the connection kept. | `RedisConnectionCommandsTests.ServeAsync_CommandBeforeAuth_IsNoAuthAndTheConnectionStaysOpen`, `RedisConnectionCommandsTests.ServeAsync_ClientBeforeLogin_IsNoAuth` |
+| Redis:Surl-Auth-2 | MUST | Under `--allow-anonymous` every command is served without login, and `AUTH` is accepted unchecked. | `RedisConnectionCommandsTests.ServeAsync_AnonymousAllowed_ServesCommandsWithoutLoginAndAcceptsAuthUnchecked` |
+| Redis:Surl-Auth-3 | MUST | A login on `redis://` without TLS is refused unless `--allow-plaintext-auth`, with the `-WRONGPASS` text. | `RedisConnectionCommandsTests.ServeAsync_PlaintextLoginThePolicyRefuses_IsWrongPass`, `RedisServerTests.ServeAsync_TlsConnection_PassesItsSessionToThePolicy` |
+| Redis:SELECT-1 | MUST | `SELECT 0` to `SELECT 15` pick the database; another index is `-ERR DB index is out of range`, a non-integer `-ERR value is not an integer or out of range`. | `RedisConnectionCommandsTests.ServeAsync_SelectInRange_IsOk`, `RedisConnectionCommandsTests.ServeAsync_SelectOutOfRangeOrNotAnInteger_IsRefused` |
+| Redis:PING-1 | MUST | `PING` is `+PONG`, `PING <msg>` the bulk string `<msg>`, in both versions. | `RedisConnectionCommandsTests.ServeAsync_PingInRespTwo_IsPongOrTheMessage`, `RedisConnectionCommandsTests.ServeAsync_PingInRespThree_IsPongOrTheMessage` |
+| Redis:ECHO-1 | MUST | `ECHO <msg>` is the bulk string `<msg>`. | `RedisConnectionCommandsTests.ServeAsync_Echo_IsTheMessage` |
+| Redis:QUIT-1 | MUST | `QUIT` is `+OK`, then the connection closes. | `RedisConnectionCommandsTests.ServeAsync_Quit_IsOkThenTheConnectionCloses` |
+| Redis:RESET-1 | MUST | `RESET` logs out, unsubscribes, selects 0, clears the name, returns to RESP2 and answers `+RESET`. | `RedisConnectionCommandsTests.ServeAsync_Reset_LogsOutClearsTheNameAndReturnsToRespTwo` (unsubscribing is BL-491's) |
+| Redis:CLIENT-1 | MUST | `CLIENT SETNAME`, `GETNAME` (null when unnamed), `ID` and `SETINFO` (`+OK`); a name with spaces or newlines is refused with the page's text. | `RedisConnectionCommandsTests.ServeAsync_ClientId_IsOnePerConnectionInServeOrder`, `RedisConnectionCommandsTests.ServeAsync_ClientSetNameThenGetName_AnswersTheNameAndAnEmptyNameClearsIt`, `RedisConnectionCommandsTests.ServeAsync_ClientSetNameWithSpacesOrSpecialCharacters_IsRefused`, `RedisConnectionCommandsTests.ServeAsync_ClientSetInfo_IsOkForTheLibraryAttributesAndASyntaxErrorOtherwise` |
+| Redis:CLIENT-2 | MUST | Another `CLIENT` subcommand is `-ERR unknown subcommand '<sub>'. Try CLIENT HELP.` | `RedisConnectionCommandsTests.ServeAsync_ClientWithAnUnknownSubcommandOrWrongCount_IsRefusedAsRedisDoes` |
+| Redis:Surl-Commands-1 | MUST | A command not served is `-ERR unknown command '<name>', with args beginning with: …`, CR and LF echoed as spaces, cut to 128 bytes; the connection stays open. | `RedisServerTests.ServeAsync_UnknownCommand_IsTheUnknownCommandErrorAndTheConnectionStaysOpen`, `RedisErrorRepliesTests.UnknownCommand_CrAndLfInNameAndArguments_AreWrittenAsSpaces`, `RedisErrorRepliesTests.UnknownCommand_LongArguments_StopOnce128BytesOfArgumentTextAreWritten` |
+| Redis:Surl-Commands-2 | MUST | A command with the wrong argument count is `-ERR wrong number of arguments for '<command>' command`. | `RedisConnectionCommandsTests.ServeAsync_PingWithTwoArguments_IsWrongArgumentCount`, `RedisConnectionCommandsTests.ServeAsync_AuthWithTooManyOrNoArguments_IsSyntaxErrorOrWrongArgumentCount` |
+| Redis:Surl-Commands-3 | MUST | Command names are case-insensitive. | `RedisServerTests.ServeAsync_CommandNamesInAnyCase_AreTheSameCommand` |
 
 ## Keys, strings and expiry
 
