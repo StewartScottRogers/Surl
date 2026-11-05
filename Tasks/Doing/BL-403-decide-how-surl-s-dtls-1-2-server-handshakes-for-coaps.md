@@ -59,3 +59,4 @@ failure; and how each ADR-0006 limit applies.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
