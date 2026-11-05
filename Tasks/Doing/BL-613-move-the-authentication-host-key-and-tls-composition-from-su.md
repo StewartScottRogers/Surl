@@ -72,3 +72,4 @@ instead of writing it, and `surl`'s output and exit codes are unchanged byte for
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
 - 2026-11-04: Doing -> Backlog. Needs Conformance/Surl.Conformance.UnitTests (RandomKerberosRandomSource's using), which BL-393 in Doing also touches; resume once BL-393 is finished
+- 2026-11-04: Backlog -> Doing.
