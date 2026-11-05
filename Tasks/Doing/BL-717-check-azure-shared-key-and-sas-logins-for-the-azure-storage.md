@@ -49,3 +49,4 @@ set, and answers every failure with ADR-0109 decision 3's code.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
