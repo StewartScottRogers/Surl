@@ -72,6 +72,9 @@ internal sealed class Mqtt5TestClient
         return connection.UnreadServerBytes();
     }
 
+    /// <summary>Ends the connection from the client's side with no <c>DISCONNECT</c>, as a network loss would.</summary>
+    public void Abort() => connection.Abort();
+
     /// <summary>Waits for the serving to end, the client sending nothing more, and returns every unread byte.</summary>
     public async Task<byte[]> ServingEndedAsync()
     {

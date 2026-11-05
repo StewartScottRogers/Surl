@@ -89,10 +89,10 @@ internal static class Mqtt5BrokerExchange
 
     /// <summary>
     /// A broker over <paramref name="state"/> (a fresh one when <see langword="null"/>) whose
-    /// policy accepts every login unchecked.
+    /// policy accepts every login unchecked, and whose enhanced authentication <paramref name="saslPolicy"/> runs.
     /// </summary>
-    public static Mqtt5Broker Broker(Mqtt5BrokerState? state = null, IAuthenticationPolicy? policy = null) =>
-        new(state ?? NewState(), policy ?? new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.AcceptedUnchecked));
+    public static Mqtt5Broker Broker(Mqtt5BrokerState? state = null, IAuthenticationPolicy? policy = null, ISaslAuthenticationPolicy? saslPolicy = null) =>
+        new(state ?? NewState(), policy ?? new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.AcceptedUnchecked), saslPolicy);
 
     /// <summary>
     /// The state of a broker over a fresh message bus on <paramref name="clock"/> (the system

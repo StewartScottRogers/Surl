@@ -1,32 +1,23 @@
-using System.Threading.Channels;
 using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Mqtt5;
 
 /// <summary>
-/// Sends one client the messages its subscriptions receive (ADR-0093 decision 4): as the sender of
-/// sections 4.3.2 and 4.3.3, in the order they arrive, never more unacknowledged QoS 1 and 2
-/// <c>PUBLISH</c>es than the client's Receive Maximum (<c>[MQTT-4.9.0-1]</c>), with Packet
-/// Identifiers unique among those in flight (<c>[MQTT-2.2.1-4]</c>), Topic Aliases as
-/// <see cref="Mqtt5OutboundTopicAliases"/> assigns them, and the Message Expiry Interval left.
-/// A message that expires while it waits is dropped (<c>[MQTT-3.3.2-5]</c>), as is one on a topic
-/// the client cannot name and one larger than the client's Maximum Packet Size
-/// (<c>[MQTT-3.1.2-25]</c>).
+/// Sends one connection's client the messages its session holds (ADR-0093 decisions 3 and 4): as
+/// the sender of sections 4.3.2 and 4.3.3, first the <c>PUBLISH</c>es a resumed session still has
+/// in flight, again with DUP 1, and its <c>PUBREL</c>s, in their original order
+/// (<c>[MQTT-4.4.0-1]</c>); then the waiting messages in the order they arrived, never more
+/// unacknowledged QoS 1 and 2 <c>PUBLISH</c>es than the client's Receive Maximum
+/// (<c>[MQTT-4.9.0-1]</c>), with Packet Identifiers unique among those in flight
+/// (<c>[MQTT-2.2.1-4]</c>), Topic Aliases as <see cref="Mqtt5OutboundTopicAliases"/> assigns them,
+/// and the Message Expiry Interval left. A message that expired while it waited is dropped
+/// (<c>[MQTT-3.3.2-5]</c>), as is one on a topic the client cannot name and one larger than the
+/// client's Maximum Packet Size (<c>[MQTT-3.1.2-25]</c>).
 /// </summary>
 internal sealed class Mqtt5OutboundDeliveries
 {
-    /// <summary>
-    /// The most messages that wait for one client at once; a message past it is dropped for that
-    /// client, as ADR-0006 bounds every store a peer can fill.
-    /// </summary>
-    public const int MaxWaitingDeliveries = 1000;
-
-    private readonly Channel<Mqtt5Delivery> waiting = Channel.CreateBounded<Mqtt5Delivery>(
-        new BoundedChannelOptions(MaxWaitingDeliveries) { FullMode = BoundedChannelFullMode.DropWrite, SingleReader = true });
-
-    private readonly Dictionary<ushort, Mqtt5PacketType> inFlight = [];
-    private readonly Lock inFlightGate = new();
+    private readonly Mqtt5Session session;
     private readonly SemaphoreSlim inFlightSlots;
     private readonly Mqtt5OutboundTopicAliases aliases;
     private readonly Func<byte[], CancellationToken, ValueTask> write;
@@ -34,41 +25,39 @@ internal sealed class Mqtt5OutboundDeliveries
     private readonly ExchangeContext context;
     private readonly long maxPacketBytes;
 
+    // Slots a resumed session's in-flight PUBLISHes hold past the new Receive Maximum: the
+    // acknowledgements that free them give no slot back.
+    private int slotsOwed;
 
     /// <summary>
-    /// Prepares to send to one client.
+    /// Prepares to send to one connection's client.
     /// </summary>
+    /// <param name="session">The client's session: what waits for it and what is in flight.</param>
     /// <param name="client">The client: its Receive Maximum, Topic Alias Maximum and Maximum Packet Size.</param>
     /// <param name="names">The bus's name lookup, which maps a canonical topic to the client's Topic Name.</param>
     /// <param name="context">The exchange's context: its scheme, clock and log.</param>
     /// <param name="write">Writes a packet's bytes to the connection, one write at a time.</param>
-    public Mqtt5OutboundDeliveries(Mqtt5ConnectedClient client, TopicNameLookup names, ExchangeContext context, Func<byte[], CancellationToken, ValueTask> write)
+    public Mqtt5OutboundDeliveries(Mqtt5Session session, Mqtt5ConnectedClient client, TopicNameLookup names, ExchangeContext context, Func<byte[], CancellationToken, ValueTask> write)
     {
-        inFlightSlots = new SemaphoreSlim(client.ReceiveMaximum, client.ReceiveMaximum);
+        int carried;
+        lock (session.InFlightGate)
+        {
+            carried = session.InFlight.Count;
+        }
+
+        inFlightSlots = new SemaphoreSlim(Math.Max(0, client.ReceiveMaximum - carried), int.MaxValue);
+        slotsOwed = Math.Max(0, carried - client.ReceiveMaximum);
         aliases = new Mqtt5OutboundTopicAliases(client.TopicAliasMaximum);
         maxPacketBytes = client.MaximumPacketSize;
+        this.session = session;
         this.names = names;
         this.context = context;
         this.write = write;
     }
 
     /// <summary>
-    /// The Packet Identifier given last; the next is the first above it, after 65535 wrapping to 1, not in flight.
-    /// </summary>
-    internal ushort LastPacketIdentifier { get; set; }
-
-    /// <summary>
-    /// Queues <paramref name="message"/> for the client without waiting; a bus delivery callback calls it.
-    /// </summary>
-    /// <param name="message">The message.</param>
-    /// <param name="grantedQualityOfService">The QoS the subscription granted.</param>
-    /// <param name="retain">The RETAIN flag the delivery carries.</param>
-    /// <param name="subscriptionIdentifiers">The Subscription Identifiers the delivery carries.</param>
-    public void Offer(BusMessage message, int grantedQualityOfService, bool retain, IReadOnlyList<uint> subscriptionIdentifiers) =>
-        waiting.Writer.TryWrite(new(message, Math.Min((int)message.QualityOfService, grantedQualityOfService), retain, subscriptionIdentifiers));
-
-    /// <summary>
-    /// Sends the queued messages, in order, until <paramref name="cancellationToken"/> is cancelled.
+    /// Resends what the session has in flight, then sends its waiting messages, in order, until
+    /// <paramref name="cancellationToken"/> is cancelled.
     /// </summary>
     /// <param name="cancellationToken">Ends the sending.</param>
     /// <returns>A task that completes when the sending has been cancelled.</returns>
@@ -76,9 +65,10 @@ internal sealed class Mqtt5OutboundDeliveries
     {
         try
         {
+            await ResendInFlightAsync(cancellationToken);
             while (true)
             {
-                await SendAsync(await waiting.Reader.ReadAsync(cancellationToken), cancellationToken);
+                await SendAsync(await session.TakeAsync(cancellationToken), cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -97,30 +87,49 @@ internal sealed class Mqtt5OutboundDeliveries
     public Mqtt5PublishResponsePacket? Acknowledge(Mqtt5PublishResponsePacket acknowledgement)
     {
         var identifier = acknowledgement.PacketIdentifier;
-        lock (inFlightGate)
+        lock (session.InFlightGate)
         {
-            if (!inFlight.TryGetValue(identifier, out var awaited) || awaited != acknowledgement.ResponseType)
+            if (!session.InFlight.TryGetValue(identifier, out var publish) || publish.Awaited != acknowledgement.ResponseType)
             {
                 return acknowledgement.ResponseType == Mqtt5PacketType.PublishReceived
                     ? Release(identifier, Mqtt5ReasonCode.PacketIdentifierNotFound)
                     : null;
             }
 
-            if (awaited == Mqtt5PacketType.PublishReceived && acknowledgement.ReasonCode < Mqtt5ReasonCode.UnspecifiedError)
+            if (publish.Awaited == Mqtt5PacketType.PublishReceived && acknowledgement.ReasonCode < Mqtt5ReasonCode.UnspecifiedError)
             {
-                inFlight[identifier] = Mqtt5PacketType.PublishComplete;
+                session.InFlight[identifier] = publish with { Awaited = Mqtt5PacketType.PublishComplete };
                 return Release(identifier, Mqtt5ReasonCode.Success);
             }
-
-            inFlight.Remove(identifier);
         }
 
-        inFlightSlots.Release();
+        Forget(identifier);
         return null;
     }
 
     private static Mqtt5PublishResponsePacket Release(ushort identifier, Mqtt5ReasonCode reasonCode) =>
         new(Mqtt5PacketType.PublishRelease, identifier, reasonCode, []);
+
+    private async ValueTask ResendInFlightAsync(CancellationToken cancellationToken)
+    {
+        List<KeyValuePair<ushort, Mqtt5InFlightPublish>> carried;
+        lock (session.InFlightGate)
+        {
+            carried = [.. session.InFlight.OrderBy(entry => entry.Value.Sequence)];
+        }
+
+        foreach (var (identifier, publish) in carried)
+        {
+            if (publish.Awaited == Mqtt5PacketType.PublishComplete)
+            {
+                await write(Mqtt5PacketEncoder.Encode(Release(identifier, Mqtt5ReasonCode.Success)), cancellationToken);
+            }
+            else
+            {
+                await ResendAsync(publish.Delivery, identifier, cancellationToken);
+            }
+        }
+    }
 
     private async ValueTask SendAsync(Mqtt5Delivery delivery, CancellationToken cancellationToken)
     {
@@ -129,28 +138,52 @@ internal sealed class Mqtt5OutboundDeliveries
             await inFlightSlots.WaitAsync(cancellationToken);
         }
 
-        var topic = names.FromCanonicalTopic(context.Scheme, delivery.Message.Topic);
         var now = context.TimeProvider.GetUtcNow();
-        if (!topic.IsMapped || delivery.Message.ExpiresAt <= now || !Fits(delivery, topic.Name, now))
+        if (TopicNameToSend(delivery, now) is not { } topicName)
         {
-            ReleaseSlot(delivery.QualityOfService);
+            FreeSlot(delivery.QualityOfService);
             return;
         }
 
-        var (topicName, alias) = aliases.Assign(topic.Name);
+        await WriteAsync(delivery, topicName, NextPacketIdentifier(delivery), duplicate: false, now, cancellationToken);
+    }
+
+    private async ValueTask ResendAsync(Mqtt5Delivery delivery, ushort packetIdentifier, CancellationToken cancellationToken)
+    {
+        var now = context.TimeProvider.GetUtcNow();
+        if (TopicNameToSend(delivery, now) is not { } topicName)
+        {
+            Forget(packetIdentifier);
+            return;
+        }
+
+        await WriteAsync(delivery, topicName, packetIdentifier, duplicate: true, now, cancellationToken);
+    }
+
+    // The client's Topic Name for the message, or null to drop it: on a topic the client cannot
+    // name, expired, or too large for the client.
+    private string? TopicNameToSend(Mqtt5Delivery delivery, DateTimeOffset now)
+    {
+        var topic = names.FromCanonicalTopic(context.Scheme, delivery.Message.Topic);
+        return topic.IsMapped && !(delivery.Message.ExpiresAt <= now) && Fits(delivery, topic.Name, now) ? topic.Name : null;
+    }
+
+    private async ValueTask WriteAsync(Mqtt5Delivery delivery, string topicName, ushort packetIdentifier, bool duplicate, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var (nameOrEmpty, alias) = aliases.Assign(topicName);
         var properties = PropertiesOf(delivery, now);
         if (alias is not null)
         {
             properties.Add(alias);
         }
 
-        await write(Mqtt5PacketEncoder.Encode(PublishOf(delivery, topicName, NextPacketIdentifier(delivery.QualityOfService), properties)), cancellationToken);
+        await write(Mqtt5PacketEncoder.Encode(PublishOf(delivery, duplicate, nameOrEmpty, packetIdentifier, properties)), cancellationToken);
     }
 
     // [MQTT-3.1.2-25]: a PUBLISH larger than the client's Maximum Packet Size is dropped as if sent.
     private bool Fits(Mqtt5Delivery delivery, string topicName, DateTimeOffset now)
     {
-        var size = Mqtt5PacketEncoder.Encode(PublishOf(delivery, topicName, 1, PropertiesOf(delivery, now))).Length;
+        var size = Mqtt5PacketEncoder.Encode(PublishOf(delivery, false, topicName, 1, PropertiesOf(delivery, now))).Length;
         if (maxPacketBytes == 0 || size <= maxPacketBytes)
         {
             return true;
@@ -168,34 +201,59 @@ internal sealed class Mqtt5OutboundDeliveries
         return properties;
     }
 
-    private void ReleaseSlot(int qualityOfService)
+    // Ends a PUBLISH in flight and frees its slot.
+    private void Forget(ushort packetIdentifier)
     {
-        if (qualityOfService > 0)
+        lock (session.InFlightGate)
+        {
+            session.InFlight.Remove(packetIdentifier);
+        }
+
+        FreeSlot(1);
+    }
+
+    // A QoS 0 PUBLISH holds no slot; a slot owed past the Receive Maximum is not given back.
+    private void FreeSlot(int qualityOfService)
+    {
+        if (qualityOfService == 0)
+        {
+            return;
+        }
+
+        bool owed;
+        lock (session.InFlightGate)
+        {
+            owed = slotsOwed > 0;
+            slotsOwed -= owed ? 1 : 0;
+        }
+
+        if (!owed)
         {
             inFlightSlots.Release();
         }
     }
 
-    private ushort NextPacketIdentifier(int qualityOfService)
+    private ushort NextPacketIdentifier(Mqtt5Delivery delivery)
     {
-        if (qualityOfService == 0)
+        if (delivery.QualityOfService == 0)
         {
             return 0;
         }
 
-        lock (inFlightGate)
+        lock (session.InFlightGate)
         {
             do
             {
-                LastPacketIdentifier = (ushort)((LastPacketIdentifier % ushort.MaxValue) + 1);
+                session.LastPacketIdentifier = (ushort)((session.LastPacketIdentifier % ushort.MaxValue) + 1);
             }
-            while (inFlight.ContainsKey(LastPacketIdentifier));
+            while (session.InFlight.ContainsKey(session.LastPacketIdentifier));
 
-            inFlight[LastPacketIdentifier] = qualityOfService == 1 ? Mqtt5PacketType.PublishAcknowledgement : Mqtt5PacketType.PublishReceived;
-            return LastPacketIdentifier;
+            var awaited = delivery.QualityOfService == 1 ? Mqtt5PacketType.PublishAcknowledgement : Mqtt5PacketType.PublishReceived;
+            session.InFlight[session.LastPacketIdentifier] = new(++session.LastInFlightSequence, awaited, delivery);
+            return session.LastPacketIdentifier;
         }
     }
 
-    private static Mqtt5PublishPacket PublishOf(Mqtt5Delivery delivery, string topicName, ushort packetIdentifier, IReadOnlyList<Mqtt5Property> properties) =>
-        new(false, delivery.QualityOfService, delivery.Retain, topicName, packetIdentifier, properties, delivery.Message.Payload.ToArray());
+    private static Mqtt5PublishPacket PublishOf(Mqtt5Delivery delivery, bool duplicate, string topicName, ushort packetIdentifier, IReadOnlyList<Mqtt5Property> properties) =>
+        new(duplicate, delivery.QualityOfService, delivery.Retain, topicName, packetIdentifier, properties, delivery.Message.Payload.ToArray());
 }

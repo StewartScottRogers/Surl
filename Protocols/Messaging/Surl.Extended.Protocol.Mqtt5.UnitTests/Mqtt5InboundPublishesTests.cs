@@ -11,7 +11,7 @@ public sealed class Mqtt5InboundPublishesTests
     [TestMethod]
     public void Judge_TopicNameTheBusCannotMap_IsMalformed()
     {
-        var inbound = new Mqtt5InboundPublishes(new TopicNameLookup([]), "mqtt5");
+        var inbound = new Mqtt5InboundPublishes(new TopicNameLookup([]), "mqtt5", []);
 
         var verdict = inbound.Judge(new Mqtt5PublishPacket(false, 0, false, "a+b", 0, [], []));
 
@@ -22,7 +22,7 @@ public sealed class Mqtt5InboundPublishesTests
     [TestMethod]
     public void Judge_TopicAliasSet_IsDroppedFromTheForwardedProperties()
     {
-        var inbound = new Mqtt5InboundPublishes(new TopicNameLookup([]), "mqtt5");
+        var inbound = new Mqtt5InboundPublishes(new TopicNameLookup([]), "mqtt5", []);
         var userProperty = Mqtt5Property.FromUserProperty("k", "v");
 
         var verdict = inbound.Judge(new Mqtt5PublishPacket(false, 0, false, "t", 0, [Mqtt5Property.FromInteger(Mqtt5PropertyIdentifier.TopicAlias, 3), userProperty], [1]));
@@ -34,7 +34,7 @@ public sealed class Mqtt5InboundPublishesTests
     [TestMethod]
     public void Release_IdentifierAwaitingRelease_IsForgottenOnce()
     {
-        var inbound = new Mqtt5InboundPublishes(new TopicNameLookup([]), "mqtt5");
+        var inbound = new Mqtt5InboundPublishes(new TopicNameLookup([]), "mqtt5", []);
         inbound.AwaitRelease(4);
 
         Assert.IsTrue(inbound.Release(4));

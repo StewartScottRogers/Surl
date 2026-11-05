@@ -3,9 +3,10 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.Mqtt5;
 
 /// <summary>
-/// The MQTT 5.0 broker (ADR-0093): answers <c>CONNECT</c> with <c>CONNACK</c>, judges the login,
-/// holds the client to its Keep Alive, and publishes its Will when the connection ends without a
-/// normal <c>DISCONNECT</c>.
+/// The MQTT 5.0 broker (ADR-0093): answers <c>CONNECT</c> with <c>CONNACK</c>, judges the login or
+/// runs enhanced authentication, keeps the client's session across connections, holds the client
+/// to its Keep Alive, and publishes its Will when the connection ends without a normal
+/// <c>DISCONNECT</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -15,15 +16,40 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// bytes. A <c>CONNECT</c> that is refused is answered <c>CONNACK</c> with Session Present 0 and its
 /// reason code, then closed: <c>0x84</c> for <c>MQTT</c> or <c>MQIsdp</c> at a level other than 5,
 /// <c>0x81</c> for a malformed one, <c>0x82</c> for a property twice or a value MQTT 5.0 forbids,
-/// <c>0x95</c> for one over <see cref="ExchangeLimits.MaxMessageBytes"/>, and <c>0x8C</c> for an
-/// Authentication Method (no method is offered yet). The user name, the password and the
-/// connection's <see cref="IConnection.TlsSession"/> then go to the
+/// <c>0x95</c> for one over <see cref="ExchangeLimits.MaxMessageBytes"/>, and <c>0x97</c> for a new
+/// session past the sessions kept with no connection. Without an Authentication Method, the user
+/// name, the password and the connection's <see cref="IConnection.TlsSession"/> go to the
 /// <see cref="IAuthenticationPolicy"/>: accepted is <c>0x00</c>; refused credentials <c>0x86</c>;
 /// no user name, or a password over a connection with no TLS session, <c>0x87</c> (ADR-0093
 /// decision 2).
 /// </para>
 /// <para>
-/// <b>The CONNACK of an accepted CONNECT</b> carries Session Present 0 and, in this order: Session
+/// <b>Enhanced authentication</b> (section 4.12, ADR-0093 decision 2). A <c>CONNECT</c> with an
+/// Authentication Method is judged by <see cref="Mqtt5EnhancedAuthentication"/> alone: the method
+/// must be <c>SCRAM-SHA-256</c> or <c>SCRAM-SHA-1</c> and offered by the
+/// <see cref="ISaslAuthenticationPolicy"/>, otherwise <c>CONNACK</c> <c>0x8C</c>. Each challenge
+/// goes in <c>AUTH</c> <c>0x18</c> with the method and its data; the client must answer
+/// <c>AUTH</c> <c>0x18</c> with the same method, and any other packet is <c>CONNACK</c>
+/// <c>0x82</c> (a refused packet its own code). Success is <c>CONNACK</c> <c>0x00</c> carrying the
+/// method and the method's last message; failure <c>0x87</c>. A <c>DISCONNECT</c>, a close or the
+/// head timeout during the exchange ends it with no <c>CONNACK</c>. After such a <c>CONNACK</c>,
+/// <c>AUTH</c> <c>0x19</c> with the same method re-authenticates while other packets keep flowing:
+/// challenges again in <c>AUTH</c> <c>0x18</c>, success <c>AUTH</c> <c>0x00</c>, and failure, or
+/// success for another account, <c>DISCONNECT</c> <c>0x87</c>. Any other <c>AUTH</c> is
+/// <c>DISCONNECT</c> <c>0x82</c>.
+/// </para>
+/// <para>
+/// <b>Sessions</b> (section 4.1, ADR-0093 decision 3). A session - subscriptions, waiting messages,
+/// unacknowledged <c>PUBLISH</c>es sent and QoS 2 Packet Identifiers awaiting <c>PUBREL</c> - is
+/// kept after its connection for its Session Expiry Interval, in memory. A <c>CONNECT</c> with Clean
+/// Start 0 for the same identifier and account resumes it with Session Present 1, resending its
+/// unacknowledged <c>PUBLISH</c>es with DUP 1 and its <c>PUBREL</c>s in their original order, then
+/// its waiting messages; Clean Start 1 discards it. While no connection holds it, QoS 1 and 2
+/// messages wait for it, up to 1000 messages and 16 MiB of payload. A session another connection
+/// holds is not resumed.
+/// </para>
+/// <para>
+/// <b>The CONNACK of an accepted CONNECT</b> carries Session Present and, in this order: Session
 /// Expiry Interval <see cref="MaxSessionExpirySeconds"/> when the client asked for more; Receive
 /// Maximum <see cref="ReceiveMaximum"/>; Maximum Packet Size
 /// <see cref="ExchangeLimits.MaxMessageBytes"/> unless it is 0; the Assigned Client Identifier
@@ -33,10 +59,12 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// </para>
 /// <para>
 /// <b>After CONNACK.</b> <c>PINGREQ</c> is answered <c>PINGRESP</c>. A client <c>DISCONNECT</c>
-/// closes the connection: <c>0x00</c> discards the Will, any other reason code keeps it. Silence
-/// for one and a half times the Keep Alive in force is answered <c>DISCONNECT</c> <c>0x8D</c>. A
-/// second <c>CONNECT</c>, a packet only a server sends, and <c>AUTH</c> (no method was used) are
-/// answered <c>DISCONNECT</c> <c>0x82</c>; a refused packet <c>DISCONNECT</c> with its fault's
+/// closes the connection: <c>0x00</c> discards the Will, any other reason code, <c>0x04</c>
+/// Disconnect with Will Message among them, keeps it. A Session Expiry Interval on it replaces the
+/// session's, capped at <see cref="MaxSessionExpirySeconds"/>, except that raising it from 0 is
+/// <c>DISCONNECT</c> <c>0x82</c>. Silence for one and a half times the Keep Alive in force is
+/// answered <c>DISCONNECT</c> <c>0x8D</c>. A second <c>CONNECT</c> and a packet only a server sends
+/// are answered <c>DISCONNECT</c> <c>0x82</c>; a refused packet <c>DISCONNECT</c> with its fault's
 /// reason code. Each of those <c>DISCONNECT</c>s closes the connection.
 /// </para>
 /// <para>
@@ -105,6 +133,7 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
 
     private readonly Mqtt5BrokerState state;
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly ISaslAuthenticationPolicy? saslAuthenticationPolicy;
 
     /// <summary>
     /// Creates a broker whose connections share <paramref name="state"/> and whose logins
@@ -112,13 +141,16 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
     /// </summary>
     /// <param name="state">The state every connection shares.</param>
     /// <param name="authenticationPolicy">Judges the user name and password of every <c>CONNECT</c>.</param>
-    public Mqtt5Broker(Mqtt5BrokerState state, IAuthenticationPolicy authenticationPolicy)
+    /// <param name="saslAuthenticationPolicy">Runs the enhanced authentication of a <c>CONNECT</c> with an Authentication
+    /// Method, and re-authentication; <see langword="null"/> serves no method, so every one is <c>0x8C</c>.</param>
+    public Mqtt5Broker(Mqtt5BrokerState state, IAuthenticationPolicy authenticationPolicy, ISaslAuthenticationPolicy? saslAuthenticationPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.state = state;
         this.authenticationPolicy = authenticationPolicy;
+        this.saslAuthenticationPolicy = saslAuthenticationPolicy;
     }
 
     /// <summary>
@@ -138,6 +170,6 @@ public sealed class Mqtt5Broker : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Mqtt5BrokerConnection(connection, context, state, authenticationPolicy).ServeAsync();
+        return new Mqtt5BrokerConnection(connection, context, state, authenticationPolicy, saslAuthenticationPolicy).ServeAsync();
     }
 }

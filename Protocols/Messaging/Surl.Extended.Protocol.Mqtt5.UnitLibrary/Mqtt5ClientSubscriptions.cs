@@ -3,11 +3,11 @@ using Surl.MessageBus;
 namespace Surl.Extended.Protocol.Mqtt5;
 
 /// <summary>
-/// One connected client's subscriptions (ADR-0093 decision 5), each a subscription on the message
+/// One session's subscriptions (ADR-0093 decision 5), each a subscription on the message
 /// bus, keyed by the Topic Filter exactly as the client sent it. It subscribes with the options of
 /// section 3.8.3.1, replaces a subscription to an identical filter (<c>[MQTT-3.8.4-3]</c>),
 /// unsubscribes (section 3.10), and hands what the subscriptions receive to
-/// <see cref="Mqtt5OutboundDeliveries"/>: a message matching several non-shared subscriptions once,
+/// the session's queue: a message matching several non-shared subscriptions once,
 /// at the highest QoS they grant, with every Subscription Identifier they carry
 /// (<c>[MQTT-3.3.4-2]</c>, <c>-4</c>); a shared subscription's delivery on its own.
 /// </summary>
@@ -17,7 +17,7 @@ internal sealed class Mqtt5ClientSubscriptions
     private readonly BusConnection busConnection;
     private readonly TopicNameLookup names;
     private readonly string scheme;
-    private readonly Mqtt5OutboundDeliveries deliveries;
+    private readonly Action<BusMessage, int, bool, IReadOnlyList<uint>> offer;
 
     // The non-shared subscriptions a message has reached so far; the bus hands a message to all
     // of a connection's subscriptions, one call at a time, before AfterMessageDelivered.
@@ -30,13 +30,13 @@ internal sealed class Mqtt5ClientSubscriptions
     /// <param name="busConnection">The client's place on the bus, made for its account.</param>
     /// <param name="names">The bus's name lookup.</param>
     /// <param name="scheme">The connection's scheme, which names the mapping.</param>
-    /// <param name="deliveries">Sends what the subscriptions receive.</param>
-    public Mqtt5ClientSubscriptions(BusConnection busConnection, TopicNameLookup names, string scheme, Mqtt5OutboundDeliveries deliveries)
+    /// <param name="offer">Queues what the subscriptions receive for the client: the message, the QoS granted, the RETAIN flag and the Subscription Identifiers.</param>
+    public Mqtt5ClientSubscriptions(BusConnection busConnection, TopicNameLookup names, string scheme, Action<BusMessage, int, bool, IReadOnlyList<uint>> offer)
     {
         this.busConnection = busConnection;
         this.names = names;
         this.scheme = scheme;
-        this.deliveries = deliveries;
+        this.offer = offer;
         busConnection.AfterMessageDelivered = SendGathered;
     }
 
@@ -109,7 +109,7 @@ internal sealed class Mqtt5ClientSubscriptions
         var retain = subscription.Options.RetainAsPublished && message.Retain;
         if (subscription.IsShared)
         {
-            deliveries.Offer(message, subscription.Options.MaximumQualityOfService, retain, subscription.Identifiers);
+            offer(message, subscription.Options.MaximumQualityOfService, retain, subscription.Identifiers);
             return;
         }
 
@@ -125,7 +125,7 @@ internal sealed class Mqtt5ClientSubscriptions
         }
 
         gathered = null;
-        deliveries.Offer(message, delivery.QualityOfService, delivery.Retain, delivery.Identifiers);
+        offer(message, delivery.QualityOfService, delivery.Retain, delivery.Identifiers);
     }
 
     private sealed class ClientSubscription(Mqtt5Subscription options, uint? identifier, bool isShared)

@@ -90,7 +90,7 @@ public sealed partial class Mqtt5BrokerStateTests
         var state = NewState();
         var published = PublishedOn(state);
 
-        state.SettlePendingWill("c", cleanStart: true);
+        state.SettlePendingWill("c", sessionResumed: false);
 
         Assert.IsEmpty(published);
     }
@@ -102,7 +102,7 @@ public sealed partial class Mqtt5BrokerStateTests
         var state = NewState();
         var published = PublishedOn(state);
         state.ScheduleWill("c", First, null, TimeSpan.FromSeconds(5), clock);
-        state.SettlePendingWill("c", cleanStart: false);
+        state.SettlePendingWill("c", sessionResumed: true);
 
         clock.FireEveryCallback();
 
@@ -117,6 +117,50 @@ public sealed partial class Mqtt5BrokerStateTests
     /// callback ever scheduled, disposed or not, standing in for a timer that fired on another
     /// thread while its Will was being settled.
     /// </summary>
+    [TestMethod]
+    public void ExpiryTimerFiringAfterTheSessionWasResumed_KeepsIt()
+    {
+        var clock = new CallbackCapturingTimeProvider();
+        var state = NewState();
+        var session = state.OpenSession("c", null, cleanStart: true, TimeSpan.FromSeconds(5), "mqtt5", out _)!;
+        state.CloseSession(session, clock);
+        var resumed = state.OpenSession("c", null, cleanStart: false, TimeSpan.FromSeconds(5), "mqtt5", out var wasResumed);
+
+        clock.FireEveryCallback();
+
+        Assert.IsTrue(wasResumed);
+        Assert.AreSame(session, resumed);
+        Assert.IsTrue(state.HasSession("c"));
+    }
+
+    [TestMethod]
+    public void ExpireSession_ForASessionNoLongerKept_DoesNothing()
+    {
+        var state = NewState();
+        var session = state.OpenSession("c", null, cleanStart: true, TimeSpan.FromSeconds(5), "mqtt5", out _)!;
+        state.CloseSession(session, new CallbackCapturingTimeProvider());
+        var replacement = state.OpenSession("c", null, cleanStart: true, TimeSpan.FromSeconds(5), "mqtt5", out _)!;
+        state.CloseSession(replacement, new CallbackCapturingTimeProvider());
+
+        state.ExpireSession(session);
+
+        Assert.IsTrue(state.HasSession("c"));
+    }
+
+    [TestMethod]
+    public void CloseSession_ReplacedSessionWhoseReplacementHasEnded_EndsIt()
+    {
+        var state = NewState();
+        var replaced = state.OpenSession("c", null, cleanStart: false, TimeSpan.FromSeconds(5), "mqtt5", out _)!;
+        var replacement = state.OpenSession("c", null, cleanStart: false, TimeSpan.Zero, "mqtt5", out var resumed)!;
+        state.CloseSession(replacement, new CallbackCapturingTimeProvider());
+
+        state.CloseSession(replaced, new CallbackCapturingTimeProvider());
+
+        Assert.IsFalse(resumed);
+        Assert.IsFalse(state.HasSession("c"));
+    }
+
     private sealed class CallbackCapturingTimeProvider : TimeProvider
     {
         private readonly List<(TimerCallback Callback, object? State)> callbacks = [];

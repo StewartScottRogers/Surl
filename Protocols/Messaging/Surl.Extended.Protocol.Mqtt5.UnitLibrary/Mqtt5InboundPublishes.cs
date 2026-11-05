@@ -6,17 +6,17 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// <summary>
 /// One connection's state for the <c>PUBLISH</c>es its client sends (ADR-0093 decision 4): the
 /// Topic Aliases the client has set (<c>[MQTT-3.3.2-7]</c>: they belong to the connection, never
-/// the session), and the QoS 2 Packet Identifiers received whose <c>PUBREL</c> has not come
+/// the session), and, kept in the session, the QoS 2 Packet Identifiers received whose <c>PUBREL</c> has not come
 /// (method B of section 4.3.3).
 /// </summary>
 /// <param name="names">The bus's name lookup, which maps a Topic Name onto the canonical topic.</param>
 /// <param name="scheme">The connection's scheme, <c>mqtt5</c> or <c>mqtt5s</c>.</param>
-internal sealed class Mqtt5InboundPublishes(TopicNameLookup names, string scheme)
+/// <param name="awaitingRelease">The session's QoS 2 Packet Identifiers awaiting <c>PUBREL</c>.</param>
+internal sealed class Mqtt5InboundPublishes(TopicNameLookup names, string scheme, HashSet<ushort> awaitingRelease)
 {
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     private readonly Dictionary<uint, string> topicByAlias = [];
-    private readonly HashSet<ushort> awaitingRelease = [];
 
     /// <summary>
     /// Judges one <c>PUBLISH</c>, in this order: a Subscription Identifier (<c>[MQTT-3.3.4-6]</c>)

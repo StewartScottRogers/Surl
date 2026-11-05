@@ -6,8 +6,9 @@ namespace Surl.Extended.Protocol.Mqtt5;
 
 /// <summary>
 /// What every connection one <see cref="Mqtt5Broker"/> answers shares (ADR-0093 decision 0): the
-/// client identifiers connected now, the Wills waiting out their delay, and the stream of
-/// Application Messages the broker publishes. One instance is owned by the broker; never a static.
+/// client identifiers connected now, the sessions kept between connections, the Wills waiting out
+/// their delay, and the stream of Application Messages the broker publishes. One instance is owned
+/// by the broker; never a static.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,8 +20,14 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// <para>
 /// <b>Wills.</b> A Will whose publication is delayed (section 3.1.2.5) waits on a timer of the
 /// connection's <see cref="TimeProvider"/>. A later <c>CONNECT</c> for the same identifier settles
-/// it: with Clean Start 1 the old session ends and the Will is published at once; with Clean
-/// Start 0 the session continues and the Will is discarded (<c>[MQTT-3.1.3-9]</c>).
+/// it: when the old session ended the Will is published at once; when the new connection resumed
+/// the session it is discarded (<c>[MQTT-3.1.3-9]</c>).
+/// </para>
+/// <para>
+/// <b>Sessions.</b> A session (<see cref="Mqtt5Session"/>) whose Session Expiry Interval is above
+/// 0 is kept that long after its connection closes, on a timer of the connection's
+/// <see cref="TimeProvider"/>, and resumed by a <c>CONNECT</c> with Clean Start 0 for the same
+/// identifier and account. At most <see cref="MaxKeptSessions"/> are kept with no connection.
 /// </para>
 /// <para>
 /// <b>Publishing.</b> Every message the broker publishes goes to the one
@@ -35,11 +42,14 @@ public sealed class Mqtt5BrokerState
 {
     private const string AssignedClientIdentifierPrefix = "surl-";
     private const int AssignedClientIdentifierRandomBytes = 16;
+    private const int DefaultMaxKeptSessions = 1000;
 
     private readonly Func<string> assignedClientIdentifierSource;
     private readonly ConcurrentDictionary<string, object> connectedClients = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PendingWill> pendingWills = new(StringComparer.Ordinal);
     private readonly Lock pendingWillsGate = new();
+    private readonly Dictionary<string, Mqtt5Session> sessions = new(StringComparer.Ordinal);
+    private readonly Lock sessionsGate = new();
 
     /// <summary>
     /// Creates the state of a broker with no client connected and no Will pending, which publishes
@@ -69,6 +79,133 @@ public sealed class Mqtt5BrokerState
     /// </summary>
     internal Surl.MessageBus.MessageBus Bus { get; }
 
+    /// <summary>
+    /// The most sessions kept with no connection holding them (ADR-0093 decision 3); a new
+    /// session past it is refused <c>CONNACK</c> <c>0x97</c>.
+    /// </summary>
+    internal int MaxKeptSessions { get; init; } = DefaultMaxKeptSessions;
+
+    /// <summary>The most messages that wait for one session at once.</summary>
+    internal int MaxQueuedMessages { get; init; } = Mqtt5Session.MaxQueuedMessages;
+
+    /// <summary>The most payload bytes that wait for one session at once.</summary>
+    internal long MaxQueuedPayloadBytes { get; init; } = Mqtt5Session.MaxQueuedPayloadBytes;
+
+    /// <summary>
+    /// Opens the session for an accepted <c>CONNECT</c> (section 3.1.2.4). A kept session with no
+    /// connection is resumed when Clean Start is 0 and the login is for the session's account;
+    /// otherwise it ends and a new one starts. A session another connection still holds is never
+    /// resumed: the new one replaces it, and it ends with its connection.
+    /// </summary>
+    /// <param name="clientIdentifier">The client identifier.</param>
+    /// <param name="account">The account the login matched; <see langword="null"/> for an anonymous one.</param>
+    /// <param name="cleanStart">The <c>CONNECT</c>'s Clean Start flag.</param>
+    /// <param name="expiry">The Session Expiry Interval in force.</param>
+    /// <param name="scheme">The connection's scheme.</param>
+    /// <param name="resumed">Set when a kept session was resumed: <c>CONNACK</c>'s Session Present.</param>
+    /// <returns>The session, or <see langword="null"/> when a new one would pass <see cref="MaxKeptSessions"/>.</returns>
+    internal Mqtt5Session? OpenSession(string clientIdentifier, string? account, bool cleanStart, TimeSpan expiry, string scheme, out bool resumed)
+    {
+        Mqtt5Session? ended;
+        Mqtt5Session? opened = null;
+        lock (sessionsGate)
+        {
+            ended = TakeKeptSession(clientIdentifier, account, cleanStart, out resumed);
+            if (resumed)
+            {
+                ended!.Expiry = expiry;
+                return ended;
+            }
+
+            if (expiry == TimeSpan.Zero || sessions.Values.Count(session => !session.IsConnected) < MaxKeptSessions)
+            {
+                opened = new Mqtt5Session(clientIdentifier, Bus.Connect(account), Bus.Names, scheme, MaxQueuedMessages, MaxQueuedPayloadBytes) { Expiry = expiry };
+                sessions[clientIdentifier] = opened;
+            }
+        }
+
+        ended?.Dispose();
+        return opened;
+    }
+
+    // Under sessionsGate: the kept session for the identifier, stopped from expiring, and either
+    // resumed (held again) or taken out of the sessions to be ended; null when none is kept.
+    private Mqtt5Session? TakeKeptSession(string clientIdentifier, string? account, bool cleanStart, out bool resumed)
+    {
+        resumed = false;
+        if (!sessions.TryGetValue(clientIdentifier, out var kept) || kept.IsConnected)
+        {
+            return null;
+        }
+
+        kept.ExpiryTimer!.Dispose();
+        kept.ExpiryTimer = null;
+        resumed = !cleanStart && kept.Account == account;
+        kept.IsConnected = resumed;
+        if (!resumed)
+        {
+            sessions.Remove(clientIdentifier);
+        }
+
+        return kept;
+    }
+
+    /// <summary>
+    /// Lets go of <paramref name="session"/> as its connection closes: kept for its expiry when it
+    /// has one and no later connection has replaced it, ended otherwise (<c>[MQTT-3.1.2-23]</c>).
+    /// </summary>
+    /// <param name="session">The session.</param>
+    /// <param name="timeProvider">The clock its expiry is measured on.</param>
+    internal void CloseSession(Mqtt5Session session, TimeProvider timeProvider)
+    {
+        lock (sessionsGate)
+        {
+            session.IsConnected = false;
+            if (sessions.TryGetValue(session.ClientIdentifier, out var current) && current == session)
+            {
+                if (session.Expiry > TimeSpan.Zero)
+                {
+                    session.ExpiryTimer = timeProvider.CreateTimer(_ => ExpireSession(session), null, session.Expiry, Timeout.InfiniteTimeSpan);
+                    return;
+                }
+
+                sessions.Remove(session.ClientIdentifier);
+            }
+        }
+
+        session.Dispose();
+    }
+
+    /// <summary>
+    /// Ends a kept session whose expiry has passed (<c>[MQTT-4.1.0-2]</c>), unless a connection
+    /// resumed it first.
+    /// </summary>
+    /// <param name="session">The session.</param>
+    internal void ExpireSession(Mqtt5Session session)
+    {
+        lock (sessionsGate)
+        {
+            if (session.IsConnected || !((ICollection<KeyValuePair<string, Mqtt5Session>>)sessions).Remove(new(session.ClientIdentifier, session)))
+            {
+                return;
+            }
+        }
+
+        session.Dispose();
+    }
+
+    /// <summary>
+    /// Whether a session is kept or held for <paramref name="clientIdentifier"/>.
+    /// </summary>
+    /// <param name="clientIdentifier">The identifier.</param>
+    /// <returns><see langword="true"/> when one is.</returns>
+    internal bool HasSession(string clientIdentifier)
+    {
+        lock (sessionsGate)
+        {
+            return sessions.ContainsKey(clientIdentifier);
+        }
+    }
     /// <summary>
     /// A fresh <c>surl-</c> identifier: 32 lower-case hex digits of 16 random bytes.
     /// </summary>
@@ -161,12 +298,12 @@ public sealed class Mqtt5BrokerState
 
     /// <summary>
     /// Settles the Will pending for <paramref name="clientIdentifier"/>, if any, as a new
-    /// <c>CONNECT</c> for it requires: published at once when <paramref name="cleanStart"/> ends
-    /// the old session, discarded when the session continues.
+    /// <c>CONNECT</c> for it requires: published at once when the old session ended,
+    /// discarded when the new connection resumed it (<c>[MQTT-3.1.3-9]</c>).
     /// </summary>
     /// <param name="clientIdentifier">The identifier of the connecting client.</param>
-    /// <param name="cleanStart">The new <c>CONNECT</c>'s Clean Start flag.</param>
-    internal void SettlePendingWill(string clientIdentifier, bool cleanStart)
+    /// <param name="sessionResumed">Whether the new connection resumed the session.</param>
+    internal void SettlePendingWill(string clientIdentifier, bool sessionResumed)
     {
         PendingWill? pending;
         lock (pendingWillsGate)
@@ -180,7 +317,7 @@ public sealed class Mqtt5BrokerState
         }
 
         pending.Timer!.Dispose();
-        if (cleanStart)
+        if (!sessionResumed)
         {
             PublishWill(pending);
         }

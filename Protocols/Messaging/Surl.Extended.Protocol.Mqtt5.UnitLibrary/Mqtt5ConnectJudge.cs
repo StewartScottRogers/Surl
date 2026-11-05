@@ -4,8 +4,8 @@ namespace Surl.Extended.Protocol.Mqtt5;
 
 /// <summary>
 /// The checks a decoded <c>CONNECT</c> still has to pass before its login is judged (ADR-0093
-/// decision 1): the values of its properties and its Will's, and whether it asks for enhanced
-/// authentication. <see cref="Mqtt5ConnectPacket.Read"/> has already checked its layout, the
+/// decision 1): the values of its properties and its Will's, and Authentication Data that comes
+/// without a method. <see cref="Mqtt5ConnectPacket.Read"/> has already checked its layout, the
 /// protocol name and level, the Connect Flags and which properties appear.
 /// </summary>
 internal static class Mqtt5ConnectJudge
@@ -28,20 +28,16 @@ internal static class Mqtt5ConnectJudge
 
     /// <summary>
     /// Why <paramref name="connect"/> is refused, or <see langword="null"/> when its login is
-    /// next. An Authentication Method is refused <c>0x8C</c> Bad authentication method: no
-    /// method is offered until BL-499 adds SCRAM (<c>[MQTT-4.12.0-1]</c>); Authentication Data
-    /// without a method is a Protocol Error (3.1.2.11.10).
+    /// next: Authentication Data without an Authentication Method is a Protocol Error
+    /// (3.1.2.11.10), and so is a property value MQTT 5.0 forbids. Whether a method is served is
+    /// <see cref="Mqtt5EnhancedAuthentication.IsOffered"/>'s to say.
     /// </summary>
     /// <param name="connect">The <c>CONNECT</c>.</param>
     /// <returns>The fault to answer with, or <see langword="null"/>.</returns>
     public static Mqtt5PacketFault? FaultIn(Mqtt5ConnectPacket connect)
     {
-        if (Find(connect.Properties, Mqtt5PropertyIdentifier.AuthenticationMethod) is not null)
-        {
-            return new(Mqtt5ReasonCode.BadAuthenticationMethod, "[MQTT-4.12.0-1]");
-        }
-
-        if (Find(connect.Properties, Mqtt5PropertyIdentifier.AuthenticationData) is not null)
+        if (Find(connect.Properties, Mqtt5PropertyIdentifier.AuthenticationData) is not null
+            && Find(connect.Properties, Mqtt5PropertyIdentifier.AuthenticationMethod) is null)
         {
             return Mqtt5PacketFault.ProtocolError("3.1.2.11.10");
         }

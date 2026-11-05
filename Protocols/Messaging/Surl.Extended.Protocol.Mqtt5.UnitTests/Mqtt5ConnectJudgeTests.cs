@@ -43,11 +43,11 @@ public sealed class Mqtt5ConnectJudgeTests
     }
 
     [TestMethod]
-    public void FaultIn_AuthenticationMethod_IsBadAuthenticationMethod()
+    public void FaultIn_AuthenticationMethodWithItsData_IsLeftToTheLogin()
     {
-        var connect = ConnectWith([Mqtt5Property.FromText(Mqtt5PropertyIdentifier.AuthenticationMethod, "SCRAM-SHA-256")]);
+        var connect = ConnectWith([Mqtt5Property.FromText(Mqtt5PropertyIdentifier.AuthenticationMethod, "SCRAM-SHA-256"), Mqtt5Property.FromBinary(Mqtt5PropertyIdentifier.AuthenticationData, [1])]);
 
-        Assert.AreEqual(Mqtt5ReasonCode.BadAuthenticationMethod, Mqtt5ConnectJudge.FaultIn(connect)!.ReasonCode);
+        Assert.IsNull(Mqtt5ConnectJudge.FaultIn(connect));
     }
 
     [TestMethod]

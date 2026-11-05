@@ -9,17 +9,18 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// <param name="Account">The account its login matched, which its publishes and subscribes are
 /// checked for; <see langword="null"/> when the login was accepted unchecked.</param>
 /// <param name="KeepAlive">The Keep Alive in force: the client's, or the Server Keep Alive sent in its place.</param>
-/// <param name="SessionExpiry">The Session Expiry Interval in force, capped at <see cref="Mqtt5Broker.MaxSessionExpirySeconds"/>.</param>
 /// <param name="Will">The message its Will stands for, on its canonical topic; <see langword="null"/> when it has none.</param>
 /// <param name="WillDelay">The Will Delay Interval; zero when absent.</param>
+/// <param name="AuthenticationMethod">The Authentication Method its <c>CONNECT</c> authenticated with, which an
+/// <c>AUTH</c> <c>0x19</c> must name; <see langword="null"/> when it used none, and then no <c>AUTH</c> is allowed.</param>
 internal sealed record Mqtt5ConnectedClient(
     string ClientIdentifier,
     object Registration,
     string? Account,
     TimeSpan KeepAlive,
-    TimeSpan SessionExpiry,
     Mqtt5ApplicationMessage? Will,
-    TimeSpan WillDelay)
+    TimeSpan WillDelay,
+    string? AuthenticationMethod)
 {
     /// <summary>The client's Receive Maximum: 65535 when its <c>CONNECT</c> sent none (3.1.2.11.3).</summary>
     public int ReceiveMaximum { get; init; } = ushort.MaxValue;

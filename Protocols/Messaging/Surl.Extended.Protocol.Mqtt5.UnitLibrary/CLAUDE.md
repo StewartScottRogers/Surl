@@ -35,7 +35,7 @@ The broker so far answers CONNECT and what follows it (BL-496, ADR-0093 decision
 
 - `Mqtt5Broker` is the `IConnectionProtocolServer` (`mqtt5`, `mqtt5s`); its doc comment lists every
   answer. `Mqtt5BrokerConnection` answers one connection: the first packet under the head timeout,
-  `Mqtt5ConnectJudge` for property values and the Authentication Method, the login through
+  `Mqtt5ConnectJudge` for property values and Authentication Data without a method, the login through
   `IAuthenticationPolicy`, CONNACK with `Mqtt5ConnectAcknowledgementProperties`, then PINGREQ,
   DISCONNECT and the Keep Alive (1.5 times the one in force, then DISCONNECT `0x8D`).
 - `Mqtt5BrokerState` is shared by every connection of one broker: connected client identifiers,
@@ -43,14 +43,13 @@ The broker so far answers CONNECT and what follows it (BL-496, ADR-0093 decision
   `TimeProvider`, and the one `Surl.MessageBus` of the run (ADR-0100 decision 3.9), on which
   every Will is published for the client's account. A client PUBLISH goes through the client's own
   `BusConnection.Publish`, so its No Local subscriptions miss it.
-- Still to come, and answered for now as stated: an Authentication Method is CONNACK `0x8C` until
-  BL-499 adds SCRAM; sessions are not kept
-  (Session Present is always 0) until BL-499; a CONNECT for a connected identifier does not yet
-  take the session over (BL-679).
+- Still to come, and answered for now as stated: a CONNECT for a connected identifier does not
+  yet take the session over (BL-679); it starts a fresh session, and the older connection's
+  session ends with that connection.
 
 PUBLISH and the QoS flows (BL-497, ADR-0093 decision 4 as ADR-0100 decision 3.9 amends it):
 
-- `Mqtt5InboundPublishes` is one connection's inbound state - the client's Topic Aliases and the
+- `Mqtt5InboundPublishes` is one connection's inbound state - the client's Topic Aliases and (the session's) the
   QoS 2 Packet Identifiers awaiting PUBREL (method B) - and judges each PUBLISH:
   Subscription Identifier or Payload Format Indicator above 1 `0x82`, alias 0 or above 10 `0x94`,
   empty topic with no alias set `0x82`, unmappable topic `0x81`, a QoS 2 repeat answered PUBREC
@@ -61,7 +60,7 @@ PUBLISH and the QoS flows (BL-497, ADR-0093 decision 4 as ADR-0100 decision 3.9 
   `0x10` when no subscription or queue took it, `0x87` topic access, `0x97` a bus bound,
   `MessageTooLarge` DISCONNECT `0x95`; a refused QoS 0 PUBLISH is dropped and noted. After a
   publish the connection calls `SaveChangesAsync` and notes a `StorageFailed`.
-- `Mqtt5OutboundDeliveries` sends what a client's subscriptions receive, from a bounded queue of
+- `Mqtt5OutboundDeliveries` sends what a client's subscriptions receive, from the session's bounded queue of
   1000 (a message past it is dropped for that client), beside the reading of packets and through
   the connection's one-at-a-time write: at the lower QoS, within the client's Receive Maximum,
   Packet Identifiers unique among those in flight, `Mqtt5OutboundTopicAliases` when the client
@@ -71,7 +70,7 @@ PUBLISH and the QoS flows (BL-497, ADR-0093 decision 4 as ADR-0100 decision 3.9 
 
 SUBSCRIBE and UNSUBSCRIBE (BL-498, ADR-0093 decision 5):
 
-- `Mqtt5ClientSubscriptions` is one connection's subscriptions, keyed by the Topic Filter as
+- `Mqtt5ClientSubscriptions` is one session's subscriptions, keyed by the Topic Filter as
   sent. Each filter is a bus subscription (`$share/<g>/` a fan-out group, round robin) granted
   its Maximum QoS; an identical filter replaces it. SUBACK `0x8F` unmappable, `0x87` topic
   access, `0x97` past the bus's subscriptions a connection, every filter `0x91` when the
@@ -86,8 +85,30 @@ SUBSCRIBE and UNSUBSCRIBE (BL-498, ADR-0093 decision 5):
   subscription's delivery goes on its own, with its own identifier.
 - UNSUBSCRIBE: UNSUBACK `0x00` deleted, `0x11` none existed, `0x8F` invalid, `0x91` as above.
 
-Sessions, DISCONNECT and AUTH (BL-499), `mqtt5+ws` (BL-500) and the
-command line (BL-501) build on it.
+Sessions, DISCONNECT and AUTH (BL-499, ADR-0093 decisions 2, 3 and 6):
+
+- `Mqtt5Session` is one client's session: its `Mqtt5ClientSubscriptions` on its own
+  `BusConnection`, the waiting messages (1000 and 16 MiB of payload, connected or not; QoS 0 is
+  not queued while no connection holds it), the `PUBLISH`es in flight (`Mqtt5InFlightPublish`,
+  with their sending order) and the QoS 2 identifiers awaiting PUBREL. `Mqtt5BrokerState` keeps
+  it after its connection for its Session Expiry Interval on the context's `TimeProvider`, at most
+  1000 with no connection (a new one past it is CONNACK `0x97`), and `OpenSession` resumes it for
+  Clean Start 0 and the same account (Session Present 1) or ends it. A session another
+  connection holds is never resumed (BL-679 takes it over).
+- `Mqtt5OutboundDeliveries` is per connection, over the session: it resends a resumed session's
+  in-flight PUBLISHes with DUP 1 and its PUBRELs in sending order first, and a resumed session
+  holding more in flight than the new Receive Maximum owes those slots back.
+- A client DISCONNECT `0x00` discards the Will, any other code keeps it; its Session Expiry
+  Interval replaces the session's (capped), raising it from 0 is DISCONNECT `0x82`.
+- Enhanced authentication: `Mqtt5EnhancedAuthentication` runs `SCRAM-SHA-256` and `SCRAM-SHA-1`
+  through `ISaslAuthenticationPolicy` (the broker's optional third constructor argument; without
+  it every method is `0x8C`). Absent Authentication Data is an empty client-first, which SCRAM
+  refuses. SCRAM's server-final, which the policy issues as a second challenge, is answered with
+  the empty response and carried in the CONNACK or AUTH `0x00`, as Kafka's `KafkaSaslLogin` does.
+  The whole exchange runs within the head timeout. Re-authentication (AUTH `0x19`) must
+  authenticate the CONNECT's account, or it is DISCONNECT `0x87`.
+
+`mqtt5+ws` (BL-500) and the command line (BL-501) build on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.MessageBus.UnitLibrary`
 (ADR-0100 decision 3.9), and may also reference the horizontal libraries ADR-0093 decision 0
