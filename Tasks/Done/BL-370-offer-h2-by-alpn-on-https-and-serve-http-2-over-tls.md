@@ -74,7 +74,7 @@ is served as it is today.
   with `HTTP_1_1_REQUIRED`; that is BL-602. No current conformance test runs either over `https`.
 - Coverage: `Surl.Networking.UnitLibrary` and `Surl.Protocol.Http.UnitLibrary` are at 100% line and
   branch with 0 failing members. `Surl.Cli.UnitLibrary` has two failing members in code this task
-  did not touch (left by BL-575); filed as BL-609.
+  did not touch (left by BL-575); filed as BL-652.
 - `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~OverHttps"` on
   Windows: 12 passed, 1 skipped (the HTTP/2 test, which is excluded on Windows).
 

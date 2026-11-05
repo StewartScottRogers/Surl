@@ -1,5 +1,5 @@
 ---
-id: BL-609
+id: BL-652
 title: Restore Surl.Cli branch coverage and complexity in RefuseAuthorizedKeys and CategoryPageLines
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-609 — Restore Surl.Cli branch coverage and complexity in RefuseAuthorizedKeys and CategoryPageLines
+# BL-652 — Restore Surl.Cli branch coverage and complexity in RefuseAuthorizedKeys and CategoryPageLines
 
 ## Goal
 
