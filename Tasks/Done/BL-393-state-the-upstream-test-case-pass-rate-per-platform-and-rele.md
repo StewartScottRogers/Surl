@@ -35,12 +35,12 @@ success criterion 2's "stated per release and only rises".
       counts, the pinned build's SHA-256, and the commit. The Windows row comes from a local run, and
       the Linux and macOS rows from a CI run whose URL is recorded in Notes.
       *(Linux and macOS rows say `not run`, as decision 5 allows, with the CI run's URL; their
-      numbers are BL-684's - see Notes.)*
+      numbers are BL-688's - see Notes.)*
 - [x] A test fails, naming the case, when a case listed as passing in the file fails, and tells the
       reader to update the file when the count rises.
 - [x] If the ADR has `release.yml` state the rate, a `workflow_dispatch` dry run shows it.
       *(The job's script was run locally for a dry run and for a tag; the dispatch on GitHub is
-      BL-684's - see Notes.)*
+      BL-688's - see Notes.)*
 - [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
@@ -65,7 +65,7 @@ success criterion 2's "stated per release and only rises".
   which is the test assembly's folder (`bin/Release/net10.0`), not `--results-directory`; the same
   happens locally. Fixed by pointing `ci.yml`'s upload at that folder (and failing when nothing is
   found). `.github/workflows/ci.yml` was added to `touches` for this: no task in Doing names it. A
-  lane cannot push, so it cannot dispatch a run of the fixed workflow; BL-684 fills both rows from
+  lane cannot push, so it cannot dispatch a run of the fixed workflow; BL-688 fills both rows from
   the next run and dispatches `release.yml`. The rows say `not run` until then, as decision 5
   allows; the guard is in place for them from the first listed case.
 - **release.yml.** A `pass-rate` job (pwsh) writes `pass-rate-notes.md`, job summary and artifact:
@@ -86,8 +86,8 @@ success criterion 2's "stated per release and only rises".
   - The statement test is fast though it reads committed files, as decision 5 says and as
     `UpstreamTestCaseCorpusTests` already does: it must run on every lane and CI leg.
   - A missing passing list reads as empty (a platform `not run`).
-- **Filed:** BL-684 (Linux/macOS rows from CI and the `release.yml` dispatch), BL-685 (read the
-  exclusions file into `TestServerChoices`), BL-686 (CI's Linux `Build and test` leg fails in
+- **Filed:** BL-688 (Linux/macOS rows from CI and the `release.yml` dispatch), BL-689 (read the
+  exclusions file into `TestServerChoices`), BL-690 (CI's Linux `Build and test` leg fails in
   `Obtain the pinned upstream curl`: Alpine `musl-1.2.5-r12 breaks musl-dev-1.2.5-r13` while
   building the OpenLDAP curl - would block the shift's merge to `master`).
 

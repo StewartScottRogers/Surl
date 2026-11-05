@@ -1,5 +1,5 @@
 ---
-id: BL-685
+id: BL-689
 title: Read the upstream test-case exclusions file into the selection rules
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-685 — Read the upstream test-case exclusions file into the selection rules
+# BL-689 — Read the upstream test-case exclusions file into the selection rules
 
 ## Goal
 

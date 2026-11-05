@@ -40,7 +40,7 @@ decision 5). This is success criterion 2 of the
 Linux and macOS: CI run
 [41980108989](https://github.com/StewartScottRogers/Surl/actions/runs/41980108989) (commit
 `b1a280aa`) ran the suite on both and it passed, but uploaded no results file, so their counts are
-not known yet; BL-393 fixed the upload, and BL-684 fills both rows from the next run.
+not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next run.
 
 ### Skipped, by reason
 

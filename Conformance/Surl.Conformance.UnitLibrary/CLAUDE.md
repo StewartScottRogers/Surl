@@ -218,7 +218,7 @@ Abstractions:
 - generating the test certificates from the imported `.prm` files with `CertificateRequest`
   (BL-682; BL-392's run uses a stand-in CA and `localhost` certificate), and the SSH keys and
   `%SSHSRVMD5`/`%SSHSRVSHA256`;
-- reading `Upstream-Test-Case-Exclusions.md` into `TestServerChoices` (BL-685).
+- reading `Upstream-Test-Case-Exclusions.md` into `TestServerChoices` (BL-689).
 
 It does not hold the server halves: each protocol library carries its own optional seam for a
 case's reply, and `Surl.Conformance.UnitTests` composes it. It hands a reply over as BCL types

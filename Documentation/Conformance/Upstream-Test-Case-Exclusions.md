@@ -8,7 +8,7 @@ decision 5). Anything else that fails is a Surl defect until measurement shows o
 becomes a task.
 
 One row per case. The list is empty: no case has been shown to verify an arbitrary choice. Reading
-it into `UpstreamTestCaseSelectionRules.TestServerChoices` is BL-685's.
+it into `UpstreamTestCaseSelectionRules.TestServerChoices` is BL-689's.
 
 | Case | Byte verified | Upstream's choice | Surl's answer | Why a correct server need not send upstream's |
 | --- | --- | --- | --- | --- |

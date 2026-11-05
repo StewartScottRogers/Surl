@@ -1,5 +1,5 @@
 ---
-id: BL-684
+id: BL-688
 title: Fill the Linux and macOS upstream test-case pass-rate rows from CI and show release.yml's dry run
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-684 — Fill the Linux and macOS upstream test-case pass-rate rows from CI and show release.yml's dry run
+# BL-688 — Fill the Linux and macOS upstream test-case pass-rate rows from CI and show release.yml's dry run
 
 ## Goal
 

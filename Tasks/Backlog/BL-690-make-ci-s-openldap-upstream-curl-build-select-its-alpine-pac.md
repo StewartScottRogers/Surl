@@ -1,5 +1,5 @@
 ---
-id: BL-686
+id: BL-690
 title: Make CI's OpenLDAP upstream curl build select its Alpine packages again
 priority: High
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-686 — Make CI's OpenLDAP upstream curl build select its Alpine packages again
+# BL-690 — Make CI's OpenLDAP upstream curl build select its Alpine packages again
 
 ## Goal
 
