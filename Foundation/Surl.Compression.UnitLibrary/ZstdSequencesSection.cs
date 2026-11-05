@@ -22,22 +22,26 @@ internal sealed class ZstdSequencesSection(int frameStart)
     private const int LongCountMarker = 255;
     private const int TwoByteCountMarker = 128;
 
-    private static readonly int[] LiteralLengthExtraBits =
+    /// <summary>Literals_Length_Code extra bits (RFC 8878, section 3.1.1.3.2.1.1).</summary>
+    internal static readonly int[] LiteralLengthExtraBits =
     [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
     ];
 
-    private static readonly int[] MatchLengthExtraBits =
+    /// <summary>Match_Length_Code extra bits (RFC 8878, section 3.1.1.3.2.1.1).</summary>
+    internal static readonly int[] MatchLengthExtraBits =
     [
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
     ];
 
-    private static readonly int[] LiteralLengthBaselines = BuildBaselines(LiteralLengthExtraBits, 0);
+    /// <summary>Literals_Length_Code baselines, each the last plus two to the power of its extra bits.</summary>
+    internal static readonly int[] LiteralLengthBaselines = BuildBaselines(LiteralLengthExtraBits, 0);
 
-    private static readonly int[] MatchLengthBaselines = BuildBaselines(MatchLengthExtraBits, 3);
+    /// <summary>Match_Length_Code baselines, from 3.</summary>
+    internal static readonly int[] MatchLengthBaselines = BuildBaselines(MatchLengthExtraBits, 3);
 
-    private readonly int[] repeatOffsets = [1, 4, 8];
+    private readonly ZstdRepeatOffsets repeatOffsets = new();
 
     private ZstdFiniteStateEntropyTable? literalLengthTable;
     private ZstdFiniteStateEntropyTable? offsetTable;
@@ -153,7 +157,7 @@ internal sealed class ZstdSequencesSection(int frameStart)
             int matchLength = MatchLengthBaselines[matchLengthCode] + (int)reader.ReadBits(MatchLengthExtraBits[matchLengthCode]);
             int literalLength = LiteralLengthBaselines[literalLengthCode] + (int)reader.ReadBits(LiteralLengthExtraBits[literalLengthCode]);
             literalsUsed = AppendLiterals(literals, literalsUsed, literalLength, output);
-            output.CopyFromEarlier(ResolveOffset(offsetValue, literalLength), matchLength, frameStart);
+            output.CopyFromEarlier(repeatOffsets.Resolve(offsetValue, literalLength), matchLength, frameStart);
             if (sequence + 1 < count)
             {
                 literalLengthState = literalLengths.NextState(literalLengthState, reader);
@@ -176,40 +180,6 @@ internal sealed class ZstdSequencesSection(int frameStart)
 
         output.Append(literals.AsSpan(used, length));
         return used + length;
-    }
-
-    /// <summary>
-    /// The offset an offset value names (RFC 8878, section 3.1.1.5): above 3 a new offset of the value
-    /// minus 3; otherwise a repeat offset, shifted by one when the literal length is 0, the fourth being
-    /// the first repeat offset minus one. The repeat offsets are updated to match.
-    /// </summary>
-    private long ResolveOffset(long offsetValue, int literalLength)
-    {
-        if (offsetValue > 3)
-        {
-            return MakeFirstRepeatOffset((int)Math.Min(offsetValue - 3, int.MaxValue), 2);
-        }
-
-        int index = (int)offsetValue - 1 + (literalLength == 0 ? 1 : 0);
-        int offset = index < repeatOffsets.Length ? repeatOffsets[index] : repeatOffsets[0] - 1;
-        if (offset == 0)
-        {
-            throw DecompressionRefusedException.Malformed("a repeat offset is 0");
-        }
-
-        return MakeFirstRepeatOffset(offset, Math.Min(index, 2));
-    }
-
-    /// <summary>Makes <paramref name="offset"/> the first repeat offset, moving the ones before <paramref name="replaced"/> down one.</summary>
-    private int MakeFirstRepeatOffset(int offset, int replaced)
-    {
-        for (int index = replaced; index > 0; index--)
-        {
-            repeatOffsets[index] = repeatOffsets[index - 1];
-        }
-
-        repeatOffsets[0] = offset;
-        return offset;
     }
 
     private static byte Take(ReadOnlySpan<byte> section, ref int position)

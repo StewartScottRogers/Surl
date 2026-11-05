@@ -3,13 +3,13 @@ using System.Buffers.Binary;
 namespace Surl.Compression;
 
 /// <summary>
-/// The greedy hash-table matcher both encoders use: it remembers, for each hash of four bytes,
+/// The greedy hash-table matcher the Snappy, LZ4 and zstd encoders use: it remembers, for each hash of four bytes,
 /// the last position it was asked about, and offers that position as a match when its four bytes
 /// are the same and it lies inside the allowed window, extended as far as the bytes agree.
 /// </summary>
 internal sealed class GreedyMatchFinder(byte[] input)
 {
-    /// <summary>The shortest match either format can encode.</summary>
+    /// <summary>The shortest match the encoders take, which every one of their formats can encode.</summary>
     public const int MinimumMatchLength = 4;
 
     private const int HashBits = 14;
@@ -20,7 +20,8 @@ internal sealed class GreedyMatchFinder(byte[] input)
     /// Remembers <paramref name="position"/> and returns the earlier match for the bytes there:
     /// its offset back and its length, at most <paramref name="maximumLength"/>; a length of 0 when
     /// there is none at or after <paramref name="windowStart"/>. LZ4 blocks of at most 64 KiB keep
-    /// every offset within LZ4's 65535, and Snappy has a 4-byte offset for any distance.
+    /// every offset within LZ4's 65535, Snappy has a 4-byte offset for any distance, and zstd's
+    /// window start keeps every offset one its predefined offset table can name.
     /// The caller keeps four bytes and <paramref name="maximumLength"/> bytes readable at <paramref name="position"/>.
     /// </summary>
     public (int Offset, int Length) FindAndRemember(int position, int windowStart, int maximumLength)

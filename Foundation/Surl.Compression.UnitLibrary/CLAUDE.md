@@ -28,4 +28,10 @@ Rules:
 - zstd test frames are written by the test project's `ZstdTestFrames`, `ZstdHuffmanLiteralsWriter`,
   `ZstdFseDescriptionWriter` and `ZstdSequencesWriter`, each following the RFC section it names;
   the predefined FSE tables are pinned to the RFC's Appendix A.
-- `ZstdFrameEncoder` is still to come (BL-699).
+- `ZstdFrameEncoder` writes one single-segment frame with `Frame_Content_Size`, no checksum and no
+  dictionary, in blocks of 128 KiB: RLE for one byte repeated, Compressed (Raw literals and
+  Predefined_Mode sequences) when smaller, Raw otherwise. Its parts are internal:
+  `ZstdSequenceFinder` (`GreedyMatchFinder` plus the repeat offsets), `ZstdSequencesEncoder`,
+  `ZstdFiniteStateEntropyEncodingTable` and `ZstdBackwardBitWriter`. `ZstdRepeatOffsets` is shared
+  with the decoder, so both update the repeat offsets the same way; a block kept Raw or RLE
+  leaves them as they were.
