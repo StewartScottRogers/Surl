@@ -1,7 +1,8 @@
 # ADR-0082 — How Surl serves HTTP/3 over QUIC, and what is hand-built
 
 - **Status:** Accepted
-- **Amended by:** [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
+- **Amended by:** Amendment 1 below (2026-11-05, BL-383: the HTTP/3 server where this ADR is silent);
+  [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md)
   (2026-11-04, BL-402): decision 2's HTTP/3 frames and control and QPACK streams move from
   `Surl.Protocol.Http` to the horizontal library `Surl.Http3.UnitLibrary` (BL-410), which
   `Surl.Protocol.Http` and the WebTransport server both reference. `Surl.Quic` gains the loop
@@ -344,3 +345,41 @@ Costs and caveats:
   `--alt-svc` is not yet measured; BL-385 measures it.
 - The recorder sends nothing, so nothing here shows curl accepting a server flight; BL-376's
   test-side client and BL-385's live runs do.
+
+## Amendment 1 (2026-11-05, BL-383): what the HTTP/3 server does where this ADR is silent
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-383, which
+built the server as `Http3ConnectionServer` in `Surl.Protocol.Http` (BL-410 moves it to
+`Surl.Http3`, ADR-0086). Every byte decisions 7 and 8 pin is unchanged. None of these was measured
+against curl - no surl answered HTTP/3 yet - and BL-385 measures them against a live surl; each
+follows RFC 9114 where curl's behaviour cannot be observed first.
+
+1. **Shutdown and `--max-time` cut the open streams off.** Decision 7's "open streams finish
+   within the shutdown grace" is ADR-0059's engine grace, which runs before the exchange is
+   cancelled. Once it is cancelled the server sends `GOAWAY` naming the next request stream it
+   would have accepted (the highest accepted plus 4, or 0), cuts the open streams off, as HTTP/2
+   does (ADR-0081), and closes `H3_NO_ERROR`. The application returns normally; the flow loop owns
+   the connection's end.
+2. **A request stream that ends before its `HEADERS`** - `FIN` with no frame, or only unknown
+   frames - is reset and stopped `H3_REQUEST_INCOMPLETE`, as a head timeout is. One the client
+   resets, at any point, is abandoned with a log note and nothing sent.
+3. **A body the handler leaves unread** - a refusal, a `413` or a `405` - is followed by
+   `STOP_SENDING` `H3_NO_ERROR` once the answer's `FIN` is queued (RFC 9114 section 4.1). A request
+   with no `content-length` and no `expect: 100-continue` counts as having a body until its `FIN`
+   says otherwise.
+4. **The `431` of decision 7** carries `server: surl` and `content-length: 0`, as every refusal does
+   (ADR-0006 section 3). It answers both a `HEADERS` frame longer than `--max-message` (not read)
+   and one that decodes to a field section larger than it (RFC 9114 section 4.2.2).
+5. **The client's streams.** A unidirectional stream of an unknown type is stopped with
+   `H3_STREAM_CREATION_ERROR` and ignored (RFC 9114 section 6.2); one that ends before its type
+   byte is ignored. A client whose `initial_max_streams_uni` leaves no room for the server's
+   control and QPACK streams is closed `H3_GENERAL_PROTOCOL_ERROR` (0x101). The client's QPACK
+   streams are fed to the QPACK decoder and encoder, and a refusal closes the connection
+   `QPACK_ENCODER_STREAM_ERROR` (0x201) or `QPACK_DECODER_STREAM_ERROR` (0x202). A `SETTINGS`
+   ending part way through a setting is `H3_FRAME_ERROR`; a repeated setting, or HTTP/2's 0x02 to
+   0x05, `H3_SETTINGS_ERROR`.
+6. **Request heads map as HTTP/2's do.** RFC 9114 sections 4.2 and 4.3 repeat RFC 9113 section
+   8.3, so `Http2RequestHeadMapping` maps both; its log text names both versions.
+7. **Not built here.** Decision 9's `H3_VERSION_FALLBACK` for NTLM and Negotiate waits on the same
+   work for HTTP/2 (BL-602), and a body larger than the client's credit is queued whole, since
+   `QuicApplicationConnection.WriteAsync` does not wait for credit; both are filed as tasks.
