@@ -1,5 +1,5 @@
 ---
-id: BL-826
+id: BL-839
 title: Say in --aihelp http and ADR-0090 that HTTP/2 resets NTLM and Negotiate with HTTP_1_1_REQUIRED
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-826 — Say in --aihelp http and ADR-0090 that HTTP/2 resets NTLM and Negotiate with HTTP_1_1_REQUIRED
+# BL-839 — Say in --aihelp http and ADR-0090 that HTTP/2 resets NTLM and Negotiate with HTTP_1_1_REQUIRED
 
 ## Goal
 
