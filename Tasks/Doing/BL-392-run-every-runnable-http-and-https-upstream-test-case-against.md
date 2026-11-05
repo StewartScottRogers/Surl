@@ -55,3 +55,4 @@ per case: test number, pass, fail or skip, and the reason.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
