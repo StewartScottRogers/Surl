@@ -59,6 +59,14 @@ public sealed record ExchangeContext(
     public IFaultPlan Faults { get; init; } = EmptyFaultPlan.Instance;
 
     /// <summary>
+    /// Where the server draws the bytes of non-secret generated identifiers for this exchange
+    /// (ADR-0124, decision 6): a cryptographic source, which gives different identifiers every run,
+    /// unless the engine sets a seeded one. Never draw anything secret from it; see
+    /// <see cref="IIdentifierRandom"/>.
+    /// </summary>
+    public IIdentifierRandom Identifiers { get; init; } = RandomNumberGeneratorIdentifierRandom.Instance;
+
+    /// <summary>
     /// Cancelled when the engine gives up on every exchange at shutdown (ADR-0059):
     /// <see cref="CancellationToken.None"/> unless the engine sets it. It cancels
     /// <see cref="CancellationToken"/> too; a server reads it only to tell shutdown from a limit.

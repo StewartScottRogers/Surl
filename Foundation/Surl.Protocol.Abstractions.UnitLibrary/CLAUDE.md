@@ -127,6 +127,13 @@ What it holds:
   point's, ordinally; never spends `Times`; records every point asked). `Surl.Core`'s
   `SurlEventStream` and `FaultPlan` implement them (BL-787, BL-792).
 
+- The seedable identifier source (ADR-0124, decision 6; BL-851): `IIdentifierRandom.NextBytes`,
+  for non-secret generated identifiers only - never keys, nonces, challenges, salts or tokens. It
+  reaches a server through `ExchangeContext.Identifiers`, whose default, the internal
+  `RandomNumberGeneratorIdentifierRandom`, draws from `RandomNumberGenerator`, so every server
+  behaves as before. `Surl.Core` holds the public sources: `CryptographicIdentifierRandom` and
+  `SeededIdentifierRandom`.
+
 - The datagram flow's test double (ADR-0082, decision 5): `InMemoryDatagramFlow` hands a
   server its first datagram and then the client's datagrams one per receive (given up front,
   or delivered with `DeliverFromClient` while the server runs), records every datagram sent

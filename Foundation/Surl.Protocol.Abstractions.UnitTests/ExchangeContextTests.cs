@@ -114,6 +114,34 @@ public sealed class ExchangeContextTests
         Assert.AreSame(faults, context.Faults);
     }
 
+    [TestMethod]
+    public void Identifiers_ContextCreatedWithoutThem_IsTheCryptographicSourceAndFillsEveryByte()
+    {
+        var context = NewContext();
+        var first = new byte[32];
+        var second = new byte[32];
+
+        context.Identifiers.NextBytes(first);
+        context.Identifiers.NextBytes(second);
+
+        Assert.AreSame(RandomNumberGeneratorIdentifierRandom.Instance, context.Identifiers);
+        CollectionAssert.AreNotEqual(first, second);
+    }
+
+    [TestMethod]
+    public void Identifiers_CarryTheSourceItWasGiven()
+    {
+        var identifiers = new FixedByteIdentifierRandom();
+
+        var bytes = new byte[2];
+
+        var context = NewContext() with { Identifiers = identifiers };
+        context.Identifiers.NextBytes(bytes);
+
+        Assert.AreSame(identifiers, context.Identifiers);
+        CollectionAssert.AreEqual(new byte[] { 0x2A, 0x2A }, bytes);
+    }
+
     private static ExchangeContext NewContext() => NewContext(CancellationToken.None);
 
     private static ExchangeContext NewContext(CancellationToken cancellationToken) => new(
