@@ -40,8 +40,24 @@ What is here so far is the type system and the frame codec (BL-510; ADR-0107 Par
   bytes exactly as they arrived; `Amqp1Header` and `Amqp1Properties` read the two sections that are
   described lists.
 
-Protocol headers and SASL are BL-511; connections, sessions and links BL-512; transfers, credit and
-settlement BL-513; the command line and composition BL-514.
+Protocol headers and SASL (BL-511; ADR-0107 decisions 1 and 2):
+
+- `Amqp1ProtocolHeader` writes and identifies the 8-byte headers `AMQP 0|2|3 1 0 0`
+  (`Amqp1ProtocolId`); any other 8 bytes identify as none.
+- `Amqp1SecurityNegotiation` runs one connection's headers and SASL until AMQP frames follow
+  (`Amqp1SecurityNegotiationResult`: ready, and the account logged in). A SASL header runs SASL; a
+  plain AMQP header is let through only under `AllowsAnonymous`; a TLS header on plaintext with
+  `CanUpgradeToTls` is answered and upgraded, then negotiated again; anything else is answered
+  `AMQP 3 1 0 0` and closed. `sasl-mechanisms` lists the policy's mechanisms then `ANONYMOUS` when
+  allowed (an empty array when none); `sasl-init` with a mechanism not offered gets outcome 1, and
+  every other login goes through `ISaslAuthenticationPolicy`, each challenge a `sasl-challenge`, each
+  answer a `sasl-response`. SCRAM's server-final travels as the outcome's `additional-data`. After
+  outcome 0 only `AMQP 0 1 0 0` is accepted; anything else, a further SASL frame included, is
+  answered `AMQP 0 1 0 0` and closed. A SASL frame over 512 bytes, an AMQP frame or a frame out of
+  order closes with no bytes. Headers and frames are read exactly, so pipelined bytes are kept.
+
+Connections, sessions and links are BL-512; transfers, credit and settlement BL-513; the command
+line and composition BL-514.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0107 decision 0 names (`Surl.MessageBus`) - never another protocol

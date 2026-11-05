@@ -12,5 +12,7 @@ public sealed record Amqp1SaslMechanisms(IReadOnlyList<Amqp1Symbol> ServerMechan
     internal static Amqp1SaslMechanisms FromFields(Amqp1Fields fields) => new(fields.MandatorySymbols(0));
 
     /// <inheritdoc/>
-    internal override IReadOnlyList<object?> FieldValues() => [Amqp1Fields.SymbolsField(ServerMechanisms)];
+    /// <remarks>The field is mandatory, so no mechanism is written as an empty array rather than left out (ADR-0107 decision 2).</remarks>
+    internal override IReadOnlyList<object?> FieldValues() =>
+        [ServerMechanisms.Count == 0 ? Amqp1Array.OfSymbols(ServerMechanisms) : Amqp1Fields.SymbolsField(ServerMechanisms)];
 }
