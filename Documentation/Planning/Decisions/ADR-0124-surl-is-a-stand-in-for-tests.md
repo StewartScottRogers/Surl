@@ -316,7 +316,17 @@ files carry it; its head is the kind, and its attributes are:
 
 Examples: `drop;listener=smtp://127.0.0.1:2525;times=1`, `refuse-login;account=alice`,
 `delay;ms=500;stage=command;path=/slow`, `error;scheme=smtp;command=RCPT;reply=451 4.3.0 try later`,
-`out-of-space;path=/uploads`. Refused as ADR-0101 decision 5 refuses a bad item: an unknown kind or key,
+`out-of-space;path=/uploads`. Refused as ADR-0101 decision 5 refuses a bad item (the texts after
+`option <name>: `, decided by Claude under Stewart's delegation in BL-785: `unknown kind <kind>`, row 10's
+`unknown key <key>`, `key <key> does not apply to <kind>`, `kind <kind> needs key <key>`,
+`key <key> must be a whole number from <lowest> to <highest>`, `key stage must be accept or command`,
+`unknown scheme <scheme>`, `key listener is not a listen URL`, `key listener cannot be given with key scheme`,
+`key <key> cannot be given at stage accept`, `key after-bytes cannot be given with stage=command`,
+`kind error needs key scheme or key listener`, `scheme <scheme> has no error shape`,
+`key reply does not fit the <scheme> error shape` and `more than 256 fault rules`; none holds a value
+but a kind or scheme, and the kind and keys are read in any case; `gophers` takes `gopher`'s reply shape;
+`scheme` accepts every scheme surl has a server for, extended ones included, whether or not
+`SURL_EXTENSIONS=0` turns them off): an unknown kind or key,
 a key not allowed for the kind, `listener` with `scheme`, `account`, `path` or `command` on a `drop` or
 `delay` at `accept` (none is known yet), `after-bytes` with `stage=command`, a value out of range, an `error` with neither `scheme` nor `listener`, a
 `reply` that does not fit its scheme, more than 256 rules. `SurlCommandLine.Faults` holds them as

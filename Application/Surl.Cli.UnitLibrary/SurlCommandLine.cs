@@ -160,6 +160,12 @@ public sealed record SurlCommandLine
     public IReadOnlyList<ConfiguredGroup> Groups { get; init; } = [];
 
     /// <summary>
+    /// The fault rules from every <c>--fault</c>, in command-line order, at most 256 (ADR-0124
+    /// decision 4). None by default. <c>Surl.Composition</c> adds them to the fault plan at start.
+    /// </summary>
+    public IReadOnlyList<ConfiguredFault> Faults { get; init; } = [];
+
+    /// <summary>
     /// <c>--keytab</c>: the MIT keytab file of Kerberos service keys, as given; none by default.
     /// It is read when surl starts serving, not while parsing (ADR-0057 decision 1).
     /// </summary>

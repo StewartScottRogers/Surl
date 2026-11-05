@@ -190,7 +190,7 @@ internal static class AiHelpProse
         [
             "Every option here widens what a peer may do, and each is off by default. Six are deployment choices that write no warning: `--allow-uploads`, `--list-directories`, `--follow-symlinks`, `--serve-dot-files`, `--tlsv1.0` and `--tlsv1.1`; leave each off unless it is needed.",
             "`--allow-weak-ssh-algorithms` also offers SSH algorithms built on SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman. It is for peers that support nothing stronger; a start that gives it writes `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman SSH algorithms are offered` from the info level up, and it also lets a `--hostkey` file hold an RSA key shorter than 2048 bits or a DSA key.",
-            "The other five, `--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--self-signed` and `--throwaway-hostkey`, loosen a secure default and are for tests only (see the testing topic).",
+            "The other six, `--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--fault`, `--self-signed` and `--throwaway-hostkey`, loosen a secure default and are for tests only (see the testing topic).",
             "Before running surl where others can reach it: bind a specific address rather than `0.0.0.0` or `[::]`; give `--cert` and `--key` for secure schemes, never `--self-signed`; configure accounts with `--user-file`; review the limits; start with no loosening option, and treat any `surl: warning:` line at start as one left on.",
         ],
         ["smb"] =
@@ -241,6 +241,7 @@ internal static class AiHelpProse
             "`--allow-anonymous`, `--allow-plaintext-auth`, `--auth` and `--self-signed` each loosen a secure default so a test can reach surl without accounts, without TLS or without a certificate file. They are for tests only.",
             "Each writes a `surl: warning:` line on start, from the info level up, to the log (stderr unless `--log-file` is given); `--self-signed` writes its line only when it makes its certificate. What each one loosens, and why none is the default, follows the option table.",
             "`--throwaway-hostkey` loosens the SSH host key the same way `--self-signed` loosens the certificate: surl makes a throwaway RSA key when it serves an `scp` or `sftp` listen URL and writes `surl: warning: --throwaway-hostkey: serving a throwaway SSH host key (--hostpubsha256 <base64>); clients must pin it or skip the check (curl -k)` (see the ssh topic).",
+            "`--fault <kind>[;<key>=<value>]` (repeatable, at most 256) makes surl misbehave on purpose so a test can check how its client copes: `delay;ms=500;stage=command;path=/slow`, `drop;listener=smtp://127.0.0.1:2525;times=1`, `refuse-login;account=alice`, `error;scheme=smtp;command=RCPT;reply=451 4.3.0 try later` or `out-of-space;path=/uploads`. An `error` reply must fit its scheme's error shape (an HTTP status 400 to 599, an SMTP or FTP reply code 400 to 599 and text, IMAP `NO` or `BAD` and text, and so on), and an unknown kind or key, a key the kind does not take, a missing `ms` or `reply`, a number out of range or a reply that does not fit is refused, exit 2.",
         ],
         ["tftp"] =
         [

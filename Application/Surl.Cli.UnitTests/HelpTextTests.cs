@@ -105,6 +105,19 @@ public sealed class HelpTextTests
         "        certificate, from the info log level up.",
     ];
 
+    private static readonly string[] FaultExplanationLines =
+    [
+        "        Adds a fault rule that makes surl misbehave on purpose: delay",
+        "        (ms=<0-600000>, at accept or stage=command), drop the connection (at",
+        "        accept, stage=command, or after-bytes=<n> sent), refuse-login, error (a",
+        "        reply=<code text> that fits the scheme's error shape, with scheme= or",
+        "        listener=) or out-of-space. Keys listener, scheme, account, path and",
+        "        command scope it, and times=<1-1000000> limits how often it applies;",
+        "        repeat it for more rules, at most 256. A test uses it to check how its",
+        "        client copes with a slow, failing or full server. It is not the default",
+        "        because a server that misbehaves on purpose looks broken to every other",
+        "        client.",
+    ];
     private static readonly string[] ThrowawayHostKeyExplanationLines =
     [
         "        Makes a throwaway RSA 3072-bit SSH host key at start for an scp or sftp",
@@ -174,6 +187,7 @@ public sealed class HelpTextTests
             Row(38, "    --cert-type <type>", "Format of --cert: PEM, DER or P12"),
             Row(38, "-K, --config <file>", "Read options from a file (repeatable)"),
             Row(38, "    --directory <directory>", "Data directory, else in memory"),
+            Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --group <name>=<member>,...", "Name a group of accounts (repeatable)"),
             Row(38, "    --head-timeout <seconds>", "Time to send a request head"),
@@ -260,11 +274,12 @@ public sealed class HelpTextTests
             HelpText.Answer("testing"),
             [
                 "testing: Loosening options for tests (warned)",
-                Row(30, "    --allow-anonymous", "Accept any login, or none (warns)"),
-                Row(30, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
-                Row(30, "    --auth <methods>", "Authentication methods accepted"),
-                Row(30, "    --self-signed", "Throwaway certificate (warns)"),
-                Row(30, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
+                Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+                Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+                Row(38, "    --auth <methods>", "Authentication methods accepted"),
+                Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
+                Row(38, "    --self-signed", "Throwaway certificate (warns)"),
+                Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
                 "",
                 "    --allow-anonymous",
                 .. AllowAnonymousExplanationLines,
@@ -274,6 +289,9 @@ public sealed class HelpTextTests
                 "",
                 "    --auth <methods>",
                 .. AuthExplanationLines,
+                "",
+                "    --fault <kind>[;<key>=<value>]",
+                .. FaultExplanationLines,
                 "",
                 "    --self-signed",
                 .. SelfSignedExplanationLines,
@@ -676,18 +694,19 @@ public sealed class HelpTextTests
         AssertOutput(
             HelpText.Answer("security"),
             "security: Options that widen what a peer may do",
-            Row(35, "    --allow-anonymous", "Accept any login, or none (warns)"),
-            Row(35, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
-            Row(35, "    --allow-uploads", "Accept uploads into served files"),
-            Row(35, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
-            Row(35, "    --auth <methods>", "Authentication methods accepted"),
-            Row(35, "    --follow-symlinks", "Follow links that stay in the root"),
-            Row(35, "    --list-directories", "Answer directory listings"),
-            Row(35, "    --self-signed", "Throwaway certificate (warns)"),
-            Row(35, "    --serve-dot-files", "Serve names that start with a dot"),
-            Row(35, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
-            Row(35, "    --tlsv1.0", "Accept TLS 1.0 or later"),
-            Row(35, "    --tlsv1.1", "Accept TLS 1.1 or later"));
+            Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
+            Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
+            Row(38, "    --allow-uploads", "Accept uploads into served files"),
+            Row(38, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
+            Row(38, "    --auth <methods>", "Authentication methods accepted"),
+            Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
+            Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
+            Row(38, "    --list-directories", "Answer directory listings"),
+            Row(38, "    --self-signed", "Throwaway certificate (warns)"),
+            Row(38, "    --serve-dot-files", "Serve names that start with a dot"),
+            Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
+            Row(38, "    --tlsv1.0", "Accept TLS 1.0 or later"),
+            Row(38, "    --tlsv1.1", "Accept TLS 1.1 or later"));
 
     [TestMethod]
     public void Answer_Surl_ListsItsOptions() =>

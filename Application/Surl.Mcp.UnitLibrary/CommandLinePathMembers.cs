@@ -52,6 +52,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.KeyPassphrase),
         nameof(SurlCommandLine.Accounts),
         nameof(SurlCommandLine.Groups),
+        nameof(SurlCommandLine.Faults),
         nameof(SurlCommandLine.AllowAnonymous),
         nameof(SurlCommandLine.AllowPlaintextAuthentication),
         nameof(SurlCommandLine.GivenAuthenticationMethods),

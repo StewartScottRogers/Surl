@@ -66,6 +66,14 @@ internal static class CommandLineOptions
         + "It cannot be used with --hostkey. surl warns when it makes the key, from the info log level up, naming "
         + "the hash to pin.";
 
+    private const string FaultExplanation =
+        "Adds a fault rule that makes surl misbehave on purpose: delay (ms=<0-600000>, at accept or stage=command), "
+        + "drop the connection (at accept, stage=command, or after-bytes=<n> sent), refuse-login, error (a reply=<code text> "
+        + "that fits the scheme's error shape, with scheme= or listener=) or out-of-space. Keys listener, scheme, account, "
+        + "path and command scope it, and times=<1-1000000> limits how often it applies; repeat it for more rules, at most 256. "
+        + "A test uses it to check how its client copes with a slow, failing or full server. It is not the default because "
+        + "a server that misbehaves on purpose looks broken to every other client.";
+
 #pragma warning disable SYSLIB0039 // --tlsv1.0 and --tlsv1.1 name the old versions on purpose (ADR-0007 section 2).
     private static readonly CommandLineOption[] Table =
     [
@@ -177,6 +185,9 @@ internal static class CommandLineOptions
         Flag("throwaway-hostkey", null, negatable: true, (c, on) => c with { ThrowawayHostKey = on },
             new(null, "Throwaway SSH host key (warns)", ["security", "ssh", "testing"], IsInShortList: false, Default: "off",
                 ThrowawayHostKeyExplanation)),
+        WithArgument<ConfiguredFault>("fault", null, ConfiguredFaultReader.Reading, (c, v) => c with { Faults = [.. c.Faults, v] },
+            new("<kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)", ["security", "testing"], IsInShortList: false, Default: "no faults",
+                FaultExplanation)),
         WithArgument<CommandLineAuthorizedKeys>("authorized-keys", null, OptionArgumentReader.AuthorizedKeys,
             (c, v) => c with { AuthorizedKeys = [.. c.AuthorizedKeys, v] },
             new("<user:file>", "SSH public keys a user may use", ["auth", "ssh"], IsInShortList: false, Default: "none")),

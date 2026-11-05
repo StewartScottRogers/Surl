@@ -41,6 +41,7 @@ public static class CommandLineParser
     private const string HostKeyLongName = "hostkey";
     private const string AuthorizedKeysLongName = "authorized-keys";
     private const string GroupLongName = "group";
+    private const string FaultLongName = "fault";
     private const string ConfigLongName = "config";
     private const string ConfigOption = "--config";
     private const string UrlLongName = "url";
@@ -353,6 +354,7 @@ public static class CommandLineParser
         longName switch
         {
             GroupLongName => CountGroup(reading, reportedName),
+            FaultLongName => CountFault(reading, reportedName),
             ConfigLongName => ReadConfigFile(reading, argument),
             UrlLongName => ReadListenUrl(reading, argument),
             _ => null,
@@ -482,7 +484,16 @@ public static class CommandLineParser
     }
 
     /// <summary>
-    /// The name a refusal gives: <paramref name="writtenName"/>, or, for an option whose
+    /// Refuses the <c>--fault</c> past <see cref="ConfiguredFaultReader.MaxRules"/> (ADR-0124 decision 4),
+    /// counted across the command line and every config file; null otherwise.
+    /// </summary>
+    private static CommandLineParseResult? CountFault(CommandLineReading reading, string reportedName) =>
+        reading.CommandLine.Faults.Count > ConfiguredFaultReader.MaxRules
+            ? RefusedOption(reportedName, ConfiguredFaultReader.TooManyRules)
+            : null;
+
+    /// <summary>
+    /// The name a refusal gives:<paramref name="writtenName"/>, or, for an option whose
     /// argument holds a secret, the option as written without any value (<c>--user</c>,
     /// <c>--no-user</c>, <c>-u</c> of <c>-vua:b</c>), so none of that option's own refusals
     /// echoes its value (ADR-0032 section 1). An unknown option is still named as written.
