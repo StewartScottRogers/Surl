@@ -47,6 +47,12 @@ with each widening option warned at start.
 
 ## Notes
 
+- From BL-662 (2026-11-05): `ContentShare.IsVisibleTo` matches `Schemes` exactly (ignoring case),
+  so ADR-0102 decision 2.1's "a scheme and its TLS twin are one entry" must be applied here, when
+  `protocols=` is composed into `ContentShare.Schemes`: `protocols=gopher` must also admit
+  `gophers`, `ftp` admit `ftps`, and so on (`Account.AreTlsTwinsOrEqual` already does this for
+  accounts).
+
 ## Log
 
 - 2026-11-04: Created.
