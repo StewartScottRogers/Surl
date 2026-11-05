@@ -1,5 +1,5 @@
 ---
-id: BL-842
+id: BL-862
 title: Trace BL-537's XMPP STARTTLS rows to their named tests
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-842 — Trace BL-537's XMPP STARTTLS rows to their named tests
+# BL-862 — Trace BL-537's XMPP STARTTLS rows to their named tests
 
 ## Goal
 

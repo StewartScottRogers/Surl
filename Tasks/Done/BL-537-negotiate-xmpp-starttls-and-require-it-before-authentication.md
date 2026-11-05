@@ -59,7 +59,7 @@ section 5 says, unless BL-535's ADR's explicit option allows plain text.
   - `xmpps` is not added to `Schemes`: BL-540 wraps the server in `ImplicitTlsSchemeServer`. A connection that is TLS
     from its first byte already starts at the post-TLS features and refuses `<starttls/>` (tested).
 - `Documentation/Conformance/Extended/Xmpp.md` was not edited: `Documentation/Conformance` is in BL-396's `touches`
-  (Doing). Filed BL-842 to trace the rows to the tests named here.
+  (Doing). Filed BL-862 to trace the rows to the tests named here.
 
 ## Log
 
