@@ -80,7 +80,7 @@ says.
 - `max_payload` in INFO is now the smaller of `--max-message` and the bus's `MaxMessageBytes`,
   as decision 7 says (`ServeAsync_BusBoundBelowMaxMessage_IsTheInfoMaxPayload`).
 - Not done here: `Documentation/Conformance/Extended/Nats.md` still names BL-526 on its rows,
-  because `Documentation/Conformance` is in BL-395's `touches` (in Doing). Filed BL-782 to
+  because `Documentation/Conformance` is in BL-395's `touches` (in Doing). Filed BL-825 to
   trace them.
 
 ## Log

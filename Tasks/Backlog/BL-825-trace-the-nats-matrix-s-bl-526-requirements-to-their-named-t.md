@@ -1,5 +1,5 @@
 ---
-id: BL-782
+id: BL-825
 title: Trace the NATS matrix's BL-526 requirements to their named tests
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-782 — Trace the NATS matrix's BL-526 requirements to their named tests
+# BL-825 — Trace the NATS matrix's BL-526 requirements to their named tests
 
 ## Goal
 
