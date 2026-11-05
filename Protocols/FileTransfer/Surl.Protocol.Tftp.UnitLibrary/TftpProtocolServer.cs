@@ -34,7 +34,9 @@ namespace Surl.Protocol.Tftp;
 /// with ERROR 2, <c>Access violation</c>, and no file is created, when uploads are off
 /// (<c>--allow-uploads</c>, ADR-0006 section 2), when the content store refuses the name, or
 /// when the store does not permit an upload there (a hidden name, a directory, or no
-/// directory to hold it); upstream curl exits 69. A <c>tsize</c> option past the exchange's
+/// directory to hold it, or a share TFTP's anonymous caller may only read or not reach at
+/// all, ADR-0102 decisions 2.2 and 2.3); upstream curl exits 69. A <c>tsize</c> option past
+/// the exchange's
 /// <see cref="ExchangeLimits.MaxUploadBytes"/> is answered with ERROR 3,
 /// <c>Disk full or allocation exceeded</c>, before any DATA; upstream curl exits 70.
 /// Otherwise the server opens the transfer with the OACK (the same options as a read, with
@@ -58,8 +60,9 @@ namespace Surl.Protocol.Tftp;
 /// <c>The file changed while it was sent.</c>
 /// </para>
 /// <para>
-/// A file name the content store refuses, one where nothing exists, one that names a
-/// directory, and one that vanishes before it is read, are all answered with ERROR 1,
+/// A file name the content store refuses, one where nothing exists (a share closed to
+/// anonymous callers, or limited to other schemes, included: TFTP has no login, ADR-0102
+/// decisions 2.2 and 2.3), one that names a directory, and one that vanishes before it is read, are all answered with ERROR 1,
 /// <c>File not found</c>, so a client cannot tell them apart (ADR-0006 section 2); upstream
 /// curl exits 68. A first datagram that is an ERROR gets no reply; any other first datagram
 /// that is not a well-formed read or write request (no final zero byte, an option without a
@@ -127,7 +130,11 @@ public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefus
         }
 
         var label = $"{request!.Kind} of \"{TftpLogText.Render(request.FileName)}\" ({request.Mode})";
-        var mapping = contentStore.MapRequestPath(TftpFileName.ToRequestPath(request.FileName));
+        // TFTP has no login (ADR-0032), so every request is an anonymous caller on the scheme the
+        // server listens on (ADR-0102 decision 2.2): a share closed to anonymous, or limited to other
+        // schemes, maps as absent and gets ERROR 1; a write in a share anonymous may only read is the
+        // store's NotPermitted, ERROR 2 (ADR-0102 decision 2.3).
+        var mapping = contentStore.MapRequestPathForCaller(TftpFileName.ToRequestPath(request.FileName), ContentCaller.Anonymous(context.Scheme));
         await (request.IsWrite ? AnswerWriteAsync(flow, context, request, mapping, label) : AnswerReadAsync(flow, context, request, mapping, label));
     }
 

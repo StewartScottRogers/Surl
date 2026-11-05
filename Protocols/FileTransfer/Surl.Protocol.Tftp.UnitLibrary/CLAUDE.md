@@ -16,6 +16,10 @@ exchange's `TimeProvider`. `TftpRequest` also parses a WRQ, and `TftpWriteTransf
 receives it through `TftpUploadStream`, which ACKs each DATA block as `ContentStore.WriteUploadAsync`
 reads it; both transfers share `TftpLockStep`'s send, wait and resend. Missing and refused files get
 ERROR 1; a write gets ERROR 2 while uploads are off, and ERROR 3 past the upload limit.
+Share access (ADR-0102 decisions 2.2 and 2.3, BL-662): TFTP has no login, so every request maps
+with `ContentStore.MapRequestPathForCaller` as `ContentCaller.Anonymous` on `tftp`. A share closed
+to anonymous, or limited to other schemes, is a missing file (ERROR 1); a write in a share
+anonymous may only read, or a `readonly` share, is the store's `NotPermitted` (ERROR 2).
 `TftpProtocolServer` is also the `IDatagramRefusalWriter`: ERROR 0 for a flow past a
 connection limit. ADR-0013 and its amendment record every answer. Its fixtures and the
 commands that recorded them are in `Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests/Fixtures/README.md`.
