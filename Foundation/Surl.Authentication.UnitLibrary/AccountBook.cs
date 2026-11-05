@@ -31,6 +31,8 @@ public sealed class AccountBook
     private readonly NtlmAccount dummyNtlmAccount = new(null, NtlmPasswordHashes.ComputeRandom());
     private readonly Dictionary<string, AwsSigV4Account> awsSigV4Accounts = new(StringComparer.Ordinal);
     private readonly AwsSigV4Account dummyAwsSigV4Account = new(null, RandomNumberGenerator.GetBytes(40));
+    private readonly Dictionary<string, AzureStorageAccount> azureStorageAccounts = new(StringComparer.Ordinal);
+    private readonly AzureStorageAccount dummyAzureStorageAccount = new(null, RandomNumberGenerator.GetBytes(64));
     private readonly Dictionary<string, ChallengeResponseAccount> challengeResponseAccounts = new(StringComparer.Ordinal);
     private readonly ChallengeResponseAccount dummyChallengeResponseAccount = new(null, RandomNumberGenerator.GetBytes(16));
     private readonly Dictionary<ScramHash, Dictionary<string, ScramCredentials>> scramAccounts = new()
@@ -88,6 +90,7 @@ public sealed class AccountBook
             ntlmAccounts[account.UserName] =
                 new NtlmAccount(account.UserName, NtlmPasswordHashes.Compute(account.Password));
             awsSigV4Accounts[account.UserName] = new AwsSigV4Account(account.UserName, Encoding.UTF8.GetBytes(account.Password));
+            AddAzureStorageAccount(account);
             challengeResponseAccounts[account.UserName] =
                 new ChallengeResponseAccount(account.UserName, Encoding.UTF8.GetBytes(account.Password));
             AddScramAccount(account, createScramSalt);
@@ -106,6 +109,7 @@ public sealed class AccountBook
         CopyAdmitted(source.digestAccounts, digestAccounts, (_, account) => !refused.Contains(account.AccountName!));
         CopyAdmitted(source.ntlmAccounts, ntlmAccounts, (name, _) => !refused.Contains(name));
         CopyAdmitted(source.awsSigV4Accounts, awsSigV4Accounts, (name, _) => !refused.Contains(name));
+        CopyAdmitted(source.azureStorageAccounts, azureStorageAccounts, (name, _) => !refused.Contains(name));
         CopyAdmitted(source.challengeResponseAccounts, challengeResponseAccounts, (name, _) => !refused.Contains(name));
         foreach (var (hash, credentials) in scramAccounts)
         {
@@ -252,6 +256,27 @@ public sealed class AccountBook
     /// <returns>The account's name and secret, or the dummy's.</returns>
     internal AwsSigV4Account FindAwsSigV4Account(string accessKeyId) =>
         awsSigV4Accounts.GetValueOrDefault(accessKeyId, dummyAwsSigV4Account);
+
+    /// <summary>
+    /// The Azure Storage account named <paramref name="accountName"/>, with its key decoded from
+    /// the password's base64 text (ADR-0100 decision 4.1), or a dummy with a random key and no
+    /// name when no account has that name or its password is not base64, so the check costs the
+    /// same and matches nothing (ADR-0109 decision 3.4).
+    /// </summary>
+    /// <param name="accountName">The storage account name as sent.</param>
+    /// <returns>The account's name and key, or the dummy's.</returns>
+    internal AzureStorageAccount FindAzureStorageAccount(string accountName) =>
+        azureStorageAccounts.GetValueOrDefault(accountName, dummyAzureStorageAccount);
+
+    // A named account whose password is the base64 text of a key signs Shared Key and SAS with it.
+    private void AddAzureStorageAccount(Account account)
+    {
+        var key = new byte[account.Password.Length];
+        if (Convert.TryFromBase64String(account.Password, key, out var length) && length > 0)
+        {
+            azureStorageAccounts[account.UserName] = new AzureStorageAccount(account.UserName, key[..length]);
+        }
+    }
 
     /// <summary>
     /// The account a <c>CRAM-MD5</c>, <c>DIGEST-MD5</c> or <c>APOP</c> user name names, matched

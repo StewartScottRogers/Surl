@@ -5,7 +5,8 @@ Phase 1.
 The server side of the authentication schemes upstream curl sends, secure by default
 (ADR-0032): the accounts, the policy that judges every login, and each HTTP method's
 challenge (`WWW-Authenticate`) and check. Today it holds Basic, Bearer, Digest, NTLM,
-Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, the password check the
+Negotiate carrying NTLM and AWS Signature Version 4 for HTTP, Azure Storage's bearer token, Shared Key
+and shared access signatures, the password check the
 MQTT `CONNECT` asks for, and the mail servers' SASL mechanisms (`PLAIN`, `LOGIN`, `XOAUTH2`,
 `OAUTHBEARER`, `CRAM-MD5`, `DIGEST-MD5`, `NTLM`, `GSSAPI`, which checks a Kerberos ticket with the
 `--keytab` acceptor and is offered first (ADR-0057 decisions 9 and 10), and `EXTERNAL`, which logs in as the
@@ -215,6 +216,41 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   refusal is `Forbidden` with no challenge after the delay. A signature verified on the head over a
   sent content hash names its account on the verdict that awaits the body. Tested against the
   Amazon S3 API Reference's worked GET-object example (`AwsSigV4ServiceSignatureTests`).
+
+## Azure Storage logins (BL-717)
+
+- A request with `HttpAuthenticationRequest.AzureStorage` set (the Azure Storage server's) is
+  judged by `HttpAuthenticationSession.JudgeAzureStorageAsync` with
+  `AuthenticationPolicy.AzureStorageVerifier`, whatever `--auth` accepts (ADR-0109 decision 3): no
+  credentials is anonymous under `--allow-anonymous` and `Forbidden` (`MissingCredentials`)
+  otherwise, undelayed; any credentials are checked even under `--allow-anonymous`; every other
+  refusal is `Forbidden` with its `HttpAuthenticationRefusal` after the delay, with a login note
+  (`Bearer`, `SharedKey`, `SharedKeyLite`, `SAS`) when a method was checked.
+- `AzureStorageVerifier`: `Bearer <token>` against the empty-name accounts (`UnknownAccount` when
+  it is none); `SharedKey`/`SharedKeyLite` (`AzureSharedKeyAuthorization`; an account and a
+  signature joined by `:`, else `MalformedCredentials`) needs `x-ms-date` or `Date` as an RFC 1123
+  time (`MissingRequestDate`) within `RequestTimeWindow`, 15 minutes (`ClockSkew`), then the
+  HMAC-SHA256 of `AzureSharedKeyStringToSign`'s string (the page's verb, standard fields with
+  `Content-Length` empty at zero, canonicalized `x-ms-` fields and resource; Lite's shorter form
+  with `?comp=` only); a `sig` in the query is a shared access signature
+  (`AzureSharedAccessSignature`), and with an `Authorization` as well `MalformedCredentials`.
+  Another scheme is `UnsupportedScheme`.
+- A shared access signature: `si` or `skoid`, a version before 2020-12-06 or a signed resource
+  the request does not address (`AzureSignedResource`: `sr=c`, `b`, `d` with `sdd`) is
+  `UnservedSignatureKind`; no `sv`, `sp` or `se`, or a time that does not read,
+  `UnreadableSignatureFields`. An account SAS (`ss` or `srt`) signs the account, `sp`, `ss`, `srt`,
+  `st`, `se`, `sip`, `spr`, `sv` and `ses`; a service SAS the page's sixteen lines with
+  `/blob/<account>/<container>[/<name>]` (the Data Lake endpoint signs the same). The account is
+  the scope's (the `Host`'s first label). After the signature: `se` more than 15 minutes past
+  (`SignatureExpired`), `st` more than 15 minutes ahead (`SignatureNotYetValid`), `sip` not
+  admitting the peer (`AzureSignedAddressRange`, `AddressNotAllowed`), `spr=https` over plain
+  text (`ProtocolNotAllowed`), and last a permission, service (`b`) or resource type (`s`, `c`,
+  `o`) not granted (`PermissionNotGranted`).
+- `AccountBook.FindAzureStorageAccount` holds each named account whose password is base64 text
+  with the key it decodes to (ADR-0100 decision 4.1); an unknown name, or an account whose password
+  is not base64, finds a dummy with a random 64-byte key, compared the same way.
+- Tested in `AzureStorageVerifierTests`, which sign the strings to sign written as the pages give
+  them, never with the library's own builder.
 
 ## SSH logins (BL-157)
 

@@ -51,7 +51,11 @@ What it holds:
   the body, `IHttpRequestBodyCheck`, asked with the body's SHA-256 once it is read,
   ADR-0045), a refused verdict's `HttpAuthenticationRefusal` and a request's
   `AwsSigV4Service`, which makes Signature Version 4 for that service its only method (the S3
-  server's, ADR-0108 Amendment 1), and `CheckedLogin`, the
+  server's, ADR-0108 Amendment 1), and a request's `AzureStorage`, an `AzureStorageScope` (the
+  account a shared access signature names, the decoded resource path, the permission letters
+  that grant the operation and the peer's address), which makes Azure's bearer token, Shared Key
+  and shared access signatures its only methods (the Azure Storage server's, ADR-0109 decision 3;
+  BL-717, which added the refusals from `MissingRequestDate` to `PermissionNotGranted`), and `CheckedLogin`, the
   credentials checked and the answer, whose `Note` a server writes to the verbose log
   (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request

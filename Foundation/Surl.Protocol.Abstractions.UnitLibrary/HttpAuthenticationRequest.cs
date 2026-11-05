@@ -18,9 +18,17 @@ namespace Surl.Protocol.Abstractions;
 /// challenge is sent, and every refusal is <see cref="HttpAuthenticationOutcome.Forbidden"/> with
 /// its <see cref="HttpAuthenticationVerdict.Refusal"/>.
 /// </param>
+/// <param name="AzureStorage">
+/// <see langword="null"/> for every request but the Azure Storage server's. Set, the request's
+/// methods are Azure's (ADR-0109 decision 3): a bearer token, Shared Key or SharedKeyLite, or a
+/// shared access signature in the query; <c>--auth</c> does not apply, credentials are checked
+/// even under <c>--allow-anonymous</c>, no challenge is sent, and every refusal is
+/// <see cref="HttpAuthenticationOutcome.Forbidden"/> with its <see cref="HttpAuthenticationVerdict.Refusal"/>.
+/// </param>
 public sealed record HttpAuthenticationRequest(
     string Method,
     string Target,
     bool IsWrite,
     IReadOnlyList<KeyValuePair<string, string>> Fields,
-    string? AwsSigV4Service = null);
+    string? AwsSigV4Service = null,
+    AzureStorageScope? AzureStorage = null);

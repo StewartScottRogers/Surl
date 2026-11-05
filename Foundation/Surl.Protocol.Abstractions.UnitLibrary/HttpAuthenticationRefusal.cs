@@ -49,4 +49,49 @@ public enum HttpAuthenticationRefusal
     /// <see cref="IHttpRequestBodyCheck"/> once the body is read.
     /// </summary>
     PayloadHashMismatch,
+
+    /// <summary>
+    /// A signed request without the date it must carry: Azure Shared Key's <c>x-ms-date</c> or
+    /// <c>Date</c> (ADR-0109 decision 3.2).
+    /// </summary>
+    MissingRequestDate,
+
+    /// <summary>
+    /// A shared access signature whose signed expiry has passed (ADR-0109 decision 3.3).
+    /// </summary>
+    SignatureExpired,
+
+    /// <summary>
+    /// A shared access signature whose signed start is still ahead (ADR-0109 decision 3.3).
+    /// </summary>
+    SignatureNotYetValid,
+
+    /// <summary>
+    /// A shared access signature whose signed address range does not admit the peer.
+    /// </summary>
+    AddressNotAllowed,
+
+    /// <summary>
+    /// A shared access signature signed for HTTPS only, sent over plain text.
+    /// </summary>
+    ProtocolNotAllowed,
+
+    /// <summary>
+    /// A shared access signature of a kind the server does not serve: one naming a stored access
+    /// policy, a user delegation signature, a signed version before 2020-12-06, or a signed
+    /// resource the request does not address (ADR-0109 decision 3.3).
+    /// </summary>
+    UnservedSignatureKind,
+
+    /// <summary>
+    /// A shared access signature whose signed fields do not read: no signed expiry, a time or
+    /// a version that is not one.
+    /// </summary>
+    UnreadableSignatureFields,
+
+    /// <summary>
+    /// A verified shared access signature that does not grant the operation asked for: its
+    /// permissions, services or resource types lack it (ADR-0109 decision 3.3).
+    /// </summary>
+    PermissionNotGranted,
 }

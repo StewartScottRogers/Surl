@@ -38,9 +38,43 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (request.AzureStorage is not null)
+        {
+            return JudgeAzureStorageAsync(request, cancellationToken);
+        }
+
         return request.AwsSigV4Service is null
             ? JudgeHttpRequest(request, cancellationToken)
             : JudgeServiceSignature(request, cancellationToken);
+    }
+
+    // A request of the Azure Storage server (ADR-0109 decision 3): no credentials is anonymous
+    // under --allow-anonymous and refused otherwise, undelayed since nothing was checked; any
+    // credentials are checked even under --allow-anonymous; every other refusal is Forbidden with
+    // its reason after the delay, with the login note when a method was checked.
+    private async ValueTask<HttpAuthenticationVerdict> JudgeAzureStorageAsync(
+        HttpAuthenticationRequest request, CancellationToken cancellationToken)
+    {
+        var result = policy.AzureStorageVerifier.Verify(request, isEncrypted);
+        if (result is null)
+        {
+            return policy.Settings.AllowAnonymous
+                ? ProceedAnonymously
+                : Forbidden with { Refusal = HttpAuthenticationRefusal.MissingCredentials };
+        }
+
+        var check = result.Check;
+        var note = result.LoginMethod is null
+            ? null
+            : new CheckedLogin(result.LoginMethod, check.UserAsSent, check.Outcome == HttpCredentialOutcome.Accepted);
+        if (check.Outcome == HttpCredentialOutcome.Accepted)
+        {
+            return new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], check.AccountName, note);
+        }
+
+        await policy.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
+
+        return Forbidden with { CheckedLogin = note, Refusal = check.Refusal };
     }
 
     // An HTTP request, judged by --auth's methods in ADR-0032 section 4's order.

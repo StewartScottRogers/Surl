@@ -114,6 +114,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
         ServiceSignatureVerifier = new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider);
+        AzureStorageVerifier = new AzureStorageVerifier(settings.Accounts, timeProvider);
         NonceSource = nonceSource;
         NtlmServerChallenges = ntlmServerChallenges;
         saslMechanisms = [.. SaslMechanism.InOfferOrder.Where(mechanism => settings.AcceptedMethods.Contains(mechanism.Method))];
@@ -446,6 +447,13 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <c>--auth</c> does not decide (ADR-0108 decision 4.3).
     /// </summary>
     internal IHttpCredentialVerifier ServiceSignatureVerifier { get; }
+
+    /// <summary>
+    /// The check of a request naming its <see cref="HttpAuthenticationRequest.AzureStorage"/> (the
+    /// Azure Storage servers): a bearer token, Shared Key or a shared access signature, which
+    /// <c>--auth</c> does not decide (ADR-0109 decision 3).
+    /// </summary>
+    internal AzureStorageVerifier AzureStorageVerifier { get; }
 
     internal Task WaitRefusalDelayAsync(CancellationToken cancellationToken) =>
         Task.Delay(RefusalDelay, timeProvider, cancellationToken);
