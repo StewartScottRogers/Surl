@@ -5,6 +5,10 @@
   (2026-11-04, BL-402), which decides what this ADR left to BL-402: the HTTP/2 connection moves
   to `Surl.Http2` and the HTTP/3 connection to `Surl.Http3`, and an extended server answering
   HTTP/2 or HTTP/3 implements their stream handlers rather than `IHttpRequestHandler`.
+- **Amended by:** [ADR-0087](ADR-0087-how-surls-dtls-1-2-server-handshakes-for-coaps.md)
+  (2026-11-04, BL-403): decision 3's `Surl.Dtls` row may also reference
+  `Surl.Cryptography.Curve25519.UnitLibrary`, for the x25519 group; it needs no ChaCha20 or
+  Poly1305.
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-401. BL-407 builds `Surl.HttpServing` (decision 1), BL-408 builds `Surl.WebSocket`

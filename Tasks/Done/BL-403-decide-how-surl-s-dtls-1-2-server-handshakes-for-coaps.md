@@ -8,7 +8,7 @@ depends-on: [BL-401]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-403 — Decide how Surl's DTLS 1.2 server handshakes for coaps
 
@@ -49,14 +49,28 @@ failure; and how each ADR-0006 limit applies.
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers each point above, citing the RFC section behind each
       choice, and is listed in the folder's `README.md`.
-- [ ] `Documentation/Wiki/Glossary.md` is not touched here. The DTLS terms join it with BL-414.
+- [x] `Documentation/Wiki/Glossary.md` is not touched here. The DTLS terms join it with BL-414.
 
 ## Notes
+
+- ADR-0087 decides it. Summary: DTLS 1.2 only; AEAD suites in the server's order (ECDSA 0xC02B, 0xC02C,
+  0xC0AE, 0xC0AC; RSA 0xC02F, 0xC030; PSK 0x00A8, 0xC0A8, 0xC0A4); certificate mode from ADR-0010's options,
+  RawPublicKey from the same key, PSK from the `--user`/`--user-file` accounts (UTF-8 identity and key);
+  cookie always on (HMAC-SHA256, 32-byte secret rotated every 5 minutes, previous accepted); groups secp256r1,
+  x25519, secp384r1; timers 1 s doubling to 60 s inside the head timeout; 1200-byte datagrams; 64-record
+  replay window; no renegotiation, no resumption; an alert per failure, unknown PSK identity `decrypt_error`.
+- x25519 makes `Surl.Dtls` reference `Surl.Cryptography.Curve25519`: ADR-0084 and ADR-0002 carry an
+  "Amended" line saying so. BL-412 should list that reference in its `ProtocolIsolationTests` row.
+- `coaps` with accounts but no certificate starts in PSK-only mode, so ADR-0032 section 10 carries an
+  amendment note; the CoAP server's task pins the new refusal line and its `--aihelp` facts.
+- All edits are inside `Documentation/Planning/Decisions` (this task's `touches`). No `.cs` or project file
+  changed, so the `verify` skill was not needed; the Glossary is untouched.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0087 decides the coaps DTLS 1.2 handshake: suites, credentials, cookie, timers, extensions, limits and alerts
