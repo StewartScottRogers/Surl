@@ -1,5 +1,5 @@
 ---
-id: BL-755
+id: BL-764
 title: Serve whole AMQP 1.0 connections with their head timeout and connection limits
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-755 — Serve whole AMQP 1.0 connections with their head timeout and connection limits
+# BL-764 — Serve whole AMQP 1.0 connections with their head timeout and connection limits
 
 ## Goal
 

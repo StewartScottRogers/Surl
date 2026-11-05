@@ -89,7 +89,7 @@ Connections, sessions and links (BL-512; ADR-0107 decisions 3, 4 and 7):
 - Every error `description` is fixed text, never an address, account or exception.
 
 Transfers, credit, settlement and the bus-backed `IAmqp1NodeDirectory` are BL-513; one server running
-the negotiation and the connection under the head timeout and `--max-time` is BL-755; the command
+the negotiation and the connection under the head timeout and `--max-time` is BL-764; the command
 line and composition BL-514.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the

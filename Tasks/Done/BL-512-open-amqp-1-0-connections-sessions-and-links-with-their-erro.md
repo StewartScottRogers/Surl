@@ -88,7 +88,7 @@ Choices with a sensible default (rule 1):
 - **No container handle free** (a client whose `handle-max` is below the handles it uses) ends the session with
   `amqp:resource-limit-exceeded`; ADR-0107 names no condition for it.
 - **The idle timer runs from `open` on.** Before `open`, the client's time is the head timeout's, which spans
-  headers and SASL too, so it belongs to the server that runs both - filed as BL-755 with `--max-time`'s close,
+  headers and SASL too, so it belongs to the server that runs both - filed as BL-764 with `--max-time`'s close,
   and BL-514 now depends on it.
 - `flow` without a handle, `flow` and `transfer` on attached handles and `disposition` are read and left to
   BL-513; `disposition` names delivery ids, not a handle, so the matrix row's "disposition on a handle" is BL-513's.
