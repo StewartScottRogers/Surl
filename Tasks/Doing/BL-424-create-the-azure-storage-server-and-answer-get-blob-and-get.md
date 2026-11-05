@@ -49,3 +49,4 @@ Blob service's XML error and `x-ms-error-code`.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
