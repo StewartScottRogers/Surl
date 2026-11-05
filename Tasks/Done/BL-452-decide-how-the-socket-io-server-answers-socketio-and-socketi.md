@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/SocketIo.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-452 — Decide how the Socket.IO server answers socketio and socketios
 
@@ -49,15 +49,29 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each citing its specification section,
       and is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/SocketIo.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/SocketIo.md` exists in the matrix format, each "covered by" naming
       BL-453 or BL-454, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0120 decides it. Neither specification has a `v4`/`v5` branch for its current version: the Engine.IO v4
+  text is engine.io-protocol `main` `f21de7b0` and the Socket.IO v5 text socket.io-protocol `main` `4f633dd6`
+  (their `v2`/`v3` and `v3`/`v4` branches hold older revisions); the ADR cites both commits in full.
+- HTTP long-polling and its upgrade are served, as a complete Engine.IO server serves both transports; filed
+  as BL-758. WebSocket lands first in BL-454, which answers `transport=polling` with `400` code 0 until then.
+- The login is the CONNECT payload (`token`, or `username` and `password`) judged by `IAuthenticationPolicy`,
+  not the HTTP requests as in ADR-0119's SignalR: SIO puts credentials there and a browser's WebSocket cannot
+  set `Authorization`.
+- No `Documentation/Product/Requirements.md` row was added: it is outside this task's `touches`, and BL-447's
+  ADR-0119 set the same precedent.
+- Written in-session rather than through `align-and-document`: the decisions needed the specifications read
+  here, and the agent would only have received them second-hand.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0120 decides how the Socket.IO server answers socketio and socketios; SocketIo.md traces each server requirement to BL-453, BL-454 or BL-758
