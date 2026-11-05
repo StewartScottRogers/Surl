@@ -127,3 +127,16 @@ the connection preface, `SETTINGS`, the connection `WINDOW_UPDATE`, `HEADERS`, t
 `get-file` fetches over HTTP/1.1, on the same port, so its 173 request bytes - `:path /file.txt`,
 `:authority 127.0.0.1:18050` - are what the HTTP/2 server's replay tests answer and compare with
 the HTTP/1.1 answer. The second reply is the `SETTINGS` ACK and the `HEADERS` alone.
+
+## HTTP/3 client Initial fixture (BL-383)
+
+`h3-client-initial/static-8.21.0-win.datagrams.bin` is a byte-for-byte copy of
+`Surl.Quic.UnitTests/Fixtures/ClientInitial/static-8.21.0-win.datagrams.bin`: the four Initial
+datagrams the stunnel/static-curl 8.21.0 build for Windows (SHA-256
+`589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`) sent with `--http3-only`,
+recorded on 2026-11-04 by `Record-CurlExchange.ps1 -QuicInitial` (BL-363; ADR-0082 "Measured"),
+each prefixed with its two-byte big-endian length. The HTTP/3 tests' QUIC client
+(`UnitTestQuicClient`, copied from `Surl.Quic.UnitTests`) starts every connection from it, with its
+own x25519 key share in place of curl's. The HTTP/3 frames the tests send after the handshake are
+written from RFC 9114 and RFC 9204: the recorder answers nothing, so no curl has yet sent a
+request stream to Surl; BL-385 records curl's against a live `surl`.

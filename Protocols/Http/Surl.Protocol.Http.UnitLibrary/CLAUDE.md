@@ -14,8 +14,9 @@ else. Today it references `Surl.Content.UnitLibrary` (the content store),
 `Surl.HttpMessage.UnitLibrary` (ADR-0070: the request-head reader and its head timeout, the
 request and response head types, `HttpStatus` and body framing) and `Surl.HttpServing.UnitLibrary`
 (ADR-0084, decision 1: `HttpRequest`, `HttpAnswer`, request bodies and `100 Continue`, response
-writing, persistence, the lingering-close drain and the `Http1ConnectionServer` loop). Method
-dispatch, content responses and the authentication flow stay here.
+writing, persistence, the lingering-close drain and the `Http1ConnectionServer` loop), with
+`Surl.Hpack.UnitLibrary` for HTTP/2 and `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary` for
+HTTP/3 (ADR-0081, ADR-0082). Method dispatch, content responses and the authentication flow stay here.
 
 Answering is split from HTTP/1.x framing (ADR-0081, decision 8). `HttpRequestAnswerer`,
 the server's `IHttpRequestHandler`, decides each answer - an `HttpAnswer` of status, fields, `HttpAnswerBody` and whether it is
@@ -54,6 +55,23 @@ each `Http2Stream` on a task of its own through the same `HttpRequestAnswerer`;
 every frame and owns the HPACK encoder, and `Http2SendWindows` and `Http2DataStream` keep `DATA`
 within the client's windows. This library references `Surl.Hpack.UnitLibrary` for it, and
 BL-409 moves the connection to `Surl.Http2.UnitLibrary` (ADR-0086).
+
+HTTP/3 (RFC 9114; ADR-0082 decisions 7 to 9 and its Amendment 1) is `Http3ConnectionServer`, the
+`IQuicApplicationProtocol` a `Surl.Quic` `QuicDatagramFlowServer` hands a connection to once its
+handshake agreed `h3`; this library references `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary`
+for it, and BL-410 moves it to `Surl.Http3.UnitLibrary` (ADR-0086). Nothing composes it yet: BL-384
+serves it from `surl`. It opens its control stream (`SETTINGS` from `Http3FrameWriter`) and its QPACK
+encoder and decoder streams, accepts the client's (the control stream's rules, and
+`Http3Settings`, close the connection with the RFC's codes), and serves each request stream on a
+task of its own with `Http3RequestStreamServer`: `HEADERS` within the head timeout, decoded by
+`Http3FieldSections` (QPACK with no dynamic table) and mapped by `Http2RequestHeadMapping`, then
+the same `HttpRequestAnswerer`, its `HttpAnswer` written as `HEADERS` and `DATA` frames and `FIN`.
+`Http3RequestBody` reads `DATA` from the stream as the handler asks; `Http3StreamReader` reads
+frames, throwing `Http3ConnectionException` for a rule that ends the connection and
+`Http3StreamAbandonedException` for a stream the client reset. On cancellation (shutdown,
+`--max-time`) the server sends `GOAWAY`, cuts the open streams off and closes `H3_NO_ERROR`. Its
+tests drive it over the in-memory QUIC test connection, `Http3TestClient`, which starts from pinned
+upstream curl's recorded Initials (`Fixtures/h3-client-initial`).
 
 The upstream test cases' server half (ADR-0080 decision 2; BL-391) is a test seam the shipped
 `surl` never composes: `Surl.Conformance.UnitTests` composes `HttpUpstreamTestCaseServer` with one

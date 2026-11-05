@@ -55,8 +55,8 @@ public sealed class Http2RequestHeadMappingTests
     [DataRow(":method GET|:scheme http|:path /|content-length 1x", "the content-length is not one number of decimal digits")]
     [DataRow(":method GET|:scheme http|:path /|content-length 1|content-length 2", "the content-length is not one number of decimal digits")]
     [DataRow(":method GET|:scheme http|:path /|content-length 99999999999999999999", "the content-length is not one number of decimal digits")]
-    [DataRow(":method GET|:scheme http|:path /|connection close", "the connection-specific field connection is not allowed in HTTP/2")]
-    [DataRow(":method GET|:scheme http|:path /|te gzip", "the connection-specific field te is not allowed in HTTP/2")]
+    [DataRow(":method GET|:scheme http|:path /|connection close", "the connection-specific field connection is not allowed in HTTP/2 or HTTP/3")]
+    [DataRow(":method GET|:scheme http|:path /|te gzip", "the connection-specific field te is not allowed in HTTP/2 or HTTP/3")]
     public void Map_MalformedRequest_NamesWhy(string fieldLines, string expected)
     {
         var (head, malformation) = Http2RequestHeadMapping.Map(Fields(fieldLines.Split('|')));

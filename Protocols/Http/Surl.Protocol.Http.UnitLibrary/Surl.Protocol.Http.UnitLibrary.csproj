@@ -10,6 +10,8 @@
     <ProjectReference Include="..\Surl.Hpack.UnitLibrary\Surl.Hpack.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.HttpMessage.UnitLibrary\Surl.HttpMessage.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.HttpServing.UnitLibrary\Surl.HttpServing.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Qpack.UnitLibrary\Surl.Qpack.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Quic.UnitLibrary\Surl.Quic.UnitLibrary.csproj" />
   </ItemGroup>
 
 </Project>

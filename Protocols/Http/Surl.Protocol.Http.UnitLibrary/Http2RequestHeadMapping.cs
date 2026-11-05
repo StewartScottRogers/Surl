@@ -19,6 +19,10 @@ namespace Surl.Protocol.Http;
 /// (<c>connection</c>, <c>keep-alive</c>, <c>proxy-connection</c>, <c>transfer-encoding</c>,
 /// <c>upgrade</c>) or a <c>te</c> other than <c>trailers</c>; and <c>content-length</c> values
 /// that are not one number of decimal digits.
+/// <para>
+/// HTTP/3 maps its request heads here too: RFC 9114 sections 4.2 and 4.3 repeat these rules, and
+/// <see cref="Http3RequestStreamServer"/> answers a malformed request <c>H3_MESSAGE_ERROR</c>.
+/// </para>
 /// </remarks>
 internal static class Http2RequestHeadMapping
 {
@@ -81,7 +85,7 @@ internal static class Http2RequestHeadMapping
             return $"the {field.Name} field's value holds NUL, CR or LF, or starts or ends with whitespace";
         }
 
-        return IsConnectionSpecific(field) ? $"the connection-specific field {field.Name} is not allowed in HTTP/2" : null;
+        return IsConnectionSpecific(field) ? $"the connection-specific field {field.Name} is not allowed in HTTP/2 or HTTP/3" : null;
     }
 
     // RFC 9113 section 8.2.1: no byte 0x00-0x20, 0x41-0x5A (uppercase) or 0x7F and above.
