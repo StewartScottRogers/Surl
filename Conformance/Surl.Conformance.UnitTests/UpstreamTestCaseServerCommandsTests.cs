@@ -32,6 +32,9 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("gopher", "Testnum", false)]
     [DataRow("dict", "Testnum", false)]
     [DataRow("telnet", "Testnum", false)]
+    [DataRow("scp", "Testnum", false)]
+    [DataRow("sftp", "REPLY", false)]
+    [DataRow("smb", "Testnum", false)]
     public void IsSupported_TheServerHalfsTable_SaysWhichCommandsItImplements(string server, string command, bool expected)
     {
         var supported = UpstreamTestCaseServerCommands.IsSupported(server, command);

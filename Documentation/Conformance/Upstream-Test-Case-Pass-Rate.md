@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `6417e341` + BL-396 | 2026-11-05 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 923 | 854 | 69 | 1,090 | 0 | 92.5% |
+| `win-x64` | `f83e4c79` + BL-397 | 2026-11-05 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 964 | 895 | 69 | 1,049 | 0 | 92.8% |
 | `linux-x64` | not run | not run | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | not run | not run | not run | not run | not run | not run |
 | `osx-arm64` | not run | not run | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | not run | not run | not run | not run | not run | not run |
 
@@ -42,14 +42,17 @@ Linux and macOS: CI run
 `b1a280aa`) ran the suite on both and it passed, but uploaded no results file, so their counts are
 not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next run.
 
-Windows: the run of BL-396's changes on top of commit `6417e341`, the first with the `dict`,
-`gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `telnet` and `tftp` server halves composed
-(every `rtsp` case is a libtest, so none runs). The HTTP and FTP families are as BL-394 left them:
-686 ran (651 pass) and 202 ran (178 pass; the 24 that fail each verify upstream's test-server
-greeting banner in a `-D` file, BL-776). Of the new servers: TFTP 15 ran, 13 pass, and the two
-cases that use HTTP, FTP and TFTP in turn (2002, 2003) fail; MQTT 11 ran, 6 pass; Gopher 5 ran,
-5 pass; DICT 1 ran, 1 pass; TELNET 1 ran, 0 pass. BL-396's Notes group the
-failures and name their tasks.
+Windows: the run of BL-397's changes on top of commit `f83e4c79`, the first with the `scp`, `sftp`
+and `smb` server halves composed: Surl's own SSH and SMB servers serving the case's files. The
+`smb` cases run with the supplementary build ADR-0030 pinned for SMB, since the reference build has
+no `smb`. Of the new servers: SFTP 24 ran, 24 pass; SCP 14 ran, 14 pass; SMB 2 ran, 2 pass; and
+2004, which uses TFTP, SFTP and SCP in turn, passes. The other 20 cases naming `scp` or `sftp` skip:
+14 run a Perl `<precheck>` (9) or `<postcheck>` (5), 2 are libtests, 2 unit tests, 1 needs an HTTP
+proxy (445), and 632 names a port nothing listens on, so it needs no server half. Every other family is as
+BL-396 left it: HTTP 686 ran (651 pass), FTP 202 ran (178 pass; the 24 that fail each verify
+upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 pass (2002 and
+2003, which use HTTP, FTP and TFTP in turn, fail); MQTT 11 ran, 6 pass; Gopher 5 ran, 5 pass; DICT
+1 ran, 1 pass; TELNET 1 ran, 0 pass. BL-396's Notes group those failures and name their tasks.
 
 ### Skipped, by reason
 
@@ -63,14 +66,13 @@ failures and name their tasks.
 | `perl-command` | 27 |
 | `postcheck` | 14 |
 | `precheck` | 19 |
-| `protocol-missing:<scheme>` | 2 |
-| `server-half-not-composed:<name>` | 125 |
+| `server-half-not-composed:<name>` | 86 |
 | `server-not-built:<name>` | 67 |
 | `servercmd-unsupported:<command>` | 118 |
 | `strippart-unsupported` | 1 |
 | `unittest` | 81 |
 | `unparsable` | 4 |
-| **Total** | **1,090** |
+| **Total** | **1,049** |
 
 ## Releases
 

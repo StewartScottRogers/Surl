@@ -40,7 +40,9 @@ public static class UpstreamTestCaseServerCommands
     /// which FILEFORMAT gives none, TELNET's, and MQTT's, whose <c>error-CONNACK</c>,
     /// <c>remlen-CONNACK</c>, <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>,
     /// <c>PINGRESP-as-CONNACK</c>, <c>DISCONNECT-malformed</c> and <c>excessive-remaining</c>
-    /// each make the server send a deliberately broken or refusing packet and are not implemented.
+    /// each make the server send a deliberately broken or refusing packet and are not implemented;
+    /// and Surl's own SCP, SFTP and SMB servers, which serve the case's files (BL-397) and to
+    /// which FILEFORMAT gives none.
     /// </summary>
     public static readonly IReadOnlySet<string> None = new HashSet<string>(StringComparer.Ordinal);
 
@@ -64,6 +66,9 @@ public static class UpstreamTestCaseServerCommands
         ["mqtts"] = None,
         ["dict"] = None,
         ["telnet"] = None,
+        ["scp"] = None,
+        ["sftp"] = None,
+        ["smb"] = None,
     };
 
     /// <summary>

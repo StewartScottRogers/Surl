@@ -285,6 +285,43 @@ public sealed class UpstreamTestCaseSelectorTests
 
         Assert.AreEqual(expected, reason);
     }
+
+    // BL-397: the file-system servers' cases, inline, on Windows' reference build (no smb) and on
+    // the supplementary build ADR-0030 pinned for SMB, each excluded class with its named reason.
+    [TestMethod]
+    [DataRow("0E773709", "sftp", "", null)]
+    [DataRow("0E773709", "scp", "", null)]
+    [DataRow("0E773709", "sftp", "<features>\nsftp\n!badlibssh\n</features>\n", null)]
+    [DataRow("0E773709", "smb", "<features>\nsmb\n</features>\n", "protocol-missing:smb")]
+    [DataRow("589C8E4D", "smb", "<features>\nsmb\n</features>\n", null)]
+    [DataRow("0E773709", "sftp", "<precheck>\n%PERL %SRCDIR/libtest/test613.pl prepare %PWD/%LOGDIR/test.dir\n</precheck>\n", "precheck")]
+    [DataRow("0E773709", "sftp", "<tool>\nlib%TESTNUMBER\n</tool>\n", "libtest")]
+    [DataRow("0E773709", "sftp", "<tool>\nunit2604\n</tool>\n", "unittest")]
+    [DataRow("0E773709", "sftp", "", "servercmd-unsupported:Testnum", "<servercmd>\nTestnum 1\n</servercmd>\n")]
+    public void FindSkipReason_FileSystemServersCases_RunOrSkipWithTheirNamedReason(
+        string pinPrefix, string server, string client, string? expected, string reply = "")
+    {
+        var pin = AllPins().Single(candidate => candidate.Sha256.StartsWith(pinPrefix, StringComparison.Ordinal));
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(pin, new HashSet<int>());
+        var testCase = Case(client: Server(server) + client + Command($"-u %USER: {server}://%HOSTIP:%SSHPORT/x"), reply: reply);
+
+        var reason = new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase);
+
+        Assert.AreEqual(expected, reason);
+    }
+
+    [TestMethod]
+    public void FindSkipReason_FileSystemServersCaseWithAPostcheck_SkipsPostcheck()
+    {
+        var rules = UpstreamTestCaseSelectionRules.ForBuild(AllPins().Single(pin => pin.Sha256.StartsWith("0E773709", StringComparison.Ordinal)), new HashSet<int>());
+        var testCase = Case(client: Server("sftp"), verify: "<postcheck>\n%PERL %SRCDIR/libtest/test610.pl gone %PWD/%LOGDIR/test.dir\n</postcheck>\n");
+
+        Assert.AreEqual("postcheck", new UpstreamTestCaseSelector(rules).FindSkipReason(Number, testCase));
+    }
+
+    private static IReadOnlyList<PinnedUpstreamCurlBuild> AllPins() =>
+        UpstreamCurlBuildPins.Parse(File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamCurlBuildPins.FileName)));
+
     internal static List<PinnedUpstreamCurlBuild> ReferencePins() =>
         UpstreamCurlBuildPins.Parse(File.ReadAllText(Path.Combine(PinnedUpstreamCurl.RepositoryRoot(), UpstreamCurlBuildPins.FileName)))
             .Where(pin => pin.Role == UpstreamCurlBuildRole.Reference && pin.Kind == UpstreamCurlBuildKind.Curl)

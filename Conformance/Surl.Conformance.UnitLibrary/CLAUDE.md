@@ -197,7 +197,7 @@ Running the http and https cases is built (BL-392):
   TFTP on a datagram listener; and Surl's own DICT and TELNET servers, whose cases give them
   nothing to send), its own folder as curl's working directory, `%PWD` and `HOME`, `%LOGDIR` the
   relative `log`, and a 60-second limit; a case naming a server other than `http`, `https`, `ftp`,
-  `ftp-ipv6`, `ftps`, `gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict` and
+  `ftp-ipv6`, `ftps`, `gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict`, `scp`, `sftp`, `smb` and
   `telnet` is written `skip server-half-not-composed:<name>` and an unparsable one
   `skip unparsable`. After curl exits the run waits up to 2 seconds for every exchange to end, so a
   server half has read curl's last packet before its log is checked. A case's `<protocol>` is
@@ -220,6 +220,27 @@ the row of the Gopher, MQTT, DICT and TELNET server halves, which implement no c
 `PINGRESP-as-CONNACK`, `DISCONNECT-malformed` and `excessive-remaining` skip
 `servercmd-unsupported:<command>`. Every `rtsp` case at the tag is a libtest, so no RTSP server
 half is composed.
+
+Playing the scp, sftp and smb cases is built (BL-397): their rows in
+`UpstreamTestCaseServerCommands` are `None`, since FILEFORMAT gives these servers no commands. The
+server halves are Surl's own servers, made by the tests' `UpstreamTestCaseFileServers`:
+
+- SSH on `%SSHPORT` serves the case's folder as its root, uploads, listings, dot files and links all
+  allowed, so `%SFTP_PWD` and `%SCP_PWD` are empty (`sftp://host:port%SFTP_PWD/%LOGDIR/f` is
+  `/log/f`). Its logins are `UpstreamTestCaseSshLoginPolicy`'s, as upstream's `sshserver.pl`
+  configures sshd: only `%USER` with the run's client key; `none`, passwords, other keys and other
+  users are refused, so the invalid-user and missing-key cases end in curl's 67.
+- `%USER` is the run's user name without the characters an unquoted `-u %USER:` would split
+  (`SshLoginNameFor`: "First Last" is `FirstLast`); only SCP and SFTP cases name it.
+- One RSA host key per run gives `%SSHSRVMD5` (32 lower-case hex digits), `%SSHSRVSHA256` (base64,
+  no padding, as `ssh-keygen -l` writes it) and `%SSHKEYALGO` (`ssh-rsa`); one RSA client key pair
+  per run is written to each SSH case's `%LOGDIR/server/curl_client_key` (PKCS #1 PEM) and `.pub`.
+- An SCP or SFTP upload lands in the case's folder, so `<upload>` is checked against
+  `%LOGDIR/upload.<N>`, the file runtests reads.
+- SMB on `%SMBPORT` serves a `TESTS` share holding the case's `<data>` as the file `<N>`, as
+  upstream's `smbserver.py` answers `smb://host/TESTS/<N>`, to any login. An smb case runs with the
+  build `UpstreamCurlLocator.LocateForProtocol` pairs with `smb`: the reference build where it has
+  smb, else (Windows) the supplementary build ADR-0030 pinned, selected under that build's features.
 
 The stated pass rate and its guard are built (BL-393):
 

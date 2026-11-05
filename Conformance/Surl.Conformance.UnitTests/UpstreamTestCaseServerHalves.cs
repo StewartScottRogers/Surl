@@ -26,7 +26,9 @@ namespace Surl.Conformance;
 /// <c>%MQTTSPORT</c>; <see cref="TftpUpstreamTestCaseServer"/> on a datagram listener for
 /// <c>%TFTPPORT</c>; and Surl's own <see cref="DictProtocolServer"/> (no definitions) and
 /// <see cref="TelnetProtocolServer"/> for <c>%DICTPORT</c> and <c>%TELNETPORT</c>, whose cases
-/// give their servers nothing to send. The listeners bind before the case is parsed, because the
+/// give their servers nothing to send; and the file-system servers
+/// <see cref="UpstreamTestCaseFileServers"/> makes, SSH for <c>%SSHPORT</c> (SCP and SFTP) and SMB
+/// for <c>%SMBPORT</c>. The listeners bind before the case is parsed, because the
 /// case's replies name the ports; <see cref="Play"/> then hands over the case's reply before curl
 /// starts.
 /// </summary>
@@ -61,6 +63,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         ("mqtts", [LoopbackIPv4]),
         ("dict", [LoopbackIPv4]),
         ("telnet", [LoopbackIPv4]),
+        ("sftp", [LoopbackIPv4]),
+        ("smb", [LoopbackIPv4]),
     ];
 
     private readonly CaseServer[] servers;
@@ -116,6 +120,12 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
 
     /// <summary>The TELNET listener's port: <c>%TELNETPORT</c>.</summary>
     public int TelnetPort => ports[PortKey("telnet", LoopbackIPv4)];
+
+    /// <summary>The SSH listener's port, for SCP and SFTP: <c>%SSHPORT</c>.</summary>
+    public int SshPort => ports[PortKey("sftp", LoopbackIPv4)];
+
+    /// <summary>The SMB listener's port: <c>%SMBPORT</c>.</summary>
+    public int SmbPort => ports[PortKey("smb", LoopbackIPv4)];
 
     /// <summary>The TFTP datagram listener's port: <c>%TFTPPORT</c>.</summary>
     public int TftpPort => ports[PortKey("tftp", LoopbackIPv4)];
@@ -175,7 +185,9 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         FtpUpstreamTestCaseReplies ftpReplies,
         GopherUpstreamTestCaseReplies gopherReplies,
         MqttUpstreamTestCaseReplies mqttReplies,
-        TftpUpstreamTestCaseReplies tftpReplies)
+        TftpUpstreamTestCaseReplies tftpReplies,
+        IConnectionProtocolServer ssh,
+        IConnectionProtocolServer smb)
     {
         var http = new HttpUpstreamTestCaseServer(httpReplies);
         var ftp = new FtpUpstreamTestCaseServer(ftpReplies, new AnonymousAuthenticationPolicy());
@@ -183,7 +195,7 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         var mqtt = new MqttUpstreamTestCaseServer(mqttReplies, new AnonymousAuthenticationPolicy());
         var noDefinitions = new ContentStore(
             InMemoryContentFileSystem.RootPath, new InMemoryContentFileSystem(TimeProvider.System), new ContentExposureOptions());
-        IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer()];
+        IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer(), ssh, smb];
         for (var index = 0; index < servers.Length; index++)
         {
             servers[index].Current = playing[index];
