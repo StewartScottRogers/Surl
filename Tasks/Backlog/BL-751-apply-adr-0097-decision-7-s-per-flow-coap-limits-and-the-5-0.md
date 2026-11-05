@@ -1,5 +1,5 @@
 ---
-id: BL-747
+id: BL-751
 title: Apply ADR-0097 decision 7's per-flow CoAP limits and the 5.03 refusal
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-747 — Apply ADR-0097 decision 7's per-flow CoAP limits and the 5.03 refusal
+# BL-751 — Apply ADR-0097 decision 7's per-flow CoAP limits and the 5.03 refusal
 
 ## Goal
 

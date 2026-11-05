@@ -95,10 +95,10 @@ Choices with a sensible default, where ADR-0097 is silent:
 - A representation goes whole in one message; BL-473 adds Block2.
 
 Left for follow-up tasks (filed, each depending on this one):
-- BL-746: a proxy request naming the listener itself served as local (ADR-0097 decision 3); every
+- BL-750: a proxy request naming the listener itself served as local (ADR-0097 decision 3); every
   proxy request is `5.05` for now.
-- BL-747: decision 7's requests-in-progress limit, `WriteRefusalAsync`'s `5.03`, and `--max-message`.
-- BL-748: trace the requirement matrix `Documentation/Conformance/Extended/Coap.md`, outside this task's
+- BL-751: decision 7's requests-in-progress limit, `WriteRefusalAsync`'s `5.03`, and `--max-message`.
+- BL-752: trace the requirement matrix `Documentation/Conformance/Extended/Coap.md`, outside this task's
   `touches`.
 
 ## Log

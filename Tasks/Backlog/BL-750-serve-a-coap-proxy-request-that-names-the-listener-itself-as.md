@@ -1,5 +1,5 @@
 ---
-id: BL-746
+id: BL-750
 title: Serve a CoAP proxy request that names the listener itself as a local request
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-746 — Serve a CoAP proxy request that names the listener itself as a local request
+# BL-750 — Serve a CoAP proxy request that names the listener itself as a local request
 
 ## Goal
 

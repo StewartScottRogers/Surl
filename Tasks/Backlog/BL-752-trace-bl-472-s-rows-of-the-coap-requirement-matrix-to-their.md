@@ -1,5 +1,5 @@
 ---
-id: BL-748
+id: BL-752
 title: Trace BL-472's rows of the CoAP requirement matrix to their named tests
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-748 — Trace BL-472's rows of the CoAP requirement matrix to their named tests
+# BL-752 — Trace BL-472's rows of the CoAP requirement matrix to their named tests
 
 ## Goal
 
@@ -24,8 +24,8 @@ tests in `Surl.Extended.Protocol.Coap.UnitTests` that prove it, or the task that
   (separate responses, retransmission, ACK and RST matching, duplicates), `CoapResourceAnswererTests`
   (methods, conditions, response codes, access rules), `CoapRequestOptionsTests`,
   `CoapResourceDirectoryTests`, `CoapDuplicateCacheTests`.
-- Rows BL-472 did not prove belong to BL-746 (a proxy request naming the listener, RFC 7252 section
-  5.7.2) and BL-747 (decision 7's limits and `5.03`): name those tasks instead.
+- Rows BL-472 did not prove belong to BL-750 (a proxy request naming the listener, RFC 7252 section
+  5.7.2) and BL-751 (decision 7's limits and `5.03`): name those tasks instead.
 
 ## Acceptance criteria
 

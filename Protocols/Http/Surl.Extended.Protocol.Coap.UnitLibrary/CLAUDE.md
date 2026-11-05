@@ -34,7 +34,7 @@ ADR-0097 decisions 0, 1, 2, 3 and 6:
   repeated non-repeatable options are unrecognised; an unrecognised critical one (odd, or a
   reserved Location-* number) is `4.02` with `Unrecognized option <n>` for a CON and ignores a NON.
 - `CoapResourceAnswerer` answers, first match wins: `4.02`, `4.00` (Uri-Path `.` or `..`), `5.05`
-  (any Proxy-Uri or Proxy-Scheme; BL-746 serves one naming the listener), `4.05` (any method but
+  (any Proxy-Uri or Proxy-Scheme; BL-750 serves one naming the listener), `4.05` (any method but
   the four), `4.01` (`CoapAccessRules`), `4.05` (a write without `--allow-uploads`), then the
   resource: `GET` `2.05` with ETag, Max-Age 60 and Content-Format (`CoapContentFormat`, by
   extension) or `2.03` for a current ETag, `4.04`, `4.12`, `4.06`; `PUT` `2.01`/`2.04`; `POST`
@@ -49,7 +49,7 @@ ADR-0097 decisions 0, 1, 2, 3 and 6:
   ACK_RANDOM_FACTOR fraction and POST names; tests inject a fixed one.
 
 A representation goes whole in one message until BL-473 adds block-wise transfers. Decision 7's
-other limits and the `5.03` refusal are BL-747. Observation (BL-474), `coaps` (BL-475) and the
+other limits and the `5.03` refusal are BL-751. Observation (BL-474), `coaps` (BL-475) and the
 command line (BL-476) build on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`,
