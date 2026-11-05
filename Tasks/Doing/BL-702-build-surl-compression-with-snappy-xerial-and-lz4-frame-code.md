@@ -57,3 +57,4 @@ uses to decode produced batches and to compress the batches it serves.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
