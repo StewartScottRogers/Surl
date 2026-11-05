@@ -47,3 +47,4 @@ length, code, message ID, token, options with delta and length extensions, the p
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
