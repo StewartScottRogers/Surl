@@ -84,7 +84,7 @@ Decide and record:
   - `s3` is implicit TLS. The new `--s3-plaintext` option serves it as plain HTTP.
   - ListObjectsV2 uses base64url continuation tokens.
   - `--max-filesize` bounds the largest object, multipart objects included.
-- Follow-ups filed: BL-709 (DeleteObject, HeadBucket, ListBuckets), BL-710 (multipart uploads) and BL-711
+- Follow-ups filed: BL-712 (DeleteObject, HeadBucket, ListBuckets), BL-713 (multipart uploads) and BL-711
   (presigned URLs, `aws-chunked` and checksum headers).
 - BL-420's `touches` gained `Surl.Protocol.Abstractions` and `Surl.Authentication`. The ADR has that task
   add a refusal reason to `HttpAuthenticationVerdict` (decision 4.4).
@@ -97,4 +97,4 @@ Decide and record:
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. ADR-0108 decides how the s3 server answers (operations, addressing, store mapping, SigV4 refusals, TLS, ListObjectsV2 paging, limits); S3.md matrix traces each requirement to BL-418 to BL-421 and BL-709 to BL-711
+- 2026-11-05: Doing -> Done. ADR-0108 decides how the s3 server answers (operations, addressing, store mapping, SigV4 refusals, TLS, ListObjectsV2 paging, limits); S3.md matrix traces each requirement to BL-418 to BL-421 and BL-712 to BL-711

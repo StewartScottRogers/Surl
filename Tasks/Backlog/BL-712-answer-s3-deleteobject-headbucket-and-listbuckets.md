@@ -1,5 +1,5 @@
 ---
-id: BL-709
+id: BL-712
 title: Answer S3 DeleteObject, HeadBucket and ListBuckets
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-709 — Answer S3 DeleteObject, HeadBucket and ListBuckets
+# BL-712 — Answer S3 DeleteObject, HeadBucket and ListBuckets
 
 ## Goal
 

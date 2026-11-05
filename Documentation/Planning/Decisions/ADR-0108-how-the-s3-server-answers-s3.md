@@ -5,8 +5,8 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05,
   in BL-417. BL-418 builds the server with GetObject and HeadObject (decisions 1, 2, 3, 8 and the
   error body), BL-419 PutObject, ListObjectsV2 and virtual-hosted addressing (decisions 1, 2, 3 and
-  6), BL-420 the SigV4 check (decision 4), BL-709 DeleteObject, HeadBucket and ListBuckets (decision
-  1), BL-710 the multipart uploads (decisions 1 and 7), BL-711 presigned URLs, `aws-chunked` bodies
+  6), BL-420 the SigV4 check (decision 4), BL-712 DeleteObject, HeadBucket and ListBuckets (decision
+  1), BL-713 the multipart uploads (decisions 1 and 7), BL-711 presigned URLs, `aws-chunked` bodies
   and checksum headers (decision 4), and BL-421 serves `s3` from `surl` with its TLS and its option
   (decision 5).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
@@ -59,17 +59,17 @@ query subresources, as the API Reference's "Request Syntax" of each page writes 
 
 | Operation | Request | Success | Page | Task |
 | --- | --- | --- | --- | --- |
-| ListBuckets | `GET /` on the service | `200`, `ListAllMyBucketsResult` | ListBuckets | BL-709 |
-| HeadBucket | `HEAD /<bucket>` | `200`, no body | HeadBucket | BL-709 |
+| ListBuckets | `GET /` on the service | `200`, `ListAllMyBucketsResult` | ListBuckets | BL-712 |
+| HeadBucket | `HEAD /<bucket>` | `200`, no body | HeadBucket | BL-712 |
 | ListObjectsV2 | `GET /<bucket>?list-type=2` | `200`, `ListBucketResult` (decision 6) | ListObjectsV2 | BL-419 |
 | GetObject | `GET /<bucket>/<key>` | `200`, or `206` for a range | GetObject | BL-418 |
 | HeadObject | `HEAD /<bucket>/<key>` | GetObject's head, no body | HeadObject | BL-418 |
 | PutObject | `PUT /<bucket>/<key>` | `200`, `ETag`, no body | PutObject | BL-419 |
-| DeleteObject | `DELETE /<bucket>/<key>` | `204`, also for a key that does not exist | DeleteObject | BL-709 |
-| CreateMultipartUpload | `POST /<bucket>/<key>?uploads` | `200`, `InitiateMultipartUploadResult` | CreateMultipartUpload | BL-710 |
-| UploadPart | `PUT /<bucket>/<key>?partNumber=<n>&uploadId=<id>` | `200`, the part's `ETag` | UploadPart | BL-710 |
-| CompleteMultipartUpload | `POST /<bucket>/<key>?uploadId=<id>` | `200`, `CompleteMultipartUploadResult` | CompleteMultipartUpload | BL-710 |
-| AbortMultipartUpload | `DELETE /<bucket>/<key>?uploadId=<id>` | `204` | AbortMultipartUpload | BL-710 |
+| DeleteObject | `DELETE /<bucket>/<key>` | `204`, also for a key that does not exist | DeleteObject | BL-712 |
+| CreateMultipartUpload | `POST /<bucket>/<key>?uploads` | `200`, `InitiateMultipartUploadResult` | CreateMultipartUpload | BL-713 |
+| UploadPart | `PUT /<bucket>/<key>?partNumber=<n>&uploadId=<id>` | `200`, the part's `ETag` | UploadPart | BL-713 |
+| CompleteMultipartUpload | `POST /<bucket>/<key>?uploadId=<id>` | `200`, `CompleteMultipartUploadResult` | CompleteMultipartUpload | BL-713 |
+| AbortMultipartUpload | `DELETE /<bucket>/<key>?uploadId=<id>` | `204` | AbortMultipartUpload | BL-713 |
 
 - **Every other request** - another method, another subresource (`?acl`, `?tagging`, `?versioning`,
   `?location`, `?cors`, `?delete`, `?uploads` on a bucket, `?versionId`, `?attributes`, …), a
@@ -136,7 +136,7 @@ The codes the server sends, each with the status the "List of error codes" table
 | `InvalidAccessKeyId` | 403 | A signature whose access key is no account |
 | `InvalidArgument` | 400 | A bad query value (`max-keys`, `continuation-token`, `partNumber`, `X-Amz-Expires`); an `Authorization` scheme other than SigV4; an unmappable key on a write; and `409` for a key that conflicts with a folder or file (ADR-0100 decision 2.2) |
 | `InvalidDigest` | 400 | A `Content-MD5` that is not the base64 of 16 bytes |
-| `InvalidPart`, `InvalidPartOrder`, `NoSuchUpload` | 400, 400, 404 | CompleteMultipartUpload's own checks (BL-710) |
+| `InvalidPart`, `InvalidPartOrder`, `NoSuchUpload` | 400, 400, 404 | CompleteMultipartUpload's own checks (BL-713) |
 | `InvalidRange` | 416 | An unsatisfiable range |
 | `InvalidRequest` | 400 | A signed request without `x-amz-content-sha256`; a `Transfer-Encoding: chunked` body with no `x-amz-decoded-content-length` |
 | `KeyTooLongError` | 400 | A key longer than 1024 UTF-8 bytes ("Object key naming guidelines") |
