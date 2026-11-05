@@ -49,3 +49,4 @@ application bytes one record can carry, so `coaps` (BL-475) can apply ADR-0097's
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Waits on BL-738: the client-certificate handshake it reports on does not exist yet
+- 2026-11-05: Backlog -> Doing.
