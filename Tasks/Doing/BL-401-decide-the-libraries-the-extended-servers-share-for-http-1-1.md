@@ -72,3 +72,4 @@ protocol server, and where each shared library goes.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
