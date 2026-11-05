@@ -47,3 +47,4 @@ API, with the distribution spec's JSON error bodies.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
