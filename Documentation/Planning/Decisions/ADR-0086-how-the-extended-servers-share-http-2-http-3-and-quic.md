@@ -325,3 +325,30 @@ Costs and caveats:
 - The WebTransport settings, the treatment of a stream naming no open session, and the answer to
   an unregistered `:protocol` are left to the pinned draft and RFC 9220, through BL-457's ADR and
   BL-411.
+
+## Amendment 1 - what BL-410 built for decision 2 (2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-410. Decision
+2 stands; four details of its planning names were settled as the code moved:
+
+1. **`Http3RequestStream` has two resets.** `ResetAsync(code, reason, cancellationToken)` is the
+   stream error decision 2 names: `RESET_STREAM` and `STOP_SENDING` with one code.
+   `ResetResponseAsync(code, cancellationToken)` sends `RESET_STREAM` alone, for an answer that
+   cannot be finished once its `HEADERS` went out; the connection then stops a still-arriving
+   request with `STOP_SENDING` `H3_NO_ERROR`, as it does after every handler. That is exactly
+   what BL-383's server sent for a content-store file that could not be read whole
+   (`RESET_STREAM` `H3_INTERNAL_ERROR`, then `STOP_SENDING` `H3_NO_ERROR` only if the body was
+   unread), so no byte changes. Each method takes its cancellation token, rather than the
+   connection's captured as `Surl.Http2` does, because BL-383's code passed one to every write.
+2. **The connection answers the `431` itself.** A field section past `--max-message` never reaches
+   a handler (ADR-0082 decision 7), so `Surl.Http3` writes `:status 431`, then the `server` field
+   when `Http3ServerOptions.ServerFieldValue` names one, then `content-length: 0`. The HTTP server
+   sets `surl` (`HttpResponseHead.ServerName`), which keeps its bytes; the alternative, a handler
+   callback for refusals, would have widened the handler interface for one fixed answer.
+3. **`Http3ServerOptions` carries no `SETTINGS` yet.** The `SETTINGS` stay derived from the
+   exchange's `--max-message` as ADR-0082 decisions 7 and 8 say; BL-411 adds the registrations
+   and extra parameters of decision 3 to the options.
+4. **`Surl.Http3` maps request heads with its own `Http3RequestHeadMapping`.** Decision 5's row
+   forbids `Surl.Http3` to reference `Surl.Http2`, where `Http2RequestHeadMapping` lives, and RFC
+   9114 sections 4.2 and 4.3 repeat RFC 9113's rules, so the mapping is copied, with its tests,
+   over QPACK's `QpackFieldLine`. Its log text is unchanged.
