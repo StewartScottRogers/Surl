@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.MessageBus;
 
 /// <summary>
@@ -75,6 +77,10 @@ public sealed partial class MessageBus
     /// <param name="configuration">The declared topics and queues, name aliases and access
     /// grants (ADR-0102, decision 3); <see langword="null"/> for <see cref="MessageBusConfiguration.None"/>.
     /// Declared topics without wildcards get their empty logs, and declared queues are made, at once.</param>
+    /// <param name="events">Where every change is published (ADR-0124 decision 1), or
+    /// <see langword="null"/> to publish nothing.</param>
+    /// <param name="faults">The fault plan a publish consults for an out-of-space rule (ADR-0124
+    /// decision 4), or <see langword="null"/> for none.</param>
     /// <exception cref="ArgumentNullException"><paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is below its least value.</exception>
     /// <exception cref="ArgumentException">The configuration declares more topics without
@@ -91,7 +97,9 @@ public sealed partial class MessageBus
         long maxQueuedBytes = DefaultMaxQueuedBytes,
         long maxLogBytesPerTopic = DefaultMaxLogBytesPerTopic,
         long maxLogBytes = DefaultMaxLogBytes,
-        MessageBusConfiguration? configuration = null)
+        MessageBusConfiguration? configuration = null,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTopics, 1);
@@ -105,6 +113,8 @@ public sealed partial class MessageBus
         ArgumentOutOfRangeException.ThrowIfLessThan(maxLogBytes, 1);
 
         this.timeProvider = timeProvider;
+        this.events = events ?? DiscardingSurlEventPublisher.Instance;
+        this.faults = faults ?? EmptyFaultPlan.Instance;
         MaxTopics = maxTopics;
         MaxRetainedPayloadBytes = maxRetainedPayloadBytes;
         MaxSubscriptionsPerConnection = maxSubscriptionsPerConnection;
@@ -280,6 +290,7 @@ public sealed partial class MessageBus
         }
 
         var logOffset = AppendToLog(published, logAppend);
+        PublishChange(StoreChange.Published, published.Topic, published.Payload.Length);
         var topicLevels = CanonicalTopicName.SplitLevels(published.Topic);
         var targets = SelectTargets(topicLevels, publisher);
         if (targets.Count > 0)
@@ -291,11 +302,14 @@ public sealed partial class MessageBus
         return new(outcome, targets.Count) { QueuedCount = queuedCount, FullQueueCount = fullQueueCount, UnconsumedQueueCount = unconsumedQueueCount, LogOffset = logOffset };
     }
 
-    private static void DeliverToSubscriptions(BusMessage message, List<BusSubscription> targets)
+    private void DeliverToSubscriptions(BusMessage message, List<BusSubscription> targets)
     {
         foreach (var subscription in targets)
         {
-            subscription.Deliver(message);
+            if (subscription.Deliver(message))
+            {
+                PublishChange(StoreChange.Delivered, message.Topic, message.Payload.Length);
+            }
         }
 
         foreach (var connection in targets.Select(subscription => subscription.Connection).Distinct())
@@ -324,6 +338,7 @@ public sealed partial class MessageBus
         retainedMessages[topic] = published;
         retainedPayloadBytes = newTotal;
         retainedVersion++;
+        PublishChange(StoreChange.Written, topic, published.Payload.Length);
         return MessageBusOutcome.Succeeded;
     }
 
@@ -333,6 +348,7 @@ public sealed partial class MessageBus
         {
             retainedPayloadBytes -= removed.Payload.Length;
             retainedVersion++;
+            PublishChange(StoreChange.Deleted, topic, removed.Payload.Length);
         }
     }
 

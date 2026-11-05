@@ -54,7 +54,9 @@ public sealed partial class MessageBus
     /// Publishes <paramref name="message"/> as <see cref="Publish(BusMessage)"/> does, for
     /// <paramref name="account"/>: refused with <see cref="MessageBusOutcome.AccessDenied"/>,
     /// nothing retained, delivered or logged, when the configured grants do not let it publish
-    /// on the message's topic.
+    /// on the message's topic; and with <see cref="MessageBusOutcome.StoreFull"/>, nothing stored
+    /// or delivered, when an out-of-space rule of the fault plan matches the topic (ADR-0124,
+    /// decision 4).
     /// </summary>
     /// <param name="message">The message.</param>
     /// <param name="account">The publisher's account, or <see langword="null"/> for an anonymous one.</param>
@@ -83,6 +85,11 @@ public sealed partial class MessageBus
         if (IsExpired(message, now))
         {
             return new(MessageBusOutcome.Succeeded, 0);
+        }
+
+        if (IsOutOfSpace(account, message.Topic))
+        {
+            return new(MessageBusOutcome.StoreFull, 0);
         }
 
         var published = WithDeclaredAttributes(Copy(message, now));

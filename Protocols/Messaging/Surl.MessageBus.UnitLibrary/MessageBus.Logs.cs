@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.MessageBus;
 
 /// <summary>
@@ -153,6 +155,7 @@ public sealed partial class MessageBus
             }
 
             logs.Add(topic, new TopicLog());
+            PublishChange(StoreChange.Written, topic, byteCount: null);
             return MessageBusOutcome.Succeeded;
         }
     }

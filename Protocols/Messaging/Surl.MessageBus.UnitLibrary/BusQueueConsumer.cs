@@ -136,11 +136,16 @@ public sealed class BusQueueConsumer : IDisposable
         return all;
     }
 
-    internal void Deliver(BusQueueDelivery delivery)
+    /// <summary>Hands <paramref name="delivery"/> to the callback while the consumer is live.</summary>
+    /// <returns>Whether it was handed over.</returns>
+    internal bool Deliver(BusQueueDelivery delivery)
     {
-        if (active)
+        var isLive = active;
+        if (isLive)
         {
             deliver!(delivery);
         }
+
+        return isLive;
     }
 }

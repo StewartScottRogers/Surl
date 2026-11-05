@@ -151,12 +151,32 @@ What it holds now (BL-629):
   `GetTopicAccess(account, topic)` answers a caller's `pub` and `sub` rights on one topic
   without touching it, as Kafka's Metadata needs (BL-518). BL-704 adds these choices to ADR-0102.
 
+- **Events and the out-of-space fault (BL-790, ADR-0124 decisions 1 and 4).** The constructor's
+  optional `ISurlEventPublisher` and `IFaultPlan` default to the discarding publisher and the
+  empty plan; the composition passes the instance's (BL-803). Every change is a
+  `StoreChangedEvent` of `StoreKind.Bus` with `ExchangeId` null (the bus is not told which
+  exchange calls, BL-865), named by the canonical topic or by `MessageBus.QueueChangeName`
+  (`$queue/<name>`, the access grants' form), `ByteCount` the payload's length:
+  `Published` (topic, after its log append - the log append and the publish are one event),
+  `Written`/`Deleted` (topic: the retained message set, or cleared or dropped on expiry; `Written`
+  with no byte count when `CreateLog` makes an empty log), `Delivered` (topic per live subscription
+  handed it; queue per consumer or get), `Enqueued`, `Acknowledged`, `Deleted` with a byte count
+  (a reject without requeue, or a purge that removed anything, its bytes in total), and
+  `Written`/`Deleted` with no byte count (a queue declared or deleted). Events are published under
+  the lock, deliveries from the one delivering thread, so they keep the order the changes had. An
+  out-of-space rule is asked for at `FaultStage.StoreWrite`, with the caller's account and the
+  path, outside the lock: a topic publish (not expired) is `StoreFull`, a direct `PublishToQueue` to
+  an existing queue (not expired) is `QueueFull`, nothing changed, and a `FaultAppliedEvent` names
+  the path. Only an answer the plan gives at once counts; a pending one is served as no rule. Not
+  yet: drops by expiry in queues and by log retention, and a bound queue's copy refused by fault
+  (BL-866).
+
 Not here yet, each its own task: the MQTT 3.1.1 server's move onto the bus (BL-635), and
 each server passing its caller's account and mapping through `Names` (BL-665 for MQTT, the
 extended brokers' routing tasks).
 
 This library may reference `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0100 decision
-3.1, amending ADR-0002's table); it references `Surl.Content.UnitLibrary` only. Protocol servers may reference
+3.1, amending ADR-0002's table); it references both. Protocol servers may reference
 it. It never touches a socket, and touches the disk only through an injected
 `IContentFileSystem`; time comes from the injected `TimeProvider`.

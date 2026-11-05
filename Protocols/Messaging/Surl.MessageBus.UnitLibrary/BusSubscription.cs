@@ -53,11 +53,16 @@ public sealed class BusSubscription : IDisposable
 
     internal void Deactivate() => active = false;
 
-    internal void Deliver(BusMessage message)
+    /// <summary>Hands <paramref name="message"/> to the callback while the subscription is live.</summary>
+    /// <returns>Whether it was handed over.</returns>
+    internal bool Deliver(BusMessage message)
     {
-        if (active)
+        var isLive = active;
+        if (isLive)
         {
             deliver(message);
         }
+
+        return isLive;
     }
 }

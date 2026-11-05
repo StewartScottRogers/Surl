@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.MessageBus;
 
 /// <summary>
@@ -57,7 +59,10 @@ public sealed partial class MessageBus
     /// unstopped consumer of it has room.</param>
     /// <returns>As <see cref="PublishToQueue(string, BusMessage, string?)"/>, and
     /// <see cref="MessageBusOutcome.NoReadyConsumer"/> when <paramref name="onlyWhenConsumed"/> found
-    /// no consumer able to take it.</returns>
+    /// no consumer able to take it. <see cref="MessageBusOutcome.QueueFull"/> also answers a send to an
+    /// existing queue whose <see cref="QueueChangeName"/> an out-of-space rule of the fault plan
+    /// matches (ADR-0124, decision 4); the plan is asked only when the queue exists and the message
+    /// has not expired.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> or
     /// <paramref name="message"/> is <see langword="null"/>.</exception>
     public MessageBusOutcome PublishToQueue(string queueName, BusMessage message, string? account, bool onlyWhenConsumed)
@@ -76,11 +81,21 @@ public sealed partial class MessageBus
 
         var now = timeProvider.GetUtcNow();
         var published = Copy(message, now);
+        var isOutOfSpace = !IsExpired(published, now) && HasQueue(queueName) && IsOutOfSpace(account, QueueChangeName(queueName));
         return ChangeState(() =>
             !queues.TryGetValue(queueName, out var queue) ? MessageBusOutcome.UnknownQueue
             : IsExpired(published, now) ? MessageBusOutcome.Succeeded
+            : isOutOfSpace ? MessageBusOutcome.QueueFull
             : onlyWhenConsumed && !queue.HasConsumerWithRoom ? MessageBusOutcome.NoReadyConsumer
             : Enqueue(queue, published, now));
+    }
+
+    private bool HasQueue(string queueName)
+    {
+        lock (stateLock)
+        {
+            return queues.ContainsKey(queueName);
+        }
     }
 
     internal BusQueueDeclareResult DeclareQueue(BusConnection connection, string name, BusQueueFlags flags)
@@ -105,6 +120,7 @@ public sealed partial class MessageBus
 
             queues.Add(name, new NamedQueue(name, flags, flags.Exclusive ? connection : null));
             queuesVersion++;
+            PublishQueueChange(StoreChange.Written, name, byteCount: null);
             return new(MessageBusOutcome.Succeeded, 0, 0);
         }
     }
@@ -166,6 +182,11 @@ public sealed partial class MessageBus
             var (count, bytes) = queue.RemoveAllReady();
             queuedBytes -= bytes;
             queuesVersion++;
+            if (count > 0)
+            {
+                PublishQueueChange(StoreChange.Deleted, queueName, bytes);
+            }
+
             return new(outcome, count);
         }
     }
@@ -216,6 +237,11 @@ public sealed partial class MessageBus
             var (delivery, droppedBytes) = queue.TakeOne(holder, timeProvider.GetUtcNow());
             queuedBytes -= droppedBytes;
             queuesVersion++;
+            if (delivery is not null)
+            {
+                PublishQueueChange(StoreChange.Delivered, queueName, delivery.Message.Payload.Length);
+            }
+
             return new BusGetResult(outcome, delivery, queue.ReadyCount);
         });
     }
@@ -274,10 +300,10 @@ public sealed partial class MessageBus
     });
 
     internal MessageBusOutcome Acknowledge(BusQueueConsumer consumer, long deliveryTag) =>
-        Settle(consumer, deliveryTag, requeue: false);
+        Settle(consumer, deliveryTag, requeue: false, StoreChange.Acknowledged);
 
     internal MessageBusOutcome Reject(BusQueueConsumer consumer, long deliveryTag, bool requeue) =>
-        Settle(consumer, deliveryTag, requeue);
+        Settle(consumer, deliveryTag, requeue, StoreChange.Deleted);
 
     internal void Recover(BusQueueConsumer consumer) => ChangeState(() =>
     {
@@ -354,6 +380,7 @@ public sealed partial class MessageBus
 
         queue.Enqueue(published);
         queuedBytes += length;
+        PublishQueueChange(StoreChange.Enqueued, queue.Name, published.Payload.Length);
         Dispatch(queue, now);
         return MessageBusOutcome.Succeeded;
     }
@@ -369,15 +396,19 @@ public sealed partial class MessageBus
         }
     }
 
-    private static void DeliverToConsumers(List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> deliveries)
+    private void DeliverToConsumers(List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> deliveries)
     {
         foreach (var (consumer, delivery) in deliveries)
         {
-            consumer.Deliver(delivery);
+            if (consumer.Deliver(delivery))
+            {
+                PublishQueueChange(StoreChange.Delivered, delivery.QueueName, delivery.Message.Payload.Length);
+            }
         }
     }
 
-    private MessageBusOutcome Settle(BusQueueConsumer consumer, long deliveryTag, bool requeue) => ChangeState(() =>
+    // The change a settle that drops the message publishes: Acknowledged, or Deleted for a reject.
+    private MessageBusOutcome Settle(BusQueueConsumer consumer, long deliveryTag, bool requeue, StoreChange droppedChange) => ChangeState(() =>
     {
         if (consumer.RemoveUnacknowledged(deliveryTag) is not { } message)
         {
@@ -391,6 +422,7 @@ public sealed partial class MessageBus
         else
         {
             queuedBytes -= message.Message.PayloadAndNativeFormBytes;
+            PublishQueueChange(droppedChange, consumer.QueueName, message.Message.Payload.Length);
         }
 
         Dispatch(consumer.Queue, timeProvider.GetUtcNow());
@@ -440,6 +472,7 @@ public sealed partial class MessageBus
 
         queuedBytes -= queue.RemoveAllReady().Bytes;
         queues.Remove(queue.Name);
+        PublishQueueChange(StoreChange.Deleted, queue.Name, byteCount: null);
     }
 
     private static void CountEnded(BusQueueConsumer consumer)
