@@ -116,3 +116,27 @@ sizes from that without knowing the tier.
 - **Killing a surplus lane.** It loses work mid-task; retiring before the next claim loses none.
 - **Guessing the machine cap from the processor count.** Builds are memory-bound too; only
   a measurement is trustworthy.
+
+## Amendment 1 (2026-11-05): reading a window that is not reported
+
+Decided by Claude under Stewart's delegation, after Stewart asked for the usage reading to be fixed.
+
+Since an October 2026 Claude Code update, a `rate_limit_event` no longer lists every window
+under `unifiedWindows`. It lists only the window it is about, named by `rateLimitType`, with
+`utilization` and `resetsAt` beside it, and leaves a window out until it nears its limit.
+`Get-UsageReading` demanded a `five_hour` figure, found none after 2026-09-30, and returned no
+reading at all. Every Auto step then logged "lanes N held (no burn rate yet)", so the shift of
+2026-11-04 held 5 lanes for seven hours while the board's capacity rose to 33.
+
+1. `ConvertFrom-RateLimitEvent` reads each window from either shape. A window under
+   `unifiedWindows` wins over the top-level fields.
+2. `Get-UsageReading` takes each window from the newest event that reports it, across the
+   newest 40 runs. It returns a reading once any `rate_limit_event` exists. A window no event
+   reports reads 0 with no reset, and `FiveHourReported` and `WeekReported` say which were
+   seen. An unreported window is not near its limit, so it sets no pace. The stops at
+   `-StopAtUsage` and `-StopAtWeeklyUsage` still apply as soon as Claude Code reports the
+   window.
+3. `-AutoLanesReport` prints "not reported (not near its limit)" for such a window rather
+   than a 0% that was never measured.
+4. `-TestAutoLanes` proves both event shapes, a non-event line, and that a shift with no
+   5-hour report grows toward its ceiling.
