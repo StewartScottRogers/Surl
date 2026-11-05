@@ -45,7 +45,7 @@ as workflow artifacts - so that publishing them later is one approved push, whic
       `.mcp/server.json` and `PackageType` `McpServer`, and a named test in `Surl.Mcp.UnitTests` holds the csproj
       version equal to `server.json`'s.
 - [x] `release.yml` packs both and uploads them as artifacts, pushes nothing, and its pack job's steps pass when run
-      locally. (Amended 2026-11-05: the GitHub dry run and its run URL moved to BL-785; see Notes.)
+      locally. (Amended 2026-11-05: the GitHub dry run and its run URL moved to BL-824; see Notes.)
 - [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
@@ -77,7 +77,7 @@ as workflow artifacts - so that publishing them later is one approved push, whic
   and every check passed.
 - **Dry run on GitHub**: a dark factory lane may not push, so no GitHub run of the new job could exist in this run
   and no run URL can be recorded. The criterion was amended to what is checkable here and the GitHub dry run filed
-  as BL-785 (depends on BL-643). The shift's pull request touches `release.yml` and `Application/Surl.Api/**`, so
+  as BL-824 (depends on BL-643). The shift's pull request touches `release.yml` and `Application/Surl.Api/**`, so
   it triggers the dry run itself.
 - Seen, not changed (outside `touches`): ADR-0099 decision 10 says `Directory.Build.props` keeps `IsPackable` false
   for every other project, but it only sets it false for the `.UnitTests` projects.

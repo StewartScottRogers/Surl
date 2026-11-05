@@ -1,5 +1,5 @@
 ---
-id: BL-785
+id: BL-824
 title: Record a passing release.yml dry run of the NuGet pack job
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-785 — Record a passing release.yml dry run of the NuGet pack job
+# BL-824 — Record a passing release.yml dry run of the NuGet pack job
 
 ## Goal
 
