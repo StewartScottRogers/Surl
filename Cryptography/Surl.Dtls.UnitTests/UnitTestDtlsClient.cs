@@ -77,6 +77,33 @@ internal sealed class UnitTestDtlsClient
     /// <summary>Replaces the final flight, built once the server's flight is in.</summary>
     public Func<UnitTestDtlsClient, IEnumerable<byte[]>>? ReplacesFinalFlight { get; init; }
 
+    /// <summary>The <c>server_certificate_type</c> list (RFC 7250 section 4.1), or no extension.</summary>
+    public byte[]? ServerCertificateTypes { get; init; }
+
+    /// <summary>The <c>client_certificate_type</c> list (RFC 7250 section 4.1), or no extension.</summary>
+    public byte[]? ClientCertificateTypes { get; init; }
+
+    /// <summary>The <c>max_fragment_length</c> extension's data (RFC 6066 section 4), or no extension.</summary>
+    public byte[]? MaxFragmentLength { get; init; }
+
+    /// <summary>The DER chain the client sends when asked for a certificate; empty sends an empty list.</summary>
+    public IReadOnlyList<byte[]> ClientCertificateChain { get; init; } = [];
+
+    /// <summary>The key that signs <c>CertificateVerify</c>, or none, so none is sent.</summary>
+    public AsymmetricAlgorithm? ClientCertificateKey { get; init; }
+
+    /// <summary>The scheme <c>CertificateVerify</c> names; by default the one the key's kind makes.</summary>
+    public ushort? CertificateVerifyScheme { get; init; }
+
+    /// <summary>Whether the client's <c>CertificateVerify</c> signature is spoiled.</summary>
+    public bool CorruptsCertificateVerify { get; init; }
+
+    /// <summary>The server's <c>Certificate</c> body, as it came.</summary>
+    public byte[]? ServerCertificateBody { get; private set; }
+
+    /// <summary>The server's <c>CertificateRequest</c>, when it sent one.</summary>
+    public DtlsCertificateRequest? CertificateRequest { get; private set; }
+
     public ushort NextMessageSeq { get; private set; }
 
     public byte[] LastHelloDatagram { get; private set; } = [];
@@ -115,8 +142,22 @@ internal sealed class UnitTestDtlsClient
     /// </summary>
     public List<byte[]> BuildFinalFlight()
     {
+        List<(DtlsContentType, bool, byte[])> epoch0 = [];
+        if (CertificateRequest is not null)
+        {
+            epoch0.Add((DtlsContentType.Handshake, false,
+                AddClientMessage(DtlsHandshakeType.Certificate, new DtlsCertificate(ClientCertificateChain).Write())));
+        }
+
         var keyExchange = AddClientMessage(
             DtlsHandshakeType.ClientKeyExchange, AgreeAndDeriveKeys());
+        epoch0.Add((DtlsContentType.Handshake, false, keyExchange));
+        if (CertificateRequest is not null && ClientCertificateKey is not null)
+        {
+            epoch0.Add((DtlsContentType.Handshake, false, AddClientMessage(DtlsHandshakeType.CertificateVerify, SignTranscript())));
+        }
+
+        epoch0.Add((DtlsContentType.ChangeCipherSpec, false, ChangeCipherSpecBody));
         var verifyData = DtlsPseudorandomFunction.ClientFinishedVerifyData(suite!.PrfHash, masterSecret, TranscriptHash());
         if (CorruptsFinished)
         {
@@ -124,11 +165,40 @@ internal sealed class UnitTestDtlsClient
         }
 
         var finished = AddClientMessage(DtlsHandshakeType.Finished, new DtlsFinished(verifyData).Write());
-        List<(DtlsContentType, bool, byte[])> epoch0 =
-            [(DtlsContentType.Handshake, false, keyExchange), (DtlsContentType.ChangeCipherSpec, false, ChangeCipherSpecBody)];
         List<(DtlsContentType, bool, byte[])> epoch1 = [(DtlsContentType.Handshake, true, finished)];
         finalFlightPlaintexts = SplitsFinalFlight ? [epoch0, epoch1] : [[.. epoch0, .. epoch1]];
         return SealFinalFlight();
+    }
+
+    /// <summary>
+    /// The <c>CertificateVerify</c> body: the client key's signature over every handshake message
+    /// so far (RFC 5246 section 7.4.8), ECDSA as a DER <c>ECDSA-Sig-Value</c>.
+    /// </summary>
+    private byte[] SignTranscript()
+    {
+        byte[] content = [.. transcript];
+        byte[] signature;
+        ushort scheme;
+        if (ClientCertificateKey is RSA rsa)
+        {
+            scheme = CertificateVerifyScheme ?? 0x0804;
+            signature = rsa.SignData(content, HashAlgorithmName.SHA256, scheme == 0x0401 ? RSASignaturePadding.Pkcs1 : RSASignaturePadding.Pss);
+        }
+        else
+        {
+            scheme = CertificateVerifyScheme ?? 0x0403;
+            signature = ((ECDsa)ClientCertificateKey!).SignData(content, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+        }
+
+        if (CorruptsCertificateVerify)
+        {
+            content[^1] ^= 0xFF;
+            signature = ClientCertificateKey is RSA corruptRsa
+                ? corruptRsa.SignData(content, HashAlgorithmName.SHA256, RSASignaturePadding.Pss)
+                : ((ECDsa)ClientCertificateKey).SignData(content, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+        }
+
+        return new DtlsCertificateVerify(scheme, signature).Write();
     }
 
     private List<byte[]> SealFinalFlight() =>
@@ -216,6 +286,12 @@ internal sealed class UnitTestDtlsClient
                 suite = DtlsCipherSuite.AllSuitesInServerOrder.Single(candidate => candidate.Code == ServerHello.CipherSuite);
                 usesExtendedMasterSecret = ServerHello.Extensions.Any(extension => extension.Type == DtlsExtensionType.ExtendedMasterSecret);
                 break;
+            case DtlsHandshakeType.Certificate:
+                ServerCertificateBody = message.Body;
+                break;
+            case DtlsHandshakeType.CertificateRequest:
+                CertificateRequest = DtlsCertificateRequest.Read(message.Body);
+                break;
             case DtlsHandshakeType.ServerKeyExchange:
                 serverKeyExchange = DtlsEcdheServerKeyExchange.Read(message.Body);
                 break;
@@ -265,7 +341,19 @@ internal sealed class UnitTestDtlsClient
             extensions.Add(new DtlsExtension(DtlsExtensionType.ExtendedMasterSecret, []));
         }
 
+        AddOptional(extensions, DtlsExtensionType.ServerCertificateType, ServerCertificateTypes is null ? null : [(byte)ServerCertificateTypes.Length, .. ServerCertificateTypes]);
+        AddOptional(extensions, DtlsExtensionType.ClientCertificateType, ClientCertificateTypes is null ? null : [(byte)ClientCertificateTypes.Length, .. ClientCertificateTypes]);
+        AddOptional(extensions, DtlsExtensionType.MaxFragmentLength, MaxFragmentLength);
+
         return extensions;
+    }
+
+    private static void AddOptional(List<DtlsExtension> extensions, DtlsExtensionType type, byte[]? data)
+    {
+        if (data is not null)
+        {
+            extensions.Add(new DtlsExtension(type, data));
+        }
     }
 
     public static byte[] UInt16List(IReadOnlyList<ushort> values)

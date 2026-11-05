@@ -23,6 +23,15 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 {
     private const int UnknownIdentityKeyLength = 32;
 
+    /// <summary>The client's handshake message each waiting state takes, and what takes it.</summary>
+    private static readonly Dictionary<HandshakeState, (DtlsHandshakeType Type, Action<DtlsServerSession, DtlsHandshakeMessage> Accept)> ExpectedMessages = new()
+    {
+        [HandshakeState.AwaitingClientCertificate] = (DtlsHandshakeType.Certificate, (session, message) => session.AcceptClientCertificate(message)),
+        [HandshakeState.AwaitingClientKeyExchange] = (DtlsHandshakeType.ClientKeyExchange, (session, message) => session.AcceptClientKeyExchange(message)),
+        [HandshakeState.AwaitingCertificateVerify] = (DtlsHandshakeType.CertificateVerify, (session, message) => session.AcceptCertificateVerify(message)),
+        [HandshakeState.AwaitingFinished] = (DtlsHandshakeType.Finished, (session, message) => session.AcceptFinished(message)),
+    };
+
     private readonly DtlsAssociationRecords records = new(flow);
     private readonly List<byte> transcript = [];
     private readonly Queue<byte[]> applicationData = new();
@@ -36,14 +45,18 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     private byte[] serverRandom = [];
     private byte[] masterSecret = [];
     private ushort nextServerMessageSeq;
+    private DtlsClientCertificate? clientCertificate;
     private bool finalFlightAcknowledged;
     private bool closeNotifyOwed;
+    private int renegotiationRefusalsOwed;
     private bool established;
 
     private enum HandshakeState
     {
         NotStarted,
+        AwaitingClientCertificate,
         AwaitingClientKeyExchange,
+        AwaitingCertificateVerify,
         AwaitingChangeCipherSpec,
         AwaitingFinished,
         ClientFinished,
@@ -53,6 +66,12 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
     /// <summary>The suite negotiated, once the server's first flight is built.</summary>
     public DtlsCipherSuite? CipherSuite => negotiation?.Suite;
+
+    /// <summary>
+    /// The most plaintext <see cref="SendAsync"/> carries in one record: the client's
+    /// <c>max_fragment_length</c> when it asked for one (RFC 6066 section 4), else 2^14 bytes.
+    /// </summary>
+    public int MaximumApplicationDataLength => records.MaximumPlaintextLength;
 
     /// <summary>
     /// Runs the handshake: waits, keeping no state, for a hello with a valid cookie, then completes
@@ -118,7 +137,9 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         while (applicationData.Count == 0 && state == HandshakeState.Established)
         {
             var datagram = await flow.ReceiveAsync(cancellationToken).ConfigureAwait(false);
-            if (AcceptEstablishedDatagram(datagram))
+            var finalFlightAgain = AcceptEstablishedDatagram(datagram);
+            await RefuseRenegotiationsAsync(cancellationToken).ConfigureAwait(false);
+            if (finalFlightAgain)
             {
                 await records.SendFlightAsync(cancellationToken).ConfigureAwait(false);
             }
@@ -133,10 +154,11 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     }
 
     /// <summary>Sends <paramref name="plaintext"/> as one application data record in epoch 1.</summary>
-    /// <param name="plaintext">At most 2^14 bytes.</param>
+    /// <param name="plaintext">At most <see cref="MaximumApplicationDataLength"/> bytes.</param>
     /// <param name="cancellationToken">Cuts the send off.</param>
     /// <returns>A task that completes once the datagram is sent.</returns>
     /// <exception cref="InvalidOperationException">The handshake has not completed, or the association has ended.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="plaintext"/> is longer than <see cref="MaximumApplicationDataLength"/>.</exception>
     public ValueTask SendAsync(ReadOnlyMemory<byte> plaintext, CancellationToken cancellationToken)
     {
         ThrowIfNotEstablished();
@@ -144,6 +166,8 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         {
             throw new InvalidOperationException("The DTLS association has ended.");
         }
+
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(plaintext.Length, MaximumApplicationDataLength, nameof(plaintext));
 
         return records.SendAsync(DtlsContentType.ApplicationData, plaintext.ToArray(), cancellationToken);
     }
@@ -169,6 +193,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
     public void Dispose()
     {
         ephemeralKey?.Dispose();
+        clientCertificate?.Dispose();
         clientProtection?.Dispose();
         serverProtection?.Dispose();
         CryptographicOperations.ZeroMemory(masterSecret);
@@ -188,6 +213,20 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
         isCloseNotify = !alert.IsFatal && alert.Description == DtlsAlertDescription.CloseNotify;
         return alert.IsFatal || isCloseNotify;
+    }
+
+    /// <summary>
+    /// Answers each epoch 1 <c>ClientHello</c> with a warning <c>no_renegotiation</c>; the
+    /// association carries on (ADR-0087 decision 6, RFC 5246 section 7.2.2).
+    /// </summary>
+    private async ValueTask RefuseRenegotiationsAsync(CancellationToken cancellationToken)
+    {
+        for (; renegotiationRefusalsOwed > 0; renegotiationRefusalsOwed--)
+        {
+            await records.SendAsync(
+                DtlsContentType.Alert, new DtlsAlert(IsFatal: false, DtlsAlertDescription.NoRenegotiation).Write(), cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     private ValueTask SendCloseNotifyAsync(CancellationToken cancellationToken)
@@ -231,8 +270,10 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         records.ContinueEpoch0WritesFrom(opening.RecordSequenceNumber);
         AddToTranscript(opening.Message);
         state = HandshakeState.AwaitingClientKeyExchange;
+        var requestsClientCertificate = options.ClientCertificateAuthorities is not null;
         negotiation = DtlsServerNegotiation.Negotiate(
-            opening.Hello, options.Certificate, options.PreSharedKeys is not null, options.AesCcmSupported);
+            opening.Hello, options.Certificate, options.PreSharedKeys is not null, options.AesCcmSupported, requestsClientCertificate);
+        records.MaximumPlaintextLength = negotiation.MaximumFragmentLength ?? DtlsRecordWriter.MaximumPlaintextLength;
         clientRandom = opening.Hello.Random;
         serverRandom = RandomNumberGenerator.GetBytes(DtlsClientHello.RandomLength);
         nextServerMessageSeq = opening.Message.MessageSeq;
@@ -243,6 +284,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         if (!negotiation.Suite.UsesPreSharedKey)
         {
             AddCertificateAndServerKeyExchange(options.Certificate!, negotiation.Group!.Value, negotiation.SignatureScheme!.Value);
+            AddCertificateRequestWhenRequired(requestsClientCertificate);
         }
 
         AddServerMessage(DtlsHandshakeType.ServerHelloDone, DtlsServerHelloDone.Write());
@@ -259,8 +301,24 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
         ephemeralKey = DtlsEphemeralKey.Create(group);
         var unsigned = new DtlsEcdheServerKeyExchange((ushort)group, ephemeralKey.PublicPoint, (ushort)scheme, []);
         var signature = certificate.Sign(scheme, unsigned.SignedContent(clientRandom, serverRandom));
-        AddServerMessage(DtlsHandshakeType.Certificate, new DtlsCertificate(certificate.Chain).Write());
+        var certificateBody = negotiation!.UsesRawPublicKey
+            ? new DtlsRawPublicKeyCertificate(certificate.SubjectPublicKeyInfo).Write()
+            : new DtlsCertificate(certificate.Chain).Write();
+        AddServerMessage(DtlsHandshakeType.Certificate, certificateBody);
         AddServerMessage(DtlsHandshakeType.ServerKeyExchange, (unsigned with { Signature = signature }).Write());
+    }
+
+    /// <summary>
+    /// Under <c>--cacert</c>, adds <c>CertificateRequest</c> and waits for the client's
+    /// <c>Certificate</c> first (ADR-0087 decision 3).
+    /// </summary>
+    private void AddCertificateRequestWhenRequired(bool requestsClientCertificate)
+    {
+        if (requestsClientCertificate)
+        {
+            AddServerMessage(DtlsHandshakeType.CertificateRequest, DtlsClientCertificate.Request.Write());
+            state = HandshakeState.AwaitingClientCertificate;
+        }
     }
 
     private async ValueTask AwaitClientFinalFlightAsync(CancellationToken cancellationToken)
@@ -408,19 +466,42 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
 
     private void AcceptMessage(DtlsHandshakeMessage message)
     {
-        if (state == HandshakeState.AwaitingClientKeyExchange && message.MessageType == DtlsHandshakeType.ClientKeyExchange)
-        {
-            AcceptClientKeyExchange(message);
-        }
-        else if (state == HandshakeState.AwaitingFinished && message.MessageType == DtlsHandshakeType.Finished)
-        {
-            AcceptFinished(message);
-        }
-        else
+        if (!ExpectedMessages.TryGetValue(state, out var expected) || expected.Type != message.MessageType)
         {
             throw new DtlsAlertException(
                 DtlsAlertDescription.UnexpectedMessage, $"{message.MessageType} is not expected while {state}.");
         }
+
+        expected.Accept(this, message);
+    }
+
+    /// <summary>
+    /// Takes the client's <c>Certificate</c> under <c>--cacert</c>: it must hold a certificate that
+    /// chains to an anchor and is valid now by the <see cref="DtlsServerOptions.TimeProvider"/>.
+    /// </summary>
+    private void AcceptClientCertificate(DtlsHandshakeMessage message)
+    {
+        var chain = DtlsCertificate.Read(message.Body).Certificates;
+        clientCertificate = DtlsClientCertificate.Validate(
+            chain, options.ClientCertificateAuthorities!, options.TimeProvider.GetUtcNow());
+        AddToTranscript(message);
+        state = HandshakeState.AwaitingClientKeyExchange;
+    }
+
+    /// <summary>
+    /// Takes the client's <c>CertificateVerify</c>: its signature over every handshake message
+    /// before it (RFC 5246 section 7.4.8) must verify under the client certificate's key.
+    /// </summary>
+    private void AcceptCertificateVerify(DtlsHandshakeMessage message)
+    {
+        var verify = DtlsCertificateVerify.Read(message.Body);
+        if (!clientCertificate!.Verifies(verify, [.. transcript]))
+        {
+            throw new DtlsAlertException(DtlsAlertDescription.DecryptError, "The client's CertificateVerify does not verify.");
+        }
+
+        AddToTranscript(message);
+        state = HandshakeState.AwaitingChangeCipherSpec;
     }
 
     private void AcceptClientKeyExchange(DtlsHandshakeMessage message)
@@ -446,7 +527,7 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
             keyBlock.AsSpan(keyLength, keyLength),
             keyBlock.AsSpan(salts + DtlsRecordProtection.SaltSize, DtlsRecordProtection.SaltSize));
         CryptographicOperations.ZeroMemory(keyBlock);
-        state = HandshakeState.AwaitingChangeCipherSpec;
+        state = clientCertificate is null ? HandshakeState.AwaitingChangeCipherSpec : HandshakeState.AwaitingCertificateVerify;
     }
 
     /// <summary>
@@ -514,19 +595,40 @@ public sealed class DtlsServerSession(IDatagramFlow flow, DtlsServerOptions opti
                 return false;
             }
 
-            if (record.Header.ContentType == DtlsContentType.ApplicationData && record.Header.Epoch == 1)
-            {
-                finalFlightAcknowledged = true;
-                applicationData.Enqueue(record.Plaintext);
-            }
-            else
-            {
-                retransmitted |= record.Header.ContentType is DtlsContentType.Handshake or DtlsContentType.ChangeCipherSpec;
-            }
+            retransmitted |= AcceptEstablishedRecord(record);
         }
 
         return retransmitted && !finalFlightAcknowledged;
     }
+
+    /// <summary>
+    /// Takes in one record other than a closing alert once established: epoch 1 application data
+    /// is queued, an epoch 1 <c>ClientHello</c> is owed a warning <c>no_renegotiation</c>
+    /// (ADR-0087 decision 6), and any other handshake or <c>ChangeCipherSpec</c> record is the
+    /// client's final flight again.
+    /// </summary>
+    /// <returns>Whether the record is part of the client's final flight sent again.</returns>
+    private bool AcceptEstablishedRecord(DtlsRecord record)
+    {
+        var type = record.Header.ContentType;
+        if (record.Header.Epoch == 1 && type == DtlsContentType.ApplicationData)
+        {
+            finalFlightAcknowledged = true;
+            applicationData.Enqueue(record.Plaintext);
+            return false;
+        }
+
+        if (record.Header.Epoch == 1 && type == DtlsContentType.Handshake && StartsClientHello(record.Plaintext))
+        {
+            renegotiationRefusalsOwed++;
+            return false;
+        }
+
+        return type is DtlsContentType.Handshake or DtlsContentType.ChangeCipherSpec;
+    }
+
+    private static bool StartsClientHello(byte[] fragments) =>
+        DtlsHandshakeHeader.TryRead(fragments, out var header) && header.MessageType == DtlsHandshakeType.ClientHello;
 
     private void AddServerMessage(DtlsHandshakeType type, byte[] body)
     {

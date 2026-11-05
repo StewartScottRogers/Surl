@@ -10,13 +10,28 @@ namespace Surl.Dtls;
 /// <param name="SignatureScheme">The scheme that signs <c>ServerKeyExchange</c>, or <see langword="null"/> for a PSK suite.</param>
 /// <param name="UsesExtendedMasterSecret">Whether the client offered <c>extended_master_secret</c>.</param>
 /// <param name="ServerExtensions">The <c>ServerHello</c>'s extensions.</param>
+/// <param name="UsesRawPublicKey">
+/// Whether the server's <c>Certificate</c> carries its key's <c>SubjectPublicKeyInfo</c> alone (RFC 7250).
+/// </param>
+/// <param name="MaximumFragmentLength">
+/// The record plaintext limit the client asked for with <c>max_fragment_length</c> (RFC 6066
+/// section 4), or <see langword="null"/> when it asked for none.
+/// </param>
 internal sealed record DtlsServerNegotiation(
     DtlsCipherSuite Suite,
     DtlsNamedGroup? Group,
     DtlsSignatureScheme? SignatureScheme,
     bool UsesExtendedMasterSecret,
-    IReadOnlyList<DtlsExtension> ServerExtensions)
+    IReadOnlyList<DtlsExtension> ServerExtensions,
+    bool UsesRawPublicKey,
+    int? MaximumFragmentLength)
 {
+    /// <summary><c>X509</c> (0), a certificate type of RFC 7250 section 3.</summary>
+    public const byte X509CertificateType = 0;
+
+    /// <summary><c>RawPublicKey</c> (2), a certificate type of RFC 7250 section 3.</summary>
+    public const byte RawPublicKeyCertificateType = 2;
+
     /// <summary>The groups in the server's order: secp256r1, x25519, secp384r1.</summary>
     public static readonly IReadOnlyList<DtlsNamedGroup> GroupsInServerOrder =
         [DtlsNamedGroup.Secp256r1, DtlsNamedGroup.X25519, DtlsNamedGroup.Secp384r1];
@@ -34,11 +49,19 @@ internal sealed record DtlsServerNegotiation(
     /// <param name="certificate">The server's certificate, or <see langword="null"/> when it has none.</param>
     /// <param name="preSharedKeysExist">Whether a PSK lookup exists, which makes the PSK suites live.</param>
     /// <param name="aesCcmSupported">Whether the platform has AES-CCM; without it no CCM suite is live.</param>
+    /// <param name="requestsClientCertificate">
+    /// Whether a certificate handshake asks for a client certificate (<c>--cacert</c>), which makes
+    /// <c>client_certificate_type</c> answered (ADR-0087 decision 3).
+    /// </param>
     /// <returns>What was chosen.</returns>
     /// <exception cref="DtlsAlertException">The alert ADR-0087 decision 10 names for what the hello lacks.</exception>
     /// <exception cref="DtlsDecodeErrorException">An extension the server reads is malformed.</exception>
     public static DtlsServerNegotiation Negotiate(
-        DtlsClientHello hello, DtlsServerCertificate? certificate, bool preSharedKeysExist, bool aesCcmSupported)
+        DtlsClientHello hello,
+        DtlsServerCertificate? certificate,
+        bool preSharedKeysExist,
+        bool aesCcmSupported,
+        bool requestsClientCertificate = false)
     {
         if (hello.ClientVersion > DtlsRecordHeader.Dtls12Version)
         {
@@ -55,11 +78,14 @@ internal sealed record DtlsServerNegotiation(
         var extensions = new List<DtlsExtension>();
         DtlsNamedGroup? group = null;
         DtlsSignatureScheme? scheme = null;
+        var usesRawPublicKey = false;
         if (!suite.UsesPreSharedKey)
         {
             AnswerPointFormats(hello, extensions);
             group = ChooseGroup(hello);
             scheme = ChooseScheme(hello, certificate!);
+            usesRawPublicKey = AnswerServerCertificateType(hello, extensions);
+            AnswerClientCertificateType(hello, extensions, requestsClientCertificate);
         }
 
         var usesExtendedMasterSecret = Find(hello, DtlsExtensionType.ExtendedMasterSecret) is not null;
@@ -69,7 +95,82 @@ internal sealed record DtlsServerNegotiation(
         }
 
         AnswerRenegotiationInfo(hello, extensions);
-        return new DtlsServerNegotiation(suite, group, scheme, usesExtendedMasterSecret, extensions);
+        var maximumFragmentLength = AnswerMaxFragmentLength(hello, extensions);
+        return new DtlsServerNegotiation(
+            suite, group, scheme, usesExtendedMasterSecret, extensions, usesRawPublicKey, maximumFragmentLength);
+    }
+
+    /// <summary>
+    /// Answers <c>server_certificate_type</c> with the first type in the client's list the server
+    /// can send, <c>X509</c> or <c>RawPublicKey</c> (RFC 7250 section 4.2, ADR-0087 decision 3).
+    /// </summary>
+    /// <returns>Whether the server sends its raw public key.</returns>
+    private static bool AnswerServerCertificateType(DtlsClientHello hello, List<DtlsExtension> extensions)
+    {
+        if (Find(hello, DtlsExtensionType.ServerCertificateType) is not { } data)
+        {
+            return false;
+        }
+
+        var type = FirstCertificateTypeServed(data, servesRawPublicKey: true);
+        extensions.Add(new DtlsExtension(DtlsExtensionType.ServerCertificateType, [type]));
+        return type == RawPublicKeyCertificateType;
+    }
+
+    /// <summary>
+    /// Answers <c>client_certificate_type</c> with <c>X509</c> when a client certificate is
+    /// requested; client raw public keys are not accepted, as nothing names the keys to trust
+    /// (ADR-0087 decision 3). Without a request the extension is ignored.
+    /// </summary>
+    private static void AnswerClientCertificateType(DtlsClientHello hello, List<DtlsExtension> extensions, bool requestsClientCertificate)
+    {
+        if (requestsClientCertificate && Find(hello, DtlsExtensionType.ClientCertificateType) is { } data)
+        {
+            extensions.Add(new DtlsExtension(
+                DtlsExtensionType.ClientCertificateType, [FirstCertificateTypeServed(data, servesRawPublicKey: false)]));
+        }
+    }
+
+    private static byte FirstCertificateTypeServed(byte[] data, bool servesRawPublicKey)
+    {
+        var reader = new DtlsHandshakeBodyReader(data);
+        var types = reader.ReadVector8(1, byte.MaxValue);
+        reader.ExpectEnd();
+        foreach (var type in types)
+        {
+            if (type == X509CertificateType || (servesRawPublicKey && type == RawPublicKeyCertificateType))
+            {
+                return type;
+            }
+        }
+
+        throw new DtlsAlertException(DtlsAlertDescription.UnsupportedCertificate, "The client lists no certificate type the server serves.");
+    }
+
+    /// <summary>
+    /// Honours and echoes <c>max_fragment_length</c> (RFC 6066 section 4): codes 1 to 4 ask for
+    /// 2^9 to 2^12 plaintext bytes per record; any other code is <c>illegal_parameter</c>.
+    /// </summary>
+    /// <returns>The plaintext limit, or <see langword="null"/> when the client asked for none.</returns>
+    private static int? AnswerMaxFragmentLength(DtlsClientHello hello, List<DtlsExtension> extensions)
+    {
+        if (Find(hello, DtlsExtensionType.MaxFragmentLength) is not { } data)
+        {
+            return null;
+        }
+
+        if (data is not [var code])
+        {
+            throw new DtlsDecodeErrorException("max_fragment_length carries one byte.");
+        }
+
+        if (code is < 1 or > 4)
+        {
+            throw new DtlsAlertException(DtlsAlertDescription.IllegalParameter, $"max_fragment_length code {code} is not 1 to 4.");
+        }
+
+        extensions.Add(new DtlsExtension(DtlsExtensionType.MaxFragmentLength, [code]));
+        return 1 << (8 + code);
     }
 
     private static byte[]? Find(DtlsClientHello hello, DtlsExtensionType type) =>

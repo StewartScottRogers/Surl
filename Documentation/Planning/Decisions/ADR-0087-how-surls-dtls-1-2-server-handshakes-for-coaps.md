@@ -288,6 +288,32 @@ drop still holds for every other invalid record, and for every record once the a
 established. Rejected: a timeout with no alert, because the client would hear nothing for the 30
 seconds of the head timeout, and nothing would tell an operator why a wrong key failed.
 
+**Amendment (2026-11-05, BL-738; decided by Claude under Stewart's delegation).** The details decisions
+3, 5, 6 and 10 left open, as `Surl.Dtls` now serves them:
+
+- **Certificate type lists.** `server_certificate_type` and `client_certificate_type` lists are read as
+  RFC 7250 section 4.1's one-byte-length vector; the server answers the first type in the client's list it
+  serves. A malformed list is `decode_error`, like any malformed extension.
+- **A client certificate whose key is neither RSA nor ECDSA** (such as Ed25519) gets fatal
+  `unsupported_certificate` (43): RFC 5246 section 7.2.2 names it for "a certificate of an unsupported
+  type", and `CertificateVerify` could not be checked. A chain check failing because a certificate is
+  outside its validity at the session's `TimeProvider` time is `certificate_expired`; any other chain
+  failure is `unknown_ca`. The chain is built with the `--cacert` anchors as the only roots, the client's
+  other certificates as intermediates, no revocation check and no download.
+- **A `CertificateVerify` naming a scheme that does not match the key's kind**, or one outside
+  `CertificateRequest`'s list, is `decrypt_error` (51), the same as a signature that does not verify: in
+  both cases the signature does not prove possession of the key. Its signed content is every handshake
+  message before it, each as if in one fragment (RFC 5246 section 7.4.8, RFC 6347 section 4.2.6).
+- **`max_fragment_length`** whose data is not exactly one byte is `decode_error`; one byte outside 1 to 4
+  is `illegal_parameter` (RFC 6066 section 4). The limit applies to every record from the server's first
+  flight on, `ServerHello` included, and `DtlsServerSession.SendAsync` refuses application data longer
+  than it with `ArgumentOutOfRangeException` rather than splitting it, because CoAP carries one message
+  per record and the CoAP server sizes its messages by `MaximumApplicationDataLength`.
+- **An epoch 1 `ClientHello`** is recognised by the handshake header at the start of an epoch 1 handshake
+  record; each is answered with one warning `no_renegotiation` in epoch 1, and it never counts as the
+  client's final flight sent again.
+- **The epoch 0 hello on an established association** (decision 6's third bullet) is BL-773's.
+
 ## Alternatives considered
 
 - **The client's suite order.** Rejected: CoAP clients often list the mandated CCM_8 first, and the

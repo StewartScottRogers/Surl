@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Surl.Dtls;
 
@@ -41,4 +42,12 @@ public sealed record DtlsServerOptions(
     /// exists, so no PSK suite is live (ADR-0087 decisions 2 and 3).
     /// </summary>
     public DtlsPreSharedKeyLookup? PreSharedKeys { get; init; }
+
+    /// <summary>
+    /// The <c>--cacert</c> anchors a client certificate must chain to, or <see langword="null"/>
+    /// (the default) when no client certificate is asked for. When set, every certificate or
+    /// RawPublicKey handshake sends <c>CertificateRequest</c> and requires a client certificate
+    /// (ADR-0087 decision 3, ADR-0010 section 5); a PSK handshake never asks for one.
+    /// </summary>
+    public X509Certificate2Collection? ClientCertificateAuthorities { get; init; }
 }

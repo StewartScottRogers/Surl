@@ -33,6 +33,13 @@ internal sealed class DtlsAssociationRecords(IDatagramFlow flow)
     /// </summary>
     public int Epoch1AuthenticationFailures { get; private set; }
 
+    /// <summary>
+    /// The most plaintext a record the server sends carries: 2^14 bytes, or the client's
+    /// <c>max_fragment_length</c> once negotiated (RFC 6066 section 4), to which handshake
+    /// fragments are cut.
+    /// </summary>
+    public int MaximumPlaintextLength { get; set; } = DtlsRecordWriter.MaximumPlaintextLength;
+
     /// <summary>Accepts epoch 1 records under the client's protection, beside epoch 0's.</summary>
     /// <param name="protection">The client's write protection.</param>
     public void StartProtectedReads(DtlsRecordProtection protection) => epoch1Reader = new DtlsRecordReader(epoch: 1, protection);
@@ -89,7 +96,7 @@ internal sealed class DtlsAssociationRecords(IDatagramFlow flow)
     {
         var writer = CurrentWriter;
         var overhead = writer.Protection?.Overhead ?? 0;
-        var budget = DtlsHandshakeFragmenter.MaximumDatagramLength - DtlsRecordHeader.Size - overhead;
+        var budget = Math.Min(DtlsHandshakeFragmenter.MaximumDatagramLength - DtlsRecordHeader.Size - overhead, MaximumPlaintextLength);
         foreach (var fragment in DtlsHandshakeFragmenter.Fragment(message, budget))
         {
             flight.Add(new FlightRecord(DtlsContentType.Handshake, writer.Epoch, fragment));

@@ -46,6 +46,12 @@ public sealed class DtlsServerCertificate
     public DtlsCertificateKeyAlgorithm KeyAlgorithm { get; }
 
     /// <summary>
+    /// The key's DER <c>SubjectPublicKeyInfo</c>, which a RawPublicKey <c>Certificate</c> carries
+    /// alone (RFC 7250 section 3).
+    /// </summary>
+    internal byte[] SubjectPublicKeyInfo => key.ExportSubjectPublicKeyInfo();
+
+    /// <summary>
     /// The first scheme in the client's order that the key can sign with, or <see langword="null"/>.
     /// </summary>
     /// <param name="clientSchemes">The client's <c>signature_algorithms</c>, in its order.</param>

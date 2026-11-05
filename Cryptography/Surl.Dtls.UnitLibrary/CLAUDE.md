@@ -82,10 +82,29 @@ The pre-shared-key mode, the alerts and closure (BL-415, ADR-0087 decisions 2, 3
   maximum duration). A received `close_notify` is answered with one, and a received fatal alert
   is not answered. Either way `ReceiveAsync` then returns `null` and `SendAsync` throws.
 
-Still to come: closing with `close_notify` before the 48-bit sequence number wraps (decision 8);
-RawPublicKey, client
-certificates, `max_fragment_length` and refusing renegotiation (BL-738); reporting the peer
-(BL-650).
+RawPublicKey, client certificates, `max_fragment_length` and renegotiation (BL-738, ADR-0087
+decisions 3, 5, 6 and 10, and its BL-738 amendment):
+
+- `DtlsServerNegotiation` answers `server_certificate_type` with the first of `X509` and
+  `RawPublicKey` in the client's order (neither: `unsupported_certificate`); a RawPublicKey
+  handshake sends `DtlsServerCertificate.SubjectPublicKeyInfo` alone in `Certificate`.
+  `client_certificate_type` is answered `X509` only while a client certificate is asked for, and
+  ignored otherwise. Neither is answered on a PSK handshake.
+- With `DtlsServerOptions.ClientCertificateAuthorities` (`--cacert`), every certificate handshake
+  sends `CertificateRequest` (`DtlsClientCertificate.Request`) and waits for the client's
+  `Certificate`, then `ClientKeyExchange`, then `CertificateVerify`. `DtlsClientCertificate`
+  checks the chain at the `TimeProvider`'s time (`handshake_failure` for none, `bad_certificate`,
+  `unsupported_certificate`, `certificate_expired`, `unknown_ca`) and the `CertificateVerify`
+  signature (`decrypt_error`).
+- `max_fragment_length` codes 1 to 4 are echoed; `DtlsAssociationRecords.MaximumPlaintextLength`
+  then cuts every handshake fragment, and `DtlsServerSession.SendAsync` refuses application data
+  over `MaximumApplicationDataLength`.
+- An epoch 1 `ClientHello` on an established association is answered with a warning
+  `no_renegotiation`, and the association carries on.
+
+Still to come: closing with `close_notify` before the 48-bit sequence number wraps (BL-745); an
+epoch 0 hello with a valid cookie replacing an established association (BL-773); reporting the
+peer (BL-650).
 
 Never construct a socket here: records travel over the `IDatagramFlow` the caller gives.
 Tests on macOS skip the AES-CCM cases (`OSCondition`), because the BCL's `AesCcm` support
