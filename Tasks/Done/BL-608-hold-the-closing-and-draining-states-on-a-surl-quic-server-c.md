@@ -50,7 +50,7 @@ limited rate; after the client's `CONNECTION_CLOSE` it drains for the same time 
   flight (RFC 9002 section 2), so it now goes in the amplification room, as `ACK` does.
 - Existing tests that sent more Initials after a close now see the close repeated; they take the
   first `CONNECTION_CLOSE` instead of a single one.
-- Follow-up filed: BL-843, holding a served flow open through the closing and draining states.
+- Follow-up filed: BL-867, holding a served flow open through the closing and draining states.
 - Coverage of Surl.Quic.UnitLibrary: 100% line, 100% branch (cobertura from the fast tests).
 
 ## Log

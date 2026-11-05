@@ -6,7 +6,7 @@ QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every p
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
 loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), `RESET_STREAM_AT` (BL-748), following the client's key updates (BL-606), and keeping and retiring the client's connection IDs (BL-607),
-and the closing and draining states (BL-608); the flow loop holding a flow open through them comes with BL-843.
+and the closing and draining states (BL-608); the flow loop holding a flow open through them comes with BL-867.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
   and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the
@@ -61,7 +61,7 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   goes when it allows). On the client's `CONNECTION_CLOSE`, `IsDraining` is true for as long and
   nothing is sent. `NextDeadline` is the state's end; `HandleTimeout` there discards the state, and
   `NextDeadline` is null and nothing is answered after. `QuicDatagramFlowLoop` still returns when
-  `IsClosed` turns true (BL-843 holds it open).
+  `IsClosed` turns true (BL-867 holds it open).
 - `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
   `QuicServerConnectionOptions.MaxDatagramFrameSize` is set; then `max_datagram_frame_size` (0x20) is
   sent, and each `QuicDatagramFrame` (type `0x30` to the end of the packet, `0x31` with a Length) the

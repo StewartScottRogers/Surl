@@ -1,5 +1,5 @@
 ---
-id: BL-843
+id: BL-867
 title: Hold a Surl.Quic flow open through the closing and draining states
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-843 — Hold a Surl.Quic flow open through the closing and draining states
+# BL-867 — Hold a Surl.Quic flow open through the closing and draining states
 
 ## Goal
 
