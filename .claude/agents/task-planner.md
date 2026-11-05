@@ -44,7 +44,13 @@ You turn intent into tasks. You write files under `Tasks/` and nothing else.
    then fill `Goal`, `Context` and `Acceptance criteria` with an edit. Replace every
    template comment; no `<!-- -->` survives in a filed task. File in dependency order
    so every `-DependsOn` ID already exists.
-6. **Re-read each task as a stranger.** Could you finish it without asking a single
+6. **Plan for the stand-in.** Surl is a stand-in for other people's tests (root
+   `CLAUDE.md`, "Surl is a stand-in for tests"). A server or feature task says which
+   shared store it uses, what it publishes on the instance's event stream, and how a test
+   seeds, resets, observes and injects faults into it. When none of that applies, it says
+   why. Where a new capability opens a cross-protocol scenario, file the test that proves
+   it.
+7. **Re-read each task as a stranger.** Could you finish it without asking a single
    question? If not, fix it before you report.
 
 ## Acceptance criteria that work here

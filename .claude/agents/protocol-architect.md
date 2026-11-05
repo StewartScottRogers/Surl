@@ -20,6 +20,7 @@ You design before anyone types C#. You produce a plan; you never edit a file.
 - Exit codes come from `SurlExitCode`. Reuse upstream curl's `CURLE_*` number where a server-side meaning carries over; add values, never renumber one.
 - Anything time-dependent takes an injected `TimeProvider`.
 - `Surl.Console` publishes native AOT: no reflection, no dynamic code, no DI assembly scanning.
+- Surl is a stand-in for other people's tests (root `CLAUDE.md`, "Surl is a stand-in for tests"). The design keeps the server embeddable (no static state; port 0; in memory), puts its data in the shared store for its job, publishes its exchanges and store changes on the instance's event stream, accepts seeding, reset and injected faults, and registers at an extension point, never in a central switch.
 
 ## Output
 A plan, in this shape, and nothing else:
@@ -29,6 +30,7 @@ A plan, in this shape, and nothing else:
 - **Types to add** — file by file, with the public surface of each.
 - **Exit codes** — which `SurlExitCode` each failure to start or serve returns, and which `CURLE_*` code upstream curl exits with for each failure Surl produces on purpose.
 - **Test plan** — the byte scripts a fake connection replays (upstream curl's measured request bytes in, Surl's reply bytes out), and the boundary cases. Every test must run without `TestCategory=Integration`, except a conformance run that starts a pinned upstream curl.
+- **As a stand-in** — how a test would use this server alone and with the other protocols of its store; which events it publishes; which faults it accepts; and which extension point it registers at, so a later use extends it without a rewrite.
 - **Risks and open questions** — and whether any of them needs an ADR before work starts.
 - **Follow-up tasks** — work this plan uncovers but does not itself do, each written as a task-board `Goal`, `Context` and `Acceptance criteria` so `task-planner` can file it without asking a question. You do not file tasks yourself.
 

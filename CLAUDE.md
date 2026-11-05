@@ -21,6 +21,39 @@ design, and neither exists yet.
 Surl is the sibling of the Curl port (https://github.com/StewartScottRogers/Curl) and
 mirrors its structure, tooling and rules, project for project (ADR-0002).
 
+## Surl is a stand-in for tests
+Besides answering upstream curl, Surl is a **stand-in**: a real server that other people's
+integration tests run against in place of the real mail server, bucket, broker or file
+site, often several protocols at once (send over SMTP and read over IMAP; upload over SFTP
+and check over HTTP; publish over MQTT and consume over AMQP). New uses will keep turning
+up (Stewart, 2026-11-05). Every design, task and review asks: **how would a test use this
+as a stand-in, alone or with another protocol, and does it extend without a rewrite?**
+
+- **Embeddable.** Starts inside a test through `Surl.Api`, on port 0, in memory, with many
+  instances side by side. No static mutable state anywhere.
+- **Composable.** Any mix of protocols runs in one instance, and same-job protocols share
+  one store, so cross-protocol scenarios work without glue.
+- **Observable.** Each instance publishes every exchange and store change on one event
+  stream. Recording, assertions, `Surl.Mcp`, the control endpoint and hooks all subscribe
+  to it rather than wiring their own.
+- **Controllable.** Stores can be seeded before a test, reset between tests, and
+  snapshotted and restored.
+- **Fault-injectable.** A server can be made to misbehave on purpose - delay, drop the
+  connection, refuse a login, answer a chosen error, run out of space - per listener,
+  account or path, configured like everything else.
+- **Deterministic.** Time comes from the injected `TimeProvider` and randomness is
+  seedable, so a test gets the same answer every run.
+- **Open for extension.** New protocols, stores, faults and hooks plug into extension
+  points with explicit, AOT-safe registration, never into a central switch that must be
+  edited. Seams are interfaces; no protocol server hard-codes another.
+- **Configuration as data.** One configuration model serves the command line, the `-K`
+  file, `Surl.Api`, `Surl.Mcp` and the loopback control endpoint for non-.NET test suites.
+  It only grows: options and fields are added, never repurposed, and defaults keep today's
+  behaviour.
+
+These sit beside secure by default, not against it: anything that widens what a peer or
+test may do is off until asked for, and warned.
+
 ## Upstream curl and the Curl port
 Two different programs, with two different names, everywhere in this repository:
 - **upstream curl** - the original C implementation, https://github.com/curl/curl. It is
