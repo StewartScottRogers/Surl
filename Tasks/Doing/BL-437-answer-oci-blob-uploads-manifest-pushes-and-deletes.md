@@ -52,3 +52,4 @@ serves them. It checks every digest and refuses mismatches with `DIGEST_INVALID`
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-636 and BL-656; repositories live in the shared content store.
+- 2026-11-05: Backlog -> Doing.
