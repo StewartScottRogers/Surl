@@ -1,16 +1,16 @@
 ---
-id: BL-832
+id: BL-837
 title: Audit which protocol servers lack the chosen-error fault and file one task per family
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-828, BL-829, BL-830, BL-831, BL-793, BL-794, BL-795, BL-796, BL-797, BL-798]
+depends-on: [BL-833, BL-834, BL-835, BL-836, BL-793, BL-794, BL-795, BL-796, BL-797, BL-798]
 touches: [Tasks/Backlog]
 requirement: FR-062
 created: 2026-11-05
 completed:
 ---
-# BL-832 — Audit which protocol servers lack the chosen-error fault and file one task per family
+# BL-837 — Audit which protocol servers lack the chosen-error fault and file one task per family
 
 ## Goal
 
@@ -24,7 +24,7 @@ board that makes it, so no server built after ADR-0124 is left without it.
   Socket.IO, SOCKS and any other) are caught here.
 - Method: list the schemes `ComposeProtocolServers` and `ExtendedProtocolServers` register; list the schemes the
   `--fault` reply check in `Surl.Cli` accepts; for each scheme in the first and not the second, file one
-  `feature` task per family (as BL-828 to BL-831 are written), depending on BL-823 and BL-785, adding the family's
+  `feature` task per family (as BL-833 to BL-836 are written), depending on BL-823 and BL-785, adding the family's
   row to ADR-0124's reply table in the same task.
 - This task changes no code; its record is the filed tasks and the Notes below.
 

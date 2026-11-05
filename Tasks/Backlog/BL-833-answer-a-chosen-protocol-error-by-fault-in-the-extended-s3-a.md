@@ -1,5 +1,5 @@
 ---
-id: BL-828
+id: BL-833
 title: Answer a chosen protocol error by fault in the extended S3, Azure Storage and Google Cloud Storage servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-05
 completed:
 ---
-# BL-828 — Answer a chosen protocol error by fault in the extended S3, Azure Storage and Google Cloud Storage servers
+# BL-833 — Answer a chosen protocol error by fault in the extended S3, Azure Storage and Google Cloud Storage servers
 
 ## Goal
 

@@ -130,13 +130,13 @@ contract of each shared store, the fault-injection model, determinism, hooks and
   per-scheme shape (a fault stays an answer the protocol allows); `--random-seed` exists on the command line too
   (configuration as data; it widens nothing because only non-secret choices are seeded); stores are not
   replaceable (it would need a rewrite across every server).
-- Follow-ups filed (lanes may file extra tasks): BL-828 (S3, Azure Storage, GCS), BL-829 (AMQP 0-9-1, AMQP 1.0,
-  Kafka, MQTT 5, NATS), BL-830 (CoAP, MCP, SignalR), BL-831 (DNS, Redis) - each wires the chosen-error fault and
-  adds its reply shapes to `Surl.Cli`, depending on BL-823 and BL-785 - and BL-832 (Low, docs), an audit after
+- Follow-ups filed (lanes may file extra tasks): BL-833 (S3, Azure Storage, GCS), BL-834 (AMQP 0-9-1, AMQP 1.0,
+  Kafka, MQTT 5, NATS), BL-835 (CoAP, MCP, SignalR), BL-836 (DNS, Redis) - each wires the chosen-error fault and
+  adds its reply shapes to `Surl.Cli`, depending on BL-823 and BL-785 - and BL-837 (Low, docs), an audit after
   them that files tasks for servers built later (STOMP, XMPP, gRPC, OCI, WebTransport, Socket.IO, SOCKS).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. ADR-0124 decides how Surl serves as a stand-in for tests (event stream, extension points, store control, faults, hooks, determinism, control endpoint, Surl.Mcp tools); FR-060 to FR-065, glossary, six tasks amended, BL-828 to BL-832 filed
+- 2026-11-05: Doing -> Done. ADR-0124 decides how Surl serves as a stand-in for tests (event stream, extension points, store control, faults, hooks, determinism, control endpoint, Surl.Mcp tools); FR-060 to FR-065, glossary, six tasks amended, BL-833 to BL-837 filed

@@ -1,5 +1,5 @@
 ---
-id: BL-830
+id: BL-835
 title: Answer a chosen protocol error by fault in the extended CoAP, MCP and SignalR servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-05
 completed:
 ---
-# BL-830 — Answer a chosen protocol error by fault in the extended CoAP, MCP and SignalR servers
+# BL-835 — Answer a chosen protocol error by fault in the extended CoAP, MCP and SignalR servers
 
 ## Goal
 

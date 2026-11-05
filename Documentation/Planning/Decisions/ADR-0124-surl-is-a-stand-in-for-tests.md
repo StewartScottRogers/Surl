@@ -512,8 +512,8 @@ audit task that runs after the follow-ups and files a task per family still with
   `HookFailedEvent`, stamping), BL-792 (`FindAsync`), BL-804 (extended servers on the same record, the
   `AdditionalProtocolServers` input), BL-811 (async override, time limit), BL-813 (custom listen URLs
   read by `Surl.Api`), BL-785 (reply shapes for the original schemes only).
-- **Extended-server follow-ups** for decision 9: BL-828 (S3, Azure Storage, Google Cloud Storage), BL-829
-  (AMQP 0-9-1, AMQP 1.0, Kafka, MQTT 5, NATS), BL-830 (CoAP, MCP, SignalR), BL-831 (DNS, Redis), and the
-  audit BL-832 for servers built later.
+- **Extended-server follow-ups** for decision 9: BL-833 (S3, Azure Storage, Google Cloud Storage), BL-834
+  (AMQP 0-9-1, AMQP 1.0, Kafka, MQTT 5, NATS), BL-835 (CoAP, MCP, SignalR), BL-836 (DNS, Redis), and the
+  audit BL-837 for servers built later.
 - `Documentation/Product/Requirements.md` gains FR-060 to FR-065; the glossary defines stand-in, event
   stream, fault rule, snapshot and control endpoint.

@@ -1,5 +1,5 @@
 ---
-id: BL-829
+id: BL-834
 title: Answer a chosen protocol error by fault in the extended AMQP 0-9-1, AMQP 1.0, Kafka, MQTT 5 and NATS servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-05
 completed:
 ---
-# BL-829 — Answer a chosen protocol error by fault in the extended AMQP 0-9-1, AMQP 1.0, Kafka, MQTT 5 and NATS servers
+# BL-834 — Answer a chosen protocol error by fault in the extended AMQP 0-9-1, AMQP 1.0, Kafka, MQTT 5 and NATS servers
 
 ## Goal
 

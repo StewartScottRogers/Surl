@@ -1,5 +1,5 @@
 ---
-id: BL-831
+id: BL-836
 title: Answer a chosen protocol error by fault in the extended DNS and Redis servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-05
 completed:
 ---
-# BL-831 — Answer a chosen protocol error by fault in the extended DNS and Redis servers
+# BL-836 — Answer a chosen protocol error by fault in the extended DNS and Redis servers
 
 ## Goal
 
