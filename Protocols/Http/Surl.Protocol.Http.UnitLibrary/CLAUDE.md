@@ -44,11 +44,14 @@ since `h2c` is cleartext only): a request `Http2CleartextUpgrade` accepts for `U
 is answered `101` with an `IHttpConnectionTakeover` that runs
 `Http2ConnectionServer.ServeUpgradedAsync` over `HttpConnectionReaderConnection`, so the bytes
 the HTTP/1.x reader already holds come first (ADR-0091). Either way the connection's
-`IHttp2StreamHandler` is `Http2StreamAnswerWriter`: for each request stream it builds an
+`IHttp2StreamHandler` is `Http2StreamAnswerWriter`: for each request stream it first resets
+`HTTP_1_1_REQUIRED` a stream whose `authorization` names NTLM or Negotiate, unseen by the
+answerer, so no connection-bound handshake starts (ADR-0081 decision 7; BL-602), then builds an
 `HttpRequest` whose body is an `Http2HttpRequestBody` (the stream's `DATA` against the upload
 limit, with the interim `:status 100` for `expect: 100-continue`), has the same
 `HttpRequestAnswerer` decide the `HttpAnswer`, resets the stream `PROTOCOL_ERROR` when the body
-did not add up to its `content-length`, and writes the answer as one header block and `DATA`
+did not add up to its `content-length`, resets it `HTTP_1_1_REQUIRED` when the answer is a `401`
+whose every challenge is NTLM or Negotiate, and writes the answer as one header block and `DATA`
 within the client's windows, resetting `INTERNAL_ERROR` when a content-store file cannot be sent
 whole.
 

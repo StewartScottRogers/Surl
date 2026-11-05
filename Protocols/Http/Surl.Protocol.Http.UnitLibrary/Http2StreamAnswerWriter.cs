@@ -1,5 +1,6 @@
 using System.Globalization;
 using Surl.Hpack;
+using Surl.HttpMessage;
 using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
@@ -18,6 +19,13 @@ namespace Surl.Protocol.Http;
 /// the header block went out is ended with <c>RST_STREAM</c> <c>INTERNAL_ERROR</c> and a log note
 /// naming the file, as HTTP/1.1 aborts the connection, since its <c>content-length</c> can no
 /// longer be met; the connection carries on.
+/// <para>
+/// NTLM and Negotiate are logins bound to the connection, which HTTP/2 does not carry
+/// (ADR-0081, decision 7; RFC 9113 section 8.2.3): a stream whose <c>authorization</c> names
+/// either is reset <c>HTTP_1_1_REQUIRED</c> before the answerer sees it, so no handshake starts,
+/// and so is one whose answer is a <c>401</c> challenging for nothing else. Curl then retries
+/// over HTTP/1.1; the connection carries on.
+/// </para>
 /// </remarks>
 /// <param name="answerer">Decides the answer to every request.</param>
 /// <param name="context">The exchange: its limits and log.</param>
@@ -34,6 +42,13 @@ internal sealed class Http2StreamAnswerWriter(IHttpRequestHandler answerer, Exch
     public async Task ServeStreamAsync(Http2RequestStream stream, CancellationToken cancellationToken)
     {
         var head = stream.Head;
+        if (head.Fields.Any(field => field.Key == "authorization" && IsLoginBoundToTheConnection(field.Value)))
+        {
+            await stream.ResetAsync(Http2ErrorCode.Http11Required, "its authorization names NTLM or Negotiate, which HTTP/2 does not carry");
+
+            return;
+        }
+
         var body = new Http2HttpRequestBody(stream, head.ExpectsContinue, context.Limits.MaxUploadBytes);
         var answer = await answerer.AnswerAsync(new HttpRequest(head.Method, head.Target, head.Authority, head.Fields, body), cancellationToken);
         if (stream.HasContentLengthMismatch)
@@ -43,7 +58,35 @@ internal sealed class Http2StreamAnswerWriter(IHttpRequestHandler answerer, Exch
             return;
         }
 
+        if (OffersOnlyLoginsBoundToTheConnection(answer))
+        {
+            await stream.ResetAsync(Http2ErrorCode.Http11Required, "the only logins it could be challenged for are NTLM or Negotiate, which HTTP/2 does not carry");
+
+            return;
+        }
+
         await WriteAsync(stream, answer, cancellationToken);
+    }
+
+    // A 401 whose every WWW-Authenticate challenge is NTLM or Negotiate (ADR-0081, decision 7).
+    private static bool OffersOnlyLoginsBoundToTheConnection(HttpAnswer answer)
+    {
+        var challenges = answer.Fields
+            .Where(field => string.Equals(field.Key, "WWW-Authenticate", StringComparison.OrdinalIgnoreCase))
+            .Select(field => field.Value)
+            .ToList();
+
+        return answer.Status == HttpStatus.Unauthorized && challenges.Count > 0 && challenges.All(IsLoginBoundToTheConnection);
+    }
+
+    // Whether a credentials or challenge value's auth-scheme (RFC 9110, section 11.1) is NTLM
+    // (ADR-0041) or Negotiate (ADR-0044): logins bound to the connection, which RFC 9113
+    // section 8.2.3 keeps off HTTP/2.
+    private static bool IsLoginBoundToTheConnection(string value)
+    {
+        var scheme = value.TrimStart().Split(' ', 2)[0];
+
+        return scheme.Equals("NTLM", StringComparison.OrdinalIgnoreCase) || scheme.Equals("Negotiate", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task WriteAsync(Http2RequestStream stream, HttpAnswer answer, CancellationToken cancellationToken)

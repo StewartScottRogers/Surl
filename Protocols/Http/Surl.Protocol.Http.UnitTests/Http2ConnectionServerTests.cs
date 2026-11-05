@@ -691,6 +691,92 @@ public sealed class Http2ConnectionServerTests
         Assert.IsNull(GoAway(connection.WrittenBytes));
     }
 
+    [TestMethod]
+    [DataRow("NTLM TlRMTVNTUAABAAAAB4IIogAAAAAAAAAAAAAAAAAAAAAKAPRlAAAADw==")]
+    [DataRow("Negotiate YIIBhwYGKwYBBQUCoIIBezCCAXegDTALBgkqhkiG9xIBAgI=")]
+    [DataRow("ntlm TlRM")]
+    public async Task ServeAsync_StreamWhoseAuthorizationIsNtlmOrNegotiate_IsResetHttp11RequiredUnjudgedAndTheConnectionCarriesOn(string authorization)
+    {
+        var policy = new UnitTestAuthenticationPolicy(_ => Proceed());
+        var client = new Http2TestClient();
+        var request = Concat(Start(), client.Get(1, "/file.txt", true, ("authorization", authorization)), client.Get(3));
+
+        var (connection, log) = await ServeAsync(request, policy: policy);
+
+        var responses = Responses(connection.WrittenBytes);
+        Assert.AreEqual(Http2ErrorCode.Http11Required, responses[1].ResetCode);
+        Assert.IsEmpty(responses[1].HeaderBlocks);
+        Assert.AreEqual("200", responses[3].Status);
+        Assert.HasCount(1, policy.JudgedRequests, "The authentication session never sees the NTLM or Negotiate stream, so no handshake starts.");
+        CollectionAssert.Contains(log.Notes.ToArray(), "Stream 1 was reset with Http11Required: its authorization names NTLM or Negotiate, which HTTP/2 does not carry.");
+        Assert.IsNull(GoAway(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "NTLM" })]
+    [DataRow(new[] { "Negotiate" })]
+    [DataRow(new[] { "Negotiate", "NTLM" })]
+    public async Task ServeAsync_RequestWhoseOnlyChallengesAreNtlmOrNegotiate_IsResetHttp11RequiredAndTheConnectionCarriesOn(string[] challenges)
+    {
+        var policy = new UnitTestAuthenticationPolicy(request => request.Target == "/file.txt" ? Challenge(challenges) : Proceed());
+        var client = new Http2TestClient();
+        var request = Concat(Start(), client.Get(1), client.Get(3, "/other.txt"));
+
+        var (connection, log) = await ServeAsync(request, policy: policy, fileSystem: FileSystemWithOther());
+
+        var responses = Responses(connection.WrittenBytes);
+        Assert.AreEqual(Http2ErrorCode.Http11Required, responses[1].ResetCode);
+        Assert.IsEmpty(responses[1].HeaderBlocks);
+        Assert.AreEqual("200", responses[3].Status);
+        CollectionAssert.Contains(log.Notes.ToArray(), "Stream 1 was reset with Http11Required: the only logins it could be challenged for are NTLM or Negotiate, which HTTP/2 does not carry.");
+    }
+
+    [TestMethod]
+    [DataRow(new[] { "Basic realm=\"surl\", charset=\"UTF-8\"" })]
+    [DataRow(new[] { "Digest realm=\"surl\", nonce=\"abc\", algorithm=MD5, qop=\"auth\"" })]
+    [DataRow(new[] { "NTLM", "Basic realm=\"surl\"" })]
+    [DataRow(new string[0])]
+    public async Task ServeAsync_ChallengeOfferingALoginBoundToTheRequest_IsAnswered401AsOverHttp11(string[] challenges)
+    {
+        var policy = new UnitTestAuthenticationPolicy(_ => Challenge(challenges));
+        var client = new Http2TestClient();
+
+        var (connection, _) = await ServeAsync(Concat(Start(), client.Get(1)), policy: policy);
+
+        var response = Responses(connection.WrittenBytes)[1];
+        Assert.AreEqual("401", response.Status);
+        Assert.IsNull(response.ResetCode);
+        CollectionAssert.AreEqual(challenges, response.Fields.Where(field => field.Name == "www-authenticate").Select(field => field.Value).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("Basic YTpi")]
+    [DataRow("Digest username=\"a\", realm=\"surl\", nonce=\"abc\", uri=\"/file.txt\", response=\"0123\"")]
+    public async Task ServeAsync_BasicOrDigestLogin_IsAnswered200AsOverHttp11(string authorization)
+    {
+        var policy = new UnitTestAuthenticationPolicy(request =>
+            request.Fields.Any(field => field.Key == "authorization" && field.Value == authorization) ? Proceed(["NTLM"]) : Challenge(["NTLM"]));
+        var client = new Http2TestClient();
+        var request = Concat(Start(), client.Get(1, "/file.txt", true, ("authorization", authorization)));
+
+        var (connection, _) = await ServeAsync(request, policy: policy);
+
+        var response = Responses(connection.WrittenBytes)[1];
+        Assert.AreEqual("200", response.Status);
+        Assert.AreEqual(FileBody, response.BodyText);
+        Assert.IsNull(response.ResetCode, "A 200 is answered whatever challenges it carries.");
+    }
+
+    private static HttpAuthenticationVerdict Proceed(string[]? challenges = null) => new(HttpAuthenticationOutcome.Proceed, challenges ?? [], "a");
+
+    private static HttpAuthenticationVerdict Challenge(string[] challenges) => new(HttpAuthenticationOutcome.Challenge, challenges, null);
+
+    private static UnitTestInMemoryContentFileSystem FileSystemWithOther() =>
+        new UnitTestInMemoryContentFileSystem()
+            .AddDirectory(Root)
+            .AddFile(Path.Join(Root, "file.txt"), Ascii(FileBody), FileTime)
+            .AddFile(Path.Join(Root, "other.txt"), Ascii(FileBody), FileTime);
+
     private static (List<string> Fields, string Body) Http11Answer(byte[] response)
     {
         var text = Latin1(response);
