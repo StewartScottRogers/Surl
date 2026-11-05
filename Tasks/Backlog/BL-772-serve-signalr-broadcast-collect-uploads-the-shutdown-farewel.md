@@ -1,5 +1,5 @@
 ---
-id: BL-768
+id: BL-772
 title: Serve SignalR Broadcast, Collect uploads, the shutdown farewell and the unsent-bytes cap
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-768 — Serve SignalR Broadcast, Collect uploads, the shutdown farewell and the unsent-bytes cap
+# BL-772 — Serve SignalR Broadcast, Collect uploads, the shutdown farewell and the unsent-bytes cap
 
 ## Goal
 

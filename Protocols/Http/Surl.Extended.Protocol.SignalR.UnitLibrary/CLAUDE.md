@@ -43,6 +43,6 @@ What is here so far (BL-448 and BL-449, ADR-0119 decisions 0 to 5 and most of 7)
   `HubHandshake` judges the handshake request and writes its response.
 
 Still to come: `Broadcast`, `Collect` uploads, the shutdown farewell and the unsent-bytes cap
-(BL-768; until then `Broadcast` and `Collect` are `Unknown hub method.`, a client StreamItem or
+(BL-772; until then `Broadcast` and `Collect` are `Unknown hub method.`, a client StreamItem or
 Completion is a protocol error, and a cancelled exchange writes nothing), the command line (BL-450),
 Server-Sent Events and Long Polling (BL-757), stateful reconnect (BL-755) and MessagePack (BL-756).

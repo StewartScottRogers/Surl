@@ -67,7 +67,7 @@ keep-alive pings, and closes a connection whose client went quiet past the timeo
   branch, 0 failing members, worst CRAP 10. Two BL-448 methods (`HubHandshake.JudgeRoot`,
   `HubMessageJsonReader.Build`) measured complexity 14 and 12; each was split to stay at or under 10.
 - Scope (sensible default): the acceptance criteria are what "done" means, so ADR-0119's `Broadcast`, `Collect`
-  uploads, the shutdown farewell (`{"type":7}` then `1001`) and the 1048576-byte unsent cap went to BL-768 rather
+  uploads, the shutdown farewell (`{"type":7}` then `1001`) and the 1048576-byte unsent cap went to BL-772 rather
   than widening this task. Until then `Broadcast` and `Collect` answer `Unknown hub method.`, a client StreamItem
   or Completion is a protocol error, and a cancelled exchange ends with nothing written.
 - Choice: a client WebSocket Close is answered with Close `1000`, not an echo of its code: ADR-0119 decisions 3
@@ -76,7 +76,7 @@ keep-alive pings, and closes a connection whose client went quiet past the timeo
   and `Sec-WebSocket-Version: 13`), as ADR-0119 decision 2 names that refusal; the BL-448 test was updated.
 - `touches` widened to `Documentation/Conformance/Extended/SignalR.md` (no task in Doing names it) because
   ADR-0119's Consequences have each task replace its ID in that matrix with the named test; every `BL-449` row now
-  names its tests, and the rows left for BL-768 point at it. ADR-0119 itself was not edited: a task in Doing holds
+  names its tests, and the rows left for BL-772 point at it. ADR-0119 itself was not edited: a task in Doing holds
   `Documentation/Planning/Decisions`.
 
 ## Log
