@@ -43,3 +43,4 @@ section 5 says, unless BL-535's ADR's explicit option allows plain text.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
