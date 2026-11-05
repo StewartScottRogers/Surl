@@ -74,14 +74,14 @@ members.
     flag is kept when any subscription asked to keep it). A shared subscription's delivery is never
     merged and carries its own identifier.
   - No Local is per bus connection. With no sessions kept yet (BL-499), a connection is a client
-    identifier; BL-715 records the bus additions in ADR-0100 and notes the session question.
+    identifier; BL-721 records the bus additions in ADR-0100 and notes the session question.
   - `0x91` Packet Identifier in use answers every filter of a SUBSCRIBE or UNSUBSCRIBE whose
     identifier is a QoS 2 inbound awaiting PUBREL (3.9.3, 3.11.3).
   - Topic access refusal stays SUBACK `0x87` Not authorized (section 3.9.3), as BL-497 answered it.
   - With UNSUBSCRIBE answered, every packet a client sends after CONNACK is answered, so the
     `DISCONNECT 0x83` "not answered yet" branch and its test are gone; what remains is `0x82`.
 - No ADR written here: `Documentation/Planning/Decisions` is BL-423's while it is in Doing. Filed
-  BL-715 (docs, depends on BL-498) to add the bus additions to ADR-0100.
+  BL-721 (docs, depends on BL-498) to add the bus additions to ADR-0100.
 - Tests: `Mqtt5BrokerTests.Subscribe.cs` - granted QoS and `0x8F` (seven invalid filters), `0x87`,
   `0x91`, wildcards (`#` and `+` not matching `$SYS/x`, `a/#` matching `a`), No Local and its `0x82`
   on `$share/`, Retain As Published both ways, Retain Handling 0/1/2, a Subscription Identifier on

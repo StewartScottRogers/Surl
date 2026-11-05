@@ -1,5 +1,5 @@
 ---
-id: BL-715
+id: BL-721
 title: Record the message bus's No Local publish and after-delivery hook in ADR-0100
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-715 — Record the message bus's No Local publish and after-delivery hook in ADR-0100
+# BL-721 — Record the message bus's No Local publish and after-delivery hook in ADR-0100
 
 ## Goal
 
