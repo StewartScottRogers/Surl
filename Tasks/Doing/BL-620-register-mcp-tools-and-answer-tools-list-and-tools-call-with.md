@@ -47,3 +47,4 @@ and `isError` for a tool failure and a JSON-RPC error for a protocol failure.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
