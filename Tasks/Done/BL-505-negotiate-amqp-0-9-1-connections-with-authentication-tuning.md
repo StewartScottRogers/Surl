@@ -69,7 +69,7 @@ peer.
   - The client's `connection.close` is answered `close-ok` whatever its arguments say.
 - Touches widened: `Documentation/Conformance/Extended/Amqp0.md`, to replace this task's ID with the named tests
   in the requirement matrix as ADR-0112's Consequences ask. No task in `Doing` names it.
-- Follow-up filed: BL-743, `connection.close` 320 `CONNECTION_FORCED` on the idle timeout, `--max-time` and
+- Follow-up filed: BL-749, `connection.close` 320 `CONNECTION_FORCED` on the idle timeout, `--max-time` and
   shutdown (rows `Amqp0:Surl-Idle-1`, `Amqp0:Surl-Limits-2`): `ExchangeContext` does not say which limit fired,
   so ADR-0112's fixed text needs a decision first. The 540 half of `Amqp0:Surl-Exception-3` and the channel half
   of `Amqp0:Connection-close-1` sit with BL-506, which serves channels.

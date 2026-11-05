@@ -48,7 +48,7 @@ specification leaves the broker a choice.
 | Amqp0:Connection-tune-ok-2 | MUST | The client's `heartbeat` is the interval, 0 meaning none. | `Amqp0BrokerTests.ServeAsync_HeartbeatNegotiated_IsSentAfterTheIntervalWithNothingWritten` |
 | Amqp0:Wire-4.2.7-2 | MUST | With interval `h` the broker sends a heartbeat whenever it has written nothing for `h` seconds, on the injected `TimeProvider`. | `Amqp0BrokerTests.ServeAsync_HeartbeatNegotiated_IsSentAfterTheIntervalWithNothingWritten`, `ServeAsync_HeartbeatWriteStalledWhenTheConnectionEnds_IsCancelledAndAwaited` |
 | Amqp0:Wire-4.2.7-3 | MUST | A peer silent for two intervals is closed without `connection.close`. | `Amqp0BrokerTests.ServeAsync_PeerSilentForTwoIntervals_IsClosedWithoutConnectionClose`, `ServeAsync_PeerSilentForTwoIntervalsBeforeOpen_ClosesWithNoFurtherBytes` |
-| Amqp0:Surl-Idle-1 | MUST | No frame for `--idle-timeout` is `connection.close` 320, heartbeats or not. | BL-743 |
+| Amqp0:Surl-Idle-1 | MUST | No frame for `--idle-timeout` is `connection.close` 320, heartbeats or not. | BL-749 |
 | Amqp0:Connection-open-1 | MUST | `connection.open` of `/` is answered `open-ok`; any other virtual host, the empty one included, is `connection.close` 530 without echoing the name. | `Amqp0BrokerTests.ServeAsync_PlainLogin_OpensTheConnectionAndAnswersCloseWithCloseOk`, `ServeAsync_UnknownVirtualHost_IsClosedWith530NamingOpen` |
 | Amqp0:Connection-close-1 | MUST | A client's `connection.close` is answered `close-ok`; its channels end, outstanding deliveries going back to their queues. | `Amqp0BrokerTests.ServeAsync_PlainLogin_OpensTheConnectionAndAnswersCloseWithCloseOk` (`close-ok`); ending the channels and their deliveries BL-506 |
 
@@ -137,7 +137,7 @@ specification leaves the broker a choice.
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | Amqp0:Surl-Limits-1 | MUST | No `open-ok` by `--head-timeout` after accept closes the connection with no bytes. | `Amqp0BrokerTests.ServeAsync_NoOpenWithinTheHeadTimeout_ClosesWithNoFurtherBytes` |
-| Amqp0:Surl-Limits-2 | MUST | `--max-time` and the connection limits close with `connection.close` 320 once `open-ok` was sent, otherwise with no bytes. | BL-743 (no bytes before `open-ok`: `Amqp0BrokerTests.ServeAsync_ExchangeCancelledDuringNegotiation_Throws`) |
+| Amqp0:Surl-Limits-2 | MUST | `--max-time` and the connection limits close with `connection.close` 320 once `open-ok` was sent, otherwise with no bytes. | BL-749 (no bytes before `open-ok`: `Amqp0BrokerTests.ServeAsync_ExchangeCancelledDuringNegotiation_Throws`) |
 | Amqp0:Surl-Limits-3 | MUST | Partly read content of one connection past `--max-filesize` is connection exception 506. | BL-506 |
 | Amqp0:Surl-Limits-4 | MUST | Past 1000 declared exchanges, 100000 broker bindings, the bus's queue or subscription bounds, the broker answers connection exception 506. | BL-506 |
 | Amqp0:Surl-Tls-1 | MUST | `amqps` carries the same protocol inside implicit TLS (TLS 1.2 or 1.3) from the first byte. | n/a: the TLS wrapper is the composition's `ImplicitTlsSchemeServer` (ADR-0010), added by BL-507, not the broker's |

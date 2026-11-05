@@ -46,7 +46,7 @@ The connection class (BL-505, ADR-0112 decisions 2, 3, 4 and 7):
   and `Amqp0ConnectionClose` are the connection methods' codecs; `Amqp0ConnectionMethodId` their IDs.
 - No channel opens yet: a frame on any channel but 0 is `connection.close` 504 until BL-506.
 
-The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-743;
+The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749;
 channels, exchanges, queues and the basic class BL-506; the command line and composition BL-507.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the

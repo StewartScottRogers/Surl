@@ -1,5 +1,5 @@
 ---
-id: BL-743
+id: BL-749
 title: Close AMQP 0-9-1 connections with 320 CONNECTION_FORCED on the idle timeout, max-time and shutdown
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-743 — Close AMQP 0-9-1 connections with 320 CONNECTION_FORCED on the idle timeout, max-time and shutdown
+# BL-749 — Close AMQP 0-9-1 connections with 320 CONNECTION_FORCED on the idle timeout, max-time and shutdown
 
 ## Goal
 
