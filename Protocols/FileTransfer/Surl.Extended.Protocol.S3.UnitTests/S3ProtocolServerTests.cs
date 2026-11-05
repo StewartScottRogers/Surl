@@ -332,7 +332,7 @@ public sealed class S3ProtocolServerTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_HeadPastMaxRequestHead_IsRefused431AndClosedAsAdr0006Says()
+    public async Task ServeAsync_HeadPastMaxRequestHead_IsRefused400RequestHeaderSectionTooLargeAndClosed()
     {
         var harness = new S3ServerHarness();
         harness.CreateFolder("photos");
@@ -341,7 +341,22 @@ public sealed class S3ProtocolServerTests
         var response = await harness.SendRawAsync($"GET /photos/a.txt HTTP/1.1\r\nHost: s3.test\r\nX-Padding: {new string('p', 100)}\r\n\r\n", limits);
 
         Assert.AreEqual(
-            $"HTTP/1.1 431 Request Header Fields Too Large\r\nDate: {S3ServerHarness.NowHttpDate}\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            S3ServerHarness.ExpectedError(
+                response,
+                "400 Bad Request",
+                "<Code>RequestHeaderSectionTooLarge</Code><Message>Your request header section exceeds the maximum allowed size.</Message><Resource></Resource><RequestId>{RequestId}</RequestId>"),
+            response);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HeadOfAnUnsupportedVersion_KeepsTheStandard505()
+    {
+        var harness = new S3ServerHarness();
+
+        var response = await harness.SendRawAsync("GET /photos/a.txt HTTP/2.0\r\nHost: s3.test\r\n\r\n");
+
+        Assert.AreEqual(
+            $"HTTP/1.1 505 HTTP Version Not Supported\r\nDate: {S3ServerHarness.NowHttpDate}\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
             response);
     }
 

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Surl.Content;
+using Surl.HttpMessage;
 using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
@@ -17,7 +18,7 @@ namespace Surl.Extended.Protocol.S3;
 /// operation's own checks: for a read, the key's length (<c>400 KeyTooLongError</c>) and the
 /// key (<c>404 NoSuchKey</c>).
 /// </remarks>
-internal sealed class S3RequestAnswerer : IHttpRequestHandler
+internal sealed class S3RequestAnswerer : IHttpRequestHandler, IHttpHeadNotReadRefuser
 {
     private readonly ContentStore store;
     private readonly ExchangeContext context;
@@ -80,6 +81,19 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler
             _ => await ReadObjectAsync(reply, request, target, caller, cancellationToken),
         };
     }
+
+    /// <summary>
+    /// Words a head past <c>--max-request-head</c> <c>400 RequestHeaderSectionTooLarge</c> with
+    /// the <c>Error</c> body (ADR-0108, decision 7); every other head that could not be read
+    /// keeps <paramref name="standardRefusal"/>.
+    /// </summary>
+    /// <param name="outcome">Why no head was read.</param>
+    /// <param name="standardRefusal">The refusal <see cref="Http1ConnectionServer"/> writes otherwise.</param>
+    /// <returns>The refusal to write.</returns>
+    public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal) =>
+        outcome == HttpRequestHeadReadOutcome.HeadTooLarge
+            ? S3Reply.UnreadRequestError(S3Error.RequestHeaderSectionTooLarge, RandomNumberGenerator.GetHexString(16), context.TimeProvider.GetUtcNow())
+            : standardRefusal;
 
     // A signature binding a body that only PutObject reads: any other operation reads and
     // discards it first, so its hash is checked before anything is answered.

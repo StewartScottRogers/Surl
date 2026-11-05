@@ -22,9 +22,9 @@ namespace Surl.Extended.Protocol.S3;
 /// <c>--allow-anonymous</c>), checked through the policy's HTTP session (ADR-0108, decision 4).
 /// </para>
 /// <para>
-/// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s, so a
-/// head past <c>--max-request-head</c> is refused <c>431</c> and closed as ADR-0006 section 5
-/// gives it. As an <see cref="IConnectionRefusalWriter"/>, the server answers a connection past a
+/// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s; a
+/// head past <c>--max-request-head</c> is refused <c>400 RequestHeaderSectionTooLarge</c> with the
+/// <c>Error</c> body, as the request answerer words it, and closed (ADR-0108, decision 7). As an <see cref="IConnectionRefusalWriter"/>, the server answers a connection past a
 /// connection limit <c>503 SlowDown</c> with the <c>Error</c> body, then closes it (ADR-0108,
 /// decision 7).
 /// </para>

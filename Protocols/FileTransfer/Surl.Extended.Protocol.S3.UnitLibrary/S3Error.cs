@@ -112,6 +112,12 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     public static S3Error SlowDown { get; } = new("SlowDown", HttpStatus.ServiceUnavailable, "Please reduce your request rate.");
 
     /// <summary>
+    /// <c>400 RequestHeaderSectionTooLarge</c>: a request head past <c>--max-request-head</c>
+    /// (ADR-0108, decision 7).
+    /// </summary>
+    public static S3Error RequestHeaderSectionTooLarge { get; } = new("RequestHeaderSectionTooLarge", HttpStatus.BadRequest, "Your request header section exceeds the maximum allowed size.");
+
+    /// <summary>
     /// <c>400 InvalidArgument</c>: an <c>Authorization</c> field of another scheme than
     /// Signature Version 4 (ADR-0108, decision 4.3).
     /// </summary>

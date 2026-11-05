@@ -60,9 +60,10 @@ index does not key; PutObject's metadata is kept only for files the index keys.
   `BucketName` and `ArgumentValue` echo the client's bytes as sent (still percent-encoded),
   printable ASCII only, cut to 1024 characters, then XML-escaped.
 
-A head past `--max-request-head` is refused by `Surl.HttpServing` (`431`, ADR-0006 section 5),
-not with ADR-0108's `400 RequestHeaderSectionTooLarge`, until `Surl.HttpServing` lets a handler
-word its refusals.
+A head past `--max-request-head` is refused `400 RequestHeaderSectionTooLarge` with the `Error`
+body (empty `Resource`), then closed (ADR-0108, decision 7; BL-720): `S3RequestAnswerer` is also
+`Surl.HttpServing`'s `IHttpHeadNotReadRefuser`. Every other head that could not be read keeps
+`Surl.HttpServing`'s standard refusal (`505`, `408`, `400`, each with an empty body).
 
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing`
 (and through it `Surl.HttpMessage`), nothing else (`ProtocolIsolationTests`). It never
