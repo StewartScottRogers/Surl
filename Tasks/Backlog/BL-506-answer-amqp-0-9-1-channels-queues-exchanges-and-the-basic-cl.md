@@ -4,7 +4,7 @@ title: Answer AMQP 0-9-1 channels, queues, exchanges and the basic class
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-505, BL-664]
+depends-on: [BL-505, BL-664, BL-706, BL-723]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -52,7 +52,10 @@ as BL-503's ADR decides. Each misuse is a channel or connection exception with i
 
 ## Notes
 
+- 2026-11-05 (BL-503): ADR-0112 decides this task's behaviour. It needs BL-723's bus queue operations (passive inspect, purge, single get, conditional delete, exclusive consumers, immediate publish, consumer stop, two priority levels) and BL-706's native form (`amqp0`). Transactions and publisher confirms are BL-724's, the headers exchange and durable exchanges across restarts BL-725's; the matrix `Documentation/Conformance/Extended/Amqp0.md` lists the rows this task proves.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; queues and routing are Surl.MessageBus's.
+- 2026-11-05: Waits on BL-706 and BL-723 too (BL-503, ADR-0112).

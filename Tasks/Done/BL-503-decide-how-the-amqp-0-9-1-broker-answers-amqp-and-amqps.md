@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Amqp0.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-503 — Decide how the AMQP 0-9-1 broker answers amqp and amqps
 
@@ -50,16 +50,39 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 8, each citing its specification section, and
       is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/Amqp0.md` exists in the matrix format, each "covered by" naming
-      BL-504, BL-505 or BL-506, or "n/a: <reason>".
+- [x] `Documentation/Conformance/Extended/Amqp0.md` exists in the matrix format, each "covered by" naming
+      BL-504, BL-505 or BL-506 (or BL-723, BL-724 or BL-725, the follow-ups this task filed; see Notes), or
+      "n/a: <reason>".
 
 ## Notes
+
+- ADR-0112 (`Documentation/Planning/Decisions/ADR-0112-how-the-amqp-0-9-1-broker-answers-amqp-and-amqps.md`)
+  decides 1 to 8; listed in the folder's `README.md`. Spec read: the 2008-11-13 PDF and `amqp0-9-1.xml`
+  (downloaded to a temporary folder and parsed in PowerShell for the method IDs, the reply-code constants with
+  their soft/hard classes, and the named rules the ADR cites as "rule `<method>`/`<name>`").
+- Choices with sensible defaults, taken: one virtual host `/` (a second would split the shared bus); a refused
+  login is `connection.close` 403 rather than a bare socket close; under `--allow-anonymous` `PLAIN`/`AMQPLAIN`
+  are offered on every transport (0-9-1 clients only speak `PLAIN`; differs from ADR-0107 on purpose);
+  `channel-max` 256, `frame-max` 131072, heartbeat half `--idle-timeout`; server-named queues `amq.gen-...`;
+  `basic.nack`, `confirm.select` and the server's `basic.cancel` served from RabbitMQ's published extensions,
+  every other extension `540`.
+- Found while deciding: the 0-9-1 XML classes `506 resource-error` as a hard (connection) error, so ADR-0100
+  decision 3.6's "channel close 506" is amended (ADR-0100 now carries an "Amended" line); basic class rule 06
+  requires two priority levels, amending ADR-0100 decision 3.3's FIFO. The XML has no 312 constant; 312
+  `NO_ROUTE` (0-8's, already in ADR-0100) is kept for `basic.return`.
+- Follow-ups filed (lanes may file extra tasks): BL-723 (the bus's queue operations BL-506 needs; BL-506 now
+  depends on BL-706 and BL-723), BL-724 (transactions and publisher confirms), BL-725 (headers exchange, durable
+  exchanges across restarts). The second criterion was widened to name them because ADR-0112 decides more than
+  BL-504 to BL-506 can hold in one run each; every matrix row still traces to a task.
+- Edited outside `touches` only on the task board (filing and BL-506's `depends-on`), and ADR-0100's header,
+  which sits in `Documentation/Planning/Decisions` (inside `touches`).
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0112 decides how the AMQP 0-9-1 broker answers amqp and amqps; Amqp0.md traces each requirement to BL-504 to BL-506 and follow-ups BL-723 to BL-725
