@@ -52,3 +52,4 @@ as workflow artifacts - so that publishing them later is one approved push, whic
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
