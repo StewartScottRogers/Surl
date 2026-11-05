@@ -30,8 +30,9 @@ internal sealed class SmtpMailTransaction(string reversePath)
     public int AcceptedRecipientCount { get; private set; }
 
     /// <summary>
-    /// The owners to deliver to: an account named twice once, the anonymous owner once per
-    /// recipient (ADR-0053, decision 4).
+    /// The owners to deliver to: an account named twice once, an alias whose owners were all
+    /// named already not again, the anonymous owner once per recipient (ADR-0053, decision 4;
+    /// ADR-0102, decision 1.3).
     /// </summary>
     public IReadOnlyList<MailRecipient> Deliverable => deliverable;
 
@@ -52,9 +53,25 @@ internal sealed class SmtpMailTransaction(string reversePath)
         {
             discarded.Add(path);
         }
-        else if (recipient.OwnerName.Length == 0 || deliverableOwners.Add(recipient.OwnerName))
+        else if (recipient.OwnerName.Length == 0)
         {
             deliverable.Add(recipient);
         }
+        else if (!recipient.OwnerNames.All(deliverableOwners.Contains))
+        {
+            KeepNamedRecipient(recipient);
+        }
+    }
+
+    // One copy per owner per message (ADR-0102, decision 1.3): a recipient whose owners were all
+    // reached already is dropped, and one kept replaces every kept recipient whose owners it
+    // names all of. A recipient is never split, so only two aliases that each name an owner the
+    // other does not, and share one, give the shared owner two copies.
+    private void KeepNamedRecipient(MailRecipient recipient)
+    {
+        var owners = recipient.OwnerNames;
+        deliverable.RemoveAll(kept => kept.OwnerNames.All(owners.Contains));
+        deliverable.Add(recipient);
+        deliverableOwners.UnionWith(owners);
     }
 }

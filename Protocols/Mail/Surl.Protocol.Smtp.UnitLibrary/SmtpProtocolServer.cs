@@ -44,7 +44,8 @@ namespace Surl.Protocol.Smtp;
 /// <para>
 /// <b>Delivery.</b> A recipient path maps to its owner as the store's
 /// <see cref="MailboxStore.LookUpRecipient"/> says; a path with no domain is read as naming
-/// surl's own. A recipient that names no account is answered as one that does, and its copy is
+/// surl's own. With a mail domain configured, a recipient outside every one is answered
+/// <c>550 5.7.1 Relaying denied</c> (ADR-0102, decision 1.1). A recipient that names no account is answered as one that does, and its copy is
 /// discarded. The stored message is <c>Return-Path</c> and <c>Received</c> trace fields, then the
 /// body as unstuffed, streamed as it is read into a <see cref="PendingMessage"/> - the store's
 /// pending file - and <c>--max-filesize</c> bounds the whole. A message the store refuses is

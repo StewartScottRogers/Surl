@@ -39,6 +39,7 @@ internal static class SmtpReplies
     public const string InvalidBody = "501 5.5.4 Invalid BODY parameter";
     public const string UnsupportedParameter = "555 5.5.4 Unsupported parameter";
     public const string TooManyRecipients = "452 4.5.3 Too many recipients";
+    public const string RelayingDenied = "550 5.7.1 Relaying denied";
     public const string MessageTooLarge = "552 5.3.4 Message exceeds the size limit";
     public const string StoreFull = "452 4.3.1 Insufficient system storage";
     public const string StorageFailed = "451 4.3.0 Local error in processing";

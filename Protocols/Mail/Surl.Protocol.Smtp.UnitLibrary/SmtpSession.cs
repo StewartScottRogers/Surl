@@ -225,14 +225,24 @@ internal sealed class SmtpSession
             return SmtpReplies.SendMailFirst;
         }
 
-        if (!SmtpPathArgument.TryRead(argument, "TO:", out var to) || LookUp(to!.Path, out var recipient) == MailRecipientLookup.InvalidAddress)
+        MailRecipient? recipient = null;
+        var lookup = SmtpPathArgument.TryRead(argument, "TO:", out var to) ? LookUp(to!.Path, out recipient) : MailRecipientLookup.InvalidAddress;
+        if (lookup == MailRecipientLookup.InvalidAddress)
         {
             return SmtpReplies.InvalidRecipient;
         }
 
-        if (to.Parameters.Count > 0)
+        if (to!.Parameters.Count > 0)
         {
             return SmtpReplies.UnsupportedParameter;
+        }
+
+        // Surl never sends mail onward: a recipient outside every --mail-domain is refused,
+        // whatever the session's login (ADR-0102, decision 1.1).
+        if (lookup == MailRecipientLookup.RelayingDenied)
+        {
+            context.Log.Note($"RCPT {SmtpLogText.Render(Encoding.UTF8.GetBytes(to.Path))} refused: outside every --mail-domain");
+            return SmtpReplies.RelayingDenied;
         }
 
         if (transaction.AcceptedRecipientCount >= SmtpMailTransaction.MaxRecipients)
