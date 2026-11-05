@@ -6,7 +6,7 @@
   in BL-571. Built by BL-547 (decisions 3, 5 and 6 in `Surl.Networking` and the contract),
   BL-548 (decisions 1, 2 and 6's start-up line, for every connection-oriented scheme but FTP),
   BL-549 (decision 7's `http-unix` cases), BL-561 (SOCKS5 on a Unix socket) and BL-562 (decision
-  7's `socks5unix` cases). Follow-up filed: BL-603 (FTP and FTPS, decision 2).
+  7's `socks5unix` cases). Follow-up filed: BL-605 (FTP and FTPS, decision 2).
 - **Amends:** [ADR-0004](ADR-0004-the-listener-seam-and-the-exchange-context.md): its note that a
   Unix domain socket listen URL "fits later" is acted on here, without changing
   `IListenerFactory`'s shape (decision 6). [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md)
@@ -100,7 +100,7 @@ BL-547's tests confirm them on CI's Linux and macOS legs.
   or `quic` (`--dns-transport tcp,tls,https` is allowed). Neither option exists today.
 - FTP and FTPS: the control connection may come over the socket, but its data connections are TCP
   connections to the address a `PASV` or `EPSV` reply names. BL-548 refuses `ftp` and `ftps` with
-  `FailedInit` (2) until BL-603 measures what curl does and serves them, with the passive data
+  `FailedInit` (2) until BL-605 measures what curl does and serves them, with the passive data
   listener on loopback.
 
 ### 3. Abstract socket names
@@ -185,7 +185,7 @@ decision 5's `BindFailed` (45) like any other.
   file's mode and deletion), **BL-548** (`--unix-socket`, `--abstract-unix-socket`, decision 2's
   refusals and the start-up line, served by `surl`), **BL-549** (the `http-unix` cases),
   **BL-561** (SOCKS5 on a Unix socket, under BL-557's ADR) and **BL-562** (the `socks5unix`
-  cases). BL-603 serves FTP and FTPS.
+  cases). BL-605 serves FTP and FTPS.
 - No `SurlExitCode` member is added: every failure is `FailedInit` (2) or `BindFailed` (45).
   `ListenerBindFailure` gains two members, which BL-547 maps to `BindFailed`.
 - `Record-CurlExchange.ps1` can measure curl over a Unix socket (`-UnixSocket`,

@@ -1,5 +1,5 @@
 ---
-id: BL-603
+id: BL-605
 title: Serve FTP and FTPS control connections on a Unix domain socket
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-603 — Serve FTP and FTPS control connections on a Unix domain socket
+# BL-605 — Serve FTP and FTPS control connections on a Unix domain socket
 
 ## Goal
 

@@ -81,7 +81,7 @@ Decide and record:
 - Where the ADR departs from the planning assumptions: abstract names on Windows and macOS fail
   `BindFailed` (45), not `UnsupportedProtocol` (1) - the scheme is supported, the address is not
   bindable; a datagram scheme is refused `FailedInit` (2), an option conflict; FTP and FTPS are
-  refused until BL-603 (filed) measures and serves their data connections; `--unix-socket` takes
+  refused until BL-605 (filed) measures and serves their data connections; `--unix-socket` takes
   exactly one listen URL.
 - Defaults taken: socket file mode `0600` on Linux and macOS (secure by default; no loosening
   option yet); start-up line `over unix://<path>` in curl's own words; an unnamed peer is
