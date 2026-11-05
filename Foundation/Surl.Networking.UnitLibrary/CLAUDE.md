@@ -134,3 +134,17 @@ protocol server.
 - All of that runs over `IDatagramSocket`, so the fast tests drive it with a fake; only
   `UdpDatagramSocket` and the public `StartAsync` touch a socket, excluded from coverage and
   exercised by the `[TestCategory("Integration")]` tests.
+- Proxy origin connections (ADR-0088, decision 2; BL-551). `SocketOriginConnector` (public,
+  constructed with the `AllowedOriginRule` and an optional `TimeProvider`) implements
+  `IOriginConnector`: it resolves the host with `Dns` (`HostNotFound` on failure or no
+  address), keeps only the addresses the rule admits - resolving before checking, so DNS
+  rebinding cannot pass the rule (`NotAllowed` when none is left, without connecting) - and
+  connects to them in the resolver's order until one accepts; when all fail the last failure
+  is reported, `Refused` for a refused connect and `Unreachable` for any other socket error.
+  The timeout covers resolution and every connect (`TimedOut`); the caller's cancellation is
+  `OperationCanceledException`. Each origin connection is a `StreamConnection` with no TLS of
+  its own. `SocketOriginSockets` (behind `IOriginSockets`) makes the calls, reusing
+  `SocketDataConnectionSockets.ConnectAsync`; the rules are fast-tested over
+  `FakeOriginSockets`, and `SocketOriginConnectorLoopbackTests` are fast tests on real
+  loopback sockets (a listener reached by `127.0.0.1` and `localhost`, a closed port, a
+  `.invalid` name, a refused origin), which BL-551 asked for outside `Integration`.

@@ -79,6 +79,18 @@ What it holds:
   accept times out) and active connections or failures, with every request recorded as a
   `PassiveListenerRequest` or `ActiveConnectionRequest`.
 
+- The proxies' origin seam (ADR-0088, decision 2; BL-551): `IOriginConnector` opens a
+  connection to an origin named by host (DNS name or IP literal without brackets) and port,
+  each failure an `OriginConnectionException` with its `OriginConnectionFailure`
+  (`HostNotFound`, `NotAllowed`, `Refused`, `Unreachable`, `TimedOut`). `AllowedOriginRule`
+  is the value the composition root builds and hands to `Surl.Networking`'s implementation:
+  `LoopbackOnly` (the default) or `EveryAddress`, widened by `WithRange(network, prefix)` and
+  narrowed by `WithProxyEndPoint` (the proxy's own listening end point, an unspecified address
+  refusing its port on every address), IPv4-mapped compared as IPv4. Its test double is
+  `InMemoryOriginConnector`: per-origin scripts (host compared without regard to case) of
+  connections or failures, an unscripted origin `Refused`, every request recorded as an
+  `OriginConnectionRequest`; it applies no rule, so a refused origin is scripted `NotAllowed`.
+
 - The datagram flow's test double (ADR-0082, decision 5): `InMemoryDatagramFlow` hands a
   server its first datagram and then the client's datagrams one per receive (given up front,
   or delivered with `DeliverFromClient` while the server runs), records every datagram sent
