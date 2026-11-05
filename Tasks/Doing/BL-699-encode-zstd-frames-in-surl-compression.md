@@ -43,3 +43,4 @@ zstd batches under `--kafka-fetch-compression zstd`.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
