@@ -52,3 +52,4 @@ start failure as an `isError` result that names its `SurlExitCode` and `surl`'s 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
