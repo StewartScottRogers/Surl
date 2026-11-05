@@ -18,7 +18,10 @@ namespace Surl.Extended.Protocol.Kafka;
 /// <b>Each partition</b>, in the order named: a topic name outside Kafka's rule is
 /// <c>INVALID_TOPIC_EXCEPTION</c> (17); a partition other than 0 <c>UNKNOWN_TOPIC_OR_PARTITION</c>
 /// (3); a topic the caller may not publish to <c>TOPIC_AUTHORIZATION_FAILED</c> (29); a batch
-/// failing <see cref="KafkaRecordBatchReader"/>'s checks its error; a record whose key and value
+/// failing <see cref="KafkaRecordBatchReader"/>'s checks its error - a compressed batch is
+/// decompressed first, within <see cref="KafkaRecordsCompression.DecompressionBound"/> of
+/// <see cref="ExchangeLimits.MaxMessageBytes"/> (<c>MESSAGE_TOO_LARGE</c> (10) past it) - and
+/// each of its records becomes one bus message; a record whose key and value
 /// pass the bus's <c>MaxMessageBytes</c> (<c>--max-filesize</c>) <c>MESSAGE_TOO_LARGE</c> (10);
 /// a bus store bound <c>POLICY_VIOLATION</c> (44). A topic with no log is created. Otherwise each
 /// record is published on the bus as one message - the value as payload (null as empty), the
@@ -77,7 +80,9 @@ public sealed class KafkaProduceAnswerer(MessageBus.MessageBus bus) : IKafkaApiA
             return PartitionAnswer.Failed(partition.Index, topicError);
         }
 
-        var batches = KafkaRecordBatchReader.Read(partition.Records ?? ReadOnlyMemory<byte>.Empty);
+        var batches = KafkaRecordBatchReader.Read(
+            partition.Records ?? ReadOnlyMemory<byte>.Empty,
+            KafkaRecordsCompression.DecompressionBound(context.Limits.MaxMessageBytes));
         var error = AppendError(topic, batches);
         return error == KafkaErrorCode.None
             ? Publish(topic, partition.Index, batches.Records, account, context)

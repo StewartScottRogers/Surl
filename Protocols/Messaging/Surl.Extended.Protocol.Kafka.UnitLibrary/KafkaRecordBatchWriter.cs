@@ -8,7 +8,8 @@ namespace Surl.Extended.Protocol.Kafka;
 /// Builds the record batches a Fetch serves from a topic log's records (ADR-0105 decisions 3 and
 /// 4; the Kafka "Record Batch" and "Record" layouts): each batch with <c>baseOffset</c> its first
 /// record's offset, <c>partitionLeaderEpoch</c> 0, <c>magic</c> 2, attributes LogAppendTime (bit 3)
-/// and no codec, <c>baseTimestamp</c> and <c>maxTimestamp</c> its first and last record's publish
+/// and the codec it is written with (<see cref="KafkaRecordsCompression.Compress"/> over its
+/// records), <c>baseTimestamp</c> and <c>maxTimestamp</c> its first and last record's publish
 /// time, <c>producerId</c> -1, <c>producerEpoch</c> -1, <c>baseSequence</c> -1, its records with
 /// offset and timestamp deltas from the first, and its CRC-32C. A batch holds at most
 /// <see cref="MaxRecordsPerBatch"/> records.
@@ -21,7 +22,7 @@ public static class KafkaRecordBatchWriter
     /// <summary>The bytes of a batch before its first record: 61.</summary>
     public const int BatchHeaderBytes = 61;
 
-    // The batch's attributes: timestamp type LogAppendTime (bit 3), no codec, not transactional.
+    // The batch's attributes before the codec: timestamp type LogAppendTime (bit 3), not transactional.
     private const short LogAppendTimeAttributes = 0x08;
 
     // The bytes from the start of the batch to the end of the crc field: baseOffset,
@@ -29,49 +30,92 @@ public static class KafkaRecordBatchWriter
     private const int BytesBeforeAttributes = 21;
 
     /// <summary>
-    /// Writes <paramref name="records"/>, in order, as batches, adding records while the batches
-    /// stay within <paramref name="maxBytes"/>; when <paramref name="takeFirstWhole"/> is true the
-    /// first record is written whatever it costs, so the first batch of a response always makes
+    /// Writes <paramref name="records"/>, in order, as batches compressed with
+    /// <paramref name="codec"/>, adding records while the batches stay within
+    /// <paramref name="maxBytes"/>; when <paramref name="takeFirstWhole"/> is true the first
+    /// record is written whatever it costs, so the first batch of a response always makes
     /// progress (KIP-74).
     /// </summary>
+    /// <remarks>
+    /// Records are taken while their uncompressed bytes fit; a compressed batch that still
+    /// passes what is left of <paramref name="maxBytes"/> gives up its last records until it
+    /// fits, and the batches end there.
+    /// </remarks>
     /// <param name="records">The records, in offset order, contiguous.</param>
     /// <param name="maxBytes">The most bytes the batches may take together.</param>
     /// <param name="takeFirstWhole">Whether the first record is written even past <paramref name="maxBytes"/>.</param>
+    /// <param name="codec">The codec of every batch; its value goes in the attributes.</param>
     /// <returns>The batches' bytes, back to back; empty when no record fits.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="records"/> is <see langword="null"/>.</exception>
-    public static byte[] Write(IReadOnlyList<BusLogRecord> records, long maxBytes, bool takeFirstWhole)
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="codec"/> is not 0 to 4.</exception>
+    public static byte[] Write(IReadOnlyList<BusLogRecord> records, long maxBytes, bool takeFirstWhole, KafkaCompressionCodec codec = KafkaCompressionCodec.None)
     {
         ArgumentNullException.ThrowIfNull(records);
+        RequireCodec(codec);
 
         var output = new List<byte>();
+        var next = 0;
+        while (next < records.Count)
+        {
+            var batch = TakeBatch(records, next, maxBytes - output.Count, takeFirstWhole && output.Count == 0, codec);
+            output.AddRange(batch.Bytes);
+            next += batch.Taken;
+            if (batch.Taken < MaxRecordsPerBatch)
+            {
+                break;
+            }
+        }
+
+        return [.. output];
+    }
+
+    /// <summary>Returns <paramref name="codec"/> when it is 0 to 4, and throws otherwise.</summary>
+    /// <param name="codec">The codec.</param>
+    /// <returns><paramref name="codec"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="codec"/> is not 0 to 4.</exception>
+    public static KafkaCompressionCodec RequireCodec(KafkaCompressionCodec codec) =>
+        codec is >= KafkaCompressionCodec.None and <= KafkaCompressionCodec.Zstd
+            ? codec
+            : throw new ArgumentOutOfRangeException(nameof(codec), codec, "The codec is not 0 to 4.");
+
+    // One batch from records[start], within budget: records taken while their uncompressed bytes
+    // fit (the first whatever it costs when takeFirstWhole), then the last given up while the
+    // encoded batch passes the budget.
+    private static (byte[] Bytes, int Taken) TakeBatch(IReadOnlyList<BusLogRecord> records, int start, long budget, bool takeFirstWhole, KafkaCompressionCodec codec)
+    {
+        var first = records[start];
         var batch = new List<(BusLogRecord Record, byte[] Encoded)>();
         var total = 0L;
-        foreach (var record in records)
+        for (var index = start; index < records.Count && batch.Count < MaxRecordsPerBatch; index++)
         {
-            var startsBatch = batch.Count is 0 or MaxRecordsPerBatch;
-            var encoded = EncodeRecord(record, startsBatch ? record : batch[0].Record);
-            var cost = encoded.Length + (startsBatch ? BatchHeaderBytes : 0);
-            if (total + cost > maxBytes && !(total == 0 && takeFirstWhole))
+            var encoded = EncodeRecord(records[index], first);
+            var cost = encoded.Length + (batch.Count == 0 ? BatchHeaderBytes : 0);
+            if (total + cost > budget && !(batch.Count == 0 && takeFirstWhole))
             {
                 break;
             }
 
-            if (batch.Count == MaxRecordsPerBatch)
-            {
-                output.AddRange(EncodeBatch(batch));
-                batch.Clear();
-            }
-
-            batch.Add((record, encoded));
+            batch.Add((records[index], encoded));
             total += cost;
         }
 
-        if (batch.Count > 0)
+        return ShrinkToBudget(batch, budget, takeFirstWhole, codec);
+    }
+
+    private static (byte[] Bytes, int Taken) ShrinkToBudget(List<(BusLogRecord Record, byte[] Encoded)> batch, long budget, bool takeFirstWhole, KafkaCompressionCodec codec)
+    {
+        while (batch.Count > 0)
         {
-            output.AddRange(EncodeBatch(batch));
+            var bytes = EncodeBatch(batch, codec);
+            if (bytes.Length <= budget || (batch.Count == 1 && takeFirstWhole))
+            {
+                return (bytes, batch.Count);
+            }
+
+            batch.RemoveAt(batch.Count - 1);
         }
 
-        return [.. output];
+        return ([], 0);
     }
 
     /// <summary>One record of a batch whose first record is <paramref name="first"/>.</summary>
@@ -110,7 +154,7 @@ public static class KafkaRecordBatchWriter
         body.WriteRaw(present.Span);
     }
 
-    private static byte[] EncodeBatch(List<(BusLogRecord Record, byte[] Encoded)> batch)
+    private static byte[] EncodeBatch(List<(BusLogRecord Record, byte[] Encoded)> batch, KafkaCompressionCodec codec)
     {
         var first = batch[0].Record;
         var last = batch[^1].Record;
@@ -120,7 +164,7 @@ public static class KafkaRecordBatchWriter
         writer.WriteInt32(0);
         writer.WriteInt8(2);
         writer.WriteUInt32(0);
-        writer.WriteInt16(LogAppendTimeAttributes);
+        writer.WriteInt16((short)(LogAppendTimeAttributes | (short)codec));
         writer.WriteInt32((int)(last.Offset - first.Offset));
         writer.WriteInt64(first.Message.PublishedAt.ToUnixTimeMilliseconds());
         writer.WriteInt64(last.Message.PublishedAt.ToUnixTimeMilliseconds());
@@ -128,10 +172,7 @@ public static class KafkaRecordBatchWriter
         writer.WriteInt16(-1);
         writer.WriteInt32(-1);
         writer.WriteInt32(batch.Count);
-        foreach (var item in batch)
-        {
-            writer.WriteRaw(item.Encoded);
-        }
+        writer.WriteRaw(KafkaRecordsCompression.Compress(codec, [.. batch.SelectMany(item => item.Encoded)]));
 
         var bytes = writer.ToArray();
         BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(8), bytes.Length - 12);

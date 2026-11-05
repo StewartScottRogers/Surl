@@ -48,7 +48,7 @@ Produce (BL-519, ADR-0105 decisions 3, 4, 6 and 7, and its BL-519 amendment):
 - `KafkaRecordBatchReader` reads and checks one partition's record batches - header length,
   `magic` 2, the CRC-32C (`KafkaCrc32C`, `BitOperations.Crc32C`), the attributes, the record count,
   offset deltas and lengths - into `KafkaProducedRecord`s, or the first failing batch's error code.
-  Compressed batches (codec 1 to 4) are 43 until BL-521.
+  Compressed batches are decoded first (below).
 - `KafkaProduceAnswerer` answers v3 to v8: `acks` 0, 1 and -1 (0 writes no response), the topic
   checks (17, 3, 29), the batch checks, the record size limit (10) and the bus bounds (44), then
   publishes each record on `Surl.MessageBus` (value as payload, key, UTF-8 headers, QoS 1), so live
@@ -70,8 +70,20 @@ Fetch and ListOffsets (BL-520, ADR-0105 decisions 1, 3, 4 and 6):
 - `KafkaListOffsetsAnswerer` answers v1 to v5: -2 (or below) the log start, -1 the log end, any
   other timestamp the first record published at or after it; a failed partition -1 throughout.
 
-Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor: compressed
-batches (BL-521) are still to come; the command line and composition are BL-522.
+Compressed batches (BL-521, ADR-0105 decision 4):
+
+- `KafkaCompressionCodec` is the attributes' codec, 0 to 4. `KafkaRecordsCompression` decodes a
+  produced batch's records - gzip with `GZipStream`, Snappy (raw or xerial), LZ4 and zstd with
+  `Surl.Compression` - within `DecompressionBound` (`--max-message` times 4, 256 MiB when it is 0):
+  past it `MESSAGE_TOO_LARGE` (10), an undecodable payload or a codec 5 to 7 `CORRUPT_MESSAGE` (2).
+  Each decoded record becomes one bus message, as an uncompressed one does.
+- `KafkaFetchAnswerer` takes the served codec as a constructor parameter (default none);
+  `KafkaRecordBatchWriter` compresses each batch's records with it and names it in the attributes.
+  Records are taken while their uncompressed bytes fit the limit; a compressed batch that still
+  passes it gives up its last records until it fits.
+
+Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor; the command
+line (`--kafka-fetch-compression`) and composition are BL-522.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0105 decision 0 names (`Surl.MessageBus`, `Surl.Compression`) - never

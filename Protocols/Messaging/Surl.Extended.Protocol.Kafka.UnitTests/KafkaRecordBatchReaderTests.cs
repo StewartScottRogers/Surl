@@ -78,12 +78,64 @@ public sealed class KafkaRecordBatchReaderTests
     [TestMethod]
     [DataRow((short)0x10, KafkaErrorCode.UnsupportedForMessageFormat, DisplayName = "transactional")]
     [DataRow((short)0x20, KafkaErrorCode.UnsupportedForMessageFormat, DisplayName = "control")]
-    [DataRow((short)0x01, KafkaErrorCode.UnsupportedForMessageFormat, DisplayName = "gzip, served by BL-521")]
-    [DataRow((short)0x04, KafkaErrorCode.UnsupportedForMessageFormat, DisplayName = "zstd, served by BL-521")]
+    [DataRow((short)0x01, KafkaErrorCode.CorruptMessage, DisplayName = "gzip over records that are not gzip")]
+    [DataRow((short)0x04, KafkaErrorCode.CorruptMessage, DisplayName = "zstd over records that are not zstd")]
     [DataRow((short)0x05, KafkaErrorCode.CorruptMessage, DisplayName = "codec 5")]
+    [DataRow((short)0x06, KafkaErrorCode.CorruptMessage, DisplayName = "codec 6")]
+    [DataRow((short)0x07, KafkaErrorCode.CorruptMessage, DisplayName = "codec 7")]
     [DataRow((short)0x08, KafkaErrorCode.None, DisplayName = "LogAppendTime timestamp type")]
     public void Read_Attributes_AreAnsweredByTheirBits(short attributes, KafkaErrorCode expected) =>
         Assert.AreEqual(expected, KafkaRecordBatchReader.Read(Batch([Record(0, "a")], attributes: attributes)).Error);
+
+    [TestMethod]
+    [DynamicData(nameof(KafkaCompressedPayloads.Codecs), typeof(KafkaCompressedPayloads))]
+    public void Read_ACompressedBatchOfThreeRecords_ReturnsEachRecordInOrder(short codec, string format)
+    {
+        byte[] records = [.. Record(0, "k"u8.ToArray(), "v0"u8.ToArray(), ("h"u8.ToArray(), "1"u8.ToArray())), .. Record(1, null, null), .. Record(2, "v2")];
+        var batch = CompressedBatch(codec, 3, KafkaCompressedPayloads.Compress(format, records));
+
+        var result = KafkaRecordBatchReader.Read(batch);
+
+        Assert.AreEqual(KafkaErrorCode.None, result.Error);
+        Assert.HasCount(3, result.Records);
+        CollectionAssert.AreEqual("k"u8.ToArray(), result.Records[0].Key!.Value.ToArray());
+        CollectionAssert.AreEqual("v0"u8.ToArray(), result.Records[0].Value!.Value.ToArray());
+        CollectionAssert.AreEqual(new[] { new BusMessageHeader("h", "1") }, result.Records[0].Headers.ToArray());
+        Assert.IsNull(result.Records[1].Value);
+        Assert.AreEqual("v2", Encoding.UTF8.GetString(result.Records[2].Value!.Value.Span));
+    }
+
+    [TestMethod]
+    public void Read_ACompressedBatchAfterAnUncompressedOne_ReturnsBothBatchesRecords()
+    {
+        byte[] batches = [.. Valid, .. CompressedBatch(1, 1, KafkaCompressedPayloads.Gzip(Record(0, "b")))];
+
+        var result = KafkaRecordBatchReader.Read(batches);
+
+        CollectionAssert.AreEqual(new[] { "a", "b" }, result.Records.Select(record => Encoding.UTF8.GetString(record.Value!.Value.Span)).ToArray());
+    }
+
+    [TestMethod]
+    public void Read_ACompressedBatchWhoseRecordsDisagreeWithItsCount_IsCorruptMessage() =>
+        Assert.AreEqual(KafkaErrorCode.CorruptMessage, KafkaRecordBatchReader.Read(CompressedBatch(4, 2, KafkaCompressedPayloads.ZstdFrame(Record(0, "a")))).Error);
+
+    [TestMethod]
+    public void Read_ATruncatedLz4Payload_IsCorruptMessage()
+    {
+        var frame = KafkaCompressedPayloads.Lz4Frame(Record(0, "a"));
+
+        Assert.AreEqual(KafkaErrorCode.CorruptMessage, KafkaRecordBatchReader.Read(CompressedBatch(3, 1, frame[..^5])).Error);
+    }
+
+    [TestMethod]
+    public void Read_ACompressedBatchPastTheDecompressionBound_IsMessageTooLarge()
+    {
+        var record = Record(0, new string('x', 100));
+        var batch = CompressedBatch(2, 1, KafkaCompressedPayloads.XerialSnappy(record));
+
+        Assert.AreEqual(KafkaErrorCode.MessageTooLarge, KafkaRecordBatchReader.Read(batch, record.Length - 1).Error);
+        Assert.AreEqual(KafkaErrorCode.None, KafkaRecordBatchReader.Read(batch, record.Length).Error);
+    }
 
     [TestMethod]
     public void Read_EmptyRecords_IsCorruptMessage() =>

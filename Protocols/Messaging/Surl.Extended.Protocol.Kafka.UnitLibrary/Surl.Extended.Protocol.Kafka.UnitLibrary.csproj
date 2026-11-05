@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Surl.Compression.UnitLibrary\Surl.Compression.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.MessageBus.UnitLibrary\Surl.MessageBus.UnitLibrary.csproj" />
   </ItemGroup>

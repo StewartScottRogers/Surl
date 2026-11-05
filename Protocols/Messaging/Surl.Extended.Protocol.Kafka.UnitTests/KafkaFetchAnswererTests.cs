@@ -86,6 +86,48 @@ public sealed class KafkaFetchAnswererTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(KafkaCompressedPayloads.Codecs), typeof(KafkaCompressedPayloads))]
+    public async Task ServeAsync_AProducedCompressedBatch_IsFetchedBackAsTheSameRecords(short codec, string format)
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        byte[] records = [.. Record(0, "k"u8.ToArray(), "a"u8.ToArray(), ("h"u8.ToArray(), "1"u8.ToArray())), .. Record(1, "b"), .. Record(2, "c")];
+        var produced = CompressedBatch(codec, 3, KafkaCompressedPayloads.Compress(format, records));
+
+        var (written, _) = await ServeAsync(bus, Produce("orders", produced), Fetch(4, "orders", 0, 0));
+
+        var batch = ServedBatch(0, Now, Now, Record(0, "k"u8.ToArray(), "a"u8.ToArray(), ("h"u8.ToArray(), "1"u8.ToArray())), Record(1, "b"), Record(2, "c"));
+        var produceAnswer = Response([0, 0, 0, 1, .. String("orders"), 0, 0, 0, 1, .. Int32(0), 0, 0, .. Int64(0), .. Int64(Now), 0, 0, 0, 0]);
+        CollectionAssert.AreEqual((byte[])[.. produceAnswer, .. Response(Answer(4, "orders", 0, 0, 3, 0, batch))], written);
+    }
+
+    [TestMethod]
+    [DynamicData(nameof(KafkaCompressedPayloads.ServedCodecs), typeof(KafkaCompressedPayloads))]
+    public async Task ServeAsync_EachServedCodec_ServesABatchNamingItWhoseCrcHoldsAndWhoseRecordsDecode(KafkaCompressionCodec codec)
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        bus.Publish(new BusMessage("orders", "a"u8.ToArray()) { Key = "k"u8.ToArray(), Headers = [new("h", "1")] });
+        bus.Publish(new BusMessage("orders", "b"u8.ToArray()));
+        bus.Publish(new BusMessage("orders", Encoding.UTF8.GetBytes(new string('c', 500))));
+
+        var (written, _) = await ServeAsync(bus, NoHeadTimeout, codec, Fetch(4, "orders", 0, 0));
+
+        var before = Response(Answer(4, "orders", 0, 0, 3, 0, []));
+        CollectionAssert.AreEqual(before[4..^4], written[4..(before.Length - 4)]);
+        var batch = written[before.Length..];
+        Assert.AreEqual(batch.Length - 12, Int32At(batch, 8));
+        Assert.AreEqual(2, batch[16]);
+        Assert.AreEqual((uint)Int32At(batch, 17), HandCrc32C(batch[21..]));
+        Assert.AreEqual(0x08 | (int)codec, (batch[21] << 8) | batch[22]);
+        CollectionAssert.AreEqual(Int32(3), batch[57..61]);
+        byte[] records = [.. Record(0, "k"u8.ToArray(), "a"u8.ToArray(), ("h"u8.ToArray(), "1"u8.ToArray())), .. Record(1, "b"), .. Record(2, new string('c', 500))];
+        CollectionAssert.AreEqual(records, KafkaCompressedPayloads.Decompress(codec, batch[61..]));
+    }
+
+    [TestMethod]
+    public void Constructor_ACodecOutsideZeroToFour_Throws() =>
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new KafkaFetchAnswerer(new Surl.MessageBus.MessageBus(clock), (KafkaCompressionCodec)5));
+
+    [TestMethod]
     public async Task ServeAsync_PartitionMaxBytesSmallerThanTheFirstBatch_StillReturnsItsFirstRecord()
     {
         var bus = PublishedOn("orders", "a", "b");
@@ -354,11 +396,17 @@ public sealed class KafkaFetchAnswererTests
     private Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(Surl.MessageBus.MessageBus bus, params byte[][] requests) =>
         ServeAsync(bus, NoHeadTimeout, requests);
 
-    private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(Surl.MessageBus.MessageBus bus, ExchangeLimits limits, params byte[][] requests)
+    private Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(Surl.MessageBus.MessageBus bus, ExchangeLimits limits, params byte[][] requests) =>
+        ServeAsync(bus, limits, KafkaCompressionCodec.None, requests);
+
+    private static int Int32At(byte[] bytes, int position) =>
+        (bytes[position] << 24) | (bytes[position + 1] << 16) | (bytes[position + 2] << 8) | bytes[position + 3];
+
+    private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(Surl.MessageBus.MessageBus bus, ExchangeLimits limits, KafkaCompressionCodec servedCompression, params byte[][] requests)
     {
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(requests.Select(request => (ReadOnlyMemory<byte>)request));
-        var broker = new KafkaBroker(new UnitTestKafkaAuthenticationPolicy(true, "PLAIN"), [new KafkaProduceAnswerer(bus), new KafkaFetchAnswerer(bus)]);
+        var broker = new KafkaBroker(new UnitTestKafkaAuthenticationPolicy(true, "PLAIN"), [new KafkaProduceAnswerer(bus), new KafkaFetchAnswerer(bus, servedCompression)]);
 
         await broker.ServeAsync(connection, Context(TestContext.CancellationToken, log, timeProvider: clock) with { Limits = limits });
 

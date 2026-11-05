@@ -96,6 +96,65 @@ public sealed class KafkaProduceAnswererTests
     }
 
     [TestMethod]
+    [DynamicData(nameof(KafkaCompressedPayloads.Codecs), typeof(KafkaCompressedPayloads))]
+    public async Task ServeAsync_ACompressedBatchOfThree_IsAppendedAsOneBusMessageARecordAtOffsetsOneToThree(short codec, string format)
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        byte[] records = [.. Record(0, "k"u8.ToArray(), "b"u8.ToArray(), ("h"u8.ToArray(), "1"u8.ToArray())), .. Record(1, "c"), .. Record(2, "d")];
+        var compressed = CompressedBatch(codec, 3, KafkaCompressedPayloads.Compress(format, records));
+
+        var (written, _) = await ServeAsync(bus, Produce(3, 1, "orders", 0, Batch([Record(0, "a")])), Produce(3, 1, "orders", 0, compressed));
+
+        byte[] expected = [.. Response(Answer("orders", 0, 0, Int64(0), AppendTime)), .. Response(Answer("orders", 0, 0, Int64(1), AppendTime))];
+        CollectionAssert.AreEqual(expected, written);
+        var log = bus.ReadLog("orders", 0, long.MaxValue).Records;
+        CollectionAssert.AreEqual(new long[] { 0, 1, 2, 3 }, log.Select(record => record.Offset).ToArray());
+        CollectionAssert.AreEqual(new[] { "a", "b", "c", "d" }, log.Select(record => Encoding.UTF8.GetString(record.Message.Payload.Span)).ToArray());
+        CollectionAssert.AreEqual("k"u8.ToArray(), log[1].Message.Key!.Value.ToArray());
+        CollectionAssert.AreEqual(new[] { new BusMessageHeader("h", "1") }, log[1].Message.Headers.ToArray());
+    }
+
+    [TestMethod]
+    [DataRow((short)5, DisplayName = "codec 5")]
+    [DataRow((short)6, DisplayName = "codec 6")]
+    [DataRow((short)7, DisplayName = "codec 7")]
+    public async Task ServeAsync_ACodecFiveToSeven_IsCorruptMessage(short codec)
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, CompressedBatch(codec, 1, Record(0, "a"))));
+
+        CollectionAssert.AreEqual(Response(Answer("orders", 0, 2, NoOffset, NoOffset)), written);
+        Assert.IsEmpty(bus.GetLogTopics());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AGzipBatchThatIsNotGzip_IsCorruptMessageAndAppendsNothing()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+
+        var (written, _) = await ServeAsync(bus, Produce(3, -1, "orders", 0, CompressedBatch(1, 1, Record(0, "a"))));
+
+        CollectionAssert.AreEqual(Response(Answer("orders", 0, 2, NoOffset, NoOffset)), written);
+        Assert.IsEmpty(bus.GetLogTopics());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_ACompressedBatchPastFourTimesMaxMessage_IsMessageTooLarge()
+    {
+        var bus = new Surl.MessageBus.MessageBus(clock);
+        var limits = new ExchangeLimits(TimeSpan.FromSeconds(30), maxRequestHeadBytes: 102400, maxLineBytes: 8192, maxMessageBytes: 200, maxUploadBytes: 104857600);
+        var record = Record(0, new string('x', 801));
+        var request = Produce(3, -1, "orders", 0, CompressedBatch(1, 1, KafkaCompressedPayloads.Gzip(record)));
+        Assert.IsLessThan(200, request.Length - 4);
+
+        var (written, _) = await ServeAsync(bus, limits, request);
+
+        CollectionAssert.AreEqual(Response(Answer("orders", 0, 10, NoOffset, NoOffset)), written);
+        Assert.IsEmpty(bus.GetLogTopics());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_NullRecords_IsCorruptMessage()
     {
         var (written, _) = await ServeAsync(new Surl.MessageBus.MessageBus(clock), Produce(3, -1, "orders", 0, null));
@@ -280,13 +339,17 @@ public sealed class KafkaProduceAnswererTests
     private static byte[] Answer(string topic, int partition, short error, byte[] baseOffset, byte[] logAppendTime) =>
         [0, 0, 0, 1, .. String(topic), 0, 0, 0, 1, .. Int32(partition), .. Int16(error), .. baseOffset, .. logAppendTime, 0, 0, 0, 0];
 
-    private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(Surl.MessageBus.MessageBus bus, params byte[][] requests)
+    private Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(Surl.MessageBus.MessageBus bus, params byte[][] requests) =>
+        ServeAsync(bus, null, requests);
+
+    private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(Surl.MessageBus.MessageBus bus, ExchangeLimits? limits, params byte[][] requests)
     {
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(requests.Select(request => (ReadOnlyMemory<byte>)request));
         var broker = new KafkaBroker(new UnitTestKafkaAuthenticationPolicy(true, "PLAIN"), [new KafkaProduceAnswerer(bus)]);
+        var context = Context(TestContext.CancellationToken, log);
 
-        await broker.ServeAsync(connection, Context(TestContext.CancellationToken, log));
+        await broker.ServeAsync(connection, limits is null ? context : context with { Limits = limits });
 
         return (connection.WrittenBytes, log);
     }

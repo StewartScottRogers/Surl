@@ -16,7 +16,7 @@ namespace Surl.Extended.Protocol.Kafka;
 /// <c>log_start_offset</c> (v5) -1 and empty <c>records</c>. Otherwise <c>high_watermark</c> and
 /// <c>last_stable_offset</c> are the log end offset, <c>log_start_offset</c> (v5) the log's start,
 /// <c>aborted_transactions</c> empty, <c>preferred_read_replica</c> (v11) -1, and <c>records</c>
-/// the batches <see cref="KafkaRecordBatchWriter"/> builds from <c>fetch_offset</c> on, within the
+/// the batches <see cref="KafkaRecordBatchWriter"/> builds, compressed with the served codec, from <c>fetch_offset</c> on, within the
 /// partition's <c>partition_max_bytes</c> and what is left of the request's <c>max_bytes</c>
 /// (itself capped at <see cref="ExchangeLimits.MaxMessageBytes"/>); the first record of the
 /// response is returned whatever it costs, so a consumer always makes progress (KIP-74).
@@ -38,7 +38,11 @@ namespace Surl.Extended.Protocol.Kafka;
 /// </para>
 /// </remarks>
 /// <param name="bus">The shared message bus whose topic logs are read.</param>
-public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus) : IKafkaApiAnswerer
+/// <param name="servedCompression">
+/// The codec of every batch served (<c>--kafka-fetch-compression</c>, ADR-0105 decision 4);
+/// <see cref="KafkaCompressionCodec.None"/> unless given.
+/// </param>
+public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus, KafkaCompressionCodec servedCompression = KafkaCompressionCodec.None) : IKafkaApiAnswerer
 {
     /// <summary>The longest a Fetch waits for <c>min_bytes</c>: 60000 ms, half of the default
     /// <c>--idle-timeout</c> (ADR-0105 decision 6).</summary>
@@ -47,6 +51,7 @@ public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus) : IKafkaApiAns
     private const long NoOffset = -1;
 
     private readonly MessageBus.MessageBus bus = bus ?? throw new ArgumentNullException(nameof(bus));
+    private readonly KafkaCompressionCodec servedCompression = KafkaRecordBatchWriter.RequireCodec(servedCompression);
 
     /// <inheritdoc/>
     public KafkaApiKey ApiKey => KafkaApiKey.Fetch;
@@ -65,7 +70,7 @@ public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus) : IKafkaApiAns
         }
 
         var maxBytes = context.Limits.MaxMessageBytes > 0 ? Math.Min(fetch.MaxBytes, context.Limits.MaxMessageBytes) : fetch.MaxBytes;
-        var read = new FetchRead(bus, fetch, maxBytes, request.Connection.AccountName, context.Scheme);
+        var read = new FetchRead(bus, fetch, maxBytes, servedCompression, request.Connection.AccountName, context.Scheme);
         var answered = read.Answer();
         var wait = Math.Min(fetch.MaxWaitMilliseconds, MaxWaitMilliseconds);
         if (wait > 0 && IsShort(answered, fetch.MinBytes))
@@ -189,7 +194,7 @@ public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus) : IKafkaApiAns
     private sealed record TopicData(string Name, IReadOnlyList<PartitionData> Partitions);
 
     // The answer to one Fetch, read from the bus as often as the wait needs.
-    private sealed class FetchRead(MessageBus.MessageBus bus, FetchRequest fetch, long maxBytes, string? account, string scheme)
+    private sealed class FetchRead(MessageBus.MessageBus bus, FetchRequest fetch, long maxBytes, KafkaCompressionCodec codec, string? account, string scheme)
     {
         // The canonical topics the request may read, which the wait listens on.
         public IEnumerable<string> Topics => fetch.Topics
@@ -235,7 +240,7 @@ public sealed class KafkaFetchAnswerer(MessageBus.MessageBus bus) : IKafkaApiAns
                 return PartitionAnswer.Failed(partition.Index, KafkaErrorCode.OffsetOutOfRange);
             }
 
-            var records = KafkaRecordBatchWriter.Write(log.Records, limit, takeFirstWhole);
+            var records = KafkaRecordBatchWriter.Write(log.Records, limit, takeFirstWhole, codec);
             return new(partition.Index, KafkaErrorCode.None, log.HighWatermark, log.LogStartOffset, records);
         }
     }

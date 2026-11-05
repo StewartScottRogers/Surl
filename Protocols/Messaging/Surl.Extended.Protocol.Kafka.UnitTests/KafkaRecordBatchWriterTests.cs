@@ -44,6 +44,49 @@ public sealed class KafkaRecordBatchWriterTests
         CollectionAssert.AreEqual(one, bytes);
     }
 
+    [TestMethod]
+    public void Write_ACodecOutsideZeroToFour_Throws() =>
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => KafkaRecordBatchWriter.Write(Records(1), long.MaxValue, takeFirstWhole: false, (KafkaCompressionCodec)8));
+
+    [TestMethod]
+    public void Write_AGzipBatchThatGrowsPastTheLimit_GivesUpItsLastRecord()
+    {
+        var records = IncompressibleRecords(2);
+        var uncompressedTwo = KafkaRecordBatchWriter.Write(records, long.MaxValue, takeFirstWhole: false);
+        var gzipOne = KafkaRecordBatchWriter.Write(records[..1], long.MaxValue, takeFirstWhole: false, KafkaCompressionCodec.Gzip);
+        Assert.IsLessThanOrEqualTo(uncompressedTwo.Length, gzipOne.Length);
+
+        var bytes = KafkaRecordBatchWriter.Write(records, uncompressedTwo.Length, takeFirstWhole: false, KafkaCompressionCodec.Gzip);
+
+        CollectionAssert.AreEqual(gzipOne, bytes);
+    }
+
+    [TestMethod]
+    public void Write_AGzipBatchOfOneThatGrowsPastTheLimit_WritesNothingUnlessTakenWhole()
+    {
+        var records = IncompressibleRecords(1);
+        var uncompressed = KafkaRecordBatchWriter.Write(records, long.MaxValue, takeFirstWhole: false);
+        var gzip = KafkaRecordBatchWriter.Write(records, long.MaxValue, takeFirstWhole: false, KafkaCompressionCodec.Gzip);
+
+        Assert.IsEmpty(KafkaRecordBatchWriter.Write(records, uncompressed.Length, takeFirstWhole: false, KafkaCompressionCodec.Gzip));
+        CollectionAssert.AreEqual(gzip, KafkaRecordBatchWriter.Write(records, uncompressed.Length, takeFirstWhole: true, KafkaCompressionCodec.Gzip));
+    }
+
+    [TestMethod]
+    public void Write_ALimitOfZeroTakingTheFirstWhole_WritesTheFirstRecordAloneCompressed()
+    {
+        var records = IncompressibleRecords(2);
+        var gzipOne = KafkaRecordBatchWriter.Write(records[..1], long.MaxValue, takeFirstWhole: false, KafkaCompressionCodec.Gzip);
+
+        var bytes = KafkaRecordBatchWriter.Write(records, 0, takeFirstWhole: true, KafkaCompressionCodec.Gzip);
+
+        CollectionAssert.AreEqual(gzipOne, bytes);
+    }
+
+    // count records of 30 distinct bytes each, which deflate cannot shrink.
+    private static List<BusLogRecord> IncompressibleRecords(int count) =>
+        [.. Enumerable.Range(0, count).Select(offset => new BusLogRecord(offset, new BusMessage("orders", Enumerable.Range(offset * 30, 30).Select(value => (byte)(value * 37)).ToArray()) { PublishedAt = PublishedAt }))];
+
     // count records of one-byte payloads at offsets 0 on, each record 8 bytes once encoded.
     private static List<BusLogRecord> Records(int count) =>
         [.. Enumerable.Range(0, count).Select(offset => new BusLogRecord(offset, new BusMessage("orders", "x"u8.ToArray()) { PublishedAt = PublishedAt }))];

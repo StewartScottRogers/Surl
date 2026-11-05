@@ -42,17 +42,30 @@ internal static class KafkaRecordBatches
     public static byte[] Batch(byte[][] records, byte magic = 2, short attributes = 0, int? lastOffsetDelta = null, int? count = null, uint crcFlip = 0)
     {
         var recordCount = count ?? records.Length;
+        return BatchOfPayload([.. records.SelectMany(record => record)], recordCount, attributes, lastOffsetDelta ?? recordCount - 1, magic, crcFlip);
+    }
+
+    /// <summary>
+    /// A batch whose bytes after the header are <paramref name="payload"/> - the records,
+    /// compressed under the codec in <paramref name="attributes"/> - with the given record count
+    /// and lastOffsetDelta the count less one, otherwise as <see cref="Batch"/>.
+    /// </summary>
+    public static byte[] CompressedBatch(short attributes, int recordCount, byte[] payload) =>
+        BatchOfPayload(payload, recordCount, attributes, recordCount - 1, 2, 0);
+
+    private static byte[] BatchOfPayload(byte[] payload, int recordCount, short attributes, int lastOffsetDelta, byte magic, uint crcFlip)
+    {
         byte[] checkedPart =
         [
             .. Int16(attributes),
-            .. Int32(lastOffsetDelta ?? recordCount - 1),
+            .. Int32(lastOffsetDelta),
             .. Int64(0),
             .. Int64(0),
             .. Int64(-1),
             .. Int16(-1),
             .. Int32(-1),
             .. Int32(recordCount),
-            .. records.SelectMany(record => record),
+            .. payload,
         ];
         byte[] afterLength = [.. Int32(0), magic, .. UInt32(HandCrc32C(checkedPart) ^ crcFlip), .. checkedPart];
         return [.. Int64(0), .. Int32(afterLength.Length), .. afterLength];
