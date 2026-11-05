@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-400]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Redis.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-487 — Decide how the Redis server answers redis and rediss
 
@@ -53,15 +53,30 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each citing its specification or command
       page, and is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/Redis.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/Redis.md` exists in the matrix format, each "covered by" naming
       BL-488, BL-489, BL-490 or BL-491, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0106 decides all seven points. Defaults taken, each with its reason in the ADR:
+  - in memory only, never persisted: a test server starts clean, and the Redis persistence page
+    documents running without persistence;
+  - 16 databases, Redis's default;
+  - `HELLO` reports `redis` `7.4.0` `standalone`, so client libraries detect 7.x features; this is
+    not surl's own version;
+  - Redis 7's limits for unauthenticated clients adopted;
+  - fixed key, byte and subscription bounds, with no new option;
+  - `PSUBSCRIBE`/`PUNSUBSCRIBE` added to the planned pub/sub set, because BL-678 routes them.
+- Matrix rows for the default port and `rediss` TLS are n/a and name BL-492, which wires the server
+  into the command line; the shared-bus row names BL-678.
+- Docs-only change (no `.cs` or project file touched), so the `verify` skill was not needed; build and
+  fast tests run anyway before the commit.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0106 decides how the Redis server answers redis and rediss; Redis.md traces each requirement to BL-488 to BL-491
