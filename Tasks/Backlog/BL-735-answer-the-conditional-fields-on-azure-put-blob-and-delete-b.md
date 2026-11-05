@@ -1,5 +1,5 @@
 ---
-id: BL-730
+id: BL-735
 title: Answer the conditional fields on Azure Put Blob and Delete Blob
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-730 — Answer the conditional fields on Azure Put Blob and Delete Blob
+# BL-735 — Answer the conditional fields on Azure Put Blob and Delete Blob
 
 ## Goal
 

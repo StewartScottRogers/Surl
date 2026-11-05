@@ -1,5 +1,5 @@
 ---
-id: BL-731
+id: BL-736
 title: Store Azure x-ms-blob-content-md5 as the blob's Content-MD5
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-731 — Store Azure x-ms-blob-content-md5 as the blob's Content-MD5
+# BL-736 — Store Azure x-ms-blob-content-md5 as the blob's Content-MD5
 
 ## Goal
 

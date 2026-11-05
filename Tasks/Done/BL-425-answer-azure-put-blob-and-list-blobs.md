@@ -64,7 +64,7 @@ BL-423's ADR serves it.
   100% branch, 0 failing members, worst CRAP 10.
 - Delete Blob is served, as ADR-0109 decisions 1 and 5.6 say: `202`, `404 BlobNotFound`, `403
   AuthorizationPermissionMismatch`.
-- Choices where ADR-0109 is silent (recorded in the library's `CLAUDE.md`; ADR wording filed as BL-732, because
+- Choices where ADR-0109 is silent (recorded in the library's `CLAUDE.md`; ADR wording filed as BL-737, because
   BL-503 holds `Documentation/Planning/Decisions` in Doing):
   - List Blobs needs `--list-directories` (off: `403 AuthorizationPermissionMismatch`): a listing is a directory
     listing in ADR-0006's sense, as ADR-0108 holds for S3's ListObjectsV2; secure by default.
@@ -76,8 +76,8 @@ BL-423's ADR serves it.
     example writes them; blobs and `BlobPrefix`es come interleaved in name order; `include=metadata` writes
     `<Metadata />` for a blob with none; the page's other `include` values (and `deletedwithversions`) add nothing.
   - An `x-ms-meta-*` name is checked to be an ASCII C# identifier (letter or `_`, then letters, digits, `_`).
-- Not done here, filed: BL-730 (conditional fields on Put Blob and Delete Blob, ADR-0109 decision 1; not in this
-  task's criteria) and BL-731 (`x-ms-blob-content-md5`, which needs a Content-MD5 field in `Surl.Content`'s
+- Not done here, filed: BL-735 (conditional fields on Put Blob and Delete Blob, ADR-0109 decision 1; not in this
+  task's criteria) and BL-736 (`x-ms-blob-content-md5`, which needs a Content-MD5 field in `Surl.Content`'s
   object metadata, outside this task's `touches`).
 - Two BL-424 tests changed with the behaviour: the 405 rows now use `POST` and `PATCH`, and the "List Blobs, not
   served yet" query row became Get Container Properties (`restype=container`, BL-716).

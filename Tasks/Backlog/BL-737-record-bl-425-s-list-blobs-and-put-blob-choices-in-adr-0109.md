@@ -1,5 +1,5 @@
 ---
-id: BL-732
+id: BL-737
 title: Record BL-425's List Blobs and Put Blob choices in ADR-0109
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-732 — Record BL-425's List Blobs and Put Blob choices in ADR-0109
+# BL-737 — Record BL-425's List Blobs and Put Blob choices in ADR-0109
 
 ## Goal
 
