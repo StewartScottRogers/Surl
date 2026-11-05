@@ -57,7 +57,7 @@ so, and refuses plain-text CONNECT where TLS is required.
   `InMemoryConnection`'s stand-in upgrade whose first chunk (a stand-in ClientHello or plain text) the handshake
   consumes, plus `NatsInfoTests.Encode_TlsRequired_SaysTlsRequiredButNotAvailable`. `Measure-CodeQuality.ps1`:
   100% line, 100% branch, worst CRAP 10. Nats tests 181 passing; full fast run green.
-- Follow-up filed: BL-826 traces Nats.md's `NATS-TLS-*` rows to these tests (`Documentation/Conformance` was held
+- Follow-up filed: BL-831 traces Nats.md's `NATS-TLS-*` rows to these tests (`Documentation/Conformance` was held
   by BL-396, so not widened into this task).
 
 ## Log

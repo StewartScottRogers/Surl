@@ -1,5 +1,5 @@
 ---
-id: BL-826
+id: BL-831
 title: Trace the NATS TLS requirements in Nats.md to BL-527's tests
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-826 — Trace the NATS TLS requirements in Nats.md to BL-527's tests
+# BL-831 — Trace the NATS TLS requirements in Nats.md to BL-527's tests
 
 ## Goal
 
