@@ -27,6 +27,7 @@ public sealed class ProtocolIsolationTests
     private const string Ripemd160 = "Surl.Cryptography.Ripemd160.UnitLibrary";
     private const string Hpack = "Surl.Hpack.UnitLibrary";
     private const string HttpMessage = "Surl.HttpMessage.UnitLibrary";
+    private const string HttpServing = "Surl.HttpServing.UnitLibrary";
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
@@ -54,6 +55,7 @@ public sealed class ProtocolIsolationTests
         [Ripemd160] = [],
         [Hpack] = [],
         [HttpMessage] = [Abstractions],
+        [HttpServing] = [Abstractions, HttpMessage, Content],
         [Kerberos] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
@@ -166,6 +168,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Ripemd160)]
     [DataRow(Hpack)]
     [DataRow(HttpMessage)]
+    [DataRow(HttpServing)]
     [DataRow(Kerberos)]
     [DataRow(LineProtocol)]
     [DataRow(MailStore)]
@@ -195,6 +198,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(BcryptPbkdf, Blowfish)]
     [DataRow(Ed25519, Curve25519)]
     [DataRow(HttpMessage, Abstractions)]
+    [DataRow(HttpServing, Content)]
+    [DataRow(HttpServing, HttpMessage)]
     [DataRow(LineProtocol, Abstractions)]
     [DataRow(MailStore, Abstractions)]
     [DataRow(MailStore, Content)]
@@ -223,6 +228,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(HttpMessage, Content)]
     [DataRow(HttpMessage, LineProtocol)]
     [DataRow(HttpMessage, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow(HttpServing, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow(HttpServing, LineProtocol)]
     [DataRow(HttpMessage, "Surl.Networking.UnitLibrary")]
     [DataRow(LineProtocol, Content)]
     [DataRow(LineProtocol, MailStore)]

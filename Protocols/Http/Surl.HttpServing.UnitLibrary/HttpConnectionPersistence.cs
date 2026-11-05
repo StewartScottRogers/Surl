@@ -1,6 +1,6 @@
 using Surl.HttpMessage;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// Decides whether a connection stays open after the response to a request (RFC 9112,

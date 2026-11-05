@@ -1,6 +1,6 @@
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// A write-only <see cref="Stream"/> that hands every byte to an <see cref="IConnection"/>,

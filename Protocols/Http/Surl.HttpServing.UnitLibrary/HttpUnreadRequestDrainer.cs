@@ -1,7 +1,7 @@
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// Reads and throws away what a client still sends after the server half-closed the
@@ -42,6 +42,11 @@ internal sealed class HttpUnreadRequestDrainer
         this.reader = reader;
         this.context = context;
     }
+
+    /// <summary>
+    /// The connection's reader, which the drain reads through.
+    /// </summary>
+    public HttpConnectionReader Reader => reader;
 
     /// <summary>
     /// Reads and discards what the client still sends, within the drain's bounds, and notes

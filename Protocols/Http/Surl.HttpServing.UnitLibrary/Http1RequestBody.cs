@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// The body of an HTTP/1.x request, as its head frames it (RFC 9112, section 6): read
@@ -58,14 +58,31 @@ internal sealed class Http1RequestBody : IHttpRequestBody
     /// 100-continue sends 100 Continue first, so the client need not wait out its own timeout
     /// (curl's --expect100-timeout, one second) before it sends the body (ADR-0027).
     /// </remarks>
-    public async Task<HttpRequestBodyDiscardOutcome> DiscardAsync(IncrementalHash? bodyHash, CancellationToken cancellationToken)
+    public Task<HttpRequestBodyDiscardOutcome> DiscardAsync(IncrementalHash? bodyHash, CancellationToken cancellationToken) =>
+        ReadToEndAsync(bodyHash, null, cancellationToken);
+
+    /// <summary>
+    /// Reads the body to its end into <paramref name="destination"/>, after <c>100 Continue</c>
+    /// when the request announced a body and expects it.
+    /// </summary>
+    /// <param name="destination">Where the body's bytes are written.</param>
+    /// <param name="cancellationToken">Cuts the read off.</param>
+    /// <returns>How the read ended.</returns>
+    public Task<HttpRequestBodyDiscardOutcome> CopyToAsync(Stream destination, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        return ReadToEndAsync(null, destination, cancellationToken);
+    }
+
+    private async Task<HttpRequestBodyDiscardOutcome> ReadToEndAsync(IncrementalHash? bodyHash, Stream? bodyCopy, CancellationToken cancellationToken)
     {
         if (IsAnnounced && ExpectsContinue(head))
         {
             await connection.WriteAsync(new HttpResponseHead(HttpStatus.Continue).ToBytes(), cancellationToken);
         }
 
-        var outcome = await bodyDiscarder.DiscardAsync(framing, bodyHash, cancellationToken);
+        var outcome = await bodyDiscarder.DiscardAsync(framing, bodyHash, bodyCopy, cancellationToken);
         if (outcome == HttpRequestBodyDiscardOutcome.Discarded)
         {
             framing = BodyAlreadyRead;

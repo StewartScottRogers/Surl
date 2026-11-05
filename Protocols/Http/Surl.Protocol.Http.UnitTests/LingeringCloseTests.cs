@@ -3,8 +3,12 @@ using static Surl.Protocol.Http.HttpServerHarness;
 
 namespace Surl.Protocol.Http;
 
+/// <summary>
+/// The HTTP server's lingering close (ADR-0024), through <c>Surl.HttpServing</c>'s drainer:
+/// what a client still sends after a half-close is read before the connection is disposed.
+/// </summary>
 [TestClass]
-public sealed class HttpUnreadRequestDrainerTests
+public sealed class LingeringCloseTests
 {
     private const string RefusedPostHead = "POST /file.txt HTTP/1.1\r\nHost: h\r\nContent-Length: 2000000\r\n\r\n";
 
@@ -27,7 +31,7 @@ public sealed class HttpUnreadRequestDrainerTests
     [TestMethod]
     public async Task DrainAsync_ClientSendsMoreThanTheByteLimit_StopsAtTheByteLimit()
     {
-        var body = new byte[HttpUnreadRequestDrainer.MaxDrainBytes];
+        var body = new byte[LingeringCloseDrainBytes];
 
         var (connection, log) = await ServeAsync([Ascii(RefusedPostHead), body, Ascii("left")], TestContext.CancellationToken);
 
@@ -44,12 +48,11 @@ public sealed class HttpUnreadRequestDrainerTests
         var serving = Server().ServeAsync(connection, Context(log, clock, TestContext.CancellationToken));
 
         await WaitForTimersAsync(clock, 1);
-        clock.Advance(HttpUnreadRequestDrainer.MaxDrainTime - TimeSpan.FromTicks(1));
+        clock.Advance(LingeringCloseDrainTime - TimeSpan.FromTicks(1));
         Assert.IsFalse(serving.IsCompleted, "One tick of the drain's time limit is left.");
         clock.Advance(TimeSpan.FromTicks(1));
         await serving;
 
-        Assert.AreEqual(1, HttpUnreadRequestDrainer.MaxDrainTime.TotalSeconds);
         Assert.IsTrue(connection.WritesCompleted);
         Assert.IsFalse(connection.Aborted);
         Assert.AreEqual("Stopped draining the unread request bytes at the 1-second drain limit.", log.Notes[1]);

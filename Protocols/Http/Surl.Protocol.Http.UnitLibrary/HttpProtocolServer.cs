@@ -1,5 +1,6 @@
 using Surl.Content;
 using Surl.HttpMessage;
+using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Http;
@@ -158,20 +159,10 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes);
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
-        var responder = new Http1RequestResponder(connection, reader, context, contentStore, authenticationSession);
-        var isFirstHead = true;
-        var keepsConnectionOpen = true;
+        var answerer = new HttpRequestAnswerer(context, contentStore, authenticationSession);
 
-        while (keepsConnectionOpen)
-        {
-            var result = await reader.ReadNextRequestHeadAsync(context, isFirstHead);
-            isFirstHead = false;
-            keepsConnectionOpen = result.Head is { } head
-                ? await responder.AnswerRequestAsync(head)
-                : await responder.AnswerHeadNotReadAsync(result.Outcome);
-        }
+        await new Http1ConnectionServer(answerer, context).ServeAsync(connection);
     }
 
     /// <summary>

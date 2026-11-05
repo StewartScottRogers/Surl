@@ -2,13 +2,14 @@ using System.Globalization;
 using System.Security.Cryptography;
 using Surl.HttpMessage;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// Reads a request body the server does not keep and throws its bytes away, so the next
 /// request on a persistent connection can be found after it, and refuses one past the upload
 /// limit (ADR-0006, sections 1 and 5); for a login that binds the body, it hashes the bytes
-/// on their way out (ADR-0045).
+/// on their way out (ADR-0045), and for a server that keeps the body (an upload), it writes
+/// them to the copy it is given as they are read (ADR-0084, decision 1).
 /// </summary>
 /// <remarks>
 /// A chunked body (RFC 9112, section 7.1) counts its chunk data and its trailer field lines
@@ -33,6 +34,7 @@ internal sealed class HttpRequestBodyDiscarder
     private readonly byte[] discardBuffer = new byte[DiscardBufferBytes];
     private long countedBytes;
     private IncrementalHash? bodyHash;
+    private Stream? bodyCopy;
 
     /// <summary>
     /// Creates a discarder that reads through <paramref name="reader"/>.
@@ -52,22 +54,25 @@ internal sealed class HttpRequestBodyDiscarder
     /// </summary>
     /// <param name="framing">The body's framing; <see cref="HttpRequestBodyFramingKind.Unreadable"/> is never passed.</param>
     /// <param name="bodyHash">Where the body's bytes are hashed, or <see langword="null"/> when nothing needs them.</param>
+    /// <param name="bodyCopy">Where the body's bytes are written as they are read, or <see langword="null"/> when nothing keeps them.</param>
     /// <param name="cancellationToken">Cuts the read off.</param>
     /// <returns>How the discard ended.</returns>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the read off.</exception>
     /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
-    public async Task<HttpRequestBodyDiscardOutcome> DiscardAsync(HttpRequestBodyFraming framing, IncrementalHash? bodyHash, CancellationToken cancellationToken)
+    public async Task<HttpRequestBodyDiscardOutcome> DiscardAsync(HttpRequestBodyFraming framing, IncrementalHash? bodyHash, Stream? bodyCopy, CancellationToken cancellationToken)
     {
         countedBytes = 0;
         this.bodyHash = bodyHash;
+        this.bodyCopy = bodyCopy;
         try
         {
             return await ReadAndDiscardAsync(framing, cancellationToken);
         }
         finally
         {
-            // The caller owns the hash; none is kept past the call.
+            // The caller owns the hash and the copy; neither is kept past the call.
             this.bodyHash = null;
+            this.bodyCopy = null;
         }
     }
 
@@ -197,6 +202,11 @@ internal sealed class HttpRequestBodyDiscarder
             }
 
             bodyHash?.AppendData(discardBuffer, 0, read);
+            if (bodyCopy is not null)
+            {
+                await bodyCopy.WriteAsync(discardBuffer.AsMemory(0, read), cancellationToken);
+            }
+
             remaining -= read;
         }
 

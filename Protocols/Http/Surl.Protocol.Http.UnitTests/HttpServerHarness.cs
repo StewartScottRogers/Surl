@@ -13,6 +13,21 @@ internal static class HttpServerHarness
 {
     public const string FileBody = "Hello from Surl.\n";
 
+    /// <summary>
+    /// The most bytes the lingering close drains: 1 MiB (ADR-0024).
+    /// </summary>
+    public const int LingeringCloseDrainBytes = 1024 * 1024;
+
+    /// <summary>
+    /// The most bytes one chunk-size or trailer line may take: 8192 (ADR-0006).
+    /// </summary>
+    public const int MaxChunkLineBytes = 8192;
+
+    /// <summary>
+    /// The longest the lingering close drains: one second (ADR-0024).
+    /// </summary>
+    public static readonly TimeSpan LingeringCloseDrainTime = TimeSpan.FromSeconds(1);
+
     public static readonly string Root = Path.Join(Path.GetTempPath(), "surl-http-tests");
 
     /// <summary>
@@ -103,7 +118,7 @@ internal static class HttpServerHarness
     public static async Task AdvanceUntilCompletedAsync(ManualTimeProvider clock, Task serving)
     {
         await WaitForTimersAsync(clock, 1);
-        clock.Advance(HttpUnreadRequestDrainer.MaxDrainTime);
+        clock.Advance(LingeringCloseDrainTime);
 
         await serving;
     }

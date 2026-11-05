@@ -10,19 +10,19 @@ redirect, content encoding and authentication challenge upstream curl can exerci
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
 the horizontal libraries in ADR-0002 decision 3's table, as later ADRs amend it - nothing
-else. Today it references `Surl.Content.UnitLibrary` (the content store) and
-`Surl.HttpMessage.UnitLibrary` (ADR-0070): the request-head reader and its head timeout, the
-request and response head types, `HttpStatus` and body framing live there; method dispatch,
-content responses, the authentication flow, `100 Continue`, persistence, body discarding and
-the lingering-close drain stay here.
+else. Today it references `Surl.Content.UnitLibrary` (the content store),
+`Surl.HttpMessage.UnitLibrary` (ADR-0070: the request-head reader and its head timeout, the
+request and response head types, `HttpStatus` and body framing) and `Surl.HttpServing.UnitLibrary`
+(ADR-0084, decision 1: `HttpRequest`, `HttpAnswer`, request bodies and `100 Continue`, response
+writing, persistence, the lingering-close drain and the `Http1ConnectionServer` loop). Method
+dispatch, content responses and the authentication flow stay here.
 
-Answering is split from HTTP/1.x framing (ADR-0081, decision 8). `HttpRequestAnswerer`
-decides each answer - an `HttpAnswer` of status, fields, `HttpAnswerBody` and whether it is
+Answering is split from HTTP/1.x framing (ADR-0081, decision 8). `HttpRequestAnswerer`,
+the server's `IHttpRequestHandler`, decides each answer - an `HttpAnswer` of status, fields, `HttpAnswerBody` and whether it is
 a refusal - from an `HttpRequest` whose `IHttpRequestBody` it may read or leave unread, and
-never asks which HTTP version carried it. The HTTP/1.x side is `Http1RequestResponder`
-(refuses heads RFC 9112 calls malformed, builds the `HttpRequest`), `Http1RequestBody`
-(`100 Continue`, then the body discarder) and `Http1AnswerWriter` (the status line,
-`Connection`, the body, the refusal write deadline, half-close and drain). Keep version
+never asks which HTTP version carried it. The HTTP/1.x side is `Surl.HttpServing`'s
+`Http1ConnectionServer`, which `HttpProtocolServer.ServeAsync` constructs with the answerer
+for each connection. Keep version
 questions out of the answerer: an HTTP/2 or HTTP/3 writer reuses it as it is.
 
 HTTP/2 frames (RFC 9113 sections 4 and 6; ADR-0081 decision 4) are typed values: one

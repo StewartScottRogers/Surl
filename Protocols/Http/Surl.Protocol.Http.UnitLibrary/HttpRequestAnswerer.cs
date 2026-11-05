@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using Surl.Content;
 using Surl.HttpMessage;
+using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Http;
@@ -10,9 +11,9 @@ namespace Surl.Protocol.Http;
 /// Decides the answer to each request on one connection, as <see cref="HttpProtocolServer"/>
 /// describes, and writes nothing: the status, the fields, the body and whether the request
 /// is refused (ADR-0081, decision 8). It never asks which HTTP version carried the request;
-/// a version's writer, such as <see cref="Http1AnswerWriter"/>, turns the answer into bytes.
+/// a version's writer, such as <see cref="Http1ConnectionServer"/>'s, turns the answer into bytes.
 /// </summary>
-internal sealed class HttpRequestAnswerer
+internal sealed class HttpRequestAnswerer : IHttpRequestHandler
 {
     private const string AllowedMethods = "GET, HEAD";
 
@@ -42,24 +43,16 @@ internal sealed class HttpRequestAnswerer
     /// reading or discarding its body as the answer needs.
     /// </summary>
     /// <param name="request">The request.</param>
+    /// <param name="cancellationToken">The exchange's cancellation.</param>
     /// <returns>The answer.</returns>
-    public async Task<HttpAnswer> AnswerAsync(HttpRequest request)
+    public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
-        var verdict = await authenticationSession.JudgeAsync(AuthenticationRequest(request), context.CancellationToken);
+        var verdict = await authenticationSession.JudgeAsync(AuthenticationRequest(request), cancellationToken);
 
-        return await AnswerVerdictAsync(request, verdict);
+        return await AnswerVerdictAsync(request, verdict, cancellationToken);
     }
 
-    /// <summary>
-    /// The refusal of a request that is refused before it is judged: an empty response with
-    /// <paramref name="status"/>, logged with <paramref name="note"/>.
-    /// </summary>
-    /// <param name="status">The refusal's status.</param>
-    /// <param name="note">Why it is refused, for the log.</param>
-    /// <returns>The refusal.</returns>
-    public HttpAnswer Refuse(HttpStatus status, string note) => Refuse(status, null, [], note);
-
-    private Task<HttpAnswer> AnswerVerdictAsync(HttpRequest request, HttpAuthenticationVerdict verdict)
+    private Task<HttpAnswer> AnswerVerdictAsync(HttpRequest request, HttpAuthenticationVerdict verdict, CancellationToken cancellationToken)
     {
         if (verdict.CheckedLogin is not null)
         {
@@ -72,14 +65,14 @@ internal sealed class HttpRequestAnswerer
         }
 
         return verdict.BodyCheck is null
-            ? AnswerLetInRequestAsync(request, verdict.WwwAuthenticateValues)
-            : AnswerBodyCheckedRequestAsync(request, verdict.BodyCheck, verdict.WwwAuthenticateValues);
+            ? AnswerLetInRequestAsync(request, verdict.WwwAuthenticateValues, cancellationToken)
+            : AnswerBodyCheckedRequestAsync(request, verdict.BodyCheck, verdict.WwwAuthenticateValues, cancellationToken);
     }
 
     // A login that binds the body (ADR-0045): the upload limit first, then the body read and
     // hashed, then the verdict the body check gives for its SHA-256, answered with the body
     // already read. A body that cannot be read cannot be checked, and is refused as malformed.
-    private async Task<HttpAnswer> AnswerBodyCheckedRequestAsync(HttpRequest request, IHttpRequestBodyCheck bodyCheck, IReadOnlyList<string> challenges)
+    private async Task<HttpAnswer> AnswerBodyCheckedRequestAsync(HttpRequest request, IHttpRequestBodyCheck bodyCheck, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
     {
         var uploadRefusal = RefuseUploadPastLimit(request, challenges);
         if (uploadRefusal is not null)
@@ -93,27 +86,27 @@ internal sealed class HttpRequestAnswerer
         }
 
         using var bodyHash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        var bodyOutcome = await request.Body.DiscardAsync(bodyHash, context.CancellationToken);
+        var bodyOutcome = await request.Body.DiscardAsync(bodyHash, cancellationToken);
         if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
         {
             return RefuseBody(request, bodyOutcome, challenges);
         }
 
-        var verdict = await bodyCheck.JudgeBodyAsync(bodyHash.GetHashAndReset(), context.CancellationToken);
+        var verdict = await bodyCheck.JudgeBodyAsync(bodyHash.GetHashAndReset(), cancellationToken);
 
-        return await AnswerVerdictAsync(request, verdict);
+        return await AnswerVerdictAsync(request, verdict, cancellationToken);
     }
 
     // A request the authentication session let in: the upload limit, then method dispatch.
-    private async Task<HttpAnswer> AnswerLetInRequestAsync(HttpRequest request, IReadOnlyList<string> challenges) =>
+    private async Task<HttpAnswer> AnswerLetInRequestAsync(HttpRequest request, IReadOnlyList<string> challenges, CancellationToken cancellationToken) =>
         RefuseUploadPastLimit(request, challenges)
-            ?? (request.Method is "GET" or "HEAD" ? await AnswerFromContentStoreAsync(request, challenges) : RefuseMethod(request, challenges));
+            ?? (request.Method is "GET" or "HEAD" ? await AnswerFromContentStoreAsync(request, challenges, cancellationToken) : RefuseMethod(request, challenges));
 
     // A body the server cannot read is left unread, and the answer says so.
-    private async Task<HttpAnswer> AnswerFromContentStoreAsync(HttpRequest request, IReadOnlyList<string> challenges)
+    private async Task<HttpAnswer> AnswerFromContentStoreAsync(HttpRequest request, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
     {
         var bodyOutcome = request.Body.IsReadable
-            ? await request.Body.DiscardAsync(null, context.CancellationToken)
+            ? await request.Body.DiscardAsync(null, cancellationToken)
             : HttpRequestBodyDiscardOutcome.Discarded;
         if (bodyOutcome != HttpRequestBodyDiscardOutcome.Discarded)
         {
@@ -266,7 +259,7 @@ internal sealed class HttpRequestAnswerer
             new("Content-Length", status.Length.ToString(CultureInfo.InvariantCulture)),
         ];
         HttpAnswerBody body = request.Method == "GET"
-            ? new HttpAnswerBody.ContentFile(mapping, ContentByteRange.WholeFile(status.Length))
+            ? new HttpAnswerBody.ContentFile(contentStore, mapping, ContentByteRange.WholeFile(status.Length))
             : HttpAnswerBody.None;
 
         return new HttpAnswer(HttpStatus.Ok, AddChallenges(fields, challenges), body, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);

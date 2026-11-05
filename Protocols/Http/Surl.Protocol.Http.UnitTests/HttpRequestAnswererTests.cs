@@ -25,7 +25,7 @@ public sealed class HttpRequestAnswererTests
     [TestMethod]
     public async Task AnswerAsync_GetOfAContentStoreFile_IsA200WithTheFileAsItsBody()
     {
-        var answer = await Answerer().AnswerAsync(Request("GET", "/file.txt"));
+        var answer = await Answerer().AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
 
         Assert.AreEqual(HttpStatus.Ok, answer.Status);
         CollectionAssert.AreEqual(FileFields(), answer.Fields.ToArray());
@@ -40,7 +40,7 @@ public sealed class HttpRequestAnswererTests
     [TestMethod]
     public async Task AnswerAsync_HeadOfAContentStoreFile_IsA200WithTheFileFieldsAndNoBody()
     {
-        var answer = await Answerer().AnswerAsync(Request("HEAD", "/file.txt"));
+        var answer = await Answerer().AnswerAsync(Request("HEAD", "/file.txt"), TestContext.CancellationToken);
 
         Assert.AreEqual(HttpStatus.Ok, answer.Status);
         CollectionAssert.AreEqual(FileFields(), answer.Fields.ToArray());
@@ -53,7 +53,7 @@ public sealed class HttpRequestAnswererTests
     {
         var policy = new UnitTestAuthenticationPolicy(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Challenge, [BasicChallenge, "Bearer"], null));
 
-        var answer = await Answerer(policy).AnswerAsync(Request("GET", "/file.txt"));
+        var answer = await Answerer(policy).AnswerAsync(Request("GET", "/file.txt"), TestContext.CancellationToken);
 
         Assert.AreEqual(HttpStatus.Unauthorized, answer.Status);
         CollectionAssert.AreEqual(
@@ -69,7 +69,7 @@ public sealed class HttpRequestAnswererTests
     {
         var log = new RecordingExchangeLog();
 
-        var answer = await Answerer(log: log).AnswerAsync(Request("GET", "/missing.txt"));
+        var answer = await Answerer(log: log).AnswerAsync(Request("GET", "/missing.txt"), TestContext.CancellationToken);
 
         Assert.AreEqual(HttpStatus.NotFound, answer.Status);
         CollectionAssert.AreEqual(new[] { Field("Date", Date), Field("Server", "surl"), Field("Content-Length", "0") }, answer.Fields.ToArray());
@@ -84,7 +84,7 @@ public sealed class HttpRequestAnswererTests
     {
         var body = new UnitTestRequestBody(isReadable: false);
 
-        var answer = await Answerer().AnswerAsync(Request("GET", "/file.txt", body));
+        var answer = await Answerer().AnswerAsync(Request("GET", "/file.txt", body), TestContext.CancellationToken);
 
         Assert.AreEqual(HttpStatus.Ok, answer.Status);
         Assert.IsTrue(answer.LeavesRequestBodyUnread);
@@ -97,7 +97,7 @@ public sealed class HttpRequestAnswererTests
         var policy = new UnitTestAuthenticationPolicy(_ => new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], null));
         var request = Request("GET", "/file.txt") with { Fields = [Field("Host", "example.test")] };
 
-        await Answerer(policy).AnswerAsync(request);
+        await Answerer(policy).AnswerAsync(request, TestContext.CancellationToken);
 
         Assert.AreEqual("example.test", request.Authority);
         CollectionAssert.AreEqual(new[] { Field("Host", "example.test") }, policy.JudgedRequests.Single().Fields.ToArray());
@@ -142,5 +142,9 @@ public sealed class HttpRequestAnswererTests
 
             return Task.FromResult(HttpRequestBodyDiscardOutcome.Discarded);
         }
+
+        // The HTTP server's answerer never keeps a body, so it never copies one.
+        public Task<HttpRequestBodyDiscardOutcome> CopyToAsync(Stream destination, CancellationToken cancellationToken) =>
+            throw new AssertFailedException("The answerer copied a request body.");
     }
 }

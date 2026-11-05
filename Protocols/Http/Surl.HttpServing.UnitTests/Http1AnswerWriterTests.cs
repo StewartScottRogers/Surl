@@ -1,9 +1,8 @@
-using Surl.Content;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
-using static Surl.Protocol.Http.HttpServerHarness;
+using static Surl.HttpServing.HttpServingHarness;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// <see cref="Http1AnswerWriter"/> turns an <see cref="HttpAnswer"/> into HTTP/1.x bytes; the
@@ -36,8 +35,7 @@ public sealed class Http1AnswerWriterTests
     {
         var context = Context(new RecordingExchangeLog(), new FixedTimeProvider(Now), TestContext.CancellationToken);
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes);
-        var contentStore = new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot);
 
-        return new Http1AnswerWriter(connection, new HttpUnreadRequestDrainer(reader, context), context, contentStore);
+        return new Http1AnswerWriter(connection, new HttpUnreadRequestDrainer(reader, context), context);
     }
 }

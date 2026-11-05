@@ -1,6 +1,6 @@
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 [TestClass]
 public sealed class ConnectionWriteStreamTests

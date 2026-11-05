@@ -1,9 +1,9 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// How reading and discarding a request body ended.
 /// </summary>
-internal enum HttpRequestBodyDiscardOutcome
+public enum HttpRequestBodyDiscardOutcome
 {
     /// <summary>
     /// The whole body was read and dropped; the next request follows it.

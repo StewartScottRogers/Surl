@@ -148,7 +148,7 @@ public sealed class UploadLimitTests
     [TestMethod]
     public async Task ChunkSizeLineLongerThanTheLineLimit_Answers400()
     {
-        var request = ChunkedGet + "1;" + new string('e', HttpRequestBodyDiscarder.MaxChunkLineBytes) + "\r\nx\r\n0\r\n\r\n";
+        var request = ChunkedGet + "1;" + new string('e', MaxChunkLineBytes) + "\r\nx\r\n0\r\n\r\n";
 
         var (connection, _) = await ServeAsync([Ascii(request)], TestContext.CancellationToken, peerHalfCloses: false);
 

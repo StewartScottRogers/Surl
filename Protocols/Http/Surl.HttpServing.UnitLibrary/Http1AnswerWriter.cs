@@ -2,7 +2,7 @@ using Surl.Content;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// Writes an <see cref="HttpAnswer"/> to an HTTP/1.x connection: the status line naming
@@ -21,7 +21,6 @@ internal sealed class Http1AnswerWriter
     private readonly IConnection connection;
     private readonly HttpUnreadRequestDrainer unreadRequestDrainer;
     private readonly ExchangeContext context;
-    private readonly ContentStore contentStore;
 
     /// <summary>
     /// Creates a writer for one connection.
@@ -29,13 +28,11 @@ internal sealed class Http1AnswerWriter
     /// <param name="connection">Where answers are written.</param>
     /// <param name="unreadRequestDrainer">Drains what the client still sends once the connection is half-closed.</param>
     /// <param name="context">The exchange: its clock, log and cancellation.</param>
-    /// <param name="contentStore">Where the bytes of a content-store file are copied from.</param>
-    public Http1AnswerWriter(IConnection connection, HttpUnreadRequestDrainer unreadRequestDrainer, ExchangeContext context, ContentStore contentStore)
+    public Http1AnswerWriter(IConnection connection, HttpUnreadRequestDrainer unreadRequestDrainer, ExchangeContext context)
     {
         this.connection = connection;
         this.unreadRequestDrainer = unreadRequestDrainer;
         this.context = context;
-        this.contentStore = contentStore;
     }
 
     /// <summary>
@@ -51,6 +48,13 @@ internal sealed class Http1AnswerWriter
         if (answer.IsRefusal)
         {
             return await WriteRefusalAsync(answer);
+        }
+
+        if (answer.Takeover is { } takeover)
+        {
+            await WriteTakeoverAsync(answer, takeover);
+
+            return false;
         }
 
         var keepsConnectionOpen = HttpConnectionPersistence.KeepsConnectionOpen(head) && !answer.LeavesRequestBodyUnread;
@@ -90,6 +94,14 @@ internal sealed class Http1AnswerWriter
         return false;
     }
 
+    // An upgrade (ADR-0084, decision 1): the head as the answer gives it, its own Connection
+    // field included, then the takeover owns the connection; no body, drain or close follows.
+    private async Task WriteTakeoverAsync(HttpAnswer answer, IHttpConnectionTakeover takeover)
+    {
+        await connection.WriteAsync(ResponseHead(answer, null).ToBytes(), context.CancellationToken);
+        await takeover.TakeOverAsync(connection, unreadRequestDrainer.Reader, context.CancellationToken);
+    }
+
     private async Task<bool> TryWriteRefusalAsync(HttpAnswer answer)
     {
         using var deadline = new CancellationTokenSource(RefusalWriteDeadline, context.TimeProvider);
@@ -125,7 +137,7 @@ internal sealed class Http1AnswerWriter
     {
         if (body is HttpAnswerBody.ContentFile file)
         {
-            return await CopyFileAsync(file.Mapping, file.Range);
+            return await CopyFileAsync(file.Store, file.Mapping, file.Range);
         }
 
         if (body is HttpAnswerBody.Bytes bytes)
@@ -139,7 +151,7 @@ internal sealed class Http1AnswerWriter
     // After the head the Content-Length is promised, so a file that shrinks or cannot be
     // read any more can only be answered by aborting the connection; a reset tells curl the
     // transfer failed. A failure of the connection itself is not the file's and is rethrown.
-    private async Task<bool> CopyFileAsync(ContentPathMapping mapping, ContentByteRange range)
+    private async Task<bool> CopyFileAsync(ContentStore contentStore, ContentPathMapping mapping, ContentByteRange range)
     {
         await using var body = new ConnectionWriteStream(connection);
         try

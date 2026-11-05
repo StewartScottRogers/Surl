@@ -1,13 +1,13 @@
-using Surl.Content;
+using System.Globalization;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 /// <summary>
 /// Answers each request read from one HTTP/1.x connection: refuses a head RFC 9112 calls
-/// malformed, has <see cref="HttpRequestAnswerer"/> decide the answer to every other, and has
-/// <see cref="Http1AnswerWriter"/> write it, saying whether the connection stays open.
+/// malformed, has the <see cref="IHttpRequestHandler"/> decide the answer to every other, and
+/// has <see cref="Http1AnswerWriter"/> write it, saying whether the connection stays open.
 /// </summary>
 internal sealed class Http1RequestResponder
 {
@@ -22,7 +22,7 @@ internal sealed class Http1RequestResponder
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly HttpRequestBodyDiscarder bodyDiscarder;
-    private readonly HttpRequestAnswerer answerer;
+    private readonly IHttpRequestHandler handler;
     private readonly Http1AnswerWriter writer;
 
     /// <summary>
@@ -31,15 +31,14 @@ internal sealed class Http1RequestResponder
     /// <param name="connection">Where responses are written.</param>
     /// <param name="reader">The connection's reader, through which request bodies are read.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
-    /// <param name="contentStore">Where request paths are looked up.</param>
-    /// <param name="authenticationSession">The connection's authentication session, which judges every request.</param>
-    public Http1RequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, ContentStore contentStore, IHttpAuthenticationSession authenticationSession)
+    /// <param name="handler">Decides the answer to every well-formed request.</param>
+    public Http1RequestResponder(IConnection connection, HttpConnectionReader reader, ExchangeContext context, IHttpRequestHandler handler)
     {
         this.connection = connection;
         this.context = context;
+        this.handler = handler;
         bodyDiscarder = new HttpRequestBodyDiscarder(reader, context.Limits.MaxUploadBytes);
-        answerer = new HttpRequestAnswerer(context, contentStore, authenticationSession);
-        writer = new Http1AnswerWriter(connection, new HttpUnreadRequestDrainer(reader, context), context, contentStore);
+        writer = new Http1AnswerWriter(connection, new HttpUnreadRequestDrainer(reader, context), context);
     }
 
     /// <summary>
@@ -51,7 +50,7 @@ internal sealed class Http1RequestResponder
     {
         var framing = HttpRequestBodyFraming.Of(head);
         var answer = RefuseMalformedHead(head, framing)
-            ?? await answerer.AnswerAsync(Request(head, framing));
+            ?? await handler.AnswerAsync(Request(head, framing), context.CancellationToken);
 
         return await writer.WriteAsync(answer, head);
     }
@@ -81,10 +80,10 @@ internal sealed class Http1RequestResponder
 
         var status = StatusesForHeadsNotRead.GetValueOrDefault(outcome, HttpStatus.BadRequest);
 
-        return writer.WriteRefusalAsync(answerer.Refuse(status, $"No request head was read: {outcome}"));
+        return writer.WriteRefusalAsync(Refuse(status, $"No request head was read: {outcome}"));
     }
 
-    // The request as the answerer sees it, whatever version carried it. The authority is the
+    // The request as the handler sees it, whatever version carried it. The authority is the
     // one Host field, which a well-formed HTTP/1.0 request may leave out.
     private HttpRequest Request(HttpRequestHead head, HttpRequestBodyFraming framing)
     {
@@ -100,16 +99,16 @@ internal sealed class Http1RequestResponder
 
     // A head that is not well-formed - a missing or repeated Host (RFC 9112, section 3.2), a
     // Content-Length that is not one field of decimal digits (ADR-0024) - is refused before
-    // the authentication session sees it (ADR-0032, section 4); null when the head is well-formed.
+    // the handler sees it (ADR-0032, section 4); null when the head is well-formed.
     private HttpAnswer? RefuseMalformedHead(HttpRequestHead head, HttpRequestBodyFraming framing)
     {
         if (!HasHostAsRequired(head))
         {
-            return answerer.Refuse(HttpStatus.BadRequest, $"{head.Method} {head.RequestTarget}: a request may carry at most one Host field, and an HTTP/1.1 request needs one");
+            return Refuse(HttpStatus.BadRequest, $"{head.Method} {head.RequestTarget}: a request may carry at most one Host field, and an HTTP/1.1 request needs one");
         }
 
         return framing.Kind == HttpRequestBodyFramingKind.InvalidContentLength
-            ? answerer.Refuse(HttpStatus.BadRequest, $"{head.Method} {head.RequestTarget}: the Content-Length is not one field of decimal digits")
+            ? Refuse(HttpStatus.BadRequest, $"{head.Method} {head.RequestTarget}: the Content-Length is not one field of decimal digits")
             : null;
     }
 
@@ -119,5 +118,20 @@ internal sealed class Http1RequestResponder
         var hostCount = head.GetFieldValues("Host").Count;
 
         return hostCount == 1 || (hostCount == 0 && head.Version.Minor == 0);
+    }
+
+    // A refusal the handler never sees: Date (IMF-fixdate, RFC 9110 section 5.6.7), Server and
+    // an empty body, logged with why (ADR-0006, section 3).
+    private HttpAnswer Refuse(HttpStatus status, string note)
+    {
+        context.Log.Note($"{note}; answered {status.Code} and closed.");
+        KeyValuePair<string, string>[] fields =
+        [
+            new("Date", context.TimeProvider.GetUtcNow().ToString("r", CultureInfo.InvariantCulture)),
+            new("Server", HttpResponseHead.ServerName),
+            new("Content-Length", "0"),
+        ];
+
+        return new HttpAnswer(status, fields, HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: false);
     }
 }

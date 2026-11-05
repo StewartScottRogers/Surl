@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.HttpServing;
 
 [TestClass]
 public sealed class HttpConnectionPersistenceTests
