@@ -48,3 +48,4 @@ ADR puts it, with curl's `COPYING` notice beside it. It is copied into the test 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
