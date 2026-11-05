@@ -114,6 +114,16 @@
     input is closed at once. Use it to measure an option that reads '-', such as
     -b -.
 
+.PARAMETER ConfigFile
+    Config files to write before curl runs, for measuring curl's -K/--config reader. Each
+    element is <name>=<text>: the file <name> (a bare file name, no folder) is written to
+    OutDirectory with <text> decoded by the same backslash escapes as Response, one byte per
+    character, and curl then runs with OutDirectory as its working directory, so CurlArgs
+    and the files themselves name each other by bare name (-K a.cfg, a line config = b.cfg).
+    A config file's own backslashes are therefore written \\ here. The name may not be one
+    of the fixture files the script writes. Default none: curl runs in the caller's
+    working directory, as before. Run the script from PowerShell (& or .\) to pass several.
+
 .PARAMETER Ftp
     Serve one FTP session instead of HTTP responses: send a greeting, then read curl's
     commands one line at a time and answer each from a table of replies, opening a
@@ -858,6 +868,7 @@ param(
     [switch] $CloseUnread,
     [string] $InterimResponse = '',
     [string] $StandardInput = '',
+    [string[]] $ConfigFile = @(),
     [switch] $Ftp,
     [string[]] $FtpReply = @(),
     [string] $FtpData = '',
@@ -3253,6 +3264,17 @@ $quicDatagrams = New-Object System.IO.MemoryStream
 $OutDirectory = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).ProviderPath, $OutDirectory))
 New-Item -ItemType Directory -Path $OutDirectory -Force | Out-Null
 
+# Each -ConfigFile is written beside the fixtures, and curl runs there so they name each other by bare name.
+$fixtureFileNames = @('request.bin', 'stdout.bin', 'stderr.txt', 'exitcode.txt')
+foreach ($entry in $ConfigFile) {
+    $separator = $entry.IndexOf('=')
+    if ($separator -lt 1) { throw "-ConfigFile $entry is not <name>=<text>." }
+    $configFileName = $entry.Substring(0, $separator)
+    if ($configFileName.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars()) -ge 0 -or $configFileName -in @('.', '..')) { throw "-ConfigFile name $configFileName is not a bare file name." }
+    if ($configFileName -match '^request(-\d+)?\.bin$' -or $fixtureFileNames -contains $configFileName) { throw "-ConfigFile name $configFileName is a fixture file the script writes." }
+    [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory $configFileName), [byte[]] (ConvertFrom-EscapedResponse -Text $entry.Substring($separator + 1)))
+}
+
 $servedTlsProtocols = switch ($TlsProtocol) {
     'Tls13' { [System.Security.Authentication.SslProtocols]::Tls13 }
     'Tls12AndTls13' { [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Tls13 }
@@ -3348,6 +3370,7 @@ try {
     } else {
         $startInfo.FileName = $Curl
         $startInfo.Arguments = (@($CurlArgs | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
+        if ($ConfigFile.Count -gt 0) { $startInfo.WorkingDirectory = $OutDirectory }
     }
     foreach ($name in $kerberosClientEnvironment.Keys) { $startInfo.Environment[$name] = $kerberosClientEnvironment[$name] }
     $startInfo.UseShellExecute = $false
