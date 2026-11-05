@@ -121,3 +121,9 @@ the connection preface, `SETTINGS`, the connection `WINDOW_UPDATE`, `HEADERS`, t
 | Folder | Exit code | stdout.bin | Command line |
 | --- | --- | --- | --- |
 | `h2-prior-knowledge-get` | 0 | `HTTP/2 200 \r\n\r\n` | `.\Record-CurlExchange.ps1 -Port 18367 -Raw -Curl 'C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe' -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\h2-prior-knowledge-get -RawReply '\x00\x00\x00\x04\x00\x00\x00\x00\x00','\x00\x00\x00\x04\x01\x00\x00\x00\x00\x00\x00\x01\x01\x05\x00\x00\x00\x01\x88\x00\x00\x02\x00\x01\x00\x00\x00\x01hi' -CurlArgs '-sS','-i','--http2-prior-knowledge','http://127.0.0.1:18367/'` |
+| `h2-prior-knowledge-get-file` | 0 | `HTTP/2 200 \r\n\r\n` | `.\Record-CurlExchange.ps1 -Port 18050 -Raw -Curl 'C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe' -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\h2-prior-knowledge-get-file -RawReply '\x00\x00\x00\x04\x00\x00\x00\x00\x00','\x00\x00\x00\x04\x01\x00\x00\x00\x00\x00\x00\x01\x01\x05\x00\x00\x00\x01\x88' -CurlArgs '-sS','-i','--http2-prior-knowledge','http://127.0.0.1:18050/file.txt'` |
+
+`h2-prior-knowledge-get-file` (BL-368) is the same exchange for the content-store file
+`get-file` fetches over HTTP/1.1, on the same port, so its 173 request bytes - `:path /file.txt`,
+`:authority 127.0.0.1:18050` - are what the HTTP/2 server's replay tests answer and compare with
+the HTTP/1.1 answer. The second reply is the `SETTINGS` ACK and the `HEADERS` alone.

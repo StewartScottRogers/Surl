@@ -333,6 +333,54 @@ public sealed class HttpProtocolServerTests
 
     private static string Latin1(byte[] bytes) => Encoding.Latin1.GetString(bytes);
 
+    [TestMethod]
+    public async Task ServeAsync_RequestStartingLikeTheHttp2Preface_IsServedAsHttp1()
+    {
+        var (connection, _) = await ServeAsync(Encoding.ASCII.GetBytes("PRI / HTTP/1.1\r\nHost: a\r\n\r\n"), peerHalfCloses: false);
+
+        StringAssert.StartsWith(Encoding.ASCII.GetString(connection.WrittenBytes), "HTTP/1.1 501 Not Implemented\r\n");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_RecordedHttp2PrefaceOneBytePerRead_IsServedAsHttp2()
+    {
+        var (connection, _) = await ServeAsync(RecordedFixture.ReadRequestBytes("h2-prior-knowledge-get-file"), oneBytePerRead: true);
+
+        Assert.AreEqual(FileBody, Http2TestClient.Responses(connection.WrittenBytes)[1].BodyText);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Http2PrefaceOverTls_IsServedAsHttp1()
+    {
+        var server = new HttpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot), new AnonymousAuthenticationPolicy());
+        var connection = new InMemoryConnection([Http2TestClient.Start()], initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession, peerHalfClosesWhenExhausted: false);
+        var clock = new ManualTimeProvider(Now);
+
+        var serving = server.ServeAsync(connection, Context(new RecordingExchangeLog(), TestContext.CancellationToken, clock));
+        await HttpServerHarness.AdvanceUntilCompletedAsync(clock, serving);
+
+        StringAssert.StartsWith(Encoding.ASCII.GetString(connection.WrittenBytes), "HTTP/1.1 505 ");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PartOfTheHttp2PrefaceWithinTheHeadTimeout_ClosesWithNoBytes()
+    {
+        var server = new HttpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot), new AnonymousAuthenticationPolicy());
+        var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("PRI * HTTP")], peerHalfClosesWhenExhausted: false);
+        var clock = new ManualTimeProvider(Now);
+        var log = new RecordingExchangeLog();
+        var serving = server.ServeAsync(connection, Context(log, TestContext.CancellationToken, clock));
+
+        await HttpServerHarness.WaitForTimersAsync(clock, 1);
+        clock.Advance(ExchangeLimits.Default.HeadTimeout);
+        await serving;
+
+        Assert.IsEmpty(connection.WrittenBytes);
+        CollectionAssert.AreEqual(
+            new[] { "The 10 bytes read are the start of the HTTP/2 connection preface, which was not complete within the head timeout; closed with no bytes." },
+            log.Notes.ToArray());
+    }
+
     private static UnitTestInMemoryContentFileSystem StandardFileSystem() => new UnitTestInMemoryContentFileSystem()
         .AddDirectory(Root)
         .AddDirectory(Path.Join(Root, "sub"))

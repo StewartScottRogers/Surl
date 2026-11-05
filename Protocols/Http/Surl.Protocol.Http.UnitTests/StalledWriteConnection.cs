@@ -9,7 +9,7 @@ namespace Surl.Protocol.Http;
 /// </summary>
 internal sealed class StalledWriteConnection(byte[] request) : IConnection
 {
-    private bool requestRead;
+    private int requestBytesRead;
 
     public EndPoint LocalEndPoint { get; } = new IPEndPoint(IPAddress.Loopback, 80);
 
@@ -23,15 +23,11 @@ internal sealed class StalledWriteConnection(byte[] request) : IConnection
 
     public ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
     {
-        if (requestRead)
-        {
-            return ValueTask.FromResult(0);
-        }
+        var count = Math.Min(request.Length - requestBytesRead, buffer.Length);
+        request.AsMemory(requestBytesRead, count).CopyTo(buffer);
+        requestBytesRead += count;
 
-        requestRead = true;
-        request.CopyTo(buffer);
-
-        return ValueTask.FromResult(request.Length);
+        return ValueTask.FromResult(count);
     }
 
     public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken) =>

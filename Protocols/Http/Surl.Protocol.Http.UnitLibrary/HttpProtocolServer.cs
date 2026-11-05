@@ -105,6 +105,15 @@ namespace Surl.Protocol.Http;
 /// connection with a log note naming the file.
 /// </para>
 /// <para>
+/// HTTP/2 with prior knowledge (ADR-0081, decision 3; ADR-0090): on a connection that is not
+/// secured with TLS, the first bytes are read within the head timeout until they stop matching
+/// the HTTP/2 connection preface. The whole preface hands the connection to
+/// <see cref="Http2ConnectionServer"/>, which answers each request stream through the same
+/// answerer; anything else is read as an HTTP/1.x request, the bytes already read first, and
+/// answered exactly as above. A head timeout that runs out with part of the preface read closes
+/// the connection with no bytes.
+/// </para>
+/// <para>
 /// As an <see cref="IConnectionRefusalWriter"/>, the server answers a connection past a
 /// connection limit with <c>503 Service Unavailable</c>, <c>Server: surl</c>,
 /// <c>Content-Length: 0</c> and <c>Connection: close</c>, then half-closes it; it carries no
@@ -161,8 +170,50 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
         var answerer = new HttpRequestAnswerer(context, contentStore, authenticationSession);
+        if (connection.TlsSession is not null)
+        {
+            await new Http1ConnectionServer(answerer, context).ServeAsync(connection);
 
-        await new Http1ConnectionServer(answerer, context).ServeAsync(connection);
+            return;
+        }
+
+        var preface = new Http2ConnectionPreface();
+        if (!await ReadPrefaceWithinHeadTimeoutAsync(preface, connection, context))
+        {
+            return;
+        }
+
+        if (preface.IsComplete)
+        {
+            await new Http2ConnectionServer(answerer, context, new AlreadyReadBytesConnection(connection, preface.BytesReadAfterPreface)).ServeAsync();
+
+            return;
+        }
+
+        await new Http1ConnectionServer(answerer, context).ServeAsync(new AlreadyReadBytesConnection(connection, preface.BytesRead));
+    }
+
+    // The head timeout bounds the preface as it bounds a first request head: when it runs out
+    // the connection closes with no bytes (ADR-0081, decision 5), as HTTP/1.x closes one that
+    // sent no byte of its head. False when it ran out.
+    private static async Task<bool> ReadPrefaceWithinHeadTimeoutAsync(Http2ConnectionPreface preface, IConnection connection, ExchangeContext context)
+    {
+        using var headTimeout = new CancellationTokenSource(HeadTimeoutDelay.For(context.Limits.HeadTimeout), context.TimeProvider);
+        using var headTimeoutOrExchange = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
+        try
+        {
+            await preface.ReadAsync(connection, headTimeoutOrExchange.Token);
+
+            return true;
+        }
+        catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
+        {
+            context.Log.Note(preface.BytesRead.IsEmpty
+                ? $"No request head was read: {HttpRequestHeadReadOutcome.HeadTimedOutBeforeAnyByte}; closed with no bytes."
+                : $"The {preface.BytesRead.Length} bytes read are the start of the HTTP/2 connection preface, which was not complete within the head timeout; closed with no bytes.");
+
+            return false;
+        }
     }
 
     /// <summary>

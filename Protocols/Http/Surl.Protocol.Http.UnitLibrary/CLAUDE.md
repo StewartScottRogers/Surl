@@ -36,6 +36,18 @@ in `Http2FrameMalformations`. Rules that need connection or stream state (`CONTI
 order, a `HEADERS` priority naming its own stream, a client's `PUSH_PROMISE`) belong to the
 connection, not the codec.
 
+The HTTP/2 connection (ADR-0081, decisions 3, 5 to 7; ADR-0090) is `Http2ConnectionServer`:
+`HttpProtocolServer.ServeAsync` reads a cleartext connection's first bytes with
+`Http2ConnectionPreface` and hands it over on the whole preface, or gives the bytes back
+through `AlreadyReadBytesConnection` to `Http1ConnectionServer`. The connection reads frames in
+order, decodes header blocks with `Surl.Hpack`'s decoder, maps each request with
+`Http2RequestHeadMapping` to an `HttpRequest` whose body is an `Http2RequestBody`, and answers
+each `Http2Stream` on a task of its own through the same `HttpRequestAnswerer`;
+`Http2StreamAnswerWriter` turns the `HttpAnswer` into frames, `Http2FrameWriter` serialises
+every frame and owns the HPACK encoder, and `Http2SendWindows` and `Http2DataStream` keep `DATA`
+within the client's windows. This library references `Surl.Hpack.UnitLibrary` for it, and
+BL-409 moves the connection to `Surl.Http2.UnitLibrary` (ADR-0086).
+
 Referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
