@@ -41,3 +41,4 @@ A `QuicServerConnection` keeps the client's `NEW_CONNECTION_ID`s up to the defau
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
