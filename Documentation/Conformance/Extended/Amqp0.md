@@ -21,7 +21,7 @@ specification leaves the broker a choice.
 | --- | --- | --- | --- |
 | Amqp0:Wire-4.2.2-1 | MUST | The broker reads the client's 8-byte header before writing; `AMQP 0 0 9 1` is answered with `connection.start`. | BL-504 |
 | Amqp0:Wire-4.2.2-2 | MUST | Any other header (another version, AMQP 1.0's, not `AMQP`) is answered `AMQP 0 0 9 1` and the connection closed. | BL-504 |
-| Amqp0:Surl-Header-1 | MUST | Fewer than 8 header bytes by `--head-timeout` closes the connection with no bytes. | BL-505 |
+| Amqp0:Surl-Header-1 | MUST | Fewer than 8 header bytes by `--head-timeout` closes the connection with no bytes. | `Amqp0BrokerTests.ServeAsync_PartHeaderWithinTheHeadTimeout_ClosesWithNoBytes` |
 | Amqp0:Wire-4.2.3-1 | MUST | Frames are read as type, channel, size, payload and the frame-end `0xCE`; a different frame-end is connection exception 501. | BL-504 |
 | Amqp0:Wire-4.2.3-2 | MUST | An unknown frame type is connection exception 501. | BL-504 |
 | Amqp0:Wire-4.2.3-3 | MUST | A frame above the negotiated frame-max, or above 4096 before `tune-ok`, is refused: 501 after `open-ok`, no bytes before it. | BL-504 |
@@ -36,33 +36,33 @@ specification leaves the broker a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Amqp0:Connection-start-1 | MUST | `connection.start` carries version 0 9, `server-properties` with `product` `surl` and the capabilities table, the mechanisms and the locale `en_US`; no version or platform. | BL-505 |
-| Amqp0:Surl-Login-1 | MUST | The mechanisms are the policy's for the scheme and TLS state, `AMQPLAIN` right after `PLAIN`, then `ANONYMOUS` under `--allow-anonymous`; under `--allow-anonymous` `PLAIN` and `AMQPLAIN` are offered on every transport and not checked. | BL-505 |
-| Amqp0:Connection-start-ok-1 | MUST | A mechanism not offered closes the connection without any further data (rule `start-ok`/`mechanism`). | BL-505 |
-| Amqp0:Surl-Login-2 | MUST | `PLAIN` is RFC 4616's response, an `authzid` other than empty or the `authcid` refused; `AMQPLAIN` is a field table's contents without its size, holding `LOGIN` and `PASSWORD`. | BL-505 |
-| Amqp0:Connection-secure-1 | MUST | A challenge mechanism runs as `connection.secure` and `secure-ok` until the policy decides; a final server message is one more `secure`. | BL-505 |
-| Amqp0:Surl-Login-3 | MUST | A refused login, after the policy's delay, is `connection.close` 403 with fixed text naming neither account nor cause, then the close of decision 7. | BL-505 |
-| Amqp0:Surl-Login-4 | MUST | A frame other than the one due before `open-ok`, or on a channel other than 0, closes the connection with no bytes. | BL-505 |
-| Amqp0:Connection-tune-1 | MUST | `connection.tune` offers `channel-max` 256, `frame-max` 131072 or `--max-message` when smaller (never below 4096), and `heartbeat` half of `--idle-timeout` in seconds, 0 without one. | BL-505 |
-| Amqp0:Connection-tune-ok-1 | MUST | A `tune-ok` `channel-max` or `frame-max` above the broker's, or a nonzero `frame-max` below 4096, closes the connection without a negotiated close; 0 means the broker's value. | BL-505 |
-| Amqp0:Connection-tune-ok-2 | MUST | The client's `heartbeat` is the interval, 0 meaning none. | BL-505 |
-| Amqp0:Wire-4.2.7-2 | MUST | With interval `h` the broker sends a heartbeat whenever it has written nothing for `h` seconds, on the injected `TimeProvider`. | BL-505 |
-| Amqp0:Wire-4.2.7-3 | MUST | A peer silent for two intervals is closed without `connection.close`. | BL-505 |
-| Amqp0:Surl-Idle-1 | MUST | No frame for `--idle-timeout` is `connection.close` 320, heartbeats or not. | BL-505 |
-| Amqp0:Connection-open-1 | MUST | `connection.open` of `/` is answered `open-ok`; any other virtual host, the empty one included, is `connection.close` 530 without echoing the name. | BL-505 |
-| Amqp0:Connection-close-1 | MUST | A client's `connection.close` is answered `close-ok`; its channels end, outstanding deliveries going back to their queues. | BL-505 |
+| Amqp0:Connection-start-1 | MUST | `connection.start` carries version 0 9, `server-properties` with `product` `surl` and the capabilities table, the mechanisms and the locale `en_US`; no version or platform. | `Amqp0BrokerTests.ServeAsync_PlainLogin_OpensTheConnectionAndAnswersCloseWithCloseOk` |
+| Amqp0:Surl-Login-1 | MUST | The mechanisms are the policy's for the scheme and TLS state, `AMQPLAIN` right after `PLAIN`, then `ANONYMOUS` under `--allow-anonymous`; under `--allow-anonymous` `PLAIN` and `AMQPLAIN` are offered on every transport and not checked. | `Amqp0BrokerTests.ServeAsync_PlainLogin_OpensTheConnectionAndAnswersCloseWithCloseOk`, `ServeAsync_OffersAnonymous_OffersItLastAndAcceptsItAtOnce`, `ServeAsync_PolicyOffersAnonymousItself_OffersItOnce`; offering and accepting `PLAIN` unchecked under `--allow-anonymous` is the shared policy's (`Surl.Authentication`, `AnonymousAuthenticationPolicy`) |
+| Amqp0:Connection-start-ok-1 | MUST | A mechanism not offered closes the connection without any further data (rule `start-ok`/`mechanism`). | `Amqp0BrokerTests.ServeAsync_MechanismNotOffered_ClosesWithNoFurtherBytes` |
+| Amqp0:Surl-Login-2 | MUST | `PLAIN` is RFC 4616's response, an `authzid` other than empty or the `authcid` refused; `AMQPLAIN` is a field table's contents without its size, holding `LOGIN` and `PASSWORD`. | `Amqp0BrokerTests.ServeAsync_AmqplainLogin_GoesToThePolicyAsPlainAndOpens`, `ServeAsync_MalformedAmqplain_IsClosedWith403WithoutAskingThePolicy`, `Amqp0ConnectionStartOkTests.ToPlainResponse_LoginAndPassword_IsNulLoginNulPassword`, `ToPlainResponse_AnyOtherShape_IsNull`; the `authzid` rule is `Surl.Authentication`'s `PlainSaslExchange` |
+| Amqp0:Connection-secure-1 | MUST | A challenge mechanism runs as `connection.secure` and `secure-ok` until the policy decides; a final server message is one more `secure`. | `Amqp0BrokerTests.ServeAsync_ChallengeMechanism_RunsSecureAndSecureOkUntilAccepted`, `ServeAsync_RefusedAfterSecureOk_IsClosedWith403NamingSecureOk`, `ServeAsync_ClientGoneDuringSecure_ClosesWithNoFurtherBytes` |
+| Amqp0:Surl-Login-3 | MUST | A refused login, after the policy's delay, is `connection.close` 403 with fixed text naming neither account nor cause, then the close of decision 7. | `Amqp0BrokerTests.ServeAsync_WrongPassword_IsClosedWith403NamingStartOk`, `ServeAsync_RefusedAfterSecureOk_IsClosedWith403NamingSecureOk` (the delay is the policy's) |
+| Amqp0:Surl-Login-4 | MUST | A frame other than the one due before `open-ok`, or on a channel other than 0, closes the connection with no bytes. | `Amqp0BrokerTests.ServeAsync_FaultBeforeStartOk_ClosesWithNoFurtherBytes`, `ServeAsync_HeartbeatDuringNegotiation_IsSkipped` |
+| Amqp0:Connection-tune-1 | MUST | `connection.tune` offers `channel-max` 256, `frame-max` 131072 or `--max-message` when smaller (never below 4096), and `heartbeat` half of `--idle-timeout` in seconds, 0 without one. | `Amqp0BrokerTests.ServeAsync_PlainLogin_OpensTheConnectionAndAnswersCloseWithCloseOk`, `Amqp0BrokerOptionsTests.OfferedHeartbeatSeconds_IsHalfTheIdleTimeout`, `Amqp0FrameLimitsTests` |
+| Amqp0:Connection-tune-ok-1 | MUST | A `tune-ok` `channel-max` or `frame-max` above the broker's, or a nonzero `frame-max` below 4096, closes the connection without a negotiated close; 0 means the broker's value. | `Amqp0BrokerTests.ServeAsync_TuneOkAboveTheMaximums_ClosesWithNoFurtherBytes`, `ServeAsync_TuneOkFrameMax_BoundsTheFramesRead` |
+| Amqp0:Connection-tune-ok-2 | MUST | The client's `heartbeat` is the interval, 0 meaning none. | `Amqp0BrokerTests.ServeAsync_HeartbeatNegotiated_IsSentAfterTheIntervalWithNothingWritten` |
+| Amqp0:Wire-4.2.7-2 | MUST | With interval `h` the broker sends a heartbeat whenever it has written nothing for `h` seconds, on the injected `TimeProvider`. | `Amqp0BrokerTests.ServeAsync_HeartbeatNegotiated_IsSentAfterTheIntervalWithNothingWritten`, `ServeAsync_HeartbeatWriteStalledWhenTheConnectionEnds_IsCancelledAndAwaited` |
+| Amqp0:Wire-4.2.7-3 | MUST | A peer silent for two intervals is closed without `connection.close`. | `Amqp0BrokerTests.ServeAsync_PeerSilentForTwoIntervals_IsClosedWithoutConnectionClose`, `ServeAsync_PeerSilentForTwoIntervalsBeforeOpen_ClosesWithNoFurtherBytes` |
+| Amqp0:Surl-Idle-1 | MUST | No frame for `--idle-timeout` is `connection.close` 320, heartbeats or not. | BL-743 |
+| Amqp0:Connection-open-1 | MUST | `connection.open` of `/` is answered `open-ok`; any other virtual host, the empty one included, is `connection.close` 530 without echoing the name. | `Amqp0BrokerTests.ServeAsync_PlainLogin_OpensTheConnectionAndAnswersCloseWithCloseOk`, `ServeAsync_UnknownVirtualHost_IsClosedWith530NamingOpen` |
+| Amqp0:Connection-close-1 | MUST | A client's `connection.close` is answered `close-ok`; its channels end, outstanding deliveries going back to their queues. | `Amqp0BrokerTests.ServeAsync_PlainLogin_OpensTheConnectionAndAnswersCloseWithCloseOk` (`close-ok`); ending the channels and their deliveries BL-506 |
 
 ## Channels and exceptions (XML class `channel`, reply-code constants; ADR-0112 decision 7)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | Amqp0:Channel-open-1 | MUST | `channel.open` on a free channel up to the negotiated `channel-max` is answered `open-ok`; on an open channel, or above `channel-max`, connection exception 504. | BL-506 |
-| Amqp0:Surl-Channel-1 | MUST | A method on a channel not open is connection exception 504. | BL-505 |
+| Amqp0:Surl-Channel-1 | MUST | A method on a channel not open is connection exception 504. | `Amqp0BrokerTests.ServeAsync_MethodOnUnopenedChannel_IsClosedWith504`, `ServeAsync_UndecodableFrameOnUnopenedChannel_IsClosedWith504NamingNoMethod` |
 | Amqp0:Channel-close-1 | MUST | A client's `channel.close` is answered `close-ok`, its consumers ended and its outstanding deliveries requeued, marked redelivered. | BL-506 |
 | Amqp0:Surl-Exception-1 | MUST | A channel exception is `channel.close` with code, fixed text, class and method; the broker then discards the channel's frames other than `close-ok` and `close`. | BL-506 |
-| Amqp0:Surl-Exception-2 | MUST | A connection exception is `connection.close`; the broker discards frames other than `close-ok` and `close` and closes on one of them or after one second. | BL-505 |
-| Amqp0:Surl-Exception-3 | MUST | A method only a client receives is 503; a class or method not served (`exchange.bind`, other extensions; `tx` and `confirm` until BL-731) is 540. | BL-505 |
-| Amqp0:Surl-Exception-4 | MUST | Every reply text is the code's name and a fixed phrase, never a name, key, account, path or exception text. | BL-505 |
+| Amqp0:Surl-Exception-2 | MUST | A connection exception is `connection.close`; the broker discards frames other than `close-ok` and `close` and closes on one of them or after one second. | `Amqp0BrokerTests.ServeAsync_AfterBrokerClose_DiscardsFramesAndAnswersTheClientsCloseWithCloseOk`, `ServeAsync_NoCloseOkWithinOneSecond_EndsTheConnection` |
+| Amqp0:Surl-Exception-3 | MUST | A method only a client receives is 503; a class or method not served (`exchange.bind`, other extensions; `tx` and `confirm` until BL-731) is 540. | `Amqp0BrokerTests.ServeAsync_OtherMethodOnChannelZero_IsClosedWith503` (503 on channel 0); 540 on an open channel BL-506 |
+| Amqp0:Surl-Exception-4 | MUST | Every reply text is the code's name and a fixed phrase, never a name, key, account, path or exception text. | Every `connection.close` the broker sends is pinned byte for byte, text included, in `Amqp0BrokerTests` (403, 501, 502, 503, 504, 505, 530); channel exceptions BL-506 |
 | Amqp0:Channel-flow-1 | MUST | A client's `channel.flow` `active` 0 stops deliveries on that channel and 1 resumes them, answered `flow-ok` with the same bit; the broker never sends `channel.flow`. | BL-506 |
 
 ## Exchanges (XML class `exchange`; section 3.1.3; ADR-0112 decision 5)
@@ -136,8 +136,8 @@ specification leaves the broker a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Amqp0:Surl-Limits-1 | MUST | No `open-ok` by `--head-timeout` after accept closes the connection with no bytes. | BL-505 |
-| Amqp0:Surl-Limits-2 | MUST | `--max-time` and the connection limits close with `connection.close` 320 once `open-ok` was sent, otherwise with no bytes. | BL-505 |
+| Amqp0:Surl-Limits-1 | MUST | No `open-ok` by `--head-timeout` after accept closes the connection with no bytes. | `Amqp0BrokerTests.ServeAsync_NoOpenWithinTheHeadTimeout_ClosesWithNoFurtherBytes` |
+| Amqp0:Surl-Limits-2 | MUST | `--max-time` and the connection limits close with `connection.close` 320 once `open-ok` was sent, otherwise with no bytes. | BL-743 (no bytes before `open-ok`: `Amqp0BrokerTests.ServeAsync_ExchangeCancelledDuringNegotiation_Throws`) |
 | Amqp0:Surl-Limits-3 | MUST | Partly read content of one connection past `--max-filesize` is connection exception 506. | BL-506 |
 | Amqp0:Surl-Limits-4 | MUST | Past 1000 declared exchanges, 100000 broker bindings, the bus's queue or subscription bounds, the broker answers connection exception 506. | BL-506 |
 | Amqp0:Surl-Tls-1 | MUST | `amqps` carries the same protocol inside implicit TLS (TLS 1.2 or 1.3) from the first byte. | n/a: the TLS wrapper is the composition's `ImplicitTlsSchemeServer` (ADR-0010), added by BL-507, not the broker's |
