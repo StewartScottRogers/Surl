@@ -1,5 +1,5 @@
 ---
-id: BL-547
+id: BL-575
 title: Add the --auth words scram-sha-1 and scram-sha-256 to Surl.Console
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-547 — Add the --auth words scram-sha-1 and scram-sha-256 to Surl.Console
+# BL-575 — Add the --auth words scram-sha-1 and scram-sha-256 to Surl.Console
 
 ## Goal
 

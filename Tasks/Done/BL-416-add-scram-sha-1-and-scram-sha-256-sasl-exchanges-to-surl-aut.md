@@ -52,14 +52,14 @@ server) can offer them for accounts in the accounts file.
 
 ## Notes
 
-Decided by Claude under Stewart's delegation. The ADR follows in BL-546: `Documentation/Planning/Decisions`
+Decided by Claude under Stewart's delegation. The ADR follows in BL-574: `Documentation/Planning/Decisions`
 was in BL-358's `touches` while this ran, so no ADR was written here.
 
 - Where: `ScramSaslExchange` (one class over `ScramHash.Sha1` / `ScramHash.Sha256`), `ScramClientFirstMessage`,
   `ScramClientFinalMessage`, `ScramCredentials`, `SaslPrep`, `AccountBook.FindScramCredentials`. Reached
   through `ISaslAuthenticationPolicy` as ADR-0084 decision 4 says; no contract changed.
 - `AuthenticationMethod` gains `ScramSha256` and `ScramSha1`, offered after GSSAPI and before DIGEST-MD5
-  (strongest first). Neither is in `DefaultAccepted`, and `Surl.Console` has no `--auth` word yet (BL-547),
+  (strongest first). Neither is in `DefaultAccepted`, and `Surl.Console` has no `--auth` word yet (BL-575),
   so no original server's offer or bytes change.
 - No `-PLUS` mechanism, so no channel binding: GS2 flag `n` and `y` accepted, `p=` refused
   `channel-binding-not-supported`, `m=` `extensions-not-supported` (RFC 5802 sections 6, 7).
@@ -83,7 +83,7 @@ was in BL-358's `touches` while this ran, so no ADR was written here.
 - Measured: `Measure-CodeQuality.ps1 -Library Surl.Authentication.UnitLibrary` gives 100% line and
   branch; its one failing member, `GssapiSaslExchange.ServiceOf` (Cobertura complexity 12), predates
   this task. Full `dotnet build -warnaserror` clean, fast tests green (Surl.Authentication.UnitTests: 978 passed, 50 of them new).
-- Filed: BL-546 (the ADR), BL-547 (the `--auth` words).
+- Filed: BL-574 (the ADR), BL-575 (the `--auth` words).
 
 ## Log
 

@@ -1,5 +1,5 @@
 ---
-id: BL-546
+id: BL-574
 title: Record the SCRAM SASL decisions of BL-416 in an ADR
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-546 — Record the SCRAM SASL decisions of BL-416 in an ADR
+# BL-574 — Record the SCRAM SASL decisions of BL-416 in an ADR
 
 ## Goal
 
