@@ -130,6 +130,10 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`Surl.Networking`'s `SocketDataConnectionOpener` in `surl`, ADR-0052 decision 9), and serves
   (`ComposedServing.ServeAsync`). `CommandLineRunner` writes ADR-0007 section 5's texts and
   returns its exit codes.
+- `CommandLineRunner` hands the parser its `configFiles` seam (ADR-0101 decision 1, BL-644):
+  `DiskConfigFileSource` in `surl`, which reads each `-K` file from the disk (at most the bytes the
+  parser asks for), `-K -` from standard input, and names a file by its full path, upper-cased
+  except on Linux, for the parser's cycle check; a file it cannot open is the parser's `(37)`.
 - `LogStreams` opens the log stream (stderr, or `--log-file`, appended, `-` for stdout)
   and the trace file (truncated, `-` for stdout) once TLS is composed and before any
   listener binds, through the runner's `openLogFile` seam (`LogFile.Open` in `surl`); a

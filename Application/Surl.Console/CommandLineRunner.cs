@@ -65,6 +65,11 @@ namespace Surl.Console;
 /// while <c>SURL_EXTENSIONS=0</c>; <see cref="ExtendedProtocolServers.Compose"/> when
 /// <see langword="null"/>, which is what <c>surl</c> passes.
 /// </param>
+/// <param name="configFiles">
+/// Reads each <c>-K</c>/<c>--config</c> file while the command line is parsed (ADR-0101 decision 1);
+/// a <see cref="DiskConfigFileSource"/> over the disk and standard input when <see langword="null"/>,
+/// which is what <c>surl</c> passes.
+/// </param>
 internal sealed class CommandLineRunner(
     Func<ServerTlsSettings?, IListenerFactory> createListenerFactory,
     Func<string, bool> canOpenDataDirectory,
@@ -75,8 +80,12 @@ internal sealed class CommandLineRunner(
     Func<string, byte[]>? readStartFile = null,
     Func<ServerTlsSettings?, IDataConnectionOpener>? createDataConnectionOpener = null,
     IEnvironmentVariableReader? environmentVariables = null,
-    Func<ExtendedProtocolServerServices, IReadOnlyList<IProtocolServer>>? composeExtendedProtocolServers = null)
+    Func<ExtendedProtocolServerServices, IReadOnlyList<IProtocolServer>>? composeExtendedProtocolServers = null,
+    IConfigFileSource? configFiles = null)
 {
+    // -K/--config files are read while parsing (ADR-0101 decision 1).
+    private readonly IConfigFileSource configFiles = configFiles ?? new DiskConfigFileSource(System.Console.OpenStandardInput, fileNamesIgnoreCase: !OperatingSystem.IsLinux());
+
     private const string MessagePrefix = "surl: ";
 
     // SURL_EXTENSIONS is read once, here, by the host (ADR-0083, decision 6; ADR-0099, decision 2).
@@ -105,7 +114,7 @@ internal sealed class CommandLineRunner(
     public async Task<SurlExitCode> RunAsync(
         IReadOnlyList<string> args, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
-        var parsed = CommandLineParser.Parse(args, ComposeExtendedSchemes());
+        var parsed = CommandLineParser.Parse(args, ComposeExtendedSchemes(), configFiles);
 
         return parsed.Outcome switch
         {

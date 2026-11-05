@@ -106,6 +106,10 @@ public sealed class CommandLineRunnerAiHelpTests
         _ => throw new FileNotFoundException(path),
     };
 
+    // The file AiHelpExamplePrecondition.ConfigFileExists names.
+    private static readonly FakeConfigFileSource ConfigFileAsThePreconditionSays =
+        new(new Dictionary<string, string> { ["surl.cfg"] = "url = http://127.0.0.1:0/\n" });
+
     private static string[] SplitLines(string text) =>
         text.Length == 0 ? [] : text.TrimEnd('\n').Split('\n').Select(line => line.TrimEnd('\r')).ToArray();
 
@@ -122,7 +126,8 @@ public sealed class CommandLineRunnerAiHelpTests
                 DataDirectoryProbe.CanOpen,
                 path => TakeLockAsThePreconditionSays(example.Precondition, path),
                 TimeProvider.System,
-                readStartFile: ReadStartFileAsThePreconditionSays)
+                readStartFile: ReadStartFileAsThePreconditionSays,
+                configFiles: ConfigFileAsThePreconditionSays)
             .RunAsync(Substitute(example.Arguments, dataDirectory), output, error, stop.Token);
         if (example.ServesUntilStopped)
         {
