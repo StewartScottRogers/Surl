@@ -57,3 +57,4 @@ says.
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; subscriptions are Surl.MessageBus's.
 - 2026-11-05: Amended by BL-524: waits on BL-706 (the `nats` native form keeps HPUB headers byte for byte, ADR-0113 decision 4).
+- 2026-11-05: Backlog -> Doing.
