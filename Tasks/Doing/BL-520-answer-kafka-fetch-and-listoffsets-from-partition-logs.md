@@ -51,3 +51,4 @@ limits, the high watermark and last stable offset, and `OFFSET_OUT_OF_RANGE` pas
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: fetches read Surl.MessageBus's topic logs.
+- 2026-11-05: Backlog -> Doing.
