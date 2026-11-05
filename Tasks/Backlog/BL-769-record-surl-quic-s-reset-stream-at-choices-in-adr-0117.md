@@ -1,5 +1,5 @@
 ---
-id: BL-765
+id: BL-769
 title: Record Surl.Quic's RESET_STREAM_AT choices in ADR-0117
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-765 — Record Surl.Quic's RESET_STREAM_AT choices in ADR-0117
+# BL-769 — Record Surl.Quic's RESET_STREAM_AT choices in ADR-0117
 
 ## Goal
 

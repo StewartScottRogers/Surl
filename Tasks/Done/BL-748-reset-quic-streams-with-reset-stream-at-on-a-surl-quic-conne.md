@@ -52,7 +52,7 @@ sends exactly what it sends today.
   `RESET_STREAM_AT` is frame type 0x24 {Stream ID, Application Protocol Error Code, Final Size, Reliable
   Size}, application data space only; Reliable Size > Final Size is `FRAME_ENCODING_ERROR`; a larger
   Reliable Size later is ignored, another error code is `STREAM_STATE_ERROR`; `RESET_STREAM` equals Reliable Size 0.
-- Choices (decided by Claude under Stewart's delegation; the ADR text is BL-765, because BL-557 held
+- Choices (decided by Claude under Stewart's delegation; the ADR text is BL-769, because BL-557 held
   `Documentation/Planning/Decisions` in Doing):
   - Option `QuicServerConnectionOptions.ResetStreamAt`, false by default. The frame is *sent* only when it is
     set and the client sent the parameter; otherwise `QuicStream.ResetAt` is a plain `RESET_STREAM` (the
