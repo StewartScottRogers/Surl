@@ -12,6 +12,10 @@ it uses the name in the "Name in code" column. "Not yet" means Phase 1 or later 
 | the Curl port | Stewart's C# port of curl, https://github.com/StewartScottRogers/Curl. Measured against Surl in the last phase; never used to validate Surl (ADR-0003). Always "the Curl port", never bare "Curl" when it could be misread. | — |
 | pinned upstream build | An upstream curl executable identified by its SHA-256 in `UpstreamCurlBuilds.json`. The only kind of curl Surl's tools run. | `UpstreamCurlBuilds.json`, `Assert-PinnedUpstreamCurl` |
 | reference release | The upstream curl release Surl is measured against: 8.21.0, released 2026-06-24, the release the Curl port targets. | — |
+| original protocol | A protocol upstream curl speaks, served by a `Surl.Protocol.<Name>` server and measured only against pinned upstream curl (ADR-0003). | `Surl.Protocol.*` |
+| extended protocol | A protocol the Curl port adds beyond upstream curl, listed in the port's `Documentation/Protocols.md`, "Extended protocols" (S3, Redis, MQTT 5 and the rest). Judged by its own specification, not by upstream curl (ADR-0083). | — |
+| extended server | The Surl server for one extended protocol, `Surl.Extended.Protocol.<Name>`. Isolated from the original servers, turned off with every other extended server by `SURL_EXTENSIONS=0`; the Curl port's pinned client may run against it only in `Integration` tests, never as proof (ADR-0083). | `Surl.Extended.Protocol.*`, `SURL_EXTENSIONS` |
+| Curl port client pin | The Curl port's `curl` executable identified by its SHA-256 (and the port commit it was published from) in `CurlPortBuilds.json`, the only port binary an extended server's integration test runs. Never listed in `UpstreamCurlBuilds.json`. | `CurlPortBuilds.json` |
 
 ## Serving
 

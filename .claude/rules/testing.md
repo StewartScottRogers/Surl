@@ -32,6 +32,10 @@ paths:
 - Protocol tests must not need `Integration`: drive the protocol server through a hand-written fake
   `IConnection` replaying request bytes measured from pinned upstream curl - never bytes
   from the Curl port (ADR-0003). Needing a live client means the seam is in the wrong
-  place.
+  place. The one exception is the extended servers, `Surl.Extended.Protocol.*` (ADR-0083):
+  their fakes replay bytes written from the protocol's specification and its examples
+  (upstream curl cannot speak those schemes), and the Curl port's pinned client may run
+  against them only in `Integration` tests in `Surl.Conformance.UnitTests`, never as the
+  source of an expected value.
 - No `Thread.Sleep`; use fakes for time (`TimeProvider`).
 - A bug fix starts with a failing test that reproduces it.

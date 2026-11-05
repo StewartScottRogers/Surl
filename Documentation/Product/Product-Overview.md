@@ -78,11 +78,15 @@ is decided in
 ## Non-goals
 
 - **Validating Surl against anything but upstream curl.** Not the Curl port, not another
-  server, not a specification read in isolation from what curl actually sends.
+  server, not a specification read in isolation from what curl actually sends. The one
+  exception is the extended servers (ADR-0083), which upstream curl cannot speak to: each
+  is judged by its own specification.
 - **Beating dedicated servers on throughput.** Fidelity to what upstream curl expects is
   the target, not nginx's request rate.
-- **Protocols upstream curl does not request.** Surl answers curl; a protocol curl cannot
-  speak has no mate to be.
+- **Protocols upstream curl does not request**, except the Curl port's extended protocols
+  (ADR-0083, Stewart 2026-11-04), served on a parallel "Extended servers" track and turned
+  off with `SURL_EXTENSIONS=0`. Otherwise Surl answers curl; a protocol curl cannot speak has
+  no mate to be.
 - **A managed NuGet API.** The `surl` executable is the only product; its libraries are
   implementation, not a published API, and no package is shipped (Stewart, 2026-09-28).
 

@@ -29,6 +29,14 @@ bake the port's defects into Surl, and the later check of the port would then pa
 exactly those defects. Copying *code* from the port is allowed where it saves work, because
 code is not a verdict; every expected result still comes from upstream curl.
 
+One narrow exception (Stewart, 2026-11-04; ADR-0083): the extended servers,
+`Surl.Extended.Protocol.*`, answer schemes the Curl port adds and upstream curl does not
+have. Each is judged by its protocol's specification, its unit tests replay bytes written
+from that specification, and the port's client - pinned by SHA-256 in `CurlPortBuilds.json`,
+never in `UpstreamCurlBuilds.json` - may connect to it as a live client in `Integration`
+tests only. Its output is never proof, an expected value or ADR evidence, and it is never a
+test client for an original protocol. `SURL_EXTENSIONS=0` turns every extended server off.
+
 Upstream curl is identified by file, never by name. On Stewart's machine a bare `curl` is
 `Invoke-WebRequest` in Windows PowerShell and an older WinGet build of curl elsewhere, and
 the Curl port reports upstream's own version number on purpose. `UpstreamCurlBuilds.json`
