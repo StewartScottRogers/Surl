@@ -47,3 +47,4 @@ the connection with the RFC's error codes.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
