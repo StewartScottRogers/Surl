@@ -64,6 +64,30 @@ public sealed class ExchangeContextTests
         Assert.AreEqual(expected, context.IsCancelledForALimit);
     }
 
+    [TestMethod]
+    public void RemoteEndPoint_UnnamedUnixSocketPeer_IsAUnixPeerWithNoIpAddress()
+    {
+        var listenUrl = new ListenUrl("http", "localhost", 80)
+        {
+            UnixSocket = new UnixSocketAddress("/tmp/surl.sock", false),
+        };
+
+        var context = new ExchangeContext(
+            1,
+            listenUrl,
+            new IPEndPoint(IPAddress.Loopback, 80),
+            UnnamedUnixSocketPeer.Instance,
+            new RecordingExchangeLog(),
+            TimeProvider.System,
+            CancellationToken.None);
+
+        Assert.AreSame(UnnamedUnixSocketPeer.Instance, context.RemoteEndPoint);
+        Assert.AreEqual(System.Net.Sockets.AddressFamily.Unix, context.RemoteEndPoint.AddressFamily);
+        Assert.IsNotInstanceOfType<IPEndPoint>(context.RemoteEndPoint);
+        Assert.AreEqual("unix peer", context.RemoteEndPoint.ToString());
+        Assert.AreEqual("http", context.Scheme);
+    }
+
     private static ExchangeContext NewContext() => NewContext(CancellationToken.None);
 
     private static ExchangeContext NewContext(CancellationToken cancellationToken) => new(

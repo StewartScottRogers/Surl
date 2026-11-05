@@ -20,6 +20,14 @@ public sealed record ListenUrl(string Scheme, string Host, int Port)
     public int? BoundPort { get; init; }
 
     /// <summary>
+    /// The Unix domain socket to listen on instead of a TCP port, or <see langword="null"/> to
+    /// listen on <see cref="Host"/> and <see cref="Port"/> (ADR-0094, decision 6). When it is set,
+    /// <see cref="Host"/> and <see cref="Port"/> are only what the server expects in the requests
+    /// it reads, nothing is bound on them, and <see cref="BoundPort"/> stays unset.
+    /// </summary>
+    public UnixSocketAddress? UnixSocket { get; init; }
+
+    /// <summary>
     /// Returns a copy of this listen URL with <see cref="BoundPort"/> set. The listener calls
     /// it once it has bound.
     /// </summary>

@@ -43,6 +43,8 @@ public sealed class ListenerBindException : Exception
     {
         ArgumentNullException.ThrowIfNull(listenUrl);
 
-        return $"Could not listen on {listenUrl.Scheme}://{listenUrl.Host}:{listenUrl.Port}: {failure}.";
+        var over = listenUrl.UnixSocket is { } unixSocket ? $" over {unixSocket.UnixUrl}" : string.Empty;
+
+        return $"Could not listen on {listenUrl.Scheme}://{listenUrl.Host}:{listenUrl.Port}{over}: {failure}.";
     }
 }

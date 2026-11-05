@@ -35,6 +35,21 @@ public sealed class ListenerBindExceptionTests
     }
 
     [TestMethod]
+    [DataRow(false, "Could not listen on http://localhost:80 over unix:///tmp/surl.sock: UnixSocketPathTooLong.")]
+    [DataRow(true, "Could not listen on http://localhost:80 over unix://@/tmp/surl.sock: UnixSocketPathTooLong.")]
+    public void Message_UnixSocket_NamesTheSocketInCurlsWords(bool isAbstract, string expected)
+    {
+        var listenUrl = new ListenUrl("http", "localhost", 80)
+        {
+            UnixSocket = new UnixSocketAddress("/tmp/surl.sock", isAbstract),
+        };
+
+        var exception = new ListenerBindException(listenUrl, null, ListenerBindFailure.UnixSocketPathTooLong, null);
+
+        Assert.AreEqual(expected, exception.Message);
+    }
+
+    [TestMethod]
     public void Constructor_NullListenUrl_Throws()
     {
         Assert.ThrowsExactly<ArgumentNullException>(

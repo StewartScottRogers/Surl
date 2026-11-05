@@ -30,6 +30,29 @@ public sealed class ListenUrlTests
     }
 
     [TestMethod]
+    public void UnixSocket_NewListenUrl_IsNull()
+    {
+        var listenUrl = new ListenUrl("http", "localhost", 80);
+
+        var unixSocket = listenUrl.UnixSocket;
+
+        Assert.IsNull(unixSocket);
+    }
+
+    [TestMethod]
+    public void UnixSocket_Set_KeepsHostAndPortAndTakesPartInEquality()
+    {
+        var address = new UnixSocketAddress("/tmp/surl.sock", false);
+
+        var listenUrl = new ListenUrl("http", "localhost", 80) { UnixSocket = address };
+
+        Assert.AreSame(address, listenUrl.UnixSocket);
+        Assert.AreEqual("localhost", listenUrl.Host);
+        Assert.IsNull(listenUrl.BoundPort);
+        Assert.AreNotEqual(new ListenUrl("http", "localhost", 80), listenUrl);
+    }
+
+    [TestMethod]
     public void BoundPort_NewListenUrl_IsNull()
     {
         var listenUrl = new ListenUrl("http", "localhost", 0);

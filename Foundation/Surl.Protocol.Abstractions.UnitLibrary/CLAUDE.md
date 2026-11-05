@@ -6,7 +6,11 @@ context) is their specification; where this file and the ADR disagree, the ADR w
 What it holds:
 
 - `SurlExitCode` - the exit codes the `surl` process returns.
-- `ListenUrl` - what `surl` was asked to listen on, with `BoundPort` once a listener has bound.
+- `ListenUrl` - what `surl` was asked to listen on, with `BoundPort` once a listener has bound,
+  and `UnixSocket`, a `UnixSocketAddress` (a path, or a Linux abstract name, with its
+  `unix://` form) to listen on instead of a TCP port (ADR-0094, decision 6). A connection from
+  a Unix socket client that bound no name has `UnnamedUnixSocketPeer.Instance` (`unix peer`)
+  as its remote endpoint.
 - The transports a protocol server receives: `IConnection` (stream-oriented) and
   `IDatagramFlow` (TFTP, and HTTP/3 over QUIC).
 - The protocol server contracts: `IProtocolServer`, `IConnectionProtocolServer` and
