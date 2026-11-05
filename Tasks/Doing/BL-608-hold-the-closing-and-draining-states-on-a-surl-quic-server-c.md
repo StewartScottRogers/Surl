@@ -38,3 +38,4 @@ limited rate; after the client's `CONNECTION_CLOSE` it drains for the same time 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
