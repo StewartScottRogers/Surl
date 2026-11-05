@@ -54,3 +54,4 @@ It honours the three ack modes, NACK, receipts, transactions and DISCONNECT, and
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; destinations are Surl.MessageBus's topics and queues.
+- 2026-11-05: Backlog -> Doing.
