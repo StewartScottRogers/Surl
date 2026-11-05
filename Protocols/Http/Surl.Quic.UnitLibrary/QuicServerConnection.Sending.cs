@@ -201,6 +201,7 @@ public sealed partial class QuicServerConnection
             var sealedPacket = SealPacket(space, frames, packetNumber);
             datagram.AddRange(sealedPacket);
             NoteAckElicitingSent(frames);
+            NoteOneRttAckSent(space, frames);
             RecordSent(space, packetNumber, frames, sealedPacket.Length);
         }
 
@@ -215,6 +216,15 @@ public sealed partial class QuicServerConnection
         {
             ackElicitingSentSinceLastReceive = true;
             lastActivity = timeProvider.GetUtcNow();
+        }
+    }
+
+    /// <summary>A 1-RTT packet carrying an ACK lets the client update its keys again (RFC 9001 section 6.1).</summary>
+    private void NoteOneRttAckSent(QuicPacketNumberSpace space, List<QuicFrame> frames)
+    {
+        if (space == application && frames.Exists(frame => frame is QuicAckFrame))
+        {
+            oneRttKeyPhase!.NoteAckSent();
         }
     }
 
@@ -248,7 +258,7 @@ public sealed partial class QuicServerConnection
 
         var truncated = QuicPacketNumber.Truncate(packetNumber, packetNumberLength);
         return space.PacketType == QuicPacketType.OneRtt
-            ? new QuicShortHeaderPacket(clientConnectionId, false, false, packetNumberLength, truncated, payload)
+            ? new QuicShortHeaderPacket(clientConnectionId, false, oneRttKeyPhase!.KeyPhase, packetNumberLength, truncated, payload)
             : new QuicLongHeaderPacket(space.PacketType, clientConnectionId, serverConnectionId, ReadOnlyMemory<byte>.Empty, packetNumberLength, truncated, payload);
     }
 

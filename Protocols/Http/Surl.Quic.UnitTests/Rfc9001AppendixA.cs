@@ -131,6 +131,9 @@ internal static class Rfc9001AppendixA
     /// <summary>A.5: the ChaCha20 header-protection key.</summary>
     public const string ChaChaHeaderProtectionKey = "25a282b9e82f06f21f488917a4fc8f1b73573685608597d0efcb076b0ab7a7a4";
 
+    /// <summary>A.5: the next key phases secret, HKDF-Expand-Label(secret, "quic ku", "", 32).</summary>
+    public const string ChaChaKeyUpdateSecret = "1223504755036d556342ee9361d253421a826c9ecdf3c7148684b36b714881f9";
+
     /// <summary>A.5: the packet number, sent in 3 bytes as 49140.</summary>
     public const ulong ChaChaPacketNumber = 654360564;
 

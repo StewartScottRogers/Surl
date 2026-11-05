@@ -1,6 +1,6 @@
 namespace Surl.Quic;
 
-/// <summary>The outcome of <see cref="QuicPacketProtection.Unprotect"/> for one packet.</summary>
+/// <summary>The outcome of <see cref="QuicPacketProtection.Unprotect(ReadOnlyMemory{byte}, int, ulong)"/> for one packet.</summary>
 /// <param name="Status">Whether the packet opened.</param>
 /// <param name="Packet">
 /// When <paramref name="Status"/> is <see cref="QuicUnprotectStatus.Unprotected"/>, the packet in

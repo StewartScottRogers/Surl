@@ -1,6 +1,6 @@
 namespace Surl.Quic;
 
-/// <summary>What became of a packet <see cref="QuicPacketProtection.Unprotect"/> was given.</summary>
+/// <summary>What became of a packet <see cref="QuicPacketProtection.Unprotect(ReadOnlyMemory{byte}, int, ulong)"/> was given.</summary>
 public enum QuicUnprotectStatus
 {
     /// <summary>The packet opened: its header and payload are in the clear.</summary>

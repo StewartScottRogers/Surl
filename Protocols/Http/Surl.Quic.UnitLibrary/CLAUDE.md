@@ -5,7 +5,7 @@ Phase 6.
 QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
-loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), and `RESET_STREAM_AT` (BL-748); key updates come with BL-606, the client's spare connection IDs with BL-607 and
+loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), `RESET_STREAM_AT` (BL-748), and following the client's key updates (BL-606); the client's spare connection IDs come with BL-607 and
 the closing and draining periods with BL-608.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
@@ -41,6 +41,7 @@ the closing and draining periods with BL-608.
   recovery period, the minimum on persistent congestion (judged on one space's losses); ACK-only
   packets are outside the window, and an ack-eliciting Initial waits for a datagram the window and
   the amplification limit let reach 1200 bytes. Spaces whose keys go are forgotten (section 6.4).
+- Key updates (BL-606, RFC 9001 section 6, ADR-0082 decision 4): the server follows the client's and never starts one. The internal `QuicKeyPhase` holds the key phase bit every 1-RTT packet sent carries, the client's next keys made in advance (the next secret is HKDF-Expand-Label(secret, `quic ku`, "", hash length), `QuicPacketProtection.NextTrafficSecret`; `ForNextKeyPhase` keeps the header-protection key), and its previous keys, kept until the next update to open late packets of the old phase (numbered below the packet that started the current one). A packet in the other phase numbered from that packet on opens with the next keys and, once it opens, switches both directions to them. A key update before the server has sent an `ACK` in the current phase - the first update too, since a client may only update once a packet of its phase is acknowledged (section 6.1) - ends the connection `KEY_UPDATE_ERROR` (section 6.2). A packet in the other phase that does not open is dropped and the keys stay.
 - `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
   `QuicServerConnectionOptions.MaxDatagramFrameSize` is set; then `max_datagram_frame_size` (0x20) is
   sent, and each `QuicDatagramFrame` (type `0x30` to the end of the packet, `0x31` with a Length) the
@@ -133,7 +134,7 @@ the closing and draining periods with BL-608.
 - `QuicRetryIntegrity` - RFC 9001 section 5.8: computes and checks a Retry's integrity tag.
 - `QuicReader`, `QuicWriter`, `QuicFrameTypes`, `QuicPacketHeaderBits`, `QuicConnectionIds`,
   `QuicPacketNumberSpace`, `QuicReceivedPacketNumbers`, `QuicCryptoReassembly`, `QuicOrderedBytes`, `QuicStreams`,
-  `QuicSentPacket`, `QuicLossDetection`, `QuicRttEstimator`, `QuicCongestionController` and the
+  `QuicSentPacket`, `QuicLossDetection`, `QuicRttEstimator`, `QuicCongestionController`, `QuicKeyPhase` and the
   `QuicPacketCipher` classes are internal, visible to `Surl.Quic.UnitTests` only.
 
 Malformed input throws `QuicTransportException`; byte strings read are slices of the input, not

@@ -57,13 +57,27 @@ public sealed class QuicPacketProtection : IDisposable
     public static QuicPacketProtection FromTrafficSecret(TlsCipherSuite cipherSuite, ReadOnlySpan<byte> trafficSecret)
     {
         var hash = TlsKeySchedule.HashAlgorithmOf(cipherSuite);
-        var keyLength = cipherSuite == TlsCipherSuite.Aes128GcmSha256 ? 16 : 32;
+        return FromTrafficSecret(cipherSuite, trafficSecret, TlsKeySchedule.ExpandLabel(hash, trafficSecret, "quic hp", [], KeyLength(cipherSuite)));
+    }
+
+    /// <summary>The traffic secret of the next key phase: HKDF-Expand-Label(secret, "quic ku", "", hash length) (RFC 9001 section 6.1).</summary>
+    internal static byte[] NextTrafficSecret(TlsCipherSuite cipherSuite, ReadOnlySpan<byte> trafficSecret) =>
+        TlsKeySchedule.ExpandLabel(TlsKeySchedule.HashAlgorithmOf(cipherSuite), trafficSecret, "quic ku", [], trafficSecret.Length);
+
+    /// <summary>The protection of the next key phase: the AEAD key and IV of <paramref name="nextTrafficSecret"/>, and this protection's header-protection key, which a key update does not change (RFC 9001 section 6.1).</summary>
+    internal QuicPacketProtection ForNextKeyPhase(ReadOnlySpan<byte> nextTrafficSecret) => FromTrafficSecret(CipherSuite, nextTrafficSecret, headerProtectionKey);
+
+    private static QuicPacketProtection FromTrafficSecret(TlsCipherSuite cipherSuite, ReadOnlySpan<byte> trafficSecret, byte[] headerProtectionKey)
+    {
+        var hash = TlsKeySchedule.HashAlgorithmOf(cipherSuite);
         return new QuicPacketProtection(
             cipherSuite,
-            TlsKeySchedule.ExpandLabel(hash, trafficSecret, "quic key", [], keyLength),
+            TlsKeySchedule.ExpandLabel(hash, trafficSecret, "quic key", [], KeyLength(cipherSuite)),
             TlsKeySchedule.ExpandLabel(hash, trafficSecret, "quic iv", [], IvLength),
-            TlsKeySchedule.ExpandLabel(hash, trafficSecret, "quic hp", [], keyLength));
+            headerProtectionKey);
     }
+
+    private static int KeyLength(TlsCipherSuite cipherSuite) => cipherSuite == TlsCipherSuite.Aes128GcmSha256 ? 16 : 32;
 
     /// <summary>
     /// Protects an Initial, 0-RTT or Handshake packet: seals its payload, makes its Length field
@@ -117,7 +131,15 @@ public sealed class QuicPacketProtection : IDisposable
     /// 20 bytes, or it is not a version 1 Initial, 0-RTT, Handshake or 1-RTT packet - with
     /// <c>PROTOCOL_VIOLATION</c> and no frame type: the caller drops the packet.
     /// </exception>
-    public QuicUnprotectResult Unprotect(ReadOnlyMemory<byte> datagram, int shortHeaderDestinationConnectionIdLength, ulong expectedPacketNumber)
+    public QuicUnprotectResult Unprotect(ReadOnlyMemory<byte> datagram, int shortHeaderDestinationConnectionIdLength, ulong expectedPacketNumber) =>
+        Unprotect(datagram, shortHeaderDestinationConnectionIdLength, expectedPacketNumber, (_, _) => this);
+
+    /// <summary>
+    /// Removes header protection with this protection's header-protection key, then opens the
+    /// payload with the protection <paramref name="payloadProtectionFor"/> picks from the key phase
+    /// bit (false for a long header) and the full packet number (RFC 9001 section 6.3).
+    /// </summary>
+    internal QuicUnprotectResult Unprotect(ReadOnlyMemory<byte> datagram, int shortHeaderDestinationConnectionIdLength, ulong expectedPacketNumber, Func<bool, ulong, QuicPacketProtection> payloadProtectionFor)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(shortHeaderDestinationConnectionIdLength);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(shortHeaderDestinationConnectionIdLength, QuicConnectionIds.MaxLength);
@@ -136,7 +158,8 @@ public sealed class QuicPacketProtection : IDisposable
         var packetNumber = QuicPacketNumber.Decode(expectedPacketNumber, RemovePacketNumberMask(packet, packetNumberOffset, packetNumberLength, mask), packetNumberLength);
         var payloadOffset = packetNumberOffset + packetNumberLength;
         var plaintext = new byte[packetLength - payloadOffset - AeadTagLength];
-        if (!cipher.TryOpen(Nonce(packetNumber), packet.AsSpan(payloadOffset, plaintext.Length), packet.AsSpan(packetLength - AeadTagLength), packet.AsSpan(0, payloadOffset), plaintext))
+        var payloadProtection = payloadProtectionFor(!isLongHeader && (packet[0] & QuicPacketHeaderBits.ShortKeyPhaseBit) != 0, packetNumber);
+        if (!payloadProtection.cipher.TryOpen(payloadProtection.Nonce(packetNumber), packet.AsSpan(payloadOffset, plaintext.Length), packet.AsSpan(packetLength - AeadTagLength), packet.AsSpan(0, payloadOffset), plaintext))
         {
             return new QuicUnprotectResult(QuicUnprotectStatus.Undecryptable, null, packetNumber, packetLength);
         }

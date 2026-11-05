@@ -72,6 +72,28 @@ public sealed class QuicPacketProtectionTests
     }
 
     [TestMethod]
+    public void NextTrafficSecret_Rfc9001A5ChaCha20Poly1305Secret_GivesAppendixA5KeyUpdateSecret()
+    {
+        var next = QuicPacketProtection.NextTrafficSecret(TlsCipherSuite.ChaCha20Poly1305Sha256, Convert.FromHexString(Rfc9001AppendixA.ChaChaSecret));
+
+        Assert.AreEqual(Rfc9001AppendixA.ChaChaKeyUpdateSecret, Convert.ToHexStringLower(next));
+    }
+
+    [TestMethod]
+    public void ForNextKeyPhase_Rfc9001A5KeyUpdateSecret_TakesItsKeyAndIvAndKeepsTheHeaderProtectionKey()
+    {
+        using var current = ChaChaProtection();
+        var nextSecret = Convert.FromHexString(Rfc9001AppendixA.ChaChaKeyUpdateSecret);
+        using var fromSecret = QuicPacketProtection.FromTrafficSecret(TlsCipherSuite.ChaCha20Poly1305Sha256, nextSecret);
+
+        using var next = current.ForNextKeyPhase(nextSecret);
+
+        CollectionAssert.AreEqual(fromSecret.Key.ToArray(), next.Key.ToArray());
+        CollectionAssert.AreEqual(fromSecret.Iv.ToArray(), next.Iv.ToArray());
+        Assert.AreEqual(Rfc9001AppendixA.ChaChaHeaderProtectionKey, Convert.ToHexStringLower(next.HeaderProtectionKey.Span));
+    }
+
+    [TestMethod]
     public void Protect_Rfc9001A5ShortHeaderPacket_GivesAppendixA5ProtectedPacket()
     {
         using var protection = ChaChaProtection();

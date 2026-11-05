@@ -29,6 +29,9 @@ internal sealed class UnitTestQuicClient : IDisposable
     private QuicPacketProtection? handshakeReceive;
     private QuicPacketProtection? oneRttSend;
     private QuicPacketProtection? oneRttReceive;
+    private QuicPacketProtection? previousOneRttReceive;
+    private byte[] clientApplicationSecret = [];
+    private byte[] serverApplicationSecret = [];
     private ulong nextInitialPacketNumber;
     private ulong nextHandshakePacketNumber;
     private ulong nextOneRttPacketNumber;
@@ -193,6 +196,40 @@ internal sealed class UnitTestQuicClient : IDisposable
         return handshakeSend!.Protect(packet, packetNumber);
     }
 
+    /// <summary>The key phase bit of the client's current 1-RTT keys.</summary>
+    public bool KeyPhase { get; private set; }
+
+    /// <summary>The key phase bit of every 1-RTT packet the client opened, in order.</summary>
+    public List<bool> OneRttKeyPhasesReceived { get; } = [];
+
+    /// <summary>
+    /// Starts a key update (RFC 9001 section 6.1): both directions' next traffic secrets are
+    /// HKDF-Expand-Label(secret, "quic ku", "", hash length), computed here with the BCL's HKDF;
+    /// the keys and IV come from them and the header-protection keys stay. The previous receive
+    /// keys are kept to open the server's packets of the old phase.
+    /// </summary>
+    public void UpdateKeys()
+    {
+        clientApplicationSecret = NextTrafficSecret(clientApplicationSecret);
+        serverApplicationSecret = NextTrafficSecret(serverApplicationSecret);
+        var send = oneRttSend!.ForNextKeyPhase(clientApplicationSecret);
+        oneRttSend.Dispose();
+        oneRttSend = send;
+        previousOneRttReceive?.Dispose();
+        previousOneRttReceive = oneRttReceive;
+        oneRttReceive = previousOneRttReceive!.ForNextKeyPhase(serverApplicationSecret);
+        KeyPhase = !KeyPhase;
+    }
+
+    /// <summary>HKDF-Expand-Label(secret, "quic ku", "", hash length) as RFC 8446 section 7.1 writes the label.</summary>
+    private byte[] NextTrafficSecret(byte[] secret)
+    {
+        var label = System.Text.Encoding.ASCII.GetBytes("tls13 quic ku");
+        byte[] info = [(byte)(secret.Length >> 8), (byte)secret.Length, (byte)label.Length, .. label, 0];
+        var hash = Tls.CipherSuite == 0x1302 ? System.Security.Cryptography.HashAlgorithmName.SHA384 : System.Security.Cryptography.HashAlgorithmName.SHA256;
+        return System.Security.Cryptography.HKDF.Expand(hash, secret, secret.Length, info);
+    }
+
     /// <summary>The packet number the next 1-RTT packet this client seals takes.</summary>
     public ulong NextOneRttPacketNumber => nextOneRttPacketNumber;
 
@@ -202,7 +239,7 @@ internal sealed class UnitTestQuicClient : IDisposable
     public byte[] SealOneRttPayload(byte[] payload, byte[]? destinationConnectionId = null)
     {
         var packetNumber = nextOneRttPacketNumber++;
-        var packet = new QuicShortHeaderPacket(destinationConnectionId ?? ServerConnectionId!, false, false, 4, (uint)packetNumber, payload);
+        var packet = new QuicShortHeaderPacket(destinationConnectionId ?? ServerConnectionId!, false, KeyPhase, 4, (uint)packetNumber, payload);
         return oneRttSend!.Protect(packet, packetNumber);
     }
 
@@ -214,6 +251,7 @@ internal sealed class UnitTestQuicClient : IDisposable
         handshakeReceive?.Dispose();
         oneRttSend?.Dispose();
         oneRttReceive?.Dispose();
+        previousOneRttReceive?.Dispose();
     }
 
     private QuicLongHeaderPacket InitialPacket(byte[] destinationConnectionId, QuicFrame[] frames, ulong packetNumber) =>
@@ -260,10 +298,14 @@ internal sealed class UnitTestQuicClient : IDisposable
                 return;
             }
 
-            var result = protection.Unprotect(remaining, SourceConnectionId.Length, largestReceived.TryGetValue(type, out var largest) ? largest + 1 : 0);
+            var result = protection.Unprotect(remaining, SourceConnectionId.Length, largestReceived.TryGetValue(type, out var largest) ? largest + 1 : 0, (keyPhase, _) => type != QuicPacketType.OneRtt || keyPhase == KeyPhase ? protection : previousOneRttReceive!);
             Assert.AreEqual(QuicUnprotectStatus.Unprotected, result.Status, $"A {type} packet from the server does not open.");
             largestReceived[type] = Math.Max(result.PacketNumber, largestReceived.GetValueOrDefault(type));
             PacketNumbersReceived[type].Add(result.PacketNumber);
+            if (result.Packet is QuicShortHeaderPacket shortHeader)
+            {
+                OneRttKeyPhasesReceived.Add(shortHeader.KeyPhase);
+            }
             TakeFrames(type, result.Packet!);
             remaining = remaining[result.PacketLength..];
         }
@@ -308,6 +350,8 @@ internal sealed class UnitTestQuicClient : IDisposable
         {
             ClientFinished = Tls.ReceiveServerFlight(flight);
             var suite = (TlsCipherSuite)Tls.CipherSuite;
+            clientApplicationSecret = Tls.ClientApplicationSecret;
+            serverApplicationSecret = Tls.ServerApplicationSecret;
             oneRttSend = QuicPacketProtection.FromTrafficSecret(suite, Tls.ClientApplicationSecret);
             oneRttReceive = QuicPacketProtection.FromTrafficSecret(suite, Tls.ServerApplicationSecret);
         }

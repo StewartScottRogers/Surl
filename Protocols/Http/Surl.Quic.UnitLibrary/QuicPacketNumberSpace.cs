@@ -63,7 +63,7 @@ internal sealed class QuicPacketNumberSpace(QuicPacketType packetType, TlsEncryp
     /// <summary>Whether the space has keys and something to send.</summary>
     public bool HasSomethingToSend => HasKeys && (AckPending || CryptoToSend.Count > 0 || FramesToSend.Count > 0);
 
-    /// <summary>Installs the keys of a pair of traffic secrets: the client's to open, the server's to seal.</summary>
+    /// <summary>Installs the keys of a pair of traffic secrets: the client's to open, the server's to seal. Keys already installed are not disposed: a key update's <see cref="QuicKeyPhase"/> keeps or disposes them.</summary>
     public void InstallKeys(QuicPacketProtection receive, QuicPacketProtection send)
     {
         ReceiveProtection = receive;

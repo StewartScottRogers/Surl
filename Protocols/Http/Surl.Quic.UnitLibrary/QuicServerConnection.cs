@@ -56,6 +56,7 @@ public sealed partial class QuicServerConnection : IDisposable
     private TimeSpan? idleTimeout;
     private DateTimeOffset? handshakeDeadline;
     private QuicStreams? streams;
+    private QuicKeyPhase? oneRttKeyPhase;
     private bool probePending;
 
     /// <summary>Creates a connection that waits for the client's first Initial.</summary>
@@ -240,6 +241,7 @@ public sealed partial class QuicServerConnection : IDisposable
         initial.Dispose();
         handshake.Dispose();
         application.Dispose();
+        oneRttKeyPhase?.Dispose();
     }
 
     /// <summary>The streams the client's frames reached since the last call; none before the client's transport parameters are accepted.</summary>

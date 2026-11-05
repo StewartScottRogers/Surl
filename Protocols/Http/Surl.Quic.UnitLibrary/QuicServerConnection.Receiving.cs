@@ -61,12 +61,16 @@ public sealed partial class QuicServerConnection
     /// <summary>Whether the server opens packets of the space now: it has keys, and 1-RTT packets wait for the handshake to complete (RFC 9001 section 5.7).</summary>
     private bool CanOpen(QuicPacketNumberSpace space) => space.HasKeys && (space != application || IsHandshakeComplete);
 
-    /// <summary>Unprotects the packet, or returns null when its header cannot be located, which drops the rest of the datagram.</summary>
-    private static QuicUnprotectResult? Unprotect(QuicPacketNumberSpace space, ReadOnlyMemory<byte> bytes)
+    /// <summary>
+    /// Unprotects the packet - a 1-RTT one with the keys its key phase bit and packet number pick -
+    /// or returns null when its header cannot be located, which drops the rest of the datagram.
+    /// </summary>
+    private QuicUnprotectResult? Unprotect(QuicPacketNumberSpace space, ReadOnlyMemory<byte> bytes)
     {
+        Func<bool, ulong, QuicPacketProtection> payloadProtectionFor = space == application ? oneRttKeyPhase!.ReceiveProtectionFor : (_, _) => space.ReceiveProtection!;
         try
         {
-            return space.ReceiveProtection!.Unprotect(bytes, ServerConnectionIdLength, space.Received.Largest + 1 ?? 0);
+            return space.ReceiveProtection!.Unprotect(bytes, ServerConnectionIdLength, space.Received.Largest + 1 ?? 0, payloadProtectionFor);
         }
         catch (QuicTransportException)
         {
@@ -138,6 +142,11 @@ public sealed partial class QuicServerConnection
 
     private void ProcessPacket(QuicPacketNumberSpace space, QuicUnprotectResult result)
     {
+        if (result.Packet is QuicShortHeaderPacket { KeyPhase: var keyPhase } && oneRttKeyPhase!.IsKeyUpdate(keyPhase, result.PacketNumber))
+        {
+            oneRttKeyPhase.Update(result.PacketNumber);
+        }
+
         space.Received.Add(result.PacketNumber);
         lastActivity = timeProvider.GetUtcNow();
         ackElicitingSentSinceLastReceive = false;
@@ -234,7 +243,11 @@ public sealed partial class QuicServerConnection
         initial.CryptoToSend.AddRange(output.Initial);
         handshake.CryptoToSend.AddRange(output.Handshake);
         InstallKeys(handshake, output.HandshakeSecrets);
-        InstallKeys(application, output.ApplicationSecrets);
+        if (output.ApplicationSecrets is { } applicationSecrets)
+        {
+            oneRttKeyPhase = new QuicKeyPhase(application, tls.CipherSuite!.Value, applicationSecrets);
+        }
+
         if (tls.IsComplete)
         {
             IsHandshakeComplete = true;
