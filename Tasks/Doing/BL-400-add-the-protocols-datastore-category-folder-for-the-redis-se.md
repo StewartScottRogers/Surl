@@ -43,3 +43,4 @@ An ADR amends ADR-0079 to add the `Protocols/DataStore/` category folder, where 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
