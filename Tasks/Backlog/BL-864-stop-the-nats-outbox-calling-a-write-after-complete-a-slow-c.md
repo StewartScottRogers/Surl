@@ -1,5 +1,5 @@
 ---
-id: BL-830
+id: BL-864
 title: Stop the NATS outbox calling a late write after Complete a slow consumer
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-830 — Stop the NATS outbox calling a late write after Complete a slow consumer
+# BL-864 — Stop the NATS outbox calling a late write after Complete a slow consumer
 
 ## Goal
 

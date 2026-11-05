@@ -73,7 +73,7 @@ Choices taken where ADR-0118 leaves room (rule 1; no new ADR, since each sits in
 
 Found and fixed: the outbox, copied from `NatsOutbox`, marked itself overflowed when anything was queued after `Complete`, which would have sent a false slow-consumer ERROR (`StompOutboxTests.Enqueue_AfterComplete_IsDroppedWithoutOverflowing`). `NatsOutbox` has the same flaw; it is outside this task's `touches`, so it is left for a Nats task.
 
-Filed: BL-829 traces `Documentation/Conformance/Extended/Stomp.md`'s BL-532 rows to these tests; the matrix is under `Documentation/Conformance`, which BL-396 (in Doing) touches.
+Filed: BL-863 traces `Documentation/Conformance/Extended/Stomp.md`'s BL-532 rows to these tests; the matrix is under `Documentation/Conformance`, which BL-396 (in Doing) touches.
 
 ## Log
 
