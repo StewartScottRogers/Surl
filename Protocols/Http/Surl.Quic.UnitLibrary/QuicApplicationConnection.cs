@@ -12,7 +12,8 @@ namespace Surl.Quic;
 /// </summary>
 /// <remarks>
 /// Once the connection has ended - closed by either side, idle, or the server stopped - a read
-/// returns the bytes already received and then 0, an accept returns null, <see cref="CloseAsync"/> does nothing, and every other call
+/// returns the bytes already received and then 0, a datagram receive the <c>DATAGRAM</c> data already
+/// received and then null, an accept returns null, <see cref="CloseAsync"/> does nothing, and every other call
 /// throws <see cref="OperationCanceledException"/> with <see cref="Ended"/>.
 /// </remarks>
 public sealed class QuicApplicationConnection
@@ -23,6 +24,8 @@ public sealed class QuicApplicationConnection
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly Channel<QuicStream> clientStreams = Channel.CreateUnbounded<QuicStream>();
     private readonly HashSet<ulong> clientStreamIds = [];
+    private readonly Channel<byte[]> receivedDatagrams = Channel.CreateBounded<byte[]>(
+        new BoundedChannelOptions(ReceivedDatagramCapacity) { FullMode = BoundedChannelFullMode.DropOldest });
     private TaskCompletionSource changed = NewChangedSignal();
     private bool ended;
 
@@ -33,6 +36,12 @@ public sealed class QuicApplicationConnection
         this.ending = ending;
         Ended = ending.Token;
     }
+
+    /// <summary>
+    /// How many received <c>DATAGRAM</c> frames wait for <see cref="ReceiveDatagramAsync"/> at most;
+    /// past it the oldest is dropped, as RFC 9221 section 5 lets a receiver drop any.
+    /// </summary>
+    public const int ReceivedDatagramCapacity = 128;
 
     /// <summary>The ALPN protocol the handshake agreed, or null when the options named none.</summary>
     public string? ApplicationProtocol => connection.ApplicationProtocol;
@@ -62,6 +71,33 @@ public sealed class QuicApplicationConnection
             return null;
         }
     }
+
+    /// <summary>
+    /// Waits for the data of the next <c>DATAGRAM</c> frame the client sends (RFC 9221), in the
+    /// order received; at most <see cref="ReceivedDatagramCapacity"/> wait, the oldest dropped past it.
+    /// </summary>
+    /// <param name="cancellationToken">Cuts the wait off.</param>
+    /// <returns>A copy of the frame's data, or null once the connection has ended and none received is left.</returns>
+    public async ValueTask<byte[]?> ReceiveDatagramAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await receivedDatagrams.Reader.ReadAsync(cancellationToken);
+        }
+        catch (ChannelClosedException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Sends <paramref name="data"/> in one <c>DATAGRAM</c> frame, as <see cref="QuicServerConnection.SendDatagram"/> does.</summary>
+    /// <param name="data">The application data.</param>
+    /// <param name="cancellationToken">Cuts the send off.</param>
+    /// <returns>A task that completes once what the congestion window allows is sent.</returns>
+    /// <exception cref="InvalidOperationException">The client's <c>max_datagram_frame_size</c> is absent or 0.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The frame would be larger than the client takes or than one packet holds.</exception>
+    public ValueTask SendDatagramAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken) =>
+        ActAsync(() => connection.SendDatagram(data), cancellationToken);
 
     /// <summary>
     /// Waits until <paramref name="stream"/> has bytes, then copies them into <paramref name="buffer"/>
@@ -162,7 +198,7 @@ public sealed class QuicApplicationConnection
         }
     }
 
-    /// <summary>Calls the connection under the lock, hands new client streams to <see cref="AcceptStreamAsync"/>, sends its datagrams and wakes every waiter.</summary>
+    /// <summary>Calls the connection under the lock, hands new client streams to <see cref="AcceptStreamAsync"/> and <c>DATAGRAM</c> data to <see cref="ReceiveDatagramAsync"/>, sends its datagrams and wakes every waiter.</summary>
     internal async Task ApplyAsync(Func<QuicServerConnection, QuicConnectionOutput> call, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
@@ -170,6 +206,7 @@ public sealed class QuicApplicationConnection
         {
             var output = call(connection);
             PublishClientStreams(output.Streams);
+            PublishReceivedDatagrams(output.ReceivedDatagramFrames);
             await SendAsync(output, cancellationToken);
         }
         finally
@@ -200,6 +237,7 @@ public sealed class QuicApplicationConnection
         {
             ended = true;
             clientStreams.Writer.TryComplete();
+            receivedDatagrams.Writer.TryComplete();
             Signal();
         }
         finally
@@ -212,7 +250,16 @@ public sealed class QuicApplicationConnection
 
     private static TaskCompletionSource NewChangedSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private async ValueTask ActAsync(Action act, CancellationToken cancellationToken)
+    private ValueTask ActAsync(Action act, CancellationToken cancellationToken) =>
+        ActAsync(
+            () =>
+            {
+                act();
+                return connection.Transmit();
+            },
+            cancellationToken);
+
+    private async ValueTask ActAsync(Func<QuicConnectionOutput> act, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
         try
@@ -222,8 +269,7 @@ public sealed class QuicApplicationConnection
                 throw new OperationCanceledException("The QUIC connection has ended.", Ended);
             }
 
-            act();
-            await SendAsync(connection.Transmit(), cancellationToken);
+            await SendAsync(act(), cancellationToken);
         }
         finally
         {
@@ -247,6 +293,15 @@ public sealed class QuicApplicationConnection
             {
                 clientStreams.Writer.TryWrite(stream);
             }
+        }
+    }
+
+    /// <summary>Queues a copy of each frame's data, so it outlives the packet it was read from.</summary>
+    private void PublishReceivedDatagrams(IReadOnlyList<QuicDatagramFrame> frames)
+    {
+        foreach (var frame in frames)
+        {
+            receivedDatagrams.Writer.TryWrite(frame.Data.ToArray());
         }
     }
 

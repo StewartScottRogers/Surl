@@ -13,7 +13,7 @@ public sealed partial class QuicServerConnectionTests
     /// The recorded parameters after initial_source_connection_id, without version_information and
     /// with max_datagram_frame_size 1024 (0x20, a two-byte varint 0x4400) in its place.
     /// </summary>
-    private const string ClientParametersOfferingDatagramFramesOf1024Bytes =
+    internal const string ClientParametersOfferingDatagramFramesOf1024Bytes =
         "0504800080000604800080000704be8000000404be800000080480040000090480040000" + "20024400";
 
     [TestMethod]

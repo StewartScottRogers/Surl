@@ -6,7 +6,7 @@ namespace Surl.Quic;
 
 /// <summary>An application's calls on a <see cref="QuicApplicationConnection"/>, driven through a <see cref="QuicDatagramFlowServer"/> by the test client.</summary>
 [TestClass]
-public sealed class QuicApplicationConnectionTests
+public sealed partial class QuicApplicationConnectionTests
 {
     public TestContext TestContext { get; set; } = null!;
 

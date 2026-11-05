@@ -51,7 +51,10 @@ the closing and draining periods with BL-608.
   (`InvalidOperationException` otherwise; `ArgumentOutOfRangeException` for a frame over that or over
   `MaxApplicationFrameLength`). It is ack-eliciting and in flight, waits for the congestion window like
   other frames, and is never sent again when lost. The HTTP server never sets the option.
-  `QuicApplicationConnection` does not carry them yet (BL-753).
+  `QuicApplicationConnection` carries them (BL-753): `SendDatagramAsync` is `SendDatagram` under its
+  lock, and `ReceiveDatagramAsync` awaits a copy of each received frame's data, queued in order by
+  the flow loop, at most `ReceivedDatagramCapacity` (128) waiting, the oldest dropped past it (RFC
+  9221 section 5 lets a receiver drop any).
 - `QuicStream` - one stream (ADR-0096): `Read` returns the client's bytes in order (put back by
   `QuicOrderedBytes`, which `CRYPTO` shares), `Write(data, fin)` queues bytes, `Reset` and
   `StopSending` send their frames. Nothing is sent until `QuicServerConnection.Transmit` or the next
@@ -70,11 +73,13 @@ the closing and draining periods with BL-608.
   is complete hands the connection to an `IQuicApplicationProtocol` (HTTP/3, DNS over QUIC). The
   application sees a `QuicApplicationConnection`, not the bare `QuicServerConnection`: the loop and
   the application work at once, so every call goes through one lock. It accepts the client's
-  streams (`AcceptStreamAsync`), reads waiting for bytes (`ReadAsync`), and writes, resets, stops
-  sending, opens unidirectional streams and closes, each sent at once. The application returning
+  streams (`AcceptStreamAsync`), reads waiting for bytes (`ReadAsync`), receives `DATAGRAM` data
+  (`ReceiveDatagramAsync`), and writes, resets, stops sending, sends `DATAGRAM` frames, opens
+  unidirectional streams and closes, each sent at once. The application returning
   closes the connection with application error code 0; the connection ending (either side's
   close, idle, the server's token) cancels `Ended`, the application's token, after which reads
-  return what is left then 0, accepts null, and other calls throw `OperationCanceledException`.
+  return what is left then 0, datagram receives what is left then null, accepts null, and other
+  calls throw `OperationCanceledException`.
   An exception the application throws closes the connection with code 0 and is thrown from
   `ServeAsync`. The ALPN IDs agreed and the transport parameters sent are the caller's
   `QuicServerConnectionOptions`; the defaults stay ADR-0082 decision 4's `h3` values, byte for byte.
