@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-609]
-touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Documentation/Wiki/Glossary.md]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Documentation/Wiki/Glossary.md, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -51,7 +51,24 @@ instead of writing it, and `surl`'s output and exit codes are unchanged byte for
 
 ## Notes
 
+- 2026-11-04 (lane 3): `Conformance/Surl.Conformance.UnitTests/KerberosTestKdcOnLoopback.cs` constructs
+  `RandomKerberosRandomSource` through `using Surl.Console;`, so moving that type into `Surl.Composition`
+  needs a `using Surl.Composition;` there (and `Surl.Conformance.UnitTests` keeps building through its
+  `Surl.Console` reference, which brings `Surl.Composition` transitively). Added it to `touches`. BL-393 in
+  `Doing` touches the same project, so the task went back to Backlog until BL-393 is finished.
+- What the first attempt did, to redo quickly: `git mv` the nine files to `Surl.Composition.UnitLibrary`
+  (namespace `Surl.Composition`, types `public`; `KeytabComposition.NameEncryptionType` `public` because
+  `CommandLineRunnerKeytabTests` calls it; `MapCertificateFormat`/`MapKeyFormat` stay `internal`, their tests
+  move); `CommandLineRunner.DescribeTlsFileFailure` becomes `public static ServerTlsComposition.DescribeTlsFileFailure`;
+  `Surl.Composition.UnitLibrary.csproj` gains references to `Surl.Kerberos`, `Surl.Networking` and `Surl.Output`;
+  `ServerTlsCompositionTests`, `DataDirectoryLockTests` and `DataDirectoryProbeTests` move to
+  `Surl.Composition.UnitTests` with a copy of `TestCertificateFiles` (still used by `CommandLineRunner*Tests`);
+  `FakeLockHolder` stays in `Surl.Console.UnitTests` (only `CommandLineRunner*Tests` use it); `Program.cs`,
+  `CommandLineRunnerAiHelpTests.cs` and the conformance file gain `using Surl.Composition;`. Coverage is
+  merged across test projects by `Measure-CodeQuality.ps1`, so `CommandLineRunner*Tests` still cover the moved code.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Backlog. Needs Conformance/Surl.Conformance.UnitTests (RandomKerberosRandomSource's using), which BL-393 in Doing also touches; resume once BL-393 is finished
