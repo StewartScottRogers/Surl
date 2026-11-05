@@ -25,6 +25,11 @@ configured domain (relaying) with the measured reply - and with none configured 
   ADR-0053 is how the SMTP server answers today; ADR-0050 decision 5 is the default.
 - Where: `Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary`, calling BL-648's recipient resolution. Reply lines go
   through `Surl.LineProtocol`'s reply-line writer.
+- From BL-648: `LookUpRecipient` returns `MailRecipientLookup.RelayingDenied` for a recipient outside every
+  configured domain, and an alias's `MailRecipient` may name several owners (`OwnerNames`; `OwnerName` is only the
+  first). `SmtpMailTransaction` deduplicates by `OwnerName` today; with aliases it must deduplicate by every name
+  in `OwnerNames` (one copy per owner per message, ADR-0102 decision 1.3), or two `RCPT`s whose aliases overlap
+  lose or double a copy. `MailboxStore.Deliver` gives one copy per owner of each entry.
 - Oracle: pinned upstream curl only (ADR-0003); unit tests replay the bytes curl sends, as the existing SMTP tests
   do. `UpstreamCurlSendsMailToSurlOverSmtpTests` must still pass unchanged.
 

@@ -29,6 +29,13 @@ members expanded.
 - Refusals the ADR names: an alias to an unknown mailbox, a catch-all for an unconfigured domain, a shared folder
   member naming no account, a quota past the store's bound.
 - `--aihelp` completeness as in BL-653.
+- From BL-648: aliases and catch-alls reach the store as `MailAlias` and `MailCatchAll` in a
+  `MailDomainConfiguration` (constructor's and `LoadAsync`'s `mailDomains`). The store throws
+  `MailRouteException` for ADR-0102 decision 1.3's three start refusals - its `RouteKind` (alias or catch-all),
+  `Problem` (`TargetOutsideMailDomains`, `TargetNamesNoMailbox`, `IncludesItself`) and `Address` choose the
+  option name and text; composition maps it to exit 2. `MailDomainConfiguration` throws `ArgumentException` for
+  what the option parser must refuse first (a malformed address, an address outside every domain, a repeated
+  address, two catch-alls for one domain).
 
 ## Acceptance criteria
 
