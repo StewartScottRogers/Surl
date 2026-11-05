@@ -140,3 +140,32 @@ reading at all. Every Auto step then logged "lanes N held (no burn rate yet)", s
    than a 0% that was never measured.
 4. `-TestAutoLanes` proves both event shapes, a non-event line, and that a shift with no
    5-hour report grows toward its ceiling.
+
+## Amendment 2 (2026-11-05): the end-of-shift merge comes from a frozen branch
+
+Decided by Stewart, who chose this option and gave the standing permission it needs.
+
+The end-of-shift pull request used to come from the shift branch itself. Under `-Continuous`
+the next shift's lanes push to that branch within minutes, and each push moved the pull
+request's head and cancelled its CI. A merge that waited 30 minutes also found CI queued
+behind the account's other runners, macOS above all. No shift merged from 2026-11-04 to
+2026-11-05.
+
+1. At shift end `Open-MergeSnapshot` pushes the branch's head to `factory/merge-<stamp>`
+   and opens the pull request from that frozen branch. Nothing pushes to it, so its CI
+   always runs to the end.
+2. Opening one closes every older open `factory/merge-*` pull request, deleting its branch:
+   the newer head holds everything the older did. It also closes a pull request opened
+   from the shift branch itself under the old design, and keeps that branch.
+3. `Update-PendingMerges` runs at the start of every coordinator loop and every 5 minutes.
+   It merges a frozen pull request with `--match-head-commit` once CI passed on its frozen
+   commit, and deletes the branch. It reruns a cancelled CI once, and reports a failure
+   once. A failed pull request stays open until a newer shift supersedes it.
+4. A `-Continuous` shift leaves the merge to the next shift's coordinator and starts at
+   once. Without `-Continuous`, the ending shift waits up to 30 minutes for it.
+5. `-MergeToMaster` does the end-of-shift step by hand. `-TestMergeSnapshot` proves the
+   naming, the supersede rule and the step each CI state leads to.
+
+Stewart's standing permission (CLAUDE.md, "Git and GitHub") covers creating, merging and
+deleting `factory/merge-*` branches, and closing a superseded frozen pull request. It covers
+no other branch and no force push.

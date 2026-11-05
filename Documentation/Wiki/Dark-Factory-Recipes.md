@@ -101,7 +101,7 @@ These are the factory working as designed; none needs you.
 | A task in `Blocked` | it needs a new package, a threshold change or an upstream curl download - still yours to decide | answer it; Claude moves it on |
 | A branch `factory/<ID>-lane-<n>-<stamp>` | work that would not integrate, parked; the task is back in Backlog | nothing: a later run picks it up from that branch |
 | `refuse  working tree not clean; commit or stash first` in the shift's log | the checkout has uncommitted or untracked files, so the shift would not start | say "status" to Claude; it commits or ignores what is there and starts the shift again |
-| No merge to `master` at shift end | CI was red or unfinished on Windows, Linux or macOS | ask Claude "why didn't the shift merge?" (`/ci-status`) |
+| No merge to `master` at shift end | CI is red, or still running on the frozen `factory/merge-<stamp>` pull request; the next shift merges it within 5 minutes of CI passing | ask Claude "why didn't the shift merge?" (`/ci-status`) |
 
 ## Rehearse
 

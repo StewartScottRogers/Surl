@@ -127,7 +127,12 @@ A second standing exception (Stewart, 2026-09-28, carried over from the Curl por
 end of every dark factory shift, `RunDarkFactory.ps1` merges its branch into `master`
 through a pull request, but only when the `CI` workflow passed on Windows, Linux and macOS
 for the exact commit being merged. That merge needs no confirmation; a red or unfinished CI
-run means no merge.
+run means no merge. The pull request comes from a frozen copy of the branch's head,
+`factory/merge-<stamp>`, so lanes pushing to the shift branch never cancel its CI; every
+coordinator merges an open frozen pull request once its CI passes. Creating, merging and
+deleting `factory/merge-*` branches, and closing a frozen pull request a newer one
+supersedes, needs no confirmation (Stewart, 2026-11-05; ADR-0047 amendment 2). It covers
+no other branch and no force push.
 
 A third standing exception (Stewart, 2026-09-28, carried over from the Curl port): the
 `board` branch holds only the dark factory's latest `status.json` and is force-pushed
