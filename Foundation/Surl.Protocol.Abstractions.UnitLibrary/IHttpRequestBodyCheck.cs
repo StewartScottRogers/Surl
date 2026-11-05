@@ -11,7 +11,9 @@ public interface IHttpRequestBodyCheck
 {
     /// <summary>
     /// Judges the request by its body's SHA-256: served, or challenged or refused as any
-    /// verdict is. The verdict returned carries no <see cref="HttpAuthenticationVerdict.BodyCheck"/>.
+    /// verdict is. The verdict returned carries no <see cref="HttpAuthenticationVerdict.BodyCheck"/>;
+    /// a body that is not the one whose hash was signed is refused with
+    /// <see cref="HttpAuthenticationRefusal.PayloadHashMismatch"/> (ADR-0108 decision 4.4).
     /// </summary>
     /// <param name="bodySha256">The SHA-256 of the body's bytes as received, after any chunked coding is removed; the empty body's hash when there is none.</param>
     /// <param name="cancellationToken">Cancels the judgement.</param>

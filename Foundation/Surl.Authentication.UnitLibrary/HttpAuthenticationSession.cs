@@ -38,6 +38,15 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
+        return request.AwsSigV4Service is null
+            ? JudgeHttpRequest(request, cancellationToken)
+            : JudgeServiceSignature(request, cancellationToken);
+    }
+
+    // An HTTP request, judged by --auth's methods in ADR-0032 section 4's order.
+    private ValueTask<HttpAuthenticationVerdict> JudgeHttpRequest(
+        HttpAuthenticationRequest request, CancellationToken cancellationToken)
+    {
         var authorization = HttpAuthorization.Find(request.Fields);
         if (policy.Settings.AllowAnonymous)
         {
@@ -52,6 +61,30 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         return authorization is not null && verifiers.TryGetValue(authorization.Method, out var verifier)
             ? VerifyAsync(verifier, authorization, request, cancellationToken)
             : ValueTask.FromResult(JudgeWithoutCredentials(request));
+    }
+
+    // A request whose only method is Signature Version 4 for a named service (S3, ADR-0108
+    // decision 4): no Authorization is anonymous under --allow-anonymous and refused otherwise,
+    // undelayed since nothing was checked; another scheme is refused unchecked; a signature is
+    // checked even under --allow-anonymous; every refusal is Forbidden with its reason.
+    private ValueTask<HttpAuthenticationVerdict> JudgeServiceSignature(
+        HttpAuthenticationRequest request, CancellationToken cancellationToken)
+    {
+        var hasAuthorization = request.Fields.Any(field => string.Equals(field.Key, "Authorization", StringComparison.OrdinalIgnoreCase));
+        var authorization = HttpAuthorization.Find(request.Fields);
+        if (authorization is { Method: AuthenticationMethod.AwsSigV4 })
+        {
+            return VerifyAsync(policy.ServiceSignatureVerifier, authorization, request, cancellationToken);
+        }
+
+        if (hasAuthorization)
+        {
+            return ValueTask.FromResult(Forbidden with { Refusal = HttpAuthenticationRefusal.UnsupportedScheme });
+        }
+
+        return ValueTask.FromResult(policy.Settings.AllowAnonymous
+            ? ProceedAnonymously
+            : Forbidden with { Refusal = HttpAuthenticationRefusal.MissingCredentials });
     }
 
     // Under --allow-anonymous every request is served unchecked (ADR-0032 section 1), except a
@@ -96,13 +129,13 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
             connectionAccountName = check.Outcome == HttpCredentialOutcome.Accepted ? check.AccountName : null;
         }
 
-        return await AnswerCheckAsync(check, authorization.Method, cancellationToken).ConfigureAwait(false);
+        return await AnswerCheckAsync(check, authorization.Method, request.AwsSigV4Service is not null, cancellationToken).ConfigureAwait(false);
     }
 
     // Accepted and refused credentials carry the login note (ADR-0032, section 8); a
     // continuation step, and a login waiting for the body, checked nothing yet, so they carry none.
     private ValueTask<HttpAuthenticationVerdict> AnswerCheckAsync(
-        HttpCredentialCheck check, AuthenticationMethod method, CancellationToken cancellationToken)
+        HttpCredentialCheck check, AuthenticationMethod method, bool isServiceSignature, CancellationToken cancellationToken)
     {
         // A continuation step with no value to send would be a 401 without a challenge, which
         // RFC 9110 section 11.6.1 forbids; it is answered as a refusal, as is a login waiting
@@ -117,9 +150,9 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
                 return ValueTask.FromResult(new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Challenge, check.WwwAuthenticateValues, null));
             case HttpCredentialOutcome.AwaitingBody when check.CheckBody is not null:
                 return ValueTask.FromResult(new HttpAuthenticationVerdict(
-                    HttpAuthenticationOutcome.Proceed, [], null, BodyCheck: new RequestBodyCheck(this, method, check.CheckBody)));
+                    HttpAuthenticationOutcome.Proceed, [], check.AccountName, BodyCheck: new RequestBodyCheck(this, method, isServiceSignature, check.CheckBody)));
             default:
-                return RefuseAsync(check, method, cancellationToken);
+                return RefuseAsync(check, method, isServiceSignature, cancellationToken);
         }
     }
 
@@ -127,11 +160,13 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         new(HttpAuthenticationOutcome.Proceed, check.WwwAuthenticateValues, check.AccountName, LoginChecked(method, check, true));
 
     private async ValueTask<HttpAuthenticationVerdict> RefuseAsync(
-        HttpCredentialCheck check, AuthenticationMethod method, CancellationToken cancellationToken)
+        HttpCredentialCheck check, AuthenticationMethod method, bool isServiceSignature, CancellationToken cancellationToken)
     {
         await policy.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
 
-        return Challenge() with { CheckedLogin = LoginChecked(method, check, false) };
+        var refusal = isServiceSignature ? Forbidden : Challenge();
+
+        return refusal with { CheckedLogin = LoginChecked(method, check, false), Refusal = check.Refusal };
     }
 
     private static CheckedLogin LoginChecked(AuthenticationMethod method, HttpCredentialCheck check, bool isAccepted) =>
@@ -156,6 +191,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
     private sealed class RequestBodyCheck(
         HttpAuthenticationSession session,
         AuthenticationMethod method,
+        bool isServiceSignature,
         Func<ReadOnlyMemory<byte>, HttpCredentialCheck> checkBody) : IHttpRequestBodyCheck
     {
         public ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(
@@ -167,7 +203,7 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
 
             return check.Outcome == HttpCredentialOutcome.Accepted
                 ? ValueTask.FromResult(Accepted(check, method))
-                : session.RefuseAsync(check, method, cancellationToken);
+                : session.RefuseAsync(check, method, isServiceSignature, cancellationToken);
         }
     }
 }

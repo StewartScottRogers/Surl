@@ -10,8 +10,17 @@ namespace Surl.Protocol.Abstractions;
 /// <param name="Target">The request target as received.</param>
 /// <param name="IsWrite"><see langword="true"/> for every method but <c>GET</c> and <c>HEAD</c>.</param>
 /// <param name="Fields">Every header field, name and value, in the order received.</param>
+/// <param name="AwsSigV4Service">
+/// <see langword="null"/> for an HTTP request, judged by <c>--auth</c>'s methods. Set, the
+/// request's only method is AWS Signature Version 4 with a scope for this service, as every S3
+/// request's is (<c>s3</c>, ADR-0108 decision 4): <c>--auth</c> does not apply, a signature is
+/// checked even under <c>--allow-anonymous</c>, <c>x-amz-content-sha256</c> is required, no
+/// challenge is sent, and every refusal is <see cref="HttpAuthenticationOutcome.Forbidden"/> with
+/// its <see cref="HttpAuthenticationVerdict.Refusal"/>.
+/// </param>
 public sealed record HttpAuthenticationRequest(
     string Method,
     string Target,
     bool IsWrite,
-    IReadOnlyList<KeyValuePair<string, string>> Fields);
+    IReadOnlyList<KeyValuePair<string, string>> Fields,
+    string? AwsSigV4Service = null);

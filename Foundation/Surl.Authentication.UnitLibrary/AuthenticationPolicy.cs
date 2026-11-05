@@ -113,6 +113,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
             .Where(method => settings.AcceptedMethods.Contains(method.Method))
             .OrderBy(method => method.Method)];
         this.timeProvider = timeProvider;
+        ServiceSignatureVerifier = new AwsSigV4AuthenticationMethod(settings.Accounts, timeProvider);
         NonceSource = nonceSource;
         NtlmServerChallenges = ntlmServerChallenges;
         saslMechanisms = [.. SaslMechanism.InOfferOrder.Where(mechanism => settings.AcceptedMethods.Contains(mechanism.Method))];
@@ -438,6 +439,13 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         $"<{Convert.ToHexStringLower(NonceSource.CreateNonce(TimestampNonceLength))}.{timeProvider.GetUtcNow().ToUnixTimeSeconds()}@surl>";
 
     internal IReadOnlyList<IHttpAuthenticationMethod> HttpMethods => httpMethods;
+
+    /// <summary>
+    /// The AWS Signature Version 4 check of a request naming its
+    /// <see cref="HttpAuthenticationRequest.AwsSigV4Service"/> (the S3 server's), which
+    /// <c>--auth</c> does not decide (ADR-0108 decision 4.3).
+    /// </summary>
+    internal IHttpCredentialVerifier ServiceSignatureVerifier { get; }
 
     internal Task WaitRefusalDelayAsync(CancellationToken cancellationToken) =>
         Task.Delay(RefusalDelay, timeProvider, cancellationToken);

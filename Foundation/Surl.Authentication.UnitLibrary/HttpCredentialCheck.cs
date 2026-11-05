@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.Authentication;
 
 /// <summary>
@@ -19,9 +21,14 @@ namespace Surl.Authentication;
 /// SHA-256, it answers <see cref="HttpCredentialOutcome.Accepted"/> or
 /// <see cref="HttpCredentialOutcome.Refused"/> (ADR-0045); otherwise <see langword="null"/>.
 /// </param>
+/// <param name="Refusal">
+/// For <see cref="HttpCredentialOutcome.Refused"/>, why, when the method can tell (AWS Signature
+/// Version 4, ADR-0108 decision 4.4); otherwise <see langword="null"/>.
+/// </param>
 public sealed record HttpCredentialCheck(
     HttpCredentialOutcome Outcome,
     string? AccountName,
     IReadOnlyList<string> WwwAuthenticateValues,
     string? UserAsSent = null,
-    Func<ReadOnlyMemory<byte>, HttpCredentialCheck>? CheckBody = null);
+    Func<ReadOnlyMemory<byte>, HttpCredentialCheck>? CheckBody = null,
+    HttpAuthenticationRefusal? Refusal = null);

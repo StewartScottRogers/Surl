@@ -202,6 +202,19 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   the body and asks it, and a body that does not match is refused after the refusal delay
   with the login note, as any refusal is.
 - The tests replay the `aws-sigv4-*` requests in `Foundation/Surl.Authentication.UnitTests/Fixtures`.
+- Every refusal carries its `HttpAuthenticationRefusal` (Abstractions) on
+  `HttpCredentialCheck.Refusal` and the verdict (BL-420, ADR-0108 Amendment 1): malformed
+  credentials or date, clock skew, unknown account (the dummy secret's refusal), bad signature,
+  payload hash mismatch. The HTTP server ignores it.
+- A request with `HttpAuthenticationRequest.AwsSigV4Service` set (the S3 server's `s3`) is judged
+  by `HttpAuthenticationSession.JudgeServiceSignature` with `AuthenticationPolicy.ServiceSignatureVerifier`,
+  whatever `--auth` accepts: no `Authorization` is anonymous under `--allow-anonymous` and
+  `Forbidden` (`MissingCredentials`) otherwise, another scheme `Forbidden` (`UnsupportedScheme`),
+  both undelayed; a signature is checked even under `--allow-anonymous`, its scope's service must
+  match (`MalformedCredentials`), the content hash must be sent (`MissingPayloadHash`), and a
+  refusal is `Forbidden` with no challenge after the delay. A signature verified on the head over a
+  sent content hash names its account on the verdict that awaits the body. Tested against the
+  Amazon S3 API Reference's worked GET-object example (`AwsSigV4ServiceSignatureTests`).
 
 ## SSH logins (BL-157)
 

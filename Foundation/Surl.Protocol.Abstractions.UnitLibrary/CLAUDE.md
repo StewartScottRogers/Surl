@@ -42,7 +42,9 @@ What it holds:
   `IHttpAuthenticationSession` per HTTP connection), `HttpAuthenticationRequest` and
   `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome` (and, for a login that binds
   the body, `IHttpRequestBodyCheck`, asked with the body's SHA-256 once it is read,
-  ADR-0045), and `CheckedLogin`, the
+  ADR-0045), a refused verdict's `HttpAuthenticationRefusal` and a request's
+  `AwsSigV4Service`, which makes Signature Version 4 for that service its only method (the S3
+  server's, ADR-0108 Amendment 1), and `CheckedLogin`, the
   credentials checked and the answer, whose `Note` a server writes to the verbose log
   (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request

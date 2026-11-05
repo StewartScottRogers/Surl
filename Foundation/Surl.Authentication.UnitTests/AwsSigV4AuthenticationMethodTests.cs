@@ -206,10 +206,12 @@ public sealed class AwsSigV4AuthenticationMethodTests
 
     private static readonly byte[] ChangedBodySha256 = SHA256.HashData("bodY"u8);
 
-    private static HttpCredentialCheck AssertAwaitingBody(HttpCredentialCheck check)
+    // The s3 PUT sends its content hash, so its signature is verified on the head and the check
+    // names the account pending the body; the others wait for the body to verify it at all.
+    private static HttpCredentialCheck AssertAwaitingBody(HttpCredentialCheck check, string? verifiedAccountName = null)
     {
         Assert.AreEqual(HttpCredentialOutcome.AwaitingBody, check.Outcome);
-        Assert.IsNull(check.AccountName);
+        Assert.AreEqual(verifiedAccountName, check.AccountName);
         Assert.AreEqual(KeyId, check.UserAsSent);
         Assert.IsNotNull(check.CheckBody);
 
@@ -221,7 +223,7 @@ public sealed class AwsSigV4AuthenticationMethodTests
     [DataRow("aws-sigv4-ec2-put", DisplayName = "ec2: the signature is over the body's hash")]
     public async Task RecordedPut_WithTheSignedBody_IsAcceptedOnceTheBodyIsRead(string caseName)
     {
-        var check = AssertAwaitingBody(await VerifyAsync(RecordedFixture.ReadRequest(caseName)));
+        var check = AssertAwaitingBody(await VerifyAsync(RecordedFixture.ReadRequest(caseName)), caseName == "aws-sigv4-put" ? KeyId : null);
 
         AssertAccepted(check.CheckBody!(RecordedBodySha256));
     }
@@ -231,7 +233,7 @@ public sealed class AwsSigV4AuthenticationMethodTests
     [DataRow("aws-sigv4-ec2-put", DisplayName = "ec2")]
     public async Task RecordedPut_WithAChangedBody_IsRefused(string caseName)
     {
-        var check = AssertAwaitingBody(await VerifyAsync(RecordedFixture.ReadRequest(caseName)));
+        var check = AssertAwaitingBody(await VerifyAsync(RecordedFixture.ReadRequest(caseName)), caseName == "aws-sigv4-put" ? KeyId : null);
 
         AssertRefused(check.CheckBody!(ChangedBodySha256));
     }

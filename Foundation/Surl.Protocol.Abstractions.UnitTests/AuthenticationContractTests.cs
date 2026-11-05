@@ -32,6 +32,25 @@ public sealed class AuthenticationContractTests
         Assert.AreEqual("/", request.Target);
         Assert.IsFalse(request.IsWrite);
         Assert.AreEqual(new KeyValuePair<string, string>("Host", "localhost"), request.Fields[0]);
+        Assert.IsNull(request.AwsSigV4Service);
+    }
+
+    [TestMethod]
+    public void HttpAuthenticationRequest_ForAService_KeepsTheService()
+    {
+        var request = new HttpAuthenticationRequest("GET", "/", false, [], "s3");
+
+        Assert.AreEqual("s3", request.AwsSigV4Service);
+    }
+
+    [TestMethod]
+    public void HttpAuthenticationVerdict_WithRefusal_KeepsTheReason()
+    {
+        var verdict = new HttpAuthenticationVerdict(
+            HttpAuthenticationOutcome.Forbidden, [], null, Refusal: HttpAuthenticationRefusal.ClockSkew);
+
+        Assert.AreEqual(HttpAuthenticationRefusal.ClockSkew, verdict.Refusal);
+        Assert.IsNull(new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Forbidden, [], null).Refusal);
     }
 
     [TestMethod]
