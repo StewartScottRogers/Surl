@@ -42,3 +42,4 @@ folders that every member account sees and uses as BL-642's ADR says.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
