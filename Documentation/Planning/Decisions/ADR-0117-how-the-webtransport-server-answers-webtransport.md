@@ -6,7 +6,7 @@
   in BL-457. BL-458 builds the library with its capsule and stream-header codec (decisions 4 and 6),
   BL-459 registers with `Surl.Http3`, establishes sessions and echoes streams and datagrams
   (decisions 0 to 3 and 6), BL-460 applies flow control, the session limit, authentication and the
-  limits (decisions 4, 5, 7 and 8), and BL-745 gives `Surl.Quic` the `RESET_STREAM_AT` frame
+  limits (decisions 4, 5, 7 and 8), and BL-748 gives `Surl.Quic` the `RESET_STREAM_AT` frame
   decision 0 needs.
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof; default ports; one matrix per
@@ -90,7 +90,7 @@ byte comes from it.
   `SETTINGS_WT_INITIAL_MAX_DATA` (`0x2b61`) = 1048576, all carried by `Http3ServerOptions`'
   further parameters (ADR-0086 decision 3).
 - **Transport parameters sent** (WTH3 3.1): `max_datagram_frame_size` = 65535 (RFC 9221 section 3,
-  BL-573) and an empty `reset_stream_at` (BL-745).
+  BL-573) and an empty `reset_stream_at` (BL-748).
 - **The client's SETTINGS** (WTH3 3.1, "MUST NOT process incoming WebTransport requests until the
   client's SETTINGS"): an extended CONNECT that arrives before the client's `SETTINGS` waits for
   them, within `--head-timeout`. A client whose `SETTINGS` lack `SETTINGS_H3_DATAGRAM` = 1 or
@@ -337,7 +337,7 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
   account) is a WebTransport server that echoes bidirectional streams, unidirectional streams and
   datagrams, with flow control when the client offers it, Basic, Bearer and Digest logins, and
   draining on shutdown.
-- `Surl.Quic` gains `RESET_STREAM_AT` (BL-745), which BL-459 depends on; the HTTP server and DNS
+- `Surl.Quic` gains `RESET_STREAM_AT` (BL-748), which BL-459 depends on; the HTTP server and DNS
   over QUIC never ask for it, so their bytes do not change.
 - BL-458 to BL-460 build it, and the Curl port's client may connect to it as a live client in
   `Integration` tests (ADR-0083).

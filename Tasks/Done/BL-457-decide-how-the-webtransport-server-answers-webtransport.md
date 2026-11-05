@@ -74,7 +74,7 @@ Decide and record:
   `H3_REQUEST_REJECTED`; ADR picks 16 with flow control), and `:protocol` is `webtransport-h3`, not
   `webtransport`. BL-458's close-message test now says 1024 bytes accepted, 1025 refused.
 - -16 requires an empty `reset_stream_at` transport parameter and `RESET_STREAM_AT` resets (sections 3.1, 4.4),
-  which no task built: filed BL-745 (Surl.Quic) and added it to BL-459's `depends-on`.
+  which no task built: filed BL-748 (Surl.Quic) and added it to BL-459's `depends-on`.
 - Defaults taken: echo as planned (uni answered on a new server uni stream, echoing as bytes arrive); no
   `WT-Protocol`; same-origin only; paths at or below the listen URL's, else 405 (the draft's SHOULD); flow
   control offered with 100/100/1 MiB; no new option.
@@ -85,4 +85,4 @@ Decide and record:
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: logins read the one account set.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. ADR-0117 decides how the WebTransport server answers webtransport (draft -16 pinned), with its requirement matrix; BL-745 filed for RESET_STREAM_AT
+- 2026-11-05: Doing -> Done. ADR-0117 decides how the WebTransport server answers webtransport (draft -16 pinned), with its requirement matrix; BL-748 filed for RESET_STREAM_AT

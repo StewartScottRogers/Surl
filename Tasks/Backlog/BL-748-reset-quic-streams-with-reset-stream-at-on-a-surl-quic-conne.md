@@ -1,5 +1,5 @@
 ---
-id: BL-745
+id: BL-748
 title: Reset QUIC streams with RESET_STREAM_AT on a Surl.Quic connection
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-745 — Reset QUIC streams with RESET_STREAM_AT on a Surl.Quic connection
+# BL-748 — Reset QUIC streams with RESET_STREAM_AT on a Surl.Quic connection
 
 ## Goal
 
