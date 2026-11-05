@@ -7,9 +7,18 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 `Foundation/Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`).
 
 - `SurlServerComposition.ComposeProtocolServers` builds every original server `surl` registers,
-  in registration order, with an `ImplicitTlsSchemeServer` second registration for `https`,
-  `imaps`, `ldaps`, `pop3s`, `smtps` and `wss`. A new protocol server is registered here, and in
-  the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`, "`surl --aihelp`").
+  in registration order, by iterating the explicit list `ProtocolServerRegistrations.Original`
+  (ADR-0124 decision 2, BL-804): one `ProtocolServerRegistration(Schemes, Create)` per server,
+  `Create` building it from the start's `ComposedProtocolServices` (content store, mail store,
+  message bus, LDAP server, policy, `TimeProvider`, SSH host keys and algorithms, the TLS-upgrade,
+  `--ws-echo` and `--http3` flags). `https`, `imaps`, `ldaps`, `pop3s`, `smtps` and `wss` are
+  `ProtocolServerRegistration.ImplicitTls` entries, an `ImplicitTlsSchemeServer` over the server an
+  earlier entry built (`ComposedProtocolServices.ComposedServerFor`). A new protocol server is one
+  entry there, and in the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`,
+  "`surl --aihelp`"). The overload `ComposeProtocolServers(registrations, services)` builds any list.
+- `SurlServerCompositionSeams.AdditionalProtocolServers` (`AdditionalProtocolServer`: a registration
+  and its already-parsed `ListenUrl`s) are composed after the extended servers and served on their
+  listen URLs after the command line's: how `Surl.Api` serves a test's own server (BL-813).
 - `--http3` (ADR-0082 decision 6, BL-384): `ServerTlsComposition.QuicCertificate` is the served
   certificate as a `QuicServerCertificate` (DER chain and private key), and the start adds an
   `Http3ProtocolServer` for `https` after server TLS, beside the HTTP server's `https`
@@ -18,7 +27,9 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   status line) and `ComposedServing` writes `* Serving HTTP/3 over QUIC on UDP port <port>` from
   verbose up.
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`, none
-  yet), each joining with one line; `ExtendedProtocolServers.AreTurnedOn` reads `SURL_EXTENSIONS`
+  composed yet) from `ExtendedProtocolServers.Registrations`, the same `ProtocolServerRegistration`
+  record, each joining with one entry; its `ExtendedProtocolServerServices` wraps the start's
+  `ComposedProtocolServices`; `ExtendedProtocolServers.AreTurnedOn` reads `SURL_EXTENSIONS`
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`
   turns them off (ADR-0083 decisions 6 to 8). `SurlServerComposition.ComposeExtendedProtocolServers`
   never calls the composer while they are off.

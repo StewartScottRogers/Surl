@@ -8,9 +8,9 @@ namespace Surl.Composition;
 /// not have, and the one switch that turns them all off (ADR-0083, decisions 6 and 7).
 /// </summary>
 /// <remarks>
-/// An extended server joins with one line in <see cref="Compose"/>; its schemes' default ports
+/// An extended server joins with one entry in <see cref="Registrations"/>; its schemes' default ports
 /// are already rows of <c>Surl.Cli</c>'s <c>ExtendedSchemeDefaultPorts</c>. The original servers
-/// are composed by <see cref="SurlServerComposition.ComposeProtocolServers"/> and are never touched by this class.
+/// are <see cref="ProtocolServerRegistrations.Original"/> and are never touched by this class.
 /// </remarks>
 public static class ExtendedProtocolServers
 {
@@ -31,9 +31,20 @@ public static class ExtendedProtocolServers
         environmentVariables.Read(SwitchVariable) != TurnedOffValue;
 
     /// <summary>
-    /// Builds every extended protocol server this build has, in ordinal order of its first scheme.
+    /// Gets every extended protocol server's entry this build has, in ordinal order of its first
+    /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
+    /// decision 2); none yet.
+    /// </summary>
+    public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } = [];
+
+    /// <summary>
+    /// Builds every extended protocol server <see cref="Registrations"/> lists, in its order.
     /// </summary>
     /// <param name="services">What the servers are built from.</param>
-    /// <returns>The servers; none yet.</returns>
-    public static IReadOnlyList<IProtocolServer> Compose(ExtendedProtocolServerServices services) => [];
+    /// <returns>The servers.</returns>
+    public static IReadOnlyList<IProtocolServer> Compose(ExtendedProtocolServerServices services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return SurlServerComposition.ComposeProtocolServers(Registrations, services.ComposedServices);
+    }
 }

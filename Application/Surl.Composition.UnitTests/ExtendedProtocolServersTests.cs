@@ -32,13 +32,18 @@ public sealed class ExtendedProtocolServersTests
     [TestMethod]
     public void Compose_ThisBuild_HasNoExtendedServerYet()
     {
-        var services = new ExtendedProtocolServerServices(
-            SurlServerComposition.ComposeContentStore(new Cli.SurlCommandLine(), TimeProvider.System),
-            SurlServerComposition.ComposePolicyWithoutAccounts(TimeProvider.System),
-            IsTlsUpgradeAvailable: false);
+        var services = new ExtendedProtocolServerServices(SurlServerComposition.ComposeUnservedProtocolServices(
+            SurlServerComposition.ComposeContentStore(new Cli.SurlCommandLine(), TimeProvider.System), TimeProvider.System));
 
         var servers = ExtendedProtocolServers.Compose(services);
 
+        Assert.IsEmpty(ExtendedProtocolServers.Registrations);
         Assert.IsEmpty(servers);
+    }
+
+    [TestMethod]
+    public void Compose_NullServices_ThrowsArgumentNullException()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => ExtendedProtocolServers.Compose(null!));
     }
 }

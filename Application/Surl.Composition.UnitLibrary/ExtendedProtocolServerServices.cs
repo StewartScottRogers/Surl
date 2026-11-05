@@ -1,16 +1,9 @@
-using Surl.Authentication;
-using Surl.Content;
-
 namespace Surl.Composition;
 
 /// <summary>
-/// What an extended protocol server may be built from: the services the original servers are
-/// built from, composed once per start (ADR-0083). A server that needs more adds it here.
+/// What the extended-server composer a host may replace
+/// (<see cref="SurlServerCompositionSeams.ComposeExtendedProtocolServers"/>) is given: the services
+/// every protocol server is built from, composed once per start (ADR-0083, ADR-0124 decision 2).
 /// </summary>
-/// <param name="ContentStore">The one content store every protocol server reads.</param>
-/// <param name="AuthenticationPolicy">The one policy every login is judged by.</param>
-/// <param name="IsTlsUpgradeAvailable">Whether a certificate is configured, so a TLS upgrade can be offered.</param>
-public sealed record ExtendedProtocolServerServices(
-    ContentStore ContentStore,
-    AuthenticationPolicy AuthenticationPolicy,
-    bool IsTlsUpgradeAvailable);
+/// <param name="ComposedServices">The composed services, the same the original servers are built from.</param>
+public sealed record ExtendedProtocolServerServices(ComposedProtocolServices ComposedServices);

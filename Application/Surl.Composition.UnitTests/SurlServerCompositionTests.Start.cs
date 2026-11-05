@@ -39,6 +39,36 @@ public sealed partial class SurlServerCompositionTests
     }
 
     [TestMethod]
+    public async Task ComposeAsync_AnAdditionalProtocolServer_IsServedOnItsListenUrlAfterTheCommandLines()
+    {
+        var seams = new StartTestSeams();
+        var additional = new AdditionalProtocolServer(
+            new ProtocolServerRegistration(["x-test"], _ => new SchemeOnlyServer("x-test")),
+            [new ListenUrl("x-test", "127.0.0.1", 0)]);
+        using var log = new StringWriter();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var start = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.Parse("http://127.0.0.1:0"),
+            seams.Seams with { AdditionalProtocolServers = [additional] },
+            TestContext.CancellationToken);
+        await using var serving = start.Serving!;
+
+        var serve = serving.ServeAsync(StartTestSeams.Outputs(log, bound.SetResult), stop.Token);
+        var boundUrls = await bound.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        await serve;
+
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                new ListenUrl("http", "127.0.0.1", 0).WithBoundPort(FakeListenerFactory.BoundPort),
+                new ListenUrl("x-test", "127.0.0.1", 0).WithBoundPort(FakeListenerFactory.BoundPort),
+            },
+            boundUrls.ToArray());
+    }
+
+    [TestMethod]
     public async Task ComposeAsync_HttpsWithoutACertificate_FailsWithCertificateProblemAndTheTextSurlWrites()
     {
         var start = await SurlServerComposition.ComposeAsync(

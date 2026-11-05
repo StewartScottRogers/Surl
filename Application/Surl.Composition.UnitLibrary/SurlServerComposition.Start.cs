@@ -231,23 +231,30 @@ public static partial class SurlServerComposition
             return Refuse(SurlExitCode.CouldNotReadFile, loaded.FailureMessage!);
         }
 
+        var services = new ComposedProtocolServices(
+            contentStore,
+            loaded.State,
+            authentication.Policy,
+            seams.TimeProvider,
+            authentication.SshHostKeys.HostKeys,
+            SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
+            isCertificateConfigured,
+            commandLine.WsEcho,
+            commandLine.Http3);
         IProtocolServer[] servers =
         [
-            .. ComposeProtocolServers(
-                contentStore,
-                loaded.State,
-                authentication.Policy,
-                authentication.SshHostKeys.HostKeys,
-                SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
-                isCertificateConfigured,
-                commandLine.WsEcho,
-                commandLine.Http3),
+            .. ComposeProtocolServers(ProtocolServerRegistrations.Original, services),
             .. ComposeExtendedProtocolServers(
                 seams.AreExtensionsTurnedOn,
                 seams.ComposeExtendedProtocolServers,
-                new ExtendedProtocolServerServices(contentStore, authentication.Policy, isCertificateConfigured)),
+                new ExtendedProtocolServerServices(services)),
+            .. ComposeProtocolServers([.. seams.AdditionalProtocolServers.Select(additional => additional.Registration)], services),
         ];
-        return ComposeServing(commandLine, seams, servers, contentStore, authentication, dataDirectoryLock);
+        var served = commandLine with
+        {
+            ListenUrls = [.. commandLine.ListenUrls, .. seams.AdditionalProtocolServers.SelectMany(additional => additional.ListenUrls)],
+        };
+        return ComposeServing(served, seams, servers, contentStore, authentication, dataDirectoryLock);
     }
 
     private static SurlServerStart ComposeServing(

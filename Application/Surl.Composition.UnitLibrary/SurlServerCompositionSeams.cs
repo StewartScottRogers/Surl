@@ -75,4 +75,11 @@ public sealed record SurlServerCompositionSeams(
     /// which is what <c>surl</c> passes.
     /// </summary>
     public Func<ExtendedProtocolServerServices, IReadOnlyList<IProtocolServer>>? ComposeExtendedProtocolServers { get; init; }
+
+    /// <summary>
+    /// The protocol servers a host adds after the original and extended servers, each served on
+    /// its own listen URLs after the command line's (ADR-0124, decision 2): how <c>Surl.Api</c>
+    /// serves a test's own server. None, which is what <c>surl</c> passes, by default.
+    /// </summary>
+    public IReadOnlyList<AdditionalProtocolServer> AdditionalProtocolServers { get; init; } = [];
 }

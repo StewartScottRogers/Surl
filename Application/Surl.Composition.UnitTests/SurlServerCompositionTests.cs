@@ -75,10 +75,31 @@ public sealed partial class SurlServerCompositionTests
             echoesWebSocketMessages: false));
     }
 
-    private static ExtendedProtocolServerServices Services() => new(
-        SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System),
-        SurlServerComposition.ComposePolicyWithoutAccounts(TimeProvider.System),
-        IsTlsUpgradeAvailable: false);
+    [TestMethod]
+    public void ComposeProtocolServers_WithAClock_BuildsOneServerPerOriginalEntry()
+    {
+        var policy = SurlServerComposition.ComposePolicyWithoutAccounts(TimeProvider.System);
+        var unserved = UnservedServices();
+
+        var servers = SurlServerComposition.ComposeProtocolServers(
+            unserved.ContentStore,
+            new ServiceState(unserved.MessageBus, unserved.MailStore, unserved.LdapServer),
+            policy,
+            unserved.SshHostKeys,
+            unserved.SshAlgorithms,
+            isTlsUpgradeAvailable: false,
+            echoesWebSocketMessages: false,
+            advertisesHttp3: false,
+            TimeProvider.System);
+
+        Assert.HasCount(ProtocolServerRegistrations.Original.Count, servers);
+        Assert.AreSame(unserved.LdapServer, servers[7]);
+    }
+
+    private static ExtendedProtocolServerServices Services() => new(UnservedServices());
+
+    private static ComposedProtocolServices UnservedServices() => SurlServerComposition.ComposeUnservedProtocolServices(
+        SurlServerComposition.ComposeContentStore(new SurlCommandLine(), TimeProvider.System), TimeProvider.System);
 
     private sealed class SchemeOnlyServer(string scheme) : IConnectionProtocolServer
     {

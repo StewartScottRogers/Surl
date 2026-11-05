@@ -6,21 +6,8 @@ using Surl.Core;
 using Surl.MailStore;
 using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
-using Surl.Protocol.Dict;
-using Surl.Protocol.Ftp;
-using Surl.Protocol.Gopher;
-using Surl.Protocol.Http;
-using Surl.Protocol.Imap;
 using Surl.Protocol.Ldap;
-using Surl.Protocol.Mqtt;
-using Surl.Protocol.Pop3;
-using Surl.Protocol.Rtsp;
-using Surl.Protocol.Smb;
-using Surl.Protocol.Smtp;
 using Surl.Protocol.Ssh;
-using Surl.Protocol.Telnet;
-using Surl.Protocol.Tftp;
-using Surl.Protocol.Ws;
 
 namespace Surl.Composition;
 
@@ -69,9 +56,7 @@ public static partial class SurlServerComposition
                 areExtensionsTurnedOn,
                 composeExtendedProtocolServers,
                 new ExtendedProtocolServerServices(
-                    ComposeContentStore(new SurlCommandLine(), timeProvider),
-                    ComposePolicyWithoutAccounts(timeProvider),
-                    IsTlsUpgradeAvailable: false))
+                    ComposeUnservedProtocolServices(ComposeContentStore(new SurlCommandLine(), timeProvider), timeProvider)))
             .SelectMany(server => server.Schemes)];
 
     /// <summary>
@@ -378,23 +363,9 @@ public static partial class SurlServerComposition
 
     /// <summary>
     /// Builds every original protocol server surl registers, over TCP or (TFTP) UDP, in
-    /// registration order.
+    /// registration order: <see cref="ProtocolServerRegistrations.Original"/>, each entry built
+    /// over the services given (ADR-0124, decision 2).
     /// </summary>
-    /// <remarks>
-    /// Those that serve files serve the one content store, the MQTT server, for mqtt and mqtts
-    /// alike, keeps its retained messages on the one message bus, the SMTP server delivers into the one mail store and the
-    /// IMAP and POP3 servers serve it. https, smtps, imaps, pop3s, ldaps and wss are the HTTP,
-    /// SMTP, IMAP, POP3, LDAP and WebSocket servers themselves, registered again through
-    /// <see cref="ImplicitTlsSchemeServer"/> over a connection the engine has secured (ADR-0020,
-    /// ADR-0053 decision 5, ADR-0055 decision 11, ADR-0056 decision 8, ADR-0071 decision 8,
-    /// ADR-0072 decision 5). The FTP server answers ftp and, TLS from the first byte, ftps itself
-    /// (ADR-0052 decision 5); the SMB server smb and smbs (ADR-0073 decision 6). The servers with a
-    /// login judge it by the one policy (ADR-0032); SMTP and IMAP offer STARTTLS, POP3 STLS, FTP
-    /// AUTH TLS and LDAP StartTLS only when a certificate is configured. The SSH server answers scp
-    /// and sftp with its host keys and offers the algorithms given (ADR-0051, ADR-0066). The
-    /// WebSocket server echoes every client message instead with <c>--ws-echo</c> (ADR-0071
-    /// decision 4). The RTSP server has no rtsps, as curl has none (ADR-0074 decision 7).
-    /// </remarks>
     /// <param name="contentStore">The one content store.</param>
     /// <param name="serviceState">The message bus, the mail store and the LDAP server.</param>
     /// <param name="authenticationPolicy">The one policy every login is judged by.</param>
@@ -403,6 +374,7 @@ public static partial class SurlServerComposition
     /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured, so a TLS upgrade can be offered.</param>
     /// <param name="echoesWebSocketMessages">Whether <c>--ws-echo</c> is given.</param>
     /// <param name="advertisesHttp3">Whether <c>--http3</c> is given, so the HTTP server adds <c>Alt-Svc</c> on https (ADR-0082, decision 6).</param>
+    /// <param name="timeProvider">The one clock; <see cref="TimeProvider.System"/> when <see langword="null"/>.</param>
     /// <returns>The servers.</returns>
     public static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
@@ -412,45 +384,47 @@ public static partial class SurlServerComposition
         SshAlgorithmOffer sshAlgorithms,
         bool isTlsUpgradeAvailable,
         bool echoesWebSocketMessages,
-        bool advertisesHttp3 = false)
+        bool advertisesHttp3 = false,
+        TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(serviceState);
-
-        var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy, advertisesHttp3);
-        var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
-        var imapServer = new ImapProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
-        var pop3Server = new Pop3ProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
-        var wsServer = new WsProtocolServer(contentStore, authenticationPolicy, echoesWebSocketMessages);
-
-        return
-        [
-            httpServer,
-            new ImplicitTlsSchemeServer(httpServer, "https"),
-            new DictProtocolServer(contentStore),
-            new FtpProtocolServer(contentStore, authenticationPolicy, isTlsUpgradeAvailable),
-            new GopherProtocolServer(contentStore),
-            imapServer,
-            new ImplicitTlsSchemeServer(imapServer, "imaps"),
-            serviceState.LdapServer,
-            new ImplicitTlsSchemeServer(serviceState.LdapServer, "ldaps"),
-            new MqttProtocolServer(serviceState.MessageBus, authenticationPolicy),
-            pop3Server,
-            new ImplicitTlsSchemeServer(pop3Server, "pop3s"),
-            new RtspProtocolServer(contentStore, authenticationPolicy),
-            new SmbProtocolServer(contentStore, authenticationPolicy),
-            smtpServer,
-            new ImplicitTlsSchemeServer(smtpServer, "smtps"),
-            new SshProtocolServer(
+        return ComposeProtocolServers(
+            ProtocolServerRegistrations.Original,
+            new ComposedProtocolServices(
+                contentStore,
+                serviceState,
+                authenticationPolicy,
+                timeProvider ?? TimeProvider.System,
                 sshHostKeys,
                 sshAlgorithms,
-                authenticationPolicy,
-                new SshSystemRandomSource(),
-                contentStore),
-            new TelnetProtocolServer(),
-            new TftpProtocolServer(contentStore),
-            wsServer,
-            new ImplicitTlsSchemeServer(wsServer, "wss"),
-        ];
+                isTlsUpgradeAvailable,
+                echoesWebSocketMessages,
+                advertisesHttp3));
+    }
+
+    /// <summary>
+    /// Builds the server of every entry of <paramref name="registrations"/>, in its order, over
+    /// <paramref name="services"/>; each entry may share a server an earlier entry over the same
+    /// services built, through <see cref="ComposedProtocolServices.ComposedServerFor"/> (ADR-0124,
+    /// decision 2).
+    /// </summary>
+    /// <param name="registrations">The ordered registration list.</param>
+    /// <param name="services">What the servers are built from.</param>
+    /// <returns>The servers, one per entry.</returns>
+    public static IProtocolServer[] ComposeProtocolServers(
+        IReadOnlyList<ProtocolServerRegistration> registrations, ComposedProtocolServices services)
+    {
+        ArgumentNullException.ThrowIfNull(registrations);
+        ArgumentNullException.ThrowIfNull(services);
+        var servers = new IProtocolServer[registrations.Count];
+        for (var index = 0; index < servers.Length; index++)
+        {
+            var registration = registrations[index];
+            servers[index] = registration.Create(services);
+            services.RecordComposed(registration, servers[index]);
+        }
+
+        return servers;
     }
 
     /// <summary>
@@ -460,19 +434,32 @@ public static partial class SurlServerComposition
     /// <param name="contentStore">The content store they are built over.</param>
     /// <param name="timeProvider">The clock they run on.</param>
     /// <returns>The servers, in registration order.</returns>
-    public static IProtocolServer[] ComposeUnservedProtocolServers(ContentStore contentStore, TimeProvider timeProvider)
+    public static IProtocolServer[] ComposeUnservedProtocolServers(ContentStore contentStore, TimeProvider timeProvider) =>
+        ComposeProtocolServers(ProtocolServerRegistrations.Original, ComposeUnservedProtocolServices(contentStore, timeProvider));
+
+    /// <summary>
+    /// Composes the services servers are built over only to ask for their schemes: an empty
+    /// in-memory bus, mail store and directory, a policy with no accounts, no host keys and no
+    /// certificate.
+    /// </summary>
+    /// <param name="contentStore">The content store they are built over.</param>
+    /// <param name="timeProvider">The clock they run on.</param>
+    /// <returns>The services.</returns>
+    public static ComposedProtocolServices ComposeUnservedProtocolServices(ContentStore contentStore, TimeProvider timeProvider)
     {
         var authenticationPolicy = ComposePolicyWithoutAccounts(timeProvider);
-        return ComposeProtocolServers(
+        return new ComposedProtocolServices(
             contentStore,
             new ServiceState(
                 new MessageBus.MessageBus(timeProvider),
                 new MailboxStore([], allowAnonymous: false, timeProvider),
                 new LdapProtocolServer(authenticationPolicy, authenticationPolicy)),
             authenticationPolicy,
+            timeProvider,
             new SshHostKeySet(),
             SshAlgorithmOffer.Default([], AesGcm.IsSupported),
             isTlsUpgradeAvailable: false,
-            echoesWebSocketMessages: false);
+            echoesWebSocketMessages: false,
+            advertisesHttp3: false);
     }
 }

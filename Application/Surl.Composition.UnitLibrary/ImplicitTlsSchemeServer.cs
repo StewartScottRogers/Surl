@@ -10,8 +10,6 @@ namespace Surl.Composition;
 /// </summary>
 public sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer
 {
-    private readonly IConnectionProtocolServer server;
-
     /// <summary>
     /// Registers <paramref name="server"/> for <paramref name="implicitTlsScheme"/>.
     /// </summary>
@@ -28,9 +26,14 @@ public sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer
             throw new ArgumentException($"'{implicitTlsScheme}' is not TLS from the first byte.", nameof(implicitTlsScheme));
         }
 
-        this.server = server;
+        Server = server;
         Schemes = Array.AsReadOnly([implicitTlsScheme]);
     }
+
+    /// <summary>
+    /// The server this one registers, which answers the scheme's plaintext twin.
+    /// </summary>
+    public IConnectionProtocolServer Server { get; }
 
     /// <summary>
     /// The one implicit-TLS scheme answered.
@@ -43,5 +46,5 @@ public sealed class ImplicitTlsSchemeServer : IConnectionProtocolServer
     /// <param name="connection">The accepted connection, its TLS handshake already completed.</param>
     /// <param name="context">What the server is told about this exchange.</param>
     /// <returns>The server's own task.</returns>
-    public Task ServeAsync(IConnection connection, ExchangeContext context) => server.ServeAsync(connection, context);
+    public Task ServeAsync(IConnection connection, ExchangeContext context) => Server.ServeAsync(connection, context);
 }
