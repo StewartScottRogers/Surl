@@ -30,6 +30,20 @@ internal static class PolicyFixture
             httpMethods,
             clock);
 
+    public static AuthenticationPolicy CreateObserved(
+        AccountBook accounts,
+        TimeProvider clock,
+        ISurlEventPublisher events,
+        IFaultPlan faults,
+        IReadOnlySet<AuthenticationMethod>? acceptedMethods = null,
+        params IHttpAuthenticationMethod[] httpMethods) =>
+        new(
+            new AuthenticationSettings(accounts, false, false, acceptedMethods ?? AuthenticationMethods.DefaultAccepted),
+            httpMethods,
+            clock,
+            events,
+            faults);
+
     public static AuthenticationPolicy CreateWithFixedNonces(
         AccountBook accounts,
         TimeProvider clock,

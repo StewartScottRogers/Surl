@@ -63,20 +63,60 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     private readonly IReadOnlyList<IHttpAuthenticationMethod> httpMethods;
     private readonly TimeProvider timeProvider;
     private readonly IReadOnlyList<SaslMechanism> saslMechanisms;
+    private readonly ISurlEventPublisher events;
+    private readonly IFaultPlan faults;
+
+    /// <summary>
+    /// The scheme a <see cref="LoginJudgedEvent"/> and a <see cref="FaultPoint"/> name for an HTTP
+    /// login, whose request does not carry its listen URL's scheme: every scheme the HTTP family
+    /// serves (<c>https</c>, <c>ws</c>, <c>rtsp</c> ...) is named <c>http</c>.
+    /// </summary>
+    public const string HttpLoginScheme = "http";
+
+    /// <summary>
+    /// The scheme an SSH login (<c>scp</c>, <c>sftp</c>) is published and matched under, since its
+    /// request does not carry its listen URL's scheme.
+    /// </summary>
+    public const string SshLoginScheme = "ssh";
+
+    /// <summary>
+    /// The scheme an SMB login (<c>smb</c>, <c>smbs</c>) is published and matched under, since its
+    /// request does not carry its listen URL's scheme.
+    /// </summary>
+    public const string SmbLoginScheme = "smb";
+
+    /// <summary>
+    /// The <see cref="LoginJudgedEvent.Mechanism"/> of a login judged by
+    /// <see cref="CheckPasswordLoginAsync"/>.
+    /// </summary>
+    public const string PasswordMechanism = "password";
 
     /// <summary>
     /// Applies <paramref name="settings"/>, verifying HTTP credentials with those of
-    /// <paramref name="httpMethods"/> that <see cref="AuthenticationSettings.AcceptedMethods"/> names.
+    /// <paramref name="httpMethods"/> that <see cref="AuthenticationSettings.AcceptedMethods"/> names,
+    /// publishing each judged login on <paramref name="events"/> and refusing a login
+    /// <paramref name="faults"/> finds a <see cref="FaultKind.RefuseLogin"/> rule for (ADR-0124,
+    /// decisions 1 and 4).
     /// </summary>
     /// <param name="settings">The accounts and loosening options.</param>
     /// <param name="httpMethods">Every HTTP method this build implements; at most one per method.</param>
     /// <param name="timeProvider">The clock the refusal delay waits on.</param>
+    /// <param name="events">
+    /// Where each judged login is published; <see langword="null"/> means
+    /// <see cref="DiscardingSurlEventPublisher.Instance"/>.
+    /// </param>
+    /// <param name="faults">
+    /// The fault plan asked before a login is accepted; <see langword="null"/> means
+    /// <see cref="EmptyFaultPlan.Instance"/>.
+    /// </param>
     /// <exception cref="ArgumentException">Two of <paramref name="httpMethods"/> verify the same method.</exception>
     public AuthenticationPolicy(
         AuthenticationSettings settings,
         IEnumerable<IHttpAuthenticationMethod> httpMethods,
-        TimeProvider timeProvider)
-        : this(settings, httpMethods, timeProvider, RandomSaslNonceSource.Instance, RandomNtlmServerChallengeSource.Instance)
+        TimeProvider timeProvider,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null)
+        : this(settings, httpMethods, timeProvider, RandomSaslNonceSource.Instance, RandomNtlmServerChallengeSource.Instance, events, faults)
     {
     }
 
@@ -90,12 +130,16 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <param name="timeProvider">The clock the refusal delay waits on and <c>CRAM-MD5</c> challenges carry.</param>
     /// <param name="nonceSource">Where <c>CRAM-MD5</c> and <c>DIGEST-MD5</c> challenges' random bytes come from.</param>
     /// <param name="ntlmServerChallenges">Where SASL <c>NTLM</c>'s server challenges come from.</param>
+    /// <param name="events">Where each judged login is published; <see langword="null"/> publishes nothing.</param>
+    /// <param name="faults">The fault plan asked before a login is accepted; <see langword="null"/> finds none.</param>
     internal AuthenticationPolicy(
         AuthenticationSettings settings,
         IEnumerable<IHttpAuthenticationMethod> httpMethods,
         TimeProvider timeProvider,
         ISaslNonceSource nonceSource,
-        INtlmServerChallengeSource ntlmServerChallenges)
+        INtlmServerChallengeSource ntlmServerChallenges,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(httpMethods);
@@ -117,6 +161,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         AzureStorageVerifier = new AzureStorageVerifier(settings.Accounts, timeProvider);
         NonceSource = nonceSource;
         NtlmServerChallenges = ntlmServerChallenges;
+        this.events = events ?? DiscardingSurlEventPublisher.Instance;
+        this.faults = faults ?? EmptyFaultPlan.Instance;
         saslMechanisms = [.. SaslMechanism.InOfferOrder.Where(mechanism => settings.AcceptedMethods.Contains(mechanism.Method))];
     }
 
@@ -128,6 +174,15 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         cancellationToken.ThrowIfCancellationRequested();
 
         var verdict = JudgePasswordLogin(login);
+        if (verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.RefusedCredentials)
+        {
+            var acceptedAccountName = verdict == PasswordLoginVerdict.Accepted ? login.UserName : null;
+            verdict = await ConcludeCheckedLoginAsync(login.Scheme, PasswordMechanism, login.UserName, acceptedAccountName, cancellationToken)
+                .ConfigureAwait(false)
+                ? PasswordLoginVerdict.Accepted
+                : PasswordLoginVerdict.RefusedCredentials;
+        }
+
         if (verdict == PasswordLoginVerdict.RefusedCredentials)
         {
             await WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
@@ -135,6 +190,62 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
 
         return verdict;
     }
+
+    /// <summary>
+    /// Ends the judgement of a login whose credentials were checked (ADR-0124, decisions 1 and 4):
+    /// an accepted login is refused when the fault plan finds a <see cref="FaultKind.RefuseLogin"/>
+    /// rule for its scheme and account, which publishes a <see cref="FaultAppliedEvent"/>; either way
+    /// a <see cref="LoginJudgedEvent"/> is published. The caller answers a refusal as it answers a
+    /// wrong credential, after <see cref="RefusalDelay"/>.
+    /// </summary>
+    /// <param name="scheme">The scheme the login was made over.</param>
+    /// <param name="mechanism">The login method or mechanism.</param>
+    /// <param name="user">The user name as the client gave it, or <see langword="null"/> when none could be read.</param>
+    /// <param name="acceptedAccountName">The account the credentials matched, or <see langword="null"/> when they did not.</param>
+    /// <param name="cancellationToken">Cancels the fault plan's search.</param>
+    /// <returns>Whether the login stays accepted.</returns>
+    internal async ValueTask<bool> ConcludeCheckedLoginAsync(
+        string scheme, string mechanism, string? user, string? acceptedAccountName, CancellationToken cancellationToken)
+    {
+        var isRefusedByFault = acceptedAccountName is not null
+            && await IsRefusedByFaultAsync(scheme, acceptedAccountName, cancellationToken).ConfigureAwait(false);
+        var isAccepted = acceptedAccountName is not null && !isRefusedByFault;
+        PublishJudgedLogin(scheme, user, mechanism, isAccepted, isRefusedByFault);
+
+        return isAccepted;
+    }
+
+    /// <summary>
+    /// Asks the fault plan whether an accepted login is to be refused, publishing the
+    /// <see cref="FaultAppliedEvent"/> when it is. A rule of any kind but
+    /// <see cref="FaultKind.RefuseLogin"/> is not applied at a login.
+    /// </summary>
+    /// <param name="scheme">The scheme the login was made over.</param>
+    /// <param name="accountName">The account the credentials matched.</param>
+    /// <param name="cancellationToken">Cancels the search.</param>
+    /// <returns>Whether the login is refused by a fault.</returns>
+    internal async ValueTask<bool> IsRefusedByFaultAsync(string scheme, string accountName, CancellationToken cancellationToken)
+    {
+        var point = new FaultPoint(FaultStage.Login) { Scheme = scheme, Account = accountName };
+        if (await faults.FindAsync(point, cancellationToken).ConfigureAwait(false) is not { Kind: FaultKind.RefuseLogin } rule)
+        {
+            return false;
+        }
+
+        events.Publish(new FaultAppliedEvent(rule.Id, rule.Kind, FaultStage.Login, null, accountName));
+        return true;
+    }
+
+    /// <summary>
+    /// Publishes a <see cref="LoginJudgedEvent"/>, which never carries a secret.
+    /// </summary>
+    /// <param name="scheme">The scheme the login was made over.</param>
+    /// <param name="user">The user name as the client gave it; <see langword="null"/> is published empty.</param>
+    /// <param name="mechanism">The login method or mechanism.</param>
+    /// <param name="isAccepted">Whether the login was accepted.</param>
+    /// <param name="isRefusedByFault">Whether a fault refused it.</param>
+    internal void PublishJudgedLogin(string scheme, string? user, string mechanism, bool isAccepted, bool isRefusedByFault) =>
+        events.Publish(new LoginJudgedEvent(null, scheme, user ?? string.Empty, mechanism, isAccepted, isRefusedByFault));
 
     /// <inheritdoc/>
     public IHttpAuthenticationSession StartHttpConnection(TlsSession? tlsSession) =>
@@ -277,7 +388,9 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         var user = string.IsNullOrEmpty(login.UserName) ? null : login.UserName;
         var account = settings.Accounts.FindChallengeResponseAccount(user);
         byte[] digested = [.. Encoding.UTF8.GetBytes(login.Timestamp), .. account.Password];
-        if (Md5HexDigest.Matches(settings.Accounts.SecretComparer, MD5.HashData(digested), login.Digest) & account.AccountName is not null)
+        var matches = Md5HexDigest.Matches(settings.Accounts.SecretComparer, MD5.HashData(digested), login.Digest);
+        var acceptedAccountName = matches ? account.AccountName : null;
+        if (await ConcludeCheckedLoginAsync(login.Scheme, ApopMethod, user, acceptedAccountName, cancellationToken).ConfigureAwait(false))
         {
             return new SaslLoginStep(
                 SaslLoginOutcome.Accepted, ReadOnlyMemory<byte>.Empty, account.AccountName, new CheckedLogin(ApopMethod, user, true));
@@ -367,7 +480,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     private async ValueTask<SshLoginVerdict> DecideSshLoginAsync(
         bool isAccepted, string method, string? userName, CancellationToken cancellationToken)
     {
-        if (isAccepted)
+        var acceptedAccountName = isAccepted ? userName : null;
+        if (await ConcludeCheckedLoginAsync(SshLoginScheme, method, userName, acceptedAccountName, cancellationToken).ConfigureAwait(false))
         {
             return new SshLoginVerdict(SshLoginOutcome.Accepted, userName, new CheckedLogin(method, userName, true));
         }
@@ -410,7 +524,8 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
         var expected = NtlmV1Calculation.ComputeResponse(
             account.NtHashes[NtlmPasswordHashes.WidenedUtf8Index], login.ServerChallenge.Span);
         var matches = settings.Accounts.SecretComparer.FixedTimeEquals(expected, login.NtResponse.Span);
-        if (account.AccountName is not null & matches)
+        var acceptedAccountName = matches ? account.AccountName : null;
+        if (await ConcludeCheckedLoginAsync(SmbLoginScheme, SmbNtlmV1Method, login.UserName, acceptedAccountName, cancellationToken).ConfigureAwait(false))
         {
             return new SmbLoginVerdict(
                 SmbLoginOutcome.Accepted, account.AccountName, new CheckedLogin(SmbNtlmV1Method, login.UserName, true));

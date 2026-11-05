@@ -190,6 +190,30 @@ public sealed class ScramSaslMechanismTests
     // ---- Refusals ----
 
     [TestMethod]
+    public async Task Exchange_RefuseLoginFault_RefusesTheRightProofWithInvalidProof()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var policy = new AuthenticationPolicy(
+            new AuthenticationSettings(RfcAccounts, false, false, EveryMethod),
+            [],
+            clock,
+            FixedSaslNonceSource.Instance,
+            new FixedNtlmServerChallengeSource(),
+            events,
+            new ScriptedFaultPlan(new FaultRule("f1", FaultKind.RefuseLogin) { Account = "user" }));
+        var exchange = new ScramSaslExchange(
+            new SaslExchangeContext(policy, "xmpp", ScramHash.Sha1.MechanismName, Ascii(Sha1ClientFirst), null),
+            ScramHash.Sha1,
+            () => Sha1ServerNonce);
+        await exchange.BeginAsync(CancellationToken.None);
+
+        await AssertRefusedAsync(
+            exchange.ContinueAsync(Ascii(Sha1ClientFinal), CancellationToken.None), "e=invalid-proof", "Login refused: SCRAM-SHA-1 user");
+
+        Assert.AreEqual(new LoginJudgedEvent(null, "xmpp", "user", "SCRAM-SHA-1", false, true), events.Events[^1]);
+    }
+
+    [TestMethod]
     public async Task Exchange_WrongProof_IsRefusedWithInvalidProof()
     {
         var exchange = Sha1Exchange();

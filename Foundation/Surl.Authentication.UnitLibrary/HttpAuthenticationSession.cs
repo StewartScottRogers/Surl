@@ -63,19 +63,24 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
                 : Forbidden with { Refusal = HttpAuthenticationRefusal.MissingCredentials };
         }
 
-        var check = result.Check;
+        var isRefusedByFault = await IsRefusedByFaultAsync(result.Check, cancellationToken).ConfigureAwait(false);
+        var check = isRefusedByFault ? RefusedByFault(result.Check, AzureWrongCredentialsRefusal(result.LoginMethod)) : result.Check;
         var note = result.LoginMethod is null
             ? null
             : new CheckedLogin(result.LoginMethod, check.UserAsSent, check.Outcome == HttpCredentialOutcome.Accepted);
         if (check.Outcome == HttpCredentialOutcome.Accepted)
         {
-            return new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], check.AccountName, note);
+            return Published(new HttpAuthenticationVerdict(HttpAuthenticationOutcome.Proceed, [], check.AccountName, note), false);
         }
 
         await policy.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
 
-        return Forbidden with { CheckedLogin = note, Refusal = check.Refusal };
+        return Published(Forbidden with { CheckedLogin = note, Refusal = check.Refusal }, isRefusedByFault);
     }
+
+    // A wrong Azure bearer token finds no account; a wrong key or shared access signature is a bad signature.
+    private static HttpAuthenticationRefusal AzureWrongCredentialsRefusal(string? loginMethod) =>
+        loginMethod == AzureStorageVerifier.BearerScheme ? HttpAuthenticationRefusal.UnknownAccount : HttpAuthenticationRefusal.BadSignature;
 
     // An HTTP request, judged by --auth's methods in ADR-0032 section 4's order.
     private ValueTask<HttpAuthenticationVerdict> JudgeHttpRequest(
@@ -154,8 +159,10 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         HttpAuthenticationRequest request,
         CancellationToken cancellationToken)
     {
-        var check = await verifier.VerifyAsync(authorization.Credentials, request, cancellationToken)
+        var verified = await verifier.VerifyAsync(authorization.Credentials, request, cancellationToken)
             .ConfigureAwait(false);
+        var isRefusedByFault = await IsRefusedByFaultAsync(verified, cancellationToken).ConfigureAwait(false);
+        var check = isRefusedByFault ? RefusedByFault(verified, WrongCredentialsRefusal(authorization.Method)) : verified;
 
         // A new handshake on the connection replaces its login, whatever it comes to.
         if (AuthenticationMethods.AuthenticatesConnection(authorization.Method))
@@ -163,7 +170,34 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
             connectionAccountName = check.Outcome == HttpCredentialOutcome.Accepted ? check.AccountName : null;
         }
 
-        return await AnswerCheckAsync(check, authorization.Method, request.AwsSigV4Service is not null, cancellationToken).ConfigureAwait(false);
+        var verdict = await AnswerCheckAsync(check, authorization.Method, request.AwsSigV4Service is not null, cancellationToken).ConfigureAwait(false);
+
+        return Published(verdict, isRefusedByFault);
+    }
+
+    // ADR-0124 decision 4: a refuse-login fault refuses accepted credentials as wrong ones are refused.
+    private ValueTask<bool> IsRefusedByFaultAsync(HttpCredentialCheck check, CancellationToken cancellationToken) =>
+        check.Outcome == HttpCredentialOutcome.Accepted
+            ? policy.IsRefusedByFaultAsync(AuthenticationPolicy.HttpLoginScheme, check.AccountName!, cancellationToken)
+            : ValueTask.FromResult(false);
+
+    // The check a wrong credential of the same method comes to: refused, no account, nothing to send.
+    private static HttpCredentialCheck RefusedByFault(HttpCredentialCheck check, HttpAuthenticationRefusal? refusal) =>
+        check with { Outcome = HttpCredentialOutcome.Refused, AccountName = null, WwwAuthenticateValues = [], CheckBody = null, Refusal = refusal };
+
+    // Only Signature Version 4 tells a wrong secret apart; every other method's refusal carries no reason.
+    private static HttpAuthenticationRefusal? WrongCredentialsRefusal(AuthenticationMethod method) =>
+        method == AuthenticationMethod.AwsSigV4 ? HttpAuthenticationRefusal.BadSignature : null;
+
+    // Every verdict with a login note is a judged login (ADR-0124, decision 1).
+    private HttpAuthenticationVerdict Published(HttpAuthenticationVerdict verdict, bool isRefusedByFault)
+    {
+        if (verdict.CheckedLogin is { } login)
+        {
+            policy.PublishJudgedLogin(AuthenticationPolicy.HttpLoginScheme, login.User, login.Method, login.IsAccepted, isRefusedByFault);
+        }
+
+        return verdict;
     }
 
     // Accepted and refused credentials carry the login note (ADR-0032, section 8); a
@@ -228,16 +262,22 @@ internal sealed class HttpAuthenticationSession : IHttpAuthenticationSession
         bool isServiceSignature,
         Func<ReadOnlyMemory<byte>, HttpCredentialCheck> checkBody) : IHttpRequestBodyCheck
     {
-        public ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(
+        public async ValueTask<HttpAuthenticationVerdict> JudgeBodyAsync(
             ReadOnlyMemory<byte> bodySha256, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var check = checkBody(bodySha256);
+            var isRefusedByFault = await session.IsRefusedByFaultAsync(check, cancellationToken).ConfigureAwait(false);
+            var verdict = check.Outcome == HttpCredentialOutcome.Accepted && !isRefusedByFault
+                ? Accepted(check, method)
+                : await session.RefuseAsync(
+                    isRefusedByFault ? RefusedByFault(check, WrongCredentialsRefusal(method)) : check,
+                    method,
+                    isServiceSignature,
+                    cancellationToken).ConfigureAwait(false);
 
-            return check.Outcome == HttpCredentialOutcome.Accepted
-                ? ValueTask.FromResult(Accepted(check, method))
-                : session.RefuseAsync(check, method, isServiceSignature, cancellationToken);
+            return session.Published(verdict, isRefusedByFault);
         }
     }
 }

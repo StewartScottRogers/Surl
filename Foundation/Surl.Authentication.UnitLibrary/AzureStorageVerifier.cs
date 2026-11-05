@@ -28,7 +28,7 @@ internal sealed class AzureStorageVerifier(AccountBook accounts, TimeProvider ti
     /// </summary>
     public const string SharedAccessSignatureMethod = "SAS";
 
-    private const string BearerScheme = "Bearer";
+    internal const string BearerScheme = "Bearer";
 
     /// <summary>
     /// Checks the request's credentials.

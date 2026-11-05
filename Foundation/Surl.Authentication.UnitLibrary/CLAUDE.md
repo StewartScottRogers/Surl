@@ -404,3 +404,18 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - `Surl.Composition` builds one `AuthenticationPolicy`, with its HTTP methods over the view's
   `Accounts`, per scheme (BL-653); a view with no accounts left serves HTTP anonymous reads as
   ADR-0032 section 4 serves them with none configured.
+
+## Login events and refuse-login (BL-791, ADR-0126)
+
+- `AuthenticationPolicy` takes an optional `ISurlEventPublisher` and `IFaultPlan` (default: publish nothing,
+  find no fault). Every login whose credentials were checked - every one that carries a `CheckedLogin`, and
+  `CheckPasswordLoginAsync`'s `Accepted`/`RefusedCredentials` as `password` - publishes a `LoginJudgedEvent`
+  with the user as noted and the note's method; never a secret. HTTP, SSH and SMB logins are named
+  `HttpLoginScheme`, `SshLoginScheme` and `SmbLoginScheme` (`http`, `ssh`, `smb`) and every `ExchangeId` is
+  null until BL-866 puts both on the login requests.
+- Once credentials match, `IsRefusedByFaultAsync` asks the plan at `FaultStage.Login` with the scheme and the
+  account matched; a `RefuseLogin` rule publishes a `FaultAppliedEvent` and the login is refused as the same
+  method refuses a wrong credential (`ConcludeCheckedLoginAsync` for password, APOP, SSH and SMB;
+  `HttpAuthenticationSession` with each method's wrong-credential `Refusal`; `SaslMechanismExchange` at the
+  step that accepted, through `RefuseByFaultAsync`, which `BearerTokenSaslExchange` and `ScramSaslExchange`
+  override). The tests are `LoginJudgementPolicyTests`, with `SpendingFaultPlan` spending `times`.

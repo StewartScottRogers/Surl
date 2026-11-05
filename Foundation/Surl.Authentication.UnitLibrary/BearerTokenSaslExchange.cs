@@ -100,9 +100,20 @@ internal abstract class BearerTokenSaslExchange(SaslExchangeContext context) : S
             return Accept(login!.Value.User, CheckedLogin.BearerTokenUser);
         }
 
+        return await RefuseTokenAsync(token is null ? null : CheckedLogin.BearerTokenUser, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>As a wrong token is: the error challenge after the refusal delay.</remarks>
+    protected override ValueTask<SaslLoginStep> RefuseByFaultAsync(string? user, CancellationToken cancellationToken) =>
+        RefuseTokenAsync(user, cancellationToken);
+
+    private async ValueTask<SaslLoginStep> RefuseTokenAsync(string? user, CancellationToken cancellationToken)
+    {
+        var refused = RefusedNote(user);
         await Context.WaitRefusalDelayAsync(cancellationToken).ConfigureAwait(false);
         isTokenRefused = true;
 
-        return Challenge(InvalidTokenChallenge, Note(token is null ? null : CheckedLogin.BearerTokenUser, false));
+        return Challenge(InvalidTokenChallenge, refused);
     }
 }

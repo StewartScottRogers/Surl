@@ -27,6 +27,9 @@ namespace Surl.Authentication;
 /// </summary>
 internal sealed class ScramSaslExchange : SaslMechanismExchange
 {
+    // The server-final-message error of a wrong proof and an unknown user alike (RFC 5802 section 7).
+    private const string InvalidProof = "invalid-proof";
+
     /// <summary>
     /// How many random bytes the server nonce is the base64 of.
     /// </summary>
@@ -125,7 +128,7 @@ internal sealed class ScramSaslExchange : SaslMechanismExchange
         var isAuthorized = clientFirst.AuthorizationId is null || clientFirst.AuthorizationId == user;
         if (!(ProofMatches(final.Proof, authMessage) & credentials.AccountName is not null))
         {
-            return RefuseAsync(user, cancellationToken, ServerError("invalid-proof"));
+            return RefuseAsync(user, cancellationToken, ServerError(InvalidProof));
         }
 
         return isAuthorized
@@ -168,6 +171,11 @@ internal sealed class ScramSaslExchange : SaslMechanismExchange
 
         return Challenge(serverFinal);
     }
+
+    /// <inheritdoc/>
+    /// <remarks>As a wrong proof is: <c>e=invalid-proof</c>.</remarks>
+    protected override ValueTask<SaslLoginStep> RefuseByFaultAsync(string? user, CancellationToken cancellationToken) =>
+        RefuseAsync(user, cancellationToken, ServerError(InvalidProof));
 
     private static string ServerError(string error) => $"e={error}";
 }

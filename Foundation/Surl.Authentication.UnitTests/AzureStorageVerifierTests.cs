@@ -327,6 +327,46 @@ public sealed class AzureStorageVerifierTests
         AssertForbidden(verdict, HttpAuthenticationRefusal.BadSignature);
     }
 
+    // ---- refuse-login (ADR-0124, decision 4) -------------------------------------------------
+
+    private AuthenticationPolicy CreateRefusingPolicy(string account, RecordingSurlEventPublisher events)
+    {
+        clock.Advance(Now - clock.GetUtcNow());
+
+        return PolicyFixture.CreateObserved(
+            Accounts,
+            clock,
+            events,
+            new ScriptedFaultPlan(new FaultRule("f1", FaultKind.RefuseLogin) { Account = account }),
+            new HashSet<AuthenticationMethod> { AuthenticationMethod.Basic },
+            [new BasicAuthenticationMethod(Accounts)]);
+    }
+
+    [TestMethod]
+    public async Task SharedKey_RefuseLoginFault_IsForbiddenAsBadSignatureWithTheRefusedNote()
+    {
+        var events = new RecordingSurlEventPublisher();
+
+        var verdict = await JudgeAsync(BlobSharedKeyRequest(Sign(BlobStringToSign)), CreateRefusingPolicy(AccountName, events));
+
+        AssertForbidden(verdict, HttpAuthenticationRefusal.BadSignature);
+        Assert.AreEqual("Login refused: SharedKey myaccount", verdict.CheckedLogin?.Note);
+        Assert.AreEqual(new LoginJudgedEvent(null, "http", AccountName, "SharedKey", false, true), events.Events[^1]);
+    }
+
+    [TestMethod]
+    public async Task Bearer_RefuseLoginFault_IsForbiddenAsUnknownAccount()
+    {
+        var events = new RecordingSurlEventPublisher();
+
+        var verdict = await JudgeAsync(
+            Request("GET", "/c/a.txt", Scope("/c/a.txt"), "Authorization: Bearer tok"), CreateRefusingPolicy(string.Empty, events));
+
+        AssertForbidden(verdict, HttpAuthenticationRefusal.UnknownAccount);
+        Assert.AreEqual("Login refused: Bearer bearer token", verdict.CheckedLogin?.Note);
+        Assert.HasCount(2, events.Events);
+    }
+
     // ---- Bearer and no credentials ----------------------------------------------------------
 
     [TestMethod]
