@@ -64,3 +64,4 @@ Decide and record:
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: logins read the one account set.
+- 2026-11-05: Backlog -> Doing.
