@@ -54,6 +54,10 @@ members.
 
 ## Notes
 
+- BL-497 (2026-11-05) already answers SUBSCRIBE in its plain form - `Mqtt5BrokerConnection.AnswerSubscribeAsync`
+  and `Subscribe`: bus subscription per filter at its Maximum QoS, `$share/` groups, SUBACK `0x8F`/`0x87`/`0x97`,
+  retained after SUBACK. Build the options, identifiers, overlap rule, replacement and UNSUBSCRIBE on it.
+
 ## Log
 
 - 2026-11-04: Created.
