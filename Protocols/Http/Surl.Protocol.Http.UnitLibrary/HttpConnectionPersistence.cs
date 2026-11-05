@@ -14,7 +14,7 @@ internal static class HttpConnectionPersistence
     /// <remarks>
     /// A <c>close</c> connection option closes it. An HTTP/1.1 request otherwise keeps it
     /// open, and an HTTP/1.0 request keeps it open only with a <c>keep-alive</c> option. The
-    /// request's body framing is not considered here: <see cref="HttpRequestResponder"/>
+    /// request's body framing is not considered here: <see cref="Http1AnswerWriter"/>
     /// closes after a body it cannot read.
     /// </remarks>
     /// <param name="head">The request head.</param>

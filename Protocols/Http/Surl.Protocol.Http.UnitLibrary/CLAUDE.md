@@ -14,7 +14,18 @@ else. Today it references `Surl.Content.UnitLibrary` (the content store) and
 `Surl.HttpMessage.UnitLibrary` (ADR-0070): the request-head reader and its head timeout, the
 request and response head types, `HttpStatus` and body framing live there; method dispatch,
 content responses, the authentication flow, `100 Continue`, persistence, body discarding and
-the lingering-close drain stay here. Referencing another protocol server is a
+the lingering-close drain stay here.
+
+Answering is split from HTTP/1.x framing (ADR-0081, decision 8). `HttpRequestAnswerer`
+decides each answer - an `HttpAnswer` of status, fields, `HttpAnswerBody` and whether it is
+a refusal - from an `HttpRequest` whose `IHttpRequestBody` it may read or leave unread, and
+never asks which HTTP version carried it. The HTTP/1.x side is `Http1RequestResponder`
+(refuses heads RFC 9112 calls malformed, builds the `HttpRequest`), `Http1RequestBody`
+(`100 Continue`, then the body discarder) and `Http1AnswerWriter` (the status line,
+`Connection`, the body, the refusal write deadline, half-close and drain). Keep version
+questions out of the answerer: an HTTP/2 or HTTP/3 writer reuses it as it is.
+
+Referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
 Never construct a `Socket`, `TcpListener`, `UdpClient`, `SslStream` or `HttpListener`

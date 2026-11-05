@@ -160,7 +160,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
         var reader = new HttpConnectionReader(connection, context.Limits.MaxRequestHeadBytes);
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
-        var responder = new HttpRequestResponder(connection, reader, context, contentStore, authenticationSession);
+        var responder = new Http1RequestResponder(connection, reader, context, contentStore, authenticationSession);
         var isFirstHead = true;
         var keepsConnectionOpen = true;
 
