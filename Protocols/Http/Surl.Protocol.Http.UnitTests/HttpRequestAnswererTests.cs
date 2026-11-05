@@ -12,7 +12,7 @@ namespace Surl.Protocol.Http;
 /// fields and body it returns are what every HTTP version's writer sends (ADR-0081, decision 8).
 /// </summary>
 [TestClass]
-public sealed class HttpRequestAnswererTests
+public sealed partial class HttpRequestAnswererTests
 {
     private const string BasicChallenge = "Basic realm=\"surl\", charset=\"UTF-8\"";
 

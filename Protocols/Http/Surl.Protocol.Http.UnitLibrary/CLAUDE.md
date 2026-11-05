@@ -27,6 +27,11 @@ never asks which HTTP version carried it. The HTTP/1.x side is `Surl.HttpServing
 for each connection. Keep version
 questions out of the answerer: an HTTP/2 or HTTP/3 writer reuses it as it is.
 
+The answerer maps each `GET` and `HEAD` with `ContentStore.MapRequestPathForCaller`: the caller is
+the account the verdict's `AccountName` names (an empty or absent one is anonymous) on the exchange's
+`Scheme`. A share the caller may not read answers as a missing path, the same empty `404`; a write is
+the `405` every `PUT` already gets, since the server takes no uploads (ADR-0102 decisions 2.2, 2.3).
+
 The HTTP/2 frames, streams, flow control and connection (RFC 9113; ADR-0081 decisions 4 to 7;
 ADR-0090) live in `Surl.Http2.UnitLibrary` (ADR-0086 decision 1, moved by BL-409); its `CLAUDE.md`
 describes them. This library keeps what is HTTP-server specific: `HttpProtocolServer.ServeAsync` reads the first bytes of a cleartext connection, or of a TLS

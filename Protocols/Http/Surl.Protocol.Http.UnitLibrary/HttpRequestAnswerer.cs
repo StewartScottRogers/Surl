@@ -65,7 +65,7 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
         }
 
         return verdict.BodyCheck is null
-            ? AnswerLetInRequestAsync(request, verdict.WwwAuthenticateValues, cancellationToken)
+            ? AnswerLetInRequestAsync(request, verdict.AccountName, verdict.WwwAuthenticateValues, cancellationToken)
             : AnswerBodyCheckedRequestAsync(request, verdict.BodyCheck, verdict.WwwAuthenticateValues, cancellationToken);
     }
 
@@ -97,13 +97,23 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
         return await AnswerVerdictAsync(request, verdict, cancellationToken);
     }
 
-    // A request the authentication session let in: the upload limit, then method dispatch.
-    private async Task<HttpAnswer> AnswerLetInRequestAsync(HttpRequest request, IReadOnlyList<string> challenges, CancellationToken cancellationToken) =>
+    // A request the authentication session let in, as the account it logged in (null when
+    // anonymous): the upload limit, then method dispatch.
+    private async Task<HttpAnswer> AnswerLetInRequestAsync(HttpRequest request, string? accountName, IReadOnlyList<string> challenges, CancellationToken cancellationToken) =>
         RefuseUploadPastLimit(request, challenges)
-            ?? (request.Method is "GET" or "HEAD" ? await AnswerFromContentStoreAsync(request, challenges, cancellationToken) : RefuseMethod(request, challenges));
+            ?? (request.Method is "GET" or "HEAD" ? await AnswerFromContentStoreAsync(request, ContentCallerOf(accountName), challenges, cancellationToken) : RefuseMethod(request, challenges));
+
+    // Who the content store is told asks: the account the verdict names, or an anonymous caller,
+    // on the scheme the server listens on (ADR-0102 decision 2.2). A share the caller may not
+    // read is answered as absent, so a GET or HEAD in it is the 404 a missing path gets
+    // (ADR-0102 decision 2.3); the server takes no uploads, so a write is the 405 it always is.
+    private ContentCaller ContentCallerOf(string? accountName) =>
+        string.IsNullOrEmpty(accountName)
+            ? ContentCaller.Anonymous(context.Scheme)
+            : ContentCaller.ForAccount(accountName, context.Scheme);
 
     // A body the server cannot read is left unread, and the answer says so.
-    private async Task<HttpAnswer> AnswerFromContentStoreAsync(HttpRequest request, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
+    private async Task<HttpAnswer> AnswerFromContentStoreAsync(HttpRequest request, ContentCaller caller, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
     {
         var bodyOutcome = request.Body.IsReadable
             ? await request.Body.DiscardAsync(null, cancellationToken)
@@ -113,7 +123,7 @@ internal sealed class HttpRequestAnswerer : IHttpRequestHandler
             return RefuseBody(request, bodyOutcome, challenges);
         }
 
-        var mapping = contentStore.MapRequestPath(RequestPath(request.Target));
+        var mapping = contentStore.MapRequestPathForCaller(RequestPath(request.Target), caller);
         var (status, whyNotFound) = mapping.IsMapped ? LookUpFileStatus(mapping) : (null, WhyNotFound(mapping));
         if (status is null)
         {
