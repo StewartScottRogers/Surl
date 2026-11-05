@@ -83,7 +83,7 @@ public sealed partial class MailboxStore
     private readonly Dictionary<string, OwnerMailboxes> owners = new(StringComparer.Ordinal);
     private readonly LocalPartLookup<OwnerMailboxes> accounts = new();
     private readonly LocalPartLookup<OwnerMailboxes> mailboxOwners = new();
-    private readonly HashSet<OwnerMailboxes> lockedMaildrops = [];
+    private readonly Dictionary<OwnerMailboxes, MaildropLock> lockedMaildrops = [];
     private readonly List<ulong> releasedFileNumbers = [];
     private readonly Dictionary<OwnerMailboxes, long> quotas = [];
     private readonly Dictionary<string, HashSet<string>> sharedFolderMembers = new(StringComparer.Ordinal);
@@ -91,6 +91,7 @@ public sealed partial class MailboxStore
     private OwnerMailboxes? anonymousOwner;
     private MailDomainRouter? router;
     private MailStoreFiles? files;
+    private readonly Dictionary<OwnerMailboxes, string[]>? configuredMailboxes;
     private ulong nextFileNumber;
     private uint lastUidValidity;
     private int messageCount;
@@ -143,6 +144,7 @@ public sealed partial class MailboxStore
     {
         ArgumentNullException.ThrowIfNull(accountNames);
         anonymousOwner = ReachOwners(accountNames, allowAnonymous, mailDomains);
+        configuredMailboxes = owners.Values.ToDictionary(owner => owner, owner => owner.Mailboxes.Keys.ToArray());
 
         // A new store starts with no change: its INBOXes are where it begins, not a change to it.
         changeCount = 0;
@@ -226,7 +228,7 @@ public sealed partial class MailboxStore
         var index = await files.ReadIndexAsync(cancellationToken);
         if (index is not null)
         {
-            store.Restore(files, index);
+            store.LoadIndex(files, index);
         }
 
         store.anonymousOwner = store.ReachOwners(accountNames, allowAnonymous, mailDomains);
@@ -425,9 +427,9 @@ public sealed partial class MailboxStore
     private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerMailboxes> inboxOwners, PendingMessage message) =>
         IsOutOfSpace(inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)))
             ? MailStoreOutcome.QuotaExceeded
-            : DeliverPending(inboxOwners, message);
+            : DeliverPending(inboxOwners, message, StoreChange.Delivered);
 
-    private MailStoreOutcome DeliverPending(List<OwnerMailboxes> inboxOwners, PendingMessage message)
+    private MailStoreOutcome DeliverPending(List<OwnerMailboxes> inboxOwners, PendingMessage message, StoreChange change)
     {
         lock (storeLock)
         {
@@ -448,7 +450,7 @@ public sealed partial class MailboxStore
                 return MailStoreOutcome.StorageFailed;
             }
 
-            DeliverBody(inboxOwners, body);
+            DeliverBody(inboxOwners, body, change);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -1009,7 +1011,7 @@ public sealed partial class MailboxStore
         lock (storeLock)
         {
             var owner = view.Owner;
-            if (owner is not null && !lockedMaildrops.Add(owner))
+            if (owner is not null && lockedMaildrops.ContainsKey(owner))
             {
                 return MailStoreOutcome.MaildropLocked;
             }
@@ -1019,6 +1021,11 @@ public sealed partial class MailboxStore
             // Pinned while the lock is held, so a message removed meanwhile can still be read.
             Array.ForEach(messages, message => message.Body.ReferenceCount++);
             maildrop = new MaildropLock(this, owner, messages);
+            if (owner is not null)
+            {
+                lockedMaildrops.Add(owner, maildrop);
+            }
+
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -1046,28 +1053,37 @@ public sealed partial class MailboxStore
     }
 
     /// <summary>
-    /// Removes the messages with <paramref name="uids"/> from <paramref name="owner"/>'s
-    /// <c>INBOX</c>, skipping any no longer there.
+    /// Removes the messages with <paramref name="messages"/>' UIDs from <paramref name="owner"/>'s
+    /// <c>INBOX</c>, skipping any no longer there - including a UID that now holds another
+    /// message's bytes, as after a reset or restore (ADR-0131).
     /// </summary>
     /// <returns>How many were removed.</returns>
-    internal int RemoveFromInbox(OwnerMailboxes owner, IReadOnlyList<uint> uids)
+    internal int RemoveFromInbox(OwnerMailboxes owner, IReadOnlyList<(uint Uid, MessageBody Body)> messages)
     {
         lock (storeLock)
         {
             var inbox = owner.Inbox;
-            return RemovePublished(new MailboxPlace(owner, inbox), [.. uids.Distinct().Where(inbox.Messages.ContainsKey)]);
+            return RemovePublished(
+                new MailboxPlace(owner, inbox),
+                [.. messages.Where(message => inbox.Messages.GetValueOrDefault(message.Uid)?.Body == message.Body).Select(message => message.Uid).Distinct()]);
         }
     }
 
     /// <summary>
-    /// Releases <paramref name="owner"/>'s maildrop lock, and unpins the bodies it held,
-    /// releasing any no message refers to any more.
+    /// Releases <paramref name="owner"/>'s maildrop lock when <paramref name="maildrop"/> still
+    /// holds it - a reset or restore may have released it already, and another session taken it
+    /// since (ADR-0131) - and unpins the bodies it held, releasing any no message refers to any
+    /// more.
     /// </summary>
-    internal void ReleaseMaildrop(OwnerMailboxes owner, IReadOnlyList<MessageBody> bodies)
+    internal void ReleaseMaildrop(OwnerMailboxes owner, MaildropLock maildrop, IReadOnlyList<MessageBody> bodies)
     {
         lock (storeLock)
         {
-            lockedMaildrops.Remove(owner);
+            if (lockedMaildrops.GetValueOrDefault(owner) == maildrop)
+            {
+                lockedMaildrops.Remove(owner);
+            }
+
             foreach (var body in bodies)
             {
                 Unreference(body);
@@ -1184,7 +1200,7 @@ public sealed partial class MailboxStore
         }
     }
 
-    private void Restore(MailStoreFiles files, byte[] index)
+    private void LoadIndex(MailStoreFiles files, byte[] index)
     {
         MailStoreIndexContents contents;
         try
@@ -1474,13 +1490,13 @@ public sealed partial class MailboxStore
     private bool HasRoomForCopies(StoredMailbox destination, int count) =>
         messageCount + (long)count <= MaxMessages && destination.CanGiveUids(count);
 
-    private void DeliverBody(List<OwnerMailboxes> inboxOwners, MessageBody body)
+    private void DeliverBody(List<OwnerMailboxes> inboxOwners, MessageBody body, StoreChange change)
     {
         var now = timeProvider.GetUtcNow();
         foreach (var owner in inboxOwners)
         {
             var place = new MailboxPlace(owner, owner.Inbox);
-            PublishMessage(StoreChange.Delivered, place, AddMessage(place.Mailbox, body, now, MailFlags.None));
+            PublishMessage(change, place, AddMessage(place.Mailbox, body, now, MailFlags.None));
         }
 
         changeCount++;

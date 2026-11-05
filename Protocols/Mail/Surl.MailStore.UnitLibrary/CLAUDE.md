@@ -78,6 +78,17 @@ mailbox) before taking the lock; an `OutOfSpace` rule refuses the whole write wi
 the store publishes the `FaultAppliedEvent`. A plan answer that is still pending or failed is served as
 no rule (BL-868 makes the writes async).
 
+Seed, reset, snapshot and restore (BL-799, ADR-0124 decision 3, ADR-0131), in
+`MailboxStore.Control.cs`: `Seed` resolves a recipient as `LookUpRecipient` does and delivers only a
+deliverable one through the delivery path, skipping the fault plan and publishing `Seeded`
+(`MailSeedResult`). `Reset` recreates exactly the mailboxes each owner had when the constructor
+finished, empty, with new `UIDVALIDITY`s; `TakeSnapshot` gives a `MailStoreSnapshot` (not
+`MailboxSnapshot`, IMAP's view of one mailbox) sharing message bytes; `Restore` takes back only this
+store's snapshot, under new `UIDVALIDITY`s. A store made by `LoadAsync` refuses all three with
+`InvalidOperationException`. Reset and restore publish one event named by the empty string and release
+every POP3 maildrop lock; `MaildropLock` removes a message only while its UID still holds the bytes it
+was given, and releases the lock only while it still holds it.
+
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,
 amending ADR-0002's table); protocol servers may reference it, and the SMTP, IMAP and POP3

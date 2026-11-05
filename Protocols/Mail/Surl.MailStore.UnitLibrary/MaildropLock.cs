@@ -79,15 +79,15 @@ public sealed class MaildropLock : IDisposable
     {
         ArgumentNullException.ThrowIfNull(numbers);
         ThrowIfReleased();
-        var uids = new List<uint>();
+        var messages = new List<(uint Uid, MessageBody Body)>();
         foreach (var number in numbers)
         {
             ThrowIfNotANumber(number);
-            uids.Add(Messages[number - 1].Uid);
+            messages.Add((Messages[number - 1].Uid, bodies[number - 1]));
         }
 
         // An empty view has no messages, so it never reaches the store.
-        return uids.Count == 0 ? 0 : store.RemoveFromInbox(owner!, uids);
+        return messages.Count == 0 ? 0 : store.RemoveFromInbox(owner!, messages);
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public sealed class MaildropLock : IDisposable
     {
         if (Interlocked.Exchange(ref disposed, 1) == 0 && owner is not null)
         {
-            store.ReleaseMaildrop(owner, bodies);
+            store.ReleaseMaildrop(owner, this, bodies);
         }
     }
 
