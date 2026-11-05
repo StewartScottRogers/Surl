@@ -15,6 +15,13 @@
   round; `Mqtt5RetainedMessages` and `<path>/.surl/mqtt5/retained-messages` are not built
   (ADR-0100 decision 3.9). Sessions, the QoS flows, topic aliases and queued messages stay in the
   broker.
+- **Amended:** decisions 1, 5 and 6 (2026-11-05, BL-651), to say what MQTT 5.0 says and what
+  BL-495's codec already does: a property not allowed in its packet is a Malformed Packet, `0x81`
+  (2.2.2.2), not a Protocol Error; a property twice that may appear once stays `0x82`; an empty
+  SUBSCRIBE or UNSUBSCRIBE payload is a Protocol Error, `0x82` (`[MQTT-3.8.3-2]`,
+  `[MQTT-3.10.3-2]`), not a Malformed Packet; and a Maximum QoS or Retain Handling of 3 is a
+  Protocol Error, `0x82` (3.8.3.1), the reserved option bits alone staying `0x81`
+  (`[MQTT-3.8.3-5]`). Decision 6's table now lists each.
 - **Amends:** [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
   decision 4's table: Mqtt5 reaches `ISaslAuthenticationPolicy` too, for enhanced authentication
   (decision 2). [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) section 5's "MQTT closes
@@ -105,8 +112,8 @@ Unsupported Protocol Version, `[MQTT-3.1.2-2]`; any other name closes with no by
 `[MQTT-3.1.2-1]` leaves it to the server and an unknown protocol earns no MQTT answer); the
 reserved flag 0 (`[MQTT-3.1.2-3]`, `0x81`); Will QoS and Will Retain 0 without the Will Flag, Will
 QoS not 3 (`0x81`); the payload's fields present exactly as the flags say, in order
-(`[MQTT-3.1.3-1]`, `[MQTT-3.1.2-16]` to `-19`, `0x81`); the properties of table 2-4 allowed in
-CONNECT, none twice (`0x82` Protocol Error, 2.2.2.2); Receive Maximum 0, Maximum Packet Size 0,
+(`[MQTT-3.1.3-1]`, `[MQTT-3.1.2-16]` to `-19`, `0x81`); only the properties of table 2-4 allowed
+in CONNECT (`0x81` Malformed Packet, 2.2.2.2), none twice (`0x82` Protocol Error, 2.2.2.2); Receive Maximum 0, Maximum Packet Size 0,
 or Request Response/Problem Information above 1, `0x82` (3.1.2.11). A password without a user name
 is legal in MQTT 5.0 (3.1.2.9) and is not refused as malformed.
 
@@ -298,9 +305,10 @@ allows, and publishing the Will. The clock is `ExchangeContext.TimeProvider`.
   (`[MQTT-4.7.3-4]`), and a filter starting with `#` or `+` does not match a topic starting with `$`
   (`[MQTT-4.7.2-1]`). A client may publish to a `$` topic; the broker publishes none of its own
   (no `$SYS`).
-- **Granted QoS**: the requested QoS is granted as asked (SUBACK `0x00`, `0x01` or `0x02`). Requested
-  QoS 3, or reserved option bits set, is malformed: DISCONNECT `0x81` (`[MQTT-3.8.3-5]`). Retain
-  Handling 3 is `0x82`.
+- **Granted QoS**: the requested QoS is granted as asked (SUBACK `0x00`, `0x01` or `0x02`). Reserved
+  option bits set are malformed: DISCONNECT `0x81` (`[MQTT-3.8.3-5]`). A requested Maximum QoS of
+  3 or a Retain Handling of 3 is a Protocol Error: DISCONNECT `0x82` (3.8.3.1). A SUBSCRIBE or
+  UNSUBSCRIBE with no payload is `0x82` (`[MQTT-3.8.3-2]`, `[MQTT-3.10.3-2]`).
 - **Options** (3.8.3.1): **No Local** 1 never forwards a message to the connection whose client
   identifier published it (`[MQTT-3.8.3-3]`), and on a shared subscription is `0x82`
   (`[MQTT-3.8.3-4]`); **Retain As Published** keeps or clears RETAIN on forwarding
@@ -346,8 +354,8 @@ allows, and publishing the Will. The clock is `ExchangeContext.TimeProvider`.
 
   | Cause | Reason code |
   | --- | --- |
-  | A malformed fixed header (reserved flags, `[MQTT-2.1.3-1]`; `[MQTT-3.6.1-1]`, `[MQTT-3.8.1-1]`, `[MQTT-3.10.1-1]`, `[MQTT-3.14.1-1]`, `[MQTT-3.15.1-1]`), a Variable Byte Integer over four bytes or not minimal (`[MQTT-1.5.5-1]`), a length past the packet, ill-formed UTF-8, U+0000, a surrogate (`[MQTT-1.5.4-1]`, `-2`), both QoS bits set (`[MQTT-3.3.1-4]`), a property of the wrong type, a topic name with a wildcard (`[MQTT-3.3.2-2]`), an empty SUBSCRIBE or UNSUBSCRIBE payload (`[MQTT-3.8.3-2]`, `[MQTT-3.10.3-2]`) | `0x81` Malformed Packet |
-  | A second CONNECT (`[MQTT-3.1.0-2]`), a property twice or not allowed in its packet (2.2.2.2), a packet only a server sends, a Packet Identifier 0, DUP on QoS 0, the AUTH and Subscription Identifier cases of decisions 2, 4 and 5, a Payload Format Indicator above 1, Session Expiry raised from 0 on DISCONNECT | `0x82` Protocol Error |
+  | A malformed fixed header (reserved flags, `[MQTT-2.1.3-1]`; `[MQTT-3.6.1-1]`, `[MQTT-3.8.1-1]`, `[MQTT-3.10.1-1]`, `[MQTT-3.14.1-1]`, `[MQTT-3.15.1-1]`), a Variable Byte Integer over four bytes or not minimal (`[MQTT-1.5.5-1]`), a length past the packet, ill-formed UTF-8, U+0000, a surrogate (`[MQTT-1.5.4-1]`, `-2`), both QoS bits set (`[MQTT-3.3.1-4]`), a property of the wrong type, a property not allowed in its packet (2.2.2.2), a topic name with a wildcard (`[MQTT-3.3.2-2]`), reserved SUBSCRIBE option bits set (`[MQTT-3.8.3-5]`) | `0x81` Malformed Packet |
+  | A second CONNECT (`[MQTT-3.1.0-2]`), a property twice that may appear once (2.2.2.2), an empty SUBSCRIBE or UNSUBSCRIBE payload (`[MQTT-3.8.3-2]`, `[MQTT-3.10.3-2]`), a Maximum QoS or Retain Handling of 3 (3.8.3.1), a packet only a server sends, a Packet Identifier 0, DUP on QoS 0, the AUTH and Subscription Identifier cases of decisions 2, 4 and 5, a Payload Format Indicator above 1, Session Expiry raised from 0 on DISCONNECT | `0x82` Protocol Error |
   | Receive Maximum exceeded (decision 4) | `0x93` |
   | A topic alias out of range (decision 4) | `0x94` |
   | A packet larger than the Maximum Packet Size (decision 8) | `0x95` Packet too large |

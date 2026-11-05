@@ -8,7 +8,7 @@ depends-on: [BL-495]
 touches: [Documentation/Planning/Decisions/ADR-0093-how-the-mqtt-5-broker-answers-mqtt5-mqtt5s-and-mqtt5-ws.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-651 — Correct ADR-0093 decision 6's table to MQTT 5.0 sections 2.2.2.2, 3.8.3 and 3.10.3
 
@@ -35,14 +35,29 @@ codec BL-495 built already does.
 
 ## Acceptance criteria
 
-- [ ] ADR-0093 decision 6's table lists a property not allowed in its packet under `0x81`, an
+- [x] ADR-0093 decision 6's table lists a property not allowed in its packet under `0x81`, an
       empty SUBSCRIBE or UNSUBSCRIBE payload and a Maximum QoS or Retain Handling of 3 under
       `0x82`, each with its section or statement ID.
-- [ ] The ADR records the amendment with its date and BL-609.
+- [x] The ADR records the amendment with its date and BL-609.
 
 ## Notes
+
+- The second criterion's "BL-609" is a slip: BL-609 is "Create Surl.Composition" and has
+  nothing to do with this ADR. The amendment line names BL-651, the task that made it, since
+  naming BL-609 there would be false.
+- Checked against the codec before editing: `Mqtt5BodyReader.ReadProperties` throws
+  `Malformed("2.2.2.2")` for a property not allowed in its packet and `ProtocolError("2.2.2.2")`
+  for one repeated; `Mqtt5Subscription.Read` throws `Malformed("[MQTT-3.8.3-5]")` for reserved
+  bits and `ProtocolError("3.8.3.1")` for Maximum QoS or Retain Handling 3.
+- Same file, same error: decision 1 also called a property not allowed in CONNECT `0x82`, and
+  decision 5 called a requested QoS 3 malformed (`0x81`). Both now say what 2.2.2.2 and 3.8.3.1
+  say, so the ADR does not contradict its own table. Reserved option bits moved into the table's
+  `0x81` row too, since decision 5 names them.
+- Done inline rather than through `align-and-document`: a four-sentence edit to one file.
+  No `.cs` or project file changed, so `verify` is not needed.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0093's decision 6 table and decisions 1 and 5 give MQTT 5.0's own reason codes for 2.2.2.2, 3.8.3 and 3.10.3, matching the codec
