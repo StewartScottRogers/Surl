@@ -23,6 +23,23 @@ public sealed class CoapCodeTests
     }
 
     [TestMethod]
+    public void NamedCodes_AreRfc7252sNumbers()
+    {
+        var named = new[]
+        {
+            CoapCode.Empty, CoapCode.Get, CoapCode.Post, CoapCode.Put, CoapCode.Delete,
+            CoapCode.Created, CoapCode.Deleted, CoapCode.Valid, CoapCode.Changed, CoapCode.Content,
+            CoapCode.BadRequest, CoapCode.Unauthorized, CoapCode.BadOption, CoapCode.NotFound,
+            CoapCode.MethodNotAllowed, CoapCode.NotAcceptable, CoapCode.PreconditionFailed,
+            CoapCode.RequestEntityTooLarge, CoapCode.InternalServerError, CoapCode.ProxyingNotSupported,
+        };
+
+        var texts = string.Join(' ', named.Select(code => code.ToString()));
+
+        Assert.AreEqual("0.00 0.01 0.02 0.03 0.04 2.01 2.02 2.03 2.04 2.05 4.00 4.01 4.02 4.04 4.05 4.06 4.12 4.13 5.00 5.05", texts);
+    }
+
+    [TestMethod]
     [DataRow(-1, 0)]
     [DataRow(8, 0)]
     [DataRow(0, -1)]
