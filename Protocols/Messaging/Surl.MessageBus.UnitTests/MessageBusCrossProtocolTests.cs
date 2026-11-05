@@ -34,7 +34,7 @@ public sealed class MessageBusCrossProtocolTests
 
         var result = bus.Publish(new BusMessage(MqttTopicNames.ToCanonicalTopic("a/b/c").Name!, "hello"u8.ToArray()));
 
-        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, filters.Count + 1), result);
+        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, filters.Count + 1) { LogOffset = 0 }, result);
         foreach (var (subscriber, messages) in received)
         {
             Assert.HasCount(1, messages, subscriber);

@@ -57,7 +57,7 @@ public sealed class MessageBusQueueBoundTests
 
         var result = bus.Publish(new BusMessage("t", "2"u8.ToArray()));
 
-        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 1) { QueuedCount = 1, FullQueueCount = 1 }, result);
+        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 1) { QueuedCount = 1, FullQueueCount = 1, LogOffset = 1 }, result);
         Assert.HasCount(1, received);
     }
 

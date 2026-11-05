@@ -59,7 +59,23 @@ public sealed class MessageBusBoundTests
     }
 
     [TestMethod]
-    public void Publish_NotRetainedAtMaxTopics_IsDelivered()
+    public void Publish_NotRetainedOnANewTopicPastMaxTopics_ReturnsTooManyTopicsBecauseEveryTopicHasALog()
+    {
+        var bus = new MessageBus(clock, maxTopics: 1);
+        bus.Publish(new BusMessage("a", "1"u8.ToArray()));
+        using var connection = bus.Connect();
+        var received = new List<BusMessage>();
+        connection.Subscribe("#", received.Add);
+
+        var result = bus.Publish(new BusMessage("b", "2"u8.ToArray()));
+
+        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.TooManyTopics, 0), result);
+        Assert.IsEmpty(received);
+        CollectionAssert.AreEqual(new[] { "a" }, bus.GetLogTopics().ToArray());
+    }
+
+    [TestMethod]
+    public void Publish_NotRetainedOnAnExistingTopicAtMaxTopics_IsDelivered()
     {
         var bus = new MessageBus(clock, maxTopics: 1);
         bus.Publish(Retained("a", "1"));
@@ -67,9 +83,9 @@ public sealed class MessageBusBoundTests
         var received = new List<BusMessage>();
         connection.Subscribe("#", received.Add);
 
-        var result = bus.Publish(new BusMessage("b", "2"u8.ToArray()));
+        var result = bus.Publish(new BusMessage("a", "2"u8.ToArray()));
 
-        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 1), result);
+        Assert.AreEqual(MessageBusOutcome.Succeeded, result.Outcome);
         Assert.HasCount(1, received);
     }
 

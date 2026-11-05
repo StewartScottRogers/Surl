@@ -50,7 +50,7 @@ public sealed class MessageBusRetainedTests
     [TestMethod]
     public void Publish_RetainedWithEmptyPayload_RemovesTheTopicsRetainedMessageAndIsStillDelivered()
     {
-        var bus = new MessageBus(clock, maxTopics: 1, maxRetainedPayloadBytes: 3);
+        var bus = new MessageBus(clock, maxRetainedPayloadBytes: 3);
         bus.Publish(Retained("t", "old"));
         using var connection = bus.Connect();
         var received = new List<BusMessage>();
@@ -58,7 +58,7 @@ public sealed class MessageBusRetainedTests
 
         var result = bus.Publish(Retained("t", ""));
 
-        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 1), result);
+        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 1) { LogOffset = 1 }, result);
         Assert.IsTrue(received.Single().Payload.IsEmpty);
         Assert.IsEmpty(RetainedOn(bus, "#"));
         Assert.AreEqual(MessageBusOutcome.Succeeded, bus.Publish(Retained("u", "abc")).Outcome);
@@ -79,7 +79,7 @@ public sealed class MessageBusRetainedTests
     [TestMethod]
     public void Subscribe_RetainedMessageExpired_IsDroppedAndNotOffered()
     {
-        var bus = new MessageBus(clock, maxTopics: 1);
+        var bus = new MessageBus(clock, maxRetainedPayloadBytes: 1);
         bus.Publish(Retained("t", "x") with { ExpiresAt = clock.UtcNow.AddSeconds(10) });
         clock.UtcNow = clock.UtcNow.AddSeconds(10);
 

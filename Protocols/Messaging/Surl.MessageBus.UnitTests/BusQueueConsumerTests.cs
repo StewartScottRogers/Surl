@@ -20,7 +20,7 @@ public sealed class BusQueueConsumerTests
         consumer.Start();
         consumer.Start();
 
-        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 0) { QueuedCount = 1 }, result);
+        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 0) { QueuedCount = 1, LogOffset = 0 }, result);
         Assert.AreEqual(0, receivedBeforeStart);
         Assert.HasCount(1, received);
         Assert.AreEqual("q", received[0].QueueName);

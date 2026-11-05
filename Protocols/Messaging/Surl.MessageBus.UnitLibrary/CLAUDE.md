@@ -45,9 +45,25 @@ What it holds now (BL-629):
   but may still send to it. It is deleted when its owner goes. An auto-delete queue is
   deleted when its last consumer ends. An expired message is dropped when the queue reaches
   it. Durable is recorded only; persistence is BL-634's.
+- **Topic logs (BL-633).** Every publish the bus takes, retained or not and whichever
+  protocol made it, is appended to its topic's `TopicLog` at the next offset, from 0 and
+  contiguous; one partition per topic. `BusPublishResult.LogOffset` is the offset it got
+  (Kafka Produce's base offset). `MessageBus.ReadLog(topic, offset, maxBytes)` returns
+  `BusLogRecord`s in order, as many as fit in `maxBytes` but always the first; an offset at
+  the high watermark reads nothing, and one below the log start offset or above the high
+  watermark is `OffsetOutOfRange` (Kafka's `OFFSET_OUT_OF_RANGE`). `GetLogOffsets` gives the
+  log start offset and high watermark (ListOffsets earliest and latest), `GetLogTopics` every
+  topic with a log in ordinal order. A record counts `MessageBus.LogRecordBytes`: payload,
+  key, the UTF-8 of header names and values, and 16 bytes for offset and timestamp. Past
+  `MaxLogBytesPerTopic` the oldest records go and the log start offset rises, but the
+  newest is always kept; past `MaxLogBytes`, after that retention, a publish is `StoreFull`.
+  `MaxTopics` counts topics with a log, so a publish on a new topic past it is
+  `TooManyTopics`, retained or not (ADR-0100 decision 3.6). An expired message stays in the
+  log; one already expired at publish is stored nowhere. BL-696 adds these rules to the ADR.
 - **Bounds and outcomes.** `MaxTopics`, `MaxRetainedPayloadBytes`,
   `MaxSubscriptionsPerConnection`, `MaxMessageBytes`, `MaxQueues`, `MaxMessagesPerQueue`
-  (unacknowledged included) and `MaxQueuedBytes` (all queues) are constructor parameters
+  (unacknowledged included), `MaxQueuedBytes` (all queues), `MaxLogBytesPerTopic` and
+  `MaxLogBytes` (all logs) are constructor parameters
   with `Default…` constants (ADR-0100 decision 3.6). Every refusal a peer can cause is a
   `MessageBusOutcome`, never an exception, and past a bound nothing changes. A full queue
   refuses only its own copy of a topic publish. The publish still succeeds, and
@@ -55,7 +71,7 @@ What it holds now (BL-629):
   does not name yet (`InvalidQueueName`, `UnknownQueue`, `QueueLocked`, `QueueFlagsDiffer`,
   `UnknownDeliveryTag`) follow AMQP 0-9-1's 404, 405 and 406. BL-694 adds them to the ADR.
 
-Not here yet, each its own task: per-topic logs (BL-633), persistence under `<path>/.surl/bus` (BL-634), the MQTT 3.1.1
+Not here yet, each its own task: persistence under `<path>/.surl/bus` (BL-634), the MQTT 3.1.1
 server's move onto the bus (BL-635), and access checks (BL-664).
 
 This library may reference `Surl.Protocol.Abstractions.UnitLibrary` and

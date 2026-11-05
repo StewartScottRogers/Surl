@@ -22,12 +22,12 @@ public enum MessageBusOutcome
     /// stored or delivered.</summary>
     MessageTooLarge,
 
-    /// <summary>Retaining the message would pass <see cref="MessageBus.MaxTopics"/>; nothing was
-    /// stored or delivered.</summary>
+    /// <summary>The message is on a new topic and <see cref="MessageBus.MaxTopics"/> topics already
+    /// have a log; nothing was stored or delivered.</summary>
     TooManyTopics,
 
-    /// <summary>Retaining the message would pass <see cref="MessageBus.MaxRetainedPayloadBytes"/>;
-    /// nothing was stored or delivered.</summary>
+    /// <summary>Retaining the message would pass <see cref="MessageBus.MaxRetainedPayloadBytes"/>,
+    /// or logging it would pass <see cref="MessageBus.MaxLogBytes"/>; nothing was stored or delivered.</summary>
     StoreFull,
 
     /// <summary>The connection already holds <see cref="MessageBus.MaxSubscriptionsPerConnection"/>
@@ -61,4 +61,9 @@ public enum MessageBusOutcome
     /// <summary>The consumer holds no unacknowledged delivery with that tag (AMQP 0-9-1
     /// <c>406 precondition-failed</c>, "unknown delivery tag"); nothing changed.</summary>
     UnknownDeliveryTag,
+
+    /// <summary>The log read asked for an offset below the topic's log start offset - retention
+    /// has dropped it - or above its high watermark (Kafka's <c>OFFSET_OUT_OF_RANGE</c>, 1);
+    /// nothing was read.</summary>
+    OffsetOutOfRange,
 }

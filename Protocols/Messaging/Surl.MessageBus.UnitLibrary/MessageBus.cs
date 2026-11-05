@@ -2,7 +2,8 @@ namespace Surl.MessageBus;
 
 /// <summary>
 /// The one topic space the messaging servers of a <c>surl</c> process share (ADR-0100,
-/// decision 3): a publish to a canonical topic is handed to every live subscription whose
+/// decision 3): a publish to a canonical topic is appended to the topic's log (its log
+/// operations are in <c>MessageBus.Logs.cs</c>), handed to every live subscription whose
 /// filter matches, a retained publish keeps the topic's one retained message, and a copy goes
 /// into every named queue bound by a matching filter (its queue operations are in
 /// <c>MessageBus.Queues.cs</c>). Created once
@@ -69,6 +70,8 @@ public sealed partial class MessageBus
     /// <param name="maxQueues">The value of <see cref="MaxQueues"/>; at least 1.</param>
     /// <param name="maxMessagesPerQueue">The value of <see cref="MaxMessagesPerQueue"/>; at least 1.</param>
     /// <param name="maxQueuedBytes">The value of <see cref="MaxQueuedBytes"/>; at least 1.</param>
+    /// <param name="maxLogBytesPerTopic">The value of <see cref="MaxLogBytesPerTopic"/>; at least 1.</param>
+    /// <param name="maxLogBytes">The value of <see cref="MaxLogBytes"/>; at least 1.</param>
     /// <exception cref="ArgumentNullException"><paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is below its least value.</exception>
     public MessageBus(
@@ -79,7 +82,9 @@ public sealed partial class MessageBus
         long maxMessageBytes = DefaultMaxMessageBytes,
         int maxQueues = DefaultMaxQueues,
         int maxMessagesPerQueue = DefaultMaxMessagesPerQueue,
-        long maxQueuedBytes = DefaultMaxQueuedBytes)
+        long maxQueuedBytes = DefaultMaxQueuedBytes,
+        long maxLogBytesPerTopic = DefaultMaxLogBytesPerTopic,
+        long maxLogBytes = DefaultMaxLogBytes)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTopics, 1);
@@ -89,6 +94,8 @@ public sealed partial class MessageBus
         ArgumentOutOfRangeException.ThrowIfLessThan(maxQueues, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxMessagesPerQueue, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxQueuedBytes, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLogBytesPerTopic, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxLogBytes, 1);
 
         this.timeProvider = timeProvider;
         MaxTopics = maxTopics;
@@ -98,9 +105,12 @@ public sealed partial class MessageBus
         MaxQueues = maxQueues;
         MaxMessagesPerQueue = maxMessagesPerQueue;
         MaxQueuedBytes = maxQueuedBytes;
+        MaxLogBytesPerTopic = maxLogBytesPerTopic;
+        MaxLogBytes = maxLogBytes;
     }
 
-    /// <summary>The most topics holding a retained message.</summary>
+    /// <summary>The most topics with a log - every topic a message was published on, so every
+    /// topic holding a retained message too (ADR-0100, decision 3.6).</summary>
     public int MaxTopics { get; }
 
     /// <summary>The most retained payload bytes, all topics together.</summary>
@@ -128,7 +138,8 @@ public sealed partial class MessageBus
     public BusConnection Connect() => new(this);
 
     /// <summary>
-    /// Publishes <paramref name="message"/>: when it is retained, it replaces the topic's
+    /// Publishes <paramref name="message"/>: it is appended to its topic's log at the next
+    /// offset; when it is retained, it replaces the topic's
     /// retained message (or removes it, for an empty payload); then it is handed to every live
     /// subscription whose filter matches its topic, once each, and to one member of each
     /// matching group, round robin. A message already expired is dropped: nothing is stored or
@@ -251,12 +262,18 @@ public sealed partial class MessageBus
 
     private BusPublishResult Accept(BusMessage published, DateTimeOffset now)
     {
-        var outcome = published.Retain ? Retain(published) : MessageBusOutcome.Succeeded;
+        var (outcome, logAppend) = PlanLogAppend(published);
+        if (outcome is MessageBusOutcome.Succeeded && published.Retain)
+        {
+            outcome = Retain(published);
+        }
+
         if (outcome is not MessageBusOutcome.Succeeded)
         {
             return new(outcome, 0);
         }
 
+        var logOffset = AppendToLog(published, logAppend);
         var topicLevels = CanonicalTopicName.SplitLevels(published.Topic);
         var targets = SelectTargets(topicLevels);
         if (targets.Count > 0)
@@ -265,7 +282,7 @@ public sealed partial class MessageBus
         }
 
         var (queuedCount, fullQueueCount) = CopyIntoBoundQueues(published, topicLevels, now);
-        return new(outcome, targets.Count) { QueuedCount = queuedCount, FullQueueCount = fullQueueCount };
+        return new(outcome, targets.Count) { QueuedCount = queuedCount, FullQueueCount = fullQueueCount, LogOffset = logOffset };
     }
 
     private static void DeliverToSubscriptions(BusMessage message, List<BusSubscription> targets)
@@ -285,13 +302,9 @@ public sealed partial class MessageBus
             return MessageBusOutcome.Succeeded;
         }
 
+        // A retained topic always has a log, so PlanLogAppend has already applied MaxTopics.
         var replacedBytes = retainedMessages.TryGetValue(topic, out var replaced) ? replaced.Payload.Length : 0;
         var newTotal = retainedPayloadBytes - replacedBytes + published.Payload.Length;
-        if (replaced is null && retainedMessages.Count >= MaxTopics)
-        {
-            return MessageBusOutcome.TooManyTopics;
-        }
-
         if (newTotal > MaxRetainedPayloadBytes)
         {
             return MessageBusOutcome.StoreFull;

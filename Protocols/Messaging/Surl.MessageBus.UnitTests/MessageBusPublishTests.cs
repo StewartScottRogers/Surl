@@ -34,7 +34,7 @@ public sealed class MessageBusPublishTests
         correlation[0] = 0x42;
         key[0] = 0x42;
 
-        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 1), result);
+        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 1) { LogOffset = 0 }, result);
         Assert.HasCount(1, received);
         var delivered = received[0];
         Assert.AreEqual("sensors/kitchen/temperature", delivered.Topic);
@@ -80,7 +80,7 @@ public sealed class MessageBusPublishTests
 
         var result = bus.Publish(new BusMessage("a/c", "x"u8.ToArray()));
 
-        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 0), result);
+        Assert.AreEqual(new BusPublishResult(MessageBusOutcome.Succeeded, 0) { LogOffset = 0 }, result);
         Assert.IsEmpty(received);
     }
 
