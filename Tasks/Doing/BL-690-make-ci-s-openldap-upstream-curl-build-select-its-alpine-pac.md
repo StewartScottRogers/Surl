@@ -62,3 +62,4 @@ CI's `Build and test (ubuntu-latest)` leg obtains the OpenLDAP build of upstream
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
 - 2026-11-04: Doing -> Backlog. Needs Documentation/Planning/Decisions for the re-pin ADR, which BL-642 in Doing touches; fix measured (musl-dev r13, SHA-256 4418AD02...C39480), see Notes
+- 2026-11-05: Backlog -> Doing.
