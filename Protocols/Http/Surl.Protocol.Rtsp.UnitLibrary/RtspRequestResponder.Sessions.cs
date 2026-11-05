@@ -159,7 +159,7 @@ internal sealed partial class RtspRequestResponder
         }
 
         var path = PresentationPath(head.RequestTarget);
-        var mapping = contentStore.MapRequestPath(path);
+        var mapping = MapForRequestCaller(path);
         var presentationRefusal = transport.Records ? WhyRecordingIsRefused(mapping) : WhyPlayingIsRefused(mapping);
 
         return presentationRefusal is { } refusedPresentation
@@ -325,7 +325,7 @@ internal sealed partial class RtspRequestResponder
             return null;
         }
 
-        var mapping = contentStore.MapRequestPath(PresentationPath(head.RequestTarget));
+        var mapping = MapForRequestCaller(PresentationPath(head.RequestTarget));
 
         return string.Equals(mapping.Location, named.Presentation.Location, StringComparison.Ordinal)
             ? null

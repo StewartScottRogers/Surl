@@ -68,6 +68,11 @@ internal sealed partial class RtspRequestResponder
     // The Content-Length of the request being answered; 0 when it has no body.
     private long requestBodyLength;
 
+    // Who the content store is told asks for the request being answered: the account its
+    // verdict let in, or an anonymous caller, on the scheme the server listens on (ADR-0102
+    // decision 2.2). Set once the request is let in, before its method is answered.
+    private ContentCaller requestCaller;
+
     /// <summary>
     /// Creates a responder for one connection.
     /// </summary>
@@ -85,6 +90,7 @@ internal sealed partial class RtspRequestResponder
         this.contentStore = contentStore;
         this.authenticationSession = authenticationSession;
         this.random = random;
+        requestCaller = ContentCallerOf(null);
         unreadRequestDrainer = new RtspUnreadRequestDrainer(reader, context);
     }
 
@@ -194,6 +200,8 @@ internal sealed partial class RtspRequestResponder
             context.Log.Note(verdict.CheckedLogin.Note);
         }
 
+        requestCaller = ContentCallerOf(verdict.AccountName);
+
         return verdict.Outcome switch
         {
             HttpAuthenticationOutcome.Proceed => AnswerMethodAsync(head, cseq),
@@ -201,6 +209,19 @@ internal sealed partial class RtspRequestResponder
             _ => RefuseAsync(RtspStatus.Forbidden, cseq, head.Method, "the authentication policy forbade the request"),
         };
     }
+
+    // The caller a verdict's account name makes: that account, or an anonymous caller when it
+    // names none, on the server's scheme. A share the caller may not read answers as a missing
+    // path, the 404 a DESCRIBE or PLAY SETUP of one gets; a write in a share it may only read is
+    // the 403 an upload the store does not permit gets (ADR-0102 decision 2.3, ADR-0074).
+    private ContentCaller ContentCallerOf(string? accountName) =>
+        string.IsNullOrEmpty(accountName)
+            ? ContentCaller.Anonymous(context.Scheme)
+            : ContentCaller.ForAccount(accountName, context.Scheme);
+
+    // A presentation path looked up for the request's caller.
+    private ContentPathMapping MapForRequestCaller(string path) =>
+        contentStore.MapRequestPathForCaller(path, requestCaller);
 
     // Check 2: exactly one CSeq of 1 to 9 decimal digits, copied byte for byte; null otherwise.
     private static string? SingleCSeq(HttpRequestHead head)
@@ -304,7 +325,7 @@ internal sealed partial class RtspRequestResponder
             return RefuseAsync(RtspStatus.BadRequest, cseq, head.Method, "* names no presentation");
         }
 
-        var mapping = contentStore.MapRequestPath(PresentationPath(head.RequestTarget));
+        var mapping = MapForRequestCaller(PresentationPath(head.RequestTarget));
         if (PresentationFileStatus(mapping, out var whyNotFound) is null)
         {
             return RefuseAsync(RtspStatus.NotFound, cseq, head.Method, whyNotFound!);

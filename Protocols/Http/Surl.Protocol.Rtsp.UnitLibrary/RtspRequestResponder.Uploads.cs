@@ -104,7 +104,7 @@ internal sealed partial class RtspRequestResponder
             return null;
         }
 
-        var mapping = contentStore.MapRequestPath(PresentationPath(head.RequestTarget) + DescriptionSuffix);
+        var mapping = contentStore.MapRequestPathForCaller(PresentationPath(head.RequestTarget) + DescriptionSuffix, ContentCallerOf(verdict.AccountName));
 
         return mapping.IsMapped ? await contentStore.OpenUploadAsync(mapping, ReplacingUpload, context.CancellationToken) : null;
     }

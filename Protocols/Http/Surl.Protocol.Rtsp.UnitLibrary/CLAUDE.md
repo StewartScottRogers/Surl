@@ -57,6 +57,14 @@ the store's own upload limit is `403`; a session does not time out while recordi
 told from heads only after the first head, so a frame first on the connection is a bad head
 (`400`).
 
+Every presentation path is looked up with `ContentStore.MapRequestPathForCaller`: the caller is
+the account the request's verdict names (an empty or absent one is anonymous) on the exchange's
+`Scheme`, and an `ANNOUNCE`'s upload, opened before its body is read, uses the first verdict's
+account. A share the caller may not read answers as a missing path (`404` for `DESCRIBE` and a
+`SETUP` to play); a write in a share it may only read is the `403` every upload the store does not
+permit gets (`ANNOUNCE`, `RECORD`), per ADR-0102 decisions 2.2 and 2.3. A session keeps the mapping
+its first `SETUP` made, so `PLAY`, `RECORD` and `TEARDOWN` are judged against that request's caller.
+
 The random source is an injected `RandomNumberGenerator` (as the POP3 server's); the
 two-argument constructor uses the system one.
 
