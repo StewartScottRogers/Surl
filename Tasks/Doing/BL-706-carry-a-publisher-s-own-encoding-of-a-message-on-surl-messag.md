@@ -49,3 +49,4 @@ a queue, the log and after a restart; every other server ignores them.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
