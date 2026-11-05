@@ -25,6 +25,8 @@ internal static class AuthenticationComposition
         ["ntlm"] = AuthenticationMethod.Ntlm,
         ["ntlmv1"] = AuthenticationMethod.NtlmV1,
         ["digest"] = AuthenticationMethod.Digest,
+        ["scram-sha-256"] = AuthenticationMethod.ScramSha256,
+        ["scram-sha-1"] = AuthenticationMethod.ScramSha1,
         ["digest-md5"] = AuthenticationMethod.DigestMd5,
         ["cram-md5"] = AuthenticationMethod.CramMd5,
         ["apop"] = AuthenticationMethod.Apop,

@@ -333,6 +333,8 @@ public sealed class CommandLineRunnerAuthenticationTests
 
     [TestMethod]
     [DataRow("ntlm", "NTLM")]
+    [DataRow("scram-sha-256", "SCRAM-SHA-256")]
+    [DataRow("SCRAM-SHA-1", "SCRAM-SHA-1")]
     [DataRow("digest-md5", "DIGEST-MD5")]
     [DataRow("CRAM-MD5", "CRAM-MD5")]
     [DataRow("plain", "PLAIN")]
@@ -363,13 +365,13 @@ public sealed class CommandLineRunnerAuthenticationTests
     public void Compose_EveryAvailableWord_OffersEverySaslMechanismInOfferOrder()
     {
         var (policy, _, _, _, _) = AuthenticationComposition.Compose(
-            Parse("--allow-plaintext-auth", "--auth", "external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,digest,ntlm,negotiate,aws-sigv4", Http),
+            Parse("--allow-plaintext-auth", "--auth", "external,xoauth2,oauthbearer,bearer,login,plain,basic,apop,cram-md5,digest-md5,scram-sha-1,scram-sha-256,digest,ntlm,negotiate,aws-sigv4", Http),
             ReadsAs(string.Empty),
             TimeProvider.System);
 
         var offer = policy!.GetMailLoginOffer(null);
         CollectionAssert.AreEqual(
-            new[] { "DIGEST-MD5", "CRAM-MD5", "NTLM", "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN" }, offer.SaslMechanisms.ToArray());
+            new[] { "SCRAM-SHA-256", "SCRAM-SHA-1", "DIGEST-MD5", "CRAM-MD5", "NTLM", "OAUTHBEARER", "XOAUTH2", "PLAIN", "LOGIN" }, offer.SaslMechanisms.ToArray());
         Assert.IsTrue(offer.IsApopOffered);
     }
 
@@ -378,6 +380,8 @@ public sealed class CommandLineRunnerAuthenticationTests
     [DataRow("ntlm", AuthenticationMethod.Ntlm)]
     [DataRow("ntlmv1", AuthenticationMethod.NtlmV1)]
     [DataRow("digest", AuthenticationMethod.Digest)]
+    [DataRow("scram-sha-256", AuthenticationMethod.ScramSha256)]
+    [DataRow("scram-sha-1", AuthenticationMethod.ScramSha1)]
     [DataRow("digest-md5", AuthenticationMethod.DigestMd5)]
     [DataRow("cram-md5", AuthenticationMethod.CramMd5)]
     [DataRow("apop", AuthenticationMethod.Apop)]
