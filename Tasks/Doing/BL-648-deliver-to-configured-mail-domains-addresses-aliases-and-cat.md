@@ -46,3 +46,4 @@ any mail domain is configured, and behaves exactly as ADR-0050 says when none is
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
