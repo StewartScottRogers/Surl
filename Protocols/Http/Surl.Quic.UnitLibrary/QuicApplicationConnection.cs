@@ -37,6 +37,9 @@ public sealed class QuicApplicationConnection
     /// <summary>The ALPN protocol the handshake agreed, or null when the options named none.</summary>
     public string? ApplicationProtocol => connection.ApplicationProtocol;
 
+    /// <summary>The TLS 1.3 cipher suite the handshake agreed.</summary>
+    public Surl.Tls13.TlsCipherSuite CipherSuite => connection.CipherSuite!.Value;
+
     /// <summary>The client's transport parameters.</summary>
     public QuicTransportParameters PeerTransportParameters => connection.PeerTransportParameters!;
 

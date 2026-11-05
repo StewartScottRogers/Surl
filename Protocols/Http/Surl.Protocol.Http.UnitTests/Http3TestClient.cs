@@ -60,12 +60,28 @@ internal sealed class Http3TestClient : IDisposable
     /// <summary>A handler that answers in place of <see cref="HttpRequestAnswerer"/>, when a test sets one before starting the server.</summary>
     public IHttpRequestHandler? Handler { get; set; }
 
+    /// <summary>
+    /// When a test sets it before starting the server, the server is <see cref="Http3ProtocolServer"/>
+    /// with this policy and <see cref="IdleTimeout"/>, as <c>surl --http3</c> composes it, in place of
+    /// a hand-built <see cref="QuicDatagramFlowServer"/>.
+    /// </summary>
+    public IAuthenticationPolicy? ProtocolServerPolicy { get; set; }
+
+    /// <summary>The idle timeout <see cref="Http3ProtocolServer"/> is given.</summary>
+    public TimeSpan IdleTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
     /// <summary>Starts the server with <paramref name="limits"/> and a content store holding <c>file.txt</c>.</summary>
     public Task Serve(CancellationToken cancellationToken, ExchangeLimits? limits = null, IContentFileSystem? fileSystem = null, bool allowUploads = false)
     {
         var context = HttpServerHarness.Context(Log, Time, Exchange.Token, limits);
         var exposure = ContentExposureOptions.ServeEverythingInsideTheRoot with { AllowUploads = allowUploads };
         var store = new ContentStore(HttpServerHarness.Root, fileSystem ?? HttpServerHarness.StandardFileSystem(), exposure);
+        if (ProtocolServerPolicy is { } policy)
+        {
+            Serving = new Http3ProtocolServer(store, policy, [SelfSigned(key)], key, IdleTimeout).ServeAsync(Flow, context);
+            return Serving;
+        }
+
         var answerer = Handler ?? new HttpRequestAnswerer(context, store, new AnonymousAuthenticationPolicy().StartHttpConnection(null));
         var options = new QuicServerConnectionOptions
         {

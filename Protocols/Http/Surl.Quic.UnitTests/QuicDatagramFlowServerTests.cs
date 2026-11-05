@@ -40,6 +40,7 @@ public sealed partial class QuicDatagramFlowServerTests
 
         Assert.AreEqual(1, protocol.Calls);
         Assert.AreEqual("h3", protocol.Connection!.ApplicationProtocol);
+        Assert.AreEqual((Surl.Tls13.TlsCipherSuite)client.Client.Tls.CipherSuite, protocol.Connection.CipherSuite);
         Assert.AreEqual((ulong)262144, protocol.Connection.PeerTransportParameters.InitialMaxStreamsBidi);
         Assert.AreEqual("ping", Encoding.ASCII.GetString([.. received]));
         var (data, fin) = client.StreamSent(0);
@@ -200,6 +201,7 @@ public sealed partial class QuicDatagramFlowServerTests
 
         Assert.AreEqual(1, protocol.Calls);
         Assert.AreEqual("h3", protocol.Connection!.ApplicationProtocol);
+        Assert.AreEqual((Surl.Tls13.TlsCipherSuite)client.Client.Tls.CipherSuite, protocol.Connection.CipherSuite);
     }
 
     [TestMethod]

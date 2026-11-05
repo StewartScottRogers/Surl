@@ -85,6 +85,9 @@ public sealed partial class QuicServerConnection : IDisposable
     /// <summary>The ALPN protocol agreed, or null before it is.</summary>
     public string? ApplicationProtocol => tls?.ApplicationProtocol;
 
+    /// <summary>The TLS 1.3 cipher suite agreed, or null before it is.</summary>
+    public TlsCipherSuite? CipherSuite => tls?.CipherSuite;
+
     /// <summary>The client's transport parameters, or null before its ClientHello is accepted.</summary>
     public QuicTransportParameters? PeerTransportParameters { get; private set; }
 
