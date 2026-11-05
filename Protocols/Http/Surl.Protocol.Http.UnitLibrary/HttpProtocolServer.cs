@@ -1,5 +1,6 @@
 using System.Net;
 using Surl.Content;
+using Surl.Hpack;
 using Surl.HttpMessage;
 using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
@@ -127,7 +128,12 @@ namespace Surl.Protocol.Http;
 /// As an <see cref="IConnectionRefusalWriter"/>, the server answers a connection past a
 /// connection limit with <c>503 Service Unavailable</c>, <c>Server: surl</c>,
 /// <c>Content-Length: 0</c> and <c>Connection: close</c>, then half-closes it; it carries no
-/// <c>Date</c>, which RFC 9110 section 6.6.1 leaves optional for a 5xx.
+/// <c>Date</c>, which RFC 9110 section 6.6.1 leaves optional for a 5xx. It first reads the
+/// client's first bytes within the engine's refusal deadline: a client that opens with the HTTP/2
+/// preface gets the same <c>503</c> as HTTP/2 on its first stream - an empty <c>SETTINGS</c>,
+/// <c>HEADERS</c> <c>:status 503</c> with <c>END_STREAM</c>, and <c>GOAWAY</c> naming that stream,
+/// <c>NO_ERROR</c> (ADR-0081, decision 5) - and one that sends nothing, or no <c>HEADERS</c>
+/// after the preface, before the deadline gets no bytes.
 /// </para>
 /// </remarks>
 public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionRefusalWriter
@@ -137,6 +143,15 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         .AddField("Content-Length", "0")
         .AddField("Connection", "close")
         .ToBytes();
+
+    // The same 503 as one HTTP/2 header block (ADR-0081, decision 5): the fields above but
+    // Connection, which HTTP/2 forbids (RFC 9113 section 8.2.2).
+    private static readonly HpackHeaderField[] Http2ServiceUnavailableFields =
+    [
+        new(":status", "503"),
+        new("server", HttpResponseHead.ServerName),
+        new("content-length", "0"),
+    ];
 
     // The ALPN protocol ID of HTTP/2 over TLS (RFC 9113, section 3.2). A TLS connection that
     // agreed it is read for the connection preface, as a cleartext one is; one that agreed
@@ -260,17 +275,33 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
     }
 
     /// <summary>
-    /// Writes <c>503 Service Unavailable</c> with <c>Connection: close</c> for either
-    /// refusal, then half-closes the connection. The engine bounds the write with its own
-    /// deadline through <paramref name="cancellationToken"/>.
+    /// Answers either refusal with <c>503</c> in the client's own version, then half-closes the
+    /// connection. The engine bounds the whole refusal, reading included, with its own deadline
+    /// through <paramref name="cancellationToken"/>.
     /// </summary>
+    /// <remarks>
+    /// The first bytes are read with <see cref="Http2ConnectionPreface"/>. The whole HTTP/2
+    /// preface is refused by <see cref="Http2ConnectionRefusal"/> on the client's first stream
+    /// (ADR-0081, decision 5); anything else, a client that half-closes first included, gets the
+    /// HTTP/1.1 <c>503</c>. A client that sends nothing before the deadline gets no bytes.
+    /// </remarks>
     /// <param name="connection">The connection past the limit.</param>
     /// <param name="refusal">Which limit it is past; both are answered alike.</param>
     /// <param name="cancellationToken">Cancelled when the engine gives up on the refusal.</param>
     /// <returns>A task that completes when the refusal is written.</returns>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the refusal off.</exception>
     public async ValueTask WriteRefusalAsync(IConnection connection, ConnectionRefusal refusal, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
+
+        var preface = new Http2ConnectionPreface();
+        await preface.ReadAsync(connection, cancellationToken);
+        if (preface.IsComplete)
+        {
+            await Http2ConnectionRefusal.WriteAsync(new AlreadyReadBytesConnection(connection, preface.BytesReadAfterPreface), Http2ServiceUnavailableFields, cancellationToken);
+
+            return;
+        }
 
         await connection.WriteAsync(ServiceUnavailableResponse, cancellationToken);
         await connection.CompleteWritesAsync(cancellationToken);

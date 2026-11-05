@@ -28,6 +28,12 @@ Public, what a server uses:
   `WriteDataAsync`, `CreateResponseBodyStream` (an `Http2DataStream` that ends the stream on
   the body's last byte), `WriteTrailersAsync` (a `HEADERS` with `END_STREAM` after the `DATA`,
   RFC 9113 section 8.1) and `ResetAsync`. Reading and writing are independent.
+- `Http2ConnectionRefusal` - refuses a connection past a connection limit (ADR-0081 decision 5's
+  "Too many connections" row; BL-601): `WriteAsync(connection, fields, token)` reads the frames
+  after the preface up to the client's first `HEADERS`, then writes an empty `SETTINGS`, the given
+  fields as that stream's header block with `END_STREAM`, and `GOAWAY` naming that stream,
+  `NO_ERROR`, and half-closes; a close or a malformed frame first writes nothing, and the
+  caller's deadline token bounds the whole of it.
 - `Http2ConnectionPreface` (tells the 24 preface bytes from an HTTP/1.x head),
   `Http2SettingsPayload` (decodes an `HTTP2-Settings` payload), `Http2Setting`,
   `Http2SettingIdentifier`, `Http2ErrorCode`, and `Http2RequestHeadMapping`; `Surl.Http3` keeps
