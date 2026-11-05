@@ -60,3 +60,4 @@ Decide and record:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
