@@ -30,7 +30,12 @@ namespace Surl.Protocol.Smb;
 /// <para>
 /// <b>Trees</b> (decision 2). A share is a top-level directory of the content store, named by
 /// the last backslash-separated part of the tree connect's path; anything else, and <c>IPC$</c>
-/// in any case whatever the store holds, is <c>ERRSRV/ERRinvnetname</c>. Up to 16 trees, TIDs from 1. Every request but negotiate and
+/// in any case whatever the store holds, is <c>ERRSRV/ERRinvnetname</c>. Every lookup is made as
+/// the session's caller - the account the login accepted, or an anonymous caller for one
+/// <c>--allow-anonymous</c> accepted unchecked - on the listen URL's scheme (<c>smb</c> or
+/// <c>smbs</c>), so a share the caller may not read is <c>ERRSRV/ERRinvnetname</c> as a missing
+/// one is, and a write in a share it may only read is <c>ERRDOS/ERRnoaccess</c> (ADR-0102
+/// decisions 2.2 and 2.3). Up to 16 trees, TIDs from 1. Every request but negotiate and
 /// session setup needs the login's UID (<c>ERRSRV/ERRbaduid</c>) and every request but tree
 /// connect a connected TID (<c>ERRSRV/ERRinvtid</c>). A command curl never sends is
 /// <c>ERRSRV/ERRsmbcmd</c>, a malformed message <c>ERRSRV/ERRerror</c>.
@@ -38,7 +43,7 @@ namespace Surl.Protocol.Smb;
 /// <para>
 /// <b>Reads</b> (decisions 2 and 5). An NT create with <c>FILE_OPEN</c> and no write access opens
 /// the share's file named by its backslash-separated components, each percent-encoded and
-/// mapped through <see cref="ContentStore.MapRequestPath"/>: FIDs from 1, at most 16 open
+/// mapped through <see cref="ContentStore.MapRequestPathForCaller"/> as the session's caller: FIDs from 1, at most 16 open
 /// (<c>ERRDOS/ERRnofids</c>), answered <c>FILE_OPENED</c> with the file's last write time as all
 /// four times, <c>FILE_ATTRIBUTE_NORMAL</c> and its length. Anything that is not a served file -
 /// absent, hidden, refused by the path rules, a directory, the share itself - is

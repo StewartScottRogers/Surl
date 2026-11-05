@@ -28,6 +28,11 @@ What exists (BL-290, BL-296 to BL-298, ADR-0073 decisions 1 to 8):
   the content store), the open files (`SmbOpenFile`, `MaxOpenFiles`, 16), reads of at most
   `MaxReadBytes` (61440) and uploads through `ContentStore.OpenUploadAsync` under
   `--allow-uploads`, committed by the close and discarded when the tree or the connection ends.
+  Every content store lookup is made through `ContentStore.MapRequestPathForCaller` as the
+  session's `ContentCaller` - the account the login accepted, or an anonymous caller for a login
+  `--allow-anonymous` accepted unchecked - on the listen URL's scheme (`smb` or `smbs`), so a
+  share the caller may not read is `ERRSRV/ERRinvnetname` as a missing one is, and a write it may
+  not make is `ERRDOS/ERRnoaccess` (BL-660, ADR-0102 decisions 2.2 and 2.3).
 - The codec: `SmbRequestDecoder` decodes the eight requests curl sends (`SmbNegotiateRequest`,
   `SmbSessionSetupRequest`, `SmbTreeConnectRequest`, `SmbNtCreateRequest`, `SmbReadRequest`,
   `SmbWriteRequest`, `SmbCloseRequest`, `SmbTreeDisconnectRequest`), reporting a malformed one as

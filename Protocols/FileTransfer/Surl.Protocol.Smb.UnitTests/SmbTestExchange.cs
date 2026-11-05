@@ -227,9 +227,10 @@ internal static class SmbTestExchange
         CancellationToken cancellationToken,
         ExchangeLimits? limits = null,
         IExchangeLog? log = null,
-        CancellationToken shutdownToken = default) => new(
+        CancellationToken shutdownToken = default,
+        string scheme = "smb") => new(
             1,
-            new ListenUrl("smb", "127.0.0.1", 445).WithBoundPort(445),
+            new ListenUrl(scheme, "127.0.0.1", 445).WithBoundPort(445),
             new IPEndPoint(IPAddress.Loopback, 445),
             new IPEndPoint(IPAddress.Loopback, 50000),
             log ?? new RecordingExchangeLog(),
@@ -247,10 +248,11 @@ internal static class SmbTestExchange
         ISmbAuthenticationPolicy? authenticationPolicy = null,
         IExchangeLog? log = null,
         ExchangeLimits? limits = null,
-        ContentStore? contentStore = null)
+        ContentStore? contentStore = null,
+        string scheme = "smb")
     {
         var connection = new InMemoryConnection([Hex(string.Concat(requestsHex))]);
-        await Server(authenticationPolicy, contentStore).ServeAsync(connection, Context(new ManualTimeProvider(), cancellationToken, limits, log));
+        await Server(authenticationPolicy, contentStore).ServeAsync(connection, Context(new ManualTimeProvider(), cancellationToken, limits, log, scheme: scheme));
         return Convert.ToHexString(connection.WrittenBytes);
     }
 

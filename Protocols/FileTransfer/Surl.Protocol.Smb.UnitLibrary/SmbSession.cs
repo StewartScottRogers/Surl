@@ -64,7 +64,9 @@ internal sealed class SmbSession : IAsyncDisposable
     private readonly Dictionary<ushort, string> sharesByTreeId = [];
     private readonly Dictionary<ushort, SmbOpenFile> openFilesByFileId = [];
     private byte[]? challenge;
-    private bool isLoggedIn;
+
+    // Who the content store is asked for: set by the accepted login, null until then.
+    private ContentCaller? loggedInCaller;
 
     /// <summary>
     /// Creates the session of one connection.
@@ -97,9 +99,13 @@ internal sealed class SmbSession : IAsyncDisposable
     {
         SmbNegotiateRequest negotiate => AnswerNegotiate(negotiate),
         SmbSessionSetupRequest sessionSetup => await AnswerSessionSetupAsync(sessionSetup),
-        _ when !isLoggedIn || request.Header.UserId != UserId => Refuse(request.Header, SmbStatus.BadUserId),
+        _ when loggedInCaller is null || request.Header.UserId != UserId => Refuse(request.Header, SmbStatus.BadUserId),
         _ => await AnswerLoggedInAsync(request),
     };
+
+    // Every lookup is made as the logged-in caller; only requests after the login reach it.
+    private ContentPathMapping MapForCaller(string requestPath) =>
+        contentStore.MapRequestPathForCaller(requestPath, loggedInCaller!);
 
     private async ValueTask<SmbAnswer> AnswerLoggedInAsync(SmbRequest request) => request switch
     {
@@ -200,7 +206,7 @@ internal sealed class SmbSession : IAsyncDisposable
 
     private async ValueTask<SmbAnswer> AnswerSessionSetupAsync(SmbSessionSetupRequest request)
     {
-        if (challenge is null || isLoggedIn)
+        if (challenge is null || loggedInCaller is not null)
         {
             return Refuse(request.Header, SmbStatus.ServerError);
         }
@@ -211,7 +217,7 @@ internal sealed class SmbSession : IAsyncDisposable
             return RefuseLogin(request.Header, verdict);
         }
 
-        isLoggedIn = true;
+        loggedInCaller = CallerOf(verdict);
         return new SmbAnswer(SmbResponseEncoder.EncodeSessionSetup(request.Header, UserId, loggedOnAs, string.Empty, string.Empty, DomainName));
     }
 
@@ -236,6 +242,13 @@ internal sealed class SmbSession : IAsyncDisposable
         SmbLoginOutcome.AcceptedUnchecked => LoggedOnAsGuest,
         _ => null,
     };
+
+    // The account an accepted login names, on the listen URL's scheme (smb or smbs); a login
+    // --allow-anonymous accepted unchecked names none and is an anonymous caller (ADR-0102 decision 2.2).
+    private ContentCaller CallerOf(SmbLoginVerdict verdict) =>
+        verdict.AccountName is { Length: > 0 } accountName
+            ? ContentCaller.ForAccount(accountName, context.Scheme)
+            : ContentCaller.Anonymous(context.Scheme);
 
     // A refusal with nothing checked means ntlmv1 is not in --auth (ADR-0073, decision 3).
     private SmbAnswer RefuseLogin(SmbHeader header, SmbLoginVerdict verdict)
@@ -278,7 +291,7 @@ internal sealed class SmbSession : IAsyncDisposable
             return false;
         }
 
-        var mapping = contentStore.MapRequestPath("/" + Uri.EscapeDataString(share));
+        var mapping = MapForCaller("/" + Uri.EscapeDataString(share));
         return mapping.IsMapped && mapping.EntryKind == ContentEntryKind.Directory;
     }
 
@@ -317,7 +330,7 @@ internal sealed class SmbSession : IAsyncDisposable
             return RefuseOpen(request.Header, noteName, SmbStatus.NoFileIds, "ERRnofids");
         }
 
-        var mapping = contentStore.MapRequestPath(FileRequestPath(share, request.FileName));
+        var mapping = MapForCaller(FileRequestPath(share, request.FileName));
         if (AsksToWrite(request))
         {
             return await OpenForWritingAsync(request, noteName, mapping);
