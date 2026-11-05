@@ -59,3 +59,4 @@ supports, and computes the TLS 1.3 key schedule.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
