@@ -50,3 +50,4 @@ implements it, and an in-memory implementation lets proxy tests run without a ne
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
