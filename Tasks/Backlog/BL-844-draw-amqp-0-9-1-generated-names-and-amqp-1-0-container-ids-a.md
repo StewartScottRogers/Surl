@@ -4,7 +4,7 @@ title: Draw AMQP 0-9-1 generated names and AMQP 1.0 container IDs and dynamic qu
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-839]
+depends-on: [BL-822, BL-851]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests]
 requirement: none
 created: 2026-11-05

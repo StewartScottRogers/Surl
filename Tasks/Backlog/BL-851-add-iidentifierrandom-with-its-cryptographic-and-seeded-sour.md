@@ -1,5 +1,5 @@
 ---
-id: BL-839
+id: BL-851
 title: Add IIdentifierRandom with its cryptographic and seeded sources and ExchangeContext.Identifiers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-839 — Add IIdentifierRandom with its cryptographic and seeded sources and ExchangeContext.Identifiers
+# BL-851 — Add IIdentifierRandom with its cryptographic and seeded sources and ExchangeContext.Identifiers
 
 ## Goal
 
@@ -21,7 +21,7 @@ same identifiers every run.
 ## Context
 
 - Decision: ADR-0124 decision 6 (`Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md`).
-  Filed by BL-786's audit; every seedable-identifier fix task (BL-841 to BL-846, BL-850) depends on this one.
+  Filed by BL-786's audit; every seedable-identifier fix task (BL-853 to BL-846, BL-850) depends on this one.
 - Contract in `Foundation/Surl.Protocol.Abstractions.UnitLibrary`: `public interface IIdentifierRandom
   { void NextBytes(Span<byte> destination); }`, and `ExchangeContext.Identifiers` (an added record parameter or
   init property whose default is the cryptographic source, so every existing `new ExchangeContext(...)` still

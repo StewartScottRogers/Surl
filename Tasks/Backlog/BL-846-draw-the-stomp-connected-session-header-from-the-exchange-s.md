@@ -4,7 +4,7 @@ title: Draw the STOMP CONNECTED session header from the exchange's seedable iden
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-839]
+depends-on: [BL-822, BL-851]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitTests]
 requirement: none
 created: 2026-11-05

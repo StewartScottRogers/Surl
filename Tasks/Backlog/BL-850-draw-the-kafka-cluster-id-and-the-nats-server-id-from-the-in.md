@@ -4,7 +4,7 @@ title: Draw the Kafka cluster ID and the NATS server_id from the instance's seed
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-839, BL-840]
+depends-on: [BL-822, BL-851, BL-852]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-05
@@ -27,7 +27,7 @@ from the instance's server-life seedable identifier source, so a seeded instance
   `ServerId = RandomNumberGenerator.GetString(ServerIdAlphabet, ServerIdLength)` in the constructor.
 - These are drawn per server, not per exchange, so they cannot use `ExchangeContext.Identifiers`: each constructor
   takes an `IIdentifierRandom` (defaulting to `CryptographicIdentifierRandom`), and `Surl.Composition` passes the
-  instance's server-life source that BL-840 exposes (derived from the seed and a name per server, so adding a
+  instance's server-life source that BL-852 exposes (derived from the seed and a name per server, so adding a
   server never shifts another's ID).
 - Keep each ID's shape: 16 bytes base64url for Kafka, 22 characters of the NATS alphabet (draw with rejection
   sampling or a modulo-free mapping so the alphabet stays uniform).

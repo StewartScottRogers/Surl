@@ -56,10 +56,10 @@ in `Surl.slnx`'s production set and were left out). Searches: `DateTime(Offset).
 array checked (PowerShell scan) for a write anywhere in its folder.
 
 Decisions taken here (ADR-0124 decision 6 already decides the rule; these apply it):
-- The seedable source and the seed option come first: BL-839 (`IIdentifierRandom`, its two sources,
-  `ExchangeContext.Identifiers`), then BL-840 (`--random-seed`, `SurlServerOptions.RandomSeed`, binding per
-  instance). Per-exchange fixes depend on BL-839 only, because their tests can hand a `SeededIdentifierRandom` to
-  an `ExchangeContext` directly; server-life fixes (BL-850) also depend on BL-840, which exposes the instance's
+- The seedable source and the seed option come first: BL-851 (`IIdentifierRandom`, its two sources,
+  `ExchangeContext.Identifiers`), then BL-852 (`--random-seed`, `SurlServerOptions.RandomSeed`, binding per
+  instance). Per-exchange fixes depend on BL-851 only, because their tests can hand a `SeededIdentifierRandom` to
+  an `ExchangeContext` directly; server-life fixes (BL-850) also depend on BL-852, which exposes the instance's
   server-life source.
 - Identifiers drawn when a server is created take an `IIdentifierRandom` in the constructor; those drawn per
   exchange use `ExchangeContext.Identifiers`. This keeps per-exchange fixes out of `Surl.Composition`, so they run
@@ -74,13 +74,13 @@ Decisions taken here (ADR-0124 decision 6 already decides the rule; these apply 
   Low task.
 
 Findings (`file - member - kind - outcome`):
-- `Foundation/Surl.Protocol.Abstractions`, `Foundation/Surl.Core` - (missing) `IIdentifierRandom` - seedable random - BL-839.
-- `Application/Surl.Cli`, `Surl.Api`, `Surl.Composition` - (missing) `--random-seed` / `RandomSeed` - seedable random - BL-840.
-- `Surl.Extended.Protocol.S3/S3ProtocolServer.cs:81`, `S3RequestAnswerer.cs:51,95` - request ID - seedable random - BL-841.
-- `Surl.Extended.Protocol.AzureStorage/AzureReply.cs:78` - `NewRequestId` - seedable random - BL-841.
+- `Foundation/Surl.Protocol.Abstractions`, `Foundation/Surl.Core` - (missing) `IIdentifierRandom` - seedable random - BL-851.
+- `Application/Surl.Cli`, `Surl.Api`, `Surl.Composition` - (missing) `--random-seed` / `RandomSeed` - seedable random - BL-852.
+- `Surl.Extended.Protocol.S3/S3ProtocolServer.cs:81`, `S3RequestAnswerer.cs:51,95` - request ID - seedable random - BL-853.
+- `Surl.Extended.Protocol.AzureStorage/AzureReply.cs:78` - `NewRequestId` - seedable random - BL-853.
 - `Surl.Extended.Protocol.Coap/CryptographicCoapRandomSource.cs` (`Instance`) via `CoapFlowSession.cs:59,299`,
   `CoapResourceAnswerer.cs:293` - message ID, retransmission jitter, posted name - seedable random (not secret,
-  contrary to the lead) - BL-842.
+  contrary to the lead) - BL-854.
 - `Surl.Extended.Protocol.SignalR/SignalRHubConnections.cs:146` - `NewId` - seedable random for a `connectionId`
   beside a token; secret random kept for the token and a token-less `connectionId` - BL-843.
 - `Surl.Extended.Protocol.Amqp0/Amqp0BrokerConnection.Exchanges.cs:58` - `GenerateName` - seedable random - BL-844.
@@ -143,4 +143,4 @@ runs them one after the other.
 
 - 2026-11-05: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. Production code audited against ADR-0124 decision 6; 40 findings classified and 12 fix tasks filed (BL-839 to BL-850)
+- 2026-11-05: Doing -> Done. Production code audited against ADR-0124 decision 6; 40 findings classified and 12 fix tasks filed (BL-851 to BL-850)

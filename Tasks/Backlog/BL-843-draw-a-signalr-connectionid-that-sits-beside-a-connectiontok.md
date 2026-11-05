@@ -4,7 +4,7 @@ title: Draw a SignalR connectionId that sits beside a connectionToken from the s
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-839]
+depends-on: [BL-822, BL-851]
 touches: [Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests]
 requirement: none
 created: 2026-11-05

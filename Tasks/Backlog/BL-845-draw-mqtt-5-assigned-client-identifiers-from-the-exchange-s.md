@@ -4,7 +4,7 @@ title: Draw MQTT 5 assigned client identifiers from the exchange's seedable iden
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-839]
+depends-on: [BL-822, BL-851]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests]
 requirement: none
 created: 2026-11-05

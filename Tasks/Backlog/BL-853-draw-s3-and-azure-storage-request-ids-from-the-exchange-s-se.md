@@ -1,16 +1,16 @@
 ---
-id: BL-841
+id: BL-853
 title: Draw S3 and Azure Storage request IDs from the exchange's seedable identifier source
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-839]
+depends-on: [BL-822, BL-851]
 touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests]
 requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-841 — Draw S3 and Azure Storage request IDs from the exchange's seedable identifier source
+# BL-853 — Draw S3 and Azure Storage request IDs from the exchange's seedable identifier source
 
 ## Goal
 

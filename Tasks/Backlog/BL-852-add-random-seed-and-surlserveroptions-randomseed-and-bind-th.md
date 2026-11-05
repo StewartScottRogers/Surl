@@ -1,16 +1,16 @@
 ---
-id: BL-840
+id: BL-852
 title: Add --random-seed and SurlServerOptions.RandomSeed and bind the seeded identifier source per instance
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-839]
+depends-on: [BL-822, BL-851]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Api, Application/Surl.Api.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-840 — Add --random-seed and SurlServerOptions.RandomSeed and bind the seeded identifier source per instance
+# BL-852 — Add --random-seed and SurlServerOptions.RandomSeed and bind the seeded identifier source per instance
 
 ## Goal
 
@@ -22,7 +22,7 @@ run after run, and an unseeded instance behaves exactly as today.
 - Decision: ADR-0124 decision 6, "The seed's spelling": `--random-seed <n>` (0 to 2^63-1) on the command line
   and in `-K` files, in the `testing` help category, and `SurlServerOptions.RandomSeed` as its `Surl.Api`
   spelling (ADR-0099 decision 4). No warning; unseeded is the default. Filed by BL-786.
-- Depends on BL-839 for `IIdentifierRandom`, `CryptographicIdentifierRandom` and `SeededIdentifierRandom`.
+- Depends on BL-851 for `IIdentifierRandom`, `CryptographicIdentifierRandom` and `SeededIdentifierRandom`.
 - `Application/Surl.Cli.UnitLibrary`: the option, its `OptionArgumentReading<long>` with its
   `OptionArgumentType`, its `--aihelp` facts (CLAUDE.md "`surl --aihelp` is how an agent learns the command line"),
   the manual line, and an out-of-range or non-numeric value refused with `FailedInit` (2) in the existing option

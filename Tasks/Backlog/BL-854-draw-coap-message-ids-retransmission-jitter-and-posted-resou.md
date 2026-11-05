@@ -1,16 +1,16 @@
 ---
-id: BL-842
+id: BL-854
 title: Draw CoAP message IDs, retransmission jitter and posted resource names from the seedable identifier source
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-822, BL-839]
+depends-on: [BL-822, BL-851]
 touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests]
 requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-842 — Draw CoAP message IDs, retransmission jitter and posted resource names from the seedable identifier source
+# BL-854 — Draw CoAP message IDs, retransmission jitter and posted resource names from the seedable identifier source
 
 ## Goal
 
