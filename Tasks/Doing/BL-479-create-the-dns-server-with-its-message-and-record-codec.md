@@ -48,3 +48,4 @@ BL-478's ADR serves, including unknown types and the EDNS(0) OPT record.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
