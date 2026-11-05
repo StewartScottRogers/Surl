@@ -60,6 +60,8 @@ What it holds now (BL-629):
   `MaxTopics` counts topics with a log, so a publish on a new topic past it is
   `TooManyTopics`, retained or not (ADR-0100 decision 3.6). An expired message stays in the
   log; one already expired at publish is stored nowhere. BL-697 adds these rules to the ADR.
+  `CreateLog(topic)` gives a topic its empty log, as a Kafka Metadata request auto-creates one
+  (BL-518, ADR-0105 decision 2), `TooManyTopics` past `MaxTopics`.
 - **Bounds and outcomes.** `MaxTopics`, `MaxRetainedPayloadBytes`,
   `MaxSubscriptionsPerConnection`, `MaxMessageBytes`, `MaxQueues`, `MaxMessagesPerQueue`
   (unacknowledged included), `MaxQueuedBytes` (all queues), `MaxLogBytesPerTopic` and
@@ -112,7 +114,8 @@ What it holds now (BL-629):
   on a filter covering the filter (`CanonicalTopicName.FilterCovers`); a queue is the filter
   `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume. A refusal is
   `AccessDenied`, checked before anything that would tell whether the topic or queue exists.
-  BL-704 adds these choices to ADR-0102.
+  `GetTopicAccess(account, topic)` answers a caller's `pub` and `sub` rights on one topic
+  without touching it, as Kafka's Metadata needs (BL-518). BL-704 adds these choices to ADR-0102.
 
 Not here yet, each its own task: the MQTT 3.1.1 server's move onto the bus (BL-635), and
 each server passing its caller's account and mapping through `Names` (BL-665 for MQTT, the

@@ -201,6 +201,33 @@ public sealed class MessageBusConfigurationTests
     }
 
     [TestMethod]
+    public void GetTopicAccess_NoGrants_AllowsEverything()
+    {
+        var bus = Bus(MessageBusConfiguration.None);
+
+        Assert.AreEqual(TopicAccessRights.PublishAndSubscribe, bus.GetTopicAccess(null, "t"));
+        Assert.ThrowsExactly<ArgumentNullException>(() => bus.GetTopicAccess(null, null!));
+    }
+
+    [TestMethod]
+    public void GetTopicAccess_Grants_AnswerEachRightApart()
+    {
+        var bus = Bus(new MessageBusConfiguration
+        {
+            AccessGrants =
+            [
+                new TopicAccessGrant("a/#", "alice", TopicAccessRights.Publish),
+                new TopicAccessGrant("a/b", TopicAccessGrant.Everyone, TopicAccessRights.Subscribe),
+            ],
+        });
+
+        Assert.AreEqual(TopicAccessRights.PublishAndSubscribe, bus.GetTopicAccess("alice", "a/b"));
+        Assert.AreEqual(TopicAccessRights.Publish, bus.GetTopicAccess("alice", "a/c"));
+        Assert.AreEqual(TopicAccessRights.Subscribe, bus.GetTopicAccess(null, "a/b"));
+        Assert.AreEqual(TopicAccessRights.None, bus.GetTopicAccess("bob", "x"));
+    }
+
+    [TestMethod]
     public void Declarations_ValidValues_KeepWhatTheyWereGiven()
     {
         var topic = new DeclaredTopic("a/+", retain: true, BusQualityOfService.AtLeastOnce);

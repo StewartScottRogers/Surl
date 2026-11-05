@@ -32,6 +32,25 @@ public sealed partial class MessageBus
     public BusConnection Connect(string? account) => new(this, account);
 
     /// <summary>
+    /// What <paramref name="account"/> may do on <paramref name="topic"/> under the configured
+    /// access grants (ADR-0102, decision 3.4): <see cref="TopicAccessRights.Publish"/> when it may
+    /// publish there, <see cref="TopicAccessRights.Subscribe"/> when it may subscribe to the
+    /// topic itself. The answer never depends on whether the topic exists, so a server can ask
+    /// before it tells a caller anything about one, as a Kafka broker's Metadata answer does.
+    /// </summary>
+    /// <param name="account">The caller's account, or <see langword="null"/> for an anonymous one.</param>
+    /// <param name="topic">The canonical topic name.</param>
+    /// <returns>The rights; <see cref="TopicAccessRights.None"/> when it may do neither.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="topic"/> is <see langword="null"/>.</exception>
+    public TopicAccessRights GetTopicAccess(string? account, string topic)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+
+        return (accessPolicy.MayPublish(account, topic) ? TopicAccessRights.Publish : TopicAccessRights.None)
+            | (accessPolicy.MaySubscribe(account, topic) ? TopicAccessRights.Subscribe : TopicAccessRights.None);
+    }
+
+    /// <summary>
     /// Publishes <paramref name="message"/> as <see cref="Publish(BusMessage)"/> does, for
     /// <paramref name="account"/>: refused with <see cref="MessageBusOutcome.AccessDenied"/>,
     /// nothing retained, delivered or logged, when the configured grants do not let it publish

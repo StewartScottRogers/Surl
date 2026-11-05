@@ -271,6 +271,49 @@ public sealed class MessageBusLogTests
     }
 
     [TestMethod]
+    public void CreateLog_NewTopic_MakesItsEmptyLogAndListsIt()
+    {
+        var bus = new MessageBus(clock);
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, bus.CreateLog("a/b"));
+
+        CollectionAssert.AreEqual(new[] { "a/b" }, bus.GetLogTopics().ToArray());
+        Assert.AreEqual(new BusLogOffsets(MessageBusOutcome.Succeeded, 0, 0), bus.GetLogOffsets("a/b"));
+    }
+
+    [TestMethod]
+    public void CreateLog_TopicWithALog_LeavesItsRecords()
+    {
+        var bus = new MessageBus(clock, maxTopics: 1);
+        bus.Publish(Message("t", "a"));
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, bus.CreateLog("t"));
+
+        Assert.AreEqual(new BusLogOffsets(MessageBusOutcome.Succeeded, 0, 1), bus.GetLogOffsets("t"));
+    }
+
+    [TestMethod]
+    public void CreateLog_PastMaxTopics_IsTooManyTopicsAndMakesNothing()
+    {
+        var bus = new MessageBus(clock, maxTopics: 1);
+        bus.CreateLog("a");
+
+        Assert.AreEqual(MessageBusOutcome.TooManyTopics, bus.CreateLog("b"));
+
+        CollectionAssert.AreEqual(new[] { "a" }, bus.GetLogTopics().ToArray());
+    }
+
+    [TestMethod]
+    public void CreateLog_NotCanonical_IsInvalidTopic()
+    {
+        var bus = new MessageBus(clock);
+
+        Assert.AreEqual(MessageBusOutcome.InvalidTopic, bus.CreateLog("a/+"));
+        Assert.ThrowsExactly<ArgumentNullException>(() => bus.CreateLog(null!));
+        Assert.IsEmpty(bus.GetLogTopics());
+    }
+
+    [TestMethod]
     public void Constructor_Defaults_AreTheAdrsBounds()
     {
         var bus = new MessageBus(clock);

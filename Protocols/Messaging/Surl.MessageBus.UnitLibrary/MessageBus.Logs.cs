@@ -122,6 +122,42 @@ public sealed partial class MessageBus
     }
 
     /// <summary>
+    /// Gives <paramref name="topic"/> its empty log when it has none, as a Kafka broker creates a
+    /// topic a Metadata request names (ADR-0105, decision 2), so the topic is listed from then
+    /// on. A topic that already has a log is left as it is.
+    /// </summary>
+    /// <param name="topic">The canonical topic name.</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/> when the topic has a log now;
+    /// <see cref="MessageBusOutcome.InvalidTopic"/> for a name that is not canonical; or
+    /// <see cref="MessageBusOutcome.TooManyTopics"/> when the topic is new and
+    /// <see cref="MaxTopics"/> topics already have a log, nothing made.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="topic"/> is <see langword="null"/>.</exception>
+    public MessageBusOutcome CreateLog(string topic)
+    {
+        ArgumentNullException.ThrowIfNull(topic);
+        if (!CanonicalTopicName.IsValidTopic(topic))
+        {
+            return MessageBusOutcome.InvalidTopic;
+        }
+
+        lock (stateLock)
+        {
+            if (logs.ContainsKey(topic))
+            {
+                return MessageBusOutcome.Succeeded;
+            }
+
+            if (logs.Count >= MaxTopics)
+            {
+                return MessageBusOutcome.TooManyTopics;
+            }
+
+            logs.Add(topic, new TopicLog());
+            return MessageBusOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
     /// Whether <paramref name="published"/> can be appended to its topic's log: refused with
     /// <see cref="MessageBusOutcome.TooManyTopics"/> when its topic is new and
     /// <see cref="MaxTopics"/> topics already have a log, and with
