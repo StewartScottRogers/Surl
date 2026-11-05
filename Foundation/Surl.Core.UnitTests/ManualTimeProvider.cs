@@ -8,6 +8,7 @@ internal sealed class ManualTimeProvider : TimeProvider
 {
     private readonly Lock gate = new();
     private readonly List<ManualTimer> timers = [];
+    private readonly List<(int Count, TaskCompletionSource Reached)> timerCountWaits = [];
     private readonly TaskCompletionSource firstTimerCreated = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private DateTimeOffset now = new(2026, 9, 28, 12, 0, 0, TimeSpan.Zero);
 
@@ -15,6 +16,25 @@ internal sealed class ManualTimeProvider : TimeProvider
     /// Completes once the first timer has been created.
     /// </summary>
     public Task FirstTimerCreated => firstTimerCreated.Task;
+
+    /// <summary>
+    /// Completes once <paramref name="count"/> timers have been created in all.
+    /// </summary>
+    public Task TimersCreated(int count)
+    {
+        lock (gate)
+        {
+            if (timers.Count >= count)
+            {
+                return Task.CompletedTask;
+            }
+
+            var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            timerCountWaits.Add((count, reached));
+
+            return reached.Task;
+        }
+    }
 
     public override DateTimeOffset GetUtcNow()
     {
@@ -33,6 +53,7 @@ internal sealed class ManualTimeProvider : TimeProvider
         lock (gate)
         {
             timers.Add(timer);
+            timerCountWaits.RemoveAll(wait => wait.Count <= timers.Count && wait.Reached.TrySetResult());
         }
 
         firstTimerCreated.TrySetResult();

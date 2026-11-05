@@ -69,6 +69,12 @@ internal sealed class ExchangeDeadlines : IDisposable
         }
     }
 
+    /// <summary>
+    /// Stops the idle clock until <see cref="RestartIdleClock"/>, because the engine itself is
+    /// holding the exchange (a fault rule's delay, ADR-0124 decision 4) and the exchange is not idle.
+    /// </summary>
+    public void PauseIdleClock() => idle?.CancelAfter(Timeout.InfiniteTimeSpan);
+
     /// <inheritdoc/>
     public void Dispose()
     {

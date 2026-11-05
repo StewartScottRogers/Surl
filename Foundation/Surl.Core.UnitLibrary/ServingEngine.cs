@@ -40,6 +40,7 @@ public sealed partial class ServingEngine
     private readonly IDataConnectionOpener dataConnectionOpener;
     private readonly ExchangeLimits exchangeLimits;
     private readonly ISurlEventPublisher events;
+    private readonly IFaultPlan faults;
     private long lastExchangeId;
 
     /// <summary>
@@ -185,7 +186,8 @@ public sealed partial class ServingEngine
     }
 
     /// <summary>
-    /// Creates the engine.
+    /// Creates the engine with no fault plan: every exchange's <see cref="ExchangeContext.Faults"/> is
+    /// <see cref="EmptyFaultPlan.Instance"/>, so nothing misbehaves on purpose.
     /// </summary>
     /// <param name="listenerFactory">Starts the listeners.</param>
     /// <param name="protocolServers">Every protocol server, each answering the schemes it lists.</param>
@@ -223,6 +225,56 @@ public sealed partial class ServingEngine
         IDataConnectionOpener dataConnectionOpener,
         ExchangeLimits exchangeLimits,
         ISurlEventPublisher events)
+        : this(
+            listenerFactory, protocolServers, exchangeLogFactory, timeProvider, shutdownGracePeriod,
+            connectionLimits, dataConnectionOpener, exchangeLimits, events, EmptyFaultPlan.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Creates the engine.
+    /// </summary>
+    /// <param name="listenerFactory">Starts the listeners.</param>
+    /// <param name="protocolServers">Every protocol server, each answering the schemes it lists.</param>
+    /// <param name="exchangeLogFactory">Hands out one log per exchange.</param>
+    /// <param name="timeProvider">The one clock: the shutdown grace period, every exchange's time and every fault rule's delay come from it.</param>
+    /// <param name="shutdownGracePeriod">
+    /// How long shutdown waits for exchanges in flight before cancelling them; zero or more.
+    /// </param>
+    /// <param name="connectionLimits">
+    /// How many connections the engine holds at once, and how long one exchange may idle or last.
+    /// </param>
+    /// <param name="dataConnectionOpener">
+    /// Opens the FTP data connections each connection exchange asks for through its
+    /// <see cref="ExchangeContext.DataConnections"/> (ADR-0052, decision 9).
+    /// </param>
+    /// <param name="exchangeLimits">The limits every exchange's <see cref="ExchangeContext.Limits"/> holds.</param>
+    /// <param name="events">The instance's event stream (ADR-0124, decision 1).</param>
+    /// <param name="faults">
+    /// The instance's fault plan (ADR-0124, decision 4): every exchange's
+    /// <see cref="ExchangeContext.Faults"/>. The engine asks it at <see cref="FaultStage.Accept"/>
+    /// for each connection and flow, before any byte and before an implicit TLS handshake, and
+    /// applies what it finds: a <see cref="FaultKind.Delay"/> holds the exchange on
+    /// <paramref name="timeProvider"/> with the idle clock stopped; a <see cref="FaultKind.Drop"/>
+    /// aborts the connection, or leaves the flow unanswered, before the server sees it - or, with
+    /// <see cref="FaultRule.AfterBytes"/>, once the server has sent that many bytes. Each
+    /// application publishes a <see cref="FaultAppliedEvent"/> on <paramref name="events"/>.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// Two protocol servers list the same scheme, other than one connection server and one datagram server, or one takes both connections and datagram flows.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="shutdownGracePeriod"/> is negative.</exception>
+    public ServingEngine(
+        IListenerFactory listenerFactory,
+        IReadOnlyList<IProtocolServer> protocolServers,
+        IExchangeLogFactory exchangeLogFactory,
+        TimeProvider timeProvider,
+        TimeSpan shutdownGracePeriod,
+        ConnectionLimits connectionLimits,
+        IDataConnectionOpener dataConnectionOpener,
+        ExchangeLimits exchangeLimits,
+        ISurlEventPublisher events,
+        IFaultPlan faults)
     {
         ArgumentNullException.ThrowIfNull(listenerFactory);
         ArgumentNullException.ThrowIfNull(protocolServers);
@@ -232,6 +284,7 @@ public sealed partial class ServingEngine
         ArgumentNullException.ThrowIfNull(dataConnectionOpener);
         ArgumentNullException.ThrowIfNull(exchangeLimits);
         ArgumentNullException.ThrowIfNull(events);
+        ArgumentNullException.ThrowIfNull(faults);
         ArgumentOutOfRangeException.ThrowIfLessThan(shutdownGracePeriod, TimeSpan.Zero);
 
         this.listenerFactory = listenerFactory;
@@ -243,6 +296,7 @@ public sealed partial class ServingEngine
         this.dataConnectionOpener = dataConnectionOpener;
         this.exchangeLimits = exchangeLimits;
         this.events = events;
+        this.faults = faults;
     }
 
     /// <summary>
@@ -650,7 +704,7 @@ public sealed partial class ServingEngine
         {
             var recordingConnection = new RecordingConnection(connection, bytesLog);
             var dataConnections = new ExchangeDataConnections(dataConnectionOpener, bytesLog, deadlines);
-            var failure = await CaptureFailureAsync(() => SecureThenServeAsync(
+            var failure = await CaptureFailureAsync(() => FaultThenSecureThenServeAsync(
                 recordingConnection, route, deadlines, context with { DataConnections = dataConnections }));
 
             // Never throws: a data connection that fails to dispose does not stop the exchange ending.
@@ -669,10 +723,71 @@ public sealed partial class ServingEngine
         }
     }
 
+    // The Accept-stage fault acts before any byte, the TLS handshake included (ADR-0124,
+    // decision 4): a drop without after-bytes aborts the connection unserved; one with
+    // after-bytes lets the server send that many.
+    private async Task FaultThenSecureThenServeAsync(
+        RecordingConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
+    {
+        var drop = await ApplyAcceptDelayOrFindDropAsync(context, deadlines);
+
+        if (drop is null)
+        {
+            await SecureThenServeAsync(connection, route, deadlines, context);
+        }
+        else if (drop.AfterBytes is long afterBytes and > 0)
+        {
+            var dropping = new DroppingAfterBytesConnection(
+                connection, afterBytes, () => NoteAndPublishDrop(drop, context, $"after {afterBytes} bytes sent"));
+            await SecureThenServeAsync(dropping, route, deadlines, context);
+        }
+        else
+        {
+            NoteAndPublishDrop(drop, context, "before any byte");
+            connection.Abort();
+        }
+    }
+
+    // Asks the plan at Accept. A Delay rule holds the exchange, with its idle clock stopped, and
+    // yields null; a Drop rule is handed back for the caller to apply; any other kind a plan may
+    // hand back at Accept is not the engine's to apply.
+    private async Task<FaultRule?> ApplyAcceptDelayOrFindDropAsync(ExchangeContext context, ExchangeDeadlines deadlines)
+    {
+        var point = new FaultPoint(FaultStage.Accept)
+        {
+            ExchangeId = context.ExchangeId,
+            ListenUrl = FormatListenUrl(context.ListenUrl),
+            Scheme = context.ListenUrl.Scheme,
+        };
+        var rule = await faults.FindAsync(point, context.CancellationToken);
+
+        if (rule is { Kind: FaultKind.Delay })
+        {
+            var delay = TimeSpan.FromMilliseconds(rule.DelayMilliseconds ?? 0);
+            context.Log.Note($"Exchange {context.ExchangeId} held for {FormatSeconds(delay)} s by fault rule {rule.Id}.");
+            PublishFaultApplied(rule, context);
+            deadlines.PauseIdleClock();
+            await Task.Delay(delay, timeProvider, context.CancellationToken);
+            deadlines.RestartIdleClock();
+        }
+
+        return rule is { Kind: FaultKind.Drop } ? rule : null;
+    }
+
+    private void NoteAndPublishDrop(FaultRule rule, ExchangeContext context, string when)
+    {
+        context.Log.Note($"Exchange {context.ExchangeId} dropped {when} by fault rule {rule.Id}.");
+        PublishFaultApplied(rule, context);
+    }
+
+    private void PublishFaultApplied(FaultRule rule, ExchangeContext context) =>
+        events.Publish(new FaultAppliedEvent(
+            rule.Id, rule.Kind, FaultStage.Accept, context.ExchangeId, FormatListenUrl(context.ListenUrl)));
+
     // A listen URL whose scheme is TLS from the first byte gets its handshake here, and the
     // server sees the connection only once it completed (ADR-0010, section 2).
     private async Task SecureThenServeAsync(
-        RecordingConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
+        IConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
     {
         if (TlsSchemes.IsImplicitTls(route.ListenUrl.Scheme) && !await CompleteImplicitHandshakeAsync(connection, context))
         {
@@ -727,6 +842,7 @@ public sealed partial class ServingEngine
             Limits = exchangeLimits,
             ShutdownToken = deadlines.ShutdownToken,
             Events = events,
+            Faults = faults,
         };
 
         log.Note($"Exchange {exchangeId} opened: {listenUrl.Scheme} from {remoteEndPoint}.");

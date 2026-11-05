@@ -15,6 +15,35 @@ public sealed class ExchangeDeadlinesTests
     }
 
     [TestMethod]
+    public void PauseIdleClock_IdleTimeoutPassesWhilePaused_DoesNotCancel_AndRestartStartsItAfresh()
+    {
+        var time = new ManualTimeProvider();
+        using var deadlines = new ExchangeDeadlines(TenSecondsIdleThirtyAtMost, time, CancellationToken.None);
+
+        deadlines.PauseIdleClock();
+        time.Advance(TimeSpan.FromSeconds(20));
+        var cancelledWhilePaused = deadlines.Token.IsCancellationRequested;
+        deadlines.RestartIdleClock();
+        time.Advance(TimeSpan.FromSeconds(9));
+        var cancelledBeforeTheIdleTimeout = deadlines.Token.IsCancellationRequested;
+        time.Advance(TimeSpan.FromSeconds(1));
+
+        Assert.IsFalse(cancelledWhilePaused);
+        Assert.IsFalse(cancelledBeforeTheIdleTimeout);
+        Assert.AreEqual(ExchangeCancellation.IdleTimeout, deadlines.Reason);
+    }
+
+    [TestMethod]
+    public void PauseIdleClock_NoIdleTimeout_DoesNothing()
+    {
+        using var deadlines = new ExchangeDeadlines(ConnectionLimits.None, new ManualTimeProvider(), CancellationToken.None);
+
+        deadlines.PauseIdleClock();
+
+        Assert.IsNull(deadlines.Reason);
+    }
+
+    [TestMethod]
     public void ShutdownToken_IsTheShutdownTokenItWasGiven()
     {
         using var shutdown = new CancellationTokenSource();

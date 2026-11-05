@@ -82,8 +82,8 @@ public sealed partial class ServingEngine
         {
             bytesLog.BytesReceived(flow.FirstDatagram.Span);
 
-            var watchedFlow = new IdleClockRestartingDatagramFlow(new RecordingDatagramFlow(flow, bytesLog), deadlines);
-            var failure = await CaptureFailureAsync(() => route.Server.ServeAsync(watchedFlow, context));
+            var recordingFlow = new RecordingDatagramFlow(flow, bytesLog);
+            var failure = await CaptureFailureAsync(() => FaultThenServeFlowAsync(recordingFlow, route, deadlines, context));
 
             _ = NoteHowTheExchangeEnded(failure?.SourceException, log, exchangeId, deadlines.Reason);
             log.Note($"Exchange {exchangeId} ended; closing the flow.");
@@ -91,6 +91,30 @@ public sealed partial class ServingEngine
         finally
         {
             PublishExchangeEnded(exchangeId, bytesLog);
+        }
+    }
+
+    // The Accept-stage fault acts before the server sees the flow (ADR-0124, decision 4): a drop
+    // without after-bytes leaves the flow unanswered; one with after-bytes lets the server send
+    // that many bytes and then discards what it sends.
+    private async Task FaultThenServeFlowAsync(
+        IDatagramFlow flow, AcceptedFlowRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
+    {
+        var drop = await ApplyAcceptDelayOrFindDropAsync(context, deadlines);
+
+        if (drop is null)
+        {
+            await route.Server.ServeAsync(new IdleClockRestartingDatagramFlow(flow, deadlines), context);
+        }
+        else if (drop.AfterBytes is long afterBytes and > 0)
+        {
+            var silenced = new SilencedAfterBytesDatagramFlow(
+                flow, afterBytes, () => NoteAndPublishDrop(drop, context, $"after {afterBytes} bytes sent"));
+            await route.Server.ServeAsync(new IdleClockRestartingDatagramFlow(silenced, deadlines), context);
+        }
+        else
+        {
+            NoteAndPublishDrop(drop, context, "before any byte");
         }
     }
 
