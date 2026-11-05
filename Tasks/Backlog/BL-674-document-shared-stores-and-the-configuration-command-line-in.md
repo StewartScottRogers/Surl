@@ -47,6 +47,12 @@ one `surl` and the configuration command line and config file for real servers.
 
 ## Notes
 
+- Stand-in scope (added 2026-11-05): seeding, resetting, snapshotting and restoring the shared stores, the store
+  change events and `--fault` (BL-822 to BL-821) are documented by BL-821 in
+  `Documentation/Wiki/Surl-As-A-Stand-In.md`. This task documents the stores and the configuration surface; link
+  to that page for test control (or name the tasks as intent if BL-821 has not run) rather than describing it.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Notes amended: test control of the stores is BL-821's to document; link, do not duplicate.

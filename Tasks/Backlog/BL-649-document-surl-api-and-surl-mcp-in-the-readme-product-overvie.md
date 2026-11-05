@@ -50,6 +50,14 @@ calls them planned.
 
 ## Notes
 
+- Stand-in scope (added 2026-11-05): the stand-in features built on `Surl.Api` and `Surl.Mcp` - the event stream,
+  queries and waits, seeding, reset and snapshots, faults, hooks and the control endpoint (BL-822 to BL-821) - are
+  documented by BL-821 in `Documentation/Wiki/Surl-As-A-Stand-In.md`. This task documents the hosts themselves;
+  where it mentions those features, it links to that page (or, if BL-821 has not run, names the tasks as intent)
+  rather than describing them. The exchange record now carries the listen URL (BL-806) once that task is done:
+  describe it as built when this runs.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Notes amended: stand-in features are BL-821's to document; link, do not duplicate.
