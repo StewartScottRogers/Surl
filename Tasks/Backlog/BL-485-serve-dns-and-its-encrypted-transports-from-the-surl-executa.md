@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-483, BL-484, BL-405, BL-384]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -41,7 +41,15 @@ and the extension switch turns it off.
 
 ## Notes
 
+- 2026-11-05 (lane 8): BL-609 moved the composition. Extended servers are now registered in
+  `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs` (`Registrations`), not in
+  `CommandLineRunner.cs`, so the `dns` registration, its project reference to
+  `Surl.Extended.Protocol.DnsQuery.UnitLibrary` and its switch-on/off tests belong in Surl.Composition and its
+  tests; both are added to `touches`. BL-803 (Doing) touches Surl.Composition, so the task waits in Backlog
+  until that task no longer overlaps.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary, which BL-803 (Doing) touches
