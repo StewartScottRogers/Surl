@@ -175,6 +175,8 @@
   <Folder Name="/Protocols/Messaging/">
     <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary/Surl.Extended.Protocol.Mqtt5.UnitLibrary.csproj" />
     <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests/Surl.Extended.Protocol.Mqtt5.UnitTests.csproj" />
+    <Project Path="Protocols/Messaging/Surl.MessageBus.UnitLibrary/Surl.MessageBus.UnitLibrary.csproj" />
+    <Project Path="Protocols/Messaging/Surl.MessageBus.UnitTests/Surl.MessageBus.UnitTests.csproj" />
     <Project Path="Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary/Surl.Protocol.Ldap.UnitLibrary.csproj" />
     <Project Path="Protocols/Messaging/Surl.Protocol.Ldap.UnitTests/Surl.Protocol.Ldap.UnitTests.csproj" />
     <Project Path="Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary/Surl.Protocol.Mqtt.UnitLibrary.csproj" />
