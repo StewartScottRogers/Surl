@@ -30,6 +30,10 @@ loaded after the data-directory lock if it persists. Metadata advertises the lis
   `Surl.MessageBus` BL-635 composes for `mqtt`, whose topic logs (BL-633) it serves, not a log of its own. If
   BL-609 has moved the composition to `Application/Surl.Composition.UnitLibrary`, register it there and record the
   changed touches in Notes.
+- ADR-0105 decision 4 adds one option, `--kafka-fetch-compression <none|gzip|snappy|lz4|zstd>` (default `none`,
+  help category `kafka`), passed to the broker as the codec of the batches it serves; it needs its
+  `OptionArgumentType` and `--aihelp` facts. ADR-0105 decision 2: Metadata advertises the listener's bound address,
+  or the connection's local address when the listener is bound to a wildcard address.
 
 ## Acceptance criteria
 
@@ -37,6 +41,8 @@ loaded after the data-directory lock if it persists. Metadata advertises the lis
 
 - [ ] A named test finds `kafka` and `kafkas` registered when the switch is on, and absent when it is off.
       Another shows the advertised broker port equal to the bound port when the listen URL says `:0`.
+- [ ] A named test shows `--kafka-fetch-compression zstd` reaching the broker, the default `none`, and another
+      value refused as the parser refuses an unknown enumerated argument.
 - [ ] The `--aihelp` completeness tests named in root `CLAUDE.md` pass.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Console` and `Surl.Cli` keep 100%
       line and branch coverage.
@@ -47,3 +53,4 @@ loaded after the data-directory lock if it persists. Metadata advertises the lis
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
+- 2026-11-05: Amended by BL-516 for ADR-0105: adds `--kafka-fetch-compression` and the advertised address rule.

@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-516 — Decide how the Kafka broker answers kafka and kafkas
 
@@ -59,16 +59,36 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each citing the protocol guide section, and
       is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/Kafka.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/Kafka.md` exists in the matrix format, each "covered by" naming
       BL-517, BL-518, BL-519, BL-520 or BL-521, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0105 written by hand in the session (docs pipeline; no `.cs` or project file changed, so the `verify` skill
+  does not apply). Kafka documentation pinned: the protocol guide for Apache Kafka 4.4
+  (`https://kafka.apache.org/44/design/protocol`, read 2026-11-05); each version range and error code read from it.
+- Summary: one-node broker (node 0) over the shared bus; ApiVersions 0-3, Metadata 0-8, Produce 3-8, Fetch 4-11,
+  ListOffsets 1-5, SaslHandshake 0-1, SaslAuthenticate 0-1; unserved API or version closes with no bytes, except the
+  ApiVersions v0 `UNSUPPORTED_VERSION` fallback; one partition, auto-created topics; the bus's log; produced
+  compressed batches decoded into bus messages (bounded), served batches built fresh, compressed under a new
+  `--kafka-fetch-compression`; SASL PLAIN/SCRAM through the policy, required unless `--allow-anonymous`.
+- Departure from the planning assumption in decision 4 and BL-521's first Goal: compressed batches are **not**
+  stored as produced, because ADR-0100 decision 3.4 has the bus hold one message a record (an `mqtt` subscriber must
+  see each record). BL-521 rewritten to match.
+- Departure from decision 1's planning assumption: `UNSUPPORTED_VERSION` (35) only in the ApiVersions fallback; any
+  other unserved version closes the connection, since its response schema does not exist.
+- The new codecs library amends ADR-0002 decision 3's table (row and header line added in ADR-0002, inside this
+  task's `Documentation/Planning/Decisions` touch).
+- Filed (lanes may file extra tasks): BL-697 (Surl.Compression: Snappy, xerial, LZ4, XXH32), BL-698 (zstd decoder),
+  BL-699 (zstd encoder), BL-700 (SCRAM-SHA-512), BL-701 (decide consumer groups, committed offsets, CreateTopics,
+  InitProducerId). BL-521 now depends on BL-697 to BL-699; BL-522 gains the option.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0105 decides the Kafka broker for kafka and kafkas; Kafka.md matrix traces it to BL-517..BL-521
