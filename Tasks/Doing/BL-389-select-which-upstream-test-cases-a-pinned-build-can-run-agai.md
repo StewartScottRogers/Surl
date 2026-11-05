@@ -45,3 +45,4 @@ one named skip reason from BL-386's ADR decision 3.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
