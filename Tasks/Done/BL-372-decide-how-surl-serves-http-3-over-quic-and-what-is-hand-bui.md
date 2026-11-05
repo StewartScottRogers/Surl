@@ -5,10 +5,10 @@ priority: High
 assignee: Claude
 pipeline: docs
 depends-on: [BL-363, BL-364]
-touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md]
+touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, UpstreamCurlBuilds.json]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-372 — Decide how Surl serves HTTP/3 over QUIC and what is hand-built
 
@@ -76,19 +76,61 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation". It answers decisions 1 to 8, with the measured
       ClientHello table of each pinned `HTTP3` build, and is listed in that folder's `README.md`.
-- [ ] ADR-0002's table and ADR-0010 section 4 are amended, or point to the new ADR, so that neither
+- [x] ADR-0002's table and ADR-0010 section 4 are amended, or point to the new ADR, so that neither
       states something the new ADR changes.
-- [ ] `Documentation/Product/Requirements.md` has a functional requirement row for HTTP/3, in the
+- [x] `Documentation/Product/Requirements.md` has a functional requirement row for HTTP/3, in the
       shape of FR-048.
-- [ ] `Documentation/Wiki/Glossary.md` defines the terms the ADR introduces (for example QUIC, QPACK,
+- [x] `Documentation/Wiki/Glossary.md` defines the terms the ADR introduces (for example QUIC, QPACK,
       connection ID, packet number space, encryption level).
 
 ## Notes
+
+- ADR-0082. Its decisions:
+  - QUIC is hand-built on every platform. `System.Net.Quic` needs MsQuic, which breaks NFR-006,
+    and it binds its own socket, which breaks Rule 2.
+  - Four new libraries:
+    - `Surl.Cryptography.MlKem` and `Surl.Tls13`, in `Cryptography/`.
+    - `Surl.Quic` and `Surl.Qpack`, in `Protocols/Http/`. These are the planning names, with
+      their category folders added.
+  - TLS 1.3 offers all three cipher suites, and the client's order wins. AES-GCM comes from the
+    BCL and ChaCha20-Poly1305 is hand-built.
+  - Groups, in preference order: X25519MLKEM768, x25519, then P-256, P-384 and P-521, with a
+    HelloRetryRequest when needed. Signatures are RSA-PSS or ECDSA.
+  - No session tickets, 0-RTT, Retry or migration. Version Negotiation is built, and loss
+    recovery is RFC 9002 NewReno.
+  - The seam is the existing `IDatagramFlow`, one flow per remote endpoint. BL-380 adds only
+    `InMemoryDatagramFlow`.
+  - HTTP/3 is **off by default**, and `surl --http3` turns it on. It then serves on UDP at the
+    HTTPS port, and TCP responses carry `Alt-Svc`. The status line is unchanged.
+  - Each ADR-0006 limit is mapped to a QUIC or HTTP/3 error. QPACK has no dynamic table.
+- Measured 2026-11-04 with BL-363's `-QuicInitial`. Raw files are in
+  `C:\UpstreamCurl\bl372\{S,W,L}`, outside the repository.
+  - S (static 8.21.0, Windows) and L (static 8.21.0, Linux, in WSL) sent identical ClientHellos.
+  - The Linux datagrams were captured with `socat` because WSL has no pwsh or .NET 10 SDK, then
+    decrypted on Windows with `Run-QuicInitialRecorder.cs --datagrams`.
+  - The parsed cipher suites, groups and signature algorithms came from a throwaway PowerShell
+    parser, also outside the repository. The recorder's summary does not print those fields.
+  - `--http3-only` with nothing listening on UDP: exit 56 on Windows (S, W) and 7 on Linux.
+  - `--http3` against a TCP-only listener falls back to HTTP/1.1, exit 0, after 287 ms.
+  - macOS was not measured; BL-385 records it in CI.
+- Choice: Windows measures HTTP/3 with S, not W, for the same reasons ADR-0081 decision 1 gave
+  for HTTP/2, and because S matched L byte for byte. This amends ADR-0017. W stays pinned as a
+  comparison build.
+- Touches widened to `UpstreamCurlBuilds.json`. Each build's `origin` names its role, so the S
+  and W origins had to say HTTP/3 moved. No task in Doing names that file.
+- ADR-0006's header is amended too, because it is in `Documentation/Planning/Decisions`.
+- Follow-up tasks filed:
+  - BL-400: ML-KEM-768 and X25519MLKEM768.
+  - BL-401: the remaining TLS 1.3 groups curl can be told to use.
+- BL-385's "HTTP/3 turned off" test maps to running surl without `--http3`.
+- BL-373, BL-375 and BL-382 name their projects without a category folder. ADR-0082 decision 2
+  gives the folders.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0082 decides HTTP/3 over a hand-built QUIC, TLS 1.3 and QPACK, from measured ClientHellos of the static 8.21.0 Windows and Linux builds and 8.22.0_2; FR-055, glossary and ADR-0002/0006/0010/0017 amended; BL-400 and BL-401 filed
