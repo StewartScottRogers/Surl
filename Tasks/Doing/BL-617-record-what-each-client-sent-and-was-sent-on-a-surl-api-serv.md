@@ -48,3 +48,4 @@ can assert on exactly what its client sent. The record is bounded and costs noth
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
