@@ -4,7 +4,7 @@ title: Accept extended CONNECT and HTTP datagrams in the HTTP/3 library
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-410, BL-573]
+depends-on: [BL-410, BL-573, BL-749]
 touches: [Protocols/Http/Surl.Http3.UnitLibrary, Protocols/Http/Surl.Http3.UnitTests]
 requirement: none
 created: 2026-11-04
