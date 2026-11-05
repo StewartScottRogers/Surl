@@ -68,7 +68,7 @@ Decide and record:
   listed in the Decisions `README.md`; matrix
   [`Coap.md`](../../Documentation/Conformance/Extended/Coap.md), 179 rows (RFC 7252 114, RFC
   7959 29, RFC 7641 28, RFC 6690 5, ADR 3). ADR-0006 and ADR-0084 carry "Amended by" lines.
-- 2026-11-04: Renumbered from ADR-0096 to ADR-0097 on rebase: BL-378 took ADR-0096 first.
+- 2026-11-04: Renumbered on rebase: ADR-0096 to ADR-0097 (BL-378 took ADR-0096 first) and the filed task BL-609 to BL-650 (BL-609..BL-649 were filed first for the Surl.Api and Surl.Mcp hosts).
 - Main decisions: two server types (`CoapProtocolServer` for `coap` with a `5.03` refusal writer,
   `SecureCoapProtocolServer` for `coaps` over `Surl.Dtls`) sharing one request path and one
   `CoapObservations` list (planning names); files in the content store are the resources; `GET`,
@@ -93,7 +93,7 @@ Decide and record:
   (BL-414, BL-415 scope). The matrix's command-line rows name BL-476, the composition task, beside
   BL-471 to BL-475. Like ADR-0092 and ADR-0093, no FR row was added after FR-056 in
   `Requirements.md` (ADR-0083 decision 9 asks for one; outside this task's `touches`).
-- Filed BL-609 (Surl.Dtls reports the peer's PSK identity, verified certificate and record size) and added it to BL-475's `depends-on`. The matrix's six command-line rows name BL-476 (the composition task that owns default ports), not BL-471 to BL-475: that is where the work lands, as `DnsQuery.md` does.
+- Filed BL-650 (Surl.Dtls reports the peer's PSK identity, verified certificate and record size) and added it to BL-475's `depends-on`. The matrix's six command-line rows name BL-476 (the composition task that owns default ports), not BL-471 to BL-475: that is where the work lands, as `DnsQuery.md` does.
 
 ## Log
 

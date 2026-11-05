@@ -4,7 +4,7 @@ title: Serve CoAP over DTLS 1.2 for coaps
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-474, BL-415, BL-609]
+depends-on: [BL-474, BL-415, BL-650]
 touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests]
 requirement: none
 created: 2026-11-04

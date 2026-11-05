@@ -1,5 +1,5 @@
 ---
-id: BL-609
+id: BL-650
 title: Report the DTLS peer's PSK identity, verified certificate and record size from Surl.Dtls
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-609 — Report the DTLS peer's PSK identity, verified certificate and record size from Surl.Dtls
+# BL-650 — Report the DTLS peer's PSK identity, verified certificate and record size from Surl.Dtls
 
 ## Goal
 
