@@ -15,7 +15,8 @@ internal static class RedisCommandTable
     private const int LongestName = 16;
 
     private static readonly FrozenDictionary<string, RedisCommand> Commands =
-        RedisConnectionCommands.Commands.ToFrozenDictionary(command => command.Name.ToUpperInvariant());
+        RedisConnectionCommands.Commands.Concat(RedisKeyCommands.Commands).Concat(RedisStringCommands.Commands)
+            .ToFrozenDictionary(command => command.Name.ToUpperInvariant());
 
     private static readonly FrozenDictionary<string, RedisCommandContainer> Containers =
         new[] { RedisConnectionCommands.Client }.ToFrozenDictionary(container => container.Name.ToUpperInvariant());

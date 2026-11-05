@@ -29,6 +29,22 @@ internal static class RedisErrorReplies
 
     public static RespSimpleError MaxNumberOfClientsReached { get; } = new("ERR max number of clients reached");
 
+    public static RespSimpleError IncrementOverflow { get; } = new("ERR increment or decrement would overflow");
+
+    public static RespSimpleError NoSuchKey { get; } = new("ERR no such key");
+
+    public static RespSimpleError InvalidCursor { get; } = new("ERR invalid cursor");
+
+    public static RespSimpleError WrongType { get; } = new("WRONGTYPE Operation against a key holding the wrong kind of value");
+
+    public static RespSimpleError OutOfMemory { get; } = new("OOM command not allowed when used memory > 'maxmemory'.");
+
+    /// <summary><c>-ERR invalid expire time in '<paramref name="commandName"/>' command</c>.</summary>
+    /// <param name="commandName">The command's name in lower case.</param>
+    /// <returns>The error.</returns>
+    public static RespSimpleError InvalidExpireTime(string commandName) =>
+        new($"ERR invalid expire time in '{commandName}' command");
+
     /// <summary><c>-ERR wrong number of arguments for '<paramref name="commandName"/>' command</c>.</summary>
     /// <param name="commandName">The command's name in lower case, <c>client|setname</c> for a subcommand.</param>
     /// <returns>The error.</returns>

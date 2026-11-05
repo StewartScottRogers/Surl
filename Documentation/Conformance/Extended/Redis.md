@@ -86,26 +86,26 @@ adds where the pages leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Redis:GET-1 | MUST | `GET` of a missing key is `$-1` in RESP2 and `_` in RESP3. | BL-490 |
-| Redis:SET-1 | MUST | `SET` answers `+OK`; a failed `NX` or `XX` the null reply; `GET` the old value or null. | BL-490 |
-| Redis:SET-2 | MUST | `EX`, `PX`, `EXAT`, `PXAT` and `KEEPTTL` set or keep the expiry; a non-positive time is `-ERR invalid expire time in 'set' command`; conflicting options `-ERR syntax error`. | BL-490 |
-| Redis:SET-3 | MUST | `SET k v PX 100` leaves the key absent once the injected clock has advanced 100 ms. | BL-490 |
-| Redis:GETDEL-1 | MUST | `GETDEL` answers the value and deletes the key. | BL-490 |
-| Redis:MGET-1 | MUST | `MGET` answers an array with a null for each missing or non-string key; `MSET` answers `+OK`. | BL-490 |
-| Redis:INCR-1 | MUST | `INCR`, `DECR`, `INCRBY`, `DECRBY` on a missing key start from 0; on a non-integer value `-ERR value is not an integer or out of range`; on overflow `-ERR increment or decrement would overflow`, the value unchanged. | BL-490 |
-| Redis:APPEND-1 | MUST | `APPEND` answers the new length; `STRLEN` the length, 0 when missing. | BL-490 |
-| Redis:DEL-1 | MUST | `DEL`, `UNLINK` and `EXISTS` count the keys, a key named twice counted twice by `EXISTS`. | BL-490 |
-| Redis:EXPIRE-1 | MUST | `EXPIRE`/`PEXPIRE` answer 1 when set and 0 otherwise, honour `NX`, `XX`, `GT`, `LT`, and delete the key for a time at or below zero. | BL-490 |
-| Redis:TTL-1 | MUST | `TTL`/`PTTL` answer `-2` for a missing key and `-1` for no expiry. | BL-490 |
-| Redis:PERSIST-1 | MUST | `PERSIST` removes an expiry, answering 1, else 0. | BL-490 |
-| Redis:TYPE-1 | MUST | `TYPE` answers `string`, `list`, `set`, `hash` or `none` as a simple string. | BL-490 |
-| Redis:RENAME-1 | MUST | `RENAME` moves value and expiry; a missing source is `-ERR no such key`. | BL-490 |
-| Redis:KEYS-1 | MUST | `KEYS` matches the page's glob patterns (`*`, `?`, `[…]`, `[^…]`, ranges, `\`): `h?llo` matches `hello` and `hallo`. | BL-490 |
-| Redis:SCAN-1 | MUST | A full `SCAN` iteration from cursor 0 to 0 returns every key present throughout; `MATCH`, `COUNT` and `TYPE` filter; a bad cursor is `-ERR invalid cursor`. | BL-490 |
-| Redis:DBSIZE-1 | MUST | `DBSIZE` counts the selected database; `FLUSHDB` empties it and `FLUSHALL` all 16. | BL-490 |
-| Redis:Surl-Databases-1 | MUST | Databases are isolated: a key set in one is absent in another. | BL-490 |
-| Redis:Surl-Persistence-1 | MUST | Nothing is written to disk; a new server starts with every database empty. | BL-490 |
-| Redis:Surl-Limits-9 | MUST | A write past 1000000 keys or 256 MiB is `-OOM command not allowed when used memory > 'maxmemory'.`; reads and deletes still run. | BL-490 |
+| Redis:GET-1 | MUST | `GET` of a missing key is `$-1` in RESP2 and `_` in RESP3. | `RedisStringCommandsTests.Get_MissingKey_IsNullBulkStringInRespTwoAndNullInRespThree`, `RedisStringCommandsTests.SetThenGet_AnswersOkThenTheValueOnAnotherConnection` |
+| Redis:SET-1 | MUST | `SET` answers `+OK`; a failed `NX` or `XX` the null reply; `GET` the old value or null. | `RedisStringCommandsTests.Set_NxOnAPresentKeyOrXxOnAnAbsentOne_IsTheNullReplyAndSetsNothing`, `RedisStringCommandsTests.Set_NxOnAnAbsentKeyAndXxOnAPresentOne_SetsTheValue`, `RedisStringCommandsTests.Set_WithGet_AnswersTheOldValueOrNull`, `RedisStringCommandsTests.Set_WithGetOnAKeyOfAnotherType_IsWrongTypeAndSetsNothing` |
+| Redis:SET-2 | MUST | `EX`, `PX`, `EXAT`, `PXAT` and `KEEPTTL` set or keep the expiry; a non-positive time is `-ERR invalid expire time in 'set' command`; conflicting options `-ERR syntax error`. | `RedisStringCommandsTests.Set_ExExatAndPxat_SetTheExpiry`, `RedisStringCommandsTests.Set_WithoutKeepTtlClearsTheExpiryAndWithKeepTtlKeepsIt`, `RedisStringCommandsTests.Set_ExpiryTimeNotPositiveOrOverflowing_IsInvalidExpireTime`, `RedisStringCommandsTests.Set_ConflictingUnknownOrIncompleteOptions_IsSyntaxError` |
+| Redis:SET-3 | MUST | `SET k v PX 100` leaves the key absent once the injected clock has advanced 100 ms. | `RedisStringCommandsTests.SetPx100_KeyIsAbsentOnceTheClockHasAdvanced100Milliseconds` |
+| Redis:GETDEL-1 | MUST | `GETDEL` answers the value and deletes the key. | `RedisStringCommandsTests.GetDel_AnswersTheValueAndDeletesTheKey` |
+| Redis:MGET-1 | MUST | `MGET` answers an array with a null for each missing or non-string key; `MSET` answers `+OK`. | `RedisStringCommandsTests.MGet_AnswersANullForEachMissingOrNonStringKey`, `RedisStringCommandsTests.MSet_OddArgumentCount_IsWrongNumberOfArguments` |
+| Redis:INCR-1 | MUST | `INCR`, `DECR`, `INCRBY`, `DECRBY` on a missing key start from 0; on a non-integer value `-ERR value is not an integer or out of range`; on overflow `-ERR increment or decrement would overflow`, the value unchanged. | `RedisStringCommandsTests.IncrFamily_OnAMissingKey_CountsFromZero`, `RedisStringCommandsTests.Incr_OnANonIntegerValue_IsNotAnInteger`, `RedisStringCommandsTests.Incr_PastTheLargestInteger_IsRefusedAndTheValueUnchanged` |
+| Redis:APPEND-1 | MUST | `APPEND` answers the new length; `STRLEN` the length, 0 when missing. | `RedisStringCommandsTests.AppendThenStrLen_AnswerTheNewLengthAndZeroWhenMissing` |
+| Redis:DEL-1 | MUST | `DEL`, `UNLINK` and `EXISTS` count the keys, a key named twice counted twice by `EXISTS`. | `RedisKeyCommandsTests.DelUnlinkAndExists_CountTheKeysAndExistsCountsARepeatedKeyTwice` |
+| Redis:EXPIRE-1 | MUST | `EXPIRE`/`PEXPIRE` answer 1 when set and 0 otherwise, honour `NX`, `XX`, `GT`, `LT`, and delete the key for a time at or below zero. | `RedisKeyCommandsTests.ExpireAndPExpire_SetTheExpiryAndAnswerOneOrZeroForAMissingKey`, `RedisKeyCommandsTests.Expire_Conditions_SetOnlyAsTheExpirePageSays`, `RedisKeyCommandsTests.Expire_TimeAtOrBelowZero_DeletesTheKeyAndAnswersOne` |
+| Redis:TTL-1 | MUST | `TTL`/`PTTL` answer `-2` for a missing key and `-1` for no expiry. | `RedisKeyCommandsTests.Ttl_MissingKeyIsMinusTwoAndKeyWithoutExpiryMinusOne`, `RedisKeyCommandsTests.Ttl_RoundsTheRemainingMillisecondsToTheNearestSecond` |
+| Redis:PERSIST-1 | MUST | `PERSIST` removes an expiry, answering 1, else 0. | `RedisKeyCommandsTests.Persist_RemovesAnExpiryAnsweringOneElseZero` |
+| Redis:TYPE-1 | MUST | `TYPE` answers `string`, `list`, `set`, `hash` or `none` as a simple string. | `RedisKeyCommandsTests.Type_AnswersTheTypeOrNoneAsASimpleString` (`string` and `none`; BL-491 adds `list`, `set` and `hash`) |
+| Redis:RENAME-1 | MUST | `RENAME` moves value and expiry; a missing source is `-ERR no such key`. | `RedisKeyCommandsTests.Rename_MovesTheValueAndExpiryReplacingTheTarget`, `RedisKeyCommandsTests.Rename_MissingSource_IsNoSuchKey` |
+| Redis:KEYS-1 | MUST | `KEYS` matches the page's glob patterns (`*`, `?`, `[…]`, `[^…]`, ranges, `\`): `h?llo` matches `hello` and `hallo`. | `RedisKeyCommandsTests.Keys_HQuestionMarkLlo_MatchesAsTheKeysPageSays`, `RedisGlobPatternTests.IsMatch_KeyThePatternDescribes_Matches` |
+| Redis:SCAN-1 | MUST | A full `SCAN` iteration from cursor 0 to 0 returns every key present throughout; `MATCH`, `COUNT` and `TYPE` filter; a bad cursor is `-ERR invalid cursor`. | `RedisKeyCommandsTests.Scan_FullIterationFromZeroToZero_ReturnsEveryKey`, `RedisKeyCommandsTests.Scan_MatchAndType_FilterTheKeysLookedAt`, `RedisKeyCommandsTests.Scan_BadCursorOrOptions_IsRefused` |
+| Redis:DBSIZE-1 | MUST | `DBSIZE` counts the selected database; `FLUSHDB` empties it and `FLUSHALL` all 16. | `RedisKeyCommandsTests.FlushDbAndFlushAll_EmptyTheSelectedDatabaseAndThenEveryOne` |
+| Redis:Surl-Databases-1 | MUST | Databases are isolated: a key set in one is absent in another. | `RedisKeyCommandsTests.Select_IsolatesDatabases` |
+| Redis:Surl-Persistence-1 | MUST | Nothing is written to disk; a new server starts with every database empty. | `RedisKeyCommandsTests.Server_NewServer_StartsWithEveryDatabaseEmpty` |
+| Redis:Surl-Limits-9 | MUST | A write past 1000000 keys or 256 MiB is `-OOM command not allowed when used memory > 'maxmemory'.`; reads and deletes still run. | `RedisStringCommandsTests.Set_WhenTheKeyspaceIsFull_IsOutOfMemoryButReadsAndDeletesRun`, `RedisStringCommandsTests.Set_PastTheByteBound_IsOutOfMemory` |
 
 ## Hashes, lists and sets
 

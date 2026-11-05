@@ -39,8 +39,28 @@ and 6), and the server with its connection commands (BL-489, decisions 1, 2, 4, 
   `RedisErrorReplies` holds ADR-0106 decision 5's texts; `RedisIntegers` reads integers as
   Redis does.
 
-The keyspace and string commands (BL-490) and hashes, lists, sets and pub/sub (BL-491) add
-their commands to `RedisCommandTable`; the command line (BL-492) serves the server.
+The keyspace and the key and string commands (BL-490, decisions 1, 3 and 6):
+
+- `RedisKeyspace` is the server's 16 in-memory databases, one per `RedisServer`, shared by every
+  connection and never written to disk. It counts keys and key and value bytes against 1000000
+  keys and 256 MiB; `IsFull` makes a growing command `-OOM …`. `SyncRoot` is held for each
+  keyspace command, so commands are atomic across connections.
+- `RedisDatabase` holds one database's `RedisKeyEntry`s (key, `RedisStoredValue`, expiry in Unix
+  milliseconds, `SCAN` sequence number) by name and in creation order. A key is absent from the
+  instant `now >= expiry` and removed when next touched; nothing sweeps in the background. Keys
+  are Latin-1 strings, one character per byte (`RedisKeys`).
+- `RedisStoredValue` is a value of one type (`TypeName`, `ByteCount`), never changed in place;
+  `RedisStringValue` is the string type. BL-491 adds the hash, list and set types beside it.
+- `RedisKeyspaceCommand.Reading` / `.Growing` wrap a command's answer in the lock and the
+  `-OOM` check. `RedisKeyCommands` answers `DEL`, `UNLINK`, `EXISTS`, `EXPIRE`, `PEXPIRE`
+  (`RedisExpireConditions`), `TTL`, `PTTL`, `PERSIST`, `TYPE`, `RENAME`, `KEYS`
+  (`RedisGlobPattern`), `SCAN` (`RedisScanOptions`), `DBSIZE`, `FLUSHDB` and `FLUSHALL`;
+  `RedisStringCommands` answers `GET`, `SET` (`RedisSetOptions`, `RedisSetExpiry`), `GETDEL`,
+  `MGET`, `MSET`, `INCR`, `DECR`, `INCRBY`, `DECRBY`, `APPEND` and `STRLEN`. Each command reads
+  the clock once: `RedisCommandCall.NowMilliseconds`, from the exchange's injected `TimeProvider`.
+
+Hashes, lists, sets and pub/sub (BL-491) add their commands to `RedisCommandTable`; the command
+line (BL-492) serves the server.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` only (BL-678 adds
 `Surl.MessageBus`) - never another protocol server, original or extended. Never construct a

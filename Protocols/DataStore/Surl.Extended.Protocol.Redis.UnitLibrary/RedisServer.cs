@@ -8,10 +8,20 @@ namespace Surl.Extended.Protocol.Redis;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Commands served so far</b> (ADR-0106 decision 1, BL-489): the connection commands
+/// <b>Commands served so far</b> (ADR-0106 decision 1): the connection commands (BL-489)
 /// <c>HELLO</c>, <c>AUTH</c>, <c>SELECT</c>, <c>PING</c>, <c>ECHO</c>, <c>QUIT</c>,
-/// <c>RESET</c> and <c>CLIENT SETNAME</c>, <c>GETNAME</c>, <c>ID</c> and <c>SETINFO</c>. Any other
-/// command is <c>-ERR unknown command '…', with args beginning with: …</c>, the connection kept.
+/// <c>RESET</c> and <c>CLIENT SETNAME</c>, <c>GETNAME</c>, <c>ID</c> and <c>SETINFO</c>; the key
+/// commands (BL-490) <c>DEL</c>, <c>UNLINK</c>, <c>EXISTS</c>, <c>EXPIRE</c>, <c>PEXPIRE</c>,
+/// <c>TTL</c>, <c>PTTL</c>, <c>PERSIST</c>, <c>TYPE</c>, <c>RENAME</c>, <c>KEYS</c>, <c>SCAN</c>,
+/// <c>DBSIZE</c>, <c>FLUSHDB</c> and <c>FLUSHALL</c>; and the string commands (BL-490) <c>GET</c>,
+/// <c>SET</c>, <c>GETDEL</c>, <c>MGET</c>, <c>MSET</c>, <c>INCR</c>, <c>DECR</c>, <c>INCRBY</c>,
+/// <c>DECRBY</c>, <c>APPEND</c> and <c>STRLEN</c>. Any other command is
+/// <c>-ERR unknown command '…', with args beginning with: …</c>, the connection kept.
+/// </para>
+/// <para>
+/// <b>Keyspace</b> (ADR-0106 decision 3). Each server holds 16 databases in memory, shared by
+/// all its connections; nothing is written to disk, so a new server starts empty. Expiry runs on
+/// the exchange's injected clock and a key is absent from the instant its expiry comes.
 /// </para>
 /// <para>
 /// <b>Login</b> (ADR-0106 decision 4). Each connection asks the policy once whether an anonymous
@@ -30,6 +40,7 @@ namespace Surl.Extended.Protocol.Redis;
 public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalWriter
 {
     private readonly IAuthenticationPolicy authenticationPolicy;
+    private readonly RedisKeyspace keyspace;
     private long lastClientId;
 
     /// <summary>Creates a server whose logins <paramref name="authenticationPolicy"/> judges.</summary>
@@ -38,10 +49,19 @@ public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalW
     /// anonymous caller is let in.
     /// </param>
     public RedisServer(IAuthenticationPolicy authenticationPolicy)
+        : this(authenticationPolicy, new RedisKeyspace())
+    {
+    }
+
+    /// <summary>Creates a server holding its keys in <paramref name="keyspace"/>, for tests of its bounds.</summary>
+    /// <param name="authenticationPolicy">Judges logins.</param>
+    /// <param name="keyspace">The 16 databases every connection shares.</param>
+    internal RedisServer(IAuthenticationPolicy authenticationPolicy, RedisKeyspace keyspace)
     {
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
         this.authenticationPolicy = authenticationPolicy;
+        this.keyspace = keyspace;
     }
 
     /// <summary>
@@ -63,7 +83,7 @@ public sealed class RedisServer : IConnectionProtocolServer, IConnectionRefusalW
         ArgumentNullException.ThrowIfNull(context);
 
         var clientId = Interlocked.Increment(ref lastClientId);
-        return new RedisServerConnection(connection, context, authenticationPolicy, clientId).ServeAsync();
+        return new RedisServerConnection(connection, context, authenticationPolicy, clientId, keyspace).ServeAsync();
     }
 
     /// <summary>

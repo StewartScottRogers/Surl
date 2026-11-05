@@ -10,11 +10,13 @@ namespace Surl.Extended.Protocol.Redis;
 /// <param name="context">The exchange's context: its limits, log, clock and cancellation token.</param>
 /// <param name="authenticationPolicy">Judges logins, and is asked once whether an anonymous caller is let in.</param>
 /// <param name="clientId">The connection's client id.</param>
+/// <param name="keyspace">The server's 16 databases, shared by every connection.</param>
 internal sealed class RedisServerConnection(
     IConnection connection,
     ExchangeContext context,
     IAuthenticationPolicy authenticationPolicy,
-    long clientId)
+    long clientId,
+    RedisKeyspace keyspace)
 {
     private readonly RedisCommandReader reader = new(connection, context.Limits);
     private readonly RedisLogins logins = new(authenticationPolicy, context, connection.TlsSession);
@@ -121,6 +123,6 @@ internal sealed class RedisServerConnection(
             return RedisErrorReplies.AuthenticationRequired;
         }
 
-        return await command.Answer(new RedisCommandCall(arguments, session, logins));
+        return await command.Answer(new RedisCommandCall(arguments, session, logins, keyspace, context.TimeProvider.GetUtcNow().ToUnixTimeMilliseconds()));
     }
 }
