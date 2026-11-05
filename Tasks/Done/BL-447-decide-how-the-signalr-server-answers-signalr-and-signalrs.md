@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/SignalR.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-447 — Decide how the SignalR server answers signalr and signalrs
 
@@ -48,15 +48,32 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each citing its specification section,
       and is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/SignalR.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/SignalR.md` exists in the matrix format, each "covered by" naming
       BL-448 or BL-449, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0119 records decisions 0 to 7. Specifications read at dotnet/aspnetcore `main` commit
+  `6aacb16a27a677d16278a9814ed04f871020854b` (2026-11-05); `src/SignalR/docs/specs` last changed in
+  `fa8126f62f64eaf37292ff1e334ace99bc757bcf` (2026-07-02).
+- Hub methods: `Echo`, `Broadcast`, `Count` (paced stream, 100 ms), `Collect` (upload streaming, so HUB "Upload
+  streaming" is reachable too) and `Fail`.
+- The default rule ("nothing left out") meant Server-Sent Events, Long Polling, stateful reconnect and MessagePack
+  are all served, not refused. To keep BL-448 and BL-449 sized for one run each, they were filed as BL-754
+  (SSE and Long Polling with HTTP Post), BL-755 (stateful reconnect) and BL-756 (MessagePack), each depending on
+  BL-449; `availableTransports` lists only what is served at the time.
+- The keep-alive 15 s and client timeout 30 s are not numbers in the specifications; they are ASP.NET Core's
+  documented defaults, as the task's planning assumption said.
+- The port's client sends no credentials on its first negotiate, so BL-451 must run it against
+  `surl --allow-anonymous`; recorded in ADR-0119's Context.
+- The matrix's rows for the later tasks are "n/a: BL-75x adds ..." so every "Covered by" names BL-448, BL-449 or
+  n/a, as the acceptance criterion asks; the TLS row is n/a because the listener seam wraps TLS (BL-450 proves it).
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0119 decides how the SignalR server answers signalr and signalrs; matrix SignalR.md traces it to BL-448/BL-449; BL-754 to BL-756 filed
