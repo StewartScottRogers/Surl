@@ -53,3 +53,4 @@ into the one `MailboxStore` and authentication policy the SMTP, IMAP and POP3 se
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
