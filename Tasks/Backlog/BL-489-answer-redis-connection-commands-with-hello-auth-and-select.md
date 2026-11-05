@@ -27,6 +27,11 @@ error.
   `SELECT` (`-ERR DB index is out of range`), `PING` and `ECHO`, `QUIT`, `RESET`.
 - Logins go through the `Surl.Protocol.Abstractions` contracts (`IAuthenticationPolicy` or the policy the ADR
   names).
+- BL-488 built `RespValue` and `RedisCommandReader` but no server class; this task creates the
+  `IConnectionProtocolServer` and so also owns, from ADR-0106 decision 6 and `Redis.md`: writing a reader
+  `ProtocolError`'s reply then closing, closing with no bytes on `CommandTooLarge`, `--head-timeout`
+  (Redis:Surl-Limits-7), the `-ERR max number of clients reached` refusal writer (Redis:Surl-Limits-8), and the
+  unauthenticated limits (Redis:Surl-Limits-3), which the reader does not apply yet.
 
 ## Acceptance criteria
 
