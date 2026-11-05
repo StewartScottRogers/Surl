@@ -10,8 +10,9 @@ internal static class SurlMcpHelpText
     public static readonly string Help = string.Join(
         Environment.NewLine,
         "Usage: surl-mcp [options]",
-        "Serves Surl's MCP tools, which start, list and stop Surl protocol servers, as an MCP server on standard",
-        "input and output. Standard output carries only MCP messages; every log line goes to standard error.",
+        "Serves Surl's MCP tools, which start, list and stop Surl protocol servers and show what their clients",
+        "sent, as an MCP server on standard input and output. Standard output carries only MCP messages; every log",
+        "line goes to standard error.",
         " --allow-non-loopback  Let a listen URL name a host other than loopback",
         " --help                Show this help and exit",
         " --log-level <level>   Log each server at none, error, info, verbose or trace (default info)",

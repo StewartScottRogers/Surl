@@ -21,7 +21,7 @@ standard output, and they serve no session.
   `RunAsync` reads the command line, makes the root (when there is one) its full path and the process's current
   directory - `PathConfinement` takes a relative path from the current directory, so the root must be it - then
   registers each tool with one explicit `McpServerRegistry.AddTool` line (`start_server`, `list_servers`,
-  `stop_server`, ADR-0103 decision 3's order) and serves one session through `McpStreamSession`, with
+  `stop_server`, `get_exchanges`, ADR-0103 decision 3's order) and serves one session through `McpStreamSession`, with
   `serverInfo` `{"name": "surl-mcp", "title": "Surl", "version": <the assembly's informational version>}` and
   decision 6's `instructions`. When the input ends or the token is cancelled, disposing `RunningSurlServers`
   stops every server it started, and it exits 0. Nothing is found by scanning or reflection.

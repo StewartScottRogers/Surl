@@ -41,7 +41,25 @@ public sealed class ProgramTests
         var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
 
         var names = result.GetProperty("tools").EnumerateArray().Select(tool => tool.GetProperty("name").GetString()).ToArray();
-        CollectionAssert.AreEqual(new[] { StartServerTool.Name, ListServersTool.Name, StopServerTool.Name }, names);
+        CollectionAssert.AreEqual(new[] { StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name }, names);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_ToolsList_IncludesGetExchangesWithAnObjectInputSchemaAndADescription()
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+
+        var tool = Assert.ContainsSingle(
+            result.GetProperty("tools").EnumerateArray().Where(tool => tool.GetProperty("name").GetString() == "get_exchanges"));
+        Assert.AreEqual(GetExchangesTool.Description, tool.GetProperty("description").GetString());
+        var inputSchema = tool.GetProperty("inputSchema");
+        Assert.AreEqual("object", inputSchema.GetProperty("type").GetString());
+        CollectionAssert.AreEqual(
+            new[] { "server_id", "after_exchange_id", "max_exchanges" },
+            inputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).ToArray());
     }
 
     [TestMethod]

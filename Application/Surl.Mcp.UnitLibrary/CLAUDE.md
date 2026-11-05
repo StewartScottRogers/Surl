@@ -26,6 +26,16 @@ with one `McpServerRegistry.AddTool` line and holds nothing else of the tools.
     exchange_count, dropped_exchange_count}]}`; never an error.
   - `StopServerTool` (`stop_server`): `{server_id, exit_code, exit_code_name}`; an unknown ID is `isError`
     `no running server has ID <id>`.
+  - `GetExchangesTool` (`get_exchanges`): `server_id`, `after_exchange_id` (only larger IDs) and
+    `max_exchanges` (1 to 100, default 20). Result `{server_id, exchanges: [{exchange_id, client, started_at,
+    chunks: [{direction, encoding, data}], recorded_bytes, shown_bytes, is_cut, is_truncated}],
+    dropped_exchange_count, has_more}`, oldest first; an unknown ID is `isError` as for `stop_server`. There is
+    no listen URL per exchange: `Surl.Api` records none (ADR-0099 decision 7).
+- `RecordedExchangeWriter` - writes `get_exchanges`'s `exchanges`: a chunk is `text` when it is well-formed
+  UTF-8 with no control character but tab, CR and LF, else `base64`. At most 65536 bytes of each exchange and
+  1 MiB in all are shown; a cut ends its chunk early and drops the chunks after it (`is_cut`), and in a text
+  chunk backs off to the start of a UTF-8 sequence (a chunk cut to nothing is left out). Once the 1 MiB is
+  used, later exchanges are left out and `has_more` is true, as it is when `max_exchanges` stops the list.
 - `StartServerSafetyCheck` - ADR-0103 decision 4: `-K`/`--config` refused outright; the words parsed with
   `Surl.Cli`'s `CommandLineParser` (accepting every extended scheme, so they parse whenever `Surl.Api`'s own
   parse would; words `surl` refuses are left to `Surl.Api` to refuse with `surl`'s exit code); every listen
