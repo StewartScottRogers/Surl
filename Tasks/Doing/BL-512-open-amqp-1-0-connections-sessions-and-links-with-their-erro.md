@@ -50,3 +50,4 @@ frames, and ends each misuse with the error condition the specification names.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
