@@ -1,5 +1,5 @@
 ---
-id: BL-866
+id: BL-871
 title: Carry the exchange and listen URL on every login request so login events and refuse-login rules see them
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-866 — Carry the exchange and listen URL on every login request so login events and refuse-login rules see them
+# BL-871 — Carry the exchange and listen URL on every login request so login events and refuse-login rules see them
 
 ## Goal
 

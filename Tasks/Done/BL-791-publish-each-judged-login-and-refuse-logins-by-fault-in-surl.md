@@ -56,7 +56,7 @@ fail on purpose.
   else `BadSignature`, NTLM/Negotiate connection left logged out; DIGEST-MD5 and SCRAM on mail refused before
   `rspauth`/`v=` is sent).
 - The login requests carry no exchange ID or listen URL, and HTTP, SSH and SMB carry no scheme, so `ExchangeId`
-  is null and those logins are named `http`, `ssh`, `smb`. Filed BL-866 to carry both on the requests (it
+  is null and those logins are named `http`, `ssh`, `smb`. Filed BL-871 to carry both on the requests (it
   touches Abstractions and the servers, outside this task).
 - `touches` gained `Documentation/Planning/Decisions` for ADR-0128 and its README row; no task in Doing names it.
 - Tests: `LoginJudgementPolicyTests` (19), plus SCRAM and Azure fault tests in `ScramSaslMechanismTests` and

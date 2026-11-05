@@ -5,7 +5,7 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in BL-791.
 - **Builds on:** [ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) decisions 1 (`LoginJudgedEvent`) and 4
   (`refuse-login`), ADR-0032 sections 4, 5 and 8 (the refusal delay and the login note).
-- **Acted on by:** BL-791; BL-866 carries the exchange and listen URL on the login requests.
+- **Acted on by:** BL-791; BL-871 carries the exchange and listen URL on the login requests.
 
 ## Context
 
@@ -31,7 +31,7 @@ exchange ID or the listen URL. BL-791 may change only `Surl.Authentication`.
    logins are published and matched under their family: `AuthenticationPolicy.HttpLoginScheme` (`http`,
    for every scheme the HTTP family serves), `SshLoginScheme` (`ssh`) and `SmbLoginScheme` (`smb`).
    `ExchangeId` is null and the `FaultPoint` has no listen URL, so a `listener=` rule never matches a login
-   yet. BL-866 adds both to the requests and replaces the family names with the real scheme.
+   yet. BL-871 adds both to the requests and replaces the family names with the real scheme.
 4. **When the fault plan is asked.** Only once credentials have matched, with
    `FaultPoint(FaultStage.Login) { Scheme, Account = <the account matched> }`. A login the credentials
    already refuse never asks, so it never spends a rule's `times`. A returned rule of any kind but
@@ -52,5 +52,5 @@ exchange ID or the listen URL. BL-791 may change only `Surl.Authentication`.
 
 - A test can assert who logged in, by what method, and make a chosen account's logins fail, on every
   protocol, with no protocol server changed.
-- Until BL-866, a test cannot tell `sftp` from `scp`, or `https` from `http`, in a login event, and cannot
+- Until BL-871, a test cannot tell `sftp` from `scp`, or `https` from `http`, in a login event, and cannot
   scope `refuse-login` by listener.
