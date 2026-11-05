@@ -1,5 +1,5 @@
 ---
-id: BL-869
+id: BL-874
 title: Remove content store upload temporary files a killed process left behind
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-869 — Remove content store upload temporary files a killed process left behind
+# BL-874 — Remove content store upload temporary files a killed process left behind
 
 ## Goal
 
@@ -20,7 +20,7 @@ folder. So staged OCI blobs, S3, Azure and GCS uploads do not pile up as hidden 
 
 ## Context
 
-- ADR-0127 decision 3: the OCI registry stages upload sessions in `ContentStore` upload sessions,
+- ADR-0130 decision 3: the OCI registry stages upload sessions in `ContentStore` upload sessions,
   whose hidden temporary files sit beside their targets. A clean shutdown or a disposed session
   deletes them, but a killed process does not, and ADR-0115's start-up sweep of `oci-` staging
   folders has nothing to sweep.

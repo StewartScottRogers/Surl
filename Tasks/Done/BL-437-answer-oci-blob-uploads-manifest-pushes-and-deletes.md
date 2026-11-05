@@ -64,21 +64,21 @@ serves them. It checks every digest and refuses mismatches with `DIGEST_INVALID`
   `OpenAsync_PushedBlob_IsAFileAtTheLayoutPathInTheContentStore`; and in
   `OciRepositoryCreationTests`, the read-only share, read-only grant and invisible share cases.
   The library's coverage, measured with the MSTest coverage collector: 100% line, 100% branch.
-- Decision (ADR-0127, amends ADR-0115 2.2 and 2.4): ADR-0115 staged uploads under `.surl/objects/uploads/`,
+- Decision (ADR-0130, amends ADR-0115 2.2 and 2.4): ADR-0115 staged uploads under `.surl/objects/uploads/`,
   but `ContentStore` refuses writes under `/.surl`, and `Surl.Content` belongs to BL-789 while it is
   in Doing. So a session is a `ContentStore` upload session targeting
   `<repository>/blobs/oci-upload-<id>`, committed and then renamed to `blobs/<algorithm>/<hex>`.
   The repository is created when a session opens or a manifest push is checked. The same ADR
   covers `MANIFEST_BLOB_UNKNOWN` once per missing digest, a deleted tag leaving its manifest
   untagged, and how `index.json` is rewritten.
-- Touches: added `Documentation/Planning/Decisions` for ADR-0127 and its README row; no Doing task
+- Touches: added `Documentation/Planning/Decisions` for ADR-0130 and its README row; no Doing task
   names it.
 - Defaults taken: upload session UUIDs come from `Guid.NewGuid`, or from a source a test passes to
   the server's internal constructor. A single server-wide lock covers every `index.json` rewrite,
   which is simple and enough for a stand-in. Content-Range is read in Dist's `<start>-<end>` form
   only.
-- Follow-ups filed: BL-868 (keep the extra descriptor fields such as `platform` when `index.json`
-  is rewritten) and BL-869 (remove `.surl-upload-` files a killed process left behind).
+- Follow-ups filed: BL-873 (keep the extra descriptor fields such as `platform` when `index.json`
+  is rewritten) and BL-874 (remove `.surl-upload-` files a killed process left behind).
 
 ## Log
 
