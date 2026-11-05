@@ -1,5 +1,5 @@
 ---
-id: BL-829
+id: BL-840
 title: Amend ADR-0114's version rule and trace BL-536's XMPP rows to their tests
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-829 — Amend ADR-0114's version rule and trace BL-536's XMPP rows to their tests
+# BL-840 — Amend ADR-0114's version rule and trace BL-536's XMPP rows to their tests
 
 ## Goal
 

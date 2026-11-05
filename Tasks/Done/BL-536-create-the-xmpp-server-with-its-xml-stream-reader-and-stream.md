@@ -67,9 +67,9 @@ right headers, and ends a broken stream with the right stream error.
   a missing, malformed or other major version (`2.0` included) is `unsupported-version`. This follows RFC 6120
   4.7.5 and 4.9.3.25 (whose example refuses `11.0`) and this task's criterion; ADR-0114 decision 1 said
   "a higher major or minor" opens a stream. The ADR could not be edited here (BL-822 holds
-  `Documentation/Planning/Decisions`), so BL-829 amends it.
+  `Documentation/Planning/Decisions`), so BL-840 amends it.
 - **Matrix.** `Documentation/Conformance/Extended/Xmpp.md` still names `BL-536` on its rows: BL-396 holds
-  `Documentation/Conformance` in Doing. BL-829 replaces them with test names (as BL-531 left Stomp.md).
+  `Documentation/Conformance` in Doing. BL-840 replaces them with test names (as BL-531 left Stomp.md).
 - **Choices with a default taken.**
   - Until BL-537 to BL-539, the response header is followed by an empty `<stream:features/>`, and the first
     first-level element ends the stream: a stanza `not-authorized`, another `jabber:client` element
@@ -86,7 +86,7 @@ right headers, and ends a broken stream with the right stream error.
     are also checked one by one.
   - `ExchangeContext` cannot tell `--idle-timeout` from `--max-time`, so both are answered `connection-timeout`
     (ADR-0114 decision 7 says `--max-time` closes with no bytes); shutdown is `system-shutdown`. Each farewell is
-    written within one second on the `TimeProvider`, as `Surl.Protocol.Ws` does. BL-829 records it in the ADR.
+    written within one second on the `TimeProvider`, as `Surl.Protocol.Ws` does. BL-840 records it in the ADR.
   - The login timeout (twice `--head-timeout`) needs SASL and binding, so it stays with BL-538 as the matrix says.
   - The refusal writer has no listen URL, so its header's `from` is the local address as an IP literal, left out
     on a Unix socket. A stream error before any domain is served (a wildcard listen on a Unix socket, no
