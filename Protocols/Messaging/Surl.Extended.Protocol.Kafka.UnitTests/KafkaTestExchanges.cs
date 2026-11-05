@@ -70,12 +70,13 @@ internal static class KafkaTestExchanges
         CancellationToken cancellationToken,
         IExchangeLog? log = null,
         ListenUrl? listenUrl = null,
-        EndPoint? localEndPoint = null) => new(
+        EndPoint? localEndPoint = null,
+        TimeProvider? timeProvider = null) => new(
             1,
             listenUrl ?? new ListenUrl("kafka", "127.0.0.1", 9092).WithBoundPort(9092),
             localEndPoint ?? new IPEndPoint(IPAddress.Loopback, 9092),
             new IPEndPoint(IPAddress.Loopback, 50000),
             log ?? new RecordingExchangeLog(),
-            new ManualTimeProvider(),
+            timeProvider ?? new ManualTimeProvider(),
             cancellationToken);
 }

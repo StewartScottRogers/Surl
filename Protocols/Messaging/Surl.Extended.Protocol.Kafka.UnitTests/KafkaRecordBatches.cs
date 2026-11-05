@@ -11,12 +11,16 @@ namespace Surl.Extended.Protocol.Kafka.UnitTests;
 internal static class KafkaRecordBatches
 {
     /// <summary>A record: length, attributes 0, timestampDelta 0, offsetDelta, key, value, headers.</summary>
-    public static byte[] Record(int offsetDelta, byte[]? key, byte[]? value, params (byte[]? Key, byte[]? Value)[] headers)
+    public static byte[] Record(int offsetDelta, byte[]? key, byte[]? value, params (byte[]? Key, byte[]? Value)[] headers) =>
+        TimedRecord(offsetDelta, 0, key, value, headers);
+
+    /// <summary>A record: length, attributes 0, the given timestampDelta and offsetDelta, key, value, headers.</summary>
+    public static byte[] TimedRecord(int offsetDelta, long timestampDelta, byte[]? key, byte[]? value, params (byte[]? Key, byte[]? Value)[] headers)
     {
         byte[] body =
         [
             0x00,
-            .. VarLong(0),
+            .. VarLong(timestampDelta),
             .. VarLong(offsetDelta),
             .. VarBytes(key),
             .. VarBytes(value),
@@ -52,6 +56,30 @@ internal static class KafkaRecordBatches
         ];
         byte[] afterLength = [.. Int32(0), magic, .. UInt32(HandCrc32C(checkedPart) ^ crcFlip), .. checkedPart];
         return [.. Int64(0), .. Int32(afterLength.Length), .. afterLength];
+    }
+
+    /// <summary>
+    /// A batch as the broker serves it (ADR-0105 decision 4): the given baseOffset,
+    /// partitionLeaderEpoch 0, magic 2, attributes 8 (LogAppendTime), lastOffsetDelta the record
+    /// count less one, the given baseTimestamp and maxTimestamp, producerId -1, producerEpoch -1,
+    /// baseSequence -1, the record count, and its CRC-32C.
+    /// </summary>
+    public static byte[] ServedBatch(long baseOffset, long baseTimestamp, long maxTimestamp, params byte[][] records)
+    {
+        byte[] checkedPart =
+        [
+            .. Int16(8),
+            .. Int32(records.Length - 1),
+            .. Int64(baseTimestamp),
+            .. Int64(maxTimestamp),
+            .. Int64(-1),
+            .. Int16(-1),
+            .. Int32(-1),
+            .. Int32(records.Length),
+            .. records.SelectMany(record => record),
+        ];
+        byte[] afterLength = [.. Int32(0), 2, .. UInt32(HandCrc32C(checkedPart)), .. checkedPart];
+        return [.. Int64(baseOffset), .. Int32(afterLength.Length), .. afterLength];
     }
 
     /// <summary>The CRC-32C of <paramref name="bytes"/>, bit by bit: reflected polynomial

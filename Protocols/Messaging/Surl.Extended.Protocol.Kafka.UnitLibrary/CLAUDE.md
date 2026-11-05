@@ -54,9 +54,24 @@ Produce (BL-519, ADR-0105 decisions 3, 4, 6 and 7, and its BL-519 amendment):
   publishes each record on `Surl.MessageBus` (value as payload, key, UTF-8 headers, QoS 1), so live
   subscribers of the mapped topic receive it, and answers the first record's log offset.
 
-Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor: Fetch and
-ListOffsets (BL-520) and compressed batches (BL-521) are still to come; the command line and
-composition are BL-522.
+Fetch and ListOffsets (BL-520, ADR-0105 decisions 1, 3, 4 and 6):
+
+- `KafkaFetchableTopic` makes the topic checks both share, in order: invalid name 17, partition
+  other than 0 3, no subscribe access 29 (whether or not the topic exists), no log 3.
+- `KafkaRecordBatchWriter` builds served batches from bus log records: one starting at the
+  offset asked, LogAppendTime (attribute bit 3), no codec, at most 1000 records, within a byte
+  limit, the response's first record written whatever it costs (KIP-74).
+- `KafkaFetchAnswerer` answers v4 to v11: `OFFSET_OUT_OF_RANGE` (1) outside the log, high
+  watermark and last stable offset the log end, `max_bytes` capped at `--max-message`, a failed
+  partition -1 in every offset and empty records. Short of `min_bytes` it waits up to
+  `max_wait_ms` (at most 60000) on `ExchangeContext.TimeProvider`, woken by a bus subscription to
+  the request's topics, and reads once more when the wait ends. A `session_id` above 0 is
+  top-level 70.
+- `KafkaListOffsetsAnswerer` answers v1 to v5: -2 (or below) the log start, -1 the log end, any
+  other timestamp the first record published at or after it; a failed partition -1 throughout.
+
+Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor: compressed
+batches (BL-521) are still to come; the command line and composition are BL-522.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0105 decision 0 names (`Surl.MessageBus`, `Surl.Compression`) - never
