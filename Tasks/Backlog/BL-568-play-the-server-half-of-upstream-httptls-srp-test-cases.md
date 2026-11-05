@@ -1,0 +1,55 @@
+---
+id: BL-568
+title: Play the server half of upstream httptls+srp test cases
+priority: Normal
+assignee: Claude
+pipeline: feature
+depends-on: [BL-566, BL-391, BL-393]
+touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Documentation/Conformance]
+requirement: none
+created: 2026-11-04
+completed:
+---
+# BL-568 — Play the server half of upstream httptls+srp test cases
+
+## Goal
+
+The upstream test-case run covers cases whose `<server>` is `httptls+srp` or `httptls+srp-ipv6`:
+BL-391's HTTP server half answers over `Surl.TlsSrp` with the verifier for the case's user and
+password, as BL-563's ADR decision 7 says; both rows of the server-name table in
+`Surl.Conformance.UnitLibrary` say built, and the pass-rate file counts the cases.
+
+## Context
+
+- Decisions: ADR-0080 decisions 2 and 3 (`server-not-built:httptls+srp` stops applying when the row
+  flips; `feature-missing:TLS-SRP` on a pin without the feature); BL-563's ADR decisions 4 and 7.
+- Cases that wait on this (tag `curl-8_21_0`, commit `68720b4837284335b2d63cb358f8f6ce65f5bc55`):
+  `httptls+srp` 320, 321, 322, 324 (feature `TLS-SRP`; `--tlsauthtype SRP --tlsuser jsmith
+  --tlspassword abc`). `httptls+srp-ipv6` has no case at the tag; its row flips with the other so a
+  later tag's case is not skipped for a server that exists.
+- Platforms: the Linux and macOS reference pins report `TLS-SRP` (ADR-0016); the Windows reference
+  pin is Schannel without it, so on Windows the four cases skip `feature-missing:TLS-SRP`. Lanes
+  test on Windows only, so the run's Linux and macOS results come from CI (BL-392's job).
+- The run, checker and pass-rate file are BL-392's and BL-393's.
+
+## Acceptance criteria
+
+- [ ] The server-name table's `httptls+srp` and `httptls+srp-ipv6` rows say built and map their port
+      variables, with a named test in `Surl.Conformance.UnitTests` pinning each row.
+- [ ] A named fast test selects 320, 321, 322 and 324 against the Windows reference pin's features
+      and gets `feature-missing:TLS-SRP` for each, not `server-not-built`.
+- [ ] CI's Linux and macOS runs cover 320, 321, 322 and 324; the result lines list each by number,
+      and Notes record the outcomes per platform with the CI run's link.
+- [ ] Failing cases are grouped by cause into new tasks filed with `task-planner`, with their IDs in
+      Notes.
+- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and every touched library
+      keeps 100% line and branch coverage.
+
+## Notes
+
+- If the server half needs a seam inside `Surl.TlsSrp` or `Surl.Protocol.Http`, add that library to
+  `touches` before claiming, or file it as its own task.
+
+## Log
+
+- 2026-11-04: Created.
