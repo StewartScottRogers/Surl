@@ -185,6 +185,8 @@
   </Folder>
 
   <Folder Name="/Protocols/Messaging/">
+    <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitLibrary/Surl.Extended.Protocol.Amqp0.UnitLibrary.csproj" />
+    <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Amqp0.UnitTests/Surl.Extended.Protocol.Amqp0.UnitTests.csproj" />
     <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary/Surl.Extended.Protocol.Kafka.UnitLibrary.csproj" />
     <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests/Surl.Extended.Protocol.Kafka.UnitTests.csproj" />
     <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary/Surl.Extended.Protocol.Mqtt5.UnitLibrary.csproj" />
