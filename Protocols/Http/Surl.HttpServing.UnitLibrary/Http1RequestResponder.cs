@@ -94,7 +94,8 @@ internal sealed class Http1RequestResponder
             head.RequestTarget,
             hosts.Count == 1 ? hosts[0] : null,
             head.Fields.Select(field => new KeyValuePair<string, string>(field.Name, field.Value)).ToArray(),
-            new Http1RequestBody(connection, head, framing, bodyDiscarder));
+            new Http1RequestBody(connection, head, framing, bodyDiscarder),
+            head.Version);
     }
 
     // A head that is not well-formed - a missing or repeated Host (RFC 9112, section 3.2), a

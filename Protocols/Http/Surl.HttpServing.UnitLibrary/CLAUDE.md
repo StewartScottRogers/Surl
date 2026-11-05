@@ -6,7 +6,8 @@ SocketIo, DnsQuery, Mqtt5), so none of them references `Surl.Protocol.Http` (ADR
 built by BL-407). Namespace `Surl.HttpServing`.
 
 A server implements `IHttpRequestHandler` - decide an `HttpAnswer` for an `HttpRequest`, never
-write it, never ask which HTTP version carried it - and its `ServeAsync` awaits
+write it, never ask which HTTP version carried it (only a handler deciding an upgrade reads
+`HttpRequest.Http1Version`, ADR-0091) - and its `ServeAsync` awaits
 `new Http1ConnectionServer(handler, context).ServeAsync(connection)`.
 
 Public, because a server uses them:
