@@ -34,6 +34,11 @@ can be slowed or cut without any protocol change.
 - Account-scoped and path-scoped rules are matched here but applied by the login check (BL-791), the stores
   (BL-788 to BL-790) and the servers (BL-793 to BL-798); the engine only applies listener-scoped delay and drop.
 - Stand-in: the fault-injectable principle's matcher; publishes `FaultAppliedEvent`.
+- Amended by ADR-0124 decision 4: the plan's method is `FindAsync(FaultPoint, CancellationToken)` returning
+  `ValueTask<FaultRule?>` (synchronous when no hook is registered), so "`Find` calls" below means `FindAsync`;
+  rules are tried in the order added, a rule's kind must be allowed at the point's stage, `path` matches equal or
+  as a segment prefix, `times` is decremented when applied, at most 256 rules, IDs `f1`, `f2`, ...; an
+  `Accept`-stage drop or delay acts before the TLS handshake.
 
 ## Acceptance criteria
 
@@ -53,3 +58,4 @@ can be slowed or cut without any protocol change.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Amended by ADR-0124 (BL-822): `FindAsync`, stage check, matching and TLS rules.

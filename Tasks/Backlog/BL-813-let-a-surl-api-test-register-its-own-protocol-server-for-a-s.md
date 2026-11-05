@@ -32,6 +32,12 @@ and fault plan, and shares the instance's stores if it asks for them.
   this task to `Blocked` naming them rather than widening it.
 - Stand-in: open for extension (protocols). Its exchanges appear on the event stream through the engine (BL-787)
   with no work in the test's server.
+- Amended by ADR-0124 decision 2: add only (a scheme any original or extended server claims, turned on or not, is
+  `ArgumentException` at `StartAsync`); `SurlServerOptions.ProtocolServers` takes `SurlProtocolServer(Scheme,
+  Func<SurlProtocolServices, IProtocolServer> Create)`; a custom scheme's listen URL must name its port (0
+  allowed), and `Surl.Api` takes it out of `ListenUrls` before `Surl.Cli` parses the rest and reads it with
+  `System.Uri` into a `ListenUrl` - no `Surl.Cli` change - handing it to BL-804's `AdditionalProtocolServers`
+  input. It already depends on BL-804 for that input; no other task is needed, so this task is not Blocked.
 
 ## Acceptance criteria
 
@@ -46,3 +52,4 @@ and fault plan, and shares the instance's stores if it asks for them.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Amended by ADR-0124 (BL-822): custom listen URLs read by `Surl.Api`, composition input from BL-804.

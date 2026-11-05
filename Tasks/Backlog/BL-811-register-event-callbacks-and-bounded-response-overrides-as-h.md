@@ -34,6 +34,10 @@ matching request, which fault (delay, drop, refuse login, chosen protocol error,
 - Where: `Application/Surl.Api`. Update the package `README.md` with a "hooks" section including the bounds.
 - Stand-in: subscriber of the event stream plus a computed fault rule; the extension point for test-specific
   behaviour.
+- Amended by ADR-0124 decision 5: `OnEvent(SurlEventQuery, Func<SurlEvent, CancellationToken, ValueTask>)`;
+  `AddOverride(SurlFaultScope, Func<FaultPoint, CancellationToken, ValueTask<SurlFault?>>)`; `HookTimeLimit`
+  default 1 second (1 ms to 30 seconds) on the injected `TimeProvider`; failures publish `HookFailedEvent`
+  (`Threw` or `TimedOut`) and the hook stays registered.
 
 ## Acceptance criteria
 
@@ -51,3 +55,4 @@ matching request, which fault (delay, drop, refuse login, chosen protocol error,
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Amended by ADR-0124 (BL-822): async override, 1 s default time limit, `HookFailedEvent`.

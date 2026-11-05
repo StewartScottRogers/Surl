@@ -34,6 +34,12 @@ plan whether to misbehave, through contracts in `Surl.Protocol.Abstractions` tha
   order) and a scripted fault plan (answers the rules it is given), so protocol and store tests need no engine.
 - Update this library's `CLAUDE.md` "What it holds" list with the new contracts.
 - Stand-in: this task is the contract every later stand-in task depends on; it publishes nothing itself.
+- Amended by ADR-0124 (decisions 1, 4 and 5), which departs from the planning names: `ISurlEventPublisher` also
+  has `IsPublishingBytes`; `SurlEvent` has `Sequence` and `At`, stamped by the stream, not the publisher; the
+  records are ADR-0124 decision 1's exactly, plus `HookFailedEvent` and the enums `ExchangeDirection`,
+  `StoreKind`, `StoreChange` and `HookFailure`; `IFaultPlan`'s method is `FindAsync(FaultPoint, CancellationToken)`
+  returning `ValueTask<FaultRule?>`, because a `Surl.Api` hook may decide. `IIdentifierRandom` (decision 6) is not
+  this task's; BL-786 files it.
 
 ## Acceptance criteria
 
@@ -52,3 +58,4 @@ plan whether to misbehave, through contracts in `Surl.Protocol.Abstractions` tha
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Amended by ADR-0124 (BL-822): `IsPublishingBytes`, stream-stamped `Sequence`/`At`, `HookFailedEvent`, `FindAsync`.

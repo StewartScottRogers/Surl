@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-822 — Decide how Surl serves as a stand-in for tests: event stream, extension points, store control, faults, determinism and the control endpoint
 
@@ -94,21 +94,49 @@ contract of each shared store, the fault-injection model, determinism, hooks and
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Planning/Decisions/ADR-NNNN-surl-is-a-stand-in-for-tests.md` exists with the header above,
+- [x] `Documentation/Planning/Decisions/ADR-NNNN-surl-is-a-stand-in-for-tests.md` exists with the header above,
       and one numbered decision per Context item 1 to 9, each naming its types, the library each lives in and the
       task that builds it; its "Alternatives considered" includes a central recorder per host (rejected: the
       principle "observable") and a `Surl.Control` that references a protocol server (rejected: isolation).
-- [ ] The ADR's index row is in `Documentation/Planning/Decisions/README.md`, and ADR-0099 decision 7 and ADR-0103
+- [x] The ADR's index row is in `Documentation/Planning/Decisions/README.md`, and ADR-0099 decision 7 and ADR-0103
       decision 3 each carry an "Amended by" line naming the new ADR.
-- [ ] `Documentation/Product/Requirements.md` gains functional rows for the event stream and queries, store
+- [x] `Documentation/Product/Requirements.md` gains functional rows for the event stream and queries, store
       control, fault injection, hooks, determinism and the control endpoint, each "Not built yet" naming its tasks.
-- [ ] `Documentation/Wiki/Glossary.md` defines stand-in, event stream, fault rule, snapshot and control endpoint.
-- [ ] Every waiting task whose planning default the ADR changed is amended (body, `touches`, `Log` line), and the
+- [x] `Documentation/Wiki/Glossary.md` defines stand-in, event stream, fault rule, snapshot and control endpoint.
+- [x] Every waiting task whose planning default the ADR changed is amended (body, `touches`, `Log` line), and the
       extended-server follow-ups of Context item 9 are filed and listed in this task's Notes.
 
 ## Notes
+
+- The ADR is **ADR-0124** (`Documentation/Planning/Decisions/ADR-0124-surl-is-a-stand-in-for-tests.md`); 0123
+  was the highest when written. Index row added; ADR-0099 decision 7 and ADR-0103 decision 3 carry "Amended by"
+  lines, and their index rows say so.
+- Requirements: FR-060 (event stream and queries), FR-061 (store control), FR-062 (faults), FR-063 (hooks),
+  FR-064 (determinism), FR-065 (control endpoint), all Draft and "Not built yet" naming their tasks. Glossary:
+  new section "Stand-in for tests".
+- Planning defaults kept, so most waiting tasks needed no change: planning names, drop-oldest bounded
+  subscriptions, bytes only when asked, reset to the configured state, add-only test servers, TELNET `error` as
+  one line then close, `--control` loopback `http` only, topic `control`, unreadable token file 37, control
+  exchanges not published, wait cap 60000 ms, the `Surl.Mcp` tool names.
+- Departures, each amended in its task (body bullet and `Log` line): BL-823 (`IsPublishingBytes`, stream-stamped
+  `Sequence`/`At`, `HookFailedEvent`, `IFaultPlan.FindAsync` because hooks may decide asynchronously), BL-792
+  (`FindAsync`, stage check, matching rules, TLS), BL-804 (extended servers on the same registration record, and
+  an `AdditionalProtocolServers` input for BL-813), BL-811 (async override, 1 s default limit), BL-813 (custom
+  listen URLs read by `Surl.Api` with `System.Uri`, no `Surl.Cli` change, so it is not Blocked), BL-785 (reply
+  shapes for original schemes only). No `touches` changed for these.
+- Choices taken with a sensible default (and why): `--control` without a token file is refused rather than
+  generating a token (never print a secret, never write an unasked file); `--directory` stores refuse reset,
+  snapshot and restore (a fixture must never empty a real directory); chosen errors are checked against a
+  per-scheme shape (a fault stays an answer the protocol allows); `--random-seed` exists on the command line too
+  (configuration as data; it widens nothing because only non-secret choices are seeded); stores are not
+  replaceable (it would need a rewrite across every server).
+- Follow-ups filed (lanes may file extra tasks): BL-828 (S3, Azure Storage, GCS), BL-829 (AMQP 0-9-1, AMQP 1.0,
+  Kafka, MQTT 5, NATS), BL-830 (CoAP, MCP, SignalR), BL-831 (DNS, Redis) - each wires the chosen-error fault and
+  adds its reply shapes to `Surl.Cli`, depending on BL-823 and BL-785 - and BL-832 (Low, docs), an audit after
+  them that files tasks for servers built later (STOMP, XMPP, gRPC, OCI, WebTransport, Socket.IO, SOCKS).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0124 decides how Surl serves as a stand-in for tests (event stream, extension points, store control, faults, hooks, determinism, control endpoint, Surl.Mcp tools); FR-060 to FR-065, glossary, six tasks amended, BL-828 to BL-832 filed

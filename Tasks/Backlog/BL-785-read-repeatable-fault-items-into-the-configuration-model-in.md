@@ -35,6 +35,9 @@ line, config files, `Surl.Api` and the control endpoint all describe faults in o
   `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName` fail. `--help testing` explains
   each loosening option (FR-009); `--fault` is one.
 - Stand-in: this is the configuration-as-data half of fault injection; it publishes nothing.
+- Amended by ADR-0124 decision 4: the `reply` of an `error` rule is checked against the original schemes'
+  reply-shape table only; an `error` rule naming an extended scheme is refused as a scheme with no error shape
+  until BL-828 to BL-831 add its row. The examples above are the ADR's, with `stage=command` on the path delay.
 
 ## Acceptance criteria
 
@@ -50,3 +53,4 @@ line, config files, `Surl.Api` and the control endpoint all describe faults in o
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Amended by ADR-0124 (BL-822): reply shapes for original schemes only; extended ones by BL-828 to BL-831.

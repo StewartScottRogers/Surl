@@ -35,6 +35,11 @@ servers in the same order as today.
 - Lanes are adding extended servers concurrently ("Serve X from the surl executable" tasks): after rebasing,
   convert any entry they added.
 - Stand-in: the open-for-extension principle for protocols. No events or faults here.
+- Amended by ADR-0124 decision 2: the entry is `ProtocolServerRegistration(IReadOnlyList<string> Schemes,
+  Func<ComposedProtocolServices, IProtocolServer> Create)`; the originals are `ProtocolServerRegistrations.Original`;
+  the extended servers **do** move onto the same record, in `ExtendedProtocolServers.Registrations`, still gated
+  by `SURL_EXTENSIONS`; and the composition gains an input `AdditionalProtocolServers` (registrations, each with
+  its already-parsed `ListenUrl`s) that `Surl.Api` fills for a test's own server (BL-813).
 
 ## Acceptance criteria
 
@@ -53,3 +58,4 @@ servers in the same order as today.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Amended by ADR-0124 (BL-822): extended servers on the same record; `AdditionalProtocolServers` input.
