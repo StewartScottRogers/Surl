@@ -20,7 +20,7 @@ request in `Surl.Protocol.Abstractions` carries its exchange ID and listen URL.
 
 ## Context
 
-- ADR-0126 (BL-791) publishes logins with `ExchangeId` null and names HTTP, SSH and SMB logins by family
+- ADR-0128 (BL-791) publishes logins with `ExchangeId` null and names HTTP, SSH and SMB logins by family
   (`http`, `ssh`, `smb`), because `StartHttpConnection`/`HttpAuthenticationRequest`, `SshPasswordLogin`,
   `SshPublicKeyLogin` and `SmbNtlmV1Login` carry no scheme and no login request carries an exchange ID or
   listen URL. `FaultPoint.ListenUrl` is therefore never set at `FaultStage.Login`.
@@ -38,7 +38,7 @@ request in `Surl.Protocol.Abstractions` carries its exchange ID and listen URL.
 - [ ] A named test in `Surl.Authentication.UnitTests` shows an SSH login over `sftp` published with scheme
       `sftp` and its exchange ID, and a `refuse-login` rule with a `Listener` refusing logins on that listener only.
 - [ ] Every server that judges a login passes its exchange ID and listen URL (one named test per server family).
-- [ ] ADR-0126 is amended to say the real scheme and exchange are now published.
+- [ ] ADR-0128 is amended to say the real scheme and exchange are now published.
 - [ ] The whole solution builds and the fast tests are green.
 
 ## Notes

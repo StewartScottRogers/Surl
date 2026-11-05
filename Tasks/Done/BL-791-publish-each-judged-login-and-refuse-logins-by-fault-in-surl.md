@@ -47,7 +47,7 @@ fail on purpose.
 
 ## Notes
 
-- Decisions recorded in ADR-0126 (Decided by Claude under Stewart's delegation): optional `events`/`faults`
+- Decisions recorded in ADR-0128 (Decided by Claude under Stewart's delegation): optional `events`/`faults`
   constructor parameters on `AuthenticationPolicy` (public and internal constructors); every login carrying a
   `CheckedLogin` is published, plus `CheckPasswordLoginAsync`'s checked verdicts as mechanism `password`; the
   plan is asked only once credentials match (so a wrong password never spends `times`) with the matched account;
@@ -58,7 +58,7 @@ fail on purpose.
 - The login requests carry no exchange ID or listen URL, and HTTP, SSH and SMB carry no scheme, so `ExchangeId`
   is null and those logins are named `http`, `ssh`, `smb`. Filed BL-866 to carry both on the requests (it
   touches Abstractions and the servers, outside this task).
-- `touches` gained `Documentation/Planning/Decisions` for ADR-0126 and its README row; no task in Doing names it.
+- `touches` gained `Documentation/Planning/Decisions` for ADR-0128 and its README row; no task in Doing names it.
 - Tests: `LoginJudgementPolicyTests` (19), plus SCRAM and Azure fault tests in `ScramSaslMechanismTests` and
   `AzureStorageVerifierTests`; `SpendingFaultPlan` spends `times` as BL-792's matcher will. Authentication
   1146 tests pass; every fast test project green; whole solution builds clean.
