@@ -14,7 +14,11 @@ answered exactly as a `gopher` one, menus included (ADR-0012).
 `GopherProtocolServer` answers one selector per connection, as ADR-0012 decides: the
 selector is read as a percent-encoded path and mapped by `Surl.Content`'s `ContentStore`,
 files are sent byte for byte, directories as RFC 1436 menus, and anything the store
-refuses or does not have as one fixed error menu. Its fixtures and the commands that
+refuses or does not have as one fixed error menu. Share access (ADR-0102 decisions 2.2
+and 2.3, BL-662): Gopher has no login, so every selector maps with
+`ContentStore.MapRequestPathForCaller` as `ContentCaller.Anonymous` on the exchange's scheme; a
+share closed to anonymous, or limited to other schemes, gets the same error menu as a missing
+selector. Its fixtures and the commands that
 recorded them are in `Protocols/Lookup/Surl.Protocol.Gopher.UnitTests/Fixtures/README.md`.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference
