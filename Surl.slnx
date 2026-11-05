@@ -135,6 +135,8 @@
     <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests/Surl.Extended.Protocol.AzureStorage.UnitTests.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary/Surl.Extended.Protocol.GoogleCloudStorage.UnitLibrary.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests/Surl.Extended.Protocol.GoogleCloudStorage.UnitTests.csproj" />
+    <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitLibrary/Surl.Extended.Protocol.OciRegistry.UnitLibrary.csproj" />
+    <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.OciRegistry.UnitTests/Surl.Extended.Protocol.OciRegistry.UnitTests.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary/Surl.Extended.Protocol.S3.UnitLibrary.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests/Surl.Extended.Protocol.S3.UnitTests.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary/Surl.Protocol.Ftp.UnitLibrary.csproj" />
