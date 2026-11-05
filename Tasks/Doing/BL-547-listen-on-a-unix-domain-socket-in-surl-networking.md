@@ -55,3 +55,4 @@ decides, and every connection-oriented protocol server runs on it unchanged.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
