@@ -51,7 +51,7 @@ HTTP server's `431` stays byte for byte as it is.
   refusal carries a body, so every HTTP fixture is unchanged; a `ContentFile` body on a refusal is still not sent.
 - The S3 refusal is built by `S3Reply.UnreadRequestError` (empty `Resource`, fresh request ID). The
   `S3:Surl-Limits-1` row in `Documentation/Conformance/Extended/S3.md` still names BL-418: `Documentation/Conformance`
-  is in BL-395's `touches` (in Doing), so the row update is filed as BL-783.
+  is in BL-395's `touches` (in Doing), so the row update is filed as BL-784.
 - Coverage: `Surl.Extended.Protocol.S3.UnitLibrary` 100% line and branch from its own tests; every new line and
   branch in `Surl.HttpServing` is covered by `Surl.HttpServing.UnitTests` (two new tests).
 

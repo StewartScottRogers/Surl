@@ -1,5 +1,5 @@
 ---
-id: BL-783
+id: BL-784
 title: Point S3:Surl-Limits-1 at the test that pins 400 RequestHeaderSectionTooLarge
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-783 — Point S3:Surl-Limits-1 at the test that pins 400 RequestHeaderSectionTooLarge
+# BL-784 — Point S3:Surl-Limits-1 at the test that pins 400 RequestHeaderSectionTooLarge
 
 ## Goal
 
