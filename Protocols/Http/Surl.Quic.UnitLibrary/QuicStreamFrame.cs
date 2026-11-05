@@ -32,7 +32,7 @@ public sealed record QuicStreamFrame(ulong StreamId, ulong Offset, ReadOnlyMemor
         WriteOffsetAndData(writer);
     }
 
-    private byte FrameType() => (byte)(QuicFrameTypes.Stream
+    internal byte FrameType() => (byte)(QuicFrameTypes.Stream
         | (Offset != 0 ? QuicFrameTypes.StreamOffsetBit : 0)
         | (HasLength ? QuicFrameTypes.StreamLengthBit : 0)
         | (Fin ? QuicFrameTypes.StreamFinBit : 0));

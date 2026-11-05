@@ -12,9 +12,17 @@ public sealed partial class QuicServerConnection
     /// </summary>
     private const int CryptoFrameGrowth = 3;
 
-    /// <summary>Builds datagrams until nothing is left to send, or the anti-amplification limit stops it.</summary>
+    /// <summary>
+    /// Puts what the streams have waiting into 1-RTT frames once the handshake is complete, then
+    /// builds datagrams until nothing is left to send, or the anti-amplification limit stops it.
+    /// </summary>
     private List<byte[]> Flush()
     {
+        if (IsHandshakeComplete && !IsClosed)
+        {
+            streams!.QueueFrames(application.FramesToSend);
+        }
+
         var datagrams = new List<byte[]>();
         while (BuildDatagram() is { } datagram)
         {

@@ -10,7 +10,8 @@ namespace Surl.Quic;
 /// datagram of at least 1200 bytes, carries the TLS 1.3 handshake of <see cref="TlsServerHandshake"/>
 /// in <c>CRYPTO</c> frames at the Initial and Handshake levels, sends its transport parameters,
 /// acknowledges every packet number space, confirms the handshake with <c>HANDSHAKE_DONE</c>, and
-/// then opens and seals 1-RTT packets for its caller.
+/// then carries the client's and its own streams (<see cref="QuicStream"/>) in 1-RTT packets with
+/// RFC 9000's flow control, granting credit as its caller reads (ADR-0096).
 /// </summary>
 /// <remarks>
 /// Until the client's address is validated - a Handshake packet from it opens - the server sends
@@ -53,6 +54,7 @@ public sealed partial class QuicServerConnection : IDisposable
     private bool ackElicitingSentSinceLastReceive;
     private TimeSpan? idleTimeout;
     private DateTimeOffset? handshakeDeadline;
+    private QuicStreams? streams;
 
     /// <summary>Creates a connection that waits for the client's first Initial.</summary>
     /// <param name="options">What the server serves.</param>
@@ -98,7 +100,7 @@ public sealed partial class QuicServerConnection : IDisposable
 
     /// <summary>Takes one datagram from the client.</summary>
     /// <param name="datagram">The datagram's bytes: one packet or several coalesced.</param>
-    /// <returns>The datagrams to send back and the application frames received.</returns>
+    /// <returns>The datagrams to send back and the streams the client's frames reached.</returns>
     public QuicConnectionOutput ReceiveDatagram(ReadOnlyMemory<byte> datagram)
     {
         if (IsClosed)
@@ -116,21 +118,8 @@ public sealed partial class QuicServerConnection : IDisposable
         }
 
         bytesReceived += datagram.Length;
-        var applicationFrames = new List<QuicFrame>();
-        try
-        {
-            ReceivePackets(datagram, applicationFrames);
-        }
-        catch (QuicTransportException exception)
-        {
-            CloseWithTransportError((ulong)exception.ErrorCode, exception.FrameType ?? 0);
-        }
-        catch (TlsAlertException exception)
-        {
-            CloseWithTransportError((ulong)QuicTransportErrorCode.CryptoErrorBase + (ulong)exception.Alert, QuicFrameTypes.Crypto);
-        }
-
-        return new QuicConnectionOutput(Flush(), applicationFrames);
+        ReceivePacketsClosingOnError(datagram);
+        return new QuicConnectionOutput(Flush(), TakeUpdatedStreams());
     }
 
     /// <summary>
@@ -164,17 +153,40 @@ public sealed partial class QuicServerConnection : IDisposable
     public QuicConnectionOutput SendApplicationFrames(IEnumerable<QuicFrame> frames)
     {
         ArgumentNullException.ThrowIfNull(frames);
-        if (!IsHandshakeComplete || IsClosed)
-        {
-            throw new InvalidOperationException("1-RTT frames are sent only once the handshake is complete and before the connection ends.");
-        }
-
+        RequireOneRtt();
         foreach (var frame in frames)
         {
             ArgumentOutOfRangeException.ThrowIfGreaterThan(frame.ToBytes().Length, MaxApplicationFrameLength, nameof(frames));
             application.FramesToSend.Add(frame);
         }
 
+        return new QuicConnectionOutput(Flush(), []);
+    }
+
+    /// <summary>
+    /// Opens the server's next unidirectional stream (IDs 3, 7, 11 and on), or returns null and
+    /// sends <c>STREAMS_BLOCKED</c> with the next datagrams when the client's <c>MAX_STREAMS</c>
+    /// allows no more; a later <c>MAX_STREAMS</c> lets it try again.
+    /// </summary>
+    /// <returns>The stream, or null.</returns>
+    /// <exception cref="InvalidOperationException">The handshake is not complete, or the connection has ended.</exception>
+    public QuicStream? OpenUnidirectionalStream()
+    {
+        RequireOneRtt();
+        return streams!.OpenUnidirectional();
+    }
+
+    /// <summary>
+    /// Seals what the streams have waiting: the data the client's credit allows, <c>FIN</c>,
+    /// <c>RESET_STREAM</c> and <c>STOP_SENDING</c>, the credit granted as data is read and streams
+    /// close, and <c>DATA_BLOCKED</c> or <c>STREAM_DATA_BLOCKED</c> when the client's credit holds
+    /// data back. <see cref="ReceiveDatagram"/> does the same with its answer.
+    /// </summary>
+    /// <returns>The datagrams to send.</returns>
+    /// <exception cref="InvalidOperationException">The handshake is not complete, or the connection has ended.</exception>
+    public QuicConnectionOutput Transmit()
+    {
+        RequireOneRtt();
         return new QuicConnectionOutput(Flush(), []);
     }
 
@@ -212,6 +224,34 @@ public sealed partial class QuicServerConnection : IDisposable
         initial.Dispose();
         handshake.Dispose();
         application.Dispose();
+    }
+
+    /// <summary>The streams the client's frames reached since the last call; none before the client's transport parameters are accepted.</summary>
+    private IReadOnlyList<QuicStream> TakeUpdatedStreams() => streams is null ? [] : streams.TakeUpdated();
+
+    /// <summary>Acts on the datagram's packets; a transport error or a TLS alert ends the connection with <c>CONNECTION_CLOSE</c>.</summary>
+    private void ReceivePacketsClosingOnError(ReadOnlyMemory<byte> datagram)
+    {
+        try
+        {
+            ReceivePackets(datagram);
+        }
+        catch (QuicTransportException exception)
+        {
+            CloseWithTransportError((ulong)exception.ErrorCode, exception.FrameType ?? 0);
+        }
+        catch (TlsAlertException exception)
+        {
+            CloseWithTransportError((ulong)QuicTransportErrorCode.CryptoErrorBase + (ulong)exception.Alert, QuicFrameTypes.Crypto);
+        }
+    }
+
+    private void RequireOneRtt()
+    {
+        if (!IsHandshakeComplete || IsClosed)
+        {
+            throw new InvalidOperationException("1-RTT frames and streams are sent only once the handshake is complete and before the connection ends.");
+        }
     }
 
     private static DateTimeOffset? Earliest(DateTimeOffset? first, DateTimeOffset? second)

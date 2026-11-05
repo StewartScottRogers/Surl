@@ -71,7 +71,7 @@ public sealed partial class QuicServerConnectionTests
     }
 
     [TestMethod]
-    public void ReceiveDatagram_OneRttStreamFrame_IsHandedToTheCallerAndAcknowledged()
+    public void ReceiveDatagram_OneRttStreamFrame_ReachesItsStreamAndIsAcknowledged()
     {
         using var key = RSA.Create(2048);
         using var exchange = UnitTestExchange.Completed(key);
@@ -79,8 +79,9 @@ public sealed partial class QuicServerConnectionTests
         var output = exchange.Server.ReceiveDatagram(exchange.Client.SealOneRtt(new QuicStreamFrame(0, 0, new byte[] { 7 }, true), new QuicPingFrame()));
         exchange.Client.Receive(output.Datagrams);
 
-        var stream = (QuicStreamFrame)output.ApplicationFrames.Single();
-        Assert.AreEqual((ulong)0, stream.StreamId);
+        var stream = output.Streams.Single();
+        Assert.AreEqual((ulong)0, stream.Id);
+        Assert.AreEqual(1, stream.ReadableLength);
         var ack = exchange.Client.FramesReceived[QuicPacketType.OneRtt].OfType<QuicAckFrame>().Single();
         Assert.AreEqual((ulong)0, ack.LargestAcknowledged);
     }

@@ -4,13 +4,13 @@ Phase 6.
 
 QUIC version 1 for Surl's HTTP/3 server, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
-server connection through its handshake (BL-377); streams and flow control come with BL-378, loss
+server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096); loss
 recovery with BL-379, key updates with BL-606, the client's spare connection IDs with BL-607 and
 the closing and draining periods with BL-608.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
-  and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the 1-RTT
-  frames that are the caller's: streams and flow control); `HandleTimeout` acts at `NextDeadline`
+  and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the
+  `QuicStream`s the client's frames reached); `HandleTimeout` acts at `NextDeadline`
   (the idle timeout discards it silently, `QuicServerConnectionOptions.HandshakeTimeout` closes it
   `NO_ERROR`); `SendApplicationFrames` seals 1-RTT frames once the handshake is complete; `Close`
   sends an application `CONNECTION_CLOSE`. It starts on a version 1 Initial in a datagram of at least
@@ -24,6 +24,17 @@ the closing and draining periods with BL-608.
   packet opens, Handshake keys when the handshake completes. 1-RTT packets wait for the handshake
   to complete. Errors close with `CONNECTION_CLOSE`, no reason phrase: in 1-RTT after the handshake,
   before it at Initial and Handshake (RFC 9000 section 10.2.3). Nothing is retransmitted yet (BL-379).
+- `QuicStream` - one stream (ADR-0096): `Read` returns the client's bytes in order (put back by
+  `QuicOrderedBytes`, which `CRYPTO` shares), `Write(data, fin)` queues bytes, `Reset` and
+  `StopSending` send their frames. Nothing is sent until `QuicServerConnection.Transmit` or the next
+  `ReceiveDatagram`. The internal `QuicStreams` opens the client's streams as their frames arrive
+  (with every lower one, up to `MAX_STREAMS`), opens the server's unidirectional streams
+  (`OpenUnidirectionalStream`, null and `STREAMS_BLOCKED` past the client's limit), holds both
+  sides' credit, re-grants `MAX_STREAM_DATA` and `MAX_DATA` a window at a time once half is read and
+  `MAX_STREAMS` as client streams close, answers `STOP_SENDING` with `RESET_STREAM`, and sends
+  `STREAM_DATA_BLOCKED` and `DATA_BLOCKED` once per limit. Past a stream limit is
+  `STREAM_LIMIT_ERROR`, past a credit `FLOW_CONTROL_ERROR`, a broken final size `FINAL_SIZE_ERROR`,
+  and a frame for a part a stream lacks, or for a server stream not opened, `STREAM_STATE_ERROR`.
 - `QuicTransportParameters` reads and writes RFC 9000 section 18's parameters and
   `version_information` (`QuicVersionInformation`); a malformed or repeated one is
   `TRANSPORT_PARAMETER_ERROR`.
@@ -57,7 +68,7 @@ the closing and draining periods with BL-608.
   `Surl.Cryptography.Poly1305` (ADR-0082 decision 3), behind the internal `QuicPacketCipher`.
 - `QuicRetryIntegrity` - RFC 9001 section 5.8: computes and checks a Retry's integrity tag.
 - `QuicReader`, `QuicWriter`, `QuicFrameTypes`, `QuicPacketHeaderBits`, `QuicConnectionIds`,
-  `QuicPacketNumberSpace`, `QuicReceivedPacketNumbers`, `QuicCryptoReassembly` and the
+  `QuicPacketNumberSpace`, `QuicReceivedPacketNumbers`, `QuicCryptoReassembly`, `QuicOrderedBytes`, `QuicStreams` and the
   `QuicPacketCipher` classes are internal, visible to `Surl.Quic.UnitTests` only.
 
 Malformed input throws `QuicTransportException`; byte strings read are slices of the input, not

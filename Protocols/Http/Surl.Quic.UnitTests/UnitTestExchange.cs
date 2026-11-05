@@ -27,9 +27,12 @@ internal sealed class UnitTestExchange : IDisposable
     public List<byte[]> ServerDatagrams { get; } = [];
 
     /// <summary>A connection whose handshake with the test client is complete.</summary>
-    public static UnitTestExchange Completed(RSA key)
+    public static UnitTestExchange Completed(RSA key) => Completed(UnitTestCertificates.Options(key));
+
+    /// <summary>A connection serving <paramref name="options"/> whose handshake with the test client, its ClientHello edited as a test asks, is complete.</summary>
+    public static UnitTestExchange Completed(QuicServerConnectionOptions options, Func<byte[], byte[]>? editClientHello = null)
     {
-        var exchange = new UnitTestExchange(UnitTestCertificates.Options(key));
+        var exchange = new UnitTestExchange(options, editClientHello: editClientHello);
         exchange.SendRecordedInitials();
         exchange.SendFinished();
         Assert.IsTrue(exchange.Server.IsHandshakeComplete);

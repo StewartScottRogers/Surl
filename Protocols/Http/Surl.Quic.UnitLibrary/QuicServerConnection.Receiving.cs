@@ -8,22 +8,22 @@ public sealed partial class QuicServerConnection
     /// <summary>NEW_TOKEN and HANDSHAKE_DONE are the server's to send; RETIRE_CONNECTION_ID would retire the one connection ID the server issued, which is in use.</summary>
     private static readonly HashSet<Type> FramesAClientMayNotSend = [typeof(QuicNewTokenFrame), typeof(QuicRetireConnectionIdFrame), typeof(QuicHandshakeDoneFrame)];
 
-    /// <summary>Frames the connection takes without acting on them further: the server does not migrate, so the client's spare connection IDs and path responses go unused.</summary>
-    private static readonly HashSet<Type> FramesNeedingNothingMore = [typeof(QuicPaddingFrame), typeof(QuicPingFrame), typeof(QuicNewConnectionIdFrame), typeof(QuicPathResponseFrame)];
+    /// <summary>Frames the connection takes without acting on them further: the server does not migrate, so the client's spare connection IDs and path responses go unused, and the client's DATA_BLOCKED and STREAMS_BLOCKED need no answer, since the server grants credit as data is read and streams close.</summary>
+    private static readonly HashSet<Type> FramesNeedingNothingMore = [typeof(QuicPaddingFrame), typeof(QuicPingFrame), typeof(QuicNewConnectionIdFrame), typeof(QuicPathResponseFrame), typeof(QuicDataBlockedFrame), typeof(QuicStreamsBlockedFrame)];
 
     /// <summary>Reads each coalesced packet in turn; a packet whose header cannot be read drops the rest of the datagram.</summary>
-    private void ReceivePackets(ReadOnlyMemory<byte> datagram, List<QuicFrame> applicationFrames)
+    private void ReceivePackets(ReadOnlyMemory<byte> datagram)
     {
         var remaining = datagram;
         while (!remaining.IsEmpty && !IsClosed)
         {
-            var packetLength = ReceivePacket(remaining, applicationFrames);
+            var packetLength = ReceivePacket(remaining);
             remaining = remaining[packetLength..];
         }
     }
 
     /// <summary>Opens and acts on the packet at the start of <paramref name="bytes"/> and returns how many bytes it took.</summary>
-    private int ReceivePacket(ReadOnlyMemory<byte> bytes, List<QuicFrame> applicationFrames)
+    private int ReceivePacket(ReadOnlyMemory<byte> bytes)
     {
         if (SpaceForPacket(bytes.Span) is not { } space)
         {
@@ -40,12 +40,12 @@ public sealed partial class QuicServerConnection
             return bytes.Length;
         }
 
-        ProcessUnprotected(space, result, applicationFrames);
+        ProcessUnprotected(space, result);
         return result.PacketLength;
     }
 
     /// <summary>Acts on a packet that opened and is new to this connection; drops one that did not open; ends the connection on reserved bits set.</summary>
-    private void ProcessUnprotected(QuicPacketNumberSpace space, QuicUnprotectResult result, List<QuicFrame> applicationFrames)
+    private void ProcessUnprotected(QuicPacketNumberSpace space, QuicUnprotectResult result)
     {
         if (result.Status == QuicUnprotectStatus.ReservedBitsNotZero)
         {
@@ -54,7 +54,7 @@ public sealed partial class QuicServerConnection
 
         if (result.Status == QuicUnprotectStatus.Unprotected && IsNewPacketForThisConnection(space, result))
         {
-            ProcessPacket(space, result, applicationFrames);
+            ProcessPacket(space, result);
         }
     }
 
@@ -136,7 +136,7 @@ public sealed partial class QuicServerConnection
         return addressed && !space.Received.Contains(result.PacketNumber);
     }
 
-    private void ProcessPacket(QuicPacketNumberSpace space, QuicUnprotectResult result, List<QuicFrame> applicationFrames)
+    private void ProcessPacket(QuicPacketNumberSpace space, QuicUnprotectResult result)
     {
         space.Received.Add(result.PacketNumber);
         lastActivity = timeProvider.GetUtcNow();
@@ -151,7 +151,7 @@ public sealed partial class QuicServerConnection
         foreach (var frame in QuicFrameReader.Read(payload, space.PacketType))
         {
             space.AckPending |= IsAckEliciting(frame);
-            ProcessFrame(space, frame, applicationFrames);
+            ProcessFrame(space, frame);
             if (IsClosed)
             {
                 return;
@@ -161,7 +161,7 @@ public sealed partial class QuicServerConnection
 
     private static bool IsAckEliciting(QuicFrame frame) => frame is not (QuicAckFrame or QuicPaddingFrame or QuicConnectionCloseFrame);
 
-    private void ProcessFrame(QuicPacketNumberSpace space, QuicFrame frame, List<QuicFrame> applicationFrames)
+    private void ProcessFrame(QuicPacketNumberSpace space, QuicFrame frame)
     {
         switch (frame)
         {
@@ -175,17 +175,17 @@ public sealed partial class QuicServerConnection
                 Discard();
                 break;
             default:
-                ProcessOtherFrame(frame, applicationFrames);
+                ProcessOtherFrame(frame);
                 break;
         }
     }
 
     /// <summary>
     /// PATH_CHALLENGE is answered; NEW_TOKEN, RETIRE_CONNECTION_ID and HANDSHAKE_DONE are
-    /// violations; PADDING, PING, NEW_CONNECTION_ID and PATH_RESPONSE need nothing more; every
-    /// other frame is the caller's.
+    /// violations; PADDING, PING, NEW_CONNECTION_ID, PATH_RESPONSE, DATA_BLOCKED and STREAMS_BLOCKED
+    /// need nothing more; every other frame is a stream or flow-control frame for <see cref="QuicStreams"/>.
     /// </summary>
-    private void ProcessOtherFrame(QuicFrame frame, List<QuicFrame> applicationFrames)
+    private void ProcessOtherFrame(QuicFrame frame)
     {
         if (frame is QuicPathChallengeFrame challenge)
         {
@@ -200,7 +200,7 @@ public sealed partial class QuicServerConnection
         }
         else if (!FramesNeedingNothingMore.Contains(frame.GetType()))
         {
-            applicationFrames.Add(frame);
+            streams!.Receive(frame);
         }
     }
 
@@ -262,6 +262,7 @@ public sealed partial class QuicServerConnection
         var parameters = QuicTransportParameters.Read(clientHello.QuicTransportParameters!);
         RequireClientParameters(parameters);
         PeerTransportParameters = parameters;
+        streams = new QuicStreams(options, parameters);
         idleTimeout = EffectiveIdleTimeout(options.IdleTimeout, parameters.MaxIdleTimeout);
     }
 

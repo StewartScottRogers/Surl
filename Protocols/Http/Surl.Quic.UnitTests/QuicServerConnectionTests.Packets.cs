@@ -51,7 +51,7 @@ public sealed partial class QuicServerConnectionTests
         var output = exchange.Send(exchange.Client.SealOneRttPayload(QuicFrameWriter.Write([new QuicMaxDataFrame(9)]), new byte[8]));
 
         Assert.IsEmpty(output.Datagrams);
-        Assert.IsEmpty(output.ApplicationFrames);
+        Assert.IsEmpty(output.Streams);
     }
 
     [TestMethod]
@@ -108,11 +108,11 @@ public sealed partial class QuicServerConnectionTests
         using var exchange = UnitTestExchange.Completed(key);
         var initial = exchange.Client.SealInitial(exchange.Client.ServerConnectionId!, 100, new QuicPingFrame());
         var handshake = exchange.Client.SealHandshake(new QuicPingFrame());
-        var oneRtt = exchange.Client.SealOneRtt(new QuicMaxDataFrame(5));
+        var oneRtt = exchange.Client.SealOneRtt(new QuicStreamFrame(4, 0, new byte[] { 5 }, false));
 
         var output = exchange.Send([.. initial, .. handshake, .. oneRtt]);
 
-        Assert.AreEqual(new QuicMaxDataFrame(5), output.ApplicationFrames.Single());
+        Assert.AreEqual((ulong)4, output.Streams.Single().Id);
     }
 
     [TestMethod]
@@ -149,7 +149,7 @@ public sealed partial class QuicServerConnectionTests
 
         var output = exchange.Send(exchange.Client.SealOneRtt(new QuicPingFrame(), newConnectionId, pathResponse, new QuicPaddingFrame(3)));
 
-        Assert.IsEmpty(output.ApplicationFrames);
+        Assert.IsEmpty(output.Streams);
         Assert.IsFalse(exchange.Server.IsClosed);
     }
 
