@@ -61,7 +61,7 @@ specification leaves the broker a choice.
 | Amqp0:Channel-close-1 | MUST | A client's `channel.close` is answered `close-ok`, its consumers ended and its outstanding deliveries requeued, marked redelivered. | BL-506 |
 | Amqp0:Surl-Exception-1 | MUST | A channel exception is `channel.close` with code, fixed text, class and method; the broker then discards the channel's frames other than `close-ok` and `close`. | BL-506 |
 | Amqp0:Surl-Exception-2 | MUST | A connection exception is `connection.close`; the broker discards frames other than `close-ok` and `close` and closes on one of them or after one second. | BL-505 |
-| Amqp0:Surl-Exception-3 | MUST | A method only a client receives is 503; a class or method not served (`exchange.bind`, other extensions; `tx` and `confirm` until BL-724) is 540. | BL-505 |
+| Amqp0:Surl-Exception-3 | MUST | A method only a client receives is 503; a class or method not served (`exchange.bind`, other extensions; `tx` and `confirm` until BL-731) is 540. | BL-505 |
 | Amqp0:Surl-Exception-4 | MUST | Every reply text is the code's name and a fixed phrase, never a name, key, account, path or exception text. | BL-505 |
 | Amqp0:Channel-flow-1 | MUST | A client's `channel.flow` `active` 0 stops deliveries on that channel and 1 resumes them, answered `flow-ok` with the same bit; the broker never sends `channel.flow`. | BL-506 |
 
@@ -75,11 +75,11 @@ specification leaves the broker a choice.
 | Amqp0:Exchange-fanout-1 | MUST | A fanout exchange routes to every queue bound to it. | BL-506 |
 | Amqp0:Surl-Topic-1 | MUST | `amq.topic` is the bus's topic space: a publish is a bus publish on the mapped canonical topic, a binding a bus binding to the mapped filter, so a message published over `mqtt` reaches a queue bound with the mapped key and the reverse. | BL-506 |
 | Amqp0:Exchange-topic-1 | SHOULD | A declared topic exchange matches routing keys against binding keys with `*` and `#` inside the broker. | BL-506 |
-| Amqp0:Exchange-headers-1 | SHOULD | `amq.headers` and `amq.match` exist, and a headers exchange matches the `headers` table with `x-match` `all` or `any`. | BL-725 |
+| Amqp0:Exchange-headers-1 | SHOULD | `amq.headers` and `amq.match` exist, and a headers exchange matches the `headers` table with `x-match` `all` or `any`. | BL-732 |
 | Amqp0:Exchange-declare-1 | MUST | A name outside letters, digits, `-`, `_`, `.`, `:` is 406; an absent `amq.` name without `passive` is 403; `passive` and missing is 404. | BL-506 |
 | Amqp0:Exchange-declare-2 | MUST | An unsupported type is connection exception 503; a redeclaration with another type is connection exception 530; with another `durable` or `arguments` it is 406. | BL-506 |
 | Amqp0:Exchange-delete-1 | MUST | Deleting a missing exchange is 404, a pre-declared one 403, one with bindings under `if-unused` 406; otherwise its bindings go with it. | BL-506 |
-| Amqp0:Surl-Exchange-1 | MUST | Durable declared exchanges and their bindings survive a restart under `--directory`. | BL-725 |
+| Amqp0:Surl-Exchange-1 | MUST | Durable declared exchanges and their bindings survive a restart under `--directory`. | BL-732 |
 
 ## Queues (XML class `queue`; section 3.1.4; ADR-0112 decision 5)
 
@@ -98,7 +98,7 @@ specification leaves the broker a choice.
 | Amqp0:Queue-delete-1 | MUST | `queue.delete` of a missing queue is 404, a `--queue` queue 403, one with consumers under `if-unused` or messages under `if-empty` 406; otherwise `delete-ok` with the count deleted. | BL-506 |
 | Amqp0:Extension-1 | MUST | Consumers of a deleted queue end; a client that announced `consumer_cancel_notify` receives `basic.cancel` with `no-wait` set. | BL-506 |
 | Amqp0:Surl-Queue-3 | MUST | `no-wait` suppresses the `-ok` and nothing else. | BL-506 |
-| Amqp0:Surl-Bus-1 | MUST | The bus inspects a queue without creating it, purges it, gives one message at a time, deletes on condition with the count, holds exclusive consumers, publishes to consumed queues only, stops a consumer keeping its deliveries, and delivers two priority levels. | BL-723 |
+| Amqp0:Surl-Bus-1 | MUST | The bus inspects a queue without creating it, purges it, gives one message at a time, deletes on condition with the count, holds exclusive consumers, publishes to consumed queues only, stops a consumer keeping its deliveries, and delivers two priority levels. | BL-730 |
 
 ## The basic class (XML class `basic`; ADR-0112 decision 6)
 
@@ -129,8 +129,8 @@ specification leaves the broker a choice.
 | Amqp0:Basic-cancel-1 | MUST | `basic.cancel` ends deliveries and answers `cancel-ok`, an unknown tag included; outstanding deliveries stay until settled or the channel closes. | BL-506 |
 | Amqp0:Basic-qos-1 | MUST | `prefetch-count` and `prefetch-size` bound the channel's (or with `global` the connection's) outstanding deliveries, never stopping a first one, ignored for `no-ack`; 0 means 1000 a consumer. | BL-506 |
 | Amqp0:Surl-Storage-1 | MUST | Durable queues, their messages and `amq.topic` bindings persist under `--directory` in `.surl/bus` with each message's native form. | n/a: persistence is the bus's (ADR-0100 decision 3.7, BL-634) and the native form's BL-706's; the broker only hands the bus its messages and bindings, which BL-506's tests show |
-| Amqp0:Tx-1 | MUST | `tx.select`, `commit` and `rollback` buffer a channel's publishes and acknowledgements until commit; `commit` or `rollback` on a channel not transacted is 406. | BL-724 |
-| Amqp0:Extension-3 | MUST | `confirm.select` puts a channel in confirm mode: each publish is acknowledged with `basic.ack` once the bus holds it, or `basic.nack` when the bus refuses it; mixing with `tx` is 406. | BL-724 |
+| Amqp0:Tx-1 | MUST | `tx.select`, `commit` and `rollback` buffer a channel's publishes and acknowledgements until commit; `commit` or `rollback` on a channel not transacted is 406. | BL-731 |
+| Amqp0:Extension-3 | MUST | `confirm.select` puts a channel in confirm mode: each publish is acknowledged with `basic.ack` once the bus holds it, or `basic.nack` when the bus refuses it; mixing with `tx` is 406. | BL-731 |
 
 ## Limits and TLS (ADR-0006; ADR-0112 decision 8)
 

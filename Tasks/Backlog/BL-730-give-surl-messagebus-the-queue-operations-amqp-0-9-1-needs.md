@@ -1,5 +1,5 @@
 ---
-id: BL-723
+id: BL-730
 title: Give Surl.MessageBus the queue operations AMQP 0-9-1 needs
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-723 — Give Surl.MessageBus the queue operations AMQP 0-9-1 needs
+# BL-730 — Give Surl.MessageBus the queue operations AMQP 0-9-1 needs
 
 ## Goal
 

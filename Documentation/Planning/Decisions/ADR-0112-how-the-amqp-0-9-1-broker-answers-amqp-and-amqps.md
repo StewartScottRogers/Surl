@@ -7,8 +7,8 @@
   (decisions 1 and 8's frame limits), BL-505 the connection class, authentication, tuning,
   heartbeats and the virtual host (decisions 2, 3, 4 and 7), BL-506 channels, exchanges, queues
   and the basic class (decisions 5, 6 and 7), and BL-507 the command line and the composition
-  (decision 8). BL-723 gives `Surl.MessageBus` the queue operations decisions 5 and 6 need,
-  BL-724 serves transactions and publisher confirms (decision 6), and BL-725 the headers exchange
+  (decision 8). BL-730 gives `Surl.MessageBus` the queue operations decisions 5 and 6 need,
+  BL-731 serves transactions and publisher confirms (decision 6), and BL-732 the headers exchange
   and durable exchanges across restarts (decision 5).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof),
@@ -21,7 +21,7 @@
   decisions 3.2 and 3.4 (declared queues and topic access).
 - **Amends:** ADR-0100 decision 3.6's AMQP 0-9-1 column: `506 resource-error` is a connection
   exception, not a channel one (decision 7). ADR-0100 decision 3.3's named queue: it delivers in
-  two priority levels, not plain FIFO (decision 6, BL-723).
+  two priority levels, not plain FIFO (decision 6, BL-730).
 
 ## Context
 
@@ -69,7 +69,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   to it by the composition (BL-507). A message published over `mqtt` reaches a queue bound on
   `amq.topic` with the mapped key, and one published to `amq.topic` reaches `mqtt` subscribers. The
   library references `Surl.Protocol.Abstractions` and `Surl.MessageBus` (and `Surl.Content` for
-  BL-725's file), never another protocol server.
+  BL-732's file), never another protocol server.
 - **State of its own, per server instance** (never a static): the exchanges other than
   `amq.topic`, with their bindings. **Per connection:** the negotiated tuning, the channels, and on
   each channel its consumers, unacknowledged deliveries, quality of service, flow state and the
@@ -95,7 +95,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 
   | Field | Value | Why |
   | --- | --- | --- |
-  | `server-properties` | `product` = `surl` (longstr), and `capabilities` = a table of `basic.nack`, `consumer_cancel_notify` and `authentication_failure_close`, and `publisher_confirms` once BL-724 serves confirms, each `true` (`t`) | no version or platform is sent (ADR-0006 section 3); the capabilities name exactly the extensions served (Context) |
+  | `server-properties` | `product` = `surl` (longstr), and `capabilities` = a table of `basic.nack`, `consumer_cancel_notify` and `authentication_failure_close`, and `publisher_confirms` once BL-731 serves confirms, each `true` (`t`) | no version or platform is sent (ADR-0006 section 3); the capabilities name exactly the extensions served (Context) |
   | `mechanisms` | the mechanisms `ISaslAuthenticationPolicy.GetSaslMechanisms` returns for the scheme and TLS state, in the policy's order, `AMQPLAIN` right after `PLAIN` whenever `PLAIN` is listed, then `ANONYMOUS` under `--allow-anonymous`; separated by single spaces | ADR-0084 decision 4; `AMQPLAIN` is `PLAIN`'s credentials in a field table |
   | `locales` | `en_US` | reply texts are English |
 
@@ -191,8 +191,8 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | `amq.direct` | direct | the queues bound with a binding key equal to the routing key |
 | `amq.fanout` | fanout | every queue bound to it |
 | `amq.topic` | topic | **the bus's topic space**: a publish is `MessageBus.Publish` on the canonical topic `AmqpTopicExchangeNames.ToCanonicalTopic` maps the routing key to, and a binding is the bus's `BindQueue` to the filter `ToCanonicalFilter` maps the binding key to (ADR-0100 decision 3.2) |
-| `amq.headers`, `amq.match` | headers | BL-725 |
-| declared exchanges | direct, fanout, topic; headers with BL-725 | inside the broker, onto bus queues with `MessageBus.PublishToQueue` (ADR-0100 decision 3.2's "other exchanges" row); a declared topic exchange matches keys itself, by section 3.1.3.3's rules, and is not the bus's topic space |
+| `amq.headers`, `amq.match` | headers | BL-732 |
+| declared exchanges | direct, fanout, topic; headers with BL-732 | inside the broker, onto bus queues with `MessageBus.PublishToQueue` (ADR-0100 decision 3.2's "other exchanges" row); a declared topic exchange matches keys itself, by section 3.1.3.3's rules, and is not the bus's topic space |
 
 - **`exchange.declare`** (40.10):
   - a name that is not a non-empty run of letters, digits, `-`, `_`, `.` and `:` is a channel
@@ -201,13 +201,13 @@ Nothing below is taken from the port's output, and no expected byte comes from i
     `declare`/`reserved`); the default exchange cannot be declared at all (rule
     `exchange`/`default-access`), and naming `""` is **`403`**;
   - `passive` and the exchange missing: **`404`**;
-  - a type other than `direct`, `fanout`, `topic` (and `headers` once BL-725 serves it): connection
+  - a type other than `direct`, `fanout`, `topic` (and `headers` once BL-732 serves it): connection
     exception **`503` `COMMAND_INVALID`** (rule `declare`/`support`);
   - an existing exchange redeclared with another type: connection exception **`530`
     `NOT_ALLOWED`** (rule `declare`/`typed`); with the same type but another `durable` or other
     `arguments`: channel exception **`406`**, as `queue.declare` treats unequal flags, since nothing
     else would tell the client its declaration was not what it got;
-  - `durable` is kept; until BL-725 a durable exchange lives for the server's life and is not
+  - `durable` is kept; until BL-732 a durable exchange lives for the server's life and is not
     persisted. `reserved-2` (auto-delete) and `reserved-3` (internal) are read and ignored, as
     0-9-1 reserves them. `arguments` mean nothing to the broker and are kept only for the equality
     check;
@@ -228,7 +228,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   - a name beginning `amq.` that does not exist, without `passive`: **`403`** (rule
     `declare`/`reserved`);
   - `passive` and the queue missing: **`404`** (rule `declare`/`passive`), checked without creating
-    it (BL-723's queue inspection);
+    it (BL-730's queue inspection);
   - `durable`, `exclusive` and `auto-delete` are the bus's `BusQueueFlags`; an existing queue with
     other flags is **`406`** (`QueueFlagsDiffer`; the PDF's "equivalent" declaration rule), so a
     client declaring `--queue orders;durable` without `durable` is told so; an exclusive queue of
@@ -251,11 +251,11 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   the binding is the broker's own row. Unbinding what is not bound answers `unbind-ok`.
 - **`queue.purge`** (50.30): `""` as for bind; missing **`404`**; exclusive elsewhere **`405`**;
   removes the ready messages, not the unacknowledged ones, and answers `purge-ok` (50.31) with the
-  count removed (BL-723).
+  count removed (BL-730).
 - **`queue.delete`** (50.40): `""` as for bind; missing **`404`**; a queue declared with
   `--queue` is **`403`** (ADR-0102 decision 3.2); `if-unused` with consumers or `if-empty` with
   messages is **`406`** (rules `delete`/`in-use`, `not-empty`; checked and deleted as one bus
-  operation, BL-723); otherwise `delete-ok` (50.41) with the number of messages deleted. Each
+  operation, BL-730); otherwise `delete-ok` (50.41) with the number of messages deleted. Each
   consumer of the deleted queue, on any connection, ends: a client that announced
   `consumer_cancel_notify` receives `basic.cancel` (60.30) with its consumer tag and `no-wait` set;
   any other client just stops receiving.
@@ -287,14 +287,14 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   log. 312 is the code 0-8 defined and ADR-0100 decision 3.2 already pins; the 0-9-1 XML lists no
   code for a return, so 312 is kept.
 - **`immediate`**: a routed publish with `immediate` set is put only into the chosen queues that
-  have a consumer able to take it now (BL-723's publish to consumed queues); when none does, it is
+  have a consumer able to take it now (BL-730's publish to consumed queues); when none does, it is
   returned with **`313` `NO_CONSUMERS`** (the XML's constant). When a publish is both unroutable and
   `immediate`, 312 is sent.
 - **The bus's answer to the publish:**
 
   | Outcome | Answer |
   | --- | --- |
-  | `Succeeded` | none (publishes are not acknowledged outside confirm mode, BL-724) |
+  | `Succeeded` | none (publishes are not acknowledged outside confirm mode, BL-731) |
   | `AccessDenied` (topic access, or `pub` on `$queue/<q>` for a direct publish) | channel exception **`403`** (ADR-0102 decision 3.4) |
   | `MessageTooLarge` | channel exception **`311`** |
   | `StoreFull`, `TooManyTopics` | connection exception **`506` `RESOURCE_ERROR`** |
@@ -312,7 +312,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   durable queue persists (ADR-0100's durable row). `priority` 5 to 9 marks the message **high
   priority** and 0 to 4 or absent **normal**: basic rule 06 requires "at least 2 priority levels
   ... 0-4 and 5-9", so a queue delivers its high messages before its normal ones, each level in
-  order (basic rule 08); BL-723 adds the level to the bus's queue, amending ADR-0100 decision 3.3's
+  order (basic rule 08); BL-730 adds the level to the bus's queue, amending ADR-0100 decision 3.3's
   plain FIFO. A topic's fan-out and log stay in publish order.
 - **The native form** (BL-706): beside those fields the broker stores, in format `amqp0`, the
   exchange name and routing key as two shortstrs followed by the content header's property flags
@@ -327,7 +327,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   used on the channel is connection exception **`530`** (rule `consume`/`01`, `not-allowed`); an
   empty tag gets `amq.ctag-` and 22 base64url characters; `exclusive` on a queue with consumers, or
   any consumer on a queue consumed exclusively, is **`403`** (rule `consume`/`01`,
-  `access-refused`; BL-723's exclusive consumers); topic access denying `sub` on `$queue/<q>` is
+  `access-refused`; BL-730's exclusive consumers); topic access denying `sub` on `$queue/<q>` is
   **`403`** (ADR-0102 decision 3.4); the bus's `TooManySubscriptions` is **`506`** (decision 7).
   `no-local` is read and ignored: the XML gives it no rule, and skipping one connection's messages
   in a shared queue would leave them at its head for every other consumer. `arguments` are
@@ -345,7 +345,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 - **`basic.get`** (60.70): `""`, missing and exclusive as for consume; answered `get-ok` (60.71,
   with the delivery tag, `redelivered`, exchange, routing key and the count of messages still
   ready) and the content, or `get-empty` (60.72) - one message taken from the bus at a time, held
-  unacknowledged on the channel unless `no-ack` (BL-723's single get).
+  unacknowledged on the channel unless `no-ack` (BL-730's single get).
 - **`no-ack`** consumers and gets acknowledge each delivery to the bus as it is written (basic rule
   09); otherwise the delivery waits for the client (basic rule 10).
 - **`basic.ack`** (60.80): `multiple` acknowledges every outstanding tag up to the given one, and tag
@@ -361,7 +361,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   original recipient"). `recover` is answered `recover-ok` (60.111); `recover-async` is not.
 - **`basic.cancel`** (60.30) from the client ends the consumer's deliveries and is answered
   `cancel-ok` (60.31), an unknown tag included; its outstanding deliveries stay outstanding until
-  acknowledged, rejected or the channel closes (BL-723's consumer stop, since the bus's own cancel
+  acknowledged, rejected or the channel closes (BL-730's consumer stop, since the bus's own cancel
   requeues them).
 - **`basic.qos`** (60.10): `prefetch-count` bounds the channel's outstanding deliveries (all its
   consumers together), or the connection's when `global` is set; `prefetch-size` bounds their body
@@ -372,13 +372,13 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 - **`channel.flow`** (20.20) from the client with `active` 0 stops deliveries on that channel (they
   wait as above) and `active` 1 resumes them; answered `flow-ok` with the same bit. The broker never
   sends `channel.flow` (basic rule 03 makes it optional), because its bounds refuse instead.
-- **Transactions** (`tx`, 90) and **publisher confirms** (`confirm.select`, 85) are BL-724's; until
+- **Transactions** (`tx`, 90) and **publisher confirms** (`confirm.select`, 85) are BL-731's; until
   then each is connection exception **`540` `NOT_IMPLEMENTED`**, and the capability
-  `publisher_confirms` is announced only once BL-724 lands.
+  `publisher_confirms` is announced only once BL-731 lands.
 - **Storage across restarts is the bus's** (ADR-0100 decision 3.7): durable queues, their messages
   (transient ones too) and their `amq.topic` bindings persist under `--directory <path>` in
   `<path>/.surl/bus`, with each message's native form (BL-706); exclusive and auto-delete queues do
-  not. Durable exchanges other than the pre-declared ones and their bindings persist with BL-725;
+  not. Durable exchanges other than the pre-declared ones and their bindings persist with BL-732;
   until then they last the server's life. Without `--directory` everything is in memory.
 
 ### 7. Exceptions (XML reply-code constants)
@@ -410,7 +410,7 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 | 505 `UNEXPECTED_FRAME` | connection | decision 6's content framing faults |
 | 506 `RESOURCE_ERROR` | connection | the bus's `StoreFull`, `TooManyTopics`, `TooManyQueues`, `TooManySubscriptions`; a persistent message a full queue refused; decision 8's broker bounds |
 | 530 `NOT_ALLOWED` | connection | an unknown virtual host; a reused consumer tag; an exchange redeclared with another type |
-| 540 `NOT_IMPLEMENTED` | connection | a class or method the broker does not serve: `tx` and `confirm` until BL-724, `exchange.bind`/`unbind` (40.30, 40.40) and every other extension |
+| 540 `NOT_IMPLEMENTED` | connection | a class or method the broker does not serve: `tx` and `confirm` until BL-731, `exchange.bind`/`unbind` (40.30, 40.40) and every other extension |
 | 541 `INTERNAL_ERROR` | connection | a fault inside the broker, also noted with `IExchangeLog.Note` |
 | 320 `CONNECTION_FORCED` | connection | `--idle-timeout`, `--max-time`, or the server stopping, once `open-ok` was sent |
 
@@ -463,10 +463,10 @@ Nothing below is taken from the port's output, and no expected byte comes from i
 - **Plain FIFO queues.** Rejected: basic rule 06 is a MUST; two levels are the least it allows and
   the cheapest to add to the bus.
 - **`basic.get` by a short-lived bus consumer.** Rejected: ending the consumer would requeue the
-  message it just handed out, so `get` needs its own bus operation (BL-723).
+  message it just handed out, so `get` needs its own bus operation (BL-730).
 - **Leaving out `immediate`, transactions, confirms or the headers exchange, as several 0-9-1
   brokers do.** Rejected by root `CLAUDE.md` ("nothing is left out because it is hard"); each is
-  served, the larger ones in their own tasks (BL-724, BL-725) so each task stays one run.
+  served, the larger ones in their own tasks (BL-731, BL-732) so each task stays one run.
 - **Serving `exchange.bind` and the other RabbitMQ extensions.** Not now: no client the Context
   names needs them, they are not in the pinned specification, and `540` tells a client so.
 
@@ -478,9 +478,9 @@ Nothing below is taken from the port's output, and no expected byte comes from i
   topic protocol; `amqps://` is the same over TLS.
 - `Surl.MessageBus` gains queue inspection, purge, single get, conditional delete, exclusive
   consumers, a publish to consumed queues only, a consumer stop that keeps its deliveries, and two
-  priority levels (BL-723); BL-506 depends on it and on BL-706's native form.
-- Transactions and publisher confirms wait for BL-724; the headers exchange and durable exchanges
-  across restarts for BL-725.
+  priority levels (BL-730); BL-506 depends on it and on BL-706's native form.
+- Transactions and publisher confirms wait for BL-731; the headers exchange and durable exchanges
+  across restarts for BL-732.
 - The requirement matrix [`Amqp0.md`](../../Conformance/Extended/Amqp0.md) traces each
-  server-side requirement to BL-504, BL-505, BL-506, BL-723, BL-724 or BL-725; each task replaces
+  server-side requirement to BL-504, BL-505, BL-506, BL-730, BL-731 or BL-732; each task replaces
   its ID with the named test.

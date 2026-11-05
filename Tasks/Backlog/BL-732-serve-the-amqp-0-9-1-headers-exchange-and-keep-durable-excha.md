@@ -1,5 +1,5 @@
 ---
-id: BL-725
+id: BL-732
 title: Serve the AMQP 0-9-1 headers exchange and keep durable exchanges across restarts
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-725 — Serve the AMQP 0-9-1 headers exchange and keep durable exchanges across restarts
+# BL-732 — Serve the AMQP 0-9-1 headers exchange and keep durable exchanges across restarts
 
 ## Goal
 

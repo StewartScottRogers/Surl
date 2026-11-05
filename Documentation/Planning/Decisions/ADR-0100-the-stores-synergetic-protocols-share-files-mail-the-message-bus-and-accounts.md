@@ -23,7 +23,7 @@
 - **Amended:** decisions 3.3 and 3.6 by
   [ADR-0112](ADR-0112-how-the-amqp-0-9-1-broker-answers-amqp-and-amqps.md) decisions 6 and 7
   (2026-11-05, BL-503): a named queue delivers in two priority levels, high (AMQP 0-9-1 priority 5
-  to 9) before normal, each in order, as AMQP 0-9-1's basic rule 06 requires (BL-723); and the
+  to 9) before normal, each in order, as AMQP 0-9-1's basic rule 06 requires (BL-730); and the
   AMQP 0-9-1 column's `506 resource-error` is a connection exception (`connection.close`), not a
   channel close, because the XML classes it `hard-error`. `311` stays a channel close.
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the

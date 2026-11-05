@@ -54,7 +54,7 @@ Decide and record:
       Claude under Stewart's delegation". It answers decisions 1 to 8, each citing its specification section, and
       is listed in the folder's `README.md`.
 - [x] `Documentation/Conformance/Extended/Amqp0.md` exists in the matrix format, each "covered by" naming
-      BL-504, BL-505 or BL-506 (or BL-723, BL-724 or BL-725, the follow-ups this task filed; see Notes), or
+      BL-504, BL-505 or BL-506 (or BL-730, BL-731 or BL-732, the follow-ups this task filed; see Notes), or
       "n/a: <reason>".
 
 ## Notes
@@ -73,8 +73,8 @@ Decide and record:
   decision 3.6's "channel close 506" is amended (ADR-0100 now carries an "Amended" line); basic class rule 06
   requires two priority levels, amending ADR-0100 decision 3.3's FIFO. The XML has no 312 constant; 312
   `NO_ROUTE` (0-8's, already in ADR-0100) is kept for `basic.return`.
-- Follow-ups filed (lanes may file extra tasks): BL-723 (the bus's queue operations BL-506 needs; BL-506 now
-  depends on BL-706 and BL-723), BL-724 (transactions and publisher confirms), BL-725 (headers exchange, durable
+- Follow-ups filed (lanes may file extra tasks): BL-730 (the bus's queue operations BL-506 needs; BL-506 now
+  depends on BL-706 and BL-730), BL-731 (transactions and publisher confirms), BL-732 (headers exchange, durable
   exchanges across restarts). The second criterion was widened to name them because ADR-0112 decides more than
   BL-504 to BL-506 can hold in one run each; every matrix row still traces to a task.
 - Edited outside `touches` only on the task board (filing and BL-506's `depends-on`), and ADR-0100's header,
@@ -85,4 +85,4 @@ Decide and record:
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. ADR-0112 decides how the AMQP 0-9-1 broker answers amqp and amqps; Amqp0.md traces each requirement to BL-504 to BL-506 and follow-ups BL-723 to BL-725
+- 2026-11-05: Doing -> Done. ADR-0112 decides how the AMQP 0-9-1 broker answers amqp and amqps; Amqp0.md traces each requirement to BL-504 to BL-506 and follow-ups BL-730 to BL-732

@@ -1,5 +1,5 @@
 ---
-id: BL-724
+id: BL-731
 title: Serve AMQP 0-9-1 transactions and publisher confirms
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-724 — Serve AMQP 0-9-1 transactions and publisher confirms
+# BL-731 — Serve AMQP 0-9-1 transactions and publisher confirms
 
 ## Goal
 
