@@ -1,5 +1,5 @@
 ---
-id: BL-697
+id: BL-709
 title: Reset HTTP/3 streams carrying NTLM or Negotiate with H3_VERSION_FALLBACK
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-697 — Reset HTTP/3 streams carrying NTLM or Negotiate with H3_VERSION_FALLBACK
+# BL-709 — Reset HTTP/3 streams carrying NTLM or Negotiate with H3_VERSION_FALLBACK
 
 ## Goal
 

@@ -87,7 +87,7 @@ that each limit maps to.
   `Http2RequestHeadMappingTests` follows.
 - **A reset discards what was not read** (`QuicStream.ReceiveReset`), so only a clean `FIN` ends a
   stream; a reset anywhere is `Http3StreamAbandonedException`. Found when the reset tests raced.
-- **Filed:** BL-697 (`H3_VERSION_FALLBACK` for NTLM and Negotiate, after BL-602) and BL-698
+- **Filed:** BL-709 (`H3_VERSION_FALLBACK` for NTLM and Negotiate, after BL-602) and BL-710
   (hold answer bodies back until QUIC credit allows; `QuicApplicationConnection.WriteAsync` queues
   everything today).
 

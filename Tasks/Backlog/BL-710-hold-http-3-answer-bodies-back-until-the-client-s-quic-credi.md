@@ -1,5 +1,5 @@
 ---
-id: BL-698
+id: BL-710
 title: Hold HTTP/3 answer bodies back until the client's QUIC credit allows them
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-698 — Hold HTTP/3 answer bodies back until the client's QUIC credit allows them
+# BL-710 — Hold HTTP/3 answer bodies back until the client's QUIC credit allows them
 
 ## Goal
 
