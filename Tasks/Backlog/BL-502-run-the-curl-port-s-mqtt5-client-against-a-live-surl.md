@@ -24,6 +24,9 @@ Each assertion comes from MQTT 5.0, and the matrix is fully covered.
 - The locator and runner: BL-406. A live `surl`: `SurlOnLoopback`. Command lines: the port's
   `curl --extended-help mqtt5` and its cases in `Curl.Conformance.Extended.UnitTests/Mqtt5/`.
 - `[TestCategory("Integration")]`, and inconclusive without the pinned client.
+- The port's subscribe reads until the server sends DISCONNECT, and the broker keeps subscribers by default
+  (ADR-0093 decision 0), so the subscribe case starts `surl` with `--mqtt5-disconnect-after-retained`
+  (decision 9).
 
 ## Acceptance criteria
 

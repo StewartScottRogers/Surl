@@ -27,6 +27,11 @@ exist, and the extension switch turns all three off.
   `AiHelpProse.TopicAbout` paragraph naming MQTT 5.0 as its oracle and saying `mqtt` stays 3.1.1, an
   `AiHelpExamples` entry, and the topic list in `AiHelpTextTests` growing by one.
 
+- Decision: ADR-0093 (BL-494), decisions 0, 7 and 9. Decision 9 adds the negatable flag
+  `--mqtt5-disconnect-after-retained` (category `mqtt5`, default off): after SUBACK and the retained messages
+  it sends DISCONNECT `0x00` and closes. It needs its `--aihelp` facts like any option. With `--directory`,
+  the broker's retained messages go to `<path>/.surl/mqtt5/retained-messages` (decision 0).
+
 ## Acceptance criteria
 
 - [ ] A named test finds `mqtt5`, `mqtt5s` and `mqtt5+ws` registered when the switch is on, and absent when it is

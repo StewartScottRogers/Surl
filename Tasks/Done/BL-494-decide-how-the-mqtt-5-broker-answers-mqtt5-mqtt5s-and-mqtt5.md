@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Mqtt5.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-494 — Decide how the MQTT 5 broker answers mqtt5, mqtt5s and mqtt5+ws
 
@@ -56,16 +56,32 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 8, each citing the MQTT 5.0 section, and is
       listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/Mqtt5.md` exists in the matrix format with every `[MQTT-…]` statement that
+- [x] `Documentation/Conformance/Extended/Mqtt5.md` exists in the matrix format with every `[MQTT-…]` statement that
       binds a server, each "covered by" naming BL-495, BL-496, BL-497,
       BL-498, BL-499 or BL-500, or "n/a: <reason>".
 
 ## Notes
 
+- ADR-0093 decides it (next free number in this checkout). Delivered directly rather than through
+  `align-and-document`: the task is the ADR and the matrix, and no `.cs` or project file changed, so the `verify`
+  skill does not apply; `dotnet build` and the fast tests were still run.
+- The matrix was written from the OASIS MQTT 5.0 HTML (docs.oasis-open.org, downloaded to a temp folder) by
+  extracting all 251 `[MQTT-x.y.z-n]` statements. 235 bind a server (or are client duties whose breach the broker
+  must detect, which the row says); the 16 left out bind only a client: 2.2.1-3, 3.1.2-20, 3.1.2-21, 3.2.2-4,
+  3.2.2-5, 3.2.2-11, 3.2.2-14, 3.2.2-21, 3.3.2-9, 3.3.2-10, 3.3.4-8, 4.5.0-2, 4.6.0-1 to 4.6.0-4. Unnumbered
+  server rules have `MQTT5-<section>-<n>` IDs, RFC 6455 rules `RFC6455-<section>-<n>`, as the DnsQuery matrix does.
+- Biggest choice: the broker is a real broker (subscriptions live on), not ADR-0014's one-shot fetch; the
+  one-shot read the port's client needs is opt-in, `--mqtt5-disconnect-after-retained` (decision 9). BL-501's
+  Context and BL-502's Context now say so, so the flag is not lost.
+- Not done: ADR-0083 decision 9 says each server's ADR task adds its own `Requirements.md` row after FR-056.
+  `Documentation/Product/Requirements.md` is outside this task's `touches` and the acceptance criteria do not ask
+  for it (BL-478's DNS ADR added none either); left for BL-501 or a docs pass.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0093 decides how the MQTT 5 broker answers mqtt5, mqtt5s and mqtt5+ws; Mqtt5.md traces 235 server statements to BL-495..BL-500
