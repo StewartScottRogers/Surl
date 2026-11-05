@@ -51,3 +51,4 @@ sends none, enforces the keep alive at one and a half times its value, and refus
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
