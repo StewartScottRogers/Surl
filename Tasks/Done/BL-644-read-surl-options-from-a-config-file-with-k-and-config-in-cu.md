@@ -77,7 +77,7 @@ place on the command line, so any option `surl` takes can come from a file, with
     synchronous and called by `Surl.Api` and `Surl.Mcp`; the parser asks for 16 MiB + 1 bytes so a file
     past the bound is refused without reading all of it.
   - Cycle identity is the source's `IdentityOf`: the full path, upper-cased except on Linux.
-- Left out, filed as BL-771: `SurlCommandLine.ConfigFiles` and the readable-by-others warning (ADR-0101
+- Left out, filed as BL-780: `SurlCommandLine.ConfigFiles` and the readable-by-others warning (ADR-0101
   decision 5) - adding the member breaks `Surl.Mcp.UnitTests`' member classification test, and
   `Surl.Mcp.UnitLibrary` is outside this task's `touches`. `Surl.Api` and `Surl.Mcp` still parse with
   the two-argument overload, so a `-K` there exits 37 until BL-668 and BL-612 give them a source.

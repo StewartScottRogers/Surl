@@ -1,5 +1,5 @@
 ---
-id: BL-771
+id: BL-780
 title: Warn when a -K config file is readable by other users and keep the files read on SurlCommandLine
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-771 — Warn when a -K config file is readable by other users and keep the files read on SurlCommandLine
+# BL-780 — Warn when a -K config file is readable by other users and keep the files read on SurlCommandLine
 
 ## Goal
 
