@@ -68,3 +68,4 @@ itself, and `surl`'s behaviour and output are unchanged byte for byte.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
