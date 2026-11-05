@@ -4,7 +4,7 @@ namespace Surl.MailStore;
 
 /// <summary>
 /// What the store publishes on the event stream and how it answers an out-of-space fault rule
-/// (ADR-0124 decisions 1 and 4; ADR-0126).
+/// (ADR-0124 decisions 1 and 4; ADR-0127).
 /// </summary>
 public sealed partial class MailboxStore
 {
@@ -104,7 +104,7 @@ public sealed partial class MailboxStore
     /// names none or a rule of another kind. The store's writes are synchronous, so it takes only an
     /// answer the plan gives at once - every plan does when no hook is registered - and serves a
     /// point whose answer is still pending, or that failed, as if no rule matched, as ADR-0124
-    /// decision 5 serves a hook that times out or throws (ADR-0126).
+    /// decision 5 serves a hook that times out or throws (ADR-0127).
     /// </summary>
     private FaultRule? FindOutOfSpaceRule(FaultPoint point)
     {

@@ -68,7 +68,7 @@ only a `PendingMessage` (BL-278): SMTP streams `DATA` and IMAP streams `APPEND`,
 with files never holds a delivered message's bytes in memory waiting for a save. The `Append`
 overload taking a whole message as bytes routes it through a pending message.
 
-Events and faults (BL-788, ADR-0124 decisions 1 and 4, ADR-0126): the constructor and `LoadAsync`
+Events and faults (BL-788, ADR-0124 decisions 1 and 4, ADR-0127): the constructor and `LoadAsync`
 take an optional `ISurlEventPublisher` and `IFaultPlan` (null: publish nothing, fault nothing).
 Every change publishes one `StoreChangedEvent` (`StoreKind.Mail`) under the store's lock, named by
 `MailStoreChangeName` - `<owner>/<mailbox>` or `<owner>/<mailbox>/;UID=<uid>` - with the message's

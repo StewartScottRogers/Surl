@@ -4,7 +4,7 @@ namespace Surl.MailStore;
 
 /// <summary>
 /// The <c>StoreChangedEvent.Name</c> and <c>FaultAppliedEvent.Target</c> the mail store publishes
-/// (ADR-0124 decision 1; ADR-0126): <c>&lt;owner&gt;/&lt;mailbox&gt;</c> for a mailbox, and
+/// (ADR-0124 decision 1; ADR-0127): <c>&lt;owner&gt;/&lt;mailbox&gt;</c> for a mailbox, and
 /// <c>&lt;owner&gt;/&lt;mailbox&gt;/;UID=&lt;uid&gt;</c> for one message in it, the shape of an
 /// RFC 5092 IMAP URL's path. The anonymous owner's name is empty, so its <c>INBOX</c> is
 /// <c>/INBOX</c>; a shared folder's owner is <see cref="MailboxStore.SharedFolderOwnerName"/>.

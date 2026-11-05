@@ -47,7 +47,7 @@ make delivery fail on purpose.
 ## Notes
 
 - Plan: ADR-0124 decisions 1 and 4 with BL-823's contracts as built; the choices they left open are
-  ADR-0126, decided by Claude under Stewart's delegation:
+  ADR-0127, decided by Claude under Stewart's delegation:
   - BL-823's `StoreChangedEvent` has no owner or UID field, so `Name` carries them in a documented shape,
     `MailStoreChangeName`: `<owner>/<mailbox>` and `<owner>/<mailbox>/;UID=<uid>` (RFC 5092's path).
   - Out of space answers `QuotaExceeded` (ADR-0124: "the outcome it already has for a full quota"), asked
@@ -61,7 +61,7 @@ make delivery fail on purpose.
   rather than one `MailboxStoreTests`, as the project already splits its store tests. `times=1` is shown
   with `SpendingFaultPlan`, a test double that spends `Times` as BL-792's matcher will, since BL-823's
   `ScriptedFaultPlan` never does.
-- `touches` gained `Documentation/Planning/Decisions` for ADR-0126; no task in `Doing` names it.
+- `touches` gained `Documentation/Planning/Decisions` for ADR-0127; no task in `Doing` names it.
 - `Deliver` and `Append` were split (`DeliverUnlessOutOfSpace`, `AppendPending`) to stay at measured
   complexity 10 or less. `Measure-CodeQuality.ps1` still flags `ReachOwners` (16) and the
   `MailDomainConfiguration` constructor (12), both untouched here and below the build's `CA1502` gate.

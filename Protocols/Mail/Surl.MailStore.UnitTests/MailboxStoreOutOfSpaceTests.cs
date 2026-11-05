@@ -5,7 +5,7 @@ namespace Surl.MailStore;
 
 /// <summary>
 /// How <see cref="MailboxStore"/> answers an out-of-space fault rule (ADR-0124 decision 4;
-/// ADR-0126).
+/// ADR-0127).
 /// </summary>
 [TestClass]
 public sealed class MailboxStoreOutOfSpaceTests

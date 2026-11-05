@@ -19,7 +19,7 @@ A `Surl.Api` response override (BL-811) that answers asynchronously can make an 
 
 ## Context
 
-- ADR-0126 decision 5: `MailboxStore.Deliver` and `Append` are synchronous, so they take only an answer
+- ADR-0127 decision 5: `MailboxStore.Deliver` and `Append` are synchronous, so they take only an answer
   `IFaultPlan.FindAsync` gives at once and serve a pending one as if no rule matched. ADR-0124 decision 5
   lets an override decide any fault kind, `out-of-space` at `StoreWrite` included.
 - Where: add `DeliverAsync(recipients, message, cancellationToken)` and an `AppendAsync` overload (it cannot

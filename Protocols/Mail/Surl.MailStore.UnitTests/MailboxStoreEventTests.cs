@@ -5,7 +5,7 @@ using static Surl.MailStore.MailStoreFixture;
 namespace Surl.MailStore;
 
 /// <summary>
-/// What <see cref="MailboxStore"/> publishes on the event stream (ADR-0124 decision 1; ADR-0126).
+/// What <see cref="MailboxStore"/> publishes on the event stream (ADR-0124 decision 1; ADR-0127).
 /// </summary>
 [TestClass]
 public sealed class MailboxStoreEventTests

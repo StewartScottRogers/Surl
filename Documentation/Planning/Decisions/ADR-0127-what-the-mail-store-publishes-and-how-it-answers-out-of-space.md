@@ -1,4 +1,4 @@
-# ADR-0126 — What the mail store publishes and how it answers out of space
+# ADR-0127 — What the mail store publishes and how it answers out of space
 
 - **Status:** Accepted
 - **Date:** 2026-11-05
