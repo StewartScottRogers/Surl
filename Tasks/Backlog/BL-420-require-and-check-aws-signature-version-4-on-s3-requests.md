@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-419]
-touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests]
+touches: [Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -49,6 +49,12 @@ are allowed only under `--allow-anonymous`.
       coverage.
 
 ## Notes
+
+- 2026-11-05, BL-417: ADR-0108 decision 4.4 has this task add a refusal reason (planning
+  `HttpAuthenticationRefusal`) to `HttpAuthenticationVerdict` and a hash-mismatch outcome to
+  `IHttpRequestBodyCheck`, set by the SigV4 method in `Surl.Authentication`, so the S3 server can tell
+  `InvalidAccessKeyId`, `SignatureDoesNotMatch` and `RequestTimeTooSkewed` apart. The HTTP server ignores both.
+  `touches` gained both libraries and their tests. Decision 4.3 lists every refusal's status and code.
 
 ## Log
 
