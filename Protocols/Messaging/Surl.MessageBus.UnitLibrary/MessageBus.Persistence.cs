@@ -116,7 +116,7 @@ public sealed partial class MessageBus
         Require(
             contents.Queues.Select(queue => queue.Name).Union(declaredQueueNames).Count() <= MaxQueues
                 && contents.Queues.All(queue => queue.Messages.Count <= MaxMessagesPerQueue)
-                && queuedMessages.Sum(message => (long)message.Message.Payload.Length) <= MaxQueuedBytes,
+                && queuedMessages.Sum(message => message.Message.PayloadAndNativeFormBytes) <= MaxQueuedBytes,
             busFiles.QueueIndexPath,
             MessageBusFiles.MalformedFileReason);
     }
@@ -173,7 +173,7 @@ public sealed partial class MessageBus
             foreach (var message in persisted.Messages)
             {
                 queue.Restore(message.Message, message.Redelivered, message.FileNumber);
-                queuedBytes += message.Message.Payload.Length;
+                queuedBytes += message.Message.PayloadAndNativeFormBytes;
                 knownQueueMessageFiles.Add(message.FileNumber);
                 nextQueueMessageFileNumber = Math.Max(nextQueueMessageFileNumber, message.FileNumber + 1);
             }

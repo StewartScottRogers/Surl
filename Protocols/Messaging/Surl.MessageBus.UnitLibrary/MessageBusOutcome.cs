@@ -18,7 +18,7 @@ public enum MessageBusOutcome
     /// no subscription was made.</summary>
     InvalidFilter,
 
-    /// <summary>The payload is longer than <see cref="MessageBus.MaxMessageBytes"/>; nothing was
+    /// <summary>The payload and native form together are longer than <see cref="MessageBus.MaxMessageBytes"/>; nothing was
     /// stored or delivered.</summary>
     MessageTooLarge,
 

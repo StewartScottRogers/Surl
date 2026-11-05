@@ -25,7 +25,7 @@ public sealed class BusMessageCodecTests
         var bytes = Encode(Full());
 
         CollectionAssert.AreEqual(
-            Bytes("00000003 612f62 7f 02 08df3a499fec8000 08df3a5201b0e800 00000001 63 00000001 72 00000001 01 00000001 02 00000001 00000001 68 00000001 76 00000001 78"),
+            Bytes("00000003 612f62 ff 02 08df3a499fec8000 08df3a5201b0e800 00000001 63 00000001 72 00000001 01 00000001 02 00000005 616d717031 00000002 0a0b 00000001 00000001 68 00000001 76 00000001 78"),
             bytes);
     }
 
@@ -48,7 +48,7 @@ public sealed class BusMessageCodecTests
     }
 
     [TestMethod]
-    [DataRow("00000001 74 80 00 08df3a499fec8000 00000000 00000000", DisplayName = "The unused flag is set")]
+    [DataRow("00000001 74 80 00 08df3a499fec8000 00000000 00000000", DisplayName = "The native form flag is set and the native form runs into the headers")]
     [DataRow("00000001 74 00 03 08df3a499fec8000 00000000 00000000", DisplayName = "The quality of service is 3")]
     [DataRow("00000001 74 00 00 8000000000000000 00000000 00000000", DisplayName = "The time is past the largest 8-byte value")]
     [DataRow("00000001 74 00 00 2bca2875f4374000 00000000 00000000", DisplayName = "The time is past the last tick")]
@@ -92,6 +92,7 @@ public sealed class BusMessageCodecTests
         CorrelationData = new byte[] { 1 },
         Key = new byte[] { 2 },
         Headers = [new("h", "v")],
+        NativeForm = new("amqp1", new byte[] { 0x0A, 0x0B }),
     };
 
     private static byte[] Encode(BusMessage message)
@@ -117,6 +118,8 @@ public sealed class BusMessageCodecTests
         CollectionAssert.AreEqual(expected.CorrelationData?.ToArray(), actual.CorrelationData?.ToArray());
         CollectionAssert.AreEqual(expected.Key?.ToArray(), actual.Key?.ToArray());
         CollectionAssert.AreEqual(expected.Headers.ToArray(), actual.Headers.ToArray());
+        Assert.AreEqual(expected.NativeForm?.Format, actual.NativeForm?.Format);
+        CollectionAssert.AreEqual(expected.NativeForm?.Bytes.ToArray(), actual.NativeForm?.Bytes.ToArray());
     }
 
     /// <summary>Compares two messages property by property, payload and byte fields by value.</summary>

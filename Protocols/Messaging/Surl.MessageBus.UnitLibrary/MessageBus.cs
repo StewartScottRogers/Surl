@@ -133,7 +133,7 @@ public sealed partial class MessageBus
     /// <summary>The most live subscriptions one <see cref="BusConnection"/> holds.</summary>
     public int MaxSubscriptionsPerConnection { get; }
 
-    /// <summary>The most bytes one message's payload holds.</summary>
+    /// <summary>The most bytes one message's payload and native form (<see cref="BusMessage.NativeForm"/>) hold together.</summary>
     public long MaxMessageBytes { get; }
 
     /// <summary>The most named queues.</summary>
@@ -142,7 +142,7 @@ public sealed partial class MessageBus
     /// <summary>The most messages one named queue holds, unacknowledged ones included.</summary>
     public int MaxMessagesPerQueue { get; }
 
-    /// <summary>The most payload bytes all named queues hold together, unacknowledged ones included.</summary>
+    /// <summary>The most payload and native-form bytes all named queues hold together, unacknowledged ones included.</summary>
     public long MaxQueuedBytes { get; }
 
     /// <summary>
@@ -253,6 +253,7 @@ public sealed partial class MessageBus
         Payload = message.Payload.ToArray(),
         CorrelationData = CopyOf(message.CorrelationData),
         Key = CopyOf(message.Key),
+        NativeForm = message.NativeForm is { } nativeForm ? nativeForm with { Bytes = nativeForm.Bytes.ToArray() } : null,
         Headers = [.. message.Headers],
         PublishedAt = now,
     };
@@ -262,7 +263,7 @@ public sealed partial class MessageBus
 
     private MessageBusOutcome Refusal(BusMessage message) =>
         !CanonicalTopicName.IsValidTopic(message.Topic) ? MessageBusOutcome.InvalidTopic
-        : message.Payload.Length > MaxMessageBytes ? MessageBusOutcome.MessageTooLarge
+        : message.PayloadAndNativeFormBytes > MaxMessageBytes ? MessageBusOutcome.MessageTooLarge
         : MessageBusOutcome.Succeeded;
 
     private BusPublishResult Accept(BusMessage published, DateTimeOffset now, BusConnection? publisher)

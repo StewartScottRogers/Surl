@@ -57,7 +57,7 @@ What it holds now (BL-629):
   the high watermark reads nothing, and one below the log start offset or above the high
   watermark is `OffsetOutOfRange` (Kafka's `OFFSET_OUT_OF_RANGE`). `GetLogOffsets` gives the
   log start offset and high watermark (ListOffsets earliest and latest), `GetLogTopics` every
-  topic with a log in ordinal order. A record counts `MessageBus.LogRecordBytes`: payload,
+  topic with a log in ordinal order. A record counts `MessageBus.LogRecordBytes`: payload, native form,
   key, the UTF-8 of header names and values, and 16 bytes for offset and timestamp. Past
   `MaxLogBytesPerTopic` the oldest records go and the log start offset rises, but the
   newest is always kept; past `MaxLogBytes`, after that retention, a publish is `StoreFull`.
@@ -76,6 +76,16 @@ What it holds now (BL-629):
   `BusPublishResult.FullQueueCount` counts the refusals. The queue outcomes that ADR-0100
   does not name yet (`InvalidQueueName`, `UnknownQueue`, `QueueLocked`, `QueueFlagsDiffer`,
   `UnknownDeliveryTag`) follow AMQP 0-9-1's 404, 405 and 406. BL-694 adds them to the ADR.
+
+- **Native forms (BL-706).** `BusMessage.NativeForm` is a `BusNativeForm(Format, Bytes)`: a publisher's own
+  encoding of the message, `Format` its lower-case scheme family name (`amqp1` for the AMQP 1.0
+  container, ADR-0107 decision 6). The bus copies the bytes at publish and carries them unchanged
+  through fan-out, queues (redeliveries included), logs, the retained slot and its files; a server
+  reading its own format uses them and every other server ignores them. Its bytes count with the
+  payload toward `MaxMessageBytes`, `MaxQueuedBytes` and `LogRecordBytes` (not toward
+  `MaxRetainedPayloadBytes`, which stays the payload's). `BusMessageCodec` writes it under flag
+  `0x80`, after the key: its format and its bytes. Files written before it never set `0x80` and load
+  with none.
 
 - **Persistence (BL-634).** With `--directory <path>`, the composition makes a
   `MessageBusFiles` over `<path>/.surl` and calls `MessageBus.LoadAsync` once, after the

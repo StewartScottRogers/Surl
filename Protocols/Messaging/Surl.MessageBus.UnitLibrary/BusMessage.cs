@@ -59,6 +59,18 @@ public sealed record BusMessage(string Topic, ReadOnlyMemory<byte> Payload)
     public bool Utf8Payload { get; init; }
 
     /// <summary>
+    /// The publisher's own encoding of the message, tagged with its format (ADR-0107 decision 6);
+    /// <see langword="null"/> when it has none. Its bytes count with <see cref="Payload"/> toward
+    /// <see cref="MessageBus.MaxMessageBytes"/>, <see cref="MessageBus.MaxQueuedBytes"/> and
+    /// <see cref="MessageBus.LogRecordBytes"/>.
+    /// </summary>
+    public BusNativeForm? NativeForm { get; init; }
+
+    /// <summary>The bytes the message counts toward <see cref="MessageBus.MaxMessageBytes"/> and
+    /// <see cref="MessageBus.MaxQueuedBytes"/>: its payload and its native form's bytes.</summary>
+    internal long PayloadAndNativeFormBytes => Payload.Length + (NativeForm?.Bytes.Length ?? 0L);
+
+    /// <summary>
     /// When the bus took the message, from its <see cref="TimeProvider"/>; whatever a publisher
     /// sets here is replaced.
     /// </summary>

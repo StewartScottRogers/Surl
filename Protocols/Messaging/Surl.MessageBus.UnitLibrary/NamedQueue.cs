@@ -68,10 +68,10 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     public void RemoveConsumer(BusQueueConsumer consumer) => consumers.Remove(consumer);
 
     /// <summary>Empties the queue of the messages no consumer holds.</summary>
-    /// <returns>The payload bytes removed.</returns>
+    /// <returns>The payload and native-form bytes removed.</returns>
     public long RemoveAllReady()
     {
-        var bytes = PayloadBytes(ready.Values);
+        var bytes = QueuedBytes(ready.Values);
         ready.Clear();
         return bytes;
     }
@@ -81,7 +81,7 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
     /// expired one it reaches instead.
     /// </summary>
     /// <returns>The deliveries made, for the bus to hand over outside its lock, and the payload
-    /// bytes of the expired messages dropped.</returns>
+    /// payload and native-form bytes of the expired messages dropped.</returns>
     public (List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)> Deliveries, long DroppedBytes) Dispatch(DateTimeOffset now)
     {
         var deliveries = new List<(BusQueueConsumer Consumer, BusQueueDelivery Delivery)>();
@@ -92,7 +92,7 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
             if (first.Message.ExpiresAt <= now)
             {
                 ready.Remove(sequence);
-                droppedBytes += first.Message.Payload.Length;
+                droppedBytes += first.Message.PayloadAndNativeFormBytes;
                 continue;
             }
 
@@ -108,8 +108,8 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
         return (deliveries, droppedBytes);
     }
 
-    public static long PayloadBytes(IEnumerable<QueuedMessage> messages) =>
-        messages.Sum(message => (long)message.Message.Payload.Length);
+    public static long QueuedBytes(IEnumerable<QueuedMessage> messages) =>
+        messages.Sum(message => message.Message.PayloadAndNativeFormBytes);
 
     private BusQueueConsumer? NextConsumerWithRoom()
     {

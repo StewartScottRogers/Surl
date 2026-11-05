@@ -37,7 +37,7 @@ public sealed partial class MessageBus
 
     /// <summary>
     /// The bytes one record counts against <see cref="MaxLogBytesPerTopic"/> and
-    /// <see cref="MaxLogBytes"/>: its payload, its key, the UTF-8 of every header name and
+    /// <see cref="MaxLogBytes"/>: its payload, its native form's bytes, its key, the UTF-8 of every header name and
     /// value, and <see cref="LogRecordOverheadBytes"/>.
     /// </summary>
     /// <param name="message">The message the record holds.</param>
@@ -48,7 +48,7 @@ public sealed partial class MessageBus
         ArgumentNullException.ThrowIfNull(message);
         var headerBytes = message.Headers.Sum(header =>
             (long)System.Text.Encoding.UTF8.GetByteCount(header.Name) + System.Text.Encoding.UTF8.GetByteCount(header.Value));
-        return LogRecordOverheadBytes + message.Payload.Length + (message.Key?.Length ?? 0) + headerBytes;
+        return LogRecordOverheadBytes + message.PayloadAndNativeFormBytes + (message.Key?.Length ?? 0) + headerBytes;
     }
 
     /// <summary>

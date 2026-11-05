@@ -45,7 +45,7 @@ public sealed partial class MessageBus
     {
         ArgumentNullException.ThrowIfNull(queueName);
         ArgumentNullException.ThrowIfNull(message);
-        if (message.Payload.Length > MaxMessageBytes)
+        if (message.PayloadAndNativeFormBytes > MaxMessageBytes)
         {
             return MessageBusOutcome.MessageTooLarge;
         }
@@ -230,7 +230,7 @@ public sealed partial class MessageBus
 
     private MessageBusOutcome Enqueue(NamedQueue queue, BusMessage published, DateTimeOffset now)
     {
-        var length = published.Payload.Length;
+        var length = published.PayloadAndNativeFormBytes;
         if (queue.MessageCount >= MaxMessagesPerQueue || queuedBytes + length > MaxQueuedBytes)
         {
             return MessageBusOutcome.QueueFull;
@@ -274,7 +274,7 @@ public sealed partial class MessageBus
         }
         else
         {
-            queuedBytes -= message.Message.Payload.Length;
+            queuedBytes -= message.Message.PayloadAndNativeFormBytes;
         }
 
         Dispatch(consumer.Queue, timeProvider.GetUtcNow());
@@ -317,7 +317,7 @@ public sealed partial class MessageBus
         foreach (var consumer in queue.Consumers.ToList())
         {
             consumer.Deactivate();
-            queuedBytes -= NamedQueue.PayloadBytes(consumer.RemoveAllUnacknowledged());
+            queuedBytes -= NamedQueue.QueuedBytes(consumer.RemoveAllUnacknowledged());
             queue.RemoveConsumer(consumer);
             consumer.Connection.SubscriptionCount--;
         }
