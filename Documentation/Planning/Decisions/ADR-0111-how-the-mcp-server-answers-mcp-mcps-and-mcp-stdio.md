@@ -6,7 +6,7 @@
   in BL-463. BL-464 creates the server and its lifecycle (decisions 1 and 3). BL-465 adds its tools
   (decision 2). BL-466 serves Streamable HTTP with sessions, the `Origin` check, authorization and the
   limits (decisions 4, 6 and 7). BL-467 serves the stdio session (decision 5's library half). BL-468
-  serves all three schemes from `surl` (decision 5's command-line half and decision 8). BL-720 serves
+  serves all three schemes from `surl` (decision 5's command-line half and decision 8). BL-722 serves
   the OAuth 2.1 authorization server (decision 6.3).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof; default ports; `--aihelp` shape;
@@ -332,7 +332,7 @@ server may be reached by several names; ADR-0108's virtual hosts do the same). T
 
 The Authorization page requires `authorization_servers` to name at least one, and "nothing is left
 out" (root `CLAUDE.md`): **the MCP server is its own OAuth 2.1 authorization server**, at the issuer
-`<scheme>://<authority>`, built by **BL-720**:
+`<scheme>://<authority>`, built by **BL-722**:
 
 - RFC 8414 metadata at `/.well-known/oauth-authorization-server`; `authorization_endpoint` `/authorize`,
   `token_endpoint` `/token`, `registration_endpoint` `/register` (RFC 7591 dynamic client registration,
@@ -346,8 +346,8 @@ out" (root `CLAUDE.md`): **the MCP server is its own OAuth 2.1 authorization ser
 - Tokens are 32 random bytes base64url, opaque, bound to the `resource` parameter (RFC 8707, required by
   the page) and to the account, valid for 1 hour (refresh tokens 24 hours, rotated on use), held in
   memory only, and checked by 6.1 beside configured tokens.
-- Until BL-720 lands, the metadata of 6.2 already names the issuer, and its endpoints answer `404`;
-  configured tokens (`--user ':<token>'`) work from BL-466 on. BL-720 adds its own matrix rows (RFC 8414,
+- Until BL-722 lands, the metadata of 6.2 already names the issuer, and its endpoints answer `404`;
+  configured tokens (`--user ':<token>'`) work from BL-466 on. BL-722 adds its own matrix rows (RFC 8414,
   RFC 7591, OAuth 2.1) to `McpServer.md`.
 
 ### 7. Errors and limits
@@ -440,6 +440,6 @@ Costs and caveats:
 
 - The port's client sends no `Authorization`, so BL-469's integration exchanges run with
   `--allow-anonymous` and prove the `401` separately.
-- Until BL-720, the authorization server's endpoints answer `404`, and only configured tokens work.
+- Until BL-722, the authorization server's endpoints answer `404`, and only configured tokens work.
 - The matrix is `Documentation/Conformance/Extended/McpServer.md` (ADR-0083 decision 9).
-- Follow-up: **BL-720** (the authorization server, decision 6.3), filed with this ADR.
+- Follow-up: **BL-722** (the authorization server, decision 6.3), filed with this ADR.

@@ -140,7 +140,7 @@ IDs are:
 | MCP:Auth-7 | MUST | A malformed authorization request (another `Authorization` scheme) is `400`. | BL-466 |
 | MCP:Auth-8 | MUST | Insufficient scope is `403`. | n/a: accounts carry no scopes; gates answer inside the tools (ADR-0111 decision 6.1) |
 | MCP:Auth-9 | SHOULD NOT | Implementations using stdio do not follow the HTTP authorization flow. | BL-467 |
-| MCP:Auth-10 | SHOULD | The authorization server supports RFC 8414 metadata, RFC 7591 registration, PKCE and the RFC 8707 `resource` parameter. | n/a: the authorization server is BL-720's, which adds its own rows |
+| MCP:Auth-10 | SHOULD | The authorization server supports RFC 8414 metadata, RFC 7591 registration, PKCE and the RFC 8707 `resource` parameter. | n/a: the authorization server is BL-722's, which adds its own rows |
 | MCP:Surl-Auth-1 | MUST | No token is accepted as anonymous only under `--allow-anonymous`; a bad token is never served as anonymous. | BL-466 |
 | MCP:Surl-Auth-2 | MUST | A bearer token over plain `mcp` is refused as invalid unless `--allow-plaintext-auth`. | BL-466 |
 | MCP:Surl-Auth-3 | MUST | Each refusal waits the failed-login delay. | BL-466 |

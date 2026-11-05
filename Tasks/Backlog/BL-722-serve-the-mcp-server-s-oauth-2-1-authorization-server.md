@@ -1,5 +1,5 @@
 ---
-id: BL-720
+id: BL-722
 title: Serve the MCP server's OAuth 2.1 authorization server
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-720 — Serve the MCP server's OAuth 2.1 authorization server
+# BL-722 — Serve the MCP server's OAuth 2.1 authorization server
 
 ## Goal
 
