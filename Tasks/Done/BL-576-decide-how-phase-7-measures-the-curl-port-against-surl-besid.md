@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-576 — Decide how Phase 7 measures the Curl port against Surl beside pinned upstream curl
 
@@ -97,21 +97,35 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 10 and is listed in that folder's `README.md`.
-- [ ] ADR-0003 decision 6 and ADR-0083 decision 10 each carry a line pointing to the new ADR. Neither
+- [x] ADR-0003 decision 6 and ADR-0083 decision 10 each carry a line pointing to the new ADR. Neither
       decision's substance changes.
-- [ ] `Documentation/Product/Requirements.md` has one new functional requirement row for Phase 7, derived
+- [x] `Documentation/Product/Requirements.md` has one new functional requirement row for Phase 7, derived
       from success criterion 5 and the new ADR, marked "not built yet" and naming the tasks that build it.
-- [ ] `Documentation/Wiki/Glossary.md` defines "Phase 7 finding" (or the term the ADR chooses) and
+- [x] `Documentation/Wiki/Glossary.md` defines "Phase 7 finding" (or the term the ADR chooses) and
       "port defect".
-- [ ] If decision 1 or 4 needs work that no Phase 7 task (BL-577 to BL-593) covers, the work
+- [x] If decision 1 or 4 needs work that no Phase 7 task (BL-577 to BL-593) covers, the work
       is filed as a task and named in this task's Notes. If the ADR decides that client request bytes are
       not compared, BL-579 is moved to `Deferred` with that reason.
 
 ## Notes
 
+- 2026-11-04: Decided and recorded as ADR-0089 (next free number). Summary: corpus = mirrored conformance
+  classes per family (BL-580 to BL-590), runnable upstream test cases (BL-591), and the two libcurl rows
+  through port-side driver twins of the port's managed `Libcurl` (filed as **BL-596**; BL-592 now depends on
+  it). Both clients and `surl` run as shipped. Client request bytes ARE compared on plaintext TCP, so BL-579
+  stays in Backlog; TLS, SSH and UDP request bytes are not. Verdicts: agreement, port defect, Surl defect,
+  not comparable; tests read the findings file's first column. Handoff file filed from by the port's own
+  `/task-plan`; Surl never writes to `Z:\repos\Curl`. Windows only (only `win-x64` port pin).
+- Requirement row is FR-057 (next free). Glossary gains "Phase 7", "port defect" and "Phase 7 finding".
+- BL-592 edited (Backlog): depends on BL-596, touches and writes `Documentation/Conformance/CurlPort/Extended.md`
+  for the extended clients' findings (ADR-0089 decision 9).
+- Default taken: no task filed for Linux/macOS port pins; ADR-0003 names the Windows 8.21.0 build as the
+  last phase's baseline, and the tests run unchanged on another platform once a pin exists.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0089 decides how Phase 7 measures the Curl port beside pinned upstream curl; FR-057 and glossary terms added, BL-596 filed

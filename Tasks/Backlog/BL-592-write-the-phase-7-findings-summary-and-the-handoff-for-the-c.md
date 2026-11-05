@@ -4,8 +4,8 @@ title: Write the Phase 7 findings summary and the handoff for the Curl port's bo
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-580, BL-581, BL-582, BL-583, BL-584, BL-585, BL-586, BL-587, BL-588, BL-589, BL-590, BL-591]
-touches: [Documentation/Conformance/CurlPort/README.md, Documentation/Conformance/CurlPort/Port-Board-Handoff.md]
+depends-on: [BL-580, BL-581, BL-582, BL-583, BL-584, BL-585, BL-586, BL-587, BL-588, BL-589, BL-590, BL-591, BL-596]
+touches: [Documentation/Conformance/CurlPort/README.md, Documentation/Conformance/CurlPort/Port-Board-Handoff.md, Documentation/Conformance/CurlPort/Extended.md]
 requirement: none
 created: 2026-11-04
 completed:
@@ -33,7 +33,7 @@ are planning names; use the ones BL-576's ADR decision 7 chose.
   specification section or upstream documentation that decides (https://curl.se/docs/manpage.html,
   https://curl.se/libcurl/c/libcurl-errors.html, curl 8.21.0). The port's `touches` and IDs are left for its
   planner to choose.
-- Sources: the per-family findings files written by BL-580 to BL-590 and `Upstream-Test-Cases.md` (BL-591).
+- Sources: the per-family findings files written by BL-580 to BL-590, `Upstream-Test-Cases.md` (BL-591) and `Libcurl.md` (BL-596). ADR-0089 decision 9 puts the extended clients' findings in `Extended.md`, which this task writes.
 - Extended clients (ADR decision 9): include each port defect that the extended track's integration tasks
   recorded in their Notes (BL-422, BL-428, BL-434, BL-440, BL-446, BL-451, BL-456, BL-462, BL-469, BL-477,
   BL-486, BL-493, BL-502, BL-508, BL-515, BL-523, BL-529, BL-534, BL-541) that are `Done` when this task
