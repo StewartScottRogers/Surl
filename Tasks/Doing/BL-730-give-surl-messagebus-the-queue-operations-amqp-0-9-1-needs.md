@@ -56,3 +56,4 @@ and deliver two priority levels, so the AMQP 0-9-1 broker (BL-506) can answer AD
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
