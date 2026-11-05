@@ -54,3 +54,4 @@ right headers, and ends a broken stream with the right stream error.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
