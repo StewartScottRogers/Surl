@@ -5,7 +5,7 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
-  BL-556 (decision 8). Follow-ups filed: BL-576 (`ftp://` forwarding, decision 3) and BL-577 (HTTP/2
+  BL-556 (decision 8). Follow-ups filed: BL-594 (`ftp://` forwarding, decision 3) and BL-595 (HTTP/2
   to the HTTPS proxy, decision 6).
 - **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3: its table gains
   decision 1's row. [ADR-0070](ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md)
@@ -121,7 +121,7 @@ Curl reads each as row 11 (forwarded: status and body, exit 0) or rows 4 and 5 (
   authority (port 80 when absent) and sends the request in origin-form (section 3.2.1): path and
   query unchanged, `Host` as the request carried it. An origin-form request to the proxy (no scheme)
   is not a proxy request: `400 Bad Request`.
-- **Schemes:** `http` is forwarded. `ftp` (row 12) is answered `501 Not Implemented` until BL-576
+- **Schemes:** `http` is forwarded. `ftp` (row 12) is answered `501 Not Implemented` until BL-594
   hand-writes the FTP client half inside this library; that is sequencing, not a refusal of the
   feature. `https` and every other scheme are answered `501`: curl always tunnels `https` with
   `CONNECT` (row 13 and the manpage's `--proxytunnel`), so no curl run sends one.
@@ -204,7 +204,7 @@ Curl reads each as row 11 (forwarded: status and body, exit 0) or rows 4 and 5 (
   listener shares. Curl trusts it with `--proxy-cacert` or skips the check with `--proxy-insecure`
   (row 13 measured `--proxy-insecure` with the Schannel reference build, exit 0).
 - **ALPN:** `http/1.1` only for now. `--proxy-http2` makes curl offer `h2` to the proxy; a proxy that
-  picks `http/1.1` is a proxy curl accepts. BL-577 serves HTTP/2 to the proxy (RFC 9113 section 8.5's
+  picks `http/1.1` is a proxy curl accepts. BL-595 serves HTTP/2 to the proxy (RFC 9113 section 8.5's
   `CONNECT`) once `Surl.Http2` exists (BL-409), and amends this decision.
 - **TLS inside a tunnel** is passed through unchanged (decision 4): an `https://` origin through the
   HTTPS proxy is TLS inside TLS, the outer layer the proxy's and the inner one the origin's.
@@ -262,8 +262,8 @@ TLS front in front of it. Surl plays the same roles:
   apart from every protocol task, as a contract change should.
 - BL-552's `touches` already names the new projects; BL-555's names `Surl.Cli` and `Surl.Console`; no
   task's `touches` changes because of this ADR.
-- Two pieces are sequenced, not dropped: `ftp://` forwarding (BL-576) and HTTP/2 to the HTTPS proxy
-  (BL-577).
+- Two pieces are sequenced, not dropped: `ftp://` forwarding (BL-594) and HTTP/2 to the HTTPS proxy
+  (BL-595).
 
 ## Alternatives considered
 

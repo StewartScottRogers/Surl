@@ -1,5 +1,5 @@
 ---
-id: BL-576
+id: BL-594
 title: Forward ftp:// absolute-form requests through the HTTP proxy
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-576 — Forward ftp:// absolute-form requests through the HTTP proxy
+# BL-594 — Forward ftp:// absolute-form requests through the HTTP proxy
 
 ## Goal
 

@@ -96,7 +96,7 @@ Decide and record:
   allowed origin; separate proxy accounts (`-U`/`--proxy-user`, `--proxy-user-file`, `--proxy-auth`);
   origin connect bounded by `--head-timeout` (no new timeout option); default proxy ports 1080 and
   443 as curl's.
-- Follow-ups filed: BL-576 (`ftp://` forwarding, `501` until then) and BL-577 (HTTP/2 to the HTTPS
+- Follow-ups filed: BL-594 (`ftp://` forwarding, `501` until then) and BL-595 (HTTP/2 to the HTTPS
   proxy for `--proxy-http2`, ALPN `http/1.1` until then).
 - ADR-0006 also amended (section 1, `--max-request-head` on the proxy); no task's `touches` changes.
 

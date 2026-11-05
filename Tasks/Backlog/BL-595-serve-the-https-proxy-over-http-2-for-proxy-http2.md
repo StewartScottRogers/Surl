@@ -1,5 +1,5 @@
 ---
-id: BL-577
+id: BL-595
 title: Serve the HTTPS proxy over HTTP/2 for --proxy-http2
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-577 — Serve the HTTPS proxy over HTTP/2 for --proxy-http2
+# BL-595 — Serve the HTTPS proxy over HTTP/2 for --proxy-http2
 
 ## Goal
 
