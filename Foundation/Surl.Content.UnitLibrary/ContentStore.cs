@@ -84,11 +84,15 @@ public sealed class ContentStore
 
     internal const string ServiceStateFolderName = ".surl";
 
-    private readonly IContentFileSystem fileSystem;
+    private readonly ContentContainer rootContainer;
+
+    private readonly Dictionary<string, (ContentShare Share, ContentContainer Container)> sharesByName = new(StringComparer.Ordinal);
+
+    private readonly Dictionary<string, ContentBucket> bucketsByName = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Creates a content store that serves <paramref name="servedRoot"/>, exposing what
-    /// <paramref name="exposureOptions"/> allow.
+    /// <paramref name="exposureOptions"/> allow, with no share and no bucket.
     /// </summary>
     /// <param name="servedRoot">The full path of the directory being served.</param>
     /// <param name="fileSystem">The seam every look at the served root goes through.</param>
@@ -97,19 +101,69 @@ public sealed class ContentStore
     /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty, or is
     /// relative to the current directory (see <see cref="ServedRoot"/>).</exception>
     public ContentStore(string servedRoot, IContentFileSystem fileSystem, ContentExposureOptions exposureOptions)
+        : this(servedRoot, fileSystem, exposureOptions, [], [])
     {
-        ArgumentException.ThrowIfNullOrEmpty(servedRoot);
-        if (!IsIndependentOfTheCurrentDirectory(servedRoot))
-        {
-            throw new ArgumentException("The served root must be a full path, not one relative to the current directory.", nameof(servedRoot));
-        }
+    }
 
+    /// <summary>
+    /// Creates a content store that serves <paramref name="servedRoot"/> and, as top-level folders
+    /// beside its own entries, <paramref name="shares"/>, and maps <paramref name="buckets"/> for
+    /// the object-storage servers (ADR-0102 decisions 2.1 and 2.4).
+    /// </summary>
+    /// <param name="servedRoot">The full path of the directory being served.</param>
+    /// <param name="fileSystem">The seam every look at the served root goes through.</param>
+    /// <param name="exposureOptions">What the store exposes and the largest upload it accepts, in
+    /// the root and in every share.</param>
+    /// <param name="shares">The named shares; empty serves the one root.</param>
+    /// <param name="buckets">The bucket names mapped onto content paths; may be empty.</param>
+    /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty or relative to
+    /// the current directory, or two shares or two buckets share a name.</exception>
+    public ContentStore(
+        string servedRoot,
+        IContentFileSystem fileSystem,
+        ContentExposureOptions exposureOptions,
+        IReadOnlyList<ContentShare> shares,
+        IReadOnlyList<ContentBucket> buckets)
+    {
+        ThrowUnlessIndependentOfTheCurrentDirectory(servedRoot, nameof(servedRoot));
         ArgumentNullException.ThrowIfNull(fileSystem);
         ArgumentNullException.ThrowIfNull(exposureOptions);
+        ArgumentNullException.ThrowIfNull(shares);
+        ArgumentNullException.ThrowIfNull(buckets);
         ServedRoot = servedRoot;
-        this.fileSystem = fileSystem;
         ExposureOptions = exposureOptions;
+        rootContainer = new ContentContainer(servedRoot, fileSystem, isReadOnly: false);
+        foreach (ContentShare share in shares)
+        {
+            ArgumentNullException.ThrowIfNull(share, nameof(shares));
+            if (!sharesByName.TryAdd(share.Name, (share, new ContentContainer(share.Path, share.FileSystem, share.IsReadOnly))))
+            {
+                throw new ArgumentException($"Two shares are named {share.Name}.", nameof(shares));
+            }
+        }
+
+        foreach (ContentBucket bucket in buckets)
+        {
+            ArgumentNullException.ThrowIfNull(bucket, nameof(buckets));
+            if (!bucketsByName.TryAdd(bucket.Name, bucket))
+            {
+                throw new ArgumentException($"Two buckets are named {bucket.Name}.", nameof(buckets));
+            }
+        }
+
+        Shares = [.. shares];
+        Buckets = [.. buckets];
     }
+
+    /// <summary>
+    /// The named shares, in the order given.
+    /// </summary>
+    public IReadOnlyList<ContentShare> Shares { get; }
+
+    /// <summary>
+    /// The bucket names mapped onto content paths, in the order given.
+    /// </summary>
+    public IReadOnlyList<ContentBucket> Buckets { get; }
 
     /// <summary>
     /// What the store exposes and the largest upload it accepts.
@@ -135,7 +189,53 @@ public sealed class ContentStore
     /// <param name="requestPath">The path component of the request, still percent-encoded.</param>
     /// <returns>The resolved location inside the root and what is there, or the refusal and
     /// its reason. A refusal is a result, never an exception.</returns>
-    public ContentPathMapping MapRequestPath(string requestPath)
+    /// <remarks>
+    /// A lookup that names no scheme sees only the shares open to every scheme; a share limited
+    /// by <see cref="ContentShare.Schemes"/> is missing to it. Bucket names are not read.
+    /// </remarks>
+    public ContentPathMapping MapRequestPath(string requestPath) =>
+        Map(requestPath, scheme: null, readsBucketNames: false);
+
+    /// <summary>
+    /// Maps a request path, made by the server for <paramref name="scheme"/>, onto a location
+    /// inside the served root or the share its first segment names, or refuses it.
+    /// </summary>
+    /// <remarks>
+    /// A first segment naming a share the scheme sees maps the rest of the path inside the share,
+    /// with every rule of the root. A first segment naming a share the scheme does not see is
+    /// answered as absent, so a peer cannot learn that the share exists, and the root entry of
+    /// that name stays unreachable (ADR-0102 decisions 2.1 and 2.3). Bucket names are not read.
+    /// </remarks>
+    /// <param name="requestPath">The path component of the request, still percent-encoded.</param>
+    /// <param name="scheme">The calling server's scheme, such as <c>ftp</c>.</param>
+    /// <returns>The resolved location and what is there, or the refusal and its reason.</returns>
+    /// <exception cref="ArgumentException"><paramref name="scheme"/> is empty.</exception>
+    public ContentPathMapping MapRequestPathForScheme(string requestPath, string scheme)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(scheme);
+        return Map(requestPath, scheme, readsBucketNames: false);
+    }
+
+    /// <summary>
+    /// Maps an object-storage request path, made by the server for <paramref name="scheme"/>,
+    /// whose first segment is a bucket: a configured bucket name is replaced by its content path,
+    /// then the path maps as <see cref="MapRequestPathForScheme(string, string)"/> maps it.
+    /// </summary>
+    /// <remarks>
+    /// A bucket name shadows a top-level folder of the same name for the object-storage servers
+    /// (ADR-0102 decision 2.4). A first segment that names no bucket maps as it is.
+    /// </remarks>
+    /// <param name="requestPath">The path component of the request, still percent-encoded.</param>
+    /// <param name="scheme">The calling server's scheme, such as <c>s3</c>.</param>
+    /// <returns>The resolved location and what is there, or the refusal and its reason.</returns>
+    /// <exception cref="ArgumentException"><paramref name="scheme"/> is empty.</exception>
+    public ContentPathMapping MapBucketRequestPath(string requestPath, string scheme)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(scheme);
+        return Map(requestPath, scheme, readsBucketNames: true);
+    }
+
+    private ContentPathMapping Map(string requestPath, string? scheme, bool readsBucketNames)
     {
         ArgumentNullException.ThrowIfNull(requestPath);
         ContentPathRefusal refusal = RequestPathSegments.Split(requestPath, out string[] segments);
@@ -144,8 +244,27 @@ public sealed class ContentStore
             return ContentPathMapping.Refused(refusal);
         }
 
-        string resolvedRoot = fileSystem.ResolveFinalPath(ServedRoot);
-        string resolved = fileSystem.ResolveFinalPath(Path.Join([ServedRoot, .. segments]));
+        if (readsBucketNames && segments.Length > 0 && bucketsByName.TryGetValue(segments[0], out ContentBucket? bucket))
+        {
+            segments = [.. bucket.ContentPathSegments, .. segments[1..]];
+        }
+
+        bool namesADirectory = requestPath.EndsWith('/');
+        if (segments.Length == 0 || !sharesByName.TryGetValue(segments[0], out var named))
+        {
+            return MapInside(rootContainer, segments, namesADirectory, scheme);
+        }
+
+        return named.Share.IsVisibleTo(scheme)
+            ? MapInside(named.Container, segments[1..], namesADirectory, scheme)
+            : ContentPathMapping.AnsweredAsAbsent(Path.Join([rootContainer.ResolvedRoot, .. segments]), rootContainer, scheme);
+    }
+
+    private ContentPathMapping MapInside(ContentContainer container, string[] segments, bool namesADirectory, string? scheme)
+    {
+        IContentFileSystem fileSystem = container.FileSystem;
+        string resolvedRoot = container.ResolvedRoot;
+        string resolved = fileSystem.ResolveFinalPath(Path.Join([container.Root, .. segments]));
         if (!IsInsideOrAt(resolved, resolvedRoot))
         {
             return ContentPathMapping.Refused(ContentPathRefusal.ResolvesOutsideRoot);
@@ -155,14 +274,15 @@ public sealed class ContentStore
         if (IsInServiceStateFolder(resolved, unresolved, resolvedRoot)
             || IsHiddenByExposureOptions(segments, resolved, unresolved))
         {
-            return ContentPathMapping.AnsweredAsAbsent(unresolved);
+            return ContentPathMapping.AnsweredAsAbsent(unresolved, container, scheme);
         }
 
-        bool namesADirectory = requestPath.EndsWith('/');
         return ContentPathMapping.Mapped(
             resolved,
             EntryKindAnswering(namesADirectory, fileSystem.GetEntryKind(resolved)),
-            namesADirectory);
+            namesADirectory,
+            container,
+            scheme);
     }
 
     /// <summary>
@@ -192,6 +312,7 @@ public sealed class ContentStore
             return null;
         }
 
+        IContentFileSystem fileSystem = FileSystemOf(mapping);
         return new ContentFileStatus(
             fileSystem.GetFileLength(location),
             fileSystem.GetLastWriteTimeUtc(location).ToUniversalTime());
@@ -209,6 +330,7 @@ public sealed class ContentStore
     public ContentEntryStatus? GetEntryStatus(ContentPathMapping mapping)
     {
         string location = RequireLocation(mapping);
+        IContentFileSystem fileSystem = FileSystemOf(mapping);
         return CurrentEntryKind(mapping, location) switch
         {
             ContentEntryKind.File => new ContentEntryStatus(
@@ -266,7 +388,7 @@ public sealed class ContentStore
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        await using Stream source = fileSystem.OpenFileForAsyncRead(location);
+        await using Stream source = FileSystemOf(mapping).OpenFileForAsyncRead(location);
         source.Position = range.FirstByte;
         return await CopyAtMostAsync(source, destination, range.ByteCount, cancellationToken);
     }
@@ -357,20 +479,44 @@ public sealed class ContentStore
             return ContentDirectoryListing.NotADirectory(locationKind);
         }
 
-        string resolvedRoot = fileSystem.ResolveFinalPath(ServedRoot);
+        ContentContainer container = mapping.Container!;
+        string resolvedRoot = container.ResolvedRoot;
         var entries = new List<ContentDirectoryEntry>();
-        foreach (string name in fileSystem.EnumerateDirectoryEntryNames(location))
+        foreach (string name in container.FileSystem.EnumerateDirectoryEntryNames(location))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ContentDirectoryEntry? entry = DescribeDirectoryEntry(location, name, resolvedRoot);
+            ContentDirectoryEntry? entry = DescribeDirectoryEntry(container.FileSystem, location, name, resolvedRoot);
             if (entry is not null)
             {
                 entries.Add(entry);
             }
         }
 
+        if (container == rootContainer && IsSamePath(location, resolvedRoot))
+        {
+            ListSharesInPlaceOfTheirNamesakes(entries, mapping.Scheme);
+        }
+
         entries.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
         return ContentDirectoryListing.Listed(entries);
+    }
+
+    // ADR-0102 decision 2.1: a share shadows the root entry of its name for every scheme, and the
+    // root's listing shows each share the scheme sees as a directory beside the root's own entries.
+    private void ListSharesInPlaceOfTheirNamesakes(List<ContentDirectoryEntry> entries, string? scheme)
+    {
+        entries.RemoveAll(entry => sharesByName.ContainsKey(entry.Name));
+        foreach ((ContentShare share, ContentContainer container) in sharesByName.Values)
+        {
+            if (share.IsVisibleTo(scheme) && container.FileSystem.GetEntryKind(container.Root) == ContentEntryKind.Directory)
+            {
+                entries.Add(new ContentDirectoryEntry(
+                    share.Name,
+                    ContentEntryKind.Directory,
+                    null,
+                    container.FileSystem.GetLastWriteTimeUtc(container.Root).ToUniversalTime()));
+            }
+        }
     }
 
     /// <summary>
@@ -415,7 +561,7 @@ public sealed class ContentStore
             return ContentUploadResult.NotPermitted;
         }
 
-        return await WriteThroughTemporaryFileAsync(location, source, appending: false, cancellationToken);
+        return await WriteThroughTemporaryFileAsync(FileSystemOf(mapping), location, source, appending: false, cancellationToken);
     }
 
     /// <summary>
@@ -455,7 +601,7 @@ public sealed class ContentStore
             return ContentUploadResult.NotPermitted;
         }
 
-        return await WriteThroughTemporaryFileAsync(location, source, appending: true, cancellationToken);
+        return await WriteThroughTemporaryFileAsync(FileSystemOf(mapping), location, source, appending: true, cancellationToken);
     }
 
     /// <summary>
@@ -498,6 +644,7 @@ public sealed class ContentStore
         string location = RequireLocation(mapping);
         ArgumentNullException.ThrowIfNull(opening);
         cancellationToken.ThrowIfCancellationRequested();
+        IContentFileSystem fileSystem = FileSystemOf(mapping);
         ContentEntryKind kind = mapping.IsAnsweredAsAbsent ? ContentEntryKind.None : fileSystem.GetEntryKind(location);
         ContentUploadOpeningResult result = UploadOpeningResult(mapping, location, kind, opening);
         if (result != ContentUploadOpeningResult.Opened)
@@ -506,7 +653,7 @@ public sealed class ContentStore
         }
 
         bool copiesTheTarget = opening.StartsFromExistingBytes && kind == ContentEntryKind.File;
-        return new ContentUploadOpeningOutcome(result, await StartUploadSessionAsync(location, copiesTheTarget, cancellationToken));
+        return new ContentUploadOpeningOutcome(result, await StartUploadSessionAsync(fileSystem, location, copiesTheTarget, cancellationToken));
     }
 
     /// <summary>
@@ -527,7 +674,7 @@ public sealed class ContentStore
     public ContentChangeResult DeleteFile(ContentPathMapping mapping)
     {
         string location = RequireLocation(mapping);
-        if (!ExposureOptions.AllowUploads)
+        if (!PermitsWrites(mapping))
         {
             return ContentChangeResult.NotPermitted;
         }
@@ -537,7 +684,7 @@ public sealed class ContentStore
             return ContentChangeResult.Absent;
         }
 
-        fileSystem.DeleteFile(location);
+        FileSystemOf(mapping).DeleteFile(location);
         return ContentChangeResult.Done;
     }
 
@@ -616,7 +763,7 @@ public sealed class ContentStore
     public ContentChangeResult SetLastWriteTime(ContentPathMapping mapping, DateTimeOffset lastWriteTime)
     {
         string location = RequireLocation(mapping);
-        if (!ExposureOptions.AllowUploads)
+        if (!PermitsWrites(mapping))
         {
             return ContentChangeResult.NotPermitted;
         }
@@ -626,7 +773,7 @@ public sealed class ContentStore
             return ContentChangeResult.Absent;
         }
 
-        fileSystem.SetLastWriteTimeUtc(location, lastWriteTime.ToUniversalTime());
+        FileSystemOf(mapping).SetLastWriteTimeUtc(location, lastWriteTime.ToUniversalTime());
         return ContentChangeResult.Done;
     }
 
@@ -647,17 +794,18 @@ public sealed class ContentStore
     public ContentChangeResult CreateDirectory(ContentPathMapping mapping)
     {
         string location = RequireLocation(mapping);
-        if (!ExposureOptions.AllowUploads || mapping.IsAnsweredAsAbsent)
+        if (!PermitsWrites(mapping) || mapping.IsAnsweredAsAbsent)
         {
             return ContentChangeResult.NotPermitted;
         }
 
+        IContentFileSystem fileSystem = FileSystemOf(mapping);
         if (fileSystem.GetEntryKind(location) != ContentEntryKind.None)
         {
             return ContentChangeResult.Exists;
         }
 
-        if (!IsDirectlyInsideADirectory(location))
+        if (!IsDirectlyInsideADirectory(fileSystem, location))
         {
             return ContentChangeResult.NoSuchDirectory;
         }
@@ -683,7 +831,7 @@ public sealed class ContentStore
     public ContentChangeResult RemoveEmptyDirectory(ContentPathMapping mapping)
     {
         string location = RequireLocation(mapping);
-        if (!ExposureOptions.AllowUploads || IsServedRoot(location))
+        if (!PermitsWrites(mapping) || IsContainerRoot(mapping, location))
         {
             return ContentChangeResult.NotPermitted;
         }
@@ -693,6 +841,7 @@ public sealed class ContentStore
             return ContentChangeResult.Absent;
         }
 
+        IContentFileSystem fileSystem = FileSystemOf(mapping);
         if (fileSystem.EnumerateDirectoryEntryNames(location).Any())
         {
             return ContentChangeResult.NotEmpty;
@@ -706,7 +855,7 @@ public sealed class ContentStore
     {
         string from = RequireLocation(source);
         string to = RequireLocation(destination);
-        if (!ExposureOptions.AllowUploads)
+        if (!PermitsWrites(source) || !PermitsWrites(destination))
         {
             return ContentChangeResult.NotPermitted;
         }
@@ -717,24 +866,27 @@ public sealed class ContentStore
             return ContentChangeResult.Absent;
         }
 
-        ContentChangeResult refusal = RenameRefusal(sourceKind, from, destination, to, replacingAFile);
+        ContentChangeResult refusal = RenameRefusal(sourceKind, source, from, destination, to, replacingAFile);
         if (refusal != ContentChangeResult.Done || IsSamePath(from, to))
         {
             return refusal;
         }
 
-        MoveEntry(sourceKind, from, to, replacingAFile);
+        MoveEntry(FileSystemOf(source), sourceKind, from, to, replacingAFile);
         return ContentChangeResult.Done;
     }
 
     // Done means nothing refuses the rename.
-    private ContentChangeResult RenameRefusal(ContentEntryKind sourceKind, string from, ContentPathMapping destination, string to, bool replacingAFile)
+    // A rename never crosses from one share, or the root, into another: each may sit on its own
+    // file system, and each is governed by its own rules (ADR-0102 decision 2.1).
+    private static ContentChangeResult RenameRefusal(ContentEntryKind sourceKind, ContentPathMapping source, string from, ContentPathMapping destination, string to, bool replacingAFile)
     {
-        bool isForbidden = IsServedRoot(from)
-            || IsServedRoot(to)
+        bool isForbidden = source.Container != destination.Container
+            || IsContainerRoot(source, from)
+            || IsContainerRoot(destination, to)
             || destination.IsAnsweredAsAbsent
             || IsForbiddenDestinationFor(sourceKind, from, destination, to);
-        return isForbidden ? ContentChangeResult.NotPermitted : RenameDestinationRefusal(sourceKind, from, to, replacingAFile);
+        return isForbidden ? ContentChangeResult.NotPermitted : RenameDestinationRefusal(FileSystemOf(source), sourceKind, from, to, replacingAFile);
     }
 
     // A file cannot take a name that ends in '/', and a directory cannot move inside itself.
@@ -744,14 +896,14 @@ public sealed class ContentStore
             : !IsSamePath(from, to) && IsInsideOrAt(to, from);
 
     // Only a rename that replaces a file lets a file stand at the destination, itself included.
-    private ContentChangeResult RenameDestinationRefusal(ContentEntryKind sourceKind, string from, string to, bool replacingAFile)
+    private static ContentChangeResult RenameDestinationRefusal(IContentFileSystem fileSystem, ContentEntryKind sourceKind, string from, string to, bool replacingAFile)
     {
         if (IsSamePath(from, to))
         {
             return replacingAFile ? ContentChangeResult.Done : ContentChangeResult.Exists;
         }
 
-        if (!IsDirectlyInsideADirectory(to))
+        if (!IsDirectlyInsideADirectory(fileSystem, to))
         {
             return ContentChangeResult.NoSuchDirectory;
         }
@@ -764,7 +916,7 @@ public sealed class ContentStore
         destinationKind == ContentEntryKind.Directory
         || (destinationKind == ContentEntryKind.File && !replacingAFile);
 
-    private void MoveEntry(ContentEntryKind sourceKind, string from, string to, bool replacingAFile)
+    private static void MoveEntry(IContentFileSystem fileSystem, ContentEntryKind sourceKind, string from, string to, bool replacingAFile)
     {
         if (sourceKind == ContentEntryKind.Directory)
         {
@@ -780,19 +932,24 @@ public sealed class ContentStore
         }
     }
 
-    private bool IsServedRoot(string location) =>
-        IsSamePath(location, fileSystem.ResolveFinalPath(ServedRoot));
+    private static bool IsContainerRoot(ContentPathMapping mapping, string location) =>
+        IsSamePath(location, mapping.Container!.ResolvedRoot);
 
-    private bool IsDirectlyInsideADirectory(string location) =>
+    private bool PermitsWrites(ContentPathMapping mapping) =>
+        ExposureOptions.AllowUploads && !mapping.Container!.IsReadOnly;
+
+    private static IContentFileSystem FileSystemOf(ContentPathMapping mapping) => mapping.Container!.FileSystem;
+
+    private static bool IsDirectlyInsideADirectory(IContentFileSystem fileSystem, string location) =>
         !IsSamePath(ParentDirectoryOf(location), location)
         && fileSystem.GetEntryKind(ParentDirectoryOf(location)) == ContentEntryKind.Directory;
 
-    private async Task<ContentUploadResult> WriteThroughTemporaryFileAsync(string location, Stream source, bool appending, CancellationToken cancellationToken)
+    private async Task<ContentUploadResult> WriteThroughTemporaryFileAsync(IContentFileSystem fileSystem, string location, Stream source, bool appending, CancellationToken cancellationToken)
     {
         string temporaryLocation = TemporaryUploadLocationBeside(location);
         try
         {
-            if (!await WriteWithinUploadLimitAsync(temporaryLocation, location, appending, source, cancellationToken))
+            if (!await WriteWithinUploadLimitAsync(fileSystem, temporaryLocation, location, appending, source, cancellationToken))
             {
                 fileSystem.DeleteFile(temporaryLocation);
                 return ContentUploadResult.TooLarge;
@@ -810,7 +967,7 @@ public sealed class ContentStore
 
     private ContentUploadOpeningResult UploadOpeningResult(ContentPathMapping mapping, string location, ContentEntryKind kind, ContentUploadOpening opening)
     {
-        if (!ExposureOptions.AllowUploads)
+        if (!PermitsWrites(mapping))
         {
             return ContentUploadOpeningResult.NotPermitted;
         }
@@ -820,7 +977,7 @@ public sealed class ContentStore
             return ContentUploadOpeningResult.IsADirectory;
         }
 
-        if (!IsDirectlyInsideADirectory(location))
+        if (!IsDirectlyInsideADirectory(FileSystemOf(mapping), location))
         {
             return ContentUploadOpeningResult.NoSuchDirectory;
         }
@@ -835,7 +992,7 @@ public sealed class ContentStore
             ? (opening.RefusesExistingFile ? ContentUploadOpeningResult.Exists : ContentUploadOpeningResult.Opened)
             : (opening.CreatesMissingFile ? ContentUploadOpeningResult.Opened : ContentUploadOpeningResult.Absent);
 
-    private async Task<ContentUploadSession> StartUploadSessionAsync(string location, bool copiesTheTarget, CancellationToken cancellationToken)
+    private async Task<ContentUploadSession> StartUploadSessionAsync(IContentFileSystem fileSystem, string location, bool copiesTheTarget, CancellationToken cancellationToken)
     {
         string temporaryLocation = TemporaryUploadLocationBeside(location);
         Stream temporaryFile = fileSystem.OpenFileForAsyncReadWrite(temporaryLocation);
@@ -843,7 +1000,7 @@ public sealed class ContentStore
         {
             if (copiesTheTarget)
             {
-                await CopyExistingFileAsync(location, temporaryFile, cancellationToken);
+                await CopyExistingFileAsync(fileSystem, location, temporaryFile, cancellationToken);
             }
 
             return new ContentUploadSession(fileSystem, temporaryLocation, location, temporaryFile, ExposureOptions.MaxUploadBytes);
@@ -856,16 +1013,16 @@ public sealed class ContentStore
         }
     }
 
-    private async Task<bool> WriteWithinUploadLimitAsync(string temporaryLocation, string location, bool appending, Stream source, CancellationToken cancellationToken)
+    private async Task<bool> WriteWithinUploadLimitAsync(IContentFileSystem fileSystem, string temporaryLocation, string location, bool appending, Stream source, CancellationToken cancellationToken)
     {
         await using Stream destination = fileSystem.CreateFileForAsyncWrite(temporaryLocation);
         long existingLength = appending && fileSystem.GetEntryKind(location) == ContentEntryKind.File
-            ? await CopyExistingFileAsync(location, destination, cancellationToken)
+            ? await CopyExistingFileAsync(fileSystem, location, destination, cancellationToken)
             : 0;
         return await CopyWithinUploadLimitAsync(source, destination, existingLength, cancellationToken);
     }
 
-    private async Task<long> CopyExistingFileAsync(string location, Stream destination, CancellationToken cancellationToken)
+    private static async Task<long> CopyExistingFileAsync(IContentFileSystem fileSystem, string location, Stream destination, CancellationToken cancellationToken)
     {
         await using Stream existing = fileSystem.OpenFileForAsyncRead(location);
         return await CopyAtMostAsync(existing, destination, long.MaxValue, cancellationToken);
@@ -878,11 +1035,11 @@ public sealed class ContentStore
         Path.Join(ParentDirectoryOf(location), $".surl-upload-{Guid.NewGuid():N}");
 
     private bool IsUploadPermitted(ContentPathMapping mapping, string location) =>
-        ExposureOptions.AllowUploads
+        PermitsWrites(mapping)
         && !mapping.IsAnsweredAsAbsent
         && !mapping.NamesADirectory
-        && fileSystem.GetEntryKind(location) != ContentEntryKind.Directory
-        && fileSystem.GetEntryKind(ParentDirectoryOf(location)) == ContentEntryKind.Directory;
+        && FileSystemOf(mapping).GetEntryKind(location) != ContentEntryKind.Directory
+        && FileSystemOf(mapping).GetEntryKind(ParentDirectoryOf(location)) == ContentEntryKind.Directory;
 
     // The span overload of GetDirectoryName keeps the path spelled as the seam spelled it; the
     // string overload rewrites every separator on Windows, and the seam compares ordinally.
@@ -925,7 +1082,7 @@ public sealed class ContentStore
     private ContentEntryKind CurrentEntryKind(ContentPathMapping mapping, string location) =>
         mapping.IsAnsweredAsAbsent
             ? ContentEntryKind.None
-            : EntryKindAnswering(mapping.NamesADirectory, fileSystem.GetEntryKind(location));
+            : EntryKindAnswering(mapping.NamesADirectory, FileSystemOf(mapping).GetEntryKind(location));
 
     // A request path that ends in '/' names a directory, so a file there answers it as nothing,
     // as a POSIX file system answers "file.txt/" with ENOTDIR (ADR-0018).
@@ -962,7 +1119,7 @@ public sealed class ContentStore
     private static bool IsSamePath(string left, string right) =>
         string.Equals(Path.TrimEndingDirectorySeparator(left), Path.TrimEndingDirectorySeparator(right), StringComparison.Ordinal);
 
-    private ContentDirectoryEntry? DescribeDirectoryEntry(string directory, string name, string resolvedRoot)
+    private ContentDirectoryEntry? DescribeDirectoryEntry(IContentFileSystem fileSystem, string directory, string name, string resolvedRoot)
     {
         if (RequestPathSegments.CheckSegment(name) != ContentPathRefusal.None)
         {
@@ -971,7 +1128,7 @@ public sealed class ContentStore
 
         string unresolved = Path.Join(directory, name);
         string resolved = fileSystem.ResolveFinalPath(unresolved);
-        return IsEntryListed(name, resolved, unresolved, resolvedRoot) ? DescribeListedEntry(name, resolved) : null;
+        return IsEntryListed(name, resolved, unresolved, resolvedRoot) ? DescribeListedEntry(fileSystem, name, resolved) : null;
     }
 
     private bool IsEntryListed(string name, string resolved, string unresolved, string resolvedRoot) =>
@@ -979,7 +1136,7 @@ public sealed class ContentStore
         && !IsInServiceStateFolder(resolved, unresolved, resolvedRoot)
         && !IsEntryHiddenByExposureOptions(name, resolved, unresolved);
 
-    private ContentDirectoryEntry? DescribeListedEntry(string name, string resolved)
+    private static ContentDirectoryEntry? DescribeListedEntry(IContentFileSystem fileSystem, string name, string resolved)
     {
         return fileSystem.GetEntryKind(resolved) switch
         {
@@ -1024,10 +1181,30 @@ public sealed class ContentStore
         return mapping.Location ?? throw new ArgumentException("The request path was refused, so it has no location.", nameof(mapping));
     }
 
-    private static bool IsIndependentOfTheCurrentDirectory(string servedRoot) =>
-        Path.IsPathFullyQualified(servedRoot)
-        || servedRoot[0] == Path.DirectorySeparatorChar
-        || servedRoot[0] == Path.AltDirectorySeparatorChar;
+    // ADR-0018: a full path, or one that starts with a directory separator; never one whose
+    // meaning depends on the current directory.
+    internal static void ThrowUnlessIndependentOfTheCurrentDirectory(string path, string parameterName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path, parameterName);
+        if (!(Path.IsPathFullyQualified(path)
+            || path[0] == Path.DirectorySeparatorChar
+            || path[0] == Path.AltDirectorySeparatorChar))
+        {
+            throw new ArgumentException("The path must be a full path, not one relative to the current directory.", parameterName);
+        }
+    }
+
+    // ADR-0102 decision 2.1: a share or bucket name is one segment a request path may hold, and
+    // never the service-state folder.
+    internal static void ThrowUnlessTopLevelFolderName(string name, string parameterName)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name, parameterName);
+        if (RequestPathSegments.CheckSegment(name) != ContentPathRefusal.None
+            || string.Equals(name, ServiceStateFolderName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"{name} is not a valid folder name.", parameterName);
+        }
+    }
 
     private static bool IsInsideOrAt(string path, string root)
     {

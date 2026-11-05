@@ -40,6 +40,22 @@ The match is case-insensitive on every platform and whole-segment only: `.surlx`
 `.surl-upload-<guid>` and `sub/.surl` are ordinary dot-files. Never weaken this rule; the
 rule holds in memory too, so an upload can never create a `.surl`.
 
+Named shares and buckets (ADR-0102 decisions 2.1 and 2.4, built by BL-655) arrive through
+`ContentStore`'s five-argument constructor as `ContentShare` (name, full path, its own
+`IContentFileSystem`, `IsReadOnly`, `Schemes`; null is every scheme) and `ContentBucket`
+(name, content path). A first request segment naming a share maps the rest inside the share,
+under every rule of the root (exposure options, segment refusals, no escape through a link,
+`.surl` hidden); the share shadows the root entry of its name for every scheme. A lookup
+names its scheme with `MapRequestPathForScheme`; a share the scheme does not see, and any
+share with `Schemes` set to a lookup through `MapRequestPath` (no scheme), is answered as
+absent. A `readonly` share makes every write `NotPermitted`; a rename never crosses between
+the root and a share or between two shares (`NotPermitted`), and a share's own directory can be
+neither renamed nor removed. The root's listing shows each share the scheme sees whose
+directory exists. Only `MapBucketRequestPath` reads bucket names, replacing a first segment
+that names a bucket with its content path. Overlap between shares and `--directory` is
+checked at start by the composition, not here. Each mapping carries its container (internal
+`ContentContainer`), so every operation reaches the right file system.
+
 `ObjectMetadataIndex` keeps what a file system cannot hold for the object-storage servers
 (S3, Azure Storage, Cloud Storage, the OCI registry; ADR-0100 decision 2.3, built by BL-636):
 the five header fields set at upload, user metadata, the ETag and GCS's generation, keyed by

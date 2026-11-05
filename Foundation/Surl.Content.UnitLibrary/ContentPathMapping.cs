@@ -20,8 +20,12 @@ public sealed class ContentPathMapping
         ContentEntryKind entryKind,
         ContentPathRefusal refusal,
         bool isAnsweredAsAbsent,
-        bool namesADirectory)
+        bool namesADirectory,
+        ContentContainer? container,
+        string? scheme)
     {
+        Container = container;
+        Scheme = scheme;
         Location = location;
         EntryKind = entryKind;
         Refusal = refusal;
@@ -65,12 +69,23 @@ public sealed class ContentPathMapping
     /// </summary>
     internal bool NamesADirectory { get; }
 
-    internal static ContentPathMapping Mapped(string location, ContentEntryKind entryKind, bool namesADirectory) =>
-        new(location, entryKind, ContentPathRefusal.None, isAnsweredAsAbsent: false, namesADirectory);
+    /// <summary>
+    /// The served root or the share the location lies in; <see langword="null"/> when the request
+    /// path was refused.
+    /// </summary>
+    internal ContentContainer? Container { get; }
 
-    internal static ContentPathMapping AnsweredAsAbsent(string location) =>
-        new(location, ContentEntryKind.None, ContentPathRefusal.None, isAnsweredAsAbsent: true, namesADirectory: false);
+    /// <summary>
+    /// The scheme the lookup was made for; <see langword="null"/> when it named none.
+    /// </summary>
+    internal string? Scheme { get; }
+
+    internal static ContentPathMapping Mapped(string location, ContentEntryKind entryKind, bool namesADirectory, ContentContainer container, string? scheme) =>
+        new(location, entryKind, ContentPathRefusal.None, isAnsweredAsAbsent: false, namesADirectory, container, scheme);
+
+    internal static ContentPathMapping AnsweredAsAbsent(string location, ContentContainer container, string? scheme) =>
+        new(location, ContentEntryKind.None, ContentPathRefusal.None, isAnsweredAsAbsent: true, namesADirectory: false, container, scheme);
 
     internal static ContentPathMapping Refused(ContentPathRefusal refusal) =>
-        new(null, ContentEntryKind.None, refusal, isAnsweredAsAbsent: false, namesADirectory: false);
+        new(null, ContentEntryKind.None, refusal, isAnsweredAsAbsent: false, namesADirectory: false, container: null, scheme: null);
 }
