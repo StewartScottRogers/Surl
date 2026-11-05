@@ -37,8 +37,9 @@ public sealed record AuthenticationSettings(
     /// and <see cref="AuthorizedKeys"/> without the keys of the accounts that view leaves out, so
     /// every login method - password, SASL, Digest, NTLM, Kerberos's account check, SSH public
     /// keys - refuses an account restricted to other schemes exactly as it refuses no such
-    /// account. When every account may log in on the scheme it is these settings themselves.
-    /// An <see cref="AuthenticationPolicy"/> and the HTTP methods built over the view's
+    /// account. The view reads the same changing accounts, so an account added or removed while
+    /// the server runs is judged through it at once (ADR-0131); the authorized keys are configured
+    /// at start and do not change with the accounts. An <see cref="AuthenticationPolicy"/> and the HTTP methods built over the view's
     /// <see cref="Accounts"/> judge that server's logins.
     /// </summary>
     /// <param name="scheme">The scheme the server answers, compared without regard to case.</param>
@@ -48,8 +49,10 @@ public sealed record AuthenticationSettings(
     {
         var refused = Accounts.NamesRefusedOn(scheme);
 
-        return refused.Count == 0
-            ? this
-            : this with { Accounts = Accounts.ForScheme(scheme), AuthorizedKeys = AuthorizedKeys.Without(refused) };
+        return this with
+        {
+            Accounts = Accounts.ForScheme(scheme),
+            AuthorizedKeys = refused.Count == 0 ? AuthorizedKeys : AuthorizedKeys.Without(refused),
+        };
     }
 }

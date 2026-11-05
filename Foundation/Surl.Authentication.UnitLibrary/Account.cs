@@ -37,8 +37,18 @@ public sealed record Account(string UserName, string Password)
     {
         ArgumentNullException.ThrowIfNull(scheme);
 
-        return Schemes is null || Schemes.Any(named => AreTlsTwinsOrEqual(named, scheme));
+        return SchemesAdmit(Schemes, scheme);
     }
+
+    /// <summary>
+    /// Whether an account restricted to <paramref name="schemes"/> may log in on
+    /// <paramref name="scheme"/>, as <see cref="MayLogInOn"/> decides.
+    /// </summary>
+    /// <param name="schemes">The account's schemes; <see langword="null"/> for every scheme.</param>
+    /// <param name="scheme">The scheme a server answers.</param>
+    /// <returns><see langword="true"/> when it may.</returns>
+    internal static bool SchemesAdmit(IReadOnlySet<string>? schemes, string scheme) =>
+        schemes is null || schemes.Any(named => AreTlsTwinsOrEqual(named, scheme));
 
     /// <summary>
     /// Names the account without its password, so no log or exception text can hold one.

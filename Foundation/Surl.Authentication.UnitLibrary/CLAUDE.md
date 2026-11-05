@@ -419,3 +419,18 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `HttpAuthenticationSession` with each method's wrong-credential `Refusal`; `SaslMechanismExchange` at the
   step that accepted, through `RefuseByFaultAsync`, which `BearerTokenSaslExchange` and `ScramSaslExchange`
   override). The tests are `LoginJudgementPolicyTests`, with `SpendingFaultPlan` spending `times`.
+
+## Accounts changed at run time (BL-802, ADR-0131)
+
+- `AccountBook` reads an internal `AccountStore`: an unchanging `AccountSet` (every lookup a login makes,
+  built from `DerivedAccount`s and their `NamedAccountCredentials`) swapped whole under a lock, so a login in
+  flight reads the set before or after a change, never a half-written one. `Add` (derives every credential as
+  at start; a name that exists throws `ArgumentException`), `Remove` (`false` for no such name), `Reset` (the
+  accounts the book was built with), `TakeSnapshot` and `Restore` (an `AccountSnapshot` of another book throws
+  `ArgumentException`). A snapshot holds hashes and derived credentials, never `Account.Password`.
+- `ForScheme` always returns a live view over the same store (filtered again only when the set changes), and
+  `AuthenticationSettings.ForScheme` always uses it, so a change reaches every scheme's logins at once. A
+  view's changes act on the book it came from. Authorized keys do not change with the accounts.
+- The `AccountBook(accounts, events)` constructor publishes `StoreChangedEvent` (`Accounts`): `AccountAdded`
+  and `AccountRemoved` with the user name, `Reset` and `Restored` with an empty name, under the change lock;
+  never a secret. Tests: `AccountBookTests.Changes.cs`, and the live-view cases in `SchemeAccountViewTests`.

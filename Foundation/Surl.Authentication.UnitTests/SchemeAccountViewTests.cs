@@ -112,20 +112,51 @@ public sealed class SchemeAccountViewTests
     }
 
     [TestMethod]
-    public void ForScheme_EveryAccountUnrestricted_IsTheSameBookAndSettings()
+    public void ForScheme_EveryAccountUnrestricted_KeepsEveryAccountAndKey()
     {
         var settings = Settings(Alice, new Account(string.Empty, "tok"));
 
-        Assert.AreSame(settings, settings.ForScheme("smtp"));
-        Assert.AreSame(settings.Accounts, settings.Accounts.ForScheme("smtp"));
+        var view = settings.ForScheme("smtp");
+
+        CollectionAssert.AreEqual(settings.Accounts.UserNames.ToArray(), view.Accounts.UserNames.ToArray());
+        Assert.AreSame(settings.AuthorizedKeys, view.AuthorizedKeys);
     }
 
     [TestMethod]
-    public void ForScheme_ASchemeTheRestrictedAccountNames_IsTheSameSettings()
+    public void ForScheme_ASchemeTheRestrictedAccountNames_KeepsEveryAccountAndKey()
     {
         var settings = Settings(Alice, Bob);
 
-        Assert.AreSame(settings, settings.ForScheme("imaps"));
+        var view = settings.ForScheme("imaps");
+
+        CollectionAssert.AreEqual(new[] { "alice", "bob" }, view.Accounts.UserNames.ToArray());
+        Assert.AreSame(settings.AuthorizedKeys, view.AuthorizedKeys);
+    }
+
+    [TestMethod]
+    public void ForScheme_AnAccountRestrictedToAnotherSchemeAddedLater_IsLeftOutOfAnEarlierView()
+    {
+        var book = new AccountBook([Alice]);
+        var httpView = book.ForScheme("http");
+        var imapView = book.ForScheme("imap");
+
+        book.Add(Bob);
+
+        CollectionAssert.AreEqual(new[] { "alice" }, httpView.UserNames.ToArray());
+        CollectionAssert.AreEqual(new[] { "alice", "bob" }, imapView.UserNames.ToArray());
+        Assert.IsFalse(httpView.CheckPassword("bob", Encoding.UTF8.GetBytes("hunter2")));
+        Assert.IsTrue(imapView.CheckPassword("bob", Encoding.UTF8.GetBytes("hunter2")));
+    }
+
+    [TestMethod]
+    public void ForScheme_OfAView_AdmitsOnlyWhatBothSchemesAdmit()
+    {
+        var carol = new Account("carol", "pw") { Schemes = Schemes("pop3") };
+        var book = new AccountBook([Alice, Bob, carol]);
+
+        var view = book.ForScheme("imap").ForScheme("pop3");
+
+        CollectionAssert.AreEqual(new[] { "alice", "bob" }, view.UserNames.ToArray());
     }
 
     [TestMethod]
@@ -237,7 +268,7 @@ public sealed class SchemeAccountViewTests
         Assert.AreSame(full.FindDigestAccount("alice"), view.FindDigestAccount("alice"));
         Assert.AreSame(full.FindScramCredentials(ScramHash.Sha256, "alice"), view.FindScramCredentials(ScramHash.Sha256, "alice"));
         Assert.IsTrue(view.HasNamedAccount("alice"));
-        Assert.IsTrue(view.ForScheme("smtp") == view);
+        CollectionAssert.AreEqual(view.UserNames.ToArray(), view.ForScheme("smtp").UserNames.ToArray());
     }
 
     [TestMethod]

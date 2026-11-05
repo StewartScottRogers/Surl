@@ -3,7 +3,7 @@ using System.Text;
 namespace Surl.Authentication;
 
 [TestClass]
-public sealed class AccountBookTests
+public sealed partial class AccountBookTests
 {
     private static readonly Account Alice = new("alice", "secret");
     private static readonly Account BearerToken = new(string.Empty, "tok");
