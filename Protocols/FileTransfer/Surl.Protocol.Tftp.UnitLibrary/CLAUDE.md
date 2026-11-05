@@ -34,5 +34,12 @@ here. The server receives its transport from the listener seam in
 `Surl.Protocol.Abstractions`, so the tests in the matching `.UnitTests` project can drive
 it with datagrams measured from pinned upstream curl, with no network.
 
+The server half of upstream curl's test cases (ADR-0080 decision 2, BL-396), never composed by
+the shipped `surl`: `TftpUpstreamTestCaseServer` logs each request in runtests' `opcode = 1` form
+in `TftpUpstreamTestCaseReplies`, then answers it with `TftpProtocolServer` over an in-memory
+content store of its own holding the case's `<data>`/`<dataNUM>` for the requested name; a write
+is allowed only to a name carrying a case number, and its upload is kept. `writedelay:` wraps the
+flow in `WriteDelayingDatagramFlow`.
+
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
