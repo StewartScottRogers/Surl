@@ -62,12 +62,12 @@ What was built, by ADR-0082 decision 6:
   bound TCP and UDP on one port and wrote both lines. Upstream curl against it is BL-385's job.
 
 Decisions (Decided by Claude under Stewart's delegation; to be written into ADR-0082 as
-Amendment 2 by BL-735, because BL-417 holds `Documentation/Planning/Decisions` and rule 3 forbids
+Amendment 2 by BL-739, because BL-417 holds `Documentation/Planning/Decisions` and rule 3 forbids
 overlapping it):
 
 1. `--http3` with `--cacert` is refused, exit 2 (`option --http3: cannot be used with --cacert`):
    `Surl.Quic` asks for no client certificate, so serving HTTP/3 would skip the check the TCP side
-   enforces (secure by default). BL-737 lifts it.
+   enforces (secure by default). BL-741 lifts it.
 2. Refusal order, after the no-URL refusal: no `https` listen URL (`needs an https listen URL`),
    `--tls-max` below 1.3 (`needs --tls-max 1.3: QUIC is TLS 1.3 only`), `--cacert`. All `FailedInit`
    (2) with the try-help line, as option refusals are. `--tls-max 1.0/1.1` with the default
@@ -83,7 +83,7 @@ overlapping it):
    HTTP/3 server answers with GOAWAY and `H3_NO_ERROR` (Amendment 1) and the flow ends after.
 6. QUIC's `max_idle_timeout` is `--idle-timeout` (0 = none) and the handshake timeout is the head
    timeout (none when unlimited), as decision 7's table says.
-7. No `IDatagramRefusalWriter` yet: a flow past a connection limit gets no bytes. BL-736 adds the
+7. No `IDatagramRefusalWriter` yet: a flow past a connection limit gets no bytes. BL-740 adds the
    `CONNECTION_REFUSED` Initial.
 
 Touches added (rule 3; no task in Doing named any of them): `Foundation/Surl.Protocol.Abstractions.*`
@@ -97,7 +97,7 @@ libraries. It flags complexity on seven members that this task did not touch
 (`ConfigurationItemReader.ReadAttribute`, six in `Surl.Quic`); the build's CA1502 gate passes.
 `dotnet publish Application/Surl.Console -c Release -r win-x64` built with no warning.
 
-Follow-ups filed: BL-735 (ADR amendment), BL-736 (refusal writer), BL-737 (client certificates over QUIC).
+Follow-ups filed: BL-739 (ADR amendment), BL-740 (refusal writer), BL-741 (client certificates over QUIC).
 
 Lane 5 integration (2026-11-05): lane 2's three commits were cherry-picked onto the current
 master work. Two fixes were needed:
@@ -111,7 +111,7 @@ master work. Two fixes were needed:
   the call it makes is always after the end (12 of 12 runs green). Test-only; behaviour unchanged.
 - One merge conflict in ComposedServingTests (two new tests side by side) resolved keeping both.
 - The follow-ups lane 2 filed were lost when its branch was not integrated and their IDs were
-  taken; they are re-filed unchanged as BL-735, BL-736 and BL-737.
+  taken; they are re-filed unchanged as BL-739, BL-740 and BL-741.
 - Coverage: lane 2 measured 100% line and branch on all touched libraries; lane 5 added one list
   entry (no branch) and a test change, so it was not re-measured. Build -warnaserror clean,
   57 fast-test assemblies (13,342 tests) green, dotnet publish ... -r win-x64 with no warning.

@@ -1,5 +1,5 @@
 ---
-id: BL-737
+id: BL-741
 title: Verify client certificates over QUIC so --http3 works with --cacert
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-737 — Verify client certificates over QUIC so --http3 works with --cacert
+# BL-741 — Verify client certificates over QUIC so --http3 works with --cacert
 
 ## Goal
 

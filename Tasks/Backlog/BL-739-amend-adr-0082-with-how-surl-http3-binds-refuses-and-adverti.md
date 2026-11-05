@@ -1,5 +1,5 @@
 ---
-id: BL-735
+id: BL-739
 title: Amend ADR-0082 with how surl --http3 binds, refuses and advertises
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-735 — Amend ADR-0082 with how surl --http3 binds, refuses and advertises
+# BL-739 — Amend ADR-0082 with how surl --http3 binds, refuses and advertises
 
 ## Goal
 
@@ -30,7 +30,7 @@ decisions sit in `Tasks/Done/BL-384-*.md` under Notes. `Surl.Cli`'s `CommandLine
       handler gives (not framing refusals or the 503 at a connection limit); the shared-port
       contract `IListenerFactory.StartSharedPortListenersAsync`; the engine pairing one connection
       and one datagram server per scheme; the authentication session's `TlsSession`; cancellation
-      before and after the handshake; no `IDatagramRefusalWriter` yet (BL-736).
+      before and after the handshake; no `IDatagramRefusalWriter` yet (BL-740).
 - [ ] The ADR's header lists the amendment, and `Documentation/Planning/Decisions/README.md` is unchanged or updated to match.
 
 ## Notes
