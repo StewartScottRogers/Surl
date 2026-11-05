@@ -44,3 +44,4 @@ on HTTP/2 stream 1, as BL-364's ADR decides.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
