@@ -73,10 +73,10 @@ Blob service's XML error and `x-ms-error-code`.
     is ignored.
   - `x-ms-client-request-id` is echoed when 1 to 1024 characters of `!` to `~`.
   - The `Reason` of `InvalidQueryParameterValue` is the fixed sentence `This operation is not served by this server.`
-- Gaps filed (they need projects outside this task's `touches`): BL-721 (credentials checked under
+- Gaps filed (they need projects outside this task's `touches`): BL-725 (credentials checked under
   `--allow-anonymous` - `Surl.Authentication`'s session proceeds without running the bearer verifier there, so a
   bearer request under anonymous is served as an anonymous read today - and the path-style account segment,
-  which needs account names through Abstractions); BL-722 (`400 InvalidInput` for a head past
+  which needs account names through Abstractions); BL-726 (`400 InvalidInput` for a head past
   `--max-request-head`, after BL-720's HttpServing seam).
 
 ## Log

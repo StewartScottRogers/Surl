@@ -1,5 +1,5 @@
 ---
-id: BL-721
+id: BL-725
 title: Check Azure credentials under --allow-anonymous and strip the path-style account segment
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-721 — Check Azure credentials under --allow-anonymous and strip the path-style account segment
+# BL-725 — Check Azure credentials under --allow-anonymous and strip the path-style account segment
 
 ## Goal
 

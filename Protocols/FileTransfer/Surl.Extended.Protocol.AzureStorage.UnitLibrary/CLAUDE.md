@@ -32,8 +32,8 @@ What it serves now (BL-424), on the `az` scheme only:
 
 Not yet: Put Blob, List Blobs, Delete Blob (BL-425), the Data Lake schemes (BL-426), Shared Key and
 SAS (BL-717), blocks (BL-715), List Containers and properties (BL-716), credentials checked under
-`--allow-anonymous` and the path-style account segment (BL-721), and `400 InvalidInput` for a head
-past `--max-request-head`, which `Surl.HttpServing` still answers `431` (BL-722).
+`--allow-anonymous` and the path-style account segment (BL-725), and `400 InvalidInput` for a head
+past `--max-request-head`, which `Surl.HttpServing` still answers `431` (BL-726).
 
 This library references `Surl.Protocol.Abstractions`, `Surl.Content` and `Surl.HttpServing`
 (and through it `Surl.HttpMessage`), nothing else (`ProtocolIsolationTests`). It never

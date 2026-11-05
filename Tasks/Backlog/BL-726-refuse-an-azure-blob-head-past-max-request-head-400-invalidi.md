@@ -1,5 +1,5 @@
 ---
-id: BL-722
+id: BL-726
 title: Refuse an Azure Blob head past --max-request-head 400 InvalidInput
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-722 — Refuse an Azure Blob head past --max-request-head 400 InvalidInput
+# BL-726 — Refuse an Azure Blob head past --max-request-head 400 InvalidInput
 
 ## Goal
 
