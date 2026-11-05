@@ -40,6 +40,7 @@ public static class CommandLineParser
     private const string PassLongName = "pass";
     private const string HostKeyLongName = "hostkey";
     private const string AuthorizedKeysLongName = "authorized-keys";
+    private const string GroupLongName = "group";
     private const string ThrowawayHostKeyOption = "--throwaway-hostkey";
 
     /// <summary><c>--self-signed</c> given with <c>--cert</c> (ADR-0032 section 1).</summary>
@@ -295,7 +296,19 @@ public static class CommandLineParser
             reading.OptionNamesByUser(option.LongName).Add(reportedName);
         }
 
-        return null;
+        return option.LongName == GroupLongName ? CountGroup(reading, reportedName) : null;
+    }
+
+    /// <summary>
+    /// Keeps the name a <c>--group</c> was written with, and refuses the one past
+    /// <see cref="ConfigurationItemReader.MaxOccurrences"/> (ADR-0101 decision 5 row 13); null otherwise.
+    /// </summary>
+    private static CommandLineParseResult? CountGroup(CommandLineReading reading, string reportedName)
+    {
+        reading.GroupOptionNames.Add(reportedName);
+        return reading.GroupOptionNames.Count > ConfigurationItemReader.MaxOccurrences
+            ? RefusedOption(reportedName, ConfigurationItemReader.GivenTooOften)
+            : null;
     }
 
     /// <summary>
@@ -365,13 +378,16 @@ public static class CommandLineParser
     /// <summary>
     /// Refuses the first option combination that cannot work, in this order: the TLS options,
     /// <c>--throwaway-hostkey</c> with <c>--hostkey</c>, a repeated <c>--user</c> name, then a
-    /// repeated <c>--authorized-keys</c> user; null when none is.
+    /// repeated <c>--authorized-keys</c> user, then a repeated <c>--group</c> name; null when none is.
     /// </summary>
     private static CommandLineParseResult? RefuseCombination(CommandLineReading reading) =>
         RefuseTlsCombination(reading)
         ?? RefuseThrowawayHostKeyWithHostKey(reading)
-        ?? RefuseRepeatedUserName(reading.CommandLine.Accounts.Select(account => account.UserName), reading.AccountOptionNames)
-        ?? RefuseRepeatedUserName(reading.CommandLine.AuthorizedKeys.Select(keys => keys.UserName), reading.AuthorizedKeysOptionNames);
+        ?? RefuseRepeatedName(reading.CommandLine.Accounts.Select(account => account.UserName), reading.AccountOptionNames, UserGivenTwice)
+        ?? RefuseRepeatedName(reading.CommandLine.AuthorizedKeys.Select(keys => keys.UserName), reading.AuthorizedKeysOptionNames, UserGivenTwice)
+        ?? RefuseRepeatedName(reading.CommandLine.Groups.Select(group => group.Name), reading.GroupOptionNames, ConfiguredGroupReader.GroupGivenTwice);
+
+    private static string UserGivenTwice(string userName) => $"user {userName} is given twice";
 
     /// <summary>
     /// Refuses <c>--throwaway-hostkey</c> left on with any <c>--hostkey</c> (ADR-0051 decision 4);
@@ -383,21 +399,23 @@ public static class CommandLineParser
             : null;
 
     /// <summary>
-    /// Refuses the first user name an earlier one of the same option already gave, the empty
-    /// name included, naming the option that gave it: <c>-u</c>/<c>--user</c> accounts (ADR-0032
-    /// section 1) and <c>--authorized-keys</c> users (ADR-0051 decision 6); null when none repeats.
+    /// Refuses the first name an earlier one of the same option already gave, the empty name
+    /// included, naming the option that gave it: <c>-u</c>/<c>--user</c> accounts (ADR-0032
+    /// section 1), <c>--authorized-keys</c> users (ADR-0051 decision 6) and <c>--group</c> names
+    /// (ADR-0101 decision 5 row 14), compared ordinally; null when none repeats.
     /// </summary>
-    /// <param name="userNames">The user names, in command-line order.</param>
+    /// <param name="names">The names, in command-line order.</param>
     /// <param name="optionNames">The name each one's option was written with, in the same order.</param>
-    private static CommandLineParseResult? RefuseRepeatedUserName(IEnumerable<string> userNames, List<string> optionNames)
+    /// <param name="givenTwice">The refusal reason for a repeated name.</param>
+    private static CommandLineParseResult? RefuseRepeatedName(IEnumerable<string> names, List<string> optionNames, Func<string, string> givenTwice)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var index = 0;
-        foreach (var userName in userNames)
+        foreach (var name in names)
         {
-            if (!seen.Add(userName))
+            if (!seen.Add(name))
             {
-                return RefusedOption(optionNames[index], $"user {userName} is given twice");
+                return RefusedOption(optionNames[index], givenTwice(name));
             }
 
             index++;
@@ -472,6 +490,9 @@ public static class CommandLineParser
 
         /// <summary>The name each accepted <c>--authorized-keys</c> was written with, one per user, in order.</summary>
         public List<string> AuthorizedKeysOptionNames { get; } = [];
+
+        /// <summary>The name each accepted <c>--group</c> was written with, one per group, in order.</summary>
+        public List<string> GroupOptionNames { get; } = [];
 
         /// <summary>The written names of <c>--user</c> (<paramref name="longName"/> <c>user</c>) or <c>--authorized-keys</c>.</summary>
         public List<string> OptionNamesByUser(string longName) =>

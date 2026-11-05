@@ -7,4 +7,8 @@ namespace Surl.Cli;
 /// </summary>
 /// <param name="Name">The account or group name, without the <c>@</c>; never empty, never holding a control character.</param>
 /// <param name="IsGroup">Whether the member was written <c>@name</c> and so names a group.</param>
-public sealed record ConfiguredMember(string Name, bool IsGroup);
+public sealed record ConfiguredMember(string Name, bool IsGroup)
+{
+    /// <summary>The member as a refusal names it: <c>@name</c> for a group, the account name otherwise.</summary>
+    public string AsWritten => IsGroup ? "@" + Name : Name;
+}

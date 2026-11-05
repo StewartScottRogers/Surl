@@ -150,13 +150,12 @@ internal static class ConfigurationItemReader
         var at = attribute.IndexOf('=', StringComparison.Ordinal);
         var keyRaw = at < 0 ? attribute : attribute[..at];
         var valueRaw = at < 0 ? null : attribute[(at + 1)..];
-        var failure = ReadName(keyRaw, out var key);
-        if (failure is not null)
-        {
-            return failure;
-        }
+        return ReadName(keyRaw, out var key) ?? ReadKnownAttribute(shape, key.ToLowerInvariant(), valueRaw, built);
+    }
 
-        key = key.ToLowerInvariant();
+    /// <summary>Reads the value of the attribute <paramref name="key"/>, refusing a key or flag the shape does not have.</summary>
+    private static string? ReadKnownAttribute(ConfigurationItemShape shape, string key, string? valueRaw, ItemBuilder built)
+    {
         if (!shape.Attributes.TryGetValue(key, out var kind))
         {
             return valueRaw is null ? UnknownFlag(key) : UnknownKey(key);

@@ -609,6 +609,11 @@ public sealed partial class AiHelpTextTests
             "surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi",
             "surl: (2) <url> needs a host key: give --hostkey <file>, or --throwaway-hostkey for a throwaway one",
             "surl: warning: --throwaway-hostkey: serving a throwaway SSH host key (--hostpubsha256 <base64>); clients must pin it or skip the check (curl -k)",
+            // Written by Surl.Composition's AccountGroupExpansion, whose tests pin each (BL-646).
+            "surl: (2) option --group: member <member> names no account or group",
+            "surl: (2) option --group: group <name> includes itself",
+            "surl: (2) option --group: group everyone is reserved",
+            "surl: (2) option --group: member @everyone is not allowed here",
         ];
 
         foreach (var (template, written) in writtenByTheParser)

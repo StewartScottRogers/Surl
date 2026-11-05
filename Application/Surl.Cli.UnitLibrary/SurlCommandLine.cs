@@ -153,6 +153,13 @@ public sealed record SurlCommandLine
     public string? UserFile { get; init; }
 
     /// <summary>
+    /// The groups from every <c>--group</c>, in command-line order; no group name is given twice
+    /// (ADR-0101 decisions 4 and 5). None by default. <c>Surl.Composition</c> expands them to
+    /// account names at start (ADR-0102 decision 4.1).
+    /// </summary>
+    public IReadOnlyList<ConfiguredGroup> Groups { get; init; } = [];
+
+    /// <summary>
     /// <c>--keytab</c>: the MIT keytab file of Kerberos service keys, as given; none by default.
     /// It is read when surl starts serving, not while parsing (ADR-0057 decision 1).
     /// </summary>

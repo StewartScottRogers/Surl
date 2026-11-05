@@ -52,9 +52,16 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   Unknown keys and flags are refused, and no refusal holds a value. Members read as
   `ConfiguredMember` (`@name` is a group) and grants as `ConfiguredGrant`. `ConfigurationItemShape.Reading`
   is the `OptionArgumentReading<ConfigurationItem>` an option row takes; its `OptionArgumentType.Item`
-  is named by the shape, its allowed values ending in `OptionArgumentType.ItemSyntax`. No option
-  uses it yet (BL-646, BL-653, BL-654, BL-663, BL-666 do); `MaxOccurrences` and `GivenTooOften`
-  are for the parser that counts each option across the line and every config file.
+  is named by the shape, its allowed values ending in `OptionArgumentType.ItemSyntax`.
+  `MaxOccurrences` and `GivenTooOften` are for the parser that counts each option across the
+  line and every config file.
+- `--group <name>=<member>,...` (category `auth`, ADR-0101 decision 4, BL-646) is the first item
+  option: `ConfiguredGroupReader` reads it by its `Shape` into a `ConfiguredGroup` (refusing a
+  member twice in one list, `ConfiguredMember.AsWritten` naming it), each adds to
+  `SurlCommandLine.Groups`, a group name given twice is refused after the whole line is read, and
+  the 10001st `--group` is refused (`GivenTooOften`). Whether members name accounts or groups,
+  cycles and the reserved `everyone` are checked at start by `Surl.Composition`'s
+  `AccountGroupExpansion`. BL-653, BL-654, BL-663 and BL-666 add the other item options.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,

@@ -150,6 +150,8 @@ internal static class CommandLineOptions
             with { ArgumentHoldsSecret = true },
         WithArgument<string>("user-file", null, OptionArgumentReader.Path, (c, v) => c with { UserFile = v },
             new("<file>", "Read accounts from a file", ["auth", "ftp", "http", "imap", "ldap", "mqtt", "pop3", "rtsp", "smb", "smtp", "ssh", "websocket"], IsInShortList: true, Default: "none")),
+        WithArgument<ConfiguredGroup>("group", null, ConfiguredGroupReader.Reading, (c, v) => c with { Groups = [.. c.Groups, v] },
+            new("<name>=<member>,...", "Name a group of accounts (repeatable)", ["auth"], IsInShortList: false, Default: "no groups")),
         WithArgument<string>("keytab", null, OptionArgumentReader.Path, (c, v) => c with { KeytabFile = v },
             new("<file>", "Read Kerberos service keys from a keytab file", ["auth", "ldap"], IsInShortList: false, Default: "none")),
         Flag("allow-anonymous", null, negatable: true, (c, on) => c with { AllowAnonymous = on },
