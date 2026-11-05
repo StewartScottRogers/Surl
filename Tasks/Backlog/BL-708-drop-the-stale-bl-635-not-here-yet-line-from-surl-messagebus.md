@@ -1,5 +1,5 @@
 ---
-id: BL-704
+id: BL-708
 title: Drop the stale BL-635 'not here yet' line from Surl.MessageBus's CLAUDE.md
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-704 — Drop the stale BL-635 'not here yet' line from Surl.MessageBus's CLAUDE.md
+# BL-708 — Drop the stale BL-635 'not here yet' line from Surl.MessageBus's CLAUDE.md
 
 ## Goal
 

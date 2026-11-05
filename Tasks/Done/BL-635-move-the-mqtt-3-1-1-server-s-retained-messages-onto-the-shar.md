@@ -87,7 +87,7 @@ unchanged.
   `Application/Surl.Console` is touched for its CLAUDE.md alone.
 - Not done here, still outside every touch: `Protocols/Messaging/Surl.MessageBus.UnitLibrary/CLAUDE.md` still says
   "Not here yet: the MQTT 3.1.1 server's move onto the bus (BL-635)". BL-664 (in Doing) touches that project, so
-  BL-704 is filed to drop the line.
+  BL-708 is filed to drop the line.
 
 ## Log
 
