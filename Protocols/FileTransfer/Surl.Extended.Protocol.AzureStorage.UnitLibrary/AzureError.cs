@@ -1,0 +1,106 @@
+using Surl.HttpMessage;
+
+namespace Surl.Extended.Protocol.AzureStorage;
+
+/// <summary>
+/// One row of the "Common REST API error codes" or "Blob Storage error codes" tables the Blob
+/// endpoint sends: the code, the status the table gives it, and the fixed first line of its
+/// message (ADR-0109, decision 5.1; ADR-0006, section 3).
+/// </summary>
+/// <param name="Code">The <c>Code</c> element's text and the <c>x-ms-error-code</c> value.</param>
+/// <param name="Status">The status the table gives the code.</param>
+/// <param name="Message">The <c>Message</c> element's fixed first line.</param>
+internal sealed record AzureError(string Code, HttpStatus Status, string Message)
+{
+    private static readonly HttpStatus PreconditionFailedStatus = new(412, "Precondition Failed");
+    private static readonly HttpStatus RangeNotSatisfiableStatus = new(416, "Range Not Satisfiable");
+
+    /// <summary>
+    /// <c>404 BlobNotFound</c>: no file at the blob name, or the name is a folder.
+    /// </summary>
+    public static AzureError BlobNotFound { get; } = new("BlobNotFound", HttpStatus.NotFound, "The specified blob does not exist.");
+
+    /// <summary>
+    /// <c>404 ContainerNotFound</c>: the container's top-level folder does not exist.
+    /// </summary>
+    public static AzureError ContainerNotFound { get; } = new("ContainerNotFound", HttpStatus.NotFound, "The specified container does not exist.");
+
+    /// <summary>
+    /// <c>400 MissingRequiredHeader</c>: an authenticated request without <c>x-ms-version</c>.
+    /// </summary>
+    public static AzureError MissingRequiredHeader { get; } = new("MissingRequiredHeader", HttpStatus.BadRequest, "An HTTP header that's mandatory for this request is not specified.");
+
+    /// <summary>
+    /// <c>400 InvalidHeaderValue</c>: an <c>x-ms-version</c> or <c>x-ms-date</c> that does not parse.
+    /// </summary>
+    public static AzureError InvalidHeaderValue { get; } = new("InvalidHeaderValue", HttpStatus.BadRequest, "The value provided for one of the HTTP headers was not in the correct format.");
+
+    /// <summary>
+    /// <c>400 UnsupportedHeader</c>: a header asking for a feature the server does not have.
+    /// </summary>
+    public static AzureError UnsupportedHeader { get; } = new("UnsupportedHeader", HttpStatus.BadRequest, "One of the HTTP headers specified in the request is not supported.");
+
+    /// <summary>
+    /// <c>400 InvalidQueryParameterValue</c>: a <c>comp</c>, <c>restype</c>, <c>snapshot</c> or
+    /// <c>versionid</c> the server does not serve.
+    /// </summary>
+    public static AzureError InvalidQueryParameterValue { get; } = new("InvalidQueryParameterValue", HttpStatus.BadRequest, "An invalid value was specified for one of the query parameters in the request URI.");
+
+    /// <summary>
+    /// <c>400 InvalidUri</c>: a path that names no blob, with no query that names an operation.
+    /// </summary>
+    public static AzureError InvalidUri { get; } = new("InvalidUri", HttpStatus.BadRequest, "The requested URI does not represent any resource on the server.");
+
+    /// <summary>
+    /// <c>405 UnsupportedHttpVerb</c>: a method the resource does not take.
+    /// </summary>
+    public static AzureError UnsupportedHttpVerb { get; } = new("UnsupportedHttpVerb", HttpStatus.MethodNotAllowed, "The resource doesn't support the specified HTTP verb.");
+
+    /// <summary>
+    /// <c>400 InvalidResourceName</c>: a blob name longer than 1024 characters.
+    /// </summary>
+    public static AzureError InvalidResourceName { get; } = new("InvalidResourceName", HttpStatus.BadRequest, "The specified resource name contains invalid characters.");
+
+    /// <summary>
+    /// <c>400 OutOfRangeInput</c>: <c>x-ms-range-get-content-md5: true</c> on a range over 4 MiB.
+    /// </summary>
+    public static AzureError OutOfRangeInput { get; } = new("OutOfRangeInput", HttpStatus.BadRequest, "One of the request inputs is out of range.");
+
+    /// <summary>
+    /// <c>401 NoAuthenticationInformation</c>: no <c>Authorization</c> with anonymous off, or an
+    /// anonymous write ("Authorize with Microsoft Entra ID", "Bearer Challenge").
+    /// </summary>
+    public static AzureError NoAuthenticationInformation { get; } = new("NoAuthenticationInformation", HttpStatus.Unauthorized, "Server failed to authenticate the request. Please refer to the information in the www-authenticate header.");
+
+    /// <summary>
+    /// <c>401 InvalidAuthenticationInfo</c>: a bearer token that is no account.
+    /// </summary>
+    public static AzureError InvalidBearerToken { get; } = new("InvalidAuthenticationInfo", HttpStatus.Unauthorized, "Server failed to authenticate the request. Please refer to the information in the www-authenticate header.");
+
+    /// <summary>
+    /// <c>400 InvalidAuthenticationInfo</c>: an <c>Authorization</c> with a scheme the server does
+    /// not serve, or one that does not parse (ADR-0109, decision 3.4).
+    /// </summary>
+    public static AzureError MalformedAuthorization { get; } = new("InvalidAuthenticationInfo", HttpStatus.BadRequest, "Authentication information is not given in the correct format. Check the value of Authorization header.");
+
+    /// <summary>
+    /// <c>403 AuthenticationFailed</c>: a bearer request naming a version before 2017-11-09.
+    /// </summary>
+    public static AzureError AuthenticationFailed { get; } = new("AuthenticationFailed", HttpStatus.Forbidden, "Server failed to authenticate the request. Make sure the value of Authorization header is formed correctly including the signature.");
+
+    /// <summary>
+    /// <c>412 ConditionNotMet</c>: a failed <c>If-Match</c> or <c>If-Unmodified-Since</c>.
+    /// </summary>
+    public static AzureError ConditionNotMet { get; } = new("ConditionNotMet", PreconditionFailedStatus, "The condition specified using HTTP conditional header(s) is not met.");
+
+    /// <summary>
+    /// <c>416 InvalidRange</c>: a single range that names no byte of the blob.
+    /// </summary>
+    public static AzureError InvalidRange { get; } = new("InvalidRange", RangeNotSatisfiableStatus, "The range specified is invalid for the current size of the resource.");
+
+    /// <summary>
+    /// <c>503 ServerBusy</c>: a connection past <c>--max-connections</c> or
+    /// <c>--max-connections-per-address</c> (ADR-0109, decision 7).
+    /// </summary>
+    public static AzureError ServerBusy { get; } = new("ServerBusy", HttpStatus.ServiceUnavailable, "The server is currently unable to receive requests. Please retry your request.");
+}
