@@ -409,3 +409,52 @@ The header is the 8 bytes `A M Q P`, a protocol id, then major 1, minor 0, revis
 - The requirement matrix [`Amqp1.md`](../../Conformance/Extended/Amqp1.md) traces each server-side
   requirement of Parts 1, 2, 3 and 5 to BL-510 to BL-513; each task replaces its ID with the named
   test.
+- `TftpTimeLimits` does the same for `tftp://` (BL-350): `-m` passes at `MaxTime` after
+  `OperationStarted`, and the timeout message's N counts from there. The connect timeout
+  and the re-send schedule still count from the handler call. Measured with
+  `curl -sS -L -m 2 --proto-redir =tftp` and a first hop that answers 302 to a silent
+  `tftp://` port after 1.5 seconds: exit 28,
+  `Operation timed out after 2011 milliseconds with 0 bytes received` (BL-350 Notes).
+
+## Amendment: how BL-513 reads decisions 5 and 6 (2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in BL-513,
+where decisions 5 and 6 leave a choice open. Each follows the specification and the simplest faithful
+reading; none adds an option.
+
+- **Credit to a client sender.** The container counts the sender's `delivery-count` against the limit
+  its credit gave. A client `flow` on such a link sets the `delivery-count` it states (the sender owns
+  it, Part 2 section 2.6.7) and changes nothing else; only a transfer that leaves 50 or less raises the
+  credit back to 100. So a sender whose `flow` claims a `delivery-count` at or past the limit has no
+  credit, and its next transfer detaches the link with `amqp:link:transfer-limit-exceeded`; an echoed
+  `flow` then states credit 0, never a negative count wrapped round.
+- **Transfers the container cannot place.** A transfer on a link the client receives on detaches that
+  link with `amqp:illegal-state`. A first transfer without a `delivery-id`, which Part 2 section 2.7.5
+  makes mandatory, is decision 6's continuation with no delivery open: `amqp:invalid-field`. After the
+  container detaches a link, the client's transfers and flows on it are ignored until its `detach`.
+- **Frames the container writes** are at most the smaller of the client's `max-frame-size` and the
+  container's own, so a transfer never exceeds what either side offered. A delivery is written frame by
+  frame while the client's session `incoming-window` allows and finished as later `flow`s open it, so a
+  message larger than the window never stalls its link.
+- **Unsettled deliveries on a sending link** count toward decision 7's 1000 as waiting ones do: a link
+  holding 1000 the client has not settled sends nothing more until it settles one, whatever its credit,
+  so a topic receiver that never settles cannot grow the container's memory.
+- **Settlement by a client receiver.** A `disposition` settling a delivery without an outcome (no
+  `state`, or `received`) puts a queue delivery back as `released` does: the client did not process it
+  (Part 3 section 3.4). In `rcv-settle-mode` `second` the container settles a delivery once the client
+  states an outcome and forgets it then; the client's own settling `disposition` that follows finds
+  nothing and changes nothing. An outcome is applied to the bus once, whatever later dispositions say.
+- **Refused consumes.** A link the bus will not let consume - `QueueLocked` (a queue exclusive to
+  another connection) or `ExclusiveConsumeRefused` (another consumer holds it exclusively) - is refused
+  at attach with `amqp:unauthorized-access`, as topic access is: the same answer whether or not the
+  queue exists. Queue access is asked of the bus as the topic `$queue/<q>`
+  (`MessageBus.GetTopicAccess`); for a queue name holding `/` that splits the name into levels where
+  the bus's own queue check keeps it one, so a grant naming such a queue exactly may admit an attach
+  whose send or consume the bus then refuses (`rejected`, or the attach refused).
+- **A `reply-to` naming a queue** has no bus field: the bus's response topic is a canonical topic, which
+  a queue is not. It travels in the native form, so an `amqp1` receiver still gets it, and other
+  protocols do not see it. Decision 6's "or queue" is narrowed to topics for that reason.
+- **An `absolute-expiry-time` beyond what a `DateTimeOffset` holds** (before year 1 or after 9999) sets
+  no expiry rather than ending the connection.
+- **A correlation-id of any other type** than `binary`, `string`, `uuid` or `ulong` gives no bus
+  correlation data.

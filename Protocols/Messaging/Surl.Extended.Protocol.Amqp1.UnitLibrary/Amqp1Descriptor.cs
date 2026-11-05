@@ -37,6 +37,21 @@ public static class Amqp1Descriptor
     /// <summary><c>amqp:error:list</c> (Part 2 section 2.8.14).</summary>
     public const ulong Error = 0x1D;
 
+    /// <summary><c>amqp:received:list</c> (Part 3 section 3.4.1), a delivery state that is no outcome.</summary>
+    public const ulong Received = 0x23;
+
+    /// <summary><c>amqp:accepted:list</c> (Part 3 section 3.4.2), the outcome of a message processed.</summary>
+    public const ulong Accepted = 0x24;
+
+    /// <summary><c>amqp:rejected:list</c> (Part 3 section 3.4.3), the outcome of a message refused.</summary>
+    public const ulong Rejected = 0x25;
+
+    /// <summary><c>amqp:released:list</c> (Part 3 section 3.4.4), the outcome of a message not processed.</summary>
+    public const ulong Released = 0x26;
+
+    /// <summary><c>amqp:modified:list</c> (Part 3 section 3.4.5), the outcome of a message not processed and changed.</summary>
+    public const ulong Modified = 0x27;
+
     /// <summary><c>amqp:source:list</c> (Part 3 section 3.5.3).</summary>
     public const ulong Source = 0x28;
 
@@ -100,6 +115,11 @@ public static class Amqp1Descriptor
         ["amqp:end:list"] = End,
         ["amqp:close:list"] = Close,
         ["amqp:error:list"] = Error,
+        ["amqp:received:list"] = Received,
+        ["amqp:accepted:list"] = Accepted,
+        ["amqp:rejected:list"] = Rejected,
+        ["amqp:released:list"] = Released,
+        ["amqp:modified:list"] = Modified,
         ["amqp:source:list"] = Source,
         ["amqp:target:list"] = Target,
         ["amqp:coordinator:list"] = Coordinator,

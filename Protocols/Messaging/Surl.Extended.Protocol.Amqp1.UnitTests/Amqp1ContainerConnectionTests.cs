@@ -10,7 +10,7 @@ namespace Surl.Extended.Protocol.Amqp1.UnitTests;
 /// tests pin.
 /// </summary>
 [TestClass]
-public sealed class Amqp1ContainerConnectionTests
+public sealed partial class Amqp1ContainerConnectionTests
 {
     // open (Part 2 section 2.7.1) with container-id "client" and every other field left out.
     private const string ClientOpenHex = "0000001602000000" + "005310C00901A106636C69656E74";
@@ -96,7 +96,8 @@ public sealed class Amqp1ContainerConnectionTests
         Assert.AreEqual(Amqp1Descriptor.Target, Amqp1Descriptor.CodeOf(((Amqp1Described)answer.Target!).Descriptor));
         CollectionAssert.AreEqual(new object?[] { "orders" }, Fields(answer.Target).ToArray());
         Assert.AreEqual(new Amqp1NodeRequest("/queue/orders", false, "alice"), nodes.Requests.Single());
-        Assert.HasCount(3, written);
+        Assert.AreEqual(new Amqp1Flow(Amqp1ContainerConnection.ContainerWindow, 0, Amqp1ContainerConnection.ContainerWindow) { NextIncomingId = 0, Handle = 0, DeliveryCount = 0, LinkCredit = 100 }, written[3].Performative);
+        Assert.HasCount(4, written);
     }
 
     [TestMethod]
@@ -266,21 +267,6 @@ public sealed class Amqp1ContainerConnectionTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_FramesOfAnAttachedLinkAndOfTheSession_AreLeftForTransfers()
-    {
-        var (written, _) = await ServeAsync(
-            ClientOpen,
-            Frame(0, ClientBegin()),
-            Frame(0, SenderAttach(0, "orders")),
-            Frame(0, new Amqp1Flow(100, 0, 100)),
-            Frame(0, new Amqp1Flow(100, 0, 100) { Handle = 0 }),
-            Frame(0, new Amqp1Transfer(0) { DeliveryId = 0, DeliveryTag = [1] }),
-            Frame(0, new Amqp1Disposition(true, 0)));
-
-        Assert.HasCount(3, written);
-    }
-
-    [TestMethod]
     [DataRow(true)]
     [DataRow(false)]
     public async Task ServeAsync_Detach_IsAnsweredWithADetachOfTheSameClosed(bool closed)
@@ -292,8 +278,8 @@ public sealed class Amqp1ContainerConnectionTests
             Frame(0, new Amqp1Detach(5) { Closed = closed, Error = new Amqp1Error(Amqp1ErrorCondition.DetachForced) }),
             Frame(0, SenderAttach(5, "orders")));
 
-        Assert.AreEqual(new Amqp1Detach(0) { Closed = closed }, written[3].Performative);
-        Assert.AreEqual(0u, ((Amqp1Attach)written[4].Performative!).Handle);
+        Assert.AreEqual(new Amqp1Detach(0) { Closed = closed }, written[4].Performative);
+        Assert.AreEqual(0u, ((Amqp1Attach)written[5].Performative!).Handle);
         CollectionAssert.Contains(log.Notes.ToList(), "The client's detach carried amqp:link:detach-forced.");
     }
 
@@ -302,7 +288,7 @@ public sealed class Amqp1ContainerConnectionTests
     {
         var (written, _) = await ServeAsync(ClientOpen, Frame(0, ClientBegin()), Frame(0, SenderAttach(10, "a")), Frame(0, SenderAttach(11, "b")));
 
-        Assert.AreEqual(1u, ((Amqp1Attach)written[3].Performative!).Handle);
+        Assert.AreEqual(1u, ((Amqp1Attach)written[4].Performative!).Handle);
     }
 
     [TestMethod]
@@ -312,7 +298,7 @@ public sealed class Amqp1ContainerConnectionTests
     {
         var (written, _) = await ServeAsync(ClientOpen, Frame(0, ClientBegin()), Frame(0, SenderAttach(1, "a")), Frame(0, SenderAttach(secondHandle, "b")));
 
-        Assert.AreEqual(new Amqp1End(new Amqp1Error(Amqp1ErrorCondition.HandleInUse) { Description = "handle in use" }), written[3].Performative);
+        Assert.AreEqual(new Amqp1End(new Amqp1Error(Amqp1ErrorCondition.HandleInUse) { Description = "handle in use" }), written[4].Performative);
     }
 
     [TestMethod]
@@ -324,7 +310,7 @@ public sealed class Amqp1ContainerConnectionTests
 
         Assert.AreEqual(
             new Amqp1End(new Amqp1Error(Amqp1ErrorCondition.ResourceLimitExceeded) { Description = "no handle free within handle-max" }),
-            written[3].Performative);
+            written[4].Performative);
     }
 
     [TestMethod]
@@ -337,9 +323,9 @@ public sealed class Amqp1ContainerConnectionTests
             Frame(0, new Amqp1End(new Amqp1Error(Amqp1ErrorCondition.InternalError))),
             Frame(0, ClientBegin()));
 
-        Assert.AreEqual(new Amqp1End(), written[3].Performative);
-        Assert.AreEqual((ushort)0, written[4].Channel);
-        Assert.IsInstanceOfType<Amqp1Begin>(written[4].Performative);
+        Assert.AreEqual(new Amqp1End(), written[4].Performative);
+        Assert.AreEqual((ushort)0, written[5].Channel);
+        Assert.IsInstanceOfType<Amqp1Begin>(written[5].Performative);
         CollectionAssert.Contains(log.Notes.ToList(), "The client's end carried amqp:internal-error.");
     }
 
@@ -553,7 +539,7 @@ public sealed class Amqp1ContainerConnectionTests
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection([Frame(0, new Amqp1Open("client") { IdleTimeOut = 1000 })], peerHalfClosesWhenExhausted: false);
         var context = Context(clock, new RecordingExchangeLog(), cancellation.Token);
-        var serving = new Amqp1ContainerConnection(connection, context, Options(TimeSpan.FromSeconds(120)), new UnitTestAmqp1NodeDirectory(), "alice").ServeAsync();
+        var serving = Container(connection, context, Options(TimeSpan.FromSeconds(120)), new UnitTestAmqp1NodeDirectory()).ServeAsync();
         await WaitUntilAsync(() => connection.WrittenBytes.Length > 0);
 
         await cancellation.CancelAsync();
@@ -566,13 +552,16 @@ public sealed class Amqp1ContainerConnectionTests
     {
         var connection = new InMemoryConnection([]);
         var context = Context(new ManualTimeProvider(), new RecordingExchangeLog(), TestContext.CancellationToken);
-        var nodes = new UnitTestAmqp1NodeDirectory();
+        var bus = new MessageBus.MessageBus(new ManualTimeProvider());
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1ContainerConnection(null!, context, Amqp1ContainerOptions.Default, nodes, null));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1ContainerConnection(connection, null!, Amqp1ContainerOptions.Default, nodes, null));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1ContainerConnection(connection, context, null!, nodes, null));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1ContainerConnection(null!, context, Amqp1ContainerOptions.Default, bus, null));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1ContainerConnection(connection, null!, Amqp1ContainerOptions.Default, bus, null));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1ContainerConnection(connection, context, null!, bus, null));
         Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp1ContainerConnection(connection, context, Amqp1ContainerOptions.Default, null!, null));
     }
+
+    private static Amqp1ContainerConnection Container(InMemoryConnection connection, ExchangeContext context, Amqp1ContainerOptions options, UnitTestAmqp1NodeDirectory nodes) =>
+        new(connection, context, options, new MessageBus.MessageBus(new ManualTimeProvider()), "alice", nodes.On);
 
     private static Amqp1Begin ClientBegin() => new(0, 100, 100);
 
@@ -614,13 +603,13 @@ public sealed class Amqp1ContainerConnectionTests
         var log = new RecordingExchangeLog();
         var context = Context(new ManualTimeProvider(), log, TestContext.CancellationToken);
 
-        await new Amqp1ContainerConnection(connection, context, options, nodes, "alice").ServeAsync();
+        await Container(connection, context, options, nodes).ServeAsync();
 
         return (await ReadWrittenAsync(connection.WrittenBytes), log);
     }
 
     private Amqp1ContainerConnection Connection(InMemoryConnection connection, TimeProvider clock, Amqp1ContainerOptions options, RecordingExchangeLog? log = null) =>
-        new(connection, Context(clock, log ?? new RecordingExchangeLog(), TestContext.CancellationToken), options, new UnitTestAmqp1NodeDirectory(), "alice");
+        Container(connection, Context(clock, log ?? new RecordingExchangeLog(), TestContext.CancellationToken), options, new UnitTestAmqp1NodeDirectory());
 
     private async Task<List<(ushort Channel, Amqp1Performative? Performative)>> ReadWrittenAsync(byte[] written)
     {

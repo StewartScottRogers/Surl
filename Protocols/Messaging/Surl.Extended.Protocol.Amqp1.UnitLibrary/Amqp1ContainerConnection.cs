@@ -1,18 +1,22 @@
 using System.Runtime.ExceptionServices;
+using System.Threading.Channels;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Amqp1;
 
 /// <summary>
-/// One AMQP 1.0 connection once its headers and SASL are done (ADR-0107 decisions 3, 4 and 7): it
-/// answers the client's <c>open</c>, <c>begin</c>, <c>attach</c>, <c>detach</c>, <c>end</c> and
-/// <c>close</c> with their state machines (Part 2 sections 2.4 to 2.7), maps channels and handles,
-/// resolves addresses to nodes through <see cref="IAmqp1NodeDirectory"/>, keeps both idle time-outs,
-/// and ends each misuse with the error condition the specification names.
+/// One AMQP 1.0 connection once its headers and SASL are done (ADR-0107 decisions 3 to 7): it
+/// answers the client's <c>open</c>, <c>begin</c>, <c>attach</c>, <c>flow</c>, <c>transfer</c>,
+/// <c>disposition</c>, <c>detach</c>, <c>end</c> and <c>close</c> with their state machines (Part 2
+/// sections 2.4 to 2.7), maps channels and handles, resolves addresses to nodes through
+/// <see cref="IAmqp1NodeDirectory"/>, stores what client senders send on the shared message bus and
+/// sends client receivers what the bus hands their links as their credit allows, keeps both idle
+/// time-outs, and ends each misuse with the error condition the specification names.
 /// </summary>
 /// <remarks>
-/// <c>flow</c>, <c>transfer</c> and <c>disposition</c> on attached links are read and left to BL-513;
-/// here only their handles are checked.
+/// Frames are answered one at a time under one gate. A message the bus hands a link on another
+/// connection's thread waits on the link and wakes a pump that sends it under the same gate.
 /// </remarks>
 public sealed partial class Amqp1ContainerConnection
 {
@@ -33,40 +37,61 @@ public sealed partial class Amqp1ContainerConnection
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly Amqp1ContainerOptions options;
+    private readonly MessageBus.MessageBus bus;
+    private readonly BusConnection busConnection;
     private readonly IAmqp1NodeDirectory nodes;
     private readonly string? accountName;
     private readonly Amqp1FrameReader reader;
     private readonly uint offeredMaxFrameSize;
     private readonly SemaphoreSlim writeGate = new(1, 1);
+    private readonly SemaphoreSlim stateGate = new(1, 1);
+    private readonly Channel<bool> wakeups = Channel.CreateUnbounded<bool>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource emptyFramesCancellation = new();
     private readonly Dictionary<ushort, Amqp1Session> sessionsByIncomingChannel = [];
     private Task emptyFramesRunning = Task.CompletedTask;
+    private Task pumping = Task.CompletedTask;
     private long lastWrittenUtcTicks;
     private ushort clientChannelMax;
+    private uint clientMaxFrameSize;
+    private bool closed;
 
     /// <summary>Prepares to serve one connection whose next bytes are AMQP frames.</summary>
     /// <param name="connection">The connection, past its <c>AMQP 0 1 0 0</c> header.</param>
     /// <param name="context">The exchange: its log, clock, limits and cancellation.</param>
     /// <param name="options">The container id and the idle timeout.</param>
-    /// <param name="nodes">The nodes links attach to.</param>
+    /// <param name="bus">The process's message bus, whose topics and queues are the container's nodes.</param>
     /// <param name="accountName">The account SASL logged in, or <see langword="null"/> when anonymous.</param>
     public Amqp1ContainerConnection(
         IConnection connection,
         ExchangeContext context,
         Amqp1ContainerOptions options,
-        IAmqp1NodeDirectory nodes,
+        MessageBus.MessageBus bus,
         string? accountName)
+        : this(connection, context, options, bus, accountName, busConnection => new Amqp1BusNodeDirectory(bus, busConnection))
+    {
+    }
+
+    /// <summary>Prepares to serve one connection, its nodes resolved by the directory <paramref name="nodesFor"/> makes.</summary>
+    internal Amqp1ContainerConnection(
+        IConnection connection,
+        ExchangeContext context,
+        Amqp1ContainerOptions options,
+        MessageBus.MessageBus bus,
+        string? accountName,
+        Func<BusConnection, IAmqp1NodeDirectory> nodesFor)
     {
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(nodes);
+        ArgumentNullException.ThrowIfNull(bus);
 
         this.connection = connection;
         this.context = context;
         this.options = options;
-        this.nodes = nodes;
+        this.bus = bus;
         this.accountName = accountName;
+        busConnection = bus.Connect(accountName);
+        nodes = nodesFor(busConnection);
         reader = new Amqp1FrameReader(connection);
         offeredMaxFrameSize = Amqp1FrameLimits.OfferedMaxFrameSize(context.Limits.MaxMessageBytes);
     }
@@ -78,10 +103,29 @@ public sealed partial class Amqp1ContainerConnection
     public async Task ServeAsync()
     {
         var failure = await CaptureFailureAsync(ServeUntilEndAsync);
+        await StopWritingAsync();
         await emptyFramesCancellation.CancelAsync();
         await emptyFramesRunning;
         emptyFramesCancellation.Dispose();
-        failure?.Throw();
+        wakeups.Writer.TryComplete();
+        var pumpFailure = await CaptureFailureAsync(() => pumping);
+
+        // Every link ends, and the bus connection with them: unsettled queue deliveries go back.
+        foreach (var session in sessionsByIncomingChannel.Values)
+        {
+            EndLinks(session);
+        }
+
+        busConnection.Dispose();
+        (failure ?? pumpFailure)?.Throw();
+    }
+
+    // Once serving is over nothing more is written, whatever the pump still holds: the client may be gone.
+    private async Task StopWritingAsync()
+    {
+        await stateGate.WaitAsync(CancellationToken.None);
+        closed = true;
+        stateGate.Release();
     }
 
     // Runs work and hands back what it threw instead of throwing it, so the empty frames are stopped
@@ -103,6 +147,7 @@ public sealed partial class Amqp1ContainerConnection
     {
         if (await OpenAsync())
         {
+            pumping = PumpAsync();
             await ServeOpenedAsync();
         }
     }
@@ -116,32 +161,66 @@ public sealed partial class Amqp1ContainerConnection
                 continue;
             }
 
-            var (performative, refusal) = ReadPerformative(frame);
-            var goesOn = refusal is null
-                ? await AnswerAsync(frame.Channel, performative!)
-                : await CloseWithErrorAsync(refusal);
-            if (!goesOn)
+            if (!await AnswerUnderGateAsync(frame))
             {
                 return;
             }
         }
     }
 
-    private ValueTask<bool> AnswerAsync(ushort channel, Amqp1Performative performative) => performative switch
+    // One frame at a time, then whatever the frame let the links send.
+    private async ValueTask<bool> AnswerUnderGateAsync(Amqp1Frame frame)
+    {
+        await stateGate.WaitAsync(CancellationToken);
+        try
+        {
+            var (body, refusal) = ReadPerformative(frame);
+            var goesOn = refusal is null
+                ? await AnswerAsync(frame.Channel, body!.Performative!, body.Payload)
+                : await CloseWithErrorAsync(refusal);
+            await SendWaitingAsync();
+            return goesOn;
+        }
+        finally
+        {
+            stateGate.Release();
+        }
+    }
+
+    // Sends what the bus handed links on other threads, once per wake-up.
+    private async Task PumpAsync()
+    {
+        await foreach (var _ in wakeups.Reader.ReadAllAsync(CancellationToken))
+        {
+            await stateGate.WaitAsync(CancellationToken);
+            try
+            {
+                await SendWaitingAsync();
+            }
+            finally
+            {
+                stateGate.Release();
+            }
+        }
+    }
+
+    private void WakePump() => wakeups.Writer.TryWrite(true);
+
+    private ValueTask<bool> AnswerAsync(ushort channel, Amqp1Performative performative, ReadOnlyMemory<byte> payload) => performative switch
     {
         Amqp1Close close => AnswerCloseAsync(close),
         Amqp1Begin begin => AnswerBeginAsync(channel, begin),
         Amqp1Open => CloseWithErrorAsync(Error(Amqp1ErrorCondition.FramingError, "a second open")),
-        _ => AnswerOnChannelAsync(channel, performative),
+        _ => AnswerOnChannelAsync(channel, performative, payload),
     };
 
-    private ValueTask<bool> AnswerOnChannelAsync(ushort channel, Amqp1Performative performative) =>
+    private ValueTask<bool> AnswerOnChannelAsync(ushort channel, Amqp1Performative performative, ReadOnlyMemory<byte> payload) =>
         sessionsByIncomingChannel.TryGetValue(channel, out var session)
-            ? AnswerInSessionAsync(session, performative)
+            ? AnswerInSessionAsync(session, performative, payload)
             : CloseWithErrorAsync(Error(Amqp1ErrorCondition.FramingError, "a frame on a channel with no session"));
 
-    // The performative at the start of an AMQP frame, or the error that closes the connection.
-    private static (Amqp1Performative? Performative, Amqp1Error? Refusal) ReadPerformative(Amqp1Frame frame)
+    // The frame body of an AMQP frame, or the error that closes the connection.
+    private static (Amqp1FrameBody? Body, Amqp1Error? Refusal) ReadPerformative(Amqp1Frame frame)
     {
         if (frame.Type != Amqp1FrameType.Amqp)
         {
@@ -150,7 +229,7 @@ public sealed partial class Amqp1ContainerConnection
 
         try
         {
-            return (Amqp1FrameBody.Read(frame).Performative, null);
+            return (Amqp1FrameBody.Read(frame), null);
         }
         catch (Amqp1DecodeException exception)
         {
@@ -163,15 +242,31 @@ public sealed partial class Amqp1ContainerConnection
 
     private async ValueTask<bool> AnswerCloseAsync(Amqp1Close close)
     {
+        closed = true;
         NoteClientError("close", close.Error);
         await WriteAsync(0, new Amqp1Close());
         await connection.CompleteWritesAsync(CancellationToken);
         return false;
     }
 
+    // The pump writes under the gate too, so nothing it sends can follow the close.
+    private async ValueTask CloseUnderGateAsync(Amqp1Error error)
+    {
+        await stateGate.WaitAsync(CancellationToken);
+        try
+        {
+            await CloseWithErrorAsync(error);
+        }
+        finally
+        {
+            stateGate.Release();
+        }
+    }
+
     // Part 2 section 2.4.3: close with an error, then end the outgoing stream; never goes on.
     private async ValueTask<bool> CloseWithErrorAsync(Amqp1Error error)
     {
+        closed = true;
         context.Log.Note($"Closed with {error.Condition.Value}: {error.Description}.");
         await WriteAsync(0, new Amqp1Close(error));
         await connection.CompleteWritesAsync(CancellationToken);

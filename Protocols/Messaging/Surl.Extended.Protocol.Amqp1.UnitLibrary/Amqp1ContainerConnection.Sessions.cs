@@ -18,7 +18,11 @@ public sealed partial class Amqp1ContainerConnection
             return await CloseWithErrorAsync(Error(Amqp1ErrorCondition.FramingError, "no channel free within channel-max"));
         }
 
-        sessionsByIncomingChannel.Add(channel, new Amqp1Session(channel, outgoingChannel, begin.HandleMax));
+        sessionsByIncomingChannel.Add(channel, new Amqp1Session(channel, outgoingChannel, begin.HandleMax)
+        {
+            NextIncomingId = begin.NextOutgoingId,
+            RemoteIncomingWindow = begin.IncomingWindow,
+        });
         await WriteAsync(outgoingChannel, new Amqp1Begin(0, ContainerWindow, ContainerWindow)
         {
             RemoteChannel = channel,
@@ -63,7 +67,7 @@ public sealed partial class Amqp1ContainerConnection
         return null;
     }
 
-    private ValueTask<bool> AnswerInSessionAsync(Amqp1Session session, Amqp1Performative performative)
+    private ValueTask<bool> AnswerInSessionAsync(Amqp1Session session, Amqp1Performative performative, ReadOnlyMemory<byte> payload)
     {
         if (session.IsEnding)
         {
@@ -75,11 +79,9 @@ public sealed partial class Amqp1ContainerConnection
             Amqp1End end => AnswerEndAsync(session, end),
             Amqp1Attach attach => AnswerAttachAsync(session, attach),
             Amqp1Detach detach => AnswerDetachAsync(session, detach),
-            Amqp1Transfer transfer => RequireAttachedAsync(session, transfer.Handle),
-            Amqp1Flow { Handle: { } handle } => RequireAttachedAsync(session, handle),
-
-            // A session flow and a disposition are BL-513's.
-            _ => ValueTask.FromResult(true),
+            Amqp1Transfer transfer => AnswerTransferAsync(session, transfer, payload),
+            Amqp1Flow flow => AnswerFlowAsync(session, flow),
+            _ => AnswerDispositionAsync(session, (Amqp1Disposition)performative),
         };
     }
 
@@ -96,9 +98,14 @@ public sealed partial class Amqp1ContainerConnection
     {
         context.Log.Note($"Session on channel {session.IncomingChannel} ended with {error.Condition.Value}: {error.Description}.");
         session.IsEnding = true;
+        EndLinks(session);
         await WriteAsync(session.OutgoingChannel, new Amqp1End(error));
         return true;
     }
 
-    private bool ForgetSession(Amqp1Session session) => sessionsByIncomingChannel.Remove(session.IncomingChannel);
+    private bool ForgetSession(Amqp1Session session)
+    {
+        EndLinks(session);
+        return sessionsByIncomingChannel.Remove(session.IncomingChannel);
+    }
 }

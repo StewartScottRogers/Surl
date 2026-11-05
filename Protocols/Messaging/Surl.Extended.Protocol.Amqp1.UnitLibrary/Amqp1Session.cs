@@ -24,6 +24,21 @@ internal sealed class Amqp1Session(ushort incomingChannel, ushort outgoingChanne
     /// </summary>
     public bool IsEnding { get; set; }
 
+    /// <summary>The transfer-id the client's next transfer carries (Part 2 section 2.5.6).</summary>
+    public uint NextIncomingId { get; set; }
+
+    /// <summary>The transfer-id the container's next transfer carries.</summary>
+    public uint NextOutgoingId { get; set; }
+
+    /// <summary>How many more transfers the client's incoming window takes from the container.</summary>
+    public uint RemoteIncomingWindow { get; set; }
+
+    /// <summary>The delivery-id the container's next delivery carries.</summary>
+    public uint NextDeliveryId { get; set; }
+
+    /// <summary>The container's deliveries sent unsettled, by delivery-id, until the client settles them.</summary>
+    public Dictionary<uint, Amqp1OutgoingDelivery> Unsettled { get; } = [];
+
     /// <summary>The lowest handle of the container's not in use, at most <paramref name="handleMax"/> and the client's <c>handle-max</c>.</summary>
     public uint? LowestFreeContainerHandle(uint handleMax)
     {

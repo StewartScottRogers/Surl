@@ -16,7 +16,8 @@ public sealed partial class Amqp1ContainerConnection
             return false;
         }
 
-        var (performative, refusal) = ReadPerformative(frame);
+        var (body, refusal) = ReadPerformative(frame);
+        var performative = body?.Performative;
         refusal ??= RefuseOpen(performative);
 
         // Part 2 section 2.4.1: a peer that closes before it has opened sends open, then close.
@@ -28,6 +29,7 @@ public sealed partial class Amqp1ContainerConnection
 
         var open = (Amqp1Open)performative!;
         clientChannelMax = open.ChannelMax;
+        clientMaxFrameSize = open.MaxFrameSize;
         StartEmptyFrames(open.IdleTimeOut);
         return true;
     }
@@ -72,13 +74,13 @@ public sealed partial class Amqp1ContainerConnection
     {
         if (await ReadWithinIdleTimeoutAsync() is not { } read)
         {
-            await CloseWithErrorAsync(Error(Amqp1ErrorCondition.ResourceLimitExceeded, "idle time-out expired"));
+            await CloseUnderGateAsync(Error(Amqp1ErrorCondition.ResourceLimitExceeded, "idle time-out expired"));
             return null;
         }
 
         if (read.RefusalCondition is { } condition)
         {
-            await CloseWithErrorAsync(Error(condition, $"a malformed frame ({read.Outcome})"));
+            await CloseUnderGateAsync(Error(condition, $"a malformed frame ({read.Outcome})"));
             return null;
         }
 

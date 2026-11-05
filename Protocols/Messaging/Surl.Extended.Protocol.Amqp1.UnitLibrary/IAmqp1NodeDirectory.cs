@@ -2,7 +2,7 @@ namespace Surl.Extended.Protocol.Amqp1;
 
 /// <summary>
 /// The container's nodes: it finds or creates the node an attach names and judges whether the
-/// caller may use it (ADR-0107 decision 4). BL-513 backs it with the shared message bus; the
+/// caller may use it (ADR-0107 decision 4). <see cref="Amqp1BusNodeDirectory"/> backs it with the shared message bus; the
 /// connection's state machine knows only this seam.
 /// </summary>
 public interface IAmqp1NodeDirectory

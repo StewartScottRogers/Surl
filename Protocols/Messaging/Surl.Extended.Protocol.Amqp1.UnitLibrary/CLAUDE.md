@@ -35,7 +35,8 @@ The type system and the frame codec (BL-510; ADR-0107 Part 1 and decision
   or any field of the wrong type is `amqp:decode-error`. A `symbol` field with `multiple="true"`
   reads a single symbol or an array, and writes one symbol as itself and more as an array.
   `source`, `target` and delivery states are kept as the described values read; `Amqp1Terminus` reads source,
-  target and coordinator (BL-512), and BL-513 types delivery states.
+  target and coordinator (BL-512), and `Amqp1DeliveryState` writes `accepted` and `rejected` and reads
+  each delivery state as an `Amqp1Outcome` (BL-513).
 - `Amqp1MessageSection.ReadAll` splits a message into its Part 3 section 3.2 sections, each with its
   bytes exactly as they arrived; `Amqp1Header` and `Amqp1Properties` read the two sections that are
   described lists.
@@ -81,16 +82,59 @@ Connections, sessions and links (BL-512; ADR-0107 decisions 3, 4 and 7):
   creates the node and judges access; a coordinator, an address naming no node, or the directory's
   refusal gets an `attach` with a null terminus then a closing `detach` with the error. `detach` is
   answered with the same `closed`, unless the container already detached the link. `flow` and
-  `transfer` on an unattached handle end the session with `amqp:session:unattached-handle`; on an
-  attached one they, and `disposition`, are left to BL-513.
+  `transfer` on an unattached handle end the session with `amqp:session:unattached-handle`.
 - Idle time-outs run on `ExchangeContext.TimeProvider`: nothing read for `--idle-timeout` closes with
   `amqp:resource-limit-exceeded` (`idle time-out expired`); with a nonzero client `idle-time-out` an
   empty frame is written whenever nothing was written for half of it, at most every 100 ms.
 - Every error `description` is fixed text, never an address, account or exception.
 
-Transfers, credit, settlement and the bus-backed `IAmqp1NodeDirectory` are BL-513; one server running
-the negotiation and the connection under the head timeout and `--max-time` is BL-764; the command
-line and composition BL-514.
+Transfers, credit, settlement and the message format (BL-513; ADR-0107 decisions 5 and 6, and its
+BL-513 amendment):
+
+- The connection takes the process's `MessageBus` and connects to it for the account; its nodes are the
+  bus's. `Amqp1BusNodeDirectory` is the `IAmqp1NodeDirectory` it uses: a `/topic/` address maps through
+  `MessageBus.Names` (`amqp1`, so `--topic-map` aliases apply), a sender needing `pub` on the topic; a
+  queue needs `pub` or `sub` on `$queue/<q>` and is declared durable on first attach; a dynamic node is
+  a `surl-dynamic-` queue exclusive to the connection and auto-deleted. A client receiver's link is a
+  bus subscription (topic) or a consumer with 1000 unacknowledged (queue); the bus refusing it
+  (`AccessDenied`, `QueueLocked`, `ExclusiveConsumeRefused`; `TooManySubscriptions`; anything else)
+  refuses the attach with `amqp:unauthorized-access`, `amqp:resource-limit-exceeded` or `amqp:not-found`.
+- Frames are answered one at a time under one gate. A message the bus hands a link waits on it
+  (`Amqp1Link.Waiting`; a topic link drops past 1000 and notes the count when it ends) and wakes a pump
+  that sends under the same gate.
+- As receiver: a `flow` with credit 100 follows the `attach`, and a transfer that leaves 50 or less
+  raises it back. A transfer past the credit detaches with `amqp:link:transfer-limit-exceeded`; a first
+  transfer without `delivery-id`, or a continuation naming another delivery, with `amqp:invalid-field`;
+  a transfer on a link the client receives on with `amqp:illegal-state`. `more` transfers are joined
+  (`Amqp1IncomingDelivery`), `aborted` discards; past the bus's `MaxMessageBytes` one message detaches
+  with `amqp:link:message-size-exceeded`, and a connection's partial deliveries together close it with
+  `amqp:resource-limit-exceeded`. A whole message is stored (topic publish, or `PublishToQueue`) and the
+  bus saved, a failed save noted; an unsettled delivery is settled with `disposition` `accepted`, or
+  `rejected` with `amqp:not-implemented` (`message-format` not 0), `amqp:decode-error`,
+  `amqp:unauthorized-access`, `amqp:resource-limit-exceeded` or `amqp:not-found`; a pre-settled one
+  gets none, a rejection noted.
+- `Amqp1BusMessages` turns a message into a `BusMessage` - payload, expiry (an `absolute-expiry-time`
+  beyond a `DateTimeOffset` sets none), content type, a topic `reply-to`, correlation, string
+  application properties, QoS 1 or 0 - with every section but the delivery annotations as the `amqp1` native form, and back: a native form unchanged, its header's
+  `delivery-count` raised and `first-acquirer` false on a redelivery; any other message as a header
+  (`ttl`, redelivery), `properties` (`to`, `creation-time`, content type, `reply-to`, correlation),
+  `application-properties` and one `data` section. Sections out of order, repeated, of the wrong type
+  or of two kinds of body are `amqp:decode-error`.
+- As sender: the client's credit is `delivery-count` plus `link-credit` less the container's
+  `delivery-count`; deliveries go in order while credit and the client's session `incoming-window`
+  allow, each a new `delivery-id`, an 8-byte tag and `message-format` 0, split into `more` frames of
+  the smaller `max-frame-size` and written frame by frame as the window opens (`Amqp1OutgoingTransfer`);
+  a link holding 1000 deliveries unsettled sends nothing more until the client settles one. `drain`
+  sends what waits then gives the rest back with a `flow`; `echo` is answered with a `flow`. `snd-settle-mode` `settled` sends pre-settled (a queue delivery
+  acknowledged as written); otherwise the client's `disposition` over its range settles: `accepted`
+  acknowledges, `rejected` drops, `released` (or settling with no outcome) and `modified` put back,
+  `modified` with `undeliverable-here` keeps it from the link until the link ends; a topic delivery is
+  only settled. Under `rcv-settle-mode` `second` the container settles once the client states an outcome.
+- A link ending (client `detach`, `end`, the connection going) ends its subscription or consumer, so
+  its unsettled and waiting queue deliveries go back to the queue.
+
+One server running the negotiation and the connection under the head timeout and `--max-time` is
+BL-764; the command line and composition BL-514.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0107 decision 0 names (`Surl.MessageBus`) - never another protocol
