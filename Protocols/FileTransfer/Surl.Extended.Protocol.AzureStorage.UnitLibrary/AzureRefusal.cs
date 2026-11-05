@@ -41,12 +41,40 @@ internal sealed record AzureRefusal(AzureError Error, IReadOnlyList<AzureErrorEl
     /// <param name="parameterValue">The value the client sent, percent-decoded.</param>
     /// <returns>The refusal.</returns>
     public static AzureRefusal InvalidQueryParameterValue(string parameterName, string parameterValue) =>
+        InvalidQueryParameterValue(parameterName, parameterValue, "This operation is not served by this server.");
+
+    /// <summary>
+    /// <c>InvalidQueryParameterValue</c> with <c>QueryParameterName</c>, the client's
+    /// <c>QueryParameterValue</c> and the fixed <paramref name="reason"/>.
+    /// </summary>
+    /// <param name="parameterName">The parameter's name, as the server spells it.</param>
+    /// <param name="parameterValue">The value the client sent, percent-decoded.</param>
+    /// <param name="reason">The fixed sentence naming what is wrong with the value.</param>
+    /// <returns>The refusal.</returns>
+    public static AzureRefusal InvalidQueryParameterValue(string parameterName, string parameterValue, string reason) =>
         new(
             AzureError.InvalidQueryParameterValue,
             [
                 AzureErrorElement.Fixed("QueryParameterName", parameterName),
                 AzureErrorElement.Echoed("QueryParameterValue", parameterValue),
-                AzureErrorElement.Fixed("Reason", "This operation is not served by this server."),
+                AzureErrorElement.Fixed("Reason", reason),
+            ]);
+
+    /// <summary>
+    /// <c>OutOfRangeQueryParameterValue</c> with <c>QueryParameterName</c>, the client's
+    /// <c>QueryParameterValue</c> and the <c>MinimumAllowed</c> value.
+    /// </summary>
+    /// <param name="parameterName">The parameter's name, as the server spells it.</param>
+    /// <param name="parameterValue">The value the client sent, percent-decoded.</param>
+    /// <param name="minimumAllowed">The least value the parameter takes.</param>
+    /// <returns>The refusal.</returns>
+    public static AzureRefusal OutOfRangeQueryParameterValue(string parameterName, string parameterValue, string minimumAllowed) =>
+        new(
+            AzureError.OutOfRangeQueryParameterValue,
+            [
+                AzureErrorElement.Fixed("QueryParameterName", parameterName),
+                AzureErrorElement.Echoed("QueryParameterValue", parameterValue),
+                AzureErrorElement.Fixed("MinimumAllowed", minimumAllowed),
             ]);
 
     /// <summary>

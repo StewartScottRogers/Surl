@@ -44,6 +44,11 @@ internal sealed class AzureReply
     public string RequestId { get; }
 
     /// <summary>
+    /// When the answer is made.
+    /// </summary>
+    public DateTimeOffset Now => now;
+
+    /// <summary>
     /// Whether the request is a <c>HEAD</c>, whose answers carry no body.
     /// </summary>
     public bool IsHead => request.Method == "HEAD";

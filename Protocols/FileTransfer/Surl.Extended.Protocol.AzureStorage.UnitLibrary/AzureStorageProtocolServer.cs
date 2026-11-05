@@ -15,11 +15,12 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <remarks>
 /// <para>
 /// It serves Get Blob and Get Blob Properties - ranges, conditional fields, the blob's stored
-/// header fields and metadata - checks <c>x-ms-version</c> and <c>x-ms-date</c>, logs in with a
+/// header fields and metadata - Put Blob (under <c>--allow-uploads</c>), Delete Blob and List Blobs
+/// (under <c>--list-directories</c>), checks <c>x-ms-version</c> and <c>x-ms-date</c>, logs in with a
 /// bearer token through the <see cref="IAuthenticationPolicy"/>'s HTTP session (or anonymously
 /// when the policy allows it), and refuses every other request with the Blob service's XML
-/// <c>Error</c> and <c>x-ms-error-code</c>. Put Blob, List Blobs and Delete Blob are BL-425's, the
-/// Data Lake schemes BL-426's, Shared Key and shared access signatures BL-717's.
+/// <c>Error</c> and <c>x-ms-error-code</c>. The Data Lake schemes are BL-426's, Shared Key and
+/// shared access signatures BL-717's.
 /// </para>
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s. As an
@@ -70,7 +71,9 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
 
         var authentication = authenticationPolicy.StartHttpConnection(connection.TlsSession);
 
-        return new Http1ConnectionServer(new AzureBlobRequestAnswerer(store, index, authentication, context), context).ServeAsync(connection);
+        var endpointScheme = connection.TlsSession is null ? "http" : "https";
+
+        return new Http1ConnectionServer(new AzureBlobRequestAnswerer(store, index, authentication, context, endpointScheme), context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

@@ -352,8 +352,8 @@ public sealed class AzureStorageProtocolServerTests
     }
 
     [TestMethod]
-    [DataRow("PUT", DisplayName = "PUT")]
-    [DataRow("DELETE", DisplayName = "DELETE")]
+    [DataRow("POST", DisplayName = "POST")]
+    [DataRow("PATCH", DisplayName = "PATCH")]
     public async Task ServeAsync_MethodTheBlobDoesNotTake_Is405UnsupportedHttpVerb(string method)
     {
         var harness = new AzureServerHarness();
@@ -363,11 +363,12 @@ public sealed class AzureStorageProtocolServerTests
         Assert.AreEqual(
             AzureServerHarness.ExpectedError(response, "405 Method Not Allowed", "UnsupportedHttpVerb", "The resource doesn't support the specified HTTP verb."),
             response);
-        Assert.Contains("PUT /photos/a.txt is no operation the Azure Blob server serves; answered UnsupportedHttpVerb.".Replace("PUT", method, StringComparison.Ordinal), harness.Log.Notes);
+        Assert.Contains($"{method} /photos/a.txt is no operation the Azure Blob server serves; answered UnsupportedHttpVerb.", harness.Log.Notes);
     }
 
     [TestMethod]
-    [DataRow("/photos?restype=container&comp=list", "restype", "container", DisplayName = "List Blobs, not served yet")]
+    [DataRow("/photos?restype=container", "restype", "container", DisplayName = "Get Container Properties, not served yet")]
+    [DataRow("/photos?restype=container&comp=lis", "restype", "container", DisplayName = "a List Blobs with another comp")]
     [DataRow("/photos/a.txt?comp=lease", "comp", "lease", DisplayName = "a lease")]
     [DataRow("/photos/a.txt?snapshot=2026-11-05T12%3A00%3A00Z", "snapshot", "2026-11-05T12:00:00Z", DisplayName = "a snapshot")]
     [DataRow("/photos/a.txt?VersionId=v1", "versionid", "v1", DisplayName = "a version")]

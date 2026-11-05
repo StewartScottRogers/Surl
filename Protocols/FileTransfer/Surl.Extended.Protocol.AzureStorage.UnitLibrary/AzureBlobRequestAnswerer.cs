@@ -1,21 +1,20 @@
-using System.Security.Cryptography;
 using Surl.Content;
+using Surl.HttpMessage;
 using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.AzureStorage;
 
 /// <summary>
-/// Decides the answer to each Blob endpoint request on one connection (ADR-0109): Get Blob and Get
-/// Blob Properties on <c>/&lt;container&gt;/&lt;blob&gt;</c>, read from the content store as the
+/// Decides the answer to each Blob endpoint request on one connection (ADR-0109): Get Blob, Get
+/// Blob Properties, Put Blob and Delete Blob on <c>/&lt;container&gt;/&lt;blob&gt;</c> and List Blobs
+/// on <c>/&lt;container&gt;?restype=container&amp;comp=list</c>, made on the content store as the
 /// caller the login names, and the pages' own refusal for every other request.
 /// </summary>
 /// <remarks>
-/// The order is decision 3.1's: the required headers, then the login, then the method
-/// (<c>405 UnsupportedHttpVerb</c>), the query (<c>400 InvalidQueryParameterValue</c>), a path that
-/// names no blob (<c>400 InvalidUri</c>), an unsupported header (<c>400 UnsupportedHeader</c>), the
-/// container (<c>404 ContainerNotFound</c>), the name's length (<c>400 InvalidResourceName</c>) and
-/// the blob (<c>404 BlobNotFound</c>).
+/// The order is decision 3.1's: the required headers, then the login, then the operation
+/// (<see cref="AzureOperationRecognition"/>), the container (<c>404 ContainerNotFound</c>), the
+/// name's length (<c>400 InvalidResourceName</c>), and then the operation itself.
 /// </remarks>
 internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
 {
@@ -29,10 +28,22 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
     /// </summary>
     public const string BearerChallenge = "Bearer authorization_uri=https://login.microsoftonline.com/common/oauth2/authorize resource_id=https://storage.azure.com";
 
+    /// <summary>
+    /// <c>201 Created</c>, Put Blob's success.
+    /// </summary>
+    public static readonly HttpStatus Created = new(201, "Created");
+
+    /// <summary>
+    /// <c>202 Accepted</c>, Delete Blob's success.
+    /// </summary>
+    public static readonly HttpStatus Accepted = new(202, "Accepted");
+
     private readonly ContentStore store;
-    private readonly ObjectMetadataIndex index;
     private readonly IHttpAuthenticationSession authentication;
     private readonly ExchangeContext context;
+    private readonly AzureBlobPropertiesReader properties;
+    private readonly AzurePutBlob putBlob;
+    private readonly AzureListBlobs listBlobs;
 
     /// <summary>
     /// Creates the answerer for one exchange.
@@ -41,12 +52,15 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
     /// <param name="index">The object metadata index of the store's served root.</param>
     /// <param name="authentication">The connection's authentication session.</param>
     /// <param name="context">The exchange: its clock and log.</param>
-    public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context)
+    /// <param name="endpointScheme">How the connection is served, <c>https</c> or <c>http</c>.</param>
+    public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, string endpointScheme)
     {
         this.store = store;
-        this.index = index;
         this.authentication = authentication;
         this.context = context;
+        properties = new AzureBlobPropertiesReader(store, index, context.Log);
+        putBlob = new AzurePutBlob(store, index, context.Log);
+        listBlobs = new AzureListBlobs(store, properties, endpointScheme);
     }
 
     /// <inheritdoc/>
@@ -65,32 +79,36 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
             return login.Refusal;
         }
 
-        if (OperationRefusal(request, target) is { } operationRefusal)
+        if (AzureOperationRecognition.Recognize(request, target, out var operation) is { } operationRefusal)
         {
             context.Log.Note($"{request.Method} {target.Path} is no operation the Azure Blob server serves; answered {operationRefusal.Error.Code}.");
 
             return reply.Error(operationRefusal);
         }
 
-        return await ReadBlobAsync(reply, request, target, login.Caller!, cancellationToken);
+        return await AnswerOperationAsync(reply, request, target, operation, login.Caller!, cancellationToken);
     }
 
-    // The method, the query, a path naming no blob, then the unsupported headers.
-    private static AzureRefusal? OperationRefusal(HttpRequest request, AzureBlobTarget target)
+    // The container, then the name's length, then the operation.
+    private async Task<HttpAnswer> AnswerOperationAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, AzureOperation operation, ContentCaller caller, CancellationToken cancellationToken)
     {
-        if (request.Method is not ("GET" or "HEAD"))
+        if (!IsContainer(store.MapBucketRequestPathForCaller($"/{target.RawContainer}/", caller)))
         {
-            return AzureRefusal.Of(AzureError.UnsupportedHttpVerb);
+            return reply.Error(AzureRefusal.Of(AzureError.ContainerNotFound));
         }
 
-        if (AzureRequestChecks.CheckQuery(target) is { } queryRefusal)
+        if (target.BlobName.Length > MaxBlobNameLength)
         {
-            return queryRefusal;
+            return reply.Error(AzureRefusal.Of(AzureError.InvalidResourceName));
         }
 
-        return target.NamesABlob
-            ? AzureRequestChecks.CheckUnsupportedHeaders(request.Fields)
-            : AzureRefusal.Of(AzureError.InvalidUri);
+        return operation switch
+        {
+            AzureOperation.ListBlobs => await listBlobs.AnswerAsync(reply, request, target, caller, cancellationToken),
+            AzureOperation.PutBlob => await putBlob.AnswerAsync(reply, request, target, caller, cancellationToken),
+            AzureOperation.DeleteBlob => DeleteBlob(reply, target, caller),
+            _ => await ReadBlobAsync(reply, request, target, caller, cancellationToken),
+        };
     }
 
     // Decision 3: another Authorization scheme is 400; a bearer request needs 2017-11-09 or later;
@@ -149,58 +167,34 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
     private static bool IsBearer(string authorization) =>
         authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) && authorization[7..].Trim().Length > 0;
 
-    // Get Blob and Get Blob Properties: the container, then the name's length, then the blob.
+    // Get Blob and Get Blob Properties of a blob in an existing container.
     private async Task<HttpAnswer> ReadBlobAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, ContentCaller caller, CancellationToken cancellationToken)
     {
-        if (!IsContainer(store.MapBucketRequestPathForCaller($"/{target.RawContainer}/", caller)))
-        {
-            return reply.Error(AzureRefusal.Of(AzureError.ContainerNotFound));
-        }
-
-        if (target.BlobName.Length > MaxBlobNameLength)
-        {
-            return reply.Error(AzureRefusal.Of(AzureError.InvalidResourceName));
-        }
-
         var mapping = store.MapBucketRequestPathForCaller(target.Path, caller);
-        var properties = mapping.IsMapped ? await PropertiesAsync(mapping, target.Path, cancellationToken) : null;
+        var found = mapping.IsMapped
+            ? await properties.ReadAsync(mapping, AzureIndexKey.OfRaw(store, target.RawContainer, target.RawBlob), cancellationToken)
+            : null;
 
-        return properties is null
+        return found is null
             ? reply.Error(AzureRefusal.Of(AzureError.BlobNotFound))
-            : await AzureBlobAnswer.AnswerAsync(reply, request.Fields, properties, new HttpAnswerBody.ContentFile(store, mapping, ContentByteRange.WholeFile(properties.Length)), cancellationToken);
+            : await AzureBlobAnswer.AnswerAsync(reply, request.Fields, found, new HttpAnswerBody.ContentFile(store, mapping, ContentByteRange.WholeFile(found.Length)), cancellationToken);
+    }
+
+    // Delete Blob ("Delete Blob"; decision 5.6): 202; a missing blob 404 BlobNotFound; with uploads
+    // off or share access refusing the write, 403 AuthorizationPermissionMismatch.
+    private HttpAnswer DeleteBlob(AzureReply reply, AzureBlobTarget target, ContentCaller caller)
+    {
+        var mapping = store.MapBucketRequestPathForCaller(target.Path, caller);
+        var deleted = mapping.IsMapped ? store.DeleteFile(mapping) : ContentChangeResult.Absent;
+
+        return deleted switch
+        {
+            ContentChangeResult.Done => reply.Answer(Accepted, [new("Content-Length", "0")], HttpAnswerBody.None),
+            ContentChangeResult.NotPermitted => reply.Error(AzureRefusal.Of(AzureError.AuthorizationPermissionMismatch)),
+            _ => reply.Error(AzureRefusal.Of(AzureError.BlobNotFound)),
+        };
     }
 
     private bool IsContainer(ContentPathMapping container) =>
         container.IsMapped && store.GetEntryKind(container) == ContentEntryKind.Directory;
-
-    // The index keys a file by its path relative to the served root; a file it does not find
-    // there - one another protocol wrote, in a share or behind a bucket name - answers the
-    // index's defaults (ADR-0100, decision 2.3).
-    private async Task<ObjectProperties?> PropertiesAsync(ContentPathMapping mapping, string path, CancellationToken cancellationToken)
-    {
-        if (store.GetFileStatus(mapping) is not { } status)
-        {
-            return null;
-        }
-
-        var reading = await index.ReadAsync(Uri.UnescapeDataString(path[1..]), cancellationToken);
-        if (reading.StorageFailure is { } failure)
-        {
-            context.Log.Note($"The object metadata index could not be written: {failure}");
-        }
-
-        return reading.Properties ?? await DefaultPropertiesAsync(mapping, status, cancellationToken);
-    }
-
-    private async Task<ObjectProperties> DefaultPropertiesAsync(ContentPathMapping mapping, ContentFileStatus status, CancellationToken cancellationToken)
-    {
-        using var md5 = MD5.Create();
-        await using (var hashing = new CryptoStream(Stream.Null, md5, CryptoStreamMode.Write))
-        {
-            await store.CopyFileBytesAsync(mapping, ContentByteRange.WholeFile(status.Length), hashing, cancellationToken);
-        }
-
-        return new ObjectProperties(
-            ObjectMetadataIndex.DefaultContentType, null, null, null, null, [], $"\"{Convert.ToHexStringLower(md5.Hash!)}\"", 0, status.Length, status.LastModifiedUtc);
-    }
 }

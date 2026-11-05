@@ -88,6 +88,22 @@ internal static class AzureRequestChecks
     }
 
     /// <summary>
+    /// Put Blob's <c>x-ms-blob-type</c> (decision 4): missing is <c>400 MissingRequiredHeader</c>,
+    /// <c>AppendBlob</c> or <c>PageBlob</c> <c>400 UnsupportedHeader</c>, another value than
+    /// <c>BlockBlob</c> <c>400 InvalidHeaderValue</c>.
+    /// </summary>
+    /// <param name="fields">The request's fields.</param>
+    /// <returns>The refusal, or null for <c>BlockBlob</c>.</returns>
+    public static AzureRefusal? CheckBlobType(IReadOnlyList<KeyValuePair<string, string>> fields) =>
+        AzureRequestFields.Value(fields, "x-ms-blob-type") switch
+        {
+            null => AzureRefusal.ForHeader(AzureError.MissingRequiredHeader, "x-ms-blob-type"),
+            "BlockBlob" => null,
+            "AppendBlob" or "PageBlob" => AzureRefusal.ForHeader(AzureError.UnsupportedHeader, "x-ms-blob-type"),
+            var other => AzureRefusal.InvalidHeaderValue("x-ms-blob-type", other),
+        };
+
+    /// <summary>
     /// Whether a well-formed version is earlier than <see cref="FirstBearerVersion"/>.
     /// </summary>
     /// <param name="version">A version that passed <see cref="CheckRequiredHeaders"/>.</param>

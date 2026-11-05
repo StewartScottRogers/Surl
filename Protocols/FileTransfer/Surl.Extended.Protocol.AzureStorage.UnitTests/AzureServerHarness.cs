@@ -26,12 +26,12 @@ internal sealed partial class AzureServerHarness
     /// </summary>
     public static readonly string[] Bearer = ["x-ms-version: 2025-01-05", $"Authorization: Bearer {UnitTestBearerAuthenticationPolicy.Token}"];
 
-    public AzureServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, string accountName = "")
+    public AzureServerHarness(bool allowsAnonymous = false, long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, string accountName = "", ContentExposureOptions? exposure = null, IReadOnlyList<ContentBucket>? buckets = null, int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, new ContentExposureOptions(), shares ?? [], []);
-        Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex);
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? []);
+        Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
         Policy = new UnitTestBearerAuthenticationPolicy(allowsAnonymous) { AccountName = accountName };
         Server = new AzureStorageProtocolServer(Store, Index, Policy, TimeProvider);
     }
@@ -83,6 +83,28 @@ internal sealed partial class AzureServerHarness
     /// </summary>
     public Task<string> SendAsync(string method, string target, params string[] fields) =>
         SendRawAsync($"{method} {target} HTTP/1.1\r\nHost: account.blob.core.windows.net\r\n{string.Concat(fields.Select(field => field + "\r\n"))}Connection: close\r\n\r\n");
+
+    /// <summary>
+    /// Sends one request with the bearer fields and a body announced by <c>Content-Length</c>,
+    /// <c>Host</c> and <c>Connection: close</c> added, and returns what the server wrote.
+    /// </summary>
+    public Task<string> SendWithBearerAndBodyAsync(string method, string target, string body, params string[] fields) =>
+        SendRawAsync(
+            $"{method} {target} HTTP/1.1\r\nHost: account.blob.core.windows.net\r\n{string.Concat(((string[])[.. Bearer, .. fields]).Select(field => field + "\r\n"))}"
+                + $"Content-Length: {Encoding.UTF8.GetByteCount(body)}\r\nConnection: close\r\n\r\n{body}");
+
+    /// <summary>
+    /// The exposure options a harness that takes writes and listings is made with.
+    /// </summary>
+    public static ContentExposureOptions Writable { get; } = new() { AllowUploads = true, ListDirectories = true };
+
+    public string ReadFile(string relativePath)
+    {
+        using var stream = FileSystem.OpenFileForAsyncRead(Path.Join(Root, relativePath));
+        using var reader = new StreamReader(stream);
+
+        return reader.ReadToEnd();
+    }
 
     public async Task<string> SendRawAsync(string request)
     {

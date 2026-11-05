@@ -14,6 +14,8 @@ internal sealed record AzureError(string Code, HttpStatus Status, string Message
 {
     private static readonly HttpStatus PreconditionFailedStatus = new(412, "Precondition Failed");
     private static readonly HttpStatus RangeNotSatisfiableStatus = new(416, "Range Not Satisfiable");
+    private static readonly HttpStatus ConflictStatus = new(409, "Conflict");
+    private static readonly HttpStatus LengthRequiredStatus = new(411, "Length Required");
 
     /// <summary>
     /// <c>404 BlobNotFound</c>: no file at the blob name, or the name is a folder.
@@ -97,6 +99,58 @@ internal sealed record AzureError(string Code, HttpStatus Status, string Message
     /// <c>416 InvalidRange</c>: a single range that names no byte of the blob.
     /// </summary>
     public static AzureError InvalidRange { get; } = new("InvalidRange", RangeNotSatisfiableStatus, "The range specified is invalid for the current size of the resource.");
+
+    /// <summary>
+    /// <c>409 InvalidResourceName</c>: a blob name whose folder is a file, or that names a folder
+    /// (ADR-0109, decision 2).
+    /// </summary>
+    public static AzureError ResourceNameConflict { get; } = new("InvalidResourceName", ConflictStatus, "The specified resource name contains invalid characters.");
+
+    /// <summary>
+    /// <c>403 AuthorizationPermissionMismatch</c>: a write with uploads off or share access refusing
+    /// it, or a listing with listings off (ADR-0109, decisions 2 and 3.4).
+    /// </summary>
+    public static AzureError AuthorizationPermissionMismatch { get; } = new("AuthorizationPermissionMismatch", HttpStatus.Forbidden, "This request is not authorized to perform this operation using this permission.");
+
+    /// <summary>
+    /// <c>411 MissingContentLengthHeader</c>: a Put Blob with neither <c>Content-Length</c> nor a chunked body.
+    /// </summary>
+    public static AzureError MissingContentLengthHeader { get; } = new("MissingContentLengthHeader", LengthRequiredStatus, "The Content-Length header was not specified.");
+
+    /// <summary>
+    /// <c>400 InvalidMd5</c>: a <c>Content-MD5</c> that is not the base64 of 16 bytes.
+    /// </summary>
+    public static AzureError InvalidMd5 { get; } = new("InvalidMd5", HttpStatus.BadRequest, "The MD5 value specified in the request is invalid. The MD5 value must be 128 bits and Base64-encoded.");
+
+    /// <summary>
+    /// <c>400 Md5Mismatch</c>: a <c>Content-MD5</c> that is not the body's MD5.
+    /// </summary>
+    public static AzureError Md5Mismatch { get; } = new("Md5Mismatch", HttpStatus.BadRequest, "The MD5 value specified in the request did not match the MD5 value calculated by the server.");
+
+    /// <summary>
+    /// <c>400 MetadataTooLarge</c>: <c>x-ms-meta-*</c> names and values past 8 KiB (ADR-0109, decision 7).
+    /// </summary>
+    public static AzureError MetadataTooLarge { get; } = new("MetadataTooLarge", HttpStatus.BadRequest, "The size of the specified metadata exceeds the maximum size permitted.");
+
+    /// <summary>
+    /// <c>400 InvalidMetadata</c>: an <c>x-ms-meta-*</c> name that is not a C# identifier (ADR-0109, decision 7).
+    /// </summary>
+    public static AzureError InvalidMetadata { get; } = new("InvalidMetadata", HttpStatus.BadRequest, "The metadata specified is invalid. It has characters that are not permitted.");
+
+    /// <summary>
+    /// <c>413 RequestBodyTooLarge</c>: a Put Blob body past <c>--max-filesize</c> (ADR-0109, decision 7).
+    /// </summary>
+    public static AzureError RequestBodyTooLarge { get; } = new("RequestBodyTooLarge", HttpStatus.ContentTooLarge, "The size of the request body exceeds the maximum size permitted.");
+
+    /// <summary>
+    /// <c>400 InvalidInput</c>: a body the server cannot read, or one cut short.
+    /// </summary>
+    public static AzureError InvalidInput { get; } = new("InvalidInput", HttpStatus.BadRequest, "One of the request inputs is not valid.");
+
+    /// <summary>
+    /// <c>400 OutOfRangeQueryParameterValue</c>: a List Blobs <c>maxresults</c> of 0 or below.
+    /// </summary>
+    public static AzureError OutOfRangeQueryParameterValue { get; } = new("OutOfRangeQueryParameterValue", HttpStatus.BadRequest, "A query parameter specified in the request URI is outside the permissible range.");
 
     /// <summary>
     /// <c>503 ServerBusy</c>: a connection past <c>--max-connections</c> or
