@@ -46,3 +46,4 @@ server can answer in its own words; with no share access configured it allows ex
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
