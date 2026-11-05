@@ -84,3 +84,4 @@ Decide and record:
 - 2026-11-04: Created.
 - 2026-11-04: Amended by task-planner: depends on BL-612, whose ADR decides the MCP core (`Surl.McpServing`) this
   server shares with the `Surl.Mcp` host; decisions 3 and 7 adopt that core's versions and error codes.
+- 2026-11-05: Backlog -> Doing.
