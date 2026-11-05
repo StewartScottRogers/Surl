@@ -44,3 +44,4 @@ and drops what RFC 1035 says to drop.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
