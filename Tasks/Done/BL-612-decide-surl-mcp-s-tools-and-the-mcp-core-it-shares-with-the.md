@@ -8,7 +8,7 @@ depends-on: [BL-611]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-612 — Decide Surl.Mcp's tools and the MCP core it shares with the extended MCP server
 
@@ -78,12 +78,12 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by Claude
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by Claude
       under Stewart's delegation", citing BL-610's and BL-611's ADRs and each specification page it relies on. It
       answers decisions 1 to 8 above and lists the follow-up tasks named in this task's Notes.
-- [ ] The ADR amends ADR-0002's table (it says so in its own text, and the index row says "amends ADR-0002"), and
+- [x] The ADR amends ADR-0002's table (it says so in its own text, and the index row says "amends ADR-0002"), and
       is listed in `Documentation/Planning/Decisions/README.md`'s index.
-- [ ] Where the ADR departs from a planning assumption above, its Consequences section names each follow-up task
+- [x] Where the ADR departs from a planning assumption above, its Consequences section names each follow-up task
       whose Goal or touches it changes.
 
 ## Notes
@@ -95,7 +95,22 @@ BL-632 (proof against pinned upstream curl), BL-637 (publishing `surl-mcp`), BL-
 and BL-649 (documents). Amended to build on the core: BL-463 (now depends on this task), BL-464, BL-465, BL-467, and
 BL-468 (composition moved by BL-609 and BL-614).
 
+Outcome (2026-11-05): ADR-0103 written in the session rather than through `align-and-document`, because it is one
+decision record built from the specification pages and the follow-up tasks already read here; no `.cs` or project
+file changed. Choices taken where the planning left a default, each with its reason in the ADR:
+- `Surl.McpServing` references nothing (it needs only `Stream` and `JsonElement`); stays in `Protocols/Http/`, so no
+  new category.
+- Versions `2025-06-18`, `2025-03-26`, `2024-11-05`; any other answered with `2025-06-18` as the Lifecycle page
+  requires (never an error); batching refused in every version.
+- 4 MiB message limit, 16 concurrent requests, pages of 100, base64url offset cursors.
+- `start_server` takes surl's own words (`arguments`) plus in-memory `files`, not typed options: one vocabulary,
+  documented by the `surl://aihelp` resources, parsed by `Surl.Api` as `surl` parses it.
+- No root means no path option at all (safest default); 8 servers by default; `-K` refused.
+- `get_exchanges` has no listen URL (inherits ADR-0099 decision 7) - departure named for BL-626.
+- One framework-dependent NuGet tool package rather than per-runtime native packages - departure named for BL-643.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0103 decides Surl.McpServing, the surl-mcp host, its four tools, safety, lifetime, help and shipping
