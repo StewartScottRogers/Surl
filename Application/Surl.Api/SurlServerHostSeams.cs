@@ -31,6 +31,12 @@ internal sealed record SurlServerHostSeams(
     /// <summary>The file system a data directory is served through; the disk when <see langword="null"/>.</summary>
     public IContentFileSystem? DataDirectoryFileSystem { get; init; }
 
+    /// <summary>
+    /// Reads a file the start reads (the <c>--user-file</c>, certificates, keys, host keys), by its
+    /// path as given; the disk when <see langword="null"/>.
+    /// </summary>
+    public Func<string, byte[]>? ReadStartFile { get; init; }
+
     /// <summary>Creates a <see cref="SocketListenerFactory"/> securing connections with <paramref name="tlsSettings"/>.</summary>
     /// <param name="tlsSettings">The server's TLS settings, or <see langword="null"/> for none.</param>
     /// <returns>The factory.</returns>

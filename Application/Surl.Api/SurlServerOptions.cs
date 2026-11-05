@@ -45,6 +45,77 @@ public sealed class SurlServerOptions
     public bool ServeDotFiles { get; set; }
 
     /// <summary>
+    /// The accounts a client may log in as (<c>--user</c>, ADR-0032 section 1), in order; none by
+    /// default. A user name may not hold <c>:</c>.
+    /// </summary>
+    public IList<SurlAccount> Accounts { get; } = [];
+
+    /// <summary>
+    /// The accounts file read at start (<c>--user-file</c>), or <see langword="null"/>, the default,
+    /// for none. A malformed line refuses the start with <see cref="Protocol.Abstractions.SurlExitCode.FailedInit"/>
+    /// naming the line, an unreadable file with <see cref="Protocol.Abstractions.SurlExitCode.CouldNotReadFile"/>.
+    /// </summary>
+    public string? UserFile { get; set; }
+
+    /// <summary>
+    /// The authentication methods accepted and offered (<c>--auth</c>, given once with the words joined
+    /// by commas), or <see langword="null"/>, the default, for <c>surl</c>'s default set.
+    /// </summary>
+    public IList<string>? AuthenticationMethods { get; set; }
+
+    /// <summary>Accepts any login, or none (<c>--allow-anonymous</c>, warns on start); off by default.</summary>
+    public bool AllowAnonymous { get; set; }
+
+    /// <summary>Accepts passwords sent over an unencrypted connection (<c>--allow-plaintext-auth</c>, warns on start); off by default.</summary>
+    public bool AllowPlaintextAuthentication { get; set; }
+
+    /// <summary>The server certificate file (<c>--cert</c>), or <see langword="null"/>, the default, for none.</summary>
+    public string? CertificateFile { get; set; }
+
+    /// <summary>The private key file for <see cref="CertificateFile"/> (<c>--key</c>), or <see langword="null"/>, the default, for the key in the certificate file.</summary>
+    public string? KeyFile { get; set; }
+
+    /// <summary>The passphrase of the key file and host key files (<c>--pass</c>), or <see langword="null"/>, the default, for none.</summary>
+    public string? KeyPassphrase { get; set; }
+
+    /// <summary>Serves a throwaway self-signed certificate when no certificate file is given (<c>--self-signed</c>, warns on start); off by default.</summary>
+    public bool SelfSigned { get; set; }
+
+    /// <summary>The CA certificates client certificates are verified against (<c>--cacert</c>), or <see langword="null"/>, the default, for none.</summary>
+    public string? CaCertificateFile { get; set; }
+
+    /// <summary>The SSH host private key files (<c>--hostkey</c>), in order; none by default.</summary>
+    public IList<string> HostKeyFiles { get; } = [];
+
+    /// <summary>Makes a throwaway SSH host key at start when no host key file is given (<c>--throwaway-hostkey</c>, warns on start); off by default.</summary>
+    public bool ThrowawayHostKey { get; set; }
+
+    /// <summary>Connections at once across all listeners (<c>--max-connections</c>), or <see langword="null"/>, the default, for <c>surl</c>'s 1024.</summary>
+    public int? MaxConnections { get; set; }
+
+    /// <summary>Connections at once from one address (<c>--max-connections-per-address</c>), or <see langword="null"/>, the default, for <c>surl</c>'s 100.</summary>
+    public int? MaxConnectionsPerAddress { get; set; }
+
+    /// <summary>
+    /// How long an exchange may sit idle (<c>--idle-timeout</c>), or <see langword="null"/>, the
+    /// default, for <c>surl</c>'s 120 seconds. <see cref="TimeSpan.Zero"/> and
+    /// <see cref="Timeout.InfiniteTimeSpan"/> mean no limit, as <c>0</c> does; any other negative
+    /// duration is misuse.
+    /// </summary>
+    public TimeSpan? IdleTimeout { get; set; }
+
+    /// <summary>
+    /// The longest time one exchange may take (<c>--max-time</c>), or <see langword="null"/>, the
+    /// default, for <c>surl</c>'s 3600 seconds. <see cref="TimeSpan.Zero"/> and
+    /// <see cref="Timeout.InfiniteTimeSpan"/> mean no limit, as <c>0</c> does; any other negative
+    /// duration is misuse.
+    /// </summary>
+    public TimeSpan? MaxTime { get; set; }
+
+    /// <summary>The largest upload accepted, in bytes (<c>--max-filesize</c>), or <see langword="null"/>, the default, for <c>surl</c>'s 100 MiB.</summary>
+    public long? MaxFileSize { get; set; }
+
+    /// <summary>
     /// Any other <c>surl</c> option, as <c>surl</c>'s own words, read after the properties above.
     /// <c>--help</c>, <c>--aihelp</c>, <c>--manual</c>, <c>--version</c>, <c>--log-file</c>,
     /// <c>--trace</c> and <c>--trace-ascii</c> belong to a host and are refused.

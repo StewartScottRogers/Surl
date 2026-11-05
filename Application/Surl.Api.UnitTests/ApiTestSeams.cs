@@ -24,7 +24,11 @@ internal sealed class ApiTestSeams
         _ => ListenerFactory, _ => true, TakeDataDirectoryLock, FakeEnvironmentVariableReader.ExtensionsTurnedOff)
     {
         DataDirectoryFileSystem = new InMemoryContentFileSystem(TimeProvider.System),
+        ReadStartFile = ReadStartFile,
     };
+
+    /// <summary>The files a start reads, by path as given; any other path is not found.</summary>
+    public Dictionary<string, byte[]> StartFiles { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Whether a start holds <paramref name="dataDirectory"/>'s lock now.</summary>
     public bool IsHeld(string dataDirectory)
@@ -46,6 +50,9 @@ internal sealed class ApiTestSeams
 
         return options;
     }
+
+    private byte[] ReadStartFile(string path) =>
+        StartFiles.TryGetValue(path, out var contents) ? contents : throw new FileNotFoundException("No such start file.", path);
 
     private DataDirectoryLockOutcome TakeDataDirectoryLock(string dataDirectory)
     {

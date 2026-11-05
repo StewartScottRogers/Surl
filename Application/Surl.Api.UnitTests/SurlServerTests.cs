@@ -5,7 +5,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Api;
 
 [TestClass]
-public sealed class SurlServerTests
+public sealed partial class SurlServerTests
 {
     public TestContext TestContext { get; set; } = null!;
 

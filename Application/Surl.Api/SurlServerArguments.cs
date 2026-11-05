@@ -1,3 +1,4 @@
+using System.Globalization;
 using Surl.Cli;
 using Surl.Composition;
 using Surl.Output;
@@ -37,6 +38,33 @@ internal static class SurlServerArguments
         }
 
         InMemoryFiles.ThrowIfMisused(options.Files);
+        ThrowIfAuthenticationMisused(options);
+        ThrowIfNegativeDuration(options.IdleTimeout, nameof(options.IdleTimeout));
+        ThrowIfNegativeDuration(options.MaxTime, nameof(options.MaxTime));
+    }
+
+    // A null word, or a user name --user would split at a colon inside it.
+    private static void ThrowIfAuthenticationMisused(SurlServerOptions options)
+    {
+        if (options.Accounts.Any(account => account?.UserName is null || account.Password is null || account.UserName.Contains(':')))
+        {
+            throw new ArgumentException(
+                "Accounts may not hold null, a null user name or password, or a user name with ':'.", nameof(options));
+        }
+
+        if (options.HostKeyFiles.Contains(null!) || options.AuthenticationMethods?.Contains(null!) == true)
+        {
+            throw new ArgumentException("HostKeyFiles and AuthenticationMethods may not hold null.", nameof(options));
+        }
+    }
+
+    private static void ThrowIfNegativeDuration(TimeSpan? duration, string propertyName)
+    {
+        if (duration is { Ticks: < 0 } negative && negative != Timeout.InfiniteTimeSpan)
+        {
+            throw new ArgumentException(
+                $"{propertyName} may not be negative; TimeSpan.Zero or Timeout.InfiniteTimeSpan is no limit.", "options");
+        }
     }
 
     /// <summary>Composes the arguments <c>surl</c> would be given for <paramref name="options"/>.</summary>
@@ -54,6 +82,9 @@ internal static class SurlServerArguments
         AddFlag(arguments, options.ListDirectories, "--list-directories");
         AddFlag(arguments, options.FollowSymlinks, "--follow-symlinks");
         AddFlag(arguments, options.ServeDotFiles, "--serve-dot-files");
+        AddAuthentication(arguments, options);
+        AddTls(arguments, options);
+        AddLimits(arguments, options);
         if (options.LogLevel != LogLevel.Info)
         {
             arguments.AddRange(["--log-level", options.LogLevel.ToString().ToLowerInvariant()]);
@@ -95,6 +126,63 @@ internal static class SurlServerArguments
             ? commandLine
             : throw new ArgumentException(
                 "--log-file, --trace and --trace-ascii belong to a host; write the log to SurlServerOptions.Log.", "options");
+
+    private static void AddAuthentication(List<string> arguments, SurlServerOptions options)
+    {
+        foreach (var account in options.Accounts)
+        {
+            arguments.AddRange(["--user", account.UserName + ":" + account.Password]);
+        }
+
+        AddValue(arguments, options.UserFile, "--user-file");
+        AddValue(arguments, options.AuthenticationMethods is { } methods ? string.Join(",", methods) : null, "--auth");
+        AddFlag(arguments, options.AllowAnonymous, "--allow-anonymous");
+        AddFlag(arguments, options.AllowPlaintextAuthentication, "--allow-plaintext-auth");
+    }
+
+    private static void AddTls(List<string> arguments, SurlServerOptions options)
+    {
+        AddValue(arguments, options.CertificateFile, "--cert");
+        AddValue(arguments, options.KeyFile, "--key");
+        AddValue(arguments, options.KeyPassphrase, "--pass");
+        AddFlag(arguments, options.SelfSigned, "--self-signed");
+        AddValue(arguments, options.CaCertificateFile, "--cacert");
+        foreach (var hostKeyFile in options.HostKeyFiles)
+        {
+            arguments.AddRange(["--hostkey", hostKeyFile]);
+        }
+
+        AddFlag(arguments, options.ThrowawayHostKey, "--throwaway-hostkey");
+    }
+
+    private static void AddLimits(List<string> arguments, SurlServerOptions options)
+    {
+        AddValue(arguments, FormatInvariant(options.MaxConnections), "--max-connections");
+        AddValue(arguments, FormatInvariant(options.MaxConnectionsPerAddress), "--max-connections-per-address");
+        AddValue(arguments, FormatSeconds(options.IdleTimeout), "--idle-timeout");
+        AddValue(arguments, FormatSeconds(options.MaxTime), "--max-time");
+        AddValue(arguments, FormatInvariant(options.MaxFileSize), "--max-filesize");
+    }
+
+    private static string? FormatInvariant<T>(T? value)
+        where T : struct, IFormattable =>
+        value?.ToString(null, CultureInfo.InvariantCulture);
+
+    // Seconds as <seconds> reads them back, tick for tick; no limit is 0, as on the command line.
+    private static string? FormatSeconds(TimeSpan? duration) => duration switch
+    {
+        null => null,
+        { Ticks: <= 0 } => "0",
+        { Ticks: var ticks } => (ticks / (decimal)TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture),
+    };
+
+    private static void AddValue(List<string> arguments, string? value, string option)
+    {
+        if (value is not null)
+        {
+            arguments.AddRange([option, value]);
+        }
+    }
 
     private static void AddFlag(List<string> arguments, bool isOn, string option)
     {

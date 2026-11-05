@@ -88,6 +88,7 @@ public sealed class SurlServer : IAsyncDisposable
             host.CreateListenerFactory, host.CanOpenDataDirectory, host.TakeDataDirectoryLock, timeProvider, areExtensionsTurnedOn)
         {
             DataDirectoryFileSystem = host.DataDirectoryFileSystem,
+            ReadStartFile = host.ReadStartFile,
             ContentWithoutDataDirectory = await InMemoryFiles.ComposeAsync(options.Files, timeProvider, cancellationToken),
         };
 

@@ -24,8 +24,15 @@ measures it by name.
 - `Log` receives the start-up warnings, the status lines and the exchange log at `LogLevel`;
   null is silent. `--help`, `--aihelp`, `--manual`, `--version`, `--log-file`, `--trace` and
   `--trace-ascii` belong to a host and are `ArgumentException`s.
-- Accounts, `--auth`, TLS, host keys and limits as typed properties are BL-616's; recording
-  exchanges is BL-617's. Until then those options are reachable through `AdditionalArguments`.
+- Accounts (`SurlAccount`), `UserFile`, `AuthenticationMethods`, the loosenings, TLS files,
+  host keys and limits are typed properties (BL-616), each composed as its option by
+  `SurlServerArguments.Compose`; a null or default property adds no word, so the default is
+  `surl`'s. Misuse `--user` could not spell (a null, a `:` in a user name) and a negative
+  duration other than `Timeout.InfiniteTimeSpan` are `ArgumentException`s. Recording exchanges
+  is BL-617's.
+- `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
+  give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
+  `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.
 
 ## What it references
 

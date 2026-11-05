@@ -5,7 +5,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Api;
 
 [TestClass]
-public sealed class SurlServerArgumentsTests
+public sealed partial class SurlServerArgumentsTests
 {
     [TestMethod]
     public void Compose_OnlyAListenUrl_IsTheListenUrlAlone()
