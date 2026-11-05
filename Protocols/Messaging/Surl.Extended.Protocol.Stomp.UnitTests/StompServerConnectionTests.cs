@@ -209,7 +209,7 @@ public sealed partial class StompServerConnectionTests
     {
         var connection = Connection(AliceConnect + "DISCONNECT\nreceipt:77\n\n\0SEND\n\n\0");
 
-        await new StompServer(new UnitTestStompAuthenticationPolicy()).ServeAsync(connection, Context(new ManualTimeProvider()));
+        await new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus()).ServeAsync(connection, Context(new ManualTimeProvider()));
 
         Assert.AreEqual(Connected12 + "RECEIPT\nreceipt-id:77\n\n\0", Masked(connection));
         Assert.IsTrue(connection.WritesCompleted);
@@ -237,7 +237,7 @@ public sealed partial class StompServerConnectionTests
     {
         var connection = Connection(AliceConnect);
 
-        await new StompServer(new UnitTestStompAuthenticationPolicy()).ServeAsync(connection, Context(new ManualTimeProvider()));
+        await new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus()).ServeAsync(connection, Context(new ManualTimeProvider()));
 
         Assert.AreEqual(Connected12, Masked(connection));
         Assert.IsTrue(connection.WritesCompleted);
@@ -257,7 +257,7 @@ public sealed partial class StompServerConnectionTests
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
         var connection = new UnitTestStompClientConnection();
-        var serving = new StompServer(new UnitTestStompAuthenticationPolicy()).ServeAsync(connection, Context(clock, log));
+        var serving = new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus()).ServeAsync(connection, Context(clock, log));
         connection.Send("CONNECT\n");
         await WaitUntilAsync(() => clock.PendingTimerCount == 1);
 
@@ -273,7 +273,7 @@ public sealed partial class StompServerConnectionTests
     {
         using var cancellation = new CancellationTokenSource();
         var connection = new UnitTestStompClientConnection();
-        var serving = new StompServer(new UnitTestStompAuthenticationPolicy()).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: cancellation.Token));
+        var serving = new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus()).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: cancellation.Token));
 
         await cancellation.CancelAsync();
 
@@ -285,7 +285,7 @@ public sealed partial class StompServerConnectionTests
     {
         var clock = new ManualTimeProvider();
         var connection = new UnitTestStompClientConnection();
-        var serving = new StompServer(new UnitTestStompAuthenticationPolicy()).ServeAsync(connection, Context(clock));
+        var serving = new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus()).ServeAsync(connection, Context(clock));
         connection.Send("FLY\n\n\0");
         await WaitUntilAsync(() => connection.Written.Length > 0 && clock.PendingTimerCount == 1);
         connection.Send("more the server discards");
@@ -302,7 +302,7 @@ public sealed partial class StompServerConnectionTests
         using var cancellation = new CancellationTokenSource();
         var clock = new ManualTimeProvider();
         var connection = new UnitTestStompClientConnection();
-        var serving = new StompServer(new UnitTestStompAuthenticationPolicy()).ServeAsync(connection, Context(clock, cancellation: cancellation.Token));
+        var serving = new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus()).ServeAsync(connection, Context(clock, cancellation: cancellation.Token));
         connection.Send("FLY\n\n\0");
         await WaitUntilAsync(() => connection.Written.Length > 0 && clock.PendingTimerCount == 1);
 
@@ -326,7 +326,7 @@ public sealed partial class StompServerConnectionTests
         var log = new RecordingExchangeLog();
         var connection = Connection(chunks);
 
-        await new StompServer(policy, options).ServeAsync(connection, Context(new ManualTimeProvider(), log, TestContext.CancellationToken) with { Limits = limits });
+        await new StompServer(policy, NewBus(), options).ServeAsync(connection, Context(new ManualTimeProvider(), log, TestContext.CancellationToken) with { Limits = limits });
 
         return (Masked(connection), log);
     }
@@ -334,7 +334,7 @@ public sealed partial class StompServerConnectionTests
     private async Task<string> WrittenAsync(IAuthenticationPolicy policy, string client)
     {
         var connection = Connection(client);
-        await new StompServer(policy).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: TestContext.CancellationToken));
+        await new StompServer(policy, NewBus()).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: TestContext.CancellationToken));
         return Encoding.UTF8.GetString(connection.WrittenBytes);
     }
 
@@ -366,4 +366,6 @@ public sealed partial class StompServerConnectionTests
         log ?? new RecordingExchangeLog(),
         clock,
         cancellation);
+
+    private static Surl.MessageBus.MessageBus NewBus() => new(TimeProvider.System);
 }

@@ -13,19 +13,25 @@ public sealed class StompServerTests
     [TestMethod]
     public void Constructor_NullPolicy_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new StompServer(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new StompServer(null!, NewBus()));
+    }
+
+    [TestMethod]
+    public void Constructor_NullBus_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new StompServer(new UnitTestStompAuthenticationPolicy(), null!));
     }
 
     [TestMethod]
     public void Schemes_IsStomp()
     {
-        CollectionAssert.AreEqual(new[] { "stomp" }, new StompServer(new UnitTestStompAuthenticationPolicy()).Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "stomp" }, new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus()).Schemes.ToArray());
     }
 
     [TestMethod]
     public void ServeAsync_NullArgument_Throws()
     {
-        var server = new StompServer(new UnitTestStompAuthenticationPolicy());
+        var server = new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus());
         var context = new ExchangeContext(
             1,
             new ListenUrl("stomp", "127.0.0.1", 61613).WithBoundPort(61613),
@@ -43,7 +49,7 @@ public sealed class StompServerTests
     public async Task WriteRefusalAsync_AnyRefusal_IsTooManyConnectionsAndClosed()
     {
         var connection = new InMemoryConnection([]);
-        var server = new StompServer(new UnitTestStompAuthenticationPolicy(), new StompServerOptions());
+        var server = new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus(), new StompServerOptions());
 
         await server.WriteRefusalAsync(connection, ConnectionRefusal.TooManyConnections, TestContext.CancellationToken);
 
@@ -54,9 +60,11 @@ public sealed class StompServerTests
     [TestMethod]
     public async Task WriteRefusalAsync_NullConnection_Throws()
     {
-        var server = new StompServer(new UnitTestStompAuthenticationPolicy());
+        var server = new StompServer(new UnitTestStompAuthenticationPolicy(), NewBus());
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(
             () => server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, TestContext.CancellationToken).AsTask());
     }
+
+    private static Surl.MessageBus.MessageBus NewBus() => new(TimeProvider.System);
 }

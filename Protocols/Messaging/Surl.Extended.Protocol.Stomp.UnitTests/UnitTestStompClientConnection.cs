@@ -20,6 +20,9 @@ internal sealed class UnitTestStompClientConnection : IConnection
 
     public int FailWritesAfter { get; init; } = int.MaxValue;
 
+    /// <summary>Whether every write waits until it is cancelled, as a transport that takes nothing.</summary>
+    public bool HoldsWrites { get; init; }
+
     public EndPoint LocalEndPoint { get; } = new IPEndPoint(IPAddress.Loopback, 61613);
 
     public EndPoint RemoteEndPoint { get; } = new IPEndPoint(IPAddress.Loopback, 50000);
@@ -62,6 +65,12 @@ internal sealed class UnitTestStompClientConnection : IConnection
     public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (HoldsWrites)
+        {
+            // A transport that never takes the bytes: the write ends only when it is cancelled.
+            return new ValueTask(Task.Delay(Timeout.Infinite, cancellationToken));
+        }
+
         lock (gate)
         {
             if (writes++ >= FailWritesAfter)

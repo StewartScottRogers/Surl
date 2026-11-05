@@ -34,12 +34,25 @@ internal sealed class StompFrameReader(IConnection connection, long maxLineBytes
     private byte[] buffer = new byte[InitialBufferBytes];
     private int start;
     private int end;
+    private long lastReceivedTicks;
 
     /// <summary>
     /// The version whose escapes headers are decoded by, once negotiated; <see langword="null"/>
     /// before, when nothing is decoded.
     /// </summary>
     public StompVersion? Version { get; set; }
+
+    /// <summary>The clock <see cref="LastReceivedAt"/> is read from.</summary>
+    public TimeProvider Clock { get; init; } = TimeProvider.System;
+
+    /// <summary>
+    /// When a read last returned from the client, frames and heart-beat EOLs alike; read from
+    /// another thread by the heart-beat watch (ADR-0118 decision 7).
+    /// </summary>
+    public DateTimeOffset LastReceivedAt => new(Interlocked.Read(ref lastReceivedTicks), TimeSpan.Zero);
+
+    /// <summary>Records that something arrived from the client now.</summary>
+    public void MarkReceived() => Interlocked.Exchange(ref lastReceivedTicks, Clock.GetUtcNow().UtcTicks);
 
     /// <summary>
     /// Reads the next frame; <see langword="null"/> once the client has closed its side (a part
@@ -90,19 +103,26 @@ internal sealed class StompFrameReader(IConnection connection, long maxLineBytes
                 return headers;
             }
 
-            if (++count > MaxHeaders)
-            {
-                throw new StompProtocolViolationException(StompErrors.TooManyHeaders, $"A frame carried more than {MaxHeaders} headers");
-            }
-
-            var header = Header(Text(line), escaping);
-            if (!headers.Exists(existing => existing.Key == header.Key))
-            {
-                headers.Add(header);
-            }
+            AddHeader(headers, ++count, line, escaping);
         }
 
         return null;
+    }
+
+    // ADR-0118 decisions 0 and 8: past MaxHeaders the frame is refused; the first of a repeated
+    // name is kept.
+    private static void AddHeader(List<KeyValuePair<string, string>> headers, int count, byte[] line, StompVersion? escaping)
+    {
+        if (count > MaxHeaders)
+        {
+            throw new StompProtocolViolationException(StompErrors.TooManyHeaders, $"A frame carried more than {MaxHeaders} headers");
+        }
+
+        var header = Header(Text(line), escaping);
+        if (!headers.Exists(existing => existing.Key == header.Key))
+        {
+            headers.Add(header);
+        }
     }
 
     private static KeyValuePair<string, string> Header(string line, StompVersion? escaping)
@@ -260,6 +280,7 @@ internal sealed class StompFrameReader(IConnection connection, long maxLineBytes
 
         var read = await connection.ReadAsync(buffer.AsMemory(end), cancellationToken);
         end += read;
+        MarkReceived();
         return read > 0;
     }
 

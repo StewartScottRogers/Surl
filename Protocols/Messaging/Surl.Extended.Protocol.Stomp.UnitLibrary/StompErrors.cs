@@ -19,6 +19,17 @@ internal static class StompErrors
     public const string TooManyHeaders = "Too many headers";
     public const string FrameTooLarge = "Frame too large";
     public const string TooManyConnections = "Too many connections";
+    public const string MissingDestinationHeader = "Missing destination header";
+    public const string MissingIdHeader = "Missing id header";
+    public const string MissingTransactionHeader = "Missing transaction header";
+    public const string UnknownDestination = "Unknown destination";
+    public const string AccessRefused = "Access refused";
+    public const string DuplicateSubscriptionId = "Duplicate subscription id";
+    public const string InvalidAckMode = "Invalid ack mode";
+    public const string DuplicateTransaction = "Duplicate transaction";
+    public const string UnknownTransaction = "Unknown transaction";
+    public const string TooManySubscriptions = "Too many subscriptions";
+    public const string ResourceLimitExceeded = "Resource limit exceeded";
 
     private const string SupportedVersionsBody = "Supported protocol versions are 1.0 1.1 1.2";
 

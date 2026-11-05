@@ -27,6 +27,14 @@ internal static class StompHeaderEscaping
             return true;
         }
 
+        var unescaped = Unescaped(text, version);
+        decoded = unescaped ?? string.Empty;
+        return unescaped is not null;
+    }
+
+    // The text with every escape decoded; null at the first escape the version does not define.
+    private static string? Unescaped(string text, StompVersion version)
+    {
         var builder = new StringBuilder(text.Length);
         for (var index = 0; index < text.Length; index++)
         {
@@ -40,15 +48,13 @@ internal static class StompHeaderEscaping
             var escaped = index < text.Length ? Unescape(text[index], version) : null;
             if (escaped is null)
             {
-                decoded = string.Empty;
-                return false;
+                return null;
             }
 
             builder.Append(escaped.Value);
         }
 
-        decoded = builder.ToString();
-        return true;
+        return builder.ToString();
     }
 
     /// <summary>Escapes what <paramref name="version"/> can escape in <paramref name="text"/>.</summary>
