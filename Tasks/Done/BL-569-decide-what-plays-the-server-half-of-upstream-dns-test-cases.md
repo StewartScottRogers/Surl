@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: docs
 depends-on: [BL-478]
-touches: [Documentation/Planning/Decisions]
+touches: [Documentation/Planning/Decisions, Record-CurlExchange.ps1]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-569 — Decide what plays the server half of upstream dns test cases
 
@@ -54,20 +54,35 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation", answering decisions 1 to 4, and it is listed in
       the folder's `README.md`.
-- [ ] The ADR states, per reference pin by its file and SHA-256 from `UpstreamCurlBuilds.json`,
+- [x] The ADR states, per reference pin by its file and SHA-256 from `UpstreamCurlBuilds.json`,
       whether `override-dns` is present and how that was measured, and names cases 2102, 2103 and
       2104 with the outcome each will have on each pin.
-- [ ] The ADR's "Consequences" name BL-570 as the task that acts on it.
+- [x] The ADR's "Consequences" name BL-570 as the task that acts on it.
 
 ## Notes
 
 - Planning assumptions above are BL-399's defaults for an unattended plan; the ADR may change any
   of them.
+- 2026-11-05: Decided in ADR-0123. Planning assumptions 1, 2 and 4 kept; 3 measured.
+  `override-dns` is printed by the test tool `curlinfo`, ON only with `CURL_MEMDEBUG` (defined
+  only under `DEBUGBUILD`), and every read of `CURL_DNS_SERVER` is debug-only (lib/asyn-ares.c,
+  asyn-thrdd.c, curl_addrinfo.c, fake_addrinfo.c at the tag). Measured on the Windows reference
+  pin and the static Windows build: with case 2102's `CURL_DNS_SERVER`, 0 datagrams reached the
+  port (exit 6); a TFTP control to the same recorder captured 138 bytes. Linux and macOS pins
+  cannot run here; their answer is from source and their pinned `curl -V` lines (release builds).
+  So 2102-2104 skip `feature-missing:override-dns` on every reference pin once BL-570 flips the row.
+- `touches` gained `Record-CurlExchange.ps1`: the task asks to extend it for a UDP listener rather
+  than write a throwaway server, and no task in Doing names it. Added `-DnsQuery` (records UDP
+  datagrams, answers nothing, writes datagrams.bin; reuses -QuicInitial's recorder, renamed
+  `$recordUdpDatagrams`) and `-CurlEnvironment NAME=value` (set for curl's process only).
+- Choice: the seam answers every QNAME through a wildcard root zone, since upstream's dnsd
+  ignores the name, and `none` gives NOERROR/empty rather than NXDOMAIN, as dnsd does.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0123 decides the dns server half (DnsQuery UDP server, wildcard root zone from <dns>), measures override-dns off on every reference pin, and Record-CurlExchange.ps1 gains -DnsQuery and -CurlEnvironment
