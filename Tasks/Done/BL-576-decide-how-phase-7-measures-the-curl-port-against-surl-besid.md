@@ -75,12 +75,12 @@ Decide and record:
    build's SHA-256, the port's commit and SHA-256, Surl's commit, both results, and the specification
    section or upstream documentation that says which is right. Give the curl version checked. Findings are
    written per protocol family to `Documentation/Conformance/CurlPort/<Family>.md` (planning name).
-7. **The handoff to the port's board.** Choose between Surl sessions filing on `Z:\repos\Curl`'s board
-   directly, and Surl publishing a handoff file that the port's own `/task-plan` files. Planning assumption:
-   the handoff file, `Documentation/Conformance/CurlPort/Port-Board-Handoff.md`, written in the port's task
-   shape (title, goal, context, acceptance criteria). The reasons: the port's lanes allocate IDs concurrently,
-   and a commit to another repository is not delegated. Filing from the handoff is then Stewart's call or
-   the port's planner's job. Record which.
+7. **The handoff to the port's board - decided by Stewart, 2026-11-04.** Surl never writes to
+   `Z:\repos\Curl`. Surl publishes a handoff file, `Documentation/Conformance/CurlPort/Port-Board-Handoff.md`,
+   written in the port's task shape (title, goal, context, acceptance criteria), and Stewart runs the port's
+   own `/task-plan` on it. The reasons: the port's lanes allocate IDs concurrently, a commit to another
+   repository is not delegated, and Stewart sees each finding before it becomes the port's work. Record this
+   decision as Stewart's, not as one to make.
 8. **Platforms.** `CurlPortBuilds.json` starts with `win-x64` only, and lanes run on Windows. Say whether
    Phase 7 is Windows-only until a `linux-x64` or `osx-arm64` port pin exists, and how a non-Windows run reports
    it (Inconclusive, as `UpstreamCurlUnavailability` does).

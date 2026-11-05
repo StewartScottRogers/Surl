@@ -23,9 +23,9 @@ are planning names; use the ones BL-576's ADR decision 7 chose.
 ## Context
 
 - Rules: BL-576's ADR, decisions 6, 7 and 9. ADR-0003 decision 6 says every disagreement is filed on the
-  port's own board. **This task does not write to `Z:\repos\Curl`.** Filing from the handoff happens as the
-  ADR's decision 7 records: either Stewart asks the port's `/task-plan` to file it, or the port's planner
-  reads it.
+  port's own board. **This task does not write to `Z:\repos\Curl`.** Stewart files the handoff himself by
+  running the port's `/task-plan` on it (his decision, 2026-11-04; the ADR's decision 7). When this task is
+  done, tell him the handoff is ready and how many findings it holds.
 - The port's task shape is in its `.claude/skills/task-board/SKILL.md` (read with
   `git -C Z:\repos\Curl show origin/master:.claude/skills/task-board/SKILL.md`). Each entry has a title,
   goal, context and checkable acceptance criteria. It also carries the evidence: the case, the command line,
