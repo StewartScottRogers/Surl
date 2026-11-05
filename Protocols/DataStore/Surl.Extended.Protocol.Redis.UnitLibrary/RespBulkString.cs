@@ -1,0 +1,31 @@
+using System.Buffers;
+
+namespace Surl.Extended.Protocol.Redis;
+
+/// <summary>
+/// A <c>$</c> bulk string (RESP2 and RESP3): binary-safe bytes sent with their length, e.g. <c>$5 hello</c>.
+/// </summary>
+public sealed class RespBulkString : RespValue
+{
+    private readonly byte[] bytes;
+
+    /// <summary>Creates a bulk string of <paramref name="text"/>'s UTF-8 bytes.</summary>
+    /// <param name="text">The text.</param>
+    public RespBulkString(string text)
+        : this(RespEncoding.Utf8(text, nameof(text)))
+    {
+    }
+
+    /// <summary>Creates a bulk string of <paramref name="bytes"/>.</summary>
+    /// <param name="bytes">The bytes, any byte allowed.</param>
+    public RespBulkString(ReadOnlySpan<byte> bytes)
+    {
+        this.bytes = bytes.ToArray();
+    }
+
+    /// <summary>The bytes sent after the length line.</summary>
+    public ReadOnlyMemory<byte> Bytes => bytes;
+
+    /// <inheritdoc/>
+    internal override void EncodeTo(IBufferWriter<byte> output) => RespEncoding.WriteBlob(output, (byte)'$', bytes);
+}

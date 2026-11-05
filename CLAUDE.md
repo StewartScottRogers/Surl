@@ -192,6 +192,7 @@ Surl/
 ├── Foundation/            ← Surl.Protocol.Abstractions, Surl.Core, Surl.Networking, Surl.Content,
 │                            Surl.Authentication, Surl.Cookies, Surl.Output
 ├── Protocols/
+│   ├── DataStore/         ← Redis
 │   ├── FileTransfer/      ← Ftp, Ssh (scp, sftp), Tftp, Smb
 │   ├── Http/              ← Http, Ws, Rtsp, and Surl.HttpMessage which they share
 │   ├── Lookup/            ← Dict, Gopher

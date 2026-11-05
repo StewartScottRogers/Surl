@@ -20,41 +20,41 @@ adds where the pages leave the server a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Redis:RESP-Request-1 | MUST | A command is read as an array of bulk strings, however its bytes are split across reads. | BL-488 |
-| Redis:RESP-Request-2 | MUST | Bulk strings are binary safe: an argument holding NUL or CR LF is read by its length. | BL-488 |
-| Redis:RESP-Request-3 | MUST | A line not starting with `*` is an inline command, split on spaces with Redis's quoting; an empty line is ignored. | BL-488 |
-| Redis:RESP-Pipeline-1 | MUST | Several commands sent before any reply is read are each answered, in order. | BL-488 |
-| Redis:RESP-Request-4 | MUST | `*0` and a negative multibulk length are ignored. | BL-488 |
-| Redis:Surl-Limits-1 | MUST | A bulk length that is negative, not numeric or above `--max-filesize`, or a bulk string without its CR LF, is `-ERR Protocol error: invalid bulk length`, then close. | BL-488 |
-| Redis:Surl-Limits-2 | MUST | A multibulk count that is not numeric or above 1048576 is `-ERR Protocol error: invalid multibulk length`, then close. | BL-488 |
+| Redis:RESP-Request-1 | MUST | A command is read as an array of bulk strings, however its bytes are split across reads. | `RedisCommandReaderTests.ReadCommandAsync_ArrayOfBulkStrings_ReadsEachArgument`, `RedisCommandReaderTests.ReadCommandAsync_CommandSplitAcrossReads_ReadsItWhole` |
+| Redis:RESP-Request-2 | MUST | Bulk strings are binary safe: an argument holding NUL or CR LF is read by its length. | `RedisCommandReaderTests.ReadCommandAsync_BulkStringHoldingCrLfAndNul_ReadsItByLength` |
+| Redis:RESP-Request-3 | MUST | A line not starting with `*` is an inline command, split on spaces with Redis's quoting; an empty line is ignored. | `RedisCommandReaderTests.ReadCommandAsync_InlineCommand_SplitsItOnSpaces`, `RedisInlineCommandSplitterTests.Split_Line_ReturnsTheArguments`, `RedisCommandReaderTests.ReadCommandAsync_EmptyLinesAndEmptyArrays_AreSkipped` |
+| Redis:RESP-Pipeline-1 | MUST | Several commands sent before any reply is read are each answered, in order. | `RedisCommandReaderTests.ReadCommandAsync_ThreePipelinedCommands_ReadsThemOneByOneInOrder` |
+| Redis:RESP-Request-4 | MUST | `*0` and a negative multibulk length are ignored. | `RedisCommandReaderTests.ReadCommandAsync_EmptyLinesAndEmptyArrays_AreSkipped` |
+| Redis:Surl-Limits-1 | MUST | A bulk length that is negative, not numeric or above `--max-filesize`, or a bulk string without its CR LF, is `-ERR Protocol error: invalid bulk length`, then close. | `RedisCommandReaderTests.ReadCommandAsync_BadBulkLengthOrMissingCrLf_IsInvalidBulkLength` |
+| Redis:Surl-Limits-2 | MUST | A multibulk count that is not numeric or above 1048576 is `-ERR Protocol error: invalid multibulk length`, then close. | `RedisCommandReaderTests.ReadCommandAsync_BadMultibulkCount_IsInvalidMultibulkLength` |
 | Redis:Surl-Limits-3 | MUST | Before login, more than 10 elements or a bulk string over 16384 bytes is `-ERR Protocol error: unauthenticated multibulk length` / `unauthenticated bulk length`, then close. | BL-489 |
-| Redis:Surl-Limits-4 | MUST | An array element not a bulk string is `-ERR Protocol error: expected '$', got '<byte>'`, then close. | BL-488 |
-| Redis:Surl-Limits-5 | MUST | An inline command over `--max-line` is `-ERR Protocol error: too big inline request`, and unbalanced quotes `-ERR Protocol error: unbalanced quotes in request`; each then close. | BL-488 |
-| Redis:Surl-Limits-6 | MUST | One command's bytes past `--max-filesize` plus 64 KiB close the connection with no bytes. | BL-488 |
-| Redis:Surl-Limits-7 | MUST | No complete command by `--head-timeout` closes the connection with no bytes. | BL-488 |
-| Redis:Surl-Limits-8 | MUST | A connection past `--max-connections` or `--max-connections-per-address` is answered `-ERR max number of clients reached`, then closed. | BL-488 |
+| Redis:Surl-Limits-4 | MUST | An array element not a bulk string is `-ERR Protocol error: expected '$', got '<byte>'`, then close. | `RedisCommandReaderTests.ReadCommandAsync_ElementNotABulkString_IsExpectedDollar` |
+| Redis:Surl-Limits-5 | MUST | An inline command over `--max-line` is `-ERR Protocol error: too big inline request`, and unbalanced quotes `-ERR Protocol error: unbalanced quotes in request`; each then close. | `RedisCommandReaderTests.ReadCommandAsync_InlineLineLongerThanMaxLine_IsTooBigInlineRequest`, `RedisCommandReaderTests.ReadCommandAsync_InlineUnbalancedQuotes_IsUnbalancedQuotesInRequest` |
+| Redis:Surl-Limits-6 | MUST | One command's bytes past `--max-filesize` plus 64 KiB close the connection with no bytes. | `RedisCommandReaderTests.ReadCommandAsync_CommandPastMaxFilesizeAndFraming_IsCommandTooLarge` (the reader; BL-489's server closes) |
+| Redis:Surl-Limits-7 | MUST | No complete command by `--head-timeout` closes the connection with no bytes. | BL-489 |
+| Redis:Surl-Limits-8 | MUST | A connection past `--max-connections` or `--max-connections-per-address` is answered `-ERR max number of clients reached`, then closed. | BL-489 |
 
 ## Reply types (RESP page; RESP3.md)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Redis:RESP-SimpleString-1 | MUST | `+` simple string. | BL-488 |
-| Redis:RESP-SimpleError-1 | MUST | `-` simple error, its first word the error code; no CR or LF inside. | BL-488 |
-| Redis:RESP-Integer-1 | MUST | `:` signed 64-bit integer. | BL-488 |
-| Redis:RESP-BulkString-1 | MUST | `$` bulk string by its length. | BL-488 |
-| Redis:RESP-Array-1 | MUST | `*` array, elements of any type, nested. | BL-488 |
-| Redis:RESP2-Null-1 | MUST | `$-1` null bulk string in RESP2. | BL-488 |
-| Redis:RESP2-Null-2 | MUST | `*-1` null array in RESP2. | BL-488 |
-| Redis:RESP-Null-1 | MUST | `_` null in RESP3. | BL-488 |
-| Redis:RESP-Boolean-1 | MUST | `#t` / `#f` boolean. | BL-488 |
-| Redis:RESP-Double-1 | MUST | `,` double, `inf`, `-inf` and `nan` included. | BL-488 |
-| Redis:RESP-BigNumber-1 | MUST | `(` big number. | BL-488 |
-| Redis:RESP-BulkError-1 | MUST | `!` bulk error. | BL-488 |
-| Redis:RESP-VerbatimString-1 | MUST | `=` verbatim string: three-byte format, colon, text. | BL-488 |
-| Redis:RESP-Map-1 | MUST | `%` map of key and value pairs. | BL-488 |
-| Redis:RESP-Attribute-1 | MUST | `\|` attribute. | BL-488 |
-| Redis:RESP-Set-1 | MUST | `~` set. | BL-488 |
-| Redis:RESP-Push-1 | MUST | `>` push data. | BL-488 |
+| Redis:RESP-SimpleString-1 | MUST | `+` simple string. | `RespValueEncodingTests.Encode_SimpleString_IsPlusTextCrLf` |
+| Redis:RESP-SimpleError-1 | MUST | `-` simple error, its first word the error code; no CR or LF inside. | `RespValueEncodingTests.Encode_SimpleError_IsMinusTextCrLf`, `RespValueEncodingTests.Constructor_SimpleStringOrErrorWithALineBreak_Throws` |
+| Redis:RESP-Integer-1 | MUST | `:` signed 64-bit integer. | `RespValueEncodingTests.Encode_Integer_IsColonDecimalCrLf` |
+| Redis:RESP-BulkString-1 | MUST | `$` bulk string by its length. | `RespValueEncodingTests.Encode_BulkString_IsLengthThenBytes`, `RespValueEncodingTests.Encode_BulkStringHoldingCrLf_IsBinarySafe` |
+| Redis:RESP-Array-1 | MUST | `*` array, elements of any type, nested. | `RespValueEncodingTests.Encode_Array_IsCountThenEachElement`, `RespValueEncodingTests.Encode_NestedArray_WritesTheInnerArraysInPlace` |
+| Redis:RESP2-Null-1 | MUST | `$-1` null bulk string in RESP2. | `RespValueEncodingTests.Encode_NullBulkString_IsDollarMinusOne` |
+| Redis:RESP2-Null-2 | MUST | `*-1` null array in RESP2. | `RespValueEncodingTests.Encode_NullArray_IsStarMinusOne` |
+| Redis:RESP-Null-1 | MUST | `_` null in RESP3. | `RespValueEncodingTests.Encode_Null_IsUnderscore` |
+| Redis:RESP-Boolean-1 | MUST | `#t` / `#f` boolean. | `RespValueEncodingTests.Encode_Boolean_IsHashTOrF` |
+| Redis:RESP-Double-1 | MUST | `,` double, `inf`, `-inf` and `nan` included. | `RespValueEncodingTests.Encode_Double_IsCommaShortestDecimalOrInfOrNan` |
+| Redis:RESP-BigNumber-1 | MUST | `(` big number. | `RespValueEncodingTests.Encode_BigNumber_IsParenthesisDecimal` |
+| Redis:RESP-BulkError-1 | MUST | `!` bulk error. | `RespValueEncodingTests.Encode_BulkError_IsBangLengthThenBytes` |
+| Redis:RESP-VerbatimString-1 | MUST | `=` verbatim string: three-byte format, colon, text. | `RespValueEncodingTests.Encode_VerbatimString_IsEqualsLengthFormatColonText` |
+| Redis:RESP-Map-1 | MUST | `%` map of key and value pairs. | `RespValueEncodingTests.Encode_Map_IsPercentPairCountThenKeyAndValue` |
+| Redis:RESP-Attribute-1 | MUST | `\|` attribute. | `RespValueEncodingTests.Encode_Attribute_IsPipePairsThenTheReply` |
+| Redis:RESP-Set-1 | MUST | `~` set. | `RespValueEncodingTests.Encode_Set_IsTildeCountThenEachElement` |
+| Redis:RESP-Push-1 | MUST | `>` push data. | `RespValueEncodingTests.Encode_Push_IsGreaterThanCountThenEachElement` |
 
 ## Connection commands (`HELLO`, `AUTH`, `SELECT`, `PING`, `ECHO`, `QUIT`, `RESET`, `CLIENT`)
 

@@ -122,6 +122,11 @@
     <Project Path="Foundation/Surl.Protocol.Abstractions.UnitTests/Surl.Protocol.Abstractions.UnitTests.csproj" />
   </Folder>
 
+  <Folder Name="/Protocols/DataStore/">
+    <Project Path="Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitLibrary/Surl.Extended.Protocol.Redis.UnitLibrary.csproj" />
+    <Project Path="Protocols/DataStore/Surl.Extended.Protocol.Redis.UnitTests/Surl.Extended.Protocol.Redis.UnitTests.csproj" />
+  </Folder>
+
   <Folder Name="/Protocols/FileTransfer/">
     <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitLibrary/Surl.Extended.Protocol.AzureStorage.UnitLibrary.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.AzureStorage.UnitTests/Surl.Extended.Protocol.AzureStorage.UnitTests.csproj" />
