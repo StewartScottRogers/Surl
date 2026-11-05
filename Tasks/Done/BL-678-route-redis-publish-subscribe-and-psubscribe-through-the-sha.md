@@ -60,7 +60,7 @@ Redis `SUBSCRIBE a/b` or a matching `PSUBSCRIBE` pattern, as ADR-0100 decision 3
 - Touches widened to `Documentation/Planning/Decisions` for ADR-0126 and its index row. No task
   in Doing names it.
 - Not done here: the composition does not compose Redis yet (BL-492), and `MessageBus.Names` has no
-  `redis` mapping, so `--topic-map` does not apply to Redis. Filed as BL-855.
+  `redis` mapping, so `--topic-map` does not apply to Redis. Filed as BL-866.
 - Tests: 11 new tests in `RedisPubSubTests` plus constructor null checks in `RedisServerTests`;
   Redis tests 374 pass, and the library is at 100% line and 100% branch coverage (cobertura from
   `dotnet test --collect "Code Coverage"`).

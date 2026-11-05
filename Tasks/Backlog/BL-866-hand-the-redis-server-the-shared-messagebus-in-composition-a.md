@@ -1,5 +1,5 @@
 ---
-id: BL-855
+id: BL-866
 title: Hand the Redis server the shared MessageBus in composition and map its channels through MessageBus.Names
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-058
 created: 2026-11-05
 completed:
 ---
-# BL-855 — Hand the Redis server the shared MessageBus in composition and map its channels through MessageBus.Names
+# BL-866 — Hand the Redis server the shared MessageBus in composition and map its channels through MessageBus.Names
 
 ## Goal
 
