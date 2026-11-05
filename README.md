@@ -24,30 +24,51 @@ and regenerated on the same schedule as the video above.*
 by state and refreshes itself every few minutes. One card per dark factory lane joins it
 once the dark factory publishes its lane status ([ADR-0029](Documentation/Planning/Decisions/ADR-0029-the-live-task-board-page-reads-the-task-tree-and-a-board-branch-status-json.md)).*
 
-## Status: resumed, 2026-11-04
+## Status: in active development, 2026-11-05
 
-Work resumed on 2026-11-04 after a pause from 2026-10-01; the Gource and coverage renders
-are switched back on. The pause began with the task board empty: all 356 tasks Done,
-nothing in Backlog, Doing or Blocked.
+Work resumed on 2026-11-04 after a pause that began on 2026-10-01. A dark factory shift is
+running, and the [live task board](https://stewartscottrogers.github.io/Surl/board/) shows
+what it is doing.
 
 Where it stands:
 
 - **Protocols.** `surl` answers every scheme listed under [What this is](#what-this-is),
   each checked against a pinned upstream curl build (ADR-0003).
-- **Size.** 1,240 commits since 2026-09-28; 39 production libraries, each with its own
-  test project, holding about 5,100 test methods; 78 architecture decision records under
-  `Documentation/Planning/Decisions`.
-- **Gates.** CI builds and runs the fast tests on Windows, Linux and macOS, and this
-  state of `master` passed all three.
-- **Not done yet.** Phases 6 and 7 of the
-  [plan](Documentation/Product/Product-Overview.md) have not been planned onto the board:
-  HTTP/2 and HTTP/3 (HTTP is 1.0 and 1.1 today), the push of upstream curl's own test
-  cases, native publishing on every platform, and finally measuring the Curl port
-  against Surl. No release has been tagged, so there are no downloadable binaries yet
-  (see [Download](#download)).
+- **Size.** 1,769 commits since 2026-09-28. There are 63 production projects, each with its
+  own test project, and about 8,700 test methods between them. There are 117 architecture
+  decision records under `Documentation/Planning/Decisions`.
+- **Board.** 497 tasks are done, 8 are in progress, 249 are waiting and none is blocked.
+- **Gates.** CI builds and runs the fast tests on Windows, Linux and macOS before anything
+  merges to `master`.
+- **No release yet.** No `v*` tag exists, so there are no downloadable binaries (see
+  [Download](#download)).
 
-Next: plan Phase 6 onto the board (`/task-plan`) and start a shift
-(`RunDarkFactory.cmd -NewTab -Lanes Auto -Continuous`).
+### What is being built
+
+The work is on the board and is being built now. None of it is finished.
+
+1. **Phase 6: everything upstream curl asks.** This covers HTTP/2 and HTTP/3. HTTP is 1.0
+   and 1.1 today, and the HPACK, HTTP/2, QUIC and QPACK libraries exist but are not served
+   yet. It also covers playing the server half of upstream curl's own test cases, and native
+   publishing for Windows, Linux and macOS on x64 and Arm64.
+2. **Extended protocols.** These are servers for the schemes the Curl port adds and upstream
+   curl does not have: S3, Azure Storage, Google Cloud Storage, OCI registries, gRPC,
+   SignalR, Socket.IO, WebTransport, MCP, CoAP, DNS, Redis, MQTT 5, AMQP 0-9-1 and 1.0,
+   Kafka, NATS, STOMP and XMPP. Each is judged by its protocol's specification
+   ([ADR-0083](Documentation/Planning/Decisions/ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)).
+   The setting `SURL_EXTENSIONS=0` will turn them all off. Ten of the libraries exist, and
+   none is registered in `surl` yet.
+3. **Shared stores.** Servers that do the same job share one store in a single `surl`. Mail
+   sent over SMTP is read over IMAP or POP3, which works today. A file uploaded over FTP will
+   be fetched over HTTP or S3, and a message published over MQTT will be consumed over AMQP,
+   Kafka, NATS or STOMP through one shared message bus.
+4. **A configuration command line** for setting up a real server. It brings a curl-style
+   `-K` config file and repeatable options for mail domains, mailboxes, aliases, catch-alls,
+   shares, buckets, topics, queues and groups, so one `surl` can host hundreds of mailboxes.
+5. **Two more hosts.** `Surl.Api` starts and stops Surl servers inside a .NET test suite, and
+   `Surl.Mcp` lets AI agents start, list and stop servers and see what a client sent.
+6. **Phase 7: measuring the Curl port.** The port and pinned upstream curl run the same
+   command lines against the same `surl`, and wherever they disagree, upstream curl is right.
 
 ## What this is
 
@@ -454,11 +475,36 @@ dotnet build
 dotnet test --filter "TestCategory!=Integration"
 ```
 
-Run a factory shift (Windows):
+Run a factory shift (Windows). It sizes its own lanes to the board, the machine and the
+token budget, and starts the next shift itself while work is ready:
 
 ```
-RunDarkFactory.cmd -Hours 4 -MaxTasks 3
+RunDarkFactory.cmd -NewTab -Lanes Auto -Continuous
 ```
+
+See [Dark factory recipes](Documentation/Wiki/Dark-Factory-Recipes.md) for watching,
+restarting and stopping a shift.
+
+## Repository layout
+
+Projects are grouped by what they do
+([ADR-0079](Documentation/Planning/Decisions/ADR-0079-projects-are-grouped-in-category-folders.md)).
+Each `.UnitTests` project sits beside the library it tests.
+
+| Folder | Holds |
+| --- | --- |
+| `Application/` | the `surl` executable (`Surl.Console`) and its command line (`Surl.Cli`) |
+| `Foundation/` | the protocol contracts, networking, content store, accounts, cookies and output |
+| `Cryptography/` | the hand-built primitives (ChaCha20, Curve25519, Ed25519, Poly1305 and others), the TLS 1.3 handshake for QUIC, and Kerberos |
+| `Protocols/FileTransfer/` | FTP, SSH (SCP and SFTP), TFTP and SMB |
+| `Protocols/Http/` | HTTP, WebSocket and RTSP, with HTTP/2, HTTP/3, QUIC, HPACK and QPACK |
+| `Protocols/Mail/` | SMTP, IMAP and POP3, and the mail store they share |
+| `Protocols/Messaging/` | LDAP and MQTT, and the shared message bus |
+| `Protocols/Lookup/`, `Protocols/Terminal/` | DICT and Gopher, and TELNET |
+| `Conformance/` | the tests that run pinned upstream curl against a live `surl` |
+
+An extended protocol server is named `Surl.Extended.Protocol.<Name>`. It sits in the folder
+for its job beside the original servers, with Redis in `Protocols/DataStore/`.
 
 ## Read more
 
