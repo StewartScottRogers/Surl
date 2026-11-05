@@ -89,6 +89,57 @@ jobs:
           name: ntlm-non-ascii-password-macos
           path: ${{ runner.temp }}/ntlm-non-ascii-password-macos
 
+      # The upstream test cases run in their own job below (ADR-0080, decision 6).
       - name: Conformance tests
         if: matrix.upstream-curl-platform
-        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance"
+        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance&TestCategory!=UpstreamTestCases"
+
+  # Runs upstream curl's own test cases against Surl's server halves with each leg's pinned
+  # reference build as the client, and uploads the per-case results file (ADR-0080,
+  # decisions 5 and 6; BL-392). Windows' row comes from a local run where the reference build
+  # is installed. The suite has 20 minutes of the job's 30.
+  upstream-test-cases:
+    name: Upstream test cases (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            upstream-curl-platform: linux-x64
+            upstream-curl-asset: curl-linux-x86_64-musl-8.21.0.tar.xz
+          - os: macos-latest
+            upstream-curl-platform: osx-arm64
+            upstream-curl-asset: curl-macos-arm64-8.21.0.tar.xz
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build -c Release Conformance/Surl.Conformance.UnitTests
+
+      - name: Obtain the pinned upstream curl
+        uses: ./.github/actions/upstream-curl
+        with:
+          platform: ${{ matrix.upstream-curl-platform }}
+          asset: ${{ matrix.upstream-curl-asset }}
+          openldap: false
+
+      - name: Upstream test cases
+        timeout-minutes: 20
+        run: >-
+          dotnet test -c Release --no-build Conformance/Surl.Conformance.UnitTests
+          --filter "TestCategory=Integration&TestCategory=UpstreamTestCases"
+          --results-directory "${{ runner.temp }}/upstream-test-cases"
+
+      - name: Publish the upstream test case results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-test-case-results-${{ matrix.upstream-curl-platform }}
+          path: ${{ runner.temp }}/upstream-test-cases/**/upstream-test-case-results.*.txt
+          if-no-files-found: warn
