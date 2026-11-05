@@ -51,7 +51,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler
     public AzureBlobRequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context, string endpointScheme)
     {
         this.store = store;
-        login = new AzureLoginJudge(authentication, AzureStorageProtocolServer.BlobScheme);
+        login = new AzureLoginJudge(authentication, AzureStorageProtocolServer.BlobScheme, AzureStorageProtocolServer.PeerAddressOf(context));
         this.context = context;
         properties = new AzureBlobPropertiesReader(store, index, context.Log);
         putBlob = new AzurePutBlob(store, index, context.Log);

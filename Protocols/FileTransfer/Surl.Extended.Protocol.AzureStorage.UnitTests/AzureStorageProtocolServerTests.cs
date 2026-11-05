@@ -231,7 +231,7 @@ public sealed class AzureStorageProtocolServerTests
     [TestMethod]
     [DataRow("Basic YWxpY2U6c2VjcmV0", DisplayName = "another scheme")]
     [DataRow("Bearer  ", DisplayName = "a bearer with no token")]
-    [DataRow("SharedKey account:c2lnbmF0dXJl", DisplayName = "Shared Key, not served yet")]
+    [DataRow("Digest username=\"alice\"", DisplayName = "Digest")]
     public async Task ServeAsync_AuthorizationThatIsNoBearerToken_Is400InvalidAuthenticationInfo(string authorization)
     {
         var harness = new AzureServerHarness();

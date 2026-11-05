@@ -39,6 +39,16 @@ public sealed class AzureStorageProtocolServer : IConnectionProtocolServer, ICon
     public const string BlobScheme = "az";
 
     /// <summary>
+    /// The address an exchange's peer came from, which a shared access signature's <c>sip</c>
+    /// must admit: <see cref="System.Net.IPAddress.None"/> for a peer with no IP address (a Unix
+    /// socket), which no signed range admits.
+    /// </summary>
+    /// <param name="context">The exchange.</param>
+    /// <returns>The peer's address.</returns>
+    public static System.Net.IPAddress PeerAddressOf(ExchangeContext context) =>
+        context.RemoteEndPoint is System.Net.IPEndPoint peer ? peer.Address : System.Net.IPAddress.None;
+
+    /// <summary>
     /// The Data Lake endpoint's scheme over plain HTTP/1.1.
     /// </summary>
     public const string DataLakeScheme = "abfs";
