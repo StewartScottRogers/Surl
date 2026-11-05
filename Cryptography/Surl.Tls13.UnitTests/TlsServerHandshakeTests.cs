@@ -444,8 +444,206 @@ public sealed class TlsServerHandshakeTests
         Assert.IsNull(handshake.ApplicationProtocol);
         Assert.IsNull(handshake.KeyExchangeGroup);
         Assert.IsNull(handshake.ClientHello);
+        Assert.IsNull(handshake.ClientCertificateChain);
         Assert.IsFalse(handshake.IsComplete);
     }
+
+    [TestMethod]
+    public void Receive_ClientCertificateRequested_SendsCertificateRequestBetweenEncryptedExtensionsAndCertificate()
+    {
+        // RFC 8446 section 4.3.2: an empty certificate_request_context, then signature_algorithms
+        // (0x000d) listing ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384, ecdsa_secp521r1_sha512,
+        // rsa_pss_rsae_sha256, rsa_pss_rsae_sha384 and rsa_pss_rsae_sha512.
+        var expected = Convert.FromHexString("0d000015" + "00" + "0012" + "000d000e000c" + "040305030603080408050806");
+
+        var (handshake, flight) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+
+        CollectionAssert.AreEqual(expected, flight.CertificateRequest);
+        Assert.IsFalse(handshake.IsComplete);
+    }
+
+    [TestMethod]
+    [DataRow(0x0403)]
+    [DataRow(0x0503)]
+    [DataRow(0x0603)]
+    [DataRow(0x0804)]
+    [DataRow(0x0805)]
+    [DataRow(0x0806)]
+    public void Receive_ClientCertificateCertificateVerifyAndFinished_CompleteTheHandshake(int scheme)
+    {
+        using var clientKey = ClientKeyFor(scheme);
+        using var issuerKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var leaf = UnitTestCertificates.SelfSigned(clientKey);
+        var issuer = UnitTestCertificates.SelfSigned(issuerKey);
+        IReadOnlyList<ReadOnlyMemory<byte>>? trusted = null;
+        var (handshake, flight) = ClientCertificateHandshake(chain => (trusted = chain) is not null);
+        using var disposing = handshake;
+        var certificate = UnitTestClientAuthentication.CertificateMessage([], leaf, issuer);
+        var verify = UnitTestClientAuthentication.CertificateVerify(
+            (ushort)scheme,
+            UnitTestClientAuthentication.Sign(clientKey, (ushort)scheme, UnitTestClientAuthentication.SignedContent(flight, certificate)));
+
+        handshake.Receive(TlsEncryptionLevel.Handshake, [.. certificate, .. verify, .. UnitTestClientAuthentication.Finished(flight, certificate, verify)]);
+
+        Assert.IsTrue(handshake.IsComplete);
+        Assert.IsNotNull(trusted);
+        Assert.HasCount(2, handshake.ClientCertificateChain!);
+        CollectionAssert.AreEqual(leaf, handshake.ClientCertificateChain![0].ToArray());
+        CollectionAssert.AreEqual(issuer, handshake.ClientCertificateChain[1].ToArray());
+    }
+
+    [TestMethod]
+    public void Receive_EmptyClientCertificateWhenOneIsRequired_FailsWithCertificateRequired()
+    {
+        var (handshake, _) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+
+        AssertAlert(
+            TlsAlert.CertificateRequired,
+            () => handshake.Receive(TlsEncryptionLevel.Handshake, UnitTestClientAuthentication.CertificateMessage([])));
+    }
+
+    [TestMethod]
+    public void Receive_ClientCertificateVerifyThatDoesNotVerify_FailsWithDecryptError()
+    {
+        using var clientKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var (handshake, flight) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+        var certificate = UnitTestClientAuthentication.CertificateMessage([], UnitTestCertificates.SelfSigned(clientKey));
+        var content = UnitTestClientAuthentication.SignedContent(flight, certificate);
+        content[^1] ^= 0x01;
+        var verify = UnitTestClientAuthentication.CertificateVerify(0x0403, UnitTestClientAuthentication.Sign(clientKey, 0x0403, content));
+
+        AssertAlert(TlsAlert.DecryptError, () => handshake.Receive(TlsEncryptionLevel.Handshake, [.. certificate, .. verify]));
+        Assert.IsNull(handshake.ClientCertificateChain);
+    }
+
+    [TestMethod]
+    [DataRow(false, 256, 0x0804)]
+    [DataRow(true, 0, 0x0403)]
+    [DataRow(false, 384, 0x0403)]
+    public void Receive_ClientCertificateVerifySchemeNotForTheCertificatesKey_FailsWithDecryptError(bool rsa, int curveBits, int scheme)
+    {
+        using AsymmetricAlgorithm clientKey = rsa
+            ? RSA.Create(2048)
+            : ECDsa.Create(curveBits == 256 ? ECCurve.NamedCurves.nistP256 : ECCurve.NamedCurves.nistP384);
+        var (handshake, flight) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+        var certificate = UnitTestClientAuthentication.CertificateMessage([], UnitTestCertificates.SelfSigned(clientKey));
+        var verify = UnitTestClientAuthentication.CertificateVerify(
+            (ushort)scheme,
+            UnitTestClientAuthentication.Sign(clientKey, (ushort)scheme, UnitTestClientAuthentication.SignedContent(flight, certificate)));
+
+        AssertAlert(TlsAlert.DecryptError, () => handshake.Receive(TlsEncryptionLevel.Handshake, [.. certificate, .. verify]));
+    }
+
+    [TestMethod]
+    [DataRow(0x0401)]
+    [DataRow(0x0807)]
+    public void Receive_ClientCertificateVerifySchemeTheCertificateRequestDidNotOffer_FailsWithIllegalParameter(int scheme)
+    {
+        using var clientKey = RSA.Create(2048);
+        var (handshake, _) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+        var certificate = UnitTestClientAuthentication.CertificateMessage([], UnitTestCertificates.SelfSigned(clientKey));
+        var verify = UnitTestClientAuthentication.CertificateVerify((ushort)scheme, new byte[256]);
+
+        AssertAlert(TlsAlert.IllegalParameter, () => handshake.Receive(TlsEncryptionLevel.Handshake, [.. certificate, .. verify]));
+    }
+
+    [TestMethod]
+    public void Receive_ClientCertificateWithACertificateRequestContext_FailsWithIllegalParameter()
+    {
+        using var clientKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var (handshake, _) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+        var certificate = UnitTestClientAuthentication.CertificateMessage([0x01], UnitTestCertificates.SelfSigned(clientKey));
+
+        AssertAlert(TlsAlert.IllegalParameter, () => handshake.Receive(TlsEncryptionLevel.Handshake, certificate));
+    }
+
+    [TestMethod]
+    public void Receive_ClientCertificateThatIsNotX509_FailsWithBadCertificate()
+    {
+        var (handshake, _) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+
+        AssertAlert(
+            TlsAlert.BadCertificate,
+            () => handshake.Receive(TlsEncryptionLevel.Handshake, UnitTestClientAuthentication.CertificateMessage([], [0x30, 0x03, 0x01, 0x01, 0xFF])));
+    }
+
+    [TestMethod]
+    public void Receive_ClientCertificateChainNotTrusted_FailsWithBadCertificate()
+    {
+        using var clientKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var (handshake, _) = ClientCertificateHandshake(_ => false);
+        using var disposing = handshake;
+        var certificate = UnitTestClientAuthentication.CertificateMessage([], UnitTestCertificates.SelfSigned(clientKey));
+
+        AssertAlert(TlsAlert.BadCertificate, () => handshake.Receive(TlsEncryptionLevel.Handshake, certificate));
+        Assert.IsNull(handshake.ClientCertificateChain);
+    }
+
+    [TestMethod]
+    public void Receive_ClientCertificateWithTrailingBytes_FailsWithDecodeError()
+    {
+        using var clientKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var (handshake, _) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+        var certificate = UnitTestClientAuthentication.CertificateMessage([], UnitTestCertificates.SelfSigned(clientKey));
+        byte[] withTrailingByte = [.. certificate, 0x00];
+        withTrailingByte[3]++;
+        if (withTrailingByte[3] == 0)
+        {
+            withTrailingByte[2]++;
+        }
+
+        AssertAlert(TlsAlert.DecodeError, () => handshake.Receive(TlsEncryptionLevel.Handshake, withTrailingByte));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public void Receive_FinishedBeforeTheClientCertificateOrItsCertificateVerify_FailsWithUnexpectedMessage(bool afterCertificate)
+    {
+        using var clientKey = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var (handshake, flight) = ClientCertificateHandshake(_ => true);
+        using var disposing = handshake;
+        var certificate = UnitTestClientAuthentication.CertificateMessage([], UnitTestCertificates.SelfSigned(clientKey));
+        byte[] bytes = afterCertificate ? [.. certificate, .. flight.ClientFinished] : flight.ClientFinished;
+
+        AssertAlert(TlsAlert.UnexpectedMessage, () => handshake.Receive(TlsEncryptionLevel.Handshake, bytes));
+    }
+
+    private static (TlsServerHandshake Handshake, UnitTestVerifiedFlight Flight) ClientCertificateHandshake(
+        Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool> trustsClientCertificateChain)
+    {
+        var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var quic = UnitTestCertificates.QuicOptions(key);
+        var options = new TlsServerHandshakeOptions
+        {
+            CertificateChain = quic.CertificateChain,
+            CertificateKey = key,
+            ApplicationProtocols = quic.ApplicationProtocols,
+            QuicTransportParameters = quic.QuicTransportParameters,
+            TrustsClientCertificateChain = trustsClientCertificateChain,
+        };
+        var handshake = new TlsServerHandshake(options, RandomNumberGenerator.Create());
+        var client = UnitTestTlsClient.WithX25519Share();
+        var clientHello = X25519ClientHello(client);
+        var output = handshake.Receive(TlsEncryptionLevel.Initial, clientHello);
+        return (handshake, client.VerifyServerFlight([clientHello], output.Initial, output.Handshake));
+    }
+
+    private static AsymmetricAlgorithm ClientKeyFor(int scheme) => scheme switch
+    {
+        0x0403 => ECDsa.Create(ECCurve.NamedCurves.nistP256),
+        0x0503 => ECDsa.Create(ECCurve.NamedCurves.nistP384),
+        0x0603 => ECDsa.Create(ECCurve.NamedCurves.nistP521),
+        _ => RSA.Create(2048),
+    };
 
     [TestMethod]
     public void Constructor_NullOptionsOrRandom_ThrowsArgumentNullException()

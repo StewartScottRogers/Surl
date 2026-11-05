@@ -23,4 +23,24 @@ public sealed record CertificateMessage(ReadOnlyMemory<byte> CertificateRequestC
                 }
             });
         });
+
+    /// <summary>
+    /// Reads a Certificate message's body, the message without its four-byte handshake header. An
+    /// overrunning length, an empty cert_data or trailing bytes is <see cref="TlsAlert.DecodeError"/>.
+    /// </summary>
+    internal static CertificateMessage ReadBody(ReadOnlySpan<byte> body)
+    {
+        var reader = new TlsReader(body);
+        var context = reader.ReadVector8(0).ToArray();
+        var list = new TlsReader(reader.ReadVector24(0));
+        reader.ExpectEnd("the Certificate message");
+        var entries = new List<TlsCertificateEntry>();
+        while (!list.IsAtEnd)
+        {
+            var certificateData = list.ReadVector24(1).ToArray();
+            entries.Add(new TlsCertificateEntry(certificateData, TlsExtensionBlock.Read(list.ReadVector16(0))));
+        }
+
+        return new CertificateMessage(context, entries);
+    }
 }

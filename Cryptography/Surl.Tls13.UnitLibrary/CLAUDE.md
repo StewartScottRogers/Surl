@@ -38,7 +38,22 @@ And the server handshake (BL-376):
   x25519 is `Surl.Cryptography.Curve25519`; the NIST curves are `ECDiffieHellman`, with the
   point checked on the curve by `TlsNistCurve` first, so a bad point is the same alert on every
   platform. Randomness comes from an injected `RandomNumberGenerator`: the server random, then
-  an x25519 private key. No session ticket, no CertificateRequest yet (BL-600).
+  an x25519 private key. No session ticket.
+
+And client certificates (BL-600, ADR-0082 decision 3 by way of ADR-0010 section 5):
+
+- `TlsServerHandshakeOptions.TrustsClientCertificateChain` set means the server requests and
+  requires a client certificate - ADR-0010 has no "request but do not require" mode. The
+  CertificateRequest sits between EncryptedExtensions and Certificate, with an empty context and
+  only `signature_algorithms`: ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384,
+  ecdsa_secp521r1_sha512, rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512 (every
+  scheme the base class library verifies for an RSA or ECDSA certificate;
+  `TlsCertificateVerifier.ClientSchemes`). No `certificate_authorities` list, as over TCP.
+- The handshake then reads the client's Certificate, asks the delegate whether the chain is
+  trusted (the caller builds the X.509 chain against `--cacert` with its own `TimeProvider`,
+  since this library never reads a clock), verifies CertificateVerify with the end-entity key over
+  "TLS 1.3, client CertificateVerify", and checks the client's Finished over a transcript that
+  includes both. `ClientCertificateChain` holds the chain once CertificateVerify verifies.
 
 Malformed input throws `TlsAlertException` carrying the RFC 8446 section 6 alert; nothing is sent
 on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 9001 section 4.8):
@@ -55,6 +70,10 @@ on the wire, the caller reports it as QUIC error `0x0100` plus the alert (RFC 90
 | no `h3` (or no ALPN at all) | `no_application_protocol` |
 | a malformed key share, a NIST point off its curve, an x25519 low-order point; a second ClientHello changing the suite or not sending exactly one share for the retry group; a message over `MaximumMessageLength` (128 KiB) | `illegal_parameter` |
 | a client Finished that does not verify | `decrypt_error` |
+| an empty client Certificate when one is required | `certificate_required` |
+| a client Certificate whose end-entity certificate is not X.509, or whose chain the delegate does not trust | `bad_certificate` |
+| a client Certificate with a non-empty context; a client CertificateVerify scheme the CertificateRequest did not offer | `illegal_parameter` |
+| a client CertificateVerify that does not verify, including a scheme for another key type or curve than the certificate's | `decrypt_error` |
 
 After an alert the handshake is over: a later `Receive` throws `InvalidOperationException`.
 
@@ -65,4 +84,5 @@ bytes out: never open a socket or a file, and never read a clock.
 Every expected value in its tests comes from RFC 8448 (sections 3 and 5) or from ClientHellos
 recorded from pinned upstream curl builds (`Fixtures/ClientHello`, BL-363's `-QuicInitial`),
 never from the Curl port (ADR-0003). Handshakes are checked by `UnitTestTlsClient`, a test-side
-TLS 1.3 client written from RFC 8446 that shares no code with the library's key schedule.
+TLS 1.3 client written from RFC 8446 that shares no code with the library's key schedule;
+`UnitTestClientAuthentication` writes that client's Certificate, CertificateVerify and Finished.

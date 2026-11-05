@@ -106,8 +106,15 @@ internal sealed class UnitTestTlsClient
         var serverHandshake = ExpandLabel(hash, handshakeSecret, "s hs traffic", helloHash, hashLength);
 
         var messages = SplitMessages(handshake);
+        var certificateRequest = messages[1][0] == 13 ? messages[1] : null;
+        if (certificateRequest is not null)
+        {
+            messages.RemoveAt(1);
+        }
+
         CollectionAssert.AreEqual(new byte[] { 8, 11, 15, 20 }, messages.Select(message => message[0]).ToArray());
         transcript.AddRange(messages[0]);
+        transcript.AddRange(certificateRequest ?? []);
         transcript.AddRange(messages[1]);
         VerifyCertificateVerify(messages[1], messages[2], CryptographicOperations.HashData(hash, [.. transcript]));
         transcript.AddRange(messages[2]);
@@ -121,13 +128,16 @@ internal sealed class UnitTestTlsClient
         return new UnitTestVerifiedFlight(
             suite,
             messages[0],
+            certificateRequest,
             messages[1],
             messages[2],
             new TlsTrafficSecrets(clientHandshake, serverHandshake),
             new TlsTrafficSecrets(
                 ExpandLabel(hash, master, "c ap traffic", serverFinishedHash, hashLength),
                 ExpandLabel(hash, master, "s ap traffic", serverFinishedHash, hashLength)),
-            [20, 0, 0, (byte)hashLength, .. clientVerifyData]);
+            [20, 0, 0, (byte)hashLength, .. clientVerifyData],
+            hash,
+            [.. transcript]);
     }
 
     /// <summary>The message_hash message that replaces ClientHello1 in the transcript (RFC 8446 section 4.4.1).</summary>
@@ -199,12 +209,12 @@ internal sealed class UnitTestTlsClient
         return messages;
     }
 
-    private static byte[] ExpandLabel(HashAlgorithmName hash, byte[] secret, string label, byte[] context, int length)
+    internal static byte[] ExpandLabel(HashAlgorithmName hash, byte[] secret, string label, byte[] context, int length)
     {
         var fullLabel = Encoding.ASCII.GetBytes("tls13 " + label);
         byte[] info = [(byte)(length >> 8), (byte)length, (byte)fullLabel.Length, .. fullLabel, (byte)context.Length, .. context];
         return HKDF.Expand(hash, secret, length, info);
     }
 
-    private static byte[] Hmac(HashAlgorithmName hash, byte[] key, byte[] data) => CryptographicOperations.HmacData(hash, key, data);
+    internal static byte[] Hmac(HashAlgorithmName hash, byte[] key, byte[] data) => CryptographicOperations.HmacData(hash, key, data);
 }

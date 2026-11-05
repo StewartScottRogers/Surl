@@ -31,4 +31,13 @@ public sealed class TlsServerHandshakeOptions
 
     /// <summary>Extensions EncryptedExtensions carries first, in this order, before ALPN and quic_transport_parameters.</summary>
     public IReadOnlyList<TlsExtension> AdditionalEncryptedExtensions { get; init; } = [];
+
+    /// <summary>
+    /// Decides whether a client's certificate chain (DER, end-entity certificate first) is trusted,
+    /// as ADR-0010 section 5 does for <c>--cacert</c>. When set, the server sends a
+    /// CertificateRequest and requires a client certificate: an empty client Certificate ends with
+    /// <see cref="TlsAlert.CertificateRequired"/>, and a chain this returns false for with
+    /// <see cref="TlsAlert.BadCertificate"/>. Null means no client certificate is requested.
+    /// </summary>
+    public Func<IReadOnlyList<ReadOnlyMemory<byte>>, bool>? TrustsClientCertificateChain { get; init; }
 }

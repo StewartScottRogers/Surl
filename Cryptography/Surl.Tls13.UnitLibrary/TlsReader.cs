@@ -45,6 +45,9 @@ internal ref struct TlsReader(ReadOnlySpan<byte> buffer)
     /// <summary>Reads a vector with a two-byte length of at least <paramref name="minimum"/> bytes.</summary>
     public ReadOnlySpan<byte> ReadVector16(int minimum) => CheckMinimum(ReadBytes(ReadUInt16()), minimum);
 
+    /// <summary>Reads a vector with a three-byte length of at least <paramref name="minimum"/> bytes.</summary>
+    public ReadOnlySpan<byte> ReadVector24(int minimum) => CheckMinimum(ReadBytes(ReadUInt24()), minimum);
+
     /// <summary>Fails with <see cref="TlsAlert.DecodeError"/> when bytes are left over.</summary>
     public readonly void ExpectEnd(string what)
     {

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Surl.Tls13;
 
@@ -6,8 +7,11 @@ namespace Surl.Tls13;
 /// The server side of a TLS 1.3 handshake for QUIC (RFC 8446 section 4, RFC 9001 section 4) with
 /// the parameters of ADR-0082 decision 3. QUIC hands it the client's handshake bytes as they
 /// arrive at each encryption level; it returns the server's handshake bytes for each level and
-/// the traffic secrets as they become known, and checks the client's Finished. There is no
-/// EndOfEarlyData, no ChangeCipherSpec, no session ticket and no client certificate.
+/// the traffic secrets as they become known, and checks the client's Finished. When
+/// <see cref="TlsServerHandshakeOptions.TrustsClientCertificateChain"/> is set it sends a
+/// CertificateRequest and requires and verifies the client's Certificate and CertificateVerify
+/// first. There is no EndOfEarlyData, no ChangeCipherSpec, no session ticket and no
+/// post-handshake authentication.
 /// </summary>
 /// <remarks>
 /// An alert ends the handshake: <see cref="Receive"/> throws <see cref="TlsAlertException"/>, and
@@ -31,7 +35,10 @@ public sealed class TlsServerHandshake : IDisposable
     private TlsTranscript? transcript;
     private TlsServerNegotiation? negotiation;
     private TlsNamedGroup retryGroup;
-    private byte[] expectedClientVerifyData = [];
+    private TlsKeySchedule? keySchedule;
+    private byte[] clientHandshakeTrafficSecret = [];
+    private X509Certificate2? clientCertificate;
+    private IReadOnlyList<ReadOnlyMemory<byte>>? receivedClientCertificateChain;
 
     /// <summary>Starts a handshake that awaits the client's ClientHello.</summary>
     /// <param name="options">The certificate, key, ALPN protocols and extensions the server serves.</param>
@@ -51,6 +58,8 @@ public sealed class TlsServerHandshake : IDisposable
     {
         AwaitingClientHello,
         AwaitingSecondClientHello,
+        AwaitingClientCertificate,
+        AwaitingClientCertificateVerify,
         AwaitingClientFinished,
         Complete,
         Failed,
@@ -70,6 +79,12 @@ public sealed class TlsServerHandshake : IDisposable
 
     /// <summary>The key exchange group of the ServerHello, or null before one is written.</summary>
     public TlsNamedGroup? KeyExchangeGroup { get; private set; }
+
+    /// <summary>
+    /// The client's certificate chain (DER, end-entity certificate first) once its Certificate is
+    /// trusted and its CertificateVerify verifies, or null when none was requested (yet).
+    /// </summary>
+    public IReadOnlyList<ReadOnlyMemory<byte>>? ClientCertificateChain { get; private set; }
 
     /// <summary>Takes the client's handshake bytes received at <paramref name="level"/>, in order, and handles each whole message.</summary>
     /// <param name="level">The encryption level the bytes arrived at.</param>
@@ -95,8 +110,12 @@ public sealed class TlsServerHandshake : IDisposable
         }
     }
 
-    /// <summary>Releases the transcript hash.</summary>
-    public void Dispose() => transcript?.Dispose();
+    /// <summary>Releases the transcript hash and the client's certificate.</summary>
+    public void Dispose()
+    {
+        transcript?.Dispose();
+        clientCertificate?.Dispose();
+    }
 
     private TlsHandshakeOutput ReceiveMessages(TlsEncryptionLevel level, ReadOnlySpan<byte> bytes)
     {
@@ -150,6 +169,12 @@ public sealed class TlsServerHandshake : IDisposable
                 break;
             case (State.AwaitingSecondClientHello, TlsEncryptionLevel.Initial):
                 ReceiveSecondClientHello(message, flight);
+                break;
+            case (State.AwaitingClientCertificate, TlsEncryptionLevel.Handshake):
+                ReceiveClientCertificate(message);
+                break;
+            case (State.AwaitingClientCertificateVerify, TlsEncryptionLevel.Handshake):
+                ReceiveClientCertificateVerify(message);
                 break;
             case (State.AwaitingClientFinished, TlsEncryptionLevel.Handshake):
                 ReceiveClientFinished(message);
@@ -232,10 +257,20 @@ public sealed class TlsServerHandshake : IDisposable
         KeyExchangeGroup = clientShare.Group;
         AppendTo(flight.Initial, serverHello);
 
-        var keySchedule = new TlsKeySchedule(suite);
+        keySchedule = new TlsKeySchedule(suite);
         var handshakeSecrets = keySchedule.DeriveHandshakeTrafficSecrets(agreement.SharedSecret, transcript!.CurrentHash());
         CryptographicOperations.ZeroMemory(agreement.SharedSecret);
         AppendTo(flight.Handshake, new EncryptedExtensions(EncryptedExtensionsList()).Write());
+        var requestsClientCertificate = options.TrustsClientCertificateChain is not null;
+        if (requestsClientCertificate)
+        {
+            AppendTo(
+                flight.Handshake,
+                new CertificateRequest(
+                    ReadOnlyMemory<byte>.Empty,
+                    [TlsExtensions.SignatureAlgorithms(TlsCertificateVerifier.ClientSchemes)]).Write());
+        }
+
         AppendTo(
             flight.Handshake,
             new CertificateMessage(
@@ -246,11 +281,10 @@ public sealed class TlsServerHandshake : IDisposable
             flight.Handshake,
             new Finished(keySchedule.ComputeFinishedVerifyData(handshakeSecrets.Server, transcript.CurrentHash())).Write());
 
-        var serverFinishedHash = transcript.CurrentHash();
         flight.HandshakeSecrets = handshakeSecrets;
-        flight.ApplicationSecrets = keySchedule.DeriveApplicationTrafficSecrets(serverFinishedHash);
-        expectedClientVerifyData = keySchedule.ComputeFinishedVerifyData(handshakeSecrets.Client, serverFinishedHash);
-        state = State.AwaitingClientFinished;
+        flight.ApplicationSecrets = keySchedule.DeriveApplicationTrafficSecrets(transcript.CurrentHash());
+        clientHandshakeTrafficSecret = handshakeSecrets.Client;
+        state = requestsClientCertificate ? State.AwaitingClientCertificate : State.AwaitingClientFinished;
     }
 
     private List<TlsExtension> EncryptedExtensionsList()
@@ -275,20 +309,89 @@ public sealed class TlsServerHandshake : IDisposable
         level.AddRange(message);
     }
 
-    private void ReceiveClientFinished(byte[] message)
+    private static void ExpectType(byte[] message, TlsHandshakeType type, string what)
     {
-        if (message[0] != (byte)TlsHandshakeType.Finished)
+        if (message[0] != (byte)type)
         {
             throw new TlsAlertException(
-                TlsAlert.UnexpectedMessage, $"Handshake message type {message[0]} is not the client's Finished.");
+                TlsAlert.UnexpectedMessage, $"Handshake message type {message[0]} is not the client's {what}.");
+        }
+    }
+
+    private void ReceiveClientCertificate(byte[] message)
+    {
+        ExpectType(message, TlsHandshakeType.Certificate, "Certificate");
+        var certificate = CertificateMessage.ReadBody(message.AsSpan(HandshakeHeaderLength));
+        if (!certificate.CertificateRequestContext.IsEmpty)
+        {
+            throw new TlsAlertException(
+                TlsAlert.IllegalParameter,
+                "The client's Certificate does not echo the CertificateRequest's empty certificate_request_context (RFC 8446 section 4.4.2).");
         }
 
+        if (certificate.Entries.Count == 0)
+        {
+            throw new TlsAlertException(
+                TlsAlert.CertificateRequired, "The client sent no certificate, and one is required (RFC 8446 section 4.4.2.4).");
+        }
+
+        ReadOnlyMemory<byte>[] chain = [.. certificate.Entries.Select(entry => entry.CertificateData)];
+        clientCertificate = LoadClientCertificate(chain[0]);
+        if (!options.TrustsClientCertificateChain!(chain))
+        {
+            throw new TlsAlertException(TlsAlert.BadCertificate, "The client's certificate chain is not trusted.");
+        }
+
+        receivedClientCertificateChain = chain;
+        transcript!.Append(message);
+        state = State.AwaitingClientCertificateVerify;
+    }
+
+    private static X509Certificate2 LoadClientCertificate(ReadOnlyMemory<byte> certificateData)
+    {
+        try
+        {
+            return X509CertificateLoader.LoadCertificate(certificateData.Span);
+        }
+        catch (CryptographicException exception)
+        {
+            throw new TlsAlertException(
+                TlsAlert.BadCertificate, $"The client's end-entity certificate is not an X.509 certificate: {exception.Message}");
+        }
+    }
+
+    private void ReceiveClientCertificateVerify(byte[] message)
+    {
+        ExpectType(message, TlsHandshakeType.CertificateVerify, "CertificateVerify");
+        var verify = CertificateVerify.ReadBody(message.AsSpan(HandshakeHeaderLength));
+        if (!TlsCertificateVerifier.ClientSchemes.Contains(verify.Algorithm))
+        {
+            throw new TlsAlertException(
+                TlsAlert.IllegalParameter,
+                $"The client's CertificateVerify uses scheme 0x{(ushort)verify.Algorithm:X4}, which the CertificateRequest did not offer (RFC 8446 section 4.4.3).");
+        }
+
+        if (!TlsCertificateVerifier.Verifies(clientCertificate!, verify, transcript!.CurrentHash()))
+        {
+            throw new TlsAlertException(
+                TlsAlert.DecryptError, "The client's CertificateVerify does not verify with its certificate's public key (RFC 8446 section 4.4.3).");
+        }
+
+        transcript.Append(message);
+        ClientCertificateChain = receivedClientCertificateChain;
+        state = State.AwaitingClientFinished;
+    }
+
+    private void ReceiveClientFinished(byte[] message)
+    {
+        ExpectType(message, TlsHandshakeType.Finished, "Finished");
+        var expectedClientVerifyData = keySchedule!.ComputeFinishedVerifyData(clientHandshakeTrafficSecret, transcript!.CurrentHash());
         if (!CryptographicOperations.FixedTimeEquals(message.AsSpan(HandshakeHeaderLength), expectedClientVerifyData))
         {
             throw new TlsAlertException(TlsAlert.DecryptError, "The client's Finished does not verify (RFC 8446 section 4.4.4).");
         }
 
-        transcript!.Append(message);
+        transcript.Append(message);
         state = State.Complete;
     }
 

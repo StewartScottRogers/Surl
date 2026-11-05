@@ -13,4 +13,17 @@ public sealed record CertificateVerify(TlsSignatureScheme Algorithm, ReadOnlyMem
             writer.WriteUInt16((ushort)Algorithm);
             writer.WriteVector(2, Signature.Span);
         });
+
+    /// <summary>
+    /// Reads a CertificateVerify message's body, the message without its four-byte handshake
+    /// header. An overrunning length or trailing bytes is <see cref="TlsAlert.DecodeError"/>.
+    /// </summary>
+    internal static CertificateVerify ReadBody(ReadOnlySpan<byte> body)
+    {
+        var reader = new TlsReader(body);
+        var algorithm = (TlsSignatureScheme)reader.ReadUInt16();
+        var signature = reader.ReadVector16(0).ToArray();
+        reader.ExpectEnd("the CertificateVerify message");
+        return new CertificateVerify(algorithm, signature);
+    }
 }
