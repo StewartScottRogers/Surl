@@ -57,3 +57,4 @@ input closes or it receives Ctrl+C or SIGTERM. It publishes native AOT.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
