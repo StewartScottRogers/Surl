@@ -1,5 +1,8 @@
 using Surl.Protocol.Ftp;
+using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
+using Surl.Protocol.Mqtt;
+using Surl.Protocol.Tftp;
 
 namespace Surl.Conformance;
 
@@ -21,6 +24,14 @@ public sealed class UpstreamTestCaseServerCommandsTests
     [DataRow("ftp", "idle", false)]
     [DataRow("smtp", "REPLY", false)]
     [DataRow("rtsp", "idle", false)]
+    [DataRow("tftp", "writedelay:", true)]
+    [DataRow("tftp", "Testnum", true)]
+    [DataRow("tftp", "REPLY", false)]
+    [DataRow("mqtt", "error-CONNACK", false)]
+    [DataRow("mqtts", "remlen-CONNACK", false)]
+    [DataRow("gopher", "Testnum", false)]
+    [DataRow("dict", "Testnum", false)]
+    [DataRow("telnet", "Testnum", false)]
     public void IsSupported_TheServerHalfsTable_SaysWhichCommandsItImplements(string server, string command, bool expected)
     {
         var supported = UpstreamTestCaseServerCommands.IsSupported(server, command);
@@ -42,6 +53,22 @@ public sealed class UpstreamTestCaseServerCommandsTests
         var table = UpstreamTestCaseServerCommands.Ftp.Order(StringComparer.Ordinal).ToArray();
 
         CollectionAssert.AreEqual(FtpUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
+    }
+
+    [TestMethod]
+    public void Tftp_IsTheCommandsTheTftpServerHalfAccepts()
+    {
+        var table = UpstreamTestCaseServerCommands.Tftp.Order(StringComparer.Ordinal).ToArray();
+
+        CollectionAssert.AreEqual(TftpUpstreamTestCaseReplies.SupportedServerCommands.Order(StringComparer.Ordinal).ToArray(), table);
+    }
+
+    [TestMethod]
+    public void None_IsTheCommandsTheGopherAndMqttServerHalvesAccept()
+    {
+        Assert.IsEmpty(UpstreamTestCaseServerCommands.None);
+        Assert.IsEmpty(GopherUpstreamTestCaseReplies.SupportedServerCommands);
+        Assert.IsEmpty(MqttUpstreamTestCaseReplies.SupportedServerCommands);
     }
 
     [TestMethod]

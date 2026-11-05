@@ -192,12 +192,17 @@ Running the http and https cases is built (BL-392):
   `UpstreamTestCases`) runs every case on the reference build, each with its own
   `UpstreamTestCaseServerHalves` (HTTP in plaintext and over TLS, the TLS listener on the `wss`
   scheme so ALPN offers only `http/1.1`; FTP on `127.0.0.1` and `[::1]` and over implicit TLS for
-  `ftps`, with socket data connections and the accept-all `AnonymousAuthenticationPolicy`), its
-  own folder as curl's working directory, `%PWD` and `HOME`, `%LOGDIR` the relative `log`, and a
-  60-second limit; a case naming a server other than `http`, `https`, `ftp`, `ftp-ipv6` and
-  `ftps` is written `skip server-half-not-composed:<name>` and an unparsable one
-  `skip unparsable`. A case's `<protocol>` is checked against its first server's received bytes
-  followed by the other's, and `<upload>` against the FTP server half's uploads. CI's
+  `ftps`, with socket data connections and the accept-all `AnonymousAuthenticationPolicy`;
+  Gopher on `127.0.0.1` and `[::1]` and over TLS for `gophers`; MQTT in plaintext and over TLS;
+  TFTP on a datagram listener; and Surl's own DICT and TELNET servers, whose cases give them
+  nothing to send), its own folder as curl's working directory, `%PWD` and `HOME`, `%LOGDIR` the
+  relative `log`, and a 60-second limit; a case naming a server other than `http`, `https`, `ftp`,
+  `ftp-ipv6`, `ftps`, `gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict` and
+  `telnet` is written `skip server-half-not-composed:<name>` and an unparsable one
+  `skip unparsable`. After curl exits the run waits up to 2 seconds for every exchange to end, so a
+  server half has read curl's last packet before its log is checked. A case's `<protocol>` is
+  checked against each server half's received bytes in the order the case names its servers, and
+  `<upload>` against the FTP and TFTP server halves' uploads. CI's
   `Upstream test cases` job runs it on Linux and macOS and uploads the results file and the
   run's passing list (both are written to the test assembly's folder).
 
@@ -206,6 +211,15 @@ is the FTP row, the same words as `Surl.Protocol.Ftp`'s
 `FtpUpstreamTestCaseReplies.SupportedServerCommands` (`Testnum`, `REPLY`, `REPLYLF`, `COUNT`,
 `RETRNOSIZE`, `RETRSIZE`, `NOSAVE`, `STOR`); `DELAY`, `RETRWEIRDO`, `SLOWDOWN`, `SLOWDOWNDATA`,
 `PASVBADIP` and the `NODATACONN` forms skip `servercmd-unsupported:<command>`.
+
+Playing the dict, gopher, gopher-ipv6, gophers, mqtt, mqtts, telnet and tftp cases is built
+(BL-396): `UpstreamTestCaseServerCommands.Tftp` is the TFTP row (`Testnum`, `writedelay:`, the same
+words as `TftpUpstreamTestCaseReplies.SupportedServerCommands`), and `UpstreamTestCaseServerCommands.None`
+the row of the Gopher, MQTT, DICT and TELNET server halves, which implement no command: MQTT's
+`error-CONNACK`, `remlen-CONNACK`, `PUBLISH-before-SUBACK`, `short-PUBLISH`,
+`PINGRESP-as-CONNACK`, `DISCONNECT-malformed` and `excessive-remaining` skip
+`servercmd-unsupported:<command>`. Every `rtsp` case at the tag is a libtest, so no RTSP server
+half is composed.
 
 The stated pass rate and its guard are built (BL-393):
 

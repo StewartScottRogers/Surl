@@ -29,6 +29,21 @@ public static class UpstreamTestCaseServerCommands
         ["Testnum", "REPLY", "REPLYLF", "COUNT", "RETRNOSIZE", "RETRSIZE", "NOSAVE", "STOR"],
         StringComparer.Ordinal);
 
+    /// <summary>
+    /// The TFTP server half's commands (BL-396), the same words <c>Surl.Protocol.Tftp</c>'s
+    /// <c>TftpUpstreamTestCaseReplies.SupportedServerCommands</c> accepts.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Tftp = new HashSet<string>(["Testnum", "writedelay:"], StringComparer.Ordinal);
+
+    /// <summary>
+    /// The commands of the server halves that implement none (BL-396): Gopher's and DICT's, to
+    /// which FILEFORMAT gives none, TELNET's, and MQTT's, whose <c>error-CONNACK</c>,
+    /// <c>remlen-CONNACK</c>, <c>PUBLISH-before-SUBACK</c>, <c>short-PUBLISH</c>,
+    /// <c>PINGRESP-as-CONNACK</c>, <c>DISCONNECT-malformed</c> and <c>excessive-remaining</c>
+    /// each make the server send a deliberately broken or refusing packet and are not implemented.
+    /// </summary>
+    public static readonly IReadOnlySet<string> None = new HashSet<string>(StringComparer.Ordinal);
+
     /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
     public const string PostCommand = "postcmd";
 
@@ -41,6 +56,14 @@ public static class UpstreamTestCaseServerCommands
         ["ftp"] = Ftp,
         ["ftp-ipv6"] = Ftp,
         ["ftps"] = Ftp,
+        ["tftp"] = Tftp,
+        ["gopher"] = None,
+        ["gopher-ipv6"] = None,
+        ["gophers"] = None,
+        ["mqtt"] = None,
+        ["mqtts"] = None,
+        ["dict"] = None,
+        ["telnet"] = None,
     };
 
     /// <summary>

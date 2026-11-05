@@ -5,22 +5,25 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Networking;
 using Surl.Protocol.Ftp;
+using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
+using Surl.Protocol.Mqtt;
+using Surl.Protocol.Tftp;
 
 namespace Surl.Conformance;
 
 /// <summary>
-/// Runs every upstream test case whose servers are <c>http</c>, <c>https</c>, <c>ftp</c>,
-/// <c>ftp-ipv6</c> and <c>ftps</c> against Surl's HTTP and FTP server halves
+/// Runs every upstream test case whose servers are among <see cref="ServerFamilies"/> - HTTP,
+/// FTP, Gopher, MQTT, TFTP, DICT and TELNET - against Surl's server halves
 /// (<see cref="UpstreamTestCaseServerHalves"/>), with the platform's pinned reference build as the
-/// client (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394). Each case gets its own server halves on ephemeral ports, its own
+/// client (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394, BL-396). Each case gets its own server halves on ephemeral ports, its own
 /// <c>%LOGDIR</c> and the command line runtests builds (<see cref="UpstreamTestCaseCommandLine"/>);
 /// its verify section is checked with <see cref="UpstreamTestCaseVerifyChecker"/>. The run writes
 /// <c>upstream-test-case-results.&lt;platform&gt;.txt</c>, one line for each of the 2,013 cases.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A case naming a server outside those five is written
+/// A case naming any other server is written
 /// <c>skip server-half-not-composed:&lt;name&gt;</c> here, and a case the parser refuses
 /// (<see cref="UpstreamTestCaseCorpusTests"/>) <c>skip unparsable</c>; each other skip is decision
 /// 3's reason. curl is stopped after <see cref="CaseTimeout"/> and the case recorded
@@ -42,10 +45,30 @@ public sealed class UpstreamTestCasesAgainstSurlTests
 
     private static readonly TimeSpan CaseTimeout = TimeSpan.FromSeconds(60);
 
-    private static readonly HashSet<string> ComposedServers = new(["http", "https", "ftp", "ftp-ipv6", "ftps"], StringComparer.Ordinal);
+    private const string HttpFamily = "http";
+    private const string FtpFamily = "ftp";
+    private const string GopherFamily = "gopher";
+    private const string MqttFamily = "mqtt";
+    private const string TftpFamily = "tftp";
 
-    // The server names whose server half is FTP's: their bytes are the case's <protocol> and <upload>.
-    private static readonly HashSet<string> FtpServers = new(["ftp", "ftp-ipv6", "ftps"], StringComparer.Ordinal);
+    // Each composed server name and the server half that plays it; a case naming any other is
+    // skipped server-half-not-composed. dict and telnet are Surl's own servers, which keep no log.
+    private static readonly Dictionary<string, string> ServerFamilies = new(StringComparer.Ordinal)
+    {
+        ["http"] = HttpFamily,
+        ["https"] = HttpFamily,
+        ["ftp"] = FtpFamily,
+        ["ftp-ipv6"] = FtpFamily,
+        ["ftps"] = FtpFamily,
+        ["gopher"] = GopherFamily,
+        ["gopher-ipv6"] = GopherFamily,
+        ["gophers"] = GopherFamily,
+        ["mqtt"] = MqttFamily,
+        ["mqtts"] = MqttFamily,
+        ["tftp"] = TftpFamily,
+        ["dict"] = "dict",
+        ["telnet"] = "telnet",
+    };
 
     public TestContext TestContext { get; set; } = null!;
 
@@ -218,7 +241,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 return UpstreamTestCaseResult.Skip(number, reason);
             }
 
-            var notComposed = ServerNames(selected).FirstOrDefault(name => !ComposedServers.Contains(name));
+            var notComposed = ServerNames(selected).FirstOrDefault(name => !ServerFamilies.ContainsKey(name));
             return notComposed is not null
                 ? UpstreamTestCaseResult.Skip(number, "server-half-not-composed:" + notComposed)
                 : await RunSelectedCaseAsync(number, source, tlsSettings, cancellationToken);
@@ -237,12 +260,20 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             UpstreamTestCaseCommandLine commandLine;
             HttpUpstreamTestCaseReplies replies;
             FtpUpstreamTestCaseReplies ftpReplies;
-            var isFtpCase = FtpServers.Contains(ServerNames(testCase).First());
+            GopherUpstreamTestCaseReplies gopherReplies;
+            MqttUpstreamTestCaseReplies mqttReplies;
+            TftpUpstreamTestCaseReplies tftpReplies;
+            // The case's <servercmd> is its first server's; each other server half gets none.
+            var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
+            IEnumerable<string> CommandsFor(string family) => families[0] == family ? ServerCommandLines(testCase) : [];
             try
             {
                 commandLine = UpstreamTestCaseCommandLine.Build(number, testCase, logDirectory);
-                replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), isFtpCase ? [] : ServerCommandLines(testCase));
-                ftpReplies = new FtpUpstreamTestCaseReplies(FtpReplyParts(testCase), isFtpCase ? ServerCommandLines(testCase) : []);
+                replies = new HttpUpstreamTestCaseReplies(ReplyParts(testCase), CommandsFor(HttpFamily));
+                ftpReplies = new FtpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(FtpFamily));
+                gopherReplies = new GopherUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
+                mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
+                tftpReplies = new TftpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(TftpFamily));
             }
             catch (FormatException exception)
             {
@@ -251,7 +282,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             }
 
             await WriteFilesAsync(caseDirectory, commandLine, cancellationToken);
-            serverHalves.Play(replies, ftpReplies);
+            serverHalves.Play(replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies);
             var curl = await runner.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -260,14 +291,23 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 return UpstreamTestCaseResult.Fail(number, UpstreamTestCaseResult.TimeoutReason);
             }
 
+            await serverHalves.WaitForExchangesToEndAsync(TimeSpan.FromSeconds(2), cancellationToken);
             await File.WriteAllBytesAsync(Path.Combine(caseDirectory, commandLine.StandardOutputFile), curl.StandardOutput, cancellationToken);
             await File.WriteAllTextAsync(Path.Combine(caseDirectory, commandLine.StandardErrorFile), curl.StandardError, cancellationToken);
             var outputFile = Path.Combine(caseDirectory, commandLine.OutputFile);
             var output = File.Exists(outputFile) ? await File.ReadAllBytesAsync(outputFile, cancellationToken) : [];
-            // runtests' servers all log to one server.input; a case naming both is taken to use
-            // its first server first (an HTTP redirect to FTP, or the reverse).
-            byte[] received = isFtpCase ? [.. ftpReplies.ReceivedBytes, .. replies.ReceivedBytes] : [.. replies.ReceivedBytes, .. ftpReplies.ReceivedBytes];
-            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, ftpReplies.UploadedBytes);
+            // runtests' servers all log to one server.input; a case naming several is taken to
+            // use them in the order it names them (an HTTP redirect to FTP, or the reverse).
+            var receivedByFamily = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+            {
+                [HttpFamily] = replies.ReceivedBytes,
+                [FtpFamily] = ftpReplies.ReceivedBytes,
+                [GopherFamily] = gopherReplies.ReceivedBytes,
+                [MqttFamily] = mqttReplies.ReceivedBytes,
+                [TftpFamily] = tftpReplies.ReceivedBytes,
+            };
+            byte[] received = [.. families.SelectMany(family => receivedByFamily.GetValueOrDefault(family) ?? [])];
+            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes]);
             var verdict = new UpstreamTestCaseVerifyChecker(new CaseFolderRunFiles(caseDirectory), features).Check(testCase, record);
             if (verdict.Passed)
             {
@@ -327,6 +367,14 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["FTPPORT"] = serverHalves.FtpPort.ToString(CultureInfo.InvariantCulture),
                 ["FTP6PORT"] = serverHalves.FtpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 ["FTPSPORT"] = serverHalves.FtpsPort.ToString(CultureInfo.InvariantCulture),
+                ["GOPHERPORT"] = serverHalves.GopherPort.ToString(CultureInfo.InvariantCulture),
+                ["GOPHER6PORT"] = serverHalves.GopherIPv6Port.ToString(CultureInfo.InvariantCulture),
+                ["GOPHERSPORT"] = serverHalves.GophersPort.ToString(CultureInfo.InvariantCulture),
+                ["MQTTPORT"] = serverHalves.MqttPort.ToString(CultureInfo.InvariantCulture),
+                ["MQTTSPORT"] = serverHalves.MqttsPort.ToString(CultureInfo.InvariantCulture),
+                ["DICTPORT"] = serverHalves.DictPort.ToString(CultureInfo.InvariantCulture),
+                ["TELNETPORT"] = serverHalves.TelnetPort.ToString(CultureInfo.InvariantCulture),
+                ["TFTPPORT"] = serverHalves.TftpPort.ToString(CultureInfo.InvariantCulture),
                 ["HOST6IP"] = "[::1]",
                 ["CLIENT6IP"] = "[::1]",
                 ["CLIENT6IP-NB"] = "::1",
