@@ -31,6 +31,7 @@ public sealed class ProtocolIsolationTests
     private const string Http2 = "Surl.Http2.UnitLibrary";
     private const string Http3 = "Surl.Http3.UnitLibrary";
     private const string HttpMessage = "Surl.HttpMessage.UnitLibrary";
+    private const string HttpProxy = "Surl.Protocol.HttpProxy.UnitLibrary";
     private const string HttpServing = "Surl.HttpServing.UnitLibrary";
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
@@ -130,6 +131,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(ExtendedRedis, "Surl.Protocol.Http.UnitLibrary")]
     [DataRow(ExtendedRedis, "Surl.Extended.Protocol.Mqtt5.UnitLibrary")]
     [DataRow("Surl.Protocol.Http.UnitLibrary", ExtendedRedis)]
+    [DataRow(HttpProxy, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow("Surl.Protocol.Http.UnitLibrary", HttpProxy)]
     public void ForbiddenProtocolReferences_ServerReferencingAnotherServer_IsForbidden(
         string server, string referenced)
     {
@@ -137,6 +140,19 @@ public sealed class ProtocolIsolationTests
 
         Assert.HasCount(1, forbidden, $"{server} -> {referenced} should be forbidden.");
         Assert.AreEqual(referenced, forbidden[0]);
+    }
+
+    /// <summary>
+    /// The HTTP proxy server (ADR-0088 decision 1) is found as a protocol server, so the rules
+    /// above hold it: it references only Abstractions and horizontal libraries, and has its
+    /// test project beside it.
+    /// </summary>
+    [TestMethod]
+    public void ProtocolServers_IncludeTheHttpProxy()
+    {
+        var proxy = ProtocolServers().Single(path => ProjectName(path) == HttpProxy);
+
+        Assert.IsEmpty(ForbiddenProtocolReferences(ProjectReferences(proxy)));
     }
 
     [TestMethod]
