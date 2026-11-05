@@ -59,6 +59,15 @@ public sealed class UpstreamCurlBuildPinsTests
 
         Assert.AreEqual(string.Empty, pins[0].Version);
         Assert.IsEmpty(pins[0].Protocols);
+        Assert.IsEmpty(pins[0].Features);
+    }
+
+    [TestMethod]
+    public void Parse_EntryWithFeatures_ReadsThemInOrder()
+    {
+        var pins = UpstreamCurlBuildPins.Parse(Builds(Entry(extra: "\"features\": \"alt-svc  SSL IPv6\"")));
+
+        CollectionAssert.AreEqual(new[] { "alt-svc", "SSL", "IPv6" }, pins[0].Features.ToArray());
     }
 
     [TestMethod]

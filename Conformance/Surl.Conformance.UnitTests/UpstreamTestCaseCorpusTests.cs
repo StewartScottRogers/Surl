@@ -62,6 +62,65 @@ public sealed class UpstreamTestCaseCorpusTests
         Assert.AreEqual(2013, count);
     }
 
+    public TestContext TestContext { get; set; } = null!;
+
+    [TestMethod]
+    [DataRow("win-x64")]
+    [DataRow("linux-x64")]
+    [DataRow("osx-arm64")]
+    public void FindSkipReason_EveryImportedCaseForAReferencePin_WritesTheCountPerSkipReason(string platform)
+    {
+        var pin = UpstreamTestCaseSelectorTests.ReferencePins().Single(candidate => candidate.Platform == platform);
+        var features = UpstreamCurlBuildFeatures.For(pin);
+        var environment = SelectionEnvironment(features);
+        var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), environment);
+        var today = UpstreamTestCaseSelectionRules.ForBuild(pin, disabled);
+        var everythingBuilt = today with { SupportsServerCommand = static (_, _) => true, SupportsStripLine = static (_, _) => true };
+
+        var todayCounts = CountSkipReasons(new UpstreamTestCaseSelector(today), environment);
+        var everythingBuiltCounts = CountSkipReasons(new UpstreamTestCaseSelector(everythingBuilt), environment);
+
+        WriteCounts($"{platform}, as Surl stands today", todayCounts);
+        WriteCounts($"{platform}, every server command and strip line accepted", everythingBuiltCounts);
+        Assert.AreEqual(2013, todayCounts.Values.Sum());
+        Assert.AreEqual(2013, everythingBuiltCounts.Values.Sum());
+        Assert.IsGreaterThan(0, todayCounts["disabled-upstream"]);
+        Assert.IsGreaterThan(0, everythingBuiltCounts["runnable"]);
+    }
+
+    private static SortedDictionary<string, int> CountSkipReasons(UpstreamTestCaseSelector selector, UpstreamTestCaseEnvironment environment)
+    {
+        var counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var path in TestCaseFiles())
+        {
+            var name = Path.GetFileName(path);
+            var reason = UnparsableCases.ContainsKey(name)
+                ? "unparsable"
+                : selector.FindSkipReason(int.Parse(name["test".Length..], System.Globalization.CultureInfo.InvariantCulture), UpstreamTestCaseParser.Parse(File.ReadAllBytes(path), environment)) ?? "runnable";
+
+            counts[reason] = counts.GetValueOrDefault(reason) + 1;
+        }
+
+        return counts;
+    }
+
+    private void WriteCounts(string title, SortedDictionary<string, int> counts)
+    {
+        TestContext.WriteLine(title + ":");
+
+        foreach (var (reason, count) in counts)
+        {
+            TestContext.WriteLine($"  {reason} {count}");
+        }
+    }
+
+    private static UpstreamTestCaseEnvironment SelectionEnvironment(IReadOnlySet<string> features) => new(
+        new Dictionary<string, string>(StringComparer.Ordinal) { ["CERTDIR"] = "." },
+        features,
+        new UnitTestImportedFileReader(),
+        TimeProvider.System);
+
     private static IEnumerable<string> TestCaseFiles() =>
         Directory.EnumerateFiles(Path.Combine(Root, "data"), "test*")
             .Where(path => Path.GetFileName(path)["test".Length..].All(char.IsAsciiDigit))

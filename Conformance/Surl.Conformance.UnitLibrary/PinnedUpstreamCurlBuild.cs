@@ -18,4 +18,11 @@ public sealed record PinnedUpstreamCurlBuild(
     string Version,
     IReadOnlyList<string> Protocols,
     UpstreamCurlBuildRole Role,
-    UpstreamCurlBuildKind Kind = UpstreamCurlBuildKind.Curl);
+    UpstreamCurlBuildKind Kind = UpstreamCurlBuildKind.Curl)
+{
+    /// <summary>
+    /// The features the build's <c>curl --version</c> <c>Features:</c> line lists, in the order
+    /// its entry lists them; empty when the entry has none.
+    /// </summary>
+    public IReadOnlyList<string> Features { get; init; } = [];
+}

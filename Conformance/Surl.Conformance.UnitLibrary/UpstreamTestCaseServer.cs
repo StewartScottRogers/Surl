@@ -1,0 +1,13 @@
+namespace Surl.Conformance;
+
+/// <summary>
+/// One name a test case's <c>&lt;server&gt;</c> part may list, and what Surl has for it
+/// (ADR-0080 decision 2's table).
+/// </summary>
+/// <param name="Name">The server name as FILEFORMAT.md spells it, such as <c>http-ipv6</c>.</param>
+/// <param name="Protocol">
+/// The scheme a pinned build's <c>protocols</c> line must list for curl to talk to the server,
+/// such as <c>http</c> for <c>http-ipv6</c> and <c>https-mtls</c>.
+/// </param>
+/// <param name="IsBuilt">Whether Surl's server half for the name exists today.</param>
+public sealed record UpstreamTestCaseServer(string Name, string Protocol, bool IsBuilt);

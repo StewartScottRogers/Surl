@@ -78,11 +78,29 @@ build it. Parsing is built (BL-388):
   4 (758, 1569, 1570, 1614) are listed there with their reasons: each has a part outside every
   section.
 
+Selection is built (BL-389):
+
+- `UpstreamTestCaseServers` is decision 2's table: each `<server>` name's `UpstreamTestCaseServer`
+  row - its scheme and whether its server half is built - and `NoServerHalf` (`file`, `none`).
+- `UpstreamCurlBuildFeatures.For(pin)` derives a pin's features as runtests'
+  `checksystemfeatures` does: the `Features:` words runtests reads (`PinnedUpstreamCurlBuild.Features`,
+  from the pin's `features` line), the TLS backend and libraries of the version line, `win32`,
+  `threaded-resolver`, `http/2`, each protocol with its `-ipv6` and `-unix` forms, and
+  `ReleaseBuildOptions`, the `curlinfo` options a default release build enables (probed on the
+  Windows reference pin, BL-389's Notes). Never `Debug`, `TrackMemory` or `unittest`.
+- `UpstreamTestCaseDisabledList.Parse` reads `DISABLED`, its `%if` lines against those features.
+- `UpstreamTestCaseSelector.FindSkipReason(number, case)` gives the first of decision 3's
+  `UpstreamTestCaseSkipReasons` that applies, or `null` when the case can run, under
+  `UpstreamTestCaseSelectionRules`. `ForBuild(pin, disabled)` is Surl as it stands: no server
+  command and no strip line accepted; the server halves and the verify checker replace those
+  predicates with `with` as they land. Parse a case for selection with the pin's features and
+  without `SRCDIR` or `PERL`, so `needs-perl` still sees them.
+- `UpstreamTestCaseCorpusTests` writes the count per skip reason for each reference pin to the
+  test log.
+
 The rest is intent until its task lands. This library will also hold, with no reference but
 Abstractions:
-- the table of `<server>` names - each one's port variable and whether its server half is built;
-- selecting which cases a reference pin can run, each other case given one skip reason from
-  ADR-0080 decision 3, and the build-option feature table BL-389 probes;
+- each `<server>` name's port variable, beside its `UpstreamTestCaseServers` row;
 - building each command line as upstream's runtests does (`-q`, `--output`, `--include`,
   `--trace-ascii`);
 - generating the test certificates from the imported `.prm` files with `CertificateRequest`, and

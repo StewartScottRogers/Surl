@@ -77,9 +77,12 @@ public static class UpstreamCurlBuildPins
             RequiredString(entry, index, "defaultPath"),
             ParseSha256(RequiredString(entry, index, "sha256"), index),
             OptionalString(entry, index, "version") ?? string.Empty,
-            ParseProtocols(OptionalString(entry, index, "protocols")),
+            ParseSpaceSeparatedWords(OptionalString(entry, index, "protocols")),
             ParseRole(OptionalString(entry, index, "role"), index),
-            ParseKind(OptionalString(entry, index, "kind"), index));
+            ParseKind(OptionalString(entry, index, "kind"), index))
+        {
+            Features = ParseSpaceSeparatedWords(OptionalString(entry, index, "features")),
+        };
     }
 
     private static string RequiredString(JsonElement entry, int index, string name)
@@ -116,8 +119,8 @@ public static class UpstreamCurlBuildPins
         return sha256;
     }
 
-    private static string[] ParseProtocols(string? protocols) =>
-        (protocols ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    private static string[] ParseSpaceSeparatedWords(string? words) =>
+        (words ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
     private static UpstreamCurlBuildRole ParseRole(string? role, int index) => role switch
     {
