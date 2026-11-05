@@ -203,6 +203,49 @@ public sealed class TlsServerHandshakeTests
     }
 
     [TestMethod]
+    [DataRow("doq", "00100006000403646f71")]
+    [DataRow("h3", "001000050003026833")]
+    public void Receive_OptionsNameTheProtocolTheClientOffers_AgreesItAndSelectsItInEncryptedExtensions(string protocol, string alpnExtensionHex)
+    {
+        var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var options = UnitTestCertificates.QuicOptions(key);
+        using var handshake = new TlsServerHandshake(
+            new TlsServerHandshakeOptions
+            {
+                CertificateChain = options.CertificateChain,
+                CertificateKey = key,
+                ApplicationProtocols = [protocol],
+                QuicTransportParameters = options.QuicTransportParameters,
+            },
+            RandomNumberGenerator.Create());
+        var client = UnitTestTlsClient.WithX25519Share();
+        var clientHello = new UnitTestClientHelloBuilder
+        {
+            ApplicationProtocols = ["hq-interop", protocol],
+            KeyShares = [(0x001D, client.PublicShare)],
+        }.Write();
+
+        var output = handshake.Receive(TlsEncryptionLevel.Initial, clientHello);
+        var verified = client.VerifyServerFlight([clientHello], output.Initial, output.Handshake);
+
+        Assert.AreEqual(protocol, handshake.ApplicationProtocol);
+        Assert.IsGreaterThanOrEqualTo(0, verified.EncryptedExtensions.AsSpan().IndexOf(Convert.FromHexString(alpnExtensionHex)));
+    }
+
+    [TestMethod]
+    public void Receive_OptionsNameDoqAndTheClientOffersOnlyH3_FailsWithNoApplicationProtocol()
+    {
+        var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        var options = UnitTestCertificates.QuicOptions(key);
+        using var handshake = new TlsServerHandshake(
+            new TlsServerHandshakeOptions { CertificateChain = options.CertificateChain, CertificateKey = key, ApplicationProtocols = ["doq"] },
+            RandomNumberGenerator.Create());
+        var clientHello = new UnitTestClientHelloBuilder { KeyShares = [(0x001D, UnitTestTlsClient.WithX25519Share().PublicShare)] }.Write();
+
+        AssertAlert(TlsAlert.NoApplicationProtocol, () => handshake.Receive(TlsEncryptionLevel.Initial, clientHello));
+    }
+
+    [TestMethod]
     public void Receive_ClientHelloWithoutAlpn_FailsWithNoApplicationProtocol()
     {
         using var handshake = EcdsaHandshake();
