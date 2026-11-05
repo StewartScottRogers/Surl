@@ -1,5 +1,5 @@
 ---
-id: BL-754
+id: BL-757
 title: Serve SignalR's Server-Sent Events and Long Polling transports with HTTP Post
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-754 — Serve SignalR's Server-Sent Events and Long Polling transports with HTTP Post
+# BL-757 — Serve SignalR's Server-Sent Events and Long Polling transports with HTTP Post
 
 ## Goal
 

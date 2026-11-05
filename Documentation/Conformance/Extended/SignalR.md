@@ -42,11 +42,11 @@ the task turns each into a row of its own when it lands.
 | SignalR:TP-WebSockets-4 | MUST | A second WebSocket for a connection that already has one is `409`. | BL-449 |
 | SignalR:Surl-2-2 | MUST | A negotiated connection not upgraded within `--head-timeout` is forgotten, and its token is then `404` (ADR-0119 decisions 2 and 7). | BL-449 |
 | SignalR:RFC6455-4.2-1 | MUST | The upgrade request is checked and refused as `Surl.WebSocket` does, with no subprotocol chosen (ADR-0071, ADR-0084 decision 2). | n/a: `Surl.WebSocket` owns the checks and is tested there (BL-408) |
-| SignalR:Surl-2-3 | MUST | Until BL-754, a `GET [endpoint-base]` that is not an upgrade gets `Surl.WebSocket`'s `426`, and `POST` or `DELETE` on it `405` with `Allow: GET` (ADR-0119 decision 2). | BL-449 |
+| SignalR:Surl-2-3 | MUST | Until BL-757, a `GET [endpoint-base]` that is not an upgrade gets `Surl.WebSocket`'s `426`, and `POST` or `DELETE` on it `405` with `Allow: GET` (ADR-0119 decision 2). | BL-449 |
 | SignalR:TP-Errors-1 | MUST | Errors while serving end the WebSocket with a non-`1000` close code; frames over `--max-message` with `1009` (ADR-0119 decisions 3 and 7). | BL-449 |
-| SignalR:TP-ServerSentEvents-1 | MUST | The Server-Sent Events transport: `text/event-stream`, the mandatory `id`, `400` without it, `404` for an unknown one. | n/a: BL-754 adds the transport (ADR-0119 decision 2) |
-| SignalR:TP-LongPolling-1 | MUST | The Long Polling transport: the mandatory `id`, `204` to end a superseded poll, `200` with no content on a server timeout, `DELETE` to end the connection. | n/a: BL-754 adds the transport (ADR-0119 decision 2) |
-| SignalR:TP-HttpPost-1 | MUST | The HTTP Post half-transport: the mandatory `id`, `200` once the payload is processed, `409` for a second outstanding post, `404` for an ended connection. | n/a: BL-754 adds the transport (ADR-0119 decision 2) |
+| SignalR:TP-ServerSentEvents-1 | MUST | The Server-Sent Events transport: `text/event-stream`, the mandatory `id`, `400` without it, `404` for an unknown one. | n/a: BL-757 adds the transport (ADR-0119 decision 2) |
+| SignalR:TP-LongPolling-1 | MUST | The Long Polling transport: the mandatory `id`, `204` to end a superseded poll, `200` with no content on a server timeout, `DELETE` to end the connection. | n/a: BL-757 adds the transport (ADR-0119 decision 2) |
+| SignalR:TP-HttpPost-1 | MUST | The HTTP Post half-transport: the mandatory `id`, `200` once the payload is processed, `409` for a second outstanding post, `404` for an ended connection. | n/a: BL-757 adds the transport (ADR-0119 decision 2) |
 | SignalR:Surl-0-1 | MUST | `signalrs` is the same server inside TLS from the first byte; without `--cert` or `--self-signed` the listener fails with `CertificateProblem` (58). | n/a: the listener seam wraps TLS before the server reads a byte (ADR-0010); BL-450 registers `signalrs` and proves it |
 
 ## The handshake (HUB "Overview")

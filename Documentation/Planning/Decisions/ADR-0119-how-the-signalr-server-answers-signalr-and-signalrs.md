@@ -6,7 +6,7 @@
   in BL-447. BL-448 builds the library, negotiate, the bearer login and the JSON hub-protocol codec
   (decisions 0, 1, 2, 3, 5 and the record limits of 7), BL-449 serves hub invocations over the
   WebSocket transport with keep-alive and timeouts (decisions 1, 3, 4, 6 and 7), BL-450 serves both
-  schemes from `surl`, BL-754 adds the Server-Sent Events and Long Polling transports (decision 2),
+  schemes from `surl`, BL-757 adds the Server-Sent Events and Long Polling transports (decision 2),
   BL-755 stateful reconnect (decision 6) and BL-756 the MessagePack hub protocol (decision 3).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof; ports 80 and 443; one matrix per
@@ -136,16 +136,16 @@ runs it against `surl --allow-anonymous`.
   Version 0 omits `connectionToken`. `connectionId` and `connectionToken` are each 16 bytes from the
   BCL's `RandomNumberGenerator`, base64url without padding (22 characters), independent of each other
   (TP "Version 1": the token "should be kept secret", so it is not derivable from the id).
-- **`availableTransports` lists exactly what is served.** Until BL-754 it is WebSockets alone, with
+- **`availableTransports` lists exactly what is served.** Until BL-757 it is WebSockets alone, with
   both transfer formats (RFC 6455 carries text and binary frames; decision 3 accepts JSON in either).
-  BL-754 adds `{"transport":"ServerSentEvents","transferFormats":["Text"]}` and
+  BL-757 adds `{"transport":"ServerSentEvents","transferFormats":["Text"]}` and
   `{"transport":"LongPolling","transferFormats":["Text","Binary"]}`, with HTTP Post for the client's
   half, each as TP's section for it says (the mandatory `id`, `400` without it, `404` for an unknown
   one, `409` for a second poll or post, `204` to end a poll, `DELETE` to end the connection), and
   changes this list then. Every transport is served because a complete SignalR server offers all
   three; WebSockets lands first because it is the only full-duplex one and the one the Curl port
   uses.
-- **A transport not offered:** until BL-754, a `GET [endpoint-base]` that is not a WebSocket upgrade
+- **A transport not offered:** until BL-757, a `GET [endpoint-base]` that is not a WebSocket upgrade
   (Server-Sent Events, a Long Polling poll) is answered by `Surl.WebSocket`'s refusal for a missing
   upgrade (ADR-0071: `426 Upgrade Required` with `Sec-WebSocket-Version: 13`), and `POST` or
   `DELETE` on `[endpoint-base]` is `405` with `Allow: GET`.
@@ -306,7 +306,7 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
 
 - **WebSockets only, for good.** Rejected: a complete SignalR server offers the three transports TP
   describes, and a client configured for Server-Sent Events or Long Polling could not be tested.
-  WebSockets lands first (BL-449) and BL-754 adds the others, the negotiate list growing with them.
+  WebSockets lands first (BL-449) and BL-757 adds the others, the negotiate list growing with them.
 - **Leave stateful reconnect and MessagePack out.** Rejected for the same reason; each is its own
   task (BL-755, BL-756) so BL-448 and BL-449 stay sized for one run.
 - **Use the negotiate `error` form for a missing token.** Rejected: TP leaves the refusal to the
@@ -329,7 +329,7 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
   that negotiates (versions 0 and 1), upgrades to WebSockets, speaks the JSON hub protocol, echoes,
   broadcasts, streams, collects uploads, fails on request, keeps the connection alive and times out
   silent clients; `signalrs://` is the same inside TLS.
-- BL-448 to BL-450 build it, BL-754 to BL-756 complete it, and the Curl port's client may connect to
+- BL-448 to BL-450 build it, BL-757 to BL-756 complete it, and the Curl port's client may connect to
   it as a live client in `Integration` tests (BL-451, ADR-0083).
 - The requirement matrix [`SignalR.md`](../../Conformance/Extended/SignalR.md) traces each
   server-side requirement to BL-448, BL-449 or a later task; each task replaces its ID with the

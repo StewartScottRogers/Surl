@@ -62,7 +62,7 @@ Decide and record:
 - Hub methods: `Echo`, `Broadcast`, `Count` (paced stream, 100 ms), `Collect` (upload streaming, so HUB "Upload
   streaming" is reachable too) and `Fail`.
 - The default rule ("nothing left out") meant Server-Sent Events, Long Polling, stateful reconnect and MessagePack
-  are all served, not refused. To keep BL-448 and BL-449 sized for one run each, they were filed as BL-754
+  are all served, not refused. To keep BL-448 and BL-449 sized for one run each, they were filed as BL-757
   (SSE and Long Polling with HTTP Post), BL-755 (stateful reconnect) and BL-756 (MessagePack), each depending on
   BL-449; `availableTransports` lists only what is served at the time.
 - The keep-alive 15 s and client timeout 30 s are not numbers in the specifications; they are ASP.NET Core's
@@ -76,4 +76,4 @@ Decide and record:
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. ADR-0119 decides how the SignalR server answers signalr and signalrs; matrix SignalR.md traces it to BL-448/BL-449; BL-754 to BL-756 filed
+- 2026-11-05: Doing -> Done. ADR-0119 decides how the SignalR server answers signalr and signalrs; matrix SignalR.md traces it to BL-448/BL-449; BL-757 to BL-756 filed
