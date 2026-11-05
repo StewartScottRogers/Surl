@@ -43,3 +43,4 @@ executable can then bind those streams to its own standard input and output.
 - 2026-11-04: Created.
 - 2026-11-04: Amended by task-planner: depends on BL-621, whose shared core now owns stdio framing and its limits;
   this task binds the server's session to it.
+- 2026-11-05: Backlog -> Doing.
