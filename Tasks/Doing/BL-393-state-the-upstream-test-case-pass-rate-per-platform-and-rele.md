@@ -44,3 +44,4 @@ success criterion 2's "stated per release and only rises".
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
