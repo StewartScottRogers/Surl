@@ -1,5 +1,5 @@
 ---
-id: BL-824
+id: BL-830
 title: Record what BL-411 settled for extended CONNECT and HTTP datagrams in ADR-0086
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-824 — Record what BL-411 settled for extended CONNECT and HTTP datagrams in ADR-0086
+# BL-830 — Record what BL-411 settled for extended CONNECT and HTTP datagrams in ADR-0086
 
 ## Goal
 

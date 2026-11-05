@@ -79,7 +79,7 @@ What was built (Decided by Claude under Stewart's delegation; ADR-0086 decision 
 - Coverage: every new or changed line and branch is covered by `Surl.Http3.UnitTests` (cobertura from the
   MSTest collector). The lines it does not reach were already uncovered before this task and are driven by
   `Surl.Protocol.Http.UnitTests`, as BL-410 left them.
-- ADR: `Documentation/Planning/Decisions` was held by BL-569 in Doing, so the amendment is filed as BL-824
+- ADR: `Documentation/Planning/Decisions` was held by BL-569 in Doing, so the amendment is filed as BL-830
   (docs, depends on BL-411) rather than written here; its body carries the nine decisions above.
 - Fast tests: all green; `Surl.Http3.UnitTests` 82, stable over five runs; `Surl.Protocol.Http.UnitTests`
   459 green with no file edited.
