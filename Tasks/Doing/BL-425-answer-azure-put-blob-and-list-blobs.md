@@ -51,3 +51,4 @@ BL-423's ADR serves it.
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-636 and BL-656; uses the shared store's metadata and access check.
+- 2026-11-05: Backlog -> Doing.
