@@ -9,6 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
   </ItemGroup>
 

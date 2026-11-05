@@ -55,6 +55,21 @@ protocol server.
   sends from them. `ConnectionReset` on a receive (Windows' report of an ICMP
   port-unreachable) is skipped; any other receive failure on a listen socket ends
   `AcceptFlowAsync` with `IOException`.
+- QUIC over UDP (ADR-0082, decisions 5 and 6; BL-381). A QUIC connection rides one
+  `UdpDatagramListener` flow, one per remote endpoint (curl never migrates and the server
+  disables migration), so the listener needs nothing QUIC-specific; a flow counts as one
+  connection against `--max-connections` and `--max-connections-per-address`, which
+  `Surl.Core`'s serving engine enforces, refusing through the server's
+  `IDatagramRefusalWriter` and noting the refusal outside any exchange (ADR-0028).
+  `UdpDatagramListenerConnectionLimitTests` drive the engine over this listener on fake sockets
+  to show it, which is why `Surl.Networking.UnitTests` references `Surl.Core.UnitLibrary`.
+  `SharedPortListenerPair` (public) - `StartAsync(ListenUrl, ServerTlsSettings?, CancellationToken)`
+  binds a `TcpConnectionListener` and then a `UdpDatagramListener` on the same addresses and the
+  port the TCP one got (an `https` listen URL serving HTTP/3). With port 0 a taken UDP port
+  releases both and the pair is tried again, up to `MaxBindAttempts` (10) times in all; any other
+  UDP failure, or a taken UDP port with a fixed port, releases the TCP listener and is thrown as
+  the `ListenerBindException` it was. The UDP listener's listen URL names the shared port as its
+  port. Fast-tested over fake starts; `SharedPortListenerPairIntegrationTests` bind `127.0.0.1:0`.
 - `SocketListenerFactory` (public) - implements `IListenerFactory` by delegating
   to `TcpConnectionListener.StartAsync` and `UdpDatagramListener.StartAsync`; it is what the
   composition root hands the serving engine. It holds only the optional `ServerTlsSettings`
