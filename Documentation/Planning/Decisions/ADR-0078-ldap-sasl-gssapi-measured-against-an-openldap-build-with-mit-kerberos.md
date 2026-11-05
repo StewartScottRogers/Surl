@@ -8,6 +8,8 @@
   decision 1 (the build gains MIT Kerberos's GSS-API and is re-pinned; decision 3 below).
   **Confirms, unchanged:** [ADR-0072](ADR-0072-how-the-ldap-server-answers-upstream-curl-and-what-directory-it-serves.md)
   decision 4's `GSSAPI` line.
+- **Amended:** decision 3's SHA-256 by [ADR-0104](ADR-0104-re-pin-the-openldap-upstream-curl-build-after-alpine-dropped-musl-dev-1-2-5-r12.md) (BL-690, 2026-11-05): musl's Alpine
+  revision moved to r13 and the build is re-pinned (`4418AD02...C39480`).
 
 ## Context
 

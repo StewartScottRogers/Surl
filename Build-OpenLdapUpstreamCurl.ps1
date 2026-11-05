@@ -46,7 +46,7 @@ $ErrorActionPreference = 'Stop'
 
 # Everything that decides the binary's bytes is pinned here.
 $image = 'alpine@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8'
-$packages = 'binutils=2.44-r3 gcc=14.2.0-r6 linux-headers=6.14.2-r0 make=4.4.1-r3 musl-dev=1.2.5-r12 perl=5.40.4-r0'
+$packages = 'binutils=2.44-r3 gcc=14.2.0-r6 linux-headers=6.14.2-r0 make=4.4.1-r3 musl=1.2.5-r13 musl-dev=1.2.5-r13 perl=5.40.4-r0'
 $sources = @(
     @{ Name = 'curl-8.21.0.tar.xz'; Url = 'https://curl.se/download/curl-8.21.0.tar.xz'; Sha256 = 'AA1B66A70EACE83DC624508745646C08AE561DE512AB403ADFFB93AC87FC72E6' },
     @{ Name = 'openldap-2.6.15.tgz'; Url = 'https://www.openldap.org/software/download/OpenLDAP/openldap-release/openldap-2.6.15.tgz'; Sha256 = 'BC91225DBFC50354033B1303BC91D1A7F6DDD1DC32FAC950D79C28FE66D6BCA8' },

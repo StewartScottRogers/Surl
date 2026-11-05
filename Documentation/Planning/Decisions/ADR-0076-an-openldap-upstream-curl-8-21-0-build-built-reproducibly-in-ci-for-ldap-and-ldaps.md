@@ -16,7 +16,10 @@
   (`62061C58...7E55`) at the same path; every case below that was re-run is unchanged, and the
   `AUTH=GSSAPI` row's "no GSS-API" is now ADR-0078's measured exchange. Decision 5's
   cases by Amendment 1 below (BL-345, 2026-10-01): what BL-312 measured with the build against a
-  live `surl`, including the cases decision 5 did not record.
+  live `surl`, including the cases decision 5 did not record. Decision 1's package list by
+  [ADR-0104](ADR-0104-re-pin-the-openldap-upstream-curl-build-after-alpine-dropped-musl-dev-1-2-5-r12.md) (BL-690, 2026-11-05): `musl=1.2.5-r13 musl-dev=1.2.5-r13` in place of
+  `musl-dev=1.2.5-r12`, which Alpine's 3.22 repository dropped, and the build re-pinned
+  (`4418AD02...C39480`).
 
 ## Context
 
