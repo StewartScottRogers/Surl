@@ -46,3 +46,4 @@ removes the observer on RST, `Observe: 1` or a CON notification that is never ac
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
