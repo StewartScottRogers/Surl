@@ -43,3 +43,4 @@ topic, and `all` - as MCP resources, so it learns the options, schemes, exit cod
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
