@@ -25,12 +25,12 @@ internal sealed record PersistedFileSource(string FilePath, string MalformedReas
 internal sealed record PersistedQueue(string Name, IReadOnlyList<string> Filters, IReadOnlyList<PersistedQueueMessage> Messages);
 
 /// <summary>One message of a durable queue: its message file's number, whether a consumer was
-/// handed it before, and the message the file holds.</summary>
+/// handed it before, and the message the file holds, with its priority from the index.</summary>
 internal sealed record PersistedQueueMessage(ulong FileNumber, bool Redelivered, BusMessage Message);
 
 /// <summary>One durable queue as the bus writes it into <c>queues/index</c>: its name, its
-/// filters in ordinal order, and each message's file number and redelivered mark in queue order.</summary>
-internal sealed record QueueIndexEntry(string Name, IReadOnlyList<string> Filters, IReadOnlyList<(ulong FileNumber, bool Redelivered)> Messages);
+/// filters in ordinal order, and each message's file number, redelivered mark and priority in queue order.</summary>
+internal sealed record QueueIndexEntry(string Name, IReadOnlyList<string> Filters, IReadOnlyList<(ulong FileNumber, bool Redelivered, bool HighPriority)> Messages);
 
 /// <summary>One topic's log as <c>logs/&lt;number&gt;</c> holds it.</summary>
 internal sealed record PersistedLog(ulong FileNumber, string FilePath, string Topic, long StartOffset, IReadOnlyList<BusMessage> Records);

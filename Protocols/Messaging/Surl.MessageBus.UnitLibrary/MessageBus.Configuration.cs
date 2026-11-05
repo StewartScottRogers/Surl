@@ -60,11 +60,12 @@ public sealed partial class MessageBus
     /// <param name="account">The publisher's account, or <see langword="null"/> for an anonymous one.</param>
     /// <returns>The outcome and how many subscriptions it was handed to.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
-    public BusPublishResult Publish(BusMessage message, string? account) => Publish(message, account, publisher: null);
+    public BusPublishResult Publish(BusMessage message, string? account) => Publish(message, account, publisher: null, onlyToConsumedQueues: false);
 
     // The publisher, when a connection published through BusConnection.Publish, keeps the
     // message from that connection's No Local subscriptions.
-    internal BusPublishResult Publish(BusMessage message, string? account, BusConnection? publisher)
+    // With onlyToConsumedQueues, a bound queue takes it only when a consumer could take it now.
+    internal BusPublishResult Publish(BusMessage message, string? account, BusConnection? publisher, bool onlyToConsumedQueues)
     {
         ArgumentNullException.ThrowIfNull(message);
         var refusal = Refusal(message);
@@ -85,7 +86,7 @@ public sealed partial class MessageBus
         }
 
         var published = WithDeclaredAttributes(Copy(message, now));
-        return ChangeState(() => Accept(published, now, publisher));
+        return ChangeState(() => Accept(published, now, publisher, onlyToConsumedQueues));
     }
 
     private static (DeclaredTopic Topic, string[] Levels)[] SplitDeclaredTopics(MessageBusConfiguration configuration) =>

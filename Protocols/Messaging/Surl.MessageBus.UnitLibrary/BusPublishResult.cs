@@ -22,6 +22,13 @@ public sealed record BusPublishResult(MessageBusOutcome Outcome, int DeliveredSu
     public int FullQueueCount { get; init; }
 
     /// <summary>
+    /// How many named queues bound to the topic did not take the message because the publish
+    /// asked for consumed queues only and none of their consumers could take it now (AMQP 0-9-1
+    /// <c>immediate</c>); zero for any other publish.
+    /// </summary>
+    public int UnconsumedQueueCount { get; init; }
+
+    /// <summary>
     /// The offset the message got in its topic's log, which a Kafka Produce answers as its base
     /// offset; <see langword="null"/> when the message was refused, or was already expired and so
     /// stored nowhere.

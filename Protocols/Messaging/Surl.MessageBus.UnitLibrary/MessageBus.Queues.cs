@@ -41,7 +41,26 @@ public sealed partial class MessageBus
     /// or <see cref="MessageBusOutcome.QueueFull"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> or
     /// <paramref name="message"/> is <see langword="null"/>.</exception>
-    public MessageBusOutcome PublishToQueue(string queueName, BusMessage message, string? account)
+    public MessageBusOutcome PublishToQueue(string queueName, BusMessage message, string? account) =>
+        PublishToQueue(queueName, message, account, onlyWhenConsumed: false);
+
+    /// <summary>
+    /// Puts <paramref name="message"/> straight into one named queue as
+    /// <see cref="PublishToQueue(string, BusMessage, string?)"/> says, and with
+    /// <paramref name="onlyWhenConsumed"/> only when one of the queue's consumers could take it now
+    /// (AMQP 0-9-1 <c>basic.publish</c>'s <c>immediate</c>, ADR-0112 decision 6).
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
+    /// <param name="account">The sender's account, or <see langword="null"/> for an anonymous one.</param>
+    /// <param name="onlyWhenConsumed">Whether the queue takes the message only when a started,
+    /// unstopped consumer of it has room.</param>
+    /// <returns>As <see cref="PublishToQueue(string, BusMessage, string?)"/>, and
+    /// <see cref="MessageBusOutcome.NoReadyConsumer"/> when <paramref name="onlyWhenConsumed"/> found
+    /// no consumer able to take it.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> or
+    /// <paramref name="message"/> is <see langword="null"/>.</exception>
+    public MessageBusOutcome PublishToQueue(string queueName, BusMessage message, string? account, bool onlyWhenConsumed)
     {
         ArgumentNullException.ThrowIfNull(queueName);
         ArgumentNullException.ThrowIfNull(message);
@@ -60,6 +79,7 @@ public sealed partial class MessageBus
         return ChangeState(() =>
             !queues.TryGetValue(queueName, out var queue) ? MessageBusOutcome.UnknownQueue
             : IsExpired(published, now) ? MessageBusOutcome.Succeeded
+            : onlyWhenConsumed && !queue.HasConsumerWithRoom ? MessageBusOutcome.NoReadyConsumer
             : Enqueue(queue, published, now));
     }
 
@@ -124,26 +144,97 @@ public sealed partial class MessageBus
         }
     }
 
-    internal MessageBusOutcome DeleteQueue(BusConnection connection, string queueName)
+    internal BusQueueInspectResult InspectQueue(BusConnection connection, string queueName)
+    {
+        lock (stateLock)
+        {
+            var (outcome, queue) = Access(connection, queueName);
+            return queue is null ? new(outcome, 0, 0) : new(outcome, queue.ReadyCount, queue.ActiveConsumerCount);
+        }
+    }
+
+    internal BusQueueRemovalResult PurgeQueue(BusConnection connection, string queueName)
+    {
+        lock (stateLock)
+        {
+            var (outcome, queue) = Access(connection, queueName);
+            if (queue is null)
+            {
+                return new(outcome, 0);
+            }
+
+            var (count, bytes) = queue.RemoveAllReady();
+            queuedBytes -= bytes;
+            queuesVersion++;
+            return new(outcome, count);
+        }
+    }
+
+    internal BusQueueRemovalResult DeleteQueue(BusConnection connection, string queueName, bool ifUnused, bool ifEmpty)
     {
         if (declaredQueueNames.Contains(queueName))
         {
-            return MessageBusOutcome.AccessDenied;
+            return new(MessageBusOutcome.AccessDenied, 0);
         }
 
         lock (stateLock)
         {
             var (outcome, queue) = Access(connection, queueName);
-            if (queue is not null)
+            if (queue is null)
             {
-                Delete(queue);
+                return new(outcome, 0);
             }
 
-            return outcome;
+            var refusal = queue.DeleteRefusal(ifUnused, ifEmpty);
+            if (refusal is not MessageBusOutcome.Succeeded)
+            {
+                return new(refusal, 0);
+            }
+
+            var count = queue.MessageCount;
+            Delete(queue);
+            return new(outcome, count);
         }
     }
 
-    internal BusConsumeResult Consume(BusConnection connection, string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged)
+    internal BusGetResult GetFromQueue(BusConnection connection, string queueName)
+    {
+        if (!accessPolicy.MayUseQueue(connection.Account, TopicAccessRights.Subscribe, queueName))
+        {
+            return new(MessageBusOutcome.AccessDenied, null, 0);
+        }
+
+        return ChangeState(() =>
+        {
+            var (outcome, queue) = Access(connection, queueName);
+            if (queue is null)
+            {
+                return new BusGetResult(outcome, null, 0);
+            }
+
+            var holder = queue.GetHolderOf(connection) ?? AddGetHolder(connection, queue);
+            var (delivery, droppedBytes) = queue.TakeOne(holder, timeProvider.GetUtcNow());
+            queuedBytes -= droppedBytes;
+            queuesVersion++;
+            return new BusGetResult(outcome, delivery, queue.ReadyCount);
+        });
+    }
+
+    internal MessageBusOutcome SettleGet(BusConnection connection, string queueName, long deliveryTag, bool acknowledge, bool requeue)
+    {
+        BusQueueConsumer? holder;
+        lock (stateLock)
+        {
+            ObjectDisposedException.ThrowIf(connection.IsClosed, connection);
+            holder = queues.GetValueOrDefault(queueName)?.GetHolderOf(connection);
+        }
+
+        return holder is null ? MessageBusOutcome.UnknownDeliveryTag
+            : acknowledge ? Acknowledge(holder, deliveryTag)
+            : Reject(holder, deliveryTag, requeue);
+    }
+
+    internal BusConsumeResult Consume(BusConnection connection, string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged, bool exclusive)
     {
         if (!accessPolicy.MayUseQueue(connection.Account, TopicAccessRights.Subscribe, queueName))
         {
@@ -158,12 +249,17 @@ public sealed partial class MessageBus
                 return new(outcome, null);
             }
 
+            if (exclusive ? queue.ActiveConsumerCount > 0 : queue.IsConsumedExclusively)
+            {
+                return new(MessageBusOutcome.ExclusiveConsumeRefused, null);
+            }
+
             if (connection.SubscriptionCount >= MaxSubscriptionsPerConnection)
             {
                 return new(MessageBusOutcome.TooManySubscriptions, null);
             }
 
-            var consumer = new BusQueueConsumer(this, connection, queue, maxUnacknowledged, deliver);
+            var consumer = new BusQueueConsumer(this, connection, queue, maxUnacknowledged, deliver) { IsExclusive = exclusive };
             queue.AddConsumer(consumer);
             connection.SubscriptionCount++;
             return new(MessageBusOutcome.Succeeded, consumer);
@@ -196,6 +292,21 @@ public sealed partial class MessageBus
         return true;
     });
 
+    internal void StopConsumer(BusQueueConsumer consumer)
+    {
+        lock (stateLock)
+        {
+            consumer.IsStopped = true;
+        }
+    }
+
+    private BusQueueConsumer AddGetHolder(BusConnection connection, NamedQueue queue)
+    {
+        var holder = new BusQueueConsumer(this, connection, queue, 0, deliver: null) { IsGetHolder = true };
+        queue.AddConsumer(holder);
+        return holder;
+    }
+
     private (MessageBusOutcome Outcome, NamedQueue? Queue) Access(BusConnection connection, string queueName)
     {
         ObjectDisposedException.ThrowIf(connection.IsClosed, connection);
@@ -207,15 +318,20 @@ public sealed partial class MessageBus
     private static BusQueueDeclareResult Redeclare(BusConnection connection, NamedQueue existing, BusQueueFlags flags) =>
         existing.IsLockedAgainst(connection) ? new(MessageBusOutcome.QueueLocked, 0, 0)
         : existing.Flags != flags ? new(MessageBusOutcome.QueueFlagsDiffer, 0, 0)
-        : new(MessageBusOutcome.Succeeded, existing.ReadyCount, existing.Consumers.Count);
+        : new(MessageBusOutcome.Succeeded, existing.ReadyCount, existing.ActiveConsumerCount);
 
-    private (int QueuedCount, int FullQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now)
+    private (int QueuedCount, int FullQueueCount, int UnconsumedQueueCount) CopyIntoBoundQueues(BusMessage published, string[] topicLevels, DateTimeOffset now, bool onlyToConsumedQueues)
     {
         var queuedCount = 0;
         var fullQueueCount = 0;
+        var unconsumedQueueCount = 0;
         foreach (var queue in queues.Values.Where(queue => queue.IsBoundTo(topicLevels)))
         {
-            if (Enqueue(queue, published, now) is MessageBusOutcome.Succeeded)
+            if (onlyToConsumedQueues && !queue.HasConsumerWithRoom)
+            {
+                unconsumedQueueCount++;
+            }
+            else if (Enqueue(queue, published, now) is MessageBusOutcome.Succeeded)
             {
                 queuedCount++;
             }
@@ -225,7 +341,7 @@ public sealed partial class MessageBus
             }
         }
 
-        return (queuedCount, fullQueueCount);
+        return (queuedCount, fullQueueCount, unconsumedQueueCount);
     }
 
     private MessageBusOutcome Enqueue(NamedQueue queue, BusMessage published, DateTimeOffset now)
@@ -300,8 +416,8 @@ public sealed partial class MessageBus
         RequeueAll(consumer);
         var queue = consumer.Queue;
         queue.RemoveConsumer(consumer);
-        consumer.Connection.SubscriptionCount--;
-        if (queue.Flags.AutoDelete && queue.Consumers.Count == 0)
+        CountEnded(consumer);
+        if (queue.Flags.AutoDelete && queue.Consumers.All(remaining => remaining.IsGetHolder))
         {
             Delete(queue);
         }
@@ -319,11 +435,19 @@ public sealed partial class MessageBus
             consumer.Deactivate();
             queuedBytes -= NamedQueue.QueuedBytes(consumer.RemoveAllUnacknowledged());
             queue.RemoveConsumer(consumer);
-            consumer.Connection.SubscriptionCount--;
+            CountEnded(consumer);
         }
 
-        queuedBytes -= queue.RemoveAllReady();
+        queuedBytes -= queue.RemoveAllReady().Bytes;
         queues.Remove(queue.Name);
+    }
+
+    private static void CountEnded(BusQueueConsumer consumer)
+    {
+        if (!consumer.IsGetHolder)
+        {
+            consumer.Connection.SubscriptionCount--;
+        }
     }
 
     private void EndQueuesOf(BusConnection connection)

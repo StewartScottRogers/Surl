@@ -23,7 +23,8 @@ namespace Surl.MessageBus;
 /// ordinal order of topic. <c>queues/index</c>: <see cref="QueueIndexHeader"/>, the queue count
 /// (4 bytes), and per queue in ordinal order of name: its name, its filter count (4 bytes) and
 /// filters in ordinal order, its message count (4 bytes), and per message in queue order its
-/// file number (8 bytes) and a redelivered byte (0 or 1). A queue message file:
+/// file number (8 bytes) and a marks byte: <c>0x01</c> redelivered, <c>0x02</c> high priority
+/// (<see cref="BusMessage.HighPriority"/>), no other bit. A queue message file:
 /// <see cref="QueueMessageHeader"/> and the message. A log file: <see cref="LogHeader"/>, the
 /// topic, the log start offset (8 bytes), then each held record's message in offset order.
 /// </para>
@@ -53,6 +54,9 @@ public sealed class MessageBusFiles
 
     /// <summary>The durable queues' index name in <see cref="QueuesFolderName"/>: <c>index</c>.</summary>
     public const string QueueIndexFileName = "index";
+
+    private const byte RedeliveredMark = 0x01;
+    private const byte HighPriorityMark = 0x02;
 
     /// <summary>The queue message files' folder name in <see cref="QueuesFolderName"/>: <c>messages</c>.</summary>
     public const string QueueMessagesFolderName = "messages";
@@ -167,10 +171,10 @@ public sealed class MessageBusFiles
             }
 
             writer.WriteCount(queue.Messages.Count);
-            foreach (var (fileNumber, redelivered) in queue.Messages)
+            foreach (var (fileNumber, redelivered, highPriority) in queue.Messages)
             {
                 writer.WriteUInt64(fileNumber);
-                writer.WriteByte(redelivered ? (byte)1 : (byte)0);
+                writer.WriteByte(QueueMessageMarks(redelivered, highPriority));
             }
         }
 
@@ -351,16 +355,26 @@ public sealed class MessageBusFiles
             filters[index] = reader.ReadString();
         }
 
-        var messages = new (ulong FileNumber, bool Redelivered)[reader.ReadCount()];
+        var messages = new (ulong FileNumber, bool Redelivered, bool HighPriority)[reader.ReadCount()];
         for (var index = 0; index < messages.Length; index++)
         {
-            var fileNumber = reader.ReadUInt64();
-            var redelivered = reader.ReadByte();
-            messages[index] = fileNumbers.Add(fileNumber) && redelivered <= 1 ? (fileNumber, redelivered == 1) : throw reader.Malformed();
+            messages[index] = DecodeQueueIndexMessage(reader, fileNumbers);
         }
 
         return name.Length > 0 && filters.All(CanonicalTopicName.IsValidFilter) ? new(name, filters, messages) : throw reader.Malformed();
     }
+
+    private static (ulong FileNumber, bool Redelivered, bool HighPriority) DecodeQueueIndexMessage(BusFileReader reader, HashSet<ulong> fileNumbers)
+    {
+        var fileNumber = reader.ReadUInt64();
+        var marks = reader.ReadByte();
+        return fileNumbers.Add(fileNumber) && (marks & ~(RedeliveredMark | HighPriorityMark)) == 0
+            ? (fileNumber, (marks & RedeliveredMark) != 0, (marks & HighPriorityMark) != 0)
+            : throw reader.Malformed();
+    }
+
+    private static byte QueueMessageMarks(bool redelivered, bool highPriority) =>
+        (byte)((redelivered ? RedeliveredMark : 0) | (highPriority ? HighPriorityMark : 0));
 
     private static BusMessage DecodeQueueMessage(byte[] bytes)
     {
@@ -408,9 +422,10 @@ public sealed class MessageBusFiles
         foreach (var entry in Decode(QueueIndexPath, () => DecodeQueueIndex(indexBytes)))
         {
             var messages = new List<PersistedQueueMessage>();
-            foreach (var (fileNumber, redelivered) in entry.Messages)
+            foreach (var (fileNumber, redelivered, highPriority) in entry.Messages)
             {
-                messages.Add(new(fileNumber, redelivered, await ReadQueueMessageAsync(fileNumber, cancellationToken)));
+                var message = await ReadQueueMessageAsync(fileNumber, cancellationToken);
+                messages.Add(new(fileNumber, redelivered, message with { HighPriority = highPriority }));
             }
 
             queues.Add(new(entry.Name, entry.Filters, messages));

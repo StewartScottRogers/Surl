@@ -76,4 +76,24 @@ public enum MessageBusOutcome
     /// (ADR-0102, decision 3.4), or a client tried to delete a declared queue (decision 3.2);
     /// nothing changed. The same answer whether or not the topic or queue exists.</summary>
     AccessDenied,
+
+    /// <summary>A delete asked only if unused found consumers still taking deliveries from the
+    /// queue (AMQP 0-9-1 <c>queue.delete</c> rule <c>in-use</c>, <c>406 precondition-failed</c>);
+    /// nothing changed.</summary>
+    QueueInUse,
+
+    /// <summary>A delete asked only if empty found messages in the queue, ready or unacknowledged
+    /// (AMQP 0-9-1 <c>queue.delete</c> rule <c>not-empty</c>, <c>406 precondition-failed</c>);
+    /// nothing changed.</summary>
+    QueueNotEmpty,
+
+    /// <summary>An exclusive consume of a queue that has consumers, or any consume of a queue a
+    /// consumer holds exclusively (AMQP 0-9-1 <c>basic.consume</c> rule <c>01</c>,
+    /// <c>403 access-refused</c>); no consumer was made.</summary>
+    ExclusiveConsumeRefused,
+
+    /// <summary>A send asked to reach the queue only when a consumer could take it now, and none
+    /// could (AMQP 0-9-1 <c>basic.publish</c>'s <c>immediate</c>, <c>313 no-consumers</c>); the queue
+    /// did not take it.</summary>
+    NoReadyConsumer,
 }

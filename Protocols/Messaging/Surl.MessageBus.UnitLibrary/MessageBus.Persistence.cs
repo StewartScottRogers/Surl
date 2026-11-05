@@ -218,7 +218,7 @@ public sealed partial class MessageBus
         var referenced = new HashSet<ulong>();
         foreach (var queue in queues.Values.Where(queue => queue.IsPersisted))
         {
-            var messages = new List<(ulong FileNumber, bool Redelivered)>();
+            var messages = new List<(ulong FileNumber, bool Redelivered, bool HighPriority)>();
             foreach (var message in queue.AllMessages)
             {
                 if (message.FileNumber is not { } fileNumber)
@@ -228,7 +228,7 @@ public sealed partial class MessageBus
                 }
 
                 referenced.Add(fileNumber);
-                messages.Add((fileNumber, message.HandedOut));
+                messages.Add((fileNumber, message.HandedOut, message.Message.HighPriority));
             }
 
             entries.Add(new(queue.Name, [.. queue.Filters], messages));

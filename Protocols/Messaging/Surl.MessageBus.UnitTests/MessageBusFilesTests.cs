@@ -100,7 +100,7 @@ public sealed class MessageBusFilesTests
     [DataRow("SURL-BUS-QUEUES-1\n00000002 00000001 71 00000000 00000000 00000001 71 00000000 00000000", DisplayName = "A queue twice")]
     [DataRow("SURL-BUS-QUEUES-1\n00000001 00000001 71 00000001 00000002 2323 00000000", DisplayName = "An invalid filter")]
     [DataRow("SURL-BUS-QUEUES-1\n00000001 00000001 71 00000000 00000002 0000000000000000 00 0000000000000000 00", DisplayName = "A message file twice")]
-    [DataRow("SURL-BUS-QUEUES-1\n00000001 00000001 71 00000000 00000001 0000000000000000 02", DisplayName = "A redelivered byte of 2")]
+    [DataRow("SURL-BUS-QUEUES-1\n00000001 00000001 71 00000000 00000001 0000000000000000 04", DisplayName = "A marks byte with an unknown bit")]
     [DataRow("SURL-BUS-QUEUES-1\n00000001", DisplayName = "An index cut short")]
     public async Task LoadAsync_AMalformedQueueIndex_ThrowsWithItsPathAndNotAMessageBusFile(string headerAndHex)
     {

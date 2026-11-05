@@ -66,6 +66,13 @@ public sealed record BusMessage(string Topic, ReadOnlyMemory<byte> Payload)
     /// </summary>
     public BusNativeForm? NativeForm { get; init; }
 
+    /// <summary>
+    /// Whether the message is high priority: a named queue hands out its high-priority messages
+    /// before its normal ones, each level in publish order (AMQP 0-9-1 <c>priority</c> 5 to 9, basic
+    /// rules 06 and 08; ADR-0112 decision 6). Topic fan-out and logs ignore it.
+    /// </summary>
+    public bool HighPriority { get; init; }
+
     /// <summary>The bytes the message counts toward <see cref="MessageBus.MaxMessageBytes"/> and
     /// <see cref="MessageBus.MaxQueuedBytes"/>: its payload and its native form's bytes.</summary>
     internal long PayloadAndNativeFormBytes => Payload.Length + (NativeForm?.Bytes.Length ?? 0L);

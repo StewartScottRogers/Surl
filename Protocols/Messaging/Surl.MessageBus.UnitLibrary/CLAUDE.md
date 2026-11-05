@@ -49,6 +49,26 @@ What it holds now (BL-629):
   but may still send to it. It is deleted when its owner goes. An auto-delete queue is
   deleted when its last consumer ends. An expired message is dropped when the queue reaches
   it. A durable queue that is neither exclusive nor auto-delete is persisted (below).
+- **AMQP 0-9-1's queue operations (BL-730, ADR-0112 decisions 5 and 6).**
+  `BusConnection.InspectQueue` answers a queue's ready and consumer counts without creating it.
+  `PurgeQueue` removes the ready messages, never the unacknowledged ones, and counts them.
+  `GetFromQueue` takes one message (`BusGetResult`, with the count still ready). It is held
+  unacknowledged for the connection by a hidden get holder, which is never started and never
+  counted against `MaxSubscriptionsPerConnection` or as a consumer. `AcknowledgeGet` and
+  `RejectGet` settle it by queue name and delivery tag; the connection's end requeues it.
+  `DeleteQueue(name, ifUnused, ifEmpty)` refuses with `QueueInUse` (a consumer still taking
+  deliveries) or `QueueNotEmpty` (any message, ready or unacknowledged). Otherwise it counts
+  every message it deleted. `Consume(..., exclusive: true)` is refused with
+  `ExclusiveConsumeRefused` on a queue with consumers, and while it lasts so is every other
+  consume. `BusConnection.PublishToConsumedQueues` copies only into bound queues where a
+  consumer has room now, and counts the rest in `BusPublishResult.UnconsumedQueueCount`.
+  `PublishToQueue(..., onlyWhenConsumed: true)` is `NoReadyConsumer` when none has room.
+  `BusQueueConsumer.Stop` ends deliveries but keeps the outstanding ones until they are
+  settled or `Dispose` requeues them. A stopped consumer no longer counts as a consumer.
+  `BusMessage.HighPriority` puts a message in the queue's high level, handed out before the
+  normal level, each level in publish order. `queues/index`'s per-message byte keeps it as
+  bit `0x02` beside redelivered `0x01`. Fan-out and logs ignore the level. An auto-delete
+  queue goes when its last consumer that is not a get holder ends.
 - **Topic logs (BL-633).** Every publish the bus takes, retained or not and whichever
   protocol made it, is appended to its topic's `TopicLog` at the next offset, from 0 and
   contiguous; one partition per topic. `BusPublishResult.LogOffset` is the offset it got

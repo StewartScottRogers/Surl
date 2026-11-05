@@ -10,11 +10,12 @@ namespace Surl.MessageBus;
 public sealed class BusQueueConsumer : IDisposable
 {
     private readonly MessageBus bus;
-    private readonly Action<BusQueueDelivery> deliver;
+    // Null for a get holder, which the bus never delivers to.
+    private readonly Action<BusQueueDelivery>? deliver;
     private readonly Dictionary<long, QueuedMessage> unacknowledged = [];
     private volatile bool active = true;
 
-    internal BusQueueConsumer(MessageBus bus, BusConnection connection, NamedQueue queue, int maxUnacknowledged, Action<BusQueueDelivery> deliver)
+    internal BusQueueConsumer(MessageBus bus, BusConnection connection, NamedQueue queue, int maxUnacknowledged, Action<BusQueueDelivery>? deliver)
     {
         this.bus = bus;
         this.deliver = deliver;
@@ -42,11 +43,25 @@ public sealed class BusQueueConsumer : IDisposable
 
     internal bool IsStarted { get; set; }
 
+    /// <summary>Whether <see cref="Stop"/> has stopped its deliveries.</summary>
+    internal bool IsStopped { get; set; }
+
+    /// <summary>Whether it asked to be its queue's only consumer (AMQP 0-9-1 <c>basic.consume</c>'s
+    /// <c>exclusive</c>).</summary>
+    internal bool IsExclusive { get; init; }
+
+    /// <summary>Whether it is no consumer at all but holds the messages its connection took with
+    /// <see cref="BusConnection.GetFromQueue"/>: never started, never counted.</summary>
+    internal bool IsGetHolder { get; init; }
+
+    /// <summary>Whether it is a consumer still taking deliveries: not stopped, not a get holder.</summary>
+    internal bool TakesDeliveries => !IsStopped && !IsGetHolder;
+
     internal int UnacknowledgedCount => unacknowledged.Count;
 
     /// <summary>Whether a delivery may go to it now. An ended consumer is no longer among its
     /// queue's consumers, so it is never asked.</summary>
-    internal bool HasRoom => IsStarted && (MaxUnacknowledged == 0 || unacknowledged.Count < MaxUnacknowledged);
+    internal bool HasRoom => IsStarted && !IsStopped && (MaxUnacknowledged == 0 || unacknowledged.Count < MaxUnacknowledged);
 
     /// <summary>
     /// Starts deliveries to it. A server calls this after telling its client the consumer exists
@@ -84,6 +99,15 @@ public sealed class BusQueueConsumer : IDisposable
     public void Recover() => bus.Recover(this);
 
     /// <summary>
+    /// Stops deliveries to it (AMQP 0-9-1 <c>basic.cancel</c>): it takes no more, no longer counts
+    /// as one of its queue's consumers, and keeps every delivery it holds unacknowledged until
+    /// <see cref="Acknowledge"/> or <see cref="Reject"/> settles it or <see cref="Dispose"/>
+    /// puts it back. A delivery the bus took for it before the stop may still reach its callback.
+    /// Stopping it again, or after it has ended, does nothing.
+    /// </summary>
+    public void Stop() => bus.StopConsumer(this);
+
+    /// <summary>
     /// Ends the consumer: every delivery it holds unacknowledged goes back at its place, marked
     /// redelivered, and an auto-delete queue left with no consumer is deleted. Disposing it again
     /// does nothing.
@@ -116,7 +140,7 @@ public sealed class BusQueueConsumer : IDisposable
     {
         if (active)
         {
-            deliver(delivery);
+            deliver!(delivery);
         }
     }
 }

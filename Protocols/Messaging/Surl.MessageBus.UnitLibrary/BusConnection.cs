@@ -69,7 +69,20 @@ public sealed class BusConnection : IDisposable
     /// <param name="message">The message.</param>
     /// <returns>The outcome and how many subscriptions it was handed to.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
-    public BusPublishResult Publish(BusMessage message) => bus.Publish(message, Account, this);
+    public BusPublishResult Publish(BusMessage message) => bus.Publish(message, Account, this, onlyToConsumedQueues: false);
+
+    /// <summary>
+    /// Publishes <paramref name="message"/> as <see cref="Publish(BusMessage)"/> does, but copies it
+    /// only into the bound queues one of whose consumers could take it now (AMQP 0-9-1
+    /// <c>basic.publish</c>'s <c>immediate</c>, ADR-0112 decision 6). Live subscriptions receive it
+    /// as ever.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <returns>The outcome, how many subscriptions it was handed to,
+    /// <see cref="BusPublishResult.QueuedCount"/> the queues that took it, and
+    /// <see cref="BusPublishResult.UnconsumedQueueCount"/> the bound queues passed over.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
+    public BusPublishResult PublishToConsumedQueues(BusMessage message) => bus.Publish(message, Account, this, onlyToConsumedQueues: true);
 
     /// <summary>
     /// Declares a named queue (AMQP 0-9-1 <c>queue.declare</c>): makes it when absent, and
@@ -132,10 +145,106 @@ public sealed class BusConnection : IDisposable
     /// for a declared queue, which no client may delete (ADR-0102, decision 3.2).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
-    public MessageBusOutcome DeleteQueue(string queueName)
+    public MessageBusOutcome DeleteQueue(string queueName) => DeleteQueue(queueName, ifUnused: false, ifEmpty: false).Outcome;
+
+    /// <summary>
+    /// Deletes a queue as <see cref="DeleteQueue(string)"/> does, unless a condition asked for
+    /// fails (AMQP 0-9-1 <c>queue.delete</c>); the check and the delete are one bus operation.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="ifUnused">Whether to refuse while a consumer still takes deliveries from it.</param>
+    /// <param name="ifEmpty">Whether to refuse while it holds any message, ready or unacknowledged.</param>
+    /// <returns>The outcome - as <see cref="DeleteQueue(string)"/>'s, or
+    /// <see cref="MessageBusOutcome.QueueInUse"/> or <see cref="MessageBusOutcome.QueueNotEmpty"/>
+    /// when a condition failed - and how many messages, ready and unacknowledged, went with it.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusQueueRemovalResult DeleteQueue(string queueName, bool ifUnused, bool ifEmpty)
     {
         ArgumentNullException.ThrowIfNull(queueName);
-        return bus.DeleteQueue(this, queueName);
+        return bus.DeleteQueue(this, queueName, ifUnused, ifEmpty);
+    }
+
+    /// <summary>
+    /// Looks a queue up without creating it (AMQP 0-9-1 <c>queue.declare</c> with <c>passive</c>).
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/> or
+    /// <see cref="MessageBusOutcome.QueueLocked"/> when refused - and the queue's counts.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusQueueInspectResult InspectQueue(string queueName)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        return bus.InspectQueue(this, queueName);
+    }
+
+    /// <summary>
+    /// Removes every ready message from a queue; unacknowledged ones stay with their consumers
+    /// (AMQP 0-9-1 <c>queue.purge</c>).
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/> or
+    /// <see cref="MessageBusOutcome.QueueLocked"/> when refused - and how many messages it removed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusQueueRemovalResult PurgeQueue(string queueName)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        return bus.PurgeQueue(this, queueName);
+    }
+
+    /// <summary>
+    /// Takes the queue's next ready message, high priority first, without a consumer (AMQP 0-9-1
+    /// <c>basic.get</c>). It is held unacknowledged for this connection, counted in the queue, until
+    /// <see cref="AcknowledgeGet"/> or <see cref="RejectGet"/> settles it or the connection ends,
+    /// which puts it back at its place, marked redelivered.
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
+    /// <see cref="MessageBusOutcome.QueueLocked"/>, or <see cref="MessageBusOutcome.AccessDenied"/>
+    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c> - the
+    /// delivery, or none when no message was ready, and how many messages are still ready.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public BusGetResult GetFromQueue(string queueName)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        return bus.GetFromQueue(this, queueName);
+    }
+
+    /// <summary>
+    /// Acknowledges a delivery <see cref="GetFromQueue"/> returned: its message leaves the queue.
+    /// </summary>
+    /// <param name="queueName">The delivery's <see cref="BusQueueDelivery.QueueName"/>.</param>
+    /// <param name="deliveryTag">The delivery's <see cref="BusQueueDelivery.DeliveryTag"/>.</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/>, or
+    /// <see cref="MessageBusOutcome.UnknownDeliveryTag"/> when this connection holds no such
+    /// delivery from that queue.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public MessageBusOutcome AcknowledgeGet(string queueName, long deliveryTag)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        return bus.SettleGet(this, queueName, deliveryTag, acknowledge: true, requeue: false);
+    }
+
+    /// <summary>
+    /// Rejects a delivery <see cref="GetFromQueue"/> returned, as
+    /// <see cref="BusQueueConsumer.Reject"/> rejects a consumer's.
+    /// </summary>
+    /// <param name="queueName">The delivery's <see cref="BusQueueDelivery.QueueName"/>.</param>
+    /// <param name="deliveryTag">The delivery's <see cref="BusQueueDelivery.DeliveryTag"/>.</param>
+    /// <param name="requeue">Whether to put the message back, marked redelivered, rather than drop it.</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/>, or
+    /// <see cref="MessageBusOutcome.UnknownDeliveryTag"/> when this connection holds no such
+    /// delivery from that queue.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
+    public MessageBusOutcome RejectGet(string queueName, long deliveryTag, bool requeue)
+    {
+        ArgumentNullException.ThrowIfNull(queueName);
+        return bus.SettleGet(this, queueName, deliveryTag, acknowledge: false, requeue);
     }
 
     /// <summary>
@@ -148,20 +257,23 @@ public sealed class BusConnection : IDisposable
     /// callback (<see cref="Subscribe"/>). It may acknowledge or reject.</param>
     /// <param name="maxUnacknowledged">The most deliveries the consumer holds unacknowledged at
     /// once; 0 for no limit.</param>
+    /// <param name="exclusive">Whether it must be the queue's only consumer still taking
+    /// deliveries (AMQP 0-9-1 <c>basic.consume</c>'s <c>exclusive</c>): refused while the queue has
+    /// one, and while it lasts every other consume of the queue is refused.</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
-    /// <see cref="MessageBusOutcome.QueueLocked"/>,
+    /// <see cref="MessageBusOutcome.QueueLocked"/>, <see cref="MessageBusOutcome.ExclusiveConsumeRefused"/>,
     /// <see cref="MessageBusOutcome.TooManySubscriptions"/>, or <see cref="MessageBusOutcome.AccessDenied"/>
     /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c>, when
     /// refused - and the consumer.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxUnacknowledged"/> is negative.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
-    public BusConsumeResult Consume(string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged = 0)
+    public BusConsumeResult Consume(string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged = 0, bool exclusive = false)
     {
         ArgumentNullException.ThrowIfNull(queueName);
         ArgumentNullException.ThrowIfNull(deliver);
         ArgumentOutOfRangeException.ThrowIfNegative(maxUnacknowledged);
-        return bus.Consume(this, queueName, deliver, maxUnacknowledged);
+        return bus.Consume(this, queueName, deliver, maxUnacknowledged, exclusive);
     }
 
     /// <summary>

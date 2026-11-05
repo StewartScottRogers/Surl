@@ -266,7 +266,7 @@ public sealed partial class MessageBus
         : message.PayloadAndNativeFormBytes > MaxMessageBytes ? MessageBusOutcome.MessageTooLarge
         : MessageBusOutcome.Succeeded;
 
-    private BusPublishResult Accept(BusMessage published, DateTimeOffset now, BusConnection? publisher)
+    private BusPublishResult Accept(BusMessage published, DateTimeOffset now, BusConnection? publisher, bool onlyToConsumedQueues)
     {
         var (outcome, logAppend) = PlanLogAppend(published);
         if (outcome is MessageBusOutcome.Succeeded && published.Retain)
@@ -287,8 +287,8 @@ public sealed partial class MessageBus
             waitingDeliveries.Enqueue(() => DeliverToSubscriptions(published, targets));
         }
 
-        var (queuedCount, fullQueueCount) = CopyIntoBoundQueues(published, topicLevels, now);
-        return new(outcome, targets.Count) { QueuedCount = queuedCount, FullQueueCount = fullQueueCount, LogOffset = logOffset };
+        var (queuedCount, fullQueueCount, unconsumedQueueCount) = CopyIntoBoundQueues(published, topicLevels, now, onlyToConsumedQueues);
+        return new(outcome, targets.Count) { QueuedCount = queuedCount, FullQueueCount = fullQueueCount, UnconsumedQueueCount = unconsumedQueueCount, LogOffset = logOffset };
     }
 
     private static void DeliverToSubscriptions(BusMessage message, List<BusSubscription> targets)
