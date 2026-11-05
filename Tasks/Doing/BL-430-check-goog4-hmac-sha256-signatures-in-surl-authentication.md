@@ -57,3 +57,4 @@ rules as the existing SigV4 check, and is reachable through the `Surl.Protocol.A
 - 2026-11-05: Doing -> Backlog. Lane 7 could not integrate: push kept being refused. The work is on branch factory/BL-430-lane-7-20261105-054539; start with git cherry-pick --no-commit factory/BL-430-lane-7-20261105-054539 and fix it.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (HttpAuthenticationRefusal.MissingRequestDate), which BL-734 in Doing touches; finished work is on factory/BL-430-lane-7-20261105-054539
+- 2026-11-05: Backlog -> Doing.
