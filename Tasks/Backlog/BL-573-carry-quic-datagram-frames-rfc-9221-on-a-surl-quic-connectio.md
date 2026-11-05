@@ -1,16 +1,16 @@
 ---
-id: BL-547
+id: BL-573
 title: Carry QUIC DATAGRAM frames (RFC 9221) on a Surl.Quic connection
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-546]
+depends-on: [BL-572]
 touches: [Protocols/Http/Surl.Quic.UnitLibrary, Protocols/Http/Surl.Quic.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-547 — Carry QUIC DATAGRAM frames (RFC 9221) on a Surl.Quic connection
+# BL-573 — Carry QUIC DATAGRAM frames (RFC 9221) on a Surl.Quic connection
 
 ## Goal
 
@@ -25,7 +25,7 @@ unchanged.
 - RFC 9221: section 3 (the `max_datagram_frame_size` transport parameter, 0x20; a `DATAGRAM` frame received
   without it is `PROTOCOL_VIOLATION`; one larger than advertised likewise), section 4 (frame types 0x30 and
   0x31, with and without a length), section 5 (ack-eliciting, congestion controlled, never retransmitted).
-- Builds on BL-546's `QuicServerConnectionOptions` and BL-379's loss detection and congestion control.
+- Builds on BL-572's `QuicServerConnectionOptions` and BL-379's loss detection and congestion control.
 - BL-411 (HTTP datagrams in `Surl.Http3`) depends on this.
 
 ## Acceptance criteria

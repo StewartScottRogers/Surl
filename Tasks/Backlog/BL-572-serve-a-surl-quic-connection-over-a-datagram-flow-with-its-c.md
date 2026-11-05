@@ -1,5 +1,5 @@
 ---
-id: BL-546
+id: BL-572
 title: Serve a Surl.Quic connection over a datagram flow with its caller's ALPN and transport parameters
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-546 — Serve a Surl.Quic connection over a datagram flow with its caller's ALPN and transport parameters
+# BL-572 — Serve a Surl.Quic connection over a datagram flow with its caller's ALPN and transport parameters
 
 ## Goal
 

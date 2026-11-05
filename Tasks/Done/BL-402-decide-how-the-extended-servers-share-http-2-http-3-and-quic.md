@@ -61,10 +61,10 @@ libraries that are extracted and the tasks that extract them.
   `IHttp3ExtendedConnectHandler`), not ADR-0084's `IHttpRequestHandler`: an `HttpAnswer` is decided whole, so
   it cannot carry gRPC's full-duplex streaming or trailers. The HTTP server adapts `HttpAnswer` onto them.
 - DNS over QUIC needs a flow loop and per-caller ALPN that ADR-0082 did not give `Surl.Quic` (it fixed ALPN
-  `h3` and no datagram extension, and left the loop for BL-383 inside `Surl.Protocol.Http`). Filed BL-546 (flow
+  `h3` and no datagram extension, and left the loop for BL-383 inside `Surl.Protocol.Http`). Filed BL-572 (flow
   loop, `IQuicApplicationProtocol`, caller's ALPN and transport parameters; `Surl.Quic` gains a reference to
-  Abstractions) and BL-547 (RFC 9221 DATAGRAM frames). Added BL-546 to BL-383's and BL-484's `depends-on`,
-  and BL-547 to BL-411's, so none of them builds a second loop or lacks DATAGRAM frames.
+  Abstractions) and BL-573 (RFC 9221 DATAGRAM frames). Added BL-572 to BL-383's and BL-484's `depends-on`,
+  and BL-573 to BL-411's, so none of them builds a second loop or lacks DATAGRAM frames.
 - Also amended ADR-0084 (it left every HTTP/2 and HTTP/3 type in `Surl.Protocol.Http` until BL-402 decided),
   inside this task's `touches`.
 - Kept build-then-extract rather than re-filing BL-367 to BL-370 and BL-383 to build straight into the new
@@ -74,4 +74,4 @@ libraries that are extracted and the tasks that extract them.
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
-- 2026-11-04: Doing -> Done. ADR-0086 decides Surl.Http2, Surl.Http3 and Surl.Quic's flow loop for gRPC, WebTransport and DNS over QUIC; BL-546 and BL-547 filed
+- 2026-11-04: Doing -> Done. ADR-0086 decides Surl.Http2, Surl.Http3 and Surl.Quic's flow loop for gRPC, WebTransport and DNS over QUIC; BL-572 and BL-573 filed

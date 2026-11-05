@@ -4,8 +4,8 @@
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-402. BL-409 builds `Surl.Http2` (decision 1), BL-410 builds `Surl.Http3` (decision 2),
-  BL-411 adds extended CONNECT and HTTP datagrams to it (decision 3), BL-546 lets a server other
-  than HTTP/3 ride `Surl.Quic` (decision 4), and BL-547 adds QUIC DATAGRAM frames to `Surl.Quic`
+  BL-411 adds extended CONNECT and HTTP datagrams to it (decision 3), BL-572 lets a server other
+  than HTTP/3 ride `Surl.Quic` (decision 4), and BL-573 adds QUIC DATAGRAM frames to `Surl.Quic`
   (decision 4).
 - **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3 (two new rows,
   and the `Surl.Quic` row gains `Surl.Protocol.Abstractions.UnitLibrary`; decision 5),
@@ -207,7 +207,7 @@ HTTP datagrams.
   such streams too, with the prefix written for it. What happens to a stream naming no open session
   follows the pinned draft (BL-457's ADR, built by BL-411). A stream type nobody registered is
   handled as RFC 9114 section 6.2 and section 9 say today, so the HTTP server is unchanged.
-- **Built by BL-411**, after BL-410 and BL-547.
+- **Built by BL-411**, after BL-410 and BL-573.
 
 ### 4. Riding `Surl.Quic` without HTTP/3, and what `Surl.Quic` gains
 
@@ -246,8 +246,8 @@ DNS over QUIC rides `Surl.Quic` directly, so `Surl.Quic` - not `Surl.Http3` and 
   The HTTP server never sets it (ADR-0082 decision 4 stands for it); WebTransport does.
 - **Who references `Surl.Quic`:** `Surl.Http3`, `Surl.Protocol.Http` (to compose the flow loop),
   `Surl.Extended.Protocol.WebTransport` and `Surl.Extended.Protocol.DnsQuery`.
-- **Built by BL-546** (the flow loop, `IQuicApplicationProtocol` and the caller's ALPN and
-  transport parameters), which BL-383 and BL-484 depend on, and **BL-547** (DATAGRAM frames),
+- **Built by BL-572** (the flow loop, `IQuicApplicationProtocol` and the caller's ALPN and
+  transport parameters), which BL-383 and BL-484 depend on, and **BL-573** (DATAGRAM frames),
   which BL-411 depends on.
 
 ### 5. ADR-0002's table and the isolation test
@@ -261,7 +261,7 @@ ADR-0002 decision 3's table gains two rows, and one row changes:
 | `Surl.Quic.UnitLibrary` (ADR-0082, ADR-0086) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Tls13.UnitLibrary`, `Surl.Cryptography.ChaCha20.UnitLibrary`, `Surl.Cryptography.Poly1305.UnitLibrary` |
 
 `Surl.Protocol.Abstractions` references nothing, so no cycle forms. BL-409 and BL-410 add their
-rows to `ProtocolIsolationTests.HorizontalLibraries`, and BL-546 widens `Surl.Quic`'s.
+rows to `ProtocolIsolationTests.HorizontalLibraries`, and BL-572 widens `Surl.Quic`'s.
 
 ### 6. ALPN and ports: servers never share a listener
 
@@ -318,7 +318,7 @@ Good:
 
 Costs and caveats:
 
-- Two more libraries, each held to the quality gates, and two more tasks (BL-546, BL-547) on
+- Two more libraries, each held to the quality gates, and two more tasks (BL-572, BL-573) on
   `Surl.Quic`'s path.
 - The type names above are planning names until BL-367 to BL-370 and BL-383 build the code;
   BL-409 and BL-410 move whatever does each job named here.
