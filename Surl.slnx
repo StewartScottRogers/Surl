@@ -89,6 +89,8 @@
     <Project Path="Cryptography/Surl.Cryptography.Ripemd160.UnitTests/Surl.Cryptography.Ripemd160.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.UnitLibrary/Surl.Cryptography.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Cryptography.UnitTests/Surl.Cryptography.UnitTests.csproj" />
+    <Project Path="Cryptography/Surl.Dtls.UnitLibrary/Surl.Dtls.UnitLibrary.csproj" />
+    <Project Path="Cryptography/Surl.Dtls.UnitTests/Surl.Dtls.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Kerberos.TestKdc.UnitLibrary/Surl.Kerberos.TestKdc.UnitLibrary.csproj" />
     <Project Path="Cryptography/Surl.Kerberos.TestKdc.UnitTests/Surl.Kerberos.TestKdc.UnitTests.csproj" />
     <Project Path="Cryptography/Surl.Kerberos.UnitLibrary/Surl.Kerberos.UnitLibrary.csproj" />
