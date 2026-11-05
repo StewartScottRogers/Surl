@@ -1,5 +1,5 @@
 ---
-id: BL-704
+id: BL-705
 title: Read the --cert, --key and --cacert files through Surl.Composition's ReadStartFile seam
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-704 — Read the --cert, --key and --cacert files through Surl.Composition's ReadStartFile seam
+# BL-705 — Read the --cert, --key and --cacert files through Surl.Composition's ReadStartFile seam
 
 ## Goal
 

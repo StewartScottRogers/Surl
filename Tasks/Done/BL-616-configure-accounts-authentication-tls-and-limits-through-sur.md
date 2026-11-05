@@ -66,7 +66,7 @@ caller names the loosening.
 - `SurlServerHostSeams` gained `ReadStartFile`, handed to the composition's seam; `ApiTestSeams.StartFiles` gives
   the `--user-file` and `--hostkey` files in memory. Learned: the `--cert`/`--key`/`--cacert` files are read from
   disk by `Surl.Networking`'s `TlsFileReading`, not through `ReadStartFile`, so the certificate tests are the
-  parse-level mapping, the unreadable-file refusal (58) and `--self-signed`. Filed BL-704 to put TLS files on the seam.
+  parse-level mapping, the unreadable-file refusal (58) and `--self-signed`. Filed BL-705 to put TLS files on the seam.
 - Tests: `SurlServerArgumentsTests.Configuration.cs` (each property group parsed against `surl`'s own words with
   record equality, the order, the misuse), `SurlServerTests.Configuration.cs` (starts and refusals through the
   composition, the warnings in `Log`). Surl.Api: 86 tests, 100% line and branch, worst CRAP 10.
