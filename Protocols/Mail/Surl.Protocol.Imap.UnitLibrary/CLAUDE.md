@@ -54,6 +54,13 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   before it sends `+`, and streams the bytes into the store's `PendingMessage`, bounded by the
   idle timeout rather than `--max-line`; `STORE`, `COPY`, `MOVE`, `EXPUNGE`, `CREATE`, `DELETE`
   and `RENAME` change the store in one step each.
+- Shared folders and quotas (BL-677, ADR-0102 decisions 1.4 and 1.6): a member's `LIST` shows
+  the store's `Shared/<name>` folders under a `\Noselect \HasChildren` `Shared`, and its
+  `NAMESPACE` names `(("Shared/" "/"))` as the shared namespace (a non-member's stays `NIL NIL`).
+  `APPEND` asks `MailboxStore.CheckQuotaForAppend` from the literal's `{n}` after
+  `--max-filesize` and before `+`; that, and `QuotaExceeded` from `APPEND`, `COPY` or `MOVE`, is
+  `NO [OVERQUOTA] Mailbox is over its quota`. `SharedFolderProtected` is `NO [NOPERM] A shared
+  folder cannot be deleted` (`renamed`, `created under` for `RENAME` and `CREATE`).
 - `STARTTLS` (decision 11): `OK Begin TLS negotiation now`, then
   `CrlfLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`; `BAD STARTTLS not
   available` without a certificate, `BAD Already using TLS` on a TLS connection.

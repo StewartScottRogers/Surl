@@ -219,8 +219,11 @@ internal sealed partial class ImapSession
     private static ImapResponse WithoutArguments(ImapArguments arguments, string command) =>
         arguments.IsAtEnd ? ImapResponse.Only(ImapResponses.Completed(command)) : InvalidArguments;
 
-    private static ImapResponse Namespace(ImapArguments arguments) =>
-        arguments.IsAtEnd ? new ImapResponse([ImapResponses.Namespace], ImapResponses.Completed("NAMESPACE")) : InvalidArguments;
+    // RFC 2342's shared namespace is named only for a member of a shared folder (ADR-0102, decision 1.6).
+    private ImapResponse Namespace(ImapArguments arguments) =>
+        arguments.IsAtEnd
+            ? new ImapResponse([view!.SharedFolders.Count > 0 ? ImapResponses.NamespaceWithShared : ImapResponses.Namespace], ImapResponses.Completed("NAMESPACE"))
+            : InvalidArguments;
 
     private async ValueTask<bool> AnswerLogoutAsync(ImapArguments arguments)
     {

@@ -33,6 +33,8 @@ internal static class ImapResponses
     public const string ReadFailed = "NO [SERVERBUG] Could not read the message";
     public const string SystemFlags = @"(\Answered \Flagged \Deleted \Seen \Draft)";
     public const string Namespace = "* NAMESPACE ((\"\" \"/\")) NIL NIL";
+    public const string NamespaceWithShared = "* NAMESPACE ((\"\" \"/\")) NIL ((\"Shared/\" \"/\"))";
+    public const string OverQuota = "NO [OVERQUOTA] Mailbox is over its quota";
     public const string Id = "* ID NIL";
     public const string MailboxMissingTryCreate = "NO [TRYCREATE] Mailbox does not exist";
     public const string ReadOnly = "NO [READ-ONLY] Mailbox is read-only";
@@ -57,6 +59,16 @@ internal static class ImapResponses
         [MailStoreOutcome.StoreFull] = StoreFull,
         [MailStoreOutcome.TooManyMailboxes] = "NO [LIMIT] Too many mailboxes",
         [MailStoreOutcome.MessageTooLarge] = TooBig,
+        [MailStoreOutcome.QuotaExceeded] = OverQuota,
+    };
+
+    // What a command would have done to a shared folder, in its NOPERM text (ADR-0102,
+    // decision 1.6): only CREATE, DELETE and RENAME meet SharedFolderProtected.
+    private static readonly Dictionary<string, string> SharedFolderRefusals = new(StringComparer.Ordinal)
+    {
+        ["CREATE"] = "NO [NOPERM] A shared folder cannot be created under",
+        ["DELETE"] = "NO [NOPERM] A shared folder cannot be deleted",
+        ["RENAME"] = "NO [NOPERM] A shared folder cannot be renamed",
     };
 
     /// <summary>
@@ -74,7 +86,9 @@ internal static class ImapResponses
     /// <returns>The tagged text, without the tag: <see cref="StorageFailed"/> for an outcome the
     /// command cannot otherwise meet.</returns>
     public static string ForOutcome(MailStoreOutcome outcome, string command) =>
-        outcome == MailStoreOutcome.Succeeded ? Completed(command) : Refusals.GetValueOrDefault(outcome, StorageFailed);
+        outcome == MailStoreOutcome.Succeeded ? Completed(command)
+        : outcome == MailStoreOutcome.SharedFolderProtected ? SharedFolderRefusals.GetValueOrDefault(command, StorageFailed)
+        : Refusals.GetValueOrDefault(outcome, StorageFailed);
 
     /// <summary>
     /// As <see cref="ForOutcome"/>, but a missing mailbox is a target the client may create:

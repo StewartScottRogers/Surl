@@ -32,7 +32,8 @@ internal sealed partial class ImapSession
             : await RespondAsync(ImapResponse.Only(appendRefusal));
     }
 
-    // The name valid, the mailbox there, and the message within --max-filesize, in that order.
+    // The name valid, the mailbox there, the message within --max-filesize, and within the
+    // owner's quota, in that order.
     private string? RefuseAppend(string? name, long length)
     {
         if (!IsMailboxName(name))
@@ -50,6 +51,13 @@ internal sealed partial class ImapSession
         {
             context.Log.Note($"APPEND refused: {length.ToString(CultureInfo.InvariantCulture)} bytes is past --max-filesize");
             return ImapResponses.TooBig;
+        }
+
+        // The owner's quota is decided from {n} as [TOOBIG] is (ADR-0102, decision 1.4).
+        if (mailStore.CheckQuotaForAppend(view!, name!, length) == MailStoreOutcome.QuotaExceeded)
+        {
+            context.Log.Note($"APPEND refused: {length.ToString(CultureInfo.InvariantCulture)} bytes would pass the mailbox's quota");
+            return ImapResponses.OverQuota;
         }
 
         return null;
