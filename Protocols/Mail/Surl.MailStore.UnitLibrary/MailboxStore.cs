@@ -567,7 +567,8 @@ public sealed class MailboxStore
     {
         lock (storeLock)
         {
-            snapshot = FindMailbox(view, mailboxName)?.Snapshot();
+            var place = FindPlace(view, mailboxName);
+            snapshot = place is null ? null : SnapshotInView(view, place.Value);
             return snapshot is null ? MailStoreOutcome.MailboxMissing : MailStoreOutcome.Succeeded;
         }
     }
@@ -1032,6 +1033,17 @@ public sealed class MailboxStore
     };
 
     private static StoredMailbox? FindMailbox(MailView view, string mailboxName) => FindPlace(view, mailboxName)?.Mailbox;
+
+    /// <summary>
+    /// A snapshot of the mailbox at <paramref name="place"/> named as the view names it: a shared
+    /// folder as <c>Shared/</c>&lt;name&gt;, so a session that selected it reads it again by that
+    /// name (ADR-0102, decision 1.6).
+    /// </summary>
+    private static MailboxSnapshot SnapshotInView(MailView view, MailboxPlace place)
+    {
+        var snapshot = place.Mailbox.Snapshot();
+        return ReferenceEquals(place.Owner, view.SharedOwner) ? snapshot with { Name = SharedFolderPrefix + snapshot.Name } : snapshot;
+    }
 
     /// <summary>
     /// The mailbox <paramref name="mailboxName"/> names in the view and its owner: a shared

@@ -41,6 +41,18 @@ public sealed class MailboxStoreSharedFolderTests
     }
 
     [TestMethod]
+    public void ReadMailbox_SharedFolder_NamesTheSnapshotAsTheViewNamesIt()
+    {
+        var store = SharedStore();
+
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.ReadMailbox(store.ViewFor("al"), Team, out var shared));
+        Assert.AreEqual(MailStoreOutcome.Succeeded, store.ReadMailbox(store.ViewFor("al"), "inbox", out var inbox));
+
+        Assert.AreEqual(Team, shared!.Name);
+        Assert.AreEqual("INBOX", inbox!.Name);
+    }
+
+    [TestMethod]
     public void SharedFolder_NonMember_GetsTheMissingMailboxAnswers()
     {
         var store = SharedStore();
