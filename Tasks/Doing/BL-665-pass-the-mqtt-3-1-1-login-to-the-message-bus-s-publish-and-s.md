@@ -41,3 +41,4 @@ and SUBSCRIBE and answers a refusal as BL-642's ADR measured against upstream cu
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
