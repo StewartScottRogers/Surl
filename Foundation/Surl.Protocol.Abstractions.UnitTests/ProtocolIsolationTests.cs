@@ -7,7 +7,8 @@ namespace Surl.Protocol.Abstractions;
 /// references Abstractions and the horizontal libraries ADR-0002 lists, never another
 /// protocol server, and each horizontal library references only what its row allows. The
 /// project files are read from the repository, so a new reference fails here the moment it
-/// is added.
+/// is added. The extended servers, <c>Surl.Extended.Protocol.*</c>, are protocol servers under
+/// the same rule (ADR-0083), and no original server may reference one.
 /// </summary>
 [TestClass]
 public sealed class ProtocolIsolationTests
@@ -28,6 +29,8 @@ public sealed class ProtocolIsolationTests
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
+    private const string ExtendedRedis = "Surl.Extended.Protocol.Redis.UnitLibrary";
+    private const string ExtendedServerPrefix = "Surl.Extended.Protocol.";
 
     /// <summary>
     /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061 and
@@ -70,6 +73,57 @@ public sealed class ProtocolIsolationTests
             violations,
             "A protocol server may reference only Abstractions and ADR-0002's horizontal libraries: "
                 + string.Join(", ", violations));
+    }
+
+    [TestMethod]
+    public void EveryOriginalProtocolServer_ReferencesNoExtendedServer()
+    {
+        var violations = new List<string>();
+
+        foreach (var project in ProtocolServers().Where(path => !IsExtendedServer(ProjectName(path))))
+        {
+            foreach (var referenced in ExtendedServerReferences(ProjectReferences(project)))
+            {
+                violations.Add($"{ProjectName(project)} -> {referenced}");
+            }
+        }
+
+        Assert.IsEmpty(
+            violations,
+            "An original protocol server may not reference an extended server (ADR-0083): "
+                + string.Join(", ", violations));
+    }
+
+    [TestMethod]
+    [DataRow(ExtendedRedis, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow(ExtendedRedis, "Surl.Extended.Protocol.Mqtt5.UnitLibrary")]
+    [DataRow("Surl.Protocol.Http.UnitLibrary", ExtendedRedis)]
+    public void ForbiddenProtocolReferences_ServerReferencingAnotherServer_IsForbidden(
+        string server, string referenced)
+    {
+        var forbidden = ForbiddenProtocolReferences([Abstractions, referenced]);
+
+        Assert.HasCount(1, forbidden, $"{server} -> {referenced} should be forbidden.");
+        Assert.AreEqual(referenced, forbidden[0]);
+    }
+
+    [TestMethod]
+    [DataRow(ExtendedRedis, true)]
+    [DataRow("Surl.Protocol.Http.UnitLibrary", false)]
+    [DataRow(Abstractions, false)]
+    [DataRow(HttpMessage, false)]
+    public void IsExtendedServer_ProjectName_SaysWhetherItIsAnExtendedServer(string projectName, bool expected)
+    {
+        Assert.AreEqual(expected, IsExtendedServer(projectName));
+    }
+
+    [TestMethod]
+    public void ExtendedServerReferences_OriginalServerReferencingAnExtendedServer_ReturnsIt()
+    {
+        var found = ExtendedServerReferences([Abstractions, HttpMessage, ExtendedRedis]);
+
+        Assert.HasCount(1, found);
+        Assert.AreEqual(ExtendedRedis, found[0]);
     }
 
     [TestMethod]
@@ -222,10 +276,29 @@ public sealed class ProtocolIsolationTests
             .Where(referenced => !HorizontalLibraries[library].Contains(referenced))
             .ToList();
 
-    private static IEnumerable<string> ProtocolServers() =>
-        Directory.EnumerateFiles(RepositoryRoot(), "Surl.Protocol.*.UnitLibrary.csproj",
-                SearchOption.AllDirectories)
-            .Where(path => ProjectName(path) != Abstractions);
+    /// <summary>
+    /// Returns the references that name an extended server, which no original protocol server
+    /// may have (ADR-0083).
+    /// </summary>
+    private static List<string> ExtendedServerReferences(IEnumerable<string> references) =>
+        references.Where(IsExtendedServer).ToList();
+
+    private static bool IsExtendedServer(string projectName) =>
+        projectName.StartsWith(ExtendedServerPrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Returns every protocol server's csproj: the original servers,
+    /// <c>Surl.Protocol.*.UnitLibrary</c> except Abstractions, and the extended servers,
+    /// <c>Surl.Extended.Protocol.*.UnitLibrary</c> (ADR-0083).
+    /// </summary>
+    private static IEnumerable<string> ProtocolServers()
+    {
+        var root = RepositoryRoot();
+
+        return new[] { "Surl.Protocol.*.UnitLibrary.csproj", ExtendedServerPrefix + "*.UnitLibrary.csproj" }
+            .SelectMany(pattern => Directory.EnumerateFiles(root, pattern, SearchOption.AllDirectories))
+            .Where(path => !IsUnderBuildOutput(root, path) && ProjectName(path) != Abstractions);
+    }
 
     /// <summary>
     /// Returns the path of the named project's csproj, in whichever category folder holds
