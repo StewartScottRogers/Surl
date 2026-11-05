@@ -48,3 +48,4 @@ pass, or fail with the first differing section and a readable difference.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
