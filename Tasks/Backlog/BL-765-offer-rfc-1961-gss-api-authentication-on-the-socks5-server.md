@@ -1,5 +1,5 @@
 ---
-id: BL-763
+id: BL-765
 title: Offer RFC 1961 GSS-API authentication on the SOCKS5 server
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-763 — Offer RFC 1961 GSS-API authentication on the SOCKS5 server
+# BL-765 — Offer RFC 1961 GSS-API authentication on the SOCKS5 server
 
 ## Goal
 

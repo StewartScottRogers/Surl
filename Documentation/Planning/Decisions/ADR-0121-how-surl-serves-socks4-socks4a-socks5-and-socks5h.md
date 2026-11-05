@@ -5,7 +5,7 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05,
   in BL-557. Built by BL-558 (decisions 1, 2 and 6's SOCKS4 limits), BL-559 (decisions 3, 4 and
   6), BL-560 (decision 5 over TCP), BL-561 (decision 5 on a Unix domain socket) and BL-562
-  (decision 7). Follow-up filed: BL-763 (GSS-API, decision 3).
+  (decision 7). Follow-up filed: BL-765 (GSS-API, decision 3).
 - **Amends:** [ADR-0079](ADR-0079-projects-are-grouped-in-category-folders.md) decision 1: its
   table gains `Protocols/Proxy/` (decision 1). [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md)
   decision 3: its table gains decision 1's row. [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md)
@@ -138,7 +138,7 @@ server half. 716 (a 256-byte proxy user), 728 (a 256-byte redirect host for `soc
 
   **GSS-API (`01`) is never selected yet.** Curl offers it on every greeting (row 5), and
   `--socks5-gssapi` alone gets `FF` (row 10). RFC 1961 GSS-API with Kerberos is in scope -
-  `Surl.Kerberos` already accepts Kerberos tokens - and is sequenced to **BL-763**, which amends
+  `Surl.Kerberos` already accepts Kerberos tokens - and is sequenced to **BL-765**, which amends
   this table; it is not refused.
 - **The request** (RFC 1928 section 4): `VER=05`, `CMD`, `RSV`, `ATYP`, `DST.ADDR`, `DST.PORT`.
   `ATYP 01` (IPv4, row 5), `04` (IPv6, row 7) and `03` (a length-prefixed domain name, curl's
@@ -262,7 +262,7 @@ the case's other server halves, as ADR-0080 decision 2 composes every server hal
   category folder, `Surl.slnx`, root `CLAUDE.md`'s "Repository layout" and the product overview's
   folder list), **BL-559** (decisions 3, 4 and 6), **BL-560** (decision 5 over TCP and the `socks`
   `--aihelp` topic), **BL-561** (decision 5 on a Unix socket) and **BL-562** (decision 7), and
-  **BL-763** (GSS-API, decision 3).
+  **BL-765** (GSS-API, decision 3).
 - curl's SOCKS options have a server to talk to, loopback-only and login-free by default, as the
   HTTP proxy is; accounts and wider origins are named options.
 - `Surl.Protocol.Abstractions` gains nothing beyond ADR-0088's `IOriginConnector`.

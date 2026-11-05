@@ -81,7 +81,7 @@ Decide and record:
 - 2026-11-05: ADR-0121 written. Measured 15 exchanges with `Record-CurlExchange.ps1 -Raw` against
   the Windows reference build; `-Raw`'s scripted replies serve SOCKS, so the recorder needed no
   change. Kept: `Protocols/Proxy/Surl.Protocol.Socks`, one server told apart by the first byte,
-  GSS-API not selected (sequenced to BL-763, filed here), `BIND` and `UDP ASSOCIATE` answered `07`.
+  GSS-API not selected (sequenced to BL-765, filed here), `BIND` and `UDP ASSOCIATE` answered `07`.
   Changed: listen URLs accepted positionally and with `--proxy`, and the scheme limits which
   versions a listener serves; `Surl.Protocol.HttpProxy` stays in `Protocols/Http/`. BL-558's
   `touches` gains the product overview, for its folder list.
