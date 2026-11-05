@@ -8,9 +8,7 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// <remarks>
 /// The limit is 512 bytes without an OPT in the query; with one, its payload size, a value below
 /// 512 taken as 512, and never more than <see cref="DnsQueryAnswerer.ServerPayloadSize"/>. A
-/// response past it is cut: the additional section first, without TC; then the authority section,
-/// without TC unless it held the negative answer's SOA; then the answer section's RRsets are kept
-/// whole, in order, while they fit, and TC = 1 is set. The response's OPT is always kept.
+/// response past it is cut as <see cref="DnsResponseWriter.WriteWithin"/> says.
 /// </remarks>
 public static class DnsUdpResponseWriter
 {
@@ -26,70 +24,6 @@ public static class DnsUdpResponseWriter
     public static byte[] Write(DnsResponse response)
     {
         ArgumentNullException.ThrowIfNull(response);
-
-        var limit = LimitFor(response.QueryOpt);
-        var message = response.Message;
-
-        var whole = DnsMessageWriter.Write(response.WithOpt(message));
-        if (whole.Length <= limit)
-        {
-            return whole;
-        }
-
-        var withoutAdditionals = DnsMessageWriter.Write(response.WithOpt(message with { Additionals = [] }));
-        if (withoutAdditionals.Length <= limit)
-        {
-            return withoutAdditionals;
-        }
-
-        var heldNegativeAnswer = message.Authorities.Any(record => record.Type == DnsRecordType.SOA);
-        var answersOnly = message with { Authorities = [], Additionals = [] };
-        var withoutAuthorities = DnsMessageWriter.Write(response.WithOpt(answersOnly with
-        {
-            Header = answersOnly.Header with { IsTruncated = heldNegativeAnswer },
-        }));
-
-        return withoutAuthorities.Length <= limit
-            ? withoutAuthorities
-            : WriteWholeRecordSetsThatFit(response, answersOnly, limit);
+        return DnsResponseWriter.WriteWithin(response, LimitFor(response.QueryOpt));
     }
-
-    // Keeps the answer section's RRsets, in order, while the message with TC = 1 fits.
-    private static byte[] WriteWholeRecordSetsThatFit(DnsResponse response, DnsMessage answersOnly, int limit)
-    {
-        var truncated = answersOnly with { Header = answersOnly.Header with { IsTruncated = true }, Answers = [] };
-        var written = DnsMessageWriter.Write(response.WithOpt(truncated));
-
-        foreach (var end in RecordSetEnds(answersOnly.Answers))
-        {
-            var longer = DnsMessageWriter.Write(response.WithOpt(truncated with { Answers = answersOnly.Answers.Take(end).ToArray() }));
-            if (longer.Length > limit)
-            {
-                break;
-            }
-
-            written = longer;
-        }
-
-        return written;
-    }
-
-    // The count of records up to the end of each RRset: a run of records with one owner, type and class.
-    private static List<int> RecordSetEnds(IReadOnlyList<DnsResourceRecord> records)
-    {
-        var ends = new List<int>();
-
-        for (var index = 1; index <= records.Count; index++)
-        {
-            if (index == records.Count || !IsSameRecordSet(records[index - 1], records[index]))
-            {
-                ends.Add(index);
-            }
-        }
-
-        return ends;
-    }
-
-    private static bool IsSameRecordSet(DnsResourceRecord first, DnsResourceRecord second) =>
-        first.Type == second.Type && first.Class == second.Class && first.Name.FoldedKey == second.Name.FoldedKey;
 }

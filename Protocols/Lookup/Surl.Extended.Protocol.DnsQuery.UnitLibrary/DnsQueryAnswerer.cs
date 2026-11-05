@@ -18,7 +18,9 @@ namespace Surl.Extended.Protocol.DnsQuery;
 /// by the root (RFC 6891 section 6.1.1): <c>FORMERR</c>.</item>
 /// <item>QDCOUNT other than 1 (RFC 9619): <c>FORMERR</c>, no question echoed.</item>
 /// <item>An OPT of a version above 0 (RFC 6891 section 6.1.3): <c>BADVERS</c>.</item>
-/// <item>AXFR or IXFR: <c>REFUSED</c>, since zone transfer is off (ADR-0092 decision 4).</item>
+/// <item>AXFR or IXFR: <c>REFUSED</c> while zone transfer is off, the default (ADR-0092 decision
+/// 4); with it on, as <see cref="Answer"/> and <see cref="AnswerOverStream"/> say for their
+/// transports, and <c>NOTAUTH</c> for a name that is no served zone's apex.</item>
 /// <item>Anything else: the zones' authoritative answer.</item>
 /// </list>
 /// Every answer echoes the query's ID, opcode and RD, with QR = 1, RA = 0 and Z = 0, and its one
@@ -35,19 +37,36 @@ public sealed class DnsQueryAnswerer
     internal const int BadVersion = 16;
 
     private readonly DnsZoneSet zones;
+    private readonly bool allowZoneTransfer;
 
-    /// <summary>Creates an answerer that answers from <paramref name="zones"/>.</summary>
-    public DnsQueryAnswerer(DnsZoneSet zones)
+    /// <summary>
+    /// Creates an answerer that answers from <paramref name="zones"/>, refusing zone transfer
+    /// unless <paramref name="allowZoneTransfer"/> (ADR-0092 decision 4's <c>--allow-zone-transfer</c>).
+    /// </summary>
+    public DnsQueryAnswerer(DnsZoneSet zones, bool allowZoneTransfer = false)
     {
         ArgumentNullException.ThrowIfNull(zones);
         this.zones = zones;
+        this.allowZoneTransfer = allowZoneTransfer;
     }
 
     /// <summary>
-    /// Returns the response to <paramref name="query"/>, one whole message, or
-    /// <see langword="null"/> when it is to be dropped unanswered.
+    /// Returns the response to <paramref name="query"/> carried in a datagram, one whole message,
+    /// or <see langword="null"/> when it is to be dropped unanswered. With zone transfer allowed,
+    /// AXFR is <c>NOTIMP</c> (RFC 5936 section 4.2) and IXFR at a served apex is answered with the
+    /// apex SOA alone, which tells the client to use TCP (RFC 1995 section 4).
     /// </summary>
-    public DnsResponse? Answer(ReadOnlySpan<byte> query)
+    public DnsResponse? Answer(ReadOnlySpan<byte> query) => AnswerWith(query, TransferOverDatagram)?[0];
+
+    /// <summary>
+    /// Returns the responses to <paramref name="query"/> carried on a stream, in the order they
+    /// are sent, or none when it is to be dropped unanswered: one, except that an allowed AXFR or
+    /// IXFR at a served apex is the whole zone in as many messages as it takes
+    /// (<c>DnsZoneTransfer</c>; ADR-0092 decision 4).
+    /// </summary>
+    public IReadOnlyList<DnsResponse> AnswerOverStream(ReadOnlySpan<byte> query) => AnswerWith(query, TransferOverStream) ?? [];
+
+    private IReadOnlyList<DnsResponse>? AnswerWith(ReadOnlySpan<byte> query, Func<DnsHeader, DnsQuestion, DnsOptRecord?, IReadOnlyList<DnsResponse>> answerTransfer)
     {
         var read = DnsMessageReader.Read(query);
 
@@ -62,32 +81,69 @@ public sealed class DnsQueryAnswerer
 
         if (header.Opcode != DnsOpcode.Query)
         {
-            return Fault(header, echoed, DnsResponseCode.NotImplemented, queryOpt);
+            return [Fault(header, echoed, DnsResponseCode.NotImplemented, queryOpt)];
         }
 
         if (read.Message is null || !optIsReadable)
         {
-            return Fault(header, echoed, DnsResponseCode.FormatError, null);
+            return [Fault(header, echoed, DnsResponseCode.FormatError, null)];
         }
 
         return questionCount == 1
-            ? AnswerQuestion(header, echoed[0], queryOpt)
-            : Fault(header, [], DnsResponseCode.FormatError, queryOpt);
+            ? AnswerQuestion(header, echoed[0], queryOpt, answerTransfer)
+            : [Fault(header, [], DnsResponseCode.FormatError, queryOpt)];
     }
 
-    private DnsResponse AnswerQuestion(DnsHeader header, DnsQuestion question, DnsOptRecord? queryOpt)
+    private IReadOnlyList<DnsResponse> AnswerQuestion(
+        DnsHeader header,
+        DnsQuestion question,
+        DnsOptRecord? queryOpt,
+        Func<DnsHeader, DnsQuestion, DnsOptRecord?, IReadOnlyList<DnsResponse>> answerTransfer)
     {
         if (queryOpt is { Version: > 0 })
         {
-            return Fault(header, [question], (DnsResponseCode)(BadVersion & 0xF), queryOpt, BadVersion >> 4);
+            return [Fault(header, [question], (DnsResponseCode)(BadVersion & 0xF), queryOpt, BadVersion >> 4)];
         }
 
-        var answer = question.Type is DnsRecordType.AXFR or DnsRecordType.IXFR
-            ? DnsAuthoritativeAnswer.Refused
-            : zones.Answer(question);
+        if (question.Type is not (DnsRecordType.AXFR or DnsRecordType.IXFR))
+        {
+            return [Respond(header, question, zones.Answer(question), queryOpt)];
+        }
 
-        return new DnsResponse(answer.ToResponse(header, question), ResponseOptFor(queryOpt, 0), queryOpt);
+        return allowZoneTransfer
+            ? answerTransfer(header, question, queryOpt)
+            : [Respond(header, question, DnsAuthoritativeAnswer.Refused, queryOpt)];
     }
+
+    // AXFR is NOTIMP; IXFR at a served apex is its SOA alone, else NOTAUTH.
+    private IReadOnlyList<DnsResponse> TransferOverDatagram(DnsHeader header, DnsQuestion question, DnsOptRecord? queryOpt)
+    {
+        if (question.Type == DnsRecordType.AXFR)
+        {
+            return [Fault(header, [question], DnsResponseCode.NotImplemented, queryOpt)];
+        }
+
+        var answer = ZoneToTransfer(question) is { } zone
+            ? new DnsAuthoritativeAnswer(DnsResponseCode.NoError, true, [zone.StartOfAuthority], [], [])
+            : NotAuthoritative;
+
+        return [Respond(header, question, answer, queryOpt)];
+    }
+
+    // AXFR and IXFR at a served apex are the whole zone, else NOTAUTH.
+    private IReadOnlyList<DnsResponse> TransferOverStream(DnsHeader header, DnsQuestion question, DnsOptRecord? queryOpt) =>
+        ZoneToTransfer(question) is { } zone
+            ? DnsZoneTransfer.Messages(header, question, zone, ResponseOptFor(queryOpt, 0), queryOpt)
+            : [Respond(header, question, NotAuthoritative, queryOpt)];
+
+    // The served zone whose apex the question names, in class IN or ANY (RFC 5936 section 2.2.1).
+    private DnsZone? ZoneToTransfer(DnsQuestion question) =>
+        question.Class is DnsClasses.Internet or DnsClasses.Any ? zones.ZoneAtApex(question.Name) : null;
+
+    private static DnsAuthoritativeAnswer NotAuthoritative { get; } = new(DnsResponseCode.NotAuthoritative, false, [], [], []);
+
+    private static DnsResponse Respond(DnsHeader header, DnsQuestion question, DnsAuthoritativeAnswer answer, DnsOptRecord? queryOpt) =>
+        new(answer.ToResponse(header, question), ResponseOptFor(queryOpt, 0), queryOpt);
 
     // The query's one OPT record, if any; readable is false when it has more than one, or one
     // whose owner is not the root (RFC 6891 section 6.1.1).

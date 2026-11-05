@@ -36,7 +36,7 @@ The zones and the authoritative answer (BL-480, ADR-0092 decisions 1 and 2):
   the RRset, ANY, NODATA and NXDOMAIN with the SOA at its negative TTL, CNAME chains through
   every zone (`SERVFAIL` on a loop or past 16), wildcards, referrals with glue, and `REFUSED`.
   `DnsAuthoritativeAnswer.ToResponse` makes the response message: RA = 0, the question echoed.
-  AXFR and IXFR questions are not special-cased here; BL-482 answers them.
+  AXFR and IXFR questions are not special-cased here; `DnsQueryAnswerer` answers them.
 
 UDP (BL-481, ADR-0092 decisions 2 and 3):
 
@@ -45,15 +45,30 @@ UDP (BL-481, ADR-0092 decisions 2 and 3):
   QR = 1 is dropped; an opcode other than QUERY is `NOTIMP`, checked before the body; an
   unreadable message, more than one OPT or one not owned by the root is `FORMERR`; QDCOUNT other
   than 1 is `FORMERR` with no question; an OPT version above 0 is `BADVERS`; AXFR and IXFR are
-  `REFUSED` (zone transfer off; BL-482 opens it); the rest is `DnsZoneSet.Answer`. A response
+  `REFUSED` unless the answerer was made with `allowZoneTransfer` (then, in a datagram, AXFR is
+  `NOTIMP` and IXFR the apex SOA alone); the rest is `DnsZoneSet.Answer`. A response
   carries an OPT (payload 1232, version 0, DO copied) exactly when the query had a readable one.
+- `DnsResponseWriter.WriteWithin` writes a response within a limit, cutting additionals, then
+  authorities (TC only when they held the negative answer's SOA), then whole answer RRsets with
+  TC = 1; the OPT is always kept.
 - `DnsUdpResponseWriter.Write` writes it as one datagram within 512 bytes, or the query's OPT
-  payload size clamped to 512..1232, cutting additionals, then authorities (TC only when they held
-  the negative answer's SOA), then whole answer RRsets with TC = 1; the OPT is always kept.
+  payload size clamped to 512..1232.
 - `DnsUdpProtocolServer` (scheme `dns`, `IDatagramProtocolServer`) answers the flow's first
   datagram and every later one until the engine cancels the exchange.
 
-TCP and zone transfer (BL-482), DoH (BL-483), DoQ (BL-484) and the command line (BL-485) build
+TCP and zone transfer (BL-482, ADR-0092 decision 4):
+
+- `DnsTcpProtocolServer` (scheme `dns`, `IConnectionProtocolServer`) reads length-prefixed
+  queries through `DnsTcpMessageReader`, pipelined or not, and answers each in arrival order on
+  the one connection. Once a prefix begins, the message must arrive within the head timeout; a
+  length of 0 or past `--max-message`, a dropped message, or the client's close ends the
+  connection with no bytes; the engine's idle timeout or maximum duration closes it quietly.
+- `DnsTcpResponseWriter.Write` writes the prefix and message as one buffer, cut only past 65535.
+- `DnsQueryAnswerer.AnswerOverStream` answers an allowed AXFR or IXFR at a served apex with
+  `DnsZoneTransfer.Messages`: the SOA, every other record in zone-file order, the SOA, packed into
+  as few frames as fit, the question in the first only; a name that is no apex is `NOTAUTH`.
+
+DoH (BL-483), DoQ (BL-484) and the command line (BL-485, which adds `--allow-zone-transfer`) build
 on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`, and may also reference the

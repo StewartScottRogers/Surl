@@ -17,10 +17,14 @@ public sealed class DnsUdpProtocolServer : IDatagramProtocolServer
 {
     private readonly DnsQueryAnswerer answerer;
 
-    /// <summary>Creates a UDP DNS server that answers from <paramref name="zones"/>.</summary>
-    public DnsUdpProtocolServer(DnsZoneSet zones)
+    /// <summary>
+    /// Creates a UDP DNS server that answers from <paramref name="zones"/>, refusing zone transfer
+    /// unless <paramref name="allowZoneTransfer"/> (then AXFR is <c>NOTIMP</c> and IXFR the apex
+    /// SOA alone, as <see cref="DnsQueryAnswerer.Answer"/> says).
+    /// </summary>
+    public DnsUdpProtocolServer(DnsZoneSet zones, bool allowZoneTransfer = false)
     {
-        answerer = new DnsQueryAnswerer(zones);
+        answerer = new DnsQueryAnswerer(zones, allowZoneTransfer);
     }
 
     /// <summary>The one scheme answered: <c>dns</c>.</summary>

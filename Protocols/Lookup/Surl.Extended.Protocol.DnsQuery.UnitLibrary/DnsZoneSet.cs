@@ -106,6 +106,10 @@ public sealed class DnsZoneSet
     internal DnsZone? ZoneFor(DnsName name) =>
         zones.Where(zone => name.IsAtOrBelow(zone.Apex)).MaxBy(zone => zone.Apex.LabelCount);
 
+    /// <summary>The zone whose apex is <paramref name="name"/>, or <see langword="null"/>.</summary>
+    internal DnsZone? ZoneAtApex(DnsName name) =>
+        zones.Find(zone => zone.Apex.FoldedKey == name.FoldedKey);
+
     private static DnsName ApexOf(string fileName)
     {
         if (!fileName.EndsWith(ZoneFileExtension, StringComparison.OrdinalIgnoreCase))

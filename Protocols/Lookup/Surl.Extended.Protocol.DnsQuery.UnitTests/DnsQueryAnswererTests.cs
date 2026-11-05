@@ -151,6 +151,43 @@ public sealed class DnsQueryAnswererTests
         AssertFault(response, DnsResponseCode.Refused, expectQuestion: true);
     }
 
+    [TestMethod]
+    public void Answer_AxfrInADatagramWithZoneTransferAllowed_IsNotImplemented()
+    {
+        var response = AllowingTransfer.Answer(Query("example.test", 252))!;
+
+        AssertFault(response, DnsResponseCode.NotImplemented, expectQuestion: true);
+    }
+
+    [TestMethod]
+    public void Answer_IxfrInADatagramWithZoneTransferAllowed_IsTheApexSoaAlone()
+    {
+        var message = AllowingTransfer.Answer(Query("example.test", 251))!.Message;
+
+        Assert.AreEqual(DnsResponseCode.NoError, message.Header.ResponseCode);
+        Assert.IsTrue(message.Header.IsAuthoritativeAnswer);
+        Assert.AreEqual(DnsRecordType.SOA, message.Answers.Single().Type);
+        Assert.IsEmpty(message.Authorities);
+    }
+
+    [TestMethod]
+    public void Answer_IxfrInADatagramNotAtAServedApex_IsNotAuth()
+    {
+        var response = AllowingTransfer.Answer(Query("web.example.test", 251))!;
+
+        AssertFault(response, DnsResponseCode.NotAuthoritative, expectQuestion: true);
+    }
+
+    [TestMethod]
+    public void AnswerOverStream_DroppedQuery_IsNoResponse() =>
+        Assert.IsEmpty(Answerer.AnswerOverStream([0xBE, 0xEF, 0x01]));
+
+    [TestMethod]
+    public void AnswerOverStream_Query_IsOneResponse() =>
+        Assert.AreEqual(DnsResponseCode.NoError, Answerer.AnswerOverStream(Query("web.example.test", TypeA)).Single().Message.Header.ResponseCode);
+
+    private static readonly DnsQueryAnswerer AllowingTransfer = new(DnsTestZones.LoadExample(), allowZoneTransfer: true);
+
     private static void AssertFault(DnsResponse response, DnsResponseCode responseCode, bool expectQuestion)
     {
         var header = response.Message.Header;

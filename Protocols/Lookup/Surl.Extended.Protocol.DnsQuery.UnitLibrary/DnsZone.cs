@@ -10,6 +10,7 @@ internal sealed class DnsZone
 {
     private readonly Dictionary<string, DnsZoneNode> nodes = new(StringComparer.Ordinal);
     private readonly HashSet<string> recordKeys = new(StringComparer.Ordinal);
+    private readonly List<DnsResourceRecord> records = [];
     private DnsResourceRecord? startOfAuthority;
 
     private DnsZone(DnsName apex)
@@ -26,6 +27,9 @@ internal sealed class DnsZone
 
     /// <summary>The NS RRset at the apex, empty when the zone has none.</summary>
     public IReadOnlyList<DnsResourceRecord> ApexNameServers => nodes[Apex.FoldedKey].RecordSetOf(DnsRecordType.NS) ?? [];
+
+    /// <summary>Every record, in the order the zone file holds them, the SOA among them.</summary>
+    public IReadOnlyList<DnsResourceRecord> Records => records;
 
     /// <summary>The number of records.</summary>
     public int RecordCount { get; private set; }
@@ -113,6 +117,7 @@ internal sealed class DnsZone
         CheckSet(node, record, recordData);
 
         node.Add(record);
+        records.Add(record);
         startOfAuthority ??= record.Type == DnsRecordType.SOA ? record : null;
         RecordCount++;
         ByteCount += record.Name.WireLength + recordData.Length;
