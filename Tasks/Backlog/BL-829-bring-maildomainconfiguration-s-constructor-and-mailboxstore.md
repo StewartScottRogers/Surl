@@ -1,5 +1,5 @@
 ---
-id: BL-825
+id: BL-829
 title: Bring MailDomainConfiguration's constructor and MailboxStore.DeliverPending to complexity 10
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-825 — Bring MailDomainConfiguration's constructor and MailboxStore.DeliverPending to complexity 10
+# BL-829 — Bring MailDomainConfiguration's constructor and MailboxStore.DeliverPending to complexity 10
 
 ## Goal
 
