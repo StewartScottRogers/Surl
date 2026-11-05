@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-402]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Grpc.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-441 — Decide how the gRPC server answers grpc and grpcs
 
@@ -52,16 +52,36 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 9, citing the document section behind each,
       and is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/Grpc.md` exists in the matrix format with every server-binding
+- [x] `Documentation/Conformance/Extended/Grpc.md` exists in the matrix format with every server-binding
       requirement of PROTOCOL-HTTP2.md and server-reflection.md, each "covered by" naming BL-442,
       BL-443 or BL-444, or "n/a: <reason>".
 
 ## Notes
 
+- Decided in ADR-0116 (next free number on 2026-11-05; ADR-0115 was the last). Specifications read
+  2026-11-05 at grpc/grpc `master`: PROTOCOL-HTTP2.md, statuscodes.md, http-grpc-status-mapping.md,
+  compression.md, server-reflection.md with reflection.proto, and the protobuf encoding guide.
+- The port's client was read only for what it sends: Request-Headers in PROTOCOL-HTTP2 order with
+  `te: trailers` and `content-type: application/grpc`, `-H` values as metadata (so `authorization`
+  arrives that way), one uncompressed message, and reflection v1 `file_containing_symbol` for the
+  service then `file_by_filename` for missing dependencies.
+- Choices with a sensible default, taken: the built-in service is `surl.test.Echo` with four
+  methods (one per call shape) and request fields that select any status and a delay, so tests
+  can reach every status and deadline; no user `.proto` services (replies would need a language no
+  gRPC document defines); `deflate` served beside `gzip` (BCL `ZLibStream`, costs nothing);
+  replies never compressed (compression.md allows it); reflection v1alpha answered too (older
+  clients); missing `te` refused with `INTERNAL`; wrong `:method` HTTP `405`; `grpc-timeout` 0 read
+  as an expired deadline. Each is argued in the ADR.
+- Matrix rows that `Surl.Http2` (BL-409) or BL-445's ALPN offer already prove are marked `n/a`
+  with that reason, since the task allows only BL-442, BL-443 or BL-444 as "covered by".
+- BL-445 should put `surl/test/echo.proto`'s text in `surl --aihelp grpc` (ADR-0116 decision 1);
+  its task already owns the topic, so no new task was filed.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0116 decides how grpc and grpcs answer gRPC calls and reflection; Grpc.md traces every server-side requirement to BL-442, BL-443 or BL-444
