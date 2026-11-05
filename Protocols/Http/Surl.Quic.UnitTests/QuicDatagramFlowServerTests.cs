@@ -40,6 +40,7 @@ public sealed partial class QuicDatagramFlowServerTests
 
         Assert.AreEqual(1, protocol.Calls);
         Assert.AreEqual("h3", protocol.Connection!.ApplicationProtocol);
+        Assert.AreEqual((Surl.Tls13.TlsCipherSuite)client.Client.Tls.CipherSuite, protocol.Connection.CipherSuite);
         Assert.AreEqual((ulong)262144, protocol.Connection.PeerTransportParameters.InitialMaxStreamsBidi);
         Assert.AreEqual("ping", Encoding.ASCII.GetString([.. received]));
         var (data, fin) = client.StreamSent(0);
@@ -200,6 +201,7 @@ public sealed partial class QuicDatagramFlowServerTests
 
         Assert.AreEqual(1, protocol.Calls);
         Assert.AreEqual("h3", protocol.Connection!.ApplicationProtocol);
+        Assert.AreEqual((Surl.Tls13.TlsCipherSuite)client.Client.Tls.CipherSuite, protocol.Connection.CipherSuite);
     }
 
     [TestMethod]
@@ -210,10 +212,14 @@ public sealed partial class QuicDatagramFlowServerTests
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var running = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Exception? openAfterEnd = null;
-        var protocol = new UnitTestApplicationProtocol(async (connection, token) =>
+        var protocol = new UnitTestApplicationProtocol(async (connection, _) =>
         {
             running.SetResult();
-            await CatchAsync(() => Task.Delay(Timeout.InfiniteTimeSpan, token));
+
+            // Ended, not the application's token: the token is cancelled the moment serving is,
+            // a beat before the loop ends the application's side, so a call made on the token's
+            // cancellation could still go through.
+            await CatchAsync(() => Task.Delay(Timeout.InfiniteTimeSpan, connection.Ended));
             openAfterEnd = await CatchAsync(() => connection.OpenUnidirectionalStreamAsync(CancellationToken.None).AsTask());
         });
 
