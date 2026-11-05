@@ -86,7 +86,7 @@ properties the specification says to forward unchanged.
   with RETAIN 1, live with RETAIN 0. No Local, Retain As Published, Retain Handling, Subscription Identifiers,
   replacing a filter and UNSUBSCRIBE (still `0x83`) stay BL-498's.
 - **Choices made (Decided by Claude under Stewart's delegation)**; BL-509 held `Documentation/Planning/Decisions`
-  while this ran, so BL-705 records them in ADR-0093:
+  while this ran, so BL-714 records them in ADR-0093:
   1. Account: `Accepted` publishes as the user name; `AcceptedUnchecked` as anonymous (null), which is what
      `--allow-anonymous` means to the bus's access grants.
   2. Topic access refusal is `0x87` as the task and ADR-0102 decision 3.4 say, superseding ADR-0093 decision 2's

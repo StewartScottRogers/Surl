@@ -1,5 +1,5 @@
 ---
-id: BL-705
+id: BL-714
 title: Record BL-497's MQTT 5 PUBLISH and delivery choices in ADR-0093
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-705 — Record BL-497's MQTT 5 PUBLISH and delivery choices in ADR-0093
+# BL-714 — Record BL-497's MQTT 5 PUBLISH and delivery choices in ADR-0093
 
 ## Goal
 
