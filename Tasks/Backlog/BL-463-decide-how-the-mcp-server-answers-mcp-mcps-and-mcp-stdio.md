@@ -4,7 +4,7 @@ title: Decide how the MCP server answers mcp, mcps and mcp+stdio
 priority: Normal
 assignee: Claude
 pipeline: docs
-depends-on: [BL-543, BL-401]
+depends-on: [BL-543, BL-401, BL-612]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/McpServer.md]
 requirement: none
 created: 2026-11-04
@@ -38,6 +38,13 @@ server-side requirement matrix traces each decision.
 - HTTP/1.1 and SSE: BL-407's library. JSON: `Utf8JsonReader`/`Utf8JsonWriter` or a source-generated
   context only (native AOT).
 
+- Shared MCP core (amended 2026-11-04): BL-612's ADR decides `Surl.McpServing`, the MCP core this server shares with
+  the `Surl.Mcp` host - JSON-RPC 2.0 messages and error codes, the lifecycle with version negotiation, the tool and
+  resource registry with pagination, and the newline-delimited stdio session - built by BL-619, BL-620, BL-621 and
+  BL-623. This ADR adopts that ADR's protocol versions, unsupported-version answer, JSON-RPC error codes and
+  message limit for decisions 3 and 7 rather than deciding them again, and decides only what is this server's own:
+  its project, its tools, Streamable HTTP, how `mcp+stdio` fits the command line, authorization and its limits.
+
 Decide and record:
 
 1. The project name. Planning: `Surl.Extended.Protocol.McpServer`, in `Protocols/Http/`, named for what it is.
@@ -68,10 +75,12 @@ Decide and record:
       it, and is listed in the folder's `README.md`.
 - [ ] `Documentation/Conformance/Extended/McpServer.md` exists in the matrix format with every requirement of the
       pages above that binds a server, each "covered by" naming BL-464, BL-465, BL-466 or
-      BL-467, or "n/a: <reason>".
+      BL-467, or the core's BL-619, BL-620, BL-621 or BL-623, or "n/a: <reason>".
 
 ## Notes
 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended by task-planner: depends on BL-612, whose ADR decides the MCP core (`Surl.McpServing`) this
+  server shares with the `Surl.Mcp` host; decisions 3 and 7 adopt that core's versions and error codes.

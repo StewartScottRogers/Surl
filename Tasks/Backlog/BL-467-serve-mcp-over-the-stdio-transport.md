@@ -4,7 +4,7 @@ title: Serve MCP over the stdio transport
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-465]
+depends-on: [BL-465, BL-621]
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -14,28 +14,25 @@ completed:
 
 ## Goal
 
-The MCP server serves one session over a pair of byte streams. It reads newline-delimited JSON-RPC messages from
-one stream, writes only MCP messages, each on its own line, to the other, and ends when its input closes. The
+The MCP server serves one session over a pair of byte streams through the shared core's newline-delimited stdio
+session (`Surl.McpServing`, BL-621), with this server's lifecycle and tools, and ends when its input closes. The
 executable can then bind those streams to its own standard input and output.
 
 ## Context
 
 - Decision: BL-463's ADR, decision 5.
-- MCP "Transports > stdio": messages are delimited by newlines and must not contain embedded newlines. The
-  server must not write anything to stdout that is not a valid MCP message, and may log to stderr. "Lifecycle >
-  Shutdown" (stdio): the client closes the server's input.
-- The library takes the streams from its caller (an `IConnection`, or a stream pair the ADR names), and never
+- Amended 2026-11-04: the newline framing, the line limit, escaping, "nothing but messages on the output" and ending
+  on a closed input are `Surl.McpServing`'s (BL-621), shared with the `Surl.Mcp` host, and tested there. This task
+  exposes this server's session over that core seam, in the shape BL-468 binds to standard streams.
+- MCP "Transports > stdio" and "Lifecycle > Shutdown" (stdio): the client closes the server's input.
+- The library takes the streams from its caller (an `IConnection`, or the stream pair BL-612's ADR names), and never
   touches `Console`. The executable binds them in BL-468.
 
 ## Acceptance criteria
 
-- [ ] Named tests show:
-      - an `initialize`, `tools/list` and `tools/call` exchange over in-memory streams, each response on one line
-        with no embedded newline;
-      - a JSON string containing `\n` written escaped;
-      - nothing but messages written to the output;
-      - the session ending cleanly when the input closes;
-      - a line over the limit refused as the ADR says.
+- [ ] Named tests show, over in-memory streams:
+      - an `initialize`, `tools/list` and `tools/call` exchange with this server's tools, each response on one line;
+      - the session ending cleanly when the input closes.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
@@ -44,3 +41,5 @@ executable can then bind those streams to its own standard input and output.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended by task-planner: depends on BL-621, whose shared core now owns stdio framing and its limits;
+  this task binds the server's session to it.

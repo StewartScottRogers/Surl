@@ -1,41 +1,39 @@
 ---
 id: BL-465
-title: Answer MCP tools/list and tools/call with pagination
+title: Serve the MCP server's tools through Surl.McpServing's tools/list and tools/call
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-464]
+depends-on: [BL-464, BL-620]
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-465 — Answer MCP tools/list and tools/call with pagination
+# BL-465 — Serve the MCP server's tools through Surl.McpServing's tools/list and tools/call
 
 ## Goal
 
-The MCP server advertises the `tools` capability. It lists its tools with `inputSchema`, paged with
-`cursor`/`nextCursor`, and calls them, returning `content` with `isError` for a tool failure and a JSON-RPC error
-for a protocol failure, as MCP "Server Features > Tools" separates them.
+The MCP server registers the tools BL-463's ADR decides - each with a hand-written description and `inputSchema` -
+with the shared core's tool registry (BL-620), so it advertises `tools`, lists them paged and answers calls,
+returning `content` with `isError` for a tool failure, as MCP "Server Features > Tools" separates them.
 
 ## Context
 
 - Decision: BL-463's ADR, decisions 2 and 7. The content store reaches the tools through `Surl.Content`
   (add its reference; ADR-0002's table allows it).
-- MCP "Server Features > Tools" (the message examples, `isError`, and "Error Handling": an unknown tool is
-  `-32602`) and "Utilities > Pagination" (an opaque `cursor`; an invalid cursor is `-32602`).
-- Tool arguments are checked against each tool's `inputSchema`, so wrong arguments are `-32602`.
+- Amended 2026-11-04: the registry, pagination, argument checking against `inputSchema`, and the `-32602` answers
+  for an unknown tool, an invalid cursor and bad arguments are `Surl.McpServing`'s (BL-620), shared with the
+  `Surl.Mcp` host, and tested there. This task writes this server's tools and registers each with one line.
+- MCP "Server Features > Tools" (the message examples, `isError`).
 
 ## Acceptance criteria
 
 - [ ] Named tests show:
-      - `tools/list` with a page size smaller than the tool count returning `nextCursor`, and the next page
-        returning the rest;
-      - an invalid cursor gets `-32602`;
+      - `tools/list` through this server's session listing exactly the ADR's tools, each with its schema;
       - each tool called with good arguments returning the specification's `content` shape;
       - a read of a missing file returning `isError: true`;
-      - an unknown tool gets `-32602`;
-      - missing arguments get `-32602`;
+      - a path outside the content store refused as the content store refuses it;
       - a write tool refused unless uploads are allowed, if the ADR serves one.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
@@ -45,3 +43,5 @@ for a protocol failure, as MCP "Server Features > Tools" separates them.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended by task-planner: depends on BL-620, whose shared core now owns the tool registry, pagination
+  and argument checks; this task keeps only the server's own tools. Title changed to match.

@@ -1,48 +1,46 @@
 ---
 id: BL-464
-title: Create the MCP server with JSON-RPC messages and the lifecycle
+title: Create the MCP server over Surl.McpServing's JSON-RPC messages and lifecycle
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-463, BL-404]
+depends-on: [BL-463, BL-404, BL-619]
 touches: [Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests, Surl.slnx]
 requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-464 — Create the MCP server with JSON-RPC messages and the lifecycle
+# BL-464 — Create the MCP server over Surl.McpServing's JSON-RPC messages and lifecycle
 
 ## Goal
 
-`Surl.Extended.Protocol.McpServer.UnitLibrary` exists. It reads and writes JSON-RPC 2.0 requests, notifications
-and responses, and runs the MCP lifecycle independently of any transport: `initialize` with version negotiation
-and capabilities, `notifications/initialized`, `ping`, refusal of requests before initialization, and the error
-codes the ADR names.
+`Surl.Extended.Protocol.McpServer.UnitLibrary` exists and runs the MCP lifecycle through the shared core
+`Surl.McpServing` (BL-619): it gives the core this server's `serverInfo` and capabilities, so `initialize` with
+version negotiation, `notifications/initialized`, `ping`, refusal of requests before initialization and the error
+codes are the core's, answered independently of any transport.
 
 ## Context
 
-- Decision: BL-463's ADR, decisions 1, 3 and 7. Rules: BL-543's ADR.
+- Decision: BL-463's ADR, decisions 1, 3 and 7, which adopt BL-612's ADR for the core's versions and error codes.
+  Rules: BL-543's ADR.
+- Amended 2026-11-04: JSON-RPC 2.0 parsing and writing and the lifecycle are no longer written here; they live in
+  `Protocols/Http/Surl.McpServing.UnitLibrary` (BL-619), shared with the `Surl.Mcp` host. This server references it
+  (its row is in `ProtocolIsolationTests.HorizontalLibraries`) and adds only what is its own.
 - New projects in `Protocols/Http/`, listed in `Surl.slnx`. Namespace `Surl.Extended.Protocol.McpServer`.
-  References: `Surl.Protocol.Abstractions` only for now.
-- JSON-RPC 2.0 (https://www.jsonrpc.org/specification): `-32700` parse error, `-32600` invalid request, `-32601`
-  method not found, `-32602` invalid params, `-32603` internal error. A request's `id` is a string or number and
-  never null in MCP. MCP "Lifecycle": the `initialize` result's `protocolVersion`, `capabilities` and
-  `serverInfo`, and the example messages on that page.
-- JSON through `Utf8JsonReader`/`Utf8JsonWriter` or a source-generated context (native AOT).
+  References: `Surl.Protocol.Abstractions` and `Surl.McpServing`.
+- MCP "Lifecycle" (https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle): the `initialize`
+  result's `protocolVersion`, `capabilities` and `serverInfo`, and the example messages on that page.
 
 ## Acceptance criteria
 
-- [ ] Both projects exist, are in `Surl.slnx`, and `ProtocolIsolationTests` passes.
-- [ ] Named tests show:
-      - the "Lifecycle" page's `initialize` request example answered with a result in the page's shape;
-      - an unsupported `protocolVersion` answered as the ADR says;
+- [ ] Both projects exist, are in `Surl.slnx`, reference `Surl.McpServing`, and `ProtocolIsolationTests` passes.
+- [ ] Named tests show, through this server's session:
+      - the "Lifecycle" page's `initialize` request example answered with a result in the page's shape carrying this
+        server's `serverInfo` as BL-463's ADR names it;
+      - an unsupported `protocolVersion` answered as BL-612's ADR says;
       - a request before `initialize` refused;
-      - `ping` answered with `{}`;
-      - a notification getting no response;
-      - malformed JSON gets `-32700`;
-      - a request with a null `id` gets `-32600`;
-      - an unknown method gets `-32601`;
-      - a message over the limit refused.
+      - `ping` answered with `{}`.
+- [ ] No JSON-RPC parsing or writing code exists in this library (it is the core's).
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library has 100% line and branch
       coverage.
 
@@ -51,3 +49,6 @@ codes the ADR names.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Amended by task-planner: builds on the shared MCP core `Surl.McpServing` (BL-619, decided by BL-612)
+  instead of writing JSON-RPC and the lifecycle itself; the core's own tests now carry the malformed-JSON, null-id,
+  unknown-method, notification and size-limit cases. Title changed to match.
