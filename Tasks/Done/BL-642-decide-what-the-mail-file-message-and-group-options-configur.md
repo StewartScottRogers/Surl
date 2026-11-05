@@ -8,7 +8,7 @@ depends-on: [BL-622, BL-641]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-642 — Decide what the mail, file, message and group options configure in the shared stores
 
@@ -67,22 +67,39 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation", citing Stewart's approval of 2026-11-04, BL-622's and BL-641's ADRs.
       It answers decisions 1 to 5 and is listed in `Documentation/Planning/Decisions/README.md`.
-- [ ] Every new wire reply to an original-protocol client cites a measurement of the pinned upstream curl 8.21.0
+- [x] Every new wire reply to an original-protocol client cites a measurement of the pinned upstream curl 8.21.0
       build (path and SHA-256) with curl's exit code; every extended-protocol reply cites its specification.
-- [ ] The ADR states, in one paragraph, that a `surl` given no layer-2 option behaves as before, and names the
+- [x] The ADR states, in one paragraph, that a `surl` given no layer-2 option behaves as before, and names the
       existing test classes that prove it (e.g. `UpstreamCurlSendsMailToSurlOverSmtpTests`).
-- [ ] `ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md` carries an "Amended" line naming
+- [x] `ADR-0050-the-mail-store-and-the-line-machinery-the-mail-servers-share.md` carries an "Amended" line naming
       this ADR for decisions 2 and 5.
-- [ ] `Documentation/Product/Requirements.md`'s rows added by BL-622 and BL-641 cite this ADR where it applies.
-- [ ] The ADR's Consequences section lists the build tasks by ID (BL-646 to BL-666) and names any whose Goal it
+- [x] `Documentation/Product/Requirements.md`'s rows added by BL-622 and BL-641 cite this ADR where it applies.
+- [x] The ADR's Consequences section lists the build tasks by ID (BL-646 to BL-666) and names any whose Goal it
       changes.
 
 ## Notes
+
+- Delivered by the session itself rather than `align-and-document`: the ADR needed fresh upstream curl
+  measurements and the planning context already read, so a hand-off would have lost both.
+- ADR-0102 written (next free number at the time; another lane numbering an ADR 0102 meanwhile would need a
+  renumber at integration). Measured 14 cases (R1 to R14) with `Record-CurlExchange.ps1` against the Windows
+  reference build `C:\Program Files\Git\mingw64\bin\curl.exe` (SHA-256 `0E77...8778`); the script needed no
+  extension.
+- Key choices, each with its reason in the ADR: unknown local parts stay accepted and discarded even with a
+  domain (no enumeration); relaying `550 5.7.1`; quota checked only after `DATA` (`452 4.2.2`) and before IMAP's
+  `+` (`NO [OVERQUOTA]`); a `--mailbox` account defaults to the mail schemes; shared folders as `Shared/<name>`
+  plus RFC 2342 `NAMESPACE`, owned by the reserved owner `:shared`; share access closes per share; a denied read
+  is "missing" and a denied write the existing `NotPermitted`, so BL-657 to BL-662 gain no new reply; topic access
+  is global once given, queues named `$queue/<name>`; reserved member `@everyone`, warned; a scheme admits its TLS
+  twin in `protocols=`.
+- Follow-up: none filed. The ADR's Consequences tell BL-646 to BL-666 and BL-675 to BL-677 what changed; their
+  task files are outside this task's touches and are refined when each is claimed.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0102 decides what every layer-2 mail, file, message and group option means to the shared stores, measured against pinned upstream curl 8.21.0
