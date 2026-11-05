@@ -109,6 +109,8 @@
   <Folder Name="/Foundation/">
     <Project Path="Foundation/Surl.Authentication.UnitLibrary/Surl.Authentication.UnitLibrary.csproj" />
     <Project Path="Foundation/Surl.Authentication.UnitTests/Surl.Authentication.UnitTests.csproj" />
+    <Project Path="Foundation/Surl.Compression.UnitLibrary/Surl.Compression.UnitLibrary.csproj" />
+    <Project Path="Foundation/Surl.Compression.UnitTests/Surl.Compression.UnitTests.csproj" />
     <Project Path="Foundation/Surl.Content.UnitLibrary/Surl.Content.UnitLibrary.csproj" />
     <Project Path="Foundation/Surl.Content.UnitTests/Surl.Content.UnitTests.csproj" />
     <Project Path="Foundation/Surl.Cookies.UnitLibrary/Surl.Cookies.UnitLibrary.csproj" />

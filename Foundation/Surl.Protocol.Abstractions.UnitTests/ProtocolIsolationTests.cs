@@ -14,6 +14,7 @@ namespace Surl.Protocol.Abstractions;
 public sealed class ProtocolIsolationTests
 {
     private const string Abstractions = "Surl.Protocol.Abstractions.UnitLibrary";
+    private const string Compression = "Surl.Compression.UnitLibrary";
     private const string Content = "Surl.Content.UnitLibrary";
     private const string Cryptography = "Surl.Cryptography.UnitLibrary";
     private const string BcryptPbkdf = "Surl.Cryptography.BcryptPbkdf.UnitLibrary";
@@ -52,11 +53,12 @@ public sealed class ProtocolIsolationTests
 
     /// <summary>
     /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061,
-    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0086, ADR-0087, ADR-0100 and ADR-0103 add: each horizontal library a protocol server may reference, with the projects
+    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0086, ADR-0087, ADR-0100, ADR-0103 and ADR-0105 add: each horizontal library a protocol server may reference, with the projects
     /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
     {
+        [Compression] = [],
         [Content] = [Abstractions],
         [Cryptography] = [],
         [BcryptPbkdf] = [Blowfish],
