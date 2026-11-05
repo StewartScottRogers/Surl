@@ -49,3 +49,4 @@ published on the event stream, with every login of every protocol judged by the 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
