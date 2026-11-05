@@ -1,3 +1,5 @@
+using Surl.Protocol.Abstractions;
+
 namespace Surl.MailStore;
 
 /// <summary>
@@ -31,7 +33,7 @@ namespace Surl.MailStore;
 /// memory, and its changes are never written anywhere.
 /// </para>
 /// </remarks>
-public sealed class MailboxStore
+public sealed partial class MailboxStore
 {
     /// <summary>
     /// The default for <see cref="MaxMessages"/>: 100000 messages.
@@ -76,6 +78,8 @@ public sealed class MailboxStore
     private readonly Lock storeLock = new();
     private readonly SemaphoreSlim saveLock = new(1, 1);
     private readonly TimeProvider timeProvider;
+    private readonly ISurlEventPublisher events;
+    private readonly IFaultPlan faults;
     private readonly Dictionary<string, OwnerMailboxes> owners = new(StringComparer.Ordinal);
     private readonly LocalPartLookup<OwnerMailboxes> accounts = new();
     private readonly LocalPartLookup<OwnerMailboxes> mailboxOwners = new();
@@ -113,6 +117,10 @@ public sealed class MailboxStore
     /// configuration with no domain - to resolve them as ADR-0050 decision 5 says. Each mailbox
     /// is an owner and an account named by its normalised address. Ignored with
     /// <c>--allow-anonymous</c>.</param>
+    /// <param name="events">Where every change is published (ADR-0124 decision 1), or
+    /// <see langword="null"/> to publish nothing.</param>
+    /// <param name="faults">The fault plan a delivery or append consults for an out-of-space rule
+    /// (ADR-0124 decision 4), or <see langword="null"/> for none.</param>
     /// <exception cref="ArgumentNullException"><paramref name="accountNames"/> or
     /// <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is out of range.</exception>
@@ -128,8 +136,10 @@ public sealed class MailboxStore
         int maxMessages = DefaultMaxMessages,
         long maxTotalMessageBytes = DefaultMaxTotalMessageBytes,
         int maxMailboxes = DefaultMaxMailboxes,
-        MailDomainConfiguration? mailDomains = null)
-        : this(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes)
+        MailDomainConfiguration? mailDomains = null,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null)
+        : this(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes, events, faults)
     {
         ArgumentNullException.ThrowIfNull(accountNames);
         anonymousOwner = ReachOwners(accountNames, allowAnonymous, mailDomains);
@@ -138,8 +148,17 @@ public sealed class MailboxStore
         changeCount = 0;
     }
 
-    private MailboxStore(TimeProvider timeProvider, long maxMessageBytes, int maxMessages, long maxTotalMessageBytes, int maxMailboxes)
+    private MailboxStore(
+        TimeProvider timeProvider,
+        long maxMessageBytes,
+        int maxMessages,
+        long maxTotalMessageBytes,
+        int maxMailboxes,
+        ISurlEventPublisher? events,
+        IFaultPlan? faults)
     {
+        this.events = events ?? DiscardingSurlEventPublisher.Instance;
+        this.faults = faults ?? EmptyFaultPlan.Instance;
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfNegative(maxMessageBytes);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxMessages, 1);
@@ -174,8 +193,11 @@ public sealed class MailboxStore
     /// configuration with no domain - to resolve them as ADR-0050 decision 5 says. Each mailbox
     /// is an owner and an account named by its normalised address. Ignored with
     /// <c>--allow-anonymous</c>.</param>
+    /// <param name="events">Where every change is published (ADR-0124 decision 1), or
+    /// <see langword="null"/> to publish nothing.</param>
+    /// <param name="faults">The fault plan a delivery or append consults for an out-of-space rule
+    /// (ADR-0124 decision 4), or <see langword="null"/> for none.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
-
     /// <returns>The loaded store.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is out of range.</exception>
@@ -194,11 +216,13 @@ public sealed class MailboxStore
         long maxTotalMessageBytes = DefaultMaxTotalMessageBytes,
         int maxMailboxes = DefaultMaxMailboxes,
         MailDomainConfiguration? mailDomains = null,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(files);
         ArgumentNullException.ThrowIfNull(accountNames);
-        var store = new MailboxStore(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes);
+        var store = new MailboxStore(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes, events, faults);
         var index = await files.ReadIndexAsync(cancellationToken);
         if (index is not null)
         {
@@ -394,15 +418,19 @@ public sealed class MailboxStore
             var outcome = CheckPending(message);
             return outcome != MailStoreOutcome.Succeeded || recipients.Count == 0
                 ? outcome
-                : DeliverPending(recipients, message);
+                : DeliverUnlessOutOfSpace(recipients.SelectMany(recipient => recipient.Owners).ToList(), message);
         }
     }
 
-    private MailStoreOutcome DeliverPending(IReadOnlyList<MailRecipient> recipients, PendingMessage message)
+    private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerMailboxes> inboxOwners, PendingMessage message) =>
+        IsOutOfSpace(inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)))
+            ? MailStoreOutcome.QuotaExceeded
+            : DeliverPending(inboxOwners, message);
+
+    private MailStoreOutcome DeliverPending(List<OwnerMailboxes> inboxOwners, PendingMessage message)
     {
         lock (storeLock)
         {
-            var inboxOwners = recipients.SelectMany(recipient => recipient.Owners).ToList();
             if (inboxOwners.GroupBy(owner => owner).Any(copies => !WithinQuota(copies.Key, message.Length * copies.Count())))
             {
                 return MailStoreOutcome.QuotaExceeded;
@@ -420,7 +448,7 @@ public sealed class MailboxStore
                 return MailStoreOutcome.StorageFailed;
             }
 
-            DeliverBody(inboxes, body);
+            DeliverBody(inboxOwners, body);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -488,22 +516,37 @@ public sealed class MailboxStore
         using (message)
         {
             ThrowIfNotFlags(flags);
-            lock (storeLock)
-            {
-                var place = FindPlace(view, mailboxName);
-                var outcome = place is null ? MailStoreOutcome.MailboxMissing : CheckRoomForOne(place.Value, message);
-                var body = outcome == MailStoreOutcome.Succeeded ? KeepBody(message) : null;
-                if (body is null)
-                {
-                    return outcome == MailStoreOutcome.Succeeded ? MailStoreOutcome.StorageFailed : outcome;
-                }
+            return CheckPending(message) == MailStoreOutcome.Succeeded && IsOutOfSpace(TargetOf(view, mailboxName))
+                ? MailStoreOutcome.QuotaExceeded
+                : AppendPending(view, mailboxName, message, flags, internalDate, out stored);
+        }
+    }
 
-                var mailbox = place!.Value.Mailbox;
-                var uid = AddMessage(mailbox, body, internalDate ?? timeProvider.GetUtcNow(), flags);
-                stored = new MailStoredUid(mailbox.UidValidity, uid);
-                changeCount++;
-                return MailStoreOutcome.Succeeded;
+    private MailStoreOutcome AppendPending(
+        MailView view,
+        string mailboxName,
+        PendingMessage message,
+        MailFlags flags,
+        DateTimeOffset? internalDate,
+        out MailStoredUid stored)
+    {
+        stored = default;
+        lock (storeLock)
+        {
+            var place = FindPlace(view, mailboxName);
+            var outcome = place is null ? MailStoreOutcome.MailboxMissing : CheckRoomForOne(place.Value, message);
+            var body = outcome == MailStoreOutcome.Succeeded ? KeepBody(message) : null;
+            if (body is null)
+            {
+                return outcome == MailStoreOutcome.Succeeded ? MailStoreOutcome.StorageFailed : outcome;
             }
+
+            var mailbox = place!.Value.Mailbox;
+            var uid = AddMessage(mailbox, body, internalDate ?? timeProvider.GetUtcNow(), flags);
+            stored = new MailStoredUid(mailbox.UidValidity, uid);
+            changeCount++;
+            PublishMessage(StoreChange.Written, place.Value, uid);
+            return MailStoreOutcome.Succeeded;
         }
     }
 
@@ -658,8 +701,13 @@ public sealed class MailboxStore
             }
 
             result = Combine(stored.Flags, change, flags);
-            changeCount += result == stored.Flags ? 0 : 1;
-            stored.Flags = result;
+            if (result != stored.Flags)
+            {
+                changeCount++;
+                stored.Flags = result;
+                PublishMessage(StoreChange.Written, FindPlace(view, mailboxName)!.Value, uid);
+            }
+
             return outcome;
         }
     }
@@ -678,15 +726,15 @@ public sealed class MailboxStore
     {
         lock (storeLock)
         {
-            var mailbox = FindMailbox(view, mailboxName);
+            var place = FindPlace(view, mailboxName);
             expungedUids = [];
-            if (mailbox is null)
+            if (place is null)
             {
                 return MailStoreOutcome.MailboxMissing;
             }
 
-            expungedUids = mailbox.DeletedUids();
-            changeCount += RemoveMessages(mailbox, expungedUids) == 0 ? 0 : 1;
+            expungedUids = place.Value.Mailbox.DeletedUids();
+            RemovePublished(place.Value, expungedUids);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -708,15 +756,15 @@ public sealed class MailboxStore
         var allowed = uids.ToHashSet();
         lock (storeLock)
         {
-            var mailbox = FindMailbox(view, mailboxName);
+            var place = FindPlace(view, mailboxName);
             expungedUids = [];
-            if (mailbox is null)
+            if (place is null)
             {
                 return MailStoreOutcome.MailboxMissing;
             }
 
-            expungedUids = [.. mailbox.DeletedUids().Where(allowed.Contains)];
-            changeCount += RemoveMessages(mailbox, expungedUids) == 0 ? 0 : 1;
+            expungedUids = [.. place.Value.Mailbox.DeletedUids().Where(allowed.Contains)];
+            RemovePublished(place.Value, expungedUids);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -789,7 +837,7 @@ public sealed class MailboxStore
 
             var originals = uids.Distinct().Order().Select(uid => source.Value.Mailbox.Messages.GetValueOrDefault(uid)).OfType<StoredMessage>().ToList();
             var outcome = CheckRoomToCopy(source.Value.Owner, originals, destination.Value, isMove);
-            copied = outcome == MailStoreOutcome.Succeeded ? CopyInto(source.Value.Mailbox, originals, destination.Value.Mailbox, isMove) : null;
+            copied = outcome == MailStoreOutcome.Succeeded ? CopyInto(source.Value, originals, destination.Value, isMove) : null;
             return outcome;
         }
     }
@@ -813,13 +861,15 @@ public sealed class MailboxStore
     private bool HasRoomToCopy(StoredMailbox destination, int count, bool isMove) =>
         isMove ? destination.CanGiveUids(count) : HasRoomForCopies(destination, count);
 
-    private MailCopyResult CopyInto(StoredMailbox source, List<StoredMessage> originals, StoredMailbox destination, bool isMove)
+    private MailCopyResult CopyInto(MailboxPlace source, List<StoredMessage> originals, MailboxPlace destination, bool isMove)
     {
-        var copyUids = originals.Select(original => AddMessage(destination, original.Body, original.InternalDate, original.Flags)).ToList();
+        var copyUids = originals.Select(original => AddMessage(destination.Mailbox, original.Body, original.InternalDate, original.Flags)).ToList();
+        copyUids.ForEach(uid => PublishMessage(StoreChange.Written, destination, uid));
         List<uint> sourceUids = [.. originals.Select(original => original.Uid)];
-        RemoveMessages(source, isMove ? sourceUids : []);
+        PublishRemoving(source, isMove ? sourceUids : []);
+        RemoveMessages(source.Mailbox, isMove ? sourceUids : []);
         changeCount += copyUids.Count == 0 ? 0 : 1;
-        return new MailCopyResult(destination.UidValidity, sourceUids, copyUids);
+        return new MailCopyResult(destination.Mailbox.UidValidity, sourceUids, copyUids);
     }
 
     /// <summary>
@@ -847,8 +897,10 @@ public sealed class MailboxStore
                 return outcome;
             }
 
-            AddMailbox(view.Owner!, new StoredMailbox(mailboxName, IssueUidValidity(), 1));
+            var created = new StoredMailbox(mailboxName, IssueUidValidity(), 1);
+            AddMailbox(view.Owner!, created);
             changeCount++;
+            PublishMailbox(StoreChange.Written, view.Owner!, created);
             return outcome;
         }
     }
@@ -883,6 +935,7 @@ public sealed class MailboxStore
             view.Owner!.Mailboxes.Remove(mailbox.Name);
             mailboxCount--;
             changeCount++;
+            PublishMailbox(StoreChange.Deleted, view.Owner, mailbox);
             return MailStoreOutcome.Succeeded;
         }
     }
@@ -928,10 +981,12 @@ public sealed class MailboxStore
             {
                 owner.Mailboxes.Remove(mailbox.Name);
                 mailboxCount--;
+                PublishMailbox(StoreChange.Deleted, owner, mailbox);
             }
 
             AddMailbox(owner, renamed);
             changeCount++;
+            PublishMailbox(StoreChange.Written, owner, renamed);
             return outcome;
         }
     }
@@ -1000,9 +1055,7 @@ public sealed class MailboxStore
         lock (storeLock)
         {
             var inbox = owner.Inbox;
-            var removed = RemoveMessages(inbox, [.. uids.Distinct().Where(inbox.Messages.ContainsKey)]);
-            changeCount += removed == 0 ? 0 : 1;
-            return removed;
+            return RemovePublished(new MailboxPlace(owner, inbox), [.. uids.Distinct().Where(inbox.Messages.ContainsKey)]);
         }
     }
 
@@ -1421,10 +1474,15 @@ public sealed class MailboxStore
     private bool HasRoomForCopies(StoredMailbox destination, int count) =>
         messageCount + (long)count <= MaxMessages && destination.CanGiveUids(count);
 
-    private void DeliverBody(List<StoredMailbox> inboxes, MessageBody body)
+    private void DeliverBody(List<OwnerMailboxes> inboxOwners, MessageBody body)
     {
         var now = timeProvider.GetUtcNow();
-        inboxes.ForEach(inbox => AddMessage(inbox, body, now, MailFlags.None));
+        foreach (var owner in inboxOwners)
+        {
+            var place = new MailboxPlace(owner, owner.Inbox);
+            PublishMessage(StoreChange.Delivered, place, AddMessage(place.Mailbox, body, now, MailFlags.None));
+        }
+
         changeCount++;
     }
 

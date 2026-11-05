@@ -68,6 +68,16 @@ only a `PendingMessage` (BL-278): SMTP streams `DATA` and IMAP streams `APPEND`,
 with files never holds a delivered message's bytes in memory waiting for a save. The `Append`
 overload taking a whole message as bytes routes it through a pending message.
 
+Events and faults (BL-788, ADR-0124 decisions 1 and 4, ADR-0126): the constructor and `LoadAsync`
+take an optional `ISurlEventPublisher` and `IFaultPlan` (null: publish nothing, fault nothing).
+Every change publishes one `StoreChangedEvent` (`StoreKind.Mail`) under the store's lock, named by
+`MailStoreChangeName` - `<owner>/<mailbox>` or `<owner>/<mailbox>/;UID=<uid>` - with the message's
+length and never its bytes; a refused or no-op operation publishes nothing, and start-up is not a
+change. `Deliver` and `Append` ask the plan at `FaultStage.StoreWrite` (account the owner, path the
+mailbox) before taking the lock; an `OutOfSpace` rule refuses the whole write with `QuotaExceeded` and
+the store publishes the `FaultAppliedEvent`. A plan answer that is still pending or failed is served as
+no rule (BL-860 makes the writes async).
+
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,
 amending ADR-0002's table); protocol servers may reference it, and the SMTP, IMAP and POP3
