@@ -45,3 +45,4 @@ returning `content` with `isError` for a tool failure, as MCP "Server Features >
 - 2026-11-04: Created.
 - 2026-11-04: Amended by task-planner: depends on BL-620, whose shared core now owns the tool registry, pagination
   and argument checks; this task keeps only the server's own tools. Title changed to match.
+- 2026-11-05: Backlog -> Doing.
