@@ -34,6 +34,14 @@ handshake before `ServeAsync`, so `FtpProtocolServer` claims `ftps` itself.
 - `DataConnectionUploadStream` and `DataConnectionWriteStream`: the data connection as the
   content store reads an upload and copies a download onto it; an upload's data connection is
   opened only at the store's first read, so a refused upload never uses one.
+- The server half of upstream curl's test cases (ADR-0080 decision 2, BL-394), never composed by
+  the shipped `surl`: `FtpUpstreamTestCaseServer` is `FtpProtocolServer` with the case's
+  `FtpUpstreamTestCaseReplies` (parts `data`, `dataNUM`, `size`, `mdtm` and the `<servercmd>`
+  lines, read by `FtpUpstreamTestCaseServerCommands`), its control connection wrapped in
+  `ReceivedBytesRecordingConnection`. `FtpCommandResponder.UpstreamTestCase.cs` holds the commands
+  the case answers in place of the content store (`CWD`, `DELE`, `SIZE`, `MDTM`, `RETR`, `LIST`,
+  `NLST`, `STOR`, `APPE`); a `REPLY`'d command is answered with the case's text and not run, and
+  no command needs a login first. `Surl.Conformance.UnitTests` composes it.
 
 ## Rules
 

@@ -21,7 +21,7 @@ namespace Surl.Protocol.Ftp;
 /// <c>PROT</c>, with <c>CCC</c> always refused (ADR-0052, decision 5). It is not safe for
 /// concurrent calls.
 /// </remarks>
-internal sealed class FtpCommandResponder : IAsyncDisposable
+internal sealed partial class FtpCommandResponder : IAsyncDisposable
 {
     private const string AuthFeatures = " AUTH TLS\r\n PBSZ\r\n PROT\r\n";
     private const string CommandNotImplemented = "502 Command not implemented";
@@ -35,6 +35,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
     private const string NotPermitted = "550 Not permitted";
     private const string NoSuchParentDirectory = "553 No such directory";
     private const string UsePassiveOrPortFirst = "425 Use PASV or PORT first";
+    private const string ListingOpeningReply = "150 Opening data connection for directory listing";
 
     // Answered before login as they are after it; every other command is 530 until then.
     private static readonly HashSet<string> CommandsBeforeLogin = new(StringComparer.Ordinal)
@@ -51,6 +52,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
     private readonly Dictionary<string, Func<byte[]?, ValueTask<bool>>> commands;
     private readonly string[] recognizedCommands;
     private readonly FtpDataConnections dataConnections;
+    private readonly FtpUpstreamTestCaseReplies? upstreamTestCaseReplies;
     private string? userName;
     private bool isLoggedIn;
     private bool isProtectionBufferSizeSet;
@@ -68,14 +70,17 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
     /// <param name="contentStore">Where <c>CWD</c> looks for directories and <c>RETR</c> for files.</param>
     /// <param name="authenticationPolicy">Who may log in.</param>
     /// <param name="isTlsUpgradeAvailable">Whether the listener has a certificate, so <c>AUTH</c> can upgrade the connection.</param>
+    /// <param name="upstreamTestCaseReplies">An upstream test case's reply to play, or <see langword="null"/> for the shipped server.</param>
     public FtpCommandResponder(
         IConnection connection,
         ExchangeContext context,
         FtpLineReader reader,
         ContentStore contentStore,
         IAuthenticationPolicy authenticationPolicy,
-        bool isTlsUpgradeAvailable)
+        bool isTlsUpgradeAvailable,
+        FtpUpstreamTestCaseReplies? upstreamTestCaseReplies = null)
     {
+        this.upstreamTestCaseReplies = upstreamTestCaseReplies;
         this.connection = connection;
         this.context = context;
         this.reader = reader;
@@ -139,6 +144,10 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
             ["QUIT"] = _ => AnswerQuitAsync(),
         };
         recognizedCommands = [.. commands.Keys.Order(StringComparer.Ordinal)];
+        if (upstreamTestCaseReplies is not null)
+        {
+            AnswerAsTheUpstreamTestCaseSays(upstreamTestCaseReplies);
+        }
     }
 
     /// <summary>
@@ -153,7 +162,12 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
         // An RNTO renames only what the command immediately before it named (ADR-0052, decision 8).
         renameSourceFromPreviousCommand = renameSource;
         renameSource = null;
-        if (!isLoggedIn && !CommandsBeforeLogin.Contains(commandLine.Command))
+        if (upstreamTestCaseReplies?.TakeScriptedReply(commandLine.Command) is { } scriptedReply)
+        {
+            return WriteScriptedReplyAsync(scriptedReply);
+        }
+
+        if (NeedsLoginFirst(commandLine.Command))
         {
             return ReplyAsync("530 Please log in with USER and PASS");
         }
@@ -162,6 +176,10 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
             ? answer(commandLine.Argument)
             : ReplyAsync(CommandNotImplemented);
     }
+
+    // Upstream's test server answers every command without a login, so an upstream test case's does too.
+    private bool NeedsLoginFirst(string command) =>
+        !isLoggedIn && upstreamTestCaseReplies is null && !CommandsBeforeLogin.Contains(command);
 
     /// <summary>
     /// Disposes the passive data listener, if one is still waiting for curl.
@@ -457,7 +475,7 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
         }
 
         var listing = FtpListingFormat.Encode(entries, formatLine, context.TimeProvider.GetUtcNow());
-        return TransferAsync("150 Opening data connection for directory listing", dataConnection => SendListingAsync(dataConnection, listing));
+        return TransferAsync(ListingOpeningReply, dataConnection => SendBytesAsync(dataConnection, listing, "listing"));
     }
 
     // A directory's entries as the content store lists them (dot-files left out unless
@@ -488,20 +506,21 @@ internal sealed class FtpCommandResponder : IAsyncDisposable
     private static ContentDirectoryEntry FileEntry(IReadOnlyList<string> path, ContentFileStatus status) =>
         new(path[^1], ContentEntryKind.File, status.Length, status.LastModifiedUtc);
 
-    // curl closing the data connection before the listing is all sent surfaces as a failed
-    // write, answered 426 with the data connection reset, as for RETR.
-    private async Task<string> SendListingAsync(IConnection dataConnection, byte[] listing)
+    // curl closing the data connection before the bytes - a listing, or an upstream test case's
+    // file - are all sent surfaces as a failed write, answered 426 with the data connection
+    // reset, as for RETR.
+    private async Task<string> SendBytesAsync(IConnection dataConnection, byte[] bytes, string whatIsSent)
     {
         try
         {
-            await dataConnection.WriteAsync(listing, context.CancellationToken);
+            await dataConnection.WriteAsync(bytes, context.CancellationToken);
             await dataConnection.CompleteWritesAsync(context.CancellationToken);
             return TransferComplete;
         }
         catch (IOException)
         {
             dataConnection.Abort();
-            return NoteFailedTransfer(TransferAborted, "The client closed the data connection before the whole listing was sent; the data connection was reset.");
+            return NoteFailedTransfer(TransferAborted, $"The client closed the data connection before the whole {whatIsSent} was sent; the data connection was reset.");
         }
     }
 

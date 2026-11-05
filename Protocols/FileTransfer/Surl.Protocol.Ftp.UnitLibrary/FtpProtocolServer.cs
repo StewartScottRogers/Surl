@@ -101,6 +101,7 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     private readonly ContentStore contentStore;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly bool isTlsUpgradeAvailable;
+    private readonly FtpUpstreamTestCaseReplies? upstreamTestCaseReplies;
 
     /// <summary>
     /// Creates an FTP server over <paramref name="contentStore"/> whose logins
@@ -114,6 +115,16 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
     /// <c>AUTH</c> is <c>534 TLS is not available</c> (ADR-0032, section 10).
     /// </param>
     public FtpProtocolServer(ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool isTlsUpgradeAvailable = false)
+        : this(contentStore, authenticationPolicy, isTlsUpgradeAvailable, upstreamTestCaseReplies: null)
+    {
+    }
+
+    /// <summary>
+    /// Creates the server, playing an upstream test case's reply when
+    /// <paramref name="upstreamTestCaseReplies"/> is given (<see cref="FtpUpstreamTestCaseServer"/>).
+    /// </summary>
+    internal FtpProtocolServer(
+        ContentStore contentStore, IAuthenticationPolicy authenticationPolicy, bool isTlsUpgradeAvailable, FtpUpstreamTestCaseReplies? upstreamTestCaseReplies)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
@@ -121,6 +132,7 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
         this.contentStore = contentStore;
         this.authenticationPolicy = authenticationPolicy;
         this.isTlsUpgradeAvailable = isTlsUpgradeAvailable;
+        this.upstreamTestCaseReplies = upstreamTestCaseReplies;
     }
 
     /// <summary>
@@ -144,9 +156,9 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
         using var reader = new FtpLineReader(connection, context.Limits.MaxLineBytes, context.Limits.HeadTimeout, context.TimeProvider);
         reader.StartHeadTimeout();
 
-        await WriteAsync(connection, Greeting, context.CancellationToken);
+        await connection.WriteAsync(GreetingBytes(), context.CancellationToken);
 
-        var responder = new FtpCommandResponder(connection, context, reader, contentStore, authenticationPolicy, isTlsUpgradeAvailable);
+        var responder = new FtpCommandResponder(connection, context, reader, contentStore, authenticationPolicy, isTlsUpgradeAvailable, upstreamTestCaseReplies);
         var failure = await CaptureFailureAsync(() => AnswerEveryLineAsync(connection, context, reader, responder));
         await responder.DisposeAsync();
 
@@ -176,6 +188,10 @@ public sealed class FtpProtocolServer : IConnectionProtocolServer, IConnectionRe
         await WriteAsync(connection, RefusalReply, cancellationToken);
         await connection.CompleteWritesAsync(cancellationToken);
     }
+
+    // An upstream test case's REPLY welcome replaces the greeting.
+    private byte[] GreetingBytes() =>
+        upstreamTestCaseReplies?.TakeScriptedReply(FtpUpstreamTestCaseServerCommands.WelcomeCommand) ?? Encoding.ASCII.GetBytes(Greeting);
 
     // Runs work and hands back what it threw instead of throwing it, so the caller disposes the
     // responder - and with it any passive listener still waiting - with an await outside any
