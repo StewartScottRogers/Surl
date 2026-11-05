@@ -8,7 +8,7 @@ depends-on: [BL-418]
 touches: [Protocols/Http/Surl.HttpServing.UnitLibrary, Protocols/Http/Surl.HttpServing.UnitTests, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary, Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-720 — Let an S3 head past --max-request-head be refused 400 RequestHeaderSectionTooLarge
 
@@ -33,16 +33,30 @@ HTTP server's `431` stays byte for byte as it is.
 
 ## Acceptance criteria
 
-- [ ] `Surl.HttpServing` has the seam, with tests in `Surl.HttpServing.UnitTests`; every existing HTTP test passes unchanged.
-- [ ] A named S3 test shows a head past the limit answered `400` with `RequestHeaderSectionTooLarge`, `x-amz-request-id`
+- [x] `Surl.HttpServing` has the seam, with tests in `Surl.HttpServing.UnitTests`; every existing HTTP test passes unchanged.
+- [x] A named S3 test shows a head past the limit answered `400` with `RequestHeaderSectionTooLarge`, `x-amz-request-id`
       matching the body's `RequestId`, and `Connection: close`; the BL-418 `431` test is replaced by it.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch coverage.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch coverage.
 
 ## Notes
 
 - Filed by BL-418 (2026-11-05), which kept the `431` because `Surl.HttpServing` was outside its `touches`.
+- The seam: `IHttpHeadNotReadRefuser.RefuseHeadNotRead(outcome, standardRefusal)`, an optional interface a
+  handler implements. `Http1RequestResponder.AnswerHeadNotReadAsync` asks it, forces `IsRefusal`, logs the status
+  actually answered, and writes it. Handing over the standard refusal lets a server keep it for outcomes it does not
+  word (S3 keeps `505`, `408`, `400`). Chosen over a field on `HttpAnswer` or a constructor argument because it
+  changes nothing for the other nine handlers; AzureStorage (BL-424, `400 InvalidInput`) and GCS (BL-774,
+  `400 MaxMessageLengthExceeded`) can use the same seam.
+- `Http1AnswerWriter`'s refusal path now writes a `HttpAnswerBody.Bytes` body (it wrote only the head). No existing
+  refusal carries a body, so every HTTP fixture is unchanged; a `ContentFile` body on a refusal is still not sent.
+- The S3 refusal is built by `S3Reply.UnreadRequestError` (empty `Resource`, fresh request ID). The
+  `S3:Surl-Limits-1` row in `Documentation/Conformance/Extended/S3.md` still names BL-418: `Documentation/Conformance`
+  is in BL-395's `touches` (in Doing), so the row update is filed as BL-783.
+- Coverage: `Surl.Extended.Protocol.S3.UnitLibrary` 100% line and branch from its own tests; every new line and
+  branch in `Surl.HttpServing` is covered by `Surl.HttpServing.UnitTests` (two new tests).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. An S3 head past --max-request-head is answered 400 RequestHeaderSectionTooLarge with the Error body and closed, through Surl.HttpServing's new IHttpHeadNotReadRefuser seam
