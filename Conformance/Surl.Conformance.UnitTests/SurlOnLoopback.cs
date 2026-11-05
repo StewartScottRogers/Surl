@@ -5,26 +5,27 @@ namespace Surl.Conformance;
 /// <summary>
 /// <c>surl</c> running in-process on an ephemeral loopback port, serving a fresh temporary
 /// directory, a directory the caller owns, or, without <c>--directory</c>, its own in-memory
-/// file system, through the same entry point the executable uses. Disposing it stops surl and
-/// deletes the temporary directory, if any.
+/// file system, through the same entry point the executable uses. When <c>SURL_EXECUTABLE</c>
+/// holds the path of a published <c>surl</c>, every start runs that binary as a process with the
+/// same arguments instead (<see cref="PublishedSurlProcess"/>, ADR-0085 decision 2). Disposing it
+/// stops surl and deletes the temporary directory, if any.
 /// </summary>
 internal sealed class SurlOnLoopback : IAsyncDisposable
 {
     private const string StatusLinePrefix = "Listening on ";
 
+    private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(30);
+
     private readonly DirectoryInfo? servedDirectory;
-    private readonly CancellationTokenSource stop;
-    private readonly Task<int> running;
+    private readonly Func<string> readLog;
+    private readonly Func<ValueTask> stopSurlAsync;
 
-    private readonly LogWriter log;
-
-    private SurlOnLoopback(DirectoryInfo? servedDirectory, CancellationTokenSource stop, Task<int> running, IReadOnlyList<Uri> baseUrls, LogWriter log)
+    private SurlOnLoopback(DirectoryInfo? servedDirectory, IReadOnlyList<string> statusLines, Func<string> readLog, Func<ValueTask> stopSurlAsync)
     {
         this.servedDirectory = servedDirectory;
-        this.log = log;
-        this.stop = stop;
-        this.running = running;
-        BaseUrls = baseUrls;
+        this.readLog = readLog;
+        this.stopSurlAsync = stopSurlAsync;
+        BaseUrls = [.. statusLines.Select(line => new Uri(line[StatusLinePrefix.Length..]))];
     }
 
     /// <summary>
@@ -49,7 +50,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     /// Gets everything surl has written to its error stream so far: its warnings and, with
     /// <c>-v</c>, its log notes.
     /// </summary>
-    public string Log => log.Text;
+    public string Log => readLog();
 
     /// <summary>
     /// Writes <paramref name="files"/> into a new temporary directory and starts surl serving
@@ -139,16 +140,50 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     private static async Task<SurlOnLoopback> StartServingAsync(
         DirectoryInfo? directory, string[] args, CancellationToken cancellationToken, int listenerCount = 1)
     {
+        try
+        {
+            return PublishedSurlProcess.ConfiguredExecutablePath is { } executablePath
+                ? await StartPublishedAsync(executablePath, directory, args, cancellationToken, listenerCount)
+                : await StartInProcessAsync(directory, args, cancellationToken, listenerCount);
+        }
+        catch
+        {
+            directory?.Delete(recursive: true);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Starts the published surl at <paramref name="executablePath"/> as a process with
+    /// <paramref name="args"/>, as every start does when <c>SURL_EXECUTABLE</c> names it
+    /// (ADR-0085, decision 2).
+    /// </summary>
+    internal static async Task<SurlOnLoopback> StartPublishedAsync(
+        string executablePath, DirectoryInfo? directory, string[] args, CancellationToken cancellationToken, int listenerCount = 1)
+    {
+        var (surl, statusLines) = await PublishedSurlProcess.StartAsync(
+            executablePath, args, listenerCount, StartTimeout, cancellationToken);
+
+        return new SurlOnLoopback(directory, statusLines, () => surl.Log, surl.DisposeAsync);
+    }
+
+    private static async Task<SurlOnLoopback> StartInProcessAsync(
+        DirectoryInfo? directory, string[] args, CancellationToken cancellationToken, int listenerCount)
+    {
         var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var output = new StatusLinesWriter(listenerCount);
         var log = new LogWriter();
         var running = Program.RunAsync(args, output, log, stop.Token);
         var statusLines = await Task.WhenAny(output.StatusLines, running) == running
             ? throw new InvalidOperationException($"surl exited {await running} before it listened.")
-            : await output.StatusLines.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
+            : await output.StatusLines.WaitAsync(StartTimeout, cancellationToken);
 
-        return new SurlOnLoopback(
-            directory, stop, running, [.. statusLines.Select(line => new Uri(line[StatusLinePrefix.Length..]))], log);
+        return new SurlOnLoopback(directory, statusLines, () => log.Text, async () =>
+        {
+            await stop.CancelAsync();
+            await running;
+            stop.Dispose();
+        });
     }
 
     /// <summary>
@@ -164,9 +199,7 @@ internal sealed class SurlOnLoopback : IAsyncDisposable
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        await stop.CancelAsync();
-        await running;
-        stop.Dispose();
+        await stopSurlAsync();
         servedDirectory?.Delete(recursive: true);
     }
 
