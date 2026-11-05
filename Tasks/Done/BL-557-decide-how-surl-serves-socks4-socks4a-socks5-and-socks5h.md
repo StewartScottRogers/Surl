@@ -8,7 +8,7 @@ depends-on: [BL-571, BL-550]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-557 — Decide how Surl serves SOCKS4, SOCKS4a, SOCKS5 and SOCKS5h
 
@@ -65,21 +65,31 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation", answering decisions 1 to 7, each citing its
       RFC section or the curl 8.21.0 measurement it rests on, and it is listed in the folder's
       `README.md`.
-- [ ] If the ADR adds a category folder, it says so under ADR-0079 and names the root `CLAUDE.md`
+- [x] If the ADR adds a category folder, it says so under ADR-0079 and names the root `CLAUDE.md`
       "Repository layout" change BL-558 makes.
-- [ ] The ADR names the 25 cases above by number and the tasks that act on it: BL-558, BL-559,
+- [x] The ADR names the 25 cases above by number and the tasks that act on it: BL-558, BL-559,
       BL-560, BL-561 and BL-562.
 
 ## Notes
 
 - Planning assumptions above are BL-399's defaults for an unattended plan; the ADR may change any
   of them, and the build tasks' `touches` follow the ADR (a task records the change in its Notes).
+- 2026-11-05: ADR-0121 written. Measured 15 exchanges with `Record-CurlExchange.ps1 -Raw` against
+  the Windows reference build; `-Raw`'s scripted replies serve SOCKS, so the recorder needed no
+  change. Kept: `Protocols/Proxy/Surl.Protocol.Socks`, one server told apart by the first byte,
+  GSS-API not selected (sequenced to BL-763, filed here), `BIND` and `UDP ASSOCIATE` answered `07`.
+  Changed: listen URLs accepted positionally and with `--proxy`, and the scheme limits which
+  versions a listener serves; `Surl.Protocol.HttpProxy` stays in `Protocols/Http/`. BL-558's
+  `touches` gains the product overview, for its folder list.
+- Docs only: no `.cs` or project file touched, so the verify skill does not apply; the build and
+  fast tests ran before Done all the same.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0121 decides how Surl serves SOCKS4, 4a, 5 and 5h, from 15 measured curl 8.21.0 exchanges

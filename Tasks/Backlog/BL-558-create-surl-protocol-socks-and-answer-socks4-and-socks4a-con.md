@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-557, BL-551]
-touches: [Surl.slnx, CLAUDE.md, Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
+touches: [Surl.slnx, CLAUDE.md, Documentation/Product/Product-Overview.md, Protocols/Proxy/Surl.Protocol.Socks.UnitLibrary, Protocols/Proxy/Surl.Protocol.Socks.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -47,6 +47,9 @@ connector.
 
 ## Notes
 
+- 2026-11-05, BL-557: ADR-0121 decision 1 adopts `Protocols/Proxy/`; this task also adds `Proxy/` to the product overview's list of `Protocols/` folders, so `touches` gains `Documentation/Product/Product-Overview.md`.
+
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: touches gains Documentation/Product/Product-Overview.md (ADR-0121 decision 1).
