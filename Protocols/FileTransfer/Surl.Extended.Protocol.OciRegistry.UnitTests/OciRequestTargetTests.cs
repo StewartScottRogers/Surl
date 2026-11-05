@@ -17,7 +17,10 @@ public sealed class OciRequestTargetTests
     [DataRow("/v2/a/tags/list?n=1", nameof(OciEndpoint.TagsList), "a", "", "n=1")]
     [DataRow("/v2/a%2Fb/tags/list", nameof(OciEndpoint.TagsList), "a/b", "", "")]
     [DataRow("/v2/a/manifests/", nameof(OciEndpoint.None), "", "", "")]
-    [DataRow("/v2/a/blobs/uploads/123", nameof(OciEndpoint.None), "", "", "")]
+    [DataRow("/v2/a/blobs/uploads/", nameof(OciEndpoint.Uploads), "a", "", "")]
+    [DataRow("/v2/a/blobs/uploads/?digest=sha256:00", nameof(OciEndpoint.Uploads), "a", "", "digest=sha256:00")]
+    [DataRow("/v2/a/b/blobs/uploads/123", nameof(OciEndpoint.UploadSession), "a/b", "123", "")]
+    [DataRow("/v2/a/blobs/uploads/1/2", nameof(OciEndpoint.None), "", "", "")]
     [DataRow("/other", nameof(OciEndpoint.None), "", "", "")]
     public void Parse_Target_NamesItsEndpointAndParts(string target, string endpoint, string name, string reference, string query)
     {

@@ -4,7 +4,8 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// A request target read as the distribution specification's endpoints (ADR-0115, decision 1):
 /// the path is percent-decoded once, and <c>&lt;name&gt;</c> is everything between <c>/v2/</c> and
 /// the last <c>/blobs/</c>, <c>/manifests/</c> or <c>/referrers/</c> segment whose reference is
-/// one segment, or before a final <c>/tags/list</c>.
+/// one segment, before a final <c>/tags/list</c>, or before the last <c>/blobs/uploads/</c>
+/// followed by at most one segment, the upload session's reference.
 /// </summary>
 /// <param name="Endpoint">The endpoint named.</param>
 /// <param name="Name">The repository name, percent-decoded; empty for <c>/v2/</c> and no endpoint.</param>
@@ -14,6 +15,7 @@ internal sealed record OciRequestTarget(OciEndpoint Endpoint, string Name, strin
 {
     private const string VersionRoot = "/v2/";
     private const string TagsListSuffix = "/tags/list";
+    private const string UploadsMarker = "/blobs/uploads/";
 
     private static readonly (string Marker, OciEndpoint Endpoint)[] ReferenceMarkers =
     [
@@ -47,6 +49,13 @@ internal sealed record OciRequestTarget(OciEndpoint Endpoint, string Name, strin
         if (rest.EndsWith(TagsListSuffix, StringComparison.Ordinal))
         {
             return new(OciEndpoint.TagsList, rest[..^TagsListSuffix.Length], string.Empty, query);
+        }
+
+        var uploadsAt = rest.LastIndexOf(UploadsMarker, StringComparison.Ordinal);
+        var session = uploadsAt < 0 ? "/" : rest[(uploadsAt + UploadsMarker.Length)..];
+        if (!session.Contains('/'))
+        {
+            return new(session.Length == 0 ? OciEndpoint.Uploads : OciEndpoint.UploadSession, rest[..uploadsAt], session, query);
         }
 
         foreach (var (marker, endpoint) in ReferenceMarkers)

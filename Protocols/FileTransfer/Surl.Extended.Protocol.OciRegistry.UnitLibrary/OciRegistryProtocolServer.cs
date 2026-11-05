@@ -17,8 +17,9 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// It serves <c>GET /v2/</c>, manifest <c>GET</c> and <c>HEAD</c> by tag or digest, blob
 /// <c>GET</c> and <c>HEAD</c> by digest with one <c>Range</c>, the tag list with <c>n</c> and
 /// <c>last</c> paging, and the referrers API with its <c>artifactType</c> filter, each failure
-/// with the specification's JSON error body. Pushes and deletes (BL-437) and token
-/// authentication (BL-438) are not served yet: every request is read as the anonymous caller.
+/// with the specification's JSON error body. Under <c>--allow-uploads</c> it accepts blob uploads
+/// (a session with chunks, a single <c>POST</c>, a mount), manifest pushes by tag or digest, and
+/// deletes. Token authentication (BL-438) is not served yet: every request is the anonymous caller.
 /// </para>
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s. As an
@@ -35,19 +36,33 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
 
     private readonly ContentStore store;
     private readonly TimeProvider timeProvider;
+    private readonly OciServerState state;
 
     /// <summary>
     /// Creates the server.
     /// </summary>
     /// <param name="store">The shared content store; its folders holding an <c>oci-layout</c> are the repositories.</param>
-    /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from.</param>
+    /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from, and upload sessions expire on.</param>
     public OciRegistryProtocolServer(ContentStore store, TimeProvider timeProvider)
+        : this(store, timeProvider, Guid.NewGuid)
+    {
+    }
+
+    /// <summary>
+    /// Creates the server with upload session UUIDs from <paramref name="newSessionId"/>, so a test
+    /// knows each session's <c>Location</c>.
+    /// </summary>
+    /// <param name="store">The shared content store.</param>
+    /// <param name="timeProvider">The clock.</param>
+    /// <param name="newSessionId">Makes each upload session's UUID.</param>
+    internal OciRegistryProtocolServer(ContentStore store, TimeProvider timeProvider, Func<Guid> newSessionId)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         this.store = store;
         this.timeProvider = timeProvider;
+        state = new OciServerState(new OciUploadSessions(timeProvider), new SemaphoreSlim(1, 1), newSessionId);
     }
 
     /// <inheritdoc/>
@@ -59,7 +74,7 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new OciRequestAnswerer(store, context), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new OciRequestAnswerer(store, state, context), context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

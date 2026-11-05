@@ -29,13 +29,100 @@ internal sealed class OciRegistryServerHarness
     /// </summary>
     public const string CommonFields = $"Date: {NowHttpDate}\r\nServer: surl\r\nDocker-Distribution-API-Version: registry/2.0\r\n";
 
+    private int sessionCount;
+
     public OciRegistryServerHarness()
+        : this(new ContentExposureOptions())
+    {
+    }
+
+    /// <summary>
+    /// A registry whose store exposes what <paramref name="options"/> say, with
+    /// <paramref name="shares"/>; each share's folder is created under <c>/shares</c> of the root
+    /// file system. Upload session UUIDs are <see cref="SessionId(int)"/> 1, 2, … in order.
+    /// </summary>
+    public OciRegistryServerHarness(ContentExposureOptions options, params Func<InMemoryContentFileSystem, ContentShare>[] shares)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, new ContentExposureOptions());
-        Server = new OciRegistryProtocolServer(Store, TimeProvider);
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, options, [.. shares.Select(share => share(FileSystem))], []);
+        Server = new OciRegistryProtocolServer(Store, TimeProvider, () => Guid.Parse(SessionId(Interlocked.Increment(ref sessionCount))));
     }
+
+    /// <summary>
+    /// A registry that accepts uploads.
+    /// </summary>
+    public static OciRegistryServerHarness AllowingUploads() => new(new ContentExposureOptions { AllowUploads = true });
+
+    /// <summary>
+    /// A registry that accepts uploads, with a read-only share <c>ro</c> already holding the
+    /// repository <c>ro/app</c>, so the store refuses every write to it.
+    /// </summary>
+    public static OciRegistryServerHarness WithReadOnlyRepository()
+    {
+        var harness = new OciRegistryServerHarness(
+            new ContentExposureOptions { AllowUploads = true },
+            Share("ro", share => new ContentShare(share.Name, share.Path, share.FileSystem) { IsReadOnly = true }));
+        harness.CreateRepository("shares/ro/app");
+
+        return harness;
+    }
+
+    /// <summary>
+    /// <see cref="ExchangeLimits.Default"/> with the upload limit set to <paramref name="maxUploadBytes"/>.
+    /// </summary>
+    public static ExchangeLimits LimitsWithMaxUpload(long maxUploadBytes)
+    {
+        var limits = ExchangeLimits.Default;
+
+        return new ExchangeLimits(limits.HeadTimeout, limits.MaxRequestHeadBytes, limits.MaxLineBytes, limits.MaxMessageBytes, maxUploadBytes);
+    }
+
+    /// <summary>
+    /// The UUID of the <paramref name="number"/>th upload session opened.
+    /// </summary>
+    public static string SessionId(int number) => $"00000000-0000-4000-8000-{number:D12}";
+
+    /// <summary>
+    /// A share named <paramref name="name"/> whose folder exists, set up by <paramref name="configure"/>.
+    /// </summary>
+    public static Func<InMemoryContentFileSystem, ContentShare> Share(string name, Func<ContentShare, ContentShare> configure) => fileSystem =>
+    {
+        var shares = Path.Join(InMemoryContentFileSystem.RootPath, "shares");
+        if (fileSystem.GetEntryKind(shares) == ContentEntryKind.None)
+        {
+            fileSystem.CreateDirectory(shares);
+        }
+
+        fileSystem.CreateDirectory(Path.Join(shares, name));
+
+        return configure(new ContentShare(name, Path.Join(shares, name), fileSystem));
+    };
+
+    /// <summary>
+    /// The bytes of the file at <paramref name="relativePath"/>, or <see langword="null"/> when there is none.
+    /// </summary>
+    public byte[]? ReadFile(string relativePath)
+    {
+        var location = Path.Join(InMemoryContentFileSystem.RootPath, relativePath);
+        if (FileSystem.GetEntryKind(location) != ContentEntryKind.File)
+        {
+            return null;
+        }
+
+        using var stream = FileSystem.OpenFileForAsyncRead(location);
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+
+        return copy.ToArray();
+    }
+
+    /// <summary>
+    /// Sends one request with <paramref name="body"/> and its <c>Content-Length</c>,
+    /// <c>Host: registry.test</c> and <c>Connection: close</c> added.
+    /// </summary>
+    public Task<string> SendWithBodyAsync(string method, string target, string body, params string[] fields) =>
+        SendRawAsync($"{method} {target} HTTP/1.1\r\nHost: registry.test\r\n{string.Concat(fields.Select(field => field + "\r\n"))}Content-Length: {Encoding.Latin1.GetByteCount(body)}\r\nConnection: close\r\n\r\n{body}");
 
     public FixedTimeProvider TimeProvider { get; }
 
@@ -122,6 +209,11 @@ internal sealed class OciRegistryServerHarness
         stream.Write(content);
     }
 
+    /// <summary>
+    /// The limits each exchange runs under; a test lowers the upload limit to reach it.
+    /// </summary>
+    public ExchangeLimits Limits { get; set; } = ExchangeLimits.Default;
+
     public ExchangeContext Context() => new(
         1,
         new ListenUrl(OciRegistryProtocolServer.Scheme, "127.0.0.1", 5000).WithBoundPort(5000),
@@ -129,7 +221,10 @@ internal sealed class OciRegistryServerHarness
         new IPEndPoint(IPAddress.Loopback, 50000),
         Log,
         TimeProvider,
-        CancellationToken.None);
+        CancellationToken.None)
+    {
+        Limits = Limits,
+    };
 
     /// <summary>
     /// Sends one request head, <c>Host: registry.test</c> and <c>Connection: close</c> added, and

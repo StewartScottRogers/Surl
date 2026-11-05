@@ -59,6 +59,32 @@ internal sealed class OciReply(bool isHead, bool leavesRequestBodyUnread, DateTi
         Bytes(error.Status, "application/json", fields, OciErrorBody.Render(error));
 
     /// <summary>
+    /// An error answer listing <paramref name="error"/> <paramref name="count"/> times.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    /// <param name="count">How many times the body lists it.</param>
+    /// <returns>The answer.</returns>
+    public HttpAnswer Errors(OciError error, int count) =>
+        Bytes(error.Status, "application/json", [], OciErrorBody.Render(error, count));
+
+    /// <summary>
+    /// An answer with no body: <paramref name="fields"/>, then <c>Content-Length: 0</c> unless the
+    /// status is <c>204</c>, which carries none (RFC 9110, section 8.6).
+    /// </summary>
+    /// <param name="status">The status.</param>
+    /// <param name="fields">The fields after the common ones.</param>
+    /// <returns>The answer.</returns>
+    public HttpAnswer Empty(HttpStatus status, params KeyValuePair<string, string>[] fields) =>
+        Answer(status, status.Code == 204 ? fields : [.. fields, new("Content-Length", "0")], HttpAnswerBody.None);
+
+    /// <summary>
+    /// The same reply for a request whose body has been read to its end, so its answer leaves the
+    /// connection open when the request lets it.
+    /// </summary>
+    /// <returns>The reply.</returns>
+    public OciReply AfterBodyRead() => new(isHead, leavesRequestBodyUnread: false, now);
+
+    /// <summary>
     /// <c>Date</c>, <c>Server</c> and the API version field, which every answer starts with.
     /// </summary>
     /// <param name="now">When the answer is made.</param>

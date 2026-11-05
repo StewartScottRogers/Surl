@@ -12,6 +12,20 @@ namespace Surl.Extended.Protocol.OciRegistry;
 public sealed class OciRegistryProtocolServerTests
 {
     [TestMethod]
+    public async Task Constructor_WithoutASessionIdSource_GivesEachUploadSessionAVersion4Uuid()
+    {
+        var harness = OciRegistryServerHarness.AllowingUploads();
+        var server = new OciRegistryProtocolServer(harness.Store, harness.TimeProvider);
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes("POST /v2/app/blobs/uploads/ HTTP/1.1\r\nHost: registry.test\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")]);
+
+        await server.ServeAsync(connection, harness.Context());
+
+        var response = Encoding.UTF8.GetString(connection.WrittenBytes);
+        var id = response.Split("Docker-Upload-UUID: ")[1].Split("\r\n")[0];
+        Assert.AreEqual('4', Guid.Parse(id).ToString()[14]);
+    }
+
+    [TestMethod]
     public void Constructor_NullArgument_Throws()
     {
         var harness = new OciRegistryServerHarness();
@@ -60,20 +74,19 @@ public sealed class OciRegistryProtocolServerTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_DeleteManifest_Returns405WithGetAndHeadAllowed()
+    public async Task ServeAsync_PostManifest_Returns405WithEveryManifestMethodAllowed()
     {
         var harness = new OciRegistryServerHarness();
 
-        var response = await harness.SendAsync("DELETE", "/v2/library/alpine/manifests/latest");
+        var response = await harness.SendAsync("POST", "/v2/library/alpine/manifests/latest", "Content-Length: 0");
 
-        Assert.AreEqual(OciRegistryServerHarness.ExpectedError("405 Method Not Allowed", "UNSUPPORTED", "the operation is unsupported", "Allow: GET, HEAD\r\n"), response);
+        Assert.AreEqual(OciRegistryServerHarness.ExpectedError("405 Method Not Allowed", "UNSUPPORTED", "the operation is unsupported", "Allow: GET, HEAD, PUT, DELETE\r\n"), response);
     }
 
     [TestMethod]
     [DataRow("/")]
     [DataRow("/v2")]
     [DataRow("/v2/library/alpine/catalog")]
-    [DataRow("/v2/library/alpine/blobs/uploads/")]
     public async Task ServeAsync_PathNoEndpointMatches_Returns404Unsupported(string target)
     {
         var harness = new OciRegistryServerHarness();

@@ -148,6 +148,118 @@ internal sealed class OciRepository
         return all.DistinctBy(descriptor => descriptor.Digest, StringComparer.Ordinal).ToList();
     }
 
+    /// <summary>
+    /// Reads <c>index.json</c> again, past what an earlier read cached, for a change written
+    /// under the server's index lock.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The descriptors as stored now.</returns>
+    public Task<IReadOnlyList<OciDescriptor>> RereadIndexAsync(CancellationToken cancellationToken)
+    {
+        index = null;
+
+        return ReadIndexAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Rewrites <c>index.json</c> whole, through the content store's temporary file and rename, so
+    /// a reader sees the old or the new index, never half of one (ADR-0115, decision 2.1).
+    /// </summary>
+    /// <param name="descriptors">The descriptors to list.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns><see langword="false"/> when the store does not permit the write.</returns>
+    public async Task<bool> WriteIndexAsync(IReadOnlyList<OciDescriptor> descriptors, CancellationToken cancellationToken)
+    {
+        index = descriptors;
+        using var bytes = new MemoryStream(OciIndexFile.Render(descriptors));
+
+        return await store.WriteUploadAsync(Map("index.json"), bytes, cancellationToken) == ContentUploadResult.Written;
+    }
+
+    /// <summary>
+    /// Writes a manifest's bytes as the blob file of its digest.
+    /// </summary>
+    /// <param name="digest">The manifest's digest.</param>
+    /// <param name="bytes">Its bytes, exactly as pushed.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <returns><see langword="false"/> when the store does not permit the write.</returns>
+    public async Task<bool> WriteManifestFileAsync(OciDigest digest, byte[] bytes, CancellationToken cancellationToken)
+    {
+        CreateAlgorithmFolder(digest);
+        using var source = new MemoryStream(bytes);
+
+        return await store.WriteUploadAsync(store.MapRequestPathForCaller(digest.BlobPathIn(Name), caller), source, cancellationToken) == ContentUploadResult.Written;
+    }
+
+    /// <summary>
+    /// Opens an upload session staged in the repository's <c>blobs</c> folder: the content store's
+    /// upload session keeps the bytes in a hidden temporary file there until they are complete.
+    /// </summary>
+    /// <param name="id">The session's UUID.</param>
+    /// <param name="cancellationToken">Cancels the opening.</param>
+    /// <returns>The session, or <see langword="null"/> when the store does not permit the upload.</returns>
+    public async Task<OciUploadSession?> OpenUploadSessionAsync(string id, CancellationToken cancellationToken)
+    {
+        store.CreateDirectory(Map("blobs"));
+        var stagingPath = $"/{Name}/blobs/oci-upload-{id}";
+        var opening = await store.OpenUploadAsync(
+            store.MapRequestPathForCaller(stagingPath, caller),
+            new ContentUploadOpening(StartsFromExistingBytes: false, CreatesMissingFile: true, RefusesExistingFile: false),
+            cancellationToken);
+
+        return opening.Session is { } staging ? new OciUploadSession(id, Name, stagingPath, staging) : null;
+    }
+
+    /// <summary>
+    /// Moves a complete upload's bytes to the blob file of <paramref name="digest"/>: committed to
+    /// the session's staging file, then renamed over <c>blobs/&lt;algorithm&gt;/&lt;hex&gt;</c>.
+    /// </summary>
+    /// <param name="session">The session, whose bytes hash to <paramref name="digest"/>.</param>
+    /// <param name="digest">The blob's digest.</param>
+    /// <param name="cancellationToken">Cancels the commit.</param>
+    /// <returns><see langword="false"/> when the store does not permit the commit or the rename.</returns>
+    public async Task<bool> StoreBlobAsync(OciUploadSession session, OciDigest digest, CancellationToken cancellationToken)
+    {
+        CreateAlgorithmFolder(digest);
+
+        // Never TooLarge here: an upload past the limit was answered 413 before it could complete.
+        _ = await session.Staging.CommitAsync(cancellationToken);
+        var staged = store.MapRequestPathForCaller(session.StagingPath, caller);
+
+        return store.RenameEntry(staged, store.MapRequestPathForCaller(digest.BlobPathIn(Name), caller)) == ContentChangeResult.Done;
+    }
+
+    /// <summary>
+    /// Copies a blob's bytes to <paramref name="destination"/>.
+    /// </summary>
+    /// <param name="blob">A blob of this repository.</param>
+    /// <param name="destination">Where the bytes go.</param>
+    /// <param name="cancellationToken">Cancels the copy.</param>
+    /// <returns>A task that completes once every byte is copied.</returns>
+    public async Task CopyBlobAsync(OciFoundBlob blob, Stream destination, CancellationToken cancellationToken)
+    {
+        if (blob.Length > 0)
+        {
+            await store.CopyFileBytesAsync(blob.Mapping, ContentByteRange.WholeFile(blob.Length), destination, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Deletes the blob file of <paramref name="digest"/>.
+    /// </summary>
+    /// <param name="digest">The digest.</param>
+    /// <returns>What the store did.</returns>
+    public ContentChangeResult DeleteBlobFile(OciDigest digest) =>
+        store.DeleteFile(store.MapRequestPathForCaller(digest.BlobPathIn(Name), caller));
+
+    private void CreateAlgorithmFolder(OciDigest digest)
+    {
+        store.CreateDirectory(Map("blobs"));
+        store.CreateDirectory(Map($"blobs/{digest.Algorithm}"));
+    }
+
+    private ContentPathMapping Map(string relativePath) => store.MapRequestPathForCaller($"/{Name}/{relativePath}", caller);
+
     private async Task<OciDescriptor?> FindTaggedAsync(string tag, CancellationToken cancellationToken) =>
         OciNames.IsTag(tag)
             ? (await ReadIndexAsync(cancellationToken)).FirstOrDefault(descriptor => descriptor.Tag == tag)

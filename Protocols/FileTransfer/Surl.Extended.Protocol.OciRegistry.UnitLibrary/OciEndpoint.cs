@@ -27,6 +27,18 @@ internal enum OciEndpoint
     Manifest,
 
     /// <summary>
+    /// end-4 and end-11, <c>/v2/&lt;name&gt;/blobs/uploads/</c>: opening an upload, a single
+    /// <c>POST</c>, or a mount.
+    /// </summary>
+    Uploads,
+
+    /// <summary>
+    /// end-5, end-6 and end-13, <c>/v2/&lt;name&gt;/blobs/uploads/&lt;reference&gt;</c>: one
+    /// upload session.
+    /// </summary>
+    UploadSession,
+
+    /// <summary>
     /// end-8, <c>/v2/&lt;name&gt;/tags/list</c>.
     /// </summary>
     TagsList,

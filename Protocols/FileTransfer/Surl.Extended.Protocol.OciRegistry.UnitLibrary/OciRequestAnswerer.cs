@@ -8,18 +8,20 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <summary>
 /// Decides the answer to each registry request on one connection (ADR-0115, decisions 1 and 5):
 /// <c>/v2/</c>, manifest and blob pulls, the tag list and the referrers API, each failure with
-/// the distribution specification's JSON error body.
+/// the distribution specification's JSON error body; uploads, pushes and deletes go to
+/// <see cref="OciWriteAnswerer"/>.
 /// </summary>
 /// <remarks>
 /// The order is decision 4.1's, without the token check BL-438 adds: the path's endpoint
 /// (<c>404 UNSUPPORTED</c>), the method (<c>405 UNSUPPORTED</c> with <c>Allow</c>), the name
-/// (<c>400 NAME_INVALID</c>), the repository (<c>404 NAME_UNKNOWN</c>), then the endpoint's own
-/// checks. Every request is served as the anonymous caller on <c>oci</c>, so a share closed to
-/// anonymous callers holds no repository.
+/// (<c>400 NAME_INVALID</c>), then a write's own checks, or a read's repository (<c>404
+/// NAME_UNKNOWN</c>) and the endpoint's own checks. Every request is served as the anonymous
+/// caller on <c>oci</c>, so a share closed to anonymous callers holds no repository.
 /// </remarks>
 /// <param name="store">The shared content store whose folders are the repositories.</param>
+/// <param name="state">The server's upload sessions and index lock.</param>
 /// <param name="context">The exchange: its clock and log.</param>
-internal sealed class OciRequestAnswerer(ContentStore store, ExchangeContext context) : IHttpRequestHandler
+internal sealed class OciRequestAnswerer(ContentStore store, OciServerState state, ExchangeContext context) : IHttpRequestHandler
 {
     private static readonly byte[] EmptyObject = "{}"u8.ToArray();
 
@@ -44,14 +46,25 @@ internal sealed class OciRequestAnswerer(ContentStore store, ExchangeContext con
             : await AnswerInRepositoryAsync(reply, request, target, cancellationToken);
     }
 
-    private static string AllowedMethods(OciEndpoint endpoint) =>
-        endpoint is OciEndpoint.Blob or OciEndpoint.Manifest ? "GET, HEAD" : "GET";
+    private static string AllowedMethods(OciEndpoint endpoint) => endpoint switch
+    {
+        OciEndpoint.Blob => "GET, HEAD, DELETE",
+        OciEndpoint.Manifest => "GET, HEAD, PUT, DELETE",
+        OciEndpoint.Uploads => "POST",
+        OciEndpoint.UploadSession => "GET, PATCH, PUT, DELETE",
+        _ => "GET",
+    };
 
     private async Task<HttpAnswer> AnswerInRepositoryAsync(OciReply reply, HttpRequest request, OciRequestTarget target, CancellationToken cancellationToken)
     {
         if (!OciNames.IsRepositoryName(target.Name))
         {
             return reply.Error(OciError.NameInvalid);
+        }
+
+        if (OciWriteAnswerer.IsWrite(target.Endpoint, request.Method))
+        {
+            return await new OciWriteAnswerer(store, state, context).AnswerAsync(reply, request, target, cancellationToken);
         }
 
         if (OciRepository.Open(store, ContentCaller.Anonymous(OciRegistryProtocolServer.Scheme), target.Name, context.Log) is not { } repository)
@@ -71,7 +84,7 @@ internal sealed class OciRequestAnswerer(ContentStore store, ExchangeContext con
 
         if (target.Endpoint == OciEndpoint.Blob)
         {
-            return BlobAsync(reply, repository, target.Reference, RangeField(request), cancellationToken);
+            return BlobAsync(reply, repository, target.Reference, OciRequestFields.Value(request, "Range"), cancellationToken);
         }
 
         return target.Endpoint == OciEndpoint.TagsList
@@ -96,7 +109,4 @@ internal sealed class OciRequestAnswerer(ContentStore store, ExchangeContext con
         OciDigest.Parse(target.Reference) is { } subject
             ? await OciReferrers.AnswerAsync(reply, repository, subject, target.Query, cancellationToken)
             : reply.Error(OciError.DigestInvalid);
-
-    private static string? RangeField(HttpRequest request) =>
-        request.Fields.FirstOrDefault(field => string.Equals(field.Key, "Range", StringComparison.OrdinalIgnoreCase)).Value;
 }
