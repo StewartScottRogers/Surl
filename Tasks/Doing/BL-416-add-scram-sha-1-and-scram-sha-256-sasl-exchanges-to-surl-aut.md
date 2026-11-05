@@ -52,3 +52,4 @@ server) can offer them for accounts in the accounts file.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
