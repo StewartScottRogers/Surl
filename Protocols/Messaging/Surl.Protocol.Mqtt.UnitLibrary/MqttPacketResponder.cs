@@ -20,6 +20,11 @@ internal sealed class MqttPacketResponder
     private readonly IAuthenticationPolicy authenticationPolicy;
     private bool connected;
 
+    // The account the bus checks every publish and subscribe against (ADR-0102, decision 3.4):
+    // the CONNECT's user name when the policy checked it and found an account, otherwise
+    // null, an anonymous caller - a login accepted unchecked proves no account.
+    private string? account;
+
     /// <summary>
     /// Creates a responder for one connection.
     /// </summary>
@@ -93,7 +98,8 @@ internal sealed class MqttPacketResponder
     private static bool TryReadTopicName(MqttBodyReader reader, out string topic) =>
         reader.TryReadString(out topic) && MqttTopicNames.ToCanonicalTopic(topic).IsMapped;
 
-    private static bool TryReadSubscriptions(MqttBodyReader reader, List<string> filters, List<byte> returnCodes)
+    // Each filter as sent, or null for one that is not a valid MQTT topic filter.
+    private static bool TryReadSubscriptions(MqttBodyReader reader, List<string?> filters)
     {
         while (!reader.IsAtEnd)
         {
@@ -102,15 +108,25 @@ internal sealed class MqttPacketResponder
                 return false;
             }
 
-            var isValid = MqttTopicNames.ToCanonicalFilter(filter).IsMapped;
-            returnCodes.Add(isValid ? GrantedQualityOfService : SubscriptionFailure);
-            if (isValid)
-            {
-                filters.Add(filter);
-            }
+            filters.Add(MqttTopicNames.ToCanonicalFilter(filter).IsMapped ? filter : null);
         }
 
         return true;
+    }
+
+    // SUBACK's return code for each filter, in order: granted at QoS 0, or 0x80 for a filter
+    // that is invalid or that the bus refused (MQTT 3.1.1, section 3.9.3).
+    private static List<byte> ReturnCodesFor(List<string?> filters, IReadOnlyList<bool> validFiltersGranted)
+    {
+        var returnCodes = new List<byte>(filters.Count);
+        var validIndex = 0;
+        foreach (var filter in filters)
+        {
+            var granted = filter is not null && validFiltersGranted[validIndex++];
+            returnCodes.Add(granted ? GrantedQualityOfService : SubscriptionFailure);
+        }
+
+        return returnCodes;
     }
 
     private static bool TryReadSubscription(MqttBodyReader reader, out string filter) =>
@@ -171,6 +187,7 @@ internal sealed class MqttPacketResponder
         var login = new PasswordLogin(context.Scheme, judgement.UserName, judgement.Password, connection.TlsSession);
         var loginVerdict = await authenticationPolicy.CheckPasswordLoginAsync(login, context.CancellationToken);
         NoteCheckedLogin(login, loginVerdict);
+        account = loginVerdict == PasswordLoginVerdict.Accepted ? login.UserName : null;
 
         return loginVerdict switch
         {
@@ -231,14 +248,26 @@ internal sealed class MqttPacketResponder
         }
 
         // Every publish is kept as its topic's retained message, RETAIN set or not (ADR-0014).
-        var published = bus.Publish(new BusMessage(topic, reader.Remaining.ToArray())
+        var message = new BusMessage(topic, reader.Remaining.ToArray())
         {
             Retain = true,
             QualityOfService = (BusQualityOfService)qualityOfService,
-        });
-        return published.Outcome == MessageBusOutcome.Succeeded
-            ? SaveAndAcknowledgePublishAsync(qualityOfService, packetIdentifier)
-            : CloseForViolation($"PUBLISH would take the retained messages past their bounds ({published.Outcome})");
+        };
+        return bus.Publish(message, account).Outcome switch
+        {
+            MessageBusOutcome.Succeeded => SaveAndAcknowledgePublishAsync(qualityOfService, packetIdentifier),
+            MessageBusOutcome.AccessDenied => DropDeniedPublishAsync(topic, qualityOfService, packetIdentifier),
+            var outcome => CloseForViolation($"PUBLISH would take the retained messages past their bounds ({outcome})"),
+        };
+    }
+
+    // MQTT 3.1.1 has no negative acknowledgement, so a publish --topic-access refuses is dropped
+    // - nothing retained, delivered or logged - noted, and acknowledged as any other at its QoS,
+    // and the connection goes on (ADR-0102, decision 3.4; measured R14).
+    private ValueTask<bool> DropDeniedPublishAsync(string topic, int qualityOfService, ushort packetIdentifier)
+    {
+        context.Log.Note($"PUBLISH to '{topic}' refused by --topic-access for {CallerDescription}; dropped.");
+        return AcknowledgePublishAsync(qualityOfService, packetIdentifier);
     }
 
     private async ValueTask<bool> SaveAndAcknowledgePublishAsync(int qualityOfService, ushort packetIdentifier)
@@ -286,25 +315,35 @@ internal sealed class MqttPacketResponder
             return CloseForViolation("SUBSCRIBE had no topic filter");
         }
 
-        var filters = new List<string>();
-        var returnCodes = new List<byte>();
-        return TryReadSubscriptions(reader, filters, returnCodes)
-            ? DeliverRetainedAsync(packetIdentifier, returnCodes, filters)
+        var filters = new List<string?>();
+        return TryReadSubscriptions(reader, filters)
+            ? DeliverRetainedAsync(packetIdentifier, filters)
             : CloseForViolation("SUBSCRIBE was malformed");
     }
 
-    private async ValueTask<bool> DeliverRetainedAsync(ushort packetIdentifier, List<byte> returnCodes, List<string> filters)
+    private async ValueTask<bool> DeliverRetainedAsync(ushort packetIdentifier, List<string?> filters)
     {
-        await WriteAsync(MqttPacketEncoder.SubscribeAcknowledgement(packetIdentifier, returnCodes));
-        var matching = MqttBusRetainedMessages.MatchingAny(bus, filters);
-        foreach (var (topic, payload) in matching)
+        var reading = MqttBusRetainedMessages.Read(bus, account, [.. filters.OfType<string>()]);
+        await WriteAsync(MqttPacketEncoder.SubscribeAcknowledgement(packetIdentifier, ReturnCodesFor(filters, reading.Granted)));
+        foreach (var (topic, payload) in reading.Matching)
         {
             await WriteAsync(MqttPacketEncoder.RetainedPublish(topic, payload));
         }
 
-        context.Log.Note($"SUBSCRIBE: {matching.Count} retained messages delivered; sent DISCONNECT and closed.");
+        NoteDeniedSubscriptions(reading.Granted.Count(granted => !granted));
+        context.Log.Note($"SUBSCRIBE: {reading.Matching.Count} retained messages delivered; sent DISCONNECT and closed.");
         return await SendAndCloseAsync(MqttPacketEncoder.Disconnect);
     }
+
+    private void NoteDeniedSubscriptions(int deniedCount)
+    {
+        if (deniedCount > 0)
+        {
+            context.Log.Note($"SUBSCRIBE: {deniedCount} topic filters refused by --topic-access for {CallerDescription}; answered SUBACK 0x80 for each.");
+        }
+    }
+
+    private string CallerDescription => account is null ? "an anonymous caller" : $"account '{account}'";
 
     private ValueTask<bool> AnswerUnsubscribeAsync(MqttPacket packet)
     {

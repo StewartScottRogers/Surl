@@ -18,6 +18,13 @@ Every `CONNECT`'s user name and password (the will is read and skipped) go to th
 constructor takes the policy, so no server is made without one; tests pass
 `AnonymousAuthenticationPolicy`.
 
+Every publish and subscribe goes to the bus with the connection's account - the `CONNECT`'s
+user name when the policy answered `Accepted`, otherwise anonymous (a login `AcceptedUnchecked`
+proves no account) - so the bus's `--topic-access` grants decide it (ADR-0102 decision 3.4,
+BL-665). A refused filter is `SUBACK` return code `0x80`, then the usual `DISCONNECT`; a refused
+publish is dropped (nothing retained or delivered), noted, and acknowledged as any other at its
+QoS, since MQTT 3.1.1 has no negative acknowledgement, and the connection goes on.
+
 After every publish the server calls the bus's `SaveChangesAsync`; a `StorageFailed` result
 is noted in the exchange log and the change stays in memory. Whether anything is written is
 the bus's: `Surl.Composition` composes one bus per run and loads it from `<path>/.surl` with

@@ -22,5 +22,5 @@ internal static class TestMessageBus
 
     /// <summary>The retained messages <paramref name="filters"/> match, read as a subscribe reads them.</summary>
     public static IReadOnlyList<KeyValuePair<string, byte[]>> MatchingAny(this MessageBus.MessageBus bus, IReadOnlyList<string> filters) =>
-        MqttBusRetainedMessages.MatchingAny(bus, filters);
+        MqttBusRetainedMessages.Read(bus, account: null, filters).Matching;
 }
