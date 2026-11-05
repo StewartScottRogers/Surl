@@ -24,7 +24,11 @@ What it holds now (BL-629):
   `BusConnection.Subscribe` makes a `BusSubscription` whose callback receives every later
   matching `BusMessage`, in publish order, once per subscription, and one member of each
   matching fan-out group round robin. Delivery is serialised and runs outside the bus's lock,
-  so a callback may publish or subscribe; it must not block.
+  so a callback may publish or subscribe; it must not block. For MQTT 5 (BL-498):
+  `BusConnection.Publish` publishes for the connection's account, marked as its own, and a
+  subscription made with `noLocal` is not handed such a message; `BusConnection.AfterMessageDelivered`
+  is called once a live message has been handed to all of that connection's subscriptions it
+  reached, so a server can send overlapping matches once. BL-715 adds these to ADR-0100.
 - **Retained messages.** One per topic: a `Retain` publish replaces it, an empty retained
   payload removes it, and a subscribe with `includeRetained` is offered the matching ones in
   ordinal order of topic. An expired message is never delivered and is dropped from the

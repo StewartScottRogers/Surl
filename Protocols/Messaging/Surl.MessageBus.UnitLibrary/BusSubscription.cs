@@ -34,7 +34,15 @@ public sealed class BusSubscription : IDisposable
     /// </summary>
     public string? Group { get; }
 
+    /// <summary>
+    /// Whether a message its own connection published through <see cref="BusConnection.Publish"/>
+    /// is kept from it (MQTT 5's No Local option); a message published any other way still reaches it.
+    /// </summary>
+    public bool NoLocal { get; internal init; }
+
     internal BusConnection Connection { get; }
+
+    internal bool KeepsFrom(BusConnection? publisher) => NoLocal && publisher == Connection;
 
     internal string[] FilterLevels { get; }
 

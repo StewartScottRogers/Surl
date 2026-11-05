@@ -22,6 +22,14 @@ public sealed class BusConnection : IDisposable
     /// </summary>
     public string? Account { get; }
 
+    /// <summary>
+    /// Called with each live message once it has been handed to every one of this connection's
+    /// subscriptions it reached, after their callbacks and on the same terms; <see langword="null"/>
+    /// for none. A server whose protocol sends a message matching several of a client's
+    /// subscriptions once (MQTT 5.0 section 3.3.4) gathers the callbacks and sends here.
+    /// </summary>
+    public Action<BusMessage>? AfterMessageDelivered { get; set; }
+
     internal int SubscriptionCount { get; set; }
 
     internal bool IsClosed { get; set; }
@@ -39,16 +47,29 @@ public sealed class BusConnection : IDisposable
     /// (<see cref="BusSubscription.Group"/>).</param>
     /// <param name="includeRetained">Whether to return the retained messages the filter matches,
     /// as MQTT's subscribe does; no other protocol asks (ADR-0100, decision 3.3).</param>
+    /// <param name="noLocal">Whether messages this connection publishes through
+    /// <see cref="Publish"/> are kept from the subscription, as MQTT 5's No Local option asks
+    /// (<see cref="BusSubscription.NoLocal"/>).</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.AccessDenied"/> when the configured
     /// grants give <see cref="Account"/> no <c>sub</c> covering the filter - the subscription when
     /// made, and the retained messages asked for.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="deliver"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
-    public BusSubscribeResult Subscribe(string filter, Action<BusMessage> deliver, string? group = null, bool includeRetained = false)
+    public BusSubscribeResult Subscribe(string filter, Action<BusMessage> deliver, string? group = null, bool includeRetained = false, bool noLocal = false)
     {
         ArgumentNullException.ThrowIfNull(deliver);
-        return bus.Subscribe(this, filter, deliver, group, includeRetained);
+        return bus.Subscribe(this, filter, deliver, group, includeRetained, noLocal);
     }
+
+    /// <summary>
+    /// Publishes <paramref name="message"/> as <see cref="MessageBus.Publish(BusMessage, string?)"/>
+    /// does for <see cref="Account"/>, marked as this connection's own, so this connection's
+    /// <see cref="BusSubscription.NoLocal"/> subscriptions do not receive it.
+    /// </summary>
+    /// <param name="message">The message.</param>
+    /// <returns>The outcome and how many subscriptions it was handed to.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
+    public BusPublishResult Publish(BusMessage message) => bus.Publish(message, Account, this);
 
     /// <summary>
     /// Declares a named queue (AMQP 0-9-1 <c>queue.declare</c>): makes it when absent, and

@@ -168,7 +168,7 @@ public sealed partial class MessageBus
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
     public BusPublishResult Publish(BusMessage message) => Publish(message, account: null);
 
-    internal BusSubscribeResult Subscribe(BusConnection connection, string filter, Action<BusMessage> deliver, string? group, bool includeRetained)
+    internal BusSubscribeResult Subscribe(BusConnection connection, string filter, Action<BusMessage> deliver, string? group, bool includeRetained, bool noLocal)
     {
         if (!CanonicalTopicName.IsValidFilter(filter))
         {
@@ -189,7 +189,7 @@ public sealed partial class MessageBus
                 return new(MessageBusOutcome.TooManySubscriptions, null, []);
             }
 
-            var subscription = new BusSubscription(this, connection, filter, group, deliver);
+            var subscription = new BusSubscription(this, connection, filter, group, deliver) { NoLocal = noLocal };
             subscriptions.Add(subscription);
             connection.SubscriptionCount++;
             var retained = includeRetained ? RetainedMatching(subscription.FilterLevels, now) : [];
@@ -265,7 +265,7 @@ public sealed partial class MessageBus
         : message.Payload.Length > MaxMessageBytes ? MessageBusOutcome.MessageTooLarge
         : MessageBusOutcome.Succeeded;
 
-    private BusPublishResult Accept(BusMessage published, DateTimeOffset now)
+    private BusPublishResult Accept(BusMessage published, DateTimeOffset now, BusConnection? publisher)
     {
         var (outcome, logAppend) = PlanLogAppend(published);
         if (outcome is MessageBusOutcome.Succeeded && published.Retain)
@@ -280,7 +280,7 @@ public sealed partial class MessageBus
 
         var logOffset = AppendToLog(published, logAppend);
         var topicLevels = CanonicalTopicName.SplitLevels(published.Topic);
-        var targets = SelectTargets(topicLevels);
+        var targets = SelectTargets(topicLevels, publisher);
         if (targets.Count > 0)
         {
             waitingDeliveries.Enqueue(() => DeliverToSubscriptions(published, targets));
@@ -295,6 +295,11 @@ public sealed partial class MessageBus
         foreach (var subscription in targets)
         {
             subscription.Deliver(message);
+        }
+
+        foreach (var connection in targets.Select(subscription => subscription.Connection).Distinct())
+        {
+            connection.AfterMessageDelivered?.Invoke(message);
         }
     }
 
@@ -330,11 +335,11 @@ public sealed partial class MessageBus
         }
     }
 
-    private List<BusSubscription> SelectTargets(string[] topicLevels)
+    private List<BusSubscription> SelectTargets(string[] topicLevels, BusConnection? publisher)
     {
         var targets = new List<BusSubscription>();
         var groups = new Dictionary<(string Group, string Filter), List<BusSubscription>>();
-        foreach (var subscription in subscriptions.Where(subscription => CanonicalTopicName.FilterMatches(subscription.FilterLevels, topicLevels)))
+        foreach (var subscription in subscriptions.Where(subscription => CanonicalTopicName.FilterMatches(subscription.FilterLevels, topicLevels) && !subscription.KeepsFrom(publisher)))
         {
             if (subscription.Group is { } group)
             {

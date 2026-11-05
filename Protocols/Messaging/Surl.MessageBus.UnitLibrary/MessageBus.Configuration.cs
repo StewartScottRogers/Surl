@@ -60,7 +60,11 @@ public sealed partial class MessageBus
     /// <param name="account">The publisher's account, or <see langword="null"/> for an anonymous one.</param>
     /// <returns>The outcome and how many subscriptions it was handed to.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
-    public BusPublishResult Publish(BusMessage message, string? account)
+    public BusPublishResult Publish(BusMessage message, string? account) => Publish(message, account, publisher: null);
+
+    // The publisher, when a connection published through BusConnection.Publish, keeps the
+    // message from that connection's No Local subscriptions.
+    internal BusPublishResult Publish(BusMessage message, string? account, BusConnection? publisher)
     {
         ArgumentNullException.ThrowIfNull(message);
         var refusal = Refusal(message);
@@ -81,7 +85,7 @@ public sealed partial class MessageBus
         }
 
         var published = WithDeclaredAttributes(Copy(message, now));
-        return ChangeState(() => Accept(published, now));
+        return ChangeState(() => Accept(published, now, publisher));
     }
 
     private static (DeclaredTopic Topic, string[] Levels)[] SplitDeclaredTopics(MessageBusConfiguration configuration) =>
