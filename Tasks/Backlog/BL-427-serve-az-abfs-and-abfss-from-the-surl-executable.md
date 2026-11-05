@@ -42,6 +42,10 @@ decides. Its `--aihelp` topic and help category exist, and the extension switch 
 
 ## Notes
 
+- BL-423 decided (ADR-0109 decision 6): `az` and `abfss` implicit TLS, `abfs` plain HTTP; this task also adds
+  `--az-plaintext` (no argument, category `azure-storage`, warned on start) and refuses a bearer token over plain
+  text unless `--allow-plaintext-auth`. The `--aihelp` topic is `azure-storage` (decision 8).
+
 ## Log
 
 - 2026-11-04: Created.

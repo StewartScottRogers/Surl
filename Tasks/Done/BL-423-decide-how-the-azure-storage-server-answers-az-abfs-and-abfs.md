@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/AzureStorage.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-423 — Decide how the Azure Storage server answers az, abfs and abfss
 
@@ -54,17 +54,35 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each wire choice citing its REST API
       page, and is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/AzureStorage.md` exists in BL-543's ADR's matrix format, with every
+- [x] `Documentation/Conformance/Extended/AzureStorage.md` exists in BL-543's ADR's matrix format, with every
       server-binding requirement of the pages above, each "covered by" naming BL-424, BL-425 or
       BL-426, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0109 (next free number; ADR-0108 was the last). Pages read live on 2026-11-05: "Authorize with Microsoft
+  Entra ID" (the Bearer challenge's exact 401 and `WWW-Authenticate`), "Common REST API error codes", "Blob
+  Storage error codes", Data Lake "Path - Create", "Path - Update" and "Path - List" (codes, messages, the
+  `DataLakeStorageError` shape, the Path schema's integer and boolean types).
+- Main choices, each with its reason in the ADR: the listen scheme picks Blob or Data Lake; the account is never
+  a namespace (one shared store), path-style `/<account>/…` only for IP-literal or `localhost` hosts; unserved
+  requests get the pages' own `UnsupportedHttpVerb`, `InvalidQueryParameterValue` or `UnsupportedHeader` rather
+  than Azurite's unlisted `501 NotImplemented`; leases, snapshots, ACLs, append and page blobs refused because
+  other protocols would write past them; Bearer checked opaquely; Shared Key and service/account SAS served,
+  user delegation SAS refused; `--az-plaintext` added beside `--s3-plaintext`.
+- The Curl port's client uploads in blocks from 8 MiB, which BL-425 does not cover, so the ADR serves Put Block
+  and Put Block List. Filed BL-714 (Shared Key and SAS; needs `Surl.Authentication` and Abstractions, after
+  BL-420), BL-715 (blocks) and BL-716 (List Containers, Data Lake rename, properties and filesystem requests).
+  The matrix's "covered by" therefore also names those three and BL-427 (TLS and the option), for rows BL-424 to
+  BL-426 do not build; a row naming only BL-424 to BL-426 would have left them unowned.
+- Added a Notes line to BL-427 for `--az-plaintext` and the plain-text bearer rule.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0109 decides how az, abfs and abfss are answered; AzureStorage.md traces every server row to BL-424 to BL-427 or BL-714 to BL-716
