@@ -1,5 +1,5 @@
 ---
-id: BL-739
+id: BL-745
 title: Close a DTLS association with close_notify before its 48-bit sequence number wraps
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-739 — Close a DTLS association with close_notify before its 48-bit sequence number wraps
+# BL-745 — Close a DTLS association with close_notify before its 48-bit sequence number wraps
 
 ## Goal
 

@@ -85,7 +85,7 @@ Choices taken as sensible defaults (rule 1):
 Touches: added `Documentation/Planning/Decisions/ADR-0087-how-surls-dtls-1-2-server-handshakes-for-coaps.md` for
 the amendment. No task in Doing names it.
 
-Follow-up filed: BL-739 (`close_notify` before the 48-bit sequence number wraps, ADR-0087 decision 8).
+Follow-up filed: BL-745 (`close_notify` before the 48-bit sequence number wraps, ADR-0087 decision 8).
 
 ## Log
 
