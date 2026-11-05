@@ -41,3 +41,4 @@ socket (`http-unix`), TLS-SRP (`httptls+srp`, `httptls+srp-ipv6`) and the test D
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
