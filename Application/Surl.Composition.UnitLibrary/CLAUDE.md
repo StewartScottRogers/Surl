@@ -54,6 +54,11 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
 
 - `AuthenticationComposition` - the accounts (`--user`, `--user-file`), `--authorized-keys`, the
   `--auth` methods and the `AuthenticationPolicy` (ADR-0032); `WriteLooseningWarnings`.
+- `AccountGroupExpansion` - every `--group` expanded to account names once the accounts are read
+  (ADR-0102 decision 4.1), refusing `everyone` and `@everyone` (4.2), a member naming no account or
+  group and a group that includes itself (ADR-0101 decision 5 row 18), each `(2)`; `Expand` turns a
+  later option's member list into account names, and `WriteStartLines` writes each group's `-v`
+  note after the other start lines. It rides on the start's `ComposedAuthentication`.
 - `KeytabComposition` - the `--keytab` file and its `KerberosAcceptor` (ADR-0057 decision 1),
   with `RandomKerberosRandomSource`; `WriteStartLines`.
 - `SshHostKeyComposition` - the `--hostkey`, `--throwaway-hostkey` and `--hostcert` host keys

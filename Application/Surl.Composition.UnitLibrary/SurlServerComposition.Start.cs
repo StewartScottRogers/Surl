@@ -151,10 +151,17 @@ public static partial class SurlServerComposition
             return (null, new SurlStartFailure(exitCode, [failureMessage!]));
         }
 
+        // The groups, expanded over every account once --user-file is read (ADR-0102 decisions 4.1 and 5).
+        var (accountGroups, groupFailureMessage) = AccountGroupExpansion.Compose(commandLine.Groups, accountNames);
+        if (accountGroups is null)
+        {
+            return (null, new SurlStartFailure(SurlExitCode.FailedInit, [groupFailureMessage!]));
+        }
+
         var (sshHostKeys, hostKeyExitCode, hostKeyFailureMessage) = SshHostKeyComposition.Compose(commandLine, readStartFile);
         return sshHostKeys is null
             ? (null, new SurlStartFailure(hostKeyExitCode, [hostKeyFailureMessage!]))
-            : (new ComposedAuthentication(policy, accountNames, skippedKeytabEntries, sshHostKeys), null);
+            : (new ComposedAuthentication(policy, accountNames, accountGroups, skippedKeytabEntries, sshHostKeys), null);
     }
 
     private static async Task<SurlServerStart> LockThenComposeAsync(

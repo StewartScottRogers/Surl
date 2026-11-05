@@ -83,6 +83,27 @@ public sealed class ComposedServingTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_GroupsAtVerbose_NoteEachGroupBeforeTheStatusLine()
+    {
+        using var log = new StringWriter();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var bound = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var serving = await ComposeAsync(
+            new StartTestSeams(), "-v", "-u", "alice:a", "-u", "bob:b", "--group", "ops=alice", "--group", "all=@ops,bob", "http://127.0.0.1:0");
+
+        var serve = serving.ServeAsync(StartTestSeams.Outputs(log, _ => bound.SetResult()), stop.Token);
+        await bound.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        await serve;
+
+        Assert.AreEqual(
+            $"* Group ops: 1 accounts{Environment.NewLine}"
+            + $"* Group all: 2 accounts{Environment.NewLine}"
+            + $"Listening on http://127.0.0.1:{FakeListenerFactory.BoundPort}/{Environment.NewLine}",
+            log.ToString());
+    }
+
+    [TestMethod]
     public async Task ServeAsync_SilentLevel_WritesNoStatusLineAndNoThrowawayCertificateLine()
     {
         using var log = new StringWriter();

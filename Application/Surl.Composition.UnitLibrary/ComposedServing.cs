@@ -128,6 +128,9 @@ public sealed class ComposedServing : IAsyncDisposable
         // The --throwaway-hostkey and --allow-weak-ssh-algorithms warnings, then each SSH host key's note
         // (ADR-0051, decisions 8 and 11).
         authentication.SshHostKeys.WriteStartLines(commandLine, log);
+
+        // Each group's note, after the warnings (ADR-0102 decision 5).
+        authentication.AccountGroups.WriteStartLines(commandLine.LogLevel, log);
     }
 
     private static void WriteThrowawayCertificateLines(LogLevel logLevel, string fingerprint, TextWriter log)

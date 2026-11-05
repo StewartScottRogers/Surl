@@ -119,6 +119,35 @@ public sealed partial class SurlServerCompositionTests
     }
 
     [TestMethod]
+    [DataRow(new[] { "--group", "ops=dave" }, "(2) option --group: member dave names no account or group", DisplayName = "An unknown member")]
+    [DataRow(new[] { "--group", "ops=@ops" }, "(2) option --group: group ops includes itself", DisplayName = "A cycle")]
+    public async Task ComposeAsync_ARefusedGroup_FailsWithFailedInitBeforeAnyListenerBinds(string[] arguments, string message)
+    {
+        var listenerFactory = new FakeListenerFactory();
+
+        var start = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.Parse([.. arguments, "-u", "alice:secret", "http://127.0.0.1:0"]),
+            new StartTestSeams(listenerFactory).Seams,
+            TestContext.CancellationToken);
+
+        Assert.AreEqual(SurlExitCode.FailedInit, start.Failure!.ExitCode);
+        CollectionAssert.AreEqual(new[] { message }, start.Failure.Lines.ToArray());
+        Assert.IsNull(start.Serving);
+    }
+
+    [TestMethod]
+    public async Task ComposeAsync_AGroupOfAUserFileAccount_ExpandsAfterTheUserFileIsRead()
+    {
+        var seams = new StartTestSeams().Seams with { ReadStartFile = _ => "carol:secret\n"u8.ToArray() };
+
+        var start = await SurlServerComposition.ComposeAsync(
+            StartTestSeams.Parse("--group", "ops=carol", "--user-file", "users.txt", "http://127.0.0.1:0"), seams, TestContext.CancellationToken);
+        await using var serving = start.Serving;
+
+        Assert.IsNull(start.Failure, start.Failure?.Lines.FirstOrDefault());
+    }
+
+    [TestMethod]
     public async Task ComposeAsync_AMalformedHostKeyFile_FailsWithFailedInit()
     {
         var seams = new StartTestSeams().Seams with { ReadStartFile = _ => "not a key"u8.ToArray() };
