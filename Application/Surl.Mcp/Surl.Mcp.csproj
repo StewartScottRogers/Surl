@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- The executable is surl-mcp, Surl's MCP server on standard input and output (ADR-0103 decision 2). -->
+    <AssemblyName>surl-mcp</AssemblyName>
+    <RootNamespace>Surl.Mcp</RootNamespace>
+    <!--
+      Native ahead-of-time is the shipping configuration and the default (ADR-0103 decision 7), as for surl:
+      `dotnet publish` produces the binary that ships. It needs the MSVC linker and vswhere.exe on PATH
+      (C:\Program Files (x86)\Microsoft Visual Studio\Installer); a machine that cannot link native code opts
+      out per publish with -p:PublishAot=false.
+    -->
+    <PublishAot Condition=" '$(PublishAot)' == '' ">true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Mcp.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Mcp.UnitLibrary\Surl.Mcp.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

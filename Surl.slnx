@@ -67,6 +67,7 @@
     <Project Path="Application/Surl.Console/Surl.Console.csproj" />
     <Project Path="Application/Surl.Mcp.UnitLibrary/Surl.Mcp.UnitLibrary.csproj" />
     <Project Path="Application/Surl.Mcp.UnitTests/Surl.Mcp.UnitTests.csproj" />
+    <Project Path="Application/Surl.Mcp/Surl.Mcp.csproj" />
   </Folder>
 
   <Folder Name="/Conformance/">
