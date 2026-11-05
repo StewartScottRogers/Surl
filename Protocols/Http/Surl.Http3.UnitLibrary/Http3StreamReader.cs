@@ -112,7 +112,29 @@ internal sealed class Http3StreamReader(QuicApplicationConnection connection, Qu
         }
     }
 
-    private async ValueTask<ulong> ReadIntegerAsync(CancellationToken cancellationToken)
+    /// <summary>Copies what is buffered, or the next piece to arrive, into <paramref name="destination"/>.</summary>
+    /// <param name="destination">Where the bytes go.</param>
+    /// <param name="cancellationToken">Cuts the wait off.</param>
+    /// <returns>How many bytes were copied; 0 once the stream has ended (its <c>FIN</c>, a reset, or the connection's end).</returns>
+    public async ValueTask<int> ReadAsync(Memory<byte> destination, CancellationToken cancellationToken)
+    {
+        if (!await HasMoreAsync(cancellationToken))
+        {
+            return 0;
+        }
+
+        var count = Math.Min(destination.Length, end - start);
+        buffer.AsMemory(start, count).CopyTo(destination);
+        start += count;
+        return count;
+    }
+
+    /// <summary>Reads a variable-length integer.</summary>
+    /// <param name="cancellationToken">Cuts the read off.</param>
+    /// <returns>The integer.</returns>
+    /// <exception cref="Http3ConnectionException">The client's <c>FIN</c> ended the stream before the integer was whole (<c>H3_FRAME_ERROR</c>).</exception>
+    /// <exception cref="Http3StreamAbandonedException">The client reset the stream, or the connection ended, before it was whole.</exception>
+    public async ValueTask<ulong> ReadIntegerAsync(CancellationToken cancellationToken)
     {
         await RequireMoreAsync(cancellationToken);
         var bytes = await ReadExactlyAsync(QuicVariableLengthInteger.LengthFromFirstByte(buffer[start]), cancellationToken);

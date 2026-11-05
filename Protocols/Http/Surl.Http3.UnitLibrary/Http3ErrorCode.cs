@@ -1,11 +1,15 @@
 namespace Surl.Http3;
 
 /// <summary>
-/// The HTTP/3 error codes (RFC 9114 section 8.1), and QPACK's (RFC 9204 section 6), that close an
-/// HTTP/3 connection, reset a request stream or ask the client to stop sending on one.
+/// The HTTP/3 error codes (RFC 9114 section 8.1), QPACK's (RFC 9204 section 6) and HTTP datagrams'
+/// (RFC 9297 section 5.2), that close an HTTP/3 connection, reset a request stream or ask the
+/// client to stop sending on one.
 /// </summary>
 public enum Http3ErrorCode : ulong
 {
+    /// <summary><c>H3_DATAGRAM_ERROR</c>: an HTTP datagram's quarter stream ID is cut short or past 2^60 - 1 (RFC 9297 section 2.1).</summary>
+    DatagramError = 0x33,
+
     /// <summary><c>H3_NO_ERROR</c>: no error; the connection or stream simply ends.</summary>
     NoError = 0x100,
 
@@ -29,6 +33,9 @@ public enum Http3ErrorCode : ulong
 
     /// <summary><c>H3_EXCESSIVE_LOAD</c>: a frame other than <c>DATA</c> is longer than <c>--max-message</c> (ADR-0082 decision 7).</summary>
     ExcessiveLoad = 0x107,
+
+    /// <summary><c>H3_ID_ERROR</c>: a stream's header names a session ID that is not a client-initiated bidirectional stream ID.</summary>
+    IdError = 0x108,
 
     /// <summary><c>H3_SETTINGS_ERROR</c>: a <c>SETTINGS</c> frame repeats a setting or carries an HTTP/2 one.</summary>
     SettingsError = 0x109,

@@ -32,6 +32,16 @@ namespace Surl.Http3;
 /// streams off and closes with <c>H3_NO_ERROR</c>. When the client ends the connection the server
 /// just stops.
 /// </para>
+/// <para>
+/// With <see cref="Http3ServerOptions.ExtendedConnectHandlers"/> registered (ADR-0086 decision 3),
+/// the server's <c>SETTINGS</c> add <c>SETTINGS_ENABLE_CONNECT_PROTOCOL</c> = 1 and
+/// <c>SETTINGS_H3_DATAGRAM</c> = 1, then <see cref="Http3ServerOptions.FurtherSettings"/>; each QUIC
+/// <c>DATAGRAM</c> is an HTTP datagram handed to the session its quarter stream ID names (one cut
+/// short or past 2^60 - 1 is <c>H3_DATAGRAM_ERROR</c>, one for no open session is dropped); and a
+/// client unidirectional stream of a registered type is read as its type and a session ID and
+/// handed over, a session ID that is not a client-initiated bidirectional stream ID being
+/// <c>H3_ID_ERROR</c>. With none registered, every byte the server sends is as before.
+/// </para>
 /// </remarks>
 /// <param name="handler">Serves every request stream whose request is well formed.</param>
 /// <param name="options">The server's options.</param>
@@ -48,6 +58,7 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
     private readonly ExchangeContext context = context ?? throw new ArgumentNullException(nameof(context));
     private readonly Http3FieldSections fieldSections = new(context.Limits.MaxMessageBytes);
     private readonly Http3FrameLimit frameLimit = new(context.Limits.MaxMessageBytes);
+    private readonly Http3ExtendedConnect extendedConnect = new(options.ExtendedConnectHandlers, context.Log);
     private readonly Lock gate = new();
     private readonly List<Task> serving = [];
     private readonly HashSet<ulong> criticalStreamTypes = [];
@@ -63,6 +74,11 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
         var control = await OpenServerStreamsAsync(connection, cancellationToken);
         if (control is not null)
         {
+            if (extendedConnect.IsEnabled)
+            {
+                Start(() => DeliverDatagramsAsync(connection, streamsToken.Token), failure, streamsToken.Token);
+            }
+
             await AcceptStreamsAsync(connection, failure, streamsToken.Token);
         }
 
@@ -74,7 +90,7 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
     // Null when the client's transport parameters leave no room for the three streams.
     private async Task<QuicStream?> OpenServerStreamsAsync(QuicApplicationConnection connection, CancellationToken cancellationToken)
     {
-        var control = await OpenServerStreamAsync(connection, [.. QuicVariableLengthInteger.Encode(ControlStreamType), .. Http3FrameWriter.Settings(context.Limits.MaxMessageBytes)], cancellationToken);
+        var control = await OpenServerStreamAsync(connection, [.. QuicVariableLengthInteger.Encode(ControlStreamType), .. Http3FrameWriter.Settings(context.Limits.MaxMessageBytes, [.. extendedConnect.Settings(), .. options.FurtherSettings])], cancellationToken);
         var encoder = await OpenServerStreamAsync(connection, QuicVariableLengthInteger.Encode(QpackEncoderStreamType), cancellationToken);
         var decoder = await OpenServerStreamAsync(connection, QuicVariableLengthInteger.Encode(QpackDecoderStreamType), cancellationToken);
         if (control is null || encoder is null || decoder is null)
@@ -105,7 +121,7 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
             if (stream.IsBidirectional)
             {
                 nextRequestStreamId = stream.Id + 4;
-                Start(() => new Http3RequestStreamServer(connection, reader, handler, options, context, fieldSections).ServeAsync(cancellationToken), failure, cancellationToken);
+                Start(() => new Http3RequestStreamServer(connection, reader, handler, options, context, fieldSections, extendedConnect).ServeAsync(cancellationToken), failure, cancellationToken);
             }
             else
             {
@@ -176,10 +192,32 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
         await (type switch
         {
             null => NoteEndedBeforeType(reader),
-            > QpackDecoderStreamType => StopUnknownStreamAsync(connection, reader, type.Value, cancellationToken),
+            > QpackDecoderStreamType => ServeOtherStreamAsync(connection, reader, type.Value, cancellationToken),
             PushStreamType => throw new Http3ConnectionException(Http3ErrorCode.StreamCreationError, $"the client opened push stream {reader.StreamId}"),
             _ => ServeCriticalStreamAsync(reader, type.Value, cancellationToken), // control, QPACK encoder or QPACK decoder
         });
+    }
+
+    // RFC 9297 section 2.1: each QUIC DATAGRAM is a quarter stream ID and a payload, until the connection ends.
+    private async Task DeliverDatagramsAsync(QuicApplicationConnection connection, CancellationToken cancellationToken)
+    {
+        while (await connection.ReceiveDatagramAsync(cancellationToken) is { } datagram)
+        {
+            extendedConnect.Deliver(datagram);
+        }
+    }
+
+    // A registered unidirectional stream type is followed by a session ID and handed over; any other is unknown.
+    private async Task ServeOtherStreamAsync(QuicApplicationConnection connection, Http3StreamReader reader, ulong type, CancellationToken cancellationToken)
+    {
+        if (extendedConnect.HandlerForStreamType(type) is not { } claimant)
+        {
+            await StopUnknownStreamAsync(connection, reader, type, cancellationToken);
+            return;
+        }
+
+        var sessionId = await reader.ReadIntegerAsync(cancellationToken);
+        await extendedConnect.HandOverAsync(claimant, new Http3SessionStream(connection, reader, sessionId), cancellationToken);
     }
 
     private Task NoteEndedBeforeType(Http3StreamReader reader)
@@ -228,7 +266,7 @@ public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Ht
             frameLimit.Check(header, reader.StreamId);
             if (header.Type == Http3FrameType.Settings)
             {
-                Http3Settings.Validate(await reader.ReadExactlyAsync((int)header.Length, cancellationToken));
+                extendedConnect.ReceiveClientSettings(Http3Settings.Read(await reader.ReadExactlyAsync((int)header.Length, cancellationToken)));
                 hasSettings = true;
                 continue;
             }

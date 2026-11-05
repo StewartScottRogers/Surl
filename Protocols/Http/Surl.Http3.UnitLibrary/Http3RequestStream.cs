@@ -31,6 +31,7 @@ public sealed class Http3RequestStream
     private readonly Http3StreamReader reader;
     private readonly Http3FieldSections fieldSections;
     private readonly Http3FrameLimit frameLimit;
+    private readonly Http3ExtendedConnect extendedConnect;
     private readonly IExchangeLog log;
     private ulong dataRemaining;
     private long received;
@@ -43,6 +44,7 @@ public sealed class Http3RequestStream
     /// <param name="reader">The request stream.</param>
     /// <param name="fieldSections">The connection's QPACK.</param>
     /// <param name="frameLimit">The longest frame other than <c>DATA</c>.</param>
+    /// <param name="extendedConnect">The connection's registrations, whose stream signals may not arrive as frames.</param>
     /// <param name="head">The validated request head.</param>
     /// <param name="isBodyAnnounced">Whether the stream may still carry a body.</param>
     /// <param name="log">The exchange log.</param>
@@ -51,6 +53,7 @@ public sealed class Http3RequestStream
         Http3StreamReader reader,
         Http3FieldSections fieldSections,
         Http3FrameLimit frameLimit,
+        Http3ExtendedConnect extendedConnect,
         Http3RequestHead head,
         bool isBodyAnnounced,
         IExchangeLog log)
@@ -59,6 +62,7 @@ public sealed class Http3RequestStream
         this.reader = reader;
         this.fieldSections = fieldSections;
         this.frameLimit = frameLimit;
+        this.extendedConnect = extendedConnect;
         this.log = log;
         Head = head;
         IsRequestBodyAnnounced = isBodyAnnounced;
@@ -226,6 +230,11 @@ public sealed class Http3RequestStream
         if (Http3FrameType.IsUnexpectedOnRequestStream(header.Type))
         {
             throw new Http3ConnectionException(Http3ErrorCode.FrameUnexpected, $"a frame of type 0x{header.Type:x} arrived on request stream {Id}");
+        }
+
+        if (extendedConnect.HandlerForSignal(header.Type) is not null)
+        {
+            throw new Http3ConnectionException(Http3ErrorCode.FrameError, $"the stream signal 0x{header.Type:x} arrived on request stream {Id} after its first frame");
         }
 
         frameLimit.Check(header, Id);

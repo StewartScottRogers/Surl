@@ -26,6 +26,16 @@ namespace Surl.Http3;
 /// unless it already stopped the stream. Connection errors are thrown as
 /// <see cref="Http3ConnectionException"/> for the connection to close with.
 /// </para>
+/// <para>
+/// With extended <c>CONNECT</c> handlers registered (ADR-0086 decision 3), a request carrying
+/// <c>:protocol</c> goes to the handler for that protocol as an
+/// <see cref="Http3ExtendedConnectSession"/>, or, when none is registered for it, is answered
+/// <c>:status 501</c> with <c>FIN</c> and then <c>STOP_SENDING</c> <c>H3_NO_ERROR</c> (RFC 9220
+/// section 3: "SHOULD respond ... with a 501 (Not Implemented)"). A stream whose first integer is a
+/// registered bidirectional stream signal is read as that signal and a session ID and handed over
+/// as an <see cref="Http3SessionStream"/>; the signal anywhere later on a request stream is
+/// <c>H3_FRAME_ERROR</c>.
+/// </para>
 /// </remarks>
 /// <param name="connection">The connection.</param>
 /// <param name="reader">The request stream.</param>
@@ -33,13 +43,15 @@ namespace Surl.Http3;
 /// <param name="options">The server's options.</param>
 /// <param name="context">The exchange: its clock, limits and log.</param>
 /// <param name="fieldSections">The connection's QPACK.</param>
+/// <param name="extendedConnect">The connection's extended <c>CONNECT</c> registrations and sessions.</param>
 internal sealed class Http3RequestStreamServer(
     QuicApplicationConnection connection,
     Http3StreamReader reader,
     IHttp3RequestStreamHandler handler,
     Http3ServerOptions options,
     ExchangeContext context,
-    Http3FieldSections fieldSections)
+    Http3FieldSections fieldSections,
+    Http3ExtendedConnect extendedConnect)
 {
     private readonly Http3FrameLimit frameLimit = new(context.Limits.MaxMessageBytes);
 
@@ -84,7 +96,7 @@ internal sealed class Http3RequestStreamServer(
             throw new Http3ConnectionException(Http3ErrorCode.QpackDecompressionFailed, $"the field section of stream {Stream.Id} could not be decoded: {decoded.Error}");
         }
 
-        var (head, malformation) = Http3RequestHeadMapping.Map(decoded.FieldLines);
+        var (head, malformation) = Http3RequestHeadMapping.Map(decoded.FieldLines, extendedConnect.IsEnabled);
         if (head is null)
         {
             await AbortAsync(Http3ErrorCode.MessageError, $"the request is malformed: {malformation}", cancellationToken);
@@ -118,8 +130,17 @@ internal sealed class Http3RequestStreamServer(
 
     private async Task<byte[]?> ReadHeadersFrameAsync(CancellationToken readToken, CancellationToken cancellationToken)
     {
-        while (await reader.ReadFrameHeaderAsync(readToken) is { } header)
+        var isFirst = true;
+        while (await reader.ReadIntegerOrEndAsync(readToken) is { } type)
         {
+            if (extendedConnect.HandlerForSignal(type) is { } claimant)
+            {
+                await ClaimAsync(claimant, type, isFirst, readToken, cancellationToken);
+                return null;
+            }
+
+            isFirst = false;
+            var header = new Http3FrameHeader(type, await reader.ReadIntegerAsync(readToken));
             if (header.Type == Http3FrameType.Headers)
             {
                 return frameLimit.IsTooLong(header)
@@ -140,6 +161,18 @@ internal sealed class Http3RequestStreamServer(
         return null;
     }
 
+    // A stream that opens with a registered signal belongs to a session (WebTransport's 0x41); later, the signal is malformed.
+    private async Task ClaimAsync(IHttp3ExtendedConnectHandler claimant, ulong signal, bool isFirst, CancellationToken readToken, CancellationToken cancellationToken)
+    {
+        if (!isFirst)
+        {
+            throw new Http3ConnectionException(Http3ErrorCode.FrameError, $"the stream signal 0x{signal:x} arrived on request stream {Stream.Id} after its first frame");
+        }
+
+        var sessionId = await reader.ReadIntegerAsync(readToken);
+        await extendedConnect.HandOverAsync(claimant, new Http3SessionStream(connection, reader, sessionId), cancellationToken);
+    }
+
     private async Task<byte[]?> AnswerHeadersTooLongAsync(Http3FrameHeader header, CancellationToken cancellationToken)
     {
         await AnswerFieldSectionTooLargeAsync($"its {header.Length}-byte HEADERS is past the {frameLimit.MaxLength}-byte message limit", cancellationToken);
@@ -150,23 +183,38 @@ internal sealed class Http3RequestStreamServer(
     private async Task AnswerFieldSectionTooLargeAsync(string reason, CancellationToken cancellationToken)
     {
         context.Log.Note($"Stream {Stream.Id} was answered 431 and stopped with H3_NO_ERROR: {reason}.");
-        QpackFieldLine[] lines = options.ServerFieldValue is { } server
-            ? [new(":status", "431"), new("server", server), new("content-length", "0")]
-            : [new(":status", "431"), new("content-length", "0")];
-        await connection.WriteAsync(Stream, Http3FrameWriter.Frame(Http3FrameType.Headers, fieldSections.Encode(lines)), true, cancellationToken);
+        await connection.WriteAsync(Stream, Http3FrameWriter.Frame(Http3FrameType.Headers, fieldSections.Encode(FixedAnswer("431"))), true, cancellationToken);
         await connection.StopSendingAsync(Stream, (ulong)Http3ErrorCode.NoError, cancellationToken);
     }
 
     private async Task HandAsync(Http3RequestHead head, CancellationToken cancellationToken)
     {
-        var isAnnounced = head.ContentLength > 0 || head.ExpectsContinue || (head.ContentLength is null && await reader.HasMoreAsync(cancellationToken));
-        var stream = new Http3RequestStream(connection, reader, fieldSections, frameLimit, head, isAnnounced, context.Log);
-        await handler.ServeRequestStreamAsync(stream, cancellationToken);
+        // An extended CONNECT's stream stays open for capsules, which never wait on a HasMoreAsync.
+        var isAnnounced = head.Protocol is not null || head.ContentLength > 0 || head.ExpectsContinue || (head.ContentLength is null && await reader.HasMoreAsync(cancellationToken));
+        var stream = new Http3RequestStream(connection, reader, fieldSections, frameLimit, extendedConnect, head, isAnnounced, context.Log);
+        await (head.Protocol is { } protocol ? ServeExtendedConnectAsync(stream, protocol, cancellationToken) : handler.ServeRequestStreamAsync(stream, cancellationToken));
         if (stream.IsRequestBodyStillArriving && !stream.HasStoppedRequest)
         {
             await stream.StopRequestAsync(Http3ErrorCode.NoError, cancellationToken);
         }
     }
+
+    private async Task ServeExtendedConnectAsync(Http3RequestStream stream, string protocol, CancellationToken cancellationToken)
+    {
+        if (extendedConnect.HandlerForProtocol(protocol) is { } sessionHandler)
+        {
+            await extendedConnect.ServeAsync(new Http3ExtendedConnectSession(connection, stream, sessionHandler, extendedConnect, frameLimit), cancellationToken);
+            return;
+        }
+
+        // RFC 9220 section 3: an unknown or unsupported :protocol SHOULD be answered 501 (Not Implemented).
+        context.Log.Note($"Stream {Stream.Id} was answered 501: no handler serves the extended CONNECT protocol {protocol}.");
+        await stream.WriteHeadersAsync(FixedAnswer("501"), endStream: true, cancellationToken);
+    }
+
+    private QpackFieldLine[] FixedAnswer(string status) => options.ServerFieldValue is { } server
+        ? [new(":status", status), new("server", server), new("content-length", "0")]
+        : [new(":status", status), new("content-length", "0")];
 
     // A stream error (RFC 9114 section 8): the answer side is reset and the client asked to stop.
     private async Task AbortAsync(Http3ErrorCode code, string reason, CancellationToken cancellationToken)

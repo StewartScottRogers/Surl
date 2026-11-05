@@ -11,10 +11,12 @@ namespace Surl.Http3;
 /// </summary>
 /// <remarks>
 /// Malformed: a pseudo-header field after a regular one, one that is unknown (<c>:protocol</c>
-/// included, since no server enables extended <c>CONNECT</c> yet; ADR-0082, decision 9) or
-/// repeated, or a missing <c>:method</c>; a request other than <c>CONNECT</c> without
-/// <c>:scheme</c> or with an empty or missing <c>:path</c>, and a <c>CONNECT</c> without
-/// <c>:authority</c> or with <c>:scheme</c> or <c>:path</c>; a field name that is empty or holds
+/// included unless the server enables extended <c>CONNECT</c>; ADR-0082 decision 9, ADR-0086
+/// decision 3) or repeated, or a missing <c>:method</c>; a request other than <c>CONNECT</c> without
+/// <c>:scheme</c> or with an empty or missing <c>:path</c>, a <c>CONNECT</c> without
+/// <c>:authority</c> or with <c>:scheme</c> or <c>:path</c>, and a <c>:protocol</c> on a request
+/// that is not a <c>CONNECT</c> with <c>:scheme</c>, <c>:authority</c> and a <c>:path</c> that is
+/// not empty (RFC 9220 section 3, RFC 8441 section 4); a field name that is empty or holds
 /// an uppercase letter, a control character, a space or a byte past 0x7E; a value holding NUL,
 /// CR or LF or starting or ending with a space or tab; a connection-specific field
 /// (<c>connection</c>, <c>keep-alive</c>, <c>proxy-connection</c>, <c>transfer-encoding</c>,
@@ -26,21 +28,33 @@ public static class Http3RequestHeadMapping
 {
     private static readonly string[] PseudoHeaderFields = [":method", ":scheme", ":authority", ":path"];
 
+    private static readonly string[] ExtendedConnectPseudoHeaderFields = [.. PseudoHeaderFields, ":protocol"];
+
     private static readonly string[] ConnectionSpecificFields = ["connection", "keep-alive", "proxy-connection", "transfer-encoding", "upgrade"];
+
+    /// <summary>
+    /// Maps <paramref name="fields"/> for a server that does not enable extended <c>CONNECT</c>.
+    /// </summary>
+    /// <param name="fields">The decoded header section, in the order received.</param>
+    /// <returns>The head, or <see langword="null"/> and why the request is malformed.</returns>
+    public static (Http3RequestHead? Head, string? Malformation) Map(IReadOnlyList<QpackFieldLine> fields) => Map(fields, isExtendedConnectEnabled: false);
 
     /// <summary>
     /// Maps <paramref name="fields"/>.
     /// </summary>
     /// <param name="fields">The decoded header section, in the order received.</param>
+    /// <param name="isExtendedConnectEnabled">Whether the server sent <c>SETTINGS_ENABLE_CONNECT_PROTOCOL</c> = 1, so <c>:protocol</c> may arrive.</param>
     /// <returns>The head, or <see langword="null"/> and why the request is malformed.</returns>
-    public static (Http3RequestHead? Head, string? Malformation) Map(IReadOnlyList<QpackFieldLine> fields)
+    public static (Http3RequestHead? Head, string? Malformation) Map(IReadOnlyList<QpackFieldLine> fields, bool isExtendedConnectEnabled)
     {
+        ArgumentNullException.ThrowIfNull(fields);
+        var allowed = isExtendedConnectEnabled ? ExtendedConnectPseudoHeaderFields : PseudoHeaderFields;
         var pseudoHeaders = new Dictionary<string, string>(StringComparer.Ordinal);
         var regularFields = new List<KeyValuePair<string, string>>();
         foreach (var field in fields)
         {
             var malformation = field.Name.StartsWith(':')
-                ? AddPseudoHeader(pseudoHeaders, field, regularFields.Count > 0)
+                ? AddPseudoHeader(pseudoHeaders, field, regularFields.Count > 0, allowed)
                 : RegularFieldMalformation(field);
             if (malformation is not null)
             {
@@ -56,14 +70,14 @@ public static class Http3RequestHeadMapping
         return MapHead(pseudoHeaders, regularFields);
     }
 
-    private static string? AddPseudoHeader(Dictionary<string, string> pseudoHeaders, QpackFieldLine field, bool followsRegularField)
+    private static string? AddPseudoHeader(Dictionary<string, string> pseudoHeaders, QpackFieldLine field, bool followsRegularField, string[] allowed)
     {
         if (followsRegularField)
         {
             return $"the pseudo-header field {field.Name} follows a regular field";
         }
 
-        if (!PseudoHeaderFields.Contains(field.Name, StringComparer.Ordinal))
+        if (!allowed.Contains(field.Name, StringComparer.Ordinal))
         {
             return $"the pseudo-header field {field.Name} is not one a request may carry";
         }
@@ -104,7 +118,11 @@ public static class Http3RequestHeadMapping
             return (null, "the request has no :method");
         }
 
-        var malformation = method == "CONNECT" ? ConnectMalformation(pseudoHeaders) : RequestTargetMalformation(pseudoHeaders);
+        var protocol = pseudoHeaders.GetValueOrDefault(":protocol");
+        var isPlainConnect = method == "CONNECT" && protocol is null;
+        var malformation = protocol is not null ? ExtendedConnectMalformation(pseudoHeaders, method)
+            : isPlainConnect ? ConnectMalformation(pseudoHeaders)
+            : RequestTargetMalformation(pseudoHeaders);
         if (malformation is not null)
         {
             return (null, malformation);
@@ -116,10 +134,16 @@ public static class Http3RequestHeadMapping
             return (null, "the content-length is not one number of decimal digits");
         }
 
-        var target = method == "CONNECT" ? pseudoHeaders[":authority"] : pseudoHeaders[":path"];
+        var target = isPlainConnect ? pseudoHeaders[":authority"] : pseudoHeaders[":path"];
 
-        return (new Http3RequestHead(method, target, Authority(pseudoHeaders, fields), fields, contentLength, ExpectsContinue(fields)), null);
+        return (new Http3RequestHead(method, target, Authority(pseudoHeaders, fields), fields, contentLength, ExpectsContinue(fields)) { Protocol = protocol }, null);
     }
+
+    // RFC 9220 section 3 by way of RFC 8441 section 4: :protocol only on CONNECT, which then carries :scheme and :path too.
+    private static string? ExtendedConnectMalformation(Dictionary<string, string> pseudoHeaders, string method) =>
+        method != "CONNECT" || !pseudoHeaders.ContainsKey(":authority") || RequestTargetMalformation(pseudoHeaders) is not null
+            ? "an extended CONNECT needs :method CONNECT, :scheme, :authority and a :path that is not empty"
+            : null;
 
     private static string? ConnectMalformation(Dictionary<string, string> pseudoHeaders) =>
         !pseudoHeaders.ContainsKey(":authority") || pseudoHeaders.ContainsKey(":scheme") || pseudoHeaders.ContainsKey(":path")

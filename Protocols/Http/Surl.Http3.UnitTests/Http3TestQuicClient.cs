@@ -51,13 +51,18 @@ internal class Http3TestQuicClient : IDisposable
 
     public QpackEncoder Encoder { get; } = new(HpackStringCoding.Raw);
 
-    /// <summary>Starts <paramref name="application"/> on a <see cref="QuicDatagramFlowServer"/> holding a certificate for <see cref="Key"/>.</summary>
-    public Task Serve(IQuicApplicationProtocol application, TimeProvider time, CancellationToken cancellationToken)
+    /// <summary>
+    /// Starts <paramref name="application"/> on a <see cref="QuicDatagramFlowServer"/> holding a
+    /// certificate for <see cref="Key"/>, sending <c>max_datagram_frame_size</c> when
+    /// <paramref name="maxDatagramFrameSize"/> names one.
+    /// </summary>
+    public Task Serve(IQuicApplicationProtocol application, TimeProvider time, CancellationToken cancellationToken, ulong? maxDatagramFrameSize = null)
     {
         var options = new QuicServerConnectionOptions
         {
             CertificateChain = [SelfSignedCertificate()],
             CertificateKey = Key,
+            MaxDatagramFrameSize = maxDatagramFrameSize,
         };
         Serving = new QuicDatagramFlowServer(options, application, time, RandomNumberGenerator.Create()).ServeAsync(Flow, cancellationToken);
         return Serving;

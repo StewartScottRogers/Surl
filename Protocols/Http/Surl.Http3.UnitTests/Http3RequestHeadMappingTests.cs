@@ -43,6 +43,41 @@ public sealed class Http3RequestHeadMappingTests
     }
 
     [TestMethod]
+    public void Map_ExtendedConnectWithExtendedConnectEnabled_TargetsItsPathAndCarriesItsProtocol()
+    {
+        var (head, malformation) = Http3RequestHeadMapping.Map(
+            Fields(":method CONNECT", ":protocol webtransport-h3", ":scheme https", ":authority example:443", ":path /echo"),
+            isExtendedConnectEnabled: true);
+
+        Assert.IsNull(malformation);
+        Assert.AreEqual("/echo", head!.Target);
+        Assert.AreEqual("example:443", head.Authority);
+        Assert.AreEqual("webtransport-h3", head.Protocol);
+    }
+
+    [TestMethod]
+    public void Map_RequestWithoutProtocolWithExtendedConnectEnabled_HasNoProtocol()
+    {
+        var (head, _) = Http3RequestHeadMapping.Map(Fields(":method CONNECT", ":authority example:443"), isExtendedConnectEnabled: true);
+
+        Assert.AreEqual("example:443", head!.Target);
+        Assert.IsNull(head.Protocol);
+    }
+
+    [TestMethod]
+    [DataRow(":method GET|:protocol websocket|:scheme https|:authority a|:path /", DisplayName = "Not a CONNECT")]
+    [DataRow(":method CONNECT|:protocol websocket|:scheme https|:path /", DisplayName = "No :authority")]
+    [DataRow(":method CONNECT|:protocol websocket|:authority a|:path /", DisplayName = "No :scheme")]
+    [DataRow(":method CONNECT|:protocol websocket|:scheme https|:authority a", DisplayName = "No :path")]
+    public void Map_MalformedExtendedConnect_NamesWhy(string fieldLines)
+    {
+        var (head, malformation) = Http3RequestHeadMapping.Map(Fields(fieldLines.Split('|')), isExtendedConnectEnabled: true);
+
+        Assert.IsNull(head);
+        Assert.AreEqual("an extended CONNECT needs :method CONNECT, :scheme, :authority and a :path that is not empty", malformation);
+    }
+
+    [TestMethod]
     [DataRow("accept */*|:method GET", "the pseudo-header field :method follows a regular field")]
     [DataRow(":method GET|:protocol websocket", "the pseudo-header field :protocol is not one a request may carry")]
     [DataRow(":method GET|:method GET", "the pseudo-header field :method is repeated")]
