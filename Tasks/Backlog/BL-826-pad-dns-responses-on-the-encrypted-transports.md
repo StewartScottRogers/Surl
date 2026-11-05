@@ -1,5 +1,5 @@
 ---
-id: BL-783
+id: BL-826
 title: Pad DNS responses on the encrypted transports
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-783 — Pad DNS responses on the encrypted transports
+# BL-826 — Pad DNS responses on the encrypted transports
 
 ## Goal
 

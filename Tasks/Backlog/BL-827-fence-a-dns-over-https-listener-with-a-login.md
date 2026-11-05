@@ -1,5 +1,5 @@
 ---
-id: BL-784
+id: BL-827
 title: Fence a DNS over HTTPS listener with a login
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-784 — Fence a DNS over HTTPS listener with a login
+# BL-827 — Fence a DNS over HTTPS listener with a login
 
 ## Goal
 

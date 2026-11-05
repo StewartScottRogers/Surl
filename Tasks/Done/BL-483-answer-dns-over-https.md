@@ -75,7 +75,7 @@ Choices made (sensible defaults inside ADR-0092 decision 5, decided by Claude un
 - The `dns` value is not percent-decoded: base64url needs no escaping, so `%` (like `=`, `+` or whitespace) is
   outside the alphabet and `400`.
 - Every answer carries `Date` and `Server: surl`, as the other HTTP-based extended servers do (RFC 9110 section 6.6.1).
-- Left to tasks filed here: EDNS(0) padding of DoH answers (BL-783) and the optional DoH login (BL-784). Binding the
+- Left to tasks filed here: EDNS(0) padding of DoH answers (BL-826) and the optional DoH login (BL-827). Binding the
   DoH listener with TLS and ALPN `h2`/`http/1.1` is BL-485's.
 
 ## Log
