@@ -33,9 +33,9 @@ public sealed class Mqtt5OutboundDeliveriesTests
         var deliveries = NewDeliveries(receiveMaximum: 1);
         var running = deliveries.RunAsync(cancellation.Token);
 
-        deliveries.Offer(Message(BusQualityOfService.ExactlyOnce), 2, retain: false);
+        deliveries.Offer(Message(BusQualityOfService.ExactlyOnce), 2, retain: false, []);
         CollectionAssert.AreEqual(new byte[] { 0x34, 0x06, 0x00, 0x01, 0x74, 0x00, 0x01, 0x00 }, await ReadWrittenAsync());
-        deliveries.Offer(Message(BusQualityOfService.ExactlyOnce), 2, retain: false);
+        deliveries.Offer(Message(BusQualityOfService.ExactlyOnce), 2, retain: false, []);
         Assert.IsNull(deliveries.Acknowledge(Response(Mqtt5PacketType.PublishReceived, 1, Mqtt5ReasonCode.UnspecifiedError)));
 
         CollectionAssert.AreEqual(new byte[] { 0x34, 0x06, 0x00, 0x01, 0x74, 0x00, 0x02, 0x00 }, await ReadWrittenAsync());
@@ -51,10 +51,10 @@ public sealed class Mqtt5OutboundDeliveriesTests
         var running = deliveries.RunAsync(cancellation.Token);
         deliveries.LastPacketIdentifier = ushort.MaxValue;
 
-        deliveries.Offer(Message(BusQualityOfService.AtLeastOnce), 1, retain: false);
+        deliveries.Offer(Message(BusQualityOfService.AtLeastOnce), 1, retain: false, []);
         CollectionAssert.AreEqual(new byte[] { 0x32, 0x06, 0x00, 0x01, 0x74, 0x00, 0x01, 0x00 }, await ReadWrittenAsync());
         deliveries.LastPacketIdentifier = 0;
-        deliveries.Offer(Message(BusQualityOfService.AtLeastOnce), 1, retain: false);
+        deliveries.Offer(Message(BusQualityOfService.AtLeastOnce), 1, retain: false, []);
 
         CollectionAssert.AreEqual(new byte[] { 0x32, 0x06, 0x00, 0x01, 0x74, 0x00, 0x02, 0x00 }, await ReadWrittenAsync());
         await cancellation.CancelAsync();

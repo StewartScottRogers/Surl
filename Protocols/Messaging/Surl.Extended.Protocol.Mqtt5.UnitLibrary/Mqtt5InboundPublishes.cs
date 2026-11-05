@@ -63,6 +63,14 @@ internal sealed class Mqtt5InboundPublishes(TopicNameLookup names, string scheme
     public void AwaitRelease(ushort packetIdentifier) => awaitingRelease.Add(packetIdentifier);
 
     /// <summary>
+    /// Whether a QoS 2 Packet Identifier awaits its <c>PUBREL</c>, so a <c>SUBSCRIBE</c> or
+    /// <c>UNSUBSCRIBE</c> reusing it is answered <c>0x91</c> Packet Identifier in use.
+    /// </summary>
+    /// <param name="packetIdentifier">The identifier.</param>
+    /// <returns><see langword="true"/> when it awaits release.</returns>
+    public bool IsAwaitingRelease(ushort packetIdentifier) => awaitingRelease.Contains(packetIdentifier);
+
+    /// <summary>
     /// Forgets a QoS 2 Packet Identifier on its <c>PUBREL</c>.
     /// </summary>
     /// <param name="packetIdentifier">The identifier.</param>

@@ -41,9 +41,10 @@ The broker so far answers CONNECT and what follows it (BL-496, ADR-0093 decision
 - `Mqtt5BrokerState` is shared by every connection of one broker: connected client identifiers,
   assigned `surl-<32 hex>` identifiers, Wills waiting out their delay on the context's
   `TimeProvider`, and the one `Surl.MessageBus` of the run (ADR-0100 decision 3.9), on which
-  every client PUBLISH and every Will is published for the client's account.
+  every Will is published for the client's account. A client PUBLISH goes through the client's own
+  `BusConnection.Publish`, so its No Local subscriptions miss it.
 - Still to come, and answered for now as stated: an Authentication Method is CONNACK `0x8C` until
-  BL-499 adds SCRAM; UNSUBSCRIBE is DISCONNECT `0x83` until BL-498; sessions are not kept
+  BL-499 adds SCRAM; sessions are not kept
   (Session Present is always 0) until BL-499; a CONNECT for a connected identifier does not yet
   take the session over (BL-679).
 
@@ -60,11 +61,6 @@ PUBLISH and the QoS flows (BL-497, ADR-0093 decision 4 as ADR-0100 decision 3.9 
   `0x10` when no subscription or queue took it, `0x87` topic access, `0x97` a bus bound,
   `MessageTooLarge` DISCONNECT `0x95`; a refused QoS 0 PUBLISH is dropped and noted. After a
   publish the connection calls `SaveChangesAsync` and notes a `StorageFailed`.
-- SUBSCRIBE in its plain form, so deliveries have somewhere to go: each filter is a bus
-  subscription (`$share/<g>/` a fan-out group) granted its Maximum QoS; SUBACK `0x8F`
-  unmappable, `0x87` topic access, `0x97` past the bus's subscriptions a connection. Retained
-  messages of a non-shared filter follow the SUBACK with RETAIN 1. BL-498 adds the options,
-  identifiers, replacement and UNSUBSCRIBE.
 - `Mqtt5OutboundDeliveries` sends what a client's subscriptions receive, from a bounded queue of
   1000 (a message past it is dropped for that client), beside the reading of packets and through
   the connection's one-at-a-time write: at the lower QoS, within the client's Receive Maximum,
@@ -73,7 +69,24 @@ PUBLISH and the QoS flows (BL-497, ADR-0093 decision 4 as ADR-0100 decision 3.9 
   seconds, and nothing that expired while it waited, that names a topic the client cannot name,
   or that is larger than the client's Maximum Packet Size.
 
-SUBSCRIBE in full (BL-498), sessions, DISCONNECT and AUTH (BL-499), `mqtt5+ws` (BL-500) and the
+SUBSCRIBE and UNSUBSCRIBE (BL-498, ADR-0093 decision 5):
+
+- `Mqtt5ClientSubscriptions` is one connection's subscriptions, keyed by the Topic Filter as
+  sent. Each filter is a bus subscription (`$share/<g>/` a fan-out group, round robin) granted
+  its Maximum QoS; an identical filter replaces it. SUBACK `0x8F` unmappable, `0x87` topic
+  access, `0x97` past the bus's subscriptions a connection, every filter `0x91` when the
+  Packet Identifier awaits PUBREL. Subscription Identifier 0, or No Local on a `$share/` filter,
+  is DISCONNECT `0x82`.
+- No Local is the bus's `noLocal` subscribe option. Retain As Published keeps a live message's
+  RETAIN. Retain Handling 0 offers retained messages at every subscribe, 1 only for a new
+  subscription, 2 never, and a shared subscription never; they follow the SUBACK with RETAIN 1.
+- Overlap (`[MQTT-3.3.4-2]`): non-shared subscriptions gather what the bus hands them, and
+  `BusConnection.AfterMessageDelivered` sends the message once, at the highest QoS, RETAIN when
+  any keeps it, with every Subscription Identifier in subscription order. A shared
+  subscription's delivery goes on its own, with its own identifier.
+- UNSUBSCRIBE: UNSUBACK `0x00` deleted, `0x11` none existed, `0x8F` invalid, `0x91` as above.
+
+Sessions, DISCONNECT and AUTH (BL-499), `mqtt5+ws` (BL-500) and the
 command line (BL-501) build on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.MessageBus.UnitLibrary`

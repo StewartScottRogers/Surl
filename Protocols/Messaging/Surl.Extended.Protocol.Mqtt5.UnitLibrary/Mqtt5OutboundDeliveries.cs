@@ -63,8 +63,9 @@ internal sealed class Mqtt5OutboundDeliveries
     /// <param name="message">The message.</param>
     /// <param name="grantedQualityOfService">The QoS the subscription granted.</param>
     /// <param name="retain">The RETAIN flag the delivery carries.</param>
-    public void Offer(BusMessage message, int grantedQualityOfService, bool retain) =>
-        waiting.Writer.TryWrite(new(message, Math.Min((int)message.QualityOfService, grantedQualityOfService), retain));
+    /// <param name="subscriptionIdentifiers">The Subscription Identifiers the delivery carries.</param>
+    public void Offer(BusMessage message, int grantedQualityOfService, bool retain, IReadOnlyList<uint> subscriptionIdentifiers) =>
+        waiting.Writer.TryWrite(new(message, Math.Min((int)message.QualityOfService, grantedQualityOfService), retain, subscriptionIdentifiers));
 
     /// <summary>
     /// Sends the queued messages, in order, until <paramref name="cancellationToken"/> is cancelled.
@@ -137,7 +138,7 @@ internal sealed class Mqtt5OutboundDeliveries
         }
 
         var (topicName, alias) = aliases.Assign(topic.Name);
-        var properties = Mqtt5BusMessages.PropertiesOf(delivery.Message, now);
+        var properties = PropertiesOf(delivery, now);
         if (alias is not null)
         {
             properties.Add(alias);
@@ -149,7 +150,7 @@ internal sealed class Mqtt5OutboundDeliveries
     // [MQTT-3.1.2-25]: a PUBLISH larger than the client's Maximum Packet Size is dropped as if sent.
     private bool Fits(Mqtt5Delivery delivery, string topicName, DateTimeOffset now)
     {
-        var size = Mqtt5PacketEncoder.Encode(PublishOf(delivery, topicName, 1, Mqtt5BusMessages.PropertiesOf(delivery.Message, now))).Length;
+        var size = Mqtt5PacketEncoder.Encode(PublishOf(delivery, topicName, 1, PropertiesOf(delivery, now))).Length;
         if (maxPacketBytes == 0 || size <= maxPacketBytes)
         {
             return true;
@@ -157,6 +158,14 @@ internal sealed class Mqtt5OutboundDeliveries
 
         context.Log.Note($"A message on {topicName} is larger than the client's Maximum Packet Size; not sent.");
         return false;
+    }
+
+    // The message's own properties, then a Subscription Identifier for each subscription it is sent for.
+    private static List<Mqtt5Property> PropertiesOf(Mqtt5Delivery delivery, DateTimeOffset now)
+    {
+        var properties = Mqtt5BusMessages.PropertiesOf(delivery.Message, now);
+        properties.AddRange(delivery.SubscriptionIdentifiers.Select(identifier => Mqtt5Property.FromInteger(Mqtt5PropertyIdentifier.SubscriptionIdentifier, identifier)));
+        return properties;
     }
 
     private void ReleaseSlot(int qualityOfService)

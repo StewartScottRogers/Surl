@@ -1,4 +1,3 @@
-using System.Collections.Frozen;
 using System.Runtime.ExceptionServices;
 using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
@@ -13,17 +12,8 @@ internal sealed class Mqtt5BrokerConnection
 {
     private const double KeepAliveGraceFactor = 1.5;
 
-    // Packets a client never sends once connected (section 3.1.0, [MQTT-4.12.0-7]): a second
-    // CONNECT, the packets only a server sends, and AUTH on a connection that used no method.
-    private static readonly FrozenSet<Mqtt5PacketType> ProtocolErrorsFromAClient = new[]
-    {
-        Mqtt5PacketType.Connect,
-        Mqtt5PacketType.ConnectAcknowledgement,
-        Mqtt5PacketType.SubscribeAcknowledgement,
-        Mqtt5PacketType.UnsubscribeAcknowledgement,
-        Mqtt5PacketType.PingResponse,
-        Mqtt5PacketType.Authentication,
-    }.ToFrozenSet();
+    // A shared subscription's Topic Filter starts with it (section 4.8.2).
+    private const string SharedSubscriptionPrefix = "$share/";
 
     private readonly IConnection connection;
     private readonly ExchangeContext context;
@@ -33,9 +23,9 @@ internal sealed class Mqtt5BrokerConnection
     private readonly Mqtt5InboundPublishes inbound;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly CancellationTokenSource deliveriesCancellation = new();
-    private Mqtt5ConnectedClient? connectedClient;
     private BusConnection? busConnection;
     private Mqtt5OutboundDeliveries? deliveries;
+    private Mqtt5ClientSubscriptions? subscriptions;
     private Task deliveriesRunning = Task.CompletedTask;
 
     /// <summary>
@@ -249,9 +239,9 @@ internal sealed class Mqtt5BrokerConnection
     // subscriptions receive, which runs beside the reading of its packets.
     private void StartDeliveries(Mqtt5ConnectedClient client)
     {
-        connectedClient = client;
         busConnection = state.Bus.Connect(client.Account);
         deliveries = new Mqtt5OutboundDeliveries(client, state.Bus.Names, context, WriteBytesAsync);
+        subscriptions = new Mqtt5ClientSubscriptions(busConnection, state.Bus.Names, context.Scheme, deliveries);
         deliveriesRunning = deliveries.RunAsync(deliveriesCancellation.Token);
     }
 
@@ -301,6 +291,7 @@ internal sealed class Mqtt5BrokerConnection
         Mqtt5PublishResponsePacket { ResponseType: Mqtt5PacketType.PublishRelease } release => AnswerReleaseAsync(release),
         Mqtt5PublishResponsePacket acknowledgement => AnswerAcknowledgementAsync(acknowledgement),
         Mqtt5SubscribePacket subscribe => AnswerSubscribeAsync(subscribe),
+        Mqtt5UnsubscribePacket unsubscribe => AnswerUnsubscribeAsync(unsubscribe),
         _ => AnswerControlPacketAsync(packet),
     };
 
@@ -318,9 +309,10 @@ internal sealed class Mqtt5BrokerConnection
                 : Mqtt5ConnectionEnd.ClosedAbnormally);
         }
 
-        return ProtocolErrorsFromAClient.Contains(packet.Type)
-            ? DisconnectAsync(Mqtt5ReasonCode.ProtocolError, $"A client sent {packet.Type} after CONNACK")
-            : DisconnectAsync(Mqtt5ReasonCode.ImplementationSpecificError, $"{packet.Type} is not answered by this broker yet");
+        // What is left is a packet a client never sends once connected (section 3.1.0,
+        // [MQTT-4.12.0-7]): a second CONNECT, a packet only a server sends, and AUTH on a
+        // connection that used no method.
+        return DisconnectAsync(Mqtt5ReasonCode.ProtocolError, $"A client sent {packet.Type} after CONNACK");
     }
 
     private async ValueTask<Mqtt5ConnectionEnd> AnswerPingAsync()
@@ -346,7 +338,8 @@ internal sealed class Mqtt5BrokerConnection
 
     private async ValueTask<Mqtt5ReasonCode> PublishAsync(Mqtt5ApplicationMessage message)
     {
-        var result = state.Publish(message, connectedClient!.Account, context.TimeProvider.GetUtcNow());
+        // Published through the client's own bus connection, so its No Local subscriptions miss it.
+        var result = busConnection!.Publish(Mqtt5BusMessages.ToBusMessage(message, context.TimeProvider.GetUtcNow()));
         if (result.Outcome == MessageBusOutcome.Succeeded)
         {
             await SaveBusChangesAsync();
@@ -415,37 +408,55 @@ internal sealed class Mqtt5BrokerConnection
     }
 
     // Each filter is a bus subscription; its retained messages follow the SUBACK with RETAIN 1.
+    // A Subscription Identifier of 0 (section 3.8.2.1.2) and No Local on a shared
+    // subscription ([MQTT-3.8.3-4]) are Protocol Errors; a Packet Identifier awaiting PUBREL is in use.
     private async ValueTask<Mqtt5ConnectionEnd> AnswerSubscribeAsync(Mqtt5SubscribePacket subscribe)
     {
+        var subscriptionIdentifier = Mqtt5ConnectJudge.Find(subscribe.Properties, Mqtt5PropertyIdentifier.SubscriptionIdentifier)?.Integer;
+        if (ProtocolErrorIn(subscribe, subscriptionIdentifier) is { } why)
+        {
+            return await DisconnectAsync(Mqtt5ReasonCode.ProtocolError, why);
+        }
+
         var retained = new List<Mqtt5Delivery>();
-        var reasonCodes = subscribe.Subscriptions.Select(subscription => Subscribe(subscription, retained)).ToList();
+        var reasonCodes = SubscribeEach(subscribe, subscriptionIdentifier, retained);
         await WriteAsync(new Mqtt5ReasonCodeListPacket(Mqtt5PacketType.SubscribeAcknowledgement, subscribe.PacketIdentifier, [], reasonCodes));
         foreach (var delivery in retained)
         {
-            deliveries!.Offer(delivery.Message, delivery.QualityOfService, retain: true);
+            deliveries!.Offer(delivery.Message, delivery.QualityOfService, delivery.Retain, delivery.SubscriptionIdentifiers);
         }
 
         return Mqtt5ConnectionEnd.StaysOpen;
     }
 
-    private Mqtt5ReasonCode Subscribe(Mqtt5Subscription subscription, List<Mqtt5Delivery> retained)
+    private static string? ProtocolErrorIn(Mqtt5SubscribePacket subscribe, uint? subscriptionIdentifier)
     {
-        var filter = state.Bus.Names.ToCanonicalFilter(context.Scheme, subscription.TopicFilter);
-        if (!filter.IsMapped)
+        if (subscriptionIdentifier == 0)
         {
-            return Mqtt5ReasonCode.TopicFilterInvalid;
+            return "A SUBSCRIBE carried Subscription Identifier 0 (3.8.2.1.2)";
         }
 
-        var granted = subscription.MaximumQualityOfService;
-        var outbound = deliveries!;
-        var result = busConnection!.Subscribe(filter.Name, message => outbound.Offer(message, granted, retain: false), filter.Group, includeRetained: filter.Group is null);
-        retained.AddRange(result.RetainedMessages.Select(message => new Mqtt5Delivery(message, granted, Retain: true)));
-        return result.Outcome switch
-        {
-            MessageBusOutcome.Succeeded => (Mqtt5ReasonCode)granted,
-            MessageBusOutcome.AccessDenied => Mqtt5ReasonCode.NotAuthorized,
-            _ => Mqtt5ReasonCode.QuotaExceeded,
-        };
+        return subscribe.Subscriptions.Any(IsNoLocalShared)
+            ? "A SUBSCRIBE set No Local on a shared subscription ([MQTT-3.8.3-4])"
+            : null;
+    }
+
+    private static bool IsNoLocalShared(Mqtt5Subscription subscription) =>
+        subscription.NoLocal && subscription.TopicFilter.StartsWith(SharedSubscriptionPrefix, StringComparison.Ordinal);
+
+    private List<Mqtt5ReasonCode> SubscribeEach(Mqtt5SubscribePacket subscribe, uint? subscriptionIdentifier, List<Mqtt5Delivery> retained) =>
+        inbound.IsAwaitingRelease(subscribe.PacketIdentifier)
+            ? [.. subscribe.Subscriptions.Select(_ => Mqtt5ReasonCode.PacketIdentifierInUse)]
+            : [.. subscribe.Subscriptions.Select(subscription => subscriptions!.Subscribe(subscription, subscriptionIdentifier, retained))];
+
+    // Section 3.10.4: each filter identical to a subscription deletes it; UNSUBACK has one code a filter.
+    private async ValueTask<Mqtt5ConnectionEnd> AnswerUnsubscribeAsync(Mqtt5UnsubscribePacket unsubscribe)
+    {
+        var reasonCodes = inbound.IsAwaitingRelease(unsubscribe.PacketIdentifier)
+            ? unsubscribe.TopicFilters.Select(_ => Mqtt5ReasonCode.PacketIdentifierInUse).ToList()
+            : unsubscribe.TopicFilters.Select(subscriptions!.Unsubscribe).ToList();
+        await WriteAsync(new Mqtt5ReasonCodeListPacket(Mqtt5PacketType.UnsubscribeAcknowledgement, unsubscribe.PacketIdentifier, [], reasonCodes));
+        return Mqtt5ConnectionEnd.StaysOpen;
     }
 
     // A refused second CONNECT is a Protocol Error whatever made it unreadable ([MQTT-3.1.0-2]).

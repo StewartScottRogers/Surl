@@ -37,8 +37,7 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// for one and a half times the Keep Alive in force is answered <c>DISCONNECT</c> <c>0x8D</c>. A
 /// second <c>CONNECT</c>, a packet only a server sends, and <c>AUTH</c> (no method was used) are
 /// answered <c>DISCONNECT</c> <c>0x82</c>; a refused packet <c>DISCONNECT</c> with its fault's
-/// reason code. <c>UNSUBSCRIBE</c> is answered <c>DISCONNECT</c> <c>0x83</c> Implementation
-/// specific error until BL-498 answers it. Each of those <c>DISCONNECT</c>s closes the connection.
+/// reason code. Each of those <c>DISCONNECT</c>s closes the connection.
 /// </para>
 /// <para>
 /// <b>PUBLISH</b> (ADR-0093 decision 4, amended by ADR-0100 decision 3.9). Each is judged by
@@ -56,15 +55,23 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// repeat of it before then is answered <c>PUBREC</c> again and not delivered again.
 /// </para>
 /// <para>
-/// <b>SUBSCRIBE</b>, in its plain form until BL-498 adds the subscription options, Subscription
-/// Identifiers and <c>UNSUBSCRIBE</c>: each Topic Filter becomes a bus subscription granted its
-/// Maximum QoS (<c>$share/&lt;group&gt;/</c> a fan-out group), answered in <c>SUBACK</c> with the
-/// QoS granted, <c>0x8F</c> for a filter the bus cannot map, <c>0x87</c> when topic access
-/// refuses it, or <c>0x97</c> past the bus's subscriptions a connection. The retained messages a
-/// non-shared filter matches follow the <c>SUBACK</c> with RETAIN 1; live messages go with RETAIN
-/// 0. <see cref="Mqtt5OutboundDeliveries"/> sends each at the lower of its QoS and the granted
-/// one, within the client's Receive Maximum, with Topic Aliases when the client allows them and
-/// the Message Expiry Interval left, dropping one that expired while it waited.
+/// <b>SUBSCRIBE</b> (ADR-0093 decision 5): <see cref="Mqtt5ClientSubscriptions"/> makes each
+/// Topic Filter a bus subscription granted its Maximum QoS (<c>$share/&lt;group&gt;/</c> a fan-out
+/// group, one member of which gets each message), replacing one to an identical filter. <c>SUBACK</c>
+/// answers each filter with the QoS granted, <c>0x8F</c> for a filter the bus cannot map, <c>0x87</c>
+/// when topic access refuses it, <c>0x97</c> past the bus's subscriptions a connection, and every
+/// filter <c>0x91</c> when the Packet Identifier awaits a <c>PUBREL</c>. A Subscription Identifier
+/// of 0, or No Local on a shared subscription, is <c>DISCONNECT</c> <c>0x82</c>. No Local keeps the
+/// client's own <c>PUBLISH</c>es from that subscription; Retain As Published keeps a live message's
+/// RETAIN, which otherwise goes as 0; Retain Handling 0 sends the matching retained messages after
+/// every <c>SUBACK</c>, 1 only for a new subscription, 2 never, and a shared subscription never, each
+/// with RETAIN 1. A message matching several non-shared subscriptions goes once, at the highest QoS
+/// granted, with every Subscription Identifier they carry. <c>UNSUBSCRIBE</c> is answered
+/// <c>UNSUBACK</c>: <c>0x00</c> for a deleted subscription, <c>0x11</c> for none, <c>0x8F</c> for an
+/// invalid filter, <c>0x91</c> as for <c>SUBSCRIBE</c>. <see cref="Mqtt5OutboundDeliveries"/> sends
+/// each message at the lower of its QoS and the granted one, within the client's Receive Maximum,
+/// with Topic Aliases when the client allows them and the Message Expiry Interval left, dropping one
+/// that expired while it waited.
 /// </para>
 /// <para>
 /// <b>The Will.</b> When a connection ends any other way than the client's <c>DISCONNECT</c>

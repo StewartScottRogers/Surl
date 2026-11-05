@@ -23,10 +23,12 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// Start 0 the session continues and the Will is discarded (<c>[MQTT-3.1.3-9]</c>).
 /// </para>
 /// <para>
-/// <b>Publishing.</b> Every message the broker publishes - a client's <c>PUBLISH</c> or a Will -
-/// goes to the one <see cref="Surl.MessageBus.MessageBus"/> composed per <c>surl</c> run (ADR-0100 decision 3.9),
+/// <b>Publishing.</b> Every message the broker publishes goes to the one
+/// <see cref="Surl.MessageBus.MessageBus"/> composed per <c>surl</c> run (ADR-0100 decision 3.9),
 /// for the account of the client that sent it, so its routing, retained messages and topic
-/// access are the bus's and every other messaging server sees it.
+/// access are the bus's and every other messaging server sees it: a Will through
+/// <see cref="Publish"/>, and a client's <c>PUBLISH</c> through its connection's own
+/// <see cref="Surl.MessageBus.BusConnection.Publish"/>, which No Local needs.
 /// </para>
 /// </remarks>
 public sealed class Mqtt5BrokerState

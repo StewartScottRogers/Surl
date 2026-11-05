@@ -240,18 +240,6 @@ public sealed partial class Mqtt5BrokerTests
     }
 
     [TestMethod]
-    [DataRow(new byte[] { 0xA2, 0x06, 0x00, 0x01, 0x00, 0x00, 0x01, 0x61 }, DisplayName = "UNSUBSCRIBE")]
-    public async Task ServeAsync_PacketNotAnsweredYet_DisconnectsWithImplementationSpecificError(byte[] packet)
-    {
-        var log = new RecordingExchangeLog();
-
-        var connection = await ServeAsync(Broker(), Context(new ManualTimeProvider(), TestContext.CancellationToken, log: log), Connect(), packet);
-
-        CollectionAssert.AreEqual(Disconnect(0x83), AfterConnackSuccess(connection.WrittenBytes));
-        StringAssert.EndsWith(log.Notes.Single(), "is not answered by this broker yet; sent DISCONNECT 0x83 and closed.");
-    }
-
-    [TestMethod]
     public async Task ServeAsync_RefusedPacketAfterConnack_DisconnectsWithItsReasonCode()
     {
         var connection = await ServeAsync(Broker(), Context(new ManualTimeProvider(), TestContext.CancellationToken), Connect(), [0x60, 0x02, 0x00, 0x01]);
