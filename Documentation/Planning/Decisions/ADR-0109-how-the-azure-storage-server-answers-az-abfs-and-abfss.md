@@ -6,7 +6,7 @@
   in BL-423. BL-424 builds the server with Get Blob, Get Blob Properties, the required headers, the
   bearer and anonymous logins and the error bodies (decisions 1 to 5), BL-425 Put Blob, List Blobs
   and Delete Blob (decisions 1 and 3), BL-426 the Data Lake path requests and Path - Delete
-  (decisions 1, 2 and 5), BL-714 Shared Key and shared access signatures (decision 3), BL-715 Put
+  (decisions 1, 2 and 5), BL-717 Shared Key and shared access signatures (decision 3), BL-715 Put
   Block, Put Block List and Get Block List (decisions 1 and 7), BL-716 List Containers and the Data
   Lake rename, properties and filesystem requests (decision 1), and BL-427 serves the three schemes
   from `surl` with their TLS (decision 6).
@@ -195,7 +195,7 @@ query parameters, as each page's "Request" section writes it.
 
 - **By default every request carries a valid login** of the one account set (`--user`,
   `--user-file`; ADR-0100 decision 4.1): `Authorization: Bearer` (BL-424), `Authorization:
-  SharedKey` or `SharedKeyLite`, or a shared access signature in the query (BL-714).
+  SharedKey` or `SharedKeyLite`, or a shared access signature in the query (BL-717).
 - **Bearer tokens** ("Authorize with Microsoft Entra ID") are checked by `Surl.Authentication`'s
   existing `BearerAuthenticationMethod` against the empty-name accounts' passwords, in constant time
   (ADR-0032 section 1). A token is opaque: no JSON Web Token is parsed, no tenant, audience or
@@ -225,7 +225,7 @@ query parameters, as each page's "Request" section writes it.
 - **Each refusal waits the failed-login delay** the authentication session already applies
   (ADR-0032), then answers; the connection stays open.
 
-#### 3.2 Shared Key (BL-714)
+#### 3.2 Shared Key (BL-717)
 
 "Authorize with Shared Key": `Authorization: SharedKey <account>:<signature>` and `SharedKeyLite
 <account>:<signature>`, the HMAC-SHA256 under the base64-decoded account key of the page's string to
@@ -239,7 +239,7 @@ canonicalized resource carries the account twice, `/<account>/<account>/<contain
 page says for emulator addressing. Shared Key sends no secret, so it is served over plain `az` and
 `abfs` without `--allow-plaintext-auth`.
 
-#### 3.3 Shared access signatures (BL-714)
+#### 3.3 Shared access signatures (BL-717)
 
 - **Service SAS and account SAS are served** ("Create a service SAS", "Create an account SAS"): the
   query's `sv`, `ss`, `srt`, `sr`, `sp`, `st`, `se`, `sip`, `spr`, `si`, `sig` (and the response
@@ -278,7 +278,7 @@ page says for emulator addressing. Shared Key sends no secret, so it is served o
   probing peer how the request was canonicalised (ADR-0108's reason for dropping `StringToSign`).
 - **How this differs from the HTTP server.** The HTTP server challenges with Digest first (ADR-0032
   section 4). The Azure server's only challenge is the Bearer one above, which the page fixes, and
-  `--auth` does not apply to the three schemes. BL-714 reuses BL-420's refusal reason on
+  `--auth` does not apply to the three schemes. BL-717 reuses BL-420's refusal reason on
   `HttpAuthenticationVerdict` (ADR-0108 decision 4.4) to tell these rows apart; the server
   references neither `Surl.Authentication` nor an account (ADR-0084 decision 4).
 
@@ -514,7 +514,7 @@ Good:
 
 Costs and caveats:
 
-- BL-714 changes `Surl.Authentication` and `Surl.Protocol.Abstractions`, so it runs apart from every
+- BL-717 changes `Surl.Authentication` and `Surl.Protocol.Abstractions`, so it runs apart from every
   protocol task, and waits for BL-420's refusal reason.
 - A container named like a named account cannot be reached through an IP-literal or `localhost`
   host (decision 2).

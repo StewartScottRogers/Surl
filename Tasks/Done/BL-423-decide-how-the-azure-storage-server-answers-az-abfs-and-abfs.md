@@ -74,7 +74,7 @@ Decide and record:
   other protocols would write past them; Bearer checked opaquely; Shared Key and service/account SAS served,
   user delegation SAS refused; `--az-plaintext` added beside `--s3-plaintext`.
 - The Curl port's client uploads in blocks from 8 MiB, which BL-425 does not cover, so the ADR serves Put Block
-  and Put Block List. Filed BL-714 (Shared Key and SAS; needs `Surl.Authentication` and Abstractions, after
+  and Put Block List. Filed BL-717 (Shared Key and SAS; needs `Surl.Authentication` and Abstractions, after
   BL-420), BL-715 (blocks) and BL-716 (List Containers, Data Lake rename, properties and filesystem requests).
   The matrix's "covered by" therefore also names those three and BL-427 (TLS and the option), for rows BL-424 to
   BL-426 do not build; a row naming only BL-424 to BL-426 would have left them unowned.
@@ -85,4 +85,4 @@ Decide and record:
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. ADR-0109 decides how az, abfs and abfss are answered; AzureStorage.md traces every server row to BL-424 to BL-427 or BL-714 to BL-716
+- 2026-11-05: Doing -> Done. ADR-0109 decides how az, abfs and abfss are answered; AzureStorage.md traces every server row to BL-424 to BL-427 or BL-717 to BL-716

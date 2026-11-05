@@ -1,5 +1,5 @@
 ---
-id: BL-714
+id: BL-717
 title: Check Azure Shared Key and SAS logins for the Azure Storage server
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-714 — Check Azure Shared Key and SAS logins for the Azure Storage server
+# BL-717 — Check Azure Shared Key and SAS logins for the Azure Storage server
 
 ## Goal
 
