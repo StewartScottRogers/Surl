@@ -61,7 +61,7 @@ content store. It answers a missing key or bucket, and an unsupported operation,
 - Choices made under the delegation (sensible defaults inside ADR-0108):
   - **Over-limit head is `431`, not ADR-0108's `400 RequestHeaderSectionTooLarge`.** `Surl.HttpServing` refuses a
     head it cannot read before any handler sees it, and it is outside this task's `touches`. The `431` with
-    `Connection: close` is ADR-0006 section 5's HTTP answer, which the criterion names. Filed BL-715 for the seam.
+    `Connection: close` is ADR-0006 section 5's HTTP answer, which the criterion names. Filed BL-720 for the seam.
   - **Not yet served operations are `501 NotImplemented`** (PutObject, ListObjectsV2, ListBuckets, HeadBucket,
     DeleteObject, multipart); BL-419, BL-712 and BL-713 replace those rows. **Any query on an object read is
     `501`** too, until presigned URLs (BL-711) and the `response-*` overrides are served.
@@ -79,7 +79,7 @@ content store. It answers a missing key or bucket, and an unsupported operation,
     does not exist.", `InvalidRange` "The requested range is not satisfiable", `PreconditionFailed` "At least one
     of the preconditions you specified did not hold.", `KeyTooLongError` "Your key is too long.", `SlowDown`
     "Please reduce your request rate.", `NotImplemented` as ADR-0108 writes it.
-- Follow-up filed: BL-715 (the `400 RequestHeaderSectionTooLarge` head refusal; needs a `Surl.HttpServing` seam).
+- Follow-up filed: BL-720 (the `400 RequestHeaderSectionTooLarge` head refusal; needs a `Surl.HttpServing` seam).
 
 ## Log
 

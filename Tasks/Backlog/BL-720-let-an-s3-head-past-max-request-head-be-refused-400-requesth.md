@@ -1,5 +1,5 @@
 ---
-id: BL-715
+id: BL-720
 title: Let an S3 head past --max-request-head be refused 400 RequestHeaderSectionTooLarge
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-715 — Let an S3 head past --max-request-head be refused 400 RequestHeaderSectionTooLarge
+# BL-720 — Let an S3 head past --max-request-head be refused 400 RequestHeaderSectionTooLarge
 
 ## Goal
 
