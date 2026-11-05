@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-383]
-touches: [Protocols/Http/Surl.Quic.UnitLibrary, Protocols/Http/Surl.Quic.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
+touches: [Protocols/Http/Surl.Quic.UnitLibrary, Protocols/Http/Surl.Quic.UnitTests, Protocols/Http/Surl.Http3.UnitLibrary, Protocols/Http/Surl.Http3.UnitTests, Protocols/Http/Surl.Protocol.Http.UnitLibrary, Protocols/Http/Surl.Protocol.Http.UnitTests]
 requirement: none
 created: 2026-11-05
 completed:
@@ -15,13 +15,13 @@ completed:
 ## Goal
 
 Serving a content-store file over HTTP/3 holds no more than a bounded amount of it in memory:
-`Http3DataStream` waits for the client's QUIC credit before it hands over the next piece, as
+`Http3DataStream` (in `Surl.Http3` since BL-410) waits for the client's QUIC credit before it hands over the next piece, as
 HTTP/2's `Http2DataStream` waits for its windows.
 
 ## Context
 
 - Today `QuicApplicationConnection.WriteAsync` (`Surl.Quic`) queues whatever it is given and
-  returns at once ("the rest goes as credit arrives"), so `Http3RequestStreamServer.CopyFileAsync`
+  returns at once ("the rest goes as credit arrives"), so `Http3StreamAnswerWriter.CopyFileAsync`
   copies a whole file into the stream's unsent buffer however large it is. ADR-0082 Amendment 1,
   item 7, records the gap.
 - `QuicStream.UnsentLength` says how much is held back; `Surl.Quic` needs a way to wait until it

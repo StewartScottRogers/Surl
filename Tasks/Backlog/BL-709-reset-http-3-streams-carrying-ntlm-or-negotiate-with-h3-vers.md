@@ -22,7 +22,7 @@ An HTTP/3 request whose `authorization` names NTLM or Negotiate is reset and sto
 
 - ADR-0082 decision 9 ("Logins bound to a connection") and its Amendment 1, item 7; ADR-0081
   decision 7 for HTTP/2.
-- `Http3RequestStreamServer` (BL-383) hands every request to `HttpRequestAnswerer`. Follow the seam
+- `Http3StreamAnswerWriter` (BL-383, made an `IHttp3RequestStreamHandler` by BL-410) hands every request to `HttpRequestAnswerer`. Follow the seam
   BL-602 puts in the HTTP/2 connection, so the answerer still never asks which version carried a
   request.
 - Tests drive the server with `Http3TestClient` in `Surl.Protocol.Http.UnitTests`.
