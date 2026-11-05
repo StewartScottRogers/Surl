@@ -1,0 +1,321 @@
+using System.Globalization;
+using Surl.Content;
+using Surl.HttpMessage;
+using Surl.HttpServing;
+using Surl.McpServing;
+using Surl.Protocol.Abstractions;
+
+namespace Surl.Extended.Protocol.McpServer;
+
+/// <summary>
+/// Answers the Streamable HTTP requests of one connection (ADR-0111 decision 4), in decision 4.2's order: the
+/// path - the endpoint, or the RFC 9728 metadata document (decision 6.2) - then <c>Origin</c> (4.7), then the
+/// login (6.1), then the method (4.4), then <c>Accept</c> and <c>Content-Type</c> (4.3), the body as one
+/// JSON-RPC message, and the session and <c>MCP-Protocol-Version</c> (4.5, 4.6). Every answer is one of
+/// decision 7.2's rows.
+/// </summary>
+internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
+{
+    private const string InitializeMethod = "initialize";
+
+    private const string ToolsCallMethod = "tools/call";
+
+    private const string AbsentProtocolVersion = "2025-03-26";
+
+    private const string JsonMediaType = "application/json";
+
+    private const string SessionIdField = "Mcp-Session-Id";
+
+    private readonly McpHttpServerSettings _settings;
+
+    private readonly IHttpAuthenticationSession _authentication;
+
+    private readonly ExchangeContext _context;
+
+    private readonly string _httpScheme;
+
+    /// <summary>Initializes a new instance of the <see cref="McpHttpRequestAnswerer" /> class.</summary>
+    /// <param name="settings">What every connection of the server shares.</param>
+    /// <param name="authentication">The connection's authentication session.</param>
+    /// <param name="context">The exchange: its scheme, clock and limits.</param>
+    /// <param name="isSecure">Whether the connection is TLS (<c>mcps</c>), which makes its origin <c>https</c>.</param>
+    public McpHttpRequestAnswerer(McpHttpServerSettings settings, IHttpAuthenticationSession authentication, ExchangeContext context, bool isSecure)
+    {
+        _settings = settings;
+        _authentication = authentication;
+        _context = context;
+        _httpScheme = isSecure ? "https" : "http";
+    }
+
+    private int MessageLimit =>
+        _context.Limits.MaxMessageBytes is 0 or > int.MaxValue ? int.MaxValue : (int)_context.Limits.MaxMessageBytes;
+
+    /// <inheritdoc />
+    public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        string path = request.Target.Split('?')[0];
+        if (path == McpProtectedResourceMetadata.PathFor(_settings.EndpointPath))
+        {
+            return AnswerMetadata(request);
+        }
+
+        return path == _settings.EndpointPath
+            ? await AnswerEndpointAsync(request, cancellationToken).ConfigureAwait(false)
+            : Empty(request, HttpStatus.NotFound);
+    }
+
+    private async Task<HttpAnswer> AnswerEndpointAsync(HttpRequest request, CancellationToken cancellationToken)
+    {
+        if (!IsOriginAllowed(request))
+        {
+            return Empty(request, HttpStatus.Forbidden);
+        }
+
+        (string? login, HttpAnswer? refusal) = await LogInAsync(request, cancellationToken).ConfigureAwait(false);
+        if (refusal is not null)
+        {
+            return refusal;
+        }
+
+        if (request.Method == "POST")
+        {
+            return await AnswerPostAsync(request, login, cancellationToken).ConfigureAwait(false);
+        }
+
+        return request.Method == "DELETE"
+            ? AnswerDelete(request, login)
+            : Empty(request, HttpStatus.MethodNotAllowed, [new("Allow", "POST, DELETE")]);
+    }
+
+    private HttpAnswer AnswerMetadata(HttpRequest request)
+    {
+        if (!IsOriginAllowed(request))
+        {
+            return Empty(request, HttpStatus.Forbidden);
+        }
+
+        return request.Method == "GET"
+            ? Json(request, HttpStatus.Ok, McpProtectedResourceMetadata.Write(Issuer(request), _settings.EndpointPath))
+            : Empty(request, HttpStatus.MethodNotAllowed, [new("Allow", "GET")]);
+    }
+
+    private bool IsOriginAllowed(HttpRequest request) =>
+        McpOriginCheck.IsAllowed(Field(request, "Origin"), _httpScheme, request.Authority);
+
+    // Another Authorization scheme is 400; a refusal of the session's is 401 with the RFC 9728 challenge. A
+    // token is never read from the query string, so one there is judged as none.
+    private async Task<(string? Login, HttpAnswer? Refusal)> LogInAsync(HttpRequest request, CancellationToken cancellationToken)
+    {
+        string? authorization = Field(request, "Authorization");
+        if (authorization is not null && !authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            return (null, Empty(request, HttpStatus.BadRequest));
+        }
+
+        bool isWrite = request.Method is not ("GET" or "HEAD");
+        HttpAuthenticationVerdict verdict = await _authentication
+            .JudgeAsync(new HttpAuthenticationRequest(request.Method, request.Target, isWrite, request.Fields), cancellationToken)
+            .ConfigureAwait(false);
+        if (verdict.Outcome != HttpAuthenticationOutcome.Proceed)
+        {
+            string challenge = McpProtectedResourceMetadata.Challenge(Issuer(request), _settings.EndpointPath, authorization is not null);
+            return (null, Empty(request, HttpStatus.Unauthorized, [new("WWW-Authenticate", challenge)]));
+        }
+
+        return (verdict.AccountName, null);
+    }
+
+    private async Task<HttpAnswer> AnswerPostAsync(HttpRequest request, string? login, CancellationToken cancellationToken)
+    {
+        if (MediaTypeRefusal(request) is { } mediaTypeRefusal)
+        {
+            return mediaTypeRefusal;
+        }
+
+        (byte[]? message, HttpAnswer? refusal) = await ReadMessageAsync(request.Body, cancellationToken).ConfigureAwait(false);
+        return refusal ?? await AnswerMessageAsync(request, login, message!, cancellationToken).ConfigureAwait(false);
+    }
+
+    private HttpAnswer? MediaTypeRefusal(HttpRequest request)
+    {
+        if (!McpAcceptField.AcceptsJsonAndEventStream(JoinedField(request, "Accept")))
+        {
+            return Empty(request, NotAcceptable);
+        }
+
+        return IsJsonMediaType(Field(request, "Content-Type")) ? null : Empty(request, UnsupportedMediaType);
+    }
+
+    private async Task<HttpAnswer> AnswerMessageAsync(HttpRequest request, string? login, byte[] message, CancellationToken cancellationToken)
+    {
+        JsonRpcIncoming incoming = JsonRpcMessageParser.Parse(message);
+        if (incoming is JsonRpcInvalidMessage invalid)
+        {
+            return Json(request, HttpStatus.BadRequest, JsonRpcResponseWriter.WriteError(null, invalid.Error));
+        }
+
+        return incoming is JsonRpcRequest { Method: InitializeMethod }
+            ? await AnswerInitializeAsync(request, login, message, cancellationToken).ConfigureAwait(false)
+            : await AnswerInSessionAsync(request, login, incoming, message, cancellationToken).ConfigureAwait(false);
+    }
+
+    // The body is one message, bounded by --max-message: announced past it, or arriving past it, is 413 and
+    // the connection closes; a body that cannot be read whole is 400 and the connection closes.
+    private async Task<(byte[]? Message, HttpAnswer? Refusal)> ReadMessageAsync(IHttpRequestBody body, CancellationToken cancellationToken)
+    {
+        if (RefusalBeforeReading(body) is { } refusal)
+        {
+            return (null, refusal);
+        }
+
+        return body.IsAnnounced
+            ? await CopyMessageAsync(body, cancellationToken).ConfigureAwait(false)
+            : ([], null);
+    }
+
+    private HttpAnswer? RefusalBeforeReading(IHttpRequestBody body)
+    {
+        if (body.AnnouncedLength > MessageLimit)
+        {
+            return Refusal(HttpStatus.ContentTooLarge);
+        }
+
+        return body.IsAnnounced && !body.IsReadable ? Refusal(HttpStatus.BadRequest) : null;
+    }
+
+    private async Task<(byte[]? Message, HttpAnswer? Refusal)> CopyMessageAsync(IHttpRequestBody body, CancellationToken cancellationToken)
+    {
+        using McpMessageBuffer buffer = new(MessageLimit);
+        HttpRequestBodyDiscardOutcome outcome = await body.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+        if (buffer.IsPastLimit || outcome == HttpRequestBodyDiscardOutcome.TooLarge)
+        {
+            return (null, Refusal(HttpStatus.ContentTooLarge));
+        }
+
+        return outcome == HttpRequestBodyDiscardOutcome.Discarded
+            ? (buffer.ToArray(), null)
+            : (null, Refusal(HttpStatus.BadRequest));
+    }
+
+    // An initialize starts a new session, so one naming a session is 400. The session is kept only when the
+    // core answered initialize; past the session bound it is 503 and nothing is kept.
+    private async Task<HttpAnswer> AnswerInitializeAsync(HttpRequest request, string? login, byte[] message, CancellationToken cancellationToken)
+    {
+        if (Field(request, SessionIdField) is not null)
+        {
+            return Empty(request, HttpStatus.BadRequest);
+        }
+
+        McpServerSession session = _settings.CreateSession(login, _context.Scheme, MessageLimit);
+        byte[] response = (await session.AnswerAsync(message, cancellationToken).ConfigureAwait(false))!;
+        if (session.NegotiatedProtocolVersion is null)
+        {
+            return Json(request, HttpStatus.Ok, response);
+        }
+
+        return _settings.Sessions.Add(login, session) is { } id
+            ? Json(request, HttpStatus.Ok, response, [new(SessionIdField, id)])
+            : Empty(request, HttpStatus.ServiceUnavailable, [new("Retry-After", "60")]);
+    }
+
+    private async Task<HttpAnswer> AnswerInSessionAsync(HttpRequest request, string? login, JsonRpcIncoming incoming, byte[] message, CancellationToken cancellationToken)
+    {
+        (McpHttpSession? session, HttpAnswer? refusal) = FindSession(request, login);
+        if (session is null)
+        {
+            return refusal!;
+        }
+
+        if (incoming is not JsonRpcRequest call)
+        {
+            await session.AcceptAsync(incoming, message, cancellationToken).ConfigureAwait(false);
+            return Empty(request, Accepted);
+        }
+
+        byte[]? response = await session.AnswerRequestAsync(call, message, cancellationToken).ConfigureAwait(false);
+        return call.Method == ToolsCallMethod
+            ? Answer(request, HttpStatus.Ok, McpEventStream.MediaType, McpEventStream.Write(response), [])
+            : Json(request, HttpStatus.Ok, response!);
+    }
+
+    private HttpAnswer AnswerDelete(HttpRequest request, string? login)
+    {
+        (McpHttpSession? session, HttpAnswer? refusal) = FindSession(request, login);
+        if (session is null)
+        {
+            return refusal!;
+        }
+
+        _settings.Sessions.End(session);
+        return Empty(request, NoContent, contentLength: false);
+    }
+
+    // An unsupported MCP-Protocol-Version or a missing Mcp-Session-Id is 400; a session that is not live, or
+    // is another login's, is 404.
+    private (McpHttpSession? Session, HttpAnswer? Refusal) FindSession(HttpRequest request, string? login)
+    {
+        string version = Field(request, "MCP-Protocol-Version") ?? AbsentProtocolVersion;
+        if (!McpProtocolVersions.Supported.Contains(version, StringComparer.Ordinal) || Field(request, SessionIdField) is not { } id)
+        {
+            return (null, Empty(request, HttpStatus.BadRequest));
+        }
+
+        return _settings.Sessions.Find(id, login) is { } session
+            ? (session, null)
+            : (null, Empty(request, HttpStatus.NotFound));
+    }
+
+    private string Issuer(HttpRequest request) => $"{_httpScheme}://{request.Authority}";
+
+    private static bool IsJsonMediaType(string? contentType) =>
+        contentType is not null && contentType.Split(';')[0].Trim().Equals(JsonMediaType, StringComparison.OrdinalIgnoreCase);
+
+    private static string? Field(HttpRequest request, string name) =>
+        request.Fields.Where(field => field.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Select(field => field.Value).FirstOrDefault();
+
+    private static string? JoinedField(HttpRequest request, string name)
+    {
+        string[] values = [.. request.Fields.Where(field => field.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Select(field => field.Value)];
+        return values.Length == 0 ? null : string.Join(',', values);
+    }
+
+    private HttpAnswer Json(HttpRequest request, HttpStatus status, byte[] body, IReadOnlyList<KeyValuePair<string, string>>? fields = null) =>
+        Answer(request, status, JsonMediaType, body, fields ?? []);
+
+    private HttpAnswer Answer(HttpRequest request, HttpStatus status, string mediaType, byte[] body, IReadOnlyList<KeyValuePair<string, string>> fields) =>
+        new(
+            status,
+            [.. CommonFields(), new("Content-Type", mediaType), .. fields, new("Content-Length", body.Length.ToString(CultureInfo.InvariantCulture))],
+            new HttpAnswerBody.Bytes(body),
+            IsRefusal: false,
+            LeavesRequestBodyUnread: request.Body.IsAnnounced);
+
+    private HttpAnswer Empty(HttpRequest request, HttpStatus status, IReadOnlyList<KeyValuePair<string, string>>? fields = null, bool contentLength = true) =>
+        new(
+            status,
+            [.. CommonFields(), .. fields ?? [], .. contentLength ? ContentLengthZero : []],
+            HttpAnswerBody.None,
+            IsRefusal: false,
+            LeavesRequestBodyUnread: request.Body.IsAnnounced);
+
+    // A refusal while reading the body: the connection closes after it.
+    private HttpAnswer Refusal(HttpStatus status) =>
+        new(status, [.. CommonFields(), .. ContentLengthZero], HttpAnswerBody.None, IsRefusal: true, LeavesRequestBodyUnread: true);
+
+    private KeyValuePair<string, string>[] CommonFields() =>
+    [
+        new("Date", _context.TimeProvider.GetUtcNow().ToString("r", CultureInfo.InvariantCulture)),
+        new("Server", HttpResponseHead.ServerName),
+    ];
+
+    private static readonly KeyValuePair<string, string>[] ContentLengthZero = [new("Content-Length", "0")];
+
+    private static readonly HttpStatus Accepted = new(202, "Accepted");
+
+    private static readonly HttpStatus NoContent = new(204, "No Content");
+
+    private static readonly HttpStatus NotAcceptable = new(406, "Not Acceptable");
+
+    private static readonly HttpStatus UnsupportedMediaType = new(415, "Unsupported Media Type");
+}
