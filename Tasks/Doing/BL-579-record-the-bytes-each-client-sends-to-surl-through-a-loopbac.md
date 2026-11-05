@@ -53,3 +53,4 @@ ones only or more, and the normalisation rules that apply.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
