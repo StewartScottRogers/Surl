@@ -52,4 +52,9 @@ Streamable HTTP (BL-466, ADR-0111 decisions 4, 6 and 7), on `Surl.HttpServing`'s
   `: keep-alive` comments of decision 4.3 need a streaming answer body in `Surl.HttpServing` first (see the
   task board).
 
-Still to come: the stdio session (BL-467) and the command line (BL-468).
+stdio (BL-467, ADR-0111 decision 5's library half): `McpStdioSession.RunAsync(input, output, store, surlVersion,
+maximumMessageBytes, cancellationToken)` serves one session over the stream pair it is given through the core's
+`McpStreamSession` (newline framing, the line limit, cancellation and ending on a closed input are the core's), with
+this server's identity and tools run as the anonymous caller on scheme `mcp+stdio`. It never touches `Console`.
+
+Still to come: the command line (BL-468), which binds `McpStdioSession` to surl's standard streams.
