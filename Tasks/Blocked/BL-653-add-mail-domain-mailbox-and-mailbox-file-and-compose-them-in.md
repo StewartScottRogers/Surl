@@ -54,3 +54,4 @@ into the one `MailboxStore` and authentication policy the SMTP, IMAP and POP3 se
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-653-20261105-054539-L9.jsonl
