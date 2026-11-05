@@ -45,3 +45,4 @@ with the build BL-364's ADR names, and on Linux and macOS with the reference bui
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
