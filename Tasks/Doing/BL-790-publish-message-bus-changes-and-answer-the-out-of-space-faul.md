@@ -50,3 +50,4 @@ publishing fail on purpose.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
