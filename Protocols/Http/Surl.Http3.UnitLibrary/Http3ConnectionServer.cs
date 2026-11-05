@@ -1,9 +1,8 @@
-using Surl.HttpServing;
 using Surl.Protocol.Abstractions;
 using Surl.Qpack;
 using Surl.Quic;
 
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// Serves HTTP/3 (RFC 9114; ADR-0082 decisions 7 to 9) on one QUIC connection whose handshake has
@@ -34,15 +33,19 @@ namespace Surl.Protocol.Http;
 /// just stops.
 /// </para>
 /// </remarks>
-/// <param name="handler">Decides the answer to every well-formed request.</param>
+/// <param name="handler">Serves every request stream whose request is well formed.</param>
+/// <param name="options">The server's options.</param>
 /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
-internal sealed class Http3ConnectionServer(IHttpRequestHandler handler, ExchangeContext context) : IQuicApplicationProtocol
+public sealed class Http3ConnectionServer(IHttp3RequestStreamHandler handler, Http3ServerOptions options, ExchangeContext context) : IQuicApplicationProtocol
 {
     private const ulong ControlStreamType = 0x00;
     private const ulong PushStreamType = 0x01;
     private const ulong QpackEncoderStreamType = 0x02;
     private const ulong QpackDecoderStreamType = 0x03;
 
+    private readonly IHttp3RequestStreamHandler handler = handler ?? throw new ArgumentNullException(nameof(handler));
+    private readonly Http3ServerOptions options = options ?? throw new ArgumentNullException(nameof(options));
+    private readonly ExchangeContext context = context ?? throw new ArgumentNullException(nameof(context));
     private readonly Http3FieldSections fieldSections = new(context.Limits.MaxMessageBytes);
     private readonly Http3FrameLimit frameLimit = new(context.Limits.MaxMessageBytes);
     private readonly Lock gate = new();
@@ -102,7 +105,7 @@ internal sealed class Http3ConnectionServer(IHttpRequestHandler handler, Exchang
             if (stream.IsBidirectional)
             {
                 nextRequestStreamId = stream.Id + 4;
-                Start(() => new Http3RequestStreamServer(connection, reader, handler, context, fieldSections).ServeAsync(cancellationToken), failure, cancellationToken);
+                Start(() => new Http3RequestStreamServer(connection, reader, handler, options, context, fieldSections).ServeAsync(cancellationToken), failure, cancellationToken);
             }
             else
             {

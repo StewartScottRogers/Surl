@@ -1,6 +1,7 @@
 using System.Net.Security;
 using System.Security.Authentication;
 using Surl.Content;
+using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 using Surl.Quic;
 
@@ -33,6 +34,7 @@ internal sealed class Http3ApplicationProtocol(
         var tlsSession = new TlsSession(
             SslProtocols.Tls13, (TlsCipherSuite)(ushort)connection.CipherSuite, connection.ApplicationProtocol, ServerName: null, ClientCertificate: null);
         var answerer = new HttpRequestAnswerer(context, contentStore, authenticationPolicy.StartHttpConnection(tlsSession));
-        return new Http3ConnectionServer(answerer, context).ServeAsync(connection, cancellationToken);
+        var options = new Http3ServerOptions { ServerFieldValue = HttpResponseHead.ServerName };
+        return new Http3ConnectionServer(new Http3StreamAnswerWriter(answerer, context), options, context).ServeAsync(connection, cancellationToken);
     }
 }

@@ -4,7 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Surl.Cryptography.Curve25519;
 
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// The TLS 1.3 client half of <see cref="UnitTestQuicClient"/>, written in the test project from

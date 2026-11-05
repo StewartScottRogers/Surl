@@ -29,6 +29,7 @@ public sealed class ProtocolIsolationTests
     private const string Dtls = "Surl.Dtls.UnitLibrary";
     private const string Hpack = "Surl.Hpack.UnitLibrary";
     private const string Http2 = "Surl.Http2.UnitLibrary";
+    private const string Http3 = "Surl.Http3.UnitLibrary";
     private const string HttpMessage = "Surl.HttpMessage.UnitLibrary";
     private const string HttpServing = "Surl.HttpServing.UnitLibrary";
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
@@ -73,6 +74,7 @@ public sealed class ProtocolIsolationTests
         [Dtls] = [Abstractions, Curve25519],
         [Hpack] = [],
         [Http2] = [Abstractions, Hpack],
+        [Http3] = [Abstractions, Quic, Qpack],
         [HttpMessage] = [Abstractions],
         [HttpServing] = [Abstractions, HttpMessage, Content],
         [Kerberos] = [],
@@ -193,6 +195,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Dtls)]
     [DataRow(Hpack)]
     [DataRow(Http2)]
+    [DataRow(Http3)]
     [DataRow(HttpMessage)]
     [DataRow(HttpServing)]
     [DataRow(Kerberos)]
@@ -235,6 +238,9 @@ public sealed class ProtocolIsolationTests
     [DataRow(Dtls, Curve25519)]
     [DataRow(Http2, Abstractions)]
     [DataRow(Http2, Hpack)]
+    [DataRow(Http3, Abstractions)]
+    [DataRow(Http3, Quic)]
+    [DataRow(Http3, Qpack)]
     [DataRow(HttpServing, Content)]
     [DataRow(HttpServing, HttpMessage)]
     [DataRow(LineProtocol, Abstractions)]
@@ -271,6 +277,10 @@ public sealed class ProtocolIsolationTests
     [DataRow(Hpack, HttpMessage)]
     [DataRow(Http2, HttpServing)]
     [DataRow(Http2, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow(Http3, Http2)]
+    [DataRow(Http3, Hpack)]
+    [DataRow(Http3, HttpServing)]
+    [DataRow(Http3, "Surl.Protocol.Http.UnitLibrary")]
     [DataRow(HttpMessage, Content)]
     [DataRow(HttpMessage, LineProtocol)]
     [DataRow(HttpMessage, "Surl.Protocol.Http.UnitLibrary")]

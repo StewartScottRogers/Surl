@@ -1,8 +1,8 @@
 using Surl.Qpack;
 
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
-/// <summary>What the server sent on one HTTP/3 request stream, decoded by <see cref="Http3TestClient.Response"/>.</summary>
+/// <summary>What the server sent on one HTTP/3 request stream, decoded by <see cref="Http3TestQuicClient.Response"/>.</summary>
 internal sealed class Http3TestResponse
 {
     /// <summary>Each <c>HEADERS</c> frame's field lines, in order: interim answers, the answer.</summary>
@@ -19,7 +19,7 @@ internal sealed class Http3TestResponse
 
     public string Status => Fields.Single(line => line.Name == ":status").Value;
 
-    public string BodyText => HttpServerHarness.Latin1([.. Body]);
+    public string BodyText => System.Text.Encoding.Latin1.GetString([.. Body]);
 
     /// <summary>The regular fields as <c>name: value</c>, as HTTP/2's tests compare them with HTTP/1.1's.</summary>
     public List<string> RegularFields => [.. Fields.Where(line => !line.Name.StartsWith(':')).Select(line => $"{line.Name}: {line.Value}")];

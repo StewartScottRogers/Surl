@@ -1,10 +1,10 @@
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// The HTTP/3 error codes (RFC 9114 section 8.1), and QPACK's (RFC 9204 section 6), that close an
 /// HTTP/3 connection, reset a request stream or ask the client to stop sending on one.
 /// </summary>
-internal enum Http3ErrorCode : ulong
+public enum Http3ErrorCode : ulong
 {
     /// <summary><c>H3_NO_ERROR</c>: no error; the connection or stream simply ends.</summary>
     NoError = 0x100,

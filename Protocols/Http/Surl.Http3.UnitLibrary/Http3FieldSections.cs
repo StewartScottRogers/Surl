@@ -1,7 +1,7 @@
 using Surl.Hpack;
 using Surl.Qpack;
 
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// One HTTP/3 connection's QPACK (ADR-0082 decision 8): the decoder for the client's field

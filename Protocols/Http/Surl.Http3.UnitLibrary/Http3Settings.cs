@@ -1,6 +1,6 @@
 using Surl.Quic;
 
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// Checks the client's <c>SETTINGS</c> payload (RFC 9114 section 7.2.4). The server needs none of

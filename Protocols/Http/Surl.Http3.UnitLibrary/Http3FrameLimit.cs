@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// How long a frame other than <c>DATA</c> may be (ADR-0082 decision 7): <c>--max-message</c>, or

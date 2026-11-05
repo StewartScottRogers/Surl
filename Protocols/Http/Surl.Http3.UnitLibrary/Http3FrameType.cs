@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// The HTTP/3 frame types the server reads and writes (RFC 9114 section 7.2), and the HTTP/2 frame

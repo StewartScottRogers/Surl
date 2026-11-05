@@ -1,6 +1,6 @@
 using Surl.Quic;
 
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// Reads one of the client's QUIC streams as HTTP/3 does (RFC 9114 section 7.1): variable-length

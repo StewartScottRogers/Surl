@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// A write-only <see cref="Stream"/> over one HTTP/3 request stream: each write goes out as one

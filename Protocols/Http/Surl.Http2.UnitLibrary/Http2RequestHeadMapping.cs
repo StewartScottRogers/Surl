@@ -18,11 +18,8 @@ namespace Surl.Http2;
 /// CR or LF or starting or ending with a space or tab; a connection-specific field
 /// (<c>connection</c>, <c>keep-alive</c>, <c>proxy-connection</c>, <c>transfer-encoding</c>,
 /// <c>upgrade</c>) or a <c>te</c> other than <c>trailers</c>; and <c>content-length</c> values
-/// that are not one number of decimal digits.
-/// <para>
-/// HTTP/3 maps its request heads here too: RFC 9114 sections 4.2 and 4.3 repeat these rules, and
-/// <c>Surl.Protocol.Http</c>'s <c>Http3RequestStreamServer</c> answers a malformed request <c>H3_MESSAGE_ERROR</c>.
-/// </para>
+/// that are not one number of decimal digits. HTTP/3 applies the same rules (RFC 9114 sections 4.2
+/// and 4.3) with its own copy, <c>Surl.Http3</c>'s <c>Http3RequestHeadMapping</c> (ADR-0086, decision 5).
 /// </remarks>
 public static class Http2RequestHeadMapping
 {

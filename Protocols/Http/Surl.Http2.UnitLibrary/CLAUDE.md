@@ -30,8 +30,8 @@ Public, what a server uses:
   RFC 9113 section 8.1) and `ResetAsync`. Reading and writing are independent.
 - `Http2ConnectionPreface` (tells the 24 preface bytes from an HTTP/1.x head),
   `Http2SettingsPayload` (decodes an `HTTP2-Settings` payload), `Http2Setting`,
-  `Http2SettingIdentifier`, `Http2ErrorCode`, and `Http2RequestHeadMapping`, which
-  `Surl.Protocol.Http`'s HTTP/3 server also uses until BL-410 moves HTTP/3 out.
+  `Http2SettingIdentifier`, `Http2ErrorCode`, and `Http2RequestHeadMapping`; `Surl.Http3` keeps
+  its own copy of the mapping for HTTP/3, `Http3RequestHeadMapping`, since it may not reference this library.
 
 Internal: the frame codec (`Http2Frame` and its records, `Http2FrameEncoder`, `Http2FrameReader`,
 `Http2FrameParser`, `Http2FrameMalformations`, `Http2FrameWriter`, which owns the HPACK encoder),

@@ -1,6 +1,6 @@
 using Surl.Quic;
 
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// Writes the HTTP/3 frames the server sends (RFC 9114 section 7): each is its type and payload

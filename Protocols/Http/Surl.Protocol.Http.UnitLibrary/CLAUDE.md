@@ -15,8 +15,8 @@ else. Today it references `Surl.Content.UnitLibrary` (the content store),
 request and response head types, `HttpStatus` and body framing) and `Surl.HttpServing.UnitLibrary`
 (ADR-0084, decision 1: `HttpRequest`, `HttpAnswer`, request bodies and `100 Continue`, response
 writing, persistence, the lingering-close drain and the `Http1ConnectionServer` loop), with
-`Surl.Http2.UnitLibrary` for the HTTP/2 connection (ADR-0086), `Surl.Hpack.UnitLibrary` for the
-header fields HTTP/2 and HTTP/3 carry, and `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary` for
+`Surl.Http2.UnitLibrary` and `Surl.Http3.UnitLibrary` for the HTTP/2 and HTTP/3 connections (ADR-0086), `Surl.Hpack.UnitLibrary` for the
+header fields HTTP/2 carries, and `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary` for
 HTTP/3 (ADR-0081, ADR-0082). Method dispatch, content responses and the authentication flow stay here.
 
 Answering is split from HTTP/1.x framing (ADR-0081, decision 8). `HttpRequestAnswerer`,
@@ -52,27 +52,26 @@ did not add up to its `content-length`, and writes the answer as one header bloc
 within the client's windows, resetting `INTERNAL_ERROR` when a content-store file cannot be sent
 whole.
 
-HTTP/3 (RFC 9114; ADR-0082 decisions 7 to 9 and its Amendment 1) is `Http3ConnectionServer`, the
-`IQuicApplicationProtocol` a `Surl.Quic` `QuicDatagramFlowServer` hands a connection to once its
-handshake agreed `h3`; this library references `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary`
-for it, and BL-410 moves it to `Surl.Http3.UnitLibrary` (ADR-0086). `surl --http3` serves it through
-`Http3ProtocolServer` (BL-384), the `IDatagramProtocolServer` for `https`'s UDP side: one
-`QuicDatagramFlowServer` per flow with the server certificate, `--idle-timeout` as QUIC's idle
-timeout and the head timeout as the handshake's, and `Http3ApplicationProtocol`, which starts the
-connection's authentication session with the TLS 1.3 session QUIC agreed. Cancelling the exchange
-before the handshake completes stops the flow at once; after it, the HTTP/3 server answers it. With
-`--http3`, `HttpProtocolServer` wraps its answerer in `AltSvcAdvertisingHandler` on every TLS
-connection, adding `Alt-Svc: h3=":<port>"; ma=86400`. It opens its control stream (`SETTINGS` from `Http3FrameWriter`) and its QPACK
-encoder and decoder streams, accepts the client's (the control stream's rules, and
-`Http3Settings`, close the connection with the RFC's codes), and serves each request stream on a
-task of its own with `Http3RequestStreamServer`: `HEADERS` within the head timeout, decoded by
-`Http3FieldSections` (QPACK with no dynamic table) and mapped by `Http2RequestHeadMapping`, then
-the same `HttpRequestAnswerer`, its `HttpAnswer` written as `HEADERS` and `DATA` frames and `FIN`.
-`Http3RequestBody` reads `DATA` from the stream as the handler asks; `Http3StreamReader` reads
-frames, throwing `Http3ConnectionException` for a rule that ends the connection and
-`Http3StreamAbandonedException` for a stream the client reset. On cancellation (shutdown,
-`--max-time`) the server sends `GOAWAY`, cuts the open streams off and closes `H3_NO_ERROR`. Its
-tests drive it over the in-memory QUIC test connection, `Http3TestClient`, which starts from pinned
+The HTTP/3 connection (RFC 9114; ADR-0082 decisions 7 to 9 and its Amendment 1) - frames, the
+control and QPACK streams, `SETTINGS`, `GOAWAY` and request streams - lives in
+`Surl.Http3.UnitLibrary` (ADR-0086 decision 2, moved by BL-410); its `CLAUDE.md` describes it.
+`surl --http3` serves it through `Http3ProtocolServer` (BL-384), the `IDatagramProtocolServer` for
+`https`'s UDP side: one `Surl.Quic` `QuicDatagramFlowServer` per flow with the server certificate,
+`--idle-timeout` as QUIC's idle timeout and the head timeout as the handshake's, and
+`Http3ApplicationProtocol`, which starts the connection's authentication session with the TLS 1.3
+session QUIC agreed and serves the connection with `Surl.Http3`'s `Http3ConnectionServer`, its
+`Http3ServerOptions` naming `server: surl` for the `431` the connection writes itself. Cancelling
+the exchange before the handshake completes stops the flow at once; after it, the HTTP/3 server
+answers it. With `--http3`, `HttpProtocolServer` wraps its answerer in `AltSvcAdvertisingHandler`
+on every TLS connection, adding `Alt-Svc: h3=":<port>"; ma=86400`. The connection's
+`IHttp3RequestStreamHandler` is `Http3StreamAnswerWriter`: for each request stream it builds an
+`HttpRequest` whose body is an `Http3HttpRequestBody` (the stream's `DATA` against the upload
+limit, with the interim `:status 100` for `expect: 100-continue`), has the same
+`HttpRequestAnswerer` decide the `HttpAnswer`, resets the stream `H3_MESSAGE_ERROR` when the body
+did not add up to its `content-length`, and writes the answer as `HEADERS` and `DATA` frames and
+`FIN`, resetting the response `H3_INTERNAL_ERROR` when a content-store file cannot be sent whole.
+Its tests drive it over the in-memory QUIC test connection, `Http3TestClient`, a subclass of
+`Surl.Http3.UnitTests`' `Http3TestQuicClient` (compiled in by link), which starts from pinned
 upstream curl's recorded Initials (`Fixtures/h3-client-initial`).
 
 The upstream test cases' server half (ADR-0080 decision 2; BL-391) is a test seam the shipped

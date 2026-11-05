@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// A connection error (RFC 9114 section 8): the client broke a rule that ends the whole HTTP/3

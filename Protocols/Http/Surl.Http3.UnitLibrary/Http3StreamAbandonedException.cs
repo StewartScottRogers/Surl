@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// A client stream ended without its <c>FIN</c>: the client reset it, or

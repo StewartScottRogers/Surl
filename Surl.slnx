@@ -158,6 +158,8 @@
     <Project Path="Protocols/Http/Surl.Hpack.UnitTests/Surl.Hpack.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Http2.UnitLibrary/Surl.Http2.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Http2.UnitTests/Surl.Http2.UnitTests.csproj" />
+    <Project Path="Protocols/Http/Surl.Http3.UnitLibrary/Surl.Http3.UnitLibrary.csproj" />
+    <Project Path="Protocols/Http/Surl.Http3.UnitTests/Surl.Http3.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.HttpMessage.UnitLibrary/Surl.HttpMessage.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.HttpMessage.UnitTests/Surl.HttpMessage.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.HttpServing.UnitLibrary/Surl.HttpServing.UnitLibrary.csproj" />

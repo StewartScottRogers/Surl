@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using Surl.Quic;
 using Surl.Tls13;
 
-namespace Surl.Protocol.Http;
+namespace Surl.Http3;
 
 /// <summary>
 /// The client side of a QUIC handshake, for tests. It starts from a pinned upstream curl's
