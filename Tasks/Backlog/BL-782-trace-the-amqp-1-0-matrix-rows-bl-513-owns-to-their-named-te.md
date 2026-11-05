@@ -1,5 +1,5 @@
 ---
-id: BL-770
+id: BL-782
 title: Trace the AMQP 1.0 matrix rows BL-513 owns to their named tests
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-770 — Trace the AMQP 1.0 matrix rows BL-513 owns to their named tests
+# BL-782 — Trace the AMQP 1.0 matrix rows BL-513 owns to their named tests
 
 ## Goal
 

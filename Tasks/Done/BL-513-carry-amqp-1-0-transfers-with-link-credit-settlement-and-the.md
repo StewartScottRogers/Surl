@@ -78,7 +78,7 @@ allows, and handles the dispositions the receiver sends.
   attach as `amqp:unauthorized-access`; a queue `reply-to` has no bus field (native form only).
 - **Touches.** Added ADR-0107 to record those decisions in it rather than allocate a new ADR number
   while other lanes run; no task in Doing names it. `Documentation/Conformance/Extended/Amqp1.md` (its
-  34 `BL-513` rows) is in BL-394's `touches`, so BL-770 was filed to trace them instead.
+  34 `BL-513` rows) is in BL-394's `touches`, so BL-782 was filed to trace them instead.
 - **Review** (code-reviewer agent) found five issues, all fixed with tests: an `absolute-expiry-time`
   beyond a `DateTimeOffset` threw and ended the connection (now no expiry); a client gone without
   `close` could let the pump write to a dead transport (`StopWritingAsync` sets `closed` under the gate
