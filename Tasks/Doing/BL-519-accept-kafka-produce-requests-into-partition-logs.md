@@ -57,3 +57,4 @@ code for each failure. It honours `acks` 0, 1 and -1.
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; partition logs are Surl.MessageBus's.
+- 2026-11-05: Backlog -> Doing.
