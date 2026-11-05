@@ -112,7 +112,7 @@ public sealed class GopherProtocolServer : IConnectionProtocolServer
         await answer.AnswerAsync(requestPath);
     }
 
-    private static async Task<(GopherSelectorReadOutcome Outcome, byte[] Line)> ReadSelectorLineAsync(IConnection connection, ExchangeContext context)
+    internal static async Task<(GopherSelectorReadOutcome Outcome, byte[] Line)> ReadSelectorLineAsync(IConnection connection, ExchangeContext context)
     {
         using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);

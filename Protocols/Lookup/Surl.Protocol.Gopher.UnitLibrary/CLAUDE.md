@@ -31,5 +31,10 @@ here. The server receives its transport from the listener seam in
 `Surl.Protocol.Abstractions`, so the tests in the matching `.UnitTests` project can drive
 it with request bytes measured from pinned upstream curl, with no network.
 
+The server half of upstream curl's test cases (ADR-0080 decision 2, BL-396), never composed by
+the shipped `surl`: `GopherUpstreamTestCaseServer` reads the selector with `GopherProtocolServer`'s
+own reader and answers it with the case's `<data>` from `GopherUpstreamTestCaseReplies`, which
+also keeps every byte read (`ReceivedBytesRecordingConnection`). Gopher has no `<servercmd>`.
+
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
