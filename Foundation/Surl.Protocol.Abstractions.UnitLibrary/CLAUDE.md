@@ -24,7 +24,9 @@ What it holds:
 - How a server tells a limit's cancellation from shutdown (ADR-0059):
   `ExchangeContext.ShutdownToken`, set by the engine, and `ExchangeContext.IsCancelledForALimit`.
 - The listener seam `Surl.Networking` implements: `IListenerFactory`,
-  `IConnectionListener`, `IDatagramListener`, and a failure to bind,
+  `IConnectionListener`, `IDatagramListener`, `SharedPortListeners` (both bound on one port by
+  `IListenerFactory.StartSharedPortListenersAsync`, whose default starts TCP then UDP on its port;
+  ADR-0082 decision 6), and a failure to bind,
   `ListenerBindException` with `ListenerBindFailure`.
 - Test doubles every protocol test project reaches through its reference to this library:
   `InMemoryConnection` (replays an inbound byte script, records every byte written) and
