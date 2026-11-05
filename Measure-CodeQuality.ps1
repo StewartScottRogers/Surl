@@ -31,7 +31,7 @@
 
 .PARAMETER Library
     Assembly names to report on, wildcards allowed. Defaults to every production
-    assembly - anything named *.UnitLibrary, plus Surl.Console. Surl.Console's
+    assembly - anything named *.UnitLibrary, plus Surl.Console and Surl.Api. Surl.Console's
     assembly is named surl, and is reported and matched here as Surl.Console.
 
 .PARAMETER SkipTestRun
@@ -142,7 +142,7 @@ function Test-IsProductionAssembly {
     param([string] $Name)
 
     if ($Name -like '*.UnitTests') { return $false }
-    return ($Name -like '*.UnitLibrary') -or ($Name -eq 'Surl.Console')
+    return ($Name -like '*.UnitLibrary') -or ($Name -in 'Surl.Console', 'Surl.Api')
 }
 
 # Surl.Console.csproj sets <AssemblyName>surl</AssemblyName>, which makes its
