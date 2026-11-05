@@ -40,3 +40,4 @@ Abstractions and ADR-0002's horizontal libraries, must have its `.UnitTests` twi
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
