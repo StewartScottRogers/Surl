@@ -1,7 +1,7 @@
 namespace Surl.Extended.Protocol.Xmpp;
 
 /// <summary>
-/// The XML namespaces an XMPP client-to-server stream uses (RFC 6120 sections 4.8 and 4.9.3).
+/// The XML namespaces an XMPP client-to-server stream uses (RFC 6120 sections 4.8, 4.9.3, 5 and 6).
 /// </summary>
 public static class XmppNamespaces
 {
@@ -13,6 +13,12 @@ public static class XmppNamespaces
 
     /// <summary>The namespace of a stream error's condition element.</summary>
     public const string StreamErrors = "urn:ietf:params:xml:ns:xmpp-streams";
+
+    /// <summary>The STARTTLS namespace, of <c>&lt;starttls/&gt;</c>, <c>&lt;proceed/&gt;</c> and its <c>&lt;failure/&gt;</c> (5.4).</summary>
+    public const string Tls = "urn:ietf:params:xml:ns:xmpp-tls";
+
+    /// <summary>The SASL namespace, of <c>&lt;mechanisms/&gt;</c>, <c>&lt;auth/&gt;</c> and its <c>&lt;failure/&gt;</c> (6.4).</summary>
+    public const string Sasl = "urn:ietf:params:xml:ns:xmpp-sasl";
 
     /// <summary>The namespace the <c>xml:</c> prefix is bound to, of <c>xml:lang</c>.</summary>
     public const string Xml = "http://www.w3.org/XML/1998/namespace";

@@ -7,8 +7,9 @@ by the Curl port's output, and its unit tests replay streams written by hand fro
 sections and examples. `Documentation/Conformance/Extended/Xmpp.md` traces each requirement to
 its task.
 
-It references `Surl.Protocol.Abstractions` only. STARTTLS and `xmpps` come with BL-537, SASL
-and resource binding with BL-538, and stanza routing, IQs and service discovery with BL-539.
+It references `Surl.Protocol.Abstractions` only. SASL and resource binding come with BL-538,
+and stanza routing, IQs and service discovery with BL-539; BL-540 serves `xmpps` by wrapping
+the server in `ImplicitTlsSchemeServer`.
 
 Streams, the XML stream reader and stream errors (BL-536, ADR-0114 decisions 1, 6 and 7):
 
@@ -16,10 +17,10 @@ Streams, the XML stream reader and stream errors (BL-536, ADR-0114 decisions 1, 
   header, then `resource-constraint`); its remarks list every answer.
 - `XmppServerConnection` answers one connection: the stream header within the head timeout,
   checked for namespaces, `to` and version; the response header (`from`, a 32-hex-digit `id`
-  from the injected `IXmppRandomSource`, `version='1.0'`, `xml:lang`) and `<stream:features/>`;
-  then one first-level element, which ends the stream until BL-537 to BL-539 serve one
-  (a stanza is `not-authorized`, another `jabber:client` element `unsupported-stanza-type`,
-  anything else `policy-violation`). `</stream:stream>` is answered with the server's. Every
+  from the injected `IXmppRandomSource`, `version='1.0'`, `xml:lang`) and the phase's features
+  (below); then first-level elements: STARTTLS's are served (below), a stanza is
+  `not-authorized`, another `jabber:client` element `unsupported-stanza-type`, and anything else
+  not served yet `policy-violation`. `</stream:stream>` is answered with the server's. Every
   stream error is preceded by a response header when none was sent, carries no text, and is
   followed by `</stream:stream>`. A limit cancelling the exchange is `connection-timeout`,
   shutdown `system-shutdown`, each written within a one-second deadline.
@@ -35,3 +36,19 @@ Streams, the XML stream reader and stream errors (BL-536, ADR-0114 decisions 1, 
   one 4096-byte read, never over), 32 levels of nesting, 64 attributes an element.
 - `XmppDomains` lists the domains served: the listen host, the connection's local address on a
   wildcard listen, `localhost` and the loopback literal on a loopback listen, then each mail domain.
+
+STARTTLS (BL-537, ADR-0114 decision 2):
+
+- `XmppServerOptions.IsTlsUpgradeAvailable` (a certificate is configured) and
+  `AllowPlaintextAuthentication` (`--allow-plaintext-auth`) choose the features: before TLS with
+  a certificate, `<starttls><required/></starttls>` alone, or under the option a voluntary
+  `<starttls/>` beside the plain-text mechanisms; without a certificate, or after TLS, the
+  `<mechanisms/>` `AuthenticationPolicy` offers for the TLS state, ordered and filtered to
+  SCRAM-SHA-256, SCRAM-SHA-1, PLAIN, ANONYMOUS. STARTTLS is never offered once TLS is in force.
+- `<starttls/>` is answered `<proceed/>`, then `UpgradeToTlsAsync`; a new `XmppStreamReader`
+  reads the restarted stream, so bytes pipelined after `<starttls/>` are dropped. A failed or
+  unfinished handshake closes with no more bytes. The head timeout runs from `<proceed/>` to the
+  new header, handshake included. `<starttls/>` without a certificate or after TLS is the TLS
+  `<failure/>`, `</stream:stream>` and the close.
+- While TLS is required, `<auth/>` is `<failure><encryption-required/></failure>` and the stream
+  is kept; a stanza is `not-authorized`, anything else `policy-violation`.

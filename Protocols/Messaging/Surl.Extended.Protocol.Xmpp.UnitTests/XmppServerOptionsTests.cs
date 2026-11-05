@@ -14,4 +14,14 @@ public sealed class XmppServerOptionsTests
         Assert.IsEmpty(options.MailDomains);
         Assert.AreSame(CryptographicXmppRandomSource.Instance, options.RandomSource);
     }
+
+    [TestMethod]
+    public void Default_HasNoCertificateRefusesPlainTextAndLetsEveryoneIn()
+    {
+        var options = XmppServerOptions.Default;
+
+        Assert.IsFalse(options.IsTlsUpgradeAvailable);
+        Assert.IsFalse(options.AllowPlaintextAuthentication);
+        Assert.IsInstanceOfType<Surl.Protocol.Abstractions.AnonymousAuthenticationPolicy>(options.AuthenticationPolicy);
+    }
 }

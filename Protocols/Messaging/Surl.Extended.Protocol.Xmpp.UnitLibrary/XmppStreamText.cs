@@ -17,11 +17,39 @@ internal static class XmppStreamText
     /// <summary>The server's half of closing the stream (4.4).</summary>
     public const string Close = "</stream:stream>";
 
+    /// <summary>The STARTTLS feature when TLS is required before anything else (5.3.1, 5.4.1).</summary>
+    public const string StartTlsRequired = $"<starttls xmlns='{XmppNamespaces.Tls}'><required/></starttls>";
+
+    /// <summary>The STARTTLS feature when it is voluntary, under <c>--allow-plaintext-auth</c> (ADR-0114 decision 2).</summary>
+    public const string StartTlsOffered = $"<starttls xmlns='{XmppNamespaces.Tls}'/>";
+
+    /// <summary>The answer to <c>&lt;starttls/&gt;</c> when the server will upgrade (5.4.2.3).</summary>
+    public const string Proceed = $"<proceed xmlns='{XmppNamespaces.Tls}'/>";
+
+    /// <summary>The answer to <c>&lt;starttls/&gt;</c> when the server cannot upgrade, then the close (5.4.2.2).</summary>
+    public const string TlsFailureAndClose = $"<failure xmlns='{XmppNamespaces.Tls}'/>{Close}";
+
+    /// <summary>The answer to <c>&lt;auth/&gt;</c> before TLS while TLS is required; the stream is kept (6.5.4).</summary>
+    public const string EncryptionRequired = $"<failure xmlns='{XmppNamespaces.Sasl}'><encryption-required/></failure>";
+
     /// <summary>
-    /// The stream features the server offers before any negotiation exists: none. STARTTLS
-    /// (BL-537) and SASL (BL-538) add theirs here.
+    /// The stream features element (4.3.2): <c>&lt;stream:features/&gt;</c> when there are none.
     /// </summary>
-    public const string NoFeatures = "<stream:features/>";
+    /// <param name="features">The feature elements, in order; empty for none.</param>
+    /// <returns>The features element.</returns>
+    public static string Features(string features) =>
+        features.Length == 0 ? "<stream:features/>" : $"<stream:features>{features}</stream:features>";
+
+    /// <summary>
+    /// The SASL feature (6.4.1): one <c>&lt;mechanism/&gt;</c> per name, in order, or nothing when
+    /// no mechanism is offered.
+    /// </summary>
+    /// <param name="mechanisms">The mechanisms' registered names.</param>
+    /// <returns>The <c>&lt;mechanisms/&gt;</c> element, or the empty string.</returns>
+    public static string Mechanisms(IReadOnlyList<string> mechanisms) =>
+        mechanisms.Count == 0
+            ? string.Empty
+            : $"<mechanisms xmlns='{XmppNamespaces.Sasl}'>{string.Concat(mechanisms.Select(name => $"<mechanism>{Escaped(name)}</mechanism>"))}</mechanisms>";
 
     /// <summary>
     /// The response header (4.7), preceded by an XML declaration: <c>from</c>, <c>id</c>,

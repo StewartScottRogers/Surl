@@ -22,6 +22,10 @@ public sealed class XmppServerTests
 
     private const string FirstId = "00000000000000000000000000000001";
 
+    // With no certificate, the plain-text features: the SASL mechanisms the default policy offers.
+    private const string PlainFeatures =
+        "<stream:features><mechanisms xmlns='urn:ietf:params:xml:ns:xmpp-sasl'><mechanism>PLAIN</mechanism></mechanisms></stream:features>";
+
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
@@ -29,7 +33,7 @@ public sealed class XmppServerTests
     {
         var (answers, log) = await ServeAsync("im.example.com", Rfc6120ClientHeader);
 
-        Assert.AreEqual(ResponseHeader("im.example.com") + "<stream:features/>", answers);
+        Assert.AreEqual(ResponseHeader("im.example.com") + PlainFeatures, answers);
         CollectionAssert.Contains(log.Notes.ToList(), "Opened a stream for im.example.com.");
     }
 
@@ -38,7 +42,7 @@ public sealed class XmppServerTests
     {
         var (answers, log) = await ServeAsync("im.example.com", Rfc6120ClientHeader, " ", "</stream:stream>");
 
-        Assert.AreEqual(ResponseHeader("im.example.com") + "<stream:features/></stream:stream>", answers);
+        Assert.AreEqual(ResponseHeader("im.example.com") + PlainFeatures + "</stream:stream>", answers);
         CollectionAssert.Contains(log.Notes.ToList(), "The client closed the stream; closed.");
     }
 
@@ -55,7 +59,7 @@ public sealed class XmppServerTests
     {
         var (answers, _) = await ServeAsync("im.example.com", "<stream:stream version='1.0' " + Streams + "/>");
 
-        Assert.AreEqual(ResponseHeader("im.example.com") + "<stream:features/></stream:stream>", answers);
+        Assert.AreEqual(ResponseHeader("im.example.com") + PlainFeatures + "</stream:stream>", answers);
     }
 
     [TestMethod]
@@ -163,12 +167,11 @@ public sealed class XmppServerTests
     [DataRow("<thing/>", "unsupported-stanza-type")]
     [DataRow("<message><body>&lt;&ent;</body></message>", "restricted-xml")]
     [DataRow("<message><body></message>", "not-well-formed")]
-    [DataRow("<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>", "policy-violation")]
     public async Task ServeAsync_ElementBeforeAuthentication_EndsTheStreamWithItsError(string element, string condition)
     {
         var (answers, _) = await ServeAsync("im.example.com", Rfc6120ClientHeader, element);
 
-        Assert.AreEqual(ResponseHeader("im.example.com") + "<stream:features/>" + ErrorAndClose(condition), answers);
+        Assert.AreEqual(ResponseHeader("im.example.com") + PlainFeatures + ErrorAndClose(condition), answers);
     }
 
     [TestMethod]
@@ -180,7 +183,7 @@ public sealed class XmppServerTests
         var (answers, _) = await ServeAsync(
             "im.example.com", options, limits, Rfc6120ClientHeader, "<message><body>", new string('x', 4000), new string('x', 4000), new string('x', 4000), "</body></message>");
 
-        Assert.AreEqual(ResponseHeader("im.example.com") + "<stream:features/>" + ErrorAndClose("policy-violation"), answers);
+        Assert.AreEqual(ResponseHeader("im.example.com") + PlainFeatures + ErrorAndClose("policy-violation"), answers);
     }
 
     [TestMethod]
@@ -218,12 +221,12 @@ public sealed class XmppServerTests
         connection.Send(Rfc6120ClientHeader);
         var context = Context("im.example.com", new ManualTimeProvider(), cancellation: exchange.Token) with { ShutdownToken = shutdownSource.Token };
         var serving = new XmppServer(new XmppServerOptions { RandomSource = new CountingRandomSource() }).ServeAsync(connection, context);
-        await WaitUntilAsync(() => connection.Written.EndsWith("<stream:features/>", StringComparison.Ordinal) && connection.ReadsWaiting > 1);
+        await WaitUntilAsync(() => connection.Written.EndsWith(PlainFeatures, StringComparison.Ordinal) && connection.ReadsWaiting > 1);
 
         await (shutdown ? shutdownSource : exchange).CancelAsync();
         await serving;
 
-        Assert.AreEqual(ResponseHeader("im.example.com") + "<stream:features/>" + ErrorAndClose(condition), connection.Written);
+        Assert.AreEqual(ResponseHeader("im.example.com") + PlainFeatures + ErrorAndClose(condition), connection.Written);
     }
 
     [TestMethod]
