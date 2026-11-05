@@ -49,3 +49,4 @@ any `Alt-Svc` field the ADR calls for, and `surl --aihelp` describes it.
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Lane 2 could not integrate: fast tests failed twice (Surl.Mcp.UnitTests: Table_EverySurlCommandLineMember_IsClassifiedExactlyOnce; then Surl.Mcp.UnitTests failed) after rebasing onto the other lanes' work. The work is on branch factory/BL-384-lane-2-20261104-205238; start with git cherry-pick --no-commit factory/BL-384-lane-2-20261104-205238 and fix it.
