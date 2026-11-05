@@ -40,3 +40,4 @@ A CI run on GitHub shows `Obtain the pinned upstream curl` passing on ubuntu-lat
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
