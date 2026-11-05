@@ -83,13 +83,13 @@ public static class CurlPortComparison
         AddTextDifference(
             differences,
             "standard output",
-            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(upstream.StandardOutput, upstream.Surl.Port, arguments)),
-            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(port.StandardOutput, port.Surl.Port, arguments)));
+            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(upstream.StandardOutput, upstream.Surl.ClientFacingPort, arguments)),
+            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseOutput(port.StandardOutput, port.Surl.ClientFacingPort, arguments)));
         AddTextDifference(
             differences,
             "standard error",
-            CurlPortResultNormaliser.NormaliseStandardError(upstream.StandardError, upstream.Surl.Port, arguments, measurementCase.AssertedStandardErrorFragments),
-            CurlPortResultNormaliser.NormaliseStandardError(port.StandardError, port.Surl.Port, arguments, measurementCase.AssertedStandardErrorFragments));
+            CurlPortResultNormaliser.NormaliseStandardError(upstream.StandardError, upstream.Surl.ClientFacingPort, arguments, measurementCase.AssertedStandardErrorFragments),
+            CurlPortResultNormaliser.NormaliseStandardError(port.StandardError, port.Surl.ClientFacingPort, arguments, measurementCase.AssertedStandardErrorFragments));
         AddTextDifference(
             differences,
             "surl notes",
@@ -150,7 +150,7 @@ public static class CurlPortComparison
 
     private static byte[]? NormalisedConnection(CurlPortSurlSide surl, int connection) =>
         connection < surl.ClientRequestBytes!.Count
-            ? CurlPortResultNormaliser.NormaliseRequestBytes(surl.ClientRequestBytes[connection], surl.Port)
+            ? CurlPortResultNormaliser.NormaliseRequestBytes(surl.ClientRequestBytes[connection], surl.ClientFacingPort)
             : null;
 
     private static void AddBytesDifference(List<CurlPortDifference> differences, string item, byte[]? upstream, byte[]? port)

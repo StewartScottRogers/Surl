@@ -205,6 +205,53 @@ public sealed class CurlPortComparisonTests
     }
 
     [TestMethod]
+    public void Compare_RelayedTranscriptsDifferingOnlyInNormalisedFields_AgreeButAnyOtherByteIsAFindingNamingConnectionAndOffset()
+    {
+        const int UpstreamRelayPort = 61001;
+        const int PortRelayPort = 62002;
+        var upstreamSurl = UpstreamSurl with
+        {
+            RelayPort = UpstreamRelayPort,
+            ClientRequestBytes = Transcript(
+                $"GET /a HTTP/1.1\r\nHost: 127.0.0.1:{UpstreamRelayPort}\r\nUser-Agent: curl/8.21.0\r\n\r\n",
+                $"GET /b HTTP/1.1\r\nHost: 127.0.0.1:{UpstreamRelayPort}\r\nUser-Agent: curl/8.21.0\r\n\r\n"),
+        };
+        var agreeingSurl = PortSurl with
+        {
+            RelayPort = PortRelayPort,
+            ClientRequestBytes = Transcript(
+                $"GET /a HTTP/1.1\r\nHost: 127.0.0.1:{PortRelayPort}\r\nUser-Agent: curl/8.21.0-port\r\n\r\n",
+                $"GET /b HTTP/1.1\r\nHost: 127.0.0.1:{PortRelayPort}\r\nUser-Agent: other\r\n\r\n"),
+        };
+        var differingSurl = agreeingSurl with
+        {
+            ClientRequestBytes = Transcript(
+                $"GET /a HTTP/1.1\r\nHost: 127.0.0.1:{PortRelayPort}\r\nUser-Agent: x\r\n\r\n",
+                $"GET /b HTTP/1.1\r\nHost: 127.0.0.1:{PortRelayPort}\r\nAccept: */*\r\n\r\n"),
+        };
+
+        Assert.AreEqual(
+            CurlPortVerdictKind.Agreement,
+            Compare(Case(), Upstream(0, "hello\n"), upstreamSurl, Port(0, "hello\n"), agreeingSurl).Kind);
+        Assert.AreEqual(
+            new CurlPortDifference("request bytes on connection 1", "byte 0x55 at offset 41", "byte 0x41 at offset 41"),
+            Compare(Case(), Upstream(0, "hello\n"), upstreamSurl, Port(0, "hello\n"), differingSurl).Finding!.Differences.Single());
+    }
+
+    [TestMethod]
+    public void Compare_RelayedRun_NormalisesTheRelayPortTheClientNamesInItsOutput()
+    {
+        var upstreamSurl = UpstreamSurl with { RelayPort = 61001 };
+        var portSurl = PortSurl with { RelayPort = 62002 };
+
+        Assert.AreEqual(
+            CurlPortVerdictKind.Agreement,
+            Compare(Case(), Upstream(0, "http://127.0.0.1:61001/\n"), upstreamSurl, Port(0, "http://127.0.0.1:62002/\n"), portSurl).Kind);
+        Assert.AreEqual(61001, upstreamSurl.ClientFacingPort);
+        Assert.AreEqual(UpstreamSurlPort, UpstreamSurl.ClientFacingPort);
+    }
+
+    [TestMethod]
     public void Compare_RequestBytes_AnExtraConnectionOrAShorterOneIsAFinding()
     {
         var upstreamSurl = UpstreamSurl with { ClientRequestBytes = [[0x41, 0x42]] };
@@ -314,4 +361,15 @@ public sealed class CurlPortComparisonTests
 
     private static CurlPortClientRunResult Port(int exitCode, string output, string standardError = "") =>
         CurlPortClientRunResult.Exited(PortClient, exitCode, Encoding.Latin1.GetBytes(output), standardError);
+
+    private static IReadOnlyList<byte[]> Transcript(params string[] connections)
+    {
+        var transcript = new ClientByteTranscript();
+        foreach (var connection in connections)
+        {
+            transcript.Record(transcript.BeginConnection(), Encoding.Latin1.GetBytes(connection));
+        }
+
+        return transcript.ToConnections();
+    }
 }

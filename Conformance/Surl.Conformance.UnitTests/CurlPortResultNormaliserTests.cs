@@ -65,14 +65,6 @@ public sealed class CurlPortResultNormaliserTests
     }
 
     [TestMethod]
-    public void NormaliseRequestBytes_ReplacesTheSurlPort()
-    {
-        Assert.AreEqual(
-            "Host: 127.0.0.1:<port>\r\n",
-            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseRequestBytes("Host: 127.0.0.1:50101\r\n"u8.ToArray(), 50101)));
-    }
-
-    [TestMethod]
     public void Normalise_NullArguments_ThrowArgumentNullException()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => CurlPortResultNormaliser.NormaliseOutput(null!, 1, []));

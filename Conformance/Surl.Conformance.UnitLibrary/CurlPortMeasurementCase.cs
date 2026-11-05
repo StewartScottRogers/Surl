@@ -60,6 +60,24 @@ public sealed record CurlPortMeasurementCase(
     public string? ReleaseDifference { get; init; }
 
     /// <summary>
+    /// Gets the <c>surl</c> schemes whose conversation runs over one or more plaintext TCP connections,
+    /// the ones a recording relay can read (ADR-0089 decision 4). TLS and SSH schemes (<c>https</c>,
+    /// <c>ftps</c>, <c>scp</c>, <c>sftp</c>, …) and UDP ones (<c>tftp</c>, HTTP/3) are not here.
+    /// </summary>
+    public static IReadOnlySet<string> PlaintextTcpSchemes { get; } = new HashSet<string>(
+        ["dict", "ftp", "gopher", "http", "imap", "ldap", "mqtt", "pop3", "rtsp", "smb", "smtp", "telnet", "ws"],
+        StringComparer.Ordinal);
+
+    /// <summary>
+    /// Gets whether each run puts a recording relay between the client and its <c>surl</c>, so the
+    /// bytes the client sent on each connection are compared (ADR-0089 decision 4). By default, when
+    /// <see cref="SurlScheme"/> is one of <see cref="PlaintextTcpSchemes"/>; a case whose conversation
+    /// turns to TLS part way (<c>STARTTLS</c>, FTP's <c>AUTH TLS</c>) sets it to <see langword="false"/>,
+    /// because the bytes after the upgrade are not curl's but its TLS library's.
+    /// </summary>
+    public bool RecordsClientBytes { get; init; } = PlaintextTcpSchemes.Contains(SurlScheme);
+
+    /// <summary>
     /// Gets the command line as the findings file writes it, with the placeholder left in.
     /// </summary>
     public string CommandLine => "curl " + string.Join(' ', Arguments);

@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Surl.Conformance;
 
 [TestClass]
@@ -10,10 +12,10 @@ public sealed class PinnedCurlPortBesideUpstreamCurlTests
 
     [TestMethod]
     [Description("Mirrors UpstreamCurlFetchesFromSurlOverHttp11Tests.Get_File_ExitsZeroWithTheFilesBytes")]
-    public async Task MeasureAsync_HelloTxtOverHttp_ReachesAVerdict()
+    public async Task MeasureAsync_HelloTxtOverHttp_ReachesAVerdictComparingRequestBytes()
     {
         var measurementCase = new CurlPortMeasurementCase(
-            nameof(MeasureAsync_HelloTxtOverHttp_ReachesAVerdict),
+            nameof(MeasureAsync_HelloTxtOverHttp_ReachesAVerdictComparingRequestBytes),
             "UpstreamCurlFetchesFromSurlOverHttp11Tests.Get_File_ExitsZeroWithTheFilesBytes",
             "http",
             ["-s", "{surl}/hello.txt"],
@@ -24,9 +26,15 @@ public sealed class PinnedCurlPortBesideUpstreamCurlTests
                 ? null
                 : $"upstream exited {upstream.ExitCode} with {upstream.StandardOutput.Length} bytes; stderr: {upstream.StandardError}");
 
-        var verdict = await PinnedCurlPortBesideUpstreamCurl.MeasureAsync(TestContext, measurementCase);
+        var measurement = await PinnedCurlPortBesideUpstreamCurl.MeasureAsync(TestContext, measurementCase);
 
-        Assert.AreNotEqual(CurlPortVerdictKind.SurlDefect, verdict.Kind, verdict.ToString());
-        Assert.AreNotEqual(CurlPortVerdictKind.NotComparable, verdict.Kind, verdict.ToString());
+        Assert.AreNotEqual(CurlPortVerdictKind.SurlDefect, measurement.Verdict.Kind, measurement.Verdict.ToString());
+        Assert.AreNotEqual(CurlPortVerdictKind.NotComparable, measurement.Verdict.Kind, measurement.Verdict.ToString());
+        Assert.HasCount(1, measurement.UpstreamSurl.ClientRequestBytes!);
+        Assert.IsNotNull(measurement.PortSurl.ClientRequestBytes);
+        Assert.AreEqual(
+            "GET /hello.txt HTTP/1.1\r\nHost: 127.0.0.1:<port>\r\nUser-Agent: <user-agent>\r\nAccept: */*\r\n\r\n",
+            Encoding.Latin1.GetString(CurlPortResultNormaliser.NormaliseRequestBytes(
+                measurement.UpstreamSurl.ClientRequestBytes![0], measurement.UpstreamSurl.ClientFacingPort)));
     }
 }

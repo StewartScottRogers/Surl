@@ -54,23 +54,31 @@ repository keeps curl's `COPYING` notice beside it.
 
 Phase 7 measures the Curl port against Surl beside pinned upstream curl; wherever the two disagree,
 upstream is right and the disagreement is the port's defect (ADR-0003 decision 6). Surl never changes
-to make the port pass. One case is compared and judged here (BL-578):
+to make the port pass. One case is compared and judged here (BL-578), request bytes included (BL-579):
 
 - `CurlPortMeasurementCase` is one case: the Phase 7 test's name, the test it mirrors, the protocol
   `LocateForProtocol` pairs an upstream build for, curl's arguments with `{surl}/` standing for each
   run's `surl` base URL (`ArgumentsFor`), `surl`'s scheme, options and files, and the mirrored test's
   assertions as `CheckMirroredAssertions`, applied to upstream's run only. `AssertedStandardErrorFragments`
   picks the stderr lines compared (none by default), `ComparedStoredFiles` the uploads compared, and
-  `ReleaseDifference` names an upstream release-notes entry (decision 2).
+  `ReleaseDifference` names an upstream release-notes entry (decision 2). `RecordsClientBytes` puts a
+  recording relay in front of each `surl`; it defaults to true for the `PlaintextTcpSchemes` and a case
+  that turns to TLS part way (`STARTTLS`, `AUTH TLS`) sets it false.
+- `ClientByteTranscript` holds the bytes a client sent through the relay, one entry per connection in
+  the order the relay accepted them (`BeginConnection`, `Record`, `ToConnections`); thread-safe.
 - `CurlPortSurlSide` is what a run's own `surl` shows: its port, its `-v` notes, the stored files the
-  case compares, and `ClientRequestBytes`, the bytes per plaintext connection, which BL-579's relay
-  fills in; until both runs carry them they are not compared.
+  case compares, `ClientRequestBytes` (the transcript's connections, compared only when both runs carry
+  them) and `RelayPort`; `ClientFacingPort` is the relay's port when there is one, the port the client's
+  output and request bytes name.
 - `CurlPortMeasuredRun.Of` makes one run from an `UpstreamCurlRunResult` or a `CurlPortClientRunResult`.
-- `CurlPortResultNormaliser` is decision 4's normalisation column: the `surl` port as `<port>`,
+- `CurlPortResultNormaliser` is decision 4's normalisation column: the client-facing port as `<port>`,
   `Date:` and `Last-Modified:` values as `<date>`, the `-w` values of `%{time_*}` and `%{speed_*}` as
   `<time>` (found by matching the case's `-w` format), stderr cut to the asserted lines, `surl` notes'
-  loopback ports and time stamps, and the `surl` port in request bytes (BL-579 adds the other request
-  byte rules).
+  loopback ports and time stamps. `NormaliseRequestBytes` applies the request-byte rules, which the
+  internal `RequestBytesNormalisation` holds: the client port in FTP `PORT` and `EPRT`, `User-Agent:` as
+  `<user-agent>`, every multipart boundary as `<boundary>`, Digest `cnonce` and `response` as `<cnonce>`
+  and `<response>` (also inside a base64 SASL `DIGEST-MD5` line), and in every NTLM AUTHENTICATE message,
+  raw (SMB) or base64 (HTTP, SASL), the LM and NT responses, the encrypted session key and the MIC zeroed.
 - `CurlPortComparison.Compare` takes the two runners' results - never a path - and gives a
   `CurlPortVerdict` of decision 5's `CurlPortVerdictKind`: `SurlDefect` when upstream's run fails the
   mirrored assertions (the port is not judged), `Agreement` when every compared item agrees,
@@ -82,10 +90,14 @@ to make the port pass. One case is compared and judged here (BL-578):
 
 The tests' `PinnedCurlPortBesideUpstreamCurl.MeasureAsync` is the one call each Phase 7 test class
 makes: it locates both pinned clients (Inconclusive naming the missing file), runs each against its
-own fresh `SurlOnLoopback` with `HOME`, `CURL_HOME` and `USERPROFILE` pointed at an empty folder, is
-Inconclusive when `CURL_EXTENSIONS` or `SURL_EXTENSIONS` is set in the test process (decision 3 runs
-both as shipped), and returns the verdict. Reading a family's findings file is the family tasks' work
-(BL-580 on).
+own fresh `SurlOnLoopback` with `HOME`, `CURL_HOME` and `USERPROFILE` pointed at an empty folder - through
+its own `ClientBytesRelay` when the case `RecordsClientBytes` - is Inconclusive when `CURL_EXTENSIONS` or
+`SURL_EXTENSIONS` is set in the test process (decision 3 runs both as shipped), and returns a
+`PinnedCurlPortMeasurement`: the verdict and both runs' `CurlPortSurlSide`. `ClientBytesRelay` lives in
+the tests because it opens sockets: it forwards both directions unchanged, records only client-to-server
+bytes, and shuts down sending to one side when the other stops. An FTP data connection goes straight to
+the port `surl` announced, so only the control connection is recorded (decision 4). Reading a family's
+findings file is the family tasks' work (BL-580 on).
 
 ## Upstream test cases (ADR-0080)
 

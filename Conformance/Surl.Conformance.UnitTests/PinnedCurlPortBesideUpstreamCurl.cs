@@ -5,7 +5,8 @@ namespace Surl.Conformance;
 /// <summary>
 /// Phase 7's one call (ADR-0089): runs a <see cref="CurlPortMeasurementCase"/> through the pinned
 /// upstream build <see cref="UpstreamCurlLocator.LocateForProtocol"/> pairs it with and through the
-/// pinned Curl port client, each against its own fresh <c>surl</c>, and judges the two runs with
+/// pinned Curl port client, each against its own fresh <c>surl</c>, puts a <see cref="ClientBytesRelay"/> in front of each <c>surl</c> when the case
+/// <see cref="CurlPortMeasurementCase.RecordsClientBytes"/>, and judges the two runs with
 /// <see cref="CurlPortComparison"/>. A missing upstream build or port client makes the test
 /// Inconclusive with the missing file's name. The port is the thing measured here, never an
 /// expected value (ADR-0003 decision 6).
@@ -19,7 +20,9 @@ internal static class PinnedCurlPortBesideUpstreamCurl
 
     private static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(30);
 
-    public static async Task<CurlPortVerdict> MeasureAsync(TestContext testContext, CurlPortMeasurementCase measurementCase)
+    private static readonly TimeSpan RelayDrainTimeout = TimeSpan.FromSeconds(10);
+
+    public static async Task<PinnedCurlPortMeasurement> MeasureAsync(TestContext testContext, CurlPortMeasurementCase measurementCase)
     {
         RequireNoExtensionSwitch();
         var root = PinnedUpstreamCurl.RepositoryRoot();
@@ -53,7 +56,7 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         var verdict = CurlPortComparison.Compare(
             measurementCase, upstream, upstreamSurl, port, portSurl, await SurlCommitAsync(root, testContext.CancellationToken));
         testContext.WriteLine($"{measurementCase.Name}: {verdict}");
-        return verdict;
+        return new PinnedCurlPortMeasurement(verdict, upstreamSurl, portSurl);
     }
 
     private static void RequireNoExtensionSwitch()
@@ -77,6 +80,7 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         {
             await using var surl = await SurlOnLoopback.StartAsync(
                 measurementCase.SurlScheme, measurementCase.Files, [], measurementCase.SurlOptions, cancellationToken);
+            await using var relay = measurementCase.RecordsClientBytes ? ClientBytesRelay.Start(surl.BaseUrl, cancellationToken) : null;
             var environment = new Dictionary<string, string>
             {
                 ["HOME"] = home.FullName,
@@ -84,8 +88,15 @@ internal static class PinnedCurlPortBesideUpstreamCurl
                 ["USERPROFILE"] = home.FullName,
             };
 
-            var result = await runClientAsync(measurementCase.ArgumentsFor(surl.BaseUrl), environment);
-            return (result, new CurlPortSurlSide(surl.BaseUrl.Port, surl.Log, await ReadStoredFilesAsync(surl, measurementCase, cancellationToken)));
+            var result = await runClientAsync(measurementCase.ArgumentsFor(relay?.BaseUrlFor(surl.BaseUrl) ?? surl.BaseUrl), environment);
+            var side = new CurlPortSurlSide(surl.BaseUrl.Port, surl.Log, await ReadStoredFilesAsync(surl, measurementCase, cancellationToken));
+            if (relay is not null)
+            {
+                await relay.WaitForConnectionsAsync(RelayDrainTimeout, cancellationToken);
+                side = side with { RelayPort = relay.Port, ClientRequestBytes = relay.Transcript.ToConnections() };
+            }
+
+            return (result, side);
         }
         finally
         {

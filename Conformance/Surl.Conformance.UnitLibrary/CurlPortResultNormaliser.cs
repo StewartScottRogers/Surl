@@ -20,6 +20,18 @@ public static class CurlPortResultNormaliser
     /// <summary>The text a measured time, speed or time stamp is replaced by.</summary>
     public const string TimePlaceholder = "<time>";
 
+    /// <summary>The text a <c>User-Agent:</c> field value in request bytes is replaced by.</summary>
+    public const string UserAgentPlaceholder = "<user-agent>";
+
+    /// <summary>The text a multipart boundary in request bytes is replaced by, everywhere it occurs.</summary>
+    public const string BoundaryPlaceholder = "<boundary>";
+
+    /// <summary>The text a Digest <c>cnonce</c> value in request bytes is replaced by.</summary>
+    public const string CnoncePlaceholder = "<cnonce>";
+
+    /// <summary>The text a Digest <c>response</c> value in request bytes is replaced by.</summary>
+    public const string DigestResponsePlaceholder = "<response>";
+
     private const string TimedGroup = "timed";
 
     private static readonly Regex DateField = new(
@@ -84,16 +96,21 @@ public static class CurlPortResultNormaliser
     }
 
     /// <summary>
-    /// Normalises the bytes a client sent on one connection. Only the <c>surl</c> port is replaced
-    /// here; BL-579 adds the rest of ADR-0089 decision 4's request-byte rules.
+    /// Normalises the bytes a client sent on one connection (ADR-0089 decision 4): the port the client
+    /// was pointed at, the client ports FTP's <c>PORT</c> and <c>EPRT</c> name, the <c>User-Agent:</c>
+    /// value, every multipart boundary, Digest's <c>cnonce</c> and <c>response</c> (also inside a base64
+    /// SASL <c>DIGEST-MD5</c> line), and the NTLM client challenge, time stamp and what is derived from
+    /// them (the LM and NT responses, the encrypted session key and the MIC are zeroed, raw or in base64).
     /// </summary>
     /// <param name="requestBytes">The bytes sent.</param>
-    /// <param name="surlPort">The port that run's <c>surl</c> listened on.</param>
+    /// <param name="clientFacingPort">The port the client connected to: the recording relay's.</param>
     /// <returns>The normalised bytes.</returns>
-    public static byte[] NormaliseRequestBytes(byte[] requestBytes, int surlPort)
+    public static byte[] NormaliseRequestBytes(byte[] requestBytes, int clientFacingPort)
     {
         ArgumentNullException.ThrowIfNull(requestBytes);
-        return Encoding.Latin1.GetBytes(ReplacePort(Encoding.Latin1.GetString(requestBytes), surlPort));
+        var text = RequestBytesNormalisation.Normalise(
+            Encoding.Latin1.GetBytes(ReplacePort(Encoding.Latin1.GetString(requestBytes), clientFacingPort)));
+        return Encoding.Latin1.GetBytes(text);
     }
 
     private static string NormaliseOutputText(string text, int surlPort, IReadOnlyList<string> arguments)
