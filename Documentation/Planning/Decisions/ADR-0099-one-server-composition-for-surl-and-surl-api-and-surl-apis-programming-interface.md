@@ -263,6 +263,10 @@ above also goes to `Log`.
 
 ### 7. What a client sent
 
+Amended by [ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) decision 1: the record is rebuilt as a
+subscriber of the instance's event stream (BL-806) and gains `ListenUrl` and `Scheme`, so the bullet "No
+listen URL on a record" below no longer holds once BL-806 lands.
+
 With `RecordExchanges` set, `Surl.Api` adds an internal `RecordingExchangeLogFactory` beside the
 levelled log (both receive every call, ADR-0004 section 5), and `SurlServer.Exchanges` returns a snapshot:
 

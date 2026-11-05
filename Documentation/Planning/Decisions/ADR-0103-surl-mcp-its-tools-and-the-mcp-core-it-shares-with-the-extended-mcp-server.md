@@ -181,6 +181,12 @@ them, and `Surl.Mcp.UnitLibrary` never references `Surl.Mcp`.
 
 ### 3. The tools
 
+Amended by [ADR-0124](ADR-0124-surl-is-a-stand-in-for-tests.md) decision 8: `get_exchanges` gains
+`listen_url` and `scheme` (BL-809), so the bullet "No listen URL per exchange" below no longer holds once
+BL-809 lands, and twelve tools follow it - `get_events` and `wait_for_event` (BL-809), and `seed_mail`,
+`put_file`, `publish_message`, `add_account`, `reset_server`, `snapshot_server`, `restore_server`,
+`add_fault`, `list_faults` and `remove_fault` (BL-812).
+
 Four tools, in this `tools/list` order. Names are snake_case; every property name in schemas and results
 is snake_case. Every result carries its object as `structuredContent` and the same object serialized as
 the one text block (the Tools page's backwards-compatibility rule), except where a failure is stated.
