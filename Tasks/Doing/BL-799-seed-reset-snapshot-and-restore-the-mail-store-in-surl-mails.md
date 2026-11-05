@@ -50,3 +50,4 @@ configured state between tests (reset), and take and restore an in-memory snapsh
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
