@@ -50,3 +50,4 @@ instances in one process, is found, classified against BL-822's ADR decision 6, 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
