@@ -44,7 +44,7 @@ lists it.
 - ADR-0049 gains an "Amended by" line pointing to ADR-0125 (its section 2 offer order), inside
   this task's `touches`.
 - BL-575 was already Done, so the ADR says the `--auth` words exist rather than that they are coming.
-- Filed BL-840: `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` still says there is no
+- Filed BL-841: `Foundation/Surl.Authentication.UnitLibrary/CLAUDE.md` still says there is no
   `--auth` word for SCRAM; that folder is in another Doing task's `touches`, so it is not fixed here.
 - No `.cs` or project file touched, so no build or test run is needed for this docs change.
 

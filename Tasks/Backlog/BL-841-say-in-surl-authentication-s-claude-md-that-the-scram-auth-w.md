@@ -1,5 +1,5 @@
 ---
-id: BL-840
+id: BL-841
 title: Say in Surl.Authentication's CLAUDE.md that the SCRAM --auth words exist
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-840 — Say in Surl.Authentication's CLAUDE.md that the SCRAM --auth words exist
+# BL-841 — Say in Surl.Authentication's CLAUDE.md that the SCRAM --auth words exist
 
 ## Goal
 
