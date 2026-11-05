@@ -43,3 +43,4 @@ The `--aihelp` topic and help category exist, and the extension switch turns bot
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
+- 2026-11-05: Backlog -> Doing.
