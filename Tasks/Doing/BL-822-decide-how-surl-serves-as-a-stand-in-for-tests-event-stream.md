@@ -111,3 +111,4 @@ contract of each shared store, the fault-injection model, determinism, hooks and
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
