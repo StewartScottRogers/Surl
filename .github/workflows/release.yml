@@ -1,7 +1,9 @@
 # Publishes the native-AOT `surl` binary for every supported platform, and proves each one
-# runs with no .NET runtime before anything is released (ADR-0085).
+# runs with no .NET runtime before anything is released (ADR-0085). Beside it, each leg publishes
+# the native-AOT `surl-mcp`, Surl's MCP server on standard input and output, proves it answers an
+# MCP `initialize`, and packages it as its own archive, `surl-mcp-<rid>` (ADR-0103 decision 7).
 #
-#   * Pushing a tag `v*` (e.g. v0.1.0) builds all six packages, proves them, and attaches
+#   * Pushing a tag `v*` (e.g. v0.1.0) builds all twelve packages, proves them, and attaches
 #     them, with a SHA256SUMS file, to a GitHub release of that name. A tag with a hyphen
 #     (v0.1.0-preview.1) makes a pre-release. Tags and releases need Stewart's say-so
 #     (CLAUDE.md), so this workflow never creates a tag itself.
@@ -25,7 +27,8 @@
 # Native AOT cannot cross-compile between operating systems, so each package is built on
 # a runner of its own OS; osx-x64 builds on macos-15-intel, real x64 hardware (decision 3).
 # Linux builds on Ubuntu 22.04 so the binary runs on glibc 2.35 and newer. DOWNLOAD.md,
-# install.sh and install.ps1 rely on the package names below; keep the four in step.
+# install.sh and install.ps1 rely on the package names below; keep the four in step. The
+# installers fetch only `surl`'s packages; DOWNLOAD.md also lists `surl-mcp`'s.
 # DOWNLOAD.md links to one version by tag, because releases/latest skips pre-releases:
 # point it at each new release's tag.
 name: Release
@@ -37,10 +40,15 @@ on:
     paths:
       - .github/workflows/release.yml
       - .github/actions/**
+      - Application/Surl.Api/**
+      - Application/Surl.Composition.UnitLibrary/**
       - Application/Surl.Console/**
+      - Application/Surl.Mcp/**
+      - Application/Surl.Mcp.UnitLibrary/**
       - Conformance/**
       - Directory.Build.props
       - global.json
+      - Protocols/Http/Surl.McpServing.UnitLibrary/**
       - Test-PublishedSurl.ps1
       - UpstreamCurlBuilds.json
   schedule:
@@ -71,6 +79,7 @@ jobs:
     timeout-minutes: 45
     env:
       PACKAGE: surl-${{ matrix.rid }}.${{ matrix.archive }}
+      MCP_PACKAGE: surl-mcp-${{ matrix.rid }}.${{ matrix.archive }}
     steps:
       - uses: actions/checkout@v4
 
@@ -120,6 +129,55 @@ jobs:
         shell: bash
         run: pwsh -NoProfile -File ./Test-PublishedSurl.ps1 -PublishDirectory publish -Version "$VERSION" -RuntimeIdentifier ${{ matrix.rid }}
 
+      # surl-mcp, Surl's MCP server on standard input and output, ships beside surl as its own
+      # archive (ADR-0103 decision 7), published the same way into a directory of its own.
+      - name: Publish surl-mcp
+        shell: bash
+        run: >-
+          dotnet publish Application/Surl.Mcp -c Release -r ${{ matrix.rid }} -p:Version="$VERSION"
+          -p:PublishDocumentationFile=false -p:PublishReferencesDocumentationFiles=false
+          -p:AllowedReferenceRelatedFileExtensions=.none -o publish-mcp
+
+      # An MCP client starts surl-mcp as a stdio server and opens with initialize. The request is
+      # the example on the MCP 2025-06-18 "Lifecycle" page; with standard input then closed, the
+      # session ends, so surl-mcp must write exactly one JSON-RPC response with a result for id 1
+      # and exit 0.
+      - name: Smoke test surl-mcp
+        shell: pwsh
+        run: |
+          $name = if ($IsWindows) { 'surl-mcp.exe' } else { 'surl-mcp' }
+          $executable = Join-Path (Resolve-Path publish-mcp) $name
+          if (-not (Test-Path -LiteralPath $executable)) { throw "publish-mcp holds no $name." }
+          $request = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"roots":{"listChanged":true},"sampling":{},"elicitation":{}},"clientInfo":{"name":"ExampleClient","title":"Example Client Display Name","version":"1.0.0"}}}'
+          $start = [System.Diagnostics.ProcessStartInfo]::new($executable)
+          $start.RedirectStandardInput = $true
+          $start.RedirectStandardOutput = $true
+          $start.RedirectStandardError = $true
+          $start.UseShellExecute = $false
+          $process = [System.Diagnostics.Process]::Start($start)
+          $standardOutput = $process.StandardOutput.ReadToEndAsync()
+          $standardError = $process.StandardError.ReadToEndAsync()
+          $process.StandardInput.Write($request + "`n")
+          $process.StandardInput.Close()
+          if (-not $process.WaitForExit(60000)) {
+            $process.Kill($true)
+            throw 'surl-mcp did not exit within 60 seconds of its standard input closing.'
+          }
+          $lines = @($standardOutput.Result -split "`r?`n" | Where-Object { $_ -ne '' })
+          Write-Output "Exit code: $($process.ExitCode)"
+          Write-Output "Standard output:"; $lines | Write-Output
+          Write-Output "Standard error:"; Write-Output $standardError.Result
+          if ($process.ExitCode -ne 0) { throw "surl-mcp exited $($process.ExitCode), not 0." }
+          if ($lines.Count -ne 1) { throw "surl-mcp wrote $($lines.Count) lines to standard output, not one." }
+          $response = $lines[0] | ConvertFrom-Json
+          if ($response.jsonrpc -ne '2.0' -or $response.id -ne 1 -or $null -eq $response.result) {
+            throw 'surl-mcp did not answer initialize with a JSON-RPC 2.0 result for id 1.'
+          }
+          if ($response.result.serverInfo.name -ne 'surl-mcp' -or $response.result.serverInfo.version -ne $env:VERSION) {
+            throw "surl-mcp's serverInfo is not surl-mcp $env:VERSION."
+          }
+          Write-Output "surl-mcp $env:VERSION answered initialize."
+
       - name: Keep the published binary for the conformance job
         if: matrix.conformance
         uses: actions/upload-artifact@v4
@@ -150,6 +208,26 @@ jobs:
         with:
           name: ${{ env.PACKAGE }}
           path: ${{ env.PACKAGE }}
+          if-no-files-found: error
+
+      - name: Package surl-mcp
+        shell: bash
+        run: |
+          mkdir package-mcp
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp publish-mcp/surl-mcp.exe package-mcp/
+            cp LICENSE.txt README.md package-mcp/
+            (cd package-mcp && 7z a "../$MCP_PACKAGE" surl-mcp.exe LICENSE.txt README.md)
+          else
+            cp publish-mcp/surl-mcp package-mcp/
+            cp LICENSE.txt README.md package-mcp/
+            tar -czf "$MCP_PACKAGE" -C package-mcp surl-mcp LICENSE.txt README.md
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MCP_PACKAGE }}
+          path: ${{ env.MCP_PACKAGE }}
           if-no-files-found: error
 
   conformance:
@@ -280,6 +358,7 @@ jobs:
           name: pass-rate-notes
           path: notes
 
+      # surl-* takes surl-mcp-*'s six packages as well as surl's six.
       - name: Checksums
         working-directory: dist
         run: sha256sum surl-* > SHA256SUMS && cat SHA256SUMS

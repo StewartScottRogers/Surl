@@ -343,8 +343,10 @@ errors).
 
 - **Native AOT archives.** `.github/workflows/release.yml` publishes `Surl.Mcp` native AOT for each runtime
   identifier it publishes `surl` for, smoke-tests it by answering `initialize` over standard input and
-  output, and packages it as its own archive, `surl-mcp-<version>-<rid>` (`.zip` on Windows, `.tar.gz`
-  elsewhere), beside `surl`'s. `DOWNLOAD.md` lists them (BL-637).
+  output, and packages it as its own archive, `surl-mcp-<rid>` (`.zip` on Windows, `.tar.gz`
+  elsewhere), beside `surl`'s. `DOWNLOAD.md` lists them (BL-637). Amended by BL-637: the name carries no
+  version, as `surl-<rid>` carries none, so one release's twelve packages are named alike and an
+  installer can name a package without knowing the version; the release's tag carries the version.
 - **A NuGet MCP server package, dry run only.** `Surl.Mcp` is packable as one framework-dependent .NET
   tool package, ID `Surl.Mcp`, `PackageType` `McpServer`, `ToolCommandName` `surl-mcp`, with
   `.mcp/server.json` naming the package and its stdio transport; a test holds the csproj's version and
