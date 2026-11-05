@@ -45,7 +45,7 @@ not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next
 Windows: the run of BL-394's changes on top of commit `50dde406`, the first with the `ftp`,
 `ftp-ipv6` and `ftps` server halves composed: 686 HTTP-family cases ran (651 pass, as before) and
 202 FTP-family cases ran (178 pass; the 24 that fail each verify upstream's test-server greeting
-banner in a `-D` file, BL-769).
+banner in a `-D` file, BL-776).
 
 ### Skipped, by reason
 

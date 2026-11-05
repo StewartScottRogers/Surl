@@ -94,7 +94,7 @@ their server half as BL-386's ADR defines, and the pass-rate file counts them.
   proxy/SOCKS cases, `feature-missing` per the pin.
 - **Failures, grouped and filed:** the 24 FTP failures are one cause - cases 1349-1354, 1357-1362,
   1379-1384, 1387-1392 verify upstream ftpserver.pl's ASCII-art greeting in curl's `-D` file
-  (`file2`) - filed as **BL-769** (list them as `test-server-choice` exclusions; depends on BL-689).
+  (`file2`) - filed as **BL-776** (list them as `test-server-choice` exclusions; depends on BL-689).
 - **Coverage** (`Measure-CodeQuality -Library ...`): `Surl.Protocol.Ftp.UnitLibrary` 100% line,
   100% branch, 0 failing members (worst CRAP 10). `Surl.Conformance.UnitLibrary` 100% line, 100%
   branch; its 9 members over 10 in Cobertura's complexity predate this task (BL-391/BL-393 list them).
@@ -106,4 +106,4 @@ their server half as BL-386's ADR defines, and the pass-rate file counts them.
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. Surl.Protocol.Ftp plays the server half of upstream ftp, ftp-ipv6 and ftps test cases (REPLY, REPLYLF, COUNT, RETRNOSIZE, RETRSIZE, NOSAVE, STOR; others skip by name); Windows run: 202 FTP-family cases ran, 178 pass, 24 banner failures filed as BL-769
+- 2026-11-05: Doing -> Done. Surl.Protocol.Ftp plays the server half of upstream ftp, ftp-ipv6 and ftps test cases (REPLY, REPLYLF, COUNT, RETRNOSIZE, RETRSIZE, NOSAVE, STOR; others skip by name); Windows run: 202 FTP-family cases ran, 178 pass, 24 banner failures filed as BL-776

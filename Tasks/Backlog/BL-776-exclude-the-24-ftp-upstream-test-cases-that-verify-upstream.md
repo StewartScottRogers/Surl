@@ -1,5 +1,5 @@
 ---
-id: BL-769
+id: BL-776
 title: Exclude the 24 FTP upstream test cases that verify upstream's greeting banner
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-769 — Exclude the 24 FTP upstream test cases that verify upstream's greeting banner
+# BL-776 — Exclude the 24 FTP upstream test cases that verify upstream's greeting banner
 
 ## Goal
 
