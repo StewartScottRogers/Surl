@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Product-Overview.md, CLAUDE.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-610 — Record Stewart's reversal: Surl.Api and Surl.Mcp join surl as Surl's products
 
@@ -46,24 +46,29 @@ sent. The Product Overview and root `CLAUDE.md` stop saying that `surl` is the o
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by Stewart,
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by Stewart,
       2026-11-04". It states that it reverses the answer to Product Overview open question 4, names `Surl.Api` and
       `Surl.Mcp` with the purpose of each as given above, places both in `Application/`, says both keep the
       command line's secure-by-default rules, says the design is decided by BL-611 and BL-612, and is listed in the
       folder's `README.md` index.
-- [ ] `Documentation/Product/Product-Overview.md`: the "A managed NuGet API" non-goal is gone or replaced by a true
+- [x] `Documentation/Product/Product-Overview.md`: the "A managed NuGet API" non-goal is gone or replaced by a true
       statement naming the ADR; "Open questions" row 4 reads "Reversed 2026-11-04" with Stewart's new answer and
       the ADR; "Users" adds .NET test suites (through `Surl.Api`) and AI agents (through `Surl.Mcp`); "Last updated"
       is 2026-11-04.
-- [ ] Root `CLAUDE.md`: "Overview" mentions the two hosts as planned (with the ADR); the `Application/` line in
+- [x] Root `CLAUDE.md`: "Overview" mentions the two hosts as planned (with the ADR); the `Application/` line in
       "Repository layout" lists `Surl.Api` and `Surl.Mcp` as planned; "Project naming" no longer says `Surl.Console`
       is the only exception and states that `Surl.Api` and the `Surl.Mcp` executable are naming exceptions too,
       as intent until they exist.
-- [ ] No sentence in those files still says `surl` is Surl's only product.
+- [x] No sentence in those files still says `surl` is Surl's only product.
 
 ## Notes
+
+- ADR-0098 is the next free number (ADR-0097 was the last in the folder on 2026-11-04). Marked "Decided by Stewart, 2026-11-04", recorded by Claude.
+- How `Surl.Api` is shipped (a NuGet package or not) is left to BL-611 rather than decided here: Stewart decided the hosts, not the packaging, so the withdrawn "A managed NuGet API" non-goal is removed rather than replaced with a packaging claim.
+- Docs only, no `.cs` or project file changed; `dotnet build` clean and the fast tests green on 2026-11-04 anyway.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0098 records Stewart's reversal; Product Overview and CLAUDE.md name Surl.Api and Surl.Mcp as planned products
