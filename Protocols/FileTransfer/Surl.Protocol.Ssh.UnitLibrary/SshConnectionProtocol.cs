@@ -30,6 +30,7 @@ namespace Surl.Protocol.Ssh;
 /// </para>
 /// </remarks>
 /// <param name="transport">The transport the messages travel on.</param>
+/// <param name="authentication">The login, whose account name each handler is given.</param>
 /// <param name="handlers">The handlers an accepted <c>exec</c> or <c>subsystem</c> goes to.</param>
 /// <param name="context">
 /// The exchange: where the channel notes go, the most bytes an <c>exec</c> command may hold
@@ -38,6 +39,7 @@ namespace Surl.Protocol.Ssh;
 /// </param>
 internal sealed class SshConnectionProtocol(
     SshTransportHandshake transport,
+    SshUserAuthentication authentication,
     ISshChannelHandlers handlers,
     ExchangeContext context) : IDisposable
 {
@@ -309,7 +311,7 @@ internal sealed class SshConnectionProtocol(
     private async ValueTask AnswerExecAsync(SshSessionChannel channel, ReadOnlyMemory<byte> command, bool wantsReply, CancellationToken cancellationToken)
     {
         var scpCommand = SshScpCommand.Parse(command.Span, context.Limits.MaxLineBytes, out var refusal);
-        var handler = scpCommand is null ? null : handlers.ForScp(scpCommand, context);
+        var handler = scpCommand is null ? null : handlers.ForScp(scpCommand, authentication.AccountName, context);
         if (handler is null)
         {
             var reason = scpCommand is null ? SshLogText.Render(Encoding.UTF8.GetBytes(refusal)) : "SCP is not served";
@@ -326,7 +328,7 @@ internal sealed class SshConnectionProtocol(
     // ADR-0054 decision 5: the subsystem named exactly sftp, when SFTP is served.
     private async ValueTask AnswerSubsystemAsync(SshSessionChannel channel, ReadOnlyMemory<byte> name, bool wantsReply, CancellationToken cancellationToken)
     {
-        var handler = name.Span.SequenceEqual("sftp"u8) ? handlers.ForSftp(context) : null;
+        var handler = name.Span.SequenceEqual("sftp"u8) ? handlers.ForSftp(authentication.AccountName, context) : null;
         if (handler is null)
         {
             log.Note($"SSH subsystem refused: {Render(name)}");

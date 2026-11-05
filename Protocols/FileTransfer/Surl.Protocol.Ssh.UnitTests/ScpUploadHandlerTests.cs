@@ -384,7 +384,7 @@ public sealed class ScpUploadHandlerTests
     private async Task<ScpRun> RunAsync(ContentStore store, SshScpCommand command, ExchangeLimits limits, ISshChannelDataStream channel)
     {
         var log = new RecordingExchangeLog();
-        var handler = new ScpUploadHandler(store, command, Context(clock, TestContext.CancellationToken, limits, log));
+        var handler = new ScpUploadHandler(store, ContentCaller.Anonymous("scp"), command, Context(clock, TestContext.CancellationToken, limits, log));
 
         var exit = await handler.RunAsync(channel, TestContext.CancellationToken);
         var written = channel is ActingChannel acting ? acting.Inner.Written : ((SftpTestChannel)channel).Written;

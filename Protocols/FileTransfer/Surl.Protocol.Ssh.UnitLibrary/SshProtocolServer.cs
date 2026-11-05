@@ -195,7 +195,7 @@ public sealed class SshProtocolServer : IConnectionProtocolServer
                 firstExchange.SessionIdentifier,
                 () => headTimeout.CancelAfter(Timeout.InfiniteTimeSpan),
                 offer.AllowsWeakAlgorithms);
-            var connectionProtocol = new SshConnectionProtocol(transport, channelHandlers, context);
+            var connectionProtocol = new SshConnectionProtocol(transport, authentication, channelHandlers, context);
 
             // However the message loop ends, every channel ends and its handler returns before
             // the loop's outcome - its exception included - is taken up below.

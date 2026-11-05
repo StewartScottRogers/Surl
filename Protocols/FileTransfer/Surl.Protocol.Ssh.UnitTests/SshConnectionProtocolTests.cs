@@ -131,7 +131,31 @@ public sealed class SshConnectionProtocolTests
         await AssertEndedAsync(client, 0);
         await CloseAsync(client, serving);
         Assert.AreEqual("sftp", handlers.Requests.Single());
+        Assert.IsNull(handlers.AccountNames.Single());
         CollectionAssert.Contains(client.Log.Notes.ToArray(), "SSH subsystem started on channel 0: sftp");
+    }
+
+    [TestMethod]
+    public async Task Subsystem_AfterAPasswordLogin_IsHandedTheAccountThePolicyNamed()
+    {
+        var handlers = new SshTestChannelHandlers();
+        var client = new SshTestTransportClient("aes128-ctr", "hmac-sha2-256", TestContext.CancellationToken);
+        var server = new SshProtocolServer(RsaHostKeys, RsaOffer, new SshTestAuthenticationPolicy(), new FixedRandomSource(), SshReExchangeLimits.Default, handlers);
+        var serving = await client.OpenAsync(server, TimeProvider.System);
+        client.Send(Concat([5], String("ssh-userauth")));
+        CollectionAssert.AreEqual(Concat([6], String("ssh-userauth")), await client.ReceiveAsync());
+        client.Send(Concat([50], String("alice"), String("ssh-connection"), String("password"), [0], String("secret")));
+        CollectionAssert.AreEqual(new byte[] { 52 }, await client.ReceiveAsync());
+
+        client.Send(OpenSession());
+        Assert.AreEqual(91, (await client.ReceiveAsync())[0]);
+
+        client.Send(ChannelRequest("subsystem", wantsReply: true, String("sftp")));
+
+        CollectionAssert.AreEqual(Concat([99], UInt32(ClientChannel)), await client.ReceiveAsync());
+        await AssertEndedAsync(client, 0);
+        await CloseAsync(client, serving);
+        Assert.AreEqual("alice", handlers.AccountNames.Single());
     }
 
     [TestMethod]

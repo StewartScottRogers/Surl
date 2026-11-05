@@ -245,7 +245,7 @@ public sealed partial class SftpSessionTests
     public async Task Upload_WhenTheChannelFails_IsDiscardedAndTheFailureGoesOn()
     {
         var channel = new FailingChannel(Init3, Open(1, "/new.txt", CurlUpload), Write(2, 0, 0, "x"));
-        var session = new SftpSession(WritableStore(), Context(clock, TestContext.CancellationToken));
+        var session = new SftpSession(WritableStore(), ContentCaller.Anonymous("sftp"), Context(clock, TestContext.CancellationToken));
 
         await Assert.ThrowsExactlyAsync<IOException>(() => session.RunAsync(channel, TestContext.CancellationToken));
 
@@ -614,7 +614,7 @@ public sealed partial class SftpSessionTests
         using var cutOff = new CancellationTokenSource();
         await cutOff.CancelAsync();
         var channel = new SftpTestChannel(Init3, Open(1, "/new.txt", CurlUpload));
-        var session = new SftpSession(WritableStore(), Context(clock, cutOff.Token));
+        var session = new SftpSession(WritableStore(), ContentCaller.Anonymous("sftp"), Context(clock, cutOff.Token));
 
         await Assert.ThrowsExactlyAsync<OperationCanceledException>(() => session.RunAsync(channel, cutOff.Token));
 

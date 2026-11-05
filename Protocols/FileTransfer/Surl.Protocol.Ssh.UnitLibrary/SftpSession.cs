@@ -51,8 +51,9 @@ namespace Surl.Protocol.Ssh;
 /// </para>
 /// </remarks>
 /// <param name="store">The content store the session reads and writes.</param>
+/// <param name="caller">Who logged in, on <c>sftp</c>: the share access every path is checked against (ADR-0102 decision 2.2).</param>
 /// <param name="context">The exchange: its log, its clock and <c>--max-message</c>.</param>
-internal sealed partial class SftpSession(ContentStore store, ExchangeContext context) : ISshChannelHandler
+internal sealed partial class SftpSession(ContentStore store, ContentCaller caller, ExchangeContext context) : ISshChannelHandler
 {
     /// <summary>The most handles open at once in one session.</summary>
     public const int MaxOpenHandles = 100;
@@ -477,7 +478,7 @@ internal sealed partial class SftpSession(ContentStore store, ExchangeContext co
 
     // Decision 1: a path that is not UTF-8, holds a NUL or is refused by the store maps nowhere.
     private ContentPathMapping? Map(ReadOnlyMemory<byte> path, out string? canonical) =>
-        SshContentPath.Map(store, path.Span, out canonical);
+        SshContentPath.Map(store, caller, path.Span, out canonical);
 
     private ContentEntryStatus? StatusAt(ContentPathMapping? mapping) =>
         mapping is null ? null : store.GetEntryStatus(mapping);

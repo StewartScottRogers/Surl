@@ -164,8 +164,8 @@ public sealed class ScpDownloadHandlerTests
         var handlers = new SshContentChannelHandlers(Store(new(), clock));
         var context = Context(clock, TestContext.CancellationToken);
 
-        Assert.IsInstanceOfType<ScpDownloadHandler>(handlers.ForScp(Source("/a.txt"), context));
-        Assert.IsInstanceOfType<ScpUploadHandler>(handlers.ForScp(new SshScpCommand(false, false, false, "/a.txt"), context));
+        Assert.IsInstanceOfType<ScpDownloadHandler>(handlers.ForScp(Source("/a.txt"), "alice", context));
+        Assert.IsInstanceOfType<ScpUploadHandler>(handlers.ForScp(new SshScpCommand(false, false, false, "/a.txt"), null, context));
     }
 
     private static SshScpCommand Source(string path, bool preservesTimes = false) => new(true, preservesTimes, false, path);
@@ -174,7 +174,7 @@ public sealed class ScpDownloadHandlerTests
     {
         var log = new RecordingExchangeLog();
         var channel = new SftpTestChannel(inbound);
-        var handler = new ScpDownloadHandler(store, command, Context(clock, TestContext.CancellationToken, null, log));
+        var handler = new ScpDownloadHandler(store, ContentCaller.Anonymous("scp"), command, Context(clock, TestContext.CancellationToken, null, log));
 
         var exit = await handler.RunAsync(channel, TestContext.CancellationToken);
 

@@ -67,16 +67,17 @@ internal static class SshContentPath
     /// Maps the path a client sent onto <paramref name="store"/> (decision 1).
     /// </summary>
     /// <param name="store">The content store.</param>
+    /// <param name="caller">Who asks, and on which scheme: a share it may not read is answered as absent (ADR-0102 decision 2.3).</param>
     /// <param name="path">The path's bytes as the client sent them.</param>
     /// <param name="canonical">The canonical path, or <see langword="null"/> when the bytes are not one.</param>
     /// <returns>
     /// The mapping; <see langword="null"/> when the path is not UTF-8, holds a NUL or is refused by
     /// the store, all of which are answered as absent.
     /// </returns>
-    public static ContentPathMapping? Map(ContentStore store, ReadOnlySpan<byte> path, out string? canonical)
+    public static ContentPathMapping? Map(ContentStore store, ContentCaller caller, ReadOnlySpan<byte> path, out string? canonical)
     {
         canonical = Canonicalise(path);
-        var mapping = canonical is null ? null : store.MapRequestPath(ToRequestPath(canonical));
+        var mapping = canonical is null ? null : store.MapRequestPathForCaller(ToRequestPath(canonical), caller);
 
         return mapping is { IsMapped: true } ? mapping : null;
     }

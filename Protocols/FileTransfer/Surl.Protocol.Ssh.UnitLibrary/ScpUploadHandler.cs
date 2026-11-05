@@ -33,9 +33,10 @@ namespace Surl.Protocol.Ssh;
 /// </para>
 /// </remarks>
 /// <param name="store">The content store the file is written to.</param>
+/// <param name="caller">Who logged in, on <c>scp</c>: the share access the target is checked against (ADR-0102 decision 2.2).</param>
 /// <param name="command">The accepted <c>scp -t</c> command.</param>
 /// <param name="context">The exchange: its log and <c>--max-line</c>.</param>
-internal sealed class ScpUploadHandler(ContentStore store, SshScpCommand command, ExchangeContext context) : ISshChannelHandler
+internal sealed class ScpUploadHandler(ContentStore store, ContentCaller caller, SshScpCommand command, ExchangeContext context) : ISshChannelHandler
 {
     /// <summary>The most bytes read from the channel for one write to the store.</summary>
     public const int ChunkBytes = 32768;
@@ -232,7 +233,7 @@ internal sealed class ScpUploadHandler(ContentStore store, SshScpCommand command
     // The file is <path>/<name> when the path names an existing directory, else the path itself.
     private ScpTarget ResolveTarget(string name)
     {
-        var mapping = SshContentPath.Map(store, Encoding.UTF8.GetBytes(command.Path), out var canonical);
+        var mapping = SshContentPath.Map(store, caller, Encoding.UTF8.GetBytes(command.Path), out var canonical);
         if (mapping is null || store.GetEntryKind(mapping) != ContentEntryKind.Directory)
         {
             return new ScpTarget(path, mapping, PathIsDirectory: false);
@@ -242,7 +243,7 @@ internal sealed class ScpUploadHandler(ContentStore store, SshScpCommand command
         var separator = command.Path.EndsWith('/') ? string.Empty : "/";
         var rendered = path + separator + SshLogText.Render(Encoding.UTF8.GetBytes(name));
 
-        return new ScpTarget(rendered, SshContentPath.Map(store, Encoding.UTF8.GetBytes(joined), out _), PathIsDirectory: true);
+        return new ScpTarget(rendered, SshContentPath.Map(store, caller, Encoding.UTF8.GetBytes(joined), out _), PathIsDirectory: true);
     }
 
     private async Task<uint> RefuseAsync(ISshChannelDataStream channel, string subject, string line, string? detail, CancellationToken cancellationToken)

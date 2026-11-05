@@ -25,9 +25,10 @@ namespace Surl.Protocol.Ssh;
 /// </para>
 /// </remarks>
 /// <param name="store">The content store the file is read from.</param>
+/// <param name="caller">Who logged in, on <c>scp</c>: the share access the path is checked against (ADR-0102 decision 2.2).</param>
 /// <param name="command">The accepted <c>scp -f</c> command.</param>
 /// <param name="context">The exchange: its log.</param>
-internal sealed class ScpDownloadHandler(ContentStore store, SshScpCommand command, ExchangeContext context) : ISshChannelHandler
+internal sealed class ScpDownloadHandler(ContentStore store, ContentCaller caller, SshScpCommand command, ExchangeContext context) : ISshChannelHandler
 {
     /// <summary>The most bytes read from the store for one channel write.</summary>
     public const int ChunkBytes = 262144;
@@ -55,7 +56,7 @@ internal sealed class ScpDownloadHandler(ContentStore store, SshScpCommand comma
 
     private async Task<uint> SendFileAsync(ISshChannelDataStream channel, ScpChannelReader reader, CancellationToken cancellationToken)
     {
-        var mapping = SshContentPath.Map(store, Encoding.UTF8.GetBytes(command.Path), out var canonical);
+        var mapping = SshContentPath.Map(store, caller, Encoding.UTF8.GetBytes(command.Path), out var canonical);
         var status = mapping is null ? null : store.GetEntryStatus(mapping);
         if (status is null)
         {

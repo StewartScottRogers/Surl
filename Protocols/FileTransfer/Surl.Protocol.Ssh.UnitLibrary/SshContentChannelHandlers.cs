@@ -23,9 +23,18 @@ internal sealed class SshContentChannelHandlers : ISshChannelHandlers
     }
 
     /// <inheritdoc/>
-    public ISshChannelHandler? ForScp(SshScpCommand command, ExchangeContext context) =>
-        command.IsSource ? new ScpDownloadHandler(store, command, context) : new ScpUploadHandler(store, command, context);
+    public ISshChannelHandler? ForScp(SshScpCommand command, string? accountName, ExchangeContext context)
+    {
+        var caller = CallerOn(accountName, "scp");
+
+        return command.IsSource ? new ScpDownloadHandler(store, caller, command, context) : new ScpUploadHandler(store, caller, command, context);
+    }
 
     /// <inheritdoc/>
-    public ISshChannelHandler? ForSftp(ExchangeContext context) => new SftpSession(store, context);
+    public ISshChannelHandler? ForSftp(string? accountName, ExchangeContext context) =>
+        new SftpSession(store, CallerOn(accountName, "sftp"), context);
+
+    // ADR-0102 decision 2.2: a login that names no account is an anonymous caller.
+    private static ContentCaller CallerOn(string? accountName, string scheme) =>
+        string.IsNullOrEmpty(accountName) ? ContentCaller.Anonymous(scheme) : ContentCaller.ForAccount(accountName, scheme);
 }

@@ -14,8 +14,8 @@ internal sealed class SshNoChannelHandlers : ISshChannelHandlers
     public static SshNoChannelHandlers Instance { get; } = new();
 
     /// <inheritdoc/>
-    public ISshChannelHandler? ForScp(SshScpCommand command, ExchangeContext context) => null;
+    public ISshChannelHandler? ForScp(SshScpCommand command, string? accountName, ExchangeContext context) => null;
 
     /// <inheritdoc/>
-    public ISshChannelHandler? ForSftp(ExchangeContext context) => null;
+    public ISshChannelHandler? ForSftp(string? accountName, ExchangeContext context) => null;
 }

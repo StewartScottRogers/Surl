@@ -80,6 +80,12 @@ internal sealed class SshUserAuthentication(
     public bool IsLoggedIn { get; private set; }
 
     /// <summary>
+    /// The account the login was accepted for, as the policy named it; <see langword="null"/>
+    /// before a login, and after one <c>--allow-anonymous</c> accepted unchecked.
+    /// </summary>
+    public string? AccountName { get; private set; }
+
+    /// <summary>
     /// Whether <see cref="AnswerAsync"/> answers the message numbered <paramref name="messageNumber"/>:
     /// <c>SERVICE_REQUEST</c>, <c>USERAUTH_REQUEST</c> or <c>USERAUTH_INFO_RESPONSE</c>.
     /// </summary>
@@ -206,8 +212,19 @@ internal sealed class SshUserAuthentication(
         }
     }
 
-    private static Answer Judge(SshLoginVerdict verdict, Answer refusal) =>
-        verdict.Outcome is SshLoginOutcome.Accepted or SshLoginOutcome.AcceptedUnchecked ? Answer.Success : refusal;
+    // An accepted login keeps the account the policy named: null when --allow-anonymous accepted
+    // it unchecked, which the content store answers as an anonymous caller (ADR-0102 decision 2.2).
+    private Answer Judge(SshLoginVerdict verdict, Answer refusal)
+    {
+        if (verdict.Outcome is not (SshLoginOutcome.Accepted or SshLoginOutcome.AcceptedUnchecked))
+        {
+            return refusal;
+        }
+
+        AccountName = verdict.AccountName;
+
+        return Answer.Success;
+    }
 
     private void FixUserAndService(ReadOnlyMemory<byte> user, ReadOnlyMemory<byte> service)
     {

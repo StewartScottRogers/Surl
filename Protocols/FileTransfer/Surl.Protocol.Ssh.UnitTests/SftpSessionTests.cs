@@ -300,7 +300,7 @@ public sealed partial class SftpSessionTests
 
         // The channel deletes the file just before the READ's length field is read.
         var deleting = new DeletingChannel(files!, Path.Join(InMemoryContentFileSystem.RootPath, "a.txt"), Init3, Open(1, "/a.txt"), Read(2, 0, 0, 10), Request(8, 3, Handle(0)));
-        await new SftpSession(store, Context(clock, TestContext.CancellationToken)).RunAsync(deleting, TestContext.CancellationToken);
+        await new SftpSession(store, ContentCaller.Anonymous("sftp"), Context(clock, TestContext.CancellationToken)).RunAsync(deleting, TestContext.CancellationToken);
 
         var replies = deleting.WrittenPackets();
         CollectionAssert.AreEqual(Status(2, 2, "No such file"), replies[2]);
@@ -687,7 +687,7 @@ public sealed partial class SftpSessionTests
         var handlers = new SshContentChannelHandlers(Store(new(), clock));
         var context = Context(clock, TestContext.CancellationToken);
 
-        Assert.IsInstanceOfType<SftpSession>(handlers.ForSftp(context));
+        Assert.IsInstanceOfType<SftpSession>(handlers.ForSftp(null, context));
         Assert.ThrowsExactly<ArgumentNullException>(() => new SshContentChannelHandlers(null!));
     }
 
@@ -704,7 +704,7 @@ public sealed partial class SftpSessionTests
     {
         var log = new RecordingExchangeLog();
         var channel = new SftpTestChannel(inbound);
-        var session = new SftpSession(store, Context(clock, TestContext.CancellationToken, limits, log));
+        var session = new SftpSession(store, ContentCaller.Anonymous("sftp"), Context(clock, TestContext.CancellationToken, limits, log));
 
         var exit = await session.RunAsync(channel, TestContext.CancellationToken);
 

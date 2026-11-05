@@ -17,16 +17,21 @@ internal sealed class SshTestChannelHandlers : ISshChannelHandlers
 
     public ConcurrentQueue<object> Requests { get; } = new();
 
-    public ISshChannelHandler? ForScp(SshScpCommand command, ExchangeContext context)
+    /// <summary>The account name each request was handed, in order; null for an unchecked login.</summary>
+    public ConcurrentQueue<string?> AccountNames { get; } = new();
+
+    public ISshChannelHandler? ForScp(SshScpCommand command, string? accountName, ExchangeContext context)
     {
         Requests.Enqueue(command);
+        AccountNames.Enqueue(accountName);
 
         return ServesScp ? new Handler(Run) : null;
     }
 
-    public ISshChannelHandler? ForSftp(ExchangeContext context)
+    public ISshChannelHandler? ForSftp(string? accountName, ExchangeContext context)
     {
         Requests.Enqueue("sftp");
+        AccountNames.Enqueue(accountName);
 
         return ServesSftp ? new Handler(Run) : null;
     }
