@@ -307,6 +307,23 @@ public sealed class KafkaPrimitiveReaderTests
         Assert.ThrowsExactly<KafkaMalformedRequestException>(() => Reader(0xFF, 0xFF, 0xFF, 0xFE).ReadNullableBytes());
 
     [TestMethod]
+    public void ReadRawBytes_ACount_ReadsThatManyBytesWithNoPrefix()
+    {
+        var reader = Reader(1, 2, 3);
+
+        CollectionAssert.AreEqual(new byte[] { 1, 2 }, reader.ReadRawBytes(2).ToArray());
+        Assert.AreEqual(1, reader.Remaining);
+    }
+
+    [TestMethod]
+    public void ReadRawBytes_MoreThanAreLeft_IsMalformed() =>
+        Assert.ThrowsExactly<KafkaMalformedRequestException>(() => Reader(1).ReadRawBytes(2));
+
+    [TestMethod]
+    public void ReadRawBytes_ANegativeCount_Throws() =>
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Reader(1).ReadRawBytes(-1));
+
+    [TestMethod]
     public void CompactBytes_RoundTripWithTheirLengthPlusOne()
     {
         var writer = new KafkaPrimitiveWriter();

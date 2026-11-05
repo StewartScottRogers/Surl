@@ -116,6 +116,19 @@ public sealed class KafkaPrimitiveReader(ReadOnlyMemory<byte> bytes)
     /// <returns>The value, or null.</returns>
     public ReadOnlyMemory<byte>? ReadNullableBytes() => TakeOrNull(ReadLength(ReadInt32(), "NULLABLE_BYTES"));
 
+    /// <summary>
+    /// Reads <paramref name="count"/> bytes with no length prefix of their own, as a record's
+    /// key, value and header fields follow their VARINT lengths (the guide's "Record").
+    /// </summary>
+    /// <param name="count">How many bytes to read; at least 0.</param>
+    /// <returns>The bytes.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="count"/> is negative.</exception>
+    public ReadOnlyMemory<byte> ReadRawBytes(int count)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        return TakeMemory(count);
+    }
+
     /// <summary>Reads COMPACT_BYTES: an UNSIGNED_VARINT length plus one, then the bytes.</summary>
     /// <returns>The value.</returns>
     public ReadOnlyMemory<byte> ReadCompactBytes() => ReadCompactNullableBytes() ?? throw NullWhereNotAllowed("COMPACT_BYTES");

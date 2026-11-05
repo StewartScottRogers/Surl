@@ -43,9 +43,20 @@ ApiVersions, Metadata and SASL (BL-518, ADR-0105 decisions 1, 2 and 5):
   client message to the policy's `ISaslExchange`, and returns SCRAM's server-final with the
   success, since a Kafka client sends nothing after it.
 
-Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor: Produce
-(BL-519), Fetch and ListOffsets (BL-520), compressed batches (BL-521) are still to come; the
-command line and composition are BL-522.
+Produce (BL-519, ADR-0105 decisions 3, 4, 6 and 7, and its BL-519 amendment):
+
+- `KafkaRecordBatchReader` reads and checks one partition's record batches - header length,
+  `magic` 2, the CRC-32C (`KafkaCrc32C`, `BitOperations.Crc32C`), the attributes, the record count,
+  offset deltas and lengths - into `KafkaProducedRecord`s, or the first failing batch's error code.
+  Compressed batches (codec 1 to 4) are 43 until BL-521.
+- `KafkaProduceAnswerer` answers v3 to v8: `acks` 0, 1 and -1 (0 writes no response), the topic
+  checks (17, 3, 29), the batch checks, the record size limit (10) and the bus bounds (44), then
+  publishes each record on `Surl.MessageBus` (value as payload, key, UTF-8 headers, QoS 1), so live
+  subscribers of the mapped topic receive it, and answers the first record's log offset.
+
+Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor: Fetch and
+ListOffsets (BL-520) and compressed batches (BL-521) are still to come; the command line and
+composition are BL-522.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0105 decision 0 names (`Surl.MessageBus`, `Surl.Compression`) - never
