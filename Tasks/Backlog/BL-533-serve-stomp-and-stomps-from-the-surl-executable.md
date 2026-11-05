@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-532, BL-405, BL-635]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -39,8 +39,15 @@ The `--aihelp` topic and help category exist, and the extension switch turns bot
 
 ## Notes
 
+- 2026-11-05 (lane 8): BL-609 moved the composition. Extended servers are now registered in
+  `Application/Surl.Composition.UnitLibrary/ExtendedProtocolServers.cs`, and the shared bus is composed in
+  `SurlServerComposition`. So the stomp registration and its bus-sharing test belong in Surl.Composition and its
+  tests, and both are added to `touches`. BL-803 (Doing) touches Surl.Composition, so the task waits in Backlog
+  until that task no longer overlaps.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary, which BL-803 (Doing) touches
