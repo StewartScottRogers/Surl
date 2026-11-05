@@ -48,5 +48,12 @@ here. The server receives its transport from the listener seam in
 `Surl.Protocol.Abstractions`, so the tests in the matching `.UnitTests` project can drive
 it with request bytes measured from pinned upstream curl, with no network.
 
+The server half of upstream curl's test cases (ADR-0080 decision 2, BL-396), never composed by
+the shipped `surl`: `MqttUpstreamTestCaseServer` is `MqttProtocolServer` on a bus of its own per
+connection, its connection wrapped in `MqttPacketLoggingConnection`, which cuts each direction
+into packets with `MqttPacketCutter`, logs them in `MqttUpstreamTestCaseReplies` in runtests'
+`client CONNECT 18 0004...` form, and publishes the case's `<data>`, retained, to each topic of a
+`SUBSCRIBE` before the server reads it. No MQTT `<servercmd>` is implemented.
+
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
