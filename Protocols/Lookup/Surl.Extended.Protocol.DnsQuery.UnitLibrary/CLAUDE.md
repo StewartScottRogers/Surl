@@ -68,10 +68,27 @@ TCP and zone transfer (BL-482, ADR-0092 decision 4):
   `DnsZoneTransfer.Messages`: the SOA, every other record in zone-file order, the SOA, packed into
   as few frames as fit, the question in the first only; a name that is no apex is `NOTAUTH`.
 
-DoH (BL-483), DoQ (BL-484) and the command line (BL-485, which adds `--allow-zone-transfer`) build
-on it.
+DNS over HTTPS (BL-483, ADR-0092 decision 5; RFC 8484):
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`, and may also reference the
+- `DnsOverHttpsHandler` is both `Surl.HttpServing`'s `IHttpRequestHandler` (HTTP/1.1, through
+  `Http1ConnectionServer`) and `Surl.Http2`'s `IHttp2StreamHandler` (HTTP/2, through
+  `Http2ConnectionServer`); one `AnswerAsync` decides both, and HTTP/2 reads its body through
+  `DnsHttp2RequestBody`. Path `/dns-query` only (else `404`); `GET` with one `dns` parameter in
+  base64url without padding (`DnsOverHttpsQueryParameter`; else `400`); `POST` of
+  `application/dns-message` (else `415`), bounded at 65535 bytes by `DnsOverHttpsQueryBuffer`
+  (else `413`; a body that cannot be read whole is `400`); another method `405` with
+  `Allow: GET, POST`. A dropped query is `400`; every other is `200` with the DNS response and
+  `Cache-Control: max-age` from `DnsOverHttpsCacheLifetime` (the smallest answer TTL, else the
+  negative answer's SOA TTL, else 0).
+- `DnsQueryAnswerer.AnswerOverHttp` answers one query; allowed AXFR and IXFR are `NOTIMP` there.
+- Not yet: EDNS(0) padding on the encrypted transports and the optional DoH login (ADR-0092
+  decisions 2 and 5); see the tasks filed for them.
+
+DoQ (BL-484) and the command line (BL-485, which adds `--allow-zone-transfer` and binds the DoH
+listener with TLS and ALPN) build on it.
+
+This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary`,
+`Surl.HttpServing.UnitLibrary` and `Surl.Http2.UnitLibrary`, and may also reference the
 horizontal libraries in ADR-0002 decision 3's table as later ADRs amend it - never another
 protocol server, original or extended. Never construct a `Socket`, `TcpListener`, `UdpClient`,
 `SslStream` or `HttpListener` here; the transport comes from the listener seam.

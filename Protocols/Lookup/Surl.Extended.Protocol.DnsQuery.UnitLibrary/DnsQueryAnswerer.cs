@@ -66,17 +66,31 @@ public sealed class DnsQueryAnswerer
     /// </summary>
     public IReadOnlyList<DnsResponse> AnswerOverStream(ReadOnlySpan<byte> query) => AnswerWith(query, TransferOverStream) ?? [];
 
+    /// <summary>
+    /// Returns the response to <paramref name="query"/> carried in one DNS over HTTPS request, or
+    /// <see langword="null"/> when it is to be dropped, which DoH answers <c>400</c>. With zone
+    /// transfer allowed, AXFR and IXFR are both <c>NOTIMP</c>: RFC 8484 defines one response per
+    /// request and no answer of several messages (ADR-0092 decision 4).
+    /// </summary>
+    public DnsResponse? AnswerOverHttp(ReadOnlySpan<byte> query) => AnswerWith(query, TransferOverHttp)?[0];
+
     private IReadOnlyList<DnsResponse>? AnswerWith(ReadOnlySpan<byte> query, Func<DnsHeader, DnsQuestion, DnsOptRecord?, IReadOnlyList<DnsResponse>> answerTransfer)
     {
         var read = DnsMessageReader.Read(query);
 
-        if (read.Header is not { IsResponse: false } header)
-        {
-            return null;
-        }
+        return read.Header is { IsResponse: false } header
+            ? AnswerQueryHeader(BinaryPrimitives.ReadUInt16BigEndian(query[4..]), read, header, answerTransfer)
+            : null;
+    }
 
-        var questionCount = BinaryPrimitives.ReadUInt16BigEndian(query[4..]);
-        IReadOnlyList<DnsQuestion> echoed = questionCount == 1 && read.Questions.Count == 1 ? read.Questions : [];
+    // A message with a readable query header: NOTIMP, FORMERR or the question's answer.
+    private IReadOnlyList<DnsResponse> AnswerQueryHeader(
+        ushort questionCount,
+        DnsReadOutcome read,
+        DnsHeader header,
+        Func<DnsHeader, DnsQuestion, DnsOptRecord?, IReadOnlyList<DnsResponse>> answerTransfer)
+    {
+        var echoed = EchoedQuestions(questionCount, read.Questions);
         var queryOpt = OptOf(read.Message, out var optIsReadable);
 
         if (header.Opcode != DnsOpcode.Query)
@@ -93,6 +107,10 @@ public sealed class DnsQueryAnswerer
             ? AnswerQuestion(header, echoed[0], queryOpt, answerTransfer)
             : [Fault(header, [], DnsResponseCode.FormatError, queryOpt)];
     }
+
+    // The one question a fault echoes: only when QDCOUNT is 1 and that question was read.
+    private static IReadOnlyList<DnsQuestion> EchoedQuestions(ushort questionCount, IReadOnlyList<DnsQuestion> read) =>
+        questionCount == 1 && read.Count == 1 ? read : [];
 
     private IReadOnlyList<DnsResponse> AnswerQuestion(
         DnsHeader header,
@@ -130,6 +148,10 @@ public sealed class DnsQueryAnswerer
         return [Respond(header, question, answer, queryOpt)];
     }
 
+    // AXFR and IXFR are both NOTIMP: DoH has one response per request.
+    private static IReadOnlyList<DnsResponse> TransferOverHttp(DnsHeader header, DnsQuestion question, DnsOptRecord? queryOpt) =>
+        [Fault(header, [question], DnsResponseCode.NotImplemented, queryOpt)];
+
     // AXFR and IXFR at a served apex are the whole zone, else NOTAUTH.
     private IReadOnlyList<DnsResponse> TransferOverStream(DnsHeader header, DnsQuestion question, DnsOptRecord? queryOpt) =>
         ZoneToTransfer(question) is { } zone
@@ -149,10 +171,17 @@ public sealed class DnsQueryAnswerer
     // whose owner is not the root (RFC 6891 section 6.1.1).
     private static DnsOptRecord? OptOf(DnsMessage? message, out bool readable)
     {
-        var opts = message?.Additionals.Where(record => record.Type == DnsRecordType.OPT).ToArray() ?? [];
-        readable = opts.Length <= 1 && opts.All(record => record.Name.LabelCount == 0);
+        var opts = OptRecordsOf(message);
+        readable = opts.Length <= 1 && opts.All(IsOwnedByTheRoot);
         return readable && opts.Length == 1 ? DnsOptRecord.FromResourceRecord(opts[0]) : null;
     }
+
+    private static DnsResourceRecord[] OptRecordsOf(DnsMessage? message) =>
+        message is null ? [] : message.Additionals.Where(IsOpt).ToArray();
+
+    private static bool IsOpt(DnsResourceRecord record) => record.Type == DnsRecordType.OPT;
+
+    private static bool IsOwnedByTheRoot(DnsResourceRecord record) => record.Name.LabelCount == 0;
 
     private static DnsResponse Fault(
         DnsHeader query,
