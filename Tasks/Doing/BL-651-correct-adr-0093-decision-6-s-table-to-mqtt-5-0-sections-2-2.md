@@ -45,3 +45,4 @@ codec BL-495 built already does.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
