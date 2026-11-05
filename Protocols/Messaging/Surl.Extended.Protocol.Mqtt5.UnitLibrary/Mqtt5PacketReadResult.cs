@@ -9,6 +9,12 @@ namespace Surl.Extended.Protocol.Mqtt5;
 internal sealed record Mqtt5PacketReadResult(Mqtt5PacketReadOutcome Outcome, Mqtt5Packet? Packet, Mqtt5PacketFault? Fault)
 {
     /// <summary>
+    /// The type named by a refused packet's first byte, when its fixed header was readable;
+    /// <see langword="null"/> for every other result, and for a Remaining Length that could not be read.
+    /// </summary>
+    public Mqtt5PacketType? RefusedPacketType { get; init; }
+
+    /// <summary>
     /// The client closed the connection between packets.
     /// </summary>
     public static Mqtt5PacketReadResult ConnectionClosed { get; } = new(Mqtt5PacketReadOutcome.ConnectionClosed, null, null);

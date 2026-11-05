@@ -165,4 +165,29 @@ public sealed class Mqtt5PacketReaderTests
 
         CollectionAssert.AreEqual(payload, ((Mqtt5PublishPacket)result.Packet!).Payload);
     }
+
+    [TestMethod]
+    [DataRow(new byte[] { 0x60, 0x02, 0x00, 0x01 }, 6, DisplayName = "A body refused by the decoder")]
+    [DataRow(new byte[] { 0x10, 0x7F }, 1, DisplayName = "A packet over the packet limit")]
+    public async Task ReadPacketAsync_RefusedAfterItsFixedHeader_NamesItsType(byte[] bytes, int expectedType)
+    {
+        var result = await ReadAsync(bytes, maxPacketBytes: 16);
+
+        Assert.AreEqual(Mqtt5PacketReadOutcome.PacketRefused, result.Outcome);
+        Assert.AreEqual((Mqtt5PacketType)expectedType, result.RefusedPacketType);
+    }
+
+    [TestMethod]
+    public async Task ReadPacketAsync_UnreadableRemainingLength_NamesNoType()
+    {
+        var result = await ReadAsync([0x10, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F]);
+
+        Assert.IsNull(result.RefusedPacketType);
+    }
+
+    [TestMethod]
+    public async Task ReadPacketAsync_PacketRead_NamesNoRefusedType()
+    {
+        Assert.IsNull((await ReadAsync([0xC0, 0x00])).RefusedPacketType);
+    }
 }

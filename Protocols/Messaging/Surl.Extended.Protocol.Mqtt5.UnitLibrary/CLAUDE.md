@@ -29,9 +29,25 @@ What is here so far is the packet and property codec (BL-495, ADR-0093 decisions
 
 The decoder is structural. Which packets a client may send, and each property value's meaning
 (Receive Maximum 0, a Payload Format Indicator above 1, a Subscription Identifier of 0, Topic
-Filter syntax), are the broker's to judge: CONNECT and CONNACK (BL-496), PUBLISH and the QoS
-flows (BL-497), SUBSCRIBE (BL-498), sessions, DISCONNECT and AUTH (BL-499), `mqtt5+ws` (BL-500)
-and the command line (BL-501) build on it.
+Filter syntax), are the broker's to judge.
+
+The broker so far answers CONNECT and what follows it (BL-496, ADR-0093 decisions 1, 2, 6 and 8):
+
+- `Mqtt5Broker` is the `IConnectionProtocolServer` (`mqtt5`, `mqtt5s`); its doc comment lists every
+  answer. `Mqtt5BrokerConnection` answers one connection: the first packet under the head timeout,
+  `Mqtt5ConnectJudge` for property values and the Authentication Method, the login through
+  `IAuthenticationPolicy`, CONNACK with `Mqtt5ConnectAcknowledgementProperties`, then PINGREQ,
+  DISCONNECT and the Keep Alive (1.5 times the one in force, then DISCONNECT `0x8D`).
+- `Mqtt5BrokerState` is shared by every connection of one broker: connected client identifiers,
+  assigned `surl-<32 hex>` identifiers, Wills waiting out their delay on the context's
+  `TimeProvider`, and `ApplicationMessagePublished`, through which Wills are published.
+- Still to come, and answered for now as stated: an Authentication Method is CONNACK `0x8C` until
+  BL-499 adds SCRAM; PUBLISH and its acknowledgements, SUBSCRIBE and UNSUBSCRIBE are DISCONNECT
+  `0x83` until BL-497 and BL-498; sessions are not kept (Session Present is always 0) until BL-499;
+  a CONNECT for a connected identifier does not yet take the session over (BL-678).
+
+PUBLISH and the QoS flows (BL-497), SUBSCRIBE (BL-498), sessions, DISCONNECT and AUTH (BL-499),
+`mqtt5+ws` (BL-500) and the command line (BL-501) build on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0093 decision 0 names - never another protocol server, original or

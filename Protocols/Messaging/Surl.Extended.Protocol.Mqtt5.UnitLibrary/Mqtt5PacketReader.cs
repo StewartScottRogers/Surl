@@ -53,9 +53,12 @@ internal sealed class Mqtt5PacketReader(IConnection connection, long maxPacketBy
             return failure;
         }
 
-        return IsOverLimit(maxPacketBytes, 1L + lengthByteCount + remainingLength)
+        var result = IsOverLimit(maxPacketBytes, 1L + lengthByteCount + remainingLength)
             ? Mqtt5PacketReadResult.Refused(new(Mqtt5ReasonCode.PacketTooLarge, "3.2.2.3.6"))
             : await ReadBodyAsync((byte)firstByte, remainingLength, cancellationToken);
+        return result.Outcome == Mqtt5PacketReadOutcome.PacketRefused
+            ? result with { RefusedPacketType = (Mqtt5PacketType)(firstByte >> 4) }
+            : result;
     }
 
     private static bool IsOverLimit(long limit, long byteCount) => limit > 0 && byteCount > limit;
