@@ -8,7 +8,7 @@ depends-on: [BL-822]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-804 — Compose protocol servers from an explicit registration list in Surl.Composition
 
@@ -43,20 +43,45 @@ servers in the same order as today.
 
 ## Acceptance criteria
 
-- [ ] `ComposeProtocolServers` returns the same server types, schemes and order as before this task (a named test
+- [x] `ComposeProtocolServers` returns the same server types, schemes and order as before this task (a named test
       pins the scheme order and the implicit-TLS pairs), built from the registration list.
-- [ ] A named test shows a registration list with one extra test-only entry composes that server beside the
+- [x] A named test shows a registration list with one extra test-only entry composes that server beside the
       originals without any other code change.
-- [ ] `surl --version`'s `Protocols:` line and the `--aihelp` completeness tests
+- [x] `surl --version`'s `Protocols:` line and the `--aihelp` completeness tests
       (`CommandLineRunnerAiHelpTests.RegisteredSchemes_AreEachClaimedByExactlyOneProtocolTopic`) are unchanged and
       green.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are green, and
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean, the fast tests are green, and
       the library keeps 100% line and branch coverage.
 
 ## Notes
+
+- Delivered: `ProtocolServerRegistration` (with `ImplicitTls(scheme, plainScheme)`), `ComposedProtocolServices`,
+  `ProtocolServerRegistrations.Original`, `ExtendedProtocolServers.Registrations` (empty: no extended server is
+  composed on this branch yet), `AdditionalProtocolServer` and `SurlServerCompositionSeams.AdditionalProtocolServers`.
+  `ComposeProtocolServers` keeps its name, parameters and result and iterates the list; a new overload
+  `ComposeProtocolServers(registrations, services)` builds any list.
+- Tests: `ProtocolServerRegistrationsTests.Original_Composed_AreTheServerTypesAndSchemesInTheOrderSurlHasAlwaysRegisteredThem`,
+  `Original_Composed_EachImplicitTlsSchemeIsAnsweredByTheServerOfItsPlainScheme`,
+  `ComposeProtocolServers_TheOriginalsAndOneTestOnlyEntry_ComposesThatServerBesideThem`, and
+  `SurlServerCompositionTests.ComposeAsync_AnAdditionalProtocolServer_IsServedOnItsListenUrlAfterTheCommandLines`.
+  `ComposeRegisteredSchemes_ThisBuild_...` and the Console `--aihelp`/`--version` tests pass unchanged.
+  Measure-CodeQuality: Surl.Composition 100% line, 100% branch, worst CRAP 10.
+- Choices (defaults, within ADR-0124 decision 2):
+  - An implicit-TLS entry shares its plain server through `ComposedProtocolServices.ComposedServerFor(scheme)`,
+    which the composition fills as it walks the list, so the list stays flat and ordered with no special case.
+    `ImplicitTlsSchemeServer` gained a public `Server` property so the pairs test can pin which server answers.
+  - `ExtendedProtocolServerServices` now wraps `ComposedProtocolServices` rather than being replaced, because
+    `Surl.Console` and `Surl.Api` (outside this task's `touches`) name it in the extended-composer seam's type;
+    nothing outside Composition constructs it, so they build unchanged.
+  - `AdditionalProtocolServers` is an init property of `SurlServerCompositionSeams` (default none), and its listen
+    URLs are appended to the command line's before serving, so the engine, status lines and bound-URL report need
+    no change.
+  - `ComposeProtocolServers` gained an optional trailing `TimeProvider` (System by default) for the services' clock;
+    the start passes `seams.TimeProvider` through the services directly.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Amended by ADR-0124 (BL-822): extended servers on the same record; `AdditionalProtocolServers` input.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. Surl.Composition composes its servers from ProtocolServerRegistrations.Original, extended ones from ExtendedProtocolServers.Registrations, and a host's own via AdditionalProtocolServers
