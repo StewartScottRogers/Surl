@@ -273,6 +273,21 @@ ends and the flow is disposed. No alert is sent for an invalid record (decision 
 A received fatal alert ends the association without a reply. A received warning alert other than
 `close_notify` is logged and ignored.
 
+**Amendment (2026-11-05, BL-415; decided by Claude under Stewart's delegation).** How the unknown
+or wrong PSK reaches `decrypt_error`. Under an AEAD suite a client holding another key derives other
+record keys, so its `Finished` record fails its tag and decision 8 would drop it silently: the
+`Finished` comparison is never reached and the handshake would only end at the head timeout. So,
+while the server waits for the client's `Finished`, an epoch 1 record that fails its tag ends the
+handshake with fatal `decrypt_error` (51). The only epoch 1 record a client sends before the
+server's `Finished` is its own `Finished`, so a failed tag there means the keys differ. An unknown
+identity (keyed with a random key) and a wrong key end the same way, so the identity stays hidden.
+RFC 6347 section 4.1.2.7 lets an implementation send an alert for an invalid record instead of
+dropping it. It also opens no new attack: anyone who can inject that record from the client's
+address could already end the handshake with a forged plaintext fatal alert. Decision 8's silent
+drop still holds for every other invalid record, and for every record once the association is
+established. Rejected: a timeout with no alert, because the client would hear nothing for the 30
+seconds of the head timeout, and nothing would tell an operator why a wrong key failed.
+
 ## Alternatives considered
 
 - **The client's suite order.** Rejected: CoAP clients often list the mandated CCM_8 first, and the
