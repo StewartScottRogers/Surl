@@ -52,3 +52,4 @@ duplicates, and serves `/.well-known/core` in the CoRE link format.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
