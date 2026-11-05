@@ -658,6 +658,20 @@
     UpstreamCurlBuilds.json may run (ADR-0003), and a curl inside WSL cannot be
     checksummed from Windows.
 
+.PARAMETER UnixSocket
+    Listen on a Unix domain socket at this path instead of ListenAddress:Port, for
+    measuring curl's --unix-socket (ADR-0094). The HTTP responses are served exactly as on
+    TCP, with -Tls if given; every session mode, -Reset, -NoServer and the TLS relay are
+    refused, and Port need not be given. The path must not exist: the script creates the
+    socket file and deletes it when curl has finished. Needs PowerShell 7 or later, whose
+    .NET has System.Net.Sockets.UnixDomainSocketEndPoint; on Windows it needs Windows 10
+    1803 or later, which supports AF_UNIX stream sockets.
+
+.PARAMETER UnixSocketAbstract
+    With UnixSocket, take its value as an abstract socket name, as curl's
+    --abstract-unix-socket does: the socket binds a NUL byte followed by the name, so no
+    file is created, checked for or deleted.
+
 .PARAMETER NoServer
     Bind no port and serve nothing: run curl against a server the caller started, such
     as a local OpenSSH sshd, an LDAP server or an SMB share, which a PowerShell loopback
@@ -886,6 +900,8 @@ param(
     [switch] $LibcurlRtsp,
     [string] $Libcurl,
     [System.Net.IPAddress] $ListenAddress = [System.Net.IPAddress]::Loopback,
+    [string] $UnixSocket = '',
+    [switch] $UnixSocketAbstract,
     [switch] $NoServer,
     [switch] $KerberosTestKdc,
     [string] $KerberosPassword,
@@ -910,7 +926,12 @@ $TlsAlpn = @($TlsAlpn | ForEach-Object { $_.Split(',') } | ForEach-Object { $_.T
 if ($TlsAlpn.Count -gt 0 -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Reset)) { throw '-TlsAlpn needs -Tls with no session mode but -Raw, and cannot be combined with -Reset.' }
 # Both are served by the TLS relay, which forwards the plaintext to the recorder's own server.
 $useTlsRelay = $TlsRenegotiationOff -or $TlsAlpn.Count -gt 0
-if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
+if ($UnixSocket -and ($NoServer -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $QuicInitial -or $Reset -or $useTlsRelay)) { throw '-UnixSocket serves HTTP responses only, so it cannot be combined with -NoServer, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -QuicInitial, -Reset, -TlsRenegotiationOff or -TlsAlpn.' }
+if ($UnixSocket -and $null -eq ('System.Net.Sockets.UnixDomainSocketEndPoint' -as [type])) { throw '-UnixSocket needs PowerShell 7 or later: this .NET has no System.Net.Sockets.UnixDomainSocketEndPoint.' }
+if ($UnixSocketAbstract -and -not $UnixSocket) { throw '-UnixSocketAbstract says how to read -UnixSocket, so it needs -UnixSocket.' }
+$unixSocketFile = if ($UnixSocket -and -not $UnixSocketAbstract) { $UnixSocket } else { '' }
+if ($unixSocketFile -and (Test-Path -LiteralPath $unixSocketFile)) { throw "-UnixSocket $UnixSocket exists already; the script creates the socket file and refuses to delete one it did not create." }
+if (-not $NoServer -and -not $UnixSocket -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
 if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword') -or $PSBoundParameters.ContainsKey('KerberosServicePrincipal'))) { throw '-KerberosPassword and -KerberosServicePrincipal configure the test KDC, so they need -KerberosTestKdc.' }
 $isWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 if ($KerberosTestKdc -and -not $isWindowsHost -and $null -eq (Get-Command kinit -ErrorAction SilentlyContinue)) { throw '-KerberosTestKdc outside Windows runs kinit for curl''s GSS-API credential cache, and there is no kinit on PATH.' }
@@ -1055,7 +1076,8 @@ $serveConnections = {
     $requests = New-Object System.Collections.Generic.List[object]
     for ($served = 0; $served -lt $ConnectionCount; $served++) {
         try {
-            $client = $Listener.AcceptTcpClient()
+            # -UnixSocket listens on a bare Socket; the accepted socket is wrapped in its stream.
+            $client = if ($Listener -is [System.Net.Sockets.Socket]) { New-Object System.Net.Sockets.NetworkStream($Listener.Accept(), $true) } else { $Listener.AcceptTcpClient() }
         } catch {
             break  # The listener was stopped: curl exited without opening this connection.
         }
@@ -1067,7 +1089,7 @@ $serveConnections = {
             continue
         }
         try {
-            $stream = $client.GetStream()
+            $stream = if ($client -is [System.IO.Stream]) { $client } else { $client.GetStream() }
             if ($null -ne $TlsCertificate) {
                 $stream = New-Object System.Net.Security.SslStream($stream, $false)
                 $stream.ReadTimeout = 5000
@@ -3267,6 +3289,12 @@ try {
         $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $listener.Start()
         $server = [System.Management.Automation.PowerShell]::Create()
+    } elseif ($UnixSocket) {
+        $listener = New-Object System.Net.Sockets.Socket([System.Net.Sockets.AddressFamily]::Unix, [System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Unspecified)
+        $boundName = if ($UnixSocketAbstract) { "`0" + $UnixSocket } else { $UnixSocket }
+        $listener.Bind((New-Object System.Net.Sockets.UnixDomainSocketEndPoint($boundName)))
+        $listener.Listen(16)
+        $server = [System.Management.Automation.PowerShell]::Create()
     } elseif (-not $NoServer) {
         $listener = New-Object System.Net.Sockets.TcpListener($ListenAddress, $Port)
         $listener.Start()
@@ -3376,6 +3404,8 @@ try {
     if ($null -ne $tlsRelay) { Stop-TlsRelay -Relay $tlsRelay }
     if ($null -ne $listener) { Stop-Listener }
     if ($null -ne $server) { $server.Dispose() }
+    # The socket file outlives its socket; the script created it, so the script deletes it.
+    if ($unixSocketFile -and (Test-Path -LiteralPath $unixSocketFile)) { Remove-Item -LiteralPath $unixSocketFile -Force }
     # Reset deletes the key container the PFX import created.
     if ($null -ne $tlsCertificate) { $tlsCertificate.Reset() }
 }
