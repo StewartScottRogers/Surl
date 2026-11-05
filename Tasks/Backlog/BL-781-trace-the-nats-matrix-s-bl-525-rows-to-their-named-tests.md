@@ -1,5 +1,5 @@
 ---
-id: BL-776
+id: BL-781
 title: Trace the NATS matrix's BL-525 rows to their named tests
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-776 — Trace the NATS matrix's BL-525 rows to their named tests
+# BL-781 — Trace the NATS matrix's BL-525 rows to their named tests
 
 ## Goal
 

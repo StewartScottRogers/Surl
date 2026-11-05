@@ -74,7 +74,7 @@ CONNECT's credentials and options, answers PING with PONG, and sends its own PIN
 - Also added: `WriteRefusalAsync` answers `-ERR 'Maximum Connections Exceeded'` with no INFO (matrix row
   Nats:Surl-Limits-2 maps it to this task).
 - Not done here: replacing `BL-525` in `Documentation/Conformance/Extended/Nats.md` with the test names. That
-  file is outside `touches` and BL-394 (in Doing) touches `Documentation/Conformance`, so it is filed as BL-776.
+  file is outside `touches` and BL-394 (in Doing) touches `Documentation/Conformance`, so it is filed as BL-781.
 
 ## Log
 
