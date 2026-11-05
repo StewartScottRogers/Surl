@@ -72,7 +72,7 @@ are allowed only under `--allow-anonymous`.
   `..._AnonymousGetUnderAllowAnonymous_IsServed`, `..._AnonymousPutUnderAllowAnonymous_Is403AccessDeniedAndNotStored`,
   `..._SignedAccount_IsTheCallerTheShareAccessCheckSees`. `Measure-CodeQuality.ps1`: S3,
   Authentication and Abstractions at 100% line and branch; the five members still over complexity
-  10 predate this task and are filed as BL-738.
+  10 predate this task and are filed as BL-743.
 - The S3 tests use the hand-written `UnitTestS3AuthenticationPolicy` (no reference to
   `Surl.Authentication`, as every protocol test project keeps); the signature arithmetic is tested
   where it lives. Composition does not build the S3 server yet (BL-421), so the new constructor

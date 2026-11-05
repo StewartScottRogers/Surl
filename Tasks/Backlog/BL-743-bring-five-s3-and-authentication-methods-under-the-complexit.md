@@ -1,5 +1,5 @@
 ---
-id: BL-738
+id: BL-743
 title: Bring five S3 and Authentication methods under the complexity gate
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-738 — Bring five S3 and Authentication methods under the complexity gate
+# BL-743 — Bring five S3 and Authentication methods under the complexity gate
 
 ## Goal
 
