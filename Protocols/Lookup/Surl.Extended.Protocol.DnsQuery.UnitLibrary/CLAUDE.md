@@ -38,8 +38,23 @@ The zones and the authoritative answer (BL-480, ADR-0092 decisions 1 and 2):
   `DnsAuthoritativeAnswer.ToResponse` makes the response message: RA = 0, the question echoed.
   AXFR and IXFR questions are not special-cased here; BL-482 answers them.
 
-UDP (BL-481), TCP and zone transfer (BL-482), DoH (BL-483), DoQ (BL-484) and the command line
-(BL-485) build on it.
+UDP (BL-481, ADR-0092 decisions 2 and 3):
+
+- `DnsQueryAnswerer.Answer` answers one query message whatever carries it, as a `DnsResponse`
+  (the message, its OPT kept apart, and the query's OPT), or `null` to drop it: no header or
+  QR = 1 is dropped; an opcode other than QUERY is `NOTIMP`, checked before the body; an
+  unreadable message, more than one OPT or one not owned by the root is `FORMERR`; QDCOUNT other
+  than 1 is `FORMERR` with no question; an OPT version above 0 is `BADVERS`; AXFR and IXFR are
+  `REFUSED` (zone transfer off; BL-482 opens it); the rest is `DnsZoneSet.Answer`. A response
+  carries an OPT (payload 1232, version 0, DO copied) exactly when the query had a readable one.
+- `DnsUdpResponseWriter.Write` writes it as one datagram within 512 bytes, or the query's OPT
+  payload size clamped to 512..1232, cutting additionals, then authorities (TC only when they held
+  the negative answer's SOA), then whole answer RRsets with TC = 1; the OPT is always kept.
+- `DnsUdpProtocolServer` (scheme `dns`, `IDatagramProtocolServer`) answers the flow's first
+  datagram and every later one until the engine cancels the exchange.
+
+TCP and zone transfer (BL-482), DoH (BL-483), DoQ (BL-484) and the command line (BL-485) build
+on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`, and may also reference the
 horizontal libraries in ADR-0002 decision 3's table as later ADRs amend it - never another
