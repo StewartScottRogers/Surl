@@ -8,7 +8,7 @@ depends-on: []
 touches: [UpstreamCurlBuilds.json]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-357 — Approve downloading stunnel/static-curl 8.21.0 builds for linux-arm64, win-arm64 and osx-x64
 
@@ -42,11 +42,13 @@ verified and pinned by SHA-256 in BL-361? Or do you accept that `linux-arm64`, `
 
 ## Acceptance criteria
 
-- [ ] The Log records Stewart's answer, approved or declined, with the date.
-- [ ] If he declines, BL-361 is moved to `Deferred` with his answer as the reason.
+- [x] The Log records Stewart's answer, approved or declined, with the date.
+- [x] If he declines, BL-361 is moved to `Deferred` with his answer as the reason. (Not applicable: he
+      approved, so BL-361 stays in Backlog and does the download and pinning.)
 
 ## Notes
 
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Done. Stewart approved in session on 2026-11-04: download the three stunnel/static-curl 8.21.0 assets (curl-linux-aarch64-musl, curl-windows-aarch64, curl-macos-x86_64) for BL-361 to verify and pin by SHA-256
