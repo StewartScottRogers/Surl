@@ -42,3 +42,4 @@ rules as the existing SigV4 check, and is reachable through the `Surl.Protocol.A
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
