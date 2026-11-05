@@ -27,8 +27,9 @@ public sealed record UpstreamTestCaseSelectionRules(
 {
     /// <summary>
     /// The rules for <paramref name="build"/> as Surl stands today: no server half takes a
-    /// server command and the verify checker interprets no strip line yet (BL-390 to BL-397
-    /// build them), and nothing is excluded. Replace those with <c>with</c> as they land.
+    /// server command yet (BL-391 to BL-397 build them), the verify checker interprets the strip
+    /// lines <see cref="UpstreamTestCaseStripLine.IsSupported"/> accepts, and nothing is excluded.
+    /// Replace those with <c>with</c> as they land.
     /// </summary>
     /// <param name="build">The pinned build.</param>
     /// <param name="disabledCases">The case numbers <c>tests/data/DISABLED</c> lists.</param>
@@ -43,7 +44,7 @@ public sealed record UpstreamTestCaseSelectionRules(
             build.Protocols.Select(protocol => protocol.ToLowerInvariant()).ToHashSet(StringComparer.Ordinal),
             UpstreamCurlBuildFeatures.For(build),
             static (_, _) => false,
-            static (_, _) => false,
+            UpstreamTestCaseStripLine.IsSupported,
             new HashSet<int>());
     }
 }

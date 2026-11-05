@@ -4,6 +4,7 @@
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-386 (FR-053, success criterion 2).
+- **Amended:** 2026-11-04 in BL-390, decision 4 (the strip subset as the corpus writes it).
 - **Amends:** nothing. [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (only pinned
   builds run, never the Curl port), [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md)
   decision 3 (`Surl.Conformance` references Abstractions only; protocol servers never reference each
@@ -241,6 +242,28 @@ Latin-1-decoded lines (so every byte is one character and `\d`, `\w` and `\s` ma
 A line outside the subset - test 1286's `map`/`sort`/`split` is the one at the tag - makes the case
 skip `strippart-unsupported`, naming the line. Translating such a line into C# for one case is not
 done: the subset grows only when a new form appears in several cases, by amending this decision.
+
+**Amended 2026-11-04 in BL-390** (decided by Claude under Stewart's delegation), from reading every
+strip line at the tag (104 distinct lines in 262 cases, `UpstreamTestCaseCorpusTests`) and
+`singletest_check` in `tests/runtests.pl`:
+
+- `\d`, `\w`, `\s` and their negations are rewritten as ASCII classes, because .NET's match
+  Unicode classes that Latin-1 letters such as `é` belong to; a negated one inside brackets
+  (`[\S]`) is unsupported. A pattern .NET cannot compile is unsupported.
+- An `s///` may end `or $_ = ''` (the line goes when nothing was replaced) and
+  either form may end with `;`. Bracket delimiters (`s{...}{...}`) are unsupported, since
+  Perl pairs them.
+- In a replacement, a backslash before any punctuation stands for that character (`EPRT \|1\|` at
+  the tag), as Perl's double-quoted strings make it; a backslash before a letter or digit other than
+  `r`, `n`, `t` is unsupported, as are `$` not starting a group and `@` before a name.
+- Where runtests keeps only lines Perl counts as true after `<stripfile>` (stdout, stderr, files),
+  a line left `0` goes as well as an empty one.
+- `or` and `||` bind loosest, then `and` and `&&`, then the negations; Perl ranks the word forms
+  lower, which differs only when the forms are mixed without parentheses, as no line at the tag does.
+- A blank `<strip>` line is skipped; a `<strip>` line starting with `#` is a regular expression, as
+  runtests reads it.
+
+Test 1286's line stays the only one outside the subset.
 
 ### 5. The pass rate: where it lives, per platform and per release, and the guard
 

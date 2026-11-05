@@ -253,12 +253,14 @@ public sealed class UpstreamTestCaseSelectorTests
     }
 
     [TestMethod]
-    public void ForBuild_AsSurlStandsToday_AcceptsNoServerCommandOrStripLine()
+    public void ForBuild_AsSurlStandsToday_AcceptsNoServerCommandAndTheInterpretedStripLines()
     {
         var rules = UpstreamTestCaseSelectionRules.ForBuild(ReferencePins()[0], new HashSet<int>());
 
         Assert.IsFalse(rules.SupportsServerCommand("ftp", "REPLY"));
-        Assert.IsFalse(rules.SupportsStripLine("strip", "^Date:"));
+        Assert.IsTrue(rules.SupportsStripLine("strip", "^Date:"));
+        Assert.IsTrue(rules.SupportsStripLine("strippart", "s/^Date:.*//"));
+        Assert.IsFalse(rules.SupportsStripLine("strippart", "chomp;"));
         Assert.IsEmpty(rules.TestServerChoices);
         Assert.Contains("http", rules.Protocols);
     }

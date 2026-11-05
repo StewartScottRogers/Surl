@@ -125,7 +125,7 @@ build it. Parsing is built (BL-388):
   as upstream's `getpart` matches them; anything `getpart` would silently lose - a part outside
   every section, a part or section left open, a stray closing tag - is an
   `UpstreamTestCaseFormatException` naming the source line. `mode="text"` and the `<upload>`
-  double cut are verification rules and belong to BL-390.
+  double cut are verification rules, applied by the verify checker below.
 - `Surl.Conformance.UnitTests`' `UpstreamTestCaseCorpusTests` parses all 2,013 imported cases;
   4 (758, 1569, 1570, 1614) are listed there with their reasons: each has a part outside every
   section.
@@ -144,11 +144,31 @@ Selection is built (BL-389):
 - `UpstreamTestCaseSelector.FindSkipReason(number, case)` gives the first of decision 3's
   `UpstreamTestCaseSkipReasons` that applies, or `null` when the case can run, under
   `UpstreamTestCaseSelectionRules`. `ForBuild(pin, disabled)` is Surl as it stands: no server
-  command and no strip line accepted; the server halves and the verify checker replace those
-  predicates with `with` as they land. Parse a case for selection with the pin's features and
+  command accepted, and the strip lines the verify checker interprets; the server halves replace
+  their predicate with `with` as they land. Parse a case for selection with the pin's features and
   without `SRCDIR` or `PERL`, so `needs-perl` still sees them.
 - `UpstreamTestCaseCorpusTests` writes the count per skip reason for each reference pin to the
   test log.
+
+Verify checking is built (BL-390):
+
+- `UpstreamTestCaseVerifyChecker(files, features).Check(case, run)` checks a case's `<verify>`
+  against an `UpstreamTestCaseRunRecord` (exit code, stdout, stderr, the `--output` file, and the
+  bytes the server half received, stored as an upload, or a proxy received; `FromRun` builds one
+  from an `UpstreamCurlRunResult`) in `singletest_check`'s order: `stdout`, `stderr`, `protocol`,
+  the reply's `data`/`datacheck`, `upload`, `proxy`, `file` to `file4`, `errorcode`, `notexists`.
+  It gives an `UpstreamTestCaseVerifyResult`: pass, or the first differing section and its first
+  differing line on each side, escaped by `Escape` (NFR-020). Each section applies `nonewline`,
+  `crlf`, `mode="text"` (both sides CRLF), `%EMPTY`, `loadfile`, `%alternatives[a,b]` and the strips
+  where and in the order runtests does; `<stderr mode="warn">` always passes, as runtests' `join`
+  makes it. Files come through `IUpstreamTestCaseRunFiles` (`FileSystemUpstreamTestCaseRunFiles`).
+- `UpstreamTestCaseStripLine` is decision 4's Perl subset as amended in BL-390 (`s///` with `g`
+  and `i`, `or $_ = ''`, `$_ = '' if` with `UpstreamTestCaseStripCondition`), and
+  `UpstreamTestCasePerlRegex` makes .NET regexes that match as Perl does on bytes.
+  `UpstreamTestCaseStripLine.IsSupported` is `ForBuild`'s `SupportsStripLine`; a line outside the
+  subset makes `Check` throw `NotSupportedException`, since the selector skips that case first.
+- `UpstreamTestCaseCorpusTests` lists every strip line at the tag outside the subset with its
+  cases: only test 1286's.
 
 The rest is intent until its task lands. This library will also hold, with no reference but
 Abstractions:
@@ -157,8 +177,6 @@ Abstractions:
   `--trace-ascii`);
 - generating the test certificates from the imported `.prm` files with `CertificateRequest`, and
   the SSH keys and `%SSHSRVMD5`/`%SSHSRVSHA256`;
-- checking a `<verify>` section, with the `<strip>`/`<strippart>`/`<stripfile>` interpreter of
-  ADR-0080 decision 4's Perl subset (nothing outside it: `strippart-unsupported`);
 - the per-run result lines and reading the pass-rate file and passing lists of decision 5.
 
 It does not hold the server halves: each protocol library carries its own optional seam for a

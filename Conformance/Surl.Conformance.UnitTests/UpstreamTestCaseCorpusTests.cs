@@ -88,6 +88,56 @@ public sealed class UpstreamTestCaseCorpusTests
         Assert.IsGreaterThan(0, everythingBuiltCounts["runnable"]);
     }
 
+    /// <summary>
+    /// The strip lines at tag curl-8_21_0 outside ADR-0080 decision 4's subset, each with the cases
+    /// that hold it; every other strip line is applied by <see cref="UpstreamTestCaseVerifyChecker"/>.
+    /// </summary>
+    private static readonly Dictionary<string, string> UnsupportedStripLines = new(StringComparer.Ordinal)
+    {
+        ["strippart: " + @"if(s/^(Authorization: Digest )([^\r\n]+)(\r?\n)$//) { $_ = $1 . join(', ', map { s/^(cnonce=)""[a-zA-Z0-9+\/=]+""$/$1REMOVED/; s/^(response=)""[a-f0-9]{32}""$/$1REMOVED/; s/^qop=""auth""$/qop=auth/; $_ } sort split(/, */, $2)) . $3; }"] = "test1286",
+    };
+
+    [TestMethod]
+    public void IsSupported_EveryStripLineOfEveryImportedCase_IsInterpretedOrListedWithItsCases()
+    {
+        var lines = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
+        var environments = new[] { CorpusEnvironment() }
+            .Concat(UpstreamTestCaseSelectorTests.ReferencePins().Select(pin => SelectionEnvironment(UpstreamCurlBuildFeatures.For(pin))));
+
+        foreach (var environment in environments)
+        {
+            CollectStripLines(environment, lines);
+        }
+
+        var unsupported = lines
+            .Where(entry => !UpstreamTestCaseStripLine.IsSupported(entry.Key[..entry.Key.IndexOf(':', StringComparison.Ordinal)], entry.Key[(entry.Key.IndexOf(':', StringComparison.Ordinal) + 2)..]))
+            .ToDictionary(entry => entry.Key, entry => string.Join(", ", entry.Value), StringComparer.Ordinal);
+
+        TestContext.WriteLine($"{lines.Count} distinct strip lines in {lines.Values.SelectMany(cases => cases).Distinct().Count()} cases, {unsupported.Count} unsupported:");
+
+        foreach (var (line, cases) in unsupported)
+        {
+            TestContext.WriteLine($"  {cases}: {line}");
+        }
+
+        CollectionAssert.AreEquivalent(UnsupportedStripLines.ToList(), unsupported.ToList());
+    }
+
+    private static void CollectStripLines(UpstreamTestCaseEnvironment environment, SortedDictionary<string, SortedSet<string>> lines)
+    {
+        foreach (var path in TestCaseFiles().Where(path => !UnparsableCases.ContainsKey(Path.GetFileName(path))))
+        {
+            var testCase = UpstreamTestCaseParser.Parse(File.ReadAllBytes(path), environment);
+            var stripParts = (testCase.FindSection("verify")?.Parts ?? []).Where(part => part.Name.StartsWith("strip", StringComparison.Ordinal));
+
+            foreach (var key in stripParts.SelectMany(part => part.Lines.Select(line => $"{part.Name}: {line.TrimEnd('\n')}")))
+            {
+                lines.TryAdd(key, new SortedSet<string>(StringComparer.Ordinal));
+                lines[key].Add(Path.GetFileName(path));
+            }
+        }
+    }
+
     private static SortedDictionary<string, int> CountSkipReasons(UpstreamTestCaseSelector selector, UpstreamTestCaseEnvironment environment)
     {
         var counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
