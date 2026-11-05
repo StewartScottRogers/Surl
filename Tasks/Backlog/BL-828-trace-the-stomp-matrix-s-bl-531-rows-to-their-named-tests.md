@@ -1,5 +1,5 @@
 ---
-id: BL-824
+id: BL-828
 title: Trace the STOMP matrix's BL-531 rows to their named tests
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-824 — Trace the STOMP matrix's BL-531 rows to their named tests
+# BL-828 — Trace the STOMP matrix's BL-531 rows to their named tests
 
 ## Goal
 

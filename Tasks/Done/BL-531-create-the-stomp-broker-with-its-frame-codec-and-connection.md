@@ -70,7 +70,7 @@ EOLs between frames. It answers CONNECT or STOMP with CONNECTED, or with ERROR a
   - Linger after an ERROR: writes are completed, then reads are discarded until end of stream or 1 s on the injected
     `TimeProvider`.
 - `Documentation/Conformance/Extended/Stomp.md` still names BL-531 on its rows: `Documentation/Conformance` was in another
-  Doing task's `touches`, so BL-824 traces those rows to the tests above.
+  Doing task's `touches`, so BL-828 traces those rows to the tests above.
 
 ## Log
 
