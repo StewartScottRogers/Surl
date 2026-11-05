@@ -1,5 +1,5 @@
 ---
-id: BL-596
+id: BL-597
 title: Drive the Curl port's managed Libcurl through the WebSocket and RTSP libcurl scripts beside the pinned upstream libcurl
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-057
 created: 2026-11-04
 completed:
 ---
-# BL-596 — Drive the Curl port's managed Libcurl through the WebSocket and RTSP libcurl scripts beside the pinned upstream libcurl
+# BL-597 — Drive the Curl port's managed Libcurl through the WebSocket and RTSP libcurl scripts beside the pinned upstream libcurl
 
 ## Goal
 

@@ -113,13 +113,13 @@ Decide and record:
 
 - 2026-11-04: Decided and recorded as ADR-0089 (next free number). Summary: corpus = mirrored conformance
   classes per family (BL-580 to BL-590), runnable upstream test cases (BL-591), and the two libcurl rows
-  through port-side driver twins of the port's managed `Libcurl` (filed as **BL-596**; BL-592 now depends on
+  through port-side driver twins of the port's managed `Libcurl` (filed as **BL-597**; BL-592 now depends on
   it). Both clients and `surl` run as shipped. Client request bytes ARE compared on plaintext TCP, so BL-579
   stays in Backlog; TLS, SSH and UDP request bytes are not. Verdicts: agreement, port defect, Surl defect,
   not comparable; tests read the findings file's first column. Handoff file filed from by the port's own
   `/task-plan`; Surl never writes to `Z:\repos\Curl`. Windows only (only `win-x64` port pin).
 - Requirement row is FR-057 (next free). Glossary gains "Phase 7", "port defect" and "Phase 7 finding".
-- BL-592 edited (Backlog): depends on BL-596, touches and writes `Documentation/Conformance/CurlPort/Extended.md`
+- BL-592 edited (Backlog): depends on BL-597, touches and writes `Documentation/Conformance/CurlPort/Extended.md`
   for the extended clients' findings (ADR-0089 decision 9).
 - Default taken: no task filed for Linux/macOS port pins; ADR-0003 names the Windows 8.21.0 build as the
   last phase's baseline, and the tests run unchanged on another platform once a pin exists.
@@ -128,4 +128,4 @@ Decide and record:
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
-- 2026-11-04: Doing -> Done. ADR-0089 decides how Phase 7 measures the Curl port beside pinned upstream curl; FR-057 and glossary terms added, BL-596 filed
+- 2026-11-04: Doing -> Done. ADR-0089 decides how Phase 7 measures the Curl port beside pinned upstream curl; FR-057 and glossary terms added, BL-597 filed

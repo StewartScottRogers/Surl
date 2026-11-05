@@ -4,7 +4,7 @@
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-576. Built by BL-577 (the port pin), BL-578 (one case, compared and judged), BL-579 (client
-  bytes), BL-580 to BL-590 (one family each), BL-591 (upstream test cases), BL-596 (the libcurl
+  bytes), BL-580 to BL-590 (one family each), BL-591 (upstream test cases), BL-597 (the libcurl
   rows, filed by BL-576), BL-592 (summary and handoff) and BL-593 (the product documents).
 - **Refines:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) decision 6, which this
   ADR puts into practice without changing it, and
@@ -58,8 +58,8 @@ Phase 7 runs three sets of conversations, and leaves none out:
 - **(c) The libcurl rows.** The port's `Libcurl` is a managed API, not a native `libcurl-4.dll`, so
   `PinnedLibcurlDriver` cannot load it. Phase 7 gets port-side twins of the two driver scripts that
   take the same arguments and print the same one-line-per-call report, calling the port's `Libcurl`
-  assembly pinned in `CurlPortBuilds.json` beside its `curl` (BL-596). BL-585 and BL-588 leave those
-  rows to BL-596.
+  assembly pinned in `CurlPortBuilds.json` beside its `curl` (BL-597). BL-585 and BL-588 leave those
+  rows to BL-597.
 
 ### 2. The pairing
 
