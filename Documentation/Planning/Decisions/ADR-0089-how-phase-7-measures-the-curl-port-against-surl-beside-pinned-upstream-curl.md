@@ -141,8 +141,9 @@ Surl sessions **never write into `Z:\repos\Curl`**. BL-592 publishes
 task shape (title, goal, context, acceptance criteria), naming the finding it comes from and leaving
 `id` and `touches` blank. The port's own `/task-plan`, run in a session of the port's repository,
 files them: the port's lanes allocate IDs concurrently, and a commit to another repository is not
-delegated to a Surl session. Starting that session is Stewart's call (or the port's planner's job when
-the port's dark factory is pointed at the handoff); Surl's part ends when the handoff is committed.
+delegated to a Surl session. Stewart files it himself: he runs the port's `/task-plan` on the handoff,
+so he sees each finding before it becomes the port's work (Stewart, 2026-11-04). Surl's part ends when
+the handoff is committed and Stewart is told it is ready and how many findings it holds.
 
 ### 8. Platforms
 
