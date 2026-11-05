@@ -21,6 +21,7 @@ public sealed class InMemoryConnection : IConnection
     private readonly bool peerHalfClosesWhenExhausted;
     private readonly TlsSession upgradeTlsSession;
     private readonly bool upgradeFails;
+    private readonly TimeProvider peekClock;
     private readonly MemoryStream writtenBytes = new();
     private readonly TaskCompletionSource aborted = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private int chunkIndex;
@@ -48,6 +49,10 @@ public sealed class InMemoryConnection : IConnection
     /// when <see langword="null"/>.
     /// </param>
     /// <param name="upgradeFails">Whether <see cref="UpgradeToTlsAsync"/> throws <see cref="TlsHandshakeException"/> instead.</param>
+    /// <param name="peekClock">
+    /// Times a <see cref="PeekByteAsync"/> that waits past the end of a script whose client does
+    /// not half-close; <see cref="TimeProvider.System"/> when <see langword="null"/>.
+    /// </param>
     public InMemoryConnection(
         IEnumerable<ReadOnlyMemory<byte>> inboundChunks,
         EndPoint? localEndPoint = null,
@@ -55,7 +60,8 @@ public sealed class InMemoryConnection : IConnection
         bool peerHalfClosesWhenExhausted = true,
         TlsSession? initialTlsSession = null,
         TlsSession? upgradeTlsSession = null,
-        bool upgradeFails = false)
+        bool upgradeFails = false,
+        TimeProvider? peekClock = null)
     {
         ArgumentNullException.ThrowIfNull(inboundChunks);
 
@@ -66,6 +72,7 @@ public sealed class InMemoryConnection : IConnection
         TlsSession = initialTlsSession;
         this.upgradeTlsSession = upgradeTlsSession ?? DefaultUpgradeTlsSession;
         this.upgradeFails = upgradeFails;
+        this.peekClock = peekClock ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -127,6 +134,32 @@ public sealed class InMemoryConnection : IConnection
         }
 
         return peerHalfClosesWhenExhausted ? 0 : await WaitForCancellationOrAbortAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Returns the next byte of the script without consuming it. Past the end of the script it
+    /// returns <see langword="null"/> at once when the client half-closes, and otherwise after
+    /// <paramref name="wait"/> on the peek clock, unless the connection is aborted first.
+    /// </summary>
+    /// <param name="wait">The longest to wait past the end of the script; must not be negative.</param>
+    /// <param name="cancellationToken">Cuts the wait off.</param>
+    /// <returns>The next byte, or <see langword="null"/> when the script has none.</returns>
+    public async ValueTask<byte?> PeekByteAsync(TimeSpan wait, CancellationToken cancellationToken)
+    {
+        ThrowIfUnusable(cancellationToken);
+        ArgumentOutOfRangeException.ThrowIfLessThan(wait, TimeSpan.Zero);
+
+        if (chunkIndex < inboundChunks.Length)
+        {
+            return inboundChunks[chunkIndex].Span[chunkOffset];
+        }
+
+        if (!peerHalfClosesWhenExhausted)
+        {
+            await WaitForPeekTimeOrAbortAsync(wait, cancellationToken);
+        }
+
+        return null;
     }
 
     /// <inheritdoc/>
@@ -229,6 +262,17 @@ public sealed class InMemoryConnection : IConnection
         ThrowIfAborted();
 
         throw new OperationCanceledException(cancellationToken);
+    }
+
+    private async Task WaitForPeekTimeOrAbortAsync(TimeSpan wait, CancellationToken cancellationToken)
+    {
+        var waited = Task.Delay(wait, peekClock, cancellationToken);
+
+        await Task.WhenAny(waited, aborted.Task);
+
+        ThrowIfAborted();
+
+        await waited;
     }
 
     private void ThrowIfUnusable(CancellationToken cancellationToken)

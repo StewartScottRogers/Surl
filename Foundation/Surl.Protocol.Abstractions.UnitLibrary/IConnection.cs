@@ -39,6 +39,31 @@ public interface IConnection : IAsyncDisposable
     ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Waits up to <paramref name="wait"/> for the client's next byte and returns it without
+    /// consuming it (ADR-0113, decision 6): the next <see cref="ReadAsync"/> still returns it
+    /// first, and an <see cref="UpgradeToTlsAsync"/> hands it to the handshake ahead of the
+    /// bytes after it, so a server can tell a TLS ClientHello (<c>0x16</c>) from plain text.
+    /// </summary>
+    /// <remarks>
+    /// A peek that times out leaves the wait for that byte running, so a byte that arrives
+    /// later is never lost: the next peek or read sees it. Calling it again without reading
+    /// returns the same byte. The default implementation throws
+    /// <see cref="NotSupportedException"/>, so a connection that has no peek says so.
+    /// </remarks>
+    /// <param name="wait">The longest to wait; <see cref="TimeSpan.Zero"/> only looks at what has already arrived.</param>
+    /// <param name="cancellationToken">Cuts the wait off.</param>
+    /// <returns>
+    /// The next byte, or <see langword="null"/> when none arrived within <paramref name="wait"/>
+    /// or the peer half-closed with nothing left unread.
+    /// </returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="wait"/> is negative.</exception>
+    /// <exception cref="NotSupportedException">This connection cannot peek.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> cut the wait off.</exception>
+    /// <exception cref="IOException">The connection was aborted, reset or failed.</exception>
+    ValueTask<byte?> PeekByteAsync(TimeSpan wait, CancellationToken cancellationToken) =>
+        throw new NotSupportedException($"{GetType().Name} cannot peek at the client's next byte.");
+
+    /// <summary>
     /// Hands every byte of <paramref name="bytes"/> to the transport.
     /// </summary>
     /// <param name="bytes">The bytes to send.</param>

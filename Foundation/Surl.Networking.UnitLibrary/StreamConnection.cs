@@ -36,6 +36,7 @@ internal sealed class StreamConnection : IConnection
     private readonly IConnectionTransportControl transportControl;
     private readonly ServerTlsHandshake? tlsHandshake;
     private readonly TimeProvider timeProvider;
+    private readonly byte[] peekedByte = new byte[1];
     private Stream stream;
     private SslStream? securedStream;
     private bool writesCompleted;
@@ -44,6 +45,7 @@ internal sealed class StreamConnection : IConnection
     private bool upgradeUnfinished;
     private bool readPending;
     private bool writePending;
+    private Task<int>? peekRead;
 
     /// <summary>
     /// Creates a connection over <paramref name="stream"/>, which it owns and disposes.
@@ -99,7 +101,9 @@ internal sealed class StreamConnection : IConnection
 
         try
         {
-            return await stream.ReadAsync(buffer, cancellationToken);
+            return peekRead is null
+                ? await stream.ReadAsync(buffer, cancellationToken)
+                : await TakePeekedByteAsync(buffer, cancellationToken);
         }
         catch (ObjectDisposedException exception) when (aborted)
         {
@@ -108,6 +112,32 @@ internal sealed class StreamConnection : IConnection
         finally
         {
             readPending = false;
+        }
+    }
+
+    /// <summary>
+    /// Waits up to <paramref name="wait"/>, on the injected <see cref="TimeProvider"/>, for the
+    /// client's next byte and keeps it for the next read or TLS handshake (ADR-0113, decision 6).
+    /// The one-byte read it starts is never cancelled, so a byte that arrives after the wait is
+    /// kept too: the next peek or read waits for that same read.
+    /// </summary>
+    /// <param name="wait">The longest to wait; must not be negative.</param>
+    /// <param name="cancellationToken">Cuts the wait off; the read goes on.</param>
+    /// <returns>The next byte, or <see langword="null"/> when none arrived in time or the peer half-closed.</returns>
+    public async ValueTask<byte?> PeekByteAsync(TimeSpan wait, CancellationToken cancellationToken)
+    {
+        ThrowIfUnusable(cancellationToken);
+        ArgumentOutOfRangeException.ThrowIfLessThan(wait, TimeSpan.Zero);
+
+        peekRead ??= ReadPeekedByteAsync();
+
+        try
+        {
+            return await peekRead.WaitAsync(wait, timeProvider, cancellationToken) == 0 ? null : peekedByte[0];
+        }
+        catch (TimeoutException)
+        {
+            return null;
         }
     }
 
@@ -199,7 +229,8 @@ internal sealed class StreamConnection : IConnection
 
         try
         {
-            (securedStream, var session) = await tlsHandshake!.AuthenticateAsync(transportStream, cancellationToken);
+            var handshakeTransport = await TakePeekedByteAheadOfTransportAsync();
+            (securedStream, var session) = await tlsHandshake!.AuthenticateAsync(handshakeTransport, cancellationToken);
             stream = securedStream;
             TlsSession = session;
             upgradeUnfinished = false;
@@ -264,6 +295,45 @@ internal sealed class StreamConnection : IConnection
     private static IOException AbortedException(Exception? innerException) =>
         new("The connection was aborted.", innerException);
 
+    // Runs until a byte, the peer's half-close, a reset, Abort or disposal ends it; never cancelled,
+    // so a byte arriving after a peek's wait is still kept.
+    private async Task<int> ReadPeekedByteAsync()
+    {
+        try
+        {
+            return await stream.ReadAsync(peekedByte, CancellationToken.None);
+        }
+        catch (ObjectDisposedException exception) when (aborted)
+        {
+            throw AbortedException(exception);
+        }
+    }
+
+    private async Task<int> TakePeekedByteAsync(Memory<byte> buffer, CancellationToken cancellationToken)
+    {
+        var count = await peekRead!.WaitAsync(cancellationToken);
+
+        peekRead = null;
+        peekedByte.AsSpan(0, count).CopyTo(buffer.Span);
+
+        return count;
+    }
+
+    // Only called once ThrowIfCannotUpgrade has made sure any peek's read has finished.
+    private async Task<Stream> TakePeekedByteAheadOfTransportAsync()
+    {
+        if (peekRead is null)
+        {
+            return transportStream;
+        }
+
+        var count = await peekRead;
+
+        peekRead = null;
+
+        return count == 0 ? transportStream : new PeekedBytePrefixStream(peekedByte[0], transportStream);
+    }
+
     private async Task TryCompleteWritesAsync()
     {
         using var closing = new CancellationTokenSource(GracefulCloseTime, timeProvider);
@@ -288,6 +358,12 @@ internal sealed class StreamConnection : IConnection
 
         try
         {
+            // A peek's read may still be waiting on the transport; two reads must not race.
+            if (peekRead is not null && await peekRead.WaitAsync(lingering.Token) == 0)
+            {
+                return;
+            }
+
             while (await transportStream.ReadAsync(discarded, lingering.Token) > 0)
             {
                 // Discarded: the exchange is over, and only the client's half-close is awaited.
@@ -316,11 +392,14 @@ internal sealed class StreamConnection : IConnection
             throw new InvalidOperationException("The connection was half-closed; it cannot be secured.");
         }
 
-        if (readPending || writePending)
+        if (IsReadOrWritePending())
         {
             throw new InvalidOperationException("A read or write is pending; the connection cannot be secured now.");
         }
     }
+
+    // A peek's read still waiting on the transport counts as a pending read.
+    private bool IsReadOrWritePending() => readPending || writePending || peekRead is { IsCompleted: false };
 
     private void ThrowIfUnusable(CancellationToken cancellationToken)
     {

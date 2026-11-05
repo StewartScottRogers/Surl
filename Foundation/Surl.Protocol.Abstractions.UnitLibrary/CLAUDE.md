@@ -37,6 +37,13 @@ What it holds:
   `IConnection.UpgradeToTlsAsync`, `TlsSession`, `TlsHandshakeException`, and
   `TlsSchemes.IsImplicitTls`. `InMemoryConnection` stands in for implicit TLS (an initial
   session) and for an upgrade (`UpgradeRequested`, a configurable session, or a failure).
+- The peek (ADR-0113, decision 6; BL-734): `IConnection.PeekByteAsync(wait, token)` returns the
+  client's next byte without consuming it, or `null` when none came within `wait` or the peer
+  half-closed, so a server can tell a TLS ClientHello (`0x16`) from plain text before
+  `UpgradeToTlsAsync`. It is a default interface member that throws `NotSupportedException`, so
+  the many test doubles that implement `IConnection` need not; a wrapper that forwards
+  `ReadAsync` must forward it too. `InMemoryConnection` peeks the script; past its end it returns
+  `null` at once when the client half-closes, and otherwise after `wait` on its `peekClock`.
 - The authentication contract (ADR-0032, section 6): `IAuthenticationPolicy` (a password
   login, `PasswordLogin` judged as a `PasswordLoginVerdict`, and one
   `IHttpAuthenticationSession` per HTTP connection), `HttpAuthenticationRequest` and

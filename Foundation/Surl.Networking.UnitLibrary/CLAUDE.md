@@ -107,6 +107,13 @@ protocol server.
   `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
   disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
   close_notify before FIN.
+- The peek (ADR-0113, decision 6; BL-734). `StreamConnection.PeekByteAsync` starts one
+  one-byte read on the current stream and waits for it up to `wait` on the injected
+  `TimeProvider`; the read is never cancelled, so a byte arriving after the wait is kept for the
+  next peek or read, and the next `ReadAsync` returns the peeked byte alone. `UpgradeToTlsAsync`
+  refuses while that read is still waiting and otherwise hands the handshake a
+  `PeekedBytePrefixStream` - the peeked byte, then the transport - so the ClientHello arrives
+  whole. `DisposeAsync` waits for that read (within the lingering time) before discarding.
 - TLS minimums (ADR-0006, section 4; BL-048). `ServerTlsSettings.AcceptedVersions` is a
   `TlsVersionRange` (public): a lowest and a highest of TLS 1.0, 1.1, 1.2, 1.3, TLS 1.2 to
   1.3 by default, whose `AcceptedProtocols` every handshake enables; a lowest above the

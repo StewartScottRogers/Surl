@@ -464,6 +464,106 @@ public sealed class InMemoryConnectionTests
             async () => await connection.UpgradeToTlsAsync(TestContext.CancellationToken));
     }
 
+    [TestMethod]
+    public async Task PeekByteAsync_ScriptHasBytes_ReturnsTheNextAndTheNextReadStillReturnsIt()
+    {
+        var connection = new InMemoryConnection([Bytes("CO"), Bytes("NNECT")]);
+        var buffer = new byte[16];
+        await connection.ReadAsync(buffer.AsMemory(0, 1), TestContext.CancellationToken);
+
+        var peeked = await connection.PeekByteAsync(TimeSpan.Zero, TestContext.CancellationToken);
+        var peekedAgain = await connection.PeekByteAsync(TimeSpan.Zero, TestContext.CancellationToken);
+        var count = await connection.ReadAsync(buffer, TestContext.CancellationToken);
+
+        Assert.AreEqual((byte)'O', peeked);
+        Assert.AreEqual((byte)'O', peekedAgain);
+        Assert.AreEqual("O", Text(buffer, count));
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_ScriptExhaustedAndPeerHalfCloses_ReturnsNullAtOnce()
+    {
+        var clock = new NeverFiringTimeProvider();
+        var connection = new InMemoryConnection([], peekClock: clock);
+
+        var peeked = await connection.PeekByteAsync(TimeSpan.FromMinutes(1), TestContext.CancellationToken);
+
+        Assert.IsNull(peeked);
+        Assert.AreEqual(0, clock.TimersCreated);
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_ScriptExhaustedAndPeerStaysOpen_ReturnsNullAfterTheWait()
+    {
+        var connection = new InMemoryConnection([], peerHalfClosesWhenExhausted: false);
+
+        var peeked = await connection.PeekByteAsync(TimeSpan.Zero, TestContext.CancellationToken);
+
+        Assert.IsNull(peeked);
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_WaitingPastTheScript_WaitsOnThePeekClock()
+    {
+        var clock = new NeverFiringTimeProvider();
+        var connection = new InMemoryConnection([], peerHalfClosesWhenExhausted: false, peekClock: clock);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+
+        var peek = connection.PeekByteAsync(TimeSpan.FromSeconds(1), cancellation.Token).AsTask();
+        var timersWhileWaiting = clock.TimersCreated;
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => peek);
+        Assert.AreEqual(1, timersWhileWaiting);
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_AbortedWhileWaiting_ThrowsIOException()
+    {
+        var connection = new InMemoryConnection(
+            [], peerHalfClosesWhenExhausted: false, peekClock: new NeverFiringTimeProvider());
+
+        var peek = connection.PeekByteAsync(TimeSpan.FromSeconds(1), TestContext.CancellationToken).AsTask();
+        connection.Abort();
+
+        await Assert.ThrowsExactlyAsync<IOException>(() => peek);
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_NegativeWait_ThrowsArgumentOutOfRangeException()
+    {
+        var connection = new InMemoryConnection([Bytes("x")]);
+
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            async () => await connection.PeekByteAsync(TimeSpan.FromTicks(-1), TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_AfterAbort_ThrowsIOException()
+    {
+        var connection = new InMemoryConnection([Bytes("x")]);
+        connection.Abort();
+
+        await Assert.ThrowsExactlyAsync<IOException>(
+            async () => await connection.PeekByteAsync(TimeSpan.Zero, TestContext.CancellationToken));
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_ThenUpgradeToTlsAsync_UpgradesAndTheReadStillStartsWithThePeekedByte()
+    {
+        var connection = new InMemoryConnection([new byte[] { 0x16, 0x03, 0x01 }]);
+
+        var peeked = await connection.PeekByteAsync(TimeSpan.Zero, TestContext.CancellationToken);
+        var session = await connection.UpgradeToTlsAsync(TestContext.CancellationToken);
+        var buffer = new byte[3];
+        var count = await connection.ReadAsync(buffer, TestContext.CancellationToken);
+
+        Assert.AreEqual((byte)0x16, peeked);
+        Assert.AreSame(InMemoryConnection.DefaultUpgradeTlsSession, session);
+        Assert.AreEqual(3, count);
+        Assert.AreEqual((byte)0x16, buffer[0]);
+    }
+
     private static ReadOnlyMemory<byte> Bytes(string text) => System.Text.Encoding.ASCII.GetBytes(text);
 
     private static string Text(byte[] buffer, int count) => System.Text.Encoding.ASCII.GetString(buffer, 0, count);
