@@ -3,7 +3,7 @@ namespace Surl.MessageBus;
 /// <summary>
 /// One message on the bus (ADR-0100, decision 3.4): a canonical topic, the payload bytes
 /// (always exact), and the properties that survive translation between protocols. A
-/// publisher builds one and hands it to <see cref="MessageBus.Publish"/>, which keeps its own
+/// publisher builds one and hands it to <see cref="MessageBus.Publish(BusMessage, string?)"/>, which keeps its own
 /// copy of every byte and stamps <see cref="PublishedAt"/>; subscribers receive that copy.
 /// </summary>
 /// <param name="Topic">The canonical topic name it is published on (<see cref="CanonicalTopicName"/>).</param>

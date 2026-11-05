@@ -25,15 +25,17 @@ public sealed partial class MessageBus
     /// is not there, an old MQTT 3.1.1 <c>.surl/mqtt/retained-messages</c> is read instead: each
     /// record becomes a retained message, QoS 0, with no headers and no expiry, published now, and
     /// the bus's <c>retained</c> file is written at once; the old file is left untouched
-    /// (ADR-0100, decision 3.5). A retained topic with no log gets an empty one.
+    /// (ADR-0100, decision 3.5). A retained topic with no log gets an empty one. A declared
+    /// queue the files hold keeps its messages; one they hold with other flags - persisted as
+    /// durable by an earlier run - is made again empty (ADR-0102, decision 3.2).
     /// </summary>
     /// <param name="busFiles">The bus's files.</param>
     /// <param name="cancellationToken">Cancels the load.</param>
     /// <returns>What writing the files the load changed did: <see cref="BusSaveResult.Saved"/>,
     /// or <see cref="MessageBusOutcome.StorageFailed"/> with the reason, which the caller notes.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="busFiles"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The bus was loaded before, or already holds a
-    /// log or a queue.</exception>
+    /// <exception cref="InvalidOperationException">The bus was loaded before, or already holds
+    /// more than its declarations, each still empty.</exception>
     /// <exception cref="MessageBusLoadException">A file cannot be read, does not parse, or holds
     /// more than the bus's bounds allow; the bus takes nothing from the files.</exception>
     public async Task<BusSaveResult> LoadAsync(MessageBusFiles busFiles, CancellationToken cancellationToken = default)
@@ -41,7 +43,7 @@ public sealed partial class MessageBus
         ArgumentNullException.ThrowIfNull(busFiles);
         lock (stateLock)
         {
-            if (files is not null || logs.Count > 0 || queues.Count > 0)
+            if (files is not null || !HoldsOnlyDeclarations())
             {
                 throw new InvalidOperationException("A message bus is loaded once, before it holds anything.");
             }
@@ -54,6 +56,7 @@ public sealed partial class MessageBus
             RestoreLogs(contents.Logs);
             RestoreRetained(contents);
             RestoreQueues(contents.Queues);
+            DeclareConfiguredTopicsAndQueues();
             files = busFiles;
         }
 
@@ -100,7 +103,7 @@ public sealed partial class MessageBus
 
     private void RequireWithinBounds(MessageBusFiles busFiles, MessageBusFileContents contents)
     {
-        var logTopics = contents.Logs.Select(log => log.Topic).ToHashSet(StringComparer.Ordinal);
+        var logTopics = contents.Logs.Select(log => log.Topic).Union(declaredLogTopics).ToHashSet(StringComparer.Ordinal);
         var logRecordBytes = contents.Logs.SelectMany(log => log.Records).Sum(LogRecordBytes);
         Require(logTopics.Count <= MaxTopics && logRecordBytes <= MaxLogBytes, busFiles.LogsFolderPath, MessageBusFiles.MalformedFileReason);
 
@@ -111,7 +114,7 @@ public sealed partial class MessageBus
 
         var queuedMessages = contents.Queues.SelectMany(queue => queue.Messages).ToList();
         Require(
-            contents.Queues.Count <= MaxQueues
+            contents.Queues.Select(queue => queue.Name).Union(declaredQueueNames).Count() <= MaxQueues
                 && contents.Queues.All(queue => queue.Messages.Count <= MaxMessagesPerQueue)
                 && queuedMessages.Sum(message => (long)message.Message.Payload.Length) <= MaxQueuedBytes,
             busFiles.QueueIndexPath,
@@ -138,7 +141,7 @@ public sealed partial class MessageBus
             }
 
             log.SavedHighWatermark = log.HighWatermark;
-            logs.Add(persisted.Topic, log);
+            logs[persisted.Topic] = log;
             logBytes += log.Bytes;
             nextLogFileNumber = Math.Max(nextLogFileNumber, persisted.FileNumber + 1);
         }
@@ -175,7 +178,7 @@ public sealed partial class MessageBus
                 nextQueueMessageFileNumber = Math.Max(nextQueueMessageFileNumber, message.FileNumber + 1);
             }
 
-            queues.Add(persisted.Name, queue);
+            queues[persisted.Name] = queue;
         }
     }
 

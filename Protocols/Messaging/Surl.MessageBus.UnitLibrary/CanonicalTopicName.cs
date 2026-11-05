@@ -53,7 +53,20 @@ public static class CanonicalTopicName
     /// 5.0 section 4.7.2). Runs in time proportional to the product of the level counts, so no
     /// filter can make it backtrack without bound.
     /// </summary>
-    internal static bool FilterMatches(string[] filterLevels, string[] topicLevels)
+    internal static bool FilterMatches(string[] filterLevels, string[] topicLevels) =>
+        Matches(filterLevels, topicLevels, LevelEquals);
+
+    /// <summary>
+    /// Whether a grant's filter, split into levels, covers a subscription's filter, split into
+    /// levels (ADR-0102 decision 3.4), so every topic the second matches the first matches too:
+    /// level by level, a <c>#</c> covers the rest, a <c>+</c> covers any one level but
+    /// <c>#</c>, and a literal level covers only itself; a wildcard first level never covers a
+    /// level beginning with <c>$</c>.
+    /// </summary>
+    internal static bool FilterCovers(string[] grantLevels, string[] filterLevels) =>
+        Matches(grantLevels, filterLevels, LevelCovers);
+
+    private static bool Matches(string[] filterLevels, string[] topicLevels, Func<string, string, bool> levelMatches)
     {
         if (topicLevels[0].StartsWith('$') && IsWildcard(filterLevels[0]))
         {
@@ -68,7 +81,7 @@ public static class CanonicalTopicName
             var current = new bool[topicLevels.Length + 1];
             for (var t = topicLevels.Length; t >= 0; t--)
             {
-                current[t] = LevelMatchesFrom(filterLevels[f], topicLevels, t, matchesFrom, current);
+                current[t] = LevelMatchesFrom(filterLevels[f], topicLevels, t, matchesFrom, current, levelMatches);
             }
 
             matchesFrom = current;
@@ -77,13 +90,16 @@ public static class CanonicalTopicName
         return matchesFrom[0];
     }
 
-    private static bool LevelMatchesFrom(string filterLevel, string[] topicLevels, int t, bool[] matchesFrom, bool[] current) =>
+    private static bool LevelMatchesFrom(string filterLevel, string[] topicLevels, int t, bool[] matchesFrom, bool[] current, Func<string, string, bool> levelMatches) =>
         filterLevel == MultiLevelWildcard
             ? matchesFrom[t] || (t < topicLevels.Length && current[t + 1])
-            : t < topicLevels.Length && LevelEquals(filterLevel, topicLevels[t]) && matchesFrom[t + 1];
+            : t < topicLevels.Length && levelMatches(filterLevel, topicLevels[t]) && matchesFrom[t + 1];
 
     private static bool LevelEquals(string filterLevel, string topicLevel) =>
         filterLevel == SingleLevelWildcard || string.Equals(filterLevel, topicLevel, StringComparison.Ordinal);
+
+    private static bool LevelCovers(string grantLevel, string filterLevel) =>
+        grantLevel == SingleLevelWildcard ? filterLevel != MultiLevelWildcard : string.Equals(grantLevel, filterLevel, StringComparison.Ordinal);
 
     private static bool IsWildcard(string level) => level is SingleLevelWildcard or MultiLevelWildcard;
 

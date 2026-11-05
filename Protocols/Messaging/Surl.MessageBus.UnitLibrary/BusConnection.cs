@@ -2,7 +2,7 @@ namespace Surl.MessageBus;
 
 /// <summary>
 /// One server connection's place on a <see cref="MessageBus"/>, made by
-/// <see cref="MessageBus.Connect"/>: it holds that connection's subscriptions, counts them
+/// <see cref="MessageBus.Connect(string?)"/>: it holds that connection's subscriptions, counts them
 /// against <see cref="MessageBus.MaxSubscriptionsPerConnection"/>, and ends them all when
 /// disposed, as the server does when its client goes.
 /// </summary>
@@ -10,7 +10,17 @@ public sealed class BusConnection : IDisposable
 {
     private readonly MessageBus bus;
 
-    internal BusConnection(MessageBus bus) => this.bus = bus;
+    internal BusConnection(MessageBus bus, string? account)
+    {
+        this.bus = bus;
+        Account = account;
+    }
+
+    /// <summary>
+    /// The account the connection's client logged in as, which its subscribes, bindings and
+    /// consumes are checked for; <see langword="null"/> for an anonymous client.
+    /// </summary>
+    public string? Account { get; }
 
     internal int SubscriptionCount { get; set; }
 
@@ -29,7 +39,9 @@ public sealed class BusConnection : IDisposable
     /// (<see cref="BusSubscription.Group"/>).</param>
     /// <param name="includeRetained">Whether to return the retained messages the filter matches,
     /// as MQTT's subscribe does; no other protocol asks (ADR-0100, decision 3.3).</param>
-    /// <returns>The outcome, the subscription when made, and the retained messages asked for.</returns>
+    /// <returns>The outcome - <see cref="MessageBusOutcome.AccessDenied"/> when the configured
+    /// grants give <see cref="Account"/> no <c>sub</c> covering the filter - the subscription when
+    /// made, and the retained messages asked for.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="deliver"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
     public BusSubscribeResult Subscribe(string filter, Action<BusMessage> deliver, string? group = null, bool includeRetained = false)
@@ -63,6 +75,7 @@ public sealed class BusConnection : IDisposable
     /// <param name="queueName">The queue's name.</param>
     /// <param name="filter">A canonical topic filter (<see cref="CanonicalTopicName.IsValidFilter"/>).</param>
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.InvalidFilter"/>,
+    /// <see cref="MessageBusOutcome.AccessDenied"/> (no <c>sub</c> covering the filter),
     /// <see cref="MessageBusOutcome.UnknownQueue"/> or <see cref="MessageBusOutcome.QueueLocked"/>.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
@@ -94,7 +107,8 @@ public sealed class BusConnection : IDisposable
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.UnknownQueue"/>
-    /// or <see cref="MessageBusOutcome.QueueLocked"/>.</returns>
+    /// or <see cref="MessageBusOutcome.QueueLocked"/>; <see cref="MessageBusOutcome.AccessDenied"/>
+    /// for a declared queue, which no client may delete (ADR-0102, decision 3.2).</returns>
     /// <exception cref="ArgumentNullException"><paramref name="queueName"/> is <see langword="null"/>.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>
     public MessageBusOutcome DeleteQueue(string queueName)
@@ -114,8 +128,10 @@ public sealed class BusConnection : IDisposable
     /// <param name="maxUnacknowledged">The most deliveries the consumer holds unacknowledged at
     /// once; 0 for no limit.</param>
     /// <returns>The outcome - <see cref="MessageBusOutcome.UnknownQueue"/>,
-    /// <see cref="MessageBusOutcome.QueueLocked"/> or
-    /// <see cref="MessageBusOutcome.TooManySubscriptions"/> when refused - and the consumer.</returns>
+    /// <see cref="MessageBusOutcome.QueueLocked"/>,
+    /// <see cref="MessageBusOutcome.TooManySubscriptions"/>, or <see cref="MessageBusOutcome.AccessDenied"/>
+    /// when the grants give <see cref="Account"/> no <c>sub</c> on <c>$queue/&lt;name&gt;</c>, when
+    /// refused - and the consumer.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxUnacknowledged"/> is negative.</exception>
     /// <exception cref="ObjectDisposedException">The connection has been disposed.</exception>

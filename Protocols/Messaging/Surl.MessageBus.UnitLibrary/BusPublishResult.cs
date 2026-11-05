@@ -1,7 +1,7 @@
 namespace Surl.MessageBus;
 
 /// <summary>
-/// What <see cref="MessageBus.Publish"/> did with one message.
+/// What <see cref="MessageBus.Publish(BusMessage, string?)"/> did with one message.
 /// </summary>
 /// <param name="Outcome">Whether the message was taken, or which refusal it met.</param>
 /// <param name="DeliveredSubscriptionCount">How many live subscriptions the message was handed

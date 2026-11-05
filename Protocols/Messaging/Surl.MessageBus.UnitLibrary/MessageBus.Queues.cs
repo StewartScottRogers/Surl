@@ -14,20 +14,45 @@ public sealed partial class MessageBus
     /// Puts <paramref name="message"/> straight into one named queue, as AMQP 0-9-1's default
     /// exchange and a STOMP <c>SEND</c> to <c>/queue/&lt;q&gt;</c> do. Its topic is not checked:
     /// a queue message is delivered by its queue's name. A message already expired is dropped.
-    /// Any connection may send to any queue, an exclusive one included.
+    /// Any connection may send to any queue, an exclusive one included. It is sent for an
+    /// anonymous caller: <see cref="PublishToQueue(string, BusMessage, string?)"/> with no account.
     /// </summary>
     /// <param name="queueName">The queue's name.</param>
     /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
     /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.MessageTooLarge"/>,
-    /// <see cref="MessageBusOutcome.UnknownQueue"/> or <see cref="MessageBusOutcome.QueueFull"/>.</returns>
+    /// <see cref="MessageBusOutcome.AccessDenied"/>, <see cref="MessageBusOutcome.UnknownQueue"/>
+    /// or <see cref="MessageBusOutcome.QueueFull"/>.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
-    public MessageBusOutcome PublishToQueue(string queueName, BusMessage message)
+    public MessageBusOutcome PublishToQueue(string queueName, BusMessage message) =>
+        PublishToQueue(queueName, message, account: null);
+
+    /// <summary>
+    /// Puts <paramref name="message"/> straight into one named queue as
+    /// <see cref="PublishToQueue(string, BusMessage)"/> says, for <paramref name="account"/>:
+    /// refused with <see cref="MessageBusOutcome.AccessDenied"/>, whether or not the queue
+    /// exists, when the configured grants give it no <c>pub</c> on <c>$queue/&lt;name&gt;</c>
+    /// (ADR-0102, decision 3.4).
+    /// </summary>
+    /// <param name="queueName">The queue's name.</param>
+    /// <param name="message">The message. The bus keeps its own copy of every byte.</param>
+    /// <param name="account">The sender's account, or <see langword="null"/> for an anonymous one.</param>
+    /// <returns><see cref="MessageBusOutcome.Succeeded"/>, <see cref="MessageBusOutcome.MessageTooLarge"/>,
+    /// <see cref="MessageBusOutcome.AccessDenied"/>, <see cref="MessageBusOutcome.UnknownQueue"/>
+    /// or <see cref="MessageBusOutcome.QueueFull"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="queueName"/> or
+    /// <paramref name="message"/> is <see langword="null"/>.</exception>
+    public MessageBusOutcome PublishToQueue(string queueName, BusMessage message, string? account)
     {
         ArgumentNullException.ThrowIfNull(queueName);
         ArgumentNullException.ThrowIfNull(message);
         if (message.Payload.Length > MaxMessageBytes)
         {
             return MessageBusOutcome.MessageTooLarge;
+        }
+
+        if (!accessPolicy.MayUseQueue(account, TopicAccessRights.Publish, queueName))
+        {
+            return MessageBusOutcome.AccessDenied;
         }
 
         var now = timeProvider.GetUtcNow();
@@ -71,6 +96,11 @@ public sealed partial class MessageBus
             return MessageBusOutcome.InvalidFilter;
         }
 
+        if (bind && !accessPolicy.MaySubscribe(connection.Account, filter))
+        {
+            return MessageBusOutcome.AccessDenied;
+        }
+
         lock (stateLock)
         {
             var (outcome, queue) = Access(connection, queueName);
@@ -96,6 +126,11 @@ public sealed partial class MessageBus
 
     internal MessageBusOutcome DeleteQueue(BusConnection connection, string queueName)
     {
+        if (declaredQueueNames.Contains(queueName))
+        {
+            return MessageBusOutcome.AccessDenied;
+        }
+
         lock (stateLock)
         {
             var (outcome, queue) = Access(connection, queueName);
@@ -110,6 +145,11 @@ public sealed partial class MessageBus
 
     internal BusConsumeResult Consume(BusConnection connection, string queueName, Action<BusQueueDelivery> deliver, int maxUnacknowledged)
     {
+        if (!accessPolicy.MayUseQueue(connection.Account, TopicAccessRights.Subscribe, queueName))
+        {
+            return new(MessageBusOutcome.AccessDenied, null);
+        }
+
         lock (stateLock)
         {
             var (outcome, queue) = Access(connection, queueName);

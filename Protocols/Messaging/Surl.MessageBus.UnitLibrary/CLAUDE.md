@@ -91,8 +91,32 @@ What it holds now (BL-629):
   the change stays in memory, and the next save writes it. BL-703 adds the formats to
   ADR-0100.
 
+- **Configuration (BL-664).** The constructor's `MessageBusConfiguration` (default `None`)
+  carries ADR-0102 decision 3's options, groups already expanded to account names.
+  `DeclaredTopic` (`--topic`): a publish on a matching topic is retained if any matching one
+  says `retain`, and carried at no more than the lowest QoS ceiling; one without wildcards has
+  its empty log from start; an undeclared topic is never refused. `DeclaredQueue` (`--queue`):
+  made at start, never exclusive or auto-delete; a client's `DeleteQueue` of one is
+  `AccessDenied`; a durable one persists like any durable queue, and one the files hold with
+  other flags (persisted durable, now declared not) is made again empty at load. `LoadAsync`
+  accepts a bus holding only its still-empty declarations. `MessageBus.Names` is the
+  `TopicNameLookup` every server maps through (ADR-0100's planned `ITopicNameLookup`): the
+  default mapping for its scheme (`mqtt`, `mqtt5`, `amqp`, `amqp1`, `kafka`, `nats`, `stomp`
+  and their TLS twins; Redis waits for BL-678), with each `TopicMap` (`--topic-map`) alias of
+  one exact name applied both ways; a default name aliased elsewhere is `Unreachable` outbound.
+  `TopicAccessGrant`s (`--topic-access`): with none, everyone may do everything; with any, a
+  caller needs a grant to its account or `@everyone`. The caller is an account name, `null`
+  for anonymous, on `Connect(string?)`, `Publish(BusMessage, string?)` and
+  `PublishToQueue(string, BusMessage, string?)`; the parameterless forms are anonymous. A
+  publish needs `pub` on a filter matching the topic; a subscribe or a `BindQueue` needs `sub`
+  on a filter covering the filter (`CanonicalTopicName.FilterCovers`); a queue is the filter
+  `$queue/<name>`, its name one level, `pub` to send to it and `sub` to consume. A refusal is
+  `AccessDenied`, checked before anything that would tell whether the topic or queue exists.
+  BL-704 adds these choices to ADR-0102.
+
 Not here yet, each its own task: the MQTT 3.1.1 server's move onto the bus (BL-635), and
-access checks (BL-664).
+each server passing its caller's account and mapping through `Names` (BL-665 for MQTT, the
+extended brokers' routing tasks).
 
 This library may reference `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0100 decision

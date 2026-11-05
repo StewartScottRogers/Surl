@@ -72,8 +72,14 @@ public sealed partial class MessageBus
     /// <param name="maxQueuedBytes">The value of <see cref="MaxQueuedBytes"/>; at least 1.</param>
     /// <param name="maxLogBytesPerTopic">The value of <see cref="MaxLogBytesPerTopic"/>; at least 1.</param>
     /// <param name="maxLogBytes">The value of <see cref="MaxLogBytes"/>; at least 1.</param>
+    /// <param name="configuration">The declared topics and queues, name aliases and access
+    /// grants (ADR-0102, decision 3); <see langword="null"/> for <see cref="MessageBusConfiguration.None"/>.
+    /// Declared topics without wildcards get their empty logs, and declared queues are made, at once.</param>
     /// <exception cref="ArgumentNullException"><paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is below its least value.</exception>
+    /// <exception cref="ArgumentException">The configuration declares more topics without
+    /// wildcards than <paramref name="maxTopics"/>, more queues than <paramref name="maxQueues"/>,
+    /// a queue twice, or an alias <see cref="TopicNameLookup"/> refuses.</exception>
     public MessageBus(
         TimeProvider timeProvider,
         int maxTopics = DefaultMaxTopics,
@@ -84,7 +90,8 @@ public sealed partial class MessageBus
         int maxMessagesPerQueue = DefaultMaxMessagesPerQueue,
         long maxQueuedBytes = DefaultMaxQueuedBytes,
         long maxLogBytesPerTopic = DefaultMaxLogBytesPerTopic,
-        long maxLogBytes = DefaultMaxLogBytes)
+        long maxLogBytes = DefaultMaxLogBytes,
+        MessageBusConfiguration? configuration = null)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxTopics, 1);
@@ -107,6 +114,13 @@ public sealed partial class MessageBus
         MaxQueuedBytes = maxQueuedBytes;
         MaxLogBytesPerTopic = maxLogBytesPerTopic;
         MaxLogBytes = maxLogBytes;
+        Configuration = configuration ?? MessageBusConfiguration.None;
+        Names = new TopicNameLookup(Configuration.TopicMaps);
+        accessPolicy = new TopicAccessPolicy(Configuration.AccessGrants);
+        declaredTopics = SplitDeclaredTopics(Configuration);
+        declaredLogTopics = DeclaredLogTopicsOf(Configuration, maxTopics);
+        declaredQueueNames = DeclaredQueueNamesOf(Configuration, maxQueues);
+        DeclareConfiguredTopicsAndQueues();
     }
 
     /// <summary>The most topics with a log - every topic a message was published on, so every
@@ -132,10 +146,11 @@ public sealed partial class MessageBus
     public long MaxQueuedBytes { get; }
 
     /// <summary>
-    /// Gives a server connection its place on the bus, through which it subscribes.
+    /// Gives an anonymous server connection its place on the bus, through which it subscribes;
+    /// <see cref="Connect(string?)"/> with no account.
     /// </summary>
     /// <returns>A connection holding no subscriptions; dispose it when the client goes.</returns>
-    public BusConnection Connect() => new(this);
+    public BusConnection Connect() => Connect(account: null);
 
     /// <summary>
     /// Publishes <paramref name="message"/>: it is appended to its topic's log at the next
@@ -143,36 +158,26 @@ public sealed partial class MessageBus
     /// retained message (or removes it, for an empty payload); then it is handed to every live
     /// subscription whose filter matches its topic, once each, and to one member of each
     /// matching group, round robin. A message already expired is dropped: nothing is stored or
-    /// delivered.
+    /// delivered. A declared topic matching it makes it retained or lowers its QoS (ADR-0102,
+    /// decision 3.1). It is published for an anonymous caller: <see cref="Publish(BusMessage, string?)"/>
+    /// with no account.
     /// </summary>
     /// <param name="message">The message. The bus keeps its own copy of every byte, so the
     /// caller may reuse its buffers afterwards.</param>
     /// <returns>The outcome and how many subscriptions it was handed to.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="message"/> is <see langword="null"/>.</exception>
-    public BusPublishResult Publish(BusMessage message)
-    {
-        ArgumentNullException.ThrowIfNull(message);
-        var refusal = Refusal(message);
-        if (refusal is not MessageBusOutcome.Succeeded)
-        {
-            return new(refusal, 0);
-        }
-
-        var now = timeProvider.GetUtcNow();
-        if (IsExpired(message, now))
-        {
-            return new(MessageBusOutcome.Succeeded, 0);
-        }
-
-        var published = Copy(message, now);
-        return ChangeState(() => Accept(published, now));
-    }
+    public BusPublishResult Publish(BusMessage message) => Publish(message, account: null);
 
     internal BusSubscribeResult Subscribe(BusConnection connection, string filter, Action<BusMessage> deliver, string? group, bool includeRetained)
     {
         if (!CanonicalTopicName.IsValidFilter(filter))
         {
             return new(MessageBusOutcome.InvalidFilter, null, []);
+        }
+
+        if (!accessPolicy.MaySubscribe(connection.Account, filter))
+        {
+            return new(MessageBusOutcome.AccessDenied, null, []);
         }
 
         var now = timeProvider.GetUtcNow();

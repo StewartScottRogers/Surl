@@ -71,4 +71,9 @@ public enum MessageBusOutcome
     /// decision 3.7): the change stays in memory and the next save writes it; the server notes
     /// the failure and serving goes on.</summary>
     StorageFailed,
+
+    /// <summary>The configured <c>--topic-access</c> grants do not let the caller do this
+    /// (ADR-0102, decision 3.4), or a client tried to delete a declared queue (decision 3.2);
+    /// nothing changed. The same answer whether or not the topic or queue exists.</summary>
+    AccessDenied,
 }

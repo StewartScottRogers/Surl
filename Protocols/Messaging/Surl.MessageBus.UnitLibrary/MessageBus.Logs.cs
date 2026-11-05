@@ -4,7 +4,7 @@ namespace Surl.MessageBus;
 /// The bus's topic logs (ADR-0100, decision 3.3): every message published on a topic is
 /// appended to that topic's log at the next offset, whichever protocol published it, so a Kafka
 /// consumer can fetch from an offset what any server published, and a Kafka producer's records
-/// reach every other protocol's subscribers through <see cref="Publish"/>. One partition per
+/// reach every other protocol's subscribers through <see cref="Publish(BusMessage, string?)"/>. One partition per
 /// topic (ADR-0100, decision 3.2). Past <see cref="MaxLogBytesPerTopic"/> the oldest records
 /// are dropped and the log start offset rises; past <see cref="MaxLogBytes"/> a publish is
 /// refused.
