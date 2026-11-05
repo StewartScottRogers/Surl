@@ -76,7 +76,7 @@ length and never its bytes; a refused or no-op operation publishes nothing, and 
 change. `Deliver` and `Append` ask the plan at `FaultStage.StoreWrite` (account the owner, path the
 mailbox) before taking the lock; an `OutOfSpace` rule refuses the whole write with `QuotaExceeded` and
 the store publishes the `FaultAppliedEvent`. A plan answer that is still pending or failed is served as
-no rule (BL-860 makes the writes async).
+no rule (BL-868 makes the writes async).
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and
 `Surl.Content.UnitLibrary` (for `IContentFileSystem`) and nothing else (ADR-0050 decision 1,

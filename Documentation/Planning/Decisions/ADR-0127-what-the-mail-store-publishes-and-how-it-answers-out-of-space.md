@@ -56,7 +56,7 @@ would make every store and subscriber wait on a contract task.
    is registered. An answer still pending, or one that failed, is served as if no rule matched - as
    ADR-0124 decision 5 serves a hook that times out or throws - and the pending task is observed so a
    later failure is not an unobserved exception. Async `Deliver` and `Append` so a `Surl.Api` override can
-   decide a store write are BL-860's.
+   decide a store write are BL-868's.
 
 ## Alternatives considered
 

@@ -1,5 +1,5 @@
 ---
-id: BL-860
+id: BL-868
 title: Let a Surl.Api override decide a mail store write with async Deliver and Append
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-860 — Let a Surl.Api override decide a mail store write with async Deliver and Append
+# BL-868 — Let a Surl.Api override decide a mail store write with async Deliver and Append
 
 ## Goal
 

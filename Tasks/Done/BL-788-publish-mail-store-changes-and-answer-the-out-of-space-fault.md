@@ -56,7 +56,7 @@ make delivery fail on purpose.
   - `At` is left to the stream to stamp (ADR-0124 decision 1, as amended after this task was written),
     not the store's `TimeProvider`; `ExchangeId` is null because the store is not told the exchange.
   - The writes are synchronous, so a plan answer still pending (a `Surl.Api` override) is served as no
-    rule, as ADR-0124 decision 5 serves a timed-out hook. Filed BL-860 for async `Deliver`/`Append`.
+    rule, as ADR-0124 decision 5 serves a timed-out hook. Filed BL-868 for async `Deliver`/`Append`.
 - Tests are `MailboxStoreEventTests` (11) and `MailboxStoreOutOfSpaceTests` (11), split by concern
   rather than one `MailboxStoreTests`, as the project already splits its store tests. `times=1` is shown
   with `SpendingFaultPlan`, a test double that spends `Times` as BL-792's matcher will, since BL-823's
