@@ -1,3 +1,4 @@
+using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 using static Surl.HttpServing.HttpServingHarness;
 
@@ -113,6 +114,38 @@ public sealed class Http1ConnectionServerTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_HeadPastMaxRequestHead_IsRefused431WhenTheHandlerWordsNoRefusal()
+    {
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([Ascii(HeadPast64Bytes)]);
+        var handler = new UnitTestEchoRequestHandler();
+
+        await new Http1ConnectionServer(handler, Context(log, new FixedTimeProvider(Now), TestContext.CancellationToken, LimitsOf64ByteHeads)).ServeAsync(connection);
+
+        Assert.AreEqual(
+            $"HTTP/1.1 431 Request Header Fields Too Large\r\nDate: {NowHttpDate}\r\nServer: surl\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+            Latin1(connection.WrittenBytes));
+        Assert.IsEmpty(handler.Requests);
+        Assert.AreEqual("No request head was read: HeadTooLarge; answered 431 and closed.", log.Notes[0]);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_HeadPastMaxRequestHead_IsRefusedAsAnIHttpHeadNotReadRefuserWordsIt()
+    {
+        var log = new RecordingExchangeLog();
+        var connection = new InMemoryConnection([Ascii(HeadPast64Bytes)]);
+        var handler = new UnitTestWordingRefuser();
+
+        await new Http1ConnectionServer(handler, Context(log, new FixedTimeProvider(Now), TestContext.CancellationToken, LimitsOf64ByteHeads)).ServeAsync(connection);
+
+        Assert.AreEqual("HTTP/1.1 400 Bad Request\r\nContent-Length: 4\r\nConnection: close\r\n\r\nlong", Latin1(connection.WrittenBytes));
+        Assert.IsTrue(connection.WritesCompleted, "The worded refusal still closes the connection.");
+        Assert.AreEqual(HttpRequestHeadReadOutcome.HeadTooLarge, handler.Outcome);
+        Assert.AreEqual(new HttpStatus(431, "Request Header Fields Too Large"), handler.StandardRefusal!.Status);
+        Assert.AreEqual("No request head was read: HeadTooLarge; answered 400 and closed.", log.Notes[0]);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ChunkedBodyThatEndsEarly_IsTheHandlersToRefuse()
     {
         var (connection, _) = await ServeAsync("POST /a HTTP/1.1\r\nHost: example.test\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhel");
@@ -144,6 +177,10 @@ public sealed class Http1ConnectionServerTests
         Assert.IsInstanceOfType<ArgumentNullException>(handler.Failure);
     }
 
+    private static readonly ExchangeLimits LimitsOf64ByteHeads = ExchangeLimits.Default with { MaxRequestHeadBytes = 64 };
+
+    private static readonly string HeadPast64Bytes = $"GET /a HTTP/1.1\r\nHost: example.test\r\nX-Padding: {new string('p', 100)}\r\n\r\n";
+
     private async Task<(InMemoryConnection Connection, UnitTestEchoRequestHandler Handler)> ServeAsync(string request, RecordingExchangeLog? log = null)
     {
         var connection = new InMemoryConnection([Ascii(request)]);
@@ -167,6 +204,26 @@ public sealed class Http1ConnectionServerTests
             var buffer = new byte[64];
             var read = await reader.ReadAsync(buffer, cancellationToken);
             BytesRead = Latin1(buffer[..read]);
+        }
+    }
+
+    // Words every head-not-read refusal 400 with a four-byte body, as an answer that does not
+    // call itself a refusal, and records what it was asked.
+    private sealed class UnitTestWordingRefuser : IHttpRequestHandler, IHttpHeadNotReadRefuser
+    {
+        public HttpRequestHeadReadOutcome? Outcome { get; private set; }
+
+        public HttpAnswer? StandardRefusal { get; private set; }
+
+        public Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("No head was read, so no request is answered.");
+
+        public HttpAnswer RefuseHeadNotRead(HttpRequestHeadReadOutcome outcome, HttpAnswer standardRefusal)
+        {
+            Outcome = outcome;
+            StandardRefusal = standardRefusal;
+
+            return new HttpAnswer(HttpStatus.BadRequest, [new("Content-Length", "4")], new HttpAnswerBody.Bytes(Ascii("long")), IsRefusal: false, LeavesRequestBodyUnread: false);
         }
     }
 

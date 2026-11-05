@@ -77,7 +77,8 @@ internal sealed class Http1AnswerWriter
     }
 
     /// <summary>
-    /// Writes a refusal with <c>Connection: close</c>, within <see cref="RefusalWriteDeadline"/>,
+    /// Writes a refusal with <c>Connection: close</c>, and its body when it is
+    /// <see cref="HttpAnswerBody.Bytes"/>, within <see cref="RefusalWriteDeadline"/>,
     /// and half-closes the connection; past the deadline the server gives up on it and leaves
     /// the close to the engine's dispose, never an abort (ADR-0006, section 5). Once the
     /// refusal is written, what the client still sends is drained (ADR-0024).
@@ -109,6 +110,11 @@ internal sealed class Http1AnswerWriter
         try
         {
             await connection.WriteAsync(ResponseHead(answer, "close").ToBytes(), deadlineOrExchange.Token);
+            if (answer.Body is HttpAnswerBody.Bytes bytes)
+            {
+                await connection.WriteAsync(bytes.Content, deadlineOrExchange.Token);
+            }
+
             await connection.CompleteWritesAsync(deadlineOrExchange.Token);
         }
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)

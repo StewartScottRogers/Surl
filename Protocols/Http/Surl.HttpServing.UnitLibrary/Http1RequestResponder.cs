@@ -78,9 +78,13 @@ internal sealed class Http1RequestResponder
             return Task.FromResult(false);
         }
 
-        var status = StatusesForHeadsNotRead.GetValueOrDefault(outcome, HttpStatus.BadRequest);
+        var standardRefusal = StandardRefusal(StatusesForHeadsNotRead.GetValueOrDefault(outcome, HttpStatus.BadRequest));
+        var refusal = handler is IHttpHeadNotReadRefuser refuser
+            ? refuser.RefuseHeadNotRead(outcome, standardRefusal) with { IsRefusal = true }
+            : standardRefusal;
+        context.Log.Note($"No request head was read: {outcome}; answered {refusal.Status.Code} and closed.");
 
-        return writer.WriteRefusalAsync(Refuse(status, $"No request head was read: {outcome}"));
+        return writer.WriteRefusalAsync(refusal);
     }
 
     // The request as the handler sees it, whatever version carried it. The authority is the
@@ -126,6 +130,13 @@ internal sealed class Http1RequestResponder
     private HttpAnswer Refuse(HttpStatus status, string note)
     {
         context.Log.Note($"{note}; answered {status.Code} and closed.");
+
+        return StandardRefusal(status);
+    }
+
+    // The refusal's answer, unlogged: Date, Server and Content-Length: 0.
+    private HttpAnswer StandardRefusal(HttpStatus status)
+    {
         KeyValuePair<string, string>[] fields =
         [
             new("Date", context.TimeProvider.GetUtcNow().ToString("r", CultureInfo.InvariantCulture)),

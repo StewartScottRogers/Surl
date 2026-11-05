@@ -21,6 +21,11 @@ Public, because a server uses them:
   of a content-store file; a `ContentFile` names the `ContentStore` it is copied from),
   `IHttpRequestBody` (`DiscardAsync`, optionally hashing, and `CopyToAsync`, which keeps the
   body), `HttpRequestBodyDiscardOutcome`.
+- `IHttpHeadNotReadRefuser` - a handler that also implements it words the refusal of a head that
+  could not be read (`505`, `431`, `408`, `400`), given the outcome and the standard refusal; the
+  answer it returns is written as a refusal with `Connection: close`, its body only when
+  `HttpAnswerBody.Bytes` (BL-720; the S3 server's `400 RequestHeaderSectionTooLarge`). A handler
+  that does not implement it gets the standard refusal, byte for byte as before.
 - `IHttpConnectionTakeover` - an `HttpAnswer.Takeover` is awaited after its `101` head is
   written, with the connection and its reader; nothing is drained or written after it.
 
