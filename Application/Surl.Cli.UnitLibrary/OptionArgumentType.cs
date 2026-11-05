@@ -26,4 +26,19 @@ internal sealed record OptionArgumentType(string Name, string AllowedValues)
     /// <param name="longName">The flag's long name without <c>--</c>.</param>
     /// <returns>The argument type, naming the flag's own <c>--no-</c> form.</returns>
     public static OptionArgumentType NegatableFlag(string longName) => new("flag", $"--no-{longName} turns it off");
+
+    /// <summary>
+    /// The sentence every layer-2 item option's allowed values end with (ADR-0101 decision 3).
+    /// </summary>
+    public const string ItemSyntax =
+        "fields percent-encode %, ; and the separator, and , inside a list; an unknown key or flag is refused";
+
+    /// <summary>
+    /// A layer-2 item option's argument type (ADR-0101 decision 3): named by its shape, its allowed
+    /// values its own keys followed by <see cref="ItemSyntax"/>.
+    /// </summary>
+    /// <param name="shape">The option's Argument column, e.g. <c>&lt;name&gt;=&lt;path&gt;[;readonly]</c>.</param>
+    /// <param name="keys">The option's own keys and flags, described.</param>
+    /// <returns>The argument type.</returns>
+    public static OptionArgumentType Item(string shape, string keys) => new(shape, $"{keys}; {ItemSyntax}");
 }

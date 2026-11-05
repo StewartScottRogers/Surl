@@ -44,6 +44,17 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   (`SSH protocol`, schemes `scp` and `sftp`, ADR-0051 decision 12), with every option the SSH
   server reads. `Surl.Console` reads the files and serves every one of these options, `--hostcert`
   included (BL-222).
+- Layer-2 items (ADR-0101 decisions 3, 5 rows 10 to 13, and 6): `ConfigurationItemReader.Read`
+  reads one item option argument by its `ConfigurationItemShape` (Argument column, separator,
+  `ConfigurationItemValueKind` after it, its own keys and flags as `ConfigurationItemAttributeKind`,
+  and a grant's access words) into a `ConfigurationItem`: split at every `;`, the head at the
+  first separator, a grant at its last `:`, lists at `,`, then each field percent-decoded.
+  Unknown keys and flags are refused, and no refusal holds a value. Members read as
+  `ConfiguredMember` (`@name` is a group) and grants as `ConfiguredGrant`. `ConfigurationItemShape.Reading`
+  is the `OptionArgumentReading<ConfigurationItem>` an option row takes; its `OptionArgumentType.Item`
+  is named by the shape, its allowed values ending in `OptionArgumentType.ItemSyntax`. No option
+  uses it yet (BL-646, BL-653, BL-654, BL-663, BL-666 do); `MaxOccurrences` and `GivenTooOften`
+  are for the parser that counts each option across the line and every config file.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,

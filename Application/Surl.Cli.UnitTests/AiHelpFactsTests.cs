@@ -76,6 +76,17 @@ public sealed class AiHelpFactsTests
     }
 
     [TestMethod]
+    public void ItemArgumentType_IsNamedByItsShapeAndEndsWithTheSharedSentence()
+    {
+        var type = OptionArgumentType.Item("<name>=<path>[;readonly]", "keys and flags readonly");
+
+        Assert.AreEqual("<name>=<path>[;readonly]", type.Name);
+        Assert.AreEqual(
+            "keys and flags readonly; fields percent-encode %, ; and the separator, and , inside a list; an unknown key or flag is refused",
+            type.AllowedValues);
+    }
+
+    [TestMethod]
     public void LoosensSecurityForTestsOnly_IsExactlyTheFiveTestingOptions()
     {
         var testing = CommandLineOptions.All.Where(option => option.Help.Categories.Contains("testing")).ToArray();
