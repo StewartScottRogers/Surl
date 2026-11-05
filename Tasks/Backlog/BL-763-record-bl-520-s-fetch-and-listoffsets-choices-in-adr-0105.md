@@ -1,5 +1,5 @@
 ---
-id: BL-758
+id: BL-763
 title: Record BL-520's Fetch and ListOffsets choices in ADR-0105
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-758 — Record BL-520's Fetch and ListOffsets choices in ADR-0105
+# BL-763 — Record BL-520's Fetch and ListOffsets choices in ADR-0105
 
 ## Goal
 

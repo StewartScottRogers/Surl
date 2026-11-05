@@ -50,7 +50,7 @@ limits, the high watermark and last stable offset, and `OFFSET_OUT_OF_RANGE` pas
 Plan: `KafkaFetchAnswerer` (v4 to v11) and `KafkaListOffsetsAnswerer` (v1 to v5) read
 `MessageBus.ReadLog` / `GetLogOffsets`; `KafkaRecordBatchWriter` builds served batches;
 `KafkaFetchableTopic` holds the topic checks both share. Choices made where ADR-0105 and the guide
-leave room (decided by Claude under Stewart's delegation; BL-758 copies them into ADR-0105, since
+leave room (decided by Claude under Stewart's delegation; BL-763 copies them into ADR-0105, since
 BL-452 held `Documentation/Planning/Decisions` in Doing):
 
 - **"Fetch from the middle of a batch returns that whole batch"** is read through ADR-0105
