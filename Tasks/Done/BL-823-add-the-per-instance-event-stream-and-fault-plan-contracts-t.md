@@ -8,7 +8,7 @@ depends-on: [BL-822]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-823 — Add the per-instance event stream and fault plan contracts to Surl.Protocol.Abstractions
 
@@ -43,20 +43,43 @@ plan whether to misbehave, through contracts in `Surl.Protocol.Abstractions` tha
 
 ## Acceptance criteria
 
-- [ ] The contracts and records the ADR names exist, one public type per file, each with XML documentation; no
+- [x] The contracts and records the ADR names exist, one public type per file, each with XML documentation; no
       event record carries a password, key or token (a test enumerates the event records' properties and fails
       on a name containing `Password`, `Secret` or `Token`).
-- [ ] `ExchangeContext.Events` and `ExchangeContext.Faults` exist with the null defaults; a named test shows a
+- [x] `ExchangeContext.Events` and `ExchangeContext.Faults` exist with the null defaults; a named test shows a
       context created without them publishes nothing and finds no fault.
-- [ ] Named tests cover the recording publisher (order kept, safe under concurrent publishes) and the scripted
+- [x] Named tests cover the recording publisher (order kept, safe under concurrent publishes) and the scripted
       fault plan (first matching rule returned, none when unscripted).
-- [ ] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, the whole solution
+- [x] `dotnet build Foundation/Surl.Protocol.Abstractions.UnitLibrary -warnaserror` is clean, the whole solution
       builds, the fast tests are green, and the library keeps 100% line and branch coverage.
 
 ## Notes
+
+- Plan: ADR-0124 decisions 1, 4 and 5 are the specification; no new ADR was needed. Every event record,
+  enum and member is the ADR's as written. Choices the ADR left open, taken by Claude under Stewart's
+  delegation:
+  - `FaultPoint(FaultStage Stage)` with `ExchangeId`, `ListenUrl`, `Scheme`, `Account`, `Path` and
+    `Command` as nullable `init` properties, so a later attribute is added without breaking a caller.
+  - `FaultRule(string Id, FaultKind Kind)` with the `--fault` item's keys as nullable `init` properties:
+    scope `Listener`, `Scheme`, `Account`, `Path`, `Command`; parameters `Stage`, `DelayMilliseconds`
+    (`ms`), `AfterBytes`, `Reply`, `Times`. Null means "not given", matching ADR-0124's "absent attribute
+    matches anything".
+  - Null objects are named for what they do: `DiscardingSurlEventPublisher.Instance` and
+    `EmptyFaultPlan.Instance` (singletons with private constructors, as `RefusingDataConnectionOpener`).
+  - `RecordingSurlEventPublisher(bool isPublishingBytes = true)` stamps nothing (stamping is the
+    stream's job, BL-787); a recorder asks for bytes by default because it records everything.
+  - `ScriptedFaultPlan(params FaultRule[])` matches stage (unset = any) and each set scope attribute by
+    ordinal equality, returns the first match, never spends `Times` and records every point asked. The
+    real matcher's segment-prefix paths, case rules and counts are BL-792's `FaultPlan`.
+- Coverage: the library was at 99.3% lines before this task because `AzureStorageScope` (BL-717) was never
+  constructed in this test project; `AzureStorageScopeTests` closes it, so the library is at 100% line and
+  branch.
+- Measured: `Surl.Protocol.Abstractions.UnitTests` 457 passed; whole solution builds with
+  0 warnings; every fast test project green.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Amended by ADR-0124 (BL-822): `IsPublishingBytes`, stream-stamped `Sequence`/`At`, `HookFailedEvent`, `FindAsync`.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ExchangeContext.Events and Faults carry ADR-0124's event stream and fault plan contracts, with null defaults and recording and scripted test doubles
