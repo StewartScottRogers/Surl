@@ -32,6 +32,7 @@ public sealed class ProtocolIsolationTests
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
     private const string MlKem = "Surl.Cryptography.MlKem.UnitLibrary";
+    private const string Qpack = "Surl.Qpack.UnitLibrary";
     private const string Quic = "Surl.Quic.UnitLibrary";
     private const string Tls13 = "Surl.Tls13.UnitLibrary";
     private const string WebSocket = "Surl.WebSocket.UnitLibrary";
@@ -62,6 +63,7 @@ public sealed class ProtocolIsolationTests
         [Kerberos] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
+        [Qpack] = [Hpack],
         [Quic] = [Tls13, ChaCha20, Poly1305],
         [Tls13] = [Curve25519, MlKem],
         [WebSocket] = [Abstractions, HttpMessage],
@@ -177,6 +179,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Kerberos)]
     [DataRow(LineProtocol)]
     [DataRow(MailStore)]
+    [DataRow(Qpack)]
     [DataRow(Quic)]
     [DataRow(Tls13)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)
@@ -210,6 +213,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(LineProtocol, Abstractions)]
     [DataRow(MailStore, Abstractions)]
     [DataRow(MailStore, Content)]
+    [DataRow(Qpack, Hpack)]
     [DataRow(Quic, Tls13)]
     [DataRow(Quic, ChaCha20)]
     [DataRow(Quic, Poly1305)]
@@ -247,6 +251,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(LineProtocol, MailStore)]
     [DataRow(MailStore, LineProtocol)]
     [DataRow(MailStore, "Surl.Networking.UnitLibrary")]
+    [DataRow(Qpack, Abstractions)]
+    [DataRow(Qpack, Quic)]
     [DataRow(Quic, Abstractions)]
     [DataRow(Quic, Hpack)]
     [DataRow(Tls13, Abstractions)]
