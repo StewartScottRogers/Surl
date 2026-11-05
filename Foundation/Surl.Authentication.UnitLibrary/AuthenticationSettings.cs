@@ -30,4 +30,26 @@ public sealed record AuthenticationSettings(
     /// <c>GSSAPI</c> is offered and run only when it is set (decision 9).
     /// </summary>
     public KerberosAcceptor? KerberosAcceptor { get; init; }
+
+    /// <summary>
+    /// The settings a server answering <paramref name="scheme"/> is composed with (ADR-0102,
+    /// decision 4.3): <see cref="Accounts"/> as <see cref="AccountBook.ForScheme"/> views them,
+    /// and <see cref="AuthorizedKeys"/> without the keys of the accounts that view leaves out, so
+    /// every login method - password, SASL, Digest, NTLM, Kerberos's account check, SSH public
+    /// keys - refuses an account restricted to other schemes exactly as it refuses no such
+    /// account. When every account may log in on the scheme it is these settings themselves.
+    /// An <see cref="AuthenticationPolicy"/> and the HTTP methods built over the view's
+    /// <see cref="Accounts"/> judge that server's logins.
+    /// </summary>
+    /// <param name="scheme">The scheme the server answers, compared without regard to case.</param>
+    /// <returns>The settings.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="scheme"/> is <see langword="null"/>.</exception>
+    public AuthenticationSettings ForScheme(string scheme)
+    {
+        var refused = Accounts.NamesRefusedOn(scheme);
+
+        return refused.Count == 0
+            ? this
+            : this with { Accounts = Accounts.ForScheme(scheme), AuthorizedKeys = AuthorizedKeys.Without(refused) };
+    }
 }

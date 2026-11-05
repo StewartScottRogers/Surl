@@ -351,3 +351,20 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   prohibited-output and bidirectional checks are not made, since they only refuse.
 - `ScramSaslMechanismTests` replays RFC 5802 section 5's and RFC 7677 section 3's examples byte
   for byte.
+
+## Per-scheme account views (BL-647)
+
+- `Account.Schemes` is `protocols=` (ADR-0102 decision 4.3): `null`, the default, logs in on every
+  scheme as a `--user` or `--user-file` account does; a set restricts the account to those schemes,
+  each admitting its TLS twin (the same name with or without a final `s`, case-insensitive), as
+  `Account.MayLogInOn` decides. `Account.MailSchemes` (`smtp`, `imap`, `pop3`) is a `--mailbox`
+  account's default.
+- `AuthenticationSettings.ForScheme(scheme)` is the view a server answering that scheme is composed
+  with: `AccountBook.ForScheme` leaves out every account that may not log in there, sharing every
+  derived secret of the rest (no hash is derived again), and `AuthorizedKeys` drops their keys. A
+  left-out name finds the dummies, so every method - password, SASL, Digest, NTLM, Kerberos's
+  account check, SSH public keys - refuses it with the same verdict, note and `RefusalDelay` as no
+  such account. With no restricted account left out, the view is the settings themselves.
+- `Surl.Composition` builds one `AuthenticationPolicy`, with its HTTP methods over the view's
+  `Accounts`, per scheme (BL-653); a view with no accounts left serves HTTP anonymous reads as
+  ADR-0032 section 4 serves them with none configured.

@@ -42,6 +42,25 @@ public sealed class AuthorizedKeyBook
         }
     }
 
+    private AuthorizedKeyBook(AuthorizedKeyBook source, IReadOnlySet<string> refusedUserNames)
+    {
+        secretComparer = source.secretComparer;
+        foreach (var (userName, hashes) in source.keyHashes.Where(entry => !refusedUserNames.Contains(entry.Key)))
+        {
+            keyHashes.Add(userName, hashes);
+        }
+    }
+
+    /// <summary>
+    /// This book without the keys of <paramref name="refusedUserNames"/>, whose public-key logins
+    /// it then refuses as it refuses an unknown user's (ADR-0102, decision 4.3); this book itself
+    /// when it holds no key of theirs.
+    /// </summary>
+    /// <param name="refusedUserNames">The users, compared ordinally.</param>
+    /// <returns>The book.</returns>
+    internal AuthorizedKeyBook Without(IReadOnlySet<string> refusedUserNames) =>
+        keyHashes.Keys.Any(refusedUserNames.Contains) ? new AuthorizedKeyBook(this, refusedUserNames) : this;
+
     /// <summary>
     /// The book with no keys: every public-key login is refused.
     /// </summary>

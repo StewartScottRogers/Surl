@@ -40,6 +40,7 @@ public sealed class AccountBook
     };
 
     private readonly byte[] dummyScramSaltKey = RandomNumberGenerator.GetBytes(32);
+    private readonly List<Account> accounts = [];
 
     /// <summary>
     /// Keeps <paramref name="accounts"/>, which <c>Surl.Cli</c> and <see cref="UserFileParser"/>
@@ -77,6 +78,7 @@ public sealed class AccountBook
                 throw new ArgumentException($"User {account.UserName} is given twice.", nameof(accounts));
             }
 
+            this.accounts.Add(account);
             named.AddRange(account.UserName.Length > 0 ? [account] : []);
         }
 
@@ -90,6 +92,63 @@ public sealed class AccountBook
                 new ChallengeResponseAccount(account.UserName, Encoding.UTF8.GetBytes(account.Password));
             AddScramAccount(account, createScramSalt);
         }
+    }
+
+    // A view of source without the accounts named in refused: every secret and value derived
+    // from one is shared, never derived again, and a refused name finds the dummies as an unknown
+    // name does (ADR-0102, decision 4.3).
+    private AccountBook(AccountBook source, IReadOnlySet<string> refused)
+    {
+        secretComparer = source.secretComparer;
+        dummyDigestAccount = new DigestAccount(null, [dummyUserHashes, dummyUserHashes]);
+        accounts.AddRange(source.accounts.Where(account => !refused.Contains(account.UserName)));
+        CopyAdmitted(source.passwordHashes, passwordHashes, (name, _) => !refused.Contains(name));
+        CopyAdmitted(source.digestAccounts, digestAccounts, (_, account) => !refused.Contains(account.AccountName!));
+        CopyAdmitted(source.ntlmAccounts, ntlmAccounts, (name, _) => !refused.Contains(name));
+        CopyAdmitted(source.awsSigV4Accounts, awsSigV4Accounts, (name, _) => !refused.Contains(name));
+        CopyAdmitted(source.challengeResponseAccounts, challengeResponseAccounts, (name, _) => !refused.Contains(name));
+        foreach (var (hash, credentials) in scramAccounts)
+        {
+            CopyAdmitted(source.scramAccounts[hash], credentials, (name, _) => !refused.Contains(name));
+        }
+    }
+
+    private static void CopyAdmitted<TValue>(
+        Dictionary<string, TValue> from, Dictionary<string, TValue> to, Func<string, TValue, bool> isAdmitted)
+    {
+        foreach (var (name, value) in from.Where(entry => isAdmitted(entry.Key, entry.Value)))
+        {
+            to[name] = value;
+        }
+    }
+
+    /// <summary>
+    /// The view of these accounts a server answering <paramref name="scheme"/> judges logins by:
+    /// every account <see cref="Account.MayLogInOn"/> that scheme, and none other, so a login
+    /// naming an account restricted to other schemes is refused exactly as one naming no account
+    /// (ADR-0102, decision 4.3; ADR-0032, section 8). When every account may log in on the
+    /// scheme it is this book itself.
+    /// </summary>
+    /// <param name="scheme">The scheme the server answers, compared without regard to case.</param>
+    /// <returns>The view.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="scheme"/> is <see langword="null"/>.</exception>
+    public AccountBook ForScheme(string scheme)
+    {
+        var refused = NamesRefusedOn(scheme);
+
+        return refused.Count == 0 ? this : new AccountBook(this, refused);
+    }
+
+    /// <summary>
+    /// The names of the accounts that may not log in on <paramref name="scheme"/>.
+    /// </summary>
+    /// <param name="scheme">The scheme, compared without regard to case.</param>
+    /// <returns>The names, compared ordinally.</returns>
+    internal IReadOnlySet<string> NamesRefusedOn(string scheme)
+    {
+        ArgumentNullException.ThrowIfNull(scheme);
+
+        return accounts.Where(account => !account.MayLogInOn(scheme)).Select(account => account.UserName).ToHashSet(StringComparer.Ordinal);
     }
 
     private void AddScramAccount(Account account, Func<ScramHash, byte[]>? createScramSalt)
