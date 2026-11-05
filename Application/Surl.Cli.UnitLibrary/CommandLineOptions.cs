@@ -184,6 +184,8 @@ internal static class CommandLineOptions
             new("<names>", "Offer only these SSH MACs", ["ssh"], IsInShortList: false, Default: "every MAC offered")),
         Flag("ws-echo", null, negatable: true, (c, on) => c with { WsEcho = on },
             new(null, "Echo client messages, not the path", ["websocket"], IsInShortList: false, Default: "off")),
+        Flag("http3", null, negatable: true, (c, on) => c with { Http3 = on },
+            new(null, "Also serve HTTP/3 over QUIC on https", ["http"], IsInShortList: false, Default: "off")),
     ];
 #pragma warning restore SYSLIB0039
 

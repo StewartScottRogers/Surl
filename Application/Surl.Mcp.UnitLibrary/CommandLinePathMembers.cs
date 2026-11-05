@@ -62,6 +62,7 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.SshCiphers),
         nameof(SurlCommandLine.SshMacs),
         nameof(SurlCommandLine.WsEcho),
+        nameof(SurlCommandLine.Http3),
     ], StringComparer.Ordinal);
 
     /// <summary>Every local path <paramref name="commandLine"/> names, each with the option that names it, in table order.</summary>

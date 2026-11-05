@@ -245,6 +245,13 @@ public sealed record SurlCommandLine
     /// </summary>
     public bool WsEcho { get; init; }
 
+    /// <summary>
+    /// <c>--http3</c>: every <c>https</c> listen URL also serves HTTP/3 over QUIC on UDP at the
+    /// same address and port, and its HTTP/1.x and HTTP/2 answers carry <c>Alt-Svc</c> (ADR-0082
+    /// decision 6). Off by default.
+    /// </summary>
+    public bool Http3 { get; init; }
+
     /// <summary>The methods accepted without <c>--auth</c>, in ADR-0032 section 3's order.</summary>
     private static readonly IReadOnlyList<string> DefaultAuthenticationMethods =
         ["digest", "cram-md5", "basic", "plain", "login", "bearer", "oauthbearer", "xoauth2", "external", "aws-sigv4"];

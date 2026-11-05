@@ -402,6 +402,7 @@ public static partial class SurlServerComposition
     /// <param name="sshAlgorithms">The SSH algorithms offered.</param>
     /// <param name="isTlsUpgradeAvailable">Whether a certificate is configured, so a TLS upgrade can be offered.</param>
     /// <param name="echoesWebSocketMessages">Whether <c>--ws-echo</c> is given.</param>
+    /// <param name="advertisesHttp3">Whether <c>--http3</c> is given, so the HTTP server adds <c>Alt-Svc</c> on https (ADR-0082, decision 6).</param>
     /// <returns>The servers.</returns>
     public static IProtocolServer[] ComposeProtocolServers(
         ContentStore contentStore,
@@ -410,11 +411,12 @@ public static partial class SurlServerComposition
         SshHostKeySet sshHostKeys,
         SshAlgorithmOffer sshAlgorithms,
         bool isTlsUpgradeAvailable,
-        bool echoesWebSocketMessages)
+        bool echoesWebSocketMessages,
+        bool advertisesHttp3 = false)
     {
         ArgumentNullException.ThrowIfNull(serviceState);
 
-        var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy);
+        var httpServer = new HttpProtocolServer(contentStore, authenticationPolicy, advertisesHttp3);
         var smtpServer = new SmtpProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
         var imapServer = new ImapProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);
         var pop3Server = new Pop3ProtocolServer(authenticationPolicy, authenticationPolicy, serviceState.MailStore, isTlsUpgradeAvailable);

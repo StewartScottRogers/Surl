@@ -4,6 +4,7 @@ using Surl.Content;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
+using Surl.Protocol.Http;
 
 namespace Surl.Composition;
 
@@ -239,19 +240,21 @@ public static partial class SurlServerComposition
                 authentication.SshHostKeys.HostKeys,
                 SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
                 isCertificateConfigured,
-                commandLine.WsEcho),
+                commandLine.WsEcho,
+                commandLine.Http3),
             .. ComposeExtendedProtocolServers(
                 seams.AreExtensionsTurnedOn,
                 seams.ComposeExtendedProtocolServers,
                 new ExtendedProtocolServerServices(contentStore, authentication.Policy, isCertificateConfigured)),
         ];
-        return ComposeServing(commandLine, seams, servers, authentication, dataDirectoryLock);
+        return ComposeServing(commandLine, seams, servers, contentStore, authentication, dataDirectoryLock);
     }
 
     private static SurlServerStart ComposeServing(
         SurlCommandLine commandLine,
         SurlServerCompositionSeams seams,
         IProtocolServer[] servers,
+        ContentStore contentStore,
         ComposedAuthentication authentication,
         IDisposable? dataDirectoryLock)
     {
@@ -266,6 +269,15 @@ public static partial class SurlServerComposition
             return Refuse(exitCode, lines);
         }
 
-        return new SurlServerStart(null, new ComposedServing(commandLine, seams, servers, authentication, tls, dataDirectoryLock));
+        IProtocolServer[] served = tls.QuicCertificate is { } quicCertificate
+            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, contentStore, authentication.Policy, quicCertificate)]
+            : servers;
+        return new SurlServerStart(null, new ComposedServing(commandLine, seams, served, authentication, tls, dataDirectoryLock));
     }
+
+    // --http3: the HTTP/3 server on every https listen URL's UDP side, sharing the scheme with the
+    // HTTP server's https registration, so the engine binds both on one port (ADR-0082, decision 6).
+    private static Http3ProtocolServer ComposeHttp3ProtocolServer(
+        SurlCommandLine commandLine, ContentStore contentStore, IAuthenticationPolicy policy, QuicServerCertificate quicCertificate) =>
+        new(contentStore, policy, quicCertificate.Chain, quicCertificate.Key, ComposeConnectionLimits(commandLine).IdleTimeout);
 }

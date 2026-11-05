@@ -57,6 +57,38 @@ public sealed class CommandLineRunnerTlsTests
     }
 
     [TestMethod]
+    public async Task RunAsync_Http3WithSelfSigned_BindsTcpThenUdpOnItsPortAndWritesOneStatusLine()
+    {
+        var run = await ServeUntilListeningAsync("--self-signed", "--http3", "https://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
+        var udp = new ListenUrl("https", "127.0.0.1", FakeListenerFactory.BoundPort);
+        CollectionAssert.AreEqual(new[] { new ListenUrl("https", "127.0.0.1", 0), udp }, run.Factory.StartedListenUrls);
+        CollectionAssert.AreEqual(new[] { udp }, run.Factory.StartedDatagramListenUrls);
+        Assert.AreEqual($"Listening on https://127.0.0.1:{FakeListenerFactory.BoundPort}/" + NewLine, run.Output);
+        Assert.AreEqual(SelfSignedWarning + NewLine, run.Error);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_VerboseHttp3_WritesTheUdpPortHttp3IsServedOn()
+    {
+        var run = await ServeUntilListeningAsync("-v", "--self-signed", "--http3", "https://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.Ok, run.ExitCode);
+        StringAssert.EndsWith(run.Error, $"* Serving HTTP/3 over QUIC on UDP port {FakeListenerFactory.BoundPort}" + NewLine);
+    }
+
+    [TestMethod]
+    public async Task RunAsync_Http3WithoutAnHttpsListenUrl_WritesTheRefusalAndReturnsFailedInitBindingNothing()
+    {
+        var run = await RunRefusedAsync("--http3", "http://127.0.0.1:0/");
+
+        Assert.AreEqual(SurlExitCode.FailedInit, run.ExitCode);
+        StringAssert.StartsWith(run.Error, "surl: option --http3: needs an https listen URL" + NewLine);
+        Assert.IsFalse(run.FactoryCreated);
+    }
+
+    [TestMethod]
     public async Task RunAsync_SelfSignedTwoStarts_WritesTheWarningOnEachStart()
     {
         var first = await ServeUntilListeningAsync("--self-signed", "https://127.0.0.1:0/");

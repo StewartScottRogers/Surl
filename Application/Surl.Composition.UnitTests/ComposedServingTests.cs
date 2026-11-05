@@ -104,6 +104,28 @@ public sealed class ComposedServingTests
     }
 
     [TestMethod]
+    [DataRow("-v", true)]
+    [DataRow("--no-verbose", false)]
+    public async Task ServeAsync_Http3_WritesOneStatusLineForTheSharedPortAndTheHttp3NoteFromVerboseUp(string level, bool writesNote)
+    {
+        using var log = new StringWriter();
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var bound = new TaskCompletionSource<IReadOnlyList<ListenUrl>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var serving = await ComposeAsync(new StartTestSeams(), level, "--self-signed", "--http3", "https://127.0.0.1:0");
+
+        var serve = serving.ServeAsync(StartTestSeams.Outputs(log, bound.SetResult), stop.Token);
+        var boundListenUrls = await bound.Task.WaitAsync(TestContext.CancellationToken);
+        await stop.CancelAsync();
+        var outcome = await serve;
+
+        Assert.AreEqual(SurlExitCode.Ok, outcome.ExitCode);
+        var lines = log.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        CollectionAssert.AreEqual(new[] { $"Listening on https://127.0.0.1:{FakeListenerFactory.BoundPort}/" }, lines.Where(line => line.StartsWith("Listening", StringComparison.Ordinal)).ToArray());
+        Assert.AreEqual(writesNote, lines.Contains($"* Serving HTTP/3 over QUIC on UDP port {FakeListenerFactory.BoundPort}"));
+        Assert.HasCount(1, boundListenUrls);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_SilentLevel_WritesNoStatusLineAndNoThrowawayCertificateLine()
     {
         using var log = new StringWriter();
