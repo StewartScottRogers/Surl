@@ -7,6 +7,8 @@
 - **Amends:** the flat layout of `CLAUDE.md`, "Repository layout" (from ADR-0001 and
   ADR-0002), and ADR-0048's note that the `Surl.Cryptography` prefix groups the primitives
   in a flat, ordinal project run
+- **Amended by:** [ADR-0095](ADR-0095-the-protocols-datastore-category-folder.md) (decision 1:
+  the `Protocols/DataStore/` row, for `Surl.Extended.Protocol.Redis`)
 
 ## Context
 
