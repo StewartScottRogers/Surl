@@ -43,3 +43,4 @@ the ADR's words, so the mail, file, message and group options are each a few lin
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
