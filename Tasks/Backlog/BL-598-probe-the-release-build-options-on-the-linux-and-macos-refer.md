@@ -1,5 +1,5 @@
 ---
-id: BL-594
+id: BL-598
 title: Probe the release build options on the Linux and macOS reference pins
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-594 — Probe the release build options on the Linux and macOS reference pins
+# BL-598 — Probe the release build options on the Linux and macOS reference pins
 
 ## Goal
 

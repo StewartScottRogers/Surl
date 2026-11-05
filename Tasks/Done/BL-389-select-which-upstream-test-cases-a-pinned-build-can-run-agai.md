@@ -88,7 +88,7 @@ so no new ADR):
 exited 7 (connect refused, so the option is built in: proxy, digest, aws, Mime, negotiate-auth,
 bearer-auth, cookies); `--doh-url http://127.0.0.1:1/` exited 6 (DoH tried); `--netrc-file`
 and `-z <date>` were accepted (netrc, parsedate). The Linux and macOS pins are not installed
-here; filed BL-594 to probe them in CI.
+here; filed BL-598 to probe them in CI.
 
 **Counts** (`UpstreamTestCaseCorpusTests.FindSkipReason_EveryImportedCaseForAReferencePin_...`,
 2,013 cases; "today" = `ForBuild`, "all" = every server command and strip line accepted):
