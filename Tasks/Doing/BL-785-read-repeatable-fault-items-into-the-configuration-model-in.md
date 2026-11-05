@@ -54,3 +54,4 @@ line, config files, `Surl.Api` and the control endpoint all describe faults in o
 
 - 2026-11-05: Created.
 - 2026-11-05: Amended by ADR-0124 (BL-822): reply shapes for original schemes only; extended ones by BL-833 to BL-836.
+- 2026-11-05: Backlog -> Doing.
