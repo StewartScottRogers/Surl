@@ -199,6 +199,24 @@ public sealed class StreamConnectionTlsTests
     }
 
     [TestMethod]
+    [DataRow("https", "h2")]
+    [DataRow("wss", "http/1.1")]
+    public async Task UpgradeToTlsAsync_ClientOffersH2AndHttp11LikeCurl_AgreesOnTheSchemesFirstChoice(string scheme, string expected)
+    {
+        using var certificate = TestCertificates.CreateEcdsaServerCertificate();
+        using var settings = new ServerTlsSettings(certificate, [], [], Time);
+        await using var pair = ConnectionPair.Create(settings, scheme);
+        var options = ClientOptions();
+        options.ApplicationProtocols = [SslApplicationProtocol.Http2, SslApplicationProtocol.Http11];
+
+        var (session, client) = await pair.HandshakeAsync(options, TestContext.CancellationToken);
+        await using (client)
+        {
+            Assert.AreEqual(expected, session.ApplicationProtocol);
+        }
+    }
+
+    [TestMethod]
     public async Task UpgradeToTlsAsync_ClientOffersHttp10AndHttp11LikeCurlHttp10_AgreesOnHttp11()
     {
         using var certificate = TestCertificates.CreateEcdsaServerCertificate();

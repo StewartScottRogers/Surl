@@ -83,9 +83,13 @@ public sealed class Http2CleartextUpgradeTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_UpgradeOverTls_IsAnsweredHttp11()
+    [DataRow(null)]
+    [DataRow("http/1.1")]
+    [DataRow("h2")]
+    public async Task ServeAsync_UpgradeOverTls_IsAnsweredHttp11(string? applicationProtocol)
     {
-        var connection = new InMemoryConnection([UpgradeRequest()], initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession);
+        var tlsSession = InMemoryConnection.DefaultUpgradeTlsSession with { ApplicationProtocol = applicationProtocol };
+        var connection = new InMemoryConnection([UpgradeRequest()], initialTlsSession: tlsSession);
         var clock = new ManualTimeProvider(Now);
 
         await Server().ServeAsync(connection, Context(new RecordingExchangeLog(), clock, TestContext.CancellationToken));

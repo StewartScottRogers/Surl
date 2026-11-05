@@ -350,16 +350,66 @@ public sealed class HttpProtocolServerTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_Http2PrefaceOverTls_IsServedAsHttp1()
+    [DataRow(null)]
+    [DataRow("http/1.1")]
+    public async Task ServeAsync_Http2PrefaceOverTlsThatDidNotAgreeH2_IsServedAsHttp1(string? applicationProtocol)
+    {
+        var connection = await ServeOverTlsAsync([Http2TestClient.Start().AsMemory()], applicationProtocol, peerHalfCloses: false);
+
+        StringAssert.StartsWith(Encoding.ASCII.GetString(connection.WrittenBytes), "HTTP/1.1 505 ");
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ServeAsync_RecordedHttp2PrefaceOverTlsThatAgreedH2_IsServedAsHttp2(bool oneBytePerRead)
+    {
+        var request = RecordedFixture.ReadRequestBytes("h2-prior-knowledge-get-file");
+        var chunks = oneBytePerRead ? RecordedFixture.OneBytePerRead(request) : RecordedFixture.Whole(request);
+
+        var connection = await ServeOverTlsAsync(chunks, "h2");
+
+        Assert.AreEqual(FileBody, Http2TestClient.Responses(connection.WrittenBytes)[1].BodyText);
+    }
+
+    [TestMethod]
+    [DataRow(null)]
+    [DataRow("http/1.1")]
+    [DataRow("h2")]
+    public async Task ServeAsync_RecordedGetOverTls_SendsTheRecordedHttp11ResponseWhateverAlpnAgreed(string? applicationProtocol)
+    {
+        var connection = await ServeOverTlsAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("get-file")), applicationProtocol);
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadBytes("get-file", "response.bin"), connection.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PartOfTheHttp2PrefaceOverTlsThatAgreedH2WithinTheHeadTimeout_ClosesWithNoBytes()
     {
         var server = new HttpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot), new AnonymousAuthenticationPolicy());
-        var connection = new InMemoryConnection([Http2TestClient.Start()], initialTlsSession: InMemoryConnection.DefaultUpgradeTlsSession, peerHalfClosesWhenExhausted: false);
+        var tlsSession = InMemoryConnection.DefaultUpgradeTlsSession with { ApplicationProtocol = "h2" };
+        var connection = new InMemoryConnection([Encoding.ASCII.GetBytes("PRI * HTTP")], initialTlsSession: tlsSession, peerHalfClosesWhenExhausted: false);
+        var clock = new ManualTimeProvider(Now);
+        var serving = server.ServeAsync(connection, Context(new RecordingExchangeLog(), TestContext.CancellationToken, clock));
+
+        await HttpServerHarness.WaitForTimersAsync(clock, 1);
+        clock.Advance(ExchangeLimits.Default.HeadTimeout);
+        await serving;
+
+        Assert.IsEmpty(connection.WrittenBytes);
+    }
+
+    private async Task<InMemoryConnection> ServeOverTlsAsync(IEnumerable<ReadOnlyMemory<byte>> chunks, string? applicationProtocol, bool peerHalfCloses = true)
+    {
+        var server = new HttpProtocolServer(new ContentStore(Root, StandardFileSystem(), ContentExposureOptions.ServeEverythingInsideTheRoot), new AnonymousAuthenticationPolicy());
+        var tlsSession = InMemoryConnection.DefaultUpgradeTlsSession with { ApplicationProtocol = applicationProtocol };
+        var connection = new InMemoryConnection(chunks, initialTlsSession: tlsSession, peerHalfClosesWhenExhausted: peerHalfCloses);
         var clock = new ManualTimeProvider(Now);
 
         var serving = server.ServeAsync(connection, Context(new RecordingExchangeLog(), TestContext.CancellationToken, clock));
-        await HttpServerHarness.AdvanceUntilCompletedAsync(clock, serving);
+        await (peerHalfCloses ? serving : HttpServerHarness.AdvanceUntilCompletedAsync(clock, serving));
 
-        StringAssert.StartsWith(Encoding.ASCII.GetString(connection.WrittenBytes), "HTTP/1.1 505 ");
+        return connection;
     }
 
     [TestMethod]

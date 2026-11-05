@@ -37,10 +37,13 @@ order, a `HEADERS` priority naming its own stream, a client's `PUSH_PROMISE`) be
 connection, not the codec.
 
 The HTTP/2 connection (ADR-0081, decisions 3, 5 to 7; ADR-0090) is `Http2ConnectionServer`:
-`HttpProtocolServer.ServeAsync` reads a cleartext connection's first bytes with
+`HttpProtocolServer.ServeAsync` reads the first bytes of a cleartext connection, or of a TLS
+connection whose `TlsSession.ApplicationProtocol` is `h2` (a TLS connection that agreed
+`http/1.1` or no ALPN goes straight to `Http1ConnectionServer`; ADR-0081 decision 2), with
 `Http2ConnectionPreface` and hands it over on the whole preface, or gives the bytes back
 through `AlreadyReadBytesConnection` to `Http1ConnectionServer`, whose handler is
-`Http2CleartextUpgradeHandler`: a request `Http2CleartextUpgrade` accepts for `Upgrade: h2c`
+`Http2CleartextUpgradeHandler` on a cleartext connection (over TLS it is the answerer itself,
+since `h2c` is cleartext only): a request `Http2CleartextUpgrade` accepts for `Upgrade: h2c`
 is answered `101` with an `IHttpConnectionTakeover` that runs
 `Http2ConnectionServer.ServeUpgradedAsync` over `HttpConnectionReaderConnection`, so the bytes
 the HTTP/1.x reader already holds come first (ADR-0091). The connection reads frames in

@@ -137,6 +137,11 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
         .AddField("Connection", "close")
         .ToBytes();
 
+    // The ALPN protocol ID of HTTP/2 over TLS (RFC 9113, section 3.2). A TLS connection that
+    // agreed it is read for the connection preface, as a cleartext one is; one that agreed
+    // http/1.1, or no ALPN at all, is served HTTP/1.x (ADR-0081, decision 2).
+    private const string Http2OverTlsApplicationProtocol = "h2";
+
     private readonly ContentStore contentStore;
 
     private readonly IAuthenticationPolicy authenticationPolicy;
@@ -179,7 +184,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
         var authenticationSession = authenticationPolicy.StartHttpConnection(connection.TlsSession);
         var answerer = new HttpRequestAnswerer(context, contentStore, authenticationSession);
-        if (connection.TlsSession is not null)
+        if (connection.TlsSession is { ApplicationProtocol: not Http2OverTlsApplicationProtocol })
         {
             await new Http1ConnectionServer(answerer, context).ServeAsync(connection);
 
@@ -199,7 +204,9 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
             return;
         }
 
-        await new Http1ConnectionServer(new Http2CleartextUpgradeHandler(answerer, context), context).ServeAsync(new AlreadyReadBytesConnection(connection, preface.BytesRead));
+        // Upgrade: h2c is cleartext only, so over TLS it is ignored (ADR-0081, decision 3).
+        IHttpRequestHandler http1Handler = connection.TlsSession is null ? new Http2CleartextUpgradeHandler(answerer, context) : answerer;
+        await new Http1ConnectionServer(http1Handler, context).ServeAsync(new AlreadyReadBytesConnection(connection, preface.BytesRead));
     }
 
     // The head timeout bounds the preface as it bounds a first request head: when it runs out

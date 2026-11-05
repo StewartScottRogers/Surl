@@ -22,6 +22,6 @@ public sealed class ServerTlsHandshakeTests
 
         var handshake = ServerTlsHandshake.ForListener(settings, new ListenUrl("https", "127.0.0.1", 443))!;
 
-        CollectionAssert.AreEqual(new[] { SslApplicationProtocol.Http11 }, handshake.ApplicationProtocols.ToArray());
+        CollectionAssert.AreEqual(new[] { SslApplicationProtocol.Http2, SslApplicationProtocol.Http11 }, handshake.ApplicationProtocols.ToArray());
     }
 }
