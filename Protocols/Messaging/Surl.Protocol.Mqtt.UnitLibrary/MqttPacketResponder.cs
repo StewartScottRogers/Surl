@@ -1,3 +1,4 @@
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Mqtt;
@@ -15,7 +16,7 @@ internal sealed class MqttPacketResponder
 
     private readonly IConnection connection;
     private readonly ExchangeContext context;
-    private readonly MqttRetainedMessages retainedMessages;
+    private readonly MessageBus.MessageBus bus;
     private readonly IAuthenticationPolicy authenticationPolicy;
     private bool connected;
 
@@ -24,17 +25,17 @@ internal sealed class MqttPacketResponder
     /// </summary>
     /// <param name="connection">Where the answers go.</param>
     /// <param name="context">The exchange's context: its log and cancellation token.</param>
-    /// <param name="retainedMessages">The messages publishes keep and subscribes receive.</param>
+    /// <param name="bus">The message bus publishes go to and subscribes read retained messages from.</param>
     /// <param name="authenticationPolicy">Judges the user name and password of the <c>CONNECT</c>.</param>
     public MqttPacketResponder(
         IConnection connection,
         ExchangeContext context,
-        MqttRetainedMessages retainedMessages,
+        MessageBus.MessageBus bus,
         IAuthenticationPolicy authenticationPolicy)
     {
         this.connection = connection;
         this.context = context;
-        this.retainedMessages = retainedMessages;
+        this.bus = bus;
         this.authenticationPolicy = authenticationPolicy;
     }
 
@@ -90,7 +91,7 @@ internal sealed class MqttPacketResponder
     }
 
     private static bool TryReadTopicName(MqttBodyReader reader, out string topic) =>
-        reader.TryReadString(out topic) && MqttTopicFilter.IsValidTopicName(topic);
+        reader.TryReadString(out topic) && MqttTopicNames.ToCanonicalTopic(topic).IsMapped;
 
     private static bool TryReadSubscriptions(MqttBodyReader reader, List<string> filters, List<byte> returnCodes)
     {
@@ -101,7 +102,7 @@ internal sealed class MqttPacketResponder
                 return false;
             }
 
-            var isValid = MqttTopicFilter.IsValidFilter(filter);
+            var isValid = MqttTopicNames.ToCanonicalFilter(filter).IsMapped;
             returnCodes.Add(isValid ? GrantedQualityOfService : SubscriptionFailure);
             if (isValid)
             {
@@ -229,28 +230,31 @@ internal sealed class MqttPacketResponder
             return CloseForViolation("PUBLISH had no packet identifier");
         }
 
-        return retainedMessages.Retain(topic, reader.Remaining)
+        // Every publish is kept as its topic's retained message, RETAIN set or not (ADR-0014).
+        var published = bus.Publish(new BusMessage(topic, reader.Remaining.ToArray())
+        {
+            Retain = true,
+            QualityOfService = (BusQualityOfService)qualityOfService,
+        });
+        return published.Outcome == MessageBusOutcome.Succeeded
             ? SaveAndAcknowledgePublishAsync(qualityOfService, packetIdentifier)
-            : CloseForViolation("PUBLISH would take the retained messages past their bounds");
+            : CloseForViolation($"PUBLISH would take the retained messages past their bounds ({published.Outcome})");
     }
 
     private async ValueTask<bool> SaveAndAcknowledgePublishAsync(int qualityOfService, ushort packetIdentifier)
     {
-        await SaveRetainedMessagesAsync();
+        await SaveBusAsync();
         return await AcknowledgePublishAsync(qualityOfService, packetIdentifier);
     }
 
-    // A write that fails keeps the change in memory and the connection open; the next change
-    // rewrites the whole file (ADR-0031, decision 6).
-    private async ValueTask SaveRetainedMessagesAsync()
+    // A write that fails keeps the change in memory and the connection open; the next save
+    // writes it (ADR-0100, decision 3.7).
+    private async ValueTask SaveBusAsync()
     {
-        try
+        var saved = await bus.SaveChangesAsync(context.CancellationToken);
+        if (saved.Outcome == MessageBusOutcome.StorageFailed)
         {
-            await retainedMessages.SaveChangesAsync(context.CancellationToken);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            context.Log.Note($"The retained messages could not be written to their file ({exception.Message}); the change is kept in memory.");
+            context.Log.Note($"The retained messages could not be written to their file ({saved.FailureMessage}); the change is kept in memory.");
         }
     }
 
@@ -292,7 +296,7 @@ internal sealed class MqttPacketResponder
     private async ValueTask<bool> DeliverRetainedAsync(ushort packetIdentifier, List<byte> returnCodes, List<string> filters)
     {
         await WriteAsync(MqttPacketEncoder.SubscribeAcknowledgement(packetIdentifier, returnCodes));
-        var matching = retainedMessages.MatchingAny(filters);
+        var matching = MqttBusRetainedMessages.MatchingAny(bus, filters);
         foreach (var (topic, payload) in matching)
         {
             await WriteAsync(MqttPacketEncoder.RetainedPublish(topic, payload));

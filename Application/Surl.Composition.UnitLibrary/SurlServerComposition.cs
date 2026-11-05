@@ -4,6 +4,7 @@ using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
 using Surl.MailStore;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Dict;
 using Surl.Protocol.Ftp;
@@ -180,7 +181,7 @@ public static partial class SurlServerComposition
         seconds == Timeout.InfiniteTimeSpan ? TimeSpan.Zero : seconds;
 
     /// <summary>
-    /// Loads what the servers keep across connections: the retained messages, then the mail store,
+    /// Loads what the servers keep across connections: the message bus, then the mail store,
     /// then the LDAP directory; the first that cannot be loaded ends the start with its
     /// <c>(37)</c> message.
     /// </summary>
@@ -201,11 +202,11 @@ public static partial class SurlServerComposition
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var (retainedMessages, retainedMessagesFailure) = await LoadRetainedMessagesAsync(
-            ComposeRetainedMessageFile(commandLine, fileSystem), cancellationToken);
-        if (retainedMessages is null)
+        var (messageBus, messageBusFailure) = await LoadMessageBusAsync(
+            ComposeMessageBusFiles(commandLine, fileSystem), commandLine, timeProvider, cancellationToken);
+        if (messageBus is null)
         {
-            return (null, retainedMessagesFailure);
+            return (null, messageBusFailure);
         }
 
         var (mailStore, mailStoreFailure) = await LoadMailStoreAsync(
@@ -221,46 +222,57 @@ public static partial class SurlServerComposition
             isTlsUpgradeAvailable,
             timeProvider,
             cancellationToken);
-        return ldapServer is null ? (null, ldapFailure) : (new ServiceState(retainedMessages, mailStore, ldapServer), null);
+        return ldapServer is null ? (null, ldapFailure) : (new ServiceState(messageBus, mailStore, ldapServer), null);
     }
 
     /// <summary>
-    /// Chooses where the MQTT server keeps its retained messages across restarts: a
-    /// <see cref="MqttRetainedMessageFile"/> in <c>&lt;data directory's full path&gt;/.surl/mqtt</c>,
-    /// read and written through <paramref name="fileSystem"/>, with <c>--directory</c>; none
-    /// without it, so they live in memory only (ADR-0031, decision 6).
+    /// Chooses where the one message bus persists: its <see cref="MessageBusFiles"/> over
+    /// <c>&lt;data directory's full path&gt;/.surl</c> (the bus's own files in <c>.surl/bus</c>, and
+    /// an old MQTT 3.1.1 <c>.surl/mqtt/retained-messages</c> read once), read and written through
+    /// <paramref name="fileSystem"/>, with <c>--directory</c>; none without it, so the bus lives in
+    /// memory only (ADR-0100, decision 3.7).
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="fileSystem">The file system the content store serves.</param>
-    /// <returns>The file, or <see langword="null"/> without <c>--directory</c>.</returns>
-    public static MqttRetainedMessageFile? ComposeRetainedMessageFile(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
+    /// <returns>The files, or <see langword="null"/> without <c>--directory</c>.</returns>
+    public static MessageBusFiles? ComposeMessageBusFiles(SurlCommandLine commandLine, IContentFileSystem fileSystem) =>
         commandLine.DataDirectory is { } dataDirectory
-            ? new MqttRetainedMessageFile(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl", "mqtt"))
+            ? new MessageBusFiles(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl"))
             : null;
 
     /// <summary>
-    /// Builds the MQTT server's retained messages: loaded from <paramref name="file"/> when there
-    /// is one, empty and in memory only when not. A file that cannot be read or does not parse
-    /// is not loaded, and gives the <c>(37)</c> message ADR-0031 decision 6 names instead.
+    /// Builds the one message bus the messaging servers share - the MQTT server keeps its retained
+    /// messages on it - with one message bounded by <c>--max-filesize</c> (no bound when it is 0):
+    /// loaded from <paramref name="files"/> when there are some, empty and in memory only when not.
+    /// Files that cannot be loaded give <c>(37) Could not read &lt;file&gt;: &lt;reason&gt;</c>
+    /// instead (ADR-0100, decision 3.7). A failure to write what the load changed (an old MQTT
+    /// file's messages copied into <c>.surl/bus/retained</c>) ends nothing: the bus keeps the
+    /// change and its next save writes it.
     /// </summary>
-    /// <param name="file">The retained-message file, or <see langword="null"/> for none.</param>
+    /// <param name="files">The bus's files, or <see langword="null"/> for none.</param>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="timeProvider">The clock the bus stamps and expires messages by.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
-    /// <returns>The store, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
-    public static async Task<(MqttRetainedMessages? RetainedMessages, string? FailureMessage)> LoadRetainedMessagesAsync(
-        MqttRetainedMessageFile? file, CancellationToken cancellationToken)
+    /// <returns>The bus, or the message after the <c>surl: </c> prefix when it cannot be loaded.</returns>
+    public static async Task<(MessageBus.MessageBus? MessageBus, string? FailureMessage)> LoadMessageBusAsync(
+        MessageBusFiles? files, SurlCommandLine commandLine, TimeProvider timeProvider, CancellationToken cancellationToken)
     {
-        if (file is null)
+        ArgumentNullException.ThrowIfNull(commandLine);
+        var maxUploadBytes = commandLine.Limits.MaxUploadBytes;
+        var bus = new MessageBus.MessageBus(timeProvider, maxMessageBytes: maxUploadBytes > 0 ? maxUploadBytes : long.MaxValue);
+        if (files is null)
         {
-            return (new MqttRetainedMessages(), null);
+            return (bus, null);
         }
 
         try
         {
-            return (await MqttRetainedMessages.LoadAsync(file, cancellationToken: cancellationToken), null);
+            await bus.LoadAsync(files, cancellationToken);
+            return (bus, null);
         }
-        catch (Exception failure) when (failure is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (MessageBusLoadException failure)
         {
-            return (null, $"(37) Could not read {file.FilePath}: {failure.Message}");
+            return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
         }
     }
 
@@ -369,8 +381,8 @@ public static partial class SurlServerComposition
     /// registration order.
     /// </summary>
     /// <remarks>
-    /// Those that serve files serve the one content store, the MQTT server keeps its retained
-    /// messages in the store it is given, the SMTP server delivers into the one mail store and the
+    /// Those that serve files serve the one content store, the MQTT server, for mqtt and mqtts
+    /// alike, keeps its retained messages on the one message bus, the SMTP server delivers into the one mail store and the
     /// IMAP and POP3 servers serve it. https, smtps, imaps, pop3s, ldaps and wss are the HTTP,
     /// SMTP, IMAP, POP3, LDAP and WebSocket servers themselves, registered again through
     /// <see cref="ImplicitTlsSchemeServer"/> over a connection the engine has secured (ADR-0020,
@@ -384,7 +396,7 @@ public static partial class SurlServerComposition
     /// decision 4). The RTSP server has no rtsps, as curl has none (ADR-0074 decision 7).
     /// </remarks>
     /// <param name="contentStore">The one content store.</param>
-    /// <param name="serviceState">The retained messages, the mail store and the LDAP server.</param>
+    /// <param name="serviceState">The message bus, the mail store and the LDAP server.</param>
     /// <param name="authenticationPolicy">The one policy every login is judged by.</param>
     /// <param name="sshHostKeys">The SSH server's host keys.</param>
     /// <param name="sshAlgorithms">The SSH algorithms offered.</param>
@@ -419,7 +431,7 @@ public static partial class SurlServerComposition
             new ImplicitTlsSchemeServer(imapServer, "imaps"),
             serviceState.LdapServer,
             new ImplicitTlsSchemeServer(serviceState.LdapServer, "ldaps"),
-            new MqttProtocolServer(serviceState.RetainedMessages, authenticationPolicy),
+            new MqttProtocolServer(serviceState.MessageBus, authenticationPolicy),
             pop3Server,
             new ImplicitTlsSchemeServer(pop3Server, "pop3s"),
             new RtspProtocolServer(contentStore, authenticationPolicy),
@@ -441,7 +453,7 @@ public static partial class SurlServerComposition
 
     /// <summary>
     /// Builds the servers only to ask for their schemes: nothing is served through them, so they
-    /// need no retained messages, no mail, no directory, no accounts and no host keys.
+    /// need no persisted bus, no mail, no directory, no accounts and no host keys.
     /// </summary>
     /// <param name="contentStore">The content store they are built over.</param>
     /// <param name="timeProvider">The clock they run on.</param>
@@ -452,7 +464,7 @@ public static partial class SurlServerComposition
         return ComposeProtocolServers(
             contentStore,
             new ServiceState(
-                new MqttRetainedMessages(),
+                new MessageBus.MessageBus(timeProvider),
                 new MailboxStore([], allowAnonymous: false, timeProvider),
                 new LdapProtocolServer(authenticationPolicy, authenticationPolicy)),
             authenticationPolicy,

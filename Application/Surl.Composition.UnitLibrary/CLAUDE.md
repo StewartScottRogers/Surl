@@ -22,8 +22,10 @@ horizontal library may reference it (ADR-0099 decision 11, held by
 - `ComposeContentFileSystem` and `ComposeContentStore` build the one content store
   (`DiskContentFileSystem` with `--directory`, a new `InMemoryContentFileSystem` without it,
   ADR-0031); `ComposeConnectionLimits` the serving engine's limits (ADR-0006).
-- `LoadServiceStateAsync` loads the `ServiceState` after the data-directory lock: the MQTT
-  retained messages (`ComposeRetainedMessageFile`, `LoadRetainedMessagesAsync`), the one mail store
+- `LoadServiceStateAsync` loads the `ServiceState` after the data-directory lock: the one
+  `MessageBus` (`ComposeMessageBusFiles` over `<path>/.surl`, `LoadMessageBusAsync`, one message
+  bounded by `--max-filesize`), which the MQTT server for `mqtt` and `mqtts` keeps its retained
+  messages on (BL-635), the one mail store
   (`ComposeMailStoreFiles`, `LoadMailStoreAsync`) and the LDAP server over its directory
   (`ComposeLdapDirectoryFile`, `LoadLdapServerAsync`); the first that cannot be loaded returns its
   `(37)` message, which the host writes after `surl: `.

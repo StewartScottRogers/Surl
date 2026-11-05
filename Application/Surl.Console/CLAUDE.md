@@ -82,10 +82,11 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   content store and the policy, `GopherProtocolServer` for `gopher` and
   `gophers` (it declares both itself, so no `ImplicitTlsSchemeServer` wraps it),
   `MqttProtocolServer` for `mqtt` and `mqtts` (it too declares both itself), whose
-  retained messages are kept in `<data directory>/.surl/mqtt/retained-messages` and loaded
-  after the lock and before any listener binds with `--directory` (a file that cannot be
-  read or does not parse ends surl with 37), and in memory only without it (ADR-0031
-  decision 6),
+  retained messages are kept on the one message bus `Surl.Composition` composes, in
+  `<data directory>/.surl/bus/retained` (an older `.surl/mqtt/retained-messages` read when
+  that file is missing), loaded after the lock and before any listener binds with
+  `--directory` (a file that cannot be read or does not parse ends surl with 37), and in
+  memory only without it (ADR-0100 decision 3.7),
   `SmtpProtocolServer` for `smtp` and, through `ImplicitTlsSchemeServer`, `smtps`, given the
   policy as both its authentication policies, `STARTTLS` when `--cert` or `--self-signed` is
   given (`ServerTlsComposition.IsCertificateConfigured`, ADR-0053 decision 5) and the one

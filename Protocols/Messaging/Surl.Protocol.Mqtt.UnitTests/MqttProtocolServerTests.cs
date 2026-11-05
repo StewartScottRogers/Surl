@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Text;
+using Surl.Content;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Protocol.Mqtt;
@@ -21,15 +23,64 @@ public sealed class MqttProtocolServerTests
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    public void Constructor_NullRetainedMessages_Throws()
+    public void Constructor_NullBus_Throws()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => new MqttProtocolServer(null!, new AnonymousAuthenticationPolicy()));
     }
 
     [TestMethod]
+    public async Task ServeAsync_TwoServersOnOneBus_EachSubscriberReceivesWhatTheOtherServerPublished()
+    {
+        var bus = TestMessageBus.New();
+        var mqttServer = new MqttProtocolServer(bus, new AnonymousAuthenticationPolicy());
+        var mqttsServer = new MqttProtocolServer(bus, new AnonymousAuthenticationPolicy());
+
+        await ServeWithAsync(mqttServer, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Publish(0x30, "t", "hi"), ClientPackets.Disconnect));
+        await ServeWithAsync(mqttsServer, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Publish(0x30, "u", "yo"), ClientPackets.Disconnect), MqttsListenUrl);
+        var overMqtts = await ServeWithAsync(mqttsServer, RecordedFixture.ReadRequestBytes("subscribe-t"), MqttsListenUrl);
+        var overMqtt = await ServeWithAsync(mqttServer, ClientPackets.Join(ClientPackets.CurlConnect(), ClientPackets.Subscribe(1, ("u", 0))));
+
+        CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("subscribe-t"), overMqtts.WrittenBytes);
+        byte[] expected = [.. ConnackAccepted, 0x90, 0x03, 0x00, 0x01, 0x00, 0x31, 0x05, 0x00, 0x01, (byte)'u', (byte)'y', (byte)'o', .. Disconnect];
+        CollectionAssert.AreEqual(expected, overMqtt.WrittenBytes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PublishToALoadedBus_WritesTheBusRetainedFile()
+    {
+        var fileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        var busFiles = new MessageBusFiles(fileSystem, Path.Join(InMemoryContentFileSystem.RootPath, ".surl"));
+        var bus = TestMessageBus.New();
+        await bus.LoadAsync(busFiles, TestContext.CancellationToken);
+
+        var (connection, log) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x32, "t", 1, "hi"), ClientPackets.Disconnect, bus);
+
+        CollectionAssert.AreEqual(new byte[] { 0x20, 0x02, 0x00, 0x00, 0x40, 0x02, 0x00, 0x01 }, connection.WrittenBytes);
+        Assert.IsEmpty(log.Notes);
+        Assert.AreEqual(ContentEntryKind.File, fileSystem.GetEntryKind(busFiles.RetainedPath));
+    }
+
+    [TestMethod]
+    [DataRow(typeof(IOException), DisplayName = "IOException")]
+    [DataRow(typeof(UnauthorizedAccessException), DisplayName = "UnauthorizedAccessException")]
+    public async Task ServeAsync_BusWriteFails_NotesItKeepsTheChangeAndAcknowledges(Type failureType)
+    {
+        var failure = (Exception)Activator.CreateInstance(failureType, "The disk is full.")!;
+        var fileSystem = new UnitTestThrowingContentFileSystem(ContentEntryKind.None, failure);
+        var bus = TestMessageBus.New();
+        await bus.LoadAsync(new MessageBusFiles(fileSystem, Path.Join(InMemoryContentFileSystem.RootPath, ".surl")), TestContext.CancellationToken);
+
+        var (connection, log) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x32, "t", 1, "hi"), ClientPackets.Disconnect, bus);
+
+        CollectionAssert.AreEqual(new byte[] { 0x20, 0x02, 0x00, 0x00, 0x40, 0x02, 0x00, 0x01 }, connection.WrittenBytes);
+        Assert.AreEqual("hi", Encoding.ASCII.GetString(bus.MatchingAny(["t"]).Single().Value));
+        Assert.AreEqual("The retained messages could not be written to their file (The disk is full.); the change is kept in memory.", log.Notes.Single());
+    }
+
+    [TestMethod]
     public void Schemes_AreMqttThenMqtts()
     {
-        var server = new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy());
+        var server = new MqttProtocolServer(TestMessageBus.New(), new AnonymousAuthenticationPolicy());
 
         CollectionAssert.AreEqual(new[] { "mqtt", "mqtts" }, server.Schemes.ToArray());
     }
@@ -37,7 +88,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {
-        var server = new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy());
+        var server = new MqttProtocolServer(TestMessageBus.New(), new AnonymousAuthenticationPolicy());
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(null!, Context(new RecordingExchangeLog())));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(new InMemoryConnection([]), null!));
@@ -107,7 +158,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_PublishThenSubscribeFromCurl_DeliversWhatWasPublished()
     {
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
 
         await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("publish-hi")), retained);
         var (subscriber, _) = await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("subscribe-t")), retained);
@@ -118,7 +169,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_Publish200BytesFromCurl_KeepsTheWholePayload()
     {
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
 
         await ServeAsync(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("publish-200-bytes")), retained);
 
@@ -129,7 +180,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_EmptyPublish_RemovesTheRetainedMessage()
     {
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
         retained.Retain("t", "hi"u8);
 
         var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x30, "t", ""), ClientPackets.Disconnect, retained);
@@ -162,7 +213,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_NoPacketLimit_AcceptsAnyLength()
     {
-        var (connection, _) = await ServeAsync(RecordedFixture.Whole(ClientPackets.CurlConnect()), new MqttRetainedMessages(), Limits(0));
+        var (connection, _) = await ServeAsync(RecordedFixture.Whole(ClientPackets.CurlConnect()), TestMessageBus.New(), Limits(0));
 
         CollectionAssert.AreEqual(ConnackAccepted, connection.WrittenBytes);
     }
@@ -443,7 +494,7 @@ public sealed class MqttProtocolServerTests
         var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.RefusedAnonymous);
 
         var (connection, _) = await ServeAsync(
-            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connack-not-authorized")), new MqttRetainedMessages(), policy: policy);
+            RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("connack-not-authorized")), TestMessageBus.New(), policy: policy);
 
         var login = policy.Logins.Single();
         Assert.IsNull(login.UserName);
@@ -473,7 +524,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_ConnectWithWill_SkipsTheWillAndReadsTheUserName()
     {
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
         var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
         var connect = ClientPackets.ConnectWithFields(0xE6, "c", ClientPackets.String("w"), [0x00, 0x02, (byte)'b', (byte)'y'], ClientPackets.String("u"), [0x00, 0x01, 0xFF]);
 
@@ -498,7 +549,7 @@ public sealed class MqttProtocolServerTests
     {
         var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
 
-        var (connection, log) = await ServeAsync(RecordedFixture.Whole(ClientPackets.ConnectWithFields(connectFlags, "c", fields)), new MqttRetainedMessages(), policy: policy);
+        var (connection, log) = await ServeAsync(RecordedFixture.Whole(ClientPackets.ConnectWithFields(connectFlags, "c", fields)), TestMessageBus.New(), policy: policy);
 
         Assert.AreEqual(0, connection.WrittenBytes.Length);
         StringAssert.Contains(log.Notes.Single(), "CONNECT was malformed; closed with no reply");
@@ -508,7 +559,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public void Constructor_NullAuthenticationPolicy_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new MqttProtocolServer(new MqttRetainedMessages(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new MqttProtocolServer(TestMessageBus.New(), null!));
     }
 
     private static byte[][] FieldsAnnouncedBy(byte connectFlags)
@@ -553,7 +604,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_PublishPastTheRetainedBounds_ClosesWithNoReplyAndKeepsNothing()
     {
-        var retained = new MqttRetainedMessages(maxTopics: 1);
+        var retained = TestMessageBus.New(maxTopics: 1);
         retained.Retain("a", "1"u8);
 
         var (connection, log) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x32, "b", 1, "2"), [], retained);
@@ -569,7 +620,7 @@ public sealed class MqttProtocolServerTests
         var payload = Enumerable.Repeat((byte)'z', 70_000).ToArray();
         // Remaining length 70003 (topic length, "t", payload) is F3 A2 04 in section 2.2.3's encoding.
         byte[] publish = [0x30, 0xF3, 0xA2, 0x04, 0x00, 0x01, (byte)'t', .. payload];
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
 
         var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), publish, ClientPackets.Disconnect, retained, Limits(0));
 
@@ -582,7 +633,7 @@ public sealed class MqttProtocolServerTests
     {
         byte[] publish = [0x30, 0xFF, 0xFF, 0xFF, 0x7F, 0x00, 0x01, (byte)'t'];
 
-        var (_, log) = await ServeAsync(ClientPackets.CurlConnect(), publish, [], new MqttRetainedMessages(), Limits(0) with { MaxUploadBytes = 0 });
+        var (_, log) = await ServeAsync(ClientPackets.CurlConnect(), publish, [], TestMessageBus.New(), Limits(0) with { MaxUploadBytes = 0 });
 
         StringAssert.Contains(log.Notes.Single(), "part way through a packet");
     }
@@ -607,7 +658,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_QualityOfService1Publish_AnswersPubackAndKeepsTheMessage()
     {
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
 
         var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x32, "t", 0x1234, "hi"), ClientPackets.Disconnect, retained);
 
@@ -620,7 +671,7 @@ public sealed class MqttProtocolServerTests
     {
         var release = new byte[] { 0x62, 0x02, 0x00, 0x07 };
 
-        var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x34, "t", 7, "hi"), release, new MqttRetainedMessages());
+        var (connection, _) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Publish(0x34, "t", 7, "hi"), release, TestMessageBus.New());
 
         CollectionAssert.AreEqual(new byte[] { 0x20, 0x02, 0x00, 0x00, 0x50, 0x02, 0x00, 0x07, 0x70, 0x02, 0x00, 0x07 }, connection.WrittenBytes);
     }
@@ -641,10 +692,11 @@ public sealed class MqttProtocolServerTests
     [DataRow(0x36, "t", "PUBLISH was malformed", DisplayName = "QoS 3")]
     [DataRow(0x30, "", "PUBLISH was malformed", DisplayName = "empty topic")]
     [DataRow(0x30, "a/+", "PUBLISH was malformed", DisplayName = "wildcard in topic")]
+    [DataRow(0x30, "a\0b", "PUBLISH was malformed", DisplayName = "U+0000 in topic (section 1.5.3)")]
     [DataRow(0x32, "t", "PUBLISH had no packet identifier", DisplayName = "QoS 1 without identifier")]
     public async Task ServeAsync_MalformedPublish_ClosesWithNoReply(int firstByte, string topic, string note)
     {
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
 
         var (connection, log) = await ServeAsync(ClientPackets.CurlConnect(), ClientPackets.Packet((byte)firstByte, ClientPackets.String(topic)), [], retained);
 
@@ -672,7 +724,7 @@ public sealed class MqttProtocolServerTests
     [TestMethod]
     public async Task ServeAsync_SubscribeWithValidAndInvalidFilters_GrantsQos0AndFailsTheInvalidOne()
     {
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
         retained.Retain("a/b", "1"u8);
         retained.Retain("c", "2"u8);
         retained.Retain("$SYS/x", "3"u8);
@@ -732,9 +784,9 @@ public sealed class MqttProtocolServerTests
         StringAssert.Contains(log.Notes.Single(), "UNSUBSCRIBE was malformed");
     }
 
-    private static MqttRetainedMessages RetainedFor(string caseName)
+    private static MessageBus.MessageBus RetainedFor(string caseName)
     {
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
         switch (caseName)
         {
             case "subscribe-t":
@@ -766,20 +818,30 @@ public sealed class MqttProtocolServerTests
         TimeProvider.System,
         cancellationToken);
 
+    private async Task<InMemoryConnection> ServeWithAsync(MqttProtocolServer server, byte[] request, ListenUrl? listenUrl = null)
+    {
+        var connection = new InMemoryConnection(RecordedFixture.Whole(request));
+
+        await server.ServeAsync(connection, Context(new RecordingExchangeLog(), TestContext.CancellationToken, listenUrl));
+        await connection.DisposeAsync();
+
+        return connection;
+    }
+
     private Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeBytesAsync(byte[] request) =>
-        ServeAsync(RecordedFixture.Whole(request), new MqttRetainedMessages());
+        ServeAsync(RecordedFixture.Whole(request), TestMessageBus.New());
 
     private Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeAsync(
         byte[] first,
         byte[] second,
         byte[] third,
-        MqttRetainedMessages retained,
+        MessageBus.MessageBus retained,
         ExchangeLimits? limits = null) =>
         ServeAsync(RecordedFixture.Whole(ClientPackets.Join(first, second, third)), retained, limits);
 
     private async Task<(InMemoryConnection Connection, RecordingExchangeLog Log)> ServeAsync(
         IEnumerable<ReadOnlyMemory<byte>> chunks,
-        MqttRetainedMessages retained,
+        MessageBus.MessageBus retained,
         ExchangeLimits? limits = null,
         ListenUrl? listenUrl = null,
         TlsSession? tlsSession = null,

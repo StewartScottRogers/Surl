@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\Protocols\Lookup\Surl.Protocol.Gopher.UnitLibrary\Surl.Protocol.Gopher.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Http\Surl.Protocol.Http.UnitLibrary\Surl.Protocol.Http.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Mail\Surl.Protocol.Imap.UnitLibrary\Surl.Protocol.Imap.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\Messaging\Surl.MessageBus.UnitLibrary\Surl.MessageBus.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Protocol.Ldap.UnitLibrary\Surl.Protocol.Ldap.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Messaging\Surl.Protocol.Mqtt.UnitLibrary\Surl.Protocol.Mqtt.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Mail\Surl.Protocol.Pop3.UnitLibrary\Surl.Protocol.Pop3.UnitLibrary.csproj" />

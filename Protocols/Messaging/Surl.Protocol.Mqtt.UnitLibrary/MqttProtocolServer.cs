@@ -14,8 +14,9 @@ namespace Surl.Protocol.Mqtt;
 /// topic, whether or not its <c>RETAIN</c> flag was set: upstream curl 8.21.0 publishes with
 /// <c>RETAIN</c> clear, and without this a curl fetch after a curl publish would receive
 /// nothing. A later publish to the topic replaces it, and an empty payload removes it. The
-/// messages live as long as the <see cref="MqttRetainedMessages"/> the server was given, so
-/// every connection it answers shares them. A <c>SUBSCRIBE</c> is answered <c>SUBACK</c>,
+/// messages are kept by the <see cref="MessageBus.MessageBus"/> the server was given - one per
+/// process, so every connection it answers, over <c>mqtt</c> or <c>mqtts</c>, and every other
+/// messaging server on the bus shares them (ADR-0100, decision 3). A <c>SUBSCRIBE</c> is answered <c>SUBACK</c>,
 /// granting QoS 0 to each valid topic filter and failure (<c>0x80</c>) to each invalid one;
 /// then one QoS 0 <c>PUBLISH</c>, <c>RETAIN</c> set, for every kept message a valid filter
 /// matches, in ordinal order of topic; then <c>DISCONNECT</c>, and the connection is closed.
@@ -48,9 +49,9 @@ namespace Surl.Protocol.Mqtt;
 /// <b>Violations and limits.</b> A malformed packet, a packet only a server sends, a packet
 /// of reserved type 0 or 15, wrong fixed header flags, a first packet other than
 /// <c>CONNECT</c> and a second <c>CONNECT</c> close the connection with no reply, as MQTT
-/// 3.1.1 section 4.8 says; so does a <c>PUBLISH</c> the retained messages have no room for
-/// (<see cref="MqttRetainedMessages.MaxTopics"/>,
-/// <see cref="MqttRetainedMessages.MaxTotalPayloadBytes"/>); so do a remaining
+/// 3.1.1 section 4.8 says; so does a <c>PUBLISH</c> the bus refuses (past
+/// <see cref="MessageBus.MessageBus.MaxTopics"/>, <see cref="MessageBus.MessageBus.MaxRetainedPayloadBytes"/>
+/// or another of its bounds, or a topic holding U+0000, which section 1.5.3 forbids); so do a remaining
 /// length whose fourth byte has its continuation bit set, and a packet whose fixed header
 /// announces more than <see cref="ExchangeLimits.MaxMessageBytes"/> bytes, fixed header
 /// included, which is refused before any of its body is read (ADR-0006, sections 1 and 5);
@@ -71,22 +72,23 @@ namespace Surl.Protocol.Mqtt;
 /// </remarks>
 public sealed class MqttProtocolServer : IConnectionProtocolServer
 {
-    private readonly MqttRetainedMessages retainedMessages;
+    private readonly MessageBus.MessageBus bus;
     private readonly IAuthenticationPolicy authenticationPolicy;
 
     /// <summary>
-    /// Creates an MQTT server that keeps published messages in <paramref name="retainedMessages"/>
-    /// and asks <paramref name="authenticationPolicy"/> whether to accept each <c>CONNECT</c>'s
-    /// user name and password (ADR-0032, decision 5).
+    /// Creates an MQTT server that publishes every message to <paramref name="bus"/> as its
+    /// topic's retained message, answers a subscribe with the bus's retained messages, and asks
+    /// <paramref name="authenticationPolicy"/> whether to accept each <c>CONNECT</c>'s user name
+    /// and password (ADR-0032, decision 5).
     /// </summary>
-    /// <param name="retainedMessages">The messages publishes keep and subscribes receive.</param>
+    /// <param name="bus">The process's one message bus, shared with every other messaging server.</param>
     /// <param name="authenticationPolicy">Judges the login of every <c>CONNECT</c>.</param>
-    public MqttProtocolServer(MqttRetainedMessages retainedMessages, IAuthenticationPolicy authenticationPolicy)
+    public MqttProtocolServer(MessageBus.MessageBus bus, IAuthenticationPolicy authenticationPolicy)
     {
-        ArgumentNullException.ThrowIfNull(retainedMessages);
+        ArgumentNullException.ThrowIfNull(bus);
         ArgumentNullException.ThrowIfNull(authenticationPolicy);
 
-        this.retainedMessages = retainedMessages;
+        this.bus = bus;
         this.authenticationPolicy = authenticationPolicy;
     }
 
@@ -110,7 +112,7 @@ public sealed class MqttProtocolServer : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(context);
 
         var reader = new MqttPacketReader(connection, context.Limits.MaxMessageBytes, context.Limits.MaxUploadBytes);
-        var responder = new MqttPacketResponder(connection, context, retainedMessages, authenticationPolicy);
+        var responder = new MqttPacketResponder(connection, context, bus, authenticationPolicy);
 
         var result = await ReadFirstPacketAsync(reader, context);
         while (result.Packet is { } packet && await responder.AnswerAsync(packet))

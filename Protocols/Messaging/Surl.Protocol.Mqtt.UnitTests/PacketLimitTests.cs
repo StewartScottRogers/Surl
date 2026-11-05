@@ -13,7 +13,7 @@ public sealed class PacketLimitTests
     public async Task PacketOfExactlyTheLimit_IsAccepted()
     {
         var publish = PublishOf(1000);
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
         var limits = ExchangeLimits.Default with { MaxMessageBytes = publish.Length };
         var connection = new InMemoryConnection([ClientPackets.CurlConnect(), publish]);
 
@@ -27,7 +27,7 @@ public sealed class PacketLimitTests
     public async Task PacketOneByteOverTheLimit_ClosesWithNoBytes()
     {
         var publish = PublishOf(1000);
-        var retained = new MqttRetainedMessages();
+        var retained = TestMessageBus.New();
         var log = new RecordingExchangeLog();
         var connect = ClientPackets.CurlConnect();
         var limits = ExchangeLimits.Default with { MaxMessageBytes = publish.Length - 1 };
@@ -51,7 +51,7 @@ public sealed class PacketLimitTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(RecordedFixture.Whole(RecordedFixture.ReadRequestBytes("packet-over-the-limit")));
 
-        await new MqttProtocolServer(new MqttRetainedMessages(), new AnonymousAuthenticationPolicy()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
+        await new MqttProtocolServer(TestMessageBus.New(), new AnonymousAuthenticationPolicy()).ServeAsync(connection, Context(TimeProvider.System, TestContext.CancellationToken, log: log));
 
         CollectionAssert.AreEqual(RecordedFixture.ReadAcceptedReplyBytes("packet-over-the-limit"), connection.WrittenBytes);
         Assert.AreEqual("A packet was longer than 1048576 bytes; closed with no reply.", log.Notes.Single());

@@ -9,7 +9,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.Protocol.Mqtt.UnitLibrary\Surl.Protocol.Mqtt.UnitLibrary.csproj" />
   </ItemGroup>
 
