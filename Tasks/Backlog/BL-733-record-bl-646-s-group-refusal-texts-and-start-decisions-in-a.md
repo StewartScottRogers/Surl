@@ -1,5 +1,5 @@
 ---
-id: BL-725
+id: BL-733
 title: Record BL-646's --group refusal texts and start decisions in ADR-0101 and ADR-0102
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-725 — Record BL-646's --group refusal texts and start decisions in ADR-0101 and ADR-0102
+# BL-733 — Record BL-646's --group refusal texts and start decisions in ADR-0101 and ADR-0102
 
 ## Goal
 

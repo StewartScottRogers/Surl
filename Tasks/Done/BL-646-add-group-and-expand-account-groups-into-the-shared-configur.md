@@ -74,7 +74,7 @@ each group to account names before any store sees it.
   `SurlCommandLine` property until `CommandLinePathMembers` classifies it, so `Groups` joined
   `MembersWithoutPaths`. No task in Doing names that project.
 - **Not done here.** The ADR edits (row 18's `@everyone` texts, the decisions above) need
-  `Documentation/Planning/Decisions`, which BL-503 holds while in Doing; filed as BL-725.
+  `Documentation/Planning/Decisions`, which BL-503 holds while in Doing; filed as BL-733.
 - **Measured.** `Measure-CodeQuality.ps1`: `Surl.Cli.UnitLibrary` and `Surl.Composition.UnitLibrary` at 100% line
   and branch with no failing member; every fast test project green.
 
