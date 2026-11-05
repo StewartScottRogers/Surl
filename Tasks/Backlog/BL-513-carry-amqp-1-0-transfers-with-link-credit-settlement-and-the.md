@@ -4,7 +4,7 @@ title: Carry AMQP 1.0 transfers with link credit, settlement and the message for
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-512, BL-664]
+depends-on: [BL-512, BL-664, BL-704]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -57,3 +57,4 @@ allows, and handles the dispositions the receiver sends.
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; nodes are Surl.MessageBus's topics and queues.
+- 2026-11-05: Depends on BL-704 (the bus carries the native form ADR-0107 decision 6 needs), added by BL-509.

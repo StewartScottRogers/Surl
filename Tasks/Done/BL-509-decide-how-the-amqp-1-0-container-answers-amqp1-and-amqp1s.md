@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-509 — Decide how the AMQP 1.0 container answers amqp1 and amqp1s
 
@@ -53,16 +53,32 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each citing its Part and section, and is
       listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/Amqp1.md` exists in the matrix format, each "covered by" naming
+- [x] `Documentation/Conformance/Extended/Amqp1.md` exists in the matrix format, each "covered by" naming
       BL-510, BL-511, BL-512 or BL-513, or "n/a: <reason>".
 
 ## Notes
+
+- ADR-0107 decides 1 to 7; matrix `Documentation/Conformance/Extended/Amqp1.md` (rows to BL-510 to BL-513, three
+  n/a). Written directly in this session rather than through `align-and-document`: the task is a decision record,
+  and the decisions needed the bus code (`Amqp1AddressNames`, `BusQueueConsumer`) read alongside the specification.
+- Learned from the port's client (what a client sends, not a verdict): it attaches to the URL path **without its
+  leading `/`**, so `amqp1://host/orders` is address `orders`. ADR-0100's row refused any address without
+  `/topic/` or `/queue/`; ADR-0107 decision 4 amends it: one leading `/` is dropped and a bare name is a queue.
+  ADR-0100 gained an "Amended" line. `Surl.MessageBus` code is unchanged (the container rewrites the address).
+- Default taken: queues are created durable on first attach (sender or receiver), bounded by the bus's
+  `MaxQueues`, rather than only `--queue` ones - the anonymous-safe, AMQP-0-9-1-like choice.
+- Default taken: the TLS header (`AMQP 2 1 0 0`) is upgraded in band on `amqp1` when a certificate is configured,
+  through the existing `IConnection.UpgradeToTlsAsync`; otherwise answered with the SASL header and closed.
+- Filed BL-704 (bus carries a publisher's native encoding, so the AMQP sections reach an `amqp1` receiver byte
+  for byte, as BL-513's criteria require) and added it to BL-513's `depends-on`. Filed BL-705 (decide
+  transactions, durable topic subscriptions and source filters), which ADR-0107 marks "Not served yet".
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the message bus is shared.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0107 decides how the AMQP 1.0 container answers amqp1 and amqp1s; matrix Amqp1.md traces it to BL-510 to BL-513; BL-704 and BL-705 filed
