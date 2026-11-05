@@ -52,6 +52,7 @@ internal sealed class CoapRequestOptions
         [CoapOptionNumber.Block2] = (options, option) => options.Block2 = CoapBlockOption.Read(option),
         [CoapOptionNumber.Size1] = (options, option) => options.Size1 = option.ReadUInt(),
         [CoapOptionNumber.Size2] = (options, _) => options.AsksForSize2 = true,
+        [CoapOptionNumber.Observe] = (options, option) => options.Observe = option.ReadUInt(),
     };
 
     // Location-* numbers RFC 7252 section 5.10.7 reserves: a request carrying one is 4.02, though they are even.
@@ -101,6 +102,10 @@ internal sealed class CoapRequestOptions
 
     /// <summary>Whether Size2 was sent, which asks for the representation's size (RFC 7959 section 4).</summary>
     public bool AsksForSize2 { get; private set; }
+
+    /// <summary>The Observe option of a <c>GET</c>: 0 registers, 1 deregisters (RFC 7641 section 2).</summary>
+    public uint? Observe { get; private set; }
+
     /// <summary>The number of the first unrecognised critical option, when there is one.</summary>
     public int? UnrecognisedCriticalOption { get; private set; }
 

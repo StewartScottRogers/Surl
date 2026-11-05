@@ -32,6 +32,7 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
     private readonly CoapResourceAnswerer answerer;
     private readonly ICoapRandomSource random;
     private readonly ContentStore contentStore;
+    private readonly CoapObservations observations;
 
     /// <summary>
     /// Creates a CoAP server that serves <paramref name="contentStore"/> under
@@ -41,7 +42,21 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
     /// <param name="contentStore">The resources: every visible file of the store.</param>
     /// <param name="accessRules">Who may read and write.</param>
     public CoapProtocolServer(ContentStore contentStore, CoapAccessRules accessRules)
-        : this(contentStore, accessRules, CryptographicCoapRandomSource.Instance)
+        : this(contentStore, accessRules, new CoapObservations())
+    {
+    }
+
+    /// <summary>
+    /// Creates a CoAP server that serves <paramref name="contentStore"/> under
+    /// <paramref name="accessRules"/> and shares <paramref name="observations"/> with every other
+    /// CoAP server of the process, drawing every random value from
+    /// <see cref="System.Security.Cryptography.RandomNumberGenerator"/>.
+    /// </summary>
+    /// <param name="contentStore">The resources: every visible file of the store.</param>
+    /// <param name="accessRules">Who may read and write.</param>
+    /// <param name="observations">Every observer of the process (ADR-0097 decision 0).</param>
+    public CoapProtocolServer(ContentStore contentStore, CoapAccessRules accessRules, CoapObservations observations)
+        : this(contentStore, accessRules, CryptographicCoapRandomSource.Instance, observations: observations)
     {
     }
 
@@ -49,7 +64,8 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
         ContentStore contentStore,
         CoapAccessRules accessRules,
         ICoapRandomSource random,
-        int preferredBlockSizeExponent = CoapBlockOption.LargestSizeExponent)
+        int preferredBlockSizeExponent = CoapBlockOption.LargestSizeExponent,
+        CoapObservations? observations = null)
     {
         ArgumentNullException.ThrowIfNull(contentStore);
         ArgumentNullException.ThrowIfNull(accessRules);
@@ -57,6 +73,7 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
         answerer = new CoapResourceAnswerer(contentStore, accessRules, random, preferredBlockSizeExponent);
         this.contentStore = contentStore;
         this.random = random;
+        this.observations = observations ?? new CoapObservations();
     }
 
     /// <summary>The one scheme answered: <c>coap</c>.</summary>
@@ -82,11 +99,14 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
     private async Task<Task> ServeFlowAsync(IDatagramFlow flow, ExchangeContext context)
     {
         await using var uploads = new CoapBlock1Uploads(contentStore, context.TimeProvider, answerer.PreferredSizeExponent);
-        var session = new CoapFlowSession(
-            flow,
+        CoapFlowSession? session = null;
+        await using var observers = new CoapFlowObservers(
+            observations,
             context,
             (request, options, cancellationToken) => answerer.AnswerAsync(request, options, context.Scheme, peerIsAuthenticated: false, uploads, cancellationToken),
-            random);
+            options => answerer.LocationOf(options, context.Scheme),
+            (what, compose, cancellationToken) => session!.SendConfirmableAsync(what, compose, cancellationToken));
+        session = new CoapFlowSession(flow, context, observers.AnswerAsync, random);
         var serving = session.ServeAsync();
         await Task.WhenAny(serving);
 

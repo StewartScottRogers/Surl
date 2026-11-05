@@ -6,7 +6,7 @@ RFC 7641 and RFC 6690 - never by the Curl port's output, and its unit tests repl
 by hand from those RFCs.
 
 What is here so far is the message codec (BL-471), the message layer and the resources (BL-472),
-and block-wise transfers (BL-473), ADR-0097 decisions 0, 1, 2, 3, 4 and 6:
+block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 6:
 
 - `CoapMessage` is one message: `CoapMessageType`, `CoapCode` (`c.dd`), Message ID, a token of
   at most 8 bytes, `CoapOption`s kept in order of their numbers, and the payload. An Empty
@@ -64,8 +64,25 @@ and block-wise transfers (BL-473), ADR-0097 decisions 0, 1, 2, 3, 4 and 6:
   constructor parameter (6 by default) so tests can replay RFC 7959's 128- and 32-byte figures
   and BL-475 can shrink it for DTLS.
 
-Decision 7's other limits and the `5.03` refusal are BL-751. Observation (BL-474), `coaps` (BL-475) and the
-command line (BL-476) build on it.
+- Observation (RFC 7641; ADR-0097 decision 5, BL-474). `CoapObservations` is the process's one
+  list of observers (at most 1000), given to `CoapProtocolServer`'s public constructor so BL-476
+  can share it with `coaps`; the two-argument constructor makes its own. `CoapFlowObservers`, one
+  per flow, stands between `CoapFlowSession` and `CoapResourceAnswerer`: a `GET` with Observe 0,
+  no Block2 or Block2 NUM 0, answered `2.05`, and not `/.well-known/core`, registers its token
+  (`CoapObservation`) and gets Observe 1, or the replaced entry's next number, modulo 2^24; past
+  16 per flow or the shared limit it is answered plainly. Observe 1 removes the token's entry and
+  is answered plainly. A 2.xx answer to a `PUT`, `POST` or `DELETE` (not `2.31`) marks the
+  resource changed in the shared list, keyed by the content-store location. Each entry's
+  notification goes at once on a change, or when Max-Age (60 s) has lapsed since the last; it is
+  always CON, sent through `CoapFlowSession.SendConfirmableAsync` (NSTART 1; composed when first
+  sent, so changes while one is outstanding go once, as the newest state), and answers the
+  registration's Uri-Path, Uri-Query, Accept and block size afresh: a large resource in its first
+  block with Size2 (RFC 7959 section 2.6). RST, a give-up after MAX_RETRANSMIT (`CoapDelivery`),
+  and a non-2.xx notification (a deleted file's `4.04`, without Observe) remove the entry; the
+  flow's end removes all and sends nothing.
+
+Decision 7's other limits and the `5.03` refusal are BL-751. `coaps` (BL-475) and the command
+line (BL-476) build on it.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`,
 and may also reference the horizontal libraries ADR-0084 and ADR-0097 allow (`Surl.Dtls` from

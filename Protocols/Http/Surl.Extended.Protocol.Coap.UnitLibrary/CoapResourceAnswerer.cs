@@ -345,6 +345,20 @@ internal sealed class CoapResourceAnswerer(
         return !exists || !options.IfMatch.Any(value => value.Length == 0 || value.Span.SequenceEqual(entityTag));
     }
 
+    /// <summary>
+    /// The content-store location a request's Uri-Path names over <paramref name="scheme"/>, the
+    /// key observers of a resource share across flows and schemes (ADR-0097 decision 5); null when
+    /// the store refuses the path.
+    /// </summary>
+    /// <param name="options">The request's options.</param>
+    /// <param name="scheme">The scheme the request came in on.</param>
+    /// <returns>The location, or null.</returns>
+    public string? LocationOf(CoapRequestOptions options, string scheme) =>
+        store.MapRequestPathForScheme(RequestPathOf(options), scheme).Location;
+
+    private static string RequestPathOf(CoapRequestOptions options) =>
+        "/" + string.Join('/', options.UriPath.Select(Uri.EscapeDataString));
+
     private sealed record Representation(byte[] EntityTag, uint Format, long Length);
 
     private sealed class Target
@@ -355,7 +369,7 @@ internal sealed class CoapResourceAnswerer(
             Options = options;
             Scheme = scheme;
             Uploads = uploads;
-            Path = "/" + string.Join('/', options.UriPath.Select(Uri.EscapeDataString));
+            Path = RequestPathOf(options);
             UploadKey = Path + "?" + string.Join('&', options.UriQuery.Select(argument => Uri.EscapeDataString(argument)));
             Mapping = store.MapRequestPathForScheme(Path, scheme);
         }

@@ -37,7 +37,7 @@ internal sealed class CoapFlowSession
     private readonly Lock gate = new();
     private readonly List<Task> separateResponses = [];
     private ushort nextMessageId;
-    private (ushort MessageId, TaskCompletionSource Acknowledged)? outstanding;
+    private (ushort MessageId, TaskCompletionSource<CoapDelivery> Ended)? outstanding;
 
     /// <summary>
     /// Creates the message layer of <paramref name="flow"/>.
@@ -87,7 +87,6 @@ internal sealed class CoapFlowSession
     {
         await Task.WhenAny(serving);
         await StopSeparateResponsesAsync();
-        outstandingSlot.Dispose();
 
         return serving;
     }
@@ -158,7 +157,7 @@ internal sealed class CoapFlowSession
     private static bool CanEndARetransmission(CoapMessage message) =>
         message.Code.IsEmpty || (message.Type == CoapMessageType.Acknowledgement && ResponseClasses.Contains(message.Code.Class));
 
-    private TaskCompletionSource? TakeOutstanding(ushort messageId)
+    private TaskCompletionSource<CoapDelivery>? TakeOutstanding(ushort messageId)
     {
         lock (gate)
         {
@@ -168,22 +167,22 @@ internal sealed class CoapFlowSession
             }
 
             outstanding = null;
-            return pending.Acknowledged;
+            return pending.Ended;
         }
     }
 
     private void MatchAcknowledgement(CoapMessage message)
     {
-        var acknowledged = CanEndARetransmission(message) ? TakeOutstanding(message.MessageId) : null;
+        var ended = CanEndARetransmission(message) ? TakeOutstanding(message.MessageId) : null;
 
-        if (acknowledged is null)
+        if (ended is null)
         {
             context.Log.Note($"Ignored: an unmatched {message.Type} with Message ID {message.MessageId}.");
             return;
         }
 
         context.Log.Note($"The client's {message.Type} with Message ID {message.MessageId} ends its retransmission.");
-        acknowledged.TrySetResult();
+        ended.TrySetResult(message.Type == CoapMessageType.Reset ? CoapDelivery.Reset : CoapDelivery.Acknowledged);
     }
 
     private async Task AnswerDuplicateAsync(CoapMessage message, byte[]? answered)
@@ -249,21 +248,40 @@ internal sealed class CoapFlowSession
     private async Task SendSeparateResponseAsync(Task<CoapResponse> answering, ReadOnlyMemory<byte> token)
     {
         var response = await answering;
-        await outstandingSlot.WaitAsync(Cancellation);
+        await SendConfirmableAsync(
+            "the separate response",
+            (messageId, _) => Task.FromResult(new CoapMessage(CoapMessageType.Confirmable, response.Code, messageId, token, response.Options, response.Payload)),
+            Cancellation);
+    }
+
+    /// <summary>
+    /// Sends a CON message of the server's once no other is outstanding (NSTART 1), composing it
+    /// only then, so it carries the state current when it is first sent, and retransmits it until
+    /// a matching ACK or Empty RST arrives or MAX_RETRANSMIT retransmissions have timed out.
+    /// </summary>
+    /// <param name="what">What the message is, for the log: "the notification".</param>
+    /// <param name="compose">Composes the message for the Message ID drawn for it.</param>
+    /// <param name="cancellationToken">Stops waiting and retransmitting.</param>
+    /// <returns>How the message's transmission ended.</returns>
+    public async Task<CoapDelivery> SendConfirmableAsync(
+        string what,
+        Func<ushort, CancellationToken, Task<CoapMessage>> compose,
+        CancellationToken cancellationToken)
+    {
+        await outstandingSlot.WaitAsync(cancellationToken);
 
         try
         {
-            var acknowledged = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var messageId = DrawNextMessageId();
-            var bytes = CoapMessageWriter.Write(
-                new CoapMessage(CoapMessageType.Confirmable, response.Code, messageId, token, response.Options, response.Payload));
+            var bytes = CoapMessageWriter.Write(await compose(messageId, cancellationToken));
+            var ended = new TaskCompletionSource<CoapDelivery>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             lock (gate)
             {
-                outstanding = (messageId, acknowledged);
+                outstanding = (messageId, ended);
             }
 
-            await TransmitUntilAcknowledgedAsync(messageId, bytes, acknowledged.Task);
+            return await TransmitUntilEndedAsync(what, messageId, bytes, ended.Task, cancellationToken);
         }
         finally
         {
@@ -276,31 +294,34 @@ internal sealed class CoapFlowSession
         }
     }
 
-    private async Task TransmitUntilAcknowledgedAsync(ushort messageId, byte[] bytes, Task acknowledged)
+    private async Task<CoapDelivery> TransmitUntilEndedAsync(string what, ushort messageId, byte[] bytes, Task<CoapDelivery> ended, CancellationToken cancellationToken)
     {
         var timeout = CoapTransmissionParameters.InitialTimeout(random.DrawFraction());
 
         for (var transmission = 0; transmission <= CoapTransmissionParameters.MaxRetransmit; transmission++)
         {
-            await flow.SendAsync(bytes, Cancellation);
+            await flow.SendAsync(bytes, cancellationToken);
 
-            if (await IsDoneWithinAsync(acknowledged, timeout))
+            if (await IsDoneWithinAsync(ended, timeout, cancellationToken))
             {
-                return;
+                return await ended;
             }
 
             timeout *= 2;
         }
 
-        context.Log.Note($"Gave up: the separate response with Message ID {messageId} was not acknowledged after {CoapTransmissionParameters.MaxRetransmit} retransmissions.");
+        context.Log.Note($"Gave up: {what} with Message ID {messageId} was not acknowledged after {CoapTransmissionParameters.MaxRetransmit} retransmissions.");
+        return CoapDelivery.GivenUp;
     }
 
-    private async Task<bool> IsDoneWithinAsync(Task task, TimeSpan timeout)
+    private Task<bool> IsDoneWithinAsync(Task task, TimeSpan timeout) => IsDoneWithinAsync(task, timeout, Cancellation);
+
+    private async Task<bool> IsDoneWithinAsync(Task task, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        using var waiting = CancellationTokenSource.CreateLinkedTokenSource(Cancellation);
+        using var waiting = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var first = await Task.WhenAny(task, Task.Delay(timeout, context.TimeProvider, waiting.Token));
         await waiting.CancelAsync();
-        Cancellation.ThrowIfCancellationRequested();
+        cancellationToken.ThrowIfCancellationRequested();
 
         return first == task;
     }
