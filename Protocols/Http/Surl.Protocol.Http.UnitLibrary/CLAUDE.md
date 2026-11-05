@@ -52,6 +52,21 @@ every frame and owns the HPACK encoder, and `Http2SendWindows` and `Http2DataStr
 within the client's windows. This library references `Surl.Hpack.UnitLibrary` for it, and
 BL-409 moves the connection to `Surl.Http2.UnitLibrary` (ADR-0086).
 
+The upstream test cases' server half (ADR-0080 decision 2; BL-391) is a test seam the shipped
+`surl` never composes: `Surl.Conformance.UnitTests` composes `HttpUpstreamTestCaseServer` with one
+case's `HttpUpstreamTestCaseReplies` (its reply parts by name as bytes and its `<servercmd>`
+lines). The server reads each head with `Surl.HttpMessage`'s reader and its body as framed
+(`HttpUpstreamTestCaseRequestBody`; no `100 Continue` is ever written), then sends the part
+`HttpUpstreamTestCasePartNumber` picks verbatim: FILEFORMAT.md's `NUM` from the trailing digits
+of the path (the host for `CONNECT`) and the `Authorization` (else `Proxy-Authorization`)
+scheme, `swsbounce` moving the case's next request to the next part. The connection stays open
+unless `swsclose` is in the part or the commands; a missing part closes it with no bytes.
+`HttpUpstreamTestCaseServerCommands` holds `auth_required`, `idle`, `no-expect`, `skip:`,
+`swsclose`, `writedelay:` (a pause on the exchange's `TimeProvider` between the reply's lines)
+and `Testnum`; any other command throws `NotSupportedException`, as the selector skips such a
+case first. `ReceivedBytesRecordingConnection` records every byte read, in arrival order, as
+`HttpUpstreamTestCaseReplies.ReceivedBytes` for the case's `<protocol>`.
+
 Referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 
