@@ -47,4 +47,14 @@ public enum MailStoreOutcome
     /// (ADR-0050, decision 7); <see cref="PendingMessage.StorageFailure"/> holds the exception's
     /// message, and nothing was stored.</summary>
     StorageFailed,
+
+    /// <summary>Storing the messages would pass the quota of an owner they go to (ADR-0102,
+    /// decision 1.4): IMAP answers <c>NO [OVERQUOTA]</c>, SMTP <c>452 4.2.2</c>. Nothing was
+    /// stored, for any recipient.</summary>
+    QuotaExceeded,
+
+    /// <summary>The operation would delete or rename a shared folder or <c>Shared</c>, or create
+    /// or rename a mailbox to <c>Shared</c> or a name under <c>Shared/</c> while shared folders
+    /// are configured (ADR-0102, decision 1.6): IMAP answers <c>NO [NOPERM]</c>.</summary>
+    SharedFolderProtected,
 }

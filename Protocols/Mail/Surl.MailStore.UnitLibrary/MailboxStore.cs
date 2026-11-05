@@ -54,6 +54,22 @@ public sealed class MailboxStore
     /// </summary>
     public const int MaxMailboxNameBytes = 1024;
 
+    /// <summary>
+    /// The name of the reserved owner whose mailboxes are the shared folders (ADR-0102, decision
+    /// 1.6). No account can bear it, and no login reaches it directly.
+    /// </summary>
+    public const string SharedFolderOwnerName = ":shared";
+
+    /// <summary>
+    /// The name a session sees above every shared folder; never a mailbox itself.
+    /// </summary>
+    public const string SharedFolderRoot = "Shared";
+
+    /// <summary>
+    /// What a session sees in front of each shared folder's name.
+    /// </summary>
+    public const string SharedFolderPrefix = SharedFolderRoot + "/";
+
     private const MailFlags SystemFlags =
         MailFlags.Seen | MailFlags.Answered | MailFlags.Flagged | MailFlags.Deleted | MailFlags.Draft;
 
@@ -65,6 +81,9 @@ public sealed class MailboxStore
     private readonly LocalPartLookup<OwnerMailboxes> mailboxOwners = new();
     private readonly HashSet<OwnerMailboxes> lockedMaildrops = [];
     private readonly List<ulong> releasedFileNumbers = [];
+    private readonly Dictionary<OwnerMailboxes, long> quotas = [];
+    private readonly Dictionary<string, HashSet<string>> sharedFolderMembers = new(StringComparer.Ordinal);
+    private OwnerMailboxes? sharedOwner;
     private OwnerMailboxes? anonymousOwner;
     private MailDomainRouter? router;
     private MailStoreFiles? files;
@@ -317,13 +336,24 @@ public sealed class MailboxStore
     /// The mailboxes a session logged in as <paramref name="accountName"/> acts on (ADR-0050,
     /// decision 2): the anonymous owner's with <c>--allow-anonymous</c>, whatever the name;
     /// otherwise the account's or the mailbox's (ADR-0102, decision 1.2) named by it, matched
-    /// ordinally, or an empty view for a name that names neither.
+    /// ordinally, or an empty view for a name that names neither. Outside
+    /// <c>--allow-anonymous</c> it also reaches, as <c>Shared/</c>&lt;name&gt;, each shared
+    /// folder whose members include the name (ADR-0102, decision 1.6).
     /// </summary>
     /// <param name="accountName">The login's account name, or <see langword="null"/> when the
     /// login carried none.</param>
     /// <returns>The session's view.</returns>
-    public MailView ViewFor(string? accountName) =>
-        new(anonymousOwner ?? (accountName is null ? null : accounts.FindExact(accountName) ?? mailboxOwners.FindExact(accountName)));
+    public MailView ViewFor(string? accountName)
+    {
+        if (anonymousOwner is not null || accountName is null)
+        {
+            return new(anonymousOwner);
+        }
+
+        var owner = accounts.FindExact(accountName) ?? mailboxOwners.FindExact(accountName);
+        var memberOf = sharedFolderMembers.Where(folder => folder.Value.Contains(accountName)).Select(folder => folder.Key).ToList();
+        return new(owner, sharedOwner, memberOf, sharedFolderMembers.Count > 0);
+    }
 
     /// <summary>
     /// Starts a message body on its way into the store (ADR-0050, decision 7): with a data
@@ -372,7 +402,13 @@ public sealed class MailboxStore
     {
         lock (storeLock)
         {
-            var inboxes = recipients.SelectMany(recipient => recipient.Owners).Select(owner => owner.Inbox).ToList();
+            var inboxOwners = recipients.SelectMany(recipient => recipient.Owners).ToList();
+            if (inboxOwners.GroupBy(owner => owner).Any(copies => !WithinQuota(copies.Key, message.Length * copies.Count())))
+            {
+                return MailStoreOutcome.QuotaExceeded;
+            }
+
+            var inboxes = inboxOwners.ConvertAll(owner => owner.Inbox);
             if (!HasRoomFor(inboxes, message.Length))
             {
                 return MailStoreOutcome.StoreFull;
@@ -454,19 +490,49 @@ public sealed class MailboxStore
             ThrowIfNotFlags(flags);
             lock (storeLock)
             {
-                var mailbox = FindMailbox(view, mailboxName);
-                var outcome = mailbox is null ? MailStoreOutcome.MailboxMissing : CheckRoomForOne(mailbox, message);
+                var place = FindPlace(view, mailboxName);
+                var outcome = place is null ? MailStoreOutcome.MailboxMissing : CheckRoomForOne(place.Value, message);
                 var body = outcome == MailStoreOutcome.Succeeded ? KeepBody(message) : null;
                 if (body is null)
                 {
                     return outcome == MailStoreOutcome.Succeeded ? MailStoreOutcome.StorageFailed : outcome;
                 }
 
-                var uid = AddMessage(mailbox!, body, internalDate ?? timeProvider.GetUtcNow(), flags);
-                stored = new MailStoredUid(mailbox!.UidValidity, uid);
+                var mailbox = place!.Value.Mailbox;
+                var uid = AddMessage(mailbox, body, internalDate ?? timeProvider.GetUtcNow(), flags);
+                stored = new MailStoredUid(mailbox.UidValidity, uid);
                 changeCount++;
                 return MailStoreOutcome.Succeeded;
             }
+        }
+    }
+
+    /// <summary>
+    /// Whether a message of <paramref name="length"/> bytes appended to a named mailbox would
+    /// stay within its owner's quota, so IMAP can answer <c>NO [OVERQUOTA]</c> from a literal's
+    /// <c>{n}</c> before it reads the bytes (ADR-0102, decision 1.4). The append itself checks
+    /// again.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="length">The message's length in bytes.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.QuotaExceeded"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="length"/> is negative.</exception>
+    public MailStoreOutcome CheckQuotaForAppend(MailView view, string mailboxName, long length)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        lock (storeLock)
+        {
+            var place = FindPlace(view, mailboxName);
+            if (place is null)
+            {
+                return MailStoreOutcome.MailboxMissing;
+            }
+
+            return WithinQuota(place.Value.Owner, length) ? MailStoreOutcome.Succeeded : MailStoreOutcome.QuotaExceeded;
         }
     }
 
@@ -481,7 +547,8 @@ public sealed class MailboxStore
         ArgumentNullException.ThrowIfNull(view);
         lock (storeLock)
         {
-            return view.Owner is null ? [] : [.. view.Owner.Mailboxes.Keys.Order(StringComparer.Ordinal)];
+            var ownNames = view.Owner?.Mailboxes.Keys.Where(name => !HidesAsShared(view, name)) ?? [];
+            return [.. ownNames.Concat(view.SharedFolders).Order(StringComparer.Ordinal)];
         }
     }
 
@@ -712,17 +779,33 @@ public sealed class MailboxStore
         copied = null;
         lock (storeLock)
         {
-            var source = FindMailbox(view, sourceMailboxName);
-            var destination = FindMailbox(view, destinationMailboxName);
+            var source = FindPlace(view, sourceMailboxName);
+            var destination = FindPlace(view, destinationMailboxName);
             if (source is null || destination is null)
             {
                 return MailStoreOutcome.MailboxMissing;
             }
 
-            var originals = uids.Distinct().Order().Select(uid => source.Messages.GetValueOrDefault(uid)).OfType<StoredMessage>().ToList();
-            copied = HasRoomToCopy(destination, originals.Count, isMove) ? CopyInto(source, originals, destination, isMove) : null;
-            return copied is null ? MailStoreOutcome.StoreFull : MailStoreOutcome.Succeeded;
+            var originals = uids.Distinct().Order().Select(uid => source.Value.Mailbox.Messages.GetValueOrDefault(uid)).OfType<StoredMessage>().ToList();
+            var outcome = CheckRoomToCopy(source.Value.Owner, originals, destination.Value, isMove);
+            copied = outcome == MailStoreOutcome.Succeeded ? CopyInto(source.Value.Mailbox, originals, destination.Value.Mailbox, isMove) : null;
+            return outcome;
         }
+    }
+
+    /// <summary>
+    /// Whether the destination's owner has quota for the copies - none needed for a move within
+    /// one owner, which adds nothing to it - and the store room for them.
+    /// </summary>
+    private MailStoreOutcome CheckRoomToCopy(OwnerMailboxes sourceOwner, List<StoredMessage> originals, MailboxPlace destination, bool isMove)
+    {
+        var addedBytes = isMove && sourceOwner == destination.Owner ? 0 : originals.Sum(original => original.Body.Length);
+        if (!WithinQuota(destination.Owner, addedBytes))
+        {
+            return MailStoreOutcome.QuotaExceeded;
+        }
+
+        return HasRoomToCopy(destination.Mailbox, originals.Count, isMove) ? MailStoreOutcome.Succeeded : MailStoreOutcome.StoreFull;
     }
 
     // A move adds no message to the store, so it needs only the destination's UIDs.
@@ -757,7 +840,7 @@ public sealed class MailboxStore
         ArgumentNullException.ThrowIfNull(mailboxName);
         lock (storeLock)
         {
-            var outcome = CheckNewMailbox(view.Owner, mailboxName);
+            var outcome = CheckNewMailbox(view, mailboxName);
             if (outcome != MailStoreOutcome.Succeeded)
             {
                 return outcome;
@@ -784,6 +867,11 @@ public sealed class MailboxStore
     {
         lock (storeLock)
         {
+            if (IsVisibleShared(view, mailboxName))
+            {
+                return MailStoreOutcome.SharedFolderProtected;
+            }
+
             var mailbox = FindMailbox(view, mailboxName);
             if (mailbox is null || mailbox.Name == MailboxName.Inbox)
             {
@@ -819,9 +907,14 @@ public sealed class MailboxStore
         ArgumentNullException.ThrowIfNull(newMailboxName);
         lock (storeLock)
         {
+            if (IsVisibleShared(view, mailboxName))
+            {
+                return MailStoreOutcome.SharedFolderProtected;
+            }
+
             var mailbox = FindMailbox(view, mailboxName);
             var renamesInbox = mailbox?.Name == MailboxName.Inbox;
-            var outcome = mailbox is null ? MailStoreOutcome.MailboxMissing : CheckNewMailbox(view.Owner, newMailboxName, renamesInbox);
+            var outcome = mailbox is null ? MailStoreOutcome.MailboxMissing : CheckNewMailbox(view, newMailboxName, renamesInbox);
             if (outcome != MailStoreOutcome.Succeeded)
             {
                 return outcome;
@@ -938,12 +1031,58 @@ public sealed class MailboxStore
         _ => flags,
     };
 
-    private static StoredMailbox? FindMailbox(MailView view, string mailboxName)
+    private static StoredMailbox? FindMailbox(MailView view, string mailboxName) => FindPlace(view, mailboxName)?.Mailbox;
+
+    /// <summary>
+    /// The mailbox <paramref name="mailboxName"/> names in the view and its owner: a shared
+    /// folder the view is a member of for <c>Shared/</c>&lt;name&gt; while shared folders are
+    /// configured (ADR-0102, decision 1.6), otherwise the view's owner's own mailbox.
+    /// </summary>
+    private static MailboxPlace? FindPlace(MailView view, string mailboxName)
     {
         ArgumentNullException.ThrowIfNull(view);
         ArgumentNullException.ThrowIfNull(mailboxName);
-        return view.Owner?.Find(mailboxName);
+        if (HidesAsShared(view, mailboxName))
+        {
+            return view.SharedFolders.Contains(mailboxName, StringComparer.Ordinal)
+                ? new MailboxPlace(view.SharedOwner!, view.SharedOwner!.Mailboxes[mailboxName[SharedFolderPrefix.Length..]])
+                : null;
+        }
+
+        var mailbox = view.Owner?.Find(mailboxName);
+        return mailbox is null ? null : new MailboxPlace(view.Owner!, mailbox);
     }
+
+    /// <summary>
+    /// Whether <paramref name="mailboxName"/> is <c>Shared</c> or under <c>Shared/</c> while
+    /// shared folders are configured, so it names shared folders and never the owner's own
+    /// mailbox (ADR-0102, decision 1.6).
+    /// </summary>
+    private static bool HidesAsShared(MailView view, string mailboxName) =>
+        view.SharedFoldersConfigured
+        && (mailboxName == SharedFolderRoot || mailboxName.StartsWith(SharedFolderPrefix, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Whether <paramref name="mailboxName"/> is a shared folder the view is a member of, or
+    /// <c>Shared</c> for a view that is a member of any; a non-member learns of neither.
+    /// </summary>
+    private static bool IsVisibleShared(MailView view, string mailboxName)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(mailboxName);
+        return view.SharedFolders.Contains(mailboxName, StringComparer.Ordinal)
+            || (mailboxName == SharedFolderRoot && view.SharedFolders.Count > 0);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="owner"/> may receive <paramref name="addedBytes"/> more: it has no
+    /// quota, nothing is added, or its own mailboxes' bytes stay within its quota (ADR-0102,
+    /// decision 1.4).
+    /// </summary>
+    private bool WithinQuota(OwnerMailboxes owner, long addedBytes) =>
+        addedBytes == 0
+        || !quotas.TryGetValue(owner, out var quota)
+        || owner.Mailboxes.Values.Sum(mailbox => mailbox.Messages.Values.Sum(message => message.Body.Length)) + addedBytes <= quota;
 
     private static MailStoreOutcome FindMessage(MailView view, string mailboxName, uint uid, out StoredMessage? message)
     {
@@ -1045,6 +1184,11 @@ public sealed class MailboxStore
             return ReachOwner(string.Empty);
         }
 
+        if (accountNames.Contains(SharedFolderOwnerName, StringComparer.Ordinal))
+        {
+            throw new ArgumentException($"No account may be named {SharedFolderOwnerName}, the shared folders' owner.", nameof(accountNames));
+        }
+
         var mailboxAddresses = new HashSet<string>(mailDomains?.MailboxAddresses ?? [], StringComparer.Ordinal);
         foreach (var name in accountNames.Where(name => !string.IsNullOrEmpty(name) && !mailboxAddresses.Contains(name)).Distinct(StringComparer.Ordinal))
         {
@@ -1056,8 +1200,83 @@ public sealed class MailboxStore
             mailboxOwners.Add(address, ReachOwner(address));
         }
 
-        RouteMailDomains(mailDomains);
+        if (mailDomains is not null)
+        {
+            RouteMailDomains(mailDomains);
+            ApplyMailboxSettings(mailDomains.MailboxSettings.Values);
+            ReachSharedFolders(mailDomains.SharedFolders);
+        }
+
         return null;
+    }
+
+    /// <summary>
+    /// Sets each mailbox's quota and creates each of its configured folders it lacks, after its
+    /// <c>INBOX</c> (ADR-0102, decision 1.4).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A folder would pass <see cref="MaxMailboxes"/>.</exception>
+    private void ApplyMailboxSettings(IEnumerable<MailboxSettings> settings)
+    {
+        foreach (var mailbox in settings)
+        {
+            var owner = owners[mailbox.Address];
+            if (mailbox.QuotaBytes is { } quota)
+            {
+                quotas.Add(owner, quota);
+            }
+
+            foreach (var folder in mailbox.Folders)
+            {
+                AddConfiguredMailbox(owner, folder);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Makes the reserved shared-folder owner when a shared folder is configured, creates each
+    /// shared folder it lacks, and keeps each one's members (ADR-0102, decision 1.6).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A folder would pass <see cref="MaxMailboxes"/>.</exception>
+    private void ReachSharedFolders(IReadOnlyList<MailSharedFolder> sharedFolders)
+    {
+        if (sharedFolders.Count == 0)
+        {
+            return;
+        }
+
+        if (!owners.TryGetValue(SharedFolderOwnerName, out var owner))
+        {
+            owner = new OwnerMailboxes(SharedFolderOwnerName);
+            owners.Add(owner.Name, owner);
+        }
+
+        sharedOwner = owner;
+        foreach (var folder in sharedFolders)
+        {
+            sharedFolderMembers.Add(folder.Name, new HashSet<string>(folder.Members, StringComparer.Ordinal));
+            AddConfiguredMailbox(owner, folder.Name);
+        }
+    }
+
+    /// <summary>
+    /// Creates mailbox <paramref name="name"/> of <paramref name="owner"/> at start unless it
+    /// exists; <c>INBOX</c> always does.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">It would pass <see cref="MaxMailboxes"/>.</exception>
+    private void AddConfiguredMailbox(OwnerMailboxes owner, string name)
+    {
+        if (owner.Find(name) is not null)
+        {
+            return;
+        }
+
+        if (mailboxCount >= MaxMailboxes)
+        {
+            throw new InvalidOperationException($"The configured mailbox {name} of {owner.Name} would pass the store's {MaxMailboxes} mailboxes.");
+        }
+
+        AddMailbox(owner, new StoredMailbox(name, IssueUidValidity(), 1));
+        changeCount++;
     }
 
     /// <summary>
@@ -1065,9 +1284,9 @@ public sealed class MailboxStore
     /// domain (ADR-0102, decision 1.3), after checking every alias and catch-all resolves.
     /// </summary>
     /// <exception cref="MailRouteException">An alias or catch-all does not resolve to owners.</exception>
-    private void RouteMailDomains(MailDomainConfiguration? mailDomains)
+    private void RouteMailDomains(MailDomainConfiguration mailDomains)
     {
-        if (mailDomains is null || mailDomains.Domains.Count == 0)
+        if (mailDomains.Domains.Count == 0)
         {
             return;
         }
@@ -1113,9 +1332,9 @@ public sealed class MailboxStore
 
     private long NextUidValidity() => Math.Max(timeProvider.GetUtcNow().ToUnixTimeSeconds(), lastUidValidity + 1L);
 
-    private MailStoreOutcome CheckNewMailbox(OwnerMailboxes? owner, string mailboxName, bool addsMailbox = true)
+    private MailStoreOutcome CheckNewMailbox(MailView view, string mailboxName, bool addsMailbox = true)
     {
-        if (owner is null)
+        if (view.Owner is null)
         {
             return MailStoreOutcome.MailboxMissing;
         }
@@ -1125,7 +1344,12 @@ public sealed class MailboxStore
             return MailStoreOutcome.InvalidName;
         }
 
-        return owner.Find(mailboxName) is null ? CheckRoomForMailbox(addsMailbox) : MailStoreOutcome.AlreadyExists;
+        if (HidesAsShared(view, mailboxName))
+        {
+            return MailStoreOutcome.SharedFolderProtected;
+        }
+
+        return view.Owner.Find(mailboxName) is null ? CheckRoomForMailbox(addsMailbox) : MailStoreOutcome.AlreadyExists;
     }
 
     private MailStoreOutcome CheckRoomForMailbox(bool addsMailbox)
@@ -1166,7 +1390,7 @@ public sealed class MailboxStore
         return message.StorageFailure is null ? MailStoreOutcome.Succeeded : MailStoreOutcome.StorageFailed;
     }
 
-    private MailStoreOutcome CheckRoomForOne(StoredMailbox mailbox, PendingMessage message)
+    private MailStoreOutcome CheckRoomForOne(MailboxPlace place, PendingMessage message)
     {
         var outcome = CheckPending(message);
         if (outcome != MailStoreOutcome.Succeeded)
@@ -1174,7 +1398,12 @@ public sealed class MailboxStore
             return outcome;
         }
 
-        return HasRoomFor([mailbox], message.Length) ? MailStoreOutcome.Succeeded : MailStoreOutcome.StoreFull;
+        if (!WithinQuota(place.Owner, message.Length))
+        {
+            return MailStoreOutcome.QuotaExceeded;
+        }
+
+        return HasRoomFor([place.Mailbox], message.Length) ? MailStoreOutcome.Succeeded : MailStoreOutcome.StoreFull;
     }
 
     private bool HasRoomForCopies(StoredMailbox destination, int count) =>

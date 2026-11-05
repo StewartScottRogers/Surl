@@ -18,17 +18,26 @@ public sealed class MailDomainConfiguration
     /// Whether their targets resolve is checked by the store, which knows the accounts.</param>
     /// <param name="catchAlls">The <c>--mail-catch-all</c> routes, at most one per configured
     /// domain.</param>
+    /// <param name="mailboxSettings">The <c>quota=</c> and <c>folders=</c> of mailboxes
+    /// (ADR-0102, decision 1.4), at most one per mailbox address; <see langword="null"/> for
+    /// none.</param>
+    /// <param name="sharedFolders">The <c>--shared-folder</c>s (ADR-0102, decision 1.6), each
+    /// name once; <see langword="null"/> for none. They need no domain.</param>
     /// <exception cref="ArgumentNullException">An argument, or an element of one, is
     /// <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException">A domain is no domain name; an address is not
     /// <c>local@domain</c> or is outside every configured domain; an address is both a mailbox
-    /// and an alias, or named twice as either; or a domain has two catch-alls or none is
-    /// configured for it.</exception>
+    /// and an alias, or named twice as either; a domain has two catch-alls or none is
+    /// configured for it; a mailbox's settings name no configured mailbox, are given twice,
+    /// hold a quota below 1 or a folder name ADR-0050 decision 3 refuses; or a shared folder's
+    /// name is refused, is <c>INBOX</c> in any case, or is given twice.</exception>
     public MailDomainConfiguration(
         IEnumerable<string> domains,
         IEnumerable<string> mailboxAddresses,
         IEnumerable<MailAlias> aliases,
-        IEnumerable<MailCatchAll> catchAlls)
+        IEnumerable<MailCatchAll> catchAlls,
+        IEnumerable<MailboxSettings>? mailboxSettings = null,
+        IEnumerable<MailSharedFolder>? sharedFolders = null)
     {
         ArgumentNullException.ThrowIfNull(domains);
         ArgumentNullException.ThrowIfNull(mailboxAddresses);
@@ -40,6 +49,9 @@ public sealed class MailDomainConfiguration
         Aliases = [.. aliases.Select(NormaliseAlias)];
         CatchAlls = catchAlls.Select(NormaliseCatchAll).ToDictionary(catchAll => catchAll.Domain, catchAll => catchAll.Target, StringComparer.Ordinal);
         ThrowIfAddressRepeated();
+        MailboxSettings = (mailboxSettings ?? []).Select(NormaliseSettings).ToDictionary(settings => settings.Address, StringComparer.Ordinal);
+        SharedFolders = [.. (sharedFolders ?? []).Select(NormaliseSharedFolder)];
+        ThrowIfSharedFolderRepeated();
     }
 
     /// <summary>
@@ -61,6 +73,70 @@ public sealed class MailDomainConfiguration
     /// Each catch-all's normalised target, by its normalised domain.
     /// </summary>
     public IReadOnlyDictionary<string, string> CatchAlls { get; }
+
+    /// <summary>
+    /// Each mailbox's <c>quota=</c> and <c>folders=</c>, by its normalised address; a mailbox
+    /// without settings is not here.
+    /// </summary>
+    public IReadOnlyDictionary<string, MailboxSettings> MailboxSettings { get; }
+
+    /// <summary>
+    /// The shared folders, each member that is a mailbox's address normalised.
+    /// </summary>
+    public IReadOnlyList<MailSharedFolder> SharedFolders { get; }
+
+    private MailboxSettings NormaliseSettings(MailboxSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(settings.Folders);
+        var address = ConfiguredAddress(settings.Address).ToString();
+        if (!MailboxAddresses.Contains(address, StringComparer.Ordinal))
+        {
+            throw new ArgumentException($"The mail address {settings.Address} is no mailbox.", nameof(settings));
+        }
+
+        if (settings.QuotaBytes < 1)
+        {
+            throw new ArgumentException($"The quota of {address} is not above 0.", nameof(settings));
+        }
+
+        return new MailboxSettings(address, settings.QuotaBytes, [.. settings.Folders.Select(ValidFolderName)]);
+    }
+
+    private static string ValidFolderName(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return MailboxName.IsValid(name) ? name : throw new ArgumentException($"The folder name {name} is not a mailbox name.", nameof(name));
+    }
+
+    private MailSharedFolder NormaliseSharedFolder(MailSharedFolder folder)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+        ArgumentNullException.ThrowIfNull(folder.Members);
+        var name = ValidFolderName(folder.Name);
+        return MailboxName.Canonical(name) == MailboxName.Inbox
+            ? throw new ArgumentException("INBOX cannot be a shared folder.", nameof(folder))
+            : new MailSharedFolder(name, [.. folder.Members.Select(NormaliseMember)]);
+    }
+
+    /// <summary>
+    /// A member that is an address in a configured domain is a mailbox's account, named by its
+    /// normalised address; any other member is an account's name as given.
+    /// </summary>
+    private string NormaliseMember(string member)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        return MailDomainAddress.TryParse(member, out var parsed) && Domains.Contains(parsed.Domain) ? parsed.ToString() : member;
+    }
+
+    private void ThrowIfSharedFolderRepeated()
+    {
+        var repeated = SharedFolders.GroupBy(folder => folder.Name, StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
+        if (repeated is not null)
+        {
+            throw new ArgumentException($"The shared folder {repeated.Key} is configured twice.", nameof(SharedFolders));
+        }
+    }
 
     private static string NormaliseDomain(string domain) =>
         MailDomainName.TryNormalise(domain, out var asciiDomain)

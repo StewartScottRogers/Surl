@@ -26,6 +26,24 @@ normalised address. An alias or catch-all that does not resolve throws `MailRout
 construction. A `MailRecipient` may name several owners (`OwnerNames`), each once. With no domain,
 or under `--allow-anonymous`, resolution is ADR-0050's unchanged. The index format is unchanged.
 
+Quotas, configured folders and shared folders (BL-675, ADR-0102 decisions 1.4 and 1.6), all
+from `MailDomainConfiguration`'s `MailboxSettings` and `SharedFolders`, all ignored under
+`--allow-anonymous`. A mailbox's `QuotaBytes` bounds the bytes of every message in its owner's own
+mailboxes, each copy at full size; it is configuration, never persisted, and usage is counted from
+the mailboxes each time. `Deliver`, `Append`, `Copy` and `Move` that would pass it store nothing and
+return `QuotaExceeded` (a delivery for every recipient; a move within one owner adds nothing and
+needs no quota); `CheckQuotaForAppend` answers from a length alone, for IMAP's literal `{n}`. Its
+`Folders` are created at start when missing (`INBOX` skipped). Shared folders are mailboxes of the
+reserved owner `:shared` (`MailboxStore.SharedFolderOwnerName`, persisted in the index like any
+owner, with no `INBOX`; no account may bear the name). `ViewFor` gives each member
+`Shared/<name>` (`MailView.SharedFolders`): listed, read, appended to, flagged, expunged, copied
+and moved in and out by every member as equals, counted against no member's quota. A non-member
+gets `MailboxMissing` for it. While any shared folder is configured, `Shared` and every name under
+`Shared/` name shared folders only: a personal mailbox there is kept, unreached, and deleting or
+renaming a shared folder or `Shared`, or creating or renaming to a name there, is
+`SharedFolderProtected`. Configured folders or shared folders past `MaxMailboxes` throw
+`InvalidOperationException` at start.
+
 Persistence (BL-191, ADR-0050 decision 7): `MailboxStore.LoadAsync` reads the store from a
 `MailStoreFiles` - `<state folder>/index` and one file per distinct message under
 `messages/`, named by its file number in 16 lower-case hex digits - and refuses a malformed
