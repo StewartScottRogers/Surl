@@ -47,3 +47,4 @@ for `PLAIN` (and `ANONYMOUS` when allowed), then expects the AMQP header.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
