@@ -43,3 +43,4 @@ Filed by BL-573, whose acceptance named `QuicServerConnection` only.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
