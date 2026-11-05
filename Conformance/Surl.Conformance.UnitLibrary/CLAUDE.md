@@ -50,12 +50,36 @@ repository keeps curl's `COPYING` notice beside it.
 ## Upstream test cases (ADR-0080)
 
 ADR-0080 decides how Surl plays the server half of upstream curl's test cases; BL-387 to BL-397
-build it, so until they land this section is intent. This library holds, with no reference but
-Abstractions:
+build it. Parsing is built (BL-388):
 
-- parsing a case file into an `UpstreamTestCase` (planning name): FILEFORMAT.md's preprocessing
-  (`%b64[]`, `%hex[]`, `%repeat[]`, `%include`, `%if`/`%else`/`%endif`, `crlf=`, `nonewline=`)
-  and variable substitution;
+- `UpstreamTestCasePreprocessor.Preprocess` applies FILEFORMAT.md's preprocessing to a case's
+  bytes line by line in the order upstream's `prepro` (`tests/runner.pm` at the tag) does:
+  CRLF read as LF; `%if`/`%else`/`%endif` (`UpstreamTestCaseConditionals`); variables
+  (`UpstreamTestCaseVariables`, upstream's `subvariables` order, an unknown or ungiven `%NAME`
+  left as written); `%includetext`; `%SP` `%TAB` `%CR` `%LT` `%GT` `%AMP`; `%b64[]`, `%hex[]`,
+  `%repeat[]`, `%days[]` (to `%alternatives[a,b]`), `%include`, `%sha256b64file[]`,
+  `%strippemfile[]` (`UpstreamTestCaseInstructions`); then `crlf=` inside `<data*>` and
+  `<connect*>` (`UpstreamTestCaseNewlines`, upstream's `subnewlines`, double-quoted values
+  only, as upstream matches). Its `UpstreamTestCaseEnvironment` carries the variables, the
+  features, an `IUpstreamTestCaseFileReader` for included files and a `TimeProvider`. Text is
+  Latin-1 throughout, so every byte survives. Each output line keeps the source line it came
+  from.
+- `UpstreamTestCaseParser.Parse` reads the lines into an `UpstreamTestCase`: sections
+  (`info`, `reply`, `client`, `disable`, `verify`), each with its parts and its loose `Lines`;
+  each `UpstreamTestCasePart` with its attributes, its `Content` and
+  `ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule)` (`nonewline` and `crlf` in the
+  order and form runtests uses for that kind of part, set by Perl truthiness). A missing
+  `%include` file includes as nothing, as upstream's does. Tags are matched by their start
+  as upstream's `getpart` matches them; anything `getpart` would silently lose - a part outside
+  every section, a part or section left open, a stray closing tag - is an
+  `UpstreamTestCaseFormatException` naming the source line. `mode="text"` and the `<upload>`
+  double cut are verification rules and belong to BL-390.
+- `Surl.Conformance.UnitTests`' `UpstreamTestCaseCorpusTests` parses all 2,013 imported cases;
+  4 (758, 1569, 1570, 1614) are listed there with their reasons: each has a part outside every
+  section.
+
+The rest is intent until its task lands. This library will also hold, with no reference but
+Abstractions:
 - the table of `<server>` names - each one's port variable and whether its server half is built;
 - selecting which cases a reference pin can run, each other case given one skip reason from
   ADR-0080 decision 3, and the build-option feature table BL-389 probes;
