@@ -44,3 +44,4 @@ queues and topic logs, each through `MessageBus`, each published on the event st
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
