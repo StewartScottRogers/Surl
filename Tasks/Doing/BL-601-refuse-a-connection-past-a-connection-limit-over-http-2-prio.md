@@ -34,3 +34,4 @@ A cleartext connection past a connection limit that opens with the HTTP/2 prefac
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
