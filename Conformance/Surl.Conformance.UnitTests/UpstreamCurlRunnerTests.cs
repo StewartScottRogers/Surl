@@ -94,6 +94,26 @@ public sealed class UpstreamCurlRunnerTests
     }
 
     [TestMethod]
+    public void CreateStartInfo_WorkingDirectory_RunsCurlThereAndByDefaultInThisProcesssOwn()
+    {
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);
+
+        var inFolder = runner.CreateStartInfo(["-s"], new Dictionary<string, string>(), "/tmp/upstream-tests");
+        var byDefault = runner.CreateStartInfo(["-s"]);
+
+        Assert.AreEqual("/tmp/upstream-tests", inFolder.WorkingDirectory);
+        Assert.AreEqual(string.Empty, byDefault.WorkingDirectory);
+    }
+
+    [TestMethod]
+    public void CreateStartInfo_NullWorkingDirectory_ThrowsArgumentNullException()
+    {
+        var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => runner.CreateStartInfo(["-s"], new Dictionary<string, string>(), null!));
+    }
+
+    [TestMethod]
     public void CreateStartInfo_NullEnvironment_ThrowsArgumentNullException()
     {
         var runner = new UpstreamCurlRunner(UpstreamCurlLocation.Found(Build), TimeSpan.FromSeconds(1), TimeProvider.System);

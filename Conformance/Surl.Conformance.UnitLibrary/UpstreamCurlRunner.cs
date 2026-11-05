@@ -98,13 +98,36 @@ public sealed class UpstreamCurlRunner
     // the start information and the result shapes it uses are fast-tested, and the
     // Integration tests in Surl.Conformance.UnitTests run it against surl.
     [ExcludeFromCodeCoverage]
+    public Task<UpstreamCurlRunResult> RunAsync(
+        IReadOnlyList<string> arguments,
+        ReadOnlyMemory<byte> standardInput,
+        IReadOnlyDictionary<string, string> environment,
+        CancellationToken cancellationToken) =>
+        RunAsync(arguments, standardInput, environment, string.Empty, cancellationToken);
+
+    /// <summary>
+    /// Runs the build as <see cref="RunAsync(IReadOnlyList{string}, ReadOnlyMemory{byte}, IReadOnlyDictionary{string, string}, CancellationToken)"/>
+    /// does, in <paramref name="workingDirectory"/>: an upstream test case's relative paths
+    /// (<c>%LOGDIR</c>, <c>-O</c>'s file) are relative to runtests' own folder.
+    /// </summary>
+    /// <param name="arguments">curl's arguments, each passed as one argument, unquoted.</param>
+    /// <param name="standardInput">The bytes curl reads on stdin, unchanged; empty for none.</param>
+    /// <param name="environment">The environment variables to set, by name; empty for none.</param>
+    /// <param name="workingDirectory">curl's working directory; empty for this process's.</param>
+    /// <param name="cancellationToken">Cancels the run.</param>
+    /// <returns>What the run produced.</returns>
+    // Excluded from coverage: it starts a process, and the fast tests start none by design;
+    // the start information and the result shapes it uses are fast-tested, and the
+    // Integration tests in Surl.Conformance.UnitTests run it against surl.
+    [ExcludeFromCodeCoverage]
     public async Task<UpstreamCurlRunResult> RunAsync(
         IReadOnlyList<string> arguments,
         ReadOnlyMemory<byte> standardInput,
         IReadOnlyDictionary<string, string> environment,
+        string workingDirectory,
         CancellationToken cancellationToken)
     {
-        using var process = Process.Start(CreateStartInfo(arguments, environment))
+        using var process = Process.Start(CreateStartInfo(arguments, environment, workingDirectory))
             ?? throw new InvalidOperationException($"{Build.DefaultPath} did not start.");
         await process.StandardInput.BaseStream.WriteAsync(standardInput, cancellationToken);
         process.StandardInput.Close();
@@ -152,13 +175,28 @@ public sealed class UpstreamCurlRunner
     /// <param name="arguments">curl's arguments.</param>
     /// <param name="environment">The environment variables to set, by name.</param>
     /// <returns>The start information.</returns>
-    internal ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment)
+    internal ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment) =>
+        CreateStartInfo(arguments, environment, string.Empty);
+
+    /// <summary>
+    /// Builds the start information for one run as
+    /// <see cref="CreateStartInfo(IReadOnlyList{string}, IReadOnlyDictionary{string, string})"/> does,
+    /// in <paramref name="workingDirectory"/>.
+    /// </summary>
+    /// <param name="arguments">curl's arguments.</param>
+    /// <param name="environment">The environment variables to set, by name.</param>
+    /// <param name="workingDirectory">curl's working directory; empty for this process's.</param>
+    /// <returns>The start information.</returns>
+    internal ProcessStartInfo CreateStartInfo(
+        IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment, string workingDirectory)
     {
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(workingDirectory);
 
         var startInfo = new ProcessStartInfo(Build.DefaultPath)
         {
+            WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardInput = true,

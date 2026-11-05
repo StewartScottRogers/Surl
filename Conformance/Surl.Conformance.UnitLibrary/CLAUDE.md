@@ -174,14 +174,35 @@ Verify checking is built (BL-390):
 - `UpstreamTestCaseCorpusTests` lists every strip line at the tag outside the subset with its
   cases: only test 1286's.
 
+Running the http and https cases is built (BL-392):
+
+- `UpstreamTestCaseCommandLine.Build(number, case, logDirectory)` is what runtests runs
+  (`singletest_prepare`, `singletest_setenv`, `singletest_run` in `tests/runner.pm` at the tag):
+  `-q`, `--output %LOGDIR/curl<N>.out`, `--include`, `--trace-ascii` (or `--trace`) and
+  `--trace-time` as the command's `option` attribute and `<verify><stdout>` decide, then the
+  command split by `UpstreamTestCaseShellWords` (POSIX shell quoting, no expansion); `<stdin>`'s
+  bytes, the `<file>` to `<file4>` files to create, `<setenv>`'s variables (a removal sets the
+  variable empty), and the `stdout<N>`/`stderr<N>` files runtests redirects curl into.
+- `UpstreamTestCaseResult` is one line of decision 5's results file (`test<N> pass`,
+  `test<N> fail <section>`, `fail timeout`, `test<N> skip <reason>`), `Format` the file's text in
+  number order and `FileNameFor(platform)` its name, `upstream-test-case-results.<platform>.txt`.
+- `UpstreamCurlRunner.RunAsync` takes a working directory, so a case's relative paths are
+  relative to its own folder, as they are to runtests'.
+- `Surl.Conformance.UnitTests`' `UpstreamTestCasesOverHttpTests` (`Integration`,
+  `UpstreamTestCases`) runs every case on the reference build, each with its own
+  `HttpUpstreamTestCaseServerHalves` (plaintext and TLS, the TLS listener on the `wss` scheme so
+  ALPN offers only `http/1.1`), its own folder as curl's working directory, `%PWD` and `HOME`,
+  `%LOGDIR` the relative `log`, and a 60-second limit; a case naming another server is written
+  `skip server-half-not-composed:<name>` and an unparsable one `skip unparsable`. CI's
+  `Upstream test cases` job runs it on Linux and macOS and uploads the results file.
+
 The rest is intent until its task lands. This library will also hold, with no reference but
 Abstractions:
 - each `<server>` name's port variable, beside its `UpstreamTestCaseServers` row;
-- building each command line as upstream's runtests does (`-q`, `--output`, `--include`,
-  `--trace-ascii`);
-- generating the test certificates from the imported `.prm` files with `CertificateRequest`, and
-  the SSH keys and `%SSHSRVMD5`/`%SSHSRVSHA256`;
-- the per-run result lines and reading the pass-rate file and passing lists of decision 5.
+- generating the test certificates from the imported `.prm` files with `CertificateRequest`
+  (BL-655; BL-392's run uses a stand-in CA and `localhost` certificate), and the SSH keys and
+  `%SSHSRVMD5`/`%SSHSRVSHA256`;
+- reading the pass-rate file and passing lists of decision 5.
 
 It does not hold the server halves: each protocol library carries its own optional seam for a
 case's reply, and `Surl.Conformance.UnitTests` composes it. It hands a reply over as BCL types
