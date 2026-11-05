@@ -56,3 +56,4 @@ exchange and store change of that instance appears on one stream and every `--fa
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
