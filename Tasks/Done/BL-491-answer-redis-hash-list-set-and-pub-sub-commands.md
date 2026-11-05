@@ -66,7 +66,7 @@ type. It answers pub/sub with RESP2 message arrays and RESP3 push messages, if B
   (HINCRBY on a non-integer field) and `-ERR value is out of range, must be positive` (negative LPOP/RPOP/SPOP
   count). `LPOP`/`RPOP` with more than one count argument is the arity error and `SPOP` the syntax error, as Redis.
   Recording them in the ADR and tracing `Redis.md` to the tests needs `Documentation/Planning/Decisions`
-  (held by BL-563) and `Documentation/Conformance` (held by BL-394), so they are filed as BL-769.
+  (held by BL-563) and `Documentation/Conformance` (held by BL-394), so they are filed as BL-771.
 - Measure-CodeQuality still flags seven pre-existing methods (BL-488/BL-490) over complexity 10 by its IL
   count; the build's CA1502 gate passes. None is new in BL-491.
 

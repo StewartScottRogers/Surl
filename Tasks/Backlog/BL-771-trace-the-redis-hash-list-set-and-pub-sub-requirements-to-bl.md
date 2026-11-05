@@ -1,5 +1,5 @@
 ---
-id: BL-769
+id: BL-771
 title: Trace the Redis hash, list, set and pub/sub requirements to BL-491's tests and record its two error texts
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-769 — Trace the Redis hash, list, set and pub/sub requirements to BL-491's tests and record its two error texts
+# BL-771 — Trace the Redis hash, list, set and pub/sub requirements to BL-491's tests and record its two error texts
 
 ## Goal
 
