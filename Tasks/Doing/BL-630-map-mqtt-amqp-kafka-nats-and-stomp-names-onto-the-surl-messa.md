@@ -45,3 +45,4 @@ topic space exactly as BL-622's ADR decides, so every broker uses one mapping in
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
