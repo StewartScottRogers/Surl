@@ -1,18 +1,33 @@
-# Publishes the native-AOT `surl` binary for every supported platform.
+# Publishes the native-AOT `surl` binary for every supported platform, and proves each one
+# runs with no .NET runtime before anything is released (ADR-0085).
 #
-#   * Pushing a tag `v*` (e.g. v0.1.0) builds all six packages and attaches them, with a
-#     SHA256SUMS file, to a GitHub release of that name. A tag with a hyphen
+#   * Pushing a tag `v*` (e.g. v0.1.0) builds all six packages, proves them, and attaches
+#     them, with a SHA256SUMS file, to a GitHub release of that name. A tag with a hyphen
 #     (v0.1.0-preview.1) makes a pre-release. Tags and releases need Stewart's say-so
 #     (CLAUDE.md), so this workflow never creates a tag itself.
-#   * Running it by hand (workflow_dispatch) builds the same packages and uploads them as
-#     workflow artifacts only - a dry run that publishes nothing. A pull request that
-#     touches this file, the executable or the shared build settings gets the same dry run.
+#   * Running it by hand (workflow_dispatch), weekly against master (schedule), or on a pull
+#     request that touches what it builds or what it checks, is a dry run: the same packages
+#     and checks, uploaded as workflow artifacts only, publishing nothing.
+#
+# What proves each package (ADR-0085):
+#   * Every runtime identifier runs Test-PublishedSurl.ps1 against the binary it just
+#     published, on a runner of its own operating system and architecture: one native file,
+#     `surl --version`, one HTTP GET of a generated file, and a documented stop, with no .NET
+#     runtime it could use (decision 1).
+#   * linux-x64 and osx-arm64 also run Surl.Conformance against the published binary
+#     (SURL_EXECUTABLE) with their pinned upstream curl reference build, obtained by the same
+#     composite action ci.yml uses (decision 2). win-x64's conformance run is local: CI has no
+#     pinned Windows build.
+#   * linux-arm64, win-arm64 and osx-x64 also run the fast tests on their own runner, the only
+#     check of the hand-built code on those architectures while they have no pinned build
+#     (decision 4).
 #
 # Native AOT cannot cross-compile between operating systems, so each package is built on
-# a runner of its own OS. Linux builds on Ubuntu 22.04 so the binary runs on glibc 2.35
-# and newer. DOWNLOAD.md, install.sh and install.ps1 rely on the package names below;
-# keep the four in step. DOWNLOAD.md links to one version by tag, because
-# releases/latest skips pre-releases: point it at each new release's tag.
+# a runner of its own OS; osx-x64 builds on macos-15-intel, real x64 hardware (decision 3).
+# Linux builds on Ubuntu 22.04 so the binary runs on glibc 2.35 and newer. DOWNLOAD.md,
+# install.sh and install.ps1 rely on the package names below; keep the four in step.
+# DOWNLOAD.md links to one version by tag, because releases/latest skips pre-releases:
+# point it at each new release's tag.
 name: Release
 
 on:
@@ -21,9 +36,17 @@ on:
   pull_request:
     paths:
       - .github/workflows/release.yml
+      - .github/actions/**
       - Application/Surl.Console/**
+      - Conformance/**
       - Directory.Build.props
       - global.json
+      - Test-PublishedSurl.ps1
+      - UpstreamCurlBuilds.json
+  schedule:
+    # Mondays 05:00 UTC, against master: finds a change elsewhere that breaks the native
+    # binary at run time within a week (ADR-0085, decision 5).
+    - cron: '0 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -35,15 +58,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # fast-tests: the leg also runs the fast tests on its runner (ADR-0085, decision 4).
+        # conformance: the conformance job runs against this leg's binary (decision 2).
         include:
           - { rid: win-x64,     runner: windows-latest,    archive: zip }
-          - { rid: win-arm64,   runner: windows-11-arm,    archive: zip }
-          - { rid: linux-x64,   runner: ubuntu-22.04,      archive: tar.gz }
-          - { rid: linux-arm64, runner: ubuntu-22.04-arm,  archive: tar.gz }
-          - { rid: osx-x64,     runner: macos-latest,      archive: tar.gz }
-          - { rid: osx-arm64,   runner: macos-latest,      archive: tar.gz }
+          - { rid: win-arm64,   runner: windows-11-arm,    archive: zip,    fast-tests: true }
+          - { rid: linux-x64,   runner: ubuntu-22.04,      archive: tar.gz, conformance: true }
+          - { rid: linux-arm64, runner: ubuntu-22.04-arm,  archive: tar.gz, fast-tests: true }
+          - { rid: osx-x64,     runner: macos-15-intel,    archive: tar.gz, fast-tests: true }
+          - { rid: osx-arm64,   runner: macos-latest,      archive: tar.gz, conformance: true }
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       PACKAGE: surl-${{ matrix.rid }}.${{ matrix.archive }}
     steps:
@@ -72,21 +97,40 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
+      # The three switches after the version keep the referenced libraries' symbol and XML
+      # documentation files out of the publish directory, so it holds what the smoke test's
+      # first check expects: surl and its native symbol file. The package holds only surl either way.
       - name: Publish
         shell: bash
-        run: dotnet publish Application/Surl.Console -c Release -r ${{ matrix.rid }} -p:Version="$VERSION" -o publish
+        run: >-
+          dotnet publish Application/Surl.Console -c Release -r ${{ matrix.rid }} -p:Version="$VERSION"
+          -p:PublishDocumentationFile=false -p:PublishReferencesDocumentationFiles=false
+          -p:AllowedReferenceRelatedFileExtensions=.none -o publish
 
-      - name: Smoke test
-        if: matrix.rid != 'osx-x64'
+      # Every image used has PowerShell 7 today; this installs it on one that does not.
+      - name: Make sure PowerShell 7 is there
         shell: bash
         run: |
-          # The binary must start; until Phase 1 lands it exits 2 (SurlExitCode.FailedInit).
-          set +e
-          ./publish/surl --version
-          code=$?
-          set -e
-          echo "exit code $code"
-          [ "$code" -eq 0 ] || [ "$code" -eq 2 ]
+          if ! command -v pwsh >/dev/null; then
+            dotnet tool install --global PowerShell
+            echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          fi
+
+      - name: Smoke test
+        shell: bash
+        run: pwsh -NoProfile -File ./Test-PublishedSurl.ps1 -PublishDirectory publish -Version "$VERSION" -RuntimeIdentifier ${{ matrix.rid }}
+
+      - name: Keep the published binary for the conformance job
+        if: matrix.conformance
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-surl-${{ matrix.rid }}
+          path: publish/surl
+          if-no-files-found: error
+
+      - name: Fast tests
+        if: matrix.fast-tests
+        run: dotnet test -c Release --filter "TestCategory!=Integration"
 
       - name: Package
         shell: bash
@@ -108,9 +152,61 @@ jobs:
           path: ${{ env.PACKAGE }}
           if-no-files-found: error
 
+  conformance:
+    name: Conformance against the published ${{ matrix.rid }}
+    needs: publish
+    # Runs for whichever legs published, so one broken leg does not hide another's result;
+    # a leg that did not publish leaves no artifact, and its conformance job fails.
+    if: ${{ !cancelled() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # upstream-curl-platform and upstream-curl-asset as in ci.yml (ADR-0016); the runner
+        # is the one the binary was published on.
+        include:
+          - rid: linux-x64
+            runner: ubuntu-22.04
+            upstream-curl-platform: linux-x64
+            upstream-curl-asset: curl-linux-x86_64-musl-8.21.0.tar.xz
+            openldap-upstream-curl: true
+          - rid: osx-arm64
+            runner: macos-latest
+            upstream-curl-platform: osx-arm64
+            upstream-curl-asset: curl-macos-arm64-8.21.0.tar.xz
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Fetch the published binary
+        uses: actions/download-artifact@v4
+        with:
+          name: published-surl-${{ matrix.rid }}
+          path: published
+
+      # Artifacts do not keep the execute bit.
+      - name: Make the published binary executable
+        run: chmod 755 published/surl
+
+      - name: Obtain the pinned upstream curl
+        uses: ./.github/actions/upstream-curl
+        with:
+          platform: ${{ matrix.upstream-curl-platform }}
+          asset: ${{ matrix.upstream-curl-asset }}
+          openldap: ${{ matrix.openldap-upstream-curl == true }}
+
+      - name: Conformance tests against the published binary
+        env:
+          SURL_EXECUTABLE: ${{ github.workspace }}/published/surl
+        run: dotnet test Conformance/Surl.Conformance.UnitTests -c Release --filter "FullyQualifiedName~Surl.Conformance"
+
   release:
     name: Create the GitHub release
-    needs: publish
+    needs: [publish, conformance]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -119,6 +215,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
+          pattern: surl-*
           merge-multiple: true
 
       - name: Checksums

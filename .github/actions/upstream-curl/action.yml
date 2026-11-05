@@ -1,0 +1,172 @@
+# Obtains the pinned upstream curl reference build for one platform and verifies its SHA-256
+# against UpstreamCurlBuilds.json before anything runs it (ADR-0016); with openldap, also the
+# supplementary OpenLDAP build of the same release, built from pinned sources, and kinit for the
+# GSSAPI test (ADR-0076, ADR-0078, BL-351). ci.yml and release.yml both use it, so the two
+# workflows cannot drift in how they obtain what the conformance tests run (ADR-0085, decision 2).
+# Linux and macOS only: Windows has no pinned build CI can obtain.
+name: Obtain the pinned upstream curl
+description: Downloads or restores the pinned upstream curl build for a platform and verifies it against UpstreamCurlBuilds.json.
+
+inputs:
+  platform:
+    description: The UpstreamCurlBuilds.json platform of the reference build, e.g. linux-x64.
+    required: true
+  asset:
+    description: The stunnel/static-curl 8.21.0 release asset the reference build comes from.
+    required: true
+  openldap:
+    description: "'true' to also build and verify the supplementary OpenLDAP build and install kinit (Linux only)."
+    required: false
+    default: 'false'
+
+outputs:
+  path:
+    description: The full path of the verified reference build.
+    value: ${{ steps.pin.outputs.path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read the upstream curl pin
+      id: pin
+      shell: pwsh
+      env:
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        $pins = Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json
+        $pin = @($pins.builds | Where-Object { $_.platform -eq $env:PLATFORM -and (-not $_.role -or $_.role -eq 'reference') })
+        if ($pin.Count -ne 1) {
+          Write-Output "::error::UpstreamCurlBuilds.json pins $($pin.Count) reference builds for $env:PLATFORM; exactly one is needed."
+          exit 1
+        }
+        "sha256=$($pin[0].sha256)" >> $env:GITHUB_OUTPUT
+        "path=$($pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+        "directory=$(Split-Path -Parent $pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+
+    - name: Prepare the upstream curl directory
+      shell: bash
+      run: |
+        sudo mkdir -p "${{ steps.pin.outputs.directory }}"
+        sudo chown "$(id -u):$(id -g)" "${{ steps.pin.outputs.directory }}"
+
+    - name: Restore the upstream curl build
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pin.outputs.directory }}
+        key: upstream-curl-${{ inputs.platform }}-${{ steps.pin.outputs.sha256 }}
+
+    - name: Download the upstream curl build
+      shell: bash
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        work="$(mktemp -d)"
+        curl -fsSL --retry 3 -o "$work/${{ inputs.asset }}" \
+          "https://github.com/stunnel/static-curl/releases/download/8.21.0/${{ inputs.asset }}"
+        tar -xJf "$work/${{ inputs.asset }}" -C "$work" curl
+        mv "$work/curl" "${{ steps.pin.outputs.path }}"
+        chmod 755 "${{ steps.pin.outputs.path }}"
+
+    # Nothing runs the file before this step has matched its SHA-256 to the pin (ADR-0016,
+    # decision 4). A mismatch fails the job and is never re-pinned here (decision 6).
+    - name: Verify the upstream curl build
+      shell: pwsh
+      env:
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        $pin = @((Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json).builds |
+          Where-Object { $_.platform -eq $env:PLATFORM -and (-not $_.role -or $_.role -eq 'reference') })[0]
+        if (-not (Test-Path -LiteralPath $pin.defaultPath)) {
+          Write-Output "::error::$($pin.defaultPath) does not exist."
+          exit 1
+        }
+        $actual = (Get-FileHash -LiteralPath $pin.defaultPath -Algorithm SHA256).Hash
+        if ($actual -ne $pin.sha256) {
+          Write-Output "::error::$($pin.defaultPath) hashes to $actual, but UpstreamCurlBuilds.json pins $($pin.sha256) for $env:PLATFORM. Not running it."
+          exit 1
+        }
+        Write-Output "$($pin.defaultPath) matches the pin $($pin.sha256)."
+        $lines = @(& $pin.defaultPath --version)
+        $lines | ForEach-Object { Write-Output $_ }
+        $reported = @{
+          version   = $lines[0]
+          protocols = ($lines | Where-Object { $_ -like 'Protocols: *' }) -replace '^Protocols: ', ''
+          features  = ($lines | Where-Object { $_ -like 'Features: *' }) -replace '^Features: ', ''
+        }
+        foreach ($field in 'version', 'protocols', 'features') {
+          if ($reported[$field] -cne $pin.$field) {
+            Write-Output "::warning::The $field of the $env:PLATFORM pin is '$($pin.$field)', but the build reports '$($reported[$field])'. The build wins (ADR-0016): correct the pin."
+          }
+        }
+
+    # The OpenLDAP build has no published download: Build-OpenLdapUpstreamCurl.ps1 builds it
+    # from pinned sources in a digest-pinned container, the same bytes every time, only when
+    # the cache does not already hold the pinned file (ADR-0076, ADR-0078).
+    - name: Read the OpenLDAP upstream curl pin
+      id: openldap-pin
+      if: inputs.openldap == 'true'
+      shell: pwsh
+      env:
+        PLATFORM: ${{ inputs.platform }}
+      run: |
+        $pin = @((Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json).builds |
+          Where-Object { $_.platform -eq $env:PLATFORM -and $_.role -eq 'supplementary' -and ($_.protocols -split ' ') -contains 'ldap' })
+        if ($pin.Count -ne 1) {
+          Write-Output "::error::UpstreamCurlBuilds.json pins $($pin.Count) supplementary ldap builds for $env:PLATFORM; exactly one is needed."
+          exit 1
+        }
+        "sha256=$($pin[0].sha256)" >> $env:GITHUB_OUTPUT
+        "path=$($pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+        "directory=$(Split-Path -Parent $pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
+
+    - name: Prepare the OpenLDAP upstream curl directory
+      shell: bash
+      if: inputs.openldap == 'true'
+      run: |
+        sudo mkdir -p "${{ steps.openldap-pin.outputs.directory }}"
+        sudo chown "$(id -u):$(id -g)" "${{ steps.openldap-pin.outputs.directory }}"
+
+    - name: Restore the OpenLDAP upstream curl build
+      id: openldap-cache
+      if: inputs.openldap == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.openldap-pin.outputs.directory }}
+        key: openldap-upstream-curl-${{ inputs.platform }}-${{ steps.openldap-pin.outputs.sha256 }}
+
+    - name: Build the OpenLDAP upstream curl build
+      if: inputs.openldap == 'true' && steps.openldap-cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: ./Build-OpenLdapUpstreamCurl.ps1 -OutputPath "${{ steps.openldap-pin.outputs.path }}"
+
+    # As for the reference build: nothing runs the file before its SHA-256 matches the pin.
+    - name: Verify the OpenLDAP upstream curl build
+      if: inputs.openldap == 'true'
+      shell: pwsh
+      env:
+        PINNED_PATH: ${{ steps.openldap-pin.outputs.path }}
+        PINNED_SHA256: ${{ steps.openldap-pin.outputs.sha256 }}
+      run: |
+        if (-not (Test-Path -LiteralPath $env:PINNED_PATH)) {
+          Write-Output "::error::$env:PINNED_PATH does not exist."
+          exit 1
+        }
+        $actual = (Get-FileHash -LiteralPath $env:PINNED_PATH -Algorithm SHA256).Hash
+        if ($actual -ne $env:PINNED_SHA256) {
+          Write-Output "::error::$env:PINNED_PATH hashes to $actual, but UpstreamCurlBuilds.json pins $env:PINNED_SHA256. The build did not reproduce; not running it (ADR-0076)."
+          exit 1
+        }
+        Write-Output "$env:PINNED_PATH matches the pin $env:PINNED_SHA256."
+        chmod 755 $env:PINNED_PATH
+        & $env:PINNED_PATH --version
+
+    # The OpenLDAP build's GSS-API is MIT's, which reads a credential cache rather than -u's
+    # password: the GSSAPI conformance test runs kinit against the hand-built test KDC to fill
+    # one (ADR-0078, BL-351). An OS package for the runner, not a NuGet package.
+    - name: Install kinit
+      shell: bash
+      if: inputs.openldap == 'true'
+      run: |
+        sudo apt-get update
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends krb5-user
+        command -v kinit
