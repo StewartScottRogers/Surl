@@ -1,5 +1,5 @@
 ---
-id: BL-679
+id: BL-684
 title: Warn when the --user-file is readable by other users
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-059
 created: 2026-11-04
 completed:
 ---
-# BL-679 — Warn when the --user-file is readable by other users
+# BL-684 — Warn when the --user-file is readable by other users
 
 ## Goal
 

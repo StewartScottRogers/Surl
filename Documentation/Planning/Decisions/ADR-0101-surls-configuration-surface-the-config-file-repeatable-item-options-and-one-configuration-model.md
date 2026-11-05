@@ -20,7 +20,7 @@
   (domain matching, quotas, share access defaults, the replies a denied client gets). This ADR
   decides only the surface they share: names, argument grammar, the config file, refusals, bounds
   and help.
-- **Acted on by:** BL-644, BL-645, BL-646, BL-653, BL-654, BL-663, BL-666, BL-668 and BL-679
+- **Acted on by:** BL-644, BL-645, BL-646, BL-653, BL-654, BL-663, BL-666, BL-668 and BL-684
   (listed under Consequences).
 
 ## Context
@@ -325,7 +325,7 @@ upload source, which `surl` has never used, and `surl`'s files all use 37.
 passwords: on Linux and macOS, a `-K` file or `--mailbox-file` whose Unix mode grants group or other
 read writes, at start with the other warnings and at their level,
 `surl: warning: <file> is readable by other users and may hold passwords`. Windows ACLs have no
-equivalent the BCL reads simply, so no warning there. `--user-file` gets the same warning (BL-679).
+equivalent the BCL reads simply, so no warning there. `--user-file` gets the same warning (BL-684).
 
 ### 6. Bounds
 
@@ -397,7 +397,7 @@ anything that strains a start. Each bound is a constant in `Surl.Cli`, not an op
   - **BL-666** builds `--topic`, `--queue`, `--topic-map` and `--topic-access` and adds the `messages`
     help category with its example. Change: `--topic-access` grants `pub`, `sub` or `pubsub`.
   - **BL-668** adds the layer-2 properties to `SurlServerOptions` and `ConfigFiles` (decision 2).
-  - **BL-679** (filed with this ADR) warns when `--user-file` is readable by other users.
+  - **BL-684** (filed with this ADR) warns when `--user-file` is readable by other users.
 - BL-642's ADR decides the meanings behind these names and may add keys; a new key is added to an
   option's row by the task that builds it, under this grammar.
 - `surl` deliberately differs from curl where the rows say so; an operator moving a curl config habit

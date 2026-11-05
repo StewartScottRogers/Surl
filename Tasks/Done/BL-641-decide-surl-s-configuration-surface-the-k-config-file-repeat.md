@@ -110,7 +110,7 @@ Decide and record:
   cycle; no default `.surlrc`; percent-encoding for item escapes (Windows paths need nothing); new help categories
   only `mail` and `messages` (shares join `content`, groups `auth`); a new `--url` option so `url = ` works in a
   file; `--topic-access` grants `pubsub` as a third word; `--mailbox-file` repeats add.
-- Follow-up filed: BL-679 (the readable-by-others warning for `--user-file`, whose reading lives in the
+- Follow-up filed: BL-684 (the readable-by-others warning for `--user-file`, whose reading lives in the
   composition, outside BL-644's `touches`).
 - The task's `touches` covered all edits (the ADR, its README row, Requirements.md, the script); the new task file
   is a board change.
