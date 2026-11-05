@@ -152,6 +152,8 @@
   <Folder Name="/Protocols/Http/">
     <Project Path="Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary/Surl.Extended.Protocol.Coap.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests/Surl.Extended.Protocol.Coap.UnitTests.csproj" />
+    <Project Path="Protocols/Http/Surl.Extended.Protocol.Grpc.UnitLibrary/Surl.Extended.Protocol.Grpc.UnitLibrary.csproj" />
+    <Project Path="Protocols/Http/Surl.Extended.Protocol.Grpc.UnitTests/Surl.Extended.Protocol.Grpc.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary/Surl.Extended.Protocol.McpServer.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests/Surl.Extended.Protocol.McpServer.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary/Surl.Extended.Protocol.SignalR.UnitLibrary.csproj" />
