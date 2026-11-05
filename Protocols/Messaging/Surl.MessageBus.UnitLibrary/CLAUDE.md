@@ -155,7 +155,7 @@ What it holds now (BL-629):
   optional `ISurlEventPublisher` and `IFaultPlan` default to the discarding publisher and the
   empty plan; the composition passes the instance's (BL-803). Every change is a
   `StoreChangedEvent` of `StoreKind.Bus` with `ExchangeId` null (the bus is not told which
-  exchange calls, BL-865), named by the canonical topic or by `MessageBus.QueueChangeName`
+  exchange calls, BL-869), named by the canonical topic or by `MessageBus.QueueChangeName`
   (`$queue/<name>`, the access grants' form), `ByteCount` the payload's length:
   `Published` (topic, after its log append - the log append and the publish are one event),
   `Written`/`Deleted` (topic: the retained message set, or cleared or dropped on expiry; `Written`
@@ -169,7 +169,7 @@ What it holds now (BL-629):
   an existing queue (not expired) is `QueueFull`, nothing changed, and a `FaultAppliedEvent` names
   the path. Only an answer the plan gives at once counts; a pending one is served as no rule. Not
   yet: drops by expiry in queues and by log retention, and a bound queue's copy refused by fault
-  (BL-866).
+  (BL-870).
 
 Not here yet, each its own task: the MQTT 3.1.1 server's move onto the bus (BL-635), and
 each server passing its caller's account and mapping through `Names` (BL-665 for MQTT, the

@@ -1,5 +1,5 @@
 ---
-id: BL-865
+id: BL-869
 title: Name the exchange that made each message bus change in its event
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-865 — Name the exchange that made each message bus change in its event
+# BL-869 — Name the exchange that made each message bus change in its event
 
 ## Goal
 

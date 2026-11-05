@@ -63,7 +63,7 @@ than in a new ADR, because they apply decisions the ADR already made, and Docume
   and a queue with the same name never collide, and an out-of-space rule names a queue as `path=$queue/q`.
 - **No scheme, no payload.** `StoreChangedEvent` has no scheme or payload field (BL-823's contract). Changing
   it would touch the shared contract, so the event carries the name and the payload length only.
-  `ExchangeId` is null because no bus call is told its exchange. Filed **BL-865** to pass the exchange (and so
+  `ExchangeId` is null because no bus call is told its exchange. Filed **BL-869** to pass the exchange (and so
   the scheme) through `BusConnection`.
 - **Change kinds.** `Published` is a topic publish after its log append: the log append and the publish are
   one event, not two. `Written`/`Deleted` on a topic mean the retained message was set or was cleared/expired.
@@ -84,7 +84,7 @@ than in a new ADR, because they apply decisions the ADR already made, and Docume
   `path=a` covers exactly what `a/#` covers: `a` and everything under it. The tests use `path=a` with a plan
   double that matches as the ADR says. `ScriptedFaultPlan` matches exactly and never spends `times`, so it
   could not show either behaviour.
-- **Not covered, filed as BL-866:** drops by queue expiry and by log retention are not published yet, and a
+- **Not covered, filed as BL-870:** drops by queue expiry and by log retention are not published yet, and a
   topic publish's copy into a bound queue does not consult a queue-scoped rule.
 - `dotnet format` also normalised the final newline of `BusGetResult.cs`, `BusQueueInspectResult.cs` and
   `BusQueueRemovalResult.cs` (whitespace only).

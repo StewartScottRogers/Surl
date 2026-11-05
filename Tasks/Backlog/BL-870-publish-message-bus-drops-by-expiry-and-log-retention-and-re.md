@@ -1,5 +1,5 @@
 ---
-id: BL-866
+id: BL-870
 title: Publish message bus drops by expiry and log retention and refuse a bound queue's copy by fault
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-866 — Publish message bus drops by expiry and log retention and refuse a bound queue's copy by fault
+# BL-870 — Publish message bus drops by expiry and log retention and refuse a bound queue's copy by fault
 
 ## Goal
 
