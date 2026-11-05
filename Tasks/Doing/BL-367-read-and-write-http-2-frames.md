@@ -48,3 +48,4 @@ frame maps to the connection or stream error RFC 9113 names.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
