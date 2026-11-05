@@ -1,5 +1,5 @@
 ---
-id: BL-723
+id: BL-729
 title: Let an S3 EntityTooLarge or IncompleteBody answer close without draining the body
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-723 — Let an S3 EntityTooLarge or IncompleteBody answer close without draining the body
+# BL-729 — Let an S3 EntityTooLarge or IncompleteBody answer close without draining the body
 
 ## Goal
 

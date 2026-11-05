@@ -58,7 +58,7 @@ order), pages (`S3ListPage`, `S3ContinuationToken`) and writes `ListBucketResult
 reads the bucket from `Host`. Tests: `S3PutObjectTests`, `S3ListObjectsV2Tests`,
 `S3VirtualHostTests` (172 in the project, 100% line and branch coverage of the library).
 
-Choices made, each to be written into ADR-0108 by BL-721 (the ADR folder was held by BL-463, so it
+Choices made, each to be written into ADR-0108 by BL-727 (the ADR folder was held by BL-463, so it
 could not be edited here without overlapping):
 
 - `--allow-uploads` and `--max-filesize` are read from the `ContentStore`'s `ExposureOptions`, which
@@ -70,7 +70,7 @@ could not be edited here without overlapping):
   it is `403 AccessDenied` (secure by default, loosened for tests).
 - `Surl.HttpServing` drops a refusal's body, so `EntityTooLarge` and `IncompleteBody` are ordinary
   error answers: an announced body past the limit is left unread, which closes the connection after
-  the lingering drain. Closing without the drain is BL-723.
+  the lingering drain. Closing without the drain is BL-729.
 - A body that ends early is `400 IncompleteBody` (S3's "List of error codes"), a code ADR-0108's
   table did not list.
 - A plain chunked PUT is `400 InvalidRequest`; one with `x-amz-decoded-content-length` is
@@ -83,9 +83,9 @@ could not be edited here without overlapping):
   file just written and answers `400 MetadataTooLarge` or `503 ServiceUnavailable`.
 - A PutObject creates the key's missing folders; a file in the way, or a folder at the key, is
   `409 InvalidArgument`. A zero-byte PUT of `x/` creates the folder, but ListObjectsV2 does not list
-  it yet: BL-722.
+  it yet: BL-728.
 
-Follow-ups filed: BL-721 (ADR amendment), BL-722 (folder objects in listings), BL-723 (refusal
+Follow-ups filed: BL-727 (ADR amendment), BL-728 (folder objects in listings), BL-729 (refusal
 bodies with close).
 
 ## Log

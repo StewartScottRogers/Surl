@@ -1,5 +1,5 @@
 ---
-id: BL-722
+id: BL-728
 title: List folder objects put as x/ in S3 ListObjectsV2
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-722 — List folder objects put as x/ in S3 ListObjectsV2
+# BL-728 — List folder objects put as x/ in S3 ListObjectsV2
 
 ## Goal
 
