@@ -23,8 +23,31 @@ What it holds now (BL-412, the record layer, ADR-0087 decision 8):
 - `DtlsRecordLayer` is one association over its `IDatagramFlow`: epoch 0 plaintext, then
   epoch 1 under protection in each direction, once; it disposes the protections it is given.
 
-Still to come: handshake messages and fragmentation (BL-413), the certificate handshake and the
-TLS 1.2 PRF (BL-414), PSK and alerts (BL-415).
+The handshake messages, fragmentation and the PRF (BL-413, ADR-0087 decisions 5, 7 and 9):
+
+- `DtlsHandshakeHeader` reads and writes the 12-byte handshake fragment header (RFC 6347
+  section 4.2.2); `DtlsHandshakeMessage` is one whole message, and its `ToUnfragmentedBytes`
+  is what the handshake hash covers (section 4.2.6).
+- One record per message body, each with `Read` (throwing `DtlsDecodeErrorException`, which the
+  handshake answers with `decode_error`) and `Write`: `DtlsClientHello` (with the cookie),
+  `DtlsHelloVerifyRequest`, `DtlsServerHello`, `DtlsCertificate`, `DtlsRawPublicKeyCertificate`,
+  `DtlsEcdheServerKeyExchange` (with `SignedContent` for the signature), `DtlsCertificateRequest`,
+  `DtlsServerHelloDone`, `DtlsEcdheClientKeyExchange`, `DtlsPskClientKeyExchange`,
+  `DtlsCertificateVerify` and `DtlsFinished`. Hello extensions are `DtlsExtension`s; a type
+  appearing twice is a decode error. No PSK `ServerKeyExchange` exists: no identity hint is sent.
+- `DtlsHandshakeFragmenter` splits a message to a caller-given record plaintext budget (the
+  1200-byte datagram less record overhead, or `max_fragment_length`).
+- `DtlsHandshakeReassembler` takes fragments in any order and overlap and hands whole messages
+  over in `message_seq` order, reporting each fragment's `DtlsHandshakeFragmentOutcome`:
+  duplicates and stale retransmissions are ignored, malformed or contradictory fragments are
+  `decode_error`, and bodies held together past the `--max-message` limit are
+  `handshake_failure`. Which flight a message belongs to is the handshake's concern, not its.
+- `DtlsPseudorandomFunction` is RFC 5246 section 5's PRF over HMAC-SHA256 or -SHA384, with the
+  master secret, the extended master secret (RFC 7627), the key block and both `Finished`
+  `verify_data`s.
+
+Still to come: the certificate and RawPublicKey handshakes, the cookie and the timers (BL-414),
+PSK and alerts (BL-415).
 
 Never construct a socket here: records travel over the `IDatagramFlow` the caller gives.
 Tests on macOS skip the AES-CCM cases (`OSCondition`), because the BCL's `AesCcm` support
