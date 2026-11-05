@@ -30,6 +30,37 @@ public sealed class RecordingConnectionTests
     }
 
     [TestMethod]
+    public async Task PeekByteAsync_ByteWaiting_ReturnsItUnloggedAndTheNextReadReturnsAndLogsIt()
+    {
+        var log = new RecordingExchangeLog();
+        var recording = new RecordingConnection(new InMemoryConnection(["PING"u8.ToArray()]), log);
+
+        var peeked = await recording.PeekByteAsync(TimeSpan.Zero, CancellationToken.None);
+        var entriesAfterPeek = log.Entries.Count;
+        var buffer = new byte[8];
+        var count = await recording.ReadAsync(buffer, CancellationToken.None);
+
+        Assert.AreEqual((byte)'P', peeked);
+        Assert.AreEqual(0, entriesAfterPeek);
+        Assert.AreEqual(4, count);
+        CollectionAssert.AreEqual("PING"u8.ToArray(), buffer[..count]);
+        Assert.HasCount(1, log.Entries);
+        Assert.AreEqual(ExchangeLogEntryKind.BytesReceived, log.Entries[0].Kind);
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_NothingLeft_PassesTheNullThroughAndLogsNothing()
+    {
+        var log = new RecordingExchangeLog();
+        var recording = new RecordingConnection(new InMemoryConnection([]), log);
+
+        var peeked = await recording.PeekByteAsync(TimeSpan.Zero, CancellationToken.None);
+
+        Assert.IsNull(peeked);
+        Assert.IsEmpty(log.Entries);
+    }
+
+    [TestMethod]
     public async Task UpgradeToTlsAsync_UpgradesTheConnection_AndReadsAfterItAreStillLogged()
     {
         var log = new RecordingExchangeLog();

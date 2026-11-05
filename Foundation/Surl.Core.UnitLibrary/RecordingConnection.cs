@@ -36,6 +36,16 @@ internal sealed class RecordingConnection(IConnection connection, IExchangeLog l
     }
 
     /// <summary>
+    /// Peeks at the client's next byte on the wrapped connection without reporting it: the
+    /// byte is not consumed, so the read that later takes it reports it as received, once.
+    /// </summary>
+    /// <param name="wait">The longest to wait; <see cref="TimeSpan.Zero"/> only looks at what has already arrived.</param>
+    /// <param name="cancellationToken">Cuts the wait off.</param>
+    /// <returns>The next byte, or <see langword="null"/> when none arrived within <paramref name="wait"/>.</returns>
+    public ValueTask<byte?> PeekByteAsync(TimeSpan wait, CancellationToken cancellationToken) =>
+        connection.PeekByteAsync(wait, cancellationToken);
+
+    /// <summary>
     /// Writes to the connection, then reports the bytes as sent.
     /// </summary>
     /// <param name="bytes">The bytes to send.</param>

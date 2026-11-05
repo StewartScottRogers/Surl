@@ -40,6 +40,17 @@ internal sealed class IdleClockRestartingConnection(IConnection connection, Exch
     }
 
     /// <summary>
+    /// Peeks at the client's next byte on the wrapped connection and leaves the idle clock
+    /// alone: the peek only observes the byte, and the read that later consumes it restarts the
+    /// clock, so a peek and its read count as one piece of client activity.
+    /// </summary>
+    /// <param name="wait">The longest to wait; <see cref="TimeSpan.Zero"/> only looks at what has already arrived.</param>
+    /// <param name="cancellationToken">Cuts the wait off.</param>
+    /// <returns>The next byte, or <see langword="null"/> when none arrived within <paramref name="wait"/>.</returns>
+    public ValueTask<byte?> PeekByteAsync(TimeSpan wait, CancellationToken cancellationToken) =>
+        connection.PeekByteAsync(wait, cancellationToken);
+
+    /// <summary>
     /// Writes to the connection, then restarts the idle clock.
     /// </summary>
     /// <param name="bytes">The bytes to send.</param>

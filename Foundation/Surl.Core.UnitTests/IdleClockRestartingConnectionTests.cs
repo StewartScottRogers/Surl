@@ -36,6 +36,36 @@ public sealed class IdleClockRestartingConnectionTests
     }
 
     [TestMethod]
+    public async Task PeekByteAsync_ByteWaiting_ReturnsItWithoutRestartingTheIdleClockAndTheNextReadReturnsIt()
+    {
+        var time = new ManualTimeProvider();
+        using var deadlines = new ExchangeDeadlines(TenSecondsIdle, time, CancellationToken.None);
+        var watched = new IdleClockRestartingConnection(new InMemoryConnection(["PING"u8.ToArray()]), deadlines);
+        time.Advance(TimeSpan.FromSeconds(5));
+
+        var peeked = await watched.PeekByteAsync(TimeSpan.Zero, CancellationToken.None);
+        time.Advance(TimeSpan.FromSeconds(5));
+        var buffer = new byte[8];
+        var count = await watched.ReadAsync(buffer, CancellationToken.None);
+
+        Assert.AreEqual((byte)'P', peeked);
+        Assert.AreEqual(ExchangeCancellation.IdleTimeout, deadlines.Reason);
+        Assert.AreEqual(4, count);
+        CollectionAssert.AreEqual("PING"u8.ToArray(), buffer[..count]);
+    }
+
+    [TestMethod]
+    public async Task PeekByteAsync_NothingLeft_PassesTheNullThrough()
+    {
+        using var deadlines = new ExchangeDeadlines(TenSecondsIdle, new ManualTimeProvider(), CancellationToken.None);
+        var watched = new IdleClockRestartingConnection(new InMemoryConnection([]), deadlines);
+
+        var peeked = await watched.PeekByteAsync(TimeSpan.Zero, CancellationToken.None);
+
+        Assert.IsNull(peeked);
+    }
+
+    [TestMethod]
     public async Task UpgradeToTlsAsync_UpgradesTheConnection()
     {
         var connection = new InMemoryConnection([]);

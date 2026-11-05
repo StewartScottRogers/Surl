@@ -485,6 +485,33 @@ public sealed partial class ServingEngineTests
         CollectionAssert.AreEqual(new[] { "BytesReceived:ping", "BytesSent:pong" }, bytes);
     }
 
+    [TestMethod]
+    public async Task ServeAsync_ServerPeeksThroughTheEnginesWrappers_GetsTheScriptsNextByte()
+    {
+        var factory = new FakeListenerFactory();
+        var served = new TaskCompletionSource<(byte? Peeked, string Read)>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var server = new FakeConnectionProtocolServer(
+            async (connection, context) =>
+            {
+                var peeked = await connection.PeekByteAsync(TimeSpan.Zero, context.CancellationToken);
+                var buffer = new byte[16];
+                var count = await connection.ReadAsync(buffer, context.CancellationToken);
+                served.TrySetResult((peeked, Encoding.ASCII.GetString(buffer, 0, count)));
+            },
+            "http");
+        var engine = CreateEngine(factory, new ManualTimeProvider(), new FakeExchangeLogFactory(), server);
+        using var stop = new CancellationTokenSource();
+        var serving = engine.ServeAsync([Http], stop.Token);
+
+        factory.ListenerFor(Http).Connect(new InMemoryConnection(["\u0016ping"u8.ToArray()]));
+        var (peeked, read) = await served.Task.WaitAsync(Patience.Timeout);
+        await stop.CancelAsync();
+        await serving.WaitAsync(Patience.Timeout);
+
+        Assert.AreEqual((byte)0x16, peeked);
+        Assert.AreEqual("\u0016ping", read);
+    }
+
     // No connection limits, so the shutdown grace period's timer is the only one created;
     // ServingEngineTests.Limits.cs covers the limits.
     private static ServingEngine CreateEngine(
