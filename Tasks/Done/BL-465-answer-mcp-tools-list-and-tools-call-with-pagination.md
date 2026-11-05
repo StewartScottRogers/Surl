@@ -68,7 +68,7 @@ returning `content` with `isError` for a tool failure, as MCP "Server Features >
   `McpToolResultTests` and `McpToolMethodsTests`. McpServer.UnitTests 59, McpServing.UnitTests 217.
 - Coverage (`Measure-CodeQuality.ps1 -SkipTestRun`): both libraries 100% line and branch. The core has one
   pre-existing complexity-12 member, `McpStreamSession.CancelRequest`, untouched here: filed **BL-746**.
-- Follow-up **BL-745**: amend ADR-0111 decisions 1 and 2 to the above (its folder was held by BL-441).
+- Follow-up **BL-747**: amend ADR-0111 decisions 1 and 2 to the above (its folder was held by BL-441).
 
 ## Log
 

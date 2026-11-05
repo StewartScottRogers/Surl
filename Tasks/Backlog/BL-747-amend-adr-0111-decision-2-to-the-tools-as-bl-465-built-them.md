@@ -1,5 +1,5 @@
 ---
-id: BL-745
+id: BL-747
 title: Amend ADR-0111 decision 2 to the tools as BL-465 built them
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-745 — Amend ADR-0111 decision 2 to the tools as BL-465 built them
+# BL-747 — Amend ADR-0111 decision 2 to the tools as BL-465 built them
 
 ## Goal
 
