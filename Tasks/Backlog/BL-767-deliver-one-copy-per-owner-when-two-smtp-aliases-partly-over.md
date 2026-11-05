@@ -1,5 +1,5 @@
 ---
-id: BL-763
+id: BL-767
 title: Deliver one copy per owner when two SMTP aliases partly overlap
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-763 — Deliver one copy per owner when two SMTP aliases partly overlap
+# BL-767 — Deliver one copy per owner when two SMTP aliases partly overlap
 
 ## Goal
 

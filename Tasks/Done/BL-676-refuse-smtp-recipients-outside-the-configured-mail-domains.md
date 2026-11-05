@@ -57,7 +57,7 @@ configured domain (relaying) with the measured reply - and with none configured 
 - One copy per owner: `SmtpMailTransaction` now drops a recipient whose owners were all reached and lets a new
   one replace kept recipients it covers (so `bob` then `team` gives bob one copy). A `MailRecipient` cannot be
   split outside `Surl.MailStore.UnitLibrary` (BL-675 holds it), so two partly overlapping aliases still double
-  the shared owner's copy; filed BL-763 (depends on BL-675) for the store-side merge.
+  the shared owner's copy; filed BL-767 (depends on BL-675) for the store-side merge.
 - Tests: `SmtpMailDomainTests` (10 new; 228 in the project). Library coverage 100% line, 100% branch.
 
 ## Log
