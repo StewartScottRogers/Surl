@@ -56,3 +56,4 @@ and one retained message per topic, all bounded.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
