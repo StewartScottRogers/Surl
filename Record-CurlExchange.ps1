@@ -532,6 +532,23 @@
     ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -Tls,
     -NoServer, -LibcurlWebSocket or -LibcurlRtsp is refused.
 
+.PARAMETER DnsQuery
+    Record the DNS queries curl sends over UDP, and answer nothing: bind
+    <ListenAddress>:<Port> for UDP and keep every datagram curl sends to it until curl
+    exits, as -QuicInitial does, but decrypt nothing. In place of request.bin it writes
+    datagrams.bin, beside stdout.bin, stderr.txt and exitcode.txt: every datagram in
+    arrival order, each preceded by its length as a two-byte big-endian number. An empty
+    datagrams.bin says curl sent this port no query. Point curl at the port with
+    --dns-servers (a build with c-ares) or, to see whether a build honours the debug-build
+    variable the upstream test suite uses, -CurlEnvironment 'CURL_DNS_SERVER=127.0.0.1:<Port>'.
+    Nothing answers, so a query curl does send times out; give it --connect-timeout in
+    CurlArgs. Combining it with -QuicInitial, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap,
+    -Tftp, -Tls, -NoServer, -LibcurlWebSocket or -LibcurlRtsp is refused.
+
+.PARAMETER CurlEnvironment
+    Environment variables to set for curl's process only, each 'NAME=value', on top of
+    the environment the script inherits. Default: none.
+
 .PARAMETER Tls
     Answer each connection over TLS 1.2 instead of plain TCP, so the recorder can stand
     in for an HTTPS server or an HTTPS proxy. The certificate served
@@ -847,6 +864,12 @@
     parameters, and curl's connect timeout is recorded in stderr.txt and exitcode.txt.
 
 .EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18053 -DnsQuery -CurlEnvironment 'CURL_DNS_SERVER=127.0.0.1:18053' -CurlArgs '-sS','--connect-timeout','3','http://examplehost.example:18080/2102' -OutDirectory fixtures\dns-override
+
+    Runs upstream test 2102's command with its CURL_DNS_SERVER; datagrams.bin is empty
+    when the build ignores the variable, as release builds do (ADR-0123).
+
+.EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18080 -KerberosTestKdc -KerberosPassword 'surl-test-password' -KerberosServicePrincipal 'HTTP/web.surl.test' -Response 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--negotiate','-u','tester@SURL.TEST:surl-test-password','--resolve','web.surl.test:18080:127.0.0.1','http://web.surl.test:18080/' -OutDirectory fixtures\negotiate-token
 
     Runs the test KDC while curl asks for http://web.surl.test:18080/; with BL-265's realm
@@ -901,6 +924,8 @@ param(
     [string] $TftpReply = '',
     [ValidateRange(1, 600000)] [int] $TftpIdleMilliseconds = 2000,
     [switch] $QuicInitial,
+    [switch] $DnsQuery,
+    [string[]] $CurlEnvironment = @(),
     [switch] $Tls,
     [string] $TlsRootCertificateFile,
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
@@ -931,6 +956,8 @@ if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $T
 if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Ldap, $Tftp | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap and -Tftp each serve a whole session; give one of them.' }
 if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined with -Tls.' }
 if ($QuicInitial -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls -or $NoServer -or $LibcurlWebSocket -or $LibcurlRtsp)) { throw '-QuicInitial records UDP datagrams for a curl it runs itself, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -Tls, -NoServer, -LibcurlWebSocket or -LibcurlRtsp.' }
+if ($DnsQuery -and ($QuicInitial -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls -or $NoServer -or $LibcurlWebSocket -or $LibcurlRtsp)) { throw '-DnsQuery records UDP datagrams for a curl it runs itself, so it cannot be combined with -QuicInitial, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -Tls, -NoServer, -LibcurlWebSocket or -LibcurlRtsp.' }
+foreach ($assignment in $CurlEnvironment) { if ($assignment.IndexOf('=') -lt 1) { throw "-CurlEnvironment takes NAME=value; '$assignment' is not one." } }
 if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode but -Raw, and cannot be combined with -Reset.' }
 # powershell -File binds 'h2,http/1.1' as one string, and a caller may give either form.
 $TlsAlpn = @($TlsAlpn | ForEach-Object { $_.Split(',') } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
@@ -2679,10 +2706,10 @@ $serveLdapSession = {
     return , @(, $received.ToArray())
 }
 
-# The -QuicInitial recorder: every datagram curl sends to the listening UDP socket, each
+# The -QuicInitial and -DnsQuery recorder: every datagram curl sends to the listening UDP socket, each
 # written to $Datagrams behind its length as two big-endian bytes, until the main script
 # closes the socket once curl has exited. Nothing is ever sent back.
-$recordQuicDatagrams = {
+$recordUdpDatagrams = {
     param($Listener, [System.IO.MemoryStream] $Datagrams, [System.Net.IPAddress] $ListenAddress)
 
     Set-StrictMode -Version Latest
@@ -3260,7 +3287,7 @@ foreach ($mechanismName in $saslChallenges.Keys) {
 }
 $transcript = New-Object System.Text.StringBuilder
 $uploadedData = New-Object System.IO.MemoryStream
-$quicDatagrams = New-Object System.IO.MemoryStream
+$recordedDatagrams = New-Object System.IO.MemoryStream
 $OutDirectory = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).ProviderPath, $OutDirectory))
 New-Item -ItemType Directory -Path $OutDirectory -Force | Out-Null
 
@@ -3302,7 +3329,7 @@ try {
     if ($KerberosTestKdc) { $kerberosKdc = Start-KerberosTestKdc -Password $KerberosPassword -ServicePrincipals $KerberosServicePrincipal -Directory $OutDirectory }
     if ($KerberosTestKdc -and -not $isWindowsHost) { $kerberosClientEnvironment = Initialize-KerberosClient -Password $KerberosPassword -Directory $OutDirectory }
     if ($LdapKerberosAcceptor) { $kerberosAcceptor = Start-KerberosAcceptor -Directory $OutDirectory }
-    if ($Tftp -or $QuicInitial) {
+    if ($Tftp -or $QuicInitial -or $DnsQuery) {
         $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
         $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
         $server = [System.Management.Automation.PowerShell]::Create()
@@ -3328,7 +3355,7 @@ try {
     throw
 }
 
-# -Tftp and -QuicInitial listen on a UDP socket, which is closed rather than stopped.
+# -Tftp, -QuicInitial and -DnsQuery listen on a UDP socket, which is closed rather than stopped.
 function Stop-Listener {
     if ($listener -is [System.Net.Sockets.Socket]) { $listener.Close() } else { $listener.Stop() }
 }
@@ -3352,8 +3379,8 @@ try {
         [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds).AddArgument($kerberosAcceptor).AddArgument($LdapGssapiSecurityLayers)
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
-    } elseif ($QuicInitial) {
-        [void] $server.AddScript($recordQuicDatagrams).AddArgument($listener).AddArgument($quicDatagrams).AddArgument($ListenAddress)
+    } elseif ($QuicInitial -or $DnsQuery) {
+        [void] $server.AddScript($recordUdpDatagrams).AddArgument($listener).AddArgument($recordedDatagrams).AddArgument($ListenAddress)
     } else {
         [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols).AddArgument([bool] $CloseUnread).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $InterimResponse)).AddArgument($ResponsesPerConnection)
     }
@@ -3373,6 +3400,10 @@ try {
         if ($ConfigFile.Count -gt 0) { $startInfo.WorkingDirectory = $OutDirectory }
     }
     foreach ($name in $kerberosClientEnvironment.Keys) { $startInfo.Environment[$name] = $kerberosClientEnvironment[$name] }
+    foreach ($assignment in $CurlEnvironment) {
+        $equals = $assignment.IndexOf('=')
+        $startInfo.Environment[$assignment.Substring(0, $equals)] = $assignment.Substring($equals + 1)
+    }
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardInput = $true
     $startInfo.RedirectStandardOutput = $true
@@ -3438,7 +3469,8 @@ foreach ($request in $requests) {
     foreach ($bytes in $request) { $requestBytes.Write($bytes, 0, $bytes.Length) }
 }
 
-if (-not $NoServer -and -not $QuicInitial) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'request.bin'), $requestBytes.ToArray()) }
+if ($DnsQuery) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'datagrams.bin'), $recordedDatagrams.ToArray()) }
+if (-not $NoServer -and -not $QuicInitial -and -not $DnsQuery) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'request.bin'), $requestBytes.ToArray()) }
 if (-not $NoServer -and $ResponsesPerConnection -gt 1) {
     $requestNumber = 0
     foreach ($request in $requests) {
@@ -3460,7 +3492,7 @@ if ($Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap) {
 }
 if ($QuicInitial) {
     $datagramsPath = Join-Path $OutDirectory 'datagrams.bin'
-    [System.IO.File]::WriteAllBytes($datagramsPath, $quicDatagrams.ToArray())
+    [System.IO.File]::WriteAllBytes($datagramsPath, $recordedDatagrams.ToArray())
     $decryptArguments = @('run', '--file', (Join-Path $PSScriptRoot 'Run-QuicInitialRecorder.cs'), '--', '--datagrams', $datagramsPath, '--clienthello', (Join-Path $OutDirectory 'clienthello.bin'), '--summary', (Join-Path $OutDirectory 'clienthello.txt'))
     & dotnet @decryptArguments | Out-Host
     if ($LASTEXITCODE -ne 0) { Write-Warning "Run-QuicInitialRecorder.cs exited ${LASTEXITCODE}: no version 1 Initial packet in datagrams.bin could be decrypted." }
