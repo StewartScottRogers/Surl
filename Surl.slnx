@@ -150,6 +150,8 @@
     <Project Path="Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests/Surl.Extended.Protocol.Coap.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary/Surl.Extended.Protocol.McpServer.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests/Surl.Extended.Protocol.McpServer.UnitTests.csproj" />
+    <Project Path="Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary/Surl.Extended.Protocol.SignalR.UnitLibrary.csproj" />
+    <Project Path="Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests/Surl.Extended.Protocol.SignalR.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Hpack.UnitLibrary/Surl.Hpack.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Hpack.UnitTests/Surl.Hpack.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.Http2.UnitLibrary/Surl.Http2.UnitLibrary.csproj" />

@@ -21,14 +21,14 @@ the task turns each into a row of its own when it lands.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| SignalR:TP-Negotiate-1 | MUST | `POST [endpoint-base]/negotiate` is answered `200`, `Content-Type: application/json`, with a JSON object holding `negotiateVersion`, `connectionId` and `availableTransports`. | BL-448 |
-| SignalR:TP-Negotiate-2 | MUST | A `negotiateVersion` query of 1 or more is answered with version 1 and a `connectionToken` beside the `connectionId`. | BL-448 |
-| SignalR:TP-Negotiate-3 | MUST | A request without `negotiateVersion`, or with `0`, is answered with version 0 and no `connectionToken`. | BL-448 |
-| SignalR:TP-Negotiate-4 | SHOULD | The `connectionToken` is secret: 16 random bytes, independent of the `connectionId`; each negotiate gives a fresh pair (ADR-0119 decision 2). | BL-448 |
-| SignalR:TP-Negotiate-5 | MUST | `availableTransports` lists each transport served, with its `transferFormats`: WebSockets with `Text` and `Binary` (ADR-0119 decision 2). | BL-448 |
-| SignalR:TP-Negotiate-6 | MUST | The negotiate `error` form ends a connection attempt; it is sent only when the hub is full, as `{"error":"The server has too many connections."}` (ADR-0119 decisions 2 and 7). | BL-448 |
-| SignalR:Surl-2-1 | MUST | Another method on `[endpoint-base]/negotiate` is `405` with `Allow: POST`; a `negotiateVersion` that is not a non-negative integer is `400` (ADR-0119 decision 2). | BL-448 |
-| SignalR:Surl-1-1 | MUST | `[endpoint-base]` is the listen URL's path without a trailing `/`; any path other than it and its `/negotiate` is `404`, judged after authentication (ADR-0119 decision 1). | BL-448 |
+| SignalR:TP-Negotiate-1 | MUST | `POST [endpoint-base]/negotiate` is answered `200`, `Content-Type: application/json`, with a JSON object holding `negotiateVersion`, `connectionId` and `availableTransports`. | `SignalRRequestAnswererTests.AnswerAsync_NegotiateVersionOne_AnswersAFreshIdAndTokenAndTheWebSocketsTransport` |
+| SignalR:TP-Negotiate-2 | MUST | A `negotiateVersion` query of 1 or more is answered with version 1 and a `connectionToken` beside the `connectionId`. | `SignalRRequestAnswererTests.AnswerAsync_NegotiateVersionOne_AnswersAFreshIdAndTokenAndTheWebSocketsTransport`, `AnswerAsync_NegotiateVersionAboveOne_AnswersVersionOne` |
+| SignalR:TP-Negotiate-3 | MUST | A request without `negotiateVersion`, or with `0`, is answered with version 0 and no `connectionToken`. | `SignalRRequestAnswererTests.AnswerAsync_NegotiateVersionZero_AnswersAnIdWithoutAToken` |
+| SignalR:TP-Negotiate-4 | SHOULD | The `connectionToken` is secret: 16 random bytes, independent of the `connectionId`; each negotiate gives a fresh pair (ADR-0119 decision 2). | `SignalRHubConnectionsTests.Negotiate_VersionOne_GivesAnIdAndAnIndependentTokenEach22Base64UrlCharacters`, `Negotiate_Twice_GivesFreshIds`; `SignalRRequestAnswererTests.AnswerAsync_NegotiateTwice_AnswersFreshIdsEachTime` |
+| SignalR:TP-Negotiate-5 | MUST | `availableTransports` lists each transport served, with its `transferFormats`: WebSockets with `Text` and `Binary` (ADR-0119 decision 2). | `SignalRRequestAnswererTests.AnswerAsync_NegotiateVersionOne_AnswersAFreshIdAndTokenAndTheWebSocketsTransport` |
+| SignalR:TP-Negotiate-6 | MUST | The negotiate `error` form ends a connection attempt; it is sent only when the hub is full, as `{"error":"The server has too many connections."}` (ADR-0119 decisions 2 and 7). | `SignalRRequestAnswererTests.AnswerAsync_HubFull_AnswersTheNegotiateErrorForm`; `SignalRHubConnectionsTests.Negotiate_HubFull_IsRefusedUntilOneExpires` |
+| SignalR:Surl-2-1 | MUST | Another method on `[endpoint-base]/negotiate` is `405` with `Allow: POST`; a `negotiateVersion` that is not a non-negative integer is `400` (ADR-0119 decision 2). | `SignalRRequestAnswererTests.AnswerAsync_NegotiateWithAnotherMethod_IsMethodNotAllowed`, `AnswerAsync_NegotiateVersionNotANonNegativeInteger_IsBadRequest` |
+| SignalR:Surl-1-1 | MUST | `[endpoint-base]` is the listen URL's path without a trailing `/`; any path other than it and its `/negotiate` is `404`, judged after authentication (ADR-0119 decision 1). | `SignalRHubPathTests.FromListenPath_Path_GivesTheEndpointBaseAndNegotiatePath`; `SignalRRequestAnswererTests.AnswerAsync_PathTheHubDoesNotServe_IsNotFound`, `AnswerAsync_UnknownPathWithoutAToken_IsUnauthorizedNotNotFound` |
 | SignalR:TP-Negotiate-7 | MAY | A redirect response (`url`, `accessToken`). | n/a: the hub is the endpoint a redirect would name, so the server never redirects (ADR-0119 decision 2) |
 | SignalR:TP-Negotiate-8 | MAY | `useAck` / `useStatefulReconnect` answered with `"useStatefulReconnect":true`. | n/a: stateful reconnect is BL-755's (ADR-0119 decision 6); until then the response never offers it |
 
@@ -64,11 +64,11 @@ the task turns each into a row of its own when it lands.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| SignalR:HUB-Json-1 | MUST | Every record the server writes is one JSON object ended by `0x1E`, in its own text message. | BL-448 |
-| SignalR:HUB-Json-2 | MUST | Records are cut at `0x1E` whatever the messages: several in one message are read separately, one split across messages is reassembled; text and binary messages are both read. | BL-448 |
-| SignalR:HUB-Json-3 | MUST | Each message type 1 to 7 is read and written with HubProtocol.md's fields, as its JSON examples show. | BL-448 |
-| SignalR:HUB-Headers-1 | MUST | A message carrying `headers` is processed and its headers disregarded. | BL-448 |
-| SignalR:Surl-3-2 | MAY | Members the server does not know are ignored, not treated as protocol errors (ADR-0119 decision 3). | BL-448 |
+| SignalR:HUB-Json-1 | MUST | Every record the server writes is one JSON object ended by `0x1E`, in its own text message. | `HubMessageJsonReaderTests.ReadThenWrite_HubProtocolExample_WritesTheExampleWithoutWhitespace`; one record a text message: BL-449 |
+| SignalR:HUB-Json-2 | MUST | Records are cut at `0x1E` whatever the messages: several in one message are read separately, one split across messages is reassembled; text and binary messages are both read. | `HubRecordReaderTests.TryAppend_TwoMessagesInOneBuffer_ReadsThemSeparately`, `TryAppend_MessageSplitAcrossTwoBuffers_ReassemblesIt`; text and binary messages: BL-449 |
+| SignalR:HUB-Json-3 | MUST | Each message type 1 to 7 is read and written with HubProtocol.md's fields, as its JSON examples show. | `HubMessageJsonReaderTests.ReadThenWrite_HubProtocolExample_WritesTheExampleWithoutWhitespace`, `TryRead_ProtocolError_IsRefused` |
+| SignalR:HUB-Headers-1 | MUST | A message carrying `headers` is processed and its headers disregarded. | `HubMessageJsonReaderTests.ReadThenWrite_HubProtocolExample_WritesTheExampleWithoutWhitespace` (the header example) |
+| SignalR:Surl-3-2 | MAY | Members the server does not know are ignored, not treated as protocol errors (ADR-0119 decision 3). | `HubMessageJsonReaderTests.TryRead_UnknownMembers_AreIgnored` |
 | SignalR:HUB-Errors-1 | MAY | A protocol error (a record that is not an object, a missing or wrongly typed required member, an unknown `type`, an `invocationId` already in progress, a StreamItem or Completion for no upload stream, a Completion with both `result` and `error`) ends the connection with `{"type":7,"error":"Connection closed with an error."}` and WebSocket Close `1002`. | BL-449 |
 | SignalR:HUB-Ack-1 | MUST | Ack (8) and Sequence (9) messages and their sequencing. | n/a: BL-755 adds stateful reconnect (ADR-0119 decision 6); until then types 8 and 9 are protocol errors |
 
@@ -102,11 +102,11 @@ the task turns each into a row of its own when it lands.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| SignalR:Surl-5-1 | MUST | Negotiate without credentials is `401` with the session's challenges and no body, unless `--allow-anonymous`. | BL-448 |
-| SignalR:Surl-5-2 | MUST | A bearer token in `Authorization`, or in an `access_token` query when there is no `Authorization`, is judged as an empty-name account's password; a wrong one is `401` or `403`. | BL-448 |
+| SignalR:Surl-5-1 | MUST | Negotiate without credentials is `401` with the session's challenges and no body, unless `--allow-anonymous`. | `SignalRRequestAnswererTests.AnswerAsync_NegotiateWithoutAToken_IsUnauthorizedWithTheSessionsChallenge`, `AnswerAsync_NegotiateAnonymouslyWhenAllowed_RecordsTheAnonymousCaller` |
+| SignalR:Surl-5-2 | MUST | A bearer token in `Authorization`, or in an `access_token` query when there is no `Authorization`, is judged as an empty-name account's password; a wrong one is `401` or `403`. | `SignalRRequestAnswererTests.AnswerAsync_AccessTokenQueryParameter_IsJudgedAsABearerAuthorization`, `AnswerAsync_AccessTokenBesideAnAuthorizationField_IsIgnored`, `AnswerAsync_NegotiateWithAForbiddenToken_IsForbidden` |
 | SignalR:Surl-5-3 | MUST | The upgrade is judged too, and a connection negotiated by one caller is upgraded only by that caller; another is `403`. | BL-449 |
-| SignalR:Surl-5-4 | MUST | Credentials that fail are never served as anonymous under `--allow-anonymous`. | BL-448 |
-| SignalR:Surl-7-2 | MUST | A hub record over `--max-message` is refused before the rest is read: Close `{"type":7,"error":"Connection closed with an error."}`, WebSocket Close `1009`. | BL-448 |
+| SignalR:Surl-5-4 | MUST | Credentials that fail are never served as anonymous under `--allow-anonymous`. | `SignalRRequestAnswererTests.AnswerAsync_WrongTokenWhenAnonymousIsAllowed_IsUnauthorizedNotServedAnonymously` |
+| SignalR:Surl-7-2 | MUST | A hub record over `--max-message` is refused before the rest is read: Close `{"type":7,"error":"Connection closed with an error."}`, WebSocket Close `1009`. | `HubRecordReaderTests.TryAppend_MessageOverTheLimit_IsRefusedBeforeItsEnd`; the Close and WebSocket `1009`: BL-449 |
 | SignalR:Surl-7-3 | MUST | An `invocationId` or stream ID over 128 characters is a protocol error. | BL-449 |
 | SignalR:Surl-7-4 | MUST | 1024 connections a hub, negotiated or upgraded; the next negotiate gets the `error` form, the next upgrade without `id` `503`. | BL-449 |
 | SignalR:Surl-7-5 | MUST | A connection with more than 1048576 bytes unsent is closed with the protocol-error Close and WebSocket Close `1008`. | BL-449 |
