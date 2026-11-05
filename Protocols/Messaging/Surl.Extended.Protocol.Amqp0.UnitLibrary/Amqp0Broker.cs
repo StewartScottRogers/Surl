@@ -3,9 +3,10 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.Amqp0;
 
 /// <summary>
-/// The AMQP 0-9-1 broker (ADR-0112): so far, the connection class - the protocol header,
-/// <c>start</c>/<c>start-ok</c> with the login, <c>tune</c>/<c>tune-ok</c>, <c>open</c>/<c>open-ok</c>
-/// of the one virtual host <c>/</c>, heartbeats, and <c>close</c>/<c>close-ok</c> both ways.
+/// The AMQP 0-9-1 broker (ADR-0112) over the shared message bus: the connection class - the
+/// protocol header, <c>start</c>/<c>start-ok</c> with the login, <c>tune</c>/<c>tune-ok</c>,
+/// <c>open</c>/<c>open-ok</c> of the one virtual host <c>/</c>, heartbeats, and
+/// <c>close</c>/<c>close-ok</c> both ways - and channels, exchanges, queues and the basic class.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -32,13 +33,38 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// <c>open-ok</c>; any other name <c>connection.close</c> 530.
 /// </para>
 /// <para>
+/// <b>Channels, exchanges and queues</b> (decisions 5 and 7). <c>channel.open</c> opens a channel
+/// up to the negotiated channel-max; <c>channel.flow</c> holds and resumes its deliveries. The
+/// default exchange routes to the bus queue the routing key names; <c>amq.direct</c>,
+/// <c>amq.fanout</c> and declared direct, fanout and topic exchanges route inside the broker onto
+/// bus queues; <c>amq.topic</c> is the bus's topic space, its bindings the bus's, so a message
+/// published over another protocol reaches a queue bound there with the mapped key. Queues are the
+/// bus's named queues: a declare with an empty name makes <c>amq.gen-</c> and 22 base64url
+/// characters, and <c>""</c> elsewhere is the channel's last declared queue.
+/// </para>
+/// <para>
+/// <b>The basic class</b> (decision 6). <c>basic.publish</c> is read with its content header and
+/// body frames and stored with the native form <c>amqp0</c>; an unroutable <c>mandatory</c> (or
+/// <c>immediate</c>) message is returned with <c>basic.return</c> 312, and a routed
+/// <c>immediate</c> one no consumer took with 313. <c>basic.get</c> answers <c>get-ok</c> or
+/// <c>get-empty</c>; <c>basic.consume</c> answers <c>consume-ok</c> before the first
+/// <c>basic.deliver</c>. Delivery tags run from 1 per channel; <c>ack</c>, <c>reject</c>,
+/// <c>nack</c> and <c>recover</c> settle them, and a tag not outstanding is 406. <c>basic.qos</c>'s
+/// prefetch-count bounds each consumer the channel makes afterwards, 1000 when it is 0 or larger.
+/// Topic access refusals are 403.
+/// </para>
+/// <para>
 /// <b>Exceptions</b> (decision 7). Before <c>open-ok</c>, every fault but those two closes the
-/// connection with no bytes, as does the head timeout. After it, a malformed frame is
-/// <c>connection.close</c> 501, a method whose arguments do not decode 502, a method on channel 0
-/// that is not <c>connection.close</c> 503, a frame on any other channel 504 (no channel is open
-/// yet: channels are BL-506's), and a content frame on channel 0 505. After a <c>close</c> it
-/// sends, the broker discards every frame until <c>close-ok</c> or <c>close</c>, or for one second.
-/// The client's <c>connection.close</c> is answered <c>close-ok</c>.
+/// connection with no bytes, as does the head timeout. After it, a channel exception is
+/// <c>channel.close</c> naming the method, the channel's consumers ended and its deliveries
+/// requeued; the broker then discards the channel's frames until <c>close-ok</c> or <c>close</c>.
+/// A connection exception is <c>connection.close</c>: a malformed frame 501, a method whose
+/// arguments do not decode 502, a method only a server sends 503, a frame on a channel not open or
+/// above channel-max 504, a content frame out of sequence 505, a bound reached 506, a reused
+/// consumer tag or an exchange redeclared with another type 530, and a method not served
+/// (<c>tx</c>, <c>confirm</c>, <c>exchange.bind</c>) 540. After a <c>close</c> it sends, the broker
+/// discards every frame until <c>close-ok</c> or <c>close</c>, or for one second. The client's
+/// <c>connection.close</c> is answered <c>close-ok</c>.
 /// </para>
 /// </remarks>
 public sealed class Amqp0Broker : IConnectionProtocolServer
@@ -47,17 +73,29 @@ public sealed class Amqp0Broker : IConnectionProtocolServer
     public const ushort ChannelMax = 256;
 
     private readonly ISaslAuthenticationPolicy policy;
+    private readonly MessageBus.MessageBus bus;
     private readonly Amqp0BrokerOptions options;
+    private readonly Amqp0ExchangeTable exchanges;
 
-    /// <summary>Creates a broker whose logins <paramref name="policy"/> judges.</summary>
+    /// <summary>Creates a broker over <paramref name="bus"/> whose logins <paramref name="policy"/> judges.</summary>
     /// <param name="policy">Offers the mechanisms and judges each login.</param>
+    /// <param name="bus">The process's shared message bus: its queues are the broker's, its topic space <c>amq.topic</c>.</param>
     /// <param name="options">The idle timeout and whether <c>ANONYMOUS</c> is offered; <see cref="Amqp0BrokerOptions.Default"/> when omitted.</param>
-    public Amqp0Broker(ISaslAuthenticationPolicy policy, Amqp0BrokerOptions? options = null)
+    public Amqp0Broker(ISaslAuthenticationPolicy policy, MessageBus.MessageBus bus, Amqp0BrokerOptions? options = null)
+        : this(policy, bus, options, new Amqp0ExchangeTable())
+    {
+    }
+
+    // The tests' seam: an exchange table with smaller bounds.
+    internal Amqp0Broker(ISaslAuthenticationPolicy policy, MessageBus.MessageBus bus, Amqp0BrokerOptions? options, Amqp0ExchangeTable exchanges)
     {
         ArgumentNullException.ThrowIfNull(policy);
+        ArgumentNullException.ThrowIfNull(bus);
 
         this.policy = policy;
+        this.bus = bus;
         this.options = options ?? Amqp0BrokerOptions.Default;
+        this.exchanges = exchanges;
     }
 
     /// <summary>
@@ -75,6 +113,6 @@ public sealed class Amqp0Broker : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Amqp0BrokerConnection(connection, context, policy, options).ServeAsync();
+        return new Amqp0BrokerConnection(connection, context, policy, options, bus, exchanges).ServeAsync();
     }
 }

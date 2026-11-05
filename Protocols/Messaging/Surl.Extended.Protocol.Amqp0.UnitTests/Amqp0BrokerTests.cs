@@ -18,16 +18,22 @@ public sealed class Amqp0BrokerTests
 
     [TestMethod]
     public void Constructor_NullPolicy_Throws() =>
-        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp0Broker(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp0Broker(null!, NewBus()));
+
+    [TestMethod]
+    public void Constructor_NullBus_Throws() =>
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy(), null!));
+
+    private static MessageBus.MessageBus NewBus() => new(new ManualTimeProvider());
 
     [TestMethod]
     public void Schemes_AreAmqpAndAmqps() =>
-        CollectionAssert.AreEqual(new[] { "amqp", "amqps" }, new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy()).Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "amqp", "amqps" }, new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy(), NewBus()).Schemes.ToArray());
 
     [TestMethod]
     public void ServeAsync_NullArguments_Throw()
     {
-        var broker = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy());
+        var broker = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy(), NewBus());
 
         Assert.ThrowsExactly<ArgumentNullException>(() => broker.ServeAsync(null!, Context(new ManualTimeProvider())));
         Assert.ThrowsExactly<ArgumentNullException>(() => broker.ServeAsync(new InMemoryConnection([]), null!));
@@ -91,7 +97,7 @@ public sealed class Amqp0BrokerTests
     public async Task ServeAsync_OffersAnonymous_OffersItLastAndAcceptsItAtOnce()
     {
         var policy = new UnitTestAmqp0AuthenticationPolicy("SCRAM-SHA-256");
-        var broker = new Amqp0Broker(policy, new Amqp0BrokerOptions { OffersAnonymous = true });
+        var broker = new Amqp0Broker(policy, NewBus(), new Amqp0BrokerOptions { OffersAnonymous = true });
 
         var (written, _) = await ServeAsync(broker, ProtocolHeader, StartOk("ANONYMOUS", []), DefaultTuneOk, Open("/"), Close());
 
@@ -102,7 +108,7 @@ public sealed class Amqp0BrokerTests
     [TestMethod]
     public async Task ServeAsync_PolicyOffersAnonymousItself_OffersItOnce()
     {
-        var broker = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("ANONYMOUS"), new Amqp0BrokerOptions { OffersAnonymous = true });
+        var broker = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("ANONYMOUS"), NewBus(), new Amqp0BrokerOptions { OffersAnonymous = true });
 
         var (written, _) = await ServeAsync(broker, ProtocolHeader);
 
@@ -196,7 +202,7 @@ public sealed class Amqp0BrokerTests
     {
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, TuneOk(0, 0, 10), Open("/")], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(clock));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(clock));
         byte[] opened = Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk());
         await WaitUntilAsync(() => connection.WrittenBytes.Length == opened.Length && clock.PendingTimerCount == 2);
 
@@ -218,7 +224,7 @@ public sealed class Amqp0BrokerTests
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, TuneOk(0, 0, 10), Heartbeat, Open("/")], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(clock, log));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(clock, log));
         byte[] opened = Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk());
         await WaitUntilAsync(() => connection.WrittenBytes.Length == opened.Length && clock.PendingTimerCount == 2);
 
@@ -234,13 +240,13 @@ public sealed class Amqp0BrokerTests
     [TestMethod]
     public async Task ServeAsync_MethodOnUnopenedChannel_IsClosedWith504()
     {
-        var channelOpen = Method(1, 20, 10, ShortString(""));
+        var queueDeclare = Method(1, 50, 10, [.. Short(0), .. ShortString("orders"), 0, 0, 0, 0, 0]);
 
         var (written, _) = await ServeAsync(
-            new UnitTestAmqp0AuthenticationPolicy("PLAIN"), ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/"), Heartbeat, channelOpen, CloseOk());
+            new UnitTestAmqp0AuthenticationPolicy("PLAIN"), ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/"), Heartbeat, queueDeclare, CloseOk());
 
         CollectionAssert.AreEqual(
-            Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk(), BrokerClose(504, "CHANNEL_ERROR - channel not open", 20, 10)), written);
+            Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk(), BrokerClose(504, "CHANNEL_ERROR - channel not open", 50, 10)), written);
     }
 
     [TestMethod]
@@ -269,7 +275,7 @@ public sealed class Amqp0BrokerTests
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, TuneOk(0, 0, 10)], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(clock, log));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(clock, log));
         await WaitUntilAsync(() => clock.PendingTimerCount == 3);
 
         clock.Advance(TimeSpan.FromSeconds(20));
@@ -285,7 +291,7 @@ public sealed class Amqp0BrokerTests
         var clock = new ManualTimeProvider();
         var inner = new InMemoryConnection([ProtocolHeader, PlainStartOk, TuneOk(0, 0, 10), Open("/")], peerHalfClosesWhenExhausted: false);
         var connection = new UnitTestHeartbeatStallingConnection(inner);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(clock));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(clock));
         await WaitUntilAsync(() => inner.WrittenBytes.Length == Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk()).Length && clock.PendingTimerCount == 2);
         clock.Advance(TimeSpan.FromSeconds(10));
         await WaitUntilAsync(() => connection.HeartbeatStalled);
@@ -354,7 +360,7 @@ public sealed class Amqp0BrokerTests
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("x")], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(clock, log));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(clock, log));
         await WaitUntilAsync(() => log.Notes.Any(note => note.StartsWith("Closed the connection with 530", StringComparison.Ordinal)) && clock.PendingTimerCount == 2);
 
         clock.Advance(TimeSpan.FromSeconds(1));
@@ -425,7 +431,7 @@ public sealed class Amqp0BrokerTests
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([ProtocolHeader], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(clock, log));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(clock, log));
         await WaitUntilAsync(() => connection.WrittenBytes.Length > 0 && clock.PendingTimerCount == 1);
 
         clock.Advance(TimeSpan.FromSeconds(30));
@@ -440,7 +446,7 @@ public sealed class Amqp0BrokerTests
     {
         var clock = new ManualTimeProvider();
         var connection = new InMemoryConnection([ProtocolHeader.AsMemory(0, 5)], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(clock));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(clock));
         await WaitUntilAsync(() => clock.PendingTimerCount == 1);
 
         clock.Advance(TimeSpan.FromSeconds(30));
@@ -454,7 +460,7 @@ public sealed class Amqp0BrokerTests
     {
         using var cancellation = new CancellationTokenSource();
         var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/")], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: cancellation.Token));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: cancellation.Token));
         await WaitUntilAsync(() => connection.WrittenBytes.Length == Concat(Start("PLAIN AMQPLAIN"), Tune(), OpenOk()).Length);
 
         await cancellation.CancelAsync();
@@ -467,7 +473,7 @@ public sealed class Amqp0BrokerTests
     {
         using var cancellation = new CancellationTokenSource();
         var connection = new InMemoryConnection([ProtocolHeader], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: cancellation.Token));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: cancellation.Token));
         await WaitUntilAsync(() => connection.WrittenBytes.Length > 0);
 
         await cancellation.CancelAsync();
@@ -481,7 +487,7 @@ public sealed class Amqp0BrokerTests
         using var cancellation = new CancellationTokenSource();
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([ProtocolHeader, PlainStartOk, DefaultTuneOk, Open("/"), Method(0, 20, 10)], peerHalfClosesWhenExhausted: false);
-        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN")).ServeAsync(connection, Context(new ManualTimeProvider(), log, cancellation.Token));
+        var serving = new Amqp0Broker(new UnitTestAmqp0AuthenticationPolicy("PLAIN"), NewBus()).ServeAsync(connection, Context(new ManualTimeProvider(), log, cancellation.Token));
         await WaitUntilAsync(() => log.Notes.Any(note => note.StartsWith("Closed the connection with 503", StringComparison.Ordinal)));
 
         await cancellation.CancelAsync();
@@ -490,7 +496,7 @@ public sealed class Amqp0BrokerTests
     }
 
     private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(UnitTestAmqp0AuthenticationPolicy policy, params byte[][] chunks) =>
-        await ServeAsync(new Amqp0Broker(policy), chunks);
+        await ServeAsync(new Amqp0Broker(policy, NewBus()), chunks);
 
     private async Task<(byte[] Written, RecordingExchangeLog Log)> ServeAsync(Amqp0Broker broker, params byte[][] chunks)
     {

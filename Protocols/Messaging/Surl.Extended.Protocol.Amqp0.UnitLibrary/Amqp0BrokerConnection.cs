@@ -1,4 +1,6 @@
 using System.Runtime.ExceptionServices;
+using System.Threading.Channels;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Amqp0;
@@ -17,12 +19,18 @@ internal sealed partial class Amqp0BrokerConnection
     private readonly ExchangeContext context;
     private readonly ISaslAuthenticationPolicy policy;
     private readonly Amqp0BrokerOptions options;
+    private readonly MessageBus.MessageBus bus;
+    private readonly Amqp0ExchangeTable exchanges;
     private readonly Amqp0FrameReader reader;
     private readonly SemaphoreSlim writeGate = new(1, 1);
     private readonly CancellationTokenSource heartbeatsCancellation = new();
     private Task heartbeatsRunning = Task.CompletedTask;
+    private Channel<byte[]>? outbound;
+    private Task outboundPumping = Task.CompletedTask;
+    private BusConnection? busConnection;
     private long lastWrittenUtcTicks;
     private int frameMax = Amqp0FrameLimits.FrameMinSize;
+    private ushort channelMax = Amqp0Broker.ChannelMax;
     private TimeSpan silenceLimit = Timeout.InfiniteTimeSpan;
 
     /// <summary>Prepares to answer <paramref name="connection"/>.</summary>
@@ -30,14 +38,21 @@ internal sealed partial class Amqp0BrokerConnection
     /// <param name="context">The exchange's context: its limits, log, clock and cancellation token.</param>
     /// <param name="policy">Offers the mechanisms and judges the login.</param>
     /// <param name="options">The idle timeout and whether <c>ANONYMOUS</c> is offered.</param>
-    public Amqp0BrokerConnection(IConnection connection, ExchangeContext context, ISaslAuthenticationPolicy policy, Amqp0BrokerOptions options)
+    /// <param name="bus">The shared message bus: the queues and the topic space.</param>
+    /// <param name="exchanges">The broker's exchanges, shared by its connections.</param>
+    public Amqp0BrokerConnection(
+        IConnection connection, ExchangeContext context, ISaslAuthenticationPolicy policy, Amqp0BrokerOptions options, MessageBus.MessageBus bus, Amqp0ExchangeTable exchanges)
     {
         this.connection = connection;
         this.context = context;
         this.policy = policy;
         this.options = options;
+        this.bus = bus;
+        this.exchanges = exchanges;
         reader = new Amqp0FrameReader(connection);
     }
+
+    private BusConnection Bus => busConnection!;
 
     /// <summary>The account logged in; <see langword="null"/> before the login, and for an unchecked one.</summary>
     public string? AccountName { get; private set; }
@@ -50,16 +65,37 @@ internal sealed partial class Amqp0BrokerConnection
         await heartbeatsCancellation.CancelAsync();
         await heartbeatsRunning;
         heartbeatsCancellation.Dispose();
-        failure?.Throw();
+
+        // Ending the bus connection requeues every unsettled delivery and stops the consumers,
+        // so nothing more is queued for writing; then what was queued is written out.
+        busConnection?.Dispose();
+        outbound?.Writer.TryComplete();
+        var writeFailure = await CaptureFailureAsync(() => outboundPumping);
+        (failure ?? writeFailure)?.Throw();
     }
 
     private async Task ServeUntilEndAsync()
     {
         if (await NegotiateWithinHeadTimeoutAsync())
         {
+            busConnection = bus.Connect(AccountName);
+            outbound = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions { SingleReader = true });
+            outboundPumping = WriteOutboundAsync(outbound.Reader);
             await ServeOpenedAsync();
         }
     }
+
+    // After open-ok every frame but a heartbeat is written in the order it was queued, so a
+    // delivery made on the bus's thread never overtakes the answer before it (consume-ok first).
+    private async Task WriteOutboundAsync(ChannelReader<byte[]> queued)
+    {
+        await foreach (var bytes in queued.ReadAllAsync(context.CancellationToken))
+        {
+            await WriteNowAsync(bytes, context.CancellationToken);
+        }
+    }
+
+    private void Send(byte[] bytes) => outbound!.Writer.TryWrite(bytes);
 
     // Runs work and hands back what it threw instead of throwing it, so the heartbeats are stopped
     // with an await outside any catch or finally block.
@@ -124,6 +160,7 @@ internal sealed partial class Amqp0BrokerConnection
         }
 
         frameMax = tuneOk.FrameMax == 0 ? offeredFrameMax : (int)tuneOk.FrameMax;
+        channelMax = tuneOk.ChannelMax == 0 ? Amqp0Broker.ChannelMax : tuneOk.ChannelMax;
         StartHeartbeats(tuneOk.Heartbeat);
         return true;
     }
@@ -260,13 +297,25 @@ internal sealed partial class Amqp0BrokerConnection
     private ValueTask WriteMethodAsync(Amqp0MethodPayload method, CancellationToken cancellationToken) =>
         WriteFrameAsync(Amqp0Frame.ForMethod(0, method), cancellationToken);
 
-    // The reading of frames and the heartbeats both write; one write at a time.
     private async ValueTask WriteFrameAsync(Amqp0Frame frame, CancellationToken cancellationToken)
+    {
+        if (outbound is not null)
+        {
+            Send(frame.Encode());
+            return;
+        }
+
+        await WriteNowAsync(frame.Encode(), cancellationToken);
+    }
+
+    // The outbound queue (or, before open-ok, the reading of frames) and the heartbeats both
+    // write; one write at a time.
+    private async ValueTask WriteNowAsync(byte[] bytes, CancellationToken cancellationToken)
     {
         await writeGate.WaitAsync(cancellationToken);
         try
         {
-            await connection.WriteAsync(frame.Encode(), cancellationToken);
+            await connection.WriteAsync(bytes, cancellationToken);
             Interlocked.Exchange(ref lastWrittenUtcTicks, context.TimeProvider.GetUtcNow().UtcTicks);
         }
         finally

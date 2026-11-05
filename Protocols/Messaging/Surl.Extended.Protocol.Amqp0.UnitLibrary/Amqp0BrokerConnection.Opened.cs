@@ -50,7 +50,7 @@ internal sealed partial class Amqp0BrokerConnection
 
         if (frame.Channel != 0)
         {
-            return await CloseForUnopenedChannelAsync(frame);
+            return await AnswerChannelFrameAsync(frame);
         }
 
         if (frame.Type != Amqp0FrameType.Method)
@@ -61,13 +61,6 @@ internal sealed partial class Amqp0BrokerConnection
         return ReadMethodOrNull(frame) is { } method
             ? await AnswerConnectionMethodAsync(method)
             : await CloseFalseAsync(Amqp0ReplyCode.SyntaxError, "SYNTAX_ERROR - malformed method", 0, 0);
-    }
-
-    // No channel is open: channel.open is BL-506's.
-    private ValueTask<bool> CloseForUnopenedChannelAsync(Amqp0Frame frame)
-    {
-        var method = frame.Type == Amqp0FrameType.Method ? ReadMethodOrNull(frame) : null;
-        return CloseFalseAsync(Amqp0ReplyCode.ChannelError, "CHANNEL_ERROR - channel not open", method?.ClassId ?? 0, method?.MethodId ?? 0);
     }
 
     private async ValueTask<bool> AnswerConnectionMethodAsync(Amqp0MethodPayload method)

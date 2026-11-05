@@ -44,10 +44,35 @@ The connection class (BL-505, ADR-0112 decisions 2, 3, 4 and 7):
   the interval, and a peer silent for two intervals is closed without `connection.close`.
 - `Amqp0ConnectionStart`, `Amqp0ConnectionStartOk`, `Amqp0ConnectionTuning`, `Amqp0ConnectionOpen`
   and `Amqp0ConnectionClose` are the connection methods' codecs; `Amqp0ConnectionMethodId` their IDs.
-- No channel opens yet: a frame on any channel but 0 is `connection.close` 504 until BL-506.
+Channels, exchanges, queues and the basic class (BL-506, ADR-0112 decisions 5, 6 and 7):
+
+- `Amqp0Broker` takes the process's one `MessageBus` and holds one `Amqp0ExchangeTable`, shared
+  by its connections: `amq.direct`, `amq.fanout` and `amq.topic` from start, and the direct,
+  fanout and topic exchanges clients declare (`Amqp0TopicKeyMatcher` matches `*` and `#`), with
+  their bindings. The default exchange routes by queue name; `amq.topic` is the bus's topic space,
+  its publishes `BusConnection.Publish` and its bindings `BindQueue`, mapped through
+  `AmqpTopicExchangeNames`. Queues are the bus's named queues; nothing of a queue is held here.
+- After `open-ok` each connection opens one `BusConnection` for its account, and every frame but a
+  heartbeat goes through one ordered outbound queue, so a delivery the bus makes on another thread
+  never overtakes the answer before it. Deliveries (`Deliver`) run on the bus's thread and only
+  queue bytes, under the channel's `Gate`.
+- `Amqp0BrokerConnection.Channels` dispatches each method on an open channel through
+  `MethodAnswers`. A handler throws `Amqp0ChannelException` (answered `channel.close` naming the
+  method; the channel's consumers end and its deliveries go back) or `Amqp0ConnectionException`
+  (answered `connection.close`). Each bus refusal maps through `ChannelRefusals`; any it does not
+  name is connection exception 506.
+- `basic.publish` content is collected in `Amqp0PendingPublish` and stored with the native form
+  `amqp0` (`Amqp0BusMessages.ToBusMessage`); a delivery of another protocol's message gets a header
+  built from its fields (`ToOutgoingContent`). `Amqp0BasicProperties` reads and writes the 14
+  `basic` properties.
+- Delivery tags run from 1 per channel; `Amqp0Channel.Outstanding` maps each to its bus delivery.
+  `basic.qos`'s prefetch-count bounds each consumer the channel makes afterwards; the
+  channel-wide and `global` bounds, `prefetch-size`, and `recover` to the original consumer are
+  BL-754. `basic.cancel` to the consumers of a deleted queue is BL-755.
 
 The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749;
-channels, exchanges, queues and the basic class BL-506; the command line and composition BL-507.
+transactions and publisher confirms BL-731 (`tx` and `confirm` are 540 until then); the headers
+exchange and durable exchanges across restarts BL-732; the command line and composition BL-507.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0112 decision 0 names (`Surl.MessageBus`, `Surl.Content`) - never

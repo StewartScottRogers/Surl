@@ -3,6 +3,8 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// <summary>Heartbeats (AMQP 0-9-1 section 4.2.7; ADR-0112 decision 3).</summary>
 internal sealed partial class Amqp0BrokerConnection
 {
+    private static readonly byte[] HeartbeatBytes = Amqp0Frame.Heartbeat.Encode();
+
     // With a nonzero interval h, a peer silent for 2h is closed, and the broker writes a heartbeat
     // whenever it has written nothing for h.
     private void StartHeartbeats(ushort seconds)
@@ -31,7 +33,7 @@ internal sealed partial class Amqp0BrokerConnection
                 }
                 else
                 {
-                    await WriteFrameAsync(Amqp0Frame.Heartbeat, cancellationToken);
+                    await WriteNowAsync(HeartbeatBytes, cancellationToken);
                 }
             }
         }
