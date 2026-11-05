@@ -52,3 +52,4 @@ codes are the core's, answered independently of any transport.
 - 2026-11-04: Amended by task-planner: builds on the shared MCP core `Surl.McpServing` (BL-619, decided by BL-612)
   instead of writing JSON-RPC and the lifecycle itself; the core's own tests now carry the malformed-JSON, null-id,
   unknown-method, notification and size-limit cases. Title changed to match.
+- 2026-11-05: Backlog -> Doing.
