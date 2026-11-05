@@ -4,7 +4,7 @@ title: Add --mail-alias, --mail-catch-all and --shared-folder and compose them i
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-653, BL-646, BL-675, BL-677]
+depends-on: [BL-883, BL-646, BL-675, BL-677]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -22,7 +22,7 @@ members expanded.
 
 - Decisions: BL-641's ADR (names, grammar, refusals, bounds, which option widens access - a catch-all does, and is
   warned at start per ADR-0032 section 9) and BL-642's ADR decisions 1 and 4.
-- Builds on: BL-653 (mail options and composition), BL-648 (aliases, catch-alls in the store), BL-675 (quotas,
+- Builds on: BL-880 to BL-883 (mail options and composition, split from BL-653), BL-648 (aliases, catch-alls in the store), BL-675 (quotas,
   folders, shared folders in the store), BL-677 (IMAP shows them), BL-646 (group expansion).
 - Where: `Application/Surl.Cli.UnitLibrary` (option rows, BL-645 item reader) and
   `Application/Surl.Composition.UnitLibrary` (passing them to `MailboxStore`).
@@ -55,3 +55,4 @@ members expanded.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: depends-on BL-653 replaced by BL-883, the last task of its split (BL-653 deferred: timed out after 120 min; Stewart asked for the split 2026-11-05).

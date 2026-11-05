@@ -45,3 +45,4 @@ server half as BL-386's ADR defines, and the pass-rate file counts them.
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-395-20261105-054539-L7.jsonl
+- 2026-11-05: Blocked -> Deferred. Split into BL-875, BL-876, BL-877, BL-878, BL-879 (timed out after 120 min; Stewart asked for the split 2026-11-05)

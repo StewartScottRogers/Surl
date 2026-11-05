@@ -4,7 +4,7 @@ title: Run the runnable upstream test cases with the pinned Curl port as the cli
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-576, BL-577, BL-578, BL-394, BL-395, BL-396, BL-397]
+depends-on: [BL-576, BL-577, BL-578, BL-394, BL-879, BL-396, BL-397]
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/CurlPort/Upstream-Test-Cases.md]
 requirement: none
 created: 2026-11-04
@@ -53,3 +53,4 @@ per protocol family, and lists each finding in BL-576's ADR decision 6 form.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: depends-on BL-395 replaced by BL-879, the last task of its split (BL-395 deferred: timed out after 120 min; Stewart asked for the split 2026-11-05).

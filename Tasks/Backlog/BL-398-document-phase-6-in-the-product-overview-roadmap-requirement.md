@@ -4,7 +4,7 @@ title: Document Phase 6 in the product overview, roadmap, requirements, glossary
 priority: Low
 assignee: Claude
 pipeline: docs
-depends-on: [BL-360, BL-371, BL-385, BL-394, BL-395, BL-396, BL-397]
+depends-on: [BL-360, BL-371, BL-385, BL-394, BL-879, BL-396, BL-397]
 touches: [Documentation/Product/Product-Overview.md, Documentation/Planning/Roadmap.md, Documentation/Product/Requirements.md, Documentation/Wiki/Glossary.md, README.md]
 requirement: none
 created: 2026-11-04
@@ -46,3 +46,4 @@ on each runtime identifier. Every statement in them is true of the code.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: depends-on BL-395 replaced by BL-879, the last task of its split (BL-395 deferred: timed out after 120 min; Stewart asked for the split 2026-11-05).
