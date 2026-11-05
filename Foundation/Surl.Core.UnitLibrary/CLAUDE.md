@@ -15,3 +15,9 @@ and applied by the code that owns that stage.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and no protocol server.
 Protocol servers receive what it provides through the contracts in Abstractions.
+
+The identifier sources (ADR-0124, decision 6; BL-851): `CryptographicIdentifierRandom.Instance`
+(stateless, `RandomNumberGenerator`) and `SeededIdentifierRandom(seed)`, whose `ForExchange(exchangeId)`
+and `ForServer(name)` each return a fresh `IIdentifierRandom` - SHA-256 in counter mode
+(`Sha256CounterIdentifierRandom`) over a label, the seed and the exchange ID or name - so one
+exchange's identifiers never depend on what other exchanges drew. Non-secret identifiers only.
