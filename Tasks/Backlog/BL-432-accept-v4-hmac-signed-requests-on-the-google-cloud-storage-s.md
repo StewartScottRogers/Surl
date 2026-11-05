@@ -23,6 +23,9 @@ each failing signature with the XML error code BL-429's ADR names.
   contracts, not by referencing `Surl.Authentication`.
 - The signature covers the body's hash (`x-goog-content-sha256`), so a body is bound after it is read, as
   ADR-0045 does for SigV4.
+- BL-429's ADR is ADR-0110 (2026-11-05): decision 3.4's table maps each refusal - `400 InvalidArgument`
+  (malformed header or scope), `400 MissingSecurityHeader`, `403 InvalidAccessKeyId`, `403 SignatureDoesNotMatch`,
+  `403 RequestTimeTooSkewed`, and `400 BadDigest` for a body not hashing to `x-goog-content-sha256`.
 
 ## Acceptance criteria
 

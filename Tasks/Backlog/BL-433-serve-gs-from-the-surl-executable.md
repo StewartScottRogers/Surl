@@ -27,6 +27,10 @@ completed:
   instance every original file server gets (buckets resolve through BL-655's lookup), and the same account set. If
   BL-609 has moved the composition to `Application/Surl.Composition.UnitLibrary` (`ExtendedProtocolServers.Compose`
   keeps its name), register it there and record the changed touches in Notes.
+- BL-429's ADR is ADR-0110 (2026-11-05): decision 5 makes `gs` implicit TLS on 443 (ALPN `http/1.1`, `--cert`
+  or `--self-signed` required, exit 58 without) and adds `--gs-plaintext` (no argument, category `gs`, warned on
+  start) with its `OptionArgumentType` and `--aihelp` facts; decision 8 gives the topic's about text. Replace the
+  matrix's `GCS:Surl-Tls-1` and `-2` "n/a" entries with this task's test names.
 
 ## Acceptance criteria
 

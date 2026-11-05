@@ -27,6 +27,11 @@ List Objects from the content store with bearer authentication, and refuses with
   returns `ListBucketResult` with `prefix`, `delimiter`, `marker` and `max-keys`; errors are
   `<Error><Code>…</Code><Message>…</Message></Error>`. CRC32C is computed with `System.Numerics.BitOperations.Crc32C`.
 - V4 HMAC is wired in by BL-432. This task's tests use bearer tokens and anonymous reads.
+- BL-429's ADR is ADR-0110 (2026-11-05). Beyond GET, HEAD, PUT and List Objects, its decision 1 also gives this
+  task DELETE Object and List Buckets (`GET /`), both listing versions (version 1 `marker`/`NextMarker` and
+  version 2 continuation tokens), `400 NotImplemented` for every other request, and its decision 3.4 gives the
+  refusal codes (`401 AuthenticationRequired` with the Bearer challenge for no credential). The matrix is
+  `Documentation/Conformance/Extended/GoogleCloudStorage.md`; replace each `BL-431` there with the test's name.
 - Shared stores (Stewart, 2026-11-04; BL-622's ADR decision 2): objects are files in the one shared
   `ContentStore`. PUT Object's content type, `x-goog-meta-*`, generation and hashes go to BL-636's object metadata,
   not a private store; a file written by another protocol is answered with BL-636's defaults. Every store call
@@ -44,7 +49,10 @@ List Objects from the content store with bearer authentication, and refuses with
       - a missing object gets `404 NoSuchKey`;
       - no token with anonymous off is refused as the ADR says;
       - a file put into the content store with no metadata (as FTP writes it) read with BL-636's defaults;
-      - a write refused by share access answered with the ADR's error.
+      - a write refused by share access answered with the ADR's error;
+      - DELETE Object `204`, List Buckets listing the readable top-level folders, a `list-type=2` listing paged
+        by `continuation-token`, and an unlisted request (a `POST`) answered `400 NotImplemented` (ADR-0110
+        decision 1).
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library has 100% line and branch
       coverage.
 

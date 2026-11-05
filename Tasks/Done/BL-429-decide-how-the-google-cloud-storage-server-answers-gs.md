@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-622]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/GoogleCloudStorage.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-429 — Decide how the Google Cloud Storage server answers gs
 
@@ -52,16 +52,31 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 5, each wire choice citing its XML API page,
       and is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/GoogleCloudStorage.md` exists in the matrix format, each "covered by"
+- [x] `Documentation/Conformance/Extended/GoogleCloudStorage.md` exists in the matrix format, each "covered by"
       naming BL-431, BL-430 or BL-432, or "n/a: <reason>".
 
 ## Notes
+
+- 2026-11-05: ADR-0110 written from the XML API pages read that day (overview, GET Bucket, GET Object,
+  "HTTP status and error codes", "HTTP headers and common request headers"); `cloud.google.com` now redirects to
+  `docs.cloud.google.com`. Matrix: `Documentation/Conformance/Extended/GoogleCloudStorage.md`.
+- Choices where the pages left one: `NotImplemented` is `400` (the page's status, unlike S3's 501); no credential
+  is `401 AuthenticationRequired` with `WWW-Authenticate: Bearer realm="storage"` (RFC 9110 needs a challenge on
+  401); no `Details` element (no client byte echoed); unmappable names `400`/`409 InvalidObjectName` (amends
+  ADR-0100's JSON planning row); a full metadata index `403 InsufficientQuota`; body-hash mismatch `400 BadDigest`
+  (the XML API has no `XAmzContentSHA256Mismatch`); both listing versions served; `AWS4-HMAC-SHA256` refused on
+  `gs` (S3 clients have `s3://`).
+- BL-431 gains DELETE Object, List Buckets, the version 2 listing and the `NotImplemented` answer (its Context and
+  acceptance amended); BL-432 and BL-433 Context name ADR-0110's decisions. The TLS rows name BL-433 as "n/a" from
+  the server library's matrix because the criterion lists only BL-430 to BL-432.
+- Filed BL-718 (XML multipart and resumable uploads) and BL-719 (decide the JSON API), so neither is left out.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-622; Context says the store is shared.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0110 decides how surl gs:// answers the Cloud Storage XML API; GoogleCloudStorage.md traces each row to BL-430, BL-431, BL-432 or n/a
