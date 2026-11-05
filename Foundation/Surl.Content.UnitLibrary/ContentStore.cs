@@ -82,7 +82,7 @@ public sealed class ContentStore
 {
     private const int CopyBufferSize = 81920;
 
-    private const string ServiceStateFolderName = ".surl";
+    internal const string ServiceStateFolderName = ".surl";
 
     private readonly IContentFileSystem fileSystem;
 

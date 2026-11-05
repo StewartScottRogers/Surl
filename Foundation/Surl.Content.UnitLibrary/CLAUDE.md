@@ -39,3 +39,24 @@ missing - whatever `ContentExposureOptions.ServeDotFiles` and `FollowSymbolicLin
 The match is case-insensitive on every platform and whole-segment only: `.surlx`,
 `.surl-upload-<guid>` and `sub/.surl` are ordinary dot-files. Never weaken this rule; the
 rule holds in memory too, so an upload can never create a `.surl`.
+
+`ObjectMetadataIndex` keeps what a file system cannot hold for the object-storage servers
+(S3, Azure Storage, Cloud Storage, the OCI registry; ADR-0100 decision 2.3, built by BL-636):
+the five header fields set at upload, user metadata, the ETag and GCS's generation, keyed by
+the file's path relative to the served root (`bucket/x/y`) and stamped with the file's length
+and last write time. A stamp that no longer matches - the file was overwritten, renamed or
+deleted through the content store by any protocol - makes the entry absent: the file answers
+the defaults (`DefaultContentType`, no user metadata, the quoted lower-case hexadecimal MD5 of
+its bytes as ETag, cached on first read, and its last write time in microseconds since the
+Unix epoch as generation). Bounds: `MaxEntries` (default 100000, `MetadataIndexFull`, stale
+entries dropped first) and `MaxMetadataBytes` (default 8192, the UTF-8 bytes of the header
+fields and user metadata names and values, `MetadataTooLarge`). With a data directory it is
+`<root>/.surl/objects/index`, rewritten whole through `.index-<guid>` and
+`MoveFileReplacing`, loaded by `LoadAsync` (malformed: `ObjectMetadataIndexLoadException`,
+reason `not an object metadata index`); a failed write is returned as `StorageFailure`, never
+thrown. Its byte format is pinned in `ObjectMetadataIndexFormat`'s remarks: the header
+`SURL-OBJECT-INDEX-1` and LF, a 4-byte entry count, then entries in strictly ascending ordinal
+key order - key, length (8, signed), last write UTC ticks (8, signed), generation (8, signed),
+ETag, the five header fields (empty is absent), a 2-byte user-metadata count and its name and
+value pairs in strictly ascending ordinal order of name; every string is a 2-byte UTF-8
+length then its bytes, every integer big-endian.
