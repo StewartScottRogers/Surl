@@ -8,7 +8,7 @@ depends-on: [BL-611]
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md, Record-CurlExchange.ps1]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-641 — Decide surl's configuration surface: the -K config file, repeatable item options and the one configuration model
 
@@ -83,21 +83,40 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation", citing Stewart's approval of 2026-11-04 and BL-611's ADR. It answers
       decisions 1 to 7; every config-file syntax row cites `config.md` at `curl-8_21_0` or a measurement of the
       pinned 8.21.0 build (path and SHA-256 named), and is listed in `Documentation/Planning/Decisions/README.md`.
-- [ ] Each measurement is reproducible: the ADR gives the `Record-CurlExchange.ps1` command line, and if the
+- [x] Each measurement is reproducible: the ADR gives the `Record-CurlExchange.ps1` command line, and if the
       script was extended, its change is in the same commit and its header documents the new parameter.
-- [ ] The ADR names every option, its argument type, help category, default, and whether it widens access.
-- [ ] `Documentation/Product/Requirements.md` has a new functional requirement row (next free FR number) for the
+- [x] The ADR names every option, its argument type, help category, default, and whether it widens access.
+- [x] `Documentation/Product/Requirements.md` has a new functional requirement row (next free FR number) for the
       configuration command line and config file, citing the ADR, marked Draft, naming the build tasks.
-- [ ] The ADR's Consequences section lists the build tasks by ID (BL-644, BL-645, BL-646, BL-653, BL-654, BL-663,
+- [x] The ADR's Consequences section lists the build tasks by ID (BL-644, BL-645, BL-646, BL-653, BL-654, BL-663,
       BL-666, BL-668) and names any whose Goal or option names it changes.
 
 ## Notes
+
+- Decided in ADR-0101. Measured 18 cases against the pinned Windows reference build
+  (`C:\Program Files\Git\mingw64\bin\curl.exe`, SHA-256 `0E773709...8778`). `Record-CurlExchange.ps1` could not
+  pass a config file, so it gained `-ConfigFile <name>=<text>` (documented in its header): files are written beside
+  the fixtures and curl runs there, so nested `config = b.cfg` lines name each other by bare name.
+- Learned from the measurements: curl's nesting limit is 5 files (`Max config file recursion level reached (5)`),
+  with no cycle detection; curl's `<file>:<line>` counts only option lines, not blank or comment lines; an
+  unreadable config file exits 26; text after a closing quote is dropped silently; `-s` silences curl's config
+  warnings; `--header=value` on a dashed line works because the command line accepts `--name=value`.
+- Choices with a sensible default (recorded in the ADR): depth 5 as curl rather than the planning 8; physical line
+  numbers; exit 37 for an unreadable file as `--user-file`; refuse trailing text, a missing closing quote and a
+  cycle; no default `.surlrc`; percent-encoding for item escapes (Windows paths need nothing); new help categories
+  only `mail` and `messages` (shares join `content`, groups `auth`); a new `--url` option so `url = ` works in a
+  file; `--topic-access` grants `pubsub` as a third word; `--mailbox-file` repeats add.
+- Follow-up filed: BL-679 (the readable-by-others warning for `--user-file`, whose reading lives in the
+  composition, outside BL-644's `touches`).
+- The task's `touches` covered all edits (the ADR, its README row, Requirements.md, the script); the new task file
+  is a board change.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0101 decides surl's configuration surface: -K/--config in curl 8.21.0's measured syntax, the shared item grammar, every layer-2 option, refusals, bounds and help; FR-059 added
