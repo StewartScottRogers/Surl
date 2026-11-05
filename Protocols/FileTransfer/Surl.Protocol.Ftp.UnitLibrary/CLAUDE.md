@@ -27,6 +27,12 @@ handshake before `ServeAsync`, so `FtpProtocolServer` claims `ftps` itself.
   `--allow-uploads`, `550 Not permitted` otherwise; `SITE` always `504`, decision 8); and TLS
   (`AUTH TLS`/`AUTH SSL` only when the server is constructed with `isTlsUpgradeAvailable`,
   `PBSZ`, `PROT C`/`P`, `CCC` always `534`, decision 5).
+- Share access (ADR-0102 decisions 2.2 and 2.3, BL-658): `FtpCommandResponder` maps every path
+  with `ContentStore.MapRequestPathForCaller`, the caller being the account a checked login
+  (`PasswordLoginVerdict.Accepted`) named, or anonymous - before a login and after one
+  `--allow-anonymous` accepted unchecked - on the exchange's scheme (`ftp` or `ftps`). A share the
+  caller may not read answers as a missing path (`550 No such file` / `550 No such directory`);
+  `STOR` or `APPE` in a share it may only read is `550 Not permitted` before any data connection.
 - `FtpDataConnections`: one control connection's passive listener or active target
   (`EPSV`, `PASV`, `EPRT`, `PORT`, target parsed by `FtpActiveTargetParser`, decision 6), and
   `ProtectAsync`, which upgrades a data connection to TLS under `PROT P`. Every listener and

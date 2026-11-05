@@ -56,7 +56,7 @@ internal static class FtpPath
         directory.Count == 0 ? directory : [.. directory.Take(directory.Count - 1)];
 
     /// <summary>
-    /// The request path <see cref="Surl.Content.ContentStore.MapRequestPath(string)"/> takes for
+    /// The request path <see cref="Surl.Content.ContentStore.MapRequestPathForCaller(string, Surl.Content.ContentCaller)"/> takes for
     /// <paramref name="path"/>: each segment percent-encoded, so no byte of a name is read as a
     /// separator or an escape.
     /// </summary>

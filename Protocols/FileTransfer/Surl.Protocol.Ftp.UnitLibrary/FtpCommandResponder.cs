@@ -55,6 +55,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
     private readonly FtpUpstreamTestCaseReplies? upstreamTestCaseReplies;
     private string? userName;
     private bool isLoggedIn;
+    private ContentCaller? contentCaller;
     private bool isProtectionBufferSizeSet;
     private IReadOnlyList<string> currentDirectory = [];
     private long restartOffset;
@@ -221,17 +222,29 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
         }
 
         userName = null;
-        return LogInAsync(new PasswordLogin(context.Scheme, sentUserName, argument ?? [], connection.TlsSession));
+        return LogInAsync(sentUserName, new PasswordLogin(context.Scheme, sentUserName, argument ?? [], connection.TlsSession));
     }
 
-    private async ValueTask<bool> LogInAsync(PasswordLogin login)
+    private async ValueTask<bool> LogInAsync(string sentUserName, PasswordLogin login)
     {
         var verdict = await authenticationPolicy.CheckPasswordLoginAsync(login, context.CancellationToken);
         NoteCheckedLogin(login, verdict);
         isLoggedIn = verdict is PasswordLoginVerdict.Accepted or PasswordLoginVerdict.AcceptedUnchecked;
+        if (verdict == PasswordLoginVerdict.Accepted)
+        {
+            contentCaller = ContentCaller.ForAccount(sentUserName, context.Scheme);
+        }
 
         return await ReplyAsync(LoginReply(verdict));
     }
+
+    // The content store is told who asks (ADR-0102 decision 2.2): the account a checked login
+    // named, or an anonymous caller - before a login, and after one --allow-anonymous accepted
+    // unchecked - on the scheme the server listens on. A share the caller may not read is
+    // answered as a missing path (550, as for any other); a write in a share it may only read is
+    // the store's NotPermitted, 550 Not permitted (ADR-0102 decision 2.3).
+    private ContentPathMapping MapPath(IReadOnlyList<string> path) =>
+        contentStore.MapRequestPathForCaller(FtpPath.ToRequestPath(path), contentCaller ??= ContentCaller.Anonymous(context.Scheme));
 
     private static string LoginReply(PasswordLoginVerdict verdict) => verdict switch
     {
@@ -348,7 +361,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
 
     private bool IsDirectory(IReadOnlyList<string> path)
     {
-        var mapping = contentStore.MapRequestPath(FtpPath.ToRequestPath(path));
+        var mapping = MapPath(path);
 
         return mapping.IsMapped && contentStore.GetEntryKind(mapping) == ContentEntryKind.Directory;
     }
@@ -483,7 +496,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
     // neither or cannot be read (ADR-0009; ADR-0023).
     private IReadOnlyList<ContentDirectoryEntry>? FindListedEntries(IReadOnlyList<string> path, bool listsOneFile)
     {
-        var mapping = contentStore.MapRequestPath(FtpPath.ToRequestPath(path));
+        var mapping = MapPath(path);
         if (!mapping.IsMapped)
         {
             return null;
@@ -557,7 +570,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
     // listing, or type=dir alone for / or a directory its parent does not list by that name.
     private string? DescribeEntry(IReadOnlyList<string> path)
     {
-        var mapping = contentStore.MapRequestPath(FtpPath.ToRequestPath(path));
+        var mapping = MapPath(path);
         if (!mapping.IsMapped)
         {
             return null;
@@ -583,7 +596,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
             return "type=dir;";
         }
 
-        var parent = contentStore.MapRequestPath(FtpPath.ToRequestPath(FtpPath.Parent(path)));
+        var parent = MapPath(FtpPath.Parent(path));
         var entry = contentStore.ListDirectoryWhateverTheListingSwitchSays(parent, context.CancellationToken).Entries
             .FirstOrDefault(candidate => candidate.Kind == ContentEntryKind.Directory && string.Equals(candidate.Name, path[^1], StringComparison.Ordinal));
 
@@ -635,7 +648,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
             return null;
         }
 
-        var mapping = contentStore.MapRequestPath(FtpPath.ToRequestPath(path));
+        var mapping = MapPath(path);
         try
         {
             return mapping.IsMapped && contentStore.GetFileStatus(mapping) is { } status ? (mapping, status) : null;
@@ -821,7 +834,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
             return NotPermitted;
         }
 
-        var source = contentStore.MapRequestPath(FtpPath.ToRequestPath(sourcePath));
+        var source = MapPath(sourcePath);
         var result = contentStore.RenameEntry(source, destination.Mapping);
         return result == ContentChangeResult.Exists ? InTheWayOfARenameReply(destination.Mapping) : RenameReply(result);
     }
@@ -855,7 +868,7 @@ internal sealed partial class FtpCommandResponder : IAsyncDisposable
             return null;
         }
 
-        var mapping = contentStore.MapRequestPath(FtpPath.ToRequestPath(path));
+        var mapping = MapPath(path);
         return mapping.IsMapped ? (path, mapping) : null;
     }
 
