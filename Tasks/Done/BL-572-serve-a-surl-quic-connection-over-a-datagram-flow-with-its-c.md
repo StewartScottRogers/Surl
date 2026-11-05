@@ -67,7 +67,7 @@ What was built (2026-11-05, dark factory lane 1):
   (`...Adr0082Options_SendExactlyTheTransportParameterBytesTheyAlwaysDid`).
 
 Decisions (Decided by Claude under Stewart's delegation; recorded here because BL-642 held
-`Documentation/Planning/Decisions`, and BL-691 is filed to carry them into ADR-0086):
+`Documentation/Planning/Decisions`, and BL-696 is filed to carry them into ADR-0086):
 
 - **The application gets a `QuicApplicationConnection`, not the bare `QuicServerConnection`.** ADR-0086 names
   `ServeAsync(QuicServerConnection, ...)` as a planning name. The connection does no I/O and is not

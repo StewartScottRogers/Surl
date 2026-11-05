@@ -1,5 +1,5 @@
 ---
-id: BL-691
+id: BL-696
 title: Record in ADR-0086 that an IQuicApplicationProtocol is handed a QuicApplicationConnection, and add the Abstractions reference to ADR-0002's Surl.Quic row
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-691 — Record in ADR-0086 that an IQuicApplicationProtocol is handed a QuicApplicationConnection, and add the Abstractions reference to ADR-0002's Surl.Quic row
+# BL-696 — Record in ADR-0086 that an IQuicApplicationProtocol is handed a QuicApplicationConnection, and add the Abstractions reference to ADR-0002's Surl.Quic row
 
 ## Goal
 
