@@ -24,7 +24,9 @@ What it holds, all in namespace `Surl.McpServing`, every type `public`:
   only once a tool is added. `McpToolMethods` answers `tools/list` paged by `McpListCursor` (the next
   offset as decimal text, base64url without padding; a bad cursor is `-32602 Invalid params: cursor`) and
   `tools/call`: arguments are checked before the handler runs (`-32602` naming the first failing path),
-  the handler's `McpToolResult` is written as `content`/`structuredContent`/`isError`, an
+  the handler's `McpToolResult` is written as `content`/`structuredContent`/`isError` - its text blocks,
+  then its `McpEmbeddedResource` blocks (`{"type":"resource","resource":{"uri","mimeType","blob"}}`, the
+  bytes base64) - an
   `McpToolFailureException` becomes `isError: true`, any other exception `-32603 Internal error`, and a
   handler cancelled through its token gets no response.
 

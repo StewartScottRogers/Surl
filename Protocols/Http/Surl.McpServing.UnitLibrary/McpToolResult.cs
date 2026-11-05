@@ -33,6 +33,32 @@ public sealed class McpToolResult
         IsError = isError;
     }
 
+    /// <summary>Initializes a new instance of the <see cref="McpToolResult" /> class.</summary>
+    /// <param name="textContent">The text of each text <c>content</c> block, in order.</param>
+    /// <param name="embeddedResources">The embedded resource blocks, written after the text blocks, in order.</param>
+    /// <param name="structuredContent">The <c>structuredContent</c> object, or <see langword="null" /> for none.</param>
+    /// <param name="isError">Whether the tool failed.</param>
+    /// <exception cref="ArgumentNullException">A list or one of its entries is <see langword="null" />.</exception>
+    /// <exception cref="ArgumentException"><paramref name="structuredContent" /> is not a JSON object.</exception>
+    public McpToolResult(
+        IReadOnlyList<string> textContent,
+        IReadOnlyList<McpEmbeddedResource> embeddedResources,
+        JsonElement? structuredContent = null,
+        bool isError = false)
+        : this(textContent, structuredContent, isError)
+    {
+        ArgumentNullException.ThrowIfNull(embeddedResources);
+        if (embeddedResources.Any(resource => resource is null))
+        {
+            throw new ArgumentNullException(nameof(embeddedResources), "An embedded resource is null.");
+        }
+
+        EmbeddedResources = [.. embeddedResources];
+    }
+
+    /// <summary>Gets the embedded resource blocks, written after the text blocks, in order.</summary>
+    public IReadOnlyList<McpEmbeddedResource> EmbeddedResources { get; } = [];
+
     /// <summary>Gets the text of each <c>content</c> block, in order.</summary>
     public IReadOnlyList<string> TextContent { get; }
 

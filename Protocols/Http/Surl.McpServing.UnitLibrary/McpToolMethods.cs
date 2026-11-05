@@ -155,6 +155,11 @@ internal static class McpToolMethods
             writer.WriteEndObject();
         }
 
+        foreach (McpEmbeddedResource resource in result.EmbeddedResources)
+        {
+            WriteEmbeddedResource(writer, resource);
+        }
+
         writer.WriteEndArray();
         if (result.StructuredContent is { } structuredContent && version == McpProtocolVersions.Latest)
         {
@@ -163,6 +168,18 @@ internal static class McpToolMethods
         }
 
         writer.WriteBoolean("isError", result.IsError);
+        writer.WriteEndObject();
+    }
+
+    private static void WriteEmbeddedResource(Utf8JsonWriter writer, McpEmbeddedResource resource)
+    {
+        writer.WriteStartObject();
+        writer.WriteString("type", "resource");
+        writer.WriteStartObject("resource");
+        writer.WriteString("uri", resource.Uri);
+        writer.WriteString("mimeType", resource.MimeType);
+        writer.WriteBase64String("blob", resource.Blob.Span);
+        writer.WriteEndObject();
         writer.WriteEndObject();
     }
 

@@ -33,6 +33,29 @@ public sealed class McpToolResultTests
     }
 
     [TestMethod]
+    public void Constructor_EmbeddedResources_KeepsThemAfterTheText()
+    {
+        McpEmbeddedResource resource = new("file:///a.bin", "application/octet-stream", [1, 2]);
+
+        McpToolResult result = new(["t"], [resource], isError: true);
+
+        Assert.AreSame(resource, result.EmbeddedResources.Single());
+        CollectionAssert.AreEqual(new[] { "t" }, result.TextContent.ToArray());
+        Assert.IsTrue(result.IsError);
+    }
+
+    [TestMethod]
+    public void Constructor_TextOnly_HasNoEmbeddedResources() =>
+        Assert.AreEqual(0, McpToolResult.FromText("x").EmbeddedResources.Count);
+
+    [TestMethod]
+    public void Constructor_NullResourcesOrNullResource_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new McpToolResult([], (IReadOnlyList<McpEmbeddedResource>)null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new McpToolResult([], [null!]));
+    }
+
+    [TestMethod]
     public void Constructor_NullTextOrNullBlock_Throws()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => new McpToolResult(null!));

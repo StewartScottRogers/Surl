@@ -250,6 +250,21 @@ public sealed class McpToolMethodsTests
     }
 
     [TestMethod]
+    public async Task AnswerCall_EmbeddedResource_IsWrittenAsAResourceBlockAfterTheText()
+    {
+        McpServerRegistry registry = new();
+        McpEmbeddedResource resource = new("file:///a.bin", "application/octet-stream", [0xFF, 0x00, 0x01]);
+        registry.AddTool(new McpTool("t", null, "d", """{"type":"object"}""", (_, _) => Task.FromResult(new McpToolResult(["a"], [resource]))));
+        McpRequestDispatcher dispatcher = await InitializedAsync(registry, InitializeLatest);
+
+        string response = await AnswerAsync(dispatcher, """{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"t"}}""");
+
+        Assert.AreEqual(
+            """{"jsonrpc":"2.0","id":8,"result":{"content":[{"type":"text","text":"a"},{"type":"resource","resource":{"uri":"file:///a.bin","mimeType":"application/octet-stream","blob":"/wAB"}}],"isError":false}}""",
+            response);
+    }
+
+    [TestMethod]
     public async Task AnswerCall_BeforeInitialize_IsRefusedAsNotInitialized()
     {
         McpRequestDispatcher dispatcher = new(WeatherRegistry(), new McpSessionOptions(new McpServerInfo("s", null, "1")));
