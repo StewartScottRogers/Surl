@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-429]
-touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests]
+touches: [Foundation/Surl.Authentication.UnitLibrary, Foundation/Surl.Authentication.UnitTests, Foundation/Surl.Protocol.Abstractions.UnitLibrary/HttpAuthenticationRefusal.cs]
 requirement: none
 created: 2026-11-04
 completed:
@@ -39,6 +39,15 @@ rules as the existing SigV4 check, and is reachable through the `Surl.Protocol.A
 
 ## Notes
 
+- **Lane 3 (2026-11-05).** The finished work is on branch factory/BL-430-lane-7-20261105-054539 (commits
+  d1cc9bc7 and 79088bb2; that branch's copy of this file records the design, choices and coverage). It adds
+  `HttpAuthenticationRefusal.MissingRequestDate` to `Surl.Protocol.Abstractions.UnitLibrary`: ADR-0110 3.4 answers
+  a GOOG4 request with no `x-goog-date` and no `Date` `400 MissingSecurityHeader`, and no existing refusal says
+  "no date" (reusing `MissingPayloadHash` would make the name lie). That file is now in `touches`. BL-734, in
+  Doing, names `Foundation/Surl.Protocol.Abstractions.UnitLibrary`, so the task goes back to Backlog until it no
+  longer overlaps. To resume: `git cherry-pick --no-commit d1cc9bc7 79088bb2` (applies cleanly on dcd40690), then
+  build and run the fast tests.
+
 ## Log
 
 - 2026-11-04: Created.
@@ -47,3 +56,4 @@ rules as the existing SigV4 check, and is reachable through the `Surl.Protocol.A
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Lane 7 could not integrate: push kept being refused. The work is on branch factory/BL-430-lane-7-20261105-054539; start with git cherry-pick --no-commit factory/BL-430-lane-7-20261105-054539 and fix it.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Foundation/Surl.Protocol.Abstractions.UnitLibrary (HttpAuthenticationRefusal.MissingRequestDate), which BL-734 in Doing touches; finished work is on factory/BL-430-lane-7-20261105-054539
