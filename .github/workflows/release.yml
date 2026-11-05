@@ -204,9 +204,66 @@ jobs:
           SURL_EXECUTABLE: ${{ github.workspace }}/published/surl
         run: dotnet test Conformance/Surl.Conformance.UnitTests -c Release --filter "FullyQualifiedName~Surl.Conformance"
 
+  # States the upstream test-case pass rate (ADR-0080 decision 5): on a tag, the releases rows
+  # of Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md for the tag's version, failing
+  # when there are none, so a release cannot ship without stating its rate; on a dry run, the
+  # current table. Either way it is written to the job summary and kept as the
+  # pass-rate-notes artifact, which the release job puts at the top of the release notes.
+  pass-rate:
+    name: State the upstream test-case pass rate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pass rate
+        shell: pwsh
+        run: |
+          $lines = Get-Content -LiteralPath Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md
+          function Get-Table([string] $heading) {
+            $start = [array]::IndexOf($lines, $heading)
+            if ($start -lt 0) { throw "The pass-rate file has no '$heading' heading." }
+            # The first run of lines starting with '|' after the heading.
+            $table = [System.Collections.Generic.List[string]]::new()
+            foreach ($line in $lines[($start + 1)..($lines.Count - 1)]) {
+              if ($line.StartsWith('|')) { $table.Add($line) } elseif ($table.Count -gt 0) { break }
+            }
+            if ($table.Count -lt 2) { throw "The pass-rate file's '$heading' section has no table." }
+            return $table.ToArray()
+          }
+          $notes = [System.Collections.Generic.List[string]]::new()
+          $notes.Add('## Upstream test-case pass rate')
+          $notes.Add('')
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+            $table = @(Get-Table '## Releases')
+            $rows = @($table | Select-Object -Skip 2 | Where-Object { ($_.Trim('|').Split('|')[0]).Trim().Trim('`') -eq $version })
+            if ($rows.Count -eq 0) {
+              Write-Output "::error::Upstream-Test-Case-Pass-Rate.md has no releases row for $version. Add one per platform in the release commit before tagging (ADR-0080 decision 5)."
+              exit 1
+            }
+            $notes.Add("Upstream curl's own test cases played against surl $version, per platform (ADR-0080):")
+            $notes.Add('')
+            $table[0..1] + $rows | ForEach-Object { $notes.Add($_) }
+          } else {
+            $notes.Add("Dry run: no tag, so the current table of Upstream-Test-Case-Pass-Rate.md at $($env:GITHUB_SHA):")
+            $notes.Add('')
+            Get-Table '## Current' | ForEach-Object { $notes.Add($_) }
+          }
+          $notes.Add('')
+          $notes | Set-Content -LiteralPath pass-rate-notes.md
+          $notes | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          $notes | Write-Output
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pass-rate-notes
+          path: pass-rate-notes.md
+          if-no-files-found: error
+
   release:
     name: Create the GitHub release
-    needs: [publish, conformance]
+    needs: [publish, conformance, pass-rate]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -218,6 +275,11 @@ jobs:
           pattern: surl-*
           merge-multiple: true
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: pass-rate-notes
+          path: notes
+
       - name: Checksums
         working-directory: dist
         run: sha256sum surl-* > SHA256SUMS && cat SHA256SUMS
@@ -226,6 +288,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          flags=(--generate-notes --title "$GITHUB_REF_NAME")
+          flags=(--generate-notes --notes-file notes/pass-rate-notes.md --title "$GITHUB_REF_NAME")
           [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"

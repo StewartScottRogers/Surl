@@ -136,10 +136,17 @@ jobs:
           --filter "TestCategory=Integration&TestCategory=UpstreamTestCases"
           --results-directory "${{ runner.temp }}/upstream-test-cases"
 
+      # The suite writes the results file and the run's passing list to TestContext's
+      # TestRunResultsDirectory, which is the test assembly's folder, not --results-directory
+      # (BL-393: run 41980108989 uploaded nothing). The passing list is what the leg's
+      # upstream-test-cases-passing.<platform>.txt is copied from when its count rises.
       - name: Publish the upstream test case results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: upstream-test-case-results-${{ matrix.upstream-curl-platform }}
-          path: ${{ runner.temp }}/upstream-test-cases/**/upstream-test-case-results.*.txt
-          if-no-files-found: warn
+          path: |
+            Conformance/Surl.Conformance.UnitTests/bin/Release/net10.0/upstream-test-case-results.*.txt
+            Conformance/Surl.Conformance.UnitTests/bin/Release/net10.0/upstream-test-cases-passing.*.txt
+            ${{ runner.temp }}/upstream-test-cases/**/upstream-test-case*.txt
+          if-no-files-found: error
