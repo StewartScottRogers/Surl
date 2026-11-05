@@ -46,3 +46,4 @@ The HTTP/2 frames, streams, flow control, `SETTINGS`, `PING` and `GOAWAY` handli
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
