@@ -1,5 +1,5 @@
 ---
-id: BL-832
+id: BL-838
 title: Stop UpstreamCurlRunner failing a case with Broken pipe when upstream curl exits before reading its standard input
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-832 — Stop UpstreamCurlRunner failing a case with Broken pipe when upstream curl exits before reading its standard input
+# BL-838 — Stop UpstreamCurlRunner failing a case with Broken pipe when upstream curl exits before reading its standard input
 
 ## Goal
 

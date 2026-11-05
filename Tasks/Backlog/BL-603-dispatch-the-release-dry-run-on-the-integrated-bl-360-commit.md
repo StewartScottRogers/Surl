@@ -4,7 +4,7 @@ title: Dispatch the release dry run on the integrated BL-360 commit and record i
 priority: Normal
 assignee: Claude
 pipeline: direct
-depends-on: [BL-360, BL-832]
+depends-on: [BL-360, BL-838]
 touches: [.github/workflows/release.yml, .github/workflows/ci.yml, .github/actions, Test-PublishedSurl.ps1]
 requirement: none
 created: 2026-11-04
@@ -53,13 +53,13 @@ runtime identifiers, and this task's Notes record its run URL.
      conformance job failed only because that leg uploaded no artifact.
   2. Conformance against the published osx-arm64: `IOException: Broken pipe` writing upstream
      curl's standard input in `UpstreamCurlRunner` (a harness race, not a Surl defect). That is in
-     `Conformance/Surl.Conformance.*`, which BL-396 holds in Doing, so it is filed as BL-832 and
+     `Conformance/Surl.Conformance.*`, which BL-396 holds in Doing, so it is filed as BL-838 and
      this task waits on it.
-- Next run: once BL-832 is Done and lane 8's fix is integrated, `gh workflow run release.yml
+- Next run: once BL-838 is Done and lane 8's fix is integrated, `gh workflow run release.yml
   --ref <branch holding both>`, `gh run watch`, record the URL here.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Backlog. Waits on BL-832 (UpstreamCurlRunner broken pipe in Conformance, held by BL-396); Linux container smoke check fixed in Test-PublishedSurl.ps1
+- 2026-11-05: Doing -> Backlog. Waits on BL-838 (UpstreamCurlRunner broken pipe in Conformance, held by BL-396); Linux container smoke check fixed in Test-PublishedSurl.ps1
