@@ -1,5 +1,5 @@
 ---
-id: BL-712
+id: BL-726
 title: Refuse an HTTP/3 flow past a connection limit with CONNECTION_REFUSED
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-712 — Refuse an HTTP/3 flow past a connection limit with CONNECTION_REFUSED
+# BL-726 — Refuse an HTTP/3 flow past a connection limit with CONNECTION_REFUSED
 
 ## Goal
 
