@@ -41,7 +41,7 @@ Linux and macOS with the reference builds.
       upstream curl gives (measured and recorded in the ADR or in Notes) and `--http3` falling back to
       HTTP/2.
 - [x] ~~On a push, CI's Linux and macOS legs run the same tests green, and Notes record the run URL.~~
-      Moved to BL-766 (see Notes).
+      Moved to BL-768 (see Notes).
 - [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
@@ -66,7 +66,7 @@ Linux and macOS with the reference builds.
   (`Failed to connect to 127.0.0.1`: the ICMP port-unreachable is reported as a receive failure), as
   ADR-0082's "Measured" table recorded against no UDP listener; off Windows the test expects that
   table's Linux exit 7. `--http3` falls back and is served over HTTP/2 (`%{http_version}` `2`).
-- **CI criterion moved to BL-766**, as BL-371's was to BL-724: observing a CI run needs a pushed
+- **CI criterion moved to BL-768**, as BL-371's was to BL-724: observing a CI run needs a pushed
   commit this lane may not make, and depending on a task that waits for this one's commits would
   deadlock.
 - ADR-0082's Consequences also ask BL-385 to measure curl past each decision 7 limit,
@@ -77,4 +77,4 @@ Linux and macOS with the reference builds.
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. Pinned upstream curl 8.21.0 completes HTTP/3 with a live surl --http3 via --http3-only and --http3: -I, Basic, Digest, 10 MiB, connection reuse, fallback to HTTP/2 when off (CI legs in BL-766)
+- 2026-11-05: Doing -> Done. Pinned upstream curl 8.21.0 completes HTTP/3 with a live surl --http3 via --http3-only and --http3: -I, Basic, Digest, 10 MiB, connection reuse, fallback to HTTP/2 when off (CI legs in BL-768)

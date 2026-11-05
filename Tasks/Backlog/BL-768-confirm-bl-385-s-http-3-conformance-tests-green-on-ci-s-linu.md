@@ -1,5 +1,5 @@
 ---
-id: BL-766
+id: BL-768
 title: Confirm BL-385's HTTP/3 conformance tests green on CI's Linux and macOS legs
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-766 — Confirm BL-385's HTTP/3 conformance tests green on CI's Linux and macOS legs
+# BL-768 — Confirm BL-385's HTTP/3 conformance tests green on CI's Linux and macOS legs
 
 ## Goal
 
