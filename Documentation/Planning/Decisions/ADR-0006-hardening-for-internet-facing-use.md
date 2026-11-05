@@ -8,6 +8,7 @@
 - **Amended by:** [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) (section 5 on an HTTP/3 connection: each limit's QUIC or HTTP/3 error, decision 7; section 4 on QUIC: TLS 1.3 only, with the cipher suites ADR-0082 decision 3 names rather than the operating system's)
 - **Amended by:** [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md) (section 1: `--max-request-head` is also enforced by `Surl.Protocol.HttpProxy`, on curl's request head and on the origin's response head; each limit's answer on the proxy is ADR-0088 decision 7's)
 - **Amended by:** [ADR-0092](ADR-0092-how-the-dns-server-answers-dns-and-its-encrypted-transports.md) (section 1: `--max-message` also bounds a DNS message over TCP, DNS over TLS and DNS over QUIC; section 5: the DNS server's answer to each limit on each transport is ADR-0092 decision 6's)
+- **Amended by:** [ADR-0097](ADR-0097-how-the-coap-server-answers-coap-and-coaps.md) (section 5: the CoAP server's answer to each limit, `5.03` with Max-Age for a refused `coap` flow and `4.13` with Size1 for a message or upload too large, is ADR-0097 decision 7's)
 
 ## Context
 

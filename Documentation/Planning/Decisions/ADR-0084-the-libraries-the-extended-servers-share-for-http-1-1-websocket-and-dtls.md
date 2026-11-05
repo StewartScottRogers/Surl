@@ -9,6 +9,11 @@
   (2026-11-04, BL-403): decision 3's `Surl.Dtls` row may also reference
   `Surl.Cryptography.Curve25519.UnitLibrary`, for the x25519 group; it needs no ChaCha20 or
   Poly1305.
+- **Amended by:** [ADR-0097](ADR-0097-how-the-coap-server-answers-coap-and-coaps.md)
+  (2026-11-04, BL-470): decision 4's table gains a Coap row. CoAP has no login message; a `coaps`
+  peer is authenticated by its DTLS handshake (a PSK identity through `Surl.Dtls`'s caller-given
+  lookup, or a client certificate), and the server takes its access rules as a record built by
+  `Surl.Console`, so no contract is added to `Surl.Protocol.Abstractions`.
 - **Date:** 2026-11-04
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-401. BL-407 builds `Surl.HttpServing` (decision 1), BL-408 builds `Surl.WebSocket`
