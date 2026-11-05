@@ -1,5 +1,6 @@
 using Surl.Authentication;
 using Surl.Cli;
+using Surl.Composition;
 using Surl.Kerberos;
 using Surl.Protocol.Abstractions;
 

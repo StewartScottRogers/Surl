@@ -4,7 +4,7 @@ using Surl.Output;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Ssh;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// The SSH server's host keys as the command line asks for them (ADR-0051, decision 4): every
@@ -16,7 +16,7 @@ namespace Surl.Console;
 /// </summary>
 /// <param name="HostKeys">Every key the SSH server serves; empty when none is given.</param>
 /// <param name="ThrowawayHostKey">The throwaway key when one was made; otherwise <see langword="null"/>.</param>
-internal sealed record SshHostKeyComposition(SshHostKeySet HostKeys, SshHostKey? ThrowawayHostKey)
+public sealed record SshHostKeyComposition(SshHostKeySet HostKeys, SshHostKey? ThrowawayHostKey)
 {
     /// <summary>The size of the throwaway RSA host key (ADR-0051, decision 4).</summary>
     public const int ThrowawayHostKeyBits = 3072;

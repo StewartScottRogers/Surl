@@ -2,14 +2,14 @@ using System.Security.Cryptography;
 using Surl.Cli;
 using Surl.Protocol.Ssh;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// The algorithms the SSH server offers: ADR-0051 decision 2's default offer, with its weak
 /// algorithms under <c>--allow-weak-ssh-algorithms</c>, narrowed by <c>--ssh-ciphers</c> and
 /// <c>--ssh-macs</c> (ADR-0066).
 /// </summary>
-internal static class SshAlgorithmComposition
+public static class SshAlgorithmComposition
 {
     /// <summary>
     /// The refusal of the first <c>--ssh-ciphers</c> name, then the first <c>--ssh-macs</c> name,

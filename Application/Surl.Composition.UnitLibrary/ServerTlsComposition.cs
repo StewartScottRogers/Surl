@@ -3,7 +3,7 @@ using Surl.Cli;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// The process's server-side TLS settings as the command line asks for them (ADR-0010,
@@ -13,7 +13,7 @@ namespace Surl.Console;
 /// accepted TLS versions. It owns every certificate it loaded or made,
 /// and disposing it disposes them.
 /// </summary>
-internal sealed class ServerTlsComposition : IDisposable
+public sealed class ServerTlsComposition : IDisposable
 {
     private readonly IReadOnlyList<IDisposable> owned;
 
@@ -103,6 +103,24 @@ internal sealed class ServerTlsComposition : IDisposable
 
     private static bool NeedsTls(SurlCommandLine commandLine, string scheme) =>
         TlsSchemes.IsImplicitTls(scheme) || (IsCertificateConfigured(commandLine) && UpgradableSchemes.Contains(scheme));
+
+    /// <summary>
+    /// Formats the message for a TLS option file that could not be loaded, after the
+    /// <c>surl: </c> prefix, and the exit code it ends surl with (ADR-0010 section 3, ADR-0020).
+    /// </summary>
+    /// <param name="failure">The failure the loader threw.</param>
+    /// <param name="caCertificateFile">The <c>--cacert</c> file as given, named by the "does not exist" lines.</param>
+    /// <returns>The exit code and the message lines.</returns>
+    public static (SurlExitCode ExitCode, string[] Lines) DescribeTlsFileFailure(
+        TlsFileLoadException failure, string? caCertificateFile) => failure.Failure switch
+        {
+            TlsFileLoadFailure.CaCertificateNotFound => (
+                SurlExitCode.FailedInit,
+                [$"The file '{caCertificateFile}' provided to --cacert does not exist", "option --cacert: is badly used here"]),
+            TlsFileLoadFailure.CaCertificateUnreadable => (
+                SurlExitCode.CaCertificateBadFile, [$"(77) Could not load the CA certificates: {failure.Message}"]),
+            _ => (SurlExitCode.CertificateProblem, [$"(58) Could not load the server certificate: {failure.Message}"]),
+        };
 
     /// <summary>
     /// The <see cref="ServerCertificateFormat"/> a <c>--cert-type</c> word names.

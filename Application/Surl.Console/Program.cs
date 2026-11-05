@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Surl.Composition;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 

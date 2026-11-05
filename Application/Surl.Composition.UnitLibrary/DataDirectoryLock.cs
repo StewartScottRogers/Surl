@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// Takes the data directory's lock (ADR-0031, decision 7): <c>&lt;path&gt;/.surl/lock</c>,
@@ -8,7 +8,7 @@ namespace Surl.Console;
 /// refused before any listener binds. The operating system releases the lock when its holder
 /// exits or is killed, so a lock file left on disk refuses nothing; the file is never deleted.
 /// </summary>
-internal static class DataDirectoryLock
+public static class DataDirectoryLock
 {
     /// <summary>The folder under the data directory that holds surl's own state.</summary>
     public const string StateFolderName = ".surl";

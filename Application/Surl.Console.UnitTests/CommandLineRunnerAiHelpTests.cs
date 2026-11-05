@@ -1,5 +1,6 @@
 using System.Globalization;
 using Surl.Cli;
+using Surl.Composition;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;

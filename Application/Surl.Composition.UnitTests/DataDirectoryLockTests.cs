@@ -1,6 +1,6 @@
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 [TestClass]
 public sealed class DataDirectoryLockTests

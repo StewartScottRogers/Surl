@@ -1,13 +1,13 @@
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// What taking the data directory's <c>.surl/lock</c> file came to (ADR-0031, decision 7):
 /// either the open lock, held until <see cref="Holder"/> is disposed, or the exit code and the
 /// message, after the <c>surl: </c> prefix, that refuse the start.
 /// </summary>
-internal sealed class DataDirectoryLockOutcome
+public sealed class DataDirectoryLockOutcome
 {
     private DataDirectoryLockOutcome(IDisposable? holder, SurlExitCode exitCode, string? failureMessage)
     {

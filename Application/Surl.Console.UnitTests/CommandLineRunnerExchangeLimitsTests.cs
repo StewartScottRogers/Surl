@@ -1,4 +1,5 @@
 using System.Text;
+using Surl.Composition;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 

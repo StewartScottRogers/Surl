@@ -1,6 +1,7 @@
 using System.Text;
 using Surl.Authentication;
 using Surl.Cli;
+using Surl.Composition;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Console;

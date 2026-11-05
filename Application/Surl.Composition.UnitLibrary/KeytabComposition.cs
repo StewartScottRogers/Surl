@@ -3,14 +3,14 @@ using Surl.Kerberos;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// The Kerberos acceptor <c>--keytab</c> asks for (ADR-0057, decisions 1, 6 and 7): the keytab
 /// read before any listener binds, its refusals, and the warning lines it writes on start. No key
 /// byte is ever written, at any log level.
 /// </summary>
-internal static class KeytabComposition
+public static class KeytabComposition
 {
     private const string WarningPrefix = "surl: warning: ";
 
@@ -111,7 +111,7 @@ internal static class KeytabComposition
     /// <summary>The enctype's MIT krb5 name, or <c>enctype &lt;number&gt;</c> for one without a name here.</summary>
     /// <param name="encryptionTypeNumber">The enctype number, as the IANA registry numbers it.</param>
     /// <returns>The name.</returns>
-    internal static string NameEncryptionType(int encryptionTypeNumber) =>
+    public static string NameEncryptionType(int encryptionTypeNumber) =>
         SkippedEncryptionTypeNames.TryGetValue(encryptionTypeNumber, out var name) ? name : $"enctype {encryptionTypeNumber}";
 
     private static bool AcceptsAKerberosMethod(SurlCommandLine commandLine) =>

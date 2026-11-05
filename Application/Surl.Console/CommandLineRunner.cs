@@ -235,28 +235,9 @@ internal sealed class CommandLineRunner(
     internal IReadOnlyList<string> ComposeExtendedSchemes() =>
         SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, composeExtendedProtocolServers, timeProvider);
 
-    /// <summary>
-    /// Formats the message for a TLS option file that could not be loaded, after the
-    /// <c>surl: </c> prefix, and the exit code it ends surl with (ADR-0010 section 3, ADR-0020).
-    /// </summary>
-    /// <param name="failure">The failure the loader threw.</param>
-    /// <param name="caCertificateFile">The <c>--cacert</c> file as given, named by the "does not exist" lines.</param>
-    /// <returns>The exit code and the message lines.</returns>
-    internal static (SurlExitCode ExitCode, string[] Lines) DescribeTlsFileFailure(
-        TlsFileLoadException failure, string? caCertificateFile) => failure.Failure switch
-        {
-            TlsFileLoadFailure.CaCertificateNotFound => (
-                SurlExitCode.FailedInit,
-                [$"The file '{caCertificateFile}' provided to --cacert does not exist", "option --cacert: is badly used here"]),
-            TlsFileLoadFailure.CaCertificateUnreadable => (
-                SurlExitCode.CaCertificateBadFile, [$"(77) Could not load the CA certificates: {failure.Message}"]),
-            _ => (SurlExitCode.CertificateProblem, [$"(58) Could not load the server certificate: {failure.Message}"]),
-        };
-
-
     private static SurlExitCode WriteTlsFileFailure(TextWriter error, TlsFileLoadException failure, string? caCertificateFile)
     {
-        var (exitCode, lines) = DescribeTlsFileFailure(failure, caCertificateFile);
+        var (exitCode, lines) = ServerTlsComposition.DescribeTlsFileFailure(failure, caCertificateFile);
         foreach (var line in lines)
         {
             error.WriteLine(MessagePrefix + line);

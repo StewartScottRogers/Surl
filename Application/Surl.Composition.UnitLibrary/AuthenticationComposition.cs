@@ -4,7 +4,7 @@ using Surl.Kerberos;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// The authentication policy the HTTP, MQTT, SMTP and SSH servers are given, as the command line asks for
@@ -12,7 +12,7 @@ namespace Surl.Console;
 /// the public keys of every <c>--authorized-keys</c> file, the methods <c>--auth</c> accepts, and <c>--allow-anonymous</c> and
 /// <c>--allow-plaintext-auth</c>; and the warning line each loosening option writes on start.
 /// </summary>
-internal static class AuthenticationComposition
+public static class AuthenticationComposition
 {
     private const string WarningPrefix = "surl: warning: ";
 

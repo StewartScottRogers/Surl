@@ -9,6 +9,9 @@
     <ProjectReference Include="..\Surl.Cli.UnitLibrary\Surl.Cli.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Cryptography\Surl.Kerberos.UnitLibrary\Surl.Kerberos.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Foundation\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Foundation\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\Lookup\Surl.Protocol.Dict.UnitLibrary\Surl.Protocol.Dict.UnitLibrary.csproj" />
     <ProjectReference Include="..\..\Protocols\FileTransfer\Surl.Protocol.Ftp.UnitLibrary\Surl.Protocol.Ftp.UnitLibrary.csproj" />

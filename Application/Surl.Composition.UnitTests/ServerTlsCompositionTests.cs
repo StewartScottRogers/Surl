@@ -3,7 +3,7 @@ using Surl.Cli;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 [TestClass]
 public sealed class ServerTlsCompositionTests

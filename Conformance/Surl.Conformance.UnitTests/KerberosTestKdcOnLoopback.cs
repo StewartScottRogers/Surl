@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using Microsoft.Win32;
-using Surl.Console;
+using Surl.Composition;
 using Surl.Kerberos.TestKdc;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;

@@ -7,6 +7,12 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - `Program.Main` registers Ctrl+C (SIGINT) and SIGTERM to cancel a token and calls
   `Program.RunAsync(args, output, error, cancellationToken)`, the internal entry point the
   in-process conformance tests (`Surl.Conformance.UnitTests`) also call.
+- The start compositions named below - `AuthenticationComposition`, `KeytabComposition`,
+  `RandomKerberosRandomSource`, `SshHostKeyComposition`, `SshAlgorithmComposition`,
+  `ServerTlsComposition` (with `DescribeTlsFileFailure`), `DataDirectoryProbe`,
+  `DataDirectoryLock` and `DataDirectoryLockOutcome` - live in `Surl.Composition`
+  (`Application/Surl.Composition.UnitLibrary`, ADR-0099 decision 1, BL-613), so `Surl.Api` can
+  reuse them; `CommandLineRunner` calls them and writes what they return.
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help`, `--aihelp`
   (`CommandLineOutcome.ShowAiHelp`: `AiHelpText.Answer(parsed.AiHelpTopic)` written by
   `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
