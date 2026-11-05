@@ -63,7 +63,7 @@ folders that every member account sees and uses as BL-642's ADR says.
   protection, quota independence, persistence under the reserved owner, hidden personal `Shared/…`, an index
   written before these features loads and saves byte-identically), `MailDomainConfigurationTests` additions.
   MailStore tests 322 green; library 100% line and branch.
-- Follow-up filed: BL-762 (SMTP answers `QuotaExceeded` with `452 4.2.2`). IMAP is BL-677 already; composition
+- Follow-up filed: BL-766 (SMTP answers `QuotaExceeded` with `452 4.2.2`). IMAP is BL-677 already; composition
   is BL-653/BL-654.
 
 ## Log

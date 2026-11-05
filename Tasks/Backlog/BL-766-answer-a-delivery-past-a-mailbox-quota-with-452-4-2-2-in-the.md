@@ -1,5 +1,5 @@
 ---
-id: BL-762
+id: BL-766
 title: Answer a delivery past a mailbox quota with 452 4.2.2 in the SMTP server
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-762 — Answer a delivery past a mailbox quota with 452 4.2.2 in the SMTP server
+# BL-766 — Answer a delivery past a mailbox quota with 452 4.2.2 in the SMTP server
 
 ## Goal
 
