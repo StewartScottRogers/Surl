@@ -4,7 +4,7 @@ title: Upgrade NATS connections to TLS for natss
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-526]
+depends-on: [BL-526, BL-734]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -41,3 +41,4 @@ so, and refuses plain-text CONNECT where TLS is required.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Amended by BL-524: waits on BL-734 (peek before the TLS upgrade, ADR-0113 decision 6).

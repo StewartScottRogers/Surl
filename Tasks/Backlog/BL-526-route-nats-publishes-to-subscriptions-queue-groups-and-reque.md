@@ -4,7 +4,7 @@ title: Route NATS publishes to subscriptions, queue groups and requests
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-525, BL-664]
+depends-on: [BL-525, BL-664, BL-706]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests]
 requirement: none
 created: 2026-11-04
@@ -56,3 +56,4 @@ says.
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-664; subscriptions are Surl.MessageBus's.
+- 2026-11-05: Amended by BL-524: waits on BL-706 (the `nats` native form keeps HPUB headers byte for byte, ADR-0113 decision 4).
