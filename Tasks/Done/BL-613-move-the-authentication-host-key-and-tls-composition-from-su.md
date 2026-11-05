@@ -76,7 +76,7 @@ instead of writing it, and `surl`'s output and exit codes are unchanged byte for
   (88 members, worst CRAP 10), `Surl.Console` 100%/100% (52 members, worst CRAP 10). No ADR: ADR-0099 decision 1
   already decided the move.
 - Follow-up: FR-039 in `Documentation/Product/Requirements.md` still says `SshHostKeyComposition` in
-  `Surl.Console`; BL-642 (in Doing) touches that file, so BL-691 was filed for it rather than widening this task.
+  `Surl.Console`; BL-642 (in Doing) touches that file, so BL-692 was filed for it rather than widening this task.
 
 ## Log
 

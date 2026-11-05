@@ -1,5 +1,5 @@
 ---
-id: BL-691
+id: BL-692
 title: Say in Requirements.md that SshHostKeyComposition lives in Surl.Composition
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-039
 created: 2026-11-04
 completed:
 ---
-# BL-691 — Say in Requirements.md that SshHostKeyComposition lives in Surl.Composition
+# BL-692 — Say in Requirements.md that SshHostKeyComposition lives in Surl.Composition
 
 ## Goal
 
