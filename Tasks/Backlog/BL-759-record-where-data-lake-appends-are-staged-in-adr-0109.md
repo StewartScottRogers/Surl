@@ -1,5 +1,5 @@
 ---
-id: BL-755
+id: BL-759
 title: Record where Data Lake appends are staged in ADR-0109
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-755 — Record where Data Lake appends are staged in ADR-0109
+# BL-759 — Record where Data Lake appends are staged in ADR-0109
 
 ## Goal
 

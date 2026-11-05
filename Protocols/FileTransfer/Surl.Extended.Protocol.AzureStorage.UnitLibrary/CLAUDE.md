@@ -99,7 +99,7 @@ characters):
 
 Not yet: the conditional fields on Put Blob and Delete Blob and `x-ms-blob-content-md5` (filed
 from BL-425); `retainUncommittedData=true`, `beginFrom`, `x-ms-properties`, the conditional fields on
-the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-754); Shared
+the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758); Shared
 Key and
 SAS (BL-717), blocks (BL-715), List Containers and properties (BL-716), credentials checked under
 `--allow-anonymous` and the path-style account segment (BL-725), and `400 InvalidInput` for a head

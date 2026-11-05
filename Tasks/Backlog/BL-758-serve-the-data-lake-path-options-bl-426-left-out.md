@@ -1,5 +1,5 @@
 ---
-id: BL-754
+id: BL-758
 title: Serve the Data Lake path options BL-426 left out
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-754 — Serve the Data Lake path options BL-426 left out
+# BL-758 — Serve the Data Lake path options BL-426 left out
 
 ## Goal
 

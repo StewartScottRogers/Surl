@@ -68,7 +68,7 @@ Decisions taken (Claude, under Stewart's delegation):
   from the committed bytes, bounded by `--max-filesize`, renamed over the file on commit - gives exactly the
   invisibility and atomic flush the decision asks for. So each staged file is one session in
   `AzurePathStagingArea`. The ADR could not be edited here: BL-530 holds `Documentation/Planning/Decisions`.
-  Filed BL-755 to record it there.
+  Filed BL-759 to record it there.
 - **Appends and flushes are served one at a time across the server** (one gate in `AzurePathStagingArea`),
   because an upload session is not safe for concurrent use. Only authenticated writers reach it, and the
   head and idle timeouts bound how long one holds it.
@@ -84,7 +84,7 @@ Decisions taken (Claude, under Stewart's delegation):
 - **HEAD on a file** is served as Path - Read's head, since it is the same answer without the body; a
   directory's head (Path - Get Properties) stays BL-716's.
 
-Left out and filed as BL-754: `retainUncommittedData=true` (refused `400`), `beginFrom`, `x-ms-properties`,
+Left out and filed as BL-758: `retainUncommittedData=true` (refused `400`), `beginFrom`, `x-ms-properties`,
 the conditional fields on the Data Lake writes, and the JSON body on a Data Lake connection refused past
 the connection limit (still the XML `Error`).
 
