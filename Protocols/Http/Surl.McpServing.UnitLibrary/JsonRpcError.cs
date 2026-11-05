@@ -3,7 +3,11 @@ namespace Surl.McpServing;
 /// <summary>The <c>error</c> object of a JSON-RPC 2.0 error response, as ADR-0103 decision 1's table words it.</summary>
 /// <param name="Code">The error code, one of <see cref="JsonRpcErrorCodes" />.</param>
 /// <param name="Message">The short description of the error.</param>
-public sealed record JsonRpcError(int Code, string Message)
+/// <param name="ResourceUri">
+/// The URI written as the error's <c>data.uri</c>, or <see langword="null" /> to write no <c>data</c>; only
+/// <see cref="ResourceNotFound" /> sets it.
+/// </param>
+public sealed record JsonRpcError(int Code, string Message, string? ResourceUri = null)
 {
     /// <summary>Gets the answer to a message that is not UTF-8, not JSON or nested too deep.</summary>
     public static JsonRpcError ParseError { get; } = new(JsonRpcErrorCodes.ParseError, "Parse error");
@@ -31,6 +35,12 @@ public sealed record JsonRpcError(int Code, string Message)
     /// <returns>An <see cref="JsonRpcErrorCodes.InvalidRequest" /> error naming the limit.</returns>
     public static JsonRpcError MessageTooLong(int maximumMessageBytes) =>
         new(JsonRpcErrorCodes.InvalidRequest, $"Invalid Request: the message is longer than {maximumMessageBytes} bytes");
+
+    /// <summary>Creates the answer to <c>resources/read</c> of a URI the server does not have.</summary>
+    /// <param name="uri">The URI asked for, written as <c>data.uri</c>.</param>
+    /// <returns>A <see cref="JsonRpcErrorCodes.ResourceNotFound" /> error naming the URI.</returns>
+    public static JsonRpcError ResourceNotFound(string uri) =>
+        new(JsonRpcErrorCodes.ResourceNotFound, "Resource not found", uri);
 
     /// <summary>Creates the answer to parameters that are missing or of the wrong kind.</summary>
     /// <param name="what">What is missing or wrong, e.g. <c>protocolVersion</c>.</param>

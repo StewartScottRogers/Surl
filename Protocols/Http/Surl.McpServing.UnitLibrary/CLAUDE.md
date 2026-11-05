@@ -29,7 +29,15 @@ What it holds, all in namespace `Surl.McpServing`, every type `public`:
   bytes base64) - an
   `McpToolFailureException` becomes `isError: true`, any other exception `-32603 Internal error`, and a
   handler cancelled through its token gets no response.
-
+- Resources: `McpServerRegistry.AddResources` adds every `McpResource` (uri, name, title, description,
+  mimeType) one `IMcpResourceProvider` lists, reading its list once; a URI already registered or listed
+  twice throws `ArgumentException` and none of that provider's resources is added. The `initialize` result
+  advertises `resources` (`{"subscribe":false,"listChanged":false}`) only once a resource is added.
+  `McpResourceMethods` answers `resources/list` paged exactly as `tools/list` is, and `resources/read`
+  with one `contents` entry (`uri`, `name`, `title`, `mimeType`, `text`; `title` only for `2025-06-18`).
+  Missing `uri` is `-32602 Invalid params: uri`; an unregistered URI, or a provider answering null, is
+  `-32002 Resource not found` with `data.uri`; a provider that throws is `-32603`, and one cancelled
+  through its token gets no response. Resource templates and subscriptions are not served.
 - The stdio session: `McpStreamSession.RunAsync(input, output, registry, options, token)` serves one
   session over a stream pair. `McpInputLineReader` reads newline-delimited messages (a trailing `\r` is
   dropped, an empty line skipped, an unterminated last line answered, a line over the limit read to its
@@ -40,8 +48,6 @@ What it holds, all in namespace `Surl.McpServing`, every type `public`:
   a cancelled request's response is never written. The session returns when the input ends or the token
   is cancelled, after cancelling the running handlers and waiting for them; a failed read or a failed
   write of a running answer is thrown once they have ended.
-
-Planned beside it: resources (BL-623), which adds the `resources` capability to the registry.
 
 It **references nothing** - its row in `ProtocolIsolationTests.HorizontalLibraries` is empty. It takes
 bytes and `JsonElement`s, constructs no socket and never touches `Console`. JSON goes through

@@ -7,7 +7,8 @@ namespace Surl.McpServing;
 /// Answers the messages of one MCP session, one message at a time and independently of any transport:
 /// the MCP lifecycle of ADR-0103 decision 1 - <c>initialize</c> with version negotiation, <c>ping</c>,
 /// <c>notifications/initialized</c>, refusal of requests before <c>initialize</c>, the message limit and
-/// the JSON-RPC 2.0 errors - and the registry's tools through <c>tools/list</c> and <c>tools/call</c>.
+/// the JSON-RPC 2.0 errors - the registry's tools through <c>tools/list</c> and <c>tools/call</c>, and its
+/// resources through <c>resources/list</c> and <c>resources/read</c>.
 /// Safe to call from several threads at once.
 /// </summary>
 public sealed class McpRequestDispatcher
@@ -92,6 +93,8 @@ public sealed class McpRequestDispatcher
         {
             McpToolMethods.ListMethod => Task.FromResult<byte[]?>(McpToolMethods.AnswerList(request, _registry, _options.ListPageSize, version)),
             McpToolMethods.CallMethod => McpToolMethods.AnswerCallAsync(request, _registry, version, cancellationToken),
+            McpResourceMethods.ListMethod => Task.FromResult<byte[]?>(McpResourceMethods.AnswerList(request, _registry, _options.ListPageSize, version)),
+            McpResourceMethods.ReadMethod => McpResourceMethods.AnswerReadAsync(request, _registry, version, cancellationToken),
             _ => Task.FromResult<byte[]?>(JsonRpcResponseWriter.WriteError(request.Id, JsonRpcError.MethodNotFound)),
         };
     }
@@ -156,13 +159,22 @@ public sealed class McpRequestDispatcher
         return ParseResult(buffer.WrittenMemory);
     }
 
-    // The registry earns each capability: tools only once a tool is added (ADR-0103 decision 1).
+    // The registry earns each capability: tools only once a tool is added, resources only once a resource is
+    // added (ADR-0103 decision 1).
     private static void WriteCapabilities(Utf8JsonWriter writer, McpServerRegistry registry)
     {
         writer.WriteStartObject("capabilities");
         if (registry.RegisteredTools.Count > 0)
         {
             writer.WriteStartObject("tools");
+            writer.WriteBoolean("listChanged", false);
+            writer.WriteEndObject();
+        }
+
+        if (registry.RegisteredResources.Count > 0)
+        {
+            writer.WriteStartObject("resources");
+            writer.WriteBoolean("subscribe", false);
             writer.WriteBoolean("listChanged", false);
             writer.WriteEndObject();
         }

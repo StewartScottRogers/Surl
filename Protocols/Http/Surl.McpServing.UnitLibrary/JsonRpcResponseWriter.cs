@@ -41,6 +41,13 @@ public static class JsonRpcResponseWriter
             writer.WriteStartObject("error");
             writer.WriteNumber("code", error.Code);
             writer.WriteString("message", error.Message);
+            if (error.ResourceUri is { } uri)
+            {
+                writer.WriteStartObject("data");
+                writer.WriteString("uri", uri);
+                writer.WriteEndObject();
+            }
+
             writer.WriteEndObject();
         });
 

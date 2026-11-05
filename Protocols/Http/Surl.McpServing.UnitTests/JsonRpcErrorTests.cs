@@ -12,5 +12,6 @@ public sealed class JsonRpcErrorTests
         Assert.AreEqual(new JsonRpcError(-32602, "Invalid params: cursor"), JsonRpcError.InvalidParams("cursor"));
         Assert.AreEqual(-32603, JsonRpcErrorCodes.InternalError);
         Assert.AreEqual(-32002, JsonRpcErrorCodes.ResourceNotFound);
+        Assert.AreEqual(new JsonRpcError(-32002, "Resource not found", "surl://a"), JsonRpcError.ResourceNotFound("surl://a"));
     }
 }
