@@ -15,4 +15,11 @@ public sealed record StoreChangedEvent(
     StoreChange Change,
     string Name,
     long? ByteCount,
-    long? ExchangeId) : SurlEvent;
+    long? ExchangeId) : SurlEvent
+{
+    /// <summary>
+    /// The name the entry had before a <see cref="StoreChange.Renamed"/> change;
+    /// <see langword="null"/> for every other change.
+    /// </summary>
+    public string? PreviousName { get; init; }
+}

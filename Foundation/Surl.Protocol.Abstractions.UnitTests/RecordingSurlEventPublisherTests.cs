@@ -15,6 +15,7 @@ public sealed class RecordingSurlEventPublisherTests
             new ExchangeBytesEvent(1, ExchangeDirection.Received, "HELO"u8.ToArray()),
             new LoginJudgedEvent(1, "smtp", "alice", "PLAIN", true, false),
             new StoreChangedEvent(StoreKind.Mail, StoreChange.Delivered, "bob", 120, 1),
+            new StoreChangedEvent(StoreKind.Content, StoreChange.Renamed, "/b.txt", null, 1) { PreviousName = "/a.txt" },
             new FaultAppliedEvent("f1", FaultKind.Delay, FaultStage.Command, 1, "/slow"),
             new HookFailedEvent("h1", HookFailure.Threw, "boom"),
             new ExchangeEndedEvent(1, 4, 0),

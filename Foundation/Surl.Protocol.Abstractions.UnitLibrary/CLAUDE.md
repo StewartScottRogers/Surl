@@ -114,7 +114,8 @@ What it holds:
   `ISurlEventPublisher` (`IsPublishingBytes`, `Publish`), the abstract record `SurlEvent`
   (`Sequence` and `At`, stamped by the stream, not the publisher) and its records
   `ExchangeStartedEvent`, `ExchangeBytesEvent` (with `ExchangeDirection`), `ExchangeEndedEvent`,
-  `LoginJudgedEvent`, `StoreChangedEvent` (with `StoreKind` and `StoreChange`),
+  `LoginJudgedEvent`, `StoreChangedEvent` (with `StoreKind` and `StoreChange`; a `Renamed`
+  change carries its old name in `PreviousName`, ADR-0129),
   `FaultAppliedEvent` and `HookFailedEvent` (with `HookFailure`); no event carries a password,
   key or token. The fault plan: `IFaultPlan.FindAsync(FaultPoint, CancellationToken)` returning
   `ValueTask<FaultRule?>`, with `FaultPoint`, `FaultRule`, `FaultKind` and `FaultStage`. Both reach

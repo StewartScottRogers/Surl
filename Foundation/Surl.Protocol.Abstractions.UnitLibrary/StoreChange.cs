@@ -11,7 +11,7 @@ public enum StoreChange
     Written,
 
     /// <summary>
-    /// A file, object, message or mailbox was deleted.
+    /// A file, folder, object, message or mailbox was deleted.
     /// </summary>
     Deleted,
 
@@ -59,4 +59,20 @@ public enum StoreChange
     /// The store's contents were replaced with a snapshot's.
     /// </summary>
     Restored,
+
+    /// <summary>
+    /// A file, folder or mailbox was renamed, in one step: <see cref="StoreChangedEvent.Name"/> is
+    /// its new name and <see cref="StoreChangedEvent.PreviousName"/> its old one.
+    /// </summary>
+    Renamed,
+
+    /// <summary>
+    /// A folder or mailbox was created.
+    /// </summary>
+    Created,
+
+    /// <summary>
+    /// The metadata an upload set for an object (its header fields, user metadata and ETag) was stored.
+    /// </summary>
+    MetadataStored,
 }
