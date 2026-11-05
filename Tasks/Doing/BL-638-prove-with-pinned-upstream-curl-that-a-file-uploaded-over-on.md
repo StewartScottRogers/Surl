@@ -43,3 +43,4 @@ schemes, that a file uploaded over one protocol is read byte for byte over anoth
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
