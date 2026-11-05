@@ -8,7 +8,7 @@ depends-on: [BL-609]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Console, Application/Surl.Console.UnitTests, Documentation/Wiki/Glossary.md, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-613 — Move the authentication, host key and TLS composition from Surl.Console into Surl.Composition
 
@@ -40,13 +40,13 @@ instead of writing it, and `surl`'s output and exit codes are unchanged byte for
 
 ## Acceptance criteria
 
-- [ ] The files listed above (or the ADR's list) are in `Surl.Composition.UnitLibrary`, and none remains in
+- [x] The files listed above (or the ADR's list) are in `Surl.Composition.UnitLibrary`, and none remains in
       `Application/Surl.Console`.
-- [ ] Every test that covered them still exists under the same method name and passes; every
+- [x] Every test that covered them still exists under the same method name and passes; every
       `CommandLineRunner*Tests` class in `Surl.Console.UnitTests` passes unchanged.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` and
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Composition.UnitLibrary` and
       `Surl.Console` have 100% line and branch coverage.
-- [ ] `Application/Surl.Composition.UnitLibrary/CLAUDE.md`, `Application/Surl.Console/CLAUDE.md` and
+- [x] `Application/Surl.Composition.UnitLibrary/CLAUDE.md`, `Application/Surl.Console/CLAUDE.md` and
       `Documentation/Wiki/Glossary.md` name the project each moved type now lives in.
 
 ## Notes
@@ -66,6 +66,17 @@ instead of writing it, and `surl`'s output and exit codes are unchanged byte for
   `FakeLockHolder` stays in `Surl.Console.UnitTests` (only `CommandLineRunner*Tests` use it); `Program.cs`,
   `CommandLineRunnerAiHelpTests.cs` and the conformance file gain `using Surl.Composition;`. Coverage is
   merged across test projects by `Measure-CodeQuality.ps1`, so `CommandLineRunner*Tests` still cover the moved code.
+- 2026-11-04 (lane 5): Done as the note above describes. The compositions already returned their refusals as
+  `(SurlExitCode, message)` (and `DataDirectoryLockOutcome`), so no behaviour changed; the only reshaping is
+  `DescribeTlsFileFailure` moving onto `ServerTlsComposition`. `CommandLineRunner*Tests` keep every method and
+  assertion unchanged; the only edit to them is a `using Surl.Composition;` line, which C# needs for the moved
+  types. `KerberosTestKdcOnLoopback.cs` swapped `using Surl.Console;` for `using Surl.Composition;` (it used
+  nothing else from `Surl.Console`). `DataDirectoryProbe`'s coverage-exclusion justification now names
+  `DataDirectoryProbeTests`, which moved with it. Measured: `Surl.Composition.UnitLibrary` 100% line and branch
+  (88 members, worst CRAP 10), `Surl.Console` 100%/100% (52 members, worst CRAP 10). No ADR: ADR-0099 decision 1
+  already decided the move.
+- Follow-up: FR-039 in `Documentation/Product/Requirements.md` still says `SshHostKeyComposition` in
+  `Surl.Console`; BL-642 (in Doing) touches that file, so BL-691 was filed for it rather than widening this task.
 
 ## Log
 
@@ -73,3 +84,4 @@ instead of writing it, and `surl`'s output and exit codes are unchanged byte for
 - 2026-11-04: Backlog -> Doing.
 - 2026-11-04: Doing -> Backlog. Needs Conformance/Surl.Conformance.UnitTests (RandomKerberosRandomSource's using), which BL-393 in Doing also touches; resume once BL-393 is finished
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. The start compositions (authentication, keytab, SSH host keys and algorithms, server TLS, data-directory probe and lock) live in Surl.Composition; surl's output and exit codes unchanged
