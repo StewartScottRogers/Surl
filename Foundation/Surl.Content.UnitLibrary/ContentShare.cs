@@ -59,6 +59,43 @@ public sealed class ContentShare
     }
 
     /// <summary>
+    /// The member that grants every caller, logged in or anonymous (ADR-0102 decision 4.2).
+    /// </summary>
+    public const string EveryoneMember = "@everyone";
+
+    /// <summary>
+    /// Who may read and who may write in the share (<c>--share-access</c>), by account name,
+    /// compared ordinally, and <see cref="EveryoneMember"/>; groups arrive already expanded.
+    /// <see langword="null"/>, the default, is a share no access row names: open to every caller
+    /// as the root is. A share with grants, even none, is closed to every account not granted and
+    /// to every anonymous caller not reached through <see cref="EveryoneMember"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, ContentShareAccess>? Grants
+    {
+        get;
+        init => field = value is null ? null : new Dictionary<string, ContentShareAccess>(value, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// What <paramref name="caller"/> may do in the share by its grants: the wider of its own
+    /// account's grant and <see cref="EveryoneMember"/>'s.
+    /// </summary>
+    /// <param name="caller">The caller asking.</param>
+    /// <returns>The access granted; <see langword="null"/> when the caller may not even read.</returns>
+    public ContentShareAccess? AccessFor(ContentCaller caller)
+    {
+        ArgumentNullException.ThrowIfNull(caller);
+        if (Grants is null)
+        {
+            return ContentShareAccess.ReadWrite;
+        }
+
+        ContentShareAccess? everyone = Grants.TryGetValue(EveryoneMember, out ContentShareAccess shared) ? shared : null;
+        ContentShareAccess? own = caller.AccountName is not null && Grants.TryGetValue(caller.AccountName, out ContentShareAccess granted) ? granted : null;
+        return own > everyone || everyone is null ? own : everyone;
+    }
+
+    /// <summary>
     /// Whether a lookup made for <paramref name="scheme"/> sees the share.
     /// </summary>
     /// <param name="scheme">The calling server's scheme; <see langword="null"/> for a lookup that

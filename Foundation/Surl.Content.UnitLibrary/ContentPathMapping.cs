@@ -22,10 +22,12 @@ public sealed class ContentPathMapping
         bool isAnsweredAsAbsent,
         bool namesADirectory,
         ContentContainer? container,
-        string? scheme)
+        ContentCaller? caller,
+        bool deniesWrites)
     {
         Container = container;
-        Scheme = scheme;
+        Caller = caller;
+        DeniesWrites = deniesWrites;
         Location = location;
         EntryKind = entryKind;
         Refusal = refusal;
@@ -76,16 +78,23 @@ public sealed class ContentPathMapping
     internal ContentContainer? Container { get; }
 
     /// <summary>
-    /// The scheme the lookup was made for; <see langword="null"/> when it named none.
+    /// The caller the lookup was made for, with its scheme; <see langword="null"/> when the
+    /// request path was refused.
     /// </summary>
-    internal string? Scheme { get; }
+    internal ContentCaller? Caller { get; }
 
-    internal static ContentPathMapping Mapped(string location, ContentEntryKind entryKind, bool namesADirectory, ContentContainer container, string? scheme) =>
-        new(location, entryKind, ContentPathRefusal.None, isAnsweredAsAbsent: false, namesADirectory, container, scheme);
+    /// <summary>
+    /// Whether the caller's share access refuses every write at the location: the share grants it
+    /// <see cref="ContentShareAccess.Read"/> only (ADR-0102 decision 2.2).
+    /// </summary>
+    internal bool DeniesWrites { get; }
 
-    internal static ContentPathMapping AnsweredAsAbsent(string location, ContentContainer container, string? scheme) =>
-        new(location, ContentEntryKind.None, ContentPathRefusal.None, isAnsweredAsAbsent: true, namesADirectory: false, container, scheme);
+    internal static ContentPathMapping Mapped(string location, ContentEntryKind entryKind, bool namesADirectory, ContentContainer container, ContentCaller caller, bool deniesWrites) =>
+        new(location, entryKind, ContentPathRefusal.None, isAnsweredAsAbsent: false, namesADirectory, container, caller, deniesWrites);
+
+    internal static ContentPathMapping AnsweredAsAbsent(string location, ContentContainer container, ContentCaller caller, bool deniesWrites) =>
+        new(location, ContentEntryKind.None, ContentPathRefusal.None, isAnsweredAsAbsent: true, namesADirectory: false, container, caller, deniesWrites);
 
     internal static ContentPathMapping Refused(ContentPathRefusal refusal) =>
-        new(null, ContentEntryKind.None, refusal, isAnsweredAsAbsent: false, namesADirectory: false, container: null, scheme: null);
+        new(null, ContentEntryKind.None, refusal, isAnsweredAsAbsent: false, namesADirectory: false, container: null, caller: null, deniesWrites: false);
 }

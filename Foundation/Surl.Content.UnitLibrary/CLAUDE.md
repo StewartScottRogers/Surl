@@ -56,6 +56,20 @@ that names a bucket with its content path. Overlap between shares and `--directo
 checked at start by the composition, not here. Each mapping carries its container (internal
 `ContentContainer`), so every operation reaches the right file system.
 
+Share access (ADR-0102 decision 2.2, built by BL-656): `ContentShare.Grants` maps account
+names (ordinal) and `ContentShare.EveryoneMember` (`@everyone`) to `ContentShareAccess.Read`
+or `ReadWrite`; null is a share no `--share-access` names, open as the root is. A share with
+grants is closed to every account not granted and every anonymous caller not reached through
+`@everyone`; an account gets the wider of its own grant and `@everyone`'s. Servers pass who
+asks as a `ContentCaller` (`ForAccount(name, scheme)` or `Anonymous(scheme)`) to
+`MapRequestPathForCaller` or `MapBucketRequestPathForCaller`. A share the caller may not read
+is answered as absent - the one outcome a missing path gets, and it leaves the root listing -
+and in a share it may only read every write is `NotPermitted`, ANDed with `--allow-uploads`
+and `readonly`. The lookups that name no caller (`MapRequestPath`, `MapRequestPathForScheme`,
+`MapBucketRequestPath`) are answered as an anonymous caller, so with no grants configured they
+behave exactly as before, and with grants they never open a closed share. The root has no
+access rows.
+
 `ObjectMetadataIndex` keeps what a file system cannot hold for the object-storage servers
 (S3, Azure Storage, Cloud Storage, the OCI registry; ADR-0100 decision 2.3, built by BL-636):
 the five header fields set at upload, user metadata, the ETag and GCS's generation, keyed by

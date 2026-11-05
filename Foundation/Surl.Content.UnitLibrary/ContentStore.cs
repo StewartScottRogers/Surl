@@ -191,10 +191,12 @@ public sealed class ContentStore
     /// its reason. A refusal is a result, never an exception.</returns>
     /// <remarks>
     /// A lookup that names no scheme sees only the shares open to every scheme; a share limited
-    /// by <see cref="ContentShare.Schemes"/> is missing to it. Bucket names are not read.
+    /// by <see cref="ContentShare.Schemes"/> is missing to it. It names no caller either, so it is
+    /// answered as an anonymous caller is: a share with <see cref="ContentShare.Grants"/> reaches
+    /// it only through <see cref="ContentShare.EveryoneMember"/>. Bucket names are not read.
     /// </remarks>
     public ContentPathMapping MapRequestPath(string requestPath) =>
-        Map(requestPath, scheme: null, readsBucketNames: false);
+        Map(requestPath, ContentCaller.AnonymousOn(null), readsBucketNames: false);
 
     /// <summary>
     /// Maps a request path, made by the server for <paramref name="scheme"/>, onto a location
@@ -205,6 +207,9 @@ public sealed class ContentStore
     /// with every rule of the root. A first segment naming a share the scheme does not see is
     /// answered as absent, so a peer cannot learn that the share exists, and the root entry of
     /// that name stays unreachable (ADR-0102 decisions 2.1 and 2.3). Bucket names are not read.
+    /// The lookup names no caller, so it is answered as an anonymous caller on the scheme is
+    /// (<see cref="MapRequestPathForCaller(string, ContentCaller)"/>): with no
+    /// <see cref="ContentShare.Grants"/> configured, exactly as before share access existed.
     /// </remarks>
     /// <param name="requestPath">The path component of the request, still percent-encoded.</param>
     /// <param name="scheme">The calling server's scheme, such as <c>ftp</c>.</param>
@@ -213,7 +218,47 @@ public sealed class ContentStore
     public ContentPathMapping MapRequestPathForScheme(string requestPath, string scheme)
     {
         ArgumentException.ThrowIfNullOrEmpty(scheme);
-        return Map(requestPath, scheme, readsBucketNames: false);
+        return Map(requestPath, ContentCaller.AnonymousOn(scheme), readsBucketNames: false);
+    }
+
+    /// <summary>
+    /// Maps a request path, made by <paramref name="caller"/>, onto a location inside the served
+    /// root or the share its first segment names, or refuses it, applying the share's access
+    /// (ADR-0102 decisions 2.2 and 2.3).
+    /// </summary>
+    /// <remarks>
+    /// A share the caller's scheme does not see, or one whose <see cref="ContentShare.Grants"/>
+    /// give the caller nothing, is answered as absent - the same outcome as a path that does not
+    /// exist, so a peer cannot learn that the share or anything in it exists. In a share the
+    /// caller may only read (<see cref="ContentShareAccess.Read"/>), every write through the
+    /// mapping is not permitted, as in a <c>readonly</c> share. A write always also needs
+    /// <see cref="ContentExposureOptions.AllowUploads"/>. The root has no access rows. Bucket
+    /// names are not read.
+    /// </remarks>
+    /// <param name="requestPath">The path component of the request, still percent-encoded.</param>
+    /// <param name="caller">Who asks, and on which scheme.</param>
+    /// <returns>The resolved location and what is there, or the refusal and its reason.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="caller"/> is null.</exception>
+    public ContentPathMapping MapRequestPathForCaller(string requestPath, ContentCaller caller)
+    {
+        ArgumentNullException.ThrowIfNull(caller);
+        return Map(requestPath, caller, readsBucketNames: false);
+    }
+
+    /// <summary>
+    /// Maps an object-storage request path, made by <paramref name="caller"/>, whose first segment
+    /// is a bucket, as <see cref="MapBucketRequestPath(string, string)"/> maps it, applying the
+    /// access of the share the mapped path lies in as
+    /// <see cref="MapRequestPathForCaller(string, ContentCaller)"/> does (ADR-0102 decision 2.4).
+    /// </summary>
+    /// <param name="requestPath">The path component of the request, still percent-encoded.</param>
+    /// <param name="caller">Who asks, and on which scheme.</param>
+    /// <returns>The resolved location and what is there, or the refusal and its reason.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="caller"/> is null.</exception>
+    public ContentPathMapping MapBucketRequestPathForCaller(string requestPath, ContentCaller caller)
+    {
+        ArgumentNullException.ThrowIfNull(caller);
+        return Map(requestPath, caller, readsBucketNames: true);
     }
 
     /// <summary>
@@ -232,10 +277,10 @@ public sealed class ContentStore
     public ContentPathMapping MapBucketRequestPath(string requestPath, string scheme)
     {
         ArgumentException.ThrowIfNullOrEmpty(scheme);
-        return Map(requestPath, scheme, readsBucketNames: true);
+        return Map(requestPath, ContentCaller.AnonymousOn(scheme), readsBucketNames: true);
     }
 
-    private ContentPathMapping Map(string requestPath, string? scheme, bool readsBucketNames)
+    private ContentPathMapping Map(string requestPath, ContentCaller caller, bool readsBucketNames)
     {
         ArgumentNullException.ThrowIfNull(requestPath);
         ContentPathRefusal refusal = RequestPathSegments.Split(requestPath, out string[] segments);
@@ -252,15 +297,21 @@ public sealed class ContentStore
         bool namesADirectory = requestPath.EndsWith('/');
         if (segments.Length == 0 || !sharesByName.TryGetValue(segments[0], out var named))
         {
-            return MapInside(rootContainer, segments, namesADirectory, scheme);
+            return MapInside(rootContainer, segments, namesADirectory, caller, deniesWrites: false);
         }
 
-        return named.Share.IsVisibleTo(scheme)
-            ? MapInside(named.Container, segments[1..], namesADirectory, scheme)
-            : ContentPathMapping.AnsweredAsAbsent(Path.Join([rootContainer.ResolvedRoot, .. segments]), rootContainer, scheme);
+        ContentShareAccess? access = AccessOf(named.Share, caller);
+        return access is not null
+            ? MapInside(named.Container, segments[1..], namesADirectory, caller, deniesWrites: access == ContentShareAccess.Read)
+            : ContentPathMapping.AnsweredAsAbsent(Path.Join([rootContainer.ResolvedRoot, .. segments]), rootContainer, caller, deniesWrites: false);
     }
 
-    private ContentPathMapping MapInside(ContentContainer container, string[] segments, bool namesADirectory, string? scheme)
+    // ADR-0102 decisions 2.1 to 2.3: a share the scheme does not see is no more there than one the
+    // caller has no grant in.
+    private static ContentShareAccess? AccessOf(ContentShare share, ContentCaller caller) =>
+        share.IsVisibleTo(caller.Scheme) ? share.AccessFor(caller) : null;
+
+    private ContentPathMapping MapInside(ContentContainer container, string[] segments, bool namesADirectory, ContentCaller caller, bool deniesWrites)
     {
         IContentFileSystem fileSystem = container.FileSystem;
         string resolvedRoot = container.ResolvedRoot;
@@ -274,7 +325,7 @@ public sealed class ContentStore
         if (IsInServiceStateFolder(resolved, unresolved, resolvedRoot)
             || IsHiddenByExposureOptions(segments, resolved, unresolved))
         {
-            return ContentPathMapping.AnsweredAsAbsent(unresolved, container, scheme);
+            return ContentPathMapping.AnsweredAsAbsent(unresolved, container, caller, deniesWrites);
         }
 
         return ContentPathMapping.Mapped(
@@ -282,7 +333,8 @@ public sealed class ContentStore
             EntryKindAnswering(namesADirectory, fileSystem.GetEntryKind(resolved)),
             namesADirectory,
             container,
-            scheme);
+            caller,
+            deniesWrites);
     }
 
     /// <summary>
@@ -494,21 +546,22 @@ public sealed class ContentStore
 
         if (container == rootContainer && IsSamePath(location, resolvedRoot))
         {
-            ListSharesInPlaceOfTheirNamesakes(entries, mapping.Scheme);
+            ListSharesInPlaceOfTheirNamesakes(entries, mapping.Caller!);
         }
 
         entries.Sort((left, right) => string.CompareOrdinal(left.Name, right.Name));
         return ContentDirectoryListing.Listed(entries);
     }
 
-    // ADR-0102 decision 2.1: a share shadows the root entry of its name for every scheme, and the
-    // root's listing shows each share the scheme sees as a directory beside the root's own entries.
-    private void ListSharesInPlaceOfTheirNamesakes(List<ContentDirectoryEntry> entries, string? scheme)
+    // ADR-0102 decisions 2.1 and 2.2: a share shadows the root entry of its name for every scheme,
+    // and the root's listing shows each share the caller may read, on a scheme that sees it, as a
+    // directory beside the root's own entries.
+    private void ListSharesInPlaceOfTheirNamesakes(List<ContentDirectoryEntry> entries, ContentCaller caller)
     {
         entries.RemoveAll(entry => sharesByName.ContainsKey(entry.Name));
         foreach ((ContentShare share, ContentContainer container) in sharesByName.Values)
         {
-            if (share.IsVisibleTo(scheme) && container.FileSystem.GetEntryKind(container.Root) == ContentEntryKind.Directory)
+            if (AccessOf(share, caller) is not null && container.FileSystem.GetEntryKind(container.Root) == ContentEntryKind.Directory)
             {
                 entries.Add(new ContentDirectoryEntry(
                     share.Name,
@@ -936,7 +989,7 @@ public sealed class ContentStore
         IsSamePath(location, mapping.Container!.ResolvedRoot);
 
     private bool PermitsWrites(ContentPathMapping mapping) =>
-        ExposureOptions.AllowUploads && !mapping.Container!.IsReadOnly;
+        ExposureOptions.AllowUploads && !mapping.Container!.IsReadOnly && !mapping.DeniesWrites;
 
     private static IContentFileSystem FileSystemOf(ContentPathMapping mapping) => mapping.Container!.FileSystem;
 
