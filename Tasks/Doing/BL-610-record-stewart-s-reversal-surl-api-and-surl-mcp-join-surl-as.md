@@ -66,3 +66,4 @@ sent. The Product Overview and root `CLAUDE.md` stop saying that `surl` is the o
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-04: Backlog -> Doing.
