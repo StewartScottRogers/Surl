@@ -1,5 +1,5 @@
 ---
-id: BL-826
+id: BL-856
 title: Exclude the MQTT RETAIN-flag and TFTP missing-file upstream test cases as test-server choices
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-826 — Exclude the MQTT RETAIN-flag and TFTP missing-file upstream test cases as test-server choices
+# BL-856 — Exclude the MQTT RETAIN-flag and TFTP missing-file upstream test cases as test-server choices
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-828
+id: BL-858
 title: Decide how the TELNET server half plays upstream test 1452
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-828 — Decide how the TELNET server half plays upstream test 1452
+# BL-858 — Decide how the TELNET server half plays upstream test 1452
 
 ## Goal
 

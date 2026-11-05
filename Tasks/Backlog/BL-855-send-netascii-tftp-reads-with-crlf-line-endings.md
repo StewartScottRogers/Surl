@@ -1,5 +1,5 @@
 ---
-id: BL-825
+id: BL-855
 title: Send netascii TFTP reads with CRLF line endings
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-825 — Send netascii TFTP reads with CRLF line endings
+# BL-855 — Send netascii TFTP reads with CRLF line endings
 
 ## Goal
 

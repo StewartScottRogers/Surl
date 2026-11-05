@@ -1,5 +1,5 @@
 ---
-id: BL-827
+id: BL-857
 title: Order a multi-server upstream test case's protocol log by arrival
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-827 — Order a multi-server upstream test case's protocol log by arrival
+# BL-857 — Order a multi-server upstream test case's protocol log by arrival
 
 ## Goal
 

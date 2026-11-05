@@ -85,13 +85,13 @@ counts them.
   **DICT** 1 ran, 1 pass; **TELNET** 1 ran, 0 pass; **RTSP** 0 ran (all libtest). The passing list
   gains 25 (854 lines) and the pass-rate file's `win-x64` row says 92.5%.
 - **Failures, grouped and filed:**
-  - **BL-825**: TFTP netascii reads are sent without LF->CRLF conversion (1094), a Surl defect
+  - **BL-855**: TFTP netascii reads are sent without LF->CRLF conversion (1094), a Surl defect
     against RFC 1350.
-  - **BL-826**: test-server choices - MQTT `PUBLISH` RETAIN bit (1190, 1192, 2204, 3018, 1640;
+  - **BL-856**: test-server choices - MQTT `PUBLISH` RETAIN bit (1190, 1192, 2204, 3018, 1640;
     Surl follows MQTT 3.1.1 section 3.3.1.3) and TFTP missing file ERROR 1 vs upstream's ERROR 2
     (283); depends on BL-689.
-  - **BL-827**: a multi-server case's protocol log is joined per server, not by arrival (2002, 2003).
-  - **BL-828**: decide how the TELNET half plays 1452 (Surl's server waits for `quit`; timeout).
+  - **BL-857**: a multi-server case's protocol log is joined per server, not by arrival (2002, 2003).
+  - **BL-858**: decide how the TELNET half plays 1452 (Surl's server waits for `quit`; timeout).
 - **Coverage** (`Measure-CodeQuality -Library ...`): Tftp, Gopher and Mqtt libraries 100% line, 100%
   branch, 0 failing members. `Surl.Conformance.UnitLibrary` 100% line, 100% branch; its 9 members
   over complexity 10 predate this task (BL-394's Notes list them).
@@ -102,4 +102,4 @@ counts them.
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. Surl plays the server half of upstream dict, gopher, gophers, mqtt, mqtts, telnet and tftp cases (rtsp's are all libtest); Windows run 923 ran, 854 pass; failures filed as BL-825 to BL-828
+- 2026-11-05: Doing -> Done. Surl plays the server half of upstream dict, gopher, gophers, mqtt, mqtts, telnet and tftp cases (rtsp's are all libtest); Windows run 923 ran, 854 pass; failures filed as BL-855 to BL-858
