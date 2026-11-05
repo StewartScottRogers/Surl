@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions, Documentation/Product/Requirements.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-358 — Decide what proves the native surl on each of the six published runtime identifiers
 
@@ -56,14 +56,20 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`. It is marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`. It is marked
       "Decided by Claude under Stewart's delegation", answers decisions 1 to 5, and is listed in that
       folder's `README.md`.
-- [ ] NFR-006 in `Documentation/Product/Requirements.md` names the checks the ADR decides.
+- [x] NFR-006 in `Documentation/Product/Requirements.md` names the checks the ADR decides.
 
 ## Notes
+
+- Wrote the ADR directly rather than through `align-and-document`: a single new document plus one requirement row, and the decisions needed the workflow and test-fixture reading already done in this session.
+- ADR-0085 decisions in brief: `Test-PublishedSurl.ps1` smoke test on all six legs (one file, `--version` exact, serve one file byte for byte, SIGTERM exit 0; no runtime via `ubuntu:22.04` container on Linux, scrubbed `DOTNET_*`/`PATH` and import checks elsewhere); `SURL_EXECUTABLE` switch for `SurlOnLoopback`; conformance against the binary in the release dry run on `linux-x64` and `osx-arm64`, locally on `win-x64` (CI has no pinned Windows build); `osx-x64` on `macos-15-intel`; Arm64 and `osx-x64` run smoke plus fast tests, conformance once BL-357 is approved; `ci.yml` unchanged, dry run widened and weekly.
+- Found: the task Context said `ci.yml` runs conformance on Windows; it does not (no pinned build on the runner image). The ADR says so and places the `win-x64` run locally.
+- `--version` measured in-process on 2026-11-04: `surl 1.0.0 (win-x64)`, exit 0.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0085 decides the checks that prove the native surl on all six runtime identifiers; NFR-006 names them
