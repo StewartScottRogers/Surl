@@ -53,3 +53,4 @@ enhanced authentication and re-authentication with the AUTH packet for the metho
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
