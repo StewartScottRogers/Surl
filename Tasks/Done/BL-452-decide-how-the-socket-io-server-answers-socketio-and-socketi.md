@@ -61,7 +61,7 @@ Decide and record:
   text is engine.io-protocol `main` `f21de7b0` and the Socket.IO v5 text socket.io-protocol `main` `4f633dd6`
   (their `v2`/`v3` and `v3`/`v4` branches hold older revisions); the ADR cites both commits in full.
 - HTTP long-polling and its upgrade are served, as a complete Engine.IO server serves both transports; filed
-  as BL-758. WebSocket lands first in BL-454, which answers `transport=polling` with `400` code 0 until then.
+  as BL-762. WebSocket lands first in BL-454, which answers `transport=polling` with `400` code 0 until then.
 - The login is the CONNECT payload (`token`, or `username` and `password`) judged by `IAuthenticationPolicy`,
   not the HTTP requests as in ADR-0119's SignalR: SIO puts credentials there and a browser's WebSocket cannot
   set `Authorization`.
@@ -74,4 +74,4 @@ Decide and record:
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. ADR-0120 decides how the Socket.IO server answers socketio and socketios; SocketIo.md traces each server requirement to BL-453, BL-454 or BL-758
+- 2026-11-05: Doing -> Done. ADR-0120 decides how the Socket.IO server answers socketio and socketios; SocketIo.md traces each server requirement to BL-453, BL-454 or BL-762

@@ -47,7 +47,7 @@ decides so.
 
 ## Notes
 
-- 2026-11-05 (BL-452): ADR-0120 is the ADR. It serves HTTP long-polling, but in BL-758, not here: this task
+- 2026-11-05 (BL-452): ADR-0120 is the ADR. It serves HTTP long-polling, but in BL-762, not here: this task
   answers `transport=polling` with `400` code 0 and sends `upgrades` `[]`.
 
 ## Log

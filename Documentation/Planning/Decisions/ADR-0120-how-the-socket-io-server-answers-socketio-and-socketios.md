@@ -5,7 +5,7 @@
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05,
   in BL-452. BL-453 builds the library and its Engine.IO and Socket.IO packet codecs (decisions 0,
   3, 6 and the packet limits of 7), BL-454 serves sessions over the WebSocket transport (decisions
-  1 to 7), BL-455 serves both schemes from `surl`, and BL-758 adds the HTTP long-polling transport
+  1 to 7), BL-455 serves both schemes from `surl`, and BL-762 adds the HTTP long-polling transport
   and its upgrade to WebSocket (decision 2).
 - **Builds on:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
   (the oracle is the specification; the Curl port is never proof; ports 80 and 443; one matrix per
@@ -100,10 +100,10 @@ expected byte comes from it. Because the port sends no `auth` payload, BL-456 ru
 
   | Code | Body | When |
   | --- | --- | --- |
-  | 0 | `{"code":0,"message":"Transport unknown"}` | `transport` absent, or neither `websocket` nor `polling` (and `polling` until BL-758) |
+  | 0 | `{"code":0,"message":"Transport unknown"}` | `transport` absent, or neither `websocket` nor `polling` (and `polling` until BL-762) |
   | 1 | `{"code":1,"message":"Session ID unknown"}` | a `sid` no live session has |
   | 2 | `{"code":2,"message":"Bad handshake method"}` | a request without `sid` whose method is not `GET` |
-  | 3 | `{"code":3,"message":"Bad request"}` | a second WebSocket for a session that has one, a second concurrent poll or post (BL-758), or a WebSocket request that is not an upgrade |
+  | 3 | `{"code":3,"message":"Bad request"}` | a second WebSocket for a session that has one, a second concurrent poll or post (BL-762), or a WebSocket request that is not an upgrade |
   | 5 | `{"code":5,"message":"Unsupported protocol version"}` | `EIO` absent or not `4` |
 
   A path other than `/socket.io/` stays `404` (not a code), and the WebSocket upgrade's own checks
@@ -118,9 +118,9 @@ expected byte comes from it. Because the port sends no `auth` payload, BL-456 ru
   WebSocket message (EIO "WebSocket"): a text message for a packet with a text payload, a binary
   message, with no type prefix, for a binary `message` packet. The server writes each packet as one
   unfragmented message and reads fragmented ones.
-- **HTTP long-polling and the upgrade are served,** by BL-758, because a complete Engine.IO server
+- **HTTP long-polling and the upgrade are served,** by BL-762, because a complete Engine.IO server
   serves both transports and polling is every reference client's default first transport (EIO
-  "Upgrade": "By default, the client SHOULD create an HTTP long-polling connection"). What BL-758
+  "Upgrade": "By default, the client SHOULD create an HTTP long-polling connection"). What BL-762
   builds, from EIO "HTTP long-polling" and "Upgrade":
   - `GET /socket.io/?EIO=4&transport=polling` without `sid` opens a session: `200`,
     `Content-Type: text/plain; charset=UTF-8`, the open packet as the body, with `upgrades`
@@ -137,14 +137,14 @@ expected byte comes from it. Because the port sends no `auth` payload, BL-456 ru
   - the upgrade: a WebSocket request carrying the session's `sid` is upgraded, its `2probe`
     answered `3probe`, any held `GET` answered `6` (noop), and the client's `5` moves the session to
     the WebSocket, after which a polling request with that `sid` is code 3.
-  Until BL-758 lands, `transport=polling` is code 0 and the open packet's `upgrades` is `[]` on
+  Until BL-762 lands, `transport=polling` is code 0 and the open packet's `upgrades` is `[]` on
   every session, so no client is offered an upgrade the server cannot finish.
 - **On a WebSocket session `upgrades` is `[]`**: there is no better transport to move to.
 - **The Engine.IO packets the server reads** (EIO "Protocol"): `1` close ends the session (the
   server closes the WebSocket `1000`, sends nothing more); `2` ping is answered `3probe` only as
-  `2probe` during BL-758's upgrade and is otherwise ignored, since in v4 the server pings (EIO
+  `2probe` during BL-762's upgrade and is otherwise ignored, since in v4 the server pings (EIO
   "History"); `3` pong is the heartbeat's answer (decision 3); `4` message carries a Socket.IO packet
-  (decisions 4 to 6); `5` upgrade is read only during BL-758's upgrade; `6` noop is ignored. A
+  (decisions 4 to 6); `5` upgrade is read only during BL-762's upgrade; `6` noop is ignored. A
   client `0` open, a `5` outside an upgrade, an empty text message, or a type character outside `0`
   to `6`, is a **protocol error**: the WebSocket is closed `1002` with no Engine.IO packet first
   (EIO names no error packet).
@@ -266,7 +266,7 @@ expected byte comes from it. Because the port sends no `auth` payload, BL-456 ru
   the arguments (the payload without its name, which is a string and so never a placeholder), then
   the same attachments. A plain EVENT whose payload holds a placeholder object is read as JSON like
   any other, since only a binary packet has attachments.
-- **Over BL-758's polling**, each attachment travels as a `b`-prefixed base64 packet (EIO "Packet
+- **Over BL-762's polling**, each attachment travels as a `b`-prefixed base64 packet (EIO "Packet
   encoding"), the same bytes once decoded.
 
 ### 7. Limits (ADR-0006) and shutdown
@@ -276,7 +276,7 @@ expected byte comes from it. Because the port sends no `auth` payload, BL-456 ru
 | connections (`--max-connections`, `--max-connections-per-address`) | `Surl.Core`'s refusal before HTTP | the connection refused |
 | request head, slow sender (`--max-request-head`, `--head-timeout`) | `Http1ConnectionServer` (ADR-0084 decision 1) | its answer (`431`, `408` or close) |
 | sessions on a listener | 1024 (ADR-0006's connection ceiling) | a new session's upgrade or handshake poll: `503 Service Unavailable`, no body |
-| an Engine.IO packet: one WebSocket message, or one packet of a polling body | `maxPayload`, which is `--max-message` (1048576) | WebSocket Close `1009`; a polling `POST` body past it is `413` and the session closed (BL-758) |
+| an Engine.IO packet: one WebSocket message, or one packet of a polling body | `maxPayload`, which is `--max-message` (1048576) | WebSocket Close `1009`; a polling `POST` body past it is `413` and the session closed (BL-762) |
 | a WebSocket frame (`--max-message`) | `Surl.WebSocket` | WebSocket Close `1009` |
 | attachments in one binary packet | at most 64, and the text part plus every attachment within `--max-message` together | protocol error, WebSocket Close `1009` for the size, `1002` for the count |
 | JSON nesting | 64 levels (`Utf8JsonReader`'s default) | protocol error, WebSocket Close `1002` |
@@ -294,7 +294,7 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
 
 - **WebSocket only, for good**, as the port's client is. Rejected: a complete Engine.IO server
   serves both transports and every reference client starts on polling; WebSocket lands first
-  (BL-454) because it is the full-duplex one and the one the port uses, and BL-758 adds polling.
+  (BL-454) because it is the full-duplex one and the one the port uses, and BL-762 adds polling.
 - **Authenticate the HTTP requests** through `IHttpAuthenticationSession`, as ADR-0119 does for
   SignalR. Rejected: SIO carries credentials in the CONNECT payload, a browser's WebSocket cannot set
   `Authorization`, and judging both would demand two logins of one client; a session that never
@@ -317,8 +317,8 @@ No new option is added: ADR-0006's options cover what a test harness tunes.
   server on `/socket.io/` that opens Engine.IO v4 sessions over WebSocket, pings every 25 s, connects
   `/` and `/admin` after checking the CONNECT payload, echoes events, broadcasts `broadcast`,
   acknowledges events that ask, and carries binary attachments; `socketios://` is the same inside
-  TLS. BL-758 adds HTTP long-polling and its upgrade.
-- BL-453 to BL-455 build it, BL-758 completes it, and the Curl port's client may connect to it as a
+  TLS. BL-762 adds HTTP long-polling and its upgrade.
+- BL-453 to BL-455 build it, BL-762 completes it, and the Curl port's client may connect to it as a
   live client in `Integration` tests (BL-456, ADR-0083).
 - The requirement matrix [`SocketIo.md`](../../Conformance/Extended/SocketIo.md) traces each
   server-side requirement to BL-453, BL-454 or a later task; each task replaces its ID with the

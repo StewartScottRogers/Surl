@@ -1,5 +1,5 @@
 ---
-id: BL-758
+id: BL-762
 title: Serve Socket.IO's HTTP long-polling transport and its upgrade to WebSocket
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-758 — Serve Socket.IO's HTTP long-polling transport and its upgrade to WebSocket
+# BL-762 — Serve Socket.IO's HTTP long-polling transport and its upgrade to WebSocket
 
 ## Goal
 

@@ -16,7 +16,7 @@ IDs are `SocketIo:EIO-<section>-<n>` and `SocketIo:SIO-<section>-<n>` for the sp
 choice. Client-only requirements (sending the `sid` on later requests, at most one `GET` and one
 `POST` at a time, choosing when to upgrade, considering the connection closed when no ping arrives)
 are not rows; the server's answer to a client that breaks one is. Requirements of the HTTP
-long-polling transport, which BL-758 adds, are rows marked "n/a" naming that task, and the task turns
+long-polling transport, which BL-762 adds, are rows marked "n/a" naming that task, and the task turns
 each into a row of its own when it lands.
 
 ## Packet encoding (EIO "Protocol", "Packet encoding"; SIO "Exchange protocol", "Packet encoding")
@@ -35,22 +35,22 @@ each into a row of its own when it lands.
 | --- | --- | --- | --- |
 | SocketIo:EIO-Path-1 | MUST | The Engine.IO path is `/socket.io/`; any other path is `404` with no body (ADR-0120 decision 1). | BL-454 |
 | SocketIo:EIO-Query-1 | MUST | A request whose `EIO` is absent or not `4` is answered `400` `{"code":5,"message":"Unsupported protocol version"}` before any upgrade. | BL-454 |
-| SocketIo:EIO-Query-2 | MUST | A request whose `transport` is absent or unknown is answered `400` `{"code":0,"message":"Transport unknown"}`; until BL-758, `polling` too. | BL-454 |
+| SocketIo:EIO-Query-2 | MUST | A request whose `transport` is absent or unknown is answered `400` `{"code":0,"message":"Transport unknown"}`; until BL-762, `polling` too. | BL-454 |
 | SocketIo:Surl-1-1 | MUST | A request without `sid` whose method is not `GET` is `400` `{"code":2,"message":"Bad handshake method"}`; a `sid` no session has is `400` `{"code":1,"message":"Session ID unknown"}` (ADR-0120 decision 1). | BL-454 |
 | SocketIo:EIO-Handshake-1 | MUST | `GET /socket.io/?EIO=4&transport=websocket` is upgraded (`101`) and opens a WebSocket-only session. | BL-454 |
 | SocketIo:EIO-WebSocket-1 | MUST | A second WebSocket for a session that has one is refused `400` `{"code":3,"message":"Bad request"}`. | BL-454 |
 | SocketIo:RFC6455-4.2-1 | MUST | The upgrade request is checked and refused as `Surl.WebSocket` does, with no subprotocol chosen (ADR-0071, ADR-0084 decision 2). | n/a: `Surl.WebSocket` owns the checks and is tested there (BL-408) |
 | SocketIo:Surl-0-1 | MUST | `socketios` is the same server inside TLS from the first byte; without `--cert` or `--self-signed` the listener fails with `CertificateProblem` (58). | n/a: the listener seam wraps TLS before the server reads a byte (ADR-0010); BL-455 registers `socketios` and proves it |
-| SocketIo:EIO-Polling-1 | MUST | HTTP long-polling: the handshake `GET`, a held `GET` answered with queued packets joined by `\x1e`, a `POST` answered `200` `ok`, binary as `b`-prefixed base64 and `Content-Type: application/octet-stream` read as binary. | n/a: BL-758 adds the transport (ADR-0120 decision 2) |
-| SocketIo:EIO-Polling-2 | MUST | An unknown `sid` on a poll or post is `400`; a second concurrent `GET` or `POST` is `400` and closes the session. | n/a: BL-758 adds the transport (ADR-0120 decision 2) |
-| SocketIo:EIO-Upgrade-1 | MUST | The upgrade from polling: `2probe` answered `3probe`, a held `GET` answered `6` (noop), and `5` moving the session to the WebSocket. | n/a: BL-758 adds the upgrade (ADR-0120 decision 2) |
+| SocketIo:EIO-Polling-1 | MUST | HTTP long-polling: the handshake `GET`, a held `GET` answered with queued packets joined by `\x1e`, a `POST` answered `200` `ok`, binary as `b`-prefixed base64 and `Content-Type: application/octet-stream` read as binary. | n/a: BL-762 adds the transport (ADR-0120 decision 2) |
+| SocketIo:EIO-Polling-2 | MUST | An unknown `sid` on a poll or post is `400`; a second concurrent `GET` or `POST` is `400` and closes the session. | n/a: BL-762 adds the transport (ADR-0120 decision 2) |
+| SocketIo:EIO-Upgrade-1 | MUST | The upgrade from polling: `2probe` answered `3probe`, a held `GET` answered `6` (noop), and `5` moving the session to the WebSocket. | n/a: BL-762 adds the upgrade (ADR-0120 decision 2) |
 
 ## The open packet and the heartbeat (EIO "Handshake", "Heartbeat")
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | SocketIo:EIO-Open-1 | MUST | The session's first packet is `open`: `0{"sid":"<20 characters>","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":<--max-message>}`, the `sid` 15 random bytes in base64url (ADR-0120 decision 3). | BL-454 |
-| SocketIo:Surl-2-2 | MUST | `upgrades` is `[]` on a WebSocket session, and on every session until BL-758 (ADR-0120 decision 2). | BL-454 |
+| SocketIo:Surl-2-2 | MUST | `upgrades` is `[]` on a WebSocket session, and on every session until BL-762 (ADR-0120 decision 2). | BL-454 |
 | SocketIo:EIO-Heartbeat-1 | MUST | The server sends `2` `pingInterval` after the open packet and after each pong, on the injected `TimeProvider`. | BL-454 |
 | SocketIo:EIO-Heartbeat-2 | SHOULD | No `3` within `pingTimeout` of a `2` closes the session, WebSocket Close `1000`. | BL-454 |
 | SocketIo:Surl-2-3 | MUST | A client `1` ends the session (WebSocket Close `1000`); a client `2` other than `2probe`, a pong with no ping outstanding, and `6` are ignored; a client `0`, or `5` outside an upgrade, closes the WebSocket `1002` (ADR-0120 decisions 2 and 3). | BL-454 |
