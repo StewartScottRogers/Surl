@@ -386,6 +386,37 @@ The server's own per-flow and per-server bounds, constructor parameters with the
   flow's life.
 - No limit ends the process or changes its exit code (ADR-0006 section 5).
 
+**Amendment (2026-11-05, BL-475; decided by Claude under Stewart's delegation).** How
+`SecureCoapProtocolServer` runs decisions 0, 4, 6 and 7 over `Surl.Dtls`, the details the decisions
+left open:
+
+- **What it is given.** The content store, the `CoapAccessRules`, the shared `CoapObservations`, and a
+  `CoapDtlsCredentials`: the process certificate (or none), the PSK lookup BL-476 builds from the
+  accounts (or none), and the `--cacert` anchors (or none). Neither a certificate nor a lookup is an
+  `ArgumentException`: ADR-0087 decision 3's refusal with `CertificateProblem` (58) is the command
+  line's, before any listener binds, so the server only guards against a composition that skipped it.
+- **One cookie secret per server**, made from the first flow's `TimeProvider` (the engine gives every
+  flow the same clock) rather than at construction, where no clock is given. It is never written
+  anywhere, as ADR-0087 decision 4 says.
+- **Handshake limits.** The head timeout is `ExchangeLimits.HeadTimeout` and the handshake's
+  `--max-message` limit is `ExchangeLimits.MaxMessageBytes`, as ADR-0087 decision 9's table maps them.
+- **Who the peer is** is read once, when the handshake completes: `ClientPreSharedKeyIdentity` set, or
+  `ClientCertificateVerified`, makes the peer authenticated for the flow's whole life, and the PSK case
+  writes `Login accepted: psk <identity>`. A failed handshake writes
+  `The DTLS handshake ended: <result> (<alert>).` and serves nothing.
+- **Block size.** Decision 4's "largest SZX whose block and 64 bytes of header and options fit" is
+  taken against `DtlsServerSession.MaximumApplicationDataLength`: 1163 or 1171 bytes give SZX 6 (1024),
+  and the smallest `max_fragment_length`, 512, gives SZX 4 (256). The SZX is fixed per flow when the
+  handshake completes.
+- **How a flow ends.** A client's `close_notify` (answered by `Surl.Dtls`) or fatal alert ends the
+  flow's CoAP serving normally, with the note `The client ended the DTLS association.`, and its
+  observations and Block1 uploads go with it. At the idle timeout or maximum duration the server sends
+  one warning `close_notify` on a 1-second deadline of its own (never the cancelled exchange's token,
+  ADR-0059) and the exchange ends with `OperationCanceledException`; at shutdown it sends nothing.
+- **Sends are serialised.** The message layer sends from several tasks at once (separate responses,
+  notifications), and each DTLS record takes its sequence number as it is sealed, so the decrypted
+  flow sends one record at a time.
+
 ## Alternatives considered
 
 - **Serve FETCH, PATCH and iPATCH (RFC 8132).** Rejected (decision 1): a file has no query or

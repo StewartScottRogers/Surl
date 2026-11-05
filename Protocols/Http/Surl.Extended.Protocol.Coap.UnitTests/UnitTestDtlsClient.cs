@@ -1,0 +1,454 @@
+using System.Security.Cryptography;
+using Surl.Cryptography.Curve25519;
+using Surl.Dtls;
+
+namespace Surl.Extended.Protocol.Coap;
+
+/// <summary>
+/// A DTLS 1.2 client written from RFC 6347 section 4.2 and RFC 5246 section 7, copied from
+/// <c>Surl.Dtls.UnitTests</c> as BL-475 allows, enough to drive <see cref="SecureCoapProtocolServer"/>
+/// through the cookie exchange and an ECDHE certificate or PSK handshake, then carry CoAP messages
+/// as application data. It reacts to each datagram the server sends and returns the datagrams it
+/// answers with; its knobs make it misbehave the ways the tests need.
+/// </summary>
+internal sealed class UnitTestDtlsClient
+{
+    public const ushort DefaultSuite = 0xC02B;
+
+    private readonly DtlsRecordReader epoch0Reader = new(epoch: 0, protection: null);
+    private readonly List<byte> transcript = [];
+    private readonly DtlsHandshakeReassembler serverMessages = new(1 << 20);
+    private readonly DtlsRecordWriter epoch0Writer;
+    private DtlsRecordWriter? epoch1Writer;
+    private DtlsRecordReader? epoch1Reader;
+    private DtlsCipherSuite? suite;
+    private byte[] cookie;
+    private byte[] serverRandom = [];
+    private byte[] masterSecret = [];
+    private DtlsEcdheServerKeyExchange? serverKeyExchange;
+    private bool usesExtendedMasterSecret;
+    private List<byte[]>? finalFlight;
+    private List<List<(DtlsContentType Type, bool Protected, byte[] Plaintext)>>? finalFlightPlaintexts;
+
+    public UnitTestDtlsClient()
+    {
+        epoch0Writer = new DtlsRecordWriter(epoch: 0, protection: null);
+        cookie = [];
+    }
+
+    public byte[] Random { get; } = RandomNumberGenerator.GetBytes(DtlsClientHello.RandomLength);
+
+    public ushort[] CipherSuites { get; init; } = [DefaultSuite];
+
+    public DtlsNamedGroup Group { get; init; } = DtlsNamedGroup.Secp256r1;
+
+    public ushort[] SignatureSchemes { get; init; } = [0x0403, 0x0503, 0x0804, 0x0805, 0x0401, 0x0501];
+
+    public bool OffersExtendedMasterSecret { get; init; } = true;
+
+    /// <summary>The PSK identity the client names on a PSK suite (RFC 4279 section 2).</summary>
+    public byte[] PskIdentity { get; init; } = "alice"u8.ToArray();
+
+    /// <summary>The key the client holds for <see cref="PskIdentity"/>.</summary>
+    public byte[] PskKey { get; init; } = "secret"u8.ToArray();
+
+    /// <summary>The hello's <c>client_version</c>.</summary>
+    public ushort ClientVersion { get; init; } = DtlsRecordHeader.Dtls12Version;
+
+    /// <summary>The hello's compression methods.</summary>
+    public byte[] CompressionMethods { get; init; } = [0];
+
+    /// <summary>Whether the client answers a <c>HelloVerifyRequest</c> with a second hello.</summary>
+    public bool AnswersHelloVerifyRequest { get; init; } = true;
+
+    /// <summary>Whether the client sends its final flight at all.</summary>
+    public bool SendsFinalFlight { get; init; } = true;
+
+    /// <summary>Whether the client's <c>Finished</c> carries wrong <c>verify_data</c>.</summary>
+    public bool CorruptsFinished { get; init; }
+
+    /// <summary>What the client's <c>ChangeCipherSpec</c> carries; RFC 5246 section 7.1 says the byte 1.</summary>
+    public byte[] ChangeCipherSpecBody { get; init; } = [1];
+
+    /// <summary>Whether the final flight goes as two datagrams: the epoch 0 records, then <c>Finished</c>.</summary>
+    public bool SplitsFinalFlight { get; init; }
+
+    /// <summary>Datagrams the client sends before its final flight, built once the server's flight is in.</summary>
+    public Func<UnitTestDtlsClient, IEnumerable<byte[]>>? BeforeFinalFlight { get; init; }
+
+    /// <summary>Replaces the final flight, built once the server's flight is in.</summary>
+    public Func<UnitTestDtlsClient, IEnumerable<byte[]>>? ReplacesFinalFlight { get; init; }
+
+    /// <summary>The <c>server_certificate_type</c> list (RFC 7250 section 4.1), or no extension.</summary>
+    public byte[]? ServerCertificateTypes { get; init; }
+
+    /// <summary>The <c>client_certificate_type</c> list (RFC 7250 section 4.1), or no extension.</summary>
+    public byte[]? ClientCertificateTypes { get; init; }
+
+    /// <summary>The <c>max_fragment_length</c> extension's data (RFC 6066 section 4), or no extension.</summary>
+    public byte[]? MaxFragmentLength { get; init; }
+
+    /// <summary>The DER chain the client sends when asked for a certificate; empty sends an empty list.</summary>
+    public IReadOnlyList<byte[]> ClientCertificateChain { get; init; } = [];
+
+    /// <summary>The key that signs <c>CertificateVerify</c>, or none, so none is sent.</summary>
+    public AsymmetricAlgorithm? ClientCertificateKey { get; init; }
+
+    /// <summary>The scheme <c>CertificateVerify</c> names; by default the one the key's kind makes.</summary>
+    public ushort? CertificateVerifyScheme { get; init; }
+
+    /// <summary>Whether the client's <c>CertificateVerify</c> signature is spoiled.</summary>
+    public bool CorruptsCertificateVerify { get; init; }
+
+    /// <summary>The server's <c>Certificate</c> body, as it came.</summary>
+    public byte[]? ServerCertificateBody { get; private set; }
+
+    /// <summary>The server's <c>CertificateRequest</c>, when it sent one.</summary>
+    public DtlsCertificateRequest? CertificateRequest { get; private set; }
+
+    public ushort NextMessageSeq { get; private set; }
+
+    public byte[] LastHelloDatagram { get; private set; } = [];
+
+    public DtlsServerHello? ServerHello { get; private set; }
+
+    public DtlsHelloVerifyRequest? HelloVerifyRequest { get; private set; }
+
+    public bool IsEstablished { get; private set; }
+
+    public List<byte[]> ReceivedApplicationData { get; } = [];
+
+    public List<DtlsAlert> ReceivedAlerts { get; } = [];
+
+    public int ServerFlightsSeenAgain { get; private set; }
+
+    public DtlsClientHello BuildHello() => new(
+        ClientVersion, Random, [], cookie, CipherSuites, CompressionMethods, BuildExtensions());
+
+    public byte[] FirstHelloDatagram() => HelloDatagram();
+
+    /// <summary>A plaintext epoch 0 record of the client's.</summary>
+    public byte[] PlaintextRecord(DtlsContentType contentType, byte[] plaintext) => epoch0Writer.Seal(contentType, plaintext);
+
+    /// <summary>A plaintext epoch 0 handshake record carrying a whole message with the next <c>message_seq</c>.</summary>
+    public byte[] HandshakeRecord(DtlsHandshakeType type, byte[] body) =>
+        PlaintextRecord(DtlsContentType.Handshake, new DtlsHandshakeMessage(type, NextMessageSeq++, body).ToUnfragmentedBytes());
+
+    /// <summary>An epoch 1 record under the client's keys, once the final flight is built.</summary>
+    public byte[] ProtectedRecord(DtlsContentType contentType, byte[] plaintext) => epoch1Writer!.Seal(contentType, plaintext);
+
+    /// <summary>
+    /// The client's real final flight: <c>ClientKeyExchange</c>, <c>ChangeCipherSpec</c>,
+    /// <c>Finished</c>. It is kept as plaintexts, so each time it is sent again its records carry
+    /// fresh sequence numbers, as RFC 6347 section 4.2.4 requires.
+    /// </summary>
+    public List<byte[]> BuildFinalFlight()
+    {
+        List<(DtlsContentType, bool, byte[])> epoch0 = [];
+        if (CertificateRequest is not null)
+        {
+            epoch0.Add((DtlsContentType.Handshake, false,
+                AddClientMessage(DtlsHandshakeType.Certificate, new DtlsCertificate(ClientCertificateChain).Write())));
+        }
+
+        var keyExchange = AddClientMessage(
+            DtlsHandshakeType.ClientKeyExchange, AgreeAndDeriveKeys());
+        epoch0.Add((DtlsContentType.Handshake, false, keyExchange));
+        if (CertificateRequest is not null && ClientCertificateKey is not null)
+        {
+            epoch0.Add((DtlsContentType.Handshake, false, AddClientMessage(DtlsHandshakeType.CertificateVerify, SignTranscript())));
+        }
+
+        epoch0.Add((DtlsContentType.ChangeCipherSpec, false, ChangeCipherSpecBody));
+        var verifyData = DtlsPseudorandomFunction.ClientFinishedVerifyData(suite!.PrfHash, masterSecret, TranscriptHash());
+        if (CorruptsFinished)
+        {
+            verifyData[0] ^= 0xFF;
+        }
+
+        var finished = AddClientMessage(DtlsHandshakeType.Finished, new DtlsFinished(verifyData).Write());
+        List<(DtlsContentType, bool, byte[])> epoch1 = [(DtlsContentType.Handshake, true, finished)];
+        finalFlightPlaintexts = SplitsFinalFlight ? [epoch0, epoch1] : [[.. epoch0, .. epoch1]];
+        return SealFinalFlight();
+    }
+
+    /// <summary>
+    /// The <c>CertificateVerify</c> body: the client key's signature over every handshake message
+    /// so far (RFC 5246 section 7.4.8), ECDSA as a DER <c>ECDSA-Sig-Value</c>.
+    /// </summary>
+    private byte[] SignTranscript()
+    {
+        byte[] content = [.. transcript];
+        byte[] signature;
+        ushort scheme;
+        if (ClientCertificateKey is RSA rsa)
+        {
+            scheme = CertificateVerifyScheme ?? 0x0804;
+            signature = rsa.SignData(content, HashAlgorithmName.SHA256, scheme == 0x0401 ? RSASignaturePadding.Pkcs1 : RSASignaturePadding.Pss);
+        }
+        else
+        {
+            scheme = CertificateVerifyScheme ?? 0x0403;
+            signature = ((ECDsa)ClientCertificateKey!).SignData(content, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+        }
+
+        if (CorruptsCertificateVerify)
+        {
+            content[^1] ^= 0xFF;
+            signature = ClientCertificateKey is RSA corruptRsa
+                ? corruptRsa.SignData(content, HashAlgorithmName.SHA256, RSASignaturePadding.Pss)
+                : ((ECDsa)ClientCertificateKey).SignData(content, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+        }
+
+        return new DtlsCertificateVerify(scheme, signature).Write();
+    }
+
+    private List<byte[]> SealFinalFlight() =>
+        [.. finalFlightPlaintexts!.Select(datagram => datagram
+            .SelectMany(record => record.Protected ? ProtectedRecord(record.Type, record.Plaintext) : PlaintextRecord(record.Type, record.Plaintext))
+            .ToArray())];
+
+    /// <summary>Takes in one datagram from the server and returns the client's answers.</summary>
+    public List<byte[]> OnServerDatagram(byte[] datagram)
+    {
+        // Records are read one at a time, so a ChangeCipherSpec starts epoch 1 reads before the
+        // Finished behind it in the same datagram is read.
+        var answers = new List<byte[]>();
+        var offset = 0;
+        while (DtlsRecordHeader.TryRead(datagram.AsSpan(offset), out var header))
+        {
+            var length = DtlsRecordHeader.Size + header.Length;
+            var reader = header.Epoch == 0 ? epoch0Reader : epoch1Reader;
+            foreach (var record in reader?.ReadDatagram(datagram.AsSpan(offset, length)).Records ?? [])
+            {
+                answers.AddRange(OnServerRecord(record));
+            }
+
+            offset += length;
+        }
+
+        return answers;
+    }
+
+    private IEnumerable<byte[]> OnServerRecord(DtlsRecord record)
+    {
+        switch (record.Header.ContentType)
+        {
+            case DtlsContentType.Handshake:
+                return OnServerHandshakeFragments(record.Plaintext);
+            case DtlsContentType.ChangeCipherSpec:
+                epoch1Reader = new DtlsRecordReader(epoch: 1, ServerProtection());
+                return [];
+            case DtlsContentType.Alert:
+                DtlsAlert.TryRead(record.Plaintext, out var alert);
+                ReceivedAlerts.Add(alert);
+                return [];
+            default:
+                ReceivedApplicationData.Add(record.Plaintext);
+                return [];
+        }
+    }
+
+    private List<byte[]> OnServerHandshakeFragments(byte[] plaintext)
+    {
+        var answers = new List<byte[]>();
+        var fragments = plaintext.AsSpan();
+        var seenAgain = false;
+        while (!fragments.IsEmpty)
+        {
+            seenAgain |= serverMessages.Accept(fragments, out var consumed) == DtlsHandshakeFragmentOutcome.Stale;
+            fragments = fragments[consumed..];
+        }
+
+        while (serverMessages.TryTakeNext(out var message))
+        {
+            answers.AddRange(OnServerMessage(message));
+        }
+
+        if (seenAgain && finalFlight is not null && !IsEstablished)
+        {
+            ServerFlightsSeenAgain++;
+            answers.AddRange(finalFlightPlaintexts is null ? finalFlight : SealFinalFlight());
+        }
+
+        return answers;
+    }
+
+    private IEnumerable<byte[]> OnServerMessage(DtlsHandshakeMessage message)
+    {
+        switch (message.MessageType)
+        {
+            case DtlsHandshakeType.HelloVerifyRequest:
+                HelloVerifyRequest = DtlsHelloVerifyRequest.Read(message.Body);
+                cookie = HelloVerifyRequest.Cookie;
+                return AnswersHelloVerifyRequest ? [HelloDatagram()] : [];
+            case DtlsHandshakeType.ServerHello:
+                ServerHello = DtlsServerHello.Read(message.Body);
+                serverRandom = ServerHello.Random;
+                suite = DtlsCipherSuite.AllSuitesInServerOrder.Single(candidate => candidate.Code == ServerHello.CipherSuite);
+                usesExtendedMasterSecret = ServerHello.Extensions.Any(extension => extension.Type == DtlsExtensionType.ExtendedMasterSecret);
+                break;
+            case DtlsHandshakeType.Certificate:
+                ServerCertificateBody = message.Body;
+                break;
+            case DtlsHandshakeType.CertificateRequest:
+                CertificateRequest = DtlsCertificateRequest.Read(message.Body);
+                break;
+            case DtlsHandshakeType.ServerKeyExchange:
+                serverKeyExchange = DtlsEcdheServerKeyExchange.Read(message.Body);
+                break;
+            case DtlsHandshakeType.Finished:
+                var expected = DtlsPseudorandomFunction.ServerFinishedVerifyData(suite!.PrfHash, masterSecret, TranscriptHash());
+                IsEstablished = expected.AsSpan().SequenceEqual(DtlsFinished.Read(message.Body).VerifyData);
+                return [];
+        }
+
+        transcript.AddRange(message.ToUnfragmentedBytes());
+        return message.MessageType == DtlsHandshakeType.ServerHelloDone ? StartFinalFlight() : [];
+    }
+
+    private List<byte[]> StartFinalFlight()
+    {
+        if (!SendsFinalFlight)
+        {
+            return [];
+        }
+
+        var datagrams = BeforeFinalFlight?.Invoke(this).ToList() ?? [];
+        finalFlight = ReplacesFinalFlight?.Invoke(this).ToList() ?? BuildFinalFlight();
+        datagrams.AddRange(finalFlight);
+        return datagrams;
+    }
+
+    private byte[] HelloDatagram()
+    {
+        var message = new DtlsHandshakeMessage(DtlsHandshakeType.ClientHello, NextMessageSeq++, BuildHello().Write());
+        transcript.Clear();
+        transcript.AddRange(message.ToUnfragmentedBytes());
+        LastHelloDatagram = PlaintextRecord(DtlsContentType.Handshake, message.ToUnfragmentedBytes());
+        return LastHelloDatagram;
+    }
+
+    private List<DtlsExtension> BuildExtensions()
+    {
+        var extensions = new List<DtlsExtension>
+        {
+            new(DtlsExtensionType.SupportedGroups, UInt16List([(ushort)Group])),
+            new(DtlsExtensionType.EcPointFormats, [1, 0]),
+            new(DtlsExtensionType.SignatureAlgorithms, UInt16List(SignatureSchemes)),
+            new(DtlsExtensionType.RenegotiationInfo, [0]),
+        };
+        if (OffersExtendedMasterSecret)
+        {
+            extensions.Add(new DtlsExtension(DtlsExtensionType.ExtendedMasterSecret, []));
+        }
+
+        AddOptional(extensions, DtlsExtensionType.ServerCertificateType, ServerCertificateTypes is null ? null : [(byte)ServerCertificateTypes.Length, .. ServerCertificateTypes]);
+        AddOptional(extensions, DtlsExtensionType.ClientCertificateType, ClientCertificateTypes is null ? null : [(byte)ClientCertificateTypes.Length, .. ClientCertificateTypes]);
+        AddOptional(extensions, DtlsExtensionType.MaxFragmentLength, MaxFragmentLength);
+
+        return extensions;
+    }
+
+    private static void AddOptional(List<DtlsExtension> extensions, DtlsExtensionType type, byte[]? data)
+    {
+        if (data is not null)
+        {
+            extensions.Add(new DtlsExtension(type, data));
+        }
+    }
+
+    public static byte[] UInt16List(IReadOnlyList<ushort> values)
+    {
+        var bytes = new byte[2 + (2 * values.Count)];
+        bytes[0] = (byte)((2 * values.Count) >> 8);
+        bytes[1] = (byte)(2 * values.Count);
+        for (var index = 0; index < values.Count; index++)
+        {
+            bytes[2 + (2 * index)] = (byte)(values[index] >> 8);
+            bytes[3 + (2 * index)] = (byte)values[index];
+        }
+
+        return bytes;
+    }
+
+    private byte[] AddClientMessage(DtlsHandshakeType type, byte[] body)
+    {
+        var bytes = new DtlsHandshakeMessage(type, NextMessageSeq++, body).ToUnfragmentedBytes();
+        transcript.AddRange(bytes);
+        return bytes;
+    }
+
+    /// <summary>
+    /// Makes the client's key exchange (ECDHE, or PSK on a PSK suite), derives the premaster, master secret and key block, and starts
+    /// epoch 1 writes; the transcript hash for the extended master secret covers the
+    /// <c>ClientKeyExchange</c>, so the master secret is derived once it is added.
+    /// </summary>
+    private byte[] AgreeAndDeriveKeys()
+    {
+        var (keyExchangeBody, preMasterSecret) = suite!.UsesPreSharedKey ? PreSharedKeyExchange() : EcdheKeyExchange();
+        var keyExchange = new DtlsHandshakeMessage(DtlsHandshakeType.ClientKeyExchange, NextMessageSeq, keyExchangeBody);
+        byte[] sessionTranscript = [.. transcript, .. keyExchange.ToUnfragmentedBytes()];
+        masterSecret = usesExtendedMasterSecret
+            ? DtlsPseudorandomFunction.ExtendedMasterSecret(suite!.PrfHash, preMasterSecret, CryptographicOperations.HashData(suite.PrfHash, sessionTranscript))
+            : DtlsPseudorandomFunction.MasterSecret(suite!.PrfHash, preMasterSecret, Random, serverRandom);
+        var keyBlock = KeyBlock();
+        var keyLength = suite.KeyLength;
+        epoch1Writer = new DtlsRecordWriter(
+            epoch: 1, new DtlsRecordProtection(suite.Aead, keyBlock.AsSpan(0, keyLength), keyBlock.AsSpan(2 * keyLength, 4)));
+        return keyExchangeBody;
+    }
+
+    private (byte[] Body, byte[] PreMasterSecret) EcdheKeyExchange()
+    {
+        var (publicPoint, preMasterSecret) = Agree((DtlsNamedGroup)serverKeyExchange!.NamedGroup, serverKeyExchange.PublicPoint);
+        return (new DtlsEcdheClientKeyExchange(publicPoint).Write(), preMasterSecret);
+    }
+
+    /// <summary>
+    /// The PSK <c>ClientKeyExchange</c> and RFC 4279 section 2's premaster secret, written here from
+    /// the RFC: the key's length N as 2 bytes, N zero bytes, N again, then the key.
+    /// </summary>
+    private (byte[] Body, byte[] PreMasterSecret) PreSharedKeyExchange()
+    {
+        var n = PskKey.Length;
+        byte[] preMasterSecret = [(byte)(n >> 8), (byte)n, .. new byte[n], (byte)(n >> 8), (byte)n, .. PskKey];
+        return (new DtlsPskClientKeyExchange(PskIdentity).Write(), preMasterSecret);
+    }
+
+    private DtlsRecordProtection ServerProtection()
+    {
+        var keyBlock = KeyBlock();
+        var keyLength = suite!.KeyLength;
+        return new DtlsRecordProtection(suite.Aead, keyBlock.AsSpan(keyLength, keyLength), keyBlock.AsSpan((2 * keyLength) + 4, 4));
+    }
+
+    private byte[] KeyBlock() =>
+        DtlsPseudorandomFunction.KeyBlock(suite!.PrfHash, masterSecret, Random, serverRandom, suite.KeyBlockLength);
+
+    private byte[] TranscriptHash() => CryptographicOperations.HashData(suite!.PrfHash, [.. transcript]);
+
+    private static (byte[] PublicPoint, byte[] SharedSecret) Agree(DtlsNamedGroup group, byte[] serverPoint)
+    {
+        if (group == DtlsNamedGroup.X25519)
+        {
+            var privateKey = RandomNumberGenerator.GetBytes(X25519.KeySize);
+            var publicKey = new byte[X25519.KeySize];
+            var shared = new byte[X25519.KeySize];
+            X25519.ComputePublicKey(privateKey, publicKey);
+            X25519.ScalarMultiply(privateKey, serverPoint, shared);
+            return (publicKey, shared);
+        }
+
+        var curve = group == DtlsNamedGroup.Secp256r1 ? ECCurve.NamedCurves.nistP256 : ECCurve.NamedCurves.nistP384;
+        var length = (serverPoint.Length - 1) / 2;
+        using var client = ECDiffieHellman.Create(curve);
+        using var server = ECDiffieHellman.Create(new ECParameters
+        {
+            Curve = curve,
+            Q = new ECPoint { X = serverPoint[1..(1 + length)], Y = serverPoint[(1 + length)..] },
+        });
+        var q = client.ExportParameters(false).Q;
+        return ([0x04, .. q.X!, .. q.Y!], client.DeriveRawSecretAgreement(server.PublicKey));
+    }
+}

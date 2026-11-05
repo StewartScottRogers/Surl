@@ -163,7 +163,7 @@ internal sealed class CoapFlowObservers : IAsyncDisposable
     // ADR-0097 decision 5: what a GET answers 2.05 for is observable; anything else, a registration
     // asking for a later block, and /.well-known/core are served plainly (RFC 7641 section 4.1).
     private static bool IsObservable(CoapRequestOptions options, CoapResponse response) =>
-        response.Code == CoapCode.Content &&options.Block2 is not { Number: > 0 } && !NamesWellKnownCore(options);
+        response.Code == CoapCode.Content && options.Block2 is not { Number: > 0 } && !NamesWellKnownCore(options);
 
     private static bool NamesWellKnownCore(CoapRequestOptions options) => options.UriPath is [".well-known", "core"];
 

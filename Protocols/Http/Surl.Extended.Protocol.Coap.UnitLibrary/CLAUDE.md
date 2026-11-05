@@ -1,6 +1,6 @@
 # Surl.Extended.Protocol.Coap.UnitLibrary
 
-An extended server (ADR-0083): it answers the `coap` scheme the Curl port adds, which upstream
+An extended server (ADR-0083): it answers the `coap` and `coaps` schemes the Curl port adds, which upstream
 curl does not have. ADR-0097 decides how. It is judged by its specifications - RFC 7252, RFC 7959,
 RFC 7641 and RFC 6690 - never by the Curl port's output, and its unit tests replay bytes written
 by hand from those RFCs.
@@ -62,7 +62,7 @@ block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 
   fifth upload, is `4.13` with Size1. An upload idle for EXCHANGE_LIFETIME, and every upload when
   the flow ends, is discarded with its temporary file. The preferred SZX is an internal
   constructor parameter (6 by default) so tests can replay RFC 7959's 128- and 32-byte figures
-  and BL-475 can shrink it for DTLS.
+  and `coaps` shrinks it to fit a DTLS record.
 
 - Observation (RFC 7641; ADR-0097 decision 5, BL-474). `CoapObservations` is the process's one
   list of observers (at most 1000), given to `CoapProtocolServer`'s public constructor so BL-476
@@ -81,11 +81,25 @@ block-wise transfers (BL-473) and observation (BL-474), ADR-0097 decisions 0 to 
   and a non-2.xx notification (a deleted file's `4.04`, without Observe) remove the entry; the
   flow's end removes all and sends nothing.
 
-Decision 7's other limits and the `5.03` refusal are BL-751. `coaps` (BL-475) and the command
-line (BL-476) build on it.
+- `coaps` (RFC 7252 section 9.1; ADR-0097 decisions 0 and 6 and its BL-475 amendment).
+  `CoapFlowServing` is the one path both schemes serve a flow by: message layer, Block1 uploads and
+  observers. `SecureCoapProtocolServer` (scheme `coaps`, no refusal writer) takes the store, the
+  access rules, the shared `CoapObservations` and `CoapDtlsCredentials` (certificate, PSK lookup,
+  `--cacert` anchors; neither of the first two is `ArgumentException`), runs `Surl.Dtls`'s
+  `DtlsServerSession` handshake per flow (one cookie secret per server, from the first flow's clock;
+  head timeout and `--max-message` from `ExchangeLimits`), and then serves each application data
+  record as a CoAP message through `CoapDtlsFlow`, which sends one record at a time. A datagram
+  before the handshake completes is the DTLS session's alone. A PSK identity (noted
+  `Login accepted: psk <identity>`) or a verified client certificate authenticates the peer; a
+  failed handshake is noted and serves nothing. Blocks shrink to the largest SZX whose block and 64
+  bytes fit `MaximumApplicationDataLength` (SZX 4 under a 512-byte `max_fragment_length`). The
+  client's `close_notify` or fatal alert ends serving normally; a limit sends one warning
+  `close_notify` on a 1-second deadline; shutdown sends nothing.
 
-This library references `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary`,
-and may also reference the horizontal libraries ADR-0084 and ADR-0097 allow (`Surl.Dtls` from
-BL-475) - never another protocol server, original or extended. Never construct a `Socket`,
+Decision 7's other limits and the `5.03` refusal are BL-751. The command line (BL-476) builds on it.
+
+This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` and
+`Surl.Dtls.UnitLibrary` (ADR-0084 decision 3, ADR-0097 decision 0) - never another protocol server,
+original or extended. Never construct a `Socket`,
 `TcpListener`, `UdpClient`, `SslStream` or `HttpListener` here; the transport comes from the
 listener seam.

@@ -91,25 +91,6 @@ public sealed class CoapProtocolServer : IDatagramProtocolServer
         ArgumentNullException.ThrowIfNull(flow);
         ArgumentNullException.ThrowIfNull(context);
 
-        return ServeFlowAsync(flow, context).Unwrap();
-    }
-
-    // Serves the flow however it ends, then discards its Block1 uploads and their temporary files
-    // (ADR-0097 decision 4), and hands serving back so its outcome is the call's.
-    private async Task<Task> ServeFlowAsync(IDatagramFlow flow, ExchangeContext context)
-    {
-        await using var uploads = new CoapBlock1Uploads(contentStore, context.TimeProvider, answerer.PreferredSizeExponent);
-        CoapFlowSession? session = null;
-        await using var observers = new CoapFlowObservers(
-            observations,
-            context,
-            (request, options, cancellationToken) => answerer.AnswerAsync(request, options, context.Scheme, peerIsAuthenticated: false, uploads, cancellationToken),
-            options => answerer.LocationOf(options, context.Scheme),
-            (what, compose, cancellationToken) => session!.SendConfirmableAsync(what, compose, cancellationToken));
-        session = new CoapFlowSession(flow, context, observers.AnswerAsync, random);
-        var serving = session.ServeAsync();
-        await Task.WhenAny(serving);
-
-        return serving;
+        return CoapFlowServing.ServeAsync(flow, context, answerer, contentStore, observations, random, peerIsAuthenticated: false);
     }
 }
