@@ -1,5 +1,5 @@
 ---
-id: BL-743
+id: BL-744
 title: Record BL-499's MQTT 5 session and AUTH choices in ADR-0093
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-743 — Record BL-499's MQTT 5 session and AUTH choices in ADR-0093
+# BL-744 — Record BL-499's MQTT 5 session and AUTH choices in ADR-0093
 
 ## Goal
 

@@ -73,7 +73,7 @@ enhanced authentication and re-authentication with the AUTH packet for the metho
   shapes, as the Kafka tests do; they pin the MQTT framing of each step, and `Surl.Authentication`'s
   own tests pin SCRAM itself. Test project keeps no reference to `Surl.Authentication`.
 - Choices made under Stewart's delegation (recorded here and in the library's `CLAUDE.md`, because
-  BL-435 held `Documentation/Planning/Decisions` in `Doing`; BL-743 puts them into ADR-0093):
+  BL-435 held `Documentation/Planning/Decisions` in `Doing`; BL-744 puts them into ADR-0093):
   a session resumes only for the account that left it; a session another connection holds is
   never resumed (BL-679 adds takeover); the queue bounds apply connected or not, and a new
   session with an expiry past 1000 kept sessions is CONNACK `0x97`; absent Authentication Data is
@@ -86,7 +86,7 @@ enhanced authentication and re-authentication with the AUTH packet for the metho
   `Mqtt5InboundPublishes.ResolveAlias` (18), `Mqtt5BusMessages.PropertiesOf` (16) and
   `Mqtt5InboundPublishes.Judge` (12) - all from BL-497 and untouched here; the build's CA1502 gate
   passes. Every method this task added or changed is at 10 or below.
-- Follow-up filed: BL-743 (record the choices above in ADR-0093).
+- Follow-up filed: BL-744 (record the choices above in ADR-0093).
 
 ## Log
 
