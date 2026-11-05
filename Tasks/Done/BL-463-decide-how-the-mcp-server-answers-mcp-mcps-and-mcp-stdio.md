@@ -8,7 +8,7 @@ depends-on: [BL-543, BL-401, BL-612]
 touches: [Documentation/Planning/Decisions, Documentation/Conformance/Extended/McpServer.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-463 — Decide how the MCP server answers mcp, mcps and mcp+stdio
 
@@ -70,14 +70,26 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked "Decided by
       Claude under Stewart's delegation". It answers decisions 1 to 7, each citing the specification page behind
       it, and is listed in the folder's `README.md`.
-- [ ] `Documentation/Conformance/Extended/McpServer.md` exists in the matrix format with every requirement of the
+- [x] `Documentation/Conformance/Extended/McpServer.md` exists in the matrix format with every requirement of the
       pages above that binds a server, each "covered by" naming BL-464, BL-465, BL-466 or
       BL-467, or the core's BL-619, BL-620, BL-621 or BL-623, or "n/a: <reason>".
 
 ## Notes
+
+- Decided in ADR-0111 (next free number at the time; a lane racing for 0111 would be caught at integration).
+  Written directly in the session rather than through `align-and-document`, since it is a decision ADR plus its
+  matrix and no `.cs` file changes, so `verify` does not apply; build and fast tests were still run.
+- What the port's client sends was read for acceptance only: no `Authorization` and no `Origin`, so the server
+  accepts a missing `Origin` (decision 4.7) and BL-469 must run with `--allow-anonymous`.
+- The Authorization page requires `authorization_servers` to name at least one server, so the MCP server is its own
+  OAuth 2.1 authorization server: filed as BL-720 (depends on BL-466), rather than widening this task.
+- Defaults taken: endpoint `/mcp`; SSE only for `tools/call`; `GET` `405`; 30-minute idle sessions, 1000 a server;
+  `mcp+stdio:` must be the only listen URL; no new option. Reasons are in the ADR.
+- `Documentation/Product/Requirements.md` is not in `touches` and gains no row here, as with BL-429 and the
+  other extended-server ADR tasks.
 
 ## Log
 
@@ -85,3 +97,4 @@ Decide and record:
 - 2026-11-04: Amended by task-planner: depends on BL-612, whose ADR decides the MCP core (`Surl.McpServing`) this
   server shares with the `Surl.Mcp` host; decisions 3 and 7 adopt that core's versions and error codes.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ADR-0111 decides how the MCP server answers mcp, mcps and mcp+stdio, with its matrix McpServer.md; BL-720 filed for the authorization server
