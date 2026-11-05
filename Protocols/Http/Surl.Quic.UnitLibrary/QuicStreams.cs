@@ -21,7 +21,8 @@ internal sealed class QuicStreams
     private readonly SortedDictionary<ulong, QuicStream> open = [];
     private readonly List<QuicFrame> controlFrames = [];
     private readonly List<QuicStream> updated = [];
-    private readonly HashSet<ulong> resetStreams = [];
+    private readonly Dictionary<ulong, ulong> resetStreamReliableSizes = [];
+    private readonly bool takesResetStreamAt;
     private readonly ulong[] clientStreamReceiveWindows;
     private readonly ulong[] clientStreamSendLimits;
     private readonly ulong[] initialClientStreamLimits;
@@ -52,7 +53,12 @@ internal sealed class QuicStreams
         sendLimit = peer.InitialMaxData ?? 0;
         serverStreamSendLimit = peer.InitialMaxStreamDataUni ?? 0;
         serverStreamLimit = peer.InitialMaxStreamsUni ?? 0;
+        takesResetStreamAt = options.ResetStreamAt;
+        SendsResetStreamAt = options.ResetStreamAt && peer.ResetStreamAt;
     }
+
+    /// <summary>Whether the server sent <c>reset_stream_at</c> and the client did too, so <see cref="QuicStream.ResetAt"/> sends <c>RESET_STREAM_AT</c> (draft-ietf-quic-reliable-stream-reset-09 section 3).</summary>
+    public bool SendsResetStreamAt { get; }
 
     /// <summary>How many more stream bytes the client's <c>MAX_DATA</c> lets the server send.</summary>
     public ulong ConnectionSendCredit => sendLimit - sent;
@@ -74,18 +80,22 @@ internal sealed class QuicStreams
     /// <summary>Queues a frame the next datagrams carry: credit, <c>RESET_STREAM</c> or <c>STOP_SENDING</c>.</summary>
     public void QueueControlFrame(QuicFrame frame) => controlFrames.Add(frame);
 
-    /// <summary>Records that a stream's sending part was reset, so its lost data is not sent again (RFC 9000 section 13.3).</summary>
-    public void RecordReset(ulong streamId) => resetStreams.Add(streamId);
+    /// <summary>
+    /// Records that a stream's sending part was reset, so its lost data at or past
+    /// <paramref name="reliableSize"/> is not sent again (RFC 9000 section 13.3; 0 for
+    /// <c>RESET_STREAM</c>, draft-ietf-quic-reliable-stream-reset-09 section 5).
+    /// </summary>
+    public void RecordReset(ulong streamId, ulong reliableSize) => resetStreamReliableSizes[streamId] = reliableSize;
 
     /// <summary>
     /// What to send in place of a lost stream or flow-control frame (RFC 9000 section 13.3): the
-    /// data of a stream not reset, the current <c>MAX_DATA</c> and <c>MAX_STREAMS</c>, and the
-    /// current <c>MAX_STREAM_DATA</c> while the stream still receives; null for what is no longer
-    /// needed. Every other frame is sent again as it was.
+    /// data of a stream not reset, or of a reset stream below its Reliable Size, the current
+    /// <c>MAX_DATA</c> and <c>MAX_STREAMS</c>, and the current <c>MAX_STREAM_DATA</c> while the
+    /// stream still receives; null for what is no longer needed. Every other frame is sent again as it was.
     /// </summary>
     public QuicFrame? Refresh(QuicFrame frame) => frame switch
     {
-        QuicStreamFrame stream => resetStreams.Contains(stream.StreamId) ? null : stream,
+        QuicStreamFrame stream => resetStreamReliableSizes.TryGetValue(stream.StreamId, out var reliableSize) ? BelowReliableSize(stream, reliableSize) : stream,
         QuicMaxDataFrame => new QuicMaxDataFrame(receiveLimit),
         QuicMaxStreamsFrame maxStreams => new QuicMaxStreamsFrame(maxStreams.Bidirectional, clientStreamLimits[maxStreams.Bidirectional ? Bidirectional : 1]),
         QuicMaxStreamDataFrame maxStreamData => open.GetValueOrDefault(maxStreamData.StreamId) is { IsReceiveDone: false } stream
@@ -118,7 +128,10 @@ internal sealed class QuicStreams
                 ReceiveForStream(stream.StreamId, true, stream.FrameType(), target => ReceiveData(target.ReceiveData(stream), stream.FrameType()));
                 break;
             case QuicResetStreamFrame reset:
-                ReceiveForStream(reset.StreamId, true, QuicFrameTypes.ResetStream, target => ReceiveData(target.ReceiveReset(reset), QuicFrameTypes.ResetStream));
+                ReceiveForStream(reset.StreamId, true, QuicFrameTypes.ResetStream, target => ReceiveData(target.ReceiveReset(reset.ApplicationErrorCode, reset.FinalSize, 0, QuicFrameTypes.ResetStream), QuicFrameTypes.ResetStream));
+                break;
+            case QuicResetStreamAtFrame resetAt:
+                ReceiveResetAt(resetAt);
                 break;
             case QuicStopSendingFrame stop:
                 ReceiveForStream(stop.StreamId, false, QuicFrameTypes.StopSending, target => target.ReceiveStopSending(stop.ApplicationErrorCode));
@@ -165,6 +178,37 @@ internal sealed class QuicStreams
     }
 
     private static int KindOf(ulong streamId) => (int)((streamId >> 1) & 1);
+
+    /// <summary>The part of a lost <c>STREAM</c> frame below a reset stream's Reliable Size, without <c>FIN</c> when cut; null when none of it is.</summary>
+    private static QuicStreamFrame? BelowReliableSize(QuicStreamFrame frame, ulong reliableSize)
+    {
+        if (frame.Offset >= reliableSize)
+        {
+            return null;
+        }
+
+        var kept = reliableSize - frame.Offset;
+        return kept >= (ulong)frame.Data.Length ? frame : frame with { Data = frame.Data[..(int)kept], Fin = false };
+    }
+
+    /// <summary>
+    /// Takes a <c>RESET_STREAM_AT</c>: one the server did not offer to take with <c>reset_stream_at</c>
+    /// is a frame type it does not know, <c>FRAME_ENCODING_ERROR</c> (RFC 9000 section 12.4).
+    /// </summary>
+    private void ReceiveResetAt(QuicResetStreamAtFrame reset)
+    {
+        if (!takesResetStreamAt)
+        {
+            throw new QuicTransportException(
+                QuicTransportErrorCode.FrameEncodingError, "A RESET_STREAM_AT arrived, but the server did not send reset_stream_at (RFC 9000 section 12.4).", QuicFrameTypes.ResetStreamAt);
+        }
+
+        ReceiveForStream(
+            reset.StreamId,
+            true,
+            QuicFrameTypes.ResetStreamAt,
+            target => ReceiveData(target.ReceiveReset(reset.ApplicationErrorCode, reset.FinalSize, reset.ReliableSize, QuicFrameTypes.ResetStreamAt), QuicFrameTypes.ResetStreamAt));
+    }
 
     private static QuicTransportException StreamStateError(ulong streamId, byte frameType) =>
         new(QuicTransportErrorCode.StreamStateError, $"Stream {streamId} is not open in the direction this frame needs (RFC 9000 section 3).", frameType);

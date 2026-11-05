@@ -124,6 +124,7 @@ public sealed class QuicTransportParametersTests
     [DataRow("version_information of 3 bytes", "1103000000")]
     [DataRow("version_information of 6 bytes", "1106000000010000")]
     [DataRow("an empty version_information", "1100")]
+    [DataRow("reset_stream_at with a value", "1d0100")]
     public void Read_MalformedParameter_IsTransportParameterError(string description, string hex)
     {
         var encoded = Convert.FromHexString(hex.Replace(" ", string.Empty, StringComparison.Ordinal));
@@ -157,5 +158,20 @@ public sealed class QuicTransportParametersTests
         var exception = Assert.ThrowsExactly<QuicTransportException>(() => QuicTransportParameters.Read(Convert.FromHexString("200244")));
 
         Assert.AreEqual(QuicTransportErrorCode.TransportParameterError, exception.ErrorCode);
+    }
+
+    [TestMethod]
+    public void Read_ResetStreamAt_IsPresent()
+    {
+        Assert.IsTrue(QuicTransportParameters.Read(Convert.FromHexString("1d00")).ResetStreamAt);
+        Assert.IsFalse(QuicTransportParameters.Read(ReadOnlyMemory<byte>.Empty).ResetStreamAt);
+    }
+
+    [TestMethod]
+    public void ToBytes_ResetStreamAt_WritesTheEmptyParameter0x1dBeforeMaxDatagramFrameSize()
+    {
+        var parameters = new QuicTransportParameters { ResetStreamAt = true, MaxDatagramFrameSize = 1, VersionInformation = new QuicVersionInformation(QuicVersions.Version1, []) };
+
+        Assert.AreEqual("1104000000011D00200101", Convert.ToHexString(parameters.ToBytes()));
     }
 }

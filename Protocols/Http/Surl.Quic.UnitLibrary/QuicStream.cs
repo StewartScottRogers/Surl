@@ -27,6 +27,8 @@ public sealed class QuicStream
     private bool finWritten;
     private bool finSent;
     private bool resetSent;
+    private (ulong ErrorCode, ulong ReliableSize)? resetToSendAt;
+    private (ulong ErrorCode, ulong ReliableSize)? resetReceived;
 
     internal QuicStream(QuicStreams owner, ulong id, ulong receiveWindow, ulong sendLimit)
     {
@@ -58,7 +60,12 @@ public sealed class QuicStream
     /// <summary>Whether the client ended the stream with <c>FIN</c> and every byte has been read.</summary>
     public bool IsReadComplete => finalSize == readOffset && ResetErrorCode is null;
 
-    /// <summary>The application error code of the client's <c>RESET_STREAM</c>, or null when it has not reset the stream; its unread data is discarded.</summary>
+    /// <summary>
+    /// The application error code of the client's <c>RESET_STREAM</c> or <c>RESET_STREAM_AT</c>, or
+    /// null while it has not reset the stream or the reset has not taken effect: a
+    /// <c>RESET_STREAM_AT</c> takes effect once <see cref="Read"/> has returned every byte below its
+    /// Reliable Size. Unread data past that is discarded.
+    /// </summary>
     public ulong? ResetErrorCode { get; private set; }
 
     /// <summary>The application error code of the client's <c>STOP_SENDING</c>, or null when it has not sent one; the server answers it with <c>RESET_STREAM</c> carrying the same code.</summary>
@@ -75,6 +82,9 @@ public sealed class QuicStream
     internal bool IsSendDone => !CanWrite || finSent || resetSent;
 
     internal bool HasSomethingToSend => unsent.Count > 0 || (finWritten && !finSent && !resetSent);
+
+    /// <summary>Whether the sending part has been reset, its <c>RESET_STREAM_AT</c> perhaps still waiting for the bytes below its Reliable Size.</summary>
+    private bool IsResetting => resetSent || resetToSendAt is not null;
 
     /// <summary>Copies the bytes received in order and not yet read into <paramref name="buffer"/>, and grants the client more credit when half the window is used.</summary>
     /// <param name="buffer">Where the bytes go.</param>
@@ -97,6 +107,7 @@ public sealed class QuicStream
             owner.QueueControlFrame(new QuicMaxStreamDataFrame(Id, receiveLimit));
         }
 
+        TakeResetOnceReliableBytesAreRead();
         return count;
     }
 
@@ -106,7 +117,7 @@ public sealed class QuicStream
     /// <exception cref="InvalidOperationException">The stream has no sending part, or it has ended or been reset.</exception>
     public void Write(ReadOnlySpan<byte> data, bool fin = false)
     {
-        if (!CanWrite || finWritten || resetSent)
+        if (!CanWrite || finWritten || IsResetting)
         {
             throw new InvalidOperationException($"Stream {Id} cannot be written: it has no sending part, or it has ended or been reset.");
         }
@@ -129,6 +140,41 @@ public sealed class QuicStream
         }
 
         ResetSending(applicationErrorCode);
+    }
+
+    /// <summary>
+    /// Abandons the sending part with <c>RESET_STREAM_AT</c> (draft-ietf-quic-reliable-stream-reset-09):
+    /// the first <paramref name="reliableSize"/> bytes written are still delivered, sent and sent
+    /// again until acknowledged, and the rest is discarded; the frame goes once every byte below
+    /// <paramref name="reliableSize"/> has been sent, with that as its Final Size when more was
+    /// sent before. Unless the connection's <see cref="QuicServerConnectionOptions.ResetStreamAt"/>
+    /// is set and the client sent <c>reset_stream_at</c>, it is <see cref="Reset"/>: a plain
+    /// <c>RESET_STREAM</c>. A sending part already reset, or whose <c>FIN</c> is sent, is left as it is.
+    /// </summary>
+    /// <param name="applicationErrorCode">Why, in the application protocol's error codes.</param>
+    /// <param name="reliableSize">How many bytes from the start of the stream are still delivered.</param>
+    /// <exception cref="InvalidOperationException">The stream has no sending part.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="reliableSize"/> is more than was written.</exception>
+    public void ResetAt(ulong applicationErrorCode, ulong reliableSize)
+    {
+        if (!CanWrite)
+        {
+            throw new InvalidOperationException($"Stream {Id} has no sending part to reset.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(reliableSize, sendOffset + (ulong)unsent.Count);
+        if (!owner.SendsResetStreamAt)
+        {
+            ResetSending(applicationErrorCode);
+        }
+        else if (!IsResetting && !finSent)
+        {
+            var kept = (int)(reliableSize - Math.Min(reliableSize, sendOffset));
+            unsent.RemoveRange(kept, unsent.Count - kept);
+            finWritten = false;
+            resetToSendAt = (applicationErrorCode, reliableSize);
+            owner.RecordReset(Id, reliableSize);
+        }
     }
 
     /// <summary>Asks the client to stop sending with <c>STOP_SENDING</c> (RFC 9000 section 3.5).</summary>
@@ -154,21 +200,28 @@ public sealed class QuicStream
         if (ResetErrorCode is null)
         {
             readable.AddRange(ordered.Add(frame.Offset, frame.Data.Span));
+            DiscardPastReliableSize();
         }
 
         return growth;
     }
 
-    /// <summary>Takes a <c>RESET_STREAM</c> and returns by how much the highest offset received grew, for connection flow control.</summary>
-    internal ulong ReceiveReset(QuicResetStreamFrame frame)
+    /// <summary>
+    /// Takes a <c>RESET_STREAM</c> (a Reliable Size of 0) or <c>RESET_STREAM_AT</c> and returns by how
+    /// much the highest offset received grew, for connection flow control. The reset takes effect
+    /// once every byte below the smallest Reliable Size received has been read; a larger one later
+    /// is ignored, and another error code is <c>STREAM_STATE_ERROR</c>
+    /// (draft-ietf-quic-reliable-stream-reset-09 section 5.1).
+    /// </summary>
+    internal ulong ReceiveReset(ulong applicationErrorCode, ulong resetFinalSize, ulong reliableSize, byte frameType)
     {
-        RecordFinalSize(frame.FinalSize, true, QuicFrameTypes.ResetStream);
-        var growth = Receive(frame.FinalSize, QuicFrameTypes.ResetStream);
+        RecordFinalSize(resetFinalSize, true, frameType);
+        var growth = Receive(resetFinalSize, frameType);
         if (ResetErrorCode is null)
         {
-            ResetErrorCode = frame.ApplicationErrorCode;
-            readable.Clear();
-            owner.Consume(frame.FinalSize - readOffset);
+            RecordReliableSize(applicationErrorCode, reliableSize, frameType);
+            DiscardPastReliableSize();
+            TakeResetOnceReliableBytesAreRead();
         }
 
         return growth;
@@ -201,6 +254,13 @@ public sealed class QuicStream
             blockedReportedAt = sendLimit;
             frames.Add(new QuicStreamDataBlockedFrame(Id, sendLimit));
         }
+
+        if (resetToSendAt is { } reset && unsent.Count == 0)
+        {
+            frames.Add(new QuicResetStreamAtFrame(Id, reset.ErrorCode, sendOffset, reset.ReliableSize));
+            resetToSendAt = null;
+            resetSent = true;
+        }
     }
 
     private QuicStreamFrame? NextFrame()
@@ -224,15 +284,50 @@ public sealed class QuicStream
 
     private void ResetSending(ulong applicationErrorCode)
     {
-        if (resetSent || finSent)
+        if (IsResetting || finSent)
         {
             return;
         }
 
         resetSent = true;
-        owner.RecordReset(Id);
+        owner.RecordReset(Id, 0);
         unsent.Clear();
         owner.QueueControlFrame(new QuicResetStreamFrame(Id, applicationErrorCode, sendOffset));
+    }
+
+    /// <summary>Keeps the smallest Reliable Size received; a reset carrying another error code than the first is <c>STREAM_STATE_ERROR</c>.</summary>
+    private void RecordReliableSize(ulong applicationErrorCode, ulong reliableSize, byte frameType)
+    {
+        if (resetReceived is { } earlier && earlier.ErrorCode != applicationErrorCode)
+        {
+            throw new QuicTransportException(
+                QuicTransportErrorCode.StreamStateError,
+                $"Stream {Id} was reset with error code {earlier.ErrorCode} and again with {applicationErrorCode} (draft-ietf-quic-reliable-stream-reset-09 section 5.1).",
+                frameType);
+        }
+
+        resetReceived = (applicationErrorCode, Math.Min(reliableSize, resetReceived?.ReliableSize ?? reliableSize));
+    }
+
+    /// <summary>Drops readable bytes at or past the Reliable Size of a reset received: they are never delivered.</summary>
+    private void DiscardPastReliableSize()
+    {
+        if (resetReceived is { } reset)
+        {
+            var kept = (int)Math.Min((ulong)readable.Count, reset.ReliableSize - Math.Min(reset.ReliableSize, readOffset));
+            readable.RemoveRange(kept, readable.Count - kept);
+        }
+    }
+
+    /// <summary>Lets a reset received take effect once every byte below its Reliable Size has been read, counting what it discards as consumed.</summary>
+    private void TakeResetOnceReliableBytesAreRead()
+    {
+        if (resetReceived is { } reset && readOffset >= reset.ReliableSize)
+        {
+            ResetErrorCode = reset.ErrorCode;
+            readable.Clear();
+            owner.Consume(finalSize!.Value - readOffset);
+        }
     }
 
     /// <summary>Checks the final size against what is known (RFC 9000 section 4.5) and records it when the frame carries it.</summary>

@@ -37,6 +37,23 @@ public sealed class QuicFrameReaderTests
     }
 
     [TestMethod]
+    public void Read_ResetStreamAtReliableSizeAboveFinalSize_ThrowsFrameEncodingError()
+    {
+        var exception = Assert.ThrowsExactly<QuicTransportException>(() => Read("2400000506"));
+
+        Assert.AreEqual(QuicTransportErrorCode.FrameEncodingError, exception.ErrorCode);
+        Assert.AreEqual(0x24UL, exception.FrameType);
+    }
+
+    [TestMethod]
+    public void Read_ResetStreamAtReliableSizeEqualToFinalSize_ReadsIt()
+    {
+        var frame = (QuicResetStreamAtFrame)Read("2400070505").Single();
+
+        Assert.AreEqual(new QuicResetStreamAtFrame(0, 7, 5, 5), frame);
+    }
+
+    [TestMethod]
     public void Read_FrameTypeNotInItsShortestEncoding_ThrowsProtocolViolation()
     {
         var exception = Assert.ThrowsExactly<QuicTransportException>(() => Read("4001"));
@@ -53,6 +70,8 @@ public sealed class QuicFrameReaderTests
     [DataRow("1b0102030405060708", QuicPacketType.ZeroRtt)]
     [DataRow("1d0000", QuicPacketType.Initial)]
     [DataRow("1003", QuicPacketType.Handshake)]
+    [DataRow("2400000000", QuicPacketType.Initial)]
+    [DataRow("2400000000", QuicPacketType.Handshake)]
     public void Read_FrameTypeUnknownInItsPacketType_ThrowsProtocolViolation(string hex, QuicPacketType packetType)
     {
         var exception = Assert.ThrowsExactly<QuicTransportException>(() => QuicFrameReader.Read(Convert.FromHexString(hex), packetType));
@@ -68,6 +87,7 @@ public sealed class QuicFrameReaderTests
     [DataRow("0600016a", QuicPacketType.Initial)]
     [DataRow("1c000000", QuicPacketType.Handshake)]
     [DataRow("080061", QuicPacketType.ZeroRtt)]
+    [DataRow("2400000000", QuicPacketType.ZeroRtt)]
     public void Read_FramePermittedInItsPacketType_ReadsIt(string hex, QuicPacketType packetType)
     {
         var frames = QuicFrameReader.Read(Convert.FromHexString(hex), packetType);

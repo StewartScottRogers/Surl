@@ -157,6 +157,18 @@ public sealed class QuicApplicationConnection
         return ActAsync(() => stream.Reset(applicationErrorCode), cancellationToken);
     }
 
+    /// <summary>Abandons <paramref name="stream"/>'s sending part with <c>RESET_STREAM_AT</c>, as <see cref="QuicStream.ResetAt"/> does, still delivering its first <paramref name="reliableSize"/> bytes.</summary>
+    /// <param name="stream">A stream of this connection with a sending part.</param>
+    /// <param name="applicationErrorCode">Why, in the application protocol's error codes.</param>
+    /// <param name="reliableSize">How many bytes from the start of the stream are still delivered.</param>
+    /// <param name="cancellationToken">Cuts the send off.</param>
+    /// <returns>A task that completes once what can be sent is sent; the rest, and then the frame, go as credit arrives.</returns>
+    public ValueTask ResetAtAsync(QuicStream stream, ulong applicationErrorCode, ulong reliableSize, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        return ActAsync(() => stream.ResetAt(applicationErrorCode, reliableSize), cancellationToken);
+    }
+
     /// <summary>Asks the client to stop sending on <paramref name="stream"/> with <c>STOP_SENDING</c>.</summary>
     /// <param name="stream">A stream of this connection with a receiving part.</param>
     /// <param name="applicationErrorCode">Why, in the application protocol's error codes.</param>

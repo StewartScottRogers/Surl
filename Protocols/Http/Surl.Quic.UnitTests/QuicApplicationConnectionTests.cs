@@ -78,6 +78,7 @@ public sealed partial class QuicApplicationConnectionTests
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await application.ReadAsync(null!, new byte[1], token));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await application.WriteAsync(null!, new byte[1], fin: false, token));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await application.ResetAsync(null!, 0, token));
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await application.ResetAtAsync(null!, 0, 0, token));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await application.StopSendingAsync(null!, 0, token));
     }
 }

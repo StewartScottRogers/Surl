@@ -54,4 +54,14 @@ public sealed class QuicServerConnectionOptions
     /// or 0, or one larger than it, ends the connection with <c>PROTOCOL_VIOLATION</c>.
     /// </summary>
     public ulong? MaxDatagramFrameSize { get; init; }
+
+    /// <summary>
+    /// Whether the server sends the empty <c>reset_stream_at</c> transport parameter
+    /// (draft-ietf-quic-reliable-stream-reset-09 section 3) and so takes the client's
+    /// <c>RESET_STREAM_AT</c> frames; false by default, and HTTP/3's (ADR-0082 decision 4). When it
+    /// is false a <c>RESET_STREAM_AT</c> received is a frame type the server does not know,
+    /// <c>FRAME_ENCODING_ERROR</c>, and <see cref="QuicStream.ResetAt"/> sends a plain
+    /// <c>RESET_STREAM</c>, as it does when the client did not send the parameter.
+    /// </summary>
+    public bool ResetStreamAt { get; init; }
 }

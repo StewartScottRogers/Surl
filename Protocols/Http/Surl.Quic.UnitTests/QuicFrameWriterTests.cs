@@ -43,6 +43,7 @@ public sealed class QuicFrameWriterTests
         [0x1c, new QuicConnectionCloseFrame(IsApplicationError: false, 0x0a, 0x08, "no"u8.ToArray()), "1c0a08026e6f"],
         [0x1d, new QuicConnectionCloseFrame(IsApplicationError: true, 0x0100, 0, ReadOnlyMemory<byte>.Empty), "1d410000"],
         [0x1e, new QuicHandshakeDoneFrame(), "1e"],
+        [0x24, new QuicResetStreamAtFrame(4, 0x10c, 100, 6), "2404410c406406"],
     ];
 
     [TestMethod]
@@ -162,6 +163,14 @@ public sealed class QuicFrameWriterTests
     public void ToBytes_StreamIdAbove2To62Minus1_Throws()
     {
         var frame = new QuicMaxStreamDataFrame(QuicVariableLengthInteger.MaxValue + 1, 0);
+
+        Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => frame.ToBytes());
+    }
+
+    [TestMethod]
+    public void ToBytes_ResetStreamAtReliableSizeAboveFinalSize_Throws()
+    {
+        var frame = new QuicResetStreamAtFrame(0, 0, 5, 6);
 
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => frame.ToBytes());
     }

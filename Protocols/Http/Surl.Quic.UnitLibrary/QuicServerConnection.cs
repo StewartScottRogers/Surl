@@ -370,6 +370,7 @@ public sealed partial class QuicServerConnection : IDisposable
         DisableActiveMigration = true,
         InitialSourceConnectionId = serverConnectionId,
         VersionInformation = new QuicVersionInformation(QuicVersions.Version1, [QuicVersions.Version1]),
+        ResetStreamAt = options.ResetStreamAt,
         MaxDatagramFrameSize = options.MaxDatagramFrameSize,
     };
 

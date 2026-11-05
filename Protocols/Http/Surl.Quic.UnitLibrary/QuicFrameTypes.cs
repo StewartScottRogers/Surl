@@ -37,6 +37,9 @@ internal static class QuicFrameTypes
     /// <summary><c>DATAGRAM</c> with a Length field (RFC 9221 section 4).</summary>
     public const byte DatagramWithLength = 0x31;
 
+    /// <summary><c>RESET_STREAM_AT</c> (draft-ietf-quic-reliable-stream-reset-09 section 4).</summary>
+    public const byte ResetStreamAt = 0x24;
+
     /// <summary>The largest stream count a <c>MAX_STREAMS</c> or <c>STREAMS_BLOCKED</c> frame may carry, 2^60.</summary>
     public const ulong MaxStreamCount = 1UL << 60;
 }

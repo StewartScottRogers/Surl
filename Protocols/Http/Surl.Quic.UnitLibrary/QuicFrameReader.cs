@@ -1,12 +1,12 @@
 namespace Surl.Quic;
 
 /// <summary>
-/// Reads a QUIC packet payload, in the clear, into its frames (RFC 9000 sections 12.4 and 19, RFC 9221 section 4).
+/// Reads a QUIC packet payload, in the clear, into its frames (RFC 9000 sections 12.4 and 19, RFC 9221 section 4, draft-ietf-quic-reliable-stream-reset-09 section 4).
 /// Malformed input throws a <see cref="QuicTransportException"/> naming the transport error and
 /// the frame type:
 /// <list type="bullet">
 /// <item>a payload with no frames, a frame type not in its shortest encoding, and a frame type the packet type does not permit: <see cref="QuicTransportErrorCode.ProtocolViolation"/>;</item>
-/// <item>a frame type neither RFC 9000 nor RFC 9221 (<c>DATAGRAM</c>) defines, a frame that ends early, and a field out of its range: <see cref="QuicTransportErrorCode.FrameEncodingError"/>;</item>
+/// <item>a frame type neither RFC 9000, RFC 9221 (<c>DATAGRAM</c>) nor draft-ietf-quic-reliable-stream-reset-09 (<c>RESET_STREAM_AT</c>) defines, a <c>RESET_STREAM_AT</c> whose Reliable Size is above its Final Size, a frame that ends early, and a field out of its range: <see cref="QuicTransportErrorCode.FrameEncodingError"/>;</item>
 /// <item>a <c>CRYPTO</c> frame ending beyond offset 2^62-1: <see cref="QuicTransportErrorCode.CryptoBufferExceeded"/>.</item>
 /// </list>
 /// Byte strings in the frames returned are slices of <c>payload</c>, not copies.
@@ -60,6 +60,9 @@ public static class QuicFrameReader
     /// <summary>The <c>DATAGRAM</c> frame types (RFC 9221 section 4), permitted in 0-RTT and 1-RTT packets.</summary>
     private static readonly (Func<QuicReader, byte, QuicFrame> Read, int PacketTypes) DatagramFrameType = (QuicDatagramFrame.ReadFrom, ApplicationData);
 
+    /// <summary>The <c>RESET_STREAM_AT</c> frame type (draft-ietf-quic-reliable-stream-reset-09 section 4), permitted in 0-RTT and 1-RTT packets.</summary>
+    private static readonly (Func<QuicReader, byte, QuicFrame> Read, int PacketTypes) ResetStreamAtFrameType = (QuicResetStreamAtFrame.ReadFrom, ApplicationData);
+
     /// <summary>Reads every frame in a packet payload.</summary>
     /// <param name="payload">The payload, in the clear, with no AEAD tag.</param>
     /// <param name="packetType">The type of packet that carried it: Initial, 0-RTT, Handshake or 1-RTT.</param>
@@ -101,11 +104,12 @@ public static class QuicFrameReader
             : read(reader, (byte)frameType);
     }
 
-    /// <summary>The reader and permitted packet types of a frame type RFC 9000 or RFC 9221 defines; null for any other.</summary>
+    /// <summary>The reader and permitted packet types of a frame type RFC 9000, RFC 9221 or draft-ietf-quic-reliable-stream-reset-09 defines; null for any other.</summary>
     private static (Func<QuicReader, byte, QuicFrame> Read, int PacketTypes)? FrameTypeOf(ulong frameType) => frameType switch
     {
         < 0x1f => FrameTypes[frameType],
         QuicFrameTypes.Datagram or QuicFrameTypes.DatagramWithLength => DatagramFrameType,
+        QuicFrameTypes.ResetStreamAt => ResetStreamAtFrameType,
         _ => null,
     };
 

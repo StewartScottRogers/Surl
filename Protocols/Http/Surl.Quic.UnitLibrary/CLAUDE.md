@@ -5,7 +5,7 @@ Phase 6.
 QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
-loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), and `DATAGRAM` frames (BL-573); key updates come with BL-606, the client's spare connection IDs with BL-607 and
+loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), and `RESET_STREAM_AT` (BL-748); key updates come with BL-606, the client's spare connection IDs with BL-607 and
 the closing and draining periods with BL-608.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
@@ -55,6 +55,22 @@ the closing and draining periods with BL-608.
   lock, and `ReceiveDatagramAsync` awaits a copy of each received frame's data, queued in order by
   the flow loop, at most `ReceivedDatagramCapacity` (128) waiting, the oldest dropped past it (RFC
   9221 section 5 lets a receiver drop any).
+- `RESET_STREAM_AT` (BL-748, ADR-0117 decision 0, draft-ietf-quic-reliable-stream-reset-09): off
+  unless `QuicServerConnectionOptions.ResetStreamAt` is set; then the empty `reset_stream_at` (0x1d)
+  is sent (`QuicTransportParameters.ResetStreamAt`; a non-empty one read is
+  `TRANSPORT_PARAMETER_ERROR`). `QuicResetStreamAtFrame` is type `0x24` (Stream ID, error code, Final
+  Size, Reliable Size), 0-RTT and 1-RTT only; one read whose Reliable Size is above its Final Size is
+  `FRAME_ENCODING_ERROR`. `QuicStream.ResetAt(code, reliableSize)` (and
+  `QuicApplicationConnection.ResetAtAsync`) sends it when the option is set and the client sent the
+  parameter, otherwise it is `Reset`, a plain `RESET_STREAM`: unsent bytes from the Reliable Size on
+  are dropped with any `FIN`, the frame goes once every byte below it is sent, Final Size what was
+  sent by then, and lost `STREAM` data is sent again only below the Reliable Size (cut, without
+  `FIN`); a later reset of that sending part, or `STOP_SENDING`, sends nothing more. Received while
+  the option is off it is a frame type the server does not know, `FRAME_ENCODING_ERROR`; otherwise
+  bytes below the smallest Reliable Size received stay readable and the reset takes effect
+  (`ResetErrorCode`) once `Read` has returned them all. A `RESET_STREAM` counts as Reliable Size 0, a
+  larger Reliable Size later is ignored, and another error code is `STREAM_STATE_ERROR`. The HTTP
+  server and DNS over QUIC never set the option.
 - `QuicStream` - one stream (ADR-0096): `Read` returns the client's bytes in order (put back by
   `QuicOrderedBytes`, which `CRYPTO` shares), `Write(data, fin)` queues bytes, `Reset` and
   `StopSending` send their frames. Nothing is sent until `QuicServerConnection.Transmit` or the next
@@ -125,7 +141,7 @@ copies. Writing a value RFC 9000 forbids throws an `ArgumentException`.
 
 | Input | Error |
 | --- | --- |
-| a frame that ends early (a truncated varint too), a frame type neither RFC 9000 nor RFC 9221 defines, a `STREAM` frame ending beyond 2^62-1, an `ACK` range below packet number 0, a stream count above 2^60, an empty `NEW_TOKEN`, a `NEW_CONNECTION_ID` of 0 or over 20 bytes or retiring beyond itself | `FRAME_ENCODING_ERROR` |
+| a frame that ends early (a truncated varint too), a frame type neither RFC 9000, RFC 9221 nor draft-ietf-quic-reliable-stream-reset-09 defines, a `RESET_STREAM_AT` whose Reliable Size is above its Final Size, a `STREAM` frame ending beyond 2^62-1, an `ACK` range below packet number 0, a stream count above 2^60, an empty `NEW_TOKEN`, a `NEW_CONNECTION_ID` of 0 or over 20 bytes or retiring beyond itself | `FRAME_ENCODING_ERROR` |
 | an empty payload, a frame type not in its shortest encoding, a frame the packet type does not permit (section 12.4, table 3) | `PROTOCOL_VIOLATION` |
 | a `CRYPTO` frame ending beyond 2^62-1 | `CRYPTO_BUFFER_EXCEEDED` |
 | any packet-header fault: early end, a version 1 connection ID over 20 bytes, fixed bit 0, reserved bits set, a Length shorter than the packet number, a Retry without its tag, a Version Negotiation list not whole versions | `PROTOCOL_VIOLATION` with no frame type: the caller drops the packet |
