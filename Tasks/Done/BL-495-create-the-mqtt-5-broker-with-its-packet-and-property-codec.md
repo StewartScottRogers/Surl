@@ -71,7 +71,7 @@ malformation as the reason code chapter 4.13 names.
   identifier not valid for its packet a Malformed Packet (`0x81`), and 3.8.3 / 3.10.3 make an empty SUBSCRIBE /
   UNSUBSCRIBE a Protocol Error (`0x82`); ADR-0093 decision 6 had both the other way round. The specification is
   the oracle for an extended server (ADR-0083), so the codec follows it. Amending the ADR needs
-  `Documentation/Planning/Decisions`, which BL-470 holds in Doing, so it is filed as BL-609 rather than added to
+  `Documentation/Planning/Decisions`, which BL-470 holds in Doing, so it is filed as BL-651 rather than added to
   this task's `touches`.
 - **Choices with a sensible default.** An undefined property identifier is `0x81` (its type is unknown, so the
   rest cannot be parsed). Packet Identifier 0 is refused `0x82` in every packet that carries one, not only in

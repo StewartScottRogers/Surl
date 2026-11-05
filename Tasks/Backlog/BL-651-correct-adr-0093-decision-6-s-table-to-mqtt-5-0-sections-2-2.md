@@ -1,5 +1,5 @@
 ---
-id: BL-609
+id: BL-651
 title: Correct ADR-0093 decision 6's table to MQTT 5.0 sections 2.2.2.2, 3.8.3 and 3.10.3
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-609 — Correct ADR-0093 decision 6's table to MQTT 5.0 sections 2.2.2.2, 3.8.3 and 3.10.3
+# BL-651 — Correct ADR-0093 decision 6's table to MQTT 5.0 sections 2.2.2.2, 3.8.3 and 3.10.3
 
 ## Goal
 
