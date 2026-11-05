@@ -8,7 +8,7 @@ depends-on: [BL-822]
 touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-851 — Add IIdentifierRandom with its cryptographic and seeded sources and ExchangeContext.Identifiers
 
@@ -38,19 +38,34 @@ same identifiers every run.
 
 ## Acceptance criteria
 
-- [ ] `IIdentifierRandom` and `ExchangeContext.Identifiers` exist in `Surl.Protocol.Abstractions` with XML
+- [x] `IIdentifierRandom` and `ExchangeContext.Identifiers` exist in `Surl.Protocol.Abstractions` with XML
       documentation naming ADR-0124 decision 6 and the never-secret rule; every existing caller compiles unchanged.
-- [ ] `CryptographicIdentifierRandom` and `SeededIdentifierRandom` exist in `Surl.Core`, one public type per file.
-- [ ] `SeededIdentifierRandomTests.ForExchange_SameSeedAndExchangeId_GivesTheSameBytesWhateverElseWasDrawn`
+- [x] `CryptographicIdentifierRandom` and `SeededIdentifierRandom` exist in `Surl.Core`, one public type per file.
+- [x] `SeededIdentifierRandomTests.ForExchange_SameSeedAndExchangeId_GivesTheSameBytesWhateverElseWasDrawn`
       passes: two instances with one seed give equal bytes for exchange 7 even when one of them drew for
       exchanges 1 to 6 first.
-- [ ] `SeededIdentifierRandomTests.ForExchange_DifferentSeedsOrExchangeIds_GiveDifferentBytes` and
+- [x] `SeededIdentifierRandomTests.ForExchange_DifferentSeedsOrExchangeIds_GiveDifferentBytes` and
       `SeededIdentifierRandomTests.ForServer_SameSeedAndName_GivesTheSameBytes` pass.
-- [ ] Both libraries stay at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+- [x] Both libraries stay at 100% line and branch coverage; `dotnet build` clean, fast tests green.
 
 ## Notes
+
+- Abstractions cannot reference `Surl.Core`, so `ExchangeContext.Identifiers` defaults to an internal
+  `RandomNumberGeneratorIdentifierRandom` in Abstractions (the same pattern as `EmptyFaultPlan`, but
+  internal so the public cryptographic source stays the one ADR-0124 names, `Surl.Core`'s
+  `CryptographicIdentifierRandom`). Both draw from `RandomNumberGenerator.Fill`.
+- Derivation: block n = SHA-256(label `exchange`|`server`, 0x00, seed BE64, scope length BE32, scope,
+  n BE64); the scope is the exchange ID BE64 or the UTF-8 name. The label and length keep exchange and
+  server sequences and differently named servers apart. Pinned by
+  `ForExchange_FirstBlock_IsSha256OfLabelSeedScopeAndCounter`.
+- `ForExchange`/`ForServer` return a fresh source each call (not thread-safe; one exchange draws from
+  it). The seed must be 0 to 2^63-1 (`ArgumentOutOfRangeException` otherwise); a null or empty server
+  name is an `ArgumentException`. The engine does not set `Identifiers` yet: wiring `--random-seed`
+  into the engine belongs to the task that adds the option.
+- Coverage: every new type 100% line and branch in its own library's tests.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. IIdentifierRandom and ExchangeContext.Identifiers exist; CryptographicIdentifierRandom and SeededIdentifierRandom (per-exchange and per-server SHA-256 counter sources) in Surl.Core
