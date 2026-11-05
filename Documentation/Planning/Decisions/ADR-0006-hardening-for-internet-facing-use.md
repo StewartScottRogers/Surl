@@ -6,6 +6,7 @@
 - **Amended by:** [ADR-0059](ADR-0059-how-a-protocol-server-tells-a-limit-from-shutdown.md) (section 6: `ExchangeContext.ShutdownToken` tells a limit's cancellation from shutdown)
 - **Amended by:** [ADR-0081](ADR-0081-how-surl-serves-http-2.md) (section 5 on an HTTP/2 connection: each limit's `GOAWAY` or `RST_STREAM` code, and `GOAWAY` `NO_ERROR` in place of "close with no bytes" for the idle timeout and maximum duration)
 - **Amended by:** [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) (section 5 on an HTTP/3 connection: each limit's QUIC or HTTP/3 error, decision 7; section 4 on QUIC: TLS 1.3 only, with the cipher suites ADR-0082 decision 3 names rather than the operating system's)
+- **Amended by:** [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md) (section 1: `--max-request-head` is also enforced by `Surl.Protocol.HttpProxy`, on curl's request head and on the origin's response head; each limit's answer on the proxy is ADR-0088 decision 7's)
 
 ## Context
 

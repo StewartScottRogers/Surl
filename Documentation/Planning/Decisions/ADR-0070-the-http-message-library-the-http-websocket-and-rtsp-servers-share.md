@@ -6,6 +6,7 @@
   in BL-281.
 - **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3: its table of
   horizontal libraries gains the row of decision 1 below. Everything else in ADR-0002 stands.
+- **Amended by:** [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md) (2026-11-04): decision 1's list of users gains a fourth, `Surl.Protocol.HttpProxy` (BL-552), which reads proxy requests and writes its responses with this library.
 
 ## Context
 

@@ -8,7 +8,7 @@ depends-on: []
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-04
 ---
 # BL-550 — Decide how Surl serves the HTTP CONNECT proxy and the HTTPS proxy
 
@@ -76,21 +76,32 @@ Decide and record:
 
 ## Acceptance criteria
 
-- [ ] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
+- [x] An ADR with the next free number exists under `Documentation/Planning/Decisions`, marked
       "Decided by Claude under Stewart's delegation", answering decisions 1 to 8, each citing its
       RFC section or the curl 8.21.0 measurement it rests on, and it is listed in the folder's
       `README.md`.
-- [ ] The ADR names the 29 cases above by number and the tasks that act on it: BL-551, BL-552,
+- [x] The ADR names the 29 cases above by number and the tasks that act on it: BL-551, BL-552,
       BL-553, BL-554, BL-555 and BL-556.
-- [ ] ADR-0002's reference table and ADR-0070 are amended (or the ADR states why not) for the new
+- [x] ADR-0002's reference table and ADR-0070 are amended (or the ADR states why not) for the new
       library's references.
 
 ## Notes
 
 - Planning assumptions above are BL-399's defaults for an unattended plan; the ADR may change any
   of them, and the build tasks' `touches` follow the ADR (a task records the change in its Notes).
+- Decided in ADR-0088. Measured 13 cases with `Record-CurlExchange.ps1` against the Windows
+  reference build (fixtures kept out of the repository; the ADR's table records the bytes).
+- Choices taken (the ADR records why): a new `IOriginConnector` rather than `IDataConnectionOpener`;
+  loopback-only origins by default, `--proxy-allow-origin` to widen; `CONNECT` to any port of an
+  allowed origin; separate proxy accounts (`-U`/`--proxy-user`, `--proxy-user-file`, `--proxy-auth`);
+  origin connect bounded by `--head-timeout` (no new timeout option); default proxy ports 1080 and
+  443 as curl's.
+- Follow-ups filed: BL-576 (`ftp://` forwarding, `501` until then) and BL-577 (HTTP/2 to the HTTPS
+  proxy for `--proxy-http2`, ALPN `http/1.1` until then).
+- ADR-0006 also amended (section 1, `--max-request-head` on the proxy); no task's `touches` changes.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
+- 2026-11-04: Doing -> Done. ADR-0088 decides the HTTP CONNECT and HTTPS proxy: library, IOriginConnector, forwarding, CONNECT, 407 auth, TLS, command line, upstream cases
