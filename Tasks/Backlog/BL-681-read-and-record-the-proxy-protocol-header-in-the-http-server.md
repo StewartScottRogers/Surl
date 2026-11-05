@@ -1,5 +1,5 @@
 ---
-id: BL-654
+id: BL-681
 title: Read and record the PROXY protocol header in the HTTP server half
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-654 — Read and record the PROXY protocol header in the HTTP server half
+# BL-681 — Read and record the PROXY protocol header in the HTTP server half
 
 ## Goal
 

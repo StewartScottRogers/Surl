@@ -62,13 +62,13 @@ per case: test number, pass, fail or skip, and the reason.
   `server-half-not-composed:<name>` 293 for the cases whose server half is another task's (ftp 122,
   smtp 33, imap 31, sftp 24, ...). No line reads `skip unparsable` in this run.
 - Failures, grouped by cause and filed (none was a one-line defect):
-  - BL-653: part number from the digits after the target's last `/`, query included (16 cases:
+  - BL-680: part number from the digits after the target's last `/`, query included (16 cases:
     11, 28, 40, 43, 187, 276, 309, 1024, 1025, 1031, 1051, 1052, 1053, 1067, 1138, 1168). The fix is
     a rule change in `HttpUpstreamTestCasePartNumber` with its tests and docs, outside this task's
     touches.
-  - BL-654: PROXY protocol header before the request (1455, 3201, 3220).
-  - BL-655: test certificates from the imported `.prm` files (417, 2033, 2079, 2087).
-  - BL-656: the remaining twelve, each to be explained (30 and 37 time out on an empty `<data>`;
+  - BL-681: PROXY protocol header before the request (1455, 3201, 3220).
+  - BL-682: test certificates from the imported `.prm` files (417, 2033, 2079, 2087).
+  - BL-683: the remaining twelve, each to be explained (30 and 37 time out on an empty `<data>`;
     60, 173, 329, 433, 470, 1064, 1065, 1147, 1244, 2081).
 - Where the code went: `Surl.Conformance.UnitLibrary` gains `UpstreamTestCaseCommandLine` (+
   `UpstreamTestCaseClientFile`), `UpstreamTestCaseShellWords`, `UpstreamTestCaseResult` (+
@@ -106,4 +106,4 @@ per case: test number, pass, fail or skip, and the reason.
 
 - 2026-11-04: Created.
 - 2026-11-04: Backlog -> Doing.
-- 2026-11-04: Doing -> Done. UpstreamTestCasesOverHttpTests runs every runnable http and https upstream test case against Surl with the pinned reference build and writes upstream-test-case-results.<platform>.txt (Windows: 686 ran, 651 pass, 35 fail filed as BL-653 to BL-656); CI runs it on Linux and macOS
+- 2026-11-04: Doing -> Done. UpstreamTestCasesOverHttpTests runs every runnable http and https upstream test case against Surl with the pinned reference build and writes upstream-test-case-results.<platform>.txt (Windows: 686 ran, 651 pass, 35 fail filed as BL-680 to BL-683); CI runs it on Linux and macOS

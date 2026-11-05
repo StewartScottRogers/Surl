@@ -1,5 +1,5 @@
 ---
-id: BL-656
+id: BL-683
 title: Find why the remaining twelve http upstream test cases fail against Surl
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-656 — Find why the remaining twelve http upstream test cases fail against Surl
+# BL-683 — Find why the remaining twelve http upstream test cases fail against Surl
 
 ## Goal
 

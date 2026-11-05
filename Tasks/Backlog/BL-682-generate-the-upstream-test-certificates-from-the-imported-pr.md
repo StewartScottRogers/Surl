@@ -1,5 +1,5 @@
 ---
-id: BL-655
+id: BL-682
 title: Generate the upstream test certificates from the imported .prm files
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-655 — Generate the upstream test certificates from the imported .prm files
+# BL-682 — Generate the upstream test certificates from the imported .prm files
 
 ## Goal
 

@@ -200,7 +200,7 @@ The rest is intent until its task lands. This library will also hold, with no re
 Abstractions:
 - each `<server>` name's port variable, beside its `UpstreamTestCaseServers` row;
 - generating the test certificates from the imported `.prm` files with `CertificateRequest`
-  (BL-655; BL-392's run uses a stand-in CA and `localhost` certificate), and the SSH keys and
+  (BL-682; BL-392's run uses a stand-in CA and `localhost` certificate), and the SSH keys and
   `%SSHSRVMD5`/`%SSHSRVSHA256`;
 - reading the pass-rate file and passing lists of decision 5.
 

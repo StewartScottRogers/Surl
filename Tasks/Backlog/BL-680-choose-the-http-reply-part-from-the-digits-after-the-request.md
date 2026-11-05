@@ -1,5 +1,5 @@
 ---
-id: BL-653
+id: BL-680
 title: Choose the HTTP reply part from the digits after the request target's last slash
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-653 — Choose the HTTP reply part from the digits after the request target's last slash
+# BL-680 — Choose the HTTP reply part from the digits after the request target's last slash
 
 ## Goal
 
