@@ -9,11 +9,41 @@
       Native ahead-of-time is the shipping configuration and the default (ADR-0103 decision 7), as for surl:
       `dotnet publish` produces the binary that ships. It needs the MSVC linker and vswhere.exe on PATH
       (C:\Program Files (x86)\Microsoft Visual Studio\Installer); a machine that cannot link native code opts
-      out per publish with -p:PublishAot=false.
+      out per publish with -p:PublishAot=false. `dotnet pack` makes the framework-dependent tool package
+      below instead, so packing turns it off.
     -->
-    <PublishAot Condition=" '$(PublishAot)' == '' ">true</PublishAot>
+    <PublishAot Condition=" '$(PublishAot)' == '' And '$(_IsPacking)' != 'true' ">true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
+
+  <!--
+    Packed as one framework-dependent .NET tool package of PackageType McpServer, ID Surl.Mcp, that
+    `dnx Surl.Mcp` runs on every platform dotnet runs on, with .mcp/server.json for the MCP registry
+    (ADR-0103 decision 7, BL-643). The native binary ships in the release's surl-mcp-<rid> archives instead.
+    The version below is the one in .mcp/server.json, and Surl.Mcp.UnitTests holds the two equal; release.yml
+    gives both the version it gives surl (-p:Version, and server.json rewritten before packing).
+  -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <PackAsTool>true</PackAsTool>
+    <PackageType>McpServer</PackageType>
+    <ToolCommandName>surl-mcp</ToolCommandName>
+    <PackageId>Surl.Mcp</PackageId>
+    <Authors>Stewart Scott Rogers</Authors>
+    <Description>An MCP server whose tools let AI agents start, list and stop Surl protocol servers and see what their clients sent: Surl, the server-side mate of curl, served over standard input and output.</Description>
+    <PackageTags>AI; MCP; server; stdio; surl; curl; testing</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/StewartScottRogers/Surl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/StewartScottRogers/Surl</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include=".mcp\server.json" Pack="true" PackagePath="/.mcp/" />
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Surl.Mcp.UnitTests" />

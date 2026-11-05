@@ -1,6 +1,11 @@
 # Surl.Api
 
 Starts and stops a Surl server in-process, for a .NET test suite, with no `surl` process.
+Surl is the server-side mate of curl: for each protocol upstream curl speaks, it is the server
+that answers, so a test can run against it in place of the real web, mail or file server.
+
+The `Surl.Api` NuGet package is one package with nothing else to restore: every Surl assembly
+it needs is inside it.
 
 ```csharp
 using Surl.Api;
@@ -8,9 +13,14 @@ using Surl.Api;
 var options = new SurlServerOptions { ListenUrls = { "http://127.0.0.1:0" } };
 options.Files["hello.txt"] = "hello"u8.ToArray();
 
-await using var server = await SurlServer.StartAsync(options);
-// server.BoundUrl is http://127.0.0.1:<the bound port>/
+var server = await SurlServer.StartAsync(options);
+// server.BoundUrl is http://127.0.0.1:<the bound port>/ - port 0 takes a free one;
+// server.BoundUrls lists every listen URL, in order, with its bound port.
+// ... run the client against server.BoundUrl ...
+var exitCode = await server.StopAsync();   // SurlExitCode.Ok
 ```
+
+`await using var server = ...` stops it as well, discarding the exit code.
 
 - Every option is `surl`'s: the properties are spellings of `surl` options (`DataDirectory` is
   `--directory`, `AllowUploads` is `--allow-uploads`, `ListDirectories` is
@@ -36,7 +46,13 @@ await using var server = await SurlServer.StartAsync(options);
   option, and each writes `surl`'s start-up warning to `Log`.
 - A start `surl` would refuse throws `SurlServerStartException`, with the `SurlExitCode` and the
   lines `surl` writes after `surl: `; nothing is left bound or locked.
-- `StopAsync` or disposing the server stops it.
+- `StopAsync` or disposing the server stops it. `StopAsync` returns the `SurlExitCode` `surl`
+  would have exited with: `Ok`, or `InternalError` when serving failed; stopping again returns
+  the same code.
+- Misuse is an `ArgumentException`: an option that belongs to a host (`--help`, `--aihelp`,
+  `--manual`, `--version`, `--log-file`, `--trace`, `--trace-ascii`) in
+  `AdditionalArguments`, an account `--user` could not spell, a negative duration other than
+  `Timeout.InfiniteTimeSpan`, or a non-positive recording bound.
 
 ## What a client sent
 

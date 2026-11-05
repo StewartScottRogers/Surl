@@ -7,6 +7,39 @@
     ahead-of-time compatible like every production project.
   -->
 
+  <!--
+    Packed as one NuGet package, ID Surl.Api (ADR-0099 decision 10, BL-643). release.yml packs it with
+    -p:BundledProjectReferencesPrivateAssets=all, which keeps the project references out of the package's
+    dependencies, and BundleReferencedProjectAssemblies puts every Surl assembly they bring into lib/net10.0,
+    so a test project references this one package and restores nothing else. Its version is the one
+    release.yml gives surl (-p:Version).
+  -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>Surl.Api</PackageId>
+    <Authors>Stewart Scott Rogers</Authors>
+    <Description>Starts and stops Surl servers in-process for a .NET test suite: Surl is the server-side mate of curl, the server that answers each protocol upstream curl speaks, as a stand-in for the real web, mail or file server.</Description>
+    <PackageTags>surl; curl; server; testing; stand-in; http; ftp; smtp; imap</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/StewartScottRogers/Surl</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/StewartScottRogers/Surl</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);BundleReferencedProjectAssemblies</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="/" Visible="false" />
+  </ItemGroup>
+
+  <!-- Every assembly the project references bring, directly or transitively, goes into lib/net10.0. -->
+  <Target Name="BundleReferencedProjectAssemblies" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths)" Condition="'%(ReferenceCopyLocalPaths.ReferenceSourceTarget)' == 'ProjectReference' And '%(ReferenceCopyLocalPaths.Extension)' == '.dll'" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <InternalsVisibleTo Include="Surl.Api.UnitTests" />
     <!-- Surl.Mcp's tests start servers through SurlServerHostSeams, so no test opens a socket (BL-624). -->
@@ -14,12 +47,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Surl.Cli.UnitLibrary\Surl.Cli.UnitLibrary.csproj" />
-    <ProjectReference Include="..\Surl.Composition.UnitLibrary\Surl.Composition.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Foundation\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Foundation\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" />
-    <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Cli.UnitLibrary\Surl.Cli.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
+    <ProjectReference Include="..\Surl.Composition.UnitLibrary\Surl.Composition.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
+    <ProjectReference Include="..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
+    <ProjectReference Include="..\..\Foundation\Surl.Networking.UnitLibrary\Surl.Networking.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
+    <ProjectReference Include="..\..\Foundation\Surl.Output.UnitLibrary\Surl.Output.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
+    <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" PrivateAssets="$(BundledProjectReferencesPrivateAssets)" />
   </ItemGroup>
 
 </Project>

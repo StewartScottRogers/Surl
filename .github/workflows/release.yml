@@ -2,6 +2,8 @@
 # runs with no .NET runtime before anything is released (ADR-0085). Beside it, each leg publishes
 # the native-AOT `surl-mcp`, Surl's MCP server on standard input and output, proves it answers an
 # MCP `initialize`, and packages it as its own archive, `surl-mcp-<rid>` (ADR-0103 decision 7).
+# The pack job also packs Surl.Api and Surl.Mcp as NuGet packages and keeps them as the
+# nuget-packages artifact on every run, a tag included; nothing pushes them to a feed (BL-643).
 #
 #   * Pushing a tag `v*` (e.g. v0.1.0) builds all twelve packages, proves them, and attaches
 #     them, with a SHA256SUMS file, to a GitHub release of that name. A tag with a hyphen
@@ -282,6 +284,83 @@ jobs:
           SURL_EXECUTABLE: ${{ github.workspace }}/published/surl
         run: dotnet test Conformance/Surl.Conformance.UnitTests -c Release --filter "FullyQualifiedName~Surl.Conformance"
 
+  # Packs Surl.Api (ADR-0099 decision 10) and Surl.Mcp (ADR-0103 decision 7) as NuGet packages with
+  # the version surl gets, and keeps them as the nuget-packages artifact - on a tag as on a dry run.
+  # Nothing is pushed: publishing a package needs Stewart (CLAUDE.md), so no step holds an API key.
+  # Surl.Api's project references are bundled into its lib folder, so it has no package dependency;
+  # Surl.Mcp is one framework-dependent .NET tool package of type McpServer, whose .mcp/server.json
+  # is stamped with the same version first.
+  pack:
+    name: Pack the NuGet packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Work out the version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Stamp Surl.Mcp's server.json with the version
+        shell: pwsh
+        run: |
+          $path = 'Application/Surl.Mcp/.mcp/server.json'
+          $server = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+          $server.version = $env:VERSION
+          foreach ($package in $server.packages) { $package.version = $env:VERSION }
+          $server | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $path
+
+      - name: Pack Surl.Api
+        run: dotnet pack Application/Surl.Api -c Release -p:Version="$VERSION" -p:BundledProjectReferencesPrivateAssets=all -o nupkg
+
+      - name: Pack Surl.Mcp
+        run: dotnet pack Application/Surl.Mcp -c Release -p:Version="$VERSION" -o nupkg
+
+      - name: Check the packages
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          function Read-Package([string] $id) {
+            $path = "nupkg/$id.$env:VERSION.nupkg"
+            if (-not (Test-Path -LiteralPath $path)) { throw "$path was not packed." }
+            return [System.IO.Compression.ZipFile]::OpenRead($path)
+          }
+          function Read-Entry($zip, [string] $name) {
+            $entry = $zip.Entries | Where-Object FullName -eq $name
+            if ($null -eq $entry) { throw "The package holds no $name." }
+            $reader = [System.IO.StreamReader]::new($entry.Open())
+            try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
+          }
+          $api = Read-Package 'Surl.Api'
+          $names = @($api.Entries.FullName)
+          foreach ($required in 'README.md', 'LICENSE.txt', 'lib/net10.0/Surl.Api.dll', 'lib/net10.0/Surl.Composition.UnitLibrary.dll', 'lib/net10.0/Surl.Cli.UnitLibrary.dll') {
+            if ($names -notcontains $required) { throw "Surl.Api's package holds no $required." }
+          }
+          if ((Read-Entry $api 'Surl.Api.nuspec') -match '<dependency ') { throw "Surl.Api's package depends on another package." }
+          $api.Dispose()
+          $mcp = Read-Package 'Surl.Mcp'
+          $nuspec = Read-Entry $mcp 'Surl.Mcp.nuspec'
+          if ($nuspec -notmatch '<packageType name="McpServer"') { throw "Surl.Mcp's package is not of type McpServer." }
+          $server = (Read-Entry $mcp '.mcp/server.json') | ConvertFrom-Json
+          if ($server.version -ne $env:VERSION) { throw "Surl.Mcp's server.json is version $($server.version), not $env:VERSION." }
+          $mcp.Dispose()
+          Get-ChildItem nupkg | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
   # States the upstream test-case pass rate (ADR-0080 decision 5): on a tag, the releases rows
   # of Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md for the tag's version, failing
   # when there are none, so a release cannot ship without stating its rate; on a dry run, the
@@ -341,7 +420,7 @@ jobs:
 
   release:
     name: Create the GitHub release
-    needs: [publish, conformance, pass-rate]
+    needs: [publish, conformance, pass-rate, pack]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
