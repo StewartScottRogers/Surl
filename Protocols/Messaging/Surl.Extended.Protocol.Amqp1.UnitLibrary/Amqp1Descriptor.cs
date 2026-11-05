@@ -37,6 +37,15 @@ public static class Amqp1Descriptor
     /// <summary><c>amqp:error:list</c> (Part 2 section 2.8.14).</summary>
     public const ulong Error = 0x1D;
 
+    /// <summary><c>amqp:source:list</c> (Part 3 section 3.5.3).</summary>
+    public const ulong Source = 0x28;
+
+    /// <summary><c>amqp:target:list</c> (Part 3 section 3.5.4).</summary>
+    public const ulong Target = 0x29;
+
+    /// <summary><c>amqp:coordinator:list</c> (Part 4 section 4.5.1), the target of a transaction controller.</summary>
+    public const ulong Coordinator = 0x30;
+
     /// <summary><c>amqp:sasl-mechanisms:list</c> (Part 5 section 5.3.3.1).</summary>
     public const ulong SaslMechanisms = 0x40;
 
@@ -91,6 +100,9 @@ public static class Amqp1Descriptor
         ["amqp:end:list"] = End,
         ["amqp:close:list"] = Close,
         ["amqp:error:list"] = Error,
+        ["amqp:source:list"] = Source,
+        ["amqp:target:list"] = Target,
+        ["amqp:coordinator:list"] = Coordinator,
         ["amqp:sasl-mechanisms:list"] = SaslMechanisms,
         ["amqp:sasl-init:list"] = SaslInit,
         ["amqp:sasl-challenge:list"] = SaslChallenge,

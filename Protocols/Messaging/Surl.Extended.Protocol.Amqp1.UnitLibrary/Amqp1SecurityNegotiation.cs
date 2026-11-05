@@ -79,11 +79,11 @@ public sealed class Amqp1SecurityNegotiation(
 
         var init = await ReadSaslPerformativeAsync<Amqp1SaslInit>();
         var login = init is null ? null : await LogInAsync(init, offered);
-        if (login is null)
-        {
-            return await CloseAsync();
-        }
+        return login is null ? await CloseAsync() : await AnswerLoginAsync(login);
+    }
 
+    private async ValueTask<Amqp1SecurityNegotiationResult> AnswerLoginAsync(SaslLogin login)
+    {
         await WriteFrameAsync(new Amqp1SaslOutcome(login.IsAccepted ? SaslCodeOk : SaslCodeAuth)
         {
             AdditionalData = login.AdditionalData.IsEmpty ? null : login.AdditionalData.ToArray(),

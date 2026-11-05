@@ -10,6 +10,9 @@ public sealed class Amqp1DescriptorTests
     [DataRow("amqp:open:list", Amqp1Descriptor.Open)]
     [DataRow("amqp:sasl-outcome:list", Amqp1Descriptor.SaslOutcome)]
     [DataRow("amqp:amqp-value:*", Amqp1Descriptor.AmqpValue)]
+    [DataRow("amqp:source:list", Amqp1Descriptor.Source)]
+    [DataRow("amqp:target:list", Amqp1Descriptor.Target)]
+    [DataRow("amqp:coordinator:list", Amqp1Descriptor.Coordinator)]
     public void CodeOf_KnownSymbol_IsItsCode(string name, ulong expected)
     {
         Assert.AreEqual(expected, Amqp1Descriptor.CodeOf(new Amqp1Symbol(name)));

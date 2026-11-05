@@ -1,11 +1,11 @@
 # Surl.Extended.Protocol.Amqp1.UnitLibrary
 
-An extended server (ADR-0083): it will be the AMQP 1.0 container that answers the `amqp1` and
+An extended server (ADR-0083): the AMQP 1.0 container that answers the `amqp1` and
 `amqp1s` schemes the Curl port adds, which upstream curl does not have. ADR-0107 decides how. It is
 judged by its specification, OASIS AMQP 1.0 (2012-10-29), never by the Curl port's output, and its
 unit tests replay bytes written by hand from that specification.
 
-What is here so far is the type system and the frame codec (BL-510; ADR-0107 Part 1 and decision
+The type system and the frame codec (BL-510; ADR-0107 Part 1 and decision
 7's frame limits):
 
 - `Amqp1Decoder` reads every value of Part 1 sections 1.2 to 1.6 in every width: the zero-width
@@ -34,8 +34,8 @@ What is here so far is the type system and the frame codec (BL-510; ADR-0107 Par
   performative of its frame's type is `amqp:connection:framing-error`; a mandatory field missing
   or any field of the wrong type is `amqp:decode-error`. A `symbol` field with `multiple="true"`
   reads a single symbol or an array, and writes one symbol as itself and more as an array.
-  `source`, `target` and delivery states are kept as the described values read; BL-512 and BL-513
-  give them types.
+  `source`, `target` and delivery states are kept as the described values read; `Amqp1Terminus` reads source,
+  target and coordinator (BL-512), and BL-513 types delivery states.
 - `Amqp1MessageSection.ReadAll` splits a message into its Part 3 section 3.2 sections, each with its
   bytes exactly as they arrived; `Amqp1Header` and `Amqp1Properties` read the two sections that are
   described lists.
@@ -56,7 +56,40 @@ Protocol headers and SASL (BL-511; ADR-0107 decisions 1 and 2):
   answered `AMQP 0 1 0 0` and closed. A SASL frame over 512 bytes, an AMQP frame or a frame out of
   order closes with no bytes. Headers and frames are read exactly, so pipelined bytes are kept.
 
-Connections, sessions and links are BL-512; transfers, credit and settlement BL-513; the command
+Connections, sessions and links (BL-512; ADR-0107 decisions 3, 4 and 7):
+
+- `Amqp1ContainerConnection` serves one connection once its headers and SASL are done, given the
+  account logged in. It answers the client's `open` with the container's (`Amqp1ContainerOptions`:
+  `container-id` `surl-` and 32 hex digits, `max-frame-size` from `--max-message`, `channel-max` 63,
+  `idle-time-out` half of `--idle-timeout`, `product` = `surl`). Before `open` a frame the reader
+  refuses, or the client going, ends it with no bytes; any other frame, or a client `max-frame-size`
+  below 512, is answered with `open` then `close` and the error. After `open`: `close` is answered
+  with `close`; a second `open`, a bad frame, a SASL frame, a `begin` with `remote-channel`, above
+  channel 63 or on a channel in use, or a frame on a channel with no session closes with
+  `amqp:connection:framing-error`; a performative that does not decode with `amqp:decode-error`.
+- Sessions (`Amqp1Session`) answer on the client's channel when free, else the lowest free one within
+  both `channel-max`s. `end` is answered with `end`. A session ended with an error (`end` with
+  `amqp:session:handle-in-use`, `amqp:session:unattached-handle`, or `amqp:resource-limit-exceeded`
+  when no handle of the container's is free) discards its frames until the client's `end`, which is
+  not answered.
+- Links (`Amqp1Link`): `attach` gets the opposite role, the same name, the lowest free handle of the
+  container's, and the node's terminus (`Amqp1Terminus`): `distribution-mode` `copy` for a topic and
+  `move` for a queue, `initial-delivery-count` 0 when the container sends, `max-message-size`
+  `--max-filesize` and `rcv-settle-mode` `first` when it receives; the client's other terminus is
+  echoed and no `unsettled` map is sent. `Amqp1NodeAddress` maps the address (one leading `/`
+  dropped, `topic/<t>`, `queue/<q>`, any other name a queue) and `IAmqp1NodeDirectory` finds or
+  creates the node and judges access; a coordinator, an address naming no node, or the directory's
+  refusal gets an `attach` with a null terminus then a closing `detach` with the error. `detach` is
+  answered with the same `closed`, unless the container already detached the link. `flow` and
+  `transfer` on an unattached handle end the session with `amqp:session:unattached-handle`; on an
+  attached one they, and `disposition`, are left to BL-513.
+- Idle time-outs run on `ExchangeContext.TimeProvider`: nothing read for `--idle-timeout` closes with
+  `amqp:resource-limit-exceeded` (`idle time-out expired`); with a nonzero client `idle-time-out` an
+  empty frame is written whenever nothing was written for half of it, at most every 100 ms.
+- Every error `description` is fixed text, never an address, account or exception.
+
+Transfers, credit, settlement and the bus-backed `IAmqp1NodeDirectory` are BL-513; one server running
+the negotiation and the connection under the head timeout and `--max-time` is BL-755; the command
 line and composition BL-514.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the

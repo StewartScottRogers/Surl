@@ -63,44 +63,44 @@ specification leaves the container a choice. Part 4 (transactions) is BL-707's.
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | Amqp1:Core-2.3.1-1 | MUST | A frame is a 4-byte size (the whole frame), DOFF in 4-byte words (at least 2), a type byte and a 2-byte channel; a size below 8 or a DOFF below 2 or past the frame closes the connection with `amqp:connection:framing-error`. | BL-510 |
-| Amqp1:Core-2.3.2-1 | MUST | An AMQP frame with no body is read and ignored except as activity for the idle time-out. | BL-512 |
-| Amqp1:Core-2.4.1-2 | MUST | After the AMQP header the first frame both ways is `open`; another frame before it, or a second `open`, closes the connection with `amqp:connection:framing-error`. | BL-512 |
-| Amqp1:Core-2.7.1-1 | MUST | The container's `open` carries `container-id` `surl-` and 32 hex digits, `max-frame-size` the smaller of 65536 and `--max-message`, `channel-max` 63, `idle-time-out` half of `--idle-timeout`, and `properties` `product` = `surl`. | BL-512 |
-| Amqp1:Core-2.7.1-2 | MUST | A client `max-frame-size` below 512 closes the connection with `amqp:invalid-field`. | BL-512 |
-| Amqp1:Core-2.4.1-3 | MUST NOT | The container writes no frame larger than the client's `max-frame-size`. | BL-512 |
-| Amqp1:Core-2.4.1-4 | MUST | A frame larger than the container's `max-frame-size` (512 before `open`) closes the connection with `amqp:connection:framing-error`, its body not read. | BL-512 |
-| Amqp1:Core-2.4.3-1 | MUST | A client `close` is answered with `close` and the connection ends; its error, if any, is noted. | BL-512 |
-| Amqp1:Core-2.4.5-1 | MUST | When the client's `open` carries a nonzero `idle-time-out`, the container writes an empty frame whenever it has written nothing for half of it, at most every 100 ms, on the injected `TimeProvider`. | BL-512 |
-| Amqp1:Core-2.4.5-2 | SHOULD | A client silent for `--idle-timeout` is sent `close` with `amqp:resource-limit-exceeded` and the connection ends. | BL-512 |
-| Amqp1:Core-2.8.15-1 | MUST | A performative missing a mandatory field, or with a field of the wrong type, closes the connection with `amqp:decode-error`. | BL-512 |
+| Amqp1:Core-2.3.2-1 | MUST | An AMQP frame with no body is read and ignored except as activity for the idle time-out. | `Amqp1ContainerConnectionTests.ServeAsync_EmptyFramesBeforeOpen_AreSkipped`, `Amqp1ContainerConnectionTests.ServeAsync_ClientGoneAfterOpen_EndsWithNoFurtherBytes` |
+| Amqp1:Core-2.4.1-2 | MUST | After the AMQP header the first frame both ways is `open`; another frame before it, or a second `open`, closes the connection with `amqp:connection:framing-error`. | `Amqp1ContainerConnectionTests.ServeAsync_FrameOtherThanOpenBeforeOpen_IsAnsweredWithOpenThenCloseWithFramingError`, `Amqp1ContainerConnectionTests.ServeAsync_SecondOpen_ClosesWithFramingError` |
+| Amqp1:Core-2.7.1-1 | MUST | The container's `open` carries `container-id` `surl-` and 32 hex digits, `max-frame-size` the smaller of 65536 and `--max-message`, `channel-max` 63, `idle-time-out` half of `--idle-timeout`, and `properties` `product` = `surl`. | `Amqp1ContainerConnectionTests.ServeAsync_Open_IsAnsweredWithTheContainersOpen`, `Amqp1ContainerConnectionTests.ServeAsync_IdleTimeoutOff_AdvertisesNoIdleTimeOut`, `Amqp1ContainerOptionsTests` |
+| Amqp1:Core-2.7.1-2 | MUST | A client `max-frame-size` below 512 closes the connection with `amqp:invalid-field`. | `Amqp1ContainerConnectionTests.ServeAsync_OpenWithMaxFrameSizeBelow512_ClosesWithInvalidField` |
+| Amqp1:Core-2.4.1-3 | MUST NOT | The container writes no frame larger than the client's `max-frame-size`. | BL-513 (it splits transfers to the client's `max-frame-size`; BL-512 writes no performative beyond its own fields, except that an answering `attach` echoes the client's other terminus) |
+| Amqp1:Core-2.4.1-4 | MUST | A frame larger than the container's `max-frame-size` (512 before `open`) closes the connection with `amqp:connection:framing-error`, its body not read. | `Amqp1ContainerConnectionTests.ServeAsync_MalformedFrameAfterOpen_ClosesWithFramingError`; before `open`, `Amqp1ContainerConnectionTests.ServeAsync_NoOpen_ClosesWithNoBytes` (no bytes, ADR-0107 decision 7) |
+| Amqp1:Core-2.4.3-1 | MUST | A client `close` is answered with `close` and the connection ends; its error, if any, is noted. | `Amqp1ContainerConnectionTests.ServeAsync_Close_IsAnsweredWithClose`, `Amqp1ContainerConnectionTests.ServeAsync_CloseWithAnError_IsAnsweredWithCloseAndNoted` |
+| Amqp1:Core-2.4.5-1 | MUST | When the client's `open` carries a nonzero `idle-time-out`, the container writes an empty frame whenever it has written nothing for half of it, at most every 100 ms, on the injected `TimeProvider`. | `Amqp1ContainerConnectionTests.ServeAsync_ClientIdleTimeOut_IsKeptWithEmptyFramesAtHalfOfIt`, `Amqp1ContainerConnectionTests.ServeAsync_ClientIdleTimeOutZero_SendsNoEmptyFrames` |
+| Amqp1:Core-2.4.5-2 | SHOULD | A client silent for `--idle-timeout` is sent `close` with `amqp:resource-limit-exceeded` and the connection ends. | `Amqp1ContainerConnectionTests.ServeAsync_SilentPeer_IsClosedAfterTheContainersIdleTimeout` |
+| Amqp1:Core-2.8.15-1 | MUST | A performative missing a mandatory field, or with a field of the wrong type, closes the connection with `amqp:decode-error`. | `Amqp1ContainerConnectionTests.ServeAsync_UnreadableFirstFrame_IsAnsweredWithOpenThenClose`, `Amqp1ContainerConnectionTests.ServeAsync_UndecodableFrameAfterOpen_ClosesWithItsCondition` |
 
 ## Sessions (Part 2 sections 2.5, 2.7.2, 2.7.8)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Amqp1:Core-2.5.1-1 | MUST | A `begin` without `remote-channel` is answered with `begin` carrying `remote-channel`, `next-outgoing-id` 0, windows of 2147483647 and `handle-max` 255, on the same channel when free. | BL-512 |
-| Amqp1:Core-2.5.1-2 | MUST | A `begin` on a channel above `channel-max` or already in use, or a frame other than `begin` on a channel with no session, closes the connection with `amqp:connection:framing-error`. | BL-512 |
-| Amqp1:Core-2.5.1-3 | MUST | A client `end` is answered with `end`, and the session's links end with it. | BL-512 |
+| Amqp1:Core-2.5.1-1 | MUST | A `begin` without `remote-channel` is answered with `begin` carrying `remote-channel`, `next-outgoing-id` 0, windows of 2147483647 and `handle-max` 255, on the same channel when free. | `Amqp1ContainerConnectionTests.ServeAsync_BeginAndAttachAsSender_IsAnsweredWithAReceivingLinkToTheQueue`, `Amqp1ContainerConnectionTests.ServeAsync_BeginOnAChannelAboveTheClientsChannelMax_IsAnsweredOnTheLowestFreeChannel` |
+| Amqp1:Core-2.5.1-2 | MUST | A `begin` on a channel above `channel-max` or already in use, or a frame other than `begin` on a channel with no session, closes the connection with `amqp:connection:framing-error`. | `Amqp1ContainerConnectionTests.ServeAsync_BadBegin_ClosesWithFramingError`, `Amqp1ContainerConnectionTests.ServeAsync_BeginWithNoChannelFree_ClosesWithFramingError`, `Amqp1ContainerConnectionTests.ServeAsync_FrameOnAChannelWithNoSession_ClosesWithFramingError` |
+| Amqp1:Core-2.5.1-3 | MUST | A client `end` is answered with `end`, and the session's links end with it. | `Amqp1ContainerConnectionTests.ServeAsync_End_IsAnsweredWithEndAndFreesTheChannel` |
 | Amqp1:Core-2.5.6-1 | MUST NOT | The container writes no more transfers than the client's session `incoming-window` allows, and resumes on the client's `flow`. | BL-513 |
 
 ## Links and nodes (Part 2 sections 2.6.3 to 2.6.6, 2.7.3, 2.7.7; Part 3 section 3.5)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Amqp1:Core-2.6.3-1 | MUST | An `attach` is answered with `attach` in the opposite role, the same name, a handle of the container's, the address echoed, `initial-delivery-count` 0 when the container sends, and `max-message-size` `--max-filesize` when it receives. | BL-512 |
-| Amqp1:Core-2.6.3-2 | MUST | A refused link is answered with an `attach` whose source (or target) is null, then a `detach` with `closed` true and the error. | BL-512 |
-| Amqp1:Core-2.7.3-1 | MUST | An `attach` on a handle in use, or above `handle-max`, ends the session with `amqp:session:handle-in-use`. | BL-512 |
-| Amqp1:Core-2.7.5-1 | MUST | A `flow`, `transfer`, `disposition` or `detach` on a handle not attached ends the session with `amqp:session:unattached-handle`. | BL-512 |
-| Amqp1:Core-2.6.6-1 | MUST | A client `detach` is answered with `detach` carrying the same `closed`; the link ends either way, and its unsettled queue deliveries return to the queue. | BL-512 |
-| Amqp1:Surl-Nodes-1 | MUST | An address loses one leading `/`; `topic/<t>` is topic or filter `<t>`, `queue/<q>` queue `<q>`, and any other non-empty address the queue of that name. | BL-512 |
-| Amqp1:Surl-Nodes-2 | MUST | A queue not yet on the bus is declared durable, not exclusive, not auto-deleted, by the first attach naming it. | BL-512 |
-| Amqp1:Messaging-3.5.3-1 | MUST | A source or target with `dynamic` true gets a new queue, exclusive and auto-deleted, its address returned as `/queue/surl-dynamic-<hex>`. | BL-512 |
-| Amqp1:Surl-Nodes-3 | MUST | No address, an address that maps to no valid name, or a wildcard in a target is refused with `amqp:not-found`. | BL-512 |
+| Amqp1:Core-2.6.3-1 | MUST | An `attach` is answered with `attach` in the opposite role, the same name, a handle of the container's, the address echoed, `initial-delivery-count` 0 when the container sends, and `max-message-size` `--max-filesize` when it receives. | `Amqp1ContainerConnectionTests.ServeAsync_BeginAndAttachAsSender_IsAnsweredWithAReceivingLinkToTheQueue`, `Amqp1ContainerConnectionTests.ServeAsync_AttachAsReceiver_IsAnsweredWithASendingLinkFromTheNode`, `Amqp1ContainerConnectionTests.ServeAsync_SecondLink_GetsTheNextFreeHandle` |
+| Amqp1:Core-2.6.3-2 | MUST | A refused link is answered with an `attach` whose source (or target) is null, then a `detach` with `closed` true and the error. | `Amqp1ContainerConnectionTests.ServeAsync_AttachRefusedByTheDirectory_IsAnsweredWithANullTerminusThenAClosingDetach` |
+| Amqp1:Core-2.7.3-1 | MUST | An `attach` on a handle in use, or above `handle-max`, ends the session with `amqp:session:handle-in-use`. | `Amqp1ContainerConnectionTests.ServeAsync_AttachWithABadHandle_EndsTheSessionWithHandleInUse` |
+| Amqp1:Core-2.7.5-1 | MUST | A `flow`, `transfer`, `disposition` or `detach` on a handle not attached ends the session with `amqp:session:unattached-handle`. | `Amqp1ContainerConnectionTests.ServeAsync_TransferOnAnUnattachedHandle_EndsTheSessionWithUnattachedHandle`, `Amqp1ContainerConnectionTests.ServeAsync_FlowOnAnUnattachedHandle_EndsTheSessionWithUnattachedHandle`, `Amqp1ContainerConnectionTests.ServeAsync_DetachOfAnUnattachedHandle_EndsTheSessionWithUnattachedHandle`; `disposition` names delivery ids, not a handle, and is BL-513's |
+| Amqp1:Core-2.6.6-1 | MUST | A client `detach` is answered with `detach` carrying the same `closed`; the link ends either way, and its unsettled queue deliveries return to the queue. | `Amqp1ContainerConnectionTests.ServeAsync_Detach_IsAnsweredWithADetachOfTheSameClosed`; returning unsettled deliveries is BL-513's |
+| Amqp1:Surl-Nodes-1 | MUST | An address loses one leading `/`; `topic/<t>` is topic or filter `<t>`, `queue/<q>` queue `<q>`, and any other non-empty address the queue of that name. | `Amqp1NodeAddressTests` |
+| Amqp1:Surl-Nodes-2 | MUST | A queue not yet on the bus is declared durable, not exclusive, not auto-deleted, by the first attach naming it. | BL-513 (its bus-backed `IAmqp1NodeDirectory` declares the queue) |
+| Amqp1:Messaging-3.5.3-1 | MUST | A source or target with `dynamic` true gets a new queue, exclusive and auto-deleted, its address returned as `/queue/surl-dynamic-<hex>`. | `Amqp1ContainerConnectionTests.ServeAsync_AttachAsReceiverForADynamicNode_IsAnsweredWithTheNodesAddress`, `Amqp1ContainerConnectionTests.ServeAsync_AttachAsSenderForADynamicNode_IsAnsweredWithTheNodesAddress`; the queue's flags are BL-513's `IAmqp1NodeDirectory` |
+| Amqp1:Surl-Nodes-3 | MUST | No address, an address that maps to no valid name, or a wildcard in a target is refused with `amqp:not-found`. | `Amqp1ContainerConnectionTests.ServeAsync_AttachAsSenderToAnAddressNamingNoNode_IsRefusedWithNotFound` |
 | Amqp1:Surl-Nodes-4 | MUST | An attach topic access denies is refused with `amqp:unauthorized-access`, the same whether or not the node exists. | BL-513 |
 | Amqp1:Surl-Nodes-5 | MUST | An attach the bus refuses (`TooManyQueues`, `TooManySubscriptions`) is refused with `amqp:resource-limit-exceeded`. | BL-513 |
-| Amqp1:Surl-Nodes-6 | MUST | A `coordinator` target is refused with `amqp:not-implemented` until BL-707's decision is built. | BL-512 |
-| Amqp1:Messaging-3.5.3-2 | MUST | The container's source states `distribution-mode` `move` for a queue and `copy` for a topic, `durable` `none` for a topic, and leaves out a `filter` it does not apply. | BL-512 |
-| Amqp1:Core-2.6.13-1 | MUST | A client's `unsettled` map is ignored and the container's attach carries none: links are not resumed. | BL-512 |
+| Amqp1:Surl-Nodes-6 | MUST | A `coordinator` target is refused with `amqp:not-implemented` until BL-707's decision is built. | `Amqp1ContainerConnectionTests.ServeAsync_AttachToACoordinator_IsRefusedWithNotImplemented` |
+| Amqp1:Messaging-3.5.3-2 | MUST | The container's source states `distribution-mode` `move` for a queue and `copy` for a topic, `durable` `none` for a topic, and leaves out a `filter` it does not apply. | `Amqp1ContainerConnectionTests.ServeAsync_AttachAsReceiver_IsAnsweredWithASendingLinkFromTheNode` |
+| Amqp1:Core-2.6.13-1 | MUST | A client's `unsettled` map is ignored and the container's attach carries none: links are not resumed. | `Amqp1ContainerConnectionTests.ServeAsync_AttachAsReceiver_IsAnsweredWithASendingLinkFromTheNode` |
 
 ## Flow, transfer and settlement (Part 2 sections 2.6.7, 2.6.12, 2.6.14, 2.7.4 to 2.7.6, 2.8.2, 2.8.3)
 
@@ -141,8 +141,8 @@ specification leaves the container a choice. Part 4 (transactions) is BL-707's.
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | Amqp1:Surl-Limits-1 | MUST | A message past `--max-filesize` detaches its link with `amqp:link:message-size-exceeded` without reading more of it into memory; partial deliveries of one connection past the same bound close it with `amqp:resource-limit-exceeded`. | BL-513 |
-| Amqp1:Surl-Limits-2 | MUST | No finished `open` by `--head-timeout` after accept (headers, TLS and SASL included) closes the connection with no bytes. | BL-512 |
-| Amqp1:Surl-Limits-3 | MUST | `--max-time` and the connection limits close a connection with `close` and `amqp:resource-limit-exceeded` once `open` has been exchanged, otherwise with no bytes. | BL-512 |
-| Amqp1:Surl-Limits-4 | MUST | Every error `description` is fixed text from the container's table, never an address, path, account or exception, and no `info` map is sent. | BL-512 |
+| Amqp1:Surl-Limits-2 | MUST | No finished `open` by `--head-timeout` after accept (headers, TLS and SASL included) closes the connection with no bytes. | BL-755 |
+| Amqp1:Surl-Limits-3 | MUST | `--max-time` and the connection limits close a connection with `close` and `amqp:resource-limit-exceeded` once `open` has been exchanged, otherwise with no bytes. | BL-755 |
+| Amqp1:Surl-Limits-4 | MUST | Every error `description` is fixed text from the container's table, never an address, path, account or exception, and no `info` map is sent. | `Amqp1ContainerConnectionTests.ServeAsync_AttachRefusedByTheDirectory_IsAnsweredWithANullTerminusThenAClosingDetach` and every closing test: each `description` is a constant of `Amqp1ContainerConnection` |
 | Amqp1:Security-5.2.1-1 | MUST | `amqp1s` carries the same protocol inside implicit TLS (TLS 1.2 or 1.3) from the first byte. | n/a: the TLS wrapper is the composition's `ImplicitTlsSchemeServer` (ADR-0010), added by BL-514, not the container's |
 | Amqp1:Surl-Storage-1 | MUST | Queues and topic logs, with each message's native form, persist under `--directory` in `.surl/bus`; the container writes no file of its own. | n/a: persistence is the bus's (ADR-0100 decision 3.7, BL-634) and the native form's BL-706's; the container only hands the bus its messages, which BL-513's tests show |
