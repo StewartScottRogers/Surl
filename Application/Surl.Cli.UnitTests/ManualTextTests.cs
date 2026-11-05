@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "LDAP OPTIONS", "RTSP OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "HTTP OPTIONS", "LDAP OPTIONS", "RTSP OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -165,6 +165,15 @@ public sealed class ManualTextTests
             "    gssapi logs in with a Kerberos ticket checked against the --keytab keys,",
             "    and is offered first; a start that gives it without --keytab writes",
             "    \"surl: (2) --auth gssapi needs --keytab\" and exits 2.",
+            "",
+            "HTTP OPTIONS",
+            "",
+            "    --http3 also serves HTTP/3 over QUIC on UDP for every https listen URL,",
+            "    at the same address and port as its TCP listener, and adds",
+            "    Alt-Svc: h3=\":<port>\"; ma=86400 to its HTTP/1.x and HTTP/2 answers. It",
+            "    is off by default. Without an https listen URL, with --tls-max below 1.3",
+            "    or with --cacert it exits 2. With -v, surl writes the UDP port it serves",
+            "    HTTP/3 on. surl --aihelp http says how each request is answered.",
             "",
             "LDAP OPTIONS",
             "",

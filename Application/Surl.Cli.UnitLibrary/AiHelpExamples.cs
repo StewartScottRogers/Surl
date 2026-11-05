@@ -87,6 +87,12 @@ public static class AiHelpExamples
             ["curl ftp://127.0.0.1:<port>/example.txt"]),
         Serving("gopher", "Serve Gopher", ["gopher://127.0.0.1:0/"], ["Listening on gopher://127.0.0.1:<port>/"], [], ["curl gopher://127.0.0.1:<port>/"]),
         Serving("http", "Serve HTTP", [HttpListenUrl], [ListeningOnHttp], [], ["curl -I http://127.0.0.1:<port>/"]),
+        Refused(
+            "http",
+            "HTTP/3 needs an https listen URL",
+            ["--http3", HttpListenUrl],
+            ["surl: option --http3: " + CommandLineParser.NeedsAnHttpsListenUrl, "surl: " + CommandLineFailure.TryHelpLine],
+            SurlExitCode.FailedInit),
         Serving(
             "imap",
             "For a test: read mail without accounts",

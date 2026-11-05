@@ -69,7 +69,8 @@ public sealed class ComposedServing : IAsyncDisposable
             seams.CreateListenerFactory(tls.Settings),
             new ListenerStatusLine(statusOutput),
             commandLine.ListenUrls.Count,
-            outputs.AllListenersBound);
+            outputs.AllListenersBound,
+            listenUrl => WriteHttp3Note(listenUrl, outputs.Log));
         var engine = new ServingEngine(
             reporter,
             servers,
@@ -128,6 +129,16 @@ public sealed class ComposedServing : IAsyncDisposable
         // The --throwaway-hostkey and --allow-weak-ssh-algorithms warnings, then each SSH host key's note
         // (ADR-0051, decisions 8 and 11).
         authentication.SshHostKeys.WriteStartLines(commandLine, log);
+    }
+
+    // From verbose up, unstamped, once per https listen URL served over HTTP/3 too (ADR-0082,
+    // decision 6): the status line names the port both transports share.
+    private void WriteHttp3Note(ListenUrl datagramListenUrl, TextWriter log)
+    {
+        if (commandLine.LogLevel >= LogLevel.Verbose)
+        {
+            log.WriteLine($"* Serving HTTP/3 over QUIC on UDP port {datagramListenUrl.BoundPort ?? datagramListenUrl.Port}");
+        }
     }
 
     private static void WriteThrowawayCertificateLines(LogLevel logLevel, string fingerprint, TextWriter log)

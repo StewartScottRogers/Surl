@@ -1,4 +1,5 @@
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using Surl.Cli;
 using Surl.Networking;
 using Surl.Protocol.Abstractions;
@@ -74,6 +75,37 @@ public sealed class ServerTlsCompositionTests
         Assert.AreEqual(SslProtocols.Tls12 | SslProtocols.Tls13, composition.Settings.AcceptedVersions.AcceptedProtocols);
         Assert.IsNotNull(composition.ThrowawayCertificateFingerprint);
         Assert.MatchesRegex("^[0-9A-F]{64}$", composition.ThrowawayCertificateFingerprint);
+    }
+
+    [TestMethod]
+    public void Compose_HttpsWithoutHttp3_HasNoQuicCertificate()
+    {
+        using var composition = ServerTlsComposition.Compose(Parse("https://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.IsNull(composition.QuicCertificate);
+    }
+
+    [TestMethod]
+    public void Compose_HttpsWithHttp3AndSelfSigned_HasTheThrowawayCertificateForQuic()
+    {
+        using var composition = ServerTlsComposition.Compose(Parse("--self-signed", "--http3", "https://127.0.0.1:0/"), TimeProvider.System);
+
+        var quic = composition.QuicCertificate!;
+        Assert.HasCount(1, quic.Chain);
+        Assert.AreEqual(composition.ThrowawayCertificateFingerprint, Convert.ToHexString(SHA256.HashData(quic.Chain[0].Span)));
+        Assert.IsNotNull(quic.Key);
+    }
+
+    [TestMethod]
+    public void Compose_HttpsWithHttp3AndCert_HasTheCertificateForQuic()
+    {
+        using var files = TestCertificateFiles.Create();
+
+        using var composition = ServerTlsComposition.Compose(
+            Parse("--cert", files.CertificateFile, "--key", files.KeyFile, "--http3", "https://127.0.0.1:0/"), TimeProvider.System);
+
+        Assert.HasCount(1, composition.QuicCertificate!.Chain);
+        Assert.IsNotNull(composition.QuicCertificate.Key);
     }
 
     [TestMethod]

@@ -17,9 +17,11 @@ public sealed class ServerTlsComposition : IDisposable
 {
     private readonly IReadOnlyList<IDisposable> owned;
 
-    private ServerTlsComposition(ServerTlsSettings? settings, string? throwawayCertificateFingerprint, IReadOnlyList<IDisposable> owned)
+    private ServerTlsComposition(
+        ServerTlsSettings? settings, string? throwawayCertificateFingerprint, QuicServerCertificate? quicCertificate, IReadOnlyList<IDisposable> owned)
     {
         Settings = settings;
+        QuicCertificate = quicCertificate;
         ThrowawayCertificateFingerprint = throwawayCertificateFingerprint;
         this.owned = owned;
     }
@@ -44,6 +46,12 @@ public sealed class ServerTlsComposition : IDisposable
     /// note; <see langword="null"/> when <c>--cert</c> was given or no TLS is served.
     /// </summary>
     public string? ThrowawayCertificateFingerprint { get; }
+
+    /// <summary>
+    /// The same certificate as QUIC's TLS 1.3 serves it, with <c>--http3</c> (ADR-0082, decision 6);
+    /// <see langword="null"/> without it or when no TLS is served.
+    /// </summary>
+    public QuicServerCertificate? QuicCertificate { get; }
 
     /// <summary>
     /// Finds the first listen URL, in command-line order, that is TLS from the first byte and
@@ -81,7 +89,7 @@ public sealed class ServerTlsComposition : IDisposable
     {
         if (!commandLine.ListenUrls.Any(listenUrl => NeedsTls(commandLine, listenUrl.Scheme)))
         {
-            return new ServerTlsComposition(null, null, []);
+            return new ServerTlsComposition(null, null, null, []);
         }
 
         var trustAnchors = commandLine.CaCertificateFile is { } caCertificateFile
@@ -166,7 +174,9 @@ public sealed class ServerTlsComposition : IDisposable
             commandLine.KeyPassphrase);
         var settings = CreateSettings(commandLine, loaded.Certificate, loaded.IntermediateCertificates, trustAnchors, timeProvider);
 
-        return new ServerTlsComposition(settings, null, [loaded, .. trustAnchors]);
+        var quicCertificate = ComposeQuicCertificate(commandLine, loaded.Certificate, loaded.IntermediateCertificates);
+
+        return new ServerTlsComposition(settings, null, quicCertificate, [loaded, .. trustAnchors, .. OwnedKey(quicCertificate)]);
     }
 
     private static ServerTlsComposition ComposeWithThrowaway(
@@ -176,9 +186,21 @@ public sealed class ServerTlsComposition : IDisposable
             timeProvider, commandLine.ListenUrls.Select(listenUrl => listenUrl.Host));
         var settings = CreateSettings(commandLine, throwaway, [], trustAnchors, timeProvider);
 
+        var quicCertificate = ComposeQuicCertificate(commandLine, throwaway, []);
+
         return new ServerTlsComposition(
-            settings, ThrowawayServerCertificate.Sha256FingerprintOf(throwaway), [throwaway, .. trustAnchors]);
+            settings,
+            ThrowawayServerCertificate.Sha256FingerprintOf(throwaway),
+            quicCertificate,
+            [throwaway, .. trustAnchors, .. OwnedKey(quicCertificate)]);
     }
+
+    private static QuicServerCertificate? ComposeQuicCertificate(
+        SurlCommandLine commandLine, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> intermediateCertificates) =>
+        commandLine.Http3 ? QuicServerCertificate.From(certificate, intermediateCertificates) : null;
+
+    private static IEnumerable<IDisposable> OwnedKey(QuicServerCertificate? quicCertificate) =>
+        quicCertificate is null ? [] : [quicCertificate.Key];
 
     private static ServerTlsSettings CreateSettings(
         SurlCommandLine commandLine,

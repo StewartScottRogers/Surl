@@ -10,6 +10,13 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   in registration order, with an `ImplicitTlsSchemeServer` second registration for `https`,
   `imaps`, `ldaps`, `pop3s`, `smtps` and `wss`. A new protocol server is registered here, and in
   the same change gets its `--aihelp` facts in `Surl.Cli` (root `CLAUDE.md`, "`surl --aihelp`").
+- `--http3` (ADR-0082 decision 6, BL-384): `ServerTlsComposition.QuicCertificate` is the served
+  certificate as a `QuicServerCertificate` (DER chain and private key), and the start adds an
+  `Http3ProtocolServer` for `https` after server TLS, beside the HTTP server's `https`
+  registration, so the serving engine binds TCP and UDP on one port; the HTTP server then adds
+  `Alt-Svc`. `ListenerStartReporter` counts such a pair as its connection listener alone (one
+  status line) and `ComposedServing` writes `* Serving HTTP/3 over QUIC on UDP port <port>` from
+  verbose up.
 - `ExtendedProtocolServers.Compose` builds the extended servers (`Surl.Extended.Protocol.*`, none
   yet), each joining with one line; `ExtendedProtocolServers.AreTurnedOn` reads `SURL_EXTENSIONS`
   through an `IEnvironmentVariableReader` (`ProcessEnvironmentVariableReader` in `surl`); `0`

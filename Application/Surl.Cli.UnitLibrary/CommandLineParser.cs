@@ -41,6 +41,17 @@ public static class CommandLineParser
     private const string HostKeyLongName = "hostkey";
     private const string AuthorizedKeysLongName = "authorized-keys";
     private const string ThrowawayHostKeyOption = "--throwaway-hostkey";
+    private const string Http3Option = "--http3";
+    private const string HttpsScheme = "https";
+
+    /// <summary><c>--http3</c> given with no <c>https</c> listen URL (ADR-0082 decision 6).</summary>
+    public const string NeedsAnHttpsListenUrl = "needs an https listen URL";
+
+    /// <summary><c>--http3</c> given with <c>--tls-max</c> below 1.3 (ADR-0082 decision 6).</summary>
+    public const string NeedsTls13 = "needs --tls-max 1.3: QUIC is TLS 1.3 only";
+
+    /// <summary><c>--http3</c> given with <c>--cacert</c> (ADR-0082 amendment 2).</summary>
+    public const string CannotBeUsedWithCacert = "cannot be used with --cacert";
 
     /// <summary><c>--self-signed</c> given with <c>--cert</c> (ADR-0032 section 1).</summary>
     public const string CannotBeUsedWithCert = "cannot be used with --cert";
@@ -335,7 +346,34 @@ public static class CommandLineParser
                 new CommandLineFailure(SurlExitCode.FailedInit, NoUrlSpecified, FollowedByTryHelpLine: true));
         }
 
-        return CommandLineParseResult.Serve(ResolveLogging(reading.CommandLine) with { ListenUrls = [.. reading.ListenUrls] });
+        return RefuseHttp3Combination(reading)
+            ?? CommandLineParseResult.Serve(ResolveLogging(reading.CommandLine) with { ListenUrls = [.. reading.ListenUrls] });
+    }
+
+    /// <summary>
+    /// Refuses <c>--http3</c> with no <c>https</c> listen URL, with <c>--tls-max</c> below 1.3
+    /// (QUIC is TLS 1.3 only), or with <c>--cacert</c> (the QUIC handshake asks for no client
+    /// certificate), in that order (ADR-0082 decision 6 and its amendment 2); null otherwise.
+    /// </summary>
+    private static CommandLineParseResult? RefuseHttp3Combination(CommandLineReading reading)
+    {
+        var commandLine = reading.CommandLine;
+        if (!commandLine.Http3)
+        {
+            return null;
+        }
+
+        if (!reading.ListenUrls.Exists(listenUrl => listenUrl.Scheme == HttpsScheme))
+        {
+            return RefusedOption(Http3Option, NeedsAnHttpsListenUrl);
+        }
+
+        if (commandLine.HighestTlsVersion != System.Security.Authentication.SslProtocols.Tls13)
+        {
+            return RefusedOption(Http3Option, NeedsTls13);
+        }
+
+        return commandLine.CaCertificateFile is not null ? RefusedOption(Http3Option, CannotBeUsedWithCacert) : null;
     }
 
     /// <summary>

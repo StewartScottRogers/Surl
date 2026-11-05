@@ -549,6 +549,43 @@ public sealed class CommandLineParserTests
         AssertOptionRefused([.. arguments, Url], "option --self-signed: cannot be used with --cert");
 
     [TestMethod]
+    public void Parse_Http3WithAnHttpsListenUrl_IsServedWithHttp3On()
+    {
+        var commandLine = Served("--http3", "--self-signed", "http://127.0.0.1:0/", "https://127.0.0.1:0/");
+
+        Assert.IsTrue(commandLine.Http3);
+    }
+
+    [TestMethod]
+    public void Parse_NoHttp3_LeavesHttp3Off()
+    {
+        var commandLine = Served("--http3", "--no-http3", Url);
+
+        Assert.IsFalse(commandLine.Http3);
+    }
+
+    [TestMethod]
+    public void Parse_Http3WithNoHttpsListenUrl_IsRefused() =>
+        AssertOptionRefused(["--http3", "http://127.0.0.1:0/", "wss://127.0.0.1:0/"], "option --http3: needs an https listen URL");
+
+    [TestMethod]
+    [DataRow("1.2")]
+    public void Parse_Http3WithTlsMaxBelow13_IsRefused(string tlsMax) =>
+        AssertOptionRefused(["--http3", "--tls-max", tlsMax, "https://127.0.0.1:0/"], "option --http3: needs --tls-max 1.3: QUIC is TLS 1.3 only");
+
+    [TestMethod]
+    public void Parse_Http3WithCacert_IsRefused() =>
+        AssertOptionRefused(["--http3", "--cacert", "ca.pem", "https://127.0.0.1:0/"], "option --http3: cannot be used with --cacert");
+
+    [TestMethod]
+    public void Parse_Http3WithNoListenUrl_IsRefusedForTheMissingUrl()
+    {
+        var result = CommandLineParser.Parse(["--http3"]);
+
+        Assert.AreEqual(CommandLineParser.NoUrlSpecified, result.Failure!.Message);
+    }
+
+    [TestMethod]
     public void Parse_SelfSignedReversedWithCert_IsServed()
     {
         var commandLine = Served("--self-signed", "--no-self-signed", "--cert", "c.pem", Url);
