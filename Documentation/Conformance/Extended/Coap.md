@@ -17,24 +17,24 @@ a keyword, the Level says "(unkeyworded)". Rows from ADR-0083 and ADR-0087 cover
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Coap:RFC7252-3-1 | MUST | Every message the server sends has Version 1. | BL-471 |
-| Coap:RFC7252-3-2 | MUST | A message with any other version is silently ignored, whatever its type. | BL-471 |
-| Coap:RFC7252-3-3 | MUST NOT, MUST | Token Length 9 to 15 is never sent, and a received one is a message format error. | BL-471 |
-| Coap:RFC7252-3-4 | MUST | A payload marker followed by a zero-length payload is a message format error; the server never writes a marker without a payload. | BL-471 |
-| Coap:RFC7252-3.1-1 | MUST | Options appear in order of their option numbers, delta-encoded from the previous one (from 0 for the first); the 13 and 14 nibbles take one and two extension bytes. | BL-471 |
-| Coap:RFC7252-3.1-2 | MUST | An Option Delta nibble of 15 in a byte that is not the payload marker 0xFF is a message format error. | BL-471 |
-| Coap:RFC7252-3.1-3 | MUST | An Option Length nibble of 15 is a message format error. | BL-471 |
-| Coap:RFC7252-3.2-1 | SHOULD | The server writes each uint option value in the fewest bytes (0 as an empty value). | BL-471 |
-| Coap:RFC7252-3.2-2 | MUST | A received uint option value with leading zero bytes is read. | BL-471 |
+| Coap:RFC7252-3-1 | MUST | Every message the server sends has Version 1. | `CoapAppendixAExampleTests.Write_AppendixAExample_WritesItsBytes` |
+| Coap:RFC7252-3-2 | MUST | A message with any other version is silently ignored, whatever its type. | `CoapMessageReaderTests.Read_AnotherVersion_IsNotCoap`, `CoapProtocolServerTests.ServeAsync_AckRstAndNonCoapDatagrams_AreIgnored` |
+| Coap:RFC7252-3-3 | MUST NOT, MUST | Token Length 9 to 15 is never sent, and a received one is a message format error. | `CoapMessageReaderTests.Read_TokenLength9To15_IsAFormatError`, `CoapMessageTests.Constructor_TokenOf9Bytes_Throws` |
+| Coap:RFC7252-3-4 | MUST | A payload marker followed by a zero-length payload is a message format error; the server never writes a marker without a payload. | `CoapMessageReaderTests.Read_PayloadMarkerWithNoPayload_IsAFormatError`, `CoapMessageWriterTests.Write_NoPayload_WritesNoPayloadMarker` |
+| Coap:RFC7252-3.1-1 | MUST | Options appear in order of their option numbers, delta-encoded from the previous one (from 0 for the first); the 13 and 14 nibbles take one and two extension bytes. | `CoapMessageReaderTests.Read_OptionDelta_ReadsTheNumberFromTheNibbleAndItsExtension`, `Read_OptionLength_ReadsThatManyValueBytes`, `Read_SeveralOptions_AddsEachDeltaToThePreviousNumber`, `CoapMessageWriterTests.Write_OptionDelta_UsesTheNibbleAndItsExtension`, `Write_OptionLength_UsesTheNibbleAndItsExtension`, `Write_OptionsGivenOutOfOrder_WritesThemInOrderOfNumberKeepingRepeatsInOrder` |
+| Coap:RFC7252-3.1-2 | MUST | An Option Delta nibble of 15 in a byte that is not the payload marker 0xFF is a message format error. | `CoapMessageReaderTests.Read_OptionDelta15_IsAFormatError` |
+| Coap:RFC7252-3.1-3 | MUST | An Option Length nibble of 15 is a message format error. | `CoapMessageReaderTests.Read_OptionLength15_IsAFormatError` |
+| Coap:RFC7252-3.2-1 | SHOULD | The server writes each uint option value in the fewest bytes (0 as an empty value). | `CoapOptionTests.FromUInt_WritesTheFewestBytes` |
+| Coap:RFC7252-3.2-2 | MUST | A received uint option value with leading zero bytes is read. | `CoapOptionTests.ReadUInt_ReadsLeadingZeroBytes` |
 
 ## The message layer (RFC 7252 section 4)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Coap:RFC7252-4.1-1 | MUST | An Empty message (code 0.00) has Token Length 0 and no byte after the Message ID; a received one that has either is a message format error. The server's Empty ACK and RST have neither. | BL-471 |
-| Coap:RFC7252-4.2-1 | MUST | A CON is acknowledged, or rejected with an RST when the server lacks context: an Empty CON (CoAP ping), a code of class 1, 6 or 7, a response code, or a message format error. | BL-471, BL-472 |
+| Coap:RFC7252-4.1-1 | MUST | An Empty message (code 0.00) has Token Length 0 and no byte after the Message ID; a received one that has either is a message format error. The server's Empty ACK and RST have neither. | `CoapMessageReaderTests.Read_EmptyMessageWithAToken_IsAFormatError`, `Read_EmptyMessageWithBytesAfterItsMessageId_IsAFormatError`, `CoapMessageTests.EmptyReset_IsAnEmptyRstWithTheMessageId` |
+| Coap:RFC7252-4.2-1 | MUST | A CON is acknowledged, or rejected with an RST when the server lacks context: an Empty CON (CoAP ping), a code of class 1, 6 or 7, a response code, or a message format error. | `CoapProtocolServerTests.ServeAsync_MalformedCon_IsAnsweredWithRstOfTheSameMessageId`, `ServeAsync_EmptyCon_IsAnsweredWithRst`, `ServeAsync_ConWithAResponseOrReservedCode_IsAnsweredWithRst`, BL-472 |
 | Coap:RFC7252-4.2-2 | MUST | An ACK echoes the CON's Message ID and carries a response or is Empty. | BL-472 |
-| Coap:RFC7252-4.2-3 | MUST | An RST echoes the Message ID of the message it rejects and is Empty. | BL-471 |
+| Coap:RFC7252-4.2-3 | MUST | An RST echoes the Message ID of the message it rejects and is Empty. | `CoapProtocolServerTests.ServeAsync_MalformedCon_IsAnsweredWithRstOfTheSameMessageId` |
 | Coap:RFC7252-4.2-4 | (unkeyworded) | An ACK carrying a request or a code of a reserved class, and an RST that is not Empty, are silently ignored. | BL-472 |
 | Coap:RFC7252-4.2-5 | MUST | For each CON the server sends it keeps a timeout and a retransmission counter: the first timeout random between ACK_TIMEOUT and ACK_TIMEOUT × ACK_RANDOM_FACTOR, doubled on each retransmission, up to MAX_RETRANSMIT; a matching ACK or RST ends it, and the last timeout gives the message up. | BL-472 |
 | Coap:RFC7252-4.2-6 | MUST | Retransmissions are at least ACK_TIMEOUT apart and all fall within MAX_TRANSMIT_SPAN. | BL-472 |
@@ -42,8 +42,8 @@ a keyword, the Level says "(unkeyworded)". Rows from ADR-0083 and ADR-0087 cover
 | Coap:RFC7252-4.2-8 | SHOULD, MAY | ICMP errors are checked against the original datagram or ignored. | n/a: the `IDatagramFlow` seam reports no ICMP error (ADR-0004 section 3), so every one is ignored, as the section allows |
 | Coap:RFC7252-4.3-1 | MUST NOT | A NON the server sends carries a request or a response and is never Empty. | BL-472 |
 | Coap:RFC7252-4.3-2 | MUST NOT | A NON is never acknowledged. | BL-472 |
-| Coap:RFC7252-4.3-3 | MUST, MAY | A NON the server lacks context for (Empty, a reserved class, a format error, an unrecognised critical option) is rejected and silently ignored; the server sends no RST for it (ADR-0097 decision 2). | BL-471 |
-| Coap:RFC7252-4.4-1 | MUST | An ACK or RST echoes the Message ID of the message it answers. | BL-471, BL-472 |
+| Coap:RFC7252-4.3-3 | MUST, MAY | A NON the server lacks context for (Empty, a reserved class, a format error, an unrecognised critical option) is rejected and silently ignored; the server sends no RST for it (ADR-0097 decision 2). | `CoapProtocolServerTests.ServeAsync_MalformedNon_IsIgnored`, `ServeAsync_NonWithAResponseCode_IsIgnored` |
+| Coap:RFC7252-4.4-1 | MUST | An ACK or RST echoes the Message ID of the message it answers. | `CoapProtocolServerTests.ServeAsync_MalformedCon_IsAnsweredWithRstOfTheSameMessageId`, `ServeAsync_ConRequest_IsAnsweredWithAPiggybacked404CarryingItsMessageIdAndToken`, BL-472 |
 | Coap:RFC7252-4.4-2 | MUST NOT | A Message ID the server originates is not reused with the same endpoint within EXCHANGE_LIFETIME. | BL-472 |
 | Coap:RFC7252-4.4-3 | MUST | A client's ACK or RST matches a server message only when its Message ID and source endpoint are that message's Message ID and destination endpoint (the flow). | BL-472 |
 | Coap:RFC7252-4.5-1 | SHOULD | Each duplicate of a CON within EXCHANGE_LIFETIME gets the same ACK or RST, and its request is processed once. | BL-472 |
@@ -65,8 +65,8 @@ a keyword, the Level says "(unkeyworded)". Rows from ADR-0083 and ADR-0087 cover
 | Coap:RFC7252-5.2.2-2 | MUST | The server stops retransmitting a CON response on a matching ACK, ignoring any code or payload in it, or on a matching RST. | BL-472 |
 | Coap:RFC7252-5.2.3-1 | SHOULD | A NON request is answered with a NON response. | BL-472 |
 | Coap:RFC7252-5.3.1-1 | MUST | Every response to a request, separate responses and notifications included, echoes the request's token unmodified. | BL-472 |
-| Coap:RFC7252-5.3.1-2 | MUST | A token of 0 to 8 bytes is opaque: the server makes no assumption about its content. | BL-471 |
-| Coap:RFC7252-5.3.2-1 | MUST | A response leaves from the endpoint the request was sent to (the flow's listen port, never a new one). | BL-471 |
+| Coap:RFC7252-5.3.1-2 | MUST | A token of 0 to 8 bytes is opaque: the server makes no assumption about its content. | `CoapProtocolServerTests.ServeAsync_ConRequest_IsAnsweredWithAPiggybacked404CarryingItsMessageIdAndToken`, `CoapMessageReaderTests.Read_CopiesTheBytes_SoTheDatagramMayBeReused` |
+| Coap:RFC7252-5.3.2-1 | MUST | A response leaves from the endpoint the request was sent to (the flow's listen port, never a new one). | `CoapProtocolServerTests` (every `ServeAsync_*` test checks the flow never left the listen port) |
 | Coap:RFC7252-5.3.2-2 | MUST | A piggybacked response's ACK has the CON's Message ID and the request's token; a separate response has the request's token. | BL-472 |
 | Coap:RFC7252-5.4-1 | MUST NOT, MUST | An option not defined for a method or response code is never sent, and in a request is treated as unrecognised (Observe or ETag on anything but `GET`, Block1 on `GET` or `DELETE`). | BL-472 |
 | Coap:RFC7252-5.4.1-1 | MUST | An unrecognised elective option is silently ignored. | BL-472 |
@@ -130,7 +130,7 @@ a keyword, the Level says "(unkeyworded)". Rows from ADR-0083 and ADR-0087 cover
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | Coap:RFC7252-8-1 | MUST, MAY | An endpoint is prepared to receive multicast messages and may ignore them. | n/a: the server joins no multicast group and binds only its listen URL's address (ADR-0097 decision 6) |
-| Coap:RFC7252-8.1-1 | MUST NOT | A server aware that a NON arrived by multicast sends no RST for it. | BL-471 |
+| Coap:RFC7252-8.1-1 | MUST NOT | A server aware that a NON arrived by multicast sends no RST for it. | `CoapProtocolServerTests.ServeAsync_MalformedNon_IsIgnored`, `ServeAsync_NonWithAResponseCode_IsIgnored` |
 | Coap:RFC7252-8.1-2 | SHOULD | A server knows whether a request arrived by multicast. | n/a: no group is joined, and the server never answers a NON with RST, so it needs not know (ADR-0097 decision 2) |
 | Coap:RFC7252-8.2-1 | MAY, SHOULD | A response to a multicast request is delayed by a random point within a leisure period. | n/a: no multicast request is served |
 | Coap:RFC7252-11.3-2 | SHOULD NOT, SHOULD | Multicast requests that cannot be authenticated are not accepted, and multicast is limited to the resources that need it. | n/a: no multicast group is joined |
