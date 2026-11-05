@@ -123,6 +123,8 @@
   </Folder>
 
   <Folder Name="/Protocols/FileTransfer/">
+    <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitLibrary/Surl.Extended.Protocol.S3.UnitLibrary.csproj" />
+    <Project Path="Protocols/FileTransfer/Surl.Extended.Protocol.S3.UnitTests/Surl.Extended.Protocol.S3.UnitTests.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary/Surl.Protocol.Ftp.UnitLibrary.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests/Surl.Protocol.Ftp.UnitTests.csproj" />
     <Project Path="Protocols/FileTransfer/Surl.Protocol.Smb.UnitLibrary/Surl.Protocol.Smb.UnitLibrary.csproj" />
