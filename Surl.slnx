@@ -213,6 +213,8 @@
     <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests/Surl.Extended.Protocol.Mqtt5.UnitTests.csproj" />
     <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitLibrary/Surl.Extended.Protocol.Nats.UnitLibrary.csproj" />
     <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Nats.UnitTests/Surl.Extended.Protocol.Nats.UnitTests.csproj" />
+    <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitLibrary/Surl.Extended.Protocol.Stomp.UnitLibrary.csproj" />
+    <Project Path="Protocols/Messaging/Surl.Extended.Protocol.Stomp.UnitTests/Surl.Extended.Protocol.Stomp.UnitTests.csproj" />
     <Project Path="Protocols/Messaging/Surl.MessageBus.UnitLibrary/Surl.MessageBus.UnitLibrary.csproj" />
     <Project Path="Protocols/Messaging/Surl.MessageBus.UnitTests/Surl.MessageBus.UnitTests.csproj" />
     <Project Path="Protocols/Messaging/Surl.Protocol.Ldap.UnitLibrary/Surl.Protocol.Ldap.UnitLibrary.csproj" />
