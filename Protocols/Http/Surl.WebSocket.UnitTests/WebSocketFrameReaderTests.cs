@@ -1,7 +1,7 @@
 using System.Text;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 [TestClass]
 public sealed class WebSocketFrameReaderTests

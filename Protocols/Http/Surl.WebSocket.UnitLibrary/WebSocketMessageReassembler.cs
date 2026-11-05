@@ -1,7 +1,7 @@
 using System.Buffers;
 using System.Text.Unicode;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// Joins data frames into messages (RFC 6455 section 5.4): a text or binary frame starts a
@@ -13,7 +13,7 @@ namespace Surl.Protocol.Ws;
 /// across fragments is accepted. It is not safe for concurrent calls, and after any outcome that
 /// names an invalid message the caller stops handing frames over.
 /// </remarks>
-internal sealed class WebSocketMessageReassembler
+public sealed class WebSocketMessageReassembler
 {
     private readonly long maxMessageBytes;
     private readonly ArrayBufferWriter<byte> heldPayload = new();

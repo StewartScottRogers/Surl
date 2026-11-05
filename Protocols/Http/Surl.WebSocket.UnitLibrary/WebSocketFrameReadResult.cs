@@ -1,11 +1,11 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// The result of reading one frame: the frame, or the named reason there is none.
 /// </summary>
 /// <param name="Outcome">What the reader found.</param>
 /// <param name="Frame">The frame when <paramref name="Outcome"/> is <see cref="WebSocketFrameReadOutcome.FrameRead"/>; otherwise <see langword="null"/>.</param>
-internal sealed record WebSocketFrameReadResult(WebSocketFrameReadOutcome Outcome, WebSocketFrame? Frame)
+public sealed record WebSocketFrameReadResult(WebSocketFrameReadOutcome Outcome, WebSocketFrame? Frame)
 {
     /// <summary>
     /// A result carrying <paramref name="frame"/>.

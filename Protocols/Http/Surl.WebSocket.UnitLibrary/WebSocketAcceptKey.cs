@@ -1,13 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// Computes the <c>Sec-WebSocket-Accept</c> value a server answers a client's
 /// <c>Sec-WebSocket-Key</c> with (RFC 6455 section 4.2.2, step 5).
 /// </summary>
-internal static class WebSocketAcceptKey
+public static class WebSocketAcceptKey
 {
     /// <summary>
     /// The GUID section 1.3 appends to the client's key before hashing.

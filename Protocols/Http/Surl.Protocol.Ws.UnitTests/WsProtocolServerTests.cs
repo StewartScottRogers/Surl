@@ -1,5 +1,6 @@
 using Surl.Content;
 using Surl.Protocol.Abstractions;
+using Surl.WebSocket;
 using static Surl.Protocol.Ws.WsServerHarness;
 
 namespace Surl.Protocol.Ws;

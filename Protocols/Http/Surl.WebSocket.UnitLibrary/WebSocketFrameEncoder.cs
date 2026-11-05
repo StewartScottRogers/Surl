@@ -1,13 +1,13 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// Encodes the frames a server sends (RFC 6455 section 5.2): never masked (section 5.1), with the
 /// payload length in its minimal encoding.
 /// </summary>
-internal static class WebSocketFrameEncoder
+public static class WebSocketFrameEncoder
 {
     /// <summary>The most bytes a control frame's payload may hold (section 5.5).</summary>
     public const int MaxControlPayloadBytes = 125;

@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
+using Surl.WebSocket;
 
 namespace Surl.Protocol.Ws;
 
@@ -210,13 +211,8 @@ internal sealed class WebSocketUpgradeResponder
     // The 101 (ADR-0071 decision 2), then the frame exchange and its close (decisions 4 to 7).
     private async Task<bool> AcceptAsync(HttpRequestHead head, string path, WebSocketServedEntry? entry)
     {
-        var key = head.GetFieldValues("Sec-WebSocket-Key")[0];
-        var accepted = new HttpResponseHead(WebSocketHttpStatuses.SwitchingProtocols)
-            .AddField("Date", FormatHttpDate(context.TimeProvider.GetUtcNow()))
-            .AddField("Server", HttpResponseHead.ServerName)
-            .AddField("Upgrade", "websocket")
-            .AddField("Connection", "Upgrade")
-            .AddField("Sec-WebSocket-Accept", WebSocketAcceptKey.Compute(key))
+        // No subprotocol is ever selected for ws and wss (ADR-0071 decision 2, ADR-0084 decision 2).
+        var accepted = WebSocketUpgradeAcceptance.Accept(head, [], context.TimeProvider.GetUtcNow()).ResponseHead
             .AddChallengeFields(wwwAuthenticateValues);
 
         context.Log.Note(entry is null ? $"WebSocket upgrade accepted for {path}, echoing" : $"WebSocket upgrade accepted for {path}");

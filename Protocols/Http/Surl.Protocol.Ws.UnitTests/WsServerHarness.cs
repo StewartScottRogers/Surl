@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using Surl.Content;
 using Surl.Protocol.Abstractions;
+using Surl.WebSocket;
 
 namespace Surl.Protocol.Ws;
 

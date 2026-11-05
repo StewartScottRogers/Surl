@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// One frame as RFC 6455 section 5.2 lays it out, with its payload already unmasked.
@@ -10,7 +10,7 @@ namespace Surl.Protocol.Ws;
 /// <param name="Opcode">What the frame carries.</param>
 /// <param name="Masked">The <c>MASK</c> bit: the peer masked the payload, as every client must (section 5.1).</param>
 /// <param name="Payload">The payload, unmasked.</param>
-internal sealed record WebSocketFrame(bool Fin, bool Rsv1, bool Rsv2, bool Rsv3, WebSocketOpcode Opcode, bool Masked, byte[] Payload)
+public sealed record WebSocketFrame(bool Fin, bool Rsv1, bool Rsv2, bool Rsv3, WebSocketOpcode Opcode, bool Masked, byte[] Payload)
 {
     /// <summary>
     /// Whether the frame is a control frame: close, ping or pong (section 5.5).

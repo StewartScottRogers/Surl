@@ -29,12 +29,13 @@ public sealed class ProtocolIsolationTests
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
     private const string LineProtocol = "Surl.LineProtocol.UnitLibrary";
     private const string MailStore = "Surl.MailStore.UnitLibrary";
+    private const string WebSocket = "Surl.WebSocket.UnitLibrary";
     private const string ExtendedRedis = "Surl.Extended.Protocol.Redis.UnitLibrary";
     private const string ExtendedServerPrefix = "Surl.Extended.Protocol.";
 
     /// <summary>
-    /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061 and
-    /// ADR-0070 add: each horizontal library a protocol server may reference, with the projects
+    /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061,
+    /// ADR-0070 and ADR-0084 add: each horizontal library a protocol server may reference, with the projects
     /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
@@ -54,6 +55,7 @@ public sealed class ProtocolIsolationTests
         [Kerberos] = [],
         [LineProtocol] = [Abstractions],
         [MailStore] = [Abstractions, Content],
+        [WebSocket] = [Abstractions, HttpMessage],
     };
 
     [TestMethod]

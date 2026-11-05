@@ -1,11 +1,11 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// The opcodes RFC 6455 section 5.2 defines. Opcodes 3-7 and 0xB-0xF are reserved; the frame
 /// reader reports them as <see cref="WebSocketFrameReadOutcome.ReservedOpcode"/>, so no frame
 /// ever carries one.
 /// </summary>
-internal enum WebSocketOpcode : byte
+public enum WebSocketOpcode : byte
 {
     /// <summary>A continuation of the message the previous data frame started.</summary>
     Continuation = 0x0,

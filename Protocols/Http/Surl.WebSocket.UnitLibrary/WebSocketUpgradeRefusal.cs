@@ -1,6 +1,6 @@
 using Surl.HttpMessage;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// Why an upgrade request is refused, and how: the status, the check it failed in the words of
@@ -10,7 +10,7 @@ namespace Surl.Protocol.Ws;
 /// <param name="Status">The status the refusal answers with.</param>
 /// <param name="FailedCheck">The check the request failed, as the refusal note names it.</param>
 /// <param name="Fields">The refusal's own fields, in the order written.</param>
-internal sealed record WebSocketUpgradeRefusal(HttpStatus Status, string FailedCheck, IReadOnlyList<KeyValuePair<string, string>> Fields)
+public sealed record WebSocketUpgradeRefusal(HttpStatus Status, string FailedCheck, IReadOnlyList<KeyValuePair<string, string>> Fields)
 {
     /// <summary>
     /// A refusal that carries no field of its own.

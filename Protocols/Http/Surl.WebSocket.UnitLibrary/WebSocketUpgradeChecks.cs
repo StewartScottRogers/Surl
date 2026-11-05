@@ -1,12 +1,12 @@
 using Surl.HttpMessage;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// ADR-0071 decision 1's checks 4 to 9 of an upgrade request, the ones that look only at its
 /// request line and fields (RFC 6455 section 4.2.1), run in the ADR's order.
 /// </summary>
-internal static class WebSocketUpgradeChecks
+public static class WebSocketUpgradeChecks
 {
     /// <summary>
     /// The only <c>Sec-WebSocket-Version</c> surl speaks (RFC 6455 section 4.1).

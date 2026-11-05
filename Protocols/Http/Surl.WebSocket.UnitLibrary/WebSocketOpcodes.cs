@@ -1,9 +1,9 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// Classifies the opcode nibble of a frame's first byte (RFC 6455 section 5.2).
 /// </summary>
-internal static class WebSocketOpcodes
+public static class WebSocketOpcodes
 {
     /// <summary>
     /// Whether <paramref name="opcode"/> is one section 5.2 defines, rather than one of the

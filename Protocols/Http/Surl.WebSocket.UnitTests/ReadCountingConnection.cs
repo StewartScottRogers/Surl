@@ -1,7 +1,7 @@
 using System.Net;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// An <see cref="InMemoryConnection"/> that counts every byte the reader has read from it, so a

@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// The status codes a close frame may carry on the wire (RFC 6455 section 7.4).
@@ -10,7 +10,7 @@ namespace Surl.Protocol.Ws;
 /// 0-999 is never used, 1004 is reserved, 1005, 1006 and 1015 must never be sent in a close frame,
 /// and the rest of 1000-2999 is unassigned.
 /// </remarks>
-internal static class WebSocketCloseCodes
+public static class WebSocketCloseCodes
 {
     /// <summary>
     /// Whether <paramref name="code"/> may appear in a close frame.

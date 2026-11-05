@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Text.Unicode;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// Reads RFC 6455 frames from one connection, one after another (section 5.2), unmasking each
@@ -20,7 +20,7 @@ namespace Surl.Protocol.Ws;
 /// and after any outcome but <see cref="WebSocketFrameReadOutcome.FrameRead"/> the caller stops
 /// reading.
 /// </remarks>
-internal sealed class WebSocketFrameReader
+public sealed class WebSocketFrameReader
 {
     private const int FirstTwoBytes = 2;
     private const int SixteenBitLengthBytes = 2;

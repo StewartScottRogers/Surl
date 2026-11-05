@@ -1,10 +1,10 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// What <see cref="WebSocketMessageReassembler.Accept"/> made of one frame. The last four name a
 /// message RFC 6455 makes invalid; after one of them the caller stops handing frames over.
 /// </summary>
-internal enum WebSocketReassemblyOutcome
+public enum WebSocketReassemblyOutcome
 {
     /// <summary>The frame began or continued a message that is not finished yet.</summary>
     FragmentHeld,

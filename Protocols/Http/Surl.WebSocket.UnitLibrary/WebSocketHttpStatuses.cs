@@ -1,12 +1,12 @@
 using Surl.HttpMessage;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// The statuses only the WebSocket server answers an upgrade request with, beside
 /// <see cref="HttpStatus"/>'s shared ones (ADR-0071, decisions 1 and 2).
 /// </summary>
-internal static class WebSocketHttpStatuses
+public static class WebSocketHttpStatuses
 {
     /// <summary>
     /// 101 Switching Protocols: the upgrade is accepted, and frames follow (RFC 6455 section 4.2.2).

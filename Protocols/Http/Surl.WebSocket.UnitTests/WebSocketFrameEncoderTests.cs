@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 [TestClass]
 public sealed class WebSocketFrameEncoderTests

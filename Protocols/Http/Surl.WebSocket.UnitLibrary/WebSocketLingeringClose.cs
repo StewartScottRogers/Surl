@@ -1,7 +1,7 @@
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// Reads and throws away what a client still sends after the server shut down its sending
@@ -13,7 +13,7 @@ namespace Surl.Protocol.Ws;
 /// The linger also ends when the client resets the connection. Only the end of the exchange
 /// itself (its cancellation) escapes it.
 /// </remarks>
-internal sealed class WebSocketLingeringClose
+public sealed class WebSocketLingeringClose
 {
     /// <summary>
     /// The longest one linger waits: one second, ADR-0059's farewell window.

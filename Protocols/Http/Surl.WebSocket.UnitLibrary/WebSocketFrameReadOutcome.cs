@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// What <see cref="WebSocketFrameReader.ReadFrameAsync"/> found. Every outcome but
@@ -6,7 +6,7 @@ namespace Surl.Protocol.Ws;
 /// and <see cref="ConnectionClosed"/> names a frame RFC 6455 makes invalid whatever the server
 /// wants; which close code, if any, answers it is the caller's choice.
 /// </summary>
-internal enum WebSocketFrameReadOutcome
+public enum WebSocketFrameReadOutcome
 {
     /// <summary>A whole, valid frame was read.</summary>
     FrameRead,

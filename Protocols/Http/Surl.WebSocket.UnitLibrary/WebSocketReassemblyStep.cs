@@ -1,4 +1,4 @@
-namespace Surl.Protocol.Ws;
+namespace Surl.WebSocket;
 
 /// <summary>
 /// The result of handing one frame to a <see cref="WebSocketMessageReassembler"/>.
@@ -6,7 +6,7 @@ namespace Surl.Protocol.Ws;
 /// <param name="Outcome">What the reassembler made of the frame.</param>
 /// <param name="Message">The finished message when <paramref name="Outcome"/> is <see cref="WebSocketReassemblyOutcome.MessageComplete"/>; otherwise <see langword="null"/>.</param>
 /// <param name="ControlFrame">The frame when <paramref name="Outcome"/> is <see cref="WebSocketReassemblyOutcome.ControlFrame"/>; otherwise <see langword="null"/>.</param>
-internal sealed record WebSocketReassemblyStep(WebSocketReassemblyOutcome Outcome, WebSocketMessage? Message, WebSocketFrame? ControlFrame)
+public sealed record WebSocketReassemblyStep(WebSocketReassemblyOutcome Outcome, WebSocketMessage? Message, WebSocketFrame? ControlFrame)
 {
     /// <summary>
     /// A step carrying only <paramref name="outcome"/>.

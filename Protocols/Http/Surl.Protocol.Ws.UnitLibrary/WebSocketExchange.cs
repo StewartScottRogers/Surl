@@ -3,6 +3,7 @@ using System.Text;
 using Surl.Content;
 using Surl.HttpMessage;
 using Surl.Protocol.Abstractions;
+using Surl.WebSocket;
 
 namespace Surl.Protocol.Ws;
 
