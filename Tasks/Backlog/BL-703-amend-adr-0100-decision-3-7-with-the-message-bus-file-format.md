@@ -1,5 +1,5 @@
 ---
-id: BL-698
+id: BL-703
 title: Amend ADR-0100 decision 3.7 with the message bus file formats BL-634 pinned
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-698 — Amend ADR-0100 decision 3.7 with the message bus file formats BL-634 pinned
+# BL-703 — Amend ADR-0100 decision 3.7 with the message bus file formats BL-634 pinned
 
 ## Goal
 

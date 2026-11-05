@@ -88,7 +88,7 @@ What it holds now (BL-629):
   retained-message file`), its messages retained at QoS 0, and `retained` is written at
   once; the old file is never written. A server calls `SaveChangesAsync` after a change;
   a failed write returns `StorageFailed` with the exception message for the server to note,
-  the change stays in memory, and the next save writes it. BL-698 adds the formats to
+  the change stays in memory, and the next save writes it. BL-703 adds the formats to
   ADR-0100.
 
 Not here yet, each its own task: the MQTT 3.1.1 server's move onto the bus (BL-635), and

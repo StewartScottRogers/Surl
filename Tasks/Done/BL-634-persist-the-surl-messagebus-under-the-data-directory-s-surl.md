@@ -47,7 +47,7 @@ ADR says; without a data directory nothing touches the disk.
 Decided by Claude under Stewart's delegation (2026-11-05). ADR-0100 3.7 says "BL-634 fixes the byte formats",
 but `Documentation/Planning/Decisions` is in BL-516's `touches`, so the formats live in `MessageBusFiles`' and
 `BusMessageCodec`'s remarks and the library's CLAUDE.md, are pinned by `MessageBusFilesTests` and
-`BusMessageCodecTests`, and BL-698 (filed) adds them to the ADR, as BL-694 and BL-697 do for earlier tasks.
+`BusMessageCodecTests`, and BL-703 (filed) adds them to the ADR, as BL-694 and BL-697 do for earlier tasks.
 
 - **API.** `MessageBusFiles(fileSystem, <path>/.surl)` names every path; `MessageBus.LoadAsync(files)` loads once
   into an empty bus (else `InvalidOperationException`) and returns a `BusSaveResult`; `SaveChangesAsync` writes
