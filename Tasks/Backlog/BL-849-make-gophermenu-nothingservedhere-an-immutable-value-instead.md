@@ -1,0 +1,40 @@
+---
+id: BL-849
+title: Make GopherMenu.NothingServedHere an immutable value instead of a public byte array
+priority: Low
+assignee: Claude
+pipeline: feature
+depends-on: [BL-822]
+touches: [Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary, Protocols/Lookup/Surl.Protocol.Gopher.UnitTests]
+requirement: none
+created: 2026-11-05
+completed:
+---
+# BL-849 — Make GopherMenu.NothingServedHere an immutable value instead of a public byte array
+
+## Goal
+
+`GopherMenu.NothingServedHere` can no longer be changed by any caller, so no Gopher instance can alter what
+another instance in the same process answers.
+
+## Context
+
+- Decision: ADR-0124 decision 6 - a static field may hold only an immutable value or a stateless object. Found by
+  BL-786's audit.
+- `Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary/GopherMenu.cs:19` - `public static readonly byte[]
+  NothingServedHere`: the reference is read-only but the array's bytes are writable by any assembly that sees it.
+  The audit found no code that writes it; the type is the defect.
+- Fix: `ReadOnlySpan<byte>` property over a `u8` literal, or `ReadOnlyMemory<byte>`, with callers adjusted; the
+  bytes sent do not change.
+
+## Acceptance criteria
+
+- [ ] `GopherMenu.NothingServedHere` is a `ReadOnlySpan<byte>` or `ReadOnlyMemory<byte>`, and the existing Gopher
+      tests that pin its bytes still pass unchanged.
+- [ ] The library stays at 100% line and branch coverage; `dotnet build` clean, fast tests green.
+
+## Notes
+
+## Log
+
+- 2026-11-05: Created.
