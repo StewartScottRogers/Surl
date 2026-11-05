@@ -61,11 +61,12 @@ public sealed class MailboxStore
     private readonly SemaphoreSlim saveLock = new(1, 1);
     private readonly TimeProvider timeProvider;
     private readonly Dictionary<string, OwnerMailboxes> owners = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, OwnerMailboxes> accounts = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, OwnerMailboxes?> accountsIgnoringCase = new(StringComparer.OrdinalIgnoreCase);
+    private readonly LocalPartLookup<OwnerMailboxes> accounts = new();
+    private readonly LocalPartLookup<OwnerMailboxes> mailboxOwners = new();
     private readonly HashSet<OwnerMailboxes> lockedMaildrops = [];
     private readonly List<ulong> releasedFileNumbers = [];
     private OwnerMailboxes? anonymousOwner;
+    private MailDomainRouter? router;
     private MailStoreFiles? files;
     private ulong nextFileNumber;
     private uint lastUidValidity;
@@ -88,11 +89,18 @@ public sealed class MailboxStore
     /// <param name="maxMessages">The value of <see cref="MaxMessages"/>; at least 1.</param>
     /// <param name="maxTotalMessageBytes">The value of <see cref="MaxTotalMessageBytes"/>; at least 1.</param>
     /// <param name="maxMailboxes">The value of <see cref="MaxMailboxes"/>; at least 0.</param>
+    /// <param name="mailDomains">The mail domains, mailboxes, aliases and catch-alls recipients
+    /// are resolved against (ADR-0102, decision 1), or <see langword="null"/> - as a
+    /// configuration with no domain - to resolve them as ADR-0050 decision 5 says. Each mailbox
+    /// is an owner and an account named by its normalised address. Ignored with
+    /// <c>--allow-anonymous</c>.</param>
     /// <exception cref="ArgumentNullException"><paramref name="accountNames"/> or
     /// <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is out of range.</exception>
     /// <exception cref="InvalidOperationException">The clock is past 2106-02-07T06:28:15Z, so an
     /// <c>INBOX</c> can get no <c>UIDVALIDITY</c>.</exception>
+    /// <exception cref="MailRouteException">An alias or catch-all of <paramref name="mailDomains"/>
+    /// does not resolve to owners.</exception>
     public MailboxStore(
         IEnumerable<string> accountNames,
         bool allowAnonymous,
@@ -100,11 +108,12 @@ public sealed class MailboxStore
         long maxMessageBytes = 0,
         int maxMessages = DefaultMaxMessages,
         long maxTotalMessageBytes = DefaultMaxTotalMessageBytes,
-        int maxMailboxes = DefaultMaxMailboxes)
+        int maxMailboxes = DefaultMaxMailboxes,
+        MailDomainConfiguration? mailDomains = null)
         : this(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes)
     {
         ArgumentNullException.ThrowIfNull(accountNames);
-        anonymousOwner = ReachOwners(accountNames, allowAnonymous);
+        anonymousOwner = ReachOwners(accountNames, allowAnonymous, mailDomains);
 
         // A new store starts with no change: its INBOXes are where it begins, not a change to it.
         changeCount = 0;
@@ -141,13 +150,21 @@ public sealed class MailboxStore
     /// <param name="maxMessages">The value of <see cref="MaxMessages"/>; at least 1.</param>
     /// <param name="maxTotalMessageBytes">The value of <see cref="MaxTotalMessageBytes"/>; at least 1.</param>
     /// <param name="maxMailboxes">The value of <see cref="MaxMailboxes"/>; at least 0.</param>
+    /// <param name="mailDomains">The mail domains, mailboxes, aliases and catch-alls recipients
+    /// are resolved against (ADR-0102, decision 1), or <see langword="null"/> - as a
+    /// configuration with no domain - to resolve them as ADR-0050 decision 5 says. Each mailbox
+    /// is an owner and an account named by its normalised address. Ignored with
+    /// <c>--allow-anonymous</c>.</param>
     /// <param name="cancellationToken">Cancels the read.</param>
+
     /// <returns>The loaded store.</returns>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException">A bound is out of range.</exception>
     /// <exception cref="MailStoreLoadException">The index cannot be read or does not parse, or
     /// holds more than the bounds allow, or a message file it names is missing, unreadable or
     /// not the size it gives; nothing is loaded or written.</exception>
+    /// <exception cref="MailRouteException">An alias or catch-all of <paramref name="mailDomains"/>
+    /// does not resolve to owners; nothing is written.</exception>
     public static async Task<MailboxStore> LoadAsync(
         MailStoreFiles files,
         IEnumerable<string> accountNames,
@@ -157,6 +174,7 @@ public sealed class MailboxStore
         int maxMessages = DefaultMaxMessages,
         long maxTotalMessageBytes = DefaultMaxTotalMessageBytes,
         int maxMailboxes = DefaultMaxMailboxes,
+        MailDomainConfiguration? mailDomains = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(files);
@@ -168,7 +186,7 @@ public sealed class MailboxStore
             store.Restore(files, index);
         }
 
-        store.anonymousOwner = store.ReachOwners(accountNames, allowAnonymous);
+        store.anonymousOwner = store.ReachOwners(accountNames, allowAnonymous, mailDomains);
         store.files = files;
         return store;
     }
@@ -242,13 +260,18 @@ public sealed class MailboxStore
     }
 
     /// <summary>
-    /// Maps an SMTP <c>RCPT TO</c> forward path to its owner by the path's local part (ADR-0050,
-    /// decision 5). The domain is ignored. The local part matches an account ordinally, or else
-    /// the one account it equals ignoring case, if exactly one does. With
-    /// <c>--allow-anonymous</c> every valid path maps to the anonymous owner.
+    /// Maps an SMTP <c>RCPT TO</c> forward path to its owners. With <c>--allow-anonymous</c>
+    /// every valid path maps to the anonymous owner. With no mail domain configured, the path's
+    /// local part names the owner and its domain is ignored (ADR-0050, decision 5): the local
+    /// part matches an account ordinally, or else the one account it equals ignoring case, if
+    /// exactly one does. With a mail domain configured (ADR-0102, decisions 1.1 and 1.3), a
+    /// path whose domain is no configured domain - an address literal, a domain
+    /// <see cref="MailDomainName.TryNormalise"/> refuses, a bare <c>Postmaster</c> - is
+    /// <see cref="MailRecipientLookup.RelayingDenied"/>, and one in a configured domain is
+    /// resolved through its alias, mailbox, account by local part or the domain's catch-all.
     /// </summary>
     /// <param name="path">The path as <c>RCPT TO:</c> gave it, with or without its angle brackets.</param>
-    /// <param name="recipient">The owner to deliver to when the outcome is
+    /// <param name="recipient">The owners to deliver to when the outcome is
     /// <see cref="MailRecipientLookup.Deliverable"/>; otherwise <see langword="null"/>.</param>
     /// <returns>What the path names.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="path"/> is <see langword="null"/>.</exception>
@@ -256,32 +279,51 @@ public sealed class MailboxStore
     {
         ArgumentNullException.ThrowIfNull(path);
         recipient = null;
-        if (!MailRecipientPath.TryReadLocalPart(path, out var localPart))
+        if (!MailRecipientPath.TryReadAddress(path, out var localPart, out var domain))
         {
             return MailRecipientLookup.InvalidAddress;
         }
 
-        var owner = anonymousOwner ?? accounts.GetValueOrDefault(localPart) ?? accountsIgnoringCase.GetValueOrDefault(localPart);
-        if (owner is null)
-        {
-            return MailRecipientLookup.NoSuchAccount;
-        }
+        return anonymousOwner is not null || router is null
+            ? Found(OwnerByLocalPart(localPart), out recipient)
+            : LookUpInMailDomains(router, localPart, domain, out recipient);
+    }
 
-        recipient = new MailRecipient(owner);
-        return MailRecipientLookup.Deliverable;
+    /// <summary>
+    /// The anonymous owner, or else the account <paramref name="localPart"/> names (ADR-0050,
+    /// decisions 2 and 5).
+    /// </summary>
+    private IReadOnlyList<OwnerMailboxes> OwnerByLocalPart(string localPart)
+    {
+        var owner = anonymousOwner ?? accounts.Find(localPart);
+        return owner is null ? [] : [owner];
+    }
+
+    private static MailRecipientLookup LookUpInMailDomains(MailDomainRouter router, string localPart, string? domain, out MailRecipient? recipient)
+    {
+        recipient = null;
+        return domain is not null && MailDomainName.TryNormalise(domain, out var asciiDomain) && router.Serves(asciiDomain)
+            ? Found(router.Resolve(new MailDomainAddress(localPart, asciiDomain)), out recipient)
+            : MailRecipientLookup.RelayingDenied;
+    }
+
+    private static MailRecipientLookup Found(IReadOnlyList<OwnerMailboxes> owners, out MailRecipient? recipient)
+    {
+        recipient = owners.Count == 0 ? null : new MailRecipient(owners);
+        return recipient is null ? MailRecipientLookup.NoSuchAccount : MailRecipientLookup.Deliverable;
     }
 
     /// <summary>
     /// The mailboxes a session logged in as <paramref name="accountName"/> acts on (ADR-0050,
     /// decision 2): the anonymous owner's with <c>--allow-anonymous</c>, whatever the name;
-    /// otherwise the account's, matched ordinally, or an empty view for a name that names no
-    /// account.
+    /// otherwise the account's or the mailbox's (ADR-0102, decision 1.2) named by it, matched
+    /// ordinally, or an empty view for a name that names neither.
     /// </summary>
     /// <param name="accountName">The login's account name, or <see langword="null"/> when the
     /// login carried none.</param>
     /// <returns>The session's view.</returns>
     public MailView ViewFor(string? accountName) =>
-        new(anonymousOwner ?? (accountName is null ? null : accounts.GetValueOrDefault(accountName)));
+        new(anonymousOwner ?? (accountName is null ? null : accounts.FindExact(accountName) ?? mailboxOwners.FindExact(accountName)));
 
     /// <summary>
     /// Starts a message body on its way into the store (ADR-0050, decision 7): with a data
@@ -297,13 +339,14 @@ public sealed class MailboxStore
 
     /// <summary>
     /// Delivers one message, streamed in through <paramref name="message"/>, to the
-    /// <c>INBOX</c> of every recipient, one copy per entry, all of them or none. The copies share
+    /// <c>INBOX</c> of every owner of every recipient, one copy per owner of each entry, all of
+    /// them or none. The copies share
     /// the message's bytes and its message file, counted once. <paramref name="message"/> is
     /// disposed whatever the outcome: its pending file becomes the message file when it is
     /// stored, and is deleted when it is not.
     /// </summary>
-    /// <param name="recipients">The owners <see cref="LookUpRecipient"/> found; an owner named
-    /// twice gets two copies.</param>
+    /// <param name="recipients">The recipients <see cref="LookUpRecipient"/> found; an owner
+    /// named by two entries gets two copies.</param>
     /// <param name="message">The pending message, its bytes all written.</param>
     /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
     /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
@@ -329,7 +372,7 @@ public sealed class MailboxStore
     {
         lock (storeLock)
         {
-            var inboxes = recipients.Select(recipient => recipient.Owner.Inbox).ToList();
+            var inboxes = recipients.SelectMany(recipient => recipient.Owners).Select(owner => owner.Inbox).ToList();
             if (!HasRoomFor(inboxes, message.Length))
             {
                 return MailStoreOutcome.StoreFull;
@@ -994,19 +1037,44 @@ public sealed class MailboxStore
     /// otherwise every account with a non-empty name - and gives each an <c>INBOX</c> it lacks.
     /// </summary>
     /// <returns>The anonymous owner with <c>--allow-anonymous</c>; otherwise <see langword="null"/>.</returns>
-    private OwnerMailboxes? ReachOwners(IEnumerable<string> accountNames, bool allowAnonymous)
+    /// <exception cref="MailRouteException">An alias or catch-all does not resolve to owners.</exception>
+    private OwnerMailboxes? ReachOwners(IEnumerable<string> accountNames, bool allowAnonymous, MailDomainConfiguration? mailDomains)
     {
         if (allowAnonymous)
         {
             return ReachOwner(string.Empty);
         }
 
-        foreach (var name in accountNames.Where(name => !string.IsNullOrEmpty(name)).Distinct(StringComparer.Ordinal))
+        var mailboxAddresses = new HashSet<string>(mailDomains?.MailboxAddresses ?? [], StringComparer.Ordinal);
+        foreach (var name in accountNames.Where(name => !string.IsNullOrEmpty(name) && !mailboxAddresses.Contains(name)).Distinct(StringComparer.Ordinal))
         {
-            AddAccount(ReachOwner(name));
+            accounts.Add(name, ReachOwner(name));
         }
 
+        foreach (var address in mailboxAddresses)
+        {
+            mailboxOwners.Add(address, ReachOwner(address));
+        }
+
+        RouteMailDomains(mailDomains);
         return null;
+    }
+
+    /// <summary>
+    /// Resolves recipients through <paramref name="mailDomains"/> from now on when it names a
+    /// domain (ADR-0102, decision 1.3), after checking every alias and catch-all resolves.
+    /// </summary>
+    /// <exception cref="MailRouteException">An alias or catch-all does not resolve to owners.</exception>
+    private void RouteMailDomains(MailDomainConfiguration? mailDomains)
+    {
+        if (mailDomains is null || mailDomains.Domains.Count == 0)
+        {
+            return;
+        }
+
+        var domainRouter = new MailDomainRouter(mailDomains, mailboxOwners, accounts.Find);
+        domainRouter.ThrowIfRouteUnresolvable();
+        router = domainRouter;
     }
 
     private OwnerMailboxes ReachOwner(string name)
@@ -1026,13 +1094,6 @@ public sealed class MailboxStore
         return owner;
     }
 
-    private void AddAccount(OwnerMailboxes owner)
-    {
-        accounts.Add(owner.Name, owner);
-
-        // A name two accounts share ignoring case matches neither of them that way.
-        accountsIgnoringCase[owner.Name] = accountsIgnoringCase.ContainsKey(owner.Name) ? null : owner;
-    }
 
     /// <summary>
     /// The larger of the clock's Unix time in seconds and one more than the last

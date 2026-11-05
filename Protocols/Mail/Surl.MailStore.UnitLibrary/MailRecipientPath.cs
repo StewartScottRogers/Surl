@@ -18,17 +18,30 @@ internal static class MailRecipientPath
     /// Reads the local part of <paramref name="path"/>.
     /// </summary>
     /// <returns><see langword="false"/> when <paramref name="path"/> is not a valid forward path.</returns>
-    public static bool TryReadLocalPart(string path, out string localPart)
+    public static bool TryReadLocalPart(string path, out string localPart) => TryReadAddress(path, out localPart, out _);
+
+    /// <summary>
+    /// Reads the local part and the domain of <paramref name="path"/>, the domain as sent: a
+    /// name, or an address literal with its brackets.
+    /// </summary>
+    /// <param name="path">The path as <c>RCPT TO:</c> gave it.</param>
+    /// <param name="localPart">The local part, unquoted.</param>
+    /// <param name="domain">The domain, or <see langword="null"/> for <c>&lt;Postmaster&gt;</c>
+    /// with no domain.</param>
+    /// <returns><see langword="false"/> when <paramref name="path"/> is not a valid forward path.</returns>
+    public static bool TryReadAddress(string path, out string localPart, out string? domain)
     {
         localPart = string.Empty;
+        domain = null;
         var mailbox = WithoutSourceRoute(WithoutAngleBrackets(path));
-        if (mailbox is null || !TryReadLocalPartAndDomain(mailbox, out var local, out var domain))
+        if (mailbox is null || !TryReadLocalPartAndDomain(mailbox, out var local, out var sentDomain))
         {
             return false;
         }
 
         localPart = local;
-        return domain is null ? local.Equals("postmaster", StringComparison.OrdinalIgnoreCase) : IsDomain(domain);
+        domain = sentDomain;
+        return sentDomain is null ? local.Equals("postmaster", StringComparison.OrdinalIgnoreCase) : IsDomain(sentDomain);
     }
 
     private static string? WithoutAngleBrackets(string path) =>

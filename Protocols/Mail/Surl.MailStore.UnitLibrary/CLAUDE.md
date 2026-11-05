@@ -15,6 +15,17 @@ The type is `MailboxStore`, not `MailStore` as ADR-0050 decision 6 writes it: a 
 `MailStore` inside the namespace `Surl.MailStore` would be shadowed by the namespace in every
 other `Surl.*` namespace.
 
+Mail domains (BL-648, ADR-0102 decisions 1.1 to 1.3): given a `MailDomainConfiguration` with
+at least one domain (constructor's and `LoadAsync`'s `mailDomains`), `LookUpRecipient` answers a
+recipient outside every configured domain with `RelayingDenied`, and resolves one inside through
+`MailDomainRouter`: alias (targets resolved again), mailbox, account by local part, the domain's
+catch-all, else `NoSuchAccount` (accepted and discarded). Domains compare in the form
+`MailDomainName.TryNormalise` gives (`IdnMapping`, lower case, no trailing dot); local parts as
+ADR-0050 decision 5 says (`LocalPartLookup`). Each `--mailbox` is an owner and a login named by its
+normalised address. An alias or catch-all that does not resolve throws `MailRouteException` at
+construction. A `MailRecipient` may name several owners (`OwnerNames`), each once. With no domain,
+or under `--allow-anonymous`, resolution is ADR-0050's unchanged. The index format is unchanged.
+
 Persistence (BL-191, ADR-0050 decision 7): `MailboxStore.LoadAsync` reads the store from a
 `MailStoreFiles` - `<state folder>/index` and one file per distinct message under
 `messages/`, named by its file number in 16 lower-case hex digits - and refuses a malformed

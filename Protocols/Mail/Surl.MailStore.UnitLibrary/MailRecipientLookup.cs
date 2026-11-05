@@ -16,4 +16,10 @@ public enum MailRecipientLookup
     /// <summary>The path is not a valid RFC 5321 forward path; the server refuses it at
     /// <c>RCPT</c>.</summary>
     InvalidAddress,
+
+    /// <summary>A mail domain is configured and the path's domain is none of them - an address
+    /// literal, a domain that is no domain name, another domain, or no domain at all. Surl never
+    /// sends mail onward, so the server refuses it at <c>RCPT</c> with
+    /// <c>550 5.7.1 Relaying denied</c> (ADR-0102, decision 1.1).</summary>
+    RelayingDenied,
 }

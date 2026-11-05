@@ -49,4 +49,23 @@ public sealed class MailRecipientPathTests
     {
         Assert.IsFalse(MailRecipientPath.TryReadLocalPart(path, out _));
     }
+
+    [TestMethod]
+    [DataRow("<@relay.one:alice@Example.COM>", "alice", "Example.COM")]
+    [DataRow("<\"a b\"@[192.0.2.1]>", "a b", "[192.0.2.1]")]
+    [DataRow("<Postmaster>", "Postmaster", null)]
+    public void TryReadAddress_ValidPath_ReadsTheLocalPartAndTheDomainAsSent(string path, string expectedLocalPart, string? expectedDomain)
+    {
+        Assert.IsTrue(MailRecipientPath.TryReadAddress(path, out var localPart, out var domain));
+        Assert.AreEqual(expectedLocalPart, localPart);
+        Assert.AreEqual(expectedDomain, domain);
+    }
+
+    [TestMethod]
+    public void TryReadAddress_InvalidPath_ReturnsFalse()
+    {
+        Assert.IsFalse(MailRecipientPath.TryReadAddress("<alice@example.com", out var localPart, out var domain));
+        Assert.AreEqual(string.Empty, localPart);
+        Assert.IsNull(domain);
+    }
 }

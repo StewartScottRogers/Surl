@@ -1,21 +1,30 @@
 namespace Surl.MailStore;
 
 /// <summary>
-/// The owner an SMTP recipient maps to, as <see cref="MailboxStore.LookUpRecipient"/> found it;
-/// what <see cref="MailboxStore.Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/> delivers to. Only the store that found it may
-/// deliver to it.
+/// The owners an SMTP recipient maps to, as <see cref="MailboxStore.LookUpRecipient"/> found
+/// them; what <see cref="MailboxStore.Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/>
+/// delivers to. A recipient resolved by ADR-0050 decision 5 has one owner; an alias may have
+/// several, each once (ADR-0102, decision 1.3). Only the store that found it may deliver to it.
 /// </summary>
 public sealed class MailRecipient
 {
-    internal MailRecipient(OwnerMailboxes owner)
+    internal MailRecipient(IReadOnlyList<OwnerMailboxes> owners)
     {
-        Owner = owner;
+        Owners = owners;
+        OwnerNames = [.. owners.Select(owner => owner.Name)];
     }
 
     /// <summary>
-    /// The owner's name: the account's name, or the empty string for the anonymous owner.
+    /// The first of <see cref="OwnerNames"/>: the one owner's name for a recipient that is not
+    /// an alias to several - an account's name, a mailbox's address, or the empty string for
+    /// the anonymous owner.
     /// </summary>
-    public string OwnerName => Owner.Name;
+    public string OwnerName => OwnerNames[0];
 
-    internal OwnerMailboxes Owner { get; }
+    /// <summary>
+    /// Every owner's name, each once, in the order resolution found them.
+    /// </summary>
+    public IReadOnlyList<string> OwnerNames { get; }
+
+    internal IReadOnlyList<OwnerMailboxes> Owners { get; }
 }
