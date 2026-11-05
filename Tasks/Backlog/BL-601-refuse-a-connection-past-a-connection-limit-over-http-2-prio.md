@@ -1,5 +1,5 @@
 ---
-id: BL-598
+id: BL-601
 title: Refuse a connection past a connection limit over HTTP/2 prior knowledge as ADR-0081 says
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-598 — Refuse a connection past a connection limit over HTTP/2 prior knowledge as ADR-0081 says
+# BL-601 — Refuse a connection past a connection limit over HTTP/2 prior knowledge as ADR-0081 says
 
 ## Goal
 

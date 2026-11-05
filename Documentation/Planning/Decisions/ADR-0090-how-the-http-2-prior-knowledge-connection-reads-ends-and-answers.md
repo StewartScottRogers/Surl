@@ -70,8 +70,8 @@ bytes, the same frames as ADR-0081's "Measured" table with `:path /file.txt`.
    a connection one, or a `SETTINGS_INITIAL_WINDOW_SIZE` that would push an open stream's window
    past it, `GOAWAY` `FLOW_CONTROL_ERROR`.
 6. **What waits for later tasks.** The `503` refusal of a connection past a connection limit is
-   still written as HTTP/1.1 bytes (ADR-0081's "Too many connections" row; BL-598), and NTLM and
-   Negotiate over HTTP/2 are not yet answered `HTTP_1_1_REQUIRED` (decision 7; BL-599). Both are
+   still written as HTTP/1.1 bytes (ADR-0081's "Too many connections" row; BL-601), and NTLM and
+   Negotiate over HTTP/2 are not yet answered `HTTP_1_1_REQUIRED` (decision 7; BL-602). Both are
    filed as their own tasks, and `surl --aihelp http` says what is answered today.
 
 ## Alternatives considered

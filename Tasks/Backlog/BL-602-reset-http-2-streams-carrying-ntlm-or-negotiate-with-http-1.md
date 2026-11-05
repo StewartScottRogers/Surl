@@ -1,5 +1,5 @@
 ---
-id: BL-599
+id: BL-602
 title: Reset HTTP/2 streams carrying NTLM or Negotiate with HTTP_1_1_REQUIRED
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-599 — Reset HTTP/2 streams carrying NTLM or Negotiate with HTTP_1_1_REQUIRED
+# BL-602 — Reset HTTP/2 streams carrying NTLM or Negotiate with HTTP_1_1_REQUIRED
 
 ## Goal
 
