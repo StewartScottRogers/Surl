@@ -6,8 +6,17 @@
 
   <ItemGroup>
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <Using Include="Surl.Http2" />
     <Using Include="Surl.HttpMessage" />
     <Using Include="Surl.HttpServing" />
+  </ItemGroup>
+
+  <!-- The HTTP/2 test client Surl.Http2.UnitTests owns: client frames encoded, the server's decoded, one stream on its own. -->
+  <ItemGroup>
+    <Compile Include="..\Surl.Http2.UnitTests\Http2TestBytes.cs" Link="Http2TestBytes.cs" />
+    <Compile Include="..\Surl.Http2.UnitTests\Http2TestClient.cs" Link="Http2TestClient.cs" />
+    <Compile Include="..\Surl.Http2.UnitTests\Http2TestResponse.cs" Link="Http2TestResponse.cs" />
+    <Compile Include="..\Surl.Http2.UnitTests\Http2TestStream.cs" Link="Http2TestStream.cs" />
   </ItemGroup>
 
   <ItemGroup>

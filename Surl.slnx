@@ -140,6 +140,8 @@
   <Folder Name="/Protocols/Http/">
     <Project Path="Protocols/Http/Surl.Hpack.UnitLibrary/Surl.Hpack.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.Hpack.UnitTests/Surl.Hpack.UnitTests.csproj" />
+    <Project Path="Protocols/Http/Surl.Http2.UnitLibrary/Surl.Http2.UnitLibrary.csproj" />
+    <Project Path="Protocols/Http/Surl.Http2.UnitTests/Surl.Http2.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.HttpMessage.UnitLibrary/Surl.HttpMessage.UnitLibrary.csproj" />
     <Project Path="Protocols/Http/Surl.HttpMessage.UnitTests/Surl.HttpMessage.UnitTests.csproj" />
     <Project Path="Protocols/Http/Surl.HttpServing.UnitLibrary/Surl.HttpServing.UnitLibrary.csproj" />

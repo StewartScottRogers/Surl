@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Surl.Protocol.Http.UnitTests drives the HTTP/2 connection through the HTTP server with bytes
+    recorded from pinned upstream curl, and encodes and parses frames with this library's codec
+    to do it, so it sees the internals too (BL-409).
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Http2.UnitTests" />
+    <InternalsVisibleTo Include="Surl.Protocol.Http.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Hpack.UnitLibrary\Surl.Hpack.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

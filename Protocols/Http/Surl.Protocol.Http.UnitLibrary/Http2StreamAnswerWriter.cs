@@ -6,39 +6,56 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Http;
 
 /// <summary>
-/// Turns an <see cref="HttpAnswer"/> into frames on one HTTP/2 stream (ADR-0081, decision 8):
-/// one header block of <c>:status</c> and the answer's fields with lowercase names, then the body
-/// as <c>DATA</c> within the client's windows. An answer with no body bytes ends the stream on its
-/// <c>HEADERS</c>.
+/// The HTTP server's <see cref="IHttp2StreamHandler"/> (ADR-0081, decision 8; ADR-0086,
+/// decision 1): builds an <see cref="HttpRequest"/> from each HTTP/2 request stream, has the
+/// answerer decide its <see cref="HttpAnswer"/>, and writes that answer back as one header block
+/// of <c>:status</c> and the answer's fields with lowercase names, then the body as <c>DATA</c>.
+/// An answer with no body bytes ends the stream on its <c>HEADERS</c>.
 /// </summary>
 /// <remarks>
-/// A content-store file that cannot be read whole after the header block went out is ended with
-/// <c>RST_STREAM</c> <c>INTERNAL_ERROR</c> and a log note naming the file, as HTTP/1.1 aborts the
-/// connection, since its <c>content-length</c> can no longer be met; the connection carries on.
+/// A request whose <c>DATA</c>, once read, did not add up to its <c>content-length</c> is reset
+/// <c>PROTOCOL_ERROR</c> instead of answered. A content-store file that cannot be read whole after
+/// the header block went out is ended with <c>RST_STREAM</c> <c>INTERNAL_ERROR</c> and a log note
+/// naming the file, as HTTP/1.1 aborts the connection, since its <c>content-length</c> can no
+/// longer be met; the connection carries on.
 /// </remarks>
-/// <param name="frames">Writes the frames.</param>
-/// <param name="windows">The connection's send windows.</param>
-/// <param name="context">The exchange: its log and cancellation.</param>
-internal sealed class Http2StreamAnswerWriter(Http2FrameWriter frames, Http2SendWindows windows, ExchangeContext context)
+/// <param name="answerer">Decides the answer to every request.</param>
+/// <param name="context">The exchange: its limits and log.</param>
+internal sealed class Http2StreamAnswerWriter(IHttpRequestHandler answerer, ExchangeContext context) : IHttp2StreamHandler
 {
     /// <summary>
-    /// Writes <paramref name="answer"/> on <paramref name="stream"/>.
+    /// Answers the request on <paramref name="stream"/>.
     /// </summary>
-    /// <param name="stream">The stream answered.</param>
-    /// <param name="answer">The answer.</param>
+    /// <param name="stream">The request stream.</param>
+    /// <param name="cancellationToken">Cancelled when the client resets the stream or the connection ends.</param>
     /// <returns>A task that completes when the answer is written or the stream reset.</returns>
     /// <exception cref="OperationCanceledException">The stream or the connection ended.</exception>
     /// <exception cref="IOException">The client closed before granting the window the body needs, or the connection failed.</exception>
-    public async Task WriteAsync(Http2Stream stream, HttpAnswer answer)
+    public async Task ServeStreamAsync(Http2RequestStream stream, CancellationToken cancellationToken)
+    {
+        var head = stream.Head;
+        var body = new Http2HttpRequestBody(stream, head.ExpectsContinue, context.Limits.MaxUploadBytes);
+        var answer = await answerer.AnswerAsync(new HttpRequest(head.Method, head.Target, head.Authority, head.Fields, body), cancellationToken);
+        if (stream.HasContentLengthMismatch)
+        {
+            await stream.ResetAsync(Http2ErrorCode.ProtocolError, "its DATA did not add up to its content-length");
+
+            return;
+        }
+
+        await WriteAsync(stream, answer, cancellationToken);
+    }
+
+    private async Task WriteAsync(Http2RequestStream stream, HttpAnswer answer, CancellationToken cancellationToken)
     {
         var bodyLength = BodyLength(answer.Body);
-        await frames.WriteHeaderBlockAsync(stream.Id, HeaderFields(answer), bodyLength == 0, context.CancellationToken);
+        await stream.WriteHeadersAsync(HeaderFields(answer), bodyLength == 0);
         if (bodyLength == 0)
         {
             return;
         }
 
-        await using var data = new Http2DataStream(frames, windows, stream.Id, bodyLength, stream.Token, context.CancellationToken);
+        await using var data = stream.CreateResponseBodyStream(bodyLength);
         if (answer.Body is HttpAnswerBody.Bytes bytes)
         {
             await data.WriteAsync(bytes.Content);
@@ -46,7 +63,7 @@ internal sealed class Http2StreamAnswerWriter(Http2FrameWriter frames, Http2Send
             return;
         }
 
-        await CopyFileAsync(stream, (HttpAnswerBody.ContentFile)answer.Body, data);
+        await CopyFileAsync(stream, (HttpAnswerBody.ContentFile)answer.Body, data, cancellationToken);
     }
 
     private static long BodyLength(HttpAnswerBody body) => body switch
@@ -61,12 +78,12 @@ internal sealed class Http2StreamAnswerWriter(Http2FrameWriter frames, Http2Send
             .Select(field => new HpackHeaderField(field.Key.ToLowerInvariant(), field.Value))
             .Prepend(new HpackHeaderField(":status", answer.Status.Code.ToString(CultureInfo.InvariantCulture)));
 
-    private async Task CopyFileAsync(Http2Stream stream, HttpAnswerBody.ContentFile file, Http2DataStream data)
+    private async Task CopyFileAsync(Http2RequestStream stream, HttpAnswerBody.ContentFile file, Http2DataStream data, CancellationToken cancellationToken)
     {
         string? failure;
         try
         {
-            var copied = await file.Store.CopyFileBytesAsync(file.Mapping, file.Range, data, stream.Token);
+            var copied = await file.Store.CopyFileBytesAsync(file.Mapping, file.Range, data, cancellationToken);
             failure = copied < file.Range.ByteCount ? $"shrank to {copied} bytes while it was sent" : null;
         }
         catch (Exception readFailure) when (readFailure is IOException or UnauthorizedAccessException && !data.HasFailedWrite)
@@ -77,7 +94,7 @@ internal sealed class Http2StreamAnswerWriter(Http2FrameWriter frames, Http2Send
         if (failure is not null)
         {
             context.Log.Note($"{file.Mapping.Location} {failure}; stream {stream.Id} was reset with INTERNAL_ERROR.");
-            await frames.WriteAsync(new Http2RstStreamFrame(stream.Id, Http2ErrorCode.InternalError), context.CancellationToken);
+            await stream.ResetAsync(Http2ErrorCode.InternalError, "its content-store file could not be sent whole");
         }
     }
 }

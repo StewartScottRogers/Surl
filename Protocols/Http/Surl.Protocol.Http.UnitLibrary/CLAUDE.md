@@ -15,7 +15,8 @@ else. Today it references `Surl.Content.UnitLibrary` (the content store),
 request and response head types, `HttpStatus` and body framing) and `Surl.HttpServing.UnitLibrary`
 (ADR-0084, decision 1: `HttpRequest`, `HttpAnswer`, request bodies and `100 Continue`, response
 writing, persistence, the lingering-close drain and the `Http1ConnectionServer` loop), with
-`Surl.Hpack.UnitLibrary` for HTTP/2 and `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary` for
+`Surl.Http2.UnitLibrary` for the HTTP/2 connection (ADR-0086), `Surl.Hpack.UnitLibrary` for the
+header fields HTTP/2 and HTTP/3 carry, and `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary` for
 HTTP/3 (ADR-0081, ADR-0082). Method dispatch, content responses and the authentication flow stay here.
 
 Answering is split from HTTP/1.x framing (ADR-0081, decision 8). `HttpRequestAnswerer`,
@@ -26,19 +27,9 @@ never asks which HTTP version carried it. The HTTP/1.x side is `Surl.HttpServing
 for each connection. Keep version
 questions out of the answerer: an HTTP/2 or HTTP/3 writer reuses it as it is.
 
-HTTP/2 frames (RFC 9113 sections 4 and 6; ADR-0081 decision 4) are typed values: one
-`Http2Frame` record per frame type (`Http2DataFrame` ... `Http2ContinuationFrame`), each
-writing its own payload, with `Http2FrameEncoder` adding the 9-byte `Http2FrameHeader`.
-`Http2FrameReader` reads them bounded by the advertised `SETTINGS_MAX_FRAME_SIZE` - an
-oversized frame is refused from its header alone and an unknown type is skipped without
-being held - and `Http2FrameParser` checks what one frame can get wrong on its own, each
-`Http2FrameMalformation` mapping to the RFC 9113 error code and connection-or-stream scope
-in `Http2FrameMalformations`. Rules that need connection or stream state (`CONTINUATION`
-order, a `HEADERS` priority naming its own stream, a client's `PUSH_PROMISE`) belong to the
-connection, not the codec.
-
-The HTTP/2 connection (ADR-0081, decisions 3, 5 to 7; ADR-0090) is `Http2ConnectionServer`:
-`HttpProtocolServer.ServeAsync` reads the first bytes of a cleartext connection, or of a TLS
+The HTTP/2 frames, streams, flow control and connection (RFC 9113; ADR-0081 decisions 4 to 7;
+ADR-0090) live in `Surl.Http2.UnitLibrary` (ADR-0086 decision 1, moved by BL-409); its `CLAUDE.md`
+describes them. This library keeps what is HTTP-server specific: `HttpProtocolServer.ServeAsync` reads the first bytes of a cleartext connection, or of a TLS
 connection whose `TlsSession.ApplicationProtocol` is `h2` (a TLS connection that agreed
 `http/1.1` or no ALPN goes straight to `Http1ConnectionServer`; ADR-0081 decision 2), with
 `Http2ConnectionPreface` and hands it over on the whole preface, or gives the bytes back
@@ -47,14 +38,14 @@ through `AlreadyReadBytesConnection` to `Http1ConnectionServer`, whose handler i
 since `h2c` is cleartext only): a request `Http2CleartextUpgrade` accepts for `Upgrade: h2c`
 is answered `101` with an `IHttpConnectionTakeover` that runs
 `Http2ConnectionServer.ServeUpgradedAsync` over `HttpConnectionReaderConnection`, so the bytes
-the HTTP/1.x reader already holds come first (ADR-0091). The connection reads frames in
-order, decodes header blocks with `Surl.Hpack`'s decoder, maps each request with
-`Http2RequestHeadMapping` to an `HttpRequest` whose body is an `Http2RequestBody`, and answers
-each `Http2Stream` on a task of its own through the same `HttpRequestAnswerer`;
-`Http2StreamAnswerWriter` turns the `HttpAnswer` into frames, `Http2FrameWriter` serialises
-every frame and owns the HPACK encoder, and `Http2SendWindows` and `Http2DataStream` keep `DATA`
-within the client's windows. This library references `Surl.Hpack.UnitLibrary` for it, and
-BL-409 moves the connection to `Surl.Http2.UnitLibrary` (ADR-0086).
+the HTTP/1.x reader already holds come first (ADR-0091). Either way the connection's
+`IHttp2StreamHandler` is `Http2StreamAnswerWriter`: for each request stream it builds an
+`HttpRequest` whose body is an `Http2HttpRequestBody` (the stream's `DATA` against the upload
+limit, with the interim `:status 100` for `expect: 100-continue`), has the same
+`HttpRequestAnswerer` decide the `HttpAnswer`, resets the stream `PROTOCOL_ERROR` when the body
+did not add up to its `content-length`, and writes the answer as one header block and `DATA`
+within the client's windows, resetting `INTERNAL_ERROR` when a content-store file cannot be sent
+whole.
 
 HTTP/3 (RFC 9114; ADR-0082 decisions 7 to 9 and its Amendment 1) is `Http3ConnectionServer`, the
 `IQuicApplicationProtocol` a `Surl.Quic` `QuicDatagramFlowServer` hands a connection to once its

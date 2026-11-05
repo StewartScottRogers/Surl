@@ -27,6 +27,7 @@ public sealed class ProtocolIsolationTests
     private const string Ripemd160 = "Surl.Cryptography.Ripemd160.UnitLibrary";
     private const string Dtls = "Surl.Dtls.UnitLibrary";
     private const string Hpack = "Surl.Hpack.UnitLibrary";
+    private const string Http2 = "Surl.Http2.UnitLibrary";
     private const string HttpMessage = "Surl.HttpMessage.UnitLibrary";
     private const string HttpServing = "Surl.HttpServing.UnitLibrary";
     private const string Kerberos = "Surl.Kerberos.UnitLibrary";
@@ -51,7 +52,7 @@ public sealed class ProtocolIsolationTests
 
     /// <summary>
     /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061,
-    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0087, ADR-0100 and ADR-0103 add: each horizontal library a protocol server may reference, with the projects
+    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0086, ADR-0087, ADR-0100 and ADR-0103 add: each horizontal library a protocol server may reference, with the projects
     /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
@@ -69,6 +70,7 @@ public sealed class ProtocolIsolationTests
         [Ripemd160] = [],
         [Dtls] = [Abstractions, Curve25519],
         [Hpack] = [],
+        [Http2] = [Abstractions, Hpack],
         [HttpMessage] = [Abstractions],
         [HttpServing] = [Abstractions, HttpMessage, Content],
         [Kerberos] = [],
@@ -188,6 +190,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Ripemd160)]
     [DataRow(Dtls)]
     [DataRow(Hpack)]
+    [DataRow(Http2)]
     [DataRow(HttpMessage)]
     [DataRow(HttpServing)]
     [DataRow(Kerberos)]
@@ -228,6 +231,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(HttpMessage, Abstractions)]
     [DataRow(Dtls, Abstractions)]
     [DataRow(Dtls, Curve25519)]
+    [DataRow(Http2, Abstractions)]
+    [DataRow(Http2, Hpack)]
     [DataRow(HttpServing, Content)]
     [DataRow(HttpServing, HttpMessage)]
     [DataRow(LineProtocol, Abstractions)]
@@ -262,6 +267,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(Ed25519, Cryptography)]
     [DataRow(Hpack, Abstractions)]
     [DataRow(Hpack, HttpMessage)]
+    [DataRow(Http2, HttpServing)]
+    [DataRow(Http2, "Surl.Protocol.Http.UnitLibrary")]
     [DataRow(HttpMessage, Content)]
     [DataRow(HttpMessage, LineProtocol)]
     [DataRow(HttpMessage, "Surl.Protocol.Http.UnitLibrary")]

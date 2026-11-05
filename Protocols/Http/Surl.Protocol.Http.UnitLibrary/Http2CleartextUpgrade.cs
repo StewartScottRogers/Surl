@@ -66,9 +66,7 @@ internal static class Http2CleartextUpgrade
 
         var payload = new byte[length];
         Base64Url.DecodeFromChars(text, payload);
-        var result = Http2FrameParser.Parse(new Http2FrameHeader(length, (byte)Http2FrameType.Settings, 0, 0), payload);
-
-        return result.Frame is Http2SettingsFrame settings ? settings.Settings : null;
+        return Http2SettingsPayload.Decode(payload);
     }
 
     private static List<string> Values(HttpRequest request, string name) =>

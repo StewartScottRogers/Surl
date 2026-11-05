@@ -199,7 +199,7 @@ public sealed class HttpProtocolServer : IConnectionProtocolServer, IConnectionR
 
         if (preface.IsComplete)
         {
-            await new Http2ConnectionServer(answerer, context, new AlreadyReadBytesConnection(connection, preface.BytesReadAfterPreface)).ServeAsync();
+            await new Http2ConnectionServer(new Http2StreamAnswerWriter(answerer, context), context, new AlreadyReadBytesConnection(connection, preface.BytesReadAfterPreface)).ServeAsync();
 
             return;
         }

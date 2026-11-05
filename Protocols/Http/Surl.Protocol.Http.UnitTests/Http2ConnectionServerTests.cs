@@ -1,7 +1,7 @@
 using Surl.Content;
 using Surl.Hpack;
 using Surl.Protocol.Abstractions;
-using static Surl.Protocol.Http.Http2TestClient;
+using static Surl.Http2.Http2TestClient;
 using static Surl.Protocol.Http.HttpServerHarness;
 
 namespace Surl.Protocol.Http;

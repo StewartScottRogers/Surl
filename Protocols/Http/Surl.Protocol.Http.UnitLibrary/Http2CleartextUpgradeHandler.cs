@@ -48,6 +48,7 @@ internal sealed class Http2CleartextUpgradeHandler(IHttpRequestHandler answerer,
     private sealed class Takeover(IHttpRequestHandler answerer, ExchangeContext context, HttpRequest request, IReadOnlyList<Http2Setting> clientSettings) : IHttpConnectionTakeover
     {
         public Task TakeOverAsync(IConnection connection, HttpConnectionReader reader, CancellationToken cancellationToken) =>
-            new Http2ConnectionServer(answerer, context, new HttpConnectionReaderConnection(connection, reader)).ServeUpgradedAsync(request, clientSettings);
+            new Http2ConnectionServer(new Http2StreamAnswerWriter(answerer, context), context, new HttpConnectionReaderConnection(connection, reader))
+                .ServeUpgradedAsync(new Http2RequestHead(request.Method, request.Target, request.Authority, request.Fields, ContentLength: null, ExpectsContinue: false), clientSettings);
     }
 }
