@@ -74,7 +74,7 @@ sends none, enforces the keep alive at one and a half times its value, and refus
     decision 2 already answers an unoffered method so). The broker is not composed into `surl` until BL-501, so no
     user meets either interim answer.
   - Authentication Data without an Authentication Method is CONNACK `0x82` (3.1.2.11.10).
-- Follow-up filed: BL-678, session takeover with DISCONNECT `0x8E` (ADR-0093 decision 1), which neither this task's
+- Follow-up filed: BL-679, session takeover with DISCONNECT `0x8E` (ADR-0093 decision 1), which neither this task's
   criteria nor BL-499's cover; it depends on BL-499's sessions.
 - Coverage: `Surl.Extended.Protocol.Mqtt5.UnitLibrary` at 100% line and 100% branch (Code Coverage collector,
   cobertura); 205 tests in the project pass.

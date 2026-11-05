@@ -44,7 +44,7 @@ The broker so far answers CONNECT and what follows it (BL-496, ADR-0093 decision
 - Still to come, and answered for now as stated: an Authentication Method is CONNACK `0x8C` until
   BL-499 adds SCRAM; PUBLISH and its acknowledgements, SUBSCRIBE and UNSUBSCRIBE are DISCONNECT
   `0x83` until BL-497 and BL-498; sessions are not kept (Session Present is always 0) until BL-499;
-  a CONNECT for a connected identifier does not yet take the session over (BL-678).
+  a CONNECT for a connected identifier does not yet take the session over (BL-679).
 
 PUBLISH and the QoS flows (BL-497), SUBSCRIBE (BL-498), sessions, DISCONNECT and AUTH (BL-499),
 `mqtt5+ws` (BL-500) and the command line (BL-501) build on it.

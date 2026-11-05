@@ -1,5 +1,5 @@
 ---
-id: BL-678
+id: BL-679
 title: Take over a connected MQTT 5 client's session with DISCONNECT 0x8E
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-678 — Take over a connected MQTT 5 client's session with DISCONNECT 0x8E
+# BL-679 — Take over a connected MQTT 5 client's session with DISCONNECT 0x8E
 
 ## Goal
 
