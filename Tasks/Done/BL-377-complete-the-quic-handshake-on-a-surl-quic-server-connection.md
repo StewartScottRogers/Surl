@@ -77,7 +77,7 @@ shutdown.
     `NEW_TOKEN`, `HANDSHAKE_DONE` and `RETIRE_CONNECTION_ID` from the client are
     `PROTOCOL_VIOLATION` (sections 19.7, 19.20, 19.16: the server's only connection ID is in use).
     `PATH_CHALLENGE` gets `PATH_RESPONSE`; `NEW_CONNECTION_ID` and `PATH_RESPONSE` are taken and
-    not acted on (BL-604).
+    not acted on (BL-607).
   - The client's transport parameters: a server-only one, or an `initial_source_connection_id`
     absent or not the client's Source Connection ID, is `TRANSPORT_PARAMETER_ERROR`;
     `version_information` choosing a version other than 1 is `VERSION_NEGOTIATION_ERROR`. The idle
@@ -86,9 +86,9 @@ shutdown.
     section 5.7 allows either); the client retransmits.
   - Packet numbers are as short as RFC 9000 Appendix A.2 allows given what the client acknowledged;
     a payload too short to sample is padded with PADDING.
-- Left out, filed: key updates (BL-603, ADR-0082 decision 4 says the server follows them; today a
+- Left out, filed: key updates (BL-606, ADR-0082 decision 4 says the server follows them; today a
   packet in the other key phase does not open and is dropped), the client's spare connection IDs
-  and `retire_prior_to` (BL-604), and the closing and draining periods (BL-605, needs BL-379's PTO).
+  and `retire_prior_to` (BL-607), and the closing and draining periods (BL-608, needs BL-379's PTO).
   Nothing is retransmitted until BL-379.
 - Fixtures: BL-363 left no datagrams in the repository, so each pinned build was recorded again on
   2026-11-04 into `Surl.Quic.UnitTests/Fixtures/ClientInitial/*.datagrams.bin` (two-byte length

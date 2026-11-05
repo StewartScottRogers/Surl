@@ -1,5 +1,5 @@
 ---
-id: BL-603
+id: BL-606
 title: Follow 1-RTT key updates on a Surl.Quic server connection
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-603 — Follow 1-RTT key updates on a Surl.Quic server connection
+# BL-606 — Follow 1-RTT key updates on a Surl.Quic server connection
 
 ## Goal
 

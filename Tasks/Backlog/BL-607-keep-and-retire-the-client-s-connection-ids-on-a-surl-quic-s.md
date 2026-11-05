@@ -1,5 +1,5 @@
 ---
-id: BL-604
+id: BL-607
 title: Keep and retire the client's connection IDs on a Surl.Quic server connection
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-604 — Keep and retire the client's connection IDs on a Surl.Quic server connection
+# BL-607 — Keep and retire the client's connection IDs on a Surl.Quic server connection
 
 ## Goal
 

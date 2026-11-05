@@ -1,5 +1,5 @@
 ---
-id: BL-605
+id: BL-608
 title: Hold the closing and draining states on a Surl.Quic server connection
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-04
 completed:
 ---
-# BL-605 — Hold the closing and draining states on a Surl.Quic server connection
+# BL-608 — Hold the closing and draining states on a Surl.Quic server connection
 
 ## Goal
 

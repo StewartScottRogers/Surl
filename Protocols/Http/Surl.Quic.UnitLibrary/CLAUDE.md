@@ -5,8 +5,8 @@ Phase 6.
 QUIC version 1 for Surl's HTTP/3 server, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377); streams and flow control come with BL-378, loss
-recovery with BL-379, key updates with BL-603, the client's spare connection IDs with BL-604 and
-the closing and draining periods with BL-605.
+recovery with BL-379, key updates with BL-606, the client's spare connection IDs with BL-607 and
+the closing and draining periods with BL-608.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
   and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the 1-RTT
