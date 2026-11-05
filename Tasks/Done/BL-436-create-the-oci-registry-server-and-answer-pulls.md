@@ -57,7 +57,7 @@ API, with the distribution spec's JSON error bodies.
   is unknown / read as empty and noted. A `HEAD` error carries the error body's `Content-Length` and no body.
 - The name and tag grammars are hand-checked (`OciNames`), not `[GeneratedRegex]`: the generated matcher's code
   counts against the library's coverage and complexity gates.
-- The digest check runs on every read; ADR-0115 decision 2.1's cache in `ObjectMetadataIndex` is filed as BL-841.
+- The digest check runs on every read; ADR-0115 decision 2.1's cache in `ObjectMetadataIndex` is filed as BL-865.
 
 ## Log
 

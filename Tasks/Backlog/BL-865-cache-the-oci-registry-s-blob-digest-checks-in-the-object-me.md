@@ -1,5 +1,5 @@
 ---
-id: BL-841
+id: BL-865
 title: Cache the OCI registry's blob digest checks in the object metadata index
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-841 — Cache the OCI registry's blob digest checks in the object metadata index
+# BL-865 — Cache the OCI registry's blob digest checks in the object metadata index
 
 ## Goal
 
