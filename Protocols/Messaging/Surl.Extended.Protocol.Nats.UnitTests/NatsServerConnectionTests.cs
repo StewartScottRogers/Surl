@@ -10,7 +10,7 @@ namespace Surl.Extended.Protocol.Nats.UnitTests;
 /// page. Each exchange's answers are compared after the INFO line.
 /// </summary>
 [TestClass]
-public sealed class NatsServerConnectionTests
+public sealed partial class NatsServerConnectionTests
 {
     private const string AliceConnect = "CONNECT {\"user\":\"alice\",\"pass\":\"secret\"}\r\n";
     private const string VerboseAliceConnect = "CONNECT {\"verbose\":true,\"user\":\"alice\",\"pass\":\"secret\"}\r\n";
@@ -207,7 +207,7 @@ public sealed class NatsServerConnectionTests
     {
         var clock = new ManualTimeProvider();
         var connection = new UnitTestNatsClientConnection();
-        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy()).ServeAsync(connection, Context(clock));
+        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServeAsync(connection, Context(clock));
         connection.Send("CONNECT {");
         await WaitUntilAsync(() => connection.Written.Length > 0 && clock.PendingTimerCount == 1);
 
@@ -226,7 +226,7 @@ public sealed class NatsServerConnectionTests
     {
         using var cancellation = new CancellationTokenSource();
         var connection = new UnitTestNatsClientConnection();
-        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy()).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: cancellation.Token));
+        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServeAsync(connection, Context(new ManualTimeProvider(), cancellation: cancellation.Token));
         await WaitUntilAsync(() => connection.Written.Length > 0);
 
         await cancellation.CancelAsync();
@@ -240,7 +240,7 @@ public sealed class NatsServerConnectionTests
         using var cancellation = new CancellationTokenSource();
         var log = new RecordingExchangeLog();
         var connection = new UnitTestNatsClientConnection();
-        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy()).ServeAsync(connection, Context(new ManualTimeProvider(), log, cancellation.Token));
+        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServeAsync(connection, Context(new ManualTimeProvider(), log, cancellation.Token));
         connection.Send(AliceConnect);
         await WaitUntilAsync(() => log.Notes.Any(note => note.StartsWith("CONNECT accepted", StringComparison.Ordinal)));
 
@@ -255,7 +255,7 @@ public sealed class NatsServerConnectionTests
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
         var connection = new UnitTestNatsClientConnection();
-        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy()).ServeAsync(connection, Context(clock, log));
+        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServeAsync(connection, Context(clock, log));
         await ConnectAsync(connection, clock, log);
 
         clock.Advance(TimeSpan.FromSeconds(29));
@@ -277,7 +277,7 @@ public sealed class NatsServerConnectionTests
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
         var connection = new UnitTestNatsClientConnection();
-        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy()).ServeAsync(connection, Context(clock, log));
+        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServeAsync(connection, Context(clock, log));
         await ConnectAsync(connection, clock, log);
         clock.Advance(TimeSpan.FromSeconds(29));
         await AdvanceToNextWriteAsync(connection, clock, "PING\r\n");
@@ -298,7 +298,7 @@ public sealed class NatsServerConnectionTests
         var clock = new ManualTimeProvider();
         var log = new RecordingExchangeLog();
         var connection = new UnitTestNatsClientConnection { FailWritesAfter = 1 };
-        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy()).ServeAsync(connection, Context(clock, log));
+        var serving = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServeAsync(connection, Context(clock, log));
         await ConnectAsync(connection, clock, log);
 
         clock.Advance(TimeSpan.FromSeconds(30));
@@ -327,7 +327,7 @@ public sealed class NatsServerConnectionTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection(chunks.Select(chunk => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(chunk)), new IPEndPoint(IPAddress.Loopback, 4222));
 
-        await new NatsServer(policy).ServeAsync(connection, Context(new ManualTimeProvider(), log, TestContext.CancellationToken));
+        await new NatsServer(policy, UnitTestMessageBus.Create()).ServeAsync(connection, Context(new ManualTimeProvider(), log, TestContext.CancellationToken));
 
         return (AfterInfo(Encoding.UTF8.GetString(connection.WrittenBytes)), log);
     }

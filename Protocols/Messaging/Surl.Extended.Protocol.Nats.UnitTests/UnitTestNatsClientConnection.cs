@@ -17,8 +17,19 @@ internal sealed class UnitTestNatsClientConnection : IConnection
     private readonly StringBuilder written = new();
     private ReadOnlyMemory<byte> current;
     private int writes;
+    private int attempts;
+    private bool holding = true;
 
     public int FailWritesAfter { get; init; } = int.MaxValue;
+
+    /// <summary>Writes after this many attempts wait, taking nothing, until they are cancelled.</summary>
+    public int HoldWritesAfter { get; init; } = int.MaxValue;
+
+    /// <summary>Whether writes still wait after a held one was cancelled.</summary>
+    public bool KeepsHoldingAfterCancel { get; init; }
+
+    /// <summary>How many writes the server has begun, held ones included.</summary>
+    public int WriteAttempts => Volatile.Read(ref attempts);
 
     public EndPoint LocalEndPoint { get; } = new IPEndPoint(IPAddress.Loopback, 4222);
 
@@ -59,9 +70,14 @@ internal sealed class UnitTestNatsClientConnection : IConnection
         return count;
     }
 
-    public ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
+    public async ValueTask WriteAsync(ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (Interlocked.Increment(ref attempts) > HoldWritesAfter && Volatile.Read(ref holding))
+        {
+            await HoldAsync(cancellationToken);
+        }
+
         lock (gate)
         {
             if (writes++ >= FailWritesAfter)
@@ -71,8 +87,21 @@ internal sealed class UnitTestNatsClientConnection : IConnection
 
             written.Append(Encoding.UTF8.GetString(bytes.Span));
         }
+    }
 
-        return ValueTask.CompletedTask;
+    // A transport that takes nothing until the write is cancelled; then it takes writes again
+    // unless it keeps holding.
+    private async Task HoldAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            Volatile.Write(ref holding, KeepsHoldingAfterCancel);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
     }
 
     public ValueTask CompleteWritesAsync(CancellationToken cancellationToken) => ValueTask.CompletedTask;

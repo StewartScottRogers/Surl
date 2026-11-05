@@ -246,6 +246,24 @@ connection).
   `'Attempted To Connect To Route Port'` is never sent: there is no route port.
 - No new option is added: ADR-0006's options cover what a test harness tunes.
 
+### 8. Details settled while building the routing (BL-526)
+
+Decided by Claude under Stewart's delegation, 2026-11-05, in BL-526, where decisions 4 and 7 leave
+a choice open:
+
+- **The slow consumer's `-ERR` is bounded.** Every byte a connection sends is queued in one
+  outbox, in order; past 64 MiB unwritten the write in progress is cancelled and the server tries
+  for 5 seconds to write `-ERR 'Slow Consumer'`, then closes whether or not it went. A transport
+  that cannot take 64 MiB will not take the error quickly either, and an unbounded try would hold
+  the connection until `--max-time`.
+- **The `503` goes to matching subscriptions in ordinal order of `sid`**, so the answer is the
+  same every time; the headers ADR names no order.
+- **Headers from another protocol** that a `NATS/1.0` block cannot carry - an empty name, a name
+  holding `:`, or a CR or LF in name or value - are left out of the block, so a peer's header can
+  never break the framing; with none left the message goes as MSG.
+- **An HPUB with a header size of 0** carries no native form and is delivered as MSG: there is no
+  block to keep.
+
 ## Alternatives considered
 
 - **`natss` as implicit TLS only** (wrapped in `ImplicitTlsSchemeServer`, as `rediss` is).

@@ -12,20 +12,37 @@ public sealed class NatsServerTests
     [TestMethod]
     public void Constructor_NullPolicy_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => new NatsServer(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new NatsServer(null!, UnitTestMessageBus.Create()));
+    }
+
+    [TestMethod]
+    public void Constructor_NullBus_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new NatsServer(new UnitTestNatsAuthenticationPolicy(), null!));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_BusBoundBelowMaxMessage_IsTheInfoMaxPayload()
+    {
+        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy(), new Surl.MessageBus.MessageBus(TimeProvider.System, maxMessageBytes: 1000));
+        var connection = new InMemoryConnection([], new IPEndPoint(IPAddress.Loopback, 4222));
+
+        await server.ServeAsync(connection, Context());
+
+        Assert.Contains("\"max_payload\":1000,", Encoding.UTF8.GetString(connection.WrittenBytes));
     }
 
     [TestMethod]
     public void Schemes_Default_IsNats()
     {
-        CollectionAssert.AreEqual(new[] { "nats" }, new NatsServer(new UnitTestNatsAuthenticationPolicy()).Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "nats" }, new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).Schemes.ToArray());
     }
 
     [TestMethod]
     public void ServerId_TwoServers_AreEach22UpperCaseLettersAndDigitsAndDiffer()
     {
-        var first = new NatsServer(new UnitTestNatsAuthenticationPolicy()).ServerId;
-        var second = new NatsServer(new UnitTestNatsAuthenticationPolicy()).ServerId;
+        var first = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServerId;
+        var second = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).ServerId;
 
         Assert.MatchesRegex("^[A-Z0-9]{22}$", first);
         Assert.MatchesRegex("^[A-Z0-9]{22}$", second);
@@ -35,7 +52,7 @@ public sealed class NatsServerTests
     [TestMethod]
     public async Task ServeAsync_NullArguments_Throw()
     {
-        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy());
+        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create());
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(null!, Context()));
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => server.ServeAsync(new InMemoryConnection([]), null!));
@@ -44,7 +61,7 @@ public sealed class NatsServerTests
     [TestMethod]
     public async Task ServeAsync_TwoConnections_SendInfoFirstWithClientIdsInAcceptOrder()
     {
-        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy());
+        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create());
         var first = new InMemoryConnection([], new IPEndPoint(IPAddress.Loopback, 4222));
         var second = new InMemoryConnection([], new IPEndPoint(IPAddress.Loopback, 4222));
 
@@ -58,7 +75,7 @@ public sealed class NatsServerTests
     [TestMethod]
     public async Task ServeAsync_AllowsAnonymous_InfoSaysNoAuthRequired()
     {
-        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy(), new NatsServerOptions { AllowsAnonymous = true });
+        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create(), new NatsServerOptions { AllowsAnonymous = true });
         var connection = new InMemoryConnection([], new IPEndPoint(IPAddress.Loopback, 4222));
 
         await server.ServeAsync(connection, Context());
@@ -73,7 +90,7 @@ public sealed class NatsServerTests
     {
         var connection = new InMemoryConnection([]);
 
-        await new NatsServer(new UnitTestNatsAuthenticationPolicy()).WriteRefusalAsync(connection, refusal, TestContext.CancellationToken);
+        await new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create()).WriteRefusalAsync(connection, refusal, TestContext.CancellationToken);
 
         Assert.AreEqual("-ERR 'Maximum Connections Exceeded'\r\n", Encoding.UTF8.GetString(connection.WrittenBytes));
         Assert.IsTrue(connection.WritesCompleted);
@@ -82,7 +99,7 @@ public sealed class NatsServerTests
     [TestMethod]
     public async Task WriteRefusalAsync_NullConnection_Throws()
     {
-        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy());
+        var server = new NatsServer(new UnitTestNatsAuthenticationPolicy(), UnitTestMessageBus.Create());
 
         await Assert.ThrowsExactlyAsync<ArgumentNullException>(
             () => server.WriteRefusalAsync(null!, ConnectionRefusal.TooManyConnections, TestContext.CancellationToken).AsTask());

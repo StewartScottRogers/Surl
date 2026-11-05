@@ -39,6 +39,32 @@ internal sealed class NatsControlLineReader(IConnection connection, long maxLine
         }
     }
 
+    /// <summary>
+    /// Reads a payload of <paramref name="count"/> bytes, CR LF inside it included, and the CR LF
+    /// that must follow it (ADR-0113 decision 0); null once the client has closed its side first.
+    /// </summary>
+    /// <exception cref="NatsProtocolViolationException">The payload is not followed by CR LF:
+    /// <c>'Parser Error'</c>.</exception>
+    public async ValueTask<byte[]?> ReadPayloadAsync(int count, CancellationToken cancellationToken)
+    {
+        while (end - start < count + 2)
+        {
+            if (!await FillAsync(cancellationToken))
+            {
+                return null;
+            }
+        }
+
+        if (buffer[start + count] != '\r' || buffer[start + count + 1] != '\n')
+        {
+            throw new NatsProtocolViolationException(NatsErrors.ParserError, "A payload was not followed by CR LF");
+        }
+
+        var payload = buffer.AsSpan(start, count).ToArray();
+        start += count + 2;
+        return payload;
+    }
+
     private byte[]? TryTakeLine()
     {
         var pending = buffer.AsSpan(start, end - start);
