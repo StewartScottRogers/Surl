@@ -14,7 +14,9 @@ namespace Surl.Authentication;
 /// NT hashes, one for each way an upstream curl build hashes the password (ADR-0039,
 /// <see cref="NtlmPasswordHashes"/>); and for AWS Signature Version 4, each named account's password as UTF-8
 /// bytes, since every signing key derives from the secret itself (ADR-0043); and, for the
-/// challenge-response mail logins, the same bytes (ADR-0049, section 5).
+/// challenge-response mail logins, the same bytes (ADR-0049, section 5); and, for SASL
+/// <c>SCRAM-SHA-1</c> and <c>SCRAM-SHA-256</c>, each named account's <see cref="ScramCredentials"/>
+/// under each hash, over a random salt and 4096 iterations (BL-416).
 /// </summary>
 public sealed class AccountBook
 {
@@ -31,6 +33,13 @@ public sealed class AccountBook
     private readonly AwsSigV4Account dummyAwsSigV4Account = new(null, RandomNumberGenerator.GetBytes(40));
     private readonly Dictionary<string, ChallengeResponseAccount> challengeResponseAccounts = new(StringComparer.Ordinal);
     private readonly ChallengeResponseAccount dummyChallengeResponseAccount = new(null, RandomNumberGenerator.GetBytes(16));
+    private readonly Dictionary<ScramHash, Dictionary<string, ScramCredentials>> scramAccounts = new()
+    {
+        [ScramHash.Sha1] = new(StringComparer.Ordinal),
+        [ScramHash.Sha256] = new(StringComparer.Ordinal),
+    };
+
+    private readonly byte[] dummyScramSaltKey = RandomNumberGenerator.GetBytes(32);
 
     /// <summary>
     /// Keeps <paramref name="accounts"/>, which <c>Surl.Cli</c> and <see cref="UserFileParser"/>
@@ -43,7 +52,18 @@ public sealed class AccountBook
     {
     }
 
-    internal AccountBook(IEnumerable<Account> accounts, ISecretComparer secretComparer)
+    /// <summary>
+    /// As the public constructor, comparing through <paramref name="secretComparer"/>, with each
+    /// account's SCRAM salt under each hash from <paramref name="createScramSalt"/>: random
+    /// <see cref="ScramCredentials.SaltLength"/> bytes when it is <see langword="null"/>, fixed
+    /// in tests so the RFCs' examples replay.
+    /// </summary>
+    /// <param name="accounts">Every configured account; no user name twice.</param>
+    /// <param name="secretComparer">The comparer every secret goes through.</param>
+    /// <param name="createScramSalt">Makes one account's salt under one hash.</param>
+    /// <exception cref="ArgumentException">A user name is given twice.</exception>
+    internal AccountBook(
+        IEnumerable<Account> accounts, ISecretComparer secretComparer, Func<ScramHash, byte[]>? createScramSalt = null)
     {
         ArgumentNullException.ThrowIfNull(accounts);
 
@@ -68,6 +88,17 @@ public sealed class AccountBook
             awsSigV4Accounts[account.UserName] = new AwsSigV4Account(account.UserName, Encoding.UTF8.GetBytes(account.Password));
             challengeResponseAccounts[account.UserName] =
                 new ChallengeResponseAccount(account.UserName, Encoding.UTF8.GetBytes(account.Password));
+            AddScramAccount(account, createScramSalt);
+        }
+    }
+
+    private void AddScramAccount(Account account, Func<ScramHash, byte[]>? createScramSalt)
+    {
+        createScramSalt ??= _ => RandomNumberGenerator.GetBytes(ScramCredentials.SaltLength);
+        foreach (var (hash, credentials) in scramAccounts)
+        {
+            credentials[account.UserName] = ScramCredentials.Derive(
+                hash, account.UserName, account.Password, createScramSalt(hash), ScramCredentials.DefaultIterationCount);
         }
     }
 
@@ -173,6 +204,25 @@ public sealed class AccountBook
     /// <returns>The account's name and password, or the dummy's.</returns>
     internal ChallengeResponseAccount FindChallengeResponseAccount(string? userName) =>
         challengeResponseAccounts.GetValueOrDefault(userName ?? string.Empty, dummyChallengeResponseAccount);
+
+    /// <summary>
+    /// The SCRAM credentials under <paramref name="hash"/> of the account <paramref name="userName"/>
+    /// names, matched exactly, derived at start-up (RFC 5802 section 3). Any other name, the empty
+    /// one included, gets a dummy with random keys and a salt that is the same every time that
+    /// name is asked about, as RFC 5802 section 9 advises, with the same iteration count: its
+    /// <c>server-first-message</c> cannot be told from an account's, it costs the same work, and
+    /// its proof matches nothing (ADR-0032, section 8; ADR-0006, section 3).
+    /// </summary>
+    /// <param name="hash">The mechanism's hash.</param>
+    /// <param name="userName">The user name as sent, decoded.</param>
+    /// <returns>The account's credentials, or the dummy's.</returns>
+    internal ScramCredentials FindScramCredentials(ScramHash hash, string userName) =>
+        scramAccounts[hash].GetValueOrDefault(userName) ?? new ScramCredentials(
+            null,
+            HMACSHA256.HashData(dummyScramSaltKey, Encoding.UTF8.GetBytes($"{hash.MechanismName}\0{userName}"))[..ScramCredentials.SaltLength],
+            ScramCredentials.DefaultIterationCount,
+            RandomNumberGenerator.GetBytes(hash.Length),
+            RandomNumberGenerator.GetBytes(hash.Length));
 
     private static IReadOnlyList<string> CreateUserHashes(Account account, Encoding encoding) =>
         [.. Enum.GetValues<DigestAlgorithm>().Select(algorithm => DigestCalculation.ComputeUserHash(

@@ -37,6 +37,18 @@ public enum AuthenticationMethod
     Digest,
 
     /// <summary>
+    /// SASL <c>SCRAM-SHA-256</c>, RFC 7677, without channel binding (BL-416); not in the default
+    /// set, so no original server offers it unless <c>--auth</c> names it.
+    /// </summary>
+    ScramSha256,
+
+    /// <summary>
+    /// SASL <c>SCRAM-SHA-1</c>, RFC 5802, without channel binding (BL-416); not in the default
+    /// set, so no original server offers it unless <c>--auth</c> names it.
+    /// </summary>
+    ScramSha1,
+
+    /// <summary>
     /// SASL <c>DIGEST-MD5</c>, RFC 2831 (<c>--auth digest-md5</c>), for the mail servers; Historic
     /// (RFC 6331), so not in the default set (ADR-0049, section 3).
     /// </summary>

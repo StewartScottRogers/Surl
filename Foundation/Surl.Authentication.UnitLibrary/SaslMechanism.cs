@@ -20,6 +20,8 @@ internal sealed record SaslMechanism(
     public static IReadOnlyList<SaslMechanism> InOfferOrder { get; } =
     [
         new("GSSAPI", AuthenticationMethod.Gssapi, context => new GssapiSaslExchange(context)),
+        new("SCRAM-SHA-256", AuthenticationMethod.ScramSha256, context => new ScramSaslExchange(context, ScramHash.Sha256)),
+        new("SCRAM-SHA-1", AuthenticationMethod.ScramSha1, context => new ScramSaslExchange(context, ScramHash.Sha1)),
         new("DIGEST-MD5", AuthenticationMethod.DigestMd5, context => new DigestMd5SaslExchange(context)),
         new("CRAM-MD5", AuthenticationMethod.CramMd5, context => new CramMd5SaslExchange(context)),
         new("NTLM", AuthenticationMethod.Ntlm, context => new NtlmSaslExchange(context)),

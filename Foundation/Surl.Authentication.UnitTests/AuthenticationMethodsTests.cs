@@ -24,6 +24,7 @@ public sealed class AuthenticationMethodsTests
             new[]
             {
                 AuthenticationMethod.Negotiate, AuthenticationMethod.Gssapi, AuthenticationMethod.Ntlm, AuthenticationMethod.NtlmV1, AuthenticationMethod.Digest,
+                AuthenticationMethod.ScramSha256, AuthenticationMethod.ScramSha1,
                 AuthenticationMethod.DigestMd5, AuthenticationMethod.CramMd5, AuthenticationMethod.Apop,
                 AuthenticationMethod.Basic, AuthenticationMethod.Plain, AuthenticationMethod.Login, AuthenticationMethod.Bearer,
                 AuthenticationMethod.OAuthBearer, AuthenticationMethod.XOAuth2, AuthenticationMethod.External, AuthenticationMethod.AwsSigV4,
@@ -37,6 +38,8 @@ public sealed class AuthenticationMethodsTests
     [DataRow(AuthenticationMethod.Ntlm, false)]
     [DataRow(AuthenticationMethod.NtlmV1, false)]
     [DataRow(AuthenticationMethod.Digest, false)]
+    [DataRow(AuthenticationMethod.ScramSha256, false)]
+    [DataRow(AuthenticationMethod.ScramSha1, false)]
     [DataRow(AuthenticationMethod.DigestMd5, false)]
     [DataRow(AuthenticationMethod.CramMd5, false)]
     [DataRow(AuthenticationMethod.Apop, false)]

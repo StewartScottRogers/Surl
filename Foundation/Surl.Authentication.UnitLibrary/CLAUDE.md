@@ -315,3 +315,26 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   `smtp`, `imap` and `pop` on the mail schemes (ADR-0057 Amendment 2); before BL-351 it answered
   `pop` there and refused every LDAP ticket. ADR-0078's OpenLDAP build of upstream curl proves it
   on CI's Linux leg (`Surl.Conformance.UnitTests`).
+
+## SASL `SCRAM-SHA-1` and `SCRAM-SHA-256` (BL-416)
+
+- `ScramSaslExchange` is RFC 5802 and RFC 7677 without channel binding, the mechanism ADR-0084
+  decision 4 puts here for the extended servers (XMPP first, then Kafka). `AuthenticationMethod`
+  has `ScramSha256` and `ScramSha1`, offered after `GSSAPI` and before `DIGEST-MD5`; neither is
+  in `AuthenticationMethods.DefaultAccepted` and `Surl.Console` has no `--auth` word for them
+  yet, so no original server offers them.
+- `AccountBook.FindScramCredentials` holds each named account's `ScramCredentials` (salt,
+  4096 iterations, `StoredKey`, `ServerKey`) per `ScramHash`, derived at start-up over a random
+  16-byte salt; an unknown name gets a dummy whose salt is an HMAC of the name, the same every
+  time, so the `server-first-message` never says whether the user exists. The salt source is
+  injectable (the internal constructor) so the RFCs' examples replay.
+- `ScramClientFirstMessage` and `ScramClientFinalMessage` read the RFC 5802 section 7 syntax.
+  `n` and `y` are accepted, `p=` is refused `channel-binding-not-supported`, `m=`
+  `extensions-not-supported`. A refusal's `RefusalNote` is the `server-final-message` that
+  refuses it (`e=invalid-proof` for a wrong proof and an unknown user alike); success is
+  `v=<ServerSignature>` as a challenge on the mail servers, or `AdditionalSuccessData` where the
+  server carries one (`CanCarrySecurityLayer`).
+- `SaslPrep` is RFC 4013's mapping (C.1.2 spaces to U+0020, B.1 removed) and NFKC; the
+  prohibited-output and bidirectional checks are not made, since they only refuse.
+- `ScramSaslMechanismTests` replays RFC 5802 section 5's and RFC 7677 section 3's examples byte
+  for byte.
