@@ -66,7 +66,7 @@ The certificate handshake, the cookie and the timers (BL-414, ADR-0087 decisions
   records never repeat the sequence number its `HelloVerifyRequest` reused.
 
 Still to come: PSK, the full alert list and `close_notify` (BL-415); RawPublicKey, client
-certificates, `max_fragment_length` and refusing renegotiation (BL-725); reporting the peer
+certificates, `max_fragment_length` and refusing renegotiation (BL-738); reporting the peer
 (BL-650).
 
 Never construct a socket here: records travel over the `IDatagramFlow` the caller gives.

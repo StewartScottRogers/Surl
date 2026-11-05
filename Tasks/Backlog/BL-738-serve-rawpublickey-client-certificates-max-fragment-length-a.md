@@ -1,5 +1,5 @@
 ---
-id: BL-725
+id: BL-738
 title: Serve RawPublicKey, client certificates, max_fragment_length and the renegotiation refusal in Surl.Dtls
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-725 — Serve RawPublicKey, client certificates, max_fragment_length and the renegotiation refusal in Surl.Dtls
+# BL-738 — Serve RawPublicKey, client certificates, max_fragment_length and the renegotiation refusal in Surl.Dtls
 
 ## Goal
 

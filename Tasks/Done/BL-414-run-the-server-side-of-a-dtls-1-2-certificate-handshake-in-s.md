@@ -83,7 +83,7 @@ Choices within ADR-0087, taken as sensible defaults (rule 1):
   BL-415's.
 
 Left for other tasks: PSK and the rest of the alerts (BL-415); RawPublicKey, client certificates,
-`max_fragment_length` and the renegotiation refusal (BL-725, filed by this task); reporting the peer (BL-650).
+`max_fragment_length` and the renegotiation refusal (BL-738, filed by this task); reporting the peer (BL-650).
 
 ## Log
 
