@@ -56,7 +56,7 @@ extension switch turns it off.
 - **TLS.** `s3` is in `TlsSchemes`' implicit-TLS set, so the engine handshakes before the server sees the
   connection and the existing `(58) ... needs a certificate` refusal applies; the `S3ProtocolServer` is registered
   directly (its own scheme is `s3`), no `ImplicitTlsSchemeServer`.
-- **`--s3-plaintext` left to BL-830.** ADR-0108 decision 5 assigns it here, but the engine, the TLS composition and
+- **`--s3-plaintext` left to BL-860.** ADR-0108 decision 5 assigns it here, but the engine, the TLS composition and
   ALPN decide TLS by scheme alone through a static set; making it per listener without static mutable state is a
   contract change to `Surl.Protocol.Abstractions` and `Surl.Core`, its own task. None of the acceptance criteria
   needs it.
@@ -69,7 +69,7 @@ extension switch turns it off.
   `-u`, `--user-file`, `--allow-anonymous`); `--aihelp s3` paragraphs and an example; an `S3 OPTIONS` manual
   section; the `extended`, `tls` and `content` paragraphs mention S3. The `extended` topic's "no server answers"
   example and the fake extended server in `Surl.Console.UnitTests` now use `oci`, which no server answers yet.
-- **ADR.** ADR-0108's amendment is filed as BL-831: `Documentation/Planning/Decisions` is in BL-822's `touches`
+- **ADR.** ADR-0108's amendment is filed as BL-861: `Documentation/Planning/Decisions` is in BL-822's `touches`
   (Doing), so this task did not edit it.
 - **Tests for the criteria.** `CommandLineRunnerExtendedProtocolTests.ComposeExtendedSchemes_ThisBuildWithTheSwitchUnset_RegistersS3`
   and `...ComposeExtendedSchemes_ThisBuildWithTheSwitchAtZero_RegistersNoS3` (criterion 1);
@@ -77,7 +77,7 @@ extension switch turns it off.
   2, `Surl.Composition.UnitTests`, reading each server's one `ContentStore` field); the five named `--aihelp`
   tests pass (criterion 3); build `-warnaserror` clean, fast tests green, coverage 100/100 for `Surl.Console`,
   `Surl.Cli`, `Surl.Composition`, `Surl.Networking` and `Surl.Protocol.Abstractions` (criterion 4).
-- **Filed:** BL-830 (`--s3-plaintext`), BL-831 (ADR-0108 amendment).
+- **Filed:** BL-860 (`--s3-plaintext`), BL-861 (ADR-0108 amendment).
 
 ## Log
 

@@ -1,5 +1,5 @@
 ---
-id: BL-830
+id: BL-860
 title: Serve s3 as plain HTTP/1.1 with --s3-plaintext
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-830 — Serve s3 as plain HTTP/1.1 with --s3-plaintext
+# BL-860 — Serve s3 as plain HTTP/1.1 with --s3-plaintext
 
 ## Goal
 
