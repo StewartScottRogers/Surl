@@ -60,6 +60,17 @@ public static class DnsMessageReader
         }
     }
 
+    /// <summary>
+    /// Reads <paramref name="recordData"/> as the whole RDATA of a <paramref name="type"/> record,
+    /// as a master file's <c>\#</c> form gives it (RFC 3597 section 5).
+    /// </summary>
+    /// <exception cref="DnsReadFaultException">The bytes do not hold the type's fields exactly.</exception>
+    internal static DnsRecordData ReadRecordData(byte[] recordData, DnsRecordType type)
+    {
+        var cursor = new DnsMessageCursor([(byte)(recordData.Length >> 8), (byte)recordData.Length, .. recordData]);
+        return ReadRecordData(cursor, type);
+    }
+
     private static DnsMessage ReadSections(DnsMessageCursor cursor, DnsHeader header, List<DnsQuestion> questions)
     {
         var questionCount = cursor.ReadUInt16();

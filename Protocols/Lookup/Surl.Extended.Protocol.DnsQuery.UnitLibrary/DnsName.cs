@@ -94,4 +94,36 @@ public sealed class DnsName
     /// </summary>
     internal string SuffixKey(int index) =>
         string.Concat(labels.Skip(index).Select(label => (char)label.Length + Encoding.Latin1.GetString(label)));
+
+    /// <summary>
+    /// A key two names share exactly when they are equal ignoring ASCII case (RFC 4343 section 3):
+    /// only the bytes A to Z are folded, every other byte compared as it is.
+    /// </summary>
+    internal string FoldedKey => string.Create(
+        SuffixKey(0).Length,
+        SuffixKey(0),
+        static (span, key) =>
+        {
+            for (var index = 0; index < key.Length; index++)
+            {
+                span[index] = char.IsAsciiLetterUpper(key[index]) ? (char)(key[index] | 0x20) : key[index];
+            }
+        });
+
+    /// <summary>Whether the first label is the single byte <c>*</c>, which makes the name a wildcard (RFC 4592 section 2.1.1).</summary>
+    internal bool IsWildcard => labels.Length > 0 && labels[0] is [(byte)'*'];
+
+    /// <summary>Returns the name made of the labels from <paramref name="index"/> on: its ancestor <paramref name="index"/> levels up.</summary>
+    internal DnsName Suffix(int index) => new(labels.Skip(index));
+
+    /// <summary>Returns this name's labels followed by <paramref name="origin"/>'s, as a relative name is completed.</summary>
+    /// <exception cref="ArgumentException">The name made is longer than 255 bytes on the wire.</exception>
+    internal DnsName Append(DnsName origin) => new(labels.Concat(origin.labels));
+
+    /// <summary>Returns <c>*</c> followed by this name's labels: the wildcard whose parent this name is.</summary>
+    internal DnsName WildcardChild() => new(new[] { "*"u8.ToArray() }.Concat(labels));
+
+    /// <summary>Whether this name is <paramref name="ancestor"/> or below it, ignoring ASCII case.</summary>
+    internal bool IsAtOrBelow(DnsName ancestor) =>
+        LabelCount >= ancestor.LabelCount && Suffix(LabelCount - ancestor.LabelCount).FoldedKey == ancestor.FoldedKey;
 }

@@ -46,6 +46,17 @@ public sealed class DnsMessageWriter
         return [.. writer.bytes];
     }
 
+    /// <summary>
+    /// Returns <paramref name="data"/> written alone, as the RDATA of a record in a message of its
+    /// own: what a zone compares two records by and counts against its bounds.
+    /// </summary>
+    internal static byte[] WriteRecordData(DnsRecordData data)
+    {
+        var writer = new DnsMessageWriter();
+        data.WriteTo(writer);
+        return [.. writer.bytes];
+    }
+
     /// <summary>Writes one byte.</summary>
     internal void WriteUInt8(byte value) => bytes.Add(value);
 
