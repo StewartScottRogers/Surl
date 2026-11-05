@@ -147,6 +147,8 @@
   </Folder>
 
   <Folder Name="/Protocols/Lookup/">
+    <Project Path="Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitLibrary/Surl.Extended.Protocol.DnsQuery.UnitLibrary.csproj" />
+    <Project Path="Protocols/Lookup/Surl.Extended.Protocol.DnsQuery.UnitTests/Surl.Extended.Protocol.DnsQuery.UnitTests.csproj" />
     <Project Path="Protocols/Lookup/Surl.Protocol.Dict.UnitLibrary/Surl.Protocol.Dict.UnitLibrary.csproj" />
     <Project Path="Protocols/Lookup/Surl.Protocol.Dict.UnitTests/Surl.Protocol.Dict.UnitTests.csproj" />
     <Project Path="Protocols/Lookup/Surl.Protocol.Gopher.UnitLibrary/Surl.Protocol.Gopher.UnitLibrary.csproj" />
