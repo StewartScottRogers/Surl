@@ -45,3 +45,4 @@ and controller and with the topics and partitions it holds. It runs SaslHandshak
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
