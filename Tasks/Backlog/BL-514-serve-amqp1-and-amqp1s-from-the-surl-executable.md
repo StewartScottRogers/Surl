@@ -4,7 +4,7 @@ title: Serve amqp1 and amqp1s from the surl executable
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-513, BL-405, BL-635]
+depends-on: [BL-513, BL-405, BL-635, BL-755]
 touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
