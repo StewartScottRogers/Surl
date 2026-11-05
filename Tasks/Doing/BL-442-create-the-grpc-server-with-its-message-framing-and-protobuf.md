@@ -48,3 +48,4 @@ compressed flag), encodes and decodes the protobuf wire format the built-in serv
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
