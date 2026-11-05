@@ -82,7 +82,7 @@ Choices within ADR-0092, taken as the sensible defaults:
   flow stops at once, as `Http3ProtocolServer` does.
 
 Left for other tasks: EDNS(0) padding on DoQ is BL-826; the connection-limit refusal with
-`DOQ_EXCESSIVE_LOAD` (an `IDatagramRefusalWriter`) is filed as BL-828; composing the server behind
+`DOQ_EXCESSIVE_LOAD` (an `IDatagramRefusalWriter`) is filed as BL-832; composing the server behind
 `--dns-transport quic` is BL-485.
 
 ## Log

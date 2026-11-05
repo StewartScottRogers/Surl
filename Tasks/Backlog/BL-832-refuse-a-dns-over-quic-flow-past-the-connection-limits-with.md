@@ -1,5 +1,5 @@
 ---
-id: BL-828
+id: BL-832
 title: Refuse a DNS over QUIC flow past the connection limits with DOQ_EXCESSIVE_LOAD
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-828 — Refuse a DNS over QUIC flow past the connection limits with DOQ_EXCESSIVE_LOAD
+# BL-832 — Refuse a DNS over QUIC flow past the connection limits with DOQ_EXCESSIVE_LOAD
 
 ## Goal
 
