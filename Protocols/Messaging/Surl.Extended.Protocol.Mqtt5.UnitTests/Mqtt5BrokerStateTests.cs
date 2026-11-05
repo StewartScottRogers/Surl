@@ -1,15 +1,24 @@
 using System.Text.RegularExpressions;
+using Surl.MessageBus;
+using static Surl.Extended.Protocol.Mqtt5.UnitTests.Mqtt5BrokerExchange;
 
 namespace Surl.Extended.Protocol.Mqtt5.UnitTests;
 
 /// <summary>
-/// The state a broker's connections share: client identifiers and pending Wills.
+/// The state a broker's connections share: client identifiers, pending Wills, and the message
+/// bus every published message goes to.
 /// </summary>
 [TestClass]
 public sealed partial class Mqtt5BrokerStateTests
 {
     private static readonly Mqtt5ApplicationMessage First = new("a", [1], 0, false, []);
     private static readonly Mqtt5ApplicationMessage Second = new("b", [2], 0, false, []);
+
+    [TestMethod]
+    public void Constructor_NullBus_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Mqtt5BrokerState(null!));
+    }
 
     [TestMethod]
     public void NewAssignedClientIdentifier_IsSurlAnd32LowerCaseHexDigits()
@@ -21,7 +30,7 @@ public sealed partial class Mqtt5BrokerStateTests
     public void RegisterAssignedClient_CandidateInUse_DrawsAnother()
     {
         var candidates = new Queue<string>(["surl-taken", "surl-free"]);
-        var state = new Mqtt5BrokerState(candidates.Dequeue);
+        var state = new Mqtt5BrokerState(new Surl.MessageBus.MessageBus(TimeProvider.System), candidates.Dequeue);
         state.RegisterClient("surl-taken");
 
         var assigned = state.RegisterAssignedClient(out _);
@@ -33,7 +42,7 @@ public sealed partial class Mqtt5BrokerStateTests
     [TestMethod]
     public void UnregisterClient_StaleRegistration_KeepsTheLaterConnection()
     {
-        var state = new Mqtt5BrokerState();
+        var state = NewState();
         var earlier = state.RegisterClient("c");
         var later = state.RegisterClient("c");
 
@@ -45,28 +54,41 @@ public sealed partial class Mqtt5BrokerStateTests
     }
 
     [TestMethod]
+    public void Publish_ForAnAccount_PublishesOnTheBusAsThatAccount()
+    {
+        var bus = new Surl.MessageBus.MessageBus(
+            TimeProvider.System,
+            configuration: MessageBusConfiguration.None with { AccessGrants = [new TopicAccessGrant("a", "alice", TopicAccessRights.Publish)] });
+        var state = new Mqtt5BrokerState(bus);
+
+        var allowed = state.Publish(First, "alice", DateTimeOffset.UnixEpoch);
+        var refused = state.Publish(First, "bob", DateTimeOffset.UnixEpoch);
+
+        Assert.AreEqual(MessageBusOutcome.Succeeded, allowed.Outcome);
+        Assert.AreEqual(MessageBusOutcome.AccessDenied, refused.Outcome);
+    }
+
+    [TestMethod]
     public void ScheduleWill_WhileAnotherWaits_PublishesTheEarlierAtOnceAndTheLaterWhenDue()
     {
         var clock = new ManualTimeProvider();
-        var state = new Mqtt5BrokerState();
-        var published = new List<Mqtt5ApplicationMessage>();
-        state.ApplicationMessagePublished += published.Add;
+        var state = NewState(clock);
+        var published = PublishedOn(state);
 
-        state.ScheduleWill("c", First, TimeSpan.FromSeconds(5), clock);
-        state.ScheduleWill("c", Second, TimeSpan.FromSeconds(5), clock);
-        CollectionAssert.AreEqual(new[] { First }, published);
+        state.ScheduleWill("c", First, null, TimeSpan.FromSeconds(5), clock);
+        state.ScheduleWill("c", Second, null, TimeSpan.FromSeconds(5), clock);
+        CollectionAssert.AreEqual(new[] { "a" }, published.Select(message => message.Topic).ToArray());
         clock.Advance(TimeSpan.FromSeconds(5));
 
-        CollectionAssert.AreEqual(new[] { First, Second }, published);
+        CollectionAssert.AreEqual(new[] { "a", "b" }, published.Select(message => message.Topic).ToArray());
         Assert.AreEqual(0, clock.PendingTimerCount);
     }
 
     [TestMethod]
     public void SettlePendingWill_NothingPending_PublishesNothing()
     {
-        var state = new Mqtt5BrokerState();
-        var published = new List<Mqtt5ApplicationMessage>();
-        state.ApplicationMessagePublished += published.Add;
+        var state = NewState();
+        var published = PublishedOn(state);
 
         state.SettlePendingWill("c", cleanStart: true);
 
@@ -77,21 +99,14 @@ public sealed partial class Mqtt5BrokerStateTests
     public void TimerFiringAfterTheWillWasSettled_PublishesNothing()
     {
         var clock = new CallbackCapturingTimeProvider();
-        var state = new Mqtt5BrokerState();
-        var published = new List<Mqtt5ApplicationMessage>();
-        state.ApplicationMessagePublished += published.Add;
-        state.ScheduleWill("c", First, TimeSpan.FromSeconds(5), clock);
+        var state = NewState();
+        var published = PublishedOn(state);
+        state.ScheduleWill("c", First, null, TimeSpan.FromSeconds(5), clock);
         state.SettlePendingWill("c", cleanStart: false);
 
         clock.FireEveryCallback();
 
         Assert.IsEmpty(published);
-    }
-
-    [TestMethod]
-    public void Publish_NobodyListening_DoesNothing()
-    {
-        new Mqtt5BrokerState().Publish(First);
     }
 
     [GeneratedRegex("^surl-[0-9a-f]{32}$")]

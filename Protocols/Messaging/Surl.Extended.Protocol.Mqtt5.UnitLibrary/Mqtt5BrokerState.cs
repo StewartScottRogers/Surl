@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using Surl.MessageBus;
 
 namespace Surl.Extended.Protocol.Mqtt5;
 
@@ -22,9 +23,10 @@ namespace Surl.Extended.Protocol.Mqtt5;
 /// Start 0 the session continues and the Will is discarded (<c>[MQTT-3.1.3-9]</c>).
 /// </para>
 /// <para>
-/// <b>Publishing.</b> Every message the broker publishes is raised as
-/// <see cref="ApplicationMessagePublished"/>. Only Wills are published so far; delivery to
-/// subscribers and retained messages are BL-497's and BL-498's.
+/// <b>Publishing.</b> Every message the broker publishes - a client's <c>PUBLISH</c> or a Will -
+/// goes to the one <see cref="Surl.MessageBus.MessageBus"/> composed per <c>surl</c> run (ADR-0100 decision 3.9),
+/// for the account of the client that sent it, so its routing, retained messages and topic
+/// access are the bus's and every other messaging server sees it.
 /// </para>
 /// </remarks>
 public sealed class Mqtt5BrokerState
@@ -38,10 +40,12 @@ public sealed class Mqtt5BrokerState
     private readonly Lock pendingWillsGate = new();
 
     /// <summary>
-    /// Creates the state of a broker with no client connected and no Will pending.
+    /// Creates the state of a broker with no client connected and no Will pending, which publishes
+    /// on <paramref name="bus"/>.
     /// </summary>
-    public Mqtt5BrokerState()
-        : this(NewAssignedClientIdentifier)
+    /// <param name="bus">The message bus the messaging servers of the run share.</param>
+    public Mqtt5BrokerState(Surl.MessageBus.MessageBus bus)
+        : this(bus, NewAssignedClientIdentifier)
     {
     }
 
@@ -49,16 +53,19 @@ public sealed class Mqtt5BrokerState
     /// Creates the state of a broker whose assigned client identifiers come from
     /// <paramref name="assignedClientIdentifierSource"/>.
     /// </summary>
+    /// <param name="bus">The message bus the messaging servers of the run share.</param>
     /// <param name="assignedClientIdentifierSource">Draws one candidate identifier per call.</param>
-    internal Mqtt5BrokerState(Func<string> assignedClientIdentifierSource)
+    internal Mqtt5BrokerState(Surl.MessageBus.MessageBus bus, Func<string> assignedClientIdentifierSource)
     {
+        ArgumentNullException.ThrowIfNull(bus);
+        Bus = bus;
         this.assignedClientIdentifierSource = assignedClientIdentifierSource;
     }
 
     /// <summary>
-    /// Raised for every Application Message the broker publishes, on the thread that publishes it.
+    /// The message bus every message the broker publishes goes to.
     /// </summary>
-    internal event Action<Mqtt5ApplicationMessage>? ApplicationMessagePublished;
+    internal Surl.MessageBus.MessageBus Bus { get; }
 
     /// <summary>
     /// A fresh <c>surl-</c> identifier: 32 lower-case hex digits of 16 random bytes.
@@ -113,10 +120,14 @@ public sealed class Mqtt5BrokerState
         connectedClients.TryRemove(new KeyValuePair<string, object>(clientIdentifier, registration));
 
     /// <summary>
-    /// Publishes <paramref name="message"/> to everything listening to the broker.
+    /// Publishes <paramref name="message"/> on <see cref="Bus"/> for <paramref name="account"/>.
     /// </summary>
-    /// <param name="message">The message.</param>
-    internal void Publish(Mqtt5ApplicationMessage message) => ApplicationMessagePublished?.Invoke(message);
+    /// <param name="message">The message, its topic canonical.</param>
+    /// <param name="account">The publishing client's account; <see langword="null"/> for an anonymous one.</param>
+    /// <param name="now">When it is published; its Message Expiry Interval counts from here.</param>
+    /// <returns>What the bus did with it.</returns>
+    internal BusPublishResult Publish(Mqtt5ApplicationMessage message, string? account, DateTimeOffset now) =>
+        Bus.Publish(Mqtt5BusMessages.ToBusMessage(message, now), account);
 
     /// <summary>
     /// Publishes a Will after <paramref name="delay"/>, unless a <c>CONNECT</c> for
@@ -124,12 +135,13 @@ public sealed class Mqtt5BrokerState
     /// identifier belonged to a session that has ended, so it is published at once.
     /// </summary>
     /// <param name="clientIdentifier">The identifier of the client whose Will it is.</param>
-    /// <param name="will">The message the Will stands for.</param>
+    /// <param name="will">The message the Will stands for, its topic canonical.</param>
+    /// <param name="account">The account of the client whose Will it is; <see langword="null"/> for an anonymous one.</param>
     /// <param name="delay">How long to wait; more than zero.</param>
     /// <param name="timeProvider">The clock the delay is measured on.</param>
-    internal void ScheduleWill(string clientIdentifier, Mqtt5ApplicationMessage will, TimeSpan delay, TimeProvider timeProvider)
+    internal void ScheduleWill(string clientIdentifier, Mqtt5ApplicationMessage will, string? account, TimeSpan delay, TimeProvider timeProvider)
     {
-        var pending = new PendingWill(will);
+        var pending = new PendingWill(will, account, timeProvider);
         PendingWill? replaced;
         lock (pendingWillsGate)
         {
@@ -141,7 +153,7 @@ public sealed class Mqtt5BrokerState
         if (replaced is not null)
         {
             replaced.Timer!.Dispose();
-            Publish(replaced.Will);
+            PublishWill(replaced);
         }
     }
 
@@ -168,7 +180,7 @@ public sealed class Mqtt5BrokerState
         pending.Timer!.Dispose();
         if (cleanStart)
         {
-            Publish(pending.Will);
+            PublishWill(pending);
         }
     }
 
@@ -184,12 +196,18 @@ public sealed class Mqtt5BrokerState
         }
 
         pending.Timer!.Dispose();
-        Publish(pending.Will);
+        PublishWill(pending);
     }
 
-    private sealed class PendingWill(Mqtt5ApplicationMessage will)
+    private void PublishWill(PendingWill pending) => Publish(pending.Will, pending.Account, pending.TimeProvider.GetUtcNow());
+
+    private sealed class PendingWill(Mqtt5ApplicationMessage will, string? account, TimeProvider timeProvider)
     {
         public Mqtt5ApplicationMessage Will { get; } = will;
+
+        public string? Account { get; } = account;
+
+        public TimeProvider TimeProvider { get; } = timeProvider;
 
         public ITimer? Timer { get; set; }
     }

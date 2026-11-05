@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.RegularExpressions;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 using static Surl.Extended.Protocol.Mqtt5.UnitTests.Mqtt5BrokerExchange;
 
@@ -31,7 +32,7 @@ public sealed partial class Mqtt5BrokerTests
         var policy = new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.Accepted);
 
         Assert.ThrowsExactly<ArgumentNullException>(() => new Mqtt5Broker(null!, policy));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new Mqtt5Broker(new Mqtt5BrokerState(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new Mqtt5Broker(NewState(), null!));
     }
 
     [TestMethod]
@@ -239,9 +240,7 @@ public sealed partial class Mqtt5BrokerTests
     }
 
     [TestMethod]
-    [DataRow(new byte[] { 0x30, 0x04, 0x00, 0x01, 0x61, 0x00 }, DisplayName = "PUBLISH")]
-    [DataRow(new byte[] { 0x40, 0x02, 0x00, 0x01 }, DisplayName = "PUBACK")]
-    [DataRow(new byte[] { 0x82, 0x07, 0x00, 0x01, 0x00, 0x00, 0x01, 0x61, 0x00 }, DisplayName = "SUBSCRIBE")]
+    [DataRow(new byte[] { 0xA2, 0x06, 0x00, 0x01, 0x00, 0x00, 0x01, 0x61 }, DisplayName = "UNSUBSCRIBE")]
     public async Task ServeAsync_PacketNotAnsweredYet_DisconnectsWithImplementationSpecificError(byte[] packet)
     {
         var log = new RecordingExchangeLog();
@@ -366,10 +365,10 @@ public sealed partial class Mqtt5BrokerTests
 
         var message = published.Single();
         Assert.AreEqual("w", message.Topic);
-        CollectionAssert.AreEqual("gone"u8.ToArray(), message.Payload);
-        Assert.AreEqual(1, message.QualityOfService);
+        CollectionAssert.AreEqual("gone"u8.ToArray(), message.Payload.ToArray());
+        Assert.AreEqual(BusQualityOfService.AtLeastOnce, message.QualityOfService);
         Assert.IsTrue(message.Retain);
-        Assert.AreEqual(Mqtt5PropertyIdentifier.UserProperty, message.Properties.Single().Identifier);
+        Assert.AreEqual(new BusMessageHeader("k", "v"), message.Headers.Single());
     }
 
     [TestMethod]
@@ -427,12 +426,10 @@ public sealed partial class Mqtt5BrokerTests
         Assert.HasCount(expectedPublished, published);
     }
 
-    private static ConcurrentQueue<Mqtt5ApplicationMessage> PublishedBy(out Mqtt5BrokerState state)
+    private static ConcurrentQueue<BusMessage> PublishedBy(out Mqtt5BrokerState state)
     {
-        var published = new ConcurrentQueue<Mqtt5ApplicationMessage>();
-        state = new Mqtt5BrokerState();
-        state.ApplicationMessagePublished += published.Enqueue;
-        return published;
+        state = NewState();
+        return PublishedOn(state);
     }
 
     [GeneratedRegex("^surl-[0-9a-f]{32}$")]

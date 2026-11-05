@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Net;
+using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
 
 namespace Surl.Extended.Protocol.Mqtt5.UnitTests;
@@ -90,7 +92,25 @@ internal static class Mqtt5BrokerExchange
     /// policy accepts every login unchecked.
     /// </summary>
     public static Mqtt5Broker Broker(Mqtt5BrokerState? state = null, IAuthenticationPolicy? policy = null) =>
-        new(state ?? new Mqtt5BrokerState(), policy ?? new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.AcceptedUnchecked));
+        new(state ?? NewState(), policy ?? new UnitTestRecordingAuthenticationPolicy(PasswordLoginVerdict.AcceptedUnchecked));
+
+    /// <summary>
+    /// The state of a broker over a fresh message bus on <paramref name="clock"/> (the system
+    /// clock when <see langword="null"/>).
+    /// </summary>
+    public static Mqtt5BrokerState NewState(TimeProvider? clock = null) =>
+        new(new Surl.MessageBus.MessageBus(clock ?? TimeProvider.System));
+
+    /// <summary>
+    /// Every message published on <paramref name="state"/>'s bus from now on, as a bus
+    /// subscriber to <c>#</c> receives it.
+    /// </summary>
+    public static ConcurrentQueue<BusMessage> PublishedOn(Mqtt5BrokerState state)
+    {
+        var published = new ConcurrentQueue<BusMessage>();
+        state.Bus.Connect().Subscribe("#", published.Enqueue);
+        return published;
+    }
 
     /// <summary>
     /// Serves a connection whose client sends <paramref name="packets"/> and then half-closes.
