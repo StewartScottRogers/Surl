@@ -105,7 +105,7 @@ public sealed class ObjectMetadataIndex
     /// <param name="maxEntries">The most entries held; at least 0.</param>
     /// <param name="maxMetadataBytes">The most bytes of metadata per object; 0 to 65535.</param>
     /// <param name="events">Where each stored entry is published as a
-    /// <see cref="StoreChange.MetadataStored"/> change named <c>/</c> and its key (ADR-0126);
+    /// <see cref="StoreChange.MetadataStored"/> change named <c>/</c> and its key (ADR-0129);
     /// <see langword="null"/> publishes nothing.</param>
     /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentException"><paramref name="servedRoot"/> is empty.</exception>

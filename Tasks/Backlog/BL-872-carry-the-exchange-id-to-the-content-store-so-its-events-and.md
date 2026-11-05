@@ -1,5 +1,5 @@
 ---
-id: BL-863
+id: BL-872
 title: Carry the exchange ID to the content store so its events and fault points name the exchange
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-863 — Carry the exchange ID to the content store so its events and fault points name the exchange
+# BL-872 — Carry the exchange ID to the content store so its events and fault points name the exchange
 
 ## Goal
 
@@ -19,12 +19,12 @@ the change, so a test can tie an upload's store change to the FTP or HTTP exchan
 
 ## Context
 
-- ADR-0126 decision 2: `ExchangeId` is `null` on every content change because the store's API takes a
+- ADR-0129 decision 2: `ExchangeId` is `null` on every content change because the store's API takes a
   `ContentPathMapping` built from a `ContentCaller`, which carries an account and a scheme but no exchange.
 - Planned shape: `ContentCaller` gains an optional exchange ID (for example `ForAccount(name, scheme)`
   and `Anonymous(scheme)` with a `WithExchange(long)` or an `init` property), and
   `ContentStoreEventsAndFaults` puts `mapping.Caller.ExchangeId` on the event and the fault point.
-  Record the choice as an amendment to ADR-0126.
+  Record the choice as an amendment to ADR-0129.
 - Each file server then passes `ExchangeContext.ExchangeId` when it builds its caller; file one task per
   server family for that wiring, depending on this one.
 

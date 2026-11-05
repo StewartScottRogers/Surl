@@ -225,7 +225,7 @@ public sealed class ContentUploadSession : IAsyncDisposable
     }
 
     // Written means nothing refuses the commit. An out-of-space fault answers as a full store
-    // does, TooLarge (ADR-0126).
+    // does, TooLarge (ADR-0129).
     private async Task<ContentUploadResult> CommitRefusalAsync(CancellationToken cancellationToken)
     {
         if (!CanTargetTakeAFile())

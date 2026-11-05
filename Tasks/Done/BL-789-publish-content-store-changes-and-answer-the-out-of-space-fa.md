@@ -48,18 +48,18 @@ fail on purpose.
 
 ## Notes
 
-- Decided in ADR-0126 (Claude under Stewart's delegation): ADR-0124's `StoreChange` had no way to say
+- Decided in ADR-0129 (Claude under Stewart's delegation): ADR-0124's `StoreChange` had no way to say
   renamed, folder created or metadata stored, so the contract grows: `Renamed`, `Created`,
   `MetadataStored` appended, and `StoreChangedEvent.PreviousName` (`init`). Replace and append are
   `Written` with the whole length; a removed folder is `Deleted`. `Name` is the request path with a
   share's name first, never a host path. Setting a last write time is not published.
 - Touches widened (rule 3): `Surl.Protocol.Abstractions.UnitLibrary` and `.UnitTests` for the enum and
-  property, `Documentation/Planning/Decisions` for ADR-0126. No task in `Doing` named any of them.
+  property, `Documentation/Planning/Decisions` for ADR-0129. No task in `Doing` named any of them.
 - Out of space answers the existing `ContentUploadResult.TooLarge` (the planning default), checked
   before an upload reads a byte and before a session commits; no server changes. The store publishes
   `FaultAppliedEvent` itself, as BL-788 does for mail. A non-`OutOfSpace` rule found at a store write is
   not applied.
-- `ExchangeId` is `null` on every content event: the store's API carries no exchange. Filed BL-863.
+- `ExchangeId` is `null` on every content event: the store's API carries no exchange. Filed BL-872.
 - Tests: `ContentStoreTests.Events.cs` (both file systems as `DataRow`s), `UnitTestPathPrefixFaultPlan`
   (segment-prefix matching and `times`, since `ScriptedFaultPlan` matches paths exactly and never spends),
   `ObjectMetadataIndexTests.StoreAsync_StoredOrNoSuchFile_...`. `UnitTestInMemoryContentFileSystem` now

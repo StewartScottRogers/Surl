@@ -70,7 +70,7 @@ and `readonly`. The lookups that name no caller (`MapRequestPath`, `MapRequestPa
 behave exactly as before, and with grants they never open a closed share. The root has no
 access rows.
 
-Stand-in events and faults (ADR-0124 decisions 1 and 4, ADR-0126, built by BL-789):
+Stand-in events and faults (ADR-0124 decisions 1 and 4, ADR-0129, built by BL-789):
 `ContentStore`'s five-argument constructor takes an optional `ISurlEventPublisher` and
 `IFaultPlan` (null: publish nothing, find nothing), held in internal `ContentStoreEventsAndFaults`.
 After each change it publishes one `StoreChangedEvent` (`Content`, `ExchangeId` null): `Written`

@@ -121,7 +121,7 @@ public sealed class ContentStore
     /// <param name="shares">The named shares; empty serves the one root.</param>
     /// <param name="buckets">The bucket names mapped onto content paths; may be empty.</param>
     /// <param name="events">Where every change the store makes is published as a
-    /// <see cref="StoreChangedEvent"/> (ADR-0124 decision 1, ADR-0126);
+    /// <see cref="StoreChangedEvent"/> (ADR-0124 decision 1, ADR-0129);
     /// <see langword="null"/> publishes nothing.</param>
     /// <param name="faults">The fault plan asked at every upload's
     /// <see cref="FaultStage.StoreWrite"/> point for an out-of-space rule (ADR-0124 decision 4);
@@ -1045,7 +1045,7 @@ public sealed class ContentStore
     }
 
     // The name a change is published under: the request path that reaches the location, '/'
-    // separated, a share's name first (ADR-0126). Never a full path on the host.
+    // separated, a share's name first (ADR-0129). Never a full path on the host.
     private static string PublishedNameOf(ContentPathMapping mapping, string location)
     {
         ContentContainer container = mapping.Container!;

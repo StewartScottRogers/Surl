@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Content;
 
 /// <summary>
-/// The content store's two stand-in seams (ADR-0124 decisions 1 and 4, ADR-0126): publishes each
+/// The content store's two stand-in seams (ADR-0124 decisions 1 and 4, ADR-0129): publishes each
 /// change as a <see cref="StoreChangedEvent"/> of <see cref="StoreKind.Content"/>, and asks the fault
 /// plan whether an upload runs out of space, publishing the <see cref="FaultAppliedEvent"/> when it
 /// does. Shared by <see cref="ContentStore"/> and every <see cref="ContentUploadSession"/> it opens.
