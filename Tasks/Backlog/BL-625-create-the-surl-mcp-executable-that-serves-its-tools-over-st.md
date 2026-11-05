@@ -49,6 +49,11 @@ input closes or it receives Ctrl+C or SIGTERM. It publishes native AOT.
 
 ## Notes
 
+- From BL-624 (2026-11-05): `PathConfinement` checks a relative path as the server will open it, relative to
+  the process's current directory. So when `--root` or `SURL_MCP_ROOT` is given, `surl-mcp` must set
+  `Environment.CurrentDirectory` to the root before it serves, or relative paths are taken from elsewhere (and
+  refused). See `Application/Surl.Mcp.UnitLibrary/CLAUDE.md`.
+
 ## Log
 
 - 2026-11-04: Created.
