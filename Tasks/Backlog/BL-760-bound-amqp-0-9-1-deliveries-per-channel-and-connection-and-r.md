@@ -1,5 +1,5 @@
 ---
-id: BL-754
+id: BL-760
 title: Bound AMQP 0-9-1 deliveries per channel and connection, and recover to the original consumer
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-754 — Bound AMQP 0-9-1 deliveries per channel and connection, and recover to the original consumer
+# BL-760 — Bound AMQP 0-9-1 deliveries per channel and connection, and recover to the original consumer
 
 ## Goal
 

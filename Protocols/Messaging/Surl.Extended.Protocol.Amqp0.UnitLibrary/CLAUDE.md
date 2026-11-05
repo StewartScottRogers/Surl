@@ -68,7 +68,7 @@ Channels, exchanges, queues and the basic class (BL-506, ADR-0112 decisions 5, 6
 - Delivery tags run from 1 per channel; `Amqp0Channel.Outstanding` maps each to its bus delivery.
   `basic.qos`'s prefetch-count bounds each consumer the channel makes afterwards; the
   channel-wide and `global` bounds, `prefetch-size`, and `recover` to the original consumer are
-  BL-754. `basic.cancel` to the consumers of a deleted queue is BL-755.
+  BL-760. `basic.cancel` to the consumers of a deleted queue is BL-761.
 
 The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749;
 transactions and publisher confirms BL-731 (`tx` and `confirm` are 540 until then); the headers

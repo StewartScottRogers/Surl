@@ -1,5 +1,5 @@
 ---
-id: BL-755
+id: BL-761
 title: Cancel AMQP 0-9-1 consumers of a deleted queue with basic.cancel
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-755 — Cancel AMQP 0-9-1 consumers of a deleted queue with basic.cancel
+# BL-761 — Cancel AMQP 0-9-1 consumers of a deleted queue with basic.cancel
 
 ## Goal
 
