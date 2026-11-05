@@ -8,8 +8,8 @@ public sealed partial class QuicServerConnection
     /// <summary>NEW_TOKEN and HANDSHAKE_DONE are the server's to send; RETIRE_CONNECTION_ID would retire the one connection ID the server issued, which is in use.</summary>
     private static readonly HashSet<Type> FramesAClientMayNotSend = [typeof(QuicNewTokenFrame), typeof(QuicRetireConnectionIdFrame), typeof(QuicHandshakeDoneFrame)];
 
-    /// <summary>Frames the connection takes without acting on them further: the server does not migrate, so the client's spare connection IDs and path responses go unused, and the client's DATA_BLOCKED and STREAMS_BLOCKED need no answer, since the server grants credit as data is read and streams close.</summary>
-    private static readonly HashSet<Type> FramesNeedingNothingMore = [typeof(QuicPaddingFrame), typeof(QuicPingFrame), typeof(QuicNewConnectionIdFrame), typeof(QuicPathResponseFrame), typeof(QuicDataBlockedFrame), typeof(QuicStreamsBlockedFrame)];
+    /// <summary>Frames the connection takes without acting on them further: the server does not migrate, so path responses go unused, and the client's DATA_BLOCKED and STREAMS_BLOCKED need no answer, since the server grants credit as data is read and streams close.</summary>
+    private static readonly HashSet<Type> FramesNeedingNothingMore = [typeof(QuicPaddingFrame), typeof(QuicPingFrame), typeof(QuicPathResponseFrame), typeof(QuicDataBlockedFrame), typeof(QuicStreamsBlockedFrame)];
 
     /// <summary>Reads each coalesced packet in turn; a packet whose header cannot be read drops the rest of the datagram.</summary>
     private void ReceivePackets(ReadOnlyMemory<byte> datagram)
@@ -193,8 +193,9 @@ public sealed partial class QuicServerConnection
     }
 
     /// <summary>
-    /// PATH_CHALLENGE is answered; NEW_TOKEN, RETIRE_CONNECTION_ID and HANDSHAKE_DONE are
-    /// violations; PADDING, PING, NEW_CONNECTION_ID, PATH_RESPONSE, DATA_BLOCKED and STREAMS_BLOCKED
+    /// PATH_CHALLENGE is answered; NEW_CONNECTION_ID goes to the client's connection IDs, and each
+    /// one they retire is sent in RETIRE_CONNECTION_ID; NEW_TOKEN, RETIRE_CONNECTION_ID and
+    /// HANDSHAKE_DONE are violations; PADDING, PING, PATH_RESPONSE, DATA_BLOCKED and STREAMS_BLOCKED
     /// need nothing more; every other frame is a stream or flow-control frame for <see cref="QuicStreams"/>.
     /// </summary>
     private void ProcessOtherFrame(QuicFrame frame)
@@ -202,6 +203,10 @@ public sealed partial class QuicServerConnection
         if (frame is QuicPathChallengeFrame challenge)
         {
             application.FramesToSend.Add(new QuicPathResponseFrame(challenge.Data.ToArray()));
+        }
+        else if (frame is QuicNewConnectionIdFrame newConnectionId)
+        {
+            application.FramesToSend.AddRange(clientConnectionIds!.Receive(newConnectionId).Select(sequenceNumber => new QuicRetireConnectionIdFrame(sequenceNumber)));
         }
         else if (FramesAClientMayNotSend.Contains(frame.GetType()))
         {

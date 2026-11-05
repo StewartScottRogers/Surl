@@ -29,6 +29,9 @@ public sealed partial class QuicServerConnection : IDisposable
     /// <summary>The length of the connection ID the server chooses for itself (ADR-0082 decision 4).</summary>
     public const int ServerConnectionIdLength = 8;
 
+    /// <summary>The most of the client's connection IDs the server keeps active: it sends no <c>active_connection_id_limit</c>, so the limit is that parameter's default, 2 (RFC 9000 section 18.2).</summary>
+    public const ulong ActiveConnectionIdLimit = QuicTransportParameters.MinActiveConnectionIdLimit;
+
     /// <summary>The shortest Destination Connection ID a client's first Initial may carry (RFC 9000 section 7.2).</summary>
     public const int MinClientDestinationConnectionIdLength = 8;
 
@@ -47,6 +50,7 @@ public sealed partial class QuicServerConnection : IDisposable
     private TlsServerHandshake? tls;
     private byte[] originalDestinationConnectionId = [];
     private byte[] clientConnectionId = [];
+    private QuicPeerConnectionIds? clientConnectionIds;
     private byte[] serverConnectionId = [];
     private long bytesReceived;
     private long bytesSent;
@@ -342,6 +346,7 @@ public sealed partial class QuicServerConnection : IDisposable
 
         originalDestinationConnectionId = destination.ToArray();
         clientConnectionId = source.ToArray();
+        clientConnectionIds = new QuicPeerConnectionIds(clientConnectionId, ActiveConnectionIdLimit);
         serverConnectionId = new byte[ServerConnectionIdLength];
         random.GetBytes(serverConnectionId);
         var (client, server) = QuicInitialSecrets.DerivePacketProtection(destination.Span);

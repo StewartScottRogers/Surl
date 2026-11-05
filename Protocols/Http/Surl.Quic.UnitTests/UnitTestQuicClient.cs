@@ -202,6 +202,9 @@ internal sealed class UnitTestQuicClient : IDisposable
     /// <summary>The key phase bit of every 1-RTT packet the client opened, in order.</summary>
     public List<bool> OneRttKeyPhasesReceived { get; } = [];
 
+    /// <summary>The Destination Connection ID of every 1-RTT packet the client opened, in order.</summary>
+    public List<byte[]> OneRttDestinationConnectionIdsReceived { get; } = [];
+
     /// <summary>
     /// Starts a key update (RFC 9001 section 6.1): both directions' next traffic secrets are
     /// HKDF-Expand-Label(secret, "quic ku", "", hash length), computed here with the BCL's HKDF;
@@ -305,6 +308,7 @@ internal sealed class UnitTestQuicClient : IDisposable
             if (result.Packet is QuicShortHeaderPacket shortHeader)
             {
                 OneRttKeyPhasesReceived.Add(shortHeader.KeyPhase);
+                OneRttDestinationConnectionIdsReceived.Add(shortHeader.DestinationConnectionId.ToArray());
             }
             TakeFrames(type, result.Packet!);
             remaining = remaining[result.PacketLength..];

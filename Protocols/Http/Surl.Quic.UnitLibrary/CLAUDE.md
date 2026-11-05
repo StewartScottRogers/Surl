@@ -5,8 +5,8 @@ Phase 6.
 QUIC version 1 for Surl's HTTP/3 server and DNS over QUIC, hand-built on every platform (ADR-0082 decisions 1, 2
 and 4). What it holds now is the codec, in the clear (BL-373), packet protection (BL-374) and the
 server connection through its handshake (BL-377), streams and flow control (BL-378, ADR-0096), and
-loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), `RESET_STREAM_AT` (BL-748), and following the client's key updates (BL-606); the client's spare connection IDs come with BL-607 and
-the closing and draining periods with BL-608.
+loss recovery and congestion control (BL-379), the flow loop an application protocol rides (BL-572), `DATAGRAM` frames (BL-573), `RESET_STREAM_AT` (BL-748), following the client's key updates (BL-606), and keeping and retiring the client's connection IDs (BL-607);
+the closing and draining periods come with BL-608.
 
 - `QuicServerConnection` - one connection, no I/O: `ReceiveDatagram` takes the client's datagram
   and returns a `QuicConnectionOutput` (datagrams to send, each at most 1200 bytes, and the
@@ -42,6 +42,17 @@ the closing and draining periods with BL-608.
   packets are outside the window, and an ack-eliciting Initial waits for a datagram the window and
   the amplification limit let reach 1200 bytes. Spaces whose keys go are forgotten (section 6.4).
 - Key updates (BL-606, RFC 9001 section 6, ADR-0082 decision 4): the server follows the client's and never starts one. The internal `QuicKeyPhase` holds the key phase bit every 1-RTT packet sent carries, the client's next keys made in advance (the next secret is HKDF-Expand-Label(secret, `quic ku`, "", hash length), `QuicPacketProtection.NextTrafficSecret`; `ForNextKeyPhase` keeps the header-protection key), and its previous keys, kept until the next update to open late packets of the old phase (numbered below the packet that started the current one). A packet in the other phase numbered from that packet on opens with the next keys and, once it opens, switches both directions to them. A key update before the server has sent an `ACK` in the current phase - the first update too, since a client may only update once a packet of its phase is acknowledged (section 6.1) - ends the connection `KEY_UPDATE_ERROR` (section 6.2). A packet in the other phase that does not open is dropped and the keys stay.
+- The client's connection IDs (BL-607, RFC 9000 sections 5.1.1, 5.1.2 and 19.15, ADR-0082 decision 4):
+  the internal `QuicPeerConnectionIds` holds the client's first Source Connection ID as sequence
+  number 0 and each `NEW_CONNECTION_ID` after it. The server sends no `active_connection_id_limit`, so
+  `QuicServerConnection.ActiveConnectionIdLimit` is its default, 2. Every active ID below the largest
+  Retire Prior To received is retired, and a `NEW_CONNECTION_ID` numbered below it is retired at once;
+  each retirement is sent as `RETIRE_CONNECTION_ID`. When the ID in use is retired, the server's
+  packets carry the lowest still active. A repeated frame is ignored; one while the client uses a
+  zero-length connection ID, a known sequence number with another ID, or an active ID under another
+  sequence number is `PROTOCOL_VIOLATION`; more than 2 active once the retirements are made is
+  `CONNECTION_ID_LIMIT_ERROR`. The server issues only its handshake connection ID, so a client's
+  `RETIRE_CONNECTION_ID` is still `PROTOCOL_VIOLATION`. Stateless reset tokens are not kept.
 - `DATAGRAM` frames (BL-573, RFC 9221, ADR-0086 decision 4): off unless
   `QuicServerConnectionOptions.MaxDatagramFrameSize` is set; then `max_datagram_frame_size` (0x20) is
   sent, and each `QuicDatagramFrame` (type `0x30` to the end of the packet, `0x31` with a Length) the
@@ -134,7 +145,7 @@ the closing and draining periods with BL-608.
 - `QuicRetryIntegrity` - RFC 9001 section 5.8: computes and checks a Retry's integrity tag.
 - `QuicReader`, `QuicWriter`, `QuicFrameTypes`, `QuicPacketHeaderBits`, `QuicConnectionIds`,
   `QuicPacketNumberSpace`, `QuicReceivedPacketNumbers`, `QuicCryptoReassembly`, `QuicOrderedBytes`, `QuicStreams`,
-  `QuicSentPacket`, `QuicLossDetection`, `QuicRttEstimator`, `QuicCongestionController`, `QuicKeyPhase` and the
+  `QuicSentPacket`, `QuicLossDetection`, `QuicRttEstimator`, `QuicCongestionController`, `QuicKeyPhase`, `QuicPeerConnectionIds` and the
   `QuicPacketCipher` classes are internal, visible to `Surl.Quic.UnitTests` only.
 
 Malformed input throws `QuicTransportException`; byte strings read are slices of the input, not

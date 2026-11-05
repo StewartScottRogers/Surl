@@ -258,8 +258,8 @@ public sealed partial class QuicServerConnection
 
         var truncated = QuicPacketNumber.Truncate(packetNumber, packetNumberLength);
         return space.PacketType == QuicPacketType.OneRtt
-            ? new QuicShortHeaderPacket(clientConnectionId, false, oneRttKeyPhase!.KeyPhase, packetNumberLength, truncated, payload)
-            : new QuicLongHeaderPacket(space.PacketType, clientConnectionId, serverConnectionId, ReadOnlyMemory<byte>.Empty, packetNumberLength, truncated, payload);
+            ? new QuicShortHeaderPacket(clientConnectionIds!.InUse, false, oneRttKeyPhase!.KeyPhase, packetNumberLength, truncated, payload)
+            : new QuicLongHeaderPacket(space.PacketType, clientConnectionIds!.InUse, serverConnectionId, ReadOnlyMemory<byte>.Empty, packetNumberLength, truncated, payload);
     }
 
     /// <summary>The fewest bytes that encode twice the packets not yet acknowledged (RFC 9000 section 17.1, Appendix A.2).</summary>
