@@ -22,6 +22,13 @@ namespace Surl.Extended.Protocol.Kafka;
 /// the connection with no bytes, and the exchange log notes why.
 /// </para>
 /// <para>
+/// <b>Before a login</b> (ADR-0105 decision 5). Unless the policy accepts an anonymous caller,
+/// a request other than ApiVersions, SaslHandshake and SaslAuthenticate closes the connection
+/// with no bytes until a SASL login is accepted. After a v0 SaslHandshake the login travels in
+/// raw tokens, each an INT32 size and the bytes, answered the same way; a refusal there closes
+/// with no bytes.
+/// </para>
+/// <para>
 /// <b>In range.</b> The header is read at the version <see cref="KafkaApiVersionRange.RequestHeaderVersion"/>
 /// gives, the request goes to its API's answerer, and the response is written under the response
 /// header <see cref="KafkaApiVersionRange.ResponseHeaderVersion"/> gives, echoing the request's
@@ -30,16 +37,24 @@ namespace Surl.Extended.Protocol.Kafka;
 /// </remarks>
 public sealed class KafkaBroker : IConnectionProtocolServer
 {
+    private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly FrozenDictionary<KafkaApiKey, IKafkaApiAnswerer> answerers;
 
     /// <summary>
     /// Creates a broker whose served APIs are answered by <paramref name="answerers"/>, one per API.
     /// </summary>
+    /// <param name="authenticationPolicy">
+    /// Asked once a connection whether an anonymous caller is let in (<c>--allow-anonymous</c>);
+    /// when not, only ApiVersions, SaslHandshake and SaslAuthenticate are served before a login.
+    /// </param>
     /// <param name="answerers">The answerers; a served API none answers closes the connection.</param>
     /// <exception cref="ArgumentException">Two answerers answer the same API.</exception>
-    public KafkaBroker(IEnumerable<IKafkaApiAnswerer> answerers)
+    public KafkaBroker(IAuthenticationPolicy authenticationPolicy, IEnumerable<IKafkaApiAnswerer> answerers)
     {
+        ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(answerers);
+
+        this.authenticationPolicy = authenticationPolicy;
 
         this.answerers = answerers.ToFrozenDictionary(answerer => answerer.ApiKey);
     }
@@ -61,6 +76,6 @@ public sealed class KafkaBroker : IConnectionProtocolServer
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new KafkaBrokerConnection(connection, context, answerers).ServeAsync();
+        return new KafkaBrokerConnection(connection, context, authenticationPolicy, answerers).ServeAsync();
     }
 }

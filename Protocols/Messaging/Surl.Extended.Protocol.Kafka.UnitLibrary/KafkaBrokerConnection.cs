@@ -9,50 +9,84 @@ namespace Surl.Extended.Protocol.Kafka;
 /// </summary>
 /// <param name="connection">The accepted connection.</param>
 /// <param name="context">The exchange's context: its limits, log, clock and cancellation token.</param>
+/// <param name="authenticationPolicy">Asked once whether an anonymous caller is let in.</param>
 /// <param name="answerers">The answerer of each served API that has one.</param>
 internal sealed class KafkaBrokerConnection(
     IConnection connection,
     ExchangeContext context,
+    IAuthenticationPolicy authenticationPolicy,
     FrozenDictionary<KafkaApiKey, IKafkaApiAnswerer> answerers)
 {
     private readonly KafkaRequestFrameReader reader = new(connection, context.Limits.MaxMessageBytes);
+    private readonly KafkaConnectionState state = new(connection.TlsSession);
+    private bool isAnonymousAllowed;
+    private bool isAnyRequestRead;
 
     /// <summary>Answers the connection until it ends.</summary>
     /// <returns>A task that completes when the exchange is over.</returns>
     public async Task ServeAsync()
     {
-        var frame = await ReadFirstRequestAsync();
+        isAnonymousAllowed = await authenticationPolicy.CheckPasswordLoginAsync(
+            new PasswordLogin(context.Scheme, null, null, connection.TlsSession), context.CancellationToken) == PasswordLoginVerdict.AcceptedUnchecked;
+        using var headTimeout = context.Limits.HeadTimeout == Timeout.InfiniteTimeSpan
+            ? null
+            : new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
+
+        var frame = await ReadRequestAsync(headTimeout);
         while (frame is not null && Received(frame) is { } request)
         {
-            var reply = await AnswerAsync(request);
-            if (reply.Answer.CloseNote is { } note)
+            var reply = state.PendingLogin is { CarriesRawTokens: true } login
+                ? await AnswerRawTokenAsync(login, request)
+                : await AnswerAsync(request);
+            if (!await WriteReplyAsync(reply))
             {
-                context.Log.Note($"{note}; closed with no reply.");
                 return;
             }
 
-            await WriteResponseAsync(reply);
-            frame = await reader.ReadRequestAsync(context.CancellationToken);
+            frame = await ReadRequestAsync(headTimeout);
         }
     }
 
-    // The head timeout runs until the first request is complete (ADR-0105 decision 7).
-    private async ValueTask<KafkaRequestFrameReadResult?> ReadFirstRequestAsync()
+    // Writes the reply's frame, if any; false when the connection closes after it.
+    private async ValueTask<bool> WriteReplyAsync(Reply reply)
     {
-        if (context.Limits.HeadTimeout == Timeout.InfiniteTimeSpan)
+        if (reply.Frame is { } bytes)
+        {
+            await connection.WriteAsync(bytes, context.CancellationToken);
+        }
+
+        if (reply.CloseNote is not { } note)
+        {
+            return true;
+        }
+
+        var how = reply.Frame is null ? "closed with no reply" : "closed after the reply";
+        context.Log.Note($"{note}; {how}.");
+        return false;
+    }
+
+    // The head timeout runs from accept until the first request is complete and, when a login
+    // is required, until it is accepted (ADR-0105 decisions 5 and 7).
+    private async ValueTask<KafkaRequestFrameReadResult?> ReadRequestAsync(CancellationTokenSource? headTimeout)
+    {
+        var isHeadOver = isAnyRequestRead && (isAnonymousAllowed || state.IsAuthenticated);
+        if (headTimeout is null || isHeadOver)
         {
             return await reader.ReadRequestAsync(context.CancellationToken);
         }
 
-        using var headTimeout = new CancellationTokenSource(context.Limits.HeadTimeout, context.TimeProvider);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, headTimeout.Token);
         try
         {
-            return await reader.ReadRequestAsync(cancellation.Token);
+            var frame = await reader.ReadRequestAsync(cancellation.Token);
+            isAnyRequestRead = true;
+            return frame;
         }
         catch (OperationCanceledException) when (!context.CancellationToken.IsCancellationRequested)
         {
-            context.Log.Note("The first request was not complete within the head timeout; closed with no reply.");
+            context.Log.Note(isAnyRequestRead
+                ? "The login was not finished within the head timeout; closed with no reply."
+                : "The first request was not complete within the head timeout; closed with no reply.");
             return null;
         }
     }
@@ -77,6 +111,22 @@ internal sealed class KafkaBrokerConnection(
         return null;
     }
 
+    // After a v0 SaslHandshake the login travels in raw tokens, each framed like a request, and
+    // the server's tokens are framed the same way; a refusal closes with no bytes (ADR-0105
+    // decision 5).
+    private async ValueTask<Reply> AnswerRawTokenAsync(KafkaSaslLogin login, ReadOnlyMemory<byte> token)
+    {
+        var step = await login.StepAsync(token, state, context);
+        if (step.Outcome == KafkaSaslStepOutcome.Refused)
+        {
+            return Closed("The SASL login was refused");
+        }
+
+        var frame = new KafkaPrimitiveWriter();
+        frame.WriteBytes(step.ServerMessage.Span);
+        return new(frame.ToArray(), null);
+    }
+
     private async ValueTask<Reply> AnswerAsync(ReadOnlyMemory<byte> request)
     {
         try
@@ -85,7 +135,7 @@ internal sealed class KafkaBrokerConnection(
         }
         catch (KafkaMalformedRequestException exception)
         {
-            return new(KafkaAnswer.Close($"A request could not be read ({exception.Message})"), 0, 0);
+            return Closed($"A request could not be read ({exception.Message})");
         }
     }
 
@@ -97,38 +147,49 @@ internal sealed class KafkaBrokerConnection(
         var range = KafkaServedApis.Find(fixedFields.ApiKey);
         if (range is null)
         {
-            return new(KafkaAnswer.Close($"API key {fixedFields.ApiKey} is not served"), 0, 0);
+            return Closed($"API key {fixedFields.ApiKey} is not served");
         }
 
         if (range.ApiKey == KafkaApiKey.ApiVersions && fixedFields.ApiVersion > range.MaxVersion)
         {
-            return new(KafkaAnswer.Respond(KafkaApiVersionsFallback.EncodeBody()), fixedFields.CorrelationId, 0);
+            return Reply.Of(KafkaAnswer.Respond(KafkaApiVersionsFallback.EncodeBody()), fixedFields.CorrelationId, 0);
         }
 
         if (!range.Serves(fixedFields.ApiVersion))
         {
-            return new(KafkaAnswer.Close($"{range.ApiKey} version {fixedFields.ApiVersion} is not served ({range.MinVersion} to {range.MaxVersion} are)"), 0, 0);
+            return Closed($"{range.ApiKey} version {fixedFields.ApiVersion} is not served ({range.MinVersion} to {range.MaxVersion} are)");
+        }
+
+        if (!MayServe(range.ApiKey))
+        {
+            return Closed($"{range.ApiKey} came before a login");
         }
 
         if (!answerers.TryGetValue(range.ApiKey, out var answerer))
         {
-            return new(KafkaAnswer.Close($"{range.ApiKey} is not answered yet"), 0, 0);
+            return Closed($"{range.ApiKey} is not answered yet");
         }
 
         var fields = new KafkaPrimitiveReader(request);
         var header = KafkaRequestHeader.Read(fields, range.RequestHeaderVersion(fixedFields.ApiVersion));
-        var answer = await answerer.AnswerAsync(new KafkaRequest(header, range, fields), context);
-        return new(answer, header.CorrelationId, range.ResponseHeaderVersion(header.ApiVersion));
+        var answer = await answerer.AnswerAsync(new KafkaRequest(header, range, fields, state), context);
+        return Reply.Of(answer, header.CorrelationId, range.ResponseHeaderVersion(header.ApiVersion));
     }
 
-    private async ValueTask WriteResponseAsync(Reply reply)
+    // Secure by default (ADR-0105 decision 5): before a login only ApiVersions and the SASL
+    // requests are served, unless the policy lets an anonymous caller in (--allow-anonymous).
+    private bool MayServe(KafkaApiKey apiKey) =>
+        isAnonymousAllowed
+        || state.IsAuthenticated
+        || apiKey is KafkaApiKey.ApiVersions or KafkaApiKey.SaslHandshake or KafkaApiKey.SaslAuthenticate;
+
+    private static Reply Closed(string note) => new(null, note);
+
+    // What goes on the wire, if anything, and why the connection closes after it, if it does.
+    private readonly record struct Reply(byte[]? Frame, string? CloseNote)
     {
-        if (reply.Answer.ResponseBody is { } body)
-        {
-            await connection.WriteAsync(KafkaResponseFrame.Encode(reply.CorrelationId, reply.ResponseHeaderVersion, body.Span), context.CancellationToken);
-        }
+        public static Reply Of(KafkaAnswer answer, int correlationId, short responseHeaderVersion) => new(
+            answer.ResponseBody is { } body ? KafkaResponseFrame.Encode(correlationId, responseHeaderVersion, body.Span) : null,
+            answer.CloseNote);
     }
-
-    // An answer with the correlation id and response header version it is written under.
-    private readonly record struct Reply(KafkaAnswer Answer, int CorrelationId, short ResponseHeaderVersion);
 }

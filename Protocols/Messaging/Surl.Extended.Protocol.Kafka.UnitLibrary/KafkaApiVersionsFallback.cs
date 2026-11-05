@@ -11,18 +11,5 @@ public static class KafkaApiVersionsFallback
     /// <summary>The response body: <c>error_code</c>, then the <c>api_versions</c> ARRAY of
     /// <c>api_key</c>, <c>min_version</c> and <c>max_version</c>, each an INT16.</summary>
     /// <returns>The body, without the response header.</returns>
-    public static byte[] EncodeBody()
-    {
-        var body = new KafkaPrimitiveWriter();
-        body.WriteInt16((short)KafkaErrorCode.UnsupportedVersion);
-        body.WriteArrayLength(KafkaServedApis.Ranges.Count);
-        foreach (var range in KafkaServedApis.Ranges)
-        {
-            body.WriteInt16((short)range.ApiKey);
-            body.WriteInt16(range.MinVersion);
-            body.WriteInt16(range.MaxVersion);
-        }
-
-        return body.ToArray();
-    }
+    public static byte[] EncodeBody() => KafkaApiVersionsAnswerer.EncodeBody(0, KafkaErrorCode.UnsupportedVersion);
 }

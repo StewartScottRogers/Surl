@@ -25,9 +25,27 @@ decisions 1 and 7):
   `UNSUPPORTED_VERSION`, every range); any other API or version outside the table, and a served
   API no `IKafkaApiAnswerer` answers yet, closes the connection with no bytes and a log note.
 
-Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor: ApiVersions,
-Metadata and SASL (BL-518), Produce (BL-519), Fetch and ListOffsets (BL-520), compressed batches
-(BL-521); the command line and composition are BL-522.
+ApiVersions, Metadata and SASL (BL-518, ADR-0105 decisions 1, 2 and 5):
+
+- `KafkaBroker` takes an `IAuthenticationPolicy`, asked once a connection whether an anonymous
+  caller is let in (`--allow-anonymous`). When not, only ApiVersions, SaslHandshake and
+  SaslAuthenticate are served before a login; anything else closes with no bytes, and
+  `--head-timeout` runs from accept until the login is accepted.
+- `KafkaConnectionState` is what the broker keeps of one connection (its TLS session, the
+  pending `KafkaSaslLogin`, the account logged in); every `KafkaRequest` carries it.
+- `KafkaApiVersionsAnswerer` answers v0 to v3 with `KafkaServedApis`' ranges.
+- `KafkaMetadataAnswerer` answers v0 to v8 from `Surl.MessageBus`: node 0 as broker and
+  controller, a random 22-character cluster id, one partition a topic, auto-creation through
+  `MessageBus.CreateLog`, topic access through `MessageBus.GetTopicAccess`.
+- `KafkaSaslHandshakeAnswerer` offers the policy's `PLAIN`, `SCRAM-SHA-256` and `SCRAM-SHA-512`,
+  matched exactly; `KafkaSaslAuthenticateAnswerer` carries each step in `auth_bytes`, and a v0
+  handshake's raw tokens are answered by `KafkaBrokerConnection`. `KafkaSaslLogin` hands each
+  client message to the policy's `ISaslExchange`, and returns SCRAM's server-final with the
+  success, since a Kafka client sends nothing after it.
+
+Each served API gets an `IKafkaApiAnswerer`, passed to `KafkaBroker`'s constructor: Produce
+(BL-519), Fetch and ListOffsets (BL-520), compressed batches (BL-521) are still to come; the
+command line and composition are BL-522.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the
 horizontal libraries ADR-0105 decision 0 names (`Surl.MessageBus`, `Surl.Compression`) - never

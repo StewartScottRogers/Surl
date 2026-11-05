@@ -18,24 +18,26 @@ public sealed class KafkaBrokerTests
         0x00, 0x03, 0x00, 0x04, 0x01, 0x02, 0x03, 0x04, 0x00, 0x02, 0x63, 0x31, 0x2A,
     ];
 
+    private static readonly AnonymousAuthenticationPolicy Anonymous = new();
+
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
     public void Constructor_NullAnswerers_Throws() =>
-        Assert.ThrowsExactly<ArgumentNullException>(() => new KafkaBroker(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new KafkaBroker(Anonymous, null!));
 
     [TestMethod]
     public void Constructor_TwoAnswerersForOneApi_Throws() =>
-        Assert.ThrowsExactly<ArgumentException>(() => new KafkaBroker([new UnitTestEchoAnswerer(KafkaApiKey.Metadata), new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]));
+        Assert.ThrowsExactly<ArgumentException>(() => new KafkaBroker(Anonymous, [new UnitTestEchoAnswerer(KafkaApiKey.Metadata), new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]));
 
     [TestMethod]
     public void Schemes_AreKafkaAndKafkas() =>
-        CollectionAssert.AreEqual(new[] { "kafka", "kafkas" }, new KafkaBroker([]).Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "kafka", "kafkas" }, new KafkaBroker(Anonymous, []).Schemes.ToArray());
 
     [TestMethod]
     public void ServeAsync_NullArguments_Throw()
     {
-        var broker = new KafkaBroker([]);
+        var broker = new KafkaBroker(Anonymous, []);
         var connection = new InMemoryConnection([]);
 
         Assert.ThrowsExactly<ArgumentNullException>(() => broker.ServeAsync(null!, Context()));
@@ -48,7 +50,7 @@ public sealed class KafkaBrokerTests
         var answerer = new UnitTestEchoAnswerer(KafkaApiKey.Metadata);
         var connection = new InMemoryConnection([MetadataV4]);
 
-        await new KafkaBroker([answerer]).ServeAsync(connection, Context());
+        await new KafkaBroker(Anonymous, [answerer]).ServeAsync(connection, Context());
 
         CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 5, 0x01, 0x02, 0x03, 0x04, 0x2A }, connection.WrittenBytes);
         var request = answerer.Requests.Single();
@@ -61,7 +63,7 @@ public sealed class KafkaBrokerTests
     {
         var connection = new InMemoryConnection(MetadataV4.Select(value => (ReadOnlyMemory<byte>)new[] { value }));
 
-        await new KafkaBroker([new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]).ServeAsync(connection, Context());
+        await new KafkaBroker(Anonymous, [new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]).ServeAsync(connection, Context());
 
         CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 5, 0x01, 0x02, 0x03, 0x04, 0x2A }, connection.WrittenBytes);
     }
@@ -74,7 +76,7 @@ public sealed class KafkaBrokerTests
         second[16] = 0x2B;
         var connection = new InMemoryConnection([MetadataV4, second]);
 
-        await new KafkaBroker([new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]).ServeAsync(connection, Context());
+        await new KafkaBroker(Anonymous, [new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]).ServeAsync(connection, Context());
 
         CollectionAssert.AreEqual(
             new byte[] { 0, 0, 0, 5, 0x01, 0x02, 0x03, 0x04, 0x2A, 0, 0, 0, 5, 0x01, 0x02, 0x03, 0x05, 0x2B },
@@ -89,7 +91,7 @@ public sealed class KafkaBrokerTests
         var answerer = new UnitTestEchoAnswerer(KafkaApiKey.ApiVersions);
         var connection = new InMemoryConnection([request]);
 
-        await new KafkaBroker([answerer]).ServeAsync(connection, Context());
+        await new KafkaBroker(Anonymous, [answerer]).ServeAsync(connection, Context());
 
         CollectionAssert.AreEqual(new byte[] { 0, 0, 0, 5, 0, 0, 0, 9, 0x2A }, connection.WrittenBytes);
         Assert.AreEqual("c", answerer.Requests.Single().Header.ClientId);
@@ -101,7 +103,7 @@ public sealed class KafkaBrokerTests
         var answerer = new UnitTestEchoAnswerer(KafkaApiKey.Metadata) { Answer = KafkaAnswer.NoResponse };
         var connection = new InMemoryConnection([MetadataV4, MetadataV4]);
 
-        await new KafkaBroker([answerer]).ServeAsync(connection, Context());
+        await new KafkaBroker(Anonymous, [answerer]).ServeAsync(connection, Context());
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.HasCount(2, answerer.Requests);
@@ -114,7 +116,7 @@ public sealed class KafkaBrokerTests
         var answerer = new UnitTestEchoAnswerer(KafkaApiKey.Metadata) { Answer = KafkaAnswer.Close("Refused") };
         var connection = new InMemoryConnection([MetadataV4, MetadataV4]);
 
-        await new KafkaBroker([answerer]).ServeAsync(connection, Context(log: log));
+        await new KafkaBroker(Anonymous, [answerer]).ServeAsync(connection, Context(log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.HasCount(1, answerer.Requests);
@@ -128,7 +130,7 @@ public sealed class KafkaBrokerTests
         var answerer = new UnitTestEchoAnswerer(KafkaApiKey.Metadata) { ReadsAnInt64 = true };
         var connection = new InMemoryConnection([MetadataV4]);
 
-        await new KafkaBroker([answerer]).ServeAsync(connection, Context(log: log));
+        await new KafkaBroker(Anonymous, [answerer]).ServeAsync(connection, Context(log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.AreEqual("A request could not be read (A field needs 8 bytes and 1 are left.); closed with no reply.", log.Notes.Single());
@@ -141,7 +143,7 @@ public sealed class KafkaBrokerTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([new byte[] { 0, 0, 0, 0x0A, 0x00, 0x0B, 0x00, 0x00, 0, 0, 0, 1, 0xFF, 0xFF }]);
 
-        await new KafkaBroker([new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]).ServeAsync(connection, Context(log: log));
+        await new KafkaBroker(Anonymous, [new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]).ServeAsync(connection, Context(log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.AreEqual("API key 11 is not served; closed with no reply.", log.Notes.Single());
@@ -156,7 +158,7 @@ public sealed class KafkaBrokerTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([new byte[] { 0, 0, 0, 0x0A, 0x00, 0x00, 0x00, version, 0, 0, 0, 1, 0xFF, 0xFF }]);
 
-        await new KafkaBroker([new UnitTestEchoAnswerer(KafkaApiKey.Produce)]).ServeAsync(connection, Context(log: log));
+        await new KafkaBroker(Anonymous, [new UnitTestEchoAnswerer(KafkaApiKey.Produce)]).ServeAsync(connection, Context(log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.AreEqual($"Produce version {version} is not served (3 to 8 are); closed with no reply.", log.Notes.Single());
@@ -183,7 +185,7 @@ public sealed class KafkaBrokerTests
         ];
         var connection = new InMemoryConnection([request]);
 
-        await new KafkaBroker([]).ServeAsync(connection, Context());
+        await new KafkaBroker(Anonymous, []).ServeAsync(connection, Context());
 
         CollectionAssert.AreEqual(expected, connection.WrittenBytes);
     }
@@ -194,7 +196,7 @@ public sealed class KafkaBrokerTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([MetadataV4]);
 
-        await new KafkaBroker([]).ServeAsync(connection, Context(log: log));
+        await new KafkaBroker(Anonymous, []).ServeAsync(connection, Context(log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.AreEqual("Metadata is not answered yet; closed with no reply.", log.Notes.Single());
@@ -206,7 +208,7 @@ public sealed class KafkaBrokerTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([new byte[] { 0, 0, 0, 2, 0x00, 0x03 }]);
 
-        await new KafkaBroker([]).ServeAsync(connection, Context(log: log));
+        await new KafkaBroker(Anonymous, []).ServeAsync(connection, Context(log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         StringAssert.StartsWith(log.Notes.Single(), "A request could not be read (");
@@ -219,7 +221,7 @@ public sealed class KafkaBrokerTests
         var limits = ExchangeLimits.Default with { MaxMessageBytes = 12 };
         var connection = new InMemoryConnection([MetadataV4]);
 
-        await new KafkaBroker([new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]).ServeAsync(connection, Context(limits: limits, log: log));
+        await new KafkaBroker(Anonymous, [new UnitTestEchoAnswerer(KafkaApiKey.Metadata)]).ServeAsync(connection, Context(limits: limits, log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.AreEqual("A request's size prefix was 13, outside 1 to the request limit 12; closed with no reply.", log.Notes.Single());
@@ -231,7 +233,7 @@ public sealed class KafkaBrokerTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([MetadataV4.AsMemory(0, 6)]);
 
-        await new KafkaBroker([]).ServeAsync(connection, Context(log: log));
+        await new KafkaBroker(Anonymous, []).ServeAsync(connection, Context(log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.AreEqual("The client closed the connection part of the way through a request.", log.Notes.Single());
@@ -243,7 +245,7 @@ public sealed class KafkaBrokerTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([]);
 
-        await new KafkaBroker([]).ServeAsync(connection, Context(log: log));
+        await new KafkaBroker(Anonymous, []).ServeAsync(connection, Context(log: log));
 
         Assert.IsEmpty(connection.WrittenBytes);
         Assert.IsEmpty(log.Notes);
@@ -256,7 +258,7 @@ public sealed class KafkaBrokerTests
         var log = new RecordingExchangeLog();
         var connection = new InMemoryConnection([MetadataV4.AsMemory(0, 6)], peerHalfClosesWhenExhausted: false);
 
-        var serving = new KafkaBroker([]).ServeAsync(connection, Context(clock, log: log));
+        var serving = new KafkaBroker(Anonymous, []).ServeAsync(connection, Context(clock, log: log));
         clock.Advance(ExchangeLimits.Default.HeadTimeout);
         await serving;
 
@@ -272,7 +274,7 @@ public sealed class KafkaBrokerTests
         var limits = ExchangeLimits.Default with { HeadTimeout = Timeout.InfiniteTimeSpan };
         var connection = new InMemoryConnection([MetadataV4.AsMemory(0, 6)], peerHalfClosesWhenExhausted: false);
 
-        var serving = new KafkaBroker([]).ServeAsync(connection, Context(clock, limits, cancellationToken: idleTimeout.Token));
+        var serving = new KafkaBroker(Anonymous, []).ServeAsync(connection, Context(clock, limits, cancellationToken: idleTimeout.Token));
         clock.Advance(TimeSpan.FromDays(1));
         Assert.IsFalse(serving.IsCompleted);
         await idleTimeout.CancelAsync();
@@ -288,11 +290,65 @@ public sealed class KafkaBrokerTests
         using var idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
         var connection = new InMemoryConnection([MetadataV4.AsMemory(0, 6)], peerHalfClosesWhenExhausted: false);
 
-        var serving = new KafkaBroker([]).ServeAsync(connection, Context(log: log, cancellationToken: idleTimeout.Token));
+        var serving = new KafkaBroker(Anonymous, []).ServeAsync(connection, Context(log: log, cancellationToken: idleTimeout.Token));
         await idleTimeout.CancelAsync();
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
         Assert.IsEmpty(log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_LoginNotFinishedWithinTheHeadTimeout_ClosesWithNoBytes()
+    {
+        var clock = new ManualTimeProvider();
+        var log = new RecordingExchangeLog();
+        var policy = new UnitTestKafkaAuthenticationPolicy(false, "PLAIN");
+        var handshake = KafkaTestExchanges.Request(KafkaApiKey.SaslHandshake, 1, KafkaTestExchanges.String("PLAIN"));
+        var connection = new InMemoryConnection([handshake], peerHalfClosesWhenExhausted: false);
+
+        var serving = new KafkaBroker(policy, [new KafkaSaslHandshakeAnswerer(policy)]).ServeAsync(connection, Context(clock, log: log));
+        clock.Advance(ExchangeLimits.Default.HeadTimeout);
+        await serving;
+
+        CollectionAssert.AreEqual(KafkaTestExchanges.Response([0, 0, 0, 0, 0, 1, .. KafkaTestExchanges.String("PLAIN")]), connection.WrittenBytes);
+        Assert.AreEqual("The login was not finished within the head timeout; closed with no reply.", log.Notes.Single());
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_LoginFinished_IsNoLongerBoundByTheHeadTimeout()
+    {
+        var clock = new ManualTimeProvider();
+        using var idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var policy = new UnitTestKafkaAuthenticationPolicy(false, "PLAIN");
+        byte[][] requests =
+        [
+            KafkaTestExchanges.Request(KafkaApiKey.SaslHandshake, 1, KafkaTestExchanges.String("PLAIN")),
+            KafkaTestExchanges.Request(KafkaApiKey.SaslAuthenticate, 0, KafkaTestExchanges.Bytes("\0alice\0secret")),
+        ];
+        var connection = new InMemoryConnection(requests.Select(request => (ReadOnlyMemory<byte>)request), peerHalfClosesWhenExhausted: false);
+
+        var serving = new KafkaBroker(policy, [new KafkaSaslHandshakeAnswerer(policy), new KafkaSaslAuthenticateAnswerer()])
+            .ServeAsync(connection, Context(clock, cancellationToken: idleTimeout.Token));
+        clock.Advance(ExchangeLimits.Default.HeadTimeout);
+        Assert.IsFalse(serving.IsCompleted);
+        await idleTimeout.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_AnonymousAllowedAfterTheFirstRequest_IsNoLongerBoundByTheHeadTimeout()
+    {
+        var clock = new ManualTimeProvider();
+        using var idleTimeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.CancellationToken);
+        var connection = new InMemoryConnection([KafkaTestExchanges.Request(KafkaApiKey.ApiVersions, 0)], peerHalfClosesWhenExhausted: false);
+
+        var serving = new KafkaBroker(Anonymous, [new KafkaApiVersionsAnswerer()]).ServeAsync(connection, Context(clock, cancellationToken: idleTimeout.Token));
+        clock.Advance(ExchangeLimits.Default.HeadTimeout);
+        Assert.IsFalse(serving.IsCompleted);
+        await idleTimeout.CancelAsync();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => serving);
     }
 
     private ExchangeContext Context(

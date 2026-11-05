@@ -33,4 +33,14 @@ public sealed class KafkaAnswerTests
     [TestMethod]
     public void Close_EmptyNote_Throws() =>
         Assert.ThrowsExactly<ArgumentException>(() => KafkaAnswer.Close(string.Empty));
+
+    [TestMethod]
+    public void RespondThenClose_BodyAndNote_AreBothKept()
+    {
+        var answer = KafkaAnswer.RespondThenClose(new byte[] { 0x01 }, "why");
+
+        CollectionAssert.AreEqual(new byte[] { 0x01 }, answer.ResponseBody!.Value.ToArray());
+        Assert.AreEqual("why", answer.CloseNote);
+        Assert.ThrowsExactly<ArgumentException>(() => KafkaAnswer.RespondThenClose(new byte[] { 0x01 }, string.Empty));
+    }
 }

@@ -38,41 +38,41 @@ broker a choice.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Kafka:Guide-ApiVersions-1 | MUST | ApiVersions lists each served API key with its minimum and maximum version, and no other. | BL-518 |
-| Kafka:Guide-ApiVersions-2 | MUST | An ApiVersions version above the highest served is answered by a v0 ApiVersions response with `UNSUPPORTED_VERSION` (35) and the full `api_versions` array. | BL-518 |
-| Kafka:Guide-ApiVersions-3 | MUST | ApiVersions is answered before authentication. | BL-518 |
-| Kafka:Guide-ApiVersions-4 | MUST | v3's `finalized_features` and `supported_features` are written (empty), with `zk_migration_ready` false. | BL-518 |
+| Kafka:Guide-ApiVersions-1 | MUST | ApiVersions lists each served API key with its minimum and maximum version, and no other. | `KafkaApiVersionsAnswererTests.ServeAsync_ApiVersionsZero_ListsExactlyTheAdrsRanges`, `ServeAsync_ApiVersionsOneAndTwo_AddThrottleTimeZero` |
+| Kafka:Guide-ApiVersions-2 | MUST | An ApiVersions version above the highest served is answered by a v0 ApiVersions response with `UNSUPPORTED_VERSION` (35) and the full `api_versions` array. | `KafkaBrokerTests.ServeAsync_ApiVersionsAboveItsRange_AnswersVersionZeroWithUnsupportedVersionAndEveryRange` |
+| Kafka:Guide-ApiVersions-3 | MUST | ApiVersions is answered before authentication. | `KafkaApiVersionsAnswererTests.ServeAsync_ApiVersionsBeforeALogin_IsAnswered` |
+| Kafka:Guide-ApiVersions-4 | MUST | v3's `finalized_features` and `supported_features` are written (empty), with `zk_migration_ready` false. | `KafkaApiVersionsAnswererTests.ServeAsync_ApiVersionsThree_AnswersTheCompactFormUnderResponseHeaderZero` (no tagged field written: each takes its default, empty or false) |
 
 ## Metadata (Metadata v0 to v8; error codes 3, 17, 29)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Kafka:Guide-Metadata-1 | MUST | `brokers` lists node 0 with the host and port the client reached; `rack` null. | BL-518 |
-| Kafka:Guide-Metadata-2 | MUST | `controller_id` (v1) is 0, `cluster_id` (v2) a fixed 22-character id, `is_internal` (v1) false. | BL-518 |
-| Kafka:Guide-Metadata-3 | MUST | Each topic has partition 0 whose leader, replicas and isr are node 0, `offline_replicas` (v5) empty and `leader_epoch` (v7) 0. | BL-518 |
-| Kafka:Guide-Metadata-4 | MUST | A null topic list (v1 on), or an empty one in v0, lists every topic Kafka can name, in ordinal order. | BL-518 |
-| Kafka:Guide-Metadata-5 | MUST | A topic that does not exist is created when auto-creation is allowed (always in v0 to v3; by `allow_auto_topic_creation` from v4), else answered `UNKNOWN_TOPIC_OR_PARTITION` (3). | BL-518 |
-| Kafka:Guide-Metadata-6 | MUST | A topic name outside `[A-Za-z0-9._-]{1,249}`, or `.` or `..`, is answered `INVALID_TOPIC_EXCEPTION` (17). | BL-518 |
-| Kafka:Guide-Metadata-7 | MUST | A topic the caller may not access is answered `TOPIC_AUTHORIZATION_FAILED` (29) and left out of an all-topics answer (ADR-0102 decision 3.4). | BL-518 |
-| Kafka:Guide-Metadata-8 | MUST | v8's authorized operations are `-2147483648` unless requested, and when requested the bits ADR-0105 decision 2 names. | BL-518 |
-| Kafka:Surl-Topics-1 | MUST | A bus topic Kafka cannot name (ADR-0100 decision 3.2) is never listed. | BL-518 |
+| Kafka:Guide-Metadata-1 | MUST | `brokers` lists node 0 with the host and port the client reached; `rack` null. | `KafkaMetadataAnswererTests.ServeAsync_MetadataFourForAllTopics_ListsEveryTopicInOrdinalOrderOfItsKafkaName`, `AdvertisedHost_WildcardListener_IsTheConnectionsLocalAddress` |
+| Kafka:Guide-Metadata-2 | MUST | `controller_id` (v1) is 0, `cluster_id` (v2) a fixed 22-character id, `is_internal` (v1) false. | `KafkaMetadataAnswererTests.ServeAsync_MetadataFourForAllTopics_ListsEveryTopicInOrdinalOrderOfItsKafkaName`, `ClusterId_Is22Base64UrlCharactersAndDiffersPerAnswerer` |
+| Kafka:Guide-Metadata-3 | MUST | Each topic has partition 0 whose leader, replicas and isr are node 0, `offline_replicas` (v5) empty and `leader_epoch` (v7) 0. | `KafkaMetadataAnswererTests.ServeAsync_MetadataEightAskingForOperations_AnswersTheCallersRights` |
+| Kafka:Guide-Metadata-4 | MUST | A null topic list (v1 on), or an empty one in v0, lists every topic Kafka can name, in ordinal order. | `KafkaMetadataAnswererTests.ServeAsync_MetadataFourForAllTopics_ListsEveryTopicInOrdinalOrderOfItsKafkaName`, `ServeAsync_MetadataZeroWithAnEmptyArray_ListsEveryTopicAndCreatesNamedOnes`, `ServeAsync_MetadataOneWithAnEmptyArray_ListsNoTopic` |
+| Kafka:Guide-Metadata-5 | MUST | A topic that does not exist is created when auto-creation is allowed (always in v0 to v3; by `allow_auto_topic_creation` from v4), else answered `UNKNOWN_TOPIC_OR_PARTITION` (3). | `KafkaMetadataAnswererTests.ServeAsync_MetadataFourForAMissingTopicWithAutoCreation_CreatesItWithPartitionZero`, `ServeAsync_MetadataFourForAMissingTopicWithoutAutoCreation_IsUnknownTopicOrPartition`, `ServeAsync_AutoCreationPastTheBussMostTopics_IsPolicyViolation` |
+| Kafka:Guide-Metadata-6 | MUST | A topic name outside `[A-Za-z0-9._-]{1,249}`, or `.` or `..`, is answered `INVALID_TOPIC_EXCEPTION` (17). | `KafkaMetadataAnswererTests.ServeAsync_InvalidTopicName_IsInvalidTopicException` |
+| Kafka:Guide-Metadata-7 | MUST | A topic the caller may not access is answered `TOPIC_AUTHORIZATION_FAILED` (29) and left out of an all-topics answer (ADR-0102 decision 3.4). | `KafkaMetadataAnswererTests.ServeAsync_TopicTheCallerMayNotUse_IsTopicAuthorizationFailedAndLeftOutOfTheListing` |
+| Kafka:Guide-Metadata-8 | MUST | v8's authorized operations are `-2147483648` unless requested, and when requested the bits ADR-0105 decision 2 names. | `KafkaMetadataAnswererTests.ServeAsync_MetadataEightAskingForOperations_AnswersTheCallersRights`, `ServeAsync_MetadataEightNotAskingForOperations_AnswersNotRequested` |
+| Kafka:Surl-Topics-1 | MUST | A bus topic Kafka cannot name (ADR-0100 decision 3.2) is never listed. | `KafkaMetadataAnswererTests.ServeAsync_MetadataFourForAllTopics_ListsEveryTopicInOrdinalOrderOfItsKafkaName` |
 
 ## SASL (guide: "SASL Authentication Sequence", SaslHandshake v0 and v1, SaslAuthenticate v0 and v1; RFC 4616; RFC 5802)
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Kafka:Guide-Sasl-1 | MUST | Without `--allow-anonymous`, any request but ApiVersions and SaslHandshake before a finished login closes the connection with no bytes. | BL-518 |
-| Kafka:Guide-Sasl-2 | MUST | SaslHandshake answers the enabled mechanisms; a mechanism not enabled is `UNSUPPORTED_SASL_MECHANISM` (33) and the connection stays open. | BL-518 |
-| Kafka:Guide-Sasl-3 | MUST | After a v1 handshake the mechanism's messages travel in SaslAuthenticate `auth_bytes`, both ways. | BL-518 |
-| Kafka:Guide-Sasl-4 | MUST | After a v0 handshake they travel as raw size-prefixed tokens, both ways, and a failure closes the connection. | BL-518 |
-| Kafka:Guide-Sasl-5 | MUST | A refused login is `SASL_AUTHENTICATION_FAILED` (58) with a fixed `error_message`, after the policy's delay, then a close. | BL-518 |
-| Kafka:Guide-Sasl-6 | MUST | SaslAuthenticate v1's `session_lifetime_ms` is 0. | BL-518 |
-| Kafka:Surl-Sasl-1 | MUST | The mechanisms offered are the policy's for the connection, kept to `PLAIN`, `SCRAM-SHA-256` and `SCRAM-SHA-512`; `PLAIN` is not offered on `kafka://` without `--allow-plaintext-auth`. | BL-518 |
-| Kafka:Surl-Sasl-2 | MUST | SaslAuthenticate without a handshake, or a second handshake after a login, closes the connection with no bytes. | BL-518 |
-| Kafka:Surl-Sasl-3 | MUST | A login must finish within `--head-timeout` of accept, else the connection closes with no bytes. | BL-518 |
-| Kafka:RFC4616-2-1 | MUST | The `PLAIN` message is `authzid NUL authcid NUL passwd`; an `authzid` other than empty or the `authcid` is refused. | BL-518 |
-| Kafka:RFC5802-5-1 | MUST | SCRAM's client-first, server-first, client-final and server-final messages are exchanged in turn, the server proving the password it holds. | BL-518 |
-| Kafka:Surl-Sasl-4 | MUST | Under `--allow-anonymous` every request is served without a login, and a login asked for is run and accepted unchecked. | BL-518 |
+| Kafka:Guide-Sasl-1 | MUST | Without `--allow-anonymous`, any request but ApiVersions and SaslHandshake before a finished login closes the connection with no bytes. | `KafkaMetadataAnswererTests.ServeAsync_MetadataBeforeALogin_ClosesWithNoBytesAndAsksThePolicyOnce` |
+| Kafka:Guide-Sasl-2 | MUST | SaslHandshake answers the enabled mechanisms; a mechanism not enabled is `UNSUPPORTED_SASL_MECHANISM` (33) and the connection stays open. | `KafkaSaslHandshakeAnswererTests.ServeAsync_HandshakeForPlain_IsAcceptedWithTheOfferedList`, `ServeAsync_HandshakeForGssapi_IsUnsupportedSaslMechanismAndASecondHandshakeIsAnswered` |
+| Kafka:Guide-Sasl-3 | MUST | After a v1 handshake the mechanism's messages travel in SaslAuthenticate `auth_bytes`, both ways. | `KafkaSaslAuthenticateAnswererTests.ServeAsync_GoodPlainOnVersionZero_IsAcceptedAndMetadataIsServedAfterIt`, `KafkaSaslLoginTests.ServeAsync_ScramLogin_SendsServerFirstThenServerFinalWithTheSuccess` |
+| Kafka:Guide-Sasl-4 | MUST | After a v0 handshake they travel as raw size-prefixed tokens, both ways, and a failure closes the connection. | `KafkaSaslAuthenticateAnswererTests.ServeAsync_GoodPlainInARawTokenAfterAVersionZeroHandshake_IsAnsweredWithAnEmptyToken`, `ServeAsync_ChallengeInARawToken_IsSentAsARawToken`, `ServeAsync_BadPlainInARawToken_ClosesWithNoBytes` |
+| Kafka:Guide-Sasl-5 | MUST | A refused login is `SASL_AUTHENTICATION_FAILED` (58) with a fixed `error_message`, after the policy's delay, then a close. | `KafkaSaslAuthenticateAnswererTests.ServeAsync_BadPlain_IsSaslAuthenticationFailedThenClosed` (the delay is the policys) |
+| Kafka:Guide-Sasl-6 | MUST | SaslAuthenticate v1's `session_lifetime_ms` is 0. | `KafkaSaslAuthenticateAnswererTests.ServeAsync_GoodPlainOnVersionOne_AddsSessionLifetimeZero` |
+| Kafka:Surl-Sasl-1 | MUST | The mechanisms offered are the policy's for the connection, kept to `PLAIN`, `SCRAM-SHA-256` and `SCRAM-SHA-512`; `PLAIN` is not offered on `kafka://` without `--allow-plaintext-auth`. | `KafkaSaslHandshakeAnswererTests.ServeAsync_PolicyOffers_AreKeptToKafkasMechanismsInKafkasOrder` (withholding `PLAIN` without TLS is the policys) |
+| Kafka:Surl-Sasl-2 | MUST | SaslAuthenticate without a handshake, or a second handshake after a login, closes the connection with no bytes. | `KafkaSaslAuthenticateAnswererTests.ServeAsync_SaslAuthenticateWithoutAHandshake_ClosesWithNoBytes`, `KafkaSaslHandshakeAnswererTests.ServeAsync_HandshakeAfterTheLogin_ClosesWithNoBytes` |
+| Kafka:Surl-Sasl-3 | MUST | A login must finish within `--head-timeout` of accept, else the connection closes with no bytes. | `KafkaBrokerTests.ServeAsync_LoginNotFinishedWithinTheHeadTimeout_ClosesWithNoBytes`, `ServeAsync_LoginFinished_IsNoLongerBoundByTheHeadTimeout` |
+| Kafka:RFC4616-2-1 | MUST | The `PLAIN` message is `authzid NUL authcid NUL passwd`; an `authzid` other than empty or the `authcid` is refused. | The policys `PlainSaslExchange` (`Surl.Authentication`); the broker passes `auth_bytes` to it unchanged (`KafkaSaslAuthenticateAnswererTests.ServeAsync_GoodPlainOnVersionOne_AddsSessionLifetimeZero`) |
+| Kafka:RFC5802-5-1 | MUST | SCRAM's client-first, server-first, client-final and server-final messages are exchanged in turn, the server proving the password it holds. | `KafkaSaslLoginTests.ServeAsync_ScramLogin_SendsServerFirstThenServerFinalWithTheSuccess`; the proof is the policys SCRAM exchange |
+| Kafka:Surl-Sasl-4 | MUST | Under `--allow-anonymous` every request is served without a login, and a login asked for is run and accepted unchecked. | `KafkaMetadataAnswererTests.ServeAsync_AnonymousAllowed_ServesMetadataAndAsksThePolicyOnceAConnection`, `KafkaSaslLoginTests.ServeAsync_LoginAcceptedUnchecked_AuthenticatesWithNoAccount` |
 
 ## Produce and record batches (Produce v3 to v8; "Record Batch", "Record"; error codes 2, 3, 10, 17, 21, 29, 43, 44)
 
