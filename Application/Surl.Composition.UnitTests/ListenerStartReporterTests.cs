@@ -1,7 +1,7 @@
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 [TestClass]
 public sealed class ListenerStartReporterTests
@@ -12,7 +12,7 @@ public sealed class ListenerStartReporterTests
     public async Task StartConnectionListenerAsync_BeforeTheLastListener_WritesNoStatusLine()
     {
         using var output = new StringWriter();
-        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 2);
+        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 2, _ => { });
 
         await using var listener = await reporter.StartConnectionListenerAsync(
             new ListenUrl("http", "127.0.0.1", 0), TestContext.CancellationToken);
@@ -25,7 +25,7 @@ public sealed class ListenerStartReporterTests
     public async Task StartConnectionListenerAsync_TheLastListener_WritesOneStatusLinePerListenerInStartOrder()
     {
         using var output = new StringWriter();
-        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 2);
+        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 2, _ => { });
 
         await using var first = await reporter.StartConnectionListenerAsync(
             new ListenUrl("http", "127.0.0.1", 0), TestContext.CancellationToken);
@@ -45,7 +45,7 @@ public sealed class ListenerStartReporterTests
         var listenUrl = new ListenUrl("http", "127.0.0.1", 80);
         var failure = new ListenerBindException(listenUrl, null, ListenerBindFailure.PermissionDenied, null);
         var reporter = new ListenerStartReporter(
-            new FakeListenerFactory { BindFailure = failure }, new ListenerStatusLine(output), 1);
+            new FakeListenerFactory { BindFailure = failure }, new ListenerStatusLine(output), 1, _ => { });
 
         var thrown = await Assert.ThrowsExactlyAsync<ListenerBindException>(
             () => reporter.StartConnectionListenerAsync(listenUrl, TestContext.CancellationToken).AsTask());
@@ -59,7 +59,7 @@ public sealed class ListenerStartReporterTests
     public async Task StartDatagramListenerAsync_TheLastListenerAfterAConnectionListener_WritesBothStatusLinesInStartOrder()
     {
         using var output = new StringWriter();
-        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 2);
+        var reporter = new ListenerStartReporter(new FakeListenerFactory(), new ListenerStatusLine(output), 2, _ => { });
 
         await using var first = await reporter.StartConnectionListenerAsync(
             new ListenUrl("http", "127.0.0.1", 0), TestContext.CancellationToken);
@@ -80,7 +80,7 @@ public sealed class ListenerStartReporterTests
         var listenUrl = new ListenUrl("tftp", "127.0.0.1", 69);
         var failure = new ListenerBindException(listenUrl, null, ListenerBindFailure.AddressInUse, null);
         var reporter = new ListenerStartReporter(
-            new FakeListenerFactory { BindFailure = failure }, new ListenerStatusLine(output), 1);
+            new FakeListenerFactory { BindFailure = failure }, new ListenerStatusLine(output), 1, _ => { });
 
         var thrown = await Assert.ThrowsExactlyAsync<ListenerBindException>(
             () => reporter.StartDatagramListenerAsync(listenUrl, TestContext.CancellationToken).AsTask());

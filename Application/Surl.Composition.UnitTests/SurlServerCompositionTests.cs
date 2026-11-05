@@ -6,7 +6,7 @@ using Surl.Protocol.Ssh;
 namespace Surl.Composition;
 
 [TestClass]
-public sealed class SurlServerCompositionTests
+public sealed partial class SurlServerCompositionTests
 {
     [TestMethod]
     public void ComposeRegisteredSchemes_ThisBuild_AreEveryOriginalServersSchemesInRegistrationOrder()

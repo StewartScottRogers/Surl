@@ -13,11 +13,26 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `DataDirectoryLock` and `DataDirectoryLockOutcome` - live in `Surl.Composition`
   (`Application/Surl.Composition.UnitLibrary`, ADR-0099 decision 1, BL-613), so `Surl.Api` can
   reuse them; `CommandLineRunner` calls them and writes what they return.
+- Which project runs each step of the start (ADR-0099 decision 2, BL-614):
+
+  | Step | Run by |
+  | --- | --- |
+  | Parse the command line; answer `--help`, `--aihelp`, `--manual`, `--version` and a refused command line | `Surl.Console` (`CommandLineRunner.RunAsync`) |
+  | Read `SURL_EXTENSIONS` | `Surl.Console` (`CommandLineRunner`'s constructor), passed as `AreExtensionsTurnedOn` |
+  | Option refusals, data directory probe, content store, listen-URL refusals, authentication and host keys, the lock, the service state, the protocol servers, server TLS | `Surl.Composition` (`SurlServerComposition.ComposeAsync`), returning a `SurlStartFailure` or a `ComposedServing` |
+  | Open the log streams (23 on failure, releasing the lock by disposing the `ComposedServing`) | `Surl.Console` (`LogStreams`) |
+  | Start-up warnings, status lines, the serving engine, bind failures and `(125)` | `Surl.Composition` (`ComposedServing.ServeAsync`, `ListenerStartReporter`), returning a `SurlServingOutcome` |
+  | Write every `surl: ` line and return every exit code | `Surl.Console` (`CommandLineRunner.WriteFailure`, `WriteRefusal`) |
+
+  The steps `Surl.Composition` runs are described below as `surl` behaves; `CommandLineRunner`
+  builds a `SurlServerCompositionSeams` from its constructor seams and writes what comes back.
+  `CommandLineRunner.FormatBindFailure` and `FormatMissingCertificate` forward to
+  `SurlServerComposition`'s.
 - `CommandLineRunner` parses the command line (`Surl.Cli`), answers `--help`, `--aihelp`
   (`CommandLineOutcome.ShowAiHelp`: `AiHelpText.Answer(parsed.AiHelpTopic)` written by
   `WriteHelp` as `--help`'s answer is, exit 0 at every log level; everything `--aihelp`
-  says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`, refuses a
-  start whose `--auth` names `gssapi` without `--keytab` with `surl: (2) --auth gssapi needs
+  says lives in `Surl.Cli`), `--manual` (`ManualText.Text`) and `--version`; the start
+  (through `SurlServerComposition.ComposeAsync`) refuses one whose `--auth` names `gssapi` without `--keytab` with `surl: (2) --auth gssapi needs
   --keytab` (`KeytabComposition.IsGssapiWithoutKeytab`, ADR-0057 decision 1), then an `--ssh-ciphers` or `--ssh-macs`
   name surl cannot offer (`SshAlgorithmComposition.FindRefusal`: `surl: (2) --ssh-ciphers: surl
   does not offer the SSH cipher <name>`, or `<name> needs --allow-weak-ssh-algorithms`, ADR-0066), each with
@@ -111,8 +126,9 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   (`ComposeConnectionLimits`) the command line's `--max-connections`,
   `--max-connections-per-address`, `--idle-timeout` and `-m`/`--max-time` give, and the FTP
   data connection opener the runner's `createDataConnectionOpener` seam makes from the TLS settings
-  (`Surl.Networking`'s `SocketDataConnectionOpener` in `surl`, ADR-0052 decision 9), and serves. It writes ADR-0007 section 5's
-  texts and returns its exit codes.
+  (`Surl.Networking`'s `SocketDataConnectionOpener` in `surl`, ADR-0052 decision 9), and serves
+  (`ComposedServing.ServeAsync`). `CommandLineRunner` writes ADR-0007 section 5's texts and
+  returns its exit codes.
 - `LogStreams` opens the log stream (stderr, or `--log-file`, appended, `-` for stdout)
   and the trace file (truncated, `-` for stdout) once TLS is composed and before any
   listener binds, through the runner's `openLogFile` seam (`LogFile.Open` in `surl`); a
@@ -120,13 +136,14 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `--log-file` file's full path, ignoring case (ADR-0037). It builds the exchange log of the
   level: `LevelledExchangeLogFactory` up to `-v`, `TraceExchangeLogFactory` at the trace
   level, to the trace file or, with `--log-level trace` alone, the log stream (ADR-0033).
-- `CommandLineRunner` applies the level to what it writes itself: at `-s` every `surl: `
-  failure message is hidden but a command-line refusal is not, and the status lines, the
-  startup warnings and the throwaway-certificate lines are written from the info level up
-  only, so `-s` and `-s -S` hide them.
-- `ListenerStartReporter` wraps the listener factory: it writes the status lines once the
-  last listener, connection or datagram, has bound, and keeps a bind failure for the
-  `(45)` or `(6)` message.
+- `CommandLineRunner` applies the level to the `surl: ` failure messages: at `-s` every one is
+  hidden but a command-line refusal is not. `ComposedServing` writes the status lines, the
+  startup warnings and the throwaway-certificate lines from the info level up only, so `-s`
+  and `-s -S` hide them.
+- `ListenerStartReporter`, in `Surl.Composition`, wraps the listener factory: it writes the
+  status lines once the last listener, connection or datagram, has bound, hands the bound
+  listen URLs to `SurlServingOutputs.AllListenersBound` (`surl` ignores them), and keeps a bind
+  failure for the `(45)` or `(6)` message.
 - `ServerTlsComposition` builds the process's `ServerTlsSettings` when a listen URL is
   TLS from the first byte, or can be upgraded (`smtp` and `imap` for `STARTTLS`, `pop3` for `STLS`, `ftp` for `AUTH TLS`, `ldap` for `StartTLS`) and `--cert` or
   `--self-signed` is given: the `--cert`/`--key` certificate or, with `--self-signed`, a
@@ -141,7 +158,7 @@ assembly scanning or reflection-based dependency injection, which native AOT for
   `KeytabComposition.WriteStartLines` writes `surl: warning: --keytab: skipped the <enctype
   name> key of <principal>` for each keytab entry of an enctype surl does not accept, and
   `surl: warning: --keytab is unused: --auth accepts neither negotiate nor gssapi` when that
-  is so, never a key byte, then `CommandLineRunner`
+  is so, never a key byte, then `ComposedServing`
   writes the `--self-signed` line when a throwaway certificate was made, and from the
   verbose level up `* Serving a throwaway certificate, SHA-256 <fingerprint>` (ADR-0032
   section 9, ADR-0033 section 7); then `SshHostKeyComposition.WriteStartLines` writes the
@@ -155,7 +172,8 @@ assembly scanning or reflection-based dependency injection, which native AOT for
 - Extended protocol servers (ADR-0083 decisions 6 to 8): `ExtendedProtocolServers.Compose`, in `Surl.Composition`, is
   the one place they are built (none yet; each `Surl.Extended.Protocol.*` server joins with one
   line), from an `ExtendedProtocolServerServices` (content store, policy, TLS upgrade). The
-  switch `SURL_EXTENSIONS` is read once, when `CommandLineRunner` is constructed, through its
+  switch `SURL_EXTENSIONS` is read once, when `CommandLineRunner` is constructed (the host reads
+  it and passes it to `Surl.Composition`, ADR-0099 decision 2), through its
   `IEnvironmentVariableReader` seam (`ProcessEnvironmentVariableReader` in `surl`,
   `FakeEnvironmentVariableReader` in tests); `0` turns them off, anything else leaves them on.
   While on, `ComposeExtendedSchemes` lists their schemes, which `CommandLineParser.Parse` accepts

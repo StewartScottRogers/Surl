@@ -29,8 +29,22 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `(37)` message, which the host writes after `surl: `.
 
 The types are `public` because more than one host calls them, but they are not a supported
-programming interface and may change in any release. The start sequence still lives in
-`Surl.Console` until BL-614 moves it.
+programming interface and may change in any release.
+
+The ordered start lives here (ADR-0099 decision 2, BL-614); which project runs each step:
+
+| Step | Run by |
+| --- | --- |
+| Parse the command line, answer help and version, read `SURL_EXTENSIONS` | the host (`Surl.Console`'s `CommandLineRunner`) |
+| `--auth gssapi` without `--keytab` and the `--ssh-ciphers`/`--ssh-macs` refusal (2), the data directory probe (37), the content store (`ContentWithoutDataDirectory` or a new `InMemoryContentFileSystem` without `--directory`), the TLS-first listen URL without a certificate (58) and the `scp`/`sftp` one without a host key (2), authentication and host keys, the lock (124, 23), the service state (37), the protocol servers, server TLS (58, 2, 77) | `SurlServerComposition.ComposeAsync`, from a `SurlCommandLine` and a `SurlServerCompositionSeams`, returning a `SurlServerStart`: a `SurlStartFailure` (exit code and lines after `surl: `; a start cancelled while loading the service state is `Ok` with no lines) or a `ComposedServing` |
+| Open the log streams (`--log-file`, trace file) | the host, which disposes the `ComposedServing` on failure to release the lock |
+| Start-up warnings and notes, the status lines, the `ServingEngine`, the bound listen URLs, bind failures (45, 6) and `(125)` | `ComposedServing.ServeAsync`, given `SurlServingOutputs`; `ListenerStartReporter` calls `AllListenersBound` once with every bound `ListenUrl`, never after a bind failure; it returns a `SurlServingOutcome` |
+| Write each `surl: ` line and return the exit code | the host |
+
+Disposing a `ComposedServing` releases the TLS certificates and then the data-directory lock; a
+start refused or failed after the lock was taken releases it before `ComposeAsync` returns or
+throws. `FormatBindFailure` and `FormatMissingCertificate` format the `(45)`/`(6)` and `(58)`
+texts.
 
 The compositions that read and check what a host is given at start live here too (ADR-0099
 decision 1, BL-613); each returns a refusal as a `SurlExitCode` and the text after `surl: `
@@ -50,6 +64,8 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
   probe and its `.surl/lock` (ADR-0031 decision 7).
 
 Tests: `Application/Surl.Composition.UnitTests` (`ServerTlsCompositionTests`,
-`DataDirectoryLockTests`, `DataDirectoryProbeTests` among them); the loading, the content store and
+`DataDirectoryLockTests`, `DataDirectoryProbeTests`, `ListenerStartReporterTests`,
+`ComposedServingTests` and the start tests in `SurlServerCompositionTests.Start.cs`, which run
+over `FakeListenerFactory` and `StartTestSeams` with no network, among them); the loading, the content store and
 the start compositions are also exercised through `CommandLineRunner` in
 `Application/Surl.Console.UnitTests`, and the coverage measure merges both.

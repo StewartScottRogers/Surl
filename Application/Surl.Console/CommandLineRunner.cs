@@ -1,12 +1,8 @@
-using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using Surl.Authentication;
 using Surl.Cli;
 using Surl.Composition;
 using Surl.Content;
-using Surl.Core;
-using Surl.Kerberos;
 using Surl.Networking;
 using Surl.Output;
 using Surl.Protocol.Abstractions;
@@ -14,12 +10,10 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Console;
 
 /// <summary>
-/// Runs one <c>surl</c> command line: the composition root. It parses the command line,
-/// answers <c>--help</c>, <c>--manual</c> and <c>--version</c>, checks the data directory when one is given and
-/// the listen URLs, takes the data directory's lock, loads the MQTT retained messages, the mail store and the LDAP directory kept under it,
-/// then constructs the TLS settings, the exchange log and the serving engine explicitly, with the
-/// content store (on disk or in memory), the service state and the protocol servers composed by
-/// <see cref="SurlServerComposition"/>, and serves until cancelled, writing ADR-0007 section 5's
+/// Runs one <c>surl</c> command line: the composition root. It parses the command line, answers
+/// <c>--help</c>, <c>--aihelp</c>, <c>--manual</c> and <c>--version</c>, has
+/// <see cref="SurlServerComposition.ComposeAsync"/> run the ordered start, opens the log streams,
+/// and has the <see cref="ComposedServing"/> serve until cancelled, writing ADR-0007 section 5's
 /// texts and returning its exit codes.
 /// </summary>
 /// <param name="createListenerFactory">
@@ -85,23 +79,13 @@ internal sealed class CommandLineRunner(
 {
     private const string MessagePrefix = "surl: ";
 
-    // SURL_EXTENSIONS is read once, here, at composition (ADR-0083, decision 6).
+    // SURL_EXTENSIONS is read once, here, by the host (ADR-0083, decision 6; ADR-0099, decision 2).
     private readonly bool areExtensionsTurnedOn = AreExtensionsTurnedOn(environmentVariables);
 
     private static bool AreExtensionsTurnedOn(IEnvironmentVariableReader? environmentVariables) =>
         ExtendedProtocolServers.AreTurnedOn(environmentVariables ?? new ProcessEnvironmentVariableReader());
 
-    private readonly IContentFileSystem dataDirectoryFileSystem = dataDirectoryFileSystem ?? new DiskContentFileSystem();
-
     private readonly Func<string, FileMode, TextWriter> openLogFile = openLogFile ?? LogFile.Open;
-
-    private readonly Func<string, byte[]> readStartFile = readStartFile ?? File.ReadAllBytes;
-
-    // The opener createDataConnectionOpener makes, or surl's own over sockets on the one clock.
-    private IDataConnectionOpener CreateDataConnectionOpener(ServerTlsSettings? tlsSettings) =>
-        createDataConnectionOpener is null
-            ? new SocketDataConnectionOpener(tlsSettings, timeProvider)
-            : createDataConnectionOpener(tlsSettings);
 
     /// <summary>
     /// Runs <paramref name="args"/>.
@@ -141,41 +125,23 @@ internal sealed class CommandLineRunner(
 
     /// <summary>
     /// Formats the <c>(45)</c> or <c>(6)</c> message for a listener that could not bind, after
-    /// the <c>surl: </c> prefix (ADR-0007 section 5).
+    /// the <c>surl: </c> prefix (ADR-0007 section 5), as
+    /// <see cref="SurlServerComposition.FormatBindFailure"/> does.
     /// </summary>
     /// <param name="bindFailure">The failure the listener factory threw.</param>
     /// <returns>The message.</returns>
-    internal static string FormatBindFailure(ListenerBindException bindFailure)
-    {
-        var listenUrl = bindFailure.ListenUrl;
-        if (bindFailure.Failure == ListenerBindFailure.HostNotFound)
-        {
-            return $"(6) Could not resolve host: {listenUrl.Host}";
-        }
-
-        var address = bindFailure.EndPoint is IPEndPoint endPoint ? endPoint.Address.ToString() : listenUrl.Host;
-        var bracketed = address.Contains(':', StringComparison.Ordinal) ? $"[{address}]" : address;
-        return $"(45) Could not bind {listenUrl.Scheme}://{bracketed}:{listenUrl.Port}/: {DescribeBindFailure(bindFailure.Failure)}";
-    }
+    internal static string FormatBindFailure(ListenerBindException bindFailure) =>
+        SurlServerComposition.FormatBindFailure(bindFailure);
 
     /// <summary>
     /// Formats the <c>(58)</c> message for a listen URL that is TLS from the first byte with
-    /// neither <c>--cert</c> nor <c>--self-signed</c>, after the <c>surl: </c> prefix, the URL
-    /// written as the status line writes it, with the port as given (ADR-0032, section 10).
+    /// neither <c>--cert</c> nor <c>--self-signed</c>, after the <c>surl: </c> prefix, as
+    /// <see cref="SurlServerComposition.FormatMissingCertificate"/> does.
     /// </summary>
     /// <param name="listenUrl">The first such listen URL.</param>
     /// <returns>The message.</returns>
     internal static string FormatMissingCertificate(ListenUrl listenUrl) =>
-        $"(58) {ListenerStatusLine.FormatBoundListenUrl(listenUrl with { BoundPort = listenUrl.Port })} needs a certificate: "
-        + "give --cert <file>, or --self-signed for a throwaway one";
-
-    private static string DescribeBindFailure(ListenerBindFailure failure) => failure switch
-    {
-        ListenerBindFailure.AddressInUse => "Address already in use",
-        ListenerBindFailure.AddressNotAvailable => "Address not available",
-        ListenerBindFailure.PermissionDenied => "Permission denied",
-        _ => "Bind failed",
-    };
+        SurlServerComposition.FormatMissingCertificate(listenUrl);
 
     /// <summary>Writes each stream's part of a help answer; every help answer exits Ok (ADR-0034 decision 3).</summary>
     private static SurlExitCode WriteHelp(TextWriter output, TextWriter error, HelpAnswer answer)
@@ -202,10 +168,14 @@ internal sealed class CommandLineRunner(
         return failure.ExitCode;
     }
 
-    private static SurlExitCode WriteFailure(TextWriter error, SurlExitCode exitCode, string message)
+    private static SurlExitCode WriteFailure(TextWriter error, SurlStartFailure failure)
     {
-        error.WriteLine(MessagePrefix + message);
-        return exitCode;
+        foreach (var line in failure.Lines)
+        {
+            error.WriteLine(MessagePrefix + line);
+        }
+
+        return failure.ExitCode;
     }
 
     private string ComposeVersionText()
@@ -235,276 +205,45 @@ internal sealed class CommandLineRunner(
     internal IReadOnlyList<string> ComposeExtendedSchemes() =>
         SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn, composeExtendedProtocolServers, timeProvider);
 
-    private static SurlExitCode WriteTlsFileFailure(TextWriter error, TlsFileLoadException failure, string? caCertificateFile)
-    {
-        var (exitCode, lines) = ServerTlsComposition.DescribeTlsFileFailure(failure, caCertificateFile);
-        foreach (var line in lines)
+    // The runner's seams, as the composition takes them (ADR-0099, decision 2).
+    private SurlServerCompositionSeams ComposeSeams() =>
+        new(createListenerFactory, canOpenDataDirectory, takeDataDirectoryLock, timeProvider, areExtensionsTurnedOn)
         {
-            error.WriteLine(MessagePrefix + line);
-        }
+            DataDirectoryFileSystem = dataDirectoryFileSystem,
+            ReadStartFile = readStartFile,
+            CreateDataConnectionOpener = createDataConnectionOpener,
+            ComposeExtendedProtocolServers = composeExtendedProtocolServers,
+        };
 
-        return exitCode;
-    }
-
-    // A listen URL TLS from the first byte with no certificate to serve (ADR-0032, section 10),
-    // then an scp or sftp one with no host key to serve (ADR-0051, decision 4): each refused
-    // before any listener binds. A scheme no server answers never gets here: every scheme
-    // ListenUrlParser accepts is registered, and it refuses every other one with (1).
-    private static (SurlExitCode ExitCode, string Message)? FindListenUrlRefusal(SurlCommandLine commandLine)
-    {
-        if (ServerTlsComposition.FindListenUrlWithoutCertificate(commandLine) is { } uncertified)
-        {
-            return (SurlExitCode.CertificateProblem, FormatMissingCertificate(uncertified));
-        }
-
-        return SshHostKeyComposition.FindListenUrlWithoutHostKey(commandLine) is { } keyless
-            ? (SurlExitCode.FailedInit, SshHostKeyComposition.FormatMissingHostKey(keyless))
-            : null;
-    }
-
-    private DataDirectoryLockOutcome TakeDataDirectoryLockWhenGiven(SurlCommandLine commandLine) =>
-        commandLine.DataDirectory is { } dataDirectory ? takeDataDirectoryLock(dataDirectory) : DataDirectoryLockOutcome.NoLock;
-
-    // --auth gssapi without --keytab (ADR-0057, decision 1), then an --ssh-ciphers or --ssh-macs
-    // name surl cannot offer (ADR-0066), is refused before anything else is checked.
-    private Task<SurlExitCode> ServeAsync(
-        SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken) =>
-        FindOptionRefusal(commandLine) is { } refusal
-            ? Task.FromResult(WriteFailure(error, SurlExitCode.FailedInit, refusal))
-            : ServeAvailableAsync(commandLine, output, error, cancellationToken);
-
-    // The first refusal of the options' consistency, after the surl: prefix.
-    private static string? FindOptionRefusal(SurlCommandLine commandLine) =>
-        KeytabComposition.IsGssapiWithoutKeytab(commandLine)
-            ? "(2) --auth gssapi needs --keytab"
-            : SshAlgorithmComposition.FindRefusal(commandLine);
-
-    private async Task<SurlExitCode> ServeAvailableAsync(
+    // The ordered start runs in Surl.Composition up to server TLS; then the log streams open, and a
+    // file that cannot be opened ends surl with 23 and releases the lock; then the serving writes the
+    // start-up warnings and serves (ADR-0099, decision 2).
+    private async Task<SurlExitCode> ServeAsync(
         SurlCommandLine commandLine, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
-        if (commandLine.DataDirectory is { } dataDirectory && !canOpenDataDirectory(dataDirectory))
+        var start = await SurlServerComposition.ComposeAsync(commandLine, ComposeSeams(), cancellationToken);
+        if (start.Failure is { } failure)
         {
-            return WriteFailure(error, SurlExitCode.CouldNotReadFile, $"(37) Could not open directory {dataDirectory}");
+            return WriteFailure(error, failure);
         }
 
-        var fileSystem = SurlServerComposition.ComposeContentFileSystem(commandLine, timeProvider, dataDirectoryFileSystem);
-        var contentStore = SurlServerComposition.ComposeContentStore(commandLine, fileSystem);
-        if (FindListenUrlRefusal(commandLine) is { } refusal)
-        {
-            return WriteFailure(error, refusal.ExitCode, refusal.Message);
-        }
-
-        var (authentication, exitCode, failureMessage) = ComposeAuthentication(commandLine);
-        return authentication is null
-            ? WriteFailure(error, exitCode, failureMessage!)
-            : await LockThenServeAsync(commandLine, fileSystem, contentStore, authentication, output, error, cancellationToken);
-    }
-
-    // The --auth words, the --user-file, the --authorized-keys and --keytab files, then the --hostkey
-    // and --hostcert files, are checked before the lock is taken and any listener binds (ADR-0032, sections 1 and 2;
-    // ADR-0051, decisions 4 and 6; ADR-0057, decision 1).
-    private (ComposedAuthentication? Authentication, SurlExitCode ExitCode, string? FailureMessage) ComposeAuthentication(
-        SurlCommandLine commandLine)
-    {
-        var (policy, accountNames, skippedKeytabEntries, exitCode, failureMessage) =
-            AuthenticationComposition.Compose(commandLine, readStartFile, timeProvider);
-        if (policy is null)
-        {
-            return (null, exitCode, failureMessage);
-        }
-
-        var (sshHostKeys, hostKeyExitCode, hostKeyFailureMessage) = SshHostKeyComposition.Compose(commandLine, readStartFile);
-        return sshHostKeys is null
-            ? (null, hostKeyExitCode, hostKeyFailureMessage)
-            : (new ComposedAuthentication(policy, accountNames, skippedKeytabEntries, sshHostKeys), SurlExitCode.Ok, null);
-    }
-
-    // What the servers judge logins by, the keytab entries skipped, and what the SSH server proves itself with.
-    private sealed record ComposedAuthentication(
-        AuthenticationPolicy Policy,
-        IReadOnlyList<string> AccountNames,
-        IReadOnlyList<KerberosKeytabSkippedEntry> SkippedKeytabEntries,
-        SshHostKeyComposition SshHostKeys);
-
-    private async Task<SurlExitCode> LockThenServeAsync(
-        SurlCommandLine commandLine,
-        IContentFileSystem fileSystem,
-        ContentStore contentStore,
-        ComposedAuthentication authentication,
-        TextWriter output,
-        TextWriter error,
-        CancellationToken cancellationToken)
-    {
-        var dataDirectoryLock = TakeDataDirectoryLockWhenGiven(commandLine);
-        if (dataDirectoryLock.FailureMessage is { } lockFailure)
-        {
-            return WriteFailure(error, dataDirectoryLock.ExitCode, lockFailure);
-        }
-
-        using (dataDirectoryLock.Holder)
-        {
-            return await LoadServiceStateAndServeAsync(
-                commandLine, fileSystem, contentStore, authentication, output, error, cancellationToken);
-        }
-    }
-
-    private async Task<SurlExitCode> LoadServiceStateAndServeAsync(
-        SurlCommandLine commandLine,
-        IContentFileSystem fileSystem,
-        ContentStore contentStore,
-        ComposedAuthentication authentication,
-        TextWriter output,
-        TextWriter error,
-        CancellationToken cancellationToken)
-    {
-        (ServiceState? State, string? FailureMessage) loaded;
-        try
-        {
-            loaded = await SurlServerComposition.LoadServiceStateAsync(
-                commandLine,
-                fileSystem,
-                authentication.Policy,
-                authentication.AccountNames,
-                ServerTlsComposition.IsCertificateConfigured(commandLine),
-                timeProvider,
-                cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Stopped before serving began: the same clean stop as one while serving.
-            return SurlExitCode.Ok;
-        }
-
-        return loaded.State is null
-            ? WriteFailure(error, SurlExitCode.CouldNotReadFile, loaded.FailureMessage!)
-            : await ServeUnderTheLockAsync(
-                commandLine,
-                [
-                    .. SurlServerComposition.ComposeProtocolServers(
-                        contentStore,
-                        loaded.State,
-                        authentication.Policy,
-                        authentication.SshHostKeys.HostKeys,
-                        SshAlgorithmComposition.Compose(authentication.SshHostKeys.HostKeys.SignatureAlgorithms, commandLine),
-                        ServerTlsComposition.IsCertificateConfigured(commandLine),
-                        commandLine.WsEcho),
-                    .. SurlServerComposition.ComposeExtendedProtocolServers(areExtensionsTurnedOn, composeExtendedProtocolServers, new ExtendedProtocolServerServices(
-                        contentStore, authentication.Policy, ServerTlsComposition.IsCertificateConfigured(commandLine))),
-                ],
-                authentication,
-                output,
-                error,
-                cancellationToken);
-    }
-
-    private async Task<SurlExitCode> ServeUnderTheLockAsync(
-        SurlCommandLine commandLine,
-        IProtocolServer[] servers,
-        ComposedAuthentication authentication,
-        TextWriter output,
-        TextWriter error,
-        CancellationToken cancellationToken)
-    {
-        ServerTlsComposition tls;
-        try
-        {
-            tls = ServerTlsComposition.Compose(commandLine, timeProvider);
-        }
-        catch (TlsFileLoadException failure)
-        {
-            return WriteTlsFileFailure(error, failure, commandLine.CaCertificateFile);
-        }
-
-        using (tls)
-        {
-            return await ServeSecuredAsAskedAsync(commandLine, servers, authentication, tls, output, error, cancellationToken);
-        }
-    }
-
-    private async Task<SurlExitCode> ServeSecuredAsAskedAsync(
-        SurlCommandLine commandLine,
-        IProtocolServer[] servers,
-        ComposedAuthentication authentication,
-        ServerTlsComposition tls,
-        TextWriter output,
-        TextWriter error,
-        CancellationToken cancellationToken)
-    {
+        await using var serving = start.Serving!;
         var (logStreams, openFailure) = LogStreams.Open(commandLine, output, error, openLogFile);
         if (logStreams is null)
         {
-            return WriteFailure(error, SurlExitCode.CouldNotWriteFile, openFailure!);
+            return WriteFailure(error, new SurlStartFailure(SurlExitCode.CouldNotWriteFile, [openFailure!]));
         }
 
         using (logStreams)
         {
-            // Each loosening option's warning, then the --self-signed one (ADR-0032, section 9).
-            AuthenticationComposition.WriteLooseningWarnings(commandLine, logStreams.Log);
-
-            // Each skipped keytab entry's warning, then the unused --keytab one (ADR-0057, decision 1).
-            KeytabComposition.WriteStartLines(commandLine, authentication.SkippedKeytabEntries, logStreams.Log);
-
-            // The --self-signed warning from the info level up, the fingerprint note from verbose
-            // up, both unstamped (ADR-0032, section 9; ADR-0033, section 7).
-            if (tls.ThrowawayCertificateFingerprint is { } fingerprint)
-            {
-                WriteThrowawayCertificateLines(commandLine.LogLevel, fingerprint, logStreams.Log);
-            }
-
-            // The --throwaway-hostkey and --allow-weak-ssh-algorithms warnings, then each SSH host key's note
-            // (ADR-0051, decisions 8 and 11).
-            authentication.SshHostKeys.WriteStartLines(commandLine, logStreams.Log);
-
-            return await ServeLoggedAsync(commandLine, servers, tls, logStreams, output, error, cancellationToken);
-        }
-    }
-
-    private static void WriteThrowawayCertificateLines(LogLevel logLevel, string fingerprint, TextWriter log)
-    {
-        if (logLevel >= LogLevel.Info)
-        {
-            log.WriteLine(MessagePrefix + "warning: --self-signed: serving a throwaway certificate; clients must skip verification (curl -k)");
-        }
-
-        if (logLevel >= LogLevel.Verbose)
-        {
-            log.WriteLine($"* Serving a throwaway certificate, SHA-256 {fingerprint}");
-        }
-    }
-
-    private async Task<SurlExitCode> ServeLoggedAsync(
-        SurlCommandLine commandLine,
-        IProtocolServer[] servers,
-        ServerTlsComposition tls,
-        LogStreams logStreams,
-        TextWriter output,
-        TextWriter error,
-        CancellationToken cancellationToken)
-    {
-        // The status lines are written from the info level up (ADR-0033, section 1).
-        var statusOutput = commandLine.LogLevel >= LogLevel.Info ? output : TextWriter.Null;
-        var reporter = new ListenerStartReporter(
-            createListenerFactory(tls.Settings), new ListenerStatusLine(statusOutput), commandLine.ListenUrls.Count);
-        var engine = new ServingEngine(
-            reporter,
-            servers,
-            logStreams.CreateExchangeLogFactory(commandLine, timeProvider),
-            timeProvider,
-            ServingEngine.DefaultShutdownGracePeriod,
-            SurlServerComposition.ComposeConnectionLimits(commandLine),
-            CreateDataConnectionOpener(tls.Settings),
-            commandLine.Limits);
-
-        try
-        {
-            var exitCode = await engine.ServeAsync(commandLine.ListenUrls, cancellationToken);
-            return reporter.BindFailure is { } bindFailure
-                ? WriteFailure(error, exitCode, FormatBindFailure(bindFailure))
-                : exitCode;
-        }
-        catch (Exception exception)
-        {
-            return WriteFailure(error, SurlExitCode.InternalError, $"(125) Internal error: {exception.Message}");
+            var outcome = await serving.ServeAsync(
+                new SurlServingOutputs(
+                    logStreams.Log,
+                    output,
+                    logStreams.CreateExchangeLogFactory(commandLine, timeProvider),
+                    AllListenersBound: static _ => { }),
+                cancellationToken);
+            return outcome.Failure is { } servingFailure ? WriteFailure(error, servingFailure) : outcome.ExitCode;
         }
     }
 }

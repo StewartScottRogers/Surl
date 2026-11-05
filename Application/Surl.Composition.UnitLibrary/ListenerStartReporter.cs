@@ -1,19 +1,25 @@
 using Surl.Output;
 using Surl.Protocol.Abstractions;
 
-namespace Surl.Console;
+namespace Surl.Composition;
 
 /// <summary>
 /// Wraps the listener factory the serving engine starts listeners through, to report on the
 /// starts: once the last of the expected listeners has bound, connection and datagram
 /// listeners alike, it writes one status line per listener in the order they started
-/// (ADR-0007 section 7); and it keeps the <see cref="ListenerBindException"/> a failed start
-/// threw, so <c>surl</c> can say what could not be bound (ADR-0007 section 5).
+/// (ADR-0007 section 7) and hands the bound listen URLs to <paramref name="allListenersBound"/>
+/// (ADR-0099, decision 2); and it keeps the <see cref="ListenerBindException"/> a failed start
+/// threw, so the host can say what could not be bound (ADR-0007 section 5).
 /// </summary>
 /// <param name="inner">The factory that really starts the listeners.</param>
 /// <param name="statusLine">Writes the status lines.</param>
 /// <param name="expectedListenerCount">How many listeners the engine starts: one per listen URL.</param>
-internal sealed class ListenerStartReporter(IListenerFactory inner, ListenerStatusLine statusLine, int expectedListenerCount)
+/// <param name="allListenersBound">Called once with every bound listen URL, in start order, after the status lines.</param>
+internal sealed class ListenerStartReporter(
+    IListenerFactory inner,
+    ListenerStatusLine statusLine,
+    int expectedListenerCount,
+    Action<IReadOnlyList<ListenUrl>> allListenersBound)
     : IListenerFactory
 {
     private readonly List<ListenUrl> boundListenUrls = [];
@@ -60,6 +66,7 @@ internal sealed class ListenerStartReporter(IListenerFactory inner, ListenerStat
         if (boundListenUrls.Count == expectedListenerCount)
         {
             boundListenUrls.ForEach(statusLine.Write);
+            allListenersBound([.. boundListenUrls]);
         }
     }
 }

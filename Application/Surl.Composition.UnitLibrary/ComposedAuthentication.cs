@@ -1,0 +1,18 @@
+using Surl.Authentication;
+using Surl.Kerberos;
+
+namespace Surl.Composition;
+
+/// <summary>
+/// What the servers judge logins by, the keytab entries skipped, and what the SSH server proves
+/// itself with: the start's authentication, composed before the data-directory lock is taken.
+/// </summary>
+/// <param name="Policy">The authentication policy.</param>
+/// <param name="AccountNames">Every configured account's user name, the mail store's owners.</param>
+/// <param name="SkippedKeytabEntries">The <c>--keytab</c> entries of an enctype surl does not accept.</param>
+/// <param name="SshHostKeys">The SSH host keys.</param>
+internal sealed record ComposedAuthentication(
+    AuthenticationPolicy Policy,
+    IReadOnlyList<string> AccountNames,
+    IReadOnlyList<KerberosKeytabSkippedEntry> SkippedKeytabEntries,
+    SshHostKeyComposition SshHostKeys);

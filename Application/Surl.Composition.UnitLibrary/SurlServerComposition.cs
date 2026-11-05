@@ -34,7 +34,7 @@ namespace Surl.Composition;
 /// Public because more than one host calls it, but not a supported programming interface: it may
 /// change in any release (ADR-0099, decision 1).
 /// </remarks>
-public static class SurlServerComposition
+public static partial class SurlServerComposition
 {
     /// <summary>
     /// Lists the scheme of every original protocol server surl registers, in registration order:
@@ -130,17 +130,28 @@ public static class SurlServerComposition
 
     /// <summary>
     /// Chooses the file system the content store serves and service state is kept through:
-    /// <paramref name="dataDirectoryFileSystem"/> with <c>--directory</c>, a new
-    /// <see cref="InMemoryContentFileSystem"/> without it.
+    /// <paramref name="dataDirectoryFileSystem"/> with <c>--directory</c>;
+    /// <paramref name="contentWithoutDataDirectory"/>, or a new <see cref="InMemoryContentFileSystem"/>
+    /// when that is <see langword="null"/>, without it.
     /// </summary>
     /// <param name="commandLine">The parsed command line.</param>
     /// <param name="timeProvider">The clock the in-memory file system stamps last-write times with.</param>
     /// <param name="dataDirectoryFileSystem">The file system the data directory is read and written
     /// through; <c>surl</c>'s is a <see cref="DiskContentFileSystem"/>.</param>
+    /// <param name="contentWithoutDataDirectory">The file system a host serves without
+    /// <c>--directory</c>, such as files its caller supplies in memory; <c>surl</c> gives none.</param>
     /// <returns>The file system.</returns>
     public static IContentFileSystem ComposeContentFileSystem(
-        SurlCommandLine commandLine, TimeProvider timeProvider, IContentFileSystem dataDirectoryFileSystem) =>
-        commandLine.DataDirectory is null ? new InMemoryContentFileSystem(timeProvider) : dataDirectoryFileSystem;
+        SurlCommandLine commandLine,
+        TimeProvider timeProvider,
+        IContentFileSystem dataDirectoryFileSystem,
+        IContentFileSystem? contentWithoutDataDirectory = null)
+    {
+        ArgumentNullException.ThrowIfNull(commandLine);
+        return commandLine.DataDirectory is null
+            ? contentWithoutDataDirectory ?? new InMemoryContentFileSystem(timeProvider)
+            : dataDirectoryFileSystem;
+    }
 
     private static ContentExposureOptions MapExposureOptions(SurlCommandLine commandLine) => new()
     {
