@@ -25,6 +25,17 @@ never asks which HTTP version carried it. The HTTP/1.x side is `Http1RequestResp
 `Connection`, the body, the refusal write deadline, half-close and drain). Keep version
 questions out of the answerer: an HTTP/2 or HTTP/3 writer reuses it as it is.
 
+HTTP/2 frames (RFC 9113 sections 4 and 6; ADR-0081 decision 4) are typed values: one
+`Http2Frame` record per frame type (`Http2DataFrame` ... `Http2ContinuationFrame`), each
+writing its own payload, with `Http2FrameEncoder` adding the 9-byte `Http2FrameHeader`.
+`Http2FrameReader` reads them bounded by the advertised `SETTINGS_MAX_FRAME_SIZE` - an
+oversized frame is refused from its header alone and an unknown type is skipped without
+being held - and `Http2FrameParser` checks what one frame can get wrong on its own, each
+`Http2FrameMalformation` mapping to the RFC 9113 error code and connection-or-stream scope
+in `Http2FrameMalformations`. Rules that need connection or stream state (`CONTINUATION`
+order, a `HEADERS` priority naming its own stream, a client's `PUSH_PROMISE`) belong to the
+connection, not the codec.
+
 Referencing another protocol server is a
 build break, and `Surl.Protocol.Abstractions.UnitTests` fails if one appears.
 

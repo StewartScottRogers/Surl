@@ -104,3 +104,20 @@ followed by the `200`, answering the two heads of `request.bin`.
 | `bearer-401` | 0 | sent `Authorization: Bearer tok` unasked, stopped at the `401`; stdout empty | `... -OutDirectory ...\bearer-401 -Response '<401><bearer>\r\n','<200>' -CurlArgs '-sS','--oauth2-bearer','tok','http://127.0.0.1:18114/file.txt'` |
 | `anonymous-401-fail` | 22 | stderr `curl: (22) The requested URL returned error: 401` | `... -OutDirectory ...\anonymous-401-fail -Response '<401><digest>\r\n','<200>' -CurlArgs '-sS','-f','http://127.0.0.1:18114/file.txt'` |
 | `basic-plaintext-403` | 22 | sent `Authorization: Basic` unasked; stderr `curl: (22) The requested URL returned error: 403` | `... -OutDirectory ...\basic-plaintext-403 -Response '<403>','<200>' -CurlArgs '-sS','-f','-u','tester:secret','http://127.0.0.1:18114/file.txt'` |
+
+## HTTP/2 frame fixtures (BL-367)
+
+Recorded on 2026-11-04 from the repository root in PowerShell, with the stunnel/static-curl
+8.21.0 build pinned in `UpstreamCurlBuilds.json` (SHA-256
+`589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`), the build ADR-0081
+decision 1 names for HTTP/2 on Windows, with `Record-CurlExchange.ps1 -Raw`. The first reply
+is an empty `SETTINGS`; the second is the `SETTINGS` ACK, a `HEADERS` on stream 1 with
+`END_STREAM` and `END_HEADERS` and the block `88` (`:status 200`), and a `DATA` frame that
+curl ignores because the stream had already ended. `request.bin` is the 165 bytes curl sent:
+the connection preface, `SETTINGS`, the connection `WINDOW_UPDATE`, `HEADERS`, two stream-1
+`WINDOW_UPDATE`s, its `SETTINGS` ACK and `GOAWAY NO_ERROR "shutdown\0"`, as ADR-0081's
+"Measured" table records. `transcript.txt` holds both directions.
+
+| Folder | Exit code | stdout.bin | Command line |
+| --- | --- | --- | --- |
+| `h2-prior-knowledge-get` | 0 | `HTTP/2 200 \r\n\r\n` | `.\Record-CurlExchange.ps1 -Port 18367 -Raw -Curl 'C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe' -OutDirectory Protocols\Http\Surl.Protocol.Http.UnitTests\Fixtures\h2-prior-knowledge-get -RawReply '\x00\x00\x00\x04\x00\x00\x00\x00\x00','\x00\x00\x00\x04\x01\x00\x00\x00\x00\x00\x00\x01\x01\x05\x00\x00\x00\x01\x88\x00\x00\x02\x00\x01\x00\x00\x00\x01hi' -CurlArgs '-sS','-i','--http2-prior-knowledge','http://127.0.0.1:18367/'` |
