@@ -110,4 +110,45 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     /// <c>--max-connections-per-address</c> (ADR-0108, decision 7).
     /// </summary>
     public static S3Error SlowDown { get; } = new("SlowDown", HttpStatus.ServiceUnavailable, "Please reduce your request rate.");
+
+    /// <summary>
+    /// <c>400 InvalidArgument</c>: an <c>Authorization</c> field of another scheme than
+    /// Signature Version 4 (ADR-0108, decision 4.3).
+    /// </summary>
+    public static S3Error UnsupportedAuthorizationType { get; } = new("InvalidArgument", HttpStatus.BadRequest, "Unsupported Authorization Type");
+
+    /// <summary>
+    /// <c>400 AuthorizationHeaderMalformed</c>: an <c>AWS4-HMAC-SHA256</c> field that does not
+    /// parse, or whose scope is not for <c>s3</c> (ADR-0108, decision 4.3).
+    /// </summary>
+    public static S3Error AuthorizationHeaderMalformed { get; } = new("AuthorizationHeaderMalformed", HttpStatus.BadRequest, "The authorization header that you provided is not valid.");
+
+    /// <summary>
+    /// <c>400 InvalidRequest</c>: a signed request without <c>x-amz-content-sha256</c> (ADR-0108,
+    /// decision 4.3).
+    /// </summary>
+    public static S3Error MissingContentSha256 { get; } = new("InvalidRequest", HttpStatus.BadRequest, "Missing required header for this request: x-amz-content-sha256");
+
+    /// <summary>
+    /// <c>403 InvalidAccessKeyId</c>: a signature whose access key is no account (ADR-0108,
+    /// decision 4.3).
+    /// </summary>
+    public static S3Error InvalidAccessKeyId { get; } = new("InvalidAccessKeyId", new HttpStatus(403, "Forbidden"), "The AWS access key Id you provided does not exist in our records.");
+
+    /// <summary>
+    /// <c>403 SignatureDoesNotMatch</c>: a signature that does not verify (ADR-0108, decision 4.3).
+    /// </summary>
+    public static S3Error SignatureDoesNotMatch { get; } = new("SignatureDoesNotMatch", new HttpStatus(403, "Forbidden"), "The request signature we calculated does not match the signature you provided. Check your key and signing method.");
+
+    /// <summary>
+    /// <c>403 RequestTimeTooSkewed</c>: <c>x-amz-date</c> more than 15 minutes from the server's
+    /// clock (ADR-0108, decision 4.3).
+    /// </summary>
+    public static S3Error RequestTimeTooSkewed { get; } = new("RequestTimeTooSkewed", new HttpStatus(403, "Forbidden"), "The difference between the request time and the server's time is too large.");
+
+    /// <summary>
+    /// <c>400 XAmzContentSHA256Mismatch</c>: a body whose SHA-256 is not
+    /// <c>x-amz-content-sha256</c> (ADR-0108, decision 4.3).
+    /// </summary>
+    public static S3Error ContentSha256Mismatch { get; } = new("XAmzContentSHA256Mismatch", HttpStatus.BadRequest, "The provided 'x-amz-content-sha256' header does not match what was computed.");
 }

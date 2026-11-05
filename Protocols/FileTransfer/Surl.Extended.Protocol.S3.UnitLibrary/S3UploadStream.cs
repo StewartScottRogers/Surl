@@ -4,13 +4,14 @@ using Surl.Content;
 namespace Surl.Extended.Protocol.S3;
 
 /// <summary>
-/// The write-only stream a PutObject body is copied into: each write is hashed into the body's MD5
+/// The write-only stream a PutObject body is copied into: each write is hashed into the body's MD5 and SHA-256
 /// and appended to the content store's upload session, until the session says the upload is past
 /// <c>--max-filesize</c>, after which the rest is hashed and dropped.
 /// </summary>
 /// <param name="session">The upload session the bytes are appended to.</param>
-/// <param name="bodyMd5">The hash every byte of the body goes through.</param>
-internal sealed class S3UploadStream(ContentUploadSession session, IncrementalHash bodyMd5) : Stream
+/// <param name="bodyMd5">The MD5 every byte of the body goes through, for the <c>ETag</c> and <c>Content-MD5</c>.</param>
+/// <param name="bodySha256">The SHA-256 every byte of the body goes through, for <c>x-amz-content-sha256</c>.</param>
+internal sealed class S3UploadStream(ContentUploadSession session, IncrementalHash bodyMd5, IncrementalHash bodySha256) : Stream
 {
     /// <summary>
     /// Whether the upload went past the store's upload limit; the session has then discarded it.
@@ -67,6 +68,7 @@ internal sealed class S3UploadStream(ContentUploadSession session, IncrementalHa
     public override async ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
     {
         bodyMd5.AppendData(buffer.Span);
+        bodySha256.AppendData(buffer.Span);
         if (IsTooLarge)
         {
             return;

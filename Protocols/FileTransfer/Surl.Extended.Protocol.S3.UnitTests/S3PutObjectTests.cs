@@ -530,7 +530,7 @@ public sealed class S3PutObjectTests
     public void UploadStream_EverythingButAnAsynchronousWrite_IsNotSupported()
     {
         using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
-        using var stream = new S3UploadStream(null!, md5);
+        using var stream = new S3UploadStream(null!, md5, md5);
 
         Assert.IsFalse(stream.CanRead);
         Assert.IsFalse(stream.CanSeek);
@@ -553,7 +553,7 @@ public sealed class S3PutObjectTests
         var opening = await harness.Store.OpenUploadAsync(mapping, new ContentUploadOpening(false, true, false), CancellationToken.None);
         await using var session = opening.Session!;
         using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
-        await using var stream = new S3UploadStream(session, md5);
+        await using var stream = new S3UploadStream(session, md5, md5);
 
         await stream.WriteAsync(Encoding.UTF8.GetBytes("hello world"), 0, 11, CancellationToken.None);
 
@@ -569,12 +569,14 @@ public sealed class S3PutObjectTests
         var opening = await harness.Store.OpenUploadAsync(mapping, new ContentUploadOpening(false, true, false), CancellationToken.None);
         await using var session = opening.Session!;
         using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
-        await using var stream = new S3UploadStream(session, md5);
+        using var sha256 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+        await using var stream = new S3UploadStream(session, md5, sha256);
 
         await stream.WriteAsync(Encoding.UTF8.GetBytes("hello"), CancellationToken.None);
         await stream.WriteAsync(Encoding.UTF8.GetBytes(" world"), CancellationToken.None);
 
         Assert.IsTrue(stream.IsTooLarge);
         CollectionAssert.AreEqual(System.Security.Cryptography.MD5.HashData(Encoding.UTF8.GetBytes("hello world")), md5.GetHashAndReset());
+        CollectionAssert.AreEqual(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes("hello world")), sha256.GetHashAndReset());
     }
 }

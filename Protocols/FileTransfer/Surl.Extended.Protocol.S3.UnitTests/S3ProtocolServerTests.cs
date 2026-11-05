@@ -20,9 +20,10 @@ public sealed class S3ProtocolServerTests
     {
         var harness = new S3ServerHarness();
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => new S3ProtocolServer(null!, harness.Index, harness.TimeProvider));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new S3ProtocolServer(harness.Store, null!, harness.TimeProvider));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new S3ProtocolServer(harness.Store, harness.Index, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new S3ProtocolServer(null!, harness.Index, harness.Policy, harness.TimeProvider));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new S3ProtocolServer(harness.Store, null!, harness.Policy, harness.TimeProvider));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new S3ProtocolServer(harness.Store, harness.Index, null!, harness.TimeProvider));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new S3ProtocolServer(harness.Store, harness.Index, harness.Policy, null!));
     }
 
     [TestMethod]

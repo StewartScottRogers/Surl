@@ -20,14 +20,15 @@ internal sealed partial class S3ServerHarness
 
     public const string NowHttpDate = "Thu, 05 Nov 2026 12:00:00 GMT";
 
-    public S3ServerHarness(long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, ContentExposureOptions? exposure = null, string listenHost = "127.0.0.1", int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries)
+    public S3ServerHarness(long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, ContentExposureOptions? exposure = null, string listenHost = "127.0.0.1", int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries, UnitTestS3AuthenticationPolicy? policy = null)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
         Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? []);
         ListenHost = listenHost;
         Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
-        Server = new S3ProtocolServer(Store, Index, TimeProvider);
+        Policy = policy ?? new UnitTestS3AuthenticationPolicy();
+        Server = new S3ProtocolServer(Store, Index, Policy, TimeProvider);
     }
 
     /// <summary>
@@ -44,6 +45,12 @@ internal sealed partial class S3ServerHarness
     public ContentStore Store { get; }
 
     public ObjectMetadataIndex Index { get; }
+
+    /// <summary>
+    /// The policy judging every request; by default an unsigned request logs in as
+    /// <see cref="UnitTestS3AuthenticationPolicy.ExampleAccessKeyId"/>.
+    /// </summary>
+    public UnitTestS3AuthenticationPolicy Policy { get; }
 
     public S3ProtocolServer Server { get; }
 

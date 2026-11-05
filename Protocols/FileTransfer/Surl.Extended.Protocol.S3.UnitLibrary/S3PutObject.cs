@@ -20,8 +20,9 @@ namespace Surl.Extended.Protocol.S3;
 /// </remarks>
 /// <param name="store">The content store the object is written to.</param>
 /// <param name="index">The object metadata index of the store's served root.</param>
+/// <param name="login">Finishes a signature that binds the body, once the body is read.</param>
 /// <param name="log">Where a failure to rewrite the index file is noted.</param>
-internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index, IExchangeLog log)
+internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index, S3Login login, IExchangeLog log)
 {
     /// <summary>
     /// The most UTF-8 bytes of <c>x-amz-meta-*</c> names and values ("Working with object metadata").
@@ -36,10 +37,10 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
     /// <param name="reply">The request's answers.</param>
     /// <param name="request">The request, whose body is read.</param>
     /// <param name="target">The request's bucket and key.</param>
-    /// <param name="caller">Who writes, and on which scheme.</param>
+    /// <param name="loginResult">Who writes, on <c>s3</c>, and the rest of a signature that binds the body.</param>
     /// <param name="cancellationToken">Cancels reading the body and writing the file.</param>
     /// <returns>The answer.</returns>
-    public async Task<HttpAnswer> AnswerAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentCaller caller, CancellationToken cancellationToken)
+    public async Task<HttpAnswer> AnswerAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, S3LoginResult loginResult, CancellationToken cancellationToken)
     {
         if (!store.ExposureOptions.AllowUploads)
         {
@@ -56,6 +57,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
             return reply.Error(S3Error.EntityTooLarge);
         }
 
+        var caller = loginResult.Caller!;
         var mapping = store.MapBucketRequestPathForCaller(target.ObjectPath, caller);
         if (!mapping.IsMapped)
         {
@@ -64,7 +66,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
 
         return CreateFolders(target, caller) is { } folderRefusal
             ? reply.Error(folderRefusal)
-            : await StoreAsync(reply, request, target, mapping, cancellationToken);
+            : await StoreAsync(reply, request, target, mapping, loginResult.BodyCheck, cancellationToken);
     }
 
     /// <summary>
@@ -161,7 +163,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         _ => store.CreateDirectory(folder) == ContentChangeResult.Done ? null : S3Error.AccessDenied,
     };
 
-    private async Task<HttpAnswer> StoreAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, CancellationToken cancellationToken)
+    private async Task<HttpAnswer> StoreAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
     {
         if (target.RawKey.EndsWith('/'))
         {
@@ -178,14 +180,18 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
 
         await using (session)
         {
-            return await WriteAsync(reply, request, target, mapping, session, cancellationToken);
+            return await WriteAsync(reply, request, target, mapping, session, bodyCheck, cancellationToken);
         }
     }
 
-    private async Task<HttpAnswer> WriteAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, ContentUploadSession session, CancellationToken cancellationToken)
+    // The body goes into the upload session, which is committed only once the body is the one
+    // signed and matches any Content-MD5; refused, the session is disposed uncommitted and the
+    // old object stands.
+    private async Task<HttpAnswer> WriteAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, ContentUploadSession session, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
     {
         using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-        var sink = new S3UploadStream(session, md5);
+        using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var sink = new S3UploadStream(session, md5, sha256);
         var outcome = request.Body.IsAnnounced ? await request.Body.CopyToAsync(sink, cancellationToken) : HttpRequestBodyDiscardOutcome.Discarded;
         if (BodyRefusal(outcome, sink.IsTooLarge) is { } bodyRefusal)
         {
@@ -193,9 +199,9 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         }
 
         var digest = md5.GetHashAndReset();
-        if (S3RequestFields.Value(request.Fields, "Content-MD5") is { } contentMd5 && !digest.AsSpan().SequenceEqual(ExpectedMd5(contentMd5)))
+        if (await ContentRefusalAsync(request, bodyCheck, sha256.GetHashAndReset(), digest, cancellationToken) is { } contentRefusal)
         {
-            return reply.Error(S3Error.BadDigest);
+            return reply.Error(contentRefusal);
         }
 
         if (CommitRefusal(await session.CommitAsync(cancellationToken)) is { } commitRefusal)
@@ -204,6 +210,20 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         }
 
         return await StoreMetadataAsync(reply, request, target, mapping, digest, cancellationToken);
+    }
+
+    // The body against what the request said of it: the signed x-amz-content-sha256 first
+    // (XAmzContentSHA256Mismatch), then Content-MD5 (BadDigest).
+    private async Task<S3Error?> ContentRefusalAsync(HttpRequest request, IHttpRequestBodyCheck? bodyCheck, byte[] bodySha256, byte[] bodyMd5, CancellationToken cancellationToken)
+    {
+        if (bodyCheck is not null && await login.JudgeBodyAsync(bodyCheck, bodySha256, cancellationToken) is { } signatureRefusal)
+        {
+            return signatureRefusal;
+        }
+
+        return S3RequestFields.Value(request.Fields, "Content-MD5") is { } contentMd5 && !bodyMd5.AsSpan().SequenceEqual(ExpectedMd5(contentMd5))
+            ? S3Error.BadDigest
+            : null;
     }
 
     // The metadata goes into the index for a file it keys; refused there, the object is removed.

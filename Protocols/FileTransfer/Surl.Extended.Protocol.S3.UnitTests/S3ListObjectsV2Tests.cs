@@ -131,7 +131,7 @@ public sealed partial class S3ListObjectsV2Tests
 
         StringAssert.Contains(response, "<Prefix>a%20</Prefix>");
         StringAssert.Contains(response, "<EncodingType>url</EncodingType><Contents><Key>a%20b%26c.txt</Key>");
-        StringAssert.Contains(response, "<StorageClass>STANDARD</StorageClass><Owner><ID>anonymous</ID><DisplayName>anonymous</DisplayName></Owner></Contents>");
+        StringAssert.Contains(response, "<StorageClass>STANDARD</StorageClass><Owner><ID>AKIAIOSFODNN7EXAMPLE</ID><DisplayName>AKIAIOSFODNN7EXAMPLE</DisplayName></Owner></Contents>");
     }
 
     [TestMethod]

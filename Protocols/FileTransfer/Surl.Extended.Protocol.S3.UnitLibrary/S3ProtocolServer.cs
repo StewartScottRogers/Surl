@@ -17,8 +17,9 @@ namespace Surl.Extended.Protocol.S3;
 /// It serves GetObject and HeadObject - ranges, conditional fields, the object's stored header
 /// fields and user metadata - PutObject when the store allows uploads, and ListObjectsV2 when it
 /// lists directories, path style or virtual-hosted style, and answers every other request
-/// <c>501 NotImplemented</c>, each failure with the S3 <c>Error</c> body. Requests are anonymous:
-/// the SigV4 check is BL-420's.
+/// <c>501 NotImplemented</c>, each failure with the S3 <c>Error</c> body. Every request must carry
+/// a valid AWS Signature Version 4 <c>Authorization</c> of an account (anonymous reads only under
+/// <c>--allow-anonymous</c>), checked through the policy's HTTP session (ADR-0108, decision 4).
 /// </para>
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s, so a
@@ -37,6 +38,7 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
 
     private readonly ContentStore store;
     private readonly ObjectMetadataIndex index;
+    private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
 
     /// <summary>
@@ -44,15 +46,18 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
     /// </summary>
     /// <param name="store">The shared content store; its top-level folders are the buckets.</param>
     /// <param name="index">The object metadata index of <paramref name="store"/>'s served root.</param>
+    /// <param name="authenticationPolicy">The policy whose HTTP session checks each request's Signature Version 4 login.</param>
     /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from.</param>
-    public S3ProtocolServer(ContentStore store, ObjectMetadataIndex index, TimeProvider timeProvider)
+    public S3ProtocolServer(ContentStore store, ObjectMetadataIndex index, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(index);
+        ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         this.store = store;
         this.index = index;
+        this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
     }
 
@@ -65,7 +70,7 @@ public sealed class S3ProtocolServer : IConnectionProtocolServer, IConnectionRef
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new S3RequestAnswerer(store, index, context), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new S3RequestAnswerer(store, index, authenticationPolicy.StartHttpConnection(connection.TlsSession), context), context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

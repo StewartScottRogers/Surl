@@ -7,18 +7,21 @@ namespace Surl.Extended.Protocol.S3;
 
 /// <summary>
 /// Decides the answer to each S3 request on one connection (ADR-0108): GetObject, HeadObject,
-/// PutObject and ListObjectsV2, path style or virtual-hosted style, made as an anonymous caller,
-/// and <c>501 NotImplemented</c> for every other request.
+/// PutObject and ListObjectsV2, path style or virtual-hosted style, made as the caller its
+/// Signature Version 4 login names, and <c>501 NotImplemented</c> for every other request.
 /// </summary>
 /// <remarks>
-/// The order is ADR-0108 decision 4.1's, without the authentication BL-420 adds: the addressing,
-/// the operation, then the bucket (<c>404 NoSuchBucket</c>), then the operation's own checks -
-/// for a read, the key's length (<c>400 KeyTooLongError</c>) and the key (<c>404 NoSuchKey</c>).
+/// The order is ADR-0108 decision 4.1's: the addressing, the SigV4 check of the head
+/// (<see cref="S3Login"/>), the operation - with a body the operation does not use read first
+/// when the signature binds it - then the bucket (<c>404 NoSuchBucket</c>), then the
+/// operation's own checks: for a read, the key's length (<c>400 KeyTooLongError</c>) and the
+/// key (<c>404 NoSuchKey</c>).
 /// </remarks>
 internal sealed class S3RequestAnswerer : IHttpRequestHandler
 {
     private readonly ContentStore store;
     private readonly ExchangeContext context;
+    private readonly S3Login login;
     private readonly S3ObjectPropertiesReader properties;
     private readonly S3PutObject putObject;
     private readonly S3ListObjectsV2 listObjects;
@@ -28,13 +31,15 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler
     /// </summary>
     /// <param name="store">The content store whose top-level folders are the buckets.</param>
     /// <param name="index">The object metadata index of the store's served root.</param>
+    /// <param name="authentication">The connection's authentication session.</param>
     /// <param name="context">The exchange: its listen URL, clock and log.</param>
-    public S3RequestAnswerer(ContentStore store, ObjectMetadataIndex index, ExchangeContext context)
+    public S3RequestAnswerer(ContentStore store, ObjectMetadataIndex index, IHttpAuthenticationSession authentication, ExchangeContext context)
     {
         this.store = store;
         this.context = context;
+        login = new S3Login(authentication, context.Log);
         properties = new S3ObjectPropertiesReader(store, index, context.Log);
-        putObject = new S3PutObject(store, index, context.Log);
+        putObject = new S3PutObject(store, index, login, context.Log);
         listObjects = new S3ListObjectsV2(store, properties);
     }
 
@@ -43,7 +48,18 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler
     {
         var target = S3RequestTarget.Parse(request.Target, S3VirtualHost.BucketOf(request.Authority, context.ListenUrl.Host));
         var reply = new S3Reply(request, target.Path, RandomNumberGenerator.GetHexString(16), context.TimeProvider.GetUtcNow());
+        var loginResult = await login.JudgeHeadAsync(request, cancellationToken);
+        if (loginResult.Refusal is { } loginRefusal)
+        {
+            return reply.Error(loginRefusal);
+        }
+
         var operation = S3OperationRecognition.Of(request, target);
+        if (await UnusedBodyRefusalAsync(request, operation, loginResult, cancellationToken) is { } bodyRefusal)
+        {
+            return reply.Error(bodyRefusal);
+        }
+
         if (operation == S3Operation.NotImplemented)
         {
             context.Log.Note($"{request.Method} is no operation the S3 server serves; answered 501 NotImplemented.");
@@ -51,7 +67,7 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler
             return reply.Error(S3Error.NotImplemented);
         }
 
-        var caller = ContentCaller.Anonymous(S3ProtocolServer.Scheme);
+        var caller = loginResult.Caller!;
         if (!IsBucket(store.MapBucketRequestPathForCaller($"/{target.RawBucket}/", caller)))
         {
             return reply.Error(S3Error.NoSuchBucket, new KeyValuePair<string, string>("BucketName", target.RawBucket));
@@ -60,15 +76,22 @@ internal sealed class S3RequestAnswerer : IHttpRequestHandler
         return operation switch
         {
             S3Operation.ListObjectsV2 => await listObjects.AnswerAsync(reply, target, S3QueryParameters.Parse(target.Query!), caller, cancellationToken),
-            S3Operation.PutObject => await PutObjectAsync(reply, request, target, caller, cancellationToken),
+            S3Operation.PutObject => await PutObjectAsync(reply, request, target, loginResult, cancellationToken),
             _ => await ReadObjectAsync(reply, request, target, caller, cancellationToken),
         };
     }
 
-    private async Task<HttpAnswer> PutObjectAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentCaller caller, CancellationToken cancellationToken) =>
+    // A signature binding a body that only PutObject reads: any other operation reads and
+    // discards it first, so its hash is checked before anything is answered.
+    private async Task<S3Error?> UnusedBodyRefusalAsync(HttpRequest request, S3Operation operation, S3LoginResult loginResult, CancellationToken cancellationToken) =>
+        operation == S3Operation.PutObject || loginResult.BodyCheck is not { } bodyCheck
+            ? null
+            : await login.JudgeDiscardedBodyAsync(request, bodyCheck, cancellationToken);
+
+    private async Task<HttpAnswer> PutObjectAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, S3LoginResult loginResult, CancellationToken cancellationToken) =>
         S3ObjectKey.IsTooLong(target.RawKey)
             ? reply.Error(S3Error.KeyTooLong)
-            : await putObject.AnswerAsync(reply, request, target, caller, cancellationToken);
+            : await putObject.AnswerAsync(reply, request, target, loginResult, cancellationToken);
 
     // GetObject and HeadObject: the key's length, then the key.
     private async Task<HttpAnswer> ReadObjectAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentCaller caller, CancellationToken cancellationToken)
