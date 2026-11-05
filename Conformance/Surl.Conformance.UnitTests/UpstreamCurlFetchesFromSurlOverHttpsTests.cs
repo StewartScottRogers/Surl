@@ -1,7 +1,7 @@
 namespace Surl.Conformance;
 
 /// <summary>
-/// The pinned upstream curl build fetches from a live, in-process <c>surl</c> over HTTP/1.1 on
+/// The pinned upstream curl build fetches from a live, in-process <c>surl</c> over HTTP/2 or HTTP/1.1 on
 /// TLS (<c>https</c>), with the certificate <c>--cert</c> and <c>--key</c> name and with the
 /// throwaway certificate surl makes with <c>--self-signed</c> (ADR-0010, section 3; ADR-0032,
 /// section 10). Inconclusive where no
@@ -91,6 +91,44 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttpsTests
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(Hello.Concat(Hello).ToArray(), result.StandardOutput);
+    }
+
+    [TestMethod]
+    public async Task GetWithHttp11_ThrowawayCertificate_IsServedOverHttp11()
+    {
+        await using var surl = await StartSurlAsync("--self-signed");
+
+        var result = await RunUpstreamCurlAsync("-sS", "-k", "--http1.1", "-w", "%{http_version}", surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        CollectionAssert.AreEqual(Hello.Concat("1.1"u8.ToArray()).ToArray(), result.StandardOutput);
+    }
+
+    // curl negotiates HTTP/2 by ALPN by default where it has the HTTP2 feature (ADR-0081,
+    // decision 2): the Linux and macOS reference builds do.
+    [TestMethod]
+    [OSCondition(ConditionMode.Exclude, OperatingSystems.Windows)]
+    public async Task Get_ThrowawayCertificate_IsServedOverHttp2()
+    {
+        await using var surl = await StartSurlAsync("--self-signed");
+
+        var result = await RunUpstreamCurlAsync("-sS", "-k", "-w", "%{http_version}", surl.UrlOf("hello.txt"), surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        CollectionAssert.AreEqual(Hello.Concat("2"u8.ToArray()).Concat(Hello).Concat("2"u8.ToArray()).ToArray(), result.StandardOutput);
+    }
+
+    // The Windows reference build (Schannel) has no HTTP2 feature, so it offers only http/1.1.
+    [TestMethod]
+    [OSCondition(OperatingSystems.Windows)]
+    public async Task Get_ThrowawayCertificate_IsServedOverHttp11ToTheSchannelBuild()
+    {
+        await using var surl = await StartSurlAsync("--self-signed");
+
+        var result = await RunUpstreamCurlAsync("-sS", "-k", "-w", "%{http_version}", surl.UrlOf("hello.txt"));
+
+        Assert.AreEqual(0, result.ExitCode, result.StandardError);
+        CollectionAssert.AreEqual(Hello.Concat("1.1"u8.ToArray()).ToArray(), result.StandardOutput);
     }
 
     private Task<SurlOnLoopback> StartSurlAsync(params string[] options) =>
