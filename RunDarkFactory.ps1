@@ -1755,8 +1755,10 @@ function Invoke-MergeToMaster {
         Start-Sleep -Seconds 30
     }
     if ($run[0].conclusion -ne 'success') { return "not merged: CI $($run[0].conclusion) on $short (pull request #$number)" }
-    gh pr merge $number --merge 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { return "not merged: gh pr merge refused pull request #$number" }
+    # --match-head-commit: merge only the commit CI passed on. A push that moved the pull
+    # request's head meanwhile makes GitHub refuse, rather than merge an untested commit.
+    gh pr merge $number --merge --match-head-commit $head 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { return "not merged: gh pr merge refused pull request #$number (its head moved past $short, or GitHub refused)" }
     return "merged $short into master (pull request #$number)"
 }
 

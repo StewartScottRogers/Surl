@@ -62,6 +62,15 @@ on:
 permissions:
   contents: read
 
+# A pull request's runs are superseded by its next push: the dark factory pushes its shift
+# branch every few minutes, and twenty queued dry runs of seven jobs each starved CI's
+# runners, so CI could not pass in time for the end-of-shift merge (2026-11-05). Only the
+# newest dry run of a pull request matters, so a newer one cancels the older. A tag, the
+# weekly schedule and a run by hand are never cancelled: each has a group of its own.
+concurrency:
+  group: release-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   publish:
     name: Publish ${{ matrix.rid }}
