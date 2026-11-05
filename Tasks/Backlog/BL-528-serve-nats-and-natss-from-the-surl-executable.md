@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-527, BL-405, BL-635, BL-770]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -40,8 +40,15 @@ turns both off.
 
 ## Notes
 
+- 2026-11-05 (lane 8): BL-609 has moved extended-server composition to `Application/Surl.Composition.UnitLibrary`
+  (`ExtendedProtocolServers.Registrations`, beside the `s3` entry). The `nats`/`natss` registration, its project
+  reference to `Surl.Extended.Protocol.Nats.UnitLibrary` and the shared-bus test belong there and in
+  `Surl.Composition.UnitTests`, so both are now in `touches`. BL-803 (in Doing) touches both, so this task went
+  back to Backlog until it no longer overlaps.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and Surl.Composition.UnitTests (where extended servers now register), which BL-803 in Doing touches
