@@ -66,8 +66,8 @@ public sealed class S3RequestAnswererTests
     {
         var harness = new S3ServerHarness();
 
-        await harness.SendAsync("PUT", "/photos/a.txt");
+        await harness.SendAsync("DELETE", "/photos/a.txt");
 
-        CollectionAssert.Contains(harness.Log.Notes.ToArray(), "PUT is no operation the S3 server serves; answered 501 NotImplemented.");
+        CollectionAssert.Contains(harness.Log.Notes.ToArray(), "DELETE is no operation the S3 server serves; answered 501 NotImplemented.");
     }
 }

@@ -289,12 +289,12 @@ public sealed class S3ProtocolServerTests
     }
 
     [TestMethod]
-    [DataRow("PUT", "/photos/a.txt", DisplayName = "PutObject, not yet served")]
     [DataRow("DELETE", "/photos/a.txt", DisplayName = "DeleteObject, not yet served")]
     [DataRow("POST", "/photos/a.txt?uploads", DisplayName = "CreateMultipartUpload, not yet served")]
     [DataRow("GET", "/", DisplayName = "ListBuckets, not yet served")]
     [DataRow("GET", "/photos", DisplayName = "ListObjects version 1")]
-    [DataRow("GET", "/photos?list-type=2", DisplayName = "ListObjectsV2, not yet served")]
+    [DataRow("GET", "/photos?list-type=1", DisplayName = "ListObjects version 1 by its list-type")]
+    [DataRow("PUT", "/photos/a.txt?tagging", DisplayName = "PutObjectTagging")]
     [DataRow("PUT", "/photos", DisplayName = "CreateBucket")]
     [DataRow("DELETE", "/photos/", DisplayName = "DeleteBucket")]
     [DataRow("GET", "/photos/a.txt?acl", DisplayName = "a subresource")]

@@ -42,6 +42,70 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     public static S3Error KeyTooLong { get; } = new("KeyTooLongError", HttpStatus.BadRequest, "Your key is too long.");
 
     /// <summary>
+    /// <c>403 AccessDenied</c>: a write while <c>--allow-uploads</c> is off, a write a share's
+    /// access forbids, or a listing while <c>--list-directories</c> is off.
+    /// </summary>
+    public static S3Error AccessDenied { get; } = new("AccessDenied", new HttpStatus(403, "Forbidden"), "Access Denied");
+
+    /// <summary>
+    /// <c>400 BadDigest</c>: a <c>Content-MD5</c> that does not match the body.
+    /// </summary>
+    public static S3Error BadDigest { get; } = new("BadDigest", HttpStatus.BadRequest, "The Content-MD5 you specified did not match what we received.");
+
+    /// <summary>
+    /// <c>400 InvalidDigest</c>: a <c>Content-MD5</c> that is not the base64 of 16 bytes.
+    /// </summary>
+    public static S3Error InvalidDigest { get; } = new("InvalidDigest", HttpStatus.BadRequest, "The Content-MD5 you specified is not valid.");
+
+    /// <summary>
+    /// <c>400 EntityTooLarge</c>: a body past <c>--max-filesize</c> (ADR-0108, decision 7).
+    /// </summary>
+    public static S3Error EntityTooLarge { get; } = new("EntityTooLarge", HttpStatus.BadRequest, "Your proposed upload exceeds the maximum allowed object size.");
+
+    /// <summary>
+    /// <c>400 IncompleteBody</c>: a body that ended before the length it announced, or malformed
+    /// chunked coding.
+    /// </summary>
+    public static S3Error IncompleteBody { get; } = new("IncompleteBody", HttpStatus.BadRequest, "You did not provide the number of bytes specified by the Content-Length HTTP header.");
+
+    /// <summary>
+    /// <c>400 InvalidArgument</c>: a key the store cannot hold on a write, or a bad query value.
+    /// </summary>
+    public static S3Error InvalidArgument { get; } = new("InvalidArgument", HttpStatus.BadRequest, "Invalid Argument");
+
+    /// <summary>
+    /// <c>409 InvalidArgument</c>: a key that conflicts with a folder or a file (ADR-0108, decision 3).
+    /// </summary>
+    public static S3Error ConflictingKey { get; } = new("InvalidArgument", new HttpStatus(409, "Conflict"), "Invalid Argument");
+
+    /// <summary>
+    /// <c>400 InvalidArgument</c> for a <c>continuation-token</c> that does not decode (ADR-0108, decision 6).
+    /// </summary>
+    public static S3Error InvalidContinuationToken { get; } = new("InvalidArgument", HttpStatus.BadRequest, "The continuation token provided is incorrect");
+
+    /// <summary>
+    /// <c>400 InvalidRequest</c>: a body the server cannot read as one, such as a chunked
+    /// <c>PUT</c> with no <c>x-amz-decoded-content-length</c>.
+    /// </summary>
+    public static S3Error InvalidRequest { get; } = new("InvalidRequest", HttpStatus.BadRequest, "Invalid Request");
+
+    /// <summary>
+    /// <c>400 MetadataTooLarge</c>: user metadata past 2 KiB, or an object's metadata past the
+    /// object metadata index's bound.
+    /// </summary>
+    public static S3Error MetadataTooLarge { get; } = new("MetadataTooLarge", HttpStatus.BadRequest, "Your metadata headers exceed the maximum allowed metadata size.");
+
+    /// <summary>
+    /// <c>411 MissingContentLength</c>: a <c>PUT</c> with neither <c>Content-Length</c> nor a chunked body.
+    /// </summary>
+    public static S3Error MissingContentLength { get; } = new("MissingContentLength", new HttpStatus(411, "Length Required"), "You must provide the Content-Length HTTP header.");
+
+    /// <summary>
+    /// <c>503 ServiceUnavailable</c>: the object metadata index is full.
+    /// </summary>
+    public static S3Error ServiceUnavailable { get; } = new("ServiceUnavailable", HttpStatus.ServiceUnavailable, "Service is unable to handle request.");
+
+    /// <summary>
     /// <c>503 SlowDown</c>: a connection past <c>--max-connections</c> or
     /// <c>--max-connections-per-address</c> (ADR-0108, decision 7).
     /// </summary>

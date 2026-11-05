@@ -14,11 +14,11 @@ namespace Surl.Extended.Protocol.S3;
 /// </summary>
 /// <remarks>
 /// <para>
-/// It serves path-style GetObject and HeadObject - ranges, conditional fields, the object's
-/// stored header fields and user metadata - and answers every other request
-/// <c>501 NotImplemented</c>, each failure with the S3 <c>Error</c> body. Reads are anonymous:
-/// the SigV4 check is BL-420's, and PutObject, ListObjectsV2 and virtual-hosted addressing are
-/// BL-419's.
+/// It serves GetObject and HeadObject - ranges, conditional fields, the object's stored header
+/// fields and user metadata - PutObject when the store allows uploads, and ListObjectsV2 when it
+/// lists directories, path style or virtual-hosted style, and answers every other request
+/// <c>501 NotImplemented</c>, each failure with the S3 <c>Error</c> body. Requests are anonymous:
+/// the SigV4 check is BL-420's.
 /// </para>
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s, so a

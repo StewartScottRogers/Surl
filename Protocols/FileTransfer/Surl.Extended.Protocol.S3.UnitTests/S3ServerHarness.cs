@@ -20,14 +20,22 @@ internal sealed partial class S3ServerHarness
 
     public const string NowHttpDate = "Thu, 05 Nov 2026 12:00:00 GMT";
 
-    public S3ServerHarness(long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null)
+    public S3ServerHarness(long maxTotalBytes = InMemoryContentFileSystem.DefaultMaxTotalBytes, bool persistsIndex = false, IReadOnlyList<ContentShare>? shares = null, IReadOnlyList<ContentBucket>? buckets = null, ContentExposureOptions? exposure = null, string listenHost = "127.0.0.1", int maxIndexEntries = ObjectMetadataIndex.DefaultMaxEntries)
     {
         TimeProvider = new FixedTimeProvider(Now);
         FileSystem = new InMemoryContentFileSystem(TimeProvider, maxTotalBytes);
-        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, new ContentExposureOptions(), shares ?? [], buckets ?? []);
-        Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex);
+        Store = new ContentStore(InMemoryContentFileSystem.RootPath, FileSystem, exposure ?? new ContentExposureOptions(), shares ?? [], buckets ?? []);
+        ListenHost = listenHost;
+        Index = new ObjectMetadataIndex(FileSystem, InMemoryContentFileSystem.RootPath, persistsIndex, maxIndexEntries);
         Server = new S3ProtocolServer(Store, Index, TimeProvider);
     }
+
+    /// <summary>
+    /// Uploads and listings allowed, as --allow-uploads and --list-directories set them.
+    /// </summary>
+    public static ContentExposureOptions Writable { get; } = new() { AllowUploads = true, ListDirectories = true };
+
+    public string ListenHost { get; }
 
     public FixedTimeProvider TimeProvider { get; }
 
@@ -58,7 +66,7 @@ internal sealed partial class S3ServerHarness
 
     public ExchangeContext Context(ExchangeLimits? limits = null) => new(
         1,
-        new ListenUrl(S3ProtocolServer.Scheme, "127.0.0.1", 9000).WithBoundPort(9000),
+        new ListenUrl(S3ProtocolServer.Scheme, ListenHost, 9000).WithBoundPort(9000),
         new IPEndPoint(IPAddress.Loopback, 9000),
         new IPEndPoint(IPAddress.Loopback, 50000),
         Log,
@@ -74,6 +82,21 @@ internal sealed partial class S3ServerHarness
     /// </summary>
     public Task<string> SendAsync(string method, string target, params string[] fields) =>
         SendRawAsync($"{method} {target} HTTP/1.1\r\nHost: s3.test\r\n{string.Concat(fields.Select(field => field + "\r\n"))}Connection: close\r\n\r\n");
+
+    /// <summary>
+    /// Sends one request with a body announced by Content-Length, Host: s3.test and
+    /// Connection: close added, and returns what the server wrote.
+    /// </summary>
+    public Task<string> SendWithBodyAsync(string method, string target, string body, params string[] fields) =>
+        SendRawAsync($"{method} {target} HTTP/1.1\r\nHost: s3.test\r\n{string.Concat(fields.Select(field => field + "\r\n"))}Content-Length: {Encoding.UTF8.GetByteCount(body)}\r\nConnection: close\r\n\r\n" + body);
+
+    public string ReadFile(string relativePath)
+    {
+        using var stream = FileSystem.OpenFileForAsyncRead(Path.Join(Root, relativePath));
+        using var reader = new StreamReader(stream);
+
+        return reader.ReadToEnd();
+    }
 
     public async Task<string> SendRawAsync(string request, ExchangeLimits? limits = null)
     {
