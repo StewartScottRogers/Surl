@@ -8,7 +8,7 @@ What it holds:
 - `SurlExitCode` - the exit codes the `surl` process returns.
 - `ListenUrl` - what `surl` was asked to listen on, with `BoundPort` once a listener has bound.
 - The transports a protocol server receives: `IConnection` (stream-oriented) and
-  `IDatagramFlow` (TFTP).
+  `IDatagramFlow` (TFTP, and HTTP/3 over QUIC).
 - The protocol server contracts: `IProtocolServer`, `IConnectionProtocolServer` and
   `IDatagramProtocolServer`.
 - What a server is told about one exchange: `ExchangeContext`, and where its events go,
@@ -79,9 +79,12 @@ What it holds:
   accept times out) and active connections or failures, with every request recorded as a
   `PassiveListenerRequest` or `ActiveConnectionRequest`.
 
-There is no in-memory datagram flow here: TFTP is its only user, so its tests drive the
-server through their own hand-written `ScriptedDatagramFlow` (BL-037, in
-`Surl.Protocol.Tftp.UnitTests`).
+- The datagram flow's test double (ADR-0082, decision 5): `InMemoryDatagramFlow` hands a
+  server its first datagram and then the client's datagrams one per receive (given up front,
+  or delivered with `DeliverFromClient` while the server runs), records every datagram sent
+  in `SentDatagrams`, and waits past the end until cancelled or disposed. The HTTP/3 server's
+  tests use it; TFTP's tests keep their own `ScriptedDatagramFlow` (BL-037, in
+  `Surl.Protocol.Tftp.UnitTests`), whose silences advance a fake clock.
 
 This library references nothing. Never construct a `Socket`, `TcpListener`, `UdpClient` or
 `SslStream` here. `SurlExitCode` reuses upstream curl's `CURLE_*` number wherever a
