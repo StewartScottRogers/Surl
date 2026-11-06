@@ -54,7 +54,7 @@ ADR-0100 decisions 3.3 and 3.6 state the named-queue rules and typed outcomes th
   `QueueLocked` and `UnknownQueue` with `Resource limit exceeded` (its default refusal); the ADR records
   that as it is. "Does not arise" marks outcomes a server never lets the bus return to it.
 - `Surl.MessageBus.UnitLibrary/CLAUDE.md` still says ADR-0100 "does not name yet" these outcomes, but
-  BL-704 (Doing) holds that file, so BL-915 was filed to correct it.
+  BL-704 (Doing) holds that file, so BL-916 was filed to correct it.
 - No `.cs` or project file changed, so the build and tests were not affected; they were run anyway.
 
 ## Log

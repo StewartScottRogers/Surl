@@ -1,5 +1,5 @@
 ---
-id: BL-915
+id: BL-916
 title: Point Surl.MessageBus CLAUDE.md at ADR-0100's queue outcomes now BL-694 records them
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-915 — Point Surl.MessageBus CLAUDE.md at ADR-0100's queue outcomes now BL-694 records them
+# BL-916 — Point Surl.MessageBus CLAUDE.md at ADR-0100's queue outcomes now BL-694 records them
 
 ## Goal
 
