@@ -133,6 +133,7 @@ The codes the server sends, each with the status the "List of error codes" table
 | `BadDigest` | 400 | `Content-MD5` or an `x-amz-checksum-*` value not matching the body |
 | `EntityTooLarge` | 400 | A body, a part or a completed upload past `--max-filesize` (decision 7) |
 | `EntityTooSmall` | 400 | A multipart part other than the last below 5 MiB, at completion |
+| `IncompleteBody` | 400 | A PutObject body that ends before the length it announced, or whose framing is malformed (Amendment 2) |
 | `InvalidAccessKeyId` | 403 | A signature whose access key is no account |
 | `InvalidArgument` | 400 | A bad query value (`max-keys`, `continuation-token`, `partNumber`, `X-Amz-Expires`); an `Authorization` scheme other than SigV4; an unmappable key on a write; and `409` for a key that conflicts with a folder or file (ADR-0100 decision 2.2) |
 | `InvalidDigest` | 400 | A `Content-MD5` that is not the base64 of 16 bytes |
@@ -429,3 +430,48 @@ BL-420.
    is read and hashed before the answer, so a body that is not the one signed is
    `XAmzContentSHA256Mismatch` there too. PutObject checks the hash before `Content-MD5` and before
    committing, so a mismatched object is never stored.
+
+## Amendment 2 - PutObject, ListObjectsV2 and virtual hosting, as BL-419 built them (BL-727, 2026-11-06)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in
+BL-419, and recorded here by BL-727 (BL-419 could not edit this folder while BL-463 held it).
+
+1. **ListObjectsV2 needs `--list-directories`;** off, it is **`403 AccessDenied`**
+   (`S3ListObjectsV2`). Why: a bucket listing is a directory listing in ADR-0006's sense, and
+   every other file server lists only when that option is on; secure by default, loosened for a
+   test by one option (ADR-0032).
+2. **`--allow-uploads` and `--max-filesize` are read from the `ContentStore`'s
+   `ExposureOptions`** (`AllowUploads`, `MaxUploadBytes`), the store the server's constructor
+   receives. Why: the store already carries them for every file server, so there is no static and
+   no second constructor parameter that could disagree with the store.
+3. **The listen host for virtual hosting (decision 2's first domain) is read per exchange from
+   `ExchangeContext.ListenUrl.Host`** (`S3RequestAnswerer`, `S3VirtualHost`), not passed to the
+   constructor as decision 2 planned. Why: it is the same value, already on every exchange, and
+   reading it there needs no change to the composition.
+4. **A PutObject body that ends before its announced length, or whose framing is malformed, is
+   `400 IncompleteBody`** ("List of error codes": `IncompleteBody`, 400; Message `You did not
+   provide the number of bytes specified by the Content-Length HTTP header.`), and the upload
+   session is not committed, so the old object stands. Why: it is S3's own code for exactly this
+   case; decision 1.1's table now lists it. `Surl.HttpServing` drops a refusal's body, so
+   `IncompleteBody` and `EntityTooLarge` are ordinary error answers: an announced body past the
+   limit is left unread, which closes the connection after the lingering drain. Closing without
+   the drain is BL-729.
+5. **A `PUT` with `Transfer-Encoding: chunked` and no `x-amz-decoded-content-length` is `400
+   InvalidRequest`;** one with it is `aws-chunked`, answered `501 NotImplemented` until BL-711
+   serves decision 4.5. Why: S3 has no plain chunked upload, and a chunked body without a decoded
+   length gives no object length to check against `--max-filesize` before reading.
+6. **The object metadata index keys an object by its path under the served root, with a
+   `--bucket` name replaced by that bucket's content path** (`S3IndexKey`); **a file in a share has
+   no index key,** so PutObject keeps no metadata for it and GetObject and HeadObject answer the
+   computed defaults (MD5 ETag, default content type). Why: ADR-0100 decision 2.3's index covers
+   the served root and a share lies outside it; keying a `--bucket` object by its content path makes
+   S3 and every other protocol see one entry for one file. This also corrected BL-418's lookup of a
+   `--bucket` object, which had used the bucket name as the key.
+7. **A PutObject whose metadata the index refuses removes the file just written** and answers `400
+   MetadataTooLarge` (past ADR-0100's 8 KiB per object) or `503 ServiceUnavailable` (the index
+   full). Why: an object S3 says was not stored must not stand without the metadata its client
+   sent.
+8. **PutObject creates the key's missing folders;** a file in the way, or a folder at the key, is
+   `409 InvalidArgument` (decision 3's conflict). A zero-byte `PUT` of a key ending in `/` creates
+   the folder, but ListObjectsV2 does not yet list it as a folder object (decision 6's last point):
+   BL-728.
