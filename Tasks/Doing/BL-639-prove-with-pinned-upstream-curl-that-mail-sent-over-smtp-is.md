@@ -42,3 +42,4 @@ A conformance test class shows, with pinned upstream curl 8.21.0 at both ends ag
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
