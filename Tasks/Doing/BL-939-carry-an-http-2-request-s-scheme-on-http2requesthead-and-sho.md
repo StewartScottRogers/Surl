@@ -52,3 +52,4 @@ can forward an HTTP/2 request by its scheme (BL-940).
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
