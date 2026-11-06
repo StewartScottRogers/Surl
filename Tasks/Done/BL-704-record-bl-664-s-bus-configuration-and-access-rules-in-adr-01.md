@@ -8,7 +8,7 @@ depends-on: [BL-664]
 touches: [Documentation/Planning/Decisions/ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md, Protocols/Messaging/Surl.MessageBus.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-704 — Record BL-664's bus configuration and access rules in ADR-0102
 
@@ -34,12 +34,15 @@ ADR-0102 decision 3 states the rules BL-664 settled while building `--topic`, `-
 
 ## Acceptance criteria
 
-- [ ] ADR-0102 decision 3 states each choice listed under Context, citing BL-664.
-- [ ] `Protocols/Messaging/Surl.MessageBus.UnitLibrary/CLAUDE.md` no longer says these rules wait for BL-704.
+- [x] ADR-0102 decision 3 states each choice listed under Context, citing BL-664.
+- [x] `Protocols/Messaging/Surl.MessageBus.UnitLibrary/CLAUDE.md` no longer says these rules wait for BL-704.
 
 ## Notes
+
+- Done in the session rather than through align-and-document: two Markdown edits, no `.cs` or project file. Added ADR-0102 decision 3.5 "What BL-664 settled in `Surl.MessageBus`", checked against the code (`TopicNameLookup` scheme table and alias `TryAdd`, `Connect(string?)`, `Publish(message)`); it also records that unbinding needs no grant and that a name mapped twice on one scheme is refused, both from BL-664. The library CLAUDE.md now points to decision 3.5 and lists `mqtt5+ws`, which `TopicNameLookup` knows. Build clean, fast tests green.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0102 decision 3.5 records BL-664's bus caller, access, alias and declared-queue rules

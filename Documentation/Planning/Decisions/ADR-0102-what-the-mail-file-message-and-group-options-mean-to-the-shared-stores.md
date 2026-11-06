@@ -406,6 +406,40 @@ the exit code given there; each extended row cites its specification (ADR-0083).
   | STOMP 1.2 | `ERROR` frame, then close | `ERROR` frame, then close | STOMP 1.2 "ERROR" |
   | Redis pub/sub (BL-678) | `-NOPERM` error reply for the channel | `-NOPERM` error reply | Redis "ACL" (`NOPERM` errors) |
 
+#### 3.5 What BL-664 settled in `Surl.MessageBus`
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in BL-664,
+while building 3.1 to 3.4 into `Surl.MessageBus.UnitLibrary`; recorded here by BL-704.
+
+- **The caller is an account name.** `MessageBus.Connect(string?)`, `MessageBus.Publish(BusMessage,
+  string?)` and `MessageBus.PublishToQueue(string, BusMessage, string?)` take the caller's account
+  name, `null` for an anonymous caller; the parameterless `Connect()`, `Publish(message)` and
+  `PublishToQueue(name, message)` are anonymous. **Why:** groups are already expanded at composition
+  (4.1), so an account name is all 3.4 needs; and a server not yet passing its caller is refused once
+  `--topic-access` is given rather than let through.
+- **Access does not depend on the scheme.** 3.4's grants are global, so the bus checks them on
+  canonical topics alone; the scheme reaches the bus only through `TopicNameLookup` (exposed as
+  `MessageBus.Names`, ADR-0100's planned `ITopicNameLookup`), where it chooses the name mapping.
+- **One refusal, `MessageBusOutcome.AccessDenied`.** A denied publish, subscribe, `BindQueue`, send to
+  a queue or consume answers it, checked before anything that would tell whether the topic or queue
+  exists (unknown, locked), so the refusal reveals nothing (ADR-0006 section 3). Deleting a declared
+  queue (3.2) answers it too, which the AMQP 0-9-1 server sends as `403 ACCESS_REFUSED`. Unbinding
+  needs no grant: it only narrows what a queue receives.
+- **A queue's name is one level.** In `$queue/<name>` the name is a single level whatever it holds,
+  `/` included, so `$queue/+` grants every queue and no queue name can escape a literal grant.
+- **The schemes `TopicNameLookup` knows** are the messaging schemes of ADR-0083's table with their
+  TLS twins: `mqtt`, `mqtts`, `mqtt5`, `mqtt5s`, `mqtt5+ws`, `amqp`, `amqps`, `amqp1`, `amqp1s`,
+  `kafka`, `kafkas`, `nats`, `natss`, `stomp` and `stomps`. Redis pub/sub is left to BL-678, until its
+  channel naming is decided.
+- **A STOMP or AMQP 1.0 alias names a topic address.** In `--topic-map`, a name on `stomp` or `amqp1`
+  is a `/topic/<t>` destination or address; queues are not aliased.
+- **Of two aliases with one target, the first is sent back.** Inbound each alias reaches its target;
+  outbound, a message on that canonical topic is named by the first `--topic-map` given for the
+  scheme. An alias's own name mapped twice on one scheme is refused at start.
+- **A declared queue whose flags changed starts empty.** A queue the files persisted as durable but
+  now declared without `durable` is made again empty at load, as a non-durable declared queue is at
+  every start; `LoadAsync` accepts a bus holding only its still-empty declarations.
+
 ### 4. Accounts and groups
 
 #### 4.1 `--group <name>=<member>,...`
