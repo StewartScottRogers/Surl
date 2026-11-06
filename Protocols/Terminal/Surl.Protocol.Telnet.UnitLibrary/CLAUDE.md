@@ -25,4 +25,4 @@ Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured w
 `TelnetLineFaults` - scheme only, TELNET has no command, path or account - and a matching `error` rule's
 text is sent as one line in place of the echo, then the session ends, publishing `FaultAppliedEvent`
 with target `line <n>`. A reply that does not fit, or a `delay` or `drop` rule, is noted and not applied
-(BL-912).
+(BL-914).

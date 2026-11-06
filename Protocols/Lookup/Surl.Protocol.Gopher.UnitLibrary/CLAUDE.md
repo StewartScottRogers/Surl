@@ -43,4 +43,4 @@ Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured w
 `ExchangeContext.Faults` through `GopherSelectorFaults` at the `Command` stage with the request path
 (`/a`); a matching `error` rule is answered with the error menu `3<reply>\t\terror.host\t1` before the
 content store is asked, publishing `FaultAppliedEvent`. A reply that does not fit, or a `delay` or `drop`
-rule, is noted and not applied (BL-912).
+rule, is noted and not applied (BL-914).

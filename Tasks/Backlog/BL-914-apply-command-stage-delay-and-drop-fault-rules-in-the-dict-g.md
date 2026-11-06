@@ -1,5 +1,5 @@
 ---
-id: BL-912
+id: BL-914
 title: Apply command-stage delay and drop fault rules in the DICT, Gopher and TELNET servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-912 — Apply command-stage delay and drop fault rules in the DICT, Gopher and TELNET servers
+# BL-914 — Apply command-stage delay and drop fault rules in the DICT, Gopher and TELNET servers
 
 ## Goal
 

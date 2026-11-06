@@ -58,7 +58,7 @@ MQTT and LDAP at the same time).
   plan asynchronously. Event target `line <n>`, never the line's text.
 - A reply that does not fit the scheme's shape (a `Surl.Api` hook can hand over anything), or a `delay`/`drop`
   rule at the command stage, is noted and not applied, as ADR-0135 decisions 4 and 5. Neither BL-901 (mail)
-  nor BL-909 (SSH, SMB) covers these three servers, so filed **BL-912** for their command-stage delay and drop.
+  nor BL-909 (SSH, SMB) covers these three servers, so filed **BL-914** for their command-stage delay and drop.
 - The acceptance criterion's Gopher `/b` is checked as `/file.txt` being served under a rule for `/a`
   (`ServeAsync_SelectorTheRuleDoesNotName_IsServed`), since `/b` does not exist in the test content.
 
