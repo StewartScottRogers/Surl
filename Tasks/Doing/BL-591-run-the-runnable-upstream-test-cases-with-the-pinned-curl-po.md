@@ -54,3 +54,4 @@ per protocol family, and lists each finding in BL-576's ADR decision 6 form.
 
 - 2026-11-04: Created.
 - 2026-11-05: depends-on BL-395 replaced by BL-879, the last task of its split (BL-395 deferred: timed out after 120 min; Stewart asked for the split 2026-11-05).
+- 2026-11-06: Backlog -> Doing.
