@@ -38,3 +38,4 @@ the Linux and macOS reference pins, as BL-389 confirmed them for the Windows one
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
