@@ -43,3 +43,4 @@ Filed by BL-417 (ADR-0108), which serves these three operations beyond BL-418 an
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
