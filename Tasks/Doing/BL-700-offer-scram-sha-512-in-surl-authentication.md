@@ -43,3 +43,4 @@ SHA-512 `ScramHash`, so the Kafka broker can offer it as ADR-0105 decision 5 say
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
