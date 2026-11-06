@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Surl.Control.UnitLibrary answers the loopback control endpoint's HTTP and JSON requests
+    (ADR-0124 decision 7) against IControlTarget, which Surl.Composition implements (BL-816).
+    It references no protocol server and not Surl.Composition.
+  -->
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Control.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\Http\Surl.HttpServing.UnitLibrary\Surl.HttpServing.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>
