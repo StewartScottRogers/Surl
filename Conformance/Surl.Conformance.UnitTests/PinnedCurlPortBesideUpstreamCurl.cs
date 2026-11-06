@@ -134,7 +134,7 @@ internal static class PinnedCurlPortBesideUpstreamCurl
             CurlPortSurlSide side;
             await using (var surl = await StartSurlAsync(measurementCase, setup, cancellationToken))
             {
-                (result, side) = await RunClientAgainstAsync(surl, measurementCase, setup, environment, runClientAsync, cancellationToken);
+                (result, side) = await RunClientAgainstAsync(surl, measurementCase, setup, environment, runClientAsync, arrangeAsync, cancellationToken);
             }
 
             if (setup.ReadStoredFilesAfterStopAsync is { } readStoredFilesAsync)
@@ -172,7 +172,7 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         CurlPortMeasurementCase measurementCase, CurlPortRunSetup setup, CancellationToken cancellationToken) =>
         setup.StartSurlAsync is { } startSurlAsync
             ? startSurlAsync(cancellationToken)
-            : SurlOnLoopback.StartAsync(measurementCase.SurlScheme, measurementCase.Files, [], measurementCase.SurlOptions, cancellationToken);
+            : SurlOnLoopback.StartAsync(measurementCase.SurlScheme, measurementCase.Files, ParentDirectoriesOf(measurementCase.Files.Keys), measurementCase.SurlOptions, cancellationToken);
 
     private static async Task<(TResult Result, CurlPortSurlSide Surl)> RunClientAgainstAsync<TResult>(
         SurlOnLoopback surl,
@@ -180,6 +180,7 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         CurlPortRunSetup setup,
         IReadOnlyDictionary<string, string> environment,
         Func<IReadOnlyList<string>, IReadOnlyDictionary<string, string>, Task<TResult>> runClientAsync,
+        Func<SurlOnLoopback, CancellationToken, Task<IAsyncDisposable>>? arrangeAsync,
         CancellationToken cancellationToken)
     {
         var listener = surl.BaseUrlOf(measurementCase.SurlScheme);
@@ -192,9 +193,10 @@ internal static class PinnedCurlPortBesideUpstreamCurl
             ? await argumentsForRunAsync(surl, clientBaseUrl, cancellationToken)
             : measurementCase.ArgumentsFor(clientBaseUrl);
 
+        await using var arrangement = arrangeAsync is null ? null : await arrangeAsync(surl, cancellationToken);
         var result = await runClientAsync(arguments, environment);
         var notes = setup.ComparedNotes is { } comparedNotes ? comparedNotes(surl.Log) : surl.Log;
-        var side = new CurlPortSurlSide(listener.Port, notes,await ReadStoredFilesAsync(surl, measurementCase, cancellationToken));
+        var side = new CurlPortSurlSide(listener.Port, notes, await ReadStoredFilesAsync(surl, measurementCase, cancellationToken));
         if (relay is not null)
         {
             await relay.WaitForConnectionsAsync(RelayDrainTimeout, cancellationToken);
