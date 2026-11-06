@@ -49,7 +49,7 @@ completed: 2026-11-06
 - Result: 602 members, 0 failing, 100% line and branch coverage, worst CRAP 10.
 - One full-solution test run saw
   `CoapFlowObserversTests.ServeAsync_DeleteFromAnotherFlow_Notifies404WithoutObserveAndRemovesTheObserver`
-  fail once (it passed alone and in the next two full runs); filed as BL-928.
+  fail once (it passed alone and in the next two full runs); filed as BL-931.
 
 ## Log
 

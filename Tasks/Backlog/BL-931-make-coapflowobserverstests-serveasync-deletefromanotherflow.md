@@ -1,5 +1,5 @@
 ---
-id: BL-928
+id: BL-931
 title: Make CoapFlowObserversTests.ServeAsync_DeleteFromAnotherFlow_Notifies404WithoutObserveAndRemovesTheObserver deterministic
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-928 — Make CoapFlowObserversTests.ServeAsync_DeleteFromAnotherFlow_Notifies404WithoutObserveAndRemovesTheObserver deterministic
+# BL-931 — Make CoapFlowObserversTests.ServeAsync_DeleteFromAnotherFlow_Notifies404WithoutObserveAndRemovesTheObserver deterministic
 
 ## Goal
 
