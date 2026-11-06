@@ -66,7 +66,7 @@ and BL-565's record layer, and then carries application data, as BL-563's ADR de
   number. Recorded in ADR-0122 Amendment 1 (added to `touches` for this reason) and in BL-567's
   Notes.
 - Choice: only the three unsigned suites are served. The RSA- and DSS-signed suites with a
-  `Certificate` message are filed as BL-907, because none of the upstream cases needs them.
+  `Certificate` message are filed as BL-911, because none of the upstream cases needs them.
 - Choice: `TlsSrpStream` is asynchronous only, and any client alert during the handshake ends it
   with no reply (ADR-0122 Amendment 1).
 - Choice: a ServerHello with nothing to answer leaves its extensions block out (RFC 5246 section

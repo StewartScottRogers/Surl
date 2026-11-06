@@ -3,7 +3,7 @@
 Holds Surl's hand-built TLS 1.2 server for RFC 5054's SRP cipher suites, decided in ADR-0122
 decisions 1 to 3 and 6 and its Amendment 1. BL-565 built the record layer and the key derivation;
 BL-566 built the handshake messages, the server's state machine and the alerts on top of them. The
-RSA- and DSS-signed suites are not served yet (BL-907).
+RSA- and DSS-signed suites are not served yet (BL-911).
 
 The handshake:
 - `TlsSrpServer.AuthenticateAsync` runs the server side on the `Stream` it is handed and returns a

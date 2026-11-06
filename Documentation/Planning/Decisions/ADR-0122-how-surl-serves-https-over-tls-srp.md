@@ -334,7 +334,7 @@ Bad:
   sends no certificate, and case 324's 60 is curl refusing exactly that.
 - **Share `Surl.Dtls`'s PRF and record code.** Rejected in decision 1.
 
-## Amendment 1 (2026-11-05): what BL-566 measured, and the signed suites deferred to BL-907
+## Amendment 1 (2026-11-05): what BL-566 measured, and the signed suites deferred to BL-911
 
 Decided by Claude under Stewart's delegation, in BL-566.
 
@@ -364,7 +364,7 @@ exactly as it would against gnutls-serv.
 
 **Signed suites.** BL-566 serves the three unsigned suites only, which is all that upstream's
 gnutls-serv and the four `httptls+srp` cases use. Decision 2's RSA- and DSS-signed suites, with
-their `Certificate` message and signed ServerKeyExchange, are BL-907's work.
+their `Certificate` message and signed ServerKeyExchange, are BL-911's work.
 
 **Client alerts.** During the handshake, any alert from the client ends it with no reply, the
 warning `close_notify` included. After the handshake, a warning other than `close_notify` is

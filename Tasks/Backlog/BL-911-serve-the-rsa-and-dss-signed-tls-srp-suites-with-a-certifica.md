@@ -1,5 +1,5 @@
 ---
-id: BL-907
+id: BL-911
 title: Serve the RSA- and DSS-signed TLS-SRP suites with a Certificate in Surl.TlsSrp
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-907 — Serve the RSA- and DSS-signed TLS-SRP suites with a Certificate in Surl.TlsSrp
+# BL-911 — Serve the RSA- and DSS-signed TLS-SRP suites with a Certificate in Surl.TlsSrp
 
 ## Goal
 
