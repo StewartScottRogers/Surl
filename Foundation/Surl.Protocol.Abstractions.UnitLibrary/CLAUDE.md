@@ -57,7 +57,10 @@ What it holds:
   account a shared access signature names, the decoded resource path, the permission letters
   that grant the operation and the peer's address), which makes Azure's bearer token, Shared Key
   and shared access signatures its only methods (the Azure Storage server's, ADR-0109 decision 3;
-  BL-717, which added the refusals from `MissingRequestDate` to `PermissionNotGranted`), and `CheckedLogin`, the
+  BL-717, which added the refusals from `MissingRequestDate` to `PermissionNotGranted`; BL-711 added
+  `ExpiryOutOfRange` and `ConflictingCredentials` for presigned URLs, which also use `SignatureExpired`),
+  an accepted verdict's `ChunkSignatures`, the `IHttpChunkSignatureChain` an `aws-chunked`
+  `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` body's chunks are checked against (ADR-0108 decision 4.5), and `CheckedLogin`, the
   credentials checked and the answer, whose `Note` a server writes to the verbose log
   (`Login accepted: <method> <user>`, ADR-0032 section 8). `Surl.Authentication`
   implements it; `AnonymousAuthenticationPolicy` accepts every login and lets every request

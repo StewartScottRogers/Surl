@@ -40,6 +40,15 @@ internal static class SignatureV4Check
             requestTime, RequestTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out _);
 
     /// <summary>
+    /// The time <paramref name="requestTime"/> names, which must read
+    /// (<see cref="ReadsAsRequestTime"/>).
+    /// </summary>
+    /// <param name="requestTime">The request's date as sent, <c>yyyyMMddTHHmmssZ</c>.</param>
+    /// <returns>The time, in UTC.</returns>
+    public static DateTimeOffset ReadRequestTime(string requestTime) =>
+        DateTimeOffset.ParseExact(requestTime, RequestTimeFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
+
+    /// <summary>
     /// Whether <paramref name="requestTime"/> is within <see cref="RequestTimeWindow"/> of
     /// <paramref name="now"/>.
     /// </summary>
@@ -80,10 +89,43 @@ internal static class SignatureV4Check
         bool reencodesPath)
     {
         var check = VerifySignature(accounts, authorization, request, requestTime, sentPayloadHash, reencodesPath);
+        if (check.Outcome != HttpCredentialOutcome.Accepted || sentPayloadHash == UnsignedPayload)
+        {
+            return check;
+        }
 
-        return check.Outcome == HttpCredentialOutcome.Accepted && sentPayloadHash != UnsignedPayload
-            ? BindBodyToSentHash(check, authorization, request.Fields, sentPayloadHash)
-            : check;
+        return IsS3StreamingPayload(authorization, request, sentPayloadHash)
+            ? WithChunkSignatures(check, accounts, authorization, requestTime, sentPayloadHash)
+            : BindBodyToSentHash(check, authorization, request.Fields, sentPayloadHash);
+    }
+
+    /// <summary>
+    /// The <c>x-amz-content-sha256</c> of an <c>aws-chunked</c> body whose every chunk is signed
+    /// (ADR-0108 decision 4.5).
+    /// </summary>
+    public const string StreamingSignedPayload = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD";
+
+    private const string StreamingPayloadPrefix = "STREAMING-";
+
+    // An aws-chunked body sent to the S3 server: its hash is not the body's, so no body is bound;
+    // the server decodes it, and reads its trailer or refuses a form it does not serve.
+    private static bool IsS3StreamingPayload(AwsSigV4Authorization authorization, HttpAuthenticationRequest request, string sentPayloadHash) =>
+        request.AwsSigV4Service is not null
+        && authorization.Service == "s3"
+        && sentPayloadHash.StartsWith(StreamingPayloadPrefix, StringComparison.Ordinal);
+
+    // A signed-chunk body is accepted with the chain its chunks are checked against.
+    private static HttpCredentialCheck WithChunkSignatures(
+        HttpCredentialCheck check, AccountBook accounts, AwsSigV4Authorization authorization, string requestTime, string sentPayloadHash)
+    {
+        if (sentPayloadHash != StreamingSignedPayload)
+        {
+            return check;
+        }
+
+        var signingKey = AwsSigV4Calculation.DeriveSigningKey(authorization, accounts.FindAwsSigV4Account(authorization.AccessKeyId).Secret);
+
+        return check with { ChunkSignatures = new AwsSigV4ChunkSignatureChain(authorization, requestTime, signingKey, accounts.SecretComparer) };
     }
 
     /// <summary>
@@ -97,6 +139,7 @@ internal static class SignatureV4Check
     /// <param name="requestTime">The request's date as sent.</param>
     /// <param name="payloadHash">The payload hash the canonical request ends with.</param>
     /// <param name="reencodesPath">Whether the canonical path is the path percent-encoded again.</param>
+    /// <param name="excludedQueryParameter">A query parameter the canonical query leaves out (a presigned URL's signature), or <see langword="null"/>.</param>
     /// <returns>Accepted as the key's account, or refused.</returns>
     public static HttpCredentialCheck VerifySignature(
         AccountBook accounts,
@@ -104,10 +147,11 @@ internal static class SignatureV4Check
         HttpAuthenticationRequest request,
         string requestTime,
         string payloadHash,
-        bool reencodesPath)
+        bool reencodesPath,
+        string? excludedQueryParameter = null)
     {
         var account = accounts.FindAwsSigV4Account(authorization.AccessKeyId);
-        var canonicalRequest = AwsSigV4CanonicalRequest.Build(request, authorization, payloadHash, reencodesPath);
+        var canonicalRequest = AwsSigV4CanonicalRequest.Build(request, authorization, payloadHash, reencodesPath, excludedQueryParameter);
         var matches = canonicalRequest is not null
             && accounts.SecretComparer.FixedTimeEquals(
                 AwsSigV4Calculation.ComputeSignature(authorization, requestTime, canonicalRequest, account.Secret),

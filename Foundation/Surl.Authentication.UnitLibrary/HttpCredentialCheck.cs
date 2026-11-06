@@ -25,10 +25,16 @@ namespace Surl.Authentication;
 /// For <see cref="HttpCredentialOutcome.Refused"/>, why, when the method can tell (AWS Signature
 /// Version 4, ADR-0108 decision 4.4); otherwise <see langword="null"/>.
 /// </param>
+/// <param name="ChunkSignatures">
+/// For <see cref="HttpCredentialOutcome.Accepted"/> AWS Signature Version 4 with
+/// <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c>, the chain each <c>aws-chunked</c> chunk's signature
+/// is checked against (ADR-0108 decision 4.5); otherwise <see langword="null"/>.
+/// </param>
 public sealed record HttpCredentialCheck(
     HttpCredentialOutcome Outcome,
     string? AccountName,
     IReadOnlyList<string> WwwAuthenticateValues,
     string? UserAsSent = null,
     Func<ReadOnlyMemory<byte>, HttpCredentialCheck>? CheckBody = null,
-    HttpAuthenticationRefusal? Refusal = null);
+    HttpAuthenticationRefusal? Refusal = null,
+    IHttpChunkSignatureChain? ChunkSignatures = null);

@@ -31,10 +31,16 @@ namespace Surl.Protocol.Abstractions;
 /// Signature Version 4, ADR-0108 decision 4.4); <see langword="null"/> otherwise. The HTTP server
 /// ignores it.
 /// </param>
+/// <param name="ChunkSignatures">
+/// On an accepted verdict for a request whose <c>x-amz-content-sha256</c> is
+/// <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c> (ADR-0108 decision 4.5), the chain each
+/// <c>aws-chunked</c> chunk's signature is checked against; <see langword="null"/> otherwise.
+/// </param>
 public sealed record HttpAuthenticationVerdict(
     HttpAuthenticationOutcome Outcome,
     IReadOnlyList<string> WwwAuthenticateValues,
     string? AccountName,
     CheckedLogin? CheckedLogin = null,
     IHttpRequestBodyCheck? BodyCheck = null,
-    HttpAuthenticationRefusal? Refusal = null);
+    HttpAuthenticationRefusal? Refusal = null,
+    IHttpChunkSignatureChain? ChunkSignatures = null);

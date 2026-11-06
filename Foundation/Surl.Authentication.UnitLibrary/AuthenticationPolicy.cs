@@ -570,7 +570,7 @@ public sealed class AuthenticationPolicy : IAuthenticationPolicy, IMailAuthentic
     /// <see cref="HttpAuthenticationRequest.AwsSigV4Service"/> (the S3 server's), which
     /// <c>--auth</c> does not decide (ADR-0108 decision 4.3).
     /// </summary>
-    internal IHttpCredentialVerifier ServiceSignatureVerifier { get; }
+    internal AwsSigV4AuthenticationMethod ServiceSignatureVerifier { get; }
 
     /// <summary>
     /// The check of a request naming its <see cref="HttpAuthenticationRequest.AzureStorage"/> (the

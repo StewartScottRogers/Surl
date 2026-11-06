@@ -217,6 +217,28 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   sent content hash names its account on the verdict that awaits the body. Tested against the
   Amazon S3 API Reference's worked GET-object example (`AwsSigV4ServiceSignatureTests`).
 
+## S3 presigned URLs and `aws-chunked` signatures (BL-711)
+
+- `HttpAuthenticationSession.JudgeServiceSignature` reads a request whose query carries
+  `X-Amz-Algorithm` (`AwsSigV4QueryString`), on every service but Cloud Storage's `storage`, as a
+  presigned URL (ADR-0108 decision 4.5): with an `Authorization` too it is `Forbidden`
+  (`ConflictingCredentials`) undelayed; otherwise `AwsSigV4AuthenticationMethod.VerifyQueryString`
+  checks it even under `--allow-anonymous`: parameters that do not read, an algorithm not the scope's
+  provider's, another service, `host` unsigned or a date not the scope's `MalformedCredentials`;
+  `X-Amz-Expires` not 1 to 604800 `ExpiryOutOfRange`; past date plus expiry `SignatureExpired`; more
+  than 15 minutes before the date `ClockSkew`; then the signature over `UNSIGNED-PAYLOAD` with the
+  canonical query leaving out `X-Amz-Signature` (`AwsSigV4CanonicalRequest.Build`'s
+  `excludedQueryParameter`). No body is bound.
+- With `x-amz-content-sha256` starting `STREAMING-` on an `s3` request naming its service, no body is
+  bound (`SignatureV4Check.VerifyWithTheSentHash`); for `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` the accepted
+  check and verdict carry an `AwsSigV4ChunkSignatureChain` (`HttpCredentialCheck.ChunkSignatures`,
+  Abstractions' `IHttpChunkSignatureChain`), which checks each chunk's signature in fixed time over
+  `AWS4-HMAC-SHA256-PAYLOAD`, the date, the scope, the previous signature (the seed first), the empty
+  hash and the chunk data's hash (`AwsSigV4Calculation.ComputeChunkSignature`, with
+  `DeriveSigningKey`). The S3 server decodes the body and refuses the forms it does not serve.
+- `AwsSigV4PresignedAndChunkedTests` replays the API Reference's "Using Query Parameters" and
+  "Transferring Payload in Multiple Chunks" worked examples, their signatures included.
+
 ## Azure Storage logins (BL-717)
 
 - A request with `HttpAuthenticationRequest.AzureStorage` set (the Azure Storage server's) is
