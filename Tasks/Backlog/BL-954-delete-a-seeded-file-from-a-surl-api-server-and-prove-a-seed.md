@@ -1,5 +1,5 @@
 ---
-id: BL-934
+id: BL-954
 title: Delete a seeded file from a Surl.Api server and prove a seeded queue message is consumed
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-934 — Delete a seeded file from a Surl.Api server and prove a seeded queue message is consumed
+# BL-954 — Delete a seeded file from a Surl.Api server and prove a seeded queue message is consumed
 
 ## Goal
 

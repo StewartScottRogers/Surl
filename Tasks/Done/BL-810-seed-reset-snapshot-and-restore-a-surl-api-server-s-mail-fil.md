@@ -64,7 +64,7 @@ onto a topic or queue, an account - resets it between tests, and snapshots and r
 - Choice: `Accounts.Add(user, password)` makes an account for every scheme, as `SurlServerOptions.Accounts` does,
   and refuses a `:` user name as `--user` could not spell it. Reset keeps the start `Files` (ADR-0124 decision 3),
   proven by `ResetAsync_AfterSeedingAllFour_...` reading `/hello.txt` after the reset.
-- Left out, filed as BL-934: `Files.DeleteAsync` (`ComposedStores` has no delete, and `Surl.Composition` is in
+- Left out, filed as BL-954: `Files.DeleteAsync` (`ComposedStores` has no delete, and `Surl.Composition` is in
   BL-816's `touches`), and a test of a successful `EnqueueAsync` - no queue-declaring server (STOMP, AMQP) is
   composed yet, so no queue exists; its success path shares `ThrowIfRefusedAsync` with `PublishAsync`.
 - No ADR written: ADR-0124 decision 3 already decides the behaviour, and `Documentation/Planning/Decisions` is in
