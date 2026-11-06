@@ -45,3 +45,4 @@ BL-457's ADR decides, and ends the session with `WT_CLOSE_SESSION` or a drain.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
