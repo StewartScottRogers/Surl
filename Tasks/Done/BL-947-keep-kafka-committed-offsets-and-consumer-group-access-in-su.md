@@ -8,7 +8,7 @@ depends-on: [BL-946]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-947 — Keep Kafka committed offsets and consumer group access in Surl.MessageBus
 
@@ -43,25 +43,44 @@ OffsetCommit and OffsetFetch (BL-949) and its group access checks (BL-948) have 
 
 ## Acceptance criteria
 
-- [ ] Named `Surl.MessageBus.UnitTests` tests show: a commit stored and read back with its offset, leader epoch, null
+- [x] Named `Surl.MessageBus.UnitTests` tests show: a commit stored and read back with its offset, leader epoch, null
       and non-null metadata and commit time; a replacement; the 10001st new entry refused `StoreFull` while
       replacing an existing one succeeds; `AccessDenied` without subscribe access to the topic and without `sub` on
       `$group/<id>`; an out-of-space rule refusing a commit; one `Committed` event per commit with the encoded name.
-- [ ] A `TopicAccessPolicyTests` test shows `$group/<id>` granted by a literal or `+` grant, never by `#`, and every
+- [x] A `TopicAccessPolicyTests` test shows `$group/<id>` granted by a literal or `+` grant, never by `#`, and every
       group open with no grants.
-- [ ] `MessageBusFilesTests` pin the `offsets` file's bytes for two groups, and `MessageBusPersistenceTests` show
+- [x] `MessageBusFilesTests` pin the `offsets` file's bytes for two groups, and `MessageBusPersistenceTests` show
       entries surviving a save and load, and a malformed file refused with `not a message bus file`.
-- [ ] `MessageBusSeedResetSnapshotTests` show `Reset` emptying the table and `Restore` returning a snapshot's entries.
-- [ ] `Kafka.md`'s `Kafka:Surl-Offsets-1` and `Kafka:Surl-Offsets-2` rows name these tests, and
+- [x] `MessageBusSeedResetSnapshotTests` show `Reset` emptying the table and `Restore` returning a snapshot's entries.
+- [x] `Kafka.md`'s `Kafka:Surl-Offsets-1` and `Kafka:Surl-Offsets-2` rows name these tests, and
       `Kafka:Surl-GroupAccess-1` names the access test beside BL-948 and BL-949.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
 
 - Filed by BL-701 (ADR-0145).
+- Built: `BusCommittedOffset`; `MessageBus.CommittedOffsets.cs` (`CommitOffset`, `GetCommittedOffset`,
+  `GetCommittedOffsets`, `GetCommittedGroups`, `MayUseGroup`, `CommittedChangeName`, `MaxCommittedOffsets`);
+  `TopicAccessPolicy.MayUseGroup`; the `offsets` file in `MessageBusFiles` (remarks updated); load, save, reset,
+  snapshot and restore; the library's CLAUDE.md. Tests: `MessageBusCommittedOffsetTests` plus additions to the four
+  named test classes (553 tests in the project, all green).
+- Choice: `maxCommittedOffsets` is the constructor's last optional parameter, after `faults`, so the existing
+  `new MessageBus(...)` calls stay as they are.
+- Choice: `CommitOffset` checks in order: the topic is canonical (`InvalidTopic`); `sub` on the topic and on
+  `$group/<id>` (`AccessDenied`); the out-of-space rule (`StoreFull`); then the bound, under the lock. The broker
+  (BL-949) keeps the rest of ADR-0145 decision 4's order: an invalid Kafka name, a topic with no log, and the metadata
+  length. The bus accepts an empty group id, because `INVALID_GROUP_ID` belongs to the broker.
+- Choice: a snapshot counts each entry as the UTF-8 of its group, topic and metadata plus 20 bytes (offset 8, epoch
+  4, time 8), the way a log record counts 16 bytes for its offset and timestamp.
+- Choice: the change name's percent-encoding uses upper-case hex (`%25`, `%2F`), as RFC 3986 recommends.
+- Coverage: `Measure-CodeQuality.ps1 -Library Surl.MessageBus.UnitLibrary` gives 100% line and 100% branch. It still
+  flags three methods this task did not touch for cyclomatic complexity 12 to 14 by its own count
+  (`MessageBusFiles.EncodeQueueIndex`, `BatchPlan.AdmitToTopic`, `MessageBusFiles.DecodeQueueIndexEntry`). The
+  build's CA1502 passes them, so they are left to the coverage-auditor.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Surl.MessageBus keeps committed offsets per group and topic (bounded, persisted, reset, snapshotted, restored, Committed events) and answers $group/<id> access
