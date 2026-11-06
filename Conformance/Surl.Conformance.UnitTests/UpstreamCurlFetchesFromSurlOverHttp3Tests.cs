@@ -81,19 +81,19 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
         StringAssert.Contains(head, $"alt-svc: h3=\":{surl.BaseUrl.Port}\"; ma=86400\r\n");
     }
 
-    // surl's HTTP server answers no Range on any version today (BL-371; BL-723 builds it), as RFC
-    // 9110 section 14.2 lets a server, so curl takes the whole file with 200 and exits 0.
+    // A single range is answered 206 with Content-Range and the bytes it selects on every HTTP
+    // version (BL-723; ADR-0132, decision 1), and curl writes just those bytes and exits 0.
     [TestMethod]
-    public async Task GetWithRange_Http3Only_IsServedTheWholeFileWith200OverHttp3()
+    public async Task GetWithRange_Http3Only_IsServedTheFirstTenBytesWith206OverHttp3()
     {
         await using var surl = await StartSurlAsync("--http3");
 
         var result = await RunUpstreamCurlAsync(
-            "-sS", "-k", "--http3-only", "-r", "0-9", "-w", "%{response_code} " + HttpVersion, surl.UrlOf("hello.txt"));
+            "-sS", "-k", "--http3-only", "-r", "0-9", "-w", " %{response_code} " + HttpVersion, surl.UrlOf("hello.txt"));
 
         Assert.AreEqual(0, result.ExitCode, result.StandardError);
         CollectionAssert.AreEqual(
-            Hello.Concat("200 3"u8.ToArray()).ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
+            Hello.Take(10).Concat(" 206 3"u8.ToArray()).ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
     }
 
     [TestMethod]
@@ -134,11 +134,11 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
         AssertServedOverHttp3(Hello, result);
     }
 
-    // surl's HTTP server refuses PUT with 405 on every version today, uploads allowed or not
-    // (BL-371; BL-723 builds PUT). Over HTTP/3 the 405 goes out before the body is read and the
-    // unread half is stopped with STOP_SENDING H3_NO_ERROR (ADR-0082 Amendment 1, point 3).
+    // Under --allow-uploads, with a login, a PUT is stored and answered 201 on every HTTP version
+    // (BL-723; ADR-0132, decision 2): over HTTP/3 the body is read from the request stream's DATA
+    // frames into the upload, which is committed once the stream ends.
     [TestMethod]
-    public async Task Upload_AllowUploads_IsRefusedWith405OverHttp3()
+    public async Task Upload_AllowUploads_IsStoredWith201OverHttp3()
     {
         var upload = Path.Combine(Path.GetTempPath(), $"surl-conformance-upload-{Guid.NewGuid():N}.bin");
         await File.WriteAllBytesAsync(upload, Upload, TestContext.CancellationToken);
@@ -152,8 +152,8 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
                 "-w", "%{response_code} " + HttpVersion, surl.UrlOf("up.bin"));
 
             Assert.AreEqual(0, result.ExitCode, result.StandardError);
-            CollectionAssert.AreEqual("405 3"u8.ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
-            Assert.IsFalse(File.Exists(Path.Combine(surl.ServedDirectory!, "up.bin")));
+            CollectionAssert.AreEqual("201 3"u8.ToArray(), result.StandardOutput, Encoding.ASCII.GetString(result.StandardOutput));
+            CollectionAssert.AreEqual(Upload, await File.ReadAllBytesAsync(Path.Combine(surl.ServedDirectory!, "up.bin"), TestContext.CancellationToken));
         }
         finally
         {
