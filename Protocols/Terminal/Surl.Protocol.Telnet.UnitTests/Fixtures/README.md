@@ -53,3 +53,19 @@ What curl sent, measured:
   CRLF on its standard input as ending LF alone (a probe with `'hello\r\n'` sent
   `hello\n`), so Surl takes LF alone as a line end. curl does not close the connection when its standard input
   ends; it waits for the server to close, which is why Surl ends the session on `quit`.
+
+## Chosen-error fault (BL-798)
+
+Recorded on 2026-11-05 from the repository root, in Windows PowerShell, with the same pinned build and
+`$open`, fed what `TelnetProtocolServer` sends when a fault rule `error;scheme=telnet;reply=try later` matches
+the first line (ADR-0138): the opening, then the negotiation answers and `try later` CRLF in place of the echo
+of `hello`, after which the server closes.
+
+| Folder | Standard input | Arguments | Second reply |
+| --- | --- | --- | --- |
+| `fault-line` | `'hello\nquit\n'` | `'-sS','telnet://127.0.0.1:18623'` | `'\xFF\xFD\x00\xFF\xFB\x00\xFF\xFD\x03try later\r\n'` |
+
+curl had sent `quit` before the reply came (it sends each line of standard input as it reads it), exited 0
+with an empty `stderr.txt`, and printed the banner and `try later`. Surl never reads `quit`: the session is
+over once line 1 is answered. `replies.bin` is `$open` and the second reply, joined; `TelnetLineFaultsTests`
+pins it.
