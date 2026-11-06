@@ -1,5 +1,5 @@
 ---
-id: BL-885
+id: BL-889
 title: Say in surl --aihelp how http answers Range and PUT under --allow-uploads
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-885 — Say in surl --aihelp how http answers Range and PUT under --allow-uploads
+# BL-889 — Say in surl --aihelp how http answers Range and PUT under --allow-uploads
 
 ## Goal
 
@@ -25,7 +25,7 @@ ADR-0133 decides.
   `--allow-uploads` a `PUT` is now stored, and the other methods' `405` says `Allow: GET, HEAD, PUT`.
   BL-723 left `Surl.Cli` alone because BL-880 held it.
 - ADR-0133 decision 1 (Range: one range, `If-Range` by the exact `Last-Modified`, `416` with
-  `Content-Range: bytes */<length>`, several ranges served whole `200` until BL-884) and decision 2
+  `Content-Range: bytes */<length>`, several ranges served whole `200` until BL-888) and decision 2
   (PUT: `201` creates, `204` replaces, `403` not permitted, `409` a directory or no such directory,
   `413` past `--max-filesize`).
 

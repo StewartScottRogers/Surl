@@ -50,7 +50,7 @@ HTTP/2 alike, as an ADR decides from measured upstream curl 8.21.0.
 - Range: `HttpRangeSelection` reads one `bytes` range; `FileAnswer` answers `206` with
   `Content-Range`, or `416` with `Content-Range: bytes */<length>`. Several ranges get the whole file
   `200` for now (RFC 9110 section 14.2 lets a server ignore `Range`); `multipart/byteranges` is filed
-  as BL-884. `If-Range` matches only the exact `Last-Modified` (no `ETag` is sent). No
+  as BL-888. `If-Range` matches only the exact `Last-Modified` (no `ETag` is sent). No
   `Accept-Ranges`, so no `200` already pinned changes.
 - PUT: under `--allow-uploads` only, through a content-store upload session (as the S3 server does),
   via `HttpUploadStream`; `201` new, `204` replaced (no `Content-Length`, RFC 9110 section 8.6), `403`
@@ -64,7 +64,7 @@ HTTP/2 alike, as an ADR decides from measured upstream curl 8.21.0.
 - Live on Windows: the HTTP/2, HTTP/3 and AWS SigV4 upload conformance tests pass with pinned curl.
   `GetWithHttp3_File_IsServedOverHttp3NotTheTcpFallback` failed once in a parallel run and passes
   alone; it does not touch Range or PUT.
-- Follow-ups filed: BL-884 (multipart/byteranges), BL-885 (`--aihelp` `http` prose still says PUT is
+- Follow-ups filed: BL-888 (multipart/byteranges), BL-889 (`--aihelp` `http` prose still says PUT is
   `405`; `Surl.Cli` is held by BL-880, so it is not edited here).
 - New code in `Surl.Protocol.Http.UnitLibrary` is at 100% line and branch coverage.
 

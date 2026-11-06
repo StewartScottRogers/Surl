@@ -54,7 +54,7 @@ under `--allow-uploads` with a login with `201` and the stored file
    4. **Ignored, so the whole file is served `200`:** another unit, a syntax RFC 9110 does not give (a
       sign, a non-digit, a last before the first), a `Range` sent more than once, and **several
       ranges**. RFC 9110 section 14.2 lets a server ignore a `Range`, and curl takes the `200` and
-      exits 0. Answering several ranges with `multipart/byteranges` is BL-884: it needs a body kind
+      exits 0. Answering several ranges with `multipart/byteranges` is BL-888: it needs a body kind
       each version's writer sends, and stays wanted.
    5. **`If-Range`**: the range is served only when the field, trimmed, is the `Last-Modified` the
       answer carries, character for character; otherwise the whole file is served `200`. The server
@@ -94,8 +94,8 @@ under `--allow-uploads` with a login with `201` and the stored file
 - `curl -r`, `curl -C -` and `curl -T` work against `surl http://` and `https://` on HTTP/1.x,
   HTTP/2 and HTTP/3, so a test can upload over HTTP and read back over any protocol that shares the
   content store, or the reverse.
-- `--aihelp`'s `http` topic still describes the old `405`; BL-885 brings it up to date.
-- Several ranges stay a whole-file `200` until BL-884.
+- `--aihelp`'s `http` topic still describes the old `405`; BL-889 brings it up to date.
+- Several ranges stay a whole-file `200` until BL-888.
 
 ## Alternatives considered
 

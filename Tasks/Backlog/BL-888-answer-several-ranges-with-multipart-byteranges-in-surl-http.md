@@ -1,5 +1,5 @@
 ---
-id: BL-884
+id: BL-888
 title: Answer several ranges with multipart/byteranges in surl http and https
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-884 — Answer several ranges with multipart/byteranges in surl http and https
+# BL-888 — Answer several ranges with multipart/byteranges in surl http and https
 
 ## Goal
 
