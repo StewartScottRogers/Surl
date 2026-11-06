@@ -276,3 +276,25 @@ a listed finding would come and go from run to run.
 starts, with both runs' `surl` listening on it one after the other, and set client environment
 variables identically for both clients (decision 3). The Kerberos cases need this: their service
 principal or `--resolve` entry names the port, and the MIT build reads a credential cache.
+
+## Amendment 4 (2026-11-05, BL-589): HTTP/2's request bytes are compared decoded
+
+Decided by Claude under Stewart's delegation, in BL-589, from the HTTP/2 family's first runs.
+
+- **On plaintext HTTP/2 (`h2c`, by prior knowledge or by Upgrade), the bytes each client sent are
+  compared as decoded frames, not byte for byte.** HPACK (RFC 7541) Huffman-codes `:authority`, which
+  holds the port of each run's own recording relay, so two runs of the *same* client differ in raw bytes;
+  and an encoder's indexing and Huffman choices are its own, not part of the request. The Phase 7 test
+  renders each connection as text: an Upgrade request's head line by line, then one line per frame after
+  the connection preface with its type, flags and stream, a `SETTINGS` frame's parameters, a `HEADERS`
+  block's decoded fields (with `CONTINUATION`s, padding and priority removed) and a `DATA` frame's length.
+  That text is normalised as decision 4 normalises request bytes (port, `User-Agent`, Digest) and
+  compared; a difference is a port defect like any other compared item.
+- **Not rendered:** every `WINDOW_UPDATE` but the connection's first, since how many follow, and where
+  the `SETTINGS` acknowledgement falls among them, depend on how the client happened to read the answer
+  (measured: upstream and the port sent the same frames, with the acknowledgement in a different place),
+  and decision 4 never compares timing; and a `PING`'s opaque data.
+- **`https` is unchanged:** `h2` by ALPN is TLS, and its bytes stay uncompared.
+- The client's own ephemeral port in a `-v` line (`* Established connection to … from 127.0.0.1 port N`)
+  is not normalised by `CurlPortResultNormaliser`, so such a line is not one of a case's compared standard
+  error lines; the mirrored test's own count of it still judges upstream's run.
