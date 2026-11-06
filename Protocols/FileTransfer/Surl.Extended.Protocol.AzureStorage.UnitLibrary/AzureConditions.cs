@@ -1,9 +1,10 @@
 using System.Globalization;
+using Surl.Content;
 
 namespace Surl.Extended.Protocol.AzureStorage;
 
 /// <summary>
-/// Evaluates Get Blob's and Get Blob Properties' conditional fields with the page's precedence
+/// Evaluates the conditional fields: a write's with <see cref="WriteRefusal"/>, and Get Blob's and Get Blob Properties' with the page's precedence
 /// ("Specifying conditional headers for Blob service operations"; ADR-0109, decision 1): <c>If-Match</c> decides over <c>If-Unmodified-Since</c>,
 /// <c>If-None-Match</c> over <c>If-Modified-Since</c>, and a <c>412</c> over a <c>304</c>. A date
 /// that does not parse as an HTTP date is ignored.
@@ -27,6 +28,44 @@ internal static class AzureConditions
 
         return IsNotModified(fields, eTag, lastModified) ? AzureConditionOutcome.NotModified : AzureConditionOutcome.Serve;
     }
+
+    /// <summary>
+    /// Decides what the conditional fields of a write - Put Blob or Delete Blob - make of the blob
+    /// at its name (ADR-0109, decision 1): every condition is checked, none decides over another.
+    /// On an existing blob, <c>If-None-Match</c> naming <c>*</c> is <c>409 BlobAlreadyExists</c>, and a
+    /// failing <c>If-Match</c> or <c>If-Unmodified-Since</c>, a matching <c>If-None-Match</c> or an
+    /// unmodified <c>If-Modified-Since</c> is <c>412 ConditionNotMet</c>. With no blob there, only
+    /// <c>If-Match</c> fails, as there is no tag for it to match.
+    /// </summary>
+    /// <param name="fields">The request's fields.</param>
+    /// <param name="existing">The blob at the name, or <see langword="null"/> when there is none.</param>
+    /// <returns><see langword="null"/> when the write goes ahead, else its error.</returns>
+    public static AzureError? WriteRefusal(IReadOnlyList<KeyValuePair<string, string>> fields, ObjectProperties? existing)
+    {
+        if (existing is null)
+        {
+            return FieldValue(fields, "If-Match") is null ? null : AzureError.ConditionNotMet;
+        }
+
+        if (FieldValue(fields, "If-None-Match") is { } ifNoneMatch && ifNoneMatch.Split(',', StringSplitOptions.TrimEntries).Contains("*"))
+        {
+            return AzureError.BlobAlreadyExists;
+        }
+
+        return HoldsForWriting(fields, existing.ETag, TruncatedToSeconds(existing.LastWriteTimeUtc)) ? null : AzureError.ConditionNotMet;
+    }
+
+    // If-Match and If-Unmodified-Since hold, and If-None-Match and If-Modified-Since do not stop the write.
+    private static bool HoldsForWriting(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag, DateTimeOffset lastModified) =>
+        TagsHoldForWriting(fields, eTag) && DatesHoldForWriting(fields, lastModified);
+
+    private static bool TagsHoldForWriting(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag) =>
+        (FieldValue(fields, "If-Match") is not { } ifMatch || MatchesAny(ifMatch, eTag))
+            && (FieldValue(fields, "If-None-Match") is not { } ifNoneMatch || !MatchesAny(ifNoneMatch, eTag));
+
+    private static bool DatesHoldForWriting(IReadOnlyList<KeyValuePair<string, string>> fields, DateTimeOffset lastModified) =>
+        (DateField(fields, "If-Unmodified-Since") is not { } unmodifiedSince || lastModified <= unmodifiedSince)
+            && (DateField(fields, "If-Modified-Since") is not { } modifiedSince || lastModified > modifiedSince);
 
     // If-Match, else If-Unmodified-Since.
     private static bool HoldsBeforeServing(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag, DateTimeOffset lastModified) =>

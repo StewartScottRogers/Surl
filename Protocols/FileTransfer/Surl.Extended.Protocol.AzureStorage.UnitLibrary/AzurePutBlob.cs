@@ -17,7 +17,8 @@ namespace Surl.Extended.Protocol.AzureStorage;
 /// <remarks>
 /// Uploads need <c>--allow-uploads</c>, which the store's exposure options carry: off, every Put
 /// Blob is <c>403 AuthorizationPermissionMismatch</c> and nothing is read. A name ending in
-/// <c>/</c> with an empty body creates the folder.
+/// <c>/</c> with an empty body creates the folder. The conditional fields are checked against the
+/// blob at the name before the body is read (<see cref="AzureConditions.WriteRefusal"/>).
 /// </remarks>
 /// <param name="store">The content store the blob is written to.</param>
 /// <param name="index">The object metadata index of the store's served root.</param>
@@ -30,6 +31,8 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
     public const int MaxUserMetadataBytes = 8192;
 
     private const string UserMetadataPrefix = "x-ms-meta-";
+
+    private readonly AzureBlobPropertiesReader properties = new(store, index, log);
 
     /// <summary>
     /// Answers a Put Blob whose container exists and whose name is not too long.
@@ -63,9 +66,22 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
             return reply.Error(AzureRefusal.Of(AzureError.InvalidResourceName));
         }
 
+        if (await ConditionRefusalAsync(request, target, mapping, cancellationToken) is { } conditionRefusal)
+        {
+            return reply.Error(AzureRefusal.Of(conditionRefusal));
+        }
+
         return CreateFolders(target, caller) is { } folderRefusal
             ? reply.Error(AzureRefusal.Of(folderRefusal))
             : await StoreAsync(reply, request, target, mapping, cancellationToken);
+    }
+
+    // The conditional fields, checked against the blob at the name (ADR-0109, decision 1).
+    private async Task<AzureError?> ConditionRefusalAsync(HttpRequest request, AzureBlobTarget target, ContentPathMapping mapping, CancellationToken cancellationToken)
+    {
+        var existing = await properties.ReadAsync(mapping, AzureIndexKey.OfRaw(store, target.RawContainer, target.RawBlob), cancellationToken);
+
+        return AzureConditions.WriteRefusal(request.Fields, existing);
     }
 
     /// <summary>

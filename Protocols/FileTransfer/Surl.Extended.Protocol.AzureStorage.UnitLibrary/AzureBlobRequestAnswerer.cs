@@ -126,7 +126,7 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
         {
             AzureOperation.ListBlobs => await listBlobs.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.PutBlob => await putBlob.AnswerAsync(reply, request, target, caller, cancellationToken),
-            AzureOperation.DeleteBlob => DeleteBlob(reply, target, caller),
+            AzureOperation.DeleteBlob => await DeleteBlobAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.PutBlock => await putBlock.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.PutBlockList => await putBlockList.AnswerAsync(reply, request, target, caller, cancellationToken),
             AzureOperation.GetBlockList => await getBlockList.AnswerAsync(reply, target, caller, cancellationToken),
@@ -148,11 +148,17 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
             : await AzureBlobAnswer.AnswerAsync(reply, request.Fields, found, new HttpAnswerBody.ContentFile(store, mapping, ContentByteRange.WholeFile(found.Length)), cancellationToken);
     }
 
-    // Delete Blob ("Delete Blob"; decision 5.6): 202; a missing blob 404 BlobNotFound; with uploads
+    // Delete Blob ("Delete Blob"; decisions 1 and 5.6): 202; a missing blob 404 BlobNotFound; a
+    // failing condition 412 ConditionNotMet, If-None-Match: * 409 BlobAlreadyExists; with uploads
     // off or share access refusing the write, 403 AuthorizationPermissionMismatch.
-    private HttpAnswer DeleteBlob(AzureReply reply, AzureBlobTarget target, ContentCaller caller)
+    private async Task<HttpAnswer> DeleteBlobAsync(AzureReply reply, HttpRequest request, AzureBlobTarget target, ContentCaller caller, CancellationToken cancellationToken)
     {
         var mapping = store.MapBucketRequestPathForCaller(target.Path, caller);
+        if (mapping.IsMapped && await DeleteConditionRefusalAsync(request, target, mapping, cancellationToken) is { } conditionRefusal)
+        {
+            return reply.Error(AzureRefusal.Of(conditionRefusal));
+        }
+
         var deleted = mapping.IsMapped ? store.DeleteFile(mapping) : ContentChangeResult.Absent;
 
         return deleted switch
@@ -162,6 +168,12 @@ internal sealed class AzureBlobRequestAnswerer : IHttpRequestHandler, IHttpHeadN
             _ => reply.Error(AzureRefusal.Of(AzureError.BlobNotFound)),
         };
     }
+
+    // The conditional fields, checked against the blob there; no blob is left to Delete Blob's 404.
+    private async Task<AzureError?> DeleteConditionRefusalAsync(HttpRequest request, AzureBlobTarget target, ContentPathMapping mapping, CancellationToken cancellationToken) =>
+        await properties.ReadAsync(mapping, AzureIndexKey.OfRaw(store, target.RawContainer, target.RawBlob), cancellationToken) is { } existing
+            ? AzureConditions.WriteRefusal(request.Fields, existing)
+            : null;
 
     private bool IsContainer(ContentPathMapping container) =>
         container.IsMapped && store.GetEntryKind(container) == ContentEntryKind.Directory;

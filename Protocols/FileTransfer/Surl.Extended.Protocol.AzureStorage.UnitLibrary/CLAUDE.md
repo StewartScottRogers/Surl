@@ -50,6 +50,13 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   under `AzureIndexKey` (none for a file in a share); an index refusal removes the blob (`400
   MetadataTooLarge`, `503 ServerBusy`). `201` with `ETag`, `Last-Modified`, `Content-MD5` and
   `x-ms-request-server-encrypted: false`.
+- The conditional fields on Put Blob and Delete Blob (BL-735, `AzureConditions.WriteRefusal`),
+  checked against the blob at the name once the name maps, before folders are created or the body
+  is read: every condition counts, none decides over another. On an existing blob, `If-None-Match`
+  naming `*` is `409 BlobAlreadyExists`; a failing `If-Match` or `If-Unmodified-Since`, a matching
+  `If-None-Match` or an unmodified `If-Modified-Since` is `412 ConditionNotMet`; nothing changes.
+  With no blob there, Put Blob fails only `If-Match` (`412`), and Delete Blob is `404 BlobNotFound`.
+  A date that does not parse is ignored.
 - Put Block, Put Block List and Get Block List (BL-715). Put Block (`AzurePutBlock`) on `PUT
   …?comp=block&blockid=<id>`, under `--allow-uploads`: a missing `blockid` is `400
   MissingRequiredQueryParameter`; one that is not base64 of 1 to 64 bytes (`AzureBlockId`), or not
@@ -174,8 +181,7 @@ characters):
 - Errors are the JSON `{"error":{"code":…,"message":…}}` (`AzureDataLakeErrorBody`) with
   `Content-Type: application/json;charset=utf-8`; `code` and `message` only.
 
-Not yet: the conditional fields on Put Blob and Delete Blob and `x-ms-blob-content-md5` (filed
-from BL-425); `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
+Not yet: `x-ms-blob-content-md5` (filed from BL-425); the conditional fields on Put Block List; `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
 the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
 List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem.
 

@@ -91,9 +91,16 @@ internal sealed record AzureError(string Code, HttpStatus Status, string Message
     public static AzureError AuthenticationFailed { get; } = new("AuthenticationFailed", HttpStatus.Forbidden, "Server failed to authenticate the request. Make sure the value of Authorization header is formed correctly including the signature.");
 
     /// <summary>
-    /// <c>412 ConditionNotMet</c>: a failed <c>If-Match</c> or <c>If-Unmodified-Since</c>.
+    /// <c>412 ConditionNotMet</c>: on a read, a failed <c>If-Match</c> or <c>If-Unmodified-Since</c>;
+    /// on a write, any failed condition.
     /// </summary>
     public static AzureError ConditionNotMet { get; } = new("ConditionNotMet", PreconditionFailedStatus, "The condition specified using HTTP conditional header(s) is not met.");
+
+    /// <summary>
+    /// <c>409 BlobAlreadyExists</c>: a Put Blob or Delete Blob with <c>If-None-Match: *</c> on a blob
+    /// that exists (ADR-0109, decision 1).
+    /// </summary>
+    public static AzureError BlobAlreadyExists { get; } = new("BlobAlreadyExists", ConflictStatus, "The specified blob already exists.");
 
     /// <summary>
     /// <c>416 InvalidRange</c>: a single range that names no byte of the blob.
