@@ -27,6 +27,7 @@ internal static class CommandLinePathMembers
         new(nameof(SurlCommandLine.HostKeyFiles), "--hostkey", commandLine => commandLine.HostKeyFiles),
         new(nameof(SurlCommandLine.HostCertificateFiles), "--hostcert", commandLine => commandLine.HostCertificateFiles),
         new(nameof(SurlCommandLine.AuthorizedKeys), "--authorized-keys", commandLine => commandLine.AuthorizedKeys.Select(keys => keys.File)),
+        new(nameof(SurlCommandLine.MailboxFiles), "--mailbox-file", commandLine => commandLine.MailboxFiles),
     ];
 
     /// <summary>Every member that holds no local path.</summary>
@@ -52,6 +53,8 @@ internal static class CommandLinePathMembers
         nameof(SurlCommandLine.KeyPassphrase),
         nameof(SurlCommandLine.Accounts),
         nameof(SurlCommandLine.Groups),
+        nameof(SurlCommandLine.MailDomains),
+        nameof(SurlCommandLine.Mailboxes),
         nameof(SurlCommandLine.Faults),
         nameof(SurlCommandLine.AllowAnonymous),
         nameof(SurlCommandLine.AllowPlaintextAuthentication),
