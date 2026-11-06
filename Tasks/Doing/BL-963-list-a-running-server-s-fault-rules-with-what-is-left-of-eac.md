@@ -43,3 +43,4 @@ its `--fault` item and how many applications are left of its `times`.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
