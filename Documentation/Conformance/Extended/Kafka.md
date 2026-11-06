@@ -5,15 +5,17 @@ schemes (ADR-0083 decision 9). Written from the Apache Kafka protocol guide for 
 (<https://kafka.apache.org/44/design/protocol>), the "Record Batch" and "Record" sections of the Kafka
 documentation, RFC 4616 and RFC 5802, the specifications
 [ADR-0105](../../Planning/Decisions/ADR-0105-how-the-kafka-broker-answers-kafka-and-kafkas.md)
-decides by, never from the Curl port's client matrices. Each row binds a server; "Covered by" names
+and
+[ADR-0145](../../Planning/Decisions/ADR-0145-how-the-kafka-broker-answers-consumer-groups-committed-offsets-createtopics-and-initproducerid.md)
+decide by, never from the Curl port's client matrices. Each row binds a server; "Covered by" names
 the task that proves it, until that task replaces its ID with the named test, or says why the row
 needs no test.
 
 The guide states few requirements in RFC keywords, so each schema field a broker writes or must read,
 each rule of a section and each error code a broker owes is a row. IDs are `Kafka:Guide-<Section>-<n>`
 for the protocol guide, `Kafka:Batch-<Part>-<n>` for the record format, `Kafka:RFC<n>-<section>-<n>`
-for an RFC, and `Kafka:Surl-<Decision>-<n>` for a rule ADR-0105 adds where the guide leaves the
-broker a choice.
+for an RFC, and `Kafka:Surl-<Decision>-<n>` for a rule ADR-0105 or ADR-0145 adds where the guide
+leaves the broker a choice.
 
 ## Framing, headers and primitive types (guide: "Network", "Protocol Primitive Types", "Common Request and Response Structure", "Request and Response Headers")
 
@@ -93,7 +95,7 @@ broker a choice.
 | Kafka:Surl-Produce-1 | MUST | A failed batch fails its whole partition and nothing of the partition is appended. | `KafkaProduceAnswererTests.ServeAsync_AFlippedByte_IsCorruptMessageAndNothingIsAppended`, `ServeAsync_ARecordPastTheBusMessageLimit_IsMessageTooLarge` (a bus store bound met part of the way through a partition keeps the records before it: BL-754) |
 | Kafka:Surl-Produce-2 | MUST | Each record becomes one bus message: value as payload (null as empty), key, UTF-8 headers in order, QoS 1; an `mqtt` subscriber receives it. | `KafkaProduceAnswererTests.ServeAsync_AProducedRecord_IsDeliveredToABusSubscriberOfTheMappedTopic`, `KafkaRecordBatchReaderTests.Read_HeadersWithANullValueOrMalformedUtf8_AreDropped` |
 | Kafka:Surl-Produce-3 | MUST | A record past `--max-filesize` is `MESSAGE_TOO_LARGE` (10); a bus store bound is `POLICY_VIOLATION` (44). | `KafkaProduceAnswererTests.ServeAsync_ARecordPastTheBusMessageLimit_IsMessageTooLarge`, `ServeAsync_ANewTopicPastTheBusTopicLimit_IsPolicyViolation`, `ServeAsync_ARecordPastTheBusLogBound_IsPolicyViolation` |
-| Kafka:Batch-Producer-1 | MAY | A batch with a `producerId` (an idempotent producer outside a transaction) is accepted and its sequence not checked. | `KafkaRecordBatchReaderTests.Read_ABatchOfThreeRecords_ReturnsEachKeyValueAndHeaderInOrder` (its batch carries `producerId` -1; no field after `attributes` but the record count and `lastOffsetDelta` is read) |
+| Kafka:Batch-Producer-1 | MAY | A batch with a `producerId` (an idempotent producer outside a transaction) is accepted and its sequence not checked. | `KafkaRecordBatchReaderTests.Read_ABatchOfThreeRecords_ReturnsEachKeyValueAndHeaderInOrder` (its batch carries `producerId` -1; no field after `attributes` but the record count and `lastOffsetDelta` is read); BL-934 replaces this row with `Kafka:Surl-Producer-2` to `-4` (ADR-0145 decision 8) |
 
 ## Fetch and ListOffsets (Fetch v4 to v11, ListOffsets v1 to v5; error codes 1, 3, 17, 29, 70)
 
@@ -128,12 +130,72 @@ broker a choice.
 | Kafka:RFC1952-2.3-1 | MUST | A gzip member is read and written as RFC 1952 says (the BCL's `GZipStream`). | BL-521 |
 | Kafka:RFC8878-3.1.1-1 | MUST | A zstd frame with a dictionary id the broker does not hold cannot be decoded (`CORRUPT_MESSAGE`). | BL-521 |
 
+## Consumer groups (FindCoordinator v0 to v2, JoinGroup v0 to v5, SyncGroup, Heartbeat and LeaveGroup v0 to v3; error codes 22 to 27, 30, 42, 44, 79, 81, 82)
+
+None of these APIs is served yet: ApiVersions does not list them and each closes the connection
+like any unserved API (`Kafka:Surl-Versions-1`). The task named builds each row.
+
+| ID | Level | Requirement | Covered by |
+| --- | --- | --- | --- |
+| Kafka:Guide-Groups-1 | MUST | ApiVersions lists FindCoordinator 0 to 2, JoinGroup 0 to 5, SyncGroup, Heartbeat and LeaveGroup 0 to 3 once served, and never ConsumerGroupHeartbeat (68) or ConsumerGroupDescribe (69). | BL-931 (ADR-0145 decision 1) |
+| Kafka:Guide-FindCoordinator-1 | MUST | FindCoordinator for a group (`key_type` 0, or v0) answers node 0 with the host and port Metadata advertises, error 0. | BL-931 (ADR-0145 decision 2) |
+| Kafka:Surl-FindCoordinator-1 | MUST | `key_type` 1 (transaction), 2 (share) or any other value is `INVALID_REQUEST` (42), node -1. | BL-931 (ADR-0145 decision 2) |
+| Kafka:Guide-JoinGroup-1 | MUST | An empty `group_id` is `INVALID_GROUP_ID` (24); a session timeout outside 6000 to 1800000 `INVALID_SESSION_TIMEOUT` (26); an empty or incompatible `protocol_type` or `protocols` `INCONSISTENT_GROUP_PROTOCOL` (23); an unknown `member_id` `UNKNOWN_MEMBER_ID` (25). | BL-931 (ADR-0145 decision 3) |
+| Kafka:Guide-JoinGroup-2 | MUST | On v4 and v5 a dynamic member joining with an empty `member_id` is `MEMBER_ID_REQUIRED` (79) carrying its new id, and joins when it sends that id back. | BL-931 (ADR-0145 decision 3) |
+| Kafka:Guide-JoinGroup-3 | MUST | When the join phase ends every waiting JoinGroup is answered with the new generation, the chosen protocol, the leader and its member id; only the leader's answer lists the members and their metadata. | BL-931 (ADR-0145 decision 3) |
+| Kafka:Surl-JoinGroup-1 | MUST | The join phase ends when every member has rejoined or the rebalance timeout passes, with no initial delay; the leader stays leader when it rejoins; the protocol is the leader's first that every member lists; member ids are `<client_id or instance id>-<uuid>` from `ExchangeContext.Identifiers`. | BL-931 (ADR-0145 decision 3) |
+| Kafka:Guide-StaticMembership-1 | MUST | A JoinGroup naming a held `group_instance_id` fences the old member id: its later requests are `FENCED_INSTANCE_ID` (82). | BL-931 (ADR-0145 decision 3) |
+| Kafka:Guide-SyncGroup-1 | MUST | The leader's assignments are relayed byte for byte to each member named, empty bytes to a member not named; followers are held until the leader's SyncGroup arrives. | BL-931 (ADR-0145 decision 3) |
+| Kafka:Guide-SyncGroup-2 | MUST | SyncGroup and Heartbeat answer 25 for an unknown member, `ILLEGAL_GENERATION` (22) for another generation, and `REBALANCE_IN_PROGRESS` (27) while the group prepares a rebalance. | BL-931 (ADR-0145 decision 3) |
+| Kafka:Guide-Session-1 | MUST | A member with no JoinGroup, SyncGroup, Heartbeat or OffsetCommit within its `session_timeout_ms` is removed and the group rebalances, timed on the injected `TimeProvider`. | BL-931 (ADR-0145 decision 3) |
+| Kafka:Guide-LeaveGroup-1 | MUST | LeaveGroup removes the member (v0 to v2) or each member by id or instance id (v3, a per-member error), and the group rebalances or empties. | BL-931 (ADR-0145 decision 3) |
+| Kafka:Surl-Groups-1 | MUST | More than 1000 groups is `POLICY_VIOLATION` (44); more than 1000 members of one group `GROUP_MAX_SIZE_REACHED` (81); group state past 256 MiB 44. | BL-931 (ADR-0145 decision 9) |
+| Kafka:Surl-Groups-2 | MUST | A held JoinGroup or SyncGroup pauses the exchange's idle clock until it is answered. | BL-931 (ADR-0145 decision 9) |
+| Kafka:Surl-Groups-3 | MUST | Joins, leaves, removals, fencing, each new generation and each assignment publish a `ConsumerGroupChangedEvent`. | BL-931 (ADR-0145 decision 10) |
+
+## Committed offsets and group listing (OffsetCommit v2 to v7, OffsetFetch v1 to v5, DescribeGroups v0 to v4, ListGroups v0 to v2; error codes 3, 12, 17, 22, 25, 27, 29, 30, 44)
+
+Not served yet, as above.
+
+| ID | Level | Requirement | Covered by |
+| --- | --- | --- | --- |
+| Kafka:Guide-OffsetCommit-1 | MUST | A member of the current generation commits per partition; a simple commit (generation -1, empty member id) is taken only while the group has no members, else 25; another generation is 22; a commit while the group completes a rebalance is 27. | BL-932 (ADR-0145 decision 4) |
+| Kafka:Guide-OffsetCommit-2 | MUST | Each partition is answered: invalid name 17, partition other than 0 or no log 3, no subscribe access 29, metadata over 4096 bytes `OFFSET_METADATA_TOO_LARGE` (12), a bus bound or out-of-space fault 44, otherwise 0. | BL-932 (ADR-0145 decision 4) |
+| Kafka:Guide-OffsetFetch-1 | MUST | OffsetFetch answers each partition's committed offset, leader epoch (v5) and metadata, or -1 and empty metadata when none is committed; null `topics` (v2 on) answers every topic the group committed. | BL-932 (ADR-0145 decision 4) |
+| Kafka:Surl-Offsets-1 | MUST | Committed offsets are kept in `Surl.MessageBus`, never expire by time, empty on a bus reset, return with a restore, and persist in `.surl/bus/offsets` under `--directory`; at most 10000 entries, a new one past that 44. | BL-930 (ADR-0145 decisions 4 and 9) |
+| Kafka:Surl-Offsets-2 | MUST | Each committed partition publishes `StoreChangedEvent` `Committed` named `$group/<group>/<canonical topic>`. | BL-930 (ADR-0145 decision 10) |
+| Kafka:Guide-DescribeGroups-1 | MUST | DescribeGroups answers each group's state, protocol type and data, and members with their client id, host, metadata and assignment; a group that does not exist is `Dead`. | BL-932 (ADR-0145 decision 5) |
+| Kafka:Guide-ListGroups-1 | MUST | ListGroups lists every group with a member or a committed offset that the caller may use, in ordinal order, with its protocol type. | BL-932 (ADR-0145 decision 5) |
+| Kafka:Surl-GroupAccess-1 | MUST | Once any `--topic-access` row is given, a group needs `sub` on `$group/<id>`; without it every group API is `GROUP_AUTHORIZATION_FAILED` (30), the same whether or not the group exists, and ListGroups leaves it out. | BL-930, BL-931 and BL-932 (ADR-0145 decision 6) |
+
+## CreateTopics (CreateTopics v2 to v4; error codes 17, 29, 36 to 39, 42, 44)
+
+Not served yet, as above.
+
+| ID | Level | Requirement | Covered by |
+| --- | --- | --- | --- |
+| Kafka:Guide-CreateTopics-1 | MUST | CreateTopics creates each topic's empty log on the bus, one partition, and answers each name in request order with its error code and a null message. | BL-933 (ADR-0145 decision 7) |
+| Kafka:Guide-CreateTopics-2 | MUST | A duplicate name is `INVALID_REQUEST` (42); an invalid name 17; no publish access 29; a topic with a log `TOPIC_ALREADY_EXISTS` (36); `num_partitions` other than 1 or -1 `INVALID_PARTITIONS` (37) (ADR-0100 decision 3.2); `replication_factor` other than 1 or -1 `INVALID_REPLICATION_FACTOR` (38); any assignment but partition 0 on broker 0 `INVALID_REPLICA_ASSIGNMENT` (39); the bus's topic bound 44. | BL-933 (ADR-0145 decision 7) |
+| Kafka:Guide-CreateTopics-3 | MUST | `validate_only` makes the checks and creates nothing. | BL-933 (ADR-0145 decision 7) |
+| Kafka:Surl-CreateTopics-1 | MUST | Topic `configs` are accepted and ignored, the ignored names noted with `-v`. | BL-933 (ADR-0145 decision 7) |
+
+## InitProducerId and idempotent producers (InitProducerId v0 to v1, Produce; error codes 42, 45, 47)
+
+Not served yet, as above; today a batch's sequence is not checked (`Kafka:Batch-Producer-1`).
+
+| ID | Level | Requirement | Covered by |
+| --- | --- | --- | --- |
+| Kafka:Guide-InitProducerId-1 | MUST | A null `transactional_id` is answered error 0, a producer id unique on the instance and rising by one from a start drawn from `ExchangeContext.Identifiers`, and epoch 0. | BL-934 (ADR-0145 decision 8) |
+| Kafka:Surl-Producer-1 | MUST | A non-null `transactional_id` is `INVALID_REQUEST` (42) with producer id and epoch -1. | BL-934 (ADR-0145 decision 8) |
+| Kafka:Surl-Producer-2 | MUST | A batch repeating one of the producer's last five batches on the topic is answered 0 with its original base offset and nothing appended. | BL-934 (ADR-0145 decision 8) |
+| Kafka:Surl-Producer-3 | MUST | A sequence that is not one past the last taken is `OUT_OF_ORDER_SEQUENCE_NUMBER` (45); an older epoch `INVALID_PRODUCER_EPOCH` (47); a producer with no state held is accepted at any sequence. | BL-934 (ADR-0145 decision 8) |
+| Kafka:Surl-Producer-4 | MUST | At most 10000 producer states are held, the least recently used dropped. | BL-934 (ADR-0145 decision 9) |
+
 ## Not required of this broker
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| Kafka:Guide-Groups-1 | MUST | Consumer group coordination and committed offsets (FindCoordinator to OffsetFetch). | n/a: not served yet; BL-701 decides them |
-| Kafka:Guide-CreateTopics-1 | MUST | CreateTopics, and `INVALID_PARTITIONS` (37) for more than one partition. | n/a: not served yet; BL-701 decides it |
-| Kafka:Guide-Transactions-1 | MUST | InitProducerId, transactions and READ_COMMITTED filtering of aborted transactions. | n/a: no transaction coordinator (ADR-0105 decision 4); BL-701 decides InitProducerId |
+| Kafka:Guide-Transactions-1 | MUST | Transactions (a transactional InitProducerId, AddPartitionsToTxn, EndTxn, TxnOffsetCommit) and READ_COMMITTED filtering of aborted transactions. | n/a: no transaction coordinator (ADR-0105 decision 4); a transactional id is refused (ADR-0145 decisions 2 and 8) |
+| Kafka:Guide-ConsumerProtocol-1 | MUST | The KIP-848 consumer group protocol (ConsumerGroupHeartbeat, ConsumerGroupDescribe), share groups and streams groups. | n/a: not served; the classic group protocol is (ADR-0145 decision 1) |
 | Kafka:Guide-Replication-1 | MUST | Replication, leader election and the `acks` -1 wait for the in-sync replicas. | n/a: one node, its own only replica (ADR-0105 decisions 0 and 6) |
 | Kafka:Guide-Flexible-1 | MUST | The flexible versions of Produce, Fetch, ListOffsets, Metadata and SaslAuthenticate. | n/a: not served (ADR-0105 decision 1); clients negotiate down through ApiVersions |
