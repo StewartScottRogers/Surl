@@ -46,3 +46,4 @@ HTTP response, instead of ADR-0088's interim `501`.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
