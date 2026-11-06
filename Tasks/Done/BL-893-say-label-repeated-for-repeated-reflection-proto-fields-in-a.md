@@ -8,7 +8,7 @@ depends-on: [BL-444]
 touches: [Documentation/Planning/Decisions/ADR-0116-how-the-grpc-server-answers-grpc-and-grpcs.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-893 — Say LABEL_REPEATED for repeated reflection.proto fields in ADR-0116 decision 9
 
@@ -28,7 +28,7 @@ ADR-0116 decision 9's "Descriptors" bullet says what the code does: singular fie
 
 ## Acceptance criteria
 
-- [ ] ADR-0116 decision 9 names `LABEL_REPEATED` for `repeated` fields, and its other descriptor details
+- [x] ADR-0116 decision 9 names `LABEL_REPEATED` for `repeated` fields, and its other descriptor details
       match `ProtoFieldDescriptor`, `ProtoMethodDescriptor` and `ServerReflectionService`.
 
 ## Notes
@@ -36,3 +36,5 @@ ADR-0116 decision 9's "Descriptors" bullet says what the code does: singular fie
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0116 decision 9 says LABEL_REPEATED for the three repeated reflection.proto fields, streaming flags only when true, and valid_host only when a host was named
