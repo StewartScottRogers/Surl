@@ -54,3 +54,4 @@ bad one `401 InvalidAuthenticationInfo` rather than serving it as anonymous; and
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
