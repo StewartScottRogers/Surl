@@ -69,3 +69,4 @@ port-side libcurl driver may call, refusing an unpinned one.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
