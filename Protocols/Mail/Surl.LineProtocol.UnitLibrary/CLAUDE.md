@@ -19,6 +19,13 @@ The CRLF line machinery the mail servers share (ADR-0050 decision 8), built in B
 - `ReplyLineWriter` - one printable-ASCII line and CRLF; throws `ArgumentException` otherwise.
 - `SaslContinuationLine` - `*` cancels, empty is an empty response, whitespace or anything
   else not base64 is `NotBase64`.
+- `MailUpstreamTestCaseReplies` (BL-875, ADR-0080 decision 2) - a test seam, never composed by
+  the shipped `surl`: one upstream test case's `<reply>` parts and `<servercmd>` lines as the
+  IMAP, POP3 and SMTP server halves play them, with a record of every command line read and
+  every message uploaded. `FindData` picks `<dataNUM>` for a name whose first number is over
+  10000 (NUM its remainder of 10000), else `<data>`. `MailUpstreamTestCaseServerCommands`
+  (internal) reads `Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH` and `POSTFETCH`, and
+  throws `NotSupportedException` for any other word (`servercmd-unsupported:<word>`).
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and nothing else
 (ADR-0050 decision 1, amending ADR-0002's table); protocol servers may reference it, and
