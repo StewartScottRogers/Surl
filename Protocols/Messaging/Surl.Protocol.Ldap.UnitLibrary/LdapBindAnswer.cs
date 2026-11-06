@@ -15,13 +15,18 @@ namespace Surl.Protocol.Ldap;
 /// </param>
 /// <param name="SecurityLayer">The security layer that protects every message after the response; <see langword="null"/> for none.</param>
 /// <param name="Mechanism">The mechanism that negotiated <paramref name="SecurityLayer"/>, for the log.</param>
+/// <param name="Account">
+/// The account the bind proved, which a fault rule's account scope matches; <see langword="null"/> for an
+/// anonymous bind, a login accepted unchecked, and every refusal.
+/// </param>
 internal sealed record LdapBindAnswer(
     LdapResult Result,
     bool IsBound,
     byte[]? ServerSaslCredentials = null,
     byte[]? SicilyMatchedDn = null,
     ISaslSecurityLayer? SecurityLayer = null,
-    string? Mechanism = null)
+    string? Mechanism = null,
+    string? Account = null)
 {
     /// <summary>
     /// The answer that refuses a bind with <paramref name="result"/> and leaves the connection anonymous.
