@@ -40,3 +40,4 @@ each failing signature with the XML error code BL-429's ADR names.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
