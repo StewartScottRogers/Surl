@@ -102,8 +102,12 @@ protocol server.
   no revocation check and the time from the `TimeProvider`. `ThrowawayServerCertificate`
   (public) makes the certificate served without `--cert`. `TcpConnectionListener.StartAsync`
   takes the settings and gives each connection a `ServerTlsHandshake` with the ALPN IDs
-  `TlsApplicationProtocols` names for the scheme (`h2` then `http/1.1` for `https`,
-  `http/1.1` for `wss`, none otherwise; ADR-0081 decision 2). `StreamConnection.UpgradeToTlsAsync` runs it: a failed handshake is
+  `TlsApplicationProtocols.ForListener` names for the listen URL (`h2` then `http/1.1` for
+  `https`, `http/1.1` for `wss`, none otherwise; ADR-0081 decision 2), except that an `https`
+  listen URL with `ListenUrl.IsProxy` - the HTTPS proxy - offers exactly `http/1.1` (ADR-0088
+  Amendment 2). `ServerTlsHandshakeHttpsProxyTests` shake hands as curl does with such a
+  listener and serve one request through `Surl.Protocol.HttpProxy`, which is why
+  `Surl.Networking.UnitTests` references that library. `StreamConnection.UpgradeToTlsAsync` runs it: a failed handshake is
   `TlsHandshakeException`, and a failed or cancelled one leaves the connection unusable, so
   disposing it writes nothing; `CompleteWritesAsync` on a secured connection sends
   close_notify before FIN.

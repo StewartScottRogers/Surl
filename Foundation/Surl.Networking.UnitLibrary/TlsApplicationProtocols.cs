@@ -1,4 +1,5 @@
 using System.Net.Security;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Networking;
 
@@ -26,4 +27,16 @@ internal static class TlsApplicationProtocols
         "wss" or "s3" => Http11Only,
         _ => [],
     };
+
+    /// <summary>
+    /// The ALPN protocol IDs a listener on <paramref name="listenUrl"/> offers: for a proxy
+    /// listener (<see cref="ListenUrl.IsProxy"/>) exactly <c>http/1.1</c> when its scheme is
+    /// <c>https</c>, because the HTTPS proxy serves HTTP/1.1 only and curl's
+    /// <c>--proxy-http2</c> offers <c>h2</c> first (ADR-0088, decision 6 and Amendment 2);
+    /// otherwise <see cref="ForScheme"/>.
+    /// </summary>
+    /// <param name="listenUrl">The listener's listen URL; its scheme is lower-cased.</param>
+    /// <returns>The ALPN protocol IDs offered, in the server's order of preference.</returns>
+    public static IReadOnlyList<SslApplicationProtocol> ForListener(ListenUrl listenUrl) =>
+        listenUrl is { IsProxy: true, Scheme: "https" } ? Http11Only : ForScheme(listenUrl.Scheme);
 }

@@ -35,10 +35,10 @@ internal sealed class ServerTlsHandshake
     /// when the process has no TLS settings.
     /// </summary>
     /// <param name="settings">The process's TLS settings, or <see langword="null"/>.</param>
-    /// <param name="listenUrl">The listener's listen URL; its scheme picks the ALPN protocol IDs.</param>
+    /// <param name="listenUrl">The listener's listen URL; its scheme, and whether it is a proxy's, pick the ALPN protocol IDs.</param>
     /// <returns>The handshake, or <see langword="null"/>.</returns>
     public static ServerTlsHandshake? ForListener(ServerTlsSettings? settings, ListenUrl listenUrl) =>
-        settings is null ? null : new ServerTlsHandshake(settings, TlsApplicationProtocols.ForScheme(listenUrl.Scheme));
+        settings is null ? null : new ServerTlsHandshake(settings, TlsApplicationProtocols.ForListener(listenUrl));
 
     /// <summary>
     /// Runs the handshake over <paramref name="transport"/>, which stays open whatever happens.
