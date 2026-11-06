@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-539, BL-405]
-touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
+touches: [Application/Surl.Console, Application/Surl.Console.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-04
 completed:
@@ -37,7 +37,16 @@ the extension switch turns both off.
 
 ## Notes
 
+- 2026-11-05 (lane 4): Extended-server composition has moved out of `Surl.Console`'s `CommandLineRunner` into
+  `Application/Surl.Composition.UnitLibrary`: an extended server joins as one entry in
+  `ExtendedProtocolServers.Registrations` (ADR-0124, decision 2), and the switch test belongs in
+  `Surl.Composition.UnitTests`. So this task touches both projects too. BL-803 (Doing) touches
+  `Application/Surl.Composition.UnitLibrary` and `Application/Surl.Composition.UnitTests`, so the task goes back to
+  Backlog until BL-803 frees them. `ExtendedSchemeDefaultPorts` in `Surl.Cli` already lists `xmpp` 5222 and
+  `xmpps` 5223. The XMPP server lives in `Protocols/Messaging/Surl.Extended.Protocol.Xmpp.UnitLibrary`.
+
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Backlog. Needs Application/Surl.Composition.UnitLibrary and .UnitTests, which BL-803 in Doing touches
