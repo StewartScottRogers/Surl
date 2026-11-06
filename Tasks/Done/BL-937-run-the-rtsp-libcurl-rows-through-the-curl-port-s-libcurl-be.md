@@ -8,7 +8,7 @@ depends-on: [BL-936]
 touches: [Conformance/Surl.Conformance.UnitTests, Documentation/Conformance/CurlPort/Libcurl.md]
 requirement: FR-057
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-937 — Run the RTSP libcurl rows through the Curl port's Libcurl beside upstream libcurl and record the Phase 7 libcurl findings
 
@@ -49,20 +49,34 @@ completing BL-597's Phase 7 libcurl measurement.
 
 ## Acceptance criteria
 
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~CurlPortLibcurlBesideUpstreamLibcurlOverRtspTests"`
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~CurlPortLibcurlBesideUpstreamLibcurlOverRtspTests"`
       on Windows reaches a verdict on all 13 rows (none Inconclusive on this machine) and passes; off
       Windows, or with a pinned file missing, each row is Inconclusive.
-- [ ] `Documentation/Conformance/CurlPort/Libcurl.md` has an RTSP result and lists each RTSP finding
+- [x] `Documentation/Conformance/CurlPort/Libcurl.md` has an RTSP result and lists each RTSP finding
       (including `PlayThenReceive_ServedFile_DeliversItsBytesThenAnRtcpBye` if it still differs) in
       ADR-0089 decision 6's form, or states that there are none, under the `## Measured` head naming the
       port commit and the upstream library's SHA-256.
-- [ ] `CurlPortLibcurlBesideUpstreamLibcurlOverWebSocketTests` still passes on Windows.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Conformance.UnitLibrary`
+- [x] `CurlPortLibcurlBesideUpstreamLibcurlOverWebSocketTests` still passes on Windows.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Conformance.UnitLibrary`
       keeps 100% line and branch coverage.
 
 ## Notes
+
+- Took the class from the stash `darkfactory BL-597 20261106-033059` (`stash@{4}`, `90c03679`) with
+  `git show <stash>^3:<path>` into the worktree, because this lane was not permitted `git stash list` or
+  `git checkout`; the stash was left untouched. `dotnet format whitespace` changed its LF endings to CRLF.
+- Measured 2026-11-06 on Windows, port `b42c319b…`, Surl `2006b077`: 12 of 13 RTSP rows agree.
+  `PlayThenReceive_ServedFile_DeliversItsBytesThenAnRtcpBye` is still a port defect, with the first
+  difference on report line 5. The port's first `RECEIVE` hands over both the RTP and the RTCP frame in
+  two interleave calls and reports `session none` with both CSeq counters at 0. Its later `RECEIVE`s
+  return 0 at once where upstream returns 28. Its `surl` also opens Exchanges 2 and 3, so the port opens
+  new connections for `RECEIVE`. Recorded as finding 1 in `Libcurl.md`, citing `CURLOPT_RTSP_REQUEST`,
+  the `CURLINFO_RTSP_*` pages and RFC 2326 section 10.12.
+- With the finding listed, all 13 RTSP rows and all 7 WebSocket rows pass (20 of 20). No production code
+  changed, so `Surl.Conformance.UnitLibrary`'s coverage is unchanged.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. The 13 RTSP libcurl rows run through the Curl port's Libcurl beside upstream libcurl and reach a verdict; Libcurl.md records the one RTSP finding (PlayThenReceive)
