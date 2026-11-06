@@ -31,3 +31,4 @@ ADR-0108 records, as an amendment marked Decided by Claude under Stewart's deleg
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
