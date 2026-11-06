@@ -8,7 +8,7 @@ depends-on: []
 touches: [Conformance/Surl.Conformance.UnitLibrary, Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-838 — Stop UpstreamCurlRunner failing a case with Broken pipe when upstream curl exits before reading its standard input
 
@@ -36,15 +36,27 @@ of throwing `IOException: Broken pipe` and failing the whole test.
 
 ## Acceptance criteria
 
-- [ ] `UpstreamCurlRunner.RunAsync` starts reading standard output and error before writing
+- [x] `UpstreamCurlRunner.RunAsync` starts reading standard output and error before writing
       standard input, and an `IOException` writing or closing standard input does not escape it.
-- [ ] A test in `Surl.Conformance.UnitTests` runs a process that exits without reading a standard
+- [x] A test in `Surl.Conformance.UnitTests` runs a process that exits without reading a standard
       input larger than a pipe buffer (1 MiB) and gets its exit code back with no exception.
-- [ ] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] `dotnet build` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
+
+- The fix had already landed on this branch in commit 42232705 (`fix(conformance): ignore a broken
+  stdin pipe when curl exits without reading it`), made while BL-603 was being worked. This run checked
+  that commit against each criterion instead of re-implementing it, so the full `feature` pipeline was
+  not re-run: `RunAsync` starts the stdout copy and stderr read before calling
+  `WriteStandardInputAsync`, which ignores an `IOException` from writing or closing stdin; fast tests
+  with `ClosedPipeStream` cover each branch; and the Integration test
+  `RunAsync_ProcessExitsWithoutReadingFourMebibytesOfStandardInput_ReturnsItsExitCode` (4 MiB, above
+  the 1 MiB the criterion asks for) runs the dotnet host and passed here (21/21 runner tests).
+- 2026-11-06: `dotnet build` clean; `dotnet test --filter "TestCategory!=Integration"` green across
+  every test project.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. UpstreamCurlRunner reports curl's exit code, output and error when curl exits without reading its stdin (fix in 42232705, verified)
