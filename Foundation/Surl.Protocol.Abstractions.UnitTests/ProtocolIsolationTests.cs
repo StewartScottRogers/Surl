@@ -44,6 +44,7 @@ public sealed class ProtocolIsolationTests
     private const string Quic = "Surl.Quic.UnitLibrary";
     private const string Socks = "Surl.Protocol.Socks.UnitLibrary";
     private const string Tls13 = "Surl.Tls13.UnitLibrary";
+    private const string TlsSrp = "Surl.TlsSrp.UnitLibrary";
     private const string WebSocket = "Surl.WebSocket.UnitLibrary";
     private const string ExtendedRedis = "Surl.Extended.Protocol.Redis.UnitLibrary";
     private const string ExtendedServerPrefix = "Surl.Extended.Protocol.";
@@ -89,6 +90,7 @@ public sealed class ProtocolIsolationTests
         [Qpack] = [Hpack],
         [Quic] = [Abstractions, Tls13, ChaCha20, Poly1305],
         [Tls13] = [Curve25519, MlKem],
+        [TlsSrp] = [Srp],
         [WebSocket] = [Abstractions, HttpMessage],
     };
 
@@ -240,6 +242,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Qpack)]
     [DataRow(Quic)]
     [DataRow(Tls13)]
+    [DataRow(TlsSrp)]
     public void ForbiddenProtocolReferences_AllowedLibrary_IsNotForbidden(string referenced)
     {
         Assert.IsEmpty(ForbiddenProtocolReferences([referenced]));
@@ -287,6 +290,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Quic, Poly1305)]
     [DataRow(Tls13, Curve25519)]
     [DataRow(Tls13, MlKem)]
+    [DataRow(TlsSrp, Srp)]
     public void ForbiddenHorizontalReferences_ReferenceInItsRow_IsNotForbidden(
         string library, string referenced)
     {
@@ -332,6 +336,8 @@ public sealed class ProtocolIsolationTests
     [DataRow(Tls13, Abstractions)]
     [DataRow(Tls13, Cryptography)]
     [DataRow(Tls13, "Surl.Protocol.Http.UnitLibrary")]
+    [DataRow(TlsSrp, Dtls)]
+    [DataRow(TlsSrp, Abstractions)]
     public void ForbiddenHorizontalReferences_ReferenceOutsideItsRow_IsForbidden(
         string library, string referenced)
     {
