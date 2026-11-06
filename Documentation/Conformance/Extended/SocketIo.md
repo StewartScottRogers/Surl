@@ -23,11 +23,11 @@ each into a row of its own when it lands.
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| SocketIo:EIO-Encoding-1 | MUST | An Engine.IO packet is its type character `0` to `6` then its payload; over WebSocket each packet is one message, text payloads in text messages and binary `message` payloads in binary messages with no type prefix. | BL-453 |
-| SocketIo:SIO-Encoding-1 | MUST | A Socket.IO packet is `<type>[<attachments>-][<namespace>,][<ack id>][<JSON payload>]`, the namespace only when it is not `/`; each SIO "Examples" encoding is read and written byte for byte (`0`, `0/admin,{"sid":"oSO0OpakMV_3jnilAAAA"}`, `4{"message":"Not authorized"}`, `2["foo"]`, `2/admin,["bar"]`, `212["foo"]`, `3/admin,13["bar"]`, `1`, `1/admin,`). | BL-453 |
-| SocketIo:SIO-Encoding-2 | MUST | Binary packets carry their attachment count: `51-["baz",{"_placeholder":true,"num":0}]`, `52-/admin,["baz",{"_placeholder":true,"num":0},{"_placeholder":true,"num":1}]`, `61-15["bar",{"_placeholder":true,"num":0}]`. | BL-453 |
-| SocketIo:Surl-6-1 | MUST | A binary packet with a count below 1, a placeholder `num` out of range or used twice, or a placeholder object with other members, is refused as malformed (ADR-0120 decision 6). | BL-453 |
-| SocketIo:Surl-2-1 | MUST | A text message that is empty, or whose type character is outside `0` to `6`, is refused as malformed (ADR-0120 decision 2). | BL-453 |
+| SocketIo:EIO-Encoding-1 | MUST | An Engine.IO packet is its type character `0` to `6` then its payload; over WebSocket each packet is one message, text payloads in text messages and binary `message` payloads in binary messages with no type prefix. | `EngineIoPacketCodecTests.TryReadText_EachPacketTypeOfTheSpecification_ReadsItAndWritesItBackByteForByte`, `EngineIoPacketCodecTests.ReadBinary_BinaryWebSocketMessage_IsABinaryMessagePacketSentBackAsItsBareBytes`, `EngineIoPollingPayloadTests.TrySplit_TextAndBinaryPacketsSeparatedByRecordSeparator_ReadsEachAndJoinsBackByteForByte` |
+| SocketIo:SIO-Encoding-1 | MUST | A Socket.IO packet is `<type>[<attachments>-][<namespace>,][<ack id>][<JSON payload>]`, the namespace only when it is not `/`; each SIO "Examples" encoding is read and written byte for byte (`0`, `0/admin,{"sid":"oSO0OpakMV_3jnilAAAA"}`, `4{"message":"Not authorized"}`, `2["foo"]`, `2/admin,["bar"]`, `212["foo"]`, `3/admin,13["bar"]`, `1`, `1/admin,`). | `SocketIoPacketReaderTests.TryRead_EachExampleOfTheSpecification_ReadsItAndWritesItBackByteForByte` |
+| SocketIo:SIO-Encoding-2 | MUST | Binary packets carry their attachment count: `51-["baz",{"_placeholder":true,"num":0}]`, `52-/admin,["baz",{"_placeholder":true,"num":0},{"_placeholder":true,"num":1}]`, `61-15["bar",{"_placeholder":true,"num":0}]`. | `SocketIoPacketReaderTests.TryRead_EachExampleOfTheSpecification_ReadsItAndWritesItBackByteForByte`, `SocketIoPacketWriterTests.Write_BinaryAckWithTwoAttachmentsAnIdAndANamespace_WritesCountDashNamespaceThenId` |
+| SocketIo:Surl-6-1 | MUST | A binary packet with a count below 1, a placeholder `num` out of range or used twice, or a placeholder object with other members, is refused as malformed (ADR-0120 decision 6). | `SocketIoPayloadCheckTests.IsValid_BinaryEventWithBadPlaceholders_IsMalformed`, `SocketIoPacketReaderTests.TryRead_MalformedPacket_IsRefused` |
+| SocketIo:Surl-2-1 | MUST | A text message that is empty, or whose type character is outside `0` to `6`, is refused as malformed (ADR-0120 decision 2). | `EngineIoPacketCodecTests.TryReadText_EmptyOrTypeCharacterOutsideZeroToSix_IsMalformed` |
 
 ## Path, version and the WebSocket transport (EIO "Request path", "Query parameters", "WebSocket", "Handshake"; RFC 6455)
 
@@ -82,7 +82,7 @@ each into a row of its own when it lands.
 | SocketIo:SIO-Ack-1 | MUST | An EVENT with an ack id is answered by an ACK with the same id; its payload is the event's arguments, an array possibly empty (`421["hello",1]` answered `431[1]`), and the event is not echoed. | BL-454 |
 | SocketIo:Surl-5-4 | MUST | A client ACK or BINARY_ACK (the server asks for none) is read, attachments included, and dropped. | BL-454 |
 | SocketIo:SIO-Disconnect-1 | MUST | A client DISCONNECT leaves its namespace with no answer; the session stays while another namespace is connected. | BL-454 |
-| SocketIo:Surl-5-5 | MUST | A client CONNECT_ERROR, or a Socket.IO packet type outside 0 to 6, is a protocol error. | BL-453 |
+| SocketIo:Surl-5-5 | MUST | A client CONNECT_ERROR, or a Socket.IO packet type outside 0 to 6, is a protocol error. | `SocketIoPacketReaderTests.TryReadFromClient_ConnectErrorOrMalformed_IsRefused`, `SocketIoPacketReaderTests.TryRead_MalformedPacket_IsRefused` |
 
 ## Binary attachments (SIO "Packet encoding"; ADR-0120 decision 6)
 
@@ -98,7 +98,7 @@ each into a row of its own when it lands.
 | --- | --- | --- | --- |
 | SocketIo:EIO-MaxPayload-1 | MUST | An Engine.IO packet over `maxPayload` (`--max-message`) closes the session, WebSocket Close `1009`. | BL-454 |
 | SocketIo:Surl-7-1 | MUST | More than 64 attachments in one packet is a protocol error (`1002`); a text part and attachments together over `--max-message` close the session `1009`. | BL-454 |
-| SocketIo:Surl-7-2 | MUST | A namespace name over 128 bytes, an ack id over 15 digits, or JSON nested over 64 levels is a protocol error. | BL-453 |
+| SocketIo:Surl-7-2 | MUST | A namespace name over 128 bytes, an ack id over 15 digits, or JSON nested over 64 levels is a protocol error. | `SocketIoPacketReaderTests.TryRead_NamespaceOf129Bytes_IsRefused`, `SocketIoPacketReaderTests.TryRead_MalformedPacket_IsRefused` (ack id of 16 digits), `SocketIoPacketReaderTests.TryRead_PayloadNestedSixtyFiveLevels_IsRefused` |
 | SocketIo:Surl-7-3 | MUST | 1024 sessions a listener; the next new session's upgrade is `503` with no body. | BL-454 |
 | SocketIo:Surl-7-4 | MUST | A session with more than 1048576 bytes unsent is closed, WebSocket Close `1008`. | BL-454 |
 | SocketIo:Surl-7-5 | MUST | Shutdown sends each connected namespace a DISCONNECT, then closes the WebSocket `1001`, within the grace (ADR-0059). | BL-454 |
