@@ -51,10 +51,10 @@ public sealed class RequestBytesNormalisationTests
     }
 
     [TestMethod]
-    public void NormaliseRequestBytes_ReplacesDigestCnonceAndResponse_KeepingEveryOtherParameter()
+    public void NormaliseRequestBytes_ReplacesDigestNonceCnonceAndResponse_KeepingEveryOtherParameter()
     {
         Assert.AreEqual(
-            "Authorization: Digest username=\"u\", nonce=\"n1\", uri=\"/\", cnonce=\"<cnonce>\", nc=00000001, qop=auth, response=\"<response>\"\r\n",
+            "Authorization: Digest username=\"u\", nonce=\"<nonce>\", uri=\"/\", cnonce=\"<cnonce>\", nc=00000001, qop=auth, response=\"<response>\"\r\n",
             Normalise("Authorization: Digest username=\"u\", nonce=\"n1\", uri=\"/\", cnonce=\"Zm9vYmFy\", nc=00000001, qop=auth, response=\"6629fae49393a05397450978507c4ef1\"\r\n"));
     }
 

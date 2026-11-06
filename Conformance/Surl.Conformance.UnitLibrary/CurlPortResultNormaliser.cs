@@ -32,6 +32,12 @@ public static class CurlPortResultNormaliser
     /// <summary>The text a Digest <c>response</c> value in request bytes is replaced by.</summary>
     public const string DigestResponsePlaceholder = "<response>";
 
+    /// <summary>
+    /// The text a Digest <c>nonce</c> value in request bytes is replaced by: the nonce is the one each run's
+    /// own <c>surl</c> chose at random, which the client only echoes.
+    /// </summary>
+    public const string DigestNoncePlaceholder = "<nonce>";
+
     private const string TimedGroup = "timed";
 
     private static readonly Regex DateField = new(
@@ -98,7 +104,7 @@ public static class CurlPortResultNormaliser
     /// <summary>
     /// Normalises the bytes a client sent on one connection (ADR-0089 decision 4): the port the client
     /// was pointed at, the client ports FTP's <c>PORT</c> and <c>EPRT</c> name, the <c>User-Agent:</c>
-    /// value, every multipart boundary, Digest's <c>cnonce</c> and <c>response</c> (also inside a base64
+    /// value, every multipart boundary, Digest's <c>nonce</c> (surl's own, echoed), <c>cnonce</c> and <c>response</c> (also inside a base64
     /// SASL <c>DIGEST-MD5</c> line), and the NTLM client challenge, time stamp and what is derived from
     /// them (the LM and NT responses, the encrypted session key and the MIC are zeroed, raw or in base64).
     /// </summary>

@@ -7,7 +7,7 @@ namespace Surl.Conformance;
 /// <summary>
 /// ADR-0089 decision 4's rules for the bytes a client sent on one connection, behind
 /// <see cref="CurlPortResultNormaliser.NormaliseRequestBytes"/>: the client ports FTP's <c>PORT</c> and
-/// <c>EPRT</c> name, the <c>User-Agent:</c> value, every multipart boundary, Digest's <c>cnonce</c> and the
+/// <c>EPRT</c> name, the <c>User-Agent:</c> value, every multipart boundary, Digest's <c>nonce</c> (surl's own, echoed), <c>cnonce</c> and the
 /// <c>response</c> computed from it (in a header or a base64 SASL <c>DIGEST-MD5</c> line), and the NTLM
 /// client challenge, time stamp and what is derived from them (raw, as SMB carries it, or base64, as HTTP
 /// and SASL carry it).
@@ -26,7 +26,10 @@ internal static class RequestBytesNormalisation
 
     private static readonly Regex DigestCnonce = new("\\b(cnonce=\"?)[^\",\\r\\n]*", RegexOptions.CultureInvariant);
 
-    private static readonly Regex DigestResponse = new("\\b(response=\"?)[^\",\\r\\n]*", RegexOptions.CultureInvariant);
+    // \b keeps cnonce out: no word boundary lies between its c and n.
+    private static readonly Regex DigestNonce = new("\\b(nonce=\"?)[^\",\\r\\n]*", RegexOptions.CultureInvariant);
+
+    private static readonly Regex DigestResponse =new("\\b(response=\"?)[^\",\\r\\n]*", RegexOptions.CultureInvariant);
 
     private static readonly Regex Base64Token = new("(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{20,}={0,2}(?![A-Za-z0-9+/=])", RegexOptions.CultureInvariant);
 
@@ -56,9 +59,11 @@ internal static class RequestBytesNormalisation
     }
 
     private static string NormaliseDigest(string text) =>
-        DigestResponse.Replace(
-            DigestCnonce.Replace(text, "${1}" + CurlPortResultNormaliser.CnoncePlaceholder),
-            "${1}" + CurlPortResultNormaliser.DigestResponsePlaceholder);
+        DigestNonce.Replace(
+            DigestResponse.Replace(
+                DigestCnonce.Replace(text, "${1}" + CurlPortResultNormaliser.CnoncePlaceholder),
+                "${1}" + CurlPortResultNormaliser.DigestResponsePlaceholder),
+            "${1}" + CurlPortResultNormaliser.DigestNoncePlaceholder);
 
     private static string ReplaceBoundaries(string text)
     {
