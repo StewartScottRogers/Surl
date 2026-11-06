@@ -284,7 +284,9 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
             return _writer.Empty(request, Accepted);
         }
 
-        byte[]? response = await session.AnswerRequestAsync(call, message, cancellationToken).ConfigureAwait(false);
+        // ADR-0143: a chosen-error fault rule answers the request in place of the core.
+        byte[]? response = await McpRequestFaults.FindErrorAsync(_context, call, login, _settings.EndpointPath).ConfigureAwait(false)
+            ?? await session.AnswerRequestAsync(call, message, cancellationToken).ConfigureAwait(false);
         return call.Method == ToolsCallMethod
             ? _writer.Answer(request, HttpStatus.Ok, McpEventStream.MediaType, McpEventStream.Write(response), [])
             : _writer.Json(request, HttpStatus.Ok, response!);
