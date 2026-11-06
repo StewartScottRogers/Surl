@@ -8,7 +8,7 @@ depends-on: [BL-613]
 touches: [Documentation/Product/Requirements.md]
 requirement: FR-039
 created: 2026-11-04
-completed:
+completed: 2026-11-06
 ---
 # BL-692 — Say in Requirements.md that SshHostKeyComposition lives in Surl.Composition
 
@@ -26,7 +26,7 @@ completed:
 
 ## Acceptance criteria
 
-- [ ] `Documentation/Product/Requirements.md` says `SshHostKeyComposition` in `Surl.Composition`, and no line in it
+- [x] `Documentation/Product/Requirements.md` says `SshHostKeyComposition` in `Surl.Composition`, and no line in it
       places `AuthenticationComposition`, `KeytabComposition`, `SshHostKeyComposition`, `SshAlgorithmComposition`,
       `ServerTlsComposition`, `DataDirectoryProbe` or `DataDirectoryLock` in `Surl.Console`.
 
@@ -35,3 +35,5 @@ completed:
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Requirements.md FR-039 places SshHostKeyComposition in Surl.Composition; no start composition is placed in Surl.Console

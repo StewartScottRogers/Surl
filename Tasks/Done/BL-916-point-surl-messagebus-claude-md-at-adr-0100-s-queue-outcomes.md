@@ -8,7 +8,7 @@ depends-on: [BL-694]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary/CLAUDE.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-916 — Point Surl.MessageBus CLAUDE.md at ADR-0100's queue outcomes now BL-694 records them
 
@@ -28,7 +28,7 @@ name the queue outcomes, because BL-694 added them to the ADR.
 
 ## Acceptance criteria
 
-- [ ] The `CLAUDE.md` bullet names ADR-0100 decision 3.6 as where the five queue outcomes and each
+- [x] The `CLAUDE.md` bullet names ADR-0100 decision 3.6 as where the five queue outcomes and each
       server's answer are recorded, and no longer says "does not name yet" or "BL-694 adds them".
 
 ## Notes
@@ -36,3 +36,5 @@ name the queue outcomes, because BL-694 added them to the ADR.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Surl.MessageBus CLAUDE.md names ADR-0100 decision 3.6 as where the five queue outcomes are recorded
