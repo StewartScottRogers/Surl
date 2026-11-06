@@ -26,6 +26,7 @@ public sealed class ProtocolIsolationTests
     private const string Poly1305 = "Surl.Cryptography.Poly1305.UnitLibrary";
     private const string Rc4 = "Surl.Cryptography.Rc4.UnitLibrary";
     private const string Ripemd160 = "Surl.Cryptography.Ripemd160.UnitLibrary";
+    private const string Srp = "Surl.Cryptography.Srp.UnitLibrary";
     private const string Dtls = "Surl.Dtls.UnitLibrary";
     private const string Hpack = "Surl.Hpack.UnitLibrary";
     private const string Http2 = "Surl.Http2.UnitLibrary";
@@ -56,7 +57,7 @@ public sealed class ProtocolIsolationTests
 
     /// <summary>
     /// ADR-0002's table, with the rows ADR-0048, ADR-0050, ADR-0051, ADR-0057, ADR-0061,
-    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0086, ADR-0087, ADR-0100, ADR-0103 and ADR-0105 add: each horizontal library a protocol server may reference, with the projects
+    /// ADR-0070, ADR-0081, ADR-0082, ADR-0084, ADR-0086, ADR-0087, ADR-0100, ADR-0103, ADR-0105 and ADR-0122 add: each horizontal library a protocol server may reference, with the projects
     /// that library may itself reference.
     /// </summary>
     private static readonly Dictionary<string, string[]> HorizontalLibraries = new()
@@ -73,6 +74,7 @@ public sealed class ProtocolIsolationTests
         [Poly1305] = [],
         [Rc4] = [],
         [Ripemd160] = [],
+        [Srp] = [],
         [Dtls] = [Abstractions, Curve25519],
         [Hpack] = [],
         [Http2] = [Abstractions, Hpack],
@@ -223,6 +225,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Poly1305)]
     [DataRow(Rc4)]
     [DataRow(Ripemd160)]
+    [DataRow(Srp)]
     [DataRow(Dtls)]
     [DataRow(Hpack)]
     [DataRow(Http2)]
