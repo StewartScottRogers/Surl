@@ -65,8 +65,8 @@ the repository and action. Anonymous pulls are allowed only under `--allow-anony
 - Touches widened to ADR-0115 (the amendment) and `Documentation/Conformance/Extended/OciRegistry.md` (its
   BL-438 rows now name their tests, and OCI:Surl-Errors-2 and OCI:Token-Scope-1 say what the code does); no task in
   Doing names either.
-- Follow-ups filed: BL-886 (Bearer tokens over plain text without `--allow-plaintext-auth`, after BL-439) and
-  BL-887 (bind an upload session to the account that opened it).
+- Follow-ups filed: BL-890 (Bearer tokens over plain text without `--allow-plaintext-auth`, after BL-439) and
+  BL-891 (bind an upload session to the account that opened it).
 - Measured: 347 tests in `Surl.Extended.Protocol.OciRegistry.UnitTests` (87 new), library line and branch coverage
   100%; full fast suite green.
 

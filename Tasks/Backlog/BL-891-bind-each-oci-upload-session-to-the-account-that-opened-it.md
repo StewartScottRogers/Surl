@@ -1,5 +1,5 @@
 ---
-id: BL-887
+id: BL-891
 title: Bind each OCI upload session to the account that opened it
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-887 — Bind each OCI upload session to the account that opened it
+# BL-891 — Bind each OCI upload session to the account that opened it
 
 ## Goal
 

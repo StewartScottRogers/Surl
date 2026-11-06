@@ -1,5 +1,5 @@
 ---
-id: BL-886
+id: BL-890
 title: Refuse OCI Bearer tokens over plain text without --allow-plaintext-auth
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-886 — Refuse OCI Bearer tokens over plain text without --allow-plaintext-auth
+# BL-890 — Refuse OCI Bearer tokens over plain text without --allow-plaintext-auth
 
 ## Goal
 
