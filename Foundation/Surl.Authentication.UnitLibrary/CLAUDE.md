@@ -408,6 +408,20 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
 - `ScramSaslMechanismTests` replays RFC 5802 section 5's and RFC 7677 section 3's examples byte
   for byte.
 
+## SASL `SCRAM-SHA-512` (BL-700)
+
+- `ScramHash.Sha512` (SHA-512, 64-byte keys) runs the same `ScramSaslExchange`, for the Kafka
+  broker (ADR-0105 decision 5). `AuthenticationMethod.ScramSha512` is its own method, declared and
+  offered after `ScramSha256` and before `ScramSha1` (`GSSAPI`, `SCRAM-SHA-256`, `SCRAM-SHA-512`,
+  `SCRAM-SHA-1`, `DIGEST-MD5`, ...): SCRAM-SHA-256 stays the first SCRAM a client picking the first
+  offered sees (the standards-track SCRAM, RFC 7677), and SHA-1 stays last. It is not in
+  `AuthenticationMethods.DefaultAccepted`; `Surl.Cli` and `Surl.Composition` have no `--auth`
+  word for it yet (BL-915), so no server offers it until one is given.
+- Every named account also derives `ScramCredentials` under SHA-512 at start-up and on `Add`.
+- No RFC has a SCRAM-SHA-512 example, so the tests compute the client proof and the expected
+  server signature with RFC 5802 section 3's formulas over the BCL's `HMACSHA512` and `SHA512`,
+  not through `ScramHash`.
+
 ## Per-scheme account views (BL-647)
 
 - `Account.Schemes` is `protocols=` (ADR-0102 decision 4.3): `null`, the default, logs in on every

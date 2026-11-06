@@ -56,7 +56,7 @@ public sealed class MailAuthenticationPolicyTests
         var offer = Policy(acceptedMethods: new HashSet<AuthenticationMethod>(Enum.GetValues<AuthenticationMethod>()))
             .GetMailLoginOffer(null);
 
-        CollectionAssert.AreEqual(new[] { "SCRAM-SHA-256", "SCRAM-SHA-1", "DIGEST-MD5", "CRAM-MD5", "NTLM" }, offer.SaslMechanisms.ToArray());
+        CollectionAssert.AreEqual(new[] { "SCRAM-SHA-256", "SCRAM-SHA-512", "SCRAM-SHA-1", "DIGEST-MD5", "CRAM-MD5", "NTLM" }, offer.SaslMechanisms.ToArray());
         Assert.IsTrue(offer.IsApopOffered);
     }
 
@@ -124,7 +124,7 @@ public sealed class MailAuthenticationPolicyTests
 
         var mechanisms = policy.GetSaslMechanisms(new SaslOfferRequest(scheme, null));
 
-        CollectionAssert.AreEqual(new[] { "GSS-SPNEGO", "SCRAM-SHA-256", "SCRAM-SHA-1", "DIGEST-MD5", "CRAM-MD5", "NTLM" }, mechanisms.ToArray());
+        CollectionAssert.AreEqual(new[] { "GSS-SPNEGO", "SCRAM-SHA-256", "SCRAM-SHA-512", "SCRAM-SHA-1", "DIGEST-MD5", "CRAM-MD5", "NTLM" }, mechanisms.ToArray());
     }
 
     [TestMethod]

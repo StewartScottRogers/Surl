@@ -22,6 +22,11 @@ internal sealed record ScramHash(string MechanismName, HashAlgorithmName Algorit
     public static ScramHash Sha256 { get; } = new("SCRAM-SHA-256", HashAlgorithmName.SHA256, 32);
 
     /// <summary>
+    /// <c>SCRAM-SHA-512</c>, RFC 5802 over SHA-512, as the IANA SASL registry names it (BL-700).
+    /// </summary>
+    public static ScramHash Sha512 { get; } = new("SCRAM-SHA-512", HashAlgorithmName.SHA512, 64);
+
+    /// <summary>
     /// <c>H(data)</c>.
     /// </summary>
     /// <param name="data">The bytes hashed.</param>

@@ -72,6 +72,7 @@ internal sealed class AccountSet
     {
         [ScramHash.Sha1] = new(StringComparer.Ordinal),
         [ScramHash.Sha256] = new(StringComparer.Ordinal),
+        [ScramHash.Sha512] = new(StringComparer.Ordinal),
     };
 
     /// <summary>
