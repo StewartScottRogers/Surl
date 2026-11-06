@@ -19,7 +19,7 @@ namespace Surl.Authentication;
 /// <c>SCRAM-SHA-1</c> and <c>SCRAM-SHA-256</c>, each named account's <see cref="ScramCredentials"/>
 /// under each hash, over a random salt and 4096 iterations (BL-416).
 /// <para>
-/// The accounts are a store a test controls while the server runs (ADR-0124, decision 3; ADR-0131):
+/// The accounts are a store a test controls while the server runs (ADR-0124, decision 3; ADR-0132):
 /// <see cref="Add"/>, <see cref="Remove"/>, <see cref="Reset"/>, <see cref="TakeSnapshot"/> and
 /// <see cref="Restore"/>. Every view <see cref="ForScheme"/> makes reads the same changing set, so
 /// every login of every protocol is judged by a change at once. A change is published on the

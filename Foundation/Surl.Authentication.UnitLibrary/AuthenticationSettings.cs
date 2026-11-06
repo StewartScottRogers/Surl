@@ -38,7 +38,7 @@ public sealed record AuthenticationSettings(
     /// every login method - password, SASL, Digest, NTLM, Kerberos's account check, SSH public
     /// keys - refuses an account restricted to other schemes exactly as it refuses no such
     /// account. The view reads the same changing accounts, so an account added or removed while
-    /// the server runs is judged through it at once (ADR-0131); the authorized keys are configured
+    /// the server runs is judged through it at once (ADR-0132); the authorized keys are configured
     /// at start and do not change with the accounts. An <see cref="AuthenticationPolicy"/> and the HTTP methods built over the view's
     /// <see cref="Accounts"/> judge that server's logins.
     /// </summary>

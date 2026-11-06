@@ -6,7 +6,7 @@ namespace Surl.Authentication;
 
 /// <summary>
 /// <see cref="AccountBook"/> as a store a test controls while the server runs (ADR-0124 decision 3,
-/// ADR-0131): accounts added and removed are judged at once by every login method, a reset returns
+/// ADR-0132): accounts added and removed are judged at once by every login method, a reset returns
 /// to the configured accounts, a snapshot restores the set it copied, and every change is published
 /// with no secret.
 /// </summary>
