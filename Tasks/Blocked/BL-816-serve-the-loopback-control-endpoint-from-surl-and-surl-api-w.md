@@ -53,3 +53,4 @@ reports its bound URL, and answers it against the instance's own event stream, f
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Blocked. Stewart: Surl dark factory timed out after 120 min; see Z:\repos\Surl.logs\BL-816-20261106-033059-L7.jsonl
