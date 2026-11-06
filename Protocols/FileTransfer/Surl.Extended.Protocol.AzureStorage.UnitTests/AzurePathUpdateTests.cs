@@ -352,17 +352,17 @@ public sealed class AzurePathUpdateTests
     public async Task ServeAsync_AppendPastTheStagedPathLimit_Is503ServerBusy()
     {
         var harness = Writable();
-        for (var file = 0; file <= AzurePathStagingArea.MaxStagedPaths; file++)
+        for (var file = 0; file <= AzureStagingArea.MaxStagings; file++)
         {
             harness.WriteFile($"photos/{file}.txt", "");
         }
 
-        for (var file = 0; file < AzurePathStagingArea.MaxStagedPaths; file++)
+        for (var file = 0; file < AzureStagingArea.MaxStagings; file++)
         {
             await harness.SendWithBearerAndBodyAsync("PATCH", $"/photos/{file}.txt?action=append&position=0", "x");
         }
 
-        var response = await harness.SendWithBearerAndBodyAsync("PATCH", $"/photos/{AzurePathStagingArea.MaxStagedPaths}.txt?action=append&position=0", "x");
+        var response = await harness.SendWithBearerAndBodyAsync("PATCH", $"/photos/{AzureStagingArea.MaxStagings}.txt?action=append&position=0", "x");
 
         Assert.AreEqual(
             AzureServerHarness.ExpectedJsonError(response, "503 Service Unavailable", "ServerBusy", "The server is currently unable to receive requests. Please retry your request."),
@@ -377,7 +377,7 @@ public sealed class AzurePathUpdateTests
         harness.WriteFile("photos/b.txt", "");
         await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/a.txt?action=append&position=0", "hello");
 
-        harness.TimeProvider.UtcNow = AzureServerHarness.Now + AzurePathStagingArea.StagedLifetime + TimeSpan.FromSeconds(1);
+        harness.TimeProvider.UtcNow = AzureServerHarness.Now + AzureStagingArea.StagedLifetime + TimeSpan.FromSeconds(1);
         await harness.SendWithBearerAndBodyAsync("PATCH", "/photos/b.txt?action=append&position=0", "x");
         var flushed = await harness.SendWithBearerAsync("PATCH", "/photos/a.txt?action=flush&position=5");
 
