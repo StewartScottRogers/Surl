@@ -58,3 +58,4 @@ exchange and store change of that instance appears on one stream and every `--fa
 - 2026-11-05: Created.
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Lane 1 finished it on 2026-11-05 (build, tests, quality and format green; moved to Done) but was stopped before committing; the adopting lane stashed the work. Apply the stash 'darkfactory sync 20261105-175401' (find it with git stash list; 10 files in Surl.Composition and its tests), verify and push rather than redo it
+- 2026-11-06: Backlog -> Doing.
