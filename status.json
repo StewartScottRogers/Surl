@@ -1,0 +1,97 @@
+{
+    "schema":  1,
+    "shift":  "20261106-122700",
+    "branch":  "factory/phase-1",
+    "state":  "ended",
+    "publishedAt":  "2026-11-06T20:46:54Z",
+    "autoLanes":  {
+                      "lanes":  9,
+                      "target":  9,
+                      "binding":  "maximum",
+                      "reason":  "lanes auto: starting at 9 (last shift saved 9, raised to 16 by -MinStartLanes, capped at 9)",
+                      "changedAt":  "2026-11-06T19:27:04Z"
+                  },
+    "lanes":  [
+                  {
+                      "lane":  1,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T19:54:03Z"
+                  },
+                  {
+                      "lane":  2,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T20:46:48Z"
+                  },
+                  {
+                      "lane":  3,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T19:50:43Z"
+                  },
+                  {
+                      "lane":  4,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T20:19:26Z"
+                  },
+                  {
+                      "lane":  5,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T20:23:30Z"
+                  },
+                  {
+                      "lane":  6,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T20:09:22Z"
+                  },
+                  {
+                      "lane":  7,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T20:10:32Z"
+                  },
+                  {
+                      "lane":  8,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T20:11:39Z"
+                  },
+                  {
+                      "lane":  9,
+                      "task":  null,
+                      "title":  null,
+                      "phase":  "finished",
+                      "step":  "tokens low: weekly tokens 97% used, reset Wed 06:00",
+                      "taskStartedAt":  null,
+                      "heartbeatAt":  "2026-11-06T20:21:04Z"
+                  }
+              ]
+}
