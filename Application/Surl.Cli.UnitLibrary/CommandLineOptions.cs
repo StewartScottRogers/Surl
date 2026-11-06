@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Authentication;
 using Surl.Output;
+using Surl.Protocol.Abstractions;
 
 namespace Surl.Cli;
 
@@ -103,6 +104,12 @@ internal static class CommandLineOptions
             new("<file>", "Read options from a file (repeatable)", ["surl"], IsInShortList: false, Default: "none read")),
         WithArgument<string>("url", null, OptionArgumentReader.ListenUrlText, (c, _) => c,
             new("<listen URL>", "Add a listen URL (repeatable)", ["surl"], IsInShortList: false, Default: "none")),
+        WithArgument<string>("unix-socket", null, OptionArgumentReader.Path,
+            (c, v) => c with { UnixSocket = new UnixSocketAddress(v, isAbstract: false) },
+            new("<path>", "Listen on a Unix domain socket file", ["surl"], IsInShortList: false, Default: "TCP")),
+        WithArgument<string>("abstract-unix-socket", null, OptionArgumentReader.AbstractSocketName,
+            (c, v) => c with { UnixSocket = new UnixSocketAddress(v, isAbstract: true) },
+            new("<name>", "Listen on an abstract socket (Linux)", ["surl"], IsInShortList: false, Default: "TCP")),
         Flag("verbose", 'v', negatable: true, (c, on) => c with { LogLevel = on ? LogLevel.Verbose : LogLevel.Info },
             new(null, "Log every exchange event", ["logging"], IsInShortList: true, Default: "off")),
         Flag("silent", 's', negatable: true, (c, on) => c with { LogLevel = on ? LogLevel.None : LogLevel.Info },

@@ -585,6 +585,7 @@ public sealed partial class AiHelpTextTests
             ["surl: (2) --control needs http, not <scheme>"] = "surl: " + CommandLineParser.Parse(["--control", "ftp://127.0.0.1:0"]).Failure!.Message,
             ["surl: (2) --control must listen on loopback (127.0.0.0/8, ::1 or localhost): <url>"] = "surl: " + CommandLineParser.Parse(["--control", "http://0.0.0.0:0"]).Failure!.Message,
             ["surl: (2) --control needs --control-token-file"] = "surl: " + CommandLineParser.Parse(["--control", "http://127.0.0.1:0", "http://127.0.0.1:0/"]).Failure!.Message,
+            ["surl: option --unix-socket: <reason>"] = "surl: " + CommandLineParser.Parse(["--unix-socket", "s", "tftp://localhost/"]).Failure!.Message,
             ["surl: (2) --control-token-file without --control"] = "surl: " + CommandLineParser.Parse(["--control-token-file", "t", "http://127.0.0.1:0/"]).Failure!.Message,
         };
 

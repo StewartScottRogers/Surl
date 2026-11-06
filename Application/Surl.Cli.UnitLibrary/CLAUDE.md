@@ -81,6 +81,13 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   other is refused once the whole line is read. All four refusals are `(2) ...` with no try-help
   line. Both are in the `security` and `testing` categories; the `control` `--aihelp` topic sits
   beside `exit-codes`. Serving the endpoint and reading the token file are BL-816's.
+- Unix domain sockets (ADR-0094 decisions 1 and 2, BL-548): `--unix-socket <path>` and
+  `--abstract-unix-socket <name>` (category `surl`) set `SurlCommandLine.UnixSocket`, the last
+  one winning. Once the whole line is read `UnixSocketCombination` refuses, in order, a second
+  listen URL, a UDP scheme (`tftp`, `coap`, `coaps`, `dns`), `--http3`, and `ftp`/`ftps` (until
+  BL-605), each `option --<name>: <reason>` with exit 2 and the try-help line, then sets the socket
+  on the one listen URL's `ListenUrl.UnixSocket`. Binding it, and the 45 refusals, are
+  `Surl.Networking`'s.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,

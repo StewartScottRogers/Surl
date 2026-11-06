@@ -31,9 +31,14 @@ internal static class CommandLinePathMembers
         new(nameof(SurlCommandLine.ControlTokenFile), "--control-token-file", commandLine => OneOrNone(commandLine.ControlTokenFile)),
     ];
 
-    /// <summary>Every member that holds no local path.</summary>
+    /// <summary>
+    /// Every member that holds no local path, or none the root check does not already read through another member:
+    /// <see cref="SurlCommandLine.UnixSocket"/>'s socket file is also set on its listen URL, which
+    /// <see cref="SurlCommandLine.ListenUrls"/>' row reads.
+    /// </summary>
     public static FrozenSet<string> MembersWithoutPaths { get; } = FrozenSet.ToFrozenSet(
     [
+        nameof(SurlCommandLine.UnixSocket),
         nameof(SurlCommandLine.LogLevel),
         nameof(SurlCommandLine.ShowError),
         nameof(SurlCommandLine.TraceLayout),

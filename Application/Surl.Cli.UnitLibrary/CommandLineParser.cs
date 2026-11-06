@@ -554,8 +554,15 @@ public static class CommandLineParser
                 new CommandLineFailure(SurlExitCode.FailedInit, NoUrlSpecified, FollowedByTryHelpLine: true));
         }
 
+        var refusedUnixSocket = UnixSocketCombination.Refuse(reading.CommandLine, reading.ListenUrls);
+        if (refusedUnixSocket is not null)
+        {
+            return CommandLineParseResult.Refused(refusedUnixSocket);
+        }
+
         return RefuseHttp3Combination(reading)
-            ?? CommandLineParseResult.Serve(ResolveLogging(reading.CommandLine) with { ListenUrls = [.. reading.ListenUrls] });
+            ?? CommandLineParseResult.Serve(
+                ResolveLogging(reading.CommandLine) with { ListenUrls = UnixSocketCombination.Apply(reading.CommandLine, reading.ListenUrls) });
     }
 
     /// <summary>

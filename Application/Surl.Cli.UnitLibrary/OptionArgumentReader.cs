@@ -128,6 +128,13 @@ internal static class OptionArgumentReader
     public static readonly OptionArgumentReading<string> Path =
         new(ReadPath, new("path", "any non-empty text"));
 
+    /// <summary>
+    /// <c>--abstract-unix-socket</c>'s argument (ADR-0094, decision 1): an abstract socket name
+    /// without its leading NUL, any non-empty text, read as <see cref="ReadPath"/> reads a path.
+    /// </summary>
+    public static readonly OptionArgumentReading<string> AbstractSocketName =
+        new(ReadPath, new("abstract socket name", "any non-empty text, without the leading NUL"));
+
     /// <summary><see cref="ReadText"/> and its argument type (ADR-0046 decision 5).</summary>
     public static readonly OptionArgumentReading<string> Text =
         new(ReadText, new("text", "any text, the empty string included"));

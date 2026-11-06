@@ -19,6 +19,15 @@ public sealed record SurlCommandLine
     public IReadOnlyList<ListenUrl> ListenUrls { get; init; } = [];
 
     /// <summary>
+    /// The Unix domain socket the one listen URL listens on instead of a TCP port, set by the last
+    /// of <c>--unix-socket &lt;path&gt;</c> and <c>--abstract-unix-socket &lt;name&gt;</c>
+    /// (ADR-0094, decision 1); <see langword="null"/> by default, when every listen URL listens
+    /// on TCP. Once the whole line is read, the parser also sets it on that listen URL's
+    /// <see cref="ListenUrl.UnixSocket"/>.
+    /// </summary>
+    public UnixSocketAddress? UnixSocket { get; init; }
+
+    /// <summary>
     /// The data directory as given with <c>--directory</c>; <see langword="null"/> by default,
     /// when surl serves an in-memory file system instead (ADR-0031 decisions 1 and 4).
     /// </summary>
