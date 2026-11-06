@@ -1,5 +1,5 @@
 ---
-id: BL-956
+id: BL-967
 title: Save the message bus after each AMQP 0-9-1 change to a durable queue
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-956 — Save the message bus after each AMQP 0-9-1 change to a durable queue
+# BL-967 — Save the message bus after each AMQP 0-9-1 change to a durable queue
 
 ## Goal
 

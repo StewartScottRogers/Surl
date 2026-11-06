@@ -1,5 +1,5 @@
 ---
-id: BL-954
+id: BL-965
 title: Amend ADR-0112 for the AMQP 0-9-1 headers exchange and durable exchanges BL-732 serves
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-954 — Amend ADR-0112 for the AMQP 0-9-1 headers exchange and durable exchanges BL-732 serves
+# BL-965 — Amend ADR-0112 for the AMQP 0-9-1 headers exchange and durable exchanges BL-732 serves
 
 ## Goal
 
@@ -33,7 +33,7 @@ ADR-0112 states what the broker now does for the headers exchange and durable ex
   `any` none, another `x-match` 406 on `queue.bind`; a headers binding is told apart by its arguments); the
   file `.surl/amqp0/exchanges` and its bytes (`Amqp0ExchangeFiles` remarks); saved after each channel frame
   that changed it, a failed write noted; malformed refused as `Amqp0ExchangeLoadException`, exit 37 by the
-  composition (BL-955).
+  composition (BL-966).
 
 ## Acceptance criteria
 

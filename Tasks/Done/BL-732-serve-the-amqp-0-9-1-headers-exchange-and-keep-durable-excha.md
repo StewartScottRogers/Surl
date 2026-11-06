@@ -39,7 +39,7 @@ under `--directory`.
       by `any`; a durable declared exchange and its bindings present after a save and load; a non-durable one gone;
       a malformed file refusing the start with exit 37.
 - [x] The matrix rows name the tests, and ADR-0112 decision 5's "until BL-725" sentences are updated (the ADR
-      edit is BL-954; see Notes).
+      edit is BL-965; see Notes).
 - [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
@@ -73,13 +73,13 @@ under `--directory`.
     lock and a compare), with `CancellationToken.None` so a closing connection never leaves a half-done save.
 - Exit 37: the broker throws `Amqp0ExchangeLoadException` with the path and reason
   (`LoadExchanges_MalformedFile_IsRefusedWithTheFilePathForExit37`); mapping it to exit 37 is the composition's, which
-  does not register the broker yet (BL-507). Filed BL-955 (depends on BL-507 and BL-732) to hand the broker its files
+  does not register the broker yet (BL-507). Filed BL-966 (depends on BL-507 and BL-732) to hand the broker its files
   under `--directory` and answer the exception with `(37) Could not read <path>: <reason>`.
-- Scope: ADR-0112's edits were split into BL-954 because `Documentation/Planning/Decisions` is in BL-707's `touches`
+- Scope: ADR-0112's edits were split into BL-965 because `Documentation/Planning/Decisions` is in BL-707's `touches`
   (in Doing), as BL-731 did with BL-953. `Documentation/Conformance/Extended/Amqp0.md` was added to `touches`: no
   task in Doing names it.
 - The broker still never calls `MessageBus.SaveChangesAsync` itself, so AMQP 0-9-1 durable queues and their messages
-  reach disk only when another server saves the bus; filed BL-956.
+  reach disk only when another server saves the bus; filed BL-967.
 - Coverage: 100% line and branch for the library (327 tests). `Measure-CodeQuality.ps1` still lists the same six
   IL-measured complexity rows BL-731 recorded (`Route`, `OpenChannel`, `BindQueue`, `IsValidName`'s lambda,
   `Amqp0TopicKeyMatcher.Advance`, `Amqp0ExchangeTable.Declare`); no new method is among them, and CA1502 passes.

@@ -1,5 +1,5 @@
 ---
-id: BL-955
+id: BL-966
 title: Hand the AMQP 0-9-1 broker its exchange file under --directory and answer a malformed one with exit 37
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-955 — Hand the AMQP 0-9-1 broker its exchange file under --directory and answer a malformed one with exit 37
+# BL-966 — Hand the AMQP 0-9-1 broker its exchange file under --directory and answer a malformed one with exit 37
 
 ## Goal
 
