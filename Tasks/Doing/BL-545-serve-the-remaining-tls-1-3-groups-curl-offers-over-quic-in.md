@@ -50,3 +50,4 @@ SecP256r1MLKEM768 (`0x11EB`), SecP384r1MLKEM1024 (`0x11EE`), x448 (`0x001E`), cu
 
 - 2026-11-04: Created.
 - 2026-11-04: Filed by BL-372 (ADR-0082 decision 3).
+- 2026-11-06: Backlog -> Doing.
