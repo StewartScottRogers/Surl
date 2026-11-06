@@ -8,7 +8,7 @@ depends-on: [BL-805]
 touches: [Foundation/Surl.Content.UnitLibrary, Foundation/Surl.Content.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-1016 — Delete a file for a test in Surl.Content without --allow-uploads
 
@@ -37,16 +37,20 @@ file is there - so the control endpoint (BL-1022) can delete what a test seeded.
 
 ## Acceptance criteria
 
-- [ ] `DeleteFileForTheTest_WithUploadsOffInAReadOnlyShare_DeletesTheFileAndPublishesDeleted` passes.
-- [ ] `DeleteFileForTheTest_NoFileThere_IsAbsentAndPublishesNothing` and `DeleteFileForTheTest_ARefusedPath_Throws` pass.
-- [ ] Every existing `Surl.Content.UnitTests` test passes.
-- [ ] `dotnet build Foundation/Surl.Content.UnitTests -warnaserror` is clean, the fast tests are green, and
+- [x] `DeleteFileForTheTest_WithUploadsOffInAReadOnlyShare_DeletesTheFileAndPublishesDeleted` passes.
+- [x] `DeleteFileForTheTest_NoFileThere_IsAbsentAndPublishesNothing` and `DeleteFileForTheTest_ARefusedPath_Throws` pass.
+- [x] Every existing `Surl.Content.UnitTests` test passes.
+- [x] `dotnet build Foundation/Surl.Content.UnitTests -warnaserror` is clean, the fast tests are green, and
       `Surl.Content.UnitLibrary` keeps 100% line and branch coverage.
 
 ## Notes
+
+- Reused the BL-816 stash commit 0b6c4820 as the task said; `git apply` took both hunks cleanly (ContentStore.Control.cs +26, ContentStoreTests.Control.cs +42), no hand edits needed.
+- Verified: `dotnet build Foundation/Surl.Content.UnitTests -warnaserror` clean; Surl.Content.UnitTests 686 passed, 1 skipped; Surl.Content.UnitLibrary line-rate 1, branch-rate 1 (cobertura); full fast suite green.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-816 (timed out after 120 min); reuses its ContentStore change from stash `darkfactory BL-816 20261106-033059`.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ContentStore.DeleteFileForTheTest deletes a file as the test, publishing StoreChange.Deleted, without --allow-uploads or share write access
