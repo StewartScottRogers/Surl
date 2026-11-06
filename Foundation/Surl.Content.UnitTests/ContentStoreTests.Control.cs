@@ -101,6 +101,48 @@ public sealed partial class ContentStoreTests
     }
 
     [TestMethod]
+    public async Task DeleteFileForTheTest_WithUploadsOffInAReadOnlyShare_DeletesTheFileAndPublishesDeleted()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var shareFileSystem = new InMemoryContentFileSystem(TimeProvider.System);
+        shareFileSystem.CreateDirectory(TeamShareRoot);
+        var share = new ContentShare("team", TeamShareRoot, shareFileSystem) { IsReadOnly = true };
+        var store = new ContentStore(MemoryRoot, new InMemoryContentFileSystem(TimeProvider.System), new ContentExposureOptions(), [share], [], events);
+        await store.SeedFileAsync("/team/x.txt", Bytes("x"), CancellationToken.None);
+        int seededEventCount = events.Events.Count;
+
+        ContentChangeResult result = store.DeleteFileForTheTest("/team/x.txt");
+
+        Assert.AreEqual(ContentChangeResult.Done, result);
+        Assert.AreEqual(ContentEntryKind.None, store.GetEntryKind(store.MapRequestPath("/team/x.txt")));
+        CollectionAssert.AreEqual(new SurlEvent[] { Changed(StoreChange.Deleted, "/team/x.txt", null) }, events.Events.Skip(seededEventCount).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("/missing.txt")]
+    [DataRow("/folder")]
+    [DataRow("/file.txt/")]
+    [DataRow("/.surl/lock")]
+    [DataRow("/.hidden.txt")]
+    public async Task DeleteFileForTheTest_NoFileThere_IsAbsentAndPublishesNothing(string requestPath)
+    {
+        var events = new RecordingSurlEventPublisher();
+        ContentStore store = await StoreWithFolderAndFileAsync(events);
+
+        Assert.AreEqual(ContentChangeResult.Absent, store.DeleteFileForTheTest(requestPath));
+        Assert.IsEmpty(events.Events);
+        Assert.AreEqual(ContentEntryKind.File, store.GetEntryKind(store.MapRequestPath("/file.txt")));
+    }
+
+    [TestMethod]
+    public void DeleteFileForTheTest_ARefusedPath_Throws()
+    {
+        var store = new ContentStore(MemoryRoot, new InMemoryContentFileSystem(TimeProvider.System), new ContentExposureOptions());
+
+        Assert.ThrowsExactly<ArgumentException>(() => store.DeleteFileForTheTest("/../x"));
+    }
+
+    [TestMethod]
     public void SeedFolder_NewNestedFolder_CreatesEachFolderAndPublishesEach()
     {
         var events = new RecordingSurlEventPublisher();
