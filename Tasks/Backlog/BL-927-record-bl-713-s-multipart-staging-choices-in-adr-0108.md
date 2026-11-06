@@ -1,5 +1,5 @@
 ---
-id: BL-926
+id: BL-927
 title: Record BL-713's multipart staging choices in ADR-0108
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-926 — Record BL-713's multipart staging choices in ADR-0108
+# BL-927 — Record BL-713's multipart staging choices in ADR-0108
 
 ## Goal
 

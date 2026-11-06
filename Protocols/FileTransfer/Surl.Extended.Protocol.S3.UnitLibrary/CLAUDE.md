@@ -69,7 +69,7 @@ What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hoste
     unknown `uploadId`, or one created for another bucket or key, is `404 NoSuchUpload` with `UploadId`.
   - Staging beside the object, not under ADR-0100's `.surl/objects/uploads/`, because `ContentStore`
     refuses every write under `/.surl` (the same choice BL-715 made for Azure blocks); ADR-0108's record of
-    it is BL-926.
+    it is BL-927.
 - Virtual-hosted addressing (`S3VirtualHost`): `<bucket>.<domain>` for the exchange's listen
   host when it is a DNS name, `localhost`, `s3.amazonaws.com` and `s3.<region>.amazonaws.com`.
 

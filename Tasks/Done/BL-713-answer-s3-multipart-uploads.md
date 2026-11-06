@@ -61,7 +61,7 @@ Filed by BL-417 (ADR-0108): the Curl port's client sends multipart uploads for l
   `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.S3.UnitLibrary`: 100% line, 100% branch. Its three
   remaining Cobertura complexity findings (`S3ListRequest.Refusal`, `S3ListPage.Names`,
   `S3PutObject.BodyFramingRefusal`) predate this task, pass CA1502, and are BL-743's.
-- Choices (Decided by Claude under Stewart's delegation; ADR-0108's record of them is BL-926):
+- Choices (Decided by Claude under Stewart's delegation; ADR-0108's record of them is BL-927):
   - Where parts are staged: ADR-0108 and ADR-0100 say `.surl/objects/uploads/<id>/`, but `ContentStore` refuses
     every write under `/.surl`, and this task touches only the S3 library (Surl.Content is held by BL-686). So, as
     BL-715 did for Azure blocks, each upload's parts sit one after another in a `ContentUploadSession` opened at
@@ -82,7 +82,7 @@ Filed by BL-417 (ADR-0108): the Curl port's client sends multipart uploads for l
   - `Location` is `http` or `https` by whether the connection is TLS, then `Host` (else the listen host), then
     the path as sent.
   - ListParts, UploadPartCopy and every other object query stay `501 NotImplemented`.
-- Filed: BL-926 (ADR-0108 amendment).
+- Filed: BL-927 (ADR-0108 amendment).
 
 ## Log
 
