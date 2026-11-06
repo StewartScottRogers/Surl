@@ -62,13 +62,13 @@ lists every port finding in BL-576's ADR decision 6 form.
 - 2026-11-05 (lane 6): Delivered. 26 Integration tests (36 cases) in the five classes; on Windows with
   both pins present all 36 agree, run twice: no port finding, no Surl defect, so no task filed.
   The first run showed 12 false findings, each a comparison gap, not curl behaviour; fixed and recorded as
-  ADR-0089 amendment 2: DICT `CLIENT` text normalised like `User-Agent` (the port says `libcurl 8.22.0`),
+  ADR-0089 amendment 5: DICT `CLIENT` text normalised like `User-Agent` (the port says `libcurl 8.22.0`),
   the random 8 characters of curl's MQTT client id normalised, standard output also normalises `surl`'s
   own listening port (Gopher menus name it, not the relay's), and TELNET request bytes not recorded
   (stdin-versus-negotiation order is timing: upstream's own recording and its run against surl differ).
 - Touches widened, none named by any task in Doing: `CurlPortRunSetup.StandardInput` and its use in
   `PinnedCurlPortBesideUpstreamCurl` (TELNET feeds stdin); the normaliser, request-byte rules and
-  comparison in `Surl.Conformance.UnitLibrary` with their tests and CLAUDE.md; ADR-0089 for amendment 2.
+  comparison in `Surl.Conformance.UnitLibrary` with their tests and CLAUDE.md; ADR-0089 for amendment 5.
   The HTTP, FTP, mail and SMB Phase 7 families still pass with the normaliser change (241 passed, 7 skipped).
 - Choices: a mirrored test running curl several times against one `surl` became one case per measured
   run (`[publish]`/`[subscribe]`, `[upload]`/`[read]`/`[fresh]`), its set-up runs through upstream curl

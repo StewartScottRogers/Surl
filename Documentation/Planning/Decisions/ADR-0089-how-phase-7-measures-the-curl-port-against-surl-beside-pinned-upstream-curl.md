@@ -298,6 +298,7 @@ Decided by Claude under Stewart's delegation, in BL-589, from the HTTP/2 family'
 - The client's own ephemeral port in a `-v` line (`* Established connection to … from 127.0.0.1 port N`)
   is not normalised by `CurlPortResultNormaliser`, so such a line is not one of a case's compared standard
   error lines; the mirrored test's own count of it still judges upstream's run.
+
 ## Amendment 5 (2026-11-05, BL-584): DICT, Gopher, TELNET, TFTP and MQTT
 
 Decided by Claude under Stewart's delegation, in BL-584, from that family's first runs. As in

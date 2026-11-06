@@ -28,7 +28,7 @@ result.
 | --- | --- | --- | --- |
 | DICT | 1 (5 data rows) | 5 | Yes, every `dict://` connection |
 | Gopher | 3 | 3 | Yes, every `gopher://` connection; the mirrored class runs no `gophers://` conversation |
-| TELNET | 3 | 3 | No (ADR-0089 amendment 2) |
+| TELNET | 3 | 3 | No (ADR-0089 amendment 5) |
 | TFTP | 6 | 8 | No: UDP (decision 4) |
 | MQTT and MQTTS | 9 | 13 | Yes on `mqtt://`; no on `mqtts://` (TLS, decision 4) |
 
@@ -44,7 +44,7 @@ How the mirrored tests became cases:
 - `UploadThenRead_NoDirectory_…[fresh]` expects the exit code upstream curl gets reading a missing file
   from a `surl` over an empty directory, measured in the same test, as the mirrored test does.
 
-What decision 4 compares here, and what amendment 2 changed to compare it truly:
+What decision 4 compares here, and what amendment 5 changed to compare it truly:
 
 - DICT's `CLIENT` line is curl's self-identification and is normalised like `User-Agent:`. The port
   sends `CLIENT libcurl 8.22.0` where upstream 8.21.0 sends `CLIENT libcurl 8.21.0`; every other byte

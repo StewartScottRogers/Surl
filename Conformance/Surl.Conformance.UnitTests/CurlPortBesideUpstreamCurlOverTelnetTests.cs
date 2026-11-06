@@ -7,7 +7,7 @@ namespace Surl.Conformance;
 /// runs, through pinned upstream curl and the pinned Curl port, each fed the same standard input and run
 /// against its own fresh <c>surl</c>, judged by <see cref="PinnedCurlPortBesideUpstreamCurl"/> and listed or
 /// not in <c>Documentation/Conformance/CurlPort/Dict-Gopher-Telnet-Tftp-Mqtt.md</c> (decision 5). No request
-/// bytes are recorded (ADR-0089 amendment 2): how curl interleaves standard input with its option negotiation
+/// bytes are recorded (ADR-0089 amendment 5): how curl interleaves standard input with its option negotiation
 /// depends on when <c>surl</c>s options arrive, and the same upstream build sent them in either order from
 /// run to run. The exit code, standard output and <c>surl</c>s <c>-v</c> notes carry the comparison.
 /// Inconclusive when either pinned binary is absent.
