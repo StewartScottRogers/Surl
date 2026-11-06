@@ -61,6 +61,15 @@ glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authentication".
   exchange cancelled for a limit (`ExchangeContext.IsCancelledForALimit`) is answered
   `421 4.4.2 surl Timeout, closing`, and shutdown ends it with no farewell.
 - `SmtpLogText`: renders peer bytes for the verbose notes of decision 8.
+- `SmtpUpstreamTestCaseServer` (ADR-0080 decision 2): the SMTP server half of one upstream
+  curl test case, never composed by the shipped `surl`. It is `SmtpProtocolServer` built with
+  the internal constructor that takes a `MailUpstreamTestCaseReplies` (`Surl.LineProtocol`) and
+  an empty `MailboxStore` it owns. `SmtpSession.UpstreamTestCase.cs` holds what the case
+  changes: `REPLY welcome` replaces the greeting, a `REPLY`'d line is answered with the case's
+  text and not run, `EHLO` lists only the case's `CAPA` and `AUTH`, `MAIL` needs no login, a
+  `DATA` body is recorded dot-stuffed in `UploadedBytes` and not delivered, `VRFY` and `EXPN`
+  answer the case's data for the `EHLO` name when it has any, and every command line is
+  recorded in `ReceivedBytes`. Without a case the session is unchanged.
 
 ## References
 
