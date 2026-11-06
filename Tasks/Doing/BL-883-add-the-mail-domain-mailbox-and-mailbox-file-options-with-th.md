@@ -71,3 +71,4 @@ and mailboxes end to end. This completes what BL-653 set out to do.
 
 - 2026-11-05: Created.
 - 2026-11-05: Split from BL-653 (timed out after 120 min; Stewart asked for the split 2026-11-05).
+- 2026-11-06: Backlog -> Doing.
