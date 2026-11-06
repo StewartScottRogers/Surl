@@ -32,3 +32,4 @@ An S3 `400 EntityTooLarge` or `400 IncompleteBody` answer carries its XML `Error
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
