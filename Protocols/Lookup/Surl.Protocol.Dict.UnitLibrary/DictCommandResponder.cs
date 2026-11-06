@@ -93,19 +93,29 @@ internal sealed class DictCommandResponder
     /// </summary>
     /// <param name="line">The line, without its line ending.</param>
     /// <returns><see langword="true"/> when the connection stays open for the next command; <see langword="false"/> after <c>QUIT</c>.</returns>
-    public Task<bool> AnswerAsync(string line)
+    /// <remarks>
+    /// A recognized command first asks the fault plan: a chosen-error rule's status line answers
+    /// it in place of its own reply, and the connection stays open (ADR-0138).
+    /// </remarks>
+    public async Task<bool> AnswerAsync(string line)
     {
         if (DictCommandTokenizer.Split(line) is not { } words)
         {
-            return ReplyAsync("501 syntax error, illegal parameters\r\n");
+            return await ReplyAsync("501 syntax error, illegal parameters\r\n");
         }
 
         if (words.Count == 0 || !commands.TryGetValue(words[0].ToUpperInvariant(), out var answer))
         {
-            return ReplyAsync("500 unknown command\r\n");
+            return await ReplyAsync("500 unknown command\r\n");
         }
 
-        return answer(words);
+        var command = words[0].ToUpperInvariant();
+        if (await DictCommandFaults.FindErrorAsync(context, command, DictCommandFaults.PathOf(command, words)) is { } chosenError)
+        {
+            return await ReplyAsync(chosenError + "\r\n");
+        }
+
+        return await answer(words);
     }
 
     private static bool IsDatabase(string name) => name is DatabaseName or "!" or "*";

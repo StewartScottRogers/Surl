@@ -50,3 +50,14 @@ case, and each exited 0 with an empty `stderr.txt`; `stdout.bin` is what the tes
 curl sends its three lines without waiting, so in `head-timeout` it had already sent them
 when the `420` came; a real head timeout needs a client that stops part way, which the
 tests drive with a hand-written `TimeProvider` rather than a live client.
+
+## Chosen-error fault (BL-798)
+
+Recorded on 2026-11-05 from the repository root, in Windows PowerShell, with the same pinned build
+(SHA-256 `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778`) and the same `$banner`,
+fed the exact bytes `DictProtocolServer` writes when a fault rule `error;scheme=dict;command=DEFINE;path=word;reply=554 try later`
+matches (ADR-0138). curl exited 0 with an empty `stderr.txt`; `DictCommandFaultsTests` pins `stdout.bin`.
+
+| Folder | curl sends | Command line |
+| --- | --- | --- |
+| `fault-define` | `DEFINE * word`, answered `554 try later` | `.\Record-CurlExchange.ps1 -Port 18628 -Raw -RawReplyFirst -RawReply $banner,'250 ok\r\n554 try later\r\n221 bye\r\n' -CurlArgs '-sS','dict://127.0.0.1:18628/d:word:*' -OutDirectory Protocols\Lookup\Surl.Protocol.Dict.UnitTests\Fixtures\fault-define` |

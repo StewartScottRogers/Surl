@@ -22,3 +22,9 @@ it with request bytes measured from pinned upstream curl, with no network.
 
 Expected bytes come from a build pinned in `UpstreamCurlBuilds.json`, measured with
 `Record-CurlExchange.ps1`, and never from the Curl port (ADR-0003).
+
+**Chosen-error fault** (ADR-0138, BL-798): `DictCommandResponder` asks `ExchangeContext.Faults`
+through `DictCommandFaults` once per recognized command, at the `Command` stage, with the command in
+capitals and the word (`DEFINE`, `MATCH`) or database (`SHOW INFO`) as the path; a matching `error`
+rule's status line answers the command and the connection stays open, publishing `FaultAppliedEvent`.
+A reply that does not fit, or a `delay` or `drop` rule, is noted and not applied (BL-912).
