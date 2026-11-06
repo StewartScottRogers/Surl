@@ -41,6 +41,22 @@ say, as ADR-0093 decision 1 ("Session takeover") decides.
 
 ## Notes
 
+- Design (decided by Claude under Stewart's delegation, within ADR-0093 decision 1): a registration is now a
+  `Mqtt5ClientRegistration`. `Mqtt5BrokerState.RegisterClient` for a connected identifier cancels the older
+  registration's `TakenOverToken`, which the older connection's Keep Alive read is linked to; that read ending with the
+  token cancelled is answered `DISCONNECT` `0x8E` (`E0 01 8E`). `EndConnection` now unregisters last, after
+  `CloseSession` and the Will, and the newer connection awaits `PreviousEnded` before `OpenSession`. So the Will rules
+  of 3.1.2.5 and the note after `[MQTT-3.1.4-3]` fall out of the existing close and `SettlePendingWill` paths: Will
+  Delay 0 (or Session Expiry 0) published at once; a delayed Will published by a Clean Start 1 takeover and discarded
+  by a Clean Start 0 one, which now resumes the older connection's session (Session Present 1).
+- Default taken: the newer connection waits for the older one within its own head timeout; past it, it unregisters
+  and closes with no reply, as the head timeout does elsewhere before CONNACK. A failed CONNACK write now closes the
+  session and unregisters, so a takeover never waits on a connection that died before CONNACK.
+- `Mqtt5StalledWriteConnection` (test fake) now hands its request over in as many reads as the reader's buffers need.
+- Tests: `Mqtt5BrokerTests.Takeover.cs` (6 methods, 8 cases); the BL-499 test that pinned "a held session is not
+  resumed" is replaced by `ServeAsync_TakeoverWithCleanStart0_ResumesTheOlderConnectionsSession`. Library coverage
+  100% line and branch; fast tests green in all 78 test projects.
+
 ## Log
 
 - 2026-11-04: Created.
