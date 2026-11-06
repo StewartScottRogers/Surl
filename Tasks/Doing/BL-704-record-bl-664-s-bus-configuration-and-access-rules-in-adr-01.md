@@ -42,3 +42,4 @@ ADR-0102 decision 3 states the rules BL-664 settled while building `--topic`, `-
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
