@@ -3,12 +3,16 @@ using System.Text;
 using Surl.Content;
 using Surl.Core;
 using Surl.Networking;
+using Surl.LineProtocol;
 using Surl.Protocol.Abstractions;
 using Surl.Protocol.Dict;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
+using Surl.Protocol.Imap;
 using Surl.Protocol.Mqtt;
+using Surl.Protocol.Pop3;
+using Surl.Protocol.Smtp;
 using Surl.Protocol.Telnet;
 using Surl.Protocol.Tftp;
 
@@ -28,9 +32,12 @@ namespace Surl.Conformance;
 /// <see cref="TelnetProtocolServer"/> for <c>%DICTPORT</c> and <c>%TELNETPORT</c>, whose cases
 /// give their servers nothing to send; and the file-system servers
 /// <see cref="UpstreamTestCaseFileServers"/> makes, SSH for <c>%SSHPORT</c> (SCP and SFTP) and SMB
-/// for <c>%SMBPORT</c>. The listeners bind before the case is parsed, because the
-/// case's replies name the ports; <see cref="Play"/> then hands over the case's reply before curl
-/// starts.
+/// for <c>%SMBPORT</c>; and <see cref="ImapUpstreamTestCaseServer"/>,
+/// <see cref="Pop3UpstreamTestCaseServer"/> and <see cref="SmtpUpstreamTestCaseServer"/> in
+/// plaintext on <c>127.0.0.1</c> and <c>[::1]</c> for <c>%IMAPPORT</c>, <c>%POP3PORT</c>,
+/// <c>%SMTPPORT</c> and their <c>6</c> forms. The listeners bind before the case is parsed, because
+/// the case's replies name the ports; <see cref="Play"/> then hands over the case's reply before
+/// curl starts.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -40,8 +47,8 @@ namespace Surl.Conformance;
 /// (ADR-0081), which would take the exchange away from the HTTP/1.x server half.
 /// </para>
 /// <para>
-/// FTP and MQTT logins go to <see cref="AnonymousAuthenticationPolicy"/>, the accept-all policy
-/// decision 2 names: a case tests curl's login, not Surl's accounts.
+/// FTP, MQTT, IMAP, POP3 and SMTP logins go to <see cref="AnonymousAuthenticationPolicy"/>, the
+/// accept-all policy decision 2 names: a case tests curl's login, not Surl's accounts.
 /// </para>
 /// </remarks>
 internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
@@ -65,6 +72,9 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         ("telnet", [LoopbackIPv4]),
         ("sftp", [LoopbackIPv4]),
         ("smb", [LoopbackIPv4]),
+        ("imap", [LoopbackIPv4, LoopbackIPv6]),
+        ("pop3", [LoopbackIPv4, LoopbackIPv6]),
+        ("smtp", [LoopbackIPv4, LoopbackIPv6]),
     ];
 
     private readonly CaseServer[] servers;
@@ -130,6 +140,24 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
     /// <summary>The TFTP datagram listener's port: <c>%TFTPPORT</c>.</summary>
     public int TftpPort => ports[PortKey("tftp", LoopbackIPv4)];
 
+    /// <summary>The IMAP listener's port on <c>127.0.0.1</c>: <c>%IMAPPORT</c>.</summary>
+    public int ImapPort => ports[PortKey("imap", LoopbackIPv4)];
+
+    /// <summary>The IMAP listener's port on <c>[::1]</c>: <c>%IMAP6PORT</c>.</summary>
+    public int ImapIPv6Port => ports[PortKey("imap", LoopbackIPv6)];
+
+    /// <summary>The POP3 listener's port on <c>127.0.0.1</c>: <c>%POP3PORT</c>.</summary>
+    public int Pop3Port => ports[PortKey("pop3", LoopbackIPv4)];
+
+    /// <summary>The POP3 listener's port on <c>[::1]</c>: <c>%POP36PORT</c>.</summary>
+    public int Pop3IPv6Port => ports[PortKey("pop3", LoopbackIPv6)];
+
+    /// <summary>The SMTP listener's port on <c>127.0.0.1</c>: <c>%SMTPPORT</c>.</summary>
+    public int SmtpPort => ports[PortKey("smtp", LoopbackIPv4)];
+
+    /// <summary>The SMTP listener's port on <c>[::1]</c>: <c>%SMTP6PORT</c>.</summary>
+    public int SmtpIPv6Port => ports[PortKey("smtp", LoopbackIPv6)];
+
     /// <summary>The notes the server halves wrote to their exchange logs so far.</summary>
     public string Notes => log.Text;
 
@@ -187,7 +215,8 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         MqttUpstreamTestCaseReplies mqttReplies,
         TftpUpstreamTestCaseReplies tftpReplies,
         IConnectionProtocolServer ssh,
-        IConnectionProtocolServer smb)
+        IConnectionProtocolServer smb,
+        MailUpstreamTestCaseReplies mailReplies)
     {
         var http = new HttpUpstreamTestCaseServer(httpReplies);
         var ftp = new FtpUpstreamTestCaseServer(ftpReplies, new AnonymousAuthenticationPolicy());
@@ -195,7 +224,10 @@ internal sealed class UpstreamTestCaseServerHalves : IAsyncDisposable
         var mqtt = new MqttUpstreamTestCaseServer(mqttReplies, new AnonymousAuthenticationPolicy());
         var noDefinitions = new ContentStore(
             InMemoryContentFileSystem.RootPath, new InMemoryContentFileSystem(TimeProvider.System), new ContentExposureOptions());
-        IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer(), ssh, smb];
+        IConnectionProtocolServer[] playing = [http, http, ftp, ftp, gopher, gopher, mqtt, mqtt, new DictProtocolServer(noDefinitions), new TelnetProtocolServer(), ssh, smb,
+            new ImapUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
+            new Pop3UpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy()),
+            new SmtpUpstreamTestCaseServer(mailReplies, new AnonymousAuthenticationPolicy())];
         for (var index = 0; index < servers.Length; index++)
         {
             servers[index].Current = playing[index];

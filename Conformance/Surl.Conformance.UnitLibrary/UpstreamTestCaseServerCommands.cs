@@ -46,6 +46,15 @@ public static class UpstreamTestCaseServerCommands
     /// </summary>
     public static readonly IReadOnlySet<string> None = new HashSet<string>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// The IMAP, POP3 and SMTP server halves' commands (BL-876 to BL-879), the same words
+    /// <c>Surl.LineProtocol</c>'s <c>MailUpstreamTestCaseReplies.SupportedServerCommands</c>
+    /// accepts. <c>DELAY</c>, <c>SLOWDOWN</c>, <c>SLOWDOWNDATA</c> and <c>NOSAVE</c> are not.
+    /// </summary>
+    public static readonly IReadOnlySet<string> Mail = new HashSet<string>(
+        ["Testnum", "REPLY", "REPLYLF", "COUNT", "CAPA", "AUTH", "POSTFETCH"],
+        StringComparer.Ordinal);
+
     /// <summary>The name a case's <c>&lt;postcmd&gt;</c> is checked under; no server half implements it.</summary>
     public const string PostCommand = "postcmd";
 
@@ -69,6 +78,9 @@ public static class UpstreamTestCaseServerCommands
         ["scp"] = None,
         ["sftp"] = None,
         ["smb"] = None,
+        ["imap"] = Mail,
+        ["pop3"] = Mail,
+        ["smtp"] = Mail,
     };
 
     /// <summary>

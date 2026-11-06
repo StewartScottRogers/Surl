@@ -199,12 +199,12 @@ Running the http and https cases is built (BL-392):
   TFTP on a datagram listener; and Surl's own DICT and TELNET servers, whose cases give them
   nothing to send), its own folder as curl's working directory, `%PWD` and `HOME`, `%LOGDIR` the
   relative `log`, and a 60-second limit; a case naming a server other than `http`, `https`, `ftp`,
-  `ftp-ipv6`, `ftps`, `gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict`, `scp`, `sftp`, `smb` and
-  `telnet` is written `skip server-half-not-composed:<name>` and an unparsable one
+  `ftp-ipv6`, `ftps`, `gopher`, `gopher-ipv6`, `gophers`, `mqtt`, `mqtts`, `tftp`, `dict`, `scp`, `sftp`, `smb`,
+  `telnet`, `imap`, `pop3` and `smtp` is written `skip server-half-not-composed:<name>` and an unparsable one
   `skip unparsable`. After curl exits the run waits up to 2 seconds for every exchange to end, so a
   server half has read curl's last packet before its log is checked. A case's `<protocol>` is
   checked against each server half's received bytes in the order the case names its servers, and
-  `<upload>` against the FTP and TFTP server halves' uploads. CI's
+  `<upload>` against the FTP, TFTP and mail server halves' uploads. CI's
   `Upstream test cases` job runs it on Linux and macOS and uploads the results file and the
   run's passing list (both are written to the test assembly's folder).
 
@@ -243,6 +243,16 @@ server halves are Surl's own servers, made by the tests' `UpstreamTestCaseFileSe
   upstream's `smbserver.py` answers `smb://host/TESTS/<N>`, to any login. An smb case runs with the
   build `UpstreamCurlLocator.LocateForProtocol` pairs with `smb`: the reference build where it has
   smb, else (Windows) the supplementary build ADR-0030 pinned, selected under that build's features.
+
+Playing the imap, pop3 and smtp cases is built (BL-879): `UpstreamTestCaseServerCommands.Mail` is
+their row, the same words as `Surl.LineProtocol`'s `MailUpstreamTestCaseReplies.SupportedServerCommands`
+(`Testnum`, `REPLY`, `REPLYLF`, `COUNT`, `CAPA`, `AUTH`, `POSTFETCH`); `DELAY`, `SLOWDOWN`,
+`SLOWDOWNDATA` and `NOSAVE` skip `servercmd-unsupported:<command>`. The tests' server halves add
+`ImapUpstreamTestCaseServer`, `Pop3UpstreamTestCaseServer` and `SmtpUpstreamTestCaseServer` in
+plaintext on `127.0.0.1` and `[::1]` (`%IMAPPORT`, `%POP3PORT`, `%SMTPPORT` and their `6` forms),
+sharing one `MailUpstreamTestCaseReplies` per case built from its `<data*>` parts, with logins
+going to the accept-all `AnonymousAuthenticationPolicy`; `<protocol>` reads its `ReceivedBytes` and
+`<upload>` its `UploadedBytes`. `imaps`, `pop3s` and `smtps` are not composed.
 
 The stated pass rate and its guard are built (BL-393):
 

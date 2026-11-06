@@ -4,6 +4,7 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Surl.Networking;
+using Surl.LineProtocol;
 using Surl.Protocol.Ftp;
 using Surl.Protocol.Gopher;
 using Surl.Protocol.Http;
@@ -17,7 +18,7 @@ namespace Surl.Conformance;
 /// FTP, Gopher, MQTT, TFTP, DICT, TELNET, SCP, SFTP and SMB - against Surl's server halves
 /// (<see cref="UpstreamTestCaseServerHalves"/>), with the platform's pinned reference build as the
 /// client, or for an smb case the build <see cref="UpstreamCurlLocator.LocateForProtocol"/> pairs
-/// with smb (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394, BL-396, BL-397). Each case gets its own server halves on ephemeral ports, its own
+/// with smb (ADR-0080 decisions 2, 5 and 6; BL-392, BL-394, BL-396, BL-397, BL-879). Each case gets its own server halves on ephemeral ports, its own
 /// <c>%LOGDIR</c> and the command line runtests builds (<see cref="UpstreamTestCaseCommandLine"/>);
 /// its verify section is checked with <see cref="UpstreamTestCaseVerifyChecker"/>. The run writes
 /// <c>upstream-test-case-results.&lt;platform&gt;.txt</c>, one line for each of the 2,013 cases.
@@ -53,6 +54,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     private const string TftpFamily = "tftp";
     private const string SshFamily = "ssh";
     private const string SmbFamily = "smb";
+    private const string MailFamily = "mail";
 
     // Each composed server name and the server half that plays it; a case naming any other is
     // skipped server-half-not-composed. dict and telnet are Surl's own servers, which keep no log.
@@ -74,6 +76,9 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         ["scp"] = SshFamily,
         ["sftp"] = SshFamily,
         ["smb"] = SmbFamily,
+        ["imap"] = MailFamily,
+        ["pop3"] = MailFamily,
+        ["smtp"] = MailFamily,
     };
 
     public TestContext TestContext { get; set; } = null!;
@@ -309,6 +314,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             GopherUpstreamTestCaseReplies gopherReplies;
             MqttUpstreamTestCaseReplies mqttReplies;
             TftpUpstreamTestCaseReplies tftpReplies;
+            MailUpstreamTestCaseReplies mailReplies;
             // The case's <servercmd> is its first server's; each other server half gets none.
             var families = ServerNames(testCase).Select(name => ServerFamilies[name]).Distinct().ToList();
             IEnumerable<string> CommandsFor(string family) => families[0] == family ? ServerCommandLines(testCase) : [];
@@ -320,6 +326,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 gopherReplies = new GopherUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
                 mqttReplies = new MqttUpstreamTestCaseReplies(FtpReplyParts(testCase).GetValueOrDefault("data") ?? []);
                 tftpReplies = new TftpUpstreamTestCaseReplies(FtpReplyParts(testCase), CommandsFor(TftpFamily));
+                mailReplies = new MailUpstreamTestCaseReplies(MailReplyParts(testCase), CommandsFor(MailFamily));
             }
             catch (FormatException exception)
             {
@@ -332,7 +339,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await WriteFileServerFilesAsync(number, testCase, families, Path.Combine(caseDirectory, logDirectory), smbRoot, cancellationToken);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
-                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot));
+                fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies);
             var curl = await client.Runner.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
@@ -355,13 +362,14 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 [GopherFamily] = gopherReplies.ReceivedBytes,
                 [MqttFamily] = mqttReplies.ReceivedBytes,
                 [TftpFamily] = tftpReplies.ReceivedBytes,
+                [MailFamily] = mailReplies.ReceivedBytes,
             };
             byte[] received = [.. families.SelectMany(family => receivedByFamily.GetValueOrDefault(family) ?? [])];
             // runtests compares <upload> with %LOGDIR/upload.<N>; the FTP and TFTP server halves
             // keep their uploads in memory, and an SCP or SFTP upload lands in that very file.
             var sshUpload = Path.Combine(caseDirectory, logDirectory, $"upload.{number}");
             byte[] sshUploaded = families.Contains(SshFamily) && File.Exists(sshUpload) ? await File.ReadAllBytesAsync(sshUpload, cancellationToken) : [];
-            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. sshUploaded]);
+            var record = UpstreamTestCaseRunRecord.FromRun(curl, output, received, [.. ftpReplies.UploadedBytes, .. tftpReplies.UploadedBytes, .. mailReplies.UploadedBytes, .. sshUploaded]);
             var verdict = new UpstreamTestCaseVerifyChecker(new CaseFolderRunFiles(caseDirectory), client.Features).Check(testCase, record);
             if (verdict.Passed)
             {
@@ -425,6 +433,12 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["TFTPPORT"] = serverHalves.TftpPort.ToString(CultureInfo.InvariantCulture),
                 ["SSHPORT"] = serverHalves.SshPort.ToString(CultureInfo.InvariantCulture),
                 ["SMBPORT"] = serverHalves.SmbPort.ToString(CultureInfo.InvariantCulture),
+                ["IMAPPORT"] = serverHalves.ImapPort.ToString(CultureInfo.InvariantCulture),
+                ["IMAP6PORT"] = serverHalves.ImapIPv6Port.ToString(CultureInfo.InvariantCulture),
+                ["POP3PORT"] = serverHalves.Pop3Port.ToString(CultureInfo.InvariantCulture),
+                ["POP36PORT"] = serverHalves.Pop3IPv6Port.ToString(CultureInfo.InvariantCulture),
+                ["SMTPPORT"] = serverHalves.SmtpPort.ToString(CultureInfo.InvariantCulture),
+                ["SMTP6PORT"] = serverHalves.SmtpIPv6Port.ToString(CultureInfo.InvariantCulture),
                 // The SSH server half's root is the case's folder (UpstreamTestCaseFileServers).
                 ["SFTP_PWD"] = string.Empty,
                 ["SCP_PWD"] = string.Empty,
@@ -522,6 +536,14 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 .Select(group => (group.Key, Bytes: group.First().ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenCrlf), SendsZero: group.First().IsSet("sendzero")))
                 .Where(part => part.Bytes.Length > 0 || part.SendsZero || !part.Key.StartsWith("data", StringComparison.Ordinal))
                 .ToDictionary(part => part.Key, part => part.Bytes, StringComparer.Ordinal);
+
+        // FILEFORMAT: the mail server halves send a <data*> part as a message or a listing, as
+        // upstream's getreplydata sends what the part holds, so an empty one is kept.
+        private static Dictionary<string, byte[]> MailReplyParts(UpstreamTestCase testCase) =>
+            (testCase.FindSection("reply")?.Parts ?? [])
+                .Where(part => part.Name.StartsWith("data", StringComparison.Ordinal))
+                .GroupBy(part => part.Name, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First().ContentWithNewlineAttributes(UpstreamTestCaseNewlineRule.CutThenCrlf), StringComparer.Ordinal);
 
         private static IEnumerable<string> ServerCommandLines(UpstreamTestCase testCase) =>
             (testCase.FindPart("reply", "servercmd")?.Lines ?? []).Select(line => line.TrimEnd('\n'));
