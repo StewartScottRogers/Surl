@@ -467,3 +467,41 @@ Costs and caveats:
 - The matrix is `Documentation/Conformance/Extended/OciRegistry.md` (ADR-0083 decision 9).
 - `Documentation/Product/Requirements.md` gains no row here, as ADR-0108 to ADR-0114 added none:
   FR-056 and FR-058 cover the server.
+
+## Amendment 1 - what building decision 4 settled (BL-438, 2026-11-05)
+
+Decided by Claude under Stewart's delegation, while building the token endpoint and the Bearer
+check. Each point fills in a detail decision 4 left open or orders checks it listed; none widens
+what a peer may do.
+
+1. **Order.** `/token`, then the endpoint (`404`), the method (`405`), the name (`400
+   NAME_INVALID`), a write while `--allow-uploads` is off (`403 DENIED`, with no challenge, since no
+   token could ever grant it), then the token, then the rest. Decision 4.1 put authentication before
+   the endpoint, the method and the name; they go first because the challenge's `scope` is made from
+   them (the repository and the action the method needs), and because the endpoints and the name
+   grammar are public in the specification, so a `404`, `405` or `400` before the token reveals
+   nothing a token protects. Whether a repository exists is still decided only after the token.
+2. **The login is a password login.** The token endpoint checks `Basic` through
+   `IAuthenticationPolicy.CheckPasswordLoginAsync`, which applies the accounts, the plain-text rule
+   (`RefusedPlaintext` is decision 4.4's `403 DENIED`, `credentials over plain text are refused`),
+   ADR-0032's refusal delay and ADR-0124's login events and faults. Whether anonymous reads are
+   allowed is the same call with no user: `AcceptedUnchecked` means `--allow-anonymous`. Under
+   `--allow-anonymous` the policy accepts every login unchecked (ADR-0032 section 1), so a token
+   requested with credentials then is anonymous and `pull`-only too; pushing needs anonymous off.
+   A missing, non-`Basic` or unreadable `Authorization` is the `401` `Basic` challenge.
+3. **The grant.** An account is granted `pull`, and `push` and `delete` under `--allow-uploads`,
+   for each asked repository; the share's access is not looked up at issue time but applied by the
+   content store to each request the token serves (`404 NAME_UNKNOWN`, `403 DENIED`, as decision
+   2.3 already answers). An unknown action is dropped from its scope and the scope's known actions
+   kept; a scope may hold several space-separated scopes; past 16 scopes the rest are dropped rather
+   than refused, as Token lets a server grant less than asked; a repository asked twice gets the union.
+4. **Which action a request needs.** A read `pull`; a manifest or blob `DELETE` `delete`; every
+   other write, the upload session's `GET` and `DELETE` included, `push`. A mount reads `from` only
+   when the token grants `pull` there; otherwise it opens a session, as Dist's fallback does.
+5. **An unknown token waits no delay.** A token is 256 random bits, so guessing one is not a
+   threat the delay would slow; only the credential check at `/token` waits it.
+6. **The realm's scheme** follows the connection: `https` when it runs TLS, else `http`, which is
+   decision 4.2's rule once BL-439 serves `oci` over TLS or under `--oci-plaintext`.
+7. **Left to follow-up tasks:** refusing a Bearer token over plain text without
+   `--allow-plaintext-auth` (decision 4.4's last row, which needs `--oci-plaintext` to exist), and
+   binding an upload session to the account that opened it (code-3's "another account's session").

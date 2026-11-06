@@ -15,8 +15,10 @@ public sealed class OciRegistryProtocolServerTests
     public async Task Constructor_WithoutASessionIdSource_GivesEachUploadSessionAVersion4Uuid()
     {
         var harness = OciRegistryServerHarness.AllowingUploads();
-        var server = new OciRegistryProtocolServer(harness.Store, harness.TimeProvider);
-        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes("POST /v2/app/blobs/uploads/ HTTP/1.1\r\nHost: registry.test\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")]);
+        var server = new OciRegistryProtocolServer(harness.Store, harness.Policy, harness.TimeProvider);
+        var tokenConnection = new InMemoryConnection([Encoding.Latin1.GetBytes($"GET /token?scope=repository:app:push HTTP/1.1\r\nHost: registry.test\r\n{UnitTestAuthenticationPolicy.BasicAuthorization}\r\nConnection: close\r\n\r\n")]);
+        await server.ServeAsync(tokenConnection, harness.Context());
+        var connection = new InMemoryConnection([Encoding.Latin1.GetBytes($"POST /v2/app/blobs/uploads/ HTTP/1.1\r\nHost: registry.test\r\nAuthorization: Bearer {CountingIdentifierRandom.TokenOf(1)}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")]);
 
         await server.ServeAsync(connection, harness.Context());
 
@@ -30,8 +32,9 @@ public sealed class OciRegistryProtocolServerTests
     {
         var harness = new OciRegistryServerHarness();
 
-        Assert.ThrowsExactly<ArgumentNullException>(() => new OciRegistryProtocolServer(null!, harness.TimeProvider));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new OciRegistryProtocolServer(harness.Store, null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new OciRegistryProtocolServer(null!, harness.Policy, harness.TimeProvider));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new OciRegistryProtocolServer(harness.Store, null!, harness.TimeProvider));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new OciRegistryProtocolServer(harness.Store, harness.Policy, null!));
     }
 
     [TestMethod]

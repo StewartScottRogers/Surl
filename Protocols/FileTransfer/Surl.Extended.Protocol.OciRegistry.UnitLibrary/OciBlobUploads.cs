@@ -20,13 +20,15 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// </remarks>
 /// <param name="store">The shared content store.</param>
 /// <param name="state">The server's upload sessions and session UUID source.</param>
-/// <param name="caller">Who uploads.</param>
+/// <param name="token">The token granting the upload: whom it serves, and the repositories a mount may read.</param>
 /// <param name="context">The exchange: its log.</param>
-internal sealed class OciBlobUploads(ContentStore store, OciServerState state, ContentCaller caller, ExchangeContext context)
+internal sealed class OciBlobUploads(ContentStore store, OciServerState state, OciToken token, ExchangeContext context)
 {
     private static readonly HttpStatus Created = new(201, "Created");
     private static readonly HttpStatus Accepted = new(202, "Accepted");
     private static readonly HttpStatus NoContent = new(204, "No Content");
+
+    private readonly ContentCaller caller = token.Caller;
 
     /// <summary>
     /// Answers <c>POST /v2/&lt;name&gt;/blobs/uploads/</c>, creating the repository when it is none yet.
@@ -203,7 +205,7 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, C
         }
     }
 
-    // Mounted when from names a repository the caller may read holding the blob; else a new session.
+    // Mounted when from names a repository the token grants pull in and the caller may read, holding the blob; else a new session.
     private async Task<HttpAnswer> MountAsync(OciReply reply, OciRepository repository, string mountText, string? from, CancellationToken cancellationToken)
     {
         if (OciDigest.Parse(mountText) is not { } digest)
@@ -211,7 +213,7 @@ internal sealed class OciBlobUploads(ContentStore store, OciServerState state, C
             return reply.Error(OciError.DigestInvalid);
         }
 
-        var source = from is not null && OciNames.IsRepositoryName(from) ? OciRepository.Open(store, caller, from, context.Log) : null;
+        var source = from is not null && token.Allows(from, OciActions.Pull) ? OciRepository.Open(store, caller, from, context.Log) : null;
         var blob = source is null ? null : await source.FindBlobAsync(digest, cancellationToken);
         if (blob is null)
         {

@@ -19,7 +19,9 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <c>last</c> paging, and the referrers API with its <c>artifactType</c> filter, each failure
 /// with the specification's JSON error body. Under <c>--allow-uploads</c> it accepts blob uploads
 /// (a session with chunks, a single <c>POST</c>, a mount), manifest pushes by tag or digest, and
-/// deletes. Token authentication (BL-438) is not served yet: every request is the anonymous caller.
+/// deletes. Every <c>/v2/</c> request needs a Bearer token from the server's own <c>GET /token</c>,
+/// which checks <c>Basic</c> credentials through the <see cref="IAuthenticationPolicy"/>; under
+/// <c>--allow-anonymous</c> reads need none (BL-438; ADR-0115, decision 4).
 /// </para>
 /// <para>
 /// HTTP/1.1 framing, the head limit and timeouts are <see cref="Http1ConnectionServer"/>'s. As an
@@ -35,6 +37,7 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     public const string Scheme = "oci";
 
     private readonly ContentStore store;
+    private readonly IAuthenticationPolicy authenticationPolicy;
     private readonly TimeProvider timeProvider;
     private readonly OciServerState state;
 
@@ -42,9 +45,15 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// Creates the server.
     /// </summary>
     /// <param name="store">The shared content store; its folders holding an <c>oci-layout</c> are the repositories.</param>
-    /// <param name="timeProvider">The clock a connection refusal's <c>Date</c> is taken from, and upload sessions expire on.</param>
-    public OciRegistryProtocolServer(ContentStore store, TimeProvider timeProvider)
-        : this(store, timeProvider, Guid.NewGuid)
+    /// <param name="authenticationPolicy">
+    /// Checks the token endpoint's <c>Basic</c> credentials against the accounts, and says whether
+    /// anonymous reads are allowed (<c>--allow-anonymous</c>).
+    /// </param>
+    /// <param name="timeProvider">
+    /// The clock a connection refusal's <c>Date</c> is taken from, and upload sessions and tokens expire on.
+    /// </param>
+    public OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider)
+        : this(store, authenticationPolicy, timeProvider, Guid.NewGuid)
     {
     }
 
@@ -53,16 +62,20 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
     /// knows each session's <c>Location</c>.
     /// </summary>
     /// <param name="store">The shared content store.</param>
+    /// <param name="authenticationPolicy">Checks credentials.</param>
     /// <param name="timeProvider">The clock.</param>
     /// <param name="newSessionId">Makes each upload session's UUID.</param>
-    internal OciRegistryProtocolServer(ContentStore store, TimeProvider timeProvider, Func<Guid> newSessionId)
+    /// <param name="maxLiveTokens">How many live tokens it keeps, so a test reaches the bound.</param>
+    internal OciRegistryProtocolServer(ContentStore store, IAuthenticationPolicy authenticationPolicy, TimeProvider timeProvider, Func<Guid> newSessionId, int maxLiveTokens = OciTokenBook.MaxLiveTokens)
     {
         ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(authenticationPolicy);
         ArgumentNullException.ThrowIfNull(timeProvider);
 
         this.store = store;
+        this.authenticationPolicy = authenticationPolicy;
         this.timeProvider = timeProvider;
-        state = new OciServerState(new OciUploadSessions(timeProvider), new SemaphoreSlim(1, 1), newSessionId);
+        state = new OciServerState(new OciUploadSessions(timeProvider), new SemaphoreSlim(1, 1), newSessionId, new OciTokenBook(timeProvider, maxLiveTokens));
     }
 
     /// <inheritdoc/>
@@ -74,7 +87,7 @@ public sealed class OciRegistryProtocolServer : IConnectionProtocolServer, IConn
         ArgumentNullException.ThrowIfNull(connection);
         ArgumentNullException.ThrowIfNull(context);
 
-        return new Http1ConnectionServer(new OciRequestAnswerer(store, state, context), context).ServeAsync(connection);
+        return new Http1ConnectionServer(new OciRequestAnswerer(store, state, authenticationPolicy, connection.TlsSession, context), context).ServeAsync(connection);
     }
 
     /// <inheritdoc/>

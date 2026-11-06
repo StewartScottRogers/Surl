@@ -12,24 +12,36 @@ namespace Surl.Extended.Protocol.OciRegistry;
 /// <see cref="OciWriteAnswerer"/>.
 /// </summary>
 /// <remarks>
-/// The order is decision 4.1's, without the token check BL-438 adds: the path's endpoint
-/// (<c>404 UNSUPPORTED</c>), the method (<c>405 UNSUPPORTED</c> with <c>Allow</c>), the name
-/// (<c>400 NAME_INVALID</c>), then a write's own checks, or a read's repository (<c>404
-/// NAME_UNKNOWN</c>) and the endpoint's own checks. Every request is served as the anonymous
-/// caller on <c>oci</c>, so a share closed to anonymous callers holds no repository.
+/// The order is decision 4.1's: <c>/token</c> goes to <see cref="OciTokenEndpoint"/>; then the
+/// path's endpoint (<c>404 UNSUPPORTED</c>), the method (<c>405 UNSUPPORTED</c> with
+/// <c>Allow</c>), the name (<c>400 NAME_INVALID</c>), a write while uploads are off (<c>403
+/// DENIED</c>, since no token could grant it), the token (<see cref="OciAccessCheck"/>), then a
+/// write's own checks, or a read's repository (<c>404 NAME_UNKNOWN</c>) and the endpoint's own
+/// checks. The name is checked before the token so a challenge's scope always names a valid
+/// repository. Each request is served as the token's account, or as the anonymous caller on
+/// <c>oci</c> for an anonymous token or an anonymous read.
 /// </remarks>
 /// <param name="store">The shared content store whose folders are the repositories.</param>
-/// <param name="state">The server's upload sessions and index lock.</param>
+/// <param name="state">The server's upload sessions, index lock and tokens.</param>
+/// <param name="policy">Checks the token endpoint's credentials and says whether anonymous reads are allowed.</param>
+/// <param name="tlsSession">The connection's TLS session, or <see langword="null"/> on plain text.</param>
 /// <param name="context">The exchange: its clock and log.</param>
-internal sealed class OciRequestAnswerer(ContentStore store, OciServerState state, ExchangeContext context) : IHttpRequestHandler
+internal sealed class OciRequestAnswerer(ContentStore store, OciServerState state, IAuthenticationPolicy policy, TlsSession? tlsSession, ExchangeContext context) : IHttpRequestHandler
 {
     private static readonly byte[] EmptyObject = "{}"u8.ToArray();
+
+    private readonly OciAccessCheck access = new(policy, state.Tokens, tlsSession, context);
 
     /// <inheritdoc/>
     public async Task<HttpAnswer> AnswerAsync(HttpRequest request, CancellationToken cancellationToken)
     {
-        var target = OciRequestTarget.Parse(request.Target);
         var reply = new OciReply(request.Method == "HEAD", request.Body.IsAnnounced, context.TimeProvider.GetUtcNow());
+        if (OciTokenEndpoint.IsTokenTarget(request.Target))
+        {
+            return await new OciTokenEndpoint(policy, state.Tokens, store.ExposureOptions.AllowUploads, tlsSession, context).AnswerAsync(reply, request, cancellationToken);
+        }
+
+        var target = OciRequestTarget.Parse(request.Target);
         if (target.Endpoint == OciEndpoint.None)
         {
             return reply.Error(OciError.UnsupportedPath);
@@ -42,9 +54,18 @@ internal sealed class OciRequestAnswerer(ContentStore store, OciServerState stat
         }
 
         return target.Endpoint == OciEndpoint.Base
-            ? reply.Bytes(HttpStatus.Ok, "application/json", [], EmptyObject)
+            ? await AnswerBaseAsync(reply, request, cancellationToken)
             : await AnswerInRepositoryAsync(reply, request, target, cancellationToken);
     }
+
+    private async Task<HttpAnswer> AnswerBaseAsync(OciReply reply, HttpRequest request, CancellationToken cancellationToken) =>
+        (await access.CheckAsync(reply, request, string.Empty, OciActions.None, cancellationToken)).Refusal
+            ?? reply.Bytes(HttpStatus.Ok, "application/json", [], EmptyObject);
+
+    // A delete needs delete; every other write, the upload session's GET and DELETE included, push.
+    private static OciActions RequiredActions(OciRequestTarget target, string method, bool isWrite) => isWrite
+        ? target.Endpoint is OciEndpoint.Manifest or OciEndpoint.Blob && method == "DELETE" ? OciActions.Delete : OciActions.Push
+        : OciActions.Pull;
 
     private static string AllowedMethods(OciEndpoint endpoint) => endpoint switch
     {
@@ -62,12 +83,24 @@ internal sealed class OciRequestAnswerer(ContentStore store, OciServerState stat
             return reply.Error(OciError.NameInvalid);
         }
 
-        if (OciWriteAnswerer.IsWrite(target.Endpoint, request.Method))
+        var isWrite = OciWriteAnswerer.IsWrite(target.Endpoint, request.Method);
+        if (isWrite && !store.ExposureOptions.AllowUploads)
         {
-            return await new OciWriteAnswerer(store, state, context).AnswerAsync(reply, request, target, cancellationToken);
+            return reply.Error(OciError.Denied);
         }
 
-        if (OciRepository.Open(store, ContentCaller.Anonymous(OciRegistryProtocolServer.Scheme), target.Name, context.Log) is not { } repository)
+        var checkedAccess = await access.CheckAsync(reply, request, target.Name, RequiredActions(target, request.Method, isWrite), cancellationToken);
+        if (checkedAccess.Refusal is { } refusal)
+        {
+            return refusal;
+        }
+
+        if (isWrite)
+        {
+            return await new OciWriteAnswerer(store, state, context).AnswerAsync(reply, request, target, checkedAccess.Token!, cancellationToken);
+        }
+
+        if (OciRepository.Open(store, checkedAccess.Caller, target.Name, context.Log) is not { } repository)
         {
             return reply.Error(OciError.NameUnknown);
         }
