@@ -43,7 +43,7 @@ HTTP/2 alike, as an ADR decides from measured upstream curl 8.21.0.
 
 ## Notes
 
-- Decided in ADR-0132 (Claude under Stewart's delegation), from curl 8.21.0 measured with
+- Decided in ADR-0133 (Claude under Stewart's delegation), from curl 8.21.0 measured with
   `Record-CurlExchange.ps1` (fixtures `range-206`, `range-suffix-206`, `range-unsatisfiable-416`,
   `range-multiple-200`, `range-if-range-206`, `put-created-201`, `put-replaced-204`, each with the
   `response.bin` fed to curl).
@@ -60,7 +60,7 @@ HTTP/2 alike, as an ADR decides from measured upstream curl 8.21.0.
   and every writer already sent a `ContentByteRange`.
 - Touches widened (rule 3; no task in Doing names them): `Conformance/Surl.Conformance.UnitTests`,
   for the two named HTTP/2 tests plus the HTTP/3 range and upload tests and the AWS SigV4 upload rows
-  that pinned `405`; `Documentation/Planning/Decisions` for ADR-0132.
+  that pinned `405`; `Documentation/Planning/Decisions` for ADR-0133.
 - Live on Windows: the HTTP/2, HTTP/3 and AWS SigV4 upload conformance tests pass with pinned curl.
   `GetWithHttp3_File_IsServedOverHttp3NotTheTcpFallback` failed once in a parallel run and passes
   alone; it does not touch Range or PUT.
@@ -72,4 +72,4 @@ HTTP/2 alike, as an ADR decides from measured upstream curl 8.21.0.
 
 - 2026-11-05: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. surl http and https answer curl -r with 206 (416 past the end) and store curl -T under --allow-uploads with 201/204, on HTTP/1.1, HTTP/2 and HTTP/3 (ADR-0132)
+- 2026-11-05: Doing -> Done. surl http and https answer curl -r with 206 (416 past the end) and store curl -T under --allow-uploads with 201/204, on HTTP/1.1, HTTP/2 and HTTP/3 (ADR-0133)

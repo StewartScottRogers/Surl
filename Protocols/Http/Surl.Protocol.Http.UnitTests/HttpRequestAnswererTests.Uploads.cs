@@ -10,7 +10,7 @@ namespace Surl.Protocol.Http;
 
 /// <summary>
 /// A <c>PUT</c> under <c>--allow-uploads</c> is stored and answered <c>201</c> when it creates the
-/// file and <c>204</c> when it replaces one (ADR-0132, decision 2), as the bytes recorded from
+/// file and <c>204</c> when it replaces one (ADR-0133, decision 2), as the bytes recorded from
 /// pinned upstream curl 8.21.0 show (<c>Fixtures/put-created-201</c>, <c>put-replaced-204</c>).
 /// </summary>
 public sealed partial class HttpRequestAnswererTests

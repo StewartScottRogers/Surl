@@ -133,7 +133,7 @@ public sealed class UpstreamCurlLogsInToSurlOverHttpTests
         // Without an x-amz-content-sha256 the signature is over the body's SHA-256, judged once
         // the body is read; with one, the body must hash to it unless it is UNSIGNED-PAYLOAD
         // (ADR-0045, Fixtures/aws-sigv4-*upload). Under --allow-uploads a PUT whose login passes is
-        // stored, 201 (ADR-0132), and one that fails is the 401; without -f curl exits 0.
+        // stored, 201 (ADR-0133), and one that fails is the 401; without -f curl exits 0.
         using var accounts = await AccountsFile.WriteAsync(TestContext.CancellationToken);
         await using var surl = await StartSurlAsync("http", "--allow-uploads", "--user-file", accounts.Path);
         var upload = Path.GetTempFileName();

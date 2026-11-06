@@ -20,7 +20,7 @@ they serve the whole file with `200`.
 
 ## Context
 
-- Found in BL-723 (2026-11-05). ADR-0132 decision 1 answers one range `206`, and ignores several
+- Found in BL-723 (2026-11-05). ADR-0133 decision 1 answers one range `206`, and ignores several
   (`HttpRangeSelection` returns null for a field with a comma), as RFC 9110 section 14.2 lets a
   server. Pinned upstream curl 8.21.0 sends `Range: bytes=0-1,3-4` for `-r 0-1,3-4`
   (`Protocols/Http/Surl.Protocol.Http.UnitTests/Fixtures/range-multiple-200`) and writes whatever body comes.
@@ -31,7 +31,7 @@ they serve the whole file with `200`.
 
 ## Acceptance criteria
 
-- [ ] ADR-0132 has an amendment deciding the boundary, part fields, coalescing of overlapping
+- [ ] ADR-0133 has an amendment deciding the boundary, part fields, coalescing of overlapping
       ranges and a cap on the number of ranges, citing measured curl bytes.
 - [ ] Unit tests in `Surl.Protocol.Http.UnitTests` replay the measured request and pin the
       `206` `multipart/byteranges` answer byte for byte, over HTTP/1.1, HTTP/2 and HTTP/3.

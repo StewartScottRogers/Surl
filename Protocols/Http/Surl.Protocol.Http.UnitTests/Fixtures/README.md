@@ -143,7 +143,7 @@ request stream to Surl; BL-385 records curl's against a live `surl`.
 
 ## Range and PUT fixtures (BL-723)
 
-Recorded on 2026-11-05 from the repository root in PowerShell, with the same pinned build (ADR-0132).
+Recorded on 2026-11-05 from the repository root in PowerShell, with the same pinned build (ADR-0133).
 `response.bin` is the decoded `-Response` each case was fed, which the tests compare the server's
 output with; the clock and `file.txt` are those of the response fixtures above, and every case exited
 0 with an empty `stderr.txt`. `<lm>` is `Tue, 01 Sep 2026 08:30:00 GMT`, `<head>` is

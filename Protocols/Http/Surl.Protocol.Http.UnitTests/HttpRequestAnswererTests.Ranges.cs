@@ -8,7 +8,7 @@ namespace Surl.Protocol.Http;
 /// <summary>
 /// A <c>GET</c>'s <c>Range</c> is answered <c>206</c> with the bytes it selects, or <c>416</c> when
 /// it names none, and several ranges or an <c>If-Range</c> that is not the file's
-/// <c>Last-Modified</c> get the whole file with <c>200</c> (ADR-0132, decision 1), as the bytes
+/// <c>Last-Modified</c> get the whole file with <c>200</c> (ADR-0133, decision 1), as the bytes
 /// recorded from pinned upstream curl 8.21.0 show (<c>Fixtures/range-*</c>).
 /// </summary>
 public sealed partial class HttpRequestAnswererTests

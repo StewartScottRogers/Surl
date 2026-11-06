@@ -32,11 +32,11 @@ the account the verdict's `AccountName` names (an empty or absent one is anonymo
 `Scheme`. A share the caller may not read answers as a missing path, the same empty `404` (ADR-0102
 decisions 2.2, 2.3).
 
-A `GET`'s `Range` is read by `HttpRangeSelection` (ADR-0132 decision 1): one satisfiable `bytes`
+A `GET`'s `Range` is read by `HttpRangeSelection` (ADR-0133 decision 1): one satisfiable `bytes`
 range is answered `206` with `Content-Range`, one naming no byte `416` with
 `Content-Range: bytes */<length>`, and several ranges, other units, bad syntax or an `If-Range` that
 is not the exact `Last-Modified` get the whole file `200`. Under `--allow-uploads` a `PUT` is
-answered by `HttpRequestAnswerer.Uploads.cs` (ADR-0132 decision 2), mapped for the same caller: the
+answered by `HttpRequestAnswerer.Uploads.cs` (ADR-0133 decision 2), mapped for the same caller: the
 body is copied through `HttpUploadStream` into a content-store upload session, hashed when a login
 binds the body, and committed only once all of it arrived and the body check accepted it - `201` new,
 `204` replaced, `403` not permitted, `409` a directory or no such directory, `413` past the limit.

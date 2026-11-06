@@ -88,7 +88,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp2Tests
         StringAssert.EndsWith(head, "\r\n\r\n");
     }
 
-    // Measured 2026-11-05 (BL-723; ADR-0132, decision 1): a single range is answered 206 with
+    // Measured 2026-11-05 (BL-723; ADR-0133, decision 1): a single range is answered 206 with
     // Content-Range and the bytes it selects, and curl writes just those bytes and exits 0.
     [TestMethod]
     public async Task GetWithRange_HttpsByAlpn_IsServedTheFirstTenBytesWith206OverHttp2()
@@ -163,7 +163,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp2Tests
         AssertServedOverHttp2(Hello, result);
     }
 
-    // Measured 2026-11-05 (BL-723; ADR-0132, decision 2): under --allow-uploads, with a login, a
+    // Measured 2026-11-05 (BL-723; ADR-0133, decision 2): under --allow-uploads, with a login, a
     // PUT of a body four times the initial window is read through the stream's flow control,
     // stored, and answered 201, and curl exits 0.
     [TestMethod]

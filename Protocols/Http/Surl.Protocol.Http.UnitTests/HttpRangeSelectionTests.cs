@@ -2,7 +2,7 @@ namespace Surl.Protocol.Http;
 
 /// <summary>
 /// <see cref="HttpRangeSelection"/> turns a <c>Range</c> field into the bytes of a 17-byte file
-/// it selects (RFC 9110, section 14.1.2; ADR-0132, decision 1).
+/// it selects (RFC 9110, section 14.1.2; ADR-0133, decision 1).
 /// </summary>
 [TestClass]
 public sealed class HttpRangeSelectionTests

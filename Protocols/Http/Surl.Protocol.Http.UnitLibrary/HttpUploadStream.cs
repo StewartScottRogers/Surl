@@ -4,7 +4,7 @@ using Surl.Content;
 namespace Surl.Protocol.Http;
 
 /// <summary>
-/// The write-only stream a <c>PUT</c> body is copied into (ADR-0132, decision 2): each write is
+/// The write-only stream a <c>PUT</c> body is copied into (ADR-0133, decision 2): each write is
 /// hashed into the body's SHA-256 when a login binds the body, and appended to the content
 /// store's upload session when there is one, until the session says the upload is past
 /// <c>--max-filesize</c>; after that, or with no session, the rest is hashed and dropped.

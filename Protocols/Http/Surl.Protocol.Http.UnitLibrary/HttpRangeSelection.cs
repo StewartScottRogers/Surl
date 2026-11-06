@@ -5,7 +5,7 @@ namespace Surl.Protocol.Http;
 
 /// <summary>
 /// Which bytes of a file a <c>GET</c>'s <c>Range</c> field asks for (RFC 9110, section 14;
-/// ADR-0132, decision 1): one <c>bytes</c> range is selected, a range that names no byte the
+/// ADR-0133, decision 1): one <c>bytes</c> range is selected, a range that names no byte the
 /// file has is unsatisfiable, and anything else - no field, another unit, a syntax RFC 9110
 /// does not give, or several ranges - is ignored, so the whole file is served.
 /// </summary>

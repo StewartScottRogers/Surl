@@ -5,7 +5,7 @@ namespace Surl.Protocol.Http;
 
 /// <summary>
 /// <see cref="HttpUploadStream"/> hashes every byte of a <c>PUT</c> body it is given a hash for,
-/// and appends it to the upload session until the session is past its limit (ADR-0132,
+/// and appends it to the upload session until the session is past its limit (ADR-0133,
 /// decision 2).
 /// </summary>
 [TestClass]

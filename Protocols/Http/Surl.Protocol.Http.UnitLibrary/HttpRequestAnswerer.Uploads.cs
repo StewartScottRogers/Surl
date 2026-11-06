@@ -7,7 +7,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Http;
 
 /// <summary>
-/// How the answerer stores a <c>PUT</c> under <c>--allow-uploads</c> (ADR-0132, decision 2).
+/// How the answerer stores a <c>PUT</c> under <c>--allow-uploads</c> (ADR-0133, decision 2).
 /// </summary>
 internal sealed partial class HttpRequestAnswerer
 {

@@ -13,7 +13,7 @@ namespace Surl.Protocol.Http;
 /// is refused (ADR-0081, decision 8). It never asks which HTTP version carried the request;
 /// a version's writer, such as <see cref="Http1ConnectionServer"/>'s, turns the answer into bytes.
 /// A <c>GET</c>'s <c>Range</c> is answered <c>206</c> or <c>416</c>, and under
-/// <c>--allow-uploads</c> a <c>PUT</c> stores its body (ADR-0132).
+/// <c>--allow-uploads</c> a <c>PUT</c> stores its body (ADR-0133).
 /// </summary>
 internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
 {
@@ -81,7 +81,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     // hashed, then the verdict the body check gives for its SHA-256, answered with the body
     // already read. A body that cannot be read cannot be checked, and is refused as malformed.
     // A PUT under --allow-uploads is read into its upload as it is hashed, and stored only once
-    // the body check accepts it (ADR-0132, decision 2).
+    // the body check accepts it (ADR-0133, decision 2).
     private async Task<HttpAnswer> AnswerBodyCheckedRequestAsync(HttpRequest request, IHttpRequestBodyCheck bodyCheck, string? accountName, IReadOnlyList<string> challenges, CancellationToken cancellationToken)
     {
         var uploadRefusal = RefuseUploadPastLimit(request, challenges);
@@ -135,7 +135,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
     // Who the content store is told asks: the account the verdict names, or an anonymous caller,
     // on the scheme the server listens on (ADR-0102 decision 2.2). A share the caller may not
     // read is answered as absent, so a GET or HEAD in it is the 404 a missing path gets
-    // (ADR-0102 decision 2.3); a PUT the store does not permit is the 403 ADR-0132 gives it.
+    // (ADR-0102 decision 2.3); a PUT the store does not permit is the 403 ADR-0133 gives it.
     private ContentCaller ContentCallerOf(string? accountName) =>
         string.IsNullOrEmpty(accountName)
             ? ContentCaller.Anonymous(context.Scheme)
@@ -286,7 +286,7 @@ internal sealed partial class HttpRequestAnswerer : IHttpRequestHandler
 
     // A file is answered 200 with its length; a GET carries its bytes, a HEAD none. A GET whose
     // Range selects bytes is answered 206 with them, or 416 when they are past the end
-    // (ADR-0132, decision 1).
+    // (ADR-0133, decision 1).
     private HttpAnswer FileAnswer(HttpRequest request, ContentPathMapping mapping, ContentFileStatus status, IReadOnlyList<string> challenges)
     {
         var now = Now();

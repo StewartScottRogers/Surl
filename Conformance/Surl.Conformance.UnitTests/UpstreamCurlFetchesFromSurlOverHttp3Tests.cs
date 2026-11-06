@@ -82,7 +82,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
     }
 
     // A single range is answered 206 with Content-Range and the bytes it selects on every HTTP
-    // version (BL-723; ADR-0132, decision 1), and curl writes just those bytes and exits 0.
+    // version (BL-723; ADR-0133, decision 1), and curl writes just those bytes and exits 0.
     [TestMethod]
     public async Task GetWithRange_Http3Only_IsServedTheFirstTenBytesWith206OverHttp3()
     {
@@ -135,7 +135,7 @@ public sealed class UpstreamCurlFetchesFromSurlOverHttp3Tests
     }
 
     // Under --allow-uploads, with a login, a PUT is stored and answered 201 on every HTTP version
-    // (BL-723; ADR-0132, decision 2): over HTTP/3 the body is read from the request stream's DATA
+    // (BL-723; ADR-0133, decision 2): over HTTP/3 the body is read from the request stream's DATA
     // frames into the upload, which is committed once the stream ends.
     [TestMethod]
     public async Task Upload_AllowUploads_IsStoredWith201OverHttp3()
