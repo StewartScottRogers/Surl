@@ -133,6 +133,7 @@ internal sealed class AzurePathRename(ContentStore store, ObjectMetadataIndex in
                     ContentDisposition = kept.ContentDisposition,
                     CacheControl = kept.CacheControl,
                     ContentLanguage = kept.ContentLanguage,
+                    ContentMd5 = kept.ContentMd5,
                     UserMetadata = kept.UserMetadata.ToDictionary(StringComparer.Ordinal),
                 },
                 cancellationToken);

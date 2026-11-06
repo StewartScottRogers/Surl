@@ -108,7 +108,7 @@ internal sealed class AzureListBlobs(ContentStore store, AzureBlobPropertiesRead
         Append(xml, "Content-Type", properties.ContentType);
         Append(xml, "Content-Encoding", properties.ContentEncoding);
         Append(xml, "Content-Language", properties.ContentLanguage);
-        Append(xml, "Content-MD5", AzureBlobAnswer.StoredMd5(properties.ETag));
+        Append(xml, "Content-MD5", AzureBlobAnswer.StoredMd5(properties));
         Append(xml, "Cache-Control", properties.CacheControl);
         Append(xml, "Content-Disposition", properties.ContentDisposition);
         Append(xml, "BlobType", "BlockBlob");

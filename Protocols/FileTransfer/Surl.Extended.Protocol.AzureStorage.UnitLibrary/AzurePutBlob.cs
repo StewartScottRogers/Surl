@@ -307,7 +307,8 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
 
     internal static string ETagOf(byte[] digest) => $"\"{Convert.ToHexStringLower(digest)}\"";
 
-    // x-ms-blob-content-type, else Content-Type; the other x-ms-blob-* fields; each x-ms-meta-*.
+    // x-ms-blob-content-type, else Content-Type; the other x-ms-blob-* fields, x-ms-blob-content-md5
+    // kept as sent and unchecked (ADR-0109, decision 5.6); each x-ms-meta-*.
     private static ObjectMetadata MetadataOf(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag) => new()
     {
         ContentType = AzureRequestFields.Value(fields, "x-ms-blob-content-type") ?? AzureRequestFields.Value(fields, "Content-Type"),
@@ -315,6 +316,7 @@ internal sealed class AzurePutBlob(ContentStore store, ObjectMetadataIndex index
         ContentDisposition = AzureRequestFields.Value(fields, "x-ms-blob-content-disposition"),
         CacheControl = AzureRequestFields.Value(fields, "x-ms-blob-cache-control"),
         ContentLanguage = AzureRequestFields.Value(fields, "x-ms-blob-content-language"),
+        ContentMd5 = AzureRequestFields.Value(fields, "x-ms-blob-content-md5"),
         UserMetadata = UserMetadata(fields),
         ETag = eTag,
     };

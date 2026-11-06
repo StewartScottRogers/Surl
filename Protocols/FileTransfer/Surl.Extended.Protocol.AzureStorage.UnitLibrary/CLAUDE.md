@@ -17,7 +17,8 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   `x-ms-range-get-content-md5` (`400 OutOfRangeInput` past 4 MiB), the conditional fields
   (`412 ConditionNotMet`, `304`), and the blob's stored header fields and `x-ms-meta-*` from
   `ObjectMetadataIndex` (the index's defaults, computed here, for a file the index does not key).
-  `Content-MD5` is the base64 of the ETag when the ETag is the index's quoted hexadecimal MD5.
+  `Content-MD5` is the `x-ms-blob-content-md5` stored with the upload (BL-736), else the base64 of
+  the ETag when the ETag is the index's quoted hexadecimal MD5.
 - The required headers: a malformed `x-ms-version` or `x-ms-date` is `400 InvalidHeaderValue`; a
   request with `Authorization` and no `x-ms-version` is `400 MissingRequiredHeader`.
 - The login (BL-424, BL-717) through `IAuthenticationPolicy.StartHttpConnection`'s session:
@@ -47,7 +48,9 @@ What the Blob endpoint serves now (BL-424, BL-425, BL-715, BL-716), on `az`:
   is `400 InvalidInput`, one not matching `Content-MD5` `400 Md5Mismatch`, and neither stores
   anything. A zero-byte name ending in `/` creates the folder. `x-ms-blob-content-type` (else
   `Content-Type`), the other `x-ms-blob-*` fields and each `x-ms-meta-*` go to `ObjectMetadataIndex`
-  under `AzureIndexKey` (none for a file in a share); an index refusal removes the blob (`400
+  under `AzureIndexKey` (none for a file in a share), and `x-ms-blob-content-md5`, kept as sent and
+  never checked, becomes the blob's `Content-MD5` on Get Blob, Get Blob Properties and List Blobs
+  (BL-736; a rename and Path - Update `setProperties` keep it, a flush drops it); an index refusal removes the blob (`400
   MetadataTooLarge`, `503 ServerBusy`). `201` with `ETag`, `Last-Modified`, `Content-MD5` and
   `x-ms-request-server-encrypted: false`.
 - The conditional fields on Put Blob and Delete Blob (BL-735, `AzureConditions.WriteRefusal`),
@@ -181,7 +184,7 @@ characters):
 - Errors are the JSON `{"error":{"code":…,"message":…}}` (`AzureDataLakeErrorBody`) with
   `Content-Type: application/json;charset=utf-8`; `code` and `message` only.
 
-Not yet: `x-ms-blob-content-md5` (filed from BL-425); the conditional fields on Put Block List; `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
+Not yet: the conditional fields on Put Block List; `retainUncommittedData=true`, `beginFrom`, `x-ms-properties` on Path - Create, the conditional fields on
 the Data Lake writes and the JSON body on a Data Lake connection refused past a limit (BL-758);
 List Blobs' `include=uncommittedblobs`, properties on a directory or a filesystem.
 

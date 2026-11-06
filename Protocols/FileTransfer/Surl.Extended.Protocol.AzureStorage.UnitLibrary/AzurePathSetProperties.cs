@@ -82,6 +82,7 @@ internal sealed class AzurePathSetProperties(ContentStore store, ObjectMetadataI
         ContentDisposition = AzureRequestFields.Value(fields, "x-ms-content-disposition") ?? before.ContentDisposition,
         CacheControl = AzureRequestFields.Value(fields, "x-ms-cache-control") ?? before.CacheControl,
         ContentLanguage = AzureRequestFields.Value(fields, "x-ms-content-language") ?? before.ContentLanguage,
+        ContentMd5 = before.ContentMd5,
         UserMetadata = userMetadata,
     };
 

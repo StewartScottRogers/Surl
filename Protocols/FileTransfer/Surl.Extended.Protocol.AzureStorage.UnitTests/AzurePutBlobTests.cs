@@ -76,6 +76,21 @@ public sealed class AzurePutBlobTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PutBlobWithBlobContentMd5_StoresItUncheckedAndGetBlobPropertiesAnswersIt()
+    {
+        var harness = Writable();
+
+        // Not the body's MD5: the page says the value is stored without being validated.
+        var put = await harness.SendWithBearerAndBodyAsync("PUT", "/photos/a.txt", "hello world", "x-ms-blob-type: BlockBlob", "x-ms-blob-content-md5: AAECAwQFBgcICQoLDA0ODw==");
+        var head = await harness.SendWithBearerAsync("HEAD", "/photos/a.txt");
+        var get = await harness.SendWithBearerAsync("GET", "/photos/a.txt");
+
+        StringAssert.Contains(put, $"Content-MD5: {HelloWorldMd5}\r\n");
+        StringAssert.Contains(head, $"Content-MD5: AAECAwQFBgcICQoLDA0ODw==\r\nETag: {HelloWorldETag}\r\n");
+        StringAssert.Contains(get, $"Content-MD5: AAECAwQFBgcICQoLDA0ODw==\r\nETag: {HelloWorldETag}\r\n");
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutBlobWithContentTypeOnly_KeepsTheContentType()
     {
         var harness = Writable();

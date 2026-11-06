@@ -151,6 +151,18 @@ public sealed partial class AzureListBlobsTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_BlobPutWithBlobContentMd5_IsListedWithThatContentMd5()
+    {
+        var harness = new AzureServerHarness(exposure: AzureServerHarness.Writable);
+        harness.CreateFolder("photos");
+        await harness.SendWithBearerAndBodyAsync("PUT", "/photos/put.txt", "hello world", "x-ms-blob-type: BlockBlob", "x-ms-blob-content-md5: AAECAwQFBgcICQoLDA0ODw==");
+
+        var response = await harness.SendWithBearerAsync("GET", "/photos?restype=container&comp=list");
+
+        StringAssert.Contains(response, "<Content-Language /><Content-MD5>AAECAwQFBgcICQoLDA0ODw==</Content-MD5><Cache-Control />");
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ListingAShareContainer_HashesItsFiles()
     {
         var shareFileSystem = new InMemoryContentFileSystem(new FixedTimeProvider(AzureServerHarness.Now));
