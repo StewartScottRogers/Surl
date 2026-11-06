@@ -324,7 +324,7 @@ public sealed class AuthenticationTests
     [TestMethod]
     public async Task ServeAsync_BodyBoundLoginWithTheSignedBody_IsLetInAfterTheBodyIsRead()
     {
-        // HTTP serves no PUT yet, so a write let in meets the method refusal, not the 401.
+        // Without --allow-uploads, a write let in meets the method refusal, not the 401.
         var bodyCheck = BodyCheckAccepting(BodySha256);
 
         var (connection, log) = await ServeAsync(BodyBindingPolicy(bodyCheck), Put("body"));
