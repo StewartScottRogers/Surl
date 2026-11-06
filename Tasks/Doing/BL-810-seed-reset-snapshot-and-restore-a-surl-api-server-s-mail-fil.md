@@ -49,3 +49,4 @@ onto a topic or queue, an account - resets it between tests, and snapshots and r
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
