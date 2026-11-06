@@ -26,6 +26,9 @@
   to 9) before normal, each in order, as AMQP 0-9-1's basic rule 06 requires (BL-730); and the
   AMQP 0-9-1 column's `506 resource-error` is a connection exception (`connection.close`), not a
   channel close, because the XML classes it `hard-error`. `311` stays a channel close.
+- **Amended:** decision 2.3 by its own section 2.3.1 (2026-11-06, BL-685): the object metadata
+  index's byte format and the choices BL-636 made building it, among them that stale entries are
+  dropped lazily rather than on every write.
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
@@ -178,6 +181,53 @@ custom `metadata`, the ETag, a multipart upload's ETag, GCS's `generation` - liv
   their parts under `<path>/.surl/objects/uploads/<upload id>/` and become one file on completion,
   through the content store's upload session, so a half-finished upload is never visible to FTP or
   HTTP. Their bounds are each server's ADR's.
+
+##### 2.3.1 The index's byte format, and the choices BL-636 made building it
+
+Added 2026-11-06 by BL-685. Decided by Claude under Stewart's delegation (root `CLAUDE.md`,
+"Decisions") in BL-636, which could not edit this ADR at the time, and recorded here so the
+object-storage servers' ADRs (BL-417, BL-423, BL-429, BL-435) cite one source. The code is
+`Foundation/Surl.Content.UnitLibrary/ObjectMetadataIndex.cs` and `ObjectMetadataIndexFormat.cs`;
+`ObjectMetadataIndexTests.StoreAsync_PersistingIndex_WritesThePinnedBytes` pins the bytes.
+
+**Byte format** of `<path>/.surl/objects/index`. Every integer is big-endian. A string is its UTF-8
+length (2 bytes, unsigned) then its UTF-8 bytes; an empty string means absent.
+
+1. The header: the 20 ASCII bytes `SURL-OBJECT-INDEX-1` and a line feed.
+2. The entry count (4 bytes, unsigned).
+3. That many entries, in strictly ascending ordinal order of key. An entry is:
+   - its key (a string: the path relative to the served root, segments joined by `/`);
+   - the stamped file length (8 bytes, signed, not negative);
+   - the stamped last-write time in UTC ticks (8 bytes, signed, a valid `DateTime`) - ticks rather
+     than seconds, so the stamp matches the file system's time exactly;
+   - the generation (8 bytes, signed);
+   - the ETag (a string, not empty);
+   - `Content-Type`, `Content-Encoding`, `Content-Disposition`, `Cache-Control` and
+     `Content-Language` (five strings);
+   - the user metadata count (2 bytes, unsigned), then that many name and value pairs (two strings
+     each) in strictly ascending ordinal order of name.
+4. Then the end of the file. Anything else - a wrong header, keys or names out of order, a bound
+   passed, bytes left over, invalid UTF-8 - is malformed: `CouldNotReadFile` (37), `not an object
+   metadata index`.
+
+**Choices:**
+
+- **What counts toward `MaxMetadataBytes`:** the UTF-8 bytes of the five header fields and of every
+  user metadata name and value. The ETag does not count; it has its own bound. `MaxMetadataBytes`
+  is capped at 65535, so every string fits its 2-byte length.
+- **`MaxETagBytes` is 1024** UTF-8 bytes; an ETag that is empty or longer is refused.
+- **`NoSuchFile`:** storing metadata for a key with no file behind it answers the
+  `ObjectMetadataStoreOutcome` `NoSuchFile` and stores nothing.
+- **Stale entries are dropped lazily**, not on every write as the "Stale is absent" bullet above
+  first said: an entry is checked against its file when it is read, and every entry is checked at
+  once before the index is called full (`MetadataIndexFull`). Stat-ing every one of up to 100000
+  entries on every write would make each write slow; what a reader sees is the same, because a
+  stale entry is never answered. A computed ETag that finds the index full is answered but not
+  cached, and metadata stored without an ETag gets the MD5 computed at store time.
+- **Default content type `application/octet-stream`** for every file stored with none, until BL-686
+  gives `Surl.Content` the media-type table the "A file with no entry" bullet above names. HTTP
+  names every file `application/octet-stream` today too, so the two still agree; when BL-686 lands,
+  both switch together.
 
 #### 2.4 The OCI repository folder
 

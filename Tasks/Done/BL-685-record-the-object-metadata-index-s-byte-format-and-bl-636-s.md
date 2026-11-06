@@ -8,7 +8,7 @@ depends-on: [BL-636]
 touches: [Documentation/Planning/Decisions]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-06
 ---
 # BL-685 — Record the object metadata index's byte format and BL-636's choices in ADR-0100
 
@@ -32,12 +32,20 @@ one decided source.
 
 ## Acceptance criteria
 
-- [ ] ADR-0100 decision 2.3 (or an amending ADR it links) states the index's byte format exactly as
+- [x] ADR-0100 decision 2.3 (or an amending ADR it links) states the index's byte format exactly as
       `ObjectMetadataIndexFormat`'s remarks give it, and the five choices listed under Context.
 
 ## Notes
+
+- Recorded as ADR-0100 section 2.3.1, an amendment inside the ADR listed in its `Amended` header,
+  rather than a new ADR: one place for the object servers' ADRs to cite. The byte format is copied
+  from `ObjectMetadataIndexFormat`'s remarks and checked against its `Decode`; the five choices are
+  copied from BL-636's Notes and checked against `ObjectMetadataIndex.cs`. The section also says
+  lazy stale-dropping supersedes 2.3's "dropped on the next write".
+- Docs only: no `.cs` or project file touched, so no build or test run was needed for this change.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0100 section 2.3.1 records the object metadata index's byte format and BL-636's five choices
