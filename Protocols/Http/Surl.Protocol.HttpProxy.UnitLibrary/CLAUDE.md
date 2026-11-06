@@ -1,9 +1,16 @@
 # Surl.Protocol.HttpProxy.UnitLibrary
 
 The HTTP proxy server: what curl's `-x`/`--proxy` and `-p`/`--proxytunnel` talk to. Decided in
-ADR-0088 (decisions 1 to 4 and 7's limits) and its Amendment 1. Built by BL-552; the
-`Proxy-Authorization` checks (BL-553), the HTTPS proxy (BL-554), the command line and composition
-(BL-555) and the upstream cases' server half (BL-556) are still to come, so nothing composes it yet.
+ADR-0088 (decisions 1 to 4, 6 and 7's limits) and its Amendments 1 and 2. Built by BL-552 and
+BL-554 (the HTTPS proxy); the `Proxy-Authorization` checks (BL-553), the command line and
+composition (BL-555) and the upstream cases' server half (BL-556) are still to come, so nothing
+composes it yet.
+
+**The HTTPS proxy** is this same server on a connection the serving engine secured before
+`ServeAsync` (an `https` listen URL with `ListenUrl.IsProxy`, whose listener offers ALPN
+`http/1.1` only). `HttpProxyExchange` notes the TLS once before the first request; a session that
+agreed any ALPN but `http/1.1` is closed unwritten (Amendment 2). `HttpProxyProtocolServerTlsTests`
+drive it with an `InMemoryConnection` given an initial `TlsSession`.
 
 **Listen URL schemes:** `http`, `https` - but the proxy is chosen by `--proxy`, not by scheme.
 

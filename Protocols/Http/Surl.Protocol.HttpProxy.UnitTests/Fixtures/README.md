@@ -25,3 +25,13 @@ endings.
 | `forward-unreachable-502` | `... -Port 18130 -Response <502> -CurlArgs '-sS','-x','http://127.0.0.1:18130','http://origin.test/a'` | 0, `502 Bad Gateway` |
 | `connect-refused-502` | `... -Port 18131 -Response <502> -CurlArgs '-sS','-p','-x','http://127.0.0.1:18131','http://origin.test:8080/a'` | 7, `curl: (7) CONNECT tunnel failed, response 502` |
 | `connect-not-allowed-403` | `... -Port 18132 -Response <403> -CurlArgs '-sS','-p','-x','http://127.0.0.1:18132','http://origin.test:25/a'` | 7, `curl: (7) CONNECT tunnel failed, response 403` |
+
+The HTTPS proxy (BL-554, ADR-0088 Amendment 2): the recorder played an HTTPS proxy with `-Tls`
+and offered exactly the ALPN protocol ID the proxy listener offers, `http/1.1`; `alpn.txt` holds
+what was agreed. `request.bin` is the plaintext read inside the TLS, and `response.bin` is
+`forward-get`'s, the canned reply.
+
+| Folder | Command line | Exit, stdout or stderr |
+| --- | --- | --- |
+| `https-proxy-forward` | `... -Port 18144 -Tls -TlsAlpn 'http/1.1' -Response 'HTTP/1.1 200 OK\r\nContent-Length: 2\r\nVia: 1.1 surl\r\n\r\nok' -CurlArgs '-sS','-x','https://127.0.0.1:18144','--proxy-insecure','http://origin.test/a?b'` | 0, `ok`; ALPN `http/1.1` |
+| `https-proxy-http2-offered` | the same with `-Curl` the pinned static 8.21.0 build (`589C8E4D…2648`, which has HTTP/2), `-Port 18145` and `'--proxy-http2'` before `-x` | 0, `ok`; ALPN `http/1.1`, curl having offered `h2` first |

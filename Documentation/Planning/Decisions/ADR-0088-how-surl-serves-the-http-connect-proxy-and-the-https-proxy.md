@@ -1,7 +1,7 @@
 # ADR-0088 — How Surl serves the HTTP `CONNECT` proxy and the HTTPS proxy
 
 - **Status:** Accepted
-- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05
+- **Date:** 2026-11-04; Amendment 1 (BL-552) 2026-11-05; Amendment 2 (BL-554) 2026-11-05
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-04,
   in BL-550. Built by BL-551 (decision 2's contract), BL-552 (decisions 1, 3, 4 and the limits of
   decision 7), BL-553 (decision 5), BL-554 (decision 6), BL-555 (decision 7's command line) and
@@ -315,3 +315,44 @@ Windows reference build (`Surl.Protocol.HttpProxy.UnitTests/Fixtures`).
   connection closes after it, its body unsent.
 - **`Schemes`** is `http` and `https`: the proxy is chosen by `--proxy`, not by scheme (decision 7),
   so BL-555 composes it beside the HTTP server rather than through the scheme table.
+
+## Amendment 2 - what BL-554 settled inside decision 6 (2026-11-05)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), in BL-554, which
+built decision 6. Measured with `Record-CurlExchange.ps1 -Tls -TlsAlpn` against the Windows
+reference build (`0E773709…8778`) and, for `--proxy-http2`, the pinned static 8.21.0 build
+(`589C8E4D…2648`, the Windows build with HTTP/2; ADR-0081):
+
+| curl arguments (after `-sS`) | Recorder offered | Agreed | Exit |
+| --- | --- | --- | --- |
+| `-x https://127.0.0.1:<port> --proxy-insecure http://origin.test/a?b` (reference build) | `h2,http/1.1` | `http/1.1` | 0 |
+| the same (static build) | `h2,http/1.1` | `http/1.1` | 0 |
+| `--proxy-http2 -x https://… --proxy-insecure http://origin.test/a` (static build) | `h2,http/1.1` | `h2` | 16 (the recorder spoke no HTTP/2) |
+| `--proxy-http2 -x https://… --proxy-insecure http://origin.test/a?b` (static build) | `http/1.1` | `http/1.1` | 0, row 13's bytes |
+
+- **A proxy listen URL is marked, and its ALPN is `http/1.1` alone.** Curl offers `http/1.1` to an
+  HTTPS proxy, and `h2` first with `--proxy-http2`; a listener offering an `https` origin's
+  `h2, http/1.1` (ADR-0081 decision 2) would agree `h2` with the latter, which the proxy does not
+  serve until BL-595. So `ListenUrl` gains `IsProxy` (an init-only property, `false` unless set:
+  every existing listen URL keeps its behaviour), set by whoever builds a listen URL from
+  `--proxy` (BL-555), and `Surl.Networking`'s `TlsApplicationProtocols.ForListener` offers
+  exactly `http/1.1` for an `https` proxy listen URL. `ServerTlsHandshake.ForListener` uses it.
+  The proxy, not the scheme, decides, because the scheme is `https` for both (decision 7).
+- **The handshake is the engine's**, as for any `https` listen URL (ADR-0010 section 2): it runs
+  before `ServeAsync` within the head timeout and is noted `TLS handshake completed: …`; a failed
+  one is noted `TLS handshake failed: <message>`, nothing is written and the proxy never sees the
+  connection.
+- **No ALPN in common** (a client offering only `h2`) fails the handshake on Windows as on Linux:
+  Schannel answered BL-554's fast test with "No common application protocol exists between the
+  client and the server", where ADR-0010 section 6's table expected Windows to complete without
+  ALPN. No pinned curl build reaches it (curl always offers `http/1.1`). macOS is not pinned.
+- **What the proxy itself logs.** On a connection secured before its first request the proxy
+  notes once, before reading: `HTTPS proxy: curl's connection to the proxy is TLS (<protocol>,
+  ALPN <id or none>); requests are read inside it.` A plain connection gets no such note. A
+  session that agreed any ALPN but `http/1.1` (none is served too, as HTTP/1.1) is noted
+  `HTTPS proxy: the TLS handshake agreed ALPN <id>, which the proxy does not serve; the
+  connection closes.` and closed without a byte written or an origin connected; it is reachable
+  only by a listener composed without `IsProxy`.
+- **Forwarding and `CONNECT` are unchanged** inside the TLS: the bytes curl sends inside it are
+  row 13's, byte for byte row 1's, and a tunnel's bytes, a nested TLS record stream included, are
+  relayed unread (decision 4).

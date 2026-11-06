@@ -49,7 +49,7 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
     public async Task ServeAsync()
     {
         var isFirstHead = true;
-        var keepsConnectionOpen = true;
+        var keepsConnectionOpen = NotesTlsToTheProxy();
         while (keepsConnectionOpen)
         {
             var result = await reader.ReadNextRequestHeadAsync(context, isFirstHead);
@@ -62,6 +62,32 @@ internal sealed partial class HttpProxyExchange : IAsyncDisposable
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync() => await DropOriginAsync();
+
+    /// <summary>
+    /// On a connection secured before the first request (the HTTPS proxy, ADR-0088 decision 6
+    /// and Amendment 2), notes that curl's connection to the proxy is TLS; true unless the
+    /// handshake agreed an ALPN protocol other than <c>http/1.1</c>, which the proxy does not
+    /// serve, so the connection closes without a byte written. A plain connection notes nothing.
+    /// </summary>
+    private bool NotesTlsToTheProxy()
+    {
+        if (client.TlsSession is not { } tls)
+        {
+            return true;
+        }
+
+        var applicationProtocol = tls.ApplicationProtocol ?? "none";
+        if (tls.ApplicationProtocol is not (null or "http/1.1"))
+        {
+            context.Log.Note($"HTTPS proxy: the TLS handshake agreed ALPN {applicationProtocol}, which the proxy does not serve; the connection closes.");
+
+            return false;
+        }
+
+        context.Log.Note($"HTTPS proxy: curl's connection to the proxy is TLS ({tls.Protocol}, ALPN {applicationProtocol}); requests are read inside it.");
+
+        return true;
+    }
 
     // Whether curl's connection ends after this request whatever the answer: HTTP/1.0, or a
     // Connection or Proxy-Connection field saying close (RFC 9112 section 9.3).
