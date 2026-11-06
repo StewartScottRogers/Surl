@@ -8,7 +8,7 @@ depends-on: [BL-630]
 touches: [Documentation/Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-06
 ---
 # BL-691 — Amend ADR-0100 decision 3.2 for NATS '>' as one-or-more levels and Kafka names with empty levels
 
@@ -36,15 +36,19 @@ ADR-0100 decision 3.2's mapping table and "What does not survive a mapping" say 
 
 ## Acceptance criteria
 
-- [ ] ADR-0100 decision 3.2's NATS row says the last `>` becomes `+/#`, and why, citing the NATS
+- [x] ADR-0100 decision 3.2's NATS row says the last `>` becomes `+/#`, and why, citing the NATS
       client protocol.
-- [ ] ADR-0100 decision 3.2's Kafka row and "What does not survive a mapping" say Kafka names
+- [x] ADR-0100 decision 3.2's Kafka row and "What does not survive a mapping" say Kafka names
       empty levels (`a..b` is `a//b`) and only `.` and `..` are refused.
-- [ ] The amendment is marked "Decided by Claude under Stewart's delegation", dated, and names BL-630.
+- [x] The amendment is marked "Decided by Claude under Stewart's delegation", dated, and names BL-630.
 
 ## Notes
+
+- Made the edit in the session rather than through align-and-document: one ADR section, checked line by line against `NatsSubjectNames.cs` and `KafkaTopicNames.cs`. Added section 3.2.1 (the amendment, marked as decided under delegation), rewrote the NATS and Kafka rows and "What does not survive a mapping", and added an "Amended" line to the header. The NATS row now also lists the refusals the code makes (empty token, white space, `>` before the last token).
+- Markdown only, no `.cs` or project file changed, so the `verify` skill was not run.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0100 3.2 says NATS '>' is +/# and Kafka names empty levels, as BL-630 built

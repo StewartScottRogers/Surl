@@ -29,6 +29,9 @@
 - **Amended:** decision 2.3 by its own section 2.3.1 (2026-11-06, BL-685): the object metadata
   index's byte format and the choices BL-636 made building it, among them that stale entries are
   dropped lazily rather than on every write.
+- **Amended:** decision 3.2's NATS and Kafka rows and "What does not survive a mapping" by its own
+  section 3.2.1 (2026-11-06, BL-691, recording BL-630): NATS's last `>` becomes `+/#` (one or more
+  levels), not `#`, and Kafka names empty levels (`a..b` is `a//b`); only `.` and `..` are refused.
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
@@ -289,24 +292,49 @@ for every protocol.
 | --- | --- | --- | --- | --- |
 | MQTT 3.1.1, MQTT 5 | topic `a/b`, filter `a/+`, `a/#` | identical | none: every valid MQTT name is canonical | MQTT 3.1.1 4.7; MQTT 5.0 4.7 |
 | MQTT 5 shared subscription | `$share/g/a/+` | filter `a/+`, subscription group `g` (3.4) | none | MQTT 5.0 4.8.2 |
-| NATS | subject `a.b`, wildcards `*` and `>` | `.` becomes `/`, `*` becomes `+`, `>` (last only) becomes `#` | a token holding `/`, `+` or `#`: `-ERR 'Invalid Subject'` on SUB, `-ERR 'Invalid Publish Subject'` on PUB | NATS client protocol, "Protocol conventions", PUB, SUB, `-ERR` |
+| NATS | subject `a.b`, wildcards `*` and `>` | `.` becomes `/`, `*` becomes `+`, `>` (last only) becomes `+/#`, and a trailing `+/#` becomes `>` again (3.2.1) | an empty token, a token holding white space, `/`, `+` or `#`, or `>` before the last token: `-ERR 'Invalid Subject'` on SUB, `-ERR 'Invalid Publish Subject'` on PUB | NATS client protocol, "Protocol conventions", PUB, SUB, `-ERR` |
 | AMQP 0-9-1 | `amq.topic` routing key `a.b`, binding key with `*` and `#` | `.` becomes `/`, `*` becomes `+`, `#` stays `#` | a word holding `/`, `+` or `#`: the publish is unroutable - dropped, or `basic.return` `312 NO_ROUTE` when `mandatory` is set | AMQP 0-9-1 section 3.1.3.3 (topic exchange); class `basic`, methods `publish` and `return` |
 | AMQP 0-9-1 | a queue, through the default exchange or a binding | a bus queue of the same name (3.3) | none | AMQP 0-9-1 sections 3.1.3.1, 3.1.4 |
 | AMQP 0-9-1 | other exchanges (`amq.direct`, `amq.fanout`, `amq.headers`, declared ones) | none: their routing stays inside the Amqp0 broker, onto bus queues | n/a | AMQP 0-9-1 section 3.1.3 |
 | AMQP 1.0 | link address `/topic/<t>` (a source may hold `+` and `#`), `/queue/<q>` | topic `<t>` verbatim, queue `<q>` | any other address, or `<t>` not canonical: `attach` refused with `amqp:not-found` | AMQP 1.0 part 3 sections 3.5.3 and 3.5.4 (address is opaque to the specification), part 2 section 2.8.15 |
 | STOMP 1.2 | destination `/topic/<t>` (a SUBSCRIBE may hold `+` and `#`), `/queue/<q>` | topic `<t>` verbatim, queue `<q>` | any other destination, or `<t>` not canonical: an `ERROR` frame, then close | STOMP 1.2 "SEND", "SUBSCRIBE", "ERROR" (destinations are opaque to the specification) |
-| Kafka | topic `a.b`, partition 0 | `.` becomes `/`; one partition per topic (3.3) | a topic name outside `[A-Za-z0-9._-]{1,249}` is already Kafka's `INVALID_TOPIC_EXCEPTION` (17); a partition other than 0: `UNKNOWN_TOPIC_OR_PARTITION` (3); CreateTopics with more than one partition: `INVALID_PARTITIONS` (37) | Kafka protocol guide, "Error Codes"; Kafka documentation 5.3 "Messages" |
+| Kafka | topic `a.b`, partition 0 | `.` becomes `/`, so an empty level is named too (`a..b` is `a//b`, `.a` is `/a`; 3.2.1); one partition per topic (3.3) | a topic name outside `[A-Za-z0-9._-]{1,249}` is already Kafka's `INVALID_TOPIC_EXCEPTION` (17); a partition other than 0: `UNKNOWN_TOPIC_OR_PARTITION` (3); CreateTopics with more than one partition: `INVALID_PARTITIONS` (37) | Kafka protocol guide, "Error Codes"; Kafka documentation 5.3 "Messages" |
 | Redis | channel `a/b` | identical (3.8) | a channel not valid UTF-8 or holding U+0000 stays inside the Redis server | Redis "Pub/Sub" |
 
-**What does not survive a mapping.** NATS, AMQP 0-9-1 and Kafka use `.` as their separator and
-cannot name an empty level, so a canonical topic with an empty level (`/a`, `a//b`, `a/`) or a `.`
-inside a level (`a.b/c`) is unreachable from them: no subscription of theirs can match it, and a
-message published on it is not delivered to them. Kafka can name only levels made of
-`[A-Za-z0-9_-]`, at most 249 bytes in all. NATS cannot name a level holding a space or tab, AMQP
-0-9-1 a routing key past 255 bytes (a `shortstr`). The publisher is never refused for these: the
+**What does not survive a mapping.** NATS, AMQP 0-9-1 and Kafka use `.` as their separator, so a
+canonical topic with a `.` inside a level (`a.b/c`) is unreachable from all three: no subscription
+of theirs can match it, and a message published on it is not delivered to them. NATS and AMQP 0-9-1
+cannot name an empty level, so a canonical topic with one (`/a`, `a//b`, `a/`) is unreachable from
+them too. Kafka can: its rule allows `a..b`, `.a` and `a.`, which are `a//b`, `/a` and `a/`; only the
+canonical topics `/` and `//`, which would be Kafka's refused `.` and `..`, are unreachable from it
+(3.2.1). Kafka can name only levels made of `[A-Za-z0-9_-]`, at most 249 bytes in all. NATS cannot
+name a level holding a space or tab, and a canonical `#` is reachable from NATS only as the last
+level after a `+` (a NATS `>`); a filter with a `#` anywhere else has no NATS subject. AMQP 0-9-1
+cannot name a routing key past 255 bytes (a `shortstr`). The publisher is never refused for these: the
 topic is valid for its own protocol, and nobody on the others can have subscribed to it. The `/topic/`
 and `/queue/` prefixes for AMQP 1.0 and STOMP are decided here because both specifications leave the
 address opaque; one convention for both lets a STOMP producer and an AMQP 1.0 consumer meet.
+
+##### 3.2.1 Amendment: NATS `>` is one or more levels, and Kafka names empty levels
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06, in
+BL-691, recording what BL-630's `NatsSubjectNames` and `KafkaTopicNames` in
+`Surl.MessageBus.UnitLibrary` do. This ADR as first written said NATS's last `>` becomes `#`, and
+that Kafka cannot name an empty level. Both read each protocol by its specification rather than this
+ADR's literal text:
+
+- **NATS `>` becomes `+/#`.** The NATS client protocol ("Protocol conventions") defines `>` as
+  matching one or more tokens, while a canonical `#` matches zero or more levels. Mapping `a.>` to
+  `a/#` would deliver a message published on `a` to a NATS subscriber of `a.>`, which a NATS server
+  never does. `a.>` is therefore `a/+/#` (one or more levels), and `>` alone is `+/#`. Back the other
+  way, a filter ending in `+/#` becomes a subject ending in `>`; a canonical `#` anywhere else is
+  unreachable from NATS, because no NATS subject means "zero or more".
+- **Kafka names empty levels.** Kafka's own rule, `[A-Za-z0-9._-]{1,249}` other than `.` and `..`,
+  allows `a..b`, `.a` and `a.`, and this ADR already holds that a publisher is never refused for a
+  name valid in its own protocol. So `a..b` maps to `a//b` and back, and only `/` and `//` (Kafka's
+  `.` and `..`) are unreachable from Kafka.
+- **AMQP 0-9-1 is unchanged.** Its topic exchange's words are letters and digits (section 3.1.3.3),
+  so an empty word still makes a routing key unroutable, as the table says.
 
 #### 3.3 What the bus holds
 
