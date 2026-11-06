@@ -53,3 +53,4 @@ and BL-565's record layer, and then carries application data, as BL-563's ADR de
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
