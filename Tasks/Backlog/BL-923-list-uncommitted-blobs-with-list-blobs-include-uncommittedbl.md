@@ -1,5 +1,5 @@
 ---
-id: BL-917
+id: BL-923
 title: List uncommitted blobs with List Blobs include=uncommittedblobs
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-917 — List uncommitted blobs with List Blobs include=uncommittedblobs
+# BL-923 — List uncommitted blobs with List Blobs include=uncommittedblobs
 
 ## Goal
 

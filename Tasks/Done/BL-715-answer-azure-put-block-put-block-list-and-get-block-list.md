@@ -54,7 +54,7 @@ client that uploads a large file in blocks completes the upload.
   `ServeAsync_StagedBlob_IsInvisibleUntilCommitted`, `ServeAsync_GetBlockList_WritesThePagesBlockListForEachType`),
   `AzureBlockListDocumentTests`, `AzureBoundedBodyStreamTests`, `AzureStagingAreaTests`. Azure tests 368, all green;
   every member written here at 100% line and branch.
-- Choices (Decided by Claude under Stewart's delegation; recorded in ADR-0109 by BL-916):
+- Choices (Decided by Claude under Stewart's delegation; recorded in ADR-0109 by BL-922):
   - Where blocks are staged: ADR-0109 says `.surl/objects/uploads/`, but `ContentStore` refuses every write
     under `/.surl` and BL-715 touches only this library. So each blob's blocks sit, one after another, in a
     `ContentUploadSession` opened at the blob and never committed - a hidden dot-file beside it, as Data Lake
@@ -76,9 +76,9 @@ client that uploads a large file in blocks completes the upload.
     element, text in the root or an element inside an entry is `InvalidXmlDocument`.
 - `Measure-CodeQuality.ps1 -Library Surl.Extended.Protocol.AzureStorage.UnitLibrary` still lists three
   `AzureLoginJudge` methods over Cobertura complexity 10. They were already there, in a file this task did not
-  change, and CA1502 passes them. Filed as BL-919.
-- Filed: BL-916 (ADR-0109 amendment), BL-917 (`include=uncommittedblobs`), BL-918 (Put Blob and Delete Blob
-  discard uncommitted blocks), BL-919 (AzureLoginJudge complexity).
+  change, and CA1502 passes them. Filed as BL-925.
+- Filed: BL-922 (ADR-0109 amendment), BL-923 (`include=uncommittedblobs`), BL-924 (Put Blob and Delete Blob
+  discard uncommitted blocks), BL-925 (AzureLoginJudge complexity).
 
 ## Log
 

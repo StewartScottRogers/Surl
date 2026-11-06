@@ -1,5 +1,5 @@
 ---
-id: BL-916
+id: BL-922
 title: Record BL-715's block staging choices in ADR-0109
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-916 — Record BL-715's block staging choices in ADR-0109
+# BL-922 — Record BL-715's block staging choices in ADR-0109
 
 ## Goal
 

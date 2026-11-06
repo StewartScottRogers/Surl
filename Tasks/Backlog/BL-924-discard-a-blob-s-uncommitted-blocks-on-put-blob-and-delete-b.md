@@ -1,5 +1,5 @@
 ---
-id: BL-918
+id: BL-924
 title: Discard a blob's uncommitted blocks on Put Blob and Delete Blob
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-918 — Discard a blob's uncommitted blocks on Put Blob and Delete Blob
+# BL-924 — Discard a blob's uncommitted blocks on Put Blob and Delete Blob
 
 ## Goal
 

@@ -1,5 +1,5 @@
 ---
-id: BL-919
+id: BL-925
 title: Split AzureLoginJudge's three methods the coverage measure finds past complexity 10
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-919 — Split AzureLoginJudge's three methods the coverage measure finds past complexity 10
+# BL-925 — Split AzureLoginJudge's three methods the coverage measure finds past complexity 10
 
 ## Goal
 
