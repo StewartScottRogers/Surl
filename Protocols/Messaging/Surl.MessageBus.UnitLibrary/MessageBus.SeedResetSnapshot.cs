@@ -217,22 +217,25 @@ public sealed partial class MessageBus
 
     private void ReplaceQueues(IReadOnlyList<BusQueueSnapshot> targetQueues)
     {
-        var targetNames = targetQueues.Select(target => target.Name).ToHashSet(StringComparer.Ordinal);
-        foreach (var queue in queues.Values.ToList())
-        {
-            queue.DropAllMessages();
-            if (!targetNames.Contains(queue.Name) && queue.Owner is null && queue.Consumers.Count == 0)
-            {
-                queues.Remove(queue.Name);
-            }
-        }
-
+        EmptyQueuesAndRemoveUnusedOnes(targetQueues.Select(target => target.Name).ToHashSet(StringComparer.Ordinal));
         queuedBytes = 0;
         queuesVersion++;
         var now = timeProvider.GetUtcNow();
         foreach (var target in targetQueues)
         {
             Refill(target, now);
+        }
+    }
+
+    private void EmptyQueuesAndRemoveUnusedOnes(HashSet<string> keptNames)
+    {
+        foreach (var queue in queues.Values.ToList())
+        {
+            queue.DropAllMessages();
+            if (!keptNames.Contains(queue.Name) && queue.Owner is null && queue.Consumers.Count == 0)
+            {
+                queues.Remove(queue.Name);
+            }
         }
     }
 

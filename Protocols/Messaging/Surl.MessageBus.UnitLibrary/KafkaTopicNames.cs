@@ -46,8 +46,13 @@ public static class KafkaTopicNames
 
     private static bool IsKafkaTopic([NotNullWhen(true)] string? name, char separator) =>
         name is { Length: > 0 and <= MaxTopicLength }
-        && name.Replace(separator, '.') is not ("." or "..")
-        && name.All(character => character == separator || IsKafkaLevelCharacter(character));
+        && !IsDotOrDotDot(name.Replace(separator, '.'))
+        && HasOnlyKafkaCharacters(name, separator);
+
+    private static bool IsDotOrDotDot(string name) => name is "." or "..";
+
+    private static bool HasOnlyKafkaCharacters(string name, char separator) =>
+        name.All(character => character == separator || IsKafkaLevelCharacter(character));
 
     private static bool IsKafkaLevelCharacter(char character) =>
         char.IsAsciiLetterOrDigit(character) || character is '_' or '-';
