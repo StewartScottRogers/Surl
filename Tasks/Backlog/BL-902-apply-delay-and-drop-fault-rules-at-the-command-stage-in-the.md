@@ -1,5 +1,5 @@
 ---
-id: BL-894
+id: BL-902
 title: Apply delay and drop fault rules at the command stage in the HTTP, RTSP and WebSocket servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-894 — Apply delay and drop fault rules at the command stage in the HTTP, RTSP and WebSocket servers
+# BL-902 — Apply delay and drop fault rules at the command stage in the HTTP, RTSP and WebSocket servers
 
 ## Goal
 

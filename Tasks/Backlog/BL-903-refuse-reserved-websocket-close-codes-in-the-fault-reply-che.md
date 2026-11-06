@@ -1,5 +1,5 @@
 ---
-id: BL-895
+id: BL-903
 title: Refuse reserved WebSocket close codes in the --fault reply check
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-895 — Refuse reserved WebSocket close codes in the --fault reply check
+# BL-903 — Refuse reserved WebSocket close codes in the --fault reply check
 
 ## Goal
 

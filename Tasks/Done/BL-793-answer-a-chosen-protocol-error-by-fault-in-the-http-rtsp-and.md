@@ -67,7 +67,7 @@ so a test can make one request fail on purpose.
   an empty one; a reply that does not fit is noted and not applied (no event); a WebSocket close code
   outside what RFC 6455 allows on the wire (1004, 1016-2999) is not sent; `delay`/`drop` at the command stage
   are noted and not applied here.
-- **Follow-ups filed**: BL-894 (delay and drop at the command stage in these servers), BL-895 (Surl.Cli
+- **Follow-ups filed**: BL-902 (delay and drop at the command stage in these servers), BL-903 (Surl.Cli
   refuses reserved WebSocket close codes).
 - **Coverage**: `Measure-CodeQuality.ps1` over the four test projects: HttpMessage, Http, Rtsp, Ws all 100% line
   and 100% branch; no new member over the thresholds (`FileAnswer` and `StoreUploadAsync` in Http were already
