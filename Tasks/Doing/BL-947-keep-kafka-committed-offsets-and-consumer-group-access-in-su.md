@@ -64,3 +64,4 @@ OffsetCommit and OffsetFetch (BL-949) and its group access checks (BL-948) have 
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
