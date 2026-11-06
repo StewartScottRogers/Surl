@@ -45,8 +45,10 @@ What it holds:
   `ReadAsync` must forward it too. `InMemoryConnection` peeks the script; past its end it returns
   `null` at once when the client half-closes, and otherwise after `wait` on its `peekClock`.
 - The authentication contract (ADR-0032, section 6): `IAuthenticationPolicy` (a password
-  login, `PasswordLogin` judged as a `PasswordLoginVerdict`, and one
-  `IHttpAuthenticationSession` per HTTP connection), `HttpAuthenticationRequest` and
+  login, `PasswordLogin` judged as a `PasswordLoginVerdict`, one
+  `IHttpAuthenticationSession` per HTTP connection, and `NamesAccount`, a default interface member
+  matching nothing, which says whether a name is a named account's so the Azure Storage server can
+  read a path-style target, ADR-0109 decision 2, BL-725), `HttpAuthenticationRequest` and
   `HttpAuthenticationVerdict` with `HttpAuthenticationOutcome` (and, for a login that binds
   the body, `IHttpRequestBodyCheck`, asked with the body's SHA-256 once it is read,
   ADR-0045), a refused verdict's `HttpAuthenticationRefusal` and a request's

@@ -251,6 +251,9 @@ server starts it with `CanCarrySecurityLayer` (BL-329, below), and is `RefusedMe
   is not base64, finds a dummy with a random 64-byte key, compared the same way.
 - Tested in `AzureStorageVerifierTests`, which sign the strings to sign written as the pages give
   them, never with the library's own builder.
+- `AuthenticationPolicy.NamesAccount` (BL-725) is `AccountBook.HasNamedAccount` over the policy's
+  accounts: the Azure Storage server asks it whether a path-style target's first segment is an
+  account (ADR-0109 decision 2). The empty name never matches.
 
 ## Cloud Storage V4 HMAC (BL-430)
 
