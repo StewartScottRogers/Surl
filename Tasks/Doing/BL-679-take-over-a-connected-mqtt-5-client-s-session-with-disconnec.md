@@ -44,3 +44,4 @@ say, as ADR-0093 decision 1 ("Session takeover") decides.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
