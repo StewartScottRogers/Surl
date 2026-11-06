@@ -333,3 +333,43 @@ Bad:
 - **Serve the throwaway certificate and the RSA suites by default.** Rejected: upstream's server
   sends no certificate, and case 324's 60 is curl refusing exactly that.
 - **Share `Surl.Dtls`'s PRF and record code.** Rejected in decision 1.
+
+## Amendment 1 (2026-11-05): what BL-566 measured, and the signed suites deferred to BL-907
+
+Decided by Claude under Stewart's delegation, in BL-566.
+
+**Measured.** BL-566 ran the supplementary static Windows build (OpenSSL 4.0.1, SHA-256
+`589C8E4D297B4831C82ADF0261FC1CA57CE59D663B91B4106D2EE7DFF3972648`) against `Surl.TlsSrp`'s own
+server, using `Record-CurlExchange.ps1 -TlsSrp` and `Run-TlsSrpRelay.cs`. Its ClientHello is the one
+described in Context, and the confirmations below hold. The recorded bytes are in
+`Cryptography/Surl.TlsSrp.UnitTests/Fixtures`.
+
+- With `-k --tlsauthtype SRP --tlsuser jsmith --tlspassword abc`, the handshake completes:
+  `C0 20`, with `renegotiation_info`, `extended_master_secret`, `encrypt_then_mac` and ALPN
+  `http/1.1` answered, as decisions 2 and 3 predicted. The request and the reply then round-trip
+  (exit 0). This is upstream case 320's outcome.
+- `jsmith`/`badpass` and `baduser`/`badpass` both end with the server's `bad_record_mac` at the
+  client's `Finished`. curl reports `tls alert bad record mac` and exits 35, as in cases 322 and
+  321, and the wire does not tell the two apart (decision 4).
+- Without `-k`, the handshake completes and curl exits 60, `SSL: could not get peer certificate`,
+  as in case 324.
+
+**A salt must not start with a zero byte.** With the salt `00 01 ... 0F`, the right password
+failed with `bad_record_mac`; with `10 11 ... 1F`, it passed. OpenSSL's client reads `srp_s` into
+a number, so it hashes the salt without its leading zero bytes, while the verifier was computed
+over all 16. The server sends the salt as it has it. So decision 4's salt drawn at startup for
+`--tlsuser` and `--tlspassword` (BL-567) is drawn again until its first byte is not zero. A
+verifier file whose salt starts with zero cannot be fixed by the server: it fails against OpenSSL
+exactly as it would against gnutls-serv.
+
+**Signed suites.** BL-566 serves the three unsigned suites only, which is all that upstream's
+gnutls-serv and the four `httptls+srp` cases use. Decision 2's RSA- and DSS-signed suites, with
+their `Certificate` message and signed ServerKeyExchange, are BL-907's work.
+
+**Client alerts.** During the handshake, any alert from the client ends it with no reply, the
+warning `close_notify` included. After the handshake, a warning other than `close_notify` is
+ignored, and `close_notify` or the end of the connection ends the stream.
+
+**The returned stream** (`TlsSrpStream`) is asynchronous only. Its synchronous `Read` and `Write`
+throw `NotSupportedException`, and `DisposeAsync` sends `close_notify` before it closes the
+connection. BL-567's seam in `Surl.Networking` reads and writes it asynchronously.
