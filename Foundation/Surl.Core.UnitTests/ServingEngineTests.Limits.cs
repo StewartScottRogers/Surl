@@ -419,10 +419,11 @@ public sealed partial class ServingEngineTests
             ConnectionLimits? limits,
             string scheme,
             Func<IConnection, ConnectionRefusal, CancellationToken, Task>? writeRefusal = null,
-            Func<IConnection, ExchangeContext, Task>? serve = null)
+            Func<IConnection, ExchangeContext, Task>? serve = null,
+            ListenUrl? listenUrl = null)
         {
             var factory = new FakeListenerFactory();
-            var listenUrl = scheme == "https" ? Https : Http;
+            listenUrl ??= scheme == "https" ? Https : Http;
             Server = new FakeRefusalWritingProtocolServer(
                 new FakeConnectionProtocolServer(serve ?? WaitUntilEndedAsync, scheme), writeRefusal);
             var engine = limits is null

@@ -109,4 +109,46 @@ public sealed class ListenUrlTests
 
         Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => listenUrl.WithBoundPort(boundPort));
     }
+
+    [TestMethod]
+    [DataRow("https", true)]
+    [DataRow("wss", true)]
+    [DataRow("ftps", true)]
+    [DataRow("imaps", true)]
+    [DataRow("pop3s", true)]
+    [DataRow("smtps", true)]
+    [DataRow("ldaps", true)]
+    [DataRow("gophers", true)]
+    [DataRow("mqtts", true)]
+    [DataRow("smbs", true)]
+    [DataRow("s3", true)]
+    [DataRow("http", false)]
+    [DataRow("ftp", false)]
+    public void IsImplicitTls_Unset_IsWhatTlsSchemesSaysOfTheScheme(string scheme, bool expected)
+    {
+        var listenUrl = new ListenUrl(scheme, "127.0.0.1", 0);
+
+        Assert.AreEqual(expected, listenUrl.IsImplicitTls);
+        Assert.AreEqual(TlsSchemes.IsImplicitTls(scheme), listenUrl.IsImplicitTls);
+    }
+
+    [TestMethod]
+    public void IsImplicitTls_SetToFalseForS3_IsPlaintextOnThatListenUrlOnly()
+    {
+        var plain = new ListenUrl("s3", "127.0.0.1", 9000) { IsImplicitTls = false };
+        var secure = new ListenUrl("s3", "127.0.0.1", 9443);
+
+        Assert.IsFalse(plain.IsImplicitTls);
+        Assert.IsFalse(plain.WithBoundPort(9000).IsImplicitTls);
+        Assert.IsTrue(secure.IsImplicitTls);
+        Assert.AreNotEqual(new ListenUrl("s3", "127.0.0.1", 9000), plain);
+    }
+
+    [TestMethod]
+    public void IsImplicitTls_SetToTrueForAPlainScheme_IsTls()
+    {
+        var listenUrl = new ListenUrl("http", "127.0.0.1", 0) { IsImplicitTls = true };
+
+        Assert.IsTrue(listenUrl.IsImplicitTls);
+    }
 }

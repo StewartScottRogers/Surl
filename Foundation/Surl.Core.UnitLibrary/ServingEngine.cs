@@ -629,7 +629,7 @@ public sealed partial class ServingEngine
     {
         NoteRefusal("a connection", connection.RemoteEndPoint, refusal);
 
-        if (route.Server is IConnectionRefusalWriter writer && !TlsSchemes.IsImplicitTls(route.ListenUrl.Scheme))
+        if (route.Server is IConnectionRefusalWriter writer && !route.ListenUrl.IsImplicitTls)
         {
             var failure = await CaptureFailureAsync(() => WriteRefusalWithinDeadlineAsync(
                 token => writer.WriteRefusalAsync(connection, refusal, token), route.ShutdownToken));
@@ -784,12 +784,12 @@ public sealed partial class ServingEngine
         events.Publish(new FaultAppliedEvent(
             rule.Id, rule.Kind, FaultStage.Accept, context.ExchangeId, ReportedListenUrl.Format(context.ListenUrl)));
 
-    // A listen URL whose scheme is TLS from the first byte gets its handshake here, and the
+    // A listen URL that is TLS from the first byte (ListenUrl.IsImplicitTls) gets its handshake here, and the
     // server sees the connection only once it completed (ADR-0010, section 2).
     private async Task SecureThenServeAsync(
         IConnection connection, AcceptedConnectionRoute route, ExchangeDeadlines deadlines, ExchangeContext context)
     {
-        if (TlsSchemes.IsImplicitTls(route.ListenUrl.Scheme) && !await CompleteImplicitHandshakeAsync(connection, context))
+        if (route.ListenUrl.IsImplicitTls && !await CompleteImplicitHandshakeAsync(connection, context))
         {
             return;
         }
