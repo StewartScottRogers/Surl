@@ -8,7 +8,7 @@ depends-on: [BL-942, BL-935]
 touches: [Conformance/Surl.Conformance.UnitTests, Run-CurlPortLibcurlWebSocketScript.cs, Run-CurlPortLibcurlRtspScript.cs, CurlPortLibcurlReference.targets, Documentation/Conformance/CurlPort/Libcurl.md]
 requirement: FR-057
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-936 — Write the Curl port's libcurl driver twins and run the WebSocket libcurl rows through them beside upstream libcurl
 
@@ -60,25 +60,43 @@ WebSocket rows' result.
 
 ## Acceptance criteria
 
-- [ ] `Run-CurlPortLibcurlWebSocketScript.cs`, `Run-CurlPortLibcurlRtspScript.cs` and
+- [x] `Run-CurlPortLibcurlWebSocketScript.cs`, `Run-CurlPortLibcurlRtspScript.cs` and
       `CurlPortLibcurlReference.targets` exist at the repository root; `dotnet run Run-CurlPortLibcurlWebSocketScript.cs`
       with `SURL_CURL_PORT_LIBCURL` unset fails the build with the targets' "Set SURL_CURL_PORT_LIBCURL"
       error, and with `--library` naming an unpinned file exits 3.
-- [ ] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~CurlPortLibcurlBesideUpstreamLibcurlOverWebSocketTests"`
+- [x] `dotnet test Conformance/Surl.Conformance.UnitTests --filter "FullyQualifiedName~CurlPortLibcurlBesideUpstreamLibcurlOverWebSocketTests"`
       on Windows reaches a verdict on every row (none Inconclusive on this machine) and passes; off
       Windows, or with a pinned file missing, each row is Inconclusive.
-- [ ] `Documentation/Conformance/CurlPort/Libcurl.md` has its `## Measured` table (port commit
+- [x] `Documentation/Conformance/CurlPort/Libcurl.md` has its `## Measured` table (port commit
       `b42c319ba940f66452b2b6f3e9910d46825b08fe` and `Libcurl.dll` SHA-256
       `613976A7CC3DA746AB74819C6A526D676A39998D56B5470D5C527A902D7C8311`, the upstream `libcurl-4.dll`
       SHA-256 from `UpstreamCurlBuilds.json`, Surl's commit, Windows, the date) and a WebSocket result
       that lists each finding in ADR-0089 decision 6's form or states there are none.
-- [ ] `PinnedLibcurlTalksToSurlOverWebSocketTests` and `PinnedLibcurlTalksToSurlOverRtspTests` still pass
+- [x] `PinnedLibcurlTalksToSurlOverWebSocketTests` and `PinnedLibcurlTalksToSurlOverRtspTests` still pass
       on Windows through the reshaped `PinnedLibcurlDriver.RunAsync`.
-- [ ] `dotnet build -warnaserror` is clean and the fast tests are green.
+- [x] `dotnet build -warnaserror` is clean and the fast tests are green.
 
 ## Notes
+
+- Took the work from the stash `darkfactory BL-597 20261106-033059` (`90c03679`, found with
+  `git reflog show refs/stash`, since `git stash list` is not allowed in a lane). Applied the tracked
+  diff to `PinnedLibcurlDriver.cs` and `PinnedCurlPortBesideUpstreamCurl.cs`, and wrote the six untracked
+  files from `stash^3`, checking their blob hashes were equal. Then converted them to CRLF, as the working
+  tree's other files are (`core.autocrlf`), because `dotnet format` asked for it. The RTSP Phase 7 test
+  class is left for the next task, as the task says.
+- Measured on Windows, 2026-11-06, Surl `dc8aebe3`: all 7 WebSocket rows agree (a port defect not listed
+  in `Libcurl.md` would have failed its row), so the findings table is empty. The 20 upstream libcurl rows
+  (`PinnedLibcurlTalksToSurlOverWebSocketTests` 7, `PinnedLibcurlTalksToSurlOverRtspTests` 13) still pass
+  through the reshaped `RunAsync`.
+- Criterion 1, checked by hand: `dotnet run Run-CurlPortLibcurlWebSocketScript.cs` with
+  `SURL_CURL_PORT_LIBCURL` unset fails the build with the targets' "Set SURL_CURL_PORT_LIBCURL ..." error.
+  With the variable set and `--library` naming an unpinned file, both twins exit 3.
+- Choice: the twins and the targets file stay out of `Surl.slnx`, because the upstream drivers
+  `Run-Libcurl*.cs` beside them are not listed there either. `Libcurl.md` also has an RTSP section saying
+  it is not measured yet, so the file stays true until the next task fills it in.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. The Curl port's libcurl driver twins run; all 7 WebSocket libcurl rows agree with upstream libcurl
