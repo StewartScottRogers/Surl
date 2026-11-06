@@ -43,7 +43,7 @@ publisher `basic.ack`/`basic.nack`, and announces `publisher_confirms` in `conne
       mode; `tx.select` on a channel in confirm mode (and the reverse) answered `406`; `publisher_confirms` in
       `connection.start`'s capabilities.
 - [x] `Documentation/Conformance/Extended/Amqp0.md`'s rows `Amqp0:Tx-1` and `Amqp0:Extension-3` name the tests;
-      ADR-0112 decision 7's `540` row is BL-932's (see Notes).
+      ADR-0112 decision 7's `540` row is BL-953's (see Notes).
 - [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
@@ -73,9 +73,9 @@ publisher `basic.ack`/`basic.nack`, and announces `publisher_confirms` in `conne
 - `ReleasePendingContent` went: a channel now closes only with no publish or one refused at its header (311),
   whose bytes were never held, so its subtraction was unreachable; `ReleaseChannel` clears `Publish` itself.
 - Scope: ADR-0112's edits (decision 6's bullet and `Succeeded` row, decision 2's capability row, decision 7's
-  540 row) were split into BL-932, because `Documentation/Planning/Decisions` is in BL-701's `touches` (in
+  540 row) were split into BL-953, because `Documentation/Planning/Decisions` is in BL-701's `touches` (in
   Doing at the time). `Documentation/Conformance/Extended/Amqp0.md` was added to `touches`: no task in Doing
-  names it. The criterion was reworded to point at BL-932 rather than leave the task blocked on a doc edit.
+  names it. The criterion was reworded to point at BL-953 rather than leave the task blocked on a doc edit.
 - Coverage: 100% line and branch for the library. `Measure-CodeQuality.ps1` still lists six IL-measured
   complexity rows (`Route`, `OpenChannel`, `BindQueue`, `IsValidName`'s lambda, `Amqp0TopicKeyMatcher.Advance`,
   `Amqp0ExchangeTable.Declare`) from methods this task did not change; the build-time gate (CA1502 at 10)

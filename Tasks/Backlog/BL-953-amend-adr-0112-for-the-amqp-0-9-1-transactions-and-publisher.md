@@ -1,5 +1,5 @@
 ---
-id: BL-932
+id: BL-953
 title: Amend ADR-0112 for the AMQP 0-9-1 transactions and publisher confirms BL-731 serves
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-932 — Amend ADR-0112 for the AMQP 0-9-1 transactions and publisher confirms BL-731 serves
+# BL-953 — Amend ADR-0112 for the AMQP 0-9-1 transactions and publisher confirms BL-731 serves
 
 ## Goal
 
