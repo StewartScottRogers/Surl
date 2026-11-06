@@ -1,5 +1,5 @@
 ---
-id: BL-915
+id: BL-919
 title: Make RunAsync_OutputFailsForARunningCall_ThrowsTheFailureOnceTheSessionEnds pass every run
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-915 — Make RunAsync_OutputFailsForARunningCall_ThrowsTheFailureOnceTheSessionEnds pass every run
+# BL-919 — Make RunAsync_OutputFailsForARunningCall_ThrowsTheFailureOnceTheSessionEnds pass every run
 
 ## Goal
 
