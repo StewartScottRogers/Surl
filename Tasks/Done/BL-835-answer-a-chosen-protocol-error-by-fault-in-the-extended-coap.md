@@ -5,7 +5,7 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-823, BL-785]
-touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Planning/Decisions/ADR-0143-how-the-coap-mcp-and-signalr-servers-answer-a-chosen-error.md, Documentation/Planning/Decisions/README.md]
+touches: [Protocols/Http/Surl.Extended.Protocol.Coap.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.Coap.UnitTests, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.McpServer.UnitTests, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.SignalR.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests, Documentation/Planning/Decisions/ADR-0144-how-the-coap-mcp-and-signalr-servers-answer-a-chosen-error.md, Documentation/Planning/Decisions/README.md]
 requirement: FR-062
 created: 2026-11-05
 completed: 2026-11-06
@@ -39,8 +39,8 @@ that server answer the matching request with the chosen protocol error, instead 
 
 ## Notes
 
-Delivered (2026-11-06, dark factory lane 4) under ADR-0143 (decided by Claude under Stewart's delegation; 0141 and
-0142 were taken). No upstream curl measurement: these are extended schemes, judged by their specifications
+Delivered (2026-11-06, dark factory lane 4) under ADR-0144 (decided by Claude under Stewart's delegation; 0141, 0142 and
+0143 were taken). No upstream curl measurement: these are extended schemes, judged by their specifications
 (ADR-0083), so every test replays bytes written from RFC 7252, JSON-RPC 2.0 and HubProtocol.md.
 
 - CoAP (`CoapRequestFaults`, wired in `CoapFlowServing`): asked per request before observers and resources;
@@ -56,8 +56,8 @@ Delivered (2026-11-06, dark factory lane 4) under ADR-0143 (decided by Claude un
   non-blocking Invocation has no Completion to carry an error, so it is never offered.
 - `Surl.Cli` `FaultReplyShapes` gained `coap`, `coaps`, `mcp`, `mcps`, `signalr`, `signalrs`, with the same
   shapes. The listen URL is formatted with ADR-0141's shared `ReportedListenUrl.Format`, not a copy.
-- Delay and drop at these points are filed as **BL-928**.
-- `touches` grew by ADR-0143 and the decisions README; no task in Doing names them.
+- Delay and drop at these points are filed as **BL-943**.
+- `touches` grew by ADR-0144 and the decisions README; no task in Doing names them.
 
 Tests: `CoapRequestFaultsTests`, `McpRequestFaultsTests`, `SignalRInvocationFaultsTests`, new rows in
 `CommandLineParserFaultTests` (`Parse_ErrorReplyFittingItsScheme_IsServed`,

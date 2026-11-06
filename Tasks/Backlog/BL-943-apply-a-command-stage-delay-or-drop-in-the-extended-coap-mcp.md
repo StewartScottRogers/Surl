@@ -1,5 +1,5 @@
 ---
-id: BL-928
+id: BL-943
 title: Apply a command-stage delay or drop in the extended CoAP, MCP and SignalR servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: FR-062
 created: 2026-11-06
 completed:
 ---
-# BL-928 — Apply a command-stage delay or drop in the extended CoAP, MCP and SignalR servers
+# BL-943 — Apply a command-stage delay or drop in the extended CoAP, MCP and SignalR servers
 
 ## Goal
 
@@ -19,7 +19,7 @@ invocation is applied there, instead of being noted as not applied.
 
 ## Context
 
-- BL-835 (ADR-0143) offers these points to the fault plan for `error` rules only; any other kind is noted
+- BL-835 (ADR-0144) offers these points to the fault plan for `error` rules only; any other kind is noted
   "not applied" by `CoapRequestFaults`, `McpRequestFaults` and `SignalRInvocationFaults`.
 - ADR-0141 decides how a server applies a command-stage delay or drop: `CommandStageFaults.FindAndApplyAsync`
   in `Surl.Protocol.Abstractions` (delay on the exchange's clock with the idle clock paused; drop aborts the
@@ -39,4 +39,4 @@ invocation is applied there, instead of being noted as not applied.
 ## Log
 
 - 2026-11-06: Created.
-- 2026-11-06: Filed by BL-835 (ADR-0143), which applies only the `error` kind at these points.
+- 2026-11-06: Filed by BL-835 (ADR-0144), which applies only the `error` kind at these points.
