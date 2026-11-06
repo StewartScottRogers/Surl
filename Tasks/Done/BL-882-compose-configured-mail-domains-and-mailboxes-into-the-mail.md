@@ -8,7 +8,7 @@ depends-on: [BL-880, BL-881]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-882 — Compose configured mail domains and mailboxes into the mail store and accounts in Surl.Composition
 
@@ -57,7 +57,7 @@ as before.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Application/Surl.Composition.UnitTests` show:
+- [x] Named tests in `Application/Surl.Composition.UnitTests` show:
   - a configured mailbox's owner exists in the composed store with its `INBOX`;
   - its account logs in through the `imap` policy and is refused through the `smtp` policy when its
     `protocols=` says `imap,pop3`;
@@ -65,16 +65,34 @@ as before.
   - a mailbox named like a `--user-file` account exits 2 with the ADR's text;
   - an unreadable mailbox file exits 37, and a malformed record exits 2 naming `<file>, line <n>`;
   - with no `MailDomains`, the composed store and accounts are exactly as before.
-- [ ] A named test captures `-v` start output with the `* Mail domains:` and `* Mailbox <address>: logins on
+- [x] A named test captures `-v` start output with the `* Mail domains:` and `* Mailbox <address>: logins on
       <schemes>` lines, and the `--allow-anonymous` note.
-- [ ] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean,
+- [x] `dotnet build Application/Surl.Composition.UnitLibrary -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Composition.UnitLibrary` keeps 100%
       line and branch coverage.
 
 ## Notes
+
+- Reused the BL-653 stash (`28786c9f`): `MailboxComposition.cs` and its tests verbatim in
+  substance; the `AuthenticationComposition`, `ComposedAuthentication`, `ComposedServing`,
+  `SurlServerComposition(.Start)` hunks re-made by hand over BL-881 and ADR-0124's events and faults.
+  `mailboxAccounts` and `mailDomains` are new trailing optional parameters, so every existing caller
+  (Console tests included) is unchanged.
+- The options are BL-883's and not parsed yet, so the tests set `MailDomains`, `Mailboxes` and
+  `MailboxFiles` with `with` on a parsed command line (`MailboxCompositionTests.WithMail`).
+- Choice: the start lists the extended schemes (which builds the extended servers once) only when
+  there is a `--mailbox-file` to read; `--mailbox` items are already checked by the parser, so a
+  start without files pays nothing.
+- Choice: a mailbox named like a `--user-file` account is `(2) option --mailbox: mailbox <address> is also
+  a --user-file account`, ADR-0101 decision 5 row 15's form with the `--user-file` noun, without the
+  `try` line, as `--user-file`'s other composition-time refusals (ADR-0032 section 2).
+- Tests: `MailboxCompositionTests` (15) and four `ComposeAsync_*` start tests; Composition 200 green,
+  the whole fast run green (79 assemblies). The new lines and branches are all covered by
+  `Surl.Composition.UnitTests` alone.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Split from BL-653 (timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. surl's start composes --mail-domain, --mailbox and --mailbox-file into the mail store and per-scheme accounts, with the -v notes
