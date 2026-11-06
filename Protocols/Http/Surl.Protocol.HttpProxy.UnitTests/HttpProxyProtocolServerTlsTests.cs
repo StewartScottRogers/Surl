@@ -62,10 +62,10 @@ public sealed class HttpProxyProtocolServerTlsTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_TlsAgreedH2_ClosesWithoutWritingOrConnectingAndNotesWhy()
+    public async Task ServeAsync_TlsAgreedAnAlpnNeitherH2NorHttp11_ClosesWithoutWritingOrConnectingAndNotesWhy()
     {
         var origins = new InMemoryOriginConnector();
-        var client = SecuredConnection(Http11Session with { ApplicationProtocol = "h2" }, "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"u8.ToArray());
+        var client = SecuredConnection(Http11Session with { ApplicationProtocol = "spdy/3.1" }, "GET / HTTP/1.1\r\n\r\n"u8.ToArray());
         var log = new RecordingExchangeLog();
 
         var written = await ServeAsync(client, origins, log);
@@ -73,7 +73,7 @@ public sealed class HttpProxyProtocolServerTlsTests
         Assert.AreEqual(string.Empty, written);
         Assert.IsEmpty(origins.Requests);
         CollectionAssert.AreEqual(
-            new[] { "HTTPS proxy: the TLS handshake agreed ALPN h2, which the proxy does not serve; the connection closes." },
+            new[] { "HTTPS proxy: the TLS handshake agreed ALPN spdy/3.1, which the proxy does not serve; the connection closes." },
             log.Notes.ToArray());
     }
 

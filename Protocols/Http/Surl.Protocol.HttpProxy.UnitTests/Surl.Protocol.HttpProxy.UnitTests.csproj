@@ -12,6 +12,14 @@
     <ProjectReference Include="..\Surl.Protocol.HttpProxy.UnitLibrary\Surl.Protocol.HttpProxy.UnitLibrary.csproj" />
   </ItemGroup>
 
+  <!-- The HTTP/2 test client and stream Surl.Http2.UnitTests owns, compiled in by link (BL-595). -->
+  <ItemGroup>
+    <Compile Include="..\Surl.Http2.UnitTests\Http2TestBytes.cs" Link="Http2TestBytes.cs" />
+    <Compile Include="..\Surl.Http2.UnitTests\Http2TestClient.cs" Link="Http2TestClient.cs" />
+    <Compile Include="..\Surl.Http2.UnitTests\Http2TestResponse.cs" Link="Http2TestResponse.cs" />
+    <Compile Include="..\Surl.Http2.UnitTests\Http2TestStream.cs" Link="Http2TestStream.cs" />
+  </ItemGroup>
+
   <!--
     Bytes recorded from pinned upstream curl (Fixtures/README.md), embedded so a fast test
     reads them without touching the file system. Each is named Fixtures/<case>/<file>.

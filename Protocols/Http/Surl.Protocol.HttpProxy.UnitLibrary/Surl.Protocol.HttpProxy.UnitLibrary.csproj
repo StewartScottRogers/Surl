@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Hpack.UnitLibrary\Surl.Hpack.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Http2.UnitLibrary\Surl.Http2.UnitLibrary.csproj" />
     <ProjectReference Include="..\Surl.HttpMessage.UnitLibrary\Surl.HttpMessage.UnitLibrary.csproj" />
   </ItemGroup>
 

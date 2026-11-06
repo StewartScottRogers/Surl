@@ -8,7 +8,8 @@ namespace Surl.Protocol.HttpProxy;
 /// <summary>
 /// Moves a message body from one side of the proxy to the other (ADR-0088 decision 3): a
 /// <c>Content-Length</c> body streamed through, a chunked body read chunk by chunk and written
-/// on chunked, a close-delimited body copied until the sender closes.
+/// on chunked (or, towards an HTTP/2 stream, as its data alone), a close-delimited body copied
+/// until the sender closes.
 /// </summary>
 internal static class ProxyBodyCopier
 {
@@ -24,7 +25,18 @@ internal static class ProxyBodyCopier
     /// <param name="length">How many bytes the body holds.</param>
     /// <param name="cancellationToken">Cancels the copy.</param>
     /// <returns><see langword="false"/> when the source closed before the body ended.</returns>
-    public static async Task<bool> CopyLengthAsync(HttpConnectionReader source, IConnection destination, long length, CancellationToken cancellationToken)
+    public static Task<bool> CopyLengthAsync(HttpConnectionReader source, IConnection destination, long length, CancellationToken cancellationToken) =>
+        CopyLengthAsync(source, destination.WriteAsync, length, cancellationToken);
+
+    /// <summary>
+    /// Copies exactly <paramref name="length"/> bytes, each piece handed to <paramref name="write"/>.
+    /// </summary>
+    /// <param name="source">Where the body is read.</param>
+    /// <param name="write">Writes one piece where the body goes.</param>
+    /// <param name="length">How many bytes the body holds.</param>
+    /// <param name="cancellationToken">Cancels the copy.</param>
+    /// <returns><see langword="false"/> when the source closed before the body ended.</returns>
+    public static async Task<bool> CopyLengthAsync(HttpConnectionReader source, Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask> write, long length, CancellationToken cancellationToken)
     {
         var buffer = new byte[CopyBufferBytes];
         var left = length;
@@ -36,7 +48,7 @@ internal static class ProxyBodyCopier
                 return false;
             }
 
-            await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            await write(buffer.AsMemory(0, read), cancellationToken);
             left -= read;
         }
 
@@ -50,13 +62,23 @@ internal static class ProxyBodyCopier
     /// <param name="destination">Where it is written.</param>
     /// <param name="cancellationToken">Cancels the copy.</param>
     /// <returns>A task that completes when the source has closed.</returns>
-    public static async Task CopyUntilClosedAsync(HttpConnectionReader source, IConnection destination, CancellationToken cancellationToken)
+    public static Task CopyUntilClosedAsync(HttpConnectionReader source, IConnection destination, CancellationToken cancellationToken) =>
+        CopyUntilClosedAsync(source, destination.WriteAsync, cancellationToken);
+
+    /// <summary>
+    /// Copies every byte until the source closes, each piece handed to <paramref name="write"/>.
+    /// </summary>
+    /// <param name="source">Where the body is read.</param>
+    /// <param name="write">Writes one piece where the body goes.</param>
+    /// <param name="cancellationToken">Cancels the copy.</param>
+    /// <returns>A task that completes when the source has closed.</returns>
+    public static async Task CopyUntilClosedAsync(HttpConnectionReader source, Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask> write, CancellationToken cancellationToken)
     {
         var buffer = new byte[CopyBufferBytes];
         int read;
         while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0)
         {
-            await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+            await write(buffer.AsMemory(0, read), cancellationToken);
         }
     }
 
@@ -69,7 +91,21 @@ internal static class ProxyBodyCopier
     /// <param name="maxBodyBytes">The most data bytes the body may hold; 0 means no limit.</param>
     /// <param name="cancellationToken">Cancels the copy.</param>
     /// <returns>How the copy ended.</returns>
-    public static async Task<ChunkedCopyOutcome> CopyChunkedAsync(HttpConnectionReader source, IConnection destination, long maxBodyBytes, CancellationToken cancellationToken)
+    public static Task<ChunkedCopyOutcome> CopyChunkedAsync(HttpConnectionReader source, IConnection destination, long maxBodyBytes, CancellationToken cancellationToken) =>
+        CopyChunksAsync(source, destination.WriteAsync, rechunks: true, maxBodyBytes, cancellationToken);
+
+    /// <summary>
+    /// Reads a chunked body (RFC 9112 section 7.1) and hands <paramref name="write"/> its data
+    /// alone, without the chunk framing: what an HTTP/2 stream carries in <c>DATA</c>.
+    /// </summary>
+    /// <param name="source">Where the chunked body is read.</param>
+    /// <param name="write">Writes one piece of the data where the body goes.</param>
+    /// <param name="cancellationToken">Cancels the copy.</param>
+    /// <returns>How the copy ended.</returns>
+    public static Task<ChunkedCopyOutcome> CopyChunkedDataAsync(HttpConnectionReader source, Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask> write, CancellationToken cancellationToken) =>
+        CopyChunksAsync(source, write, rechunks: false, 0, cancellationToken);
+
+    private static async Task<ChunkedCopyOutcome> CopyChunksAsync(HttpConnectionReader source, Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask> write, bool rechunks, long maxBodyBytes, CancellationToken cancellationToken)
     {
         long total = 0;
         long? size;
@@ -81,25 +117,32 @@ internal static class ProxyBodyCopier
                 return ChunkedCopyOutcome.TooLarge;
             }
 
-            await destination.WriteAsync(Encoding.ASCII.GetBytes(size.Value.ToString("x", CultureInfo.InvariantCulture) + "\r\n"), cancellationToken);
-            if (!await CopyLengthAsync(source, destination, size.Value, cancellationToken) || !IsEmptyLine(await source.ReadLineAsync(MaxChunkLineBytes, cancellationToken)))
+            await WriteFramingAsync(write, rechunks, size.Value.ToString("x", CultureInfo.InvariantCulture) + "\r\n", cancellationToken);
+            if (!await CopyLengthAsync(source, write, size.Value, cancellationToken) || !IsEmptyLine(await source.ReadLineAsync(MaxChunkLineBytes, cancellationToken)))
             {
                 return ChunkedCopyOutcome.Malformed;
             }
 
-            await destination.WriteAsync("\r\n"u8.ToArray(), cancellationToken);
+            await WriteFramingAsync(write, rechunks, "\r\n", cancellationToken);
         }
 
-        return size is null || !await SkipTrailerAsync(source, cancellationToken)
-            ? ChunkedCopyOutcome.Malformed
-            : await WriteLastChunkAsync(destination, cancellationToken);
-    }
+        if (size is null || !await SkipTrailerAsync(source, cancellationToken))
+        {
+            return ChunkedCopyOutcome.Malformed;
+        }
 
-    private static async Task<ChunkedCopyOutcome> WriteLastChunkAsync(IConnection destination, CancellationToken cancellationToken)
-    {
-        await destination.WriteAsync("0\r\n\r\n"u8.ToArray(), cancellationToken);
+        await WriteFramingAsync(write, rechunks, "0\r\n\r\n", cancellationToken);
 
         return ChunkedCopyOutcome.Copied;
+    }
+
+    // The chunk sizes and line ends, written only when the body goes on chunked.
+    private static async Task WriteFramingAsync(Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask> write, bool rechunks, string framing, CancellationToken cancellationToken)
+    {
+        if (rechunks)
+        {
+            await write(Encoding.ASCII.GetBytes(framing), cancellationToken);
+        }
     }
 
     // Trailer fields are read and dropped up to the empty line (the Trailer field is hop-by-hop
