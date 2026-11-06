@@ -47,3 +47,4 @@ call the same `Surl.Api` surface a .NET test uses, under `surl-mcp`'s existing s
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
