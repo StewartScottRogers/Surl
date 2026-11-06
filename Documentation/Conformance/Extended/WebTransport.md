@@ -45,15 +45,15 @@ specifications leave the server a choice. Client-only requirements (waiting for 
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| WebTransport:WTH3-4.2-1 | MUST | A unidirectional stream header is type `0x54` then the session ID as a QUIC variable-length integer; the server writes the same header on its own unidirectional streams. | BL-458 (codec), BL-459 (streams) |
-| WebTransport:WTH3-4.3-2 | MUST | A bidirectional stream header is signal `0x41` then the session ID. | BL-458 |
+| WebTransport:WTH3-4.2-1 | MUST | A unidirectional stream header is type `0x54` then the session ID as a QUIC variable-length integer; the server writes the same header on its own unidirectional streams. | `WebTransportStreamHeaderTests.Read_UnidirectionalHeader_ReadsTheSessionIdOfEachLength`, `WebTransportStreamHeaderTests.Encode_Header_WritesKindThenSessionIdInShortestEncoding` (codec); BL-459 (streams) |
+| WebTransport:WTH3-4.3-2 | MUST | A bidirectional stream header is signal `0x41` then the session ID. | `WebTransportStreamHeaderTests.Read_BidirectionalHeader_ReadsTheSessionIdOfEachLength`, `WebTransportStreamHeaderTests.Read_StreamStartingWithNeitherSignal_IsMalformed` |
 | WebTransport:Surl-3-1 | MUST | Each client bidirectional stream's bytes are echoed on it in order, and its FIN answered with FIN (ADR-0117 decision 3). | BL-459 |
 | WebTransport:Surl-3-2 | MUST | Each client unidirectional stream is answered by one server unidirectional stream carrying the same bytes, finished when the client's finishes. | BL-459 |
 | WebTransport:WTH3-4.5-1 | MUST | A datagram's payload follows the quarter stream ID of the session's CONNECT stream; each is echoed with the same quarter stream ID and payload. | BL-459 |
 | WebTransport:RFC9297-3.5-1 | MUST | A `DATAGRAM` capsule on the CONNECT stream is processed as a datagram; the server echoes it as a `DATAGRAM` capsule. | BL-459 |
 | WebTransport:RFC9221-5-1 | MAY | A datagram the client's `max_datagram_frame_size` cannot carry is dropped, never sent. | BL-459 |
 | WebTransport:WTH3-4.4-1 | MUST | The server resets a WebTransport data stream with `RESET_STREAM_AT`, Reliable Size at least the header it wrote. | BL-459 |
-| WebTransport:WTH3-4.4-2 | MUST | Application error codes are mapped into and out of the `WT_APPLICATION_ERROR` range by section 4.4's formula, skipping `0x1f * N + 0x21`. | BL-458 |
+| WebTransport:WTH3-4.4-2 | MUST | Application error codes are mapped into and out of the `WT_APPLICATION_ERROR` range by section 4.4's formula, skipping `0x1f * N + 0x21`. | `WebTransportApplicationErrorCodeTests.ToHttp3ErrorCode_ApplicationCode_IsTheDraftsFormula`, `WebTransportApplicationErrorCodeTests.TryFromHttp3ErrorCode_CodeOutsideTheRangeOrReserved_ReturnsFalse` |
 | WebTransport:Surl-3-3 | MUST | A client reset or `STOP_SENDING` on an echoed stream is mirrored on the server's half with the same code (ADR-0117 decision 3). | BL-459 |
 | WebTransport:WTH3-4.6-1 | SHOULD | Streams and datagrams for a session not yet established are held until it is, then served. | BL-459 |
 | WebTransport:WTH3-4.6-2 | MUST | Held streams are capped at 16 and held datagrams at 64 a connection, each for at most `--head-timeout`; a stream past the cap, timed out or for a refused session is reset `WT_BUFFERED_STREAM_REJECTED`, and such a datagram dropped. | BL-459 |
@@ -67,7 +67,7 @@ specifications leave the server a choice. Client-only requirements (waiting for 
 | WebTransport:WTH3-5.1-1 | MUST | Flow control is on only when the client also sends a non-zero `SETTINGS_WT_INITIAL_*`; with it off, every flow-control capsule is ignored. | BL-460 |
 | WebTransport:WTH3-5.1-2 | MUST | With flow control off, a CONNECT that would make a second session on the connection is reset `H3_REQUEST_REJECTED`. | BL-460 |
 | WebTransport:WTH3-5.2-1 | SHOULD | With flow control on, a CONNECT that would make a 17th concurrent session is reset `H3_REQUEST_REJECTED` (ADR-0117 decision 5). | BL-460 |
-| WebTransport:WTH3-5.6-1 | MUST | The capsules `WT_MAX_DATA` (`0x190b4d3d`), `WT_MAX_STREAMS` (`0x190b4d3f`, `0x190b4d40`), `WT_DATA_BLOCKED` (`0x190b4d41`) and `WT_STREAMS_BLOCKED` (`0x190b4d43`, `0x190b4d44`) are each a type, a length and one variable-length integer. | BL-458 |
+| WebTransport:WTH3-5.6-1 | MUST | The capsules `WT_MAX_DATA` (`0x190b4d3d`), `WT_MAX_STREAMS` (`0x190b4d3f`, `0x190b4d40`), `WT_DATA_BLOCKED` (`0x190b4d41`) and `WT_STREAMS_BLOCKED` (`0x190b4d43`, `0x190b4d44`) are each a type, a length and one variable-length integer. | `WebTransportCapsuleCodecTests.Write_LimitCapsule_IsTypeLengthAndOneVariableLengthInteger`, `WebTransportCapsuleCodecTests.Read_ValueBreakingItsLayout_IsMalformedNotIncomplete` |
 | WebTransport:WTH3-5.6-2 | SHOULD | The server raises `WT_MAX_DATA` and `WT_MAX_STREAMS` as it consumes data and streams close, each value above the last, without waiting for a `*_BLOCKED`, and never `WT_MAX_DATA` past `--max-filesize`. | BL-460 |
 | WebTransport:WTH3-5.6-3 | MUST | A client stream past `WT_MAX_STREAMS`, or stream payload past `WT_MAX_DATA`, ends the session `WT_FLOW_CONTROL_ERROR`. | BL-460 |
 | WebTransport:WTH3-5.6-4 | MUST | A client `WT_MAX_DATA` or `WT_MAX_STREAMS` that does not increase the last value, or a `WT_MAX_STREAMS` above 2^60, ends the session `WT_FLOW_CONTROL_ERROR`. | BL-460 |
@@ -78,7 +78,7 @@ specifications leave the server a choice. Client-only requirements (waiting for 
 
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
-| WebTransport:WTH3-6-1 | MUST | `WT_CLOSE_SESSION` is type `0x2843`, a 32-bit code and a UTF-8 message of at most 1024 bytes; a longer message is refused by the codec. | BL-458 |
+| WebTransport:WTH3-6-1 | MUST | `WT_CLOSE_SESSION` is type `0x2843`, a 32-bit code and a UTF-8 message of at most 1024 bytes; a longer message is refused by the codec. | `WebTransportCapsuleCodecTests.Read_CloseSessionWith1024ByteMessage_IsAccepted`, `WebTransportCapsuleCodecTests.Read_CloseSessionWith1025ByteMessage_IsMalformed`, `WebTransportCapsuleCodecTests.Constructor_CloseSessionWith1025ByteMessage_IsRefused` |
 | WebTransport:WTH3-6-2 | MUST | On the client's `WT_CLOSE_SESSION`, FIN, or reset of the CONNECT stream, the server resets its halves and stops the client's halves of every session stream `WT_SESSION_GONE`, drops the session's datagrams, and closes its side of the CONNECT stream with FIN and no capsule. | BL-459 |
 | WebTransport:WTH3-6-3 | MUST | A received close message over 1024 bytes or not UTF-8, or any byte after `WT_CLOSE_SESSION`, resets the CONNECT stream `H3_MESSAGE_ERROR`. | BL-459 |
 | WebTransport:WTH3-6-4 | MUST | The server's own `WT_CLOSE_SESSION` (code 0 `server shutting down`, code 1 `session data limit reached`) is followed at once by FIN; it then opens no stream and sends no datagram for the session. | BL-459 |
