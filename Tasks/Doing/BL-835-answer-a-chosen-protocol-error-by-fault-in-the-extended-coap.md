@@ -43,3 +43,4 @@ that server answer the matching request with the chosen protocol error, instead 
 
 - 2026-11-05: Created.
 - 2026-11-05: Filed by BL-822 (ADR-0124 decision 9); depends on BL-785 and touches `Surl.Cli` for the reply shapes.
+- 2026-11-06: Backlog -> Doing.
