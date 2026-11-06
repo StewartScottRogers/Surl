@@ -52,3 +52,4 @@ or non-`http` control URL and any other combination the ADR refuses are refused 
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-05: Backlog -> Doing.
