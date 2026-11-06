@@ -42,7 +42,40 @@ public sealed class ProgramTests
         var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
 
         var names = result.GetProperty("tools").EnumerateArray().Select(tool => tool.GetProperty("name").GetString()).ToArray();
-        CollectionAssert.AreEqual(new[] { StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name }, names);
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name,
+                SeedMailTool.Name, PutFileTool.Name, PublishMessageTool.Name, AddAccountTool.Name, ResetServerTool.Name,
+                SnapshotServerTool.Name, RestoreServerTool.Name, AddFaultTool.Name, RemoveFaultTool.Name,
+            },
+            names);
+    }
+
+    [TestMethod]
+    [DataRow(SeedMailTool.Name, SeedMailTool.Description, new[] { "server_id", "to", "message", "message_base64" })]
+    [DataRow(PutFileTool.Name, PutFileTool.Description, new[] { "server_id", "path", "text", "base64" })]
+    [DataRow(PublishMessageTool.Name, PublishMessageTool.Description, new[] { "server_id", "topic", "queue", "payload", "payload_base64", "retain" })]
+    [DataRow(AddAccountTool.Name, AddAccountTool.Description, new[] { "server_id", "user", "password" })]
+    [DataRow(ResetServerTool.Name, ResetServerTool.Description, new[] { "server_id" })]
+    [DataRow(SnapshotServerTool.Name, SnapshotServerTool.Description, new[] { "server_id" })]
+    [DataRow(RestoreServerTool.Name, RestoreServerTool.Description, new[] { "server_id", "snapshot_id" })]
+    [DataRow(AddFaultTool.Name, AddFaultTool.Description, new[] { "server_id", "fault" })]
+    [DataRow(RemoveFaultTool.Name, RemoveFaultTool.Description, new[] { "server_id", "fault_id" })]
+    public async Task RunAsync_ToolsList_IncludesEachStoreAndFaultToolWithAnObjectInputSchemaAndADescription(string name, string description, string[] properties)
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+
+        var tool = Assert.ContainsSingle(result.GetProperty("tools").EnumerateArray().Where(tool => tool.GetProperty("name").GetString() == name));
+        Assert.AreEqual(description, tool.GetProperty("description").GetString());
+        var inputSchema = tool.GetProperty("inputSchema");
+        Assert.AreEqual("object", inputSchema.GetProperty("type").GetString());
+        Assert.IsFalse(inputSchema.GetProperty("additionalProperties").GetBoolean());
+        Assert.AreEqual("server_id", inputSchema.GetProperty("required")[0].GetString());
+        CollectionAssert.AreEqual(properties, inputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).ToArray());
     }
 
     [TestMethod]

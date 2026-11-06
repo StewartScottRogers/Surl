@@ -21,8 +21,9 @@ standard output, and they serve no session.
   `RunAsync` reads the command line, makes the root (when there is one) its full path and the process's current
   directory - `PathConfinement` takes a relative path from the current directory, so the root must be it - then
   registers each tool with one explicit `McpServerRegistry.AddTool` line (`start_server`, `list_servers`,
-  `stop_server`, `get_exchanges`, ADR-0103 decision 3's order, then `get_events` and `wait_for_event`,
-  ADR-0124 decision 8's), adds the `surl://aihelp` resources with one
+  `stop_server`, `get_exchanges`, ADR-0103 decision 3's order, then `get_events`, `wait_for_event`, `seed_mail`,
+  `put_file`, `publish_message`, `add_account`, `reset_server`, `snapshot_server`, `restore_server`, `add_fault`
+  and `remove_fault`, ADR-0124 decision 8's), adds the `surl://aihelp` resources with one
   `AddResources(new AiHelpResourceProvider())` line (decision 6), and serves one session through `McpStreamSession`, with
   `serverInfo` `{"name": "surl-mcp", "title": "Surl", "version": <the assembly's informational version>}` and
   decision 6's `instructions`. When the input ends or the token is cancelled, disposing `RunningSurlServers`

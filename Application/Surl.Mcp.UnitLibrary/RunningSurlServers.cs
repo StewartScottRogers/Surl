@@ -65,6 +65,19 @@ public sealed class RunningSurlServers : IAsyncDisposable
         }
     }
 
+    /// <summary>Finds the running server <paramref name="serverId"/> names.</summary>
+    /// <param name="serverId">The server's ID.</param>
+    /// <returns>The server, or <see langword="null"/> when none is running under that ID.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="serverId"/> is <see langword="null"/>.</exception>
+    public RunningSurlServer? Find(string serverId)
+    {
+        ArgumentNullException.ThrowIfNull(serverId);
+        lock (gate)
+        {
+            return servers.Find(server => server.ServerId == serverId);
+        }
+    }
+
     /// <summary>
     /// Starts a server from <paramref name="options"/> and keeps it under the next ID, or returns
     /// <see langword="null"/> without starting one when <see cref="SurlMcpHostSettings.MaxServers"/> are already

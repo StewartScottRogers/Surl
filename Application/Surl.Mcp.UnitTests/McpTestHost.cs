@@ -33,6 +33,15 @@ internal sealed class McpTestHost : IAsyncDisposable
         GetExchanges = GetExchangesTool.Create(Servers);
         GetEvents = GetEventsTool.Create(Servers);
         WaitForEvent = WaitForEventTool.Create(Servers);
+        SeedMail = SeedMailTool.Create(Servers);
+        PutFile = PutFileTool.Create(Servers);
+        PublishMessage = PublishMessageTool.Create(Servers);
+        AddAccount = AddAccountTool.Create(Servers);
+        ResetServer = ResetServerTool.Create(Servers);
+        SnapshotServer = SnapshotServerTool.Create(Servers);
+        RestoreServer = RestoreServerTool.Create(Servers);
+        AddFault = AddFaultTool.Create(Servers);
+        RemoveFault = RemoveFaultTool.Create(Servers);
     }
 
     public ApiTestSeams Seams { get; }
@@ -52,6 +61,24 @@ internal sealed class McpTestHost : IAsyncDisposable
     public McpTool GetEvents { get; }
 
     public McpTool WaitForEvent { get; }
+
+    public McpTool SeedMail { get; }
+
+    public McpTool PutFile { get; }
+
+    public McpTool PublishMessage { get; }
+
+    public McpTool AddAccount { get; }
+
+    public McpTool ResetServer { get; }
+
+    public McpTool SnapshotServer { get; }
+
+    public McpTool RestoreServer { get; }
+
+    public McpTool AddFault { get; }
+
+    public McpTool RemoveFault { get; }
 
     /// <summary>Parses <paramref name="json"/> as a tool's arguments.</summary>
     public static JsonElement Arguments(string json)

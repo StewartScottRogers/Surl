@@ -21,7 +21,9 @@ internal static class Program
     /// <summary>The <c>initialize</c> result's <c>instructions</c> (ADR-0103 decision 6).</summary>
     public const string Instructions =
         "These tools start, list and stop Surl protocol servers and show what their clients sent; get_events and "
-        + "wait_for_event show and wait for each server's events (exchanges, logins, store changes, faults). The servers "
+        + "wait_for_event show and wait for each server's events (exchanges, logins, store changes, faults); seed_mail, "
+        + "put_file, publish_message and add_account seed a server's stores, reset_server, snapshot_server and "
+        + "restore_server control them, and add_fault and remove_fault make it misbehave on purpose. The servers "
         + "listen on loopback addresses unless whoever started surl-mcp allowed others. "
         + "The surl://aihelp resources explain the listen URLs and options start_server takes.";
 
@@ -142,6 +144,15 @@ internal static class Program
         registry.AddTool(GetExchangesTool.Create(servers));
         registry.AddTool(GetEventsTool.Create(servers));
         registry.AddTool(WaitForEventTool.Create(servers));
+        registry.AddTool(SeedMailTool.Create(servers));
+        registry.AddTool(PutFileTool.Create(servers));
+        registry.AddTool(PublishMessageTool.Create(servers));
+        registry.AddTool(AddAccountTool.Create(servers));
+        registry.AddTool(ResetServerTool.Create(servers));
+        registry.AddTool(SnapshotServerTool.Create(servers));
+        registry.AddTool(RestoreServerTool.Create(servers));
+        registry.AddTool(AddFaultTool.Create(servers));
+        registry.AddTool(RemoveFaultTool.Create(servers));
         registry.AddResources(new AiHelpResourceProvider());
         var options = new McpSessionOptions(new McpServerInfo(ServerName, ServerTitle, SurlMcpHelpText.Version), Instructions);
         await McpStreamSession.RunAsync(input, output, registry, options, cancellationToken);
