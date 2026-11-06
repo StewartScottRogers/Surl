@@ -41,3 +41,4 @@ request with the chosen status and error code in its own error body.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
