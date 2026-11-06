@@ -97,7 +97,7 @@ cases 1455, 3201 and 3220 pass.
   branch; the new members pass (the read loop was split out of `ReadPastAsync` after the script
   counted its async state machine at 12). Two members this task did not touch,
   `HttpRequestAnswerer.FileAnswer` (16) and `HttpRequestAnswerer.StoreUploadAsync` (12), fail the
-  script's count though the build's `CA1502` passes them; filed as BL-915.
+  script's count though the build's `CA1502` passes them; filed as BL-917.
 
 ## Log
 

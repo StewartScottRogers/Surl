@@ -1,5 +1,5 @@
 ---
-id: BL-915
+id: BL-917
 title: Split HttpRequestAnswerer.FileAnswer and StoreUploadAsync under complexity 10
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-915 — Split HttpRequestAnswerer.FileAnswer and StoreUploadAsync under complexity 10
+# BL-917 — Split HttpRequestAnswerer.FileAnswer and StoreUploadAsync under complexity 10
 
 ## Goal
 
