@@ -67,7 +67,7 @@ choice.
 | Xmpp:RFC6120-6.4.3-1 | MUST | Challenges and responses carry base64; SCRAM runs to `<success/>` holding the server-final message. | BL-538 |
 | Xmpp:RFC6120-6.4.6-1 | MUST | After `<success/>` the client's new stream header is answered with the bind feature. | BL-538 |
 | Xmpp:RFC6120-6.5-1 | MUST | Refused logins are `not-authorized` after the refusal delay; an unoffered mechanism `invalid-mechanism`; bad base64 `incorrect-encoding`; an `<auth/>` with no mechanism `malformed-request` (a mechanism message that does not parse is refused by the policy, so `not-authorized`); `<abort/>` `aborted`. | BL-538 |
-| Xmpp:RFC6120-6.5.6-1 | MUST | An authzid other than empty or the account's own bare JID is `invalid-authzid`. | BL-875 |
+| Xmpp:RFC6120-6.5.6-1 | MUST | An authzid other than empty or the account's own bare JID is `invalid-authzid`. | BL-885 |
 | Xmpp:RFC6120-6.4.5-1 | SHOULD | Three failed attempts on one stream end it with `policy-violation`. | BL-538 |
 | Xmpp:RFC4616-2-1 | MUST | PLAIN's message is authzid NUL authcid NUL password, judged through `ISaslAuthenticationPolicy`. | BL-538 |
 | Xmpp:RFC5802-5-1 | MUST | SCRAM-SHA-1 verifies the client proof and returns the server signature; gs2 header `p` is refused. | BL-538 |
@@ -81,8 +81,8 @@ choice.
 | --- | --- | --- | --- |
 | Xmpp:RFC6120-7.6.1-1 | MUST | An empty `<bind/>` binds a generated `surl-<16 hex>` resource and answers the full JID. | BL-538 |
 | Xmpp:RFC6120-7.7.1-1 | MUST | A client's valid resource is bound as given; an invalid one is `bad-request`. | BL-538 |
-| Xmpp:RFC6120-7.7.2.2-1 | MUST | A resource already bound for the same bare JID is taken by the new stream; the older gets the stream error `conflict`. | BL-875 |
-| Xmpp:RFC6120-7.6.2.1-1 | MUST | An eleventh resource for one bare JID is `resource-constraint`. | BL-875 |
+| Xmpp:RFC6120-7.7.2.2-1 | MUST | A resource already bound for the same bare JID is taken by the new stream; the older gets the stream error `conflict`. | BL-885 |
+| Xmpp:RFC6120-7.6.2.1-1 | MUST | An eleventh resource for one bare JID is `resource-constraint`. | BL-885 |
 | Xmpp:RFC6120-7.6.2.2-1 | MUST | A second bind on one stream is `not-allowed`. | BL-538 |
 | Xmpp:RFC6120-4.9.3.12-1 | MUST | A stanza or bind before SASL success, or a stanza before binding, is `not-authorized`. | BL-538 |
 | Xmpp:RFC6121-E-1 | MAY | A legacy session IQ set is answered with an empty `result`; the session feature is not advertised. | BL-538 |
@@ -129,7 +129,7 @@ choice.
 | Xmpp:RFC6120-13.12-1 | MUST | A stanza over `--max-message` bytes is `policy-violation`, then close. | BL-536 |
 | Xmpp:Surl-Limits-1 | MUST | Nesting past 32 levels, more than 64 attributes on an element, or a value over `--max-message` is `policy-violation`. | BL-536 |
 | Xmpp:Surl-Limits-2 | MUST | A stream header not complete within `--head-timeout` is `connection-timeout`. | BL-536 |
-| Xmpp:Surl-Limits-3 | MUST | No bound resource within twice `--head-timeout` of accept is `policy-violation`. | BL-875 |
+| Xmpp:Surl-Limits-3 | MUST | No bound resource within twice `--head-timeout` of accept is `policy-violation`. | BL-885 |
 | Xmpp:RFC6120-4.9.3.4-1 | MUST | No byte for `--idle-timeout` is `connection-timeout`. | BL-536 |
 | Xmpp:RFC6120-4.9.3.17-1 | MUST | A connection over `--max-connections` or `--max-connections-per-address` gets a response header and `resource-constraint`. | BL-536 |
 | Xmpp:Surl-Limits-4 | MUST | A stream with 16 MiB of routed stanzas unsent ends with `policy-violation`. | BL-539 |

@@ -9,7 +9,7 @@ its task.
 
 It references `Surl.Protocol.Abstractions` only. SASL and resource binding (one stream's) came
 with BL-538; stanza routing, IQs and service discovery come with BL-539, and the resource
-conflict, the per-JID resource cap, `invalid-authzid` and the login deadline with BL-875; BL-540
+conflict, the per-JID resource cap, `invalid-authzid` and the login deadline with BL-885; BL-540
 serves `xmpps` by wrapping the server in `ImplicitTlsSchemeServer`.
 
 Streams, the XML stream reader and stream errors (BL-536, ADR-0114 decisions 1, 6 and 7):

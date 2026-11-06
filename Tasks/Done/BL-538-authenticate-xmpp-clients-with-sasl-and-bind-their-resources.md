@@ -49,7 +49,7 @@ resource and answers with the full JID.
   which rules it delivers. No task in Doing names that file.
 - The trace listed four rules under BL-538 that its acceptance criteria do not ask for: resource conflict
   takeover, the 10-resources-per-bare-JID cap, `invalid-authzid` and the login time bound. They need the
-  bound-stream registry BL-539 builds, so they went to BL-875 (depends on BL-538 and BL-539) and the four rows now
+  bound-stream registry BL-539 builds, so they went to BL-885 (depends on BL-538 and BL-539) and the four rows now
   name it.
 - An `<auth/>` with no mechanism attribute is `malformed-request`. A mechanism message that does not parse is
   refused by the SASL policy in `Surl.Authentication`, so the client sees `not-authorized`. The trace row says so.

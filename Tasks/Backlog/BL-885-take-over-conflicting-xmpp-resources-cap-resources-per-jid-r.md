@@ -1,5 +1,5 @@
 ---
-id: BL-875
+id: BL-885
 title: Take over conflicting XMPP resources, cap resources per JID, refuse foreign authzids and bound the login time
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-875 — Take over conflicting XMPP resources, cap resources per JID, refuse foreign authzids and bound the login time
+# BL-885 — Take over conflicting XMPP resources, cap resources per JID, refuse foreign authzids and bound the login time
 
 ## Goal
 
