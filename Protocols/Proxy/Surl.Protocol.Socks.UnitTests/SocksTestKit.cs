@@ -44,10 +44,11 @@ internal static class SocksTestKit
     public static ExchangeContext Context(
         RecordingExchangeLog log,
         TimeProvider? clock = null,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default,
+        string scheme = "socks4") =>
         new(
             1,
-            new ListenUrl("socks4", "127.0.0.1", 1080),
+            new ListenUrl(scheme, "127.0.0.1", 1080),
             new IPEndPoint(IPAddress.Loopback, 1080),
             new IPEndPoint(IPAddress.Loopback, 50000),
             log,
@@ -59,4 +60,26 @@ internal static class SocksTestKit
     /// </summary>
     public static Task ServeAsync(IConnection client, IOriginConnector origins, RecordingExchangeLog? log = null) =>
         new SocksProtocolServer(origins).ServeAsync(client, Context(log ?? new RecordingExchangeLog()));
+
+    /// <summary>The SOCKS5 success reply the recorder sent: <c>ATYP 01</c>, 127.0.0.1:8080.</summary>
+    public static readonly byte[] Socks5Succeeded = [0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0x1F, 0x90];
+
+    /// <summary>A SOCKS5 failure reply with <paramref name="code"/> and <c>0.0.0.0:0</c>.</summary>
+    public static byte[] Socks5Failure(byte code) => [0x05, code, 0x00, 0x01, 0, 0, 0, 0, 0, 0];
+
+    /// <summary>A SOCKS5 request: <c>05</c>, <paramref name="command"/>, <c>00</c>, <paramref name="addressType"/>, the address bytes and the port.</summary>
+    public static byte[] Socks5Request(byte command, byte addressType, byte[] address, int port) =>
+        [0x05, command, 0x00, addressType, .. address, (byte)(port >> 8), (byte)port];
+
+    /// <summary>A SOCKS5 domain-name request for CONNECT.</summary>
+    public static byte[] Socks5DomainRequest(string host, int port) =>
+        Socks5Request(0x01, 0x03, [(byte)host.Length, .. Latin1Bytes(host)], port);
+
+    /// <summary>
+    /// Serves <paramref name="client"/> with a SOCKS server on a <paramref name="scheme"/> listener
+    /// with <paramref name="accounts"/>, reaching <paramref name="origins"/>.
+    /// </summary>
+    public static Task ServeAsync(
+        IConnection client, IOriginConnector origins, string scheme, IAuthenticationPolicy? accounts = null, RecordingExchangeLog? log = null) =>
+        new SocksProtocolServer(origins, accounts).ServeAsync(client, Context(log ?? new RecordingExchangeLog(), scheme: scheme));
 }

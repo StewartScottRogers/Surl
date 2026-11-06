@@ -1,0 +1,14 @@
+> \x05\x02\x00\x01
+< \x05\x00
+> \x05\x01\x00\x03\x0Borigin.test\x1F\x90
+< \x05\x00\x00\x01\x7F\x00\x00\x01\x1F\x90
+> GET /a HTTP/1.1
+> Host: origin.test:8080
+> User-Agent: curl/8.21.0
+> Accept: */*
+> 
+< HTTP/1.1 200 OK
+< Content-Length: 2
+< 
+< ok
+= curl closed the connection

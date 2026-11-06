@@ -17,11 +17,17 @@ public sealed class SocksProtocolServerTests
     }
 
     [TestMethod]
-    public void Schemes_AreSocks4AndSocks4a()
+    public void Constructor_NullConnectorWithAccounts_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => new SocksProtocolServer(null!, new ScriptedProxyAccounts()));
+    }
+
+    [TestMethod]
+    public void Schemes_AreTheFourSocksSchemes()
     {
         var server = new SocksProtocolServer(new InMemoryOriginConnector());
 
-        CollectionAssert.AreEqual(new[] { "socks4", "socks4a" }, server.Schemes.ToArray());
+        CollectionAssert.AreEqual(new[] { "socks4", "socks4a", "socks5", "socks5h" }, server.Schemes.ToArray());
     }
 
     [TestMethod]

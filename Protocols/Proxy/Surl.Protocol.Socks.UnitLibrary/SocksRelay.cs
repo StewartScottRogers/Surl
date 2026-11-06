@@ -33,6 +33,25 @@ internal static class SocksRelay
         return relayed[0] && relayed[1];
     }
 
+    /// <summary>
+    /// Relays as <see cref="RelayAsync"/> does and logs how the relay to <paramref name="target"/> ended.
+    /// </summary>
+    /// <param name="client">curl's connection.</param>
+    /// <param name="clientReader">curl's reader, which may hold bytes sent after the request.</param>
+    /// <param name="origin">The origin's connection.</param>
+    /// <param name="target">The origin as <c>host:port</c>, for the log.</param>
+    /// <param name="log">The exchange's log.</param>
+    /// <param name="cancellationToken">Cancels the relay.</param>
+    /// <returns>A task that completes when the relay is over.</returns>
+    public static async Task RelayAndLogAsync(
+        IConnection client, SocksClientReader clientReader, IConnection origin, string target, IExchangeLog log, CancellationToken cancellationToken)
+    {
+        var closedCleanly = await RelayAsync(client, clientReader, origin, cancellationToken);
+        log.Note(closedCleanly
+            ? $"The relay to {target} closed."
+            : $"The relay to {target} failed; both connections were aborted.");
+    }
+
     private static async Task<bool> RelayOneWayAsync(
         Func<Memory<byte>, CancellationToken, ValueTask<int>> read, IConnection destination, IConnection[] both, CancellationToken cancellationToken)
     {

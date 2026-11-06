@@ -5,14 +5,15 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Protocol.Socks;
 
 /// <summary>
-/// One curl connection to the SOCKS server: reads the version byte, then the SOCKS4 or SOCKS4a
-/// request within the handshake timeout, and connects, relays or refuses as
-/// <see cref="SocksProtocolServer"/> describes.
+/// One curl connection to the SOCKS server: reads the version byte, serves the version the
+/// listener's scheme names (SOCKS4 and SOCKS4a here, SOCKS5 through <see cref="Socks5Exchange"/>)
+/// and refuses the other, as <see cref="SocksProtocolServer"/> describes.
 /// </summary>
 /// <param name="client">curl's connection.</param>
 /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
 /// <param name="originConnector">How origins are reached.</param>
-internal sealed class SocksExchange(IConnection client, ExchangeContext context, IOriginConnector originConnector)
+/// <param name="accounts">The listener's proxy accounts, or <see langword="null"/> when it has none.</param>
+internal sealed class SocksExchange(IConnection client, ExchangeContext context, IOriginConnector originConnector, IAuthenticationPolicy? accounts)
 {
     /// <summary>The SOCKS4 version byte, <c>VN=04</c>.</summary>
     public const byte Socks4Version = 0x04;
@@ -33,6 +34,10 @@ internal sealed class SocksExchange(IConnection client, ExchangeContext context,
 
     private CancellationToken Cancellation => context.CancellationToken;
 
+    private bool IsSocks5Listener =>
+        string.Equals(context.Scheme, "socks5", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(context.Scheme, "socks5h", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Answers the connection until the relay ends or an answer closes it.
     /// </summary>
@@ -42,8 +47,14 @@ internal sealed class SocksExchange(IConnection client, ExchangeContext context,
         var version = await reader.ReadByteAsync(Cancellation);
         switch (version)
         {
+            case Socks4Version when IsSocks5Listener:
+                await RefuseAsync("a SOCKS4 request on a SOCKS5 listener");
+                break;
             case Socks4Version:
                 await ServeSocks4Async();
+                break;
+            case Socks5Version when IsSocks5Listener:
+                await new Socks5Exchange(client, reader, context, originConnector, accounts).ServeAsync();
                 break;
             case Socks5Version:
                 await AnswerSocks5GreetingAsync();
@@ -135,6 +146,13 @@ internal sealed class SocksExchange(IConnection client, ExchangeContext context,
             context.Log.Note($"SOCKS4 user ID {request.UserId}");
         }
 
+        if (!await SocksProxyAccounts.AllowAnonymousAsync(accounts, client, context, Cancellation))
+        {
+            await RefuseAsync("the listener has proxy accounts, which SOCKS4 cannot prove");
+
+            return;
+        }
+
         if (RefusalBeforeConnecting(request) is { } refusal)
         {
             await RefuseAsync(refusal);
@@ -165,10 +183,7 @@ internal sealed class SocksExchange(IConnection client, ExchangeContext context,
     {
         context.Log.Note($"Connected to {target}; answered 5A.");
         await client.WriteAsync(Socks4Granted, Cancellation);
-        var closedCleanly = await SocksRelay.RelayAsync(client, reader, origin, Cancellation);
-        context.Log.Note(closedCleanly
-            ? $"The relay to {target} closed."
-            : $"The relay to {target} failed; both connections were aborted.");
+        await SocksRelay.RelayAndLogAsync(client, reader, origin, target, context.Log, Cancellation);
     }
 
     private async Task RefuseAsync(string why)

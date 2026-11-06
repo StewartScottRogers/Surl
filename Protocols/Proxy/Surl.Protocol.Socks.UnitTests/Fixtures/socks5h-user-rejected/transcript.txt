@@ -1,0 +1,5 @@
+> \x05\x03\x00\x01\x02
+< \x05\x02
+> \x01\x05alice\x05wrong
+< \x01\x01
+= curl closed the connection

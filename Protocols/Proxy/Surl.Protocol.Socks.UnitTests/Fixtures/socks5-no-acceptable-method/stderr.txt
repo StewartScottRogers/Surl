@@ -1,0 +1,1 @@
+curl: (97) No authentication method was acceptable.

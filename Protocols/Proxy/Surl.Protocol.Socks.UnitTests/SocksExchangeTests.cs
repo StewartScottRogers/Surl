@@ -26,6 +26,50 @@ public sealed class SocksExchangeTests
     }
 
     [TestMethod]
+    [DataRow("socks5")]
+    [DataRow("socks5h")]
+    [DataRow("SOCKS5H")]
+    public async Task ServeAsync_Socks4RequestOnASocks5Listener_AnswersRejectedAndCloses(string scheme)
+    {
+        var client = HeldOpenConnectionOf(Socks4Request(0x01, 8080, Loopback, string.Empty));
+        var origins = new InMemoryOriginConnector();
+        var log = new RecordingExchangeLog();
+
+        await ServeAsync(client, origins, scheme, log: log);
+
+        CollectionAssert.AreEqual(Rejected, client.WrittenBytes);
+        Assert.IsTrue(client.WritesCompleted);
+        Assert.IsEmpty(origins.Requests);
+        Assert.Contains("Answered 5B: a SOCKS4 request on a SOCKS5 listener.", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Socks4RequestToAListenerWithAccounts_AnswersRejected()
+    {
+        var client = ConnectionOf(Socks4Request(0x01, 8080, Loopback, "alice"));
+        var origins = new InMemoryOriginConnector();
+        var log = new RecordingExchangeLog();
+
+        await ServeAsync(client, origins, "socks4", new ScriptedProxyAccounts(), log);
+
+        CollectionAssert.AreEqual(Rejected, client.WrittenBytes);
+        Assert.IsEmpty(origins.Requests);
+        Assert.Contains("Answered 5B: the listener has proxy accounts, which SOCKS4 cannot prove.", log.Notes);
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_Socks4RequestToAListenerWithAccountsAndAllowAnonymous_IsConnected()
+    {
+        var origin = ConnectionOf();
+        var client = ConnectionOf(Socks4Request(0x01, 8080, Loopback, string.Empty));
+        var accounts = new ScriptedProxyAccounts(anonymous: PasswordLoginVerdict.AcceptedUnchecked);
+
+        await ServeAsync(client, new InMemoryOriginConnector().ScriptConnection("127.0.0.1", 8080, origin), "socks4a", accounts);
+
+        CollectionAssert.AreEqual(Granted, client.WrittenBytes);
+    }
+
+    [TestMethod]
     public async Task ServeAsync_ClosedBeforeAnyByte_WritesNothing()
     {
         var client = ConnectionOf();
