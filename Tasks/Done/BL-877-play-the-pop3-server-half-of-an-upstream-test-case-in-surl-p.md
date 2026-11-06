@@ -8,7 +8,7 @@ depends-on: [BL-875]
 touches: [Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary, Protocols/Mail/Surl.Protocol.Pop3.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-877 — Play the POP3 server half of an upstream test case in Surl.Protocol.Pop3
 
@@ -48,21 +48,32 @@ upstream test case through BL-875's `MailUpstreamTestCaseReplies`. Unit tests dr
 
 ## Acceptance criteria
 
-- [ ] `Protocols/Mail/Surl.Protocol.Pop3.UnitTests` has `Pop3UpstreamTestCaseServerTests`, which drive the half
+- [x] `Protocols/Mail/Surl.Protocol.Pop3.UnitTests` has `Pop3UpstreamTestCaseServerTests`, which drive the half
       over an in-memory connection with inline cases. They cover `REPLY welcome`, a `REPLY`'d command not being
       run, a `COUNT`-limited reply, `CAPA` and `AUTH` in the `CAPA` answer, each command the half answers from
       the case's data (`RETR` and `TOP` with `<dataNUM>` selection, `LIST`, `UIDL`, `STAT`), `USER`/`PASS`
       and `APOP` accepting any login, and `ReceivedBytes`.
-- [ ] A named test shows that `Pop3ProtocolServer` composed without a case still greets and answers `CAPA` with
+- [x] A named test shows that `Pop3ProtocolServer` composed without a case still greets and answers `CAPA` with
       its own text.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary -warnaserror` is clean,
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Pop3.UnitLibrary -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Protocol.Pop3.UnitLibrary` keeps 100%
       line and branch coverage.
 
 ## Notes
+
+- Took `Pop3Session.UpstreamTestCase.cs`, `Pop3UpstreamTestCaseServer.cs` and the `Pop3ProtocolServer`/`Pop3Session`
+  hooks from the BL-395 stash (`0359f486`, by `git show`/`git diff` on its SHA, not applied or dropped); they
+  applied cleanly and compiled unchanged.
+- The half answers from the case: `CAPA` (case capabilities but `APOP`, then `SASL` from `AUTH`; not a command
+  with neither), `USER`, `PASS`, `APOP` (only when the case's `CAPA` lists it), `STAT`, `LIST`, `UIDL`, `RETR`,
+  `TOP`, `DELE`, `RSET`, `NOOP`. `QUIT` and `AUTH` stay the server's own; an un-`REPLY`'d `AUTH` runs on the
+  `AnonymousAuthenticationPolicy`. `Pop3UpstreamTestCaseServerTests` pins each, plus the argument checks.
+- `ReceivedBytes` is pinned for command lines read by the command loop; SASL response lines were not pinned here.
+- Measured: `Surl.Protocol.Pop3.UnitLibrary` 100% line, 100% branch, worst CRAP 10; 215 POP3 tests pass.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Split from BL-395 (timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. Pop3UpstreamTestCaseServer plays one upstream test case over Surl's own POP3 server, pinned by Pop3UpstreamTestCaseServerTests
