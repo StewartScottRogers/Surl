@@ -42,3 +42,4 @@ chosen RCODE.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
