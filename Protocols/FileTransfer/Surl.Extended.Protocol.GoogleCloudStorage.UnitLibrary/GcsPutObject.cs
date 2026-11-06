@@ -114,15 +114,29 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
             return digestRefusal;
         }
 
-        if (UserMetadataBytes(UserMetadata(request.Fields)) > MaxUserMetadataBytes)
+        if (HasTooMuchUserMetadata(request.Fields))
         {
             return GcsError.MetadataTooLarge;
         }
 
-        return store.ExposureOptions.MaxUploadBytes > 0 && request.Body.AnnouncedLength > store.ExposureOptions.MaxUploadBytes
-            ? GcsError.EntityTooLarge
-            : null;
+        return IsPastTheUploadLimit(request.Body.AnnouncedLength) ? GcsError.EntityTooLarge : null;
     }
+
+    /// <summary>
+    /// Whether <c>x-goog-meta-*</c> names and values pass <see cref="MaxUserMetadataBytes"/>.
+    /// </summary>
+    /// <param name="fields">The request's fields.</param>
+    /// <returns>Whether there is too much custom metadata.</returns>
+    internal static bool HasTooMuchUserMetadata(IReadOnlyList<KeyValuePair<string, string>> fields) =>
+        UserMetadataBytes(UserMetadata(fields)) > MaxUserMetadataBytes;
+
+    /// <summary>
+    /// Whether <paramref name="length"/> bytes pass <c>--max-filesize</c> (0 for no limit).
+    /// </summary>
+    /// <param name="length">A length announced or declared, or <see langword="null"/> for none.</param>
+    /// <returns>Whether the length is past the limit.</returns>
+    internal bool IsPastTheUploadLimit(long? length) =>
+        store.ExposureOptions.MaxUploadBytes > 0 && length > store.ExposureOptions.MaxUploadBytes;
 
     // x-goog-if-generation-match and x-goog-if-metageneration-match against the object there now.
     private async Task<GcsError?> GenerationRefusalAsync(HttpRequest request, GcsRequestTarget target, ContentPathMapping mapping, CancellationToken cancellationToken)
@@ -137,8 +151,14 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
         return GcsGenerationConditions.Check(request.Fields, current);
     }
 
-    // Each folder the name holds, created when missing; a file in the way is a conflict.
-    private GcsError? CreateFolders(GcsRequestTarget target, ContentCaller caller)
+    /// <summary>
+    /// Creates each folder the object name holds, when missing.
+    /// </summary>
+    /// <param name="target">The request's bucket and object name.</param>
+    /// <param name="caller">Who writes.</param>
+    /// <returns><see langword="null"/>, or <c>409 InvalidObjectName</c> for a file in the way, or
+    /// <c>403 AccessDenied</c> for a folder the store would not create.</returns>
+    internal GcsError? CreateFolders(GcsRequestTarget target, ContentCaller caller)
     {
         var segments = target.RawName.Split('/');
         for (var count = 1; count < segments.Length; count++)
@@ -228,19 +248,31 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
             return reply.Error(GcsError.AccessDenied);
         }
 
-        return await StoreMetadataAsync(reply, request, target, mapping, digests, cancellationToken);
+        var (refusal, generation) = await StoreMetadataAsync(request.Fields, target, mapping, digests.ETag, reply.Now, cancellationToken);
+
+        return refusal is null ? Stored(reply, digests, generation) : reply.Error(refusal);
     }
 
-    // The metadata goes into the index for a file it keys; refused there, the object is removed.
-    private async Task<HttpAnswer> StoreMetadataAsync(GcsReply reply, HttpRequest request, GcsRequestTarget target, ContentPathMapping mapping, GcsObjectDigests digests, CancellationToken cancellationToken)
+    /// <summary>
+    /// Keeps a written object's metadata in the index, for a file the index keys; refused there,
+    /// the object is removed.
+    /// </summary>
+    /// <param name="fields">The fields the metadata is taken from.</param>
+    /// <param name="target">The object's bucket and name.</param>
+    /// <param name="mapping">Where the object's file is.</param>
+    /// <param name="eTag">The ETag the object is kept with.</param>
+    /// <param name="now">The upload time, which becomes the generation.</param>
+    /// <param name="cancellationToken">Cancels writing the index.</param>
+    /// <returns>The refusal, or <see langword="null"/> and the object's generation.</returns>
+    internal async Task<(GcsError? Refusal, long Generation)> StoreMetadataAsync(IReadOnlyList<KeyValuePair<string, string>> fields, GcsRequestTarget target, ContentPathMapping mapping, string eTag, DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (GcsIndexKey.OfRaw(store, target.RawBucket, target.RawName) is not { } indexKey)
         {
-            return Stored(reply, digests, GcsGeneration.Of(store.GetFileStatus(mapping)!.LastModifiedUtc));
+            return (null, GcsGeneration.Of(store.GetFileStatus(mapping)!.LastModifiedUtc));
         }
 
-        var generation = GcsGeneration.Of(reply.Now);
-        var stored = await index.StoreAsync(indexKey, MetadataOf(request.Fields, digests.ETag, generation), cancellationToken);
+        var generation = GcsGeneration.Of(now);
+        var stored = await index.StoreAsync(indexKey, MetadataOf(fields, eTag, generation), cancellationToken);
         if (stored.StorageFailure is { } failure)
         {
             log.Note($"The object metadata index could not be written: {failure}");
@@ -249,13 +281,20 @@ internal sealed class GcsPutObject(ContentStore store, ObjectMetadataIndex index
         if (MetadataRefusal(stored.Outcome) is { } refusal)
         {
             store.DeleteFile(mapping);
-            return reply.Error(refusal);
+            return (refusal, 0);
         }
 
-        return Stored(reply, digests, generation);
+        return (null, generation);
     }
 
-    private static HttpAnswer Stored(GcsReply reply, GcsObjectDigests digests, long generation) =>
+    /// <summary>
+    /// The answer to a stored object: <c>200</c> with its ETag, generation and <c>x-goog-hash</c>.
+    /// </summary>
+    /// <param name="reply">The request's answers.</param>
+    /// <param name="digests">The object's digests.</param>
+    /// <param name="generation">The object's generation.</param>
+    /// <returns>The answer.</returns>
+    internal static HttpAnswer Stored(GcsReply reply, GcsObjectDigests digests, long generation) =>
         reply.Answer(
             HttpStatus.Ok,
             [

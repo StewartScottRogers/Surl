@@ -35,4 +35,45 @@ internal enum GcsOperation
     /// <c>DELETE /&lt;bucket&gt;/&lt;object&gt;</c>, no query: DELETE Object.
     /// </summary>
     DeleteObject,
+
+    /// <summary>
+    /// <c>POST /&lt;bucket&gt;/&lt;object&gt;?uploads</c>: initiate a multipart upload (decision 9).
+    /// </summary>
+    InitiateMultipartUpload,
+
+    /// <summary>
+    /// <c>PUT /&lt;bucket&gt;/&lt;object&gt;?partNumber=&lt;n&gt;&amp;uploadId=&lt;id&gt;</c>: upload a part.
+    /// </summary>
+    UploadPart,
+
+    /// <summary>
+    /// <c>POST /&lt;bucket&gt;/&lt;object&gt;?uploadId=&lt;id&gt;</c>: complete a multipart upload.
+    /// </summary>
+    CompleteMultipartUpload,
+
+    /// <summary>
+    /// <c>DELETE /&lt;bucket&gt;/&lt;object&gt;?uploadId=&lt;id&gt;</c>: abort a multipart upload.
+    /// </summary>
+    AbortMultipartUpload,
+
+    /// <summary>
+    /// <c>GET /&lt;bucket&gt;/&lt;object&gt;?uploadId=&lt;id&gt;</c>, with <c>max-parts</c> and
+    /// <c>part-number-marker</c> optional: list a multipart upload's parts.
+    /// </summary>
+    ListParts,
+
+    /// <summary>
+    /// <c>POST /&lt;bucket&gt;/&lt;object&gt;</c>, no query, <c>x-goog-resumable: start</c>: start a resumable upload.
+    /// </summary>
+    StartResumableUpload,
+
+    /// <summary>
+    /// <c>PUT /&lt;bucket&gt;/&lt;object&gt;?upload_id=&lt;id&gt;</c>: a resumable upload's chunk or status check.
+    /// </summary>
+    ResumeUpload,
+
+    /// <summary>
+    /// <c>DELETE /&lt;bucket&gt;/&lt;object&gt;?upload_id=&lt;id&gt;</c>: cancel a resumable upload.
+    /// </summary>
+    CancelResumableUpload,
 }

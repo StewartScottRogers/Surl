@@ -34,6 +34,11 @@ internal sealed record GcsError(string Code, HttpStatus Status, string Message)
     public static GcsError EntityTooLarge { get; } = new("EntityTooLarge", HttpStatus.BadRequest, "Your proposed upload exceeds the maximum allowed object size.");
 
     /// <summary>
+    /// <c>400 EntityTooSmall</c>: a multipart part but the last below 5 MiB, at completion (decision 9).
+    /// </summary>
+    public static GcsError EntityTooSmall { get; } = new("EntityTooSmall", HttpStatus.BadRequest, "Your proposed upload is smaller than the minimum allowed object size.");
+
+    /// <summary>
     /// <c>400 IncompleteBody</c>: a body that ended before its <c>Content-Length</c>.
     /// </summary>
     public static GcsError IncompleteBody { get; } = new("IncompleteBody", HttpStatus.BadRequest, "You did not provide the number of bytes specified by the Content-Length HTTP header.");
@@ -87,6 +92,16 @@ internal sealed record GcsError(string Code, HttpStatus Status, string Message)
     public static GcsError ConflictingObjectName { get; } = new("InvalidObjectName", new HttpStatus(409, "Conflict"), "The specified object name is not valid.");
 
     /// <summary>
+    /// <c>400 InvalidPart</c>: a completion naming a part not uploaded, or with another ETag (decision 9).
+    /// </summary>
+    public static GcsError InvalidPart { get; } = new("InvalidPart", HttpStatus.BadRequest, "One or more of the specified parts could not be found.");
+
+    /// <summary>
+    /// <c>400 InvalidPartOrder</c>: a completion whose parts are not in ascending order (decision 9).
+    /// </summary>
+    public static GcsError InvalidPartOrder { get; } = new("InvalidPartOrder", HttpStatus.BadRequest, "The list of parts was not in ascending order.");
+
+    /// <summary>
     /// <c>416 InvalidRange</c>: a single range that names no byte of the object.
     /// </summary>
     public static GcsError InvalidRange { get; } = new("InvalidRange", new HttpStatus(416, "Range Not Satisfiable"), "The requested range cannot be satisfied.");
@@ -122,6 +137,12 @@ internal sealed record GcsError(string Code, HttpStatus Status, string Message)
     /// <c>generation</c> that is not the current one.
     /// </summary>
     public static GcsError NoSuchKey { get; } = new("NoSuchKey", HttpStatus.NotFound, "The specified key does not exist.");
+
+    /// <summary>
+    /// <c>404 NoSuchUpload</c>: an <c>uploadId</c> or <c>upload_id</c> naming no open upload of the
+    /// bucket and object - never made, completed, aborted, cancelled or expired (decision 9).
+    /// </summary>
+    public static GcsError NoSuchUpload { get; } = new("NoSuchUpload", HttpStatus.NotFound, "The specified upload does not exist.");
 
     /// <summary>
     /// <c>400 NotImplemented</c>: every request decision 1 does not list.
