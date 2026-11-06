@@ -20,13 +20,19 @@ What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hoste
   `409 InvalidArgument`; a key the store cannot hold `400 InvalidArgument` with `ArgumentName`
   `key`); streams the body through `S3UploadStream` into a content-store upload session
   (`400 IncompleteBody` when it ends early); answers `200` with the body's MD5 as `ETag`. A
-  zero-byte `PUT` of a key ending in `/` creates the folder. A write the store or a share
+  zero-byte `PUT` of a key ending in `/` creates the folder and records it as a folder object
+  (`503 ServiceUnavailable` when the index is full). A write the store or a share
   refuses is `403 AccessDenied`.
 - ListObjectsV2 (`GET /<bucket>?list-type=2`): a listing in ADR-0006's sense, so it needs
   `--list-directories` (off: `403 AccessDenied`). `S3BucketWalk` yields keys in UTF-8 binary
   order; `S3ListPage` applies `prefix`, `delimiter`, `start-after`, `max-keys` (default
   and cap 1000) and the continuation token (`S3ContinuationToken`: base64url of the last name);
-  `S3ListObjectsV2` writes `ListBucketResult`. Empty folders are not keys.
+  `S3ListObjectsV2` writes `ListBucketResult`. A folder is a key, `x/` (size 0, the empty-body ETag),
+  only when a zero-byte PutObject of `x/` recorded it in the index as a folder object
+  (`ObjectMetadataIndex.StoreFolderObjectAsync`; ADR-0108 Amendment 3, BL-728): the listing reads
+  every folder object once and the walk yields `x/` just before the keys inside it. Every other
+  folder - empty, made for a deeper key, made by another protocol, or in a share - is not a key.
+  DeleteObject of `x/` does not yet forget the folder object (BL-928).
 - DeleteObject (`DELETE /<bucket>/<key>`, `S3DeleteObject`): needs `--allow-uploads` (off: `403`
   `AccessDenied`) and a login; removes the file, or for a key ending in `/` the folder only when it
   is empty; `204` for every key that holds no object (missing, a folder without the `/`, a key the

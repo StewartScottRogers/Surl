@@ -473,5 +473,41 @@ BL-419, and recorded here by BL-727 (BL-419 could not edit this folder while BL-
    sent.
 8. **PutObject creates the key's missing folders;** a file in the way, or a folder at the key, is
    `409 InvalidArgument` (decision 3's conflict). A zero-byte `PUT` of a key ending in `/` creates
-   the folder, but ListObjectsV2 does not yet list it as a folder object (decision 6's last point):
-   BL-728.
+   the folder, and since BL-728 records it as a folder object that ListObjectsV2 lists (decision
+   6's last point; Amendment 3).
+
+## Amendment 3 - folder objects, as BL-728 built them (BL-728, 2026-11-06)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06, in
+BL-728. It builds decision 6's last point: a folder a client put as `x/` is listed as key `x/`.
+
+1. **The object metadata index records a folder object** (`ObjectMetadataIndex.StoreFolderObjectAsync`,
+   in `Surl.Content`), under the folder's index key and a final `/` (`bucket/x/`), which
+   `ObjectMetadataIndex.IsValidFolderObjectKey` accepts and the index file's format now admits
+   beside file keys. Its properties: length 0, the ETag `"d41d8cd98f00b204e9800998ecf8427e"` (the
+   MD5 of no bytes), the header fields and `x-amz-meta-*` the PUT sent, and the folder's last write
+   time when it was stored. Why the index and not a marker the S3 library keeps: decision 6 already
+   names the index, the index is what a store snapshot, reset and restore (ADR-0124 decision 3) and
+   the data directory's persistence already carry, so a folder object is reset, restored and kept
+   across restarts with no new mechanism; a dot-file marker in the folder would have made the folder
+   non-empty, so FTP's `RMD` or SFTP's `rmdir` of an S3-made empty folder would fail.
+2. **A folder object lasts while its folder exists,** whatever is written inside it - not while a
+   stamp matches, as a file's entry does, because a folder's last write time moves with every entry
+   added to it. `ObjectMetadataIndex.ReadFolderObjectsAsync` answers each folder object whose folder
+   is still a folder and drops the rest; a full index drops them first, as it drops stale file
+   entries. The stated cost, like ADR-0100's for renames: a folder removed and made again by another
+   protocol before any listing looks is listed again as a folder object.
+3. **ListObjectsV2 reads every folder object once per listing,** and `S3BucketWalk` yields a folder
+   `x` as the key `x/` just before the keys inside it (its UTF-8 order) when the index holds it and
+   the key starts with `prefix`; `delimiter` rolls it into its common prefix like any key. Any other
+   folder - empty or not, made by S3's own folder creation for a deeper key or by any other protocol
+   - is not a key. Why read them all at once: the walk is synchronous and paged by
+   `S3ListPage`, and a folder that turned out not to be an object after paging would have been
+   counted against `max-keys` or rolled into a common prefix it should not make.
+4. **A folder put as an object in a share** has no index key (Amendment 2, point 6): the PUT still
+   creates the folder and answers `200`, but nothing is recorded and ListObjectsV2 does not list it.
+   A folder object the index refuses (the index full) is `503 ServiceUnavailable`; the folder stays,
+   as a folder, because it may already hold other keys.
+5. **DeleteObject of `x/` does not forget the folder object;** it removes the folder only when empty,
+   and an empty folder's removal drops the folder object at the next listing. A non-empty folder's
+   `x/` still lists after its DeleteObject: BL-928 makes DeleteObject forget it.

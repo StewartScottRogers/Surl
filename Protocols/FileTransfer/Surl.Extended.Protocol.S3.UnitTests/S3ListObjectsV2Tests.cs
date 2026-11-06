@@ -36,6 +36,89 @@ public sealed partial class S3ListObjectsV2Tests
     }
 
     [TestMethod]
+    public async Task ServeAsync_FolderPutAsAnObject_IsListedAsItsKeyWithSizeZeroAndTheEmptyETag()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("bucket");
+
+        var put = await harness.SendAsync("PUT", "/bucket/x/", "Content-Length: 0");
+        var response = await harness.SendAsync("GET", "/bucket?list-type=2");
+
+        StringAssert.StartsWith(put, "HTTP/1.1 200 OK\r\n");
+        StringAssert.EndsWith(
+            response,
+            "<KeyCount>1</KeyCount><IsTruncated>false</IsTruncated>"
+                + "<Contents><Key>x/</Key><LastModified>2026-11-05T12:00:00.000Z</LastModified><ETag>\"d41d8cd98f00b204e9800998ecf8427e\"</ETag><Size>0</Size><StorageClass>STANDARD</StorageClass></Contents>"
+                + "</ListBucketResult>");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FolderMadeByAnotherProtocol_IsNotListed()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("bucket");
+        Assert.AreEqual(ContentChangeResult.Done, harness.Store.CreateDirectory(harness.Store.MapRequestPathForScheme("/bucket/made-over-ftp", "ftp")));
+        harness.CreateFolder("bucket/filled-over-ftp");
+        harness.WriteFile("bucket/filled-over-ftp/a.txt", "a");
+
+        var listed = await harness.SendAsync("GET", "/bucket?list-type=2");
+        var rolledUp = await harness.SendAsync("GET", "/bucket?list-type=2&delimiter=/");
+
+        CollectionAssert.AreEqual(new[] { "filled-over-ftp/a.txt" }, KeysOf(listed));
+        Assert.IsEmpty(KeysOf(rolledUp));
+        StringAssert.Contains(rolledUp, "<KeyCount>1</KeyCount>");
+        StringAssert.EndsWith(rolledUp, "<CommonPrefixes><Prefix>filled-over-ftp/</Prefix></CommonPrefixes></ListBucketResult>");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FolderObjectAndItsKeys_SortFolderFirstAndHonourPrefixAndDelimiter()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("bucket");
+        await harness.SendAsync("PUT", "/bucket/x/", "Content-Length: 0");
+        harness.WriteFile("bucket/x/a.txt", "a");
+        harness.WriteFile("bucket/x.txt", "x");
+
+        var everything = await harness.SendAsync("GET", "/bucket?list-type=2");
+        var underThePrefix = await harness.SendAsync("GET", "/bucket?list-type=2&prefix=x/");
+        var pastTheFolder = await harness.SendAsync("GET", "/bucket?list-type=2&prefix=x/a");
+        var rolledUp = await harness.SendAsync("GET", "/bucket?list-type=2&delimiter=/");
+
+        CollectionAssert.AreEqual(new[] { "x.txt", "x/", "x/a.txt" }, KeysOf(everything));
+        CollectionAssert.AreEqual(new[] { "x/", "x/a.txt" }, KeysOf(underThePrefix));
+        CollectionAssert.AreEqual(new[] { "x/a.txt" }, KeysOf(pastTheFolder));
+        CollectionAssert.AreEqual(new[] { "x.txt" }, KeysOf(rolledUp));
+        StringAssert.EndsWith(rolledUp, "<CommonPrefixes><Prefix>x/</Prefix></CommonPrefixes></ListBucketResult>");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FolderObjectWhoseFolderWasRemoved_IsNotListed()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("bucket");
+        await harness.SendAsync("PUT", "/bucket/x/", "Content-Length: 0");
+        harness.Store.RemoveEmptyDirectory(harness.Store.MapRequestPathForScheme("/bucket/x", "ftp"));
+
+        var response = await harness.SendAsync("GET", "/bucket?list-type=2");
+
+        Assert.IsEmpty(KeysOf(response));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_FolderPutAsAnObjectInAShare_StandsAsAFolderAndIsNotListed()
+    {
+        var shareFileSystem = new InMemoryContentFileSystem(new FixedTimeProvider(S3ServerHarness.Now));
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable, shares: [new ContentShare("shared", S3ServerHarness.Root, shareFileSystem)]);
+
+        var put = await harness.SendAsync("PUT", "/shared/x/", "Content-Length: 0");
+        var response = await harness.SendAsync("GET", "/shared?list-type=2");
+
+        StringAssert.StartsWith(put, "HTTP/1.1 200 OK\r\n");
+        Assert.AreEqual(ContentEntryKind.Directory, shareFileSystem.GetEntryKind(Path.Join(S3ServerHarness.Root, "x")));
+        Assert.IsEmpty(KeysOf(response));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_FiveKeysTwoAPage_PagesThroughWithContinuationTokens()
     {
         var harness = FiveKeys();

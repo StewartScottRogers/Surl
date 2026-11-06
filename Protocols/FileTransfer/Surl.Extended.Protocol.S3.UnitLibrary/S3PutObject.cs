@@ -186,7 +186,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         {
             return request.Body.IsAnnounced
                 ? reply.Error(S3Error.InvalidArgument, KeyArgument(target))
-                : Stored(reply, MD5.HashData(ReadOnlySpan<byte>.Empty));
+                : await StoreFolderObjectAsync(reply, request.Fields, target, cancellationToken);
         }
 
         var opening = await store.OpenUploadAsync(mapping, new ContentUploadOpening(StartsFromExistingBytes: false, CreatesMissingFile: true, RefusesExistingFile: false), cancellationToken);
@@ -289,6 +289,27 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
     /// <returns><see langword="null"/> when the body is the one described, else the error.</returns>
     internal Task<S3Error?> BodyContentRefusalAsync(HttpRequest request, IHttpRequestBodyCheck? bodyCheck, byte[] bodySha256, byte[] bodyMd5, CancellationToken cancellationToken) =>
         ContentRefusalAsync(request, bodyCheck, bodySha256, bodyMd5, cancellationToken);
+
+    // A zero-byte PUT of a key ending in '/': the folder, already created, is recorded as an object
+    // in the index so ListObjectsV2 lists it as the key x/ (ADR-0108, decision 6). A folder in a
+    // share has no index key, so it stands as a folder only.
+    private async Task<HttpAnswer> StoreFolderObjectAsync(S3Reply reply, IReadOnlyList<KeyValuePair<string, string>> fields, S3RequestTarget target, CancellationToken cancellationToken)
+    {
+        var digest = MD5.HashData(ReadOnlySpan<byte>.Empty);
+        var indexKey = S3IndexKey.OfFolderObject(store, Uri.UnescapeDataString(target.RawBucket), Uri.UnescapeDataString(target.RawKey));
+        if (indexKey is null)
+        {
+            return Stored(reply, digest);
+        }
+
+        var stored = await index.StoreFolderObjectAsync(indexKey, MetadataOf(fields, ETagOf(digest)), cancellationToken);
+        if (stored.StorageFailure is { } failure)
+        {
+            log.Note($"The object metadata index could not be written: {failure}");
+        }
+
+        return MetadataRefusal(stored.Outcome) is { } refusal ? reply.Error(refusal) : Stored(reply, digest);
+    }
 
     private static HttpAnswer Stored(S3Reply reply, byte[] digest) =>
         reply.Answer(HttpStatus.Ok, [new("ETag", ETagOf(digest)), new("Content-Length", "0")], HttpAnswerBody.None);

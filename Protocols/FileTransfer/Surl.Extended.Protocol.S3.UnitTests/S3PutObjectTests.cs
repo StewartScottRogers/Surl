@@ -378,6 +378,30 @@ public sealed class S3PutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_PutFolderObjectWithTheIndexFull_Is503ServiceUnavailable()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable, maxIndexEntries: 0);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendAsync("PUT", "/photos/2026/", "Content-Length: 0");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 503 Service Unavailable\r\n");
+        StringAssert.Contains(response, "<Code>ServiceUnavailable</Code>");
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_PutFolderObjectWithAnIndexThatCannotBeWritten_StoresItAndNotesTheFailure()
+    {
+        var harness = new S3ServerHarness(maxTotalBytes: 0, persistsIndex: true, exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendAsync("PUT", "/photos/2026/", "Content-Length: 0");
+
+        StringAssert.StartsWith(response, "HTTP/1.1 200 OK\r\n");
+        Assert.IsTrue(harness.Log.Notes.Any(note => note.StartsWith("The object metadata index could not be written: ", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
     public async Task ServeAsync_PutObjectWithAnIndexThatCannotBeWritten_StoresTheObjectAndNotesTheFailure()
     {
         var harness = new S3ServerHarness(maxTotalBytes: 20, persistsIndex: true, exposure: S3ServerHarness.Writable);

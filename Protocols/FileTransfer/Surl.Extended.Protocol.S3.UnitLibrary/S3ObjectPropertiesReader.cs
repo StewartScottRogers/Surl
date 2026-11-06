@@ -43,6 +43,15 @@ internal sealed class S3ObjectPropertiesReader(ContentStore store, ObjectMetadat
         return reading.Properties;
     }
 
+    /// <summary>
+    /// Every folder a client put as an object whose folder still exists, by its index key
+    /// (<see cref="S3IndexKey.OfFolderObject"/>).
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the wait for the index.</param>
+    /// <returns>Each folder object's properties.</returns>
+    public Task<IReadOnlyDictionary<string, ObjectProperties>> ReadFolderObjectsAsync(CancellationToken cancellationToken) =>
+        index.ReadFolderObjectsAsync(cancellationToken);
+
     private async Task<ObjectProperties> DefaultPropertiesAsync(ContentPathMapping mapping, ContentFileStatus status, CancellationToken cancellationToken)
     {
         using var md5 = MD5.Create();
