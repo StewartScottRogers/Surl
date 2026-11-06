@@ -67,6 +67,23 @@ horizontal library may reference it (ADR-0099 decision 11, held by
   `surl: warning: --fault: <n> fault rule(s) make this server misbehave on purpose` once, from info
   up, right after the other loosening warnings.
 
+- Store control per instance (ADR-0124 decision 3, BL-805): `ComposedServing.Stores` is a
+  `ComposedStores` over the start's content store and object metadata index, mail store, message bus
+  and account book (the policy's `Settings.Accounts`, which `AuthenticationComposition.ComposeSettings`'
+  three-argument overload builds over the instance's stream, so account changes are published too).
+  Seeds go through each store's own seed path: `SeedMailAsync` and `SeedPublishAsync`/`SeedEnqueueAsync`
+  then save the store (a bus save that fails throws `IOException` with its message), `SeedFileAsync`,
+  `SeedFolder`, `AddAccount`, `RemoveAccount`. `ResetAsync`, `TakeSnapshotAsync` and `RestoreAsync` work on
+  every store in `ComposedStores.StoreOrder` (content, mail, bus, accounts), or on one `StoreKind`; the
+  first refusal stops a whole-instance operation with a `ComposedStoreException`
+  (an `InvalidOperationException` whose `Store` names the store, the store's own refusal inner). A
+  `ComposedSnapshot` holds one snapshot per store, `ByteCount` together, refused past
+  `MaxSnapshotBytes` (`DefaultMaxSnapshotBytes`, 256 MiB) at the store that passed it; another
+  instance's snapshot is an `ArgumentException`. With `--directory` the content store (its index is on
+  disk), the mail store and the bus refuse reset, snapshot and restore, so a whole-instance reset or
+  snapshot stops at `Content`; seeding them is allowed, and accounts stay controllable. Tests:
+  `ComposedStoresTests`.
+
 The types are `public` because more than one host calls them, but they are not a supported
 programming interface and may change in any release.
 

@@ -266,14 +266,21 @@ public static partial class SurlServerComposition
         {
             ListenUrls = [.. commandLine.ListenUrls, .. seams.AdditionalProtocolServers.SelectMany(additional => additional.ListenUrls)],
         };
-        return ComposeServing(served, seams, servers, contentStore, authentication, instruments, dataDirectoryLock);
+        // Every store a test seeds, resets, snapshots and restores, behind one surface (ADR-0124, decision 3).
+        var stores = new ComposedStores(
+            contentStore,
+            loaded.State.ObjectMetadataIndex,
+            loaded.State.MailStore,
+            loaded.State.MessageBus,
+            authentication.Policy.Settings.Accounts);
+        return ComposeServing(served, seams, servers, stores, authentication, instruments, dataDirectoryLock);
     }
 
     private static SurlServerStart ComposeServing(
         SurlCommandLine commandLine,
         SurlServerCompositionSeams seams,
         IProtocolServer[] servers,
-        ContentStore contentStore,
+        ComposedStores stores,
         ComposedAuthentication authentication,
         EventStreamAndFaultPlan instruments,
         IDisposable? dataDirectoryLock)
@@ -290,9 +297,10 @@ public static partial class SurlServerComposition
         }
 
         IProtocolServer[] served = tls.QuicCertificate is { } quicCertificate
-            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, contentStore, authentication.Policy, quicCertificate)]
+            ? [.. servers, ComposeHttp3ProtocolServer(commandLine, stores.Content, authentication.Policy, quicCertificate)]
             : servers;
-        return new SurlServerStart(null, new ComposedServing(commandLine, seams, served, authentication, instruments, tls, dataDirectoryLock));
+        return new SurlServerStart(
+            null, new ComposedServing(commandLine, seams, served, authentication, instruments, stores, tls, dataDirectoryLock));
     }
 
     // --http3: the HTTP/3 server on every https listen URL's UDP side, sharing the scheme with the

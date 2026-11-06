@@ -34,6 +34,7 @@ public sealed class ComposedServing : IAsyncDisposable
         IProtocolServer[] servers,
         ComposedAuthentication authentication,
         EventStreamAndFaultPlan instruments,
+        ComposedStores stores,
         ServerTlsComposition tls,
         IDisposable? dataDirectoryLock)
     {
@@ -42,6 +43,7 @@ public sealed class ComposedServing : IAsyncDisposable
         this.servers = servers;
         this.authentication = authentication;
         this.instruments = instruments;
+        Stores = stores;
         this.tls = tls;
         this.dataDirectoryLock = dataDirectoryLock;
     }
@@ -60,6 +62,13 @@ public sealed class ComposedServing : IAsyncDisposable
     /// while serving.
     /// </summary>
     public FaultPlan Faults => instruments.Faults;
+
+    /// <summary>
+    /// The instance's stores - content, mail, message bus and accounts - as a test seeds, resets,
+    /// snapshots and restores them, one at a time or all together (ADR-0124, decision 3). Every
+    /// change they make is published on <see cref="Events"/>.
+    /// </summary>
+    public ComposedStores Stores { get; }
 
     /// <summary>
     /// The protocol servers the serving engine routes each listen URL to, original and extended, in
