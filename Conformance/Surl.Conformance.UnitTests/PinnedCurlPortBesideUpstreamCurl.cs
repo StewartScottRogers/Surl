@@ -23,6 +23,15 @@ internal static class PinnedCurlPortBesideUpstreamCurl
     private static readonly TimeSpan RelayDrainTimeout = TimeSpan.FromSeconds(10);
 
     /// <summary>
+    /// How long <c>surl</c>'s notes must stay unchanged after the client exits before they are read,
+    /// so a connection the client opened and dropped (WinLDAP's unused one, a failed TLS handshake) is
+    /// noted in every run rather than only when <c>surl</c> happened to log it first.
+    /// </summary>
+    private static readonly TimeSpan NotesQuietPeriod = TimeSpan.FromMilliseconds(500);
+
+    private static readonly TimeSpan NotesSettleTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
     /// Runs <paramref name="measurementCase"/> through both clients and judges the two runs.
     /// </summary>
     /// <param name="testContext">The running test's context.</param>
@@ -39,6 +48,38 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         CurlPortMeasurementCase measurementCase,
         Func<SurlOnLoopback, CancellationToken, Task<IAsyncDisposable>>? arrangeAsync = null) =>
         MeasureAsync(testContext, measurementCase, CurlPortRunSetup.None, arrangeAsync);
+
+    /// <summary>
+    /// As <see cref="MeasureAsync(TestContext, CurlPortMeasurementCase, Func{SurlOnLoopback, CancellationToken, Task{IAsyncDisposable}})"/>,
+    /// for a case whose mirrored test names <c>surl</c>'s port before <c>surl</c> starts (a Kerberos
+    /// service principal, a <c>--resolve</c> entry) or sets client environment variables (an MIT
+    /// credential cache): each run's <c>surl</c> listens on <paramref name="surlPort"/> in turn, one after
+    /// the other, so the case's arguments can name it literally, and both clients get
+    /// <paramref name="clientEnvironment"/> (ADR-0089 decision 3: set identically for both).
+    /// </summary>
+    /// <param name="testContext">The running test's context.</param>
+    /// <param name="measurementCase">The case.</param>
+    /// <param name="surlPort">The port both runs' <c>surl</c> listens on; 0 for an ephemeral port each.</param>
+    /// <param name="clientEnvironment">Variables set in both clients' environments, beside the empty home.</param>
+    /// <param name="arrangeAsync">As in the overload without <paramref name="surlPort"/>.</param>
+    /// <returns>The verdict, and what each run's <c>surl</c> showed.</returns>
+    public static Task<PinnedCurlPortMeasurement> MeasureOnPortAsync(
+        TestContext testContext,
+        CurlPortMeasurementCase measurementCase,
+        int surlPort,
+        IReadOnlyDictionary<string, string> clientEnvironment,
+        Func<SurlOnLoopback, CancellationToken, Task<IAsyncDisposable>>? arrangeAsync = null)
+    {
+        ArgumentNullException.ThrowIfNull(measurementCase);
+        ArgumentNullException.ThrowIfNull(clientEnvironment);
+        var setup = new CurlPortRunSetup
+        {
+            Environment = clientEnvironment,
+            StartSurlAsync = cancellationToken => SurlOnLoopback.StartOnPortAsync(
+                measurementCase.SurlScheme, surlPort, measurementCase.Files, ParentDirectoriesOf(measurementCase.Files.Keys), measurementCase.SurlOptions, cancellationToken),
+        };
+        return MeasureAsync(testContext, measurementCase, setup, arrangeAsync);
+    }
 
     /// <summary>
     /// As <see cref="MeasureAsync(TestContext, CurlPortMeasurementCase, Func{SurlOnLoopback, CancellationToken, Task{IAsyncDisposable}})"/>,
@@ -195,7 +236,8 @@ internal static class PinnedCurlPortBesideUpstreamCurl
 
         await using var arrangement = arrangeAsync is null ? null : await arrangeAsync(surl, cancellationToken);
         var result = await runClientAsync(arguments, environment);
-        var notes = setup.ComparedNotes is { } comparedNotes ? comparedNotes(surl.Log) : surl.Log;
+        var settledNotes = await SettledNotesAsync(surl, cancellationToken);
+        var notes = setup.ComparedNotes is { } comparedNotes ? comparedNotes(settledNotes) : settledNotes;
         var side = new CurlPortSurlSide(listener.Port, notes, await ReadStoredFilesAsync(surl, measurementCase, cancellationToken));
         if (relay is not null)
         {
@@ -204,6 +246,55 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         }
 
         return (result, side);
+    }
+
+    /// <summary>
+    /// <c>surl</c>'s notes once they have stayed unchanged for <see cref="NotesQuietPeriod"/>, or as they
+    /// stand after <see cref="NotesSettleTimeout"/>, in exchange order.
+    /// </summary>
+    private static async Task<string> SettledNotesAsync(SurlOnLoopback surl, CancellationToken cancellationToken)
+    {
+        var deadline = TimeProvider.System.GetTimestamp() + (long)(NotesSettleTimeout.TotalSeconds * TimeProvider.System.TimestampFrequency);
+        var notes = surl.Log;
+        while (TimeProvider.System.GetTimestamp() < deadline)
+        {
+            await Task.Delay(NotesQuietPeriod, TimeProvider.System, cancellationToken);
+            var later = surl.Log;
+            if (later == notes)
+            {
+                break;
+            }
+
+            notes = later;
+        }
+
+        return InExchangeOrder(notes);
+    }
+
+    /// <summary>
+    /// <paramref name="notes"/> with each exchange's lines (<c>#2 * …</c>) grouped by exchange number,
+    /// each exchange's own lines and the lines before the first exchange kept in the order <c>surl</c>
+    /// wrote them. Two connections a client opens at once are served side by side, so which exchange's
+    /// line <c>surl</c> writes first is the scheduler's choice, not the client's (ADR-0089 amendment 3).
+    /// </summary>
+    internal static string InExchangeOrder(string notes)
+    {
+        var exchange = 0;
+        var lines = new List<(int Exchange, int Index, string Line)>();
+        var trailingNewline = notes.EndsWith('\n');
+        foreach (var line in (trailingNewline ? notes[..^1] : notes).Split('\n'))
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(line, @"^#(\d+) ");
+            if (match.Success)
+            {
+                exchange = int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            lines.Add((exchange, lines.Count, line));
+        }
+
+        var ordered = string.Join('\n', lines.OrderBy(entry => entry.Exchange).ThenBy(entry => entry.Index).Select(entry => entry.Line));
+        return trailingNewline ? ordered + "\n" : ordered;
     }
 
     private static async Task<IReadOnlyDictionary<string, byte[]>> ReadStoredFilesAsync(

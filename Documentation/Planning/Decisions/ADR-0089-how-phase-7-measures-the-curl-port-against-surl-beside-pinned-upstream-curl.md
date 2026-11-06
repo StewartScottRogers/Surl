@@ -251,3 +251,28 @@ Why: measured in BL-585, every `ws` case's two runs differed first inside the ke
 both rules every `ws` case agrees; without these rules no `ws` case could ever agree, and turning the relay
 off for `ws` would compare none of curl's upgrade request or frames. `CurlPortResultNormaliser.NormaliseRequestBytes`
 applies both (`WebSocketFrameUnmasking`, `RequestBytesNormalisation`).
+
+## Amendment 3 — `surl`'s notes are read once settled, and in exchange order (2026-11-05)
+
+Decided by Claude under Stewart's delegation, in BL-586.
+
+LDAP showed two ways decision 4's notes comparison could give different verdicts from one run to the
+next for the same two clients:
+
+- **Read too early.** The notes were read the moment the client exited. A connection the client opened
+  and dropped (the `WinLDAP` build's unused connection, a TLS handshake it abandoned) was noted only if
+  `surl` got to it first. `PinnedCurlPortBesideUpstreamCurl` now reads the notes once they have stayed
+  unchanged for 500 ms, waiting at most 5 s after the client exits.
+- **Interleaving.** Two connections a client opens at once are served side by side, so which
+  exchange's line `surl` writes first is the scheduler's choice, not the client's. Before comparing,
+  the notes are grouped by exchange number (`#2 * …`). Each exchange's own lines, and the lines before
+  the first exchange, keep the order `surl` wrote them.
+
+Neither change hides a difference a client makes: an extra connection is still an extra exchange, and
+each exchange's own lines are still compared in order. Without these changes, decision 5 could not hold:
+a listed finding would come and go from run to run.
+
+`PinnedCurlPortBesideUpstreamCurl.MeasureOnPortAsync` also lets a case name `surl`'s port before `surl`
+starts, with both runs' `surl` listening on it one after the other, and set client environment
+variables identically for both clients (decision 3). The Kerberos cases need this: their service
+principal or `--resolve` entry names the port, and the MIT build reads a credential cache.
