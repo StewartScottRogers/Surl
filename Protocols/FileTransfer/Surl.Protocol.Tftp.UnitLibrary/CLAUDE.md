@@ -20,6 +20,11 @@ Share access (ADR-0102 decisions 2.2 and 2.3, BL-662): TFTP has no login, so eve
 with `ContentStore.MapRequestPathForCaller` as `ContentCaller.Anonymous` on `tftp`. A share closed
 to anonymous, or limited to other schemes, is a missing file (ERROR 1); a write in a share
 anonymous may only read, or a `readonly` share, is the store's `NotPermitted` (ERROR 2).
+Chosen-error faults (ADR-0124 decision 4, BL-794): `TftpChosenErrorFault` asks the exchange's fault
+plan about each well-formed request at a `Command`-stage point (`RRQ` or `WRQ`, the decoded file
+name as path, no account, the listen URL in the engine's form from `FaultListenUrl`); a matching
+`error` rule's `<code> <text>` reply is sent as that ERROR from the transfer port before the store
+is touched, and one `FaultAppliedEvent` is published.
 `TftpProtocolServer` is also the `IDatagramRefusalWriter`: ERROR 0 for a flow past a
 connection limit. ADR-0013 and its amendment record every answer. Its fixtures and the
 commands that recorded them are in `Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests/Fixtures/README.md`.

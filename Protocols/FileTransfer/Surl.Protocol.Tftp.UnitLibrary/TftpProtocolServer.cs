@@ -74,7 +74,14 @@ namespace Surl.Protocol.Tftp;
 /// with one ERROR 0 from a new transfer port: <c>Too many connections</c>, or
 /// <c>Too many connections from your address</c> (ADR-0006 section 5); upstream curl exits
 /// 71. Every ERROR message is one of the fixed texts above, never a path, an exception
-/// message or an operating-system error (ADR-0006 section 3).
+/// message or an operating-system error (ADR-0006 section 3) - except the one a test chose:
+/// </para>
+/// <para>
+/// A well-formed request matched by a chosen-error fault rule (ADR-0124, decision 4; command
+/// <c>RRQ</c> or <c>WRQ</c>, path the decoded file name) is answered from the transfer port with
+/// the ERROR packet carrying the rule's code and text, before the content store is touched, and
+/// a <see cref="FaultAppliedEvent"/> is published (<see cref="TftpChosenErrorFault"/>). Upstream
+/// curl exits as for the same ERROR from any server: 68 for 1, 69 for 2, 70 for 3, 71 for 0 and 4.
 /// </para>
 /// </remarks>
 public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefusalWriter
@@ -126,6 +133,13 @@ public sealed class TftpProtocolServer : IDatagramProtocolServer, IDatagramRefus
         if (!TftpRequest.TryParse(first.Span, out var request))
         {
             await SendErrorAsync(flow, context, TftpErrorCode.IllegalOperation, "Illegal TFTP operation", "The first datagram is not a well-formed read or write request");
+            return;
+        }
+
+        // A chosen-error fault answers the request before the content store is touched (ADR-0124, decision 4).
+        if (await TftpChosenErrorFault.FindErrorPacketAsync(context, request!) is { } faultError)
+        {
+            await flow.SendAsync(faultError, context.CancellationToken);
             return;
         }
 
