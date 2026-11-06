@@ -69,9 +69,9 @@ visible only as the event and the missing message. An LDAP search answered with 
 `success` exits 39, as `noSuchObject` does (`UpstreamCurlSearchesSurlOverLdapTests`); curl reads
 `sizeLimitExceeded` (4) as success, so a rule choosing 4 exits 0. Curl sends no compare or write. The faults'
 own exchanges against a live `surl` wait on BL-803, which composes the fault plan into the running server;
-BL-912 measures them then.
+BL-913 measures them then.
 
 ## Consequences
 
 A test can make one MQTT connect, subscribe filter or publish, or one LDAP search, compare or write, fail on
-purpose and see it on the event stream. No store changes. The live measurement is BL-912.
+purpose and see it on the event stream. No store changes. The live measurement is BL-913.

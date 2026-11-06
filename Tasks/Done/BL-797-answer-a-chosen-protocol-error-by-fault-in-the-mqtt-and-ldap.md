@@ -61,7 +61,7 @@ purpose.
 - Upstream curl 8.21.0 exit codes, from measurements of the same bytes: `SUBACK` `0x80` → 8 (ADR-0102 R12);
   `CONNACK` non-zero → 8 (BL-115, codes 4 and 5); a QoS 0 publish → 0 (R14, curl waits on nothing); an LDAP
   search with a non-success resultCode → 39 (as `noSuchObject`, measured). No new run: a live `surl` applies
-  the plan only once BL-803 lands; BL-912 is filed to measure them then.
+  the plan only once BL-803 lands; BL-913 is filed to measure them then.
 - Coverage measured with the MSTest collector (cobertura): both libraries 100% line and 100% branch.
 
 ## Log

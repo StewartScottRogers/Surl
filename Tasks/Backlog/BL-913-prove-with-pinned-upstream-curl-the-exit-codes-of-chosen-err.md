@@ -1,5 +1,5 @@
 ---
-id: BL-912
+id: BL-913
 title: Prove with pinned upstream curl the exit codes of chosen-error faults on MQTT and LDAP
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-912 — Prove with pinned upstream curl the exit codes of chosen-error faults on MQTT and LDAP
+# BL-913 — Prove with pinned upstream curl the exit codes of chosen-error faults on MQTT and LDAP
 
 ## Goal
 
