@@ -15,6 +15,14 @@ and applied by the code that owns that stage. Each exchange's `ExchangeDeadlines
 `ExchangeContext.IdleClock`, so a server holding a command-stage delay pauses the idle timeout
 (ADR-0141).
 
+`FaultPlan.AddOverride(FaultOverrideScope, FaultOverride)` (BL-811, ADR-0124 decision 5) puts a
+`Surl.Api` response override in the plan's order under the next `f<n>`. While the plan holds no
+override `FindAsync` completes synchronously under the lock as before; with one, it snapshots the
+entries, asks each matching override outside the lock (an entry removed meanwhile is skipped), and
+returns the answer under the override's ID, or goes on to the next entry when it answers null. The
+plan does not bound or catch the decision: `Surl.Api`'s `ResponseOverrideHook` does. `Rules` lists
+rules only. `FaultPlan.StageOf` is public so the override can check its answer's stage.
+
 This library references `Surl.Protocol.Abstractions.UnitLibrary` and no protocol server.
 Protocol servers receive what it provides through the contracts in Abstractions.
 

@@ -18,6 +18,12 @@ namespace Surl.Core;
 /// segment prefix. The first match wins, and finding it spends one of its
 /// <see cref="FaultRule.Times"/> atomically, so a rule with <c>times=1</c> is found exactly once
 /// however many exchanges ask at once.
+/// <para>
+/// An override (<see cref="AddOverride"/>, ADR-0124 decision 5) sits in the same order: at a point its
+/// scope matches it is asked which rule applies, outside the plan's lock, and an answer of
+/// <see langword="null"/> goes on to the next rule. While the plan holds no override,
+/// <see cref="FindAsync"/> completes synchronously.
+/// </para>
 /// </remarks>
 public sealed class FaultPlan : IFaultPlan
 {
@@ -32,12 +38,14 @@ public sealed class FaultPlan : IFaultPlan
     public const int MaxDelayMilliseconds = 600_000;
 
     private readonly Lock rulesLock = new();
-    private readonly List<PlannedRule> rules = [];
+    private readonly List<PlannedEntry> rules = [];
     private int lastRuleNumber;
+    private int overrideCount;
 
     /// <summary>
     /// A snapshot of the rules, in the order they are tried, each with its
-    /// <see cref="FaultRule.Times"/> as what is left of its count.
+    /// <see cref="FaultRule.Times"/> as what is left of its count. Overrides are not listed: they have
+    /// no kind until asked.
     /// </summary>
     public IReadOnlyList<FaultRule> Rules
     {
@@ -45,9 +53,51 @@ public sealed class FaultPlan : IFaultPlan
         {
             lock (rulesLock)
             {
-                return [.. rules.Select(planned => planned.Rule with { Times = planned.RemainingTimes })];
+                return [.. rules.OfType<PlannedRule>().Select(planned => planned.Rule with { Times = planned.RemainingTimes })];
             }
         }
+    }
+
+    /// <summary>
+    /// Adds an override after every rule already in the plan, under the next identifier (ADR-0124,
+    /// decision 5): at each point <paramref name="scope"/> matches, <paramref name="decide"/> is asked
+    /// which rule applies there. The rule it answers is applied under the override's identifier.
+    /// </summary>
+    /// <param name="scope">The points the override is asked at.</param>
+    /// <param name="decide">The decision; its caller bounds its time and catches what it throws.</param>
+    /// <returns>The override's identifier, <c>f&lt;n&gt;</c>, which <see cref="Remove"/> takes.</returns>
+    /// <exception cref="InvalidOperationException">The plan already holds <see cref="MaxRules"/> rules.</exception>
+    public string AddOverride(FaultOverrideScope scope, FaultOverride decide)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(decide);
+
+        lock (rulesLock)
+        {
+            var id = NextIdUnderLock();
+            rules.Add(new PlannedOverride(id, scope, decide));
+            overrideCount++;
+
+            return id;
+        }
+    }
+
+    /// <summary>
+    /// The stage a rule acts at: the one it names, or its kind's default when it names none.
+    /// </summary>
+    /// <param name="rule">The rule.</param>
+    /// <returns>The stage.</returns>
+    /// <exception cref="ArgumentException">The rule names a stage its kind cannot act at.</exception>
+    public static FaultStage StageOf(FaultRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        var defaultStage = DefaultStageOf(rule.Kind);
+        var stage = rule.Stage ?? defaultStage;
+        var allowed = stage == defaultStage || (stage == FaultStage.Command && rule.Kind is FaultKind.Delay or FaultKind.Drop);
+
+        return allowed
+            ? stage
+            : throw new ArgumentException($"A {rule.Kind} fault rule cannot act at the {stage} stage.", nameof(rule));
     }
 
     /// <summary>
@@ -73,12 +123,7 @@ public sealed class FaultPlan : IFaultPlan
 
         lock (rulesLock)
         {
-            if (rules.Count == MaxRules)
-            {
-                throw new InvalidOperationException($"A fault plan holds at most {MaxRules} rules.");
-            }
-
-            var added = rule with { Id = "f" + (++lastRuleNumber).ToString(CultureInfo.InvariantCulture) };
+            var added = rule with { Id = NextIdUnderLock() };
             rules.Add(new PlannedRule(added, stage, rule.Times));
 
             return added;
@@ -86,7 +131,7 @@ public sealed class FaultPlan : IFaultPlan
     }
 
     /// <summary>
-    /// Removes the rule with an identifier.
+    /// Removes the rule or override with an identifier.
     /// </summary>
     /// <param name="ruleId">The rule's identifier.</param>
     /// <returns><see langword="true"/> when the plan held the rule.</returns>
@@ -96,50 +141,117 @@ public sealed class FaultPlan : IFaultPlan
 
         lock (rulesLock)
         {
-            return rules.RemoveAll(planned => planned.Rule.Id == ruleId) > 0;
+            overrideCount -= rules.Count(planned => planned.Id == ruleId && planned is PlannedOverride);
+            return rules.RemoveAll(planned => planned.Id == ruleId) > 0;
         }
     }
 
     /// <summary>
-    /// Removes every rule. Identifiers already given are still never reused.
+    /// Removes every rule and override. Identifiers already given are still never reused.
     /// </summary>
     public void Clear()
     {
         lock (rulesLock)
         {
             rules.Clear();
+            overrideCount = 0;
         }
     }
 
     /// <inheritdoc/>
-    /// <remarks>Completes synchronously. A rule found with a count has one of its times spent.</remarks>
+    /// <remarks>
+    /// Completes synchronously while the plan holds no override. A rule found with a count has one of its
+    /// times spent; a rule an override answers is returned under the override's identifier.
+    /// </remarks>
     public ValueTask<FaultRule?> FindAsync(FaultPoint point, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(point);
+        PlannedEntry[] entries;
 
         lock (rulesLock)
         {
-            var found = rules.Find(planned => planned.RemainingTimes != 0 && Matches(planned, point));
-
-            if (found?.RemainingTimes is { } remaining)
+            if (overrideCount == 0)
             {
-                found.RemainingTimes = remaining - 1;
+                var found = rules.Find(planned => TrySpendUnderLock((PlannedRule)planned, point));
+                return ValueTask.FromResult(((PlannedRule?)found)?.Rule);
             }
 
-            return ValueTask.FromResult(found?.Rule);
+            entries = [.. rules];
+        }
+
+        return FindAskingOverridesAsync(entries, point, cancellationToken);
+    }
+
+    // Each entry in the order it stood when the search began; one removed meanwhile is skipped.
+    private async ValueTask<FaultRule?> FindAskingOverridesAsync(
+        PlannedEntry[] entries, FaultPoint point, CancellationToken cancellationToken)
+    {
+        foreach (var entry in entries)
+        {
+            var found = entry is PlannedOverride planned
+                ? await AskAsync(planned, point, cancellationToken)
+                : TrySpend((PlannedRule)entry, point);
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    private async ValueTask<FaultRule?> AskAsync(PlannedOverride planned, FaultPoint point, CancellationToken cancellationToken)
+    {
+        if (!IsHeld(planned) || !planned.Matches(point))
+        {
+            return null;
+        }
+
+        var answer = await planned.Decide(planned.Id, point, cancellationToken);
+        return answer is null ? null : answer with { Id = planned.Id };
+    }
+
+    private bool IsHeld(PlannedEntry entry)
+    {
+        lock (rulesLock)
+        {
+            return rules.Contains(entry);
         }
     }
 
-    // The stage a rule acts at: the one it names, which its kind must allow, or its kind's default.
-    private static FaultStage StageOf(FaultRule rule)
+    private FaultRule? TrySpend(PlannedRule planned, FaultPoint point)
     {
-        var defaultStage = DefaultStageOf(rule.Kind);
-        var stage = rule.Stage ?? defaultStage;
-        var allowed = stage == defaultStage || (stage == FaultStage.Command && rule.Kind is FaultKind.Delay or FaultKind.Drop);
+        lock (rulesLock)
+        {
+            return rules.Contains(planned) && TrySpendUnderLock(planned, point) ? planned.Rule : null;
+        }
+    }
 
-        return allowed
-            ? stage
-            : throw new ArgumentException($"A {rule.Kind} fault rule cannot act at the {stage} stage.", nameof(rule));
+    // Whether the rule matches the point with its count not spent; if so, spends one.
+    private static bool TrySpendUnderLock(PlannedRule planned, FaultPoint point)
+    {
+        if (planned.RemainingTimes == 0 || !Matches(planned, point))
+        {
+            return false;
+        }
+
+        if (planned.RemainingTimes is { } remaining)
+        {
+            planned.RemainingTimes = remaining - 1;
+        }
+
+        return true;
+    }
+
+    // The next identifier, f1, f2 ...; refuses past MaxRules. Called under the lock.
+    private string NextIdUnderLock()
+    {
+        if (rules.Count == MaxRules)
+        {
+            throw new InvalidOperationException($"A fault plan holds at most {MaxRules} rules.");
+        }
+
+        return "f" + (++lastRuleNumber).ToString(CultureInfo.InvariantCulture);
     }
 
     private static FaultStage DefaultStageOf(FaultKind kind) =>
@@ -182,11 +294,14 @@ public sealed class FaultPlan : IFaultPlan
 
     private static bool Matches(PlannedRule planned, FaultPoint point) =>
         planned.Stage == point.Stage
-        && MatchesListener(planned.Rule.Listener, point.ListenUrl)
-        && MatchesIgnoringCase(planned.Rule.Scheme, point.Scheme)
-        && MatchesOrdinally(planned.Rule.Account, point.Account)
+        && MatchesScope(planned.Rule.Listener, planned.Rule.Scheme, planned.Rule.Account, point)
         && MatchesPath(planned.Rule.Path, point.Path)
         && MatchesIgnoringCase(planned.Rule.Command, point.Command);
+
+    private static bool MatchesScope(string? listener, string? scheme, string? account, FaultPoint point) =>
+        MatchesListener(listener, point.ListenUrl)
+        && MatchesIgnoringCase(scheme, point.Scheme)
+        && MatchesOrdinally(account, point.Account);
 
     private static bool MatchesOrdinally(string? ruleValue, string? pointValue) =>
         ruleValue is null || string.Equals(ruleValue, pointValue, StringComparison.Ordinal);
@@ -216,8 +331,26 @@ public sealed class FaultPlan : IFaultPlan
         && string.Equals(rule.Host, point.Host, StringComparison.OrdinalIgnoreCase)
         && (rule.Port == 0 || rule.Port == point.Port);
 
+    // One place in the plan's order: a rule or an override, under its identifier.
+    private abstract class PlannedEntry(string id)
+    {
+        public string Id { get; } = id;
+    }
+
+    // An override, the points it is asked at and its decision.
+    private sealed class PlannedOverride(string id, FaultOverrideScope scope, FaultOverride decide) : PlannedEntry(id)
+    {
+        public FaultOverride Decide { get; } = decide;
+
+        public bool Matches(FaultPoint point) =>
+            (scope.Stage is null || scope.Stage == point.Stage)
+            && MatchesScope(scope.Listener, scope.Scheme, scope.Account, point)
+            && MatchesPath(scope.Path, point.Path)
+            && MatchesIgnoringCase(scope.Command, point.Command);
+    }
+
     // A rule, the stage it acts at and what is left of its count (null: always).
-    private sealed class PlannedRule(FaultRule rule, FaultStage stage, int? remainingTimes)
+    private sealed class PlannedRule(FaultRule rule, FaultStage stage, int? remainingTimes) : PlannedEntry(rule.Id)
     {
         public FaultRule Rule { get; } = rule;
 

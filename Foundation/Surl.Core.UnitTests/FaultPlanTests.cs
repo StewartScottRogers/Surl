@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Core;
 
 [TestClass]
-public sealed class FaultPlanTests
+public sealed partial class FaultPlanTests
 {
     private static readonly FaultPoint SmtpAccept = new(FaultStage.Accept)
     {
