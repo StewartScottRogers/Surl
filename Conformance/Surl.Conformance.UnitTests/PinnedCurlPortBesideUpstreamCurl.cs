@@ -22,7 +22,22 @@ internal static class PinnedCurlPortBesideUpstreamCurl
 
     private static readonly TimeSpan RelayDrainTimeout = TimeSpan.FromSeconds(10);
 
-    public static async Task<PinnedCurlPortMeasurement> MeasureAsync(TestContext testContext, CurlPortMeasurementCase measurementCase)
+    /// <summary>
+    /// Runs <paramref name="measurementCase"/> through both clients and judges the two runs.
+    /// </summary>
+    /// <param name="testContext">The running test's context.</param>
+    /// <param name="measurementCase">The case.</param>
+    /// <param name="arrangeAsync">
+    /// Run once per client, against that run's own <c>surl</c>, after <c>surl</c> starts and before the
+    /// client does, as the mirrored test arranges its <c>surl</c> (a connection held open, say). What it
+    /// returns is disposed after the client exits and before <c>surl</c> stops, so it can also look at
+    /// what <c>surl</c> served. <see langword="null"/> arranges nothing.
+    /// </param>
+    /// <returns>The verdict, and what each run's <c>surl</c> showed.</returns>
+    public static async Task<PinnedCurlPortMeasurement> MeasureAsync(
+        TestContext testContext,
+        CurlPortMeasurementCase measurementCase,
+        Func<SurlOnLoopback, CancellationToken, Task<IAsyncDisposable>>? arrangeAsync = null)
     {
         RequireNoExtensionSwitch();
         var root = PinnedUpstreamCurl.RepositoryRoot();
@@ -45,11 +60,13 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         var (upstream, upstreamSurl) = await RunAgainstFreshSurlAsync(
             measurementCase,
             (arguments, environment) => upstreamRunner.RunAsync(arguments, ReadOnlyMemory<byte>.Empty, environment, testContext.CancellationToken),
+            arrangeAsync,
             testContext.CancellationToken);
         testContext.WriteLine($"{measurementCase.CommandLine}: {upstream}");
         var (port, portSurl) = await RunAgainstFreshSurlAsync(
             measurementCase,
             (arguments, environment) => portRunner.RunAsync(arguments, ReadOnlyMemory<byte>.Empty, environment, testContext.CancellationToken),
+            arrangeAsync,
             testContext.CancellationToken);
         testContext.WriteLine($"{measurementCase.CommandLine}: {port}");
 
@@ -73,14 +90,16 @@ internal static class PinnedCurlPortBesideUpstreamCurl
     private static async Task<(TResult Result, CurlPortSurlSide Surl)> RunAgainstFreshSurlAsync<TResult>(
         CurlPortMeasurementCase measurementCase,
         Func<IReadOnlyList<string>, IReadOnlyDictionary<string, string>, Task<TResult>> runClientAsync,
+        Func<SurlOnLoopback, CancellationToken, Task<IAsyncDisposable>>? arrangeAsync,
         CancellationToken cancellationToken)
     {
         var home = Directory.CreateTempSubdirectory("surl-phase7-home-");
         try
         {
             await using var surl = await SurlOnLoopback.StartAsync(
-                measurementCase.SurlScheme, measurementCase.Files, [], measurementCase.SurlOptions, cancellationToken);
+                measurementCase.SurlScheme, measurementCase.Files, ParentDirectoriesOf(measurementCase.Files.Keys), measurementCase.SurlOptions, cancellationToken);
             await using var relay = measurementCase.RecordsClientBytes ? ClientBytesRelay.Start(surl.BaseUrl, cancellationToken) : null;
+            await using var arrangement = arrangeAsync is null ? null : await arrangeAsync(surl, cancellationToken);
             var environment = new Dictionary<string, string>
             {
                 ["HOME"] = home.FullName,
@@ -102,6 +121,24 @@ internal static class PinnedCurlPortBesideUpstreamCurl
         {
             home.Delete(recursive: true);
         }
+    }
+
+    /// <summary>
+    /// Every folder a served file sits in, ancestors first (<c>d1</c>, then <c>d1/d2</c> for
+    /// <c>d1/d2/a.txt</c>), so <c>surl</c>'s content can hold a file below the top folder.
+    /// </summary>
+    internal static IReadOnlyList<string> ParentDirectoriesOf(IEnumerable<string> fileNames)
+    {
+        var directories = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var name in fileNames)
+        {
+            for (var slash = name.IndexOf('/', StringComparison.Ordinal); slash > 0; slash = name.IndexOf('/', slash + 1))
+            {
+                directories.Add(name[..slash]);
+            }
+        }
+
+        return [.. directories];
     }
 
     private static async Task<IReadOnlyDictionary<string, byte[]>> ReadStoredFilesAsync(
