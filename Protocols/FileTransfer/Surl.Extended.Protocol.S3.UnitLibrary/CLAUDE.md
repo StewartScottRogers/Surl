@@ -15,8 +15,8 @@ What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hoste
   `Content-MD5` (`400 InvalidDigest` malformed, `400 BadDigest` mismatched, old object kept),
   `x-amz-meta-*` at most 2 KiB (`400 MetadataTooLarge`), `Content-Length` (`411
   MissingContentLength`; chunked `400 InvalidRequest`, `aws-chunked` `501` until BL-711), the
-  announced length against `--max-filesize` (`400 EntityTooLarge`, body left unread so the
-  connection closes); creates the key's folders (a file in the way, or a folder at the key, is
+  announced length against `--max-filesize` (`400 EntityTooLarge`, body left unread);
+  creates the key's folders (a file in the way, or a folder at the key, is
   `409 InvalidArgument`; a key the store cannot hold `400 InvalidArgument` with `ArgumentName`
   `key`); streams the body through `S3UploadStream` into a content-store upload session
   (`400 IncompleteBody` when it ends early); answers `200` with the body's MD5 as `ETag`. A
@@ -111,6 +111,11 @@ index does not key; PutObject's metadata is kept only for files the index keys.
   (16 upper-case hexadecimal digits), and the one-line XML `Error` body; `Resource`, `Key`,
   `BucketName` and `ArgumentValue` echo the client's bytes as sent (still percent-encoded),
   printable ASCII only, cut to 1024 characters, then XML-escaped.
+
+`400 EntityTooLarge` and `400 IncompleteBody` (`S3Error.ClosesWithoutDrain`), wherever PutObject,
+UploadPart or CompleteMultipartUpload answer them, are refusals: the XML `Error` body,
+`Connection: close`, and no lingering drain (`HttpAnswer.DrainsBeforeClose` is `false`), so the
+rest of a refused body is never read (ADR-0108 decision 7; BL-729).
 
 A head past `--max-request-head` is refused `400 RequestHeaderSectionTooLarge` with the `Error`
 body (empty `Resource`), then closed (ADR-0108, decision 7; BL-720): `S3RequestAnswerer` is also

@@ -321,6 +321,56 @@ public sealed class S3PutObjectTests
     }
 
     [TestMethod]
+    public async Task ServeAsync_KeepAlivePutObjectAnnouncedPastMaxFilesize_Is400EntityTooLargeClosedWithTheBodyUnread()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable with { MaxUploadBytes = 10 });
+        harness.CreateFolder("photos");
+        var connection = new InMemoryConnection(
+            [Encoding.Latin1.GetBytes("PUT /photos/a.txt HTTP/1.1\r\nHost: s3.test\r\nContent-Length: 11\r\n\r\n"), Encoding.Latin1.GetBytes("hello world")]);
+
+        await harness.Server.ServeAsync(connection, harness.Context());
+        var response = Encoding.UTF8.GetString(connection.WrittenBytes);
+
+        Assert.AreEqual(
+            S3ServerHarness.ExpectedError(
+                response,
+                "400 Bad Request",
+                "<Code>EntityTooLarge</Code><Message>Your proposed upload exceeds the maximum allowed object size.</Message><Resource>/photos/a.txt</Resource><RequestId>{RequestId}</RequestId>"),
+            response);
+        Assert.AreEqual("hello world", await ReadRestAsync(connection));
+    }
+
+    [TestMethod]
+    public async Task ServeAsync_KeepAlivePutObjectWhoseBodyEndsEarly_Is400IncompleteBodyAndCloses()
+    {
+        var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
+        harness.CreateFolder("photos");
+
+        var response = await harness.SendRawAsync("PUT /photos/a.txt HTTP/1.1\r\nHost: s3.test\r\nContent-Length: 11\r\n\r\nhello");
+
+        Assert.AreEqual(
+            S3ServerHarness.ExpectedError(
+                response,
+                "400 Bad Request",
+                "<Code>IncompleteBody</Code><Message>You did not provide the number of bytes specified by the Content-Length HTTP header.</Message><Resource>/photos/a.txt</Resource><RequestId>{RequestId}</RequestId>"),
+            response);
+    }
+
+    // What the client sent that the server left unread, read until the client half-closes.
+    private static async Task<string> ReadRestAsync(InMemoryConnection connection)
+    {
+        var rest = new List<byte>();
+        var buffer = new byte[64];
+        int read;
+        while ((read = await connection.ReadAsync(buffer, CancellationToken.None)) > 0)
+        {
+            rest.AddRange(buffer.AsSpan(0, read));
+        }
+
+        return Encoding.Latin1.GetString([.. rest]);
+    }
+
+    [TestMethod]
     public void BodyRefusal_EachReadingOutcome_HasItsError()
     {
         Assert.IsNull(S3PutObject.BodyRefusal(Surl.HttpServing.HttpRequestBodyDiscardOutcome.Discarded, isTooLarge: false));

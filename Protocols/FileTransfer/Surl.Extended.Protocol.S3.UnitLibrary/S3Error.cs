@@ -58,15 +58,24 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     public static S3Error InvalidDigest { get; } = new("InvalidDigest", HttpStatus.BadRequest, "The Content-MD5 you specified is not valid.");
 
     /// <summary>
-    /// <c>400 EntityTooLarge</c>: a body past <c>--max-filesize</c> (ADR-0108, decision 7).
+    /// <c>400 EntityTooLarge</c>: a body past <c>--max-filesize</c>; the answer closes the
+    /// connection without draining the body (ADR-0108, decision 7).
     /// </summary>
-    public static S3Error EntityTooLarge { get; } = new("EntityTooLarge", HttpStatus.BadRequest, "Your proposed upload exceeds the maximum allowed object size.");
+    public static S3Error EntityTooLarge { get; } = new("EntityTooLarge", HttpStatus.BadRequest, "Your proposed upload exceeds the maximum allowed object size.") { ClosesWithoutDrain = true };
 
     /// <summary>
     /// <c>400 IncompleteBody</c>: a body that ended before the length it announced, or malformed
-    /// chunked coding.
+    /// chunked coding; the answer closes the connection without draining the body (ADR-0108,
+    /// decision 7).
     /// </summary>
-    public static S3Error IncompleteBody { get; } = new("IncompleteBody", HttpStatus.BadRequest, "You did not provide the number of bytes specified by the Content-Length HTTP header.");
+    public static S3Error IncompleteBody { get; } = new("IncompleteBody", HttpStatus.BadRequest, "You did not provide the number of bytes specified by the Content-Length HTTP header.") { ClosesWithoutDrain = true };
+
+    /// <summary>
+    /// Whether an answer with this error is a refusal that closes the connection with
+    /// <c>Connection: close</c> and leaves what the client still sends of the request body
+    /// unread (<see cref="Surl.HttpServing.HttpAnswer.DrainsBeforeClose"/>; ADR-0108, decision 7).
+    /// </summary>
+    public bool ClosesWithoutDrain { get; init; }
 
     /// <summary>
     /// <c>400 InvalidArgument</c>: a key the store cannot hold on a write, or a bad query value.
