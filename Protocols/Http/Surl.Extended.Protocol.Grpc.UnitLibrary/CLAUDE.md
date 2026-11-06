@@ -24,6 +24,22 @@ The calls on HTTP/2 (BL-443, ADR-0116 decisions 0 to 8), through `Surl.Http2`:
   before the first reply and ends with Trailers, or Trailers-Only when nothing was written).
 - `EchoService` is the built-in `surl.test.Echo`: `Echo`, `Expand`, `Collect`, `Chat`, with `EchoRequest`'s
   `delay_milliseconds`, `status_code`/`status_message` and range checks (`INVALID_ARGUMENT`).
+  `EchoService.File` is `surl/test/echo.proto` as a `ProtoFileDescriptor`.
+
+Server reflection (BL-444, ADR-0116 decision 9):
+
+- `ServerReflectionService` is built from the files served (`[EchoService.File]`) and adds its own
+  two; its `Services` are `grpc.reflection.v1.ServerReflection` and `…v1alpha.ServerReflection`, each
+  with the bidirectional `ServerReflectionInfo`, handed to `GrpcStreamHandler` beside the others. Each
+  request read gets one response at once (`valid_host`, `original_request`, then
+  `list_services_response`, `file_descriptor_response`, `all_extension_numbers_response` or
+  `error_response` `NOT_FOUND` 5 `not found` / `INVALID_ARGUMENT` 3 `no request kind`); the stream
+  ends OK at half-close. It keeps no state: each file is sent whole every time.
+- `ProtoFileDescriptor`, `ProtoMessageDescriptor`, `ProtoFieldDescriptor`, `ProtoServiceDescriptor`,
+  `ProtoMethodDescriptor` and `ProtoFieldType` describe a proto3 file that imports nothing, and write
+  its `FileDescriptorProto` with `ProtobufWriter`, never `protoc`. `ServerReflectionFiles` holds the
+  two `reflection.proto` files. A new service is described by its own `ProtoFileDescriptor` handed to
+  `ServerReflectionService`; a file with imports would need `dependency` (3) and the closure added.
 
 The framing, codec and statuses (BL-442, ADR-0116 decisions 1, 4, 5 and 6) need no HTTP/2:
 

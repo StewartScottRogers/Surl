@@ -23,6 +23,41 @@ public static class EchoService
         ]);
 
     /// <summary>
+    /// The file <c>surl/test/echo.proto</c> that describes the service, as ADR-0116 decision 1 prints it,
+    /// for server reflection to serve.
+    /// </summary>
+    public static ProtoFileDescriptor File { get; } = new(
+        "surl/test/echo.proto",
+        "surl.test",
+        [
+            new(
+                "EchoRequest",
+                [
+                    new("message", 1, ProtoFieldType.String),
+                    new("count", 2, ProtoFieldType.UInt32),
+                    new("status_code", 3, ProtoFieldType.Int32),
+                    new("status_message", 4, ProtoFieldType.String),
+                    new("delay_milliseconds", 5, ProtoFieldType.UInt32),
+                ]),
+            new(
+                "EchoReply",
+                [
+                    new("message", 1, ProtoFieldType.String),
+                    new("index", 2, ProtoFieldType.UInt32),
+                ]),
+        ],
+        [
+            new(
+                "Echo",
+                [
+                    new("Echo", ".surl.test.EchoRequest", ".surl.test.EchoReply", IsClientStreaming: false, IsServerStreaming: false),
+                    new("Expand", ".surl.test.EchoRequest", ".surl.test.EchoReply", IsClientStreaming: false, IsServerStreaming: true),
+                    new("Collect", ".surl.test.EchoRequest", ".surl.test.EchoReply", IsClientStreaming: true, IsServerStreaming: false),
+                    new("Chat", ".surl.test.EchoRequest", ".surl.test.EchoReply", IsClientStreaming: true, IsServerStreaming: true),
+                ]),
+        ]);
+
+    /// <summary>
     /// <c>Echo</c>: after the delay, the requested status with no reply, or one reply with
     /// <c>message</c> copied and <c>index</c> 0.
     /// </summary>
