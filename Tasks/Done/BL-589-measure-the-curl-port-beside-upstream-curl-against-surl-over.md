@@ -53,13 +53,13 @@ finding in BL-576's ADR decision 6 form.
   Windows (`CurlPortRunSetup.UpstreamBuildSha256`), held to `Http2.md` by decision 5.
 - Measured three times, stable: the 6 `h2c` cases agree; the 9 `https` cases are one port defect: the port
   offers only `http/1.1` by ALPN, so it never speaks HTTP/2 over TLS (`Http2.md` finding 1). No Surl defect.
-- Decision (ADR-0089 amendment 2, added to this task's `touches`; no task in Doing touches it): raw `h2c`
+- Decision (ADR-0089 amendment 4, added to this task's `touches`; no task in Doing touches it): raw `h2c`
   bytes cannot be compared, because HPACK Huffman-codes `:authority`, which holds each run's relay port. The
   test relays `h2c` cases itself and compares decoded frames (Surl.Hpack's `HpackDecoder`, reached through the
   test project's existing reference to Surl.Console), leaving out every `WINDOW_UPDATE` but the connection's
   first: the port and upstream placed the `SETTINGS` ACK differently among them, which is timing.
 - `Get_TwoUrls_ReuseOneHttp2Connection` compares only the `* Reusing existing` stderr line: the
-  `Established connection` line carries the client's ephemeral port, which the normaliser leaves. Filed BL-911.
+  `Established connection` line carries the client's ephemeral port, which the normaliser leaves. Filed BL-912.
 
 ## Log
 

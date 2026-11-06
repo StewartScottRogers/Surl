@@ -1,5 +1,5 @@
 ---
-id: BL-911
+id: BL-912
 title: Normalise the client's ephemeral port in Phase 7's compared standard error lines
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-911 — Normalise the client's ephemeral port in Phase 7's compared standard error lines
+# BL-912 — Normalise the client's ephemeral port in Phase 7's compared standard error lines
 
 ## Goal
 
@@ -20,7 +20,7 @@ completed:
 
 ## Context
 
-- Found in BL-589 (ADR-0089 amendment 2): `NormaliseStandardError` replaces only `surl`'s port, so the
+- Found in BL-589 (ADR-0089 amendment 4): `NormaliseStandardError` replaces only `surl`'s port, so the
   client's own ephemeral port `M` differs between any two runs, and
   `CurlPortBesideUpstreamCurlOverHttp2Tests.Get_TwoUrls_ReuseOneHttp2Connection` compares only the
   `* Reusing existing` line rather than both lines its mirrored test asserts on.

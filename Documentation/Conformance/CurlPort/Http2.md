@@ -18,7 +18,7 @@ the port's defect, for the port's own board (BL-592's handoff), and Surl does no
 - **Surl:** commit `6268bee500368fa80fd2284c689e5e40b15301a0` with BL-589's conformance test.
 
 On `http` the bytes each client sent are compared as decoded HTTP/2 frames, not byte for byte
-(ADR-0089 amendment 2). On `https` they are TLS's and are not compared (decision 4).
+(ADR-0089 amendment 4). On `https` they are TLS's and are not compared (decision 4).
 
 15 cases ran, three times, with the same verdicts each time. The 6 `http` cases (prior knowledge and
 the `h2c` Upgrade) agree: same exit code, output and `surl` notes, and the same decoded frames (the
