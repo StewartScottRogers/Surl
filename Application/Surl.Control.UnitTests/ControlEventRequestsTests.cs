@@ -85,7 +85,7 @@ public sealed class ControlEventRequestsTests
         var response = await ServeAsync(EndpointOver(new ControlEventLog()), Request("GET", "/v1/events?kind=nope"), new ManualTimeProvider(), TestContext.CancellationToken);
 
         Assert.AreEqual(
-            "{\"error\":\"bad_request\",\"message\":\"query key kind must be one of exchange_bytes, exchange_ended, exchange_started, fault_applied, hook_failed, login_judged, store_changed\"}",
+            "{\"error\":\"bad_request\",\"message\":\"query key kind must be one of consumer_group_changed, exchange_bytes, exchange_ended, exchange_started, fault_applied, hook_failed, login_judged, store_changed\"}",
             Body(response));
     }
 
