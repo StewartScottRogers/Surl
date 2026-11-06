@@ -33,7 +33,7 @@ decision 5). This is success criterion 2 of the
 
 | Platform | Commit | Date | Reference pin SHA-256 | Total | Runnable | Passed | Failed | Skipped | test-server-choice | Pass rate |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `win-x64` | `f83e4c79` + BL-397 | 2026-11-05 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 964 | 895 | 69 | 1,049 | 0 | 92.8% |
+| `win-x64` | `53a7920c` + BL-879 | 2026-11-05 | `0E773709C3A44DB47B88B71351D902027682ED87C3BD3821009E454BACCA8778` | 2,013 | 1,124 | 1,041 | 83 | 889 | 0 | 92.6% |
 | `linux-x64` | not run | not run | `153CA463957609117D21A848BE29B70691B85F9E5CC9370C7DAA037B839A4E45` | 2,013 | not run | not run | not run | not run | not run | not run |
 | `osx-arm64` | not run | not run | `04E0E69BCD3BD814EC093551A0447AC14EDEEA9D395B468A2025DCB3F766EEBF` | 2,013 | not run | not run | not run | not run | not run | not run |
 
@@ -42,7 +42,14 @@ Linux and macOS: CI run
 `b1a280aa`) ran the suite on both and it passed, but uploaded no results file, so their counts are
 not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next run.
 
-Windows: the run of BL-397's changes on top of commit `f83e4c79`, the first with the `scp`, `sftp`
+Windows: the run of BL-879's changes on top of commit `53a7920c`, the first with the `imap`,
+`pop3` and `smtp` server halves composed (plaintext, on `127.0.0.1` and `[::1]`). The mail family -
+every case naming `imap`, `pop3` or `smtp`, 216 at the tag - ran 160: 146 pass, 14 fail (BL-879's
+Notes group them; BL-894 to BL-897 and the exclusions file take them), and 56 skip. `imaps`,
+`pop3s` and `smtps` (one case each) still skip `server-half-not-composed`. Every other family is as
+BL-397 left it.
+
+The run before, of BL-397's changes on top of commit `f83e4c79`, was the first with the `scp`, `sftp`
 and `smb` server halves composed: Surl's own SSH and SMB servers serving the case's files. The
 `smb` cases run with the supplementary build ADR-0030 pinned for SMB, since the reference build has
 no `smb`. Of the new servers: SFTP 24 ran, 24 pass; SCP 14 ran, 14 pass; SMB 2 ran, 2 pass; and
@@ -66,13 +73,13 @@ upstream's test-server greeting banner in a `-D` file, BL-776), TFTP 15 ran, 13 
 | `perl-command` | 27 |
 | `postcheck` | 14 |
 | `precheck` | 19 |
-| `server-half-not-composed:<name>` | 86 |
+| `server-half-not-composed:<name>` | 12 |
 | `server-not-built:<name>` | 67 |
-| `servercmd-unsupported:<command>` | 118 |
+| `servercmd-unsupported:<command>` | 32 |
 | `strippart-unsupported` | 1 |
 | `unittest` | 81 |
 | `unparsable` | 4 |
-| **Total** | **1,049** |
+| **Total** | **889** |
 
 ## Releases
 
