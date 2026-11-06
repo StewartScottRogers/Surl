@@ -97,6 +97,15 @@ to make the port pass. One case is compared and judged here (BL-578), request by
   commit, both runs and each `CurlPortDifference` (exit code, first differing line, or first differing
   byte with its connection and offset).
 
+A libcurl row (decision 1 (c), BL-935) is judged the same way: `CurlPortLibcurlCase` is a pinned-libcurl
+test's step list with `{surl}` standing for each run's authority, its mirrored assertions and the stored
+files it compares; `CurlPortLibcurlRun` is one driver run (exit code, report lines, stderr, its
+`CurlPortSurlSide`); `CurlPortLibcurlReportNormaliser` masks what varies between two correct runs -
+`surl`'s port, a session ID `surl` drew (not one the script set), a send's call count, and the SSRCs and
+timestamps of interleaved RTP/RTCP frames but never their body; and `CurlPortLibcurlComparison.Compare`
+gives decision 5's `CurlPortVerdict`, reusing `CurlPortComparison`'s internal `AddTextDifference` and
+`AddBytesDifference`.
+
 The tests' `PinnedCurlPortBesideUpstreamCurl.MeasureAsync` is the one call each Phase 7 test class
 makes: it locates both pinned clients (Inconclusive naming the missing file), runs each against its
 own fresh `SurlOnLoopback` with `HOME`, `CURL_HOME` and `USERPROFILE` pointed at an empty folder - through
