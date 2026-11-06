@@ -94,3 +94,4 @@ whenever the client sends a key share for it. Every measured upstream curl build
 - 2026-11-04: Filed by BL-372 (ADR-0082 decision 3).
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-06: Doing -> Backlog. Needs Protocols/Http/Surl.Http3.UnitTests, which BL-894 holds on lane 7: its test QUIC client must answer the X25519MLKEM768 share the server now prefers
+- 2026-11-06: Backlog -> Doing.
