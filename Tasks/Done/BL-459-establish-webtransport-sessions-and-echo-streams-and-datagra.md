@@ -75,8 +75,8 @@ Choices (defaults taken, within ADR-0117):
 - Any capsule that breaks its layout resets the CONNECT stream `H3_MESSAGE_ERROR`; the flow-control
   capsules are ignored while flow control is off.
 
-Gaps, because `Surl.Http3` does not offer a handler the means yet (filed as BL-888 for `Surl.Http3`,
-then BL-889 for this server):
+Gaps, because `Surl.Http3` does not offer a handler the means yet (filed as BL-894 for `Surl.Http3`,
+then BL-895 for this server):
 - unmet client SETTINGS reset the CONNECT stream `WT_REQUIREMENTS_NOT_MET` rather than closing the
   connection (`Http3ConnectionException` is internal), and the client's `max_datagram_frame_size` is
   not checked;
@@ -85,7 +85,7 @@ then BL-889 for this server):
 - at shutdown `Surl.Http3` cancels the handler and sends `GOAWAY` after it returns, so the session
   sends `WT_DRAIN_SESSION`, `WT_CLOSE_SESSION` code 0 and FIN together before `GOAWAY`, with no grace.
 - A client `STOP_SENDING` that lands between the echo's check and its write could make that write
-  throw; the window is one lock acquisition wide, and BL-889 can close it with the same seam.
+  throw; the window is one lock acquisition wide, and BL-895 can close it with the same seam.
 ## Log
 
 - 2026-11-04: Created.

@@ -1,21 +1,21 @@
 ---
-id: BL-889
+id: BL-895
 title: Close WebTransport connections for unmet requirements, refuse non-https schemes, hold early datagrams and drain through the shutdown grace
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-888, BL-460]
+depends-on: [BL-894, BL-460]
 touches: [Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitLibrary, Protocols/Http/Surl.Extended.Protocol.WebTransport.UnitTests, Documentation/Conformance/Extended/WebTransport.md]
 requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-889 — Close WebTransport connections for unmet requirements, refuse non-https schemes, hold early datagrams and drain through the shutdown grace
+# BL-895 — Close WebTransport connections for unmet requirements, refuse non-https schemes, hold early datagrams and drain through the shutdown grace
 
 ## Goal
 
 The WebTransport server does the four things of ADR-0117 that BL-459 could not with `Surl.Http3` as it was,
-using what BL-888 adds.
+using what BL-894 adds.
 
 ## Context
 

@@ -1,5 +1,5 @@
 ---
-id: BL-888
+id: BL-894
 title: Give Surl.Http3 extended CONNECT handlers the scheme, a connection close, early datagrams and a drain before GOAWAY
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-888 — Give Surl.Http3 extended CONNECT handlers the scheme, a connection close, early datagrams and a drain before GOAWAY
+# BL-894 — Give Surl.Http3 extended CONNECT handlers the scheme, a connection close, early datagrams and a drain before GOAWAY
 
 ## Goal
 
@@ -42,7 +42,7 @@ sessions at shutdown before `GOAWAY` and keep serving them through the shutdown 
 
 ## Notes
 
-Filed by BL-459, which built the WebTransport server on what `Surl.Http3` offers today; BL-889 then uses these.
+Filed by BL-459, which built the WebTransport server on what `Surl.Http3` offers today; BL-895 then uses these.
 
 ## Log
 

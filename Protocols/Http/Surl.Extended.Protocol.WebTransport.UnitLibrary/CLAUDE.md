@@ -54,7 +54,7 @@ The codecs (BL-458, ADR-0117 decisions 4 and 6), with no transport:
 
 Still to come: flow control, the session limit, authentication and the limits (BL-460); closing the
 connection for unmet requirements, the `:scheme` check, datagrams held before their CONNECT and
-serving through the shutdown grace, once `Surl.Http3` offers them (BL-888, BL-889).
+serving through the shutdown grace, once `Surl.Http3` offers them (BL-894, BL-895).
 
 `Surl.Extended.Protocol.WebTransport.UnitTests` drives the server over `Surl.Http3.UnitTests`' in-memory
 HTTP/3 test client, compiled in by link, with `UnitTestWebTransport` writing the client's side.
