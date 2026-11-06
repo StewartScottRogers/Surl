@@ -1,0 +1,4 @@
+DESCRIBE rtsp://127.0.0.1:18554/clip.bin RTSP/1.0
+CSeq: 1
+Accept: application/sdp
+

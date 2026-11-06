@@ -40,6 +40,9 @@ recording rows):
   ID (ADR-0074 Amendment 1). `RtspTransport` - the `Transport` alternative taken, or why none is (`461`).
   `RtspInterleavedFrame` - the `$` frames: RTP packets and the closing RTCP sender report and
   `BYE`, and where a received RTP packet's payload lies (`RtpPayload`).
+- `RtspRequestResponder.Faults.cs` - a fault rule's chosen error (ADR-0134 decision 2): asked through
+  `Surl.HttpMessage`'s `HttpCommandFaults` once the login lets a request in, before the method's own
+  checks, and answered as a refusal that keeps the connection.
 - `RtspSessionDescription` - decision 4's SDP; `RtspStatus` - the statuses and their reason
   phrases; `RtspUnreadRequestDrainer` - the lingering close after a closing refusal.
 

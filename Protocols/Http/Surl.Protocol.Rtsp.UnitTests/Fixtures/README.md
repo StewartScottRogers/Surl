@@ -60,3 +60,16 @@ The command, from the repository root, with `S` the case's stream URL
 | `libcurl-describe` | `DESCRIBE` | `CURLcode 0`, status 200, the 170 SDP bytes |
 | `libcurl-play-teardown-setup` | `transport:RTP/AVP/TCP;interleaved=0-1`, `SETUP`, `PLAY`, `TEARDOWN`, `OPTIONS`, `SETUP` | each `CURLcode 0`, status 200, session `0123456789ABCDEF`; `OPTIONS` and the second `SETUP` carry `Session: 0123456789ABCDEF`, which the second `SETUP`'s answer reuses (amended decision 5) |
 | `libcurl-announce-record` | `body:v=0\r\n`, `ANNOUNCE`, `no-body`, `transport:RTP/AVP/TCP;unicast;interleaved=0-1;mode=record`, `SETUP`, `RECORD`, `TEARDOWN` | each `CURLcode 0`, status 200; `RECORD` sends no body |
+
+## Chosen-error fault fixture (BL-793)
+
+Recorded on 2026-11-05 through the same pinned `libcurl-4.dll` (ADR-0134 decision 2), with `<503>` being
+`'RTSP/1.0 503 Service Unavailable\r\nCSeq: {CSEQ}\r\nDate: Mon, 28 Sep 2026 12:00:00 GMT\r\nServer: surl\r\n\r\n'`:
+
+```
+.\Record-CurlExchange.ps1 -Port 18554 -Raw -RawIdleMilliseconds 400 -LibcurlRtsp -RawReply <503> -CurlArgs '--timeout','3000','rtsp://127.0.0.1:18554/clip.bin','stream-uri:rtsp://127.0.0.1:18554/clip.bin','DESCRIBE' -OutDirectory Protocols\Http\Surl.Protocol.Rtsp.UnitTests\Fixtures\libcurl-describe-fault-503
+```
+
+The driver reported `DESCRIBE: CURLcode 0 (No error), status 503`. The `curl` tool's `OPTIONS` answered the
+same way with `-sS -f -w %{response_code}` exited 22 printing `503`, and `RTSP/1.0 599 ` (an empty reason
+phrase) exited 0 printing `599`; neither is kept as a fixture.

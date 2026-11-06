@@ -1,0 +1,2 @@
+setopt RTSP_STREAM_URI "rtsp://127.0.0.1:18554/clip.bin": CURLcode 0 (No error)
+DESCRIBE: CURLcode 0 (No error), status 503, session none, cseq received 1, next cseq 2, body 0 bytes "", interleaved none
