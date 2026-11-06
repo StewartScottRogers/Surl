@@ -1,5 +1,5 @@
 ---
-id: BL-934
+id: BL-951
 title: Answer Kafka InitProducerId and check idempotent producers' sequence numbers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-934 — Answer Kafka InitProducerId and check idempotent producers' sequence numbers
+# BL-951 — Answer Kafka InitProducerId and check idempotent producers' sequence numbers
 
 ## Goal
 
@@ -49,7 +49,7 @@ appended twice.
       sequence 7; sequence 2147483647 followed by 0 accepted; `producerId` -1 never checked.
 - [ ] A test shows the 10001st producer state dropping the least recently used, whose next batch is then accepted
       at any sequence.
-- [ ] `Kafka.md`'s InitProducerId rows name these tests in place of BL-934, and `Kafka:Batch-Producer-1` is
+- [ ] `Kafka.md`'s InitProducerId rows name these tests in place of BL-951, and `Kafka:Batch-Producer-1` is
       removed.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.

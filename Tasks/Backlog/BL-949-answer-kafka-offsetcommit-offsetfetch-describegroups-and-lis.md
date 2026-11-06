@@ -1,16 +1,16 @@
 ---
-id: BL-932
+id: BL-949
 title: Answer Kafka OffsetCommit, OffsetFetch, DescribeGroups and ListGroups
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-930, BL-931]
+depends-on: [BL-947, BL-948]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-932 — Answer Kafka OffsetCommit, OffsetFetch, DescribeGroups and ListGroups
+# BL-949 — Answer Kafka OffsetCommit, OffsetFetch, DescribeGroups and ListGroups
 
 ## Goal
 
@@ -22,8 +22,8 @@ ApiVersions.
 
 - Decision: [ADR-0145](../../Documentation/Planning/Decisions/ADR-0145-how-the-kafka-broker-answers-consumer-groups-committed-offsets-createtopics-and-initproducerid.md) decisions 1, 4, 5, 6 and 10. Specification: the Apache Kafka 4.4 protocol guide
   (<https://kafka.apache.org/44/design/protocol>); unit tests replay bytes written by hand from it (ADR-0083).
-- Offsets live in the bus (BL-930); Kafka names map to canonical topics through `MessageBus.Names` for `kafka`, as
-  `KafkaMetadataAnswerer` maps them. Membership checks ask BL-931's `KafkaGroupCoordinator`; a member's commit
+- Offsets live in the bus (BL-947); Kafka names map to canonical topics through `MessageBus.Names` for `kafka`, as
+  `KafkaMetadataAnswerer` maps them. Membership checks ask BL-948's `KafkaGroupCoordinator`; a member's commit
   refreshes its session. A simple commit (generation -1, empty member id) creates an `Empty` group with an empty
   `protocol_type` when it has no members, else 25.
 - OffsetCommit per partition, in order: 17, 3 (partition other than 0, or no log), 29, 12 (metadata over 4096 UTF-8
@@ -49,7 +49,7 @@ ApiVersions.
       known only by its offsets and leaving out a denied one.
 - [ ] A test with `ScriptedFaultPlan` shows an `error` rule on `OffsetCommit` answered in every partition with
       nothing stored.
-- [ ] `Kafka.md`'s committed offsets and group listing rows name these tests in place of BL-932.
+- [ ] `Kafka.md`'s committed offsets and group listing rows name these tests in place of BL-949.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 

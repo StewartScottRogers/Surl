@@ -1,16 +1,16 @@
 ---
-id: BL-931
+id: BL-948
 title: Answer Kafka FindCoordinator, JoinGroup, SyncGroup, Heartbeat and LeaveGroup with a group coordinator
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-929, BL-930]
+depends-on: [BL-946, BL-947]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Kafka.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-931 — Answer Kafka FindCoordinator, JoinGroup, SyncGroup, Heartbeat and LeaveGroup with a group coordinator
+# BL-948 — Answer Kafka FindCoordinator, JoinGroup, SyncGroup, Heartbeat and LeaveGroup with a group coordinator
 
 ## Goal
 
@@ -29,12 +29,12 @@ Heartbeat v0-v3 and LeaveGroup v0-v3 are answered and listed by ApiVersions.
   `DefaultMaxGroupStateBytes` 268435456 (44). One `IKafkaApiAnswerer` per API, each taking the coordinator;
   `KafkaServedApis` and `KafkaApiKey` gain the five rows; `KafkaErrorCode` gains 22 to 27, 30, 42, 79, 81 and 82.
 - FindCoordinator: node 0 at Metadata's advertised address (`KafkaMetadataAnswerer`'s rule); `key_type` other
-  than 0 is 42. Group access through BL-930's bus check (30), before anything else about the group.
+  than 0 is 42. Group access through BL-947's bus check (30), before anything else about the group.
 - Member ids `<client_id or group_instance_id>-<uuid>` from `ExchangeContext.Identifiers`; `MEMBER_ID_REQUIRED` on
   v4-v5; join phase without initial delay; leader and protocol as decision 3 says; assignments relayed verbatim;
-  static members fenced (82); sessions refreshed by JoinGroup, SyncGroup and Heartbeat (OffsetCommit is BL-932's).
+  static members fenced (82); sessions refreshed by JoinGroup, SyncGroup and Heartbeat (OffsetCommit is BL-949's).
 - A held JoinGroup or SyncGroup pauses `ExchangeContext.IdleClock` and restarts it once answered (decision 9).
-- Events: one `ConsumerGroupChangedEvent` per change on `ExchangeContext.Events` (BL-929), `MemberRemoved` with no
+- Events: one `ConsumerGroupChangedEvent` per change on `ExchangeContext.Events` (BL-946), `MemberRemoved` with no
   exchange id.
 - Faults: each API asks `CommandStageFaults.FindAndApplyAsync` (ADR-0141) after the login, command the API name,
   path the group id (FindCoordinator its key); an `error` rule's code goes in the top-level `error_code`. `Surl.Cli`'s
@@ -59,7 +59,7 @@ Heartbeat v0-v3 and LeaveGroup v0-v3 are answered and listed by ApiVersions.
       not rejoin removed when the join phase ends.
 - [ ] A test shows the idle clock paused while a JoinGroup is held and restarted when it is answered.
 - [ ] A test with `ScriptedFaultPlan` shows an `error` rule on `Heartbeat` answered with its code and nothing changed.
-- [ ] `Kafka.md`'s consumer group rows name these tests in place of BL-931.
+- [ ] `Kafka.md`'s consumer group rows name these tests in place of BL-948.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 

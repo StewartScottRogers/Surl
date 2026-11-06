@@ -1,23 +1,23 @@
 ---
-id: BL-930
+id: BL-947
 title: Keep Kafka committed offsets and consumer group access in Surl.MessageBus
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-929]
+depends-on: [BL-946]
 touches: [Protocols/Messaging/Surl.MessageBus.UnitLibrary, Protocols/Messaging/Surl.MessageBus.UnitTests, Documentation/Conformance/Extended/Kafka.md]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-930 — Keep Kafka committed offsets and consumer group access in Surl.MessageBus
+# BL-947 — Keep Kafka committed offsets and consumer group access in Surl.MessageBus
 
 ## Goal
 
 `Surl.MessageBus` keeps a bounded table of committed offsets keyed by consumer group and canonical topic - stored,
 read, listed, reset, snapshotted, restored, persisted in `.surl/bus/offsets` and published as `StoreChange.Committed`
 - and answers whether a caller may use a group (`$group/<id>` in the access grants), so the Kafka broker's
-OffsetCommit and OffsetFetch (BL-932) and its group access checks (BL-931) have a store.
+OffsetCommit and OffsetFetch (BL-949) and its group access checks (BL-948) have a store.
 
 ## Context
 
@@ -53,7 +53,7 @@ OffsetCommit and OffsetFetch (BL-932) and its group access checks (BL-931) have 
       entries surviving a save and load, and a malformed file refused with `not a message bus file`.
 - [ ] `MessageBusSeedResetSnapshotTests` show `Reset` emptying the table and `Restore` returning a snapshot's entries.
 - [ ] `Kafka.md`'s `Kafka:Surl-Offsets-1` and `Kafka:Surl-Offsets-2` rows name these tests, and
-      `Kafka:Surl-GroupAccess-1` names the access test beside BL-931 and BL-932.
+      `Kafka:Surl-GroupAccess-1` names the access test beside BL-948 and BL-949.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 

@@ -1,5 +1,5 @@
 ---
-id: BL-933
+id: BL-950
 title: Answer Kafka CreateTopics on the message bus
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-933 — Answer Kafka CreateTopics on the message bus
+# BL-950 — Answer Kafka CreateTopics on the message bus
 
 ## Goal
 
@@ -42,7 +42,7 @@ The Kafka broker answers CreateTopics v2-v4 by giving each valid, new topic its 
 - [ ] A test shows `validate_only` answering 0 and creating nothing, and another a topic with `configs` created and
       the ignored names noted.
 - [ ] A test with `ScriptedFaultPlan` shows an `error` rule on one topic answered with its code and that topic absent.
-- [ ] `Kafka.md`'s CreateTopics rows name these tests in place of BL-933.
+- [ ] `Kafka.md`'s CreateTopics rows name these tests in place of BL-950.
 - [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 

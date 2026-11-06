@@ -1,5 +1,5 @@
 ---
-id: BL-929
+id: BL-946
 title: Add the consumer group event and the committed-offset store change to the event contracts
 priority: Normal
 assignee: Claude
@@ -10,13 +10,13 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-929 — Add the consumer group event and the committed-offset store change to the event contracts
+# BL-946 — Add the consumer group event and the committed-offset store change to the event contracts
 
 ## Goal
 
 `Surl.Protocol.Abstractions` has `ConsumerGroupChangedEvent`, `ConsumerGroupChange` and `StoreChange.Committed`,
 and the control endpoint writes and filters the new event kind as `consumer_group_changed`, so the Kafka group
-coordinator (BL-931) and the bus's committed offsets (BL-930) have contracts to publish on.
+coordinator (BL-948) and the bus's committed offsets (BL-947) have contracts to publish on.
 
 ## Context
 

@@ -46,10 +46,10 @@ DescribeGroups and ListGroups if served), CreateTopics and InitProducerId - and 
 - Filed by BL-516 (ADR-0105 decision 1).
 - Wrote ADR-0145 (ADR-0143 is taken on another lane and ADR-0137 is a gap another lane holds). Read from the Kafka 4.4 protocol guide, 2026-11-06. Classic group protocol only, non-flexible ranges; node 0 coordinates; committed offsets kept in Surl.MessageBus so reset/snapshot/restore/persistence carry them (amends ADR-0100 3.3); groups as `$group/<id>` in `--topic-access` (amends ADR-0102 3.4); CreateTopics on the bus; InitProducerId with seedable ids and Produce sequence checking (amends ADR-0105 4 and 7, ADR-0124 1). The amendments are recorded in ADR-0145 only, because this task touches only that folder and Kafka.md; the earlier ADRs point forward when their builders edit them.
 - The leader picks the first protocol every member lists instead of a vote: same answer when members agree, and deterministic on a tie.
-- Filed BL-929 to BL-935 (event contracts, bus offsets and group access, coordinator membership, offsets and describe/list, CreateTopics, InitProducerId with sequences, composition).
+- Filed BL-946 to BL-952 (event contracts, bus offsets and group access, coordinator membership, offsets and describe/list, CreateTopics, InitProducerId with sequences, composition).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
-- 2026-11-06: Doing -> Done. ADR-0145 decides the Kafka group coordinator, committed offsets, CreateTopics and InitProducerId; BL-929 to BL-935 build them
+- 2026-11-06: Doing -> Done. ADR-0145 decides the Kafka group coordinator, committed offsets, CreateTopics and InitProducerId; BL-946 to BL-952 build them

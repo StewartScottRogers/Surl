@@ -3,11 +3,11 @@
 - **Status:** Accepted
 - **Date:** 2026-11-06
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06,
-  in BL-701. BL-929 adds the event contracts (decision 10), BL-930 keeps committed offsets and group
-  access in `Surl.MessageBus` (decisions 4 and 6), BL-931 builds the group coordinator's membership
-  APIs (decisions 1 to 3), BL-932 OffsetCommit, OffsetFetch, DescribeGroups and ListGroups (decisions 4
-  and 5), BL-933 CreateTopics (decision 7), BL-934 InitProducerId and sequence checking (decision 8),
-  and BL-935 composes them in `surl` (decision 0).
+  in BL-701. BL-946 adds the event contracts (decision 10), BL-947 keeps committed offsets and group
+  access in `Surl.MessageBus` (decisions 4 and 6), BL-948 builds the group coordinator's membership
+  APIs (decisions 1 to 3), BL-949 OffsetCommit, OffsetFetch, DescribeGroups and ListGroups (decisions 4
+  and 5), BL-950 CreateTopics (decision 7), BL-951 InitProducerId and sequence checking (decision 8),
+  and BL-952 composes them in `surl` (decision 0).
 - **Builds on:** [ADR-0105](ADR-0105-how-the-kafka-broker-answers-kafka-and-kafkas.md) (the broker,
   its version rule, one partition a topic, no transactions),
   [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md)
@@ -73,7 +73,7 @@ fault plan and publishes no event of its own; `Surl.MessageBus` publishes its st
   each group's members, generation, state, selected protocol, leader and assignments, in memory. It
   is live session state, like the bus's live subscriptions, so it is never persisted, snapshotted or
   reset. One coordinator serves one `surl` instance (one `Surl.Api` server), shared by its `kafka` and
-  `kafkas` listeners as the bus is; BL-935 composes it.
+  `kafkas` listeners as the bus is; BL-952 composes it.
 - **Committed offsets are the bus's** (amends ADR-0100 decision 3.3). `Surl.MessageBus` keeps a
   table of committed offsets keyed by consumer group and canonical topic, which only the Kafka broker
   reads or writes; it is not a message and no other protocol sees it. **Why:** a committed offset
@@ -283,7 +283,7 @@ classic group protocol as its fields and errors describe it, made deterministic 
   (ADR-0006 section 3), and ListGroups leaves the group out. OffsetCommit and OffsetFetch also need
   subscribe access to each topic (29); CreateTopics needs publish access (decision 7).
 - `Surl.MessageBus` answers the check (`TopicAccessPolicy` gains a group check beside `MayUseQueue`);
-  the `--topic-access` help and `--aihelp` text name `$group/<id>` (BL-935).
+  the `--topic-access` help and `--aihelp` text name `$group/<id>` (BL-952).
 
 ### 7. CreateTopics (the guide, CreateTopics v2 to v4; ADR-0100 decision 3.2)
 
@@ -409,20 +409,20 @@ instead. A held Fetch keeps ADR-0105 decision 6's 60000 cap.
 
 ## Consequences
 
-- With BL-929 to BL-935 built, `surl kafka://127.0.0.1:0/` serves subscribing consumers in groups,
+- With BL-946 to BL-952 built, `surl kafka://127.0.0.1:0/` serves subscribing consumers in groups,
   committed offsets that reset, snapshot, restore and persist with the logs they point into, topic
   creation by admin clients, and idempotent producers whose retries are not appended twice.
 - The tasks, in order:
-  - **BL-929**: `ConsumerGroupChangedEvent`, `ConsumerGroupChange` and `StoreChange.Committed` in
+  - **BL-946**: `ConsumerGroupChangedEvent`, `ConsumerGroupChange` and `StoreChange.Committed` in
     `Surl.Protocol.Abstractions`, and the control endpoint's `consumer_group_changed` kind (decision 10).
-  - **BL-930**: the committed-offset table, `$group/<id>` access, the `offsets` file, reset, snapshot,
+  - **BL-947**: the committed-offset table, `$group/<id>` access, the `offsets` file, reset, snapshot,
     restore and the `Committed` event in `Surl.MessageBus` (decisions 4, 6, 9 and 10).
-  - **BL-931**: `KafkaGroupCoordinator` with FindCoordinator, JoinGroup, SyncGroup, Heartbeat and
+  - **BL-948**: `KafkaGroupCoordinator` with FindCoordinator, JoinGroup, SyncGroup, Heartbeat and
     LeaveGroup (decisions 1, 2, 3, 9 and 10).
-  - **BL-932**: OffsetCommit, OffsetFetch, DescribeGroups and ListGroups (decisions 1, 4, 5 and 10).
-  - **BL-933**: CreateTopics (decisions 1, 7 and 10).
-  - **BL-934**: InitProducerId and Produce's sequence checks (decisions 1, 8, 9 and 10).
-  - **BL-935**: the coordinator and producer-id state composed once per instance, and the help and
+  - **BL-949**: OffsetCommit, OffsetFetch, DescribeGroups and ListGroups (decisions 1, 4, 5 and 10).
+  - **BL-950**: CreateTopics (decisions 1, 7 and 10).
+  - **BL-951**: InitProducerId and Produce's sequence checks (decisions 1, 8, 9 and 10).
+  - **BL-952**: the coordinator and producer-id state composed once per instance, and the help and
     `--aihelp` text for groups and `$group/<id>` (decisions 0 and 6); it waits on BL-522.
 - The requirement matrix [`Kafka.md`](../../Conformance/Extended/Kafka.md) traces each new
   requirement to these tasks; each task replaces its ID with the named test. Transactions and

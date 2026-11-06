@@ -1,22 +1,22 @@
 ---
-id: BL-935
+id: BL-952
 title: Compose the Kafka group coordinator and producer ids in surl
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-522, BL-932, BL-933, BL-934]
+depends-on: [BL-522, BL-949, BL-950, BL-951]
 touches: [Application/Surl.Composition.UnitLibrary, Application/Surl.Composition.UnitTests, Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-935 — Compose the Kafka group coordinator and producer ids in surl
+# BL-952 — Compose the Kafka group coordinator and producer ids in surl
 
 ## Goal
 
 `surl kafka://` and `kafkas://` serve consumer groups, committed offsets, CreateTopics and InitProducerId: one
 `KafkaGroupCoordinator` and one producer-state holder per instance, shared by both listeners, with the answerers of
-BL-931 to BL-934 registered, and the help and `--aihelp` text naming them and `$group/<id>` access.
+BL-948 to BL-951 registered, and the help and `--aihelp` text naming them and `$group/<id>` access.
 
 ## Context
 
