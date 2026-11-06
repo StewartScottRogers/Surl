@@ -8,7 +8,7 @@ depends-on: [BL-875]
 touches: [Protocols/Mail/Surl.Protocol.Imap.UnitLibrary, Protocols/Mail/Surl.Protocol.Imap.UnitTests]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-05
 ---
 # BL-878 — Play the IMAP server half of an upstream test case in Surl.Protocol.Imap
 
@@ -45,21 +45,27 @@ upstream test case through BL-875's `MailUpstreamTestCaseReplies`. Unit tests dr
 
 ## Acceptance criteria
 
-- [ ] `Protocols/Mail/Surl.Protocol.Imap.UnitTests` has `ImapUpstreamTestCaseServerTests`, which drive the half
+- [x] `Protocols/Mail/Surl.Protocol.Imap.UnitTests` has `ImapUpstreamTestCaseServerTests`, which drive the half
       over an in-memory connection with inline cases. They cover `REPLY welcome`, a `REPLY`'d command not being
       run, a `COUNT`-limited reply, `CAPABILITY` listing `CAPA` and `AUTH`, `FETCH` with `<dataNUM>` selection
       and `POSTFETCH`, `LIST` from the case, an `APPEND` literal landing in `UploadedBytes`, and
       `ReceivedBytes`.
-- [ ] A named test shows that `ImapProtocolServer` composed without a case still greets with its own
+- [x] A named test shows that `ImapProtocolServer` composed without a case still greets with its own
       `CAPABILITY` and answers `FETCH` from the mail store.
-- [ ] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean,
+- [x] `dotnet build Protocols/Mail/Surl.Protocol.Imap.UnitLibrary -warnaserror` is clean,
       `dotnet test --filter "TestCategory!=Integration"` is green, and `Surl.Protocol.Imap.UnitLibrary` keeps 100%
       line and branch coverage.
 
 ## Notes
+
+- Took the stash's two untracked files (`darkfactory BL-395`, 0359f486) as they were, and put the four hooks into the current `ImapSession.cs` by hand: the constructor parameter, `GreetAsync`, and the two checks at the top of `AnswerNextCommandAsync`. `ImapProtocolServer` gets the internal `UpstreamTestCaseReplies` init property.
+- Coverage changes. `read.Tag ?? string.Empty` became `read.Tag!`: the reader always sets a tag on an `AppendMessage` result, so the fallback could never run. The `UID` string switch became `if` checks plus a `HashSet`, because the compiler-generated branch of a string switch can't be reached and so can't be covered.
+- `POSTFETCH` text goes in as the case writes it, right after the message and with no space added. The tests pin the stash's behaviour. No upstream bytes were measured here; BL-879's conformance run against pinned upstream curl checks it.
+- `ImapUpstreamTestCaseServerTests`: 47 cases (`DataRow` rows included). The no-case test is `ServeAsync_NoCase_GreetsWithItsOwnCapabilityAndFetchesFromTheMailStore`. Surl.Protocol.Imap.UnitLibrary keeps 100% line and branch coverage; the project's CLAUDE.md now describes the half.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-05: Split from BL-395 (timed out after 120 min; Stewart asked for the split 2026-11-05).
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. ImapUpstreamTestCaseServer plays an upstream IMAP test case over Surl's own server, tested at 100% coverage
