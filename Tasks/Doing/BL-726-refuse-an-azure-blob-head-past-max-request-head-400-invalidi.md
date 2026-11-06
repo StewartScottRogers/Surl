@@ -39,3 +39,4 @@ A request head past `--max-request-head` on the `az` server is answered `400 Bad
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
