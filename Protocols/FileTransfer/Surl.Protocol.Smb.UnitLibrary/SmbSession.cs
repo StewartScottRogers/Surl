@@ -10,6 +10,9 @@ namespace Surl.Protocol.Smb;
 /// decisions 1 to 5 say.
 /// </summary>
 /// <remarks>
+/// After the session setup, every request first asks the fault plan; a chosen-error rule is
+/// answered with the rule's NTSTATUS, <c>SMB_FLAGS2_NT_STATUS</c> set, before any tree, file or
+/// store check (ADR-0135, <see cref="SmbCommandFaults"/>).
 /// Disposing the session discards every upload still open, as a connection that ends with one
 /// open must. Not safe for concurrent calls.
 /// </remarks>
@@ -107,7 +110,47 @@ internal sealed class SmbSession : IAsyncDisposable
     private ContentPathMapping MapForCaller(string requestPath) =>
         contentStore.MapRequestPathForCaller(requestPath, loggedInCaller!);
 
-    private async ValueTask<SmbAnswer> AnswerLoggedInAsync(SmbRequest request) => request switch
+    private async ValueTask<SmbAnswer> AnswerLoggedInAsync(SmbRequest request) =>
+        await AnswerByFaultAsync(request) ?? await AnswerLoggedInAsUsualAsync(request);
+
+    // ADR-0124 decision 4: a chosen-error rule for the command and its path is answered with the
+    // rule's NTSTATUS, flagged as one, before the store is asked; null when no rule applies.
+    private async ValueTask<SmbAnswer?> AnswerByFaultAsync(SmbRequest request)
+    {
+        var command = SmbCommandFaults.CommandNameOf(request);
+        var path = FaultPathOf(request);
+        if (await SmbCommandFaults.FindErrorAsync(context, loggedInCaller!.AccountName, command, path) is not { } rule)
+        {
+            return null;
+        }
+
+        SmbCommandFaults.TryReadNtStatus(rule.Reply, out var status);
+        context.Log.Note($"SMB {command} {path ?? "(no path)"} refused by fault rule {rule.Id}: 0x{status:X8}");
+        var header = request.Header with { Flags2 = (ushort)(request.Header.Flags2 | SmbCommandFaults.NtStatusFlag) };
+
+        return Refuse(header, status);
+    }
+
+    // The share a tree connect names, or the share and name of the file a request opens or uses;
+    // null when its tree or file is not one the session holds.
+    private string? FaultPathOf(SmbRequest request) => request switch
+    {
+        SmbTreeConnectRequest treeConnect => SmbCommandFaults.PathOf(treeConnect.Path[(treeConnect.Path.LastIndexOf('\\') + 1)..]),
+        SmbNtCreateRequest ntCreate => TreePathOf(ntCreate.Header, ntCreate.FileName),
+        SmbReadRequest read => OpenFilePathOf(read.Header, read.FileId),
+        SmbWriteRequest write => OpenFilePathOf(write.Header, write.FileId),
+        SmbCloseRequest close => OpenFilePathOf(close.Header, close.FileId),
+        // Negotiate and session setup never get here: a tree disconnect is all that is left.
+        _ => TreePathOf(request.Header, string.Empty),
+    };
+
+    private string? TreePathOf(SmbHeader header, string name) =>
+        sharesByTreeId.TryGetValue(header.TreeId, out var share) ? SmbCommandFaults.PathOf($"{share}\\{name}") : null;
+
+    private string? OpenFilePathOf(SmbHeader header, ushort fileId) =>
+        FindOpenFile(header, fileId) is { } openFile ? SmbCommandFaults.PathOf(openFile.NoteName) : null;
+
+    private async ValueTask<SmbAnswer> AnswerLoggedInAsUsualAsync(SmbRequest request) => request switch
     {
         SmbTreeConnectRequest treeConnect => AnswerTreeConnect(treeConnect),
         _ when !sharesByTreeId.ContainsKey(request.Header.TreeId) => Refuse(request.Header, SmbStatus.InvalidTreeId),

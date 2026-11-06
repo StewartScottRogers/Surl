@@ -33,6 +33,11 @@ What exists (BL-290, BL-296 to BL-298, ADR-0073 decisions 1 to 8):
   `--allow-anonymous` accepted unchecked - on the listen URL's scheme (`smb` or `smbs`), so a
   share the caller may not read is `ERRSRV/ERRinvnetname` as a missing one is, and a write it may
   not make is `ERRDOS/ERRnoaccess` (BL-660, ADR-0102 decisions 2.2 and 2.3).
+- `SmbCommandFaults` - the chosen-error fault (ADR-0135): after the session setup each request asks
+  `ExchangeContext.Faults` at the `Command` stage, named `TREE_CONNECT`, `CREATE`, `READ`, `WRITE`,
+  `CLOSE` or `TREE_DISCONNECT` with the path `/<share>/<name>`, and a matching `error` rule is answered
+  with its NTSTATUS and `SMB_FLAGS2_NT_STATUS` set, publishing `FaultAppliedEvent`. A reply that does
+  not fit, or a `delay` or `drop` rule, is noted and not applied (BL-901).
 - The codec: `SmbRequestDecoder` decodes the eight requests curl sends (`SmbNegotiateRequest`,
   `SmbSessionSetupRequest`, `SmbTreeConnectRequest`, `SmbNtCreateRequest`, `SmbReadRequest`,
   `SmbWriteRequest`, `SmbCloseRequest`, `SmbTreeDisconnectRequest`), reporting a malformed one as
