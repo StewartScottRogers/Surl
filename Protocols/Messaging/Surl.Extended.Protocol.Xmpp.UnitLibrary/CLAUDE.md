@@ -7,9 +7,10 @@ by the Curl port's output, and its unit tests replay streams written by hand fro
 sections and examples. `Documentation/Conformance/Extended/Xmpp.md` traces each requirement to
 its task.
 
-It references `Surl.Protocol.Abstractions` only. SASL and resource binding come with BL-538,
-and stanza routing, IQs and service discovery with BL-539; BL-540 serves `xmpps` by wrapping
-the server in `ImplicitTlsSchemeServer`.
+It references `Surl.Protocol.Abstractions` only. SASL and resource binding (one stream's) came
+with BL-538; stanza routing, IQs and service discovery come with BL-539, and the resource
+conflict, the per-JID resource cap, `invalid-authzid` and the login deadline with BL-875; BL-540
+serves `xmpps` by wrapping the server in `ImplicitTlsSchemeServer`.
 
 Streams, the XML stream reader and stream errors (BL-536, ADR-0114 decisions 1, 6 and 7):
 
@@ -18,9 +19,9 @@ Streams, the XML stream reader and stream errors (BL-536, ADR-0114 decisions 1, 
 - `XmppServerConnection` answers one connection: the stream header within the head timeout,
   checked for namespaces, `to` and version; the response header (`from`, a 32-hex-digit `id`
   from the injected `IXmppRandomSource`, `version='1.0'`, `xml:lang`) and the phase's features
-  (below); then first-level elements: STARTTLS's are served (below), a stanza is
-  `not-authorized`, another `jabber:client` element `unsupported-stanza-type`, and anything else
-  not served yet `policy-violation`. `</stream:stream>` is answered with the server's. Every
+  (below); then first-level elements: STARTTLS's and SASL's are served (below), and before login
+  a stanza is `not-authorized`, another `jabber:client` element `unsupported-stanza-type`, and
+  anything else `policy-violation`. `</stream:stream>` is answered with the server's. Every
   stream error is preceded by a response header when none was sent, carries no text, and is
   followed by `</stream:stream>`. A limit cancelling the exchange is `connection-timeout`,
   shutdown `system-shutdown`, each written within a one-second deadline.
@@ -52,3 +53,28 @@ STARTTLS (BL-537, ADR-0114 decision 2):
   `<failure/>`, `</stream:stream>` and the close.
 - While TLS is required, `<auth/>` is `<failure><encryption-required/></failure>` and the stream
   is kept; a stanza is `not-authorized`, anything else `policy-violation`.
+
+SASL and resource binding (BL-538, ADR-0114 decisions 3 and 4):
+
+- `XmppSaslLogin` runs one stream's SASL: `<auth/>` must name a mechanism the features offered
+  (`malformed-request` without one, `invalid-mechanism` otherwise), its text is base64, `=` for an
+  empty initial response and no text for none (`incorrect-encoding` when it does not decode). The
+  policy's `ISaslExchange` runs the mechanism, started with `CanCarrySecurityLayer: true` so SCRAM's
+  server-final message comes back as additional success data and goes in `<success/>` (RFC 6120
+  6.3.10); an empty challenge or success is an empty element. `RefusedCredentials` is
+  `not-authorized`, `RefusedPlaintext` `encryption-required`, `RefusedMechanism`
+  `invalid-mechanism`. `<abort/>` is `aborted` and not counted; the third other failure on a stream
+  (`encryption-required` before TLS included) is answered, then ends it with `policy-violation`.
+  `<response/>` or `<abort/>` with no exchange under way is `policy-violation`.
+- `XmppJids` makes the bare JID: `name@<stream domain>`, a `local@domain` account only on the
+  stream's domain, `anon-` and 16 random hex digits for a login accepted unchecked; a name that is
+  not an RFC 7622 localpart is `not-authorized`. After `<success/>` a new `XmppStreamReader` reads
+  the restarted stream, whose features are `<bind/>` alone.
+- `XmppResourceBinding` answers the logged-in stream's stanzas: an IQ with no `id` or an unknown
+  `type` is `invalid-xml`; before bind, only an IQ `set` whose one child is `<bind/>` is served,
+  anything else `not-authorized`. A `<resource/>` that is not a resourcepart (empty, over 1023
+  bytes, a control character) is `bad-request`; none gives `surl-` and 16 hex digits; the answer
+  is the full JID. After bind a second bind is `not-allowed`, the legacy session request an empty
+  result, any other IQ `get` or `set` `service-unavailable`, and an IQ reply, message or presence is
+  dropped until BL-539 routes them. `<starttls/>`, `<auth/>` or another non-stanza after login ends
+  the stream (`policy-violation`, or `unsupported-stanza-type` in `jabber:client`).

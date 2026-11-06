@@ -5,10 +5,11 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.Xmpp;
 
 /// <summary>
-/// One XMPP connection (ADR-0114 decisions 1, 2, 6 and 7): the client's stream header within the
+/// One XMPP connection (ADR-0114 decisions 1 to 4, 6 and 7): the client's stream header within the
 /// head timeout, the response header and the features of the connection's phase, then first-level
-/// elements until the client closes the stream, the input ends, a stream error ends it, or
-/// <c>&lt;starttls/&gt;</c> upgrades the connection and the client opens a new stream.
+/// elements until the client closes the stream, the input ends, or a stream error ends it. After
+/// <c>&lt;starttls/&gt;</c> upgrades the connection, and after SASL success, the client opens a new
+/// stream on the same connection.
 /// </summary>
 internal sealed class XmppServerConnection
 {
@@ -22,11 +23,19 @@ internal sealed class XmppServerConnection
 
     private static readonly XName Auth = XNamespace.Get(XmppNamespaces.Sasl) + "auth";
 
+    private static readonly XName Response = XNamespace.Get(XmppNamespaces.Sasl) + "response";
+
+    private static readonly XName Abort = XNamespace.Get(XmppNamespaces.Sasl) + "abort";
+
     private readonly IConnection connection;
     private readonly ExchangeContext context;
     private readonly XmppServerOptions options;
     private readonly IReadOnlyList<string> domains;
+    private readonly XmppSaslLogin login;
     private XmppStreamReader reader;
+    private XmppResourceBinding? binding;
+    private string[] offeredMechanisms = [];
+    private string streamDomain = string.Empty;
     private bool headerSent;
     private bool connectionUnusable;
 
@@ -37,12 +46,14 @@ internal sealed class XmppServerConnection
         this.options = options;
         reader = new XmppStreamReader(connection, context.Limits.MaxMessageBytes);
         domains = XmppDomains.Served(context.ListenUrl, context.LocalEndPoint, options.MailDomains);
+        login = new XmppSaslLogin(options.AuthenticationPolicy, context, options.RandomSource, WriteAsync);
     }
 
     private enum ElementOutcome
     {
         Continue,
         RestartAfterTls,
+        RestartAfterLogin,
         EndStream,
     }
 
@@ -75,7 +86,8 @@ internal sealed class XmppServerConnection
         }
     }
 
-    // Each stream after the first is the one the client opens after TLS (RFC 6120 5.4.3.3).
+    // Each stream after the first is the one the client opens after TLS (RFC 6120 5.4.3.3) or
+    // after SASL success (6.4.6).
     private async Task ServeStreamsAsync()
     {
         var header = await ReadHeaderWithinHeadTimeoutAsync(upgradeFirst: false);
@@ -86,7 +98,8 @@ internal sealed class XmppServerConnection
     }
 
     // One stream: its header answered, then its elements; returns the next stream's header when
-    // the connection was upgraded and the client opened one, else null.
+    // the connection was upgraded or logged in and the client opened one, else null. The head
+    // timeout runs from <proceed/> or <success/> to the new header (decision 7).
     private async Task<XmppStreamHeader?> ServeStreamAsync(XmppStreamHeader header)
     {
         await OpenStreamAsync(header);
@@ -101,7 +114,9 @@ internal sealed class XmppServerConnection
             var outcome = await AnswerAsync(element);
             if (outcome != ElementOutcome.Continue)
             {
-                return outcome == ElementOutcome.RestartAfterTls ? await ReadHeaderWithinHeadTimeoutAsync(upgradeFirst: true) : null;
+                return outcome == ElementOutcome.EndStream
+                    ? null
+                    : await ReadHeaderWithinHeadTimeoutAsync(upgradeFirst: outcome == ElementOutcome.RestartAfterTls);
             }
         }
 
@@ -166,35 +181,45 @@ internal sealed class XmppServerConnection
     {
         var domain = StreamDomain(header.To);
         RequireVersion1(header.Version);
+        streamDomain = domain;
         var language = string.IsNullOrEmpty(header.Language) ? XmppStreamText.DefaultLanguage : header.Language;
         await WriteHeaderAsync(domain, language);
         await WriteAsync(Features());
         context.Log.Note($"Opened a stream for {domain}.");
     }
 
-    // Decision 2's table: STARTTLS alone while it is required; otherwise voluntary STARTTLS while
-    // the connection could still be upgraded, then the SASL mechanisms for the TLS state.
+    // Decision 2's table: the bind feature alone once logged in; STARTTLS alone while it is
+    // required; otherwise voluntary STARTTLS while the connection could still be upgraded, then
+    // the SASL mechanisms for the TLS state.
     private string Features()
     {
+        if (binding is not null)
+        {
+            return XmppStreamText.Features(XmppSaslText.BindFeature);
+        }
+
         if (IsTlsRequired)
         {
             return XmppStreamText.Features(XmppStreamText.StartTlsRequired);
         }
 
         var startTls = connection.TlsSession is null && options.IsTlsUpgradeAvailable ? XmppStreamText.StartTlsOffered : string.Empty;
-        return XmppStreamText.Features(startTls + XmppStreamText.Mechanisms(OfferedMechanisms()));
-    }
-
-    private string[] OfferedMechanisms()
-    {
         var offered = options.AuthenticationPolicy.GetSaslMechanisms(new SaslOfferRequest(context.Scheme, connection.TlsSession));
-        return [.. OfferableMechanisms.Where(offered.Contains)];
+        offeredMechanisms = [.. OfferableMechanisms.Where(offered.Contains)];
+        return XmppStreamText.Features(startTls + XmppStreamText.Mechanisms(offeredMechanisms));
     }
 
-    // Decision 2: <starttls/> is served; <auth/> while TLS is required is refused and the stream
-    // kept. SASL (BL-538) and stanzas (BL-539) are not served yet, so anything else ends the stream.
+    // Once logged in, stanzas go to the binding. Before: <starttls/> is served, and SASL's
+    // elements (decision 3), except that while TLS is required <auth/> is refused and the stream
+    // kept (decision 2). Anything else ends the stream.
     private async Task<ElementOutcome> AnswerAsync(XElement element)
     {
+        if (binding is not null)
+        {
+            await binding.AnswerAsync(RequireStanza(element));
+            return ElementOutcome.Continue;
+        }
+
         if (element.Name == StartTls)
         {
             return await AnswerStartTlsAsync();
@@ -202,12 +227,31 @@ internal sealed class XmppServerConnection
 
         if (element.Name == Auth && IsTlsRequired)
         {
-            context.Log.Note("A SASL <auth/> arrived before TLS while TLS is required; answered encryption-required.");
-            await WriteAsync(XmppStreamText.EncryptionRequired);
+            await login.RefuseBeforeTlsAsync();
             return ElementOutcome.Continue;
         }
 
-        throw Refusal(element);
+        return IsTlsRequired ? throw Refusal(element) : await AnswerSaslAsync(element);
+    }
+
+    // RFC 6120 6.4: each SASL element to the login; on success the binding takes over and a new
+    // XML parser reads the stream the client restarts (6.4.6), as after TLS.
+    private async Task<ElementOutcome> AnswerSaslAsync(XElement element)
+    {
+        var name = element.Name;
+        var answering = name == Auth ? login.StartAsync(element, offeredMechanisms, streamDomain, connection.TlsSession)
+            : name == Response ? login.ContinueAsync(element)
+            : name == Abort ? login.AbortAsync()
+            : throw Refusal(element);
+        await answering;
+        if (login.BareJid is null)
+        {
+            return ElementOutcome.Continue;
+        }
+
+        binding = new XmppResourceBinding(login.BareJid, context, options.RandomSource, WriteAsync);
+        reader = new XmppStreamReader(connection, context.Limits.MaxMessageBytes);
+        return ElementOutcome.RestartAfterLogin;
     }
 
     // RFC 6120 5.4.2: <proceed/> and the upgrade when the server has a certificate and the
@@ -252,9 +296,9 @@ internal sealed class XmppServerConnection
         version is not null && version.All(character => char.IsAsciiDigit(character) || character == '.') &&
         Version.TryParse(version, out var parsed) && parsed.Build < 0 && parsed.Major == 1;
 
-    // Until SASL (BL-538) and stanzas (BL-539) are served, no other first-level element is: a
-    // stanza is not authorized (5.3.1 before TLS, 4.9.3.12), any other element in jabber:client is
-    // not a stanza type, and any other element is not allowed in this phase.
+    // Before login, no other first-level element is served: a stanza is not authorized (5.3.1
+    // before TLS, 4.9.3.12), any other element in jabber:client is not a stanza type, and any other
+    // element is not allowed in this phase.
     private static XmppStreamErrorException Refusal(XElement element)
     {
         var name = element.Name;
@@ -263,10 +307,27 @@ internal sealed class XmppServerConnection
             return new(XmppStreamErrors.PolicyViolation, $"The element {name} is not allowed before authentication");
         }
 
-        return name.LocalName is "message" or "presence" or "iq"
+        return IsStanza(name)
             ? new(XmppStreamErrors.NotAuthorized, $"A {name.LocalName} stanza arrived before authentication")
-            : new(XmppStreamErrors.UnsupportedStanzaType, $"The element {name.LocalName} is not a stanza");
+            : NotAStanza(name);
     }
+
+    // After login only stanzas are allowed: <starttls/> and <auth/> are policy-violation (decision 3).
+    private static XElement RequireStanza(XElement element)
+    {
+        var name = element.Name;
+        if (name.NamespaceName != XmppNamespaces.Client)
+        {
+            throw new XmppStreamErrorException(XmppStreamErrors.PolicyViolation, $"The element {name} is not allowed after authentication");
+        }
+
+        return IsStanza(name) ? element : throw NotAStanza(name);
+    }
+
+    private static bool IsStanza(XName name) => name.LocalName is "message" or "presence" or "iq";
+
+    private static XmppStreamErrorException NotAStanza(XName name) =>
+        new(XmppStreamErrors.UnsupportedStanzaType, $"The element {name.LocalName} is not a stanza");
 
     // ADR-0006 section 5: the idle timeout or maximum duration is connection-timeout, shutdown is
     // system-shutdown, each written on a short deadline of the server's own.

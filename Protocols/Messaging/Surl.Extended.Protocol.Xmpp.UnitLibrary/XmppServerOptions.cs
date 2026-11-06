@@ -19,7 +19,7 @@ public sealed record XmppServerOptions
     /// </summary>
     public IReadOnlyList<string> MailDomains { get; init; } = [];
 
-    /// <summary>Where stream IDs come from; <see cref="CryptographicXmppRandomSource.Instance"/> unless given.</summary>
+    /// <summary>Where stream IDs, generated resources and anonymous names come from; <see cref="CryptographicXmppRandomSource.Instance"/> unless given.</summary>
     public IXmppRandomSource RandomSource { get; init; } = CryptographicXmppRandomSource.Instance;
 
     /// <summary>
@@ -37,7 +37,8 @@ public sealed record XmppServerOptions
     public bool AllowPlaintextAuthentication { get; init; }
 
     /// <summary>
-    /// The policy whose SASL mechanisms the stream features offer (ADR-0114 decision 3);
+    /// The policy whose SASL mechanisms the stream features offer and whose exchanges run every
+    /// login (ADR-0114 decision 3);
     /// <see cref="AnonymousAuthenticationPolicy"/> unless given.
     /// </summary>
     public ISaslAuthenticationPolicy AuthenticationPolicy { get; init; } = new AnonymousAuthenticationPolicy();

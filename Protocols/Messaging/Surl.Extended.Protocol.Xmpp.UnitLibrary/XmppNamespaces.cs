@@ -20,6 +20,15 @@ public static class XmppNamespaces
     /// <summary>The SASL namespace, of <c>&lt;mechanisms/&gt;</c>, <c>&lt;auth/&gt;</c> and its <c>&lt;failure/&gt;</c> (6.4).</summary>
     public const string Sasl = "urn:ietf:params:xml:ns:xmpp-sasl";
 
+    /// <summary>The resource binding namespace, of the <c>&lt;bind/&gt;</c> feature and request (7).</summary>
+    public const string Bind = "urn:ietf:params:xml:ns:xmpp-bind";
+
+    /// <summary>The namespace of a stanza error's condition element (8.3.3).</summary>
+    public const string Stanzas = "urn:ietf:params:xml:ns:xmpp-stanzas";
+
+    /// <summary>RFC 3921's legacy session namespace, which RFC 6121 appendix E lets a server still answer.</summary>
+    public const string Session = "urn:ietf:params:xml:ns:xmpp-session";
+
     /// <summary>The namespace the <c>xml:</c> prefix is bound to, of <c>xml:lang</c>.</summary>
     public const string Xml = "http://www.w3.org/XML/1998/namespace";
 

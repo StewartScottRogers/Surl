@@ -35,14 +35,25 @@ namespace Surl.Extended.Protocol.Xmpp;
 /// <c>&lt;failure&gt;&lt;encryption-required/&gt;&lt;/failure&gt;</c> and the stream kept.
 /// </para>
 /// <para>
+/// SASL (decision 3, <see cref="XmppSaslLogin"/>): <c>&lt;auth/&gt;</c> naming an offered mechanism
+/// runs the policy's exchange through <c>&lt;challenge/&gt;</c> and <c>&lt;response/&gt;</c> to
+/// <c>&lt;success/&gt;</c>, SCRAM's server-final message inside it, or a <c>&lt;failure/&gt;</c>
+/// (<c>not-authorized</c>, <c>invalid-mechanism</c>, <c>malformed-request</c>,
+/// <c>incorrect-encoding</c>, <c>encryption-required</c>, or <c>aborted</c> for <c>&lt;abort/&gt;</c>);
+/// the third failure but <c>aborted</c> ends the stream with <c>policy-violation</c>. After success
+/// the client's new stream header, within the head timeout, is answered with <c>&lt;bind/&gt;</c>
+/// alone. Binding (decision 4, <see cref="XmppResourceBinding"/>): an IQ <c>set</c> of
+/// <c>&lt;bind/&gt;</c> is answered with the full JID, the client's resource or a generated
+/// <c>surl-</c> one; a stanza before it is <c>not-authorized</c>.
+/// </para>
+/// <para>
 /// Every refusal is a stream error with no text, then <c>&lt;/stream:stream&gt;</c> and a close,
 /// preceded by a response header when none was sent (decision 6); <see cref="XmppStreamReader"/>
 /// lists what the XML itself is refused for. No header within the head timeout, or a limit
 /// cancelling the exchange, is <c>connection-timeout</c>; shutdown is <c>system-shutdown</c>.
-/// SASL and binding come with BL-538, and stanzas with BL-539; until then a stanza is
-/// <c>not-authorized</c>, another element in <c>jabber:client</c> is
-/// <c>unsupported-stanza-type</c>, and any other element (an <c>&lt;auth/&gt;</c> TLS does not
-/// refuse included) is <c>policy-violation</c>. BL-540 serves <c>xmpps</c> by wrapping this server
+/// Before login a stanza is <c>not-authorized</c>, another element in <c>jabber:client</c> is
+/// <c>unsupported-stanza-type</c>, and any other element but SASL's is <c>policy-violation</c>.
+/// BL-540 serves <c>xmpps</c> by wrapping this server
 /// in the implicit-TLS seam; a connection that is TLS from its first byte starts at the post-TLS
 /// features.
 /// </para>

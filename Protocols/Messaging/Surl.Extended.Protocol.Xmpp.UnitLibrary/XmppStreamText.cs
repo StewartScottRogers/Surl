@@ -29,9 +29,6 @@ internal static class XmppStreamText
     /// <summary>The answer to <c>&lt;starttls/&gt;</c> when the server cannot upgrade, then the close (5.4.2.2).</summary>
     public const string TlsFailureAndClose = $"<failure xmlns='{XmppNamespaces.Tls}'/>{Close}";
 
-    /// <summary>The answer to <c>&lt;auth/&gt;</c> before TLS while TLS is required; the stream is kept (6.5.4).</summary>
-    public const string EncryptionRequired = $"<failure xmlns='{XmppNamespaces.Sasl}'><encryption-required/></failure>";
-
     /// <summary>
     /// The stream features element (4.3.2): <c>&lt;stream:features/&gt;</c> when there are none.
     /// </summary>

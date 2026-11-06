@@ -18,6 +18,9 @@ public static class XmppStreamErrors
     /// <summary>A stream namespace or content namespace other than the right ones (4.9.3.10).</summary>
     public const string InvalidNamespace = "invalid-namespace";
 
+    /// <summary>An IQ with no <c>id</c> or an unknown <c>type</c> (4.9.3.11).</summary>
+    public const string InvalidXml = "invalid-xml";
+
     /// <summary>A stanza before the client has authenticated and bound a resource (4.9.3.12).</summary>
     public const string NotAuthorized = "not-authorized";
 
