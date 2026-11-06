@@ -63,6 +63,7 @@ internal sealed class SignalRHubSession : IDisposable
 
     private readonly IConnection connection;
     private readonly ExchangeContext context;
+    private readonly SignalRInvocationFaults invocationFaults;
     private readonly WebSocketFrameReader frameReader;
     private readonly WebSocketMessageReassembler reassembler;
     private readonly HubRecordReader recordReader;
@@ -85,10 +86,12 @@ internal sealed class SignalRHubSession : IDisposable
     /// <param name="connection">Where frames are written.</param>
     /// <param name="reader">The reader that read the upgrade request, so bytes it already buffered come first.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
-    public SignalRHubSession(IConnection connection, HttpConnectionReader reader, ExchangeContext context)
+    /// <param name="invocationFaults">Asks the exchange's fault plan for a chosen Completion error per invocation (ADR-0143).</param>
+    public SignalRHubSession(IConnection connection, HttpConnectionReader reader, ExchangeContext context, SignalRInvocationFaults invocationFaults)
     {
         this.connection = connection;
         this.context = context;
+        this.invocationFaults = invocationFaults;
         var maxMessageBytes = context.Limits.MaxMessageBytes;
         frameReader = new WebSocketFrameReader(reader.ReadAsync, maxMessageBytes == 0 ? 0 : maxMessageBytes + MaxClientFrameHeaderBytes);
         reassembler = new WebSocketMessageReassembler(maxMessageBytes);
@@ -304,7 +307,10 @@ internal sealed class SignalRHubSession : IDisposable
             return SignalRSessionEnd.HubProtocolError("an invocationId already in progress was used again");
         }
 
-        var call = SignalRHubMethods.Call(invocation);
+        // ADR-0143: a chosen-error fault rule completes the invocation in place of the hub method.
+        var call = invocation.InvocationId is not null && await invocationFaults.FindErrorAsync(invocation) is { } chosenError
+            ? SignalRHubCall.Failed(chosenError)
+            : SignalRHubMethods.Call(invocation);
         if (call.StreamItemCount is { } count)
         {
             // Only a StreamInvocation streams, and it always has an invocationId.

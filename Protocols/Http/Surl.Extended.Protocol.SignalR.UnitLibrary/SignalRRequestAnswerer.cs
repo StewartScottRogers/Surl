@@ -225,7 +225,7 @@ internal sealed class SignalRRequestAnswerer(
             HttpAnswerBody.None,
             IsRefusal: false,
             LeavesRequestBodyUnread: false,
-            new SignalRWebSocketTakeover(connections, hubConnection, context));
+            new SignalRWebSocketTakeover(connections, hubConnection, hubPath.EndpointBase, context));
 
     private HttpAnswer Answer(HttpRequest request, HttpStatus status, IReadOnlyList<KeyValuePair<string, string>>? fields = null) =>
         new(status, [.. CommonFields(0), .. fields ?? []], HttpAnswerBody.None, IsRefusal: false, LeavesRequestBodyUnread: request.Body.IsAnnounced);
