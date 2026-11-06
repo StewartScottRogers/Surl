@@ -67,11 +67,16 @@ public sealed partial class MessageBus
     // The publisher, when a connection published through BusConnection.Publish, keeps the
     // message from that connection's No Local subscriptions.
     // With onlyToConsumedQueues, a bound queue takes it only when a consumer could take it now.
-    internal BusPublishResult Publish(BusMessage message, string? account, BusConnection? publisher, bool onlyToConsumedQueues)
+    internal BusPublishResult Publish(BusMessage message, string? account, BusConnection? publisher, bool onlyToConsumedQueues) =>
+        Publish(message, account, publisher, onlyToConsumedQueues, seed: false);
+
+    // A seed (ADR-0124, decision 3) takes the same path, but is never refused by the access
+    // grants or the fault plan, and publishes Seeded once its message is in the bus.
+    private BusPublishResult Publish(BusMessage message, string? account, BusConnection? publisher, bool onlyToConsumedQueues, bool seed)
     {
         ArgumentNullException.ThrowIfNull(message);
         var refusal = Refusal(message);
-        if (refusal is MessageBusOutcome.Succeeded && !accessPolicy.MayPublish(account, message.Topic))
+        if (refusal is MessageBusOutcome.Succeeded && !seed && !accessPolicy.MayPublish(account, message.Topic))
         {
             refusal = MessageBusOutcome.AccessDenied;
         }
@@ -87,13 +92,13 @@ public sealed partial class MessageBus
             return new(MessageBusOutcome.Succeeded, 0);
         }
 
-        if (IsOutOfSpace(account, message.Topic))
+        if (!seed && IsOutOfSpace(account, message.Topic))
         {
             return new(MessageBusOutcome.StoreFull, 0);
         }
 
         var published = WithDeclaredAttributes(Copy(message, now));
-        return ChangeState(() => Accept(published, now, publisher, onlyToConsumedQueues));
+        return ChangeState(() => Accept(published, now, publisher, onlyToConsumedQueues, seed));
     }
 
     private static (DeclaredTopic Topic, string[] Levels)[] SplitDeclaredTopics(MessageBusConfiguration configuration) =>

@@ -51,6 +51,28 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
 
     public void Unbind(string filter) => bindings.Remove(filter);
 
+    /// <summary>Binds the queue to exactly <paramref name="filters"/>, dropping every other binding.</summary>
+    public void ReplaceBindings(IEnumerable<string> filters)
+    {
+        bindings.Clear();
+        foreach (var filter in filters)
+        {
+            Bind(filter);
+        }
+    }
+
+    /// <summary>Drops every message the queue holds, ready or held unacknowledged by a consumer,
+    /// so a later settle of one is an unknown delivery tag. Keeps the consumers.</summary>
+    public void DropAllMessages()
+    {
+        foreach (var consumer in consumers)
+        {
+            consumer.RemoveAllUnacknowledged();
+        }
+
+        RemoveAllReady();
+    }
+
     public bool IsBoundTo(string[] topicLevels) =>
         bindings.Values.Any(filterLevels => CanonicalTopicName.FilterMatches(filterLevels, topicLevels));
 
@@ -71,8 +93,9 @@ internal sealed class NamedQueue(string name, BusQueueFlags flags, BusConnection
         Requeue(new QueuedMessage(sequence, message));
     }
 
-    /// <summary>Puts a message loaded from the queue's files at the end of its level.</summary>
-    public void Restore(BusMessage message, bool redelivered, ulong fileNumber)
+    /// <summary>Puts a message loaded from the queue's files, or from a snapshot with no file
+    /// (<paramref name="fileNumber"/> <see langword="null"/>), at the end of its level.</summary>
+    public void Restore(BusMessage message, bool redelivered, ulong? fileNumber)
     {
         var sequence = nextSequence++;
         Requeue(new QueuedMessage(sequence, message) { HandedOut = redelivered, FileNumber = fileNumber });
