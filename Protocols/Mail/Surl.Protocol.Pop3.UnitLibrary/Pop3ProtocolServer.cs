@@ -120,6 +120,12 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["pop3"]);
 
     /// <summary>
+    /// The upstream test case whose reply every session plays (<see cref="Pop3UpstreamTestCaseServer"/>),
+    /// or <see langword="null"/> for none, as the shipped <c>surl</c> has.
+    /// </summary>
+    internal MailUpstreamTestCaseReplies? UpstreamTestCaseReplies { get; init; }
+
+    /// <summary>
     /// Sends the greeting, then answers every command line on <paramref name="connection"/>
     /// until the client quits or closes it, or a limit is passed.
     /// </summary>
@@ -132,7 +138,7 @@ public sealed class Pop3ProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new Pop3Session(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, timestampRandom).RunAsync();
+        await new Pop3Session(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, timestampRandom, UpstreamTestCaseReplies).RunAsync();
     }
 
     /// <summary>

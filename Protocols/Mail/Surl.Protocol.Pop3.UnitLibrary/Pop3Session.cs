@@ -12,7 +12,7 @@ namespace Surl.Protocol.Pop3;
 /// order, in the AUTHORIZATION state until a login opens the maildrop and in the TRANSACTION
 /// state after it, until <c>QUIT</c>, the peer's close, or a limit.
 /// </summary>
-internal sealed class Pop3Session
+internal sealed partial class Pop3Session
 {
     private readonly IConnection connection;
     private readonly ExchangeContext context;
@@ -27,6 +27,7 @@ internal sealed class Pop3Session
     private string? pendingUserName;
     private PasswordLoginVerdict? anonymousVerdict;
     private Pop3Maildrop? maildrop;
+    private readonly MailUpstreamTestCaseReplies? caseReplies;
 
     public Pop3Session(
         IConnection connection,
@@ -36,8 +37,10 @@ internal sealed class Pop3Session
         IMailAuthenticationPolicy mailAuthenticationPolicy,
         MailboxStore mailStore,
         bool isTlsUpgradeAvailable,
-        RandomNumberGenerator timestampRandom)
+        RandomNumberGenerator timestampRandom,
+        MailUpstreamTestCaseReplies? caseReplies = null)
     {
+        this.caseReplies = caseReplies;
         this.connection = connection;
         this.context = context;
         this.reader = reader;
@@ -64,6 +67,10 @@ internal sealed class Pop3Session
             ["RSET"] = command => WithMaildropAsync(command, AnswerResetAsync),
             ["NOOP"] = command => WithMaildropAsync(command, (_, words) => words.Length == 0 ? ReplyAsync(Pop3Replies.Ok) : ReplyAsync(Pop3Replies.InvalidArguments)),
         };
+        if (caseReplies is not null)
+        {
+            AnswerAsTheUpstreamTestCaseSays(caseReplies);
+        }
     }
 
     private CancellationToken CancellationToken => context.CancellationToken;
@@ -77,7 +84,7 @@ internal sealed class Pop3Session
     {
         try
         {
-            await WriteLineAsync(Greeting(), CancellationToken);
+            await GreetAsync();
             while (await AnswerNextLineAsync())
             {
             }
@@ -109,6 +116,11 @@ internal sealed class Pop3Session
         if (read.Line is not { } line)
         {
             return await AnswerNoLineAsync(read.Outcome);
+        }
+
+        if (caseReplies is not null && await AnswerFromTheUpstreamTestCaseAsync(caseReplies, line))
+        {
+            return true;
         }
 
         return Pop3CommandLine.TryParse(line, out var command) && commands.TryGetValue(command!.Verb, out var answer)
