@@ -32,3 +32,4 @@ A folder created by a zero-byte PutObject of a key ending in `/` is listed by Li
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
