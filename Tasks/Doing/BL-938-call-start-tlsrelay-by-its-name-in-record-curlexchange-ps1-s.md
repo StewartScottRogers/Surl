@@ -49,3 +49,4 @@ or `-TlsSrp` starts the relay instead of failing on an unknown command.
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
