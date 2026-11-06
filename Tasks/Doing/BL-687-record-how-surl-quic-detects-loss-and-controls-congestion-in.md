@@ -37,3 +37,4 @@ delegation", records the loss recovery and congestion control decisions BL-379 m
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
