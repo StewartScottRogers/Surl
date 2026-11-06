@@ -54,3 +54,4 @@ a test serving several listen URLs tells them apart and every later observer rea
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
