@@ -20,7 +20,8 @@ internal static class Program
 
     /// <summary>The <c>initialize</c> result's <c>instructions</c> (ADR-0103 decision 6).</summary>
     public const string Instructions =
-        "These tools start, list and stop Surl protocol servers and show what their clients sent; the servers "
+        "These tools start, list and stop Surl protocol servers and show what their clients sent; get_events and "
+        + "wait_for_event show and wait for each server's events (exchanges, logins, store changes, faults). The servers "
         + "listen on loopback addresses unless whoever started surl-mcp allowed others. "
         + "The surl://aihelp resources explain the listen URLs and options start_server takes.";
 
@@ -139,6 +140,8 @@ internal static class Program
         registry.AddTool(ListServersTool.Create(servers));
         registry.AddTool(StopServerTool.Create(servers));
         registry.AddTool(GetExchangesTool.Create(servers));
+        registry.AddTool(GetEventsTool.Create(servers));
+        registry.AddTool(WaitForEventTool.Create(servers));
         registry.AddResources(new AiHelpResourceProvider());
         var options = new McpSessionOptions(new McpServerInfo(ServerName, ServerTitle, SurlMcpHelpText.Version), Instructions);
         await McpStreamSession.RunAsync(input, output, registry, options, cancellationToken);

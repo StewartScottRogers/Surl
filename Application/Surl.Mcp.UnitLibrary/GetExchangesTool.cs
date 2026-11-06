@@ -5,11 +5,12 @@ using Surl.McpServing;
 namespace Surl.Mcp;
 
 /// <summary>
-/// The <c>get_exchanges</c> tool (ADR-0103 decision 3): what each client sent to a running server and what the server
-/// sent back, oldest first, each exchange's chunks in the order they crossed the connection, shown as text or base64
-/// and cut to <see cref="RecordedExchangeWriter.MaxShownBytesPerExchange"/> bytes of each exchange and
-/// <see cref="RecordedExchangeWriter.MaxShownBytesPerResult"/> in all. An ID that names no running server is an
-/// <c>isError</c> result.
+/// The <c>get_exchanges</c> tool (ADR-0103 decision 3, as ADR-0124 decision 8 amends it): what each client sent to a
+/// running server and what the server sent back, oldest first, found with <see cref="SurlServer.FindExchanges"/> by
+/// <c>scheme</c> and <c>listen_url</c>. Each exchange shows its listen URL and scheme, and its chunks in the order
+/// they crossed the connection, as text or base64, cut to <see cref="RecordedExchangeWriter.MaxShownBytesPerExchange"/>
+/// bytes of each exchange and <see cref="RecordedExchangeWriter.MaxShownBytesPerResult"/> in all. An ID that names no
+/// running server, or a <c>listen_url</c> that is not an absolute URL, is an <c>isError</c> result.
 /// </summary>
 public static class GetExchangesTool
 {
@@ -18,7 +19,8 @@ public static class GetExchangesTool
 
     /// <summary>The tool's description.</summary>
     internal const string Description =
-        "Show what each client sent to a Surl server and what the server sent back, byte for byte, oldest first.";
+        "Show what each client sent to a Surl server and what the server sent back, byte for byte, oldest first, "
+        + "with the listen URL and scheme each exchange came through, filtered by scheme and listen URL.";
 
     /// <summary>How many exchanges one call returns when <c>max_exchanges</c> is not given.</summary>
     internal const int DefaultMaxExchanges = 20;
@@ -32,7 +34,9 @@ public static class GetExchangesTool
             "after_exchange_id": { "type": "integer", "minimum": 0,
               "description": "Only exchanges with a larger exchange_id; pass the last one seen to ask for the rest" },
             "max_exchanges": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20,
-              "description": "The most exchanges to return, 20 if not given" }
+              "description": "The most exchanges to return, 20 if not given" },
+        """ + EventToolFilter.SchemeAndListenUrlProperties + """
+
           },
           "required": ["server_id"],
           "additionalProperties": false
@@ -75,8 +79,13 @@ public static class GetExchangesTool
     {
         var serverId = arguments.GetProperty("server_id").GetString()!;
         var running = servers.List().FirstOrDefault(server => server.ServerId == serverId);
-        return running is null
-            ? McpToolResult.FromFailure(StopServerTool.NoRunningServer(serverId))
-            : Answer(serverId, running.Server.Exchanges, running.Server.DroppedExchangeCount, arguments);
+        if (running is null)
+        {
+            return McpToolResult.FromFailure(StopServerTool.NoRunningServer(serverId));
+        }
+
+        return EventToolFilter.TryRead(arguments, out var filter) is { } refusal
+            ? McpToolResult.FromFailure(refusal)
+            : Answer(serverId, running.Server.FindExchanges(filter!.Query), running.Server.DroppedExchangeCount, arguments);
     }
 }

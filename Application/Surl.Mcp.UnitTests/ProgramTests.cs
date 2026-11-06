@@ -42,7 +42,7 @@ public sealed class ProgramTests
         var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
 
         var names = result.GetProperty("tools").EnumerateArray().Select(tool => tool.GetProperty("name").GetString()).ToArray();
-        CollectionAssert.AreEqual(new[] { StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name }, names);
+        CollectionAssert.AreEqual(new[] { StartServerTool.Name, ListServersTool.Name, StopServerTool.Name, GetExchangesTool.Name, GetEventsTool.Name, WaitForEventTool.Name }, names);
     }
 
     [TestMethod]
@@ -59,8 +59,27 @@ public sealed class ProgramTests
         var inputSchema = tool.GetProperty("inputSchema");
         Assert.AreEqual("object", inputSchema.GetProperty("type").GetString());
         CollectionAssert.AreEqual(
-            new[] { "server_id", "after_exchange_id", "max_exchanges" },
+            new[] { "server_id", "after_exchange_id", "max_exchanges", "scheme", "listen_url" },
             inputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).ToArray());
+    }
+
+    [TestMethod]
+    [DataRow("get_events", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "max_events" })]
+    [DataRow("wait_for_event", new[] { "server_id", "after_sequence", "kinds", "scheme", "listen_url", "account", "timeout_ms" })]
+    public async Task RunAsync_ToolsList_IncludesEachEventToolWithAnObjectInputSchemaAndADescription(string name, string[] properties)
+    {
+        await using var host = new ProgramTestHost(TestContext.CancellationToken);
+        await host.CallAsync(InitializeRequest);
+
+        var result = await host.CallAsync("""{"jsonrpc":"2.0","id":2,"method":"tools/list"}""");
+
+        var tool = Assert.ContainsSingle(result.GetProperty("tools").EnumerateArray().Where(tool => tool.GetProperty("name").GetString() == name));
+        Assert.AreEqual(name == GetEventsTool.Name ? GetEventsTool.Description : WaitForEventTool.Description, tool.GetProperty("description").GetString());
+        var inputSchema = tool.GetProperty("inputSchema");
+        Assert.AreEqual("object", inputSchema.GetProperty("type").GetString());
+        Assert.IsFalse(inputSchema.GetProperty("additionalProperties").GetBoolean());
+        CollectionAssert.AreEqual(new[] { "server_id" }, inputSchema.GetProperty("required").EnumerateArray().Select(item => item.GetString()).ToArray());
+        CollectionAssert.AreEqual(properties, inputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name).ToArray());
     }
 
     [TestMethod]
