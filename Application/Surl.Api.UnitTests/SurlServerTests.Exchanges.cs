@@ -48,15 +48,17 @@ public sealed partial class SurlServerTests
     }
 
     [TestMethod]
-    [DataRow(0, 1)]
-    [DataRow(1, 0)]
-    [DataRow(-1, 1)]
-    public async Task StartAsync_NonPositiveRecordBound_ThrowsArgumentException(int maxExchanges, int maxBytesPerExchange)
+    [DataRow(0, 1, 1)]
+    [DataRow(1, 0, 1)]
+    [DataRow(1, 1, 0)]
+    [DataRow(-1, 1, 1)]
+    public async Task StartAsync_NonPositiveRecordBound_ThrowsArgumentException(int maxExchanges, int maxBytesPerExchange, int maxEvents)
     {
         var seams = new ApiTestSeams();
         var options = ApiTestSeams.Options("http://127.0.0.1:0");
         options.MaxRecordedExchanges = maxExchanges;
         options.MaxRecordedBytesPerExchange = maxBytesPerExchange;
+        options.MaxRecordedEvents = maxEvents;
 
         await Assert.ThrowsExactlyAsync<ArgumentException>(
             () => SurlServer.StartAsync(options, seams.Host, TestContext.CancellationToken));
@@ -74,6 +76,7 @@ public sealed partial class SurlServerTests
 
         Assert.AreEqual(1000, options.MaxRecordedExchanges);
         Assert.AreEqual(1_048_576, options.MaxRecordedBytesPerExchange);
+        Assert.AreEqual(10000, options.MaxRecordedEvents);
         Assert.IsFalse(new SurlServerOptions().RecordExchanges);
         CollectionAssert.AreEqual(new[] { "http://127.0.0.1:0" }, arguments.ToArray());
     }

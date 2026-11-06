@@ -5,7 +5,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Api;
 
 [TestClass]
-public sealed class ExchangeRecordSubscriberTests
+public sealed partial class ExchangeRecordSubscriberTests
 {
     private const string HttpListenUrl = "http://127.0.0.1:49731/";
     private static readonly DateTimeOffset Now = new(2026, 11, 5, 9, 30, 0, TimeSpan.Zero);
@@ -15,7 +15,7 @@ public sealed class ExchangeRecordSubscriberTests
     public async Task Snapshot_AnExchangePublishedOnTheStream_HoldsItsListenUrlSchemeStartAndBytes()
     {
         var stream = new SurlEventStream(new FixedTimeProvider(Now));
-        await using var subscriber = new ExchangeRecordSubscriber(stream, 10, 100);
+        await using var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(10, 100));
 
         stream.Publish(new ExchangeStartedEvent(1, HttpListenUrl, "http", Alice));
         stream.Publish(new ExchangeBytesEvent(1, ExchangeDirection.Received, "GET"u8.ToArray()));
@@ -37,7 +37,7 @@ public sealed class ExchangeRecordSubscriberTests
     public async Task Snapshot_EventsPublishedWhileThePumpIsHeldOff_WaitsUntilThePumpHasAppliedThem()
     {
         var stream = new SurlEventStream(new FixedTimeProvider(Now));
-        await using var subscriber = new ExchangeRecordSubscriber(stream, 10, 100);
+        await using var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(10, 100));
         IReadOnlyList<SurlExchangeRecord> records;
 
         // Holding the gate keeps the pump from applying; the snapshot's wait releases it.
@@ -55,7 +55,7 @@ public sealed class ExchangeRecordSubscriberTests
     public async Task Snapshot_TheSubscriptionDroppedEventsOfAnOpenExchange_MarksItTruncated()
     {
         var stream = new SurlEventStream(new FixedTimeProvider(Now));
-        await using var subscriber = new ExchangeRecordSubscriber(stream, 10, 100, capacity: 1);
+        await using var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(10, 100), capacity: 1);
         stream.Publish(new ExchangeStartedEvent(1, HttpListenUrl, "http", Alice));
         Assert.IsFalse(subscriber.Snapshot().Single().IsTruncated);
         IReadOnlyList<SurlExchangeRecord> records;
@@ -76,7 +76,7 @@ public sealed class ExchangeRecordSubscriberTests
     public async Task Snapshot_MoreExchangesThanTheCap_DropsTheOldestAndCountsIt()
     {
         var stream = new SurlEventStream(new FixedTimeProvider(Now));
-        await using var subscriber = new ExchangeRecordSubscriber(stream, 1, 100);
+        await using var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(1, 100));
 
         stream.Publish(new ExchangeStartedEvent(1, HttpListenUrl, "http", Alice));
         stream.Publish(new ExchangeStartedEvent(2, HttpListenUrl, "http", Alice));
@@ -89,7 +89,7 @@ public sealed class ExchangeRecordSubscriberTests
     public async Task Snapshot_AfterDisposing_KeepsWhatWasRecordedAndDoesNotWaitForLaterEvents()
     {
         var stream = new SurlEventStream(new FixedTimeProvider(Now));
-        var subscriber = new ExchangeRecordSubscriber(stream, 10, 100);
+        var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(10, 100));
         stream.Publish(new ExchangeStartedEvent(1, HttpListenUrl, "http", Alice));
 
         await subscriber.DisposeAsync();
@@ -105,10 +105,13 @@ public sealed class ExchangeRecordSubscriberTests
         var stream = new SurlEventStream(new FixedTimeProvider(Now));
         stream.Publish(new ExchangeStartedEvent(1, HttpListenUrl, "http", Alice));
 
-        await using var subscriber = new ExchangeRecordSubscriber(stream, 10, 100);
+        await using var subscriber = new ExchangeRecordSubscriber(stream, TimeProvider.System, Bounds(10, 100));
 
         Assert.IsEmpty(subscriber.Snapshot());
     }
+
+    private static ExchangeRecordBounds Bounds(int maxExchanges, int maxBytesPerExchange) =>
+        new(maxExchanges, maxBytesPerExchange, 10000);
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {

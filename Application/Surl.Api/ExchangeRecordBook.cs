@@ -9,8 +9,10 @@ namespace Surl.Api;
 /// <see cref="ExchangeBytesEvent"/> adds one chunk, and an <see cref="ExchangeEndedEvent"/> closes
 /// it. At most <paramref name="maxExchanges"/> records are kept, the oldest dropped and counted in
 /// <see cref="DroppedExchangeCount"/> past it; at most <paramref name="maxBytesPerExchange"/> bytes
-/// of each, both directions together, the rest cut and the record marked truncated. Every other
-/// event, and bytes or an end for an exchange it holds no open record of, is ignored.
+/// of each, both directions together, the rest cut and the record marked truncated. Every other event
+/// of a kept exchange is noted in its <see cref="ExchangeFacts"/> for <see cref="FindExchanges"/>
+/// (ADR-0143). Bytes or an end for an exchange it holds no open record of, and events of no kept
+/// exchange, change no record.
 /// </summary>
 /// <remarks>Not safe for concurrent use: <see cref="ExchangeRecordSubscriber"/> calls it under its lock.</remarks>
 /// <param name="maxExchanges">The most records kept; positive.</param>
@@ -18,6 +20,7 @@ namespace Surl.Api;
 internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchange)
 {
     private readonly Queue<ExchangeRecorder> kept = new();
+    private readonly Dictionary<long, ExchangeRecorder> keptById = [];
     private readonly Dictionary<long, ExchangeRecorder> open = [];
 
     /// <summary>How many records were dropped, oldest first, to keep at most the cap.</summary>
@@ -32,11 +35,15 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
             case ExchangeStartedEvent started:
                 Open(started);
                 break;
-            case ExchangeBytesEvent bytes when open.TryGetValue(bytes.ExchangeId, out var recorder):
-                recorder.Keep(ToSurlExchangeDirection(bytes.Direction), bytes.Bytes.Span);
+            case ExchangeBytesEvent bytes:
+                Keep(bytes);
                 break;
             case ExchangeEndedEvent ended:
                 open.Remove(ended.ExchangeId);
+                NoteInItsExchange(ended);
+                break;
+            default:
+                NoteInItsExchange(surlEvent);
                 break;
         }
     }
@@ -57,30 +64,54 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
     /// <returns>A snapshot; events applied later do not change it.</returns>
     public IReadOnlyList<SurlExchangeRecord> Snapshot() => [.. kept.Select(recorder => recorder.Snapshot())];
 
+    /// <summary>The kept records <paramref name="query"/> asks for, oldest first, as they stand now.</summary>
+    /// <param name="query">The query.</param>
+    /// <returns>A snapshot; events applied later do not change it.</returns>
+    public IReadOnlyList<SurlExchangeRecord> FindExchanges(SurlEventQuery query) =>
+        [.. kept.Where(recorder => recorder.Facts.Matches(query)).Select(recorder => recorder.Snapshot())];
+
+    /// <summary>What is known of the kept exchange <paramref name="exchangeId"/>.</summary>
+    /// <param name="exchangeId">An exchange ID, or <see langword="null"/>.</param>
+    /// <returns>Its facts, or <see langword="null"/> when no record of it is kept.</returns>
+    public ExchangeFacts? FactsOf(long? exchangeId) =>
+        exchangeId is { } id && keptById.TryGetValue(id, out var recorder) ? recorder.Facts : null;
+
     private static SurlExchangeDirection ToSurlExchangeDirection(ExchangeDirection direction) =>
         direction == ExchangeDirection.Received ? SurlExchangeDirection.Received : SurlExchangeDirection.Sent;
+
+    private void Keep(ExchangeBytesEvent bytes)
+    {
+        if (open.TryGetValue(bytes.ExchangeId, out var recorder))
+        {
+            recorder.Keep(ToSurlExchangeDirection(bytes.Direction), bytes.Bytes.Span);
+        }
+    }
+
+    private void NoteInItsExchange(SurlEvent surlEvent) => FactsOf(SurlEventFacts.ExchangeIdOf(surlEvent))?.Note(surlEvent);
 
     private void Open(ExchangeStartedEvent started)
     {
         if (kept.Count == maxExchanges)
         {
-            open.Remove(kept.Dequeue().ExchangeId);
+            var dropped = kept.Dequeue();
+            open.Remove(dropped.Facts.ExchangeId);
+            keptById.Remove(dropped.Facts.ExchangeId);
             DroppedExchangeCount++;
         }
 
-        var recorder = new ExchangeRecorder(started, maxBytesPerExchange);
+        var recorder = new ExchangeRecorder(new ExchangeFacts(started), maxBytesPerExchange);
         kept.Enqueue(recorder);
+        keptById[started.ExchangeId] = recorder;
         open[started.ExchangeId] = recorder;
     }
 
-    private sealed class ExchangeRecorder(ExchangeStartedEvent started, int maxBytes)
+    private sealed class ExchangeRecorder(ExchangeFacts facts, int maxBytes)
     {
         private readonly List<SurlExchangeChunk> chunks = [];
-        private readonly Uri listenUrl = new(started.ListenUrl);
         private int keptByteCount;
         private bool isTruncated;
 
-        public long ExchangeId => started.ExchangeId;
+        public ExchangeFacts Facts => facts;
 
         public void Keep(SurlExchangeDirection direction, ReadOnlySpan<byte> bytes)
         {
@@ -96,6 +127,6 @@ internal sealed class ExchangeRecordBook(int maxExchanges, int maxBytesPerExchan
         public void MarkTruncated() => isTruncated = true;
 
         public SurlExchangeRecord Snapshot() =>
-            new(started.ExchangeId, listenUrl, started.Scheme, started.Client, started.At, [.. chunks], isTruncated);
+            new(facts.ExchangeId, facts.ListenUrl, facts.Scheme, facts.Started.Client, facts.Started.At, [.. chunks], isTruncated);
     }
 }

@@ -43,6 +43,14 @@ measures it by name.
   the pump, so the record stays readable. With recording off both throw
   `InvalidOperationException`; a non-positive bound is an `ArgumentException`. The levelled or
   trace log keeps its own `IExchangeLogFactory`.
+- The same subscriber feeds an `EventRecordBook` (every event but bytes, at most
+  `MaxRecordedEvents`, `DroppedEventCount`), and each kept exchange carries `ExchangeFacts` (its
+  start, accounts judged, event kinds, stores changed). `FindExchanges`, `FindEvents`,
+  `WaitForExchangeAsync` and `WaitForEventAsync` take a `SurlEventQuery`, matched by
+  `ExchangeFacts.Matches` and `SurlEventFacts.Matches` (ADR-0143). A wait checks the books first,
+  then wakes on each applied event (a `TaskCompletionSource` swapped under `Gate`); its timeout is a
+  `CancellationTokenSource` on the instance's `TimeProvider`, and it throws `TimeoutException`
+  with `ExchangeRecordSubscriber.TimedOutMessage`. Tests drive waits with `ManualTimeProvider`.
 - `SurlServerHostSeams.ReadStartFile` is handed to the composition's `ReadStartFile`, so tests
   give the `--user-file` and `--hostkey` files in memory (`ApiTestSeams.StartFiles`). The
   `--cert`, `--key` and `--cacert` files are still read from disk by `ServerTlsComposition`.

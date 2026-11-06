@@ -53,6 +53,77 @@ public sealed class SurlServer : IAsyncDisposable
     /// <exception cref="InvalidOperationException"><see cref="SurlServerOptions.RecordExchanges"/> is off, so nothing was recorded.</exception>
     public long DroppedExchangeCount => RecordOrThrow().DroppedExchangeCount;
 
+    /// <summary>How many kept events were dropped, oldest first, past <see cref="SurlServerOptions.MaxRecordedEvents"/>.</summary>
+    /// <exception cref="InvalidOperationException"><see cref="SurlServerOptions.RecordExchanges"/> is off, so nothing was recorded.</exception>
+    public long DroppedEventCount => RecordOrThrow().DroppedEventCount;
+
+    /// <summary>
+    /// The recorded exchanges <paramref name="query"/> asks for, oldest first (ADR-0124 decision 1, ADR-0143): a
+    /// snapshot like <see cref="Exchanges"/>, of the exchanges <see cref="Exchanges"/> still holds.
+    /// </summary>
+    /// <param name="query">Which exchanges: by scheme, listen URL, account judged, event kind seen, store changed, start time and sequence.</param>
+    /// <returns>The matching exchanges.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> is null.</exception>
+    /// <exception cref="InvalidOperationException"><see cref="SurlServerOptions.RecordExchanges"/> is off, so nothing was recorded.</exception>
+    public IReadOnlyList<SurlExchangeRecord> FindExchanges(SurlEventQuery query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return RecordOrThrow().FindExchanges(query);
+    }
+
+    /// <summary>
+    /// The kept events <paramref name="query"/> asks for, oldest first: the instance's event stream's own records,
+    /// every kind but exchange bytes, at most <see cref="SurlServerOptions.MaxRecordedEvents"/> of them.
+    /// </summary>
+    /// <param name="query">Which events: by scheme, listen URL, account, kind, store, time and sequence.</param>
+    /// <returns>The matching events.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> is null.</exception>
+    /// <exception cref="InvalidOperationException"><see cref="SurlServerOptions.RecordExchanges"/> is off, so nothing was recorded.</exception>
+    public IReadOnlyList<SurlEvent> FindEvents(SurlEventQuery query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return RecordOrThrow().FindEvents(query);
+    }
+
+    /// <summary>
+    /// The first recorded exchange <paramref name="query"/> asks for: one already recorded is returned at once,
+    /// else the wait ends when one comes to match (a later login, store change or event of it included).
+    /// </summary>
+    /// <param name="query">Which exchange, as <see cref="FindExchanges"/> takes it.</param>
+    /// <param name="timeout">How long to wait on <see cref="SurlServerOptions.TimeProvider"/>, or <see cref="Timeout.InfiniteTimeSpan"/>.</param>
+    /// <param name="cancellationToken">Gives up the wait.</param>
+    /// <returns>A snapshot of the exchange as it stood when it matched; it may not have ended.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> is null.</exception>
+    /// <exception cref="InvalidOperationException"><see cref="SurlServerOptions.RecordExchanges"/> is off, so nothing was recorded.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative and not infinite.</exception>
+    /// <exception cref="TimeoutException">None matched in time; the message says what was asked and how many events were recorded meanwhile.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
+    public Task<SurlExchangeRecord> WaitForExchangeAsync(
+        SurlEventQuery query, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return RecordOrThrow().WaitForExchangeAsync(query, timeout, cancellationToken);
+    }
+
+    /// <summary>
+    /// The first kept event <paramref name="query"/> asks for: one already kept is returned at once, so a test
+    /// cannot miss an event by awaiting too late; else the wait ends when one is published.
+    /// </summary>
+    /// <param name="query">Which event, as <see cref="FindEvents"/> takes it.</param>
+    /// <param name="timeout">How long to wait on <see cref="SurlServerOptions.TimeProvider"/>, or <see cref="Timeout.InfiniteTimeSpan"/>.</param>
+    /// <param name="cancellationToken">Gives up the wait.</param>
+    /// <returns>The event.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> is null.</exception>
+    /// <exception cref="InvalidOperationException"><see cref="SurlServerOptions.RecordExchanges"/> is off, so nothing was recorded.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="timeout"/> is negative and not infinite.</exception>
+    /// <exception cref="TimeoutException">None matched in time; the message says what was asked and how many events were recorded meanwhile.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
+    public Task<SurlEvent> WaitForEventAsync(SurlEventQuery query, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return RecordOrThrow().WaitForEventAsync(query, timeout, cancellationToken);
+    }
+
     /// <summary>
     /// Each listen URL in the order given, as the status line writes it, with port 0 replaced by the
     /// port bound (<c>http://127.0.0.1:49731/</c>).
@@ -119,7 +190,7 @@ public sealed class SurlServer : IAsyncDisposable
         }
 
         var record = options.RecordExchanges
-            ? new ExchangeRecordSubscriber(start.Serving!.Events, options.MaxRecordedExchanges, options.MaxRecordedBytesPerExchange)
+            ? new ExchangeRecordSubscriber(start.Serving!.Events, timeProvider, ExchangeRecordBounds.Of(options))
             : null;
         return await ServeUntilBoundAsync(commandLine, start.Serving!, options.Log, record, timeProvider, cancellationToken);
     }

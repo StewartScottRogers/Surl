@@ -172,4 +172,12 @@ public sealed class SurlServerOptions
     /// true. Must be positive.
     /// </summary>
     public int MaxRecordedBytesPerExchange { get; set; } = 1_048_576;
+
+    /// <summary>
+    /// The most events <see cref="SurlServer.FindEvents"/> and <see cref="SurlServer.WaitForEventAsync"/> keep,
+    /// without their bytes, 10000 by default (ADR-0124 decision 1); past it the oldest is dropped and
+    /// <see cref="SurlServer.DroppedEventCount"/> grows. Kept only while <see cref="RecordExchanges"/> is on.
+    /// Must be positive.
+    /// </summary>
+    public int MaxRecordedEvents { get; set; } = 10000;
 }

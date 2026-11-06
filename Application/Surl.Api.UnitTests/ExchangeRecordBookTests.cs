@@ -182,8 +182,42 @@ public sealed class ExchangeRecordBookTests
         CollectionAssert.AreEqual("a"u8.ToArray(), snapshot[0].Received);
     }
 
+    [TestMethod]
+    public void FindExchanges_ByAccountAndStore_ReturnsExactlyTheExchangesWhoseEventsSaySo()
+    {
+        var book = new ExchangeRecordBook(10, 100);
+        book.Apply(Started(1, Alice, "smtp://127.0.0.1:49731/", "smtp"));
+        book.Apply(Started(2, Bob, "smtp://127.0.0.1:49731/", "smtp"));
+        book.Apply(new LoginJudgedEvent(2, "smtp", "bob", "PLAIN", true, false));
+        book.Apply(new StoreChangedEvent(StoreKind.Mail, StoreChange.Delivered, "bob/INBOX/;UID=1", 10, 2));
+        book.Apply(new ExchangeEndedEvent(2, 0, 0));
+        book.Apply(new LoginJudgedEvent(99, "smtp", "bob", "PLAIN", true, false));
+        book.Apply(new LoginJudgedEvent(null, "smtp", "bob", "PLAIN", true, false));
+
+        var byAccount = book.FindExchanges(new SurlEventQuery { Account = "bob" });
+        var byStore = book.FindExchanges(new SurlEventQuery { Store = StoreKind.Mail });
+        var ended = book.FindExchanges(new SurlEventQuery { Kind = SurlEventKind.ExchangeEnded });
+
+        Assert.AreEqual(2, byAccount.Single().ExchangeId);
+        Assert.AreEqual(2, byStore.Single().ExchangeId);
+        Assert.AreEqual(2, ended.Single().ExchangeId);
+        Assert.HasCount(2, book.FindExchanges(new SurlEventQuery()));
+    }
+
+    [TestMethod]
+    public void FactsOf_ADroppedOrUnknownExchange_IsNull()
+    {
+        var book = new ExchangeRecordBook(1, 100);
+        book.Apply(Started(1, Alice));
+        book.Apply(Started(2, Bob));
+
+        Assert.IsNull(book.FactsOf(1));
+        Assert.IsNull(book.FactsOf(null));
+        Assert.AreEqual(2, book.FactsOf(2)!.ExchangeId);
+    }
+
     private static ExchangeStartedEvent Started(long exchangeId, EndPoint client, string listenUrl = HttpListenUrl, string scheme = "http") =>
-        new ExchangeStartedEvent(exchangeId, listenUrl, scheme, client) { At = Now };
+        new ExchangeStartedEvent(exchangeId, listenUrl, scheme, client) { Sequence = exchangeId, At = Now };
 
     private static ExchangeBytesEvent Received(long exchangeId, string text) =>
         new(exchangeId, ExchangeDirection.Received, System.Text.Encoding.ASCII.GetBytes(text));

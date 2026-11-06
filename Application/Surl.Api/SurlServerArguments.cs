@@ -41,9 +41,15 @@ internal static class SurlServerArguments
         ThrowIfAuthenticationMisused(options);
         ThrowIfNegativeDuration(options.IdleTimeout, nameof(options.IdleTimeout));
         ThrowIfNegativeDuration(options.MaxTime, nameof(options.MaxTime));
-        if (options.MaxRecordedExchanges <= 0 || options.MaxRecordedBytesPerExchange <= 0)
+        ThrowIfRecordBoundNotPositive(options);
+    }
+
+    private static void ThrowIfRecordBoundNotPositive(SurlServerOptions options)
+    {
+        if (options.MaxRecordedExchanges <= 0 || options.MaxRecordedBytesPerExchange <= 0 || options.MaxRecordedEvents <= 0)
         {
-            throw new ArgumentException("MaxRecordedExchanges and MaxRecordedBytesPerExchange must be positive.", nameof(options));
+            throw new ArgumentException(
+                "MaxRecordedExchanges, MaxRecordedBytesPerExchange and MaxRecordedEvents must be positive.", nameof(options));
         }
     }
 

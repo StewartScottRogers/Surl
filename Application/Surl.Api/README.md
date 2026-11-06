@@ -78,5 +78,31 @@ it, every exchange still open is marked `IsTruncated` rather than left silently 
 its exchange complete. Recording is off by default and costs nothing then; reading `Exchanges`
 with it off throws `InvalidOperationException`.
 
+## Finding and waiting for what happened
+
+With `RecordExchanges` on, ask for the exchanges and events a test cares about with a
+`SurlEventQuery`, and await the first that matches instead of polling (ADR-0143):
+
+```csharp
+// The mail for bob delivered over SMTP within 5 seconds.
+var delivered = await server.WaitForEventAsync(
+    new SurlEventQuery { Scheme = "smtp", Kind = SurlEventKind.StoreChanged, Store = StoreKind.Mail, Account = "bob" },
+    TimeSpan.FromSeconds(5));
+
+var ftpLogins = server.FindExchanges(new SurlEventQuery { Scheme = "ftp", Account = "alice" });
+var faults = server.FindEvents(new SurlEventQuery { Kind = SurlEventKind.FaultApplied });
+```
+
+Every property left unset matches anything: `Scheme`, `ListenUrl` (as `BoundUrls` lists it),
+`Account` (an exchange in which that account's login was judged, or an event naming it), `Kind`,
+`Store`, `Since` (inclusive) and `Until` (exclusive) on `TimeProvider`'s clock, and
+`AfterSequence`. An exchange matches `Kind` and `Store` when one of its events does. Events are the
+server's own event records without their bytes, at most `MaxRecordedEvents` (10000) of them, the
+oldest dropped and counted in `DroppedEventCount`. A wait checks what is already kept first, so it
+never misses an event that came before it; its timeout runs on `TimeProvider`, so a fake clock
+controls it, and a wait that times out throws `TimeoutException` naming the query and how many
+events arrived meanwhile. A cancelled wait throws `OperationCanceledException`. With recording off,
+every query throws `InvalidOperationException` as `Exchanges` does.
+
 `Surl.Composition`'s public types, which this package carries, are not a supported programming
 interface and may change in any release.
