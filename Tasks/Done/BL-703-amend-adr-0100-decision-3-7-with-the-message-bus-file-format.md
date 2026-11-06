@@ -8,7 +8,7 @@ depends-on: [BL-634]
 touches: [Documentation/Planning/Decisions/ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-703 — Amend ADR-0100 decision 3.7 with the message bus file formats BL-634 pinned
 
@@ -34,15 +34,18 @@ into `Surl.MessageBus`, so the decision says what the code does.
 
 ## Acceptance criteria
 
-- [ ] ADR-0100 decision 3.7 states each file's byte format as `MessageBusFiles`' remarks and `BusMessageCodec`'s
+- [x] ADR-0100 decision 3.7 states each file's byte format as `MessageBusFiles`' remarks and `BusMessageCodec`'s
       remarks give it, marked "Decided by Claude under Stewart's delegation" (BL-634).
-- [ ] ADR-0100 decision 3.7 states which queues persist, how an unacknowledged message loads, when a log file is
+- [x] ADR-0100 decision 3.7 states which queues persist, how an unacknowledged message loads, when a log file is
       appended to and when rewritten, and that a file past a bound is refused with `not a message bus file`.
-- [ ] Every statement added is true of `Protocols/Messaging/Surl.MessageBus.UnitLibrary` as it is.
+- [x] Every statement added is true of `Protocols/Messaging/Surl.MessageBus.UnitLibrary` as it is.
 
 ## Notes
+
+- Done directly rather than through `align-and-document`: a single ADR section restating existing remarks. Added "The message bus files" under decision 3.7 and an "Amended" line in the header, in the BL-694/BL-697 pattern. Each statement was checked against `MessageBusFiles`, `BusMessageCodec`, `MessageBus.Persistence.cs` (`PlanLogSave`, `PlanQueuesSave`, `RequireWithinBounds`) and `NamedQueue.IsPersisted`/`Restore`. No `.cs` or project file changed, so verify was not needed (CLAUDE.md: never for docs).
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0100 decision 3.7 states the message bus files' byte formats, layout, persistence and save rules as Surl.MessageBus builds them

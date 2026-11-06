@@ -38,6 +38,9 @@
 - **Amended:** decisions 3.3 and 3.6 by their own text (2026-11-06, BL-697, recording BL-633): the
   topic-log rules BL-633 chose building the logs (3.3, "The topic log's rules"), the
   `OffsetOutOfRange` outcome, and `StoreFull` and `TooManyTopics` covering the logs (3.6).
+- **Amended:** decision 3.7 by its own text (2026-11-06, BL-703, recording BL-634): the message bus
+  files' byte formats and layout, which queues persist, how a log file is saved, and what a load and
+  a failed write answer ("The message bus files").
 - **Builds on:** [ADR-0003](ADR-0003-upstream-curl-is-surls-only-oracle.md) (upstream curl is the
   only oracle), ADR-0006 (every store a peer can fill is bounded), ADR-0014 (the MQTT 3.1.1
   server), ADR-0031 decisions 5 to 7 (`.surl` is never served, persistence, the lock), ADR-0032
@@ -521,7 +524,61 @@ the data-directory lock and before any listener binds; a malformed file refuses 
 `CouldNotReadFile` (37) and `<reason>` `not a message bus file`; a failed write is noted and never
 ends serving. Durable queues and logs persist; exclusive and auto-delete queues and live
 subscriptions do not. Without `--directory`, everything is in memory. BL-634 fixes the byte formats
-(ordinal order, so tests can pin the bytes).
+(ordinal order, so tests can pin the bytes); they follow.
+
+**The message bus files** (2026-11-06, BL-703, recording what BL-634 built into `Surl.MessageBus`;
+decided by Claude under Stewart's delegation in BL-634). `MessageBusFiles`' and `BusMessageCodec`'s
+remarks give the same text, and `MessageBusFilesTests` and `BusMessageCodecTests` pin the bytes.
+
+- **Where.** Under `<path>/.surl/bus`: `retained`; `queues/index`, with each durable queue message in
+  its own file `queues/messages/<16 hex digits>`; and one file per topic log, `logs/<16 hex digits>`.
+  A file's name is its number as 16 lower-case hexadecimal digits; a log file holds its own topic,
+  so the number is only a name. Folders are created, with every missing folder above them, before
+  each write.
+- **Bytes.** Every integer is big-endian; a string or byte field is its 4-byte length then its
+  bytes, UTF-8 for a string. Each file starts with an ASCII header ending in a line feed:
+  `SURL-BUS-RETAINED-1` (`retained`), `SURL-BUS-QUEUES-1` (`queues/index`), `SURL-BUS-MESSAGE-1`
+  (a queue message file) and `SURL-BUS-LOG-1` (a log file).
+  - `retained`: the header, then each retained message in ordinal order of topic.
+  - `queues/index`: the header, the queue count (4 bytes), and per queue in ordinal order of name:
+    its name, its filter count (4 bytes) and filters in ordinal order, its message count (4 bytes),
+    and per message in queue order its file number (8 bytes) and a marks byte - `0x01`
+    redelivered, `0x02` high priority (`BusMessage.HighPriority`), no other bit.
+  - A queue message file: the header and one message.
+  - A log file: the header, the topic, the log start offset (8 bytes), then each held record's
+    message in offset order.
+  - **A message**, every property kept so a message loaded back equals the one saved: the topic;
+    a flags byte - `0x01` retain, `0x02` UTF-8 payload, `0x04` an expiry follows, `0x08` a content
+    type, `0x10` a response topic, `0x20` correlation data, `0x40` a key, `0x80` a native form; the
+    quality of service byte (0, 1 or 2); the publish time (8 bytes, UTC ticks); then each present
+    optional field in that order - the expiry as 8 bytes of UTC ticks, the others as a 4-byte length
+    and their bytes (UTF-8 for the strings), the native form as its format (string) then its bytes
+    (byte field); the header count (4 bytes) and each header's name and value (strings); and last
+    the payload (byte field). A file written before native forms existed never set `0x80`, so its
+    messages load with none.
+- **Which queues persist.** A durable queue that is neither exclusive nor auto-delete persists, with
+  its bindings (filters) and every message it holds, ready or unacknowledged. A message handed out
+  and not yet acknowledged is saved with the redelivered mark, so it loads as redelivered, ready
+  again. A declared queue (`--queue`) the files hold with other flags is made again empty
+  (ADR-0102 decision 3.2).
+- **How it is written.** `retained`, `queues/index` and each queue message file are written to
+  `.<name>-<guid>` beside them and renamed over the old file, so a failed write leaves the file as
+  it was. A queue message file is written once and deleted when its message leaves every durable
+  queue. A log file is appended to while its log only grows, and rewritten whole the same way when
+  its start offset rose (retention dropped records) or a write to it failed.
+- **How it is read.** Once, by `MessageBus.LoadAsync`. A missing file is empty, a file whose name is
+  not one of these is ignored, and a file that does not parse, or holds more than the bus's bounds
+  allow (`MaxTopics`, `MaxLogBytes`, `MaxRetainedPayloadBytes`, `MaxQueues`, `MaxMessagesPerQueue`,
+  `MaxQueuedBytes`, 3.6), is a `MessageBusLoadException` with the file's path and
+  `not a message bus file`, which the composition answers with `CouldNotReadFile` (37); the bus
+  takes nothing from the files. A queue message file the index names that is not there is refused
+  with `missing, though the queue index names it`. When `retained` is not there, an old MQTT 3.1.1
+  `.surl/mqtt/retained-messages` is read (refused, as before, with `not a retained-message file`),
+  its messages retained at QoS 0, and `retained` is written at once; the old file is never written.
+- **A failed write.** `MessageBus.SaveChangesAsync`, which a server calls after each change, and
+  `LoadAsync`, which writes what the load changed, return `MessageBusOutcome.StorageFailed` with the
+  first failed write's message. The server notes it; the change stays in memory, the next save
+  writes it, and serving never ends.
 
 #### 3.8 Redis pub/sub joins the topic space
 
