@@ -15,7 +15,7 @@ derives every secret as curl did.
 
 | Case | Command | curl's outcome |
 | --- | --- | --- |
-| `CurlTlsSrpJsmithAbc` | `-sS -k --max-time 20 --tlsauthtype SRP --tlsuser jsmith --tlspassword abc https://127.0.0.1:18566/`, `-Response 'HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nFINE\n'` | exit 0, stdout `FINE`; `request.bin` is the plaintext request the relay forwarded |
+| `CurlTlsSrpJsmithAbc` | `-sS -k --max-time 20 --tlsauthtype SRP --tlsuser jsmith --tlspassword abc https://127.0.0.1:18566/`, `-Response 'HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nFINE\n'` | exit 0, stdout `FINE`; the plaintext request the relay forwarded (the recording's `request.bin`) is pinned in `TlsSrpServerTests` as text, so line-ending normalisation cannot change its CRLFs |
 | `CurlTlsSrpJsmithBadpass` | the same with `--tlspassword badpass` and no response | exit 35, `tls alert bad record mac` |
 | `CurlTlsSrpBaduserBadpass` | the same with `--tlsuser baduser --tlspassword badpass` | exit 35, `tls alert bad record mac` |
 

@@ -13,6 +13,13 @@ public sealed class TlsSrpServerTests
 {
     private const string Recorded = "CurlTlsSrpJsmithAbc";
 
+    /// <summary>
+    /// The plaintext request the recording relay forwarded (its request.bin), kept here rather than
+    /// as a file so line-ending normalisation cannot change its CRLFs.
+    /// </summary>
+    private static readonly byte[] RecordedRequest =
+        "GET / HTTP/1.1\r\nHost: 127.0.0.1:18566\r\nUser-Agent: curl/8.21.0\r\nAccept: */*\r\n\r\n"u8.ToArray();
+
     [TestMethod]
     public async Task AuthenticateAsync_RecordedUpstreamCurlJsmithAbc_SendsTheComputedFlightAndCarriesTheRequestAndReply()
     {
@@ -60,14 +67,14 @@ public sealed class TlsSrpServerTests
 
         var session = await UnitTestSrpClient.Server().AuthenticateAsync(transport, CancellationToken.None);
         var handshakeBytes = transport.Written.ToArray();
-        var request = new byte[UnitTestFixtures.Read(Recorded, "request.bin").Length];
+        var request = new byte[RecordedRequest.Length];
         await session.Stream.ReadExactlyAsync(request);
         var reply = "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nFINE\n"u8.ToArray();
         await session.Stream.WriteAsync(reply);
         var end = await session.Stream.ReadAsync(new byte[1]);
 
         CollectionAssert.AreEqual(expected, handshakeBytes);
-        CollectionAssert.AreEqual(UnitTestFixtures.Read(Recorded, "request.bin"), request);
+        CollectionAssert.AreEqual(RecordedRequest, request);
         var protectedRecords = new TlsRecordReader(new MemoryStream(transport.Written.ToArray()[(5 + serverFlight.Length + 6)..]));
         protectedRecords.ChangeProtection(keys.ServerWriteProtection(encryptThenMac: true, RandomNumberGenerator.Create()));
         CollectionAssert.AreEqual(serverFinished, (await protectedRecords.ReadAsync(CancellationToken.None))!.Fragment);
