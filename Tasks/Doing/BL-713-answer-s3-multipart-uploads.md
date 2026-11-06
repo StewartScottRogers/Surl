@@ -46,3 +46,4 @@ Filed by BL-417 (ADR-0108): the Curl port's client sends multipart uploads for l
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
