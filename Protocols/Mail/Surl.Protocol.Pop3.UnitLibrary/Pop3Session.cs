@@ -123,9 +123,14 @@ internal sealed partial class Pop3Session
             return true;
         }
 
-        return Pop3CommandLine.TryParse(line, out var command) && commands.TryGetValue(command!.Verb, out var answer)
-            ? await answer(command)
-            : await ReplyAsync(Pop3Replies.NotRecognized);
+        if (!Pop3CommandLine.TryParse(line, out var command) || !commands.TryGetValue(command!.Verb, out var answer))
+        {
+            return await ReplyAsync(Pop3Replies.NotRecognized);
+        }
+
+        return CommandsWithoutMaildrop.Contains(command.Verb) && await FindChosenErrorAsync(command.Verb) is { } chosenError
+            ? await ReplyAsync(chosenError)
+            : await answer(command);
     }
 
     private async ValueTask<bool> AnswerNoLineAsync(CrlfLineReadOutcome outcome)
@@ -298,6 +303,7 @@ internal sealed partial class Pop3Session
         // An empty view has no INBOX, and so no message whose unique-id would need its UIDVALIDITY.
         mailStore.ReadMailbox(view, "INBOX", out var inbox);
         maildrop = new Pop3Maildrop(maildropLock!, inbox?.UidValidity ?? 0);
+        this.accountName = accountName;
         pendingUserName = null;
         context.Log.Note(string.Create(CultureInfo.InvariantCulture, $"Maildrop opened: {maildrop.Count} messages, {maildrop.Octets} octets"));
         return null;
@@ -464,6 +470,11 @@ internal sealed partial class Pop3Session
         if (maildrop is null && await OpenAnonymousMaildropAsync(command.Verb) is { } refusal)
         {
             return await ReplyAsync(refusal);
+        }
+
+        if (await FindChosenErrorAsync(command.Verb) is { } chosenError)
+        {
+            return await ReplyAsync(chosenError);
         }
 
         return command.TrySplitArguments(out var words)

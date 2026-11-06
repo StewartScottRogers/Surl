@@ -1,0 +1,5 @@
+CAPA
+USER alice
+PASS p
+RETR 1
+QUIT

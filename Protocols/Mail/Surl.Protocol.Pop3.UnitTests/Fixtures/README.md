@@ -113,3 +113,14 @@ serves `pop3s` on a connection that is TLS from the start. The `apop` cases run 
 The `auth-` cases run with a `Pop3TestPolicy` offering the one mechanism, scripted with every `+ `
 challenge of the transcript then acceptance (refusal for `auth-refused`), and assert the bytes Surl
 writes and the mechanism and responses the policy was handed.
+
+## Chosen-error faults (BL-796)
+
+Recorded on 2026-11-05 with the first section's `$common` replies (without `RSET`) and
+`RETR=-ERR try later`, the reply a rule `error;scheme=pop3;command=RETR;reply=try later` answers
+(ADR-0124, decision 4). `Pop3FaultTests` replays it against a store with the accounts `alice` and
+`bob`.
+
+| Folder | curl arguments | curl sends | exit |
+| --- | --- | --- | --- |
+| `fault-retr` | `-sS -u alice:p pop3://127.0.0.1:18117/1` | `USER alice`, `PASS p`, `RETR 1`, then `QUIT` | 8, `curl: (8) Weird server reply` |
