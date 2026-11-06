@@ -16,7 +16,6 @@ namespace Surl.Conformance;
 /// </remarks>
 public sealed class CurlPortClientRunner
 {
-    private readonly string path;
     private readonly TimeSpan timeout;
     private readonly TimeProvider timeProvider;
 
@@ -35,7 +34,7 @@ public sealed class CurlPortClientRunner
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         Client = location.Client ?? throw new ArgumentException(location.Message, nameof(location));
-        path = location.Path!;
+        Path = location.Path!;
         this.timeout = timeout;
         this.timeProvider = timeProvider;
     }
@@ -44,6 +43,11 @@ public sealed class CurlPortClientRunner
     /// Gets the verified pinned client this runner starts.
     /// </summary>
     public PinnedCurlPortClient Client { get; }
+
+    /// <summary>
+    /// Gets the verified client's path: its pin's path with <c>%NAME%</c> variables expanded.
+    /// </summary>
+    public string Path { get; }
 
     /// <summary>
     /// Runs the client with <paramref name="arguments"/>, writes <paramref name="standardInput"/>
@@ -56,24 +60,46 @@ public sealed class CurlPortClientRunner
     /// <param name="environment">The environment variables to set, by name; empty for none.</param>
     /// <param name="cancellationToken">Cancels the run.</param>
     /// <returns>What the run produced.</returns>
+    // Excluded from coverage: see the overload it calls.
+    [ExcludeFromCodeCoverage]
+    public Task<CurlPortClientRunResult> RunAsync(
+        IReadOnlyList<string> arguments,
+        ReadOnlyMemory<byte> standardInput,
+        IReadOnlyDictionary<string, string> environment,
+        CancellationToken cancellationToken) =>
+        RunAsync(arguments, standardInput, environment, string.Empty, cancellationToken);
+
+    /// <summary>
+    /// Runs the client as <see cref="RunAsync(IReadOnlyList{string}, ReadOnlyMemory{byte}, IReadOnlyDictionary{string, string}, CancellationToken)"/>
+    /// does, in <paramref name="workingDirectory"/>, so an upstream test case's relative paths are
+    /// relative to its own folder (ADR-0089 decision 1(b)). stdout and stderr are read before stdin is
+    /// written, and a client that exits without reading its stdin is not an error, as
+    /// <see cref="UpstreamCurlRunner"/> runs upstream curl.
+    /// </summary>
+    /// <param name="arguments">The client's arguments, each passed as one argument, unquoted.</param>
+    /// <param name="standardInput">The bytes the client reads on stdin, unchanged; empty for none.</param>
+    /// <param name="environment">The environment variables to set, by name; empty for none.</param>
+    /// <param name="workingDirectory">The client's working directory; empty for this process's.</param>
+    /// <param name="cancellationToken">Cancels the run.</param>
+    /// <returns>What the run produced.</returns>
     // Excluded from coverage: it starts a process, and the fast tests start none by design;
-    // the start information and the result shapes it uses are fast-tested, and the extended
-    // servers' Integration tests in Surl.Conformance.UnitTests run it against surl.
+    // the start information and the result shapes it uses are fast-tested, and the
+    // Integration tests in Surl.Conformance.UnitTests run it against surl.
     [ExcludeFromCodeCoverage]
     public async Task<CurlPortClientRunResult> RunAsync(
         IReadOnlyList<string> arguments,
         ReadOnlyMemory<byte> standardInput,
         IReadOnlyDictionary<string, string> environment,
+        string workingDirectory,
         CancellationToken cancellationToken)
     {
-        using var process = Process.Start(CreateStartInfo(arguments, environment))
-            ?? throw new InvalidOperationException($"{path} did not start.");
-        await process.StandardInput.BaseStream.WriteAsync(standardInput, cancellationToken);
-        process.StandardInput.Close();
+        using var process = Process.Start(CreateStartInfo(arguments, environment, workingDirectory))
+            ?? throw new InvalidOperationException($"{Path} did not start.");
 
         using var standardOutput = new MemoryStream();
         var copyingOutput = process.StandardOutput.BaseStream.CopyToAsync(standardOutput, CancellationToken.None);
         var readingError = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        await UpstreamCurlRunner.WriteStandardInputAsync(process.StandardInput, standardInput, cancellationToken);
 
         using var deadline = new CancellationTokenSource(timeout, timeProvider);
         using var waitEnds = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
@@ -105,13 +131,28 @@ public sealed class CurlPortClientRunner
     /// <param name="arguments">The client's arguments.</param>
     /// <param name="environment">The environment variables to set, by name.</param>
     /// <returns>The start information.</returns>
-    internal ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment)
+    internal ProcessStartInfo CreateStartInfo(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment) =>
+        CreateStartInfo(arguments, environment, string.Empty);
+
+    /// <summary>
+    /// Builds the start information for one run as
+    /// <see cref="CreateStartInfo(IReadOnlyList{string}, IReadOnlyDictionary{string, string})"/> does,
+    /// in <paramref name="workingDirectory"/>.
+    /// </summary>
+    /// <param name="arguments">The client's arguments.</param>
+    /// <param name="environment">The environment variables to set, by name.</param>
+    /// <param name="workingDirectory">The client's working directory; empty for this process's.</param>
+    /// <returns>The start information.</returns>
+    internal ProcessStartInfo CreateStartInfo(
+        IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> environment, string workingDirectory)
     {
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(environment);
+        ArgumentNullException.ThrowIfNull(workingDirectory);
 
-        var startInfo = new ProcessStartInfo(path)
+        var startInfo = new ProcessStartInfo(Path)
         {
+            WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardInput = true,

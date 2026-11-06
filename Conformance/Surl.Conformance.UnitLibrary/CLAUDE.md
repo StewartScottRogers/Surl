@@ -106,6 +106,32 @@ findings file is `CurlPortFindingsFile`'s (BL-580): decision 5's pass rule over 
 mirrored test runs a supplementary build, a relay of its own, several listeners, per-run arguments or standard input passes
 a `CurlPortRunSetup`, applied identically to both runs.
 
+Corpus part (b), upstream's own test cases with the port as the client, is built (BL-591, ADR-0089
+amendment 7):
+
+- `IUpstreamTestCaseClient` is the runner's client seam: `ExecutablePath` (a case's `%CURL`),
+  `Description` and `RunAsync` (arguments, stdin, environment, working directory) giving an
+  `UpstreamTestCaseClientRun` (exit code, stdout, stderr; `From` either runner's result).
+  `UpstreamCurlTestCaseClient` wraps only an `UpstreamCurlRunner` and `CurlPortTestCaseClient` only a
+  `CurlPortClientRunner` (whose `Path` is the verified client's, and whose `RunAsync` takes a working
+  directory), so neither client can be made from the other's location. `UpstreamTestCaseRunRecord.FromRun`
+  takes either run.
+- `CurlVersionReport` is a client's `--version` as runtests reads it: the first line, `Version`
+  (`%VERSION`), `VersionNumber` (`%VERNUM`), `Protocols` and `Features`; `Parse` reads a client's
+  output and `FromPin` a pin. `UpstreamCurlBuildFeatures.For(CurlVersionReport)` and
+  `UpstreamTestCaseSelectionRules.ForClient` derive features and selection from one, so the port runs a
+  case with its own version, path and features, as runtests would run it.
+- `UpstreamTestCasePortRow` is one case played by both clients with decision 5's `Verdict` (Surl
+  defect when upstream did not pass, not comparable when the port skipped, agreement, port defect);
+  `UpstreamTestCasePortComparison.Compare` judges the rows against the case numbers
+  `ListedFindings` reads from `Documentation/Conformance/CurlPort/Upstream-Test-Cases.md`
+  (`Passes`, `DescribeFailures`), and `FormatFamilyTable` writes the per-family counts
+  (`UpstreamTestCasePortFamilyCount`).
+- The tests' `CurlPortBesideUpstreamCurlOverUpstreamTestCasesTests` (`Integration`, `UpstreamTestCases`)
+  plays every case on the platform's passing list twice through `UpstreamTestCasesAgainstSurlTests.CaseRun`
+  (`RunBesideAsync`): with the paired upstream build, then with the port, each with fresh server halves
+  and its own folder (`port-test<N>` for the port).
+
 ## Upstream test cases (ADR-0080)
 
 ADR-0080 decides how Surl plays the server half of upstream curl's test cases; BL-387 to BL-397

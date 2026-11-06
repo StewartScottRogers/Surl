@@ -6,7 +6,37 @@ public sealed class UpstreamCurlBuildFeaturesTests
     [TestMethod]
     public void For_NullBuild_Throws()
     {
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamCurlBuildFeatures.For(null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamCurlBuildFeatures.For((PinnedUpstreamCurlBuild)null!));
+    }
+
+    [TestMethod]
+    public void For_NullReport_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamCurlBuildFeatures.For((CurlVersionReport)null!));
+    }
+
+    [TestMethod]
+    public void For_PinAndItsReport_DeriveTheSameFeatures()
+    {
+        var pin = Reference("win-x64");
+
+        Assert.IsTrue(UpstreamCurlBuildFeatures.For(pin).SetEquals(UpstreamCurlBuildFeatures.For(CurlVersionReport.FromPin(pin))));
+    }
+
+    [TestMethod]
+    public void For_PortVersionReport_DerivesThePortsOwnFeatures()
+    {
+        var features = UpstreamCurlBuildFeatures.For(CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput));
+
+        foreach (var expected in new[] { "win32", "Schannel", "SSL", "brotli", "zstd", "threaded-resolver", "mqtt", "imap-ipv6", "proxy" })
+        {
+            Assert.Contains(expected, features);
+        }
+
+        foreach (var absent in new[] { "smb", "libssh2", "libidn2", "OpenSSL" })
+        {
+            Assert.DoesNotContain(absent, features);
+        }
     }
 
     [TestMethod]

@@ -68,18 +68,28 @@ public static class UpstreamCurlBuildFeatures
     /// </summary>
     /// <param name="build">The pinned build.</param>
     /// <returns>The feature names, compared ordinally as runtests compares them.</returns>
-    public static IReadOnlySet<string> For(PinnedUpstreamCurlBuild build)
+    public static IReadOnlySet<string> For(PinnedUpstreamCurlBuild build) => For(CurlVersionReport.FromPin(build));
+
+    /// <summary>
+    /// Derives the features of the client <paramref name="report"/> describes, as runtests derives
+    /// them from that client's own <c>--version</c>; the Curl port's client is described this way when
+    /// it plays upstream's test cases (ADR-0089 decision 1(b)). <see cref="ReleaseBuildOptions"/> are
+    /// taken to hold for every release build.
+    /// </summary>
+    /// <param name="report">What the client's <c>--version</c> says.</param>
+    /// <returns>The feature names, compared ordinally as runtests compares them.</returns>
+    public static IReadOnlySet<string> For(CurlVersionReport report)
     {
-        ArgumentNullException.ThrowIfNull(build);
+        ArgumentNullException.ThrowIfNull(report);
 
         var features = new HashSet<string>(ReleaseBuildOptions, StringComparer.Ordinal);
-        var words = new HashSet<string>(build.Features, StringComparer.OrdinalIgnoreCase);
+        var words = new HashSet<string>(report.Features, StringComparer.OrdinalIgnoreCase);
 
         features.UnionWith(FeaturesLineNames.Where(words.Contains));
-        AddFromVersionLine(features, build.Version);
+        AddFromVersionLine(features, report.VersionLine);
         AddRenamedFeatures(features, words);
         AddPlatformOptions(features);
-        features.UnionWith(ProtocolFeatures(build.Protocols, features));
+        features.UnionWith(ProtocolFeatures(report.Protocols, features));
 
         return features;
     }

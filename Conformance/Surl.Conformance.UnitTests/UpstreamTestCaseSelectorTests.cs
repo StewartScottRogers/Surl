@@ -244,6 +244,25 @@ public sealed class UpstreamTestCaseSelectorTests
     }
 
     [TestMethod]
+    public void ForClient_PortVersionLackingSmb_SkipsAnSmbCaseAndRunsAnHttpCase()
+    {
+        var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
+        var selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, new HashSet<int>()));
+
+        Assert.AreEqual("protocol-missing:smb", selector.FindSkipReason(Number, Case(client: Server("smb"))));
+        Assert.IsNull(selector.FindSkipReason(Number, Case(client: Server("http") + Features("SSL", "Schannel", "brotli"))));
+    }
+
+    [TestMethod]
+    public void ForClient_NullArguments_Throw()
+    {
+        var report = CurlVersionReport.Parse(CurlVersionReportTests.PortVersionOutput);
+
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(null!, new HashSet<int>()));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseSelectionRules.ForClient(report, null!));
+    }
+
+    [TestMethod]
     public void ForBuild_NullArguments_Throw()
     {
         var pin = ReferencePins()[0];

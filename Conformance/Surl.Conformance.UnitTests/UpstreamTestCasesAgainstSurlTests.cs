@@ -172,7 +172,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         }
     }
 
-    private static IEnumerable<string> TestCaseFiles() =>
+    internal static IEnumerable<string> TestCaseFiles() =>
         Directory.EnumerateFiles(Path.Combine(Root, "data"), "test*")
             .Where(path => Path.GetFileName(path)["test".Length..].All(char.IsAsciiDigit))
             .Order(StringComparer.Ordinal);
@@ -199,20 +199,40 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     /// One pinned build as a case's client: the build, its runner, its features and its
     /// selection.
     /// </summary>
-    private sealed class CaseClient
+    internal sealed class CaseClient
     {
         public CaseClient(UpstreamCurlLocation location)
+            : this(
+                new UpstreamCurlTestCaseClient(new UpstreamCurlRunner(location, CaseTimeout, TimeProvider.System)),
+                CurlVersionReport.FromPin(location.Build!),
+                string.Empty)
         {
-            Build = location.Build!;
-            Runner = new UpstreamCurlRunner(location, CaseTimeout, TimeProvider.System);
-            Features = UpstreamCurlBuildFeatures.For(Build);
-            var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), SelectionEnvironment(Features));
-            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForBuild(Build, disabled));
         }
 
-        public PinnedUpstreamCurlBuild Build { get; }
+        /// <summary>
+        /// A client described by its own <c>--version</c>, selected and parsed with its own features
+        /// as runtests would select and parse for it; the Curl port's client is made this way
+        /// (ADR-0089 decision 1(b)).
+        /// </summary>
+        public CaseClient(IUpstreamTestCaseClient client, CurlVersionReport report, string logPrefix)
+        {
+            Client = client;
+            Report = report;
+            LogPrefix = logPrefix;
+            Features = UpstreamCurlBuildFeatures.For(report);
+            var disabled = UpstreamTestCaseDisabledList.Parse(File.ReadAllBytes(Path.Combine(Root, "data", "DISABLED")), SelectionEnvironment(Features));
+            Selector = new UpstreamTestCaseSelector(UpstreamTestCaseSelectionRules.ForClient(report, disabled));
+        }
 
-        public UpstreamCurlRunner Runner { get; }
+        public IUpstreamTestCaseClient Client { get; }
+
+        public CurlVersionReport Report { get; }
+
+        /// <summary>
+        /// Gets what the log and the case's folder name put before <c>test&lt;N&gt;</c>: empty for
+        /// upstream, <c>port-</c> for the Curl port.
+        /// </summary>
+        public string LogPrefix { get; }
 
         public IReadOnlySet<string> Features { get; }
 
@@ -229,7 +249,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
     /// What every case of one run shares: the reference build and the build that runs smb
     /// cases, the generated certificates, the SSH keys and the work folder.
     /// </summary>
-    private sealed class CaseRun
+    internal sealed class CaseRun
     {
         private readonly CaseClient reference;
         private readonly CaseClient? smb;
@@ -243,10 +263,17 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         {
             reference = new CaseClient(location);
             smb = smbLocation is null || smbLocation.Build!.Sha256 == location.Build!.Sha256 ? null : new CaseClient(smbLocation);
+            PairedBuilds = smb is null ? [location.Build!] : [location.Build!, smbLocation!.Build!];
             this.work = work;
             certificateDirectory = Path.Combine(work, "certdir");
             this.testContext = testContext;
         }
+
+        /// <summary>
+        /// Gets the upstream builds the run's cases are played with: the reference build, then the
+        /// smb build when it is another.
+        /// </summary>
+        public IReadOnlyList<PinnedUpstreamCurlBuild> PairedBuilds { get; }
 
         public async Task<IReadOnlyList<UpstreamTestCaseResult>> RunAllAsync(IEnumerable<string> paths)
         {
@@ -262,20 +289,64 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             await Parallel.ForEachAsync(paths, options, async (path, cancellationToken) =>
             {
                 var number = int.Parse(Path.GetFileName(path)["test".Length..], CultureInfo.InvariantCulture);
-                results.Add(await RunCaseAsync(number, await File.ReadAllBytesAsync(path, cancellationToken), tlsSettings, cancellationToken));
+                results.Add(await RunCaseAsync(number, await File.ReadAllBytesAsync(path, cancellationToken), tlsSettings, null, cancellationToken));
             });
 
             return [.. results.OrderBy(result => result.Number)];
         }
 
-        private async Task<UpstreamTestCaseResult> RunCaseAsync(int number, byte[] source, ServerTlsSettings tlsSettings, CancellationToken cancellationToken)
+        /// <summary>
+        /// Plays each case twice, each time with its own fresh server halves and its own folder: with
+        /// the build upstream's run pairs it with (the reference build, or the smb build), then with
+        /// <paramref name="port"/> (ADR-0089 decisions 1(b) and 2).
+        /// </summary>
+        public async Task<IReadOnlyList<UpstreamTestCasePortRow>> RunBesideAsync(IEnumerable<string> paths, CaseClient port)
+        {
+            using var keys = fileServers;
+            using var tlsSettings = WriteCertificates();
+            var rows = new ConcurrentBag<UpstreamTestCasePortRow>();
+            var options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 2, 16),
+                CancellationToken = testContext.CancellationToken,
+            };
+
+            await Parallel.ForEachAsync(paths, options, async (path, cancellationToken) =>
+            {
+                var number = int.Parse(Path.GetFileName(path)["test".Length..], CultureInfo.InvariantCulture);
+                var source = await File.ReadAllBytesAsync(path, cancellationToken);
+                var upstream = await RunCaseAsync(number, source, tlsSettings, null, cancellationToken);
+                var ported = await RunCaseAsync(number, source, tlsSettings, port, cancellationToken);
+                rows.Add(new UpstreamTestCasePortRow(number, FamilyOf(source), upstream, ported));
+            });
+
+            return [.. rows.OrderBy(row => row.Number)];
+        }
+
+        // The family of the case's first server, as the results name it; a case whose servers the
+        // run does not compose is named after that server.
+        private string FamilyOf(byte[] source)
+        {
+            try
+            {
+                var names = ServerNames(UpstreamTestCaseParser.Parse(source, SelectionEnvironment(reference.Features))).ToList();
+                return names.Count > 0 ? ServerFamilies.GetValueOrDefault(names[0], names[0]) : "none";
+            }
+            catch (UpstreamTestCaseFormatException)
+            {
+                return "unparsable";
+            }
+        }
+
+        private async Task<UpstreamTestCaseResult> RunCaseAsync(
+            int number, byte[] source, ServerTlsSettings tlsSettings, CaseClient? onlyClient, CancellationToken cancellationToken)
         {
             UpstreamTestCase selected;
-            var client = reference;
+            var client = onlyClient ?? reference;
             try
             {
                 selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
-                if (smb is not null && ServerNames(selected).Contains(SmbFamily))
+                if (onlyClient is null && smb is not null && ServerNames(selected).Contains(SmbFamily))
                 {
                     client = smb;
                     selected = UpstreamTestCaseParser.Parse(source, SelectionEnvironment(client.Features));
@@ -302,7 +373,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
         {
             // The case's folder stands for runtests' own: curl's working directory, %PWD and
             // HOME, with %LOGDIR the relative "log" inside it, as runtests runs one case at a time.
-            var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"test{number}")).FullName;
+            var caseDirectory = Directory.CreateDirectory(Path.Combine(work, $"{client.LogPrefix}test{number}")).FullName;
             const string logDirectory = "log";
             Directory.CreateDirectory(Path.Combine(caseDirectory, logDirectory));
             await using var serverHalves = await UpstreamTestCaseServerHalves.StartAsync(tlsSettings, cancellationToken);
@@ -330,21 +401,21 @@ public sealed class UpstreamTestCasesAgainstSurlTests
             }
             catch (FormatException exception)
             {
-                testContext.WriteLine($"test{number}: {exception.Message}");
+                testContext.WriteLine($"{client.LogPrefix}test{number}: {exception.Message}");
                 return UpstreamTestCaseResult.Fail(number, "command");
             }
 
             await WriteFilesAsync(caseDirectory, commandLine, cancellationToken);
-            var smbRoot = Path.Combine(work, $"test{number}-smb");
+            var smbRoot = caseDirectory + "-smb";
             await WriteFileServerFilesAsync(number, testCase, families, Path.Combine(caseDirectory, logDirectory), smbRoot, cancellationToken);
             serverHalves.Play(
                 replies, ftpReplies, gopherReplies, mqttReplies, tftpReplies,
                 fileServers.CreateSsh(caseDirectory, sshUser), UpstreamTestCaseFileServers.CreateSmb(smbRoot), mailReplies);
-            var curl = await client.Runner.RunAsync(
+            var curl = await client.Client.RunAsync(
                 commandLine.Arguments, commandLine.StandardInput, CurlEnvironment(Slashes(caseDirectory), commandLine), caseDirectory, cancellationToken);
             if (curl.TimedOut)
             {
-                testContext.WriteLine($"test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
+                testContext.WriteLine($"{client.LogPrefix}test{number}: curl stopped after {CaseTimeout.TotalSeconds} s");
                 return UpstreamTestCaseResult.Fail(number, UpstreamTestCaseResult.TimeoutReason);
             }
 
@@ -376,7 +447,7 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 return UpstreamTestCaseResult.Pass(number);
             }
 
-            testContext.WriteLine($"test{number}: {verdict}{Environment.NewLine}{serverHalves.Notes}");
+            testContext.WriteLine($"{client.LogPrefix}test{number}: {verdict}{Environment.NewLine}{serverHalves.Notes}");
 
             // The results file names the section only: "file (log/jar31.txt)" is "file".
             return UpstreamTestCaseResult.Fail(number, verdict.FailedSection!.Split(' ')[0]);
@@ -456,9 +527,11 @@ public sealed class UpstreamTestCasesAgainstSurlTests
                 ["FILE_PWD"] = OperatingSystem.IsWindows() ? "/" + Slashes(caseDirectory) : Slashes(caseDirectory),
                 ["SRCDIR"] = Slashes(Root),
                 ["CERTDIR"] = Slashes(certificateDirectory),
-                ["CURL"] = client.Build.DefaultPath,
+                ["CURL"] = client.Client.ExecutablePath,
                 ["TESTNUMBER"] = number.ToString(CultureInfo.InvariantCulture),
-                ["VERSION"] = "8.21.0",
+                // runtests takes both from the client's own --version (servers.pm, subvariables).
+                ["VERSION"] = client.Report.Version,
+                ["VERNUM"] = client.Report.VersionNumber,
                 // Only SCP and SFTP cases name %USER, as the login the SSH server half lets in.
                 ["USER"] = sshUser,
                 ["DEV_NULL"] = OperatingSystem.IsWindows() ? "NUL" : "/dev/null",

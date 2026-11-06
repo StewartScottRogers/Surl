@@ -38,7 +38,7 @@ internal static class PinnedCurlPortClientOnThisMachine
         return new CurlPortClientRunner(location, TimeSpan.FromSeconds(30), TimeProvider.System);
     }
 
-    private static async Task<CurlPortClientLocation> LocateAsync(TestContext testContext)
+    internal static async Task<CurlPortClientLocation> LocateAsync(TestContext testContext)
     {
         var root = PinnedUpstreamCurl.RepositoryRoot();
         var pins = CurlPortClientPins.Parse(

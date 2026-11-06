@@ -31,6 +31,25 @@ public sealed class UpstreamTestCaseRunRecordTests
     }
 
     [TestMethod]
-    public void FromRun_NullRun_Throws() =>
-        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseRunRecord.FromRun(null!, [], [], []));
+    public void FromRun_ClientRun_CarriesItsOutputAndTheServerHalfsBytes()
+    {
+        var run = new UpstreamTestCaseClientRun(0, [1], "é");
+
+        var record = UpstreamTestCaseRunRecord.FromRun(run, [3], [4], [5]);
+
+        Assert.AreEqual(0, record.ExitCode);
+        CollectionAssert.AreEqual(new byte[] { 1 }, record.StandardOutput);
+        CollectionAssert.AreEqual(Encoding.UTF8.GetBytes("é"), record.StandardError);
+        CollectionAssert.AreEqual(new byte[] { 3 }, record.OutputFile);
+        CollectionAssert.AreEqual(new byte[] { 4 }, record.ServerReceived);
+        CollectionAssert.AreEqual(new byte[] { 5 }, record.UploadReceived);
+        Assert.IsEmpty(record.ProxyReceived);
+    }
+
+    [TestMethod]
+    public void FromRun_NullRun_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseRunRecord.FromRun((UpstreamCurlRunResult)null!, [], [], []));
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseRunRecord.FromRun((UpstreamTestCaseClientRun)null!, [], [], []));
+    }
 }
