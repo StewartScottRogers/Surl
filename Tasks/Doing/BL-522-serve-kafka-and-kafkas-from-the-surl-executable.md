@@ -54,3 +54,4 @@ loaded after the data-directory lock if it persists. Metadata advertises the lis
 - 2026-11-04: Created.
 - 2026-11-04: Amended for Stewart's shared-stores approval of 2026-11-04: waits on BL-635; composed with the one shared bus.
 - 2026-11-05: Amended by BL-516 for ADR-0105: adds `--kafka-fetch-compression` and the advertised address rule.
+- 2026-11-05: Backlog -> Doing.
