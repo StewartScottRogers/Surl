@@ -11,4 +11,7 @@ public sealed record Amqp1NodeRequest(string? CanonicalAddress, bool ClientIsRec
 {
     /// <summary>Whether the client asked for a dynamic node.</summary>
     public bool IsDynamic => CanonicalAddress is null;
+
+    /// <summary>Whether the node is a topic; a dynamic node is a queue.</summary>
+    public bool IsTopic => CanonicalAddress is { } address && Amqp1NodeAddress.IsTopic(address);
 }

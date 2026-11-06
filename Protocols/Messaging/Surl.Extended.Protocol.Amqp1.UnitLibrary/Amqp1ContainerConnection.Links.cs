@@ -79,6 +79,13 @@ public sealed partial class Amqp1ContainerConnection
             return (null, NodeRefusal(Amqp1NodeOutcome.NotFound));
         }
 
+        // ADR-0146 decision 2.2: a refused selector refuses the attach before any node is made.
+        var filters = attach.IsReceiver ? Amqp1SourceFilters.Read(attach.Source, request.IsTopic) : Amqp1SourceFilters.None;
+        if (filters is null)
+        {
+            return (null, Error(Amqp1ErrorCondition.InvalidField, "selector not valid"));
+        }
+
         var node = nodes.Resolve(request);
         if (node.CanonicalAddress is not { } nodeAddress)
         {
@@ -86,7 +93,8 @@ public sealed partial class Amqp1ContainerConnection
         }
 
         link.NodeAddress = nodeAddress;
-        return (NodeTerminus(attach, terminus, nodeAddress), null);
+        link.Filters = filters;
+        return (NodeTerminus(attach, terminus, nodeAddress, filters.Applied), null);
     }
 
     // What to ask the directory; null when the address names no node.
@@ -103,11 +111,11 @@ public sealed partial class Amqp1ContainerConnection
     }
 
     // A dynamic node is answered with the address the directory gave it; any other echoes the client's.
-    private static Amqp1Described NodeTerminus(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress)
+    private static Amqp1Described NodeTerminus(Amqp1Attach attach, Amqp1Terminus terminus, string nodeAddress, Amqp1Map? appliedFilters)
     {
         var answeredAddress = terminus.IsDynamic ? nodeAddress : terminus.Address!;
         return attach.IsReceiver
-            ? Amqp1Terminus.Source(answeredAddress, terminus.IsDynamic, Amqp1NodeAddress.IsTopic(nodeAddress))
+            ? Amqp1Terminus.Source(answeredAddress, terminus.IsDynamic, Amqp1NodeAddress.IsTopic(nodeAddress), appliedFilters)
             : Amqp1Terminus.Target(answeredAddress, terminus.IsDynamic);
     }
 
@@ -163,24 +171,27 @@ public sealed partial class Amqp1ContainerConnection
 
     private MessageBusOutcome Subscribe(Amqp1Link link)
     {
-        var subscribed = busConnection.Subscribe(link.NodeAddress[Amqp1NodeAddress.TopicPrefix.Length..], message => OfferTopicMessage(link, message));
+        var subscribed = busConnection.Subscribe(link.NodeAddress[Amqp1NodeAddress.TopicPrefix.Length..], message => OfferTopicMessage(link, message), noLocal: link.Filters.NoLocal);
         link.Subscription = subscribed.Subscription;
         return subscribed.Outcome;
     }
 
     private MessageBusOutcome Consume(Amqp1Link link)
     {
-        var consumed = busConnection.Consume(link.NodeAddress[Amqp1NodeAddress.QueuePrefix.Length..], OfferQueueDelivery(link), MaxWaitingDeliveries);
+        var queueName = link.NodeAddress[Amqp1NodeAddress.QueuePrefix.Length..];
+        var consumed = busConnection.Consume(queueName, OfferQueueDelivery(link), MaxWaitingDeliveries, accepts: link.Filters.QueuePredicate(queueName));
         link.Consumer = consumed.Consumer;
         link.Consumer?.Start();
         return consumed.Outcome;
     }
 
-    // On the bus's thread: a message on a topic the client cannot name is not sent (ADR-0100 decision
-    // 3.2), and one past the link's 1000 waiting is dropped for this link (decision 7).
+    // On the bus's thread: a message the link's filters refuse is not sent and never waits (ADR-0146
+    // decision 2.4), nor one on a topic the client cannot name (ADR-0100 decision 3.2), and one past the
+    // link's 1000 waiting is dropped for this link (ADR-0107 decision 7).
     private void OfferTopicMessage(Amqp1Link link, BusMessage message)
     {
-        if (bus.Names.FromCanonicalTopic(Amqp1BusNodeDirectory.Scheme, message.Topic).Name is { } address
+        if (link.Filters.Accepts(message, queueName: null)
+            && bus.Names.FromCanonicalTopic(Amqp1BusNodeDirectory.Scheme, message.Topic).Name is { } address
             && link.Offer(new(message, address, null, false), MaxWaitingDeliveries))
         {
             WakePump();
