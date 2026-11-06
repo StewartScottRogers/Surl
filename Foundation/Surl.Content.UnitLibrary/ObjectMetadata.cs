@@ -14,7 +14,7 @@ public sealed record ObjectMetadata
 {
     /// <summary>
     /// The <c>Content-Type</c> set at upload; absent, the object answers with
-    /// <see cref="ObjectMetadataIndex.DefaultContentType"/>.
+    /// the one <see cref="ContentMediaTypes.Of"/> names from its key's extension.
     /// </summary>
     public string? ContentType { get; init; }
 

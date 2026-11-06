@@ -100,13 +100,18 @@ at its next write or its commit. A `ContentStoreSnapshot` is opaque, restored on
 (`ArgumentException` otherwise), and reports `ByteCount` for a host's `MaxSnapshotBytes`. Reset and restore
 publish one `Reset` or `Restored` change named `/`; a snapshot publishes nothing.
 
+Media types (ADR-0142, built by BL-686): `ContentMediaTypes.Of(path)` names a file's media type
+from the extension of the path's last segment - 36 extensions in a fixed table, any case, no
+`charset` - else `ContentMediaTypes.Unknown`, `application/octet-stream`. The HTTP server's
+`Content-Type` and every object server's default use it; the table only grows.
+
 `ObjectMetadataIndex` keeps what a file system cannot hold for the object-storage servers
 (S3, Azure Storage, Cloud Storage, the OCI registry; ADR-0100 decision 2.3, built by BL-636):
 the five header fields set at upload, user metadata, the ETag and GCS's generation, keyed by
 the file's path relative to the served root (`bucket/x/y`) and stamped with the file's length
 and last write time. A stamp that no longer matches - the file was overwritten, renamed or
 deleted through the content store by any protocol - makes the entry absent: the file answers
-the defaults (`DefaultContentType`, no user metadata, the quoted lower-case hexadecimal MD5 of
+the defaults (the `Content-Type` `ContentMediaTypes.Of` names from the key, no user metadata, the quoted lower-case hexadecimal MD5 of
 its bytes as ETag, cached on first read, and its last write time in microseconds since the
 Unix epoch as generation). Bounds: `MaxEntries` (default 100000, `MetadataIndexFull`, stale
 entries dropped first) and `MaxMetadataBytes` (default 8192, the UTF-8 bytes of the header

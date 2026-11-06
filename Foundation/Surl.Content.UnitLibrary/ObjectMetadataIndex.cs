@@ -20,7 +20,8 @@ namespace Surl.Content;
 /// </para>
 /// <para>
 /// <b>Defaults.</b> A file with no current entry answers with
-/// <see cref="DefaultContentType"/>, no other header field, no user metadata, the quoted
+/// the <c>Content-Type</c> <see cref="ContentMediaTypes.Of"/> names from its key's extension
+/// (<see cref="DefaultContentType"/> when the extension names none), no other header field, no user metadata, the quoted
 /// lower-case hexadecimal MD5 of its bytes as its ETag - computed on first read and cached in the
 /// index with the file's stamp - and its last write time in microseconds since the Unix epoch as
 /// its generation.
@@ -64,10 +65,10 @@ public sealed class ObjectMetadataIndex
     public const int MaxETagBytes = 1024;
 
     /// <summary>
-    /// The <c>Content-Type</c> of a file stored with none: <c>application/octet-stream</c>, as the
-    /// HTTP server names every file until the content store knows media types.
+    /// The <c>Content-Type</c> of a file stored with none whose extension names no media type:
+    /// <see cref="ContentMediaTypes.Unknown"/>, <c>application/octet-stream</c>.
     /// </summary>
-    public const string DefaultContentType = "application/octet-stream";
+    public const string DefaultContentType = ContentMediaTypes.Unknown;
 
     /// <summary>
     /// The name of the folder under <c>.surl</c> the index is kept in: <c>objects</c>.
@@ -266,7 +267,7 @@ public sealed class ObjectMetadataIndex
             entries[key] = entry;
             var failure = await WriteIndexAsync(cancellationToken);
             events.Publish(new StoreChangedEvent(StoreKind.Content, StoreChange.MetadataStored, "/" + key, null, null));
-            return new ObjectMetadataStoreResult(ObjectMetadataStoreOutcome.Stored, PropertiesOf(entry), failure);
+            return new ObjectMetadataStoreResult(ObjectMetadataStoreOutcome.Stored, PropertiesOf(key, entry), failure);
         }
         finally
         {
@@ -298,7 +299,7 @@ public sealed class ObjectMetadataIndex
 
             if (entries.TryGetValue(key, out var current) && current.Describes(length, lastWriteTicks))
             {
-                return new ObjectMetadataReading(PropertiesOf(current), null);
+                return new ObjectMetadataReading(PropertiesOf(key, current), null);
             }
 
             entries.Remove(key);
@@ -312,7 +313,7 @@ public sealed class ObjectMetadataIndex
                 failure = await WriteIndexAsync(cancellationToken);
             }
 
-            return new ObjectMetadataReading(PropertiesOf(entry), failure);
+            return new ObjectMetadataReading(PropertiesOf(key, entry), failure);
         }
         finally
         {
@@ -373,8 +374,8 @@ public sealed class ObjectMetadataIndex
 
     private static long GenerationOf(long lastWriteTicks) => (lastWriteTicks - DateTime.UnixEpoch.Ticks) / TimeSpan.TicksPerMicrosecond;
 
-    private static ObjectProperties PropertiesOf(ObjectMetadataEntry entry) => new(
-        entry.ContentType ?? DefaultContentType,
+    private static ObjectProperties PropertiesOf(string key, ObjectMetadataEntry entry) => new(
+        entry.ContentType ?? ContentMediaTypes.Of(key),
         entry.ContentEncoding,
         entry.ContentDisposition,
         entry.CacheControl,

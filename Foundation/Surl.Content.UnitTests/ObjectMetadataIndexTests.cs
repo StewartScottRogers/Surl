@@ -95,7 +95,7 @@ public sealed class ObjectMetadataIndexTests
         var second = await fixture.Index.ReadAsync("ftp.txt", CancellationToken.None);
 
         var properties = first.Properties!;
-        Assert.AreEqual("application/octet-stream", properties.ContentType);
+        Assert.AreEqual("text/plain", properties.ContentType);
         Assert.IsNull(properties.ContentEncoding);
         Assert.IsNull(properties.ContentDisposition);
         Assert.IsNull(properties.CacheControl);
@@ -105,6 +105,24 @@ public sealed class ObjectMetadataIndexTests
         Assert.AreEqual(StartGeneration, properties.Generation);
         Assert.AreEqual(1, fixture.Index.Count);
         Assert.AreEqual(properties, second.Properties);
+    }
+
+    [TestMethod]
+    [DataRow("bucket/photos/a.PNG", "image/png")]
+    [DataRow("bucket/site.d/index.html", "text/html")]
+    [DataRow("bucket/a.unknownext", ObjectMetadataIndex.DefaultContentType)]
+    [DataRow("bucket/folder.json/noextension", ObjectMetadataIndex.DefaultContentType)]
+    public async Task ReadAsync_FileWithNoStoredContentType_AnswersTheMediaTypeContentMediaTypesNamesFromTheKey(string key, string contentType)
+    {
+        var fixture = new Fixture(persists: false);
+        await fixture.UploadAsync(key, "hello"u8.ToArray());
+
+        var reading = await fixture.Index.ReadAsync(key, CancellationToken.None);
+        var stored = await fixture.Index.StoreAsync(key, new ObjectMetadata(), CancellationToken.None);
+
+        Assert.AreEqual(contentType, reading.Properties!.ContentType);
+        Assert.AreEqual(contentType, stored.Properties!.ContentType);
+        Assert.AreEqual(ContentMediaTypes.Of(key), contentType);
     }
 
     [TestMethod]
@@ -124,13 +142,13 @@ public sealed class ObjectMetadataIndexTests
     {
         var fixture = new Fixture(persists: false);
         await fixture.UploadAsync("x.txt", "old"u8.ToArray());
-        await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { ContentType = "text/plain" }, CancellationToken.None);
+        await fixture.Index.StoreAsync("x.txt", new ObjectMetadata { ContentType = "application/x-old" }, CancellationToken.None);
         fixture.Time.Now = Start.AddSeconds(1);
         await fixture.UploadAsync("x.txt", "hello"u8.ToArray());
 
         var reading = await fixture.Index.ReadAsync("x.txt", CancellationToken.None);
 
-        Assert.AreEqual(ObjectMetadataIndex.DefaultContentType, reading.Properties!.ContentType);
+        Assert.AreEqual("text/plain", reading.Properties!.ContentType);
         Assert.AreEqual(HelloETag, reading.Properties.ETag);
         Assert.AreEqual(Start.AddSeconds(1), reading.Properties.LastWriteTimeUtc);
     }
@@ -140,7 +158,7 @@ public sealed class ObjectMetadataIndexTests
     {
         var fixture = new Fixture(persists: true);
         await fixture.UploadAsync("a.txt", "hello"u8.ToArray());
-        await fixture.Index.StoreAsync("a.txt", new ObjectMetadata { ContentType = "text/plain" }, CancellationToken.None);
+        await fixture.Index.StoreAsync("a.txt", new ObjectMetadata { ContentType = "application/x-old" }, CancellationToken.None);
 
         var renamed = fixture.Store.RenameEntry(fixture.Store.MapRequestPath("/a.txt"), fixture.Store.MapRequestPath("/b.txt"));
         var oldKey = await fixture.Index.ReadAsync("a.txt", CancellationToken.None);
@@ -148,7 +166,7 @@ public sealed class ObjectMetadataIndexTests
 
         Assert.AreEqual(ContentChangeResult.Done, renamed);
         Assert.IsNull(oldKey.Properties);
-        Assert.AreEqual(ObjectMetadataIndex.DefaultContentType, newKey.Properties!.ContentType);
+        Assert.AreEqual("text/plain", newKey.Properties!.ContentType);
         var reloaded = await fixture.ReloadAsync();
         Assert.AreEqual(1, reloaded.Count);
     }
