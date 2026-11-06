@@ -12,6 +12,7 @@ namespace Surl.Composition;
 /// <param name="AccountGroups">Every <c>--group</c>, expanded to account names (ADR-0102 decision 4.1).</param>
 /// <param name="SkippedKeytabEntries">The <c>--keytab</c> entries of an enctype surl does not accept.</param>
 /// <param name="SshHostKeys">The SSH host keys.</param>
+/// <param name="Mailboxes">The mail domains and mailboxes (ADR-0102 decisions 1.1 and 1.2).</param>
 /// <param name="SchemePolicies">The policy each server is composed with, by its scheme (ADR-0102 decision 4.3).</param>
 internal sealed record ComposedAuthentication(
     AuthenticationPolicy Policy,
@@ -19,4 +20,5 @@ internal sealed record ComposedAuthentication(
     AccountGroupExpansion AccountGroups,
     IReadOnlyList<KerberosKeytabSkippedEntry> SkippedKeytabEntries,
     SshHostKeyComposition SshHostKeys,
+    MailboxComposition Mailboxes,
     SchemeAuthenticationPolicies SchemePolicies);

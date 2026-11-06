@@ -53,20 +53,25 @@ public static class AuthenticationComposition
     /// <param name="timeProvider">The clock the refusal delay, the Digest nonces, the Signature Version 4 window and the Kerberos acceptor run on.</param>
     /// <param name="events">The instance's event stream, which the policy publishes each judged login on (ADR-0124, decision 1); none when <see langword="null"/>.</param>
     /// <param name="faults">The instance's fault plan, whose refuse-login rules the policy applies (ADR-0124, decision 4); none when <see langword="null"/>.</param>
+    /// <param name="mailboxAccounts">The <c>--mailbox</c> and <c>--mailbox-file</c> accounts
+    /// (<see cref="MailboxComposition.Accounts"/>), added after the <c>--user-file</c> ones (ADR-0102,
+    /// decision 1.2); none when <see langword="null"/>.</param>
     /// <returns>
     /// The policy, every account's user name, the <c>--user</c> ones first, which the mail
     /// store's owners are (ADR-0050, decision 2), and the keytab entries skipped for their enctype;
     /// or, when it cannot be built, <see langword="null"/> with the exit code and the message after
-    /// the <c>surl: </c> prefix (ADR-0032, sections 1 and 2; ADR-0051, section 6; ADR-0057, decision 1).
+    /// the <c>surl: </c> prefix (ADR-0032, sections 1 and 2; ADR-0051, section 6; ADR-0057, decision 1;
+    /// a mailbox named like a <c>--user-file</c> account, ADR-0101 decision 5).
     /// </returns>
     public static (AuthenticationPolicy? Policy, IReadOnlyList<string> AccountNames, IReadOnlyList<KerberosKeytabSkippedEntry> SkippedKeytabEntries, SurlExitCode ExitCode, string? FailureMessage) Compose(
         SurlCommandLine commandLine,
         Func<string, byte[]> readFile,
         TimeProvider timeProvider,
         ISurlEventPublisher? events = null,
-        IFaultPlan? faults = null)
+        IFaultPlan? faults = null,
+        IReadOnlyList<Account>? mailboxAccounts = null)
     {
-        var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readFile);
+        var (accounts, exitCode, failureMessage) = ReadAccounts(commandLine, readFile, mailboxAccounts ?? []);
         if (accounts is null)
         {
             return (null, [], [], exitCode, failureMessage);
@@ -159,6 +164,24 @@ public static class AuthenticationComposition
     // The --user accounts, then the --user-file's (ADR-0032, section 2): a file that cannot be
     // read is 37, a malformed one 2, each naming the file as given and never a password.
     private static (IReadOnlyList<Account>? Accounts, SurlExitCode ExitCode, string? FailureMessage) ReadAccounts(
+        SurlCommandLine commandLine, Func<string, byte[]> readUserFile, IReadOnlyList<Account> mailboxAccounts)
+    {
+        var (accounts, exitCode, failureMessage) = ReadUserAccounts(commandLine, readUserFile);
+        if (accounts is null)
+        {
+            return (null, exitCode, failureMessage);
+        }
+
+        // A mailbox named like a --user-file account (ADR-0101 decision 5's conflicts; a --user one
+        // is refused as the command line is read).
+        var names = accounts.Select(account => account.UserName).ToHashSet(StringComparer.Ordinal);
+        var taken = mailboxAccounts.FirstOrDefault(account => names.Contains(account.UserName));
+        return taken is null
+            ? ([.. accounts, .. mailboxAccounts], SurlExitCode.Ok, null)
+            : (null, SurlExitCode.FailedInit, $"(2) option --mailbox: mailbox {taken.UserName} is also a --user-file account");
+    }
+
+    private static (IReadOnlyList<Account>? Accounts, SurlExitCode ExitCode, string? FailureMessage) ReadUserAccounts(
         SurlCommandLine commandLine, Func<string, byte[]> readUserFile)
     {
         IReadOnlyList<Account> userOptionAccounts =

@@ -170,6 +170,9 @@ public sealed class ComposedServing : IAsyncDisposable
 
         // Each group's note, after the warnings (ADR-0102 decision 5).
         authentication.AccountGroups.WriteStartLines(commandLine.LogLevel, log);
+
+        // The mail domains' and each mailbox's note, after the groups' (ADR-0102 decision 5).
+        authentication.Mailboxes.WriteStartLines(commandLine, log);
     }
 
     // From verbose up, unstamped, once per https listen URL served over HTTP/3 too (ADR-0082,

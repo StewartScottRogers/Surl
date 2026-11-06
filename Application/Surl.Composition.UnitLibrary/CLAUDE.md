@@ -117,6 +117,16 @@ rather than writing it, and the warning writers take the log `TextWriter` they w
 
 - `AuthenticationComposition` - the accounts (`--user`, `--user-file`), `--authorized-keys`, the
   `--auth` methods and the `AuthenticationPolicy` (ADR-0032); `WriteLooseningWarnings`.
+- `MailboxComposition` - the mail domains and mailboxes (ADR-0102 decisions 1.1, 1.2, 1.4 and 5,
+  BL-882): every `SurlCommandLine.Mailboxes` then each `MailboxFiles` record (read through
+  `ReadStartFile` with `Surl.Cli`'s `MailboxFileReader`; unreadable `(37) Could not read mailbox
+  file <file>`, malformed `(2) Mailbox file <file>, line <n>: ...`), each an `Account` named by its
+  address and restricted to its `protocols=` (the mail schemes when absent), and the
+  `MailDomainConfiguration` handed to `LoadServiceStateAsync`/`LoadMailStoreAsync`. It is composed
+  before `AuthenticationComposition.Compose`, which adds its accounts after the `--user-file` ones
+  and refuses one named like a `--user-file` account `(2)`; it rides on `ComposedAuthentication.Mailboxes`,
+  and `WriteStartLines` writes the `-v` notes after the groups'. With no `MailDomains` it composes
+  nothing and the start is as before.
 - `AccountGroupExpansion` - every `--group` expanded to account names once the accounts are read
   (ADR-0102 decision 4.1), refusing `everyone` and `@everyone` (4.2), a member naming no account or
   group and a group that includes itself (ADR-0101 decision 5 row 18), each `(2)`; `Expand` turns a

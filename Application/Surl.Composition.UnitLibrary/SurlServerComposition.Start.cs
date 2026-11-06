@@ -149,8 +149,22 @@ public static partial class SurlServerComposition
         SurlCommandLine commandLine, SurlServerCompositionSeams seams, EventStreamAndFaultPlan instruments)
     {
         var readStartFile = seams.ReadStartFile ?? File.ReadAllBytes;
-        var (policy, accountNames, skippedKeytabEntries, exitCode, failureMessage) =
-            AuthenticationComposition.Compose(commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults);
+
+        // The --mailbox-files, read before the accounts their mailboxes join (ADR-0102 decision 5); the
+        // extended schemes their protocols= may name are listed only when there is a file to read.
+        var (mailboxes, mailboxExitCode, mailboxFailureMessage) = MailboxComposition.Compose(
+            commandLine,
+            readStartFile,
+            commandLine.MailboxFiles.Count == 0
+                ? []
+                : ComposeExtendedSchemes(seams.AreExtensionsTurnedOn, seams.ComposeExtendedProtocolServers, seams.TimeProvider));
+        if (mailboxes is null)
+        {
+            return (null, new SurlStartFailure(mailboxExitCode, [mailboxFailureMessage!]));
+        }
+
+        var (policy, accountNames, skippedKeytabEntries, exitCode, failureMessage) = AuthenticationComposition.Compose(
+            commandLine, readStartFile, seams.TimeProvider, instruments.Events, instruments.Faults, mailboxes.Accounts);
         if (policy is null)
         {
             return (null, new SurlStartFailure(exitCode, [failureMessage!]));
@@ -172,6 +186,7 @@ public static partial class SurlServerComposition
                 accountGroups,
                 skippedKeytabEntries,
                 sshHostKeys,
+                mailboxes,
                 new SchemeAuthenticationPolicies(policy, seams.TimeProvider, instruments.Events, instruments.Faults)), null);
     }
 
@@ -232,7 +247,8 @@ public static partial class SurlServerComposition
                 seams.TimeProvider,
                 instruments.Events,
                 instruments.Faults,
-                cancellationToken);
+                cancellationToken,
+                authentication.Mailboxes.MailDomains);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
