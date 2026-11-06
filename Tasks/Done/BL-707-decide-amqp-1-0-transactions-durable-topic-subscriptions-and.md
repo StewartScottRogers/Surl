@@ -46,10 +46,10 @@ each one.
 - Wrote ADR-0146 (README row added); 0146 is the next number after the highest in this checkout (0137 is a gap another lane holds). Read from AMQP 1.0 Parts 2 to 4, the Apache filter registry (apache-filters.xml) and Jakarta Messaging 3.1 section 3.8.1; the Curl port was not read. Part 4 section numbers in this task's Context were inexact (4.2 is declaring, 4.3 discharging, 4.4 using, 4.5 the types); the ADR cites the real ones.
 - Choices: transactions are connection-scoped with 4-byte ids counting from 1 (deterministic without a seed); a commit is all or none through a new bus batch publish rather than in order as AMQP 0-9-1 does, because Part 4 has no "nothing is atomic" allowance; selectors run in the container and reach the bus only as a consumer predicate, keeping the bus protocol-neutral; durable subscriptions are persisted bus queues named by SHA-256 of container id and link name, with a subscription description kept beside them, filtered at delivery.
 - Amendments to ADR-0107 decisions 4 and 5 and ADR-0100 decision 3.3 are recorded in ADR-0146 only, since this task touches only the Decisions folder and Amqp1.md.
-- Filed BL-954 and BL-955 (bus), BL-956 and BL-957 (transactions), BL-958 (selector), BL-959 (filters) and BL-960 (durable and shared subscriptions). Matrix rows added for Part 4, the filter set and terminus durability and expiry; Amqp1:Surl-Nodes-6 now names BL-956. Docs only: build clean, 78 fast test assemblies green.
+- Filed BL-961 and BL-955 (bus), BL-956 and BL-957 (transactions), BL-958 (selector), BL-959 (filters) and BL-960 (durable and shared subscriptions). Matrix rows added for Part 4, the filter set and terminus durability and expiry; Amqp1:Surl-Nodes-6 now names BL-956. Docs only: build clean, 78 fast test assemblies green.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
-- 2026-11-06: Doing -> Done. ADR-0146 decides AMQP 1.0 transactions, source filters and durable and shared subscriptions; Amqp1.md has their rows; BL-954 to BL-960 build them
+- 2026-11-06: Doing -> Done. ADR-0146 decides AMQP 1.0 transactions, source filters and durable and shared subscriptions; Amqp1.md has their rows; BL-961 to BL-960 build them

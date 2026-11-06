@@ -1,5 +1,5 @@
 ---
-id: BL-954
+id: BL-961
 title: Publish a batch of messages on Surl.MessageBus all or none
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-954 — Publish a batch of messages on Surl.MessageBus all or none
+# BL-961 — Publish a batch of messages on Surl.MessageBus all or none
 
 ## Goal
 

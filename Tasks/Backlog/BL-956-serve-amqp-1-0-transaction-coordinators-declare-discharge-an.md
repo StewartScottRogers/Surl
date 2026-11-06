@@ -4,7 +4,7 @@ title: Serve AMQP 1.0 transaction coordinators, declare, discharge and transacti
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-954]
+depends-on: [BL-961]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Amqp1.UnitTests, Documentation/Conformance/Extended/Amqp1.md]
 requirement: none
 created: 2026-11-06
@@ -24,7 +24,7 @@ messages posted in a transaction until a commit publishes them all or none.
   `transactional-state` 0x34).
 - Ends ADR-0107 decision 4's refusal of a coordinator (`Amqp1:Surl-Nodes-6`,
   `Amqp1ContainerConnectionTests.ServeAsync_AttachToACoordinator_IsRefusedWithNotImplemented`).
-- The commit uses BL-954's all-or-none batch publish.
+- The commit uses BL-961's all-or-none batch publish.
 - Matrix rows: `Amqp1:Transactions-4.5.1-1`, `-4.2-1`, `-4.2-2`, `-4.4.1-1`, `-4.4.1-2` (transfer, discharge),
   `-4.3-1`, `-4.3-2`, `-4.4-1`, `Amqp1:Surl-Transactions-1` in `Documentation/Conformance/Extended/Amqp1.md`.
 

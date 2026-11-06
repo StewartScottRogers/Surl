@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-11-06
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-06,
-  in BL-707. BL-954 gives `Surl.MessageBus` an all-or-none batch publish (decision 1.6), BL-955 a
+  in BL-707. BL-961 gives `Surl.MessageBus` an all-or-none batch publish (decision 1.6), BL-955 a
   filtered queue consumer and a subscription description on a named queue (decisions 2.4 and 3.2),
   BL-956 builds the coordinator, `declare`, `discharge` and transactional posting (decisions 1.1 to
   1.4 and 1.6 to 1.8), BL-957 transactional retirement and acquisition (decision 1.5), BL-958 the
@@ -126,7 +126,7 @@ but its flags and bindings.
      forgotten (their deliveries acquired and unsettled again, as AMQP 0-9-1's rollback puts them
      back outstanding), acquired deliveries return as decision 1.5 says; answered `accepted`;
    - with **`fail` false** commits it: the held messages are published **all or none** through the
-     bus's batch publish (BL-954), in the order they were posted, then the held outcomes are applied
+     bus's batch publish (BL-961), in the order they were posted, then the held outcomes are applied
      in order; answered `accepted`. If the bus refuses any message of the batch (`StoreFull`,
      `QueueFull` sending straight to a queue, `TooManyTopics`), it publishes none of them, the
      transaction is rolled back as with `fail` true, and the `discharge` is answered `rejected` with
