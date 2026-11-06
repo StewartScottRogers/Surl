@@ -53,3 +53,4 @@ upstream curl run with `--unix-socket <path>` completes its exchange.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
