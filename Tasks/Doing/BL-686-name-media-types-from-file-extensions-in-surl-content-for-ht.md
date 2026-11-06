@@ -37,3 +37,4 @@ as ADR-0100 decision 2.3 says ("named by Surl.Content's media types from the ext
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
