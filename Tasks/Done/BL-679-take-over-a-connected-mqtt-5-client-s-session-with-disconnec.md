@@ -8,7 +8,7 @@ depends-on: [BL-499]
 touches: [Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitLibrary, Protocols/Messaging/Surl.Extended.Protocol.Mqtt5.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-06
 ---
 # BL-679 — Take over a connected MQTT 5 client's session with DISCONNECT 0x8E
 
@@ -30,13 +30,13 @@ say, as ADR-0093 decision 1 ("Session takeover") decides.
 
 ## Acceptance criteria
 
-- [ ] Named tests in `Surl.Extended.Protocol.Mqtt5.UnitTests` show:
+- [x] Named tests in `Surl.Extended.Protocol.Mqtt5.UnitTests` show:
       - a second connection's `CONNECT` with a connected identifier makes the first write `DISCONNECT` `0x8E`
         (`E0 01 8E`) and end, while the second gets `CONNACK` `0x00`;
       - the first connection's Will published at once when its Will Delay Interval is 0;
       - the first connection's Will published when the new `CONNECT` has Clean Start 1, and not when it has Clean
         Start 0 and a Will Delay Interval that has not passed.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and the library keeps 100% line and branch
       coverage.
 
 ## Notes
@@ -45,3 +45,4 @@ say, as ADR-0093 decision 1 ("Session takeover") decides.
 
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. A CONNECT for a connected MQTT 5 identifier sends the older connection DISCONNECT 0x8E, settles its Will, and resumes or discards its session by Clean Start
