@@ -113,6 +113,15 @@ public sealed class SurlServerFaults
         return plan.Remove(ruleId);
     }
 
+    /// <summary>
+    /// The plan's rules as they stand, in the order they are tried (ADR-0124, decision 8's <c>list_faults</c>): each
+    /// one's identifier, its <c>--fault</c> item without <c>times</c>, and how many more times it applies. A removed
+    /// rule is not listed, a spent one is with 0 left; response overrides are not listed, having no kind until asked.
+    /// </summary>
+    /// <returns>A snapshot of the rules.</returns>
+    public IReadOnlyList<SurlFaultRule> List() =>
+        [.. plan.Rules.Select(rule => new SurlFaultRule(rule.Id, SurlFault.WithoutCountFrom(rule).ToItem(), rule.Times))];
+
     /// <summary>Removes every rule and response override, start rules included; identifiers already given are still never reused.</summary>
     public void Clear() => plan.Clear();
 }

@@ -57,6 +57,10 @@ measures it by name.
   parses the item beside a fixed listen URL with `CommandLineParser`, so a refusal is the
   `ArgumentException` carrying `surl`'s text, then adds `FaultPlanComposition.ToRule`'s rule and
   returns its ID; `Remove` and `Clear` go straight to the plan. A runtime rule logs nothing.
+  `List` (BL-963, ADR-0124 decision 8's `list_faults`) snapshots `FaultPlan.Rules` as
+  `SurlFaultRule`s: `Id`, `Item` (`SurlFault.WithoutCountFrom(rule).ToItem()`, every key but
+  `times`, so a spent rule still spells an item `surl` takes) and `Remaining` (the rule's `Times`,
+  what is left of its count, `null` for always). Overrides are not listed.
   Tests bring clients in after start with `FakeListenerFactory.Accept`.
 - Store control (BL-810, ADR-0124 decision 3): `SurlServer.Mail`, `Files`, `Messages` and
   `Accounts` (`SurlServerMail`, `SurlServerFiles`, `SurlServerMessages`, `SurlServerAccounts`) are

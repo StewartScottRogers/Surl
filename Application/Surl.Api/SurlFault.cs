@@ -88,6 +88,25 @@ public sealed record SurlFault
     public static SurlFault OutOfSpace() => new(FaultKind.OutOfSpace);
 
     /// <summary>
+    /// The rule a fault plan holds, spelt as a <see cref="SurlFault"/> without its count: every key but <c>times</c>,
+    /// so <see cref="ToItem"/> spells what the rule does and where, whatever is left of its count.
+    /// </summary>
+    /// <param name="rule">The plan's rule.</param>
+    /// <returns>The rule, <see cref="Times"/> left <see langword="null"/>.</returns>
+    internal static SurlFault WithoutCountFrom(FaultRule rule) => new(rule.Kind)
+    {
+        Listener = rule.Listener,
+        Scheme = rule.Scheme,
+        Account = rule.Account,
+        Path = rule.Path,
+        Command = rule.Command,
+        Stage = rule.Stage,
+        DelayDuration = rule.DelayMilliseconds is { } milliseconds ? TimeSpan.FromMilliseconds(milliseconds) : null,
+        AfterBytes = rule.AfterBytes,
+        Reply = rule.Reply,
+    };
+
+    /// <summary>
     /// The <c>--fault</c> item this rule spells: the kind's word, then each key given, in the order the ADR lists them,
     /// each value percent-encoded so the reader decodes it back unchanged.
     /// </summary>

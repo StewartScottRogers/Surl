@@ -125,6 +125,16 @@ throws `SurlServerStartException`, a runtime one `ArgumentException`, each with 
 `--fault` warning to `Log`; a rule added at run time writes nothing. Each rule applied is a
 `FaultApplied` event the queries above find.
 
+`List()` reads the plan as it stands, in the order its rules are tried: each `SurlFaultRule`'s
+`Id`, its `Item` - the `--fault` item without `times`, which `surl` reads back as the same rule - and
+`Remaining`, what is left of its `Times` (0 once spent, `null` for a rule that always applies).
+Response overrides are not listed.
+
+```csharp
+server.Faults.Add(SurlFault.DropConnection() with { Times = 2 });
+var rule = server.Faults.List()[0];   // ("f1", "drop", 2); after one dropped connection, Remaining is 1
+```
+
 ## Hooks
 
 Hooks are test code the server runs (ADR-0124 decision 5). They are `Surl.Api` only: the control
