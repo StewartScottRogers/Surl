@@ -45,3 +45,4 @@ HTTP/2's `Http2DataStream` waits for its windows.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
