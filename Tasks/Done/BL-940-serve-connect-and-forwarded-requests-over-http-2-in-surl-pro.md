@@ -8,7 +8,7 @@ depends-on: [BL-939]
 touches: [Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary, Protocols/Http/Surl.Protocol.HttpProxy.UnitTests]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-940 — Serve CONNECT and forwarded requests over HTTP/2 in Surl.Protocol.HttpProxy when TLS agreed h2
 
@@ -61,21 +61,39 @@ relayed back on the stream.
 
 ## Acceptance criteria
 
-- [ ] `HttpProxyProtocolServerHttp2Tests` passes, including
+- [x] `HttpProxyProtocolServerHttp2Tests` passes, including
       `Fixtures_ProxyOfferingH2ThenHttp11_CurlAgreesH2OnlyWithProxyHttp2`,
       `ServeAsync_CurlsConnectStream_Answers200AndRelaysTheTunnelInDataFrames` and
       `ServeAsync_CurlsForwardedGetStream_ForwardsItOverHttp11AndRelaysTheResponse`, each driven by the
       bytes in its fixture folder measured from pinned upstream curl 8.21.0.
-- [ ] `Http2ProxyStreamHandlerTests` and `AlreadyReadBytesConnectionTests` pass, and
+- [x] `Http2ProxyStreamHandlerTests` and `AlreadyReadBytesConnectionTests` pass, and
       `HttpProxyProtocolServerTlsTests.ServeAsync_TlsAgreedAnAlpnNeitherH2NorHttp11_ClosesWithoutWritingOrConnectingAndNotesWhy` passes.
-- [ ] `dotnet build Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary -warnaserror` is clean, the fast
+- [x] `dotnet build Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary -warnaserror` is clean, the fast
       tests are green, and `Surl.Protocol.HttpProxy.UnitLibrary` has 100% line and branch coverage.
-- [ ] `Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary/CLAUDE.md` says a connection whose TLS agreed
+- [x] `Protocols/Http/Surl.Protocol.HttpProxy.UnitLibrary/CLAUDE.md` says a connection whose TLS agreed
       `h2` is served by `Http2ConnectionServer` with `Http2ProxyStreamHandler`.
 
 ## Notes
+
+- Took the work from the stash `darkfactory BL-595 20261106-033059` (`c606ff5e`): the tracked diff
+  with `git diff | git apply`, the untracked files with `git restore --source <stash>^3`. Fixtures not
+  re-recorded; every test that replays them passes.
+- An orphaned `dotnet test --collect "Code Coverage"` of `Surl.Composition.UnitTests` from the earlier
+  timed-out lane-7 run (BL-816) held this worktree's build outputs; it was stopped so the build could copy.
+- Coverage gaps closed (now 100% line, 100% branch, 181 members): `AnswerBodyFailureAsync`'s switch and
+  `RelayBodyAsync`'s switch expression became `if` chains, because the compiler's jump table gave each a
+  branch for an enum value that never reaches it (`Sent`; `None`/`Invalid`). `JudgeForwardable`'s
+  pattern became `if`s, and both upload-limit checks share `IsOverTheUploadLimit`. Added
+  `ServeStreamAsync_ForwardBodyWithNoUploadLimit_SendsIt` (`MaxUploadBytes = 0`, with and without
+  content-length), the one case no test reached.
+- `Measure-CodeQuality.ps1` still lists some members over 10 under "complexity". That is Cobertura's
+  branch-based count, which async state machines inflate, and existing members such as
+  `OriginResponseHead.ParseStatusLine` (18) have long been over it too. The complexity gate is CA1502 at
+  build time (`CodeMetricsConfig.txt`), and the build is clean.
+- 295 proxy tests pass (293 from the stash and the new test's two rows), as do the solution's fast tests.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Surl.Protocol.HttpProxy serves h2 connections: CONNECT streams tunnelled in DATA frames, http streams forwarded over HTTP/1.1; 100% line and branch
