@@ -72,6 +72,7 @@ public sealed class ProtocolIsolationTests
         [ChaCha20] = [],
         [Curve25519] = [],
         [Ed25519] = [Curve25519],
+        [MlKem] = [],
         [Poly1305] = [],
         [Rc4] = [],
         [Ripemd160] = [],
@@ -224,6 +225,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(ChaCha20)]
     [DataRow(Curve25519)]
     [DataRow(Ed25519)]
+    [DataRow(MlKem)]
     [DataRow(Poly1305)]
     [DataRow(Rc4)]
     [DataRow(Ripemd160)]
@@ -304,6 +306,7 @@ public sealed class ProtocolIsolationTests
     [DataRow(Content, "Surl.Networking.UnitLibrary")]
     [DataRow(Cryptography, "Surl.Core.UnitLibrary")]
     [DataRow(Curve25519, Ed25519)]
+    [DataRow(MlKem, Curve25519)]
     [DataRow(ChaCha20, Poly1305)]
     [DataRow(Poly1305, ChaCha20)]
     [DataRow(Blowfish, BcryptPbkdf)]
