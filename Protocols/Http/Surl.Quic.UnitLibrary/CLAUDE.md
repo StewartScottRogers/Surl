@@ -124,6 +124,12 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   An exception the application throws closes the connection with code 0 and is thrown from
   `ServeAsync`. The ALPN IDs agreed and the transport parameters sent are the caller's
   `QuicServerConnectionOptions`; the defaults stay ADR-0082 decision 4's `h3` values, byte for byte.
+- `QuicConnectionRefusal.Write` (BL-740, ADR-0082 decision 7, "Too many connections") writes the
+  one datagram refusing a flow past a connection limit: an Initial packet, protected with the Initial
+  keys of the client's Destination Connection ID, to the client's Source Connection ID from a random
+  8-byte one, packet number 0, holding only `CONNECTION_CLOSE` (0x1c) `CONNECTION_REFUSED` (0x02),
+  frame type 0, no reason phrase. It answers only a first datagram `QuicServerConnection` would start
+  on whose Initial opens with those keys; anything else is null, so no bytes are sent.
 - `QuicTransportParameters` reads and writes RFC 9000 section 18's parameters and
   `version_information` (`QuicVersionInformation`); a malformed or repeated one is
   `TRANSPORT_PARAMETER_ERROR`.
