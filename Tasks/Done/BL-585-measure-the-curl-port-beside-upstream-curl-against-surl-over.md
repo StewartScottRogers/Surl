@@ -54,7 +54,7 @@ against a live `surl`, through both pinned upstream curl and the pinned Curl por
 - First run: the 6 `wss` cases agreed, and all 14 `ws` cases differed only inside the
   `Sec-WebSocket-Key` value, which is a fresh nonce in every run (RFC 6455 4.1). ADR-0089 decision 4
   had no rule for it nor for the client's per-frame masking keys (RFC 6455 5.3). Decision recorded as
-  **ADR-0089 Amendment 1** (Claude under Stewart's delegation): `Sec-WebSocket-Key:` is replaced by
+  **ADR-0089 Amendment 2** (Claude under Stewart's delegation): `Sec-WebSocket-Key:` is replaced by
   `<websocket-key>`, and every client frame after a connection's last upgrade request is unmasked
   with its key zeroed, before any other rule. Built in `Surl.Conformance.UnitLibrary`
   (`WebSocketFrameUnmasking`, `RequestBytesNormalisation`, `CurlPortResultNormaliser.WebSocketKeyPlaceholder`),
@@ -78,4 +78,4 @@ against a live `surl`, through both pinned upstream curl and the pinned Curl por
 
 - 2026-11-04: Created.
 - 2026-11-05: Backlog -> Doing.
-- 2026-11-05: Doing -> Done. The Curl port is measured beside upstream curl over ws and wss: 20 of 20 cases agree, under ADR-0089 Amendment 1's WebSocket key and mask rule
+- 2026-11-05: Doing -> Done. The Curl port is measured beside upstream curl over ws and wss: 20 of 20 cases agree, under ADR-0089 Amendment 2's WebSocket key and mask rule

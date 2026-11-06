@@ -21,7 +21,7 @@ upstream curl and the pinned Curl port, each against its own fresh `surl` (ADR-0
 Compared, per ADR-0089 decision 4: exit code, standard output, the `Refused WebSocket upgrade:` standard
 error line of each refusal case (the line the mirrored test pins), `surl`'s `-v` notes, and for every `ws`
 case the bytes each client sent: its upgrade request and its frames. Those are compared under ADR-0089
-Amendment 1: the `Sec-WebSocket-Key:` value as `<websocket-key>`, and each client frame unmasked with
+Amendment 2: the `Sec-WebSocket-Key:` value as `<websocket-key>`, and each client frame unmasked with
 its masking key zeroed, since both are fresh random values in every run. The six `wss` cases compare
 everything but the bytes inside TLS. For `File_WsWithOutput_WritesTheFilesBytesToTheOutputFile` the test
 also compares the two runs' `-o` files byte for byte.
