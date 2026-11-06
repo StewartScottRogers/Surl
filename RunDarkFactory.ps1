@@ -1617,11 +1617,11 @@ function Get-LastLogLine {
 function Get-WaitingOnStewart {
     $reasons = @()
     foreach ($f in Get-ChildItem (Join-Path $Root 'Tasks\Blocked') -Filter 'BL-*.md' -ErrorAction SilentlyContinue) {
-        $id = $f.Name.Substring(0, 6)
+        $id = ([regex]::Match($f.Name, '^BL-\d+').Value)
         $reasons += "$id BLOCKED  $(Get-LastLogLine $id)"
     }
     foreach ($line in Invoke-Board @('status')) {
-        if ($line -match '^\s+(BL-\d{3})\s.*\[needs Stewart\]') {
+        if ($line -match '^\s+(BL-\d+)\s.*\[needs Stewart\]') {
             $reasons += "$($Matches[1]) DECIDE   $(Get-TaskTitle $Matches[1])"
         }
     }
@@ -1639,10 +1639,10 @@ function Invoke-Requeue {
     # Stewart. Returns the IDs it moved.
     $moved = @()
     foreach ($f in Get-ChildItem (Join-Path $Root 'Tasks\Blocked') -Filter 'BL-*.md' -ErrorAction SilentlyContinue) {
-        $id = $f.Name.Substring(0, 6)
+        $id = ([regex]::Match($f.Name, '^BL-\d+').Value)
         $reason = Get-LastLogLine $id
         if ($reason -match 'Stewart') { continue }
-        $waits = @([regex]::Matches($reason, 'BL-\d{3}') | ForEach-Object { $_.Value } | Where-Object { $_ -ne $id } | Select-Object -Unique)
+        $waits = @([regex]::Matches($reason, 'BL-\d+') | ForEach-Object { $_.Value } | Where-Object { $_ -ne $id } | Select-Object -Unique)
         if (-not $waits.Count -or @($waits | Where-Object { -not (Test-TaskDone $_) }).Count) { continue }
         Invoke-Board @('move', '-Id', $id, '-To', 'Backlog', '-Reason', "Unblocked: $($waits -join ', ') now Done") | Out-Null
         if ((Get-TaskState $id) -eq 'Backlog') { $moved += $id; Write-Trace $id 'requeue' "unblocked: $($waits -join ', ') Done" 'Cyan' }
@@ -2279,7 +2279,7 @@ function Invoke-Claim {
             $boardArgs = @('next')
             if ($Skip.Count) { $boardArgs += @('-Skip', ($Skip -join ',')) }
             $next = (Invoke-Board $boardArgs) -join "`n"
-            if ($next -notmatch '(?m)^(BL-\d{3})\s') {
+            if ($next -notmatch '(?m)^(BL-\d+)\s') {
                 if ($next -match 'can start yet' -or (Get-DoingCount) -gt 0) { return @{ Wait = $true; Why = (Get-Short $next 80) } }
                 return @{ None = $true }
             }
@@ -2817,7 +2817,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     # Tasks in Doing are only allowed when a previous shift's lane holds each of them and that
     # lane is dead - a shift stopped mid-task, or killed while waiting for tokens. Those lanes
     # are adopted: their worktrees are left as they are and they resume the task.
-    $stuck = @(Get-ChildItem (Join-Path $Root 'Tasks\Doing') -Filter 'BL-*.md' -ErrorAction SilentlyContinue | ForEach-Object { $_.Name.Substring(0, 6) })
+    $stuck = @(Get-ChildItem (Join-Path $Root 'Tasks\Doing') -Filter 'BL-*.md' -ErrorAction SilentlyContinue | ForEach-Object { [regex]::Match($_.Name, '^BL-\d+').Value })
     $adopt = @{}
     if ($stuck.Count) {
         $previous = Get-ChildItem $LogDir -Directory -Filter 'lanes-*' -ErrorAction SilentlyContinue | Sort-Object Name | Select-Object -Last 1
@@ -3139,7 +3139,7 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     # -Continuous: while the board still has ready work, the next shift starts itself, so
     # the factory keeps going without anyone - Stewart or a Claude session - to restart it.
     $stillReady = (Invoke-Board @('next')) -join "`n"
-    if ($Continuous -and $stillReady -match '(?m)^BL-\d{3}\s') {
+    if ($Continuous -and $stillReady -match '(?m)^BL-\d+\s') {
         foreach ($r in $reasons) { Write-Trace '-' 'note' (Get-Short $r 100) 'Yellow' }
         # An Auto shift hands on Auto, not the count it ended at; the next one starts from
         # the count auto-lanes.json saved.
@@ -3251,7 +3251,7 @@ while ($true) {
             git -C $Root push -q 2>&1 | Out-Null
         }
         $next = (Invoke-Board @('next')) -join "`n"
-        if ($next -notmatch '(?m)^(BL-\d{3})\s') { $stopWhy = 'nothing ready'; break }
+        if ($next -notmatch '(?m)^(BL-\d+)\s') { $stopWhy = 'nothing ready'; break }
         $id = $Matches[1]
         if ($attempted.ContainsKey($id)) { $stopWhy = "$id offered twice"; $stalls += "$id offered again after a run"; break }
     }
