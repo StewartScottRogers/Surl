@@ -26,6 +26,11 @@ internal sealed partial class ImapSession
 
         var request = ImapAppendRequest.Read(arguments);
         var name = request is null ? null : ImapMailboxName.Decode(request.Mailbox);
+        if (await FindChosenErrorAsync("APPEND", name) is { } chosenError)
+        {
+            return await RespondAsync(chosenError);
+        }
+
         var appendRefusal = request is null ? ImapResponses.InvalidArguments : RefuseAppend(name, read.MessageLength);
         return appendRefusal is null
             ? await AppendAsync(name!, request!, read.MessageLength)

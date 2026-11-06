@@ -144,3 +144,14 @@ the test if the server reads the second before upgrading and pins the upgrade po
 the `OK`; it serves `imaps` on a connection that is TLS from the start. The policy is a
 `ScriptedLoginPolicy` offering what the capabilities above say for each TLS state, scripted with
 every `+ ` challenge of the transcript then acceptance (refusal for `authenticate-refused`).
+
+## Chosen-error faults (BL-796)
+
+Recorded on 2026-11-05 the same way, on port 18143, with the `GREETING`, `CAPABILITY`, `LOGIN`
+and `LOGOUT` responses above and `SELECT=NO try later`, the tagged `NO` a rule
+`error;scheme=imap;command=SELECT;reply=NO try later` answers (ADR-0124, decision 4).
+`ImapFaultTests` replays it against a store with the accounts `alice` and `bob`.
+
+| Folder | curl arguments | curl sends after `CAPABILITY` and `LOGIN alice p` | exit |
+| --- | --- | --- | --- |
+| `fault-select` | `-sS -u alice:p 'imap://127.0.0.1:18143/INBOX;UID=1'` | `SELECT INBOX`, then `LOGOUT` | 67, `curl: (67) Select failed` |

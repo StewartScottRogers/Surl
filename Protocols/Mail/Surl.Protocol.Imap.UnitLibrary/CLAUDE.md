@@ -68,6 +68,16 @@ exchange) are the glossary's, sections "Mail: SMTP, IMAP and POP3" and "Authenti
   `CAPA` and `AUTH`, `FETCH`/`LIST`/`LSUB`/`EXAMINE`/`STATUS`/`SEARCH` from the case's data with
   `POSTFETCH`, and `APPEND` recorded in `UploadedBytes`. With no case the session is unchanged.
   The shipped `surl` never composes it; `Surl.Conformance.UnitTests` does (BL-879).
+- Chosen-error faults (ADR-0124 decision 4, BL-796; `ImapSession.Faults.cs`): every recognized
+  command its state allows - after the state's login check, so a fault never skips one - asks
+  `ExchangeContext.Faults` at `FaultStage.Command` with its verb (a `UID` command's own verb,
+  `FETCH` for `UID FETCH`), the account `LOGIN` or `AUTHENTICATE` logged in, the listen URL as
+  `ReportedListenUrl` writes it, and as the path the mailbox the command names (`SELECT`,
+  `EXAMINE`, `STATUS`, `CREATE`, `DELETE`, `RENAME`, `SUBSCRIBE`, `UNSUBSCRIBE`, `APPEND`) or
+  else the selected one. An `Error` rule is answered with the tagged rule reply (`NO ...` or
+  `BAD ...`), `APPEND`'s in place of `+`; the store is untouched, a note is logged and one
+  `FaultAppliedEvent` (target: the mailbox, else the verb) is published. A rule with no reply
+  answers `NO [UNAVAILABLE] Local error in processing`; any other kind is not applied here.
 - `STARTTLS` (decision 11): `OK Begin TLS negotiation now`, then
   `CrlfLineReader.DiscardBuffered`, then `IConnection.UpgradeToTlsAsync`; `BAD STARTTLS not
   available` without a certificate, `BAD Already using TLS` on a TLS connection.

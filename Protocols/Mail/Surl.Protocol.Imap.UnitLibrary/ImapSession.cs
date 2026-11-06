@@ -197,8 +197,14 @@ internal sealed partial class ImapSession
             return await RespondAsync(ImapResponse.Only(ImapResponses.NotRecognized));
         }
 
-        var refusal = await RefuseForStateAsync(command.State, name);
-        return refusal is null ? await command.Answer(arguments) : await RespondAsync(ImapResponse.Only(refusal));
+        if (await RefuseForStateAsync(command.State, name) is { } refusal)
+        {
+            return await RespondAsync(ImapResponse.Only(refusal));
+        }
+
+        return await FindChosenErrorAsync(name, text) is { } chosenError
+            ? await RespondAsync(chosenError)
+            : await command.Answer(arguments);
     }
 
     private async ValueTask<string?> RefuseForStateAsync(ImapCommandState state, string name) => state switch
@@ -290,6 +296,7 @@ internal sealed partial class ImapSession
 
         var response = LoginResponse(verdict);
         view = response == LoginCompleted ? mailStore.ViewFor(userName) : null;
+        accountName = view is null ? null : userName;
         return response;
     }
 

@@ -226,7 +226,7 @@ public sealed class RecordedFixtureTests
             .ToList();
 
     // Every line the recorder sent, in order, each ending CRLF.
-    private static string RecordedResponses(string caseName) =>
+    internal static string RecordedResponses(string caseName) =>
         string.Concat(Read(caseName, "transcript.txt")
             .Split("\r\n")
             .Where(line => line.StartsWith("< ", StringComparison.Ordinal))
@@ -245,7 +245,7 @@ public sealed class RecordedFixtureTests
 
     private static string Read(string caseName, string fileName) => Encoding.UTF8.GetString(ReadBytes(caseName, fileName));
 
-    private static byte[] ReadBytes(string caseName, string fileName)
+    internal static byte[] ReadBytes(string caseName, string fileName)
     {
         using var stream = typeof(RecordedFixtureTests).Assembly.GetManifestResourceStream($"Fixtures/{caseName}/{fileName}")
             ?? throw new InvalidOperationException($"No embedded fixture Fixtures/{caseName}/{fileName}.");
