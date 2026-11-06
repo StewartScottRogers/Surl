@@ -61,3 +61,4 @@ prints exactly the lines it prints today, so the Curl port's twin driver can sha
 ## Log
 
 - 2026-11-06: Created.
+- 2026-11-06: Backlog -> Doing.
