@@ -46,3 +46,4 @@ decision 1 answers `400 NotImplemented` for now.
 ## Log
 
 - 2026-11-05: Created.
+- 2026-11-06: Backlog -> Doing.
