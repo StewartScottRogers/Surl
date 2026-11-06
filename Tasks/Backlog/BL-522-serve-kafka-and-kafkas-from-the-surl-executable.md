@@ -49,6 +49,12 @@ loaded after the data-directory lock if it persists. Metadata advertises the lis
 
 ## Notes
 
+- 2026-11-05 (lane 4): BL-609 moved the server composition to `Application/Surl.Composition.UnitLibrary`: extended
+  servers register in `ExtendedProtocolServers.Registrations`, the shared bus is `ComposedProtocolServices.MessageBus`
+  (where `mqtt` is composed in `ProtocolServerRegistrations`), and the one-bus test belongs in
+  `Surl.Composition.UnitTests`. Both are added to `touches`. BL-803 (in Doing) touches the same projects, so the task
+  returned to Backlog until BL-803 releases them. No code was written.
+
 ## Log
 
 - 2026-11-04: Created.
