@@ -283,7 +283,7 @@ public sealed class S3PutObjectTests
     }
 
     [TestMethod]
-    public async Task ServeAsync_PutObjectWithAnAwsChunkedBody_Is501NotImplemented()
+    public async Task ServeAsync_PutObjectChunkedWithADecodedLengthButNoStreamingHash_Is400InvalidRequest()
     {
         var harness = new S3ServerHarness(exposure: S3ServerHarness.Writable);
         harness.CreateFolder("photos");
@@ -291,7 +291,8 @@ public sealed class S3PutObjectTests
         var response = await harness.SendRawAsync(
             "PUT /photos/a.txt HTTP/1.1\r\nHost: s3.test\r\nTransfer-Encoding: chunked\r\nx-amz-decoded-content-length: 1\r\n\r\n1\r\nx\r\n0\r\n\r\n");
 
-        StringAssert.StartsWith(response, "HTTP/1.1 501 Not Implemented\r\n");
+        StringAssert.StartsWith(response, "HTTP/1.1 400 Bad Request\r\n");
+        StringAssert.Contains(response, "<Code>InvalidRequest</Code>");
     }
 
     [TestMethod]

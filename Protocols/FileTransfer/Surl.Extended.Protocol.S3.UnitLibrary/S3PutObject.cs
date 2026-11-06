@@ -47,12 +47,12 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
             return reply.Error(S3Error.AccessDenied);
         }
 
-        if (RefusalBeforeTheBody(request) is { } refusal)
+        if (RefusalBeforeTheObjectBody(request, loginResult.ChunkSignatures) is { } refusal)
         {
             return reply.Error(refusal);
         }
 
-        if (IsAnnouncedPastTheLimit(request.Body))
+        if (IsAnnouncedPastTheLimit(request))
         {
             return reply.Error(S3Error.EntityTooLarge);
         }
@@ -66,7 +66,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
 
         return CreateFolders(target, caller) is { } folderRefusal
             ? reply.Error(folderRefusal)
-            : await StoreAsync(reply, request, target, mapping, loginResult.BodyCheck, cancellationToken);
+            : await StoreAsync(reply, request, target, mapping, loginResult, cancellationToken);
     }
 
     /// <summary>
@@ -115,17 +115,32 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         _ => null,
     };
 
-    // The checks a request's head decides, before any byte of its body is read.
-    internal static S3Error? RefusalBeforeTheBody(HttpRequest request)
+    // The checks a CompleteMultipartUpload's head decides, before any byte of its body is read:
+    // its body is a document, never aws-chunked, and its x-amz-checksum-* fields describe the
+    // whole object, so they are not checked against the body.
+    internal static S3Error? RefusalBeforeTheBody(HttpRequest request) =>
+        HeadFieldRefusal(request.Fields)
+        ?? (S3ObjectBodyReader.FormOf(request.Fields) == S3PayloadForm.Plain ? S3ObjectBodyReader.PlainFramingRefusal(request) : S3Error.NotImplemented);
+
+    /// <summary>
+    /// The checks a PutObject's or UploadPart's head decides, before any byte of its body is
+    /// read: <c>Content-MD5</c>, the user metadata, then the body's framing and checksum fields
+    /// (<see cref="S3ObjectBodyReader.RefusalBeforeTheBody"/>).
+    /// </summary>
+    /// <param name="request">The request.</param>
+    /// <param name="chunkSignatures">The chain the login gave for signed chunks, or <see langword="null"/>.</param>
+    /// <returns>The error, or <see langword="null"/>.</returns>
+    internal static S3Error? RefusalBeforeTheObjectBody(HttpRequest request, IHttpChunkSignatureChain? chunkSignatures) =>
+        HeadFieldRefusal(request.Fields) ?? S3ObjectBodyReader.RefusalBeforeTheBody(request, chunkSignatures);
+
+    private static S3Error? HeadFieldRefusal(IReadOnlyList<KeyValuePair<string, string>> fields)
     {
-        if (S3RequestFields.Value(request.Fields, "Content-MD5") is { } contentMd5 && ExpectedMd5(contentMd5) is null)
+        if (S3RequestFields.Value(fields, "Content-MD5") is { } contentMd5 && ExpectedMd5(contentMd5) is null)
         {
             return S3Error.InvalidDigest;
         }
 
-        return HasTooMuchUserMetadata(request.Fields)
-            ? S3Error.MetadataTooLarge
-            : BodyFramingRefusal(request);
+        return HasTooMuchUserMetadata(fields) ? S3Error.MetadataTooLarge : null;
     }
 
     /// <summary>
@@ -136,26 +151,9 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
     internal static bool HasTooMuchUserMetadata(IReadOnlyList<KeyValuePair<string, string>> fields) =>
         UserMetadataBytes(UserMetadata(fields)) > MaxUserMetadataBytes;
 
-    // A body must be readable and announced by Content-Length; a chunked one is aws-chunked
-    // (BL-711) when it names its decoded length, and unreadable as an object when it does not.
-    private static S3Error? BodyFramingRefusal(HttpRequest request)
-    {
-        var body = request.Body;
-        if (!body.IsReadable)
-        {
-            return S3Error.InvalidRequest;
-        }
-
-        if (body.IsAnnounced && body.AnnouncedLength is null)
-        {
-            return S3RequestFields.Value(request.Fields, "x-amz-decoded-content-length") is null ? S3Error.InvalidRequest : S3Error.NotImplemented;
-        }
-
-        return body.IsAnnounced || S3RequestFields.Value(request.Fields, "Content-Length") is not null ? null : S3Error.MissingContentLength;
-    }
-
-    internal bool IsAnnouncedPastTheLimit(IHttpRequestBody body) =>
-        store.ExposureOptions.MaxUploadBytes > 0 && body.AnnouncedLength > store.ExposureOptions.MaxUploadBytes;
+    // The object's announced length (an aws-chunked body's decoded length) past --max-filesize.
+    internal bool IsAnnouncedPastTheLimit(HttpRequest request) =>
+        store.ExposureOptions.MaxUploadBytes > 0 && S3ObjectBodyReader.AnnouncedObjectLength(request) > store.ExposureOptions.MaxUploadBytes;
 
     // Each folder the key names, created when missing; a file in the way is a conflict.
     internal S3Error? CreateFolders(S3RequestTarget target, ContentCaller caller)
@@ -180,7 +178,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         _ => store.CreateDirectory(folder) == ContentChangeResult.Done ? null : S3Error.AccessDenied,
     };
 
-    private async Task<HttpAnswer> StoreAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
+    private async Task<HttpAnswer> StoreAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, S3LoginResult loginResult, CancellationToken cancellationToken)
     {
         if (target.RawKey.EndsWith('/'))
         {
@@ -197,26 +195,22 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
 
         await using (session)
         {
-            return await WriteAsync(reply, request, target, mapping, session, bodyCheck, cancellationToken);
+            return await WriteAsync(reply, request, target, mapping, session, loginResult, cancellationToken);
         }
     }
 
     // The body goes into the upload session, which is committed only once the body is the one
-    // signed and matches any Content-MD5; refused, the session is disposed uncommitted and the
-    // old object stands.
-    private async Task<HttpAnswer> WriteAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, ContentUploadSession session, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
+    // signed and matches any Content-MD5 and additional checksum; refused, the session is
+    // disposed uncommitted and the old object stands.
+    private async Task<HttpAnswer> WriteAsync(S3Reply reply, HttpRequest request, S3RequestTarget target, ContentPathMapping mapping, ContentUploadSession session, S3LoginResult loginResult, CancellationToken cancellationToken)
     {
-        using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-        using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        var sink = new S3UploadStream(session, md5, sha256);
-        var outcome = request.Body.IsAnnounced ? await request.Body.CopyToAsync(sink, cancellationToken) : HttpRequestBodyDiscardOutcome.Discarded;
-        if (BodyRefusal(outcome, sink.IsTooLarge) is { } bodyRefusal)
+        var received = await S3ObjectBodyReader.ReadAsync(request, session, loginResult.ChunkSignatures, cancellationToken);
+        if (received.Refusal is { } bodyRefusal)
         {
             return reply.Error(bodyRefusal);
         }
 
-        var digest = md5.GetHashAndReset();
-        if (await ContentRefusalAsync(request, bodyCheck, sha256.GetHashAndReset(), digest, cancellationToken) is { } contentRefusal)
+        if (await BodyContentRefusalAsync(request, loginResult.BodyCheck, received, cancellationToken) is { } contentRefusal)
         {
             return reply.Error(contentRefusal);
         }
@@ -226,9 +220,9 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
             return reply.Error(commitRefusal);
         }
 
-        return await StoreMetadataAsync(request.Fields, target, mapping, ETagOf(digest), cancellationToken) is { } metadataRefusal
+        return await StoreMetadataAsync(request.Fields, target, mapping, ETagOf(received.Md5), cancellationToken) is { } metadataRefusal
             ? reply.Error(metadataRefusal)
-            : Stored(reply, digest);
+            : Stored(reply, ETagOf(received.Md5), received.Checksum);
     }
 
     // The body against what the request said of it: the signed x-amz-content-sha256 first
@@ -244,6 +238,20 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
             ? S3Error.BadDigest
             : null;
     }
+
+    /// <summary>
+    /// A PutObject's or UploadPart's body against what the request said of it: the signed
+    /// <c>x-amz-content-sha256</c> first, then <c>Content-MD5</c>, then the additional checksum
+    /// (<c>400 BadDigest</c> naming its algorithm).
+    /// </summary>
+    /// <param name="request">The request.</param>
+    /// <param name="bodyCheck">The rest of a signature that binds the body, or <see langword="null"/>.</param>
+    /// <param name="received">What the body came to.</param>
+    /// <param name="cancellationToken">Cancels the check.</param>
+    /// <returns><see langword="null"/> when the body is the one described, else the error.</returns>
+    internal async Task<S3Error?> BodyContentRefusalAsync(HttpRequest request, IHttpRequestBodyCheck? bodyCheck, S3ReceivedBody received, CancellationToken cancellationToken) =>
+        await ContentRefusalAsync(request, bodyCheck, received.Sha256, received.Md5, cancellationToken)
+        ?? (received.Checksum is { IsMatch: false } checksum ? S3Error.ChecksumMismatch(checksum.Algorithm.Name) : null);
 
     /// <summary>
     /// Keeps the object's header fields, <c>x-amz-meta-*</c> and <paramref name="eTag"/> in the
@@ -277,19 +285,6 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         return refusal;
     }
 
-    /// <summary>
-    /// The body against what the request said of it: the signed <c>x-amz-content-sha256</c>
-    /// first (<c>XAmzContentSHA256Mismatch</c>), then <c>Content-MD5</c> (<c>BadDigest</c>).
-    /// </summary>
-    /// <param name="request">The request.</param>
-    /// <param name="bodyCheck">The rest of a signature that binds the body, or <see langword="null"/>.</param>
-    /// <param name="bodySha256">The body's SHA-256.</param>
-    /// <param name="bodyMd5">The body's MD5.</param>
-    /// <param name="cancellationToken">Cancels the check.</param>
-    /// <returns><see langword="null"/> when the body is the one described, else the error.</returns>
-    internal Task<S3Error?> BodyContentRefusalAsync(HttpRequest request, IHttpRequestBodyCheck? bodyCheck, byte[] bodySha256, byte[] bodyMd5, CancellationToken cancellationToken) =>
-        ContentRefusalAsync(request, bodyCheck, bodySha256, bodyMd5, cancellationToken);
-
     // A zero-byte PUT of a key ending in '/': the folder, already created, is recorded as an object
     // in the index so ListObjectsV2 lists it as the key x/ (ADR-0108, decision 6). A folder in a
     // share has no index key, so it stands as a folder only.
@@ -299,7 +294,7 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
         var indexKey = S3IndexKey.OfFolderObject(store, Uri.UnescapeDataString(target.RawBucket), Uri.UnescapeDataString(target.RawKey));
         if (indexKey is null)
         {
-            return Stored(reply, digest);
+            return Stored(reply, ETagOf(digest));
         }
 
         var stored = await index.StoreFolderObjectAsync(indexKey, MetadataOf(fields, ETagOf(digest)), cancellationToken);
@@ -308,24 +303,46 @@ internal sealed class S3PutObject(ContentStore store, ObjectMetadataIndex index,
             log.Note($"The object metadata index could not be written: {failure}");
         }
 
-        return MetadataRefusal(stored.Outcome) is { } refusal ? reply.Error(refusal) : Stored(reply, digest);
+        return MetadataRefusal(stored.Outcome) is { } refusal ? reply.Error(refusal) : Stored(reply, ETagOf(digest));
     }
 
-    private static HttpAnswer Stored(S3Reply reply, byte[] digest) =>
-        reply.Answer(HttpStatus.Ok, [new("ETag", ETagOf(digest)), new("Content-Length", "0")], HttpAnswerBody.None);
+    /// <summary>
+    /// The <c>200</c> a stored object or part is answered with: its <c>ETag</c>, then the
+    /// additional checksum echoed when one was checked.
+    /// </summary>
+    /// <param name="reply">The request's answers.</param>
+    /// <param name="eTag">The quoted ETag.</param>
+    /// <param name="checksum">The checksum checked, or <see langword="null"/>.</param>
+    /// <returns>The answer.</returns>
+    internal static HttpAnswer Stored(S3Reply reply, string eTag, S3ReceivedChecksum? checksum = null) =>
+        reply.Answer(
+            HttpStatus.Ok,
+            [new("ETag", eTag), .. checksum is null ? [] : new[] { checksum.Field }, new("Content-Length", "0")],
+            HttpAnswerBody.None);
 
     internal static string ETagOf(byte[] digest) => $"\"{Convert.ToHexStringLower(digest)}\"";
 
     private static ObjectMetadata MetadataOf(IReadOnlyList<KeyValuePair<string, string>> fields, string eTag) => new()
     {
         ContentType = S3RequestFields.Value(fields, "Content-Type"),
-        ContentEncoding = S3RequestFields.Value(fields, "Content-Encoding"),
+        ContentEncoding = StoredContentEncoding(S3RequestFields.Value(fields, "Content-Encoding")),
         ContentDisposition = S3RequestFields.Value(fields, "Content-Disposition"),
         CacheControl = S3RequestFields.Value(fields, "Cache-Control"),
         ContentLanguage = S3RequestFields.Value(fields, "Content-Language"),
         UserMetadata = UserMetadata(fields),
         ETag = eTag,
     };
+
+    // The object's Content-Encoding without aws-chunked, which framed the upload and is not the
+    // object's coding ("Transferring Payload in Multiple Chunks"); none left is none stored.
+    internal static string? StoredContentEncoding(string? sent)
+    {
+        var codings = sent?.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Where(coding => !coding.Equals("aws-chunked", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        return codings is { Length: > 0 } ? string.Join(", ", codings) : null;
+    }
 
     // Each x-amz-meta-* field by its name, lower-cased and without the prefix; a repeated name keeps its last value.
     private static Dictionary<string, string> UserMetadata(IReadOnlyList<KeyValuePair<string, string>> fields)

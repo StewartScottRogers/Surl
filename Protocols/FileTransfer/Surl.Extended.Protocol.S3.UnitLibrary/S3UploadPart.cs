@@ -43,7 +43,7 @@ internal sealed class S3UploadPart(ContentStore store, S3PutObject putObject, S3
     {
         var parameters = S3QueryParameters.Parse(target.Query!);
         var sentPartNumber = S3QueryParameters.Value(parameters, "partNumber")!;
-        if (RefusalBeforeTheBody(request, sentPartNumber, out var partNumber) is { } refusal)
+        if (RefusalBeforeTheBody(request, sentPartNumber, loginResult.ChunkSignatures, out var partNumber) is { } refusal)
         {
             return refusal == S3Error.InvalidArgument
                 ? reply.Error(refusal, [new("ArgumentName", "partNumber"), new("ArgumentValue", sentPartNumber)])
@@ -55,7 +55,7 @@ internal sealed class S3UploadPart(ContentStore store, S3PutObject putObject, S3
         try
         {
             return uploads.Find(uploadId, target) is { } upload
-                ? await WriteAsync(reply, request, upload, partNumber, loginResult.BodyCheck, cancellationToken)
+                ? await WriteAsync(reply, request, upload, partNumber, loginResult, cancellationToken)
                 : reply.Error(S3Error.NoSuchUpload, new KeyValuePair<string, string>("UploadId", uploadId));
         }
         finally
@@ -65,7 +65,7 @@ internal sealed class S3UploadPart(ContentStore store, S3PutObject putObject, S3
     }
 
     // Uploads, the part number, then PutObject's head checks and the announced length.
-    private S3Error? RefusalBeforeTheBody(HttpRequest request, string sentPartNumber, out int partNumber)
+    private S3Error? RefusalBeforeTheBody(HttpRequest request, string sentPartNumber, IHttpChunkSignatureChain? chunkSignatures, out int partNumber)
     {
         if (!store.ExposureOptions.AllowUploads)
         {
@@ -79,7 +79,7 @@ internal sealed class S3UploadPart(ContentStore store, S3PutObject putObject, S3
             return S3Error.InvalidArgument;
         }
 
-        return S3PutObject.RefusalBeforeTheBody(request) ?? (putObject.IsAnnouncedPastTheLimit(request.Body) ? S3Error.EntityTooLarge : null);
+        return S3PutObject.RefusalBeforeTheObjectBody(request, chunkSignatures) ?? (putObject.IsAnnouncedPastTheLimit(request) ? S3Error.EntityTooLarge : null);
     }
 
     // The part number when it is a decimal 1 to 10000, else 0.
@@ -87,17 +87,14 @@ internal sealed class S3UploadPart(ContentStore store, S3PutObject putObject, S3
         int.TryParse(sent, NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number <= MaxPartNumber ? number : 0;
 
     // The body goes after the bytes already staged; past the upload limit the upload is lost.
-    private async Task<HttpAnswer> WriteAsync(S3Reply reply, HttpRequest request, S3MultipartUpload upload, int partNumber, IHttpRequestBodyCheck? bodyCheck, CancellationToken cancellationToken)
+    private async Task<HttpAnswer> WriteAsync(S3Reply reply, HttpRequest request, S3MultipartUpload upload, int partNumber, S3LoginResult loginResult, CancellationToken cancellationToken)
     {
         var session = upload.Session;
         var offset = session.Length;
-        using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-        using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        var sink = new S3UploadStream(session, md5, sha256);
-        var outcome = request.Body.IsAnnounced ? await request.Body.CopyToAsync(sink, cancellationToken) : HttpRequestBodyDiscardOutcome.Discarded;
-        if (S3PutObject.BodyRefusal(outcome, sink.IsTooLarge) is { } bodyRefusal)
+        var received = await S3ObjectBodyReader.ReadAsync(request, session, loginResult.ChunkSignatures, cancellationToken);
+        if (received.Refusal is { } bodyRefusal)
         {
-            if (sink.IsTooLarge)
+            if (received.IsTooLarge)
             {
                 await uploads.RemoveAsync(upload);
             }
@@ -105,15 +102,14 @@ internal sealed class S3UploadPart(ContentStore store, S3PutObject putObject, S3
             return reply.Error(bodyRefusal);
         }
 
-        var digest = md5.GetHashAndReset();
-        if (await putObject.BodyContentRefusalAsync(request, bodyCheck, sha256.GetHashAndReset(), digest, cancellationToken) is { } contentRefusal)
+        if (await putObject.BodyContentRefusalAsync(request, loginResult.BodyCheck, received, cancellationToken) is { } contentRefusal)
         {
             return reply.Error(contentRefusal);
         }
 
-        var part = new S3UploadedPart(offset, session.Length - offset, digest);
+        var part = new S3UploadedPart(offset, session.Length - offset, received.Md5);
         upload.Record(partNumber, part, uploads.TimeProvider.GetUtcNow());
 
-        return reply.Answer(HttpStatus.Ok, [new("ETag", part.ETag), new("Content-Length", "0")], HttpAnswerBody.None);
+        return S3PutObject.Stored(reply, part.ETag, received.Checksum);
     }
 }

@@ -13,6 +13,12 @@ namespace Surl.Extended.Protocol.S3;
 internal sealed record S3LoginResult(ContentCaller? Caller, IHttpRequestBodyCheck? BodyCheck, S3Error? Refusal)
 {
     /// <summary>
+    /// The chain each <c>aws-chunked</c> chunk's signature is checked against, for a
+    /// <c>STREAMING-AWS4-HMAC-SHA256-PAYLOAD</c> body; <see langword="null"/> otherwise.
+    /// </summary>
+    public IHttpChunkSignatureChain? ChunkSignatures { get; init; }
+
+    /// <summary>
     /// A request served as <paramref name="accountName"/>, or anonymously when it is <see langword="null"/>.
     /// </summary>
     /// <param name="accountName">The account the signature logged in.</param>

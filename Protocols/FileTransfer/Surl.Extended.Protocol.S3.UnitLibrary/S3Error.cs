@@ -195,4 +195,44 @@ internal sealed record S3Error(string Code, HttpStatus Status, string Message)
     /// <c>x-amz-content-sha256</c> (ADR-0108, decision 4.3).
     /// </summary>
     public static S3Error ContentSha256Mismatch { get; } = new("XAmzContentSHA256Mismatch", HttpStatus.BadRequest, "The provided 'x-amz-content-sha256' header does not match what was computed.");
+
+    /// <summary>
+    /// <c>403 AccessDenied</c>: a presigned URL past <c>X-Amz-Date</c> plus <c>X-Amz-Expires</c>
+    /// (ADR-0108, decisions 4.3 and 4.5).
+    /// </summary>
+    public static S3Error RequestExpired { get; } = new("AccessDenied", new HttpStatus(403, "Forbidden"), "Request has expired");
+
+    /// <summary>
+    /// <c>400 InvalidArgument</c>: a presigned URL whose <c>X-Amz-Expires</c> is not 1 to 604800
+    /// seconds (ADR-0108, decision 4.5).
+    /// </summary>
+    public static S3Error ExpiresOutOfRange { get; } = new("InvalidArgument", HttpStatus.BadRequest, "X-Amz-Expires must be a number of seconds from 1 to 604800");
+
+    /// <summary>
+    /// <c>400 InvalidArgument</c>: a presigned URL with an <c>Authorization</c> field too
+    /// (ADR-0108, decision 4.5).
+    /// </summary>
+    public static S3Error ConflictingAuthentication { get; } = new("InvalidArgument", HttpStatus.BadRequest, "Only one auth mechanism allowed; only the X-Amz-Algorithm query parameter, Signature query string parameter or the Authorization header should be specified");
+
+    /// <summary>
+    /// <c>400 InvalidRequest</c>: an <c>x-amz-checksum-*</c> value that is not the base64 of
+    /// its algorithm's digest, or an <c>x-amz-trailer</c> naming no checksum the request can
+    /// carry, or a trailer that does not carry it (ADR-0108, decision 4.5).
+    /// </summary>
+    public static S3Error InvalidChecksum { get; } = new("InvalidRequest", HttpStatus.BadRequest, "Value for x-amz-checksum header is invalid.");
+
+    /// <summary>
+    /// <c>400 InvalidRequest</c>: more than one <c>x-amz-checksum-*</c> algorithm named
+    /// (ADR-0108, decision 4.5).
+    /// </summary>
+    public static S3Error MultipleChecksums { get; } = new("InvalidRequest", HttpStatus.BadRequest, "Expecting a single x-amz-checksum- header. Multiple checksum Types are not allowed.");
+
+    /// <summary>
+    /// <c>400 BadDigest</c>: a body whose checksum is not the <c>x-amz-checksum-*</c> sent
+    /// ("Checking object integrity"; ADR-0108, decision 4.5).
+    /// </summary>
+    /// <param name="algorithmName">The algorithm's name as the message spells it, such as <c>CRC32</c>.</param>
+    /// <returns>The error.</returns>
+    public static S3Error ChecksumMismatch(string algorithmName) =>
+        new("BadDigest", HttpStatus.BadRequest, $"The {algorithmName} you specified did not match the calculated checksum.");
 }

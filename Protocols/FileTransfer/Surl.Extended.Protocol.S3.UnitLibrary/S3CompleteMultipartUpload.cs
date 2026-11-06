@@ -95,7 +95,8 @@ internal sealed class S3CompleteMultipartUpload(ContentStore store, S3PutObject 
         }
 
         var body = sink.ToArray();
-        var contentRefusal = await putObject.BodyContentRefusalAsync(request, loginResult.BodyCheck, SHA256.HashData(body), MD5.HashData(body), cancellationToken);
+        var contentRefusal = await putObject.BodyContentRefusalAsync(
+            request, loginResult.BodyCheck, new S3ReceivedBody(null, false, MD5.HashData(body), SHA256.HashData(body), null), cancellationToken);
 
         return (contentRefusal ?? (sink.IsTooLarge ? S3Error.MalformedXml : null), body);
     }

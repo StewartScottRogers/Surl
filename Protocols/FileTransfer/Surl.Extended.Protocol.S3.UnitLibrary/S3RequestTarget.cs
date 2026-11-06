@@ -50,7 +50,7 @@ internal sealed record S3RequestTarget(string Path, string? Query, string RawBuc
     {
         var queryStart = target.IndexOf('?');
         var path = queryStart < 0 ? target : target[..queryStart];
-        var query = queryStart < 0 ? null : target[(queryStart + 1)..];
+        var query = queryStart < 0 ? null : WithoutPresignedParameters(target[(queryStart + 1)..]);
         if (!path.StartsWith('/'))
         {
             return new S3RequestTarget(path, query, string.Empty, string.Empty);
@@ -67,4 +67,28 @@ internal sealed record S3RequestTarget(string Path, string? Query, string RawBuc
             ? new S3RequestTarget(path, query, path[1..], string.Empty)
             : new S3RequestTarget(path, query, path[1..bucketEnd], path[(bucketEnd + 1)..]);
     }
+
+    // A presigned URL's signature parameters ("Authenticating Requests: Using Query Parameters";
+    // ADR-0108 decision 4.5) sign the request and name no operation, so the operation is read
+    // from the rest; a query of nothing else is no query.
+    private static string? WithoutPresignedParameters(string query)
+    {
+        var kept = query.Split('&').Where(parameter => !IsPresignedParameter(parameter)).ToArray();
+
+        return kept.Length == 0 ? null : string.Join('&', kept);
+    }
+
+    private static bool IsPresignedParameter(string parameter) =>
+        PresignedParameterNames.Contains(Uri.UnescapeDataString(parameter.Split('=', 2)[0]));
+
+    private static readonly HashSet<string> PresignedParameterNames = new(StringComparer.Ordinal)
+    {
+        "X-Amz-Algorithm",
+        "X-Amz-Credential",
+        "X-Amz-Date",
+        "X-Amz-Expires",
+        "X-Amz-SignedHeaders",
+        "X-Amz-Signature",
+        "X-Amz-Security-Token",
+    };
 }

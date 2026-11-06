@@ -14,8 +14,8 @@ What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hoste
   the store's `ContentExposureOptions` (off: `403 AccessDenied`, nothing read); checks
   `Content-MD5` (`400 InvalidDigest` malformed, `400 BadDigest` mismatched, old object kept),
   `x-amz-meta-*` at most 2 KiB (`400 MetadataTooLarge`), `Content-Length` (`411
-  MissingContentLength`; chunked `400 InvalidRequest`, `aws-chunked` `501` until BL-711), the
-  announced length against `--max-filesize` (`400 EntityTooLarge`, body left unread);
+  MissingContentLength`; chunked but not `aws-chunked` `400 InvalidRequest`), the
+  announced length (an `aws-chunked` body's decoded length) against `--max-filesize` (`400 EntityTooLarge`, body left unread);
   creates the key's folders (a file in the way, or a folder at the key, is
   `409 InvalidArgument`; a key the store cannot hold `400 InvalidArgument` with `ArgumentName`
   `key`); streams the body through `S3UploadStream` into a content-store upload session
@@ -92,6 +92,29 @@ What it serves now (BL-418, BL-419, BL-712, BL-713), path style or virtual-hoste
   and asks the body check before `Content-MD5` and before committing; any other operation reads and
   discards a signed body first. Each checked login's note goes to the log.
 
+- Presigned URLs, `aws-chunked` bodies and checksums (BL-711, ADR-0108 decision 4.5):
+  - A presigned URL is checked by `Surl.Authentication` (the session reads its `X-Amz-*` query); its
+    refusals map to `403 AccessDenied` `Request has expired` (`SignatureExpired`), `400 InvalidArgument`
+    (`ExpiryOutOfRange`; `ConflictingCredentials`, a query signature and an `Authorization` together).
+    `S3RequestTarget` sets the seven `X-Amz-*` signature parameters aside, so a presigned GetObject is
+    still a request with no query.
+  - `S3ObjectBodyReader` reads PutObject's and UploadPart's body: `x-amz-content-sha256`
+    `STREAMING-AWS4-HMAC-SHA256-PAYLOAD` or `STREAMING-UNSIGNED-PAYLOAD-TRAILER` is `aws-chunked`
+    (`S3PayloadForm`), decoded by `S3AwsChunkedDecoder` (under `Content-Length` or HTTP chunked framing),
+    each signed chunk checked against the login's `IHttpChunkSignatureChain` (`S3LoginResult.ChunkSignatures`;
+    a bad one `403 SignatureDoesNotMatch`, signed chunks with no chain the same before the body), malformed
+    framing or data not the `x-amz-decoded-content-length` `400 IncompleteBody`, no decoded length `411
+    MissingContentLength`, any other `STREAMING-` value `501 NotImplemented`. `aws-chunked` is left out of the
+    stored `Content-Encoding`. CompleteMultipartUpload's body is a document: `aws-chunked` there is `501`.
+  - `S3ChecksumRequest` reads one `x-amz-checksum-crc32`, `-crc32c`, `-sha1` or `-sha256` field, or the one
+    `x-amz-trailer` names on the trailer form (`S3ChecksumAlgorithm`): `crc64nvme` `501 NotImplemented`, two
+    `400 InvalidRequest` (`MultipleChecksums`), a value that is not the digest's base64 or a trailer that
+    cannot carry it `400 InvalidRequest` (`InvalidChecksum`). `S3Checksum` runs the body through it (CRC-32
+    hand-written in `S3Crc32`, CRC-32C by `BitOperations.Crc32C`, SHA by `IncrementalHash`); after the signed
+    hash and `Content-MD5`, a mismatch is `400 BadDigest` naming the algorithm, and a stored object or part
+    echoes the field (`S3ReceivedChecksum.Field`) after its `ETag`. CompleteMultipartUpload's checksum fields
+    describe the whole object and are not checked.
+
 Every other request is `501 NotImplemented`. Object properties (`S3ObjectPropertiesReader`) come from `ObjectMetadataIndex` under the
 key `S3IndexKey` gives - the path under the served root, a `--bucket` name replaced by its
 content path - and are computed here (MD5, default content type) for a file in a share, which the
@@ -129,4 +152,6 @@ constructs a transport type. Tests replay request bytes written from the API Ref
 `UnitTestS3AuthenticationPolicy` (by default an unsigned request logs in as
 `AKIAIOSFODNN7EXAMPLE`, so the operation tests need not sign); the signature arithmetic itself is
 tested in `Surl.Authentication.UnitTests` (`AwsSigV4ServiceSignatureTests`) against the API
-Reference's worked GET-object example.
+Reference's worked GET-object example, and (`AwsSigV4PresignedAndChunkedTests`) its presigned and
+chunked-upload examples. Here the chunked example's chunk signatures are checked by the hand-written
+`UnitTestChunkSignatureChain`, which accepts each only over the data hash the example signed.
