@@ -65,8 +65,13 @@ internal sealed class UnitTestInMemoryContentFileSystem : IContentFileSystem
     public Stream OpenFileForAsyncRead(string path)
     {
         ThrowIfFailing(path, nameof(OpenFileForAsyncRead));
-        return new MemoryStream(fileContents[path], writable: false);
+        var stream = new MemoryStream(fileContents[path], writable: false);
+        OpenedFiles.Add(stream);
+        return stream;
     }
+
+    /// <summary>Every stream <see cref="OpenFileForAsyncRead"/> returned, in order, so a test can see how far each was read.</summary>
+    public List<MemoryStream> OpenedFiles { get; } = [];
 
     private void ThrowIfFailing(string path, string member)
     {

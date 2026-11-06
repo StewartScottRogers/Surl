@@ -71,7 +71,8 @@ Public, what a server uses:
   asked for, unknown frames skipped and trailers dropped, with `HasContentLengthMismatch` and
   `HasRequestBodyEndedEarly` once it ends), `WriteHeadersAsync`, `WriteDataAsync` (one `DATA`
   frame; empty with `endStream` sends the `FIN` alone), `CreateResponseBodyStream` (each write one
-  `DATA` frame), `ResetAsync` (`RESET_STREAM` and `STOP_SENDING`, a stream error) and
+  `DATA` frame; like every write it waits while more than `QuicApplicationConnection.MaxUnsentLength`
+  would wait unsent for the client's credit, BL-710), `ResetAsync` (`RESET_STREAM` and `STOP_SENDING`, a stream error) and
   `ResetResponseAsync` (`RESET_STREAM` alone, for an answer that cannot be finished).
 - `Http3ErrorCode`, `Http3RequestHead` (with `Protocol` and `Scheme`, the `:scheme` as sent, null
   for a plain `CONNECT`), `Http3RequestHeadMapping`.

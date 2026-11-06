@@ -112,7 +112,11 @@ and the closing and draining states (BL-608); the flow loop holding a flow open 
   the application work at once, so every call goes through one lock. It accepts the client's
   streams (`AcceptStreamAsync`), reads waiting for bytes (`ReadAsync`), receives `DATAGRAM` data
   (`ReceiveDatagramAsync`), and writes, resets, stops sending, sends `DATAGRAM` frames, opens
-  unidirectional streams and closes, each sent at once. The application returning
+  unidirectional streams and closes, each sent at once. `WriteAsync` never lets a stream's
+  `UnsentLength` pass `MaxUnsentLength` (64 KiB; BL-710, ADR-0082 amendment 3): it queues what fits
+  and waits for the client's `MAX_STREAM_DATA`, `MAX_DATA` or acknowledgements before queuing more,
+  so an answer of any size holds at most that plus the client's outstanding credit; a reset stream
+  throws `InvalidOperationException`, an ended connection `OperationCanceledException`. The application returning
   closes the connection with application error code 0; the connection ending (either side's
   close, idle, the server's token) cancels `Ended`, the application's token, after which reads
   return what is left then 0, datagram receives what is left then null, accepts null, and other

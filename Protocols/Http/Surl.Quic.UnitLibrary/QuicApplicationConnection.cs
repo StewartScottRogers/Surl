@@ -43,6 +43,13 @@ public sealed class QuicApplicationConnection
     /// </summary>
     public const int ReceivedDatagramCapacity = 128;
 
+    /// <summary>
+    /// How many bytes <see cref="WriteAsync"/> lets wait unsent on one stream at most, 64 KiB: past
+    /// it a write waits for the client's credit, so an answer of any size holds a bounded amount in
+    /// memory (ADR-0082 amendment 3).
+    /// </summary>
+    public const int MaxUnsentLength = 65536;
+
     /// <summary>The ALPN protocol the handshake agreed, or null when the options named none.</summary>
     public string? ApplicationProtocol => connection.ApplicationProtocol;
 
@@ -134,16 +141,35 @@ public sealed class QuicApplicationConnection
         }
     }
 
-    /// <summary>Queues <paramref name="data"/> on <paramref name="stream"/>, with <paramref name="fin"/> ending it, and sends what the client's credit allows.</summary>
+    /// <summary>
+    /// Queues <paramref name="data"/> on <paramref name="stream"/>, with <paramref name="fin"/> ending
+    /// it, and sends what the client's credit allows, never letting the stream's
+    /// <see cref="QuicStream.UnsentLength"/> pass <see cref="MaxUnsentLength"/>: it queues what fits,
+    /// then waits for the client's <c>MAX_STREAM_DATA</c>, <c>MAX_DATA</c> or acknowledgements to let
+    /// some go before it queues more.
+    /// </summary>
     /// <param name="stream">A stream of this connection with a sending part.</param>
     /// <param name="data">The bytes.</param>
     /// <param name="fin">Whether the stream ends after them.</param>
-    /// <param name="cancellationToken">Cuts the send off.</param>
-    /// <returns>A task that completes once what can be sent is sent; the rest goes as credit arrives.</returns>
-    public ValueTask WriteAsync(QuicStream stream, ReadOnlyMemory<byte> data, bool fin, CancellationToken cancellationToken)
+    /// <param name="cancellationToken">Cuts the send, or the wait for credit, off.</param>
+    /// <returns>A task that completes once the last of the bytes is queued and what can be sent is sent; at most <see cref="MaxUnsentLength"/> waits for credit then.</returns>
+    /// <exception cref="OperationCanceledException">The connection has ended, before or while the write waited.</exception>
+    /// <exception cref="InvalidOperationException">The stream has no sending part, or it has ended or been reset, before or while the write waited.</exception>
+    public async ValueTask WriteAsync(QuicStream stream, ReadOnlyMemory<byte> data, bool fin, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        return ActAsync(() => stream.Write(data.Span, fin), cancellationToken);
+        var rest = data;
+        while (true)
+        {
+            var (queued, roomChanged) = await QueueWhatFitsAsync(stream, rest, fin, cancellationToken);
+            if (roomChanged is null)
+            {
+                return;
+            }
+
+            rest = rest[queued..];
+            await roomChanged.WaitAsync(cancellationToken);
+        }
     }
 
     /// <summary>Abandons <paramref name="stream"/>'s sending part with <c>RESET_STREAM</c>.</summary>
@@ -282,6 +308,34 @@ public sealed class QuicApplicationConnection
             }
 
             await SendAsync(act(), cancellationToken);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Under the lock: queues as much of <paramref name="rest"/> as keeps the stream's unsent bytes
+    /// within <see cref="MaxUnsentLength"/>, the <c>FIN</c> only with the last of it, and sends what
+    /// the client's credit allows.
+    /// </summary>
+    /// <returns>How many bytes were queued, and null once all were, else the signal the next change completes.</returns>
+    private async Task<(int Queued, Task? RoomChanged)> QueueWhatFitsAsync(QuicStream stream, ReadOnlyMemory<byte> rest, bool fin, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (IsOver)
+            {
+                throw new OperationCanceledException("The QUIC connection has ended.", Ended);
+            }
+
+            var queued = Math.Min(Math.Max(MaxUnsentLength - stream.UnsentLength, 0), rest.Length);
+            var isLast = queued == rest.Length;
+            stream.Write(rest.Span[..queued], fin && isLast);
+            await SendAsync(connection.Transmit(), cancellationToken);
+            return (queued, isLast ? null : changed.Task);
         }
         finally
         {
