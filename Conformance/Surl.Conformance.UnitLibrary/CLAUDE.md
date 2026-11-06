@@ -28,7 +28,11 @@ through `PinnedLibcurlDriver`.
 `UpstreamCurlRunner` refuses a library. `PinnedLibcurlChoice.Choose` decides which file a
 driver may load before anything is loaded; `LibcurlRtspScript`, `LibcurlRtspReport` and
 `LibcurlBytes` are the RTSP driver's command line, its output lines and the byte escapes,
-kept here so they are unit tested while the driver itself only calls libcurl.
+and `LibcurlWebSocketScript` (with its `LibcurlWebSocketStep`s), `LibcurlWebSocketFlags` and
+`LibcurlWebSocketReport` the WebSocket driver's command line, `CURLWS_*` flag names and output
+lines, kept here so they are unit tested while the drivers themselves only call libcurl, and so
+the Curl port's twin drivers take the same arguments and print the same lines (ADR-0089
+decision 1 (c)).
 `UpstreamCurlRunner` takes the locator's `UpstreamCurlLocation` - never a path - so the
 only curl it starts is a verified pin; it passes arguments through
 `ProcessStartInfo.ArgumentList`, writes the given standard input bytes (none by default)
