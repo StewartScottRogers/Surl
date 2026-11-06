@@ -1,5 +1,5 @@
 ---
-id: BL-892
+id: BL-901
 title: Apply command-stage delay and drop fault rules in the protocol servers
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-892 — Apply command-stage delay and drop fault rules in the protocol servers
+# BL-901 — Apply command-stage delay and drop fault rules in the protocol servers
 
 ## Goal
 

@@ -53,7 +53,7 @@ is a detail the ADR leaves open rather than a new decision (BL-792 did the same)
   maildrop commands after the maildrop is open, so a fault never skips a login check; SMTP asks before dispatch
   (its `MAIL` login check can only be replaced by another refusal, never bypassed).
 - The point: `ExchangeId`, `ListenUrl` (the engine's reported form - `ServingEngine.FormatListenUrl` is internal
-  to `Surl.Core`, so each mail library has a small `ReportedListenUrl` copy; BL-892 moves it to Abstractions),
+  to `Surl.Core`, so each mail library has a small `ReportedListenUrl` copy; BL-901 moves it to Abstractions),
   `Scheme`, `Account`, `Path`, `Command`.
   - Account: SMTP the `AUTH` step's `AccountName` (cleared by `STARTTLS`); IMAP the `LOGIN` user once accepted,
     or the `AUTHENTICATE` step's `AccountName`; POP3 the owner name its maildrop was opened for. Null before a
@@ -63,7 +63,7 @@ is a detail the ADR leaves open rather than a new decision (BL-792 did the same)
   - Command: the verb in capitals; IMAP `UID FETCH` and friends are asked as their own verb (`FETCH`), so one
     `command=FETCH` rule covers both forms (curl's `;UID=` URLs send `UID FETCH`).
 - Only `FaultKind.Error` is applied by the servers; any other kind a plan returns at the command stage is
-  ignored (command-stage delay and drop are BL-892). An error rule with no `reply` (only possible from a
+  ignored (command-stage delay and drop are BL-901). An error rule with no `reply` (only possible from a
   hand-built plan; the reader and `Surl.Api` require one) answers `451 4.3.0 Local error in processing`,
   `NO [UNAVAILABLE] Local error in processing`, `-ERR Local error in processing`.
 - The reply is sent as the rule gives it (the reader checks its shape): SMTP the whole line, IMAP tagged
@@ -87,7 +87,7 @@ library's `Fixtures/fault-*` (READMEs updated):
 
 Tests: `SmtpFaultTests`, `ImapFaultTests`, `Pop3FaultTests`, `ReportedListenUrlTests` in each project. Smtp 266,
 Imap 752, Pop3 225 tests; the three libraries at 100% line and 100% branch (Cobertura from the MSTest
-collector). Follow-up filed: BL-892 (command-stage delay and drop, and one shared `ReportedListenUrl`).
+collector). Follow-up filed: BL-901 (command-stage delay and drop, and one shared `ReportedListenUrl`).
 
 ## Log
 
