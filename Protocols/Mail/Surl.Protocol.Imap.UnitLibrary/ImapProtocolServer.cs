@@ -105,6 +105,12 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
     public IReadOnlyList<string> Schemes { get; } = Array.AsReadOnly(["imap"]);
 
     /// <summary>
+    /// The upstream test case whose reply every session plays (<see cref="ImapUpstreamTestCaseServer"/>),
+    /// or <see langword="null"/> for none, as the shipped <c>surl</c> has.
+    /// </summary>
+    internal MailUpstreamTestCaseReplies? UpstreamTestCaseReplies { get; init; }
+
+    /// <summary>
     /// Sends the greeting, then answers every command on <paramref name="connection"/> until the
     /// client logs out or closes it, or a limit is passed.
     /// </summary>
@@ -117,7 +123,7 @@ public sealed class ImapProtocolServer : IConnectionProtocolServer, IConnectionR
         ArgumentNullException.ThrowIfNull(context);
 
         using var reader = new CrlfLineReader(connection, context.Limits, context.TimeProvider);
-        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable).RunAsync();
+        await new ImapSession(connection, context, reader, authenticationPolicy, mailAuthenticationPolicy, mailStore, isTlsUpgradeAvailable, UpstreamTestCaseReplies).RunAsync();
     }
 
     /// <summary>

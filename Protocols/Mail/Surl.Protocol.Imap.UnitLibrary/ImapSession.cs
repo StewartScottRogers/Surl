@@ -35,6 +35,7 @@ internal sealed partial class ImapSession
     private readonly bool isTlsUpgradeAvailable;
     private readonly Dictionary<string, (ImapCommandState State, Func<ImapArguments, ValueTask<bool>> Answer)> commands;
     private readonly Dictionary<string, Func<ImapArguments, ValueTask<bool>>> uidCommands;
+    private readonly MailUpstreamTestCaseReplies? caseReplies;
     private MailView? view;
     private PasswordLoginVerdict? anonymousVerdict;
     private ImapSelectedMailbox? selected;
@@ -47,8 +48,10 @@ internal sealed partial class ImapSession
         IAuthenticationPolicy authenticationPolicy,
         IMailAuthenticationPolicy mailAuthenticationPolicy,
         MailboxStore mailStore,
-        bool isTlsUpgradeAvailable)
+        bool isTlsUpgradeAvailable,
+        MailUpstreamTestCaseReplies? caseReplies = null)
     {
+        this.caseReplies = caseReplies;
         this.connection = connection;
         this.context = context;
         commandReader = new ImapCommandReader(lineReader, connection, context.Limits, context.TimeProvider);
@@ -100,6 +103,10 @@ internal sealed partial class ImapSession
             ["MOVE"] = arguments => AnswerCopyAsync(arguments, isUid: true, isMove: true),
             ["EXPUNGE"] = arguments => AnswerExpungeAsync(arguments, isUid: true),
         };
+        if (caseReplies is not null)
+        {
+            AnswerAsTheUpstreamTestCaseSays(caseReplies);
+        }
     }
 
     private CancellationToken CancellationToken => context.CancellationToken;
@@ -122,7 +129,7 @@ internal sealed partial class ImapSession
     {
         try
         {
-            await WriteLineAsync($"* OK [CAPABILITY {Capabilities}] {ImapResponses.Greeting}", CancellationToken);
+            await GreetAsync();
             while (await AnswerNextCommandAsync())
             {
             }
@@ -136,6 +143,16 @@ internal sealed partial class ImapSession
     private async ValueTask<bool> AnswerNextCommandAsync()
     {
         var read = await commandReader.ReadCommandAsync(CancellationToken);
+        if (caseReplies is not null && read.Command is { } text && await AnswerFromTheUpstreamTestCaseAsync(caseReplies, text, read.MessageLength))
+        {
+            return true;
+        }
+
+        if (caseReplies is not null && read.Outcome == ImapCommandReadOutcome.AppendMessage)
+        {
+            return await AnswerUpstreamTestCaseAppendAsync(caseReplies, read);
+        }
+
         if (read.Outcome == ImapCommandReadOutcome.CommandRead)
         {
             return await AnswerCommandAsync(read.Command!);
