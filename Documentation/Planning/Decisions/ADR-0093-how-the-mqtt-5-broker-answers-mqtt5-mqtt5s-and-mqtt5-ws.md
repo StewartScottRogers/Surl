@@ -22,6 +22,11 @@
   `[MQTT-3.10.3-2]`), not a Malformed Packet; and a Maximum QoS or Retain Handling of 3 is a
   Protocol Error, `0x82` (3.8.3.1), the reserved option bits alone staying `0x81`
   (`[MQTT-3.8.3-5]`). Decision 6's table now lists each.
+- **Amended:** decision 2's "Authorization" bullet and decision 4's "Never `0x87`" by
+  [ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
+  decision 3.4 (2026-11-05): with `--topic-access` given, a refused publish or subscribe is
+  `0x87`. Decision 10 (2026-11-06, BL-714) records the choices BL-497 made building PUBLISH and
+  delivery where decision 4 left a gap.
 - **Amends:** [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md)
   decision 4's table: Mqtt5 reaches `ISaslAuthenticationPolicy` too, for enhanced authentication
   (decision 2). [ADR-0006](ADR-0006-hardening-for-internet-facing-use.md) section 5's "MQTT closes
@@ -210,6 +215,11 @@ allows, and publishing the Will. The clock is `ExchangeContext.TimeProvider`.
 - **Authorization** (5.4.2): every authenticated client may publish and subscribe to every topic;
   `0x87` Not authorized and `0x8A` are therefore never sent for a topic. Per-topic access is not
   part of the accounts file (ADR-0032), so there is nothing to check it against.
+  **Superseded** by [ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
+  decision 3.4: with no `--topic-access` the above still holds; with at least one, every publish
+  and subscribe needs a grant, and a refusal is SUBACK `0x87`, PUBACK or PUBREC `0x87` at QoS 1 or
+  2, and a dropped, noted PUBLISH at QoS 0 (decision 10, choices 1 and 2). `0x8A` is still never
+  sent for a topic.
 
 ### 3. Session state (MQTT 5.0 3.1.2.4, 3.1.2.5, 3.1.2.11.2, 4.1)
 
@@ -259,7 +269,8 @@ allows, and publishing the Will. The clock is `ExchangeContext.TimeProvider`.
   subscribers when no subscription matched (3.4.2.1 lets the server say so; the message is still
   retained if RETAIN was set); `0x97` Quota exceeded (decision 0's retained bound); `0x99` Payload
   format invalid (below); `0x91` Packet Identifier in use for a QoS 2 PUBLISH reusing the identifier
-  of a QoS 1 message still in flight. Never `0x87` (decision 2, "Authorization") and never `0x90`
+  of a QoS 1 message still in flight. Never `0x87` (decision 2, "Authorization"; superseded by
+  ADR-0102 decision 3.4, which answers a publish `--topic-access` refuses `0x87`, decision 10) and never `0x90`
   Topic Name invalid: a topic name that breaks 4.7 is a Malformed Packet (decision 6). The short form (no reason code, no
   properties, 3.4.2.1) is used for `0x00` with no properties.
 - **Receive Maximum both ways** (4.9): inbound, a QoS 1 or 2 PUBLISH arriving while 100 (decision
@@ -445,6 +456,64 @@ default**, gives it ADR-0014's fetch:
 - **Why opt-in.** The flag makes the broker useless as a broker for every other client on that
   listener, so it is chosen, not assumed; the Curl port's integration test (BL-502) passes it,
   exactly as an operator who wants `curl`-style reads would.
+
+### 10. What BL-497 settled in PUBLISH and delivery (amendment, 2026-11-06, BL-714)
+
+Decided by Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-11-05, in BL-497,
+while building decision 4 (as ADR-0100 decision 3.9 amends it) into
+`Surl.Extended.Protocol.Mqtt5.UnitLibrary`; recorded here by BL-714, because BL-509 held this folder
+while BL-497 ran. Each choice fills a gap decision 4 left; `mqtt5` is an extended scheme
+(ADR-0083), so every byte is written from MQTT 5.0, with no upstream curl measurement.
+
+1. **The caller on the bus.** Decided by Claude under Stewart's delegation. A login an account
+   matched publishes and subscribes as that account; a login accepted unchecked
+   (`--allow-anonymous`) as an anonymous caller (`null`). **Why:** ADR-0102 decision 3.5 makes the
+   caller an account name, and an unchecked login proved no account, so granting it one would let
+   `--allow-anonymous` borrow another account's `--topic-access` grants.
+2. **Topic access refusal is `0x87`.** Decided by Claude under Stewart's delegation. Decision 2's
+   "never `0x87` for a topic" is superseded by ADR-0102 decision 3.4: a refused publish is PUBACK
+   or PUBREC `0x87`, a refused subscribe SUBACK `0x87`, and a refused QoS 0 PUBLISH, which has no
+   acknowledgement, is dropped and noted with `IExchangeLog.Note`. **Why:** MQTT 5.0 3.4.2.1,
+   3.5.2.1 and 3.9.3 give `0x87` exactly this meaning, and ADR-0102 decision 3.4's table pins it.
+3. **Bus outcomes as reason codes.** Decided by Claude under Stewart's delegation. `StoreFull` and
+   `TooManyTopics` are `0x97` Quota exceeded; `MessageTooLarge` is DISCONNECT `0x95` Packet too
+   large; `0x10` No matching subscribers when no subscription and no queue took the message.
+   **Why:** a bus bound is a quota in 3.4.2.1's words; `0x95` is not a PUBACK or PUBREC reason
+   code, so the size refusal can only be said by DISCONNECT (4.13); and a message a queue took has
+   a consumer waiting, so `0x10` is said only when nothing took it.
+4. **An unmappable Will Topic is CONNACK `0x81`.** Decided by Claude under Stewart's delegation. A
+   Will Topic the bus cannot map - an empty one - is CONNACK `0x81` Malformed Packet. **Why:** a
+   Will Topic is a Topic Name, which must be at least one character (`[MQTT-4.7.3-1]`), so the
+   CONNECT is malformed, and accepting it would leave a Will that can never be published.
+5. **The Message Expiry Interval left is rounded up.** Decided by Claude under Stewart's
+   delegation. The interval sent on delivery is the time left rounded up to whole seconds.
+   **Why:** the property is whole seconds (3.3.2.3.3); rounding down would cut a message's life
+   short and turn its last part-second into an interval of 0, so up keeps it alive at least as
+   long as its publisher asked.
+6. **At most 1000 deliveries wait for one client.** Decided by Claude under Stewart's delegation.
+   Past it, a message is dropped for that client only. **Why:** ADR-0006 bounds every queue a peer
+   can grow, and 1000 is the bound decision 3 already gives a session's queued messages; dropping
+   for one slow client keeps every other subscriber's delivery going.
+7. **A delivery over the client's Maximum Packet Size is dropped and noted.** Decided by Claude
+   under Stewart's delegation. **Why:** `[MQTT-3.1.2-25]` requires the server to discard it and act
+   as if it were delivered (decision 8, "Outbound size"); the note makes the discard visible to a
+   test.
+8. **A delivery the client cannot name is dropped.** Decided by Claude under Stewart's delegation.
+   When `TopicNameLookup` says `Unreachable` for the canonical topic under the client's naming
+   (`--topic-map`), the delivery is dropped for that client. **Why:** a PUBLISH must carry a Topic
+   Name the client's naming has, and sending the canonical name instead would hand the client a
+   topic it never subscribed to under that name.
+9. **A Will publish is not followed by `SaveChangesAsync`.** Decided by Claude under Stewart's
+   delegation. The next save after any change writes it. **Why:** a Will is published from a timer
+   (the Will Delay Interval, 3.1.3.2.2), which cannot await a save; the bus's next save covers
+   every change made before it, so nothing is lost but the timing of the write.
+10. **SUBSCRIBE in its plain form came with BL-497.** Decided by Claude under Stewart's delegation.
+    BL-497 answered SUBSCRIBE in its plain form - each filter a bus subscription at its Maximum QoS,
+    `$share/<group>/` a bus group, SUBACK `0x8F`, `0x87` or `0x97`, retained messages after
+    SUBACK - and BL-498 completed decision 5 (No Local, Retain As Published, Retain Handling,
+    Subscription Identifiers, replacing a filter, UNSUBSCRIBE). **Why:** BL-498 depends on BL-497,
+    yet outbound QoS flows, retained delivery and delivery from the bus cannot be tested without a
+    subscriber.
 
 ## Alternatives considered
 

@@ -8,7 +8,7 @@ depends-on: [BL-497, BL-509]
 touches: [Documentation/Planning/Decisions/ADR-0093-how-the-mqtt-5-broker-answers-mqtt5-mqtt5s-and-mqtt5-ws.md]
 requirement: none
 created: 2026-11-05
-completed:
+completed: 2026-11-06
 ---
 # BL-714 — Record BL-497's MQTT 5 PUBLISH and delivery choices in ADR-0093
 
@@ -39,14 +39,21 @@ marked "Decided by Claude under Stewart's delegation", so the ADR is true of `Su
 
 ## Acceptance criteria
 
-- [ ] ADR-0093 has an amendment section listing the ten choices above, each with its reason and the marker
+- [x] ADR-0093 has an amendment section listing the ten choices above, each with its reason and the marker
       "Decided by Claude under Stewart's delegation".
-- [ ] ADR-0093's decision 2 "Authorization" bullet and decision 4's "Never `0x87`" sentence say that ADR-0102
+- [x] ADR-0093's decision 2 "Authorization" bullet and decision 4's "Never `0x87`" sentence say that ADR-0102
       decision 3.4 supersedes them.
 
 ## Notes
+
+- Done directly rather than through `align-and-document`: one ADR file and ten listed choices. Recorded as
+  ADR-0093 decision 10, an amendment section inside the Decision part (as ADR-0102 decision 3.5 does for BL-664),
+  with a header **Amended:** line and supersession notes in decision 2's "Authorization" bullet and decision 4's
+  "Never `0x87`". The reasons come from BL-497's Notes and the Mqtt5 library's `CLAUDE.md`.
+- No `.cs` or project file changed, so the `verify` skill was not needed; a build and the fast tests ran anyway.
 
 ## Log
 
 - 2026-11-05: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. ADR-0093 decision 10 records BL-497's ten PUBLISH and delivery choices; decisions 2 and 4 say ADR-0102 3.4 supersedes their never-0x87
