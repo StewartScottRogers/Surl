@@ -43,3 +43,4 @@ CI run, and a `workflow_dispatch` dry run of `.github/workflows/release.yml` sho
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-06: Backlog -> Doing.
