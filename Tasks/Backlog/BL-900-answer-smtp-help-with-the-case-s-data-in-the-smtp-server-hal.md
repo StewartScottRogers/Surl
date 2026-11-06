@@ -1,5 +1,5 @@
 ---
-id: BL-895
+id: BL-900
 title: Answer SMTP HELP with the case's data in the SMTP server half
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-895 — Answer SMTP HELP with the case's data in the SMTP server half
+# BL-900 — Answer SMTP HELP with the case's data in the SMTP server half
 
 ## Goal
 

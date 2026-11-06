@@ -1,5 +1,5 @@
 ---
-id: BL-894
+id: BL-899
 title: Refuse an SMTP recipient without an at sign and a MAIL FROM whose SIZE exceeds CAPA SIZE in the SMTP server half
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-894 — Refuse an SMTP recipient without an at sign and a MAIL FROM whose SIZE exceeds CAPA SIZE in the SMTP server half
+# BL-899 — Refuse an SMTP recipient without an at sign and a MAIL FROM whose SIZE exceeds CAPA SIZE in the SMTP server half
 
 ## Goal
 

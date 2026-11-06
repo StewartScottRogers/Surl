@@ -45,7 +45,7 @@ not known yet; BL-393 fixed the upload, and BL-688 fills both rows from the next
 Windows: the run of BL-879's changes on top of commit `53a7920c`, the first with the `imap`,
 `pop3` and `smtp` server halves composed (plaintext, on `127.0.0.1` and `[::1]`). The mail family -
 every case naming `imap`, `pop3` or `smtp`, 216 at the tag - ran 160: 146 pass, 14 fail (BL-879's
-Notes group them; BL-894 to BL-897 and the exclusions file take them), and 56 skip. `imaps`,
+Notes group them; BL-899 to BL-897 and the exclusions file take them), and 56 skip. `imaps`,
 `pop3s` and `smtps` (one case each) still skip `server-half-not-composed`. Every other family is as
 BL-397 left it.
 

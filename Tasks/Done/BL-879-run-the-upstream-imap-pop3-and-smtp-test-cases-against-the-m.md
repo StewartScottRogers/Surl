@@ -89,8 +89,8 @@ out to do.
   BL-395, still skip that way.
 - **Failures grouped and filed:**
   - SMTP half accepts what upstream's server refuses (RCPT without `@`, MAIL SIZE over CAPA SIZE):
-    913, 916, 918, 3006, 3007 -> **BL-894**.
-  - SMTP `HELP` should send `<data>`: 928 -> **BL-895**.
+    913, 916, 918, 3006, 3007 -> **BL-899**.
+  - SMTP `HELP` should send `<data>`: 928 -> **BL-900**.
   - SMTP upload empty after `REPLY`'d MAIL and RCPT: 3215 -> **BL-896**.
   - IMAP custom `FETCH` should echo the requested number: 841, 3206, 1847 -> **BL-897**.
   - servercmd for a second named server: 779, 795 (skips) -> **BL-898**.
