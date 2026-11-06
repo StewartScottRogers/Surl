@@ -65,7 +65,7 @@ matching request, which fault (delay, drop, refuse login, chosen protocol error,
   `AddOverride_AnsweringEveryFaultAtEveryPoint_NeverLogsInAWrongPasswordNorServesADotSurlPath`),
   `ResponseOverrideHookTests`, `EventCallbackHookTests`, `FaultPlanTests.Overrides.cs`. Coverage measured with
   `Measure-CodeQuality.ps1 -SkipTestRun`: Surl.Api and Surl.Core.UnitLibrary at 100% line and branch, worst CRAP 10.
-- Decisions (Claude, under Stewart's delegation, inside ADR-0124 decision 5; BL-955 records them in the ADR, which
+- Decisions (Claude, under Stewart's delegation, inside ADR-0124 decision 5; BL-969 records them in the ADR, which
   BL-707 held during this run):
   - An override's answer applies to the point it was asked at: its scope and `Times` are dropped, and an `error`
     takes the point's scheme, so the reply is checked against that protocol's error shape by `surl`'s reader.

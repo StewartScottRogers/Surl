@@ -1,5 +1,5 @@
 ---
-id: BL-955
+id: BL-969
 title: Record BL-811's hook decisions in ADR-0124 decision 5
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-06
 completed:
 ---
-# BL-955 — Record BL-811's hook decisions in ADR-0124 decision 5
+# BL-969 — Record BL-811's hook decisions in ADR-0124 decision 5
 
 ## Goal
 
