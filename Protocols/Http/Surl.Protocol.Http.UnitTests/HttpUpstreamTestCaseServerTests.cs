@@ -244,6 +244,97 @@ public sealed class HttpUpstreamTestCaseServerTests
         Assert.IsTrue(log.Notes.Any(note => note.StartsWith("No request head was read", StringComparison.Ordinal)));
     }
 
+    // The headers pinned upstream curl 8.21.0 (Git for Windows build) sent for upstream cases
+    // 1455 (--haproxy-protocol), 3201 and 3220 (--haproxy-clientip), measured by BL-681.
+    [TestMethod]
+    [DataRow("PROXY TCP4 127.0.0.1 127.0.0.1 53211 47681\r\n")]
+    [DataRow("PROXY TCP4 192.168.1.1 192.168.1.1 53212 47681\r\n")]
+    [DataRow("PROXY TCP6 2a04:4e42::347 2a04:4e42::347 53213 47681\r\n")]
+    public async Task ProxyHeaderBeforeTheRequest_IsRecordedAsTheFirstLineAndTheRequestAnswered(string proxyHeader)
+    {
+        const string request = "GET /1455 HTTP/1.1\r\nHost: 127.0.0.1:47681\r\nUser-Agent: curl/8.21.0\r\nAccept: */*\r\nTestno: 1455\r\n\r\n";
+        var replies = Replies(("data", Data));
+
+        var (connection, log) = await ServeAsync(replies, [Ascii(proxyHeader + request)]);
+
+        Assert.AreEqual(Data, Latin1(connection.WrittenBytes));
+        Assert.AreEqual(proxyHeader + request, Latin1(replies.ReceivedBytes));
+        Assert.IsTrue(log.Notes.Contains($"Read a PROXY protocol header of {proxyHeader.Length} bytes."));
+    }
+
+    [TestMethod]
+    public async Task ProxyHeaderSplitAcrossReads_IsReadPastAndTheRequestAnswered()
+    {
+        const string bytes = "PROXY TCP4 127.0.0.1 127.0.0.1 1 2\r\nGET /1 HTTP/1.1\r\nHost: h\r\n\r\n";
+        var replies = Replies(("data", Data));
+
+        var (connection, _) = await ServeAsync(replies, [Ascii("PRO"), Ascii("XY TCP4 127.0.0.1"), Ascii(bytes[20..])]);
+
+        Assert.AreEqual(Data, Latin1(connection.WrittenBytes));
+        Assert.AreEqual(bytes, Latin1(replies.ReceivedBytes));
+    }
+
+    [TestMethod]
+    public async Task ProxyHeaderOfExactly107Bytes_IsReadPast()
+    {
+        var proxyHeader = "PROXY UNKNOWN " + new string('x', HttpUpstreamTestCaseProxyHeader.MaxHeaderBytes - 16) + "\r\n";
+        var replies = Replies(("data", Data));
+
+        var (connection, _) = await ServeAsync(replies, [Ascii(proxyHeader), Ascii("GET /1 HTTP/1.1\r\nHost: h\r\n\r\n")]);
+
+        Assert.AreEqual(107, proxyHeader.Length);
+        Assert.AreEqual(Data, Latin1(connection.WrittenBytes));
+    }
+
+    [TestMethod]
+    public async Task ProxyHeaderOf108Bytes_IsNotTakenAsARequestAndClosesWithNoBytes()
+    {
+        var proxyHeader = "PROXY UNKNOWN " + new string('x', HttpUpstreamTestCaseProxyHeader.MaxHeaderBytes - 15) + "\r\n";
+        var replies = Replies(("data", Data));
+
+        var (connection, log) = await ServeAsync(replies, [Ascii(proxyHeader + "GET /1 HTTP/1.1\r\nHost: h\r\n\r\n")]);
+
+        Assert.AreEqual(108, proxyHeader.Length);
+        Assert.IsEmpty(connection.WrittenBytes);
+        Assert.IsTrue(log.Notes.Any(note => note.StartsWith("A PROXY protocol header had no CRLF within 107 bytes", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    [DataRow("PROXY TCP4 127.0.0.1 127.0.0.1 1 2")]
+    [DataRow("PROXY TCP4 127.0.0.1 127.0.0.1 1 2\nGET /1 HTTP/1.1\r\nHost: h\r\n\r\n")]
+    public async Task MalformedProxyHeader_IsNotTakenAsARequestAndClosesWithNoBytes(string bytes)
+    {
+        var replies = Replies(("data", Data));
+
+        var (connection, log) = await ServeAsync(replies, [Ascii(bytes)]);
+
+        Assert.IsEmpty(connection.WrittenBytes);
+        Assert.IsTrue(log.Notes.Any(note => note.StartsWith("A PROXY protocol header had no CRLF within 107 bytes", StringComparison.Ordinal)));
+    }
+
+    [TestMethod]
+    public async Task RequestWhoseFirstBytesCouldStartAProxyHeader_IsAnsweredWithEveryByteRead()
+    {
+        const string request = "POST /1 HTTP/1.1\r\nHost: h\r\nContent-Length: 0\r\n\r\n";
+        var replies = Replies(("data", Data));
+
+        var (connection, _) = await ServeAsync(replies, [Ascii("P"), Ascii("O"), Ascii(request[2..])]);
+
+        Assert.AreEqual(Data, Latin1(connection.WrittenBytes));
+        Assert.AreEqual(request, Latin1(replies.ReceivedBytes));
+    }
+
+    [TestMethod]
+    public async Task ClientThatSendsPartOfTheSignatureAndCloses_GetsNoBytes()
+    {
+        var replies = Replies(("data", Data));
+
+        var (connection, log) = await ServeAsync(replies, [Ascii("PROX")]);
+
+        Assert.IsEmpty(connection.WrittenBytes);
+        Assert.IsTrue(log.Notes.Any(note => note.StartsWith("No request head was read", StringComparison.Ordinal)));
+    }
+
     [TestMethod]
     public void Schemes_IsHttp()
     {

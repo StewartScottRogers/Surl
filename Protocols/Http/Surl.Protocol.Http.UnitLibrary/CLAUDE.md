@@ -95,7 +95,10 @@ upstream curl's recorded Initials (`Fixtures/h3-client-initial`).
 The upstream test cases' server half (ADR-0080 decision 2; BL-391) is a test seam the shipped
 `surl` never composes: `Surl.Conformance.UnitTests` composes `HttpUpstreamTestCaseServer` with one
 case's `HttpUpstreamTestCaseReplies` (its reply parts by name as bytes and its `<servercmd>`
-lines). The server reads each head with `Surl.HttpMessage`'s reader and its body as framed
+lines). Before the first request, `HttpUpstreamTestCaseProxyHeader` reads past a PROXY protocol
+version 1 header (`--haproxy-protocol`, `--haproxy-clientip`; BL-681), recorded as the first
+received line; one with no CRLF within 107 bytes closes the connection with no bytes. The shipped
+`HttpProtocolServer` does not read PROXY headers. The server reads each head with `Surl.HttpMessage`'s reader and its body as framed
 (`HttpUpstreamTestCaseRequestBody`; no `100 Continue` is ever written), then sends the part
 `HttpUpstreamTestCasePartNumber` picks verbatim: FILEFORMAT.md's `NUM` from the run of digits
 right after the last `/` of the whole request target, query included, up to the first non-digit

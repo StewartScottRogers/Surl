@@ -19,6 +19,13 @@ namespace Surl.Protocol.Http;
 /// <c>skip:</c> are described where they act (<see cref="HttpUpstreamTestCaseReplies"/>).
 /// </para>
 /// <para>
+/// A PROXY protocol version 1 header before the first request (<c>--haproxy-protocol</c>,
+/// <c>--haproxy-clientip</c>) is read past and recorded as the first received line
+/// (<see cref="HttpUpstreamTestCaseProxyHeader"/>); one with no CRLF within 107 bytes ends the
+/// connection with no bytes. Until the first line is known not to be one, the wait for it is
+/// bounded by the exchange's cancellation rather than the head timeout.
+/// </para>
+/// <para>
 /// A request whose head cannot be read ends the connection with no bytes, and so does one
 /// whose reply part the case does not have; the exchange log names which. Over TLS the server
 /// is the same: the serving engine secures the connection before it is handed over.
@@ -52,7 +59,12 @@ public sealed class HttpUpstreamTestCaseServer(HttpUpstreamTestCaseReplies repli
         ArgumentNullException.ThrowIfNull(context);
 
         var recording = new ReceivedBytesRecordingConnection(connection, replies);
-        var reader = new HttpConnectionReader(recording, context.Limits.MaxRequestHeadBytes);
+        if (await HttpUpstreamTestCaseProxyHeader.ReadPastAsync(recording, context) is not { } requestConnection)
+        {
+            return;
+        }
+
+        var reader = new HttpConnectionReader(requestConnection, context.Limits.MaxRequestHeadBytes);
         var isFirstHead = true;
         var keepsConnectionOpen = true;
         while (keepsConnectionOpen)
