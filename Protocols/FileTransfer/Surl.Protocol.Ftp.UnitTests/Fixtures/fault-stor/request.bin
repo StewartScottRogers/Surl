@@ -1,0 +1,8 @@
+USER anonymous
+PASS ftp@example.com
+PWD
+CWD up
+EPSV
+TYPE I
+STOR a.txt
+QUIT

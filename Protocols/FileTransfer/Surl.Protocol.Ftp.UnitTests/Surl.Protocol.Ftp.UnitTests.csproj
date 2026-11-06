@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Surl.Protocol.Ftp.UnitLibrary\Surl.Protocol.Ftp.UnitLibrary.csproj" />
+    <!-- FtpFaultTests match rules with the engine's own FaultPlan (segment-prefix paths), as a served instance does. -->
+    <ProjectReference Include="..\..\..\Foundation\Surl.Core.UnitLibrary\Surl.Core.UnitLibrary.csproj" />
   </ItemGroup>
 
   <!--

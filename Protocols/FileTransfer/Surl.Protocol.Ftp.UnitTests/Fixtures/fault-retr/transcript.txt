@@ -1,0 +1,17 @@
+< 220 surl FTP server ready
+> USER anonymous
+< 331 Password required
+> PASS ftp@example.com
+< 230 Logged in
+> PWD
+< 257 "/" is the current directory
+> EPSV
+< 229 Entering Extended Passive Mode (|||52156|)
+> TYPE I
+< 200 Type set to I
+> SIZE a.txt
+< 213 12
+> RETR a.txt
+< 451 Requested action aborted: fault injected
+> QUIT
+< 221 Goodbye

@@ -137,3 +137,18 @@ each was `.\Record-CurlExchange.ps1 -Port <port> -Ftp -FtpData 'hello world\n' -
 | `ftp-ssl-control` | `--ftp-ssl-control`, `ftp://127.0.0.1:18822/a.txt` | `'PROT=200 Protection level set to C'` | as `ssl-reqd` with `PROT C`; the data connection in plaintext |
 | `ftp-ssl-ccc` | `--ssl-reqd`, `--ftp-ssl-ccc`, `ftp://127.0.0.1:18823/a.txt` | `'PROT=200 Protection level set to P','CCC=534 Request denied for policy reasons'` | as `ssl-reqd` with `CCC` (534) after `PROT P`; curl carried on over TLS |
 | `ftps` | `ftps://127.0.0.1:18824/a.txt`, with `-Tls` | `'PROT=200 Protection level set to P'` | TLS from the first byte, no `AUTH`; `USER`, `PASS`, `PBSZ 0`, `PROT P`, then as `ssl-reqd` |
+
+## Chosen-error faults (BL-794)
+
+Recorded on 2026-11-05 the same way, with `-FtpData 'hello world\n'`, `$base` as under "Uploads and
+file management" and the chosen error `451 Requested action aborted: fault injected` fed for the
+command a fault rule answers (ADR-0124, decision 4), with no data connection opened for it.
+`up.txt` held `uploaded body\n`. `FtpFaultTests` replays each `request.bin` with an
+`error;scheme=ftp;command=<verb>;path=<path>` rule in Surl.Core's `FaultPlan`, and asserts the replies
+equal the `< ` lines, that no data connection was accepted, that the store is unchanged and that one
+`FaultAppliedEvent` was published. The recorder's empty `upload.bin` was left out.
+
+| Folder | Port | curl arguments | Added replies | What curl did | Exit |
+| --- | --- | --- | --- | --- | --- |
+| `fault-stor` | 18831 | `-T up.txt ftp://127.0.0.1:18831/up/a.txt` | `'CWD=250 Directory changed','STOR=451 Requested action aborted: fault injected'` | `PWD`, `CWD up`, `EPSV`, `TYPE I`, `STOR a.txt` (451), `QUIT`; `curl: (25) Failed FTP upload: 451` | 25 |
+| `fault-retr` | 18832 | `ftp://127.0.0.1:18832/a.txt` | `'SIZE=213 12','RETR=451 Requested action aborted: fault injected'` | `PWD`, `EPSV`, `TYPE I`, `SIZE a.txt`, `RETR a.txt` (451), `QUIT`; `curl: (19) RETR response: 451` | 19 |
