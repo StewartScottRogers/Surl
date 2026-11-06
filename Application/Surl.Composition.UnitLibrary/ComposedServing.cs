@@ -179,7 +179,8 @@ public sealed class ComposedServing : IAsyncDisposable
     // decision 6): the status line names the port both transports share.
     private void WriteHttp3Note(ListenUrl datagramListenUrl, TextWriter log)
     {
-        if (commandLine.LogLevel >= LogLevel.Verbose)
+        // A dns listen URL binds UDP and TCP on one port too (ADR-0092), and is no HTTP/3.
+        if (commandLine.LogLevel >= LogLevel.Verbose && datagramListenUrl.Scheme == "https")
         {
             log.WriteLine($"* Serving HTTP/3 over QUIC on UDP port {datagramListenUrl.BoundPort ?? datagramListenUrl.Port}");
         }

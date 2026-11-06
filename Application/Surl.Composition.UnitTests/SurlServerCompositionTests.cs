@@ -38,7 +38,7 @@ public sealed partial class SurlServerCompositionTests
         var schemes = SurlServerComposition.ComposeExtendedSchemes(areExtensionsTurnedOn: true, null, TimeProvider.System);
 
         CollectionAssert.AreEqual(
-            ExtendedProtocolServers.Compose(Services()).SelectMany(server => server.Schemes).ToArray(),
+            ExtendedProtocolServers.Compose(Services()).SelectMany(server => server.Schemes).Distinct().ToArray(),
             schemes.ToArray());
     }
 

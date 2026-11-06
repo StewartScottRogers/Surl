@@ -1,3 +1,4 @@
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.Extended.Protocol.Nats;
 using Surl.Extended.Protocol.S3;
 using Surl.Protocol.Abstractions;
@@ -35,10 +36,16 @@ public static class ExtendedProtocolServers
     /// <summary>
     /// Gets every extended protocol server's entry this build has, in ordinal order of its first
     /// scheme, on the same <see cref="ProtocolServerRegistration"/> as the originals (ADR-0124,
-    /// decision 2): today the NATS server for <c>nats</c> and <c>natss</c> (BL-528) and the S3 server
+    /// decision 2): today the DNS server for <c>dns</c> over UDP and TCP (BL-1032), the NATS server for
+    /// <c>nats</c> and <c>natss</c> (BL-528) and the S3 server
     /// for <c>s3</c> (BL-421).
     /// </summary>
     /// <remarks>
+    /// The DNS server is two entries for <c>dns</c>, a <see cref="DnsUdpProtocolServer"/> and a
+    /// <see cref="DnsTcpProtocolServer"/>, so the serving engine binds UDP and TCP on the one port of
+    /// each <c>dns</c> listen URL (ADR-0092 decisions 3 and 4); both answer from the one
+    /// <see cref="ComposedProtocolServices.DnsZones"/> and answer AXFR and IXFR only with
+    /// <c>--allow-zone-transfer</c>.
     /// The NATS server answers <c>nats</c> and <c>natss</c> over the one message bus the MQTT server
     /// shares (ADR-0100 decision 3.2), judging logins by the policy over the accounts allowed on
     /// <c>nats</c>, with <c>--idle-timeout</c> and <c>--allow-anonymous</c> (ADR-0113 decisions 2 and 5).
@@ -50,6 +57,8 @@ public static class ExtendedProtocolServers
     /// </remarks>
     public static IReadOnlyList<ProtocolServerRegistration> Registrations { get; } =
     [
+        new(["dns"], services => new DnsUdpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
+        new(["dns"], services => new DnsTcpProtocolServer(services.DnsZones, services.AllowsZoneTransfer)),
         new(["nats", NatsServer.TlsScheme], services => new NatsServer(
             services.AuthenticationPolicyFor("nats"),
             services.MessageBus,

@@ -3,6 +3,7 @@ using Surl.Authentication;
 using Surl.Cli;
 using Surl.Content;
 using Surl.Core;
+using Surl.Extended.Protocol.DnsQuery;
 using Surl.MailStore;
 using Surl.MessageBus;
 using Surl.Protocol.Abstractions;
@@ -37,7 +38,7 @@ public static partial class SurlServerComposition
             .SelectMany(server => server.Schemes)];
 
     /// <summary>
-    /// Lists the scheme of every extended protocol server surl registers, in registration order;
+    /// Lists the scheme of every extended protocol server surl registers, each once (<c>dns</c> has a UDP and a TCP server), in registration order;
     /// none while <c>SURL_EXTENSIONS=0</c>: what <c>--version</c>'s <c>Extended:</c> line lists
     /// and the listen-URL parser accepts besides upstream curl's schemes (ADR-0083, decisions 6
     /// and 8).
@@ -56,7 +57,8 @@ public static partial class SurlServerComposition
                 areExtensionsTurnedOn,
                 composeExtendedProtocolServers,
                 ComposeUnservedExtendedServices(timeProvider))
-            .SelectMany(server => server.Schemes)];
+            .SelectMany(server => server.Schemes)
+            .Distinct(StringComparer.Ordinal)];
 
     /// <summary>
     /// Builds what the extended servers are built from when only their schemes are wanted: the
@@ -244,7 +246,56 @@ public static partial class SurlServerComposition
 
         var (index, indexFailure) = await LoadObjectMetadataIndexAsync(
             ComposeObjectMetadataIndex(commandLine, fileSystem, events), cancellationToken);
-        return index is null ? (null, indexFailure) : (new ServiceState(messageBus, mailStore, ldapServer, index), null);
+        if (index is null)
+        {
+            return (null, indexFailure);
+        }
+
+        var (zones, zoneFailure) = await LoadDnsZonesAsync(ComposeDnsZoneFolder(commandLine, fileSystem), cancellationToken);
+        return zones is null
+            ? (null, zoneFailure)
+            : (new ServiceState(messageBus, mailStore, ldapServer, index) { DnsZones = zones }, null);
+    }
+
+    /// <summary>
+    /// Chooses the folder the DNS server's zones are read from (ADR-0092 decision 1):
+    /// <c>&lt;data directory's full path&gt;/.surl/dns</c>, read through <paramref name="fileSystem"/>,
+    /// with <c>--directory</c>; none without it, so no zone is served.
+    /// </summary>
+    /// <param name="commandLine">The parsed command line.</param>
+    /// <param name="fileSystem">The file system the content store serves.</param>
+    /// <returns>The folder, or <see langword="null"/> without a data directory.</returns>
+    public static DnsZoneFolder? ComposeDnsZoneFolder(SurlCommandLine commandLine, IContentFileSystem fileSystem)
+    {
+        ArgumentNullException.ThrowIfNull(commandLine);
+        return commandLine.DataDirectory is { } dataDirectory
+            ? new DnsZoneFolder(fileSystem, Path.Join(Path.GetFullPath(dataDirectory), ".surl", "dns"))
+            : null;
+    }
+
+    /// <summary>
+    /// Loads the DNS server's zones from <paramref name="folder"/>, or none when there is no folder;
+    /// a zone file that cannot be loaded gives ADR-0092 decision 1's <c>(37)</c> message instead.
+    /// </summary>
+    /// <param name="folder">The zones' folder, or <see langword="null"/> for none.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The zones, or the message after the <c>surl: </c> prefix when a file cannot be loaded.</returns>
+    public static async Task<(DnsZoneSet? Zones, string? FailureMessage)> LoadDnsZonesAsync(
+        DnsZoneFolder? folder, CancellationToken cancellationToken)
+    {
+        if (folder is null)
+        {
+            return (new DnsZoneSet(), null);
+        }
+
+        try
+        {
+            return (await folder.LoadAsync(new DnsZoneSet(), cancellationToken), null);
+        }
+        catch (DnsZoneLoadException failure)
+        {
+            return (null, $"(37) Could not read {failure.FilePath}: {failure.Message}");
+        }
     }
 
     /// <summary>

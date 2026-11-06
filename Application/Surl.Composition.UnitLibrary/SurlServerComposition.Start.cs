@@ -276,6 +276,7 @@ public static partial class SurlServerComposition
             Faults = instruments.Faults,
             AuthenticationPolicyForScheme = authentication.SchemePolicies.For,
             IdleTimeout = ComposeConnectionLimits(commandLine).IdleTimeout,
+            AllowsZoneTransfer = commandLine.AllowZoneTransfer,
         };
         IProtocolServer[] servers =
         [
