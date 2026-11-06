@@ -187,6 +187,19 @@ public sealed record SurlCommandLine
     public IReadOnlyList<ConfiguredFault> Faults { get; init; } = [];
 
     /// <summary>
+    /// <c>--control</c>: the listen URL of the test control endpoint, always <c>http</c> on loopback
+    /// (ADR-0124 decision 7); null, the default, serves none. The last one given wins.
+    /// </summary>
+    public ListenUrl? ControlListenUrl { get; init; }
+
+    /// <summary>
+    /// <c>--control-token-file</c>: the file whose first line is the control endpoint's bearer token,
+    /// as given; none by default. It is given exactly when <see cref="ControlListenUrl"/> is, and it is
+    /// read when surl starts serving, not while parsing (ADR-0124 decision 7).
+    /// </summary>
+    public string? ControlTokenFile { get; init; }
+
+    /// <summary>
     /// <c>--keytab</c>: the MIT keytab file of Kerberos service keys, as given; none by default.
     /// It is read when surl starts serving, not while parsing (ADR-0057 decision 1).
     /// </summary>

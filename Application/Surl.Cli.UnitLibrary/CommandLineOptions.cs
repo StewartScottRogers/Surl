@@ -74,6 +74,20 @@ internal static class CommandLineOptions
         + "A test uses it to check how its client copes with a slow, failing or full server. It is not the default because "
         + "a server that misbehaves on purpose looks broken to every other client.";
 
+    private const string ControlExplanation =
+        "Asks for the test control endpoint on an http listen URL on loopback (localhost, 127.0.0.0/8 or ::1; port 0 "
+        + "allowed), through which a test suite not written in .NET will query events, set faults and seed, reset, "
+        + "snapshot and restore stores over HTTP and JSON; this build reads and checks it but does not serve it yet. It needs --control-token-file <file>, whose first line is the bearer token "
+        + "every request must send; surl never generates or prints one. A test uses it to drive surl from outside .NET. "
+        + "It is not the default because whoever holds the token can change this server's files, mail, messages, "
+        + "accounts and faults.";
+
+    private const string ControlTokenFileExplanation =
+        "Names the file whose first line, without its line end, is the bearer token every request to the --control "
+        + "endpoint must send; it is refused without --control, and --control is refused without it. A test writes its own "
+        + "token there so only it can drive surl. It is not the default because surl never generates a token: printing "
+        + "one would print a secret.";
+
 #pragma warning disable SYSLIB0039 // --tlsv1.0 and --tlsv1.1 name the old versions on purpose (ADR-0007 section 2).
     private static readonly CommandLineOption[] Table =
     [
@@ -188,6 +202,12 @@ internal static class CommandLineOptions
         WithArgument<ConfiguredFault>("fault", null, ConfiguredFaultReader.Reading, (c, v) => c with { Faults = [.. c.Faults, v] },
             new("<kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)", ["security", "testing"], IsInShortList: false, Default: "no faults",
                 FaultExplanation)),
+        WithArgument<string>("control", null, OptionArgumentReader.ControlListenUrlText, (c, _) => c,
+            new("<listen URL>", "Serve the test control endpoint", ["security", "testing"], IsInShortList: false, Default: "off",
+                ControlExplanation)),
+        WithArgument<string>("control-token-file", null, OptionArgumentReader.Path, (c, v) => c with { ControlTokenFile = v },
+            new("<file>", "Bearer token file for --control", ["security", "testing"], IsInShortList: false, Default: "none",
+                ControlTokenFileExplanation)),
         WithArgument<CommandLineAuthorizedKeys>("authorized-keys", null, OptionArgumentReader.AuthorizedKeys,
             (c, v) => c with { AuthorizedKeys = [.. c.AuthorizedKeys, v] },
             new("<user:file>", "SSH public keys a user may use", ["auth", "ssh"], IsInShortList: false, Default: "none")),

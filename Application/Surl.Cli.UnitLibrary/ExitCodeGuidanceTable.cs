@@ -26,9 +26,10 @@ internal static class ExitCodeGuidanceTable
             "The command line cannot be used: an option or its argument refused, "
             + "no listen URL, a malformed --user-file, --authorized-keys or --keytab file, a --keytab with no key surl can use, "
             + "a --hostkey or --hostcert file surl cannot use, "
-            + "an scp or sftp listen URL with no host key, or a --cacert file that does not exist",
+            + "an scp or sftp listen URL with no host key, a --cacert file that does not exist, "
+            + "or a --control listen URL that is not http on loopback, or without --control-token-file",
             "Read the surl: line on stderr, which names what was refused, and fix it; the option tables give each option's allowed values",
-            ["auth", "limits", "ssh", "surl", "tls"]),
+            ["auth", "control", "limits", "ssh", "surl", "tls"]),
         new(
             SurlExitCode.MalformedUrl,
             "A listen URL is malformed",

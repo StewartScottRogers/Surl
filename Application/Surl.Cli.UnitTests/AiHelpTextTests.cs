@@ -9,10 +9,10 @@ public sealed partial class AiHelpTextTests
 {
     private static readonly string NewLine = Environment.NewLine;
 
-    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405) and s3 (BL-421), in ordinal order.
+    // ADR-0046 decision 3's sixteen topics, smtp (BL-207), imap (BL-208), pop3 (BL-209), websocket (BL-303), smb (BL-299), rtsp (BL-317), ldap (BL-310), extended (BL-405), s3 (BL-421) and control (BL-815), in ordinal order.
     private static readonly string[] AdrTopicNames =
     [
-        "auth", "content", "dict", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
+        "auth", "content", "control", "dict", "exit-codes", "extended", "ftp", "gopher", "http", "imap", "ldap", "limits", "listen-urls",
         "logging", "mqtt", "pop3", "rtsp", "s3", "security", "smb", "smtp", "ssh", "surl", "telnet", "testing", "tftp", "tls", "websocket",
     ];
 
@@ -25,6 +25,7 @@ public sealed partial class AiHelpTextTests
         "| --- | --- |",
         "| `auth` | Accounts and authentication methods |",
         "| `content` | Served files and the data directory |",
+        "| `control` | The loopback test control endpoint |",
         "| `dict` | DICT protocol |",
         "| `exit-codes` | Exit codes and what to do next |",
         "| `extended` | Extended protocol servers, for schemes upstream curl does not have |",
@@ -455,7 +456,8 @@ public sealed partial class AiHelpTextTests
             "| 2 | `FailedInit` | The command line cannot be used: an option or its argument refused, "
                 + "no listen URL, a malformed --user-file, --authorized-keys or --keytab file, "
                 + "a --keytab with no key surl can use, a --hostkey or --hostcert file surl cannot use, "
-                + "an scp or sftp listen URL with no host key, or a --cacert file that does not exist "
+                + "an scp or sftp listen URL with no host key, a --cacert file that does not exist, "
+                + "or a --control listen URL that is not http on loopback, or without --control-token-file "
                 + "| Read the surl: line on stderr, which names what was refused, and fix it; "
                 + "the option tables give each option's allowed values |",
             "| 3 | `MalformedUrl` | A listen URL is malformed "
@@ -580,6 +582,10 @@ public sealed partial class AiHelpTextTests
             ["surl: (1) Protocol \"<scheme>\" not supported"] = "surl: " + CommandLineParser.Parse(["nosuch://127.0.0.1/"]).Failure!.Message,
             ["surl: (37) Could not read config file <file>"] = "surl: " + CommandLineParser.Parse(["-K", "missing.cfg"]).Failure!.Message,
             ["surl: a.cfg:2: option --log-file: requires parameter"] = "surl: " + CommandLineParser.Parse(["-K", "a.cfg"], [], new FakeConfigFileSource(("a.cfg", "verbose\nlog-file\n"))).Failure!.Message,
+            ["surl: (2) --control needs http, not <scheme>"] = "surl: " + CommandLineParser.Parse(["--control", "ftp://127.0.0.1:0"]).Failure!.Message,
+            ["surl: (2) --control must listen on loopback (127.0.0.0/8, ::1 or localhost): <url>"] = "surl: " + CommandLineParser.Parse(["--control", "http://0.0.0.0:0"]).Failure!.Message,
+            ["surl: (2) --control needs --control-token-file"] = "surl: " + CommandLineParser.Parse(["--control", "http://127.0.0.1:0", "http://127.0.0.1:0/"]).Failure!.Message,
+            ["surl: (2) --control-token-file without --control"] = "surl: " + CommandLineParser.Parse(["--control-token-file", "t", "http://127.0.0.1:0/"]).Failure!.Message,
         };
 
         // Written by Surl.Console, checked against its source (BL-140's Notes); the examples that

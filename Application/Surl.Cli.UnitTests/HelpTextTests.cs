@@ -105,6 +105,29 @@ public sealed class HelpTextTests
         "        certificate, from the info log level up.",
     ];
 
+    private static readonly string[] ControlExplanationLines =
+    [
+        "        Asks for the test control endpoint on an http listen URL on loopback",
+        "        (localhost, 127.0.0.0/8 or ::1; port 0 allowed), through which a test",
+        "        suite not written in .NET will query events, set faults and seed,",
+        "        reset, snapshot and restore stores over HTTP and JSON; this build reads",
+        "        and checks it but does not serve it yet. It needs --control-token-file",
+        "        <file>, whose first line is the bearer token every request must send;",
+        "        surl never generates or prints one. A test uses it to drive surl from",
+        "        outside .NET. It is not the default because whoever holds the token can",
+        "        change this server's files, mail, messages, accounts and faults.",
+    ];
+
+    private static readonly string[] ControlTokenFileExplanationLines =
+    [
+        "        Names the file whose first line, without its line end, is the bearer",
+        "        token every request to the --control endpoint must send; it is refused",
+        "        without --control, and --control is refused without it. A test writes",
+        "        its own token there so only it can drive surl. It is not the default",
+        "        because surl never generates a token: printing one would print a",
+        "        secret.",
+    ];
+
     private static readonly string[] FaultExplanationLines =
     [
         "        Adds a fault rule that makes surl misbehave on purpose: delay",
@@ -186,6 +209,8 @@ public sealed class HelpTextTests
             Row(38, "    --cert <file>", "Server certificate file"),
             Row(38, "    --cert-type <type>", "Format of --cert: PEM, DER or P12"),
             Row(38, "-K, --config <file>", "Read options from a file (repeatable)"),
+            Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
+            Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
             Row(38, "    --directory <directory>", "Data directory, else in memory"),
             Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
@@ -277,6 +302,8 @@ public sealed class HelpTextTests
                 Row(38, "    --allow-anonymous", "Accept any login, or none (warns)"),
                 Row(38, "    --allow-plaintext-auth", "Accept passwords in clear (warns)"),
                 Row(38, "    --auth <methods>", "Authentication methods accepted"),
+                Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
+                Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
                 Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
                 Row(38, "    --self-signed", "Throwaway certificate (warns)"),
                 Row(38, "    --throwaway-hostkey", "Throwaway SSH host key (warns)"),
@@ -289,6 +316,12 @@ public sealed class HelpTextTests
                 "",
                 "    --auth <methods>",
                 .. AuthExplanationLines,
+                "",
+                "    --control <listen URL>",
+                .. ControlExplanationLines,
+                "",
+                "    --control-token-file <file>",
+                .. ControlTokenFileExplanationLines,
                 "",
                 "    --fault <kind>[;<key>=<value>]",
                 .. FaultExplanationLines,
@@ -699,6 +732,8 @@ public sealed class HelpTextTests
             Row(38, "    --allow-uploads", "Accept uploads into served files"),
             Row(38, "    --allow-weak-ssh-algorithms", "Offer weak SSH algorithms (warns)"),
             Row(38, "    --auth <methods>", "Authentication methods accepted"),
+            Row(38, "    --control <listen URL>", "Serve the test control endpoint"),
+            Row(38, "    --control-token-file <file>", "Bearer token file for --control"),
             Row(38, "    --fault <kind>[;<key>=<value>]", "Misbehave on purpose (repeatable)"),
             Row(38, "    --follow-symlinks", "Follow links that stay in the root"),
             Row(38, "    --list-directories", "Answer directory listings"),

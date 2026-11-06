@@ -115,6 +115,15 @@ internal static class OptionArgumentReader
     public static readonly OptionArgumentReading<string> ListenUrlText =
         new(ReadPath, new("listen URL", "a listen URL, as a bare argument takes it; see surl --aihelp listen-urls"));
 
+    /// <summary>
+    /// <c>--control</c>'s argument (ADR-0124 decision 7): any non-empty text, which the parser then
+    /// reads as a listen URL and refuses unless it is <c>http</c> on loopback.
+    /// </summary>
+    public static readonly OptionArgumentReading<string> ControlListenUrlText =
+        new(ReadPath, new(
+            "control listen URL",
+            "an http listen URL whose host is localhost, an IPv4 address in 127.0.0.0/8 or ::1, any port, 0 included; see surl --aihelp control"));
+
     /// <summary><see cref="ReadPath"/> and its argument type (ADR-0046 decision 5).</summary>
     public static readonly OptionArgumentReading<string> Path =
         new(ReadPath, new("path", "any non-empty text"));

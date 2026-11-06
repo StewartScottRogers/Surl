@@ -65,6 +65,13 @@ internal static class AiHelpProse
             "Every protocol reads the one served root: HTTP, FTP, Gopher, RTSP, SMB, TFTP, SCP, SFTP, WebSocket and S3 serve its files, and DICT reads the files directly in it as definitions. With `--directory`, the MQTT server keeps its retained messages on the message bus in `<path>/.surl/bus/retained` and the SMTP, IMAP and POP3 servers share the mail store in `<path>/.surl/mail`, and the LDAP server reads its directory from `<path>/.surl/ldap/directory.ldif`; without it, the retained messages and the mail live in memory only and the directory is empty.",
             "Uploads, directory listings, symbolic links and names that start with a dot are off by default; `--allow-uploads` (FTP, RTSP, SMB, TFTP, SCP, SFTP and S3 writes), `--list-directories` (FTP listings, Gopher menus, SFTP directory reads, WebSocket listings, S3 ListObjectsV2), `--follow-symlinks` and `--serve-dot-files` turn each on. The HTTP server answers a directory with 404 Not Found, listings on or off.",
         ],
+        ["control"] =
+        [
+            "The control endpoint lets a test suite not written in .NET drive surl over HTTP and JSON on loopback: `--control <listen URL> --control-token-file <file>`. It is off by default, and both options are listed in the testing and security topics.",
+            "The control listen URL is `http` only, and its host is `localhost`, an IPv4 address in `127.0.0.0/8` or `[::1]`; port 0 asks for an ephemeral port. Another scheme writes `surl: (2) --control needs http, not <scheme>`, and another host `surl: (2) --control must listen on loopback (127.0.0.0/8, ::1 or localhost): <url>`; a malformed one is refused as a malformed listen URL is (exit 3). Given twice, the last one wins.",
+            "`--control-token-file <file>` names the file whose first line, without its line end, is the bearer token every request must send as `Authorization: Bearer <token>`. surl never generates a token, so `--control` without it writes `surl: (2) --control needs --control-token-file`, and the token file without `--control` writes `surl: (2) --control-token-file without --control`. Each of these refusals exits 2 before anything starts.",
+            "This build reads and checks both options; it does not yet serve the endpoint or read the token file.",
+        ],
         ["dict"] =
         [
             "The DICT server (RFC 2229) answers the `DEFINE`, `MATCH` and `SHOW` requests upstream curl sends for `dict://` URLs, and the rest of RFC 2229's commands.",
@@ -190,7 +197,7 @@ internal static class AiHelpProse
         [
             "Every option here widens what a peer may do, and each is off by default. Six are deployment choices that write no warning: `--allow-uploads`, `--list-directories`, `--follow-symlinks`, `--serve-dot-files`, `--tlsv1.0` and `--tlsv1.1`; leave each off unless it is needed.",
             "`--allow-weak-ssh-algorithms` also offers SSH algorithms built on SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman. It is for peers that support nothing stronger; a start that gives it writes `surl: warning: --allow-weak-ssh-algorithms: SHA-1, MD5, CBC, RC4, 3DES and 1024-bit Diffie-Hellman SSH algorithms are offered` from the info level up, and it also lets a `--hostkey` file hold an RSA key shorter than 2048 bits or a DSA key.",
-            "The other six, `--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--fault`, `--self-signed` and `--throwaway-hostkey`, loosen a secure default and are for tests only (see the testing topic).",
+            "The other eight, `--allow-anonymous`, `--allow-plaintext-auth`, `--auth`, `--control`, `--control-token-file`, `--fault`, `--self-signed` and `--throwaway-hostkey`, loosen a secure default and are for tests only (see the testing topic).",
             "Before running surl where others can reach it: bind a specific address rather than `0.0.0.0` or `[::]`; give `--cert` and `--key` for secure schemes, never `--self-signed`; configure accounts with `--user-file`; review the limits; start with no loosening option, and treat any `surl: warning:` line at start as one left on.",
         ],
         ["smb"] =

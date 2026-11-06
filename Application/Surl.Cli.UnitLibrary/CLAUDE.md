@@ -73,6 +73,14 @@ and `Surl.Protocol.Abstractions.UnitLibrary`.
   inside a file is prefixed once by `<file>:<line>: `; at most `MaxConfigFileDepth` (5) files are
   open at once, a cycle and a second `-K -` are refused, a file past 16 MiB and a line past 10 MiB
   too. `--url <listen URL>` adds a listen URL exactly as a bare argument does.
+- Control endpoint options (ADR-0124 decision 7, BL-815): `--control <listen URL>` is read by
+  `ControlEndpointOptionReader` into `SurlCommandLine.ControlListenUrl` (scheme `http` only,
+  refused first; then a malformed listen URL as a bare argument's is; then a host other than
+  `localhost`, a four-part IPv4 address in `127.0.0.0/8` or `::1` with no zone), the last one
+  winning; `--control-token-file <file>` is kept as a path (`ControlTokenFile`). Each without the
+  other is refused once the whole line is read. All four refusals are `(2) ...` with no try-help
+  line. Both are in the `security` and `testing` categories; the `control` `--aihelp` topic sits
+  beside `exit-codes`. Serving the endpoint and reading the token file are BL-816's.
 - Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
   each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
   turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,

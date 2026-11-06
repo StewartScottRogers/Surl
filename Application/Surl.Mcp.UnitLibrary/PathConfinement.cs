@@ -1,4 +1,4 @@
-﻿namespace Surl.Mcp;
+namespace Surl.Mcp;
 
 /// <summary>
 /// Decides whether a local path an option names lies inside the host's root (ADR-0103 decision 4): the path is

@@ -19,7 +19,7 @@ public sealed class AiHelpExamplesTests
         [
             "overview", "listen-urls", "listen-urls", "surl", "surl", "content", "content", "content", "auth", "auth", "testing", "tls", "tls",
             "logging", "limits", "dict", "ftp", "gopher", "http", "http", "imap", "ldap", "mqtt", "pop3", "rtsp", "s3", "smb", "smtp", "ssh", "telnet", "tftp",
-            "websocket", "websocket", "extended",
+            "websocket", "websocket", "extended", "control",
         ];
 
         CollectionAssert.AreEqual(topics, AiHelpExamples.All.Select(example => example.Topic).ToArray());

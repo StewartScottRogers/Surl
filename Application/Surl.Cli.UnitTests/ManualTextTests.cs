@@ -9,7 +9,7 @@ public sealed class ManualTextTests
     private static readonly string[] Headings =
     [
         "NAME", "SYNOPSIS", "DESCRIPTION", "CONFIG FILES", "LISTEN URLS", "DEPLOYMENT CHECKLIST", "DATA DIRECTORY",
-        "IN-MEMORY MODE", "ACCOUNTS", "HTTP OPTIONS", "LDAP OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "LOG LEVELS", "LIMITS",
+        "IN-MEMORY MODE", "ACCOUNTS", "HTTP OPTIONS", "LDAP OPTIONS", "RTSP OPTIONS", "S3 OPTIONS", "SMB OPTIONS", "SSH OPTIONS", "WEBSOCKET OPTIONS", "LOOSENING OPTIONS", "CONTROL ENDPOINT", "LOG LEVELS", "LIMITS",
         "EXIT CODES", "SEE ALSO",
     ];
 
@@ -300,6 +300,18 @@ public sealed class ManualTextTests
             "    What each one loosens, and why none is the default, is written by:",
             "",
             "        surl --help testing",
+            "",
+            "CONTROL ENDPOINT",
+            "",
+            "    --control <listen URL> --control-token-file <file> asks for the test",
+            "    control endpoint, which lets a test suite not written in .NET drive surl",
+            "    over HTTP and JSON. The listen URL is http only, on localhost,",
+            "    127.0.0.0/8 or [::1]; the first line of the file is the bearer token.",
+            "    Another scheme or host, --control without --control-token-file and the",
+            "    token file without --control are refused, exit 2. This build reads and",
+            "    checks both options but does not yet serve the endpoint:",
+            "",
+            "        surl --aihelp control",
             "",
             "LOG LEVELS",
             "",

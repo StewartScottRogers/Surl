@@ -44,6 +44,7 @@ public sealed class CommandLinePathMembersTests
             HostCertificateFiles = ["host-cert.pub"],
             AuthorizedKeys = [new CommandLineAuthorizedKeys("alice", "alice.pub")],
             MailboxFiles = ["mailboxes.csv"],
+            ControlTokenFile = "control.token",
         };
 
         var paths = CommandLinePathMembers.PathsOf(commandLine).ToArray();
@@ -65,6 +66,7 @@ public sealed class CommandLinePathMembersTests
                 ("--hostcert", "host-cert.pub"),
                 ("--authorized-keys", "alice.pub"),
                 ("--mailbox-file", "mailboxes.csv"),
+                ("--control-token-file", "control.token"),
             },
             paths);
     }

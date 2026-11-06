@@ -45,6 +45,7 @@ public static class CommandLineParser
     private const string ConfigLongName = "config";
     private const string ConfigOption = "--config";
     private const string UrlLongName = "url";
+    private const string ControlLongName = "control";
     private const string StandardInputPath = "-";
     private const string StandardInputName = "<stdin>";
 
@@ -346,8 +347,9 @@ public static class CommandLineParser
     }
 
     /// <summary>
-    /// What an accepted argument does besides setting its value: counts a <c>--group</c>, reads a
-    /// <c>-K</c> file in place, adds a <c>--url</c> listen URL; null to read on.
+    /// What an accepted argument does besides setting its value: counts a <c>--group</c> or a
+    /// <c>--fault</c>, reads a <c>-K</c> file in place, adds a <c>--url</c> listen URL, reads the
+    /// <c>--control</c> listen URL; null to read on.
     /// </summary>
     private static CommandLineParseResult? ActOnAcceptedArgument(
         CommandLineReading reading, string longName, string reportedName, string argument) =>
@@ -357,8 +359,25 @@ public static class CommandLineParser
             FaultLongName => CountFault(reading, reportedName),
             ConfigLongName => ReadConfigFile(reading, argument),
             UrlLongName => ReadListenUrl(reading, argument),
+            ControlLongName => ReadControlListenUrl(reading, argument),
             _ => null,
         };
+
+    /// <summary>
+    /// Reads <c>--control</c>'s argument into <see cref="SurlCommandLine.ControlListenUrl"/>, the
+    /// last one given winning, or refuses it (ADR-0124 decision 7).
+    /// </summary>
+    private static CommandLineParseResult? ReadControlListenUrl(CommandLineReading reading, string argument)
+    {
+        var parsed = ControlEndpointOptionReader.Read(argument);
+        if (!parsed.Succeeded)
+        {
+            return CommandLineParseResult.Refused(parsed.Failure);
+        }
+
+        reading.CommandLine = reading.CommandLine with { ControlListenUrl = parsed.ListenUrl };
+        return null;
+    }
 
     /// <summary>
     /// Reads the config file <paramref name="path"/> in place (ADR-0101 decision 1): refuses a file
@@ -521,6 +540,12 @@ public static class CommandLineParser
         if (refusedCombination is not null)
         {
             return refusedCombination;
+        }
+
+        var refusedControl = ControlEndpointOptionReader.RefuseCombination(reading.CommandLine);
+        if (refusedControl is not null)
+        {
+            return CommandLineParseResult.Refused(refusedControl);
         }
 
         if (reading.ListenUrls.Count == 0)
