@@ -49,3 +49,4 @@ file is there - so the control endpoint (BL-1022) can delete what a test seeded.
 
 - 2026-11-06: Created.
 - 2026-11-06: Split from BL-816 (timed out after 120 min); reuses its ContentStore change from stash `darkfactory BL-816 20261106-033059`.
+- 2026-11-06: Backlog -> Doing.
