@@ -69,9 +69,8 @@ public sealed partial class Amqp0BrokerConnectionTests
     }
 
     [TestMethod]
-    [DataRow(90, 10, DisplayName = "tx.select")]
-    [DataRow(85, 10, DisplayName = "confirm.select")]
     [DataRow(40, 30, DisplayName = "exchange.bind")]
+    [DataRow(40, 40, DisplayName = "exchange.unbind")]
     public async Task Method_NotServed_IsClosedWith540(int classId, int methodId)
     {
         var written = await ServeAsync(NewBroker(NewBus()), Method(1, classId, methodId));
@@ -83,6 +82,10 @@ public sealed partial class Amqp0BrokerConnectionTests
     [DataRow(60, 60, DisplayName = "basic.deliver")]
     [DataRow(20, 41, DisplayName = "channel.close-ok unasked")]
     [DataRow(10, 50, DisplayName = "connection.close off channel 0")]
+    [DataRow(90, 11, DisplayName = "tx.select-ok")]
+    [DataRow(90, 21, DisplayName = "tx.commit-ok")]
+    [DataRow(90, 31, DisplayName = "tx.rollback-ok")]
+    [DataRow(85, 11, DisplayName = "confirm.select-ok")]
     public async Task Method_OnlyAServerSends_IsClosedWith503(int classId, int methodId)
     {
         var written = await ServeAsync(NewBroker(NewBus()), Method(1, classId, methodId));

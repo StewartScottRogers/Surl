@@ -54,6 +54,19 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// Topic access refusals are 403.
 /// </para>
 /// <para>
+/// <b>Transactions and publisher confirms</b> (decision 6). <c>tx.select</c> makes a channel
+/// transacted: its publishes and its <c>ack</c>, <c>reject</c> and <c>nack</c> are buffered, in
+/// order, until <c>tx.commit</c> applies them or <c>tx.rollback</c> (or the channel's close)
+/// discards them, the settled deliveries outstanding again; a tag not outstanding is still 406 at
+/// once, and the buffered bodies count toward <c>--max-filesize</c> with the content in progress.
+/// <c>commit</c> or <c>rollback</c> on a channel not transacted is 406. <c>confirm.select</c> puts a
+/// channel in confirm mode (<c>publisher_confirms</c> in <c>connection.start</c>): each publish,
+/// numbered from 1, is answered <c>basic.ack</c> with <c>multiple</c> clear once routed, or
+/// <c>basic.nack</c> when the bus refuses it for a bound it reached (506 outside confirm mode).
+/// <c>tx.select</c> on a channel in confirm mode, and <c>confirm.select</c> on a transacted one,
+/// are 406.
+/// </para>
+/// <para>
 /// <b>Exceptions</b> (decision 7). Before <c>open-ok</c>, every fault but those two closes the
 /// connection with no bytes, as does the head timeout. After it, a channel exception is
 /// <c>channel.close</c> naming the method, the channel's consumers ended and its deliveries
@@ -62,7 +75,7 @@ namespace Surl.Extended.Protocol.Amqp0;
 /// arguments do not decode 502, a method only a server sends 503, a frame on a channel not open or
 /// above channel-max 504, a content frame out of sequence 505, a bound reached 506, a reused
 /// consumer tag or an exchange redeclared with another type 530, and a method not served
-/// (<c>tx</c>, <c>confirm</c>, <c>exchange.bind</c>) 540. After a <c>close</c> it sends, the broker
+/// (<c>exchange.bind</c> and <c>unbind</c>) 540. After a <c>close</c> it sends, the broker
 /// discards every frame until <c>close-ok</c> or <c>close</c>, or for one second. The client's
 /// <c>connection.close</c> is answered <c>close-ok</c>.
 /// </para>

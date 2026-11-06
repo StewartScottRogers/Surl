@@ -70,8 +70,17 @@ Channels, exchanges, queues and the basic class (BL-506, ADR-0112 decisions 5, 6
   channel-wide and `global` bounds, `prefetch-size`, and `recover` to the original consumer are
   BL-760. `basic.cancel` to the consumers of a deleted queue is BL-761.
 
-The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749;
-transactions and publisher confirms BL-731 (`tx` and `confirm` are 540 until then); the headers
+Transactions and publisher confirms (BL-731, ADR-0112 decision 6):
+
+- `tx.select` gives the channel an `Amqp0Transaction`, which buffers its whole publishes and its
+  settlements (`Amqp0TransactedWork`) in order; `commit` routes and settles them, `rollback` or the
+  channel's close puts the settled deliveries back in `Outstanding`. The buffered bodies stay in
+  `heldContentBytes`, the connection's `--max-filesize` bound.
+- `confirm.select` sets `Amqp0Channel.Confirming`: each whole publish is numbered from 1 and
+  answered `basic.ack` (`multiple` clear), or `basic.nack` when routing threw 506.
+- `tx` and `confirm` exclude each other with 406; `publisher_confirms` is in `connection.start`.
+
+The 320 `CONNECTION_FORCED` close on the idle timeout, `--max-time` and shutdown is BL-749; the headers
 exchange and durable exchanges across restarts BL-732; the command line and composition BL-507.
 
 This library references `Surl.Protocol.Abstractions.UnitLibrary`, and may also reference the

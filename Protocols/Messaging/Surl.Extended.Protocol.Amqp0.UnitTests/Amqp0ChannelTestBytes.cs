@@ -130,6 +130,29 @@ internal static class Amqp0ChannelTestBytes
     public static byte[] PublishText(int channel, string exchange, string routingKey, string text, byte bits = 0) =>
         Concat(Publish(channel, exchange, routingKey, bits), ContentHeader(channel, System.Text.Encoding.UTF8.GetByteCount(text)), Body(channel, text));
 
+    public static byte[] TxSelect(int channel) => Method(channel, 90, 10);
+
+    public static byte[] TxSelectOk(int channel) => Method(channel, 90, 11);
+
+    public static byte[] TxCommit(int channel) => Method(channel, 90, 20);
+
+    public static byte[] TxCommitOk(int channel) => Method(channel, 90, 21);
+
+    public static byte[] TxRollback(int channel) => Method(channel, 90, 30);
+
+    public static byte[] TxRollbackOk(int channel) => Method(channel, 90, 31);
+
+    /// <summary>RabbitMQ's <c>confirm.select</c> (85.10) with its <c>nowait</c> bit.</summary>
+    public static byte[] ConfirmSelect(int channel, bool noWait = false) => Method(channel, 85, 10, Bits(noWait));
+
+    public static byte[] ConfirmSelectOk(int channel) => Method(channel, 85, 11);
+
+    /// <summary>The broker's publisher confirm: <c>basic.ack</c> of the publish's sequence number, <c>multiple</c> clear.</summary>
+    public static byte[] Confirm(int channel, long sequence) => Ack(channel, sequence);
+
+    /// <summary>The broker's refusal of a publish in confirm mode: <c>basic.nack</c>, <c>multiple</c> and <c>requeue</c> clear.</summary>
+    public static byte[] ConfirmRefused(int channel, long sequence) => Nack(channel, sequence, multiple: false, requeue: false);
+
     /// <summary>The header and body frames the broker writes for <paramref name="text"/> with no properties.</summary>
     public static byte[] TextContent(int channel, string text) =>
         Concat(ContentHeader(channel, System.Text.Encoding.UTF8.GetByteCount(text)), Body(channel, text));

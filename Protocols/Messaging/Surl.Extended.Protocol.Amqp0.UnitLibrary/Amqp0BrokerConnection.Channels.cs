@@ -29,6 +29,10 @@ internal sealed partial class Amqp0BrokerConnection
         (Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.GetOk),
         (Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.GetEmpty),
         (Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.RecoverOk),
+        (Amqp0ConfirmMethodId.ClassId, Amqp0ConfirmMethodId.SelectOk),
+        (Amqp0TxMethodId.ClassId, Amqp0TxMethodId.SelectOk),
+        (Amqp0TxMethodId.ClassId, Amqp0TxMethodId.CommitOk),
+        (Amqp0TxMethodId.ClassId, Amqp0TxMethodId.RollbackOk),
     ];
 
     private static readonly Dictionary<(ushort ClassId, ushort MethodId), MethodAnswer> MethodAnswers = new()
@@ -54,6 +58,10 @@ internal sealed partial class Amqp0BrokerConnection
         [(Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.Nack)] = (connection, channel, arguments) => connection.Nack(channel, arguments),
         [(Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.Recover)] = (connection, channel, arguments) => connection.Recover(channel, arguments, answer: true),
         [(Amqp0BasicMethodId.ClassId, Amqp0BasicMethodId.RecoverAsync)] = (connection, channel, arguments) => connection.Recover(channel, arguments, answer: false),
+        [(Amqp0ConfirmMethodId.ClassId, Amqp0ConfirmMethodId.Select)] = (connection, channel, arguments) => connection.SelectConfirms(channel, arguments),
+        [(Amqp0TxMethodId.ClassId, Amqp0TxMethodId.Select)] = (connection, channel, _) => connection.SelectTransactions(channel),
+        [(Amqp0TxMethodId.ClassId, Amqp0TxMethodId.Commit)] = (connection, channel, _) => connection.Commit(channel),
+        [(Amqp0TxMethodId.ClassId, Amqp0TxMethodId.Rollback)] = (connection, channel, _) => connection.RollBack(channel),
     };
 
     private static readonly Amqp0MethodPayload ChannelOpenOk = new(Amqp0ChannelMethodId.ClassId, Amqp0ChannelMethodId.OpenOk, new byte[4]);
@@ -216,7 +224,14 @@ internal sealed partial class Amqp0BrokerConnection
 
     private void ReleaseChannel(Amqp0Channel channel)
     {
-        ReleasePendingContent(channel);
+        // A channel closes only with no publish in progress or one refused at its header (311),
+        // whose bytes were never held; the rest of its content is discarded with the channel.
+        channel.Publish = null;
+        if (channel.Transaction is not null)
+        {
+            DiscardTransaction(channel);
+        }
+
         foreach (var consumer in channel.Consumers.Values)
         {
             consumer.Bus.Dispose();
@@ -225,7 +240,7 @@ internal sealed partial class Amqp0BrokerConnection
         channel.Stopped.ForEach(stopped => stopped.Dispose());
         channel.Consumers.Clear();
         channel.Stopped.Clear();
-        foreach (var get in TakeOutstanding(channel, 0, multiple: true).Where(delivery => delivery.Consumer is null))
+        foreach (var get in TakeOutstanding(channel, 0, multiple: true).Values.Where(delivery => delivery.Consumer is null))
         {
             Bus.RejectGet(get.QueueName, get.BusDeliveryTag, requeue: true);
         }

@@ -40,4 +40,13 @@ internal sealed class Amqp0Channel(ushort number)
     public SortedDictionary<ulong, Amqp0OutstandingDelivery> Outstanding { get; } = [];
 
     public ulong LastDeliveryTag { get; set; }
+
+    /// <summary>The transaction's buffer once <c>tx.select</c> made the channel transacted; otherwise <see langword="null"/>.</summary>
+    public Amqp0Transaction? Transaction { get; set; }
+
+    /// <summary>Whether <c>confirm.select</c> put the channel in confirm mode.</summary>
+    public bool Confirming { get; set; }
+
+    /// <summary>The sequence number of the last publish confirmed; publishes count from 1 in confirm mode.</summary>
+    public ulong LastPublishSequence { get; set; }
 }

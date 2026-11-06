@@ -157,28 +157,28 @@ internal sealed partial class Amqp0BrokerConnection
     {
         var tag = arguments.ReadLongLong();
         var multiple = arguments.ReadBits(1)[0];
-        Settle(TakeOutstandingOrRefuse(channel, tag, multiple), acknowledge: true, requeue: false);
+        SettleOrBuffer(channel, TakeOutstandingOrRefuse(channel, tag, multiple), acknowledge: true, requeue: false);
     }
 
     private void Reject(Amqp0Channel channel, Amqp0WireReader arguments)
     {
         var tag = arguments.ReadLongLong();
         var requeue = arguments.ReadBits(1)[0];
-        Settle(TakeOutstandingOrRefuse(channel, tag, multiple: false), acknowledge: false, requeue);
+        SettleOrBuffer(channel, TakeOutstandingOrRefuse(channel, tag, multiple: false), acknowledge: false, requeue);
     }
 
     private void Nack(Amqp0Channel channel, Amqp0WireReader arguments)
     {
         var tag = arguments.ReadLongLong();
         var bits = arguments.ReadBits(2);
-        Settle(TakeOutstandingOrRefuse(channel, tag, multiple: bits[0]), acknowledge: false, requeue: bits[1]);
+        SettleOrBuffer(channel, TakeOutstandingOrRefuse(channel, tag, multiple: bits[0]), acknowledge: false, requeue: bits[1]);
     }
 
     // Every outstanding delivery of the channel goes back to its queue, marked redelivered.
     private void Recover(Amqp0Channel channel, Amqp0WireReader arguments, bool answer)
     {
         arguments.ReadBits(1);
-        Settle(TakeOutstanding(channel, 0, multiple: true), acknowledge: false, requeue: true);
+        Settle(TakeOutstanding(channel, 0, multiple: true).Values, acknowledge: false, requeue: true);
         if (answer)
         {
             SendMethod(channel.Number, RecoverOk);
@@ -186,7 +186,7 @@ internal sealed partial class Amqp0BrokerConnection
     }
 
     // Rule ack/exists: a tag not outstanding on this channel is 406; tag 0 with multiple is every one.
-    private static List<Amqp0OutstandingDelivery> TakeOutstandingOrRefuse(Amqp0Channel channel, ulong tag, bool multiple)
+    private static SortedDictionary<ulong, Amqp0OutstandingDelivery> TakeOutstandingOrRefuse(Amqp0Channel channel, ulong tag, bool multiple)
     {
         lock (channel.Gate)
         {
@@ -200,21 +200,39 @@ internal sealed partial class Amqp0BrokerConnection
     }
 
     // Removes the deliveries up to tag with multiple (all of them for tag 0), else the one tag.
-    private static List<Amqp0OutstandingDelivery> TakeOutstanding(Amqp0Channel channel, ulong tag, bool multiple)
+    private static SortedDictionary<ulong, Amqp0OutstandingDelivery> TakeOutstanding(Amqp0Channel channel, ulong tag, bool multiple)
     {
         lock (channel.Gate)
         {
             var tags = multiple
                 ? channel.Outstanding.Keys.Where(outstanding => tag == 0 || outstanding <= tag).ToList()
                 : [tag];
-            var taken = tags.Select(outstanding => channel.Outstanding[outstanding]).ToList();
-            tags.ForEach(outstanding => channel.Outstanding.Remove(outstanding));
+            var taken = new SortedDictionary<ulong, Amqp0OutstandingDelivery>();
+            foreach (var outstanding in tags)
+            {
+                taken.Add(outstanding, channel.Outstanding[outstanding]);
+                channel.Outstanding.Remove(outstanding);
+            }
+
             return taken;
         }
     }
 
+    // A tag is refused at once on a transacted channel too (rule ack/exists); its settlement waits for commit.
+    private void SettleOrBuffer(Amqp0Channel channel, SortedDictionary<ulong, Amqp0OutstandingDelivery> taken, bool acknowledge, bool requeue)
+    {
+        if (channel.Transaction is { } transaction)
+        {
+            transaction.AddSettlement(taken, acknowledge, requeue);
+        }
+        else
+        {
+            Settle(taken.Values, acknowledge, requeue);
+        }
+    }
+
     // Settled outside the channel's gate: the bus may deliver again at once, on this thread.
-    private void Settle(List<Amqp0OutstandingDelivery> deliveries, bool acknowledge, bool requeue)
+    private void Settle(IEnumerable<Amqp0OutstandingDelivery> deliveries, bool acknowledge, bool requeue)
     {
         foreach (var delivery in deliveries)
         {
