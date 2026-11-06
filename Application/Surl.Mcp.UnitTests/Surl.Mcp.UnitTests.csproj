@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Mcp\Surl.Mcp.csproj" />
+    <ProjectReference Include="..\Surl.Mcp.UnitLibrary\Surl.Mcp.UnitLibrary.csproj" />
+  </ItemGroup>
+
+  <!--
+    Surl.Api's own test seams, shared rather than copied: servers start through a fake listener
+    factory, so no test opens a socket (Surl.Api makes its internals visible to this project).
+  -->
+  <ItemGroup>
+    <Compile Include="..\Surl.Api.UnitTests\ApiTestSeams.cs" Link="ApiSeams\ApiTestSeams.cs" />
+    <Compile Include="..\Surl.Api.UnitTests\FakeConnection.cs" Link="ApiSeams\FakeConnection.cs" />
+    <Compile Include="..\Surl.Api.UnitTests\FakeEnvironmentVariableReader.cs" Link="ApiSeams\FakeEnvironmentVariableReader.cs" />
+    <Compile Include="..\Surl.Api.UnitTests\FakeListenerFactory.cs" Link="ApiSeams\FakeListenerFactory.cs" />
+  </ItemGroup>
+
+  <!-- Surl.McpServing's in-memory standard input and output, shared rather than copied, for Program's tests. -->
+  <ItemGroup>
+    <Compile Include="..\..\Protocols\Http\Surl.McpServing.UnitTests\UnitTestChannelInputStream.cs" Link="McpServingSeams\UnitTestChannelInputStream.cs" />
+    <Compile Include="..\..\Protocols\Http\Surl.McpServing.UnitTests\UnitTestLineOutputStream.cs" Link="McpServingSeams\UnitTestLineOutputStream.cs" />
+  </ItemGroup>
+
+</Project>

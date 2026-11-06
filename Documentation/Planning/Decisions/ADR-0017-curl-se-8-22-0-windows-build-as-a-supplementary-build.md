@@ -8,6 +8,13 @@
   for this extra build and to keep 8.21.0 as the reference release (option "A" in the
   `/task-plan` session that filed BL-026). Which file, where it lives and how it is marked
   he left to this ADR.
+- **Amended by:** [ADR-0081](ADR-0081-how-surl-serves-http-2.md) (decision 3: HTTP/2 on Windows is
+  measured with the stunnel/static-curl 8.21.0 build, the reference release; this build stays
+  pinned for HTTP/3 only)
+- **Amended by:** [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) (decision 3: HTTP/3 on
+  Windows is measured with the stunnel/static-curl 8.21.0 build too, whose ClientHello over QUIC
+  matched the Linux reference build's field for field; this build stays pinned as a comparison
+  build that no test needs)
 
 ## Context
 
@@ -55,9 +62,10 @@ curl.se's Windows page no longer offers an 8.21.0 build. What was checked on 202
    lacks, 8.21.0 for everything else. ADR-0003 is not edited; its reason for 8.21.0 still
    holds.
 3. **A supplementary build is used only for the protocols and features its ADR names,
-   never to second-guess the reference build.** For this build that is HTTP/2
-   (`--http2`, `--http2-prior-knowledge`) and HTTP/3 (`--http3`, `--http3-only`) against
-   Surl's HTTP servers. Every other exchange - HTTP/1.1 included - is measured with the
+   never to second-guess the reference build.** For this build that is HTTP/3 (`--http3`,
+   `--http3-only`) against Surl's HTTP servers. (It first named HTTP/2 too; ADR-0081 decision 1
+   moved HTTP/2 on Windows to the stunnel/static-curl 8.21.0 build, and ADR-0082 decision 1
+   moved HTTP/3 there too, so this build is now consulted only for comparison.) Every other exchange - HTTP/1.1 included - is measured with the
    reference build. Where the two builds would answer the same case differently, the
    reference build's answer stands and the supplementary build is not consulted for it.
    `UpstreamCurlLocator.Locate` returns a supplementary build only when asked for by role.

@@ -1,5 +1,5 @@
-#:project Surl.Kerberos.TestKdc.UnitLibrary/Surl.Kerberos.TestKdc.UnitLibrary.csproj
-#:project Surl.Networking.UnitLibrary/Surl.Networking.UnitLibrary.csproj
+#:project Cryptography/Surl.Kerberos.TestKdc.UnitLibrary/Surl.Kerberos.TestKdc.UnitLibrary.csproj
+#:project Foundation/Surl.Networking.UnitLibrary/Surl.Networking.UnitLibrary.csproj
 
 // Runs the hand-built loopback KDC of ADR-0065 (Surl.Kerberos.TestKdc) for
 // Record-CurlExchange.ps1 -KerberosTestKdc (decision 4):

@@ -37,22 +37,22 @@ The code this changes, as it is today:
 
 - `Surl.Authentication.UnitLibrary` holds only `CLAUDE.md` and its csproj, which references
   `Surl.Protocol.Abstractions.UnitLibrary` only.
-- ADR-0002's table, enforced by `Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`,
+- ADR-0002's table, enforced by `Foundation/Surl.Protocol.Abstractions.UnitTests/ProtocolIsolationTests.cs`,
   lets a protocol server reference only Abstractions, `Surl.Content` and `Surl.Cryptography`.
   So `Surl.Protocol.Http` and `Surl.Protocol.Mqtt` cannot reference `Surl.Authentication`.
-- `Surl.Protocol.Http.UnitLibrary/HttpRequestResponder.cs` answers `GET` and `HEAD` with no
-  authentication and `PUT` with `405` (ADR-0008); `Surl.Protocol.Http.UnitLibrary/HttpProtocolServer.cs`
+- `Protocols/Http/Surl.Protocol.Http.UnitLibrary/HttpRequestResponder.cs` answers `GET` and `HEAD` with no
+  authentication and `PUT` with `405` (ADR-0008); `Protocols/Http/Surl.Protocol.Http.UnitLibrary/HttpProtocolServer.cs`
   is constructed from a `ContentStore`.
-- `Surl.Protocol.Mqtt.UnitLibrary/MqttConnectJudge.cs` validates the connect flags and the
+- `Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary/MqttConnectJudge.cs` validates the connect flags and the
   client identifier and does not read the will, user name or password;
-  `Surl.Protocol.Mqtt.UnitLibrary/MqttProtocolServer.cs` claims `mqtt` and `mqtts`.
-- `Surl.Console/ServerTlsComposition.cs` makes the throwaway certificate
-  (`Surl.Networking.UnitLibrary/ThrowawayServerCertificate.cs`) whenever an implicit-TLS listen
-  URL (`Surl.Protocol.Abstractions.UnitLibrary/TlsSchemes.cs`) is served without `--cert`.
-- `Surl.Protocol.Abstractions.UnitLibrary/IConnection.cs` exposes `TlsSession`, `null` while the
+  `Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary/MqttProtocolServer.cs` claims `mqtt` and `mqtts`.
+- `Application/Surl.Console/ServerTlsComposition.cs` makes the throwaway certificate
+  (`Foundation/Surl.Networking.UnitLibrary/ThrowawayServerCertificate.cs`) whenever an implicit-TLS listen
+  URL (`Foundation/Surl.Protocol.Abstractions.UnitLibrary/TlsSchemes.cs`) is served without `--cert`.
+- `Foundation/Surl.Protocol.Abstractions.UnitLibrary/IConnection.cs` exposes `TlsSession`, `null` while the
   connection is plaintext (ADR-0010 section 1).
-- `Surl.Cli.UnitLibrary/CommandLineOptions.cs` is the option table;
-  `Surl.Protocol.Abstractions.UnitLibrary/SurlExitCode.cs` holds ADR-0005's table with ADR-0010's
+- `Application/Surl.Cli.UnitLibrary/CommandLineOptions.cs` is the option table;
+  `Foundation/Surl.Protocol.Abstractions.UnitLibrary/SurlExitCode.cs` holds ADR-0005's table with ADR-0010's
   and ADR-0031's rows.
 
 Inputs: ADR-0002, ADR-0005, ADR-0006 (section 3: nothing a peer can learn), ADR-0007 (sections
@@ -454,6 +454,10 @@ surl: warning: --self-signed: serving a throwaway certificate; clients must skip
   `-v` note with its fingerprint stays. A start with `--self-signed` and no secure listen URL
   makes no certificate.
 - **`--self-signed` with `--cert`** is refused (section 1).
+- **Amended by [ADR-0087](ADR-0087-how-surls-dtls-1-2-server-handshakes-for-coaps.md) decision 3**
+  (2026-11-04): a `coaps` listen URL, which is not one of `TlsSchemes.IsImplicitTls`'s, starts with a
+  certificate or at least one account (a pre-shared key), and with neither is refused with its own
+  `CertificateProblem` (58) line.
 - A protocol that upgrades mid-connection (FTP, SMTP, IMAP, POP3) with neither option is not
   refused at start: it refuses the upgrade command in its own words, and its clear-password
   login then stays refused without `--allow-plaintext-auth`.

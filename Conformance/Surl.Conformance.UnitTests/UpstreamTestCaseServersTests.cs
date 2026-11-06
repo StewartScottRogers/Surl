@@ -1,0 +1,41 @@
+namespace Surl.Conformance;
+
+[TestClass]
+public sealed class UpstreamTestCaseServersTests
+{
+    [TestMethod]
+    public void Find_NullName_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentNullException>(() => UpstreamTestCaseServers.Find(null!));
+    }
+
+    [TestMethod]
+    [DataRow("http-ipv6", "http", true)]
+    [DataRow("https-mtls", "https", true)]
+    [DataRow("smb", "smb", true)]
+    [DataRow("http/2", "http", false)]
+    [DataRow("socks5", "http", false)]
+    public void Find_KnownName_GivesItsRow(string name, string protocol, bool isBuilt)
+    {
+        var server = UpstreamTestCaseServers.Find(name);
+
+        Assert.AreEqual(new UpstreamTestCaseServer(name, protocol, isBuilt), server);
+    }
+
+    [TestMethod]
+    public void Find_UnknownOrNoServerHalfName_GivesNull()
+    {
+        Assert.IsNull(UpstreamTestCaseServers.Find("quic"));
+        Assert.IsNull(UpstreamTestCaseServers.Find("file"));
+    }
+
+    [TestMethod]
+    public void All_TheUnbuiltRows_AreTheAdrsUnbuiltServers()
+    {
+        var unbuilt = UpstreamTestCaseServers.All.Where(server => !server.IsBuilt).Select(server => server.Name);
+
+        CollectionAssert.AreEquivalent(
+            new[] { "http/2", "http/3", "http-proxy", "https-proxy", "socks4", "socks5", "socks5unix", "http-unix", "httptls+srp", "httptls+srp-ipv6", "dns" },
+            unbuilt.ToArray());
+    }
+}

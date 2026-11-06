@@ -1,6 +1,6 @@
 ---
 paths:
-  - "*.UnitTests/**"
+  - "**/*.UnitTests/**"
 ---
 # Testing rules
 
@@ -19,7 +19,7 @@ paths:
   them.
 - Test project name: the production project with `.UnitTests` in place of
   `.UnitLibrary` (e.g. `Surl.Core.UnitLibrary` -> `Surl.Core.UnitTests`), in its own
-  directory immediately under the repository root. Never under a `tests/` folder.
+  directory beside it in the same category folder (CLAUDE.md, "Repository layout"). Never under a `tests/` folder.
 - One test class per production class: `<ClassName>Tests`.
 - Test method names: `MethodName_Condition_ExpectedResult`.
 - A test project's own implementation of `IContentFileSystem` starts with `UnitTest`
@@ -32,6 +32,10 @@ paths:
 - Protocol tests must not need `Integration`: drive the protocol server through a hand-written fake
   `IConnection` replaying request bytes measured from pinned upstream curl - never bytes
   from the Curl port (ADR-0003). Needing a live client means the seam is in the wrong
-  place.
+  place. The one exception is the extended servers, `Surl.Extended.Protocol.*` (ADR-0083):
+  their fakes replay bytes written from the protocol's specification and its examples
+  (upstream curl cannot speak those schemes), and the Curl port's pinned client may run
+  against them only in `Integration` tests in `Surl.Conformance.UnitTests`, never as the
+  source of an expected value.
 - No `Thread.Sleep`; use fakes for time (`TimeProvider`).
 - A bug fix starts with a failing test that reproduces it.

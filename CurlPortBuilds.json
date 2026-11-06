@@ -1,0 +1,13 @@
+{
+  "comment": "Curl port clients (https://github.com/StewartScottRogers/Curl) the extended servers' Integration tests may connect with, pinned by SHA-256 (ADR-0083 decision 2). Never an oracle, never an expected value, never ADR evidence, and never a test client for an original protocol; never list an upstream curl build here, nor a port client in UpstreamCurlBuilds.json, and the two files never share a SHA-256. To add an entry: clone or fetch the port, check out a commit of its master, publish its curl executable (for example 'dotnet publish Curl.Console -c Release -r win-x64 -o %LOCALAPPDATA%\\Surl\\curl-port\\<commit>') into a folder outside both repositories (%LOCALAPPDATA%\\Surl\\curl-port\\<commit>\\ on Windows, %HOME%/.local/share/surl/curl-port/<commit>/ elsewhere), then add {platform, path, sha256, commit, publishCommand, published}. A path may name environment variables as %NAME%; they are expanded when the client is located. Re-pinning is an ordinary commit, not an ADR.",
+  "builds": [
+    {
+      "platform": "win-x64",
+      "path": "%LOCALAPPDATA%\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\\curl.exe",
+      "sha256": "F28D1417807AA862BA2A6D5B0BF0CF1200673BE45B959B1A78E1E4B476EF8FA7",
+      "commit": "b42c319ba940f66452b2b6f3e9910d46825b08fe",
+      "publishCommand": "dotnet publish Curl.Console -c Release -r win-x64 -o \"C:\\Users\\Stewart Rogers\\AppData\\Local\\Surl\\curl-port\\b42c319ba940f66452b2b6f3e9910d46825b08fe\"",
+      "published": "2026-11-04"
+    }
+  ]
+}

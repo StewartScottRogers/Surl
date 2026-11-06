@@ -114,6 +114,16 @@
     input is closed at once. Use it to measure an option that reads '-', such as
     -b -.
 
+.PARAMETER ConfigFile
+    Config files to write before curl runs, for measuring curl's -K/--config reader. Each
+    element is <name>=<text>: the file <name> (a bare file name, no folder) is written to
+    OutDirectory with <text> decoded by the same backslash escapes as Response, one byte per
+    character, and curl then runs with OutDirectory as its working directory, so CurlArgs
+    and the files themselves name each other by bare name (-K a.cfg, a line config = b.cfg).
+    A config file's own backslashes are therefore written \\ here. The name may not be one
+    of the fixture files the script writes. Default none: curl runs in the caller's
+    working directory, as before. Run the script from PowerShell (& or .\) to pass several.
+
 .PARAMETER Ftp
     Serve one FTP session instead of HTTP responses: send a greeting, then read curl's
     commands one line at a time and answer each from a table of replies, opening a
@@ -493,6 +503,52 @@
     How long, in -Tftp mode, the server waits for curl's next datagram before it sends
     its last packet again (or, after three resends, gives up). Default 2000.
 
+.PARAMETER QuicInitial
+    Record the QUIC client Initial packets curl sends for --http3-only, and answer nothing:
+    bind <ListenAddress>:<Port> for UDP and keep every datagram curl sends to it until curl
+    exits. Nothing answers, so curl gives up; give it --connect-timeout in CurlArgs. Then
+    run the C# file-based app Run-QuicInitialRecorder.cs (it needs the .NET 10 SDK's dotnet
+    on PATH; the first run builds it), which removes each version 1 Initial packet's header
+    and AEAD_AES_128_GCM protection with the client Initial keys RFC 9001 section 5.2
+    derives from its Destination Connection ID, and puts the CRYPTO frames back together at
+    their offsets. In place of request.bin it writes, beside stdout.bin, stderr.txt and
+    exitcode.txt:
+
+      datagrams.bin    every datagram curl sent, in arrival order, each preceded by its
+                       length as a two-byte big-endian number
+      clienthello.bin  the decrypted CRYPTO data from offset 0, contiguous: the TLS
+                       handshake message ClientHello, type byte and three-byte length first
+      clienthello.txt  one line per packet (version, connection IDs, packet number, its
+                       frames), then the ClientHello's server_name, ALPN list,
+                       quic_transport_parameters (one per line, id, name, hex value and
+                       integer value) and extension types in order
+
+    `dotnet run --file Run-QuicInitialRecorder.cs -- --self-test` checks the decryption: it
+    decrypts RFC 9001 Appendix A.2's protected client Initial and compares it with that
+    appendix's unprotected CRYPTO frame and PADDING, printing "self-test passed" and
+    exiting 0. Only builds whose curl --version lists HTTP3 can send an Initial: on Windows
+    the supplementary 8.22.0_2 and static 8.21.0 builds, not the Git for Windows reference
+    build, so give -Curl. Response and the TCP, TLS and other session parameters are
+    ignored. Combining it with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -Tls,
+    -NoServer, -LibcurlWebSocket or -LibcurlRtsp is refused.
+
+.PARAMETER DnsQuery
+    Record the DNS queries curl sends over UDP, and answer nothing: bind
+    <ListenAddress>:<Port> for UDP and keep every datagram curl sends to it until curl
+    exits, as -QuicInitial does, but decrypt nothing. In place of request.bin it writes
+    datagrams.bin, beside stdout.bin, stderr.txt and exitcode.txt: every datagram in
+    arrival order, each preceded by its length as a two-byte big-endian number. An empty
+    datagrams.bin says curl sent this port no query. Point curl at the port with
+    --dns-servers (a build with c-ares) or, to see whether a build honours the debug-build
+    variable the upstream test suite uses, -CurlEnvironment 'CURL_DNS_SERVER=127.0.0.1:<Port>'.
+    Nothing answers, so a query curl does send times out; give it --connect-timeout in
+    CurlArgs. Combining it with -QuicInitial, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap,
+    -Tftp, -Tls, -NoServer, -LibcurlWebSocket or -LibcurlRtsp is refused.
+
+.PARAMETER CurlEnvironment
+    Environment variables to set for curl's process only, each 'NAME=value', on top of
+    the environment the script inherits. Default: none.
+
 .PARAMETER Tls
     Answer each connection over TLS 1.2 instead of plain TCP, so the recorder can stand
     in for an HTTPS server or an HTTPS proxy. The certificate served
@@ -523,7 +579,7 @@
     or refuses. The -Ftp, -Smtp, -Imap, -Pop3 and -Raw sessions always serve TLS 1.2.
 
 .PARAMETER TlsRenegotiationOff
-    With -Tls and no session mode, serve TLS with renegotiation refused
+    With -Tls and no session mode (or with -Raw), serve TLS with renegotiation refused
     (SslServerAuthenticationOptions.AllowRenegotiation = false), as Surl does (ADR-0006,
     section 4). Windows PowerShell's .NET Framework SslStream cannot refuse it, so the
     handshake is run by a small TLS relay, a C# file-based app this script writes under
@@ -532,6 +588,24 @@
     -TlsProtocol versions, and forwards the plaintext to the recorder's own server on an
     ephemeral loopback port, so request.bin and the Response matching work as with -Tls.
     A connection whose handshake fails is never forwarded, so it records nothing. Not
+    combined with -Reset. With -Raw the relay's -TlsProtocol versions apply (TLS 1.2 by
+    default), and transcript.txt has no "= TLS handshake completed" line and the raw
+    session sends no close_notify of its own: the relay shakes hands and, once the raw
+    session closes, sends close_notify.
+
+.PARAMETER TlsAlpn
+    With -Tls and no session mode (or with -Raw), the ALPN protocol IDs the TLS server
+    offers, in preference order, e.g. -TlsAlpn h2,http/1.1 (a comma-separated string or
+    an array). Without it the server offers no ALPN, as before. .NET Framework's
+    SslStream has no ALPN, so the handshake is run by the same TLS relay as
+    -TlsRenegotiationOff (renegotiation stays allowed unless that is given too). The
+    agreed protocol is written to alpn.txt in OutDirectory, one line per completed
+    handshake: the protocol ID (h2, http/1.1, ...) or "none" when curl offered no ALPN or
+    none in common; an empty alpn.txt means no handshake completed. Once h2 is agreed
+    curl speaks HTTP/2, which the HTTP mode cannot read, so record it with -Raw:
+    -Tls -TlsAlpn h2,http/1.1 -Raw -RawReply '\x00\x00\x00\x04\x00\x00\x00\x00\x00'
+    serves an empty SETTINGS frame, and request.bin holds the connection preface
+    PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n, curl's SETTINGS and its first HEADERS. Not
     combined with -Reset.
 
 .PARAMETER FtpIdleMilliseconds
@@ -610,6 +684,20 @@
     Curl port's copy of this script uses to reach the Linux build: only a build pinned in
     UpstreamCurlBuilds.json may run (ADR-0003), and a curl inside WSL cannot be
     checksummed from Windows.
+
+.PARAMETER UnixSocket
+    Listen on a Unix domain socket at this path instead of ListenAddress:Port, for
+    measuring curl's --unix-socket (ADR-0094). The HTTP responses are served exactly as on
+    TCP, with -Tls if given; every session mode, -Reset, -NoServer and the TLS relay are
+    refused, and Port need not be given. The path must not exist: the script creates the
+    socket file and deletes it when curl has finished. Needs PowerShell 7 or later, whose
+    .NET has System.Net.Sockets.UnixDomainSocketEndPoint; on Windows it needs Windows 10
+    1803 or later, which supports AF_UNIX stream sockets.
+
+.PARAMETER UnixSocketAbstract
+    With UnixSocket, take its value as an abstract socket name, as curl's
+    --abstract-unix-socket does: the socket binds a NUL byte followed by the name, so no
+    file is created, checked for or deleted.
 
 .PARAMETER NoServer
     Bind no port and serve nothing: run curl against a server the caller started, such
@@ -769,6 +857,19 @@
     replies from a port of its own and curl's ACKs, and stdout.bin holds hello.
 
 .EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18443 -QuicInitial -Curl C:\UpstreamCurl\static-curl-8.21.0-windows-x86_64\curl.exe -CurlArgs '-sS','-k','--http3-only','--connect-timeout','3','https://127.0.0.1:18443/' -OutDirectory fixtures\quic-initial
+
+    Records the Initial packets curl sends for HTTP/3 and decrypts them; clienthello.bin
+    holds the TLS ClientHello and clienthello.txt its ALPN list (h3) and transport
+    parameters, and curl's connect timeout is recorded in stderr.txt and exitcode.txt.
+
+.EXAMPLE
+    .\Record-CurlExchange.ps1 -Port 18053 -DnsQuery -CurlEnvironment 'CURL_DNS_SERVER=127.0.0.1:18053' -CurlArgs '-sS','--connect-timeout','3','http://examplehost.example:18080/2102' -OutDirectory fixtures\dns-override
+
+    Runs upstream test 2102's command with its CURL_DNS_SERVER; datagrams.bin is empty
+    when the build ignores the variable, as release builds do (ADR-0123).
+
+.EXAMPLE
     .\Record-CurlExchange.ps1 -Port 18080 -KerberosTestKdc -KerberosPassword 'surl-test-password' -KerberosServicePrincipal 'HTTP/web.surl.test' -Response 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Negotiate\r\nContent-Length: 0\r\n\r\n' -CurlArgs '-sS','--negotiate','-u','tester@SURL.TEST:surl-test-password','--resolve','web.surl.test:18080:127.0.0.1','http://web.surl.test:18080/' -OutDirectory fixtures\negotiate-token
 
     Runs the test KDC while curl asks for http://web.surl.test:18080/; with BL-265's realm
@@ -790,6 +891,7 @@ param(
     [switch] $CloseUnread,
     [string] $InterimResponse = '',
     [string] $StandardInput = '',
+    [string[]] $ConfigFile = @(),
     [switch] $Ftp,
     [string[]] $FtpReply = @(),
     [string] $FtpData = '',
@@ -821,15 +923,21 @@ param(
     [string] $TftpData = '',
     [string] $TftpReply = '',
     [ValidateRange(1, 600000)] [int] $TftpIdleMilliseconds = 2000,
+    [switch] $QuicInitial,
+    [switch] $DnsQuery,
+    [string[]] $CurlEnvironment = @(),
     [switch] $Tls,
     [string] $TlsRootCertificateFile,
     [ValidateSet('Tls12', 'Tls13', 'Tls12AndTls13')] [string] $TlsProtocol = 'Tls12',
     [switch] $TlsRenegotiationOff,
+    [string[]] $TlsAlpn = @(),
     [string] $Curl,
     [switch] $LibcurlWebSocket,
     [switch] $LibcurlRtsp,
     [string] $Libcurl,
     [System.Net.IPAddress] $ListenAddress = [System.Net.IPAddress]::Loopback,
+    [string] $UnixSocket = '',
+    [switch] $UnixSocketAbstract,
     [switch] $NoServer,
     [switch] $KerberosTestKdc,
     [string] $KerberosPassword,
@@ -847,8 +955,21 @@ if ([string]::IsNullOrEmpty($MyInvocation.Line) -and $CurlArgs.Count -eq 1) { $C
 if ($NoServer -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls)) { throw '-NoServer runs no server, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp or -Tls.' }
 if (@($Ftp, $Smtp, $Imap, $Pop3, $Raw, $Ldap, $Tftp | Where-Object { $_ }).Count -gt 1) { throw '-Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap and -Tftp each serve a whole session; give one of them.' }
 if ($Tftp -and $Tls) { throw '-Tftp serves plain UDP, so it cannot be combined with -Tls.' }
-if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode, and cannot be combined with -Reset.' }
-if (-not $NoServer -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
+if ($QuicInitial -and ($Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls -or $NoServer -or $LibcurlWebSocket -or $LibcurlRtsp)) { throw '-QuicInitial records UDP datagrams for a curl it runs itself, so it cannot be combined with -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -Tls, -NoServer, -LibcurlWebSocket or -LibcurlRtsp.' }
+if ($DnsQuery -and ($QuicInitial -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $Tls -or $NoServer -or $LibcurlWebSocket -or $LibcurlRtsp)) { throw '-DnsQuery records UDP datagrams for a curl it runs itself, so it cannot be combined with -QuicInitial, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -Tls, -NoServer, -LibcurlWebSocket or -LibcurlRtsp.' }
+foreach ($assignment in $CurlEnvironment) { if ($assignment.IndexOf('=') -lt 1) { throw "-CurlEnvironment takes NAME=value; '$assignment' is not one." } }
+if ($TlsRenegotiationOff -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Reset)) { throw '-TlsRenegotiationOff needs -Tls with no session mode but -Raw, and cannot be combined with -Reset.' }
+# powershell -File binds 'h2,http/1.1' as one string, and a caller may give either form.
+$TlsAlpn = @($TlsAlpn | ForEach-Object { $_.Split(',') } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+if ($TlsAlpn.Count -gt 0 -and (-not $Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap -or $Reset)) { throw '-TlsAlpn needs -Tls with no session mode but -Raw, and cannot be combined with -Reset.' }
+# Both are served by the TLS relay, which forwards the plaintext to the recorder's own server.
+$useTlsRelay = $TlsRenegotiationOff -or $TlsAlpn.Count -gt 0
+if ($UnixSocket -and ($NoServer -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap -or $Tftp -or $QuicInitial -or $Reset -or $useTlsRelay)) { throw '-UnixSocket serves HTTP responses only, so it cannot be combined with -NoServer, -Ftp, -Smtp, -Imap, -Pop3, -Raw, -Ldap, -Tftp, -QuicInitial, -Reset, -TlsRenegotiationOff or -TlsAlpn.' }
+if ($UnixSocket -and $null -eq ('System.Net.Sockets.UnixDomainSocketEndPoint' -as [type])) { throw '-UnixSocket needs PowerShell 7 or later: this .NET has no System.Net.Sockets.UnixDomainSocketEndPoint.' }
+if ($UnixSocketAbstract -and -not $UnixSocket) { throw '-UnixSocketAbstract says how to read -UnixSocket, so it needs -UnixSocket.' }
+$unixSocketFile = if ($UnixSocket -and -not $UnixSocketAbstract) { $UnixSocket } else { '' }
+if ($unixSocketFile -and (Test-Path -LiteralPath $unixSocketFile)) { throw "-UnixSocket $UnixSocket exists already; the script creates the socket file and refuses to delete one it did not create." }
+if (-not $NoServer -and -not $UnixSocket -and $Port -eq 0) { throw '-Port is required unless -NoServer is given: the URL in CurlArgs must name the port the server listens on.' }
 if (-not $KerberosTestKdc -and ($PSBoundParameters.ContainsKey('KerberosPassword') -or $PSBoundParameters.ContainsKey('KerberosServicePrincipal'))) { throw '-KerberosPassword and -KerberosServicePrincipal configure the test KDC, so they need -KerberosTestKdc.' }
 $isWindowsHost = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 if ($KerberosTestKdc -and -not $isWindowsHost -and $null -eq (Get-Command kinit -ErrorAction SilentlyContinue)) { throw '-KerberosTestKdc outside Windows runs kinit for curl''s GSS-API credential cache, and there is no kinit on PATH.' }
@@ -993,7 +1114,8 @@ $serveConnections = {
     $requests = New-Object System.Collections.Generic.List[object]
     for ($served = 0; $served -lt $ConnectionCount; $served++) {
         try {
-            $client = $Listener.AcceptTcpClient()
+            # -UnixSocket listens on a bare Socket; the accepted socket is wrapped in its stream.
+            $client = if ($Listener -is [System.Net.Sockets.Socket]) { New-Object System.Net.Sockets.NetworkStream($Listener.Accept(), $true) } else { $Listener.AcceptTcpClient() }
         } catch {
             break  # The listener was stopped: curl exited without opening this connection.
         }
@@ -1005,7 +1127,7 @@ $serveConnections = {
             continue
         }
         try {
-            $stream = $client.GetStream()
+            $stream = if ($client -is [System.IO.Stream]) { $client } else { $client.GetStream() }
             if ($null -ne $TlsCertificate) {
                 $stream = New-Object System.Net.Security.SslStream($stream, $false)
                 $stream.ReadTimeout = 5000
@@ -2584,6 +2706,34 @@ $serveLdapSession = {
     return , @(, $received.ToArray())
 }
 
+# The -QuicInitial and -DnsQuery recorder: every datagram curl sends to the listening UDP socket, each
+# written to $Datagrams behind its length as two big-endian bytes, until the main script
+# closes the socket once curl has exited. Nothing is ever sent back.
+$recordUdpDatagrams = {
+    param($Listener, [System.IO.MemoryStream] $Datagrams, [System.Net.IPAddress] $ListenAddress)
+
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+    $buffer = New-Object byte[] 65536
+    $anyAddress = if ($ListenAddress.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetworkV6) { [System.Net.IPAddress]::IPv6Any } else { [System.Net.IPAddress]::Any }
+    while ($true) {
+        [System.Net.EndPoint] $from = New-Object System.Net.IPEndPoint($anyAddress, 0)
+        try {
+            $count = $Listener.ReceiveFrom($buffer, [ref] $from)
+        } catch [System.ObjectDisposedException] {
+            break
+        } catch [System.Net.Sockets.SocketException] {
+            # Closing the socket ends a blocked receive this way; anything else is an ICMP
+            # report from an earlier datagram, which says nothing about curl's next one.
+            if ($_.Exception.SocketErrorCode -eq [System.Net.Sockets.SocketError]::Interrupted -or $_.Exception.SocketErrorCode -eq [System.Net.Sockets.SocketError]::OperationAborted) { break }
+            continue
+        }
+        $Datagrams.WriteByte([byte] ($count -shr 8))
+        $Datagrams.WriteByte([byte] ($count -band 0xFF))
+        $Datagrams.Write($buffer, 0, $count)
+    }
+}
+
 # The -Tftp server: one transfer over UDP. The first datagram arrives on the listening
 # socket; every reply goes out from a new socket, the server's transfer identifier. It
 # returns every datagram curl sent, as one array, writes the transcript into $Transcript
@@ -2867,11 +3017,14 @@ function New-ThrowawayTlsCertificate {
     return New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(, $pfx)
 }
 
-# The -TlsRenegotiationOff relay: a .NET 10 file-based app, because only .NET 5 and later
-# can refuse renegotiation. Arguments: listen address, port, PFX path, PFX password,
-# SslProtocols as an integer. It reads the backend port from its first line of standard
-# input, prints "listening" once bound, then relays each connection whose handshake
-# succeeds to 127.0.0.1:<backend port> until it is killed.
+# The -TlsRenegotiationOff and -TlsAlpn relay: a .NET 10 file-based app, because only .NET 5
+# and later can refuse renegotiation or offer ALPN (.NET Framework's SslStream has neither).
+# Arguments: listen address, port, PFX path, PFX password, SslProtocols as an integer,
+# "true" or "false" for renegotiation allowed, the ALPN protocol IDs comma-separated ("-"
+# for none), and the path of alpn.txt ("-" for none). It reads the backend port from its
+# first line of standard input, prints "listening" once bound, then relays each connection
+# whose handshake succeeds to 127.0.0.1:<backend port> until it is killed. With an alpn.txt
+# path it appends one line per completed handshake: the agreed protocol ID, or "none".
 $tlsRelaySource = @'
 using System.Net;
 using System.Net.Security;
@@ -2883,6 +3036,12 @@ var listenAddress = IPAddress.Parse(args[0]);
 var port = int.Parse(args[1]);
 using var certificate = X509CertificateLoader.LoadPkcs12FromFile(args[2], args[3]);
 var protocols = (SslProtocols)int.Parse(args[4]);
+var allowRenegotiation = bool.Parse(args[5]);
+List<SslApplicationProtocol>? applicationProtocols = args[6] == "-"
+    ? null
+    : args[6].Split(',', StringSplitOptions.RemoveEmptyEntries).Select(id => new SslApplicationProtocol(id)).ToList();
+var agreedProtocolPath = args[7] == "-" ? null : args[7];
+var agreedProtocolLock = new object();
 // Windows PowerShell's standard input writer may lead with a byte order mark; keep the digits.
 var backendPort = int.Parse(string.Concat(Console.ReadLine()!.Where(char.IsAsciiDigit)));
 var listener = new TcpListener(listenAddress, port);
@@ -2905,7 +3064,8 @@ async Task RelayAsync(TcpClient client)
             {
                 ServerCertificate = certificate,
                 EnabledSslProtocols = protocols,
-                AllowRenegotiation = false,
+                AllowRenegotiation = allowRenegotiation,
+                ApplicationProtocols = applicationProtocols,
                 ClientCertificateRequired = false,
                 CertificateRevocationCheckMode = X509RevocationMode.NoCheck,
             });
@@ -2916,7 +3076,15 @@ async Task RelayAsync(TcpClient client)
             return;
         }
 
-        Console.Error.WriteLine($"relay: handshake completed: {secured.SslProtocol}, {secured.NegotiatedCipherSuite}");
+        var agreed = secured.NegotiatedApplicationProtocol.Protocol.IsEmpty ? "none" : secured.NegotiatedApplicationProtocol.ToString();
+        Console.Error.WriteLine($"relay: handshake completed: {secured.SslProtocol}, {secured.NegotiatedCipherSuite}, ALPN {agreed}");
+        if (agreedProtocolPath is not null)
+        {
+            lock (agreedProtocolLock)
+            {
+                File.AppendAllText(agreedProtocolPath, agreed + "\n");
+            }
+        }
         using var backend = new TcpClient();
         await backend.ConnectAsync(IPAddress.Loopback, backendPort);
         var backendStream = backend.GetStream();
@@ -2952,7 +3120,7 @@ function Start-TlsRelay {
     # relay. It must start before the backend listener exists: .NET Framework sockets are
     # inheritable, and a relay holding the listening socket would keep a stopped listener's
     # accept waiting. Returns the process and the PFX path, for Connect- and Stop-TlsRelay.
-    param($Certificate, [System.Net.IPAddress] $Address, [int] $ListenPort, [int] $Protocols)
+    param($Certificate, [System.Net.IPAddress] $Address, [int] $ListenPort, [int] $Protocols, [bool] $AllowRenegotiation, [string[]] $ApplicationProtocols, [string] $AgreedProtocolPath)
     $directory = Join-Path ([System.IO.Path]::GetTempPath()) 'SurlRecorder'
     New-Item -ItemType Directory -Path $directory -Force | Out-Null
     $source = Join-Path $directory 'TlsRelay.cs'
@@ -2962,7 +3130,7 @@ function Start-TlsRelay {
     [System.IO.File]::WriteAllBytes($pfxPath, $Certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, $password))
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = 'dotnet'
-    $startInfo.Arguments = (@('run', $source, '--', $Address.ToString(), $ListenPort, $pfxPath, $password, $Protocols) | ForEach-Object { ConvertTo-CommandLineArgument -Argument ([string] $_) }) -join ' '
+    $startInfo.Arguments = (@('run', $source, '--', $Address.ToString(), $ListenPort, $pfxPath, $password, $Protocols, $AllowRenegotiation.ToString().ToLowerInvariant(), $(if ($ApplicationProtocols.Count -gt 0) { $ApplicationProtocols -join ',' } else { '-' }), $(if ($AgreedProtocolPath) { $AgreedProtocolPath } else { '-' })) | ForEach-Object { ConvertTo-CommandLineArgument -Argument ([string] $_) }) -join ' '
     $startInfo.WorkingDirectory = $directory
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardInput = $true
@@ -2978,7 +3146,7 @@ function Connect-TlsRelay {
     $Relay[0].StandardInput.Flush()
     $line = $Relay[0].StandardOutput.ReadLine()
     if ($line -ne 'listening') {
-        throw "The TLS relay did not start (it printed '$line'); -TlsRenegotiationOff needs the .NET 10 SDK's dotnet on PATH."
+        throw "The TLS relay did not start (it printed '$line'); -TlsRenegotiationOff and -TlsAlpn need the .NET 10 SDK's dotnet on PATH."
     }
 }
 
@@ -3119,18 +3287,35 @@ foreach ($mechanismName in $saslChallenges.Keys) {
 }
 $transcript = New-Object System.Text.StringBuilder
 $uploadedData = New-Object System.IO.MemoryStream
+$recordedDatagrams = New-Object System.IO.MemoryStream
 $OutDirectory = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine((Get-Location).ProviderPath, $OutDirectory))
 New-Item -ItemType Directory -Path $OutDirectory -Force | Out-Null
+
+# Each -ConfigFile is written beside the fixtures, and curl runs there so they name each other by bare name.
+$fixtureFileNames = @('request.bin', 'stdout.bin', 'stderr.txt', 'exitcode.txt')
+foreach ($entry in $ConfigFile) {
+    $separator = $entry.IndexOf('=')
+    if ($separator -lt 1) { throw "-ConfigFile $entry is not <name>=<text>." }
+    $configFileName = $entry.Substring(0, $separator)
+    if ($configFileName.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars()) -ge 0 -or $configFileName -in @('.', '..')) { throw "-ConfigFile name $configFileName is not a bare file name." }
+    if ($configFileName -match '^request(-\d+)?\.bin$' -or $fixtureFileNames -contains $configFileName) { throw "-ConfigFile name $configFileName is a fixture file the script writes." }
+    [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory $configFileName), [byte[]] (ConvertFrom-EscapedResponse -Text $entry.Substring($separator + 1)))
+}
 
 $servedTlsProtocols = switch ($TlsProtocol) {
     'Tls13' { [System.Security.Authentication.SslProtocols]::Tls13 }
     'Tls12AndTls13' { [System.Security.Authentication.SslProtocols]::Tls12 -bor [System.Security.Authentication.SslProtocols]::Tls13 }
     default { [System.Security.Authentication.SslProtocols]::Tls12 }
 }
-$tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile -Exportable:$TlsRenegotiationOff } else { $null }
-# With -TlsRenegotiationOff the relay does the TLS, so the recorder's server serves plaintext.
-$servedCertificate = if ($TlsRenegotiationOff) { $null } else { $tlsCertificate }
+$tlsCertificate = if ($Tls -or $Ftp -or $Smtp -or $Imap -or $Pop3 -or $Ldap) { New-ThrowawayTlsCertificate -RootCertificateFile $TlsRootCertificateFile -Exportable:$useTlsRelay } else { $null }
+# With the TLS relay (-TlsRenegotiationOff, -TlsAlpn) the relay does the TLS, so the
+# recorder's server serves plaintext.
+$servedCertificate = if ($useTlsRelay) { $null } else { $tlsCertificate }
 $tlsRelay = $null
+# With -TlsAlpn the relay appends each agreed protocol to alpn.txt; it starts empty, so a
+# recording in which no handshake completed says so by an empty file.
+$agreedProtocolPath = if ($TlsAlpn.Count -gt 0) { Join-Path $OutDirectory 'alpn.txt' } else { $null }
+if ($null -ne $agreedProtocolPath) { [System.IO.File]::WriteAllText($agreedProtocolPath, '', [System.Text.Encoding]::ASCII) }
 # The test KDC and the Kerberos acceptor start before any socket is opened: a child process
 # inherits the recorder's sockets, and an inherited listening socket keeps a server's blocked
 # accept from ending when Stop-Listener closes it, so the recording never finished (BL-327).
@@ -3144,14 +3329,20 @@ try {
     if ($KerberosTestKdc) { $kerberosKdc = Start-KerberosTestKdc -Password $KerberosPassword -ServicePrincipals $KerberosServicePrincipal -Directory $OutDirectory }
     if ($KerberosTestKdc -and -not $isWindowsHost) { $kerberosClientEnvironment = Initialize-KerberosClient -Password $KerberosPassword -Directory $OutDirectory }
     if ($LdapKerberosAcceptor) { $kerberosAcceptor = Start-KerberosAcceptor -Directory $OutDirectory }
-    if ($Tftp) {
+    if ($Tftp -or $QuicInitial -or $DnsQuery) {
         $listener = New-Object System.Net.Sockets.Socket($ListenAddress.AddressFamily, [System.Net.Sockets.SocketType]::Dgram, [System.Net.Sockets.ProtocolType]::Udp)
         $listener.Bind((New-Object System.Net.IPEndPoint($ListenAddress, $Port)))
         $server = [System.Management.Automation.PowerShell]::Create()
-    } elseif ($TlsRenegotiationOff) {
-        $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols)
+    } elseif ($useTlsRelay) {
+        $tlsRelay = Start-TlsRelay -Certificate $tlsCertificate -Address $ListenAddress -ListenPort $Port -Protocols ([int] $servedTlsProtocols) -AllowRenegotiation (-not $TlsRenegotiationOff) -ApplicationProtocols $TlsAlpn -AgreedProtocolPath $agreedProtocolPath
         $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $listener.Start()
+        $server = [System.Management.Automation.PowerShell]::Create()
+    } elseif ($UnixSocket) {
+        $listener = New-Object System.Net.Sockets.Socket([System.Net.Sockets.AddressFamily]::Unix, [System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Unspecified)
+        $boundName = if ($UnixSocketAbstract) { "`0" + $UnixSocket } else { $UnixSocket }
+        $listener.Bind((New-Object System.Net.Sockets.UnixDomainSocketEndPoint($boundName)))
+        $listener.Listen(16)
         $server = [System.Management.Automation.PowerShell]::Create()
     } elseif (-not $NoServer) {
         $listener = New-Object System.Net.Sockets.TcpListener($ListenAddress, $Port)
@@ -3164,7 +3355,7 @@ try {
     throw
 }
 
-# -Tftp listens on a UDP socket, which is closed rather than stopped.
+# -Tftp, -QuicInitial and -DnsQuery listen on a UDP socket, which is closed rather than stopped.
 function Stop-Listener {
     if ($listener -is [System.Net.Sockets.Socket]) { $listener.Close() } else { $listener.Stop() }
 }
@@ -3182,12 +3373,14 @@ try {
     } elseif ($Raw) {
         $rawReplies = New-Object System.Collections.Generic.List[byte[]]
         foreach ($text in $RawReply) { $rawReplies.Add((ConvertFrom-EscapedResponse -Text $text)) }
-        [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds).AddArgument($tlsCertificate)
+        [void] $server.AddScript($serveRawSession).AddArgument($listener).AddArgument($rawReplies).AddArgument($transcript).AddArgument([bool] $RawReplyFirst).AddArgument($RawIdleMilliseconds).AddArgument($servedCertificate)
     } elseif ($Ldap) {
         $ldapEntries = @($LdapEntry | ForEach-Object { [System.Text.Encoding]::UTF8.GetString((ConvertFrom-EscapedResponse -Text $_)) })
         [void] $server.AddScript($serveLdapSession).AddArgument($listener).AddArgument($ldapOverrides).AddArgument($ldapEntries).AddArgument($transcript).AddArgument($tlsCertificate).AddArgument([bool] $Tls).AddArgument($LdapIdleMilliseconds).AddArgument($kerberosAcceptor).AddArgument($LdapGssapiSecurityLayers)
     } elseif ($Tftp) {
         [void] $server.AddScript($serveTftpSession).AddArgument($listener).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpData)).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $TftpReply)).AddArgument($transcript).AddArgument($uploadedData).AddArgument($TftpIdleMilliseconds).AddArgument($ListenAddress)
+    } elseif ($QuicInitial -or $DnsQuery) {
+        [void] $server.AddScript($recordUdpDatagrams).AddArgument($listener).AddArgument($recordedDatagrams).AddArgument($ListenAddress)
     } else {
         [void] $server.AddScript($serveConnections).AddArgument($listener).AddArgument($responseBytes).AddArgument($Connections).AddArgument($ResponseDelayMilliseconds).AddArgument([bool] $Reset).AddArgument($RespondAfterBodyBytes).AddArgument($servedCertificate).AddArgument($HoldOpenMilliseconds).AddArgument([int] $servedTlsProtocols).AddArgument([bool] $CloseUnread).AddArgument([byte[]] (ConvertFrom-EscapedResponse -Text $InterimResponse)).AddArgument($ResponsesPerConnection)
     }
@@ -3204,8 +3397,13 @@ try {
     } else {
         $startInfo.FileName = $Curl
         $startInfo.Arguments = (@($CurlArgs | ForEach-Object { ConvertTo-CommandLineArgument -Argument $_ }) -join ' ')
+        if ($ConfigFile.Count -gt 0) { $startInfo.WorkingDirectory = $OutDirectory }
     }
     foreach ($name in $kerberosClientEnvironment.Keys) { $startInfo.Environment[$name] = $kerberosClientEnvironment[$name] }
+    foreach ($assignment in $CurlEnvironment) {
+        $equals = $assignment.IndexOf('=')
+        $startInfo.Environment[$assignment.Substring(0, $equals)] = $assignment.Substring($equals + 1)
+    }
     $startInfo.UseShellExecute = $false
     $startInfo.RedirectStandardInput = $true
     $startInfo.RedirectStandardOutput = $true
@@ -3260,6 +3458,8 @@ try {
     if ($null -ne $tlsRelay) { Stop-TlsRelay -Relay $tlsRelay }
     if ($null -ne $listener) { Stop-Listener }
     if ($null -ne $server) { $server.Dispose() }
+    # The socket file outlives its socket; the script created it, so the script deletes it.
+    if ($unixSocketFile -and (Test-Path -LiteralPath $unixSocketFile)) { Remove-Item -LiteralPath $unixSocketFile -Force }
     # Reset deletes the key container the PFX import created.
     if ($null -ne $tlsCertificate) { $tlsCertificate.Reset() }
 }
@@ -3269,7 +3469,8 @@ foreach ($request in $requests) {
     foreach ($bytes in $request) { $requestBytes.Write($bytes, 0, $bytes.Length) }
 }
 
-if (-not $NoServer) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'request.bin'), $requestBytes.ToArray()) }
+if ($DnsQuery) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'datagrams.bin'), $recordedDatagrams.ToArray()) }
+if (-not $NoServer -and -not $QuicInitial -and -not $DnsQuery) { [System.IO.File]::WriteAllBytes((Join-Path $OutDirectory 'request.bin'), $requestBytes.ToArray()) }
 if (-not $NoServer -and $ResponsesPerConnection -gt 1) {
     $requestNumber = 0
     foreach ($request in $requests) {
@@ -3288,6 +3489,13 @@ if ($Ftp -or $Tftp) {
 }
 if ($Smtp -or $Imap -or $Pop3 -or $Raw -or $Ldap) {
     [System.IO.File]::WriteAllText((Join-Path $OutDirectory 'transcript.txt'), $transcript.ToString(), [System.Text.Encoding]::GetEncoding(28591))
+}
+if ($QuicInitial) {
+    $datagramsPath = Join-Path $OutDirectory 'datagrams.bin'
+    [System.IO.File]::WriteAllBytes($datagramsPath, $recordedDatagrams.ToArray())
+    $decryptArguments = @('run', '--file', (Join-Path $PSScriptRoot 'Run-QuicInitialRecorder.cs'), '--', '--datagrams', $datagramsPath, '--clienthello', (Join-Path $OutDirectory 'clienthello.bin'), '--summary', (Join-Path $OutDirectory 'clienthello.txt'))
+    & dotnet @decryptArguments | Out-Host
+    if ($LASTEXITCODE -ne 0) { Write-Warning "Run-QuicInitialRecorder.cs exited ${LASTEXITCODE}: no version 1 Initial packet in datagrams.bin could be decrypted." }
 }
 
 Write-Host "curl exited $exitCode after $($curlClock.ElapsedMilliseconds) ms; fixtures written to $OutDirectory"

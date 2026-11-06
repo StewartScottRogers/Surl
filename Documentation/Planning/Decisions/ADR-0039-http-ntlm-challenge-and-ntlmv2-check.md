@@ -16,7 +16,7 @@ user. What the `CHALLENGE_MESSAGE` holds and which answers are checked was left 
 Measured on 2026-09-29 with `Record-CurlExchange.ps1 -ResponsesPerConnection 2` (added for this)
 and the pinned reference build (curl 8.21.0, win-x64, SSPI, SHA-256 `0E773709…8778`), running
 `-sS --ntlm -u tester:secret http://127.0.0.1:18120/x`; fixtures in
-`Surl.Authentication.UnitTests/Fixtures/ntlm*`:
+`Foundation/Surl.Authentication.UnitTests/Fixtures/ntlm*`:
 
 - curl sends its `NEGOTIATE_MESSAGE` on the first request, unasked, with flags `0xA2088207`
   (Unicode, OEM, request target, NTLM, always sign, extended session security, version,

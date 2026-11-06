@@ -13,7 +13,7 @@ the SHA-256 of its UTF-8 bytes (section 8), but does not say how the bytes insid
 `Authorization` value are read when they are not ASCII, nor what a Bearer token's bytes are.
 
 Measured on 2026-09-29 with `Record-CurlExchange.ps1` and the pinned reference build (curl
-8.21.0, win-x64, SHA-256 `0E773709…8778`; fixtures in `Surl.Authentication.UnitTests/Fixtures`):
+8.21.0, win-x64, SHA-256 `0E773709…8778`; fixtures in `Foundation/Surl.Authentication.UnitTests/Fixtures`):
 
 - `--basic -u tëster:sé:cr€t` on the Windows command line sent
   `Basic dOtzdGVyOnPpOmNygHQ=`, the Windows-1252 bytes `74 EB 73 74 65 72 3A 73 E9 3A 63 72 80 74`:

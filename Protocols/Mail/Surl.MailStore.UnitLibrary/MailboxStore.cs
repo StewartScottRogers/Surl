@@ -1,0 +1,1567 @@
+using Surl.Protocol.Abstractions;
+
+namespace Surl.MailStore;
+
+/// <summary>
+/// The mailboxes and messages the SMTP, IMAP and POP3 servers share (ADR-0050, decisions 2 to
+/// 6): SMTP delivers into it, IMAP and POP3 serve from it. One store is given to all three
+/// servers. Safe for concurrent use: every operation is atomic with respect to every other,
+/// and a session sees another's changes at once, except a POP3 session's
+/// <see cref="MaildropLock"/>, whose view is fixed when it is taken.
+/// </summary>
+/// <remarks>
+/// <para>
+/// It keeps a mailbox set per owner. Without <c>--allow-anonymous</c> every account with a
+/// non-empty name is an owner, and each has an <c>INBOX</c> from the start. With it there is
+/// one owner reached, the anonymous owner, whose name is the empty string: every recipient is
+/// delivered to its <c>INBOX</c>, and every session acts as it.
+/// </para>
+/// <para>
+/// It is bounded, because every peer can fill it: at most <see cref="MaxMessages"/> messages,
+/// <see cref="MaxTotalMessageBytes"/> bytes of distinct messages (a message delivered to
+/// several recipients, or copied, is counted once) and <see cref="MaxMailboxes"/> mailboxes
+/// other than the owners' <c>INBOX</c>es. An operation that would pass a bound stores nothing.
+/// </para>
+/// <para>
+/// Its mailboxes and flags live in memory. <see cref="ChangeCount"/> rises by one with every
+/// change that alters the store, and not with a refused or no-op one. A store made by
+/// <see cref="LoadAsync"/> starts with what its <see cref="MailStoreFiles"/> hold, streams each
+/// new message body into a pending file that becomes its message file when it is stored, reads
+/// a message's bytes from that file when a server fetches them, and writes the index back when
+/// <see cref="SaveChangesAsync"/> is called, so its mail survives a restart (ADR-0050,
+/// decision 7). A store made by the constructor has no files: it holds every message's bytes in
+/// memory, and its changes are never written anywhere.
+/// </para>
+/// </remarks>
+public sealed partial class MailboxStore
+{
+    /// <summary>
+    /// The default for <see cref="MaxMessages"/>: 100000 messages.
+    /// </summary>
+    public const int DefaultMaxMessages = 100_000;
+
+    /// <summary>
+    /// The default for <see cref="MaxTotalMessageBytes"/>: 268435456 bytes (256 MiB), the same
+    /// as the in-memory content file system's bound.
+    /// </summary>
+    public const long DefaultMaxTotalMessageBytes = 268_435_456;
+
+    /// <summary>
+    /// The default for <see cref="MaxMailboxes"/>: 10000 mailboxes.
+    /// </summary>
+    public const int DefaultMaxMailboxes = 10_000;
+
+    /// <summary>
+    /// The most UTF-8 bytes one mailbox name may hold.
+    /// </summary>
+    public const int MaxMailboxNameBytes = 1024;
+
+    /// <summary>
+    /// The name of the reserved owner whose mailboxes are the shared folders (ADR-0102, decision
+    /// 1.6). No account can bear it, and no login reaches it directly.
+    /// </summary>
+    public const string SharedFolderOwnerName = ":shared";
+
+    /// <summary>
+    /// The name a session sees above every shared folder; never a mailbox itself.
+    /// </summary>
+    public const string SharedFolderRoot = "Shared";
+
+    /// <summary>
+    /// What a session sees in front of each shared folder's name.
+    /// </summary>
+    public const string SharedFolderPrefix = SharedFolderRoot + "/";
+
+    private const MailFlags SystemFlags =
+        MailFlags.Seen | MailFlags.Answered | MailFlags.Flagged | MailFlags.Deleted | MailFlags.Draft;
+
+    private readonly Lock storeLock = new();
+    private readonly SemaphoreSlim saveLock = new(1, 1);
+    private readonly TimeProvider timeProvider;
+    private readonly ISurlEventPublisher events;
+    private readonly IFaultPlan faults;
+    private readonly Dictionary<string, OwnerMailboxes> owners = new(StringComparer.Ordinal);
+    private readonly LocalPartLookup<OwnerMailboxes> accounts = new();
+    private readonly LocalPartLookup<OwnerMailboxes> mailboxOwners = new();
+    private readonly Dictionary<OwnerMailboxes, MaildropLock> lockedMaildrops = [];
+    private readonly List<ulong> releasedFileNumbers = [];
+    private readonly Dictionary<OwnerMailboxes, long> quotas = [];
+    private readonly Dictionary<string, HashSet<string>> sharedFolderMembers = new(StringComparer.Ordinal);
+    private OwnerMailboxes? sharedOwner;
+    private OwnerMailboxes? anonymousOwner;
+    private MailDomainRouter? router;
+    private MailStoreFiles? files;
+    private readonly Dictionary<OwnerMailboxes, string[]>? configuredMailboxes;
+    private ulong nextFileNumber;
+    private uint lastUidValidity;
+    private int messageCount;
+    private long totalMessageBytes;
+    private int mailboxCount;
+    private long changeCount;
+    private long savedChangeCount;
+
+    /// <summary>
+    /// Creates an empty store whose owners are <paramref name="accountNames"/>, or the anonymous
+    /// owner alone when <paramref name="allowAnonymous"/> is set, each with an empty
+    /// <c>INBOX</c>.
+    /// </summary>
+    /// <param name="accountNames">The configured accounts' names. An empty name - a Bearer
+    /// token's account - is not an owner, and a repeated name is one owner.</param>
+    /// <param name="allowAnonymous">Whether <c>--allow-anonymous</c> is set.</param>
+    /// <param name="timeProvider">The clock for internal dates and <c>UIDVALIDITY</c>.</param>
+    /// <param name="maxMessageBytes">The value of <see cref="MaxMessageBytes"/>; 0 means no limit.</param>
+    /// <param name="maxMessages">The value of <see cref="MaxMessages"/>; at least 1.</param>
+    /// <param name="maxTotalMessageBytes">The value of <see cref="MaxTotalMessageBytes"/>; at least 1.</param>
+    /// <param name="maxMailboxes">The value of <see cref="MaxMailboxes"/>; at least 0.</param>
+    /// <param name="mailDomains">The mail domains, mailboxes, aliases and catch-alls recipients
+    /// are resolved against (ADR-0102, decision 1), or <see langword="null"/> - as a
+    /// configuration with no domain - to resolve them as ADR-0050 decision 5 says. Each mailbox
+    /// is an owner and an account named by its normalised address. Ignored with
+    /// <c>--allow-anonymous</c>.</param>
+    /// <param name="events">Where every change is published (ADR-0124 decision 1), or
+    /// <see langword="null"/> to publish nothing.</param>
+    /// <param name="faults">The fault plan a delivery or append consults for an out-of-space rule
+    /// (ADR-0124 decision 4), or <see langword="null"/> for none.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="accountNames"/> or
+    /// <paramref name="timeProvider"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A bound is out of range.</exception>
+    /// <exception cref="InvalidOperationException">The clock is past 2106-02-07T06:28:15Z, so an
+    /// <c>INBOX</c> can get no <c>UIDVALIDITY</c>.</exception>
+    /// <exception cref="MailRouteException">An alias or catch-all of <paramref name="mailDomains"/>
+    /// does not resolve to owners.</exception>
+    public MailboxStore(
+        IEnumerable<string> accountNames,
+        bool allowAnonymous,
+        TimeProvider timeProvider,
+        long maxMessageBytes = 0,
+        int maxMessages = DefaultMaxMessages,
+        long maxTotalMessageBytes = DefaultMaxTotalMessageBytes,
+        int maxMailboxes = DefaultMaxMailboxes,
+        MailDomainConfiguration? mailDomains = null,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null)
+        : this(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes, events, faults)
+    {
+        ArgumentNullException.ThrowIfNull(accountNames);
+        anonymousOwner = ReachOwners(accountNames, allowAnonymous, mailDomains);
+        configuredMailboxes = owners.Values.ToDictionary(owner => owner, owner => owner.Mailboxes.Keys.ToArray());
+
+        // A new store starts with no change: its INBOXes are where it begins, not a change to it.
+        changeCount = 0;
+    }
+
+    private MailboxStore(
+        TimeProvider timeProvider,
+        long maxMessageBytes,
+        int maxMessages,
+        long maxTotalMessageBytes,
+        int maxMailboxes,
+        ISurlEventPublisher? events,
+        IFaultPlan? faults)
+    {
+        this.events = events ?? DiscardingSurlEventPublisher.Instance;
+        this.faults = faults ?? EmptyFaultPlan.Instance;
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMessageBytes);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxMessages, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxTotalMessageBytes, 1);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxMailboxes);
+
+        this.timeProvider = timeProvider;
+        MaxMessageBytes = maxMessageBytes;
+        MaxMessages = maxMessages;
+        MaxTotalMessageBytes = maxTotalMessageBytes;
+        MaxMailboxes = maxMailboxes;
+    }
+
+    /// <summary>
+    /// Creates a store that holds what <paramref name="files"/> hold and writes every later
+    /// change back to them through <see cref="SaveChangesAsync"/> (ADR-0050, decision 7). A
+    /// missing index is an empty store; leftover temporary files, and message files the index
+    /// does not name, are ignored. Owners the index holds that are no longer accounts are kept,
+    /// unreached. Every owner reached that lacks an <c>INBOX</c> gets one, which counts as a
+    /// change, so the first <see cref="SaveChangesAsync"/> writes the index.
+    /// </summary>
+    /// <param name="files">The files the store is read from now and written to after each change.</param>
+    /// <param name="accountNames">The configured accounts' names, as the constructor takes them.</param>
+    /// <param name="allowAnonymous">Whether <c>--allow-anonymous</c> is set.</param>
+    /// <param name="timeProvider">The clock for internal dates and <c>UIDVALIDITY</c>.</param>
+    /// <param name="maxMessageBytes">The value of <see cref="MaxMessageBytes"/>; 0 means no limit.</param>
+    /// <param name="maxMessages">The value of <see cref="MaxMessages"/>; at least 1.</param>
+    /// <param name="maxTotalMessageBytes">The value of <see cref="MaxTotalMessageBytes"/>; at least 1.</param>
+    /// <param name="maxMailboxes">The value of <see cref="MaxMailboxes"/>; at least 0.</param>
+    /// <param name="mailDomains">The mail domains, mailboxes, aliases and catch-alls recipients
+    /// are resolved against (ADR-0102, decision 1), or <see langword="null"/> - as a
+    /// configuration with no domain - to resolve them as ADR-0050 decision 5 says. Each mailbox
+    /// is an owner and an account named by its normalised address. Ignored with
+    /// <c>--allow-anonymous</c>.</param>
+    /// <param name="events">Where every change is published (ADR-0124 decision 1), or
+    /// <see langword="null"/> to publish nothing.</param>
+    /// <param name="faults">The fault plan a delivery or append consults for an out-of-space rule
+    /// (ADR-0124 decision 4), or <see langword="null"/> for none.</param>
+    /// <param name="cancellationToken">Cancels the read.</param>
+    /// <returns>The loaded store.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">A bound is out of range.</exception>
+    /// <exception cref="MailStoreLoadException">The index cannot be read or does not parse, or
+    /// holds more than the bounds allow, or a message file it names is missing, unreadable or
+    /// not the size it gives; nothing is loaded or written.</exception>
+    /// <exception cref="MailRouteException">An alias or catch-all of <paramref name="mailDomains"/>
+    /// does not resolve to owners; nothing is written.</exception>
+    public static async Task<MailboxStore> LoadAsync(
+        MailStoreFiles files,
+        IEnumerable<string> accountNames,
+        bool allowAnonymous,
+        TimeProvider timeProvider,
+        long maxMessageBytes = 0,
+        int maxMessages = DefaultMaxMessages,
+        long maxTotalMessageBytes = DefaultMaxTotalMessageBytes,
+        int maxMailboxes = DefaultMaxMailboxes,
+        MailDomainConfiguration? mailDomains = null,
+        ISurlEventPublisher? events = null,
+        IFaultPlan? faults = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        ArgumentNullException.ThrowIfNull(accountNames);
+        var store = new MailboxStore(timeProvider, maxMessageBytes, maxMessages, maxTotalMessageBytes, maxMailboxes, events, faults);
+        var index = await files.ReadIndexAsync(cancellationToken);
+        if (index is not null)
+        {
+            store.LoadIndex(files, index);
+        }
+
+        store.anonymousOwner = store.ReachOwners(accountNames, allowAnonymous, mailDomains);
+        store.files = files;
+        return store;
+    }
+
+    /// <summary>
+    /// The most bytes one message may hold, <c>--max-filesize</c> as each server reads it,
+    /// checked again here as a second line of defence; 0 means no limit.
+    /// </summary>
+    public long MaxMessageBytes { get; }
+
+    /// <summary>
+    /// The most messages the store holds, every owner and mailbox together.
+    /// </summary>
+    public int MaxMessages { get; }
+
+    /// <summary>
+    /// The most bytes of distinct messages the store holds; copies of one message count once.
+    /// </summary>
+    public long MaxTotalMessageBytes { get; }
+
+    /// <summary>
+    /// The most mailboxes the store holds other than the owners' <c>INBOX</c>es.
+    /// </summary>
+    public int MaxMailboxes { get; }
+
+    /// <summary>
+    /// How many changes have altered the store since it was created. A refused or no-op
+    /// operation does not count.
+    /// </summary>
+    public long ChangeCount
+    {
+        get
+        {
+            lock (storeLock)
+            {
+                return changeCount;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Writes the store's index to its files when the store has changed since the last write,
+    /// then deletes the files of messages no longer held; does nothing for a store made without
+    /// files (ADR-0050, decision 7). A message's own file is in place already, renamed from its
+    /// pending file when the message was stored. Writes are serialised, and each writes the
+    /// store as it is when the write starts, so the index always holds a state the store held.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the write; the next save writes the change instead.</param>
+    /// <returns>A task that completes when the files hold the store's latest state.</returns>
+    /// <exception cref="IOException">The index cannot be written: the change stays in memory,
+    /// and the next save writes the index. Or a message file no longer held cannot be deleted:
+    /// the index is written, and the file is left behind, ignored at the next load. The caller
+    /// notes the message with <c>IExchangeLog.Note</c>; nothing ends. Other exceptions the file system throws, such as
+    /// <see cref="UnauthorizedAccessException"/>, mean the same.</exception>
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        if (files is null)
+        {
+            return;
+        }
+
+        await saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            await WriteChangesAsync(files, cancellationToken);
+        }
+        finally
+        {
+            saveLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Maps an SMTP <c>RCPT TO</c> forward path to its owners. With <c>--allow-anonymous</c>
+    /// every valid path maps to the anonymous owner. With no mail domain configured, the path's
+    /// local part names the owner and its domain is ignored (ADR-0050, decision 5): the local
+    /// part matches an account ordinally, or else the one account it equals ignoring case, if
+    /// exactly one does. With a mail domain configured (ADR-0102, decisions 1.1 and 1.3), a
+    /// path whose domain is no configured domain - an address literal, a domain
+    /// <see cref="MailDomainName.TryNormalise"/> refuses, a bare <c>Postmaster</c> - is
+    /// <see cref="MailRecipientLookup.RelayingDenied"/>, and one in a configured domain is
+    /// resolved through its alias, mailbox, account by local part or the domain's catch-all.
+    /// </summary>
+    /// <param name="path">The path as <c>RCPT TO:</c> gave it, with or without its angle brackets.</param>
+    /// <param name="recipient">The owners to deliver to when the outcome is
+    /// <see cref="MailRecipientLookup.Deliverable"/>; otherwise <see langword="null"/>.</param>
+    /// <returns>What the path names.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="path"/> is <see langword="null"/>.</exception>
+    public MailRecipientLookup LookUpRecipient(string path, out MailRecipient? recipient)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        recipient = null;
+        if (!MailRecipientPath.TryReadAddress(path, out var localPart, out var domain))
+        {
+            return MailRecipientLookup.InvalidAddress;
+        }
+
+        return anonymousOwner is not null || router is null
+            ? Found(OwnerByLocalPart(localPart), out recipient)
+            : LookUpInMailDomains(router, localPart, domain, out recipient);
+    }
+
+    /// <summary>
+    /// The anonymous owner, or else the account <paramref name="localPart"/> names (ADR-0050,
+    /// decisions 2 and 5).
+    /// </summary>
+    private IReadOnlyList<OwnerMailboxes> OwnerByLocalPart(string localPart)
+    {
+        var owner = anonymousOwner ?? accounts.Find(localPart);
+        return owner is null ? [] : [owner];
+    }
+
+    private static MailRecipientLookup LookUpInMailDomains(MailDomainRouter router, string localPart, string? domain, out MailRecipient? recipient)
+    {
+        recipient = null;
+        return domain is not null && MailDomainName.TryNormalise(domain, out var asciiDomain) && router.Serves(asciiDomain)
+            ? Found(router.Resolve(new MailDomainAddress(localPart, asciiDomain)), out recipient)
+            : MailRecipientLookup.RelayingDenied;
+    }
+
+    private static MailRecipientLookup Found(IReadOnlyList<OwnerMailboxes> owners, out MailRecipient? recipient)
+    {
+        recipient = owners.Count == 0 ? null : new MailRecipient(owners);
+        return recipient is null ? MailRecipientLookup.NoSuchAccount : MailRecipientLookup.Deliverable;
+    }
+
+    /// <summary>
+    /// The mailboxes a session logged in as <paramref name="accountName"/> acts on (ADR-0050,
+    /// decision 2): the anonymous owner's with <c>--allow-anonymous</c>, whatever the name;
+    /// otherwise the account's or the mailbox's (ADR-0102, decision 1.2) named by it, matched
+    /// ordinally, or an empty view for a name that names neither. Outside
+    /// <c>--allow-anonymous</c> it also reaches, as <c>Shared/</c>&lt;name&gt;, each shared
+    /// folder whose members include the name (ADR-0102, decision 1.6).
+    /// </summary>
+    /// <param name="accountName">The login's account name, or <see langword="null"/> when the
+    /// login carried none.</param>
+    /// <returns>The session's view.</returns>
+    public MailView ViewFor(string? accountName)
+    {
+        if (anonymousOwner is not null || accountName is null)
+        {
+            return new(anonymousOwner);
+        }
+
+        var owner = accounts.FindExact(accountName) ?? mailboxOwners.FindExact(accountName);
+        var memberOf = sharedFolderMembers.Where(folder => folder.Value.Contains(accountName)).Select(folder => folder.Key).ToList();
+        return new(owner, sharedOwner, memberOf, sharedFolderMembers.Count > 0);
+    }
+
+    /// <summary>
+    /// Starts a message body on its way into the store (ADR-0050, decision 7): with a data
+    /// directory it is streamed into a new pending file, otherwise held in memory. Hand it to
+    /// <see cref="Deliver(IReadOnlyList{MailRecipient}, PendingMessage)"/> or
+    /// <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/>
+    /// once its bytes are written, or dispose it to abandon it.
+    /// </summary>
+    /// <returns>The pending message. A pending file that cannot be created does not throw; the
+    /// message is refused with <see cref="MailStoreOutcome.StorageFailed"/> when it is handed over.</returns>
+    public PendingMessage CreatePendingMessage() =>
+        new(files, MaxMessageBytes > 0 ? Math.Min(MaxMessageBytes, MaxTotalMessageBytes) : MaxTotalMessageBytes);
+
+    /// <summary>
+    /// Delivers one message, streamed in through <paramref name="message"/>, to the
+    /// <c>INBOX</c> of every owner of every recipient, one copy per owner of each entry, all of
+    /// them or none. The copies share
+    /// the message's bytes and its message file, counted once. <paramref name="message"/> is
+    /// disposed whatever the outcome: its pending file becomes the message file when it is
+    /// stored, and is deleted when it is not.
+    /// </summary>
+    /// <param name="recipients">The recipients <see cref="LookUpRecipient"/> found; an owner
+    /// named by two entries gets two copies.</param>
+    /// <param name="message">The pending message, its bytes all written.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
+    /// or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
+    /// or disposed already.</exception>
+    public MailStoreOutcome Deliver(IReadOnlyList<MailRecipient> recipients, PendingMessage message)
+    {
+        ArgumentNullException.ThrowIfNull(recipients);
+        ArgumentNullException.ThrowIfNull(message);
+        message.Close();
+        using (message)
+        {
+            var outcome = CheckPending(message);
+            return outcome != MailStoreOutcome.Succeeded || recipients.Count == 0
+                ? outcome
+                : DeliverUnlessOutOfSpace(recipients.SelectMany(recipient => recipient.Owners).ToList(), message);
+        }
+    }
+
+    private MailStoreOutcome DeliverUnlessOutOfSpace(List<OwnerMailboxes> inboxOwners, PendingMessage message) =>
+        IsOutOfSpace(inboxOwners.Select(owner => owner.Name).Distinct(StringComparer.Ordinal).Select(name => (name, MailboxName.Inbox)))
+            ? MailStoreOutcome.QuotaExceeded
+            : DeliverPending(inboxOwners, message, StoreChange.Delivered);
+
+    private MailStoreOutcome DeliverPending(List<OwnerMailboxes> inboxOwners, PendingMessage message, StoreChange change)
+    {
+        lock (storeLock)
+        {
+            if (inboxOwners.GroupBy(owner => owner).Any(copies => !WithinQuota(copies.Key, message.Length * copies.Count())))
+            {
+                return MailStoreOutcome.QuotaExceeded;
+            }
+
+            var inboxes = inboxOwners.ConvertAll(owner => owner.Inbox);
+            if (!HasRoomFor(inboxes, message.Length))
+            {
+                return MailStoreOutcome.StoreFull;
+            }
+
+            var body = KeepBody(message);
+            if (body is null)
+            {
+                return MailStoreOutcome.StorageFailed;
+            }
+
+            DeliverBody(inboxOwners, body, change);
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// Appends one message to a named mailbox, as IMAP's <c>APPEND</c> does.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="message">The message's bytes, stored exactly.</param>
+    /// <param name="flags">The message's flags.</param>
+    /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
+    /// <param name="stored">Where the message was stored, when the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
+    /// <returns>As <see cref="Append(MailView, string, PendingMessage, MailFlags, DateTimeOffset?, out MailStoredUid)"/> returns.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
+    public MailStoreOutcome Append(
+        MailView view,
+        string mailboxName,
+        ReadOnlySpan<byte> message,
+        MailFlags flags,
+        DateTimeOffset? internalDate,
+        out MailStoredUid stored)
+    {
+        ThrowIfNotFlags(flags);
+        var pending = CreatePendingMessage();
+        pending.Body.Write(message);
+        return Append(view, mailboxName, pending, flags, internalDate, out stored);
+    }
+
+    /// <summary>
+    /// Appends one message, streamed in through <paramref name="message"/>, to a named mailbox,
+    /// as IMAP's <c>APPEND</c> does. <paramref name="message"/> is disposed whatever the
+    /// outcome: its pending file becomes the message file when it is stored, and is deleted when
+    /// it is not.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="message">The pending message, its bytes all written.</param>
+    /// <param name="flags">The message's flags.</param>
+    /// <param name="internalDate">The date <c>APPEND</c> gave, or <see langword="null"/> for now.</param>
+    /// <param name="stored">Where the message was stored, when the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/>,
+    /// <see cref="MailStoreOutcome.MessageTooLarge"/>, <see cref="MailStoreOutcome.StorageFailed"/>
+    /// or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="flags"/> holds a bit that is no flag.</exception>
+    /// <exception cref="InvalidOperationException"><paramref name="message"/> was stored, refused
+    /// or disposed already.</exception>
+    public MailStoreOutcome Append(
+        MailView view,
+        string mailboxName,
+        PendingMessage message,
+        MailFlags flags,
+        DateTimeOffset? internalDate,
+        out MailStoredUid stored)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        stored = default;
+        message.Close();
+        using (message)
+        {
+            ThrowIfNotFlags(flags);
+            return CheckPending(message) == MailStoreOutcome.Succeeded && IsOutOfSpace(TargetOf(view, mailboxName))
+                ? MailStoreOutcome.QuotaExceeded
+                : AppendPending(view, mailboxName, message, flags, internalDate, out stored);
+        }
+    }
+
+    private MailStoreOutcome AppendPending(
+        MailView view,
+        string mailboxName,
+        PendingMessage message,
+        MailFlags flags,
+        DateTimeOffset? internalDate,
+        out MailStoredUid stored)
+    {
+        stored = default;
+        lock (storeLock)
+        {
+            var place = FindPlace(view, mailboxName);
+            var outcome = place is null ? MailStoreOutcome.MailboxMissing : CheckRoomForOne(place.Value, message);
+            var body = outcome == MailStoreOutcome.Succeeded ? KeepBody(message) : null;
+            if (body is null)
+            {
+                return outcome == MailStoreOutcome.Succeeded ? MailStoreOutcome.StorageFailed : outcome;
+            }
+
+            var mailbox = place!.Value.Mailbox;
+            var uid = AddMessage(mailbox, body, internalDate ?? timeProvider.GetUtcNow(), flags);
+            stored = new MailStoredUid(mailbox.UidValidity, uid);
+            changeCount++;
+            PublishMessage(StoreChange.Written, place.Value, uid);
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// Whether a message of <paramref name="length"/> bytes appended to a named mailbox would
+    /// stay within its owner's quota, so IMAP can answer <c>NO [OVERQUOTA]</c> from a literal's
+    /// <c>{n}</c> before it reads the bytes (ADR-0102, decision 1.4). The append itself checks
+    /// again.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="length">The message's length in bytes.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.QuotaExceeded"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="length"/> is negative.</exception>
+    public MailStoreOutcome CheckQuotaForAppend(MailView view, string mailboxName, long length)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(length);
+        lock (storeLock)
+        {
+            var place = FindPlace(view, mailboxName);
+            if (place is null)
+            {
+                return MailStoreOutcome.MailboxMissing;
+            }
+
+            return WithinQuota(place.Value.Owner, length) ? MailStoreOutcome.Succeeded : MailStoreOutcome.QuotaExceeded;
+        }
+    }
+
+    /// <summary>
+    /// The names of the view's mailboxes in ordinal order; none for an empty view.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <returns>The mailbox names, <c>INBOX</c> in capitals.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> is <see langword="null"/>.</exception>
+    public IReadOnlyList<string> ListMailboxes(MailView view)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        lock (storeLock)
+        {
+            var ownNames = view.Owner?.Mailboxes.Keys.Where(name => !HidesAsShared(view, name)) ?? [];
+            return [.. ownNames.Concat(view.SharedFolders).Order(StringComparer.Ordinal)];
+        }
+    }
+
+    /// <summary>
+    /// A snapshot of one mailbox, as IMAP's <c>SELECT</c>, <c>EXAMINE</c> and <c>STATUS</c>
+    /// report it.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="snapshot">The mailbox as it is now, when the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>; otherwise <see langword="null"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    public MailStoreOutcome ReadMailbox(MailView view, string mailboxName, out MailboxSnapshot? snapshot)
+    {
+        lock (storeLock)
+        {
+            var place = FindPlace(view, mailboxName);
+            snapshot = place is null ? null : SnapshotInView(view, place.Value);
+            return snapshot is null ? MailStoreOutcome.MailboxMissing : MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// The bytes of one message, read whole: with a data directory from its message file, as it
+    /// is now; otherwise from memory (ADR-0050, decision 7).
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="uid">The message's UID.</param>
+    /// <param name="message">The message's bytes when the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>; otherwise empty.</param>
+    /// <returns>As <see cref="OpenMessage"/> returns.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="IOException">As <see cref="OpenMessage"/> throws it, or the message file
+    /// cannot be read.</exception>
+    public MailStoreOutcome FetchMessage(MailView view, string mailboxName, uint uid, out ReadOnlyMemory<byte> message)
+    {
+        var outcome = OpenMessage(view, mailboxName, uid, out var stream);
+        message = stream is null ? ReadOnlyMemory<byte>.Empty : ReadAll(stream);
+        return outcome;
+    }
+
+    /// <summary>
+    /// Opens the bytes of one message to read: with a data directory from its message file, as
+    /// it is now; otherwise from memory (ADR-0050, decision 7).
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="uid">The message's UID.</param>
+    /// <param name="message">A readable stream of the message's bytes when the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>, which the caller disposes; otherwise
+    /// <see langword="null"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.MessageMissing"/>
+    /// (a message another session expunged meanwhile is missing).</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="IOException">The message file cannot be opened, as when something other
+    /// than the store removed it. Other exceptions the file system throws, such as
+    /// <see cref="UnauthorizedAccessException"/>, mean the same.</exception>
+    public MailStoreOutcome OpenMessage(MailView view, string mailboxName, uint uid, out Stream? message)
+    {
+        lock (storeLock)
+        {
+            var outcome = FindMessage(view, mailboxName, uid, out var stored);
+            message = stored is null ? null : OpenBody(stored.Body);
+            return outcome;
+        }
+    }
+
+    /// <summary>
+    /// Sets, clears or replaces one message's flags, as IMAP's <c>STORE</c> does.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="uid">The message's UID.</param>
+    /// <param name="change">How <paramref name="flags"/> combine with the message's flags.</param>
+    /// <param name="flags">The flags to set, clear or replace with.</param>
+    /// <param name="result">The message's flags afterwards, when the outcome is
+    /// <see cref="MailStoreOutcome.Succeeded"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.MessageMissing"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="change"/> is undefined, or
+    /// <paramref name="flags"/> holds a bit that is no flag.</exception>
+    public MailStoreOutcome ChangeFlags(
+        MailView view,
+        string mailboxName,
+        uint uid,
+        MailFlagChange change,
+        MailFlags flags,
+        out MailFlags result)
+    {
+        ThrowIfNotFlags(flags);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan((uint)change, (uint)MailFlagChange.Replace, nameof(change));
+        lock (storeLock)
+        {
+            var outcome = FindMessage(view, mailboxName, uid, out var stored);
+            result = stored?.Flags ?? MailFlags.None;
+            if (stored is null)
+            {
+                return outcome;
+            }
+
+            result = Combine(stored.Flags, change, flags);
+            if (result != stored.Flags)
+            {
+                changeCount++;
+                stored.Flags = result;
+                PublishMessage(StoreChange.Written, FindPlace(view, mailboxName)!.Value, uid);
+            }
+
+            return outcome;
+        }
+    }
+
+    /// <summary>
+    /// Removes every message flagged <c>\Deleted</c> from a mailbox, as IMAP's <c>EXPUNGE</c>
+    /// does. Their UIDs are never given again.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="expungedUids">The UIDs removed, in ascending order.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    public MailStoreOutcome Expunge(MailView view, string mailboxName, out IReadOnlyList<uint> expungedUids)
+    {
+        lock (storeLock)
+        {
+            var place = FindPlace(view, mailboxName);
+            expungedUids = [];
+            if (place is null)
+            {
+                return MailStoreOutcome.MailboxMissing;
+            }
+
+            expungedUids = place.Value.Mailbox.DeletedUids();
+            RemovePublished(place.Value, expungedUids);
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// Removes the messages flagged <c>\Deleted</c> among <paramref name="uids"/> from a
+    /// mailbox, as IMAP's <c>UID EXPUNGE</c> does (RFC 4315). A UID the mailbox does not hold,
+    /// or whose message is not flagged <c>\Deleted</c>, is skipped.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="uids">The UIDs that may be removed.</param>
+    /// <param name="expungedUids">The UIDs removed, in ascending order.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/> or <see cref="MailStoreOutcome.MailboxMissing"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailStoreOutcome Expunge(MailView view, string mailboxName, IEnumerable<uint> uids, out IReadOnlyList<uint> expungedUids)
+    {
+        ArgumentNullException.ThrowIfNull(uids);
+        var allowed = uids.ToHashSet();
+        lock (storeLock)
+        {
+            var place = FindPlace(view, mailboxName);
+            expungedUids = [];
+            if (place is null)
+            {
+                return MailStoreOutcome.MailboxMissing;
+            }
+
+            expungedUids = [.. place.Value.Mailbox.DeletedUids().Where(allowed.Contains)];
+            RemovePublished(place.Value, expungedUids);
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// Copies messages to another mailbox of the same view, as IMAP's <c>COPY</c> does: each
+    /// copy keeps its flags and internal date, gets a new UID there, and shares the original's
+    /// bytes. A UID the source does not hold is skipped. All of them or none are copied.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="sourceMailboxName">The mailbox copied from.</param>
+    /// <param name="uids">The UIDs to copy.</param>
+    /// <param name="destinationMailboxName">The mailbox copied to; may be the source.</param>
+    /// <param name="copied">What was copied, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
+    /// otherwise <see langword="null"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailStoreOutcome Copy(
+        MailView view,
+        string sourceMailboxName,
+        IEnumerable<uint> uids,
+        string destinationMailboxName,
+        out MailCopyResult? copied) =>
+        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: false, out copied);
+
+    /// <summary>
+    /// Moves messages to another mailbox of the same view, as IMAP's <c>MOVE</c> does (RFC 6851):
+    /// a <see cref="Copy"/>, then the originals removed from the source, in one step. The moved
+    /// messages count against no bound twice, so a store at <see cref="MaxMessages"/> can still
+    /// move. A UID the source does not hold is skipped. All of them or none are moved.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="sourceMailboxName">The mailbox moved from.</param>
+    /// <param name="uids">The UIDs to move.</param>
+    /// <param name="destinationMailboxName">The mailbox moved to; may be the source, which gives
+    /// the messages new UIDs there.</param>
+    /// <param name="moved">What was moved, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
+    /// otherwise <see langword="null"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or <see cref="MailStoreOutcome.StoreFull"/>
+    /// (the destination has no UIDs left to give).</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailStoreOutcome Move(
+        MailView view,
+        string sourceMailboxName,
+        IEnumerable<uint> uids,
+        string destinationMailboxName,
+        out MailCopyResult? moved) =>
+        CopyMessages(view, sourceMailboxName, uids, destinationMailboxName, isMove: true, out moved);
+
+    private MailStoreOutcome CopyMessages(
+        MailView view,
+        string sourceMailboxName,
+        IEnumerable<uint> uids,
+        string destinationMailboxName,
+        bool isMove,
+        out MailCopyResult? copied)
+    {
+        ArgumentNullException.ThrowIfNull(uids);
+        copied = null;
+        lock (storeLock)
+        {
+            var source = FindPlace(view, sourceMailboxName);
+            var destination = FindPlace(view, destinationMailboxName);
+            if (source is null || destination is null)
+            {
+                return MailStoreOutcome.MailboxMissing;
+            }
+
+            var originals = uids.Distinct().Order().Select(uid => source.Value.Mailbox.Messages.GetValueOrDefault(uid)).OfType<StoredMessage>().ToList();
+            var outcome = CheckRoomToCopy(source.Value.Owner, originals, destination.Value, isMove);
+            copied = outcome == MailStoreOutcome.Succeeded ? CopyInto(source.Value, originals, destination.Value, isMove) : null;
+            return outcome;
+        }
+    }
+
+    /// <summary>
+    /// Whether the destination's owner has quota for the copies - none needed for a move within
+    /// one owner, which adds nothing to it - and the store room for them.
+    /// </summary>
+    private MailStoreOutcome CheckRoomToCopy(OwnerMailboxes sourceOwner, List<StoredMessage> originals, MailboxPlace destination, bool isMove)
+    {
+        var addedBytes = isMove && sourceOwner == destination.Owner ? 0 : originals.Sum(original => original.Body.Length);
+        if (!WithinQuota(destination.Owner, addedBytes))
+        {
+            return MailStoreOutcome.QuotaExceeded;
+        }
+
+        return HasRoomToCopy(destination.Mailbox, originals.Count, isMove) ? MailStoreOutcome.Succeeded : MailStoreOutcome.StoreFull;
+    }
+
+    // A move adds no message to the store, so it needs only the destination's UIDs.
+    private bool HasRoomToCopy(StoredMailbox destination, int count, bool isMove) =>
+        isMove ? destination.CanGiveUids(count) : HasRoomForCopies(destination, count);
+
+    private MailCopyResult CopyInto(MailboxPlace source, List<StoredMessage> originals, MailboxPlace destination, bool isMove)
+    {
+        var copyUids = originals.Select(original => AddMessage(destination.Mailbox, original.Body, original.InternalDate, original.Flags)).ToList();
+        copyUids.ForEach(uid => PublishMessage(StoreChange.Written, destination, uid));
+        List<uint> sourceUids = [.. originals.Select(original => original.Uid)];
+        PublishRemoving(source, isMove ? sourceUids : []);
+        RemoveMessages(source.Mailbox, isMove ? sourceUids : []);
+        changeCount += copyUids.Count == 0 ? 0 : 1;
+        return new MailCopyResult(destination.Mailbox.UidValidity, sourceUids, copyUids);
+    }
+
+    /// <summary>
+    /// Creates an empty mailbox, as IMAP's <c>CREATE</c> does, with a <c>UIDVALIDITY</c> the
+    /// store has never given before.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The new mailbox's name.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> (an empty view),
+    /// <see cref="MailStoreOutcome.InvalidName"/>, <see cref="MailStoreOutcome.AlreadyExists"/> or
+    /// <see cref="MailStoreOutcome.TooManyMailboxes"/>, or <see cref="MailStoreOutcome.StoreFull"/>
+    /// when no <c>UIDVALIDITY</c> is left to give.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    public MailStoreOutcome CreateMailbox(MailView view, string mailboxName)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(mailboxName);
+        lock (storeLock)
+        {
+            var outcome = CheckNewMailbox(view, mailboxName);
+            if (outcome != MailStoreOutcome.Succeeded)
+            {
+                return outcome;
+            }
+
+            var created = new StoredMailbox(mailboxName, IssueUidValidity(), 1);
+            AddMailbox(view.Owner!, created);
+            changeCount++;
+            PublishMailbox(StoreChange.Written, view.Owner!, created);
+            return outcome;
+        }
+    }
+
+    /// <summary>
+    /// Deletes a mailbox and its messages, as IMAP's <c>DELETE</c> does. <c>INBOX</c> cannot be
+    /// deleted.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/> or
+    /// <see cref="MailStoreOutcome.InboxCannotBeDeleted"/>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> or
+    /// <paramref name="mailboxName"/> is <see langword="null"/>.</exception>
+    public MailStoreOutcome DeleteMailbox(MailView view, string mailboxName)
+    {
+        lock (storeLock)
+        {
+            if (IsVisibleShared(view, mailboxName))
+            {
+                return MailStoreOutcome.SharedFolderProtected;
+            }
+
+            var mailbox = FindMailbox(view, mailboxName);
+            if (mailbox is null || mailbox.Name == MailboxName.Inbox)
+            {
+                return mailbox is null ? MailStoreOutcome.MailboxMissing : MailStoreOutcome.InboxCannotBeDeleted;
+            }
+
+            RemoveMessages(mailbox, [.. mailbox.Messages.Keys]);
+            view.Owner!.Mailboxes.Remove(mailbox.Name);
+            mailboxCount--;
+            changeCount++;
+            PublishMailbox(StoreChange.Deleted, view.Owner, mailbox);
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// Renames a mailbox, as IMAP's <c>RENAME</c> does. The renamed mailbox keeps its messages,
+    /// their UIDs and its next UID, and gets a <c>UIDVALIDITY</c> the store has never given
+    /// before. Renaming <c>INBOX</c> moves all its messages into a new mailbox of the new name
+    /// and leaves <c>INBOX</c> empty, with its <c>UIDVALIDITY</c> and next UID unchanged (RFC
+    /// 3501 section 6.3.5).
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="mailboxName">The mailbox's name.</param>
+    /// <param name="newMailboxName">The name it gets.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/>,
+    /// <see cref="MailStoreOutcome.MailboxMissing"/>, <see cref="MailStoreOutcome.InvalidName"/>,
+    /// <see cref="MailStoreOutcome.AlreadyExists"/> or
+    /// <see cref="MailStoreOutcome.TooManyMailboxes"/> (renaming <c>INBOX</c> adds a mailbox), or
+    /// <see cref="MailStoreOutcome.StoreFull"/> when no <c>UIDVALIDITY</c> is left to give.</returns>
+    /// <exception cref="ArgumentNullException">An argument is <see langword="null"/>.</exception>
+    public MailStoreOutcome RenameMailbox(MailView view, string mailboxName, string newMailboxName)
+    {
+        ArgumentNullException.ThrowIfNull(newMailboxName);
+        lock (storeLock)
+        {
+            if (IsVisibleShared(view, mailboxName))
+            {
+                return MailStoreOutcome.SharedFolderProtected;
+            }
+
+            var mailbox = FindMailbox(view, mailboxName);
+            var renamesInbox = mailbox?.Name == MailboxName.Inbox;
+            var outcome = mailbox is null ? MailStoreOutcome.MailboxMissing : CheckNewMailbox(view, newMailboxName, renamesInbox);
+            if (outcome != MailStoreOutcome.Succeeded)
+            {
+                return outcome;
+            }
+
+            var owner = view.Owner!;
+            var renamed = new StoredMailbox(newMailboxName, IssueUidValidity(), mailbox!.NextUid) { Messages = mailbox.Messages };
+            mailbox.Messages = [];
+            if (!renamesInbox)
+            {
+                owner.Mailboxes.Remove(mailbox.Name);
+                mailboxCount--;
+                PublishMailbox(StoreChange.Deleted, owner, mailbox);
+            }
+
+            AddMailbox(owner, renamed);
+            changeCount++;
+            PublishMailbox(StoreChange.Written, owner, renamed);
+            return outcome;
+        }
+    }
+
+    /// <summary>
+    /// Takes the maildrop lock of the view's owner at a successful POP3 login, and fixes the
+    /// session's view of its <c>INBOX</c> (ADR-0050, decision 4). An empty view gets an empty
+    /// maildrop that locks nothing.
+    /// </summary>
+    /// <param name="view">The session's view.</param>
+    /// <param name="maildrop">The lock, when the outcome is <see cref="MailStoreOutcome.Succeeded"/>;
+    /// the session disposes it when it ends, however it ends. Otherwise <see langword="null"/>.</param>
+    /// <returns><see cref="MailStoreOutcome.Succeeded"/> or
+    /// <see cref="MailStoreOutcome.MaildropLocked"/> when another session holds the lock.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="view"/> is <see langword="null"/>.</exception>
+    public MailStoreOutcome LockMaildrop(MailView view, out MaildropLock? maildrop)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        maildrop = null;
+        lock (storeLock)
+        {
+            var owner = view.Owner;
+            if (owner is not null && lockedMaildrops.ContainsKey(owner))
+            {
+                return MailStoreOutcome.MaildropLocked;
+            }
+
+            StoredMessage[] messages = owner is null ? [] : [.. owner.Inbox.Messages.Values];
+
+            // Pinned while the lock is held, so a message removed meanwhile can still be read.
+            Array.ForEach(messages, message => message.Body.ReferenceCount++);
+            maildrop = new MaildropLock(this, owner, messages);
+            if (owner is not null)
+            {
+                lockedMaildrops.Add(owner, maildrop);
+            }
+
+            return MailStoreOutcome.Succeeded;
+        }
+    }
+
+    /// <summary>
+    /// Opens a message's bytes to read: its message file, or its bytes in memory.
+    /// </summary>
+    internal Stream OpenBody(MessageBody body)
+    {
+        var bytes = body.Bytes;
+        return bytes is null ? files!.OpenMessage(body.FileNumber) : new MemoryStream(bytes, writable: false);
+    }
+
+    /// <summary>
+    /// Reads <paramref name="stream"/> to its end and disposes it.
+    /// </summary>
+    internal static byte[] ReadAll(Stream stream)
+    {
+        using (stream)
+        {
+            var bytes = new MemoryStream();
+            stream.CopyTo(bytes);
+            return bytes.ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Removes the messages with <paramref name="messages"/>' UIDs from <paramref name="owner"/>'s
+    /// <c>INBOX</c>, skipping any no longer there - including a UID that now holds another
+    /// message's bytes, as after a reset or restore (ADR-0131).
+    /// </summary>
+    /// <returns>How many were removed.</returns>
+    internal int RemoveFromInbox(OwnerMailboxes owner, IReadOnlyList<(uint Uid, MessageBody Body)> messages)
+    {
+        lock (storeLock)
+        {
+            var inbox = owner.Inbox;
+            return RemovePublished(
+                new MailboxPlace(owner, inbox),
+                [.. messages.Where(message => inbox.Messages.GetValueOrDefault(message.Uid)?.Body == message.Body).Select(message => message.Uid).Distinct()]);
+        }
+    }
+
+    /// <summary>
+    /// Releases <paramref name="owner"/>'s maildrop lock when <paramref name="maildrop"/> still
+    /// holds it - a reset or restore may have released it already, and another session taken it
+    /// since (ADR-0131) - and unpins the bodies it held, releasing any no message refers to any
+    /// more.
+    /// </summary>
+    internal void ReleaseMaildrop(OwnerMailboxes owner, MaildropLock maildrop, IReadOnlyList<MessageBody> bodies)
+    {
+        lock (storeLock)
+        {
+            if (lockedMaildrops.GetValueOrDefault(owner) == maildrop)
+            {
+                lockedMaildrops.Remove(owner);
+            }
+
+            foreach (var body in bodies)
+            {
+                Unreference(body);
+            }
+        }
+    }
+
+    private static void ThrowIfNotFlags(MailFlags flags) =>
+        ArgumentOutOfRangeException.ThrowIfNotEqual((byte)(flags & ~SystemFlags), (byte)0, nameof(flags));
+
+    private static MailFlags Combine(MailFlags current, MailFlagChange change, MailFlags flags) => change switch
+    {
+        MailFlagChange.Add => current | flags,
+        MailFlagChange.Remove => current & ~flags,
+        _ => flags,
+    };
+
+    private static StoredMailbox? FindMailbox(MailView view, string mailboxName) => FindPlace(view, mailboxName)?.Mailbox;
+
+    /// <summary>
+    /// A snapshot of the mailbox at <paramref name="place"/> named as the view names it: a shared
+    /// folder as <c>Shared/</c>&lt;name&gt;, so a session that selected it reads it again by that
+    /// name (ADR-0102, decision 1.6).
+    /// </summary>
+    private static MailboxSnapshot SnapshotInView(MailView view, MailboxPlace place)
+    {
+        var snapshot = place.Mailbox.Snapshot();
+        return ReferenceEquals(place.Owner, view.SharedOwner) ? snapshot with { Name = SharedFolderPrefix + snapshot.Name } : snapshot;
+    }
+
+    /// <summary>
+    /// The mailbox <paramref name="mailboxName"/> names in the view and its owner: a shared
+    /// folder the view is a member of for <c>Shared/</c>&lt;name&gt; while shared folders are
+    /// configured (ADR-0102, decision 1.6), otherwise the view's owner's own mailbox.
+    /// </summary>
+    private static MailboxPlace? FindPlace(MailView view, string mailboxName)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(mailboxName);
+        if (HidesAsShared(view, mailboxName))
+        {
+            return view.SharedFolders.Contains(mailboxName, StringComparer.Ordinal)
+                ? new MailboxPlace(view.SharedOwner!, view.SharedOwner!.Mailboxes[mailboxName[SharedFolderPrefix.Length..]])
+                : null;
+        }
+
+        var mailbox = view.Owner?.Find(mailboxName);
+        return mailbox is null ? null : new MailboxPlace(view.Owner!, mailbox);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="mailboxName"/> is <c>Shared</c> or under <c>Shared/</c> while
+    /// shared folders are configured, so it names shared folders and never the owner's own
+    /// mailbox (ADR-0102, decision 1.6).
+    /// </summary>
+    private static bool HidesAsShared(MailView view, string mailboxName) =>
+        view.SharedFoldersConfigured
+        && (mailboxName == SharedFolderRoot || mailboxName.StartsWith(SharedFolderPrefix, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Whether <paramref name="mailboxName"/> is a shared folder the view is a member of, or
+    /// <c>Shared</c> for a view that is a member of any; a non-member learns of neither.
+    /// </summary>
+    private static bool IsVisibleShared(MailView view, string mailboxName)
+    {
+        ArgumentNullException.ThrowIfNull(view);
+        ArgumentNullException.ThrowIfNull(mailboxName);
+        return view.SharedFolders.Contains(mailboxName, StringComparer.Ordinal)
+            || (mailboxName == SharedFolderRoot && view.SharedFolders.Count > 0);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="owner"/> may receive <paramref name="addedBytes"/> more: it has no
+    /// quota, nothing is added, or its own mailboxes' bytes stay within its quota (ADR-0102,
+    /// decision 1.4).
+    /// </summary>
+    private bool WithinQuota(OwnerMailboxes owner, long addedBytes) =>
+        addedBytes == 0
+        || !quotas.TryGetValue(owner, out var quota)
+        || owner.Mailboxes.Values.Sum(mailbox => mailbox.Messages.Values.Sum(message => message.Body.Length)) + addedBytes <= quota;
+
+    private static MailStoreOutcome FindMessage(MailView view, string mailboxName, uint uid, out StoredMessage? message)
+    {
+        message = null;
+        var mailbox = FindMailbox(view, mailboxName);
+        if (mailbox is null)
+        {
+            return MailStoreOutcome.MailboxMissing;
+        }
+
+        message = mailbox.Messages.GetValueOrDefault(uid);
+        return message is null ? MailStoreOutcome.MessageMissing : MailStoreOutcome.Succeeded;
+    }
+
+    private static void DeleteMessageFiles(MailStoreFiles files, IReadOnlyList<ulong> fileNumbers)
+    {
+        Exception? firstFailure = null;
+        foreach (var fileNumber in fileNumbers)
+        {
+            try
+            {
+                files.DeleteMessage(fileNumber);
+            }
+            catch (Exception failure)
+            {
+                // Left behind: the index no longer names it, so the next load ignores it.
+                firstFailure ??= failure;
+            }
+        }
+
+        if (firstFailure is not null)
+        {
+            throw new IOException(firstFailure.Message, firstFailure);
+        }
+    }
+
+    private void LoadIndex(MailStoreFiles files, byte[] index)
+    {
+        MailStoreIndexContents contents;
+        try
+        {
+            contents = MailStoreIndex.Decode(index, MaxMessages, MaxTotalMessageBytes, MaxMailboxes);
+        }
+        catch (InvalidDataException malformed)
+        {
+            throw new MailStoreLoadException(files.IndexPath, malformed.Message, malformed);
+        }
+
+        foreach (var body in contents.Bodies.Values)
+        {
+            files.RequireMessageFile(body.FileNumber, body.Length);
+        }
+
+        nextFileNumber = contents.NextFileNumber;
+        lastUidValidity = contents.LastUidValidity;
+        messageCount = contents.MessageCount;
+        totalMessageBytes = contents.TotalMessageBytes;
+        mailboxCount = contents.MailboxCount;
+        contents.Owners.ForEach(owner => owners.Add(owner.Name, owner));
+    }
+
+    private async Task WriteChangesAsync(MailStoreFiles files, CancellationToken cancellationToken)
+    {
+        byte[]? index;
+        ulong[] released;
+        long snapshotChangeCount;
+        lock (storeLock)
+        {
+            // Unchanged since the last write: the index written then names none of the released files.
+            index = changeCount == savedChangeCount ? null : MailStoreIndex.Encode(nextFileNumber, lastUidValidity, owners.Values);
+            released = [.. releasedFileNumbers];
+            snapshotChangeCount = changeCount;
+        }
+
+        if (index is not null)
+        {
+            await files.WriteIndexAsync(index, cancellationToken);
+        }
+
+        lock (storeLock)
+        {
+            savedChangeCount = snapshotChangeCount;
+            releasedFileNumbers.RemoveAll(released.Contains);
+        }
+
+        DeleteMessageFiles(files, released);
+    }
+
+    /// <summary>
+    /// Makes the owners reached - the anonymous owner alone with <c>--allow-anonymous</c>,
+    /// otherwise every account with a non-empty name - and gives each an <c>INBOX</c> it lacks.
+    /// </summary>
+    /// <returns>The anonymous owner with <c>--allow-anonymous</c>; otherwise <see langword="null"/>.</returns>
+    /// <exception cref="MailRouteException">An alias or catch-all does not resolve to owners.</exception>
+    private OwnerMailboxes? ReachOwners(IEnumerable<string> accountNames, bool allowAnonymous, MailDomainConfiguration? mailDomains)
+    {
+        if (allowAnonymous)
+        {
+            return ReachOwner(string.Empty);
+        }
+
+        if (accountNames.Contains(SharedFolderOwnerName, StringComparer.Ordinal))
+        {
+            throw new ArgumentException($"No account may be named {SharedFolderOwnerName}, the shared folders' owner.", nameof(accountNames));
+        }
+
+        var mailboxAddresses = new HashSet<string>(mailDomains?.MailboxAddresses ?? [], StringComparer.Ordinal);
+        foreach (var name in accountNames.Where(name => !string.IsNullOrEmpty(name) && !mailboxAddresses.Contains(name)).Distinct(StringComparer.Ordinal))
+        {
+            accounts.Add(name, ReachOwner(name));
+        }
+
+        foreach (var address in mailboxAddresses)
+        {
+            mailboxOwners.Add(address, ReachOwner(address));
+        }
+
+        if (mailDomains is not null)
+        {
+            RouteMailDomains(mailDomains);
+            ApplyMailboxSettings(mailDomains.MailboxSettings.Values);
+            ReachSharedFolders(mailDomains.SharedFolders);
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Sets each mailbox's quota and creates each of its configured folders it lacks, after its
+    /// <c>INBOX</c> (ADR-0102, decision 1.4).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A folder would pass <see cref="MaxMailboxes"/>.</exception>
+    private void ApplyMailboxSettings(IEnumerable<MailboxSettings> settings)
+    {
+        foreach (var mailbox in settings)
+        {
+            var owner = owners[mailbox.Address];
+            if (mailbox.QuotaBytes is { } quota)
+            {
+                quotas.Add(owner, quota);
+            }
+
+            foreach (var folder in mailbox.Folders)
+            {
+                AddConfiguredMailbox(owner, folder);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Makes the reserved shared-folder owner when a shared folder is configured, creates each
+    /// shared folder it lacks, and keeps each one's members (ADR-0102, decision 1.6).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A folder would pass <see cref="MaxMailboxes"/>.</exception>
+    private void ReachSharedFolders(IReadOnlyList<MailSharedFolder> sharedFolders)
+    {
+        if (sharedFolders.Count == 0)
+        {
+            return;
+        }
+
+        if (!owners.TryGetValue(SharedFolderOwnerName, out var owner))
+        {
+            owner = new OwnerMailboxes(SharedFolderOwnerName);
+            owners.Add(owner.Name, owner);
+        }
+
+        sharedOwner = owner;
+        foreach (var folder in sharedFolders)
+        {
+            sharedFolderMembers.Add(folder.Name, new HashSet<string>(folder.Members, StringComparer.Ordinal));
+            AddConfiguredMailbox(owner, folder.Name);
+        }
+    }
+
+    /// <summary>
+    /// Creates mailbox <paramref name="name"/> of <paramref name="owner"/> at start unless it
+    /// exists; <c>INBOX</c> always does.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">It would pass <see cref="MaxMailboxes"/>.</exception>
+    private void AddConfiguredMailbox(OwnerMailboxes owner, string name)
+    {
+        if (owner.Find(name) is not null)
+        {
+            return;
+        }
+
+        if (mailboxCount >= MaxMailboxes)
+        {
+            throw new InvalidOperationException($"The configured mailbox {name} of {owner.Name} would pass the store's {MaxMailboxes} mailboxes.");
+        }
+
+        AddMailbox(owner, new StoredMailbox(name, IssueUidValidity(), 1));
+        changeCount++;
+    }
+
+    /// <summary>
+    /// Resolves recipients through <paramref name="mailDomains"/> from now on when it names a
+    /// domain (ADR-0102, decision 1.3), after checking every alias and catch-all resolves.
+    /// </summary>
+    /// <exception cref="MailRouteException">An alias or catch-all does not resolve to owners.</exception>
+    private void RouteMailDomains(MailDomainConfiguration mailDomains)
+    {
+        if (mailDomains.Domains.Count == 0)
+        {
+            return;
+        }
+
+        var domainRouter = new MailDomainRouter(mailDomains, mailboxOwners, accounts.Find);
+        domainRouter.ThrowIfRouteUnresolvable();
+        router = domainRouter;
+    }
+
+    private OwnerMailboxes ReachOwner(string name)
+    {
+        if (!owners.TryGetValue(name, out var owner))
+        {
+            owner = new OwnerMailboxes(name);
+            owners.Add(name, owner);
+        }
+
+        if (!owner.Mailboxes.ContainsKey(MailboxName.Inbox))
+        {
+            owner.Mailboxes.Add(MailboxName.Inbox, new StoredMailbox(MailboxName.Inbox, IssueUidValidity(), 1));
+            changeCount++;
+        }
+
+        return owner;
+    }
+
+
+    /// <summary>
+    /// The larger of the clock's Unix time in seconds and one more than the last
+    /// <c>UIDVALIDITY</c> given, so no two mailboxes ever get the same one (RFC 3501 section
+    /// 2.3.1.1).
+    /// </summary>
+    /// <exception cref="InvalidOperationException">That is past <see cref="uint.MaxValue"/>: the
+    /// clock is past 2106-02-07T06:28:15Z, or every <c>UIDVALIDITY</c> has been given.</exception>
+    private uint IssueUidValidity()
+    {
+        var next = NextUidValidity();
+        lastUidValidity = next <= uint.MaxValue
+            ? (uint)next
+            : throw new InvalidOperationException("The mail store has no UIDVALIDITY left to give.");
+        return lastUidValidity;
+    }
+
+    private long NextUidValidity() => Math.Max(timeProvider.GetUtcNow().ToUnixTimeSeconds(), lastUidValidity + 1L);
+
+    private MailStoreOutcome CheckNewMailbox(MailView view, string mailboxName, bool addsMailbox = true)
+    {
+        if (view.Owner is null)
+        {
+            return MailStoreOutcome.MailboxMissing;
+        }
+
+        if (!MailboxName.IsValid(mailboxName))
+        {
+            return MailStoreOutcome.InvalidName;
+        }
+
+        if (HidesAsShared(view, mailboxName))
+        {
+            return MailStoreOutcome.SharedFolderProtected;
+        }
+
+        return view.Owner.Find(mailboxName) is null ? CheckRoomForMailbox(addsMailbox) : MailStoreOutcome.AlreadyExists;
+    }
+
+    private MailStoreOutcome CheckRoomForMailbox(bool addsMailbox)
+    {
+        if (addsMailbox && mailboxCount >= MaxMailboxes)
+        {
+            return MailStoreOutcome.TooManyMailboxes;
+        }
+
+        // A new mailbox needs a UIDVALIDITY, and a uint runs out in 2106.
+        return NextUidValidity() > uint.MaxValue ? MailStoreOutcome.StoreFull : MailStoreOutcome.Succeeded;
+    }
+
+    private void AddMailbox(OwnerMailboxes owner, StoredMailbox mailbox)
+    {
+        owner.Mailboxes.Add(mailbox.Name, mailbox);
+        mailboxCount++;
+    }
+
+    private bool IsTooLarge(long size) => MaxMessageBytes > 0 && size > MaxMessageBytes;
+
+    private bool HasRoomFor(List<StoredMailbox> inboxes, long size) =>
+        messageCount + (long)inboxes.Count <= MaxMessages
+        && totalMessageBytes + size <= MaxTotalMessageBytes
+        && inboxes.GroupBy(inbox => inbox).All(group => group.Key.CanGiveUids(group.Count()));
+
+    /// <summary>
+    /// What refuses a closed pending message before the store is looked at: its size, or a
+    /// pending file that failed.
+    /// </summary>
+    private MailStoreOutcome CheckPending(PendingMessage message)
+    {
+        if (IsTooLarge(message.Length))
+        {
+            return MailStoreOutcome.MessageTooLarge;
+        }
+
+        return message.StorageFailure is null ? MailStoreOutcome.Succeeded : MailStoreOutcome.StorageFailed;
+    }
+
+    private MailStoreOutcome CheckRoomForOne(MailboxPlace place, PendingMessage message)
+    {
+        var outcome = CheckPending(message);
+        if (outcome != MailStoreOutcome.Succeeded)
+        {
+            return outcome;
+        }
+
+        if (!WithinQuota(place.Owner, message.Length))
+        {
+            return MailStoreOutcome.QuotaExceeded;
+        }
+
+        return HasRoomFor([place.Mailbox], message.Length) ? MailStoreOutcome.Succeeded : MailStoreOutcome.StoreFull;
+    }
+
+    private bool HasRoomForCopies(StoredMailbox destination, int count) =>
+        messageCount + (long)count <= MaxMessages && destination.CanGiveUids(count);
+
+    private void DeliverBody(List<OwnerMailboxes> inboxOwners, MessageBody body, StoreChange change)
+    {
+        var now = timeProvider.GetUtcNow();
+        foreach (var owner in inboxOwners)
+        {
+            var place = new MailboxPlace(owner, owner.Inbox);
+            PublishMessage(change, place, AddMessage(place.Mailbox, body, now, MailFlags.None));
+        }
+
+        changeCount++;
+    }
+
+    /// <summary>
+    /// Keeps a closed pending message's bytes under the next message file number: its pending
+    /// file renamed to it, or its bytes taken from memory.
+    /// </summary>
+    /// <returns>The body; <see langword="null"/> when the pending file cannot be renamed, which
+    /// <see cref="PendingMessage.StorageFailure"/> then says why.</returns>
+    private MessageBody? KeepBody(PendingMessage message)
+    {
+        if (!message.TryKeep(nextFileNumber, out var bytes))
+        {
+            return null;
+        }
+
+        totalMessageBytes += message.Length;
+        return new MessageBody(nextFileNumber++, message.Length, bytes);
+    }
+
+    /// <summary>
+    /// Drops one reference to <paramref name="body"/>, and lets go of it when none is left: its
+    /// bytes leave the count, and its message file is deleted after the next index.
+    /// </summary>
+    private void Unreference(MessageBody body)
+    {
+        if (--body.ReferenceCount > 0)
+        {
+            return;
+        }
+
+        // Bytes held by a store without files have no file.
+        totalMessageBytes -= body.Length;
+        if (body.Bytes is null)
+        {
+            releasedFileNumbers.Add(body.FileNumber);
+        }
+    }
+
+    private uint AddMessage(StoredMailbox mailbox, MessageBody body, DateTimeOffset internalDate, MailFlags flags)
+    {
+        var uid = mailbox.NextUid++;
+        mailbox.Messages.Add(uid, new StoredMessage(uid, body, internalDate, flags));
+        body.ReferenceCount++;
+        messageCount++;
+        return uid;
+    }
+
+    /// <summary>
+    /// Removes the messages with <paramref name="uids"/>, all held by
+    /// <paramref name="mailbox"/>, releasing bytes no message refers to any more.
+    /// </summary>
+    /// <returns>How many were removed.</returns>
+    private int RemoveMessages(StoredMailbox mailbox, IReadOnlyList<uint> uids)
+    {
+        foreach (var uid in uids)
+        {
+            var body = mailbox.Messages[uid].Body;
+            mailbox.Messages.Remove(uid);
+            messageCount--;
+            Unreference(body);
+        }
+
+        return uids.Count;
+    }
+}

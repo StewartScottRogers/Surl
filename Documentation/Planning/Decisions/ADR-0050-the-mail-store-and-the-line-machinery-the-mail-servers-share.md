@@ -4,6 +4,11 @@
 - **Date:** 2026-09-29
 - **Decided by:** Claude under Stewart's delegation (root `CLAUDE.md`, "Decisions"), 2026-09-29,
   in BL-184.
+- **Amended:** decisions 2 and 5 by [ADR-0102](ADR-0102-what-the-mail-file-message-and-group-options-mean-to-the-shared-stores.md)
+  (2026-11-04): once a `--mail-domain` is configured, a `--mailbox` address is an owner, shared
+  folders are mailboxes of the reserved owner `:shared`, and a recipient is resolved through
+  aliases, mailboxes, accounts and catch-alls, a recipient outside every configured domain being
+  refused `550 5.7.1` as relaying. With no `--mail-domain`, both decisions stand as written.
 - **Amends:** [ADR-0002](ADR-0002-mirror-the-curl-ports-project-map.md) decision 3: its table of
   horizontal libraries gains the two rows of decision 1 below. Everything else in ADR-0002
   stands.

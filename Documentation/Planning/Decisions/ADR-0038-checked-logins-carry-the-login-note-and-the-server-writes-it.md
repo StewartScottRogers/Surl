@@ -34,7 +34,7 @@ receives changes, and there is nothing of upstream curl's to measure (ADR-0003).
 
 ### 1. `CheckedLogin` in Abstractions
 
-`Surl.Protocol.Abstractions.UnitLibrary/CheckedLogin.cs`, namespace `Surl.Protocol.Abstractions`:
+`Foundation/Surl.Protocol.Abstractions.UnitLibrary/CheckedLogin.cs`, namespace `Surl.Protocol.Abstractions`:
 
 ```csharp
 public sealed record CheckedLogin(string Method, string? User, bool IsAccepted)
@@ -50,7 +50,7 @@ public sealed record CheckedLogin(string Method, string? User, bool IsAccepted)
   `IsAccepted` whether the credentials matched an account.
 - `Note` builds ADR-0032 section 8's text in one place, so every protocol server writes the
   same words. It is not escaped here: the server passes it to `IExchangeLog.Note`, and the
-  verbose log (`Surl.Output.UnitLibrary/VerboseExchangeLog.cs`) escapes every note by ADR-0007
+  verbose log (`Foundation/Surl.Output.UnitLibrary/VerboseExchangeLog.cs`) escapes every note by ADR-0007
   section 8.
 - The record has no field for a password, a token or an `Authorization` value, so no note built
   from it can hold one.
@@ -68,7 +68,7 @@ public sealed record HttpAuthenticationVerdict(
     CheckedLogin? CheckedLogin = null);
 ```
 
-`Surl.Protocol.Http.UnitLibrary/HttpRequestResponder.cs` writes `verdict.CheckedLogin.Note`
+`Protocols/Http/Surl.Protocol.Http.UnitLibrary/HttpRequestResponder.cs` writes `verdict.CheckedLogin.Note`
 to the exchange log whenever it is not `null`, right after `JudgeAsync` returns and before the
 response. The policy never receives an `IExchangeLog`.
 
@@ -106,7 +106,7 @@ public enum PasswordLoginVerdict
 - A password-login server writes a note only for `Accepted` and `RefusedCredentials`, with
   `PasswordLogin.Scheme`, the listen URL's scheme, as the method and `PasswordLogin.UserName`
   as the user: `Login accepted: mqtt tester` (`mqtts` on an `mqtts://` listen URL). The note
-  is written by `Surl.Protocol.Mqtt.UnitLibrary/MqttPacketResponder.cs`, before the `CONNACK`.
+  is written by `Protocols/Messaging/Surl.Protocol.Mqtt.UnitLibrary/MqttPacketResponder.cs`, before the `CONNACK`.
 
 **Why:** with a plain `Accepted` for `--allow-anonymous`, MQTT would have noted
 `Login accepted` for logins nobody checked, while HTTP under `--allow-anonymous` notes nothing.

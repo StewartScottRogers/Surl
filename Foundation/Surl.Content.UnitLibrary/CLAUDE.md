@@ -1,0 +1,122 @@
+# Surl.Content.UnitLibrary
+
+Phase 1.
+
+The content store every file-serving protocol server shares (ADR-0002): maps a request
+path onto the served root (the data directory with `--directory`, an in-memory file
+system without it, ADR-0031), lists directories, names media types, reads byte ranges,
+reports sizes and modification times, decides where uploads and appends land, and
+deletes, renames, creates and removes entries for FTP (`ContentChangeResult`, ADR-0052
+decision 8), and for SCP and SFTP reports a file's or a directory's status, sets its last
+write time, renames without replacing, and opens random-access uploads
+(`OpenUploadAsync` and its `ContentUploadSession`, written and read at any offset, resized,
+committed over the target or discarded) (ADR-0054 decision 14), every write needing
+`--allow-uploads`. It stands where a
+file protocol library stands in the Curl port: `file://` has no wire and no server, so
+what curl's `file` scheme reads locally, Surl serves remotely through this library.
+
+This library references `Surl.Protocol.Abstractions.UnitLibrary` and nothing else
+(ADR-0002); protocol servers may reference it.
+
+A request path can never reach outside the served root. Every escape - `..`, its
+percent-encoded forms, absolute paths, drive letters, UNC paths, symbolic links that point
+out - has a test that proves it is refused. Never touch the disk directly: work through
+the injected file-system seam, `IContentFileSystem`, so the tests need no disk.
+It has two production implementations. `DiskContentFileSystem` is the only class here that
+touches the disk: each member is a thin call into `System.IO`, excluded from coverage with
+a justifying comment, and proved by the `Integration` tests in `DiskContentFileSystemTests`.
+`InMemoryContentFileSystem` holds files and directories in memory (ADR-0031 decision 4):
+safe for concurrent use, bounded by `MaxTotalBytes`, fully covered by the fast tests in
+`InMemoryContentFileSystemTests`, and never touching the disk. `surl` serves it when no
+`--directory` is given, and `DiskContentFileSystem` when one is.
+
+`.surl` as the first segment of a request path is the data directory's service-state
+folder (ADR-0031 decision 5) and is never served: `ContentStore` answers a read of it or
+anything under it as missing, leaves it out of the root's listing, refuses an upload into
+it with `ContentUploadResult.NotPermitted` (and a new name in it, from `CreateDirectory` or
+`RenameEntry`, with `ContentChangeResult.NotPermitted`), and treats a symbolic link resolving into it as
+missing - whatever `ContentExposureOptions.ServeDotFiles` and `FollowSymbolicLinks` say.
+The match is case-insensitive on every platform and whole-segment only: `.surlx`,
+`.surl-upload-<guid>` and `sub/.surl` are ordinary dot-files. Never weaken this rule; the
+rule holds in memory too, so an upload can never create a `.surl`.
+
+Named shares and buckets (ADR-0102 decisions 2.1 and 2.4, built by BL-655) arrive through
+`ContentStore`'s five-argument constructor as `ContentShare` (name, full path, its own
+`IContentFileSystem`, `IsReadOnly`, `Schemes`; null is every scheme) and `ContentBucket`
+(name, content path). A first request segment naming a share maps the rest inside the share,
+under every rule of the root (exposure options, segment refusals, no escape through a link,
+`.surl` hidden); the share shadows the root entry of its name for every scheme. A lookup
+names its scheme with `MapRequestPathForScheme`; a share the scheme does not see, and any
+share with `Schemes` set to a lookup through `MapRequestPath` (no scheme), is answered as
+absent. A `readonly` share makes every write `NotPermitted`; a rename never crosses between
+the root and a share or between two shares (`NotPermitted`), and a share's own directory can be
+neither renamed nor removed. The root's listing shows each share the scheme sees whose
+directory exists. Only `MapBucketRequestPath` reads bucket names, replacing a first segment
+that names a bucket with its content path. Overlap between shares and `--directory` is
+checked at start by the composition, not here. Each mapping carries its container (internal
+`ContentContainer`), so every operation reaches the right file system.
+
+Share access (ADR-0102 decision 2.2, built by BL-656): `ContentShare.Grants` maps account
+names (ordinal) and `ContentShare.EveryoneMember` (`@everyone`) to `ContentShareAccess.Read`
+or `ReadWrite`; null is a share no `--share-access` names, open as the root is. A share with
+grants is closed to every account not granted and every anonymous caller not reached through
+`@everyone`; an account gets the wider of its own grant and `@everyone`'s. Servers pass who
+asks as a `ContentCaller` (`ForAccount(name, scheme)` or `Anonymous(scheme)`) to
+`MapRequestPathForCaller` or `MapBucketRequestPathForCaller`. A share the caller may not read
+is answered as absent - the one outcome a missing path gets, and it leaves the root listing -
+and in a share it may only read every write is `NotPermitted`, ANDed with `--allow-uploads`
+and `readonly`. The lookups that name no caller (`MapRequestPath`, `MapRequestPathForScheme`,
+`MapBucketRequestPath`) are answered as an anonymous caller, so with no grants configured they
+behave exactly as before, and with grants they never open a closed share. The root has no
+access rows.
+
+Stand-in events and faults (ADR-0124 decisions 1 and 4, ADR-0129, built by BL-789):
+`ContentStore`'s five-argument constructor takes an optional `ISurlEventPublisher` and
+`IFaultPlan` (null: publish nothing, find nothing), held in internal `ContentStoreEventsAndFaults`.
+After each change it publishes one `StoreChangedEvent` (`Content`, `ExchangeId` null): `Written`
+with the file's whole length (write, append, committed session), `Deleted` (file or empty
+folder), `Renamed` with `PreviousName` (one event), `Created` (folder). `Name` is the request
+path, `/`-separated, a share's name first, never a host path; a refused or failed change
+publishes nothing. Before an upload writes and before a session commits it asks the plan at a
+`StoreWrite` point (`Path` the name, `Scheme` and `Account` from the `ContentCaller`); an
+`OutOfSpace` rule answers `ContentUploadResult.TooLarge` without reading a byte and publishes
+`FaultAppliedEvent`. `ObjectMetadataIndex` takes an optional publisher too and publishes
+`MetadataStored` (`/` and the key) for each `Stored` outcome.
+
+Store control for a test stand-in (ADR-0124 decision 3, built by BL-800), in `ContentStore.Control.cs`:
+`SeedFileAsync(requestPath, stream)` and `SeedFolder(requestPath)` are the test's own writes - no
+`--allow-uploads`, no share access, `readonly` or scheme limit, never the fault plan - creating each missing
+folder above, through the upload's write (`MaxUploadBytes` gives `TooLarge`); `.surl`, a hidden path, a trailing
+`/` on a file and a file in the way are `NotPermitted`, a refused path throws `ArgumentException`; each folder
+created and each file publishes `Seeded`. `ResetAsync(index)`, `TakeSnapshotAsync(index)` and
+`RestoreAsync(snapshot)` work only while `IsControllable` - the root and every share in an
+`InMemoryContentFileSystem` and the index not persisted - else `InvalidOperationException`, so a test never empties
+a real directory (seeding a disk store is allowed). The configured state is what the in-memory file systems held
+when the store was made (a host's start files), captured in the constructor, plus every share's folder and every
+bucket's content path as a folder, with no object metadata. `InMemoryContentFileSystem.CaptureContents` /
+`ReplaceContents` (internal) copy and swap every entry under its lock, sharing byte arrays (never mutated once
+committed) and leaving out a file with a write stream open, so an upload in progress is not snapshotted and fails
+at its next write or its commit. A `ContentStoreSnapshot` is opaque, restored only by the store that took it
+(`ArgumentException` otherwise), and reports `ByteCount` for a host's `MaxSnapshotBytes`. Reset and restore
+publish one `Reset` or `Restored` change named `/`; a snapshot publishes nothing.
+
+`ObjectMetadataIndex` keeps what a file system cannot hold for the object-storage servers
+(S3, Azure Storage, Cloud Storage, the OCI registry; ADR-0100 decision 2.3, built by BL-636):
+the five header fields set at upload, user metadata, the ETag and GCS's generation, keyed by
+the file's path relative to the served root (`bucket/x/y`) and stamped with the file's length
+and last write time. A stamp that no longer matches - the file was overwritten, renamed or
+deleted through the content store by any protocol - makes the entry absent: the file answers
+the defaults (`DefaultContentType`, no user metadata, the quoted lower-case hexadecimal MD5 of
+its bytes as ETag, cached on first read, and its last write time in microseconds since the
+Unix epoch as generation). Bounds: `MaxEntries` (default 100000, `MetadataIndexFull`, stale
+entries dropped first) and `MaxMetadataBytes` (default 8192, the UTF-8 bytes of the header
+fields and user metadata names and values, `MetadataTooLarge`). With a data directory it is
+`<root>/.surl/objects/index`, rewritten whole through `.index-<guid>` and
+`MoveFileReplacing`, loaded by `LoadAsync` (malformed: `ObjectMetadataIndexLoadException`,
+reason `not an object metadata index`); a failed write is returned as `StorageFailure`, never
+thrown. Its byte format is pinned in `ObjectMetadataIndexFormat`'s remarks: the header
+`SURL-OBJECT-INDEX-1` and LF, a 4-byte entry count, then entries in strictly ascending ordinal
+key order - key, length (8, signed), last write UTC ticks (8, signed), generation (8, signed),
+ETag, the five header fields (empty is absent), a 2-byte user-metadata count and its name and
+value pairs in strictly ascending ordinal order of name; every string is a 2-byte UTF-8
+length then its bytes, every integer big-endian.

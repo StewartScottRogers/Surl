@@ -407,7 +407,7 @@ this ADR.
   registration, the constructor flag and decision 11; BL-212 decision 12's table.
 - The fixtures those tasks replay are recorded again from this ADR's rows with
   `Record-CurlExchange.ps1 -Pop3` and the overrides named, and live under
-  `Surl.Protocol.Pop3.UnitTests/Fixtures/<case>/` with a `README.md` (build, SHA-256, command line,
+  `Protocols/Mail/Surl.Protocol.Pop3.UnitTests/Fixtures/<case>/` with a `README.md` (build, SHA-256, command line,
   date).
 - A custom command curl reads as multi-line but that has a single-line answer (row 6: `curl -X LIST
   pop3://h/1`) leaves curl waiting until surl's idle timeout closes the connection. That is curl's

@@ -77,7 +77,12 @@
 
     At the end of every shift the coordinator merges the branch into master through a
     pull request, by Stewart's standing permission - only when the CI workflow passed on
-    Windows, Linux and macOS for the exact commit being merged.
+    Windows, Linux and macOS for the exact commit being merged. It freezes the branch's
+    head as factory/merge-<stamp> and opens the pull request from that, so lanes pushing
+    to the branch never cancel its CI; older frozen pull requests are closed as superseded.
+    Every coordinator checks open frozen pull requests every 5 minutes and merges one whose
+    CI passed, deleting its branch, so with -Continuous the next shift does the merge while
+    it works. -MergeToMaster does the same by hand.
 
     The reset time comes from the run's rate_limit_event. Time spent waiting is added
     to the shift, so -Hours is always working time. With lanes, every lane waits on its
@@ -228,6 +233,13 @@ param(
     [switch]$TestHeartbeat,
     # Prove Restore-ShiftBranch on a throwaway repository in a temporary folder, and exit.
     [switch]$TestShiftBranch,
+    # Prove the frozen-merge decisions (name, superseded pull requests, the step each CI
+    # state leads to) on recorded values, and exit.
+    [switch]$TestMergeSnapshot,
+    # Freeze the shift branch's head as factory/merge-<stamp>, open its pull request to
+    # master, merge any frozen pull request whose CI passed, and exit. What a shift's end
+    # does, run by hand.
+    [switch]$MergeToMaster,
     # Stop this checkout's running shift and start a new one with the same arguments: the
     # coordinator first, then each lane as soon as it is neither claiming nor integrating.
     # Arguments given beside it replace or add to the old ones: -Restart -WeeklyPace.
@@ -908,28 +920,68 @@ function Format-SpokenSpan {
 function ConvertTo-Unix { param([datetime]$When) return ([DateTimeOffset]$When).ToUnixTimeSeconds() }
 function ConvertFrom-Unix { param([long]$Seconds) return [DateTimeOffset]::FromUnixTimeSeconds($Seconds).LocalDateTime }
 
+function ConvertFrom-RateLimitEvent {
+    # The usage windows one stream-json rate_limit_event line reports, as a hashtable from
+    # window name ('five_hour', 'seven_day') to @{ Used; ResetsUnix }. Claude Code used to
+    # list every window under unifiedWindows; since October 2026 an event lists only the
+    # window it is about (rateLimitType), with utilization and resetsAt beside it, and
+    # leaves a window out until it nears its limit. Both shapes are read; a window named
+    # in unifiedWindows wins over the top-level fields. Pure, so -TestAutoLanes proves it.
+    param([string]$Line)
+    $windows = @{}
+    if ($Line -notmatch '"rate_limit_event"') { return $windows }
+    foreach ($m in [regex]::Matches($Line, '"(five_hour|seven_day)":\{"utilization":([0-9.]+),"resetsAt":(\d+)')) {
+        $windows[$m.Groups[1].Value] = @{ Used = [double]$m.Groups[2].Value; ResetsUnix = [long]$m.Groups[3].Value }
+    }
+    if ($Line -match '"rate_limit_info":\{[^{}]*"rateLimitType":"(five_hour|seven_day)"') {
+        $type = $Matches[1]
+        if (-not $windows.ContainsKey($type) -and $Line -match '"rate_limit_info":\{[^{}]*?"utilization":([0-9.]+)') {
+            $used = [double]$Matches[1]
+            if ($Line -match '"rate_limit_info":\{[^{}]*?"resetsAt":(\d+)') {
+                $windows[$type] = @{ Used = $used; ResetsUnix = [long]$Matches[1] }
+            }
+        }
+    }
+    return $windows
+}
+
 function Get-UsageReading {
-    # The newest usage reading a run logged: the share of the 5-hour and the weekly window
-    # used, and when each resets. A window whose reset has passed reads 0. -ThisShift looks
+    # The newest usage reading the runs logged: the share of the 5-hour and the weekly window
+    # used, and when each resets, each window taken from the newest event that reports it.
+    # A window whose reset has passed reads 0, and so does one no event reports: Claude
+    # Code leaves a window out until it nears its limit, so an unreported window is not
+    # near it (FiveHourReported and WeekReported say which were seen). -ThisShift looks
     # only at this shift's runs, so a lane never stops on a reading from before a reset
-    # that was lifted early. $null when no run has logged a reading.
+    # that was lifted early. $null when no run has logged a rate_limit_event.
     param([switch]$ThisShift)
     $filter = if ($ThisShift) { "*-$Stamp*.jsonl" } else { '*.jsonl' }
-    $files = Get-ChildItem $LogDir -Filter $filter -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 10
+    $files = Get-ChildItem $LogDir -Filter $filter -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 40
+    $found = @{}
+    $anyEvent = $false
     foreach ($f in $files) {
-        $line = Select-String -LiteralPath $f.FullName -Pattern '"five_hour":\{"utilization":' | Select-Object -Last 1
-        if (-not $line) { continue }
-        $text = $line.Line
-        if ($text -notmatch '"five_hour":\{"utilization":([0-9.]+),"resetsAt":(\d+)') { continue }
-        $reading = [pscustomobject]@{ FiveHour = [double]$Matches[1]; FiveHourResets = ConvertFrom-Unix ([long]$Matches[2]); Week = 0.0; WeekResets = [datetime]::MinValue }
-        if ($text -match '"seven_day":\{"utilization":([0-9.]+),"resetsAt":(\d+)') {
-            $reading.Week = [double]$Matches[1]; $reading.WeekResets = ConvertFrom-Unix ([long]$Matches[2])
+        $lines = @(Select-String -LiteralPath $f.FullName -Pattern '"rate_limit_event"' | ForEach-Object Line)
+        for ($i = $lines.Count - 1; $i -ge 0; $i--) {
+            $anyEvent = $true
+            $windows = ConvertFrom-RateLimitEvent $lines[$i]
+            foreach ($name in $windows.Keys) { if (-not $found.ContainsKey($name)) { $found[$name] = $windows[$name] } }
+            if ($found.ContainsKey('five_hour') -and $found.ContainsKey('seven_day')) { break }
         }
-        if ($reading.FiveHourResets -le (Get-Date)) { $reading.FiveHour = 0.0 }
-        if ($reading.WeekResets -le (Get-Date)) { $reading.Week = 0.0 }
-        return $reading
+        if ($found.ContainsKey('five_hour') -and $found.ContainsKey('seven_day')) { break }
     }
-    return $null
+    if (-not $anyEvent) { return $null }
+    $reading = [pscustomobject]@{
+        FiveHour = 0.0; FiveHourResets = [datetime]::MinValue; FiveHourReported = $false
+        Week = 0.0; WeekResets = [datetime]::MinValue; WeekReported = $false
+    }
+    if ($found.ContainsKey('five_hour')) {
+        $reading.FiveHour = $found['five_hour'].Used; $reading.FiveHourResets = ConvertFrom-Unix $found['five_hour'].ResetsUnix; $reading.FiveHourReported = $true
+    }
+    if ($found.ContainsKey('seven_day')) {
+        $reading.Week = $found['seven_day'].Used; $reading.WeekResets = ConvertFrom-Unix $found['seven_day'].ResetsUnix; $reading.WeekReported = $true
+    }
+    if ($reading.FiveHourResets -le (Get-Date)) { $reading.FiveHour = 0.0 }
+    if ($reading.WeekResets -le (Get-Date)) { $reading.Week = 0.0 }
+    return $reading
 }
 
 function Get-UsageStop {
@@ -1107,9 +1159,26 @@ if ($TestAutoLanes) {
         New-TestSample '12:00' 0.20 ($D.AddHours(15.5)) 0.10 ($D.AddDays(3)) 0
         New-TestSample '12:30' 0.26 ($D.AddHours(15.5)) 0.11 ($D.AddDays(3)) 0)
     $infinite = New-TestPace ([double]::PositiveInfinity)
+    # A shift whose events never report the 5-hour window (it is not near its limit): the
+    # reading carries 0 and no reset for it, so the 5-hour pace sets no limit.
+    $fiveHourUnreported = @(
+        New-TestSample '12:00' 0.0 ([datetime]::MinValue) 0.35 ($D.AddDays(3)) 5
+        New-TestSample '12:15' 0.0 ([datetime]::MinValue) 0.35 ($D.AddDays(3)) 5
+        New-TestSample '12:30' 0.0 ([datetime]::MinValue) 0.36 ($D.AddDays(3)) 5)
+    # rate_limit_event lines as Claude Code wrote them: both windows (September 2026), and
+    # one window beside rateLimitType (November 2026).
+    $eventBoth = '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed","resetsAt":1790827200,"rateLimitType":"five_hour","overageStatus":"rejected","isUsingOverage":false,"unifiedWindows":{"five_hour":{"utilization":0.11,"resetsAt":1790827200},"seven_day":{"utilization":0.24,"resetsAt":1791378000}}},"uuid":"u"}'
+    $eventWeekOnly = '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1794402000,"rateLimitType":"seven_day","utilization":0.36,"overageStatus":"rejected","isUsingOverage":false,"unifiedWindows":{"seven_day":{"utilization":0.36,"resetsAt":1794402000,"status":"allowed"}},"overageEnabled":false},"uuid":"u"}'
+    $eventFiveHourTopLevel = '{"type":"rate_limit_event","rate_limit_info":{"status":"allowed_warning","resetsAt":1794400000,"rateLimitType":"five_hour","utilization":0.81,"overageStatus":"rejected","overageEnabled":false},"uuid":"u"}'
+    function Format-Windows { param($Windows) return (@($Windows.Keys | Sort-Object | ForEach-Object { "$($_)=$($Windows[$_].Used)@$($Windows[$_].ResetsUnix)" }) -join ' ') }
 
     $cases = @(
-        ,@('five-hour-binds', 'lanes 3 -> 4 (5-hour pace allows 4.9)', (Get-SampledLaneCount $fiveHourBinds 3 $true 6 8 16))
+        ,@('event both windows', 'five_hour=0.11@1790827200 seven_day=0.24@1791378000', (Format-Windows (ConvertFrom-RateLimitEvent $eventBoth)))
+        ,@('event weekly only', 'seven_day=0.36@1794402000', (Format-Windows (ConvertFrom-RateLimitEvent $eventWeekOnly)))
+        ,@('event five-hour top level', 'five_hour=0.81@1794400000', (Format-Windows (ConvertFrom-RateLimitEvent $eventFiveHourTopLevel)))
+        ,@('event not a rate limit', '', (Format-Windows (ConvertFrom-RateLimitEvent '{"type":"assistant","five_hour":{"utilization":0.5,"resetsAt":1}}')))
+        ,@('five-hour unreported grows', 'lanes 5 -> 6 (lane maximum 9)', (Get-SampledLaneCount $fiveHourUnreported 5 $false 33 16 9))
+        ,@('five-hour-binds','lanes 3 -> 4 (5-hour pace allows 4.9)', (Get-SampledLaneCount $fiveHourBinds 3 $true 6 8 16))
         ,@('five-hour-binds weekly rate', 'null', "$(if ($null -eq (Get-BurnRate $fiveHourBinds Week)) { 'null' } else { 'a rate' })")
         ,@('weekly-binds low once', 'lanes 4 held (weekly pace allows 1.8, low once)', (Get-SampledLaneCount $weeklyBinds 4 $true 6 8 16))
         ,@('weekly-binds low twice', 'lanes 4 -> 2 (weekly pace allows 1.8)', (Get-SampledLaneCount $weeklyBinds 4 $true 6 8 16 $true))
@@ -1665,42 +1734,154 @@ if ($TestShiftBranch) {
     exit $(if ($failed) { 1 } else { 0 })
 }
 
-function Invoke-MergeToMaster {
-    # Stewart's standing permission (2026-09-27): at the end of a shift, merge the branch
-    # into master through a pull request - only when the CI workflow passed, on every
-    # platform, for the exact commit being merged. Returns a line for the trace.
+# ---- frozen merge to master
+# Stewart's standing permission (2026-09-27): at the end of a shift, merge the branch into
+# master through a pull request - only when the CI workflow passed, on every platform, for
+# the exact commit being merged. The shift branch moves every few minutes while lanes push,
+# and each move cancelled the pull request's CI, so merges never landed (2026-11-05). So the
+# end of a shift freezes the branch's head as factory/merge-<stamp> and opens the pull
+# request from that frozen branch, which nothing pushes to: its CI always finishes, however
+# long the account's runners take. Every coordinator then checks the open frozen pull
+# requests every few minutes and merges one whose CI passed. Creating, merging and deleting
+# factory/merge-* branches is standing-authorized (Stewart, 2026-11-05; ADR-0047 amendment 2).
+
+$MergeBranchPrefix = 'factory/merge-'
+
+function Get-MergeSnapshotName {
+    # The frozen branch a shift's end opens its pull request from.
+    param([string]$ShiftStamp)
+    return "$MergeBranchPrefix$ShiftStamp"
+}
+
+function Get-SupersededMergePulls {
+    # The open frozen pull requests a newer one replaces: every factory/merge-* pull request
+    # but -Newest. A newer shift's head holds everything an older one held, so only the
+    # newest frozen pull request is worth CI time. Pure, so -TestMergeSnapshot proves it.
+    param([object[]]$Pulls, [string]$Newest)
+    return @($Pulls | Where-Object { $_ -and $_.Head.StartsWith($MergeBranchPrefix) -and $_.Head -ne $Newest })
+}
+
+function Get-MergeStep {
+    # What to do with a frozen pull request, from its CI run on the frozen commit:
+    # 'wait' while there is no run or it has not completed, 'merge' on success, 'rerun'
+    # once for a run that was cancelled (nothing pushes to the frozen branch, so only a
+    # runner or a person cancels one), and 'failed' otherwise, or for a second cancel.
+    # Pure, so -TestMergeSnapshot proves it.
+    param([string]$Status, [string]$Conclusion, [bool]$RerunUsed = $false)
+    if (-not $Status -or $Status -ne 'completed') { return 'wait' }
+    if ($Conclusion -eq 'success') { return 'merge' }
+    if ($Conclusion -eq 'cancelled' -and -not $RerunUsed) { return 'rerun' }
+    return 'failed'
+}
+
+function Get-OpenMasterPulls {
+    # The open pull requests into master, as Number, Head and HeadSha.
+    # --jq, not ConvertFrom-Json: Windows PowerShell turns "[]" into one empty element.
+    # @tsv, not a "\(...)" string: Windows PowerShell 5.1 drops the double quotes inside a
+    # native command's argument, which broke the filter and listed nothing.
+    $lines = @(gh pr list --base master --state open --limit 50 --json number,headRefName,headRefOid --jq '.[] | [.number, .headRefName, .headRefOid] | @tsv' 2>$null)
+    return @($lines | Where-Object { $_ -match '^(\d+)\t(\S+)\t([0-9a-f]{40})$' } | ForEach-Object {
+        $null = $_ -match '^(\d+)\t(\S+)\t([0-9a-f]{40})$'
+        [pscustomobject]@{ Number = $Matches[1]; Head = $Matches[2]; HeadSha = $Matches[3] }
+    })
+}
+
+function Open-MergeSnapshot {
+    # Freeze origin/<Branch>'s head as factory/merge-<stamp>, open its pull request to
+    # master, and close what it supersedes: older frozen pull requests (their branches
+    # deleted) and a pull request opened from the shift branch itself before this design
+    # (closed, the shift branch kept). Returns a line for the trace.
     param([string]$Branch)
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return 'not merged: gh is not installed' }
     git -C $Root fetch -q origin master $Branch 2>&1 | Out-Null
     if ([int](git -C $Root rev-list --count "origin/master..origin/$Branch") -eq 0) { return "nothing on $Branch to merge" }
     $head = (git -C $Root rev-parse "origin/$Branch").Trim()
     $short = $head.Substring(0, 7)
-    # Open the pull request first: CI ignores pushes to factory/** (lanes' partial work),
-    # so the pull request is what runs CI on the branch's head.
-    # --jq, not ConvertFrom-Json: Windows PowerShell turns "[]" into one empty element, so
-    # a missing pull request looked like one with no number and the merge was a silent no-op.
-    $number = "$(gh pr list --head $Branch --base master --state open --json number --limit 1 --jq '.[0].number // empty' 2>$null)".Trim()
-    if (-not $number) {
-        $bodyFile = Join-Path $LogDir "pr-body-$Stamp.md"
-        $robot = [char]::ConvertFromUtf32(0x1F916)
-        [IO.File]::WriteAllText($bodyFile, "Dark factory shift $Stamp. Merged only once CI passes on Windows, Linux and macOS for $short.`n`n$robot Generated with [Claude Code](https://claude.com/claude-code)`n", (New-Object Text.UTF8Encoding($false)))
-        $url = gh pr create --base master --head $Branch --title "Dark factory shift $Stamp" --body-file $bodyFile 2>$null
-        if ("$url" -notmatch '/pull/(\d+)') { return 'not merged: could not open the pull request' }
-        $number = $Matches[1]
+    $frozen = Get-MergeSnapshotName -ShiftStamp $Stamp
+    git -C $Root push -q origin "$($head):refs/heads/$frozen" 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { return "not merged: could not push the frozen branch $frozen" }
+    $bodyFile = Join-Path $LogDir "pr-body-$Stamp.md"
+    $robot = [char]::ConvertFromUtf32(0x1F916)
+    $body = "Dark factory shift $Stamp, frozen at $short on $frozen so CI can finish while the next shift pushes to $Branch. Merged only once CI passes on Windows, Linux and macOS for $short.`n`n$robot Generated with [Claude Code](https://claude.com/claude-code)`n"
+    [IO.File]::WriteAllText($bodyFile, $body, (New-Object Text.UTF8Encoding($false)))
+    $url = gh pr create --base master --head $frozen --title "Dark factory shift $Stamp" --body-file $bodyFile 2>$null
+    if ("$url" -notmatch '/pull/(\d+)') { return "not merged: could not open the pull request for $frozen" }
+    $number = $Matches[1]
+    $pulls = Get-OpenMasterPulls
+    foreach ($old in (Get-SupersededMergePulls -Pulls $pulls -Newest $frozen)) {
+        gh pr close $old.Number --delete-branch --comment "Superseded by #$number, frozen from a newer head of $Branch." 2>&1 | Out-Null
+        Write-Trace '-' 'merge' "closed pull request #$($old.Number) ($($old.Head)), superseded by #$number" 'DarkGray'
     }
-    # CI takes a few minutes; wait for the run on this exact commit.
-    $deadline = (Get-Date).AddMinutes(30)
-    $run = $null
-    while ($true) {
-        $run = @(gh run list --workflow CI --branch $Branch --commit $head --limit 1 --json status,conclusion 2>$null | ConvertFrom-Json)
-        if ($run.Count -and $run[0].status -eq 'completed') { break }
-        if ((Get-Date) -ge $deadline) { return "not merged: CI did not finish on $short within 30 min (pull request #$number)" }
-        Start-Sleep -Seconds 30
+    foreach ($legacy in @($pulls | Where-Object { $_.Head -eq $Branch })) {
+        gh pr close $legacy.Number --comment "Superseded by #$($number): shifts now merge from a frozen factory/merge-* branch, so CI can finish while lanes push." 2>&1 | Out-Null
+        Write-Trace '-' 'merge' "closed pull request #$($legacy.Number) from $Branch (kept the branch), superseded by #$number" 'DarkGray'
     }
-    if ($run[0].conclusion -ne 'success') { return "not merged: CI $($run[0].conclusion) on $short (pull request #$number)" }
-    gh pr merge $number --merge 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { return "not merged: gh pr merge refused pull request #$number" }
-    return "merged $short into master (pull request #$number)"
+    return "froze $short as $frozen and opened pull request #$number; it merges once CI passes"
+}
+
+function Update-PendingMerges {
+    # Merge each open frozen pull request whose CI passed on its frozen commit, and delete
+    # its branch. Rerun a cancelled CI once; report a failure once per commit. Returns the
+    # trace lines of what changed (none while CI still runs).
+    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { return @() }
+    if ($null -eq $script:MergeReported) { $script:MergeReported = @{}; $script:MergeReruns = @{} }
+    $lines = @()
+    foreach ($pull in @(Get-OpenMasterPulls | Where-Object { $_.Head.StartsWith($MergeBranchPrefix) })) {
+        $short = $pull.HeadSha.Substring(0, 7)
+        $run = "$(gh run list --workflow CI --commit $pull.HeadSha --event pull_request --limit 1 --json databaseId,status,conclusion --jq '.[0] | [.databaseId, .status, .conclusion] | @tsv' 2>$null)".Trim()
+        $parts = $run -split "`t"
+        $step = Get-MergeStep -Status $(if ($parts.Count -ge 2) { $parts[1] } else { '' }) -Conclusion $(if ($parts.Count -ge 3) { $parts[2] } else { '' }) -RerunUsed ([bool]$script:MergeReruns[$pull.HeadSha])
+        switch ($step) {
+            'merge' {
+                gh pr merge $pull.Number --merge --match-head-commit $pull.HeadSha --delete-branch 2>&1 | Out-Null
+                $lines += if ($LASTEXITCODE -eq 0) { "merged $short into master (pull request #$($pull.Number)); deleted $($pull.Head)" } else { "not merged: gh pr merge refused pull request #$($pull.Number)" }
+            }
+            'rerun' {
+                $script:MergeReruns[$pull.HeadSha] = $true
+                gh run rerun $parts[0] 2>&1 | Out-Null
+                $lines += "CI was cancelled on $short (pull request #$($pull.Number)); running it again once"
+            }
+            'failed' {
+                if (-not $script:MergeReported[$pull.HeadSha]) {
+                    $script:MergeReported[$pull.HeadSha] = $true
+                    $lines += "not merged: CI $($parts[2]) on $short (pull request #$($pull.Number) stays open until a newer shift supersedes it)"
+                }
+            }
+        }
+    }
+    return $lines
+}
+
+if ($TestMergeSnapshot) {
+    $pulls = @(
+        [pscustomobject]@{ Number = '20'; Head = 'factory/merge-20261105-150047'; HeadSha = 'a' }
+        [pscustomobject]@{ Number = '21'; Head = 'factory/merge-20261105-230047'; HeadSha = 'b' }
+        [pscustomobject]@{ Number = '18'; Head = 'factory/phase-1'; HeadSha = 'c' }
+        [pscustomobject]@{ Number = '22'; Head = 'feature/other'; HeadSha = 'd' })
+    $cases = @(
+        ,@('name', 'factory/merge-20261105-150047', (Get-MergeSnapshotName -ShiftStamp '20261105-150047'))
+        ,@('superseded: older frozen only', '20', ((Get-SupersededMergePulls -Pulls $pulls -Newest 'factory/merge-20261105-230047' | ForEach-Object Number) -join ','))
+        ,@('superseded: none when newest is the only one', '', ((Get-SupersededMergePulls -Pulls @($pulls[1], $pulls[2]) -Newest 'factory/merge-20261105-230047' | ForEach-Object Number) -join ','))
+        ,@('step no run', 'wait', (Get-MergeStep -Status '' -Conclusion ''))
+        ,@('step queued', 'wait', (Get-MergeStep -Status 'queued' -Conclusion ''))
+        ,@('step in progress', 'wait', (Get-MergeStep -Status 'in_progress' -Conclusion ''))
+        ,@('step success', 'merge', (Get-MergeStep -Status 'completed' -Conclusion 'success'))
+        ,@('step cancelled first time', 'rerun', (Get-MergeStep -Status 'completed' -Conclusion 'cancelled'))
+        ,@('step cancelled after a rerun', 'failed', (Get-MergeStep -Status 'completed' -Conclusion 'cancelled' -RerunUsed $true))
+        ,@('step failure', 'failed', (Get-MergeStep -Status 'completed' -Conclusion 'failure')))
+    $failed = 0
+    foreach ($case in $cases) {
+        if ($case[1] -ceq $case[2]) { Write-Host "PASS $($case[0]): $($case[2])" -ForegroundColor Green }
+        else { Write-Host "FAIL $($case[0]): expected $($case[1]), got $($case[2])" -ForegroundColor Red; $failed++ }
+    }
+    exit $(if ($failed) { 1 } else { 0 })
+}
+
+if ($MergeToMaster) {
+    $mergeBranch = if ($ShiftBranch) { $ShiftBranch } else { (git -C $Root rev-parse --abbrev-ref HEAD).Trim() }
+    Write-Host (Open-MergeSnapshot -Branch $mergeBranch)
+    foreach ($line in (Update-PendingMerges)) { Write-Host $line }
+    exit 0
 }
 
 function Save-StrayChanges {
@@ -2449,8 +2630,9 @@ if ($AutoLanesReport) {
     Write-Host "5-hour rate $(Format-Rate $step.FiveHourRate)$(if ($null -ne $step.FiveHourRate) { ' points/hour/lane' })$savedNote"
     Write-Host "weekly rate $(Format-Rate $step.WeeklyRate)$(if ($null -ne $step.WeeklyRate) { ' points/hour/lane' })$savedNote"
     if ($reading) {
-        Write-Host ("usage 5-hour {0}% (reset {1}), weekly {2}% (reset {3})" -f [math]::Round($reading.FiveHour * 100),
-            $reading.FiveHourResets.ToString('HH:mm'), [math]::Round($reading.Week * 100), $reading.WeekResets.ToString('ddd HH:mm'))
+        $fiveHourText = if ($reading.FiveHourReported) { "$([math]::Round($reading.FiveHour * 100))% (reset $($reading.FiveHourResets.ToString('HH:mm')))" } else { 'not reported (not near its limit)' }
+        $weekText = if ($reading.WeekReported) { "$([math]::Round($reading.Week * 100))% (reset $($reading.WeekResets.ToString('ddd HH:mm')))" } else { 'not reported (not near its limit)' }
+        Write-Host "usage 5-hour $fiveHourText, weekly $weekText"
     } else { Write-Host "usage unknown (no reading in $LogDir)" }
     if ($step.Pace) { Write-Host "5-hour target $(Format-Rate $step.Pace.FiveHour) lanes, weekly target $(Format-Rate $step.Pace.Weekly) lanes$(if (-not $WeeklyPace) { ' (not pacing weekly)' })" }
     else { Write-Host '5-hour target none yet, weekly target none yet' }
@@ -2815,6 +2997,8 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     $giveUp = $shiftEnd.AddMinutes($TaskMinutes + 30)
     $tick = Get-Date
     $nextAutoStep = (Get-Date).AddMinutes(15)
+    # Frozen pull requests left by earlier shifts merge as soon as their CI passes.
+    $nextMergeCheck = Get-Date
     while ((Get-Date) -lt $giveUp) {
         # The coordinator announces the usage limit for every lane, and lanes waiting for a
         # new session add that wait to their shift, so the coordinator waits longer too.
@@ -2855,6 +3039,10 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
             Invoke-AutoLaneStep
             $nextAutoStep = (Get-Date).AddMinutes(15)
         }
+        if ((Get-Date) -ge $nextMergeCheck) {
+            foreach ($line in (Update-PendingMerges)) { Write-Trace '-' 'merge' $line 'Cyan' }
+            $nextMergeCheck = (Get-Date).AddMinutes(5)
+        }
         # The coordinator is the board branch's one writer for a lane shift.
         Publish-BoardStatusIfDue -Branch $branch
         $running = @($procs | Where-Object { $_.Tab -or -not $_.Process.HasExited }).Count
@@ -2888,7 +3076,16 @@ if (($AutoLanes -or $LaneCount -gt 1) -and -not $Lane) {
     Publish-BoardStatus -Branch $branch -State 'ended'
     Write-Trace '-' 'shift' "end  $LaneCount lanes$(if ($AutoLanes) { ' (auto)' })" 'Cyan'
     if ($AutoLanes) { Save-AutoLanes $LaneCount }
-    Write-Trace '-' 'merge' (Invoke-MergeToMaster -Branch $branch) 'Cyan'
+    Write-Trace '-' 'merge' (Open-MergeSnapshot -Branch $branch) 'Cyan'
+    # A -Continuous shift hands the frozen pull request to the next shift's coordinator,
+    # which merges it once CI passes. Without one, this shift waits up to 30 minutes for it.
+    $mergeDeadline = if ($Continuous) { Get-Date } else { (Get-Date).AddMinutes(30) }
+    do {
+        $mergeLines = @(Update-PendingMerges)
+        foreach ($line in $mergeLines) { Write-Trace '-' 'merge' $line 'Cyan' }
+        if (@($mergeLines | Where-Object { $_ -like 'merged *' }).Count -or (Get-Date) -ge $mergeDeadline) { break }
+        Start-Sleep -Seconds 60
+    } while ($true)
     $reasons = @($stalls) + @($retiredLines) + @(Get-WaitingOnStewart)
     # -Continuous: while the board still has ready work, the next shift starts itself, so
     # the factory keeps going without anyone - Stewart or a Claude session - to restart it.

@@ -1,0 +1,171 @@
+using System.Buffers.Binary;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using Surl.Cryptography.Curve25519;
+
+namespace Surl.Http3;
+
+/// <summary>
+/// The TLS 1.3 client half of <see cref="UnitTestQuicClient"/>, written in the test project from
+/// RFC 8446 sections 4.4 and 7.1 (as Surl.Tls13.UnitTests' client is) and sharing no code with
+/// Surl.Tls13's key schedule, transcript or messages. It holds an x25519 private key, derives the
+/// handshake secrets from the ServerHello, checks the server's flight - the CertificateVerify
+/// signature with the certificate's public key, and the server's Finished - and writes the
+/// client's Finished.
+/// </summary>
+internal sealed class UnitTestTls13Client
+{
+    private readonly byte[] privateKey = RandomNumberGenerator.GetBytes(X25519.KeySize);
+    private readonly List<byte> transcript = [];
+    private HashAlgorithmName hash;
+    private int hashLength;
+    private byte[] handshakeSecret = [];
+
+    public UnitTestTls13Client()
+    {
+        PublicKey = new byte[X25519.KeySize];
+        X25519.ComputePublicKey(privateKey, PublicKey);
+    }
+
+    /// <summary>The client's x25519 key_exchange value.</summary>
+    public byte[] PublicKey { get; }
+
+    public ushort CipherSuite { get; private set; }
+
+    public byte[] ClientHandshakeSecret { get; private set; } = [];
+
+    public byte[] ServerHandshakeSecret { get; private set; } = [];
+
+    public byte[] ClientApplicationSecret { get; private set; } = [];
+
+    public byte[] ServerApplicationSecret { get; private set; } = [];
+
+    public byte[] EncryptedExtensions { get; private set; } = [];
+
+    /// <summary>Takes the ClientHello as sent and the ServerHello, and derives the handshake traffic secrets.</summary>
+    public void ReceiveServerHello(byte[] clientHello, byte[] serverHello)
+    {
+        Assert.AreEqual(2, serverHello[0], "The Initial CRYPTO data is not a ServerHello.");
+        var (suite, group, serverShare) = ReadServerHello(serverHello);
+        Assert.AreEqual((ushort)0x001D, group, "The ServerHello's key share is not x25519.");
+        CipherSuite = suite;
+        hash = suite == 0x1302 ? HashAlgorithmName.SHA384 : HashAlgorithmName.SHA256;
+        hashLength = suite == 0x1302 ? 48 : 32;
+        transcript.AddRange(clientHello);
+        transcript.AddRange(serverHello);
+        var shared = new byte[X25519.KeySize];
+        X25519.ScalarMultiply(privateKey, serverShare, shared);
+        var early = HKDF.Extract(hash, new byte[hashLength], new byte[hashLength]);
+        handshakeSecret = HKDF.Extract(hash, shared, ExpandLabel(early, "derived", CryptographicOperations.HashData(hash, []), hashLength));
+        var helloHash = TranscriptHash();
+        ClientHandshakeSecret = ExpandLabel(handshakeSecret, "c hs traffic", helloHash, hashLength);
+        ServerHandshakeSecret = ExpandLabel(handshakeSecret, "s hs traffic", helloHash, hashLength);
+    }
+
+    /// <summary>Checks the server's Handshake-level flight and returns the client's Finished; the application secrets follow.</summary>
+    public byte[] ReceiveServerFlight(byte[] handshake)
+    {
+        var messages = SplitMessages(handshake);
+        CollectionAssert.AreEqual(new byte[] { 8, 11, 15, 20 }, messages.Select(message => message[0]).ToArray());
+        EncryptedExtensions = messages[0];
+        transcript.AddRange(messages[0]);
+        transcript.AddRange(messages[1]);
+        VerifyCertificateVerify(messages[1], messages[2], TranscriptHash());
+        transcript.AddRange(messages[2]);
+        var expected = CryptographicOperations.HmacData(hash, ExpandLabel(ServerHandshakeSecret, "finished", [], hashLength), TranscriptHash());
+        CollectionAssert.AreEqual(expected, messages[3][4..], "The server's Finished does not verify.");
+        transcript.AddRange(messages[3]);
+        var serverFinishedHash = TranscriptHash();
+        var master = HKDF.Extract(hash, new byte[hashLength], ExpandLabel(handshakeSecret, "derived", CryptographicOperations.HashData(hash, []), hashLength));
+        ClientApplicationSecret = ExpandLabel(master, "c ap traffic", serverFinishedHash, hashLength);
+        ServerApplicationSecret = ExpandLabel(master, "s ap traffic", serverFinishedHash, hashLength);
+        var verifyData = CryptographicOperations.HmacData(hash, ExpandLabel(ClientHandshakeSecret, "finished", [], hashLength), serverFinishedHash);
+        return [20, 0, 0, (byte)hashLength, .. verifyData];
+    }
+
+    /// <summary>The value of the quic_transport_parameters extension (0x39) in EncryptedExtensions.</summary>
+    public byte[] ServerTransportParameters() => EncryptedExtension(0x0039);
+
+    /// <summary>The ALPN protocol the server selected in EncryptedExtensions (RFC 7301 section 3.1): a list of one name.</summary>
+    public string ApplicationProtocol => System.Text.Encoding.ASCII.GetString(EncryptedExtension(0x0010).AsSpan(3));
+
+    private byte[] EncryptedExtension(ushort wanted)
+    {
+        var extensions = EncryptedExtensions.AsSpan(6);
+        while (!extensions.IsEmpty)
+        {
+            var type = BinaryPrimitives.ReadUInt16BigEndian(extensions);
+            var length = BinaryPrimitives.ReadUInt16BigEndian(extensions[2..]);
+            if (type == wanted)
+            {
+                return extensions.Slice(4, length).ToArray();
+            }
+
+            extensions = extensions[(4 + length)..];
+        }
+
+        Assert.Fail($"EncryptedExtensions carries no extension 0x{wanted:x4}.");
+        return [];
+    }
+
+    private byte[] TranscriptHash() => CryptographicOperations.HashData(hash, [.. transcript]);
+
+    private static (ushort Suite, ushort Group, byte[] Share) ReadServerHello(byte[] message)
+    {
+        var body = message.AsSpan(4);
+        var sessionIdLength = body[34];
+        var afterSessionId = body[(35 + sessionIdLength)..];
+        var suite = BinaryPrimitives.ReadUInt16BigEndian(afterSessionId);
+        var extensions = afterSessionId[5..];
+        while (!extensions.IsEmpty)
+        {
+            var type = BinaryPrimitives.ReadUInt16BigEndian(extensions);
+            var length = BinaryPrimitives.ReadUInt16BigEndian(extensions[2..]);
+            if (type == 0x0033)
+            {
+                var data = extensions.Slice(4, length);
+                return (suite, BinaryPrimitives.ReadUInt16BigEndian(data), data[4..].ToArray());
+            }
+
+            extensions = extensions[(4 + length)..];
+        }
+
+        Assert.Fail("The ServerHello has no key_share.");
+        return default;
+    }
+
+    private static void VerifyCertificateVerify(byte[] certificateMessage, byte[] certificateVerify, byte[] transcriptHash)
+    {
+        var contextLength = certificateMessage[4];
+        var entryStart = 4 + 1 + contextLength + 3;
+        var derLength = (certificateMessage[entryStart] << 16) | (certificateMessage[entryStart + 1] << 8) | certificateMessage[entryStart + 2];
+        using var certificate = X509CertificateLoader.LoadCertificate(certificateMessage.AsSpan(entryStart + 3, derLength));
+        Assert.AreEqual((ushort)0x0804, BinaryPrimitives.ReadUInt16BigEndian(certificateVerify.AsSpan(4)));
+        byte[] content = [.. Enumerable.Repeat((byte)0x20, 64), .. Encoding.ASCII.GetBytes("TLS 1.3, server CertificateVerify"), 0, .. transcriptHash];
+        Assert.IsTrue(
+            certificate.GetRSAPublicKey()!.VerifyData(content, certificateVerify[8..], HashAlgorithmName.SHA256, RSASignaturePadding.Pss),
+            "The CertificateVerify signature does not verify with the certificate's public key.");
+    }
+
+    private static List<byte[]> SplitMessages(byte[] bytes)
+    {
+        var messages = new List<byte[]>();
+        var offset = 0;
+        while (offset < bytes.Length)
+        {
+            var length = (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+            messages.Add(bytes[offset..(offset + 4 + length)]);
+            offset += 4 + length;
+        }
+
+        return messages;
+    }
+
+    private byte[] ExpandLabel(byte[] secret, string label, byte[] context, int length)
+    {
+        var fullLabel = Encoding.ASCII.GetBytes("tls13 " + label);
+        byte[] info = [(byte)(length >> 8), (byte)length, (byte)fullLabel.Length, .. fullLabel, (byte)context.Length, .. context];
+        return HKDF.Expand(hash, secret, length, info);
+    }
+}

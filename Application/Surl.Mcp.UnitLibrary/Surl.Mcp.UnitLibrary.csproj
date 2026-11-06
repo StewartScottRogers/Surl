@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Surl.Mcp.UnitLibrary holds the logic of surl-mcp's tools (ADR-0103 decision 2): the tools that
+    start, list and stop Surl servers through Surl.Api, the running-server set and the safety checks.
+    The executable, Application/Surl.Mcp, registers each tool with one line.
+  -->
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Mcp.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Api\Surl.Api.csproj" />
+    <ProjectReference Include="..\Surl.Cli.UnitLibrary\Surl.Cli.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Protocols\Http\Surl.McpServing.UnitLibrary\Surl.McpServing.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

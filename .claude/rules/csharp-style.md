@@ -1,6 +1,6 @@
 ---
 paths:
-  - "Surl.*/**/*.cs"
+  - "**/Surl.*/**/*.cs"
 ---
 # C# style rules
 

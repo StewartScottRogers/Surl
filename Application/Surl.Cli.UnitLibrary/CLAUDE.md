@@ -1,0 +1,108 @@
+# Surl.Cli.UnitLibrary
+
+Phase 1.
+
+Surl's command line: the option table, argument parsing, the help, the AI help and the
+manual, and the mapping from a bad command line to a `SurlExitCode`. `surl [options] <url>`
+names what to listen on, the way `curl [options] <url>` names what to fetch. An option
+keeps curl's name and meaning wherever a server-side meaning exists (`--cert`, `--key`,
+`--cacert`, `-u`, `-v`, `-s`, `-S`, `--trace`, `--trace-ascii`, `--trace-time`); the table
+is ADR-0007's, with the rows ADR-0010, ADR-0031, ADR-0032, ADR-0033, ADR-0034 and ADR-0046
+add. It references
+`Surl.Core.UnitLibrary`, `Surl.Output.UnitLibrary` (for `LogLevel` and `TraceDumpLayout`)
+and `Surl.Protocol.Abstractions.UnitLibrary`.
+
+- `CommandLineOptions` is the one option table: every `CommandLineOption` row carries its
+  `OptionHelp` (argument name, description, `HelpCategories`, short-list flag, default and,
+  for a loosening option, its `Explanation`), so an option cannot be added without its help.
+  `CommandLineParser.Parse` reads a whole command line by it, left to right, into a
+  `CommandLineParseResult`: `Serve` with a `SurlCommandLine`, `ShowHelp` with its
+  `HelpSubject`, `ShowAiHelp` with its `AiHelpTopic`, `ShowManual`, `ShowVersion`, or `Refused` with a `CommandLineFailure`.
+  `ListenUrlParser` reads each listen URL; `OptionArgumentReader` reads each argument kind.
+  `SchemeDefaultPorts` is upstream curl's port per scheme and stays so; the overloads taking
+  `extendedSchemes` also accept each scheme a registered extended server claims at its
+  `ExtendedSchemeDefaultPorts` row (ADR-0083 decision 7), consulted only after upstream curl's
+  table, and `VersionText.Compose` then adds an `Extended:` line. The `extended` `--aihelp`
+  topic sits beside `exit-codes` and `listen-urls`.
+- Accounts and loosening options (ADR-0032 section 1): each `-u`/`--user` adds a
+  `CommandLineAccount` to `SurlCommandLine.Accounts`, split at the first `:`; a refusal
+  of one never echoes its value (`CommandLineOption.ArgumentHoldsSecret`), and a user name
+  given twice is refused after the whole line is read. `--user-file` is kept as a path
+  (`SurlCommandLine.UserFile`) and read by `Surl.Console`, and so is `--keytab`
+  (`SurlCommandLine.KeytabFile`, ADR-0057 decision 1: category `auth`, not negatable). `--allow-anonymous`,
+  `--allow-plaintext-auth`, `--auth <methods>` (`GivenAuthenticationMethods`, matched
+  case-insensitively, in ADR-0032 section 3's order) and `--self-signed` are parsed here;
+  `--self-signed` with `--cert` is refused.
+- SSH server options (ADR-0051 decisions 4 to 6): `--hostkey` and `--hostcert` each add a path
+  to `HostKeyFiles` and `HostCertificateFiles`; `--authorized-keys <user:file>` adds a
+  `CommandLineAuthorizedKeys` to `AuthorizedKeys`, split at the first `:`, a user given twice
+  refused after the whole line is read; `--throwaway-hostkey` (`ThrowawayHostKey`) with
+  `--hostkey` is refused; `--allow-weak-ssh-algorithms` sets `AllowWeakSshAlgorithms`;
+  `--ssh-ciphers` and `--ssh-macs` set `SshCiphers` and `SshMacs` to their comma-separated names,
+  kept as given (`OptionArgumentReader.SshAlgorithmNames`, ADR-0066), which `Surl.Console` checks. `--pass`
+  without `--cert` is accepted when a `--hostkey` is given. Each is in the `ssh` help category
+  (`SSH protocol`, schemes `scp` and `sftp`, ADR-0051 decision 12), with every option the SSH
+  server reads. `Surl.Console` reads the files and serves every one of these options, `--hostcert`
+  included (BL-222).
+- Layer-2 items (ADR-0101 decisions 3, 5 rows 10 to 13, and 6): `ConfigurationItemReader.Read`
+  reads one item option argument by its `ConfigurationItemShape` (Argument column, separator,
+  `ConfigurationItemValueKind` after it, its own keys and flags as `ConfigurationItemAttributeKind`,
+  and a grant's access words) into a `ConfigurationItem`: split at every `;`, the head at the
+  first separator, a grant at its last `:`, lists at `,`, then each field percent-decoded.
+  Unknown keys and flags are refused, and no refusal holds a value. Members read as
+  `ConfiguredMember` (`@name` is a group) and grants as `ConfiguredGrant`. `ConfigurationItemShape.Reading`
+  is the `OptionArgumentReading<ConfigurationItem>` an option row takes; its `OptionArgumentType.Item`
+  is named by the shape, its allowed values ending in `OptionArgumentType.ItemSyntax`.
+  `MaxOccurrences` and `GivenTooOften` are for the parser that counts each option across the
+  line and every config file.
+- `--group <name>=<member>,...` (category `auth`, ADR-0101 decision 4, BL-646) is the first item
+  option: `ConfiguredGroupReader` reads it by its `Shape` into a `ConfiguredGroup` (refusing a
+  member twice in one list, `ConfiguredMember.AsWritten` naming it), each adds to
+  `SurlCommandLine.Groups`, a group name given twice is refused after the whole line is read, and
+  the 10001st `--group` is refused (`GivenTooOften`). Whether members name accounts or groups,
+  cycles and the reserved `everyone` are checked at start by `Surl.Composition`'s
+  `AccountGroupExpansion`. BL-653, BL-654, BL-663 and BL-666 add the other item options.
+- Config files (ADR-0101 decisions 1, 2, 5 rows 1 to 9, and 6; BL-644): `-K`/`--config <file>`
+  (category `surl`) reads a file in curl's config-file syntax in place, through the
+  `IConfigFileSource` seam the host passes to `CommandLineParser.Parse`'s third overload (the
+  overloads without one use `UnreadableConfigFileSource`, so every `-K` there exits 37).
+  `ConfigFileText.Lines` splits the bytes into `ConfigFileLine`s (UTF-8, LF or CR LF, blank and `#`
+  lines skipped, undashed names, quoted values and their escapes, text after a value and a missing
+  quote refused); the parser reads each line's words as if they stood alone on the command line
+  (`CommandLineReading.LineWords`), so an option never takes a value from another line. A refusal
+  inside a file is prefixed once by `<file>:<line>: `; at most `MaxConfigFileDepth` (5) files are
+  open at once, a cycle and a second `-K -` are refused, a file past 16 MiB and a line past 10 MiB
+  too. `--url <listen URL>` adds a listen URL exactly as a bare argument does.
+- Log levels (ADR-0033 section 2): `-s`, `-v`, `--log-level`, `--trace` and `--trace-ascii`
+  each set `SurlCommandLine.LogLevel`, the last one given winning, and `-S` (`ShowError`)
+  turns `none` into `error` once the whole line is read. `TraceFile`, `TraceLayout`,
+  `TraceTime` and `LogFile` hold the rest; opening the files is `Surl.Console`'s.
+- Help (ADR-0034): `HelpText.Answer` turns a help subject into a `HelpAnswer` - the short
+  list, `all`, `category`, one of `HelpCategories.All`, or an option page - laid out to 79
+  columns by `HelpLayout`. `ManualText.Text` is the `--manual` text; `VersionText.Compose`
+  the `--version` text.
+- AI help (ADR-0046; the glossary's "AI help", "AI help topic", "AI help example",
+  "argument type" and "exit-code guidance"): `AiHelpText.Answer` (`AiHelpText.cs`) turns an
+  `--aihelp` topic into a `HelpAnswer` in Markdown - the overview, one of
+  `AiHelpTopics.All` (`AiHelpTopics.cs`, `AiHelpTopic.cs`: every `HelpCategories.All` row
+  with its name, description and `HelpCategory.Schemes`, plus `exit-codes` and
+  `listen-urls`, found in any case by `AiHelpTopics.TryFind`), `all`, or the unknown-topic
+  answer. Its tables are generated, never hand-written: the option table from
+  `CommandLineOptions` and each row's `CommandLineOption.ArgumentType`
+  (`OptionArgumentType.cs`, paired with its reader in `OptionArgumentReading.cs`), the
+  option's left side shared with `HelpText.LeftSide`; the exit-code table from
+  `ExitCodeGuidanceTable.All` (`ExitCodeGuidanceTable.cs`, `ExitCodeGuidance.cs`). The
+  hand-written paragraphs are `AiHelpProse`'s source constants (`AiHelpProse.cs`); the
+  examples are `AiHelpExamples.All` (`AiHelpExamples.cs`, `AiHelpExample.cs`,
+  `AiHelpExamplePrecondition.cs`), public so `Surl.Console.UnitTests` can run them.
+  `--aihelp [topic]` is a row of `CommandLineOptions` (`CommandLineOptionKind.AiHelp`, no
+  short name), read as `--help` reads its subject into `CommandLineParseResult.AiHelpTopic`
+  with the outcome `CommandLineOutcome.ShowAiHelp`, which `Surl.Console` answers.
+  `AiHelpFactsTests` and `AiHelpTextTests` in `Surl.Cli.UnitTests` fail when an option, a
+  topic or a `SurlExitCode` member is missing from it (root `CLAUDE.md`). Work that changes
+  what surl does updates the `AiHelpProse` paragraph and the example that describe it in
+  the same change, as it does `ManualText`.
+
+Never touch the console here; `Surl.Console` hands this library its arguments and writers.
+Any change to an option's behaviour updates its `OptionHelp` and the `ManualText` section
+that describes it in the same change (ADR-0034 decision 6).

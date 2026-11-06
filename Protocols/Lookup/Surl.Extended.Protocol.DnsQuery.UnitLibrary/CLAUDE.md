@@ -1,0 +1,113 @@
+# Surl.Extended.Protocol.DnsQuery.UnitLibrary
+
+An extended server (ADR-0083): it answers the `dns` scheme the Curl port adds, which upstream
+curl does not have. ADR-0092 decides how. It is judged by its specifications - RFC 1035, RFC 3596,
+RFC 2782, RFC 8659, RFC 3597, RFC 6891 and the transport RFCs ADR-0092 lists - never by the Curl
+port's output, and its unit tests replay bytes written by hand from those RFCs.
+
+What is here so far is the message and record codec (BL-479, ADR-0092 decision 2):
+
+- `DnsMessageWriter.Write` writes a `DnsMessage`, compressing names (RFC 1035 section 4.1.4) in
+  owners, questions and the RDATA of NS, CNAME, SOA, PTR and MX only; SRV's target and every
+  opaque type are never compressed (RFC 2782, RFC 3597 section 4).
+- `DnsMessageReader.Read` reads one, and reports what it cannot read as a `DnsReadFault` with the
+  header and questions read before it, so a `FORMERR` can echo them. A compression pointer must
+  name an offset strictly before the labels it continues, which is how a loop is refused.
+- RDATA: `DnsAddressData` (A, AAAA), `DnsDomainNameData` (NS, CNAME, PTR),
+  `DnsStartOfAuthorityData`, `DnsMailExchangeData`, `DnsTextData`, `DnsServiceLocationData`,
+  `DnsCertificationAuthorityAuthorizationData`, `DnsOptData` (read by meaning through
+  `DnsOptRecord`) and `DnsOpaqueData` for every other type.
+
+The zones and the authoritative answer (BL-480, ADR-0092 decisions 1 and 2):
+
+- `DnsZoneFolder.LoadAsync` reads every `*.zone` file of a folder through `Surl.Content`'s
+  `IContentFileSystem`, in ordinal order, into a `DnsZoneSet`; a fault is a
+  `DnsZoneLoadException` naming the file, whose message is the `<reason>` of
+  `surl: (37) Could not read <file path>: <reason>`.
+- `DnsZoneSet.Add` loads one master file (RFC 1035 section 5) as the zone at its file name
+  without `.zone`, bounded by `DefaultMaxZones`, `DefaultMaxRecords` and `DefaultMaxTotalBytes`.
+  `DnsMasterFileTokenizer` splits entries, `DnsPresentationReader` reads names, strings, TTLs,
+  types and RDATA (or RFC 3597's `\#` form), `DnsZoneFileReader` reads directives and records,
+  and `DnsZone` checks what the records must hold together. Each fault is a
+  `DnsZoneFileException`: `line <n>: <what>`, or `<what>` alone for the faults no line holds
+  (no SOA, a second zone for one apex, a file name that is no apex, the zones' bounds). The
+  `<what>` texts are pinned by `DnsZoneSetTests`.
+- `DnsZoneSet.Answer` is RFC 1034 section 4.3.2's authoritative lookup (`DnsAuthoritativeLookup`):
+  the RRset, ANY, NODATA and NXDOMAIN with the SOA at its negative TTL, CNAME chains through
+  every zone (`SERVFAIL` on a loop or past 16), wildcards, referrals with glue, and `REFUSED`.
+  `DnsAuthoritativeAnswer.ToResponse` makes the response message: RA = 0, the question echoed.
+  AXFR and IXFR questions are not special-cased here; `DnsQueryAnswerer` answers them.
+
+UDP (BL-481, ADR-0092 decisions 2 and 3):
+
+- `DnsQueryAnswerer.Answer` answers one query message whatever carries it, as a `DnsResponse`
+  (the message, its OPT kept apart, and the query's OPT), or `null` to drop it: no header or
+  QR = 1 is dropped; an opcode other than QUERY is `NOTIMP`, checked before the body; an
+  unreadable message, more than one OPT or one not owned by the root is `FORMERR`; QDCOUNT other
+  than 1 is `FORMERR` with no question; an OPT version above 0 is `BADVERS`; AXFR and IXFR are
+  `REFUSED` unless the answerer was made with `allowZoneTransfer` (then, in a datagram, AXFR is
+  `NOTIMP` and IXFR the apex SOA alone); the rest is `DnsZoneSet.Answer`. A response
+  carries an OPT (payload 1232, version 0, DO copied) exactly when the query had a readable one.
+- `DnsResponseWriter.WriteWithin` writes a response within a limit, cutting additionals, then
+  authorities (TC only when they held the negative answer's SOA), then whole answer RRsets with
+  TC = 1; the OPT is always kept.
+- `DnsUdpResponseWriter.Write` writes it as one datagram within 512 bytes, or the query's OPT
+  payload size clamped to 512..1232.
+- `DnsUdpProtocolServer` (scheme `dns`, `IDatagramProtocolServer`) answers the flow's first
+  datagram and every later one until the engine cancels the exchange.
+
+TCP and zone transfer (BL-482, ADR-0092 decision 4):
+
+- `DnsTcpProtocolServer` (scheme `dns`, `IConnectionProtocolServer`) reads length-prefixed
+  queries through `DnsTcpMessageReader`, pipelined or not, and answers each in arrival order on
+  the one connection. Once a prefix begins, the message must arrive within the head timeout; a
+  length of 0 or past `--max-message`, a dropped message, or the client's close ends the
+  connection with no bytes; the engine's idle timeout or maximum duration closes it quietly.
+- `DnsTcpResponseWriter.Write` writes the prefix and message as one buffer, cut only past 65535.
+- `DnsQueryAnswerer.AnswerOverStream` answers an allowed AXFR or IXFR at a served apex with
+  `DnsZoneTransfer.Messages`: the SOA, every other record in zone-file order, the SOA, packed into
+  as few frames as fit, the question in the first only; a name that is no apex is `NOTAUTH`.
+
+DNS over HTTPS (BL-483, ADR-0092 decision 5; RFC 8484):
+
+- `DnsOverHttpsHandler` is both `Surl.HttpServing`'s `IHttpRequestHandler` (HTTP/1.1, through
+  `Http1ConnectionServer`) and `Surl.Http2`'s `IHttp2StreamHandler` (HTTP/2, through
+  `Http2ConnectionServer`); one `AnswerAsync` decides both, and HTTP/2 reads its body through
+  `DnsHttp2RequestBody`. Path `/dns-query` only (else `404`); `GET` with one `dns` parameter in
+  base64url without padding (`DnsOverHttpsQueryParameter`; else `400`); `POST` of
+  `application/dns-message` (else `415`), bounded at 65535 bytes by `DnsOverHttpsQueryBuffer`
+  (else `413`; a body that cannot be read whole is `400`); another method `405` with
+  `Allow: GET, POST`. A dropped query is `400`; every other is `200` with the DNS response and
+  `Cache-Control: max-age` from `DnsOverHttpsCacheLifetime` (the smallest answer TTL, else the
+  negative answer's SOA TTL, else 0).
+- `DnsQueryAnswerer.AnswerOverHttp` answers one query; allowed AXFR and IXFR are `NOTIMP` there.
+- Not yet: EDNS(0) padding on the encrypted transports and the optional DoH login (ADR-0092
+  decisions 2 and 5); see the tasks filed for them.
+
+DNS over QUIC (BL-484, ADR-0092 decision 5; RFC 9250):
+
+- `DnsOverQuicProtocolServer` (scheme `dns`, `IDatagramProtocolServer`) runs each flow as one QUIC
+  connection on `Surl.Quic`'s `QuicDatagramFlowServer`: ALPN `doq` only,
+  `initial_max_streams_bidi` 100, `initial_max_streams_uni` 0, no `max_datagram_frame_size`, the
+  idle timeout it is given, and the head timeout as the handshake timeout. Cancelled before the
+  handshake completes, the flow stops at once; after, `DnsOverQuicConnectionServer` answers it.
+- `DnsOverQuicConnectionServer` (`IQuicApplicationProtocol`) serves each client bidirectional
+  stream on a task of its own: the two-byte length and the query, answered with
+  `DnsQueryAnswerer.AnswerOverStream` (each response length-prefixed, FIN after the last) without
+  waiting for the client's FIN. A non-zero Message ID, a unidirectional stream, a length of 0 or
+  past `--max-message`, FIN before the message is whole, a dropped message and any byte after the
+  query close the connection with `DOQ_PROTOCOL_ERROR` (`DnsOverQuicErrorCode`); a fault of the
+  answer `DOQ_INTERNAL_ERROR`. A stream reset (or cut off by the connection ending) before its
+  query is whole is dropped. Cancelling the exchange, or the client closing, ends it with
+  `DOQ_NO_ERROR`. A stream past the 100 is `Surl.Quic`'s `STREAM_LIMIT_ERROR`.
+- Tests drive both over `DnsOverQuicTestClient`: pinned upstream curl's recorded HTTP/3 Initials
+  (embedded from `Surl.Protocol.Http.UnitTests/Fixtures`), the ALPN list edited to `doq`, `h3-29`.
+
+The command line (BL-485, which adds `--allow-zone-transfer`, `--dns-transport` and binds the DoH
+and DoQ listeners with TLS and ALPN) builds on it.
+
+This library references `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary`,
+`Surl.HttpServing.UnitLibrary`, `Surl.Http2.UnitLibrary` and `Surl.Quic.UnitLibrary`, and may also reference the
+horizontal libraries in ADR-0002 decision 3's table as later ADRs amend it - never another
+protocol server, original or extended. Never construct a `Socket`, `TcpListener`, `UdpClient`,
+`SslStream` or `HttpListener` here; the transport comes from the listener seam.

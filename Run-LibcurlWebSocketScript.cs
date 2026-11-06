@@ -1,4 +1,4 @@
-#:project Surl.Conformance.UnitLibrary/Surl.Conformance.UnitLibrary.csproj
+#:project Conformance/Surl.Conformance.UnitLibrary/Surl.Conformance.UnitLibrary.csproj
 
 // Drives the pinned upstream libcurl's WebSocket API (curl_ws_send, curl_ws_recv) through a
 // script of steps, so the client frames only libcurl's API sends - text, binary, fragments,

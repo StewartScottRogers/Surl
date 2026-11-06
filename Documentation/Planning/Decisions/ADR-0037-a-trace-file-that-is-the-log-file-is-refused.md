@@ -37,7 +37,7 @@ Two candidates were weighed:
   `<path>` the trace file as given and `<option>` `--trace` or `--trace-ascii`. The message
   follows ADR-0033 section 1's rules (hidden by `-s` alone), as every `(23)` does.
 
-The check lives in `Surl.Console/LogStreams.cs` (`LogStreams.Open`). A trace file is only in
+The check lives in `Application/Surl.Console/LogStreams.cs` (`LogStreams.Open`). A trace file is only in
 effect at the trace level, so `--log-file x --trace x -v` (the last level option wins, and it is
 verbose) opens the log file alone and is not refused.
 
@@ -75,6 +75,6 @@ single rule.
 
 - The same command line gets the same answer on Windows, Linux and macOS, and no log line is
   lost silently.
-- `Surl.Console.UnitTests/CommandLineRunnerLogTests.cs` pins the refusal through the
+- `Application/Surl.Console.UnitTests/CommandLineRunnerLogTests.cs` pins the refusal through the
   `openLogFile` seam for the identical spelling, `./`, `..` and case spellings, and pins two
   different files still opening separately.

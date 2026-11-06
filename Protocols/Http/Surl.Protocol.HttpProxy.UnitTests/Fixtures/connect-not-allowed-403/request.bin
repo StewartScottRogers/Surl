@@ -1,0 +1,5 @@
+CONNECT origin.test:25 HTTP/1.1
+Host: origin.test:25
+User-Agent: curl/8.21.0
+Proxy-Connection: Keep-Alive
+

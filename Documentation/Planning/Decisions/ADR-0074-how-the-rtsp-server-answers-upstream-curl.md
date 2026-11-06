@@ -398,7 +398,7 @@ grows the pinned topic lists, as root `CLAUDE.md` requires.
 
 ### 10. The scaffold's error
 
-`Surl.Protocol.Rtsp.UnitLibrary/CLAUDE.md` named "upstream curl's `--rtsp-request`" as the source of
+`Protocols/Http/Surl.Protocol.Rtsp.UnitLibrary/CLAUDE.md` named "upstream curl's `--rtsp-request`" as the source of
 the requests. curl 8.21.0 has no such option: it is libcurl's `CURLOPT_RTSP_REQUEST`. This task
 corrected it.
 
@@ -587,7 +587,7 @@ the mate of the client as it is.
 | the same | `no-body`, `transport:RTP/AVP/TCP;unicast;interleaved=0-1;mode=record`, `SETUP`, `RECORD`, `TEARDOWN` | each `CURLcode 0`, status 200, and `P/rec.bin` an empty file |
 
 **Follow-up.** BL-313 and BL-314 are done with RFC 2326 section 14's `DESCRIBE` example as their
-fixture (`Surl.Protocol.Rtsp.UnitTests/Fixtures/rfc2326-describe`), and BL-315 is in progress
+fixture (`Protocols/Http/Surl.Protocol.Rtsp.UnitTests/Fixtures/rfc2326-describe`), and BL-315 is in progress
 against decision 5 as first written; BL-337 re-pins the fixtures to the requests above and builds
 the amended decision 5, and BL-318 depends on it. BL-316, not yet started, takes its fixtures from
 the `ANNOUNCE`, `SETUP` `mode=record`, `RECORD` and `TEARDOWN` rows above.

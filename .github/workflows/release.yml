@@ -1,18 +1,38 @@
-# Publishes the native-AOT `surl` binary for every supported platform.
+# Publishes the native-AOT `surl` binary for every supported platform, and proves each one
+# runs with no .NET runtime before anything is released (ADR-0085). Beside it, each leg publishes
+# the native-AOT `surl-mcp`, Surl's MCP server on standard input and output, proves it answers an
+# MCP `initialize`, and packages it as its own archive, `surl-mcp-<rid>` (ADR-0103 decision 7).
+# The pack job also packs Surl.Api and Surl.Mcp as NuGet packages and keeps them as the
+# nuget-packages artifact on every run, a tag included; nothing pushes them to a feed (BL-643).
 #
-#   * Pushing a tag `v*` (e.g. v0.1.0) builds all six packages and attaches them, with a
-#     SHA256SUMS file, to a GitHub release of that name. A tag with a hyphen
+#   * Pushing a tag `v*` (e.g. v0.1.0) builds all twelve packages, proves them, and attaches
+#     them, with a SHA256SUMS file, to a GitHub release of that name. A tag with a hyphen
 #     (v0.1.0-preview.1) makes a pre-release. Tags and releases need Stewart's say-so
 #     (CLAUDE.md), so this workflow never creates a tag itself.
-#   * Running it by hand (workflow_dispatch) builds the same packages and uploads them as
-#     workflow artifacts only - a dry run that publishes nothing. A pull request that
-#     touches this file, the executable or the shared build settings gets the same dry run.
+#   * Running it by hand (workflow_dispatch), weekly against master (schedule), or on a pull
+#     request that touches what it builds or what it checks, is a dry run: the same packages
+#     and checks, uploaded as workflow artifacts only, publishing nothing.
+#
+# What proves each package (ADR-0085):
+#   * Every runtime identifier runs Test-PublishedSurl.ps1 against the binary it just
+#     published, on a runner of its own operating system and architecture: one native file,
+#     `surl --version`, one HTTP GET of a generated file, and a documented stop, with no .NET
+#     runtime it could use (decision 1).
+#   * linux-x64 and osx-arm64 also run Surl.Conformance against the published binary
+#     (SURL_EXECUTABLE) with their pinned upstream curl reference build, obtained by the same
+#     composite action ci.yml uses (decision 2). win-x64's conformance run is local: CI has no
+#     pinned Windows build.
+#   * linux-arm64, win-arm64 and osx-x64 also run the fast tests on their own runner, the only
+#     check of the hand-built code on those architectures while they have no pinned build
+#     (decision 4).
 #
 # Native AOT cannot cross-compile between operating systems, so each package is built on
-# a runner of its own OS. Linux builds on Ubuntu 22.04 so the binary runs on glibc 2.35
-# and newer. DOWNLOAD.md, install.sh and install.ps1 rely on the package names below;
-# keep the four in step. DOWNLOAD.md links to one version by tag, because
-# releases/latest skips pre-releases: point it at each new release's tag.
+# a runner of its own OS; osx-x64 builds on macos-15-intel, real x64 hardware (decision 3).
+# Linux builds on Ubuntu 22.04 so the binary runs on glibc 2.35 and newer. DOWNLOAD.md,
+# install.sh and install.ps1 rely on the package names below; keep the four in step. The
+# installers fetch only `surl`'s packages; DOWNLOAD.md also lists `surl-mcp`'s.
+# DOWNLOAD.md links to one version by tag, because releases/latest skips pre-releases:
+# point it at each new release's tag.
 name: Release
 
 on:
@@ -21,13 +41,35 @@ on:
   pull_request:
     paths:
       - .github/workflows/release.yml
-      - Surl.Console/**
+      - .github/actions/**
+      - Application/Surl.Api/**
+      - Application/Surl.Composition.UnitLibrary/**
+      - Application/Surl.Console/**
+      - Application/Surl.Mcp/**
+      - Application/Surl.Mcp.UnitLibrary/**
+      - Conformance/**
       - Directory.Build.props
       - global.json
+      - Protocols/Http/Surl.McpServing.UnitLibrary/**
+      - Test-PublishedSurl.ps1
+      - UpstreamCurlBuilds.json
+  schedule:
+    # Mondays 05:00 UTC, against master: finds a change elsewhere that breaks the native
+    # binary at run time within a week (ADR-0085, decision 5).
+    - cron: '0 5 * * 1'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+# A pull request's runs are superseded by its next push: the dark factory pushes its shift
+# branch every few minutes, and twenty queued dry runs of seven jobs each starved CI's
+# runners, so CI could not pass in time for the end-of-shift merge (2026-11-05). Only the
+# newest dry run of a pull request matters, so a newer one cancels the older. A tag, the
+# weekly schedule and a run by hand are never cancelled: each has a group of its own.
+concurrency:
+  group: release-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   publish:
@@ -35,17 +77,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # fast-tests: the leg also runs the fast tests on its runner (ADR-0085, decision 4).
+        # conformance: the conformance job runs against this leg's binary (decision 2).
         include:
           - { rid: win-x64,     runner: windows-latest,    archive: zip }
-          - { rid: win-arm64,   runner: windows-11-arm,    archive: zip }
-          - { rid: linux-x64,   runner: ubuntu-22.04,      archive: tar.gz }
-          - { rid: linux-arm64, runner: ubuntu-22.04-arm,  archive: tar.gz }
-          - { rid: osx-x64,     runner: macos-latest,      archive: tar.gz }
-          - { rid: osx-arm64,   runner: macos-latest,      archive: tar.gz }
+          - { rid: win-arm64,   runner: windows-11-arm,    archive: zip,    fast-tests: true }
+          - { rid: linux-x64,   runner: ubuntu-22.04,      archive: tar.gz, conformance: true }
+          - { rid: linux-arm64, runner: ubuntu-22.04-arm,  archive: tar.gz, fast-tests: true }
+          - { rid: osx-x64,     runner: macos-15-intel,    archive: tar.gz, fast-tests: true }
+          - { rid: osx-arm64,   runner: macos-latest,      archive: tar.gz, conformance: true }
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       PACKAGE: surl-${{ matrix.rid }}.${{ matrix.archive }}
+      MCP_PACKAGE: surl-mcp-${{ matrix.rid }}.${{ matrix.archive }}
     steps:
       - uses: actions/checkout@v4
 
@@ -72,21 +117,89 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
+      # The three switches after the version keep the referenced libraries' symbol and XML
+      # documentation files out of the publish directory, so it holds what the smoke test's
+      # first check expects: surl and its native symbol file. The package holds only surl either way.
       - name: Publish
         shell: bash
-        run: dotnet publish Surl.Console -c Release -r ${{ matrix.rid }} -p:Version="$VERSION" -o publish
+        run: >-
+          dotnet publish Application/Surl.Console -c Release -r ${{ matrix.rid }} -p:Version="$VERSION"
+          -p:PublishDocumentationFile=false -p:PublishReferencesDocumentationFiles=false
+          -p:AllowedReferenceRelatedFileExtensions=.none -o publish
 
-      - name: Smoke test
-        if: matrix.rid != 'osx-x64'
+      # Every image used has PowerShell 7 today; this installs it on one that does not.
+      - name: Make sure PowerShell 7 is there
         shell: bash
         run: |
-          # The binary must start; until Phase 1 lands it exits 2 (SurlExitCode.FailedInit).
-          set +e
-          ./publish/surl --version
-          code=$?
-          set -e
-          echo "exit code $code"
-          [ "$code" -eq 0 ] || [ "$code" -eq 2 ]
+          if ! command -v pwsh >/dev/null; then
+            dotnet tool install --global PowerShell
+            echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          fi
+
+      - name: Smoke test
+        shell: bash
+        run: pwsh -NoProfile -File ./Test-PublishedSurl.ps1 -PublishDirectory publish -Version "$VERSION" -RuntimeIdentifier ${{ matrix.rid }}
+
+      # surl-mcp, Surl's MCP server on standard input and output, ships beside surl as its own
+      # archive (ADR-0103 decision 7), published the same way into a directory of its own.
+      - name: Publish surl-mcp
+        shell: bash
+        run: >-
+          dotnet publish Application/Surl.Mcp -c Release -r ${{ matrix.rid }} -p:Version="$VERSION"
+          -p:PublishDocumentationFile=false -p:PublishReferencesDocumentationFiles=false
+          -p:AllowedReferenceRelatedFileExtensions=.none -o publish-mcp
+
+      # An MCP client starts surl-mcp as a stdio server and opens with initialize. The request is
+      # the example on the MCP 2025-06-18 "Lifecycle" page; with standard input then closed, the
+      # session ends, so surl-mcp must write exactly one JSON-RPC response with a result for id 1
+      # and exit 0.
+      - name: Smoke test surl-mcp
+        shell: pwsh
+        run: |
+          $name = if ($IsWindows) { 'surl-mcp.exe' } else { 'surl-mcp' }
+          $executable = Join-Path (Resolve-Path publish-mcp) $name
+          if (-not (Test-Path -LiteralPath $executable)) { throw "publish-mcp holds no $name." }
+          $request = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{"roots":{"listChanged":true},"sampling":{},"elicitation":{}},"clientInfo":{"name":"ExampleClient","title":"Example Client Display Name","version":"1.0.0"}}}'
+          $start = [System.Diagnostics.ProcessStartInfo]::new($executable)
+          $start.RedirectStandardInput = $true
+          $start.RedirectStandardOutput = $true
+          $start.RedirectStandardError = $true
+          $start.UseShellExecute = $false
+          $process = [System.Diagnostics.Process]::Start($start)
+          $standardOutput = $process.StandardOutput.ReadToEndAsync()
+          $standardError = $process.StandardError.ReadToEndAsync()
+          $process.StandardInput.Write($request + "`n")
+          $process.StandardInput.Close()
+          if (-not $process.WaitForExit(60000)) {
+            $process.Kill($true)
+            throw 'surl-mcp did not exit within 60 seconds of its standard input closing.'
+          }
+          $lines = @($standardOutput.Result -split "`r?`n" | Where-Object { $_ -ne '' })
+          Write-Output "Exit code: $($process.ExitCode)"
+          Write-Output "Standard output:"; $lines | Write-Output
+          Write-Output "Standard error:"; Write-Output $standardError.Result
+          if ($process.ExitCode -ne 0) { throw "surl-mcp exited $($process.ExitCode), not 0." }
+          if ($lines.Count -ne 1) { throw "surl-mcp wrote $($lines.Count) lines to standard output, not one." }
+          $response = $lines[0] | ConvertFrom-Json
+          if ($response.jsonrpc -ne '2.0' -or $response.id -ne 1 -or $null -eq $response.result) {
+            throw 'surl-mcp did not answer initialize with a JSON-RPC 2.0 result for id 1.'
+          }
+          if ($response.result.serverInfo.name -ne 'surl-mcp' -or $response.result.serverInfo.version -ne $env:VERSION) {
+            throw "surl-mcp's serverInfo is not surl-mcp $env:VERSION."
+          }
+          Write-Output "surl-mcp $env:VERSION answered initialize."
+
+      - name: Keep the published binary for the conformance job
+        if: matrix.conformance
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-surl-${{ matrix.rid }}
+          path: publish/surl
+          if-no-files-found: error
+
+      - name: Fast tests
+        if: matrix.fast-tests
+        run: dotnet test -c Release --filter "TestCategory!=Integration"
 
       - name: Package
         shell: bash
@@ -108,9 +221,215 @@ jobs:
           path: ${{ env.PACKAGE }}
           if-no-files-found: error
 
+      - name: Package surl-mcp
+        shell: bash
+        run: |
+          mkdir package-mcp
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp publish-mcp/surl-mcp.exe package-mcp/
+            cp LICENSE.txt README.md package-mcp/
+            (cd package-mcp && 7z a "../$MCP_PACKAGE" surl-mcp.exe LICENSE.txt README.md)
+          else
+            cp publish-mcp/surl-mcp package-mcp/
+            cp LICENSE.txt README.md package-mcp/
+            tar -czf "$MCP_PACKAGE" -C package-mcp surl-mcp LICENSE.txt README.md
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MCP_PACKAGE }}
+          path: ${{ env.MCP_PACKAGE }}
+          if-no-files-found: error
+
+  conformance:
+    name: Conformance against the published ${{ matrix.rid }}
+    needs: publish
+    # Runs for whichever legs published, so one broken leg does not hide another's result;
+    # a leg that did not publish leaves no artifact, and its conformance job fails.
+    if: ${{ !cancelled() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # upstream-curl-platform and upstream-curl-asset as in ci.yml (ADR-0016); the runner
+        # is the one the binary was published on.
+        include:
+          - rid: linux-x64
+            runner: ubuntu-22.04
+            upstream-curl-platform: linux-x64
+            upstream-curl-asset: curl-linux-x86_64-musl-8.21.0.tar.xz
+            openldap-upstream-curl: true
+          - rid: osx-arm64
+            runner: macos-latest
+            upstream-curl-platform: osx-arm64
+            upstream-curl-asset: curl-macos-arm64-8.21.0.tar.xz
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Fetch the published binary
+        uses: actions/download-artifact@v4
+        with:
+          name: published-surl-${{ matrix.rid }}
+          path: published
+
+      # Artifacts do not keep the execute bit.
+      - name: Make the published binary executable
+        run: chmod 755 published/surl
+
+      - name: Obtain the pinned upstream curl
+        uses: ./.github/actions/upstream-curl
+        with:
+          platform: ${{ matrix.upstream-curl-platform }}
+          asset: ${{ matrix.upstream-curl-asset }}
+          openldap: ${{ matrix.openldap-upstream-curl == true }}
+
+      - name: Conformance tests against the published binary
+        env:
+          SURL_EXECUTABLE: ${{ github.workspace }}/published/surl
+        run: dotnet test Conformance/Surl.Conformance.UnitTests -c Release --filter "FullyQualifiedName~Surl.Conformance"
+
+  # Packs Surl.Api (ADR-0099 decision 10) and Surl.Mcp (ADR-0103 decision 7) as NuGet packages with
+  # the version surl gets, and keeps them as the nuget-packages artifact - on a tag as on a dry run.
+  # Nothing is pushed: publishing a package needs Stewart (CLAUDE.md), so no step holds an API key.
+  # Surl.Api's project references are bundled into its lib folder, so it has no package dependency;
+  # Surl.Mcp is one framework-dependent .NET tool package of type McpServer, whose .mcp/server.json
+  # is stamped with the same version first.
+  pack:
+    name: Pack the NuGet packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Work out the version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Stamp Surl.Mcp's server.json with the version
+        shell: pwsh
+        run: |
+          $path = 'Application/Surl.Mcp/.mcp/server.json'
+          $server = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+          $server.version = $env:VERSION
+          foreach ($package in $server.packages) { $package.version = $env:VERSION }
+          $server | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $path
+
+      - name: Pack Surl.Api
+        run: dotnet pack Application/Surl.Api -c Release -p:Version="$VERSION" -p:BundledProjectReferencesPrivateAssets=all -o nupkg
+
+      - name: Pack Surl.Mcp
+        run: dotnet pack Application/Surl.Mcp -c Release -p:Version="$VERSION" -o nupkg
+
+      - name: Check the packages
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          function Read-Package([string] $id) {
+            $path = "nupkg/$id.$env:VERSION.nupkg"
+            if (-not (Test-Path -LiteralPath $path)) { throw "$path was not packed." }
+            return [System.IO.Compression.ZipFile]::OpenRead($path)
+          }
+          function Read-Entry($zip, [string] $name) {
+            $entry = $zip.Entries | Where-Object FullName -eq $name
+            if ($null -eq $entry) { throw "The package holds no $name." }
+            $reader = [System.IO.StreamReader]::new($entry.Open())
+            try { return $reader.ReadToEnd() } finally { $reader.Dispose() }
+          }
+          $api = Read-Package 'Surl.Api'
+          $names = @($api.Entries.FullName)
+          foreach ($required in 'README.md', 'LICENSE.txt', 'lib/net10.0/Surl.Api.dll', 'lib/net10.0/Surl.Composition.UnitLibrary.dll', 'lib/net10.0/Surl.Cli.UnitLibrary.dll') {
+            if ($names -notcontains $required) { throw "Surl.Api's package holds no $required." }
+          }
+          if ((Read-Entry $api 'Surl.Api.nuspec') -match '<dependency ') { throw "Surl.Api's package depends on another package." }
+          $api.Dispose()
+          $mcp = Read-Package 'Surl.Mcp'
+          $nuspec = Read-Entry $mcp 'Surl.Mcp.nuspec'
+          if ($nuspec -notmatch '<packageType name="McpServer"') { throw "Surl.Mcp's package is not of type McpServer." }
+          $server = (Read-Entry $mcp '.mcp/server.json') | ConvertFrom-Json
+          if ($server.version -ne $env:VERSION) { throw "Surl.Mcp's server.json is version $($server.version), not $env:VERSION." }
+          $mcp.Dispose()
+          Get-ChildItem nupkg | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuget-packages
+          path: nupkg/*.nupkg
+          if-no-files-found: error
+
+  # States the upstream test-case pass rate (ADR-0080 decision 5): on a tag, the releases rows
+  # of Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md for the tag's version, failing
+  # when there are none, so a release cannot ship without stating its rate; on a dry run, the
+  # current table. Either way it is written to the job summary and kept as the
+  # pass-rate-notes artifact, which the release job puts at the top of the release notes.
+  pass-rate:
+    name: State the upstream test-case pass rate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pass rate
+        shell: pwsh
+        run: |
+          $lines = Get-Content -LiteralPath Documentation/Conformance/Upstream-Test-Case-Pass-Rate.md
+          function Get-Table([string] $heading) {
+            $start = [array]::IndexOf($lines, $heading)
+            if ($start -lt 0) { throw "The pass-rate file has no '$heading' heading." }
+            # The first run of lines starting with '|' after the heading.
+            $table = [System.Collections.Generic.List[string]]::new()
+            foreach ($line in $lines[($start + 1)..($lines.Count - 1)]) {
+              if ($line.StartsWith('|')) { $table.Add($line) } elseif ($table.Count -gt 0) { break }
+            }
+            if ($table.Count -lt 2) { throw "The pass-rate file's '$heading' section has no table." }
+            return $table.ToArray()
+          }
+          $notes = [System.Collections.Generic.List[string]]::new()
+          $notes.Add('## Upstream test-case pass rate')
+          $notes.Add('')
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF_NAME.Substring(1)
+            $table = @(Get-Table '## Releases')
+            $rows = @($table | Select-Object -Skip 2 | Where-Object { ($_.Trim('|').Split('|')[0]).Trim().Trim('`') -eq $version })
+            if ($rows.Count -eq 0) {
+              Write-Output "::error::Upstream-Test-Case-Pass-Rate.md has no releases row for $version. Add one per platform in the release commit before tagging (ADR-0080 decision 5)."
+              exit 1
+            }
+            $notes.Add("Upstream curl's own test cases played against surl $version, per platform (ADR-0080):")
+            $notes.Add('')
+            $table[0..1] + $rows | ForEach-Object { $notes.Add($_) }
+          } else {
+            $notes.Add("Dry run: no tag, so the current table of Upstream-Test-Case-Pass-Rate.md at $($env:GITHUB_SHA):")
+            $notes.Add('')
+            Get-Table '## Current' | ForEach-Object { $notes.Add($_) }
+          }
+          $notes.Add('')
+          $notes | Set-Content -LiteralPath pass-rate-notes.md
+          $notes | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          $notes | Write-Output
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pass-rate-notes
+          path: pass-rate-notes.md
+          if-no-files-found: error
+
   release:
     name: Create the GitHub release
-    needs: publish
+    needs: [publish, conformance, pass-rate, pack]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -119,8 +438,15 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
+          pattern: surl-*
           merge-multiple: true
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: pass-rate-notes
+          path: notes
+
+      # surl-* takes surl-mcp-*'s six packages as well as surl's six.
       - name: Checksums
         working-directory: dist
         run: sha256sum surl-* > SHA256SUMS && cat SHA256SUMS
@@ -129,6 +455,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          flags=(--generate-notes --title "$GITHUB_REF_NAME")
+          flags=(--generate-notes --notes-file notes/pass-rate-notes.md --title "$GITHUB_REF_NAME")
           [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
           gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"

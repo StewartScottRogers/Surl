@@ -1,0 +1,29 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "description": "Starts, lists and stops Surl protocol servers for AI agents and shows what their clients sent: Surl, the server-side mate of curl, over standard input and output.",
+  "name": "io.github.StewartScottRogers/Surl",
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "nuget",
+      "identifier": "Surl.Mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [],
+      "environmentVariables": [
+        {
+          "name": "SURL_MCP_ROOT",
+          "description": "The directory every local path an option names must lie inside; when unset and --root is not given, no option may name a local path.",
+          "isRequired": false,
+          "format": "filepath"
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/StewartScottRogers/Surl",
+    "source": "github"
+  }
+}

@@ -1,0 +1,155 @@
+using System.Net;
+
+namespace Surl.Protocol.Abstractions;
+
+[TestClass]
+public sealed class ExchangeContextTests
+{
+    [TestMethod]
+    public void Scheme_AnyContext_IsTheListenUrlsScheme()
+    {
+        var listenUrl = new ListenUrl("https", "localhost", 0).WithBoundPort(8443);
+        var context = new ExchangeContext(
+            1,
+            listenUrl,
+            new IPEndPoint(IPAddress.Loopback, 8443),
+            new IPEndPoint(IPAddress.Loopback, 50000),
+            new RecordingExchangeLog(),
+            TimeProvider.System,
+            CancellationToken.None);
+
+        var scheme = context.Scheme;
+
+        Assert.AreEqual("https", scheme);
+    }
+
+    [TestMethod]
+    public void Limits_DefaultsToExchangeLimitsDefault()
+    {
+        var context = NewContext();
+
+        Assert.AreSame(ExchangeLimits.Default, context.Limits);
+    }
+
+    [TestMethod]
+    public void Limits_CarriesTheLimitsItWasGiven()
+    {
+        var limits = new ExchangeLimits(TimeSpan.FromSeconds(5), 1, 2, 3, 4);
+
+        var context = NewContext() with { Limits = limits };
+
+        Assert.AreSame(limits, context.Limits);
+    }
+
+    [TestMethod]
+    public void ShutdownToken_DefaultsToNone()
+    {
+        var context = NewContext();
+
+        Assert.AreEqual(CancellationToken.None, context.ShutdownToken);
+    }
+
+    [TestMethod]
+    [DataRow(false, false, false)]
+    [DataRow(true, false, true)]
+    [DataRow(true, true, false)]
+    public void IsCancelledForALimit_IsTheExchangeCancelledWhileShutdownIsNot(
+        bool isExchangeCancelled, bool isShutdown, bool expected)
+    {
+        var context = NewContext(new CancellationToken(isExchangeCancelled)) with
+        {
+            ShutdownToken = new CancellationToken(isShutdown),
+        };
+
+        Assert.AreEqual(expected, context.IsCancelledForALimit);
+    }
+
+    [TestMethod]
+    public void RemoteEndPoint_UnnamedUnixSocketPeer_IsAUnixPeerWithNoIpAddress()
+    {
+        var listenUrl = new ListenUrl("http", "localhost", 80)
+        {
+            UnixSocket = new UnixSocketAddress("/tmp/surl.sock", false),
+        };
+
+        var context = new ExchangeContext(
+            1,
+            listenUrl,
+            new IPEndPoint(IPAddress.Loopback, 80),
+            UnnamedUnixSocketPeer.Instance,
+            new RecordingExchangeLog(),
+            TimeProvider.System,
+            CancellationToken.None);
+
+        Assert.AreSame(UnnamedUnixSocketPeer.Instance, context.RemoteEndPoint);
+        Assert.AreEqual(System.Net.Sockets.AddressFamily.Unix, context.RemoteEndPoint.AddressFamily);
+        Assert.IsNotInstanceOfType<IPEndPoint>(context.RemoteEndPoint);
+        Assert.AreEqual("unix peer", context.RemoteEndPoint.ToString());
+        Assert.AreEqual("http", context.Scheme);
+    }
+
+    [TestMethod]
+    public async Task EventsAndFaults_ContextCreatedWithoutThem_PublishesNothingAndFindsNoFault()
+    {
+        var context = NewContext();
+
+        context.Events.Publish(new ExchangeEndedEvent(1, 3, 4));
+        var rule = await context.Faults.FindAsync(new FaultPoint(FaultStage.Accept), CancellationToken.None);
+
+        Assert.AreSame(DiscardingSurlEventPublisher.Instance, context.Events);
+        Assert.IsFalse(context.Events.IsPublishingBytes);
+        Assert.AreSame(EmptyFaultPlan.Instance, context.Faults);
+        Assert.IsNull(rule);
+    }
+
+    [TestMethod]
+    public void EventsAndFaults_CarryThePublisherAndPlanTheyWereGiven()
+    {
+        var events = new RecordingSurlEventPublisher();
+        var faults = new ScriptedFaultPlan();
+
+        var context = NewContext() with { Events = events, Faults = faults };
+
+        Assert.AreSame(events, context.Events);
+        Assert.AreSame(faults, context.Faults);
+    }
+
+    [TestMethod]
+    public void Identifiers_ContextCreatedWithoutThem_IsTheCryptographicSourceAndFillsEveryByte()
+    {
+        var context = NewContext();
+        var first = new byte[32];
+        var second = new byte[32];
+
+        context.Identifiers.NextBytes(first);
+        context.Identifiers.NextBytes(second);
+
+        Assert.AreSame(RandomNumberGeneratorIdentifierRandom.Instance, context.Identifiers);
+        CollectionAssert.AreNotEqual(first, second);
+    }
+
+    [TestMethod]
+    public void Identifiers_CarryTheSourceItWasGiven()
+    {
+        var identifiers = new FixedByteIdentifierRandom();
+
+        var bytes = new byte[2];
+
+        var context = NewContext() with { Identifiers = identifiers };
+        context.Identifiers.NextBytes(bytes);
+
+        Assert.AreSame(identifiers, context.Identifiers);
+        CollectionAssert.AreEqual(new byte[] { 0x2A, 0x2A }, bytes);
+    }
+
+    private static ExchangeContext NewContext() => NewContext(CancellationToken.None);
+
+    private static ExchangeContext NewContext(CancellationToken cancellationToken) => new(
+        1,
+        new ListenUrl("http", "localhost", 0).WithBoundPort(8080),
+        new IPEndPoint(IPAddress.Loopback, 8080),
+        new IPEndPoint(IPAddress.Loopback, 50000),
+        new RecordingExchangeLog(),
+        TimeProvider.System,
+        cancellationToken);
+}

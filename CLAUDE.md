@@ -11,8 +11,48 @@ Its command line mirrors curl's - where `curl [options] <url>` names what to fet
 class library behind injected interfaces so it can be unit tested without a network. See
 `Documentation/Product/Product-Overview.md`.
 
+`surl` is not Surl's only product (Stewart, 2026-11-04; ADR-0098). Two more hosts are planned
+beside it in `Application/`: `Surl.Api`, a .NET programming interface that starts and stops
+protocol servers in-process for a test suite, and `Surl.Mcp`, an MCP server host on standard
+input and output whose tools let AI agents start, list and stop servers and see what a client
+sent. Both keep the command line's secure-by-default rules; BL-611 and BL-612 decide their
+design, and neither exists yet.
+
 Surl is the sibling of the Curl port (https://github.com/StewartScottRogers/Curl) and
 mirrors its structure, tooling and rules, project for project (ADR-0002).
+
+## Surl is a stand-in for tests
+Besides answering upstream curl, Surl is a **stand-in**: a real server that other people's
+integration tests run against in place of the real mail server, bucket, broker or file
+site, often several protocols at once (send over SMTP and read over IMAP; upload over SFTP
+and check over HTTP; publish over MQTT and consume over AMQP). New uses will keep turning
+up (Stewart, 2026-11-05). Every design, task and review asks: **how would a test use this
+as a stand-in, alone or with another protocol, and does it extend without a rewrite?**
+
+- **Embeddable.** Starts inside a test through `Surl.Api`, on port 0, in memory, with many
+  instances side by side. No static mutable state anywhere.
+- **Composable.** Any mix of protocols runs in one instance, and same-job protocols share
+  one store, so cross-protocol scenarios work without glue.
+- **Observable.** Each instance publishes every exchange and store change on one event
+  stream. Recording, assertions, `Surl.Mcp`, the control endpoint and hooks all subscribe
+  to it rather than wiring their own.
+- **Controllable.** Stores can be seeded before a test, reset between tests, and
+  snapshotted and restored.
+- **Fault-injectable.** A server can be made to misbehave on purpose - delay, drop the
+  connection, refuse a login, answer a chosen error, run out of space - per listener,
+  account or path, configured like everything else.
+- **Deterministic.** Time comes from the injected `TimeProvider` and randomness is
+  seedable, so a test gets the same answer every run.
+- **Open for extension.** New protocols, stores, faults and hooks plug into extension
+  points with explicit, AOT-safe registration, never into a central switch that must be
+  edited. Seams are interfaces; no protocol server hard-codes another.
+- **Configuration as data.** One configuration model serves the command line, the `-K`
+  file, `Surl.Api`, `Surl.Mcp` and the loopback control endpoint for non-.NET test suites.
+  It only grows: options and fields are added, never repurposed, and defaults keep today's
+  behaviour.
+
+These sit beside secure by default, not against it: anything that widens what a peer or
+test may do is off until asked for, and warned.
 
 ## Upstream curl and the Curl port
 Two different programs, with two different names, everywhere in this repository:
@@ -28,6 +68,14 @@ fixtures or expected bytes, and never evidence in an ADR: validating Surl agains
 bake the port's defects into Surl, and the later check of the port would then pass on
 exactly those defects. Copying *code* from the port is allowed where it saves work, because
 code is not a verdict; every expected result still comes from upstream curl.
+
+One narrow exception (Stewart, 2026-11-04; ADR-0083): the extended servers,
+`Surl.Extended.Protocol.*`, answer schemes the Curl port adds and upstream curl does not
+have. Each is judged by its protocol's specification, its unit tests replay bytes written
+from that specification, and the port's client - pinned by SHA-256 in `CurlPortBuilds.json`,
+never in `UpstreamCurlBuilds.json` - may connect to it as a live client in `Integration`
+tests only. Its output is never proof, an expected value or ADR evidence, and it is never a
+test client for an original protocol. `SURL_EXTENSIONS=0` turns every extended server off.
 
 Upstream curl is identified by file, never by name. On Stewart's machine a bare `curl` is
 `Invoke-WebRequest` in Windows PowerShell and an older WinGet build of curl elsewhere, and
@@ -79,7 +127,12 @@ A second standing exception (Stewart, 2026-09-28, carried over from the Curl por
 end of every dark factory shift, `RunDarkFactory.ps1` merges its branch into `master`
 through a pull request, but only when the `CI` workflow passed on Windows, Linux and macOS
 for the exact commit being merged. That merge needs no confirmation; a red or unfinished CI
-run means no merge.
+run means no merge. The pull request comes from a frozen copy of the branch's head,
+`factory/merge-<stamp>`, so lanes pushing to the shift branch never cancel its CI; every
+coordinator merges an open frozen pull request once its CI passes. Creating, merging and
+deleting `factory/merge-*` branches, and closing a frozen pull request a newer one
+supersedes, needs no confirmation (Stewart, 2026-11-05; ADR-0047 amendment 2). It covers
+no other branch and no force push.
 
 A third standing exception (Stewart, 2026-09-28, carried over from the Curl port): the
 `board` branch holds only the dark factory's latest `status.json` and is force-pushed
@@ -165,32 +218,51 @@ Every session, lanes included, whispers milestones to Stewart through the PostTo
 deleted - quietly, in Windows' Zira voice, one phrase at a time.
 
 ## Repository layout
-Flat and linear. Every project is a directory immediately under the repository root.
-There is no `src/` and no `tests/`; do not create them.
+Every project sits in a category folder (Stewart, 2026-11-04; ADR-0079), and each
+`.UnitTests` project sits in the same folder as the library it tests. There is no `src/`
+and no `tests/`; do not create them.
 ```
 Surl/
 ├── Surl.slnx
-├── Surl.Content.UnitLibrary/     ← production library
-├── Surl.Content.UnitTests/       ← its tests, immediately beside it
-├── Surl.Protocol.Http.UnitLibrary/
-├── Surl.Protocol.Http.UnitTests/
-├── ...                           ← every project, one flat alphabetical run
-├── Documentation/                ← shared project (docs and planning)
-├── Tasks/                        ← shared project (task board)
-├── data/                         ← local runtime data (gitignored, never read or modify)
-└── .claude/                      ← Claude Code configuration
+├── Application/           ← Surl.Console (the executable), Surl.Cli, Surl.Composition; planned: Surl.Api, Surl.Mcp (ADR-0098)
+├── Conformance/           ← Surl.Conformance
+├── Cryptography/          ← Surl.Cryptography and its hand-built primitives, Surl.Kerberos, Surl.Kerberos.TestKdc
+├── Foundation/            ← Surl.Protocol.Abstractions, Surl.Core, Surl.Networking, Surl.Content,
+│                            Surl.Authentication, Surl.Cookies, Surl.Output
+├── Protocols/
+│   ├── DataStore/         ← Redis
+│   ├── FileTransfer/      ← Ftp, Ssh (scp, sftp), Tftp, Smb
+│   ├── Http/              ← Http, Ws, Rtsp, and Surl.HttpMessage which they share
+│   ├── Lookup/            ← Dict, Gopher
+│   ├── Mail/              ← Smtp, Imap, Pop3, and Surl.MailStore and Surl.LineProtocol which they share
+│   ├── Messaging/         ← Ldap, Mqtt
+│   └── Terminal/          ← Telnet
+├── Documentation/         ← shared project (docs and planning)
+├── Tasks/                 ← shared project (task board)
+├── data/                  ← local runtime data (gitignored, never read or modify)
+└── .claude/               ← Claude Code configuration
 ```
+For example, `Protocols/Mail/Surl.Protocol.Smtp.UnitLibrary/` sits beside
+`Protocols/Mail/Surl.Protocol.Smtp.UnitTests/`. Folders are grouped by what the
+project does. A new protocol server goes in the `Protocols/` category for its job, and
+a library its servers share goes beside them. A hand-built primitive goes in
+`Cryptography/`, and a service every server may use goes in `Foundation/`. A new category
+is a decision recorded in an ADR.
 
 ### Project naming
 - Production library: `Surl.<Area>.UnitLibrary`, protocol servers `Surl.Protocol.<Name>.UnitLibrary`.
 - Tests: the same name with `.UnitTests` instead of `.UnitLibrary`.
 - The executable is `Surl.Console` (assembly `surl`) — no `.UnitLibrary` suffix, because
-  it is not a library. It is the only exception.
+  it is not a library. It is one of three exceptions: the planned hosts `Surl.Api` (the
+  in-process programming interface) and `Surl.Mcp` (the MCP server executable) will also
+  carry no `.UnitLibrary` suffix, as the Curl port's `Curl.Api` and `Curl.Mcp` do
+  (ADR-0098). Neither exists yet; BL-611 and BL-612 decide their design.
 - Names sort so each `.UnitTests` lands directly after the library it tests. Keep it
   that way.
 
-In `Surl.slnx`, projects are listed as one flat run with no solution folders around
-them. The `Solution Items` and `Scripts` solution folders hold loose files only.
+In `Surl.slnx`, each project sits in a solution folder named after its category folder
+on disk (`/Protocols/Mail/`), with folders and the projects inside them in ordinal order.
+The `Solution Items` and `Scripts` solution folders hold loose files only.
 
 Each project folder may contain its own `CLAUDE.md` with project-specific rules; follow it when working in that folder.
 
@@ -212,7 +284,7 @@ Each project folder may contain its own `CLAUDE.md` with project-specific rules;
     reader's `OptionArgumentReading<T>`, and appears on the page of each of its categories
     (`AiHelpFactsTests.EveryOption_HasAnArgumentTypeAndAllowedValues`,
     `AiHelpTextTests.Answer_EveryOption_AppearsInAllAndInEveryTopicItsCategoriesName`);
-  - a protocol server registered in `Surl.Console`'s `ComposeProtocolServers` needs its
+  - a protocol server registered in `Surl.Composition`'s `ComposeProtocolServers` needs its
     `HelpCategories` row with its schemes, its `AiHelpProse.TopicAbout` paragraphs and an
     `AiHelpExamples` entry, and the topic list pinned in `AiHelpTextTests` grows by one
     (`CommandLineRunnerAiHelpTests.RegisteredSchemes_AreEachClaimedByExactlyOneProtocolTopic`,
@@ -269,7 +341,7 @@ Each project folder may contain its own `CLAUDE.md` with project-specific rules;
   production project is AOT-compatible, `Directory.Build.props` sets it, and its
   `VerifyAotCompatibility` target fails the build if a project overrides it - so a new
   project is covered without touching its csproj. Test projects are exempt on purpose:
-  MSTest discovers tests by reflection. `dotnet publish Surl.Console` produces a native
+  MSTest discovers tests by reflection. `dotnet publish Application/Surl.Console` produces a native
   binary by default and needs
   `C:\Program Files (x86)\Microsoft Visual Studio\Installer` on PATH for vswhere.
 

@@ -51,17 +51,17 @@ Where the code is on 2026-09-29, all in `Surl.Cli.UnitLibrary` unless named:
   or the rest of a `-h` bundle, as its subject), `-V`/`--version` or `-M`/`--manual`;
   `CommandLineParseResult.ShowHelp(string? subject)` carries `HelpSubject`;
   `CommandLineOutcome` has `Serve`, `ShowHelp`, `ShowManual`, `ShowVersion` and `Refused`.
-- `SurlExitCode` (`Surl.Protocol.Abstractions.UnitLibrary/SurlExitCode.cs`) has `Ok` (0),
+- `SurlExitCode` (`Foundation/Surl.Protocol.Abstractions.UnitLibrary/SurlExitCode.cs`) has `Ok` (0),
   `UnsupportedProtocol` (1), `FailedInit` (2), `MalformedUrl` (3), `CouldNotResolveHost` (6),
   `CouldNotWriteFile` (23), `CouldNotReadFile` (37), `BindFailed` (45), `CertificateProblem`
   (58), `CaCertificateBadFile` (77), `DataDirectoryInUse` (124) and `InternalError` (125).
   `Surl.Cli.UnitLibrary` already references that project.
-- `Surl.Console/CommandLineRunner.cs` composes the registered servers in
+- `Application/Surl.Console/CommandLineRunner.cs` composes the registered servers in
   `ComposeProtocolServers` (schemes `http`, `https`, `dict`, `gopher`, `gophers`, `mqtt`,
   `mqtts`, `telnet`, `tftp`) and switches on `CommandLineOutcome`. `Surl.Cli` does not know
   which servers are registered. `Surl.Cli.UnitLibrary` grants `InternalsVisibleTo` to
   `Surl.Cli.UnitTests` only.
-- `Surl.Console.UnitTests/FakeListenerFactory.cs` binds nothing and reports every listener
+- `Application/Surl.Console.UnitTests/FakeListenerFactory.cs` binds nothing and reports every listener
   bound on `FakeListenerFactory.BoundPort` (49731); `CommandLineRunner` takes the data
   directory probe and lock as delegates, so a test can make the lock answer
   `DataDirectoryLockOutcome.InUse`.
@@ -111,10 +111,10 @@ curl equivalent**: nothing in it mirrors a curl option, so where it borrows a ru
 - **The shapes BL-141 adds:**
 
 ```csharp
-// Surl.Cli.UnitLibrary/CommandLineOutcome.cs
+// Application/Surl.Cli.UnitLibrary/CommandLineOutcome.cs
 public enum CommandLineOutcome { Serve, ShowHelp, ShowAiHelp, ShowManual, ShowVersion, Refused }
 
-// Surl.Cli.UnitLibrary/CommandLineParseResult.cs
+// Application/Surl.Cli.UnitLibrary/CommandLineParseResult.cs
 public sealed class CommandLineParseResult
 {
     // The --aihelp result, as ShowHelp(string?) is the --help one.
@@ -125,13 +125,13 @@ public sealed class CommandLineParseResult
     public string? AiHelpTopic { get; }
 }
 
-// Surl.Cli.UnitLibrary/CommandLineOption.cs
+// Application/Surl.Cli.UnitLibrary/CommandLineOption.cs
 internal enum CommandLineOptionKind { Help, AiHelp, Version, Manual, Flag, Argument }
 ```
 
   `CommandLineParser` treats `CommandLineOptionKind.AiHelp` as it treats `Help` for a long
   option (`ApplyOption` takes the attached text or the next argument); with no short name, the
-  bundle path never meets it. `Surl.Console/CommandLineRunner.cs` answers `ShowAiHelp` beside
+  bundle path never meets it. `Application/Surl.Console/CommandLineRunner.cs` answers `ShowAiHelp` beside
   `ShowHelp`, writing `AiHelpText.Answer(parsed.AiHelpTopic)`'s `Output` and `Error` as
   `WriteHelp` does and returning `SurlExitCode.Ok`.
 
@@ -527,9 +527,9 @@ bound port and `<path>` for a directory; an agent substitutes them, and the proo
 - `exit-codes` and `security` have no example: their `Examples` section is
   `Nothing for this topic.`. Every other topic and the overview has at least one.
 - **Where the texts come from, checked on 2026-09-29:** the `Listening on` line is
-  `ListenerStatusLine.Format` (`Surl.Output.UnitLibrary/ListenerStatusLine.cs`); `(1)` and
+  `ListenerStatusLine.Format` (`Foundation/Surl.Output.UnitLibrary/ListenerStatusLine.cs`); `(1)` and
   `(58)` are `CommandLineRunner.FindListenUrlRefusal` and `FormatMissingCertificate`; `(124)`
-  is `DataDirectoryLockOutcome.InUse` (`Surl.Console/DataDirectoryLockOutcome.cs`), which names
+  is `DataDirectoryLockOutcome.InUse` (`Application/Surl.Console/DataDirectoryLockOutcome.cs`), which names
   the directory as given; `(2) no URL specified` is `CommandLineParser.NoUrlSpecified`; the
   `try` line is `CommandLineFailure.TryHelpLine`; `expected a proper numerical parameter` is
   `OptionArgumentReader.NotANumber`; the two warnings are

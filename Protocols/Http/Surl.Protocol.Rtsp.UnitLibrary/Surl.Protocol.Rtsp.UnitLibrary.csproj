@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Protocol.Rtsp.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.HttpMessage.UnitLibrary\Surl.HttpMessage.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -9,6 +9,16 @@
 - **Amended:** decision 3's table by [ADR-0057](ADR-0057-surls-kerberos-keytab-and-ap-req-check-for-negotiate-and-sasl-gssapi.md) (2026-09-30), which adds the hand-built Kerberos library, `Surl.Kerberos.UnitLibrary`, referencing nothing. `Surl.Authentication.UnitLibrary` will reference it (BL-240); no protocol server needs it, since every login goes through the policy contracts.
 - **Amended:** decision 3's table by [ADR-0061](ADR-0061-blowfish-cast-128-and-ripemd-160-for-curls-openssl-builds.md) (2026-09-30), which adds `Surl.Cryptography.Blowfish.UnitLibrary`, `Surl.Cryptography.Cast128.UnitLibrary` and `Surl.Cryptography.Ripemd160.UnitLibrary`, each referencing nothing, and lets `Surl.Cryptography.BcryptPbkdf.UnitLibrary` reference `Surl.Cryptography.Blowfish.UnitLibrary`. BL-254 created the projects.
 - **Amended:** decision 3's table by [ADR-0070](ADR-0070-the-http-message-library-the-http-websocket-and-rtsp-servers-share.md) (2026-09-30), which adds the library the HTTP, WebSocket and RTSP servers share, `Surl.HttpMessage.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`. BL-292 creates the projects and BL-293 moves the HTTP/1.x message machinery into it from `Surl.Protocol.Http.UnitLibrary`.
+- **Amended:** decision 3's table by [ADR-0081](ADR-0081-how-surl-serves-http-2.md) (2026-11-04), which adds the hand-built HPACK library, `Surl.Hpack.UnitLibrary`, referencing nothing, in `Protocols/Http/`. BL-365 creates the projects; `Surl.Protocol.Http.UnitLibrary` references it for HTTP/2.
+- **Amended:** decision 3's table by [ADR-0082](ADR-0082-how-surl-serves-http-3-over-quic.md) (2026-11-04), which adds the four libraries HTTP/3 over QUIC needs: in `Cryptography/`, `Surl.Cryptography.MlKem.UnitLibrary`, referencing nothing, and `Surl.Tls13.UnitLibrary`, referencing `Surl.Cryptography.Curve25519.UnitLibrary` and `Surl.Cryptography.MlKem.UnitLibrary`; in `Protocols/Http/`, `Surl.Quic.UnitLibrary`, referencing `Surl.Tls13.UnitLibrary`, `Surl.Cryptography.ChaCha20.UnitLibrary` and `Surl.Cryptography.Poly1305.UnitLibrary`, and `Surl.Qpack.UnitLibrary`, referencing `Surl.Hpack.UnitLibrary`. BL-373, BL-375 and BL-382 create three of the projects and BL-544 creates `Surl.Cryptography.MlKem`; `Surl.Protocol.Http.UnitLibrary` references `Surl.Quic` and `Surl.Qpack` for HTTP/3.
+- **Amended:** decision 3's table by [ADR-0084](ADR-0084-the-libraries-the-extended-servers-share-for-http-1-1-websocket-and-dtls.md) (2026-11-04), which adds the three libraries the extended servers share with the original ones: in `Protocols/Http/`, `Surl.HttpServing.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary` and `Surl.Content.UnitLibrary`, and `Surl.WebSocket.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.HttpMessage.UnitLibrary`; in `Cryptography/`, `Surl.Dtls.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`. BL-407, BL-408 and BL-412 create the projects.
+- **Amended:** decision 3's table by [ADR-0087](ADR-0087-how-surls-dtls-1-2-server-handshakes-for-coaps.md) (2026-11-04): `Surl.Dtls.UnitLibrary` also references `Surl.Cryptography.Curve25519.UnitLibrary`, for the x25519 group.
+- **Amended:** decision 3's table by [ADR-0086](ADR-0086-how-the-extended-servers-share-http-2-http-3-and-quic.md) (2026-11-04), which moves the HTTP/2 and HTTP/3 framing out of `Surl.Protocol.Http.UnitLibrary`, so it no longer lives only there, into two libraries in `Protocols/Http/` that the HTTP server and the extended servers share: `Surl.Http2.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Hpack.UnitLibrary`, and `Surl.Http3.UnitLibrary`, referencing `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Quic.UnitLibrary` and `Surl.Qpack.UnitLibrary`; and lets `Surl.Quic.UnitLibrary` reference `Surl.Protocol.Abstractions.UnitLibrary`, for the loop that drives a QUIC connection from an `IDatagramFlow`. BL-409 and BL-410 create the projects, and BL-572 adds `Surl.Quic`'s reference.
+- **Amended:** decision 3's table by [ADR-0088](ADR-0088-how-surl-serves-the-http-connect-proxy-and-the-https-proxy.md) (2026-11-04), which adds the HTTP and HTTPS proxy server, `Surl.Protocol.HttpProxy.UnitLibrary` in `Protocols/Http/`, referencing `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.HttpMessage.UnitLibrary` and `Surl.Authentication.UnitLibrary`. BL-552 creates the projects.
+- **Amended:** decision 3's table by [ADR-0100](ADR-0100-the-stores-synergetic-protocols-share-files-mail-the-message-bus-and-accounts.md) (2026-11-04), which adds the message bus the MQTT and extended messaging servers share, `Surl.MessageBus.UnitLibrary` in `Protocols/Messaging/`, referencing `Surl.Protocol.Abstractions.UnitLibrary` and `Surl.Content.UnitLibrary` (for `IContentFileSystem`). BL-629 creates the projects.
+- **Amended:** decision 3's table by [ADR-0103](ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md) (2026-11-05), which adds the MCP core the `Surl.Mcp` host and the extended MCP server share, `Surl.McpServing.UnitLibrary` in `Protocols/Http/`, referencing nothing. BL-619 creates the projects.
+- **Amended:** decision 3's table by [ADR-0105](ADR-0105-how-the-kafka-broker-answers-kafka-and-kafkas.md) (2026-11-05), which adds the hand-built codecs the Kafka broker needs and any server may use, `Surl.Compression.UnitLibrary` in `Foundation/`, referencing nothing. BL-702 creates the projects.
+- **Amended:** decision 3's table by [ADR-0122](ADR-0122-how-surl-serves-https-over-tls-srp.md) (2026-11-05), which adds the two hand-built libraries TLS-SRP needs, in `Cryptography/`: `Surl.Cryptography.Srp.UnitLibrary`, referencing nothing, and `Surl.TlsSrp.UnitLibrary`, referencing `Surl.Cryptography.Srp.UnitLibrary`. BL-564 and BL-565 create the projects; `Surl.Networking.UnitLibrary` references `Surl.TlsSrp` (BL-567).
 
 ## Context
 
@@ -48,6 +58,7 @@ Three questions followed:
 
    | Horizontal library | May itself reference |
    | --- | --- |
+   | `Surl.Compression.UnitLibrary` (ADR-0105) | nothing |
    | `Surl.Content.UnitLibrary` | `Surl.Protocol.Abstractions.UnitLibrary` |
    | `Surl.Cryptography.BcryptPbkdf.UnitLibrary` (ADR-0051, ADR-0061) | `Surl.Cryptography.Blowfish.UnitLibrary` |
    | `Surl.Cryptography.Blowfish.UnitLibrary` (ADR-0061) | nothing |
@@ -55,18 +66,29 @@ Three questions followed:
    | `Surl.Cryptography.ChaCha20.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Curve25519.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Ed25519.UnitLibrary` (ADR-0048) | `Surl.Cryptography.Curve25519.UnitLibrary` |
+   | `Surl.Cryptography.MlKem.UnitLibrary` (ADR-0082) | nothing |
    | `Surl.Cryptography.Poly1305.UnitLibrary` (ADR-0048) | nothing |
    | `Surl.Cryptography.Rc4.UnitLibrary` (ADR-0051) | nothing |
    | `Surl.Cryptography.Ripemd160.UnitLibrary` (ADR-0061) | nothing |
+   | `Surl.Cryptography.Srp.UnitLibrary` (ADR-0122) | nothing |
    | `Surl.Cryptography.UnitLibrary` | nothing |
+   | `Surl.Hpack.UnitLibrary` (ADR-0081) | nothing |
+   | `Surl.Http2.UnitLibrary` (ADR-0086) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Hpack.UnitLibrary` |
+   | `Surl.Http3.UnitLibrary` (ADR-0086) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Quic.UnitLibrary`, `Surl.Qpack.UnitLibrary` |
    | `Surl.HttpMessage.UnitLibrary` (ADR-0070) | `Surl.Protocol.Abstractions.UnitLibrary` |
    | `Surl.Kerberos.UnitLibrary` (ADR-0057) | nothing |
    | `Surl.LineProtocol.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary` |
    | `Surl.MailStore.UnitLibrary` (ADR-0050) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` |
+   | `Surl.McpServing.UnitLibrary` (ADR-0103) | nothing |
+   | `Surl.MessageBus.UnitLibrary` (ADR-0100) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Content.UnitLibrary` |
+   | `Surl.Qpack.UnitLibrary` (ADR-0082) | `Surl.Hpack.UnitLibrary` |
+   | `Surl.Quic.UnitLibrary` (ADR-0082, ADR-0086) | `Surl.Protocol.Abstractions.UnitLibrary`, `Surl.Tls13.UnitLibrary`, `Surl.Cryptography.ChaCha20.UnitLibrary`, `Surl.Cryptography.Poly1305.UnitLibrary` |
+   | `Surl.Tls13.UnitLibrary` (ADR-0082) | `Surl.Cryptography.Curve25519.UnitLibrary`, `Surl.Cryptography.MlKem.UnitLibrary` |
+   | `Surl.TlsSrp.UnitLibrary` (ADR-0122) | `Surl.Cryptography.Srp.UnitLibrary` |
 
    `Surl.Protocol.Abstractions.UnitTests` enforces the table and that Abstractions
    references nothing. The rows marked ADR-0048 name projects BL-149 created, and the rows
-   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
+   marked ADR-0050 projects BL-189 creates, and the row marked ADR-0070 a project BL-292 creates, and the row marked ADR-0081 a project BL-365 creates, and the rows marked ADR-0082 projects BL-373, BL-375, BL-382 and BL-544 create, and the rows marked ADR-0086 projects BL-409 and BL-410 create (BL-572 adds `Surl.Quic`'s ADR-0086 reference), and the row marked ADR-0100 a project BL-629 creates, and the row marked ADR-0103 a project BL-619 creates, and the row marked ADR-0105 a project BL-702 creates, and the rows marked ADR-0122 projects BL-564 and BL-565 create; the test learns each row once its project exists. A further hand-built library (an NTLM, Kerberos, TLS, HTTP/2, QUIC
    or HTTP/3 library, say) joins the table through a new ADR when Surl needs one.
 
 ## Consequences

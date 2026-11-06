@@ -11,7 +11,7 @@
 
 `surl [options] <url>...` names what to listen on, the way `curl [options] <url>` names
 what to fetch (product overview, "What is Surl?"). The product overview's "Also in scope"
-left the option table as a Phase 1 decision, and `Surl.Cli.UnitLibrary/CLAUDE.md` says an
+left the option table as a Phase 1 decision, and `Application/Surl.Cli.UnitLibrary/CLAUDE.md` says an
 option keeps curl's name and meaning wherever a server-side meaning exists. This ADR is
 that table, with everything the tasks built on it need to be implemented without asking:
 BL-013 (listen URLs), BL-014 (options, `--help`, `--version`), BL-016 (status line and

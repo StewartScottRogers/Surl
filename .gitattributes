@@ -6,6 +6,13 @@
 # Shell scripts run on Linux and macOS, where CRLF breaks them.
 *.sh text eol=lf
 
+# Upstream curl's test cases must keep their exact bytes (crlf= sections, %CR, binary bytes);
+# SHA256SUMS is checked against them by a fast test (ADR-0080 decision 1).
+Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/data/** -text
+Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/certs/** -text
+Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/COPYING -text
+Conformance/Surl.Conformance.UnitTests/UpstreamTestCases/SHA256SUMS -text
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Authentication.UnitLibrary\Surl.Authentication.UnitLibrary.csproj" />
+  </ItemGroup>
+
+  <!--
+    The hand-made Kerberos AP-REQ and initiator wrap tokens Surl.Kerberos's tests replay
+    (ADR-0057, decision 11), compiled in here too so SASL GSSAPI is tested with the same bytes.
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\Cryptography\Surl.Kerberos.UnitTests\ApRequestBuilder.cs" Link="Kerberos\ApRequestBuilder.cs" />
+    <Compile Include="..\..\Cryptography\Surl.Kerberos.UnitTests\InitiatorTokens.cs" Link="Kerberos\InitiatorTokens.cs" />
+  </ItemGroup>
+
+  <!--
+    Bytes recorded from pinned upstream curl (Fixtures/README.md), embedded so a fast test
+    reads them without touching the file system. Each is named Fixtures/<case>/<file>.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures\*\*" LogicalName="Fixtures/$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(FullPath)'))))/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

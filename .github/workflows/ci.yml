@@ -56,149 +56,16 @@ jobs:
       - name: Fast tests
         run: dotnet test -c Release --no-build --filter "TestCategory!=Integration"
 
-      - name: Read the upstream curl pin
-        id: pin
+      # Obtains and verifies the pinned reference build, and on Linux the OpenLDAP build and
+      # kinit; release.yml's conformance jobs run the same action (ADR-0085, decision 2).
+      - name: Obtain the pinned upstream curl
+        id: upstream-curl
         if: matrix.upstream-curl-platform
-        shell: pwsh
-        env:
-          PLATFORM: ${{ matrix.upstream-curl-platform }}
-        run: |
-          $pins = Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json
-          $pin = @($pins.builds | Where-Object { $_.platform -eq $env:PLATFORM -and (-not $_.role -or $_.role -eq 'reference') })
-          if ($pin.Count -ne 1) {
-            Write-Output "::error::UpstreamCurlBuilds.json pins $($pin.Count) reference builds for $env:PLATFORM; exactly one is needed."
-            exit 1
-          }
-          "sha256=$($pin[0].sha256)" >> $env:GITHUB_OUTPUT
-          "path=$($pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
-          "directory=$(Split-Path -Parent $pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
-
-      - name: Prepare the upstream curl directory
-        if: matrix.upstream-curl-platform
-        run: |
-          sudo mkdir -p "${{ steps.pin.outputs.directory }}"
-          sudo chown "$(id -u):$(id -g)" "${{ steps.pin.outputs.directory }}"
-
-      - name: Restore the upstream curl build
-        id: cache
-        if: matrix.upstream-curl-platform
-        uses: actions/cache@v4
+        uses: ./.github/actions/upstream-curl
         with:
-          path: ${{ steps.pin.outputs.directory }}
-          key: upstream-curl-${{ matrix.upstream-curl-platform }}-${{ steps.pin.outputs.sha256 }}
-
-      - name: Download the upstream curl build
-        if: matrix.upstream-curl-platform && steps.cache.outputs.cache-hit != 'true'
-        run: |
-          work="$(mktemp -d)"
-          curl -fsSL --retry 3 -o "$work/${{ matrix.upstream-curl-asset }}" \
-            "https://github.com/stunnel/static-curl/releases/download/8.21.0/${{ matrix.upstream-curl-asset }}"
-          tar -xJf "$work/${{ matrix.upstream-curl-asset }}" -C "$work" curl
-          mv "$work/curl" "${{ steps.pin.outputs.path }}"
-          chmod 755 "${{ steps.pin.outputs.path }}"
-
-      # Nothing runs the file before this step has matched its SHA-256 to the pin (ADR-0016,
-      # decision 4). A mismatch fails the job and is never re-pinned here (decision 6).
-      - name: Verify the upstream curl build
-        if: matrix.upstream-curl-platform
-        shell: pwsh
-        env:
-          PLATFORM: ${{ matrix.upstream-curl-platform }}
-        run: |
-          $pin = @((Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json).builds |
-            Where-Object { $_.platform -eq $env:PLATFORM -and (-not $_.role -or $_.role -eq 'reference') })[0]
-          if (-not (Test-Path -LiteralPath $pin.defaultPath)) {
-            Write-Output "::error::$($pin.defaultPath) does not exist."
-            exit 1
-          }
-          $actual = (Get-FileHash -LiteralPath $pin.defaultPath -Algorithm SHA256).Hash
-          if ($actual -ne $pin.sha256) {
-            Write-Output "::error::$($pin.defaultPath) hashes to $actual, but UpstreamCurlBuilds.json pins $($pin.sha256) for $env:PLATFORM. Not running it."
-            exit 1
-          }
-          Write-Output "$($pin.defaultPath) matches the pin $($pin.sha256)."
-          $lines = @(& $pin.defaultPath --version)
-          $lines | ForEach-Object { Write-Output $_ }
-          $reported = @{
-            version   = $lines[0]
-            protocols = ($lines | Where-Object { $_ -like 'Protocols: *' }) -replace '^Protocols: ', ''
-            features  = ($lines | Where-Object { $_ -like 'Features: *' }) -replace '^Features: ', ''
-          }
-          foreach ($field in 'version', 'protocols', 'features') {
-            if ($reported[$field] -cne $pin.$field) {
-              Write-Output "::warning::The $field of the $env:PLATFORM pin is '$($pin.$field)', but the build reports '$($reported[$field])'. The build wins (ADR-0016): correct the pin."
-            }
-          }
-
-      # The OpenLDAP build has no published download: Build-OpenLdapUpstreamCurl.ps1 builds it
-      # from pinned sources in a digest-pinned container, the same bytes every time, only when
-      # the cache does not already hold the pinned file (ADR-0076, ADR-0078).
-      - name: Read the OpenLDAP upstream curl pin
-        id: openldap-pin
-        if: matrix.openldap-upstream-curl
-        shell: pwsh
-        env:
-          PLATFORM: ${{ matrix.upstream-curl-platform }}
-        run: |
-          $pin = @((Get-Content -Raw UpstreamCurlBuilds.json | ConvertFrom-Json).builds |
-            Where-Object { $_.platform -eq $env:PLATFORM -and $_.role -eq 'supplementary' -and ($_.protocols -split ' ') -contains 'ldap' })
-          if ($pin.Count -ne 1) {
-            Write-Output "::error::UpstreamCurlBuilds.json pins $($pin.Count) supplementary ldap builds for $env:PLATFORM; exactly one is needed."
-            exit 1
-          }
-          "sha256=$($pin[0].sha256)" >> $env:GITHUB_OUTPUT
-          "path=$($pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
-          "directory=$(Split-Path -Parent $pin[0].defaultPath)" >> $env:GITHUB_OUTPUT
-
-      - name: Prepare the OpenLDAP upstream curl directory
-        if: matrix.openldap-upstream-curl
-        run: |
-          sudo mkdir -p "${{ steps.openldap-pin.outputs.directory }}"
-          sudo chown "$(id -u):$(id -g)" "${{ steps.openldap-pin.outputs.directory }}"
-
-      - name: Restore the OpenLDAP upstream curl build
-        id: openldap-cache
-        if: matrix.openldap-upstream-curl
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.openldap-pin.outputs.directory }}
-          key: openldap-upstream-curl-${{ matrix.upstream-curl-platform }}-${{ steps.openldap-pin.outputs.sha256 }}
-
-      - name: Build the OpenLDAP upstream curl build
-        if: matrix.openldap-upstream-curl && steps.openldap-cache.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: ./Build-OpenLdapUpstreamCurl.ps1 -OutputPath "${{ steps.openldap-pin.outputs.path }}"
-
-      # As for the reference build: nothing runs the file before its SHA-256 matches the pin.
-      - name: Verify the OpenLDAP upstream curl build
-        if: matrix.openldap-upstream-curl
-        shell: pwsh
-        env:
-          PINNED_PATH: ${{ steps.openldap-pin.outputs.path }}
-          PINNED_SHA256: ${{ steps.openldap-pin.outputs.sha256 }}
-        run: |
-          if (-not (Test-Path -LiteralPath $env:PINNED_PATH)) {
-            Write-Output "::error::$env:PINNED_PATH does not exist."
-            exit 1
-          }
-          $actual = (Get-FileHash -LiteralPath $env:PINNED_PATH -Algorithm SHA256).Hash
-          if ($actual -ne $env:PINNED_SHA256) {
-            Write-Output "::error::$env:PINNED_PATH hashes to $actual, but UpstreamCurlBuilds.json pins $env:PINNED_SHA256. The build did not reproduce; not running it (ADR-0076)."
-            exit 1
-          }
-          Write-Output "$env:PINNED_PATH matches the pin $env:PINNED_SHA256."
-          chmod 755 $env:PINNED_PATH
-          & $env:PINNED_PATH --version
-
-      # The OpenLDAP build's GSS-API is MIT's, which reads a credential cache rather than -u's
-      # password: the GSSAPI conformance test runs kinit against the hand-built test KDC to fill
-      # one (ADR-0078, BL-351). An OS package for the runner, not a NuGet package.
-      - name: Install kinit
-        if: matrix.openldap-upstream-curl
-        run: |
-          sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends krb5-user
-          command -v kinit
+          platform: ${{ matrix.upstream-curl-platform }}
+          asset: ${{ matrix.upstream-curl-asset }}
+          openldap: ${{ matrix.openldap-upstream-curl == true }}
 
       # No Mac is reachable from the dark factory's machine, so the macOS build's NTLM login
       # with a non-ASCII password is recorded here, as Fixtures/README.md records the Linux
@@ -211,7 +78,7 @@ jobs:
         run: |
           ./Record-CurlExchange.ps1 -Port 18325 -ResponsesPerConnection 2 `
             -Response 'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: NTLM TlRMTVNTUAACAAAACAAIADAAAAAFgoqgASNFZ4mrze8AAAAAAAAAABwAHAA4AAAAUwBVAFIATAACAAgAUwBVAFIATAABAAgAUwBVAFIATAAAAAAA\r\nContent-Length: 0\r\n\r\n', 'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok' `
-            -Curl '${{ steps.pin.outputs.path }}' `
+            -Curl '${{ steps.upstream-curl.outputs.path }}' `
             -CurlArgs '-sS', '--ntlm', '-u', "tester:p$([char]0xE4)ssword", 'http://127.0.0.1:18325/x' `
             -OutDirectory "$env:RUNNER_TEMP/ntlm-non-ascii-password-macos"
 
@@ -222,6 +89,64 @@ jobs:
           name: ntlm-non-ascii-password-macos
           path: ${{ runner.temp }}/ntlm-non-ascii-password-macos
 
+      # The upstream test cases run in their own job below (ADR-0080, decision 6).
       - name: Conformance tests
         if: matrix.upstream-curl-platform
-        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance"
+        run: dotnet test -c Release --no-build --filter "FullyQualifiedName~Surl.Conformance&TestCategory!=UpstreamTestCases"
+
+  # Runs upstream curl's own test cases against Surl's server halves with each leg's pinned
+  # reference build as the client, and uploads the per-case results file (ADR-0080,
+  # decisions 5 and 6; BL-392). Windows' row comes from a local run where the reference build
+  # is installed. The suite has 20 minutes of the job's 30.
+  upstream-test-cases:
+    name: Upstream test cases (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            upstream-curl-platform: linux-x64
+            upstream-curl-asset: curl-linux-x86_64-musl-8.21.0.tar.xz
+          - os: macos-latest
+            upstream-curl-platform: osx-arm64
+            upstream-curl-asset: curl-macos-arm64-8.21.0.tar.xz
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build
+        run: dotnet build -c Release Conformance/Surl.Conformance.UnitTests
+
+      - name: Obtain the pinned upstream curl
+        uses: ./.github/actions/upstream-curl
+        with:
+          platform: ${{ matrix.upstream-curl-platform }}
+          asset: ${{ matrix.upstream-curl-asset }}
+          openldap: false
+
+      - name: Upstream test cases
+        timeout-minutes: 20
+        run: >-
+          dotnet test -c Release --no-build Conformance/Surl.Conformance.UnitTests
+          --filter "TestCategory=Integration&TestCategory=UpstreamTestCases"
+          --results-directory "${{ runner.temp }}/upstream-test-cases"
+
+      # The suite writes the results file and the run's passing list to TestContext's
+      # TestRunResultsDirectory, which is the test assembly's folder, not --results-directory
+      # (BL-393: run 41980108989 uploaded nothing). The passing list is what the leg's
+      # upstream-test-cases-passing.<platform>.txt is copied from when its count rises.
+      - name: Publish the upstream test case results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-test-case-results-${{ matrix.upstream-curl-platform }}
+          path: |
+            Conformance/Surl.Conformance.UnitTests/bin/Release/net10.0/upstream-test-case-results.*.txt
+            Conformance/Surl.Conformance.UnitTests/bin/Release/net10.0/upstream-test-cases-passing.*.txt
+            ${{ runner.temp }}/upstream-test-cases/**/upstream-test-case*.txt
+          if-no-files-found: error

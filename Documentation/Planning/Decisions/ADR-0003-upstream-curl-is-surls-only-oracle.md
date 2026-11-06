@@ -3,6 +3,12 @@
 - **Status:** Accepted
 - **Date:** 2026-09-28
 - **Decided by:** Stewart, 2026-09-28
+- **Amended by:** [ADR-0083](ADR-0083-how-surl-serves-the-curl-ports-extended-protocols-and-how-they-are-tested.md)
+  (Stewart, 2026-11-04): decision 1 does not bind the extended servers,
+  `Surl.Extended.Protocol.*`, which answer schemes upstream curl does not have. Each is judged
+  by its protocol's specification; the Curl port's pinned client may connect to one as a live
+  client in `Integration` tests only, and its output is never proof. For every original
+  protocol, decision 1 stands unchanged.
 
 ## Context
 
@@ -42,7 +48,10 @@ has.
 1. **Upstream curl is Surl's only oracle.** A Surl behaviour is right when a pinned
    upstream curl build completes the exchange against it as the protocol's specification
    and upstream curl's own behaviour say. The Curl port is never a test client, never a
-   source of fixtures or expected bytes, and never evidence in an ADR.
+   source of fixtures or expected bytes, and never evidence in an ADR. Scope: every protocol
+   upstream curl speaks. The extended servers of ADR-0083 (`Surl.Extended.Protocol.*`) are
+   outside it: the specification is their oracle, and the port's client is allowed only as a
+   live client in their `Integration` tests, never as proof.
 2. **The reference release is 8.21.0**, the release the Curl port targets, so the last
    phase compares like with like.
 3. **Builds are pinned by file.** `UpstreamCurlBuilds.json` records each upstream build's
@@ -60,6 +69,8 @@ has.
    against Surl beside pinned upstream curl; wherever the two disagree, upstream is right,
    and the disagreement is filed as a defect on the port's own board. Surl never changes
    to make the port pass.
+   How Phase 7 runs, compares, judges and hands off is decided in
+   [ADR-0089](ADR-0089-how-phase-7-measures-the-curl-port-against-surl-beside-pinned-upstream-curl.md).
 7. **Code may be copied from the port; verdicts may not.** Copying code (a cryptographic
    primitive with its test vectors, say) saves work and decides nothing. Every expected
    result still comes from upstream curl or a published specification.

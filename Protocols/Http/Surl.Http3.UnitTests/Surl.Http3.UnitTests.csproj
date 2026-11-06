@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Http3.UnitLibrary\Surl.Http3.UnitLibrary.csproj" />
+  </ItemGroup>
+
+  <!--
+    The Initial datagrams pinned upstream curl sent, recorded once in Surl.Protocol.Http.UnitTests
+    (its Fixtures/README.md says how) and embedded here too.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\Surl.Protocol.Http.UnitTests\Fixtures\h3-client-initial\static-8.21.0-win.datagrams.bin" LogicalName="Fixtures/h3-client-initial/static-8.21.0-win.datagrams.bin" />
+  </ItemGroup>
+
+</Project>

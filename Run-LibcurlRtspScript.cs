@@ -1,4 +1,4 @@
-#:project Surl.Conformance.UnitLibrary/Surl.Conformance.UnitLibrary.csproj
+#:project Conformance/Surl.Conformance.UnitLibrary/Surl.Conformance.UnitLibrary.csproj
 
 // Drives the pinned upstream libcurl's RTSP requests (CURLOPT_RTSP_REQUEST) and its interleaved
 // receive through a script of steps on one easy handle, so the RTSP requests only libcurl's API

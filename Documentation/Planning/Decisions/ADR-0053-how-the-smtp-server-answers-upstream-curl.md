@@ -450,7 +450,7 @@ platform in its own test (root `CLAUDE.md`) and recorded against this ADR.
   9; BL-210 decision 10's table.
 - The fixtures those tasks replay are recorded again from this ADR's rows with
   `Record-CurlExchange.ps1 -Smtp` and the overrides named, and live under
-  `Surl.Protocol.Smtp.UnitTests/Fixtures/<case>/` with a `README.md` (build, SHA-256, command line,
+  `Protocols/Mail/Surl.Protocol.Smtp.UnitTests/Fixtures/<case>/` with a `README.md` (build, SHA-256, command line,
   date), as BL-198 says.
 - A stored message is some 150 bytes larger than the body curl sent, and those bytes count against
   `--max-filesize`.

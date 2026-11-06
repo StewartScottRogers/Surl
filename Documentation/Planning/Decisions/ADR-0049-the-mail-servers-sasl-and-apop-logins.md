@@ -9,6 +9,9 @@
   grow by decision 3 below. Its section 6 contract (`IAuthenticationPolicy`) is unchanged; the
   mail logins get a new interface beside it (decision 6). Everything else in ADR-0032 and
   [ADR-0038](ADR-0038-checked-logins-carry-the-login-note-and-the-server-writes-it.md) stands.
+- **Amended by:** [ADR-0125](ADR-0125-sasl-scram-sha-1-and-scram-sha-256-in-surl-authentication.md)
+  (2026-11-05, BL-416, recorded by BL-574): section 2's SASL order gains `SCRAM-SHA-256` and
+  `SCRAM-SHA-1` after `GSSAPI` and before `DIGEST-MD5`.
 
 ## Context
 

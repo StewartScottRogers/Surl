@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Surl.Http2.UnitLibrary\Surl.Http2.UnitLibrary.csproj" />
+  </ItemGroup>
+
+  <!--
+    The prior-knowledge request pinned upstream curl sent, recorded once in
+    Surl.Protocol.Http.UnitTests (its Fixtures/README.md says how) and embedded here too.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\Surl.Protocol.Http.UnitTests\Fixtures\h2-prior-knowledge-get\request.bin" LogicalName="Fixtures/h2-prior-knowledge-get/request.bin" />
+  </ItemGroup>
+
+</Project>

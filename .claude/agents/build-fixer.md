@@ -20,7 +20,7 @@ You make the solution compile and format clean without changing behaviour.
 | `Version` on a `PackageReference` | Move the version into `Directory.Packages.props`, leave the bare reference. |
 | A `.csproj` property that `Directory.Build.props` already sets | Delete it from the `.csproj`. |
 | `IL2026` / `IL3050` | Replace the reflective call with a static one. Do not paper over it with `[RequiresUnreferencedCode]`. |
-| `NU1503` or a project missing from the build | `dotnet sln Surl.slnx add <path>` — flat run, no solution folder. |
+| `NU1503` or a project missing from the build | `dotnet sln Surl.slnx add --solution-folder <Category> <path>` — in the solution folder named after its category folder (CLAUDE.md, "Repository layout"). |
 | Namespace does not match | `RootNamespace` strips `.UnitLibrary` / `.UnitTests`; the namespace omits the suffix. |
 | Nullable error on a field set by DI | Constructor-inject it and make it `readonly`, rather than adding `!`. |
 

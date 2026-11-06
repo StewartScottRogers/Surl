@@ -13,8 +13,8 @@ assertion each one names instead of suppressing it.
 Process:
 1. Read the production class and its public surface.
 2. Find or create the matching test project — the production project name with
-   `.UnitTests` in place of `.UnitLibrary`, in its own directory immediately under the
-   repository root — and the `<ClassName>Tests` class in it. There is no `tests/` folder.
+   `.UnitTests` in place of `.UnitLibrary`, in its own directory beside it in the same
+   category folder — and the `<ClassName>Tests` class in it. There is no `tests/` folder.
 3. Cover the happy path, boundary values, null/invalid input, and every thrown exception.
 4. Follow `.claude/rules/testing.md` exactly.
 5. Run `dotnet test --filter "FullyQualifiedName~<ClassName>Tests"` and iterate until green.

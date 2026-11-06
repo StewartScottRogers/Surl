@@ -32,7 +32,7 @@ a domain), answering every request with `401` and `WWW-Authenticate: Negotiate`:
   `InitializeSecurityContext` fails with `SEC_E_NO_CREDENTIALS` before the first request and
   again after the `401`; curl sends no `Authorization` at all and exits 0 with an empty body
   (22 with `-f`, `curl: (22) InitializeSecurityContext failed: SEC_E_NO_CREDENTIALS ...`).
-  Fixture: `Surl.Authentication.UnitTests/Fixtures/negotiate-no-token`.
+  Fixture: `Foundation/Surl.Authentication.UnitTests/Fixtures/negotiate-no-token`.
 - The same with `localhost`, a `--resolve`d dotted name, the computer's name, `SURL\tester`,
   `tester@surl`, `.\tester`, `-u :` (the logged-in user) and `--delegation always`: the same
   failure, and nothing in the NTLM operational event log.

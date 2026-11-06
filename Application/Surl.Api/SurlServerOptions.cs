@@ -1,0 +1,175 @@
+using Surl.Output;
+
+namespace Surl.Api;
+
+/// <summary>
+/// What <see cref="SurlServer.StartAsync(SurlServerOptions, CancellationToken)"/> starts: the listen
+/// URLs, the content, any other <c>surl</c> option, and what the host provides (ADR-0099, decision 4).
+/// Every command-line property is a spelling of the <c>surl</c> option it names, and the options are
+/// parsed as <c>surl</c> parses them, so every default is <c>surl</c>'s and the start is validated
+/// exactly as <c>surl</c> validates it.
+/// </summary>
+public sealed class SurlServerOptions
+{
+    /// <summary>
+    /// The listen URLs, as <c>surl</c> takes them (<c>http://127.0.0.1:0</c>,
+    /// <c>ftp://127.0.0.1:0</c>), in order; port 0 asks for an ephemeral port. At least one is needed.
+    /// </summary>
+    public IList<string> ListenUrls { get; } = [];
+
+    /// <summary>
+    /// The data directory served and its service state kept in (<c>--directory</c>, ADR-0031), or
+    /// <see langword="null"/> to serve <see cref="Files"/> in memory. Not set together with
+    /// <see cref="Files"/>.
+    /// </summary>
+    public string? DataDirectory { get; set; }
+
+    /// <summary>
+    /// The files served in memory when no <see cref="DataDirectory"/> is given: each key a path
+    /// relative to the served root, its segments separated by <c>/</c>, each value the file's bytes.
+    /// A path may not be empty, start with <c>/</c>, hold an empty, <c>.</c> or <c>..</c> segment, a
+    /// <c>\</c> or a <c>:</c>, or name a directory another path is inside.
+    /// </summary>
+    public IDictionary<string, byte[]> Files { get; } = new Dictionary<string, byte[]>(StringComparer.Ordinal);
+
+    /// <summary>Accepts uploads into served files (<c>--allow-uploads</c>); off by default.</summary>
+    public bool AllowUploads { get; set; }
+
+    /// <summary>Answers directory listings (<c>--list-directories</c>); off by default.</summary>
+    public bool ListDirectories { get; set; }
+
+    /// <summary>Follows links that stay in the served root (<c>--follow-symlinks</c>); off by default.</summary>
+    public bool FollowSymlinks { get; set; }
+
+    /// <summary>Serves names that start with a dot (<c>--serve-dot-files</c>); off by default.</summary>
+    public bool ServeDotFiles { get; set; }
+
+    /// <summary>
+    /// The accounts a client may log in as (<c>--user</c>, ADR-0032 section 1), in order; none by
+    /// default. A user name may not hold <c>:</c>.
+    /// </summary>
+    public IList<SurlAccount> Accounts { get; } = [];
+
+    /// <summary>
+    /// The accounts file read at start (<c>--user-file</c>), or <see langword="null"/>, the default,
+    /// for none. A malformed line refuses the start with <see cref="Protocol.Abstractions.SurlExitCode.FailedInit"/>
+    /// naming the line, an unreadable file with <see cref="Protocol.Abstractions.SurlExitCode.CouldNotReadFile"/>.
+    /// </summary>
+    public string? UserFile { get; set; }
+
+    /// <summary>
+    /// The authentication methods accepted and offered (<c>--auth</c>, given once with the words joined
+    /// by commas), or <see langword="null"/>, the default, for <c>surl</c>'s default set.
+    /// </summary>
+    public IList<string>? AuthenticationMethods { get; set; }
+
+    /// <summary>Accepts any login, or none (<c>--allow-anonymous</c>, warns on start); off by default.</summary>
+    public bool AllowAnonymous { get; set; }
+
+    /// <summary>Accepts passwords sent over an unencrypted connection (<c>--allow-plaintext-auth</c>, warns on start); off by default.</summary>
+    public bool AllowPlaintextAuthentication { get; set; }
+
+    /// <summary>The server certificate file (<c>--cert</c>), or <see langword="null"/>, the default, for none.</summary>
+    public string? CertificateFile { get; set; }
+
+    /// <summary>The private key file for <see cref="CertificateFile"/> (<c>--key</c>), or <see langword="null"/>, the default, for the key in the certificate file.</summary>
+    public string? KeyFile { get; set; }
+
+    /// <summary>The passphrase of the key file and host key files (<c>--pass</c>), or <see langword="null"/>, the default, for none.</summary>
+    public string? KeyPassphrase { get; set; }
+
+    /// <summary>Serves a throwaway self-signed certificate when no certificate file is given (<c>--self-signed</c>, warns on start); off by default.</summary>
+    public bool SelfSigned { get; set; }
+
+    /// <summary>The CA certificates client certificates are verified against (<c>--cacert</c>), or <see langword="null"/>, the default, for none.</summary>
+    public string? CaCertificateFile { get; set; }
+
+    /// <summary>The SSH host private key files (<c>--hostkey</c>), in order; none by default.</summary>
+    public IList<string> HostKeyFiles { get; } = [];
+
+    /// <summary>Makes a throwaway SSH host key at start when no host key file is given (<c>--throwaway-hostkey</c>, warns on start); off by default.</summary>
+    public bool ThrowawayHostKey { get; set; }
+
+    /// <summary>Connections at once across all listeners (<c>--max-connections</c>), or <see langword="null"/>, the default, for <c>surl</c>'s 1024.</summary>
+    public int? MaxConnections { get; set; }
+
+    /// <summary>Connections at once from one address (<c>--max-connections-per-address</c>), or <see langword="null"/>, the default, for <c>surl</c>'s 100.</summary>
+    public int? MaxConnectionsPerAddress { get; set; }
+
+    /// <summary>
+    /// How long an exchange may sit idle (<c>--idle-timeout</c>), or <see langword="null"/>, the
+    /// default, for <c>surl</c>'s 120 seconds. <see cref="TimeSpan.Zero"/> and
+    /// <see cref="Timeout.InfiniteTimeSpan"/> mean no limit, as <c>0</c> does; any other negative
+    /// duration is misuse.
+    /// </summary>
+    public TimeSpan? IdleTimeout { get; set; }
+
+    /// <summary>
+    /// The longest time one exchange may take (<c>--max-time</c>), or <see langword="null"/>, the
+    /// default, for <c>surl</c>'s 3600 seconds. <see cref="TimeSpan.Zero"/> and
+    /// <see cref="Timeout.InfiniteTimeSpan"/> mean no limit, as <c>0</c> does; any other negative
+    /// duration is misuse.
+    /// </summary>
+    public TimeSpan? MaxTime { get; set; }
+
+    /// <summary>The largest upload accepted, in bytes (<c>--max-filesize</c>), or <see langword="null"/>, the default, for <c>surl</c>'s 100 MiB.</summary>
+    public long? MaxFileSize { get; set; }
+
+    /// <summary>
+    /// Any other <c>surl</c> option, as <c>surl</c>'s own words, read after the properties above.
+    /// <c>--help</c>, <c>--aihelp</c>, <c>--manual</c>, <c>--version</c>, <c>--log-file</c>,
+    /// <c>--trace</c> and <c>--trace-ascii</c> belong to a host and are refused.
+    /// </summary>
+    public IList<string> AdditionalArguments { get; } = [];
+
+    /// <summary>
+    /// Where the start-up warnings, the status lines and the exchange log are written, at
+    /// <see cref="LogLevel"/>, byte for byte as <c>surl</c> writes them; <see langword="null"/>, the
+    /// default, writes nothing.
+    /// </summary>
+    public TextWriter? Log { get; set; }
+
+    /// <summary>
+    /// The level <see cref="Log"/> is written at (<c>--log-level</c>, ADR-0033);
+    /// <see cref="Output.LogLevel.Info"/> by default.
+    /// </summary>
+    public LogLevel LogLevel { get; set; } = LogLevel.Info;
+
+    /// <summary>The one clock every exchange runs on; <see cref="TimeProvider.System"/> by default.</summary>
+    /// <exception cref="ArgumentNullException">Set to <see langword="null"/>.</exception>
+    public TimeProvider TimeProvider
+    {
+        get;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            field = value;
+        }
+    } = TimeProvider.System;
+
+    /// <summary>
+    /// Whether the extended protocol servers are served by this server (ADR-0083, decision 6), or
+    /// <see langword="null"/>, the default, to read the process's <c>SURL_EXTENSIONS</c> at start.
+    /// </summary>
+    public bool? AreExtensionsTurnedOn { get; set; }
+
+    /// <summary>
+    /// Whether the server records what each client sent and was sent, for
+    /// <see cref="SurlServer.Exchanges"/> (ADR-0099, decision 7); off by default, and nothing is
+    /// recorded or kept when off. It is not a <c>surl</c> option and adds no word.
+    /// </summary>
+    public bool RecordExchanges { get; set; }
+
+    /// <summary>
+    /// The most exchanges <see cref="SurlServer.Exchanges"/> keeps, 1000 by default; past it the
+    /// oldest is dropped and <see cref="SurlServer.DroppedExchangeCount"/> grows. Must be positive.
+    /// </summary>
+    public int MaxRecordedExchanges { get; set; } = 1000;
+
+    /// <summary>
+    /// The most bytes kept of one exchange, both directions together, 1 MiB by default; past it no
+    /// more of that exchange's bytes are kept and its <see cref="SurlExchangeRecord.IsTruncated"/> is
+    /// true. Must be positive.
+    /// </summary>
+    public int MaxRecordedBytesPerExchange { get; set; } = 1_048_576;
+}

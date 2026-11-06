@@ -17,7 +17,7 @@ access key, and leaves the check itself - and its request-time window - to BL-12
 
 Pinned upstream curl 8.21.0 (win-x64 reference build), `Record-CurlExchange.ps1 -Port 18122`,
 `-u AKIDEXAMPLE:secret`; the fixtures are `aws-sigv4-*` in
-`Surl.Authentication.UnitTests/Fixtures` (its README lists every command line).
+`Foundation/Surl.Authentication.UnitTests/Fixtures` (its README lists every command line).
 
 - `--aws-sigv4 aws:amz:us-east-1:s3` sends `Authorization: AWS4-HMAC-SHA256
   Credential=AKIDEXAMPLE/20260929/us-east-1/s3/aws4_request,

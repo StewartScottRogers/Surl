@@ -116,3 +116,56 @@ sizes from that without knowing the tier.
 - **Killing a surplus lane.** It loses work mid-task; retiring before the next claim loses none.
 - **Guessing the machine cap from the processor count.** Builds are memory-bound too; only
   a measurement is trustworthy.
+
+## Amendment 1 (2026-11-05): reading a window that is not reported
+
+Decided by Claude under Stewart's delegation, after Stewart asked for the usage reading to be fixed.
+
+Since an October 2026 Claude Code update, a `rate_limit_event` no longer lists every window
+under `unifiedWindows`. It lists only the window it is about, named by `rateLimitType`, with
+`utilization` and `resetsAt` beside it, and leaves a window out until it nears its limit.
+`Get-UsageReading` demanded a `five_hour` figure, found none after 2026-09-30, and returned no
+reading at all. Every Auto step then logged "lanes N held (no burn rate yet)", so the shift of
+2026-11-04 held 5 lanes for seven hours while the board's capacity rose to 33.
+
+1. `ConvertFrom-RateLimitEvent` reads each window from either shape. A window under
+   `unifiedWindows` wins over the top-level fields.
+2. `Get-UsageReading` takes each window from the newest event that reports it, across the
+   newest 40 runs. It returns a reading once any `rate_limit_event` exists. A window no event
+   reports reads 0 with no reset, and `FiveHourReported` and `WeekReported` say which were
+   seen. An unreported window is not near its limit, so it sets no pace. The stops at
+   `-StopAtUsage` and `-StopAtWeeklyUsage` still apply as soon as Claude Code reports the
+   window.
+3. `-AutoLanesReport` prints "not reported (not near its limit)" for such a window rather
+   than a 0% that was never measured.
+4. `-TestAutoLanes` proves both event shapes, a non-event line, and that a shift with no
+   5-hour report grows toward its ceiling.
+
+## Amendment 2 (2026-11-05): the end-of-shift merge comes from a frozen branch
+
+Decided by Stewart, who chose this option and gave the standing permission it needs.
+
+The end-of-shift pull request used to come from the shift branch itself. Under `-Continuous`
+the next shift's lanes push to that branch within minutes, and each push moved the pull
+request's head and cancelled its CI. A merge that waited 30 minutes also found CI queued
+behind the account's other runners, macOS above all. No shift merged from 2026-11-04 to
+2026-11-05.
+
+1. At shift end `Open-MergeSnapshot` pushes the branch's head to `factory/merge-<stamp>`
+   and opens the pull request from that frozen branch. Nothing pushes to it, so its CI
+   always runs to the end.
+2. Opening one closes every older open `factory/merge-*` pull request, deleting its branch:
+   the newer head holds everything the older did. It also closes a pull request opened
+   from the shift branch itself under the old design, and keeps that branch.
+3. `Update-PendingMerges` runs at the start of every coordinator loop and every 5 minutes.
+   It merges a frozen pull request with `--match-head-commit` once CI passed on its frozen
+   commit, and deletes the branch. It reruns a cancelled CI once, and reports a failure
+   once. A failed pull request stays open until a newer shift supersedes it.
+4. A `-Continuous` shift leaves the merge to the next shift's coordinator and starts at
+   once. Without `-Continuous`, the ending shift waits up to 30 minutes for it.
+5. `-MergeToMaster` does the end-of-shift step by hand. `-TestMergeSnapshot` proves the
+   naming, the supersede rule and the step each CI state leads to.
+
+Stewart's standing permission (CLAUDE.md, "Git and GitHub") covers creating, merging and
+deleting `factory/merge-*` branches, and closing a superseded frozen pull request. It covers
+no other branch and no force push.

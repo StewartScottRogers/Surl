@@ -18,7 +18,7 @@ it was given into `UNICODE(Passwd)` its own way.
 Measured on 2026-09-30 by BL-321 with `Record-CurlExchange.ps1 -ResponsesPerConnection 2`, the
 password `pässword` for user `tester`, and the fixed server challenge `0123456789abcdef`, on a
 Windows 11 machine with ANSI code page 1252 and OEM code page 437; fixtures and command lines in
-`Surl.Authentication.UnitTests/Fixtures/README.md`, "Non-ASCII NTLM password (BL-321)". Every
+`Foundation/Surl.Authentication.UnitTests/Fixtures/README.md`, "Non-ASCII NTLM password (BL-321)". Every
 case answered with NTLMv2 and exited 0:
 
 - **stunnel/static-curl 8.21.0 for Windows** (ADR-0042; `Unicode` feature, SSPI) hands SSPI the

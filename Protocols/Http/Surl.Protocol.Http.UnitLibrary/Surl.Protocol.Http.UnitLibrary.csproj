@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Protocol.Http.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Surl.Http2" />
+    <Using Include="Surl.Http3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Hpack.UnitLibrary\Surl.Hpack.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Http2.UnitLibrary\Surl.Http2.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Http3.UnitLibrary\Surl.Http3.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.HttpMessage.UnitLibrary\Surl.HttpMessage.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.HttpServing.UnitLibrary\Surl.HttpServing.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Qpack.UnitLibrary\Surl.Qpack.UnitLibrary.csproj" />
+    <ProjectReference Include="..\Surl.Quic.UnitLibrary\Surl.Quic.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

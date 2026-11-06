@@ -421,7 +421,7 @@ public sealed record ExchangeContext(/* ADR-0004's positional parameters, unchan
 ```
 
 - **No existing interface with outside implementers gains a member.** `IListenerFactory`
-  (implemented by `Surl.Console.UnitTests/FakeListenerFactory.cs` and `Surl.Networking`),
+  (implemented by `Application/Surl.Console.UnitTests/FakeListenerFactory.cs` and `Surl.Networking`),
   `IConnection` (eleven implementers across Core, Networking, Abstractions and five test
   projects) and `IConnectionProtocolServer` are unchanged. `ExchangeContext` keeps its positional
   constructor, so every call site compiles unchanged; the new member is an `init` property with a

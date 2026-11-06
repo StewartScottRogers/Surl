@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Surl.Extended.Protocol.DnsQuery.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Foundation\Surl.Content.UnitLibrary\Surl.Content.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\..\Foundation\Surl.Protocol.Abstractions.UnitLibrary\Surl.Protocol.Abstractions.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Http\Surl.Http2.UnitLibrary\Surl.Http2.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Http\Surl.HttpServing.UnitLibrary\Surl.HttpServing.UnitLibrary.csproj" />
+    <ProjectReference Include="..\..\Http\Surl.Quic.UnitLibrary\Surl.Quic.UnitLibrary.csproj" />
+  </ItemGroup>
+
+</Project>

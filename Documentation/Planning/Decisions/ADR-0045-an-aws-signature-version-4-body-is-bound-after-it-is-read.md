@@ -20,7 +20,7 @@ byte (ADR-0032 section 4), so the body can only be bound by a check after it.
 
 Pinned upstream curl 8.21.0 (win-x64 reference build), `Record-CurlExchange.ps1 -Port 18136`,
 `-u AKIDEXAMPLE:secret`, a file `<file>` holding `body`; the fixtures are in
-`Surl.Authentication.UnitTests/Fixtures` (its README lists every command line).
+`Foundation/Surl.Authentication.UnitTests/Fixtures` (its README lists every command line).
 
 - `-H 'x-amz-content-sha256: UNSIGNED-PAYLOAD' -X PUT -d body` with `aws:amz:us-east-1:s3`
   sends the field once, as given, and signs `UNSIGNED-PAYLOAD` as the payload hash
