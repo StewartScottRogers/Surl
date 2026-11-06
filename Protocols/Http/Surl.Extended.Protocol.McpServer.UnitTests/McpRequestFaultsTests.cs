@@ -6,7 +6,7 @@ using static Surl.Extended.Protocol.McpServer.McpHttpHarness;
 namespace Surl.Extended.Protocol.McpServer;
 
 /// <summary>
-/// The chosen-error fault (ADR-0124, decisions 4 and 9; ADR-0143; BL-835): a request in a session that an
+/// The chosen-error fault (ADR-0124, decisions 4 and 9; ADR-0144; BL-835): a request in a session that an
 /// <see cref="FaultKind.Error" /> rule matches is answered with the rule's JSON-RPC error, in the media type the
 /// request is answered in, in place of the core, and one <see cref="FaultAppliedEvent" /> is published. Messages
 /// written by hand from the MCP specification and JSON-RPC 2.0 section 5.1.

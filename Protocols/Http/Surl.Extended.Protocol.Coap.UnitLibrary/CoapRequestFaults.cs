@@ -6,7 +6,7 @@ namespace Surl.Extended.Protocol.Coap;
 
 /// <summary>
 /// Asks the exchange's fault plan, for each request before it is answered, whether to answer it with
-/// a chosen response code instead (ADR-0124, decisions 4 and 9; ADR-0143): the point names the scheme
+/// a chosen response code instead (ADR-0124, decisions 4 and 9; ADR-0144): the point names the scheme
 /// (<c>coap</c> or <c>coaps</c>), the method as <c>command</c> (<c>GET</c>, <c>POST</c>, <c>PUT</c>,
 /// <c>DELETE</c>, any other as its <c>0.dd</c> code) and the Uri-Path as <c>path</c> (<c>/a/b</c>,
 /// <c>/</c> for none). CoAP has no account, so the point names none.

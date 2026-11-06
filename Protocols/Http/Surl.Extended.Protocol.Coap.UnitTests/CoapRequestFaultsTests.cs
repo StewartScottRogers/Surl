@@ -4,7 +4,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.Coap;
 
 /// <summary>
-/// The chosen-error fault (ADR-0124, decisions 4 and 9; ADR-0143; BL-835): a request an
+/// The chosen-error fault (ADR-0124, decisions 4 and 9; ADR-0144; BL-835): a request an
 /// <see cref="FaultKind.Error"/> rule matches is answered with the rule's response code, and its
 /// diagnostic text as the payload (RFC 7252 section 5.5.2), in place of the resource, and one
 /// <see cref="FaultAppliedEvent"/> is published. Datagrams written by hand from RFC 7252 section 3.

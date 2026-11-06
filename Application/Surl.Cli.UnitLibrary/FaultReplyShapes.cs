@@ -7,7 +7,7 @@ namespace Surl.Cli;
 /// The error shape each scheme's <c>--fault error</c> <c>reply</c> must fit (ADR-0124 decision 4's
 /// reply tables), so a chosen error is one the protocol allows. A code and its text are separated
 /// by the first space. Of the extended schemes, <c>coap</c>, <c>mcp</c> and <c>signalr</c> and
-/// their secure twins have rows (ADR-0143); the others have none yet (BL-833, BL-834, BL-836).
+/// their secure twins have rows (ADR-0144); the others have none yet (BL-833, BL-834, BL-836).
 /// </summary>
 internal static class FaultReplyShapes
 {

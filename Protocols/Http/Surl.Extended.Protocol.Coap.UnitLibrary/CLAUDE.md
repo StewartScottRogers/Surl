@@ -104,7 +104,7 @@ original or extended. Never construct a `Socket`,
 `TcpListener`, `UdpClient`, `SslStream` or `HttpListener` here; the transport comes from the
 listener seam.
 
-**Chosen-error fault** (ADR-0143, BL-835): `CoapFlowServing` offers every request to `CoapRequestFaults` before
+**Chosen-error fault** (ADR-0144, BL-835): `CoapFlowServing` offers every request to `CoapRequestFaults` before
 the observers and the resource answerer, with `command` the method (`GET`; another as `0.dd`) and `path` the
 Uri-Path (`/a/b`, `/` for none). A matching `error` rule whose reply is `4.00` to `5.05` (`c.dd`, an optional
 diagnostic text after a space as the UTF-8 payload) is the response, publishing `FaultAppliedEvent`; a reply

@@ -284,7 +284,7 @@ internal sealed class McpHttpRequestAnswerer : IHttpRequestHandler
             return _writer.Empty(request, Accepted);
         }
 
-        // ADR-0143: a chosen-error fault rule answers the request in place of the core.
+        // ADR-0144: a chosen-error fault rule answers the request in place of the core.
         byte[]? response = await McpRequestFaults.FindErrorAsync(_context, call, login, _settings.EndpointPath).ConfigureAwait(false)
             ?? await session.AnswerRequestAsync(call, message, cancellationToken).ConfigureAwait(false);
         return call.Method == ToolsCallMethod

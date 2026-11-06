@@ -7,7 +7,7 @@ namespace Surl.Extended.Protocol.McpServer;
 
 /// <summary>
 /// Asks the exchange's fault plan, for each JSON-RPC request in a session, whether to answer it with a
-/// chosen JSON-RPC error instead (ADR-0124, decisions 4 and 9; ADR-0143): the point names the scheme
+/// chosen JSON-RPC error instead (ADR-0124, decisions 4 and 9; ADR-0144): the point names the scheme
 /// (<c>mcp</c> or <c>mcps</c>), the login as <c>account</c> (none for the anonymous caller), the endpoint's path as <c>path</c>, and as
 /// <c>command</c> the tool's name for <c>tools/call</c> and the method for every other request.
 /// </summary>

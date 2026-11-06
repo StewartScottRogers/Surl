@@ -78,7 +78,7 @@ this server's identity and tools run as the anonymous caller on scheme `mcp+stdi
 
 Still to come: the command line (BL-468), which binds `McpStdioSession` to surl's standard streams.
 
-**Chosen-error fault** (ADR-0143, BL-835): `McpHttpRequestAnswerer` offers every JSON-RPC request inside a session
+**Chosen-error fault** (ADR-0144, BL-835): `McpHttpRequestAnswerer` offers every JSON-RPC request inside a session
 to `McpRequestFaults` before the core, with `account` the login, `path` the endpoint path and `command` the tool's
 `name` for `tools/call`, the method otherwise. A matching `error` rule whose reply is `<code> <message>` is answered
 with the core's `JsonRpcResponseWriter.WriteError`, in the request's usual media type, publishing

@@ -3,7 +3,7 @@ using Surl.Protocol.Abstractions;
 namespace Surl.Extended.Protocol.SignalR;
 
 /// <summary>
-/// The chosen-error fault (ADR-0124, decisions 4 and 9; ADR-0143; BL-835): an invocation an
+/// The chosen-error fault (ADR-0124, decisions 4 and 9; ADR-0144; BL-835): an invocation an
 /// <see cref="FaultKind.Error"/> rule matches is completed with the rule's text as the Completion's
 /// <c>error</c> in place of the hub method, and one <see cref="FaultAppliedEvent"/> is published.
 /// Records written by hand from HubProtocol.md's "Completion" examples.

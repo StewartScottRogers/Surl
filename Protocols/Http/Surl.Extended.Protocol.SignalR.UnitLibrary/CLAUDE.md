@@ -47,7 +47,7 @@ Still to come: `Broadcast`, `Collect` uploads, the shutdown farewell and the uns
 Completion is a protocol error, and a cancelled exchange writes nothing), the command line (BL-450),
 Server-Sent Events and Long Polling (BL-757), stateful reconnect (BL-755) and MessagePack (BL-756).
 
-**Chosen-error fault** (ADR-0143, BL-835): `SignalRWebSocketTakeover` gives each `SignalRHubSession` a
+**Chosen-error fault** (ADR-0144, BL-835): `SignalRWebSocketTakeover` gives each `SignalRHubSession` a
 `SignalRInvocationFaults` (the hub's endpoint base and the negotiating account); every Invocation or
 StreamInvocation with an `invocationId` is offered to it before the hub method, `command` the target. A matching
 `error` rule's text completes it as the Completion's `error` (no StreamItem), publishing `FaultAppliedEvent`; a

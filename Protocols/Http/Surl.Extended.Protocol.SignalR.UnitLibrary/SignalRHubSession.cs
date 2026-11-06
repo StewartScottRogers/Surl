@@ -86,7 +86,7 @@ internal sealed class SignalRHubSession : IDisposable
     /// <param name="connection">Where frames are written.</param>
     /// <param name="reader">The reader that read the upgrade request, so bytes it already buffered come first.</param>
     /// <param name="context">The exchange: its clock, limits, log and cancellation.</param>
-    /// <param name="invocationFaults">Asks the exchange's fault plan for a chosen Completion error per invocation (ADR-0143).</param>
+    /// <param name="invocationFaults">Asks the exchange's fault plan for a chosen Completion error per invocation (ADR-0144).</param>
     public SignalRHubSession(IConnection connection, HttpConnectionReader reader, ExchangeContext context, SignalRInvocationFaults invocationFaults)
     {
         this.connection = connection;
@@ -307,7 +307,7 @@ internal sealed class SignalRHubSession : IDisposable
             return SignalRSessionEnd.HubProtocolError("an invocationId already in progress was used again");
         }
 
-        // ADR-0143: a chosen-error fault rule completes the invocation in place of the hub method.
+        // ADR-0144: a chosen-error fault rule completes the invocation in place of the hub method.
         var call = invocation.InvocationId is not null && await invocationFaults.FindErrorAsync(invocation) is { } chosenError
             ? SignalRHubCall.Failed(chosenError)
             : SignalRHubMethods.Call(invocation);

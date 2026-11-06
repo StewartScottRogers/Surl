@@ -5,7 +5,7 @@ namespace Surl.Extended.Protocol.SignalR;
 /// <summary>
 /// Asks the exchange's fault plan, for each Invocation or StreamInvocation that has an
 /// <c>invocationId</c>, whether to complete it with a chosen error instead of calling the hub method
-/// (ADR-0124, decisions 4 and 9; ADR-0143): the point names the scheme (<c>signalr</c> or
+/// (ADR-0124, decisions 4 and 9; ADR-0144): the point names the scheme (<c>signalr</c> or
 /// <c>signalrs</c>), the account the connection was negotiated by, the hub's endpoint base as
 /// <c>path</c> (<c>/chat</c>) and the hub method as <c>command</c>, as sent.
 /// </summary>
