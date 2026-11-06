@@ -4,7 +4,7 @@ title: Apply command-stage delay and drop faults in the FTP and TFTP servers
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-794]
+depends-on: [BL-794, BL-901]
 touches: [Protocols/FileTransfer/Surl.Protocol.Ftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ftp.UnitTests, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Tftp.UnitTests]
 requirement: none
 created: 2026-11-05

@@ -4,7 +4,7 @@ title: Apply command-stage delay and drop faults in the SSH and SMB servers
 priority: Normal
 assignee: Claude
 pipeline: feature
-depends-on: [BL-795]
+depends-on: [BL-795, BL-901]
 touches: [Protocols/FileTransfer/Surl.Protocol.Ssh.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Ssh.UnitTests, Protocols/FileTransfer/Surl.Protocol.Smb.UnitLibrary, Protocols/FileTransfer/Surl.Protocol.Smb.UnitTests]
 requirement: none
 created: 2026-11-05
