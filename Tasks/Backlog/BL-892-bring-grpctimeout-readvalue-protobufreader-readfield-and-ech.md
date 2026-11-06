@@ -1,5 +1,5 @@
 ---
-id: BL-888
+id: BL-892
 title: Bring GrpcTimeout.ReadValue, ProtobufReader.ReadField and EchoRequest.Read to cyclomatic complexity 10 or less
 priority: Normal
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-888 — Bring GrpcTimeout.ReadValue, ProtobufReader.ReadField and EchoRequest.Read to cyclomatic complexity 10 or less
+# BL-892 — Bring GrpcTimeout.ReadValue, ProtobufReader.ReadField and EchoRequest.Read to cyclomatic complexity 10 or less
 
 ## Goal
 

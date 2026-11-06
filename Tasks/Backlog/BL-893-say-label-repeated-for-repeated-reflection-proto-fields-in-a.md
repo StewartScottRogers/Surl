@@ -1,5 +1,5 @@
 ---
-id: BL-889
+id: BL-893
 title: Say LABEL_REPEATED for repeated reflection.proto fields in ADR-0116 decision 9
 priority: Low
 assignee: Claude
@@ -10,7 +10,7 @@ requirement: none
 created: 2026-11-05
 completed:
 ---
-# BL-889 — Say LABEL_REPEATED for repeated reflection.proto fields in ADR-0116 decision 9
+# BL-893 — Say LABEL_REPEATED for repeated reflection.proto fields in ADR-0116 decision 9
 
 ## Goal
 
