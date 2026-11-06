@@ -9,7 +9,8 @@ task that proves the row until that task replaces its ID with the named test, or
 no test. Rows the shared MCP core `Surl.McpServing` keeps
 ([ADR-0103](../../Planning/Decisions/ADR-0103-surl-mcp-its-tools-and-the-mcp-core-it-shares-with-the-extended-mcp-server.md))
 name the core's task (BL-619, BL-620, BL-621 or BL-623); this server's own tasks are BL-464 (lifecycle),
-BL-465 (tools), BL-466 (Streamable HTTP and authorization) and BL-467 (stdio).
+BL-465 (tools), BL-466 (Streamable HTTP and authorization), BL-467 (stdio) and BL-722 (the OAuth 2.1
+authorization server).
 
 IDs are:
 
@@ -98,7 +99,7 @@ IDs are:
 | ID | Level | Requirement | Covered by |
 | --- | --- | --- | --- |
 | MCP:Http-1 | MUST | One MCP endpoint path answers `POST` (and `GET`); it is the listen URL's path, `/mcp` when it has none. | BL-466 |
-| MCP:Http-2 | MUST | Another path is `404` (except the RFC 9728 document). | BL-466 |
+| MCP:Http-2 | MUST | Another path is `404` (except the RFC 9728 document and the authorization server's paths). | BL-466 |
 | MCP:Http-3 | MUST | Servers validate `Origin` on all incoming connections; a foreign, `null` or malformed `Origin` is `403`, an absent one accepted. | BL-466 |
 | MCP:Http-4 | SHOULD | When running locally, bind only to localhost. | n/a: the listen URL names the address; the `--aihelp` example uses `127.0.0.1` (BL-468) |
 | MCP:Http-5 | SHOULD | Servers implement proper authentication for all connections (decision 6). | BL-466 |
@@ -140,10 +141,30 @@ IDs are:
 | MCP:Auth-7 | MUST | A malformed authorization request (another `Authorization` scheme) is `400`. | BL-466 |
 | MCP:Auth-8 | MUST | Insufficient scope is `403`. | n/a: accounts carry no scopes; gates answer inside the tools (ADR-0111 decision 6.1) |
 | MCP:Auth-9 | SHOULD NOT | Implementations using stdio do not follow the HTTP authorization flow. | BL-467 |
-| MCP:Auth-10 | SHOULD | The authorization server supports RFC 8414 metadata, RFC 7591 registration, PKCE and the RFC 8707 `resource` parameter. | n/a: the authorization server is BL-722's, which adds its own rows |
+| MCP:Auth-10 | SHOULD | The authorization server supports RFC 8414 metadata, RFC 7591 registration, PKCE and the RFC 8707 `resource` parameter. | MCP:OAuth-1, MCP:OAuth-2, MCP:OAuth-4 and MCP:OAuth-6 below |
 | MCP:Surl-Auth-1 | MUST | No token is accepted as anonymous only under `--allow-anonymous`; a bad token is never served as anonymous. | BL-466 |
 | MCP:Surl-Auth-2 | MUST | A bearer token over plain `mcp` is refused as invalid unless `--allow-plaintext-auth`. | BL-466 |
 | MCP:Surl-Auth-3 | MUST | Each refusal waits the failed-login delay. | BL-466 |
+
+## The authorization server (OAuth 2.1, RFC 8414, RFC 7591, RFC 7636, RFC 8707)
+
+ADR-0111 decisions 6.3 and 6.4. The issuer is `<scheme>://<authority>`. Tests are in
+`Surl.Extended.Protocol.McpServer.UnitTests`, by class and method.
+
+| ID | Level | Requirement | Covered by |
+| --- | --- | --- | --- |
+| MCP:OAuth-1 | MUST | RFC 8414: `/.well-known/oauth-authorization-server` names the issuer, `/authorize`, `/token`, `/register`, `response_types_supported` `code`, the three grants and `code_challenge_methods_supported` `S256`. | `McpHttpRequestAnswererTests.ServeAsync_AuthorizationServerMetadata_IsTheRfc8414Document` |
+| MCP:OAuth-2 | SHOULD | RFC 7591: `POST /register` answers `201` with a public client's `client_id` and metadata; a bad redirect URI is `invalid_redirect_uri`, bad metadata `invalid_client_metadata`. | `McpClientRegistrationEndpointTests.ServeAsync_RegisterAClient_Answers201WithAPublicClient`, `..._RegisterWithABadRedirectUri_Is400InvalidRedirectUri`, `..._RegisterWithBadMetadata_Is400InvalidClientMetadata` |
+| MCP:OAuth-3 | MUST | OAuth 2.1 section 2.3: redirect URIs are `https` or loopback `http`, without a fragment; an unregistered one is never redirected to. | `McpRedirectUriTests.IsAllowed_Uri_IsHttpsOrLoopbackHttpWithoutAFragment`, `McpAuthorizeEndpointTests.ServeAsync_AuthorizeForAnUnknownClientOrRedirectUri_Is400AndNotRedirected` |
+| MCP:OAuth-4 | MUST | RFC 7636: `/authorize` requires `code_challenge` with method `S256`; `/token` refuses a `code_verifier` that does not match it with `invalid_grant`. | `McpAuthorizeEndpointTests.ServeAsync_AuthorizeWithABadParameter_RedirectsTheError`, `McpTokenEndpointTests.ServeAsync_WrongCodeVerifier_IsInvalidGrant`, `McpPkceTests.Verifies_Rfc7636AppendixBPair_IsTrue` |
+| MCP:OAuth-5 | MUST | The authorization-code grant: the owner logs in with HTTP Basic (`401` Basic challenge otherwise), the code is redirected with `state`, used once within 10 minutes, and redeemed for an access and a refresh token the MCP endpoint accepts. | `McpHttpRequestAnswererTests.ServeAsync_AuthorizationCodeWithPkce_IssuesATokenTheEndpointAccepts`, `McpAuthorizeEndpointTests.ServeAsync_AuthorizeWithoutTheOwnersLogin_Is401WithABasicChallenge`, `McpTokenEndpointTests.ServeAsync_CodeUsedTwice_IsInvalidGrantTheSecondTime`, `..._CodeOlderThanTenMinutes_IsInvalidGrant` |
+| MCP:OAuth-6 | MUST | RFC 8707: tokens are bound to `resource` (this endpoint when none is given; another is `invalid_target`), and a token issued for another resource is `401` `error="invalid_token"` at the endpoint. | `McpHttpRequestAnswererTests.ServeAsync_TokenIssuedForAnotherResource_Is401InvalidTokenAtTheEndpoint`, `McpTokenEndpointTests.ServeAsync_BadTokenRequest_Is400WithItsError` |
+| MCP:OAuth-7 | MUST | `client_credentials` authenticates an account by `client_secret_basic` or `client_secret_post`, answers an access token only, and refuses `401` `invalid_client`. | `McpTokenEndpointTests.ServeAsync_ClientCredentialsByBasic_IssuesAnAccessTokenOnly`, `..._ClientCredentialsInTheBody_IssuesAnAccessToken`, `..._ClientCredentialsRefused_Is401InvalidClient` |
+| MCP:OAuth-8 | MUST | OAuth 2.1 section 4.3.1: a refresh token is rotated on use; the used one is `invalid_grant`, as is one past 24 hours. | `McpTokenEndpointTests.ServeAsync_RefreshToken_IsRotatedOnUse`, `..._RefreshTokenOlderThanADay_IsInvalidGrant` |
+| MCP:OAuth-9 | MUST | An access token older than 1 hour is `401` `error="invalid_token"` at the endpoint. | `McpHttpRequestAnswererTests.ServeAsync_ExpiredAccessToken_Is401InvalidToken` |
+| MCP:OAuth-10 | MUST | Token and registration answers carry `Cache-Control: no-store`; errors are RFC 6749 section 5.2's object (`invalid_request`, `unsupported_grant_type`, `invalid_grant`, `invalid_target`). | `McpTokenEndpointTests.ServeAsync_BadTokenRequest_Is400WithItsError` |
+| MCP:Surl-OAuth-1 | MUST | At most 1000 live clients, codes, access tokens and refresh tokens; past one, `503` `Retry-After: 60`, or `temporarily_unavailable` from `/authorize`. | `McpClientRegistrationEndpointTests.ServeAsync_RegisterPastTheClientBound_Is503`, `McpTokenEndpointTests.ServeAsync_TokensPastTheBound_Is503`, `McpAuthorizeEndpointTests.ServeAsync_AuthorizePastTheCodeBound_RedirectsTemporarilyUnavailable` |
+| MCP:Surl-OAuth-2 | MUST | Every authorization-server path checks `Origin` (`403`) and its one method (`405` with `Allow`); a `POST` body past `--max-message` is `413`. | `McpHttpRequestAnswererTests.ServeAsync_AuthorizationServerPathFromAForeignOrigin_Is403`, `..._AuthorizationServerPathWithAnotherMethod_Is405`, `McpTokenEndpointTests.ServeAsync_TokenRequestPastTheMessageLimit_Is413` |
 
 ## Errors and limits (ADR-0111 decision 7; ADR-0006)
 

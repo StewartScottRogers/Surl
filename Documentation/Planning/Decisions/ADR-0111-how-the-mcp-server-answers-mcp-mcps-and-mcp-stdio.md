@@ -174,8 +174,8 @@ answered with the same version; any other string is answered with `2025-06-18`, 
 
 The MCP endpoint is the listen URL's path. When the listen URL has no path or only `/`, it is
 **`/mcp`**, the path the specification's and the port's examples use. A request to any other path is
-`404 Not Found` with no body, except the RFC 9728 metadata document of decision 6.2. A query string on
-the endpoint is ignored.
+`404 Not Found` with no body, except the RFC 9728 metadata document of decision 6.2 and the authorization
+server's paths of decision 6.3. A query string on the endpoint is ignored.
 
 #### 4.2 The order of checks
 
@@ -346,9 +346,44 @@ out" (root `CLAUDE.md`): **the MCP server is its own OAuth 2.1 authorization ser
 - Tokens are 32 random bytes base64url, opaque, bound to the `resource` parameter (RFC 8707, required by
   the page) and to the account, valid for 1 hour (refresh tokens 24 hours, rotated on use), held in
   memory only, and checked by 6.1 beside configured tokens.
-- Until BL-722 lands, the metadata of 6.2 already names the issuer, and its endpoints answer `404`;
-  configured tokens (`--user ':<token>'`) work from BL-466 on. BL-722 adds its own matrix rows (RFC 8414,
-  RFC 7591, OAuth 2.1) to `McpServer.md`.
+- BL-722 built it; configured tokens (`--user ':<token>'`) keep working beside issued ones. The details
+  BL-722 settled are decision 6.4.
+
+#### 6.4 The authorization server's details (BL-722, 2026-11-06)
+
+Decided by Claude under Stewart's delegation, where the RFCs leave the server a choice:
+
+- **Passwords go through `IAuthenticationPolicy.CheckPasswordLoginAsync`**, not the HTTP session: the
+  endpoint's session judges `--auth`'s methods, which on an MCP server are Bearer only, so it would refuse
+  every Basic login. The password check is the policy's own, so a clear password over plain `mcp` is
+  refused unless `--allow-plaintext-auth`, exactly as elsewhere. Only `Accepted` logs in: an authorization
+  code or a token always names an account.
+- **An issued token is checked before the policy's session**: a live access token bound to
+  `<scheme>://<authority><endpoint>` logs in as its account without the session; any other token goes to
+  the session as before, so an expired or foreign-resource token gets decision 6.1's `401`
+  `error="invalid_token"` and the failed-login delay. A token issued over `mcps` is bound to an `https`
+  resource and so never works over plain `mcp`; a token usable over plain `mcp` could only be issued over
+  it, which needed `--allow-plaintext-auth`.
+- **Every registered client is public** (`token_endpoint_auth_method` `none`, grants `authorization_code`
+  and `refresh_token`), whatever it asks for (RFC 7591 section 3.2.1 lets the server replace requested
+  metadata); registration is open, since every token still needs an account's password.
+  `client_credentials` authenticates an account instead, by `client_secret_basic` or `client_secret_post`.
+- **`/authorize`** checks the client and redirect URI first (`400` `invalid_request` as JSON, never a
+  redirect), then `response_type`, `code_challenge` with method `S256` and `resource` (redirected
+  `unsupported_response_type`, `invalid_request`, `invalid_target`), then the owner's Basic login (`401`
+  `WWW-Authenticate: Basic realm="surl", charset="UTF-8"`), then redirects `302` with `code` and `state`.
+  `redirect_uri` may be left out only when the client registered exactly one. Redirect URIs match exactly,
+  port included.
+- **Codes live 10 minutes** (OAuth 2.1 section 4.1.2's recommended maximum) and are gone after one
+  redemption attempt, right or wrong. `redirect_uri` at `/token` is checked when sent.
+- **`resource`** left out means this endpoint; any other value is `invalid_target`.
+- **Bounds:** at most 1000 live clients, 1000 codes, 1000 access tokens and 1000 refresh tokens; past one,
+  `/register` and `/token` answer `503` with `Retry-After: 60` and `/authorize` redirects
+  `temporarily_unavailable`. Clients never expire.
+- **`Origin`** is checked on every authorization-server path as on the endpoint (decision 4.7). The RFC 8414
+  document and `/authorize` are `GET` only, `/token` and `/register` `POST` only (`405` with `Allow`); a
+  `POST` body is bounded by `--max-message` like a JSON-RPC message.
+- Every JSON answer that carries or refuses a credential has `Cache-Control: no-store`.
 
 ### 7. Errors and limits
 
@@ -440,6 +475,7 @@ Costs and caveats:
 
 - The port's client sends no `Authorization`, so BL-469's integration exchanges run with
   `--allow-anonymous` and prove the `401` separately.
-- Until BL-722, the authorization server's endpoints answer `404`, and only configured tokens work.
+- The authorization server holds everything it issues in memory: restarting `surl` forgets every client
+  and token (decision 6.4).
 - The matrix is `Documentation/Conformance/Extended/McpServer.md` (ADR-0083 decision 9).
-- Follow-up: **BL-722** (the authorization server, decision 6.3), filed with this ADR.
+- **BL-722** built the authorization server (decisions 6.3 and 6.4).
