@@ -8,7 +8,7 @@ depends-on: [BL-622, BL-723]
 touches: [Conformance/Surl.Conformance.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-05
 ---
 # BL-638 — Prove with pinned upstream curl that a file uploaded over one protocol is read over another
 
@@ -33,10 +33,10 @@ schemes, that a file uploaded over one protocol is read byte for byte over anoth
 
 ## Acceptance criteria
 
-- [ ] The class exists with one named test per pair the ADR lists, each asserting curl's exit code 0 and the
+- [x] The class exists with one named test per pair the ADR lists, each asserting curl's exit code 0 and the
       fetched bytes equal to the uploaded bytes, in memory and with a data directory.
-- [ ] A test uploads over one protocol and fetches a file another protocol overwrote, showing the last write wins.
-- [ ] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
+- [x] A test uploads over one protocol and fetches a file another protocol overwrote, showing the last write wins.
+- [x] `dotnet build -warnaserror` is clean and `dotnet test --filter "TestCategory!=Integration"` is green.
 
 ## Notes
 
@@ -52,6 +52,16 @@ schemes, that a file uploaded over one protocol is read byte for byte over anoth
   uploads"). BL-723 decides and builds PUT uploads for `surl http`, so this task now depends on it and
   returns to Backlog. The test class is left uncommitted in the working tree for the shift to stash; when
   resumed, rerun it once BL-723 lands (the PUT rows should then pass unchanged).
+- 2026-11-05 (lane 3): BL-723 is Done (ADR-0133: `PUT` under `--allow-uploads` answers `201`/`204`). The
+  earlier draft was in a shift stash this lane could not reach, so the class was rewritten on the multi-scheme
+  `SurlOnLoopback.StartInMemoryAsync` / `StartOverDirectoryAsync` already committed. Four tests, each with an
+  in-memory and a `--directory` row: `-T ftp` then GET `http`; `-T sftp` then fetch `ftp`; `PUT http` then
+  fetch `scp`; and last-write-wins (`-T ftp`, overwrite with `-T sftp`, GET `http`). Choices: the uploaded
+  bytes include CR LF, NUL and 0xFF so a text-mode or truncating transfer fails; FTP and SFTP uploads go to
+  `dir/f.bin` with `--ftp-create-dirs` (the ADR's `dir/f` shape), the PUT to the root because ADR-0133 answers
+  a missing directory `409`; curl runs `-sS -f` so an HTTP error is a non-zero exit. All 8 rows pass against
+  pinned curl 8.21.0 on Windows. Category `Integration` stays, per ADR-0100 decision 5 (the ADR wins over the
+  Context line).
 
 ## Log
 
@@ -59,3 +69,4 @@ schemes, that a file uploaded over one protocol is read byte for byte over anoth
 - 2026-11-05: Backlog -> Doing.
 - 2026-11-05: Doing -> Backlog. Waits on BL-723: surl http answers every PUT 405, so the ADR-0100 PUT-then-scp pair cannot pass yet
 - 2026-11-05: Backlog -> Doing.
+- 2026-11-05: Doing -> Done. Pinned upstream curl uploads over ftp, sftp and http (PUT) to one surl and reads the same bytes back over http, ftp and scp, in memory and with --directory, last write wins
