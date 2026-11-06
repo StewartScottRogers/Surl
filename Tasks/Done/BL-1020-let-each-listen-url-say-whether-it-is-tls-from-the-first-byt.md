@@ -5,10 +5,10 @@ priority: Normal
 assignee: Claude
 pipeline: feature
 depends-on: [BL-421]
-touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests]
+touches: [Foundation/Surl.Protocol.Abstractions.UnitLibrary, Foundation/Surl.Protocol.Abstractions.UnitTests, Foundation/Surl.Core.UnitLibrary, Foundation/Surl.Core.UnitTests, Documentation/Wiki/Glossary.md]
 requirement: none
 created: 2026-11-06
-completed:
+completed: 2026-11-06
 ---
 # BL-1020 — Let each listen URL say whether it is TLS from the first byte instead of reading TlsSchemes by scheme
 
@@ -39,18 +39,37 @@ over TLS.
 
 ## Acceptance criteria
 
-- [ ] A named `Surl.Protocol.Abstractions.UnitTests` test pins the new member's default for every scheme in
+- [x] A named `Surl.Protocol.Abstractions.UnitTests` test pins the new member's default for every scheme in
       `TlsSchemes` and for a plain scheme, and that it can be set to plain for `s3`.
-- [ ] A named `Surl.Core.UnitTests` test shows an `s3` connection whose listen URL says plain answered without a
+- [x] A named `Surl.Core.UnitTests` test shows an `s3` connection whose listen URL says plain answered without a
       TLS handshake, and one whose listen URL keeps the default still handshaking.
-- [ ] A named `Surl.Core.UnitTests` test shows a plain `s3` connection past a limit answered by the server's
+- [x] A named `Surl.Core.UnitTests` test shows a plain `s3` connection past a limit answered by the server's
       `IConnectionRefusalWriter`, and a TLS one closed before the handshake.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and both libraries keep 100% line and branch
       coverage.
 
 ## Notes
+
+- Shape: `ListenUrl.IsImplicitTls`, init-only, backed by a `bool?` so an unset value reads
+  `TlsSchemes.IsImplicitTls(Scheme)` when asked (a `with { Scheme = ... }` copy follows the new scheme). It is part
+  of record equality, as `IsProxy` is, so a plain `s3` listen URL and a default one on the same host and port are
+  different keys. `ServingEngine` reads it in `RefuseAsync` and `SecureThenServeAsync`; `TlsSchemes` is unchanged
+  and `Surl.Composition` keeps reading it until BL-1021.
+- Tests: `ListenUrlTests.IsImplicitTls_Unset_IsWhatTlsSchemesSaysOfTheScheme` (every `TlsSchemes` scheme plus
+  `http` and `ftp`), `IsImplicitTls_SetToFalseForS3_IsPlaintextOnThatListenUrlOnly`,
+  `IsImplicitTls_SetToTrueForAPlainScheme_IsTls`;
+  `ServingEngineTests.ServeAsync_S3ListenUrlSaysPlain_ServesWithoutAHandshake_WhileTheDefaultS3ListenUrlHandshakes`,
+  `ServeAsync_PlainS3ListenUrl_AnswersAConnectionPastTheLimitWithTheServersRefusal`,
+  `ServeAsync_DefaultS3ListenUrl_ClosesAConnectionPastTheLimitBeforeTheHandshake`.
+- Coverage (`Measure-CodeQuality.ps1`): Surl.Protocol.Abstractions.UnitLibrary 100/100, worst CRAP 10;
+  Surl.Core.UnitLibrary 100/100, worst CRAP 10. Fast tests: 22,557 passed across 79 test assemblies.
+- Touches widened by `Documentation/Wiki/Glossary.md`: its "implicit TLS scheme" row named
+  `TlsSchemes.IsImplicitTls` as what the engine reads; no task in Doing named the glossary.
+- The ADR amendment is filed as BL-1033: `Documentation/Planning/Decisions` was in BL-1005's touches (Doing), so
+  this run did not edit ADR-0010.
 
 ## Log
 
 - 2026-11-06: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. Each ListenUrl says whether it is TLS from the first byte (IsImplicitTls, default from the scheme); the engine's handshake and refusal follow it, so s3 can be plain on one listener and TLS on another
