@@ -89,6 +89,8 @@ public sealed partial class AiHelpTextTests
             "",
             "surl serves until it is stopped with Ctrl+C or SIGTERM, and then exits 0.",
             "",
+            OverviewHostsParagraph,
+            "",
             "## Command line",
             "",
             "A command line is `surl [options] <url>...`, with at least one listen URL (see the listen-urls topic).",
@@ -160,6 +162,26 @@ public sealed partial class AiHelpTextTests
 
         Assert.AreEqual(Text(expected), answer.Output);
         Assert.AreEqual(string.Empty, answer.Error);
+    }
+
+    private const string OverviewHostsParagraph =
+        "The same servers start in-process from .NET through the `Surl.Api` package: `SurlServer.StartAsync` takes a "
+        + "`SurlServerOptions`, whose properties are these options, and its help is the package README and XML documentation. "
+        + "An MCP client starts them through `surl-mcp`, the `Surl.Mcp` executable, on standard input and output: its tools "
+        + "`start_server`, `list_servers`, `stop_server` and `get_exchanges` describe themselves, and it serves these pages as "
+        + "the `surl://aihelp` resources.";
+
+    [TestMethod]
+    public void Answer_NoTopic_PointsAtSurlApisStartingTypeAndSurlMcpsExecutableAndTools()
+    {
+        var overview = AiHelpText.Answer(null).Output;
+
+        var about = overview[..overview.IndexOf("## Command line", StringComparison.Ordinal)];
+        Assert.Contains(OverviewHostsParagraph, about);
+        foreach (var name in new[] { "`Surl.Api`", "`SurlServer.StartAsync`", "`Surl.Mcp`", "`surl-mcp`", "`start_server`", "`list_servers`", "`stop_server`", "`get_exchanges`", "`surl://aihelp`" })
+        {
+            Assert.Contains(name, about, name);
+        }
     }
 
     [TestMethod]

@@ -17,7 +17,19 @@ internal static class AiHelpProse
         "surl is the server-side mate of curl: for each request upstream curl makes, surl is the server that answers it. Where `curl [options] <url>` names what to fetch, `surl [options] <url>` names what to listen on.",
         "`surl --version` names the schemes this build serves. Each protocol has a topic below with its schemes, their default ports, its options and an upstream curl command line that reaches it.",
         "surl serves until it is stopped with Ctrl+C or SIGTERM, and then exits 0.",
+        OverviewHosts,
     ];
+
+    /// <summary>
+    /// The overview's paragraph pointing at the two other hosts of the same servers, <c>Surl.Api</c> and
+    /// <c>Surl.Mcp</c>, and where their own help lives (ADR-0099 decision 9, ADR-0103 decision 6).
+    /// </summary>
+    public const string OverviewHosts =
+        "The same servers start in-process from .NET through the `Surl.Api` package: `SurlServer.StartAsync` takes a "
+        + "`SurlServerOptions`, whose properties are these options, and its help is the package README and XML documentation. "
+        + "An MCP client starts them through `surl-mcp`, the `Surl.Mcp` executable, on standard input and output: its tools "
+        + "`start_server`, `list_servers`, `stop_server` and `get_exchanges` describe themselves, and it serves these pages as "
+        + "the `surl://aihelp` resources.";
 
     /// <summary>The overview's <c>Command line</c> paragraphs.</summary>
     public static IReadOnlyList<string> OverviewCommandLine { get; } =

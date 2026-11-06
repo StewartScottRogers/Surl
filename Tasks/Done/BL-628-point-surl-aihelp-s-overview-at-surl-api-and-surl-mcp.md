@@ -8,7 +8,7 @@ depends-on: [BL-617, BL-627]
 touches: [Application/Surl.Cli.UnitLibrary, Application/Surl.Cli.UnitTests]
 requirement: none
 created: 2026-11-04
-completed:
+completed: 2026-11-06
 ---
 # BL-628 — Point surl --aihelp's overview at Surl.Api and Surl.Mcp
 
@@ -33,15 +33,30 @@ and its `--aihelp` resources.
 
 ## Acceptance criteria
 
-- [ ] `surl --aihelp` (`AiHelpText.Answer(null)`) contains the paragraph, naming `Surl.Api`'s starting type and
+- [x] `surl --aihelp` (`AiHelpText.Answer(null)`) contains the paragraph, naming `Surl.Api`'s starting type and
       `Surl.Mcp`'s executable name and tools, and a named test in `AiHelpTextTests` pins it.
-- [ ] Every `AiHelpTextTests`, `AiHelpFactsTests` and `CommandLineRunnerAiHelpTests` test passes.
-- [ ] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli` keeps 100% line and branch
+- [x] Every `AiHelpTextTests`, `AiHelpFactsTests` and `CommandLineRunnerAiHelpTests` test passes.
+- [x] `dotnet build -warnaserror` is clean, the fast tests are green, and `Surl.Cli` keeps 100% line and branch
       coverage.
 
 ## Notes
+
+- Followed ADR-0099 decision 9 and ADR-0103 decision 6 as the planning assumption had it: one paragraph,
+  `AiHelpProse.OverviewHosts`, appended to `OverviewAbout` (so it sits in the overview's About section), no new
+  topic, so ADR-0046's pinned topic list is unchanged. No new ADR was needed.
+- Names checked against the code on 2026-11-06: `SurlServer.StartAsync(SurlServerOptions)` in `Application/Surl.Api`;
+  assembly `surl-mcp` (`Surl.Mcp.csproj`); tools `start_server`, `list_servers`, `stop_server`, `get_exchanges`
+  (the only four in `Surl.Mcp.UnitLibrary` today - ADR-0124's later tools from BL-809/BL-812 are not there yet, so
+  they are not named; whoever lands them adds them to this paragraph); resources `surl://aihelp`
+  (`AiHelpResourceProvider.OverviewUri`). Because `Surl.Mcp` serves `Answer(null)` as `surl://aihelp`, the paragraph
+  says "these pages" so it reads correctly there too.
+- Pinned by `AiHelpTextTests.Answer_NoTopic_PointsAtSurlApisStartingTypeAndSurlMcpsExecutableAndTools`, and the
+  exact overview test `Answer_NoTopic_IsTheOverview` gains the paragraph.
+- Coverage: the change is one `const` string added to an existing collection expression - no new line of logic or
+  branch, so `Surl.Cli` keeps 100% line and branch coverage.
 
 ## Log
 
 - 2026-11-04: Created.
 - 2026-11-06: Backlog -> Doing.
+- 2026-11-06: Doing -> Done. surl --aihelp's overview points at Surl.Api (SurlServer.StartAsync) and surl-mcp's tools and surl://aihelp resources
