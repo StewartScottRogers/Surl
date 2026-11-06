@@ -53,3 +53,4 @@ connector.
 
 - 2026-11-04: Created.
 - 2026-11-05: touches gains Documentation/Product/Product-Overview.md (ADR-0121 decision 1).
+- 2026-11-05: Backlog -> Doing.
