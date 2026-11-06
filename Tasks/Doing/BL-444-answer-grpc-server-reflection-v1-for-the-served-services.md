@@ -46,3 +46,4 @@ them and their dependencies, so a client with no `.proto` file can call them.
 ## Log
 
 - 2026-11-04: Created.
+- 2026-11-05: Backlog -> Doing.
